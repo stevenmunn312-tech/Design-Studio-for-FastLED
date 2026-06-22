@@ -1,0 +1,20 @@
+.statusbar {
+  height: var(--statusbar-height);
+  background: #121417;
+  border-top: 1px solid var(--border-glow);
+  padding: 0 var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-caption);
+  font-family: var(--font-code);
+  flex-shrink: 0;
+}
+
+.indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 300ms ease;
+}

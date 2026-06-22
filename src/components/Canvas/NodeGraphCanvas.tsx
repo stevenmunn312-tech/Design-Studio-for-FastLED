@@ -1,0 +1,76 @@
+import { useCallback } from 'react'
+import {
+  ReactFlow,
+  Background,
+  BackgroundVariant,
+  Controls,
+  MiniMap,
+  type NodeTypes,
+  type NodeMouseHandler,
+} from '@xyflow/react'
+import '@xyflow/react/dist/style.css'
+import { useGraphStore } from '../../state/graphStore'
+import StudioNode from './StudioNode'
+import styles from './NodeGraphCanvas.module.css'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const nodeTypes: NodeTypes = { studioNode: StudioNode as any }
+
+export default function NodeGraphCanvas() {
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode } = useGraphStore()
+
+  const onNodeClick: NodeMouseHandler = useCallback(
+    (_e, node) => selectNode(node.id),
+    [selectNode]
+  )
+
+  const onPaneClick = useCallback(() => selectNode(null), [selectNode])
+
+  return (
+    <div className={styles.canvas}>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        onNodeClick={onNodeClick}
+        onPaneClick={onPaneClick}
+        minZoom={0.5}
+        maxZoom={2}
+        fitView
+        deleteKeyCode="Delete"
+        style={{ background: 'var(--bg-primary)' }}
+        defaultEdgeOptions={{
+          style: { strokeWidth: 3, stroke: 'var(--accent-output)' },
+          animated: true,
+        }}
+      >
+        <Background
+          variant={BackgroundVariant.Dots}
+          gap={20}
+          size={1}
+          color="rgba(255,255,255,0.06)"
+        />
+        <Controls
+          style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-glow)' }}
+        />
+        <MiniMap
+          style={{ background: 'var(--bg-panel)' }}
+          nodeColor={(n) => {
+            const cat = (n.data as { category?: string }).category
+            const map: Record<string, string> = {
+              audio: '#00ffff',
+              pattern: '#ff00ff',
+              math: '#a8ff00',
+              output: '#00bfff',
+              hardware: '#ffa500',
+            }
+            return (cat && map[cat]) || '#888'
+          }}
+        />
+      </ReactFlow>
+    </div>
+  )
+}

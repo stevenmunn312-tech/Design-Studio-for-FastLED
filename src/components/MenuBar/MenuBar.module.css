@@ -1,0 +1,80 @@
+.menubar {
+  height: var(--menubar-height);
+  background: #121417;
+  border-bottom: 1px solid var(--border-glow);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  gap: var(--space-2);
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: var(--space-2);
+}
+
+.logo {
+  font-size: 22px;
+  color: var(--accent-audio);
+  filter: drop-shadow(0 0 6px var(--accent-audio));
+}
+
+.title {
+  font-size: var(--fs-body);
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.04em;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.btn {
+  height: 30px;
+  padding: 0 var(--space-1);
+  background: none;
+  border: 1px solid var(--border-glow);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--fs-caption);
+  cursor: pointer;
+  transition: color var(--anim-hover), border-color var(--anim-hover);
+}
+
+.btn:hover {
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.btnAccent {
+  composes: btn;
+  border-color: var(--accent-output);
+  color: var(--accent-output);
+}
+
+.btnAccent:hover {
+  background: var(--accent-output);
+  color: #000;
+}
+
+.sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border-glow);
+  margin: 0 4px;
+}
+
+.info {
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+}

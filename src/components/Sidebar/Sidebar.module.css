@@ -1,0 +1,76 @@
+.sidebar {
+  width: var(--sidebar-width);
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border-glow);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.header {
+  padding: var(--space-2);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-glow);
+  flex-shrink: 0;
+}
+
+.scroll {
+  overflow-y: auto;
+  flex: 1;
+  padding: var(--space-1) 0 var(--space-1);
+}
+
+.category {
+  margin-bottom: 2px;
+}
+
+.categoryHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px var(--space-2);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: left;
+  border-bottom: 1px solid var(--accent);
+}
+
+.categoryHeader:hover {
+  color: var(--accent);
+}
+
+.chevron {
+  font-size: 14px;
+  transition: transform 180ms ease;
+  color: var(--accent);
+}
+
+.nodeList {
+  list-style: none;
+  padding: 4px 0;
+}
+
+.nodeItem {
+  padding: 7px var(--space-2) 7px 28px;
+  font-size: var(--fs-body);
+  color: var(--text-secondary);
+  cursor: grab;
+  transition: color var(--anim-hover), background var(--anim-hover);
+}
+
+.nodeItem:hover {
+  color: var(--accent);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.nodeItem:active {
+  cursor: grabbing;
+}

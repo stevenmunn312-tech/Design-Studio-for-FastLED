@@ -1,0 +1,43 @@
+.panel {
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border-glow);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  flex-shrink: 0;
+  width: calc(16 * 28px + var(--space-3) * 2);
+}
+
+.header {
+  padding: 0 var(--space-2);
+  height: var(--menubar-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-glow);
+  flex-shrink: 0;
+}
+
+.fps {
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+}
+
+.canvasWrap {
+  padding: var(--space-3);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  flex: 1;
+  overflow: auto;
+}
+
+.canvas {
+  display: block;
+  background: #14181d;
+  border-radius: 4px;
+  image-rendering: pixelated;
+}
