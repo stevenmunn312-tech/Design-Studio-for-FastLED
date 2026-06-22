@@ -164,4 +164,47 @@ describe('generateCpp', () => {
     const cpp = generateCpp([blend, samp, outputNode], [edge('e1', 'bl', 's', 'palette', 'paletteIn')])
     expect(cpp).toContain('ColorFromPalette(ForestColors_p')
   })
+
+  it('inlines a group’s pattern code into the sketch', () => {
+    const groups = {
+      blue: {
+        nodes: [
+          node('sc', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 }),
+          node('go', 'GroupOutput', 'output', {}),
+        ],
+        edges: [edge('e', 'sc', 'go', 'frame', 'frame')],
+      },
+    }
+    const grp = node('g1', 'Group', 'composite', { groupId: 'blue' })
+    const cpp = generateCpp([grp, outputNode], [edge('e1', 'g1', 'out', 'frame', 'frame')], groups)
+    expect(cpp).toContain('fill_solid(leds, NUM_LEDS, CRGB(0, 0, 255))')
+  })
+
+  it('flattens nested groups', () => {
+    const groups = {
+      inner: {
+        nodes: [
+          node('sc', 'SolidColor', 'pattern', { r: 0, g: 255, b: 0 }),
+          node('go', 'GroupOutput', 'output', {}),
+        ],
+        edges: [edge('e', 'sc', 'go', 'frame', 'frame')],
+      },
+      outer: {
+        nodes: [
+          node('ig', 'Group', 'composite', { groupId: 'inner' }),
+          node('go', 'GroupOutput', 'output', {}),
+        ],
+        edges: [edge('e', 'ig', 'go', 'frame', 'frame')],
+      },
+    }
+    const grp = node('g1', 'Group', 'composite', { groupId: 'outer' })
+    const cpp = generateCpp([grp, outputNode], [edge('e1', 'g1', 'out', 'frame', 'frame')], groups)
+    expect(cpp).toContain('fill_solid(leds, NUM_LEDS, CRGB(0, 255, 0))')
+  })
+
+  it('skips an unknown group reference and still emits a valid sketch', () => {
+    const grp = node('g1', 'Group', 'composite', { groupId: 'missing' })
+    const cpp = generateCpp([grp, outputNode], [edge('e1', 'g1', 'out', 'frame', 'frame')], {})
+    expect(cpp).toContain('void loop()')
+  })
 })

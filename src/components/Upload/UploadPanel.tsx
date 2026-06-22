@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
-import { useGraphStore } from '../../state/graphStore'
+import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { validateGraph } from '../../utils/validateGraph'
@@ -22,7 +22,7 @@ export default function UploadPanel() {
   const { nodes, edges } = useGraphStore()
   const { setShowUploadPanel, setStatus } = useUiStore()
 
-  const code = useMemo(() => generateCpp(nodes, edges), [nodes, edges])
+  const code = useMemo(() => generateCpp(nodes, edges, getGroupRegistry()), [nodes, edges])
   const validation = useMemo(() => validateGraph(nodes, edges), [nodes, edges])
 
   const [board, setBoard]       = useState(BOARDS[0])
