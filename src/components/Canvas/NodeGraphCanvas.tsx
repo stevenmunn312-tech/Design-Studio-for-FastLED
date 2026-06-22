@@ -8,16 +8,20 @@ import {
   MiniMap,
   useReactFlow,
   type NodeTypes,
+  type EdgeTypes,
   type NodeMouseHandler,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useGraphStore } from '../../state/graphStore'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import StudioNode from './StudioNode'
+import GlowEdge from './GlowEdge'
 import styles from './NodeGraphCanvas.module.css'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const nodeTypes: NodeTypes = { studioNode: StudioNode as any }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const edgeTypes: EdgeTypes = { glowEdge: GlowEdge as any }
 
 function NodeGraphCanvasInner() {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode, addNode } =
@@ -70,6 +74,7 @@ function NodeGraphCanvasInner() {
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
@@ -80,10 +85,7 @@ function NodeGraphCanvasInner() {
         fitView
         deleteKeyCode="Delete"
         style={{ background: 'var(--bg-primary)' }}
-        defaultEdgeOptions={{
-          style: { strokeWidth: 3, stroke: 'var(--accent-output)' },
-          animated: true,
-        }}
+        defaultEdgeOptions={{ type: 'glowEdge' }}
       >
         <Background
           variant={BackgroundVariant.Dots}

@@ -1,0 +1,13 @@
+@keyframes flow {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    /* total dash cycle = 10 + 6 = 16; animate 3 cycles */
+    stroke-dashoffset: -48;
+  }
+}
+
+.core {
+  animation: flow 1.4s linear infinite;
+}
