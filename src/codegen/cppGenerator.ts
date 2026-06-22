@@ -427,6 +427,33 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[]): string {
         break
       }
 
+      case 'Simplex2D': {
+        needsT.v = true
+        const speed = f('speed', 'speed', 0.4), scale = f('scale', 'scale', 0.3)
+        const pal = String(p.palette ?? 'rainbow')
+        ln(`  { // Simplex2D (${pal} palette)`)
+        ln(`    float _spd=${speed},_sc=${scale};`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float _n=sin(_x*_sc+sin(_y*_sc*0.8f+t*_spd*0.5f)+t*_spd)`)
+        ln(`            +0.5f*sin(_x*_sc*2+t*_spd*1.9f)+0.25f*sin(_x*_sc*4+t*_spd*4.1f);`)
+        ln(`      leds[_y*WIDTH+_x]=ColorFromPalette(RainbowColors_p,(uint8_t)((_n*0.25f+0.5f)*255));}}`)
+        break
+      }
+
+      case 'Noise3D': {
+        needsT.v = true
+        const speed = f('speed', 'speed', 0.5), scale = f('scale', 'scale', 0.3)
+        const pal = String(p.palette ?? 'ocean')
+        ln(`  { // Noise3D (${pal} palette)`)
+        ln(`    float _spd=${speed},_sc=${scale};`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float _n=(sin(_x*_sc+t*_spd)+cos(_y*_sc+t*_spd*0.7f))*0.5f`)
+        ln(`            +(sin(_x*_sc*1.7f+t*_spd*1.3f+_y*_sc*0.9f)*0.33f)`)
+        ln(`            +(cos(_x*_sc*2.9f+t*_spd*2.1f)*0.17f);`)
+        ln(`      leds[_y*WIDTH+_x]=ColorFromPalette(OceanColors_p,(uint8_t)((_n*0.3f+0.5f)*255));}}`)
+        break
+      }
+
       case 'PatternMaster':
         ln(`  // PatternMaster — implement pattern cycling logic in setup()/loop()`)
         break

@@ -61,7 +61,15 @@ export const useGraphStore = create<GraphState>()(
         set((s) => ({ edges: applyEdgeChanges(changes, s.edges) })),
 
       onConnect: (connection) =>
-        set((s) => ({ edges: addEdge(connection, s.edges) })),
+        set((s) => {
+          const src = s.nodes.find((n) => n.id === connection.source)
+          const CAT_COLOR: Record<string, string> = {
+            audio: '#00ffff', pattern: '#ff00ff', math: '#a8ff00',
+            output: '#00bfff', hardware: '#ffa500',
+          }
+          const color = CAT_COLOR[(src?.data as { category?: string })?.category ?? ''] ?? '#00bfff'
+          return { edges: addEdge({ ...connection, type: 'glowEdge', style: { stroke: color } }, s.edges) }
+        }),
 
       addNode: (node) =>
         set((s) => ({ nodes: [...s.nodes, node] })),

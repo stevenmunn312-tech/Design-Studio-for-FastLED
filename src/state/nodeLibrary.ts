@@ -454,6 +454,30 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { t: 0.5 },
   },
 
+  // ── Proper noise ──────────────────────────────────────────────────────
+  {
+    type: 'Simplex2D',
+    label: 'Simplex 2D',
+    category: 'pattern',
+    inputs: [
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'scale', label: 'Scale', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 0.4, scale: 0.3, palette: 'rainbow' },
+  },
+  {
+    type: 'Noise3D',
+    label: 'Noise 3D',
+    category: 'pattern',
+    inputs: [
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'scale', label: 'Scale', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 0.5, scale: 0.3, palette: 'ocean' },
+  },
+
   // ── Transition nodes ──────────────────────────────────────────────────
   {
     type: 'Crossfade',

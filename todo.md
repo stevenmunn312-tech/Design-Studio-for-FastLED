@@ -15,7 +15,7 @@
 ## LED Preview
 
 - [x] Evaluate the actual node graph at runtime instead of the placeholder animation loop
-- [ ] WebGL shader pipeline to replace the Canvas 2D renderer (spec: 60 fps target)
+- [x] WebGL shader pipeline to replace the Canvas 2D renderer (spec: 60 fps target)
 - [x] Resize preview — reads width × height from MatrixOutput node (up to 64 × 64)
 - [ ] 3D rotate mode — drag to orbit the matrix
 
@@ -29,8 +29,8 @@
 ## Upload Pipeline
 
 - [x] C++ code generator — walk the node graph and emit FastLED `.ino` / `.cpp`
-- [ ] WebSerial / WebUSB upload flow — board selection, validation, progress in status bar
-- [ ] Compilation error surface — parse toolchain errors and show in status bar
+- [x] WebSerial / WebUSB upload flow — board selection, validation, progress in status bar
+- [x] Compilation error surface — parse toolchain errors and show in status bar
 
 ## Nodes
 
@@ -38,7 +38,7 @@
 - [x] HSV→RGB, BlendColors, BlendFrames, BrightnessMod, HueShift, BassPulse, MidrangeWaves, TrebleSparks, BeatFlash
 - [x] Noise2D, RadialBurst, Spiral, Kaleidoscope, Particles, Invert, GradientFrame, GradientSampler, PaletteSampler
 - [x] Control/Logic: Abs, Mod, Min, Max, Random, Counter, Gate, Not, Compare
-- [ ] Remaining: Perlin (proper simplex noise), 3D noise, more composite/transition effects
+- [x] Remaining: Perlin (proper simplex noise), 3D noise — Simplex2D and Noise3D nodes added
 - [x] Multi-Pattern Master Node — pattern queue (4 slots), cycle/beat modes
 - [x] Transition nodes — Crossfade, Wipe (4-direction), Dissolve
 - [x] Custom node — inline formula editor (JS expr, x/y/t/W/H/a/b vars, palette output)
@@ -48,7 +48,7 @@
 - [x] Node creation fade-in + scale animation (spec: 200 ms, scale 0.9 → 1.0)
 - [x] Connection spark effect at port on successful link (150 ms expand+fade ring)
 - [x] Keyboard shortcuts — Ctrl+Z undo, Ctrl+Y redo, Ctrl+S save, Delete selected node
-- [ ] MiniMap node colors already correct; add minimap edge colors
+- [x] MiniMap node colors already correct; add minimap edge colors
 - [x] Inspector: color picker for color-type properties instead of raw number fields
 - [x] Solarized Dark and Studio Light theme variants (cycle via MenuBar ☾/✦/☀ button)
 - [x] Reduced-motion toggle and high-contrast mode (WCAG AA) — MenuBar ⏸ / ◑ buttons

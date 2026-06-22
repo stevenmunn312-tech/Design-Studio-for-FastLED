@@ -5,6 +5,7 @@ import {
   Background,
   BackgroundVariant,
   Controls,
+  MiniMap,
   useReactFlow,
   type NodeTypes,
   type EdgeTypes,
@@ -12,6 +13,7 @@ import {
   type IsValidConnection,
   type OnConnectEnd,
   type OnConnect,
+  type Node,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useGraphStore } from '../../state/graphStore'
@@ -27,6 +29,13 @@ import styles from './NodeGraphCanvas.module.css'
 const nodeTypes: NodeTypes = { studioNode: StudioNode as any }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const edgeTypes: EdgeTypes = { glowEdge: GlowEdge as any }
+
+const CAT_COLOR: Record<string, string> = {
+  audio: '#00ffff', pattern: '#ff00ff', math: '#a8ff00',
+  output: '#00bfff', hardware: '#ffa500',
+}
+const minimapNodeColor = (n: Node) =>
+  CAT_COLOR[(n.data as { category?: string }).category ?? ''] ?? '#444'
 
 const SNAP_GRID: [number, number] = [20, 20]
 
@@ -178,6 +187,13 @@ function NodeGraphCanvasInner() {
         />
         <Controls
           style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-glow)' }}
+        />
+        <MiniMap
+          nodeColor={minimapNodeColor}
+          nodeStrokeWidth={0}
+          maskColor="rgba(0,0,0,0.55)"
+          style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-glow)' }}
+          className={styles.minimap}
         />
       </ReactFlow>
       {contextMenu && (

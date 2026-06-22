@@ -20,6 +20,27 @@ const patternMasterState = new Map<string, { idx: number; lastBeat: boolean }>()
 type FormulaFn = (x: number, y: number, t: number, W: number, H: number, a: number, b: number) => number
 const formulaCache = new Map<string, FormulaFn | null>()
 
+// ── Simplex noise 2D ─────────────────────────────────────────────────────────
+const _PERM = (() => {
+  const p = [151,160,137,91,90,15,131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,190,6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,88,237,149,56,87,174,20,125,136,171,168,68,175,74,165,71,134,139,48,27,166,77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,102,143,54,65,25,63,161,1,216,80,73,209,76,132,187,208,89,18,169,200,196,135,130,116,188,159,86,164,100,109,198,173,186,3,64,52,217,226,250,124,123,5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,223,183,170,213,119,248,152,2,44,154,163,70,221,153,101,155,167,43,172,9,129,22,39,253,19,98,108,110,79,113,224,232,178,185,112,104,218,246,97,228,251,34,242,193,238,210,144,12,191,179,162,241,81,51,145,235,249,14,239,107,49,192,214,31,181,199,106,157,184,84,204,176,115,121,50,45,127,4,150,254,138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180]
+  const t = new Uint8Array(512); for (let i = 0; i < 512; i++) t[i] = p[i & 255]; return t
+})()
+const _G2 = [1,1, -1,1, 1,-1, -1,-1, 1,0, -1,0, 0,1, 0,-1]
+function _snoise2(x: number, y: number): number {
+  const F2 = (Math.sqrt(3) - 1) / 2, G2 = (3 - Math.sqrt(3)) / 6
+  const s = (x + y) * F2, i = Math.floor(x + s), j = Math.floor(y + s)
+  const t0 = (i + j) * G2, x0 = x - i + t0, y0 = y - j + t0
+  const i1 = x0 > y0 ? 1 : 0, j1 = x0 > y0 ? 0 : 1
+  const x1 = x0 - i1 + G2, y1 = y0 - j1 + G2, x2 = x0 - 1 + 2*G2, y2 = y0 - 1 + 2*G2
+  const ii = i & 255, jj = j & 255
+  function dot(h: number, gx: number, gy: number) { return _G2[(h&7)*2]*gx + _G2[(h&7)*2+1]*gy }
+  let n0 = 0, n1 = 0, n2 = 0
+  let a = 0.5 - x0*x0 - y0*y0; if (a > 0) { a *= a; n0 = a*a*dot(_PERM[ii+_PERM[jj]], x0, y0) }
+  let b = 0.5 - x1*x1 - y1*y1; if (b > 0) { b *= b; n1 = b*b*dot(_PERM[ii+i1+_PERM[jj+j1]], x1, y1) }
+  let c = 0.5 - x2*x2 - y2*y2; if (c > 0) { c *= c; n2 = c*c*dot(_PERM[ii+1+_PERM[jj+1]], x2, y2) }
+  return 70 * (n0 + n1 + n2)
+}
+
 // ── Colour helpers ────────────────────────────────────────────────────────────
 function hsv(h: number, s: number, v: number): RGB {
   h = ((h % 360) + 360) % 360
@@ -263,6 +284,35 @@ function evalGradientFrame(cA: RGB, cB: RGB, vertical: boolean, W = DEFAULT_W, H
     Array.from({ length: W }, (_, x) => {
       const t = vertical ? y / (H - 1) : x / (W - 1)
       return { r: Math.round(cA.r * (1-t) + cB.r * t), g: Math.round(cA.g * (1-t) + cB.g * t), b: Math.round(cA.b * (1-t) + cB.b * t) }
+    })
+  )
+}
+
+function evalSimplex2D(speed: number, scale: number, t: number, palette: string, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      let v = 0, amp = 1, freq = scale
+      for (let oct = 0; oct < 4; oct++) {
+        v += amp * _snoise2(x * freq + t * speed * 0.13, y * freq + t * speed * 0.1)
+        amp *= 0.5; freq *= 2
+      }
+      return samplePalette(palette, (v * 0.5 + 0.5) % 1)
+    })
+  )
+}
+
+function evalNoise3D(speed: number, scale: number, t: number, palette: string, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  // 3D via two orthogonal 2D slices animated along the z (time) axis
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const z = t * speed * 0.08
+      let v = 0, amp = 1, freq = scale
+      for (let oct = 0; oct < 3; oct++) {
+        v += amp * (_snoise2(x * freq + z * 0.37, y * freq) * 0.6 +
+                    _snoise2(x * freq * 0.9, y * freq + z * 0.61) * 0.4)
+        amp *= 0.5; freq *= 2.1
+      }
+      return samplePalette(palette, ((v * 0.5 + 0.5) % 1 + 1) % 1)
     })
   )
 }
@@ -741,6 +791,23 @@ export function evaluateGraph(
         const a = num(id, 'a', props, 'a', 0)
         const b = num(id, 'b', props, 'b', 0.5)
         out = { result: a > b }
+        break
+      }
+
+      // ── Proper noise nodes ────────────────────────────────────────────
+      case 'Simplex2D': {
+        const speed   = num(id, 'speed',  props, 'speed',  0.4)
+        const scale   = num(id, 'scale',  props, 'scale',  0.3)
+        const palette = String(props.palette ?? 'rainbow')
+        out = { frame: evalSimplex2D(speed, scale, t, palette, W, H) }
+        break
+      }
+
+      case 'Noise3D': {
+        const speed   = num(id, 'speed',  props, 'speed',  0.5)
+        const scale   = num(id, 'scale',  props, 'scale',  0.3)
+        const palette = String(props.palette ?? 'ocean')
+        out = { frame: evalNoise3D(speed, scale, t, palette, W, H) }
         break
       }
 

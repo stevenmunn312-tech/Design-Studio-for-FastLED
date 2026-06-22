@@ -9,6 +9,7 @@ import NodeGraphCanvas from './components/Canvas/NodeGraphCanvas'
 import LEDPreview from './components/Preview/LEDPreview'
 import Inspector from './components/Inspector/Inspector'
 import StatusBar from './components/StatusBar/StatusBar'
+import UploadPanel from './components/Upload/UploadPanel'
 import styles from './App.module.css'
 
 const AUTOSAVE_KEY = 'fastled-studio-graph'
@@ -23,7 +24,7 @@ function saveToLocalStorage(nodes: StudioNode[], edges: StudioEdge[]) {
 }
 
 export default function App() {
-  const { sidebarOpen, inspectorOpen, setStatus, theme, reducedMotion, highContrast } = useUiStore()
+  const { sidebarOpen, inspectorOpen, setStatus, theme, reducedMotion, highContrast, showUploadPanel } = useUiStore()
   const { startAudio, stopAudio } = useAudioStore()
 
   // Apply theme + accessibility attributes to the root element
@@ -112,6 +113,7 @@ export default function App() {
         </div>
       </div>
       <StatusBar />
+      {showUploadPanel && <UploadPanel />}
     </div>
   )
 }
