@@ -2,10 +2,11 @@ import type { StudioNode, StudioEdge } from './graphStore'
 import { useAudioStore } from './audioStore'
 
 export interface RGB { r: number; g: number; b: number }
-export type Frame = RGB[][]   // row-major [y][x], always 16×16
+export type Frame = RGB[][]   // row-major [y][x]
 
-const W = 16
-const H = 16
+// Default grid dimensions; overridden by evaluateGraph params
+const DEFAULT_W = 16
+const DEFAULT_H = 16
 
 // ── Persistent state for stateful pattern nodes ───────────────────────────────
 const fireHeat = new Map<string, number[][]>()
@@ -28,12 +29,16 @@ function hsv(h: number, s: number, v: number): RGB {
 
 function byte(v: number): number { return Math.max(0, Math.min(255, Math.round(v * 255))) }
 
-function solidFrame(color: RGB): Frame {
+function solidFrame(color: RGB, W = DEFAULT_W, H = DEFAULT_H): Frame {
   return Array.from({ length: H }, () => Array.from({ length: W }, () => ({ ...color })))
 }
 
+function blankFrame(W = DEFAULT_W, H = DEFAULT_H): Frame {
+  return Array.from({ length: H }, () => Array.from({ length: W }, () => ({ r: 0, g: 0, b: 0 })))
+}
+
 // ── Pattern evaluators ────────────────────────────────────────────────────────
-function evalNoiseField(speed: number, scale: number, t: number): Frame {
+function evalNoiseField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   return Array.from({ length: H }, (_, y) =>
     Array.from({ length: W }, (_, x) => {
       const v = (Math.sin(x * scale * 0.5 + t * speed) +
@@ -43,7 +48,7 @@ function evalNoiseField(speed: number, scale: number, t: number): Frame {
   )
 }
 
-function evalPlasma(speed: number, t: number): Frame {
+function evalPlasma(speed: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   return Array.from({ length: H }, (_, y) =>
     Array.from({ length: W }, (_, x) => {
       const v = Math.sin(x / 3 + t * speed)
@@ -55,19 +60,18 @@ function evalPlasma(speed: number, t: number): Frame {
   )
 }
 
-function evalFire(nodeId: string, intensity: number): Frame {
-  if (!fireHeat.has(nodeId)) {
+function evalFire(nodeId: string, intensity: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const stored = fireHeat.get(nodeId)
+  if (!stored || stored.length !== H || stored[0].length !== W) {
     fireHeat.set(nodeId, Array.from({ length: H }, () => Array(W).fill(0)))
   }
   const heat = fireHeat.get(nodeId)!
   const cooling = 0.05
 
-  // Cool every cell
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++)
       heat[y][x] = Math.max(0, heat[y][x] - cooling - Math.random() * cooling)
 
-  // Rise: blend upward from the row below
   for (let y = 0; y < H - 1; y++)
     for (let x = 0; x < W; x++)
       heat[y][x] = (
@@ -77,13 +81,11 @@ function evalFire(nodeId: string, intensity: number): Frame {
         heat[y + 1][Math.min(W - 1, x + 1)]
       ) / 4
 
-  // Sparks at the bottom row
   const sparking = 0.4 + intensity * 0.55
   for (let x = 0; x < W; x++)
     if (Math.random() < sparking)
       heat[H - 1][x] = Math.min(1, 0.75 + Math.random() * 0.25)
 
-  // Heat → colour: black → red → yellow → white
   return heat.map(row =>
     row.map(h => {
       if (h < 0.33) return { r: byte(h * 3),       g: 0,               b: 0 }
@@ -93,14 +95,12 @@ function evalFire(nodeId: string, intensity: number): Frame {
   )
 }
 
-function evalSpectrumBars(bass: number, mids: number, treble: number): Frame {
-  const frame: Frame = Array.from({ length: H }, () =>
-    Array.from({ length: W }, () => ({ r: 0, g: 0, b: 0 }))
-  )
+function evalSpectrumBars(bass: number, mids: number, treble: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const frame: Frame = blankFrame(W, H)
   const bands: Array<{ start: number; end: number; val: number; hueBase: number }> = [
-    { start: 0,  end: 5,  val: bass,   hueBase: 0   },
-    { start: 6,  end: 10, val: mids,   hueBase: 180 },
-    { start: 11, end: 15, val: treble, hueBase: 270 },
+    { start: 0,         end: Math.floor(W * 0.33),  val: bass,   hueBase: 0   },
+    { start: Math.floor(W * 0.34), end: Math.floor(W * 0.66),  val: mids,   hueBase: 180 },
+    { start: Math.floor(W * 0.67), end: W - 1,      val: treble, hueBase: 270 },
   ]
   for (const { start, end, val, hueBase } of bands) {
     const barH = Math.round(Math.max(0, Math.min(1, val)) * H)
@@ -113,6 +113,55 @@ function evalSpectrumBars(bass: number, mids: number, treble: number): Frame {
   return frame
 }
 
+function evalBassPulse(bass: number, color: RGB, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const v = Math.pow(bass, 0.5)
+  const lit: RGB = { r: Math.round(color.r * v), g: Math.round(color.g * v), b: Math.round(color.b * v) }
+  return solidFrame(lit, W, H)
+}
+
+function evalMidrangeWaves(mids: number, speed: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const wave = Math.sin(x * 0.8 + t * speed * 4) * Math.sin(y * 0.5 + t * speed * 2.5)
+      const v = (wave + 1) / 2 * (0.3 + mids * 0.7)
+      return hsv(200 + wave * 40, 1, v)
+    })
+  )
+}
+
+function evalTrebleSparks(treble: number, density: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const frame = blankFrame(W, H)
+  const threshold = 1 - density * treble
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      if (Math.random() > threshold) {
+        const b = Math.random() * treble
+        frame[y][x] = hsv(Math.random() * 60 + 180, 0.6 + Math.random() * 0.4, b)
+      }
+  return frame
+}
+
+// Persistent flash state
+const flashLevel = new Map<string, number>()
+
+function evalBeatFlash(nodeId: string, beat: boolean, base: Frame | null, decay: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  let level = flashLevel.get(nodeId) ?? 0
+  if (beat) level = 1
+  else level = level * decay
+  flashLevel.set(nodeId, level)
+
+  const src = base ?? blankFrame(W, H)
+  if (level < 0.01) return src
+
+  return src.map(row =>
+    row.map(px => ({
+      r: Math.min(255, Math.round(px.r + (255 - px.r) * level)),
+      g: Math.min(255, Math.round(px.g + (255 - px.g) * level)),
+      b: Math.min(255, Math.round(px.b + (255 - px.b) * level)),
+    }))
+  )
+}
+
 // ── Main entry point ──────────────────────────────────────────────────────────
 
 type PortValue = number | boolean | RGB | Frame | null
@@ -120,8 +169,12 @@ type PortValue = number | boolean | RGB | Frame | null
 export function evaluateGraph(
   nodes: StudioNode[],
   edges: StudioEdge[],
-  tick: number
+  tick: number,
+  gridW = DEFAULT_W,
+  gridH = DEFAULT_H,
 ): Frame | null {
+  const W = gridW
+  const H = gridH
   if (nodes.length === 0) return null
 
   const t = tick / 60   // seconds at assumed 60 fps
@@ -239,32 +292,33 @@ export function evaluateGraph(
       }
 
       // ── Pattern ────────────────────────────────────────────────────────
-      case 'SolidColor':
-        out = {
-          frame: solidFrame({
-            r: byte(Number(props.r ?? 255) / 255),
-            g: byte(Number(props.g ?? 0)   / 255),
-            b: byte(Number(props.b ?? 128) / 255),
-          }),
+      case 'SolidColor': {
+        const colorIn = input(id, 'color', null) as RGB | null
+        const color = colorIn ?? {
+          r: byte(Number(props.r ?? 255) / 255),
+          g: byte(Number(props.g ?? 0)   / 255),
+          b: byte(Number(props.b ?? 128) / 255),
         }
+        out = { frame: solidFrame(color, W, H) }
         break
+      }
 
       case 'NoiseField': {
         const speed = num(id, 'speed', props, 'speed', 1)
         const scale = num(id, 'scale', props, 'scale', 1)
-        out = { frame: evalNoiseField(speed, scale, t) }
+        out = { frame: evalNoiseField(speed, scale, t, W, H) }
         break
       }
 
       case 'Plasma': {
         const speed = num(id, 'speed', props, 'speed', 1)
-        out = { frame: evalPlasma(speed, t) }
+        out = { frame: evalPlasma(speed, t, W, H) }
         break
       }
 
       case 'Fire': {
         const intensity = num(id, 'intensity', props, 'intensity', 0.7)
-        out = { frame: evalFire(id, intensity) }
+        out = { frame: evalFire(id, intensity, W, H) }
         break
       }
 
@@ -272,7 +326,121 @@ export function evaluateGraph(
         const bass   = num(id, 'bass',   props, 'bass',   (Math.sin(t * 2.1) + 1) / 2)
         const mids   = num(id, 'mids',   props, 'mids',   (Math.sin(t * 3.7 + 1) + 1) / 2)
         const treble = num(id, 'treble', props, 'treble', (Math.sin(t * 5.3 + 2) + 1) / 2)
-        out = { frame: evalSpectrumBars(bass, mids, treble) }
+        out = { frame: evalSpectrumBars(bass, mids, treble, W, H) }
+        break
+      }
+
+      case 'BlendFrames': {
+        const fa = input(id, 'a', null) as Frame | null
+        const fb = input(id, 'b', null) as Frame | null
+        const mix = num(id, 't', props, 't', 0.5)
+        if (!fa && !fb) { out = { frame: null }; break }
+        const a = fa ?? blankFrame(W, H)
+        const b = fb ?? blankFrame(W, H)
+        out = {
+          frame: a.map((row, y) =>
+            row.map((px, x) => ({
+              r: Math.round(px.r * (1 - mix) + b[y][x].r * mix),
+              g: Math.round(px.g * (1 - mix) + b[y][x].g * mix),
+              b: Math.round(px.b * (1 - mix) + b[y][x].b * mix),
+            }))
+          ),
+        }
+        break
+      }
+
+      case 'BrightnessMod': {
+        const src = input(id, 'frame', null) as Frame | null
+        const br = num(id, 'brightness', props, 'brightness', 1)
+        if (!src) { out = { frame: null }; break }
+        out = {
+          frame: src.map(row =>
+            row.map(px => ({
+              r: Math.min(255, Math.round(px.r * br)),
+              g: Math.min(255, Math.round(px.g * br)),
+              b: Math.min(255, Math.round(px.b * br)),
+            }))
+          ),
+        }
+        break
+      }
+
+      case 'HueShift': {
+        const src = input(id, 'frame', null) as Frame | null
+        const shift = num(id, 'shift', props, 'shift', 0)
+        if (!src) { out = { frame: null }; break }
+        out = {
+          frame: src.map(row =>
+            row.map(px => {
+              // Convert RGB→HSV, shift H, convert back
+              const r = px.r / 255, g = px.g / 255, b = px.b / 255
+              const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
+              let h = 0
+              if (d > 0) {
+                if (max === r) h = ((g - b) / d) % 6
+                else if (max === g) h = (b - r) / d + 2
+                else h = (r - g) / d + 4
+                h = h * 60
+              }
+              return hsv((h + shift + 360) % 360, max > 0 ? d / max : 0, max)
+            })
+          ),
+        }
+        break
+      }
+
+      case 'BassPulse': {
+        const bass = num(id, 'bass', props, 'bass', 0)
+        const colorIn = input(id, 'color', null) as RGB | null
+        const color = colorIn ?? { r: Number(props.r ?? 255), g: Number(props.g ?? 0), b: Number(props.b ?? 80) }
+        out = { frame: evalBassPulse(bass, color, W, H) }
+        break
+      }
+
+      case 'MidrangeWaves': {
+        const mids = num(id, 'mids', props, 'mids', 0.5)
+        const speed = num(id, 'speed', props, 'speed', 1)
+        out = { frame: evalMidrangeWaves(mids, speed, t, W, H) }
+        break
+      }
+
+      case 'TrebleSparks': {
+        const treble = num(id, 'treble', props, 'treble', 0.5)
+        const density = num(id, 'density', props, 'density', 0.5)
+        out = { frame: evalTrebleSparks(treble, density, W, H) }
+        break
+      }
+
+      case 'BeatFlash': {
+        const beatVal = input(id, 'beat', false) as boolean
+        const baseFrame = input(id, 'frame', null) as Frame | null
+        const decay = num(id, 'decay', props, 'decay', 0.85)
+        out = { frame: evalBeatFlash(id, beatVal, baseFrame, decay, W, H) }
+        break
+      }
+
+      // ── Color math ─────────────────────────────────────────────────────
+      case 'HSVToRGB': {
+        const h = num(id, 'h', props, 'h', 0)
+        const s = num(id, 's', props, 's', 1)
+        const v = num(id, 'v', props, 'v', 1)
+        out = { color: hsv(h, s, v) }
+        break
+      }
+
+      case 'BlendColors': {
+        const ca = input(id, 'a', null) as RGB | null
+        const cb = input(id, 'b', null) as RGB | null
+        const mix = num(id, 't', props, 't', 0.5)
+        const a = ca ?? { r: 255, g: 0, b: 0 }
+        const b = cb ?? { r: 0, g: 0, b: 255 }
+        out = {
+          color: {
+            r: Math.round(a.r * (1 - mix) + b.r * mix),
+            g: Math.round(a.g * (1 - mix) + b.g * mix),
+            b: Math.round(a.b * (1 - mix) + b.b * mix),
+          },
+        }
         break
       }
 

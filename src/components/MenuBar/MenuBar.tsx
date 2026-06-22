@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import { useGraphStore, useTemporalStore } from '../../state/graphStore'
+import { generateCpp } from '../../codegen/cppGenerator'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import styles from './MenuBar.module.css'
 
@@ -51,7 +52,16 @@ export default function MenuBar() {
   }
 
   const handleExport = () => {
-    setStatus('Generating firmware… (not yet implemented)', 'info')
+    const { nodes, edges } = useGraphStore.getState()
+    const cpp = generateCpp(nodes, edges)
+    const blob = new Blob([cpp], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `fastled-pattern-${Date.now()}.ino`
+    a.click()
+    URL.revokeObjectURL(url)
+    setStatus('Firmware generated — check your downloads', 'success')
   }
 
   return (

@@ -10,7 +10,7 @@ interface Props {
 }
 
 export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
-  const { duplicateNode, deleteNode, disconnectNode } = useGraphStore()
+  const { duplicateNode, deleteNode, disconnectNode, copyNode } = useGraphStore()
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -34,6 +34,9 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
       className={styles.menu}
       style={{ left: x, top: y }}
     >
+      <button className={styles.item} onClick={() => act(() => copyNode(nodeId))}>
+        Copy
+      </button>
       <button className={styles.item} onClick={() => act(() => duplicateNode(nodeId))}>
         Duplicate
       </button>

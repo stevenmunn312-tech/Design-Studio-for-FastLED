@@ -5,16 +5,15 @@ import { useAudioStore } from '../../state/audioStore'
 import { evaluateGraph, type Frame } from '../../state/graphEvaluator'
 import styles from './LEDPreview.module.css'
 
-const GRID = 16
-const PIXEL = 28
+const MAX_CANVAS_PX = 448  // 16 × 28
 const GLOW_RADIUS = 5
 const NUM_BARS = 16
 
 // Idle animation shown when no nodes are on the canvas
-function idleFrame(tick: number): Frame {
+function idleFrame(tick: number, gridW: number, gridH: number): Frame {
   const t = tick / 60
-  return Array.from({ length: GRID }, (_, y) =>
-    Array.from({ length: GRID }, (_, x) => {
+  return Array.from({ length: gridH }, (_, y) =>
+    Array.from({ length: gridW }, (_, x) => {
       const v = (Math.sin(x * 0.4 + t * 0.8) + Math.cos(y * 0.4 + t * 0.6)) / 2
       const hue = (v + 1) * 90 + t * 15
       const h = ((hue % 360) + 360) % 360
@@ -38,17 +37,19 @@ function idleFrame(tick: number): Frame {
   )
 }
 
-function renderFrame(ctx: CanvasRenderingContext2D, frame: Frame) {
-  ctx.clearRect(0, 0, GRID * PIXEL, GRID * PIXEL)
-  for (let y = 0; y < GRID; y++) {
-    for (let x = 0; x < GRID; x++) {
+function renderFrame(ctx: CanvasRenderingContext2D, frame: Frame, pixel: number) {
+  const gridH = frame.length
+  const gridW = frame[0]?.length ?? 0
+  ctx.clearRect(0, 0, gridW * pixel, gridH * pixel)
+  for (let y = 0; y < gridH; y++) {
+    for (let x = 0; x < gridW; x++) {
       const { r, g, b } = frame[y][x]
       const color = `rgb(${r},${g},${b})`
       const brightness = (r + g + b) / (3 * 255)
       ctx.fillStyle = color
       ctx.shadowColor = color
       ctx.shadowBlur = GLOW_RADIUS * (0.3 + brightness * 1.2)
-      ctx.fillRect(x * PIXEL + 2, y * PIXEL + 2, PIXEL - 4, PIXEL - 4)
+      ctx.fillRect(x * pixel + 2, y * pixel + 2, pixel - 4, pixel - 4)
     }
   }
 }
@@ -68,6 +69,18 @@ export default function LEDPreview() {
   useEffect(() => { nodesRef.current = nodes }, [nodes])
   useEffect(() => { edgesRef.current = edges }, [edges])
 
+  // Read grid dimensions from MatrixOutput node
+  const outputNode = useGraphStore((s) =>
+    s.nodes.find((n) => (n.data as { nodeType?: string }).nodeType === 'MatrixOutput')
+  )
+  const gridW = Math.max(2, Math.min(64, Number(outputNode?.data.properties.width  ?? 16)))
+  const gridH = Math.max(2, Math.min(64, Number(outputNode?.data.properties.height ?? 16)))
+  const pixel = Math.max(4, Math.floor(MAX_CANVAS_PX / Math.max(gridW, gridH)))
+  const gridWRef = useRef(gridW)
+  const gridHRef = useRef(gridH)
+  const pixelRef = useRef(pixel)
+  useEffect(() => { gridWRef.current = gridW; gridHRef.current = gridH; pixelRef.current = pixel }, [gridW, gridH, pixel])
+
   const { active: audioActive, spectrum, startAudio, stopAudio } = useAudioStore()
   const spectrumRef = useRef(spectrum)
   useEffect(() => { spectrumRef.current = spectrum }, [spectrum])
@@ -81,8 +94,13 @@ export default function LEDPreview() {
     const loop = () => {
       tickRef.current++
       const tick = tickRef.current
-      const frame = evaluateGraph(nodesRef.current, edgesRef.current, tick) ?? idleFrame(tick)
-      renderFrame(ctx, frame)
+      const gW = gridWRef.current, gH = gridHRef.current, px = pixelRef.current
+      if (canvas.width !== gW * px || canvas.height !== gH * px) {
+        canvas.width = gW * px
+        canvas.height = gH * px
+      }
+      const frame = evaluateGraph(nodesRef.current, edgesRef.current, tick, gW, gH) ?? idleFrame(tick, gW, gH)
+      renderFrame(ctx, frame, px)
 
       frameCount.current++
       const now = performance.now()
@@ -124,8 +142,8 @@ export default function LEDPreview() {
       <div className={styles.canvasWrap}>
         <canvas
           ref={canvasRef}
-          width={GRID * PIXEL}
-          height={GRID * PIXEL}
+          width={gridW * pixel}
+          height={gridH * pixel}
           className={styles.canvas}
         />
       </div>

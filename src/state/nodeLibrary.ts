@@ -83,6 +83,82 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { mirror: true },
   },
 
+  // ── Compositing ────────────────────────────────────────────────────────
+  {
+    type: 'BlendFrames',
+    label: 'Blend Frames',
+    category: 'pattern',
+    inputs: [
+      { id: 'a', label: 'A', dataType: 'frame' },
+      { id: 'b', label: 'B', dataType: 'frame' },
+      { id: 't', label: 'Mix', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { t: 0.5 },
+  },
+  {
+    type: 'BrightnessMod',
+    label: 'Brightness',
+    category: 'pattern',
+    inputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      { id: 'brightness', label: 'Brightness', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { brightness: 1.0 },
+  },
+  {
+    type: 'HueShift',
+    label: 'Hue Shift',
+    category: 'pattern',
+    inputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      { id: 'shift', label: 'Shift°', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { shift: 0 },
+  },
+
+  // ── Audio-reactive patterns ─────────────────────────────────────────────
+  {
+    type: 'BassPulse',
+    label: 'Bass Pulse',
+    category: 'pattern',
+    inputs: [
+      { id: 'bass', label: 'Bass', dataType: 'float' },
+      { id: 'color', label: 'Color', dataType: 'color' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { r: 255, g: 0, b: 80 },
+  },
+  {
+    type: 'MidrangeWaves',
+    label: 'Midrange Waves',
+    category: 'pattern',
+    inputs: [{ id: 'mids', label: 'Mids', dataType: 'float' }],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 1.0 },
+  },
+  {
+    type: 'TrebleSparks',
+    label: 'Treble Sparks',
+    category: 'pattern',
+    inputs: [{ id: 'treble', label: 'Treble', dataType: 'float' }],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { density: 0.5 },
+  },
+  {
+    type: 'BeatFlash',
+    label: 'Beat Flash',
+    category: 'pattern',
+    inputs: [
+      { id: 'beat', label: 'Beat', dataType: 'bool' },
+      { id: 'frame', label: 'Base', dataType: 'frame' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { decay: 0.85 },
+  },
+
   // ── Math ───────────────────────────────────────────────────────────────
   {
     type: 'MathAdd',
@@ -168,6 +244,32 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'dt', label: 'dt', dataType: 'float' },
     ],
     defaultProperties: {},
+  },
+
+  // ── Color ──────────────────────────────────────────────────────────────
+  {
+    type: 'HSVToRGB',
+    label: 'HSV → RGB',
+    category: 'math',
+    inputs: [
+      { id: 'h', label: 'H (0–360)', dataType: 'float' },
+      { id: 's', label: 'S (0–1)', dataType: 'float' },
+      { id: 'v', label: 'V (0–1)', dataType: 'float' },
+    ],
+    outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
+    defaultProperties: { h: 0, s: 1, v: 1 },
+  },
+  {
+    type: 'BlendColors',
+    label: 'Blend Colors',
+    category: 'math',
+    inputs: [
+      { id: 'a', label: 'A', dataType: 'color' },
+      { id: 'b', label: 'B', dataType: 'color' },
+      { id: 't', label: 'Mix', dataType: 'float' },
+    ],
+    outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
+    defaultProperties: { t: 0.5 },
   },
 
   // ── Output ─────────────────────────────────────────────────────────────

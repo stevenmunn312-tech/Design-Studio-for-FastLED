@@ -27,15 +27,19 @@ interface GraphState {
   nodes: StudioNode[]
   edges: StudioEdge[]
   selectedNodeId: string | null
+  clipboard: StudioNode | null
   onNodesChange: (changes: NodeChange[]) => void
   onEdgesChange: (changes: EdgeChange[]) => void
   onConnect: (connection: Connection) => void
   addNode: (node: StudioNode) => void
   selectNode: (id: string | null) => void
+  selectAllNodes: () => void
   updateNodeProperty: (id: string, key: string, value: unknown) => void
   updateNodeProperties: (id: string, updates: Record<string, unknown>) => void
   loadGraph: (nodes: StudioNode[], edges: StudioEdge[]) => void
   duplicateNode: (id: string) => void
+  copyNode: (id: string) => void
+  pasteNode: (position: { x: number; y: number }) => void
   deleteNode: (id: string) => void
   disconnectNode: (id: string) => void
 }
@@ -48,6 +52,7 @@ export const useGraphStore = create<GraphState>()(
       nodes: [],
       edges: [],
       selectedNodeId: null,
+      clipboard: null,
 
       onNodesChange: (changes) =>
         set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) as StudioNode[] })),
@@ -62,6 +67,26 @@ export const useGraphStore = create<GraphState>()(
         set((s) => ({ nodes: [...s.nodes, node] })),
 
       selectNode: (id) => set({ selectedNodeId: id }),
+
+      selectAllNodes: () =>
+        set((s) => ({ nodes: s.nodes.map((n) => ({ ...n, selected: true })) })),
+
+      copyNode: (id) =>
+        set((s) => ({ clipboard: s.nodes.find((n) => n.id === id) ?? s.clipboard })),
+
+      pasteNode: (position) =>
+        set((s) => {
+          if (!s.clipboard) return s
+          const node = s.clipboard
+          return {
+            nodes: [...s.nodes, {
+              ...node,
+              id: `${node.data.nodeType}-${Date.now()}`,
+              position,
+              selected: false,
+            }],
+          }
+        }),
 
       updateNodeProperty: (id, key, value) =>
         set((s) => ({

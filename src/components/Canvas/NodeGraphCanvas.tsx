@@ -19,6 +19,7 @@ import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import StudioNode from './StudioNode'
 import GlowEdge from './GlowEdge'
 import NodeContextMenu from './NodeContextMenu'
+import CanvasContextMenu from './CanvasContextMenu'
 import styles from './NodeGraphCanvas.module.css'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -41,6 +42,7 @@ function NodeGraphCanvasInner() {
   const { setStatus } = useUiStore()
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [contextMenu, setContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null)
+  const [canvasMenu, setCanvasMenu] = useState<{ x: number; y: number; fx: number; fy: number } | null>(null)
 
   const isValidConnection: IsValidConnection = useCallback(
     (connection) => {
@@ -82,9 +84,20 @@ function NodeGraphCanvasInner() {
     []
   )
 
+  const onPaneContextMenu = useCallback(
+    (e: React.MouseEvent | MouseEvent) => {
+      e.preventDefault()
+      const evt = e as React.MouseEvent
+      const fp = screenToFlowPosition({ x: evt.clientX, y: evt.clientY })
+      setCanvasMenu({ x: evt.clientX, y: evt.clientY, fx: fp.x, fy: fp.y })
+    },
+    [screenToFlowPosition]
+  )
+
   const onPaneClick = useCallback(() => {
     selectNode(null)
     setContextMenu(null)
+    setCanvasMenu(null)
   }, [selectNode])
 
   const onDragOver = useCallback((e: React.DragEvent) => {
@@ -133,6 +146,7 @@ function NodeGraphCanvasInner() {
         onConnectEnd={onConnectEnd}
         onNodeClick={onNodeClick}
         onNodeContextMenu={onNodeContextMenu}
+        onPaneContextMenu={onPaneContextMenu}
         onPaneClick={onPaneClick}
         isValidConnection={isValidConnection}
         snapToGrid
@@ -160,6 +174,14 @@ function NodeGraphCanvasInner() {
           x={contextMenu.x}
           y={contextMenu.y}
           onClose={() => setContextMenu(null)}
+        />
+      )}
+      {canvasMenu && (
+        <CanvasContextMenu
+          x={canvasMenu.x}
+          y={canvasMenu.y}
+          flowPosition={{ x: canvasMenu.fx, y: canvasMenu.fy }}
+          onClose={() => setCanvasMenu(null)}
         />
       )}
     </div>
