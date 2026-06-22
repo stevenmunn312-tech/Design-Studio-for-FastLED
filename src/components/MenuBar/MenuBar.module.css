@@ -50,9 +50,14 @@
   transition: color var(--anim-hover), border-color var(--anim-hover);
 }
 
-.btn:hover {
+.btn:hover:not(:disabled) {
   color: var(--text-primary);
   border-color: rgba(255, 255, 255, 0.25);
+}
+
+.btn:disabled {
+  opacity: 0.3;
+  cursor: default;
 }
 
 .btnAccent {
