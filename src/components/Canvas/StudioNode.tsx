@@ -3,15 +3,8 @@ import { Handle, Position } from '@xyflow/react'
 import type { NodeProps, Node } from '@xyflow/react'
 import type { StudioNodeData } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
+import { CATEGORY_ACCENT_VAR } from '../../state/nodeLibrary'
 import styles from './StudioNode.module.css'
-
-const ACCENT_VARS: Record<string, string> = {
-  audio: 'var(--accent-audio)',
-  pattern: 'var(--accent-pattern)',
-  math: 'var(--accent-math)',
-  output: 'var(--accent-output)',
-  hardware: 'var(--accent-hardware)',
-}
 
 // Must match CSS: header=32px, body padding-top=8px, row=24px, gap=4px
 const HEADER_H = 32
@@ -35,7 +28,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const sparkPortId = useUiStore((s) =>
     s.sparkPort?.nodeId === id ? (s.sparkPort?.portId ?? null) : null
   )
-  const accent = ACCENT_VARS[d.category] ?? 'var(--accent-output)'
+  const accent = CATEGORY_ACCENT_VAR[d.category] ?? 'var(--accent-output)'
   const inputs = d.inputs as { id: string; label: string }[]
   const outputs = d.outputs as { id: string; label: string }[]
   const rowCount = Math.max(inputs.length, outputs.length)

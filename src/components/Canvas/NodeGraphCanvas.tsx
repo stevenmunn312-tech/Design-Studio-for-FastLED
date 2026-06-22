@@ -18,7 +18,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { NODE_LIBRARY } from '../../state/nodeLibrary'
+import { NODE_LIBRARY, CATEGORY_COLOR } from '../../state/nodeLibrary'
 import StudioNode from './StudioNode'
 import GlowEdge from './GlowEdge'
 import NodeContextMenu from './NodeContextMenu'
@@ -30,12 +30,8 @@ const nodeTypes: NodeTypes = { studioNode: StudioNode as any }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const edgeTypes: EdgeTypes = { glowEdge: GlowEdge as any }
 
-const CAT_COLOR: Record<string, string> = {
-  audio: '#00ffff', pattern: '#ff00ff', math: '#a8ff00',
-  output: '#00bfff', hardware: '#ffa500',
-}
 const minimapNodeColor = (n: Node) =>
-  CAT_COLOR[(n.data as { category?: string }).category ?? ''] ?? '#444'
+  CATEGORY_COLOR[(n.data as { category?: string }).category ?? ''] ?? '#444'
 
 const SNAP_GRID: [number, number] = [20, 20]
 

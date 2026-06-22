@@ -696,10 +696,21 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   },
 ]
 
+// Single source of truth for category display order, labels, and accent colors.
+// `color` is the literal hex used in canvas/SVG contexts (minimap, edges); the
+// CSS var is used wherever theming should apply.
 export const CATEGORIES = [
-  { id: 'audio', label: 'Audio', accentVar: '--accent-audio' },
-  { id: 'pattern', label: 'Pattern', accentVar: '--accent-pattern' },
-  { id: 'math', label: 'Math', accentVar: '--accent-math' },
-  { id: 'output', label: 'Output', accentVar: '--accent-output' },
-  { id: 'hardware', label: 'Hardware', accentVar: '--accent-hardware' },
+  { id: 'audio',    label: 'Audio',    accentVar: '--accent-audio',    color: '#00ffff' },
+  { id: 'pattern',  label: 'Pattern',  accentVar: '--accent-pattern',  color: '#ff00ff' },
+  { id: 'math',     label: 'Math',     accentVar: '--accent-math',     color: '#a8ff00' },
+  { id: 'output',   label: 'Output',   accentVar: '--accent-output',   color: '#00bfff' },
+  { id: 'hardware', label: 'Hardware', accentVar: '--accent-hardware', color: '#ffa500' },
 ] as const
+
+/** id → literal hex (canvas/SVG: minimap nodes, edge strokes). */
+export const CATEGORY_COLOR: Record<string, string> =
+  Object.fromEntries(CATEGORIES.map((c) => [c.id, c.color]))
+
+/** id → CSS var reference (DOM styling: node accents, sidebar). */
+export const CATEGORY_ACCENT_VAR: Record<string, string> =
+  Object.fromEntries(CATEGORIES.map((c) => [c.id, `var(${c.accentVar})`]))
