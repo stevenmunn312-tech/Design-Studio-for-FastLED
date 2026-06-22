@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useGraphStore } from '../../state/graphStore'
+import { useUiStore } from '../../state/uiStore'
 import { evaluateGraph, type Frame } from '../../state/graphEvaluator'
 import styles from './LEDPreview.module.css'
 
@@ -89,7 +90,9 @@ export default function LEDPreview() {
       frameCount.current++
       const now = performance.now()
       if (now - lastFpsTime.current >= 1000) {
-        setFps(frameCount.current)
+        const count = frameCount.current
+        setFps(count)
+        useUiStore.getState().setFps(count)
         frameCount.current = 0
         lastFpsTime.current = now
       }
