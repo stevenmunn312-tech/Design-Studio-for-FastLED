@@ -44,7 +44,7 @@
 - [x] Compositing / transition: BlendFrames, BrightnessMod, HueShift, Crossfade, Wipe, Dissolve
 - [x] Multi-Pattern Master — 4-slot queue, cycle/beat modes
 - [x] Custom Formula — inline JS expression with x/y/t/W/H/a/b vars
-- [ ] Proper `PaletteSelector` type system — propagate palette name through port connections rather than encoding as a float
+- [x] Proper `PaletteSelector` type system — propagate palette name through port connections rather than encoding as a float
 
 ## Polish
 
@@ -55,5 +55,5 @@
 - [x] Inspector: color picker for color-type properties
 - [x] Solarized Dark and Studio Light themes (cycle via MenuBar ☾/✦/☀)
 - [x] Reduced-motion toggle and high-contrast mode (WCAG AA)
-- [ ] Test suite — no tests exist yet
-- [ ] PWA / offline support (service worker + manifest)
+- [x] Test suite — 33 Vitest tests across graphEvaluator, validateGraph, cppGenerator
+- [x] PWA / offline support (service worker + manifest via vite-plugin-pwa)
