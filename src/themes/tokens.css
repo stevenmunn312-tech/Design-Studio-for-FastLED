@@ -44,6 +44,7 @@
   --statusbar-height: 40px;
   --menubar-height: 48px;
   --inspector-width: 280px;
+  --right-panel-width: calc(16 * 28px + var(--space-3) * 2); /* 496px — fits 16×28px LED canvas + padding */
 
   /* Nodes */
   --node-width: 220px;

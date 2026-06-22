@@ -82,8 +82,10 @@ export default function App() {
       <div className={styles.workspace}>
         {sidebarOpen && <Sidebar />}
         <NodeGraphCanvas />
-        <LEDPreview />
-        {inspectorOpen && <Inspector />}
+        <div className={styles.rightPanel}>
+          <LEDPreview />
+          {inspectorOpen && <Inspector />}
+        </div>
       </div>
       <StatusBar />
     </div>
