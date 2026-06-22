@@ -33,6 +33,8 @@ interface GraphState {
   addNode: (node: StudioNode) => void
   selectNode: (id: string | null) => void
   updateNodeProperty: (id: string, key: string, value: unknown) => void
+  updateNodeProperties: (id: string, updates: Record<string, unknown>) => void
+  loadGraph: (nodes: StudioNode[], edges: StudioEdge[]) => void
 }
 
 type HistorySlice = Pick<GraphState, 'nodes' | 'edges'>
@@ -66,6 +68,17 @@ export const useGraphStore = create<GraphState>()(
               : n
           ),
         })),
+
+      updateNodeProperties: (id, updates) =>
+        set((s) => ({
+          nodes: s.nodes.map((n) =>
+            n.id === id
+              ? { ...n, data: { ...n.data, properties: { ...n.data.properties, ...updates } } }
+              : n
+          ),
+        })),
+
+      loadGraph: (nodes, edges) => set({ nodes, edges }),
     }),
     {
       limit: 100,

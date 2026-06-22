@@ -10,6 +10,7 @@ import {
   type NodeTypes,
   type EdgeTypes,
   type NodeMouseHandler,
+  type IsValidConnection,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useGraphStore } from '../../state/graphStore'
@@ -23,11 +24,37 @@ const nodeTypes: NodeTypes = { studioNode: StudioNode as any }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const edgeTypes: EdgeTypes = { glowEdge: GlowEdge as any }
 
+const SNAP_GRID: [number, number] = [20, 20]
+
+function portsCompatible(srcType: string, dstType: string): boolean {
+  if (srcType === dstType) return true
+  if ((srcType === 'bool' || srcType === 'float') && (dstType === 'bool' || dstType === 'float')) return true
+  return false
+}
+
 function NodeGraphCanvasInner() {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode, addNode } =
     useGraphStore()
-  const { screenToFlowPosition } = useReactFlow()
+  const { screenToFlowPosition, getNode } = useReactFlow()
   const wrapperRef = useRef<HTMLDivElement>(null)
+
+  const isValidConnection: IsValidConnection = useCallback(
+    (connection) => {
+      const srcNode = getNode(connection.source)
+      const dstNode = getNode(connection.target)
+      if (!srcNode || !dstNode) return false
+
+      const srcData = srcNode.data as { outputs?: Array<{ id: string; dataType: string }> }
+      const dstData = dstNode.data as { inputs?: Array<{ id: string; dataType: string }> }
+
+      const srcPort = srcData.outputs?.find((p) => p.id === connection.sourceHandle)
+      const dstPort = dstData.inputs?.find((p) => p.id === connection.targetHandle)
+
+      if (!srcPort || !dstPort) return true
+      return portsCompatible(srcPort.dataType, dstPort.dataType)
+    },
+    [getNode]
+  )
 
   const onNodeClick: NodeMouseHandler = useCallback(
     (_e, node) => selectNode(node.id),
@@ -81,6 +108,9 @@ function NodeGraphCanvasInner() {
         onConnect={onConnect}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
+        isValidConnection={isValidConnection}
+        snapToGrid
+        snapGrid={SNAP_GRID}
         minZoom={0.5}
         maxZoom={2}
         fitView

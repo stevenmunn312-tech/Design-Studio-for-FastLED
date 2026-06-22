@@ -83,6 +83,16 @@
   font-family: var(--font-code);
 }
 
+.colorPicker {
+  width: 48px;
+  height: 28px;
+  padding: 2px;
+  background: #1a1e23;
+  border-radius: 6px;
+  border: 1px solid var(--divider);
+  cursor: pointer;
+}
+
 .empty {
   padding: var(--space-2);
   font-size: var(--fs-caption);
