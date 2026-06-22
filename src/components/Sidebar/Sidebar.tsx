@@ -17,6 +17,8 @@ export default function Sidebar() {
   const [expanded, setExpanded] = useState<Set<string>>(
     new Set(CATEGORIES.map((c) => c.id))
   )
+  const [search, setSearch] = useState('')
+  const query = search.trim().toLowerCase()
 
   const toggle = (id: string) =>
     setExpanded((prev) => {
@@ -51,11 +53,23 @@ export default function Sidebar() {
   return (
     <aside className={styles.sidebar}>
       <div className={styles.header}>Node Library</div>
+      <div className={styles.searchWrap}>
+        <input
+          className={styles.searchInput}
+          type="search"
+          placeholder="Search nodes…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
       <div className={styles.scroll}>
         {CATEGORIES.map(({ id, label }) => {
-          const nodes = NODE_LIBRARY.filter((n) => n.category === id)
+          const nodes = NODE_LIBRARY.filter(
+            (n) => n.category === id && (query === '' || n.label.toLowerCase().includes(query))
+          )
+          if (nodes.length === 0) return null
           const accent = ACCENT_VARS[id as NodeCategory]
-          const open = expanded.has(id)
+          const open = query !== '' || expanded.has(id)
 
           return (
             <div key={id} className={styles.category}>

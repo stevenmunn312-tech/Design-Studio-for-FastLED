@@ -16,6 +16,35 @@
   flex-shrink: 0;
 }
 
+.searchWrap {
+  padding: 8px var(--space-2);
+  border-bottom: 1px solid var(--border-glow);
+  flex-shrink: 0;
+}
+
+.searchInput {
+  width: 100%;
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 8px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-glow);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: var(--fs-caption);
+  outline: none;
+}
+
+.searchInput::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.searchInput:focus {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
 .scroll {
   overflow-y: auto;
   flex: 1;

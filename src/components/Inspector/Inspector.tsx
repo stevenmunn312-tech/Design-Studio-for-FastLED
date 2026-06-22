@@ -1,8 +1,17 @@
 import { useGraphStore } from '../../state/graphStore'
 import styles from './Inspector.module.css'
 
+function toHex(r: number, g: number, b: number) {
+  return '#' + [r, g, b].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')
+}
+
+function hexToRgb(hex: string) {
+  const n = parseInt(hex.slice(1), 16)
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
+}
+
 export default function Inspector() {
-  const { nodes, selectedNodeId, updateNodeProperty } = useGraphStore()
+  const { nodes, selectedNodeId, updateNodeProperty, updateNodeProperties } = useGraphStore()
   const node = nodes.find((n) => n.id === selectedNodeId)
 
   if (!node) {
@@ -15,6 +24,9 @@ export default function Inspector() {
   }
 
   const props = node.data.properties as Record<string, unknown>
+  const hasRGB =
+    'r' in props && 'g' in props && 'b' in props &&
+    typeof props.r === 'number' && typeof props.g === 'number' && typeof props.b === 'number'
 
   return (
     <aside className={styles.inspector}>
@@ -26,6 +38,21 @@ export default function Inspector() {
       <div className={styles.divider} />
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Properties</div>
+        {hasRGB && (
+          <div className={styles.fieldRow}>
+            <label className={styles.fieldLabel} htmlFor="prop-color">Color</label>
+            <input
+              id="prop-color"
+              type="color"
+              className={styles.colorPicker}
+              value={toHex(props.r as number, props.g as number, props.b as number)}
+              onChange={(e) => {
+                const { r, g, b } = hexToRgb(e.target.value)
+                updateNodeProperties(node.id, { r, g, b })
+              }}
+            />
+          </div>
+        )}
         {Object.entries(props).map(([key, val]) => (
           <div key={key} className={styles.fieldRow}>
             <label className={styles.fieldLabel} htmlFor={`prop-${key}`}>

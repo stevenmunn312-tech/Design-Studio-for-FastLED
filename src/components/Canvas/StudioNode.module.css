@@ -1,3 +1,8 @@
+@keyframes nodePopin {
+  from { transform: scale(0.9); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
 .node {
   width: var(--node-width);
   min-height: var(--node-height);
@@ -7,6 +12,7 @@
   transition: background var(--anim-hover), transform var(--anim-hover);
   cursor: default;
   user-select: none;
+  animation: nodePopin 0.2s ease-out;
 }
 
 .node:hover {

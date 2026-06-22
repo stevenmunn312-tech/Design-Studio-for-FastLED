@@ -1,10 +1,9 @@
 .inspector {
-  width: var(--inspector-width);
   background: var(--bg-panel);
-  border-left: 1px solid var(--border-glow);
+  border-top: 1px solid var(--border-glow);
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
+  flex: 1;
   overflow-y: auto;
 }
 
@@ -81,6 +80,16 @@
   font-size: var(--fs-caption);
   color: var(--text-secondary);
   font-family: var(--font-code);
+}
+
+.colorPicker {
+  width: 48px;
+  height: 28px;
+  padding: 2px;
+  background: #1a1e23;
+  border-radius: 6px;
+  border: 1px solid var(--divider);
+  cursor: pointer;
 }
 
 .empty {

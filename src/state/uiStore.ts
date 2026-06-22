@@ -6,10 +6,12 @@ interface UiState {
   statusLevel: StatusLevel
   sidebarOpen: boolean
   inspectorOpen: boolean
+  fps: number
   setStatus: (text: string, level?: StatusLevel) => void
   clearStatus: () => void
   toggleSidebar: () => void
   toggleInspector: () => void
+  setFps: (fps: number) => void
 }
 
 export const useUiStore = create<UiState>((set) => ({
@@ -17,6 +19,7 @@ export const useUiStore = create<UiState>((set) => ({
   statusLevel: 'idle',
   sidebarOpen: true,
   inspectorOpen: true,
+  fps: 0,
 
   setStatus: (text, level = 'info') => {
     set({ statusText: text, statusLevel: level })
@@ -30,4 +33,6 @@ export const useUiStore = create<UiState>((set) => ({
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
 
   toggleInspector: () => set((s) => ({ inspectorOpen: !s.inspectorOpen })),
+
+  setFps: (fps) => set({ fps }),
 }))

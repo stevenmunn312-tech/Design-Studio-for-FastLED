@@ -1,15 +1,54 @@
+import { useRef } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import { useGraphStore, useTemporalStore } from '../../state/graphStore'
+import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import styles from './MenuBar.module.css'
 
 export default function MenuBar() {
   const { toggleSidebar, toggleInspector, setStatus } = useUiStore()
   const nodeCount = useGraphStore((s) => s.nodes.length)
   const edgeCount = useGraphStore((s) => s.edges.length)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { undo, redo, pastStates, futureStates } = useTemporalStore((s) => s)
   const canUndo = pastStates.length > 0
   const canRedo = futureStates.length > 0
+
+  const handleSaveJSON = () => {
+    const { nodes, edges } = useGraphStore.getState()
+    const json = JSON.stringify({ nodes, edges }, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `fastled-studio-${Date.now()}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    setStatus('Graph exported', 'success')
+  }
+
+  const handleLoadJSON = () => fileInputRef.current?.click()
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const { nodes, edges } = JSON.parse(ev.target?.result as string) as {
+          nodes: StudioNode[]
+          edges: StudioEdge[]
+        }
+        useGraphStore.getState().loadGraph(nodes, edges)
+        useGraphStore.temporal.getState().clear()
+        setStatus('Graph loaded', 'success')
+      } catch {
+        setStatus('Failed to load graph — invalid file', 'error')
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
 
   const handleExport = () => {
     setStatus('Generating firmware… (not yet implemented)', 'info')
@@ -45,6 +84,20 @@ export default function MenuBar() {
         >
           ↪ {futureStates.length > 0 ? futureStates.length : ''}
         </button>
+        <div className={styles.sep} />
+        <button className={styles.btn} onClick={handleSaveJSON} title="Export graph as JSON (Ctrl+S)">
+          ↓ Save
+        </button>
+        <button className={styles.btn} onClick={handleLoadJSON} title="Import graph from JSON">
+          ↑ Load
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json"
+          style={{ display: 'none' }}
+          onChange={handleFileChange}
+        />
         <div className={styles.sep} />
         <button className={styles.btnAccent} onClick={handleExport}>
           ↑ Upload
