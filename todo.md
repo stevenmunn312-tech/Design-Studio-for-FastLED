@@ -55,5 +55,5 @@
 - [x] Inspector: color picker for color-type properties
 - [x] Solarized Dark and Studio Light themes (cycle via MenuBar ☾/✦/☀)
 - [x] Reduced-motion toggle and high-contrast mode (WCAG AA)
-- [ ] Test suite — no tests exist yet
-- [ ] PWA / offline support (service worker + manifest)
+- [x] Test suite — Vitest + jsdom (cppGenerator, graphEvaluator, validateGraph)
+- [x] PWA / offline support (service worker + manifest)
