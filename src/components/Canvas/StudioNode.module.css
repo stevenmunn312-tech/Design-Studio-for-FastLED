@@ -36,8 +36,8 @@
 .portRow {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   height: 24px;
-  gap: 6px;
 }
 
 .portLabel {
@@ -45,4 +45,13 @@
   color: var(--text-secondary);
   font-family: var(--font-code);
   white-space: nowrap;
+  padding-left: 10px;
+}
+
+.portLabelRight {
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  white-space: nowrap;
+  padding-right: 10px;
 }

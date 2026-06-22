@@ -12,11 +12,29 @@ const ACCENT_VARS: Record<string, string> = {
   hardware: 'var(--accent-hardware)',
 }
 
+// Must match CSS: header=32px, body padding-top=8px, row=24px, gap=4px
+const HEADER_H = 32
+const BODY_PAD = 8
+const ROW_H = 24
+const ROW_GAP = 4
+
+const handleTop = (i: number) => HEADER_H + BODY_PAD + i * (ROW_H + ROW_GAP) + ROW_H / 2
+
+const HANDLE_STYLE = {
+  width: 12,
+  height: 12,
+  borderRadius: '50%',
+  border: 'none',
+}
+
 type StudioNodeProps = NodeProps<Node<StudioNodeData>>
 
 function StudioNode({ data, selected }: StudioNodeProps) {
   const d = data as StudioNodeData
   const accent = ACCENT_VARS[d.category] ?? 'var(--accent-output)'
+  const inputs = d.inputs as { id: string; label: string }[]
+  const outputs = d.outputs as { id: string; label: string }[]
+  const rowCount = Math.max(inputs.length, outputs.length)
 
   return (
     <div
@@ -25,42 +43,34 @@ function StudioNode({ data, selected }: StudioNodeProps) {
         boxShadow: selected ? `0 0 0 2px ${accent}, 0 0 12px ${accent}` : undefined,
       }}
     >
+      {/* Handles rendered absolutely so React Flow can hit-test them correctly */}
+      {inputs.map((port, i) => (
+        <Handle
+          key={port.id}
+          type="target"
+          position={Position.Left}
+          id={port.id}
+          style={{ ...HANDLE_STYLE, top: handleTop(i), background: accent, boxShadow: `0 0 6px ${accent}` }}
+        />
+      ))}
+      {outputs.map((port, i) => (
+        <Handle
+          key={port.id}
+          type="source"
+          position={Position.Right}
+          id={port.id}
+          style={{ ...HANDLE_STYLE, top: handleTop(i), background: accent, boxShadow: `0 0 6px ${accent}` }}
+        />
+      ))}
+
       <div className={styles.header} style={{ background: accent }}>
         {d.label}
       </div>
       <div className={styles.body}>
-        {(d.inputs as { id: string; label: string }[]).map((port) => (
-          <div key={port.id} className={styles.portRow} style={{ justifyContent: 'flex-start' }}>
-            <Handle
-              type="target"
-              position={Position.Left}
-              id={port.id}
-              style={{
-                top: 'auto',
-                left: -6,
-                position: 'relative',
-                background: accent,
-                boxShadow: `0 0 6px ${accent}`,
-              }}
-            />
-            <span className={styles.portLabel}>{port.label}</span>
-          </div>
-        ))}
-        {(d.outputs as { id: string; label: string }[]).map((port) => (
-          <div key={port.id} className={styles.portRow} style={{ justifyContent: 'flex-end' }}>
-            <span className={styles.portLabel}>{port.label}</span>
-            <Handle
-              type="source"
-              position={Position.Right}
-              id={port.id}
-              style={{
-                top: 'auto',
-                right: -6,
-                position: 'relative',
-                background: accent,
-                boxShadow: `0 0 6px ${accent}`,
-              }}
-            />
+        {Array.from({ length: rowCount }).map((_, i) => (
+          <div key={i} className={styles.portRow}>
+            <span className={styles.portLabel}>{inputs[i]?.label ?? ''}</span>
+            <span className={styles.portLabelRight}>{outputs[i]?.label ?? ''}</span>
           </div>
         ))}
       </div>
