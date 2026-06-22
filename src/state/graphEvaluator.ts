@@ -472,6 +472,8 @@ export function evaluateGraph(
   }
 
   const memo = new Map<string, Record<string, PortValue>>()
+  // Nodes currently on the evaluation stack — used to break graph cycles.
+  const inProgress = new Set<string>()
 
   // Resolve one input port: walk the edge map, fall back to `fallback`
   function input(nodeId: string, portId: string, fallback: PortValue): PortValue {
@@ -486,8 +488,13 @@ export function evaluateGraph(
 
   function evalNode(id: string): Record<string, PortValue> {
     if (memo.has(id)) return memo.get(id)!
+    // Re-entering a node still on the stack means the graph has a cycle.
+    // Return empty so the upstream input falls back to its default instead
+    // of recursing forever and overflowing the stack.
+    if (inProgress.has(id)) return {}
     const node = nodeMap.get(id)
     if (!node) return {}
+    inProgress.add(id)
 
     const props = node.data.properties as Record<string, unknown>
     const type  = node.data.nodeType as string
@@ -1023,6 +1030,7 @@ export function evaluateGraph(
     }
 
     memo.set(id, out)
+    inProgress.delete(id)
     return out
   }
 

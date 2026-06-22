@@ -137,4 +137,28 @@ describe('evaluateGraph', () => {
       evaluateGraph([counter], [], tick, W, H)
     }
   })
+
+  it('breaks a direct self-loop without overflowing the stack', () => {
+    // Invert whose frame input is wired back to its own output.
+    const inv = node('inv', 'Invert', 'pattern', {})
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [
+      edge('self', 'inv', 'frame', 'inv', 'frame'),
+      edge('e1', 'inv', 'frame', 'out', 'frame'),
+    ]
+    expect(() => evaluateGraph([inv, out], edges, 0, W, H)).not.toThrow()
+  })
+
+  it('breaks a two-node cycle without overflowing the stack', () => {
+    // bm1.frame ← bm2.frame and bm2.frame ← bm1.frame form a cycle.
+    const bm1 = node('bm1', 'BrightnessMod', 'pattern', { brightness: 1 })
+    const bm2 = node('bm2', 'BrightnessMod', 'pattern', { brightness: 1 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [
+      edge('e1', 'bm2', 'frame', 'bm1', 'frame'),
+      edge('e2', 'bm1', 'frame', 'bm2', 'frame'),
+      edge('e3', 'bm1', 'frame', 'out', 'frame'),
+    ]
+    expect(() => evaluateGraph([bm1, bm2, out], edges, 0, W, H)).not.toThrow()
+  })
 })

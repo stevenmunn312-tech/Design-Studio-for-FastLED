@@ -102,28 +102,34 @@ export default function LEDPreview() {
     const ctx = useWebGL ? null : canvas.getContext('2d')
 
     const loop = () => {
-      tickRef.current++
-      const tick = tickRef.current
-      const gW = gridWRef.current, gH = gridHRef.current, px = pixelRef.current
-      const frame = evaluateGraph(nodesRef.current, edgesRef.current, tick, gW, gH) ?? idleFrame(tick, gW, gH)
+      // A single bad frame (e.g. a malformed graph) must not tear down the
+      // animation loop, so swallow errors and keep scheduling the next frame.
+      try {
+        tickRef.current++
+        const tick = tickRef.current
+        const gW = gridWRef.current, gH = gridHRef.current, px = pixelRef.current
+        const frame = evaluateGraph(nodesRef.current, edgesRef.current, tick, gW, gH) ?? idleFrame(tick, gW, gH)
 
-      if (useWebGL && glRef.current) {
-        glRef.current.render(frame, gW, gH, px)
-      } else if (ctx) {
-        if (canvas.width !== gW * px || canvas.height !== gH * px) {
-          canvas.width = gW * px; canvas.height = gH * px
+        if (useWebGL && glRef.current) {
+          glRef.current.render(frame, gW, gH, px)
+        } else if (ctx) {
+          if (canvas.width !== gW * px || canvas.height !== gH * px) {
+            canvas.width = gW * px; canvas.height = gH * px
+          }
+          renderFrame(ctx, frame, px)
         }
-        renderFrame(ctx, frame, px)
-      }
 
-      frameCount.current++
-      const now = performance.now()
-      if (now - lastFpsTime.current >= 1000) {
-        const count = frameCount.current
-        setFps(count)
-        useUiStore.getState().setFps(count)
-        frameCount.current = 0
-        lastFpsTime.current = now
+        frameCount.current++
+        const now = performance.now()
+        if (now - lastFpsTime.current >= 1000) {
+          const count = frameCount.current
+          setFps(count)
+          useUiStore.getState().setFps(count)
+          frameCount.current = 0
+          lastFpsTime.current = now
+        }
+      } catch (err) {
+        console.error('LED preview frame failed:', err)
       }
 
       animRef.current = requestAnimationFrame(loop)
