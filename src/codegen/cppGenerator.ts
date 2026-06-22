@@ -469,6 +469,64 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[]): string {
         break
       }
 
+      case 'CHSV': {
+        const hue = f('hue', 'hue', 128), sat = f('sat', 'sat', 255), val = f('val', 'val', 255)
+        ln(`  CRGB ${v('rgb')} = CHSV((uint8_t)(${hue}), (uint8_t)(${sat}), (uint8_t)(${val}));`)
+        break
+      }
+
+      case 'PaletteSelector':
+        ln(`  // PaletteSelector — use ${String(p.palette ?? 'Rainbow')}Colors_p in palette-consuming nodes`)
+        break
+
+      case 'PaletteBlend':
+        ln(`  // PaletteBlend — nblendPaletteTowardPalette(paletteA, paletteB, (uint8_t)(${f('amount','amount',0.5)}*255));`)
+        break
+
+      case 'BeatSin': {
+        const bpm = Number(p.bpm ?? 60), lo = Number(p.low ?? 0), hi = Number(p.high ?? 255)
+        ln(`  uint8_t ${v('value')} = beatsin8(${bpm}, ${lo}, ${hi});`)
+        break
+      }
+
+      case 'Fire2012': {
+        const cooling = Number(p.cooling ?? 55), sparking = Number(p.sparking ?? 120)
+        ln(`  { // Fire2012 (cooling=${cooling}, sparking=${sparking})`)
+        ln(`    static uint8_t _heat[HEIGHT][WIDTH] = {};`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++)`)
+        ln(`      _heat[_y][_x]=qsub8(_heat[_y][_x],random8(0,((${cooling}*10/HEIGHT)+2)));`)
+        ln(`    for(int _y=0;_y<HEIGHT-2;_y++) for(int _x=0;_x<WIDTH;_x++)`)
+        ln(`      _heat[_y][_x]=(_heat[_y+1][_x]+_heat[_y+2][max(0,_x-1)]+_heat[_y+2][_x]+_heat[_y+2][min(WIDTH-1,_x+1)])/4;`)
+        ln(`    for(int _x=0;_x<WIDTH;_x++) if(random8()<${sparking}) _heat[HEIGHT-1][_x]=qadd8(_heat[HEIGHT-1][_x],random8(160,255));`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++) leds[_y*WIDTH+_x]=HeatColor(_heat[_y][_x]);`)
+        ln(`  }`)
+        break
+      }
+
+      case 'Blur2D': {
+        const amount = Number(p.amount ?? 40)
+        ln(`  blur2d(leds, WIDTH, HEIGHT, ${amount});`)
+        break
+      }
+
+      case 'XYMapper': {
+        const xx = f('x', 'x', 0), yy = f('y', 'y', 0)
+        ln(`  uint16_t ${v('index')} = (uint16_t)(${xx}) + (uint16_t)(${yy}) * WIDTH;`)
+        break
+      }
+
+      case 'LayerBlend': {
+        const amount = f('amount', 'amount', 128)
+        ln(`  blend(leds, leds, leds, NUM_LEDS, (uint8_t)(${amount}));  // LayerBlend: provide two source arrays`)
+        break
+      }
+
+      case 'AudioHue': {
+        const bass = f('bass','bass',0.5), mids = f('mids','mids',0.5), treble = f('treble','treble',0.5)
+        ln(`  uint8_t ${v('hue')} = (uint8_t)(((${bass})*0.5f+(${mids})*0.3f+(${treble})*0.2f)*255);`)
+        break
+      }
+
       case 'MatrixOutput':
         ln(`  FastLED.show();`)
         break

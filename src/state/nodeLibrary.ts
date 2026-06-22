@@ -63,6 +63,34 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { cooling: 55, sparking: 120 },
   },
   {
+    type: 'Fire2012',
+    label: 'Fire 2012',
+    category: 'pattern',
+    inputs: [],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { cooling: 55, sparking: 120 },
+  },
+  {
+    type: 'Blur2D',
+    label: 'Blur 2D',
+    category: 'pattern',
+    inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { amount: 40 },
+  },
+  {
+    type: 'LayerBlend',
+    label: 'Blend Layers',
+    category: 'pattern',
+    inputs: [
+      { id: 'a',      label: 'A',      dataType: 'frame' },
+      { id: 'b',      label: 'B',      dataType: 'frame' },
+      { id: 'amount', label: 'Amount', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { amount: 128 },
+  },
+  {
     type: 'Plasma',
     label: 'Plasma',
     category: 'pattern',
@@ -428,6 +456,20 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { b: 0.5 },
   },
 
+  // ── Audio extras ──────────────────────────────────────────────────────
+  {
+    type: 'AudioHue',
+    label: 'Audio → Hue',
+    category: 'audio',
+    inputs: [
+      { id: 'bass',   label: 'Bass',   dataType: 'float' },
+      { id: 'mids',   label: 'Mids',   dataType: 'float' },
+      { id: 'treble', label: 'Treble', dataType: 'float' },
+    ],
+    outputs: [{ id: 'hue', label: 'Hue (0–360)', dataType: 'float' }],
+    defaultProperties: {},
+  },
+
   // ── Color ──────────────────────────────────────────────────────────────
   {
     type: 'HSVToRGB',
@@ -452,6 +494,53 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
     defaultProperties: { t: 0.5 },
+  },
+  {
+    type: 'CHSV',
+    label: 'CHSV',
+    category: 'math',
+    inputs: [
+      { id: 'hue', label: 'Hue (0–255)', dataType: 'float' },
+      { id: 'sat', label: 'Sat (0–255)', dataType: 'float' },
+      { id: 'val', label: 'Val (0–255)', dataType: 'float' },
+    ],
+    outputs: [{ id: 'rgb', label: 'RGB', dataType: 'color' }],
+    defaultProperties: { hue: 128, sat: 255, val: 255 },
+  },
+  {
+    type: 'PaletteSelector',
+    label: 'Palette Selector',
+    category: 'math',
+    inputs: [],
+    outputs: [{ id: 'palette', label: 'Palette', dataType: 'float' }],
+    defaultProperties: { palette: 'rainbow' },
+  },
+  {
+    type: 'PaletteBlend',
+    label: 'Blend Palettes',
+    category: 'math',
+    inputs: [{ id: 'amount', label: 'Amount', dataType: 'float' }],
+    outputs: [{ id: 'palette', label: 'Palette', dataType: 'float' }],
+    defaultProperties: { paletteA: 'rainbow', paletteB: 'ocean', amount: 0.5 },
+  },
+  {
+    type: 'BeatSin',
+    label: 'BeatSin',
+    category: 'math',
+    inputs: [],
+    outputs: [{ id: 'value', label: 'Value (0–255)', dataType: 'float' }],
+    defaultProperties: { bpm: 60, low: 0, high: 255 },
+  },
+  {
+    type: 'XYMapper',
+    label: 'XY → Index',
+    category: 'math',
+    inputs: [
+      { id: 'x', label: 'X', dataType: 'float' },
+      { id: 'y', label: 'Y', dataType: 'float' },
+    ],
+    outputs: [{ id: 'index', label: 'Index', dataType: 'float' }],
+    defaultProperties: {},
   },
 
   // ── Proper noise ──────────────────────────────────────────────────────

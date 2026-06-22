@@ -200,6 +200,8 @@ function samplePalette(palette: string, t: number): RGB {
       return hsv(200 + h * 40, 0.8 + h * 0.2, h * 0.9 + 0.1)
     case 'lava':
       return hsv(h * 40, 1, h > 0.08 ? 0.9 : h * 11)
+    case 'forest':
+      return hsv(90 + h * 60, 0.7 + h * 0.3, 0.4 + h * 0.6)
     case 'party':
       return hsv(((h * 360 * 6.7) % 360 + 360) % 360, 1, 1)
     default: // rainbow
@@ -313,6 +315,58 @@ function evalNoise3D(speed: number, scale: number, t: number, palette: string, W
         amp *= 0.5; freq *= 2.1
       }
       return samplePalette(palette, ((v * 0.5 + 0.5) % 1 + 1) % 1)
+    })
+  )
+}
+
+function heatColor(temperature: number): RGB {
+  const t192 = Math.floor(temperature * 191 / 255)
+  const ramp = (t192 & 0x3F) << 2
+  if (t192 > 0x80) return { r: 255, g: 255, b: ramp }
+  if (t192 > 0x40) return { r: 255, g: ramp, b: 0 }
+  return { r: ramp, g: 0, b: 0 }
+}
+
+const fire2012Heat = new Map<string, Uint8Array[]>()
+
+function evalFire2012(nodeId: string, cooling: number, sparking: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const stored = fire2012Heat.get(nodeId)
+  let heat: Uint8Array[]
+  if (!stored || stored.length !== H || stored[0].length !== W) {
+    heat = Array.from({ length: H }, () => new Uint8Array(W))
+    fire2012Heat.set(nodeId, heat)
+  } else {
+    heat = stored
+  }
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const cool = Math.floor(Math.random() * ((cooling * 10 / H) + 2))
+      heat[y][x] = Math.max(0, heat[y][x] - cool)
+    }
+  for (let y = 0; y < H - 2; y++)
+    for (let x = 0; x < W; x++)
+      heat[y][x] = Math.floor(
+        (heat[y+1][x] + heat[y+2][Math.max(0,x-1)] + heat[y+2][x] + heat[y+2][Math.min(W-1,x+1)]) / 4
+      )
+  for (let x = 0; x < W; x++)
+    if (Math.random() * 255 < sparking)
+      heat[H-1][x] = Math.min(255, heat[H-1][x] + Math.floor(Math.random() * 95) + 160)
+  return heat.map(row => Array.from(row).map(h => heatColor(h)))
+}
+
+function evalBlur2D(src: Frame, amount: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const radius = Math.max(1, Math.round(amount / 255 * 3))
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      let r = 0, g = 0, b = 0, count = 0
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const nx = Math.max(0, Math.min(W-1, x+dx))
+          const ny = Math.max(0, Math.min(H-1, y+dy))
+          r += src[ny][nx].r; g += src[ny][nx].g; b += src[ny][nx].b; count++
+        }
+      }
+      return { r: Math.round(r/count), g: Math.round(g/count), b: Math.round(b/count) }
     })
   )
 }
@@ -867,6 +921,89 @@ export function evaluateGraph(
         const formula = String(props.formula ?? 'sin(x*6+t)*0.5+0.5')
         const palette = String(props.palette ?? 'rainbow')
         out = { frame: evalCustomFormula(formula, a, b, palette, t, W, H) }
+        break
+      }
+
+      // ── New FastLED spec nodes ────────────────────────────────────────
+      case 'CHSV': {
+        const hue = num(id, 'hue', props, 'hue', 128)
+        const sat = num(id, 'sat', props, 'sat', 255)
+        const val = num(id, 'val', props, 'val', 255)
+        out = { rgb: hsv(hue / 255 * 360, sat / 255, val / 255) }
+        break
+      }
+
+      case 'PaletteSelector':
+        // Outputs palette index (0–5) encoded as float; consuming nodes use samplePalette
+        out = { palette: ['rainbow','lava','ocean','forest','party','heat']
+          .indexOf(String(props.palette ?? 'rainbow').toLowerCase()) }
+        break
+
+      case 'PaletteBlend': {
+        // Blend between two palettes at a midpoint t; output is a palette index float
+        // Encoded as a float 0-5 like PaletteSelector — consuming nodes resolve by name
+        const amount = num(id, 'amount', props, 'amount', 0.5) / 255
+        const palettes = ['rainbow','lava','ocean','forest','party','heat']
+        const ai = palettes.indexOf(String(props.paletteA ?? 'rainbow').toLowerCase())
+        const bi = palettes.indexOf(String(props.paletteB ?? 'ocean').toLowerCase())
+        out = { palette: ai + (bi - ai) * amount }
+        break
+      }
+
+      case 'BeatSin': {
+        const bpm = Number(props.bpm ?? 60)
+        const lo  = Number(props.low  ?? 0)
+        const hi  = Number(props.high ?? 255)
+        const phase = (t * bpm / 60) % 1
+        out = { value: lo + ((Math.sin(phase * Math.PI * 2) + 1) / 2) * (hi - lo) }
+        break
+      }
+
+      case 'Fire2012': {
+        const cooling  = Number(props.cooling  ?? 55)
+        const sparking = Number(props.sparking ?? 120)
+        out = { frame: evalFire2012(id, cooling, sparking, W, H) }
+        break
+      }
+
+      case 'Blur2D': {
+        const src = input(id, 'frame', null) as Frame | null
+        const amount = num(id, 'amount', props, 'amount', 40)
+        if (!src) { out = { frame: blankFrame(W, H) }; break }
+        out = { frame: evalBlur2D(src, amount, W, H) }
+        break
+      }
+
+      case 'XYMapper': {
+        const x = num(id, 'x', props, 'x', 0)
+        const y = num(id, 'y', props, 'y', 0)
+        out = { index: Math.floor(x) + Math.floor(y) * W }
+        break
+      }
+
+      case 'LayerBlend': {
+        const fa = input(id, 'a', null) as Frame | null
+        const fb = input(id, 'b', null) as Frame | null
+        const amount = num(id, 'amount', props, 'amount', 128) / 255
+        const ca = fa ?? blankFrame(W, H)
+        const cb = fb ?? blankFrame(W, H)
+        out = {
+          frame: ca.map((row, y) =>
+            row.map((px, x) => ({
+              r: Math.round(px.r * (1 - amount) + cb[y][x].r * amount),
+              g: Math.round(px.g * (1 - amount) + cb[y][x].g * amount),
+              b: Math.round(px.b * (1 - amount) + cb[y][x].b * amount),
+            }))
+          ),
+        }
+        break
+      }
+
+      case 'AudioHue': {
+        const bass   = num(id, 'bass',   props, 'bass',   0.5)
+        const mids   = num(id, 'mids',   props, 'mids',   0.5)
+        const treble = num(id, 'treble', props, 'treble', 0.5)
+        out = { hue: (bass * 0.5 + mids * 0.3 + treble * 0.2) * 360 }
         break
       }
 
