@@ -2,6 +2,7 @@
   flex: 1;
   height: 100%;
   overflow: hidden;
+  position: relative;
 }
 
 /* Minimap edge colors — edges carry stroke color from their source category */

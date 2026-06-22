@@ -23,6 +23,7 @@ import StudioNode from './StudioNode'
 import GlowEdge from './GlowEdge'
 import NodeContextMenu from './NodeContextMenu'
 import CanvasContextMenu from './CanvasContextMenu'
+import GroupControls from './GroupControls'
 import styles from './NodeGraphCanvas.module.css'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -42,7 +43,7 @@ function portsCompatible(srcType: string, dstType: string): boolean {
 }
 
 function NodeGraphCanvasInner() {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode, addNode } =
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, enterGraph } =
     useGraphStore()
   const { screenToFlowPosition, getNode } = useReactFlow()
   const { setStatus, setSparkPort } = useUiStore()
@@ -91,6 +92,14 @@ function NodeGraphCanvasInner() {
   const onNodeClick: NodeMouseHandler = useCallback(
     (_e, node) => selectNode(node.id),
     [selectNode]
+  )
+
+  const onNodeDoubleClick: NodeMouseHandler = useCallback(
+    (_e, node) => {
+      const d = node.data as { nodeType?: string; properties?: { groupId?: string } }
+      if (d.nodeType === 'Group' && d.properties?.groupId) enterGraph(d.properties.groupId)
+    },
+    [enterGraph]
   )
 
   const onNodeContextMenu: NodeMouseHandler = useCallback(
@@ -152,6 +161,7 @@ function NodeGraphCanvasInner() {
 
   return (
     <div ref={wrapperRef} className={styles.canvas} onDragOver={onDragOver} onDrop={onDrop}>
+      <GroupControls />
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -162,6 +172,7 @@ function NodeGraphCanvasInner() {
         onConnect={handleConnect}
         onConnectEnd={onConnectEnd}
         onNodeClick={onNodeClick}
+        onNodeDoubleClick={onNodeDoubleClick}
         onNodeContextMenu={onNodeContextMenu}
         onPaneContextMenu={onPaneContextMenu}
         onPaneClick={onPaneClick}

@@ -1,0 +1,42 @@
+.bar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-glow);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.crumb {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.back,
+.group {
+  background: transparent;
+  border: 1px solid var(--border-glow);
+  border-radius: 6px;
+  padding: 3px 8px;
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.back:hover,
+.group:hover {
+  border-color: var(--accent-composite);
+  color: var(--accent-composite);
+}
+
+.group {
+  border-color: var(--accent-composite);
+  color: var(--accent-composite);
+}

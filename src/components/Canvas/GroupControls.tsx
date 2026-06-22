@@ -1,0 +1,46 @@
+import { useGraphStore, ROOT_GRAPH_ID } from '../../state/graphStore'
+import { useUiStore } from '../../state/uiStore'
+import styles from './GroupControls.module.css'
+
+/**
+ * Overlay for the multi-graph workspace: a breadcrumb to leave a group and a
+ * "Group" button that encapsulates the current selection (ADR 0001, Phase 1).
+ */
+export default function GroupControls() {
+  const activeGraphId = useGraphStore((s) => s.activeGraphId)
+  const graphs = useGraphStore((s) => s.graphs)
+  const nodes = useGraphStore((s) => s.nodes)
+  const enterGraph = useGraphStore((s) => s.enterGraph)
+  const createGroup = useGraphStore((s) => s.createGroup)
+  const setStatus = useUiStore((s) => s.setStatus)
+
+  const inGroup = activeGraphId !== ROOT_GRAPH_ID
+  const activeName = graphs[activeGraphId]?.name ?? 'Main'
+  const selectedIds = nodes.filter((n) => n.selected).map((n) => n.id)
+
+  const handleGroup = () => {
+    if (selectedIds.length === 0) return
+    const name = window.prompt('Group name', 'New Group')?.trim()
+    if (!name) return
+    createGroup(name, selectedIds)
+    setStatus(`Grouped ${selectedIds.length} node(s) into “${name}”`, 'success')
+  }
+
+  return (
+    <div className={styles.bar}>
+      {inGroup ? (
+        <>
+          <button className={styles.back} onClick={() => enterGraph(ROOT_GRAPH_ID)}>← Main</button>
+          <span className={styles.crumb}>{activeName}</span>
+        </>
+      ) : (
+        <span className={styles.crumb}>Main</span>
+      )}
+      {selectedIds.length > 0 && (
+        <button className={styles.group} onClick={handleGroup}>
+          ⊞ Group {selectedIds.length}
+        </button>
+      )}
+    </div>
+  )
+}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useGraphStore } from '../../state/graphStore'
+import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audioStore'
 import { evaluateGraph, type Frame } from '../../state/graphEvaluator'
@@ -108,7 +108,7 @@ export default function LEDPreview() {
         tickRef.current++
         const tick = tickRef.current
         const gW = gridWRef.current, gH = gridHRef.current, px = pixelRef.current
-        const frame = evaluateGraph(nodesRef.current, edgesRef.current, tick, gW, gH) ?? idleFrame(tick, gW, gH)
+        const frame = evaluateGraph(nodesRef.current, edgesRef.current, tick, gW, gH, getGroupRegistry()) ?? idleFrame(tick, gW, gH)
 
         if (useWebGL && glRef.current) {
           glRef.current.render(frame, gW, gH, px)
