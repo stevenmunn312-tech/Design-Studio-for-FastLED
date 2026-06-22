@@ -139,4 +139,29 @@ describe('generateCpp', () => {
     expect(cpp).toContain('for (int _x = 1; _x < 4;')
     expect(cpp).toContain('CRGB(0, 255, 0)')
   })
+
+  it('maps a Simplex2D palette property to its FastLED constant', () => {
+    const sx = node('sx', 'Simplex2D', 'pattern', { palette: 'lava' })
+    const cpp = generateCpp([sx, outputNode], [edge('e1', 'sx', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('ColorFromPalette(LavaColors_p')
+  })
+
+  it('resolves a connected PaletteSelector into the consuming node', () => {
+    const sel = node('sel', 'PaletteSelector', 'color', { palette: 'ocean' })
+    const sx  = node('sx', 'Simplex2D', 'pattern', { palette: 'rainbow' })
+    const cpp = generateCpp([sel, sx, outputNode], [
+      edge('e1', 'sel', 'sx', 'palette', 'paletteIn'),
+      edge('e2', 'sx', 'out', 'frame', 'frame'),
+    ])
+    // The connected selector's palette wins over the node's own property.
+    expect(cpp).toContain('ColorFromPalette(OceanColors_p')
+    expect(cpp).not.toContain('ColorFromPalette(RainbowColors_p')
+  })
+
+  it('resolves a connected PaletteBlend to its base palette A', () => {
+    const blend = node('bl', 'PaletteBlend', 'color', { paletteA: 'forest', paletteB: 'party', amount: 128 })
+    const samp  = node('s', 'PaletteSampler', 'color', { t: 0.5 })
+    const cpp = generateCpp([blend, samp, outputNode], [edge('e1', 'bl', 's', 'palette', 'paletteIn')])
+    expect(cpp).toContain('ColorFromPalette(ForestColors_p')
+  })
 })

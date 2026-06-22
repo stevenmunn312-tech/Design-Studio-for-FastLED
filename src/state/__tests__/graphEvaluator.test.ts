@@ -148,6 +148,28 @@ describe('evaluateGraph', () => {
     expect(frame![3][3]).toEqual({ r: 0, g: 0, b: 0 })
   })
 
+  it('Simplex2D uses a connected palette over its own property', () => {
+    // Baseline: Simplex2D with palette property 'heat', no connection.
+    const heatProp = evaluateGraph(
+      [node('sx', 'Simplex2D', 'pattern', { palette: 'heat' })], [], 0, W, H,
+    )
+    // Same node defaulting to 'rainbow' but driven by a PaletteSelector('heat').
+    const sel  = node('sel', 'PaletteSelector', 'color', { palette: 'heat' })
+    const sx   = node('sx', 'Simplex2D', 'pattern', { palette: 'rainbow' })
+    const wired = evaluateGraph(
+      [sel, sx], [edge('e1', 'sel', 'palette', 'sx', 'paletteIn')], 0, W, H,
+    )
+    // The connected palette wins, so the wired frame matches the heat baseline.
+    expect(wired).toEqual(heatProp)
+  })
+
+  it('falls back to the palette property when paletteIn is unconnected', () => {
+    const ocean   = evaluateGraph([node('sx', 'Simplex2D', 'pattern', { palette: 'ocean' })], [], 0, W, H)
+    const rainbow = evaluateGraph([node('sx', 'Simplex2D', 'pattern', { palette: 'rainbow' })], [], 0, W, H)
+    // Different palettes produce different frames.
+    expect(ocean).not.toEqual(rainbow)
+  })
+
   it('BlendFrames produces a mix of two frames', () => {
     const black = node('b', 'SolidColor', 'pattern', { r: 0, g: 0, b: 0 })
     const white = node('w', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })

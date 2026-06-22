@@ -6,6 +6,17 @@ function safeId(id: string): string {
   return id.replace(/[^a-zA-Z0-9_]/g, '_')
 }
 
+// Maps the studio palette names (see samplePalette in graphEvaluator) to the
+// matching FastLED preset palette constants.
+const PALETTE_CPP: Record<string, string> = {
+  rainbow: 'RainbowColors_p',
+  heat:    'HeatColors_p',
+  ocean:   'OceanColors_p',
+  lava:    'LavaColors_p',
+  forest:  'ForestColors_p',
+  party:   'PartyColors_p',
+}
+
 /** Topological sort: dependencies before dependents */
 function topoSort(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
   const nodeMap = new Map(nodes.map((n) => [n.id, n]))
@@ -41,6 +52,8 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[]): string {
       incoming.set(`${e.target}:${e.targetHandle}`, { srcId: e.source, srcPort: e.sourceHandle })
   }
 
+  const nodeMap = new Map(nodes.map((n) => [n.id, n]))
+
   const outputNode = nodes.find((n) => n.data.nodeType === 'MatrixOutput')
   const props = (n: StudioNode) => n.data.properties as Record<string, unknown>
 
@@ -70,6 +83,28 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[]): string {
     const up = incoming.get(`${nodeId}:${portId}`)
     if (up) return `n_${safeId(up.srcId)}_${up.srcPort}`
     return 'CRGB::Black'
+  }
+
+  // Resolve a palette name to its FastLED preset palette constant.
+  function fastledPalette(name: string): string {
+    return PALETTE_CPP[name.toLowerCase()] ?? 'RainbowColors_p'
+  }
+
+  // Resolve the FastLED palette constant for a palette-consuming port: follow a
+  // connected PaletteSelector/PaletteBlend back to its chosen palette, otherwise
+  // fall back to the node's own `palette` property. (PaletteBlend resolves to its
+  // base palette A; runtime blending is left as a generated comment.)
+  function paletteExpr(nodeId: string, portId: string, nodeProps: Record<string, unknown>): string {
+    const up = incoming.get(`${nodeId}:${portId}`)
+    if (up) {
+      const src = nodeMap.get(up.srcId)
+      if (src) {
+        const sp = props(src)
+        const name = src.data.nodeType === 'PaletteBlend' ? sp.paletteA : sp.palette
+        return fastledPalette(String(name ?? 'rainbow'))
+      }
+    }
+    return fastledPalette(String(nodeProps.palette ?? 'rainbow'))
   }
 
   const loopLines: string[] = []
@@ -372,9 +407,8 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[]): string {
       }
 
       case 'PaletteSampler': {
-        const tt = f('t', 't', 0), pal = String(p.palette ?? 'rainbow')
-        ln(`  // PaletteSampler (${pal}) — use CRGBPalette16 with your chosen palette`)
-        ln(`  CRGB ${v('color')} = ColorFromPalette(RainbowColors_p, (uint8_t)((${tt})*255));`)
+        const tt = f('t', 't', 0), pal = paletteExpr(node.id, 'paletteIn', p)
+        ln(`  CRGB ${v('color')} = ColorFromPalette(${pal}, (uint8_t)((${tt})*255));`)
         break
       }
 
@@ -457,27 +491,27 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[]): string {
       case 'Simplex2D': {
         needsT.v = true
         const speed = f('speed', 'speed', 0.4), scale = f('scale', 'scale', 0.3)
-        const pal = String(p.palette ?? 'rainbow')
-        ln(`  { // Simplex2D (${pal} palette)`)
+        const pal = paletteExpr(node.id, 'paletteIn', p)
+        ln(`  { // Simplex2D`)
         ln(`    float _spd=${speed},_sc=${scale};`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float _n=sin(_x*_sc+sin(_y*_sc*0.8f+t*_spd*0.5f)+t*_spd)`)
         ln(`            +0.5f*sin(_x*_sc*2+t*_spd*1.9f)+0.25f*sin(_x*_sc*4+t*_spd*4.1f);`)
-        ln(`      leds[_y*WIDTH+_x]=ColorFromPalette(RainbowColors_p,(uint8_t)((_n*0.25f+0.5f)*255));}}`)
+        ln(`      leds[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_n*0.25f+0.5f)*255));}}`)
         break
       }
 
       case 'Noise3D': {
         needsT.v = true
         const speed = f('speed', 'speed', 0.5), scale = f('scale', 'scale', 0.3)
-        const pal = String(p.palette ?? 'ocean')
-        ln(`  { // Noise3D (${pal} palette)`)
+        const pal = paletteExpr(node.id, 'paletteIn', p)
+        ln(`  { // Noise3D`)
         ln(`    float _spd=${speed},_sc=${scale};`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float _n=(sin(_x*_sc+t*_spd)+cos(_y*_sc+t*_spd*0.7f))*0.5f`)
         ln(`            +(sin(_x*_sc*1.7f+t*_spd*1.3f+_y*_sc*0.9f)*0.33f)`)
         ln(`            +(cos(_x*_sc*2.9f+t*_spd*2.1f)*0.17f);`)
-        ln(`      leds[_y*WIDTH+_x]=ColorFromPalette(OceanColors_p,(uint8_t)((_n*0.3f+0.5f)*255));}}`)
+        ln(`      leds[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_n*0.3f+0.5f)*255));}}`)
         break
       }
 
@@ -488,11 +522,12 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[]): string {
       case 'CustomFormula': {
         needsT.v = true
         const formula = String(p.formula ?? 'sin(x*6+t)*0.5+0.5').replace(/\*\//g, '* /')
+        const pal = paletteExpr(node.id, 'paletteIn', p)
         ln(`  { /* CustomFormula: ${formula} */`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float x=(float)_x/(WIDTH-1>0?WIDTH-1:1),y=(float)_y/(HEIGHT-1>0?HEIGHT-1:1);`)
         ln(`      float _v=${formula};`)
-        ln(`      leds[_y*WIDTH+_x]=ColorFromPalette(RainbowColors_p,(uint8_t)(fmod(fmod(_v,1)+1,1)*255));}}`)
+        ln(`      leds[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(fmod(fmod(_v,1)+1,1)*255));}}`)
         break
       }
 
@@ -503,7 +538,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[]): string {
       }
 
       case 'PaletteSelector':
-        ln(`  // PaletteSelector — use ${String(p.palette ?? 'Rainbow')}Colors_p in palette-consuming nodes`)
+        ln(`  // PaletteSelector — drives ${fastledPalette(String(p.palette ?? 'rainbow'))} in connected palette-consuming nodes`)
         break
 
       case 'PaletteBlend':
