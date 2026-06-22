@@ -1,0 +1,418 @@
+FastLED Studio — Developer Handoff Specification
+
+This document defines everything engineering needs to implement the UI exactly as designed:  
+component structure, spacing, tokens, states, animations, and interaction logic.
+
+---
+
+1. Global Framework
+
+1.1 Technology Targets
+- Frontend:  
+  - React + TypeScript  
+  - Canvas/WebGL for node graph  
+  - WebAudio API for FFT preview  
+  - WebUSB/WebSerial for microcontroller upload  
+
+- Rendering Engine:  
+  - Node graph: PixiJS or custom WebGL canvas  
+  - LED preview: WebGL shader canvas  
+
+- State Management:  
+  - Zustand or Redux Toolkit  
+
+- Styling:  
+  - CSS variables (design tokens)  
+  - Tailwind or CSS‑in‑JS (Stitches/Emotion)  
+
+---
+
+2. Design Tokens (Implementation‑Ready)
+
+2.1 Colors (CSS Variables)
+`css
+:root {
+  --bg-primary: #0D0F12;
+  --bg-panel: #161A1F;
+  --bg-node: #1F242B;
+  --bg-node-hover: #252A31;
+
+  --accent-audio: #00FFFF;
+  --accent-pattern: #FF00FF;
+  --accent-math: #A8FF00;
+  --accent-output: #00BFFF;
+  --accent-hardware: #FFA500;
+
+  --text-primary: #E0E0E0;
+  --text-secondary: #A0A0A0;
+
+  --border-glow: rgba(255,255,255,0.1);
+  --divider: rgba(255,255,255,0.05);
+
+  --success: #00FF99;
+  --error: #FF3366;
+}
+`
+
+---
+
+2.2 Typography
+`css
+:root {
+  --font-display: "Inter", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-code: "JetBrains Mono", monospace;
+
+  --fs-display: 20px;
+  --fs-body: 14px;
+  --fs-code: 13px;
+  --fs-caption: 12px;
+}
+`
+
+---
+
+2.3 Spacing & Layout
+`css
+:root {
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+
+  --sidebar-width: 280px;
+  --statusbar-height: 40px;
+  --menubar-height: 48px;
+
+  --node-width: 220px;
+  --node-height: 140px;
+  --node-radius: 8px;
+}
+`
+
+---
+
+3. Component Specifications
+
+3.1 Node Component
+
+Structure
+`
+NodeContainer
+ ├── NodeHeader
+ ├── NodeBody
+ ├── InputPorts[]
+ └── OutputPorts[]
+`
+
+CSS Spec
+`css
+.node {
+  width: var(--node-width);
+  min-height: var(--node-height);
+  background: var(--bg-node);
+  border-radius: var(--node-radius);
+  box-shadow: inset 0 0 0 1px var(--border-glow);
+  transition: 150ms ease-out;
+}
+
+.node:hover {
+  background: var(--bg-node-hover);
+  transform: scale(1.02);
+}
+
+.node.selected {
+  box-shadow: 0 0 8px var(--accent-audio); / dynamic per node type /
+}
+`
+
+Header
+`css
+.node-header {
+  height: 32px;
+  padding: 0 var(--space-1);
+  font-size: var(--fs-display);
+  font-weight: 600;
+  color: black;
+  display: flex;
+  align-items: center;
+}
+`
+
+Header background color = node type accent.
+
+Ports
+`css
+.port {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+}
+`
+
+---
+
+3.2 Node Graph Canvas
+
+Rendering Requirements
+- WebGL or Canvas2D  
+- Bezier connectors with glow  
+- Zoom range: 0.5× to 2.0×  
+- Pan: middle mouse or space+drag  
+
+Connector Line Style
+`js
+{
+  width: 3,
+  color: accentColor,
+  glow: 0.6,
+  animation: "pulseOnData"
+}
+`
+
+Grid
+- 20 px snap grid  
+- Dotted or faint line grid (rgba(255,255,255,0.03))
+
+---
+
+3.3 Sidebar (Node Library)
+
+Structure
+`
+Sidebar
+ ├── CategoryHeader
+ └── NodeItem[]
+`
+
+Behavior
+- Expand/collapse with 180° chevron rotation  
+- Smooth scroll  
+- Node drag‑and‑drop into canvas  
+
+CSS
+`css
+.sidebar {
+  width: var(--sidebar-width);
+  background: var(--bg-panel);
+  padding: var(--space-2);
+}
+`
+
+---
+
+3.4 Preview Panel
+
+LED Matrix Rendering
+- WebGL shader  
+- Pixel size: 28 px  
+- Glow radius: 4 px  
+- 16×16 grid (dynamic based on output node)  
+
+Audio Visualizer
+- 16 FFT bars  
+- Gradient: cyan → magenta  
+- 60 FPS target  
+
+Interactions
+- Click = pause animation  
+- Drag = rotate (3D mode optional)  
+
+---
+
+3.5 Inspector Panel
+
+Structure
+`
+InspectorPanel
+ ├── SectionTitle
+ ├── FieldRow[]
+ ├── Divider
+ ├── ActionButtons
+`
+
+Field Row
+`css
+.field-row {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  margin-bottom: var(--space-1);
+}
+`
+
+Input
+`css
+.input {
+  flex: 1;
+  background: #1A1E23;
+  border-radius: 6px;
+  border: 1px solid var(--divider);
+  padding: 0 var(--space-1);
+  color: var(--text-primary);
+}
+
+.input:focus {
+  border-color: var(--accent-pattern);
+  box-shadow: 0 0 6px var(--accent-pattern);
+}
+`
+
+---
+
+3.6 Status Bar
+
+Behavior
+- Shows build/upload status  
+- Color-coded states  
+- Auto-clears after 5 seconds  
+
+CSS
+`css
+.statusbar {
+  height: var(--statusbar-height);
+  background: #121417;
+  padding: 0 var(--space-2);
+  display: flex;
+  align-items: center;
+  font-size: var(--fs-caption);
+}
+`
+
+---
+
+4. Interaction Logic
+
+4.1 Node Creation
+- Drag from sidebar → drop on canvas  
+- Node fades in (200 ms)  
+- Plays “pop” animation (scale 0.9 → 1.0)  
+
+4.2 Connecting Ports
+- Click‑drag from output → input  
+- Line previews while dragging  
+- On valid connection:  
+  - Spark animation at port  
+  - Line animates pulse for 300 ms  
+
+4.3 Error States
+- Invalid connection:  
+  - Line turns red  
+  - Tooltip: “Incompatible port types”  
+  - Shakes horizontally (80 ms)  
+
+4.4 Audio Reactivity
+- FFT data updates preview in real time  
+- Node headers pulse with beat detection  
+- Connectors glow brighter on high amplitude  
+
+---
+
+5. Data Structures
+
+5.1 Node Definition Schema
+`json
+{
+  "id": "uuid",
+  "type": "FFTAnalyzer",
+  "position": { "x": 320, "y": 120 },
+  "inputs": {
+    "audio": "nodeId.outputName"
+  },
+  "outputs": {
+    "bass": [],
+    "mids": [],
+    "treble": []
+  },
+  "properties": {
+    "bands": 16,
+    "smoothing": 3
+  }
+}
+`
+
+---
+
+5.2 Graph Schema
+`json
+{
+  "nodes": [...],
+  "connections": [
+    {
+      "from": { "node": "id1", "port": "bass" },
+      "to": { "node": "id2", "port": "hue" }
+    }
+  ]
+}
+`
+
+---
+
+6. Performance Requirements
+
+Node Graph
+- Must support 500+ nodes without lag  
+- GPU‑accelerated rendering  
+- Debounced layout updates  
+
+Preview
+- 60 FPS target  
+- WebGL shader pipeline  
+- FFT processed in AudioWorklet  
+
+---
+
+7. Upload Pipeline
+
+Steps
+1. Serialize node graph  
+2. Convert to intermediate representation  
+3. Generate C++ code  
+4. Compile via WebAssembly toolchain  
+5. Upload via WebSerial/WebUSB  
+
+Error Handling
+- Missing board definition  
+- Invalid GPIO mapping  
+- Compilation errors (surfaced in status bar)  
+
+---
+
+8. File Structure (Recommended)
+
+`
+/src
+ ├── components/
+ │    ├── Node/
+ │    ├── Sidebar/
+ │    ├── Preview/
+ │    ├── Inspector/
+ │    └── StatusBar/
+ ├── canvas/
+ │    ├── NodeRenderer.ts
+ │    ├── ConnectorRenderer.ts
+ │    └── GridRenderer.ts
+ ├── state/
+ │    ├── graphStore.ts
+ │    └── uiStore.ts
+ ├── utils/
+ ├── themes/
+ │    └── tokens.css
+ └── upload/
+      ├── compiler.ts
+      └── uploader.ts
+`
+
+---
+
+9. Developer Notes
+
+- All node types must be registered via a factory system.  
+- Node rendering must be decoupled from node logic.  
+- Undo/redo stack required (100 steps).  
+- Graph must autosave every 10 seconds.  
+- All animations must be GPU‑accelerated (transform/opacity only).  
+
+---
