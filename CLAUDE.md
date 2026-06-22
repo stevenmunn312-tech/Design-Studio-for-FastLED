@@ -43,6 +43,8 @@ Tests use vitest with `globals: true` and the `jsdom` environment (configured in
 
 **`src/state/graphStore.ts`** owns the React Flow node/edge arrays and wraps `applyNodeChanges`, `applyEdgeChanges`, `addEdge`. Also tracks `selectedNodeId` and exposes `updateNodeProperty`. The `onConnect` action embeds `style: { stroke: color }` on new edges so the MiniMap can pick up per-category edge colors.
 
+It is a **multi-graph workspace** (ADR 0001): the *active* graph stays in the top-level `nodes`/`edges` (so all consumers are unchanged), while inactive graphs (pattern groups) live in `graphData`, keyed by id, with metadata in `graphs`. `createGroup` encapsulates selected nodes into a new subgraph (adding a `GroupOutput` terminal) and replaces them with a single `Group` node; `enterGraph` switches the active graph (pausing/clearing undo history around the swap). `getGroupRegistry()` assembles the `{ groupId: { nodes, edges } }` map that `evaluateGraph` needs, and `LEDPreview` passes it every frame so groups preview live at both tiers.
+
 **`src/state/uiStore.ts`** owns panel visibility (`sidebarOpen`, `inspectorOpen`, `showUploadPanel`), status bar message/level, FPS counter, theme, reduced-motion, and high-contrast flags. `setStatus` auto-clears `info`/`success` after 5 s.
 
 **`src/state/audioStore.ts`** is a thin Zustand bridge over `AudioEngine.instance`. It calls `engine.subscribe()` at store-creation time so FFT data flows into Zustand state on every animation frame.
@@ -79,9 +81,11 @@ export interface RGB { r: number; g: number; b: number }
 export type Frame = RGB[][]   // row-major [y][x]
 ```
 
-Stateful nodes (`Fire`, `Fire2012`, `BeatFlash`, `Counter`, `Particles`, `PatternMaster`) persist state in module-level `Map` objects keyed by node ID. `formulaCache` compiles `CustomFormula` expressions once via `new Function(...)`.
+Stateful nodes (`Fire`, `Fire2012`, `BeatFlash`, `Counter`, `Particles`, `PatternMaster`) persist state in module-level `Map` objects keyed by `stateKey(id)` — the node id prefixed with the group-instance path, so two instances of the same group don't share state. `formulaCache` compiles `CustomFormula` expressions once via `new Function(...)`.
 
 `evalNode()` guards against graph cycles with an `inProgress` set: re-entering a node still on the evaluation stack returns `{}`, so the upstream input falls back to its default instead of recursing into a stack overflow. Keep this guard in place when editing the evaluator.
+
+**Groups (ADR 0001):** `evaluateGraph(nodes, edges, tick, W, H, groups)` takes an optional group registry. A `Group` node recurses into `groups[groupId]` (a subgraph) and returns the frame from that subgraph's `GroupOutput` terminal; a `groupStack` breaks group-level recursion. The `instancePrefix`/`groupStack` params are internal recursion bookkeeping — callers leave them defaulted.
 
 **`src/components/Preview/webglRenderer.ts`** — `WebGLLEDRenderer` uploads the frame as a texture and renders via a GLSL fragment shader. The shader draws each LED as a smooth circular disc with a 5×5-neighbor glow contribution. Y is flipped in the shader (`u_res.y - gl_FragCoord.y`) to match the JS frame's top-left origin. Falls back to Canvas 2D if WebGL is unavailable.
 
