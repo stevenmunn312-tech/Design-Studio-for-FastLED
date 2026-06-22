@@ -1,9 +1,71 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
+import type { GroupRegistry } from '../state/graphEvaluator'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function safeId(id: string): string {
   return id.replace(/[^a-zA-Z0-9_]/g, '_')
+}
+
+/**
+ * Expand every `Group` node into the graph in place: the group's subgraph nodes
+ * are inlined (their ids prefixed with the group-instance path so repeated or
+ * nested groups stay unique), the `GroupOutput` terminal is dropped, and the
+ * group's external consumers are rewired to whatever fed that terminal. The
+ * result is a flat graph the rest of the generator already understands.
+ *
+ * Edges into a Group are dropped (groups expose no inputs yet — ADR Phase 3),
+ * and unknown or self-referential groups are skipped.
+ */
+function flattenGroups(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  groups: GroupRegistry,
+  prefix = '',
+  groupStack: ReadonlySet<string> = new Set(),
+): { nodes: StudioNode[]; edges: StudioEdge[] } {
+  const pid = (id: string) => prefix + id
+  const nodeType = (n: StudioNode) => (n.data as { nodeType?: string }).nodeType
+  const outNodes: StudioNode[] = []
+  const outEdges: StudioEdge[] = []
+  // Prefixed Group-node id → the flattened source that fed its GroupOutput.
+  const terminalFor = new Map<string, { id: string; port: string }>()
+
+  for (const n of nodes) {
+    if (nodeType(n) === 'Group') {
+      const groupId = (n.data.properties as { groupId?: string })?.groupId
+      if (!groupId || !groups[groupId] || groupStack.has(groupId)) continue
+      const sub = groups[groupId]
+      const flat = flattenGroups(sub.nodes, sub.edges, groups, `${pid(n.id)}__`, new Set([...groupStack, groupId]))
+      const out = flat.nodes.find((x) => nodeType(x) === 'GroupOutput')
+      if (out) {
+        const fed = flat.edges.find((e) => e.target === out.id && e.targetHandle === 'frame')
+        if (fed?.source && fed.sourceHandle) terminalFor.set(pid(n.id), { id: fed.source, port: fed.sourceHandle })
+      }
+      for (const x of flat.nodes) if (nodeType(x) !== 'GroupOutput') outNodes.push(x)
+      for (const e of flat.edges) if (!(out && e.target === out.id)) outEdges.push(e)
+    } else {
+      outNodes.push({ ...n, id: pid(n.id) })
+    }
+  }
+
+  const isGroup = (id?: string | null) =>
+    nodes.some((n) => n.id === id && nodeType(n) === 'Group')
+
+  for (const e of edges) {
+    if (!e.source || !e.target || isGroup(e.target)) continue
+    const term = terminalFor.get(pid(e.source))
+    outEdges.push({
+      ...e,
+      id: pid(e.id ?? `${e.source}-${e.target}`),
+      source: term ? term.id : pid(e.source),
+      sourceHandle: term ? term.port : e.sourceHandle,
+      target: pid(e.target),
+      targetHandle: e.targetHandle,
+    } as StudioEdge)
+  }
+
+  return { nodes: outNodes, edges: outEdges }
 }
 
 // Maps the studio palette names (see samplePalette in graphEvaluator) to the
@@ -43,8 +105,13 @@ function topoSort(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
 
 // ── Code generator ────────────────────────────────────────────────────────────
 
-export function generateCpp(nodes: StudioNode[], edges: StudioEdge[]): string {
+export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: GroupRegistry = {}): string {
   if (nodes.length === 0) return '// No nodes in graph\n'
+
+  // Inline any Group nodes so the rest of the generator works on a flat graph.
+  const flat = flattenGroups(nodes, edges, groups)
+  nodes = flat.nodes
+  edges = flat.edges
 
   const incoming = new Map<string, { srcId: string; srcPort: string }>()
   for (const e of edges) {

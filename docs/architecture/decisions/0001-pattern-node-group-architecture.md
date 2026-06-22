@@ -112,8 +112,14 @@ where it is needed.
   that evaluates a referenced subgraph; per-instance state namespacing; a
   group-cycle guard; "Make Group" UI with enter/exit and live preview at both
   tiers.
-- **Phase 2 — Group codegen.** Each group emits a C++ function rendering to its
-  own buffer; the root graph emits the `loop()` that calls and blends them.
+- **Phase 2 — Group codegen.** _Initial implementation:_ the generator
+  **flattens** Group nodes into the root graph (inlining the subgraph with
+  prefixed ids, dropping `GroupOutput`, rewiring consumers) and reuses the
+  existing single-buffer emit pipeline. This keeps codegen correct and low-risk
+  but consistent with the current single-`leds[]` model. The
+  function-per-group + per-buffer form (emit `void pattern_<id>(CRGB* out)` and
+  blend buffers in `loop()`) is deferred and lands together with real frame
+  compositing in Phase 3.
 - **Phase 3 — Compositing richness.** Blend nodes (extend existing `LayerBlend`,
   `Crossfade`, `BlendFrames`), the `Sequencer` node, and hardware-driven
   transitions via exposed group parameters (Group Input/Output nodes).
