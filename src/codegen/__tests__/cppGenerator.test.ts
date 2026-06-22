@@ -116,4 +116,27 @@ describe('generateCpp', () => {
     expect(cpp).toContain('Fire2012')
     expect(cpp).toContain('HeatColor')
   })
+
+  it('emits a bounded loop for a Span node', () => {
+    const span = node('sp', 'Span', 'pattern', { row: 1, start: 2, count: 4, r: 0, g: 0, b: 255 })
+    const cpp = generateCpp([span, outputNode], [edge('e1', 'sp', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('for (int _x = 2; _x < 6;')
+    expect(cpp).toContain('1 * WIDTH + _x')
+    expect(cpp).toContain('CRGB(0, 0, 255)')
+  })
+
+  it('clips a Span to the matrix width', () => {
+    // start=6, count=10 on an 8-wide matrix → clipped to _x < 8.
+    const span = node('sp', 'Span', 'pattern', { row: 0, start: 6, count: 10 })
+    const cpp = generateCpp([span, outputNode], [edge('e1', 'sp', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('for (int _x = 6; _x < 8;')
+  })
+
+  it('emits a nested bounded loop for a Rect node', () => {
+    const rect = node('r', 'Rect', 'pattern', { x: 1, y: 1, w: 3, h: 2, r: 0, g: 255, b: 0 })
+    const cpp = generateCpp([rect, outputNode], [edge('e1', 'r', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('for (int _y = 1; _y < 3;')
+    expect(cpp).toContain('for (int _x = 1; _x < 4;')
+    expect(cpp).toContain('CRGB(0, 255, 0)')
+  })
 })

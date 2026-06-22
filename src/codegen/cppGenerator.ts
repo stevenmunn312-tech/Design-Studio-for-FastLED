@@ -164,6 +164,33 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[]): string {
         break
       }
 
+      case 'Span': {
+        // Paints over whatever earlier nodes wrote to leds[] (the implicit base).
+        const colorE = incoming.get(`${node.id}:color`)
+          ? colorExpr(node.id, 'color')
+          : `CRGB(${Number(p.r ?? 0)}, ${Number(p.g ?? 128)}, ${Number(p.b ?? 255)})`
+        const row   = Math.floor(Number(p.row   ?? 0))
+        const start = Math.floor(Number(p.start ?? 0))
+        const count = Math.floor(Number(p.count ?? width))
+        const x0 = Math.max(0, start), x1 = Math.min(width, start + count)
+        if (row >= 0 && row < height && x1 > x0)
+          ln(`  for (int _x = ${x0}; _x < ${x1}; _x++) leds[${row} * WIDTH + _x] = ${colorE};`)
+        break
+      }
+
+      case 'Rect': {
+        const colorE = incoming.get(`${node.id}:color`)
+          ? colorExpr(node.id, 'color')
+          : `CRGB(${Number(p.r ?? 0)}, ${Number(p.g ?? 128)}, ${Number(p.b ?? 255)})`
+        const rx = Math.floor(Number(p.x ?? 0)), ry = Math.floor(Number(p.y ?? 0))
+        const rw = Math.floor(Number(p.w ?? width)), rh = Math.floor(Number(p.h ?? height))
+        const x0 = Math.max(0, rx), x1 = Math.min(width, rx + rw)
+        const y0 = Math.max(0, ry), y1 = Math.min(height, ry + rh)
+        if (x1 > x0 && y1 > y0)
+          ln(`  for (int _y = ${y0}; _y < ${y1}; _y++) for (int _x = ${x0}; _x < ${x1}; _x++) leds[_y * WIDTH + _x] = ${colorE};`)
+        break
+      }
+
       case 'NoiseField': {
         needsT.v = true
         const speed = f('speed', 'speed', 1)

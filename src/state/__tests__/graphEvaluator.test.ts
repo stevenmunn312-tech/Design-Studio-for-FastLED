@@ -108,6 +108,41 @@ describe('evaluateGraph', () => {
     evaluateGraph([ps, samp], edges, 0, W, H)
   })
 
+  it('Span lights a run on its row and leaves the rest dark', () => {
+    // "4th–13th LED of the top row blue" → 0-indexed start=3, count=10.
+    const span  = node('sp', 'Span', 'pattern', { row: 0, start: 3, count: 10, r: 0, g: 0, b: 255 })
+    const frame = evaluateGraph([span], [], 0, 16, 4)
+    expect(frame![0][3]).toEqual({ r: 0, g: 0, b: 255 })   // first lit LED
+    expect(frame![0][12]).toEqual({ r: 0, g: 0, b: 255 })  // last lit LED
+    expect(frame![0][2]).toEqual({ r: 0, g: 0, b: 0 })     // just before the run
+    expect(frame![0][13]).toEqual({ r: 0, g: 0, b: 0 })    // just after the run
+    expect(frame![1][5]).toEqual({ r: 0, g: 0, b: 0 })     // other rows untouched
+  })
+
+  it('Span paints over a base frame, preserving the rest', () => {
+    const bg   = node('bg', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })  // red fill
+    const span = node('sp', 'Span', 'pattern', { row: 0, start: 1, count: 2, r: 0, g: 0, b: 255 })
+    const out  = node('out', 'MatrixOutput', 'output', {})
+    const edges = [
+      edge('e1', 'bg', 'frame', 'sp', 'base'),
+      edge('e2', 'sp', 'frame', 'out', 'frame'),
+    ]
+    const frame = evaluateGraph([bg, span, out], edges, 0, 4, 4)
+    expect(frame![0][1]).toEqual({ r: 0, g: 0, b: 255 })   // painted blue
+    expect(frame![0][2]).toEqual({ r: 0, g: 0, b: 255 })
+    expect(frame![0][0]).toEqual({ r: 255, g: 0, b: 0 })   // base shows through
+    expect(frame![1][1]).toEqual({ r: 255, g: 0, b: 0 })
+  })
+
+  it('Rect fills the specified rectangle', () => {
+    const rect  = node('r', 'Rect', 'pattern', { x: 1, y: 1, w: 2, h: 2, r: 0, g: 255, b: 0 })
+    const frame = evaluateGraph([rect], [], 0, 4, 4)
+    expect(frame![1][1]).toEqual({ r: 0, g: 255, b: 0 })
+    expect(frame![2][2]).toEqual({ r: 0, g: 255, b: 0 })
+    expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
+    expect(frame![3][3]).toEqual({ r: 0, g: 0, b: 0 })
+  })
+
   it('BlendFrames produces a mix of two frames', () => {
     const black = node('b', 'SolidColor', 'pattern', { r: 0, g: 0, b: 0 })
     const white = node('w', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })
