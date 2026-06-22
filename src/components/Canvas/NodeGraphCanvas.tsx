@@ -5,7 +5,6 @@ import {
   Background,
   BackgroundVariant,
   Controls,
-  MiniMap,
   useReactFlow,
   type NodeTypes,
   type EdgeTypes,
@@ -126,20 +125,6 @@ function NodeGraphCanvasInner() {
         />
         <Controls
           style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-glow)' }}
-        />
-        <MiniMap
-          style={{ background: 'var(--bg-panel)' }}
-          nodeColor={(n) => {
-            const cat = (n.data as { category?: string }).category
-            const map: Record<string, string> = {
-              audio: '#00ffff',
-              pattern: '#ff00ff',
-              math: '#a8ff00',
-              output: '#00bfff',
-              hardware: '#ffa500',
-            }
-            return (cat && map[cat]) || '#888'
-          }}
         />
       </ReactFlow>
     </div>
