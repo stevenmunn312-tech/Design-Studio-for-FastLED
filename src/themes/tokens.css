@@ -47,8 +47,8 @@
   --right-panel-width: calc(16 * 28px + var(--space-3) * 2); /* 496px — fits 16×28px LED canvas + padding */
 
   /* Nodes */
-  --node-width: 180px;
-  --node-height: 100px;
+  --node-width: 150px;
+  --node-height: 80px;
   --node-radius: 8px;
 
   /* Animations */
