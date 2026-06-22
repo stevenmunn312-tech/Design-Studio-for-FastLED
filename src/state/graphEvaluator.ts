@@ -1086,9 +1086,12 @@ export function evaluateGraph(
     if (frame) return frame as Frame
   }
 
-  // 2. Fallback: render the first pattern node that produces a frame
+  // 2. Fallback: render the first node that exposes a frame output. Keyed on
+  // the port type, not category, so it survives recategorisation (generators,
+  // composite nodes, shapes all qualify).
   for (const n of nodes) {
-    if ((n.data as { category?: string }).category === 'pattern') {
+    const outs = (n.data as { outputs?: { dataType?: string }[] }).outputs
+    if (outs?.some(o => o.dataType === 'frame')) {
       const frame = evalNode(n.id).frame
       if (frame) return frame as Frame
     }

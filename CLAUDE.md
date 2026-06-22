@@ -106,15 +106,19 @@ App.tsx auto-starts audio when a `MicInput` node is added to the graph; auto-sto
 
 ### Design Tokens
 
-All colors, spacing, and typography are CSS variables in `src/themes/tokens.css`. The five node categories each map to an accent color:
+All colors, spacing, and typography are CSS variables in `src/themes/tokens.css`. Each node category maps to an accent color. Category metadata (display order, label, accent CSS var, and literal hex for canvas/SVG) lives in one place — the `CATEGORIES` table in `src/state/nodeLibrary.ts`, which also exports `CATEGORY_COLOR` (hex) and `CATEGORY_ACCENT_VAR` (CSS var). Do not re-inline these maps in components.
 
 | Category | Hex | CSS var |
 |----------|-----|---------|
 | audio | `#00ffff` | `--accent-audio` |
-| pattern | `#ff00ff` | `--accent-pattern` |
-| math | `#a8ff00` | `--accent-math` |
-| output | `#00bfff` | `--accent-output` |
 | hardware | `#ffa500` | `--accent-hardware` |
+| math | `#a8ff00` | `--accent-math` |
+| color | `#ff4d8d` | `--accent-color` |
+| pattern | `#ff00ff` | `--accent-pattern` |
+| composite | `#00e0a4` | `--accent-composite` |
+| output | `#00bfff` | `--accent-output` |
+
+Categories group nodes by **primary output type** (the real type system is the per-port `dataType`, of which category is a coarse, UI-facing reflection): `color` produces colors/palettes, `pattern` is frame *generators*, `composite` is frame→frame operations. Sidebar grouping order follows the authoring pipeline (sources → math → color → pattern → composite → output).
 
 Key layout constants: sidebar `280px`, inspector `280px`, menu bar `48px`, status bar `40px`, node `220px × 140px`, base spacing `8px`.
 
@@ -125,12 +129,14 @@ Nodes are grouped into categories. Adding a new node type requires:
 2. A `case` in `graphEvaluator.ts` `evalNode()` switch (for live preview)
 3. A `case` in `cppGenerator.ts` `emit()` switch (for C++ codegen)
 
-Current node count by category (see `nodeLibrary.ts` for full list):
+Current nodes by category (see `nodeLibrary.ts` for full list):
 - **audio**: FFTAnalyzer, BeatDetect, MicInput, AudioHue
-- **pattern**: SolidColor, NoiseField, Fire, Fire2012, Plasma, SpectrumBars, BlendFrames, BrightnessMod, HueShift, BassPulse, MidrangeWaves, TrebleSparks, BeatFlash, Noise2D, RadialBurst, Spiral, Kaleidoscope, Particles, Invert, GradientFrame, GradientSampler, PaletteSampler, Simplex2D, Noise3D, Blur2D, LayerBlend, Crossfade, Wipe, Dissolve, PatternMaster, CustomFormula
-- **math**: MathAdd, Multiply, Clamp, MapRange, Sin, Cos, Lerp, TimeNode, Abs, Mod, Min, Max, Random, Counter, Gate, Not, Compare, HSVToRGB, BlendColors, CHSV, PaletteSelector, PaletteBlend, BeatSin, XYMapper
-- **output**: MatrixOutput
 - **hardware**: ButtonInput, PotInput
+- **math**: MathAdd, Multiply, Clamp, MapRange, Sin, Cos, Lerp, TimeNode, Abs, Mod, Min, Max, Random, Counter, Gate, Not, Compare, BeatSin, XYMapper
+- **color**: HSVToRGB, BlendColors, CHSV, PaletteSelector, PaletteBlend, GradientSampler, PaletteSampler
+- **pattern** (frame generators): SolidColor, Span, Rect, NoiseField, Fire, Fire2012, Plasma, SpectrumBars, BassPulse, MidrangeWaves, TrebleSparks, BeatFlash, Noise2D, RadialBurst, Spiral, Kaleidoscope, Particles, GradientFrame, Simplex2D, Noise3D, PatternMaster, CustomFormula
+- **composite** (frame→frame): BlendFrames, BrightnessMod, HueShift, Invert, Blur2D, LayerBlend, Crossfade, Wipe, Dissolve
+- **output**: MatrixOutput
 
 ## Specification Docs
 

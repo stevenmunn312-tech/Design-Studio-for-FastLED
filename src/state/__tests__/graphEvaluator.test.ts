@@ -11,16 +11,21 @@ vi.mock('../audioStore', () => ({
 }))
 
 import { evaluateGraph } from '../graphEvaluator'
+import { NODE_LIBRARY } from '../nodeLibrary'
 import type { StudioNode, StudioEdge } from '../graphStore'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function node(id: string, nodeType: string, category: string, props: Record<string, unknown> = {}): StudioNode {
+  const def = NODE_LIBRARY.find((n) => n.type === nodeType)
   return {
     id,
     type: 'studioNode',
     position: { x: 0, y: 0 },
-    data: { label: nodeType, nodeType, category, properties: props, inputs: [], outputs: [] },
+    data: {
+      label: nodeType, nodeType, category, properties: props,
+      inputs: def?.inputs ?? [], outputs: def?.outputs ?? [],
+    },
   } as unknown as StudioNode
 }
 
