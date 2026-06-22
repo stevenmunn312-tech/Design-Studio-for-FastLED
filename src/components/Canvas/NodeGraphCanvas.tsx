@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -10,12 +10,15 @@ import {
   type EdgeTypes,
   type NodeMouseHandler,
   type IsValidConnection,
+  type OnConnectEnd,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useGraphStore } from '../../state/graphStore'
+import { useUiStore } from '../../state/uiStore'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import StudioNode from './StudioNode'
 import GlowEdge from './GlowEdge'
+import NodeContextMenu from './NodeContextMenu'
 import styles from './NodeGraphCanvas.module.css'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -35,7 +38,9 @@ function NodeGraphCanvasInner() {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode, addNode } =
     useGraphStore()
   const { screenToFlowPosition, getNode } = useReactFlow()
+  const { setStatus } = useUiStore()
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const [contextMenu, setContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null)
 
   const isValidConnection: IsValidConnection = useCallback(
     (connection) => {
@@ -55,12 +60,32 @@ function NodeGraphCanvasInner() {
     [getNode]
   )
 
+  const onConnectEnd: OnConnectEnd = useCallback(
+    (_e, state) => {
+      if (state && !state.isValid) {
+        setStatus('Incompatible port types — connection blocked', 'error')
+      }
+    },
+    [setStatus]
+  )
+
   const onNodeClick: NodeMouseHandler = useCallback(
     (_e, node) => selectNode(node.id),
     [selectNode]
   )
 
-  const onPaneClick = useCallback(() => selectNode(null), [selectNode])
+  const onNodeContextMenu: NodeMouseHandler = useCallback(
+    (e, node) => {
+      e.preventDefault()
+      setContextMenu({ nodeId: node.id, x: e.clientX, y: e.clientY })
+    },
+    []
+  )
+
+  const onPaneClick = useCallback(() => {
+    selectNode(null)
+    setContextMenu(null)
+  }, [selectNode])
 
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -105,7 +130,9 @@ function NodeGraphCanvasInner() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onConnectEnd={onConnectEnd}
         onNodeClick={onNodeClick}
+        onNodeContextMenu={onNodeContextMenu}
         onPaneClick={onPaneClick}
         isValidConnection={isValidConnection}
         snapToGrid
@@ -127,6 +154,14 @@ function NodeGraphCanvasInner() {
           style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-glow)' }}
         />
       </ReactFlow>
+      {contextMenu && (
+        <NodeContextMenu
+          nodeId={contextMenu.nodeId}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   )
 }

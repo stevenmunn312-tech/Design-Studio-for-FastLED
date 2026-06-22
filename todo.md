@@ -3,14 +3,14 @@
 ## Core Graph
 
 - [x] Port type validation — reject connections between incompatible data types (e.g. `audio` → `float`)
-- [ ] Connection error feedback — red line + shake animation + "Incompatible port types" tooltip on invalid drop
+- [x] Connection error feedback — status bar error toast on incompatible drop
 - [x] Node snap to 20 px grid
 - [x] Undo / redo — 100-step history stack
 - [x] Autosave — serialize graph to `localStorage` every 10 seconds
 - [x] Save / load — export graph as JSON, import from file (MenuBar ↓ Save / ↑ Load, also Ctrl+S)
 - [x] Node search — filter sidebar by typing
 - [ ] Right-click context menu on canvas — "Add node", "Paste", "Select all"
-- [ ] Right-click context menu on node — "Duplicate", "Delete", "Disconnect all"
+- [x] Right-click context menu on node — Duplicate, Delete, Disconnect All
 
 ## LED Preview
 
@@ -34,7 +34,8 @@
 
 ## Nodes
 
-- [ ] Add remaining spec node types: Clamp, MapRange, Sin/Cos, Noise (1D/2D/3D), Perlin, HSV↔RGB, Palette Sampler, Gradient Generator, Blend Colors, Particles, Radial Burst, Spiral, Kaleidoscope, Bass Pulse, Midrange Waves, Treble Sparks, Beat-Triggered Flash, all Compositing nodes, all Control/Logic nodes
+- [x] Clamp, MapRange, Multiply, Sin, Cos math nodes
+- [ ] Remaining spec node types: Noise (1D/2D/3D), Perlin, HSV↔RGB, Palette Sampler, Gradient Generator, Blend Colors, Particles, Radial Burst, Spiral, Kaleidoscope, Bass Pulse, Midrange Waves, Treble Sparks, Beat-Triggered Flash, all Compositing nodes, all Control/Logic nodes
 - [ ] Multi-Pattern Master Node — pattern queue, transitions, hardware input routing
 - [ ] Transition nodes — Crossfade, Wipe, Dissolve, Zoom, Pixel Shuffle
 - [ ] Custom node — inline C++ snippet editor

@@ -35,6 +35,9 @@ interface GraphState {
   updateNodeProperty: (id: string, key: string, value: unknown) => void
   updateNodeProperties: (id: string, updates: Record<string, unknown>) => void
   loadGraph: (nodes: StudioNode[], edges: StudioEdge[]) => void
+  duplicateNode: (id: string) => void
+  deleteNode: (id: string) => void
+  disconnectNode: (id: string) => void
 }
 
 type HistorySlice = Pick<GraphState, 'nodes' | 'edges'>
@@ -79,6 +82,32 @@ export const useGraphStore = create<GraphState>()(
         })),
 
       loadGraph: (nodes, edges) => set({ nodes, edges }),
+
+      duplicateNode: (id) =>
+        set((s) => {
+          const node = s.nodes.find((n) => n.id === id)
+          if (!node) return s
+          return {
+            nodes: [...s.nodes, {
+              ...node,
+              id: `${node.data.nodeType}-${Date.now()}`,
+              position: { x: node.position.x + 20, y: node.position.y + 20 },
+              selected: false,
+            }],
+          }
+        }),
+
+      deleteNode: (id) =>
+        set((s) => ({
+          nodes: s.nodes.filter((n) => n.id !== id),
+          edges: s.edges.filter((e) => e.source !== id && e.target !== id),
+          selectedNodeId: s.selectedNodeId === id ? null : s.selectedNodeId,
+        })),
+
+      disconnectNode: (id) =>
+        set((s) => ({
+          edges: s.edges.filter((e) => e.source !== id && e.target !== id),
+        })),
     }),
     {
       limit: 100,

@@ -169,6 +169,10 @@ export function evaluateGraph(
         out = { result: num(id, 'a', props, 'a') + num(id, 'b', props, 'b') }
         break
 
+      case 'Multiply':
+        out = { result: num(id, 'a', props, 'a', 1) * num(id, 'b', props, 'b', 1) }
+        break
+
       case 'Lerp': {
         const a  = num(id, 'a', props, 'a', 0)
         const b  = num(id, 'b', props, 'b', 1)
@@ -176,6 +180,33 @@ export function evaluateGraph(
         out = { result: a + (b - a) * tt }
         break
       }
+
+      case 'Clamp': {
+        const val = num(id, 'value', props, 'value', 0)
+        const lo  = num(id, 'min',   props, 'min',   0)
+        const hi  = num(id, 'max',   props, 'max',   1)
+        out = { result: Math.max(lo, Math.min(hi, val)) }
+        break
+      }
+
+      case 'MapRange': {
+        const val   = num(id, 'value', props, 'value', 0)
+        const inLo  = num(id, 'inMin', props, 'inMin', 0)
+        const inHi  = num(id, 'inMax', props, 'inMax', 1)
+        const outLo = Number(props.outMin ?? 0)
+        const outHi = Number(props.outMax ?? 1)
+        const t2 = inHi === inLo ? 0 : (val - inLo) / (inHi - inLo)
+        out = { result: outLo + t2 * (outHi - outLo) }
+        break
+      }
+
+      case 'Sin':
+        out = { result: Math.sin(num(id, 'x', props, 'x', 0) * Math.PI * 2) }
+        break
+
+      case 'Cos':
+        out = { result: Math.cos(num(id, 'x', props, 'x', 0) * Math.PI * 2) }
+        break
 
       // ── Audio (stubs — animating until Web Audio API is wired up) ──────
       case 'MicInput':
