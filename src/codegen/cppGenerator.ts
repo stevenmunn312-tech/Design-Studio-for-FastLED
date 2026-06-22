@@ -400,6 +400,48 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[]): string {
         break
       }
 
+      case 'Crossfade': {
+        const mix = f('t', 't', 0.5)
+        ln(`  { uint8_t _mix = (uint8_t)((${mix}) * 255); /* Crossfade: blend frame A into frame B */ }`)
+        break
+      }
+
+      case 'Wipe': {
+        needsT.v = true
+        const tt = f('t', 't', 0.5)
+        const dir = String(p.direction ?? 'right')
+        const axis = (dir === 'up' || dir === 'down') ? '_y' : '_x'
+        const dim  = (dir === 'up' || dir === 'down') ? 'HEIGHT' : 'WIDTH'
+        const cmp  = (dir === 'right' || dir === 'down') ? '<' : '>'
+        const rhs  = (dir === 'right' || dir === 'down') ? `(int)((${tt})*${dim})` : `(int)((1.0f-(${tt}))*${dim})`
+        ln(`  { for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++)`)
+        ln(`    if(${axis} ${cmp} ${rhs}) { /* wipe to: pixel from frame B */ } }`)
+        break
+      }
+
+      case 'Dissolve': {
+        const tt = f('t', 't', 0.5)
+        ln(`  { float _tt=${tt}; for(int _i=0;_i<NUM_LEDS;_i++){`)
+        ln(`    uint32_t _h=((uint32_t)(_i)*1664525u+1013904223u);`)
+        ln(`    if((_h&0xFFFF)<(uint32_t)(_tt*65535)) { /* dissolve to: pixel from frame B */ }}}`)
+        break
+      }
+
+      case 'PatternMaster':
+        ln(`  // PatternMaster — implement pattern cycling logic in setup()/loop()`)
+        break
+
+      case 'CustomFormula': {
+        needsT.v = true
+        const formula = String(p.formula ?? 'sin(x*6+t)*0.5+0.5').replace(/\*\//g, '* /')
+        ln(`  { /* CustomFormula: ${formula} */`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float x=(float)_x/(WIDTH-1>0?WIDTH-1:1),y=(float)_y/(HEIGHT-1>0?HEIGHT-1:1);`)
+        ln(`      float _v=${formula};`)
+        ln(`      leds[_y*WIDTH+_x]=ColorFromPalette(RainbowColors_p,(uint8_t)(fmod(fmod(_v,1)+1,1)*255));}}`)
+        break
+      }
+
       case 'MatrixOutput':
         ln(`  FastLED.show();`)
         break

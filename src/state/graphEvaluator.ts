@@ -15,6 +15,10 @@ const counterVals = new Map<string, number>()
 
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; r: number; g: number; b: number }
 const particleState = new Map<string, Particle[]>()
+const patternMasterState = new Map<string, { idx: number; lastBeat: boolean }>()
+
+type FormulaFn = (x: number, y: number, t: number, W: number, H: number, a: number, b: number) => number
+const formulaCache = new Map<string, FormulaFn | null>()
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
 function hsv(h: number, s: number, v: number): RGB {
@@ -259,6 +263,78 @@ function evalGradientFrame(cA: RGB, cB: RGB, vertical: boolean, W = DEFAULT_W, H
     Array.from({ length: W }, (_, x) => {
       const t = vertical ? y / (H - 1) : x / (W - 1)
       return { r: Math.round(cA.r * (1-t) + cB.r * t), g: Math.round(cA.g * (1-t) + cB.g * t), b: Math.round(cA.b * (1-t) + cB.b * t) }
+    })
+  )
+}
+
+function evalWipe(a: Frame, b: Frame, tt: number, direction: string, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      let revealed: boolean
+      switch (direction) {
+        case 'left':  revealed = x > W * (1 - tt); break
+        case 'up':    revealed = y > H * (1 - tt); break
+        case 'down':  revealed = y < H * tt;       break
+        default:      revealed = x < W * tt;       break // 'right'
+      }
+      return revealed ? { ...b[y][x] } : { ...a[y][x] }
+    })
+  )
+}
+
+function evalDissolve(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const hash = (((x * 1664525 + y * 1013904223) >>> 0) / 0xffffffff)
+      return hash < tt ? { ...b[y][x] } : { ...a[y][x] }
+    })
+  )
+}
+
+function evalPatternMaster(nodeId: string, frames: (Frame | null)[], beat: boolean, mode: string, interval: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const valid = frames.filter((f): f is Frame => f !== null)
+  if (valid.length === 0) return blankFrame(W, H)
+
+  let idx: number
+  if (mode === 'beat') {
+    const prev = patternMasterState.get(nodeId) ?? { idx: 0, lastBeat: false }
+    if (beat && !prev.lastBeat) {
+      idx = (prev.idx + 1) % valid.length
+    } else {
+      idx = Math.min(prev.idx, valid.length - 1)
+    }
+    patternMasterState.set(nodeId, { idx, lastBeat: beat })
+  } else {
+    idx = Math.floor(t / Math.max(0.1, interval)) % valid.length
+  }
+
+  return valid[idx]
+}
+
+function evalCustomFormula(formula: string, a: number, b: number, palette: string, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  if (!formulaCache.has(formula)) {
+    if (formulaCache.size > 50) formulaCache.clear()
+    try {
+      // eslint-disable-next-line no-new-func
+      const fn = new Function('x', 'y', 't', 'W', 'H', 'a', 'b',
+        `"use strict"; const {sin,cos,abs,sqrt,pow,floor,ceil,round,min,max,PI,tan,atan2,log,exp,hypot}=Math; return (${formula});`
+      ) as FormulaFn
+      formulaCache.set(formula, fn)
+    } catch {
+      formulaCache.set(formula, null)
+    }
+  }
+  const fn = formulaCache.get(formula)
+  if (!fn) return blankFrame(W, H)
+
+  return Array.from({ length: H }, (_, yi) =>
+    Array.from({ length: W }, (_, xi) => {
+      try {
+        const v = fn(xi / (W - 1 || 1), yi / (H - 1 || 1), t, W, H, a, b)
+        return samplePalette(palette, ((v % 1) + 1) % 1)
+      } catch {
+        return { r: 0, g: 0, b: 0 }
+      }
     })
   )
 }
@@ -665,6 +741,65 @@ export function evaluateGraph(
         const a = num(id, 'a', props, 'a', 0)
         const b = num(id, 'b', props, 'b', 0.5)
         out = { result: a > b }
+        break
+      }
+
+      // ── Transition nodes ──────────────────────────────────────────────
+      case 'Crossfade': {
+        const fa = input(id, 'a', null) as Frame | null
+        const fb = input(id, 'b', null) as Frame | null
+        const mix = num(id, 't', props, 't', 0.5)
+        const ca = fa ?? blankFrame(W, H)
+        const cb = fb ?? blankFrame(W, H)
+        out = {
+          frame: ca.map((row, y) =>
+            row.map((px, x) => ({
+              r: Math.round(px.r * (1 - mix) + cb[y][x].r * mix),
+              g: Math.round(px.g * (1 - mix) + cb[y][x].g * mix),
+              b: Math.round(px.b * (1 - mix) + cb[y][x].b * mix),
+            }))
+          ),
+        }
+        break
+      }
+
+      case 'Wipe': {
+        const fa = input(id, 'a', null) as Frame | null
+        const fb = input(id, 'b', null) as Frame | null
+        const tt = num(id, 't', props, 't', 0.5)
+        const dir = String(props.direction ?? 'right')
+        out = { frame: evalWipe(fa ?? blankFrame(W, H), fb ?? blankFrame(W, H), tt, dir, W, H) }
+        break
+      }
+
+      case 'Dissolve': {
+        const fa = input(id, 'a', null) as Frame | null
+        const fb = input(id, 'b', null) as Frame | null
+        const tt = num(id, 't', props, 't', 0.5)
+        out = { frame: evalDissolve(fa ?? blankFrame(W, H), fb ?? blankFrame(W, H), tt, W, H) }
+        break
+      }
+
+      case 'PatternMaster': {
+        const frames = [
+          input(id, 'p0', null) as Frame | null,
+          input(id, 'p1', null) as Frame | null,
+          input(id, 'p2', null) as Frame | null,
+          input(id, 'p3', null) as Frame | null,
+        ]
+        const beat = input(id, 'beat', false) as boolean
+        const mode = String(props.mode ?? 'cycle')
+        const interval = Number(props.interval ?? 4)
+        out = { frame: evalPatternMaster(id, frames, beat, mode, interval, t, W, H) }
+        break
+      }
+
+      case 'CustomFormula': {
+        const a = num(id, 'a', props, 'a', 0)
+        const b = num(id, 'b', props, 'b', 0)
+        const formula = String(props.formula ?? 'sin(x*6+t)*0.5+0.5')
+        const palette = String(props.palette ?? 'rainbow')
+        out = { frame: evalCustomFormula(formula, a, b, palette, t, W, H) }
         break
       }
 

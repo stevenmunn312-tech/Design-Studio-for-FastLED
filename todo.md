@@ -39,9 +39,9 @@
 - [x] Noise2D, RadialBurst, Spiral, Kaleidoscope, Particles, Invert, GradientFrame, GradientSampler, PaletteSampler
 - [x] Control/Logic: Abs, Mod, Min, Max, Random, Counter, Gate, Not, Compare
 - [ ] Remaining: Perlin (proper simplex noise), 3D noise, more composite/transition effects
-- [ ] Multi-Pattern Master Node — pattern queue, transitions, hardware input routing
-- [ ] Transition nodes — Crossfade, Wipe, Dissolve, Zoom, Pixel Shuffle
-- [ ] Custom node — inline C++ snippet editor
+- [x] Multi-Pattern Master Node — pattern queue (4 slots), cycle/beat modes
+- [x] Transition nodes — Crossfade, Wipe (4-direction), Dissolve
+- [x] Custom node — inline formula editor (JS expr, x/y/t/W/H/a/b vars, palette output)
 
 ## Polish
 

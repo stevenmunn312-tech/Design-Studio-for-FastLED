@@ -454,6 +454,73 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { t: 0.5 },
   },
 
+  // ── Transition nodes ──────────────────────────────────────────────────
+  {
+    type: 'Crossfade',
+    label: 'Crossfade',
+    category: 'pattern',
+    inputs: [
+      { id: 'a', label: 'From', dataType: 'frame' },
+      { id: 'b', label: 'To', dataType: 'frame' },
+      { id: 't', label: 'T (0–1)', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { t: 0.5 },
+  },
+  {
+    type: 'Wipe',
+    label: 'Wipe',
+    category: 'pattern',
+    inputs: [
+      { id: 'a', label: 'From', dataType: 'frame' },
+      { id: 'b', label: 'To', dataType: 'frame' },
+      { id: 't', label: 'T (0–1)', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { t: 0.5, direction: 'right' },
+  },
+  {
+    type: 'Dissolve',
+    label: 'Dissolve',
+    category: 'pattern',
+    inputs: [
+      { id: 'a', label: 'From', dataType: 'frame' },
+      { id: 'b', label: 'To', dataType: 'frame' },
+      { id: 't', label: 'T (0–1)', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { t: 0.5 },
+  },
+
+  // ── Multi-Pattern Master ───────────────────────────────────────────────
+  {
+    type: 'PatternMaster',
+    label: 'Pattern Master',
+    category: 'pattern',
+    inputs: [
+      { id: 'p0', label: 'Pattern 1', dataType: 'frame' },
+      { id: 'p1', label: 'Pattern 2', dataType: 'frame' },
+      { id: 'p2', label: 'Pattern 3', dataType: 'frame' },
+      { id: 'p3', label: 'Pattern 4', dataType: 'frame' },
+      { id: 'beat', label: 'Beat', dataType: 'bool' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { mode: 'cycle', interval: 4.0 },
+  },
+
+  // ── Custom Formula ────────────────────────────────────────────────────
+  {
+    type: 'CustomFormula',
+    label: 'Custom Formula',
+    category: 'pattern',
+    inputs: [
+      { id: 'a', label: 'A', dataType: 'float' },
+      { id: 'b', label: 'B', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { formula: 'sin(x*6+t)*0.5+0.5', palette: 'rainbow' },
+  },
+
   // ── Output ─────────────────────────────────────────────────────────────
   {
     type: 'MatrixOutput',

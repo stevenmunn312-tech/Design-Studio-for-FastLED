@@ -53,23 +53,37 @@ export default function Inspector() {
             />
           </div>
         )}
-        {Object.entries(props).map(([key, val]) => (
-          <div key={key} className={styles.fieldRow}>
-            <label className={styles.fieldLabel} htmlFor={`prop-${key}`}>
-              {key}
-            </label>
-            <input
-              id={`prop-${key}`}
-              className={styles.fieldInput}
-              value={String(val)}
-              onChange={(e) => {
-                const raw = e.target.value
-                const num = Number(raw)
-                updateNodeProperty(node.id, key, isNaN(num) ? raw : num)
-              }}
-            />
-          </div>
-        ))}
+        {Object.entries(props).map(([key, val]) =>
+          key === 'formula' ? (
+            <div key={key} className={styles.formulaRow}>
+              <label className={styles.fieldLabel} htmlFor={`prop-${key}`}>{key}</label>
+              <textarea
+                id={`prop-${key}`}
+                className={styles.formulaTextarea}
+                value={String(val)}
+                rows={3}
+                spellCheck={false}
+                onChange={(e) => updateNodeProperty(node.id, key, e.target.value)}
+              />
+            </div>
+          ) : (
+            <div key={key} className={styles.fieldRow}>
+              <label className={styles.fieldLabel} htmlFor={`prop-${key}`}>
+                {key}
+              </label>
+              <input
+                id={`prop-${key}`}
+                className={styles.fieldInput}
+                value={String(val)}
+                onChange={(e) => {
+                  const raw = e.target.value
+                  const num = Number(raw)
+                  updateNodeProperty(node.id, key, isNaN(num) ? raw : num)
+                }}
+              />
+            </div>
+          )
+        )}
         {Object.keys(props).length === 0 && (
           <div className={styles.empty}>No properties</div>
         )}

@@ -92,6 +92,33 @@
   cursor: pointer;
 }
 
+.formulaRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.formulaTextarea {
+  width: 100%;
+  background: #1a1e23;
+  border-radius: 6px;
+  border: 1px solid var(--divider);
+  padding: var(--space-1);
+  color: var(--text-primary);
+  font-family: var(--font-code);
+  font-size: var(--fs-caption);
+  outline: none;
+  resize: vertical;
+  transition: border-color var(--anim-hover), box-shadow var(--anim-hover);
+  box-sizing: border-box;
+}
+
+.formulaTextarea:focus {
+  border-color: var(--accent-pattern);
+  box-shadow: 0 0 6px var(--accent-pattern);
+}
+
 .empty {
   padding: var(--space-2);
   font-size: var(--fs-caption);
