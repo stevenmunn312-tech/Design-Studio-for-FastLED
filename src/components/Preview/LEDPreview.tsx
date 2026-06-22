@@ -1,57 +1,74 @@
 import { useEffect, useRef, useState } from 'react'
 import { useGraphStore } from '../../state/graphStore'
+import { evaluateGraph, type Frame } from '../../state/graphEvaluator'
 import styles from './LEDPreview.module.css'
 
 const GRID = 16
 const PIXEL = 28
-const GLOW = 4
+const GLOW_RADIUS = 5
 
-function generateFrame(tick: number, hasFireNode: boolean, hasNoiseNode: boolean): number[][] {
-  const frame: number[][] = []
-  for (let y = 0; y < GRID; y++) {
-    const row: number[] = []
-    for (let x = 0; x < GRID; x++) {
-      if (hasFireNode) {
-        const heat = Math.max(0, 1 - y / GRID + Math.sin(tick * 0.05 + x * 0.5) * 0.2)
-        row.push(heat)
-      } else if (hasNoiseNode) {
-        const v = Math.sin(x * 0.5 + tick * 0.04) * Math.cos(y * 0.5 + tick * 0.03)
-        row.push((v + 1) / 2)
-      } else {
-        const v = Math.sin(x * 0.3 + tick * 0.06) * Math.cos(y * 0.3 + tick * 0.05)
-        row.push((v + 1) / 2)
+// Idle animation shown when no nodes are on the canvas
+function idleFrame(tick: number): Frame {
+  const t = tick / 60
+  return Array.from({ length: GRID }, (_, y) =>
+    Array.from({ length: GRID }, (_, x) => {
+      const v = (Math.sin(x * 0.4 + t * 0.8) + Math.cos(y * 0.4 + t * 0.6)) / 2
+      const hue = (v + 1) * 90 + t * 15
+      const h = ((hue % 360) + 360) % 360
+      const s = 1, lv = 0.5
+      const c = lv * s
+      const xc = c * (1 - Math.abs(((h / 60) % 2) - 1))
+      const m = lv - c
+      let r = 0, g = 0, b = 0
+      if      (h < 60)  { r = c; g = xc }
+      else if (h < 120) { r = xc; g = c }
+      else if (h < 180) { g = c; b = xc }
+      else if (h < 240) { g = xc; b = c }
+      else if (h < 300) { r = xc; b = c }
+      else              { r = c; b = xc }
+      return {
+        r: Math.round((r + m) * 255),
+        g: Math.round((g + m) * 255),
+        b: Math.round((b + m) * 255),
       }
-    }
-    frame.push(row)
-  }
-  return frame
+    })
+  )
 }
 
-function valueToColor(v: number, tick: number, hasFireNode: boolean, hasNoiseNode: boolean): string {
-  if (hasFireNode) {
-    const r = Math.round(Math.min(255, v * 400))
-    const g = Math.round(Math.max(0, (v - 0.4) * 255))
-    return `rgb(${r},${g},0)`
+function renderFrame(
+  ctx: CanvasRenderingContext2D,
+  frame: Frame,
+) {
+  ctx.clearRect(0, 0, GRID * PIXEL, GRID * PIXEL)
+  for (let y = 0; y < GRID; y++) {
+    for (let x = 0; x < GRID; x++) {
+      const { r, g, b } = frame[y][x]
+      const color = `rgb(${r},${g},${b})`
+      const brightness = (r + g + b) / (3 * 255)
+      ctx.fillStyle = color
+      ctx.shadowColor = color
+      ctx.shadowBlur = GLOW_RADIUS * (0.3 + brightness * 1.2)
+      ctx.fillRect(x * PIXEL + 2, y * PIXEL + 2, PIXEL - 4, PIXEL - 4)
+    }
   }
-  if (hasNoiseNode) {
-    const hue = (v * 360 + tick * 2) % 360
-    return `hsl(${hue},100%,${Math.round(v * 50 + 20)}%)`
-  }
-  const hue = (v * 240 + tick) % 360
-  return `hsl(${hue},100%,${Math.round(v * 50 + 20)}%)`
 }
 
 export default function LEDPreview() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const tickRef = useRef(0)
-  const animRef = useRef<number>(0)
-  const [fps, setFps] = useState(0)
-  const lastFpsTime = useRef(performance.now())
-  const frameCount = useRef(0)
+  const tickRef   = useRef(0)
+  const animRef   = useRef<number>(0)
+  const [fps, setFps]       = useState(0)
+  const lastFpsTime         = useRef(performance.now())
+  const frameCount          = useRef(0)
 
   const nodes = useGraphStore((s) => s.nodes)
-  const hasFireNode = nodes.some((n) => n.type === 'studioNode' && (n.data as { label?: string }).label === 'Fire')
-  const hasNoiseNode = nodes.some((n) => n.type === 'studioNode' && (n.data as { label?: string }).label === 'Noise Field')
+  const edges = useGraphStore((s) => s.edges)
+
+  // Keep stable refs so the animation loop always sees the latest graph
+  const nodesRef = useRef(nodes)
+  const edgesRef = useRef(edges)
+  useEffect(() => { nodesRef.current = nodes }, [nodes])
+  useEffect(() => { edgesRef.current = edges }, [edges])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -59,23 +76,15 @@ export default function LEDPreview() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const render = () => {
+    const loop = () => {
       tickRef.current++
       const tick = tickRef.current
-      const frame = generateFrame(tick, hasFireNode, hasNoiseNode)
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      const frame =
+        evaluateGraph(nodesRef.current, edgesRef.current, tick) ??
+        idleFrame(tick)
 
-      for (let y = 0; y < GRID; y++) {
-        for (let x = 0; x < GRID; x++) {
-          const v = frame[y][x]
-          const color = valueToColor(v, tick, hasFireNode, hasNoiseNode)
-          ctx.fillStyle = color
-          ctx.shadowColor = color
-          ctx.shadowBlur = GLOW * (0.5 + v)
-          ctx.fillRect(x * PIXEL + 2, y * PIXEL + 2, PIXEL - 4, PIXEL - 4)
-        }
-      }
+      renderFrame(ctx, frame)
 
       frameCount.current++
       const now = performance.now()
@@ -85,12 +94,12 @@ export default function LEDPreview() {
         lastFpsTime.current = now
       }
 
-      animRef.current = requestAnimationFrame(render)
+      animRef.current = requestAnimationFrame(loop)
     }
 
-    animRef.current = requestAnimationFrame(render)
+    animRef.current = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(animRef.current)
-  }, [hasFireNode, hasNoiseNode])
+  }, []) // single loop, reads nodes/edges via refs
 
   return (
     <div className={styles.panel}>

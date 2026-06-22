@@ -14,6 +14,7 @@ import type { NodeCategory } from '../types'
 
 export interface StudioNodeData extends Record<string, unknown> {
   label: string
+  nodeType: string
   category: NodeCategory
   properties: Record<string, unknown>
 }

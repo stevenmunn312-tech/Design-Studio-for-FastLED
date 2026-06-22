@@ -39,6 +39,7 @@ export default function Sidebar() {
       position: { x: 200 + Math.random() * 200, y: 150 + Math.random() * 200 },
       data: {
         label: def.label,
+        nodeType: def.type,
         category: def.category,
         properties: def.defaultProperties ?? {},
         inputs: def.inputs,

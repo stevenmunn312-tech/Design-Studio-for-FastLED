@@ -58,6 +58,7 @@ function NodeGraphCanvasInner() {
         position,
         data: {
           label: def.label,
+          nodeType: def.type,
           category: def.category,
           properties: def.defaultProperties ?? {},
           inputs: def.inputs,
