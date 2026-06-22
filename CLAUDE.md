@@ -11,13 +11,23 @@ Core user flow: drag nodes from sidebar → wire ports together → preview upda
 ## Commands
 
 ```bash
-npm run dev       # start Vite dev server (http://localhost:5173)
-npm run build     # tsc type-check + Vite production build
-npm run lint      # ESLint
-npm run preview   # serve the production build locally
+npm run dev            # start Vite dev server (http://localhost:5173)
+npm run build          # tsc -b type-check + Vite production build (also emits PWA service worker)
+npm run lint           # ESLint (flat config in eslint.config.js)
+npm run preview        # serve the production build locally
+npm test               # vitest run (one-shot)
+npm run test:watch     # vitest in watch mode
+npm run test:coverage  # vitest with v8 coverage
 ```
 
-No test suite exists yet.
+Run a single test file or test by name:
+
+```bash
+npx vitest run src/state/__tests__/graphEvaluator.test.ts   # one file
+npx vitest run -t "cycle"                                   # tests matching a name
+```
+
+Tests use vitest with `globals: true` and the `jsdom` environment (configured in `vite.config.ts`, not a separate vitest config). The same three gates — `lint`, `test`, `build` — run in CI on every PR via `.github/workflows/ci.yml`.
 
 ## Stack
 
@@ -25,6 +35,7 @@ No test suite exists yet.
 - **@xyflow/react v12** — node graph canvas, handles, edges, minimap
 - **Zustand v5** — all app state (`graphStore`, `uiStore`, `audioStore`); uses `subscribeWithSelector`
 - No Tailwind; styling is pure CSS variables defined in `src/themes/tokens.css`
+- **Vitest** (jsdom) for unit tests; **vite-plugin-pwa** generates an auto-updating service worker so the app is installable/offline-capable
 
 ## Architecture
 
@@ -59,7 +70,7 @@ Changing any of those CSS values without updating the constants will silently mi
 
 ### Live Preview Pipeline
 
-`LEDPreview.tsx` drives a `requestAnimationFrame` loop that calls `evaluateGraph(nodes, edges, tick, gridW, gridH)` every frame. When the graph is empty, `idleFrame()` shows a rainbow shimmer instead.
+`LEDPreview.tsx` drives a `requestAnimationFrame` loop that calls `evaluateGraph(nodes, edges, tick, gridW, gridH)` every frame. When the graph is empty, `idleFrame()` shows a rainbow shimmer instead. The per-frame body is wrapped in `try/catch` so a single malformed frame logs and is skipped rather than tearing down the loop.
 
 **`src/state/graphEvaluator.ts`** is the runtime engine. It topologically evaluates nodes in dependency order using memoisation per frame. Key types:
 
@@ -69,6 +80,8 @@ export type Frame = RGB[][]   // row-major [y][x]
 ```
 
 Stateful nodes (`Fire`, `Fire2012`, `BeatFlash`, `Counter`, `Particles`, `PatternMaster`) persist state in module-level `Map` objects keyed by node ID. `formulaCache` compiles `CustomFormula` expressions once via `new Function(...)`.
+
+`evalNode()` guards against graph cycles with an `inProgress` set: re-entering a node still on the evaluation stack returns `{}`, so the upstream input falls back to its default instead of recursing into a stack overflow. Keep this guard in place when editing the evaluator.
 
 **`src/components/Preview/webglRenderer.ts`** — `WebGLLEDRenderer` uploads the frame as a texture and renders via a GLSL fragment shader. The shader draws each LED as a smooth circular disc with a 5×5-neighbor glow contribution. Y is flipped in the shader (`u_res.y - gl_FragCoord.y`) to match the JS frame's top-left origin. Falls back to Canvas 2D if WebGL is unavailable.
 
@@ -89,7 +102,7 @@ App.tsx auto-starts audio when a `MicInput` node is added to the graph; auto-sto
 `src/components/Upload/UploadPanel.tsx` — modal overlay with:
 - Live code preview textarea (left pane)
 - Board selector dropdown, WebSerial connect/disconnect, `.ino` download, Flash button (right pane)
-- `validateGraph()` checks for MatrixOutput, connected frame port, and isolated nodes; shows results as colored chips in the footer
+- `validateGraph()` (extracted to `src/utils/validateGraph.ts`, unit-tested) checks for MatrixOutput, connected frame port, and isolated nodes, returning `{ errors, warnings }`; the panel shows results as colored chips in the footer
 
 ### Design Tokens
 
