@@ -67,6 +67,12 @@ function blankFrame(W = DEFAULT_W, H = DEFAULT_H): Frame {
   return Array.from({ length: H }, () => Array.from({ length: W }, () => ({ r: 0, g: 0, b: 0 })))
 }
 
+// Deep copy so painting onto a base frame never mutates an upstream node's
+// memoised output.
+function cloneFrame(frame: Frame): Frame {
+  return frame.map(row => row.map(px => ({ ...px })))
+}
+
 // ── Pattern evaluators ────────────────────────────────────────────────────────
 function evalNoiseField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   return Array.from({ length: H }, (_, y) =>
@@ -590,6 +596,45 @@ export function evaluateGraph(
         break
       }
 
+      case 'Span': {
+        const baseIn = input(id, 'base', null) as Frame | null
+        const frame  = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
+        const colorIn = input(id, 'color', null) as RGB | null
+        const color = colorIn ?? {
+          r: byte(Number(props.r ?? 0)   / 255),
+          g: byte(Number(props.g ?? 128) / 255),
+          b: byte(Number(props.b ?? 255) / 255),
+        }
+        const row   = Math.floor(Number(props.row   ?? 0))
+        const start = Math.floor(Number(props.start ?? 0))
+        const count = Math.floor(Number(props.count ?? W))
+        if (row >= 0 && row < H)
+          for (let x = start; x < start + count; x++)
+            if (x >= 0 && x < W) frame[row][x] = { ...color }
+        out = { frame }
+        break
+      }
+
+      case 'Rect': {
+        const baseIn = input(id, 'base', null) as Frame | null
+        const frame  = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
+        const colorIn = input(id, 'color', null) as RGB | null
+        const color = colorIn ?? {
+          r: byte(Number(props.r ?? 0)   / 255),
+          g: byte(Number(props.g ?? 128) / 255),
+          b: byte(Number(props.b ?? 255) / 255),
+        }
+        const rx = Math.floor(Number(props.x ?? 0))
+        const ry = Math.floor(Number(props.y ?? 0))
+        const rw = Math.floor(Number(props.w ?? W))
+        const rh = Math.floor(Number(props.h ?? H))
+        for (let yy = ry; yy < ry + rh; yy++)
+          for (let xx = rx; xx < rx + rw; xx++)
+            if (xx >= 0 && xx < W && yy >= 0 && yy < H) frame[yy][xx] = { ...color }
+        out = { frame }
+        break
+      }
+
       case 'NoiseField': {
         const speed = num(id, 'speed', props, 'speed', 1)
         const scale = num(id, 'scale', props, 'scale', 1)
@@ -1041,9 +1086,12 @@ export function evaluateGraph(
     if (frame) return frame as Frame
   }
 
-  // 2. Fallback: render the first pattern node that produces a frame
+  // 2. Fallback: render the first node that exposes a frame output. Keyed on
+  // the port type, not category, so it survives recategorisation (generators,
+  // composite nodes, shapes all qualify).
   for (const n of nodes) {
-    if ((n.data as { category?: string }).category === 'pattern') {
+    const outs = (n.data as { outputs?: { dataType?: string }[] }).outputs
+    if (outs?.some(o => o.dataType === 'frame')) {
       const frame = evalNode(n.id).frame
       if (frame) return frame as Frame
     }

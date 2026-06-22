@@ -1,15 +1,8 @@
 import { memo } from 'react'
 import { getBezierPath, useReactFlow } from '@xyflow/react'
 import type { EdgeProps } from '@xyflow/react'
+import { CATEGORY_COLOR } from '../../state/nodeLibrary'
 import styles from './GlowEdge.module.css'
-
-const ACCENT: Record<string, string> = {
-  audio: '#00ffff',
-  pattern: '#ff00ff',
-  math: '#a8ff00',
-  output: '#00bfff',
-  hardware: '#ffa500',
-}
 
 function GlowEdge({
   id,
@@ -24,7 +17,7 @@ function GlowEdge({
   const { getNode } = useReactFlow()
   const sourceNode = getNode(source)
   const category = (sourceNode?.data as { category?: string })?.category ?? 'output'
-  const color = ACCENT[category] ?? '#00bfff'
+  const color = CATEGORY_COLOR[category] ?? '#00bfff'
 
   const [edgePath] = getBezierPath({
     sourceX,

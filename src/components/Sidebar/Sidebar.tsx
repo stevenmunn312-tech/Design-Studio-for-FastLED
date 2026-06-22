@@ -1,16 +1,7 @@
 import { useState } from 'react'
 import { useGraphStore } from '../../state/graphStore'
-import { NODE_LIBRARY, CATEGORIES } from '../../state/nodeLibrary'
-import type { NodeCategory } from '../../types'
+import { NODE_LIBRARY, CATEGORIES, CATEGORY_ACCENT_VAR } from '../../state/nodeLibrary'
 import styles from './Sidebar.module.css'
-
-const ACCENT_VARS: Record<NodeCategory, string> = {
-  audio: 'var(--accent-audio)',
-  pattern: 'var(--accent-pattern)',
-  math: 'var(--accent-math)',
-  output: 'var(--accent-output)',
-  hardware: 'var(--accent-hardware)',
-}
 
 export default function Sidebar() {
   const addNode = useGraphStore((s) => s.addNode)
@@ -69,7 +60,7 @@ export default function Sidebar() {
             (n) => n.category === id && (query === '' || n.label.toLowerCase().includes(query))
           )
           if (nodes.length === 0) return null
-          const accent = ACCENT_VARS[id as NodeCategory]
+          const accent = CATEGORY_ACCENT_VAR[id]
           const open = query !== '' || expanded.has(id)
 
           return (

@@ -12,6 +12,7 @@ import {
   addEdge,
 } from '@xyflow/react'
 import type { NodeCategory } from '../types'
+import { CATEGORY_COLOR } from './nodeLibrary'
 
 export interface StudioNodeData extends Record<string, unknown> {
   label: string
@@ -63,11 +64,7 @@ export const useGraphStore = create<GraphState>()(
       onConnect: (connection) =>
         set((s) => {
           const src = s.nodes.find((n) => n.id === connection.source)
-          const CAT_COLOR: Record<string, string> = {
-            audio: '#00ffff', pattern: '#ff00ff', math: '#a8ff00',
-            output: '#00bfff', hardware: '#ffa500',
-          }
-          const color = CAT_COLOR[(src?.data as { category?: string })?.category ?? ''] ?? '#00bfff'
+          const color = CATEGORY_COLOR[(src?.data as { category?: string })?.category ?? ''] ?? '#00bfff'
           return { edges: addEdge({ ...connection, type: 'glowEdge', style: { stroke: color } }, s.edges) }
         }),
 

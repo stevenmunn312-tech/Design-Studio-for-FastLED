@@ -44,6 +44,30 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { r: 255, g: 0, b: 128 },
   },
   {
+    // Paints a horizontal run on one row over an optional base frame.
+    type: 'Span',
+    label: 'Span',
+    category: 'pattern',
+    inputs: [
+      { id: 'base',  label: 'Base',  dataType: 'frame' },
+      { id: 'color', label: 'Color', dataType: 'color' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { row: 0, start: 0, count: 8, r: 0, g: 128, b: 255 },
+  },
+  {
+    // Paints an axis-aligned rectangle over an optional base frame.
+    type: 'Rect',
+    label: 'Rect',
+    category: 'pattern',
+    inputs: [
+      { id: 'base',  label: 'Base',  dataType: 'frame' },
+      { id: 'color', label: 'Color', dataType: 'color' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { x: 0, y: 0, w: 4, h: 4, r: 0, g: 128, b: 255 },
+  },
+  {
     type: 'NoiseField',
     label: 'Noise Field',
     category: 'pattern',
@@ -73,7 +97,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'Blur2D',
     label: 'Blur 2D',
-    category: 'pattern',
+    category: 'composite',
     inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { amount: 40 },
@@ -81,7 +105,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'LayerBlend',
     label: 'Blend Layers',
-    category: 'pattern',
+    category: 'composite',
     inputs: [
       { id: 'a',      label: 'A',      dataType: 'frame' },
       { id: 'b',      label: 'B',      dataType: 'frame' },
@@ -115,7 +139,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'BlendFrames',
     label: 'Blend Frames',
-    category: 'pattern',
+    category: 'composite',
     inputs: [
       { id: 'a', label: 'A', dataType: 'frame' },
       { id: 'b', label: 'B', dataType: 'frame' },
@@ -127,7 +151,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'BrightnessMod',
     label: 'Brightness',
-    category: 'pattern',
+    category: 'composite',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'brightness', label: 'Brightness', dataType: 'float' },
@@ -138,7 +162,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'HueShift',
     label: 'Hue Shift',
-    category: 'pattern',
+    category: 'composite',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'shift', label: 'Shift°', dataType: 'float' },
@@ -243,7 +267,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'Invert',
     label: 'Invert',
-    category: 'pattern',
+    category: 'composite',
     inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {},
@@ -262,7 +286,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'GradientSampler',
     label: 'Gradient Sampler',
-    category: 'pattern',
+    category: 'color',
     inputs: [
       { id: 't', label: 'T (0–1)', dataType: 'float' },
       { id: 'colorA', label: 'Color A', dataType: 'color' },
@@ -274,7 +298,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'PaletteSampler',
     label: 'Palette Sampler',
-    category: 'pattern',
+    category: 'color',
     inputs: [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 't', label: 'T (0–1)', dataType: 'float' },
@@ -477,7 +501,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'HSVToRGB',
     label: 'HSV → RGB',
-    category: 'math',
+    category: 'color',
     inputs: [
       { id: 'h', label: 'H (0–360)', dataType: 'float' },
       { id: 's', label: 'S (0–1)', dataType: 'float' },
@@ -489,7 +513,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'BlendColors',
     label: 'Blend Colors',
-    category: 'math',
+    category: 'color',
     inputs: [
       { id: 'a', label: 'A', dataType: 'color' },
       { id: 'b', label: 'B', dataType: 'color' },
@@ -501,7 +525,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'CHSV',
     label: 'CHSV',
-    category: 'math',
+    category: 'color',
     inputs: [
       { id: 'hue', label: 'Hue (0–255)', dataType: 'float' },
       { id: 'sat', label: 'Sat (0–255)', dataType: 'float' },
@@ -513,7 +537,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'PaletteSelector',
     label: 'Palette Selector',
-    category: 'math',
+    category: 'color',
     inputs: [],
     outputs: [{ id: 'palette', label: 'Palette', dataType: 'palette' }],
     defaultProperties: { palette: 'rainbow' },
@@ -521,7 +545,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'PaletteBlend',
     label: 'Blend Palettes',
-    category: 'math',
+    category: 'color',
     inputs: [{ id: 'amount', label: 'Amount', dataType: 'float' }],
     outputs: [{ id: 'palette', label: 'Palette', dataType: 'palette' }],
     defaultProperties: { paletteA: 'rainbow', paletteB: 'ocean', amount: 128 },
@@ -574,7 +598,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'Crossfade',
     label: 'Crossfade',
-    category: 'pattern',
+    category: 'composite',
     inputs: [
       { id: 'a', label: 'From', dataType: 'frame' },
       { id: 'b', label: 'To', dataType: 'frame' },
@@ -586,7 +610,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'Wipe',
     label: 'Wipe',
-    category: 'pattern',
+    category: 'composite',
     inputs: [
       { id: 'a', label: 'From', dataType: 'frame' },
       { id: 'b', label: 'To', dataType: 'frame' },
@@ -598,7 +622,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'Dissolve',
     label: 'Dissolve',
-    category: 'pattern',
+    category: 'composite',
     inputs: [
       { id: 'a', label: 'From', dataType: 'frame' },
       { id: 'b', label: 'To', dataType: 'frame' },
@@ -672,10 +696,25 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   },
 ]
 
+// Single source of truth for category display order, labels, and accent colors.
+// `color` is the literal hex used in canvas/SVG contexts (minimap, edges); the
+// CSS var is used wherever theming should apply.
+// Order here drives the sidebar grouping order, following the authoring
+// pipeline: sources → value transforms → color → frames → compositing → output.
 export const CATEGORIES = [
-  { id: 'audio', label: 'Audio', accentVar: '--accent-audio' },
-  { id: 'pattern', label: 'Pattern', accentVar: '--accent-pattern' },
-  { id: 'math', label: 'Math', accentVar: '--accent-math' },
-  { id: 'output', label: 'Output', accentVar: '--accent-output' },
-  { id: 'hardware', label: 'Hardware', accentVar: '--accent-hardware' },
+  { id: 'audio',     label: 'Audio',      accentVar: '--accent-audio',     color: '#00ffff' },
+  { id: 'hardware',  label: 'Hardware',   accentVar: '--accent-hardware',  color: '#ffa500' },
+  { id: 'math',      label: 'Math',       accentVar: '--accent-math',      color: '#a8ff00' },
+  { id: 'color',     label: 'Color',      accentVar: '--accent-color',     color: '#ff4d8d' },
+  { id: 'pattern',   label: 'Pattern',    accentVar: '--accent-pattern',   color: '#ff00ff' },
+  { id: 'composite', label: 'Composite',  accentVar: '--accent-composite', color: '#00e0a4' },
+  { id: 'output',    label: 'Output',     accentVar: '--accent-output',    color: '#00bfff' },
 ] as const
+
+/** id → literal hex (canvas/SVG: minimap nodes, edge strokes). */
+export const CATEGORY_COLOR: Record<string, string> =
+  Object.fromEntries(CATEGORIES.map((c) => [c.id, c.color]))
+
+/** id → CSS var reference (DOM styling: node accents, sidebar). */
+export const CATEGORY_ACCENT_VAR: Record<string, string> =
+  Object.fromEntries(CATEGORIES.map((c) => [c.id, `var(${c.accentVar})`]))
