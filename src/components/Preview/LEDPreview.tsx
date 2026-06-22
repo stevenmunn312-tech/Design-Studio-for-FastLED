@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
+import { useAudioStore } from '../../state/audioStore'
 import { evaluateGraph, type Frame } from '../../state/graphEvaluator'
 import styles from './LEDPreview.module.css'
 
 const GRID = 16
 const PIXEL = 28
 const GLOW_RADIUS = 5
+const NUM_BARS = 16
 
 // Idle animation shown when no nodes are on the canvas
 function idleFrame(tick: number): Frame {
@@ -36,10 +38,7 @@ function idleFrame(tick: number): Frame {
   )
 }
 
-function renderFrame(
-  ctx: CanvasRenderingContext2D,
-  frame: Frame,
-) {
+function renderFrame(ctx: CanvasRenderingContext2D, frame: Frame) {
   ctx.clearRect(0, 0, GRID * PIXEL, GRID * PIXEL)
   for (let y = 0; y < GRID; y++) {
     for (let x = 0; x < GRID; x++) {
@@ -55,21 +54,23 @@ function renderFrame(
 }
 
 export default function LEDPreview() {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const tickRef   = useRef(0)
-  const animRef   = useRef<number>(0)
-  const [fps, setFps]       = useState(0)
-  const lastFpsTime         = useRef(performance.now())
-  const frameCount          = useRef(0)
+  const canvasRef  = useRef<HTMLCanvasElement>(null)
+  const tickRef    = useRef(0)
+  const animRef    = useRef<number>(0)
+  const [fps, setFps] = useState(0)
+  const lastFpsTime   = useRef(performance.now())
+  const frameCount    = useRef(0)
 
   const nodes = useGraphStore((s) => s.nodes)
   const edges = useGraphStore((s) => s.edges)
-
-  // Keep stable refs so the animation loop always sees the latest graph
   const nodesRef = useRef(nodes)
   const edgesRef = useRef(edges)
   useEffect(() => { nodesRef.current = nodes }, [nodes])
   useEffect(() => { edgesRef.current = edges }, [edges])
+
+  const { active: audioActive, spectrum, startAudio, stopAudio } = useAudioStore()
+  const spectrumRef = useRef(spectrum)
+  useEffect(() => { spectrumRef.current = spectrum }, [spectrum])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -80,11 +81,7 @@ export default function LEDPreview() {
     const loop = () => {
       tickRef.current++
       const tick = tickRef.current
-
-      const frame =
-        evaluateGraph(nodesRef.current, edgesRef.current, tick) ??
-        idleFrame(tick)
-
+      const frame = evaluateGraph(nodesRef.current, edgesRef.current, tick) ?? idleFrame(tick)
       renderFrame(ctx, frame)
 
       frameCount.current++
@@ -102,13 +99,27 @@ export default function LEDPreview() {
 
     animRef.current = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(animRef.current)
-  }, []) // single loop, reads nodes/edges via refs
+  }, [])
+
+  const toggleMic = () => {
+    if (audioActive) stopAudio()
+    else startAudio().catch(() => {})
+  }
 
   return (
     <div className={styles.panel}>
       <div className={styles.header}>
         <span>LED Preview</span>
-        <span className={styles.fps}>{fps} fps</span>
+        <div className={styles.headerRight}>
+          <button
+            className={`${styles.micBtn} ${audioActive ? styles.micActive : ''}`}
+            onClick={toggleMic}
+            title={audioActive ? 'Stop microphone' : 'Start microphone'}
+          >
+            {audioActive ? '🎙' : '🎤'}
+          </button>
+          <span className={styles.fps}>{fps} fps</span>
+        </div>
       </div>
       <div className={styles.canvasWrap}>
         <canvas
@@ -118,6 +129,20 @@ export default function LEDPreview() {
           className={styles.canvas}
         />
       </div>
+      {audioActive && (
+        <div className={styles.visualizer} aria-hidden>
+          {Array.from({ length: NUM_BARS }, (_, i) => (
+            <div
+              key={i}
+              className={styles.bar}
+              style={{
+                height: `${Math.max(2, spectrum[i] * 100)}%`,
+                background: `hsl(${180 + i * 8}, 100%, 55%)`,
+              }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

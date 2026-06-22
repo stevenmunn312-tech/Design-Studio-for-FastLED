@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useUiStore } from './state/uiStore'
 import { useGraphStore } from './state/graphStore'
+import { useAudioStore } from './state/audioStore'
 import type { StudioNode, StudioEdge } from './state/graphStore'
 import MenuBar from './components/MenuBar/MenuBar'
 import Sidebar from './components/Sidebar/Sidebar'
@@ -23,6 +24,7 @@ function saveToLocalStorage(nodes: StudioNode[], edges: StudioEdge[]) {
 
 export default function App() {
   const { sidebarOpen, inspectorOpen, setStatus } = useUiStore()
+  const { startAudio, stopAudio } = useAudioStore()
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Restore autosaved graph on first mount
@@ -51,6 +53,17 @@ export default function App() {
       if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
     }
   }, [])
+
+  // Auto-start audio when a MicInput node is on the canvas; stop when removed
+  useEffect(() => {
+    let hasMic = false
+    const unsub = useGraphStore.subscribe((state) => {
+      const nowHas = state.nodes.some(n => (n.data as { nodeType?: string }).nodeType === 'MicInput')
+      if (nowHas && !hasMic) { hasMic = true; startAudio().catch(() => {}) }
+      if (!nowHas && hasMic) { hasMic = false; stopAudio() }
+    })
+    return unsub
+  }, [startAudio, stopAudio])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

@@ -21,10 +21,10 @@
 
 ## Audio
 
-- [ ] Wire Web Audio API + `AudioWorklet` for real microphone FFT (off main thread)
-- [ ] Connect FFT output to `FFTAnalyzer` node outputs (bass / mids / treble float values)
-- [ ] Beat detection — drive `BeatDetect` node from the audio worklet
-- [ ] Audio visualizer bar display in the preview panel (16 bars, cyan → magenta gradient per spec)
+- [x] Wire Web Audio API `AnalyserNode` for real microphone FFT
+- [x] Connect FFT output to `FFTAnalyzer` node outputs (bass / mids / treble float values)
+- [x] Beat detection — drive `BeatDetect` node from the audio engine
+- [x] Audio visualizer bar display in the preview panel (16 bars, cyan → magenta gradient per spec)
 
 ## Upload Pipeline
 

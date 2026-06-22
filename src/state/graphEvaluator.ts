@@ -1,4 +1,5 @@
 import type { StudioNode, StudioEdge } from './graphStore'
+import { useAudioStore } from './audioStore'
 
 export interface RGB { r: number; g: number; b: number }
 export type Frame = RGB[][]   // row-major [y][x], always 16×16
@@ -208,23 +209,34 @@ export function evaluateGraph(
         out = { result: Math.cos(num(id, 'x', props, 'x', 0) * Math.PI * 2) }
         break
 
-      // ── Audio (stubs — animating until Web Audio API is wired up) ──────
+      // ── Audio ─────────────────────────────────────────────────────────
       case 'MicInput':
         out = { audio: null }
         break
 
-      case 'FFTAnalyzer':
-        // Animated placeholders so downstream pattern nodes still react
-        out = {
-          bass:   (Math.sin(t * 2.1) + 1) / 2,
-          mids:   (Math.sin(t * 3.7 + 1.0) + 1) / 2,
-          treble: (Math.sin(t * 5.3 + 2.0) + 1) / 2,
+      case 'FFTAnalyzer': {
+        const audio = useAudioStore.getState()
+        if (audio.active) {
+          out = { bass: audio.bass, mids: audio.mids, treble: audio.treble }
+        } else {
+          out = {
+            bass:   (Math.sin(t * 2.1) + 1) / 2,
+            mids:   (Math.sin(t * 3.7 + 1.0) + 1) / 2,
+            treble: (Math.sin(t * 5.3 + 2.0) + 1) / 2,
+          }
         }
         break
+      }
 
-      case 'BeatDetect':
-        out = { beat: (Math.sin(t * Math.PI * 2) > 0.9), bpm: 120 }
+      case 'BeatDetect': {
+        const audio = useAudioStore.getState()
+        if (audio.active) {
+          out = { beat: audio.beat, bpm: 120 }
+        } else {
+          out = { beat: (Math.sin(t * Math.PI * 2) > 0.9), bpm: 120 }
+        }
         break
+      }
 
       // ── Pattern ────────────────────────────────────────────────────────
       case 'SolidColor':
