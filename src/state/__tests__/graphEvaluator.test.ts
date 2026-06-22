@@ -224,3 +224,100 @@ describe('evaluateGraph', () => {
     expect(() => evaluateGraph([bm1, bm2, out], edges, 0, W, H)).not.toThrow()
   })
 })
+
+describe('evaluateGraph — groups', () => {
+  const out = () => node('out', 'MatrixOutput', 'output', {})
+
+  it('a Group node renders its subgraph output frame', () => {
+    const groups = {
+      blueGroup: {
+        nodes: [
+          node('sc', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 }),
+          node('go', 'GroupOutput', 'output', {}),
+        ],
+        edges: [edge('e', 'sc', 'frame', 'go', 'frame')],
+      },
+    }
+    const grp = node('g1', 'Group', 'pattern', { groupId: 'blueGroup' })
+    const frame = evaluateGraph([grp, out()], [edge('e1', 'g1', 'frame', 'out', 'frame')], 0, 4, 4, groups)
+    expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 255 })
+  })
+
+  it('renders blank for an unknown group reference', () => {
+    const grp = node('g1', 'Group', 'pattern', { groupId: 'missing' })
+    const frame = evaluateGraph([grp, out()], [edge('e1', 'g1', 'frame', 'out', 'frame')], 0, 4, 4, {})
+    expect(frame).not.toBeNull()
+    expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
+  })
+
+  it('renders nested groups (group within a group)', () => {
+    const groups = {
+      inner: {
+        nodes: [
+          node('sc', 'SolidColor', 'pattern', { r: 0, g: 255, b: 0 }),
+          node('go', 'GroupOutput', 'output', {}),
+        ],
+        edges: [edge('e', 'sc', 'frame', 'go', 'frame')],
+      },
+      outer: {
+        nodes: [
+          node('ig', 'Group', 'pattern', { groupId: 'inner' }),
+          node('go', 'GroupOutput', 'output', {}),
+        ],
+        edges: [edge('e', 'ig', 'frame', 'go', 'frame')],
+      },
+    }
+    const grp = node('g1', 'Group', 'pattern', { groupId: 'outer' })
+    const frame = evaluateGraph([grp, out()], [edge('e1', 'g1', 'frame', 'out', 'frame')], 0, 4, 4, groups)
+    expect(frame![0][0]).toEqual({ r: 0, g: 255, b: 0 })
+  })
+
+  it('breaks a self-referential group without infinite recursion', () => {
+    const groups = {
+      loop: {
+        nodes: [
+          node('inner', 'Group', 'pattern', { groupId: 'loop' }),
+          node('go', 'GroupOutput', 'output', {}),
+        ],
+        edges: [edge('e', 'inner', 'frame', 'go', 'frame')],
+      },
+    }
+    const grp = node('g1', 'Group', 'pattern', { groupId: 'loop' })
+    const frame = evaluateGraph([grp, out()], [edge('e1', 'g1', 'frame', 'out', 'frame')], 0, 4, 4, groups)
+    expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })   // cycle broken → blank
+  })
+
+  it('keeps stateful node state isolated per group instance', () => {
+    // A group that fades a white frame by a per-instance Counter.
+    const groups = {
+      fade: {
+        nodes: [
+          node('white', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 }),
+          node('cnt', 'Counter', 'math', { speed: 3 }),
+          node('bm', 'BrightnessMod', 'composite', {}),
+          node('go', 'GroupOutput', 'output', {}),
+        ],
+        edges: [
+          edge('e1', 'white', 'frame', 'bm', 'frame'),
+          edge('e2', 'cnt', 'value', 'bm', 'brightness'),
+          edge('e3', 'bm', 'frame', 'go', 'frame'),
+        ],
+      },
+    }
+    // Instance g1 evaluated five times — its counter accumulates to ~0.25.
+    let g1Frame = null as ReturnType<typeof evaluateGraph>
+    for (let tk = 1; tk <= 5; tk++) {
+      g1Frame = evaluateGraph(
+        [node('g1', 'Group', 'pattern', { groupId: 'fade' }), out()],
+        [edge('a', 'g1', 'frame', 'out', 'frame')], tk, 1, 1, groups,
+      )
+    }
+    // A fresh instance g2 on its first tick must be dimmer (counter ~0.05) —
+    // proving it did not inherit g1's accumulated state.
+    const g2Frame = evaluateGraph(
+      [node('g2', 'Group', 'pattern', { groupId: 'fade' }), out()],
+      [edge('b', 'g2', 'frame', 'out', 'frame')], 1, 1, 1, groups,
+    )
+    expect(g2Frame![0][0].r).toBeLessThan(g1Frame![0][0].r)
+  })
+})

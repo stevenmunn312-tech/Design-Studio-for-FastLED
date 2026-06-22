@@ -452,18 +452,32 @@ function evalCustomFormula(formula: string, a: number, b: number, palette: strin
 
 type PortValue = number | boolean | string | RGB | Frame | null
 
+/** A reusable pattern group: a named subgraph that a `Group` node evaluates. */
+export interface GroupDef { nodes: StudioNode[]; edges: StudioEdge[] }
+export type GroupRegistry = Record<string, GroupDef>
+
 export function evaluateGraph(
   nodes: StudioNode[],
   edges: StudioEdge[],
   tick: number,
   gridW = DEFAULT_W,
   gridH = DEFAULT_H,
+  groups: GroupRegistry = {},
+  // Internal recursion bookkeeping for nested groups — callers leave these
+  // defaulted. `instancePrefix` namespaces stateful-node state per group
+  // instance; `groupStack` breaks group-level recursion.
+  instancePrefix = '',
+  groupStack: ReadonlySet<string> = new Set(),
 ): Frame | null {
   const W = gridW
   const H = gridH
   if (nodes.length === 0) return null
 
   const t = tick / 60   // seconds at assumed 60 fps
+
+  // State maps are module-level and keyed by node id; prefix with the group
+  // instance path so two instances of the same group don't share state.
+  const stateKey = (id: string) => instancePrefix + id
 
   const nodeMap = new Map(nodes.map(n => [n.id, n]))
 
@@ -658,7 +672,7 @@ export function evaluateGraph(
 
       case 'Fire': {
         const intensity = num(id, 'intensity', props, 'intensity', 0.7)
-        out = { frame: evalFire(id, intensity, W, H) }
+        out = { frame: evalFire(stateKey(id), intensity, W, H) }
         break
       }
 
@@ -755,7 +769,7 @@ export function evaluateGraph(
         const beatVal = input(id, 'beat', false) as boolean
         const baseFrame = input(id, 'frame', null) as Frame | null
         const decay = num(id, 'decay', props, 'decay', 0.85)
-        out = { frame: evalBeatFlash(id, beatVal, baseFrame, decay, W, H) }
+        out = { frame: evalBeatFlash(stateKey(id), beatVal, baseFrame, decay, W, H) }
         break
       }
 
@@ -820,7 +834,7 @@ export function evaluateGraph(
         const decay = Number(props.decay ?? 0.92)
         const colorIn = input(id, 'color', null) as RGB | null
         const color = colorIn ?? { r: Number(props.r ?? 100), g: Number(props.g ?? 200), b: Number(props.b ?? 255) }
-        out = { frame: evalParticles(id, rate, color, decay, W, H) }
+        out = { frame: evalParticles(stateKey(id), rate, color, decay, W, H) }
         break
       }
 
@@ -881,9 +895,9 @@ export function evaluateGraph(
 
       case 'Counter': {
         const speed = num(id, 'speed', props, 'speed', 0.5)
-        const prev = counterVals.get(id) ?? 0
+        const prev = counterVals.get(stateKey(id)) ?? 0
         const next = (prev + speed / 60) % 1
-        counterVals.set(id, next)
+        counterVals.set(stateKey(id), next)
         out = { value: next }
         break
       }
@@ -971,7 +985,7 @@ export function evaluateGraph(
         const beat = input(id, 'beat', false) as boolean
         const mode = String(props.mode ?? 'cycle')
         const interval = Number(props.interval ?? 4)
-        out = { frame: evalPatternMaster(id, frames, beat, mode, interval, t, W, H) }
+        out = { frame: evalPatternMaster(stateKey(id), frames, beat, mode, interval, t, W, H) }
         break
       }
 
@@ -1072,6 +1086,30 @@ export function evaluateGraph(
         out = { value: 0.5 }
         break
 
+      // ── Groups ─────────────────────────────────────────────────────────
+      case 'Group': {
+        const groupId = String(props.groupId ?? '')
+        const def = groups[groupId]
+        // Missing group, or a group that (transitively) contains itself —
+        // emit a blank frame rather than recursing forever.
+        if (!def || groupStack.has(groupId)) {
+          out = { frame: blankFrame(W, H) }
+          break
+        }
+        const frame = evaluateGraph(
+          def.nodes, def.edges, tick, W, H, groups,
+          `${instancePrefix}${id}/`,
+          new Set([...groupStack, groupId]),
+        ) ?? blankFrame(W, H)
+        out = { frame }
+        break
+      }
+
+      // The frame terminal inside a group subgraph (analogous to MatrixOutput).
+      case 'GroupOutput':
+        out = { frame: input(id, 'frame', null) }
+        break
+
       // ── Output ─────────────────────────────────────────────────────────
       case 'MatrixOutput':
         out = { frame: input(id, 'frame', null) }
@@ -1086,8 +1124,12 @@ export function evaluateGraph(
     return out
   }
 
-  // 1. Prefer an explicit MatrixOutput node
-  const outputNode = nodes.find(n => (n.data as { nodeType?: string }).nodeType === 'MatrixOutput')
+  // 1. Prefer an explicit terminal: GroupOutput inside a group subgraph, or
+  // MatrixOutput at the root. Both pass through their `frame` input.
+  const outputNode = nodes.find(n => {
+    const nt = (n.data as { nodeType?: string }).nodeType
+    return nt === 'GroupOutput' || nt === 'MatrixOutput'
+  })
   if (outputNode) {
     const frame = evalNode(outputNode.id).frame
     if (frame) return frame as Frame
