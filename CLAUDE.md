@@ -2,111 +2,89 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Status
-
-This repository is currently in the **specification/design phase**. No implementation code exists yet. The repository contains three specification documents that define what must be built:
-
-- `.docs/Proposal-FastLED_Studio` — Feature scope: node categories, code-generation pipeline, deployment workflow
-- `.docs/Design_Specification.md` — Visual design system: color tokens, typography, component specs, animations
-- `.docs/Developer_Handoff_Specification` — Implementation guide: tech stack decisions, CSS variables, data schemas, file structure, performance requirements
-
-When writing code, derive all design tokens, component dimensions, and interaction behavior from these documents rather than inventing them.
-
 ## What This Project Is
 
-**FastLED Studio** is a browser-based, node-based visual designer that lets users build LED lighting effects by wiring together nodes on a canvas, then compiles the graph into FastLED/Arduino C++ firmware and uploads it to microcontrollers (primarily ESP32-S3).
+**FastLED Studio** is a browser-based node-graph editor for designing LED lighting effects. Users wire together nodes on a canvas, see a real-time LED matrix preview, and (eventually) generate FastLED/Arduino C++ firmware for upload to microcontrollers like the ESP32-S3.
 
-Core user flow: drag nodes onto canvas → connect ports → see real-time LED preview → generate C++ firmware → upload via WebSerial/WebUSB.
+Core user flow: drag nodes from sidebar → wire ports together → preview updates live → generate C++ → upload via WebSerial/WebUSB.
 
-## Intended Technology Stack
+## Commands
 
-From `Developer_Handoff_Specification`:
+```bash
+npm run dev       # start Vite dev server (http://localhost:5173)
+npm run build     # tsc type-check + Vite production build
+npm run lint      # ESLint
+npm run preview   # serve the production build locally
+```
 
-- **Framework**: React + TypeScript
-- **Node graph rendering**: PixiJS or custom WebGL canvas
-- **LED preview rendering**: WebGL shader canvas
-- **Audio processing**: Web Audio API + AudioWorklet for FFT
-- **Hardware upload**: WebUSB / WebSerial
-- **State management**: Zustand or Redux Toolkit
-- **Styling**: CSS variables (design tokens defined in spec) + Tailwind or CSS-in-JS (Stitches/Emotion)
+No test suite exists yet.
+
+## Stack
+
+- **React 19 + TypeScript** via Vite, CSS Modules for all component styles
+- **@xyflow/react v12** — node graph canvas, handles, edges, minimap
+- **Zustand v5** — all app state (`graphStore`, `uiStore`)
+- No Tailwind; styling is pure CSS variables defined in `src/themes/tokens.css`
 
 ## Architecture
 
-### Node System
+### State
 
-All nodes share a common schema (`Developer_Handoff_Specification` §5.1):
+`src/state/graphStore.ts` owns the React Flow node/edge arrays and wraps `applyNodeChanges`, `applyEdgeChanges`, `addEdge` from `@xyflow/react`. It also tracks `selectedNodeId` and exposes `updateNodeProperty`. Uses `subscribeWithSelector` middleware.
 
-```json
-{
-  "id": "uuid",
-  "type": "NodeTypeName",
-  "position": { "x": 320, "y": 120 },
-  "inputs": { "portName": "sourceNodeId.outputPortName" },
-  "outputs": { "portName": [] },
-  "properties": {}
-}
+`src/state/uiStore.ts` owns sidebar/inspector open state and the status bar message + level. `setStatus` auto-clears `info`/`success` messages after 5 seconds.
+
+`src/state/nodeLibrary.ts` is the static registry of all node definitions (`NODE_LIBRARY: NodeDefinition[]`). Adding a new node type means adding an entry here — no other registration step required. The Sidebar reads this array directly.
+
+### Node Rendering
+
+`StudioNode` (`src/components/Canvas/StudioNode.tsx`) is the single custom node component registered as `{ studioNode: StudioNode }` in React Flow. **Critical invariant:** React Flow requires `Handle` components to be `position: absolute` relative to the node container. Handles are rendered outside the flex body and their `top` offset is calculated from constants that must stay in sync with the CSS:
+
+```ts
+// StudioNode.tsx — must match StudioNode.module.css
+const HEADER_H = 32   // .header height
+const BODY_PAD = 8    // .body padding-top (--space-1)
+const ROW_H    = 24   // .portRow height
+const ROW_GAP  = 4    // .body gap
+const handleTop = (i: number) => HEADER_H + BODY_PAD + i * (ROW_H + ROW_GAP) + ROW_H / 2
 ```
 
-Nodes are registered via a **factory system** — rendering must be decoupled from node logic. The five node type categories, each with its own accent color, are:
+If you change any of those CSS values, update the constants or handles will be misaligned and connections will break.
 
-| Category | Accent Color | CSS Var |
-|----------|-------------|---------|
-| Audio | `#00FFFF` | `--accent-audio` |
-| Pattern | `#FF00FF` | `--accent-pattern` |
-| Math | `#A8FF00` | `--accent-math` |
-| Output | `#00BFFF` | `--accent-output` |
-| Hardware | `#FFA500` | `--accent-hardware` |
+Port rows render inputs (left-padded) and outputs (right-padded) side-by-side in the same row using `space-between`.
 
-### Graph Data Model
+### Edge Rendering
 
-The persisted graph schema (`Developer_Handoff_Specification` §5.2) separates nodes from connections:
+`GlowEdge` (`src/components/Canvas/GlowEdge.tsx`) is the custom edge type registered as `{ glowEdge: GlowEdge }` and set as the default via `defaultEdgeOptions={{ type: 'glowEdge' }}`. It renders three stacked SVG `<path>` elements (wide halo → mid bloom → thin animated core) plus a dot at the target. Color is resolved at render time via `useReactFlow().getNode(source)` to read the source node's `category` field.
 
-```json
-{
-  "nodes": [...],
-  "connections": [
-    { "from": { "node": "id1", "port": "bass" }, "to": { "node": "id2", "port": "hue" } }
-  ]
-}
-```
+### Canvas Layout
 
-Graph must autosave every 10 seconds and support 100-step undo/redo.
+`NodeGraphCanvas` wraps everything in `<ReactFlowProvider>` so that the inner component can call `useReactFlow()` for both `screenToFlowPosition` (used in `onDrop` to place nodes at cursor position) and edge color lookup.
 
-### Upload Pipeline
+### Design Tokens
 
-Code generation flow (`Developer_Handoff_Specification` §7):
-1. Serialize node graph → intermediate representation
-2. Generate C++ (FastLED setup, pattern classes, audio classes, transition classes, hardware handlers, main loop)
-3. Compile via WebAssembly toolchain
-4. Upload via WebSerial/WebUSB
+All colors, spacing, and typography are CSS variables in `src/themes/tokens.css`. The five node categories each map to an accent color:
 
-### Recommended Source Layout
+| Category | Hex | CSS var |
+|----------|-----|---------|
+| audio | `#00ffff` | `--accent-audio` |
+| pattern | `#ff00ff` | `--accent-pattern` |
+| math | `#a8ff00` | `--accent-math` |
+| output | `#00bfff` | `--accent-output` |
+| hardware | `#ffa500` | `--accent-hardware` |
 
-```
-/src
- ├── components/       # Node, Sidebar, Preview, Inspector, StatusBar
- ├── canvas/           # NodeRenderer.ts, ConnectorRenderer.ts, GridRenderer.ts
- ├── state/            # graphStore.ts, uiStore.ts
- ├── utils/
- ├── themes/           # tokens.css
- └── upload/           # compiler.ts, uploader.ts
-```
+Key layout constants (also in tokens.css): sidebar `280px`, inspector `280px`, menu bar `48px`, status bar `40px`, node `220px × 140px`, base spacing `8px`.
 
-## Design System
+## Specification Docs
 
-All design tokens are defined as CSS variables (full list in `Developer_Handoff_Specification` §2). Key layout constants:
+The original design intent lives in `.docs/`:
 
-- App background: `#0D0F12`; Panel background: `#161A1F`; Node body: `#1F242B`
-- Sidebar width: `280px`; Status bar height: `40px`; Menu bar height: `48px`
-- Node: `220px × 140px`, `8px` border-radius, ports are `12px` circles with glow
-- Base spacing unit: `8px`; node snap grid: `20px`
-- Fonts: Inter (UI), JetBrains Mono (code/labels)
+- `.docs/Proposal-FastLED_Studio` — full node-type catalogue and deployment workflow
+- `.docs/Design_Specification.md` — visual design system (colors, typography, animations, component specs)
+- `.docs/Developer_Handoff_Specification` — implementation guide (CSS variables, data schemas, performance requirements, upload pipeline steps)
 
-Node connector lines are Bezier curves with glow; they pulse when data flows. The canvas supports `0.5×–2.0×` zoom.
+Derive interaction behavior, animation durations, and component dimensions from these rather than inventing them. See `todo.md` for what remains unimplemented.
 
-## Performance Constraints
+## Planned but Not Yet Built
 
-- Node graph must handle **500+ nodes** without lag; use GPU-accelerated rendering
-- LED preview targets **60 FPS** via WebGL shader pipeline
-- All animations must use only `transform`/`opacity` (GPU composited)
-- FFT processing must run in an **AudioWorklet** (off main thread)
+The LED preview (`LEDPreview.tsx`) currently runs a placeholder Canvas 2D animation — it does not evaluate the node graph. The audio pipeline (Web Audio API + AudioWorklet), C++ code generation, and WebSerial/WebUSB upload are all stubs. See `todo.md` for the full list.
