@@ -9,7 +9,12 @@ const DEFAULT_W = 16
 const DEFAULT_H = 16
 
 // ── Persistent state for stateful pattern nodes ───────────────────────────────
-const fireHeat = new Map<string, number[][]>()
+const fireHeat    = new Map<string, number[][]>()
+const flashLevel  = new Map<string, number>()
+const counterVals = new Map<string, number>()
+
+interface Particle { x: number; y: number; vx: number; vy: number; life: number; r: number; g: number; b: number }
+const particleState = new Map<string, Particle[]>()
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
 function hsv(h: number, s: number, v: number): RGB {
@@ -141,9 +146,6 @@ function evalTrebleSparks(treble: number, density: number, W = DEFAULT_W, H = DE
   return frame
 }
 
-// Persistent flash state
-const flashLevel = new Map<string, number>()
-
 function evalBeatFlash(nodeId: string, beat: boolean, base: Frame | null, decay: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   let level = flashLevel.get(nodeId) ?? 0
   if (beat) level = 1
@@ -159,6 +161,105 @@ function evalBeatFlash(nodeId: string, beat: boolean, base: Frame | null, decay:
       g: Math.min(255, Math.round(px.g + (255 - px.g) * level)),
       b: Math.min(255, Math.round(px.b + (255 - px.b) * level)),
     }))
+  )
+}
+
+function samplePalette(palette: string, t: number): RGB {
+  const h = ((t % 1) + 1) % 1
+  switch (palette) {
+    case 'heat':
+      if (h < 0.33) return { r: Math.round(h * 3 * 255), g: 0, b: 0 }
+      if (h < 0.66) return { r: 255, g: Math.round(((h - 0.33) / 0.33) * 255), b: 0 }
+      return { r: 255, g: 255, b: Math.round(((h - 0.66) / 0.34) * 255) }
+    case 'ocean':
+      return hsv(200 + h * 40, 0.8 + h * 0.2, h * 0.9 + 0.1)
+    case 'lava':
+      return hsv(h * 40, 1, h > 0.08 ? 0.9 : h * 11)
+    case 'party':
+      return hsv(((h * 360 * 6.7) % 360 + 360) % 360, 1, 1)
+    default: // rainbow
+      return hsv(h * 360, 1, 1)
+  }
+}
+
+function evalNoise2D(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      let v = 0, amp = 1, freq = scale
+      for (let oct = 0; oct < 3; oct++) {
+        v += amp * Math.sin(x * freq + t * speed + oct * 1.7) * Math.cos(y * freq * 1.3 + t * speed * 0.8 + oct * 2.3)
+        amp *= 0.5; freq *= 2.1
+      }
+      return hsv((v * 0.5 + 0.5) * 360, 1, 0.85)
+    })
+  )
+}
+
+function evalRadialBurst(speed: number, color: RGB, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const cx = W / 2, cy = H / 2, maxD = Math.hypot(cx, cy)
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const dist = Math.hypot(x - cx, y - cy) / maxD
+      const wave = (Math.sin((dist * 8 - t * speed * 3) * Math.PI) + 1) / 2
+      return { r: Math.round(color.r * wave), g: Math.round(color.g * wave), b: Math.round(color.b * wave) }
+    })
+  )
+}
+
+function evalSpiral(speed: number, arms: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const cx = W / 2, cy = H / 2, maxD = Math.hypot(cx, cy)
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const dx = x - cx, dy = y - cy
+      const dist = Math.hypot(dx, dy) / maxD
+      const angle = Math.atan2(dy, dx)
+      const spiral = (angle + dist * Math.PI * 4 - t * speed * Math.PI) * arms
+      const v = (Math.sin(spiral) + 1) / 2
+      return hsv(dist * 360 + t * 30, 1, v * 0.9)
+    })
+  )
+}
+
+function evalKaleidoscope(src: Frame, segments: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const cx = W / 2, cy = H / 2
+  const segAngle = (Math.PI * 2) / Math.max(2, segments)
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const dx = x - cx, dy = y - cy
+      const dist = Math.hypot(dx, dy)
+      let angle = ((Math.atan2(dy, dx) % segAngle) + segAngle) % segAngle
+      if (angle > segAngle / 2) angle = segAngle - angle
+      const sx = Math.round(cx + dist * Math.cos(angle))
+      const sy = Math.round(cy + dist * Math.sin(angle))
+      if (sx < 0 || sx >= W || sy < 0 || sy >= H) return { r: 0, g: 0, b: 0 }
+      return { ...src[sy][sx] }
+    })
+  )
+}
+
+function evalParticles(nodeId: string, rate: number, color: RGB, decay: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  if (!particleState.has(nodeId)) particleState.set(nodeId, [])
+  const particles = particleState.get(nodeId)!
+  if (Math.random() < rate)
+    particles.push({ x: Math.random() * W, y: H - 1, vx: (Math.random() - 0.5) * 0.6, vy: -(Math.random() * 0.5 + 0.1), life: 1, r: color.r, g: color.g, b: color.b })
+  for (const p of particles) { p.x += p.vx; p.y += p.vy; p.vy += 0.02; p.life *= decay }
+  const active = particles.filter(p => p.life > 0.04 && p.y >= 0)
+  particleState.set(nodeId, active)
+  const frame = blankFrame(W, H)
+  for (const p of active) {
+    const px = Math.round(p.x), py = Math.round(p.y)
+    if (px >= 0 && px < W && py >= 0 && py < H)
+      frame[py][px] = { r: Math.min(255, Math.round(p.r * p.life)), g: Math.min(255, Math.round(p.g * p.life)), b: Math.min(255, Math.round(p.b * p.life)) }
+  }
+  return frame
+}
+
+function evalGradientFrame(cA: RGB, cB: RGB, vertical: boolean, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const t = vertical ? y / (H - 1) : x / (W - 1)
+      return { r: Math.round(cA.r * (1-t) + cB.r * t), g: Math.round(cA.g * (1-t) + cB.g * t), b: Math.round(cA.b * (1-t) + cB.b * t) }
+    })
   )
 }
 
@@ -441,6 +542,129 @@ export function evaluateGraph(
             b: Math.round(a.b * (1 - mix) + b.b * mix),
           },
         }
+        break
+      }
+
+      // ── New pattern nodes ──────────────────────────────────────────────
+      case 'Noise2D': {
+        const speed = num(id, 'speed', props, 'speed', 0.4)
+        const scale = num(id, 'scale', props, 'scale', 0.4)
+        out = { frame: evalNoise2D(speed, scale, t, W, H) }
+        break
+      }
+
+      case 'RadialBurst': {
+        const speed = num(id, 'speed', props, 'speed', 1)
+        const colorIn = input(id, 'color', null) as RGB | null
+        const color = colorIn ?? { r: Number(props.r ?? 0), g: Number(props.g ?? 200), b: Number(props.b ?? 255) }
+        out = { frame: evalRadialBurst(speed, color, t, W, H) }
+        break
+      }
+
+      case 'Spiral': {
+        const speed = num(id, 'speed', props, 'speed', 1)
+        const arms = Number(props.arms ?? 2)
+        out = { frame: evalSpiral(speed, arms, t, W, H) }
+        break
+      }
+
+      case 'Kaleidoscope': {
+        const src = input(id, 'frame', null) as Frame | null
+        const segments = num(id, 'segments', props, 'segments', 6)
+        if (!src) { out = { frame: blankFrame(W, H) }; break }
+        out = { frame: evalKaleidoscope(src, segments, W, H) }
+        break
+      }
+
+      case 'Particles': {
+        const rate = num(id, 'rate', props, 'rate', 0.3)
+        const decay = Number(props.decay ?? 0.92)
+        const colorIn = input(id, 'color', null) as RGB | null
+        const color = colorIn ?? { r: Number(props.r ?? 100), g: Number(props.g ?? 200), b: Number(props.b ?? 255) }
+        out = { frame: evalParticles(id, rate, color, decay, W, H) }
+        break
+      }
+
+      case 'Invert': {
+        const src = input(id, 'frame', null) as Frame | null
+        if (!src) { out = { frame: blankFrame(W, H) }; break }
+        out = { frame: src.map(row => row.map(px => ({ r: 255 - px.r, g: 255 - px.g, b: 255 - px.b }))) }
+        break
+      }
+
+      case 'GradientFrame': {
+        const cA = (input(id, 'colorA', null) as RGB | null) ?? { r: Number(props.rA ?? 0), g: Number(props.gA ?? 200), b: Number(props.bA ?? 255) }
+        const cB = (input(id, 'colorB', null) as RGB | null) ?? { r: Number(props.rB ?? 255), g: Number(props.gB ?? 0), b: Number(props.bB ?? 255) }
+        out = { frame: evalGradientFrame(cA, cB, Boolean(props.vertical), W, H) }
+        break
+      }
+
+      case 'GradientSampler': {
+        const tt = num(id, 't', props, 't', 0)
+        const cA = (input(id, 'colorA', null) as RGB | null) ?? { r: Number(props.rA ?? 0), g: Number(props.gA ?? 200), b: Number(props.bA ?? 255) }
+        const cB = (input(id, 'colorB', null) as RGB | null) ?? { r: Number(props.rB ?? 255), g: Number(props.gB ?? 0), b: Number(props.bB ?? 255) }
+        out = { color: { r: Math.round(cA.r*(1-tt)+cB.r*tt), g: Math.round(cA.g*(1-tt)+cB.g*tt), b: Math.round(cA.b*(1-tt)+cB.b*tt) } }
+        break
+      }
+
+      case 'PaletteSampler': {
+        const tt = num(id, 't', props, 't', 0)
+        out = { color: samplePalette(String(props.palette ?? 'rainbow'), tt) }
+        break
+      }
+
+      // ── Logic / Control ────────────────────────────────────────────────
+      case 'Abs':
+        out = { result: Math.abs(num(id, 'x', props, 'x', 0)) }
+        break
+
+      case 'Mod': {
+        const x = num(id, 'x', props, 'x', 0)
+        const m = num(id, 'm', props, 'm', 1)
+        out = { result: m !== 0 ? ((x % m) + m) % m : 0 }
+        break
+      }
+
+      case 'MinNode':
+        out = { result: Math.min(num(id, 'a', props, 'a', 0), num(id, 'b', props, 'b', 0)) }
+        break
+
+      case 'MaxNode':
+        out = { result: Math.max(num(id, 'a', props, 'a', 0), num(id, 'b', props, 'b', 0)) }
+        break
+
+      case 'Random': {
+        const lo = Number(props.min ?? 0), hi = Number(props.max ?? 1)
+        out = { value: lo + Math.random() * (hi - lo) }
+        break
+      }
+
+      case 'Counter': {
+        const speed = num(id, 'speed', props, 'speed', 0.5)
+        const prev = counterVals.get(id) ?? 0
+        const next = (prev + speed / 60) % 1
+        counterVals.set(id, next)
+        out = { value: next }
+        break
+      }
+
+      case 'Gate': {
+        const val = num(id, 'value', props, 'value', 0)
+        const gate = input(id, 'gate', false) as boolean
+        out = { result: gate ? val : Number(props.fallback ?? 0) }
+        break
+      }
+
+      case 'Not': {
+        const x = input(id, 'x', false) as boolean
+        out = { result: !x }
+        break
+      }
+
+      case 'Compare': {
+        const a = num(id, 'a', props, 'a', 0)
+        const b = num(id, 'b', props, 'b', 0.5)
+        out = { result: a > b }
         break
       }
 

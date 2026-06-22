@@ -284,6 +284,122 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[]): string {
         break
       }
 
+      case 'Noise2D': {
+        needsT.v = true
+        const speed = f('speed', 'speed', 0.4), scale = f('scale', 'scale', 0.4)
+        ln(`  { float _spd=${speed},_sc=${scale}; for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`    float _v=sin(_x*_sc+t*_spd+1.7f)*cos(_y*_sc*1.3f+t*_spd*0.8f+2.3f)+0.5f*sin(_x*_sc*2.1f+t*_spd*2.0f)*cos(_y*_sc*2.7f+t*_spd*1.6f);`)
+        ln(`    leds[_y*WIDTH+_x]=CHSV((uint8_t)((_v*0.5f+0.5f)*255),255,220);}}`)
+        break
+      }
+
+      case 'RadialBurst': {
+        needsT.v = true
+        const speed = f('speed', 'speed', 1)
+        const r = Number(p.r ?? 0), g = Number(p.g ?? 200), b = Number(p.b ?? 255)
+        ln(`  { float _spd=${speed}; for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`    float _d=sqrt((_x-WIDTH/2.0f)*(_x-WIDTH/2.0f)+(_y-HEIGHT/2.0f)*(_y-HEIGHT/2.0f))/sqrt(WIDTH*WIDTH/4.0f+HEIGHT*HEIGHT/4.0f);`)
+        ln(`    float _w=(sin((_d*8-t*_spd*3)*3.14159f)+1)/2.0f;`)
+        ln(`    leds[_y*WIDTH+_x]=CRGB((uint8_t)(${r}*_w),(uint8_t)(${g}*_w),(uint8_t)(${b}*_w));}}`)
+        break
+      }
+
+      case 'Spiral': {
+        needsT.v = true
+        const speed = f('speed', 'speed', 1), arms = Number(p.arms ?? 2)
+        ln(`  { float _spd=${speed}; for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`    float _d=sqrt((_x-WIDTH/2.0f)*(_x-WIDTH/2.0f)+(_y-HEIGHT/2.0f)*(_y-HEIGHT/2.0f))/sqrt(WIDTH*WIDTH/4.0f+HEIGHT*HEIGHT/4.0f);`)
+        ln(`    float _a=atan2(_y-HEIGHT/2.0f,_x-WIDTH/2.0f);float _s=(_a+_d*12.57f-t*_spd*3.14159f)*${arms};`)
+        ln(`    leds[_y*WIDTH+_x]=CHSV((uint8_t)(_d*255+t*30),255,(uint8_t)((sin(_s)+1)/2.0f*230));}}`)
+        break
+      }
+
+      case 'Kaleidoscope':
+        ln(`  // Kaleidoscope: apply after a pattern node has written to leds[]`)
+        break
+
+      case 'Particles':
+        ln(`  // Particles: complex stateful pattern — see FastLED particle examples`)
+        break
+
+      case 'Invert':
+        ln(`  for(int _i=0;_i<NUM_LEDS;_i++){leds[_i].r=255-leds[_i].r;leds[_i].g=255-leds[_i].g;leds[_i].b=255-leds[_i].b;}`)
+        break
+
+      case 'GradientFrame': {
+        const rA = Number(p.rA ?? 0), gA = Number(p.gA ?? 200), bA = Number(p.bA ?? 255)
+        const rB = Number(p.rB ?? 255), gB = Number(p.gB ?? 0), bB = Number(p.bB ?? 255)
+        const vert = Boolean(p.vertical)
+        ln(`  { for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`    float _t=${vert ? '_y/(HEIGHT-1.0f)' : '_x/(WIDTH-1.0f)'};`)
+        ln(`    leds[_y*WIDTH+_x]=CRGB((uint8_t)(${rA}*(1-_t)+${rB}*_t),(uint8_t)(${gA}*(1-_t)+${gB}*_t),(uint8_t)(${bA}*(1-_t)+${bB}*_t));}}`)
+        break
+      }
+
+      case 'GradientSampler': {
+        const tt = f('t', 't', 0)
+        const rA = Number(p.rA ?? 0), gA = Number(p.gA ?? 200), bA = Number(p.bA ?? 255)
+        const rB = Number(p.rB ?? 255), gB = Number(p.gB ?? 0), bB = Number(p.bB ?? 255)
+        ln(`  CRGB ${v('color')} = CRGB((uint8_t)(${rA}*(1-(${tt}))+${rB}*(${tt})),(uint8_t)(${gA}*(1-(${tt}))+${gB}*(${tt})),(uint8_t)(${bA}*(1-(${tt}))+${bB}*(${tt})));`)
+        break
+      }
+
+      case 'PaletteSampler': {
+        const tt = f('t', 't', 0), pal = String(p.palette ?? 'rainbow')
+        ln(`  // PaletteSampler (${pal}) — use CRGBPalette16 with your chosen palette`)
+        ln(`  CRGB ${v('color')} = ColorFromPalette(RainbowColors_p, (uint8_t)((${tt})*255));`)
+        break
+      }
+
+      case 'Abs':
+        ln(`  float ${v('result')} = fabs(${f('x', 'x', 0)});`)
+        break
+
+      case 'Mod': {
+        const mx = f('x', 'x', 0), mm = f('m', 'm', 1)
+        ln(`  float ${v('result')} = fmod(fmod(${mx}, ${mm}) + (${mm}), ${mm});`)
+        break
+      }
+
+      case 'MinNode':
+        ln(`  float ${v('result')} = min(${f('a', 'a', 0)}, ${f('b', 'b', 0)});`)
+        break
+
+      case 'MaxNode':
+        ln(`  float ${v('result')} = max(${f('a', 'a', 0)}, ${f('b', 'b', 0)});`)
+        break
+
+      case 'Random': {
+        const lo = Number(p.min ?? 0), hi = Number(p.max ?? 1)
+        ln(`  float ${v('value')} = ${lo} + random8() / 255.0f * ${hi - lo};`)
+        break
+      }
+
+      case 'Counter': {
+        const speed = f('speed', 'speed', 0.5)
+        ln(`  static float ${v('value')} = 0;`)
+        ln(`  ${v('value')} = fmod(${v('value')} + (${speed}) / 60.0f, 1.0f);`)
+        break
+      }
+
+      case 'Gate': {
+        const val = f('value', 'value', 0), gate = boolExpr(node.id, 'gate')
+        ln(`  float ${v('result')} = (${gate}) ? (${val}) : ${Number(p.fallback ?? 0)};`)
+        break
+      }
+
+      case 'Not': {
+        const x = boolExpr(node.id, 'x')
+        ln(`  bool ${v('result')} = !(${x});`)
+        break
+      }
+
+      case 'Compare': {
+        const a = f('a', 'a', 0), b2 = f('b', 'b', 0.5)
+        ln(`  bool ${v('result')} = (${a}) > (${b2});`)
+        break
+      }
+
       case 'MatrixOutput':
         ln(`  FastLED.show();`)
         break

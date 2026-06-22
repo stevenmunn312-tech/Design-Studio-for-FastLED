@@ -6,7 +6,10 @@ import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import styles from './MenuBar.module.css'
 
 export default function MenuBar() {
-  const { toggleSidebar, toggleInspector, setStatus } = useUiStore()
+  const { toggleSidebar, toggleInspector, setStatus, theme, cycleTheme, reducedMotion, toggleReducedMotion, highContrast, toggleHighContrast } = useUiStore()
+
+  const THEME_ICON: Record<string, string> = { dark: '☾', solarized: '✦', light: '☀' }
+  const THEME_LABEL: Record<string, string> = { dark: 'Dark', solarized: 'Solarized', light: 'Light' }
   const nodeCount = useGraphStore((s) => s.nodes.length)
   const edgeCount = useGraphStore((s) => s.edges.length)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -111,6 +114,28 @@ export default function MenuBar() {
         <div className={styles.sep} />
         <button className={styles.btnAccent} onClick={handleExport}>
           ↑ Upload
+        </button>
+        <div className={styles.sep} />
+        <button
+          className={styles.btn}
+          onClick={cycleTheme}
+          title={`Theme: ${THEME_LABEL[theme]} (click to cycle)`}
+        >
+          {THEME_ICON[theme]} {THEME_LABEL[theme]}
+        </button>
+        <button
+          className={`${styles.btn} ${reducedMotion ? styles.btnActive : ''}`}
+          onClick={toggleReducedMotion}
+          title="Toggle reduced motion"
+        >
+          {reducedMotion ? '⏸' : '▶'}
+        </button>
+        <button
+          className={`${styles.btn} ${highContrast ? styles.btnActive : ''}`}
+          onClick={toggleHighContrast}
+          title="Toggle high contrast"
+        >
+          ◑
         </button>
       </nav>
       <div className={styles.info}>

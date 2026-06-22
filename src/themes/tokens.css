@@ -56,6 +56,52 @@
   --anim-transition: 1200ms ease-in-out;
 }
 
+/* ── Solarized Dark ────────────────────────────────────────────────────────── */
+[data-theme="solarized"] {
+  --bg-primary: #002b36;
+  --bg-panel: #073642;
+  --bg-node: #0d4050;
+  --bg-node-hover: #145060;
+  --text-primary: #eee8d5;
+  --text-secondary: #93a1a1;
+  --border-glow: rgba(131, 148, 150, 0.3);
+  --divider: rgba(131, 148, 150, 0.1);
+}
+
+/* ── Studio Light ──────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg-primary: #eef0f4;
+  --bg-panel: #ffffff;
+  --bg-node: #f4f5f8;
+  --bg-node-hover: #e8eaef;
+  --text-primary: #1a1c2e;
+  --text-secondary: #5a5c72;
+  --border-glow: rgba(0, 0, 0, 0.12);
+  --divider: rgba(0, 0, 0, 0.06);
+  --success: #00aa66;
+  --error: #cc2244;
+}
+
+/* ── High Contrast overlay (applies on top of any theme) ──────────────────── */
+[data-high-contrast] {
+  --text-secondary: var(--text-primary);
+  --border-glow: rgba(255, 255, 255, 0.45);
+  --divider: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="light"][data-high-contrast] {
+  --border-glow: rgba(0, 0, 0, 0.5);
+  --divider: rgba(0, 0, 0, 0.3);
+  --text-secondary: #111120;
+}
+
+/* ── Reduced-motion override ───────────────────────────────────────────────── */
+[data-reduced-motion] * {
+  animation-duration: 1ms !important;
+  animation-delay: 0ms !important;
+  transition-duration: 1ms !important;
+}
+
 *,
 *::before,
 *::after {

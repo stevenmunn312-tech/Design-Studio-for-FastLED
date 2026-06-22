@@ -23,8 +23,19 @@ function saveToLocalStorage(nodes: StudioNode[], edges: StudioEdge[]) {
 }
 
 export default function App() {
-  const { sidebarOpen, inspectorOpen, setStatus } = useUiStore()
+  const { sidebarOpen, inspectorOpen, setStatus, theme, reducedMotion, highContrast } = useUiStore()
   const { startAudio, stopAudio } = useAudioStore()
+
+  // Apply theme + accessibility attributes to the root element
+  useEffect(() => {
+    const root = document.documentElement
+    if (theme === 'dark') delete root.dataset.theme
+    else root.dataset.theme = theme
+    if (reducedMotion) root.dataset.reducedMotion = ''
+    else delete root.dataset.reducedMotion
+    if (highContrast) root.dataset.highContrast = ''
+    else delete root.dataset.highContrast
+  }, [theme, reducedMotion, highContrast])
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Restore autosaved graph on first mount

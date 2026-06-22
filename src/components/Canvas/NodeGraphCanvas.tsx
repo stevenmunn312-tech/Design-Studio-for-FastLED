@@ -11,6 +11,7 @@ import {
   type NodeMouseHandler,
   type IsValidConnection,
   type OnConnectEnd,
+  type OnConnect,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useGraphStore } from '../../state/graphStore'
@@ -39,7 +40,7 @@ function NodeGraphCanvasInner() {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode, addNode } =
     useGraphStore()
   const { screenToFlowPosition, getNode } = useReactFlow()
-  const { setStatus } = useUiStore()
+  const { setStatus, setSparkPort } = useUiStore()
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [contextMenu, setContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null)
   const [canvasMenu, setCanvasMenu] = useState<{ x: number; y: number; fx: number; fy: number } | null>(null)
@@ -60,6 +61,17 @@ function NodeGraphCanvasInner() {
       return portsCompatible(srcPort.dataType, dstPort.dataType)
     },
     [getNode]
+  )
+
+  const handleConnect: OnConnect = useCallback(
+    (connection) => {
+      onConnect(connection)
+      if (connection.target && connection.targetHandle) {
+        setSparkPort({ nodeId: connection.target, portId: connection.targetHandle })
+        setTimeout(() => setSparkPort(null), 150)
+      }
+    },
+    [onConnect, setSparkPort]
   )
 
   const onConnectEnd: OnConnectEnd = useCallback(
@@ -142,7 +154,7 @@ function NodeGraphCanvasInner() {
         edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
+        onConnect={handleConnect}
         onConnectEnd={onConnectEnd}
         onNodeClick={onNodeClick}
         onNodeContextMenu={onNodeContextMenu}

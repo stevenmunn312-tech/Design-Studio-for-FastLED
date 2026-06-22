@@ -159,6 +159,99 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { decay: 0.85 },
   },
 
+  // ── More pattern nodes ─────────────────────────────────────────────────
+  {
+    type: 'Noise2D',
+    label: 'Noise 2D',
+    category: 'pattern',
+    inputs: [
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'scale', label: 'Scale', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 0.4, scale: 0.4 },
+  },
+  {
+    type: 'RadialBurst',
+    label: 'Radial Burst',
+    category: 'pattern',
+    inputs: [
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'color', label: 'Color', dataType: 'color' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 1.0, r: 0, g: 200, b: 255 },
+  },
+  {
+    type: 'Spiral',
+    label: 'Spiral',
+    category: 'pattern',
+    inputs: [{ id: 'speed', label: 'Speed', dataType: 'float' }],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 1.0, arms: 2 },
+  },
+  {
+    type: 'Kaleidoscope',
+    label: 'Kaleidoscope',
+    category: 'pattern',
+    inputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      { id: 'segments', label: 'Segments', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { segments: 6 },
+  },
+  {
+    type: 'Particles',
+    label: 'Particles',
+    category: 'pattern',
+    inputs: [
+      { id: 'rate', label: 'Rate', dataType: 'float' },
+      { id: 'color', label: 'Color', dataType: 'color' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { rate: 0.3, decay: 0.92, r: 100, g: 200, b: 255 },
+  },
+  {
+    type: 'Invert',
+    label: 'Invert',
+    category: 'pattern',
+    inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: {},
+  },
+  {
+    type: 'GradientFrame',
+    label: 'Gradient Frame',
+    category: 'pattern',
+    inputs: [
+      { id: 'colorA', label: 'Color A', dataType: 'color' },
+      { id: 'colorB', label: 'Color B', dataType: 'color' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { rA: 0, gA: 200, bA: 255, rB: 255, gB: 0, bB: 255, vertical: false },
+  },
+  {
+    type: 'GradientSampler',
+    label: 'Gradient Sampler',
+    category: 'pattern',
+    inputs: [
+      { id: 't', label: 'T (0–1)', dataType: 'float' },
+      { id: 'colorA', label: 'Color A', dataType: 'color' },
+      { id: 'colorB', label: 'Color B', dataType: 'color' },
+    ],
+    outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
+    defaultProperties: { rA: 0, gA: 200, bA: 255, rB: 255, gB: 0, bB: 255 },
+  },
+  {
+    type: 'PaletteSampler',
+    label: 'Palette Sampler',
+    category: 'pattern',
+    inputs: [{ id: 't', label: 'T (0–1)', dataType: 'float' }],
+    outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
+    defaultProperties: { palette: 'rainbow', t: 0 },
+  },
+
   // ── Math ───────────────────────────────────────────────────────────────
   {
     type: 'MathAdd',
@@ -244,6 +337,95 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'dt', label: 'dt', dataType: 'float' },
     ],
     defaultProperties: {},
+  },
+
+  // ── Logic / Control ────────────────────────────────────────────────────
+  {
+    type: 'Abs',
+    label: 'Abs',
+    category: 'math',
+    inputs: [{ id: 'x', label: 'X', dataType: 'float' }],
+    outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+    defaultProperties: {},
+  },
+  {
+    type: 'Mod',
+    label: 'Mod',
+    category: 'math',
+    inputs: [
+      { id: 'x', label: 'X', dataType: 'float' },
+      { id: 'm', label: 'M', dataType: 'float' },
+    ],
+    outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+    defaultProperties: { m: 1 },
+  },
+  {
+    type: 'MinNode',
+    label: 'Min',
+    category: 'math',
+    inputs: [
+      { id: 'a', label: 'A', dataType: 'float' },
+      { id: 'b', label: 'B', dataType: 'float' },
+    ],
+    outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+    defaultProperties: {},
+  },
+  {
+    type: 'MaxNode',
+    label: 'Max',
+    category: 'math',
+    inputs: [
+      { id: 'a', label: 'A', dataType: 'float' },
+      { id: 'b', label: 'B', dataType: 'float' },
+    ],
+    outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+    defaultProperties: {},
+  },
+  {
+    type: 'Random',
+    label: 'Random',
+    category: 'math',
+    inputs: [],
+    outputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
+    defaultProperties: { min: 0, max: 1 },
+  },
+  {
+    type: 'Counter',
+    label: 'Counter',
+    category: 'math',
+    inputs: [{ id: 'speed', label: 'Speed', dataType: 'float' }],
+    outputs: [{ id: 'value', label: 'Value 0–1', dataType: 'float' }],
+    defaultProperties: { speed: 0.5 },
+  },
+  {
+    type: 'Gate',
+    label: 'Gate',
+    category: 'math',
+    inputs: [
+      { id: 'value', label: 'Value', dataType: 'float' },
+      { id: 'gate', label: 'Gate', dataType: 'bool' },
+    ],
+    outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+    defaultProperties: { fallback: 0 },
+  },
+  {
+    type: 'Not',
+    label: 'Not',
+    category: 'math',
+    inputs: [{ id: 'x', label: 'X', dataType: 'bool' }],
+    outputs: [{ id: 'result', label: 'Result', dataType: 'bool' }],
+    defaultProperties: {},
+  },
+  {
+    type: 'Compare',
+    label: 'Compare (A > B)',
+    category: 'math',
+    inputs: [
+      { id: 'a', label: 'A', dataType: 'float' },
+      { id: 'b', label: 'B', dataType: 'float' },
+    ],
+    outputs: [{ id: 'result', label: 'A > B', dataType: 'bool' }],
+    defaultProperties: { b: 0.5 },
   },
 
   // ── Color ──────────────────────────────────────────────────────────────

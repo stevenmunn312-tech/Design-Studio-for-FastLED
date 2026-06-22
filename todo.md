@@ -36,7 +36,9 @@
 
 - [x] Clamp, MapRange, Multiply, Sin, Cos math nodes
 - [x] HSV→RGB, BlendColors, BlendFrames, BrightnessMod, HueShift, BassPulse, MidrangeWaves, TrebleSparks, BeatFlash
-- [ ] Remaining spec node types: Noise (1D/2D/3D), Perlin, Palette Sampler, Gradient Generator, Particles, Radial Burst, Spiral, Kaleidoscope, all Control/Logic nodes
+- [x] Noise2D, RadialBurst, Spiral, Kaleidoscope, Particles, Invert, GradientFrame, GradientSampler, PaletteSampler
+- [x] Control/Logic: Abs, Mod, Min, Max, Random, Counter, Gate, Not, Compare
+- [ ] Remaining: Perlin (proper simplex noise), 3D noise, more composite/transition effects
 - [ ] Multi-Pattern Master Node — pattern queue, transitions, hardware input routing
 - [ ] Transition nodes — Crossfade, Wipe, Dissolve, Zoom, Pixel Shuffle
 - [ ] Custom node — inline C++ snippet editor
@@ -44,9 +46,9 @@
 ## Polish
 
 - [x] Node creation fade-in + scale animation (spec: 200 ms, scale 0.9 → 1.0)
-- [ ] Connection spark effect at port on successful link (spec: 80 ms)
+- [x] Connection spark effect at port on successful link (150 ms expand+fade ring)
 - [x] Keyboard shortcuts — Ctrl+Z undo, Ctrl+Y redo, Ctrl+S save, Delete selected node
 - [ ] MiniMap node colors already correct; add minimap edge colors
 - [x] Inspector: color picker for color-type properties instead of raw number fields
-- [ ] Solarized Dark and Studio Light theme variants
-- [ ] Reduced-motion toggle and high-contrast mode (WCAG AA)
+- [x] Solarized Dark and Studio Light theme variants (cycle via MenuBar ☾/✦/☀ button)
+- [x] Reduced-motion toggle and high-contrast mode (WCAG AA) — MenuBar ⏸ / ◑ buttons

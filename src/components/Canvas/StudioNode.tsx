@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import type { NodeProps, Node } from '@xyflow/react'
 import type { StudioNodeData } from '../../state/graphStore'
+import { useUiStore } from '../../state/uiStore'
 import styles from './StudioNode.module.css'
 
 const ACCENT_VARS: Record<string, string> = {
@@ -29,8 +30,11 @@ const HANDLE_STYLE = {
 
 type StudioNodeProps = NodeProps<Node<StudioNodeData>>
 
-function StudioNode({ data, selected }: StudioNodeProps) {
+function StudioNode({ id, data, selected }: StudioNodeProps) {
   const d = data as StudioNodeData
+  const sparkPortId = useUiStore((s) =>
+    s.sparkPort?.nodeId === id ? (s.sparkPort?.portId ?? null) : null
+  )
   const accent = ACCENT_VARS[d.category] ?? 'var(--accent-output)'
   const inputs = d.inputs as { id: string; label: string }[]
   const outputs = d.outputs as { id: string; label: string }[]
@@ -45,13 +49,21 @@ function StudioNode({ data, selected }: StudioNodeProps) {
     >
       {/* Handles rendered absolutely so React Flow can hit-test them correctly */}
       {inputs.map((port, i) => (
-        <Handle
-          key={port.id}
-          type="target"
-          position={Position.Left}
-          id={port.id}
-          style={{ ...HANDLE_STYLE, top: handleTop(i), background: accent, boxShadow: `0 0 6px ${accent}` }}
-        />
+        <span key={port.id}>
+          <Handle
+            type="target"
+            position={Position.Left}
+            id={port.id}
+            style={{ ...HANDLE_STYLE, top: handleTop(i), background: accent, boxShadow: `0 0 6px ${accent}` }}
+          />
+          {sparkPortId === port.id && (
+            <span
+              key={sparkPortId}
+              className={styles.spark}
+              style={{ top: handleTop(i), left: 0 }}
+            />
+          )}
+        </span>
       ))}
       {outputs.map((port, i) => (
         <Handle
