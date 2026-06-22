@@ -275,7 +275,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'PaletteSampler',
     label: 'Palette Sampler',
     category: 'pattern',
-    inputs: [{ id: 't', label: 'T (0–1)', dataType: 'float' }],
+    inputs: [
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 't', label: 'T (0–1)', dataType: 'float' },
+    ],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
     defaultProperties: { palette: 'rainbow', t: 0 },
   },
@@ -512,7 +515,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     label: 'Palette Selector',
     category: 'math',
     inputs: [],
-    outputs: [{ id: 'palette', label: 'Palette', dataType: 'float' }],
+    outputs: [{ id: 'palette', label: 'Palette', dataType: 'palette' }],
     defaultProperties: { palette: 'rainbow' },
   },
   {
@@ -520,8 +523,8 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     label: 'Blend Palettes',
     category: 'math',
     inputs: [{ id: 'amount', label: 'Amount', dataType: 'float' }],
-    outputs: [{ id: 'palette', label: 'Palette', dataType: 'float' }],
-    defaultProperties: { paletteA: 'rainbow', paletteB: 'ocean', amount: 0.5 },
+    outputs: [{ id: 'palette', label: 'Palette', dataType: 'palette' }],
+    defaultProperties: { paletteA: 'rainbow', paletteB: 'ocean', amount: 128 },
   },
   {
     type: 'BeatSin',

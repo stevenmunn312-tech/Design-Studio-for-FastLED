@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0d0f12"/>
+  <!-- Hexagonal LED grid: 4×4 array of glowing circles -->
+  <defs>
+    <radialGradient id="led-r" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff00ff" stop-opacity="1"/>
+      <stop offset="60%" stop-color="#ff00ff" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#ff00ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="led-c" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00ffff" stop-opacity="1"/>
+      <stop offset="60%" stop-color="#00ffff" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#00ffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="led-g" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#a8ff00" stop-opacity="1"/>
+      <stop offset="60%" stop-color="#a8ff00" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#a8ff00" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="led-b" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00bfff" stop-opacity="1"/>
+      <stop offset="60%" stop-color="#00bfff" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#00bfff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <!-- Row 0 -->
+  <circle cx="112" cy="112" r="44" fill="url(#led-c)"/>
+  <circle cx="208" cy="112" r="44" fill="url(#led-r)"/>
+  <circle cx="304" cy="112" r="44" fill="url(#led-r)"/>
+  <circle cx="400" cy="112" r="44" fill="url(#led-c)"/>
+  <!-- Row 1 -->
+  <circle cx="112" cy="208" r="44" fill="url(#led-r)"/>
+  <circle cx="208" cy="208" r="44" fill="url(#led-g)"/>
+  <circle cx="304" cy="208" r="44" fill="url(#led-b)"/>
+  <circle cx="400" cy="208" r="44" fill="url(#led-r)"/>
+  <!-- Row 2 -->
+  <circle cx="112" cy="304" r="44" fill="url(#led-r)"/>
+  <circle cx="208" cy="304" r="44" fill="url(#led-b)"/>
+  <circle cx="304" cy="304" r="44" fill="url(#led-g)"/>
+  <circle cx="400" cy="304" r="44" fill="url(#led-r)"/>
+  <!-- Row 3 -->
+  <circle cx="112" cy="400" r="44" fill="url(#led-c)"/>
+  <circle cx="208" cy="400" r="44" fill="url(#led-r)"/>
+  <circle cx="304" cy="400" r="44" fill="url(#led-r)"/>
+  <circle cx="400" cy="400" r="44" fill="url(#led-c)"/>
+  <!-- LED dot cores -->
+  <circle cx="112" cy="112" r="16" fill="#00ffff" opacity="0.95"/>
+  <circle cx="208" cy="112" r="16" fill="#ff00ff" opacity="0.95"/>
+  <circle cx="304" cy="112" r="16" fill="#ff00ff" opacity="0.95"/>
+  <circle cx="400" cy="112" r="16" fill="#00ffff" opacity="0.95"/>
+  <circle cx="112" cy="208" r="16" fill="#ff00ff" opacity="0.95"/>
+  <circle cx="208" cy="208" r="16" fill="#a8ff00" opacity="0.95"/>
+  <circle cx="304" cy="208" r="16" fill="#00bfff" opacity="0.95"/>
+  <circle cx="400" cy="208" r="16" fill="#ff00ff" opacity="0.95"/>
+  <circle cx="112" cy="304" r="16" fill="#ff00ff" opacity="0.95"/>
+  <circle cx="208" cy="304" r="16" fill="#00bfff" opacity="0.95"/>
+  <circle cx="304" cy="304" r="16" fill="#a8ff00" opacity="0.95"/>
+  <circle cx="400" cy="304" r="16" fill="#ff00ff" opacity="0.95"/>
+  <circle cx="112" cy="400" r="16" fill="#00ffff" opacity="0.95"/>
+  <circle cx="208" cy="400" r="16" fill="#ff00ff" opacity="0.95"/>
+  <circle cx="304" cy="400" r="16" fill="#ff00ff" opacity="0.95"/>
+  <circle cx="400" cy="400" r="16" fill="#00ffff" opacity="0.95"/>
+</svg>

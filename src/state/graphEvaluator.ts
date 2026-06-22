@@ -445,7 +445,7 @@ function evalCustomFormula(formula: string, a: number, b: number, palette: strin
 
 // ── Main entry point ──────────────────────────────────────────────────────────
 
-type PortValue = number | boolean | RGB | Frame | null
+type PortValue = number | boolean | string | RGB | Frame | null
 
 export function evaluateGraph(
   nodes: StudioNode[],
@@ -789,7 +789,9 @@ export function evaluateGraph(
 
       case 'PaletteSampler': {
         const tt = num(id, 't', props, 't', 0)
-        out = { color: samplePalette(String(props.palette ?? 'rainbow'), tt) }
+        const palIn = input(id, 'paletteIn', null)
+        const palName = typeof palIn === 'string' ? palIn : String(props.palette ?? 'rainbow')
+        out = { color: samplePalette(palName, tt) }
         break
       }
 
@@ -934,19 +936,15 @@ export function evaluateGraph(
       }
 
       case 'PaletteSelector':
-        // Outputs palette index (0–5) encoded as float; consuming nodes use samplePalette
-        out = { palette: ['rainbow','lava','ocean','forest','party','heat']
-          .indexOf(String(props.palette ?? 'rainbow').toLowerCase()) }
+        out = { palette: String(props.palette ?? 'rainbow').toLowerCase() }
         break
 
       case 'PaletteBlend': {
-        // Blend between two palettes at a midpoint t; output is a palette index float
-        // Encoded as a float 0-5 like PaletteSelector — consuming nodes resolve by name
-        const amount = num(id, 'amount', props, 'amount', 0.5) / 255
-        const palettes = ['rainbow','lava','ocean','forest','party','heat']
-        const ai = palettes.indexOf(String(props.paletteA ?? 'rainbow').toLowerCase())
-        const bi = palettes.indexOf(String(props.paletteB ?? 'ocean').toLowerCase())
-        out = { palette: ai + (bi - ai) * amount }
+        // At amount=0 output paletteA, at 255 output paletteB; in between, alternate per-frame
+        const amount = num(id, 'amount', props, 'amount', 128) / 255
+        const palA = String(props.paletteA ?? 'rainbow').toLowerCase()
+        const palB = String(props.paletteB ?? 'ocean').toLowerCase()
+        out = { palette: amount < 0.5 ? palA : palB }
         break
       }
 

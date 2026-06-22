@@ -536,6 +536,9 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[]): string {
     }
   }
 
+  // Emit all node snippets first to collect needsMapFloat and needsT flags
+  for (const node of sorted) emit(node)
+
   const lines: string[] = []
 
   // Header
@@ -563,10 +566,6 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[]): string {
   lines.push(`}`)
   lines.push(``)
 
-  // Emit all node snippets (collect first to detect needsMapFloat, needsT)
-  for (const node of sorted) emit(node)
-
-  // needsT might have been set during emit — re-check
   lines.push(`void loop() {`)
   if (needsT.v) lines.push(`  float t = millis() / 1000.0f;`)
   lines.push(...loopLines)
