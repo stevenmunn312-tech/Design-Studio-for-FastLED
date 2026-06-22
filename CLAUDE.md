@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This repository is currently in the **specification/design phase**. No implementation code exists yet. The repository contains three specification documents that define what must be built:
 
-- `Proposal-FastLED_Studio` — Feature scope: node categories, code-generation pipeline, deployment workflow
-- `Design_Specification.md` — Visual design system: color tokens, typography, component specs, animations
-- `Developer_Handoff_Specification` — Implementation guide: tech stack decisions, CSS variables, data schemas, file structure, performance requirements
+- `.docs/Proposal-FastLED_Studio` — Feature scope: node categories, code-generation pipeline, deployment workflow
+- `.docs/Design_Specification.md` — Visual design system: color tokens, typography, component specs, animations
+- `.docs/Developer_Handoff_Specification` — Implementation guide: tech stack decisions, CSS variables, data schemas, file structure, performance requirements
 
 When writing code, derive all design tokens, component dimensions, and interaction behavior from these documents rather than inventing them.
 
