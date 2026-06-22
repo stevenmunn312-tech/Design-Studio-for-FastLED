@@ -3,9 +3,10 @@ import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audioStore'
 import { evaluateGraph, type Frame } from '../../state/graphEvaluator'
+import { WebGLLEDRenderer } from './webglRenderer'
 import styles from './LEDPreview.module.css'
 
-const MAX_CANVAS_PX = 448  // 16 × 28
+const MAX_CANVAS_PX = 448
 const GLOW_RADIUS = 5
 const NUM_BARS = 16
 
@@ -55,9 +56,10 @@ function renderFrame(ctx: CanvasRenderingContext2D, frame: Frame, pixel: number)
 }
 
 export default function LEDPreview() {
-  const canvasRef  = useRef<HTMLCanvasElement>(null)
-  const tickRef    = useRef(0)
-  const animRef    = useRef<number>(0)
+  const canvasRef   = useRef<HTMLCanvasElement>(null)
+  const glRef       = useRef<WebGLLEDRenderer | null>(null)
+  const tickRef     = useRef(0)
+  const animRef     = useRef<number>(0)
   const [fps, setFps] = useState(0)
   const lastFpsTime   = useRef(performance.now())
   const frameCount    = useRef(0)
@@ -88,19 +90,31 @@ export default function LEDPreview() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
+
+    // Try WebGL first, fall back to Canvas 2D
+    let useWebGL = false
+    try {
+      glRef.current = new WebGLLEDRenderer(canvas)
+      useWebGL = true
+    } catch {
+      glRef.current = null
+    }
+    const ctx = useWebGL ? null : canvas.getContext('2d')
 
     const loop = () => {
       tickRef.current++
       const tick = tickRef.current
       const gW = gridWRef.current, gH = gridHRef.current, px = pixelRef.current
-      if (canvas.width !== gW * px || canvas.height !== gH * px) {
-        canvas.width = gW * px
-        canvas.height = gH * px
-      }
       const frame = evaluateGraph(nodesRef.current, edgesRef.current, tick, gW, gH) ?? idleFrame(tick, gW, gH)
-      renderFrame(ctx, frame, px)
+
+      if (useWebGL && glRef.current) {
+        glRef.current.render(frame, gW, gH, px)
+      } else if (ctx) {
+        if (canvas.width !== gW * px || canvas.height !== gH * px) {
+          canvas.width = gW * px; canvas.height = gH * px
+        }
+        renderFrame(ctx, frame, px)
+      }
 
       frameCount.current++
       const now = performance.now()
@@ -116,7 +130,11 @@ export default function LEDPreview() {
     }
 
     animRef.current = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(animRef.current)
+    return () => {
+      cancelAnimationFrame(animRef.current)
+      glRef.current?.destroy()
+      glRef.current = null
+    }
   }, [])
 
   const toggleMic = () => {

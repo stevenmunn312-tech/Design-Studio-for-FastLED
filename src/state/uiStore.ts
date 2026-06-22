@@ -21,6 +21,7 @@ interface UiState {
   theme: AppTheme
   reducedMotion: boolean
   highContrast: boolean
+  showUploadPanel: boolean
   setStatus: (text: string, level?: StatusLevel) => void
   clearStatus: () => void
   toggleSidebar: () => void
@@ -31,6 +32,7 @@ interface UiState {
   cycleTheme: () => void
   toggleReducedMotion: () => void
   toggleHighContrast: () => void
+  setShowUploadPanel: (v: boolean) => void
 }
 
 const THEMES: AppTheme[] = ['dark', 'solarized', 'light']
@@ -45,6 +47,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   theme: load<AppTheme>(THEME_KEY, 'dark'),
   reducedMotion: load<boolean>(MOTION_KEY, false),
   highContrast: load<boolean>(CONTRAST_KEY, false),
+  showUploadPanel: false,
 
   setStatus: (text, level = 'info') => {
     set({ statusText: text, statusLevel: level })
@@ -82,4 +85,6 @@ export const useUiStore = create<UiState>((set, get) => ({
     localStorage.setItem(CONTRAST_KEY, JSON.stringify(next))
     set({ highContrast: next })
   },
+
+  setShowUploadPanel: (v) => set({ showUploadPanel: v }),
 }))

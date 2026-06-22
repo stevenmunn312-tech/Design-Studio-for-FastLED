@@ -1,12 +1,11 @@
 import { useRef } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import { useGraphStore, useTemporalStore } from '../../state/graphStore'
-import { generateCpp } from '../../codegen/cppGenerator'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import styles from './MenuBar.module.css'
 
 export default function MenuBar() {
-  const { toggleSidebar, toggleInspector, setStatus, theme, cycleTheme, reducedMotion, toggleReducedMotion, highContrast, toggleHighContrast } = useUiStore()
+  const { toggleSidebar, toggleInspector, setStatus, theme, cycleTheme, reducedMotion, toggleReducedMotion, highContrast, toggleHighContrast, setShowUploadPanel } = useUiStore()
 
   const THEME_ICON: Record<string, string> = { dark: '☾', solarized: '✦', light: '☀' }
   const THEME_LABEL: Record<string, string> = { dark: 'Dark', solarized: 'Solarized', light: 'Light' }
@@ -54,19 +53,6 @@ export default function MenuBar() {
     e.target.value = ''
   }
 
-  const handleExport = () => {
-    const { nodes, edges } = useGraphStore.getState()
-    const cpp = generateCpp(nodes, edges)
-    const blob = new Blob([cpp], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `fastled-pattern-${Date.now()}.ino`
-    a.click()
-    URL.revokeObjectURL(url)
-    setStatus('Firmware generated — check your downloads', 'success')
-  }
-
   return (
     <header className={styles.menubar}>
       <div className={styles.brand}>
@@ -112,7 +98,7 @@ export default function MenuBar() {
           onChange={handleFileChange}
         />
         <div className={styles.sep} />
-        <button className={styles.btnAccent} onClick={handleExport}>
+        <button className={styles.btnAccent} onClick={() => setShowUploadPanel(true)}>
           ↑ Upload
         </button>
         <div className={styles.sep} />

@@ -15,40 +15,45 @@
 ## LED Preview
 
 - [x] Evaluate the actual node graph at runtime instead of the placeholder animation loop
-- [ ] WebGL shader pipeline to replace the Canvas 2D renderer (spec: 60 fps target)
+- [x] WebGL shader pipeline (60 fps, per-LED disc + 5×5 glow, Canvas 2D fallback)
 - [x] Resize preview — reads width × height from MatrixOutput node (up to 64 × 64)
-- [ ] 3D rotate mode — drag to orbit the matrix
+- [ ] 3D rotate mode — drag to orbit the matrix (requires Three.js or custom WebGL camera)
 
 ## Audio
 
 - [x] Wire Web Audio API `AnalyserNode` for real microphone FFT
 - [x] Connect FFT output to `FFTAnalyzer` node outputs (bass / mids / treble float values)
-- [x] Beat detection — drive `BeatDetect` node from the audio engine
-- [x] Audio visualizer bar display in the preview panel (16 bars, cyan → magenta gradient per spec)
+- [x] Beat detection — 30-frame rolling average with 300 ms cooldown
+- [x] Audio visualizer bar display in the preview panel (16 bars, cyan → magenta)
 
 ## Upload Pipeline
 
-- [x] C++ code generator — walk the node graph and emit FastLED `.ino` / `.cpp`
-- [ ] WebSerial / WebUSB upload flow — board selection, validation, progress in status bar
-- [ ] Compilation error surface — parse toolchain errors and show in status bar
+- [x] C++ code generator — topological walk of node graph emitting FastLED `.ino`
+- [x] Upload panel modal — live code preview, graph validation, board selector
+- [x] WebSerial connect / disconnect at 115200 baud
+- [x] `.ino` download button
+- [ ] Actual WebSerial flashing — send compiled binary to board bootloader
+- [ ] In-browser compilation via Web Worker / WASM toolchain (or cloud compile endpoint)
 
 ## Nodes
 
-- [x] Clamp, MapRange, Multiply, Sin, Cos math nodes
-- [x] HSV→RGB, BlendColors, BlendFrames, BrightnessMod, HueShift, BassPulse, MidrangeWaves, TrebleSparks, BeatFlash
-- [x] Noise2D, RadialBurst, Spiral, Kaleidoscope, Particles, Invert, GradientFrame, GradientSampler, PaletteSampler
-- [x] Control/Logic: Abs, Mod, Min, Max, Random, Counter, Gate, Not, Compare
-- [ ] Remaining: Perlin (proper simplex noise), 3D noise, more composite/transition effects
-- [ ] Multi-Pattern Master Node — pattern queue, transitions, hardware input routing
-- [ ] Transition nodes — Crossfade, Wipe, Dissolve, Zoom, Pixel Shuffle
-- [ ] Custom node — inline C++ snippet editor
+- [x] Math: Add, Multiply, Clamp, MapRange, Sin, Cos, Lerp, Abs, Mod, Min, Max, Random, Counter, Gate, Not, Compare
+- [x] Color: HSV→RGB, CHSV (0–255 scale), BlendColors, PaletteSelector, PaletteBlend, BeatSin, XYMapper
+- [x] Pattern: SolidColor, NoiseField, Plasma, Fire, Fire2012, SpectrumBars, Noise2D, Simplex2D, Noise3D, RadialBurst, Spiral, Kaleidoscope, Particles, Invert, GradientFrame, GradientSampler, PaletteSampler, Blur2D, LayerBlend
+- [x] Audio-reactive: BassPulse, MidrangeWaves, TrebleSparks, BeatFlash, AudioHue
+- [x] Compositing / transition: BlendFrames, BrightnessMod, HueShift, Crossfade, Wipe, Dissolve
+- [x] Multi-Pattern Master — 4-slot queue, cycle/beat modes
+- [x] Custom Formula — inline JS expression with x/y/t/W/H/a/b vars
+- [ ] Proper `PaletteSelector` type system — propagate palette name through port connections rather than encoding as a float
 
 ## Polish
 
-- [x] Node creation fade-in + scale animation (spec: 200 ms, scale 0.9 → 1.0)
-- [x] Connection spark effect at port on successful link (150 ms expand+fade ring)
+- [x] Node creation fade-in + scale animation (200 ms)
+- [x] Connection spark effect at port on successful link (150 ms)
 - [x] Keyboard shortcuts — Ctrl+Z undo, Ctrl+Y redo, Ctrl+S save, Delete selected node
-- [ ] MiniMap node colors already correct; add minimap edge colors
-- [x] Inspector: color picker for color-type properties instead of raw number fields
-- [x] Solarized Dark and Studio Light theme variants (cycle via MenuBar ☾/✦/☀ button)
-- [x] Reduced-motion toggle and high-contrast mode (WCAG AA) — MenuBar ⏸ / ◑ buttons
+- [x] MiniMap with per-category node and edge colors
+- [x] Inspector: color picker for color-type properties
+- [x] Solarized Dark and Studio Light themes (cycle via MenuBar ☾/✦/☀)
+- [x] Reduced-motion toggle and high-contrast mode (WCAG AA)
+- [ ] Test suite — no tests exist yet
+- [ ] PWA / offline support (service worker + manifest)

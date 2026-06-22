@@ -15,6 +15,31 @@ const counterVals = new Map<string, number>()
 
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; r: number; g: number; b: number }
 const particleState = new Map<string, Particle[]>()
+const patternMasterState = new Map<string, { idx: number; lastBeat: boolean }>()
+
+type FormulaFn = (x: number, y: number, t: number, W: number, H: number, a: number, b: number) => number
+const formulaCache = new Map<string, FormulaFn | null>()
+
+// ── Simplex noise 2D ─────────────────────────────────────────────────────────
+const _PERM = (() => {
+  const p = [151,160,137,91,90,15,131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,190,6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,88,237,149,56,87,174,20,125,136,171,168,68,175,74,165,71,134,139,48,27,166,77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,102,143,54,65,25,63,161,1,216,80,73,209,76,132,187,208,89,18,169,200,196,135,130,116,188,159,86,164,100,109,198,173,186,3,64,52,217,226,250,124,123,5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,223,183,170,213,119,248,152,2,44,154,163,70,221,153,101,155,167,43,172,9,129,22,39,253,19,98,108,110,79,113,224,232,178,185,112,104,218,246,97,228,251,34,242,193,238,210,144,12,191,179,162,241,81,51,145,235,249,14,239,107,49,192,214,31,181,199,106,157,184,84,204,176,115,121,50,45,127,4,150,254,138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180]
+  const t = new Uint8Array(512); for (let i = 0; i < 512; i++) t[i] = p[i & 255]; return t
+})()
+const _G2 = [1,1, -1,1, 1,-1, -1,-1, 1,0, -1,0, 0,1, 0,-1]
+function _snoise2(x: number, y: number): number {
+  const F2 = (Math.sqrt(3) - 1) / 2, G2 = (3 - Math.sqrt(3)) / 6
+  const s = (x + y) * F2, i = Math.floor(x + s), j = Math.floor(y + s)
+  const t0 = (i + j) * G2, x0 = x - i + t0, y0 = y - j + t0
+  const i1 = x0 > y0 ? 1 : 0, j1 = x0 > y0 ? 0 : 1
+  const x1 = x0 - i1 + G2, y1 = y0 - j1 + G2, x2 = x0 - 1 + 2*G2, y2 = y0 - 1 + 2*G2
+  const ii = i & 255, jj = j & 255
+  function dot(h: number, gx: number, gy: number) { return _G2[(h&7)*2]*gx + _G2[(h&7)*2+1]*gy }
+  let n0 = 0, n1 = 0, n2 = 0
+  let a = 0.5 - x0*x0 - y0*y0; if (a > 0) { a *= a; n0 = a*a*dot(_PERM[ii+_PERM[jj]], x0, y0) }
+  let b = 0.5 - x1*x1 - y1*y1; if (b > 0) { b *= b; n1 = b*b*dot(_PERM[ii+i1+_PERM[jj+j1]], x1, y1) }
+  let c = 0.5 - x2*x2 - y2*y2; if (c > 0) { c *= c; n2 = c*c*dot(_PERM[ii+1+_PERM[jj+1]], x2, y2) }
+  return 70 * (n0 + n1 + n2)
+}
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
 function hsv(h: number, s: number, v: number): RGB {
@@ -175,6 +200,8 @@ function samplePalette(palette: string, t: number): RGB {
       return hsv(200 + h * 40, 0.8 + h * 0.2, h * 0.9 + 0.1)
     case 'lava':
       return hsv(h * 40, 1, h > 0.08 ? 0.9 : h * 11)
+    case 'forest':
+      return hsv(90 + h * 60, 0.7 + h * 0.3, 0.4 + h * 0.6)
     case 'party':
       return hsv(((h * 360 * 6.7) % 360 + 360) % 360, 1, 1)
     default: // rainbow
@@ -263,9 +290,162 @@ function evalGradientFrame(cA: RGB, cB: RGB, vertical: boolean, W = DEFAULT_W, H
   )
 }
 
+function evalSimplex2D(speed: number, scale: number, t: number, palette: string, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      let v = 0, amp = 1, freq = scale
+      for (let oct = 0; oct < 4; oct++) {
+        v += amp * _snoise2(x * freq + t * speed * 0.13, y * freq + t * speed * 0.1)
+        amp *= 0.5; freq *= 2
+      }
+      return samplePalette(palette, (v * 0.5 + 0.5) % 1)
+    })
+  )
+}
+
+function evalNoise3D(speed: number, scale: number, t: number, palette: string, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  // 3D via two orthogonal 2D slices animated along the z (time) axis
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const z = t * speed * 0.08
+      let v = 0, amp = 1, freq = scale
+      for (let oct = 0; oct < 3; oct++) {
+        v += amp * (_snoise2(x * freq + z * 0.37, y * freq) * 0.6 +
+                    _snoise2(x * freq * 0.9, y * freq + z * 0.61) * 0.4)
+        amp *= 0.5; freq *= 2.1
+      }
+      return samplePalette(palette, ((v * 0.5 + 0.5) % 1 + 1) % 1)
+    })
+  )
+}
+
+function heatColor(temperature: number): RGB {
+  const t192 = Math.floor(temperature * 191 / 255)
+  const ramp = (t192 & 0x3F) << 2
+  if (t192 > 0x80) return { r: 255, g: 255, b: ramp }
+  if (t192 > 0x40) return { r: 255, g: ramp, b: 0 }
+  return { r: ramp, g: 0, b: 0 }
+}
+
+const fire2012Heat = new Map<string, Uint8Array[]>()
+
+function evalFire2012(nodeId: string, cooling: number, sparking: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const stored = fire2012Heat.get(nodeId)
+  let heat: Uint8Array[]
+  if (!stored || stored.length !== H || stored[0].length !== W) {
+    heat = Array.from({ length: H }, () => new Uint8Array(W))
+    fire2012Heat.set(nodeId, heat)
+  } else {
+    heat = stored
+  }
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const cool = Math.floor(Math.random() * ((cooling * 10 / H) + 2))
+      heat[y][x] = Math.max(0, heat[y][x] - cool)
+    }
+  for (let y = 0; y < H - 2; y++)
+    for (let x = 0; x < W; x++)
+      heat[y][x] = Math.floor(
+        (heat[y+1][x] + heat[y+2][Math.max(0,x-1)] + heat[y+2][x] + heat[y+2][Math.min(W-1,x+1)]) / 4
+      )
+  for (let x = 0; x < W; x++)
+    if (Math.random() * 255 < sparking)
+      heat[H-1][x] = Math.min(255, heat[H-1][x] + Math.floor(Math.random() * 95) + 160)
+  return heat.map(row => Array.from(row).map(h => heatColor(h)))
+}
+
+function evalBlur2D(src: Frame, amount: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const radius = Math.max(1, Math.round(amount / 255 * 3))
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      let r = 0, g = 0, b = 0, count = 0
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const nx = Math.max(0, Math.min(W-1, x+dx))
+          const ny = Math.max(0, Math.min(H-1, y+dy))
+          r += src[ny][nx].r; g += src[ny][nx].g; b += src[ny][nx].b; count++
+        }
+      }
+      return { r: Math.round(r/count), g: Math.round(g/count), b: Math.round(b/count) }
+    })
+  )
+}
+
+function evalWipe(a: Frame, b: Frame, tt: number, direction: string, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      let revealed: boolean
+      switch (direction) {
+        case 'left':  revealed = x > W * (1 - tt); break
+        case 'up':    revealed = y > H * (1 - tt); break
+        case 'down':  revealed = y < H * tt;       break
+        default:      revealed = x < W * tt;       break // 'right'
+      }
+      return revealed ? { ...b[y][x] } : { ...a[y][x] }
+    })
+  )
+}
+
+function evalDissolve(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const hash = (((x * 1664525 + y * 1013904223) >>> 0) / 0xffffffff)
+      return hash < tt ? { ...b[y][x] } : { ...a[y][x] }
+    })
+  )
+}
+
+function evalPatternMaster(nodeId: string, frames: (Frame | null)[], beat: boolean, mode: string, interval: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const valid = frames.filter((f): f is Frame => f !== null)
+  if (valid.length === 0) return blankFrame(W, H)
+
+  let idx: number
+  if (mode === 'beat') {
+    const prev = patternMasterState.get(nodeId) ?? { idx: 0, lastBeat: false }
+    if (beat && !prev.lastBeat) {
+      idx = (prev.idx + 1) % valid.length
+    } else {
+      idx = Math.min(prev.idx, valid.length - 1)
+    }
+    patternMasterState.set(nodeId, { idx, lastBeat: beat })
+  } else {
+    idx = Math.floor(t / Math.max(0.1, interval)) % valid.length
+  }
+
+  return valid[idx]
+}
+
+function evalCustomFormula(formula: string, a: number, b: number, palette: string, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  if (!formulaCache.has(formula)) {
+    if (formulaCache.size > 50) formulaCache.clear()
+    try {
+      // eslint-disable-next-line no-new-func
+      const fn = new Function('x', 'y', 't', 'W', 'H', 'a', 'b',
+        `"use strict"; const {sin,cos,abs,sqrt,pow,floor,ceil,round,min,max,PI,tan,atan2,log,exp,hypot}=Math; return (${formula});`
+      ) as FormulaFn
+      formulaCache.set(formula, fn)
+    } catch {
+      formulaCache.set(formula, null)
+    }
+  }
+  const fn = formulaCache.get(formula)
+  if (!fn) return blankFrame(W, H)
+
+  return Array.from({ length: H }, (_, yi) =>
+    Array.from({ length: W }, (_, xi) => {
+      try {
+        const v = fn(xi / (W - 1 || 1), yi / (H - 1 || 1), t, W, H, a, b)
+        return samplePalette(palette, ((v % 1) + 1) % 1)
+      } catch {
+        return { r: 0, g: 0, b: 0 }
+      }
+    })
+  )
+}
+
 // ── Main entry point ──────────────────────────────────────────────────────────
 
-type PortValue = number | boolean | RGB | Frame | null
+type PortValue = number | boolean | string | RGB | Frame | null
 
 export function evaluateGraph(
   nodes: StudioNode[],
@@ -609,7 +789,9 @@ export function evaluateGraph(
 
       case 'PaletteSampler': {
         const tt = num(id, 't', props, 't', 0)
-        out = { color: samplePalette(String(props.palette ?? 'rainbow'), tt) }
+        const palIn = input(id, 'paletteIn', null)
+        const palName = typeof palIn === 'string' ? palIn : String(props.palette ?? 'rainbow')
+        out = { color: samplePalette(palName, tt) }
         break
       }
 
@@ -665,6 +847,161 @@ export function evaluateGraph(
         const a = num(id, 'a', props, 'a', 0)
         const b = num(id, 'b', props, 'b', 0.5)
         out = { result: a > b }
+        break
+      }
+
+      // ── Proper noise nodes ────────────────────────────────────────────
+      case 'Simplex2D': {
+        const speed   = num(id, 'speed',  props, 'speed',  0.4)
+        const scale   = num(id, 'scale',  props, 'scale',  0.3)
+        const palette = String(props.palette ?? 'rainbow')
+        out = { frame: evalSimplex2D(speed, scale, t, palette, W, H) }
+        break
+      }
+
+      case 'Noise3D': {
+        const speed   = num(id, 'speed',  props, 'speed',  0.5)
+        const scale   = num(id, 'scale',  props, 'scale',  0.3)
+        const palette = String(props.palette ?? 'ocean')
+        out = { frame: evalNoise3D(speed, scale, t, palette, W, H) }
+        break
+      }
+
+      // ── Transition nodes ──────────────────────────────────────────────
+      case 'Crossfade': {
+        const fa = input(id, 'a', null) as Frame | null
+        const fb = input(id, 'b', null) as Frame | null
+        const mix = num(id, 't', props, 't', 0.5)
+        const ca = fa ?? blankFrame(W, H)
+        const cb = fb ?? blankFrame(W, H)
+        out = {
+          frame: ca.map((row, y) =>
+            row.map((px, x) => ({
+              r: Math.round(px.r * (1 - mix) + cb[y][x].r * mix),
+              g: Math.round(px.g * (1 - mix) + cb[y][x].g * mix),
+              b: Math.round(px.b * (1 - mix) + cb[y][x].b * mix),
+            }))
+          ),
+        }
+        break
+      }
+
+      case 'Wipe': {
+        const fa = input(id, 'a', null) as Frame | null
+        const fb = input(id, 'b', null) as Frame | null
+        const tt = num(id, 't', props, 't', 0.5)
+        const dir = String(props.direction ?? 'right')
+        out = { frame: evalWipe(fa ?? blankFrame(W, H), fb ?? blankFrame(W, H), tt, dir, W, H) }
+        break
+      }
+
+      case 'Dissolve': {
+        const fa = input(id, 'a', null) as Frame | null
+        const fb = input(id, 'b', null) as Frame | null
+        const tt = num(id, 't', props, 't', 0.5)
+        out = { frame: evalDissolve(fa ?? blankFrame(W, H), fb ?? blankFrame(W, H), tt, W, H) }
+        break
+      }
+
+      case 'PatternMaster': {
+        const frames = [
+          input(id, 'p0', null) as Frame | null,
+          input(id, 'p1', null) as Frame | null,
+          input(id, 'p2', null) as Frame | null,
+          input(id, 'p3', null) as Frame | null,
+        ]
+        const beat = input(id, 'beat', false) as boolean
+        const mode = String(props.mode ?? 'cycle')
+        const interval = Number(props.interval ?? 4)
+        out = { frame: evalPatternMaster(id, frames, beat, mode, interval, t, W, H) }
+        break
+      }
+
+      case 'CustomFormula': {
+        const a = num(id, 'a', props, 'a', 0)
+        const b = num(id, 'b', props, 'b', 0)
+        const formula = String(props.formula ?? 'sin(x*6+t)*0.5+0.5')
+        const palette = String(props.palette ?? 'rainbow')
+        out = { frame: evalCustomFormula(formula, a, b, palette, t, W, H) }
+        break
+      }
+
+      // ── New FastLED spec nodes ────────────────────────────────────────
+      case 'CHSV': {
+        const hue = num(id, 'hue', props, 'hue', 128)
+        const sat = num(id, 'sat', props, 'sat', 255)
+        const val = num(id, 'val', props, 'val', 255)
+        out = { rgb: hsv(hue / 255 * 360, sat / 255, val / 255) }
+        break
+      }
+
+      case 'PaletteSelector':
+        out = { palette: String(props.palette ?? 'rainbow').toLowerCase() }
+        break
+
+      case 'PaletteBlend': {
+        // At amount=0 output paletteA, at 255 output paletteB; in between, alternate per-frame
+        const amount = num(id, 'amount', props, 'amount', 128) / 255
+        const palA = String(props.paletteA ?? 'rainbow').toLowerCase()
+        const palB = String(props.paletteB ?? 'ocean').toLowerCase()
+        out = { palette: amount < 0.5 ? palA : palB }
+        break
+      }
+
+      case 'BeatSin': {
+        const bpm = Number(props.bpm ?? 60)
+        const lo  = Number(props.low  ?? 0)
+        const hi  = Number(props.high ?? 255)
+        const phase = (t * bpm / 60) % 1
+        out = { value: lo + ((Math.sin(phase * Math.PI * 2) + 1) / 2) * (hi - lo) }
+        break
+      }
+
+      case 'Fire2012': {
+        const cooling  = Number(props.cooling  ?? 55)
+        const sparking = Number(props.sparking ?? 120)
+        out = { frame: evalFire2012(id, cooling, sparking, W, H) }
+        break
+      }
+
+      case 'Blur2D': {
+        const src = input(id, 'frame', null) as Frame | null
+        const amount = num(id, 'amount', props, 'amount', 40)
+        if (!src) { out = { frame: blankFrame(W, H) }; break }
+        out = { frame: evalBlur2D(src, amount, W, H) }
+        break
+      }
+
+      case 'XYMapper': {
+        const x = num(id, 'x', props, 'x', 0)
+        const y = num(id, 'y', props, 'y', 0)
+        out = { index: Math.floor(x) + Math.floor(y) * W }
+        break
+      }
+
+      case 'LayerBlend': {
+        const fa = input(id, 'a', null) as Frame | null
+        const fb = input(id, 'b', null) as Frame | null
+        const amount = num(id, 'amount', props, 'amount', 128) / 255
+        const ca = fa ?? blankFrame(W, H)
+        const cb = fb ?? blankFrame(W, H)
+        out = {
+          frame: ca.map((row, y) =>
+            row.map((px, x) => ({
+              r: Math.round(px.r * (1 - amount) + cb[y][x].r * amount),
+              g: Math.round(px.g * (1 - amount) + cb[y][x].g * amount),
+              b: Math.round(px.b * (1 - amount) + cb[y][x].b * amount),
+            }))
+          ),
+        }
+        break
+      }
+
+      case 'AudioHue': {
+        const bass   = num(id, 'bass',   props, 'bass',   0.5)
+        const mids   = num(id, 'mids',   props, 'mids',   0.5)
+        const treble = num(id, 'treble', props, 'treble', 0.5)
+        out = { hue: (bass * 0.5 + mids * 0.3 + treble * 0.2) * 360 }
         break
       }
 

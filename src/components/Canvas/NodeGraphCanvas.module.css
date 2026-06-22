@@ -3,3 +3,13 @@
   height: 100%;
   overflow: hidden;
 }
+
+/* Minimap edge colors — edges carry stroke color from their source category */
+.minimap :global(.react-flow__minimap-svg) {
+  border-radius: 6px;
+}
+
+.minimap :global(.react-flow__minimap-edge) {
+  stroke-opacity: 0.55;
+  stroke-width: 2px;
+}

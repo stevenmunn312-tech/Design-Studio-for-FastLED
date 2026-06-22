@@ -400,6 +400,133 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[]): string {
         break
       }
 
+      case 'Crossfade': {
+        const mix = f('t', 't', 0.5)
+        ln(`  { uint8_t _mix = (uint8_t)((${mix}) * 255); /* Crossfade: blend frame A into frame B */ }`)
+        break
+      }
+
+      case 'Wipe': {
+        needsT.v = true
+        const tt = f('t', 't', 0.5)
+        const dir = String(p.direction ?? 'right')
+        const axis = (dir === 'up' || dir === 'down') ? '_y' : '_x'
+        const dim  = (dir === 'up' || dir === 'down') ? 'HEIGHT' : 'WIDTH'
+        const cmp  = (dir === 'right' || dir === 'down') ? '<' : '>'
+        const rhs  = (dir === 'right' || dir === 'down') ? `(int)((${tt})*${dim})` : `(int)((1.0f-(${tt}))*${dim})`
+        ln(`  { for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++)`)
+        ln(`    if(${axis} ${cmp} ${rhs}) { /* wipe to: pixel from frame B */ } }`)
+        break
+      }
+
+      case 'Dissolve': {
+        const tt = f('t', 't', 0.5)
+        ln(`  { float _tt=${tt}; for(int _i=0;_i<NUM_LEDS;_i++){`)
+        ln(`    uint32_t _h=((uint32_t)(_i)*1664525u+1013904223u);`)
+        ln(`    if((_h&0xFFFF)<(uint32_t)(_tt*65535)) { /* dissolve to: pixel from frame B */ }}}`)
+        break
+      }
+
+      case 'Simplex2D': {
+        needsT.v = true
+        const speed = f('speed', 'speed', 0.4), scale = f('scale', 'scale', 0.3)
+        const pal = String(p.palette ?? 'rainbow')
+        ln(`  { // Simplex2D (${pal} palette)`)
+        ln(`    float _spd=${speed},_sc=${scale};`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float _n=sin(_x*_sc+sin(_y*_sc*0.8f+t*_spd*0.5f)+t*_spd)`)
+        ln(`            +0.5f*sin(_x*_sc*2+t*_spd*1.9f)+0.25f*sin(_x*_sc*4+t*_spd*4.1f);`)
+        ln(`      leds[_y*WIDTH+_x]=ColorFromPalette(RainbowColors_p,(uint8_t)((_n*0.25f+0.5f)*255));}}`)
+        break
+      }
+
+      case 'Noise3D': {
+        needsT.v = true
+        const speed = f('speed', 'speed', 0.5), scale = f('scale', 'scale', 0.3)
+        const pal = String(p.palette ?? 'ocean')
+        ln(`  { // Noise3D (${pal} palette)`)
+        ln(`    float _spd=${speed},_sc=${scale};`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float _n=(sin(_x*_sc+t*_spd)+cos(_y*_sc+t*_spd*0.7f))*0.5f`)
+        ln(`            +(sin(_x*_sc*1.7f+t*_spd*1.3f+_y*_sc*0.9f)*0.33f)`)
+        ln(`            +(cos(_x*_sc*2.9f+t*_spd*2.1f)*0.17f);`)
+        ln(`      leds[_y*WIDTH+_x]=ColorFromPalette(OceanColors_p,(uint8_t)((_n*0.3f+0.5f)*255));}}`)
+        break
+      }
+
+      case 'PatternMaster':
+        ln(`  // PatternMaster — implement pattern cycling logic in setup()/loop()`)
+        break
+
+      case 'CustomFormula': {
+        needsT.v = true
+        const formula = String(p.formula ?? 'sin(x*6+t)*0.5+0.5').replace(/\*\//g, '* /')
+        ln(`  { /* CustomFormula: ${formula} */`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float x=(float)_x/(WIDTH-1>0?WIDTH-1:1),y=(float)_y/(HEIGHT-1>0?HEIGHT-1:1);`)
+        ln(`      float _v=${formula};`)
+        ln(`      leds[_y*WIDTH+_x]=ColorFromPalette(RainbowColors_p,(uint8_t)(fmod(fmod(_v,1)+1,1)*255));}}`)
+        break
+      }
+
+      case 'CHSV': {
+        const hue = f('hue', 'hue', 128), sat = f('sat', 'sat', 255), val = f('val', 'val', 255)
+        ln(`  CRGB ${v('rgb')} = CHSV((uint8_t)(${hue}), (uint8_t)(${sat}), (uint8_t)(${val}));`)
+        break
+      }
+
+      case 'PaletteSelector':
+        ln(`  // PaletteSelector — use ${String(p.palette ?? 'Rainbow')}Colors_p in palette-consuming nodes`)
+        break
+
+      case 'PaletteBlend':
+        ln(`  // PaletteBlend — nblendPaletteTowardPalette(paletteA, paletteB, (uint8_t)(${f('amount','amount',0.5)}*255));`)
+        break
+
+      case 'BeatSin': {
+        const bpm = Number(p.bpm ?? 60), lo = Number(p.low ?? 0), hi = Number(p.high ?? 255)
+        ln(`  uint8_t ${v('value')} = beatsin8(${bpm}, ${lo}, ${hi});`)
+        break
+      }
+
+      case 'Fire2012': {
+        const cooling = Number(p.cooling ?? 55), sparking = Number(p.sparking ?? 120)
+        ln(`  { // Fire2012 (cooling=${cooling}, sparking=${sparking})`)
+        ln(`    static uint8_t _heat[HEIGHT][WIDTH] = {};`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++)`)
+        ln(`      _heat[_y][_x]=qsub8(_heat[_y][_x],random8(0,((${cooling}*10/HEIGHT)+2)));`)
+        ln(`    for(int _y=0;_y<HEIGHT-2;_y++) for(int _x=0;_x<WIDTH;_x++)`)
+        ln(`      _heat[_y][_x]=(_heat[_y+1][_x]+_heat[_y+2][max(0,_x-1)]+_heat[_y+2][_x]+_heat[_y+2][min(WIDTH-1,_x+1)])/4;`)
+        ln(`    for(int _x=0;_x<WIDTH;_x++) if(random8()<${sparking}) _heat[HEIGHT-1][_x]=qadd8(_heat[HEIGHT-1][_x],random8(160,255));`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++) leds[_y*WIDTH+_x]=HeatColor(_heat[_y][_x]);`)
+        ln(`  }`)
+        break
+      }
+
+      case 'Blur2D': {
+        const amount = Number(p.amount ?? 40)
+        ln(`  blur2d(leds, WIDTH, HEIGHT, ${amount});`)
+        break
+      }
+
+      case 'XYMapper': {
+        const xx = f('x', 'x', 0), yy = f('y', 'y', 0)
+        ln(`  uint16_t ${v('index')} = (uint16_t)(${xx}) + (uint16_t)(${yy}) * WIDTH;`)
+        break
+      }
+
+      case 'LayerBlend': {
+        const amount = f('amount', 'amount', 128)
+        ln(`  blend(leds, leds, leds, NUM_LEDS, (uint8_t)(${amount}));  // LayerBlend: provide two source arrays`)
+        break
+      }
+
+      case 'AudioHue': {
+        const bass = f('bass','bass',0.5), mids = f('mids','mids',0.5), treble = f('treble','treble',0.5)
+        ln(`  uint8_t ${v('hue')} = (uint8_t)(((${bass})*0.5f+(${mids})*0.3f+(${treble})*0.2f)*255);`)
+        break
+      }
+
       case 'MatrixOutput':
         ln(`  FastLED.show();`)
         break
@@ -408,6 +535,9 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[]): string {
         ln(`  // ${type} — not yet supported in code gen`)
     }
   }
+
+  // Emit all node snippets first to collect needsMapFloat and needsT flags
+  for (const node of sorted) emit(node)
 
   const lines: string[] = []
 
@@ -436,10 +566,6 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[]): string {
   lines.push(`}`)
   lines.push(``)
 
-  // Emit all node snippets (collect first to detect needsMapFloat, needsT)
-  for (const node of sorted) emit(node)
-
-  // needsT might have been set during emit — re-check
   lines.push(`void loop() {`)
   if (needsT.v) lines.push(`  float t = millis() / 1000.0f;`)
   lines.push(...loopLines)
