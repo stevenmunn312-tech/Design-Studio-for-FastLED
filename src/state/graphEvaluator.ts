@@ -419,7 +419,6 @@ function evalCustomFormula(formula: string, a: number, b: number, palette: strin
   if (!formulaCache.has(formula)) {
     if (formulaCache.size > 50) formulaCache.clear()
     try {
-      // eslint-disable-next-line no-new-func
       const fn = new Function('x', 'y', 't', 'W', 'H', 'a', 'b',
         `"use strict"; const {sin,cos,abs,sqrt,pow,floor,ceil,round,min,max,PI,tan,atan2,log,exp,hypot}=Math; return (${formula});`
       ) as FormulaFn
