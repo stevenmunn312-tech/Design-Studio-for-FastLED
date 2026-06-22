@@ -1,23 +1,29 @@
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 import {
   ReactFlow,
+  ReactFlowProvider,
   Background,
   BackgroundVariant,
   Controls,
   MiniMap,
+  useReactFlow,
   type NodeTypes,
   type NodeMouseHandler,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useGraphStore } from '../../state/graphStore'
+import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import StudioNode from './StudioNode'
 import styles from './NodeGraphCanvas.module.css'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const nodeTypes: NodeTypes = { studioNode: StudioNode as any }
 
-export default function NodeGraphCanvas() {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode } = useGraphStore()
+function NodeGraphCanvasInner() {
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode, addNode } =
+    useGraphStore()
+  const { screenToFlowPosition } = useReactFlow()
+  const wrapperRef = useRef<HTMLDivElement>(null)
 
   const onNodeClick: NodeMouseHandler = useCallback(
     (_e, node) => selectNode(node.id),
@@ -26,8 +32,40 @@ export default function NodeGraphCanvas() {
 
   const onPaneClick = useCallback(() => selectNode(null), [selectNode])
 
+  const onDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+  }, [])
+
+  const onDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      const type = e.dataTransfer.getData('application/studio-node')
+      if (!type) return
+
+      const def = NODE_LIBRARY.find((n) => n.type === type)
+      if (!def) return
+
+      const position = screenToFlowPosition({ x: e.clientX, y: e.clientY })
+
+      addNode({
+        id: `${type}-${Date.now()}`,
+        type: 'studioNode',
+        position,
+        data: {
+          label: def.label,
+          category: def.category,
+          properties: def.defaultProperties ?? {},
+          inputs: def.inputs,
+          outputs: def.outputs,
+        },
+      })
+    },
+    [screenToFlowPosition, addNode]
+  )
+
   return (
-    <div className={styles.canvas}>
+    <div ref={wrapperRef} className={styles.canvas} onDragOver={onDragOver} onDrop={onDrop}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -72,5 +110,13 @@ export default function NodeGraphCanvas() {
         />
       </ReactFlow>
     </div>
+  )
+}
+
+export default function NodeGraphCanvas() {
+  return (
+    <ReactFlowProvider>
+      <NodeGraphCanvasInner />
+    </ReactFlowProvider>
   )
 }
