@@ -578,6 +578,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'scale', label: 'Scale', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { speed: 0.4, scale: 0.3, palette: 'rainbow' },
@@ -589,6 +590,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'scale', label: 'Scale', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { speed: 0.5, scale: 0.3, palette: 'ocean' },
@@ -656,6 +658,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     inputs: [
       { id: 'a', label: 'A', dataType: 'float' },
       { id: 'b', label: 'B', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { formula: 'sin(x*6+t)*0.5+0.5', palette: 'rainbow' },

@@ -492,6 +492,14 @@ export function evaluateGraph(
     return Number(input(nodeId, portId, Number(props[propKey] ?? def)))
   }
 
+  // Resolve a palette name: prefer a connected `palette` port (a string from
+  // PaletteSelector/PaletteBlend), otherwise fall back to the node's property.
+  function pal(nodeId: string, portId: string, props: Record<string, unknown>, propKey: string, def: string): string {
+    const fallback = String(props[propKey] ?? def)
+    const v = input(nodeId, portId, fallback)
+    return typeof v === 'string' ? v : fallback
+  }
+
   function evalNode(id: string): Record<string, PortValue> {
     if (memo.has(id)) return memo.get(id)!
     // Re-entering a node still on the stack means the graph has a cycle.
@@ -840,8 +848,7 @@ export function evaluateGraph(
 
       case 'PaletteSampler': {
         const tt = num(id, 't', props, 't', 0)
-        const palIn = input(id, 'paletteIn', null)
-        const palName = typeof palIn === 'string' ? palIn : String(props.palette ?? 'rainbow')
+        const palName = pal(id, 'paletteIn', props, 'palette', 'rainbow')
         out = { color: samplePalette(palName, tt) }
         break
       }
@@ -905,7 +912,7 @@ export function evaluateGraph(
       case 'Simplex2D': {
         const speed   = num(id, 'speed',  props, 'speed',  0.4)
         const scale   = num(id, 'scale',  props, 'scale',  0.3)
-        const palette = String(props.palette ?? 'rainbow')
+        const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
         out = { frame: evalSimplex2D(speed, scale, t, palette, W, H) }
         break
       }
@@ -913,7 +920,7 @@ export function evaluateGraph(
       case 'Noise3D': {
         const speed   = num(id, 'speed',  props, 'speed',  0.5)
         const scale   = num(id, 'scale',  props, 'scale',  0.3)
-        const palette = String(props.palette ?? 'ocean')
+        const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
         out = { frame: evalNoise3D(speed, scale, t, palette, W, H) }
         break
       }
@@ -972,7 +979,7 @@ export function evaluateGraph(
         const a = num(id, 'a', props, 'a', 0)
         const b = num(id, 'b', props, 'b', 0)
         const formula = String(props.formula ?? 'sin(x*6+t)*0.5+0.5')
-        const palette = String(props.palette ?? 'rainbow')
+        const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
         out = { frame: evalCustomFormula(formula, a, b, palette, t, W, H) }
         break
       }
