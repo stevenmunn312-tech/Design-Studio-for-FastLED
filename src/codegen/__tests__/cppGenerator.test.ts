@@ -297,6 +297,14 @@ describe('generateCpp', () => {
     expect(cpp).toContain('ColorFromPalette(pal_cp,')
   })
 
+  it('emits a Gray-Scott reaction-diffusion simulation', () => {
+    const rd = node('rd', 'ReactionDiffusion', 'pattern', { feed: 0.055, kill: 0.062, speed: 8, palette: 'ocean' })
+    const cpp = generateCpp([rd, outputNode], [edge('e', 'rd', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('static float _u_rd[NUM_LEDS]')
+    expect(cpp).toContain('memcpy(_u_rd,_un_rd,sizeof(_u_rd))')
+    expect(cpp).toContain('ColorFromPalette(OceanColors_p')
+  })
+
   it('emits Worley noise with its hash helper', () => {
     const w = node('w', 'Worley', 'pattern', { speed: 0.5, scale: 0.3, palette: 'forest' })
     const cpp = generateCpp([w, outputNode], [edge('e', 'w', 'out', 'frame', 'frame')])

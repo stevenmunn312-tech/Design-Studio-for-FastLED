@@ -258,6 +258,20 @@ describe('evaluateGraph', () => {
     expect(mk()).toEqual(frame)          // deterministic at a fixed tick
   })
 
+  it('ReactionDiffusion seeds a non-uniform field that evolves over frames', () => {
+    const rd  = node('rd', 'ReactionDiffusion', 'pattern', { feed: 0.055, kill: 0.062, speed: 8, palette: 'ocean' })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [edge('e', 'rd', 'frame', 'out', 'frame')]
+    const first = evaluateGraph([rd, out], edges, 0, 16, 16)!
+    const firstStr = JSON.stringify(first)
+    const p0 = JSON.stringify(first[0][0])
+    const allSame = first.every((row) => row.every((px) => JSON.stringify(px) === p0))
+    expect(allSame).toBe(false)                  // the seed patch breaks uniformity
+    let later = first
+    for (let i = 1; i <= 5; i++) later = evaluateGraph([rd, out], edges, i, 16, 16)!
+    expect(JSON.stringify(later)).not.toEqual(firstStr)   // the sim evolves
+  })
+
   it('a CustomPalette drives a pattern node differently than a preset', () => {
     const c1 = node('c1', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })
     const c2 = node('c2', 'CHSV', 'color', { hue: 160, sat: 255, val: 255 })

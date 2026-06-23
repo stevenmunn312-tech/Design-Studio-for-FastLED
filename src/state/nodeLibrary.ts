@@ -675,6 +675,19 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { speed: 0.5, scale: 0.3, palette: 'forest' },
   },
+  {
+    // Gray-Scott reaction-diffusion — organic spots/stripes that evolve.
+    type: 'ReactionDiffusion',
+    label: 'Reaction Diffusion',
+    category: 'pattern',
+    inputs: [
+      { id: 'feed', label: 'Feed', dataType: 'float' },
+      { id: 'kill', label: 'Kill', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { feed: 0.055, kill: 0.062, speed: 8, palette: 'ocean' },
+  },
 
   // ── Transition nodes ──────────────────────────────────────────────────
   {
