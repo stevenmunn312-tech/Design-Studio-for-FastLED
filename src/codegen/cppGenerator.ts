@@ -784,6 +784,44 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
+      case 'Blobs': {
+        needsT.v = true
+        const ob = ownBuf()
+        const speed = f('speed', 'speed', 0.6), scale = f('scale', 'scale', 0.22)
+        const count = Math.max(1, Math.min(6, Math.floor(Number(p.count ?? 3))))
+        const pal = paletteExpr(node.id, 'paletteIn', p)
+        ln(`  { // Blobs (metaballs)`)
+        ln(`    float _spd=${speed}, _r=${scale}*min(WIDTH,HEIGHT), _r2=_r*_r;`)
+        ln(`    float _bx[${count}], _by[${count}];`)
+        ln(`    for(int _i=0;_i<${count};_i++){ _bx[_i]=WIDTH*(0.5f+0.4f*sin(t*_spd*(0.7f+_i*0.13f)+_i*1.7f)); _by[_i]=HEIGHT*(0.5f+0.4f*cos(t*_spd*(0.6f+_i*0.17f)+_i*2.3f)); }`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){ float _f=0;`)
+        ln(`      for(int _i=0;_i<${count};_i++){ float _dx=_x-_bx[_i],_dy=_y-_by[_i]; _f+=_r2/(_dx*_dx+_dy*_dy+1.0f); }`)
+        ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_f/(_f+1.0f))*255)); }}`)
+        break
+      }
+
+      case 'FlowField': {
+        needsT.v = true
+        const ob = ownBuf()
+        const speed = f('speed', 'speed', 1), scale = f('scale', 'scale', 0.08)
+        const count = Math.max(8, Math.min(400, Math.floor(Number(p.count ?? 80))))
+        const fade = Number(p.fade ?? 0.9)
+        const fadeL = (Number.isInteger(fade) ? `${fade}.0` : `${fade}`) + 'f'
+        const pal = paletteExpr(node.id, 'paletteIn', p)
+        const px = `_fpx_${id}`, py = `_fpy_${id}`, tr = `_ftr_${id}`
+        ln(`  { // Flow field`)
+        ln(`    static float ${px}[${count}], ${py}[${count}], ${tr}[NUM_LEDS]; static bool _fi_${id}=false;`)
+        ln(`    if(!_fi_${id}){ for(int _i=0;_i<${count};_i++){ ${px}[_i]=(random8()/255.0f)*WIDTH; ${py}[_i]=(random8()/255.0f)*HEIGHT; } for(int _i=0;_i<NUM_LEDS;_i++)${tr}[_i]=0; _fi_${id}=true; }`)
+        ln(`    float _spd=${speed},_sc=${scale}; uint16_t _z=(uint16_t)(t*100);`)
+        ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${tr}[_i]*=${fadeL};`)
+        ln(`    for(int _i=0;_i<${count};_i++){`)
+        ln(`      float _a=(inoise8((uint16_t)(${px}[_i]*_sc*256),(uint16_t)(${py}[_i]*_sc*256),_z)/255.0f)*6.2831f*2;`)
+        ln(`      ${px}[_i]=fmodf(${px}[_i]+cos(_a)*_spd*0.6f+WIDTH,WIDTH); ${py}[_i]=fmodf(${py}[_i]+sin(_a)*_spd*0.6f+HEIGHT,HEIGHT);`)
+        ln(`      int _xi=(int)${px}[_i],_yi=(int)${py}[_i]; if(_xi>=0&&_xi<WIDTH&&_yi>=0&&_yi<HEIGHT){ int _id=_yi*WIDTH+_xi; ${tr}[_id]=min(1.0f,${tr}[_id]+0.5f); } }`)
+        ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${tr}[_i]*255)); }`)
+        break
+      }
+
       case 'ReactionDiffusion': {
         const ob = ownBuf()
         const feed = f('feed', 'feed', 0.055), kill = f('kill', 'kill', 0.062)

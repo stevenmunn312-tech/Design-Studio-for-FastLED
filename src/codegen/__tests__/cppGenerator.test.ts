@@ -314,6 +314,23 @@ describe('generateCpp', () => {
     expect(cpp).toContain('ColorFromPalette(OceanColors_p')
   })
 
+  it('emits a Blobs metaball field', () => {
+    const b = node('b', 'Blobs', 'pattern', { speed: 0.6, scale: 0.22, count: 3, palette: 'lava' })
+    const cpp = generateCpp([b, outputNode], [edge('e', 'b', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('float _bx[3], _by[3]')
+    expect(cpp).toContain('_f/(_f+1.0f)')
+    expect(cpp).toContain('ColorFromPalette(LavaColors_p')
+  })
+
+  it('emits a stateful FlowField with particle buffers', () => {
+    const ff = node('ff', 'FlowField', 'pattern', { speed: 1, scale: 0.08, count: 50, fade: 0.9, palette: 'ocean' })
+    const cpp = generateCpp([ff, outputNode], [edge('e', 'ff', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('static float _fpx_ff[50], _fpy_ff[50], _ftr_ff[NUM_LEDS]')
+    expect(cpp).toContain('inoise8(')
+    expect(cpp).toContain('*=0.9f')
+    expect(cpp).toContain('ColorFromPalette(OceanColors_p')
+  })
+
   it('emits fractal noise via summed inoise8 octaves', () => {
     const fn = node('fn', 'FractalNoise', 'pattern', { speed: 0.3, scale: 0.15, octaves: 4, palette: 'forest' })
     const cpp = generateCpp([fn, outputNode], [edge('e', 'fn', 'out', 'frame', 'frame')])

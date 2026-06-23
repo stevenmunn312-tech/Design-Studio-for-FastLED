@@ -276,6 +276,28 @@ describe('evaluateGraph', () => {
     expect(JSON.stringify(mk(5))).not.toEqual(JSON.stringify(f1))                     // octaves add detail
   })
 
+  it('Blobs produces a varied field that moves over time', () => {
+    const at = (tick: number) => {
+      const b = node('b', 'Blobs', 'pattern', { speed: 0.6, scale: 0.25, count: 3, palette: 'lava' })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      return evaluateGraph([b, out], [edge('e', 'b', 'frame', 'out', 'frame')], tick, 8, 8)!
+    }
+    const f0 = at(0)
+    const p0 = JSON.stringify(f0[0][0])
+    expect(f0.every((r) => r.every((px) => JSON.stringify(px) === p0))).toBe(false)  // varied
+    expect(JSON.stringify(at(120))).not.toEqual(JSON.stringify(f0))                   // animates
+  })
+
+  it('FlowField deposits trails that build up over frames', () => {
+    const ff = node('ff', 'FlowField', 'pattern', { speed: 1, scale: 0.1, count: 60, fade: 0.9, palette: 'ocean' })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [edge('e', 'ff', 'frame', 'out', 'frame')]
+    let frame = evaluateGraph([ff, out], edges, 0, 10, 10)!
+    for (let i = 1; i <= 8; i++) frame = evaluateGraph([ff, out], edges, i, 10, 10)!
+    const lit = frame.flat().filter((px) => px.r + px.g + px.b > 0).length
+    expect(lit).toBeGreaterThan(0)   // particles left trails
+  })
+
   it('Worley noise produces a varied, deterministic cellular frame', () => {
     const mk = () => {
       const w = node('w', 'Worley', 'pattern', { speed: 0, scale: 0.3, palette: 'rainbow' })

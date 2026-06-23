@@ -24,6 +24,9 @@ const rdState = new Map<string, RDState>()
 interface GolState { cells: Uint8Array; next: Uint8Array; bright: Float32Array; w: number; h: number; lastStep: number; stale: number }
 const golState = new Map<string, GolState>()
 
+interface FlowState { px: Float32Array; py: Float32Array; trail: Float32Array; w: number; h: number }
+const flowState = new Map<string, FlowState>()
+
 type FormulaFn = (x: number, y: number, t: number, W: number, H: number, a: number, b: number) => number
 const formulaCache = new Map<string, FormulaFn | null>()
 
@@ -429,6 +432,53 @@ function evalFractalNoise(speed: number, scale: number, octaves: number, t: numb
       const n = (v / norm) * 0.5 + 0.5
       return samplePalette(palette, ((n % 1) + 1) % 1)
     })
+  )
+}
+
+// Metaballs: several moving charges; each pixel's field is the summed inverse-
+// square influence, mapped smoothly to a palette (lava-lamp blobs).
+function evalBlobs(speed: number, scale: number, count: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const n = Math.max(1, Math.min(6, Math.floor(count)))
+  const r2 = (scale * Math.min(W, H)) ** 2
+  const bx: number[] = [], by: number[] = []
+  for (let i = 0; i < n; i++) {
+    bx.push(W * (0.5 + 0.4 * Math.sin(t * speed * (0.7 + i * 0.13) + i * 1.7)))
+    by.push(H * (0.5 + 0.4 * Math.cos(t * speed * (0.6 + i * 0.17) + i * 2.3)))
+  }
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      let f = 0
+      for (let i = 0; i < n; i++) { const dx = x - bx[i], dy = y - by[i]; f += r2 / (dx * dx + dy * dy + 1) }
+      return samplePalette(palette, f / (f + 1))
+    })
+  )
+}
+
+// Flow field: particles drift along a simplex-noise direction field, depositing
+// fading trails that are coloured through a palette. Stateful.
+function evalFlowField(nodeId: string, speed: number, scale: number, count: number, fade: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const N = W * H
+  const pc = Math.max(8, Math.min(400, Math.floor(count)))
+  let s = flowState.get(nodeId)
+  if (!s || s.w !== W || s.h !== H || s.px.length !== pc) {
+    const px = new Float32Array(pc), py = new Float32Array(pc)
+    for (let i = 0; i < pc; i++) { px[i] = Math.random() * W; py[i] = Math.random() * H }
+    s = { px, py, trail: new Float32Array(N), w: W, h: H }
+    flowState.set(nodeId, s)
+  }
+  const { px, py, trail } = s
+  const f = Math.max(0, Math.min(1, fade))
+  for (let i = 0; i < N; i++) trail[i] *= f
+  const z = t * 0.1
+  for (let i = 0; i < pc; i++) {
+    const a = _snoise2(px[i] * scale + z, py[i] * scale) * Math.PI * 4
+    px[i] = ((px[i] + Math.cos(a) * speed * 0.6) % W + W) % W
+    py[i] = ((py[i] + Math.sin(a) * speed * 0.6) % H + H) % H
+    const idx = Math.floor(py[i]) * W + Math.floor(px[i])
+    trail[idx] = Math.min(1, trail[idx] + 0.5)
+  }
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => samplePalette(palette, trail[y * W + x]))
   )
 }
 
@@ -1262,6 +1312,25 @@ export function evaluateGraph(
         const octaves = Number(props.octaves ?? 4)
         const palette = pal(id, 'paletteIn', props, 'palette', 'forest')
         out = { frame: evalFractalNoise(speed, scale, octaves, t, palette, W, H) }
+        break
+      }
+
+      case 'Blobs': {
+        const speed = num(id, 'speed', props, 'speed', 0.6)
+        const scale = num(id, 'scale', props, 'scale', 0.22)
+        const count = Number(props.count ?? 3)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'lava')
+        out = { frame: evalBlobs(speed, scale, count, t, palette, W, H) }
+        break
+      }
+
+      case 'FlowField': {
+        const speed = num(id, 'speed', props, 'speed', 1)
+        const scale = num(id, 'scale', props, 'scale', 0.08)
+        const count = Number(props.count ?? 80)
+        const fade = Number(props.fade ?? 0.9)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
+        out = { frame: evalFlowField(stateKey(id), speed, scale, count, fade, t, palette, W, H) }
         break
       }
 
