@@ -322,6 +322,17 @@ describe('generateCpp', () => {
     expect(cpp).toContain('ColorFromPalette(ForestColors_p')
   })
 
+  it('emits a Color Temperature node with the kelvinToRGB helper', () => {
+    const t = node('t', 'Temperature', 'color', { kelvin: 3000 })
+    const sp = node('sp', 'Span', 'pattern', { row: 0, start: 0, count: 4 })
+    const cpp = generateCpp([t, sp, outputNode], [
+      edge('e1', 't', 'sp', 'color', 'color'),
+      edge('e2', 'sp', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('CRGB kelvinToRGB(float kelvin)')
+    expect(cpp).toContain('n_t_color = kelvinToRGB(3000)')
+  })
+
   it('emits a Circle distance test', () => {
     const c = node('c', 'Circle', 'pattern', { cx: 4, cy: 4, radius: 3, filled: false, r: 255, g: 0, b: 0 })
     const cpp = generateCpp([c, outputNode], [edge('e', 'c', 'out', 'frame', 'frame')])

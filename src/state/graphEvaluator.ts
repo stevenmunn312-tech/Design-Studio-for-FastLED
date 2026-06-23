@@ -66,6 +66,20 @@ function hsv(h: number, s: number, v: number): RGB {
 
 function byte(v: number): number { return Math.max(0, Math.min(255, Math.round(v * 255))) }
 
+// Approximate black-body white point for a colour temperature in Kelvin
+// (Tanner Helland's approximation): ~1900K candle → ~6500K daylight → blue.
+function kelvinToRgb(kelvin: number): RGB {
+  const t = Math.max(1000, Math.min(40000, kelvin)) / 100
+  const clamp = (x: number) => Math.max(0, Math.min(255, Math.round(x)))
+  let r: number, g: number, b: number
+  if (t <= 66) { r = 255; g = 99.4708025861 * Math.log(t) - 161.1195681661 }
+  else { r = 329.698727446 * Math.pow(t - 60, -0.1332047592); g = 288.1221695283 * Math.pow(t - 60, -0.0755148492) }
+  if (t >= 66) b = 255
+  else if (t <= 19) b = 0
+  else b = 138.5177312231 * Math.log(t - 10) - 305.0447927307
+  return { r: clamp(r), g: clamp(g), b: clamp(b) }
+}
+
 function solidFrame(color: RGB, W = DEFAULT_W, H = DEFAULT_H): Frame {
   return Array.from({ length: H }, () => Array.from({ length: W }, () => ({ ...color })))
 }
@@ -1051,6 +1065,11 @@ export function evaluateGraph(
         const s = num(id, 's', props, 's', 1)
         const v = num(id, 'v', props, 'v', 1)
         out = { color: hsv(h, s, v) }
+        break
+      }
+
+      case 'Temperature': {
+        out = { color: kelvinToRgb(num(id, 'kelvin', props, 'kelvin', 4000)) }
         break
       }
 
