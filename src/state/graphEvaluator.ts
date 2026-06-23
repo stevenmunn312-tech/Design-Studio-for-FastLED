@@ -18,6 +18,9 @@ interface Particle { x: number; y: number; vx: number; vy: number; life: number;
 const particleState = new Map<string, Particle[]>()
 const patternMasterState = new Map<string, { idx: number; lastBeat: boolean }>()
 
+interface RDState { u: Float32Array; v: Float32Array; un: Float32Array; vn: Float32Array; w: number; h: number }
+const rdState = new Map<string, RDState>()
+
 type FormulaFn = (x: number, y: number, t: number, W: number, H: number, a: number, b: number) => number
 const formulaCache = new Map<string, FormulaFn | null>()
 
@@ -391,6 +394,44 @@ function evalWorley(speed: number, scale: number, t: number, palette: Palette, W
         }
       return samplePalette(palette, Math.min(1, f1))
     })
+  )
+}
+
+// Gray-Scott reaction-diffusion. Two chemicals U, V diffuse on a toroidal grid
+// and react; V is coloured through a palette. Stateful — steps each frame.
+function evalReactionDiffusion(nodeId: string, feed: number, kill: number, iters: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const N = W * H
+  let s = rdState.get(nodeId)
+  if (!s || s.w !== W || s.h !== H) {
+    const u = new Float32Array(N).fill(1), v = new Float32Array(N)
+    // Seed a small central patch of V to kick off the reaction.
+    for (let y = (H >> 1) - 2; y <= (H >> 1) + 1; y++)
+      for (let x = (W >> 1) - 2; x <= (W >> 1) + 1; x++)
+        if (x >= 0 && x < W && y >= 0 && y < H) { u[y * W + x] = 0.5; v[y * W + x] = 0.25 + worleyHash(x, y) * 0.5 }
+    s = { u, v, un: new Float32Array(N), vn: new Float32Array(N), w: W, h: H }
+    rdState.set(nodeId, s)
+  }
+  const Du = 0.16, Dv = 0.08
+  for (let it = 0; it < iters; it++) {
+    const { u, v, un, vn } = s
+    for (let y = 0; y < H; y++) {
+      const ym = ((y - 1 + H) % H) * W, yp = ((y + 1) % H) * W, yr = y * W
+      for (let x = 0; x < W; x++) {
+        const xm = (x - 1 + W) % W, xp = (x + 1) % W, i = yr + x
+        const lapU = (u[ym + x] + u[yp + x] + u[yr + xm] + u[yr + xp]) * 0.2
+          + (u[ym + xm] + u[ym + xp] + u[yp + xm] + u[yp + xp]) * 0.05 - u[i]
+        const lapV = (v[ym + x] + v[yp + x] + v[yr + xm] + v[yr + xp]) * 0.2
+          + (v[ym + xm] + v[ym + xp] + v[yp + xm] + v[yp + xp]) * 0.05 - v[i]
+        const uvv = u[i] * v[i] * v[i]
+        un[i] = Math.max(0, Math.min(1, u[i] + Du * lapU - uvv + feed * (1 - u[i])))
+        vn[i] = Math.max(0, Math.min(1, v[i] + Dv * lapV + uvv - (kill + feed) * v[i]))
+      }
+    }
+    s.u = un; s.un = u; s.v = vn; s.vn = v   // swap front/back buffers
+  }
+  const v = s.v
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => samplePalette(palette, v[y * W + x]))
   )
 }
 
@@ -1131,6 +1172,15 @@ export function evaluateGraph(
         const scale   = num(id, 'scale',  props, 'scale',  0.3)
         const palette = pal(id, 'paletteIn', props, 'palette', 'forest')
         out = { frame: evalWorley(speed, scale, t, palette, W, H) }
+        break
+      }
+
+      case 'ReactionDiffusion': {
+        const feed  = num(id, 'feed', props, 'feed', 0.055)
+        const kill  = num(id, 'kill', props, 'kill', 0.062)
+        const iters = Math.max(1, Math.min(20, Math.floor(Number(props.speed ?? 8))))
+        const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
+        out = { frame: evalReactionDiffusion(stateKey(id), feed, kill, iters, palette, W, H) }
         break
       }
 
