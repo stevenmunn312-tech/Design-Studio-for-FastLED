@@ -70,6 +70,8 @@ Changing any of those CSS values without updating the constants will silently mi
 
 `GlowEdge` (`src/components/Canvas/GlowEdge.tsx`) renders three stacked SVG `<path>` elements (wide halo → mid bloom → thin animated core) plus a dot at the target. Color is resolved at render time from `useReactFlow().getNode(source)?.data.category`. The MiniMap picks up edge colors from `style.stroke` set at connect time in `graphStore.onConnect`.
 
+Edges ("noodles") are created `reconnectable: 'target'`, so a noodle can be unplugged from a node's **input** end: grab it at the input port and drag — drop on empty space to disconnect (`removeEdge`), or onto another compatible port to re-route (`reconnectNoodle`). The canvas wires React Flow's `onReconnectStart`/`onReconnect`/`onReconnectEnd`; a ref tracks whether the drag landed on a port.
+
 ### Live Preview Pipeline
 
 `LEDPreview.tsx` drives a `requestAnimationFrame` loop that calls `evaluateGraph(nodes, edges, tick, gridW, gridH)` every frame. When the graph is empty, `idleFrame()` shows a rainbow shimmer instead. The per-frame body is wrapped in `try/catch` so a single malformed frame logs and is skipped rather than tearing down the loop.

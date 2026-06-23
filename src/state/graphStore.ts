@@ -10,6 +10,7 @@ import {
   applyNodeChanges,
   applyEdgeChanges,
   addEdge,
+  reconnectEdge,
 } from '@xyflow/react'
 import type { NodeCategory } from '../types'
 import { CATEGORY_COLOR } from './nodeLibrary'
@@ -61,6 +62,10 @@ interface GraphState {
   pasteNode: (position: { x: number; y: number }) => void
   deleteNode: (id: string) => void
   disconnectNode: (id: string) => void
+  /** Remove a single edge (a "noodle"), e.g. when unplugged onto empty space. */
+  removeEdge: (id: string) => void
+  /** Re-route an edge to a new connection when its end is dragged to a port. */
+  reconnectNoodle: (oldEdge: StudioEdge, newConnection: Connection) => void
 
   /** Switch the active graph, stashing the current one. */
   enterGraph: (id: string) => void
@@ -93,8 +98,16 @@ export const useGraphStore = create<GraphState>()(
         set((s) => {
           const src = s.nodes.find((n) => n.id === connection.source)
           const color = CATEGORY_COLOR[(src?.data as { category?: string })?.category ?? ''] ?? '#00bfff'
-          return { edges: addEdge({ ...connection, type: 'glowEdge', style: { stroke: color } }, s.edges) }
+          // `reconnectable: 'target'` lets a noodle be unplugged/re-routed from
+          // the input (target) end only — grab it at the input port and drag.
+          return { edges: addEdge({ ...connection, type: 'glowEdge', reconnectable: 'target', style: { stroke: color } }, s.edges) }
         }),
+
+      removeEdge: (id) =>
+        set((s) => ({ edges: s.edges.filter((e) => e.id !== id) })),
+
+      reconnectNoodle: (oldEdge, newConnection) =>
+        set((s) => ({ edges: reconnectEdge(oldEdge, newConnection, s.edges) })),
 
       addNode: (node) =>
         set((s) => ({ nodes: [...s.nodes, node] })),

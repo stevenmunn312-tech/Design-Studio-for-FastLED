@@ -68,6 +68,31 @@ describe('graphStore — grouping', () => {
     expect(reg[gid].nodes.some((n) => n.data.nodeType === 'GroupOutput')).toBe(true)
   })
 
+  it('removeEdge unplugs a single noodle', () => {
+    reset(
+      [node('sc', 'SolidColor', {}), node('out', 'MatrixOutput', {})],
+      [edge('e1', 'sc', 'frame', 'out', 'frame')],
+    )
+    useGraphStore.getState().removeEdge('e1')
+    expect(useGraphStore.getState().edges).toHaveLength(0)
+  })
+
+  it('reconnectNoodle re-routes an edge to a new target', () => {
+    reset(
+      [node('sc', 'SolidColor', {}), node('inv', 'Invert', {}), node('out', 'MatrixOutput', {})],
+      [edge('e1', 'sc', 'frame', 'out', 'frame')],
+    )
+    const old = useGraphStore.getState().edges[0]
+    // Re-route sc's output from out to inv's frame input.
+    useGraphStore.getState().reconnectNoodle(old, {
+      source: 'sc', sourceHandle: 'frame', target: 'inv', targetHandle: 'frame',
+    })
+    const e = useGraphStore.getState().edges
+    expect(e).toHaveLength(1)
+    expect(e[0].target).toBe('inv')
+    expect(e[0].targetHandle).toBe('frame')
+  })
+
   it('createGroup exposes incoming edges as group parameters', () => {
     reset(
       [
