@@ -320,6 +320,13 @@ describe('generateCpp', () => {
     expect(cpp).not.toContain('millis()')   // static text → no time variable
   })
 
+  it('Text codegen uses a custom font height', () => {
+    const font = { w: 3, h: 7, glyphs: { A: [1, 1, 1, 1, 1, 1, 1] } }
+    const txt = node('t', 'Text', 'pattern', { text: 'A', x: 0, y: 0, scroll: 0, font })
+    const cpp = generateCpp([txt, outputNode], [edge('e', 't', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('_r < 7;')
+  })
+
   it('emits a scrolling Text node that uses millis()', () => {
     const txt = node('t', 'Text', 'pattern', { text: 'GO', x: 0, y: 1, scroll: 4 })
     const cpp = generateCpp([txt, outputNode], [edge('e', 't', 'out', 'frame', 'frame')])

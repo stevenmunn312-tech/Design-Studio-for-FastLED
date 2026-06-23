@@ -1,6 +1,6 @@
 import type { StudioNode, StudioEdge } from './graphStore'
 import { useAudioStore } from './audioStore'
-import { FONT_H, textColumns } from './font'
+import { asFont, textColumns, type BitmapFont, DEFAULT_FONT } from './font'
 
 export interface RGB { r: number; g: number; b: number }
 export type Frame = RGB[][]   // row-major [y][x]
@@ -76,9 +76,9 @@ function cloneFrame(frame: Frame): Frame {
 
 // Render `text` onto a blank frame at (startX, startY), optionally scrolling
 // left over time (scroll = columns/second). Shares textColumns() with codegen.
-function renderText(text: string, color: RGB, startX: number, startY: number, scroll: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function renderText(text: string, color: RGB, startX: number, startY: number, scroll: number, t: number, font: BitmapFont = DEFAULT_FONT, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const frame = blankFrame(W, H)
-  const cols = textColumns(text)
+  const cols = textColumns(text, font)
   if (cols.length === 0) return frame
   const total = cols.length + W
   const offset = scroll !== 0 ? Math.floor((((t * scroll) % total) + total) % total) : 0
@@ -86,7 +86,7 @@ function renderText(text: string, color: RGB, startX: number, startY: number, sc
     const ci = x - startX + offset
     if (ci < 0 || ci >= cols.length) continue
     const col = cols[ci]
-    for (let r = 0; r < FONT_H; r++) {
+    for (let r = 0; r < font.h; r++) {
       if (col & (1 << r)) {
         const y = startY + r
         if (y >= 0 && y < H) frame[y][x] = { ...color }
@@ -749,7 +749,7 @@ export function evaluateGraph(
         const sx = Math.floor(Number(props.x ?? 0))
         const sy = Math.floor(Number(props.y ?? 0))
         const scroll = num(id, 'scroll', props, 'scroll', 0)
-        out = { frame: renderText(text, color, sx, sy, scroll, t, W, H) }
+        out = { frame: renderText(text, color, sx, sy, scroll, t, asFont(props.font), W, H) }
         break
       }
 
