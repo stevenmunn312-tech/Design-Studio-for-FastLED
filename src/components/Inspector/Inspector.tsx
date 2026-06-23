@@ -54,7 +54,17 @@ export default function Inspector() {
           </div>
         )}
         {Object.entries(props).map(([key, val]) =>
-          key === 'formula' ? (
+          typeof val === 'boolean' ? (
+            <div key={key} className={styles.fieldRow}>
+              <label className={styles.fieldLabel} htmlFor={`prop-${key}`}>{key}</label>
+              <input
+                id={`prop-${key}`}
+                type="checkbox"
+                checked={val}
+                onChange={(e) => updateNodeProperty(node.id, key, e.target.checked)}
+              />
+            </div>
+          ) : key === 'formula' ? (
             <div key={key} className={styles.formulaRow}>
               <label className={styles.fieldLabel} htmlFor={`prop-${key}`}>{key}</label>
               <textarea

@@ -691,6 +691,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       chipset: 'WS2812B',
       colorOrder: 'GRB',
       dataPin: 5,
+      serpentine: false,
     },
   },
 

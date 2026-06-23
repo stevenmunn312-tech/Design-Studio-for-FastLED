@@ -110,6 +110,22 @@ describe('generateCpp', () => {
     expect(cpp).toContain('blur2d(buf_bl, WIDTH, HEIGHT, 40)')
   })
 
+  it('remaps through XY() for a serpentine matrix', () => {
+    const out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, serpentine: true })
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 1, g: 2, b: 3 })
+    const cpp = generateCpp([sc, out], [edge('e', 'sc', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('uint16_t XY(uint8_t x, uint8_t y)')
+    expect(cpp).toContain('leds[XY(_x, _y)] = buf_sc[_y * WIDTH + _x]')
+    expect(cpp).not.toContain('memmove(leds,')
+  })
+
+  it('uses a straight memmove (no XY) for a progressive matrix', () => {
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 1, g: 2, b: 3 })
+    const cpp = generateCpp([sc, outputNode], [edge('e', 'sc', 'out', 'frame', 'frame')])
+    expect(cpp).not.toContain('XY(')
+    expect(cpp).toContain('memmove(leds, buf_sc, sizeof(CRGB) * NUM_LEDS)')
+  })
+
   it('emits Fire2012 heat simulation', () => {
     const fire = node('f', 'Fire2012', 'pattern', { cooling: 55, sparking: 120 })
     const cpp = generateCpp([fire, outputNode], [])

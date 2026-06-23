@@ -139,10 +139,10 @@ where it is needed.
   `dataType`. A regrouping (e.g. by output type: Sources / Color / Generators /
   Compositing / Math / Output) is desirable but deferred; it is orthogonal to
   this decision and tracked separately.
-- **Serpentine wiring.** Shape nodes address the visual `(x, y)` grid; a single
-  `XY(x, y)` mapping translates to physical LED index for serpentine layouts.
-  Phase 0 assumes progressive layout (consistent with current codegen); a real
-  `XY()` helper is a follow-up.
+- **Serpentine wiring.** _Resolved._ Buffers stay row-major in grid space; the
+  `MatrixOutput` node has a `serpentine` toggle and, when set, codegen emits an
+  `XY(x, y)` helper and remaps grid → physical index on the final copy to
+  `leds[]`. Progressive layouts keep the fast `memmove`.
 - **Custom palettes.** Whether `palette` stays an enum of presets or becomes a
   first-class color-stop array (enabling user-defined palettes and true
   `PaletteBlend` interpolation) is unresolved and tracked separately.
