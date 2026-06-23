@@ -197,11 +197,26 @@ export const useGraphStore = create<GraphState>()(
           const hasFrameOut = (n: StudioNode) =>
             (n.data.outputs as { dataType?: string }[] | undefined)?.some((o) => o.dataType === 'frame')
 
+          const portType = (nodeId: string, portId?: string | null) => {
+            const n = selected.find((x) => x.id === nodeId)
+            const port = (n?.data.inputs as { id: string; label?: string; dataType?: string }[] | undefined)
+              ?.find((pt) => pt.id === portId)
+            return { dataType: port?.dataType ?? 'float', label: port?.label ?? portId ?? 'in' }
+          }
+
           // Edges fully inside the selection move into the group.
           const internal = s.edges.filter((e) => idSet.has(e.source!) && idSet.has(e.target!))
           // Edges leaving the selection — their external targets will instead
           // consume the new Group node's frame output.
           const outgoing = s.edges.filter((e) => idSet.has(e.source!) && !idSet.has(e.target!))
+          // Edges entering the selection become exposed parameters: an external
+          // source feeds a new Group input port, surfaced inside via GroupInput.
+          const incoming = s.edges.filter((e) => !idSet.has(e.source!) && idSet.has(e.target!))
+
+          const params = incoming.map((e, i) => {
+            const { dataType, label } = portType(e.target!, e.targetHandle)
+            return { paramId: `param${i}`, edge: e, dataType, label }
+          })
 
           // The group's terminal frame producer: a selected node feeding an
           // external consumer, else the last selected node with a frame output.
@@ -223,10 +238,28 @@ export const useGraphStore = create<GraphState>()(
             },
           } as StudioNode
 
+          // A GroupInput node inside the subgraph for each exposed parameter,
+          // wired to the internal consumer the boundary edge used to feed.
+          const groupInputNodes = params.map((pm, i) => ({
+            id: `groupin-${groupId}-${i}`,
+            type: 'studioNode',
+            position: { x: 40, y: 80 + i * 80 },
+            data: {
+              label: pm.label, nodeType: 'GroupInput', category: 'composite',
+              properties: { paramId: pm.paramId },
+              inputs: [], outputs: [{ id: 'out', label: pm.label, dataType: pm.dataType }],
+            },
+          } as StudioNode))
+          const inputEdges = params.map((pm, i) => ({
+            id: `e-${groupId}-in${i}`, source: groupInputNodes[i].id, sourceHandle: 'out',
+            target: pm.edge.target!, targetHandle: pm.edge.targetHandle,
+          } as StudioEdge))
+
           const groupSubgraph: GraphContent = {
-            nodes: [...selected.map((n) => ({ ...n, selected: false })), groupOutput],
+            nodes: [...selected.map((n) => ({ ...n, selected: false })), ...groupInputNodes, groupOutput],
             edges: [
               ...internal,
+              ...inputEdges,
               { id: `e-${groupId}-out`, source: terminal.id, sourceHandle: 'frame', target: groupOutput.id, targetHandle: 'frame' } as StudioEdge,
             ],
           }
@@ -238,13 +271,18 @@ export const useGraphStore = create<GraphState>()(
             data: {
               label: name, nodeType: 'Group', category: 'composite',
               properties: { groupId },
-              inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+              inputs: params.map((pm) => ({ id: pm.paramId, label: pm.label, dataType: pm.dataType })),
+              outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
             },
           } as StudioNode
 
-          // Rewire external consumers of the selection to the Group node.
+          // Rewire external consumers of the selection to the Group node, and
+          // external sources of exposed params to the Group's input ports.
           const rewiredOutgoing = outgoing.map((e) => ({
             ...e, source: groupNode.id, sourceHandle: 'frame',
+          }))
+          const rewiredIncoming = params.map((pm) => ({
+            ...pm.edge, target: groupNode.id, targetHandle: pm.paramId,
           }))
           const survivingEdges = s.edges.filter(
             (e) => !idSet.has(e.source!) && !idSet.has(e.target!),
@@ -252,7 +290,7 @@ export const useGraphStore = create<GraphState>()(
 
           return {
             nodes: [...s.nodes.filter((n) => !idSet.has(n.id)), groupNode],
-            edges: [...survivingEdges, ...rewiredOutgoing],
+            edges: [...survivingEdges, ...rewiredOutgoing, ...rewiredIncoming],
             graphs: { ...s.graphs, [groupId]: { id: groupId, name } },
             graphData: { ...s.graphData, [groupId]: groupSubgraph },
             selectedNodeId: null,

@@ -227,6 +227,33 @@ describe('generateCpp', () => {
     expect(cpp).toContain('memmove(buf_s, buf_a, sizeof(CRGB) * NUM_LEDS)')
   })
 
+  it('wires an exposed group parameter to its internal consumer', () => {
+    const groups = {
+      dim: {
+        nodes: [
+          node('gi', 'GroupInput', 'composite', { paramId: 'p' }),
+          node('white', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 }),
+          node('bm', 'BrightnessMod', 'composite', {}),
+          node('go', 'GroupOutput', 'output', {}),
+        ],
+        edges: [
+          edge('e1', 'gi', 'bm', 'out', 'brightness'),
+          edge('e2', 'white', 'bm', 'frame', 'frame'),
+          edge('e3', 'bm', 'go', 'frame', 'frame'),
+        ],
+      },
+    }
+    const pot = node('pot', 'PotInput', 'hardware', { pin: 34 })
+    const grp = node('g1', 'Group', 'composite', { groupId: 'dim' })
+    ;(grp.data as unknown as { inputs: unknown[] }).inputs = [{ id: 'p', label: 'p', dataType: 'float' }]
+    const cpp = generateCpp([pot, grp, outputNode], [
+      edge('e1', 'pot', 'g1', 'value', 'p'),
+      edge('e2', 'g1', 'out', 'frame', 'frame'),
+    ], groups)
+    // The PotInput value reaches the group's BrightnessMod through the param.
+    expect(cpp).toContain('n_pot_value')
+  })
+
   it('composites two layers with nblend and copies the result to leds', () => {
     const a  = node('a', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
     const b  = node('b', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 })

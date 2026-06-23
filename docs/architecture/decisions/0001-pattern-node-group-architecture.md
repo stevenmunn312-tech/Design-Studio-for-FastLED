@@ -125,8 +125,11 @@ where it is needed.
   its own `CRGB buf_<id>` and `MatrixOutput` copies the final buffer to `leds`,
   so `LayerBlend`/`BlendFrames`/`Crossfade`/`Wipe`/`Dissolve` emit real
   `nblend`-based compositing and `Sequencer` emits a millis-driven crossfade
-  across its input buffers. _Remaining:_ hardware-driven transitions via exposed
-  group parameters (Group Input nodes).
+  across its input buffers. **Exposed group parameters** also landed: grouping a
+  selection turns each boundary input edge into a `GroupInput` node + a port on
+  the `Group` node, so external values (math, audio, a hardware knob) drive a
+  group through preview and codegen — which is also how hardware-driven
+  transitions are built. Phase 3 complete.
 - **Phase 4 — Expansion.** Text nodes, masks/feathering, additional shapes.
 
 ## Open questions

@@ -327,6 +327,36 @@ describe('evaluateGraph — groups', () => {
     expect(frame![0][0]).toEqual({ r: 255, g: 0, b: 0 })
   })
 
+  it('binds an exposed group parameter from a connected input', () => {
+    const groups = {
+      dim: {
+        nodes: [
+          node('gi', 'GroupInput', 'composite', { paramId: 'p' }),
+          node('white', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 }),
+          node('bm', 'BrightnessMod', 'composite', {}),
+          node('go', 'GroupOutput', 'output', {}),
+        ],
+        edges: [
+          edge('e1', 'gi', 'out', 'bm', 'brightness'),
+          edge('e2', 'white', 'frame', 'bm', 'frame'),
+          edge('e3', 'bm', 'frame', 'go', 'frame'),
+        ],
+      },
+    }
+    const clamp = node('c', 'Clamp', 'math', { value: 0.5, min: 0, max: 1 })
+    const grp = node('g1', 'Group', 'composite', { groupId: 'dim' })
+    ;(grp.data as unknown as { inputs: unknown[] }).inputs = [{ id: 'p', label: 'p', dataType: 'float' }]
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [
+      edge('e1', 'c', 'result', 'g1', 'p'),
+      edge('e2', 'g1', 'frame', 'out', 'frame'),
+    ]
+    // Clamp(0.5) drives the group's brightness param → white scaled to ~128.
+    const frame = evaluateGraph([clamp, grp, out], edges, 0, 2, 2, groups)
+    expect(frame![0][0].r).toBeGreaterThan(100)
+    expect(frame![0][0].r).toBeLessThan(160)
+  })
+
   it('keeps stateful node state isolated per group instance', () => {
     // A group that fades a white frame by a per-instance Counter.
     const groups = {

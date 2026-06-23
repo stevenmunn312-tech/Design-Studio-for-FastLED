@@ -30,6 +30,8 @@ function flattenGroups(
   const outEdges: StudioEdge[] = []
   // Prefixed Group-node id → the flattened source that fed its GroupOutput.
   const terminalFor = new Map<string, { id: string; port: string }>()
+  // Prefixed Group-node id → (paramId → internal consumers of that GroupInput).
+  const paramConsumers = new Map<string, Map<string, { id: string; port: string }[]>>()
 
   for (const n of nodes) {
     if (nodeType(n) === 'Group') {
@@ -37,13 +39,28 @@ function flattenGroups(
       if (!groupId || !groups[groupId] || groupStack.has(groupId)) continue
       const sub = groups[groupId]
       const flat = flattenGroups(sub.nodes, sub.edges, groups, `${pid(n.id)}__`, new Set([...groupStack, groupId]))
+
       const out = flat.nodes.find((x) => nodeType(x) === 'GroupOutput')
       if (out) {
         const fed = flat.edges.find((e) => e.target === out.id && e.targetHandle === 'frame')
         if (fed?.source && fed.sourceHandle) terminalFor.set(pid(n.id), { id: fed.source, port: fed.sourceHandle })
       }
-      for (const x of flat.nodes) if (nodeType(x) !== 'GroupOutput') outNodes.push(x)
-      for (const e of flat.edges) if (!(out && e.target === out.id)) outEdges.push(e)
+
+      // Record each GroupInput's downstream consumers so the boundary edge that
+      // feeds this group's param can be wired straight to them.
+      const giNodes = flat.nodes.filter((x) => nodeType(x) === 'GroupInput')
+      const giIds = new Set(giNodes.map((x) => x.id))
+      const consumers = new Map<string, { id: string; port: string }[]>()
+      for (const gi of giNodes) {
+        const paramId = (gi.data.properties as { paramId?: string })?.paramId ?? ''
+        consumers.set(paramId, flat.edges
+          .filter((e) => e.source === gi.id && e.target && e.targetHandle)
+          .map((e) => ({ id: e.target!, port: e.targetHandle! })))
+      }
+      paramConsumers.set(pid(n.id), consumers)
+
+      for (const x of flat.nodes) if (nodeType(x) !== 'GroupOutput' && nodeType(x) !== 'GroupInput') outNodes.push(x)
+      for (const e of flat.edges) if (!(out && e.target === out.id) && !giIds.has(e.source!)) outEdges.push(e)
     } else {
       outNodes.push({ ...n, id: pid(n.id) })
     }
@@ -53,13 +70,30 @@ function flattenGroups(
     nodes.some((n) => n.id === id && nodeType(n) === 'Group')
 
   for (const e of edges) {
-    if (!e.source || !e.target || isGroup(e.target)) continue
+    if (!e.source || !e.target) continue
+    // Resolve the source through a group's GroupOutput terminal if needed.
     const term = terminalFor.get(pid(e.source))
+    const srcId = term ? term.id : pid(e.source)
+    const srcPort = term ? term.port : e.sourceHandle
+
+    if (isGroup(e.target)) {
+      // Boundary edge into a group param → wire the source to each consumer of
+      // the matching GroupInput inside the (now-inlined) subgraph.
+      const cons = paramConsumers.get(pid(e.target))?.get(e.targetHandle ?? '') ?? []
+      for (const c of cons) {
+        outEdges.push({
+          id: pid(`${e.id ?? `${e.source}-${e.target}`}-${c.id}`),
+          source: srcId, sourceHandle: srcPort, target: c.id, targetHandle: c.port,
+        } as StudioEdge)
+      }
+      continue
+    }
+
     outEdges.push({
       ...e,
       id: pid(e.id ?? `${e.source}-${e.target}`),
-      source: term ? term.id : pid(e.source),
-      sourceHandle: term ? term.port : e.sourceHandle,
+      source: srcId,
+      sourceHandle: srcPort,
       target: pid(e.target),
       targetHandle: e.targetHandle,
     } as StudioEdge)
