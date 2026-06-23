@@ -110,9 +110,11 @@ App.tsx auto-starts audio when a `MicInput` node is added to the graph; auto-sto
 ### Upload Panel
 
 `src/components/Upload/UploadPanel.tsx` — modal overlay with:
-- Live code preview textarea (left pane)
-- Board selector dropdown, WebSerial connect/disconnect, `.ino` download, Flash button (right pane)
+- Live code preview textarea (left pane), with a copy button
+- Board selector → arduino-cli **FQBN**, `.ino` download, and a generated **`arduino-cli`** command block (core/lib install → compile → `board list` → upload) with copy (right pane)
 - `validateGraph()` (extracted to `src/utils/validateGraph.ts`, unit-tested) checks for MatrixOutput, connected frame port, and isolated nodes, returning `{ errors, warnings }`; the panel shows results as colored chips in the footer
+
+Building/flashing is done **locally via `arduino-cli`** (the panel emits the commands) rather than a cloud compile service or in-browser WebSerial flashing — keeping the app a pure static frontend. The board → FQBN/core map lives in `UploadPanel.tsx`.
 
 ### Design Tokens
 

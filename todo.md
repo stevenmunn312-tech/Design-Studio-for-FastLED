@@ -45,8 +45,8 @@
 - [x] WebSerial connect / disconnect at 115200 baud
 - [x] `.ino` download button
 - [x] Serpentine matrix layout — `XY()` remap on output (toggle on MatrixOutput)
-- [ ] Actual WebSerial flashing — send a compiled binary to the board bootloader
-- [ ] In-browser compilation via Web Worker / WASM toolchain (or cloud compile endpoint)
+- [x] Local build & flash via `arduino-cli` — Upload panel generates per-board compile/upload commands
+- [~] WebSerial flashing / in-browser (or cloud) compilation — intentionally **not** pursued; local `arduino-cli` keeps the app a pure static frontend (no backend/hosting/sandboxing burden)
 
 ## Nodes
 

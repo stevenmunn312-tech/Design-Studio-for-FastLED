@@ -5,18 +5,41 @@ import { generateCpp } from '../../codegen/cppGenerator'
 import { validateGraph } from '../../utils/validateGraph'
 import styles from './UploadPanel.module.css'
 
-// ── Component ─────────────────────────────────────────────────────────────────
-
-const BOARDS = [
-  'ESP32-S3 (FastLED)',
-  'ESP32 (FastLED)',
-  'Arduino Uno',
-  'Arduino Nano',
-  'Teensy 4.1',
-  'RP2040 (Raspberry Pi Pico)',
+// ── Boards ──────────────────────────────────────────────────────────────────
+// Each board maps to an arduino-cli FQBN and the core that provides it. ESP32
+// and RP2040 are third-party cores (need their board-manager URL configured).
+interface Board { label: string; fqbn: string; core: string; thirdParty?: boolean }
+const BOARDS: Board[] = [
+  { label: 'ESP32-S3',              fqbn: 'esp32:esp32:esp32s3', core: 'esp32:esp32',   thirdParty: true },
+  { label: 'ESP32',                 fqbn: 'esp32:esp32:esp32',   core: 'esp32:esp32',   thirdParty: true },
+  { label: 'Arduino Uno',           fqbn: 'arduino:avr:uno',     core: 'arduino:avr' },
+  { label: 'Arduino Nano',          fqbn: 'arduino:avr:nano',    core: 'arduino:avr' },
+  { label: 'Teensy 4.1',            fqbn: 'teensy:avr:teensy41', core: 'teensy:avr',    thirdParty: true },
+  { label: 'RP2040 (Pico)',         fqbn: 'rp2040:rp2040:rpipico', core: 'rp2040:rp2040', thirdParty: true },
 ]
 
-const hasSerial = typeof navigator !== 'undefined' && 'serial' in navigator
+const SKETCH = 'fastled_pattern'
+
+function cliCommands(b: Board): string {
+  return [
+    '# 1. One-time setup — install the board core and FastLED',
+    ...(b.thirdParty ? [`#    (${b.core} is a third-party core: add its URL via "arduino-cli config")`] : []),
+    `arduino-cli core install ${b.core}`,
+    'arduino-cli lib install FastLED',
+    '',
+    `# 2. Save the downloaded sketch as ${SKETCH}/${SKETCH}.ino`,
+    '#    (Arduino requires the folder name to match the .ino name)',
+    '',
+    '# 3. Compile',
+    `arduino-cli compile --fqbn ${b.fqbn} ${SKETCH}`,
+    '',
+    '# 4. Find your board, then upload (replace PORT, e.g. COM5 or /dev/ttyUSB0)',
+    'arduino-cli board list',
+    `arduino-cli upload -p PORT --fqbn ${b.fqbn} ${SKETCH}`,
+  ].join('\n')
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function UploadPanel() {
   const { nodes, edges } = useGraphStore()
@@ -25,11 +48,9 @@ export default function UploadPanel() {
   const code = useMemo(() => generateCpp(nodes, edges, getGroupRegistry()), [nodes, edges])
   const validation = useMemo(() => validateGraph(nodes, edges), [nodes, edges])
 
-  const [board, setBoard]       = useState(BOARDS[0])
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [port, setPort]         = useState<any | null>(null)
-  const [connecting, setConn]   = useState(false)
-  const [log, setLog]           = useState<string[]>([])
+  const [board, setBoard] = useState<Board>(BOARDS[0])
+  const commands = useMemo(() => cliCommands(board), [board])
+  const [log, setLog] = useState<string[]>([])
   const logRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -37,59 +58,43 @@ export default function UploadPanel() {
   }, [log])
 
   function appendLog(msg: string) {
-    setLog(prev => [...prev.slice(-200), msg])
-  }
-
-  async function handleConnect() {
-    setConn(true)
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const p = await (navigator as any).serial.requestPort()
-      await p.open({ baudRate: 115200 })
-      setPort(p)
-      appendLog('✓ Connected — 115200 baud')
-    } catch (e: unknown) {
-      appendLog(`✗ ${e instanceof Error ? e.message : String(e)}`)
-    }
-    setConn(false)
-  }
-
-  async function handleDisconnect() {
-    if (!port) return
-    try { await port.close() } catch { /* ignore */ }
-    setPort(null)
-    appendLog('Disconnected')
+    setLog((prev) => [...prev.slice(-200), msg])
   }
 
   function handleDownload() {
     const blob = new Blob([code], { type: 'text/plain' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
     a.href = url
-    a.download = `fastled_pattern_${Date.now()}.ino`
+    a.download = `${SKETCH}.ino`
     a.click()
     URL.revokeObjectURL(url)
-    appendLog('Downloaded .ino — open in Arduino IDE or PlatformIO to flash')
+    appendLog(`Downloaded ${SKETCH}.ino — build it with the arduino-cli commands`)
     setStatus('Firmware downloaded', 'success')
   }
 
   function handleCopy() {
     navigator.clipboard.writeText(code).then(
-      () => { appendLog('Code copied to clipboard'); setStatus('Code copied', 'success') },
-      () => appendLog('Clipboard write failed')
+      () => { appendLog('Sketch copied to clipboard'); setStatus('Code copied', 'success') },
+      () => appendLog('Clipboard write failed'),
+    )
+  }
+
+  function handleCopyCommands() {
+    navigator.clipboard.writeText(commands).then(
+      () => { appendLog('arduino-cli commands copied'); setStatus('Commands copied', 'success') },
+      () => appendLog('Clipboard write failed'),
     )
   }
 
   function handleClose() { setShowUploadPanel(false) }
-
-  const canFlash = hasSerial && port !== null && validation.errors.length === 0
 
   return (
     <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) handleClose() }}>
       <div className={styles.panel}>
         {/* Header */}
         <div className={styles.header}>
-          <span className={styles.title}>Upload to Board</span>
+          <span className={styles.title}>Build &amp; Upload</span>
           <button className={styles.closeBtn} onClick={handleClose} title="Close">×</button>
         </div>
 
@@ -98,7 +103,7 @@ export default function UploadPanel() {
           {/* Code pane */}
           <div className={styles.codePane}>
             <div className={styles.codePaneHeader}>
-              <span>fastled_pattern.ino — {code.split('\n').length} lines</span>
+              <span>{SKETCH}.ino — {code.split('\n').length} lines</span>
               <button className={styles.btn} style={{ width: 'auto', padding: '0 10px' }} onClick={handleCopy}>
                 Copy
               </button>
@@ -112,44 +117,12 @@ export default function UploadPanel() {
               <div className={styles.sectionTitle}>Board</div>
               <select
                 className={styles.select}
-                value={board}
-                onChange={(e) => setBoard(e.target.value)}
+                value={board.label}
+                onChange={(e) => setBoard(BOARDS.find((b) => b.label === e.target.value) ?? BOARDS[0])}
               >
-                {BOARDS.map(b => <option key={b}>{b}</option>)}
+                {BOARDS.map((b) => <option key={b.label}>{b.label}</option>)}
               </select>
             </div>
-
-            <div className={styles.divider} />
-
-            {hasSerial ? (
-              <div className={styles.section}>
-                <div className={styles.sectionTitle}>WebSerial</div>
-                <span className={`${styles.serialStatus} ${port ? styles.connected : ''}`}>
-                  {port ? '● Connected' : '○ Not connected'}
-                </span>
-                {!port ? (
-                  <button
-                    className={styles.btnPrimary}
-                    onClick={handleConnect}
-                    disabled={connecting}
-                  >
-                    {connecting ? 'Connecting…' : 'Connect Board'}
-                  </button>
-                ) : (
-                  <button className={styles.btnDanger} onClick={handleDisconnect}>
-                    Disconnect
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className={styles.section}>
-                <div className={styles.sectionTitle}>WebSerial</div>
-                <p className={styles.noSerial}>
-                  WebSerial not available.<br />
-                  Use Chrome/Edge 89+ and enable it in Flags, or download the .ino and flash with Arduino IDE.
-                </p>
-              </div>
-            )}
 
             <div className={styles.divider} />
 
@@ -162,14 +135,18 @@ export default function UploadPanel() {
               >
                 ↓ Download .ino
               </button>
-              <button
-                className={styles.btnPrimary}
-                disabled={!canFlash}
-                title={canFlash ? 'Flash via WebSerial' : 'Connect a board first, then flash'}
-                onClick={() => appendLog('Flash via WebSerial: connect to a board running the Arduino bootloader.')}
-              >
-                ⚡ Flash Board
-              </button>
+            </div>
+
+            <div className={styles.divider} />
+
+            <div className={styles.section}>
+              <div className={styles.sectionTitle}>
+                Build &amp; flash with <code>arduino-cli</code>
+                <button className={styles.btn} style={{ width: 'auto', padding: '0 10px', marginLeft: 8 }} onClick={handleCopyCommands}>
+                  Copy
+                </button>
+              </div>
+              <pre className={styles.commands}>{commands}</pre>
             </div>
 
             {log.length > 0 && (
