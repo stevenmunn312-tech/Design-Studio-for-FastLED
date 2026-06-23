@@ -314,6 +314,14 @@ describe('generateCpp', () => {
     expect(cpp).toContain('ColorFromPalette(OceanColors_p')
   })
 
+  it('emits fractal noise via summed inoise8 octaves', () => {
+    const fn = node('fn', 'FractalNoise', 'pattern', { speed: 0.3, scale: 0.15, octaves: 4, palette: 'forest' })
+    const cpp = generateCpp([fn, outputNode], [edge('e', 'fn', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('inoise8(')
+    expect(cpp).toContain('_o<4')
+    expect(cpp).toContain('ColorFromPalette(ForestColors_p')
+  })
+
   it('emits Worley noise with its hash helper', () => {
     const w = node('w', 'Worley', 'pattern', { speed: 0.5, scale: 0.3, palette: 'forest' })
     const cpp = generateCpp([w, outputNode], [edge('e', 'w', 'out', 'frame', 'frame')])

@@ -685,6 +685,19 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { speed: 0.5, scale: 0.3, palette: 'forest' },
   },
   {
+    // Fractal (fBm) noise — summed octaves for detailed, cloud-like motion.
+    type: 'FractalNoise',
+    label: 'Fractal Noise',
+    category: 'pattern',
+    inputs: [
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'scale', label: 'Scale', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 0.3, scale: 0.15, octaves: 4, palette: 'forest' },
+  },
+  {
     // Gray-Scott reaction-diffusion — organic spots/stripes that evolve.
     type: 'ReactionDiffusion',
     label: 'Reaction Diffusion',
@@ -894,6 +907,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Simplex2D: 'Simplex noise mapped through a palette.',
   Noise3D: 'Animated 3D-style noise through a palette.',
   Worley: 'Cellular (Voronoi) noise.',
+  FractalNoise: 'Fractal (fBm) noise — summed octaves, cloud-like.',
   ReactionDiffusion: 'Gray-Scott reaction-diffusion — organic spots & stripes.',
   GameOfLife: 'Conway’s Game of Life with fading trails.',
   PatternMaster: 'Cycles up to four patterns (time or beat).',
