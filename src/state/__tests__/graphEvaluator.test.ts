@@ -139,6 +139,33 @@ describe('evaluateGraph', () => {
     expect(frame![1][1]).toEqual({ r: 255, g: 0, b: 0 })
   })
 
+  it('Mask scales a frame by the mask luminance', () => {
+    const content = node('w', 'SolidColor', 'pattern', { r: 200, g: 200, b: 200 })
+    const mask    = node('m', 'SolidColor', 'pattern', { r: 128, g: 128, b: 128 })  // ~50% luma
+    const msk     = node('mk', 'Mask', 'composite', {})
+    const out     = node('out', 'MatrixOutput', 'output', {})
+    const edges = [
+      edge('e1', 'w', 'frame', 'mk', 'frame'),
+      edge('e2', 'm', 'frame', 'mk', 'mask'),
+      edge('e3', 'mk', 'frame', 'out', 'frame'),
+    ]
+    const frame = evaluateGraph([content, mask, msk, out], edges, 0, 2, 2)
+    // 200 * (128/255) ≈ 100
+    expect(frame![0][0].r).toBeGreaterThan(90)
+    expect(frame![0][0].r).toBeLessThan(110)
+  })
+
+  it('Mask with no mask input passes the frame through', () => {
+    const content = node('w', 'SolidColor', 'pattern', { r: 200, g: 100, b: 50 })
+    const msk     = node('mk', 'Mask', 'composite', {})
+    const out     = node('out', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph([content, msk, out], [
+      edge('e1', 'w', 'frame', 'mk', 'frame'),
+      edge('e2', 'mk', 'frame', 'out', 'frame'),
+    ], 0, 2, 2)
+    expect(frame![0][0]).toEqual({ r: 200, g: 100, b: 50 })
+  })
+
   it('Rect fills the specified rectangle', () => {
     const rect  = node('r', 'Rect', 'pattern', { x: 1, y: 1, w: 2, h: 2, r: 0, g: 255, b: 0 })
     const frame = evaluateGraph([rect], [], 0, 4, 4)

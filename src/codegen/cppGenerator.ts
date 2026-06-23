@@ -472,6 +472,15 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
+      case 'Mask': {
+        const ob = ownBuf()
+        const mask = srcBuf('mask')
+        ln(`  { ${seedFrom('frame')}`)
+        if (mask) ln(`    for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i].nscale8((${mask}[_i].r + ${mask}[_i].g + ${mask}[_i].b) / 3);`)
+        ln(`  }`)
+        break
+      }
+
       case 'HueShift': {
         const ob = ownBuf()
         const shift = f('shift', 'shift', 0)

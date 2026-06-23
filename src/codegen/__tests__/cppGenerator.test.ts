@@ -297,6 +297,19 @@ describe('generateCpp', () => {
     expect(cpp).toContain('ColorFromPalette(pal_cp,')
   })
 
+  it('emits a luminance Mask that scales the frame buffer', () => {
+    const content = node('w', 'SolidColor', 'pattern', { r: 200, g: 200, b: 200 })
+    const mask    = node('m', 'GradientFrame', 'pattern', {})
+    const msk     = node('mk', 'Mask', 'composite', {})
+    const cpp = generateCpp([content, mask, msk, outputNode], [
+      edge('e1', 'w', 'mk', 'frame', 'frame'),
+      edge('e2', 'm', 'mk', 'frame', 'mask'),
+      edge('e3', 'mk', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('memmove(buf_mk, buf_w, sizeof(CRGB) * NUM_LEDS)')
+    expect(cpp).toContain('buf_mk[_i].nscale8((buf_m[_i].r + buf_m[_i].g + buf_m[_i].b) / 3)')
+  })
+
   it('composites two layers with nblend and copies the result to leds', () => {
     const a  = node('a', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
     const b  = node('b', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 })
