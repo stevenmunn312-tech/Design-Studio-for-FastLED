@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { NODE_LIBRARY, NODE_DESCRIPTIONS } from '../nodeLibrary'
+import { NODE_LIBRARY, NODE_DESCRIPTIONS, portColor } from '../nodeLibrary'
 
 describe('nodeLibrary', () => {
   it('every node in the shelf has a tooltip description', () => {
@@ -12,5 +12,12 @@ describe('nodeLibrary', () => {
       expect(desc, type).not.toContain('\n')
       expect(desc.length, type).toBeLessThanOrEqual(80)
     }
+  })
+
+  it('port colours: float/bool share a colour; distinct types differ', () => {
+    expect(portColor('float')).toBe(portColor('bool'))     // cross-compatible
+    expect(portColor('frame')).not.toBe(portColor('color'))
+    expect(portColor('palette')).not.toBe(portColor('audio'))
+    expect(portColor('mystery')).toBe(portColor('float'))  // unknown → default
   })
 })

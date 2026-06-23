@@ -926,3 +926,19 @@ export const CATEGORY_COLOR: Record<string, string> =
 /** id → CSS var reference (DOM styling: node accents, sidebar). */
 export const CATEGORY_ACCENT_VAR: Record<string, string> =
   Object.fromEntries(CATEGORIES.map((c) => [c.id, `var(${c.accentVar})`]))
+
+// Port (handle) colour by data type, so ports that can connect share a colour.
+// `float` and `bool` share one — they interconnect (see portsCompatible).
+const PORT_COLORS: Record<string, string> = {
+  float: '#9aa0a6',
+  bool:  '#9aa0a6',
+  color: '#ffd24a',
+  palette: '#ff5cf0',
+  frame: '#5ad1ff',
+  audio: '#00e0a4',
+}
+
+/** Colour for a port's data type (used to tint node handles). */
+export function portColor(dataType: string): string {
+  return PORT_COLORS[dataType] ?? '#9aa0a6'
+}
