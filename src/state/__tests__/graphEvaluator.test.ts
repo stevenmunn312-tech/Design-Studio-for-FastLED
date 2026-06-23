@@ -245,6 +245,19 @@ describe('evaluateGraph', () => {
     expect(driveSimplex(0)).not.toEqual(driveSimplex(255))
   })
 
+  it('Worley noise produces a varied, deterministic cellular frame', () => {
+    const mk = () => {
+      const w = node('w', 'Worley', 'pattern', { speed: 0, scale: 0.3, palette: 'rainbow' })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      return evaluateGraph([w, out], [edge('e', 'w', 'frame', 'out', 'frame')], 0, 8, 8)!
+    }
+    const frame = mk()
+    const first = JSON.stringify(frame[0][0])
+    const allSame = frame.every((row) => row.every((px) => JSON.stringify(px) === first))
+    expect(allSame).toBe(false)          // cellular variation, not a flat fill
+    expect(mk()).toEqual(frame)          // deterministic at a fixed tick
+  })
+
   it('a CustomPalette drives a pattern node differently than a preset', () => {
     const c1 = node('c1', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })
     const c2 = node('c2', 'CHSV', 'color', { hue: 160, sat: 255, val: 255 })

@@ -215,6 +215,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
 
   const loopLines: string[] = []
   const needsMapFloat: boolean[] = [false]
+  const needsWorley = { v: false }
   const needsT = { v: false }
   // Frame-producing nodes each render into their own CRGB buffer, so multiple
   // layers can coexist and be composited. Collected here, declared as globals.
@@ -741,6 +742,25 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
+      case 'Worley': {
+        needsT.v = true
+        needsWorley.v = true
+        const ob = ownBuf()
+        const speed = f('speed', 'speed', 0.5), scale = f('scale', 'scale', 0.3)
+        const pal = paletteExpr(node.id, 'paletteIn', p)
+        ln(`  { // Worley noise`)
+        ln(`    float _spd=${speed},_sc=${scale};`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float _px=_x*_sc,_py=_y*_sc; int _xi=(int)floorf(_px),_yi=(int)floorf(_py); float _f1=1e9f;`)
+        ln(`      for(int _dj=-1;_dj<=1;_dj++) for(int _di=-1;_di<=1;_di++){`)
+        ln(`        int _cx=_xi+_di,_cy=_yi+_dj; float _h=_worleyHash(_cx,_cy);`)
+        ln(`        float _fx=_cx+0.5f+0.45f*sin(t*_spd+_h*6.2831f);`)
+        ln(`        float _fy=_cy+0.5f+0.45f*cos(t*_spd*1.1f+_h*6.2831f);`)
+        ln(`        float _d=sqrtf((_px-_fx)*(_px-_fx)+(_py-_fy)*(_py-_fy)); if(_d<_f1)_f1=_d; }`)
+        ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(min(1.0f,_f1)*255));}}`)
+        break
+      }
+
       case 'PatternMaster':
         ln(`  // PatternMaster — implement pattern cycling logic in setup()/loop()`)
         break
@@ -906,6 +926,16 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
     lines.push(`float mapFloat(float x, float inMin, float inMax, float outMin, float outMax) {`)
     lines.push(`  if (inMax == inMin) return outMin;`)
     lines.push(`  return outMin + (x - inMin) * (outMax - outMin) / (inMax - inMin);`)
+    lines.push(`}`)
+    lines.push(``)
+  }
+
+  if (needsWorley.v) {
+    lines.push(`// Integer hash → [0,1) placing one feature point per cell (Worley noise).`)
+    lines.push(`float _worleyHash(int x, int y) {`)
+    lines.push(`  uint32_t h = (uint32_t)(x * 374761393) + (uint32_t)(y * 668265263);`)
+    lines.push(`  h = (h ^ (h >> 13)) * 1274126177u;`)
+    lines.push(`  return ((h ^ (h >> 16)) & 0xFFFFFF) / 16777216.0f;`)
     lines.push(`}`)
     lines.push(``)
   }

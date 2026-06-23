@@ -662,6 +662,19 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { speed: 0.5, scale: 0.3, palette: 'ocean' },
   },
+  {
+    // Worley / cellular noise — distance to the nearest animated feature point.
+    type: 'Worley',
+    label: 'Worley Noise',
+    category: 'pattern',
+    inputs: [
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'scale', label: 'Scale', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 0.5, scale: 0.3, palette: 'forest' },
+  },
 
   // ── Transition nodes ──────────────────────────────────────────────────
   {
