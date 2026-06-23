@@ -11,13 +11,25 @@
 - [x] Node search — filter sidebar by typing
 - [x] Right-click context menu on canvas — "Add node", "Paste", "Select all"
 - [x] Right-click context menu on node — Duplicate, Delete, Disconnect All
+- [x] Shift-click / shift-drag to multi-select nodes
+- [x] Unplug a noodle from a node's input (drag off to disconnect, or re-route)
+
+## Node Groups & Compositing (ADR 0001)
+
+- [x] Pattern node-group encapsulation — "Make Group", enter/exit a group, live preview at both tiers
+- [x] Multi-graph store + `getGroupRegistry`; per-instance stateful-node isolation; group-cycle guard
+- [x] Exposed group parameters via `GroupInput` nodes (external/hardware values drive a group)
+- [x] Group codegen (flatten subgraphs into the root sketch)
+- [x] Per-layer buffer codegen — real `LayerBlend` / `BlendFrames` / `Crossfade` / `Wipe` / `Dissolve`
+- [x] `Sequencer` node — timed crossfade across inputs (preview + codegen)
 
 ## LED Preview
 
 - [x] Evaluate the actual node graph at runtime instead of the placeholder animation loop
 - [x] WebGL shader pipeline (60 fps, per-LED disc + 5×5 glow, Canvas 2D fallback)
 - [x] Resize preview — reads width × height from MatrixOutput node (up to 64 × 64)
-- [ ] 3D rotate mode — drag to orbit the matrix (requires Three.js or custom WebGL camera)
+- [x] Preview renders only what reaches an output terminal (matches what gets flashed)
+- [ ] 3D rotate mode — drag to orbit the matrix *(in progress)*
 
 ## Audio
 
@@ -32,28 +44,44 @@
 - [x] Upload panel modal — live code preview, graph validation, board selector
 - [x] WebSerial connect / disconnect at 115200 baud
 - [x] `.ino` download button
-- [ ] Actual WebSerial flashing — send compiled binary to board bootloader
+- [x] Serpentine matrix layout — `XY()` remap on output (toggle on MatrixOutput)
+- [ ] Actual WebSerial flashing — send a compiled binary to the board bootloader
 - [ ] In-browser compilation via Web Worker / WASM toolchain (or cloud compile endpoint)
 
 ## Nodes
 
-- [x] Math: Add, Multiply, Clamp, MapRange, Sin, Cos, Lerp, Abs, Mod, Min, Max, Random, Counter, Gate, Not, Compare
-- [x] Color: HSV→RGB, CHSV (0–255 scale), BlendColors, PaletteSelector, PaletteBlend, BeatSin, XYMapper
-- [x] Pattern: SolidColor, NoiseField, Plasma, Fire, Fire2012, SpectrumBars, Noise2D, Simplex2D, Noise3D, RadialBurst, Spiral, Kaleidoscope, Particles, Invert, GradientFrame, GradientSampler, PaletteSampler, Blur2D, LayerBlend
+- [x] Math: Add, Multiply, Clamp, MapRange, Sin, Cos, Lerp, Abs, Mod, Min, Max, Random, Counter, Gate, Not, Compare, BeatSin, XYMapper
+- [x] Color: HSV→RGB, CHSV, BlendColors, GradientSampler, PaletteSampler, PaletteSelector
+- [x] Pattern: SolidColor, NoiseField, Plasma, Fire, Fire2012, SpectrumBars, Noise2D, Simplex2D, Noise3D, RadialBurst, Spiral, Kaleidoscope, Particles, GradientFrame
 - [x] Audio-reactive: BassPulse, MidrangeWaves, TrebleSparks, BeatFlash, AudioHue
-- [x] Compositing / transition: BlendFrames, BrightnessMod, HueShift, Crossfade, Wipe, Dissolve
+- [x] Compositing / transition: BlendFrames, BrightnessMod, HueShift, Invert, Blur2D, LayerBlend, Crossfade, Wipe, Dissolve
 - [x] Multi-Pattern Master — 4-slot queue, cycle/beat modes
 - [x] Custom Formula — inline JS expression with x/y/t/W/H/a/b vars
-- [ ] Proper `PaletteSelector` type system — propagate palette name through port connections rather than encoding as a float
+- [x] Shapes: Span, Rect, Circle, Line (paint over an optional base frame)
+- [x] Text — built-in 3×5 bitmap font, horizontal scroll, + custom font upload
+- [x] Mask — luminance masking / feathering
+- [x] Worley (cellular / Voronoi) noise
+- [x] Reaction-Diffusion (Gray-Scott)
+- [x] Game of Life — fading trails, auto-reseed
+- [x] Palettes as first-class data — `CustomPalette` from colors, `PaletteBlend` interpolation, presets→`CRGBPalette16`
+- [x] Palette propagation through ports (no longer encoded as a float)
 
-## Polish
+## Polish / UX
 
 - [x] Node creation fade-in + scale animation (200 ms)
 - [x] Connection spark effect at port on successful link (150 ms)
 - [x] Keyboard shortcuts — Ctrl+Z undo, Ctrl+Y redo, Ctrl+S save, Delete selected node
 - [x] MiniMap with per-category node and edge colors
-- [x] Inspector: color picker for color-type properties
+- [x] Category model — by output type (audio / hardware / math / color / pattern / composite / output)
+- [x] Inline property editors on nodes (Blender-style); Inspector is opt-in
+- [x] Node shelf tooltips
 - [x] Solarized Dark and Studio Light themes (cycle via MenuBar ☾/✦/☀)
 - [x] Reduced-motion toggle and high-contrast mode (WCAG AA)
-- [x] Test suite — Vitest + jsdom (cppGenerator, graphEvaluator, validateGraph)
 - [x] PWA / offline support (service worker + manifest)
+
+## Tooling
+
+- [x] ESLint flat config + CI (lint / test / build on every PR)
+- [x] Test suite — Vitest + jsdom (graphEvaluator, cppGenerator, graphStore, font, nodeLibrary, validateGraph)
+- [x] Component tests — @testing-library/react (StudioNode)
+- [x] Architecture decision record — `docs/architecture/decisions/0001-pattern-node-group-architecture.md`
