@@ -414,6 +414,24 @@ function evalWorley(speed: number, scale: number, t: number, palette: Palette, W
   )
 }
 
+// Fractal (fBm) noise: sum simplex octaves at doubling frequency / halving
+// amplitude for a detailed, cloud-like field, coloured through a palette.
+function evalFractalNoise(speed: number, scale: number, octaves: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const z = t * speed * 0.15
+  const oct = Math.max(1, Math.min(6, Math.floor(octaves)))
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      let v = 0, amp = 0.5, freq = scale, norm = 0
+      for (let o = 0; o < oct; o++) {
+        v += amp * _snoise2(x * freq + z, y * freq - z * 0.5)
+        norm += amp; amp *= 0.5; freq *= 2
+      }
+      const n = (v / norm) * 0.5 + 0.5
+      return samplePalette(palette, ((n % 1) + 1) % 1)
+    })
+  )
+}
+
 // Gray-Scott reaction-diffusion. Two chemicals U, V diffuse on a toroidal grid
 // and react; V is coloured through a palette. Stateful — steps each frame.
 function evalReactionDiffusion(nodeId: string, feed: number, kill: number, iters: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
@@ -1235,6 +1253,15 @@ export function evaluateGraph(
         const scale   = num(id, 'scale',  props, 'scale',  0.3)
         const palette = pal(id, 'paletteIn', props, 'palette', 'forest')
         out = { frame: evalWorley(speed, scale, t, palette, W, H) }
+        break
+      }
+
+      case 'FractalNoise': {
+        const speed   = num(id, 'speed', props, 'speed', 0.3)
+        const scale   = num(id, 'scale', props, 'scale', 0.15)
+        const octaves = Number(props.octaves ?? 4)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'forest')
+        out = { frame: evalFractalNoise(speed, scale, octaves, t, palette, W, H) }
         break
       }
 

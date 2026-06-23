@@ -767,6 +767,23 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
+      case 'FractalNoise': {
+        needsT.v = true
+        const ob = ownBuf()
+        const speed = f('speed', 'speed', 0.3), scale = f('scale', 'scale', 0.15)
+        const octaves = Math.max(1, Math.min(6, Math.floor(Number(p.octaves ?? 4))))
+        const pal = paletteExpr(node.id, 'paletteIn', p)
+        ln(`  { // Fractal noise (fBm via inoise8)`)
+        ln(`    float _spd=${speed},_sc=${scale}; uint16_t _z=(uint16_t)(t*_spd*40);`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float _v=0,_amp=0.5f,_norm=0,_freq=_sc*96;`)
+        ln(`      for(int _o=0;_o<${octaves};_o++){`)
+        ln(`        _v+=_amp*(inoise8((uint16_t)(_x*_freq),(uint16_t)(_y*_freq),_z)/255.0f);`)
+        ln(`        _norm+=_amp; _amp*=0.5f; _freq*=2; }`)
+        ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_v/_norm)*255));}}`)
+        break
+      }
+
       case 'ReactionDiffusion': {
         const ob = ownBuf()
         const feed = f('feed', 'feed', 0.055), kill = f('kill', 'kill', 0.062)

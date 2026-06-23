@@ -264,6 +264,18 @@ describe('evaluateGraph', () => {
     expect(driveSimplex(0)).not.toEqual(driveSimplex(255))
   })
 
+  it('FractalNoise produces a varied frame; octaves change the result', () => {
+    const mk = (octaves: number) => {
+      const fn = node('fn', 'FractalNoise', 'pattern', { speed: 0, scale: 0.2, octaves, palette: 'rainbow' })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      return evaluateGraph([fn, out], [edge('e', 'fn', 'frame', 'out', 'frame')], 0, 8, 8)!
+    }
+    const f1 = mk(1)
+    const p0 = JSON.stringify(f1[0][0])
+    expect(f1.every((r) => r.every((px) => JSON.stringify(px) === p0))).toBe(false)  // varied
+    expect(JSON.stringify(mk(5))).not.toEqual(JSON.stringify(f1))                     // octaves add detail
+  })
+
   it('Worley noise produces a varied, deterministic cellular frame', () => {
     const mk = () => {
       const w = node('w', 'Worley', 'pattern', { speed: 0, scale: 0.3, palette: 'rainbow' })
