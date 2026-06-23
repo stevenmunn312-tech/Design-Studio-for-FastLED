@@ -216,6 +216,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
   const loopLines: string[] = []
   const needsMapFloat: boolean[] = [false]
   const needsWorley = { v: false }
+  const needsKelvin = { v: false }
   const needsT = { v: false }
   // Frame-producing nodes each render into their own CRGB buffer, so multiple
   // layers can coexist and be composited. Collected here, declared as globals.
@@ -284,6 +285,11 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
 
       case 'HSVToRGB':
         ln(`  CRGB ${v('color')} = CHSV((uint8_t)((${f('h', 'h', 0)}) / 360.0f * 255), (uint8_t)((${f('s', 's', 1)}) * 255), (uint8_t)((${f('v', 'v', 1)}) * 255));`)
+        break
+
+      case 'Temperature':
+        needsKelvin.v = true
+        ln(`  CRGB ${v('color')} = kelvinToRGB(${f('kelvin', 'kelvin', 4000)});`)
         break
 
       case 'BlendColors': {
@@ -976,6 +982,18 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
     lines.push(`float mapFloat(float x, float inMin, float inMax, float outMin, float outMax) {`)
     lines.push(`  if (inMax == inMin) return outMin;`)
     lines.push(`  return outMin + (x - inMin) * (outMax - outMin) / (inMax - inMin);`)
+    lines.push(`}`)
+    lines.push(``)
+  }
+
+  if (needsKelvin.v) {
+    lines.push(`// Approximate black-body white point for a colour temperature (Kelvin).`)
+    lines.push(`CRGB kelvinToRGB(float kelvin) {`)
+    lines.push(`  float t = constrain(kelvin, 1000.0f, 40000.0f) / 100.0f, r, g, b;`)
+    lines.push(`  if (t <= 66) { r = 255; g = 99.4708025861f * log(t) - 161.1195681661f; }`)
+    lines.push(`  else { r = 329.698727446f * pow(t - 60, -0.1332047592f); g = 288.1221695283f * pow(t - 60, -0.0755148492f); }`)
+    lines.push(`  if (t >= 66) b = 255; else if (t <= 19) b = 0; else b = 138.5177312231f * log(t - 10) - 305.0447927307f;`)
+    lines.push(`  return CRGB(constrain((int)r, 0, 255), constrain((int)g, 0, 255), constrain((int)b, 0, 255));`)
     lines.push(`}`)
     lines.push(``)
   }

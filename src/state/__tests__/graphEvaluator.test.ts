@@ -305,6 +305,24 @@ describe('evaluateGraph', () => {
     expect(JSON.stringify(later)).not.toEqual(firstStr)   // the sim evolves
   })
 
+  it('Temperature yields warm vs cool white points', () => {
+    const colorAt = (kelvin: number) => {
+      const t = node('t', 'Temperature', 'color', { kelvin })
+      const sc = node('sc', 'SolidColor', 'pattern', {})
+      const out = node('out', 'MatrixOutput', 'output', {})
+      const f = evaluateGraph([t, sc, out], [
+        edge('e1', 't', 'color', 'sc', 'color'),
+        edge('e2', 'sc', 'frame', 'out', 'frame'),
+      ], 0, 2, 2)!
+      return f[0][0]
+    }
+    const warm = colorAt(2000)
+    const cool = colorAt(10000)
+    expect(warm.r).toBeGreaterThan(warm.b)        // warm → red-leaning
+    expect(cool.b).toBeGreaterThan(cool.r)        // cool → blue-leaning
+    expect(colorAt(6600).r).toBeGreaterThan(240)  // near-neutral white
+  })
+
   it('a CustomPalette drives a pattern node differently than a preset', () => {
     const c1 = node('c1', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })
     const c2 = node('c2', 'CHSV', 'color', { hue: 160, sat: 255, val: 255 })

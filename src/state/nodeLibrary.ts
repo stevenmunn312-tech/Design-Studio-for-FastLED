@@ -560,6 +560,15 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { h: 0, s: 1, v: 1 },
   },
   {
+    // Black-body white point from a colour temperature in Kelvin.
+    type: 'Temperature',
+    label: 'Color Temperature',
+    category: 'color',
+    inputs: [{ id: 'kelvin', label: 'Kelvin', dataType: 'float' }],
+    outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
+    defaultProperties: { kelvin: 4000 },
+  },
+  {
     type: 'BlendColors',
     label: 'Blend Colors',
     category: 'color',
@@ -856,6 +865,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   HSVToRGB: 'Converts hue/sat/val to an RGB color.',
   BlendColors: 'Blends two colors by an amount.',
   CHSV: 'FastLED CHSV color (0–255 hue/sat/val).',
+  Temperature: 'White point from a colour temperature in Kelvin (warm→cool).',
   PaletteSelector: 'Outputs a named preset palette.',
   CustomPalette: 'Builds a palette from up to four colors.',
   PaletteBlend: 'Interpolates between two palettes.',
