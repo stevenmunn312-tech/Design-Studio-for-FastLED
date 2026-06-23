@@ -688,6 +688,18 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { feed: 0.055, kill: 0.062, speed: 8, palette: 'ocean' },
   },
+  {
+    // Conway's Game of Life with fading trails; reseeds when it stagnates.
+    type: 'GameOfLife',
+    label: 'Game of Life',
+    category: 'pattern',
+    inputs: [
+      { id: 'color', label: 'Color', dataType: 'color' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 8, fade: 0.75, r: 0, g: 255, b: 70 },
+  },
 
   // ── Transition nodes ──────────────────────────────────────────────────
   {

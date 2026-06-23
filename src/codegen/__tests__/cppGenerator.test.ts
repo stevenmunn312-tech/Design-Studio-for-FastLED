@@ -297,6 +297,15 @@ describe('generateCpp', () => {
     expect(cpp).toContain('ColorFromPalette(pal_cp,')
   })
 
+  it('emits a Game of Life simulation with millis-based stepping', () => {
+    const gol = node('g', 'GameOfLife', 'pattern', { speed: 8, fade: 0.75, r: 0, g: 255, b: 70 })
+    const cpp = generateCpp([gol, outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('static uint8_t _gc_g[NUM_LEDS], _gn_g[NUM_LEDS]')
+    expect(cpp).toContain('millis() - _gt_g')
+    expect(cpp).toContain('CRGB(0, 255, 70)')
+    expect(cpp).toContain('*0.75f')
+  })
+
   it('emits a Gray-Scott reaction-diffusion simulation', () => {
     const rd = node('rd', 'ReactionDiffusion', 'pattern', { feed: 0.055, kill: 0.062, speed: 8, palette: 'ocean' })
     const cpp = generateCpp([rd, outputNode], [edge('e', 'rd', 'out', 'frame', 'frame')])

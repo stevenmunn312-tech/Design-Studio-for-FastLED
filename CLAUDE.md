@@ -81,7 +81,7 @@ export interface RGB { r: number; g: number; b: number }
 export type Frame = RGB[][]   // row-major [y][x]
 ```
 
-Stateful nodes (`Fire`, `Fire2012`, `BeatFlash`, `Counter`, `Particles`, `PatternMaster`, `ReactionDiffusion`) persist state in module-level `Map` objects keyed by `stateKey(id)` — the node id prefixed with the group-instance path, so two instances of the same group don't share state. `formulaCache` compiles `CustomFormula` expressions once via `new Function(...)`.
+Stateful nodes (`Fire`, `Fire2012`, `BeatFlash`, `Counter`, `Particles`, `PatternMaster`, `ReactionDiffusion`, `GameOfLife`) persist state in module-level `Map` objects keyed by `stateKey(id)` — the node id prefixed with the group-instance path, so two instances of the same group don't share state. `formulaCache` compiles `CustomFormula` expressions once via `new Function(...)`.
 
 `evalNode()` guards against graph cycles with an `inProgress` set: re-entering a node still on the evaluation stack returns `{}`, so the upstream input falls back to its default instead of recursing into a stack overflow. Keep this guard in place when editing the evaluator.
 
@@ -138,7 +138,7 @@ Current nodes by category (see `nodeLibrary.ts` for the authoritative list):
 - **hardware**: ButtonInput, PotInput
 - **math**: MathAdd, Multiply, Clamp, MapRange, Sin, Cos, Lerp, TimeNode, Abs, Mod, MinNode, MaxNode, Random, Counter, Gate, Not, Compare, BeatSin, XYMapper
 - **color**: HSVToRGB, BlendColors, CHSV, GradientSampler, PaletteSampler, PaletteSelector, CustomPalette, PaletteBlend
-- **pattern** (frame generators): SolidColor, Span, Rect, Circle, Line, Text, NoiseField, Fire, Fire2012, Plasma, SpectrumBars, BassPulse, MidrangeWaves, TrebleSparks, BeatFlash, Noise2D, RadialBurst, Spiral, Kaleidoscope, Particles, GradientFrame, Simplex2D, Noise3D, Worley, ReactionDiffusion, PatternMaster, CustomFormula
+- **pattern** (frame generators): SolidColor, Span, Rect, Circle, Line, Text, NoiseField, Fire, Fire2012, Plasma, SpectrumBars, BassPulse, MidrangeWaves, TrebleSparks, BeatFlash, Noise2D, RadialBurst, Spiral, Kaleidoscope, Particles, GradientFrame, Simplex2D, Noise3D, Worley, ReactionDiffusion, GameOfLife, PatternMaster, CustomFormula
 - **composite** (frame→frame): BlendFrames, BrightnessMod, HueShift, Invert, Blur2D, LayerBlend, Mask, Crossfade, Wipe, Dissolve, Sequencer
 - **output**: MatrixOutput
 
