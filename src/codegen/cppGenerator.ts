@@ -243,7 +243,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
     // A statement that seeds `fbuf` from a frame input (or black if unwired).
     const seedFrom = (port: string) => {
       const s = srcBuf(port)
-      return s ? `memmove(${fbuf}, ${s}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${fbuf}, NUM_LEDS, CRGB::Black);`
+      return s ? `::memmove(${fbuf}, ${s}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${fbuf}, NUM_LEDS, CRGB::Black);`
     }
 
     switch (type) {
@@ -551,7 +551,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       case 'BlendFrames': {
         const ob = ownBuf()
         const a = srcBuf('a'), b = srcBuf('b'), mix = f('t', 't', 0.5)
-        ln(`  { ${a ? `memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
+        ln(`  { ${a ? `::memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
         ln(`    nblend(${ob}, ${b ?? ob}, NUM_LEDS, (uint8_t)((${mix}) * 255)); }`)
         break
       }
@@ -684,7 +684,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       case 'Crossfade': {
         const ob = ownBuf()
         const a = srcBuf('a'), b = srcBuf('b'), mix = f('t', 't', 0.5)
-        ln(`  { ${a ? `memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
+        ln(`  { ${a ? `::memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
         ln(`    nblend(${ob}, ${b ?? ob}, NUM_LEDS, (uint8_t)((${mix}) * 255)); }`)
         break
       }
@@ -697,7 +697,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         const dim  = (dir === 'up' || dir === 'down') ? 'HEIGHT' : 'WIDTH'
         const cmp  = (dir === 'right' || dir === 'down') ? '<' : '>'
         const rhs  = (dir === 'right' || dir === 'down') ? `(int)((${tt})*${dim})` : `(int)((1.0f-(${tt}))*${dim})`
-        ln(`  { ${a ? `memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
+        ln(`  { ${a ? `::memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++)`)
         ln(`      if(${axis} ${cmp} ${rhs}) ${ob}[_y*WIDTH+_x] = ${b ?? ob}[_y*WIDTH+_x]; }`)
         break
@@ -706,7 +706,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       case 'Dissolve': {
         const ob = ownBuf()
         const a = srcBuf('a'), b = srcBuf('b'), tt = f('t', 't', 0.5)
-        ln(`  { ${a ? `memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
+        ln(`  { ${a ? `::memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
         ln(`    float _tt=${tt}; for(int _i=0;_i<NUM_LEDS;_i++){`)
         ln(`      uint32_t _h=((uint32_t)(_i)*1664525u+1013904223u);`)
         ln(`      if((_h&0xFFFF)<(uint32_t)(_tt*65535)) ${ob}[_i] = ${b ?? ob}[_i]; }}`)
@@ -781,7 +781,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         ln(`          float _uvv=${u}[_i]*${v}[_i]*${v}[_i];`)
         ln(`          ${un}[_i]=constrain(${u}[_i]+0.16f*_lu-_uvv+_f*(1-${u}[_i]),0.0f,1.0f);`)
         ln(`          ${vn}[_i]=constrain(${v}[_i]+0.08f*_lv+_uvv-(_k+_f)*${v}[_i],0.0f,1.0f); } }`)
-        ln(`      memcpy(${u},${un},sizeof(${u})); memcpy(${v},${vn},sizeof(${v})); }`)
+        ln(`      ::memcpy(${u},${un},sizeof(${u})); ::memcpy(${v},${vn},sizeof(${v})); }`)
         ln(`    for (int _i=0; _i<NUM_LEDS; _i++) ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${v}[_i]*255)); }`)
         break
       }
@@ -804,7 +804,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         ln(`        for (int _x=0;_x<WIDTH;_x++){ int _xm=(_x-1+WIDTH)%WIDTH,_xp=(_x+1)%WIDTH,_i=_yr+_x;`)
         ln(`          int _n=${c}[_ym+_xm]+${c}[_ym+_x]+${c}[_ym+_xp]+${c}[_yr+_xm]+${c}[_yr+_xp]+${c}[_yp+_xm]+${c}[_yp+_x]+${c}[_yp+_xp];`)
         ln(`          ${nx}[_i]=${c}[_i]?((_n==2||_n==3)?1:0):(_n==3?1:0); _pop+=${nx}[_i]; } }`)
-        ln(`      memcpy(${c},${nx},sizeof(${c}));`)
+        ln(`      ::memcpy(${c},${nx},sizeof(${c}));`)
         ln(`      if (_pop==0) { for (int _i=0;_i<NUM_LEDS;_i++) ${c}[_i]=random8()<77?1:0; }`)
         ln(`      _gt_${id}=millis(); }`)
         ln(`    for (int _i=0;_i<NUM_LEDS;_i++){ ${br}[_i]=${c}[_i]?1.0f:${br}[_i]*${fadeL}; ${ob}[_i]=${colorE}; ${ob}[_i].nscale8((uint8_t)(${br}[_i]*255)); } }`)
@@ -827,7 +827,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         if (bufs.length === 0) {
           ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
         } else if (bufs.length === 1) {
-          ln(`    memmove(${ob}, ${bufs[0]}, sizeof(CRGB) * NUM_LEDS);`)
+          ln(`    ::memmove(${ob}, ${bufs[0]}, sizeof(CRGB) * NUM_LEDS);`)
         } else {
           needsT.v = true
           const n = bufs.length
@@ -835,7 +835,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
           ln(`    float _ph = t / ${fl(iv)};`)
           ln(`    int _idx = ((int)floor(_ph)) % ${n};`)
           ln(`    float _into = (_ph - floor(_ph)) * ${fl(iv)};`)
-          ln(`    memmove(${ob}, _seq_${id}[_idx], sizeof(CRGB) * NUM_LEDS);`)
+          ln(`    ::memmove(${ob}, _seq_${id}[_idx], sizeof(CRGB) * NUM_LEDS);`)
           if (fadeDur > 0) {
             ln(`    if (_into >= ${fl(iv - fadeDur)}) {`)
             ln(`      uint8_t _m = (uint8_t)((_into - ${fl(iv - fadeDur)}) / ${fl(fadeDur)} * 255);`)
@@ -929,7 +929,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       case 'LayerBlend': {
         const ob = ownBuf()
         const a = srcBuf('a'), b = srcBuf('b'), amount = f('amount', 'amount', 128)
-        ln(`  { ${a ? `memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
+        ln(`  { ${a ? `::memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
         ln(`    nblend(${ob}, ${b ?? ob}, NUM_LEDS, (uint8_t)(${amount})); }`)
         break
       }
@@ -944,7 +944,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         const src = srcBuf('frame')
         if (!src) ln(`  fill_solid(leds, NUM_LEDS, CRGB::Black);`)
         else if (serpentine) ln(`  for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) leds[XY(_x, _y)] = ${src}[_y * WIDTH + _x];`)
-        else ln(`  memmove(leds, ${src}, sizeof(CRGB) * NUM_LEDS);`)
+        else ln(`  ::memmove(leds, ${src}, sizeof(CRGB) * NUM_LEDS);`)
         ln(`  FastLED.show();`)
         break
       }
