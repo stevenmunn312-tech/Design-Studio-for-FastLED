@@ -139,6 +139,31 @@ describe('evaluateGraph', () => {
     expect(frame![1][1]).toEqual({ r: 255, g: 0, b: 0 })
   })
 
+  it('Circle (filled) lights the center and clears the corners', () => {
+    const c = node('c', 'Circle', 'pattern', { cx: 4, cy: 4, radius: 3, filled: true, r: 255, g: 0, b: 0 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph([c, out], [edge('e', 'c', 'frame', 'out', 'frame')], 0, 9, 9)
+    expect(frame![4][4]).toEqual({ r: 255, g: 0, b: 0 })   // center lit
+    expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })     // far corner dark
+  })
+
+  it('Circle ring leaves the center dark', () => {
+    const c = node('c', 'Circle', 'pattern', { cx: 4, cy: 4, radius: 3, filled: false, r: 255, g: 0, b: 0 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph([c, out], [edge('e', 'c', 'frame', 'out', 'frame')], 0, 9, 9)
+    expect(frame![4][4]).toEqual({ r: 0, g: 0, b: 0 })     // hollow center
+    expect(frame![4][1]).toEqual({ r: 255, g: 0, b: 0 })   // on the ring (d=3)
+  })
+
+  it('Line draws a diagonal between its endpoints', () => {
+    const l = node('l', 'Line', 'pattern', { x1: 0, y1: 0, x2: 3, y2: 3, r: 0, g: 255, b: 0 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph([l, out], [edge('e', 'l', 'frame', 'out', 'frame')], 0, 4, 4)
+    expect(frame![0][0]).toEqual({ r: 0, g: 255, b: 0 })
+    expect(frame![3][3]).toEqual({ r: 0, g: 255, b: 0 })
+    expect(frame![0][3]).toEqual({ r: 0, g: 0, b: 0 })     // off the diagonal
+  })
+
   it('Text renders glyph pixels in the chosen color', () => {
     // "I" at x=1,y=1: the 3×5 'I' has a full top row (### = cols all lit at r=0).
     const txt = node('t', 'Text', 'pattern', { text: 'I', x: 1, y: 1, scroll: 0, r: 0, g: 255, b: 0 })

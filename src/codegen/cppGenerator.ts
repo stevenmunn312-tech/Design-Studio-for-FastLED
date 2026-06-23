@@ -355,6 +355,38 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
+      case 'Circle': {
+        const ob = ownBuf()
+        const colorE = incoming.get(`${node.id}:color`)
+          ? colorExpr(node.id, 'color')
+          : `CRGB(${Number(p.r ?? 255)}, ${Number(p.g ?? 0)}, ${Number(p.b ?? 128)})`
+        const cx = Number(p.cx ?? 8), cy = Number(p.cy ?? 8), rad = Number(p.radius ?? 4)
+        const test = p.filled
+          ? `_d <= ${rad} + 0.5f`
+          : `fabsf(_d - ${rad}) < 0.5f`
+        ln(`  { ${seedFrom('base')}`)
+        ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
+        ln(`      float _d = sqrtf((_x - ${cx}) * (_x - ${cx}) + (_y - ${cy}) * (_y - ${cy}));`)
+        ln(`      if (${test}) ${ob}[_y * WIDTH + _x] = ${colorE}; } }`)
+        break
+      }
+
+      case 'Line': {
+        const ob = ownBuf()
+        const colorE = incoming.get(`${node.id}:color`)
+          ? colorExpr(node.id, 'color')
+          : `CRGB(${Number(p.r ?? 0)}, ${Number(p.g ?? 200)}, ${Number(p.b ?? 255)})`
+        const x1 = Math.round(Number(p.x1 ?? 0)), y1 = Math.round(Number(p.y1 ?? 0))
+        const x2 = Math.round(Number(p.x2 ?? 0)), y2 = Math.round(Number(p.y2 ?? 0))
+        ln(`  { ${seedFrom('base')}`)
+        ln(`    int _x0 = ${x1}, _y0 = ${y1}, _dx = abs(${x2} - _x0), _dy = -abs(${y2} - _y0);`)
+        ln(`    int _sx = _x0 < ${x2} ? 1 : -1, _sy = _y0 < ${y2} ? 1 : -1, _err = _dx + _dy;`)
+        ln(`    for (;;) { if (_x0 >= 0 && _x0 < WIDTH && _y0 >= 0 && _y0 < HEIGHT) ${ob}[_y0 * WIDTH + _x0] = ${colorE};`)
+        ln(`      if (_x0 == ${x2} && _y0 == ${y2}) break; int _e2 = 2 * _err;`)
+        ln(`      if (_e2 >= _dy) { _err += _dy; _x0 += _sx; } if (_e2 <= _dx) { _err += _dx; _y0 += _sy; } } }`)
+        break
+      }
+
       case 'Text': {
         const ob = ownBuf()
         const text = String(p.text ?? 'HELLO')

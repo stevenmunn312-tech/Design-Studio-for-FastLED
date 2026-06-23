@@ -753,6 +753,52 @@ export function evaluateGraph(
         break
       }
 
+      case 'Circle': {
+        const baseIn = input(id, 'base', null) as Frame | null
+        const frame  = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
+        const colorIn = input(id, 'color', null) as RGB | null
+        const color = colorIn ?? {
+          r: byte(Number(props.r ?? 255) / 255),
+          g: byte(Number(props.g ?? 0)   / 255),
+          b: byte(Number(props.b ?? 128) / 255),
+        }
+        const cx = Number(props.cx ?? W / 2), cy = Number(props.cy ?? H / 2)
+        const rad = Number(props.radius ?? 4)
+        const filled = Boolean(props.filled)
+        for (let y = 0; y < H; y++)
+          for (let x = 0; x < W; x++) {
+            const d = Math.hypot(x - cx, y - cy)
+            if (filled ? d <= rad + 0.5 : Math.abs(d - rad) < 0.5) frame[y][x] = { ...color }
+          }
+        out = { frame }
+        break
+      }
+
+      case 'Line': {
+        const baseIn = input(id, 'base', null) as Frame | null
+        const frame  = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
+        const colorIn = input(id, 'color', null) as RGB | null
+        const color = colorIn ?? {
+          r: byte(Number(props.r ?? 0)   / 255),
+          g: byte(Number(props.g ?? 200) / 255),
+          b: byte(Number(props.b ?? 255) / 255),
+        }
+        let x0 = Math.round(Number(props.x1 ?? 0)), y0 = Math.round(Number(props.y1 ?? 0))
+        const x1 = Math.round(Number(props.x2 ?? 0)), y1 = Math.round(Number(props.y2 ?? 0))
+        const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0)
+        const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1
+        let err = dx + dy
+        for (;;) {
+          if (x0 >= 0 && x0 < W && y0 >= 0 && y0 < H) frame[y0][x0] = { ...color }
+          if (x0 === x1 && y0 === y1) break
+          const e2 = 2 * err
+          if (e2 >= dy) { err += dy; x0 += sx }
+          if (e2 <= dx) { err += dx; y0 += sy }
+        }
+        out = { frame }
+        break
+      }
+
       case 'NoiseField': {
         const speed = num(id, 'speed', props, 'speed', 1)
         const scale = num(id, 'scale', props, 'scale', 1)
