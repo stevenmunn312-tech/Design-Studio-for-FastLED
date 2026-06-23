@@ -4,7 +4,7 @@ import type { NodeProps, Node } from '@xyflow/react'
 import { useGraphStore } from '../../state/graphStore'
 import type { StudioNodeData } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { CATEGORY_ACCENT_VAR } from '../../state/nodeLibrary'
+import { CATEGORY_ACCENT_VAR, portColor } from '../../state/nodeLibrary'
 import styles from './StudioNode.module.css'
 
 function toHex(r: number, g: number, b: number) {
@@ -40,8 +40,8 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
   const accent = CATEGORY_ACCENT_VAR[d.category] ?? 'var(--accent-output)'
-  const inputs = d.inputs as { id: string; label: string }[]
-  const outputs = d.outputs as { id: string; label: string }[]
+  const inputs = d.inputs as { id: string; label: string; dataType: string }[]
+  const outputs = d.outputs as { id: string; label: string; dataType: string }[]
   const rowCount = Math.max(inputs.length, outputs.length)
 
   // Inline property editors (Blender-style). A node with `r/g/b` shows one
@@ -60,13 +60,16 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       }}
     >
       {/* Handles rendered absolutely so React Flow can hit-test them correctly */}
-      {inputs.map((port, i) => (
+      {inputs.map((port, i) => {
+        const pc = portColor(port.dataType)
+        return (
         <span key={port.id}>
           <Handle
             type="target"
             position={Position.Left}
             id={port.id}
-            style={{ ...HANDLE_STYLE, top: handleTop(i), background: accent, boxShadow: `0 0 6px ${accent}` }}
+            title={`${port.label} · ${port.dataType}`}
+            style={{ ...HANDLE_STYLE, top: handleTop(i), background: pc, boxShadow: `0 0 6px ${pc}` }}
           />
           {sparkPortId === port.id && (
             <span
@@ -76,16 +79,21 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
             />
           )}
         </span>
-      ))}
-      {outputs.map((port, i) => (
+        )
+      })}
+      {outputs.map((port, i) => {
+        const pc = portColor(port.dataType)
+        return (
         <Handle
           key={port.id}
           type="source"
           position={Position.Right}
           id={port.id}
-          style={{ ...HANDLE_STYLE, top: handleTop(i), background: accent, boxShadow: `0 0 6px ${accent}` }}
+          title={`${port.label} · ${port.dataType}`}
+          style={{ ...HANDLE_STYLE, top: handleTop(i), background: pc, boxShadow: `0 0 6px ${pc}` }}
         />
-      ))}
+        )
+      })}
 
       <div className={styles.header} style={{ background: accent }}>
         {d.label}
