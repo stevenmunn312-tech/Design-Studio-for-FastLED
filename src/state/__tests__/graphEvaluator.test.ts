@@ -33,6 +33,16 @@ function edge(id: string, source: string, sh: string, target: string, th: string
   return { id, source, target, sourceHandle: sh, targetHandle: th } as unknown as StudioEdge
 }
 
+// The evaluator only renders graphs that reach an output terminal, so wrap a
+// lone frame producer through a MatrixOutput for focused single-node tests.
+function withOutput(gen: StudioNode, extra: StudioNode[] = [], extraEdges: StudioEdge[] = []) {
+  const out = node('zzout', 'MatrixOutput', 'output', {})
+  return {
+    nodes: [...extra, gen, out],
+    edges: [...extraEdges, edge('zze', gen.id, 'frame', 'zzout', 'frame')],
+  }
+}
+
 const W = 4, H = 4
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -43,17 +53,24 @@ describe('evaluateGraph', () => {
   })
 
   it('returns a W×H frame for SolidColor', () => {
-    const frame = evaluateGraph([node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })], [], 0, W, H)
+    const { nodes, edges } = withOutput(node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 }))
+    const frame = evaluateGraph(nodes, edges, 0, W, H)
     expect(frame).not.toBeNull()
     expect(frame!.length).toBe(H)
     expect(frame![0].length).toBe(W)
   })
 
   it('SolidColor fills every pixel with the specified color', () => {
-    const frame = evaluateGraph([node('sc', 'SolidColor', 'pattern', { r: 255, g: 128, b: 64 })], [], 0, W, H)
+    const { nodes, edges } = withOutput(node('sc', 'SolidColor', 'pattern', { r: 255, g: 128, b: 64 }))
+    const frame = evaluateGraph(nodes, edges, 0, W, H)
     // byte(255/255) = 255, byte(128/255) = 128, byte(64/255) = 64
     expect(frame![0][0]).toEqual({ r: 255, g: 128, b: 64 })
     expect(frame![H-1][W-1]).toEqual({ r: 255, g: 128, b: 64 })
+  })
+
+  it('renders nothing without an output terminal', () => {
+    // A lone SolidColor (no MatrixOutput) must not preview.
+    expect(evaluateGraph([node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })], [], 0, W, H)).toBeNull()
   })
 
   it('MathAdd evaluates a + b', () => {
@@ -116,7 +133,8 @@ describe('evaluateGraph', () => {
   it('Span lights a run on its row and leaves the rest dark', () => {
     // "4th–13th LED of the top row blue" → 0-indexed start=3, count=10.
     const span  = node('sp', 'Span', 'pattern', { row: 0, start: 3, count: 10, r: 0, g: 0, b: 255 })
-    const frame = evaluateGraph([span], [], 0, 16, 4)
+    const { nodes, edges } = withOutput(span)
+    const frame = evaluateGraph(nodes, edges, 0, 16, 4)
     expect(frame![0][3]).toEqual({ r: 0, g: 0, b: 255 })   // first lit LED
     expect(frame![0][12]).toEqual({ r: 0, g: 0, b: 255 })  // last lit LED
     expect(frame![0][2]).toEqual({ r: 0, g: 0, b: 0 })     // just before the run
@@ -223,7 +241,8 @@ describe('evaluateGraph', () => {
 
   it('Rect fills the specified rectangle', () => {
     const rect  = node('r', 'Rect', 'pattern', { x: 1, y: 1, w: 2, h: 2, r: 0, g: 255, b: 0 })
-    const frame = evaluateGraph([rect], [], 0, 4, 4)
+    const { nodes, edges } = withOutput(rect)
+    const frame = evaluateGraph(nodes, edges, 0, 4, 4)
     expect(frame![1][1]).toEqual({ r: 0, g: 255, b: 0 })
     expect(frame![2][2]).toEqual({ r: 0, g: 255, b: 0 })
     expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
@@ -310,22 +329,22 @@ describe('evaluateGraph', () => {
 
   it('Simplex2D uses a connected palette over its own property', () => {
     // Baseline: Simplex2D with palette property 'heat', no connection.
-    const heatProp = evaluateGraph(
-      [node('sx', 'Simplex2D', 'pattern', { palette: 'heat' })], [], 0, W, H,
-    )
+    const heat = withOutput(node('sx', 'Simplex2D', 'pattern', { palette: 'heat' }))
+    const heatProp = evaluateGraph(heat.nodes, heat.edges, 0, W, H)
     // Same node defaulting to 'rainbow' but driven by a PaletteSelector('heat').
     const sel  = node('sel', 'PaletteSelector', 'color', { palette: 'heat' })
     const sx   = node('sx', 'Simplex2D', 'pattern', { palette: 'rainbow' })
-    const wired = evaluateGraph(
-      [sel, sx], [edge('e1', 'sel', 'palette', 'sx', 'paletteIn')], 0, W, H,
-    )
+    const w = withOutput(sx, [sel], [edge('e1', 'sel', 'palette', 'sx', 'paletteIn')])
+    const wired = evaluateGraph(w.nodes, w.edges, 0, W, H)
     // The connected palette wins, so the wired frame matches the heat baseline.
     expect(wired).toEqual(heatProp)
   })
 
   it('falls back to the palette property when paletteIn is unconnected', () => {
-    const ocean   = evaluateGraph([node('sx', 'Simplex2D', 'pattern', { palette: 'ocean' })], [], 0, W, H)
-    const rainbow = evaluateGraph([node('sx', 'Simplex2D', 'pattern', { palette: 'rainbow' })], [], 0, W, H)
+    const o = withOutput(node('sx', 'Simplex2D', 'pattern', { palette: 'ocean' }))
+    const r = withOutput(node('sx', 'Simplex2D', 'pattern', { palette: 'rainbow' }))
+    const ocean   = evaluateGraph(o.nodes, o.edges, 0, W, H)
+    const rainbow = evaluateGraph(r.nodes, r.edges, 0, W, H)
     // Different palettes produce different frames.
     expect(ocean).not.toEqual(rainbow)
   })

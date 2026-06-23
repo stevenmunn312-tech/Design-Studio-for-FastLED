@@ -1472,8 +1472,11 @@ export function evaluateGraph(
     return out
   }
 
-  // 1. Prefer an explicit terminal: GroupOutput inside a group subgraph, or
-  // MatrixOutput at the root. Both pass through their `frame` input.
+  // Render only what reaches an explicit terminal: a GroupOutput inside a group
+  // subgraph, or a MatrixOutput at the root, each passing through its `frame`
+  // input. A graph with no terminal (or an unconnected one) previews nothing —
+  // the canvas falls back to its idle animation — so the preview always matches
+  // what would actually be flashed.
   const outputNode = nodes.find(n => {
     const nt = (n.data as { nodeType?: string }).nodeType
     return nt === 'GroupOutput' || nt === 'MatrixOutput'
@@ -1481,17 +1484,6 @@ export function evaluateGraph(
   if (outputNode) {
     const frame = evalNode(outputNode.id).frame
     if (frame) return frame as Frame
-  }
-
-  // 2. Fallback: render the first node that exposes a frame output. Keyed on
-  // the port type, not category, so it survives recategorisation (generators,
-  // composite nodes, shapes all qualify).
-  for (const n of nodes) {
-    const outs = (n.data as { outputs?: { dataType?: string }[] }).outputs
-    if (outs?.some(o => o.dataType === 'frame')) {
-      const frame = evalNode(n.id).frame
-      if (frame) return frame as Frame
-    }
   }
 
   return null
