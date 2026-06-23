@@ -7,6 +7,16 @@
   overflow-y: auto;
 }
 
+.fontLink {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent-pattern);
+  cursor: pointer;
+  font-size: inherit;
+  text-decoration: underline;
+}
+
 .header {
   padding: var(--space-2);
   font-size: var(--fs-body);

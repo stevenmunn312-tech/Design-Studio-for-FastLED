@@ -144,7 +144,7 @@ Current nodes by category (see `nodeLibrary.ts` for the authoritative list):
 
 Some node types are created programmatically rather than dragged from the sidebar (so they have no `NODE_LIBRARY` entry): `Group` and `GroupOutput`/`GroupInput` are minted by `graphStore.createGroup` (see the multi-graph/group section above).
 
-The `Text` node renders with the built-in 3×5 bitmap font in `src/state/font.ts`. The font is plain data (`FONT`, `textColumns`) shared by the evaluator and the C++ generator so preview and firmware match exactly; swapping in a custom glyph table needs no other changes.
+The `Text` node renders with the built-in 3×5 bitmap font in `src/state/font.ts`. The font is plain data (`FONT`, `BitmapFont`, `textColumns`, `asFont`) shared by the evaluator and the C++ generator so preview and firmware match exactly. A Text node can carry a **custom font** in `properties.font` (a `{ w, h, glyphs }` object, uploaded as JSON via the Inspector); `asFont()` validates it and everything else (rendering, scrolling, codegen) reads the resolved font's dimensions, so no other code changes are needed.
 
 ## Specification Docs
 

@@ -134,9 +134,11 @@ where it is needed.
   per-pixel by a mask frame's luminance (any soft frame gives feathered edges).
   A `Text` node renders with a built-in 3×5 bitmap font (`src/state/font.ts`,
   shared by evaluator + codegen) and can scroll; the font is plain data so a
-  custom font drops in without other changes. `Circle` (ring or filled disc)
-  and `Line` (Bresenham) join `Span`/`Rect` in the shape family, each painting
-  over an optional base frame. _Remaining:_ a custom-font input/upload UI.
+  custom font drops in without other changes — and a `Text` node can now load a
+  **custom font** by uploading a `{ w, h, glyphs }` JSON in the Inspector
+  (stored per-node, flowing through evaluator and codegen). `Circle` (ring or
+  filled disc) and `Line` (Bresenham) join `Span`/`Rect` in the shape family,
+  each painting over an optional base frame. Phase 4 complete.
 
 ## Open questions
 

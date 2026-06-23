@@ -1,4 +1,6 @@
 import { useGraphStore } from '../../state/graphStore'
+import { useUiStore } from '../../state/uiStore'
+import { asFont, DEFAULT_FONT } from '../../state/font'
 import styles from './Inspector.module.css'
 
 function toHex(r: number, g: number, b: number) {
@@ -12,7 +14,22 @@ function hexToRgb(hex: string) {
 
 export default function Inspector() {
   const { nodes, selectedNodeId, updateNodeProperty, updateNodeProperties } = useGraphStore()
+  const setStatus = useUiStore((s) => s.setStatus)
   const node = nodes.find((n) => n.id === selectedNodeId)
+
+  const onFontUpload = (e: React.ChangeEvent<HTMLInputElement>, nodeId: string) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    file.text().then((txt) => {
+      let parsed: unknown
+      try { parsed = JSON.parse(txt) } catch { setStatus('Font file is not valid JSON', 'error'); return }
+      const font = asFont(parsed)
+      if (font === DEFAULT_FONT) { setStatus('Font JSON needs { w, h, glyphs }', 'error'); return }
+      updateNodeProperty(nodeId, 'font', font)
+      setStatus(`Loaded custom font (${Object.keys(font.glyphs).length} glyphs)`, 'success')
+    })
+  }
 
   if (!node) {
     return (
@@ -53,7 +70,7 @@ export default function Inspector() {
             />
           </div>
         )}
-        {Object.entries(props).map(([key, val]) =>
+        {Object.entries(props).filter(([key]) => key !== 'font').map(([key, val]) =>
           typeof val === 'boolean' ? (
             <div key={key} className={styles.fieldRow}>
               <label className={styles.fieldLabel} htmlFor={`prop-${key}`}>{key}</label>
@@ -94,8 +111,35 @@ export default function Inspector() {
             </div>
           )
         )}
-        {Object.keys(props).length === 0 && (
+        {Object.keys(props).filter((k) => k !== 'font').length === 0 && (
           <div className={styles.empty}>No properties</div>
+        )}
+        {node.data.nodeType === 'Text' && (
+          <div className={styles.fieldRow}>
+            <label className={styles.fieldLabel} htmlFor="prop-font">font</label>
+            <span className={styles.fieldValue}>
+              {props.font ? `custom ${asFont(props.font).w}×${asFont(props.font).h}` : 'built-in 3×5'}
+              {' · '}
+              <label className={styles.fontLink}>
+                upload
+                <input
+                  id="prop-font"
+                  type="file"
+                  accept="application/json,.json"
+                  style={{ display: 'none' }}
+                  onChange={(e) => onFontUpload(e, node.id)}
+                />
+              </label>
+              {props.font ? (
+                <>
+                  {' · '}
+                  <button className={styles.fontLink} onClick={() => updateNodeProperty(node.id, 'font', undefined)}>
+                    reset
+                  </button>
+                </>
+              ) : null}
+            </span>
+          </div>
         )}
       </div>
       <div className={styles.divider} />

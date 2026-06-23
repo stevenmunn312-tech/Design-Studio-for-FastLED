@@ -1,6 +1,6 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
-import { FONT_H, textColumns } from '../state/font'
+import { asFont, textColumns } from '../state/font'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -390,7 +390,8 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       case 'Text': {
         const ob = ownBuf()
         const text = String(p.text ?? 'HELLO')
-        const cols = textColumns(text)
+        const font = asFont(p.font)
+        const cols = textColumns(text, font)
         const sx = Math.floor(Number(p.x ?? 0)), sy = Math.floor(Number(p.y ?? 0))
         const dynamic = !!incoming.get(`${node.id}:scroll`) || Number(p.scroll ?? 0) !== 0
         const colorE = incoming.get(`${node.id}:color`)
@@ -407,7 +408,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
           ln(`    int _off = 0;`)
         }
         ln(`    for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - ${sx} + _off; if (_ci < 0 || _ci >= _tn_${id}) continue; uint8_t _col = _txt_${id}[_ci];`)
-        ln(`      for (int _r = 0; _r < ${FONT_H}; _r++) if (_col & (1 << _r)) { int _yy = ${sy} + _r; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
+        ln(`      for (int _r = 0; _r < ${font.h}; _r++) if (_col & (1 << _r)) { int _yy = ${sy} + _r; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
         ln(`  }`)
         break
       }

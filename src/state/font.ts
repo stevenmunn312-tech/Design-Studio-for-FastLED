@@ -10,6 +10,13 @@
 export const FONT_W = 3
 export const FONT_H = 5
 
+/** A bitmap font: glyphs are `h` rows of `w`-bit pixels (see FONT comment). */
+export interface BitmapFont {
+  w: number
+  h: number
+  glyphs: Record<string, number[]>
+}
+
 export const FONT: Record<string, number[]> = {
   ' ': [0, 0, 0, 0, 0],
   A: [7, 5, 7, 5, 5], B: [6, 5, 6, 5, 6], C: [3, 4, 4, 4, 3], D: [6, 5, 5, 5, 6],
@@ -26,20 +33,35 @@ export const FONT: Record<string, number[]> = {
   '?': [7, 1, 2, 0, 2], ':': [0, 2, 0, 2, 0],
 }
 
+/** The built-in 3×5 font as a BitmapFont. */
+export const DEFAULT_FONT: BitmapFont = { w: FONT_W, h: FONT_H, glyphs: FONT }
+
+/** A value is a usable custom font if it has positive dims and a glyph map. */
+export function asFont(value: unknown): BitmapFont {
+  const f = value as Partial<BitmapFont> | undefined
+  if (f && typeof f.w === 'number' && f.w > 0 && typeof f.h === 'number' && f.h > 0 &&
+      f.glyphs && typeof f.glyphs === 'object') {
+    return f as BitmapFont
+  }
+  return DEFAULT_FONT
+}
+
 /**
  * Convert a string into a flat list of vertical column bitmaps (one trailing
  * blank column per glyph as spacing). Each column's bit `r` (0 = top) is set
  * when that pixel is lit. Shared by the evaluator and the C++ generator so
  * scrolling/positioning math matches exactly.
  */
-export function textColumns(text: string): number[] {
+export function textColumns(text: string, font: BitmapFont = DEFAULT_FONT): number[] {
+  const { w, h, glyphs } = font
+  const blank = glyphs[' '] ?? new Array(h).fill(0)
   const cols: number[] = []
   for (const ch of text.toUpperCase()) {
-    const glyph = FONT[ch] ?? FONT[' ']
-    for (let c = 0; c < FONT_W; c++) {
+    const glyph = glyphs[ch] ?? blank
+    for (let c = 0; c < w; c++) {
       let col = 0
-      for (let r = 0; r < FONT_H; r++) {
-        if (glyph[r] & (1 << (FONT_W - 1 - c))) col |= 1 << r
+      for (let r = 0; r < h; r++) {
+        if ((glyph[r] ?? 0) & (1 << (w - 1 - c))) col |= 1 << r
       }
       cols.push(col)
     }
