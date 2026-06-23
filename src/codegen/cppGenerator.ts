@@ -163,6 +163,9 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
   const dataPin    = Number(outputNode ? props(outputNode).dataPin    ?? 5   : 5)
   const chipset    = String(outputNode ? props(outputNode).chipset    ?? 'WS2812B' : 'WS2812B')
   const colorOrder = String(outputNode ? props(outputNode).colorOrder ?? 'GRB' : 'GRB')
+  // Serpentine (zig-zag) matrices wire alternate rows in reverse; buffers stay
+  // row-major and MatrixOutput remaps grid → physical index via XY().
+  const serpentine = (outputNode ? props(outputNode).serpentine : false) === true
 
   const sorted = topoSort(nodes, edges)
 
@@ -782,8 +785,9 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
 
       case 'MatrixOutput': {
         const src = srcBuf('frame')
-        if (src) ln(`  memmove(leds, ${src}, sizeof(CRGB) * NUM_LEDS);`)
-        else ln(`  fill_solid(leds, NUM_LEDS, CRGB::Black);`)
+        if (!src) ln(`  fill_solid(leds, NUM_LEDS, CRGB::Black);`)
+        else if (serpentine) ln(`  for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) leds[XY(_x, _y)] = ${src}[_y * WIDTH + _x];`)
+        else ln(`  memmove(leds, ${src}, sizeof(CRGB) * NUM_LEDS);`)
         ln(`  FastLED.show();`)
         break
       }
@@ -815,6 +819,14 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
     lines.push(`float mapFloat(float x, float inMin, float inMax, float outMin, float outMax) {`)
     lines.push(`  if (inMax == inMin) return outMin;`)
     lines.push(`  return outMin + (x - inMin) * (outMax - outMin) / (inMax - inMin);`)
+    lines.push(`}`)
+    lines.push(``)
+  }
+
+  if (serpentine) {
+    lines.push(`// Serpentine (zig-zag) layout: every other row runs right-to-left.`)
+    lines.push(`uint16_t XY(uint8_t x, uint8_t y) {`)
+    lines.push(`  return (y & 0x01) ? (uint16_t)y * WIDTH + (WIDTH - 1 - x) : (uint16_t)y * WIDTH + x;`)
     lines.push(`}`)
     lines.push(``)
   }
