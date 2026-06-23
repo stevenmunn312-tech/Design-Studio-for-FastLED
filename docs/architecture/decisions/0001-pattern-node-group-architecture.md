@@ -120,13 +120,13 @@ where it is needed.
   function-per-group + per-buffer form (emit `void pattern_<id>(CRGB* out)` and
   blend buffers in `loop()`) is deferred and lands together with real frame
   compositing in Phase 3.
-- **Phase 3 — Compositing richness.** _Done:_ the `Sequencer` node (preview)
-  and the **per-layer buffer codegen** — each frame node renders into its own
-  `CRGB buf_<id>` and `MatrixOutput` copies the final buffer to `leds`, so
-  `LayerBlend`/`BlendFrames`/`Crossfade`/`Wipe`/`Dissolve` emit real
-  `nblend`-based compositing instead of stubs. _Remaining:_ `Sequencer` codegen
-  (needs runtime time-slot selection across buffers) and hardware-driven
-  transitions via exposed group parameters (Group Input nodes).
+- **Phase 3 — Compositing richness.** _Done:_ the `Sequencer` node (preview +
+  codegen) and the **per-layer buffer codegen** — each frame node renders into
+  its own `CRGB buf_<id>` and `MatrixOutput` copies the final buffer to `leds`,
+  so `LayerBlend`/`BlendFrames`/`Crossfade`/`Wipe`/`Dissolve` emit real
+  `nblend`-based compositing and `Sequencer` emits a millis-driven crossfade
+  across its input buffers. _Remaining:_ hardware-driven transitions via exposed
+  group parameters (Group Input nodes).
 - **Phase 4 — Expansion.** Text nodes, masks/feathering, additional shapes.
 
 ## Open questions

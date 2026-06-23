@@ -640,9 +640,34 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
 
       case 'Sequencer': {
+        const ob = ownBuf()
         const interval = Number(p.interval ?? 4), fade = Number(p.fade ?? 1)
-        ln(`  // Sequencer (interval ${interval}s, fade ${fade}s) — timed crossfade across inputs;`)
-        ln(`  // needs per-layer buffers (ADR 0001 Phase 3 codegen).`)
+        const bufs = ['p0', 'p1', 'p2', 'p3'].map((port) => srcBuf(port)).filter((b): b is string => !!b)
+        // C++ float literal (avoids "4f" — needs "4.0f").
+        const fl = (x: number) => { const s = (+x.toFixed(4)).toString(); return (s.includes('.') ? s : `${s}.0`) + 'f' }
+        const iv = Math.max(0.1, interval)
+        const fadeDur = Math.max(0, Math.min(fade, iv))
+        ln(`  { // Sequencer (interval ${interval}s, fade ${fade}s)`)
+        if (bufs.length === 0) {
+          ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
+        } else if (bufs.length === 1) {
+          ln(`    memmove(${ob}, ${bufs[0]}, sizeof(CRGB) * NUM_LEDS);`)
+        } else {
+          needsT.v = true
+          const n = bufs.length
+          ln(`    static CRGB* const _seq_${id}[] = { ${bufs.join(', ')} };`)
+          ln(`    float _ph = t / ${fl(iv)};`)
+          ln(`    int _idx = ((int)floor(_ph)) % ${n};`)
+          ln(`    float _into = (_ph - floor(_ph)) * ${fl(iv)};`)
+          ln(`    memmove(${ob}, _seq_${id}[_idx], sizeof(CRGB) * NUM_LEDS);`)
+          if (fadeDur > 0) {
+            ln(`    if (_into >= ${fl(iv - fadeDur)}) {`)
+            ln(`      uint8_t _m = (uint8_t)((_into - ${fl(iv - fadeDur)}) / ${fl(fadeDur)} * 255);`)
+            ln(`      nblend(${ob}, _seq_${id}[(_idx + 1) % ${n}], NUM_LEDS, _m);`)
+            ln(`    }`)
+          }
+        }
+        ln(`  }`)
         break
       }
 

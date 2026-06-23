@@ -202,6 +202,31 @@ describe('generateCpp', () => {
     expect(cpp).toContain('fill_solid(buf_g1__ig__sc, NUM_LEDS, CRGB(0, 255, 0))')
   })
 
+  it('emits a time-based Sequencer over its input buffers', () => {
+    const a = node('a', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const b = node('b', 'SolidColor', 'pattern', { r: 0, g: 255, b: 0 })
+    const seq = node('s', 'Sequencer', 'composite', { interval: 4, fade: 1 })
+    const cpp = generateCpp([a, b, seq, outputNode], [
+      edge('e1', 'a', 's', 'frame', 'p0'),
+      edge('e2', 'b', 's', 'frame', 'p1'),
+      edge('e3', 's', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('static CRGB* const _seq_s[] = { buf_a, buf_b };')
+    expect(cpp).toContain('memmove(buf_s, _seq_s[_idx], sizeof(CRGB) * NUM_LEDS)')
+    expect(cpp).toContain('nblend(buf_s, _seq_s[(_idx + 1) % 2], NUM_LEDS, _m)')
+    expect(cpp).toContain('float t = millis()')
+  })
+
+  it('a single-input Sequencer just copies that buffer', () => {
+    const a = node('a', 'SolidColor', 'pattern', { r: 1, g: 2, b: 3 })
+    const seq = node('s', 'Sequencer', 'composite', {})
+    const cpp = generateCpp([a, seq, outputNode], [
+      edge('e1', 'a', 's', 'frame', 'p0'),
+      edge('e2', 's', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('memmove(buf_s, buf_a, sizeof(CRGB) * NUM_LEDS)')
+  })
+
   it('composites two layers with nblend and copies the result to leds', () => {
     const a  = node('a', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
     const b  = node('b', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 })
