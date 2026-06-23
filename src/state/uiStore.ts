@@ -41,7 +41,9 @@ export const useUiStore = create<UiState>((set, get) => ({
   statusText: 'Ready',
   statusLevel: 'idle',
   sidebarOpen: true,
-  inspectorOpen: true,
+  // Node properties are edited inline on the nodes; the Inspector is an
+  // opt-in panel (toggle from the menu bar).
+  inspectorOpen: false,
   fps: 0,
   sparkPort: null,
   theme: load<AppTheme>(THEME_KEY, 'dark'),

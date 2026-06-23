@@ -77,3 +77,58 @@
   white-space: nowrap;
   padding-right: 10px;
 }
+
+/* Inline property editors on the node body */
+.props {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--divider);
+  user-select: none;
+}
+
+.propRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.propKey {
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 0 1 auto;
+}
+
+.propInput {
+  width: 72px;
+  flex: 0 0 auto;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-glow);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: var(--fs-caption);
+  font-family: var(--font-code);
+  padding: 1px 4px;
+}
+
+.propInput:focus {
+  outline: none;
+  border-color: var(--accent-output);
+}
+
+.colorInput {
+  width: 28px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--border-glow);
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}

@@ -66,6 +66,8 @@ const handleTop = (i: number) => HEADER_H + BODY_PAD + i * (ROW_H + ROW_GAP) + R
 
 Changing any of those CSS values without updating the constants will silently misalign all connection handles.
 
+**Inline property editors:** the node body renders editable controls (colour swatch for `r/g/b`, checkbox for booleans, number/text fields) for each property, Blender-style — so editing happens on the node with live preview. These render in a `.props` section **below** the port rows, so they don't affect the handle offsets above. Interactive controls carry the `nodrag` (and `nowheel` for number fields) class so React Flow doesn't pan/drag while editing. The `font` object is excluded (edited via the Inspector). The **Inspector** panel still exists but is opt-in (`inspectorOpen` defaults false; toggle from the menu bar).
+
 ### Edge Rendering
 
 `GlowEdge` (`src/components/Canvas/GlowEdge.tsx`) renders three stacked SVG `<path>` elements (wide halo → mid bloom → thin animated core) plus a dot at the target. Color is resolved at render time from `useReactFlow().getNode(source)?.data.category`. The MiniMap picks up edge colors from `style.stroke` set at connect time in `graphStore.onConnect`.
