@@ -213,6 +213,8 @@ function NodeGraphCanvasInner() {
         maxZoom={2}
         fitView
         deleteKeyCode="Delete"
+        multiSelectionKeyCode="Shift"
+        selectionKeyCode="Shift"
         style={{ background: 'var(--bg-primary)' }}
         defaultEdgeOptions={{ type: 'glowEdge' }}
       >
