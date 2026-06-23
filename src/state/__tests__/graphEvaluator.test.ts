@@ -139,6 +139,27 @@ describe('evaluateGraph', () => {
     expect(frame![1][1]).toEqual({ r: 255, g: 0, b: 0 })
   })
 
+  it('Text renders glyph pixels in the chosen color', () => {
+    // "I" at x=1,y=1: the 3×5 'I' has a full top row (### = cols all lit at r=0).
+    const txt = node('t', 'Text', 'pattern', { text: 'I', x: 1, y: 1, scroll: 0, r: 0, g: 255, b: 0 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph([txt, out], [edge('e', 't', 'frame', 'out', 'frame')], 0, 8, 8)
+    // top row of 'I' spans x=1..3 at y=1, lit green; background stays black.
+    expect(frame![1][1]).toEqual({ r: 0, g: 255, b: 0 })
+    expect(frame![1][2]).toEqual({ r: 0, g: 255, b: 0 })
+    expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
+  })
+
+  it('Text scrolling shifts the rendered columns over time', () => {
+    const mk = (tick: number) => {
+      const txt = node('t', 'Text', 'pattern', { text: 'AB', x: 0, y: 1, scroll: 4, r: 255, g: 255, b: 255 })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      return evaluateGraph([txt, out], [edge('e', 't', 'frame', 'out', 'frame')], tick, 8, 8)
+    }
+    // Different times → different horizontal offset → different frames.
+    expect(mk(0)).not.toEqual(mk(60))
+  })
+
   it('Mask scales a frame by the mask luminance', () => {
     const content = node('w', 'SolidColor', 'pattern', { r: 200, g: 200, b: 200 })
     const mask    = node('m', 'SolidColor', 'pattern', { r: 128, g: 128, b: 128 })  // ~50% luma

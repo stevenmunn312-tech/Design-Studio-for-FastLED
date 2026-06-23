@@ -133,14 +133,18 @@ Nodes are grouped into categories. Adding a new node type requires:
 2. A `case` in `graphEvaluator.ts` `evalNode()` switch (for live preview)
 3. A `case` in `cppGenerator.ts` `emit()` switch (for C++ codegen)
 
-Current nodes by category (see `nodeLibrary.ts` for full list):
+Current nodes by category (see `nodeLibrary.ts` for the authoritative list):
 - **audio**: FFTAnalyzer, BeatDetect, MicInput, AudioHue
 - **hardware**: ButtonInput, PotInput
-- **math**: MathAdd, Multiply, Clamp, MapRange, Sin, Cos, Lerp, TimeNode, Abs, Mod, Min, Max, Random, Counter, Gate, Not, Compare, BeatSin, XYMapper
-- **color**: HSVToRGB, BlendColors, CHSV, PaletteSelector, PaletteBlend, GradientSampler, PaletteSampler
-- **pattern** (frame generators): SolidColor, Span, Rect, NoiseField, Fire, Fire2012, Plasma, SpectrumBars, BassPulse, MidrangeWaves, TrebleSparks, BeatFlash, Noise2D, RadialBurst, Spiral, Kaleidoscope, Particles, GradientFrame, Simplex2D, Noise3D, PatternMaster, CustomFormula
-- **composite** (frame→frame): BlendFrames, BrightnessMod, HueShift, Invert, Blur2D, LayerBlend, Crossfade, Wipe, Dissolve
+- **math**: MathAdd, Multiply, Clamp, MapRange, Sin, Cos, Lerp, TimeNode, Abs, Mod, MinNode, MaxNode, Random, Counter, Gate, Not, Compare, BeatSin, XYMapper
+- **color**: HSVToRGB, BlendColors, CHSV, GradientSampler, PaletteSampler, PaletteSelector, CustomPalette, PaletteBlend
+- **pattern** (frame generators): SolidColor, Span, Rect, Text, NoiseField, Fire, Fire2012, Plasma, SpectrumBars, BassPulse, MidrangeWaves, TrebleSparks, BeatFlash, Noise2D, RadialBurst, Spiral, Kaleidoscope, Particles, GradientFrame, Simplex2D, Noise3D, PatternMaster, CustomFormula
+- **composite** (frame→frame): BlendFrames, BrightnessMod, HueShift, Invert, Blur2D, LayerBlend, Mask, Crossfade, Wipe, Dissolve, Sequencer
 - **output**: MatrixOutput
+
+Some node types are created programmatically rather than dragged from the sidebar (so they have no `NODE_LIBRARY` entry): `Group` and `GroupOutput`/`GroupInput` are minted by `graphStore.createGroup` (see the multi-graph/group section above).
+
+The `Text` node renders with the built-in 3×5 bitmap font in `src/state/font.ts`. The font is plain data (`FONT`, `textColumns`) shared by the evaluator and the C++ generator so preview and firmware match exactly; swapping in a custom glyph table needs no other changes.
 
 ## Specification Docs
 

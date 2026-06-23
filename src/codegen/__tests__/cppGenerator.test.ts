@@ -297,6 +297,21 @@ describe('generateCpp', () => {
     expect(cpp).toContain('ColorFromPalette(pal_cp,')
   })
 
+  it('emits a Text node with embedded font columns', () => {
+    const txt = node('t', 'Text', 'pattern', { text: 'HI', x: 1, y: 1, scroll: 0, r: 0, g: 255, b: 0 })
+    const cpp = generateCpp([txt, outputNode], [edge('e', 't', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('static const uint8_t _txt_t[] = {')
+    expect(cpp).toContain('CRGB(0, 255, 0)')
+    expect(cpp).not.toContain('millis()')   // static text → no time variable
+  })
+
+  it('emits a scrolling Text node that uses millis()', () => {
+    const txt = node('t', 'Text', 'pattern', { text: 'GO', x: 0, y: 1, scroll: 4 })
+    const cpp = generateCpp([txt, outputNode], [edge('e', 't', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('float t = millis()')
+    expect(cpp).toContain('_off =')
+  })
+
   it('emits a luminance Mask that scales the frame buffer', () => {
     const content = node('w', 'SolidColor', 'pattern', { r: 200, g: 200, b: 200 })
     const mask    = node('m', 'GradientFrame', 'pattern', {})

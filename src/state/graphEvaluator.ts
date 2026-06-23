@@ -1,5 +1,6 @@
 import type { StudioNode, StudioEdge } from './graphStore'
 import { useAudioStore } from './audioStore'
+import { FONT_H, textColumns } from './font'
 
 export interface RGB { r: number; g: number; b: number }
 export type Frame = RGB[][]   // row-major [y][x]
@@ -71,6 +72,28 @@ function blankFrame(W = DEFAULT_W, H = DEFAULT_H): Frame {
 // memoised output.
 function cloneFrame(frame: Frame): Frame {
   return frame.map(row => row.map(px => ({ ...px })))
+}
+
+// Render `text` onto a blank frame at (startX, startY), optionally scrolling
+// left over time (scroll = columns/second). Shares textColumns() with codegen.
+function renderText(text: string, color: RGB, startX: number, startY: number, scroll: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const frame = blankFrame(W, H)
+  const cols = textColumns(text)
+  if (cols.length === 0) return frame
+  const total = cols.length + W
+  const offset = scroll !== 0 ? Math.floor((((t * scroll) % total) + total) % total) : 0
+  for (let x = 0; x < W; x++) {
+    const ci = x - startX + offset
+    if (ci < 0 || ci >= cols.length) continue
+    const col = cols[ci]
+    for (let r = 0; r < FONT_H; r++) {
+      if (col & (1 << r)) {
+        const y = startY + r
+        if (y >= 0 && y < H) frame[y][x] = { ...color }
+      }
+    }
+  }
+  return frame
 }
 
 // ── Pattern evaluators ────────────────────────────────────────────────────────
@@ -712,6 +735,21 @@ export function evaluateGraph(
           for (let xx = rx; xx < rx + rw; xx++)
             if (xx >= 0 && xx < W && yy >= 0 && yy < H) frame[yy][xx] = { ...color }
         out = { frame }
+        break
+      }
+
+      case 'Text': {
+        const text = String(props.text ?? 'HELLO')
+        const colorIn = input(id, 'color', null) as RGB | null
+        const color = colorIn ?? {
+          r: byte(Number(props.r ?? 0)   / 255),
+          g: byte(Number(props.g ?? 255) / 255),
+          b: byte(Number(props.b ?? 255) / 255),
+        }
+        const sx = Math.floor(Number(props.x ?? 0))
+        const sy = Math.floor(Number(props.y ?? 0))
+        const scroll = num(id, 'scroll', props, 'scroll', 0)
+        out = { frame: renderText(text, color, sx, sy, scroll, t, W, H) }
         break
       }
 

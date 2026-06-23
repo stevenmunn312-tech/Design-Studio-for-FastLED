@@ -68,6 +68,18 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { x: 0, y: 0, w: 4, h: 4, r: 0, g: 128, b: 255 },
   },
   {
+    // Renders text with the built-in 3×5 font; scroll > 0 scrolls it left.
+    type: 'Text',
+    label: 'Text',
+    category: 'pattern',
+    inputs: [
+      { id: 'color',  label: 'Color',  dataType: 'color' },
+      { id: 'scroll', label: 'Scroll', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { text: 'HELLO', x: 1, y: 1, scroll: 0, r: 0, g: 255, b: 255 },
+  },
+  {
     type: 'NoiseField',
     label: 'Noise Field',
     category: 'pattern',
