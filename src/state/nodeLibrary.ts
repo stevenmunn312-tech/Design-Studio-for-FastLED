@@ -115,6 +115,19 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { amount: 128 },
   },
   {
+    // Scales a frame per-pixel by a mask frame's luminance — feed any soft
+    // frame (gradient, radial) as the mask for feathered edges.
+    type: 'Mask',
+    label: 'Mask',
+    category: 'composite',
+    inputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      { id: 'mask',  label: 'Mask',  dataType: 'frame' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: {},
+  },
+  {
     type: 'Plasma',
     label: 'Plasma',
     category: 'pattern',

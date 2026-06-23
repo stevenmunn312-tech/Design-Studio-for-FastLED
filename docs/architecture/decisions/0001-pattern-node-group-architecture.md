@@ -130,7 +130,9 @@ where it is needed.
   the `Group` node, so external values (math, audio, a hardware knob) drive a
   group through preview and codegen — which is also how hardware-driven
   transitions are built. Phase 3 complete.
-- **Phase 4 — Expansion.** Text nodes, masks/feathering, additional shapes.
+- **Phase 4 — Expansion.** _In progress._ A `Mask` node scales a frame
+  per-pixel by a mask frame's luminance, so any soft frame (gradient, radial)
+  gives feathered edges. _Remaining:_ text nodes and additional shapes.
 
 ## Open questions
 

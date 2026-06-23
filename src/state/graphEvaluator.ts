@@ -777,6 +777,22 @@ export function evaluateGraph(
         break
       }
 
+      case 'Mask': {
+        const src = input(id, 'frame', null) as Frame | null
+        const maskF = input(id, 'mask', null) as Frame | null
+        if (!src) { out = { frame: null }; break }
+        out = {
+          frame: src.map((row, y) =>
+            row.map((px, x) => {
+              const m = maskF?.[y]?.[x]
+              const a = m ? (m.r + m.g + m.b) / 3 / 255 : 1
+              return { r: Math.round(px.r * a), g: Math.round(px.g * a), b: Math.round(px.b * a) }
+            })
+          ),
+        }
+        break
+      }
+
       case 'HueShift': {
         const src = input(id, 'frame', null) as Frame | null
         const shift = num(id, 'shift', props, 'shift', 0)
