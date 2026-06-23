@@ -148,6 +148,21 @@ describe('evaluateGraph', () => {
     expect(frame![3][3]).toEqual({ r: 0, g: 0, b: 0 })
   })
 
+  it('PaletteBlend interpolates between two palettes', () => {
+    const driveSimplex = (amount: number) => {
+      const pb = node('pb', 'PaletteBlend', 'color', { paletteA: 'heat', paletteB: 'ocean', amount })
+      const sx = node('sx', 'Simplex2D', 'pattern', {})
+      const out = node('out', 'MatrixOutput', 'output', {})
+      return evaluateGraph(
+        [pb, sx, out],
+        [edge('e1', 'pb', 'palette', 'sx', 'paletteIn'), edge('e2', 'sx', 'frame', 'out', 'frame')],
+        0, 4, 4,
+      )
+    }
+    // amount 0 → heat end, amount 255 → ocean end → visibly different frames.
+    expect(driveSimplex(0)).not.toEqual(driveSimplex(255))
+  })
+
   it('a CustomPalette drives a pattern node differently than a preset', () => {
     const c1 = node('c1', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })
     const c2 = node('c2', 'CHSV', 'color', { hue: 160, sat: 255, val: 255 })
