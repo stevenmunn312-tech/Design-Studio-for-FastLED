@@ -182,14 +182,20 @@
   color: var(--error);
 }
 
-.serialStatus {
-  font-size: var(--fs-caption);
+.commands {
+  margin: 0;
+  background: #0d0f12;
+  border-radius: 6px;
+  border: 1px solid var(--border-glow);
+  padding: var(--space-1);
   font-family: var(--font-code);
+  font-size: 11px;
   color: var(--text-secondary);
-  min-height: 18px;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre;
+  user-select: all;
 }
-
-.serialStatus.connected { color: var(--success); }
 
 .divider {
   height: 1px;
@@ -234,9 +240,3 @@
   white-space: pre-wrap;
 }
 
-.noSerial {
-  font-size: 11px;
-  color: var(--text-secondary);
-  font-family: var(--font-code);
-  line-height: 1.5;
-}
