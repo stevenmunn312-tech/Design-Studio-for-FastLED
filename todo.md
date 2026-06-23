@@ -29,7 +29,7 @@
 - [x] WebGL shader pipeline (60 fps, per-LED disc + 5×5 glow, Canvas 2D fallback)
 - [x] Resize preview — reads width × height from MatrixOutput node (up to 64 × 64)
 - [x] Preview renders only what reaches an output terminal (matches what gets flashed)
-- [ ] 3D rotate mode — drag to orbit the matrix *(in progress)*
+- [x] 3D rotate mode — drag to orbit the matrix panel in perspective (CSS 3D, no extra deps)
 
 ## Audio
 

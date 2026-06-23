@@ -16,6 +16,7 @@ interface UiState {
   statusLevel: StatusLevel
   sidebarOpen: boolean
   inspectorOpen: boolean
+  preview3d: boolean
   fps: number
   sparkPort: { nodeId: string; portId: string } | null
   theme: AppTheme
@@ -26,6 +27,7 @@ interface UiState {
   clearStatus: () => void
   toggleSidebar: () => void
   toggleInspector: () => void
+  togglePreview3d: () => void
   setFps: (fps: number) => void
   setSparkPort: (port: { nodeId: string; portId: string } | null) => void
   setTheme: (theme: AppTheme) => void
@@ -44,6 +46,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   // Node properties are edited inline on the nodes; the Inspector is an
   // opt-in panel (toggle from the menu bar).
   inspectorOpen: false,
+  preview3d: false,
   fps: 0,
   sparkPort: null,
   theme: load<AppTheme>(THEME_KEY, 'dark'),
@@ -60,6 +63,7 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   clearStatus: () => set({ statusText: 'Ready', statusLevel: 'idle' }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+  togglePreview3d: () => set((s) => ({ preview3d: !s.preview3d })),
   toggleInspector: () => set((s) => ({ inspectorOpen: !s.inspectorOpen })),
   setFps: (fps) => set({ fps }),
   setSparkPort: (port) => set({ sparkPort: port }),
