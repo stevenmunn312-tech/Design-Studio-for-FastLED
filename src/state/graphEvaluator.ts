@@ -502,9 +502,11 @@ export function evaluateGraph(
   groups: GroupRegistry = {},
   // Internal recursion bookkeeping for nested groups — callers leave these
   // defaulted. `instancePrefix` namespaces stateful-node state per group
-  // instance; `groupStack` breaks group-level recursion.
+  // instance; `groupStack` breaks group-level recursion; `groupInputs` carries
+  // the values bound to the current group's exposed parameters (paramId → value).
   instancePrefix = '',
   groupStack: ReadonlySet<string> = new Set(),
+  groupInputs: Record<string, PortValue> = {},
 ): Frame | null {
   const W = gridW
   const H = gridH
@@ -1146,14 +1148,25 @@ export function evaluateGraph(
           out = { frame: blankFrame(W, H) }
           break
         }
+        // Bind the group's exposed parameters from its connected input ports.
+        const boundInputs: Record<string, PortValue> = {}
+        for (const port of (node.data.inputs as { id: string }[] | undefined) ?? []) {
+          boundInputs[port.id] = input(id, port.id, null)
+        }
         const frame = evaluateGraph(
           def.nodes, def.edges, tick, W, H, groups,
           `${instancePrefix}${id}/`,
           new Set([...groupStack, groupId]),
+          boundInputs,
         ) ?? blankFrame(W, H)
         out = { frame }
         break
       }
+
+      // Carries a bound parameter value into a group subgraph.
+      case 'GroupInput':
+        out = { out: groupInputs[String(props.paramId ?? '')] ?? null }
+        break
 
       // The frame terminal inside a group subgraph (analogous to MatrixOutput).
       case 'GroupOutput':

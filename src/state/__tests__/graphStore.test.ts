@@ -68,6 +68,31 @@ describe('graphStore — grouping', () => {
     expect(reg[gid].nodes.some((n) => n.data.nodeType === 'GroupOutput')).toBe(true)
   })
 
+  it('createGroup exposes incoming edges as group parameters', () => {
+    reset(
+      [
+        node('c', 'Clamp', { value: 0.5, min: 0, max: 1 }),
+        node('sc', 'SolidColor', { r: 255, g: 255, b: 255 }),
+        node('bm', 'BrightnessMod'),
+        node('out', 'MatrixOutput'),
+      ],
+      [
+        edge('e1', 'sc', 'frame', 'bm', 'frame'),
+        edge('e2', 'c', 'result', 'bm', 'brightness'),
+        edge('e3', 'bm', 'frame', 'out', 'frame'),
+      ],
+    )
+    // Group sc + bm; the Clamp→bm.brightness edge crosses the boundary → param.
+    const gid = useGraphStore.getState().createGroup('Dim', ['sc', 'bm'])
+    const s = useGraphStore.getState()
+    const groupNode = s.nodes.find((n) => n.data.nodeType === 'Group')!
+    expect((groupNode.data.inputs as unknown[]).length).toBe(1)
+    // The external Clamp now feeds the group's exposed param port.
+    expect(s.edges.some((e) => e.source === 'c' && e.target === groupNode.id)).toBe(true)
+    // The subgraph gained a GroupInput node carrying that param inward.
+    expect(s.graphData[gid].nodes.some((n) => n.data.nodeType === 'GroupInput')).toBe(true)
+  })
+
   it('enterGraph swaps the active graph and back', () => {
     reset([node('sc', 'SolidColor', { r: 0, g: 0, b: 255 })], [])
     const gid = useGraphStore.getState().createGroup('Blue', ['sc'])
