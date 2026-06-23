@@ -270,6 +270,21 @@ describe('generateCpp', () => {
     expect(cpp).toContain('n_pot_value')
   })
 
+  it('builds a CRGBPalette16 from a CustomPalette and uses it downstream', () => {
+    const c1 = node('c1', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })
+    const c2 = node('c2', 'CHSV', 'color', { hue: 120, sat: 255, val: 255 })
+    const cp = node('cp', 'CustomPalette', 'color', {})
+    const sx = node('sx', 'Simplex2D', 'pattern', { palette: 'rainbow' })
+    const cpp = generateCpp([c1, c2, cp, sx, outputNode], [
+      edge('e1', 'c1', 'cp', 'rgb', 'color0'),
+      edge('e2', 'c2', 'cp', 'rgb', 'color1'),
+      edge('e3', 'cp', 'sx', 'palette', 'paletteIn'),
+      edge('e4', 'sx', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('CRGBPalette16 pal_cp(n_c1_rgb, n_c2_rgb)')
+    expect(cpp).toContain('ColorFromPalette(pal_cp,')
+  })
+
   it('composites two layers with nblend and copies the result to leds', () => {
     const a  = node('a', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
     const b  = node('b', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 })

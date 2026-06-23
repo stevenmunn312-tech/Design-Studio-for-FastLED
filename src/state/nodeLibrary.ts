@@ -543,6 +543,20 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { palette: 'rainbow' },
   },
   {
+    // Builds a palette from up to four connected colors (in order).
+    type: 'CustomPalette',
+    label: 'Custom Palette',
+    category: 'color',
+    inputs: [
+      { id: 'color0', label: 'Color 1', dataType: 'color' },
+      { id: 'color1', label: 'Color 2', dataType: 'color' },
+      { id: 'color2', label: 'Color 3', dataType: 'color' },
+      { id: 'color3', label: 'Color 4', dataType: 'color' },
+    ],
+    outputs: [{ id: 'palette', label: 'Palette', dataType: 'palette' }],
+    defaultProperties: {},
+  },
+  {
     type: 'PaletteBlend',
     label: 'Blend Palettes',
     category: 'color',

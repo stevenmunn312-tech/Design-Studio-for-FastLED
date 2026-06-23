@@ -143,6 +143,10 @@ where it is needed.
   `MatrixOutput` node has a `serpentine` toggle and, when set, codegen emits an
   `XY(x, y)` helper and remaps grid → physical index on the final copy to
   `leds[]`. Progressive layouts keep the fast `memmove`.
-- **Custom palettes.** Whether `palette` stays an enum of presets or becomes a
-  first-class color-stop array (enabling user-defined palettes and true
-  `PaletteBlend` interpolation) is unresolved and tracked separately.
+- **Custom palettes.** _Mostly resolved._ The `palette` value is now
+  `string | RGB[]` — a preset name or custom colors. A `CustomPalette` node
+  builds a palette from up to four connected color inputs; `samplePalette`
+  interpolates either form, and codegen emits a `CRGBPalette16` for custom
+  palettes (presets still map to FastLED constants). _Remaining:_ true
+  `PaletteBlend` interpolation across two palettes (it still picks A or B by
+  amount).

@@ -195,8 +195,25 @@ function evalBeatFlash(nodeId: string, beat: boolean, base: Frame | null, decay:
   )
 }
 
-function samplePalette(palette: string, t: number): RGB {
+/** A palette is either a named preset or an ordered list of custom colors. */
+export type Palette = string | RGB[]
+
+function samplePalette(palette: Palette, t: number): RGB {
   const h = ((t % 1) + 1) % 1
+  if (Array.isArray(palette)) {
+    const stops = palette
+    if (stops.length === 0) return { r: 0, g: 0, b: 0 }
+    if (stops.length === 1) return { ...stops[0] }
+    const scaled = h * (stops.length - 1)
+    const i = Math.floor(scaled)
+    const f = scaled - i
+    const a = stops[i], b = stops[Math.min(stops.length - 1, i + 1)]
+    return {
+      r: Math.round(a.r * (1 - f) + b.r * f),
+      g: Math.round(a.g * (1 - f) + b.g * f),
+      b: Math.round(a.b * (1 - f) + b.b * f),
+    }
+  }
   switch (palette) {
     case 'heat':
       if (h < 0.33) return { r: Math.round(h * 3 * 255), g: 0, b: 0 }
@@ -296,7 +313,7 @@ function evalGradientFrame(cA: RGB, cB: RGB, vertical: boolean, W = DEFAULT_W, H
   )
 }
 
-function evalSimplex2D(speed: number, scale: number, t: number, palette: string, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalSimplex2D(speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   return Array.from({ length: H }, (_, y) =>
     Array.from({ length: W }, (_, x) => {
       let v = 0, amp = 1, freq = scale
@@ -309,7 +326,7 @@ function evalSimplex2D(speed: number, scale: number, t: number, palette: string,
   )
 }
 
-function evalNoise3D(speed: number, scale: number, t: number, palette: string, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalNoise3D(speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   // 3D via two orthogonal 2D slices animated along the z (time) axis
   return Array.from({ length: H }, (_, y) =>
     Array.from({ length: W }, (_, x) => {
@@ -458,7 +475,7 @@ function evalSequencer(frames: (Frame | null)[], interval: number, fade: number,
   return blendFrame(valid[idx], valid[(idx + 1) % valid.length], m, W, H)
 }
 
-function evalCustomFormula(formula: string, a: number, b: number, palette: string, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalCustomFormula(formula: string, a: number, b: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   if (!formulaCache.has(formula)) {
     if (formulaCache.size > 50) formulaCache.clear()
     try {
@@ -487,7 +504,7 @@ function evalCustomFormula(formula: string, a: number, b: number, palette: strin
 
 // ── Main entry point ──────────────────────────────────────────────────────────
 
-type PortValue = number | boolean | string | RGB | Frame | null
+type PortValue = number | boolean | string | RGB | RGB[] | Frame | null
 
 /** A reusable pattern group: a named subgraph that a `Group` node evaluates. */
 export interface GroupDef { nodes: StudioNode[]; edges: StudioEdge[] }
@@ -545,11 +562,13 @@ export function evaluateGraph(
     return Number(input(nodeId, portId, Number(props[propKey] ?? def)))
   }
 
-  // Resolve a palette name: prefer a connected `palette` port (a string from
-  // PaletteSelector/PaletteBlend), otherwise fall back to the node's property.
-  function pal(nodeId: string, portId: string, props: Record<string, unknown>, propKey: string, def: string): string {
+  // Resolve a palette: prefer a connected `palette` port (a preset name from
+  // PaletteSelector or custom colors from CustomPalette), else the node's
+  // property (a preset name).
+  function pal(nodeId: string, portId: string, props: Record<string, unknown>, propKey: string, def: string): Palette {
     const fallback = String(props[propKey] ?? def)
     const v = input(nodeId, portId, fallback)
+    if (Array.isArray(v)) return v as RGB[]
     return typeof v === 'string' ? v : fallback
   }
 
@@ -1062,6 +1081,18 @@ export function evaluateGraph(
       case 'PaletteSelector':
         out = { palette: String(props.palette ?? 'rainbow').toLowerCase() }
         break
+
+      case 'CustomPalette': {
+        // Build a palette from connected color inputs (in order); unconnected
+        // slots are skipped. Falls back to rainbow when nothing is wired.
+        const colors: RGB[] = []
+        for (const port of ['color0', 'color1', 'color2', 'color3']) {
+          const c = input(id, port, null) as RGB | null
+          if (c) colors.push(c)
+        }
+        out = { palette: colors.length > 0 ? colors : 'rainbow' }
+        break
+      }
 
       case 'PaletteBlend': {
         // At amount=0 output paletteA, at 255 output paletteB; in between, alternate per-frame
