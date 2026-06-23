@@ -116,14 +116,14 @@ describe('generateCpp', () => {
     const cpp = generateCpp([sc, out], [edge('e', 'sc', 'out', 'frame', 'frame')])
     expect(cpp).toContain('uint16_t XY(uint8_t x, uint8_t y)')
     expect(cpp).toContain('leds[XY(_x, _y)] = buf_sc[_y * WIDTH + _x]')
-    expect(cpp).not.toContain('memmove(leds,')
+    expect(cpp).not.toContain('::memmove(leds,')
   })
 
   it('uses a straight memmove (no XY) for a progressive matrix', () => {
     const sc = node('sc', 'SolidColor', 'pattern', { r: 1, g: 2, b: 3 })
     const cpp = generateCpp([sc, outputNode], [edge('e', 'sc', 'out', 'frame', 'frame')])
     expect(cpp).not.toContain('XY(')
-    expect(cpp).toContain('memmove(leds, buf_sc, sizeof(CRGB) * NUM_LEDS)')
+    expect(cpp).toContain('::memmove(leds, buf_sc, sizeof(CRGB) * NUM_LEDS)')
   })
 
   it('emits Fire2012 heat simulation', () => {
@@ -228,7 +228,7 @@ describe('generateCpp', () => {
       edge('e3', 's', 'out', 'frame', 'frame'),
     ])
     expect(cpp).toContain('static CRGB* const _seq_s[] = { buf_a, buf_b };')
-    expect(cpp).toContain('memmove(buf_s, _seq_s[_idx], sizeof(CRGB) * NUM_LEDS)')
+    expect(cpp).toContain('::memmove(buf_s, _seq_s[_idx], sizeof(CRGB) * NUM_LEDS)')
     expect(cpp).toContain('nblend(buf_s, _seq_s[(_idx + 1) % 2], NUM_LEDS, _m)')
     expect(cpp).toContain('float t = millis()')
   })
@@ -240,7 +240,7 @@ describe('generateCpp', () => {
       edge('e1', 'a', 's', 'frame', 'p0'),
       edge('e2', 's', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('memmove(buf_s, buf_a, sizeof(CRGB) * NUM_LEDS)')
+    expect(cpp).toContain('::memmove(buf_s, buf_a, sizeof(CRGB) * NUM_LEDS)')
   })
 
   it('wires an exposed group parameter to its internal consumer', () => {
@@ -310,7 +310,7 @@ describe('generateCpp', () => {
     const rd = node('rd', 'ReactionDiffusion', 'pattern', { feed: 0.055, kill: 0.062, speed: 8, palette: 'ocean' })
     const cpp = generateCpp([rd, outputNode], [edge('e', 'rd', 'out', 'frame', 'frame')])
     expect(cpp).toContain('static float _u_rd[NUM_LEDS]')
-    expect(cpp).toContain('memcpy(_u_rd,_un_rd,sizeof(_u_rd))')
+    expect(cpp).toContain('::memcpy(_u_rd,_un_rd,sizeof(_u_rd))')
     expect(cpp).toContain('ColorFromPalette(OceanColors_p')
   })
 
@@ -368,7 +368,7 @@ describe('generateCpp', () => {
       edge('e2', 'm', 'mk', 'frame', 'mask'),
       edge('e3', 'mk', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('memmove(buf_mk, buf_w, sizeof(CRGB) * NUM_LEDS)')
+    expect(cpp).toContain('::memmove(buf_mk, buf_w, sizeof(CRGB) * NUM_LEDS)')
     expect(cpp).toContain('buf_mk[_i].nscale8((buf_m[_i].r + buf_m[_i].g + buf_m[_i].b) / 3)')
   })
 
@@ -383,9 +383,9 @@ describe('generateCpp', () => {
     ])
     expect(cpp).toContain('CRGB buf_a[NUM_LEDS];')
     expect(cpp).toContain('CRGB buf_b[NUM_LEDS];')
-    expect(cpp).toContain('memmove(buf_lb, buf_a, sizeof(CRGB) * NUM_LEDS)')
+    expect(cpp).toContain('::memmove(buf_lb, buf_a, sizeof(CRGB) * NUM_LEDS)')
     expect(cpp).toContain('nblend(buf_lb, buf_b, NUM_LEDS, (uint8_t)(128))')
-    expect(cpp).toContain('memmove(leds, buf_lb, sizeof(CRGB) * NUM_LEDS)')
+    expect(cpp).toContain('::memmove(leds, buf_lb, sizeof(CRGB) * NUM_LEDS)')
   })
 
   it('skips an unknown group reference and still emits a valid sketch', () => {
