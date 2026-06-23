@@ -698,6 +698,32 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { speed: 0.3, scale: 0.15, octaves: 4, palette: 'forest' },
   },
   {
+    // Metaballs — merging lava-lamp blobs from summed inverse-square fields.
+    type: 'Blobs',
+    label: 'Blobs',
+    category: 'pattern',
+    inputs: [
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'scale', label: 'Size', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 0.6, scale: 0.22, count: 3, palette: 'lava' },
+  },
+  {
+    // Flow field — particles drift along a noise direction field, leaving trails.
+    type: 'FlowField',
+    label: 'Flow Field',
+    category: 'pattern',
+    inputs: [
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'scale', label: 'Scale', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 1, scale: 0.08, count: 80, fade: 0.9, palette: 'ocean' },
+  },
+  {
     // Gray-Scott reaction-diffusion — organic spots/stripes that evolve.
     type: 'ReactionDiffusion',
     label: 'Reaction Diffusion',
@@ -908,6 +934,8 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Noise3D: 'Animated 3D-style noise through a palette.',
   Worley: 'Cellular (Voronoi) noise.',
   FractalNoise: 'Fractal (fBm) noise — summed octaves, cloud-like.',
+  Blobs: 'Metaballs — merging lava-lamp blobs.',
+  FlowField: 'Particles drifting along a noise flow field, with trails.',
   ReactionDiffusion: 'Gray-Scott reaction-diffusion — organic spots & stripes.',
   GameOfLife: 'Conway’s Game of Life with fading trails.',
   PatternMaster: 'Cycles up to four patterns (time or beat).',
