@@ -203,6 +203,8 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
     if (up) {
       const src = nodeMap.get(up.srcId)
       if (src) {
+        // A CustomPalette source builds a runtime CRGBPalette16 (see its emit).
+        if (src.data.nodeType === 'CustomPalette') return `pal_${safeId(up.srcId)}`
         const sp = props(src)
         const name = src.data.nodeType === 'PaletteBlend' ? sp.paletteA : sp.palette
         return fastledPalette(String(name ?? 'rainbow'))
@@ -730,6 +732,17 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       case 'PaletteSelector':
         ln(`  // PaletteSelector — drives ${fastledPalette(String(p.palette ?? 'rainbow'))} in connected palette-consuming nodes`)
         break
+
+      case 'CustomPalette': {
+        // Build a CRGBPalette16 from connected colors (CRGBPalette16 has 1–4 and
+        // 16 colour constructors); consumers reference pal_<id> via paletteExpr.
+        const cols = ['color0', 'color1', 'color2', 'color3']
+          .filter((port) => incoming.get(`${node.id}:${port}`))
+          .map((port) => colorExpr(node.id, port))
+        if (cols.length === 0) ln(`  CRGBPalette16 pal_${id} = RainbowColors_p;`)
+        else ln(`  CRGBPalette16 pal_${id}(${cols.join(', ')});`)
+        break
+      }
 
       case 'PaletteBlend':
         ln(`  // PaletteBlend — nblendPaletteTowardPalette(paletteA, paletteB, (uint8_t)(${f('amount','amount',0.5)}*255));`)

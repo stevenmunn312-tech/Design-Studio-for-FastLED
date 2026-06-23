@@ -148,6 +148,28 @@ describe('evaluateGraph', () => {
     expect(frame![3][3]).toEqual({ r: 0, g: 0, b: 0 })
   })
 
+  it('a CustomPalette drives a pattern node differently than a preset', () => {
+    const c1 = node('c1', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })
+    const c2 = node('c2', 'CHSV', 'color', { hue: 160, sat: 255, val: 255 })
+    const cp = node('cp', 'CustomPalette', 'color', {})
+    const sx = node('sx', 'Simplex2D', 'pattern', { palette: 'rainbow' })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const wired = evaluateGraph(
+      [c1, c2, cp, sx, out],
+      [
+        edge('e1', 'c1', 'rgb', 'cp', 'color0'),
+        edge('e2', 'c2', 'rgb', 'cp', 'color1'),
+        edge('e3', 'cp', 'palette', 'sx', 'paletteIn'),
+        edge('e4', 'sx', 'frame', 'out', 'frame'),
+      ], 0, 4, 4,
+    )
+    const presetOnly = evaluateGraph(
+      [node('sx', 'Simplex2D', 'pattern', { palette: 'rainbow' }), out],
+      [edge('e', 'sx', 'frame', 'out', 'frame')], 0, 4, 4,
+    )
+    expect(wired).not.toEqual(presetOnly)   // custom colors changed the output
+  })
+
   it('Simplex2D uses a connected palette over its own property', () => {
     // Baseline: Simplex2D with palette property 'heat', no connection.
     const heatProp = evaluateGraph(
