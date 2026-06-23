@@ -1,5 +1,6 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
+import { FONT_H, textColumns } from '../state/font'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -351,6 +352,31 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         ln(`  ${seedFrom('base')}`)
         if (x1 > x0 && y1 > y0)
           ln(`  for (int _y = ${y0}; _y < ${y1}; _y++) for (int _x = ${x0}; _x < ${x1}; _x++) ${ob}[_y * WIDTH + _x] = ${colorE};`)
+        break
+      }
+
+      case 'Text': {
+        const ob = ownBuf()
+        const text = String(p.text ?? 'HELLO')
+        const cols = textColumns(text)
+        const sx = Math.floor(Number(p.x ?? 0)), sy = Math.floor(Number(p.y ?? 0))
+        const dynamic = !!incoming.get(`${node.id}:scroll`) || Number(p.scroll ?? 0) !== 0
+        const colorE = incoming.get(`${node.id}:color`)
+          ? colorExpr(node.id, 'color')
+          : `CRGB(${Number(p.r ?? 0)}, ${Number(p.g ?? 255)}, ${Number(p.b ?? 255)})`
+        ln(`  { // Text "${text.replace(/[^ -~]/g, '?')}"`)
+        ln(`    static const uint8_t _txt_${id}[] = {${cols.join(',')}};`)
+        ln(`    const int _tn_${id} = ${cols.length};`)
+        ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
+        if (dynamic) {
+          needsT.v = true
+          ln(`    int _tot = _tn_${id} + WIDTH, _off = (((int)(t * (${f('scroll', 'scroll', 0)})) % _tot) + _tot) % _tot;`)
+        } else {
+          ln(`    int _off = 0;`)
+        }
+        ln(`    for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - ${sx} + _off; if (_ci < 0 || _ci >= _tn_${id}) continue; uint8_t _col = _txt_${id}[_ci];`)
+        ln(`      for (int _r = 0; _r < ${FONT_H}; _r++) if (_col & (1 << _r)) { int _yy = ${sy} + _r; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
+        ln(`  }`)
         break
       }
 

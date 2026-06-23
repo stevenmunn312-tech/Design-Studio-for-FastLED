@@ -131,8 +131,11 @@ where it is needed.
   group through preview and codegen — which is also how hardware-driven
   transitions are built. Phase 3 complete.
 - **Phase 4 — Expansion.** _In progress._ A `Mask` node scales a frame
-  per-pixel by a mask frame's luminance, so any soft frame (gradient, radial)
-  gives feathered edges. _Remaining:_ text nodes and additional shapes.
+  per-pixel by a mask frame's luminance (any soft frame gives feathered edges).
+  A `Text` node renders with a built-in 3×5 bitmap font (`src/state/font.ts`,
+  shared by evaluator + codegen) and can scroll; the font is plain data so a
+  custom font drops in without other changes. _Remaining:_ additional shapes
+  and a custom-font input/upload UI.
 
 ## Open questions
 
