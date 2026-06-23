@@ -258,6 +258,20 @@ describe('evaluateGraph', () => {
     expect(mk()).toEqual(frame)          // deterministic at a fixed tick
   })
 
+  it('GameOfLife produces a frame and steps without throwing', () => {
+    const gol = node('g', 'GameOfLife', 'pattern', { speed: 60, fade: 0, r: 0, g: 255, b: 0 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [edge('e', 'g', 'frame', 'out', 'frame')]
+    // fade=0 → live cells are green, dead are pure black; advance several steps.
+    let frame = evaluateGraph([gol, out], edges, 0, 12, 12)!
+    expect(frame.length).toBe(12)
+    for (let i = 1; i <= 10; i++) frame = evaluateGraph([gol, out], edges, i, 12, 12)!
+    // every pixel is either off or the live color (fade 0, no trails)
+    const ok = frame.every((row) => row.every((px) =>
+      (px.r === 0 && px.g === 0 && px.b === 0) || (px.g === 255 && px.r === 0 && px.b === 0)))
+    expect(ok).toBe(true)
+  })
+
   it('ReactionDiffusion seeds a non-uniform field that evolves over frames', () => {
     const rd  = node('rd', 'ReactionDiffusion', 'pattern', { feed: 0.055, kill: 0.062, speed: 8, palette: 'ocean' })
     const out = node('out', 'MatrixOutput', 'output', {})

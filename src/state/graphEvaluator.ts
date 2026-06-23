@@ -21,6 +21,9 @@ const patternMasterState = new Map<string, { idx: number; lastBeat: boolean }>()
 interface RDState { u: Float32Array; v: Float32Array; un: Float32Array; vn: Float32Array; w: number; h: number }
 const rdState = new Map<string, RDState>()
 
+interface GolState { cells: Uint8Array; next: Uint8Array; bright: Float32Array; w: number; h: number; lastStep: number; stale: number }
+const golState = new Map<string, GolState>()
+
 type FormulaFn = (x: number, y: number, t: number, W: number, H: number, a: number, b: number) => number
 const formulaCache = new Map<string, FormulaFn | null>()
 
@@ -432,6 +435,47 @@ function evalReactionDiffusion(nodeId: string, feed: number, kill: number, iters
   const v = s.v
   return Array.from({ length: H }, (_, y) =>
     Array.from({ length: W }, (_, x) => samplePalette(palette, v[y * W + x]))
+  )
+}
+
+// Conway's Game of Life on a toroidal grid. Live cells glow in `color`; dead
+// cells fade out (trails). Steps at `speed`/sec and reseeds when it stagnates.
+function evalGameOfLife(nodeId: string, color: RGB, speed: number, fade: number, tick: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const N = W * H
+  const seed = (cells: Uint8Array) => { for (let i = 0; i < N; i++) cells[i] = Math.random() < 0.3 ? 1 : 0 }
+  let s = golState.get(nodeId)
+  if (!s || s.w !== W || s.h !== H) {
+    const cells = new Uint8Array(N); seed(cells)
+    s = { cells, next: new Uint8Array(N), bright: new Float32Array(N), w: W, h: H, lastStep: -1e9, stale: 0 }
+    golState.set(nodeId, s)
+  }
+  const interval = Math.max(1, Math.round(60 / Math.max(1, Math.min(60, speed))))
+  if (tick - s.lastStep >= interval) {
+    const { cells, next } = s
+    let pop = 0, changed = false
+    for (let y = 0; y < H; y++) {
+      const ym = ((y - 1 + H) % H) * W, yp = ((y + 1) % H) * W, yr = y * W
+      for (let x = 0; x < W; x++) {
+        const xm = (x - 1 + W) % W, xp = (x + 1) % W, i = yr + x
+        const n = cells[ym + xm] + cells[ym + x] + cells[ym + xp] + cells[yr + xm]
+          + cells[yr + xp] + cells[yp + xm] + cells[yp + x] + cells[yp + xp]
+        const nv = cells[i] ? (n === 2 || n === 3 ? 1 : 0) : (n === 3 ? 1 : 0)
+        next[i] = nv; pop += nv; if (nv !== cells[i]) changed = true
+      }
+    }
+    s.cells = next; s.next = cells   // swap
+    s.stale = (pop === 0 || !changed) ? s.stale + 1 : 0
+    if (s.stale > 3) { seed(s.cells); s.stale = 0 }
+    s.lastStep = tick
+  }
+  const { cells, bright } = s
+  const f = Math.max(0, Math.min(1, fade))
+  for (let i = 0; i < N; i++) bright[i] = cells[i] ? 1 : bright[i] * f
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const b = bright[y * W + x]
+      return { r: Math.round(color.r * b), g: Math.round(color.g * b), b: Math.round(color.b * b) }
+    })
   )
 }
 
@@ -1181,6 +1225,19 @@ export function evaluateGraph(
         const iters = Math.max(1, Math.min(20, Math.floor(Number(props.speed ?? 8))))
         const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
         out = { frame: evalReactionDiffusion(stateKey(id), feed, kill, iters, palette, W, H) }
+        break
+      }
+
+      case 'GameOfLife': {
+        const colorIn = input(id, 'color', null) as RGB | null
+        const color = colorIn ?? {
+          r: byte(Number(props.r ?? 0)   / 255),
+          g: byte(Number(props.g ?? 255) / 255),
+          b: byte(Number(props.b ?? 70)  / 255),
+        }
+        const speed = num(id, 'speed', props, 'speed', 8)
+        const fade = Number(props.fade ?? 0.75)
+        out = { frame: evalGameOfLife(stateKey(id), color, speed, fade, tick, W, H) }
         break
       }
 
