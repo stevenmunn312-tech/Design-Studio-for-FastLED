@@ -203,11 +203,10 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
     if (up) {
       const src = nodeMap.get(up.srcId)
       if (src) {
-        // A CustomPalette source builds a runtime CRGBPalette16 (see its emit).
-        if (src.data.nodeType === 'CustomPalette') return `pal_${safeId(up.srcId)}`
-        const sp = props(src)
-        const name = src.data.nodeType === 'PaletteBlend' ? sp.paletteA : sp.palette
-        return fastledPalette(String(name ?? 'rainbow'))
+        // CustomPalette and PaletteBlend build a runtime CRGBPalette16 (see
+        // their emit cases); reference it by name.
+        if (src.data.nodeType === 'CustomPalette' || src.data.nodeType === 'PaletteBlend') return `pal_${safeId(up.srcId)}`
+        return fastledPalette(String(props(src).palette ?? 'rainbow'))
       }
     }
     return fastledPalette(String(nodeProps.palette ?? 'rainbow'))
@@ -744,9 +743,16 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
-      case 'PaletteBlend':
-        ln(`  // PaletteBlend — nblendPaletteTowardPalette(paletteA, paletteB, (uint8_t)(${f('amount','amount',0.5)}*255));`)
+      case 'PaletteBlend': {
+        // Build a CRGBPalette16 by blending both palettes entry-by-entry.
+        const a = paletteExpr(node.id, 'paletteA', { palette: p.paletteA })
+        const b = paletteExpr(node.id, 'paletteB', { palette: p.paletteB })
+        const amt = f('amount', 'amount', 128)
+        ln(`  CRGBPalette16 pal_${id};`)
+        ln(`  { uint8_t _amt = (uint8_t)(${amt}); for (int _i = 0; _i < 16; _i++) { uint8_t _p = (uint8_t)(_i * 255 / 15);`)
+        ln(`    pal_${id}[_i] = blend(ColorFromPalette(${a}, _p), ColorFromPalette(${b}, _p), _amt); } }`)
         break
+      }
 
       case 'BeatSin': {
         const bpm = Number(p.bpm ?? 60), lo = Number(p.low ?? 0), hi = Number(p.high ?? 255)

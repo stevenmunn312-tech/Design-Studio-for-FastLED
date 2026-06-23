@@ -270,6 +270,18 @@ describe('generateCpp', () => {
     expect(cpp).toContain('n_pot_value')
   })
 
+  it('emits a blended CRGBPalette16 for PaletteBlend', () => {
+    const pb = node('pb', 'PaletteBlend', 'color', { paletteA: 'heat', paletteB: 'ocean', amount: 128 })
+    const sx = node('sx', 'Simplex2D', 'pattern', {})
+    const cpp = generateCpp([pb, sx, outputNode], [
+      edge('e1', 'pb', 'sx', 'palette', 'paletteIn'),
+      edge('e2', 'sx', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('CRGBPalette16 pal_pb;')
+    expect(cpp).toContain('blend(ColorFromPalette(HeatColors_p, _p), ColorFromPalette(OceanColors_p, _p), _amt)')
+    expect(cpp).toContain('ColorFromPalette(pal_pb,')
+  })
+
   it('builds a CRGBPalette16 from a CustomPalette and uses it downstream', () => {
     const c1 = node('c1', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })
     const c2 = node('c2', 'CHSV', 'color', { hue: 120, sat: 255, val: 255 })

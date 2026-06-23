@@ -560,7 +560,11 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'PaletteBlend',
     label: 'Blend Palettes',
     category: 'color',
-    inputs: [{ id: 'amount', label: 'Amount', dataType: 'float' }],
+    inputs: [
+      { id: 'paletteA', label: 'Palette A', dataType: 'palette' },
+      { id: 'paletteB', label: 'Palette B', dataType: 'palette' },
+      { id: 'amount', label: 'Amount', dataType: 'float' },
+    ],
     outputs: [{ id: 'palette', label: 'Palette', dataType: 'palette' }],
     defaultProperties: { paletteA: 'rainbow', paletteB: 'ocean', amount: 128 },
   },

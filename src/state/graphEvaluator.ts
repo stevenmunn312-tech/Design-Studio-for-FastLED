@@ -1095,11 +1095,21 @@ export function evaluateGraph(
       }
 
       case 'PaletteBlend': {
-        // At amount=0 output paletteA, at 255 output paletteB; in between, alternate per-frame
-        const amount = num(id, 'amount', props, 'amount', 128) / 255
-        const palA = String(props.paletteA ?? 'rainbow').toLowerCase()
-        const palB = String(props.paletteB ?? 'ocean').toLowerCase()
-        out = { palette: amount < 0.5 ? palA : palB }
+        // Sample both palettes at 16 stops and lerp per entry → a real blend.
+        const amount = Math.max(0, Math.min(1, num(id, 'amount', props, 'amount', 128) / 255))
+        const palA = pal(id, 'paletteA', props, 'paletteA', 'rainbow')
+        const palB = pal(id, 'paletteB', props, 'paletteB', 'ocean')
+        const stops: RGB[] = []
+        for (let i = 0; i < 16; i++) {
+          const ti = i / 15
+          const ca = samplePalette(palA, ti), cb = samplePalette(palB, ti)
+          stops.push({
+            r: Math.round(ca.r * (1 - amount) + cb.r * amount),
+            g: Math.round(ca.g * (1 - amount) + cb.g * amount),
+            b: Math.round(ca.b * (1 - amount) + cb.b * amount),
+          })
+        }
+        out = { palette: stops }
         break
       }
 
