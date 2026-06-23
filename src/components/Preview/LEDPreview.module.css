@@ -59,11 +59,23 @@
   overflow: auto;
 }
 
+/* 3D mode: orbit the matrix panel in perspective (drag to rotate). */
+.canvasWrap3d {
+  perspective: 900px;
+  align-items: center;
+  overflow: hidden;
+}
+
 .canvas {
   display: block;
   background: #14181d;
   border-radius: 4px;
   image-rendering: pixelated;
+  transition: transform 0.05s linear;
+}
+
+.canvasWrap3d .canvas {
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6);
 }
 
 .visualizer {

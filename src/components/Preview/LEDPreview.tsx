@@ -83,6 +83,25 @@ export default function LEDPreview() {
   const pixelRef = useRef(pixel)
   useEffect(() => { gridWRef.current = gridW; gridHRef.current = gridH; pixelRef.current = pixel }, [gridW, gridH, pixel])
 
+  const preview3d = useUiStore((s) => s.preview3d)
+  const togglePreview3d = useUiStore((s) => s.togglePreview3d)
+  // Orbit angles for 3D mode (degrees): pitch about X, yaw about Y.
+  const [rot, setRot] = useState({ x: 50, y: 0 })
+  const drag = useRef<{ x: number; y: number } | null>(null)
+
+  const onRotateDown = (e: React.PointerEvent) => {
+    if (!preview3d) return
+    drag.current = { x: e.clientX, y: e.clientY }
+    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+  }
+  const onRotateMove = (e: React.PointerEvent) => {
+    if (!drag.current) return
+    const dx = e.clientX - drag.current.x, dy = e.clientY - drag.current.y
+    drag.current = { x: e.clientX, y: e.clientY }
+    setRot((r) => ({ x: Math.max(0, Math.min(90, r.x - dy * 0.5)), y: r.y + dx * 0.5 }))
+  }
+  const onRotateUp = () => { drag.current = null }
+
   const { active: audioActive, spectrum, startAudio, stopAudio } = useAudioStore()
   const spectrumRef = useRef(spectrum)
   useEffect(() => { spectrumRef.current = spectrum }, [spectrum])
@@ -154,6 +173,13 @@ export default function LEDPreview() {
         <span>LED Preview</span>
         <div className={styles.headerRight}>
           <button
+            className={`${styles.micBtn} ${preview3d ? styles.micActive : ''}`}
+            onClick={togglePreview3d}
+            title={preview3d ? 'Switch to 2D view' : 'Switch to 3D view (drag to orbit)'}
+          >
+            {preview3d ? '3D' : '2D'}
+          </button>
+          <button
             className={`${styles.micBtn} ${audioActive ? styles.micActive : ''}`}
             onClick={toggleMic}
             title={audioActive ? 'Stop microphone' : 'Start microphone'}
@@ -163,12 +189,17 @@ export default function LEDPreview() {
           <span className={styles.fps}>{fps} fps</span>
         </div>
       </div>
-      <div className={styles.canvasWrap}>
+      <div className={`${styles.canvasWrap} ${preview3d ? styles.canvasWrap3d : ''}`}>
         <canvas
           ref={canvasRef}
           width={gridW * pixel}
           height={gridH * pixel}
           className={styles.canvas}
+          style={preview3d ? { transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg)`, cursor: drag.current ? 'grabbing' : 'grab' } : undefined}
+          onPointerDown={onRotateDown}
+          onPointerMove={onRotateMove}
+          onPointerUp={onRotateUp}
+          onPointerCancel={onRotateUp}
         />
       </div>
       {audioActive && (

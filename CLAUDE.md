@@ -91,6 +91,8 @@ Stateful nodes (`Fire`, `Fire2012`, `BeatFlash`, `Counter`, `Particles`, `Patter
 
 **Groups (ADR 0001):** `evaluateGraph(nodes, edges, tick, W, H, groups)` takes an optional group registry. A `Group` node recurses into `groups[groupId]` (a subgraph) and returns the frame from that subgraph's `GroupOutput` terminal; a `groupStack` breaks group-level recursion. The `instancePrefix`/`groupStack` params are internal recursion bookkeeping — callers leave them defaulted.
 
+A **3D view** toggle (`uiStore.preview3d`) wraps the canvas in a CSS `perspective` container and applies a drag-driven `rotateX/rotateY` to orbit the matrix panel — no Three.js or renderer changes; the canvas content is still drawn the same way each frame.
+
 **`src/components/Preview/webglRenderer.ts`** — `WebGLLEDRenderer` uploads the frame as a texture and renders via a GLSL fragment shader. The shader draws each LED as a smooth circular disc with a 5×5-neighbor glow contribution. Y is flipped in the shader (`u_res.y - gl_FragCoord.y`) to match the JS frame's top-left origin. Falls back to Canvas 2D if WebGL is unavailable.
 
 ### Audio Pipeline
