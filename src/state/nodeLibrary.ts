@@ -649,6 +649,20 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { mode: 'cycle', interval: 4.0 },
   },
+  {
+    // Timeline-as-a-node: cycles its inputs with a timed crossfade.
+    type: 'Sequencer',
+    label: 'Sequencer',
+    category: 'composite',
+    inputs: [
+      { id: 'p0', label: 'Pattern 1', dataType: 'frame' },
+      { id: 'p1', label: 'Pattern 2', dataType: 'frame' },
+      { id: 'p2', label: 'Pattern 3', dataType: 'frame' },
+      { id: 'p3', label: 'Pattern 4', dataType: 'frame' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { interval: 4.0, fade: 1.0 },
+  },
 
   // ── Custom Formula ────────────────────────────────────────────────────
   {
