@@ -297,6 +297,21 @@ describe('generateCpp', () => {
     expect(cpp).toContain('ColorFromPalette(pal_cp,')
   })
 
+  it('emits a Circle distance test', () => {
+    const c = node('c', 'Circle', 'pattern', { cx: 4, cy: 4, radius: 3, filled: false, r: 255, g: 0, b: 0 })
+    const cpp = generateCpp([c, outputNode], [edge('e', 'c', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('sqrtf((_x - 4) * (_x - 4) + (_y - 4) * (_y - 4))')
+    expect(cpp).toContain('fabsf(_d - 3) < 0.5f')
+    expect(cpp).toContain('CRGB(255, 0, 0)')
+  })
+
+  it('emits a Bresenham loop for a Line', () => {
+    const l = node('l', 'Line', 'pattern', { x1: 0, y1: 0, x2: 7, y2: 7, r: 0, g: 200, b: 255 })
+    const cpp = generateCpp([l, outputNode], [edge('e', 'l', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('int _x0 = 0, _y0 = 0, _dx = abs(7 - _x0)')
+    expect(cpp).toContain('CRGB(0, 200, 255)')
+  })
+
   it('emits a Text node with embedded font columns', () => {
     const txt = node('t', 'Text', 'pattern', { text: 'HI', x: 1, y: 1, scroll: 0, r: 0, g: 255, b: 0 })
     const cpp = generateCpp([txt, outputNode], [edge('e', 't', 'out', 'frame', 'frame')])

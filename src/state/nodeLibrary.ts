@@ -80,6 +80,30 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { text: 'HELLO', x: 1, y: 1, scroll: 0, r: 0, g: 255, b: 255 },
   },
   {
+    // Draws a circle (ring, or filled disc) over an optional base frame.
+    type: 'Circle',
+    label: 'Circle',
+    category: 'pattern',
+    inputs: [
+      { id: 'base',  label: 'Base',  dataType: 'frame' },
+      { id: 'color', label: 'Color', dataType: 'color' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { cx: 8, cy: 8, radius: 6, filled: false, r: 255, g: 0, b: 128 },
+  },
+  {
+    // Draws a line between two points over an optional base frame.
+    type: 'Line',
+    label: 'Line',
+    category: 'pattern',
+    inputs: [
+      { id: 'base',  label: 'Base',  dataType: 'frame' },
+      { id: 'color', label: 'Color', dataType: 'color' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { x1: 0, y1: 0, x2: 15, y2: 15, r: 0, g: 200, b: 255 },
+  },
+  {
     type: 'NoiseField',
     label: 'Noise Field',
     category: 'pattern',
