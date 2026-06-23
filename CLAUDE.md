@@ -35,7 +35,7 @@ Tests use vitest with `globals: true` and the `jsdom` environment (configured in
 - **@xyflow/react v12** — node graph canvas, handles, edges, minimap
 - **Zustand v5** — all app state (`graphStore`, `uiStore`, `audioStore`); uses `subscribeWithSelector`
 - No Tailwind; styling is pure CSS variables defined in `src/themes/tokens.css`
-- **Vitest** (jsdom) for unit tests; **vite-plugin-pwa** generates an auto-updating service worker so the app is installable/offline-capable
+- **Vitest** (jsdom) for unit tests, with **@testing-library/react** for component tests (e.g. `StudioNode` — stub `<Handle>` since it needs flow context); **vite-plugin-pwa** generates an auto-updating service worker so the app is installable/offline-capable
 
 ## Architecture
 
