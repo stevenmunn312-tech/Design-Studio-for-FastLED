@@ -177,6 +177,9 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
   const loopLines: string[] = []
   const needsMapFloat: boolean[] = [false]
   const needsT = { v: false }
+  // Frame-producing nodes each render into their own CRGB buffer, so multiple
+  // layers can coexist and be composited. Collected here, declared as globals.
+  const frameBufs = new Set<string>()
 
   function emit(node: StudioNode): void {
     const id = safeId(node.id)
@@ -186,6 +189,22 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
     const ln = (s: string) => loopLines.push(s)
     const v = (port: string) => `n_${id}_${port}`
     const f = (port: string, pk: string, def: number) => floatExpr(node.id, port, p, pk, def)
+
+    // This node's own frame buffer (registers it for global declaration).
+    const fbuf = `buf_${id}`
+    const ownBuf = () => { frameBufs.add(id); return fbuf }
+    // The buffer of the node feeding `port`, or null if unconnected.
+    const srcBuf = (port: string): string | null => {
+      const up = incoming.get(`${node.id}:${port}`)
+      if (!up) return null
+      frameBufs.add(safeId(up.srcId))
+      return `buf_${safeId(up.srcId)}`
+    }
+    // A statement that seeds `fbuf` from a frame input (or black if unwired).
+    const seedFrom = (port: string) => {
+      const s = srcBuf(port)
+      return s ? `memmove(${fbuf}, ${s}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${fbuf}, NUM_LEDS, CRGB::Black);`
+    }
 
     switch (type) {
       case 'TimeNode':
@@ -261,13 +280,14 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
 
       case 'SolidColor': {
+        const ob = ownBuf()
         const r = Number(p.r ?? 255), g = Number(p.g ?? 0), b = Number(p.b ?? 128)
-        ln(`  fill_solid(leds, NUM_LEDS, CRGB(${r}, ${g}, ${b}));`)
+        ln(`  fill_solid(${ob}, NUM_LEDS, CRGB(${r}, ${g}, ${b}));`)
         break
       }
 
       case 'Span': {
-        // Paints over whatever earlier nodes wrote to leds[] (the implicit base).
+        const ob = ownBuf()
         const colorE = incoming.get(`${node.id}:color`)
           ? colorExpr(node.id, 'color')
           : `CRGB(${Number(p.r ?? 0)}, ${Number(p.g ?? 128)}, ${Number(p.b ?? 255)})`
@@ -275,12 +295,14 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         const start = Math.floor(Number(p.start ?? 0))
         const count = Math.floor(Number(p.count ?? width))
         const x0 = Math.max(0, start), x1 = Math.min(width, start + count)
+        ln(`  ${seedFrom('base')}`)
         if (row >= 0 && row < height && x1 > x0)
-          ln(`  for (int _x = ${x0}; _x < ${x1}; _x++) leds[${row} * WIDTH + _x] = ${colorE};`)
+          ln(`  for (int _x = ${x0}; _x < ${x1}; _x++) ${ob}[${row} * WIDTH + _x] = ${colorE};`)
         break
       }
 
       case 'Rect': {
+        const ob = ownBuf()
         const colorE = incoming.get(`${node.id}:color`)
           ? colorExpr(node.id, 'color')
           : `CRGB(${Number(p.r ?? 0)}, ${Number(p.g ?? 128)}, ${Number(p.b ?? 255)})`
@@ -288,20 +310,22 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         const rw = Math.floor(Number(p.w ?? width)), rh = Math.floor(Number(p.h ?? height))
         const x0 = Math.max(0, rx), x1 = Math.min(width, rx + rw)
         const y0 = Math.max(0, ry), y1 = Math.min(height, ry + rh)
+        ln(`  ${seedFrom('base')}`)
         if (x1 > x0 && y1 > y0)
-          ln(`  for (int _y = ${y0}; _y < ${y1}; _y++) for (int _x = ${x0}; _x < ${x1}; _x++) leds[_y * WIDTH + _x] = ${colorE};`)
+          ln(`  for (int _y = ${y0}; _y < ${y1}; _y++) for (int _x = ${x0}; _x < ${x1}; _x++) ${ob}[_y * WIDTH + _x] = ${colorE};`)
         break
       }
 
       case 'NoiseField': {
         needsT.v = true
+        const ob = ownBuf()
         const speed = f('speed', 'speed', 1)
         const scale = f('scale', 'scale', 1)
         ln(`  {`)
         ln(`    float _spd = ${speed}, _scl = ${scale};`)
         ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
         ln(`      float _v = (sin(_x * _scl * 0.5f + t * _spd) + cos(_y * _scl * 0.5f + t * _spd * 0.7f)) / 2.0f;`)
-        ln(`      leds[_y * WIDTH + _x] = CHSV((uint8_t)((_v + 1) * 90 + t * 30), 255, 220);`)
+        ln(`      ${ob}[_y * WIDTH + _x] = CHSV((uint8_t)((_v + 1) * 90 + t * 30), 255, 220);`)
         ln(`    }`)
         ln(`  }`)
         break
@@ -309,6 +333,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
 
       case 'Plasma': {
         needsT.v = true
+        const ob = ownBuf()
         const speed = f('speed', 'speed', 1)
         ln(`  {`)
         ln(`    float _spd = ${speed};`)
@@ -316,44 +341,48 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         ln(`      float _v = sin(_x / 3.0f + t * _spd) + sin(_y / 3.0f + t * _spd * 0.8f)`)
         ln(`              + sin((_x + _y) / 5.0f + t * _spd * 0.6f)`)
         ln(`              + sin(sqrt((_x - WIDTH/2.0f)*(_x - WIDTH/2.0f) + (_y - HEIGHT/2.0f)*(_y - HEIGHT/2.0f)) / 3.0f + t * _spd * 0.5f);`)
-        ln(`      leds[_y * WIDTH + _x] = CHSV((uint8_t)(_v * 45 + t * 20), 255, 230);`)
+        ln(`      ${ob}[_y * WIDTH + _x] = CHSV((uint8_t)(_v * 45 + t * 20), 255, 230);`)
         ln(`    }`)
         ln(`  }`)
         break
       }
 
       case 'Fire': {
-        ln(`  // Fire pattern — static heat array`)
-        ln(`  {`)
-        ln(`    static uint8_t heat[HEIGHT][WIDTH];`)
+        const ob = ownBuf()
+        ln(`  { // Fire pattern`)
+        ln(`    static uint8_t heat_${id}[HEIGHT][WIDTH];`)
         ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++)`)
-        ln(`      heat[_y][_x] = qsub8(heat[_y][_x], random8(0, 55));`)
+        ln(`      heat_${id}[_y][_x] = qsub8(heat_${id}[_y][_x], random8(0, 55));`)
         ln(`    for (int _y = 0; _y < HEIGHT - 1; _y++) for (int _x = 0; _x < WIDTH; _x++)`)
-        ln(`      heat[_y][_x] = (heat[_y][_x] + heat[_y+1][max(0,_x-1)] + heat[_y+1][_x] + heat[_y+1][min(WIDTH-1,_x+1)]) / 4;`)
+        ln(`      heat_${id}[_y][_x] = (heat_${id}[_y][_x] + heat_${id}[_y+1][max(0,_x-1)] + heat_${id}[_y+1][_x] + heat_${id}[_y+1][min(WIDTH-1,_x+1)]) / 4;`)
         ln(`    for (int _x = 0; _x < WIDTH; _x++)`)
-        ln(`      if (random8() < 120) heat[HEIGHT-1][_x] = random8(200, 255);`)
+        ln(`      if (random8() < 120) heat_${id}[HEIGHT-1][_x] = random8(200, 255);`)
         ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
-        ln(`      uint8_t h = heat[_y][_x];`)
-        ln(`      leds[_y * WIDTH + _x] = h < 85 ? CRGB(h * 3, 0, 0) : h < 170 ? CRGB(255, (h-85)*3, 0) : CRGB(255, 255, (h-170)*3);`)
+        ln(`      uint8_t h = heat_${id}[_y][_x];`)
+        ln(`      ${ob}[_y * WIDTH + _x] = h < 85 ? CRGB(h * 3, 0, 0) : h < 170 ? CRGB(255, (h-85)*3, 0) : CRGB(255, 255, (h-170)*3);`)
         ln(`    }`)
         ln(`  }`)
         break
       }
 
-      case 'SpectrumBars':
+      case 'SpectrumBars': {
+        const ob = ownBuf()
         ln(`  // SpectrumBars — wire bass/mids/treble from your audio source`)
-        ln(`  fill_solid(leds, NUM_LEDS, CRGB::Black);`)
+        ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
         break
+      }
 
       case 'BassPulse': {
+        const ob = ownBuf()
         const r = Number(p.r ?? 255), g = Number(p.g ?? 0), b = Number(p.b ?? 80)
         const bass = f('bass', 'bass', 0.5)
-        ln(`  { float _b = ${bass}; fill_solid(leds, NUM_LEDS, CRGB((uint8_t)(${r} * _b), (uint8_t)(${g} * _b), (uint8_t)(${b} * _b))); }`)
+        ln(`  { float _b = ${bass}; fill_solid(${ob}, NUM_LEDS, CRGB((uint8_t)(${r} * _b), (uint8_t)(${g} * _b), (uint8_t)(${b} * _b))); }`)
         break
       }
 
       case 'MidrangeWaves': {
         needsT.v = true
+        const ob = ownBuf()
         const mids = f('mids', 'mids', 0.5)
         const speed = f('speed', 'speed', 1)
         ln(`  {`)
@@ -361,107 +390,124 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
         ln(`      float _w = sin(_x * 0.8f + t * _spd * 4) * sin(_y * 0.5f + t * _spd * 2.5f);`)
         ln(`      float _v = (_w + 1) / 2.0f * (0.3f + _m * 0.7f);`)
-        ln(`      leds[_y * WIDTH + _x] = CHSV((uint8_t)(200 + _w * 40), 255, (uint8_t)(_v * 255));`)
+        ln(`      ${ob}[_y * WIDTH + _x] = CHSV((uint8_t)(200 + _w * 40), 255, (uint8_t)(_v * 255));`)
         ln(`    }`)
         ln(`  }`)
         break
       }
 
       case 'TrebleSparks': {
+        const ob = ownBuf()
         const treble = f('treble', 'treble', 0.5)
         const density = f('density', 'density', 0.5)
         ln(`  {`)
         ln(`    float _t = ${treble}, _d = ${density};`)
         ln(`    float _thresh = (1.0f - _d * _t) * 255;`)
         ln(`    for (int _i = 0; _i < NUM_LEDS; _i++)`)
-        ln(`      if (random8() > _thresh) leds[_i] = CHSV(random8(180, 240), random8(150, 255), random8() * _t);`)
-        ln(`      else leds[_i] = CRGB::Black;`)
+        ln(`      if (random8() > _thresh) ${ob}[_i] = CHSV(random8(180, 240), random8(150, 255), random8() * _t);`)
+        ln(`      else ${ob}[_i] = CRGB::Black;`)
         ln(`  }`)
         break
       }
 
       case 'BeatFlash': {
+        const ob = ownBuf()
         const beat = boolExpr(node.id, 'beat')
         const decay = f('decay', 'decay', 0.85)
         ln(`  {`)
-        ln(`    static float _flash = 0;`)
-        ln(`    if (${beat}) _flash = 1.0f; else _flash *= ${decay};`)
+        ln(`    ${seedFrom('frame')}`)
+        ln(`    static float _flash_${id} = 0;`)
+        ln(`    if (${beat}) _flash_${id} = 1.0f; else _flash_${id} *= ${decay};`)
         ln(`    for (int _i = 0; _i < NUM_LEDS; _i++) {`)
-        ln(`      leds[_i].r = qadd8(leds[_i].r, (uint8_t)((255 - leds[_i].r) * _flash));`)
-        ln(`      leds[_i].g = qadd8(leds[_i].g, (uint8_t)((255 - leds[_i].g) * _flash));`)
-        ln(`      leds[_i].b = qadd8(leds[_i].b, (uint8_t)((255 - leds[_i].b) * _flash));`)
+        ln(`      ${ob}[_i].r = qadd8(${ob}[_i].r, (uint8_t)((255 - ${ob}[_i].r) * _flash_${id}));`)
+        ln(`      ${ob}[_i].g = qadd8(${ob}[_i].g, (uint8_t)((255 - ${ob}[_i].g) * _flash_${id}));`)
+        ln(`      ${ob}[_i].b = qadd8(${ob}[_i].b, (uint8_t)((255 - ${ob}[_i].b) * _flash_${id}));`)
         ln(`    }`)
         ln(`  }`)
         break
       }
 
       case 'BrightnessMod': {
+        const ob = ownBuf()
         const br = f('brightness', 'brightness', 1)
-        ln(`  { uint8_t _br = (uint8_t)(constrain(${br}, 0, 1) * 255); for (int _i = 0; _i < NUM_LEDS; _i++) leds[_i].nscale8(_br); }`)
+        ln(`  { ${seedFrom('frame')} uint8_t _br = (uint8_t)(constrain(${br}, 0, 1) * 255); for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i].nscale8(_br); }`)
         break
       }
 
       case 'HueShift': {
+        const ob = ownBuf()
         const shift = f('shift', 'shift', 0)
-        ln(`  { uint8_t _sh = (uint8_t)((${shift}) / 360.0f * 255); for (int _i = 0; _i < NUM_LEDS; _i++) leds[_i] = CHSV(rgb2hsv_approximate(leds[_i]).hue + _sh, rgb2hsv_approximate(leds[_i]).sat, rgb2hsv_approximate(leds[_i]).val); }`)
+        ln(`  { ${seedFrom('frame')} uint8_t _sh = (uint8_t)((${shift}) / 360.0f * 255); for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i] = CHSV(rgb2hsv_approximate(${ob}[_i]).hue + _sh, rgb2hsv_approximate(${ob}[_i]).sat, rgb2hsv_approximate(${ob}[_i]).val); }`)
         break
       }
 
       case 'BlendFrames': {
-        const mix = f('t', 't', 0.5)
-        ln(`  { uint8_t _mix = (uint8_t)((${mix}) * 255); /* BlendFrames: blend source A into current leds */ }`)
+        const ob = ownBuf()
+        const a = srcBuf('a'), b = srcBuf('b'), mix = f('t', 't', 0.5)
+        ln(`  { ${a ? `memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
+        ln(`    nblend(${ob}, ${b ?? ob}, NUM_LEDS, (uint8_t)((${mix}) * 255)); }`)
         break
       }
 
       case 'Noise2D': {
         needsT.v = true
+        const ob = ownBuf()
         const speed = f('speed', 'speed', 0.4), scale = f('scale', 'scale', 0.4)
         ln(`  { float _spd=${speed},_sc=${scale}; for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`    float _v=sin(_x*_sc+t*_spd+1.7f)*cos(_y*_sc*1.3f+t*_spd*0.8f+2.3f)+0.5f*sin(_x*_sc*2.1f+t*_spd*2.0f)*cos(_y*_sc*2.7f+t*_spd*1.6f);`)
-        ln(`    leds[_y*WIDTH+_x]=CHSV((uint8_t)((_v*0.5f+0.5f)*255),255,220);}}`)
+        ln(`    ${ob}[_y*WIDTH+_x]=CHSV((uint8_t)((_v*0.5f+0.5f)*255),255,220);}}`)
         break
       }
 
       case 'RadialBurst': {
         needsT.v = true
+        const ob = ownBuf()
         const speed = f('speed', 'speed', 1)
         const r = Number(p.r ?? 0), g = Number(p.g ?? 200), b = Number(p.b ?? 255)
         ln(`  { float _spd=${speed}; for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`    float _d=sqrt((_x-WIDTH/2.0f)*(_x-WIDTH/2.0f)+(_y-HEIGHT/2.0f)*(_y-HEIGHT/2.0f))/sqrt(WIDTH*WIDTH/4.0f+HEIGHT*HEIGHT/4.0f);`)
         ln(`    float _w=(sin((_d*8-t*_spd*3)*3.14159f)+1)/2.0f;`)
-        ln(`    leds[_y*WIDTH+_x]=CRGB((uint8_t)(${r}*_w),(uint8_t)(${g}*_w),(uint8_t)(${b}*_w));}}`)
+        ln(`    ${ob}[_y*WIDTH+_x]=CRGB((uint8_t)(${r}*_w),(uint8_t)(${g}*_w),(uint8_t)(${b}*_w));}}`)
         break
       }
 
       case 'Spiral': {
         needsT.v = true
+        const ob = ownBuf()
         const speed = f('speed', 'speed', 1), arms = Number(p.arms ?? 2)
         ln(`  { float _spd=${speed}; for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`    float _d=sqrt((_x-WIDTH/2.0f)*(_x-WIDTH/2.0f)+(_y-HEIGHT/2.0f)*(_y-HEIGHT/2.0f))/sqrt(WIDTH*WIDTH/4.0f+HEIGHT*HEIGHT/4.0f);`)
         ln(`    float _a=atan2(_y-HEIGHT/2.0f,_x-WIDTH/2.0f);float _s=(_a+_d*12.57f-t*_spd*3.14159f)*${arms};`)
-        ln(`    leds[_y*WIDTH+_x]=CHSV((uint8_t)(_d*255+t*30),255,(uint8_t)((sin(_s)+1)/2.0f*230));}}`)
+        ln(`    ${ob}[_y*WIDTH+_x]=CHSV((uint8_t)(_d*255+t*30),255,(uint8_t)((sin(_s)+1)/2.0f*230));}}`)
         break
       }
 
-      case 'Kaleidoscope':
-        ln(`  // Kaleidoscope: apply after a pattern node has written to leds[]`)
+      case 'Kaleidoscope': {
+        const ob = ownBuf()
+        ln(`  ${seedFrom('frame')}  // Kaleidoscope: mirror logic to apply on ${ob}`)
         break
+      }
 
-      case 'Particles':
-        ln(`  // Particles: complex stateful pattern — see FastLED particle examples`)
+      case 'Particles': {
+        const ob = ownBuf()
+        ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black);  // Particles: stateful — see FastLED particle examples`)
         break
+      }
 
-      case 'Invert':
-        ln(`  for(int _i=0;_i<NUM_LEDS;_i++){leds[_i].r=255-leds[_i].r;leds[_i].g=255-leds[_i].g;leds[_i].b=255-leds[_i].b;}`)
+      case 'Invert': {
+        const ob = ownBuf()
+        ln(`  ${seedFrom('frame')} for(int _i=0;_i<NUM_LEDS;_i++){${ob}[_i].r=255-${ob}[_i].r;${ob}[_i].g=255-${ob}[_i].g;${ob}[_i].b=255-${ob}[_i].b;}`)
         break
+      }
 
       case 'GradientFrame': {
+        const ob = ownBuf()
         const rA = Number(p.rA ?? 0), gA = Number(p.gA ?? 200), bA = Number(p.bA ?? 255)
         const rB = Number(p.rB ?? 255), gB = Number(p.gB ?? 0), bB = Number(p.bB ?? 255)
         const vert = Boolean(p.vertical)
         ln(`  { for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`    float _t=${vert ? '_y/(HEIGHT-1.0f)' : '_x/(WIDTH-1.0f)'};`)
-        ln(`    leds[_y*WIDTH+_x]=CRGB((uint8_t)(${rA}*(1-_t)+${rB}*_t),(uint8_t)(${gA}*(1-_t)+${gB}*_t),(uint8_t)(${bA}*(1-_t)+${bB}*_t));}}`)
+        ln(`    ${ob}[_y*WIDTH+_x]=CRGB((uint8_t)(${rA}*(1-_t)+${rB}*_t),(uint8_t)(${gA}*(1-_t)+${gB}*_t),(uint8_t)(${bA}*(1-_t)+${bB}*_t));}}`)
         break
       }
 
@@ -529,47 +575,54 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       }
 
       case 'Crossfade': {
-        const mix = f('t', 't', 0.5)
-        ln(`  { uint8_t _mix = (uint8_t)((${mix}) * 255); /* Crossfade: blend frame A into frame B */ }`)
+        const ob = ownBuf()
+        const a = srcBuf('a'), b = srcBuf('b'), mix = f('t', 't', 0.5)
+        ln(`  { ${a ? `memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
+        ln(`    nblend(${ob}, ${b ?? ob}, NUM_LEDS, (uint8_t)((${mix}) * 255)); }`)
         break
       }
 
       case 'Wipe': {
-        needsT.v = true
-        const tt = f('t', 't', 0.5)
+        const ob = ownBuf()
+        const a = srcBuf('a'), b = srcBuf('b'), tt = f('t', 't', 0.5)
         const dir = String(p.direction ?? 'right')
         const axis = (dir === 'up' || dir === 'down') ? '_y' : '_x'
         const dim  = (dir === 'up' || dir === 'down') ? 'HEIGHT' : 'WIDTH'
         const cmp  = (dir === 'right' || dir === 'down') ? '<' : '>'
         const rhs  = (dir === 'right' || dir === 'down') ? `(int)((${tt})*${dim})` : `(int)((1.0f-(${tt}))*${dim})`
-        ln(`  { for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++)`)
-        ln(`    if(${axis} ${cmp} ${rhs}) { /* wipe to: pixel from frame B */ } }`)
+        ln(`  { ${a ? `memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++)`)
+        ln(`      if(${axis} ${cmp} ${rhs}) ${ob}[_y*WIDTH+_x] = ${b ?? ob}[_y*WIDTH+_x]; }`)
         break
       }
 
       case 'Dissolve': {
-        const tt = f('t', 't', 0.5)
-        ln(`  { float _tt=${tt}; for(int _i=0;_i<NUM_LEDS;_i++){`)
-        ln(`    uint32_t _h=((uint32_t)(_i)*1664525u+1013904223u);`)
-        ln(`    if((_h&0xFFFF)<(uint32_t)(_tt*65535)) { /* dissolve to: pixel from frame B */ }}}`)
+        const ob = ownBuf()
+        const a = srcBuf('a'), b = srcBuf('b'), tt = f('t', 't', 0.5)
+        ln(`  { ${a ? `memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
+        ln(`    float _tt=${tt}; for(int _i=0;_i<NUM_LEDS;_i++){`)
+        ln(`      uint32_t _h=((uint32_t)(_i)*1664525u+1013904223u);`)
+        ln(`      if((_h&0xFFFF)<(uint32_t)(_tt*65535)) ${ob}[_i] = ${b ?? ob}[_i]; }}`)
         break
       }
 
       case 'Simplex2D': {
         needsT.v = true
         const speed = f('speed', 'speed', 0.4), scale = f('scale', 'scale', 0.3)
+        const ob = ownBuf()
         const pal = paletteExpr(node.id, 'paletteIn', p)
         ln(`  { // Simplex2D`)
         ln(`    float _spd=${speed},_sc=${scale};`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float _n=sin(_x*_sc+sin(_y*_sc*0.8f+t*_spd*0.5f)+t*_spd)`)
         ln(`            +0.5f*sin(_x*_sc*2+t*_spd*1.9f)+0.25f*sin(_x*_sc*4+t*_spd*4.1f);`)
-        ln(`      leds[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_n*0.25f+0.5f)*255));}}`)
+        ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_n*0.25f+0.5f)*255));}}`)
         break
       }
 
       case 'Noise3D': {
         needsT.v = true
+        const ob = ownBuf()
         const speed = f('speed', 'speed', 0.5), scale = f('scale', 'scale', 0.3)
         const pal = paletteExpr(node.id, 'paletteIn', p)
         ln(`  { // Noise3D`)
@@ -578,7 +631,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         ln(`      float _n=(sin(_x*_sc+t*_spd)+cos(_y*_sc+t*_spd*0.7f))*0.5f`)
         ln(`            +(sin(_x*_sc*1.7f+t*_spd*1.3f+_y*_sc*0.9f)*0.33f)`)
         ln(`            +(cos(_x*_sc*2.9f+t*_spd*2.1f)*0.17f);`)
-        ln(`      leds[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_n*0.3f+0.5f)*255));}}`)
+        ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_n*0.3f+0.5f)*255));}}`)
         break
       }
 
@@ -595,13 +648,14 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
 
       case 'CustomFormula': {
         needsT.v = true
+        const ob = ownBuf()
         const formula = String(p.formula ?? 'sin(x*6+t)*0.5+0.5').replace(/\*\//g, '* /')
         const pal = paletteExpr(node.id, 'paletteIn', p)
         ln(`  { /* CustomFormula: ${formula} */`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float x=(float)_x/(WIDTH-1>0?WIDTH-1:1),y=(float)_y/(HEIGHT-1>0?HEIGHT-1:1);`)
         ln(`      float _v=${formula};`)
-        ln(`      leds[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(fmod(fmod(_v,1)+1,1)*255));}}`)
+        ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(fmod(fmod(_v,1)+1,1)*255));}}`)
         break
       }
 
@@ -626,22 +680,24 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       }
 
       case 'Fire2012': {
+        const ob = ownBuf()
         const cooling = Number(p.cooling ?? 55), sparking = Number(p.sparking ?? 120)
         ln(`  { // Fire2012 (cooling=${cooling}, sparking=${sparking})`)
-        ln(`    static uint8_t _heat[HEIGHT][WIDTH] = {};`)
+        ln(`    static uint8_t _heat_${id}[HEIGHT][WIDTH] = {};`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++)`)
-        ln(`      _heat[_y][_x]=qsub8(_heat[_y][_x],random8(0,((${cooling}*10/HEIGHT)+2)));`)
+        ln(`      _heat_${id}[_y][_x]=qsub8(_heat_${id}[_y][_x],random8(0,((${cooling}*10/HEIGHT)+2)));`)
         ln(`    for(int _y=0;_y<HEIGHT-2;_y++) for(int _x=0;_x<WIDTH;_x++)`)
-        ln(`      _heat[_y][_x]=(_heat[_y+1][_x]+_heat[_y+2][max(0,_x-1)]+_heat[_y+2][_x]+_heat[_y+2][min(WIDTH-1,_x+1)])/4;`)
-        ln(`    for(int _x=0;_x<WIDTH;_x++) if(random8()<${sparking}) _heat[HEIGHT-1][_x]=qadd8(_heat[HEIGHT-1][_x],random8(160,255));`)
-        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++) leds[_y*WIDTH+_x]=HeatColor(_heat[_y][_x]);`)
+        ln(`      _heat_${id}[_y][_x]=(_heat_${id}[_y+1][_x]+_heat_${id}[_y+2][max(0,_x-1)]+_heat_${id}[_y+2][_x]+_heat_${id}[_y+2][min(WIDTH-1,_x+1)])/4;`)
+        ln(`    for(int _x=0;_x<WIDTH;_x++) if(random8()<${sparking}) _heat_${id}[HEIGHT-1][_x]=qadd8(_heat_${id}[HEIGHT-1][_x],random8(160,255));`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++) ${ob}[_y*WIDTH+_x]=HeatColor(_heat_${id}[_y][_x]);`)
         ln(`  }`)
         break
       }
 
       case 'Blur2D': {
+        const ob = ownBuf()
         const amount = Number(p.amount ?? 40)
-        ln(`  blur2d(leds, WIDTH, HEIGHT, ${amount});`)
+        ln(`  ${seedFrom('frame')} blur2d(${ob}, WIDTH, HEIGHT, ${amount});`)
         break
       }
 
@@ -652,8 +708,10 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       }
 
       case 'LayerBlend': {
-        const amount = f('amount', 'amount', 128)
-        ln(`  blend(leds, leds, leds, NUM_LEDS, (uint8_t)(${amount}));  // LayerBlend: provide two source arrays`)
+        const ob = ownBuf()
+        const a = srcBuf('a'), b = srcBuf('b'), amount = f('amount', 'amount', 128)
+        ln(`  { ${a ? `memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
+        ln(`    nblend(${ob}, ${b ?? ob}, NUM_LEDS, (uint8_t)(${amount})); }`)
         break
       }
 
@@ -663,9 +721,13 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
-      case 'MatrixOutput':
+      case 'MatrixOutput': {
+        const src = srcBuf('frame')
+        if (src) ln(`  memmove(leds, ${src}, sizeof(CRGB) * NUM_LEDS);`)
+        else ln(`  fill_solid(leds, NUM_LEDS, CRGB::Black);`)
         ln(`  FastLED.show();`)
         break
+      }
 
       default:
         ln(`  // ${type} — not yet supported in code gen`)
@@ -686,6 +748,8 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
   lines.push(`#define DATA_PIN ${dataPin}`)
   lines.push(``)
   lines.push(`CRGB leds[NUM_LEDS];`)
+  // One render buffer per frame-producing node so layers can be composited.
+  for (const b of frameBufs) lines.push(`CRGB buf_${b}[NUM_LEDS];`)
   lines.push(``)
 
   if (needsMapFloat[0]) {

@@ -46,7 +46,7 @@ describe('generateCpp', () => {
   it('emits fill_solid for SolidColor node', () => {
     const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
     const cpp = generateCpp([sc, outputNode], [edge('e1', 'sc', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('fill_solid(leds, NUM_LEDS, CRGB(255, 0, 0))')
+    expect(cpp).toContain('fill_solid(buf_sc, NUM_LEDS, CRGB(255, 0, 0))')
   })
 
   it('includes float t when a time-dependent node is present', () => {
@@ -107,7 +107,7 @@ describe('generateCpp', () => {
   it('emits blur2d call for Blur2D node', () => {
     const blur = node('bl', 'Blur2D', 'pattern', { amount: 40 })
     const cpp = generateCpp([blur, outputNode], [])
-    expect(cpp).toContain('blur2d(leds, WIDTH, HEIGHT, 40)')
+    expect(cpp).toContain('blur2d(buf_bl, WIDTH, HEIGHT, 40)')
   })
 
   it('emits Fire2012 heat simulation', () => {
@@ -177,7 +177,7 @@ describe('generateCpp', () => {
     }
     const grp = node('g1', 'Group', 'composite', { groupId: 'blue' })
     const cpp = generateCpp([grp, outputNode], [edge('e1', 'g1', 'out', 'frame', 'frame')], groups)
-    expect(cpp).toContain('fill_solid(leds, NUM_LEDS, CRGB(0, 0, 255))')
+    expect(cpp).toContain('fill_solid(buf_g1__sc, NUM_LEDS, CRGB(0, 0, 255))')
   })
 
   it('flattens nested groups', () => {
@@ -199,7 +199,23 @@ describe('generateCpp', () => {
     }
     const grp = node('g1', 'Group', 'composite', { groupId: 'outer' })
     const cpp = generateCpp([grp, outputNode], [edge('e1', 'g1', 'out', 'frame', 'frame')], groups)
-    expect(cpp).toContain('fill_solid(leds, NUM_LEDS, CRGB(0, 255, 0))')
+    expect(cpp).toContain('fill_solid(buf_g1__ig__sc, NUM_LEDS, CRGB(0, 255, 0))')
+  })
+
+  it('composites two layers with nblend and copies the result to leds', () => {
+    const a  = node('a', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const b  = node('b', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 })
+    const lb = node('lb', 'LayerBlend', 'composite', { amount: 128 })
+    const cpp = generateCpp([a, b, lb, outputNode], [
+      edge('e1', 'a', 'lb', 'frame', 'a'),
+      edge('e2', 'b', 'lb', 'frame', 'b'),
+      edge('e3', 'lb', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('CRGB buf_a[NUM_LEDS];')
+    expect(cpp).toContain('CRGB buf_b[NUM_LEDS];')
+    expect(cpp).toContain('memmove(buf_lb, buf_a, sizeof(CRGB) * NUM_LEDS)')
+    expect(cpp).toContain('nblend(buf_lb, buf_b, NUM_LEDS, (uint8_t)(128))')
+    expect(cpp).toContain('memmove(leds, buf_lb, sizeof(CRGB) * NUM_LEDS)')
   })
 
   it('skips an unknown group reference and still emits a valid sketch', () => {
