@@ -421,6 +421,43 @@ function evalPatternMaster(nodeId: string, frames: (Frame | null)[], beat: boole
   return valid[idx]
 }
 
+/** Per-pixel linear blend of two frames, m=0 → a, m=1 → b. */
+function blendFrame(a: Frame, b: Frame, m: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const k = Math.max(0, Math.min(1, m))
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const pa = a[y]?.[x] ?? { r: 0, g: 0, b: 0 }
+      const pb = b[y]?.[x] ?? { r: 0, g: 0, b: 0 }
+      return {
+        r: Math.round(pa.r * (1 - k) + pb.r * k),
+        g: Math.round(pa.g * (1 - k) + pb.g * k),
+        b: Math.round(pa.b * (1 - k) + pb.b * k),
+      }
+    })
+  )
+}
+
+/**
+ * Timeline-as-a-node: cycles through its frame inputs, holding each for
+ * `interval` seconds and crossfading into the next over the trailing `fade`
+ * seconds. Stateless — fully determined by `t`.
+ */
+function evalSequencer(frames: (Frame | null)[], interval: number, fade: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const valid = frames.filter((f): f is Frame => f !== null)
+  if (valid.length === 0) return blankFrame(W, H)
+  if (valid.length === 1) return valid[0]
+
+  const iv = Math.max(0.1, interval)
+  const phase = t / iv
+  const idx = Math.floor(phase) % valid.length
+  const into = (phase - Math.floor(phase)) * iv          // seconds into this slot
+  const fadeDur = Math.max(0, Math.min(fade, iv))
+  if (fadeDur <= 0 || into < iv - fadeDur) return valid[idx]
+
+  const m = (into - (iv - fadeDur)) / fadeDur            // 0 → 1 across the fade
+  return blendFrame(valid[idx], valid[(idx + 1) % valid.length], m, W, H)
+}
+
 function evalCustomFormula(formula: string, a: number, b: number, palette: string, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   if (!formulaCache.has(formula)) {
     if (formulaCache.size > 50) formulaCache.clear()
@@ -986,6 +1023,19 @@ export function evaluateGraph(
         const mode = String(props.mode ?? 'cycle')
         const interval = Number(props.interval ?? 4)
         out = { frame: evalPatternMaster(stateKey(id), frames, beat, mode, interval, t, W, H) }
+        break
+      }
+
+      case 'Sequencer': {
+        const frames = [
+          input(id, 'p0', null) as Frame | null,
+          input(id, 'p1', null) as Frame | null,
+          input(id, 'p2', null) as Frame | null,
+          input(id, 'p3', null) as Frame | null,
+        ]
+        const interval = Number(props.interval ?? 4)
+        const fade = Number(props.fade ?? 1)
+        out = { frame: evalSequencer(frames, interval, fade, t, W, H) }
         break
       }
 

@@ -287,6 +287,46 @@ describe('evaluateGraph — groups', () => {
     expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })   // cycle broken → blank
   })
 
+  it('Sequencer shows its first input at t=0', () => {
+    const red = node('r', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const grn = node('g', 'SolidColor', 'pattern', { r: 0, g: 255, b: 0 })
+    const seq = node('s', 'Sequencer', 'composite', { interval: 4, fade: 1 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [
+      edge('e1', 'r', 'frame', 's', 'p0'),
+      edge('e2', 'g', 'frame', 's', 'p1'),
+      edge('e3', 's', 'frame', 'out', 'frame'),
+    ]
+    const frame = evaluateGraph([red, grn, seq, out], edges, 0, 2, 2)
+    expect(frame![0][0]).toEqual({ r: 255, g: 0, b: 0 })
+  })
+
+  it('Sequencer crossfades between inputs in the fade window', () => {
+    const red = node('r', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const grn = node('g', 'SolidColor', 'pattern', { r: 0, g: 255, b: 0 })
+    const seq = node('s', 'Sequencer', 'composite', { interval: 4, fade: 2 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [
+      edge('e1', 'r', 'frame', 's', 'p0'),
+      edge('e2', 'g', 'frame', 's', 'p1'),
+      edge('e3', 's', 'frame', 'out', 'frame'),
+    ]
+    // t = 3s → 1s into the 2s fade from slot 0 (red) to slot 1 (green) → ~50%.
+    const frame = evaluateGraph([red, grn, seq, out], edges, 180, 2, 2)
+    expect(frame![0][0].r).toBeGreaterThan(100)
+    expect(frame![0][0].r).toBeLessThan(160)
+    expect(frame![0][0].g).toBeGreaterThan(100)
+  })
+
+  it('Sequencer passes a single input through unchanged', () => {
+    const red = node('r', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const seq = node('s', 'Sequencer', 'composite', {})
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [edge('e1', 'r', 'frame', 's', 'p0'), edge('e2', 's', 'frame', 'out', 'frame')]
+    const frame = evaluateGraph([red, seq, out], edges, 0, 2, 2)
+    expect(frame![0][0]).toEqual({ r: 255, g: 0, b: 0 })
+  })
+
   it('keeps stateful node state isolated per group instance', () => {
     // A group that fades a white frame by a per-instance Counter.
     const groups = {

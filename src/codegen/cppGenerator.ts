@@ -586,6 +586,13 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         ln(`  // PatternMaster — implement pattern cycling logic in setup()/loop()`)
         break
 
+      case 'Sequencer': {
+        const interval = Number(p.interval ?? 4), fade = Number(p.fade ?? 1)
+        ln(`  // Sequencer (interval ${interval}s, fade ${fade}s) — timed crossfade across inputs;`)
+        ln(`  // needs per-layer buffers (ADR 0001 Phase 3 codegen).`)
+        break
+      }
+
       case 'CustomFormula': {
         needsT.v = true
         const formula = String(p.formula ?? 'sin(x*6+t)*0.5+0.5').replace(/\*\//g, '* /')
