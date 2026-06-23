@@ -365,6 +365,35 @@ function evalNoise3D(speed: number, scale: number, t: number, palette: Palette, 
   )
 }
 
+// Integer hash → [0,1), used to place a feature point per cell for Worley noise.
+function worleyHash(x: number, y: number): number {
+  let h = Math.imul(x, 374761393) + Math.imul(y, 668265263)
+  h = Math.imul(h ^ (h >>> 13), 1274126177)
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296
+}
+
+// Worley (cellular) noise: distance to the nearest animated feature point,
+// coloured through a palette. Feature points jitter on a circle over time.
+function evalWorley(speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const px = x * scale, py = y * scale
+      const xi = Math.floor(px), yi = Math.floor(py)
+      let f1 = Infinity
+      for (let dj = -1; dj <= 1; dj++)
+        for (let di = -1; di <= 1; di++) {
+          const cx = xi + di, cy = yi + dj
+          const hh = worleyHash(cx, cy)
+          const fx = cx + 0.5 + 0.45 * Math.sin(t * speed + hh * 6.2831)
+          const fy = cy + 0.5 + 0.45 * Math.cos(t * speed * 1.1 + hh * 6.2831)
+          const d = Math.hypot(px - fx, py - fy)
+          if (d < f1) f1 = d
+        }
+      return samplePalette(palette, Math.min(1, f1))
+    })
+  )
+}
+
 function heatColor(temperature: number): RGB {
   const t192 = Math.floor(temperature * 191 / 255)
   const ramp = (t192 & 0x3F) << 2
@@ -1094,6 +1123,14 @@ export function evaluateGraph(
         const scale   = num(id, 'scale',  props, 'scale',  0.3)
         const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
         out = { frame: evalNoise3D(speed, scale, t, palette, W, H) }
+        break
+      }
+
+      case 'Worley': {
+        const speed   = num(id, 'speed',  props, 'speed',  0.5)
+        const scale   = num(id, 'scale',  props, 'scale',  0.3)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'forest')
+        out = { frame: evalWorley(speed, scale, t, palette, W, H) }
         break
       }
 

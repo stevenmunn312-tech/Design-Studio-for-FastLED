@@ -297,6 +297,14 @@ describe('generateCpp', () => {
     expect(cpp).toContain('ColorFromPalette(pal_cp,')
   })
 
+  it('emits Worley noise with its hash helper', () => {
+    const w = node('w', 'Worley', 'pattern', { speed: 0.5, scale: 0.3, palette: 'forest' })
+    const cpp = generateCpp([w, outputNode], [edge('e', 'w', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('float _worleyHash(int x, int y)')
+    expect(cpp).toContain('_worleyHash(_cx,_cy)')
+    expect(cpp).toContain('ColorFromPalette(ForestColors_p')
+  })
+
   it('emits a Circle distance test', () => {
     const c = node('c', 'Circle', 'pattern', { cx: 4, cy: 4, radius: 3, filled: false, r: 255, g: 0, b: 0 })
     const cpp = generateCpp([c, outputNode], [edge('e', 'c', 'out', 'frame', 'frame')])
