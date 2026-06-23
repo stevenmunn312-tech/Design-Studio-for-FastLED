@@ -819,6 +819,91 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   },
 ]
 
+// One-line descriptions shown as tooltips in the node shelf. Keyed by node
+// `type`; a test enforces that every NODE_LIBRARY entry has one.
+export const NODE_DESCRIPTIONS: Record<string, string> = {
+  // audio
+  FFTAnalyzer: 'Splits mic audio into bass / mids / treble levels.',
+  BeatDetect: 'Emits a beat pulse and estimated BPM from audio.',
+  MicInput: 'Live microphone audio source.',
+  AudioHue: 'Maps bass/mids/treble to a hue value.',
+  // hardware
+  ButtonInput: 'Reads a hardware button as a boolean.',
+  PotInput: 'Reads a potentiometer as a 0–1 value.',
+  // math
+  MathAdd: 'Adds two numbers (a + b).',
+  Multiply: 'Multiplies two numbers (a × b).',
+  Clamp: 'Constrains a value between min and max.',
+  MapRange: 'Remaps a value from one range to another.',
+  Sin: 'Sine of the input (×2π).',
+  Cos: 'Cosine of the input (×2π).',
+  Lerp: 'Linear interpolation between a and b by t.',
+  TimeNode: 'Elapsed time in seconds, plus a frame delta.',
+  Abs: 'Absolute value.',
+  Mod: 'Modulo — x wrapped into [0, m).',
+  MinNode: 'Smaller of two values.',
+  MaxNode: 'Larger of two values.',
+  Random: 'Random value in a range.',
+  Counter: 'Ramps 0→1 over time at a set speed.',
+  Gate: 'Passes a value when a boolean is true, else a fallback.',
+  Not: 'Logical NOT of a boolean.',
+  Compare: 'True when a > b.',
+  BeatSin: 'FastLED beatsin8 — oscillates low↔high at a BPM.',
+  XYMapper: 'Converts (x, y) to a strip index.',
+  // color
+  GradientSampler: 'Samples a two-color gradient at t.',
+  PaletteSampler: 'Samples a palette at t to a color.',
+  HSVToRGB: 'Converts hue/sat/val to an RGB color.',
+  BlendColors: 'Blends two colors by an amount.',
+  CHSV: 'FastLED CHSV color (0–255 hue/sat/val).',
+  PaletteSelector: 'Outputs a named preset palette.',
+  CustomPalette: 'Builds a palette from up to four colors.',
+  PaletteBlend: 'Interpolates between two palettes.',
+  // pattern
+  SolidColor: 'Fills the matrix with one color.',
+  Span: 'Lights a horizontal run on one row.',
+  Rect: 'Draws a filled rectangle.',
+  Circle: 'Draws a circle — ring or filled disc.',
+  Line: 'Draws a line between two points.',
+  Text: 'Renders scrolling text in a bitmap font.',
+  NoiseField: 'Smooth animated sine-noise field.',
+  Fire: 'Classic rising fire effect.',
+  Fire2012: 'FastLED Fire2012 heat simulation.',
+  Plasma: 'Animated plasma interference pattern.',
+  SpectrumBars: 'Audio spectrum bars (bass/mids/treble).',
+  BassPulse: 'Pulses a color with bass energy.',
+  MidrangeWaves: 'Waves driven by midrange audio.',
+  TrebleSparks: 'Sparkles driven by treble energy.',
+  BeatFlash: 'Flashes the frame white on each beat.',
+  Noise2D: 'Layered 2D sine noise.',
+  RadialBurst: 'Rings bursting from the center.',
+  Spiral: 'Rotating spiral arms.',
+  Kaleidoscope: 'Mirrors a frame into kaleidoscope symmetry.',
+  Particles: 'Emits drifting, fading particles.',
+  GradientFrame: 'Two-color linear gradient fill.',
+  Simplex2D: 'Simplex noise mapped through a palette.',
+  Noise3D: 'Animated 3D-style noise through a palette.',
+  Worley: 'Cellular (Voronoi) noise.',
+  ReactionDiffusion: 'Gray-Scott reaction-diffusion — organic spots & stripes.',
+  GameOfLife: 'Conway’s Game of Life with fading trails.',
+  PatternMaster: 'Cycles up to four patterns (time or beat).',
+  CustomFormula: 'Per-pixel JS expression f(x, y, t).',
+  // composite
+  Blur2D: 'Box-blurs the frame.',
+  LayerBlend: 'Blends two frames by an amount.',
+  Mask: 'Masks a frame by another frame’s brightness.',
+  BlendFrames: 'Mixes two frames by t.',
+  BrightnessMod: 'Scales frame brightness.',
+  HueShift: 'Rotates all hues.',
+  Invert: 'Inverts colors.',
+  Crossfade: 'Crossfades frame A into B.',
+  Wipe: 'Wipes from A to B in a direction.',
+  Dissolve: 'Randomly dissolves A into B.',
+  Sequencer: 'Crossfades through its inputs on a timer.',
+  // output
+  MatrixOutput: 'The LED matrix output — board, pin, and size.',
+}
+
 // Single source of truth for category display order, labels, and accent colors.
 // `color` is the literal hex used in canvas/SVG contexts (minimap, edges); the
 // CSS var is used wherever theming should apply.

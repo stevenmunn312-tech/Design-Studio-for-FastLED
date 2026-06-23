@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useGraphStore } from '../../state/graphStore'
-import { NODE_LIBRARY, CATEGORIES, CATEGORY_ACCENT_VAR } from '../../state/nodeLibrary'
+import { NODE_LIBRARY, CATEGORIES, CATEGORY_ACCENT_VAR, NODE_DESCRIPTIONS } from '../../state/nodeLibrary'
 import styles from './Sidebar.module.css'
 
 export default function Sidebar() {
@@ -88,7 +88,7 @@ export default function Sidebar() {
                       draggable
                       onDragStart={(e) => handleDragStart(e, n.type)}
                       onClick={() => handleAddNode(n.type)}
-                      title="Click to add · Drag to place"
+                      title={`${NODE_DESCRIPTIONS[n.type] ?? n.label}\nClick to add · drag to place`}
                     >
                       {n.label}
                     </li>
