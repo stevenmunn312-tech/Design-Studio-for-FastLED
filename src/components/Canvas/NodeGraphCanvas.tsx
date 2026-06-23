@@ -13,6 +13,8 @@ import {
   type IsValidConnection,
   type OnConnectEnd,
   type OnConnect,
+  type OnReconnect,
+  type Edge,
   type Node,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -43,8 +45,11 @@ function portsCompatible(srcType: string, dstType: string): boolean {
 }
 
 function NodeGraphCanvasInner() {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, enterGraph } =
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, enterGraph, removeEdge, reconnectNoodle } =
     useGraphStore()
+  // Tracks whether a dragged noodle end landed on a valid port; if not (dropped
+  // on empty space) we treat it as an unplug and delete the edge.
+  const reconnectLanded = useRef(true)
   const { screenToFlowPosition, getNode } = useReactFlow()
   const { setStatus, setSparkPort } = useUiStore()
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -87,6 +92,28 @@ function NodeGraphCanvasInner() {
       }
     },
     [setStatus]
+  )
+
+  // Unplug a noodle: grab its input (target) end and drop it on empty space to
+  // disconnect, or onto another compatible port to re-route.
+  const onReconnectStart = useCallback(() => { reconnectLanded.current = false }, [])
+
+  const onReconnect: OnReconnect = useCallback(
+    (oldEdge, newConnection) => {
+      reconnectLanded.current = true
+      reconnectNoodle(oldEdge, newConnection)
+    },
+    [reconnectNoodle]
+  )
+
+  const onReconnectEnd = useCallback(
+    (_e: MouseEvent | TouchEvent, edge: Edge) => {
+      if (!reconnectLanded.current) {
+        removeEdge(edge.id)
+        setStatus('Noodle unplugged', 'info')
+      }
+    },
+    [removeEdge, setStatus]
   )
 
   const onNodeClick: NodeMouseHandler = useCallback(
@@ -171,6 +198,9 @@ function NodeGraphCanvasInner() {
         onEdgesChange={onEdgesChange}
         onConnect={handleConnect}
         onConnectEnd={onConnectEnd}
+        onReconnectStart={onReconnectStart}
+        onReconnect={onReconnect}
+        onReconnectEnd={onReconnectEnd}
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
         onNodeContextMenu={onNodeContextMenu}
