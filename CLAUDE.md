@@ -134,6 +134,7 @@ Nodes are grouped into categories. Adding a new node type requires:
 1. One entry in `src/state/nodeLibrary.ts`
 2. A `case` in `graphEvaluator.ts` `evalNode()` switch (for live preview)
 3. A `case` in `cppGenerator.ts` `emit()` switch (for C++ codegen)
+4. A one-line tooltip in `NODE_DESCRIPTIONS` (`nodeLibrary.ts`) — enforced by `nodeLibrary.test.ts`
 
 Current nodes by category (see `nodeLibrary.ts` for the authoritative list):
 - **audio**: FFTAnalyzer, BeatDetect, MicInput, AudioHue
