@@ -822,6 +822,53 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
+      case 'Starfield': {
+        const ob = ownBuf()
+        const speed = f('speed', 'speed', 1)
+        const count = Math.max(8, Math.min(300, Math.floor(Number(p.count ?? 60))))
+        const colorE = incoming.get(`${node.id}:color`)
+          ? colorExpr(node.id, 'color')
+          : `CRGB(${Number(p.r ?? 255)}, ${Number(p.g ?? 255)}, ${Number(p.b ?? 255)})`
+        const sx = `_sfx_${id}`, sy = `_sfy_${id}`, sz = `_sfz_${id}`
+        ln(`  { // Starfield`)
+        ln(`    static float ${sx}[${count}], ${sy}[${count}], ${sz}[${count}]; static bool _sfi_${id}=false;`)
+        ln(`    if(!_sfi_${id}){ for(int _i=0;_i<${count};_i++){ ${sx}[_i]=random8()/127.5f-1; ${sy}[_i]=random8()/127.5f-1; ${sz}[_i]=random8()/255.0f*0.9f+0.1f; } _sfi_${id}=true; }`)
+        ln(`    float _spd=${speed}; fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
+        ln(`    for(int _i=0;_i<${count};_i++){ ${sz}[_i]-=_spd*0.015f;`)
+        ln(`      if(${sz}[_i]<=0.02f){ ${sx}[_i]=random8()/127.5f-1; ${sy}[_i]=random8()/127.5f-1; ${sz}[_i]=1; }`)
+        ln(`      int _px=(int)(WIDTH/2.0f+(${sx}[_i]/${sz}[_i])*WIDTH*0.35f), _py=(int)(HEIGHT/2.0f+(${sy}[_i]/${sz}[_i])*HEIGHT*0.35f);`)
+        ln(`      if(_px>=0&&_px<WIDTH&&_py>=0&&_py<HEIGHT){ ${ob}[_py*WIDTH+_px]=${colorE}; ${ob}[_py*WIDTH+_px].nscale8((uint8_t)(min(1.0f,1-${sz}[_i])*255)); } } }`)
+        break
+      }
+
+      case 'PlasmaFractal': {
+        needsT.v = true
+        const ob = ownBuf()
+        const speed = f('speed', 'speed', 1), scale = f('scale', 'scale', 0.15)
+        const pal = paletteExpr(node.id, 'paletteIn', p)
+        ln(`  { float _spd=${speed},_sc=${scale}; uint16_t _z=(uint16_t)(t*_spd*10);`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float _v=sin(_x*0.2f+t*_spd)+sin(_y*0.25f+t*_spd*0.8f)+sin((_x+_y)*0.15f+t*_spd*0.6f);`)
+        ln(`      float _amp=1,_fr=_sc*96,_fn=0; for(int _o=0;_o<3;_o++){ _fn+=_amp*(inoise8((uint16_t)(_x*_fr),(uint16_t)(_y*_fr),_z)/255.0f-0.5f); _amp*=0.5f; _fr*=2; }`)
+        ln(`      _v+=_fn*5; int _idx=((int)(_v*38)%256+256)%256;`)
+        ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)_idx);}}`)
+        break
+      }
+
+      case 'AudioFlow': {
+        needsT.v = true
+        const ob = ownBuf()
+        const bass = f('bass', 'bass', 0.5), mids = f('mids', 'mids', 0.5), treble = f('treble', 'treble', 0.3)
+        const speed = f('speed', 'speed', 1), scale = f('scale', 'scale', 0.2)
+        const pal = paletteExpr(node.id, 'paletteIn', p)
+        ln(`  { float _b=${bass},_m=${mids},_tr=${treble},_spd=${speed},_sc=${scale};`)
+        ln(`    float _flow=t*_spd*(0.2f+_m*1.5f); uint8_t _bright=(uint8_t)(min(1.0f,0.3f+_b)*255);`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      uint8_t _v=inoise8((uint16_t)((_x*_sc+_flow)*256),(uint16_t)(_y*_sc*0.6f*256));`)
+        ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(_v+_tr*80)); ${ob}[_y*WIDTH+_x].nscale8(_bright);}}`)
+        break
+      }
+
       case 'ReactionDiffusion': {
         const ob = ownBuf()
         const feed = f('feed', 'feed', 0.055), kill = f('kill', 'kill', 0.062)

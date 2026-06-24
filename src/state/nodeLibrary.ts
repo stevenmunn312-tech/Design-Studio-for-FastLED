@@ -724,6 +724,45 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { speed: 1, scale: 0.08, count: 80, fade: 0.9, palette: 'ocean' },
   },
   {
+    // Warp starfield — stars streak outward from the centre.
+    type: 'Starfield',
+    label: 'Starfield',
+    category: 'pattern',
+    inputs: [
+      { id: 'color', label: 'Color', dataType: 'color' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 1, count: 60, r: 255, g: 255, b: 255 },
+  },
+  {
+    // Plasma blended with fractal noise.
+    type: 'PlasmaFractal',
+    label: 'Plasma Fractal',
+    category: 'pattern',
+    inputs: [
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'scale', label: 'Scale', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 1, scale: 0.15, palette: 'rainbow' },
+  },
+  {
+    // Audio-reactive flowing noise field (bass/mids/treble drive it).
+    type: 'AudioFlow',
+    label: 'Audio Flow',
+    category: 'pattern',
+    inputs: [
+      { id: 'bass', label: 'Bass', dataType: 'float' },
+      { id: 'mids', label: 'Mids', dataType: 'float' },
+      { id: 'treble', label: 'Treble', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 1, scale: 0.2, palette: 'party' },
+  },
+  {
     // Gray-Scott reaction-diffusion — organic spots/stripes that evolve.
     type: 'ReactionDiffusion',
     label: 'Reaction Diffusion',
@@ -936,6 +975,9 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   FractalNoise: 'Fractal (fBm) noise — summed octaves, cloud-like.',
   Blobs: 'Metaballs — merging lava-lamp blobs.',
   FlowField: 'Particles drifting along a noise flow field, with trails.',
+  Starfield: 'Warp starfield — stars streak outward from the centre.',
+  PlasmaFractal: 'Plasma blended with fractal noise.',
+  AudioFlow: 'Audio-reactive flowing noise field.',
   ReactionDiffusion: 'Gray-Scott reaction-diffusion — organic spots & stripes.',
   GameOfLife: 'Conway’s Game of Life with fading trails.',
   PatternMaster: 'Cycles up to four patterns (time or beat).',

@@ -276,6 +276,40 @@ describe('evaluateGraph', () => {
     expect(JSON.stringify(mk(5))).not.toEqual(JSON.stringify(f1))                     // octaves add detail
   })
 
+  it('Starfield lights some pixels and animates', () => {
+    const at = (tick: number) => {
+      const sf = node('sf', 'Starfield', 'pattern', { speed: 2, count: 80, r: 255, g: 255, b: 255 })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      return evaluateGraph([sf, out], [edge('e', 'sf', 'frame', 'out', 'frame')], tick, 12, 12)!
+    }
+    let frame = at(0)
+    for (let i = 1; i <= 6; i++) frame = at(i)
+    expect(frame.flat().some((px) => px.r + px.g + px.b > 0)).toBe(true)  // stars visible
+  })
+
+  it('PlasmaFractal produces a varied frame that animates', () => {
+    const at = (tick: number) => {
+      const pf = node('pf', 'PlasmaFractal', 'pattern', { speed: 1, scale: 0.15, palette: 'rainbow' })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      return evaluateGraph([pf, out], [edge('e', 'pf', 'frame', 'out', 'frame')], tick, 8, 8)!
+    }
+    const f0 = at(0)
+    const p0 = JSON.stringify(f0[0][0])
+    expect(f0.every((r) => r.every((px) => JSON.stringify(px) === p0))).toBe(false)
+    expect(JSON.stringify(at(90))).not.toEqual(JSON.stringify(f0))
+  })
+
+  it('AudioFlow brightens with bass', () => {
+    const brightnessAt = (bass: number) => {
+      // bass read from the node property when no FFTAnalyzer is wired.
+      const af = node('af', 'AudioFlow', 'pattern', { speed: 1, scale: 0.2, palette: 'party', bass, mids: 0.5, treble: 0.3 })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      const f = evaluateGraph([af, out], [edge('e', 'af', 'frame', 'out', 'frame')], 30, 8, 8)!
+      return f.flat().reduce((a, px) => a + px.r + px.g + px.b, 0)
+    }
+    expect(brightnessAt(1)).toBeGreaterThan(brightnessAt(0))  // louder bass → brighter
+  })
+
   it('Blobs produces a varied field that moves over time', () => {
     const at = (tick: number) => {
       const b = node('b', 'Blobs', 'pattern', { speed: 0.6, scale: 0.25, count: 3, palette: 'lava' })

@@ -331,6 +331,30 @@ describe('generateCpp', () => {
     expect(cpp).toContain('ColorFromPalette(OceanColors_p')
   })
 
+  it('emits a stateful Starfield with star buffers and projection', () => {
+    const sf = node('sf', 'Starfield', 'pattern', { speed: 2, count: 80, r: 255, g: 255, b: 255 })
+    const cpp = generateCpp([sf, outputNode], [edge('e', 'sf', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('static float _sfx_sf[80], _sfy_sf[80], _sfz_sf[80]')
+    expect(cpp).toContain('fill_solid(buf_sf, NUM_LEDS, CRGB::Black)')
+    expect(cpp).toContain('.nscale8(')
+  })
+
+  it('emits a PlasmaFractal with sin sums and inoise8 octaves', () => {
+    const pf = node('pf', 'PlasmaFractal', 'pattern', { speed: 1, scale: 0.15, palette: 'rainbow' })
+    const cpp = generateCpp([pf, outputNode], [edge('e', 'pf', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('inoise8(')
+    expect(cpp).toContain('ColorFromPalette(RainbowColors_p')
+    expect(cpp).toContain('float t = millis()')
+  })
+
+  it('emits an AudioFlow with flow advection scaled by bass brightness', () => {
+    const af = node('af', 'AudioFlow', 'pattern', { speed: 1, scale: 0.2, palette: 'party', bass: 0.5, mids: 0.5, treble: 0.3 })
+    const cpp = generateCpp([af, outputNode], [edge('e', 'af', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('inoise8(')
+    expect(cpp).toContain('ColorFromPalette(PartyColors_p')
+    expect(cpp).toContain('.nscale8(_bright)')
+  })
+
   it('emits fractal noise via summed inoise8 octaves', () => {
     const fn = node('fn', 'FractalNoise', 'pattern', { speed: 0.3, scale: 0.15, octaves: 4, palette: 'forest' })
     const cpp = generateCpp([fn, outputNode], [edge('e', 'fn', 'out', 'frame', 'frame')])
