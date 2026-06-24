@@ -564,6 +564,24 @@ describe('evaluateGraph', () => {
     expect(wired).not.toEqual(presetOnly)   // custom colors changed the output
   })
 
+  it('every palette-consuming pattern node responds to its palette', () => {
+    // Guards against the NoiseField bug (advertised a palette but ignored it).
+    const patterns = [
+      'NoiseField', 'Simplex2D', 'Noise3D', 'Worley', 'FractalNoise', 'GaborNoise',
+      'PaletteGradient', 'Blobs', 'FlowField', 'PlasmaFractal', 'AudioFlow',
+      'ReactionDiffusion', 'CustomFormula',
+    ]
+    for (const type of patterns) {
+      const render = (palette: string) => {
+        // Unique ids so stateful nodes don't share state between the two runs.
+        const gen = node(`${type}-${palette}`, type, 'pattern', { palette, formula: 'sin(x*4+y*3)*0.5+0.5' })
+        const out = node(`out-${type}-${palette}`, 'MatrixOutput', 'output', {})
+        return evaluateGraph([gen, out], [edge(`e-${type}-${palette}`, gen.id, 'frame', out.id, 'frame')], 60, 8, 8)
+      }
+      expect(JSON.stringify(render('rainbow')), `${type} ignores its palette`).not.toEqual(JSON.stringify(render('ocean')))
+    }
+  })
+
   it('NoiseField colours through its palette', () => {
     const run = (palette: string) => {
       const nf = node('nf', 'NoiseField', 'pattern', { speed: 1, scale: 1, palette })
