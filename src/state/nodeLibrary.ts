@@ -219,6 +219,18 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { shift: 0 },
   },
+  {
+    // Animated geometric transform of a frame (rotate / scale / translate).
+    type: 'Transform',
+    label: 'Transform',
+    category: 'composite',
+    inputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      { id: 'rate', label: 'Rate', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { transform: 'rotate', rate: 90, angle: 0 },
+  },
 
   // ── Audio-reactive patterns ─────────────────────────────────────────────
   {
@@ -1054,6 +1066,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   BlendFrames: 'Mixes two frames by t.',
   BrightnessMod: 'Scales frame brightness.',
   HueShift: 'Rotates all hues.',
+  Transform: 'Animated rotate, scale or translate of a frame.',
   Invert: 'Inverts colors.',
   Crossfade: 'Crossfades frame A into B.',
   Wipe: 'Wipes from A to B in a direction.',
@@ -1134,6 +1147,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   mode:       { control: 'select', options: ['cycle', 'beat'] },
   waveform:   { control: 'select', options: ['sine', 'triangle', 'square', 'sawtooth'] },
   operation:  { control: 'select', options: ['add', 'multiply', 'average', 'min', 'max', 'difference'] },
+  transform:  { control: 'select', options: ['rotate', 'scale', 'translate'] },
   chipset:    { control: 'select', options: ['WS2812B', 'WS2811', 'SK6812', 'APA102', 'WS2801', 'NEOPIXEL'] },
   colorOrder: { control: 'select', options: ['GRB', 'RGB', 'BGR', 'BRG', 'GBR', 'RBG'] },
 

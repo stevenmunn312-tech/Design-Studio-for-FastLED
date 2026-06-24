@@ -102,6 +102,44 @@ function cloneFrame(frame: Frame): Frame {
   return frame.map(row => row.map(px => ({ ...px })))
 }
 
+// Animated geometric transform of a frame, resampled nearest-neighbour about
+// the matrix centre. `rotate` spins by rate°/s, `scale` zooms by rate%/s
+// (clamped), `translate` shifts by rate px/s along `angle°` (toroidal wrap).
+function evalTransform(src: Frame, mode: string, rate: number, angle: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const cx = (W - 1) / 2, cy = (H - 1) / 2
+  const sample = (sx: number, sy: number): RGB => {
+    const xi = Math.round(sx), yi = Math.round(sy)
+    if (xi < 0 || xi >= W || yi < 0 || yi >= H) return { r: 0, g: 0, b: 0 }
+    return { ...src[yi][xi] }
+  }
+  if (mode === 'translate') {
+    const a = (angle * Math.PI) / 180
+    const dx = Math.cos(a) * rate * t, dy = Math.sin(a) * rate * t
+    return Array.from({ length: H }, (_, y) =>
+      Array.from({ length: W }, (_, x) => {
+        const sx = ((Math.round(x - dx) % W) + W) % W
+        const sy = ((Math.round(y - dy) % H) + H) % H
+        return { ...src[sy][sx] }
+      })
+    )
+  }
+  if (mode === 'scale') {
+    const s = Math.max(0.05, Math.min(20, 1 + (rate / 100) * t))
+    return Array.from({ length: H }, (_, y) =>
+      Array.from({ length: W }, (_, x) => sample(cx + (x - cx) / s, cy + (y - cy) / s))
+    )
+  }
+  // rotate: sample the source under the inverse rotation
+  const a = (rate * t * Math.PI) / 180
+  const cosA = Math.cos(a), sinA = Math.sin(a)
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const rx = x - cx, ry = y - cy
+      return sample(cx + rx * cosA + ry * sinA, cy - rx * sinA + ry * cosA)
+    })
+  )
+}
+
 // Render `text` onto a blank frame at (startX, startY), optionally scrolling
 // left over time (scroll = columns/second). Shares textColumns() with codegen.
 function renderText(text: string, color: RGB, startX: number, startY: number, scroll: number, t: number, font: BitmapFont = DEFAULT_FONT, W = DEFAULT_W, H = DEFAULT_H): Frame {
@@ -1170,6 +1208,16 @@ function createEvalNode(
             }))
           ),
         }
+        break
+      }
+
+      case 'Transform': {
+        const src = input(id, 'frame', null) as Frame | null
+        if (!src) { out = { frame: null }; break }
+        const mode = String(props.transform ?? 'rotate')
+        const rate = num(id, 'rate', props, 'rate', 90)
+        const angle = Number(props.angle ?? 0)
+        out = { frame: evalTransform(src, mode, rate, angle, t, W, H) }
         break
       }
 

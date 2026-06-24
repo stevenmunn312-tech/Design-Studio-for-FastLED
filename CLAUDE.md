@@ -157,7 +157,7 @@ Current nodes by category (see `nodeLibrary.ts` for the authoritative list):
 - **math**: MathAdd, Multiply, Clamp, MapRange, Sin, Cos, Wave, ComplexWave, Lerp, TimeNode, Abs, Mod, MinNode, MaxNode, Random, Counter, Gate, Not, Compare, BeatSin, XYMapper
 - **color**: HSVToRGB, BlendColors, CHSV, Temperature, GradientSampler, PaletteSampler, PaletteSelector, CustomPalette, PaletteBlend
 - **pattern** (frame generators): SolidColor, Span, Rect, Circle, Line, Text, NoiseField, Fire, Fire2012, Plasma, SpectrumBars, BassPulse, MidrangeWaves, TrebleSparks, BeatFlash, Noise2D, RadialBurst, Spiral, Kaleidoscope, Particles, GradientFrame, Simplex2D, Noise3D, Worley, FractalNoise, Blobs, FlowField, ReactionDiffusion, GameOfLife, PatternMaster, CustomFormula, Starfield, PlasmaFractal, AudioFlow, GaborNoise, PaletteGradient, Image
-- **composite** (frame→frame): BlendFrames, BrightnessMod, HueShift, Invert, Blur2D, LayerBlend, Mask, Crossfade, Wipe, Dissolve, Sequencer
+- **composite** (frame→frame): BlendFrames, BrightnessMod, HueShift, Transform, Invert, Blur2D, LayerBlend, Mask, Crossfade, Wipe, Dissolve, Sequencer
 - **output**: MatrixOutput
 
 Some node types are created programmatically rather than dragged from the sidebar (so they have no `NODE_LIBRARY` entry): `Group` and `GroupOutput`/`GroupInput` are minted by `graphStore.createGroup` (see the multi-graph/group section above).
