@@ -3,3 +3,6 @@ dist/
 .vite/
 .DS_Store
 *.local
+
+# Local Claude Code agent/editor state
+.claude/
