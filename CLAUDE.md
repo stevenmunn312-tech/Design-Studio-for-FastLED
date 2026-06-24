@@ -74,7 +74,7 @@ Changing any of those CSS values without updating the constants will silently mi
 
 `GlowEdge` (`src/components/Canvas/GlowEdge.tsx`) renders three stacked SVG `<path>` elements (wide halo → mid bloom → thin animated core) plus a dot at the target. Color is resolved at render time from `useReactFlow().getNode(source)?.data.category`. The MiniMap picks up edge colors from `style.stroke` set at connect time in `graphStore.onConnect`.
 
-Edges ("noodles") are created `reconnectable: 'target'`, so a noodle can be unplugged from a node's **input** end: grab it at the input port and drag — drop on empty space to disconnect (`removeEdge`), or onto another compatible port to re-route (`reconnectNoodle`). The canvas wires React Flow's `onReconnectStart`/`onReconnect`/`onReconnectEnd`; a ref tracks whether the drag landed on a port.
+Edges ("noodles") can be unplugged from a node's **input** end two ways. (1) **Grab the input port dot directly** — `onConnectStart` detects a drag beginning on an already-connected `target` handle and immediately `removeEdge`s that noodle (a `detaching` ref), so the gesture becomes an unplug (drop on empty) or re-route (drop on a compatible output, which `handleConnect` re-adds) instead of starting a dead-end new wire. This is the primary path because React Flow's reconnect anchor sits in a thin strip just *outside* the port and is hard to hit. (2) Edges are also created `reconnectable: 'target'`, so the React Flow reconnect anchor still works: the canvas wires `onReconnectStart`/`onReconnect`/`onReconnectEnd` and a `reconnectLanded` ref deletes the edge if the dragged end lands on empty space (`removeEdge`) or re-routes it (`reconnectNoodle`).
 
 ### Live Preview Pipeline
 
