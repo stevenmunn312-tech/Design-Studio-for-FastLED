@@ -164,6 +164,28 @@ describe('evaluateGraph', () => {
     expect(evaluateScalar([wa, wb, cw], edges, 'cw', 'result', 40)).toBeCloseTo(expected, 6)
   })
 
+  it('Transform translates a frame and is identity at rate 0', () => {
+    // A blue top row, then a Transform. Grid 16×4.
+    const run = (transform: string, rate: number, angle: number, tick: number) => {
+      const sp = node('sp', 'Span', 'pattern', { row: 0, start: 0, count: 16, r: 0, g: 0, b: 255 })
+      const tr = node('tr', 'Transform', 'composite', { transform, rate, angle })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      return evaluateGraph(
+        [sp, tr, out],
+        [edge('e1', 'sp', 'frame', 'tr', 'frame'), edge('e2', 'tr', 'frame', 'out', 'frame')],
+        tick, 16, 4,
+      )!
+    }
+    // translate down by 2 rows (angle 90°, 2 px/s at t=1): row 0 → row 2.
+    const t = run('translate', 2, 90, 60)
+    expect(t[2][5]).toEqual({ r: 0, g: 0, b: 255 })
+    expect(t[0][5]).toEqual({ r: 0, g: 0, b: 0 })
+    // rate 0 is the identity transform for every mode.
+    expect(run('rotate', 0, 0, 60)[0][5]).toEqual({ r: 0, g: 0, b: 255 })
+    expect(run('scale', 0, 0, 60)[0][5]).toEqual({ r: 0, g: 0, b: 255 })
+    expect(run('rotate', 0, 0, 60)[2][5]).toEqual({ r: 0, g: 0, b: 0 })
+  })
+
   it('BrightnessMod scales pixel values', () => {
     const sc  = node('sc', 'SolidColor', 'pattern', { r: 200, g: 200, b: 200 })
     const bm  = node('bm', 'BrightnessMod', 'pattern', { brightness: 0.5 })

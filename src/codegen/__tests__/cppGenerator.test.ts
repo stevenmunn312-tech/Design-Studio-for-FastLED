@@ -143,6 +143,27 @@ describe('generateCpp', () => {
     expect(cpp).toContain('blur2d(buf_bl, WIDTH, HEIGHT, 40)')
   })
 
+  it('emits a Transform that resamples from the source buffer per mode', () => {
+    const mk = (transform: string, extra: Record<string, unknown> = {}) => {
+      const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+      const tr = node('tr', 'Transform', 'composite', { transform, rate: 90, angle: 45, ...extra })
+      return generateCpp([sc, tr, outputNode], [
+        edge('e1', 'sc', 'tr', 'frame', 'frame'),
+        edge('e2', 'tr', 'out', 'frame', 'frame'),
+      ])
+    }
+    expect(mk('rotate')).toContain('_co=cos(_a)')
+    expect(mk('rotate')).toContain('buf_sc[')               // gathers from the source buffer
+    expect(mk('translate')).toContain('%WIDTH+WIDTH)%WIDTH') // toroidal wrap
+    expect(mk('scale')).toContain('constrain(_s,0.05f,20.0f)')
+  })
+
+  it('emits a blank Transform when its frame input is unconnected', () => {
+    const tr = node('tr', 'Transform', 'composite', { transform: 'rotate', rate: 90 })
+    const cpp = generateCpp([tr, outputNode], [edge('e', 'tr', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('Transform: no input')
+  })
+
   it('remaps through XY() for a serpentine matrix', () => {
     const out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, serpentine: true })
     const sc = node('sc', 'SolidColor', 'pattern', { r: 1, g: 2, b: 3 })
