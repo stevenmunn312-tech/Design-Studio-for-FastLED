@@ -53,6 +53,9 @@ function NodeGraphCanvasInner() {
   // offer a type-filtered "add node" picker when the noodle is dropped on
   // empty space, then auto-wire the new node to this output.
   const connectFrom = useRef<{ nodeId: string; handleId: string; dataType: string } | null>(null)
+  // Timestamp of the last drag-to-create picker open, so the trailing pane
+  // click that React Flow emits right after the drop doesn't close it.
+  const menuOpenedAt = useRef(0)
   const { screenToFlowPosition, getNode } = useReactFlow()
   const { setStatus, setSparkPort } = useUiStore()
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -133,6 +136,7 @@ function NodeGraphCanvasInner() {
       if (origin && !state?.toHandle) {
         const pt = 'changedTouches' in event ? event.changedTouches[0] : event
         const fp = screenToFlowPosition({ x: pt.clientX, y: pt.clientY })
+        menuOpenedAt.current = Date.now()
         setCanvasMenu({ x: pt.clientX, y: pt.clientY, fx: fp.x, fy: fp.y, connectFrom: origin })
         return
       }
@@ -197,6 +201,10 @@ function NodeGraphCanvasInner() {
   )
 
   const onPaneClick = useCallback(() => {
+    // A noodle dropped on empty space opens the picker in onConnectEnd, but the
+    // browser fires a trailing pane `click` right after (connectionInProgress is
+    // already cleared by then), which would instantly close it. Ignore that one.
+    if (Date.now() - menuOpenedAt.current < 350) return
     selectNode(null)
     setContextMenu(null)
     setCanvasMenu(null)
