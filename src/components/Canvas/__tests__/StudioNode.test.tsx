@@ -63,6 +63,24 @@ describe('StudioNode', () => {
     expect(useGraphStore.getState().nodes[0].data.properties.speed).toBe(2.5)
   })
 
+  it('renders a waveform preview scope for a Wave node', () => {
+    const { container } = renderNode(makeNode('Wave', { amplitude: 1, frequency: 1, phase: 0, waveform: 'sine' }))
+    const poly = container.querySelector('svg polyline') as SVGPolylineElement
+    expect(poly).toBeTruthy()
+    // 64 sampled points → 64 "x,y" pairs.
+    expect(poly.getAttribute('points')!.trim().split(/\s+/).length).toBe(64)
+  })
+
+  it('renders a preview scope for a ComplexWave node', () => {
+    const { container } = renderNode(makeNode('ComplexWave', { operation: 'add' }))
+    expect(container.querySelector('svg polyline')).toBeTruthy()
+  })
+
+  it('does not render a preview scope for a non-wave node', () => {
+    const { container } = renderNode(makeNode('SolidColor', { r: 1, g: 2, b: 3 }))
+    expect(container.querySelector('svg polyline')).toBeNull()
+  })
+
   it('renders a dropdown for palette with the preset options', () => {
     const { container } = renderNode(makeNode('NoiseField', { speed: 1, scale: 1, palette: 'rainbow' }))
     const select = container.querySelector('select') as HTMLSelectElement
