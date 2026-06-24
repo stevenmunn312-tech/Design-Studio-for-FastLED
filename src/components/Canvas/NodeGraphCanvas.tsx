@@ -21,7 +21,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { NODE_LIBRARY, CATEGORY_COLOR } from '../../state/nodeLibrary'
+import { NODE_LIBRARY, CATEGORY_COLOR, portsCompatible } from '../../state/nodeLibrary'
 import StudioNode from './StudioNode'
 import GlowEdge from './GlowEdge'
 import NodeContextMenu from './NodeContextMenu'
@@ -39,12 +39,6 @@ const minimapNodeColor = (n: Node) =>
 
 const SNAP_GRID: [number, number] = [20, 20]
 
-function portsCompatible(srcType: string, dstType: string): boolean {
-  if (srcType === dstType) return true
-  if ((srcType === 'bool' || srcType === 'float') && (dstType === 'bool' || dstType === 'float')) return true
-  return false
-}
-
 function NodeGraphCanvasInner() {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, enterGraph, removeEdge, reconnectNoodle } =
     useGraphStore()
@@ -55,11 +49,17 @@ function NodeGraphCanvasInner() {
   // existing noodle so the gesture unplugs (drop on empty) or re-routes (drop
   // on a compatible output) instead of starting an unrelated new connection.
   const detaching = useRef(false)
+  // Origin of an in-progress connection dragged from an output port; used to
+  // offer a type-filtered "add node" picker when the noodle is dropped on
+  // empty space, then auto-wire the new node to this output.
+  const connectFrom = useRef<{ nodeId: string; handleId: string; dataType: string } | null>(null)
   const { screenToFlowPosition, getNode } = useReactFlow()
   const { setStatus, setSparkPort } = useUiStore()
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [contextMenu, setContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null)
-  const [canvasMenu, setCanvasMenu] = useState<{ x: number; y: number; fx: number; fy: number } | null>(null)
+  const [canvasMenu, setCanvasMenu] = useState<
+    { x: number; y: number; fx: number; fy: number; connectFrom?: { nodeId: string; handleId: string; dataType: string } } | null
+  >(null)
 
   const isValidConnection: IsValidConnection = useCallback(
     (connection) => {
@@ -95,6 +95,16 @@ function NodeGraphCanvasInner() {
   const onConnectStart: OnConnectStart = useCallback(
     (_e, params) => {
       detaching.current = false
+      connectFrom.current = null
+      // Dragging out of an output port: remember its type so an empty-space
+      // drop can offer a compatible-node picker.
+      if (params.handleType === 'source' && params.nodeId) {
+        const srcNode = getNode(params.nodeId)
+        const out = (srcNode?.data as { outputs?: Array<{ id: string; dataType: string }> })?.outputs
+          ?.find((p) => p.id === (params.handleId ?? undefined))
+        if (out) connectFrom.current = { nodeId: params.nodeId, handleId: out.id, dataType: out.dataType }
+        return
+      }
       if (params.handleType !== 'target' || !params.nodeId) return
       const existing = edges.find(
         (ed) => ed.target === params.nodeId && (ed.targetHandle ?? null) === (params.handleId ?? null)
@@ -104,11 +114,11 @@ function NodeGraphCanvasInner() {
         removeEdge(existing.id)
       }
     },
-    [edges, removeEdge]
+    [edges, removeEdge, getNode]
   )
 
   const onConnectEnd: OnConnectEnd = useCallback(
-    (_e, state) => {
+    (event, state) => {
       if (detaching.current) {
         // Detached noodle: a valid drop re-routed it (handleConnect ran),
         // otherwise it was dropped on empty space and stays unplugged.
@@ -116,11 +126,21 @@ function NodeGraphCanvasInner() {
         detaching.current = false
         return
       }
+      const origin = connectFrom.current
+      connectFrom.current = null
+      // Dropped a noodle from an output onto empty canvas (no end handle):
+      // offer a picker of nodes that have a compatible input, then auto-wire.
+      if (origin && !state?.toHandle) {
+        const pt = 'changedTouches' in event ? event.changedTouches[0] : event
+        const fp = screenToFlowPosition({ x: pt.clientX, y: pt.clientY })
+        setCanvasMenu({ x: pt.clientX, y: pt.clientY, fx: fp.x, fy: fp.y, connectFrom: origin })
+        return
+      }
       if (state && !state.isValid) {
         setStatus('Incompatible port types — connection blocked', 'error')
       }
     },
-    [setStatus]
+    [setStatus, screenToFlowPosition]
   )
 
   // Unplug a noodle: grab its input (target) end and drop it on empty space to
@@ -278,6 +298,7 @@ function NodeGraphCanvasInner() {
           x={canvasMenu.x}
           y={canvasMenu.y}
           flowPosition={{ x: canvasMenu.fx, y: canvasMenu.fy }}
+          connectFrom={canvasMenu.connectFrom}
           onClose={() => setCanvasMenu(null)}
         />
       )}
