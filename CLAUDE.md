@@ -87,7 +87,7 @@ Edges ("noodles") can be unplugged from a node's **input** end two ways. (1) **G
 
 ### Live Preview Pipeline
 
-`LEDPreview.tsx` drives a `requestAnimationFrame` loop that calls `evaluateGraph(nodes, edges, tick, gridW, gridH)` every frame. When the graph is empty, `idleFrame()` shows a rainbow shimmer instead. The per-frame body is wrapped in `try/catch` so a single malformed frame logs and is skipped rather than tearing down the loop.
+`LEDPreview.tsx` drives a `requestAnimationFrame` loop that evaluates the graph (`evaluateGraphFull`, see per-node previews above) and renders the matrix. **Timing is wall-clock based:** the loop gates to ~60 steps/sec off `performance.now()` and passes `tick = elapsedMs / (1000/60)` so `t = tick/60` equals real seconds — matching the firmware's `millis()/1000`. This means animation speed is independent of the display refresh rate (a 120 Hz panel would otherwise run everything ~2× fast, since the old code incremented `tick` once per rAF assuming exactly 60 fps). When the graph is empty, `idleFrame()` shows a rainbow shimmer instead. The per-frame body is wrapped in `try/catch` so a single malformed frame logs and is skipped rather than tearing down the loop.
 
 **`src/state/graphEvaluator.ts`** is the runtime engine. It topologically evaluates nodes in dependency order using memoisation per frame. Key types:
 
