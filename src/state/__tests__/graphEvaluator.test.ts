@@ -113,6 +113,32 @@ describe('evaluateGraph', () => {
     expect(new Set(vals).size).toBeGreaterThan(1)
   })
 
+  it('ComplexWave combines two values per operation', () => {
+    // ComplexWave.result → BrightnessMod over white, so frame[0][0].r = round(255 * result).
+    const brightnessAt = (operation: string, a: number, b: number) => {
+      const cw = node('cw', 'ComplexWave', 'math', { operation, a, b })
+      const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })
+      const bm = node('bm', 'BrightnessMod', 'composite', {})
+      const out = node('out', 'MatrixOutput', 'output', {})
+      const f = evaluateGraph(
+        [cw, sc, bm, out],
+        [
+          edge('e1', 'cw', 'result', 'bm', 'brightness'),
+          edge('e2', 'sc', 'frame', 'bm', 'frame'),
+          edge('e3', 'bm', 'frame', 'out', 'frame'),
+        ],
+        0, 4, 4,
+      )!
+      return f[0][0].r
+    }
+    expect(brightnessAt('add', 0.5, 0.25)).toBe(Math.round(255 * 0.75))
+    expect(brightnessAt('multiply', 0.5, 0.25)).toBe(Math.round(255 * 0.125))
+    expect(brightnessAt('average', 0.5, 0.25)).toBe(Math.round(255 * 0.375))
+    expect(brightnessAt('difference', 0.5, 0.25)).toBe(Math.round(255 * 0.25))
+    expect(brightnessAt('max', 0.5, 0.25)).toBe(Math.round(255 * 0.5))
+    expect(brightnessAt('min', 0.5, 0.25)).toBe(Math.round(255 * 0.25))
+  })
+
   it('BrightnessMod scales pixel values', () => {
     const sc  = node('sc', 'SolidColor', 'pattern', { r: 200, g: 200, b: 200 })
     const bm  = node('bm', 'BrightnessMod', 'pattern', { brightness: 0.5 })

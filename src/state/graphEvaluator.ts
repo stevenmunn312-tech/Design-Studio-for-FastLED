@@ -2,6 +2,7 @@ import type { StudioNode, StudioEdge } from './graphStore'
 import { useAudioStore } from './audioStore'
 import { asFont, textColumns, type BitmapFont, DEFAULT_FONT } from './font'
 import { asImage, sampleImageToFrame } from './image'
+import { waveSample, combineWaves } from './wave'
 
 export interface RGB { r: number; g: number; b: number }
 export type Frame = RGB[][]   // row-major [y][x]
@@ -85,21 +86,6 @@ function kelvinToRgb(kelvin: number): RGB {
   else if (t <= 19) b = 0
   else b = 138.5177312231 * Math.log(t - 10) - 305.0447927307
   return { r: clamp(r), g: clamp(g), b: clamp(b) }
-}
-
-// Waveform oscillator: amplitude · wave(frequency·t + phase), wave in [-1,1].
-// Shared shape definitions so the Wave node previews and flashes identically.
-function evalWave(type: string, amplitude: number, frequency: number, phase: number, t: number): number {
-  const arg = frequency * t + phase
-  const ph = ((arg % 1) + 1) % 1
-  let w: number
-  switch (type) {
-    case 'square':   w = ph < 0.5 ? 1 : -1; break
-    case 'sawtooth': w = 2 * ph - 1; break
-    case 'triangle': w = 4 * Math.abs(ph - 0.5) - 1; break
-    default:         w = Math.sin(2 * Math.PI * arg) // sine
-  }
-  return amplitude * w
 }
 
 function solidFrame(color: RGB, W = DEFAULT_W, H = DEFAULT_H): Frame {
@@ -976,7 +962,15 @@ export function evaluateGraph(
         const frequency = num(id, 'frequency', props, 'frequency', 1)
         const phase     = num(id, 'phase', props, 'phase', 0)
         const waveform  = String(props.waveform ?? 'sine')
-        out = { result: evalWave(waveform, amplitude, frequency, phase, t) }
+        out = { result: waveSample(waveform, amplitude, frequency, phase, t) }
+        break
+      }
+
+      case 'ComplexWave': {
+        const a = num(id, 'a', props, 'a', 0)
+        const b = num(id, 'b', props, 'b', 0)
+        const operation = String(props.operation ?? 'add')
+        out = { result: combineWaves(operation, a, b) }
         break
       }
 

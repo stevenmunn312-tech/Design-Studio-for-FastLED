@@ -301,6 +301,22 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
+      case 'ComplexWave': {
+        const a = f('a', 'a', 0), b = f('b', 'b', 0)
+        const op = String(p.operation ?? 'add')
+        let expr: string
+        switch (op) {
+          case 'multiply':   expr = `(${a}) * (${b})`; break
+          case 'average':    expr = `((${a}) + (${b})) * 0.5f`; break
+          case 'min':        expr = `min((float)(${a}), (float)(${b}))`; break
+          case 'max':        expr = `max((float)(${a}), (float)(${b}))`; break
+          case 'difference': expr = `(${a}) - (${b})`; break
+          default:           expr = `(${a}) + (${b})` // add
+        }
+        ln(`  float ${v('result')} = ${expr};`)
+        break
+      }
+
       case 'HSVToRGB':
         ln(`  CRGB ${v('color')} = CHSV((uint8_t)((${f('h', 'h', 0)}) / 360.0f * 255), (uint8_t)((${f('s', 's', 1)}) * 255), (uint8_t)((${f('v', 'v', 1)}) * 255));`)
         break

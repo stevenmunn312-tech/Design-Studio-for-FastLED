@@ -5,6 +5,8 @@ import { useGraphStore } from '../../state/graphStore'
 import type { StudioNodeData } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { CATEGORY_ACCENT_VAR, portColor, PROPERTY_META } from '../../state/nodeLibrary'
+import { waveNodeSamples, complexWaveSamples } from '../../state/wave'
+import WaveScope from './WaveScope'
 import styles from './StudioNode.module.css'
 
 function toHex(r: number, g: number, b: number) {
@@ -15,13 +17,18 @@ function hexToRgb(hex: string) {
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
 }
 
-// Must match CSS: header=32px, body padding-top=8px, row=24px, gap=4px
+// Must match CSS: header=32px, body padding-top=8px, row=24px, gap=4px,
+// preview scope=40px (WaveScope.module.css .scope height).
 const HEADER_H = 32
 const BODY_PAD = 8
 const ROW_H = 24
 const ROW_GAP = 4
+const PREVIEW_H = 40
 
-const handleTop = (i: number) => HEADER_H + BODY_PAD + i * (ROW_H + ROW_GAP) + ROW_H / 2
+// Handles are absolutely positioned; a preview scope at the top of the body
+// pushes the port rows down by its height + the body's flex gap.
+const handleTop = (i: number, previewOffset: number) =>
+  HEADER_H + BODY_PAD + previewOffset + i * (ROW_H + ROW_GAP) + ROW_H / 2
 
 const HANDLE_STYLE = {
   width: 12,
@@ -52,6 +59,16 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     ([k]) => k !== 'font' && k !== 'image' && !(hasRGB && (k === 'r' || k === 'g' || k === 'b'))
   )
 
+  // Waveform nodes show a live scope at the top of the body; this shifts the
+  // port handles below it down by the scope height + the body's flex gap.
+  const previewSamples =
+    d.nodeType === 'Wave'
+      ? waveNodeSamples(String(props.waveform ?? 'sine'), Number(props.amplitude ?? 1), Number(props.frequency ?? 1), Number(props.phase ?? 0))
+      : d.nodeType === 'ComplexWave'
+        ? complexWaveSamples(String(props.operation ?? 'add'))
+        : null
+  const previewOffset = previewSamples ? PREVIEW_H + ROW_GAP : 0
+
   return (
     <div
       className={styles.node}
@@ -69,13 +86,13 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
             position={Position.Left}
             id={port.id}
             title={`${port.label} · ${port.dataType}`}
-            style={{ ...HANDLE_STYLE, top: handleTop(i), background: pc, boxShadow: `0 0 6px ${pc}` }}
+            style={{ ...HANDLE_STYLE, top: handleTop(i, previewOffset), background: pc, boxShadow: `0 0 6px ${pc}` }}
           />
           {sparkPortId === port.id && (
             <span
               key={sparkPortId}
               className={styles.spark}
-              style={{ top: handleTop(i), left: 0 }}
+              style={{ top: handleTop(i, previewOffset), left: 0 }}
             />
           )}
         </span>
@@ -90,7 +107,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           position={Position.Right}
           id={port.id}
           title={`${port.label} · ${port.dataType}`}
-          style={{ ...HANDLE_STYLE, top: handleTop(i), background: pc, boxShadow: `0 0 6px ${pc}` }}
+          style={{ ...HANDLE_STYLE, top: handleTop(i, previewOffset), background: pc, boxShadow: `0 0 6px ${pc}` }}
         />
         )
       })}
@@ -99,6 +116,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {d.label}
       </div>
       <div className={styles.body}>
+        {previewSamples && <WaveScope samples={previewSamples} />}
         {Array.from({ length: rowCount }).map((_, i) => (
           <div key={i} className={styles.portRow}>
             <span className={styles.portLabel}>{inputs[i]?.label ?? ''}</span>

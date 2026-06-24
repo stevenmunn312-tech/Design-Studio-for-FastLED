@@ -120,6 +120,23 @@ describe('generateCpp', () => {
     expect(shape('triangle')).toContain('4.0f * fabsf(_ph - 0.5f) - 1.0f')
   })
 
+  it('emits ComplexWave combining two waves per operation', () => {
+    // Two Wave nodes feed a ComplexWave; check the combine expression.
+    const mk = (operation: string) => {
+      const wa = node('wa', 'Wave', 'math', { amplitude: 1, frequency: 1, phase: 0, waveform: 'sine' })
+      const wb = node('wb', 'Wave', 'math', { amplitude: 1, frequency: 2, phase: 0, waveform: 'sine' })
+      const cw = node('cw', 'ComplexWave', 'math', { operation })
+      return generateCpp([wa, wb, cw, outputNode], [
+        edge('e1', 'wa', 'cw', 'result', 'a'),
+        edge('e2', 'wb', 'cw', 'result', 'b'),
+      ])
+    }
+    expect(mk('add')).toContain('(n_wa_result) + (n_wb_result)')
+    expect(mk('multiply')).toContain('(n_wa_result) * (n_wb_result)')
+    expect(mk('average')).toContain('((n_wa_result) + (n_wb_result)) * 0.5f')
+    expect(mk('max')).toContain('max((float)(n_wa_result), (float)(n_wb_result))')
+  })
+
   it('emits blur2d call for Blur2D node', () => {
     const blur = node('bl', 'Blur2D', 'pattern', { amount: 40 })
     const cpp = generateCpp([blur, outputNode], [])

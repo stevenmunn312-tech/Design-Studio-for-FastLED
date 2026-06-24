@@ -433,6 +433,18 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { amplitude: 1, frequency: 1, phase: 0, waveform: 'sine' },
   },
   {
+    // Combines two wave (float) signals via a selectable operation.
+    type: 'ComplexWave',
+    label: 'Complex Wave',
+    category: 'math',
+    inputs: [
+      { id: 'a', label: 'Wave A', dataType: 'float' },
+      { id: 'b', label: 'Wave B', dataType: 'float' },
+    ],
+    outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+    defaultProperties: { operation: 'add' },
+  },
+  {
     type: 'Lerp',
     label: 'Lerp',
     category: 'math',
@@ -973,6 +985,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Sin: 'Sine of the input (×2π).',
   Cos: 'Cosine of the input (×2π).',
   Wave: 'Oscillator — sine, triangle, square or sawtooth over time.',
+  ComplexWave: 'Combines two waves (add, multiply, average, min/max, difference).',
   Lerp: 'Linear interpolation between a and b by t.',
   TimeNode: 'Elapsed time in seconds, plus a frame delta.',
   Abs: 'Absolute value.',
@@ -1120,6 +1133,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   direction:  { control: 'select', options: ['right', 'left', 'up', 'down'] },
   mode:       { control: 'select', options: ['cycle', 'beat'] },
   waveform:   { control: 'select', options: ['sine', 'triangle', 'square', 'sawtooth'] },
+  operation:  { control: 'select', options: ['add', 'multiply', 'average', 'min', 'max', 'difference'] },
   chipset:    { control: 'select', options: ['WS2812B', 'WS2811', 'SK6812', 'APA102', 'WS2801', 'NEOPIXEL'] },
   colorOrder: { control: 'select', options: ['GRB', 'RGB', 'BGR', 'BRG', 'GBR', 'RBG'] },
 

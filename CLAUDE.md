@@ -61,10 +61,13 @@ const HEADER_H = 32   // .header height
 const BODY_PAD = 8    // .body padding-top (--space-1)
 const ROW_H    = 24   // .portRow height
 const ROW_GAP  = 4    // .body gap
-const handleTop = (i: number) => HEADER_H + BODY_PAD + i * (ROW_H + ROW_GAP) + ROW_H / 2
+const PREVIEW_H = 40  // WaveScope .scope height (only on Wave/ComplexWave)
+const handleTop = (i, previewOffset) => HEADER_H + BODY_PAD + previewOffset + i * (ROW_H + ROW_GAP) + ROW_H / 2
 ```
 
 Changing any of those CSS values without updating the constants will silently misalign all connection handles.
+
+**Waveform preview scope:** `Wave` and `ComplexWave` nodes render a `WaveScope` mini-oscilloscope at the top of the body (above the port rows). Because handles are absolutely positioned, this scope pushes the rows down — so `handleTop` takes a `previewOffset` (`PREVIEW_H + ROW_GAP` for these nodes, else 0). The scope samples are pure functions of the node's own props (`waveNodeSamples` / `complexWaveSamples` in `src/state/wave.ts`, which also backs the evaluator's `Wave`/`ComplexWave` cases), so preview, live render, and codegen stay in sync. ComplexWave's scope is illustrative — it shows the chosen operation applied to two reference sines, not the live upstream inputs.
 
 **Typed port colours:** each handle (input/output dot) is tinted by its port `dataType` via `portColor()` (`nodeLibrary.ts`), so ports that can connect share a colour — `float`/`bool` share one (they interconvert per `portsCompatible`, also in `nodeLibrary.ts` and shared by the canvas + picker), `color`/`palette`/`frame`/`audio` are distinct. The node header/border still uses the category accent. Handles also carry a `label · dataType` title.
 
@@ -149,7 +152,7 @@ Nodes are grouped into categories. Adding a new node type requires:
 Current nodes by category (see `nodeLibrary.ts` for the authoritative list):
 - **audio**: FFTAnalyzer, BeatDetect, MicInput, AudioHue
 - **hardware**: ButtonInput, PotInput
-- **math**: MathAdd, Multiply, Clamp, MapRange, Sin, Cos, Wave, Lerp, TimeNode, Abs, Mod, MinNode, MaxNode, Random, Counter, Gate, Not, Compare, BeatSin, XYMapper
+- **math**: MathAdd, Multiply, Clamp, MapRange, Sin, Cos, Wave, ComplexWave, Lerp, TimeNode, Abs, Mod, MinNode, MaxNode, Random, Counter, Gate, Not, Compare, BeatSin, XYMapper
 - **color**: HSVToRGB, BlendColors, CHSV, Temperature, GradientSampler, PaletteSampler, PaletteSelector, CustomPalette, PaletteBlend
 - **pattern** (frame generators): SolidColor, Span, Rect, Circle, Line, Text, NoiseField, Fire, Fire2012, Plasma, SpectrumBars, BassPulse, MidrangeWaves, TrebleSparks, BeatFlash, Noise2D, RadialBurst, Spiral, Kaleidoscope, Particles, GradientFrame, Simplex2D, Noise3D, Worley, FractalNoise, Blobs, FlowField, ReactionDiffusion, GameOfLife, PatternMaster, CustomFormula, Starfield, PlasmaFractal, AudioFlow, GaborNoise, PaletteGradient, Image
 - **composite** (frame→frame): BlendFrames, BrightnessMod, HueShift, Invert, Blur2D, LayerBlend, Mask, Crossfade, Wipe, Dissolve, Sequencer
