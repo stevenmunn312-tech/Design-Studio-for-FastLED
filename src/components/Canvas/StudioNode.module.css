@@ -132,3 +132,43 @@
   background: none;
   cursor: pointer;
 }
+
+.propSelect {
+  width: 84px;
+  flex: 0 0 auto;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-glow);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: var(--fs-caption);
+  font-family: var(--font-code);
+  padding: 1px 2px;
+  cursor: pointer;
+}
+
+.propSelect:focus {
+  outline: none;
+  border-color: var(--accent-output);
+}
+
+.sliderWrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.propRange {
+  width: 72px;
+  accent-color: var(--accent-output);
+  cursor: pointer;
+}
+
+.propVal {
+  width: 34px;
+  text-align: right;
+  font-size: var(--fs-caption);
+  font-family: var(--font-code);
+  color: var(--text-primary);
+  white-space: nowrap;
+}

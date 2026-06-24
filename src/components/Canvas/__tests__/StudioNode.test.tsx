@@ -43,13 +43,36 @@ describe('StudioNode', () => {
     expect(color.value).toBe('#ff0080')
   })
 
-  it('editing a number field updates the node property in the store', () => {
-    const { container } = renderNode(makeNode('NoiseField', { speed: 1, scale: 1, palette: 'rainbow' }))
+  it('editing a plain number field updates the node property in the store', () => {
+    // Circle's `radius` has no PROPERTY_META entry, so it stays a number input.
+    const { container } = renderNode(makeNode('Circle', { cx: 4, cy: 4, radius: 3, filled: false, r: 255, g: 0, b: 0 }))
     const num = container.querySelector('input[type="number"]') as HTMLInputElement
     expect(num).toBeTruthy()
-    fireEvent.change(num, { target: { value: '2.5' } })
-    // First number field is `speed` (property iteration order).
+    fireEvent.change(num, { target: { value: '5' } })
+    // First number field is `cx` (property iteration order).
+    expect(useGraphStore.getState().nodes[0].data.properties.cx).toBe(5)
+  })
+
+  it('renders a slider for speed and updates the property', () => {
+    const { container } = renderNode(makeNode('NoiseField', { speed: 1, scale: 1, palette: 'rainbow' }))
+    const range = container.querySelector('input[type="range"]') as HTMLInputElement
+    expect(range).toBeTruthy()
+    expect(range.min).toBe('0')
+    // First slider is `speed` (property iteration order).
+    fireEvent.change(range, { target: { value: '2.5' } })
     expect(useGraphStore.getState().nodes[0].data.properties.speed).toBe(2.5)
+  })
+
+  it('renders a dropdown for palette with the preset options', () => {
+    const { container } = renderNode(makeNode('NoiseField', { speed: 1, scale: 1, palette: 'rainbow' }))
+    const select = container.querySelector('select') as HTMLSelectElement
+    expect(select).toBeTruthy()
+    expect(select.value).toBe('rainbow')
+    const opts = Array.from(select.options).map((o) => o.value)
+    expect(opts).toContain('ocean')
+    expect(opts).toContain('party')
+    fireEvent.change(select, { target: { value: 'ocean' } })
+    expect(useGraphStore.getState().nodes[0].data.properties.palette).toBe('ocean')
   })
 
   it('toggling a boolean property renders a checkbox and updates the store', () => {
