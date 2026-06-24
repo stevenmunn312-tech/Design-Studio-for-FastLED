@@ -155,7 +155,7 @@ Current nodes by category (see `nodeLibrary.ts` for the authoritative list):
 - **audio**: FFTAnalyzer, BeatDetect, MicInput, AudioHue
 - **hardware**: ButtonInput, PotInput
 - **math**: MathAdd, Multiply, Clamp, MapRange, Sin, Cos, Wave, ComplexWave, Lerp, TimeNode, Abs, Mod, MinNode, MaxNode, Random, Counter, Gate, Not, Compare, BeatSin, XYMapper
-- **color**: HSVToRGB, BlendColors, CHSV, Temperature, GradientSampler, PaletteSampler, PaletteSelector, CustomPalette, PaletteBlend
+- **color**: HSVToRGB, BlendColors, CHSV, Temperature, GradientSampler, PaletteSampler, PaletteSelector, CustomPalette, Poline, PaletteBlend
 - **pattern** (frame generators): SolidColor, Span, Rect, Circle, Line, Text, NoiseField, Fire, Fire2012, Plasma, SpectrumBars, BassPulse, MidrangeWaves, TrebleSparks, BeatFlash, Noise2D, RadialBurst, Spiral, Kaleidoscope, Particles, GradientFrame, Simplex2D, Noise3D, Worley, FractalNoise, Blobs, FlowField, ReactionDiffusion, GameOfLife, PatternMaster, CustomFormula, Starfield, PlasmaFractal, AudioFlow, GaborNoise, PaletteGradient, Image
 - **composite** (frame→frame): BlendFrames, BrightnessMod, HueShift, Transform, Invert, Blur2D, LayerBlend, Mask, Crossfade, Wipe, Dissolve, Sequencer
 - **output**: MatrixOutput
@@ -163,6 +163,8 @@ Current nodes by category (see `nodeLibrary.ts` for the authoritative list):
 Some node types are created programmatically rather than dragged from the sidebar (so they have no `NODE_LIBRARY` entry): `Group` and `GroupOutput`/`GroupInput` are minted by `graphStore.createGroup` (see the multi-graph/group section above).
 
 The `Text` node renders with the built-in 3×5 bitmap font in `src/state/font.ts`. The font is plain data (`FONT`, `BitmapFont`, `textColumns`, `asFont`) shared by the evaluator and the C++ generator so preview and firmware match exactly. A Text node can carry a **custom font** in `properties.font` (a `{ w, h, glyphs }` object, uploaded as JSON via the Inspector); `asFont()` validates it and everything else (rendering, scrolling, codegen) reads the resolved font's dimensions, so no other code changes are needed.
+
+The `Poline` node generates a smooth palette via the **poline** library (polar interpolation between two anchor colours). `src/state/polinePalette.ts` wraps it (`polinePalette` → `RGB[]` for the evaluator/preview, `polineStops16` → 16 stops the C++ generator bakes into a `CRGBPalette16`, plus the position-function list mirrored in `PROPERTY_META.position`). Anchors come from two wired `color` inputs; the per-anchor `anchorA`/`anchorB` hex props are the fallback when unwired and the values codegen bakes (live-wired anchors drive only the preview). Like `CustomPalette`/`PaletteBlend`, a connected `Poline` resolves to `pal_<id>` in `paletteExpr`.
 
 The `Image` node follows the same shared-data pattern via `src/state/image.ts`: an uploaded picture is downscaled in the Inspector to ≤`IMAGE_MAX_DIM` (32) and stored in `properties.image` as `{ w, h, pixels }` (flat `r,g,b` bytes). `asImage()` validates it; `sampleImageToFrame()` nearest-neighbour samples it to the matrix for preview, and the C++ generator emits the same pixels as a `PROGMEM` array blitted with `pgm_read_byte`. Like `font`, the `image` object is excluded from the inline node editors and the generic Inspector field list (edited via the Inspector's upload control instead).
 

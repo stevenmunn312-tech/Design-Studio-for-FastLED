@@ -2,6 +2,7 @@ import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import { asFont, textColumns } from '../state/font'
 import { asImage } from '../state/image'
+import { polineStops16, hexToRgb } from '../state/polinePalette'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -207,7 +208,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       if (src) {
         // CustomPalette and PaletteBlend build a runtime CRGBPalette16 (see
         // their emit cases); reference it by name.
-        if (src.data.nodeType === 'CustomPalette' || src.data.nodeType === 'PaletteBlend') return `pal_${safeId(up.srcId)}`
+        if (src.data.nodeType === 'CustomPalette' || src.data.nodeType === 'PaletteBlend' || src.data.nodeType === 'Poline') return `pal_${safeId(up.srcId)}`
         return fastledPalette(String(props(src).palette ?? 'rainbow'))
       }
     }
@@ -1104,6 +1105,21 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
           .map((port) => colorExpr(node.id, port))
         if (cols.length === 0) ln(`  CRGBPalette16 pal_${id} = RainbowColors_p;`)
         else ln(`  CRGBPalette16 pal_${id}(${cols.join(', ')});`)
+        break
+      }
+
+      case 'Poline': {
+        // Bake the poline palette (computed from the configured anchor hex
+        // props) into a CRGBPalette16. Live-wired anchors drive only the
+        // preview; firmware uses the configured anchors.
+        const a = hexToRgb(String(p.anchorA ?? '#1020ff'))
+        const b = hexToRgb(String(p.anchorB ?? '#ff20a0'))
+        const stops = polineStops16(a, b, Number(p.points ?? 4), String(p.position ?? 'sinusoidal'))
+        const cppStops = stops.map((s) => `CRGB(${s.r},${s.g},${s.b})`).join(', ')
+        if (incoming.get(`${node.id}:colorA`) || incoming.get(`${node.id}:colorB`)) {
+          ln(`  // Poline: wired anchors drive the live preview; firmware bakes the configured anchors.`)
+        }
+        ln(`  CRGBPalette16 pal_${id}(${cppStops});`)
         break
       }
 
