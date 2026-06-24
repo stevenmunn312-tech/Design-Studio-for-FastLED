@@ -832,25 +832,21 @@ type PortValue = number | boolean | string | RGB | RGB[] | Frame | null
 export interface GroupDef { nodes: StudioNode[]; edges: StudioEdge[] }
 export type GroupRegistry = Record<string, GroupDef>
 
-export function evaluateGraph(
+// Build the memoised evaluator closure for one graph (or group subgraph) at a
+// given tick. `instancePrefix` namespaces stateful-node state per group
+// instance; `groupStack` breaks group-level recursion; `groupInputs` carries
+// the values bound to the current group's exposed parameters.
+function createEvalNode(
   nodes: StudioNode[],
   edges: StudioEdge[],
   tick: number,
-  gridW = DEFAULT_W,
-  gridH = DEFAULT_H,
-  groups: GroupRegistry = {},
-  // Internal recursion bookkeeping for nested groups — callers leave these
-  // defaulted. `instancePrefix` namespaces stateful-node state per group
-  // instance; `groupStack` breaks group-level recursion; `groupInputs` carries
-  // the values bound to the current group's exposed parameters (paramId → value).
-  instancePrefix = '',
-  groupStack: ReadonlySet<string> = new Set(),
-  groupInputs: Record<string, PortValue> = {},
-): Frame | null {
-  const W = gridW
-  const H = gridH
-  if (nodes.length === 0) return null
-
+  W: number,
+  H: number,
+  groups: GroupRegistry,
+  instancePrefix: string,
+  groupStack: ReadonlySet<string>,
+  groupInputs: Record<string, PortValue>,
+) {
   const t = tick / 60   // seconds at assumed 60 fps
 
   // State maps are module-level and keyed by node id; prefix with the group
@@ -1764,11 +1760,29 @@ export function evaluateGraph(
     return out
   }
 
+  return evalNode
+}
+
+// ── Public entry points ───────────────────────────────────────────────────────
+
+export function evaluateGraph(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  tick: number,
+  gridW = DEFAULT_W,
+  gridH = DEFAULT_H,
+  groups: GroupRegistry = {},
+  // Internal recursion bookkeeping for nested groups — callers leave these defaulted.
+  instancePrefix = '',
+  groupStack: ReadonlySet<string> = new Set(),
+  groupInputs: Record<string, PortValue> = {},
+): Frame | null {
+  if (nodes.length === 0) return null
+  const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, groups, instancePrefix, groupStack, groupInputs)
   // Render only what reaches an explicit terminal: a GroupOutput inside a group
   // subgraph, or a MatrixOutput at the root, each passing through its `frame`
-  // input. A graph with no terminal (or an unconnected one) previews nothing —
-  // the canvas falls back to its idle animation — so the preview always matches
-  // what would actually be flashed.
+  // input. A graph with no terminal previews nothing — the canvas falls back to
+  // its idle animation — so the preview always matches what would be flashed.
   const outputNode = nodes.find(n => {
     const nt = (n.data as { nodeType?: string }).nodeType
     return nt === 'GroupOutput' || nt === 'MatrixOutput'
@@ -1777,6 +1791,27 @@ export function evaluateGraph(
     const frame = evalNode(outputNode.id).frame
     if (frame) return frame as Frame
   }
-
   return null
+}
+
+/**
+ * Probe a single node's scalar output port at one tick, reusing the full
+ * evaluator so the value matches what the graph actually computes (e.g. a
+ * ComplexWave's `result` reflects its real upstream inputs). Stateful upstream
+ * nodes run under a reserved state namespace so the probe never disturbs the
+ * live render. Returns 0 for missing/non-numeric ports (booleans → 0/1).
+ */
+export function evaluateScalar(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  nodeId: string,
+  portId: string,
+  tick: number,
+  gridW = DEFAULT_W,
+  gridH = DEFAULT_H,
+): number {
+  if (nodes.length === 0) return 0
+  const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, {}, '__scope__/', new Set(), {})
+  const v = evalNode(nodeId)?.[portId]
+  return typeof v === 'number' ? v : typeof v === 'boolean' ? (v ? 1 : 0) : 0
 }
