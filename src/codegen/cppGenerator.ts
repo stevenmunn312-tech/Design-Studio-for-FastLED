@@ -460,11 +460,12 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         const ob = ownBuf()
         const speed = f('speed', 'speed', 1)
         const scale = f('scale', 'scale', 1)
+        const pal = paletteExpr(node.id, 'paletteIn', p)
         ln(`  {`)
         ln(`    float _spd = ${speed}, _scl = ${scale};`)
         ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
         ln(`      float _v = (sin(_x * _scl * 0.5f + t * _spd) + cos(_y * _scl * 0.5f + t * _spd * 0.7f)) / 2.0f;`)
-        ln(`      ${ob}[_y * WIDTH + _x] = CHSV((uint8_t)((_v + 1) * 90 + t * 30), 255, 220);`)
+        ln(`      ${ob}[_y * WIDTH + _x] = ColorFromPalette(${pal}, (uint8_t)(((_v + 1) * 0.5f) * 255));`)
         ln(`    }`)
         ln(`  }`)
         break
