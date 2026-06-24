@@ -1046,3 +1046,44 @@ export function portsCompatible(srcType: string, dstType: string): boolean {
   if ((srcType === 'bool' || srcType === 'float') && (dstType === 'bool' || dstType === 'float')) return true
   return false
 }
+
+/** Built-in FastLED preset palettes a `palette` property can select. */
+export const PALETTES = ['rainbow', 'heat', 'ocean', 'lava', 'forest', 'party'] as const
+
+/**
+ * Control hints for inline node property editors (StudioNode), keyed by
+ * property name. `select` → dropdown of fixed options; `slider` → range input
+ * with the given bounds. Properties not listed fall back to type-based editors
+ * (checkbox for booleans, number/text input otherwise).
+ */
+export type PropertyControl =
+  | { control: 'select'; options: readonly string[] }
+  | { control: 'slider'; min: number; max: number; step: number }
+
+export const PROPERTY_META: Record<string, PropertyControl> = {
+  // Enumerated options → dropdown
+  palette:    { control: 'select', options: PALETTES },
+  paletteA:   { control: 'select', options: PALETTES },
+  paletteB:   { control: 'select', options: PALETTES },
+  direction:  { control: 'select', options: ['right', 'left', 'up', 'down'] },
+  mode:       { control: 'select', options: ['cycle', 'beat'] },
+  chipset:    { control: 'select', options: ['WS2812B', 'WS2811', 'SK6812', 'APA102', 'WS2801', 'NEOPIXEL'] },
+  colorOrder: { control: 'select', options: ['GRB', 'RGB', 'BGR', 'BRG', 'GBR', 'RBG'] },
+
+  // Bounded numeric ranges → slider
+  speed:    { control: 'slider', min: 0, max: 5, step: 0.1 },
+  scale:    { control: 'slider', min: 0, max: 2, step: 0.01 },
+  fade:     { control: 'slider', min: 0, max: 1, step: 0.01 },
+  amount:   { control: 'slider', min: 0, max: 255, step: 1 },
+  t:        { control: 'slider', min: 0, max: 1, step: 0.01 },
+  mix:      { control: 'slider', min: 0, max: 1, step: 0.01 },
+  bass:     { control: 'slider', min: 0, max: 1, step: 0.01 },
+  mids:     { control: 'slider', min: 0, max: 1, step: 0.01 },
+  treble:   { control: 'slider', min: 0, max: 1, step: 0.01 },
+  octaves:  { control: 'slider', min: 1, max: 6, step: 1 },
+  count:    { control: 'slider', min: 1, max: 200, step: 1 },
+  feed:     { control: 'slider', min: 0, max: 0.1, step: 0.001 },
+  kill:     { control: 'slider', min: 0, max: 0.1, step: 0.001 },
+  interval: { control: 'slider', min: 0.1, max: 20, step: 0.1 },
+  kelvin:   { control: 'slider', min: 1000, max: 12000, step: 100 },
+}

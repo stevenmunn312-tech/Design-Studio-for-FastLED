@@ -4,7 +4,7 @@ import type { NodeProps, Node } from '@xyflow/react'
 import { useGraphStore } from '../../state/graphStore'
 import type { StudioNodeData } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { CATEGORY_ACCENT_VAR, portColor } from '../../state/nodeLibrary'
+import { CATEGORY_ACCENT_VAR, portColor, PROPERTY_META } from '../../state/nodeLibrary'
 import styles from './StudioNode.module.css'
 
 function toHex(r: number, g: number, b: number) {
@@ -119,10 +119,35 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                 />
               </div>
             )}
-            {editable.map(([key, val]) => (
+            {editable.map(([key, val]) => {
+              const meta = PROPERTY_META[key]
+              return (
               <div key={key} className={styles.propRow}>
                 <span className={styles.propKey} title={key}>{key}</span>
-                {typeof val === 'boolean' ? (
+                {meta?.control === 'select' ? (
+                  <select
+                    className={`nodrag ${styles.propSelect}`}
+                    value={String(val)}
+                    onChange={(e) => updateNodeProperty(id, key, e.target.value)}
+                  >
+                    {meta.options.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                ) : meta?.control === 'slider' && typeof val === 'number' ? (
+                  <span className={styles.sliderWrap}>
+                    <input
+                      className={`nodrag nowheel ${styles.propRange}`}
+                      type="range"
+                      min={meta.min}
+                      max={meta.max}
+                      step={meta.step}
+                      value={val}
+                      onChange={(e) => updateNodeProperty(id, key, Number(e.target.value))}
+                    />
+                    <span className={styles.propVal}>{val}</span>
+                  </span>
+                ) : typeof val === 'boolean' ? (
                   <input
                     className="nodrag"
                     type="checkbox"
@@ -146,7 +171,8 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                   />
                 )}
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
