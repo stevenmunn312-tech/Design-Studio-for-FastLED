@@ -351,6 +351,19 @@ describe('generateCpp', () => {
     expect(cpp).toContain('ColorFromPalette(pal_cp,')
   })
 
+  it('bakes a poline palette into a CRGBPalette16 used downstream', () => {
+    const pl = node('pl', 'Poline', 'color', { anchorA: '#ff0000', anchorB: '#0000ff', points: 4, position: 'sinusoidal' })
+    const sx = node('sx', 'Simplex2D', 'pattern', { palette: 'rainbow' })
+    const cpp = generateCpp([pl, sx, outputNode], [
+      edge('e1', 'pl', 'sx', 'palette', 'paletteIn'),
+      edge('e2', 'sx', 'out', 'frame', 'frame'),
+    ])
+    // 16 baked CRGB stops, anchored at red and ending at blue.
+    expect(cpp).toContain('CRGBPalette16 pal_pl(CRGB(255,0,0)')
+    expect(cpp).toMatch(/CRGBPalette16 pal_pl\((CRGB\(\d+,\d+,\d+\), ){15}CRGB\(\d+,\d+,\d+\)\);/)
+    expect(cpp).toContain('ColorFromPalette(pal_pl,')
+  })
+
   it('emits a Game of Life simulation with millis-based stepping', () => {
     const gol = node('g', 'GameOfLife', 'pattern', { speed: 8, fade: 0.75, r: 0, g: 255, b: 70 })
     const cpp = generateCpp([gol, outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])

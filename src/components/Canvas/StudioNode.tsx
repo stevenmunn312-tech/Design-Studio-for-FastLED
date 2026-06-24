@@ -182,6 +182,13 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                     value={val}
                     onChange={(e) => updateNodeProperty(id, key, e.target.value === '' ? 0 : Number(e.target.value))}
                   />
+                ) : typeof val === 'string' && /^#[0-9a-f]{6}$/i.test(val) ? (
+                  <input
+                    className={`nodrag ${styles.colorInput}`}
+                    type="color"
+                    value={val}
+                    onChange={(e) => updateNodeProperty(id, key, e.target.value)}
+                  />
                 ) : (
                   <input
                     className={`nodrag ${styles.propInput}`}

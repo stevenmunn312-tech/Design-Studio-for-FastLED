@@ -652,6 +652,18 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: {},
   },
   {
+    // Polar-interpolated palette between two anchor colours (poline).
+    type: 'Poline',
+    label: 'Poline Palette',
+    category: 'color',
+    inputs: [
+      { id: 'colorA', label: 'Anchor A', dataType: 'color' },
+      { id: 'colorB', label: 'Anchor B', dataType: 'color' },
+    ],
+    outputs: [{ id: 'palette', label: 'Palette', dataType: 'palette' }],
+    defaultProperties: { anchorA: '#1020ff', anchorB: '#ff20a0', points: 4, position: 'sinusoidal' },
+  },
+  {
     type: 'PaletteBlend',
     label: 'Blend Palettes',
     category: 'color',
@@ -1020,6 +1032,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Temperature: 'White point from a colour temperature in Kelvin (warm→cool).',
   PaletteSelector: 'Outputs a named preset palette.',
   CustomPalette: 'Builds a palette from up to four colors.',
+  Poline: 'Smooth poline palette between two anchor colours.',
   PaletteBlend: 'Interpolates between two palettes.',
   // pattern
   SolidColor: 'Fills the matrix with one color.',
@@ -1148,6 +1161,9 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   waveform:   { control: 'select', options: ['sine', 'triangle', 'square', 'sawtooth'] },
   operation:  { control: 'select', options: ['add', 'multiply', 'average', 'min', 'max', 'difference'] },
   transform:  { control: 'select', options: ['rotate', 'scale', 'translate'] },
+  // Poline position functions — keep in sync with polinePalette.ts POSITION_FNS.
+  position:   { control: 'select', options: ['linear', 'sinusoidal', 'quadratic', 'cubic', 'arc', 'smoothStep', 'exponential'] },
+  points:     { control: 'slider', min: 1, max: 12, step: 1 },
   chipset:    { control: 'select', options: ['WS2812B', 'WS2811', 'SK6812', 'APA102', 'WS2801', 'NEOPIXEL'] },
   colorOrder: { control: 'select', options: ['GRB', 'RGB', 'BGR', 'BRG', 'GBR', 'RBG'] },
 

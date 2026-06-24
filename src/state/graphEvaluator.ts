@@ -3,6 +3,7 @@ import { useAudioStore } from './audioStore'
 import { asFont, textColumns, type BitmapFont, DEFAULT_FONT } from './font'
 import { asImage, sampleImageToFrame } from './image'
 import { waveSample, combineWaves } from './wave'
+import { polinePalette, hexToRgb } from './polinePalette'
 
 export interface RGB { r: number; g: number; b: number }
 export type Frame = RGB[][]   // row-major [y][x]
@@ -1671,6 +1672,17 @@ function createEvalNode(
           if (c) colors.push(c)
         }
         out = { palette: colors.length > 0 ? colors : 'rainbow' }
+        break
+      }
+
+      case 'Poline': {
+        // Polar-interpolated palette between two anchor colours (poline). Wired
+        // colours override the per-anchor hex defaults.
+        const a = (input(id, 'colorA', null) as RGB | null) ?? hexToRgb(String(props.anchorA ?? '#1020ff'))
+        const b = (input(id, 'colorB', null) as RGB | null) ?? hexToRgb(String(props.anchorB ?? '#ff20a0'))
+        const points = Number(props.points ?? 4)
+        const position = String(props.position ?? 'sinusoidal')
+        out = { palette: polinePalette(a, b, points, position) }
         break
       }
 

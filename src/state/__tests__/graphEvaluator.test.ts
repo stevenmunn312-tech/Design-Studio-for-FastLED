@@ -564,6 +564,35 @@ describe('evaluateGraph', () => {
     expect(wired).not.toEqual(presetOnly)   // custom colors changed the output
   })
 
+  it('a Poline palette drives a pattern, varying with its anchors', () => {
+    const run = (anchorA: string, anchorB: string) => {
+      const pl = node('pl', 'Poline', 'color', { anchorA, anchorB, points: 4, position: 'sinusoidal' })
+      const sx = node('sx', 'Simplex2D', 'pattern', { speed: 0, palette: 'rainbow' })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      return evaluateGraph(
+        [pl, sx, out],
+        [edge('e1', 'pl', 'palette', 'sx', 'paletteIn'), edge('e2', 'sx', 'frame', 'out', 'frame')],
+        0, 6, 6,
+      )!
+    }
+    const a = run('#ff0000', '#0000ff')
+    const p0 = JSON.stringify(a[0][0])
+    expect(a.flat().some((px) => JSON.stringify(px) !== p0)).toBe(true)  // palette applied → varied
+    expect(JSON.stringify(run('#ff0000', '#0000ff'))).toEqual(JSON.stringify(a)) // deterministic
+    expect(JSON.stringify(run('#00ff00', '#ffff00'))).not.toEqual(JSON.stringify(a)) // anchors matter
+  })
+
+  it('a wired anchor colour overrides the Poline hex default', () => {
+    const c = node('c', 'CHSV', 'color', { hue: 96, sat: 255, val: 255 })
+    const pl = node('pl', 'Poline', 'color', { anchorA: '#ff0000', anchorB: '#0000ff', points: 4, position: 'linear' })
+    const sx = node('sx', 'Simplex2D', 'pattern', { speed: 0, palette: 'rainbow' })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edgesBase = [edge('e2', 'pl', 'palette', 'sx', 'paletteIn'), edge('e3', 'sx', 'frame', 'out', 'frame')]
+    const withoutWire = evaluateGraph([pl, sx, out], edgesBase, 0, 6, 6)
+    const withWire = evaluateGraph([c, pl, sx, out], [edge('e1', 'c', 'rgb', 'pl', 'colorA'), ...edgesBase], 0, 6, 6)
+    expect(JSON.stringify(withWire)).not.toEqual(JSON.stringify(withoutWire))
+  })
+
   it('Simplex2D uses a connected palette over its own property', () => {
     // Baseline: Simplex2D with palette property 'heat', no connection.
     const heat = withOutput(node('sx', 'Simplex2D', 'pattern', { palette: 'heat' }))
