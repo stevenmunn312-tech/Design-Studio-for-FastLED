@@ -103,6 +103,31 @@ function cloneFrame(frame: Frame): Frame {
   return frame.map(row => row.map(px => ({ ...px })))
 }
 
+// Per-channel blend-mode math for the Blend node. `a`/`b` are 0–255 base/blend
+// channel values; returns the blended channel (0–255) before opacity is mixed.
+function blendChannel(mode: string, a: number, b: number): number {
+  const an = a / 255, bn = b / 255
+  let r: number
+  switch (mode) {
+    case 'multiply':   r = an * bn; break
+    case 'screen':     r = 1 - (1 - an) * (1 - bn); break
+    case 'overlay':    r = an < 0.5 ? 2 * an * bn : 1 - 2 * (1 - an) * (1 - bn); break
+    case 'add':        r = Math.min(1, an + bn); break
+    case 'difference': r = Math.abs(an - bn); break
+    case 'normal':
+    default:           r = bn; break
+  }
+  return r * 255
+}
+
+// Composite frame `b` over `a` with `mode` at `opacity` (0–1): the blended
+// colour is cross-faded against the base by opacity, so 0 = base, 1 = full mode.
+function blendPixel(mode: string, a: RGB, b: RGB, opacity: number): RGB {
+  const mix = (av: number, bv: number) =>
+    Math.round(av * (1 - opacity) + blendChannel(mode, av, bv) * opacity)
+  return { r: mix(a.r, b.r), g: mix(a.g, b.g), b: mix(a.b, b.b) }
+}
+
 // Animated geometric transform of a frame, resampled nearest-neighbour about
 // the matrix centre. `rotate` spins by rate°/s, `scale` zooms by rate%/s
 // (clamped), `translate` shifts by rate px/s along `angle°` (toroidal wrap).
@@ -401,6 +426,20 @@ function evalGradientFrame(cA: RGB, cB: RGB, vertical: boolean, W = DEFAULT_W, H
       return { r: Math.round(cA.r * (1-t) + cB.r * t), g: Math.round(cA.g * (1-t) + cB.g * t), b: Math.round(cA.b * (1-t) + cB.b * t) }
     })
   )
+}
+
+// Dispatch for the bundled `Noise` node — `noiseType` picks the algorithm.
+// All variants share the (speed, scale, palette)→frame signature. Keep the
+// cases in sync with PROPERTY_META.noiseType and cppGenerator's `Noise` case.
+function evalNoiseByType(noiseType: string, speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  switch (noiseType) {
+    case 'simplex': return evalSimplex2D(speed, scale, t, palette, W, H)
+    case 'noise3d': return evalNoise3D(speed, scale, t, palette, W, H)
+    case 'worley':  return evalWorley(speed, scale, t, palette, W, H)
+    case 'plasma':  return evalPlasmaFractal(speed, scale, t, palette, W, H)
+    case 'field':
+    default:        return evalNoiseField(speed, scale, t, palette, W, H)
+  }
 }
 
 function evalSimplex2D(speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
@@ -949,13 +988,27 @@ function createEvalNode(
         out = { time: t, dt: 1 / 60 }
         break
 
-      case 'MathAdd':
-        out = { result: num(id, 'a', props, 'a') + num(id, 'b', props, 'b') }
+      // Bundled binary math (Add / Subtract / Multiply / Divide / Min / Max),
+      // selected by `mathOp`. Missing inputs default to the operation's identity
+      // (1 for multiply/divide, else 0). Keep in sync with cppGenerator's `Math`.
+      case 'Math': {
+        const op = String(props.mathOp ?? 'add')
+        const idn = op === 'multiply' || op === 'divide' ? 1 : 0
+        const a = num(id, 'a', props, 'a', idn)
+        const b = num(id, 'b', props, 'b', idn)
+        let r: number
+        switch (op) {
+          case 'subtract': r = a - b; break
+          case 'multiply': r = a * b; break
+          case 'divide':   r = b === 0 ? 0 : a / b; break
+          case 'min':      r = Math.min(a, b); break
+          case 'max':      r = Math.max(a, b); break
+          case 'add':
+          default:         r = a + b; break
+        }
+        out = { result: r }
         break
-
-      case 'Multiply':
-        out = { result: num(id, 'a', props, 'a', 1) * num(id, 'b', props, 'b', 1) }
-        break
+      }
 
       case 'Lerp': {
         const a  = num(id, 'a', props, 'a', 0)
@@ -1150,11 +1203,16 @@ function createEvalNode(
         break
       }
 
-      case 'NoiseField': {
+      // Bundled noise generators (NoiseField / Simplex2D / Noise3D / Worley /
+      // PlasmaFractal). All share the (speed, scale, palette)→frame signature;
+      // `noiseType` picks the algorithm. Keep in sync with PROPERTY_META.noiseType
+      // and the `Noise` case in cppGenerator.ts.
+      case 'Noise': {
         const speed = num(id, 'speed', props, 'speed', 1)
-        const scale = num(id, 'scale', props, 'scale', 1)
+        const scale = num(id, 'scale', props, 'scale', 0.4)
         const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-        out = { frame: evalNoiseField(speed, scale, t, palette, W, H) }
+        const noiseType = String(props.noiseType ?? 'field')
+        out = { frame: evalNoiseByType(noiseType, speed, scale, t, palette, W, H) }
         break
       }
 
@@ -1178,22 +1236,17 @@ function createEvalNode(
         break
       }
 
-      case 'BlendFrames': {
+      // Frame blend with real blend modes — composites B over A per `blendMode`,
+      // mixed by `amount` (opacity, 0–255). Keep in sync with cppGenerator's `Blend`.
+      case 'Blend': {
         const fa = input(id, 'a', null) as Frame | null
         const fb = input(id, 'b', null) as Frame | null
-        const mix = num(id, 't', props, 't', 0.5)
         if (!fa && !fb) { out = { frame: null }; break }
         const a = fa ?? blankFrame(W, H)
         const b = fb ?? blankFrame(W, H)
-        out = {
-          frame: a.map((row, y) =>
-            row.map((px, x) => ({
-              r: Math.round(px.r * (1 - mix) + b[y][x].r * mix),
-              g: Math.round(px.g * (1 - mix) + b[y][x].g * mix),
-              b: Math.round(px.b * (1 - mix) + b[y][x].b * mix),
-            }))
-          ),
-        }
+        const opacity = num(id, 'amount', props, 'amount', 128) / 255
+        const mode = String(props.blendMode ?? 'normal')
+        out = { frame: a.map((row, y) => row.map((px, x) => blendPixel(mode, px, b[y][x], opacity))) }
         break
       }
 
@@ -1404,14 +1457,6 @@ function createEvalNode(
         break
       }
 
-      case 'MinNode':
-        out = { result: Math.min(num(id, 'a', props, 'a', 0), num(id, 'b', props, 'b', 0)) }
-        break
-
-      case 'MaxNode':
-        out = { result: Math.max(num(id, 'a', props, 'a', 0), num(id, 'b', props, 'b', 0)) }
-        break
-
       case 'Random': {
         const lo = Number(props.min ?? 0), hi = Number(props.max ?? 1)
         out = { value: lo + Math.random() * (hi - lo) }
@@ -1448,30 +1493,6 @@ function createEvalNode(
       }
 
       // ── Proper noise nodes ────────────────────────────────────────────
-      case 'Simplex2D': {
-        const speed   = num(id, 'speed',  props, 'speed',  0.4)
-        const scale   = num(id, 'scale',  props, 'scale',  0.3)
-        const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-        out = { frame: evalSimplex2D(speed, scale, t, palette, W, H) }
-        break
-      }
-
-      case 'Noise3D': {
-        const speed   = num(id, 'speed',  props, 'speed',  0.5)
-        const scale   = num(id, 'scale',  props, 'scale',  0.3)
-        const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
-        out = { frame: evalNoise3D(speed, scale, t, palette, W, H) }
-        break
-      }
-
-      case 'Worley': {
-        const speed   = num(id, 'speed',  props, 'speed',  0.5)
-        const scale   = num(id, 'scale',  props, 'scale',  0.3)
-        const palette = pal(id, 'paletteIn', props, 'palette', 'forest')
-        out = { frame: evalWorley(speed, scale, t, palette, W, H) }
-        break
-      }
-
       case 'FractalNoise': {
         const speed   = num(id, 'speed', props, 'speed', 0.3)
         const scale   = num(id, 'scale', props, 'scale', 0.15)
@@ -1538,14 +1559,6 @@ function createEvalNode(
         break
       }
 
-      case 'PlasmaFractal': {
-        const speed = num(id, 'speed', props, 'speed', 1)
-        const scale = num(id, 'scale', props, 'scale', 0.15)
-        const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-        out = { frame: evalPlasmaFractal(speed, scale, t, palette, W, H) }
-        break
-      }
-
       case 'AudioFlow': {
         const bass = num(id, 'bass', props, 'bass', 0.5)
         const mids = num(id, 'mids', props, 'mids', 0.5)
@@ -1580,38 +1593,27 @@ function createEvalNode(
       }
 
       // ── Transition nodes ──────────────────────────────────────────────
-      case 'Crossfade': {
+      // Bundled transitions (Crossfade / Wipe / Dissolve), selected by
+      // `transitionType`. All blend frame A→B by `t`; `direction` only applies to
+      // wipe. Keep in sync with cppGenerator's `Transition`.
+      case 'Transition': {
         const fa = input(id, 'a', null) as Frame | null
         const fb = input(id, 'b', null) as Frame | null
-        const mix = num(id, 't', props, 't', 0.5)
+        const tt = num(id, 't', props, 't', 0.5)
         const ca = fa ?? blankFrame(W, H)
         const cb = fb ?? blankFrame(W, H)
-        out = {
-          frame: ca.map((row, y) =>
-            row.map((px, x) => ({
-              r: Math.round(px.r * (1 - mix) + cb[y][x].r * mix),
-              g: Math.round(px.g * (1 - mix) + cb[y][x].g * mix),
-              b: Math.round(px.b * (1 - mix) + cb[y][x].b * mix),
-            }))
-          ),
-        }
-        break
-      }
-
-      case 'Wipe': {
-        const fa = input(id, 'a', null) as Frame | null
-        const fb = input(id, 'b', null) as Frame | null
-        const tt = num(id, 't', props, 't', 0.5)
-        const dir = String(props.direction ?? 'right')
-        out = { frame: evalWipe(fa ?? blankFrame(W, H), fb ?? blankFrame(W, H), tt, dir, W, H) }
-        break
-      }
-
-      case 'Dissolve': {
-        const fa = input(id, 'a', null) as Frame | null
-        const fb = input(id, 'b', null) as Frame | null
-        const tt = num(id, 't', props, 't', 0.5)
-        out = { frame: evalDissolve(fa ?? blankFrame(W, H), fb ?? blankFrame(W, H), tt, W, H) }
+        const type = String(props.transitionType ?? 'crossfade')
+        let frame: Frame
+        if (type === 'wipe') frame = evalWipe(ca, cb, tt, String(props.direction ?? 'right'), W, H)
+        else if (type === 'dissolve') frame = evalDissolve(ca, cb, tt, W, H)
+        else frame = ca.map((row, y) =>
+          row.map((px, x) => ({
+            r: Math.round(px.r * (1 - tt) + cb[y][x].r * tt),
+            g: Math.round(px.g * (1 - tt) + cb[y][x].g * tt),
+            b: Math.round(px.b * (1 - tt) + cb[y][x].b * tt),
+          }))
+        )
+        out = { frame }
         break
       }
 
@@ -1734,24 +1736,6 @@ function createEvalNode(
         const x = num(id, 'x', props, 'x', 0)
         const y = num(id, 'y', props, 'y', 0)
         out = { index: Math.floor(x) + Math.floor(y) * W }
-        break
-      }
-
-      case 'LayerBlend': {
-        const fa = input(id, 'a', null) as Frame | null
-        const fb = input(id, 'b', null) as Frame | null
-        const amount = num(id, 'amount', props, 'amount', 128) / 255
-        const ca = fa ?? blankFrame(W, H)
-        const cb = fb ?? blankFrame(W, H)
-        out = {
-          frame: ca.map((row, y) =>
-            row.map((px, x) => ({
-              r: Math.round(px.r * (1 - amount) + cb[y][x].r * amount),
-              g: Math.round(px.g * (1 - amount) + cb[y][x].g * amount),
-              b: Math.round(px.b * (1 - amount) + cb[y][x].b * amount),
-            }))
-          ),
-        }
         break
       }
 

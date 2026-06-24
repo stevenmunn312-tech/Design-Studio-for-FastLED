@@ -76,6 +76,56 @@ interface GraphState {
 
 type HistorySlice = Pick<GraphState, 'nodes' | 'edges'>
 
+// Legacy node types folded into bundled nodes (Noise / Math / Transition /
+// Blend), mapped to the bundle plus the variant property that selects the old
+// behaviour. Graphs exported before consolidation still reference the old
+// types; upgrade them on import so they keep working and gain the inline
+// variant dropdown.
+const LEGACY_BUNDLE: Record<string, { nodeType: string; label: string; props: Record<string, unknown> }> = {
+  NoiseField:    { nodeType: 'Noise', label: 'Noise', props: { noiseType: 'field' } },
+  Simplex2D:     { nodeType: 'Noise', label: 'Noise', props: { noiseType: 'simplex' } },
+  Noise3D:       { nodeType: 'Noise', label: 'Noise', props: { noiseType: 'noise3d' } },
+  Worley:        { nodeType: 'Noise', label: 'Noise', props: { noiseType: 'worley' } },
+  PlasmaFractal: { nodeType: 'Noise', label: 'Noise', props: { noiseType: 'plasma' } },
+  MathAdd:       { nodeType: 'Math', label: 'Math', props: { mathOp: 'add' } },
+  Multiply:      { nodeType: 'Math', label: 'Math', props: { mathOp: 'multiply' } },
+  MinNode:       { nodeType: 'Math', label: 'Math', props: { mathOp: 'min' } },
+  MaxNode:       { nodeType: 'Math', label: 'Math', props: { mathOp: 'max' } },
+  Crossfade:     { nodeType: 'Transition', label: 'Transition', props: { transitionType: 'crossfade' } },
+  Wipe:          { nodeType: 'Transition', label: 'Transition', props: { transitionType: 'wipe' } },
+  Dissolve:      { nodeType: 'Transition', label: 'Transition', props: { transitionType: 'dissolve' } },
+  // Both old blend nodes did a linear mix → the Blend node's `normal` mode.
+  // LayerBlend already used the `amount` (0–255) port, so it maps cleanly.
+  LayerBlend:    { nodeType: 'Blend', label: 'Blend', props: { blendMode: 'normal' } },
+  BlendFrames:   { nodeType: 'Blend', label: 'Blend', props: { blendMode: 'normal' } },
+}
+
+// Migrate a saved graph's legacy node types to their bundle, also fixing up
+// edge handles where a port was renamed (BlendFrames' 0–1 `t` → Blend's 0–255
+// `amount`).
+function migrateLegacyGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes: StudioNode[]; edges: StudioEdge[] } {
+  const handleRenames = new Map<string, Record<string, string>>()
+  const migratedNodes = nodes.map((n) => {
+    const data = n.data as StudioNodeData
+    const bundle = LEGACY_BUNDLE[data?.nodeType]
+    if (!bundle) return n
+    // Existing props win, so a migrated Wipe keeps its `direction`.
+    let properties: Record<string, unknown> = { ...bundle.props, ...data.properties }
+    if (data.nodeType === 'BlendFrames') {
+      const { t, ...rest } = data.properties as Record<string, unknown>
+      properties = { ...bundle.props, ...rest, amount: Math.round(Number(t ?? 0.5) * 255) }
+      handleRenames.set(n.id, { t: 'amount' })
+    }
+    return { ...n, data: { ...data, nodeType: bundle.nodeType, label: bundle.label, properties } }
+  })
+  const migratedEdges = edges.map((e) => {
+    const rename = handleRenames.get(e.target)
+    if (rename && e.targetHandle && rename[e.targetHandle]) return { ...e, targetHandle: rename[e.targetHandle] }
+    return e
+  })
+  return { nodes: migratedNodes, edges: migratedEdges }
+}
+
 export const useGraphStore = create<GraphState>()(
   temporal(
     (set) => ({
@@ -152,7 +202,7 @@ export const useGraphStore = create<GraphState>()(
           ),
         })),
 
-      loadGraph: (nodes, edges) => set({ nodes, edges }),
+      loadGraph: (nodes, edges) => set(migrateLegacyGraph(nodes, edges)),
 
       duplicateNode: (id) =>
         set((s) => {

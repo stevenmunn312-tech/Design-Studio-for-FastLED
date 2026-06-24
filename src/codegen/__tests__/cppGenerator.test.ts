@@ -71,11 +71,13 @@ describe('generateCpp', () => {
     expect(withMapRange).toContain('float mapFloat(')
   })
 
-  it('emits MathAdd result variable', () => {
-    const add = node('a', 'MathAdd', 'math', { a: 1, b: 2 })
+  it('emits Math result variable for the selected operation', () => {
+    const add = node('a', 'Math', 'math', { mathOp: 'add', a: 1, b: 2 })
     const cpp = generateCpp([add, outputNode], [])
     expect(cpp).toContain('n_a_result')
     expect(cpp).toContain('(1) + (2)')
+    const mul = generateCpp([node('a', 'Math', 'math', { mathOp: 'multiply', a: 3, b: 4 }), outputNode], [])
+    expect(mul).toContain('(3) * (4)')
   })
 
   it('chains node output as input to downstream node', () => {
@@ -138,7 +140,7 @@ describe('generateCpp', () => {
   })
 
   it('emits NoiseField coloured through its palette', () => {
-    const nf = node('nf', 'NoiseField', 'pattern', { speed: 1, scale: 1, palette: 'ocean' })
+    const nf = node('nf', 'Noise', 'pattern', { noiseType: 'field', speed: 1, scale: 1, palette: 'ocean' })
     const cpp = generateCpp([nf, outputNode], [edge('e', 'nf', 'out', 'frame', 'frame')])
     expect(cpp).toContain('ColorFromPalette(OceanColors_p')
     expect(cpp).not.toContain('CHSV((uint8_t)((_v')  // no longer hardcoded hue
@@ -218,14 +220,14 @@ describe('generateCpp', () => {
   })
 
   it('maps a Simplex2D palette property to its FastLED constant', () => {
-    const sx = node('sx', 'Simplex2D', 'pattern', { palette: 'lava' })
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex', palette: 'lava' })
     const cpp = generateCpp([sx, outputNode], [edge('e1', 'sx', 'out', 'frame', 'frame')])
     expect(cpp).toContain('ColorFromPalette(LavaColors_p')
   })
 
   it('resolves a connected PaletteSelector into the consuming node', () => {
     const sel = node('sel', 'PaletteSelector', 'color', { palette: 'ocean' })
-    const sx  = node('sx', 'Simplex2D', 'pattern', { palette: 'rainbow' })
+    const sx  = node('sx', 'Noise', 'pattern', { noiseType: 'simplex', palette: 'rainbow' })
     const cpp = generateCpp([sel, sx, outputNode], [
       edge('e1', 'sel', 'sx', 'palette', 'paletteIn'),
       edge('e2', 'sx', 'out', 'frame', 'frame'),
@@ -333,7 +335,7 @@ describe('generateCpp', () => {
 
   it('emits a blended CRGBPalette16 for PaletteBlend', () => {
     const pb = node('pb', 'PaletteBlend', 'color', { paletteA: 'heat', paletteB: 'ocean', amount: 128 })
-    const sx = node('sx', 'Simplex2D', 'pattern', {})
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
     const cpp = generateCpp([pb, sx, outputNode], [
       edge('e1', 'pb', 'sx', 'palette', 'paletteIn'),
       edge('e2', 'sx', 'out', 'frame', 'frame'),
@@ -347,7 +349,7 @@ describe('generateCpp', () => {
     const c1 = node('c1', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })
     const c2 = node('c2', 'CHSV', 'color', { hue: 120, sat: 255, val: 255 })
     const cp = node('cp', 'CustomPalette', 'color', {})
-    const sx = node('sx', 'Simplex2D', 'pattern', { palette: 'rainbow' })
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex', palette: 'rainbow' })
     const cpp = generateCpp([c1, c2, cp, sx, outputNode], [
       edge('e1', 'c1', 'cp', 'rgb', 'color0'),
       edge('e2', 'c2', 'cp', 'rgb', 'color1'),
@@ -360,7 +362,7 @@ describe('generateCpp', () => {
 
   it('bakes a poline palette into a CRGBPalette16 used downstream', () => {
     const pl = node('pl', 'Poline', 'color', { anchorA: '#ff0000', anchorB: '#0000ff', points: 4, position: 'sinusoidal' })
-    const sx = node('sx', 'Simplex2D', 'pattern', { palette: 'rainbow' })
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex', palette: 'rainbow' })
     const cpp = generateCpp([pl, sx, outputNode], [
       edge('e1', 'pl', 'sx', 'palette', 'paletteIn'),
       edge('e2', 'sx', 'out', 'frame', 'frame'),
@@ -414,7 +416,7 @@ describe('generateCpp', () => {
   })
 
   it('emits a PlasmaFractal with sin sums and inoise8 octaves', () => {
-    const pf = node('pf', 'PlasmaFractal', 'pattern', { speed: 1, scale: 0.15, palette: 'rainbow' })
+    const pf = node('pf', 'Noise', 'pattern', { noiseType: 'plasma', speed: 1, scale: 0.15, palette: 'rainbow' })
     const cpp = generateCpp([pf, outputNode], [edge('e', 'pf', 'out', 'frame', 'frame')])
     expect(cpp).toContain('inoise8(')
     expect(cpp).toContain('ColorFromPalette(RainbowColors_p')
@@ -470,11 +472,21 @@ describe('generateCpp', () => {
   })
 
   it('emits Worley noise with its hash helper', () => {
-    const w = node('w', 'Worley', 'pattern', { speed: 0.5, scale: 0.3, palette: 'forest' })
+    const w = node('w', 'Noise', 'pattern', { noiseType: 'worley', speed: 0.5, scale: 0.3, palette: 'forest' })
     const cpp = generateCpp([w, outputNode], [edge('e', 'w', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _worleyHash(int x, int y)')
     expect(cpp).toContain('_worleyHash(_cx,_cy)')
     expect(cpp).toContain('ColorFromPalette(ForestColors_p')
+  })
+
+  it('emits the right Transition code per transitionType', () => {
+    const emit = (transitionType: string, props: Record<string, unknown> = {}) =>
+      generateCpp([node('tr', 'Transition', 'composite', { transitionType, t: 0.5, ...props }), outputNode],
+        [edge('e', 'tr', 'out', 'frame', 'frame')])
+    expect(emit('crossfade')).toContain('nblend(')
+    const wipe = emit('wipe', { direction: 'up' })
+    expect(wipe).toContain('if(_y')                      // wipe iterates on the y axis
+    expect(emit('dissolve')).toContain('1664525u')       // dissolve hash constant
   })
 
   it('emits a Color Temperature node with the kelvinToRGB helper', () => {
@@ -538,10 +550,10 @@ describe('generateCpp', () => {
     expect(cpp).toContain('buf_mk[_i].nscale8((buf_m[_i].r + buf_m[_i].g + buf_m[_i].b) / 3)')
   })
 
-  it('composites two layers with nblend and copies the result to leds', () => {
+  it('Blend normal mode composites with nblend and copies the result to leds', () => {
     const a  = node('a', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
     const b  = node('b', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 })
-    const lb = node('lb', 'LayerBlend', 'composite', { amount: 128 })
+    const lb = node('lb', 'Blend', 'composite', { blendMode: 'normal', amount: 128 })
     const cpp = generateCpp([a, b, lb, outputNode], [
       edge('e1', 'a', 'lb', 'frame', 'a'),
       edge('e2', 'b', 'lb', 'frame', 'b'),
@@ -552,6 +564,20 @@ describe('generateCpp', () => {
     expect(cpp).toContain('::memmove(buf_lb, buf_a, sizeof(CRGB) * NUM_LEDS)')
     expect(cpp).toContain('nblend(buf_lb, buf_b, NUM_LEDS, (uint8_t)(128))')
     expect(cpp).toContain('::memmove(leds, buf_lb, sizeof(CRGB) * NUM_LEDS)')
+  })
+
+  it('Blend non-normal mode emits a per-channel blend loop', () => {
+    const a  = node('a', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const b  = node('b', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 })
+    const bl = node('bl', 'Blend', 'composite', { blendMode: 'multiply', amount: 200 })
+    const cpp = generateCpp([a, b, bl, outputNode], [
+      edge('e1', 'a', 'bl', 'frame', 'a'),
+      edge('e2', 'b', 'bl', 'frame', 'b'),
+      edge('e3', 'bl', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).not.toContain('nblend(buf_bl')        // not the linear path
+    expect(cpp).toContain('float _op=(200)/255.0f')
+    expect(cpp).toContain('float _r=_av*_bv;')        // multiply expression
   })
 
   it('skips an unknown group reference and still emits a valid sketch', () => {

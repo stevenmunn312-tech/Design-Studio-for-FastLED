@@ -104,8 +104,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { x1: 0, y1: 0, x2: 15, y2: 15, r: 0, g: 200, b: 255 },
   },
   {
-    type: 'NoiseField',
-    label: 'Noise Field',
+    // Bundled noise generators — `noiseType` selects the algorithm. The
+    // variants (sine field, simplex, 3D, Worley, plasma-fractal) all share the
+    // same (speed, scale, palette)→frame signature, so they collapse into one
+    // node with an inline dropdown. See PROPERTY_META.noiseType.
+    type: 'Noise',
+    label: 'Noise',
     category: 'pattern',
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
@@ -113,7 +117,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 1.0, scale: 1.0, palette: 'rainbow' },
+    defaultProperties: { noiseType: 'field', speed: 1.0, scale: 0.4, palette: 'rainbow' },
   },
   {
     type: 'Fire',
@@ -140,16 +144,20 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { amount: 40 },
   },
   {
-    type: 'LayerBlend',
-    label: 'Blend Layers',
+    // Frame blend with real blend modes — composites B over A per `blendMode`,
+    // mixed by `amount` (opacity, 0–255). Replaces the former LayerBlend +
+    // BlendFrames. See PROPERTY_META.blendMode and the `Blend` case in
+    // graphEvaluator/cppGenerator.
+    type: 'Blend',
+    label: 'Blend',
     category: 'composite',
     inputs: [
-      { id: 'a',      label: 'A',      dataType: 'frame' },
-      { id: 'b',      label: 'B',      dataType: 'frame' },
-      { id: 'amount', label: 'Amount', dataType: 'float' },
+      { id: 'a',      label: 'A',       dataType: 'frame' },
+      { id: 'b',      label: 'B',       dataType: 'frame' },
+      { id: 'amount', label: 'Opacity', dataType: 'float' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { amount: 128 },
+    defaultProperties: { blendMode: 'normal', amount: 128 },
   },
   {
     // Scales a frame per-pixel by a mask frame's luminance — feed any soft
@@ -186,18 +194,6 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   },
 
   // ── Compositing ────────────────────────────────────────────────────────
-  {
-    type: 'BlendFrames',
-    label: 'Blend Frames',
-    category: 'composite',
-    inputs: [
-      { id: 'a', label: 'A', dataType: 'frame' },
-      { id: 'b', label: 'B', dataType: 'frame' },
-      { id: 't', label: 'Mix', dataType: 'float' },
-    ],
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { t: 0.5 },
-  },
   {
     type: 'BrightnessMod',
     label: 'Brightness',
@@ -371,26 +367,18 @@ export const NODE_LIBRARY: NodeDefinition[] = [
 
   // ── Math ───────────────────────────────────────────────────────────────
   {
-    type: 'MathAdd',
-    label: 'Add',
+    // Bundled binary math — `mathOp` selects the operation. All variants share
+    // the (a, b)→result signature; the header reflects the chosen op. See
+    // PROPERTY_META.mathOp and the `Math` case in graphEvaluator/cppGenerator.
+    type: 'Math',
+    label: 'Math',
     category: 'math',
     inputs: [
       { id: 'a', label: 'A', dataType: 'float' },
       { id: 'b', label: 'B', dataType: 'float' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: {},
-  },
-  {
-    type: 'Multiply',
-    label: 'Multiply',
-    category: 'math',
-    inputs: [
-      { id: 'a', label: 'A', dataType: 'float' },
-      { id: 'b', label: 'B', dataType: 'float' },
-    ],
-    outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: {},
+    defaultProperties: { mathOp: 'add' },
   },
   {
     type: 'Clamp',
@@ -500,28 +488,6 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
     defaultProperties: { m: 1 },
-  },
-  {
-    type: 'MinNode',
-    label: 'Min',
-    category: 'math',
-    inputs: [
-      { id: 'a', label: 'A', dataType: 'float' },
-      { id: 'b', label: 'B', dataType: 'float' },
-    ],
-    outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: {},
-  },
-  {
-    type: 'MaxNode',
-    label: 'Max',
-    category: 'math',
-    inputs: [
-      { id: 'a', label: 'A', dataType: 'float' },
-      { id: 'b', label: 'B', dataType: 'float' },
-    ],
-    outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: {},
   },
   {
     type: 'Random',
@@ -696,44 +662,8 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: {},
   },
 
-  // ── Proper noise ──────────────────────────────────────────────────────
-  {
-    type: 'Simplex2D',
-    label: 'Simplex 2D',
-    category: 'pattern',
-    inputs: [
-      { id: 'speed', label: 'Speed', dataType: 'float' },
-      { id: 'scale', label: 'Scale', dataType: 'float' },
-      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
-    ],
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.4, scale: 0.3, palette: 'rainbow' },
-  },
-  {
-    type: 'Noise3D',
-    label: 'Noise 3D',
-    category: 'pattern',
-    inputs: [
-      { id: 'speed', label: 'Speed', dataType: 'float' },
-      { id: 'scale', label: 'Scale', dataType: 'float' },
-      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
-    ],
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.5, scale: 0.3, palette: 'ocean' },
-  },
-  {
-    // Worley / cellular noise — distance to the nearest animated feature point.
-    type: 'Worley',
-    label: 'Worley Noise',
-    category: 'pattern',
-    inputs: [
-      { id: 'speed', label: 'Speed', dataType: 'float' },
-      { id: 'scale', label: 'Scale', dataType: 'float' },
-      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
-    ],
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.5, scale: 0.3, palette: 'forest' },
-  },
+  // ── Proper noise (Simplex2D / Noise3D / Worley / PlasmaFractal folded into
+  //    the bundled `Noise` node above) ───────────────────────────────────────
   {
     // Fractal (fBm) noise — summed octaves for detailed, cloud-like motion.
     type: 'FractalNoise',
@@ -821,19 +751,6 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { speed: 1, count: 60, r: 255, g: 255, b: 255 },
   },
   {
-    // Plasma blended with fractal noise.
-    type: 'PlasmaFractal',
-    label: 'Plasma Fractal',
-    category: 'pattern',
-    inputs: [
-      { id: 'speed', label: 'Speed', dataType: 'float' },
-      { id: 'scale', label: 'Scale', dataType: 'float' },
-      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
-    ],
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 1, scale: 0.15, palette: 'rainbow' },
-  },
-  {
     // Audio-reactive flowing noise field (bass/mids/treble drive it).
     type: 'AudioFlow',
     label: 'Audio Flow',
@@ -875,8 +792,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
 
   // ── Transition nodes ──────────────────────────────────────────────────
   {
-    type: 'Crossfade',
-    label: 'Crossfade',
+    // Bundled transitions — `transitionType` selects crossfade / wipe /
+    // dissolve. All share the (a, b, t)→frame signature; `direction` only
+    // applies to wipe (the inline editor disables it for the others via
+    // isPropertyEnabled). See the `Transition` case in graphEvaluator/cppGenerator.
+    type: 'Transition',
+    label: 'Transition',
     category: 'composite',
     inputs: [
       { id: 'a', label: 'From', dataType: 'frame' },
@@ -884,31 +805,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 't', label: 'T (0–1)', dataType: 'float' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { t: 0.5 },
-  },
-  {
-    type: 'Wipe',
-    label: 'Wipe',
-    category: 'composite',
-    inputs: [
-      { id: 'a', label: 'From', dataType: 'frame' },
-      { id: 'b', label: 'To', dataType: 'frame' },
-      { id: 't', label: 'T (0–1)', dataType: 'float' },
-    ],
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { t: 0.5, direction: 'right' },
-  },
-  {
-    type: 'Dissolve',
-    label: 'Dissolve',
-    category: 'composite',
-    inputs: [
-      { id: 'a', label: 'From', dataType: 'frame' },
-      { id: 'b', label: 'To', dataType: 'frame' },
-      { id: 't', label: 'T (0–1)', dataType: 'float' },
-    ],
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { t: 0.5 },
+    defaultProperties: { transitionType: 'crossfade', t: 0.5, direction: 'right' },
   },
 
   // ── Multi-Pattern Master ───────────────────────────────────────────────
@@ -1003,8 +900,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   ButtonInput: 'Reads a hardware button as a boolean.',
   PotInput: 'Reads a potentiometer as a 0–1 value.',
   // math
-  MathAdd: 'Adds two numbers (a + b).',
-  Multiply: 'Multiplies two numbers (a × b).',
+  Math: 'Binary math — add, subtract, multiply, divide, min or max (a op b).',
   Clamp: 'Constrains a value between min and max.',
   MapRange: 'Remaps a value from one range to another.',
   Sin: 'Sine of the input (×2π).',
@@ -1015,8 +911,6 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   TimeNode: 'Elapsed time in seconds, plus a frame delta.',
   Abs: 'Absolute value.',
   Mod: 'Modulo — x wrapped into [0, m).',
-  MinNode: 'Smaller of two values.',
-  MaxNode: 'Larger of two values.',
   Random: 'Random value in a range.',
   Counter: 'Ramps 0→1 over time at a set speed.',
   Gate: 'Passes a value when a boolean is true, else a fallback.',
@@ -1042,7 +936,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Circle: 'Draws a circle — ring or filled disc.',
   Line: 'Draws a line between two points.',
   Text: 'Renders scrolling text in a bitmap font.',
-  NoiseField: 'Smooth animated sine-noise field.',
+  Noise: 'Noise generator — pick the algorithm with the type dropdown.',
   Fire: 'Classic rising fire effect.',
   Fire2012: 'FastLED Fire2012 heat simulation.',
   Plasma: 'Animated plasma interference pattern.',
@@ -1057,9 +951,6 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Kaleidoscope: 'Mirrors a frame into kaleidoscope symmetry.',
   Particles: 'Emits drifting, fading particles.',
   GradientFrame: 'Two-color linear gradient fill.',
-  Simplex2D: 'Simplex noise mapped through a palette.',
-  Noise3D: 'Animated 3D-style noise through a palette.',
-  Worley: 'Cellular (Voronoi) noise.',
   FractalNoise: 'Fractal (fBm) noise — summed octaves, cloud-like.',
   Blobs: 'Metaballs — merging lava-lamp blobs.',
   GaborNoise: 'Gabor noise — oriented bands via sparse convolution.',
@@ -1067,7 +958,6 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Image: 'Uploaded image, downscaled to the matrix.',
   FlowField: 'Particles drifting along a noise flow field, with trails.',
   Starfield: 'Warp starfield — stars streak outward from the centre.',
-  PlasmaFractal: 'Plasma blended with fractal noise.',
   AudioFlow: 'Audio-reactive flowing noise field.',
   ReactionDiffusion: 'Gray-Scott reaction-diffusion — organic spots & stripes.',
   GameOfLife: 'Conway’s Game of Life with fading trails.',
@@ -1075,16 +965,13 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   CustomFormula: 'Per-pixel JS expression f(x, y, t).',
   // composite
   Blur2D: 'Box-blurs the frame.',
-  LayerBlend: 'Blends two frames by an amount.',
+  Blend: 'Blends B over A — normal, multiply, screen, overlay, add or difference.',
   Mask: 'Masks a frame by another frame’s brightness.',
-  BlendFrames: 'Mixes two frames by t.',
   BrightnessMod: 'Scales frame brightness.',
   HueShift: 'Rotates all hues.',
   Transform: 'Animated rotate, scale or translate of a frame.',
   Invert: 'Inverts colors.',
-  Crossfade: 'Crossfades frame A into B.',
-  Wipe: 'Wipes from A to B in a direction.',
-  Dissolve: 'Randomly dissolves A into B.',
+  Transition: 'Transitions A→B — crossfade, directional wipe or random dissolve.',
   Sequencer: 'Crossfades through its inputs on a timer.',
   // output
   MatrixOutput: 'The LED matrix output — board, pin, and size.',
@@ -1162,6 +1049,12 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   waveform:   { control: 'select', options: ['sine', 'triangle', 'square', 'sawtooth'] },
   operation:  { control: 'select', options: ['add', 'multiply', 'average', 'min', 'max', 'difference'] },
   transform:  { control: 'select', options: ['rotate', 'scale', 'translate'] },
+  // Bundled-node selectors — each picks a variant; keep in sync with the
+  // matching case in graphEvaluator.ts and cppGenerator.ts.
+  noiseType:      { control: 'select', options: ['field', 'simplex', 'noise3d', 'worley', 'plasma'] },
+  mathOp:         { control: 'select', options: ['add', 'subtract', 'multiply', 'divide', 'min', 'max'] },
+  transitionType: { control: 'select', options: ['crossfade', 'wipe', 'dissolve'] },
+  blendMode:      { control: 'select', options: ['normal', 'multiply', 'screen', 'overlay', 'add', 'difference'] },
   // Poline position functions — keep in sync with polinePalette.ts POSITION_FNS.
   position:   { control: 'select', options: ['linear', 'sinusoidal', 'quadratic', 'cubic', 'arc', 'smoothStep', 'exponential'] },
   points:     { control: 'slider', min: 1, max: 12, step: 1 },
@@ -1190,4 +1083,46 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   kill:     { control: 'slider', min: 0, max: 0.1, step: 0.001 },
   interval: { control: 'slider', min: 0.1, max: 20, step: 0.1 },
   kelvin:   { control: 'slider', min: 1000, max: 12000, step: 100 },
+}
+
+/**
+ * Bundled nodes (Noise / Math / Transition) collapse several former node types
+ * behind one entry, selected by a variant property. This maps each to that
+ * property plus the human-readable header shown per variant, so the node title
+ * reflects the current selection. Keep the variant keys in sync with the
+ * matching `PROPERTY_META` options and the evaluator/codegen cases.
+ */
+const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, string> }> = {
+  Noise: {
+    prop: 'noiseType',
+    labels: { field: 'Noise Field', simplex: 'Simplex', noise3d: 'Noise 3D', worley: 'Worley', plasma: 'Plasma Fractal' },
+  },
+  Math: {
+    prop: 'mathOp',
+    labels: { add: 'Add', subtract: 'Subtract', multiply: 'Multiply', divide: 'Divide', min: 'Min', max: 'Max' },
+  },
+  Transition: {
+    prop: 'transitionType',
+    labels: { crossfade: 'Crossfade', wipe: 'Wipe', dissolve: 'Dissolve' },
+  },
+  Blend: {
+    prop: 'blendMode',
+    labels: { normal: 'Blend', multiply: 'Multiply', screen: 'Screen', overlay: 'Overlay', add: 'Add', difference: 'Difference' },
+  },
+}
+
+/** Header label for a node — for bundled nodes this reflects the selected
+ *  variant (e.g. a `Math` node with `mathOp: 'multiply'` reads "Multiply"). */
+export function nodeDisplayLabel(nodeType: string, properties: Record<string, unknown>, fallback: string): string {
+  const cfg = BUNDLED_TITLES[nodeType]
+  if (!cfg) return fallback
+  return cfg.labels[String(properties[cfg.prop] ?? '')] ?? fallback
+}
+
+/** Whether a node's inline property editor should be enabled. A property may be
+ *  inapplicable to the current variant (e.g. Transition `direction` only applies
+ *  to a wipe), in which case the editor is shown disabled but keeps its value. */
+export function isPropertyEnabled(nodeType: string, key: string, properties: Record<string, unknown>): boolean {
+  if (nodeType === 'Transition' && key === 'direction') return properties.transitionType === 'wipe'
+  return true
 }
