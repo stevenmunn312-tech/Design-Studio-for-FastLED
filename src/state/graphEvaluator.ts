@@ -1875,3 +1875,36 @@ export function evaluateScalar(
   const v = evalNode(nodeId)?.[portId]
   return typeof v === 'number' ? v : typeof v === 'boolean' ? (v ? 1 : 0) : 0
 }
+
+/**
+ * Evaluate the whole graph once, returning the terminal frame (as
+ * `evaluateGraph` would) plus every node's output ports — so per-node previews
+ * can be driven from the same single pass without double-advancing stateful
+ * nodes. Outputs are keyed by node id; each is a `{ portId: value }` record.
+ */
+export function evaluateGraphFull(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  tick: number,
+  gridW = DEFAULT_W,
+  gridH = DEFAULT_H,
+  groups: GroupRegistry = {},
+): { frame: Frame | null; outputs: Map<string, Record<string, unknown>> } {
+  const outputs = new Map<string, Record<string, unknown>>()
+  if (nodes.length === 0) return { frame: null, outputs }
+  const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, groups, '', new Set(), {})
+  for (const n of nodes) outputs.set(n.id, evalNode(n.id))
+  const outputNode = nodes.find(n => {
+    const nt = (n.data as { nodeType?: string }).nodeType
+    return nt === 'GroupOutput' || nt === 'MatrixOutput'
+  })
+  const frame = outputNode ? ((outputs.get(outputNode.id)?.frame as Frame | undefined) ?? null) : null
+  return { frame, outputs }
+}
+
+/** Sample a palette into `n` evenly-spaced RGB stops (for a gradient strip). */
+export function paletteStops(palette: Palette, n: number): RGB[] {
+  const out: RGB[] = []
+  for (let i = 0; i < n; i++) out.push(samplePalette(palette, n === 1 ? 0 : i / (n - 1)))
+  return out
+}

@@ -8,6 +8,7 @@ import { CATEGORY_ACCENT_VAR, portColor, PROPERTY_META } from '../../state/nodeL
 import { waveNodeSamples } from '../../state/wave'
 import WaveScope from './WaveScope'
 import ComplexWaveScope from './ComplexWaveScope'
+import NodePreview, { type PreviewKind } from './NodePreview'
 import styles from './StudioNode.module.css'
 
 function toHex(r: number, g: number, b: number) {
@@ -68,7 +69,17 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const waveSamples = isWave
     ? waveNodeSamples(String(props.waveform ?? 'sine'), Number(props.amplitude ?? 1), Number(props.frequency ?? 1), Number(props.phase ?? 0))
     : null
-  const previewOffset = isWave || isComplexWave ? PREVIEW_H + ROW_GAP : 0
+  // Frame / palette / colour nodes show a live preview of their primary output,
+  // driven from the shared evaluation pass (previewStore).
+  const outPort = outputs[0]
+  const previewKind: PreviewKind | null =
+    !isWave && !isComplexWave && outPort
+      ? outPort.dataType === 'frame' ? 'frame'
+      : outPort.dataType === 'palette' ? 'palette'
+      : outPort.dataType === 'color' ? 'color'
+      : null
+      : null
+  const previewOffset = isWave || isComplexWave || previewKind ? PREVIEW_H + ROW_GAP : 0
 
   return (
     <div
@@ -119,6 +130,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       <div className={styles.body}>
         {isWave && waveSamples && <WaveScope samples={waveSamples} />}
         {isComplexWave && <ComplexWaveScope nodeId={id} />}
+        {previewKind && outPort && <NodePreview nodeId={id} kind={previewKind} port={outPort.id} />}
         {Array.from({ length: rowCount }).map((_, i) => (
           <div key={i} className={styles.portRow}>
             <span className={styles.portLabel}>{inputs[i]?.label ?? ''}</span>

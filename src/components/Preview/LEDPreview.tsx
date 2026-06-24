@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audioStore'
-import { evaluateGraph, type Frame } from '../../state/graphEvaluator'
+import { evaluateGraphFull, type Frame } from '../../state/graphEvaluator'
+import { usePreviewStore } from '../../state/previewStore'
 import { WebGLLEDRenderer } from './webglRenderer'
 import styles from './LEDPreview.module.css'
 
@@ -63,6 +64,8 @@ export default function LEDPreview() {
   const [fps, setFps] = useState(0)
   const lastFpsTime   = useRef(performance.now())
   const frameCount    = useRef(0)
+  // Per-node previews refresh slower than the main canvas to bound React work.
+  const lastPreviewPublish = useRef(0)
 
   const nodes = useGraphStore((s) => s.nodes)
   const edges = useGraphStore((s) => s.edges)
@@ -127,7 +130,9 @@ export default function LEDPreview() {
         tickRef.current++
         const tick = tickRef.current
         const gW = gridWRef.current, gH = gridHRef.current, px = pixelRef.current
-        const frame = evaluateGraph(nodesRef.current, edgesRef.current, tick, gW, gH, getGroupRegistry()) ?? idleFrame(tick, gW, gH)
+        // One evaluation pass feeds both the main matrix and every node preview.
+        const { frame: rendered, outputs } = evaluateGraphFull(nodesRef.current, edgesRef.current, tick, gW, gH, getGroupRegistry())
+        const frame = rendered ?? idleFrame(tick, gW, gH)
 
         if (useWebGL && glRef.current) {
           glRef.current.render(frame, gW, gH, px)
@@ -140,6 +145,11 @@ export default function LEDPreview() {
 
         frameCount.current++
         const now = performance.now()
+        // Publish node-preview outputs at ~15fps to limit per-node re-renders.
+        if (now - lastPreviewPublish.current >= 66) {
+          usePreviewStore.getState().setOutputs(outputs)
+          lastPreviewPublish.current = now
+        }
         if (now - lastFpsTime.current >= 1000) {
           const count = frameCount.current
           setFps(count)

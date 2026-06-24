@@ -76,9 +76,10 @@ describe('StudioNode', () => {
     expect(container.querySelector('svg polyline')).toBeTruthy()
   })
 
-  it('does not render a preview scope for a non-wave node', () => {
+  it('renders a frame thumbnail (not a wave scope) for a frame node', () => {
     const { container } = renderNode(makeNode('SolidColor', { r: 1, g: 2, b: 3 }))
-    expect(container.querySelector('svg polyline')).toBeNull()
+    expect(container.querySelector('svg polyline')).toBeNull()  // not a wave scope
+    expect(container.querySelector('canvas')).toBeTruthy()      // frame preview canvas
   })
 
   it('renders a dropdown for palette with the preset options', () => {
