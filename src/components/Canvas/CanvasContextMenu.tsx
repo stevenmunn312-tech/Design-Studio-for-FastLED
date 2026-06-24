@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useGraphStore } from '../../state/graphStore'
-import { NODE_LIBRARY, CATEGORIES } from '../../state/nodeLibrary'
+import { NODE_LIBRARY, CATEGORIES, portsCompatible } from '../../state/nodeLibrary'
 import type { NodeDefinition } from '../../types'
 import styles from './CanvasContextMenu.module.css'
 
@@ -8,15 +8,25 @@ interface Props {
   x: number
   y: number
   flowPosition: { x: number; y: number }
+  /**
+   * When present, a noodle was dragged from this output onto empty canvas:
+   * the menu opens straight into a picker limited to nodes with a compatible
+   * input, and auto-wires the chosen node back to this output.
+   */
+  connectFrom?: { nodeId: string; handleId: string; dataType: string }
   onClose: () => void
 }
 
-export default function CanvasContextMenu({ x, y, flowPosition, onClose }: Props) {
-  const { addNode, clipboard, pasteNode, selectAllNodes } = useGraphStore()
+export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onClose }: Props) {
+  const { addNode, onConnect, clipboard, pasteNode, selectAllNodes } = useGraphStore()
   const menuRef = useRef<HTMLDivElement>(null)
-  const [mode, setMode] = useState<'main' | 'picker'>('main')
+  const [mode, setMode] = useState<'main' | 'picker'>(connectFrom ? 'picker' : 'main')
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // First input on `def` that accepts the dragged output's type.
+  const compatibleInput = (def: NodeDefinition) =>
+    connectFrom && def.inputs.find((p) => portsCompatible(connectFrom.dataType, p.dataType))
 
   useEffect(() => {
     const onMouseDown = (e: MouseEvent) => {
@@ -24,7 +34,7 @@ export default function CanvasContextMenu({ x, y, flowPosition, onClose }: Props
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (mode === 'picker') setMode('main')
+        if (mode === 'picker' && !connectFrom) setMode('main')
         else onClose()
       }
     }
@@ -34,15 +44,16 @@ export default function CanvasContextMenu({ x, y, flowPosition, onClose }: Props
       document.removeEventListener('mousedown', onMouseDown)
       document.removeEventListener('keydown', onKey)
     }
-  }, [onClose, mode])
+  }, [onClose, mode, connectFrom])
 
   useEffect(() => {
     if (mode === 'picker') inputRef.current?.focus()
   }, [mode])
 
   const placeNode = (def: NodeDefinition) => {
+    const id = `${def.type}-${Date.now()}`
     addNode({
-      id: `${def.type}-${Date.now()}`,
+      id,
       type: 'studioNode',
       position: flowPosition,
       data: {
@@ -54,11 +65,25 @@ export default function CanvasContextMenu({ x, y, flowPosition, onClose }: Props
         outputs: def.outputs,
       },
     })
+    // Auto-wire the dragged output to the new node's first compatible input.
+    if (connectFrom) {
+      const input = compatibleInput(def)
+      if (input) {
+        onConnect({
+          source: connectFrom.nodeId,
+          sourceHandle: connectFrom.handleId,
+          target: id,
+          targetHandle: input.id,
+        })
+      }
+    }
     onClose()
   }
 
   const filtered = NODE_LIBRARY.filter(
-    (n) => query === '' || n.label.toLowerCase().includes(query.toLowerCase())
+    (n) =>
+      (query === '' || n.label.toLowerCase().includes(query.toLowerCase())) &&
+      (!connectFrom || !!compatibleInput(n))
   )
 
   const act = (fn: () => void) => { fn(); onClose() }
@@ -66,10 +91,13 @@ export default function CanvasContextMenu({ x, y, flowPosition, onClose }: Props
   if (mode === 'picker') {
     return (
       <div ref={menuRef} className={styles.menu} style={{ left: x, top: y }}>
+        {connectFrom && (
+          <div className={styles.catLabel}>Nodes accepting {connectFrom.dataType}</div>
+        )}
         <input
           ref={inputRef}
           className={styles.search}
-          placeholder="Search nodes…"
+          placeholder={connectFrom ? `Search ${connectFrom.dataType} nodes…` : 'Search nodes…'}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />

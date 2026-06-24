@@ -1036,3 +1036,13 @@ const PORT_COLORS: Record<string, string> = {
 export function portColor(dataType: string): string {
   return PORT_COLORS[dataType] ?? '#9aa0a6'
 }
+
+/**
+ * Whether an output of `srcType` may connect to an input of `dstType`.
+ * `float`/`bool` interconvert; every other type must match exactly.
+ */
+export function portsCompatible(srcType: string, dstType: string): boolean {
+  if (srcType === dstType) return true
+  if ((srcType === 'bool' || srcType === 'float') && (dstType === 'bool' || dstType === 'float')) return true
+  return false
+}
