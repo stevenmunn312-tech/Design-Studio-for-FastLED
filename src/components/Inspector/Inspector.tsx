@@ -1,6 +1,7 @@
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { asFont, DEFAULT_FONT } from '../../state/font'
+import { asImage, IMAGE_MAX_DIM } from '../../state/image'
 import styles from './Inspector.module.css'
 
 function toHex(r: number, g: number, b: number) {
@@ -29,6 +30,33 @@ export default function Inspector() {
       updateNodeProperty(nodeId, 'font', font)
       setStatus(`Loaded custom font (${Object.keys(font.glyphs).length} glyphs)`, 'success')
     })
+  }
+
+  const onImageUpload = (e: React.ChangeEvent<HTMLInputElement>, nodeId: string) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => {
+      // Downscale so the longest edge is at most IMAGE_MAX_DIM, then read pixels.
+      const ratio = Math.min(1, IMAGE_MAX_DIM / Math.max(img.width, img.height))
+      const w = Math.max(1, Math.round(img.width * ratio))
+      const h = Math.max(1, Math.round(img.height * ratio))
+      const canvas = document.createElement('canvas')
+      canvas.width = w; canvas.height = h
+      const ctx = canvas.getContext('2d')
+      URL.revokeObjectURL(url)
+      if (!ctx) { setStatus('Could not read image', 'error'); return }
+      ctx.drawImage(img, 0, 0, w, h)
+      const data = ctx.getImageData(0, 0, w, h).data
+      const pixels: number[] = []
+      for (let i = 0; i < w * h; i++) pixels.push(data[i * 4], data[i * 4 + 1], data[i * 4 + 2])
+      updateNodeProperty(nodeId, 'image', { w, h, pixels })
+      setStatus(`Loaded image (${w}×${h})`, 'success')
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); setStatus('Could not load image', 'error') }
+    img.src = url
   }
 
   if (!node) {
@@ -70,7 +98,7 @@ export default function Inspector() {
             />
           </div>
         )}
-        {Object.entries(props).filter(([key]) => key !== 'font').map(([key, val]) =>
+        {Object.entries(props).filter(([key]) => key !== 'font' && key !== 'image').map(([key, val]) =>
           typeof val === 'boolean' ? (
             <div key={key} className={styles.fieldRow}>
               <label className={styles.fieldLabel} htmlFor={`prop-${key}`}>{key}</label>
@@ -111,7 +139,8 @@ export default function Inspector() {
             </div>
           )
         )}
-        {Object.keys(props).filter((k) => k !== 'font').length === 0 && (
+        {Object.keys(props).filter((k) => k !== 'font' && k !== 'image').length === 0 &&
+          node.data.nodeType !== 'Image' && (
           <div className={styles.empty}>No properties</div>
         )}
         {node.data.nodeType === 'Text' && (
@@ -141,6 +170,36 @@ export default function Inspector() {
             </span>
           </div>
         )}
+        {node.data.nodeType === 'Image' && (() => {
+          const img = asImage(props.image)
+          return (
+            <div className={styles.fieldRow}>
+              <label className={styles.fieldLabel} htmlFor="prop-image">image</label>
+              <span className={styles.fieldValue}>
+                {img ? `${img.w}×${img.h}` : 'none'}
+                {' · '}
+                <label className={styles.fontLink}>
+                  upload
+                  <input
+                    id="prop-image"
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => onImageUpload(e, node.id)}
+                  />
+                </label>
+                {img ? (
+                  <>
+                    {' · '}
+                    <button className={styles.fontLink} onClick={() => updateNodeProperty(node.id, 'image', undefined)}>
+                      clear
+                    </button>
+                  </>
+                ) : null}
+              </span>
+            </div>
+          )
+        })()}
       </div>
       <div className={styles.divider} />
       <div className={styles.section}>

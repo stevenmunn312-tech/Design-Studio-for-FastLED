@@ -1,6 +1,7 @@
 import type { StudioNode, StudioEdge } from './graphStore'
 import { useAudioStore } from './audioStore'
 import { asFont, textColumns, type BitmapFont, DEFAULT_FONT } from './font'
+import { asImage, sampleImageToFrame } from './image'
 
 export interface RGB { r: number; g: number; b: number }
 export type Frame = RGB[][]   // row-major [y][x]
@@ -416,6 +417,54 @@ function evalWorley(speed: number, scale: number, t: number, palette: Palette, W
           if (d < f1) f1 = d
         }
       return samplePalette(palette, Math.min(1, f1))
+    })
+  )
+}
+
+// Gabor noise: sparse-convolution noise summing one Gaussian-windowed cosine
+// (Gabor) kernel per grid cell. `orientation` fixes the band direction (the
+// anisotropic variant) and `frequency` the band spacing; phase animates over
+// time. Coloured through a palette.
+function evalGaborNoise(speed: number, scale: number, frequency: number, orientation: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const omega = (orientation * Math.PI) / 180
+  const cosO = Math.cos(omega), sinO = Math.sin(omega)
+  const TAU = Math.PI * 2
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const px = x * scale, py = y * scale
+      const xi = Math.floor(px), yi = Math.floor(py)
+      let v = 0
+      for (let dj = -1; dj <= 1; dj++)
+        for (let di = -1; di <= 1; di++) {
+          const cx = xi + di, cy = yi + dj
+          const h = worleyHash(cx, cy)
+          const h2 = worleyHash(cx + 31, cy - 17)
+          const fx = cx + 0.5 + (h - 0.5)
+          const fy = cy + 0.5 + (h2 - 0.5)
+          const dx = px - fx, dy = py - fy
+          const gauss = Math.exp(-2.5 * (dx * dx + dy * dy))
+          const proj = dx * cosO + dy * sinO
+          const w = h2 < 0.5 ? 1 : -1
+          v += w * gauss * Math.cos(TAU * frequency * proj + t * speed + h * TAU)
+        }
+      return samplePalette(palette, v * 0.5 + 0.5)
+    })
+  )
+}
+
+// Angled palette gradient: project each pixel onto a direction set by `angle`,
+// normalise across the matrix to 0–1, then sample the palette (with `repeat`
+// cycles and an optional time-scrolling offset).
+function evalPaletteGradient(angle: number, repeat: number, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const a = (angle * Math.PI) / 180
+  const cosA = Math.cos(a), sinA = Math.sin(a)
+  const projMin = (cosA < 0 ? (W - 1) * cosA : 0) + (sinA < 0 ? (H - 1) * sinA : 0)
+  const projMax = (cosA > 0 ? (W - 1) * cosA : 0) + (sinA > 0 ? (H - 1) * sinA : 0)
+  const range = Math.max(1e-6, projMax - projMin)
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const tnorm = (x * cosA + y * sinA - projMin) / range
+      return samplePalette(palette, tnorm * repeat + t * speed)
     })
   )
 }
@@ -1365,6 +1414,31 @@ export function evaluateGraph(
         const octaves = Number(props.octaves ?? 4)
         const palette = pal(id, 'paletteIn', props, 'palette', 'forest')
         out = { frame: evalFractalNoise(speed, scale, octaves, t, palette, W, H) }
+        break
+      }
+
+      case 'GaborNoise': {
+        const speed       = num(id, 'speed', props, 'speed', 0.5)
+        const scale       = num(id, 'scale', props, 'scale', 0.35)
+        const frequency   = num(id, 'frequency', props, 'frequency', 1.2)
+        const orientation = Number(props.orientation ?? 45)
+        const palette     = pal(id, 'paletteIn', props, 'palette', 'ocean')
+        out = { frame: evalGaborNoise(speed, scale, frequency, orientation, t, palette, W, H) }
+        break
+      }
+
+      case 'PaletteGradient': {
+        const angle   = Number(props.angle ?? 45)
+        const repeat  = Number(props.repeat ?? 1)
+        const speed   = num(id, 'speed', props, 'speed', 0)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
+        out = { frame: evalPaletteGradient(angle, repeat, speed, t, palette, W, H) }
+        break
+      }
+
+      case 'Image': {
+        const img = asImage(props.image)
+        out = { frame: img ? sampleImageToFrame(img, W, H) : blankFrame(W, H) }
         break
       }
 

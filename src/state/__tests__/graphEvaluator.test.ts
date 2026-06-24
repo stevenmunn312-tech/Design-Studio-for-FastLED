@@ -322,6 +322,52 @@ describe('evaluateGraph', () => {
     expect(JSON.stringify(at(120))).not.toEqual(JSON.stringify(f0))                   // animates
   })
 
+  it('GaborNoise produces a varied frame that animates', () => {
+    const at = (tick: number) => {
+      const g = node('g', 'GaborNoise', 'pattern', { speed: 0.5, scale: 0.35, frequency: 1.2, orientation: 45, palette: 'ocean' })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      return evaluateGraph([g, out], [edge('e', 'g', 'frame', 'out', 'frame')], tick, 8, 8)!
+    }
+    const f0 = at(0)
+    const p0 = JSON.stringify(f0[0][0])
+    expect(f0.every((r) => r.every((px) => JSON.stringify(px) === p0))).toBe(false)
+    expect(JSON.stringify(at(120))).not.toEqual(JSON.stringify(f0))
+  })
+
+  it('PaletteGradient varies along its angle and is deterministic', () => {
+    const mk = () => {
+      const g = node('g', 'PaletteGradient', 'pattern', { angle: 0, repeat: 1, speed: 0, palette: 'rainbow' })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      return evaluateGraph([g, out], [edge('e', 'g', 'frame', 'out', 'frame')], 0, 8, 8)!
+    }
+    const f = mk()
+    // angle 0 → horizontal gradient: columns differ across the matrix
+    // (compare a non-wrapping pair; the rainbow palette repeats at the ends).
+    expect(JSON.stringify(f[0][0])).not.toEqual(JSON.stringify(f[0][4]))
+    // but constant down a column (no vertical component).
+    expect(JSON.stringify(f[0][3])).toEqual(JSON.stringify(f[7][3]))
+    expect(JSON.stringify(mk())).toEqual(JSON.stringify(f)) // deterministic
+  })
+
+  it('Image samples an uploaded picture to the matrix', () => {
+    // 2×2 image: red, green / blue, white.
+    const image = { w: 2, h: 2, pixels: [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255] }
+    const img = node('img', 'Image', 'pattern', { image })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const f = evaluateGraph([img, out], [edge('e', 'img', 'frame', 'out', 'frame')], 0, 4, 4)!
+    expect(f[0][0]).toEqual({ r: 255, g: 0, b: 0 })   // top-left quadrant = red
+    expect(f[0][3]).toEqual({ r: 0, g: 255, b: 0 })   // top-right = green
+    expect(f[3][0]).toEqual({ r: 0, g: 0, b: 255 })   // bottom-left = blue
+    expect(f[3][3]).toEqual({ r: 255, g: 255, b: 255 }) // bottom-right = white
+  })
+
+  it('Image with no uploaded picture renders blank', () => {
+    const img = node('img', 'Image', 'pattern', {})
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const f = evaluateGraph([img, out], [edge('e', 'img', 'frame', 'out', 'frame')], 0, 4, 4)!
+    expect(f.flat().every((px) => px.r === 0 && px.g === 0 && px.b === 0)).toBe(true)
+  })
+
   it('FlowField deposits trails that build up over frames', () => {
     const ff = node('ff', 'FlowField', 'pattern', { speed: 1, scale: 0.1, count: 60, fade: 0.9, palette: 'ocean' })
     const out = node('out', 'MatrixOutput', 'output', {})
