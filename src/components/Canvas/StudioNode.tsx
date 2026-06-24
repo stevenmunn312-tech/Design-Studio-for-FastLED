@@ -26,6 +26,9 @@ const BODY_PAD = 8
 const ROW_H = 24
 const ROW_GAP = 4
 const PREVIEW_H = 40
+// Body content width = --node-width (180) − 2×--space-1 (8) horizontal padding.
+// Frame previews fill this width and keep the matrix aspect ratio.
+const BODY_CONTENT_W = 164
 
 // Handles are absolutely positioned; a preview scope at the top of the body
 // pushes the port rows down by its height + the body's flex gap.
@@ -46,6 +49,15 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const sparkPortId = useUiStore((s) =>
     s.sparkPort?.nodeId === id ? (s.sparkPort?.portId ?? null) : null
   )
+  // Matrix dimensions (from MatrixOutput) set the frame-preview aspect ratio.
+  const gridW = useGraphStore((s) => {
+    const o = s.nodes.find((n) => (n.data as { nodeType?: string }).nodeType === 'MatrixOutput')
+    return Math.max(1, Math.min(64, Number(o?.data.properties.width ?? 16)))
+  })
+  const gridH = useGraphStore((s) => {
+    const o = s.nodes.find((n) => (n.data as { nodeType?: string }).nodeType === 'MatrixOutput')
+    return Math.max(1, Math.min(64, Number(o?.data.properties.height ?? 16)))
+  })
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
   const accent = CATEGORY_ACCENT_VAR[d.category] ?? 'var(--accent-output)'
@@ -79,7 +91,11 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       : outPort.dataType === 'color' ? 'color'
       : null
       : null
-  const previewOffset = isWave || isComplexWave || previewKind ? PREVIEW_H + ROW_GAP : 0
+  // Frame previews fill the node width at the matrix aspect ratio; palette /
+  // colour / wave previews use the fixed scope height.
+  const framePreviewH = Math.round((BODY_CONTENT_W * gridH) / gridW)
+  const previewH = previewKind === 'frame' ? framePreviewH : PREVIEW_H
+  const previewOffset = isWave || isComplexWave || previewKind ? previewH + ROW_GAP : 0
 
   return (
     <div
@@ -130,7 +146,9 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       <div className={styles.body}>
         {isWave && waveSamples && <WaveScope samples={waveSamples} />}
         {isComplexWave && <ComplexWaveScope nodeId={id} />}
-        {previewKind && outPort && <NodePreview nodeId={id} kind={previewKind} port={outPort.id} />}
+        {previewKind && outPort && (
+          <NodePreview nodeId={id} kind={previewKind} port={outPort.id} height={previewKind === 'frame' ? framePreviewH : undefined} />
+        )}
         {Array.from({ length: rowCount }).map((_, i) => (
           <div key={i} className={styles.portRow}>
             <span className={styles.portLabel}>{inputs[i]?.label ?? ''}</span>

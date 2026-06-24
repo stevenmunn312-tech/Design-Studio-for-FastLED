@@ -82,6 +82,16 @@ describe('StudioNode', () => {
     expect(container.querySelector('canvas')).toBeTruthy()      // frame preview canvas
   })
 
+  it('sizes the frame preview to the matrix aspect ratio', () => {
+    const solid = makeNode('SolidColor', { r: 1, g: 2, b: 3 })
+    const mo = { ...makeNode('MatrixOutput', { width: 16, height: 8 }), id: 'mo' } as StudioNodeT
+    useGraphStore.setState({ nodes: [solid, mo], edges: [] })
+    const props = { id: solid.id, data: solid.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
+    const { container } = render(<StudioNode {...props} />)
+    // height = bodyContentWidth(164) × gridH/gridW = 164 × 8/16 = 82px
+    expect((container.querySelector('canvas') as HTMLCanvasElement).style.height).toBe('82px')
+  })
+
   it('renders a dropdown for palette with the preset options', () => {
     const { container } = renderNode(makeNode('NoiseField', { speed: 1, scale: 1, palette: 'rainbow' }))
     const select = container.querySelector('select') as HTMLSelectElement
