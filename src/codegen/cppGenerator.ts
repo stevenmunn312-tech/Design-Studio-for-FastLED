@@ -1,6 +1,7 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import { asFont, textColumns } from '../state/font'
+import { asImage } from '../state/image'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -781,6 +782,62 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         ln(`        _v+=_amp*(inoise8((uint16_t)(_x*_freq),(uint16_t)(_y*_freq),_z)/255.0f);`)
         ln(`        _norm+=_amp; _amp*=0.5f; _freq*=2; }`)
         ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_v/_norm)*255));}}`)
+        break
+      }
+
+      case 'GaborNoise': {
+        needsT.v = true
+        needsWorley.v = true
+        const ob = ownBuf()
+        const speed = f('speed', 'speed', 0.5), scale = f('scale', 'scale', 0.35)
+        const freq = f('frequency', 'frequency', 1.2)
+        const orientation = Number(p.orientation ?? 45)
+        const pal = paletteExpr(node.id, 'paletteIn', p)
+        ln(`  { // Gabor noise`)
+        ln(`    float _spd=${speed},_sc=${scale},_fr=${freq},_om=${orientation}*0.01745329f,_co=cos(_om),_si=sin(_om);`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float _px=_x*_sc,_py=_y*_sc; int _xi=(int)floorf(_px),_yi=(int)floorf(_py); float _v=0;`)
+        ln(`      for(int _dj=-1;_dj<=1;_dj++) for(int _di=-1;_di<=1;_di++){`)
+        ln(`        int _cx=_xi+_di,_cy=_yi+_dj; float _h=_worleyHash(_cx,_cy),_h2=_worleyHash(_cx+31,_cy-17);`)
+        ln(`        float _fx=_cx+0.5f+(_h-0.5f),_fy=_cy+0.5f+(_h2-0.5f);`)
+        ln(`        float _dx=_px-_fx,_dy=_py-_fy,_g=expf(-2.5f*(_dx*_dx+_dy*_dy));`)
+        ln(`        float _proj=_dx*_co+_dy*_si,_w=_h2<0.5f?1.0f:-1.0f;`)
+        ln(`        _v+=_w*_g*cosf(6.2831853f*_fr*_proj+t*_spd+_h*6.2831853f); }`)
+        ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_v*0.5f+0.5f)*255));}}`)
+        break
+      }
+
+      case 'PaletteGradient': {
+        const ob = ownBuf()
+        const angle = Number(p.angle ?? 45), repeat = Number(p.repeat ?? 1), speed = Number(p.speed ?? 0)
+        const pal = paletteExpr(node.id, 'paletteIn', p)
+        const scroll = speed !== 0 ? `+t*${speed}f` : ''
+        if (speed !== 0) needsT.v = true
+        ln(`  { // Palette gradient`)
+        ln(`    float _a=${angle}*0.01745329f,_co=cos(_a),_si=sin(_a);`)
+        ln(`    float _pmin=(_co<0?(WIDTH-1)*_co:0)+(_si<0?(HEIGHT-1)*_si:0);`)
+        ln(`    float _pmax=(_co>0?(WIDTH-1)*_co:0)+(_si>0?(HEIGHT-1)*_si:0);`)
+        ln(`    float _rng=max(1e-6f,_pmax-_pmin);`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float _tn=(_x*_co+_y*_si-_pmin)/_rng;`)
+        ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_tn*${repeat}f${scroll})*255));}}`)
+        break
+      }
+
+      case 'Image': {
+        const ob = ownBuf()
+        const img = asImage(p.image)
+        if (!img) {
+          ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // Image: none uploaded`)
+          break
+        }
+        ln(`  { // Image ${img.w}x${img.h}`)
+        ln(`    static const uint8_t _img_${id}[] PROGMEM = {${img.pixels.join(',')}};`)
+        ln(`    const int _iw=${img.w}, _ih=${img.h};`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      int _sx=min(_iw-1,(int)((long)_x*_iw/WIDTH)), _sy=min(_ih-1,(int)((long)_y*_ih/HEIGHT));`)
+        ln(`      int _ii=(_sy*_iw+_sx)*3;`)
+        ln(`      ${ob}[_y*WIDTH+_x]=CRGB(pgm_read_byte(&_img_${id}[_ii]),pgm_read_byte(&_img_${id}[_ii+1]),pgm_read_byte(&_img_${id}[_ii+2]));}}`)
         break
       }
 

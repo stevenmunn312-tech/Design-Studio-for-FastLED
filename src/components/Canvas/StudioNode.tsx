@@ -49,7 +49,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const props = d.properties as Record<string, unknown>
   const hasRGB = ['r', 'g', 'b'].every((k) => typeof props[k] === 'number')
   const editable = Object.entries(props).filter(
-    ([k]) => k !== 'font' && !(hasRGB && (k === 'r' || k === 'g' || k === 'b'))
+    ([k]) => k !== 'font' && k !== 'image' && !(hasRGB && (k === 'r' || k === 'g' || k === 'b'))
   )
 
   return (

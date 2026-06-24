@@ -355,6 +355,38 @@ describe('generateCpp', () => {
     expect(cpp).toContain('.nscale8(_bright)')
   })
 
+  it('emits Gabor noise with its Gaussian-cosine kernel and hash helper', () => {
+    const g = node('g', 'GaborNoise', 'pattern', { speed: 0.5, scale: 0.35, frequency: 1.2, orientation: 45, palette: 'ocean' })
+    const cpp = generateCpp([g, outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('float _worleyHash(int x, int y)')
+    expect(cpp).toContain('expf(')
+    expect(cpp).toContain('cosf(')
+    expect(cpp).toContain('ColorFromPalette(OceanColors_p')
+  })
+
+  it('emits an angled palette gradient with projection normalisation', () => {
+    const g = node('g', 'PaletteGradient', 'pattern', { angle: 45, repeat: 2, speed: 0, palette: 'rainbow' })
+    const cpp = generateCpp([g, outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('45*0.01745329f')
+    expect(cpp).toContain('_pmax-_pmin')
+    expect(cpp).toContain('ColorFromPalette(RainbowColors_p')
+  })
+
+  it('emits an Image as a PROGMEM pixel array blitted to the matrix', () => {
+    const image = { w: 2, h: 2, pixels: [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255] }
+    const img = node('img', 'Image', 'pattern', { image })
+    const cpp = generateCpp([img, outputNode], [edge('e', 'img', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('PROGMEM = {255,0,0,0,255,0,0,0,255,255,255,255}')
+    expect(cpp).toContain('pgm_read_byte(')
+    expect(cpp).toContain('const int _iw=2, _ih=2')
+  })
+
+  it('emits a blank fill for an Image with no uploaded picture', () => {
+    const img = node('img', 'Image', 'pattern', {})
+    const cpp = generateCpp([img, outputNode], [edge('e', 'img', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('Image: none uploaded')
+  })
+
   it('emits fractal noise via summed inoise8 octaves', () => {
     const fn = node('fn', 'FractalNoise', 'pattern', { speed: 0.3, scale: 0.15, octaves: 4, palette: 'forest' })
     const cpp = generateCpp([fn, outputNode], [edge('e', 'fn', 'out', 'frame', 'frame')])

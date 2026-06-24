@@ -698,6 +698,41 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { speed: 0.3, scale: 0.15, octaves: 4, palette: 'forest' },
   },
   {
+    // Gabor noise — sparse-convolution oriented bands through a palette.
+    type: 'GaborNoise',
+    label: 'Gabor Noise',
+    category: 'pattern',
+    inputs: [
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'scale', label: 'Scale', dataType: 'float' },
+      { id: 'frequency', label: 'Frequency', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 0.5, scale: 0.35, frequency: 1.2, orientation: 45, palette: 'ocean' },
+  },
+  {
+    // Angled palette gradient across the matrix.
+    type: 'PaletteGradient',
+    label: 'Palette Gradient',
+    category: 'pattern',
+    inputs: [
+      { id: 'speed', label: 'Scroll', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { angle: 45, repeat: 1, speed: 0, palette: 'rainbow' },
+  },
+  {
+    // Uploaded image, downscaled and nearest-sampled to the matrix.
+    type: 'Image',
+    label: 'Image',
+    category: 'pattern',
+    inputs: [],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: {},
+  },
+  {
     // Metaballs — merging lava-lamp blobs from summed inverse-square fields.
     type: 'Blobs',
     label: 'Blobs',
@@ -974,6 +1009,9 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Worley: 'Cellular (Voronoi) noise.',
   FractalNoise: 'Fractal (fBm) noise — summed octaves, cloud-like.',
   Blobs: 'Metaballs — merging lava-lamp blobs.',
+  GaborNoise: 'Gabor noise — oriented bands via sparse convolution.',
+  PaletteGradient: 'Palette gradient across the matrix at any angle.',
+  Image: 'Uploaded image, downscaled to the matrix.',
   FlowField: 'Particles drifting along a noise flow field, with trails.',
   Starfield: 'Warp starfield — stars streak outward from the centre.',
   PlasmaFractal: 'Plasma blended with fractal noise.',
@@ -1082,6 +1120,10 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   treble:   { control: 'slider', min: 0, max: 1, step: 0.01 },
   octaves:  { control: 'slider', min: 1, max: 6, step: 1 },
   count:    { control: 'slider', min: 1, max: 200, step: 1 },
+  frequency:   { control: 'slider', min: 0, max: 4, step: 0.1 },
+  orientation: { control: 'slider', min: 0, max: 360, step: 1 },
+  angle:       { control: 'slider', min: 0, max: 360, step: 1 },
+  repeat:      { control: 'slider', min: 1, max: 8, step: 1 },
   feed:     { control: 'slider', min: 0, max: 0.1, step: 0.001 },
   kill:     { control: 'slider', min: 0, max: 0.1, step: 0.001 },
   interval: { control: 'slider', min: 0.1, max: 20, step: 0.1 },
