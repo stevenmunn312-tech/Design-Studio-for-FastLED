@@ -39,6 +39,10 @@ interface UiState {
 
 const THEMES: AppTheme[] = ['dark', 'solarized', 'light']
 
+// Tracks the pending status auto-clear so a newer message cancels the older
+// timer instead of being wiped when a stale one fires.
+let statusTimer: ReturnType<typeof setTimeout> | undefined
+
 export const useUiStore = create<UiState>((set, get) => ({
   statusText: 'Ready',
   statusLevel: 'idle',
@@ -55,13 +59,18 @@ export const useUiStore = create<UiState>((set, get) => ({
   showUploadPanel: false,
 
   setStatus: (text, level = 'info') => {
+    if (statusTimer) clearTimeout(statusTimer)
     set({ statusText: text, statusLevel: level })
-    if (level === 'success' || level === 'info') {
-      setTimeout(() => set({ statusText: 'Ready', statusLevel: 'idle' }), 5000)
+    // Every transient level (info/success/error) auto-clears after 5 s.
+    if (level !== 'idle') {
+      statusTimer = setTimeout(() => set({ statusText: 'Ready', statusLevel: 'idle' }), 5000)
     }
   },
 
-  clearStatus: () => set({ statusText: 'Ready', statusLevel: 'idle' }),
+  clearStatus: () => {
+    if (statusTimer) clearTimeout(statusTimer)
+    set({ statusText: 'Ready', statusLevel: 'idle' })
+  },
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   togglePreview3d: () => set((s) => ({ preview3d: !s.preview3d })),
   toggleInspector: () => set((s) => ({ inspectorOpen: !s.inspectorOpen })),

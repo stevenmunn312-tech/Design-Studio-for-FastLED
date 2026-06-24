@@ -45,7 +45,7 @@ Tests use vitest with `globals: true` and the `jsdom` environment (configured in
 
 It is a **multi-graph workspace** (ADR 0001): the *active* graph stays in the top-level `nodes`/`edges` (so all consumers are unchanged), while inactive graphs (pattern groups) live in `graphData`, keyed by id, with metadata in `graphs`. `createGroup` encapsulates selected nodes into a new subgraph (adding a `GroupOutput` terminal) and replaces them with a single `Group` node; `enterGraph` switches the active graph (pausing/clearing undo history around the swap). `getGroupRegistry()` assembles the `{ groupId: { nodes, edges } }` map that `evaluateGraph` needs, and `LEDPreview` passes it every frame so groups preview live at both tiers.
 
-**`src/state/uiStore.ts`** owns panel visibility (`sidebarOpen`, `inspectorOpen`, `showUploadPanel`), status bar message/level, FPS counter, theme, reduced-motion, and high-contrast flags. `setStatus` auto-clears `info`/`success` after 5 s.
+**`src/state/uiStore.ts`** owns panel visibility (`sidebarOpen`, `inspectorOpen`, `showUploadPanel`), status bar message/level, FPS counter, theme, reduced-motion, and high-contrast flags. `setStatus` auto-clears any transient level (`info`/`success`/`error`) back to idle after 5 s, cancelling any prior pending timer so a newer message isn't wiped by a stale one.
 
 **`src/state/audioStore.ts`** is a thin Zustand bridge over `AudioEngine.instance`. It calls `engine.subscribe()` at store-creation time so FFT data flows into Zustand state on every animation frame.
 
