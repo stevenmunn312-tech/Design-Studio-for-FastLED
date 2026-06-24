@@ -36,25 +36,16 @@ export function combineWaves(op: string, a: number, b: number): number {
 const PREVIEW_SAMPLES = 64
 const PREVIEW_WINDOW = 2 // seconds
 
+/** Number of points / window (seconds) a node preview scope samples. */
+export const PREVIEW_POINTS = PREVIEW_SAMPLES
+export const PREVIEW_SECONDS = PREVIEW_WINDOW
+
 /** Sample a Wave node's own waveform across the preview window. */
 export function waveNodeSamples(type: string, amplitude: number, frequency: number, phase: number): number[] {
   const out: number[] = []
   for (let i = 0; i < PREVIEW_SAMPLES; i++) {
     const t = (i / (PREVIEW_SAMPLES - 1)) * PREVIEW_WINDOW
     out.push(waveSample(type, amplitude, frequency, phase, t))
-  }
-  return out
-}
-
-/**
- * Sample a ComplexWave preview: the chosen operation applied to two reference
- * sines (1× and 2×), illustrating the combine's character across the window.
- */
-export function complexWaveSamples(op: string): number[] {
-  const out: number[] = []
-  for (let i = 0; i < PREVIEW_SAMPLES; i++) {
-    const t = (i / (PREVIEW_SAMPLES - 1)) * PREVIEW_WINDOW
-    out.push(combineWaves(op, waveSample('sine', 1, 1, 0, t), waveSample('sine', 1, 2, 0, t)))
   }
   return out
 }

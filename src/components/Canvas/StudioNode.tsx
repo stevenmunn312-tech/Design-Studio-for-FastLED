@@ -5,8 +5,9 @@ import { useGraphStore } from '../../state/graphStore'
 import type { StudioNodeData } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { CATEGORY_ACCENT_VAR, portColor, PROPERTY_META } from '../../state/nodeLibrary'
-import { waveNodeSamples, complexWaveSamples } from '../../state/wave'
+import { waveNodeSamples } from '../../state/wave'
 import WaveScope from './WaveScope'
+import ComplexWaveScope from './ComplexWaveScope'
 import styles from './StudioNode.module.css'
 
 function toHex(r: number, g: number, b: number) {
@@ -59,15 +60,15 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     ([k]) => k !== 'font' && k !== 'image' && !(hasRGB && (k === 'r' || k === 'g' || k === 'b'))
   )
 
-  // Waveform nodes show a live scope at the top of the body; this shifts the
-  // port handles below it down by the scope height + the body's flex gap.
-  const previewSamples =
-    d.nodeType === 'Wave'
-      ? waveNodeSamples(String(props.waveform ?? 'sine'), Number(props.amplitude ?? 1), Number(props.frequency ?? 1), Number(props.phase ?? 0))
-      : d.nodeType === 'ComplexWave'
-        ? complexWaveSamples(String(props.operation ?? 'add'))
-        : null
-  const previewOffset = previewSamples ? PREVIEW_H + ROW_GAP : 0
+  // Waveform nodes show a scope at the top of the body; this shifts the port
+  // handles below it down by the scope height + the body's flex gap. Wave's
+  // scope is its own configured shape; ComplexWave's reflects live upstream.
+  const isWave = d.nodeType === 'Wave'
+  const isComplexWave = d.nodeType === 'ComplexWave'
+  const waveSamples = isWave
+    ? waveNodeSamples(String(props.waveform ?? 'sine'), Number(props.amplitude ?? 1), Number(props.frequency ?? 1), Number(props.phase ?? 0))
+    : null
+  const previewOffset = isWave || isComplexWave ? PREVIEW_H + ROW_GAP : 0
 
   return (
     <div
@@ -116,7 +117,8 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {d.label}
       </div>
       <div className={styles.body}>
-        {previewSamples && <WaveScope samples={previewSamples} />}
+        {isWave && waveSamples && <WaveScope samples={waveSamples} />}
+        {isComplexWave && <ComplexWaveScope nodeId={id} />}
         {Array.from({ length: rowCount }).map((_, i) => (
           <div key={i} className={styles.portRow}>
             <span className={styles.portLabel}>{inputs[i]?.label ?? ''}</span>

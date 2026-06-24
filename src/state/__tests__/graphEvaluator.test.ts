@@ -10,7 +10,8 @@ vi.mock('../audioStore', () => ({
   },
 }))
 
-import { evaluateGraph } from '../graphEvaluator'
+import { evaluateGraph, evaluateScalar } from '../graphEvaluator'
+import { waveSample, combineWaves } from '../wave'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import type { StudioNode, StudioEdge } from '../graphStore'
 
@@ -137,6 +138,30 @@ describe('evaluateGraph', () => {
     expect(brightnessAt('difference', 0.5, 0.25)).toBe(Math.round(255 * 0.25))
     expect(brightnessAt('max', 0.5, 0.25)).toBe(Math.round(255 * 0.5))
     expect(brightnessAt('min', 0.5, 0.25)).toBe(Math.round(255 * 0.25))
+  })
+
+  it('evaluateScalar probes a ComplexWave from its real upstream waves', () => {
+    const wa = node('wa', 'Wave', 'math', { amplitude: 1, frequency: 1, phase: 0, waveform: 'sine' })
+    const wb = node('wb', 'Wave', 'math', { amplitude: 0.5, frequency: 2, phase: 0, waveform: 'sine' })
+    const cw = node('cw', 'ComplexWave', 'math', { operation: 'add' })
+    const edges = [
+      edge('e1', 'wa', 'result', 'cw', 'a'),
+      edge('e2', 'wb', 'result', 'cw', 'b'),
+    ]
+    const tick = 23
+    const t = tick / 60
+    const expected = combineWaves('add', waveSample('sine', 1, 1, 0, t), waveSample('sine', 0.5, 2, 0, t))
+    expect(evaluateScalar([wa, wb, cw], edges, 'cw', 'result', tick)).toBeCloseTo(expected, 6)
+  })
+
+  it('evaluateScalar reflects the chosen ComplexWave operation', () => {
+    const wa = node('wa', 'Wave', 'math', { amplitude: 1, frequency: 1, phase: 0.1, waveform: 'sine' })
+    const wb = node('wb', 'Wave', 'math', { amplitude: 1, frequency: 1, phase: 0.3, waveform: 'sine' })
+    const cw = node('cw', 'ComplexWave', 'math', { operation: 'multiply' })
+    const edges = [edge('e1', 'wa', 'result', 'cw', 'a'), edge('e2', 'wb', 'result', 'cw', 'b')]
+    const t = 40 / 60
+    const expected = waveSample('sine', 1, 1, 0.1, t) * waveSample('sine', 1, 1, 0.3, t)
+    expect(evaluateScalar([wa, wb, cw], edges, 'cw', 'result', 40)).toBeCloseTo(expected, 6)
   })
 
   it('BrightnessMod scales pixel values', () => {
