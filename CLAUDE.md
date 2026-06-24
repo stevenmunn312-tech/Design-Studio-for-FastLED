@@ -156,10 +156,21 @@ Nodes are grouped into categories. Adding a new node type requires:
 Current nodes by category (see `nodeLibrary.ts` for the authoritative list):
 - **audio**: FFTAnalyzer, BeatDetect, MicInput, AudioHue
 - **hardware**: ButtonInput, PotInput
-- **math**: MathAdd, Multiply, Clamp, MapRange, Sin, Cos, Wave, ComplexWave, Lerp, TimeNode, Abs, Mod, MinNode, MaxNode, Random, Counter, Gate, Not, Compare, BeatSin, XYMapper
+- **math**: Math, Clamp, MapRange, Sin, Cos, Wave, ComplexWave, Lerp, TimeNode, Abs, Mod, Random, Counter, Gate, Not, Compare, BeatSin, XYMapper
 - **color**: HSVToRGB, BlendColors, CHSV, Temperature, GradientSampler, PaletteSampler, PaletteSelector, CustomPalette, Poline, PaletteBlend
-- **pattern** (frame generators): SolidColor, Span, Rect, Circle, Line, Text, NoiseField, Fire, Fire2012, Plasma, SpectrumBars, BassPulse, MidrangeWaves, TrebleSparks, BeatFlash, Noise2D, RadialBurst, Spiral, Kaleidoscope, Particles, GradientFrame, Simplex2D, Noise3D, Worley, FractalNoise, Blobs, FlowField, ReactionDiffusion, GameOfLife, PatternMaster, CustomFormula, Starfield, PlasmaFractal, AudioFlow, GaborNoise, PaletteGradient, Image
-- **composite** (frame→frame): BlendFrames, BrightnessMod, HueShift, Transform, Invert, Blur2D, LayerBlend, Mask, Crossfade, Wipe, Dissolve, Sequencer
+- **pattern** (frame generators): SolidColor, Span, Rect, Circle, Line, Text, Noise, Fire, Fire2012, Plasma, SpectrumBars, BassPulse, MidrangeWaves, TrebleSparks, BeatFlash, Noise2D, RadialBurst, Spiral, Kaleidoscope, Particles, GradientFrame, FractalNoise, Blobs, FlowField, ReactionDiffusion, GameOfLife, PatternMaster, CustomFormula, Starfield, AudioFlow, GaborNoise, PaletteGradient, Image
+- **composite** (frame→frame): Blend, BrightnessMod, HueShift, Transform, Invert, Blur2D, Mask, Transition, Sequencer
+
+### Bundled nodes
+
+Several former node types are collapsed into one **bundled** node, selected by a variant property (the pattern to follow when consolidating other identical-signature clusters):
+
+- **`Noise`** — `noiseType` (`field`/`simplex`/`noise3d`/`worley`/`plasma`); folds the former NoiseField/Simplex2D/Noise3D/Worley/PlasmaFractal.
+- **`Math`** — `mathOp` (`add`/`subtract`/`multiply`/`divide`/`min`/`max`); folds MathAdd/Multiply/MinNode/MaxNode (`subtract`/`divide` are new ops). Mod (`x,m` ports) and Compare (bool out) stay separate.
+- **`Transition`** — `transitionType` (`crossfade`/`wipe`/`dissolve`); folds Crossfade/Wipe/Dissolve. `direction` only applies to wipe.
+- **`Blend`** — `blendMode` (`normal`/`multiply`/`screen`/`overlay`/`add`/`difference`); replaces LayerBlend + BlendFrames. Composites B over A per mode, mixed by `amount` (opacity 0–255). The `normal` path emits FastLED `nblend`; other modes emit a per-channel blend loop in C++. (The former BlendFrames used a 0–1 `t` port, so its migration scales `t`→`amount` and rewires that edge — the one bundle whose port id changed.)
+
+Mechanics: each variant set lives in `PROPERTY_META` (the inline dropdown); the evaluator and C++ generator dispatch on the variant property in their single `case`; `graphStore.loadGraph` (via `migrateLegacyGraph`/`LEGACY_BUNDLE`) migrates the legacy node types — and any renamed edge handles — on import. `nodeDisplayLabel()` makes the node header reflect the selected variant, and `isPropertyEnabled()` disables an inline editor that doesn't apply to the current variant (e.g. Transition `direction`) while still showing its value. Bundling is **by identical port signature** — properties may differ between variants (Blend is the one exception, unifying two near-identical nodes whose mix-port id/scale differed).
 - **output**: MatrixOutput
 
 Some node types are created programmatically rather than dragged from the sidebar (so they have no `NODE_LIBRARY` entry): `Group` and `GroupOutput`/`GroupInput` are minted by `graphStore.createGroup` (see the multi-graph/group section above).

@@ -256,13 +256,25 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         ln(`  float ${v('dt')} = 0.016f;`)
         break
 
-      case 'MathAdd':
-        ln(`  float ${v('result')} = (${f('a', 'a', 0)}) + (${f('b', 'b', 0)});`)
+      // Bundled binary math — `mathOp` picks the operator. Keep in sync with the
+      // `Math` case in graphEvaluator.ts.
+      case 'Math': {
+        const op = String(p.mathOp ?? 'add')
+        const idn = op === 'multiply' || op === 'divide' ? 1 : 0
+        const a = f('a', 'a', idn), b = f('b', 'b', idn)
+        let expr: string
+        switch (op) {
+          case 'subtract': expr = `(${a}) - (${b})`; break
+          case 'multiply': expr = `(${a}) * (${b})`; break
+          case 'divide':   expr = `((${b}) == 0.0f ? 0.0f : (${a}) / (${b}))`; break
+          case 'min':      expr = `min((float)(${a}), (float)(${b}))`; break
+          case 'max':      expr = `max((float)(${a}), (float)(${b}))`; break
+          case 'add':
+          default:         expr = `(${a}) + (${b})`; break
+        }
+        ln(`  float ${v('result')} = ${expr};`)
         break
-
-      case 'Multiply':
-        ln(`  float ${v('result')} = (${f('a', 'a', 1)}) * (${f('b', 'b', 1)});`)
-        break
+      }
 
       case 'Lerp':
         ln(`  float ${v('result')} = (${f('a', 'a', 0)}) + ((${f('b', 'b', 1)}) - (${f('a', 'a', 0)})) * (${f('t', 't', 0.5)});`)
@@ -455,19 +467,64 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
-      case 'NoiseField': {
+      // Bundled noise node — `noiseType` picks the algorithm. Keep the cases in
+      // sync with PROPERTY_META.noiseType and the `Noise` case in graphEvaluator.
+      case 'Noise': {
         needsT.v = true
         const ob = ownBuf()
-        const speed = f('speed', 'speed', 1)
-        const scale = f('scale', 'scale', 1)
+        const speed = f('speed', 'speed', 1), scale = f('scale', 'scale', 0.4)
         const pal = paletteExpr(node.id, 'paletteIn', p)
-        ln(`  {`)
-        ln(`    float _spd = ${speed}, _scl = ${scale};`)
-        ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
-        ln(`      float _v = (sin(_x * _scl * 0.5f + t * _spd) + cos(_y * _scl * 0.5f + t * _spd * 0.7f)) / 2.0f;`)
-        ln(`      ${ob}[_y * WIDTH + _x] = ColorFromPalette(${pal}, (uint8_t)(((_v + 1) * 0.5f) * 255));`)
-        ln(`    }`)
-        ln(`  }`)
+        const noiseType = String(p.noiseType ?? 'field')
+        switch (noiseType) {
+          case 'simplex':
+            ln(`  { // Simplex2D`)
+            ln(`    float _spd=${speed},_sc=${scale};`)
+            ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+            ln(`      float _n=sin(_x*_sc+sin(_y*_sc*0.8f+t*_spd*0.5f)+t*_spd)`)
+            ln(`            +0.5f*sin(_x*_sc*2+t*_spd*1.9f)+0.25f*sin(_x*_sc*4+t*_spd*4.1f);`)
+            ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_n*0.25f+0.5f)*255));}}`)
+            break
+          case 'noise3d':
+            ln(`  { // Noise3D`)
+            ln(`    float _spd=${speed},_sc=${scale};`)
+            ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+            ln(`      float _n=(sin(_x*_sc+t*_spd)+cos(_y*_sc+t*_spd*0.7f))*0.5f`)
+            ln(`            +(sin(_x*_sc*1.7f+t*_spd*1.3f+_y*_sc*0.9f)*0.33f)`)
+            ln(`            +(cos(_x*_sc*2.9f+t*_spd*2.1f)*0.17f);`)
+            ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_n*0.3f+0.5f)*255));}}`)
+            break
+          case 'worley':
+            needsWorley.v = true
+            ln(`  { // Worley noise`)
+            ln(`    float _spd=${speed},_sc=${scale};`)
+            ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+            ln(`      float _px=_x*_sc,_py=_y*_sc; int _xi=(int)floorf(_px),_yi=(int)floorf(_py); float _f1=1e9f;`)
+            ln(`      for(int _dj=-1;_dj<=1;_dj++) for(int _di=-1;_di<=1;_di++){`)
+            ln(`        int _cx=_xi+_di,_cy=_yi+_dj; float _h=_worleyHash(_cx,_cy);`)
+            ln(`        float _fx=_cx+0.5f+0.45f*sin(t*_spd+_h*6.2831f);`)
+            ln(`        float _fy=_cy+0.5f+0.45f*cos(t*_spd*1.1f+_h*6.2831f);`)
+            ln(`        float _d=sqrtf((_px-_fx)*(_px-_fx)+(_py-_fy)*(_py-_fy)); if(_d<_f1)_f1=_d; }`)
+            ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(min(1.0f,_f1)*255));}}`)
+            break
+          case 'plasma':
+            ln(`  { float _spd=${speed},_sc=${scale}; uint16_t _z=(uint16_t)(t*_spd*10);`)
+            ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+            ln(`      float _v=sin(_x*0.2f+t*_spd)+sin(_y*0.25f+t*_spd*0.8f)+sin((_x+_y)*0.15f+t*_spd*0.6f);`)
+            ln(`      float _amp=1,_fr=_sc*96,_fn=0; for(int _o=0;_o<3;_o++){ _fn+=_amp*(inoise8((uint16_t)(_x*_fr),(uint16_t)(_y*_fr),_z)/255.0f-0.5f); _amp*=0.5f; _fr*=2; }`)
+            ln(`      _v+=_fn*5; int _idx=((int)(_v*38)%256+256)%256;`)
+            ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)_idx);}}`)
+            break
+          case 'field':
+          default:
+            ln(`  {`)
+            ln(`    float _spd = ${speed}, _scl = ${scale};`)
+            ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
+            ln(`      float _v = (sin(_x * _scl * 0.5f + t * _spd) + cos(_y * _scl * 0.5f + t * _spd * 0.7f)) / 2.0f;`)
+            ln(`      ${ob}[_y * WIDTH + _x] = ColorFromPalette(${pal}, (uint8_t)(((_v + 1) * 0.5f) * 255));`)
+            ln(`    }`)
+            ln(`  }`)
+            break
+        }
         break
       }
 
@@ -618,11 +675,31 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
-      case 'BlendFrames': {
+      // Frame blend with real blend modes — `blendMode` picks the operator,
+      // `amount` is opacity (0–255). Keep in sync with the `Blend` case in
+      // graphEvaluator.ts. `normal` uses FastLED's nblend; other modes blend
+      // per channel then cross-fade against the base by opacity.
+      case 'Blend': {
         const ob = ownBuf()
-        const a = srcBuf('a'), b = srcBuf('b'), mix = f('t', 't', 0.5)
+        const a = srcBuf('a'), b = srcBuf('b'), amt = f('amount', 'amount', 128)
+        const mode = String(p.blendMode ?? 'normal')
         ln(`  { ${a ? `::memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
-        ln(`    nblend(${ob}, ${b ?? ob}, NUM_LEDS, (uint8_t)((${mix}) * 255)); }`)
+        if (mode === 'normal') {
+          ln(`    nblend(${ob}, ${b ?? ob}, NUM_LEDS, (uint8_t)(${amt})); }`)
+        } else {
+          const expr: Record<string, string> = {
+            multiply:   '_av*_bv',
+            screen:     '1.0f-(1.0f-_av)*(1.0f-_bv)',
+            overlay:    '_av<0.5f?2.0f*_av*_bv:1.0f-2.0f*(1.0f-_av)*(1.0f-_bv)',
+            add:        'min(1.0f,_av+_bv)',
+            difference: 'fabsf(_av-_bv)',
+          }
+          ln(`    float _op=(${amt})/255.0f; for(int _i=0;_i<NUM_LEDS;_i++){`)
+          ln(`      CRGB _a=${ob}[_i], _b=${b ?? ob}[_i];`)
+          ln(`      for(int _c=0;_c<3;_c++){ float _av=_a[_c]/255.0f,_bv=_b[_c]/255.0f;`)
+          ln(`        float _r=${expr[mode] ?? '_bv'};`)
+          ln(`        ${ob}[_i][_c]=(uint8_t)((_av*(1.0f-_op)+_r*_op)*255.0f); } } }`)
+        }
         break
       }
 
@@ -712,14 +789,6 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
-      case 'MinNode':
-        ln(`  float ${v('result')} = min(${f('a', 'a', 0)}, ${f('b', 'b', 0)});`)
-        break
-
-      case 'MaxNode':
-        ln(`  float ${v('result')} = max(${f('a', 'a', 0)}, ${f('b', 'b', 0)});`)
-        break
-
       case 'Random': {
         const lo = Number(p.min ?? 0), hi = Number(p.max ?? 1)
         ln(`  float ${v('value')} = ${lo} + random8() / 255.0f * ${hi - lo};`)
@@ -751,83 +820,31 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
-      case 'Crossfade': {
-        const ob = ownBuf()
-        const a = srcBuf('a'), b = srcBuf('b'), mix = f('t', 't', 0.5)
-        ln(`  { ${a ? `::memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
-        ln(`    nblend(${ob}, ${b ?? ob}, NUM_LEDS, (uint8_t)((${mix}) * 255)); }`)
-        break
-      }
-
-      case 'Wipe': {
+      // Bundled transitions — `transitionType` picks crossfade / wipe / dissolve.
+      // Keep in sync with the `Transition` case in graphEvaluator.ts.
+      case 'Transition': {
         const ob = ownBuf()
         const a = srcBuf('a'), b = srcBuf('b'), tt = f('t', 't', 0.5)
-        const dir = String(p.direction ?? 'right')
-        const axis = (dir === 'up' || dir === 'down') ? '_y' : '_x'
-        const dim  = (dir === 'up' || dir === 'down') ? 'HEIGHT' : 'WIDTH'
-        const cmp  = (dir === 'right' || dir === 'down') ? '<' : '>'
-        const rhs  = (dir === 'right' || dir === 'down') ? `(int)((${tt})*${dim})` : `(int)((1.0f-(${tt}))*${dim})`
-        ln(`  { ${a ? `::memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
-        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++)`)
-        ln(`      if(${axis} ${cmp} ${rhs}) ${ob}[_y*WIDTH+_x] = ${b ?? ob}[_y*WIDTH+_x]; }`)
-        break
-      }
-
-      case 'Dissolve': {
-        const ob = ownBuf()
-        const a = srcBuf('a'), b = srcBuf('b'), tt = f('t', 't', 0.5)
-        ln(`  { ${a ? `::memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
-        ln(`    float _tt=${tt}; for(int _i=0;_i<NUM_LEDS;_i++){`)
-        ln(`      uint32_t _h=((uint32_t)(_i)*1664525u+1013904223u);`)
-        ln(`      if((_h&0xFFFF)<(uint32_t)(_tt*65535)) ${ob}[_i] = ${b ?? ob}[_i]; }}`)
-        break
-      }
-
-      case 'Simplex2D': {
-        needsT.v = true
-        const speed = f('speed', 'speed', 0.4), scale = f('scale', 'scale', 0.3)
-        const ob = ownBuf()
-        const pal = paletteExpr(node.id, 'paletteIn', p)
-        ln(`  { // Simplex2D`)
-        ln(`    float _spd=${speed},_sc=${scale};`)
-        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`      float _n=sin(_x*_sc+sin(_y*_sc*0.8f+t*_spd*0.5f)+t*_spd)`)
-        ln(`            +0.5f*sin(_x*_sc*2+t*_spd*1.9f)+0.25f*sin(_x*_sc*4+t*_spd*4.1f);`)
-        ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_n*0.25f+0.5f)*255));}}`)
-        break
-      }
-
-      case 'Noise3D': {
-        needsT.v = true
-        const ob = ownBuf()
-        const speed = f('speed', 'speed', 0.5), scale = f('scale', 'scale', 0.3)
-        const pal = paletteExpr(node.id, 'paletteIn', p)
-        ln(`  { // Noise3D`)
-        ln(`    float _spd=${speed},_sc=${scale};`)
-        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`      float _n=(sin(_x*_sc+t*_spd)+cos(_y*_sc+t*_spd*0.7f))*0.5f`)
-        ln(`            +(sin(_x*_sc*1.7f+t*_spd*1.3f+_y*_sc*0.9f)*0.33f)`)
-        ln(`            +(cos(_x*_sc*2.9f+t*_spd*2.1f)*0.17f);`)
-        ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_n*0.3f+0.5f)*255));}}`)
-        break
-      }
-
-      case 'Worley': {
-        needsT.v = true
-        needsWorley.v = true
-        const ob = ownBuf()
-        const speed = f('speed', 'speed', 0.5), scale = f('scale', 'scale', 0.3)
-        const pal = paletteExpr(node.id, 'paletteIn', p)
-        ln(`  { // Worley noise`)
-        ln(`    float _spd=${speed},_sc=${scale};`)
-        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`      float _px=_x*_sc,_py=_y*_sc; int _xi=(int)floorf(_px),_yi=(int)floorf(_py); float _f1=1e9f;`)
-        ln(`      for(int _dj=-1;_dj<=1;_dj++) for(int _di=-1;_di<=1;_di++){`)
-        ln(`        int _cx=_xi+_di,_cy=_yi+_dj; float _h=_worleyHash(_cx,_cy);`)
-        ln(`        float _fx=_cx+0.5f+0.45f*sin(t*_spd+_h*6.2831f);`)
-        ln(`        float _fy=_cy+0.5f+0.45f*cos(t*_spd*1.1f+_h*6.2831f);`)
-        ln(`        float _d=sqrtf((_px-_fx)*(_px-_fx)+(_py-_fy)*(_py-_fy)); if(_d<_f1)_f1=_d; }`)
-        ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(min(1.0f,_f1)*255));}}`)
+        const type = String(p.transitionType ?? 'crossfade')
+        const seed = `  { ${a ? `::memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`
+        if (type === 'wipe') {
+          const dir = String(p.direction ?? 'right')
+          const axis = (dir === 'up' || dir === 'down') ? '_y' : '_x'
+          const dim  = (dir === 'up' || dir === 'down') ? 'HEIGHT' : 'WIDTH'
+          const cmp  = (dir === 'right' || dir === 'down') ? '<' : '>'
+          const rhs  = (dir === 'right' || dir === 'down') ? `(int)((${tt})*${dim})` : `(int)((1.0f-(${tt}))*${dim})`
+          ln(seed)
+          ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++)`)
+          ln(`      if(${axis} ${cmp} ${rhs}) ${ob}[_y*WIDTH+_x] = ${b ?? ob}[_y*WIDTH+_x]; }`)
+        } else if (type === 'dissolve') {
+          ln(seed)
+          ln(`    float _tt=${tt}; for(int _i=0;_i<NUM_LEDS;_i++){`)
+          ln(`      uint32_t _h=((uint32_t)(_i)*1664525u+1013904223u);`)
+          ln(`      if((_h&0xFFFF)<(uint32_t)(_tt*65535)) ${ob}[_i] = ${b ?? ob}[_i]; }}`)
+        } else {
+          ln(seed)
+          ln(`    nblend(${ob}, ${b ?? ob}, NUM_LEDS, (uint8_t)((${tt}) * 255)); }`)
+        }
         break
       }
 
@@ -958,20 +975,6 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         ln(`      if(${sz}[_i]<=0.02f){ ${sx}[_i]=random8()/127.5f-1; ${sy}[_i]=random8()/127.5f-1; ${sz}[_i]=1; }`)
         ln(`      int _px=(int)(WIDTH/2.0f+(${sx}[_i]/${sz}[_i])*WIDTH*0.35f), _py=(int)(HEIGHT/2.0f+(${sy}[_i]/${sz}[_i])*HEIGHT*0.35f);`)
         ln(`      if(_px>=0&&_px<WIDTH&&_py>=0&&_py<HEIGHT){ ${ob}[_py*WIDTH+_px]=${colorE}; ${ob}[_py*WIDTH+_px].nscale8((uint8_t)(min(1.0f,1-${sz}[_i])*255)); } } }`)
-        break
-      }
-
-      case 'PlasmaFractal': {
-        needsT.v = true
-        const ob = ownBuf()
-        const speed = f('speed', 'speed', 1), scale = f('scale', 'scale', 0.15)
-        const pal = paletteExpr(node.id, 'paletteIn', p)
-        ln(`  { float _spd=${speed},_sc=${scale}; uint16_t _z=(uint16_t)(t*_spd*10);`)
-        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`      float _v=sin(_x*0.2f+t*_spd)+sin(_y*0.25f+t*_spd*0.8f)+sin((_x+_y)*0.15f+t*_spd*0.6f);`)
-        ln(`      float _amp=1,_fr=_sc*96,_fn=0; for(int _o=0;_o<3;_o++){ _fn+=_amp*(inoise8((uint16_t)(_x*_fr),(uint16_t)(_y*_fr),_z)/255.0f-0.5f); _amp*=0.5f; _fr*=2; }`)
-        ln(`      _v+=_fn*5; int _idx=((int)(_v*38)%256+256)%256;`)
-        ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)_idx);}}`)
         break
       }
 
@@ -1166,14 +1169,6 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       case 'XYMapper': {
         const xx = f('x', 'x', 0), yy = f('y', 'y', 0)
         ln(`  uint16_t ${v('index')} = (uint16_t)(${xx}) + (uint16_t)(${yy}) * WIDTH;`)
-        break
-      }
-
-      case 'LayerBlend': {
-        const ob = ownBuf()
-        const a = srcBuf('a'), b = srcBuf('b'), amount = f('amount', 'amount', 128)
-        ln(`  { ${a ? `::memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
-        ln(`    nblend(${ob}, ${b ?? ob}, NUM_LEDS, (uint8_t)(${amount})); }`)
         break
       }
 

@@ -54,7 +54,7 @@ describe('StudioNode', () => {
   })
 
   it('renders a slider for speed and updates the property', () => {
-    const { container } = renderNode(makeNode('NoiseField', { speed: 1, scale: 1, palette: 'rainbow' }))
+    const { container } = renderNode(makeNode('Noise', { speed: 1, scale: 1, palette: 'rainbow' }))
     const range = container.querySelector('input[type="range"]') as HTMLInputElement
     expect(range).toBeTruthy()
     expect(range.min).toBe('0')
@@ -93,7 +93,7 @@ describe('StudioNode', () => {
   })
 
   it('renders a dropdown for palette with the preset options', () => {
-    const { container } = renderNode(makeNode('NoiseField', { speed: 1, scale: 1, palette: 'rainbow' }))
+    const { container } = renderNode(makeNode('Noise', { speed: 1, scale: 1, palette: 'rainbow' }))
     const select = container.querySelector('select') as HTMLSelectElement
     expect(select).toBeTruthy()
     expect(select.value).toBe('rainbow')
@@ -111,5 +111,23 @@ describe('StudioNode', () => {
     expect(check.checked).toBe(false)
     fireEvent.click(check)
     expect(useGraphStore.getState().nodes[0].data.properties.filled).toBe(true)
+  })
+
+  it('a bundled node header reflects the selected variant', () => {
+    const { getByText } = renderNode(makeNode('Math', { mathOp: 'multiply', a: 1, b: 2 }))
+    expect(getByText('Multiply')).toBeTruthy()   // not the generic "Math"
+  })
+
+  // The Transition's `direction` only applies to a wipe, so its editor is
+  // disabled (but still shown) for crossfade/dissolve.
+  const directionSelect = (container: HTMLElement) =>
+    Array.from(container.querySelectorAll('select')).find((s) =>
+      Array.from(s.options).some((o) => o.value === 'right')) as HTMLSelectElement | undefined
+
+  it('disables Transition direction unless the type is wipe', () => {
+    const off = renderNode(makeNode('Transition', { transitionType: 'crossfade', t: 0.5, direction: 'right' }))
+    expect(directionSelect(off.container)!.disabled).toBe(true)
+    const on = renderNode(makeNode('Transition', { transitionType: 'wipe', t: 0.5, direction: 'right' }))
+    expect(directionSelect(on.container)!.disabled).toBe(false)
   })
 })

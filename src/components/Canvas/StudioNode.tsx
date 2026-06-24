@@ -1,14 +1,15 @@
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import type { NodeProps, Node } from '@xyflow/react'
 import { useGraphStore } from '../../state/graphStore'
 import type { StudioNodeData } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { CATEGORY_ACCENT_VAR, portColor, PROPERTY_META } from '../../state/nodeLibrary'
+import { CATEGORY_ACCENT_VAR, portColor, PROPERTY_META, nodeDisplayLabel, isPropertyEnabled } from '../../state/nodeLibrary'
 import { waveNodeSamples } from '../../state/wave'
 import WaveScope from './WaveScope'
 import ComplexWaveScope from './ComplexWaveScope'
 import NodePreview, { type PreviewKind } from './NodePreview'
+import { usePreviewStore } from '../../state/previewStore'
 import styles from './StudioNode.module.css'
 
 function toHex(r: number, g: number, b: number) {
@@ -17,6 +18,15 @@ function toHex(r: number, g: number, b: number) {
 function hexToRgb(hex: string) {
   const n = parseInt(hex.slice(1), 16)
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
+}
+
+type RGB = { r: number; g: number; b: number }
+function isRGB(v: unknown): v is RGB {
+  return typeof v === 'object' && v !== null && 'r' in v && 'g' in v && 'b' in v
+}
+// Trim a live float to a readable precision for display in a disabled editor.
+function showNum(n: number) {
+  return Math.round(n * 1000) / 1000
 }
 
 // Must match CSS: header=32px, body padding-top=8px, row=24px, gap=4px,
@@ -64,6 +74,54 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const inputs = d.inputs as { id: string; label: string; dataType: string }[]
   const outputs = d.outputs as { id: string; label: string; dataType: string }[]
   const rowCount = Math.max(inputs.length, outputs.length)
+
+  // Which of this node's input ports are wired, and to which upstream port. When
+  // a port is wired the evaluator ignores the matching property, so its inline
+  // editor is disabled and shows the live value coming from the connection.
+  // Selected as a stable string so the node only re-renders when its own wiring
+  // changes; the parsed source map feeds the live-value lookup below.
+  const incomingKey = useGraphStore((s) => {
+    let k = ''
+    for (const e of s.edges)
+      if (e.target === id && e.targetHandle && e.source && e.sourceHandle)
+        k += `${e.targetHandle}>${e.source}:${e.sourceHandle};`
+    return k
+  })
+  const sourceMap = useMemo(() => {
+    const m = new Map<string, { srcId: string; srcPort: string }>()
+    for (const part of incomingKey.split(';').filter(Boolean)) {
+      const [handle, rest] = part.split('>')
+      const [srcId, srcPort] = rest.split(':')
+      m.set(handle, { srcId, srcPort })
+    }
+    return m
+  }, [incomingKey])
+  // Port id matching a property key drives that property (evaluator convention);
+  // the `paletteIn` port drives the `palette` property, and the `color` port
+  // drives the `r/g/b` swatch.
+  const portFor = (propKey: string) => (propKey === 'palette' ? 'paletteIn' : propKey)
+  const drivenBy = (propKey: string) => sourceMap.has(portFor(propKey))
+
+  // Live upstream values for this node's wired inputs, pulled from the shared
+  // evaluation pass (previewStore). Serialised so the node re-renders only when
+  // one of its own driven values changes. Frames (2D arrays) aren't shown in
+  // inline editors, so they're skipped to keep the payload small.
+  const liveJson = usePreviewStore((s) => {
+    if (sourceMap.size === 0) return ''
+    const o: Record<string, unknown> = {}
+    for (const [handle, src] of sourceMap) {
+      const v = s.outputs.get(src.srcId)?.[src.srcPort]
+      if (v === undefined || v === null) continue
+      if (Array.isArray(v) && Array.isArray((v as unknown[])[0])) continue
+      o[handle] = v
+    }
+    return JSON.stringify(o)
+  })
+  const liveValues = useMemo<Record<string, unknown>>(
+    () => (liveJson ? JSON.parse(liveJson) : {}),
+    [liveJson]
+  )
+  const liveFor = (propKey: string): unknown => liveValues[portFor(propKey)]
 
   // Inline property editors (Blender-style). A node with `r/g/b` shows one
   // colour swatch; `font` (an object) is left to the Inspector.
@@ -141,7 +199,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       })}
 
       <div className={styles.header} style={{ background: accent }}>
-        {d.label}
+        {nodeDisplayLabel(d.nodeType, props, d.label)}
       </div>
       <div className={styles.body}>
         {isWave && waveSamples && <WaveScope samples={waveSamples} />}
@@ -158,26 +216,45 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
 
         {(hasRGB || editable.length > 0) && (
           <div className={styles.props}>
-            {hasRGB && (
-              <div className={styles.propRow}>
+            {hasRGB && (() => {
+              const wired = drivenBy('color')
+              const live = wired ? liveFor('color') : undefined
+              const swatch = isRGB(live)
+                ? toHex(live.r, live.g, live.b)
+                : toHex(props.r as number, props.g as number, props.b as number)
+              return (
+              <div className={`${styles.propRow}${wired ? ` ${styles.wired}` : ''}`} title={wired ? 'Driven by connection' : undefined}>
                 <span className={styles.propKey}>color</span>
                 <input
                   className={`nodrag ${styles.colorInput}`}
                   type="color"
-                  value={toHex(props.r as number, props.g as number, props.b as number)}
+                  disabled={wired}
+                  value={swatch}
                   onChange={(e) => updateNodeProperties(id, hexToRgb(e.target.value))}
                 />
               </div>
-            )}
+              )
+            })()}
             {editable.map(([key, val]) => {
               const meta = PROPERTY_META[key]
+              const wired = drivenBy(key)
+              // A property may be inapplicable to the current variant (e.g. a
+              // Transition's `direction` outside wipe): shown but disabled.
+              const gated = !isPropertyEnabled(d.nodeType, key, props)
+              const disabled = wired || gated
+              const live = wired ? liveFor(key) : undefined
               return (
-              <div key={key} className={styles.propRow}>
+              <div
+                key={key}
+                className={`${styles.propRow}${disabled ? ` ${styles.wired}` : ''}`}
+                title={wired ? 'Driven by connection' : gated ? 'Not used by this mode' : undefined}
+              >
                 <span className={styles.propKey} title={key}>{key}</span>
                 {meta?.control === 'select' ? (
                   <select
                     className={`nodrag ${styles.propSelect}`}
-                    value={String(val)}
+                    disabled={disabled}
+                    value={typeof live === 'string' && meta.options.includes(live) ? live : String(val)}
                     onChange={(e) => updateNodeProperty(id, key, e.target.value)}
                   >
                     {meta.options.map((opt) => (
@@ -192,16 +269,18 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                       min={meta.min}
                       max={meta.max}
                       step={meta.step}
-                      value={val}
+                      disabled={disabled}
+                      value={typeof live === 'number' ? live : val}
                       onChange={(e) => updateNodeProperty(id, key, Number(e.target.value))}
                     />
-                    <span className={styles.propVal}>{val}</span>
+                    <span className={styles.propVal}>{showNum(typeof live === 'number' ? live : val)}</span>
                   </span>
                 ) : typeof val === 'boolean' ? (
                   <input
                     className="nodrag"
                     type="checkbox"
-                    checked={val}
+                    disabled={disabled}
+                    checked={typeof live === 'boolean' ? live : val}
                     onChange={(e) => updateNodeProperty(id, key, e.target.checked)}
                   />
                 ) : typeof val === 'number' ? (
@@ -209,21 +288,24 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                     className={`nodrag nowheel ${styles.propInput}`}
                     type="number"
                     step="any"
-                    value={val}
+                    disabled={disabled}
+                    value={typeof live === 'number' ? showNum(live) : val}
                     onChange={(e) => updateNodeProperty(id, key, e.target.value === '' ? 0 : Number(e.target.value))}
                   />
                 ) : typeof val === 'string' && /^#[0-9a-f]{6}$/i.test(val) ? (
                   <input
                     className={`nodrag ${styles.colorInput}`}
                     type="color"
-                    value={val}
+                    disabled={disabled}
+                    value={isRGB(live) ? toHex(live.r, live.g, live.b) : typeof live === 'string' && /^#[0-9a-f]{6}$/i.test(live) ? live : val}
                     onChange={(e) => updateNodeProperty(id, key, e.target.value)}
                   />
                 ) : (
                   <input
                     className={`nodrag ${styles.propInput}`}
                     type="text"
-                    value={String(val)}
+                    disabled={disabled}
+                    value={wired && live !== undefined ? String(live) : String(val)}
                     onChange={(e) => updateNodeProperty(id, key, e.target.value)}
                   />
                 )}

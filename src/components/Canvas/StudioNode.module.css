@@ -96,6 +96,17 @@
   gap: 6px;
 }
 
+/* A property whose port is wired: the editor is disabled but still shows the
+   fallback value the connection overrides. */
+.propRow.wired .propKey {
+  opacity: 0.5;
+}
+
+.propRow :disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .propKey {
   font-size: var(--fs-caption);
   color: var(--text-secondary);

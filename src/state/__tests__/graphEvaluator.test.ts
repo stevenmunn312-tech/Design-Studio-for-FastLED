@@ -34,6 +34,12 @@ function edge(id: string, source: string, sh: string, target: string, th: string
   return { id, source, target, sourceHandle: sh, targetHandle: th } as unknown as StudioEdge
 }
 
+// The noise algorithms (field/simplex/noise3d/worley/plasma) are bundled into a
+// single `Noise` node, selected by the `noiseType` property.
+function noise(id: string, noiseType: string, props: Record<string, unknown> = {}): StudioNode {
+  return node(id, 'Noise', 'pattern', { noiseType, ...props })
+}
+
 // The evaluator only renders graphs that reach an output terminal, so wrap a
 // lone frame producer through a MatrixOutput for focused single-node tests.
 function withOutput(gen: StudioNode, extra: StudioNode[] = [], extraEdges: StudioEdge[] = []) {
@@ -74,12 +80,16 @@ describe('evaluateGraph', () => {
     expect(evaluateGraph([node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })], [], 0, W, H)).toBeNull()
   })
 
-  it('MathAdd evaluates a + b', () => {
-    // Evaluating a math-only graph won't produce a frame, but the values
-    // flow through. Test via a node that uses MathAdd output as speed.
-    const add = node('add', 'MathAdd', 'math', { a: 3, b: 4 })
-    // We just confirm the graph evaluates without error
-    evaluateGraph([add], [], 0, W, H)
+  it('Math computes each bundled operation on a and b', () => {
+    const run = (mathOp: string, a: number, b: number) =>
+      evaluateScalar([node('m', 'Math', 'math', { mathOp, a, b })], [], 'm', 'result', 0)
+    expect(run('add', 3, 4)).toBe(7)
+    expect(run('subtract', 3, 4)).toBe(-1)
+    expect(run('multiply', 3, 4)).toBe(12)
+    expect(run('divide', 12, 4)).toBe(3)
+    expect(run('divide', 1, 0)).toBe(0)       // guarded divide-by-zero
+    expect(run('min', 3, 4)).toBe(3)
+    expect(run('max', 3, 4)).toBe(4)
   })
 
   it('Wave drives a value over time per waveform type', () => {
@@ -357,7 +367,7 @@ describe('evaluateGraph', () => {
   it('PaletteBlend interpolates between two palettes', () => {
     const driveSimplex = (amount: number) => {
       const pb = node('pb', 'PaletteBlend', 'color', { paletteA: 'heat', paletteB: 'ocean', amount })
-      const sx = node('sx', 'Simplex2D', 'pattern', {})
+      const sx = noise('sx', 'simplex')
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph(
         [pb, sx, out],
@@ -394,7 +404,7 @@ describe('evaluateGraph', () => {
 
   it('PlasmaFractal produces a varied frame that animates', () => {
     const at = (tick: number) => {
-      const pf = node('pf', 'PlasmaFractal', 'pattern', { speed: 1, scale: 0.15, palette: 'rainbow' })
+      const pf = noise('pf', 'plasma', { speed: 1, scale: 0.15, palette: 'rainbow' })
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph([pf, out], [edge('e', 'pf', 'frame', 'out', 'frame')], tick, 8, 8)!
     }
@@ -485,7 +495,7 @@ describe('evaluateGraph', () => {
 
   it('Worley noise produces a varied, deterministic cellular frame', () => {
     const mk = () => {
-      const w = node('w', 'Worley', 'pattern', { speed: 0, scale: 0.3, palette: 'rainbow' })
+      const w = noise('w', 'worley', { speed: 0, scale: 0.3, palette: 'rainbow' })
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph([w, out], [edge('e', 'w', 'frame', 'out', 'frame')], 0, 8, 8)!
     }
@@ -546,7 +556,7 @@ describe('evaluateGraph', () => {
     const c1 = node('c1', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })
     const c2 = node('c2', 'CHSV', 'color', { hue: 160, sat: 255, val: 255 })
     const cp = node('cp', 'CustomPalette', 'color', {})
-    const sx = node('sx', 'Simplex2D', 'pattern', { palette: 'rainbow' })
+    const sx = noise('sx', 'simplex', { palette: 'rainbow' })
     const out = node('out', 'MatrixOutput', 'output', {})
     const wired = evaluateGraph(
       [c1, c2, cp, sx, out],
@@ -558,7 +568,7 @@ describe('evaluateGraph', () => {
       ], 0, 4, 4,
     )
     const presetOnly = evaluateGraph(
-      [node('sx', 'Simplex2D', 'pattern', { palette: 'rainbow' }), out],
+      [noise('sx', 'simplex', { palette: 'rainbow' }), out],
       [edge('e', 'sx', 'frame', 'out', 'frame')], 0, 4, 4,
     )
     expect(wired).not.toEqual(presetOnly)   // custom colors changed the output
@@ -566,25 +576,32 @@ describe('evaluateGraph', () => {
 
   it('every palette-consuming pattern node responds to its palette', () => {
     // Guards against the NoiseField bug (advertised a palette but ignored it).
-    const patterns = [
-      'NoiseField', 'Simplex2D', 'Noise3D', 'Worley', 'FractalNoise', 'GaborNoise',
-      'PaletteGradient', 'Blobs', 'FlowField', 'PlasmaFractal', 'AudioFlow',
-      'ReactionDiffusion', 'CustomFormula',
+    // The noise variants live behind the bundled `Noise` node via `noiseType`.
+    const patterns: Array<{ type: string; extra?: Record<string, unknown> }> = [
+      { type: 'Noise', extra: { noiseType: 'field' } },
+      { type: 'Noise', extra: { noiseType: 'simplex' } },
+      { type: 'Noise', extra: { noiseType: 'noise3d' } },
+      { type: 'Noise', extra: { noiseType: 'worley' } },
+      { type: 'Noise', extra: { noiseType: 'plasma' } },
+      { type: 'FractalNoise' }, { type: 'GaborNoise' },
+      { type: 'PaletteGradient' }, { type: 'Blobs' }, { type: 'FlowField' },
+      { type: 'AudioFlow' }, { type: 'ReactionDiffusion' }, { type: 'CustomFormula' },
     ]
-    for (const type of patterns) {
+    for (const { type, extra } of patterns) {
+      const label = type + (extra?.noiseType ? `-${extra.noiseType}` : '')
       const render = (palette: string) => {
         // Unique ids so stateful nodes don't share state between the two runs.
-        const gen = node(`${type}-${palette}`, type, 'pattern', { palette, formula: 'sin(x*4+y*3)*0.5+0.5' })
-        const out = node(`out-${type}-${palette}`, 'MatrixOutput', 'output', {})
-        return evaluateGraph([gen, out], [edge(`e-${type}-${palette}`, gen.id, 'frame', out.id, 'frame')], 60, 8, 8)
+        const gen = node(`${label}-${palette}`, type, 'pattern', { palette, formula: 'sin(x*4+y*3)*0.5+0.5', ...extra })
+        const out = node(`out-${label}-${palette}`, 'MatrixOutput', 'output', {})
+        return evaluateGraph([gen, out], [edge(`e-${label}-${palette}`, gen.id, 'frame', out.id, 'frame')], 60, 8, 8)
       }
-      expect(JSON.stringify(render('rainbow')), `${type} ignores its palette`).not.toEqual(JSON.stringify(render('ocean')))
+      expect(JSON.stringify(render('rainbow')), `${label} ignores its palette`).not.toEqual(JSON.stringify(render('ocean')))
     }
   })
 
   it('NoiseField colours through its palette', () => {
     const run = (palette: string) => {
-      const nf = node('nf', 'NoiseField', 'pattern', { speed: 1, scale: 1, palette })
+      const nf = noise('nf', 'field', { speed: 1, scale: 1, palette })
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph([nf, out], [edge('e', 'nf', 'frame', 'out', 'frame')], 30, 8, 8)!
     }
@@ -596,7 +613,7 @@ describe('evaluateGraph', () => {
 
   it('NoiseField uses a connected palette over its property', () => {
     const sel = node('sel', 'PaletteSelector', 'color', { palette: 'lava' })
-    const nf  = node('nf', 'NoiseField', 'pattern', { speed: 1, scale: 1, palette: 'rainbow' })
+    const nf  = noise('nf', 'field', { speed: 1, scale: 1, palette: 'rainbow' })
     const out = node('out', 'MatrixOutput', 'output', {})
     const base = evaluateGraph([nf, out], [edge('e', 'nf', 'frame', 'out', 'frame')], 30, 8, 8)
     const wired = evaluateGraph(
@@ -610,7 +627,7 @@ describe('evaluateGraph', () => {
   it('a Poline palette drives a pattern, varying with its anchors', () => {
     const run = (anchorA: string, anchorB: string) => {
       const pl = node('pl', 'Poline', 'color', { anchorA, anchorB, points: 4, position: 'sinusoidal' })
-      const sx = node('sx', 'Simplex2D', 'pattern', { speed: 0, palette: 'rainbow' })
+      const sx = noise('sx', 'simplex', { speed: 0, palette: 'rainbow' })
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph(
         [pl, sx, out],
@@ -628,7 +645,7 @@ describe('evaluateGraph', () => {
   it('a wired anchor colour overrides the Poline hex default', () => {
     const c = node('c', 'CHSV', 'color', { hue: 96, sat: 255, val: 255 })
     const pl = node('pl', 'Poline', 'color', { anchorA: '#ff0000', anchorB: '#0000ff', points: 4, position: 'linear' })
-    const sx = node('sx', 'Simplex2D', 'pattern', { speed: 0, palette: 'rainbow' })
+    const sx = noise('sx', 'simplex', { speed: 0, palette: 'rainbow' })
     const out = node('out', 'MatrixOutput', 'output', {})
     const edgesBase = [edge('e2', 'pl', 'palette', 'sx', 'paletteIn'), edge('e3', 'sx', 'frame', 'out', 'frame')]
     const withoutWire = evaluateGraph([pl, sx, out], edgesBase, 0, 6, 6)
@@ -637,12 +654,12 @@ describe('evaluateGraph', () => {
   })
 
   it('Simplex2D uses a connected palette over its own property', () => {
-    // Baseline: Simplex2D with palette property 'heat', no connection.
-    const heat = withOutput(node('sx', 'Simplex2D', 'pattern', { palette: 'heat' }))
+    // Baseline: Simplex with palette property 'heat', no connection.
+    const heat = withOutput(noise('sx', 'simplex', { palette: 'heat' }))
     const heatProp = evaluateGraph(heat.nodes, heat.edges, 0, W, H)
     // Same node defaulting to 'rainbow' but driven by a PaletteSelector('heat').
     const sel  = node('sel', 'PaletteSelector', 'color', { palette: 'heat' })
-    const sx   = node('sx', 'Simplex2D', 'pattern', { palette: 'rainbow' })
+    const sx   = noise('sx', 'simplex', { palette: 'rainbow' })
     const w = withOutput(sx, [sel], [edge('e1', 'sel', 'palette', 'sx', 'paletteIn')])
     const wired = evaluateGraph(w.nodes, w.edges, 0, W, H)
     // The connected palette wins, so the wired frame matches the heat baseline.
@@ -650,27 +667,73 @@ describe('evaluateGraph', () => {
   })
 
   it('falls back to the palette property when paletteIn is unconnected', () => {
-    const o = withOutput(node('sx', 'Simplex2D', 'pattern', { palette: 'ocean' }))
-    const r = withOutput(node('sx', 'Simplex2D', 'pattern', { palette: 'rainbow' }))
+    const o = withOutput(noise('sx', 'simplex', { palette: 'ocean' }))
+    const r = withOutput(noise('sx', 'simplex', { palette: 'rainbow' }))
     const ocean   = evaluateGraph(o.nodes, o.edges, 0, W, H)
     const rainbow = evaluateGraph(r.nodes, r.edges, 0, W, H)
     // Different palettes produce different frames.
     expect(ocean).not.toEqual(rainbow)
   })
 
-  it('BlendFrames produces a mix of two frames', () => {
+  it('Blend composites B over A per blendMode and opacity', () => {
+    // A = mid-grey (128), B = mid-grey (128) so blend-mode math is observable.
+    const grey = (id: string) => node(id, 'SolidColor', 'pattern', { r: 128, g: 128, b: 128 })
+    const px = (blendMode: string, amount = 255) => {
+      const bl  = node('bl', 'Blend', 'composite', { blendMode, amount })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      const frame = evaluateGraph([grey('a'), grey('b'), bl, out], [
+        edge('e1', 'a', 'frame', 'bl', 'a'),
+        edge('e2', 'b', 'frame', 'bl', 'b'),
+        edge('e3', 'bl', 'frame', 'out', 'frame'),
+      ], 0, W, H)
+      return frame![0][0].r
+    }
+    expect(px('normal')).toBe(128)               // B shows through → 128
+    expect(px('multiply')).toBe(64)              // 0.5×0.5 = 0.25 → 64
+    expect(px('screen')).toBe(192)               // 1-0.5×0.5 = 0.75 → 191/192
+    expect(px('add')).toBe(255)                  // clamped 0.5+0.5 = 1 → 255
+    expect(px('difference')).toBe(0)             // |0.5-0.5| = 0
+    expect(px('multiply', 0)).toBe(128)          // opacity 0 → base A unchanged
+  })
+
+  it('Blend at normal/half opacity mixes two frames', () => {
     const black = node('b', 'SolidColor', 'pattern', { r: 0, g: 0, b: 0 })
     const white = node('w', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })
-    const blend = node('bl', 'BlendFrames', 'pattern', { t: 0.5 })
+    const blend = node('bl', 'Blend', 'composite', { blendMode: 'normal', amount: 128 })
     const out   = node('out', 'MatrixOutput', 'output', {})
-    const edges = [
+    const frame = evaluateGraph([black, white, blend, out], [
       edge('e1', 'b', 'frame', 'bl', 'a'),
       edge('e2', 'w', 'frame', 'bl', 'b'),
       edge('e3', 'bl', 'frame', 'out', 'frame'),
-    ]
-    const frame = evaluateGraph([black, white, blend, out], edges, 0, W, H)
+    ], 0, W, H)
     expect(frame![0][0].r).toBeCloseTo(128, -1)
     expect(frame![0][0].g).toBeCloseTo(128, -1)
+  })
+
+  it('Transition blends A→B per transitionType', () => {
+    const black = node('b', 'SolidColor', 'pattern', { r: 0, g: 0, b: 0 })
+    const white = node('w', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })
+    const out   = node('out', 'MatrixOutput', 'output', {})
+    const run = (transitionType: string, props: Record<string, unknown> = {}) => {
+      const tr = node('tr', 'Transition', 'composite', { transitionType, t: 0.5, ...props })
+      return evaluateGraph([black, white, tr, out], [
+        edge('e1', 'b', 'frame', 'tr', 'a'),
+        edge('e2', 'w', 'frame', 'tr', 'b'),
+        edge('e3', 'tr', 'frame', 'out', 'frame'),
+      ], 0, 8, 8)!
+    }
+    // Crossfade at t=0.5 → grey everywhere.
+    const cf = run('crossfade')
+    expect(cf.flat().every((px) => px.r === 128 && px.g === 128 && px.b === 128)).toBe(true)
+    // Wipe at t=0.5 going right → left half is B (white), some pixels still black.
+    const wipe = run('wipe', { direction: 'right' })
+    const lit = wipe.flat().filter((px) => px.r === 255).length
+    expect(lit).toBeGreaterThan(0)
+    expect(lit).toBeLessThan(64)
+    // Dissolve produces a black/white mix (not a uniform grey like crossfade).
+    const dis = run('dissolve')
+    expect(dis.flat().some((px) => px.r === 255)).toBe(true)
+    expect(dis.flat().some((px) => px.r === 0)).toBe(true)
   })
 
   it('Clamp constrains values within [min, max]', () => {

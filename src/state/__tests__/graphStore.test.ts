@@ -145,3 +145,38 @@ describe('graphStore — grouping', () => {
     expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 255 })
   })
 })
+
+describe('graphStore — legacy node migration on load', () => {
+  beforeEach(() => reset())
+
+  const dataOf = (id: string) => useGraphStore.getState().nodes.find((n) => n.id === id)!.data
+
+  it('upgrades bundled node types and preserves variant-specific props', () => {
+    useGraphStore.getState().loadGraph([
+      node('m', 'Multiply', { a: 2, b: 3 }),
+      node('w', 'Wipe', { t: 0.5, direction: 'up' }),
+      node('n', 'PlasmaFractal', { speed: 1, scale: 0.2, palette: 'ocean' }),
+    ], [])
+    expect(dataOf('m').nodeType).toBe('Math')
+    expect(dataOf('m').properties.mathOp).toBe('multiply')
+    expect(dataOf('w').nodeType).toBe('Transition')
+    expect(dataOf('w').properties.transitionType).toBe('wipe')
+    expect(dataOf('w').properties.direction).toBe('up')        // wipe keeps direction
+    expect(dataOf('n').nodeType).toBe('Noise')
+    expect(dataOf('n').properties.noiseType).toBe('plasma')
+  })
+
+  it('migrates BlendFrames to Blend, scaling t→amount and rewiring its edge', () => {
+    useGraphStore.getState().loadGraph(
+      [node('src', 'SolidColor', { r: 1, g: 1, b: 1 }), node('bf', 'BlendFrames', { t: 0.8 })],
+      [edge('e1', 'src', 'value', 'bf', 't')],   // a noodle into the old `t` port
+    )
+    const d = dataOf('bf')
+    expect(d.nodeType).toBe('Blend')
+    expect(d.properties.blendMode).toBe('normal')
+    expect(d.properties.amount).toBe(204)        // 0.8 × 255
+    expect(d.properties.t).toBeUndefined()       // old prop dropped
+    const e = useGraphStore.getState().edges[0]
+    expect(e.targetHandle).toBe('amount')        // edge rewired to the new port
+  })
+})
