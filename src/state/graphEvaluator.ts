@@ -87,6 +87,21 @@ function kelvinToRgb(kelvin: number): RGB {
   return { r: clamp(r), g: clamp(g), b: clamp(b) }
 }
 
+// Waveform oscillator: amplitude · wave(frequency·t + phase), wave in [-1,1].
+// Shared shape definitions so the Wave node previews and flashes identically.
+function evalWave(type: string, amplitude: number, frequency: number, phase: number, t: number): number {
+  const arg = frequency * t + phase
+  const ph = ((arg % 1) + 1) % 1
+  let w: number
+  switch (type) {
+    case 'square':   w = ph < 0.5 ? 1 : -1; break
+    case 'sawtooth': w = 2 * ph - 1; break
+    case 'triangle': w = 4 * Math.abs(ph - 0.5) - 1; break
+    default:         w = Math.sin(2 * Math.PI * arg) // sine
+  }
+  return amplitude * w
+}
+
 function solidFrame(color: RGB, W = DEFAULT_W, H = DEFAULT_H): Frame {
   return Array.from({ length: H }, () => Array.from({ length: W }, () => ({ ...color })))
 }
@@ -955,6 +970,15 @@ export function evaluateGraph(
       case 'Cos':
         out = { result: Math.cos(num(id, 'x', props, 'x', 0) * Math.PI * 2) }
         break
+
+      case 'Wave': {
+        const amplitude = num(id, 'amplitude', props, 'amplitude', 1)
+        const frequency = num(id, 'frequency', props, 'frequency', 1)
+        const phase     = num(id, 'phase', props, 'phase', 0)
+        const waveform  = String(props.waveform ?? 'sine')
+        out = { result: evalWave(waveform, amplitude, frequency, phase, t) }
+        break
+      }
 
       // ── Audio ─────────────────────────────────────────────────────────
       case 'MicInput':

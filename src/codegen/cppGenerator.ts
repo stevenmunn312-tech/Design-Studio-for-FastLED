@@ -284,6 +284,23 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         ln(`  float ${v('result')} = cos((${f('x', 'x', 0)}) * TWO_PI);`)
         break
 
+      case 'Wave': {
+        needsT.v = true
+        const amp = f('amplitude', 'amplitude', 1), freq = f('frequency', 'frequency', 1), phase = f('phase', 'phase', 0)
+        const wf = String(p.waveform ?? 'sine')
+        const arg = `((${freq}) * t + (${phase}))`
+        let wave: string
+        switch (wf) {
+          case 'square':   wave = `((_ph < 0.5f) ? (${amp}) : -(${amp}))`; break
+          case 'sawtooth': wave = `((${amp}) * (2.0f * _ph - 1.0f))`; break
+          case 'triangle': wave = `((${amp}) * (4.0f * fabsf(_ph - 0.5f) - 1.0f))`; break
+          default:         wave = `((${amp}) * sinf(6.2831853f * _arg))` // sine
+        }
+        ln(`  float ${v('result')};`)
+        ln(`  { float _arg = ${arg}, _ph = fmodf(fmodf(_arg, 1.0f) + 1.0f, 1.0f); ${v('result')} = ${wave}; }`)
+        break
+      }
+
       case 'HSVToRGB':
         ln(`  CRGB ${v('color')} = CHSV((uint8_t)((${f('h', 'h', 0)}) / 360.0f * 255), (uint8_t)((${f('s', 's', 1)}) * 255), (uint8_t)((${f('v', 'v', 1)}) * 255));`)
         break

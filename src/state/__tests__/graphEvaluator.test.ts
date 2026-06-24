@@ -81,6 +81,38 @@ describe('evaluateGraph', () => {
     evaluateGraph([add], [], 0, W, H)
   })
 
+  it('Wave drives a value over time per waveform type', () => {
+    // Wave.result → BrightnessMod.brightness over a white frame, so frame[0][0].r
+    // equals round(255 * waveValue) — making the scalar observable.
+    const brightnessAt = (waveform: string, tick: number, props: Record<string, unknown> = {}) => {
+      const wave = node('w', 'Wave', 'math', { amplitude: 1, frequency: 1, phase: 0, waveform, ...props })
+      const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })
+      const bm = node('bm', 'BrightnessMod', 'composite', {})
+      const out = node('out', 'MatrixOutput', 'output', {})
+      const f = evaluateGraph(
+        [wave, sc, bm, out],
+        [
+          edge('e1', 'w', 'result', 'bm', 'brightness'),
+          edge('e2', 'sc', 'frame', 'bm', 'frame'),
+          edge('e3', 'bm', 'frame', 'out', 'frame'),
+        ],
+        tick, 4, 4,
+      )!
+      return f[0][0].r
+    }
+    // sine: 0 at the start, peaks at the quarter period (tick 15 of 60).
+    expect(brightnessAt('sine', 0)).toBe(0)
+    expect(brightnessAt('sine', 15)).toBe(255)
+    // square: +amplitude in the first half, −amplitude in the second.
+    expect(brightnessAt('square', 0)).toBe(255)
+    expect(brightnessAt('square', 40)).toBeLessThan(0)
+    // determinism: same waveform + tick → same value.
+    expect(brightnessAt('triangle', 9)).toBe(brightnessAt('triangle', 9))
+    // the four waveforms are not all identical at a shared tick.
+    const vals = ['sine', 'triangle', 'square', 'sawtooth'].map((wf) => brightnessAt(wf, 7))
+    expect(new Set(vals).size).toBeGreaterThan(1)
+  })
+
   it('BrightnessMod scales pixel values', () => {
     const sc  = node('sc', 'SolidColor', 'pattern', { r: 200, g: 200, b: 200 })
     const bm  = node('bm', 'BrightnessMod', 'pattern', { brightness: 0.5 })

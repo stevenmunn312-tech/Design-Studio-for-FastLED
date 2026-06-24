@@ -104,6 +104,22 @@ describe('generateCpp', () => {
     expect(cpp).toContain('beatsin8(120, 0, 255)')
   })
 
+  it('emits a sine Wave oscillator', () => {
+    const w = node('w', 'Wave', 'math', { amplitude: 2, frequency: 0.5, phase: 0.25, waveform: 'sine' })
+    const cpp = generateCpp([w, outputNode], [])
+    expect(cpp).toContain('_arg = ((0.5) * t + (0.25))')
+    expect(cpp).toContain('sinf(6.2831853f * _arg)')
+    expect(cpp).toContain('float t = millis()') // needs the time variable
+  })
+
+  it('emits each Wave waveform shape', () => {
+    const shape = (waveform: string) =>
+      generateCpp([node('w', 'Wave', 'math', { amplitude: 1, frequency: 1, phase: 0, waveform })], [])
+    expect(shape('square')).toContain('(_ph < 0.5f) ?')
+    expect(shape('sawtooth')).toContain('2.0f * _ph - 1.0f')
+    expect(shape('triangle')).toContain('4.0f * fabsf(_ph - 0.5f) - 1.0f')
+  })
+
   it('emits blur2d call for Blur2D node', () => {
     const blur = node('bl', 'Blur2D', 'pattern', { amount: 40 })
     const cpp = generateCpp([blur, outputNode], [])
