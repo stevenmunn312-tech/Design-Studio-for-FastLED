@@ -27,6 +27,9 @@ const golState = new Map<string, GolState>()
 interface FlowState { px: Float32Array; py: Float32Array; trail: Float32Array; w: number; h: number }
 const flowState = new Map<string, FlowState>()
 
+interface StarState { x: Float32Array; y: Float32Array; z: Float32Array; w: number; h: number }
+const starState = new Map<string, StarState>()
+
 type FormulaFn = (x: number, y: number, t: number, W: number, H: number, a: number, b: number) => number
 const formulaCache = new Map<string, FormulaFn | null>()
 
@@ -479,6 +482,56 @@ function evalFlowField(nodeId: string, speed: number, scale: number, count: numb
   }
   return Array.from({ length: H }, (_, y) =>
     Array.from({ length: W }, (_, x) => samplePalette(palette, trail[y * W + x]))
+  )
+}
+
+// Warp starfield: stars fly outward from the centre; nearer stars are brighter.
+function evalStarfield(nodeId: string, speed: number, count: number, color: RGB, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const pc = Math.max(8, Math.min(300, Math.floor(count)))
+  let s = starState.get(nodeId)
+  if (!s || s.w !== W || s.h !== H || s.x.length !== pc) {
+    const x = new Float32Array(pc), y = new Float32Array(pc), z = new Float32Array(pc)
+    for (let i = 0; i < pc; i++) { x[i] = Math.random() * 2 - 1; y[i] = Math.random() * 2 - 1; z[i] = Math.random() * 0.9 + 0.1 }
+    s = { x, y, z, w: W, h: H }; starState.set(nodeId, s)
+  }
+  const { x, y, z } = s
+  const frame = blankFrame(W, H)
+  for (let i = 0; i < pc; i++) {
+    z[i] -= speed * 0.015
+    if (z[i] <= 0.02) { x[i] = Math.random() * 2 - 1; y[i] = Math.random() * 2 - 1; z[i] = 1 }
+    const px = Math.round(W / 2 + (x[i] / z[i]) * W * 0.35), py = Math.round(H / 2 + (y[i] / z[i]) * H * 0.35)
+    if (px >= 0 && px < W && py >= 0 && py < H) {
+      const b = Math.min(1, 1 - z[i])
+      frame[py][px] = { r: Math.round(color.r * b), g: Math.round(color.g * b), b: Math.round(color.b * b) }
+    }
+  }
+  return frame
+}
+
+// Plasma blended with fractal (simplex) noise for an organic flowing field.
+function evalPlasmaFractal(speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      let v = Math.sin(x * 0.2 + t * speed) + Math.sin(y * 0.25 + t * speed * 0.8) + Math.sin((x + y) * 0.15 + t * speed * 0.6)
+      let amp = 1, freq = scale, fn = 0
+      for (let o = 0; o < 3; o++) { fn += amp * _snoise2(x * freq + t * speed * 0.1, y * freq); amp *= 0.5; freq *= 2 }
+      v += fn * 2.5
+      return samplePalette(palette, (((v * 0.15) % 1) + 1) % 1)
+    })
+  )
+}
+
+// Audio-reactive flow: a simplex band field scrolling at a speed set by mids,
+// brightness pulsed by bass, hue nudged by treble.
+function evalAudioFlow(bass: number, mids: number, treble: number, speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const flow = t * speed * (0.2 + mids * 1.5)
+  const bright = Math.min(1, 0.3 + bass)
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const v = _snoise2(x * scale + flow, y * scale * 0.6) * 0.5 + 0.5
+      const c = samplePalette(palette, (((v + treble * 0.3) % 1) + 1) % 1)
+      return { r: Math.round(c.r * bright), g: Math.round(c.g * bright), b: Math.round(c.b * bright) }
+    })
   )
 }
 
@@ -1331,6 +1384,38 @@ export function evaluateGraph(
         const fade = Number(props.fade ?? 0.9)
         const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
         out = { frame: evalFlowField(stateKey(id), speed, scale, count, fade, t, palette, W, H) }
+        break
+      }
+
+      case 'Starfield': {
+        const speed = num(id, 'speed', props, 'speed', 1)
+        const count = Number(props.count ?? 60)
+        const colorIn = input(id, 'color', null) as RGB | null
+        const color = colorIn ?? {
+          r: byte(Number(props.r ?? 255) / 255),
+          g: byte(Number(props.g ?? 255) / 255),
+          b: byte(Number(props.b ?? 255) / 255),
+        }
+        out = { frame: evalStarfield(stateKey(id), speed, count, color, W, H) }
+        break
+      }
+
+      case 'PlasmaFractal': {
+        const speed = num(id, 'speed', props, 'speed', 1)
+        const scale = num(id, 'scale', props, 'scale', 0.15)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
+        out = { frame: evalPlasmaFractal(speed, scale, t, palette, W, H) }
+        break
+      }
+
+      case 'AudioFlow': {
+        const bass = num(id, 'bass', props, 'bass', 0.5)
+        const mids = num(id, 'mids', props, 'mids', 0.5)
+        const treble = num(id, 'treble', props, 'treble', 0.3)
+        const speed = num(id, 'speed', props, 'speed', 1)
+        const scale = num(id, 'scale', props, 'scale', 0.2)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'party')
+        out = { frame: evalAudioFlow(bass, mids, treble, speed, scale, t, palette, W, H) }
         break
       }
 
