@@ -12,6 +12,7 @@ import {
   type NodeMouseHandler,
   type IsValidConnection,
   type OnConnectEnd,
+  type OnConnectStart,
   type OnConnect,
   type OnReconnect,
   type Edge,
@@ -50,6 +51,10 @@ function NodeGraphCanvasInner() {
   // Tracks whether a dragged noodle end landed on a valid port; if not (dropped
   // on empty space) we treat it as an unplug and delete the edge.
   const reconnectLanded = useRef(true)
+  // Set when a drag starts on an already-connected input port: we detach the
+  // existing noodle so the gesture unplugs (drop on empty) or re-routes (drop
+  // on a compatible output) instead of starting an unrelated new connection.
+  const detaching = useRef(false)
   const { screenToFlowPosition, getNode } = useReactFlow()
   const { setStatus, setSparkPort } = useUiStore()
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -85,8 +90,32 @@ function NodeGraphCanvasInner() {
     [onConnect, setSparkPort]
   )
 
+  // Grabbing a connected input dot: detach its noodle up-front so the drag
+  // becomes an unplug/re-route rather than a fresh (dead-end) connection.
+  const onConnectStart: OnConnectStart = useCallback(
+    (_e, params) => {
+      detaching.current = false
+      if (params.handleType !== 'target' || !params.nodeId) return
+      const existing = edges.find(
+        (ed) => ed.target === params.nodeId && (ed.targetHandle ?? null) === (params.handleId ?? null)
+      )
+      if (existing) {
+        detaching.current = true
+        removeEdge(existing.id)
+      }
+    },
+    [edges, removeEdge]
+  )
+
   const onConnectEnd: OnConnectEnd = useCallback(
     (_e, state) => {
+      if (detaching.current) {
+        // Detached noodle: a valid drop re-routed it (handleConnect ran),
+        // otherwise it was dropped on empty space and stays unplugged.
+        setStatus(state?.isValid ? 'Noodle re-routed' : 'Noodle unplugged', 'info')
+        detaching.current = false
+        return
+      }
       if (state && !state.isValid) {
         setStatus('Incompatible port types — connection blocked', 'error')
       }
@@ -197,6 +226,7 @@ function NodeGraphCanvasInner() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={handleConnect}
+        onConnectStart={onConnectStart}
         onConnectEnd={onConnectEnd}
         onReconnectStart={onReconnectStart}
         onReconnect={onReconnect}
