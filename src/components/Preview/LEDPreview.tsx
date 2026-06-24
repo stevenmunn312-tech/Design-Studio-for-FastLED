@@ -64,6 +64,10 @@ export default function LEDPreview() {
   const [fps, setFps] = useState(0)
   const lastFpsTime   = useRef(performance.now())
   const frameCount    = useRef(0)
+  // Wall-clock time base so the preview animates at real-time speed regardless
+  // of the display refresh rate (matching the firmware's millis()-based timing).
+  const startTime     = useRef(0)
+  const lastStep      = useRef(0)
   // Per-node previews refresh slower than the main canvas to bound React work.
   const lastPreviewPublish = useRef(0)
 
@@ -123,12 +127,24 @@ export default function LEDPreview() {
     }
     const ctx = useWebGL ? null : canvas.getContext('2d')
 
+    const STEP = 1000 / 60   // simulate at 60 steps/sec regardless of display Hz
+
     const loop = () => {
       // A single bad frame (e.g. a malformed graph) must not tear down the
       // animation loop, so swallow errors and keep scheduling the next frame.
       try {
-        tickRef.current++
-        const tick = tickRef.current
+        const now = performance.now()
+        if (startTime.current === 0) { startTime.current = now; lastStep.current = now }
+        // Gate to ~60fps off the wall clock: on high-refresh displays this skips
+        // the extra rAF callbacks instead of advancing time faster than real.
+        if (now - lastStep.current < STEP) {
+          animRef.current = requestAnimationFrame(loop)
+          return
+        }
+        lastStep.current = now
+        // t = tick / 60 = seconds elapsed, matching the firmware's millis()/1000.
+        const tick = (now - startTime.current) / STEP
+        tickRef.current = tick
         const gW = gridWRef.current, gH = gridHRef.current, px = pixelRef.current
         // One evaluation pass feeds both the main matrix and every node preview.
         const { frame: rendered, outputs } = evaluateGraphFull(nodesRef.current, edgesRef.current, tick, gW, gH, getGroupRegistry())
@@ -143,13 +159,13 @@ export default function LEDPreview() {
           renderFrame(ctx, frame, px)
         }
 
-        frameCount.current++
-        const now = performance.now()
         // Publish node-preview outputs at ~15fps to limit per-node re-renders.
         if (now - lastPreviewPublish.current >= 66) {
           usePreviewStore.getState().setOutputs(outputs)
           lastPreviewPublish.current = now
         }
+
+        frameCount.current++
         if (now - lastFpsTime.current >= 1000) {
           const count = frameCount.current
           setFps(count)
