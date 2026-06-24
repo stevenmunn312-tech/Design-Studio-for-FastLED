@@ -564,6 +564,31 @@ describe('evaluateGraph', () => {
     expect(wired).not.toEqual(presetOnly)   // custom colors changed the output
   })
 
+  it('NoiseField colours through its palette', () => {
+    const run = (palette: string) => {
+      const nf = node('nf', 'NoiseField', 'pattern', { speed: 1, scale: 1, palette })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      return evaluateGraph([nf, out], [edge('e', 'nf', 'frame', 'out', 'frame')], 30, 8, 8)!
+    }
+    const rainbow = run('rainbow')
+    // changing the palette property changes the rendered colours
+    expect(JSON.stringify(run('ocean'))).not.toEqual(JSON.stringify(rainbow))
+    expect(JSON.stringify(run('rainbow'))).toEqual(JSON.stringify(rainbow)) // deterministic
+  })
+
+  it('NoiseField uses a connected palette over its property', () => {
+    const sel = node('sel', 'PaletteSelector', 'color', { palette: 'lava' })
+    const nf  = node('nf', 'NoiseField', 'pattern', { speed: 1, scale: 1, palette: 'rainbow' })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const base = evaluateGraph([nf, out], [edge('e', 'nf', 'frame', 'out', 'frame')], 30, 8, 8)
+    const wired = evaluateGraph(
+      [sel, nf, out],
+      [edge('e1', 'sel', 'palette', 'nf', 'paletteIn'), edge('e2', 'nf', 'frame', 'out', 'frame')],
+      30, 8, 8,
+    )
+    expect(JSON.stringify(wired)).not.toEqual(JSON.stringify(base))
+  })
+
   it('a Poline palette drives a pattern, varying with its anchors', () => {
     const run = (anchorA: string, anchorB: string) => {
       const pl = node('pl', 'Poline', 'color', { anchorA, anchorB, points: 4, position: 'sinusoidal' })

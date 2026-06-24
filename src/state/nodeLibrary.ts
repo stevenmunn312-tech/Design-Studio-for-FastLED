@@ -110,6 +110,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'scale', label: 'Scale', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { speed: 1.0, scale: 1.0, palette: 'rainbow' },

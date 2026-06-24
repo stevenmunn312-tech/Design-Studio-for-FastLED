@@ -164,12 +164,12 @@ function renderText(text: string, color: RGB, startX: number, startY: number, sc
 }
 
 // ── Pattern evaluators ────────────────────────────────────────────────────────
-function evalNoiseField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalNoiseField(speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   return Array.from({ length: H }, (_, y) =>
     Array.from({ length: W }, (_, x) => {
       const v = (Math.sin(x * scale * 0.5 + t * speed) +
                  Math.cos(y * scale * 0.5 + t * speed * 0.7)) / 2
-      return hsv((v + 1) * 180 + t * 30, 1, 0.85)
+      return samplePalette(palette, (v + 1) / 2)
     })
   )
 }
@@ -1153,7 +1153,8 @@ function createEvalNode(
       case 'NoiseField': {
         const speed = num(id, 'speed', props, 'speed', 1)
         const scale = num(id, 'scale', props, 'scale', 1)
-        out = { frame: evalNoiseField(speed, scale, t, W, H) }
+        const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
+        out = { frame: evalNoiseField(speed, scale, t, palette, W, H) }
         break
       }
 

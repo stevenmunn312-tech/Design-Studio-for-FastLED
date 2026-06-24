@@ -137,6 +137,13 @@ describe('generateCpp', () => {
     expect(mk('max')).toContain('max((float)(n_wa_result), (float)(n_wb_result))')
   })
 
+  it('emits NoiseField coloured through its palette', () => {
+    const nf = node('nf', 'NoiseField', 'pattern', { speed: 1, scale: 1, palette: 'ocean' })
+    const cpp = generateCpp([nf, outputNode], [edge('e', 'nf', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('ColorFromPalette(OceanColors_p')
+    expect(cpp).not.toContain('CHSV((uint8_t)((_v')  // no longer hardcoded hue
+  })
+
   it('emits blur2d call for Blur2D node', () => {
     const blur = node('bl', 'Blur2D', 'pattern', { amount: 40 })
     const cpp = generateCpp([blur, outputNode], [])
