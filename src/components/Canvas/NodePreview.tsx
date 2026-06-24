@@ -6,8 +6,9 @@ import styles from './NodePreview.module.css'
 type RGB = { r: number; g: number; b: number }
 export type PreviewKind = 'frame' | 'palette' | 'color'
 
-// Live thumbnail of a frame: draws the pixels 1:1 to a canvas, CSS-scaled.
-function FrameThumb({ frame }: { frame?: Frame }) {
+// Live thumbnail of a frame: draws the pixels 1:1 to a canvas, CSS-scaled to
+// the node width at the matrix aspect ratio (`height` from the caller).
+function FrameThumb({ frame, height }: { frame?: Frame; height?: number }) {
   const ref = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
     const cv = ref.current
@@ -28,7 +29,7 @@ function FrameThumb({ frame }: { frame?: Frame }) {
     }
     ctx.putImageData(img, 0, 0)
   }) // redraw on every render (each preview-store publish)
-  return <canvas ref={ref} className={styles.frame} aria-hidden="true" />
+  return <canvas ref={ref} className={styles.frame} style={height ? { height } : undefined} aria-hidden="true" />
 }
 
 function PaletteStrip({ palette }: { palette: string | RGB[] }) {
@@ -44,9 +45,9 @@ function ColorSwatch({ color }: { color: RGB }) {
 }
 
 /** Top-of-node preview driven by the live evaluation in previewStore. */
-export default function NodePreview({ nodeId, kind, port }: { nodeId: string; kind: PreviewKind; port: string }) {
+export default function NodePreview({ nodeId, kind, port, height }: { nodeId: string; kind: PreviewKind; port: string; height?: number }) {
   const value = usePreviewStore((s) => s.outputs.get(nodeId)?.[port])
-  if (kind === 'frame') return <FrameThumb frame={value as Frame | undefined} />
+  if (kind === 'frame') return <FrameThumb frame={value as Frame | undefined} height={height} />
   if (kind === 'palette') return <PaletteStrip palette={(value as string | RGB[] | undefined) ?? 'rainbow'} />
   return <ColorSwatch color={(value as RGB | undefined) ?? { r: 0, g: 0, b: 0 }} />
 }
