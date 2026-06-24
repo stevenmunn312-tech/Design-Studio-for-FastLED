@@ -420,6 +420,19 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: {},
   },
   {
+    // Waveform oscillator over time: amplitude · wave(frequency·t + phase).
+    type: 'Wave',
+    label: 'Wave',
+    category: 'math',
+    inputs: [
+      { id: 'amplitude', label: 'Amplitude', dataType: 'float' },
+      { id: 'frequency', label: 'Frequency', dataType: 'float' },
+      { id: 'phase', label: 'Phase', dataType: 'float' },
+    ],
+    outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+    defaultProperties: { amplitude: 1, frequency: 1, phase: 0, waveform: 'sine' },
+  },
+  {
     type: 'Lerp',
     label: 'Lerp',
     category: 'math',
@@ -959,6 +972,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   MapRange: 'Remaps a value from one range to another.',
   Sin: 'Sine of the input (×2π).',
   Cos: 'Cosine of the input (×2π).',
+  Wave: 'Oscillator — sine, triangle, square or sawtooth over time.',
   Lerp: 'Linear interpolation between a and b by t.',
   TimeNode: 'Elapsed time in seconds, plus a frame delta.',
   Abs: 'Absolute value.',
@@ -1105,6 +1119,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   paletteB:   { control: 'select', options: PALETTES },
   direction:  { control: 'select', options: ['right', 'left', 'up', 'down'] },
   mode:       { control: 'select', options: ['cycle', 'beat'] },
+  waveform:   { control: 'select', options: ['sine', 'triangle', 'square', 'sawtooth'] },
   chipset:    { control: 'select', options: ['WS2812B', 'WS2811', 'SK6812', 'APA102', 'WS2801', 'NEOPIXEL'] },
   colorOrder: { control: 'select', options: ['GRB', 'RGB', 'BGR', 'BRG', 'GBR', 'RBG'] },
 
@@ -1124,6 +1139,8 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   orientation: { control: 'slider', min: 0, max: 360, step: 1 },
   angle:       { control: 'slider', min: 0, max: 360, step: 1 },
   repeat:      { control: 'slider', min: 1, max: 8, step: 1 },
+  amplitude:   { control: 'slider', min: 0, max: 5, step: 0.1 },
+  phase:       { control: 'slider', min: 0, max: 1, step: 0.01 },
   feed:     { control: 'slider', min: 0, max: 0.1, step: 0.001 },
   kill:     { control: 'slider', min: 0, max: 0.1, step: 0.001 },
   interval: { control: 'slider', min: 0.1, max: 20, step: 0.1 },
