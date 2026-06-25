@@ -6,6 +6,7 @@
   --bg-node-hover: #252a31;
 
   /* Accent colors per node type */
+  --accent-input: #b388ff;
   --accent-audio: #00ffff;
   --accent-pattern: #ff00ff;
   --accent-math: #a8ff00;
