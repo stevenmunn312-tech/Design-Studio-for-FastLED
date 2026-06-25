@@ -1,11 +1,13 @@
 import { useRef } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import { useGraphStore, useTemporalStore } from '../../state/graphStore'
+import { useMusicStore } from '../../state/musicStore'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import styles from './MenuBar.module.css'
 
 export default function MenuBar() {
   const { toggleSidebar, toggleInspector, setStatus, theme, cycleTheme, reducedMotion, toggleReducedMotion, highContrast, toggleHighContrast, setShowUploadPanel } = useUiStore()
+  const setMusicOpen = useMusicStore(s => s.setOpen)
 
   const THEME_ICON: Record<string, string> = { dark: '☾', solarized: '✦', light: '☀' }
   const THEME_LABEL: Record<string, string> = { dark: 'Dark', solarized: 'Solarized', light: 'Light' }
@@ -100,6 +102,9 @@ export default function MenuBar() {
         <div className={styles.sep} />
         <button className={styles.btnAccent} onClick={() => setShowUploadPanel(true)}>
           ↑ Upload
+        </button>
+        <button className={styles.btnMusic} onClick={() => setMusicOpen(true)} title="Music Library — generate synced LED shows from MP3s">
+          ♪ Music
         </button>
         <div className={styles.sep} />
         <button
