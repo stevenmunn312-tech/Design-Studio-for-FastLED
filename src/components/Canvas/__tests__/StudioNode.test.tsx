@@ -114,22 +114,26 @@ describe('StudioNode', () => {
     expect(useGraphStore.getState().nodes[0].data.properties.filled).toBe(true)
   })
 
-  it('shows the add-music affordance for an empty MusicLibrary node', () => {
+  it('embeds the library UI (drop zone + engine toggle) in the MusicLibrary node', () => {
     useMusicStore.setState({ entries: [] })
     const { getByText } = renderNode(makeNode('MusicLibrary', {}))
-    expect(getByText('Double-click to add music')).toBeTruthy()
+    expect(getByText('Drop MP3s here or click to browse')).toBeTruthy()
+    expect(getByText('Essentia.js')).toBeTruthy()
+    expect(getByText('Built-in')).toBeTruthy()
   })
 
-  it('shows the song count and analysis status for a populated MusicLibrary node', () => {
+  it('lists loaded songs with their status on the MusicLibrary node', () => {
     useMusicStore.setState({
       entries: [
-        { id: 'a', file: {} as File, analysis: null, show: null, status: 'done' },
-        { id: 'b', file: {} as File, analysis: null, show: null, status: 'pending' },
+        { id: 'a', file: { name: 'one.mp3' } as File, analysis: null, show: null, status: 'done' },
+        { id: 'b', file: { name: 'two.mp3' } as File, analysis: null, show: null, status: 'pending' },
       ],
     })
     const { getByText } = renderNode(makeNode('MusicLibrary', {}))
-    expect(getByText('2 songs')).toBeTruthy()
-    expect(getByText('1/2 analysed')).toBeTruthy()
+    expect(getByText('one.mp3')).toBeTruthy()
+    expect(getByText('two.mp3')).toBeTruthy()
+    expect(getByText('Ready')).toBeTruthy()    // done badge
+    expect(getByText('Pending')).toBeTruthy()  // pending badge
   })
 
   it('a bundled node header reflects the selected variant', () => {
