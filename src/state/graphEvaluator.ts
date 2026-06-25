@@ -1791,6 +1791,19 @@ function createEvalNode(
         out = { frame: input(id, 'frame', null) }
         break
 
+      // ── Music-sync pipeline (data managed by musicStore, not frame graph) ──
+      case 'MusicLibrary':
+        out = { songs: null }
+        break
+
+      case 'PerformanceGenerator':
+        out = { shows: null }
+        break
+
+      case 'SDCard':
+        out = {}
+        break
+
       // ── Output ─────────────────────────────────────────────────────────
       case 'MatrixOutput':
         out = { frame: input(id, 'frame', null) }

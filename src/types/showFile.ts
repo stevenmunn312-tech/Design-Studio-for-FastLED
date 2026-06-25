@@ -1,0 +1,61 @@
+// ── Show file types ───────────────────────────────────────────────────────────
+// A .show file is a sorted array of timed events that the ESP32 player
+// executes in sync with audio playback.
+
+export type ShowCommand =
+  | 'SET_PATTERN'      // switch to a named pattern
+  | 'SET_PALETTE'      // switch colour palette
+  | 'SET_SPEED'        // animation speed multiplier (0-1 → slow-fast)
+  | 'SET_BRIGHTNESS'   // global brightness (0-255)
+  | 'BEAT_FLASH'       // instantaneous brightness spike + decay
+  | 'TRANSITION'       // crossfade/wipe/dissolve to next pattern
+
+export interface ShowEvent {
+  t: number            // timestamp in milliseconds from song start
+  cmd: ShowCommand
+  params: Record<string, number | string>
+}
+
+export interface ShowFile {
+  version: 1
+  songTitle: string
+  durationMs: number
+  bpm: number
+  events: ShowEvent[]
+}
+
+// ── Song analysis output from musicAnalyzer ───────────────────────────────────
+
+export interface BeatInfo {
+  timestamps: number[]   // ms of each detected beat
+  bpm: number
+  confidence: number     // 0-1
+}
+
+export interface EnergyPoint {
+  t: number              // ms
+  bass: number           // 0-1
+  mids: number           // 0-1
+  treble: number         // 0-1
+  overall: number        // 0-1
+}
+
+export interface SongSection {
+  startMs: number
+  endMs: number
+  type: 'intro' | 'verse' | 'buildup' | 'drop' | 'chorus' | 'bridge' | 'outro'
+  energy: number         // 0-1, average energy of the section
+}
+
+export interface SongAnalysis {
+  title: string
+  durationMs: number
+  beats: BeatInfo
+  energy: EnergyPoint[]  // sampled every ~100ms
+  sections: SongSection[]
+  mood: {
+    energy: number       // 0-1 (calm → energetic)
+    valence: number      // 0-1 (dark → bright)
+    key: string          // e.g. "C major", "A minor"
+  }
+}
