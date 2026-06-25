@@ -1,9 +1,11 @@
-import { useMemo, useState, useRef, useEffect } from 'react'
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { validateGraph } from '../../utils/validateGraph'
-import { checkBackend, type BackendHealth } from '../../utils/backendClient'
+import { useMusicStore } from '../../state/musicStore'
+import { checkBackend, listPorts, uploadSketch, uploadShow, type BackendHealth, type SerialPort } from '../../utils/backendClient'
+import { sdCardConnected, readySongCount, buildShowPayload } from '../../utils/showUpload'
 import styles from './UploadPanel.module.css'
 
 // ── Boards ──────────────────────────────────────────────────────────────────
@@ -45,30 +47,86 @@ function cliCommands(b: Board): string {
 export default function UploadPanel() {
   const { nodes, edges } = useGraphStore()
   const { setShowUploadPanel, setStatus } = useUiStore()
+  const entries = useMusicStore((s) => s.entries)
+  const sdConnected = useMemo(() => sdCardConnected(nodes, edges), [nodes, edges])
+  const readySongs = readySongCount(entries)
 
   const code = useMemo(() => generateCpp(nodes, edges, getGroupRegistry()), [nodes, edges])
   const validation = useMemo(() => validateGraph(nodes, edges), [nodes, edges])
 
   const [board, setBoard] = useState<Board>(BOARDS[0])
   const commands = useMemo(() => cliCommands(board), [board])
-  const [log, setLog] = useState<string[]>([])
+  // Single growing string so streamed compile/upload output (which arrives in
+  // arbitrary, not line-aligned chunks) renders correctly; capped to stay light.
+  const [log, setLog] = useState('')
   const logRef = useRef<HTMLDivElement>(null)
 
-  // Probe the optional local upload helper so we can show its status (and, in a
-  // later slice, drive one-click compile+upload). `undefined` = still checking.
+  // Probe the optional local upload helper so we can show its status and, when
+  // present, drive one-click compile+upload. `undefined` = still checking.
   const [helper, setHelper] = useState<BackendHealth | null | undefined>(undefined)
+  const [ports, setPorts] = useState<SerialPort[]>([])
+  const [selectedPort, setSelectedPort] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const helperReady = !!helper?.arduinoCli
+
   useEffect(() => {
     const ctrl = new AbortController()
     checkBackend(ctrl.signal).then(setHelper).catch(() => setHelper(null))
     return () => ctrl.abort()
   }, [])
 
+  const refreshPorts = useCallback(async () => {
+    const p = await listPorts()
+    setPorts(p)
+    setSelectedPort((prev) => prev || p[0]?.address || '')
+  }, [])
+
+  // Once the helper reports arduino-cli, list the connected boards.
+  useEffect(() => { if (helperReady) refreshPorts() }, [helperReady, refreshPorts])
+
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
   }, [log])
 
-  function appendLog(msg: string) {
-    setLog((prev) => [...prev.slice(-200), msg])
+  const appendLog = useCallback((msg: string) => {
+    setLog((prev) => (prev + msg + '\n').slice(-40000))
+  }, [])
+
+  async function handleUpload() {
+    if (!selectedPort || uploading) return
+    setUploading(true)
+    setLog(`Uploading to ${selectedPort} (${board.fqbn})…\n`)
+    try {
+      await uploadSketch(code, board.fqbn, selectedPort, (chunk) =>
+        setLog((prev) => (prev + chunk).slice(-40000)),
+      )
+      setStatus('Upload finished — see the log', 'success')
+    } catch (err) {
+      appendLog(`\n[error] ${err}`)
+      setStatus('Upload failed — is the helper running?', 'error')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function handleUploadShow() {
+    if (!selectedPort || uploading) return
+    const payload = buildShowPayload(nodes, entries)
+    if (!payload) { setStatus('Analyse some songs in the Music Library first', 'error'); return }
+    setUploading(true)
+    setLog(`Provisioning ${readySongs} song(s) to ${selectedPort} (${board.fqbn})…\n`)
+    try {
+      await uploadShow(
+        { fqbn: board.fqbn, port: selectedPort, ...payload },
+        (chunk) => setLog((prev) => (prev + chunk).slice(-40000)),
+      )
+      setStatus('Show upload finished — see the log', 'success')
+    } catch (err) {
+      appendLog(`\n[error] ${err}`)
+      setStatus('Show upload failed — is the helper running?', 'error')
+    } finally {
+      setUploading(false)
+    }
   }
 
   function handleDownload() {
@@ -168,6 +226,56 @@ export default function UploadPanel() {
                   </span>
                 )}
               </div>
+
+              {helperReady && (
+                <div className={styles.uploadRow}>
+                  <select
+                    className={styles.select}
+                    value={selectedPort}
+                    onChange={(e) => setSelectedPort(e.target.value)}
+                    disabled={uploading}
+                  >
+                    {ports.length === 0 && <option value="">No boards detected</option>}
+                    {ports.map((p) => (
+                      <option key={p.address} value={p.address}>
+                        {p.label}{p.boards[0]?.name ? ` · ${p.boards[0].name}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className={styles.btn}
+                    style={{ width: 'auto', padding: '0 10px' }}
+                    onClick={refreshPorts}
+                    disabled={uploading}
+                    title="Refresh the list of connected boards"
+                  >
+                    ↻
+                  </button>
+                  <button
+                    className={styles.btnPrimary}
+                    onClick={handleUpload}
+                    disabled={uploading || !selectedPort || validation.errors.length > 0}
+                    title={validation.errors.length > 0 ? validation.errors[0] : 'Compile & upload to the board'}
+                  >
+                    {uploading ? 'Uploading…' : '↑ Upload to board'}
+                  </button>
+                </div>
+              )}
+
+              {helperReady && sdConnected && (
+                <div className={styles.uploadRow}>
+                  <button
+                    className={styles.btnPrimary}
+                    onClick={handleUploadShow}
+                    disabled={uploading || !selectedPort || readySongs === 0}
+                    title={readySongs === 0
+                      ? 'Analyse songs in the Music Library node first'
+                      : 'Flash the provisioner, write songs/shows to the SD card, then flash the player'}
+                  >
+                    {uploading ? 'Working…' : `♪ Upload show to SD (${readySongs})`}
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className={styles.divider} />
@@ -182,12 +290,12 @@ export default function UploadPanel() {
               <pre className={styles.commands}>{commands}</pre>
             </div>
 
-            {log.length > 0 && (
+            {log && (
               <>
                 <div className={styles.divider} />
                 <div className={styles.section}>
                   <div className={styles.sectionTitle}>Log</div>
-                  <div ref={logRef} className={styles.log}>{log.join('\n')}</div>
+                  <div ref={logRef} className={styles.log}>{log}</div>
                 </div>
               </>
             )}

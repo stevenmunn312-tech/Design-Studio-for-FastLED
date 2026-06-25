@@ -232,6 +232,14 @@
   gap: 6px;
   align-items: center;
 }
+
+.uploadRow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 8px;
+}
+.uploadRow .select { flex: 1; min-width: 0; }
 .helperStatus .chip { border-color: var(--border-glow); }
 .helperStatus code {
   font-family: var(--font-code);
