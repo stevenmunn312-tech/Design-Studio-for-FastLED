@@ -95,28 +95,46 @@ const LEGACY_BUNDLE: Record<string, { nodeType: string; label: string; props: Re
   Wipe:          { nodeType: 'Transition', label: 'Transition', props: { transitionType: 'wipe' } },
   Dissolve:      { nodeType: 'Transition', label: 'Transition', props: { transitionType: 'dissolve' } },
   // Both old blend nodes did a linear mix → the Blend node's `normal` mode.
-  // LayerBlend already used the `amount` (0–255) port, so it maps cleanly.
+  // LayerBlend used a 0–255 `amount`; migrateLegacyGraph rescales it to 0–1.
   LayerBlend:    { nodeType: 'Blend', label: 'Blend', props: { blendMode: 'normal' } },
   BlendFrames:   { nodeType: 'Blend', label: 'Blend', props: { blendMode: 'normal' } },
 }
 
-// Migrate a saved graph's legacy node types to their bundle, also fixing up
-// edge handles where a port was renamed (BlendFrames' 0–1 `t` → Blend's 0–255
-// `amount`).
+// Migrate a saved graph's legacy node types to their bundle, fixing up edge
+// handles where a port was renamed (BlendFrames' `t` → Blend's `amount`) and
+// rescaling the old 0–255 `amount` opacity to the new 0–1 range.
 function migrateLegacyGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes: StudioNode[]; edges: StudioEdge[] } {
   const handleRenames = new Map<string, Record<string, string>>()
   const migratedNodes = nodes.map((n) => {
     const data = n.data as StudioNodeData
     const bundle = LEGACY_BUNDLE[data?.nodeType]
-    if (!bundle) return n
+    let nodeType = data.nodeType
+    let label = data.label
     // Existing props win, so a migrated Wipe keeps its `direction`.
-    let properties: Record<string, unknown> = { ...bundle.props, ...data.properties }
-    if (data.nodeType === 'BlendFrames') {
-      const { t, ...rest } = data.properties as Record<string, unknown>
-      properties = { ...bundle.props, ...rest, amount: Math.round(Number(t ?? 0.5) * 255) }
-      handleRenames.set(n.id, { t: 'amount' })
+    let properties: Record<string, unknown> = bundle
+      ? { ...bundle.props, ...data.properties }
+      : { ...data.properties }
+    if (bundle) {
+      nodeType = bundle.nodeType
+      label = bundle.label
+      // BlendFrames' 0–1 `t` becomes Blend's `amount` (also 0–1 since the
+      // amount scale moved to 0–1); the port is renamed t → amount.
+      if (data.nodeType === 'BlendFrames') {
+        const { t, ...rest } = data.properties as Record<string, unknown>
+        properties = { ...bundle.props, ...rest, amount: Number(t ?? 0.5) }
+        handleRenames.set(n.id, { t: 'amount' })
+      }
     }
-    return { ...n, data: { ...data, nodeType: bundle.nodeType, label: bundle.label, properties } }
+    // `amount` moved from a 0–255 opacity to a normalised 0–1 value. Older
+    // graphs (and the legacy LayerBlend) stored it 0–255 — anything above 1 must
+    // be on the old scale, so rescale it.
+    if (
+      (nodeType === 'Blend' || nodeType === 'Blur2D' || nodeType === 'PaletteBlend') &&
+      typeof properties.amount === 'number' && properties.amount > 1
+    ) {
+      properties = { ...properties, amount: properties.amount / 255 }
+    }
+    return { ...n, data: { ...data, nodeType, label, properties } }
   })
   const migratedEdges = edges.map((e) => {
     const rename = handleRenames.get(e.target)

@@ -4,7 +4,7 @@ import type { NodeProps, Node } from '@xyflow/react'
 import { useGraphStore } from '../../state/graphStore'
 import type { StudioNodeData } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { CATEGORY_ACCENT_VAR, portColor, PROPERTY_META, nodeDisplayLabel, isPropertyEnabled } from '../../state/nodeLibrary'
+import { CATEGORY_ACCENT_VAR, portColor, propertyMeta, hasClampableInputs, nodeDisplayLabel, isPropertyEnabled } from '../../state/nodeLibrary'
 import { waveNodeSamples } from '../../state/wave'
 import WaveScope from './WaveScope'
 import ComplexWaveScope from './ComplexWaveScope'
@@ -129,8 +129,11 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const props = d.properties as Record<string, unknown>
   const hasRGB = ['r', 'g', 'b'].every((k) => typeof props[k] === 'number')
   const editable = Object.entries(props).filter(
-    ([k]) => k !== 'font' && k !== 'image' && !(hasRGB && (k === 'r' || k === 'g' || k === 'b'))
+    ([k]) => k !== 'font' && k !== 'image' && k !== 'clampInputs' && !(hasRGB && (k === 'r' || k === 'g' || k === 'b'))
   )
+  // The "clamp inputs" toggle is rendered specially (it has no entry in the
+  // node's default properties); show it only where it would do something.
+  const showClamp = hasClampableInputs(d.nodeType, inputs)
 
   // Waveform nodes show a scope at the top of the body; this shifts the port
   // handles below it down by the scope height + the body's flex gap. Wave's
@@ -222,7 +225,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
 
         {d.nodeType === 'MusicLibrary' && <MusicLibraryNodeBody />}
 
-        {(hasRGB || editable.length > 0) && (
+        {(hasRGB || editable.length > 0 || showClamp) && (
           <div className={styles.props}>
             {hasRGB && (() => {
               const wired = drivenBy('color')
@@ -244,7 +247,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
               )
             })()}
             {editable.map(([key, val]) => {
-              const meta = PROPERTY_META[key]
+              const meta = propertyMeta(d.nodeType, key)
               const wired = drivenBy(key)
               // A property may be inapplicable to the current variant (e.g. a
               // Transition's `direction` outside wipe): shown but disabled.
@@ -320,6 +323,20 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
               </div>
               )
             })}
+            {showClamp && (
+              <div
+                className={styles.propRow}
+                title="Clamp wired inputs to each control’s range — like inserting a Clamp node on every connection"
+              >
+                <span className={styles.propKey}>clamp inputs</span>
+                <input
+                  className="nodrag"
+                  type="checkbox"
+                  checked={Boolean(props.clampInputs)}
+                  onChange={(e) => updateNodeProperty(id, 'clampInputs', e.target.checked)}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>

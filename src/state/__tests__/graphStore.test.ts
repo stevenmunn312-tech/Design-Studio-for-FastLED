@@ -174,9 +174,19 @@ describe('graphStore — legacy node migration on load', () => {
     const d = dataOf('bf')
     expect(d.nodeType).toBe('Blend')
     expect(d.properties.blendMode).toBe('normal')
-    expect(d.properties.amount).toBe(204)        // 0.8 × 255
+    expect(d.properties.amount).toBe(0.8)        // 0–1 amount carries t straight over
     expect(d.properties.t).toBeUndefined()       // old prop dropped
     const e = useGraphStore.getState().edges[0]
     expect(e.targetHandle).toBe('amount')        // edge rewired to the new port
+  })
+
+  it('rescales a legacy 0–255 Blend amount to the 0–1 range on load', () => {
+    useGraphStore.getState().loadGraph(
+      [node('bl', 'Blend', { blendMode: 'normal', amount: 128 }), node('bl2', 'Blend', { amount: 0.5 })],
+      [],
+    )
+    // 128 (old scale) → ~0.5; a value already ≤ 1 is left untouched.
+    expect(dataOf('bl').properties.amount).toBeCloseTo(128 / 255, 5)
+    expect(dataOf('bl2').properties.amount).toBe(0.5)
   })
 })
