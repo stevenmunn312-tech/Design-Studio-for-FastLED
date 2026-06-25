@@ -24,6 +24,33 @@ const DEFAULTS: PlayerConfig = {
   maxVolume: 18,
 }
 
+// Minimal node shape so this stays decoupled from the graph store.
+interface ConfigNode { data: { nodeType: string; properties: Record<string, unknown> } }
+
+/**
+ * Derive the player's hardware config from the graph: LED matrix settings come
+ * from the MatrixOutput node, SD + I2S audio pins from the SDCard node. Used by
+ * the music-sync upload flow, where the SDCard is wired into MatrixOutput.
+ */
+export function playerConfigFromGraph(nodes: ConfigNode[]): Partial<PlayerConfig> {
+  const mo = nodes.find((n) => n.data.nodeType === 'MatrixOutput')?.data.properties ?? {}
+  const sd = nodes.find((n) => n.data.nodeType === 'SDCard')?.data.properties ?? {}
+  const num = (v: unknown, d: number) => (v === undefined || v === null ? d : Number(v))
+  const str = (v: unknown, d: string) => (v === undefined || v === null ? d : String(v))
+  return {
+    ledWidth:   num(mo.width, DEFAULTS.ledWidth),
+    ledHeight:  num(mo.height, DEFAULTS.ledHeight),
+    ledDataPin: num(mo.dataPin, DEFAULTS.ledDataPin),
+    chipset:    str(mo.chipset, DEFAULTS.chipset),
+    colorOrder: str(mo.colorOrder, DEFAULTS.colorOrder),
+    sdCsPin:    num(sd.sdCsPin, DEFAULTS.sdCsPin),
+    i2sBclk:    num(sd.i2sBclk, DEFAULTS.i2sBclk),
+    i2sLrc:     num(sd.i2sLrc, DEFAULTS.i2sLrc),
+    i2sDout:    num(sd.i2sDout, DEFAULTS.i2sDout),
+    maxVolume:  num(sd.maxVolume, DEFAULTS.maxVolume),
+  }
+}
+
 export function generatePlayerSketch(cfg: Partial<PlayerConfig> = {}): string {
   const c = { ...DEFAULTS, ...cfg }
   const numLeds = c.ledWidth * c.ledHeight
