@@ -5,6 +5,7 @@ import StudioNode from '../StudioNode'
 import { useGraphStore } from '../../../state/graphStore'
 import type { StudioNode as StudioNodeT, StudioNodeData } from '../../../state/graphStore'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
+import { useMusicStore } from '../../../state/musicStore'
 
 // React Flow's <Handle> needs flow context; stub it — these tests cover the
 // node body (labels + inline property controls), not handle behaviour.
@@ -111,6 +112,24 @@ describe('StudioNode', () => {
     expect(check.checked).toBe(false)
     fireEvent.click(check)
     expect(useGraphStore.getState().nodes[0].data.properties.filled).toBe(true)
+  })
+
+  it('shows the add-music affordance for an empty MusicLibrary node', () => {
+    useMusicStore.setState({ entries: [] })
+    const { getByText } = renderNode(makeNode('MusicLibrary', {}))
+    expect(getByText('Double-click to add music')).toBeTruthy()
+  })
+
+  it('shows the song count and analysis status for a populated MusicLibrary node', () => {
+    useMusicStore.setState({
+      entries: [
+        { id: 'a', file: {} as File, analysis: null, show: null, status: 'done' },
+        { id: 'b', file: {} as File, analysis: null, show: null, status: 'pending' },
+      ],
+    })
+    const { getByText } = renderNode(makeNode('MusicLibrary', {}))
+    expect(getByText('2 songs')).toBeTruthy()
+    expect(getByText('1/2 analysed')).toBeTruthy()
   })
 
   it('a bundled node header reflects the selected variant', () => {

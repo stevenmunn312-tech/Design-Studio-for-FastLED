@@ -9,6 +9,7 @@ import { waveNodeSamples } from '../../state/wave'
 import WaveScope from './WaveScope'
 import ComplexWaveScope from './ComplexWaveScope'
 import NodePreview, { type PreviewKind } from './NodePreview'
+import MusicLibraryNodeBody from './MusicLibraryNodeBody'
 import { usePreviewStore } from '../../state/previewStore'
 import styles from './StudioNode.module.css'
 
@@ -213,6 +214,8 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
             <span className={styles.portLabelRight}>{outputs[i]?.label ?? ''}</span>
           </div>
         ))}
+
+        {d.nodeType === 'MusicLibrary' && <MusicLibraryNodeBody />}
 
         {(hasRGB || editable.length > 0) && (
           <div className={styles.props}>
