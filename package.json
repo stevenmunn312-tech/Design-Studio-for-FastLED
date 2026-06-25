@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "helper": "python -m uvicorn app:app --reload --port 8008 --app-dir backend"
   },
   "dependencies": {
     "@xyflow/react": "^12.3.6",

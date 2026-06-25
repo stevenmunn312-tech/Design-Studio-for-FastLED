@@ -129,7 +129,11 @@ App.tsx auto-starts audio when a `MicInput` node is added to the graph; auto-sto
 - Board selector → arduino-cli **FQBN**, `.ino` download, and a generated **`arduino-cli`** command block (core/lib install → compile → `board list` → upload) with copy (right pane)
 - `validateGraph()` (extracted to `src/utils/validateGraph.ts`, unit-tested) checks for MatrixOutput, connected frame port, and isolated nodes, returning `{ errors, warnings }`; the panel shows results as colored chips in the footer
 
-Building/flashing is done **locally via `arduino-cli`** (the panel emits the commands) rather than a cloud compile service or in-browser WebSerial flashing — keeping the app a pure static frontend. The board → FQBN/core map lives in `UploadPanel.tsx`.
+Building/flashing is done **locally via `arduino-cli`** rather than a cloud compile service or in-browser WebSerial flashing. The board → FQBN/core map lives in `UploadPanel.tsx`. There are two paths: the panel always emits copy-paste `arduino-cli` commands (the app stays a deployable static site), and — when the **optional local upload helper** (`backend/`, see below) is running — it can drive compile + upload directly.
+
+### Upload Helper (`backend/`)
+
+A browser page can't launch a local CLI, so `backend/` is a small **FastAPI** service (`uvicorn app:app --port 8008`, or `npm run helper`) that the app POSTs to: `/api/health` (liveness + whether `arduino-cli` is found), `/api/serial/ports` (`arduino-cli board list`), and `/api/upload` (writes a raw `.ino`, runs `arduino-cli compile` then `upload -p PORT`, streaming logs as `text/plain`). It mirrors the Matrix Studio backend and resolves `arduino-cli` via `ARDUINO_CLI` env → `PATH` → the Arduino IDE's bundle. `src/utils/backendClient.ts` is the frontend client (`checkBackend`/`listPorts`/`uploadSketch`); `BACKEND_URL` defaults to `http://localhost:8008` (override via `VITE_BACKEND_URL`). Everything degrades gracefully when the helper is absent — the panel just shows the command block. This backs the **Upload button on the MatrixOutput node** and (planned) the SD-card music-sync flow: write songs/shows to the card over serial, then flash `player.ino`.
 
 ### Music-Sync Show Pipeline
 

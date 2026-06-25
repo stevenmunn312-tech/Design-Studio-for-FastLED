@@ -4,5 +4,11 @@ dist/
 .DS_Store
 *.local
 
+# Python upload helper (backend/) local state
+backend/.venv/
+backend/__pycache__/
+__pycache__/
+*.pyc
+
 # Local Claude Code agent/editor state
 .claude/
