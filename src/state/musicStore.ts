@@ -24,21 +24,18 @@ export interface MusicEntry {
 
 interface MusicState {
   entries:   MusicEntry[]
-  isOpen:    boolean   // Music Library panel open/close
   engine:    AnalyzerEngine
 
   addFiles:       (files: File[]) => void
   analyzeAll:     (options?: Partial<PerformanceOptions>) => Promise<void>
   removeEntry:    (id: string) => void
   clearAll:       () => void
-  setOpen:        (v: boolean) => void
   setEngine:      (e: AnalyzerEngine) => void
   regenerateShow: (id: string, options?: Partial<PerformanceOptions>) => void
 }
 
 export const useMusicStore = create<MusicState>((set, get) => ({
   entries: [],
-  isOpen:  false,
   engine:  'essentia',
 
   addFiles: (files) => {
@@ -85,8 +82,6 @@ export const useMusicStore = create<MusicState>((set, get) => ({
     set(s => ({ entries: s.entries.filter(e => e.id !== id) })),
 
   clearAll: () => set({ entries: [] }),
-
-  setOpen: (v) => set({ isOpen: v }),
 
   setEngine: (e) => set({ engine: e }),
 

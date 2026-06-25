@@ -156,10 +156,15 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const previewH = previewKind === 'frame' ? framePreviewH : PREVIEW_H
   const previewOffset = isWave || isComplexWave || previewKind ? previewH + ROW_GAP : 0
 
+  // The MusicLibrary node embeds the full library UI in its body, so it needs a
+  // wider frame than the default node width.
+  const isMusicLibrary = d.nodeType === 'MusicLibrary'
+
   return (
     <div
       className={styles.node}
       style={{
+        width: isMusicLibrary ? 300 : undefined,
         boxShadow: selected ? `0 0 0 2px ${accent}, 0 0 12px ${accent}` : undefined,
       }}
     >
