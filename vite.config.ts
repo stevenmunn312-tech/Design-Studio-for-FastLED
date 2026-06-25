@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  // The Essentia analysis worker lazily `import()`s its WASM, so it needs the ES
+  // worker format — the default 'iife' can't code-split a worker.
+  worker: { format: 'es' },
   plugins: [
     react(),
     VitePWA({
