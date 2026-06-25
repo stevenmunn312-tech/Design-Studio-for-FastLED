@@ -217,6 +217,35 @@
 .exportBtn:hover:not(:disabled) { filter: brightness(1.1); }
 .exportBtn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* ── Analysis engine toggle ── */
+.engineRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+.engineLabel {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.engineToggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.engineOn, .engineOff {
+  padding: 4px 12px;
+  font-size: 11px;
+  border: none;
+  cursor: pointer;
+}
+.engineOn { background: var(--accent-audio); color: #000; font-weight: 600; }
+.engineOff { background: none; color: var(--text-muted); }
+.engineOff:hover:not(:disabled) { background: var(--surface-1); color: var(--text-primary); }
+.engineOn:disabled, .engineOff:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* ── Legend ── */
 .legend {
   display: flex;

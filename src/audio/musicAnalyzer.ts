@@ -1,9 +1,9 @@
-import type { BeatInfo, EnergyPoint, SongAnalysis, SongSection } from '../types/showFile'
+import type { BeatInfo, EnergyPoint, SongAnalysis } from '../types/showFile'
+import { ENERGY_HOP_MS, decodeToMono, detectSections, normalizeEnergy } from './songAnalysisCommon'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const HOP_SIZE    = 512
 const SAMPLE_RATE = 44100
-const ENERGY_HOP_MS = 100
 
 // ── Low-level helpers ─────────────────────────────────────────────────────────
 
@@ -99,80 +99,7 @@ function extractEnergy(mono: Float32Array): EnergyPoint[] {
     points.push({ t: i * ENERGY_HOP_MS, bass, mids, treble, overall })
   }
 
-  // Normalise each band to 0-1
-  const maxB = points.reduce((m, p) => Math.max(m, p.bass),    0) || 1
-  const maxM = points.reduce((m, p) => Math.max(m, p.mids),    0) || 1
-  const maxT = points.reduce((m, p) => Math.max(m, p.treble),  0) || 1
-  const maxO = points.reduce((m, p) => Math.max(m, p.overall), 0) || 1
-  for (const p of points) {
-    p.bass    /= maxB
-    p.mids    /= maxM
-    p.treble  /= maxT
-    p.overall /= maxO
-  }
-
-  return points
-}
-
-// ── Section detection ─────────────────────────────────────────────────────────
-
-function detectSections(energy: EnergyPoint[], _durationMs: number): SongSection[] {
-  if (energy.length === 0) return []
-
-  // Smooth energy with a 1-second window
-  const windowSize = Math.floor(1000 / ENERGY_HOP_MS)
-  const smoothed = energy.map((_, i) => {
-    const lo = Math.max(0, i - windowSize)
-    const hi = Math.min(energy.length - 1, i + windowSize)
-    let sum = 0; for (let j = lo; j <= hi; j++) sum += energy[j].overall
-    return sum / (hi - lo + 1)
-  })
-
-  // Find change points: places where smoothed energy changes significantly
-  const minSectionMs = 8000  // sections must be at least 8s
-  const minSectionFrames = Math.floor(minSectionMs / ENERGY_HOP_MS)
-  const changePoints: number[] = [0]
-  for (let i = windowSize; i < smoothed.length - windowSize; i++) {
-    const before = smoothed[i - windowSize]
-    const after  = smoothed[Math.min(smoothed.length - 1, i + windowSize)]
-    const delta  = Math.abs(after - before)
-    if (delta > 0.15 && (i - changePoints[changePoints.length - 1]) >= minSectionFrames) {
-      changePoints.push(i)
-    }
-  }
-  changePoints.push(energy.length - 1)
-
-  // Label each section by energy level and position
-  const sections: SongSection[] = []
-  const totalMs = _durationMs
-
-  for (let i = 0; i < changePoints.length - 1; i++) {
-    const startIdx = changePoints[i]
-    const endIdx   = changePoints[i + 1]
-    const startMs  = energy[startIdx].t
-    const endMs    = energy[Math.min(endIdx, energy.length - 1)].t
-
-    let avgE = 0
-    for (let j = startIdx; j < endIdx; j++) avgE += smoothed[j]
-    avgE /= (endIdx - startIdx) || 1
-
-    const frac = startMs / totalMs
-    let type: SongSection['type']
-    if (frac < 0.08)        type = 'intro'
-    else if (frac > 0.88)   type = 'outro'
-    else if (avgE > 0.75)   type = 'drop'
-    else if (avgE > 0.55)   type = 'chorus'
-    else {
-      // Detect buildups: rising energy before a drop
-      const nextE = i + 1 < changePoints.length - 1
-        ? smoothed[changePoints[i + 1]] : 0
-      type = nextE > avgE + 0.15 ? 'buildup' : 'verse'
-    }
-
-    sections.push({ startMs, endMs, type, energy: avgE })
-  }
-
-  return sections
+  return normalizeEnergy(points)
 }
 
 // ── Mood / key estimation ─────────────────────────────────────────────────────
@@ -194,29 +121,12 @@ function estimateMood(energy: EnergyPoint[]): SongAnalysis['mood'] {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function analyzeSong(file: File): Promise<SongAnalysis> {
-  const arrayBuffer = await file.arrayBuffer()
-  const ctx = new AudioContext({ sampleRate: SAMPLE_RATE })
+  const { mono, durationMs } = await decodeToMono(file, SAMPLE_RATE)
 
-  let audioBuffer: AudioBuffer
-  try {
-    audioBuffer = await ctx.decodeAudioData(arrayBuffer)
-  } finally {
-    ctx.close()
-  }
-
-  // Downmix to mono
-  const mono = new Float32Array(audioBuffer.length)
-  for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
-    const channel = audioBuffer.getChannelData(ch)
-    for (let i = 0; i < mono.length; i++) mono[i] += channel[i]
-  }
-  for (let i = 0; i < mono.length; i++) mono[i] /= audioBuffer.numberOfChannels
-
-  const durationMs = audioBuffer.duration * 1000
-  const beats      = detectBeats(mono)
-  const energy     = extractEnergy(mono)
-  const sections   = detectSections(energy, durationMs)
-  const mood       = estimateMood(energy)
+  const beats    = detectBeats(mono)
+  const energy   = extractEnergy(mono)
+  const sections = detectSections(energy, durationMs)
+  const mood     = estimateMood(energy)
 
   return {
     title: file.name.replace(/\.[^/.]+$/, ''),

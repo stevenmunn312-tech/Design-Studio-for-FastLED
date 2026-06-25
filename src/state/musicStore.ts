@@ -1,8 +1,17 @@
 import { create } from 'zustand'
 import type { SongAnalysis, ShowFile } from '../types/showFile'
-import { analyzeSong } from '../audio/musicAnalyzer'
+import { analyzeSong as analyzeBuiltin } from '../audio/musicAnalyzer'
+import { analyzeSong as analyzeEssentia } from '../audio/essentiaAnalyzer'
 import { generateShow } from '../codegen/performanceGenerator'
 import type { PerformanceOptions } from '../codegen/performanceGenerator'
+
+// Offline analysis engine. 'essentia' (Essentia.js WASM) is the higher-quality
+// default for the pre-planned export path; 'builtin' is the dependency-free DSP.
+export type AnalyzerEngine = 'essentia' | 'builtin'
+const ANALYZERS: Record<AnalyzerEngine, (file: File) => Promise<SongAnalysis>> = {
+  essentia: analyzeEssentia,
+  builtin:  analyzeBuiltin,
+}
 
 export interface MusicEntry {
   id: string
@@ -16,18 +25,21 @@ export interface MusicEntry {
 interface MusicState {
   entries:   MusicEntry[]
   isOpen:    boolean   // Music Library panel open/close
+  engine:    AnalyzerEngine
 
   addFiles:       (files: File[]) => void
   analyzeAll:     (options?: Partial<PerformanceOptions>) => Promise<void>
   removeEntry:    (id: string) => void
   clearAll:       () => void
   setOpen:        (v: boolean) => void
+  setEngine:      (e: AnalyzerEngine) => void
   regenerateShow: (id: string, options?: Partial<PerformanceOptions>) => void
 }
 
 export const useMusicStore = create<MusicState>((set, get) => ({
   entries: [],
   isOpen:  false,
+  engine:  'essentia',
 
   addFiles: (files) => {
     const newEntries: MusicEntry[] = files
@@ -52,7 +64,7 @@ export const useMusicStore = create<MusicState>((set, get) => ({
         ),
       }))
       try {
-        const analysis = await analyzeSong(entry.file)
+        const analysis = await ANALYZERS[get().engine](entry.file)
         const show     = generateShow(analysis, options)
         set(s => ({
           entries: s.entries.map(e =>
@@ -75,6 +87,8 @@ export const useMusicStore = create<MusicState>((set, get) => ({
   clearAll: () => set({ entries: [] }),
 
   setOpen: (v) => set({ isOpen: v }),
+
+  setEngine: (e) => set({ engine: e }),
 
   regenerateShow: (id, options = {}) => {
     const entry = get().entries.find(e => e.id === id)
