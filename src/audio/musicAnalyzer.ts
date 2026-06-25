@@ -81,7 +81,7 @@ function detectBeats(mono: Float32Array): BeatInfo {
 
 // ── Energy envelope ───────────────────────────────────────────────────────────
 
-function extractEnergy(mono: Float32Array, _durationMs: number): EnergyPoint[] {
+function extractEnergy(mono: Float32Array): EnergyPoint[] {
   const stepSamples = Math.floor(SAMPLE_RATE * ENERGY_HOP_MS / 1000)
   const count = Math.floor(mono.length / stepSamples)
   const points: EnergyPoint[] = []
@@ -214,7 +214,7 @@ export async function analyzeSong(file: File): Promise<SongAnalysis> {
 
   const durationMs = audioBuffer.duration * 1000
   const beats      = detectBeats(mono)
-  const energy     = extractEnergy(mono, durationMs)
+  const energy     = extractEnergy(mono)
   const sections   = detectSections(energy, durationMs)
   const mood       = estimateMood(energy)
 
