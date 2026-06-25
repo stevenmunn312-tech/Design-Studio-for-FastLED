@@ -820,30 +820,145 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
-      // Bundled transitions — `transitionType` picks crossfade / wipe / dissolve.
-      // Keep in sync with the `Transition` case in graphEvaluator.ts.
+      // Bundled transitions — `transitionType` picks one of 16 A→B effects.
+      // Every variant works on the per-node frame buffers (seed `ob` from A,
+      // then composite B in) so the generated firmware actually renders the
+      // transition. Keep in sync with the `Transition` case in graphEvaluator.ts.
       case 'Transition': {
         const ob = ownBuf()
         const a = srcBuf('a'), b = srcBuf('b'), tt = f('t', 't', 0.5)
         const type = String(p.transitionType ?? 'crossfade')
-        const seed = `  { ${a ? `::memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`
-        if (type === 'wipe') {
-          const dir = String(p.direction ?? 'right')
-          const axis = (dir === 'up' || dir === 'down') ? '_y' : '_x'
-          const dim  = (dir === 'up' || dir === 'down') ? 'HEIGHT' : 'WIDTH'
-          const cmp  = (dir === 'right' || dir === 'down') ? '<' : '>'
-          const rhs  = (dir === 'right' || dir === 'down') ? `(int)((${tt})*${dim})` : `(int)((1.0f-(${tt}))*${dim})`
-          ln(seed)
-          ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++)`)
-          ln(`      if(${axis} ${cmp} ${rhs}) ${ob}[_y*WIDTH+_x] = ${b ?? ob}[_y*WIDTH+_x]; }`)
-        } else if (type === 'dissolve') {
-          ln(seed)
-          ln(`    float _tt=${tt}; for(int _i=0;_i<NUM_LEDS;_i++){`)
-          ln(`      uint32_t _h=((uint32_t)(_i)*1664525u+1013904223u);`)
-          ln(`      if((_h&0xFFFF)<(uint32_t)(_tt*65535)) ${ob}[_i] = ${b ?? ob}[_i]; }}`)
-        } else {
-          ln(seed)
-          ln(`    nblend(${ob}, ${b ?? ob}, NUM_LEDS, (uint8_t)((${tt}) * 255)); }`)
+        const B = b ?? ob                                  // unconnected B ⇒ behaves like A
+        const aPix = (i: string) => a ? `${a}[${i}]` : 'CRGB::Black'
+        const bPix = (i: string) => b ? `${b}[${i}]` : 'CRGB::Black'
+        const seed = a ? `::memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`
+        const idx = '_y*WIDTH+_x'
+        // Most variants reveal B where a per-pixel condition holds; this emits the
+        // shared seed-A + loop wrapper, with `body` supplying the `if(...)` lines.
+        const reveal = (head: string, body: string[]) => {
+          ln(`  { ${seed} float _tt=${tt}; ${head}`)
+          ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+          body.forEach(l => ln(`      ${l}`))
+          ln(`    } }`)
+        }
+        switch (type) {
+          case 'wipe': {
+            const dir = String(p.direction ?? 'right')
+            const axis = (dir === 'up' || dir === 'down') ? '_y' : '_x'
+            const dim  = (dir === 'up' || dir === 'down') ? 'HEIGHT' : 'WIDTH'
+            const cmp  = (dir === 'right' || dir === 'down') ? '<' : '>'
+            const rhs  = (dir === 'right' || dir === 'down') ? `(int)(_tt*${dim})` : `(int)((1.0f-_tt)*${dim})`
+            reveal('', [`if(${axis} ${cmp} ${rhs}) ${ob}[${idx}] = ${B}[${idx}];`])
+            break
+          }
+          case 'dissolve':
+            ln(`  { ${seed} float _tt=${tt}; for(int _i=0;_i<NUM_LEDS;_i++){`)
+            ln(`      uint32_t _h=((uint32_t)(_i)*1664525u+1013904223u);`)
+            ln(`      if((_h&0xFFFF)<(uint32_t)(_tt*65535)) ${ob}[_i] = ${B}[_i]; } }`)
+            break
+          case 'iris':
+            reveal('float _cx=WIDTH*0.5f,_cy=HEIGHT*0.5f,_r=_tt*sqrtf(_cx*_cx+_cy*_cy);', [
+              `float _dx=_x-_cx,_dy=_y-_cy;`,
+              `if(sqrtf(_dx*_dx+_dy*_dy)<_r) ${ob}[${idx}] = ${B}[${idx}];`,
+            ])
+            break
+          case 'clockwipe':
+            reveal('float _cx=WIDTH*0.5f,_cy=HEIGHT*0.5f;', [
+              `float _n=(atan2f(_x-_cx,-(_y-_cy))+3.14159265f)/6.2831853f;`,
+              `if(_n<_tt) ${ob}[${idx}] = ${B}[${idx}];`,
+            ])
+            break
+          case 'push': {
+            const dir = String(p.direction ?? 'right')
+            const remap =
+              dir === 'left' ? `int _ax=(int)roundf(_x-_tt*WIDTH),_ay=_y,_bx=(int)roundf(_x+(1.0f-_tt)*WIDTH),_by=_y;`
+              : dir === 'up' ? `int _ax=_x,_ay=(int)roundf(_y-_tt*HEIGHT),_bx=_x,_by=(int)roundf(_y+(1.0f-_tt)*HEIGHT);`
+              : dir === 'down' ? `int _ax=_x,_ay=(int)roundf(_y+_tt*HEIGHT),_bx=_x,_by=(int)roundf(_y-(1.0f-_tt)*HEIGHT);`
+              : `int _ax=(int)roundf(_x+_tt*WIDTH),_ay=_y,_bx=(int)roundf(_x-(1.0f-_tt)*WIDTH),_by=_y;`
+            ln(`  { fill_solid(${ob}, NUM_LEDS, CRGB::Black); float _tt=${tt};`)
+            ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+            ln(`      ${remap}`)
+            ln(`      if(_bx>=0&&_bx<WIDTH&&_by>=0&&_by<HEIGHT) ${ob}[${idx}] = ${bPix('_by*WIDTH+_bx')};`)
+            ln(`      else if(_ax>=0&&_ax<WIDTH&&_ay>=0&&_ay<HEIGHT) ${ob}[${idx}] = ${aPix('_ay*WIDTH+_ax')};`)
+            ln(`    } }`)
+            break
+          }
+          case 'checkerboard': {
+            const tile = Math.max(1, Math.round(Number(p.tileSize ?? 4)))
+            reveal('', [
+              `int _tx=_x/${tile},_ty=_y/${tile};`,
+              `float _thr=((_tx+_ty)%2==0)?_tt*2.0f:_tt*2.0f-1.0f;`,
+              `if(_thr>=1.0f) ${ob}[${idx}] = ${B}[${idx}];`,
+            ])
+            break
+          }
+          case 'diagonal':
+            reveal('', [
+              `float _n=((float)_x/WIDTH+(float)_y/HEIGHT)*0.5f;`,
+              `if(_n<_tt) ${ob}[${idx}] = ${B}[${idx}];`,
+            ])
+            break
+          case 'fadeblack':
+            ln(`  { float _tt=${tt}; float _al=_tt<0.5f?1.0f-_tt*2.0f:(_tt-0.5f)*2.0f;`)
+            ln(`    for(int _i=0;_i<NUM_LEDS;_i++){ CRGB _s=_tt<0.5f?${aPix('_i')}:${bPix('_i')};`)
+            ln(`      ${ob}[_i]=CRGB((uint8_t)(_s.r*_al),(uint8_t)(_s.g*_al),(uint8_t)(_s.b*_al)); } }`)
+            break
+          case 'fadewhite':
+            ln(`  { float _tt=${tt}; float _al=_tt<0.5f?1.0f-_tt*2.0f:(_tt-0.5f)*2.0f; float _w=(1.0f-_al)*255.0f;`)
+            ln(`    for(int _i=0;_i<NUM_LEDS;_i++){ CRGB _s=_tt<0.5f?${aPix('_i')}:${bPix('_i')};`)
+            ln(`      ${ob}[_i]=CRGB((uint8_t)(_s.r*_al+_w),(uint8_t)(_s.g*_al+_w),(uint8_t)(_s.b*_al+_w)); } }`)
+            break
+          case 'blinds': {
+            const count = Math.max(1, Math.round(Number(p.count ?? 4)))
+            const axis = String(p.axis ?? 'horizontal')
+            const dim = axis === 'horizontal' ? 'HEIGHT' : 'WIDTH'
+            const pos = axis === 'horizontal' ? '_y' : '_x'
+            reveal(`int _slat=max(1,${dim}/${count});`, [
+              `float _p=(float)(${pos}%_slat)/_slat;`,
+              `if(_p<_tt) ${ob}[${idx}] = ${B}[${idx}];`,
+            ])
+            break
+          }
+          case 'ripple':
+            reveal('float _cx=WIDTH*0.5f,_cy=HEIGHT*0.5f,_maxR=sqrtf(_cx*_cx+_cy*_cy),_e=0.08f;', [
+              `float _dx=_x-_cx,_dy=_y-_cy,_n=sqrtf(_dx*_dx+_dy*_dy)/_maxR;`,
+              `if(_n<_tt-_e) ${ob}[${idx}] = ${B}[${idx}];`,
+              `else if(_n<_tt){ float _bl=(_tt-_n)/_e; ${ob}[${idx}]=blend(${ob}[${idx}], ${B}[${idx}], (uint8_t)(_bl*255)); }`,
+            ])
+            break
+          case 'spiral': {
+            const turns = Math.max(1, Math.round(Number(p.turns ?? 2)))
+            reveal(`float _cx=WIDTH*0.5f,_cy=HEIGHT*0.5f,_maxR=sqrtf(_cx*_cx+_cy*_cy),_k=1.0f+1.0f/(float)${turns};`, [
+              `float _dx=_x-_cx,_dy=_y-_cy,_r=sqrtf(_dx*_dx+_dy*_dy)/_maxR;`,
+              `float _na=(atan2f(_dy,_dx)+3.14159265f)/6.2831853f;`,
+              `if((_r+_na/(float)${turns})/_k<_tt) ${ob}[${idx}] = ${B}[${idx}];`,
+            ])
+            break
+          }
+          case 'curtain': {
+            const axis = String(p.axis ?? 'horizontal')
+            const dist = axis === 'horizontal' ? 'fabsf(2.0f*_y/HEIGHT-1.0f)' : 'fabsf(2.0f*_x/WIDTH-1.0f)'
+            reveal('', [
+              `if(${dist}<_tt) ${ob}[${idx}] = ${B}[${idx}];`,
+            ])
+            break
+          }
+          case 'scanlines':
+            reveal('', [
+              `float _thr=(_y%2==0)?((float)_y/HEIGHT)*0.5f:0.5f+((float)(_y-1)/HEIGHT)*0.5f;`,
+              `if(_tt>_thr) ${ob}[${idx}] = ${B}[${idx}];`,
+            ])
+            break
+          case 'zoom':
+            ln(`  { ${seed} float _tt=${tt},_cx=WIDTH*0.5f,_cy=HEIGHT*0.5f,_sc=max(0.01f,_tt);`)
+            ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+            ln(`      int _bx=(int)((_x-_cx)/_sc+_cx),_by=(int)((_y-_cy)/_sc+_cy);`)
+            ln(`      if(_bx>=0&&_bx<WIDTH&&_by>=0&&_by<HEIGHT) ${ob}[${idx}]=blend(${ob}[${idx}], ${bPix('_by*WIDTH+_bx')}, (uint8_t)(_tt*255));`)
+            ln(`      else ${ob}[${idx}].nscale8((uint8_t)((1.0f-_tt)*255));`)
+            ln(`    } }`)
+            break
+          default: // crossfade
+            ln(`  { ${seed} nblend(${ob}, ${B}, NUM_LEDS, (uint8_t)((${tt}) * 255)); }`)
         }
         break
       }

@@ -585,4 +585,43 @@ describe('generateCpp', () => {
     const cpp = generateCpp([grp, outputNode], [edge('e1', 'g1', 'out', 'frame', 'frame')], {})
     expect(cpp).toContain('void loop()')
   })
+
+  // The 13 transition variants ported from the touchscreen branch shipped with
+  // placeholder C++ (comments like `/* use pixel from frame B */` instead of real
+  // writes). These assert each variant emits genuine buffer compositing — seeded
+  // from A, writing B into the node's own buffer — and never a stub comment.
+  function transitionCpp(transitionType: string, props: Record<string, unknown> = {}) {
+    const a  = node('a', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const b  = node('b', 'SolidColor', 'pattern', { r: 0, g: 255, b: 0 })
+    const tr = node('tr', 'Transition', 'composite', { transitionType, t: 0.5, ...props })
+    return generateCpp([a, b, tr, outputNode], [
+      edge('e1', 'a', 'tr', 'frame', 'a'),
+      edge('e2', 'b', 'tr', 'frame', 'b'),
+      edge('e3', 'tr', 'out', 'frame', 'frame'),
+    ])
+  }
+
+  const NEW_VARIANTS = [
+    'iris', 'clockwipe', 'push', 'checkerboard', 'diagonal', 'fadeblack',
+    'fadewhite', 'blinds', 'ripple', 'spiral', 'curtain', 'scanlines', 'zoom',
+  ]
+  for (const variant of NEW_VARIANTS) {
+    it(`Transition '${variant}' emits real buffer writes, not stub comments`, () => {
+      const cpp = transitionCpp(variant)
+      expect(cpp).not.toContain('/* use pixel')        // no placeholder stubs
+      expect(cpp).not.toContain('/* blend A')
+      expect(cpp).toContain('buf_tr[')                 // writes its own frame buffer
+      // reads from at least one source buffer (A seed and/or B composite)
+      expect(/buf_(a|b)\[/.test(cpp)).toBe(true)
+    })
+  }
+
+  it("Transition 'push' branches on direction at codegen time", () => {
+    expect(transitionCpp('push', { direction: 'up' })).toContain('roundf(_y-_tt*HEIGHT)')
+    expect(transitionCpp('push', { direction: 'right' })).toContain('roundf(_x+_tt*WIDTH)')
+  })
+
+  it("Transition 'checkerboard' bakes the tile size into the C++", () => {
+    expect(transitionCpp('checkerboard', { tileSize: 3 })).toContain('_x/3')
+  })
 })
