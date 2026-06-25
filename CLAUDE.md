@@ -127,6 +127,21 @@ App.tsx auto-starts audio when a `MicInput` node is added to the graph; auto-sto
 
 Building/flashing is done **locally via `arduino-cli`** (the panel emits the commands) rather than a cloud compile service or in-browser WebSerial flashing — keeping the app a pure static frontend. The board → FQBN/core map lives in `UploadPanel.tsx`.
 
+### Music-Sync Show Pipeline
+
+A second, **offline** authoring path (distinct from the live preview/codegen flow above) turns audio tracks into timed LED "shows" the ESP32-S3 plays back in sync. It is a three-node chain in the `hardware` category, wired by new `dataType`s `songs` and `shows`:
+
+`MusicLibrary` (drop MP3s) **→** `PerformanceGenerator` (rules engine) **→** `SDCard` (export ZIP).
+
+- **`src/audio/musicAnalyzer.ts`** — Web Audio API *offline* analysis of an uploaded MP3: BPM detection, per-~100 ms energy envelope (bass/mids/treble/overall), beat timestamps, section detection (intro/verse/buildup/drop/…), and mood (energy/valence/key) estimation. Returns the `SongAnalysis` shape in `src/types/showFile.ts`.
+- **`src/codegen/performanceGenerator.ts`** — a rules engine that maps a `SongAnalysis` to a timed `ShowFile`: a sorted event stream of `SET_PATTERN`/`SET_PALETTE`/`SET_SPEED`/`SET_BRIGHTNESS`/`BEAT_FLASH`/`TRANSITION` commands. Tuned by the node's `beatIntensity`/`energySensitivity`/`transitionDuration`/`paletteMode` properties.
+- **`src/types/showFile.ts`** — the `.show` format: a compact, sorted event stream (timestamps in ms from song start) the player binary-searches by audio position for frame-perfect A/V sync. Also defines the `SongAnalysis`/`BeatInfo`/`EnergyPoint`/`SongSection` analysis types.
+- **`src/codegen/playerSketchGenerator.ts`** — emits a FastLED + **ESP32-audioI2S** player `.ino` that slaves LED commands to `audio.getPosition()`. The `SDCard` node properties configure its pins (SD CS, LED data, I2S BCLK/LRC/DOUT), matrix size, chipset/colour order, and volume.
+- **`src/utils/zipExport.ts`** — a zero-dependency ZIP builder; `SDCard` packages the `.show` files + the generated player sketch into one downloadable archive (drop onto the board's SD card).
+- **`src/state/musicStore.ts`** — Zustand store managing the analysis queue and generated shows; **`src/components/MusicLibrary/MusicLibraryPanel.tsx`** is the panel UI (drop zone, per-song status, *Analyse All*, *Export ZIP*), toggled from the MenuBar **♪ Music** button.
+
+These nodes have no `frame`/`palette`/`color` output, so they don't participate in the live LED preview or the `cppGenerator.ts` sketch — they are a parallel export pipeline. (Added in PR #58.)
+
 ### Design Tokens
 
 All colors, spacing, and typography are CSS variables in `src/themes/tokens.css`. Each node category maps to an accent color. Category metadata (display order, label, accent CSS var, and literal hex for canvas/SVG) lives in one place — the `CATEGORIES` table in `src/state/nodeLibrary.ts`, which also exports `CATEGORY_COLOR` (hex) and `CATEGORY_ACCENT_VAR` (CSS var). Do not re-inline these maps in components.
@@ -155,7 +170,7 @@ Nodes are grouped into categories. Adding a new node type requires:
 
 Current nodes by category (see `nodeLibrary.ts` for the authoritative list):
 - **audio**: FFTAnalyzer, BeatDetect, MicInput, AudioHue
-- **hardware**: ButtonInput, PotInput
+- **hardware**: ButtonInput, PotInput, MusicLibrary, PerformanceGenerator, SDCard (the last three are the music-sync export chain — see *Music-Sync Show Pipeline*)
 - **math**: Math, Clamp, MapRange, Sin, Cos, Wave, ComplexWave, Lerp, TimeNode, Abs, Mod, Random, Counter, Gate, Not, Compare, BeatSin, XYMapper
 - **color**: HSVToRGB, BlendColors, CHSV, Temperature, GradientSampler, PaletteSampler, PaletteSelector, CustomPalette, Poline, PaletteBlend
 - **pattern** (frame generators): SolidColor, Span, Rect, Circle, Line, Text, Noise, Fire, Fire2012, Plasma, SpectrumBars, BassPulse, MidrangeWaves, TrebleSparks, BeatFlash, Noise2D, RadialBurst, Spiral, Kaleidoscope, Particles, GradientFrame, FractalNoise, Blobs, FlowField, ReactionDiffusion, GameOfLife, PatternMaster, CustomFormula, Starfield, AudioFlow, GaborNoise, PaletteGradient, Image
@@ -167,7 +182,7 @@ Several former node types are collapsed into one **bundled** node, selected by a
 
 - **`Noise`** — `noiseType` (`field`/`simplex`/`noise3d`/`worley`/`plasma`); folds the former NoiseField/Simplex2D/Noise3D/Worley/PlasmaFractal.
 - **`Math`** — `mathOp` (`add`/`subtract`/`multiply`/`divide`/`min`/`max`); folds MathAdd/Multiply/MinNode/MaxNode (`subtract`/`divide` are new ops). Mod (`x,m` ports) and Compare (bool out) stay separate.
-- **`Transition`** — `transitionType` (`crossfade`/`wipe`/`dissolve`); folds Crossfade/Wipe/Dissolve. `direction` only applies to wipe.
+- **`Transition`** — `transitionType` selects one of **16** A→B effects: `crossfade`/`wipe`/`dissolve` plus `iris`/`clockwipe`/`push`/`checkerboard`/`diagonal`/`fadeblack`/`fadewhite`/`blinds`/`ripple`/`spiral`/`curtain`/`scanlines`/`zoom`. Variant-specific props (`direction` for wipe/push, `axis` for blinds/curtain, `tileSize` for checkerboard, `count` for blinds, `turns` for spiral) are gated by `isPropertyEnabled`. The C++ generator emits real buffer compositing per variant (seed `ob` from A, write B in), not just the three originals.
 - **`Blend`** — `blendMode` (`normal`/`multiply`/`screen`/`overlay`/`add`/`difference`); replaces LayerBlend + BlendFrames. Composites B over A per mode, mixed by `amount` (opacity 0–255). The `normal` path emits FastLED `nblend`; other modes emit a per-channel blend loop in C++. (The former BlendFrames used a 0–1 `t` port, so its migration scales `t`→`amount` and rewires that edge — the one bundle whose port id changed.)
 
 Mechanics: each variant set lives in `PROPERTY_META` (the inline dropdown); the evaluator and C++ generator dispatch on the variant property in their single `case`; `graphStore.loadGraph` (via `migrateLegacyGraph`/`LEGACY_BUNDLE`) migrates the legacy node types — and any renamed edge handles — on import. `nodeDisplayLabel()` makes the node header reflect the selected variant, and `isPropertyEnabled()` disables an inline editor that doesn't apply to the current variant (e.g. Transition `direction`) while still showing its value. Bundling is **by identical port signature** — properties may differ between variants (Blend is the one exception, unifying two near-identical nodes whose mix-port id/scale differed).
