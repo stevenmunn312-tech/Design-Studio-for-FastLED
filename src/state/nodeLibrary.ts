@@ -1,6 +1,26 @@
 import type { NodeDefinition } from '../types'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
+  // ── Input (signal sources) ─────────────────────────────────────────────
+  {
+    type: 'MicInput',
+    label: 'Microphone',
+    category: 'input',
+    inputs: [],
+    outputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
+    defaultProperties: { gain: 1.0, sampleRate: 44100 },
+  },
+  {
+    // Song source for the pre-planned show pipeline. Double-click on the canvas
+    // opens the Music Library panel (drop MP3s, analyse, export).
+    type: 'MusicLibrary',
+    label: 'Music Library',
+    category: 'input',
+    inputs: [],
+    outputs: [{ id: 'songs', label: 'Songs', dataType: 'songs' }],
+    defaultProperties: {},
+  },
+
   // ── Audio ──────────────────────────────────────────────────────────────
   {
     type: 'FFTAnalyzer',
@@ -24,14 +44,6 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'bpm', label: 'BPM', dataType: 'float' },
     ],
     defaultProperties: { threshold: 0.5, attack: 0.1, decay: 0.3 },
-  },
-  {
-    type: 'MicInput',
-    label: 'Microphone',
-    category: 'audio',
-    inputs: [],
-    outputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
-    defaultProperties: { gain: 1.0, sampleRate: 44100 },
   },
 
   // ── Pattern ────────────────────────────────────────────────────────────
@@ -891,15 +903,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { pin: 34 },
   },
 
-  // ── Music-sync pipeline ───────────────────────────────────────────────────
-  {
-    type: 'MusicLibrary',
-    label: 'Music Library',
-    category: 'hardware',
-    inputs: [],
-    outputs: [{ id: 'songs', label: 'Songs', dataType: 'songs' }],
-    defaultProperties: {},
-  },
+  // ── Music-sync pipeline (the Music Library source lives in the Input group) ─
   {
     type: 'PerformanceGenerator',
     label: 'Performance Generator',
@@ -945,7 +949,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   // hardware
   ButtonInput: 'Reads a hardware button as a boolean.',
   PotInput: 'Reads a potentiometer as a 0–1 value.',
-  MusicLibrary: 'Analyses MP3 files — extracts BPM, beats, energy and sections.',
+  MusicLibrary: 'MP3 song source — double-click to drop tracks, analyse and export.',
   PerformanceGenerator: 'Converts song analysis into a timed LED show file.',
   SDCard: 'Packages show files and the player sketch into a ZIP.',
   // math
@@ -1032,6 +1036,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
 // Order here drives the sidebar grouping order, following the authoring
 // pipeline: sources → value transforms → color → frames → compositing → output.
 export const CATEGORIES = [
+  { id: 'input',     label: 'Input',      accentVar: '--accent-input',     color: '#b388ff' },
   { id: 'audio',     label: 'Audio',      accentVar: '--accent-audio',     color: '#00ffff' },
   { id: 'hardware',  label: 'Hardware',   accentVar: '--accent-hardware',  color: '#ffa500' },
   { id: 'math',      label: 'Math',       accentVar: '--accent-math',      color: '#a8ff00' },

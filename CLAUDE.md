@@ -138,7 +138,7 @@ A second, **offline** authoring path (distinct from the live preview/codegen flo
 - **`src/types/showFile.ts`** — the `.show` format: a compact, sorted event stream (timestamps in ms from song start) the player binary-searches by audio position for frame-perfect A/V sync. Also defines the `SongAnalysis`/`BeatInfo`/`EnergyPoint`/`SongSection` analysis types.
 - **`src/codegen/playerSketchGenerator.ts`** — emits a FastLED + **ESP32-audioI2S** player `.ino` that slaves LED commands to `audio.getPosition()`. The `SDCard` node properties configure its pins (SD CS, LED data, I2S BCLK/LRC/DOUT), matrix size, chipset/colour order, and volume.
 - **`src/utils/zipExport.ts`** — a zero-dependency ZIP builder; `SDCard` packages the `.show` files + the generated player sketch into one downloadable archive (drop onto the board's SD card).
-- **`src/state/musicStore.ts`** — Zustand store managing the analysis queue and generated shows; **`src/components/MusicLibrary/MusicLibraryPanel.tsx`** is the panel UI (drop zone, per-song status, *Analyse All*, *Export ZIP*), toggled from the MenuBar **♪ Music** button.
+- **`src/state/musicStore.ts`** — Zustand store managing the analysis queue and generated shows; **`src/components/MusicLibrary/MusicLibraryPanel.tsx`** is the panel UI (drop zone, per-song status, *Analyse All*, *Export ZIP*), opened by **double-clicking the `MusicLibrary` node** on the canvas (`onNodeDoubleClick` in `NodeGraphCanvas`, mirroring how a `Group` node opens). `MusicLibrary` is an **input**-category node (the song source), not a menu-bar button.
 
 These nodes have no `frame`/`palette`/`color` output, so they don't participate in the live LED preview or the `cppGenerator.ts` sketch — they are a parallel export pipeline. (Added in PR #58.)
 
@@ -148,6 +148,7 @@ All colors, spacing, and typography are CSS variables in `src/themes/tokens.css`
 
 | Category | Hex | CSS var |
 |----------|-----|---------|
+| input | `#b388ff` | `--accent-input` |
 | audio | `#00ffff` | `--accent-audio` |
 | hardware | `#ffa500` | `--accent-hardware` |
 | math | `#a8ff00` | `--accent-math` |
@@ -156,7 +157,7 @@ All colors, spacing, and typography are CSS variables in `src/themes/tokens.css`
 | composite | `#00e0a4` | `--accent-composite` |
 | output | `#00bfff` | `--accent-output` |
 
-Categories group nodes by **primary output type** (the real type system is the per-port `dataType`, of which category is a coarse, UI-facing reflection): `color` produces colors/palettes, `pattern` is frame *generators*, `composite` is frame→frame operations. Sidebar grouping order follows the authoring pipeline (sources → math → color → pattern → composite → output).
+Categories group nodes by **primary output type** (the real type system is the per-port `dataType`, of which category is a coarse, UI-facing reflection): `color` produces colors/palettes, `pattern` is frame *generators*, `composite` is frame→frame operations. Sidebar grouping order follows the authoring pipeline and `CATEGORIES` order (input → audio → hardware → math → color → pattern → composite → output); `input` holds the signal sources (MicInput, MusicLibrary).
 
 Key layout constants: sidebar `280px`, inspector `280px`, menu bar `48px`, status bar `40px`, node `220px × 140px`, base spacing `8px`.
 
@@ -169,8 +170,9 @@ Nodes are grouped into categories. Adding a new node type requires:
 4. A one-line tooltip in `NODE_DESCRIPTIONS` (`nodeLibrary.ts`) — enforced by `nodeLibrary.test.ts`
 
 Current nodes by category (see `nodeLibrary.ts` for the authoritative list):
-- **audio**: FFTAnalyzer, BeatDetect, MicInput, AudioHue
-- **hardware**: ButtonInput, PotInput, MusicLibrary, PerformanceGenerator, SDCard (the last three are the music-sync export chain — see *Music-Sync Show Pipeline*)
+- **input** (signal sources): MicInput, MusicLibrary
+- **audio**: FFTAnalyzer, BeatDetect, AudioHue
+- **hardware**: ButtonInput, PotInput, PerformanceGenerator, SDCard (the last two are the rest of the music-sync export chain — see *Music-Sync Show Pipeline*)
 - **math**: Math, Clamp, MapRange, Sin, Cos, Wave, ComplexWave, Lerp, TimeNode, Abs, Mod, Random, Counter, Gate, Not, Compare, BeatSin, XYMapper
 - **color**: HSVToRGB, BlendColors, CHSV, Temperature, GradientSampler, PaletteSampler, PaletteSelector, CustomPalette, Poline, PaletteBlend
 - **pattern** (frame generators): SolidColor, Span, Rect, Circle, Line, Text, Noise, Fire, Fire2012, Plasma, SpectrumBars, BassPulse, MidrangeWaves, TrebleSparks, BeatFlash, Noise2D, RadialBurst, Spiral, Kaleidoscope, Particles, GradientFrame, FractalNoise, Blobs, FlowField, ReactionDiffusion, GameOfLife, PatternMaster, CustomFormula, Starfield, AudioFlow, GaborNoise, PaletteGradient, Image

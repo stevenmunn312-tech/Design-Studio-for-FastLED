@@ -71,17 +71,6 @@
   color: #000;
 }
 
-.btnMusic {
-  composes: btn;
-  border-color: var(--accent-hardware);
-  color: var(--accent-hardware);
-}
-
-.btnMusic:hover {
-  background: var(--accent-hardware);
-  color: #000;
-}
-
 .sep {
   width: 1px;
   height: 20px;

@@ -21,6 +21,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
+import { useMusicStore } from '../../state/musicStore'
 import { NODE_LIBRARY, CATEGORY_COLOR, portsCompatible } from '../../state/nodeLibrary'
 import StudioNode from './StudioNode'
 import GlowEdge from './GlowEdge'
@@ -42,6 +43,7 @@ const SNAP_GRID: [number, number] = [20, 20]
 function NodeGraphCanvasInner() {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, enterGraph, removeEdge, reconnectNoodle } =
     useGraphStore()
+  const openMusicLibrary = useMusicStore(s => s.setOpen)
   // Tracks whether a dragged noodle end landed on a valid port; if not (dropped
   // on empty space) we treat it as an unplug and delete the edge.
   const reconnectLanded = useRef(true)
@@ -178,8 +180,9 @@ function NodeGraphCanvasInner() {
     (_e, node) => {
       const d = node.data as { nodeType?: string; properties?: { groupId?: string } }
       if (d.nodeType === 'Group' && d.properties?.groupId) enterGraph(d.properties.groupId)
+      else if (d.nodeType === 'MusicLibrary') openMusicLibrary(true)
     },
-    [enterGraph]
+    [enterGraph, openMusicLibrary]
   )
 
   const onNodeContextMenu: NodeMouseHandler = useCallback(
