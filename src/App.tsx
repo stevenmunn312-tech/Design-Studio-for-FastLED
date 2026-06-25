@@ -10,6 +10,7 @@ import LEDPreview from './components/Preview/LEDPreview'
 import Inspector from './components/Inspector/Inspector'
 import StatusBar from './components/StatusBar/StatusBar'
 import UploadPanel from './components/Upload/UploadPanel'
+import MusicLibraryPanel from './components/MusicLibrary/MusicLibraryPanel'
 import styles from './App.module.css'
 
 const AUTOSAVE_KEY = 'fastled-studio-graph'
@@ -114,6 +115,7 @@ export default function App() {
       </div>
       <StatusBar />
       {showUploadPanel && <UploadPanel />}
+      <MusicLibraryPanel />
     </div>
   )
 }

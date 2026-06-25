@@ -670,6 +670,48 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
     defaultProperties: { pin: 34 },
   },
+
+  // ── Music-sync pipeline ───────────────────────────────────────────────────
+  {
+    type: 'MusicLibrary',
+    label: 'Music Library',
+    category: 'hardware',
+    inputs: [],
+    outputs: [{ id: 'songs', label: 'Songs', dataType: 'songs' }],
+    defaultProperties: {},
+  },
+  {
+    type: 'PerformanceGenerator',
+    label: 'Performance Generator',
+    category: 'hardware',
+    inputs: [{ id: 'songs', label: 'Songs', dataType: 'songs' }],
+    outputs: [{ id: 'shows', label: 'Shows', dataType: 'shows' }],
+    defaultProperties: {
+      beatIntensity:      0.8,
+      energySensitivity:  0.7,
+      transitionDuration: 0.5,
+      paletteMode:        'mood',
+    },
+  },
+  {
+    type: 'SDCard',
+    label: 'SD Card',
+    category: 'hardware',
+    inputs: [{ id: 'shows', label: 'Shows', dataType: 'shows' }],
+    outputs: [],
+    defaultProperties: {
+      sdCsPin:     5,
+      ledDataPin:  18,
+      ledWidth:    16,
+      ledHeight:   16,
+      chipset:     'WS2812B',
+      colorOrder:  'GRB',
+      i2sBclk:     26,
+      i2sLrc:      25,
+      i2sDout:     22,
+      maxVolume:   18,
+    },
+  },
 ]
 
 export const CATEGORIES = [
