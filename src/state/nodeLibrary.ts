@@ -873,7 +873,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'MatrixOutput',
     label: 'Matrix Output',
     category: 'output',
-    inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    inputs: [
+      { id: 'frame',  label: 'Frame',   dataType: 'frame' },
+      // Optional: wire an SD Card node here to bundle songs/shows onto the card
+      // (written first over serial) before the sketch is flashed on upload.
+      { id: 'sdcard', label: 'SD Card', dataType: 'sdcard' },
+    ],
     outputs: [],
     defaultProperties: {
       width: 16,
@@ -918,18 +923,17 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
   {
+    // The SD card + audio-output module. Holds only the SD/I2S pin config (the
+    // LED matrix config comes from the MatrixOutput node it connects to); its
+    // `sdcard` output plugs into MatrixOutput's `sdcard` input to enable the
+    // write-songs-to-SD-then-flash upload flow.
     type: 'SDCard',
     label: 'SD Card',
     category: 'hardware',
     inputs: [{ id: 'shows', label: 'Shows', dataType: 'shows' }],
-    outputs: [],
+    outputs: [{ id: 'sdcard', label: 'SD Card', dataType: 'sdcard' }],
     defaultProperties: {
       sdCsPin:     5,
-      ledDataPin:  18,
-      ledWidth:    16,
-      ledHeight:   16,
-      chipset:     'WS2812B',
-      colorOrder:  'GRB',
       i2sBclk:     26,
       i2sLrc:      25,
       i2sDout:     22,
@@ -951,7 +955,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   PotInput: 'Reads a potentiometer as a 0–1 value.',
   MusicLibrary: 'MP3 song source — double-click to drop tracks, analyse and export.',
   PerformanceGenerator: 'Converts song analysis into a timed LED show file.',
-  SDCard: 'Packages show files and the player sketch into a ZIP.',
+  SDCard: 'SD + audio pins; connect to Matrix Output to load songs/shows on upload.',
   // math
   Math: 'Binary math — add, subtract, multiply, divide, min or max (a op b).',
   Clamp: 'Constrains a value between min and max.',
@@ -1063,6 +1067,9 @@ const PORT_COLORS: Record<string, string> = {
   palette: '#ff5cf0',
   frame: '#5ad1ff',
   audio: '#00e0a4',
+  songs: '#ffb74d',
+  shows: '#ffa726',
+  sdcard: '#ffa500',
 }
 
 /** Colour for a port's data type (used to tint node handles). */
