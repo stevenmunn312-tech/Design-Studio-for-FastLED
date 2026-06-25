@@ -219,3 +219,45 @@ describe('graphStore — legacy node migration on load', () => {
     expect(dataOf('bl2').properties.amount).toBe(0.5)
   })
 })
+
+describe('graphStore — splice & spread', () => {
+  beforeEach(() => reset())
+
+  const at = (n: StudioNode, x: number, y = 0): StudioNode => ({ ...n, position: { x, y } })
+
+  it('insertNodeOnEdge rewires source → new → target and drops the old edge', () => {
+    reset(
+      [at(node('sc', 'SolidColor', { r: 0, g: 0, b: 255 }), 0), at(node('out', 'MatrixOutput'), 600)],
+      [edge('e1', 'sc', 'frame', 'out', 'frame')],
+    )
+    useGraphStore.getState().insertNodeOnEdge(node('inv', 'Invert'), 'e1', 'frame', 'frame')
+    const s = useGraphStore.getState()
+    expect(s.nodes.some((n) => n.id === 'inv')).toBe(true)
+    expect(s.edges.some((e) => e.id === 'e1')).toBe(false)
+    expect(s.edges.some((e) => e.source === 'sc' && e.target === 'inv' && e.targetHandle === 'frame')).toBe(true)
+    expect(s.edges.some((e) => e.source === 'inv' && e.target === 'out' && e.targetHandle === 'frame')).toBe(true)
+  })
+
+  it('spreadNodes pushes a cramped target node rightward, leaving roomy ones alone', () => {
+    reset(
+      [at(node('sc', 'SolidColor'), 0), at(node('bm', 'BrightnessMod'), 30), at(node('out', 'MatrixOutput'), 1000)],
+      [edge('e1', 'sc', 'frame', 'bm', 'frame'), edge('e2', 'bm', 'frame', 'out', 'frame')],
+    )
+    useGraphStore.getState().spreadNodes()
+    const pos = (id: string) => useGraphStore.getState().nodes.find((n) => n.id === id)!.position.x
+    // bm was 30px from sc (overlapping) → pushed clear of sc's right edge + gap.
+    expect(pos('bm')).toBeGreaterThanOrEqual(180 + 60)
+    // out already had ample room → untouched.
+    expect(pos('out')).toBe(1000)
+  })
+
+  it('spreadNodes leaves a vertically stacked pair alone', () => {
+    reset(
+      [at(node('sc', 'SolidColor'), 0, 0), at(node('out', 'MatrixOutput'), 0, 300)],
+      [edge('e1', 'sc', 'frame', 'out', 'frame')],
+    )
+    useGraphStore.getState().spreadNodes()
+    // Same column but well separated vertically → the noodle is fine, no nudge.
+    expect(useGraphStore.getState().nodes.find((n) => n.id === 'out')!.position.x).toBe(0)
+  })
+})

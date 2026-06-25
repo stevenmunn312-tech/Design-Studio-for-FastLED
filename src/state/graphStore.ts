@@ -52,6 +52,13 @@ interface GraphState {
   onEdgesChange: (changes: EdgeChange[]) => void
   onConnect: (connection: Connection) => void
   addNode: (node: StudioNode) => void
+  /** Drop-to-splice: insert a node onto an existing edge, rewiring it as
+   *  source → node → target (then spread the area so the noodles aren't tiny). */
+  insertNodeOnEdge: (node: StudioNode, edgeId: string, inHandle: string, outHandle: string) => void
+  /** Push connected nodes apart so no noodle is uncomfortably short. Only ever
+   *  moves nodes rightward, so it tidies a cramped area without disturbing a
+   *  layout that already has room. */
+  spreadNodes: () => void
   selectNode: (id: string | null) => void
   selectAllNodes: () => void
   updateNodeProperty: (id: string, key: string, value: unknown) => void
@@ -149,6 +156,47 @@ function migrateLegacyGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes: 
   return { nodes: migratedNodes, edges: migratedEdges }
 }
 
+// Minimum horizontal clearance to keep between a node's right edge and the left
+// edge of a node it feeds — anything tighter makes for a cramped, stubby noodle.
+const MIN_NODE_GAP = 60
+const DEFAULT_NODE_W = 180
+const DEFAULT_NODE_H = 100
+
+// Walk edges left-to-right and shift any target that crowds its source rightward
+// to restore MIN_NODE_GAP. "Crowds" means too close horizontally *and*
+// overlapping vertically — so a pair you've deliberately stacked vertically (a
+// long noodle dropping down a column) is left alone; only genuinely cramped /
+// overlapping connected nodes move. We only ever push right and process sources
+// in x order, so one pass cascades down a chain and always terminates. X is
+// snapped to the 20px canvas grid.
+function spreadNodesByEdges(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
+  const x = new Map(nodes.map((n) => [n.id, n.position.x]))
+  const y = new Map(nodes.map((n) => [n.id, n.position.y]))
+  const w = new Map(nodes.map((n) => [n.id, n.measured?.width ?? DEFAULT_NODE_W]))
+  const h = new Map(nodes.map((n) => [n.id, n.measured?.height ?? DEFAULT_NODE_H]))
+  const ordered = [...edges].sort((a, b) => (x.get(a.source!) ?? 0) - (x.get(b.source!) ?? 0))
+  let changed = false
+  for (const e of ordered) {
+    const sx = x.get(e.source!)
+    const tx = x.get(e.target!)
+    if (sx === undefined || tx === undefined) continue
+    const sw = w.get(e.source!) ?? DEFAULT_NODE_W
+    const gapH = tx - (sx + sw)
+    const sCy = (y.get(e.source!) ?? 0) + (h.get(e.source!) ?? DEFAULT_NODE_H) / 2
+    const tCy = (y.get(e.target!) ?? 0) + (h.get(e.target!) ?? DEFAULT_NODE_H) / 2
+    const vOverlap = Math.abs(sCy - tCy) < ((h.get(e.source!) ?? DEFAULT_NODE_H) + (h.get(e.target!) ?? DEFAULT_NODE_H)) / 2
+    if (gapH < MIN_NODE_GAP && vOverlap) {
+      x.set(e.target!, Math.round((sx + sw + MIN_NODE_GAP) / 20) * 20)
+      changed = true
+    }
+  }
+  if (!changed) return nodes
+  return nodes.map((n) => {
+    const nx = x.get(n.id)
+    return nx !== undefined && nx !== n.position.x ? { ...n, position: { ...n.position, x: nx } } : n
+  })
+}
+
 export const useGraphStore = create<GraphState>()(
   temporal(
     (set) => ({
@@ -184,6 +232,33 @@ export const useGraphStore = create<GraphState>()(
 
       addNode: (node) =>
         set((s) => ({ nodes: [...s.nodes, node] })),
+
+      insertNodeOnEdge: (node, edgeId, inHandle, outHandle) =>
+        set((s) => {
+          const old = s.edges.find((e) => e.id === edgeId)
+          if (!old) return { nodes: [...s.nodes, node] }
+          const srcNode = s.nodes.find((n) => n.id === old.source)
+          const srcColor = CATEGORY_COLOR[(srcNode?.data as { category?: string })?.category ?? ''] ?? '#00bfff'
+          const newColor = CATEGORY_COLOR[node.data.category] ?? '#00bfff'
+          // Two new noodles replace the old one, matching onConnect's style so the
+          // MiniMap/reconnect behaviour is identical.
+          const e1 = {
+            id: `e-${node.id}-in`, source: old.source!, sourceHandle: old.sourceHandle,
+            target: node.id, targetHandle: inHandle,
+            type: 'glowEdge', reconnectable: 'target', style: { stroke: srcColor },
+          } as StudioEdge
+          const e2 = {
+            id: `e-${node.id}-out`, source: node.id, sourceHandle: outHandle,
+            target: old.target!, targetHandle: old.targetHandle,
+            type: 'glowEdge', reconnectable: 'target', style: { stroke: newColor },
+          } as StudioEdge
+          const nodes = [...s.nodes, node]
+          const edges = [...s.edges.filter((e) => e.id !== edgeId), e1, e2]
+          return { nodes: spreadNodesByEdges(nodes, edges), edges }
+        }),
+
+      spreadNodes: () =>
+        set((s) => ({ nodes: spreadNodesByEdges(s.nodes, s.edges) })),
 
       selectNode: (id) => set({ selectedNodeId: id }),
 

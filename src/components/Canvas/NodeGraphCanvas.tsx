@@ -39,8 +39,28 @@ const minimapNodeColor = (n: Node) =>
 
 const SNAP_GRID: [number, number] = [20, 20]
 
+// How close (in flow units) a dropped node must land to a noodle to splice into
+// it, and fallback node dimensions when a node hasn't been measured yet.
+const SPLICE_DIST = 48
+const FALLBACK_W = 180
+const FALLBACK_H = 70
+
+type Pt = { x: number; y: number }
+
+// Shortest distance from point p to the segment a→b (used to find the noodle a
+// node was dropped onto).
+function distToSegment(p: Pt, a: Pt, b: Pt): number {
+  const dx = b.x - a.x
+  const dy = b.y - a.y
+  const len2 = dx * dx + dy * dy
+  const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2))
+  const cx = a.x + t * dx
+  const cy = a.y + t * dy
+  return Math.hypot(p.x - cx, p.y - cy)
+}
+
 function NodeGraphCanvasInner() {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, enterGraph, removeEdge, reconnectNoodle } =
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, insertNodeOnEdge, spreadNodes, enterGraph, removeEdge, reconnectNoodle } =
     useGraphStore()
   // Tracks whether a dragged noodle end landed on a valid port; if not (dropped
   // on empty space) we treat it as an unplug and delete the edge.
@@ -85,13 +105,18 @@ function NodeGraphCanvasInner() {
   const handleConnect: OnConnect = useCallback(
     (connection) => {
       onConnect(connection)
+      // Spread the freshly-connected pair apart if the new noodle is too short.
+      spreadNodes()
       if (connection.target && connection.targetHandle) {
         setSparkPort({ nodeId: connection.target, portId: connection.targetHandle })
         setTimeout(() => setSparkPort(null), 150)
       }
     },
-    [onConnect, setSparkPort]
+    [onConnect, spreadNodes, setSparkPort]
   )
+
+  // After a node is dragged, tidy any connections it left too cramped.
+  const onNodeDragStop = useCallback(() => spreadNodes(), [spreadNodes])
 
   // Grabbing a connected input dot: detach its noodle up-front so the drag
   // becomes an unplug/re-route rather than a fresh (dead-end) connection.
@@ -226,7 +251,7 @@ function NodeGraphCanvasInner() {
 
       const position = screenToFlowPosition({ x: e.clientX, y: e.clientY })
 
-      addNode({
+      const newNode = {
         id: `${type}-${Date.now()}`,
         type: 'studioNode',
         position,
@@ -238,9 +263,47 @@ function NodeGraphCanvasInner() {
           inputs: def.inputs,
           outputs: def.outputs,
         },
-      })
+      }
+
+      // Drop-to-splice: if the node landed on a noodle whose endpoints are
+      // type-compatible with one of the node's inputs and outputs, wire it in
+      // between (source → new → target) instead of leaving it unconnected.
+      let best: { edgeId: string; inHandle: string; outHandle: string } | null = null
+      let bestDist = SPLICE_DIST
+      for (const edge of edges) {
+        const sN = getNode(edge.source)
+        const tN = getNode(edge.target)
+        if (!sN || !tN) continue
+        const sPt = {
+          x: sN.position.x + (sN.measured?.width ?? FALLBACK_W),
+          y: sN.position.y + (sN.measured?.height ?? FALLBACK_H) / 2,
+        }
+        const tPt = {
+          x: tN.position.x,
+          y: tN.position.y + (tN.measured?.height ?? FALLBACK_H) / 2,
+        }
+        if (distToSegment(position, sPt, tPt) >= bestDist) continue
+        const outType = (sN.data as { outputs?: Array<{ id: string; dataType: string }> }).outputs
+          ?.find((p) => p.id === edge.sourceHandle)?.dataType
+        const inType = (tN.data as { inputs?: Array<{ id: string; dataType: string }> }).inputs
+          ?.find((p) => p.id === edge.targetHandle)?.dataType
+        if (!outType || !inType) continue
+        const inPort = def.inputs.find((p) => portsCompatible(outType, p.dataType))
+        const outPort = def.outputs.find((p) => portsCompatible(p.dataType, inType))
+        if (inPort && outPort) {
+          best = { edgeId: edge.id, inHandle: inPort.id, outHandle: outPort.id }
+          bestDist = distToSegment(position, sPt, tPt)
+        }
+      }
+
+      if (best) {
+        insertNodeOnEdge(newNode, best.edgeId, best.inHandle, best.outHandle)
+        setStatus(`Spliced ${def.label} into the connection`, 'success')
+      } else {
+        addNode(newNode)
+      }
     },
-    [screenToFlowPosition, addNode]
+    [screenToFlowPosition, addNode, insertNodeOnEdge, edges, getNode, setStatus]
   )
 
   return (
@@ -259,6 +322,7 @@ function NodeGraphCanvasInner() {
         onReconnectStart={onReconnectStart}
         onReconnect={onReconnect}
         onReconnectEnd={onReconnectEnd}
+        onNodeDragStop={onNodeDragStop}
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
         onNodeContextMenu={onNodeContextMenu}
