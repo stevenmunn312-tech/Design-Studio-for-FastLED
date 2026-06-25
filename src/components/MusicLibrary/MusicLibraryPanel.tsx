@@ -13,8 +13,8 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function MusicLibraryPanel() {
   const {
-    entries, isOpen,
-    addFiles, analyzeAll, removeEntry, clearAll, setOpen,
+    entries, isOpen, engine,
+    addFiles, analyzeAll, removeEntry, clearAll, setOpen, setEngine,
   } = useMusicStore()
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -51,6 +51,29 @@ export default function MusicLibraryPanel() {
           <button className={styles.closeBtn} onClick={() => setOpen(false)}>✕</button>
         </div>
 
+        {/* Analysis engine */}
+        <div className={styles.engineRow}>
+          <span className={styles.engineLabel}>Analysis engine</span>
+          <div className={styles.engineToggle} role="group" aria-label="Analysis engine">
+            <button
+              className={engine === 'essentia' ? styles.engineOn : styles.engineOff}
+              onClick={() => setEngine('essentia')}
+              disabled={analyzingAny}
+              title="Essentia.js — best quality (BPM, beats, real key, danceability). Loads a WASM module."
+            >
+              Essentia.js
+            </button>
+            <button
+              className={engine === 'builtin' ? styles.engineOn : styles.engineOff}
+              onClick={() => setEngine('builtin')}
+              disabled={analyzingAny}
+              title="Built-in DSP — dependency-free, lower quality."
+            >
+              Built-in
+            </button>
+          </div>
+        </div>
+
         {/* Drop zone */}
         <div
           className={styles.dropZone}
@@ -80,6 +103,7 @@ export default function MusicLibraryPanel() {
                   {entry.analysis && (
                     <span className={styles.songMeta}>
                       {entry.analysis.beats.bpm} BPM ·{' '}
+                      {entry.analysis.mood.key} ·{' '}
                       {(entry.analysis.durationMs / 60000).toFixed(1)} min ·{' '}
                       {entry.show?.events.length ?? 0} events
                     </span>
