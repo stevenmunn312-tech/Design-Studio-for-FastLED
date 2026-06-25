@@ -8,7 +8,7 @@ import type { PerformanceOptions } from '../codegen/performanceGenerator'
 // Offline analysis engine. 'essentia' (Essentia.js WASM) is the higher-quality
 // default for the pre-planned export path; 'builtin' is the dependency-free DSP.
 export type AnalyzerEngine = 'essentia' | 'builtin'
-const ANALYZERS: Record<AnalyzerEngine, (file: File) => Promise<SongAnalysis>> = {
+const ANALYZERS: Record<AnalyzerEngine, (file: File, onProgress?: (p: number) => void) => Promise<SongAnalysis>> = {
   essentia: analyzeEssentia,
   builtin:  analyzeBuiltin,
 }
@@ -19,6 +19,8 @@ export interface MusicEntry {
   analysis: SongAnalysis | null
   show:     ShowFile    | null
   status:   'pending' | 'analyzing' | 'done' | 'error'
+  /** 0–1 analysis progress, set while `status === 'analyzing'`. */
+  progress?: number
   error?:   string
 }
 
@@ -57,15 +59,20 @@ export const useMusicStore = create<MusicState>((set, get) => ({
       if (entry.status === 'done') continue
       set(s => ({
         entries: s.entries.map(e =>
-          e.id === entry.id ? { ...e, status: 'analyzing' } : e
+          e.id === entry.id ? { ...e, status: 'analyzing', progress: 0 } : e
         ),
       }))
       try {
-        const analysis = await ANALYZERS[get().engine](entry.file)
+        const onProgress = (p: number) => set(s => ({
+          entries: s.entries.map(e =>
+            e.id === entry.id ? { ...e, progress: p } : e
+          ),
+        }))
+        const analysis = await ANALYZERS[get().engine](entry.file, onProgress)
         const show     = generateShow(analysis, options)
         set(s => ({
           entries: s.entries.map(e =>
-            e.id === entry.id ? { ...e, analysis, show, status: 'done' } : e
+            e.id === entry.id ? { ...e, analysis, show, status: 'done', progress: 1 } : e
           ),
         }))
       } catch (err) {

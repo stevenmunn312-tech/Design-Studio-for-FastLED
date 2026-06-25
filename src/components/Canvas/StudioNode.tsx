@@ -71,6 +71,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   })
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
+  const setShowUploadPanel = useUiStore((s) => s.setShowUploadPanel)
   const accent = CATEGORY_ACCENT_VAR[d.category] ?? 'var(--accent-output)'
   const inputs = d.inputs as { id: string; label: string; dataType: string }[]
   const outputs = d.outputs as { id: string; label: string; dataType: string }[]
@@ -224,6 +225,17 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         ))}
 
         {d.nodeType === 'MusicLibrary' && <MusicLibraryNodeBody />}
+
+        {d.nodeType === 'MatrixOutput' && (
+          <button
+            className={`nodrag ${styles.uploadBtn}`}
+            disabled={!drivenBy('frame')}
+            onClick={() => setShowUploadPanel(true)}
+            title={drivenBy('frame') ? 'Build & upload firmware' : 'Connect a frame to enable upload'}
+          >
+            ↑ Upload
+          </button>
+        )}
 
         {(hasRGB || editable.length > 0 || showClamp) && (
           <div className={styles.props}>

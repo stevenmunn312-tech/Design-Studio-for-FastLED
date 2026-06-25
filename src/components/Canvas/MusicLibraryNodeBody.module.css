@@ -7,6 +7,21 @@
   border-top: 1px solid var(--divider);
 }
 
+/* ── Per-song analysis progress bar ── */
+.progressTrack {
+  margin-top: 4px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+.progressFill {
+  height: 100%;
+  background: var(--accent-audio);
+  border-radius: 2px;
+  transition: width 0.15s linear;
+}
+
 /* ── Analysis engine toggle ── */
 .engineRow {
   display: flex;

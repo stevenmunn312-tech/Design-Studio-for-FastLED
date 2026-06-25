@@ -120,11 +120,14 @@ function estimateMood(energy: EnergyPoint[]): SongAnalysis['mood'] {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-export async function analyzeSong(file: File): Promise<SongAnalysis> {
+export async function analyzeSong(file: File, onProgress?: (p: number) => void): Promise<SongAnalysis> {
   const { mono, durationMs } = await decodeToMono(file, SAMPLE_RATE)
+  onProgress?.(0.4)              // decode done; beat detection is the heavy pass
 
   const beats    = detectBeats(mono)
+  onProgress?.(0.8)
   const energy   = extractEnergy(mono)
+  onProgress?.(0.95)
   const sections = detectSections(energy, durationMs)
   const mood     = estimateMood(energy)
 

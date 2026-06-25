@@ -226,6 +226,20 @@
 .chipError   { color: var(--error);   border-color: var(--error);   }
 .chipWarning { color: #ffcc00;        border-color: #ffcc00;        }
 
+.helperStatus {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.helperStatus .chip { border-color: var(--border-glow); }
+.helperStatus code {
+  font-family: var(--font-code);
+  background: var(--bg-primary);
+  padding: 0 4px;
+  border-radius: 3px;
+}
+
 .log {
   flex: 1;
   background: #0d0f12;

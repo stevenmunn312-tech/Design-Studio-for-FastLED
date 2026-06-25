@@ -47,8 +47,11 @@ function getWorker(): Worker {
 }
 
 // ── Public API (mirrors musicAnalyzer.analyzeSong) ────────────────────────────
-export async function analyzeSong(file: File): Promise<SongAnalysis> {
+export async function analyzeSong(file: File, onProgress?: (p: number) => void): Promise<SongAnalysis> {
   const { mono, sampleRate, durationMs } = await decodeToMono(file, SAMPLE_RATE)
+  // Decode is the only main-thread stage we can measure; the WASM passes run in
+  // the worker as one opaque call, so progress jumps to "done" when it resolves.
+  onProgress?.(0.3)
   const title = file.name.replace(/\.[^/.]+$/, '')
   const w = getWorker()
   const id = nextId++

@@ -3,6 +3,7 @@ import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { validateGraph } from '../../utils/validateGraph'
+import { checkBackend, type BackendHealth } from '../../utils/backendClient'
 import styles from './UploadPanel.module.css'
 
 // ── Boards ──────────────────────────────────────────────────────────────────
@@ -52,6 +53,15 @@ export default function UploadPanel() {
   const commands = useMemo(() => cliCommands(board), [board])
   const [log, setLog] = useState<string[]>([])
   const logRef = useRef<HTMLDivElement>(null)
+
+  // Probe the optional local upload helper so we can show its status (and, in a
+  // later slice, drive one-click compile+upload). `undefined` = still checking.
+  const [helper, setHelper] = useState<BackendHealth | null | undefined>(undefined)
+  useEffect(() => {
+    const ctrl = new AbortController()
+    checkBackend(ctrl.signal).then(setHelper).catch(() => setHelper(null))
+    return () => ctrl.abort()
+  }, [])
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
@@ -135,6 +145,29 @@ export default function UploadPanel() {
               >
                 ↓ Download .ino
               </button>
+            </div>
+
+            <div className={styles.divider} />
+
+            <div className={styles.section}>
+              <div className={styles.sectionTitle}>Upload helper</div>
+              <div className={styles.helperStatus}>
+                {helper === undefined ? (
+                  <span className={styles.chip}>Checking…</span>
+                ) : helper && helper.arduinoCli ? (
+                  <span className={`${styles.chip} ${styles.chipOk}`}>
+                    ✓ Connected{helper.version ? ` · ${helper.version}` : ''}
+                  </span>
+                ) : helper ? (
+                  <span className={`${styles.chip} ${styles.chipWarning}`}>
+                    ⚠ Running, but arduino-cli not found — see backend/README.md
+                  </span>
+                ) : (
+                  <span className={styles.chip}>
+                    Not running — start it with <code>npm run helper</code> for one-click upload, or use the commands below
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className={styles.divider} />

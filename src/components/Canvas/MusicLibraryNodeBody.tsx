@@ -1,6 +1,5 @@
 import { useRef } from 'react'
 import { useMusicStore } from '../../state/musicStore'
-import { exportShowPackage } from '../../utils/zipExport'
 import styles from './MusicLibraryNodeBody.module.css'
 
 // The full Music Library UI, embedded directly in the MusicLibrary canvas node
@@ -94,6 +93,14 @@ export default function MusicLibraryNodeBody() {
                   </span>
                 )}
                 {entry.error && <span className={styles.songError}>{entry.error}</span>}
+                {entry.status === 'analyzing' && (
+                  <div className={styles.progressTrack}>
+                    <div
+                      className={styles.progressFill}
+                      style={{ width: `${Math.round((entry.progress ?? 0) * 100)}%` }}
+                    />
+                  </div>
+                )}
               </div>
               <div className={styles.songActions}>
                 <span className={`${styles.badge} ${styles[`badge_${entry.status}`]}`}>
@@ -128,14 +135,6 @@ export default function MusicLibraryNodeBody() {
             disabled={analyzingAny || entries.length === 0 || entries.every(e => e.status === 'done')}
           >
             {analyzingAny ? 'Analysing…' : 'Analyse All'}
-          </button>
-          <button
-            className={`nodrag ${styles.exportBtn}`}
-            onClick={() => exportShowPackage(entries)}
-            disabled={doneCount === 0}
-            title="Download ZIP with .show files + player sketch"
-          >
-            Export ZIP
           </button>
         </div>
       </div>
