@@ -942,3 +942,39 @@ describe('evaluateGraph — groups', () => {
     expect(g2Frame![0][0].r).toBeLessThan(g1Frame![0][0].r)
   })
 })
+
+// Every `transitionType` variant blends two frames A→B by `t`. At t=0 the centre
+// pixel is fully A; at t=1 it is fully B. This guards the bundled dispatch and
+// each variant helper (the 13 added from the touchscreen branch + the original 3).
+describe('Transition variants', () => {
+  const VARIANTS = [
+    'crossfade', 'wipe', 'dissolve', 'iris', 'clockwipe', 'push', 'checkerboard',
+    'diagonal', 'fadeblack', 'fadewhite', 'blinds', 'ripple', 'spiral', 'curtain',
+    'scanlines', 'zoom',
+  ]
+  const A = { r: 255, g: 0, b: 0 }, B = { r: 0, g: 255, b: 0 }
+  const eq = (p: { r: number; g: number; b: number }, c: typeof A) => p.r === c.r && p.g === c.g && p.b === c.b
+  const count = (f: ReturnType<typeof evaluateGraph>, c: typeof A) =>
+    f!.reduce((n, row) => n + row.filter(p => eq(p, c)).length, 0)
+
+  function run(variant: string, t: number) {
+    const a = node('a', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const b = node('b', 'SolidColor', 'pattern', { r: 0, g: 255, b: 0 })
+    const tr = node('tr', 'Transition', 'composite', { transitionType: variant, t })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    return evaluateGraph([a, b, tr, out], [
+      edge('e1', 'a', 'frame', 'tr', 'a'),
+      edge('e2', 'b', 'frame', 'tr', 'b'),
+      edge('e3', 'tr', 'frame', 'out', 'frame'),
+    ], 0, W, H)!
+  }
+
+  for (const variant of VARIANTS) {
+    // At t=0 the whole frame is A; at t=1 B dominates. (Exact endpoints avoid the
+    // angular/radial singularities at the centre that some variants have mid-sweep.)
+    it(`${variant}: all A at t=0, mostly B at t=1`, () => {
+      expect(count(run(variant, 0), A)).toBe(W * H)
+      expect(count(run(variant, 1), B)).toBeGreaterThan(W * H / 2)
+    })
+  }
+})

@@ -10,6 +10,13 @@ build/architecture overview aimed at contributors.
     — the paradigm (dataflow), the encapsulation model (pattern groups become
     nodes in a compositing graph), and the phased plan toward it.
 
+## Development
+
+- [Plans](development/plans/)
+  - [T-HMI feature integration](development/plans/thmi-feature-integration.md)
+    — how to replay the divergent `feature/thmi-touchscreen-ui` branch (FFT
+    audio, 13 transitions, T-HMI firmware) onto current `main` as PRs.
+
 ## Design intent (original specs)
 
 Located in `.docs/` at the repo root:

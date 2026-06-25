@@ -792,10 +792,11 @@ export const NODE_LIBRARY: NodeDefinition[] = [
 
   // ── Transition nodes ──────────────────────────────────────────────────
   {
-    // Bundled transitions — `transitionType` selects crossfade / wipe /
-    // dissolve. All share the (a, b, t)→frame signature; `direction` only
-    // applies to wipe (the inline editor disables it for the others via
-    // isPropertyEnabled). See the `Transition` case in graphEvaluator/cppGenerator.
+    // Bundled transitions — `transitionType` selects one of 16 A→B effects.
+    // All share the (a, b, t)→frame signature; the variant-specific properties
+    // (`direction`, `axis`, `tileSize`, `count`, `turns`) only apply to some
+    // variants (the inline editor disables the others via isPropertyEnabled).
+    // See the `Transition` case in graphEvaluator/cppGenerator.
     type: 'Transition',
     label: 'Transition',
     category: 'composite',
@@ -805,7 +806,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 't', label: 'T (0–1)', dataType: 'float' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { transitionType: 'crossfade', t: 0.5, direction: 'right' },
+    defaultProperties: {
+      transitionType: 'crossfade', t: 0.5,
+      direction: 'right', axis: 'horizontal', tileSize: 4, count: 4, turns: 2,
+    },
   },
 
   // ── Multi-Pattern Master ───────────────────────────────────────────────
@@ -1016,7 +1020,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   HueShift: 'Rotates all hues.',
   Transform: 'Animated rotate, scale or translate of a frame.',
   Invert: 'Inverts colors.',
-  Transition: 'Transitions A→B — crossfade, directional wipe or random dissolve.',
+  Transition: 'Transitions A→B — 16 styles: wipe, iris, push, blinds, spiral, zoom + more.',
   Sequencer: 'Crossfades through its inputs on a timer.',
   // output
   MatrixOutput: 'The LED matrix output — board, pin, and size.',
@@ -1090,6 +1094,9 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   paletteA:   { control: 'select', options: PALETTES },
   paletteB:   { control: 'select', options: PALETTES },
   direction:  { control: 'select', options: ['right', 'left', 'up', 'down'] },
+  axis:       { control: 'select', options: ['horizontal', 'vertical'] },
+  tileSize:   { control: 'slider', min: 1, max: 16, step: 1 },
+  turns:      { control: 'slider', min: 1, max: 6, step: 1 },
   mode:       { control: 'select', options: ['cycle', 'beat'] },
   waveform:   { control: 'select', options: ['sine', 'triangle', 'square', 'sawtooth'] },
   operation:  { control: 'select', options: ['add', 'multiply', 'average', 'min', 'max', 'difference'] },
@@ -1098,7 +1105,11 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   // matching case in graphEvaluator.ts and cppGenerator.ts.
   noiseType:      { control: 'select', options: ['field', 'simplex', 'noise3d', 'worley', 'plasma'] },
   mathOp:         { control: 'select', options: ['add', 'subtract', 'multiply', 'divide', 'min', 'max'] },
-  transitionType: { control: 'select', options: ['crossfade', 'wipe', 'dissolve'] },
+  transitionType: { control: 'select', options: [
+    'crossfade', 'wipe', 'dissolve', 'iris', 'clockwipe', 'push', 'checkerboard',
+    'diagonal', 'fadeblack', 'fadewhite', 'blinds', 'ripple', 'spiral', 'curtain',
+    'scanlines', 'zoom',
+  ] },
   blendMode:      { control: 'select', options: ['normal', 'multiply', 'screen', 'overlay', 'add', 'difference'] },
   // Poline position functions — keep in sync with polinePalette.ts POSITION_FNS.
   position:   { control: 'select', options: ['linear', 'sinusoidal', 'quadratic', 'cubic', 'arc', 'smoothStep', 'exponential'] },
@@ -1148,7 +1159,13 @@ const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, stri
   },
   Transition: {
     prop: 'transitionType',
-    labels: { crossfade: 'Crossfade', wipe: 'Wipe', dissolve: 'Dissolve' },
+    labels: {
+      crossfade: 'Crossfade', wipe: 'Wipe', dissolve: 'Dissolve',
+      iris: 'Iris', clockwipe: 'Clock Wipe', push: 'Push', checkerboard: 'Checkerboard',
+      diagonal: 'Diagonal Wipe', fadeblack: 'Fade · Black', fadewhite: 'Fade · White',
+      blinds: 'Blinds', ripple: 'Ripple Wipe', spiral: 'Spiral Wipe', curtain: 'Curtain',
+      scanlines: 'Scan Lines', zoom: 'Zoom',
+    },
   },
   Blend: {
     prop: 'blendMode',
@@ -1168,6 +1185,15 @@ export function nodeDisplayLabel(nodeType: string, properties: Record<string, un
  *  inapplicable to the current variant (e.g. Transition `direction` only applies
  *  to a wipe), in which case the editor is shown disabled but keeps its value. */
 export function isPropertyEnabled(nodeType: string, key: string, properties: Record<string, unknown>): boolean {
-  if (nodeType === 'Transition' && key === 'direction') return properties.transitionType === 'wipe'
+  if (nodeType === 'Transition') {
+    const tt = String(properties.transitionType ?? 'crossfade')
+    switch (key) {
+      case 'direction': return tt === 'wipe' || tt === 'push'
+      case 'axis':      return tt === 'blinds' || tt === 'curtain'
+      case 'tileSize':  return tt === 'checkerboard'
+      case 'count':     return tt === 'blinds'
+      case 'turns':     return tt === 'spiral'
+    }
+  }
   return true
 }

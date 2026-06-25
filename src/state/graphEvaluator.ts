@@ -818,6 +818,152 @@ function evalDissolve(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT
   )
 }
 
+// ── Extra transition variants (bundled into the `Transition` node) ───────────
+// All blend frame A→B by `tt` (0–1); keep in sync with cppGenerator's
+// `Transition` case.
+
+function evalIris(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const cx = W / 2, cy = H / 2
+  const r = tt * Math.hypot(cx, cy)
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) =>
+      Math.hypot(x - cx, y - cy) < r ? { ...b[y][x] } : { ...a[y][x] }))
+}
+
+function evalClockWipe(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const cx = W / 2, cy = H / 2
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      // atan2 shifted so 12 o'clock = 0 and the sweep goes clockwise
+      const norm = (Math.atan2(x - cx, -(y - cy)) + Math.PI) / (2 * Math.PI)
+      return norm < tt ? { ...b[y][x] } : { ...a[y][x] }
+    }))
+}
+
+function evalPush(a: Frame, b: Frame, tt: number, direction: string, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      let ax: number, ay: number, bx: number, by: number
+      switch (direction) {
+        case 'left':
+          ax = Math.round(x - tt * W); ay = y; bx = Math.round(x + (1 - tt) * W); by = y; break
+        case 'up':
+          ax = x; ay = Math.round(y - tt * H); bx = x; by = Math.round(y + (1 - tt) * H); break
+        case 'down':
+          ax = x; ay = Math.round(y + tt * H); bx = x; by = Math.round(y - (1 - tt) * H); break
+        default: // 'right'
+          ax = Math.round(x + tt * W); ay = y; bx = Math.round(x - (1 - tt) * W); by = y
+      }
+      if (bx >= 0 && bx < W && by >= 0 && by < H) return { ...b[by][bx] }
+      if (ax >= 0 && ax < W && ay >= 0 && ay < H) return { ...a[ay][ax] }
+      return { r: 0, g: 0, b: 0 }
+    }))
+}
+
+function evalCheckerboard(a: Frame, b: Frame, tt: number, tileSize: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const isEven = (Math.floor(x / tileSize) + Math.floor(y / tileSize)) % 2 === 0
+      const threshold = isEven ? tt * 2 : tt * 2 - 1
+      return threshold >= 1 ? { ...b[y][x] } : { ...a[y][x] }
+    }))
+}
+
+function evalDiagonal(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) =>
+      (x / W + y / H) / 2 < tt ? { ...b[y][x] } : { ...a[y][x] }))
+}
+
+function evalFadeThroughBlack(a: Frame, b: Frame, tt: number): Frame {
+  const [src, alpha] = tt < 0.5 ? [a, 1 - tt * 2] : [b, (tt - 0.5) * 2]
+  return src.map(row => row.map(px => ({
+    r: Math.round(px.r * alpha), g: Math.round(px.g * alpha), b: Math.round(px.b * alpha),
+  })))
+}
+
+function evalFadeThroughWhite(a: Frame, b: Frame, tt: number): Frame {
+  const [src, alpha] = tt < 0.5 ? [a, 1 - tt * 2] : [b, (tt - 0.5) * 2]
+  const w = (1 - alpha) * 255
+  return src.map(row => row.map(px => ({
+    r: Math.round(px.r * alpha + w), g: Math.round(px.g * alpha + w), b: Math.round(px.b * alpha + w),
+  })))
+}
+
+function evalBlinds(a: Frame, b: Frame, tt: number, count: number, axis: string, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const slatSize = Math.max(1, Math.floor((axis === 'horizontal' ? H : W) / count))
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const pos = axis === 'horizontal' ? y : x
+      return (pos % slatSize) / slatSize < tt ? { ...b[y][x] } : { ...a[y][x] }
+    }))
+}
+
+function evalRippleWipe(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const cx = W / 2, cy = H / 2, maxR = Math.hypot(cx, cy), edge = 0.08
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const norm = Math.hypot(x - cx, y - cy) / maxR
+      if (norm < tt - edge) return { ...b[y][x] }
+      if (norm >= tt) return { ...a[y][x] }
+      const blend = (tt - norm) / edge, pa = a[y][x], pb = b[y][x]
+      return {
+        r: Math.round(pa.r * (1 - blend) + pb.r * blend),
+        g: Math.round(pa.g * (1 - blend) + pb.g * blend),
+        b: Math.round(pa.b * (1 - blend) + pb.b * blend),
+      }
+    }))
+}
+
+function evalSpiralWipe(a: Frame, b: Frame, tt: number, turns: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const cx = W / 2, cy = H / 2, maxR = Math.hypot(cx, cy)
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const r = Math.hypot(x - cx, y - cy) / maxR
+      const normAngle = (Math.atan2(y - cy, x - cx) + Math.PI) / (2 * Math.PI)
+      return (r + normAngle / turns) / (1 + 1 / turns) < tt ? { ...b[y][x] } : { ...a[y][x] }
+    }))
+}
+
+function evalCurtain(a: Frame, b: Frame, tt: number, axis: string, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      // distance from the centre axis: reveals the centre gap first
+      const dist = axis === 'horizontal' ? Math.abs(2 * y / H - 1) : Math.abs(2 * x / W - 1)
+      return dist < tt ? { ...b[y][x] } : { ...a[y][x] }
+    }))
+}
+
+function evalScanLines(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  return Array.from({ length: H }, (_, y) => {
+    // even rows complete in [0, 0.5), odd rows in [0.5, 1.0)
+    const threshold = y % 2 === 0 ? (y / H) * 0.5 : 0.5 + ((y - 1) / H) * 0.5
+    return Array.from({ length: W }, (_, x) =>
+      tt > threshold ? { ...b[y][x] } : { ...a[y][x] })
+  })
+}
+
+function evalZoom(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const cx = W / 2, cy = H / 2
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const pa = a[y][x]
+      if (tt <= 0) return { ...pa }
+      if (tt >= 1) return { ...b[y][x] }
+      const scale = Math.max(0.01, tt)
+      const bx = Math.round((x - cx) / scale + cx), by = Math.round((y - cy) / scale + cy)
+      if (bx >= 0 && bx < W && by >= 0 && by < H) {
+        const pb = b[by][bx]
+        return {
+          r: Math.round(pa.r * (1 - tt) + pb.r * tt),
+          g: Math.round(pa.g * (1 - tt) + pb.g * tt),
+          b: Math.round(pa.b * (1 - tt) + pb.b * tt),
+        }
+      }
+      return { r: Math.round(pa.r * (1 - tt)), g: Math.round(pa.g * (1 - tt)), b: Math.round(pa.b * (1 - tt)) }
+    }))
+}
+
 function evalPatternMaster(nodeId: string, frames: (Frame | null)[], beat: boolean, mode: string, interval: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const valid = frames.filter((f): f is Frame => f !== null)
   if (valid.length === 0) return blankFrame(W, H)
@@ -1603,16 +1749,36 @@ function createEvalNode(
         const ca = fa ?? blankFrame(W, H)
         const cb = fb ?? blankFrame(W, H)
         const type = String(props.transitionType ?? 'crossfade')
+        const dir = String(props.direction ?? 'right')
+        const axis = String(props.axis ?? 'horizontal')
+        const tileSize = Math.max(1, Math.round(Number(props.tileSize ?? 4)))
+        const count = Math.max(1, Math.round(Number(props.count ?? 4)))
+        const turns = Math.max(1, Number(props.turns ?? 2))
         let frame: Frame
-        if (type === 'wipe') frame = evalWipe(ca, cb, tt, String(props.direction ?? 'right'), W, H)
-        else if (type === 'dissolve') frame = evalDissolve(ca, cb, tt, W, H)
-        else frame = ca.map((row, y) =>
-          row.map((px, x) => ({
-            r: Math.round(px.r * (1 - tt) + cb[y][x].r * tt),
-            g: Math.round(px.g * (1 - tt) + cb[y][x].g * tt),
-            b: Math.round(px.b * (1 - tt) + cb[y][x].b * tt),
-          }))
-        )
+        switch (type) {
+          case 'wipe':         frame = evalWipe(ca, cb, tt, dir, W, H); break
+          case 'dissolve':     frame = evalDissolve(ca, cb, tt, W, H); break
+          case 'iris':         frame = evalIris(ca, cb, tt, W, H); break
+          case 'clockwipe':    frame = evalClockWipe(ca, cb, tt, W, H); break
+          case 'push':         frame = evalPush(ca, cb, tt, dir, W, H); break
+          case 'checkerboard': frame = evalCheckerboard(ca, cb, tt, tileSize, W, H); break
+          case 'diagonal':     frame = evalDiagonal(ca, cb, tt, W, H); break
+          case 'fadeblack':    frame = evalFadeThroughBlack(ca, cb, tt); break
+          case 'fadewhite':    frame = evalFadeThroughWhite(ca, cb, tt); break
+          case 'blinds':       frame = evalBlinds(ca, cb, tt, count, axis, W, H); break
+          case 'ripple':       frame = evalRippleWipe(ca, cb, tt, W, H); break
+          case 'spiral':       frame = evalSpiralWipe(ca, cb, tt, turns, W, H); break
+          case 'curtain':      frame = evalCurtain(ca, cb, tt, axis, W, H); break
+          case 'scanlines':    frame = evalScanLines(ca, cb, tt, W, H); break
+          case 'zoom':         frame = evalZoom(ca, cb, tt, W, H); break
+          default: // crossfade
+            frame = ca.map((row, y) =>
+              row.map((px, x) => ({
+                r: Math.round(px.r * (1 - tt) + cb[y][x].r * tt),
+                g: Math.round(px.g * (1 - tt) + cb[y][x].g * tt),
+                b: Math.round(px.b * (1 - tt) + cb[y][x].b * tt),
+              })))
+        }
         out = { frame }
         break
       }
