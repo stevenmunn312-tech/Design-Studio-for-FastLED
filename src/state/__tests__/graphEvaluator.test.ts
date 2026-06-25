@@ -375,8 +375,8 @@ describe('evaluateGraph', () => {
         0, 4, 4,
       )
     }
-    // amount 0 → heat end, amount 255 → ocean end → visibly different frames.
-    expect(driveSimplex(0)).not.toEqual(driveSimplex(255))
+    // amount 0 → heat end, amount 1 → ocean end → visibly different frames.
+    expect(driveSimplex(0)).not.toEqual(driveSimplex(1))
   })
 
   it('FractalNoise produces a varied frame; octaves change the result', () => {
@@ -678,7 +678,7 @@ describe('evaluateGraph', () => {
   it('Blend composites B over A per blendMode and opacity', () => {
     // A = mid-grey (128), B = mid-grey (128) so blend-mode math is observable.
     const grey = (id: string) => node(id, 'SolidColor', 'pattern', { r: 128, g: 128, b: 128 })
-    const px = (blendMode: string, amount = 255) => {
+    const px = (blendMode: string, amount = 1) => {
       const bl  = node('bl', 'Blend', 'composite', { blendMode, amount })
       const out = node('out', 'MatrixOutput', 'output', {})
       const frame = evaluateGraph([grey('a'), grey('b'), bl, out], [
@@ -699,7 +699,7 @@ describe('evaluateGraph', () => {
   it('Blend at normal/half opacity mixes two frames', () => {
     const black = node('b', 'SolidColor', 'pattern', { r: 0, g: 0, b: 0 })
     const white = node('w', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })
-    const blend = node('bl', 'Blend', 'composite', { blendMode: 'normal', amount: 128 })
+    const blend = node('bl', 'Blend', 'composite', { blendMode: 'normal', amount: 0.5 })
     const out   = node('out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([black, white, blend, out], [
       edge('e1', 'b', 'frame', 'bl', 'a'),
@@ -708,6 +708,23 @@ describe('evaluateGraph', () => {
     ], 0, W, H)
     expect(frame![0][0].r).toBeCloseTo(128, -1)
     expect(frame![0][0].g).toBeCloseTo(128, -1)
+  })
+
+  it('clampInputs clamps a wired control to its slider range', () => {
+    const grey = node('g', 'SolidColor', 'pattern', { r: 128, g: 128, b: 128 })
+    const two  = node('two', 'Math', 'math', { mathOp: 'add', a: 2, b: 0 })   // emits 2.0
+    const mk = (clampInputs: boolean) => {
+      const bm  = node('bm', 'BrightnessMod', 'composite', { brightness: 1, clampInputs })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      const frame = evaluateGraph([grey, two, bm, out], [
+        edge('e1', 'g', 'frame', 'bm', 'frame'),
+        edge('e2', 'two', 'result', 'bm', 'brightness'),
+        edge('e3', 'bm', 'frame', 'out', 'frame'),
+      ], 0, W, H)
+      return frame![0][0].r
+    }
+    expect(mk(false)).toBe(255)   // 128 × 2 → capped at the 255 byte ceiling
+    expect(mk(true)).toBe(128)    // brightness clamped to 1 → 128 × 1
   })
 
   it('Transition blends A→B per transitionType', () => {

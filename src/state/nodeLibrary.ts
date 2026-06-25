@@ -153,13 +153,13 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'composite',
     inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { amount: 40 },
+    defaultProperties: { amount: 0.15 },
   },
   {
     // Frame blend with real blend modes — composites B over A per `blendMode`,
-    // mixed by `amount` (opacity, 0–255). Replaces the former LayerBlend +
-    // BlendFrames. See PROPERTY_META.blendMode and the `Blend` case in
-    // graphEvaluator/cppGenerator.
+    // mixed by `amount` (opacity, 0–1; scaled to FastLED's 0–255 in the
+    // evaluator/codegen). Replaces the former LayerBlend + BlendFrames. See
+    // PROPERTY_META.blendMode and the `Blend` case in graphEvaluator/cppGenerator.
     type: 'Blend',
     label: 'Blend',
     category: 'composite',
@@ -169,7 +169,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'amount', label: 'Opacity', dataType: 'float' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { blendMode: 'normal', amount: 128 },
+    defaultProperties: { blendMode: 'normal', amount: 0.5 },
   },
   {
     // Scales a frame per-pixel by a mask frame's luminance — feed any soft
@@ -652,7 +652,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'amount', label: 'Amount', dataType: 'float' },
     ],
     outputs: [{ id: 'palette', label: 'Palette', dataType: 'palette' }],
-    defaultProperties: { paletteA: 'rainbow', paletteB: 'ocean', amount: 128 },
+    defaultProperties: { paletteA: 'rainbow', paletteB: 'ocean', amount: 0.5 },
   },
   {
     type: 'BeatSin',
@@ -1126,7 +1126,9 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   speed:    { control: 'slider', min: 0, max: 5, step: 0.1 },
   scale:    { control: 'slider', min: 0, max: 2, step: 0.01 },
   fade:     { control: 'slider', min: 0, max: 1, step: 0.01 },
-  amount:   { control: 'slider', min: 0, max: 255, step: 1 },
+  // Opacity / mix amount, normalised 0–1 (scaled to FastLED's 0–255 in the
+  // evaluator + codegen). Shared by Blend / Blur2D / PaletteBlend.
+  amount:   { control: 'slider', min: 0, max: 1, step: 0.01 },
   t:        { control: 'slider', min: 0, max: 1, step: 0.01 },
   mix:      { control: 'slider', min: 0, max: 1, step: 0.01 },
   bass:     { control: 'slider', min: 0, max: 1, step: 0.01 },
@@ -1144,6 +1146,58 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   kill:     { control: 'slider', min: 0, max: 0.1, step: 0.001 },
   interval: { control: 'slider', min: 0.1, max: 20, step: 0.1 },
   kelvin:   { control: 'slider', min: 1000, max: 12000, step: 100 },
+
+  // Normalised 0–1 control values that were previously free-entry numbers
+  // (beat sensitivities, emission/decay rates, HSV sat/val). Bounding them makes
+  // editing predictable and lets the `clampInputs` toggle clamp wired signals.
+  // Names that mean something different on another node are handled in
+  // PROPERTY_META_OVERRIDES below.
+  threshold:  { control: 'slider', min: 0, max: 1, step: 0.01 },
+  attack:     { control: 'slider', min: 0, max: 1, step: 0.01 },
+  decay:      { control: 'slider', min: 0, max: 1, step: 0.01 },
+  density:    { control: 'slider', min: 0, max: 1, step: 0.01 },
+  brightness: { control: 'slider', min: 0, max: 1, step: 0.01 },
+  s:          { control: 'slider', min: 0, max: 1, step: 0.01 },
+  v:          { control: 'slider', min: 0, max: 1, step: 0.01 },
+  // 0–255 byte ranges (FastLED heat sim + CHSV channels).
+  cooling:    { control: 'slider', min: 0, max: 255, step: 1 },
+  sparking:   { control: 'slider', min: 0, max: 255, step: 1 },
+  hue:        { control: 'slider', min: 0, max: 255, step: 1 },
+  sat:        { control: 'slider', min: 0, max: 255, step: 1 },
+  val:        { control: 'slider', min: 0, max: 255, step: 1 },
+}
+
+// Per-node overrides for property names that collide across nodes with a
+// different meaning or range. `speed` is a 0–5 animation speed for most nodes
+// but a steps-per-second rate for the simulation patterns; `rate` is a 0–1
+// emission rate for Particles but a degrees/sec spin for Transform.
+export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyControl>> = {
+  Particles:         { rate:  { control: 'slider', min: 0, max: 1,   step: 0.01 } },
+  Transform:         { rate:  { control: 'slider', min: 0, max: 360, step: 1 } },
+  GameOfLife:        { speed: { control: 'slider', min: 1, max: 30,  step: 1 } },
+  ReactionDiffusion: { speed: { control: 'slider', min: 1, max: 30,  step: 1 } },
+}
+
+/** Inline-editor control hint for a node's property, honouring per-node overrides. */
+export function propertyMeta(nodeType: string, key: string): PropertyControl | undefined {
+  return PROPERTY_META_OVERRIDES[nodeType]?.[key] ?? PROPERTY_META[key]
+}
+
+/**
+ * The [min, max] a wired float input is clamped to when a node's `clampInputs`
+ * toggle is on — taken from the property's slider bounds (per-node aware).
+ * `null` when the property has no bounded slider, in which case the wired value
+ * passes through unclamped.
+ */
+export function inputClampRange(nodeType: string, key: string): { min: number; max: number } | null {
+  const m = propertyMeta(nodeType, key)
+  return m?.control === 'slider' ? { min: m.min, max: m.max } : null
+}
+
+/** Whether a node has any float input whose value can be clamped — i.e. whether
+ *  the "clamp inputs" toggle would do anything, so it's worth showing. */
+export function hasClampableInputs(nodeType: string, inputs: { id: string; dataType?: string }[]): boolean {
+  return inputs.some((p) => p.dataType === 'float' && inputClampRange(nodeType, p.id) != null)
 }
 
 /**

@@ -3,6 +3,7 @@ import type { GroupRegistry } from '../state/graphEvaluator'
 import { asFont, textColumns } from '../state/font'
 import { asImage } from '../state/image'
 import { polineStops16, hexToRgb } from '../state/polinePalette'
+import { inputClampRange } from '../state/nodeLibrary'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -175,7 +176,16 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
   // Resolve a float input to a C++ expression
   function floatExpr(nodeId: string, portId: string, nodeProps: Record<string, unknown>, propKey: string, def: number): string {
     const up = incoming.get(`${nodeId}:${portId}`)
-    if (up) return `n_${safeId(up.srcId)}_${up.srcPort}`
+    if (up) {
+      const expr = `n_${safeId(up.srcId)}_${up.srcPort}`
+      // Mirror the evaluator's `clampInputs` toggle: clamp wired signals to the
+      // control's range so the firmware matches the live preview.
+      if (nodeProps.clampInputs) {
+        const r = inputClampRange(nodeMap.get(nodeId)?.data.nodeType as string, propKey)
+        if (r) return `constrain(${expr}, ${r.min}, ${r.max})`
+      }
+      return expr
+    }
     const pv = nodeProps[propKey]
     return pv !== undefined ? String(Number(pv)) : String(def)
   }
@@ -681,11 +691,12 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       // per channel then cross-fade against the base by opacity.
       case 'Blend': {
         const ob = ownBuf()
-        const a = srcBuf('a'), b = srcBuf('b'), amt = f('amount', 'amount', 128)
+        // `amount` is opacity 0–1; FastLED's nblend / cross-fade want 0–255.
+        const a = srcBuf('a'), b = srcBuf('b'), amt = f('amount', 'amount', 0.5)
         const mode = String(p.blendMode ?? 'normal')
         ln(`  { ${a ? `::memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
         if (mode === 'normal') {
-          ln(`    nblend(${ob}, ${b ?? ob}, NUM_LEDS, (uint8_t)(${amt})); }`)
+          ln(`    nblend(${ob}, ${b ?? ob}, NUM_LEDS, (uint8_t)((${amt}) * 255)); }`)
         } else {
           const expr: Record<string, string> = {
             multiply:   '_av*_bv',
@@ -694,7 +705,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
             add:        'min(1.0f,_av+_bv)',
             difference: 'fabsf(_av-_bv)',
           }
-          ln(`    float _op=(${amt})/255.0f; for(int _i=0;_i<NUM_LEDS;_i++){`)
+          ln(`    float _op=(${amt}); for(int _i=0;_i<NUM_LEDS;_i++){`)
           ln(`      CRGB _a=${ob}[_i], _b=${b ?? ob}[_i];`)
           ln(`      for(int _c=0;_c<3;_c++){ float _av=_a[_c]/255.0f,_bv=_b[_c]/255.0f;`)
           ln(`        float _r=${expr[mode] ?? '_bv'};`)
@@ -1246,9 +1257,9 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         // Build a CRGBPalette16 by blending both palettes entry-by-entry.
         const a = paletteExpr(node.id, 'paletteA', { palette: p.paletteA })
         const b = paletteExpr(node.id, 'paletteB', { palette: p.paletteB })
-        const amt = f('amount', 'amount', 128)
+        const amt = f('amount', 'amount', 0.5)
         ln(`  CRGBPalette16 pal_${id};`)
-        ln(`  { uint8_t _amt = (uint8_t)(${amt}); for (int _i = 0; _i < 16; _i++) { uint8_t _p = (uint8_t)(_i * 255 / 15);`)
+        ln(`  { uint8_t _amt = (uint8_t)((${amt}) * 255); for (int _i = 0; _i < 16; _i++) { uint8_t _p = (uint8_t)(_i * 255 / 15);`)
         ln(`    pal_${id}[_i] = blend(ColorFromPalette(${a}, _p), ColorFromPalette(${b}, _p), _amt); } }`)
         break
       }
@@ -1276,8 +1287,9 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
 
       case 'Blur2D': {
         const ob = ownBuf()
-        const amount = Number(p.amount ?? 40)
-        ln(`  ${seedFrom('frame')} blur2d(${ob}, WIDTH, HEIGHT, ${amount});`)
+        // `amount` is a 0–1 strength; blur2d takes a 0–255 blur amount.
+        const amount = Math.max(0, Math.min(1, Number(p.amount ?? 0.15)))
+        ln(`  ${seedFrom('frame')} blur2d(${ob}, WIDTH, HEIGHT, ${Math.round(amount * 255)});`)
         break
       }
 

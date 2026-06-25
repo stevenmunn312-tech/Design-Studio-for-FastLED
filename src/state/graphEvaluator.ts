@@ -4,6 +4,7 @@ import { asFont, textColumns, type BitmapFont, DEFAULT_FONT } from './font'
 import { asImage, sampleImageToFrame } from './image'
 import { waveSample, combineWaves } from './wave'
 import { polinePalette, hexToRgb } from './polinePalette'
+import { inputClampRange } from './nodeLibrary'
 
 export interface RGB { r: number; g: number; b: number }
 export type Frame = RGB[][]   // row-major [y][x]
@@ -1101,7 +1102,15 @@ function createEvalNode(
   }
 
   function num(nodeId: string, portId: string, props: Record<string, unknown>, propKey: string, def = 0): number {
-    return Number(input(nodeId, portId, Number(props[propKey] ?? def)))
+    const v = Number(input(nodeId, portId, Number(props[propKey] ?? def)))
+    // With the node's `clampInputs` toggle on, clamp a *wired* signal to the
+    // control's slider range (an unwired value already comes from a bounded
+    // slider) — the inline alternative to a Clamp node on every connection.
+    if (props.clampInputs && incoming.has(`${nodeId}:${portId}`)) {
+      const r = inputClampRange(nodeMap.get(nodeId)?.data.nodeType as string, propKey)
+      if (r) return Math.max(r.min, Math.min(r.max, v))
+    }
+    return v
   }
 
   // Resolve a palette: prefer a connected `palette` port (a preset name from
@@ -1390,7 +1399,7 @@ function createEvalNode(
         if (!fa && !fb) { out = { frame: null }; break }
         const a = fa ?? blankFrame(W, H)
         const b = fb ?? blankFrame(W, H)
-        const opacity = num(id, 'amount', props, 'amount', 128) / 255
+        const opacity = Math.max(0, Math.min(1, num(id, 'amount', props, 'amount', 0.5)))
         const mode = String(props.blendMode ?? 'normal')
         out = { frame: a.map((row, y) => row.map((px, x) => blendPixel(mode, px, b[y][x], opacity))) }
         break
@@ -1857,7 +1866,7 @@ function createEvalNode(
 
       case 'PaletteBlend': {
         // Sample both palettes at 16 stops and lerp per entry → a real blend.
-        const amount = Math.max(0, Math.min(1, num(id, 'amount', props, 'amount', 128) / 255))
+        const amount = Math.max(0, Math.min(1, num(id, 'amount', props, 'amount', 0.5)))
         const palA = pal(id, 'paletteA', props, 'paletteA', 'rainbow')
         const palB = pal(id, 'paletteB', props, 'paletteB', 'ocean')
         const stops: RGB[] = []
@@ -1892,9 +1901,10 @@ function createEvalNode(
 
       case 'Blur2D': {
         const src = input(id, 'frame', null) as Frame | null
-        const amount = num(id, 'amount', props, 'amount', 40)
+        // `amount` is a 0–1 strength; FastLED's blur2d takes a 0–255 blur amount.
+        const amount = Math.max(0, Math.min(1, num(id, 'amount', props, 'amount', 0.15)))
         if (!src) { out = { frame: blankFrame(W, H) }; break }
-        out = { frame: evalBlur2D(src, amount, W, H) }
+        out = { frame: evalBlur2D(src, amount * 255, W, H) }
         break
       }
 

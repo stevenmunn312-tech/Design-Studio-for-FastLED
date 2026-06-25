@@ -52,6 +52,13 @@ interface GraphState {
   onEdgesChange: (changes: EdgeChange[]) => void
   onConnect: (connection: Connection) => void
   addNode: (node: StudioNode) => void
+  /** Drop-to-splice: insert a node onto an existing edge, rewiring it as
+   *  source → node → target (then spread the area so the noodles aren't tiny). */
+  insertNodeOnEdge: (node: StudioNode, edgeId: string, inHandle: string, outHandle: string) => void
+  /** Push connected nodes apart so no noodle is uncomfortably short. Only ever
+   *  moves nodes rightward, so it tidies a cramped area without disturbing a
+   *  layout that already has room. */
+  spreadNodes: () => void
   selectNode: (id: string | null) => void
   selectAllNodes: () => void
   updateNodeProperty: (id: string, key: string, value: unknown) => void
@@ -81,6 +88,11 @@ type HistorySlice = Pick<GraphState, 'nodes' | 'edges'>
 // behaviour. Graphs exported before consolidation still reference the old
 // types; upgrade them on import so they keep working and gain the inline
 // variant dropdown.
+// Node types that are scene-level singletons (the matrix output) or signal
+// sources (mic / music library) — these are left behind in the parent graph
+// when encapsulating a selection into a group, not sealed inside it.
+const GROUP_EXCLUDED_TYPES = new Set(['MatrixOutput', 'MicInput', 'MusicLibrary'])
+
 const LEGACY_BUNDLE: Record<string, { nodeType: string; label: string; props: Record<string, unknown> }> = {
   NoiseField:    { nodeType: 'Noise', label: 'Noise', props: { noiseType: 'field' } },
   Simplex2D:     { nodeType: 'Noise', label: 'Noise', props: { noiseType: 'simplex' } },
@@ -95,28 +107,46 @@ const LEGACY_BUNDLE: Record<string, { nodeType: string; label: string; props: Re
   Wipe:          { nodeType: 'Transition', label: 'Transition', props: { transitionType: 'wipe' } },
   Dissolve:      { nodeType: 'Transition', label: 'Transition', props: { transitionType: 'dissolve' } },
   // Both old blend nodes did a linear mix → the Blend node's `normal` mode.
-  // LayerBlend already used the `amount` (0–255) port, so it maps cleanly.
+  // LayerBlend used a 0–255 `amount`; migrateLegacyGraph rescales it to 0–1.
   LayerBlend:    { nodeType: 'Blend', label: 'Blend', props: { blendMode: 'normal' } },
   BlendFrames:   { nodeType: 'Blend', label: 'Blend', props: { blendMode: 'normal' } },
 }
 
-// Migrate a saved graph's legacy node types to their bundle, also fixing up
-// edge handles where a port was renamed (BlendFrames' 0–1 `t` → Blend's 0–255
-// `amount`).
+// Migrate a saved graph's legacy node types to their bundle, fixing up edge
+// handles where a port was renamed (BlendFrames' `t` → Blend's `amount`) and
+// rescaling the old 0–255 `amount` opacity to the new 0–1 range.
 function migrateLegacyGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes: StudioNode[]; edges: StudioEdge[] } {
   const handleRenames = new Map<string, Record<string, string>>()
   const migratedNodes = nodes.map((n) => {
     const data = n.data as StudioNodeData
     const bundle = LEGACY_BUNDLE[data?.nodeType]
-    if (!bundle) return n
+    let nodeType = data.nodeType
+    let label = data.label
     // Existing props win, so a migrated Wipe keeps its `direction`.
-    let properties: Record<string, unknown> = { ...bundle.props, ...data.properties }
-    if (data.nodeType === 'BlendFrames') {
-      const { t, ...rest } = data.properties as Record<string, unknown>
-      properties = { ...bundle.props, ...rest, amount: Math.round(Number(t ?? 0.5) * 255) }
-      handleRenames.set(n.id, { t: 'amount' })
+    let properties: Record<string, unknown> = bundle
+      ? { ...bundle.props, ...data.properties }
+      : { ...data.properties }
+    if (bundle) {
+      nodeType = bundle.nodeType
+      label = bundle.label
+      // BlendFrames' 0–1 `t` becomes Blend's `amount` (also 0–1 since the
+      // amount scale moved to 0–1); the port is renamed t → amount.
+      if (data.nodeType === 'BlendFrames') {
+        const { t, ...rest } = data.properties as Record<string, unknown>
+        properties = { ...bundle.props, ...rest, amount: Number(t ?? 0.5) }
+        handleRenames.set(n.id, { t: 'amount' })
+      }
     }
-    return { ...n, data: { ...data, nodeType: bundle.nodeType, label: bundle.label, properties } }
+    // `amount` moved from a 0–255 opacity to a normalised 0–1 value. Older
+    // graphs (and the legacy LayerBlend) stored it 0–255 — anything above 1 must
+    // be on the old scale, so rescale it.
+    if (
+      (nodeType === 'Blend' || nodeType === 'Blur2D' || nodeType === 'PaletteBlend') &&
+      typeof properties.amount === 'number' && properties.amount > 1
+    ) {
+      properties = { ...properties, amount: properties.amount / 255 }
+    }
+    return { ...n, data: { ...data, nodeType, label, properties } }
   })
   const migratedEdges = edges.map((e) => {
     const rename = handleRenames.get(e.target)
@@ -124,6 +154,47 @@ function migrateLegacyGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes: 
     return e
   })
   return { nodes: migratedNodes, edges: migratedEdges }
+}
+
+// Minimum horizontal clearance to keep between a node's right edge and the left
+// edge of a node it feeds — anything tighter makes for a cramped, stubby noodle.
+const MIN_NODE_GAP = 60
+const DEFAULT_NODE_W = 180
+const DEFAULT_NODE_H = 100
+
+// Walk edges left-to-right and shift any target that crowds its source rightward
+// to restore MIN_NODE_GAP. "Crowds" means too close horizontally *and*
+// overlapping vertically — so a pair you've deliberately stacked vertically (a
+// long noodle dropping down a column) is left alone; only genuinely cramped /
+// overlapping connected nodes move. We only ever push right and process sources
+// in x order, so one pass cascades down a chain and always terminates. X is
+// snapped to the 20px canvas grid.
+function spreadNodesByEdges(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
+  const x = new Map(nodes.map((n) => [n.id, n.position.x]))
+  const y = new Map(nodes.map((n) => [n.id, n.position.y]))
+  const w = new Map(nodes.map((n) => [n.id, n.measured?.width ?? DEFAULT_NODE_W]))
+  const h = new Map(nodes.map((n) => [n.id, n.measured?.height ?? DEFAULT_NODE_H]))
+  const ordered = [...edges].sort((a, b) => (x.get(a.source!) ?? 0) - (x.get(b.source!) ?? 0))
+  let changed = false
+  for (const e of ordered) {
+    const sx = x.get(e.source!)
+    const tx = x.get(e.target!)
+    if (sx === undefined || tx === undefined) continue
+    const sw = w.get(e.source!) ?? DEFAULT_NODE_W
+    const gapH = tx - (sx + sw)
+    const sCy = (y.get(e.source!) ?? 0) + (h.get(e.source!) ?? DEFAULT_NODE_H) / 2
+    const tCy = (y.get(e.target!) ?? 0) + (h.get(e.target!) ?? DEFAULT_NODE_H) / 2
+    const vOverlap = Math.abs(sCy - tCy) < ((h.get(e.source!) ?? DEFAULT_NODE_H) + (h.get(e.target!) ?? DEFAULT_NODE_H)) / 2
+    if (gapH < MIN_NODE_GAP && vOverlap) {
+      x.set(e.target!, Math.round((sx + sw + MIN_NODE_GAP) / 20) * 20)
+      changed = true
+    }
+  }
+  if (!changed) return nodes
+  return nodes.map((n) => {
+    const nx = x.get(n.id)
+    return nx !== undefined && nx !== n.position.x ? { ...n, position: { ...n.position, x: nx } } : n
+  })
 }
 
 export const useGraphStore = create<GraphState>()(
@@ -161,6 +232,33 @@ export const useGraphStore = create<GraphState>()(
 
       addNode: (node) =>
         set((s) => ({ nodes: [...s.nodes, node] })),
+
+      insertNodeOnEdge: (node, edgeId, inHandle, outHandle) =>
+        set((s) => {
+          const old = s.edges.find((e) => e.id === edgeId)
+          if (!old) return { nodes: [...s.nodes, node] }
+          const srcNode = s.nodes.find((n) => n.id === old.source)
+          const srcColor = CATEGORY_COLOR[(srcNode?.data as { category?: string })?.category ?? ''] ?? '#00bfff'
+          const newColor = CATEGORY_COLOR[node.data.category] ?? '#00bfff'
+          // Two new noodles replace the old one, matching onConnect's style so the
+          // MiniMap/reconnect behaviour is identical.
+          const e1 = {
+            id: `e-${node.id}-in`, source: old.source!, sourceHandle: old.sourceHandle,
+            target: node.id, targetHandle: inHandle,
+            type: 'glowEdge', reconnectable: 'target', style: { stroke: srcColor },
+          } as StudioEdge
+          const e2 = {
+            id: `e-${node.id}-out`, source: node.id, sourceHandle: outHandle,
+            target: old.target!, targetHandle: old.targetHandle,
+            type: 'glowEdge', reconnectable: 'target', style: { stroke: newColor },
+          } as StudioEdge
+          const nodes = [...s.nodes, node]
+          const edges = [...s.edges.filter((e) => e.id !== edgeId), e1, e2]
+          return { nodes: spreadNodesByEdges(nodes, edges), edges }
+        }),
+
+      spreadNodes: () =>
+        set((s) => ({ nodes: spreadNodesByEdges(s.nodes, s.edges) })),
 
       selectNode: (id) => set({ selectedNodeId: id }),
 
@@ -254,6 +352,16 @@ export const useGraphStore = create<GraphState>()(
         const groupId = `group-${Date.now()}`
         set((s) => {
           const idSet = new Set(nodeIds)
+          // Scene-level singletons stay in the parent graph rather than being
+          // sealed inside a reusable pattern. A surviving MatrixOutput is
+          // auto-rewired to the new Group's frame output (it becomes an outgoing
+          // boundary edge); a surviving MicInput/MusicLibrary feeding the
+          // selection is surfaced as an exposed Group input (an incoming edge).
+          // This keeps the "make pattern → group → repeat" loop's sources/output
+          // in place for the next pattern.
+          for (const n of s.nodes)
+            if (idSet.has(n.id) && GROUP_EXCLUDED_TYPES.has(n.data.nodeType as string))
+              idSet.delete(n.id)
           const selected = s.nodes.filter((n) => idSet.has(n.id))
           if (selected.length === 0) return s
 

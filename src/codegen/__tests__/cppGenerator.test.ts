@@ -147,9 +147,9 @@ describe('generateCpp', () => {
   })
 
   it('emits blur2d call for Blur2D node', () => {
-    const blur = node('bl', 'Blur2D', 'pattern', { amount: 40 })
+    const blur = node('bl', 'Blur2D', 'pattern', { amount: 0.5 })
     const cpp = generateCpp([blur, outputNode], [])
-    expect(cpp).toContain('blur2d(buf_bl, WIDTH, HEIGHT, 40)')
+    expect(cpp).toContain('blur2d(buf_bl, WIDTH, HEIGHT, 128)')   // 0.5 × 255
   })
 
   it('emits a Transform that resamples from the source buffer per mode', () => {
@@ -238,7 +238,7 @@ describe('generateCpp', () => {
   })
 
   it('resolves a connected PaletteBlend to its base palette A', () => {
-    const blend = node('bl', 'PaletteBlend', 'color', { paletteA: 'forest', paletteB: 'party', amount: 128 })
+    const blend = node('bl', 'PaletteBlend', 'color', { paletteA: 'forest', paletteB: 'party', amount: 0.5 })
     const samp  = node('s', 'PaletteSampler', 'color', { t: 0.5 })
     const cpp = generateCpp([blend, samp, outputNode], [edge('e1', 'bl', 's', 'palette', 'paletteIn')])
     expect(cpp).toContain('ColorFromPalette(ForestColors_p')
@@ -334,7 +334,7 @@ describe('generateCpp', () => {
   })
 
   it('emits a blended CRGBPalette16 for PaletteBlend', () => {
-    const pb = node('pb', 'PaletteBlend', 'color', { paletteA: 'heat', paletteB: 'ocean', amount: 128 })
+    const pb = node('pb', 'PaletteBlend', 'color', { paletteA: 'heat', paletteB: 'ocean', amount: 0.5 })
     const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
     const cpp = generateCpp([pb, sx, outputNode], [
       edge('e1', 'pb', 'sx', 'palette', 'paletteIn'),
@@ -553,7 +553,7 @@ describe('generateCpp', () => {
   it('Blend normal mode composites with nblend and copies the result to leds', () => {
     const a  = node('a', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
     const b  = node('b', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 })
-    const lb = node('lb', 'Blend', 'composite', { blendMode: 'normal', amount: 128 })
+    const lb = node('lb', 'Blend', 'composite', { blendMode: 'normal', amount: 0.5 })
     const cpp = generateCpp([a, b, lb, outputNode], [
       edge('e1', 'a', 'lb', 'frame', 'a'),
       edge('e2', 'b', 'lb', 'frame', 'b'),
@@ -562,21 +562,21 @@ describe('generateCpp', () => {
     expect(cpp).toContain('CRGB buf_a[NUM_LEDS];')
     expect(cpp).toContain('CRGB buf_b[NUM_LEDS];')
     expect(cpp).toContain('::memmove(buf_lb, buf_a, sizeof(CRGB) * NUM_LEDS)')
-    expect(cpp).toContain('nblend(buf_lb, buf_b, NUM_LEDS, (uint8_t)(128))')
+    expect(cpp).toContain('nblend(buf_lb, buf_b, NUM_LEDS, (uint8_t)((0.5) * 255))')
     expect(cpp).toContain('::memmove(leds, buf_lb, sizeof(CRGB) * NUM_LEDS)')
   })
 
   it('Blend non-normal mode emits a per-channel blend loop', () => {
     const a  = node('a', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
     const b  = node('b', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 })
-    const bl = node('bl', 'Blend', 'composite', { blendMode: 'multiply', amount: 200 })
+    const bl = node('bl', 'Blend', 'composite', { blendMode: 'multiply', amount: 0.5 })
     const cpp = generateCpp([a, b, bl, outputNode], [
       edge('e1', 'a', 'bl', 'frame', 'a'),
       edge('e2', 'b', 'bl', 'frame', 'b'),
       edge('e3', 'bl', 'out', 'frame', 'frame'),
     ])
     expect(cpp).not.toContain('nblend(buf_bl')        // not the linear path
-    expect(cpp).toContain('float _op=(200)/255.0f')
+    expect(cpp).toContain('float _op=(0.5)')
     expect(cpp).toContain('float _r=_av*_bv;')        // multiply expression
   })
 

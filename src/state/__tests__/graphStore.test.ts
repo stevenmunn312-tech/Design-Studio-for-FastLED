@@ -118,6 +118,35 @@ describe('graphStore — grouping', () => {
     expect(s.graphData[gid].nodes.some((n) => n.data.nodeType === 'GroupInput')).toBe(true)
   })
 
+  it('leaves MatrixOutput and signal sources behind when grouping', () => {
+    reset(
+      [
+        node('mic', 'MicInput'),
+        node('fft', 'FFTAnalyzer'),
+        node('sp', 'SpectrumBars'),
+        node('out', 'MatrixOutput'),
+      ],
+      [
+        edge('e1', 'mic', 'audio', 'fft', 'audio'),
+        edge('e2', 'fft', 'bass', 'sp', 'bass'),
+        edge('e3', 'sp', 'frame', 'out', 'frame'),
+      ],
+    )
+    // "Select all" then group — the singletons must stay in the parent graph.
+    const gid = useGraphStore.getState().createGroup('Spectrum', ['mic', 'fft', 'sp', 'out'])
+    const s = useGraphStore.getState()
+
+    expect(s.nodes.find((n) => n.id === 'mic')).toBeTruthy()   // source left behind
+    expect(s.nodes.find((n) => n.id === 'out')).toBeTruthy()   // output left behind
+    expect(s.nodes.find((n) => n.id === 'fft')).toBeUndefined() // sealed in the group
+    const groupNode = s.nodes.find((n) => n.data.nodeType === 'Group')!
+
+    // The mic now feeds the group via an exposed audio param; the group feeds out.
+    expect(s.edges.some((e) => e.source === 'mic' && e.target === groupNode.id)).toBe(true)
+    expect(s.edges.some((e) => e.source === groupNode.id && e.target === 'out')).toBe(true)
+    expect(s.graphData[gid].nodes.some((n) => n.data.nodeType === 'GroupInput')).toBe(true)
+  })
+
   it('enterGraph swaps the active graph and back', () => {
     reset([node('sc', 'SolidColor', { r: 0, g: 0, b: 255 })], [])
     const gid = useGraphStore.getState().createGroup('Blue', ['sc'])
@@ -174,9 +203,61 @@ describe('graphStore — legacy node migration on load', () => {
     const d = dataOf('bf')
     expect(d.nodeType).toBe('Blend')
     expect(d.properties.blendMode).toBe('normal')
-    expect(d.properties.amount).toBe(204)        // 0.8 × 255
+    expect(d.properties.amount).toBe(0.8)        // 0–1 amount carries t straight over
     expect(d.properties.t).toBeUndefined()       // old prop dropped
     const e = useGraphStore.getState().edges[0]
     expect(e.targetHandle).toBe('amount')        // edge rewired to the new port
+  })
+
+  it('rescales a legacy 0–255 Blend amount to the 0–1 range on load', () => {
+    useGraphStore.getState().loadGraph(
+      [node('bl', 'Blend', { blendMode: 'normal', amount: 128 }), node('bl2', 'Blend', { amount: 0.5 })],
+      [],
+    )
+    // 128 (old scale) → ~0.5; a value already ≤ 1 is left untouched.
+    expect(dataOf('bl').properties.amount).toBeCloseTo(128 / 255, 5)
+    expect(dataOf('bl2').properties.amount).toBe(0.5)
+  })
+})
+
+describe('graphStore — splice & spread', () => {
+  beforeEach(() => reset())
+
+  const at = (n: StudioNode, x: number, y = 0): StudioNode => ({ ...n, position: { x, y } })
+
+  it('insertNodeOnEdge rewires source → new → target and drops the old edge', () => {
+    reset(
+      [at(node('sc', 'SolidColor', { r: 0, g: 0, b: 255 }), 0), at(node('out', 'MatrixOutput'), 600)],
+      [edge('e1', 'sc', 'frame', 'out', 'frame')],
+    )
+    useGraphStore.getState().insertNodeOnEdge(node('inv', 'Invert'), 'e1', 'frame', 'frame')
+    const s = useGraphStore.getState()
+    expect(s.nodes.some((n) => n.id === 'inv')).toBe(true)
+    expect(s.edges.some((e) => e.id === 'e1')).toBe(false)
+    expect(s.edges.some((e) => e.source === 'sc' && e.target === 'inv' && e.targetHandle === 'frame')).toBe(true)
+    expect(s.edges.some((e) => e.source === 'inv' && e.target === 'out' && e.targetHandle === 'frame')).toBe(true)
+  })
+
+  it('spreadNodes pushes a cramped target node rightward, leaving roomy ones alone', () => {
+    reset(
+      [at(node('sc', 'SolidColor'), 0), at(node('bm', 'BrightnessMod'), 30), at(node('out', 'MatrixOutput'), 1000)],
+      [edge('e1', 'sc', 'frame', 'bm', 'frame'), edge('e2', 'bm', 'frame', 'out', 'frame')],
+    )
+    useGraphStore.getState().spreadNodes()
+    const pos = (id: string) => useGraphStore.getState().nodes.find((n) => n.id === id)!.position.x
+    // bm was 30px from sc (overlapping) → pushed clear of sc's right edge + gap.
+    expect(pos('bm')).toBeGreaterThanOrEqual(180 + 60)
+    // out already had ample room → untouched.
+    expect(pos('out')).toBe(1000)
+  })
+
+  it('spreadNodes leaves a vertically stacked pair alone', () => {
+    reset(
+      [at(node('sc', 'SolidColor'), 0, 0), at(node('out', 'MatrixOutput'), 0, 300)],
+      [edge('e1', 'sc', 'frame', 'out', 'frame')],
+    )
+    useGraphStore.getState().spreadNodes()
+    // Same column but well separated vertically → the noodle is fine, no nudge.
+    expect(useGraphStore.getState().nodes.find((n) => n.id === 'out')!.position.x).toBe(0)
   })
 })
