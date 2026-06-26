@@ -12,6 +12,11 @@ build/architecture overview aimed at contributors.
 
 ## Development
 
+- [Design notes](development/design/)
+  - [Generative pattern show](development/design/generative-pattern-show.md)
+    — the Library → Collection → Pattern Master flow for a random pattern/
+    transition show (localStorage library, audio-reactive patterns, per-pattern
+    `.h` codegen), and its phased rollout.
 - [Plans](development/plans/)
   - [T-HMI feature integration](development/plans/thmi-feature-integration.md)
     — how to replay the divergent `feature/thmi-touchscreen-ui` branch (FFT
