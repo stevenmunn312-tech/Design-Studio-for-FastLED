@@ -42,6 +42,21 @@ export async function listPorts(): Promise<SerialPort[]> {
   }
 }
 
+// Pipe a streaming text response into `onLog`, chunk by chunk.
+async function pipeStream(res: Response, onLog: (chunk: string) => void): Promise<void> {
+  if (!res.body) {
+    onLog('No response stream from the upload helper.\n')
+    return
+  }
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    onLog(decoder.decode(value, { stream: true }))
+  }
+}
+
 /**
  * Compile + upload a raw `.ino`, invoking `onLog` with each streamed text chunk.
  * Rejects if the helper is unreachable so the caller can fall back to commands.
@@ -59,15 +74,30 @@ export async function uploadSketch(
     body: JSON.stringify({ ino, fqbn, port }),
     signal,
   })
-  if (!res.body) {
-    onLog('No response stream from the upload helper.\n')
-    return
-  }
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder()
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    onLog(decoder.decode(value, { stream: true }))
-  }
+  await pipeStream(res, onLog)
+}
+
+export interface ShowUploadFile {
+  /** SD destination path, e.g. `/music/song.mp3` or `/shows/song.show`. */
+  path: string
+  data: Blob
+}
+
+/**
+ * Music-sync upload: flash the provisioner, stream the songs/shows onto the SD
+ * card over serial, then flash the player — all in one helper call, streaming
+ * logs to `onLog`.
+ */
+export async function uploadShow(
+  opts: { fqbn: string; port: string; provisioner: string; player: string; files: ShowUploadFile[] },
+  onLog: (chunk: string) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const form = new FormData()
+  form.append('meta', JSON.stringify({ fqbn: opts.fqbn, port: opts.port, paths: opts.files.map((f) => f.path) }))
+  form.append('provisioner', opts.provisioner)
+  form.append('player', opts.player)
+  for (const f of opts.files) form.append('files', f.data, f.path.split('/').pop() ?? 'file')
+  const res = await fetch(`${BACKEND_URL}/api/upload-show`, { method: 'POST', body: form, signal })
+  await pipeStream(res, onLog)
 }
