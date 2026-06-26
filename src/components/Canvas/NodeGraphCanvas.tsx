@@ -21,6 +21,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
+import { usePatternLibrary } from '../../state/patternLibrary'
 import { NODE_LIBRARY, CATEGORY_COLOR, portsCompatible } from '../../state/nodeLibrary'
 import StudioNode from './StudioNode'
 import GlowEdge from './GlowEdge'
@@ -60,7 +61,7 @@ function distToSegment(p: Pt, a: Pt, b: Pt): number {
 }
 
 function NodeGraphCanvasInner() {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, insertNodeOnEdge, spreadNodes, enterGraph, removeEdge, reconnectNoodle } =
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, insertNodeOnEdge, spreadNodes, instantiatePattern, enterGraph, removeEdge, reconnectNoodle } =
     useGraphStore()
   // Tracks whether a dragged noodle end landed on a valid port; if not (dropped
   // on empty space) we treat it as an unplug and delete the edge.
@@ -243,6 +244,16 @@ function NodeGraphCanvasInner() {
   const onDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault()
+
+      // A saved library pattern dropped from the sidebar → instantiate it as a
+      // Group node at the drop point.
+      const patternId = e.dataTransfer.getData('application/studio-pattern')
+      if (patternId) {
+        const saved = usePatternLibrary.getState().patterns.find((p) => p.id === patternId)
+        if (saved) instantiatePattern(saved, screenToFlowPosition({ x: e.clientX, y: e.clientY }))
+        return
+      }
+
       const type = e.dataTransfer.getData('application/studio-node')
       if (!type) return
 
@@ -303,7 +314,7 @@ function NodeGraphCanvasInner() {
         addNode(newNode)
       }
     },
-    [screenToFlowPosition, addNode, insertNodeOnEdge, edges, getNode, setStatus]
+    [screenToFlowPosition, addNode, insertNodeOnEdge, instantiatePattern, edges, getNode, setStatus]
   )
 
   return (

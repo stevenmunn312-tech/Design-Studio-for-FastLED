@@ -15,6 +15,7 @@ import {
 import type { NodeCategory } from '../types'
 import { CATEGORY_COLOR } from './nodeLibrary'
 import type { GroupRegistry } from './graphEvaluator'
+import type { SavedPattern } from './patternLibrary'
 
 export interface StudioNodeData extends Record<string, unknown> {
   label: string
@@ -79,6 +80,9 @@ interface GraphState {
   /** Encapsulate the given nodes into a new group, replacing them in the
    *  active graph with a single Group node. Returns the new group id. */
   createGroup: (name: string, nodeIds: string[]) => string
+  /** Drop a copy of a saved library pattern onto the canvas as a Group node,
+   *  registering its subgraph under a fresh group id. */
+  instantiatePattern: (saved: SavedPattern, position: { x: number; y: number }) => void
 }
 
 type HistorySlice = Pick<GraphState, 'nodes' | 'edges'>
@@ -469,6 +473,29 @@ export const useGraphStore = create<GraphState>()(
         })
         return groupId
       },
+
+      instantiatePattern: (saved, position) =>
+        set((s) => {
+          const groupId = `group-${Date.now()}`
+          // Clone the saved subgraph so two instances of the same pattern don't
+          // share node/edge objects (editing one would otherwise touch both).
+          const sub = structuredClone(saved.subgraph)
+          const groupNode: StudioNode = {
+            id: `groupnode-${groupId}`,
+            type: 'studioNode',
+            position,
+            data: {
+              label: saved.name, nodeType: 'Group', category: 'composite',
+              properties: { groupId },
+              inputs: saved.inputs, outputs: saved.outputs,
+            },
+          } as StudioNode
+          return {
+            graphs: { ...s.graphs, [groupId]: { id: groupId, name: saved.name } },
+            graphData: { ...s.graphData, [groupId]: { nodes: sub.nodes, edges: sub.edges } },
+            nodes: [...s.nodes, groupNode],
+          }
+        }),
     }),
     {
       limit: 100,
