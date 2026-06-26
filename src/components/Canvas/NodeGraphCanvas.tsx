@@ -61,7 +61,7 @@ function distToSegment(p: Pt, a: Pt, b: Pt): number {
 }
 
 function NodeGraphCanvasInner() {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, insertNodeOnEdge, spreadNodes, instantiatePattern, enterGraph, removeEdge, reconnectNoodle } =
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, insertNodeOnEdge, spreadNodes, instantiatePattern, addToCollection, enterGraph, removeEdge, reconnectNoodle } =
     useGraphStore()
   // Tracks whether a dragged noodle end landed on a valid port; if not (dropped
   // on empty space) we treat it as an unplug and delete the edge.
@@ -105,6 +105,21 @@ function NodeGraphCanvasInner() {
 
   const handleConnect: OnConnect = useCallback(
     (connection) => {
+      // Absorbing a pattern into a collection: dropping a Group's frame output on
+      // a PatternCollection's input internalizes it instead of wiring a noodle.
+      const tgt = getNode(connection.target ?? '')
+      if ((tgt?.data as { nodeType?: string })?.nodeType === 'PatternCollection' && connection.targetHandle === 'pattern') {
+        const src = getNode(connection.source ?? '')
+        if ((src?.data as { nodeType?: string })?.nodeType !== 'Group') {
+          setStatus('Group your pattern first, then connect it to the collection', 'info')
+          return
+        }
+        const name = (src?.data as { label?: string })?.label ?? 'pattern'
+        if (window.confirm(`Add “${name}” to the collection?`)) {
+          addToCollection(connection.target!, connection.source!)
+        }
+        return
+      }
       onConnect(connection)
       // Spread the freshly-connected pair apart if the new noodle is too short.
       spreadNodes()
@@ -113,7 +128,7 @@ function NodeGraphCanvasInner() {
         setTimeout(() => setSparkPort(null), 150)
       }
     },
-    [onConnect, spreadNodes, setSparkPort]
+    [onConnect, spreadNodes, setSparkPort, getNode, setStatus, addToCollection]
   )
 
   // After a node is dragged, tidy any connections it left too cramped.

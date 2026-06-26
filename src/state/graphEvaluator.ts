@@ -1051,7 +1051,7 @@ function evalCustomFormula(formula: string, a: number, b: number, palette: Palet
 
 // ── Main entry point ──────────────────────────────────────────────────────────
 
-type PortValue = number | boolean | string | RGB | RGB[] | Frame | null
+type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | null
 
 /** A reusable pattern group: a named subgraph that a `Group` node evaluates. */
 export interface GroupDef { nodes: StudioNode[]; edges: StudioEdge[] }
@@ -1839,6 +1839,12 @@ function createEvalNode(
 
       case 'PaletteSelector':
         out = { palette: String(props.palette ?? 'rainbow').toLowerCase() }
+        break
+
+      // Outputs its absorbed patterns (group ids) as a patternset; the Pattern
+      // Master (a later phase) resolves each id via the group registry.
+      case 'PatternCollection':
+        out = { patternset: (props.patternIds as string[] | undefined) ?? [] }
         break
 
       case 'CustomPalette': {

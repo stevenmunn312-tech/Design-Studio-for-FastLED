@@ -10,6 +10,7 @@ import WaveScope from './WaveScope'
 import ComplexWaveScope from './ComplexWaveScope'
 import NodePreview, { type PreviewKind } from './NodePreview'
 import MusicLibraryNodeBody from './MusicLibraryNodeBody'
+import PatternCollectionBody from './PatternCollectionBody'
 import { usePreviewStore } from '../../state/previewStore'
 import styles from './StudioNode.module.css'
 
@@ -225,6 +226,8 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         ))}
 
         {d.nodeType === 'MusicLibrary' && <MusicLibraryNodeBody />}
+
+        {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}
 
         {d.nodeType === 'MatrixOutput' && (
           <button

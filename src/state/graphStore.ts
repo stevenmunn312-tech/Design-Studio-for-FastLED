@@ -83,6 +83,11 @@ interface GraphState {
   /** Drop a copy of a saved library pattern onto the canvas as a Group node,
    *  registering its subgraph under a fresh group id. */
   instantiatePattern: (saved: SavedPattern, position: { x: number; y: number }) => void
+  /** Absorb a Group node into a PatternCollection: remove it (and its edges)
+   *  from the canvas and record its group id in the collection's list. */
+  addToCollection: (collectionNodeId: string, groupNodeId: string) => void
+  /** Remove a pattern (group id) from a PatternCollection, dropping its subgraph. */
+  removeFromCollection: (collectionNodeId: string, groupId: string) => void
 }
 
 type HistorySlice = Pick<GraphState, 'nodes' | 'edges'>
@@ -495,6 +500,37 @@ export const useGraphStore = create<GraphState>()(
             graphData: { ...s.graphData, [groupId]: { nodes: sub.nodes, edges: sub.edges } },
             nodes: [...s.nodes, groupNode],
           }
+        }),
+
+      addToCollection: (collectionNodeId, groupNodeId) =>
+        set((s) => {
+          const group = s.nodes.find((n) => n.id === groupNodeId)
+          const groupId = (group?.data.properties as { groupId?: string } | undefined)?.groupId
+          if (!group || !groupId) return s
+          // Drop the Group node + any edges touching it; its subgraph stays in
+          // graphData, now referenced by the collection's patternIds.
+          const nodes = s.nodes
+            .filter((n) => n.id !== groupNodeId)
+            .map((n) => {
+              if (n.id !== collectionNodeId) return n
+              const ids = ((n.data.properties as { patternIds?: string[] }).patternIds) ?? []
+              if (ids.includes(groupId)) return n
+              return { ...n, data: { ...n.data, properties: { ...n.data.properties, patternIds: [...ids, groupId] } } }
+            })
+          const edges = s.edges.filter((e) => e.source !== groupNodeId && e.target !== groupNodeId)
+          return { nodes, edges }
+        }),
+
+      removeFromCollection: (collectionNodeId, groupId) =>
+        set((s) => {
+          const nodes = s.nodes.map((n) => {
+            if (n.id !== collectionNodeId) return n
+            const ids = (((n.data.properties as { patternIds?: string[] }).patternIds) ?? []).filter((x) => x !== groupId)
+            return { ...n, data: { ...n.data, properties: { ...n.data.properties, patternIds: ids } } }
+          })
+          const graphData = { ...s.graphData }; delete graphData[groupId]
+          const graphs = { ...s.graphs }; delete graphs[groupId]
+          return { nodes, graphData, graphs }
         }),
     }),
     {

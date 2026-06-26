@@ -63,4 +63,32 @@ describe('patternLibrary', () => {
     // Cloned, not aliased to the saved object.
     expect(s.graphData[groupId].nodes).not.toBe(saved.subgraph.nodes)
   })
+
+  it('addToCollection absorbs a Group node and removes it from the canvas', () => {
+    useGraphStore.setState({
+      nodes: [
+        { ...node('coll', 'PatternCollection'), data: { ...node('coll', 'PatternCollection').data, properties: { patternIds: [] } } },
+        { ...node('g', 'Group'), data: { ...node('g', 'Group').data, properties: { groupId: 'group-1' } } },
+        node('up', 'SolidColor'),
+      ],
+      edges: [
+        { id: 'e1', source: 'up', target: 'g', sourceHandle: 'out', targetHandle: 'in' } as unknown as StudioEdge,
+      ],
+      graphs: { root: { id: 'root', name: 'Main' }, 'group-1': { id: 'group-1', name: 'Glow' } },
+      graphData: { 'group-1': { nodes: [node('x', 'SolidColor')], edges: [] } },
+    })
+
+    useGraphStore.getState().addToCollection('coll', 'g')
+    const s = useGraphStore.getState()
+    expect(s.nodes.find((n) => n.id === 'g')).toBeUndefined()      // group left the canvas
+    expect(s.edges).toHaveLength(0)                                 // its edges went too
+    const coll = s.nodes.find((n) => n.id === 'coll')!
+    expect(coll.data.properties.patternIds).toEqual(['group-1'])
+    expect(s.graphData['group-1']).toBeTruthy()                     // subgraph retained
+
+    useGraphStore.getState().removeFromCollection('coll', 'group-1')
+    const s2 = useGraphStore.getState()
+    expect((s2.nodes.find((n) => n.id === 'coll')!.data.properties.patternIds)).toEqual([])
+    expect(s2.graphData['group-1']).toBeUndefined()                 // subgraph dropped
+  })
 })

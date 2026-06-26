@@ -854,6 +854,20 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { interval: 4.0, fade: 1.0 },
   },
 
+  // ── Generative pattern show (Phase 2) ──────────────────────────────────
+  {
+    // Holds a chosen subset of pattern groups for a show. Wire a Group node's
+    // frame output here and confirm to *absorb* it into the collection's list
+    // (it leaves the canvas). Outputs a `patternset` for the Pattern Master.
+    // See docs/development/design/generative-pattern-show.md.
+    type: 'PatternCollection',
+    label: 'Pattern Collection',
+    category: 'composite',
+    inputs: [{ id: 'pattern', label: 'Pattern', dataType: 'frame' }],
+    outputs: [{ id: 'patternset', label: 'Patterns', dataType: 'patternset' }],
+    defaultProperties: { patternIds: [] },
+  },
+
   // ── Custom Formula ────────────────────────────────────────────────────
   {
     type: 'CustomFormula',
@@ -1030,6 +1044,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Invert: 'Inverts colors.',
   Transition: 'Transitions A→B — 16 styles: wipe, iris, push, blinds, spiral, zoom + more.',
   Sequencer: 'Crossfades through its inputs on a timer.',
+  PatternCollection: 'Absorbs pattern groups into a set for the Pattern Master.',
   // output
   MatrixOutput: 'The LED matrix output — board, pin, and size.',
 }
@@ -1070,6 +1085,7 @@ const PORT_COLORS: Record<string, string> = {
   songs: '#ffb74d',
   shows: '#ffa726',
   sdcard: '#ffa500',
+  patternset: '#00e0a4',
 }
 
 /** Colour for a port's data type (used to tint node handles). */
