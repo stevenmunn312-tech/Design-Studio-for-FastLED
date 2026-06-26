@@ -1168,9 +1168,13 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
-      case 'PatternMaster':
-        ln(`  // PatternMaster — implement pattern cycling logic in setup()/loop()`)
+      case 'PatternMaster': {
+        // The generative pattern-show controller is Phase 4 (per-pattern .h +
+        // controller .ino); for now keep the sketch valid with a black fill.
+        const ob = ownBuf()
+        ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // Pattern Master — show codegen is Phase 4`)
         break
+      }
 
       case 'Sequencer': {
         const ob = ownBuf()

@@ -11,6 +11,7 @@ import ComplexWaveScope from './ComplexWaveScope'
 import NodePreview, { type PreviewKind } from './NodePreview'
 import MusicLibraryNodeBody from './MusicLibraryNodeBody'
 import PatternCollectionBody from './PatternCollectionBody'
+import PatternMasterBody from './PatternMasterBody'
 import { usePreviewStore } from '../../state/previewStore'
 import styles from './StudioNode.module.css'
 
@@ -131,7 +132,8 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const props = d.properties as Record<string, unknown>
   const hasRGB = ['r', 'g', 'b'].every((k) => typeof props[k] === 'number')
   const editable = Object.entries(props).filter(
-    ([k]) => k !== 'font' && k !== 'image' && k !== 'clampInputs' && !(hasRGB && (k === 'r' || k === 'g' || k === 'b'))
+    ([k]) => k !== 'font' && k !== 'image' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'transitions'
+      && !(hasRGB && (k === 'r' || k === 'g' || k === 'b'))
   )
   // The "clamp inputs" toggle is rendered specially (it has no entry in the
   // node's default properties); show it only where it would do something.
@@ -228,6 +230,8 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {d.nodeType === 'MusicLibrary' && <MusicLibraryNodeBody />}
 
         {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}
+
+        {d.nodeType === 'PatternMaster' && <PatternMasterBody nodeId={id} />}
 
         {d.nodeType === 'MatrixOutput' && (
           <button

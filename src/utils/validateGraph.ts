@@ -19,9 +19,8 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[]): Validat
   }
 
   const master = nodes.find(n => n.data.nodeType === 'PatternMaster')
-  if (master) {
-    const hasPat = ['p0','p1','p2','p3'].some(p => incoming.has(`${master.id}:${p}`))
-    if (!hasPat) warnings.push('Pattern Master has no pattern inputs wired')
+  if (master && !incoming.has(`${master.id}:patternset`)) {
+    warnings.push('Pattern Master has no Pattern Collection wired')
   }
 
   const isolated = nodes.filter(n =>

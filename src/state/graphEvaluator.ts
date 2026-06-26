@@ -20,7 +20,7 @@ const counterVals = new Map<string, number>()
 
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; r: number; g: number; b: number }
 const particleState = new Map<string, Particle[]>()
-const patternMasterState = new Map<string, { idx: number; lastBeat: boolean }>()
+const patternShowState = new Map<string, ShowState>()
 
 interface RDState { u: Float32Array; v: Float32Array; un: Float32Array; vn: Float32Array; w: number; h: number }
 const rdState = new Map<string, RDState>()
@@ -965,24 +965,91 @@ function evalZoom(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H):
     }))
 }
 
-function evalPatternMaster(nodeId: string, frames: (Frame | null)[], beat: boolean, mode: string, interval: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  const valid = frames.filter((f): f is Frame => f !== null)
-  if (valid.length === 0) return blankFrame(W, H)
+// Dispatch one of the 16 A→B transition styles (the Transition node + the
+// Pattern Master both composite through this). Unknown type → crossfade.
+export function compositeTransition(
+  type: string, a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H,
+  opts: { dir?: string; axis?: string; tileSize?: number; count?: number; turns?: number } = {},
+): Frame {
+  const dir = opts.dir ?? 'right'
+  const axis = opts.axis ?? 'horizontal'
+  const tileSize = Math.max(1, Math.round(opts.tileSize ?? 4))
+  const count = Math.max(1, Math.round(opts.count ?? 4))
+  const turns = Math.max(1, opts.turns ?? 2)
+  switch (type) {
+    case 'wipe':         return evalWipe(a, b, tt, dir, W, H)
+    case 'dissolve':     return evalDissolve(a, b, tt, W, H)
+    case 'iris':         return evalIris(a, b, tt, W, H)
+    case 'clockwipe':    return evalClockWipe(a, b, tt, W, H)
+    case 'push':         return evalPush(a, b, tt, dir, W, H)
+    case 'checkerboard': return evalCheckerboard(a, b, tt, tileSize, W, H)
+    case 'diagonal':     return evalDiagonal(a, b, tt, W, H)
+    case 'fadeblack':    return evalFadeThroughBlack(a, b, tt)
+    case 'fadewhite':    return evalFadeThroughWhite(a, b, tt)
+    case 'blinds':       return evalBlinds(a, b, tt, count, axis, W, H)
+    case 'ripple':       return evalRippleWipe(a, b, tt, W, H)
+    case 'spiral':       return evalSpiralWipe(a, b, tt, turns, W, H)
+    case 'curtain':      return evalCurtain(a, b, tt, axis, W, H)
+    case 'scanlines':    return evalScanLines(a, b, tt, W, H)
+    case 'zoom':         return evalZoom(a, b, tt, W, H)
+    default:             return blendFrame(a, b, tt, W, H)   // crossfade
+  }
+}
 
-  let idx: number
-  if (mode === 'beat') {
-    const prev = patternMasterState.get(nodeId) ?? { idx: 0, lastBeat: false }
-    if (beat && !prev.lastBeat) {
-      idx = (prev.idx + 1) % valid.length
-    } else {
-      idx = Math.min(prev.idx, valid.length - 1)
-    }
-    patternMasterState.set(nodeId, { idx, lastBeat: beat })
-  } else {
-    idx = Math.floor(t / Math.max(0.1, interval)) % valid.length
+interface ShowState {
+  cur: number; nxt: number; phase: 'hold' | 'trans'
+  start: number; dwell: number; trans: string; lastBeat: boolean; n: number
+}
+interface ShowOpts { minTime: number; maxTime: number; transSec: number; pool: string[]; beatEnabled: boolean }
+
+// The generative show: hold a random pattern for a random dwell in
+// [minTime, maxTime], then transition (a random style from `pool`) into another
+// random pattern. A wired beat advances early, once at least minTime has passed.
+// `render(groupId)` rasterises a pattern's subgraph to a frame.
+function evalPatternShow(
+  key: string, ids: string[], render: (groupId: string) => Frame,
+  beat: boolean, o: ShowOpts, t: number, W = DEFAULT_W, H = DEFAULT_H,
+): Frame {
+  const n = ids.length
+  if (n === 0) return blankFrame(W, H)
+  const pickDwell = () => o.minTime + Math.random() * Math.max(0, o.maxTime - o.minTime)
+
+  let st = patternShowState.get(key)
+  if (!st || st.n !== n) {
+    st = { cur: Math.min(st?.cur ?? Math.floor(Math.random() * n), n - 1), nxt: 0,
+           phase: 'hold', start: t, dwell: pickDwell(), trans: 'crossfade', lastBeat: beat, n }
   }
 
-  return valid[idx]
+  const beatEdge = o.beatEnabled && beat && !st.lastBeat
+  st.lastBeat = beat
+
+  if (st.phase === 'hold' && n > 1) {
+    const timeUp = t >= st.start + st.dwell
+    const beatTrig = beatEdge && t >= st.start + o.minTime
+    if (timeUp || beatTrig) {
+      st.nxt = (st.cur + 1 + Math.floor(Math.random() * (n - 1))) % n   // uniform, ≠ cur
+      st.trans = o.pool.length ? o.pool[Math.floor(Math.random() * o.pool.length)] : 'crossfade'
+      st.phase = 'trans'
+      st.start = t
+    }
+  }
+
+  let frame: Frame
+  if (st.phase === 'trans') {
+    const prog = o.transSec <= 0 ? 1 : Math.min(1, (t - st.start) / o.transSec)
+    frame = compositeTransition(st.trans, render(ids[st.cur]), render(ids[st.nxt]), prog, W, H)
+    if (prog >= 1) {
+      st.cur = st.nxt
+      st.phase = 'hold'
+      st.start = t
+      st.dwell = pickDwell()
+    }
+  } else {
+    frame = render(ids[st.cur])
+  }
+
+  patternShowState.set(key, st)
+  return frame
 }
 
 /** Per-pixel linear blend of two frames, m=0 → a, m=1 → b. */
@@ -1757,52 +1824,40 @@ function createEvalNode(
         const tt = num(id, 't', props, 't', 0.5)
         const ca = fa ?? blankFrame(W, H)
         const cb = fb ?? blankFrame(W, H)
-        const type = String(props.transitionType ?? 'crossfade')
-        const dir = String(props.direction ?? 'right')
-        const axis = String(props.axis ?? 'horizontal')
-        const tileSize = Math.max(1, Math.round(Number(props.tileSize ?? 4)))
-        const count = Math.max(1, Math.round(Number(props.count ?? 4)))
-        const turns = Math.max(1, Number(props.turns ?? 2))
-        let frame: Frame
-        switch (type) {
-          case 'wipe':         frame = evalWipe(ca, cb, tt, dir, W, H); break
-          case 'dissolve':     frame = evalDissolve(ca, cb, tt, W, H); break
-          case 'iris':         frame = evalIris(ca, cb, tt, W, H); break
-          case 'clockwipe':    frame = evalClockWipe(ca, cb, tt, W, H); break
-          case 'push':         frame = evalPush(ca, cb, tt, dir, W, H); break
-          case 'checkerboard': frame = evalCheckerboard(ca, cb, tt, tileSize, W, H); break
-          case 'diagonal':     frame = evalDiagonal(ca, cb, tt, W, H); break
-          case 'fadeblack':    frame = evalFadeThroughBlack(ca, cb, tt); break
-          case 'fadewhite':    frame = evalFadeThroughWhite(ca, cb, tt); break
-          case 'blinds':       frame = evalBlinds(ca, cb, tt, count, axis, W, H); break
-          case 'ripple':       frame = evalRippleWipe(ca, cb, tt, W, H); break
-          case 'spiral':       frame = evalSpiralWipe(ca, cb, tt, turns, W, H); break
-          case 'curtain':      frame = evalCurtain(ca, cb, tt, axis, W, H); break
-          case 'scanlines':    frame = evalScanLines(ca, cb, tt, W, H); break
-          case 'zoom':         frame = evalZoom(ca, cb, tt, W, H); break
-          default: // crossfade
-            frame = ca.map((row, y) =>
-              row.map((px, x) => ({
-                r: Math.round(px.r * (1 - tt) + cb[y][x].r * tt),
-                g: Math.round(px.g * (1 - tt) + cb[y][x].g * tt),
-                b: Math.round(px.b * (1 - tt) + cb[y][x].b * tt),
-              })))
+        out = {
+          frame: compositeTransition(String(props.transitionType ?? 'crossfade'), ca, cb, tt, W, H, {
+            dir: String(props.direction ?? 'right'),
+            axis: String(props.axis ?? 'horizontal'),
+            tileSize: Number(props.tileSize ?? 4),
+            count: Number(props.count ?? 4),
+            turns: Number(props.turns ?? 2),
+          }),
         }
-        out = { frame }
         break
       }
 
       case 'PatternMaster': {
-        const frames = [
-          input(id, 'p0', null) as Frame | null,
-          input(id, 'p1', null) as Frame | null,
-          input(id, 'p2', null) as Frame | null,
-          input(id, 'p3', null) as Frame | null,
-        ]
+        const ids = (input(id, 'patternset', null) as string[] | null) ?? []
         const beat = input(id, 'beat', false) as boolean
-        const mode = String(props.mode ?? 'cycle')
-        const interval = Number(props.interval ?? 4)
-        out = { frame: evalPatternMaster(stateKey(id), frames, beat, mode, interval, t, W, H) }
+        // Rasterise a collected pattern (a group) to a frame, the same way the
+        // Group case does — namespaced per pattern so stateful nodes don't clash.
+        const render = (gid: string): Frame => {
+          const def = groups[gid]
+          if (!def || groupStack.has(gid)) return blankFrame(W, H)
+          return evaluateGraph(
+            def.nodes, def.edges, tick, W, H, groups,
+            `${instancePrefix}${id}/${gid}/`,
+            new Set([...groupStack, gid]), {},
+          ) ?? blankFrame(W, H)
+        }
+        const o = {
+          minTime: Number(props.minTime ?? 4),
+          maxTime: Number(props.maxTime ?? 12),
+          transSec: Number(props.transitionSec ?? 1),
+          pool: (props.transitions as string[] | undefined) ?? ['crossfade'],
+          beatEnabled: incoming.has(`${id}:beat`),
+        }
+        out = { frame: evalPatternShow(stateKey(id), ids, render, beat, o, t, W, H) }
         break
       }
 

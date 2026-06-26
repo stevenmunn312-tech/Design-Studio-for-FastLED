@@ -727,6 +727,29 @@ describe('evaluateGraph', () => {
     expect(mk(true)).toBe(128)    // brightness clamped to 1 → 128 × 1
   })
 
+  it('PatternMaster renders a pattern from its collection', () => {
+    const groupId = 'grp-show'
+    const groups = {
+      [groupId]: {
+        nodes: [
+          node('sc', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 }),
+          node('go', 'GroupOutput', 'output', {}),
+        ],
+        edges: [edge('eg', 'sc', 'frame', 'go', 'frame')],
+      },
+    }
+    const pc = node('pc', 'PatternCollection', 'composite', { patternIds: [groupId] })
+    // Huge dwell + empty pool → stays on the (single) pattern, no transition.
+    const pm = node('pm', 'PatternMaster', 'pattern', { minTime: 999, maxTime: 999, transitionSec: 1, transitions: [] })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph(
+      [pc, pm, out],
+      [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')],
+      0, 4, 4, groups,
+    )
+    expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 255 })
+  })
+
   it('Transition blends A→B per transitionType', () => {
     const black = node('b', 'SolidColor', 'pattern', { r: 0, g: 0, b: 0 })
     const white = node('w', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })

@@ -824,20 +824,24 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
 
-  // ── Multi-Pattern Master ───────────────────────────────────────────────
+  // ── Pattern Master — the generative show engine (Phase 3) ──────────────
   {
+    // Runs a random show from a Pattern Collection: holds a random pattern for
+    // a random dwell (minTime…maxTime), then transitions (a random style from
+    // the chosen pool) into another. A wired `beat` advances early (after
+    // minTime). See docs/development/design/generative-pattern-show.md.
     type: 'PatternMaster',
     label: 'Pattern Master',
     category: 'pattern',
     inputs: [
-      { id: 'p0', label: 'Pattern 1', dataType: 'frame' },
-      { id: 'p1', label: 'Pattern 2', dataType: 'frame' },
-      { id: 'p2', label: 'Pattern 3', dataType: 'frame' },
-      { id: 'p3', label: 'Pattern 4', dataType: 'frame' },
-      { id: 'beat', label: 'Beat', dataType: 'bool' },
+      { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
+      { id: 'beat',       label: 'Beat',     dataType: 'bool' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { mode: 'cycle', interval: 4.0 },
+    defaultProperties: {
+      minTime: 4, maxTime: 12, transitionSec: 1,
+      transitions: ['crossfade', 'wipe', 'dissolve', 'iris', 'push', 'fadeblack'],
+    },
   },
   {
     // Timeline-as-a-node: cycles its inputs with a timed crossfade.
@@ -1032,7 +1036,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   AudioFlow: 'Audio-reactive flowing noise field.',
   ReactionDiffusion: 'Gray-Scott reaction-diffusion — organic spots & stripes.',
   GameOfLife: 'Conway’s Game of Life with fading trails.',
-  PatternMaster: 'Cycles up to four patterns (time or beat).',
+  PatternMaster: 'Random pattern/transition show from a Pattern Collection.',
   CustomFormula: 'Per-pixel JS expression f(x, y, t).',
   // composite
   Blur2D: 'Box-blurs the frame.',
@@ -1169,6 +1173,10 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   kill:     { control: 'slider', min: 0, max: 0.1, step: 0.001 },
   interval: { control: 'slider', min: 0.1, max: 20, step: 0.1 },
   kelvin:   { control: 'slider', min: 1000, max: 12000, step: 100 },
+  // Pattern Master show timing.
+  minTime:       { control: 'slider', min: 0, max: 30, step: 0.5 },
+  maxTime:       { control: 'slider', min: 0, max: 60, step: 0.5 },
+  transitionSec: { control: 'slider', min: 0.1, max: 5, step: 0.1 },
 
   // Normalised 0–1 control values that were previously free-entry numbers
   // (beat sensitivities, emission/decay rates, HSV sat/val). Bounding them makes

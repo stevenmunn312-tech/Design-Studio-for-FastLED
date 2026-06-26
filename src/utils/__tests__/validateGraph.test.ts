@@ -53,10 +53,10 @@ describe('validateGraph', () => {
     expect(warnings.some(w => w.includes('Pattern Master'))).toBe(true)
   })
 
-  it('does not warn about PatternMaster when a pattern is wired', () => {
-    const nodes = [node('sc', 'SolidColor'), node('pm', 'PatternMaster'), node('out', 'MatrixOutput')]
+  it('does not warn about PatternMaster when a collection is wired', () => {
+    const nodes = [node('pc', 'PatternCollection'), node('pm', 'PatternMaster'), node('out', 'MatrixOutput')]
     const edges = [
-      edge('e1', 'sc', 'pm', 'p0'),
+      edge('e1', 'pc', 'pm', 'patternset'),
       edge('e2', 'pm', 'out', 'frame'),
     ]
     const { warnings } = validateGraph(nodes, edges)
