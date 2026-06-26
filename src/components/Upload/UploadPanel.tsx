@@ -2,6 +2,7 @@ import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { generateCpp } from '../../codegen/cppGenerator'
+import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { validateGraph } from '../../utils/validateGraph'
 import { useMusicStore } from '../../state/musicStore'
 import { checkBackend, listPorts, uploadSketch, uploadShow, type BackendHealth, type SerialPort } from '../../utils/backendClient'
@@ -51,7 +52,12 @@ export default function UploadPanel() {
   const sdConnected = useMemo(() => sdCardConnected(nodes, edges), [nodes, edges])
   const readySongs = readySongCount(entries)
 
-  const code = useMemo(() => generateCpp(nodes, edges, getGroupRegistry()), [nodes, edges])
+  // A Pattern Master graph generates the multi-pattern show controller; any
+  // other graph generates the normal single-pattern sketch.
+  const code = useMemo(() => {
+    const groups = getGroupRegistry()
+    return isPatternShow(nodes) ? generateShowSketch(nodes, edges, groups) : generateCpp(nodes, edges, groups)
+  }, [nodes, edges])
   const validation = useMemo(() => validateGraph(nodes, edges), [nodes, edges])
 
   const [board, setBoard] = useState<Board>(BOARDS[0])

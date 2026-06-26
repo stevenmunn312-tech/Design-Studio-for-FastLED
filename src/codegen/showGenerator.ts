@@ -1,0 +1,193 @@
+// Generative pattern-show codegen (Phase 4). Turns a
+//   PatternCollection → PatternMaster → MatrixOutput
+// graph into a single controller sketch: one render_pN() function per collected
+// pattern, plus a loop that holds a random pattern for a random dwell and
+// crossfades into another (the firmware mirror of evalPatternShow). The
+// per-pattern bodies are produced by reusing generateCpp on each pattern's
+// subgraph and rewriting it into a function — so every node type already
+// supported by the generator works inside a show with no extra wiring.
+//
+// Scope of this first slice: single file, time-based switching, crossfade
+// transition. Remaining transition styles, the `beat` trigger, and multi-file
+// (.h-per-pattern) output are follow-ups. Untested on hardware.
+
+import type { StudioNode, StudioEdge } from '../state/graphStore'
+import type { GroupRegistry } from '../state/graphEvaluator'
+import { generateCpp } from './cppGenerator'
+
+const nodeType = (n: StudioNode) => (n.data as { nodeType?: string }).nodeType
+const props = (n: StudioNode) => n.data.properties as Record<string, unknown>
+
+/** Whether the graph is a generative pattern show (has a PatternMaster). */
+export function isPatternShow(nodes: StudioNode[]): boolean {
+  return nodes.some((n) => nodeType(n) === 'PatternMaster')
+}
+
+interface ShowInfo {
+  patternIds: string[]
+  minTime: number
+  maxTime: number
+  transitionSec: number
+}
+
+// Resolve the PatternMaster + the collection feeding its patternset input.
+function showInfo(nodes: StudioNode[], edges: StudioEdge[]): ShowInfo | null {
+  const master = nodes.find((n) => nodeType(n) === 'PatternMaster')
+  if (!master) return null
+  const setEdge = edges.find((e) => e.target === master.id && e.targetHandle === 'patternset')
+  const collection = setEdge && nodes.find((n) => n.id === setEdge.source && nodeType(n) === 'PatternCollection')
+  const patternIds = collection ? ((props(collection).patternIds as string[] | undefined) ?? []) : []
+  const p = props(master)
+  return {
+    patternIds,
+    minTime: Number(p.minTime ?? 4),
+    maxTime: Number(p.maxTime ?? 12),
+    transitionSec: Number(p.transitionSec ?? 1),
+  }
+}
+
+// Build a render function body for one pattern by reusing generateCpp on its
+// subgraph (terminated at a synthetic MatrixOutput) and rewriting the result:
+// drop the boilerplate, hoist its buffers/helpers, and wrap the loop body in a
+// function. Per-pattern buffers are prefixed so two patterns can't collide.
+interface PatternUnit { buffers: string[]; helpers: Map<string, string>; fn: string }
+
+function buildPattern(groupId: string, groups: GroupRegistry, index: number): PatternUnit {
+  const fnName = `render_p${index}`
+  const sub = groups[groupId]
+  const empty: PatternUnit = { buffers: [], helpers: new Map(), fn: `void ${fnName}(uint32_t ms) { fill_solid(leds, NUM_LEDS, CRGB::Black); }` }
+  if (!sub) return empty
+
+  // Re-terminate the subgraph at a MatrixOutput so generateCpp renders to `leds`.
+  const out = sub.nodes.find((n) => nodeType(n) === 'GroupOutput')
+  if (!out) return empty
+  const term = sub.edges.find((e) => e.target === out.id && e.targetHandle === 'frame')
+  if (!term) return empty
+  const matrix = { id: `__mo_${index}`, type: 'studioNode', position: { x: 0, y: 0 },
+    data: { label: 'Matrix', nodeType: 'MatrixOutput', category: 'output', properties: {}, inputs: [{ id: 'frame' }], outputs: [] } } as unknown as StudioNode
+  const nodes = [...sub.nodes.filter((n) => nodeType(n) !== 'GroupOutput' && nodeType(n) !== 'GroupInput'), matrix]
+  const edges = sub.edges
+    .filter((e) => e.target !== out.id)
+    .concat([{ id: `__e_${index}`, source: term.source, sourceHandle: term.sourceHandle, target: matrix.id, targetHandle: 'frame' } as StudioEdge])
+
+  const sketch = generateCpp(nodes, edges, groups)
+  const lines = sketch.split('\n')
+  const pfx = (s: string) => s.replace(/\bbuf_[A-Za-z0-9_]+\b/g, (m) => `p${index}_${m}`)
+
+  const buffers: string[] = []
+  const helpers = new Map<string, string>()
+  const body: string[] = []
+
+  // Known generateCpp helper functions: hoist once (shared, identical across
+  // patterns), keyed by name so duplicates dedupe.
+  const HELPER_SIGS: Record<string, RegExp> = {
+    mapFloat: /^float mapFloat\(/, kelvinToRGB: /^CRGB kelvinToRGB\(/,
+    _worleyHash: /^float _worleyHash\(/, XY: /^uint16_t XY\(/,
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (/^CRGB buf_[A-Za-z0-9_]+\[NUM_LEDS\];$/.test(line)) { buffers.push(pfx(line)); continue }
+    const helper = Object.entries(HELPER_SIGS).find(([, re]) => re.test(line))
+    if (helper) {
+      const block: string[] = []
+      for (; i < lines.length; i++) { block.push(lines[i]); if (lines[i] === '}') break }
+      helpers.set(helper[0], block.join('\n'))
+      continue
+    }
+    if (line === 'void loop() {') {
+      for (i++; i < lines.length && lines[i] !== '}'; i++) {
+        const l = lines[i]
+        if (l.includes('FastLED.show();') || l.includes('FastLED.delay(')) continue
+        body.push(pfx(l).replace('millis() / 1000.0f', 'ms / 1000.0f'))
+      }
+      break
+    }
+  }
+
+  return { buffers, helpers, fn: [`void ${fnName}(uint32_t ms) {`, ...body, '}'].join('\n') }
+}
+
+export function generateShowSketch(nodes: StudioNode[], edges: StudioEdge[], groups: GroupRegistry = {}): string {
+  const info = showInfo(nodes, edges)
+  if (!info || info.patternIds.length === 0) {
+    return '// Pattern Master has no patterns — add a Pattern Collection with saved patterns.\n'
+  }
+
+  const out = nodes.find((n) => nodeType(n) === 'MatrixOutput')
+  const op = out ? props(out) : {}
+  const width = Number(op.width ?? 16), height = Number(op.height ?? 16)
+  const dataPin = Number(op.dataPin ?? 5)
+  const chipset = String(op.chipset ?? 'WS2812B'), colorOrder = String(op.colorOrder ?? 'GRB')
+
+  const units = info.patternIds.map((id, i) => buildPattern(id, groups, i))
+  const helpers = new Map<string, string>()
+  for (const u of units) for (const [k, v] of u.helpers) helpers.set(k, v)
+
+  const L: string[] = []
+  L.push('// FastLED Studio — generative pattern show (Phase 4, first slice)')
+  L.push('#include <FastLED.h>')
+  L.push('')
+  L.push(`#define WIDTH    ${width}`)
+  L.push(`#define HEIGHT   ${height}`)
+  L.push('#define NUM_LEDS (WIDTH * HEIGHT)')
+  L.push(`#define DATA_PIN ${dataPin}`)
+  L.push(`#define PATTERN_COUNT ${units.length}`)
+  L.push('')
+  L.push('CRGB leds[NUM_LEDS];')
+  L.push('CRGB showA[NUM_LEDS];   // outgoing pattern during a transition')
+  for (const u of units) for (const b of u.buffers) L.push(b)
+  L.push('')
+  for (const h of helpers.values()) { L.push(h); L.push('') }
+
+  for (const u of units) { L.push(u.fn); L.push('') }
+
+  // Pattern dispatch table (renders pattern i into `leds`).
+  L.push('void renderPattern(uint8_t i, uint32_t ms) {')
+  L.push('  switch (i) {')
+  units.forEach((_, i) => L.push(`    case ${i}: render_p${i}(ms); break;`))
+  L.push('  }')
+  L.push('}')
+  L.push('')
+
+  L.push('void setup() {')
+  L.push(`  FastLED.addLeds<${chipset}, DATA_PIN, ${colorOrder}>(leds, NUM_LEDS);`)
+  L.push('  FastLED.setBrightness(200);')
+  L.push('  randomSeed(analogRead(A0));')
+  L.push('}')
+  L.push('')
+
+  // Controller: hold a random pattern for a random dwell, then crossfade to a
+  // new random one over transitionSec. Mirrors evalPatternShow (time-based).
+  const minMs = Math.round(info.minTime * 1000), maxMs = Math.round(info.maxTime * 1000)
+  const transMs = Math.round(info.transitionSec * 1000)
+  L.push('void loop() {')
+  L.push('  static uint8_t  cur = random8(PATTERN_COUNT), nxt = 0;')
+  L.push('  static bool     transitioning = false;')
+  L.push('  static uint32_t phaseStart = 0, dwell = 0;')
+  L.push('  uint32_t now = millis();')
+  L.push(`  if (dwell == 0) dwell = random16(${minMs}, ${maxMs});`)
+  L.push('')
+  L.push('  if (!transitioning) {')
+  L.push('    renderPattern(cur, now);')
+  L.push('    if (now - phaseStart >= dwell && PATTERN_COUNT > 1) {')
+  L.push('      nxt = (cur + 1 + random8(PATTERN_COUNT - 1)) % PATTERN_COUNT;')
+  L.push('      transitioning = true; phaseStart = now;')
+  L.push('    }')
+  L.push('  } else {')
+  L.push(`    float p = ${transMs} > 0 ? (float)(now - phaseStart) / ${transMs} : 1.0f;`)
+  L.push('    if (p >= 1.0f) p = 1.0f;')
+  L.push('    renderPattern(cur, now);')
+  L.push('    ::memmove(showA, leds, sizeof(CRGB) * NUM_LEDS);  // outgoing')
+  L.push('    renderPattern(nxt, now);                          // incoming → leds')
+  L.push('    uint8_t mix = (uint8_t)(p * 255);')
+  L.push('    for (int i = 0; i < NUM_LEDS; i++) leds[i] = blend(showA[i], leds[i], mix);')
+  L.push('    if (p >= 1.0f) { cur = nxt; transitioning = false; phaseStart = now; dwell = random16(' + minMs + ', ' + maxMs + '); }')
+  L.push('  }')
+  L.push('')
+  L.push('  FastLED.show();')
+  L.push('  FastLED.delay(16);')
+  L.push('}')
+
+  return L.join('\n')
+}
