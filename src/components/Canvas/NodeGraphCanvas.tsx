@@ -103,7 +103,7 @@ function NodeGraphCanvasInner() {
     const el = wrapperRef.current
     if (!el) return
     const r = el.getBoundingClientRect()
-    setViewCenter(screenToFlowPosition({ x: r.left + r.width * 0.28, y: r.top + r.height / 2 }))
+    setViewCenter(screenToFlowPosition({ x: r.left + r.width * 0.05, y: r.top + r.height / 2 }))
   }, [screenToFlowPosition, setViewCenter])
 
   // On pan/zoom: remember the viewport (so a reload restores it) and refresh
