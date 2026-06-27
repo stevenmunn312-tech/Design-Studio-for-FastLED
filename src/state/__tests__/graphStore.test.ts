@@ -218,6 +218,29 @@ describe('graphStore — legacy node migration on load', () => {
     expect(dataOf('bl').properties.amount).toBeCloseTo(128 / 255, 5)
     expect(dataOf('bl2').properties.amount).toBe(0.5)
   })
+
+  // Regression: a reload that dropped graphData wiped every group's subgraph,
+  // so instantiated patterns showed no preview. loadGraph must restore it.
+  it('restores group subgraphs and metadata so groups survive a reload', () => {
+    const sub = {
+      nodes: [node('inner', 'SolidColor', { r: 255, g: 0, b: 0 }), node('go', 'GroupOutput')],
+      edges: [edge('ie', 'inner', 'frame', 'go', 'frame')],
+    }
+    useGraphStore.getState().loadGraph(
+      [node('grp', 'Group'), node('out', 'MatrixOutput')],
+      [edge('e', 'grp', 'frame', 'out', 'frame')],
+      {
+        graphData: { 'grp-1': sub },
+        graphs: { 'grp-1': { id: 'grp-1', name: 'My Pattern' } },
+        activeGraphId: ROOT_GRAPH_ID,
+      },
+    )
+    const s = useGraphStore.getState()
+    expect(s.graphData['grp-1'].nodes).toHaveLength(2)
+    expect(s.graphs['grp-1'].name).toBe('My Pattern')
+    // The registry the preview/evaluator reads now includes the group again.
+    expect(getGroupRegistry()['grp-1']).toBeDefined()
+  })
 })
 
 describe('graphStore — splice & spread', () => {

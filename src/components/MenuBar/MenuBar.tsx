@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import { useGraphStore, useTemporalStore } from '../../state/graphStore'
-import type { StudioNode, StudioEdge } from '../../state/graphStore'
+import type { StudioNode, StudioEdge, WorkspaceExtras } from '../../state/graphStore'
 import styles from './MenuBar.module.css'
 
 export default function MenuBar() {
@@ -18,8 +18,9 @@ export default function MenuBar() {
   const canRedo = futureStates.length > 0
 
   const handleSaveJSON = () => {
-    const { nodes, edges } = useGraphStore.getState()
-    const json = JSON.stringify({ nodes, edges }, null, 2)
+    // Export the whole workspace so pattern-group subgraphs travel with the file.
+    const { nodes, edges, graphData, graphs, activeGraphId } = useGraphStore.getState()
+    const json = JSON.stringify({ nodes, edges, graphData, graphs, activeGraphId }, null, 2)
     const blob = new Blob([json], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -38,11 +39,9 @@ export default function MenuBar() {
     const reader = new FileReader()
     reader.onload = (ev) => {
       try {
-        const { nodes, edges } = JSON.parse(ev.target?.result as string) as {
-          nodes: StudioNode[]
-          edges: StudioEdge[]
-        }
-        useGraphStore.getState().loadGraph(nodes, edges)
+        const { nodes, edges, graphData, graphs, activeGraphId } = JSON.parse(ev.target?.result as string) as
+          { nodes: StudioNode[]; edges: StudioEdge[] } & WorkspaceExtras
+        useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId })
         useGraphStore.temporal.getState().clear()
         setStatus('Graph loaded', 'success')
       } catch {

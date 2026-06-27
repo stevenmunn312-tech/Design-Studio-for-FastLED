@@ -30,8 +30,17 @@ export type StudioEdge = Edge
 /** The implicit top-level graph that owns the MatrixOutput. */
 export const ROOT_GRAPH_ID = 'root'
 
-interface GraphMeta { id: string; name: string }
-interface GraphContent { nodes: StudioNode[]; edges: StudioEdge[] }
+export interface GraphMeta { id: string; name: string }
+export interface GraphContent { nodes: StudioNode[]; edges: StudioEdge[] }
+
+/** The pieces of the multi-graph workspace that must survive save/restore on
+ *  top of the active `nodes`/`edges` — without these, every group's subgraph
+ *  (and thus its preview and codegen) is lost on reload. */
+export interface WorkspaceExtras {
+  graphData?: Record<string, GraphContent>
+  graphs?: Record<string, GraphMeta>
+  activeGraphId?: string
+}
 
 interface GraphState {
   // The active graph being edited. Kept at the top level so every existing
@@ -64,7 +73,7 @@ interface GraphState {
   selectAllNodes: () => void
   updateNodeProperty: (id: string, key: string, value: unknown) => void
   updateNodeProperties: (id: string, updates: Record<string, unknown>) => void
-  loadGraph: (nodes: StudioNode[], edges: StudioEdge[]) => void
+  loadGraph: (nodes: StudioNode[], edges: StudioEdge[], workspace?: WorkspaceExtras) => void
   duplicateNode: (id: string) => void
   copyNode: (id: string) => void
   pasteNode: (position: { x: number; y: number }) => void
@@ -309,7 +318,28 @@ export const useGraphStore = create<GraphState>()(
           ),
         })),
 
-      loadGraph: (nodes, edges) => set(migrateLegacyGraph(nodes, edges)),
+      loadGraph: (nodes, edges, workspace) =>
+        set(() => {
+          // Restore the active graph plus every stashed pattern-group subgraph.
+          // Each subgraph is migrated too, so old bundles inside a group are
+          // upgraded just like the top level.
+          const active = migrateLegacyGraph(nodes, edges)
+          const graphData: Record<string, GraphContent> = {}
+          for (const [id, content] of Object.entries(workspace?.graphData ?? {})) {
+            graphData[id] = migrateLegacyGraph(content.nodes ?? [], content.edges ?? [])
+          }
+          const graphs: Record<string, GraphMeta> = {
+            [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' },
+            ...(workspace?.graphs ?? {}),
+          }
+          return {
+            ...active,
+            graphData,
+            graphs,
+            activeGraphId: workspace?.activeGraphId ?? ROOT_GRAPH_ID,
+            selectedNodeId: null,
+          }
+        }),
 
       duplicateNode: (id) =>
         set((s) => {

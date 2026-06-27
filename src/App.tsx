@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useUiStore } from './state/uiStore'
 import { useGraphStore } from './state/graphStore'
 import { useAudioStore } from './state/audioStore'
-import type { StudioNode, StudioEdge } from './state/graphStore'
+import type { StudioNode, StudioEdge, WorkspaceExtras } from './state/graphStore'
 import MenuBar from './components/MenuBar/MenuBar'
 import Sidebar from './components/Sidebar/Sidebar'
 import NodeGraphCanvas from './components/Canvas/NodeGraphCanvas'
@@ -18,9 +18,13 @@ import styles from './App.module.css'
 const AUTOSAVE_KEY = 'fastled-studio-graph'
 const AUTOSAVE_INTERVAL = 10_000
 
-function saveToLocalStorage(nodes: StudioNode[], edges: StudioEdge[]) {
+// Persist the whole multi-graph workspace, not just the active graph — the
+// `graphData`/`graphs` hold every pattern-group subgraph, without which groups
+// lose their preview (and codegen) on reload.
+function saveToLocalStorage(s: ReturnType<typeof useGraphStore.getState>) {
   try {
-    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ nodes, edges }))
+    const { nodes, edges, graphData, graphs, activeGraphId } = s
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ nodes, edges, graphData, graphs, activeGraphId }))
   } catch {
     // storage quota exceeded — skip silently
   }
@@ -51,8 +55,9 @@ export default function App() {
     const saved = localStorage.getItem(AUTOSAVE_KEY)
     if (!saved) return
     try {
-      const { nodes, edges } = JSON.parse(saved) as { nodes: StudioNode[]; edges: StudioEdge[] }
-      useGraphStore.getState().loadGraph(nodes, edges)
+      const { nodes, edges, graphData, graphs, activeGraphId } = JSON.parse(saved) as
+        { nodes: StudioNode[]; edges: StudioEdge[] } & WorkspaceExtras
+      useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId })
       useGraphStore.temporal.getState().clear()
     } catch {
       // corrupt data — ignore
@@ -64,7 +69,7 @@ export default function App() {
     const unsub = useGraphStore.subscribe((state) => {
       if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
       autosaveTimer.current = setTimeout(() => {
-        saveToLocalStorage(state.nodes, state.edges)
+        saveToLocalStorage(state)
       }, AUTOSAVE_INTERVAL)
     })
     return () => {
@@ -99,8 +104,7 @@ export default function App() {
       }
       if (e.key === 's') {
         e.preventDefault()
-        const { nodes, edges } = useGraphStore.getState()
-        saveToLocalStorage(nodes, edges)
+        saveToLocalStorage(useGraphStore.getState())
         setStatus('Graph saved', 'success')
       }
     }
