@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -15,6 +15,8 @@ import {
   type OnConnectStart,
   type OnConnect,
   type OnReconnect,
+  type OnMove,
+  type Viewport,
   type Edge,
   type Node,
 } from '@xyflow/react'
@@ -37,6 +39,16 @@ const edgeTypes: EdgeTypes = { glowEdge: GlowEdge as any }
 
 const minimapNodeColor = (n: Node) =>
   CATEGORY_COLOR[(n.data as { category?: string }).category ?? ''] ?? '#444'
+
+// Persist the canvas pan/zoom so a reload restores the same view instead of
+// re-fitting to the nodes (which reads as the view "jumping").
+const VIEWPORT_KEY = 'fastled-studio-viewport'
+function loadViewport(): Viewport | null {
+  try { const v = localStorage.getItem(VIEWPORT_KEY); return v ? (JSON.parse(v) as Viewport) : null } catch { return null }
+}
+function saveViewport(vp: Viewport) {
+  try { localStorage.setItem(VIEWPORT_KEY, JSON.stringify(vp)) } catch { /* ignore */ }
+}
 
 const SNAP_GRID: [number, number] = [20, 20]
 
@@ -63,6 +75,10 @@ function distToSegment(p: Pt, a: Pt, b: Pt): number {
 function NodeGraphCanvasInner() {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, insertNodeOnEdge, spreadNodes, instantiatePattern, addToCollection, enterGraph, removeEdge, reconnectNoodle } =
     useGraphStore()
+  // Restore the saved pan/zoom on mount; fit the view only when there's none
+  // (first run). Read once so it isn't re-applied on every render.
+  const initialViewport = useMemo(() => loadViewport(), [])
+  const handleMoveEnd = useCallback<OnMove>((_, vp) => saveViewport(vp), [])
   // Tracks whether a dragged noodle end landed on a valid port; if not (dropped
   // on empty space) we treat it as an unplug and delete the edge.
   const reconnectLanded = useRef(true)
@@ -353,12 +369,14 @@ function NodeGraphCanvasInner() {
         onNodeContextMenu={onNodeContextMenu}
         onPaneContextMenu={onPaneContextMenu}
         onPaneClick={onPaneClick}
+        onMoveEnd={handleMoveEnd}
         isValidConnection={isValidConnection}
         snapToGrid
         snapGrid={SNAP_GRID}
         minZoom={0.5}
         maxZoom={2}
-        fitView
+        defaultViewport={initialViewport ?? undefined}
+        fitView={!initialViewport}
         deleteKeyCode="Delete"
         multiSelectionKeyCode="Shift"
         selectionKeyCode="Shift"
