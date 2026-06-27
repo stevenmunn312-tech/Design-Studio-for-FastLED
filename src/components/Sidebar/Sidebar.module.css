@@ -146,3 +146,18 @@
   line-height: 1;
 }
 .patternBtn:hover { color: var(--text-primary); }
+
+/* Inline rename field — replaces the OS-native prompt, styled like the search box. */
+.renameInput {
+  flex: 1;
+  min-width: 0;
+  height: 22px;
+  padding: 0 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--accent, var(--border-glow));
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  outline: none;
+}

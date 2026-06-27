@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { usePatternLibrary, type SavedPattern } from '../../state/patternLibrary'
 import { NODE_LIBRARY, CATEGORIES, CATEGORY_ACCENT_VAR, NODE_DESCRIPTIONS } from '../../state/nodeLibrary'
 import styles from './Sidebar.module.css'
+
+const EXPANDED_KEY = 'fastled-studio-sidebar-expanded'
 
 export default function Sidebar() {
   const addNode = useGraphStore((s) => s.addNode)
@@ -12,10 +14,32 @@ export default function Sidebar() {
   const renamePattern = usePatternLibrary((s) => s.renamePattern)
   const deletePattern = usePatternLibrary((s) => s.deletePattern)
   const viewCenter = useUiStore((s) => s.viewCenter)
-  const [expanded, setExpanded] = useState<Set<string>>(
-    new Set([...CATEGORIES.map((c) => c.id), 'library'])
-  )
+  // Persisted expand/collapse state. First load starts with only the first
+  // category open so the list is scannable rather than a long scroll; after
+  // that we restore whatever the user last left open. A search query
+  // force-opens every section regardless (see `open` below).
+  const [expanded, setExpanded] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem(EXPANDED_KEY)
+      if (saved) return new Set(JSON.parse(saved) as string[])
+    } catch {
+      // corrupt/unavailable storage — fall through to the default
+    }
+    return new Set([CATEGORIES[0]?.id].filter(Boolean) as string[])
+  })
+
+  // Persist on every change so the layout survives reloads.
+  useEffect(() => {
+    try {
+      localStorage.setItem(EXPANDED_KEY, JSON.stringify([...expanded]))
+    } catch {
+      // storage full/unavailable — non-critical, skip
+    }
+  }, [expanded])
   const [search, setSearch] = useState('')
+  // Inline rename: the pattern id currently being edited + its draft name.
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [draftName, setDraftName] = useState('')
   const query = search.trim().toLowerCase()
 
   const toggle = (id: string) =>
@@ -44,6 +68,19 @@ export default function Sidebar() {
     y: viewCenter.y + (Math.random() - 0.5) * 80,
   })
   const handleAddPattern = (p: SavedPattern) => instantiatePattern(p, dropPos())
+
+  const startRename = (p: SavedPattern) => {
+    setRenamingId(p.id)
+    setDraftName(p.name)
+  }
+  const commitRename = () => {
+    if (renamingId) {
+      const name = draftName.trim()
+      if (name) renamePattern(renamingId, name)
+    }
+    setRenamingId(null)
+  }
+  const cancelRename = () => setRenamingId(null)
 
   const visiblePatterns = patterns.filter(
     (p) => query === '' || p.name.toLowerCase().includes(query)
@@ -142,42 +179,64 @@ export default function Sidebar() {
             </button>
             {(query !== '' || expanded.has('library')) && (
               <ul className={styles.nodeList}>
-                {visiblePatterns.map((p) => (
-                  <li
-                    key={p.id}
-                    className={`${styles.nodeItem} ${styles.patternItem}`}
-                    style={{ '--accent': 'var(--accent-composite)' } as React.CSSProperties}
-                    draggable
-                    onDragStart={(e) => handlePatternDragStart(e, p.id)}
-                    onClick={() => handleAddPattern(p)}
-                    title={`${p.name}\nClick to add · drag to place`}
-                  >
-                    <span className={styles.patternName}>{p.name}</span>
-                    <span className={styles.patternActions}>
-                      <button
-                        className={styles.patternBtn}
-                        title="Rename"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          const name = window.prompt('Rename pattern', p.name)?.trim()
-                          if (name) renamePattern(p.id, name)
-                        }}
-                      >
-                        ✎
-                      </button>
-                      <button
-                        className={styles.patternBtn}
-                        title="Delete from library"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (window.confirm(`Delete “${p.name}” from the library?`)) deletePattern(p.id)
-                        }}
-                      >
-                        ✕
-                      </button>
-                    </span>
-                  </li>
-                ))}
+                {visiblePatterns.map((p) => {
+                  const renaming = renamingId === p.id
+                  return (
+                    <li
+                      key={p.id}
+                      className={`${styles.nodeItem} ${styles.patternItem}`}
+                      style={{ '--accent': 'var(--accent-composite)' } as React.CSSProperties}
+                      draggable={!renaming}
+                      onDragStart={(e) => handlePatternDragStart(e, p.id)}
+                      onClick={() => { if (!renaming) handleAddPattern(p) }}
+                      title={renaming ? undefined : `${p.name}\nClick to add · drag to place`}
+                    >
+                      {renaming ? (
+                        <input
+                          className={`${styles.renameInput} nodrag`}
+                          value={draftName}
+                          autoFocus
+                          aria-label="Rename pattern"
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setDraftName(e.target.value)}
+                          onBlur={commitRename}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') commitRename()
+                            else if (e.key === 'Escape') cancelRename()
+                          }}
+                        />
+                      ) : (
+                        <>
+                          <span className={styles.patternName}>{p.name}</span>
+                          <span className={styles.patternActions}>
+                            <button
+                              className={styles.patternBtn}
+                              aria-label={`Rename ${p.name}`}
+                              title="Rename"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                startRename(p)
+                              }}
+                            >
+                              ✎
+                            </button>
+                            <button
+                              className={styles.patternBtn}
+                              aria-label={`Delete ${p.name} from library`}
+                              title="Delete from library"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (window.confirm(`Delete “${p.name}” from the library?`)) deletePattern(p.id)
+                              }}
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        </>
+                      )}
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </div>
