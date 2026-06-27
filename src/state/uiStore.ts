@@ -19,6 +19,9 @@ interface UiState {
   preview3d: boolean
   fps: number
   sparkPort: { nodeId: string; portId: string } | null
+  /** Centre of the visible canvas in flow coordinates — where click-to-add
+   *  drops a node so it lands on screen wherever the user has panned. */
+  viewCenter: { x: number; y: number }
   theme: AppTheme
   reducedMotion: boolean
   highContrast: boolean
@@ -29,6 +32,7 @@ interface UiState {
   togglePreview3d: () => void
   setFps: (fps: number) => void
   setSparkPort: (port: { nodeId: string; portId: string } | null) => void
+  setViewCenter: (center: { x: number; y: number }) => void
   setTheme: (theme: AppTheme) => void
   cycleTheme: () => void
   toggleReducedMotion: () => void
@@ -51,6 +55,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   preview3d: false,
   fps: 0,
   sparkPort: null,
+  viewCenter: { x: 300, y: 250 },
   theme: load<AppTheme>(THEME_KEY, 'dark'),
   reducedMotion: load<boolean>(MOTION_KEY, false),
   highContrast: load<boolean>(CONTRAST_KEY, false),
@@ -73,6 +78,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   toggleInspector: () => set((s) => ({ inspectorOpen: !s.inspectorOpen })),
   setFps: (fps) => set({ fps }),
   setSparkPort: (port) => set({ sparkPort: port }),
+  setViewCenter: (center) => set({ viewCenter: center }),
 
   setTheme: (theme) => {
     localStorage.setItem(THEME_KEY, JSON.stringify(theme))

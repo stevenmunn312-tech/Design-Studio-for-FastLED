@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useGraphStore } from '../../state/graphStore'
+import { useUiStore } from '../../state/uiStore'
 import { usePatternLibrary, type SavedPattern } from '../../state/patternLibrary'
 import { NODE_LIBRARY, CATEGORIES, CATEGORY_ACCENT_VAR, NODE_DESCRIPTIONS } from '../../state/nodeLibrary'
 import styles from './Sidebar.module.css'
@@ -10,6 +11,7 @@ export default function Sidebar() {
   const patterns = usePatternLibrary((s) => s.patterns)
   const renamePattern = usePatternLibrary((s) => s.renamePattern)
   const deletePattern = usePatternLibrary((s) => s.deletePattern)
+  const viewCenter = useUiStore((s) => s.viewCenter)
   const [expanded, setExpanded] = useState<Set<string>>(
     new Set([...CATEGORIES.map((c) => c.id), 'library'])
   )
@@ -34,8 +36,14 @@ export default function Sidebar() {
     e.dataTransfer.effectAllowed = 'copy'
   }
 
-  const randomPos = () => ({ x: 200 + Math.random() * 200, y: 150 + Math.random() * 200 })
-  const handleAddPattern = (p: SavedPattern) => instantiatePattern(p, randomPos())
+  // Drop click-added nodes at the centre of the visible canvas (with a little
+  // jitter so repeats don't stack), so they land on screen wherever the user
+  // has panned — not at a fixed coordinate that may be off-screen.
+  const dropPos = () => ({
+    x: viewCenter.x + (Math.random() - 0.5) * 80,
+    y: viewCenter.y + (Math.random() - 0.5) * 80,
+  })
+  const handleAddPattern = (p: SavedPattern) => instantiatePattern(p, dropPos())
 
   const visiblePatterns = patterns.filter(
     (p) => query === '' || p.name.toLowerCase().includes(query)
@@ -47,7 +55,7 @@ export default function Sidebar() {
     addNode({
       id: `${type}-${Date.now()}`,
       type: 'studioNode',
-      position: { x: 200 + Math.random() * 200, y: 150 + Math.random() * 200 },
+      position: dropPos(),
       data: {
         label: def.label,
         nodeType: def.type,

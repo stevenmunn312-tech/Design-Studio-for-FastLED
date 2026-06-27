@@ -78,7 +78,6 @@ function NodeGraphCanvasInner() {
   // Restore the saved pan/zoom on mount; fit the view only when there's none
   // (first run). Read once so it isn't re-applied on every render.
   const initialViewport = useMemo(() => loadViewport(), [])
-  const handleMoveEnd = useCallback<OnMove>((_, vp) => saveViewport(vp), [])
   // Tracks whether a dragged noodle end landed on a valid port; if not (dropped
   // on empty space) we treat it as an unplug and delete the edge.
   const reconnectLanded = useRef(true)
@@ -94,8 +93,21 @@ function NodeGraphCanvasInner() {
   // click that React Flow emits right after the drop doesn't close it.
   const menuOpenedAt = useRef(0)
   const { screenToFlowPosition, getNode } = useReactFlow()
-  const { setStatus, setSparkPort } = useUiStore()
+  const { setStatus, setSparkPort, setViewCenter } = useUiStore()
   const wrapperRef = useRef<HTMLDivElement>(null)
+
+  // Publish the visible centre (in flow coords) so click-to-add from the
+  // sidebar drops nodes on screen wherever the user has panned.
+  const publishCenter = useCallback(() => {
+    const el = wrapperRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    setViewCenter(screenToFlowPosition({ x: r.left + r.width / 2, y: r.top + r.height / 2 }))
+  }, [screenToFlowPosition, setViewCenter])
+
+  // On pan/zoom: remember the viewport (so a reload restores it) and refresh
+  // the click-to-add centre.
+  const handleMoveEnd = useCallback<OnMove>((_, vp) => { saveViewport(vp); publishCenter() }, [publishCenter])
   const [contextMenu, setContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null)
   const [canvasMenu, setCanvasMenu] = useState<
     { x: number; y: number; fx: number; fy: number; connectFrom?: { nodeId: string; handleId: string; dataType: string } } | null
@@ -370,6 +382,7 @@ function NodeGraphCanvasInner() {
         onPaneContextMenu={onPaneContextMenu}
         onPaneClick={onPaneClick}
         onMoveEnd={handleMoveEnd}
+        onInit={publishCenter}
         isValidConnection={isValidConnection}
         snapToGrid
         snapGrid={SNAP_GRID}
