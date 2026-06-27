@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { uploadHelper } from './vite-plugin-upload-helper'
 
 export default defineConfig({
   // The Essentia analysis worker lazily `import()`s its WASM, so it needs the ES
@@ -8,6 +9,9 @@ export default defineConfig({
   worker: { format: 'es' },
   plugins: [
     react(),
+    // Boots the local upload helper alongside the dev/preview server so
+    // compile + upload work without a separate `npm run helper`.
+    uploadHelper(),
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
