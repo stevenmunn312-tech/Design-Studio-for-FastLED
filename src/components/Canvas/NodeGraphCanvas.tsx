@@ -404,6 +404,7 @@ function NodeGraphCanvasInner() {
           color="rgba(255,255,255,0.06)"
         />
         <Controls
+          className={styles.controls}
           style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-glow)' }}
         />
         <MiniMap

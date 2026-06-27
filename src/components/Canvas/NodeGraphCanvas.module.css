@@ -5,6 +5,21 @@
   position: relative;
 }
 
+/* Zoom/fit controls — override React Flow's default white buttons for dark theme contrast */
+.controls :global(.react-flow__controls-button) {
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border-glow);
+  fill: var(--text-primary);
+}
+
+.controls :global(.react-flow__controls-button:hover) {
+  background: var(--bg-elevated, rgba(255, 255, 255, 0.08));
+}
+
+.controls :global(.react-flow__controls-button svg) {
+  fill: var(--text-primary);
+}
+
 /* Minimap edge colors — edges carry stroke color from their source category */
 .minimap :global(.react-flow__minimap-svg) {
   border-radius: 6px;
