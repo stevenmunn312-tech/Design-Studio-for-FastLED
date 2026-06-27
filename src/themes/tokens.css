@@ -113,6 +113,18 @@
   padding: 0;
 }
 
+/* Keyboard focus ring — visible on the dark chrome, suppressed for mouse/touch
+   (`:focus-visible` only fires for keyboard navigation). Accent-tinted so it
+   reads against any theme. */
+:focus-visible {
+  outline: 2px solid var(--accent-output);
+  outline-offset: 2px;
+}
+
+[data-high-contrast] :focus-visible {
+  outline-width: 3px;
+}
+
 html,
 body,
 #root {
