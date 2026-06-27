@@ -17,6 +17,9 @@ build/architecture overview aimed at contributors.
     — the Library → Collection → Pattern Master flow for a random pattern/
     transition show (localStorage library, audio-reactive patterns, per-pattern
     `.h` codegen), and its phased rollout.
+  - [Code node](development/design/code-node.md)
+    — pasting raw FastLED C++ as a node: verbatim codegen plus a lightweight
+    C++→JS shim that approximates the code in the live preview.
 - [Plans](development/plans/)
   - [T-HMI feature integration](development/plans/thmi-feature-integration.md)
     — how to replay the divergent `feature/thmi-touchscreen-ui` branch (FFT
