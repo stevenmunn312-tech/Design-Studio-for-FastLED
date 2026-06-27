@@ -115,9 +115,8 @@ function NodeGraphCanvasInner() {
           return
         }
         const name = (src?.data as { label?: string })?.label ?? 'pattern'
-        if (window.confirm(`Add “${name}” to the collection?`)) {
-          addToCollection(connection.target!, connection.source!)
-        }
+        addToCollection(connection.target!, connection.source!)
+        setStatus(`Added “${name}” to the collection`, 'success')
         return
       }
       onConnect(connection)
