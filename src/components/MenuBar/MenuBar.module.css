@@ -35,6 +35,16 @@
   align-items: center;
   gap: 4px;
   flex: 1;
+  /* min-width:0 lets the row shrink below its content width so it can scroll
+     horizontally when the window is too narrow, rather than squishing buttons
+     or clipping them under the node-count info. */
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox — hide the horizontal bar in the chrome */
+}
+
+.nav::-webkit-scrollbar {
+  display: none;
 }
 
 .btn {
@@ -47,6 +57,8 @@
   font-family: var(--font-body);
   font-size: var(--fs-caption);
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0; /* keep labels intact; the nav scrolls instead of squishing */
   transition: color var(--anim-hover), border-color var(--anim-hover);
 }
 

@@ -59,10 +59,10 @@ export default function MenuBar() {
         <span className={styles.title}>FastLED Studio</span>
       </div>
       <nav className={styles.nav}>
-        <button className={styles.btn} onClick={toggleSidebar}>
+        <button className={styles.btn} onClick={toggleSidebar} aria-label="Toggle node library">
           Nodes
         </button>
-        <button className={styles.btn} onClick={toggleInspector}>
+        <button className={styles.btn} onClick={toggleInspector} aria-label="Toggle inspector">
           Inspector
         </button>
         <div className={styles.sep} />
@@ -70,23 +70,25 @@ export default function MenuBar() {
           className={styles.btn}
           onClick={() => undo()}
           disabled={!canUndo}
+          aria-label={`Undo, ${pastStates.length} step${pastStates.length !== 1 ? 's' : ''} available`}
           title={`Undo (Ctrl+Z) — ${pastStates.length} step${pastStates.length !== 1 ? 's' : ''}`}
         >
-          ↩ {pastStates.length > 0 ? pastStates.length : ''}
+          ↩ Undo {pastStates.length > 0 ? pastStates.length : ''}
         </button>
         <button
           className={styles.btn}
           onClick={() => redo()}
           disabled={!canRedo}
+          aria-label={`Redo, ${futureStates.length} step${futureStates.length !== 1 ? 's' : ''} available`}
           title={`Redo (Ctrl+Y) — ${futureStates.length} step${futureStates.length !== 1 ? 's' : ''}`}
         >
-          ↪ {futureStates.length > 0 ? futureStates.length : ''}
+          ↪ Redo {futureStates.length > 0 ? futureStates.length : ''}
         </button>
         <div className={styles.sep} />
-        <button className={styles.btn} onClick={handleSaveJSON} title="Export graph as JSON (Ctrl+S)">
+        <button className={styles.btn} onClick={handleSaveJSON} aria-label="Export graph as JSON" title="Export graph as JSON (Ctrl+S)">
           ↓ Save
         </button>
-        <button className={styles.btn} onClick={handleLoadJSON} title="Import graph from JSON">
+        <button className={styles.btn} onClick={handleLoadJSON} aria-label="Import graph from JSON" title="Import graph from JSON">
           ↑ Load
         </button>
         <input
@@ -100,6 +102,7 @@ export default function MenuBar() {
         <button
           className={styles.btn}
           onClick={cycleTheme}
+          aria-label={`Theme: ${THEME_LABEL[theme]}. Click to cycle theme`}
           title={`Theme: ${THEME_LABEL[theme]} (click to cycle)`}
         >
           {THEME_ICON[theme]} {THEME_LABEL[theme]}
@@ -107,16 +110,20 @@ export default function MenuBar() {
         <button
           className={`${styles.btn} ${reducedMotion ? styles.btnActive : ''}`}
           onClick={toggleReducedMotion}
+          aria-label="Toggle reduced motion"
+          aria-pressed={reducedMotion}
           title="Toggle reduced motion"
         >
-          {reducedMotion ? '⏸' : '▶'}
+          {reducedMotion ? '⏸' : '▶'} Motion
         </button>
         <button
           className={`${styles.btn} ${highContrast ? styles.btnActive : ''}`}
           onClick={toggleHighContrast}
+          aria-label="Toggle high contrast"
+          aria-pressed={highContrast}
           title="Toggle high contrast"
         >
-          ◑
+          ◑ Contrast
         </button>
       </nav>
       <div className={styles.info}>
