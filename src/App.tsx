@@ -21,12 +21,25 @@ const AUTOSAVE_INTERVAL = 10_000
 // Persist the whole multi-graph workspace, not just the active graph — the
 // `graphData`/`graphs` hold every pattern-group subgraph, without which groups
 // lose their preview (and codegen) on reload.
+let warnedQuota = false
 function saveToLocalStorage(s: ReturnType<typeof useGraphStore.getState>) {
+  const { nodes, edges, graphData, graphs, activeGraphId } = s
   try {
-    const { nodes, edges, graphData, graphs, activeGraphId } = s
     localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ nodes, edges, graphData, graphs, activeGraphId }))
+    return
   } catch {
-    // storage quota exceeded — skip silently
+    // The full workspace didn't fit (localStorage is a shared ~5 MB budget).
+    // Fall back to persisting at least the active graph so newly added nodes
+    // still survive a reload — group subgraphs may drop until there's room.
+  }
+  try {
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ nodes, edges, activeGraphId }))
+    if (!warnedQuota) {
+      warnedQuota = true
+      useUiStore.getState().setStatus('Storage is full — saved the main graph, but some saved patterns may not persist', 'error')
+    }
+  } catch {
+    // Nothing fits at all — give up rather than throw out of the autosave.
   }
 }
 
@@ -75,6 +88,19 @@ export default function App() {
     return () => {
       unsub()
       if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
+    }
+  }, [])
+
+  // Flush the autosave immediately when the page is hidden/closed, so a reload
+  // right after an edit doesn't lose work waiting on the debounce.
+  useEffect(() => {
+    const flush = () => saveToLocalStorage(useGraphStore.getState())
+    const onVisibility = () => { if (document.visibilityState === 'hidden') flush() }
+    window.addEventListener('pagehide', flush)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('pagehide', flush)
+      document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [])
 
