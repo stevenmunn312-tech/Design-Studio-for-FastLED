@@ -96,13 +96,14 @@ function NodeGraphCanvasInner() {
   const { setStatus, setSparkPort, setViewCenter } = useUiStore()
   const wrapperRef = useRef<HTMLDivElement>(null)
 
-  // Publish the visible centre (in flow coords) so click-to-add from the
-  // sidebar drops nodes on screen wherever the user has panned.
+  // Publish the click-to-add drop point (in flow coords) so sidebar clicks land
+  // on screen wherever the user has panned. Biased to the left third — vertically
+  // centred but offset from the left edge — so new nodes have room to wire right.
   const publishCenter = useCallback(() => {
     const el = wrapperRef.current
     if (!el) return
     const r = el.getBoundingClientRect()
-    setViewCenter(screenToFlowPosition({ x: r.left + r.width / 2, y: r.top + r.height / 2 }))
+    setViewCenter(screenToFlowPosition({ x: r.left + r.width * 0.28, y: r.top + r.height / 2 }))
   }, [screenToFlowPosition, setViewCenter])
 
   // On pan/zoom: remember the viewport (so a reload restores it) and refresh
