@@ -16,12 +16,17 @@ studio keeps working (it just falls back to showing copy-paste commands).
 """
 from __future__ import annotations
 
+import io
 import json
 import os
+import platform
 import shutil
 import subprocess
+import tarfile
 import tempfile
 import time
+import urllib.request
+import zipfile
 from pathlib import Path
 
 from fastapi import Body, FastAPI, File, Form, UploadFile
@@ -29,14 +34,45 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
 # ── arduino-cli resolution ────────────────────────────────────────────────────
-# Resolve the CLI (env override > PATH > the binary the Arduino IDE bundles) and
-# its config file, so it sees the ESP32 core + FastLED library the IDE installed.
+# Resolve the CLI (saved path > env override > PATH > the IDE's bundled binary >
+# our own installed copy) and its config file, so it sees the ESP32 core + FastLED
+# library. The resolved path is persisted so a user-located/installed CLI sticks
+# across restarts.
 _DEFAULT_FQBN = "esp32:esp32:esp32s3"
 _ARDUINO_CFG = Path(os.environ.get("LOCALAPPDATA", "")) / "Arduino15" / "arduino-cli.yaml"
 SKETCH = "fastled_pattern"
 
+_HELPER_DIR = Path(__file__).parent
+_CONFIG_PATH = _HELPER_DIR / ".helper-config.json"
+_BIN_DIR = _HELPER_DIR / "bin"  # where a self-installed arduino-cli lands
+
+# Board-manager URLs for the third-party cores we can install, so `core install`
+# works against a fresh CLI that has never seen them.
+_CORE_URLS = {
+    "esp32:esp32": "https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json",
+    "rp2040:rp2040": "https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json",
+    "teensy:avr": "https://www.pjrc.com/teensy/package_teensy_index.json",
+}
+
+
+def _load_config() -> dict:
+    try:
+        return json.loads(_CONFIG_PATH.read_text())
+    except Exception:
+        return {}
+
+
+def _save_config(cfg: dict) -> None:
+    try:
+        _CONFIG_PATH.write_text(json.dumps(cfg, indent=2))
+    except Exception:
+        pass
+
 
 def _find_arduino_cli() -> str | None:
+    saved = _load_config().get("arduinoCli")
+    if saved and Path(saved).exists():
+        return saved
     env = os.environ.get("ARDUINO_CLI")
     if env and Path(env).exists():
         return env
@@ -47,16 +83,31 @@ def _find_arduino_cli() -> str | None:
         Path(os.environ.get("PROGRAMFILES", r"C:\Program Files"))
         / "Arduino IDE" / "resources" / "app" / "lib" / "backend" / "resources" / "arduino-cli.exe"
     )
-    return str(bundled) if bundled.exists() else None
+    if bundled.exists():
+        return str(bundled)
+    local = _BIN_DIR / ("arduino-cli.exe" if os.name == "nt" else "arduino-cli")
+    return str(local) if local.exists() else None
 
 
-_ARDUINO_CLI = _find_arduino_cli()
-# Pass the IDE's config explicitly (when present) so we use the same core/lib install.
-_ARDUINO_BASE = (
-    [_ARDUINO_CLI] + (["--config-file", str(_ARDUINO_CFG)] if _ARDUINO_CFG.exists() else [])
-    if _ARDUINO_CLI
-    else []
-)
+# Mutable module state: locating/installing the CLI at runtime updates these.
+_ARDUINO_CLI: str | None = None
+_ARDUINO_BASE: list[str] = []
+
+
+def _refresh_cli() -> None:
+    """Recompute the resolved CLI path + base args (run at import and after the
+    CLI is located or installed)."""
+    global _ARDUINO_CLI, _ARDUINO_BASE
+    _ARDUINO_CLI = _find_arduino_cli()
+    # Pass the IDE's config explicitly (when present) so we use the same core/lib install.
+    _ARDUINO_BASE = (
+        [_ARDUINO_CLI] + (["--config-file", str(_ARDUINO_CFG)] if _ARDUINO_CFG.exists() else [])
+        if _ARDUINO_CLI
+        else []
+    )
+
+
+_refresh_cli()
 
 app = FastAPI(title="FastLED Studio Upload Helper")
 
@@ -232,6 +283,161 @@ def serial_ports():
             "boards": [{"name": b.get("name"), "fqbn": b.get("fqbn")} for b in boards],
         })
     return {"ok": True, "ports": ports}
+
+
+# ── arduino-cli management ────────────────────────────────────────────────────
+@app.post("/api/arduino-cli/locate")
+def locate_cli(payload: dict = Body(...)):
+    """Point the helper at a user-supplied arduino-cli binary and persist it.
+
+    Body: {"path": "C:/tools/arduino-cli.exe"}. Validated by running `version`.
+    """
+    path = (payload.get("path") or "").strip().strip('"')
+    if not path or not Path(path).exists():
+        return JSONResponse({"ok": False, "error": "no file at that path"}, status_code=400)
+    try:
+        proc = subprocess.run([path, "version"], capture_output=True, text=True, timeout=20)
+        if proc.returncode != 0:
+            raise RuntimeError(proc.stderr.strip() or "non-zero exit")
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": f"not a working arduino-cli: {e}"}, status_code=400)
+    cfg = _load_config()
+    cfg["arduinoCli"] = path
+    _save_config(cfg)
+    _refresh_cli()
+    return {"ok": True, "version": (proc.stdout or "").strip()}
+
+
+def _cli_asset() -> tuple[str, str, str] | None:
+    """(asset-name, archive-ext, binary-name) for this OS/arch, or None."""
+    sys_, mach = platform.system(), platform.machine().lower()
+    if sys_ == "Windows":
+        return ("Windows_64bit", "zip", "arduino-cli.exe")
+    if sys_ == "Linux":
+        arch = "ARM64" if mach in ("aarch64", "arm64") else "64bit"
+        return (f"Linux_{arch}", "tar.gz", "arduino-cli")
+    if sys_ == "Darwin":
+        arch = "ARM64" if mach in ("aarch64", "arm64") else "64bit"
+        return (f"macOS_{arch}", "tar.gz", "arduino-cli")
+    return None
+
+
+@app.post("/api/arduino-cli/install")
+def install_cli():
+    """Download the official arduino-cli binary into backend/bin and use it.
+    Streams progress as text."""
+    asset = _cli_asset()
+
+    def stream():
+        if not asset:
+            yield f"[error] no arduino-cli build for {platform.system()}/{platform.machine()}\n"
+            return
+        name, ext, binary = asset
+        url = f"https://downloads.arduino.cc/arduino-cli/arduino-cli_latest_{name}.{ext}"
+        yield f"Downloading {url}\n"
+        try:
+            with urllib.request.urlopen(url, timeout=60) as resp:
+                total = int(resp.headers.get("Content-Length") or 0)
+                buf = io.BytesIO()
+                read = 0
+                last = -1
+                while True:
+                    chunk = resp.read(64 * 1024)
+                    if not chunk:
+                        break
+                    buf.write(chunk)
+                    read += len(chunk)
+                    if total:
+                        pct = read * 100 // total
+                        if pct != last and pct % 10 == 0:
+                            last = pct
+                            yield f"  …{pct}%\n"
+                buf.seek(0)
+        except Exception as e:
+            yield f"[error] download failed: {e}\n"
+            return
+
+        yield "Extracting…\n"
+        try:
+            _BIN_DIR.mkdir(parents=True, exist_ok=True)
+            dest = _BIN_DIR / binary
+            if ext == "zip":
+                with zipfile.ZipFile(buf) as zf:
+                    member = next(m for m in zf.namelist() if m.endswith(binary))
+                    dest.write_bytes(zf.read(member))
+            else:
+                with tarfile.open(fileobj=buf, mode="r:gz") as tf:
+                    member = next(m for m in tf.getmembers() if m.name.endswith(binary))
+                    src = tf.extractfile(member)
+                    dest.write_bytes(src.read() if src else b"")
+            if os.name != "nt":
+                dest.chmod(0o755)
+        except Exception as e:
+            yield f"[error] extract failed: {e}\n"
+            return
+
+        cfg = _load_config()
+        cfg["arduinoCli"] = str(dest)
+        _save_config(cfg)
+        _refresh_cli()
+        # Initialise a config so cores/libs can be installed afterwards.
+        try:
+            subprocess.run(_ARDUINO_BASE + ["config", "init"], capture_output=True, text=True, timeout=30)
+        except Exception:
+            pass
+        yield f"arduino-cli installed at {dest}\n"
+
+    return StreamingResponse(stream(), media_type="text/plain")
+
+
+@app.get("/api/cores")
+def cores():
+    """List installed board cores (so the board manager can show status)."""
+    if not _ARDUINO_CLI:
+        return {"ok": False, "cores": []}
+    try:
+        proc = subprocess.run(
+            _ARDUINO_BASE + ["core", "list", "--format", "json"],
+            capture_output=True, text=True, timeout=30,
+        )
+        data = json.loads(proc.stdout or "[]")
+    except Exception as e:
+        return {"ok": False, "error": str(e), "cores": []}
+    # arduino-cli 1.x: {"platforms": [{"id": ...}]}; older: a bare list.
+    items = data.get("platforms", data) if isinstance(data, dict) else data
+    ids = [p.get("id") for p in (items or []) if isinstance(p, dict) and p.get("id")]
+    return {"ok": True, "cores": ids}
+
+
+@app.post("/api/core/install")
+def core_install(payload: dict = Body(...)):
+    """Install a board core (and the FastLED lib), streaming progress as text.
+
+    Body: {"core": "esp32:esp32"}. For third-party cores the matching
+    board-manager URL is registered first.
+    """
+    if not _ARDUINO_CLI:
+        return JSONResponse({"ok": False, "error": "arduino-cli not found"}, status_code=400)
+    core = (payload.get("core") or "").strip()
+    if not core:
+        return JSONResponse({"ok": False, "error": "no core given"}, status_code=400)
+
+    def stream():
+        url = _CORE_URLS.get(core)
+        if url:
+            yield from _run_phase(
+                "register board URL",
+                _ARDUINO_BASE + ["config", "add", "board_manager.additional_urls", url],
+            )
+        rc = yield from _run_phase("update index", _ARDUINO_BASE + ["core", "update-index"])
+        rc = yield from _run_phase(f"install {core}", _ARDUINO_BASE + ["core", "install", core])
+        if rc == 0:
+            yield from _run_phase("install FastLED", _ARDUINO_BASE + ["lib", "install", "FastLED"])
+            yield f"\n{core} ready.\n"
+        else:
+            yield f"\n*** core install failed (exit {rc}) ***\n"
+
+    return StreamingResponse(stream(), media_type="text/plain")
 
 
 @app.post("/api/upload")

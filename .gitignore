@@ -7,6 +7,8 @@ dist/
 # Python upload helper (backend/) local state
 backend/.venv/
 backend/__pycache__/
+backend/.helper-config.json   # persisted arduino-cli path
+backend/bin/                  # self-installed arduino-cli binary
 __pycache__/
 *.pyc
 
