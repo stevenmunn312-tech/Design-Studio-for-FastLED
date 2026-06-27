@@ -1,0 +1,267 @@
+import { create } from 'zustand'
+import {
+  checkBackend, listPorts, listCores, uploadSketch, uploadShow, locateCli, installCli, installCore,
+  type BackendHealth, type SerialPort, type ShowUploadFile,
+} from '../utils/backendClient'
+
+// ── Board catalogue ───────────────────────────────────────────────────────────
+// Each board maps to an arduino-cli FQBN and the core that provides it. ESP32,
+// RP2040 and Teensy are third-party cores (their board-manager URL is registered
+// by the helper when their core is installed).
+export interface Board { label: string; fqbn: string; core: string; thirdParty?: boolean }
+
+export const BOARDS: Board[] = [
+  { label: 'ESP32-S3',      fqbn: 'esp32:esp32:esp32s3',   core: 'esp32:esp32',   thirdParty: true },
+  { label: 'ESP32',         fqbn: 'esp32:esp32:esp32',     core: 'esp32:esp32',   thirdParty: true },
+  { label: 'Arduino Uno',   fqbn: 'arduino:avr:uno',       core: 'arduino:avr' },
+  { label: 'Arduino Nano',  fqbn: 'arduino:avr:nano',      core: 'arduino:avr' },
+  { label: 'Teensy 4.1',    fqbn: 'teensy:avr:teensy41',   core: 'teensy:avr',    thirdParty: true },
+  { label: 'RP2040 (Pico)', fqbn: 'rp2040:rp2040:rpipico', core: 'rp2040:rp2040', thirdParty: true },
+]
+
+export function boardByFqbn(fqbn: string): Board | undefined {
+  return BOARDS.find((b) => b.fqbn === fqbn)
+}
+
+// ── Live upload status ────────────────────────────────────────────────────────
+export type UploadPhase = 'idle' | 'compiling' | 'uploading' | 'done' | 'error' | 'working'
+export interface UploadStatus { phase: UploadPhase; percent?: number; message: string }
+
+const IDLE: UploadStatus = { phase: 'idle', message: '' }
+
+// Derive a compact status from the helper's streamed compile/upload log. The
+// helper emits `=== … compile ===` / `=== … upload ===` markers, esptool prints
+// `(NN %)` during the write, and each phase ends with `[… exit code: N]`.
+export function parseStatus(log: string): UploadStatus {
+  if (/\*\*\* FAILED|\*\*\* .*failed|\[error\]|exit code: [1-9]/i.test(log)) {
+    return { phase: 'error', message: 'Error — see output' }
+  }
+  if (/Upload complete|All done|ready\.\n/i.test(log)) {
+    return { phase: 'done', message: 'Done' }
+  }
+  const upIdx = log.lastIndexOf('upload ===')
+  if (upIdx >= 0) {
+    const pcts = [...log.slice(upIdx).matchAll(/\((\d+)\s*%\)/g)]
+    const p = pcts.length ? Number(pcts[pcts.length - 1][1]) : undefined
+    return { phase: 'uploading', percent: p, message: p != null ? `Uploading ${p}%` : 'Uploading…' }
+  }
+  if (/compile ===/.test(log)) return { phase: 'compiling', message: 'Compiling…' }
+  return { phase: 'working', message: 'Working…' }
+}
+
+// ── Persistence ───────────────────────────────────────────────────────────────
+const KEY = 'fastled-studio-upload'
+interface Persisted { myBoards: string[]; selectedFqbn: string; selectedPort: string }
+
+function load(): Persisted {
+  const fallback: Persisted = { myBoards: BOARDS.map((b) => b.fqbn), selectedFqbn: BOARDS[0].fqbn, selectedPort: '' }
+  try {
+    const v = localStorage.getItem(KEY)
+    if (!v) return fallback
+    return { ...fallback, ...(JSON.parse(v) as Partial<Persisted>) }
+  } catch {
+    return fallback
+  }
+}
+
+// ── Store ─────────────────────────────────────────────────────────────────────
+interface UploadState {
+  // helper / hardware
+  helper: BackendHealth | null | undefined   // undefined = still probing
+  ports: SerialPort[]
+  installedCores: string[]
+  // selection (persisted)
+  myBoards: string[]
+  selectedFqbn: string
+  selectedPort: string
+  // run state
+  busy: boolean
+  status: UploadStatus
+  log: string
+  // overlays
+  boardPopupOpen: boolean
+  cliPopupOpen: boolean
+  consoleOpen: boolean
+
+  // helper / hardware
+  refreshHelper: () => Promise<void>
+  refreshPorts: () => Promise<void>
+  refreshCores: () => Promise<void>
+  // selection
+  setMyBoards: (fqbns: string[]) => void
+  toggleBoard: (fqbn: string) => void
+  setSelectedFqbn: (fqbn: string) => void
+  setSelectedPort: (port: string) => void
+  // overlays
+  openBoardPopup: () => void
+  closeBoardPopup: () => void
+  openCliPopup: () => void
+  closeCliPopup: () => void
+  openConsole: () => void
+  closeConsole: () => void
+  // logging
+  appendLog: (chunk: string) => void
+  clearLog: () => void
+  // actions
+  runUpload: (code: string) => Promise<void>
+  runShowUpload: (payload: { provisioner: string; player: string; files: ShowUploadFile[] }) => Promise<void>
+  exportIno: (code: string, filename?: string) => void
+  locate: (path: string) => Promise<{ ok: boolean; error?: string }>
+  installCli: () => Promise<void>
+  installCore: (core: string) => Promise<void>
+}
+
+const persisted = load()
+function persist(s: Pick<UploadState, 'myBoards' | 'selectedFqbn' | 'selectedPort'>) {
+  try { localStorage.setItem(KEY, JSON.stringify({ myBoards: s.myBoards, selectedFqbn: s.selectedFqbn, selectedPort: s.selectedPort })) } catch { /* quota */ }
+}
+
+export const useUploadStore = create<UploadState>((set, get) => ({
+  helper: undefined,
+  ports: [],
+  installedCores: [],
+  myBoards: persisted.myBoards,
+  selectedFqbn: persisted.selectedFqbn,
+  selectedPort: persisted.selectedPort,
+  busy: false,
+  status: IDLE,
+  log: '',
+  boardPopupOpen: false,
+  cliPopupOpen: false,
+  consoleOpen: false,
+
+  refreshHelper: async () => {
+    const h = await checkBackend()
+    set({ helper: h })
+    if (h?.arduinoCli) { get().refreshPorts(); get().refreshCores() }
+  },
+
+  refreshPorts: async () => {
+    const ports = await listPorts()
+    set({ ports })
+    // Default the port to the first detected board if nothing is chosen yet.
+    if (!get().selectedPort && ports[0]) get().setSelectedPort(ports[0].address)
+  },
+
+  refreshCores: async () => set({ installedCores: await listCores() }),
+
+  setMyBoards: (fqbns) => { set({ myBoards: fqbns }); persist({ ...get(), myBoards: fqbns }) },
+  toggleBoard: (fqbn) => {
+    const has = get().myBoards.includes(fqbn)
+    const myBoards = has ? get().myBoards.filter((f) => f !== fqbn) : [...get().myBoards, fqbn]
+    set({ myBoards })
+    // Keep the active selection valid.
+    let selectedFqbn = get().selectedFqbn
+    if (!myBoards.includes(selectedFqbn)) selectedFqbn = myBoards[0] ?? ''
+    set({ selectedFqbn })
+    persist({ ...get(), myBoards, selectedFqbn })
+  },
+  setSelectedFqbn: (fqbn) => { set({ selectedFqbn: fqbn }); persist({ ...get(), selectedFqbn: fqbn }) },
+  setSelectedPort: (port) => { set({ selectedPort: port }); persist({ ...get(), selectedPort: port }) },
+
+  openBoardPopup: () => { set({ boardPopupOpen: true }); get().refreshPorts(); get().refreshCores() },
+  closeBoardPopup: () => set({ boardPopupOpen: false }),
+  openCliPopup: () => set({ cliPopupOpen: true, boardPopupOpen: false }),
+  closeCliPopup: () => set({ cliPopupOpen: false }),
+  openConsole: () => set({ consoleOpen: true }),
+  closeConsole: () => set({ consoleOpen: false }),
+
+  appendLog: (chunk) => set((s) => ({ log: (s.log + chunk).slice(-60000) })),
+  clearLog: () => set({ log: '' }),
+
+  runUpload: async (code) => {
+    const { selectedFqbn, selectedPort, busy, helper } = get()
+    if (busy) return
+    if (!helper?.arduinoCli) { set({ cliPopupOpen: true }); return }
+    if (!selectedPort) { set({ boardPopupOpen: true }); return }
+    set({ busy: true, log: `Uploading to ${selectedPort} (${selectedFqbn})…\n`, status: { phase: 'working', message: 'Starting…' } })
+    try {
+      await uploadSketch(code, selectedFqbn, selectedPort, (chunk) => {
+        const log = (get().log + chunk).slice(-60000)
+        const status = parseStatus(log)
+        set({ log, status })
+        if (status.phase === 'error') set({ consoleOpen: true })
+      })
+      // Settle on a terminal status from the full log.
+      const final = parseStatus(get().log)
+      set({ status: final.phase === 'uploading' || final.phase === 'working' ? { phase: 'done', message: 'Done' } : final })
+      if (get().status.phase === 'error') set({ consoleOpen: true })
+    } catch (err) {
+      get().appendLog(`\n[error] ${err}\n`)
+      set({ status: { phase: 'error', message: 'Error — helper offline?' }, consoleOpen: true })
+    } finally {
+      set({ busy: false })
+    }
+  },
+
+  runShowUpload: async (payload) => {
+    const { selectedFqbn, selectedPort, busy, helper } = get()
+    if (busy) return
+    if (!helper?.arduinoCli) { set({ cliPopupOpen: true }); return }
+    if (!selectedPort) { set({ boardPopupOpen: true }); return }
+    set({ busy: true, consoleOpen: true, log: `Provisioning show to ${selectedPort} (${selectedFqbn})…\n`, status: { phase: 'working', message: 'Provisioning…' } })
+    try {
+      await uploadShow({ fqbn: selectedFqbn, port: selectedPort, ...payload }, (chunk) => {
+        const log = (get().log + chunk).slice(-60000)
+        const status = parseStatus(log)
+        set({ log, status })
+        if (status.phase === 'error') set({ consoleOpen: true })
+      })
+      const final = parseStatus(get().log)
+      set({ status: final.phase === 'error' ? final : { phase: 'done', message: 'Done' } })
+    } catch (err) {
+      get().appendLog(`\n[error] ${err}\n`)
+      set({ status: { phase: 'error', message: 'Error — helper offline?' }, consoleOpen: true })
+    } finally {
+      set({ busy: false })
+    }
+  },
+
+  exportIno: (code, filename = 'fastled_pattern.ino') => {
+    const blob = new Blob([code], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  },
+
+  locate: async (path) => {
+    const res = await locateCli(path)
+    if (res.ok) { set({ cliPopupOpen: false }); await get().refreshHelper() }
+    return res
+  },
+
+  installCli: async () => {
+    if (get().busy) return
+    set({ busy: true, consoleOpen: true, log: get().log + '\n=== Installing arduino-cli ===\n', status: { phase: 'working', message: 'Installing CLI…' } })
+    try {
+      await installCli((chunk) => get().appendLog(chunk))
+      await get().refreshHelper()
+      const ok = !!get().helper?.arduinoCli
+      set({ status: ok ? { phase: 'done', message: 'CLI installed' } : { phase: 'error', message: 'Install failed' }, cliPopupOpen: !ok })
+    } catch (err) {
+      get().appendLog(`\n[error] ${err}\n`)
+      set({ status: { phase: 'error', message: 'Install failed' } })
+    } finally {
+      set({ busy: false })
+    }
+  },
+
+  installCore: async (core) => {
+    if (get().busy) return
+    set({ busy: true, consoleOpen: true, log: get().log + `\n=== Installing ${core} ===\n`, status: { phase: 'working', message: `Installing ${core}…` } })
+    try {
+      await installCore(core, (chunk) => get().appendLog(chunk))
+      await get().refreshCores()
+      const ok = get().installedCores.includes(core)
+      set({ status: ok ? { phase: 'done', message: `${core} installed` } : { phase: 'error', message: 'Core install failed' } })
+    } catch (err) {
+      get().appendLog(`\n[error] ${err}\n`)
+      set({ status: { phase: 'error', message: 'Core install failed' } })
+    } finally {
+      set({ busy: false })
+    }
+  },
+}))

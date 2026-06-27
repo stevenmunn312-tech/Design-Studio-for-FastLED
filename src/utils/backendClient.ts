@@ -42,6 +42,48 @@ export async function listPorts(): Promise<SerialPort[]> {
   }
 }
 
+/** Installed board-core ids (e.g. `esp32:esp32`), so the board manager can show status. */
+export async function listCores(): Promise<string[]> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/cores`)
+    const data = await res.json()
+    return data.ok ? (data.cores as string[]) : []
+  } catch {
+    return []
+  }
+}
+
+/** Point the helper at a user-supplied arduino-cli binary. Returns the result. */
+export async function locateCli(path: string): Promise<{ ok: boolean; error?: string; version?: string }> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/arduino-cli/locate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path }),
+    })
+    return await res.json()
+  } catch (e) {
+    return { ok: false, error: String(e) }
+  }
+}
+
+/** Download + install the arduino-cli binary, streaming progress to `onLog`. */
+export async function installCli(onLog: (chunk: string) => void, signal?: AbortSignal): Promise<void> {
+  const res = await fetch(`${BACKEND_URL}/api/arduino-cli/install`, { method: 'POST', signal })
+  await pipeStream(res, onLog)
+}
+
+/** Install a board core (+ FastLED lib), streaming progress to `onLog`. */
+export async function installCore(core: string, onLog: (chunk: string) => void, signal?: AbortSignal): Promise<void> {
+  const res = await fetch(`${BACKEND_URL}/api/core/install`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ core }),
+    signal,
+  })
+  await pipeStream(res, onLog)
+}
+
 // Pipe a streaming text response into `onLog`, chunk by chunk.
 async function pipeStream(res: Response, onLog: (chunk: string) => void): Promise<void> {
   if (!res.body) {
