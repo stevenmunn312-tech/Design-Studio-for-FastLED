@@ -897,6 +897,29 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { formula: 'sin(x*6+t)*0.5+0.5', palette: 'rainbow' },
   },
+  {
+    // Paste raw FastLED C++ (a loop body that writes into leds[]). The text is
+    // emitted verbatim into the sketch; the live preview approximates it via a
+    // lightweight C++→JS shim. See docs/development/design/code-node.md.
+    type: 'Code',
+    label: 'Code',
+    category: 'pattern',
+    inputs: [
+      // Optional: seed leds[] from an upstream frame (e.g. to fadeToBlackBy it).
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: {
+      code: [
+        'fadeToBlackBy(leds, NUM_LEDS, 20);',
+        'uint8_t dothue = 0;',
+        'for (int i = 0; i < 8; i++) {',
+        '  leds[beatsin16(i + 7, 0, NUM_LEDS - 1)] |= CHSV(dothue, 200, 255);',
+        '  dothue += 32;',
+        '}',
+      ].join('\n'),
+    },
+  },
 
   // ── Float Field (ANIMartRIX-style coordinate → scalar pipeline) ─────────
   // FieldFormula emits a per-pixel scalar `field` (0–1); FieldToFrame maps a
@@ -1133,6 +1156,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   GameOfLife: 'Conway’s Game of Life with fading trails.',
   PatternMaster: 'Random pattern/transition show from a Pattern Collection.',
   CustomFormula: 'Per-pixel JS expression f(x, y, t) — with cx/cy/r/angle and FastLED shims.',
+  Code: 'Paste raw FastLED C++ that writes into leds[].',
   FieldFormula: 'Per-pixel scalar field from an expression (cx/cy/r/angle, sin8/beatsin8…).',
   FieldToFrame: 'Maps a scalar field through a palette to a frame.',
   DistanceField: 'Scalar field of distance from each pixel to a movable point.',

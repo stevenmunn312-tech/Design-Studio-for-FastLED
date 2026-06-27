@@ -1366,6 +1366,23 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
+      case 'Code': {
+        // Paste-through: the user's FastLED loop body writes into leds[], aliased
+        // to this node's (global, persistent) buffer. A wired frame input seeds
+        // it each loop; unwired the buffer persists, so fadeToBlackBy accumulates
+        // trails the same way the live preview does.
+        needsT.v = true
+        const ob = ownBuf()
+        const src = srcBuf('frame')
+        const code = String(p.code ?? '')
+        ln(`  {`)
+        if (src) ln(`    ::memmove(${ob}, ${src}, sizeof(CRGB) * NUM_LEDS);`)
+        ln(`    CRGB* leds = ${ob}; (void)leds;`)
+        for (const line of code.split('\n')) ln(`    ${line}`)
+        ln(`  }`)
+        break
+      }
+
       case 'PaletteSelector':
         ln(`  // PaletteSelector — drives ${fastledPalette(String(p.palette ?? 'rainbow'))} in connected palette-consuming nodes`)
         break

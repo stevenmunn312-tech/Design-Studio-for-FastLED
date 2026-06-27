@@ -60,6 +60,13 @@ function compileFormula(formula: string, cache: Map<string, FormulaFn | null>): 
   return cache.get(formula) ?? null
 }
 
+// Code node: compiled JS bodies (transpiled from pasted C++) keyed by source,
+// plus a persistent flat leds[] per node-instance so fade-trails accumulate
+// across frames the way FastLED's global leds[] does.
+type CodeFn = (leds: RGB[], NUM_LEDS: number, WIDTH: number, HEIGHT: number, t: number, shim: Record<string, unknown>) => void
+const codeCache = new Map<string, CodeFn | null>()
+const codeLeds = new Map<string, RGB[]>()
+
 // ── Simplex noise 2D ─────────────────────────────────────────────────────────
 const _PERM = (() => {
   const p = [151,160,137,91,90,15,131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,190,6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,88,237,149,56,87,174,20,125,136,171,168,68,175,74,165,71,134,139,48,27,166,77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,102,143,54,65,25,63,161,1,216,80,73,209,76,132,187,208,89,18,169,200,196,135,130,116,188,159,86,164,100,109,198,173,186,3,64,52,217,226,250,124,123,5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,223,183,170,213,119,248,152,2,44,154,163,70,221,153,101,155,167,43,172,9,129,22,39,253,19,98,108,110,79,113,224,232,178,185,112,104,218,246,97,228,251,34,242,193,238,210,144,12,191,179,162,241,81,51,145,235,249,14,239,107,49,192,214,31,181,199,106,157,184,84,204,176,115,121,50,45,127,4,150,254,138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180]
@@ -1171,6 +1178,102 @@ function evalFieldToFrame(field: Field | null, palette: Palette, brightness: num
   )
 }
 
+// ── Code node ─────────────────────────────────────────────────────────────────
+// Lightweight, best-effort C++→JS transpile so pasted FastLED loop bodies can be
+// approximated in the live preview. Strips C++ type keywords from declarations
+// and rewrites leds[] writes to shim calls (JS can't overload |=). The pasted
+// text is still emitted verbatim into the firmware. See
+// docs/development/design/code-node.md for the rules and known divergences.
+function transpileCode(code: string): string {
+  return code
+    // A C++ type keyword introducing a local (declaration position only —
+    // followed by an identifier). Casts like `(uint8_t)x` have `)` after the
+    // keyword, so they're left untouched.
+    .replace(/\b(?:uint8_t|uint16_t|uint32_t|int8_t|int16_t|int|long|float|double|bool|byte)\s+(?=[A-Za-z_])/g, 'let ')
+    // leds[i] |= rgb  → additive blend; leds[i] = rgb → overwrite. |= first.
+    .replace(/leds\s*\[([^\]]*)\]\s*\|=\s*([^;]+);/g, 'addLed($1, $2);')
+    .replace(/leds\s*\[([^\]]*)\]\s*=\s*([^;]+);/g, 'setLed($1, $2);')
+}
+
+// FastLED vocabulary the transpiled body runs against. Closures capture this
+// frame's leds[] and t, so the compiled function (cached) stays stateless.
+function makeCodeShim(leds: RGB[], t: number, W: number, H: number) {
+  const N = leds.length
+  const c8 = (v: number) => Math.max(0, Math.min(255, Math.round(v)))
+  const inRange = (i: number) => i >= 0 && i < N
+  const wave = (bpm: number, lo: number, hi: number) =>
+    Math.round(lo + (Math.sin((2 * Math.PI * bpm / 60) * t) * 0.5 + 0.5) * (hi - lo))
+  return {
+    CHSV: (h: number, s = 255, v = 255) => hsv((h / 255) * 360, s / 255, v / 255),
+    CRGB: (r: number, g: number, b: number) => ({ r: c8(r), g: c8(g), b: c8(b) }),
+    beatsin16: (bpm: number, lo = 0, hi = 65535) => wave(bpm, lo, hi),
+    beatsin8: (bpm: number, lo = 0, hi = 255) => wave(bpm, lo, hi),
+    beat8: (bpm: number) => Math.floor((t * bpm / 60) * 256) % 256,
+    beat16: (bpm: number) => Math.floor((t * bpm / 60) * 65536) % 65536,
+    sin8: (x: number) => Math.round(128 + 127 * Math.sin((x / 256) * 2 * Math.PI)),
+    cos8: (x: number) => Math.round(128 + 127 * Math.cos((x / 256) * 2 * Math.PI)),
+    sin16: (x: number) => Math.round(32767 * Math.sin((x / 65536) * 2 * Math.PI)),
+    qadd8: (a: number, b: number) => Math.min(255, a + b),
+    qsub8: (a: number, b: number) => Math.max(0, a - b),
+    scale8: (a: number, b: number) => Math.floor((a * b) / 255),
+    random8: (lim?: number) => Math.floor(Math.random() * (lim ?? 256)),
+    random16: (lim?: number) => Math.floor(Math.random() * (lim ?? 65536)),
+    millis: () => t * 1000,
+    XY: (x: number, y: number) =>
+      Math.max(0, Math.min(H - 1, y | 0)) * W + Math.max(0, Math.min(W - 1, x | 0)),
+    addLed: (i: number, c: RGB) => {
+      i |= 0
+      if (inRange(i) && c) leds[i] = { r: Math.min(255, leds[i].r + c.r), g: Math.min(255, leds[i].g + c.g), b: Math.min(255, leds[i].b + c.b) }
+    },
+    setLed: (i: number, c: RGB) => { i |= 0; if (inRange(i) && c) leds[i] = { r: c8(c.r), g: c8(c.g), b: c8(c.b) } },
+    fadeToBlackBy: (arr: RGB[], n: number, amount: number) => {
+      const k = (255 - c8(amount)) / 255
+      const m = Math.min(n | 0, arr.length)
+      for (let i = 0; i < m; i++) arr[i] = { r: arr[i].r * k, g: arr[i].g * k, b: arr[i].b * k }
+    },
+  }
+}
+
+function evalCode(key: string, code: string, seed: Frame | null, t: number, W: number, H: number): Frame {
+  if (!codeCache.has(code)) {
+    if (codeCache.size > 50) codeCache.clear()
+    try {
+      const body = transpileCode(code)
+      const fn = new Function('leds', 'NUM_LEDS', 'WIDTH', 'HEIGHT', 't', 'shim',
+        '"use strict"; const { CHSV,CRGB,beatsin16,beatsin8,beat8,beat16,sin8,cos8,sin16,qadd8,qsub8,scale8,random8,random16,millis,XY,addLed,setLed,fadeToBlackBy } = shim; ' + body
+      ) as CodeFn
+      codeCache.set(code, fn)
+    } catch {
+      codeCache.set(code, null)
+    }
+  }
+  const fn = codeCache.get(code)
+  const N = W * H
+
+  // Persistent leds[] per node-instance (fade-trails accumulate across frames).
+  // A wired frame input overwrites it each frame; unwired, it persists.
+  let leds = codeLeds.get(key)
+  if (!leds || leds.length !== N) {
+    leds = Array.from({ length: N }, () => ({ r: 0, g: 0, b: 0 }))
+    codeLeds.set(key, leds)
+  }
+  if (seed) {
+    for (let i = 0; i < N; i++) {
+      const px = seed[Math.floor(i / W)]?.[i % W]
+      leds[i] = px ? { ...px } : { r: 0, g: 0, b: 0 }
+    }
+  }
+  if (fn) {
+    try { fn(leds, N, W, H, t, makeCodeShim(leds, t, W, H)) } catch { /* keep current leds */ }
+  }
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const px = leds![y * W + x]
+      return { r: Math.max(0, Math.min(255, Math.round(px.r))), g: Math.max(0, Math.min(255, Math.round(px.g))), b: Math.max(0, Math.min(255, Math.round(px.b))) }
+    })
+  )
+}
+
 // Distance from each pixel to a movable point (px,py in normalised 0–1 space).
 // Output is 0 at the point, rising to 1; `scale` (≥1) stretches the ramp so it
 // reaches 1 sooner. The diagonal of the unit square (√2) is the 1.0 reference.
@@ -2112,6 +2215,13 @@ function createEvalNode(
         const tx = num(id, 'tilesX', props, 'tilesX', 2)
         const ty = num(id, 'tilesY', props, 'tilesY', 2)
         out = { field: evalFieldTile(field, tx, ty, W, H) }
+        break
+      }
+
+      case 'Code': {
+        const seed = input(id, 'frame', null) as Frame | null
+        const code = String(props.code ?? '')
+        out = { frame: evalCode(stateKey(id), code, seed, t, W, H) }
         break
       }
 

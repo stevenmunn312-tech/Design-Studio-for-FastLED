@@ -134,6 +134,29 @@
   border-color: var(--accent-output);
 }
 
+/* Code node — multi-line C++ editor in the node body. */
+.codeEditor {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  margin-top: var(--space-1);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-glow);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-code);
+  font-size: var(--fs-caption);
+  line-height: 1.45;
+  padding: 6px 8px;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.codeEditor:focus {
+  outline: none;
+  border-color: var(--accent-pattern);
+}
+
 .colorInput {
   width: 28px;
   height: 18px;

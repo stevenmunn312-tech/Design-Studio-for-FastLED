@@ -163,6 +163,24 @@ describe('generateCpp', () => {
     expect(cpp).toContain('constrain(0.75, 0, 1) * 255')   // 0.75 → 191
   })
 
+  it('emits a Code node body verbatim into its buffer', () => {
+    const code = 'leds[beatsin16(7, 0, NUM_LEDS - 1)] |= CHSV(0, 200, 255);'
+    const cd = node('cd', 'Code', 'pattern', { code })
+    const cpp = generateCpp([cd, outputNode], [edge('e', 'cd', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('CRGB* leds = buf_cd;')
+    expect(cpp).toContain(code)   // pasted verbatim, no transpile
+  })
+
+  it('seeds a Code node buffer from a wired frame input', () => {
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 })
+    const cd = node('cd', 'Code', 'pattern', { code: 'fadeToBlackBy(leds, NUM_LEDS, 40);' })
+    const cpp = generateCpp([sc, cd, outputNode], [
+      edge('e1', 'sc', 'cd', 'frame', 'frame'),
+      edge('e2', 'cd', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('::memmove(buf_cd, buf_sc, sizeof(CRGB) * NUM_LEDS);')
+  })
+
   it('emits a Transform that resamples from the source buffer per mode', () => {
     const mk = (transform: string, extra: Record<string, unknown> = {}) => {
       const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })

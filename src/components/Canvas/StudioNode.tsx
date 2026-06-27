@@ -132,7 +132,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const props = d.properties as Record<string, unknown>
   const hasRGB = ['r', 'g', 'b'].every((k) => typeof props[k] === 'number')
   const editable = Object.entries(props).filter(
-    ([k]) => k !== 'font' && k !== 'image' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'transitions'
+    ([k]) => k !== 'font' && k !== 'image' && k !== 'code' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'transitions'
       && !(hasRGB && (k === 'r' || k === 'g' || k === 'b'))
   )
   // The "clamp inputs" toggle is rendered specially (it has no entry in the
@@ -166,12 +166,14 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // The MusicLibrary node embeds the full library UI in its body, so it needs a
   // wider frame than the default node width.
   const isMusicLibrary = d.nodeType === 'MusicLibrary'
+  // The Code node embeds a multi-line C++ editor, so it needs a wider frame.
+  const isCode = d.nodeType === 'Code'
 
   return (
     <div
       className={styles.node}
       style={{
-        width: isMusicLibrary ? 300 : undefined,
+        width: isMusicLibrary ? 300 : isCode ? 320 : undefined,
         boxShadow: selected ? `0 0 0 2px ${accent}, 0 0 12px ${accent}` : undefined,
       }}
     >
@@ -234,6 +236,16 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {d.nodeType === 'PatternMaster' && <PatternMasterBody nodeId={id} />}
 
         {d.nodeType === 'MatrixOutput' && <MatrixOutputUpload enabled={drivenBy('frame')} />}
+
+        {isCode && (
+          <textarea
+            className={`nodrag nowheel ${styles.codeEditor}`}
+            spellCheck={false}
+            value={String(props.code ?? '')}
+            placeholder="// FastLED loop body — writes into leds[]"
+            onChange={(e) => updateNodeProperty(id, 'code', e.target.value)}
+          />
+        )}
 
         {(hasRGB || editable.length > 0 || showClamp) && (
           <div className={styles.props}>

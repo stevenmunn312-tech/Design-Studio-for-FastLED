@@ -236,6 +236,40 @@ describe('evaluateGraph', () => {
     expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
   })
 
+  it('Code setLed writes a pixel (CHSV)', () => {
+    // CHSV(0,255,255) is red; `leds[0] = ...` rewrites to setLed.
+    const { nodes, edges } = withOutput(node('cd1', 'Code', 'pattern', { code: 'leds[0] = CHSV(0, 255, 255);' }))
+    const frame = evaluateGraph(nodes, edges, 0, W, H)
+    expect(frame![0][0]).toEqual({ r: 255, g: 0, b: 0 })
+  })
+
+  it('Code supports XY() indexing and additive |= blend', () => {
+    // XY(2,1) → row 1, col 2; |= rewrites to an additive blend onto black.
+    const { nodes, edges } = withOutput(node('cd2', 'Code', 'pattern', { code: 'leds[XY(2, 1)] |= CRGB(0, 0, 255);' }))
+    const frame = evaluateGraph(nodes, edges, 0, W, H)
+    expect(frame![1][2]).toEqual({ r: 0, g: 0, b: 255 })
+    expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
+  })
+
+  it('Code persists leds[] across frames so fadeToBlackBy leaves trails', () => {
+    // Frame 1 lights pixel 5 white; frame 2 (same node id) only fades — the
+    // persisted value must survive into the second evaluation.
+    const lit = withOutput(node('cdP', 'Code', 'pattern', { code: 'leds[5] = CRGB(255, 255, 255);' }))
+    evaluateGraph(lit.nodes, lit.edges, 0, W, H)
+    const faded = withOutput(node('cdP', 'Code', 'pattern', { code: 'fadeToBlackBy(leds, NUM_LEDS, 128);' }))
+    const frame = evaluateGraph(faded.nodes, faded.edges, 1, W, H)
+    const px = frame![1][1] // index 5 = row 1, col 1
+    expect(px.r).toBeGreaterThan(118)
+    expect(px.r).toBeLessThan(136)
+  })
+
+  it('Code with invalid source renders black instead of throwing', () => {
+    const { nodes, edges } = withOutput(node('cdBad', 'Code', 'pattern', { code: '@@@ this is not valid;' }))
+    const frame = evaluateGraph(nodes, edges, 0, W, H)
+    expect(frame).not.toBeNull()
+    expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
+  })
+
   it('Invert flips pixel values', () => {
     const sc  = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 128 })
     const inv = node('inv', 'Invert', 'pattern', {})
