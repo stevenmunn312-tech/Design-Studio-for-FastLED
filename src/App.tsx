@@ -9,7 +9,10 @@ import NodeGraphCanvas from './components/Canvas/NodeGraphCanvas'
 import LEDPreview from './components/Preview/LEDPreview'
 import Inspector from './components/Inspector/Inspector'
 import StatusBar from './components/StatusBar/StatusBar'
-import UploadPanel from './components/Upload/UploadPanel'
+import BoardPopup from './components/Upload/BoardPopup'
+import ArduinoCliPopup from './components/Upload/ArduinoCliPopup'
+import OutputConsole from './components/Upload/OutputConsole'
+import { useUploadStore } from './state/uploadStore'
 import styles from './App.module.css'
 
 const AUTOSAVE_KEY = 'fastled-studio-graph'
@@ -24,8 +27,12 @@ function saveToLocalStorage(nodes: StudioNode[], edges: StudioEdge[]) {
 }
 
 export default function App() {
-  const { sidebarOpen, inspectorOpen, setStatus, theme, reducedMotion, highContrast, showUploadPanel } = useUiStore()
+  const { sidebarOpen, inspectorOpen, setStatus, theme, reducedMotion, highContrast } = useUiStore()
   const { startAudio, stopAudio } = useAudioStore()
+  const { boardPopupOpen, cliPopupOpen, consoleOpen, refreshHelper } = useUploadStore()
+
+  // Probe the upload helper once on mount (the Vite plugin should have spawned it).
+  useEffect(() => { refreshHelper() }, [refreshHelper])
 
   // Apply theme + accessibility attributes to the root element
   useEffect(() => {
@@ -113,7 +120,9 @@ export default function App() {
         </div>
       </div>
       <StatusBar />
-      {showUploadPanel && <UploadPanel />}
+      {boardPopupOpen && <BoardPopup />}
+      {cliPopupOpen && <ArduinoCliPopup />}
+      {consoleOpen && <OutputConsole />}
     </div>
   )
 }

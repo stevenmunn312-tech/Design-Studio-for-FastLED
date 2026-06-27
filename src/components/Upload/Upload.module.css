@@ -1,0 +1,281 @@
+/* ── MatrixOutput node body controls ──────────────────────────────────────── */
+.nodeBox {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: var(--space-1);
+}
+
+.nodeBox button {
+  width: 100%;
+  padding: 4px 8px;
+  font-family: var(--font-display);
+  font-size: var(--fs-caption);
+  border-radius: var(--node-radius);
+  border: 1px solid var(--border-glow);
+  cursor: pointer;
+  transition: background var(--anim-hover), color var(--anim-hover), border-color var(--anim-hover);
+}
+.nodeBox button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.boardBtn { background: var(--bg-node-hover); color: var(--text-primary); }
+.boardBtn:hover { border-color: rgba(255,255,255,0.3); }
+
+.targetLabel {
+  font-family: var(--font-code);
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 1px 0;
+}
+
+.uploadBtn {
+  background: var(--accent-output);
+  color: var(--bg-primary);
+  border-color: var(--accent-output) !important;
+  font-weight: 700;
+}
+.uploadBtn:hover:not(:disabled) { filter: brightness(1.1); }
+.uploadBtn.stBusy  { background: #ffcc00; border-color: #ffcc00 !important; }
+.uploadBtn.stDone  { background: var(--success); border-color: var(--success) !important; }
+.uploadBtn.stError { background: var(--error); border-color: var(--error) !important; color: #fff; }
+
+.exportBtn { background: none; color: var(--text-secondary); }
+.exportBtn:hover:not(:disabled) { color: var(--text-primary); border-color: rgba(255,255,255,0.25); }
+
+.outputBtn { background: none; color: var(--text-secondary); font-size: 10px; }
+.outputBtn:hover { color: var(--text-primary); }
+
+/* ── Popups (Board / arduino-cli) ─────────────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 120;
+  animation: fadeIn 0.15s ease-out;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.popup {
+  width: min(420px, 92vw);
+  max-height: 88vh;
+  overflow-y: auto;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-glow);
+  border-radius: 12px;
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  animation: slideUp 0.18s ease-out;
+}
+@keyframes slideUp {
+  from { transform: translateY(16px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.popupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--fs-body);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.closeBtn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 20px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px 6px;
+}
+.closeBtn:hover { color: var(--text-primary); }
+
+.sectionTitle {
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 6px;
+}
+
+.note {
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.note code {
+  font-family: var(--font-code);
+  background: var(--bg-primary);
+  padding: 0 4px;
+  border-radius: 3px;
+}
+.noteWarn { color: #ffcc00; }
+.linkBtn {
+  background: none; border: none; color: var(--accent-output);
+  cursor: pointer; text-decoration: underline; font-size: inherit; padding: 0;
+}
+
+.select, .textInput {
+  width: 100%;
+  height: 32px;
+  background: #1a1e23;
+  border: 1px solid var(--border-glow);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: var(--font-code);
+  font-size: var(--fs-caption);
+  padding: 0 var(--space-1);
+  outline: none;
+}
+.select { cursor: pointer; }
+
+.boardList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--border-glow);
+  border-radius: 6px;
+  padding: 6px;
+}
+.boardRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+}
+.boardCheck {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-caption);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.coreOk { font-size: 11px; color: var(--success); font-family: var(--font-code); }
+.coreBtn {
+  background: none;
+  border: 1px solid var(--border-glow);
+  color: var(--text-secondary);
+  border-radius: 5px;
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.coreBtn:hover:not(:disabled) { color: var(--text-primary); border-color: rgba(255,255,255,0.25); }
+.coreBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.portRow { display: flex; gap: 6px; align-items: center; }
+.portRow .select, .portRow .textInput { flex: 1; min-width: 0; }
+.refreshBtn {
+  height: 32px;
+  min-width: 38px;
+  padding: 0 10px;
+  background: none;
+  border: 1px solid var(--border-glow);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.refreshBtn:hover:not(:disabled) { color: var(--text-primary); border-color: rgba(255,255,255,0.25); }
+.refreshBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.targetBig {
+  margin-top: 8px;
+  text-align: center;
+  font-family: var(--font-code);
+  font-size: var(--fs-body);
+  font-weight: 700;
+  color: var(--accent-output);
+}
+
+.divider { height: 1px; background: var(--border-glow); margin: 6px 0; }
+
+.installBtn {
+  width: 100%;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--accent-output);
+  background: none;
+  color: var(--accent-output);
+  font-family: var(--font-body);
+  font-size: var(--fs-caption);
+  cursor: pointer;
+}
+.installBtn:hover:not(:disabled) { background: var(--accent-output); color: #000; }
+.installBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Output console (slide-over) ──────────────────────────────────────────── */
+.consolePanel {
+  position: fixed;
+  right: 0;
+  bottom: 40px;          /* clear the status bar */
+  width: min(560px, 96vw);
+  height: min(46vh, 420px);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-glow);
+  border-right: none;
+  border-radius: 10px 0 0 10px;
+  box-shadow: -8px 0 24px rgba(0,0,0,0.4);
+  display: flex;
+  flex-direction: column;
+  z-index: 110;
+  animation: slideIn 0.18s ease-out;
+}
+@keyframes slideIn {
+  from { transform: translateX(24px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+.consoleHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px var(--space-2);
+  border-bottom: 1px solid var(--border-glow);
+  flex-shrink: 0;
+}
+.consoleTitle { font-size: var(--fs-caption); font-weight: 700; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.08em; }
+.consoleStatus { font-family: var(--font-code); font-size: 11px; }
+.spacer { flex: 1; }
+.consoleBtn {
+  background: none;
+  border: 1px solid var(--border-glow);
+  color: var(--text-secondary);
+  border-radius: 5px;
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.consoleBtn:hover:not(:disabled) { color: var(--text-primary); }
+.consoleBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.consoleBody {
+  flex: 1;
+  margin: 0;
+  padding: var(--space-2);
+  background: #0d0f12;
+  color: #c9d1d9;
+  font-family: var(--font-code);
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* shared status colours */
+.stBusy  { color: #ffcc00; }
+.stDone  { color: var(--success); }
+.stError { color: var(--error); }

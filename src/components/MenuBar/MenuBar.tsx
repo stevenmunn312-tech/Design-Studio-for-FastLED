@@ -5,7 +5,7 @@ import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import styles from './MenuBar.module.css'
 
 export default function MenuBar() {
-  const { toggleSidebar, toggleInspector, setStatus, theme, cycleTheme, reducedMotion, toggleReducedMotion, highContrast, toggleHighContrast, setShowUploadPanel } = useUiStore()
+  const { toggleSidebar, toggleInspector, setStatus, theme, cycleTheme, reducedMotion, toggleReducedMotion, highContrast, toggleHighContrast } = useUiStore()
 
   const THEME_ICON: Record<string, string> = { dark: '☾', solarized: '✦', light: '☀' }
   const THEME_LABEL: Record<string, string> = { dark: 'Dark', solarized: 'Solarized', light: 'Light' }
@@ -97,10 +97,6 @@ export default function MenuBar() {
           style={{ display: 'none' }}
           onChange={handleFileChange}
         />
-        <div className={styles.sep} />
-        <button className={styles.btnAccent} onClick={() => setShowUploadPanel(true)}>
-          ↑ Upload
-        </button>
         <div className={styles.sep} />
         <button
           className={styles.btn}

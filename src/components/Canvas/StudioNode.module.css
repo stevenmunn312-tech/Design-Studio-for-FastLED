@@ -3,25 +3,6 @@
   to   { transform: scale(1);   opacity: 1; }
 }
 
-/* Upload button on the Matrix Output node body. */
-.uploadBtn {
-  margin-top: var(--space-1);
-  width: 100%;
-  padding: 4px 8px;
-  font-family: var(--font-display);
-  font-size: var(--fs-caption);
-  color: var(--bg-primary);
-  background: var(--accent-output);
-  border: none;
-  border-radius: var(--node-radius);
-  cursor: pointer;
-}
-.uploadBtn:disabled {
-  background: var(--bg-node-hover);
-  color: var(--text-secondary);
-  cursor: not-allowed;
-}
-
 @keyframes portSpark {
   0%   { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
   100% { transform: translate(-50%, -50%) scale(4);   opacity: 0; }

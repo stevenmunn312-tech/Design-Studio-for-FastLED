@@ -12,6 +12,7 @@ import NodePreview, { type PreviewKind } from './NodePreview'
 import MusicLibraryNodeBody from './MusicLibraryNodeBody'
 import PatternCollectionBody from './PatternCollectionBody'
 import PatternMasterBody from './PatternMasterBody'
+import MatrixOutputUpload from '../Upload/MatrixOutputUpload'
 import { usePreviewStore } from '../../state/previewStore'
 import styles from './StudioNode.module.css'
 
@@ -73,7 +74,6 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   })
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
-  const setShowUploadPanel = useUiStore((s) => s.setShowUploadPanel)
   const accent = CATEGORY_ACCENT_VAR[d.category] ?? 'var(--accent-output)'
   const inputs = d.inputs as { id: string; label: string; dataType: string }[]
   const outputs = d.outputs as { id: string; label: string; dataType: string }[]
@@ -233,16 +233,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
 
         {d.nodeType === 'PatternMaster' && <PatternMasterBody nodeId={id} />}
 
-        {d.nodeType === 'MatrixOutput' && (
-          <button
-            className={`nodrag ${styles.uploadBtn}`}
-            disabled={!drivenBy('frame')}
-            onClick={() => setShowUploadPanel(true)}
-            title={drivenBy('frame') ? 'Build & upload firmware' : 'Connect a frame to enable upload'}
-          >
-            ↑ Upload
-          </button>
-        )}
+        {d.nodeType === 'MatrixOutput' && <MatrixOutputUpload enabled={drivenBy('frame')} />}
 
         {(hasRGB || editable.length > 0 || showClamp) && (
           <div className={styles.props}>
