@@ -1488,6 +1488,23 @@ function createEvalNode(
         break
       }
 
+      case 'Fade': {
+        const src = input(id, 'frame', null) as Frame | null
+        const fade = num(id, 'fade', props, 'fade', 0.5)
+        const scale = Math.max(0, Math.min(1, 1 - fade))
+        if (!src) { out = { frame: null }; break }
+        out = {
+          frame: src.map(row =>
+            row.map(px => ({
+              r: Math.round(px.r * scale),
+              g: Math.round(px.g * scale),
+              b: Math.round(px.b * scale),
+            }))
+          ),
+        }
+        break
+      }
+
       case 'Transform': {
         const src = input(id, 'frame', null) as Frame | null
         if (!src) { out = { frame: null }; break }

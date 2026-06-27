@@ -210,6 +210,32 @@ describe('evaluateGraph', () => {
     expect(frame![0][0].r).toBeCloseTo(100, -1)
   })
 
+  it('Fade scales pixels toward black by (1 - fade)', () => {
+    const sc  = node('sc', 'SolidColor', 'pattern', { r: 200, g: 100, b: 50 })
+    const fd  = node('fd', 'Fade', 'composite', { fade: 0.75 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [
+      edge('e1', 'sc', 'frame', 'fd', 'frame'),
+      edge('e2', 'fd', 'frame', 'out', 'frame'),
+    ]
+    const frame = evaluateGraph([sc, fd, out], edges, 0, W, H)
+    expect(frame).not.toBeNull()
+    // fade 0.75 → scale 0.25: 200→50, 100→25, 50→13 (rounded)
+    expect(frame![0][0]).toEqual({ r: 50, g: 25, b: 13 })
+  })
+
+  it('Fade at 1.0 drives the frame fully black', () => {
+    const sc  = node('sc', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })
+    const fd  = node('fd', 'Fade', 'composite', { fade: 1 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [
+      edge('e1', 'sc', 'frame', 'fd', 'frame'),
+      edge('e2', 'fd', 'frame', 'out', 'frame'),
+    ]
+    const frame = evaluateGraph([sc, fd, out], edges, 0, W, H)
+    expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
+  })
+
   it('Invert flips pixel values', () => {
     const sc  = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 128 })
     const inv = node('inv', 'Invert', 'pattern', {})

@@ -641,6 +641,13 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
+      case 'Fade': {
+        const ob = ownBuf()
+        const fade = f('fade', 'fade', 0.5)
+        ln(`  { ${seedFrom('frame')} uint8_t _fa = (uint8_t)(constrain(${fade}, 0, 1) * 255); fadeToBlackBy(${ob}, NUM_LEDS, _fa); }`)
+        break
+      }
+
       case 'Mask': {
         const ob = ownBuf()
         const mask = srcBuf('mask')

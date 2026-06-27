@@ -152,6 +152,17 @@ describe('generateCpp', () => {
     expect(cpp).toContain('blur2d(buf_bl, WIDTH, HEIGHT, 128)')   // 0.5 × 255
   })
 
+  it('emits fadeToBlackBy for a Fade node', () => {
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const fd = node('fd', 'Fade', 'composite', { fade: 0.75 })
+    const cpp = generateCpp([sc, fd, outputNode], [
+      edge('e1', 'sc', 'fd', 'frame', 'frame'),
+      edge('e2', 'fd', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('fadeToBlackBy(buf_fd, NUM_LEDS, _fa)')
+    expect(cpp).toContain('constrain(0.75, 0, 1) * 255')   // 0.75 → 191
+  })
+
   it('emits a Transform that resamples from the source buffer per mode', () => {
     const mk = (transform: string, extra: Record<string, unknown> = {}) => {
       const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })

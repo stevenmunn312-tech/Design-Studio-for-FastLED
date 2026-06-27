@@ -218,6 +218,18 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { brightness: 1.0 },
   },
   {
+    // Fade the frame toward black — FastLED's fadeToBlackBy. fade 0 = unchanged, 1 = full black.
+    type: 'Fade',
+    label: 'Fade to Black',
+    category: 'composite',
+    inputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      { id: 'fade', label: 'Fade', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { fade: 0.5 },
+  },
+  {
     type: 'HueShift',
     label: 'Hue Shift',
     category: 'composite',
@@ -1043,6 +1055,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Blend: 'Blends B over A — normal, multiply, screen, overlay, add or difference.',
   Mask: 'Masks a frame by another frame’s brightness.',
   BrightnessMod: 'Scales frame brightness.',
+  Fade: 'Fades the frame toward black (fadeToBlackBy).',
   HueShift: 'Rotates all hues.',
   Transform: 'Animated rotate, scale or translate of a frame.',
   Invert: 'Inverts colors.',
