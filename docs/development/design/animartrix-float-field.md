@@ -212,12 +212,18 @@ field chain, and the codegen.
 This phase alone ports the majority of ANIMartRIX patterns as
 `FieldFormula → FieldToFrame → MatrixOutput`.
 
-### Phase 2 — `DistanceField`, `FieldMath`, `FieldWarp`
+### Phase 2 — `DistanceField`, `FieldMath`, `FieldWarp` — **implemented**
 *Scope:* Field composition without needing any custom formula.
 
-- Three new nodes (see above).
-- Evaluator cases + codegen cases for each.
-- Tests: evaluator snapshot + codegen snapshot per node.
+- Three new nodes (see above): `DistanceField` and `FieldMath` (pattern),
+  `FieldWarp` (composite). `FieldMath`'s `fieldOp` follows the bundled-node
+  pattern (header reflects the op); `DistanceField` overrides the shared `scale`
+  slider to 1–4 via `PROPERTY_META_OVERRIDES`.
+- Evaluator cases + codegen cases for each; field nodes share the `field_<id>`
+  buffer plumbing from Phase 1.
+- Tests: 9 added (evaluator behaviour + codegen emission per node).
+- *Deferred:* a `field` output mode on the bundled `Noise` node (raw noise
+  pre-palette) — a follow-up, not required for the ANIMartRIX vocabulary.
 
 ### Phase 3 — `FieldRotate` + `FieldTile`
 *Scope:* Coordinate-space transforms for the handful of ANIMartRIX patterns

@@ -1,6 +1,5 @@
-# FastLED Studio
-
-A browser-based node-graph editor for designing LED lighting effects. Wire together nodes on a canvas, watch a real-time LED matrix preview update at 60 fps, then generate FastLED/Arduino C++ firmware and flash it to your microcontroller.
+# FastLED-Studio
+Node‑Based Visual Designer for FastLED LED Matrix Systems
 
 ## Features
 

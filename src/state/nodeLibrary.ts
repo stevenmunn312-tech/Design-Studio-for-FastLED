@@ -925,6 +925,41 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { palette: 'ocean', brightness: 1 },
   },
+  // Phase 2 field-composition nodes.
+  {
+    type: 'DistanceField',
+    label: 'Distance Field',
+    category: 'pattern',
+    inputs: [
+      { id: 'px', label: 'X', dataType: 'float' },
+      { id: 'py', label: 'Y', dataType: 'float' },
+    ],
+    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    defaultProperties: { px: 0.5, py: 0.5, scale: 1 },
+  },
+  {
+    type: 'FieldMath',
+    label: 'Field Math',
+    category: 'pattern',
+    inputs: [
+      { id: 'a', label: 'A', dataType: 'field' },
+      { id: 'b', label: 'B', dataType: 'field' },
+    ],
+    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    defaultProperties: { fieldOp: 'add' },
+  },
+  {
+    type: 'FieldWarp',
+    label: 'Field Warp',
+    category: 'composite',
+    inputs: [
+      { id: 'field', label: 'Field', dataType: 'field' },
+      { id: 'dx', label: 'dX', dataType: 'field' },
+      { id: 'dy', label: 'dY', dataType: 'field' },
+    ],
+    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    defaultProperties: { strength: 1 },
+  },
 
   // ── Output ─────────────────────────────────────────────────────────────
   {
@@ -1080,6 +1115,9 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   CustomFormula: 'Per-pixel JS expression f(x, y, t) — with cx/cy/r/angle and FastLED shims.',
   FieldFormula: 'Per-pixel scalar field from an expression (cx/cy/r/angle, sin8/beatsin8…).',
   FieldToFrame: 'Maps a scalar field through a palette to a frame.',
+  DistanceField: 'Scalar field of distance from each pixel to a movable point.',
+  FieldMath: 'Combines two scalar fields (add, subtract, multiply, mix, min, max, difference).',
+  FieldWarp: 'Samples a field at coordinates pushed by two offset fields.',
   // composite
   Blur2D: 'Box-blurs the frame.',
   Blend: 'Blends B over A — normal, multiply, screen, overlay, add or difference.',
@@ -1187,6 +1225,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
     'scanlines', 'zoom',
   ] },
   blendMode:      { control: 'select', options: ['normal', 'multiply', 'screen', 'overlay', 'add', 'difference'] },
+  fieldOp:        { control: 'select', options: ['add', 'subtract', 'multiply', 'mix', 'min', 'max', 'difference'] },
   // Poline position functions — keep in sync with polinePalette.ts POSITION_FNS.
   position:   { control: 'select', options: ['linear', 'sinusoidal', 'quadratic', 'cubic', 'arc', 'smoothStep', 'exponential'] },
   points:     { control: 'slider', min: 1, max: 12, step: 1 },
@@ -1206,6 +1245,9 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   mids:     { control: 'slider', min: 0, max: 1, step: 0.01 },
   treble:   { control: 'slider', min: 0, max: 1, step: 0.01 },
   octaves:  { control: 'slider', min: 1, max: 6, step: 1 },
+  px:       { control: 'slider', min: 0, max: 1, step: 0.01 },
+  py:       { control: 'slider', min: 0, max: 1, step: 0.01 },
+  strength: { control: 'slider', min: 0, max: 4, step: 0.1 },
   count:    { control: 'slider', min: 1, max: 200, step: 1 },
   frequency:   { control: 'slider', min: 0, max: 4, step: 0.1 },
   orientation: { control: 'slider', min: 0, max: 360, step: 1 },
@@ -1251,6 +1293,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Transform:         { rate:  { control: 'slider', min: 0, max: 360, step: 1 } },
   GameOfLife:        { speed: { control: 'slider', min: 1, max: 30,  step: 1 } },
   ReactionDiffusion: { speed: { control: 'slider', min: 1, max: 30,  step: 1 } },
+  // DistanceField stretches the distance ramp 1×–4× (the shared `scale` is 0–2).
+  DistanceField:     { scale: { control: 'slider', min: 1, max: 4,   step: 0.1 } },
 }
 
 /** Inline-editor control hint for a node's property, honouring per-node overrides. */
@@ -1304,6 +1348,10 @@ const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, stri
   Blend: {
     prop: 'blendMode',
     labels: { normal: 'Blend', multiply: 'Multiply', screen: 'Screen', overlay: 'Overlay', add: 'Add', difference: 'Difference' },
+  },
+  FieldMath: {
+    prop: 'fieldOp',
+    labels: { add: 'Field Add', subtract: 'Field Subtract', multiply: 'Field Multiply', mix: 'Field Mix', min: 'Field Min', max: 'Field Max', difference: 'Field Difference' },
   },
 }
 

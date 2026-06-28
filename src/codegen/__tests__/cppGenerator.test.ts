@@ -686,3 +686,53 @@ describe('Float Field codegen', () => {
     expect(cpp).toContain('fill_solid(buf_f2f, NUM_LEDS, CRGB::Black)')
   })
 })
+
+describe('Float Field — Phase 2 codegen', () => {
+  const tail = (srcId: string) => {
+    const f2f = node('f2f', 'FieldToFrame', 'pattern', {})
+    return {
+      nodes: [f2f, outputNode],
+      edges: [edge('zf', srcId, 'f2f', 'field', 'field'), edge('zo', 'f2f', 'out', 'frame', 'frame')],
+    }
+  }
+
+  it('DistanceField writes a normalised distance into its field buffer', () => {
+    const df = node('df', 'DistanceField', 'pattern', { px: 0.5, py: 0.5, scale: 2 })
+    const t = tail('df')
+    const cpp = generateCpp([df, ...t.nodes], t.edges)
+    expect(cpp).toContain('float field_df[NUM_LEDS];')
+    expect(cpp).toContain('/* DistanceField */')
+    expect(cpp).toContain('sqrtf(_dx*_dx+_dy*_dy)/1.41421356f')
+    expect(cpp).toContain('field_df[_y*WIDTH+_x]=constrain(')
+  })
+
+  it('FieldMath emits the operator for the selected fieldOp', () => {
+    const a = node('a', 'FieldFormula', 'pattern', { formula: '0.5' })
+    const b = node('b', 'FieldFormula', 'pattern', { formula: '0.4' })
+    const fm = node('fm', 'FieldMath', 'pattern', { fieldOp: 'difference' })
+    const t = tail('fm')
+    const cpp = generateCpp([a, b, fm, ...t.nodes], [
+      edge('e1', 'a', 'fm', 'field', 'a'),
+      edge('e2', 'b', 'fm', 'field', 'b'),
+      ...t.edges,
+    ])
+    expect(cpp).toContain('float _a=field_a[_i], _b=field_b[_i];')
+    expect(cpp).toContain('fabsf(_a - _b)')
+  })
+
+  it('FieldWarp samples the source field with a clamped offset', () => {
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const dx = node('dx', 'FieldFormula', 'pattern', { formula: '1' })
+    const fw = node('fw', 'FieldWarp', 'composite', { strength: 2 })
+    const t = tail('fw')
+    const cpp = generateCpp([src, dx, fw, ...t.nodes], [
+      edge('e1', 'src', 'fw', 'field', 'field'),
+      edge('e2', 'dx', 'fw', 'field', 'dx'),
+      ...t.edges,
+    ])
+    expect(cpp).toContain('/* FieldWarp */')
+    expect(cpp).toContain('(2.0f*field_dx[_y*WIDTH+_x]-1.0f)*_st')
+    expect(cpp).toContain('field_fw[_y*WIDTH+_x]=field_src[_sy*WIDTH+_sx]')
+    expect(cpp).toContain('if(_sx>WIDTH-1)_sx=WIDTH-1')
+  })
+})

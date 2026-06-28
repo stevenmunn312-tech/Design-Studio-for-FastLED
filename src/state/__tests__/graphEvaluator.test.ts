@@ -1130,3 +1130,85 @@ describe('Float Field pipeline', () => {
     expect([...fld].every((v) => Math.abs(v - 0.8) < 1e-6)).toBe(true)
   })
 })
+
+describe('Float Field — Phase 2 (DistanceField / FieldMath / FieldWarp)', () => {
+  // Read a node's `field` output directly.
+  function fieldOut(nodeId: string, nodes: StudioNode[], edges: StudioEdge[], tick = 0): Float32Array {
+    const { outputs } = evaluateGraphFull(nodes, edges, tick, W, H)
+    return outputs.get(nodeId)!.field as Float32Array
+  }
+  // A FieldToFrame→MatrixOutput tail so the graph reaches a terminal.
+  function withFieldTail(srcId: string, nodes: StudioNode[], edges: StudioEdge[]) {
+    const f2f = node('f2f', 'FieldToFrame', 'pattern', {})
+    const out = node('zzout', 'MatrixOutput', 'output', {})
+    return {
+      nodes: [...nodes, f2f, out],
+      edges: [...edges, edge('zf', srcId, 'field', 'f2f', 'field'), edge('zo', 'f2f', 'frame', 'zzout', 'frame')],
+    }
+  }
+
+  it('DistanceField is 0 at the point and grows outward', () => {
+    const df = node('df', 'DistanceField', 'pattern', { px: 0, py: 0, scale: 1 })
+    const g = withFieldTail('df', [df], [])
+    const fld = fieldOut('df', g.nodes, g.edges)
+    expect(fld[0]).toBeCloseTo(0)                 // pixel (0,0) is the point
+    expect(fld[H * W - 1]).toBeGreaterThan(fld[0]) // opposite corner is farther
+  })
+
+  it('DistanceField scale stretches the ramp (reaches 1 sooner)', () => {
+    const mk = (scale: number) => {
+      const df = node('df', 'DistanceField', 'pattern', { px: 0, py: 0, scale })
+      const g = withFieldTail('df', [df], [])
+      return fieldOut('df', g.nodes, g.edges)[H * W - 1]
+    }
+    expect(mk(4)).toBeGreaterThanOrEqual(mk(1))
+  })
+
+  it('FieldMath multiply combines two constant fields', () => {
+    const a = node('a', 'FieldFormula', 'pattern', { formula: '0.5' })
+    const b = node('b', 'FieldFormula', 'pattern', { formula: '0.4' })
+    const fm = node('fm', 'FieldMath', 'pattern', { fieldOp: 'multiply' })
+    const g = withFieldTail('fm', [a, b, fm], [
+      edge('e1', 'a', 'field', 'fm', 'a'),
+      edge('e2', 'b', 'field', 'fm', 'b'),
+    ])
+    const fld = fieldOut('fm', g.nodes, g.edges)
+    expect([...fld].every((v) => Math.abs(v - 0.2) < 1e-6)).toBe(true)
+  })
+
+  it('FieldMath clamps and supports difference', () => {
+    const a = node('a', 'FieldFormula', 'pattern', { formula: '0.3' })
+    const b = node('b', 'FieldFormula', 'pattern', { formula: '0.8' })
+    const fm = node('fm', 'FieldMath', 'pattern', { fieldOp: 'difference' })
+    const g = withFieldTail('fm', [a, b, fm], [
+      edge('e1', 'a', 'field', 'fm', 'a'),
+      edge('e2', 'b', 'field', 'fm', 'b'),
+    ])
+    const fld = fieldOut('fm', g.nodes, g.edges)
+    expect([...fld].every((v) => Math.abs(v - 0.5) < 1e-6)).toBe(true)
+  })
+
+  it('FieldWarp with no offset returns the source field unchanged', () => {
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const fw = node('fw', 'FieldWarp', 'composite', { strength: 2 })
+    const g = withFieldTail('fw', [src, fw], [edge('e1', 'src', 'field', 'fw', 'field')])
+    const ref = fieldOut('src', g.nodes, g.edges)
+    const warped = fieldOut('fw', g.nodes, g.edges)
+    expect([...warped]).toEqual([...ref])
+  })
+
+  it('FieldWarp shifts the sample when an offset field is wired', () => {
+    // x-ramp source; a constant 1.0 dx field pushes the sample +strength px in x.
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const dx = node('dx', 'FieldFormula', 'pattern', { formula: '1' })  // → +strength
+    const fw = node('fw', 'FieldWarp', 'composite', { strength: 1 })
+    const g = withFieldTail('fw', [src, dx, fw], [
+      edge('e1', 'src', 'field', 'fw', 'field'),
+      edge('e2', 'dx', 'field', 'fw', 'dx'),
+    ])
+    const ref = fieldOut('src', g.nodes, g.edges)
+    const warped = fieldOut('fw', g.nodes, g.edges)
+    // At x=0 the warped value samples x=1 of the source (one column to the right).
+    expect(warped[0]).toBeCloseTo(ref[1])
+  })
+})

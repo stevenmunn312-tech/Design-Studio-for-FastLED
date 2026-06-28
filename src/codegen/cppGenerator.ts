@@ -1282,6 +1282,57 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
+      case 'DistanceField': {
+        const of = ownField()
+        const px = f('px', 'px', 0.5), py = f('py', 'py', 0.5), scale = f('scale', 'scale', 1)
+        ln(`  { /* DistanceField */`)
+        ln(`    float _px=${px}, _py=${py}, _sc=${scale}; if(_sc<0.0001f)_sc=0.0001f;`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float _nx=(float)_x/(WIDTH-1>0?WIDTH-1:1),_ny=(float)_y/(HEIGHT-1>0?HEIGHT-1:1);`)
+        ln(`      float _dx=_nx-_px,_dy=_ny-_py;`)
+        ln(`      float _d=sqrtf(_dx*_dx+_dy*_dy)/1.41421356f*_sc;`)
+        ln(`      ${of}[_y*WIDTH+_x]=constrain(_d,0.0f,1.0f);}}`)
+        break
+      }
+
+      case 'FieldMath': {
+        const of = ownField()
+        const op = String(p.fieldOp ?? 'add')
+        const sa = srcField('a'), sb = srcField('b')
+        const av = sa ? `${sa}[_i]` : '0.0f', bv = sb ? `${sb}[_i]` : '0.0f'
+        let expr: string
+        switch (op) {
+          case 'subtract':   expr = `_a - _b`; break
+          case 'multiply':   expr = `_a * _b`; break
+          case 'mix':        expr = `(_a + _b) * 0.5f`; break
+          case 'min':        expr = `min(_a, _b)`; break
+          case 'max':        expr = `max(_a, _b)`; break
+          case 'difference': expr = `fabsf(_a - _b)`; break
+          case 'add':
+          default:           expr = `_a + _b`; break
+        }
+        ln(`  { /* FieldMath: ${op} */`)
+        ln(`    for(int _i=0;_i<NUM_LEDS;_i++){`)
+        ln(`      float _a=${av}, _b=${bv};`)
+        ln(`      ${of}[_i]=constrain(${expr},0.0f,1.0f);}}`)
+        break
+      }
+
+      case 'FieldWarp': {
+        const of = ownField()
+        const st = f('strength', 'strength', 1)
+        const src = srcField('field'), sdx = srcField('dx'), sdy = srcField('dy')
+        const oxE = sdx ? `(2.0f*${sdx}[_y*WIDTH+_x]-1.0f)*_st` : '0.0f'
+        const oyE = sdy ? `(2.0f*${sdy}[_y*WIDTH+_x]-1.0f)*_st` : '0.0f'
+        ln(`  { /* FieldWarp */ float _st=${st};`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float _ox=${oxE},_oy=${oyE};`)
+        ln(`      int _sx=(int)roundf(_x+_ox); if(_sx<0)_sx=0; if(_sx>WIDTH-1)_sx=WIDTH-1;`)
+        ln(`      int _sy=(int)roundf(_y+_oy); if(_sy<0)_sy=0; if(_sy>HEIGHT-1)_sy=HEIGHT-1;`)
+        ln(`      ${of}[_y*WIDTH+_x]=${src ? `${src}[_sy*WIDTH+_sx]` : '0.0f'};}}`)
+        break
+      }
+
       case 'CHSV': {
         const hue = f('hue', 'hue', 128), sat = f('sat', 'sat', 255), val = f('val', 'val', 255)
         ln(`  CRGB ${v('rgb')} = CHSV((uint8_t)(${hue}), (uint8_t)(${sat}), (uint8_t)(${val}));`)
