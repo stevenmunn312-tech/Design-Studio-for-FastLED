@@ -10,7 +10,7 @@ vi.mock('../audioStore', () => ({
   },
 }))
 
-import { evaluateGraph, evaluateScalar } from '../graphEvaluator'
+import { evaluateGraph, evaluateGraphFull, evaluateScalar } from '../graphEvaluator'
 import { waveSample, combineWaves } from '../wave'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import type { StudioNode, StudioEdge } from '../graphStore'
@@ -1043,4 +1043,90 @@ describe('Transition variants', () => {
       expect(count(run(variant, 1), B)).toBeGreaterThan(W * H / 2)
     })
   }
+})
+
+describe('Float Field pipeline', () => {
+  // FieldFormula outputs a per-pixel scalar `field`; read it via evaluateGraphFull.
+  function fieldOf(formula: string, props: Record<string, unknown> = {}, tick = 0): Float32Array {
+    const ff = node('ff', 'FieldFormula', 'pattern', { formula, ...props })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    // Wire through a FieldToFrame so the graph reaches an output terminal.
+    const f2f = node('f2f', 'FieldToFrame', 'pattern', { palette: 'rainbow', brightness: 1 })
+    const { outputs } = evaluateGraphFull(
+      [ff, f2f, out],
+      [edge('e1', 'ff', 'field', 'f2f', 'field'), edge('e2', 'f2f', 'frame', 'out', 'frame')],
+      tick, W, H,
+    )
+    return outputs.get('ff')!.field as Float32Array
+  }
+
+  it('FieldFormula returns a W×H field of a constant expression', () => {
+    const fld = fieldOf('0.25')
+    expect(fld.length).toBe(W * H)
+    expect([...fld].every((v) => Math.abs(v - 0.25) < 1e-6)).toBe(true)
+  })
+
+  it('FieldFormula clamps output to 0..1', () => {
+    expect([...fieldOf('5')].every((v) => v === 1)).toBe(true)
+    expect([...fieldOf('-3')].every((v) => v === 0)).toBe(true)
+  })
+
+  it('FieldFormula exposes integer pixel x,y', () => {
+    // value = x/(W-1) → first column 0, last column 1
+    const fld = fieldOf('x/(W-1)')
+    expect(fld[0]).toBeCloseTo(0)          // x=0
+    expect(fld[W - 1]).toBeCloseTo(1)      // x=W-1
+  })
+
+  it('FieldFormula exposes FastLED shims (sin8)', () => {
+    // sin8(0) = 128 → 128/255 ≈ 0.502, uniform across the field
+    const fld = fieldOf('sin8(0)/255')
+    expect(fld[0]).toBeCloseTo(128 / 255, 5)
+    expect([...fld].every((v) => Math.abs(v - 128 / 255) < 1e-6)).toBe(true)
+  })
+
+  it('FieldToFrame maps a field through a palette to a frame', () => {
+    const ff = node('ff', 'FieldFormula', 'pattern', { formula: '0.5' })
+    const f2f = node('f2f', 'FieldToFrame', 'composite', { palette: 'rainbow', brightness: 1 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph(
+      [ff, f2f, out],
+      [edge('e1', 'ff', 'field', 'f2f', 'field'), edge('e2', 'f2f', 'frame', 'out', 'frame')],
+      0, W, H,
+    )!
+    // Uniform field 0.5 → every pixel the same non-black colour.
+    const p0 = frame[0][0]
+    expect(p0.r + p0.g + p0.b).toBeGreaterThan(0)
+    expect(frame.every((row) => row.every((p) => p.r === p0.r && p.g === p0.g && p.b === p0.b))).toBe(true)
+  })
+
+  it('FieldToFrame brightness 0 yields black', () => {
+    const ff = node('ff', 'FieldFormula', 'pattern', { formula: '0.5' })
+    const f2f = node('f2f', 'FieldToFrame', 'composite', { palette: 'rainbow', brightness: 0 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph(
+      [ff, f2f, out],
+      [edge('e1', 'ff', 'field', 'f2f', 'field'), edge('e2', 'f2f', 'frame', 'out', 'frame')],
+      0, W, H,
+    )!
+    expect(frame.every((row) => row.every((p) => p.r === 0 && p.g === 0 && p.b === 0))).toBe(true)
+  })
+
+  it('FieldFormula reads a wired fieldIn (field chaining)', () => {
+    const a = node('a', 'FieldFormula', 'pattern', { formula: '0.4' })
+    const b = node('b', 'FieldFormula', 'pattern', { formula: 'fieldIn*2' })  // 0.4 → 0.8
+    const f2f = node('f2f', 'FieldToFrame', 'composite', {})
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const { outputs } = evaluateGraphFull(
+      [a, b, f2f, out],
+      [
+        edge('e1', 'a', 'field', 'b', 'fieldIn'),
+        edge('e2', 'b', 'field', 'f2f', 'field'),
+        edge('e3', 'f2f', 'frame', 'out', 'frame'),
+      ],
+      0, W, H,
+    )
+    const fld = outputs.get('b')!.field as Float32Array
+    expect([...fld].every((v) => Math.abs(v - 0.8) < 1e-6)).toBe(true)
+  })
 })

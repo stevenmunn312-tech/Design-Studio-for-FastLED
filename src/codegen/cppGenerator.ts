@@ -4,6 +4,7 @@ import { asFont, textColumns } from '../state/font'
 import { asImage } from '../state/image'
 import { polineStops16, hexToRgb } from '../state/polinePalette'
 import { inputClampRange } from '../state/nodeLibrary'
+import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledShims'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -230,9 +231,12 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
   const needsWorley = { v: false }
   const needsKelvin = { v: false }
   const needsT = { v: false }
+  const needsShims = { v: false }
   // Frame-producing nodes each render into their own CRGB buffer, so multiple
   // layers can coexist and be composited. Collected here, declared as globals.
   const frameBufs = new Set<string>()
+  // Field-producing nodes (FieldFormula …) render into a parallel float buffer.
+  const fieldBufs = new Set<string>()
 
   function emit(node: StudioNode): void {
     const id = safeId(node.id)
@@ -257,6 +261,16 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
     const seedFrom = (port: string) => {
       const s = srcBuf(port)
       return s ? `::memmove(${fbuf}, ${s}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${fbuf}, NUM_LEDS, CRGB::Black);`
+    }
+    // This node's own float field buffer.
+    const ffbuf = `field_${id}`
+    const ownField = () => { fieldBufs.add(id); return ffbuf }
+    // The float field buffer of the node feeding `port`, or null if unconnected.
+    const srcField = (port: string): string | null => {
+      const up = incoming.get(`${node.id}:${port}`)
+      if (!up) return null
+      fieldBufs.add(safeId(up.srcId))
+      return `field_${safeId(up.srcId)}`
     }
 
     switch (type) {
@@ -1217,14 +1231,54 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
 
       case 'CustomFormula': {
         needsT.v = true
+        const raw = String(p.formula ?? 'sin(x*6+t)*0.5+0.5')
+        if (usesShims(raw)) needsShims.v = true
+        const formula = cppRewriteShims(raw).replace(/\*\//g, '* /')
         const ob = ownBuf()
-        const formula = String(p.formula ?? 'sin(x*6+t)*0.5+0.5').replace(/\*\//g, '* /')
         const pal = paletteExpr(node.id, 'paletteIn', p)
-        ln(`  { /* CustomFormula: ${formula} */`)
+        ln(`  { /* CustomFormula: ${raw.replace(/\*\//g, '* /')} */`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float x=(float)_x/(WIDTH-1>0?WIDTH-1:1),y=(float)_y/(HEIGHT-1>0?HEIGHT-1:1);`)
+        ln(`      float cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
+        ln(`      float r=sqrtf(cx*cx+cy*cy),angle=atan2f(cy,cx); (void)cx;(void)cy;(void)r;(void)angle;`)
         ln(`      float _v=${formula};`)
         ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(fmod(fmod(_v,1)+1,1)*255));}}`)
+        break
+      }
+
+      // ── Float Field ────────────────────────────────────────────────────
+      case 'FieldFormula': {
+        needsT.v = true
+        const raw = String(p.formula ?? 'sin8(r*200 + t*60)/255')
+        if (usesShims(raw)) needsShims.v = true
+        const formula = cppRewriteShims(raw).replace(/\*\//g, '* /')
+        const of = ownField()
+        const a = f('a', 'a', 0), b = f('b', 'b', 0)
+        const fin = srcField('fieldIn')
+        ln(`  { /* FieldFormula: ${raw.replace(/\*\//g, '* /')} */`)
+        ln(`    float a=${a}, b=${b}; (void)a;(void)b;`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float x=_x, y=_y; (void)x;(void)y;`)
+        ln(`      float cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
+        ln(`      float r=sqrtf(cx*cx+cy*cy),angle=atan2f(cy,cx); (void)cx;(void)cy;(void)r;(void)angle;`)
+        ln(`      float fieldIn=${fin ? `${fin}[_y*WIDTH+_x]` : '0.0f'}; (void)fieldIn;`)
+        ln(`      float _v=${formula};`)
+        ln(`      ${of}[_y*WIDTH+_x]=constrain(_v,0.0f,1.0f);}}`)
+        break
+      }
+
+      case 'FieldToFrame': {
+        const ob = ownBuf()
+        const pal = paletteExpr(node.id, 'paletteIn', p)
+        const src = srcField('field')
+        const bright = f('brightness', 'brightness', 1)
+        if (!src) {
+          ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
+        } else {
+          ln(`  { float _br=constrain(${bright},0.0f,1.0f);`)
+          ln(`    for(int _i=0;_i<NUM_LEDS;_i++)`)
+          ln(`      ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${src}[_i]*255),(uint8_t)(_br*255)); }`)
+        }
         break
       }
 
@@ -1346,7 +1400,14 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
   lines.push(`CRGB leds[NUM_LEDS];`)
   // One render buffer per frame-producing node so layers can be composited.
   for (const b of frameBufs) lines.push(`CRGB buf_${b}[NUM_LEDS];`)
+  // One float buffer per field-producing node (FieldFormula …).
+  for (const b of fieldBufs) lines.push(`float field_${b}[NUM_LEDS];`)
   lines.push(``)
+
+  if (needsShims.v) {
+    lines.push(CPP_SHIM_HELPERS)
+    lines.push(``)
+  }
 
   if (needsMapFloat[0]) {
     lines.push(`float mapFloat(float x, float inMin, float inMax, float outMin, float outMax) {`)

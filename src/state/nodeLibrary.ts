@@ -898,6 +898,34 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { formula: 'sin(x*6+t)*0.5+0.5', palette: 'rainbow' },
   },
 
+  // ── Float Field (ANIMartRIX-style coordinate → scalar pipeline) ─────────
+  // FieldFormula emits a per-pixel scalar `field` (0–1); FieldToFrame maps a
+  // field through a palette to a frame. See
+  // docs/development/design/animartrix-float-field.md.
+  {
+    type: 'FieldFormula',
+    label: 'Field Formula',
+    category: 'pattern',
+    inputs: [
+      { id: 'a', label: 'A', dataType: 'float' },
+      { id: 'b', label: 'B', dataType: 'float' },
+      { id: 'fieldIn', label: 'Field', dataType: 'field' },
+    ],
+    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    defaultProperties: { formula: 'sin8(r*200 + t*60)/255' },
+  },
+  {
+    type: 'FieldToFrame',
+    label: 'Field → Frame',
+    category: 'pattern',
+    inputs: [
+      { id: 'field', label: 'Field', dataType: 'field' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { palette: 'ocean', brightness: 1 },
+  },
+
   // ── Output ─────────────────────────────────────────────────────────────
   {
     type: 'MatrixOutput',
@@ -1049,7 +1077,9 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   ReactionDiffusion: 'Gray-Scott reaction-diffusion — organic spots & stripes.',
   GameOfLife: 'Conway’s Game of Life with fading trails.',
   PatternMaster: 'Random pattern/transition show from a Pattern Collection.',
-  CustomFormula: 'Per-pixel JS expression f(x, y, t).',
+  CustomFormula: 'Per-pixel JS expression f(x, y, t) — with cx/cy/r/angle and FastLED shims.',
+  FieldFormula: 'Per-pixel scalar field from an expression (cx/cy/r/angle, sin8/beatsin8…).',
+  FieldToFrame: 'Maps a scalar field through a palette to a frame.',
   // composite
   Blur2D: 'Box-blurs the frame.',
   Blend: 'Blends B over A — normal, multiply, screen, overlay, add or difference.',
@@ -1098,6 +1128,7 @@ const PORT_COLORS: Record<string, string> = {
   color: '#ffd24a',
   palette: '#ff5cf0',
   frame: '#5ad1ff',
+  field: '#f5c542',
   audio: '#00e0a4',
   songs: '#ffb74d',
   shows: '#ffa726',

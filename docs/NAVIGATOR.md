@@ -20,6 +20,10 @@ build/architecture overview aimed at contributors.
   - [Code node](development/design/code-node.md)
     — pasting raw FastLED C++ as a node: verbatim codegen plus a lightweight
     C++→JS shim that approximates the code in the live preview.
+  - [ANIMartRIX / float field](development/design/animartrix-float-field.md)
+    — a new `field` data type (per-pixel scalar grid) plus `FieldFormula`,
+    `FieldToFrame`, `DistanceField`, `FieldMath`, and `FieldWarp` nodes that
+    unlock ANIMartRIX-style coordinate → scalar → colour pipelines.
 - [Plans](development/plans/)
   - [T-HMI feature integration](development/plans/thmi-feature-integration.md)
     — how to replay the divergent `feature/thmi-touchscreen-ui` branch (FFT

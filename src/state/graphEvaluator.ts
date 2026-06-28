@@ -5,9 +5,12 @@ import { asImage, sampleImageToFrame } from './image'
 import { waveSample, combineWaves } from './wave'
 import { polinePalette, hexToRgb } from './polinePalette'
 import { inputClampRange } from './nodeLibrary'
+import { makeShims, SHIM_NAMES } from './fastledShims'
 
 export interface RGB { r: number; g: number; b: number }
 export type Frame = RGB[][]   // row-major [y][x]
+/** A per-pixel scalar grid, length W×H (row-major, index y*W+x), values 0–1. */
+export type Field = Float32Array
 
 // Default grid dimensions; overridden by evaluateGraph params
 const DEFAULT_W = 16
@@ -34,8 +37,28 @@ const flowState = new Map<string, FlowState>()
 interface StarState { x: Float32Array; y: Float32Array; z: Float32Array; w: number; h: number }
 const starState = new Map<string, StarState>()
 
-type FormulaFn = (x: number, y: number, t: number, W: number, H: number, a: number, b: number) => number
+// Per-pixel formula closure. Args are positional and shared by CustomFormula and
+// FieldFormula: x, y, cx, cy, r, angle, t, W, H, a, b, fieldIn, then the FastLED
+// shims (sin8, cos8, …) in SHIM_NAMES order.
+type FormulaFn = (...args: unknown[]) => number
+const FORMULA_ARG_NAMES = ['x', 'y', 'cx', 'cy', 'r', 'angle', 't', 'W', 'H', 'a', 'b', 'fieldIn', ...SHIM_NAMES]
 const formulaCache = new Map<string, FormulaFn | null>()
+const fieldFormulaCache = new Map<string, FormulaFn | null>()
+
+function compileFormula(formula: string, cache: Map<string, FormulaFn | null>): FormulaFn | null {
+  if (!cache.has(formula)) {
+    if (cache.size > 50) cache.clear()
+    try {
+      const fn = new Function(...FORMULA_ARG_NAMES,
+        `"use strict"; const {sin,cos,abs,sqrt,pow,floor,ceil,round,min,max,PI,tan,atan2,log,exp,hypot}=Math; return (${formula});`
+      ) as FormulaFn
+      cache.set(formula, fn)
+    } catch {
+      cache.set(formula, null)
+    }
+  }
+  return cache.get(formula) ?? null
+}
 
 // ── Simplex noise 2D ─────────────────────────────────────────────────────────
 const _PERM = (() => {
@@ -1089,25 +1112,24 @@ function evalSequencer(frames: (Frame | null)[], interval: number, fade: number,
   return blendFrame(valid[idx], valid[(idx + 1) % valid.length], m, W, H)
 }
 
+// Centred / polar coordinate helpers, shared by CustomFormula and FieldFormula.
+// cx,cy range -1..1; r is 0 at centre (~1.41 at the corners); angle is -π..π.
+function centeredX(xi: number, W: number): number { return (xi - W / 2) / (W / 2 || 1) }
+function centeredY(yi: number, H: number): number { return (yi - H / 2) / (H / 2 || 1) }
+
 function evalCustomFormula(formula: string, a: number, b: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  if (!formulaCache.has(formula)) {
-    if (formulaCache.size > 50) formulaCache.clear()
-    try {
-      const fn = new Function('x', 'y', 't', 'W', 'H', 'a', 'b',
-        `"use strict"; const {sin,cos,abs,sqrt,pow,floor,ceil,round,min,max,PI,tan,atan2,log,exp,hypot}=Math; return (${formula});`
-      ) as FormulaFn
-      formulaCache.set(formula, fn)
-    } catch {
-      formulaCache.set(formula, null)
-    }
-  }
-  const fn = formulaCache.get(formula)
+  const fn = compileFormula(formula, formulaCache)
   if (!fn) return blankFrame(W, H)
+  const shims = makeShims(t)
+  const sv = SHIM_NAMES.map((n) => shims[n])
 
   return Array.from({ length: H }, (_, yi) =>
     Array.from({ length: W }, (_, xi) => {
       try {
-        const v = fn(xi / (W - 1 || 1), yi / (H - 1 || 1), t, W, H, a, b)
+        const cx = centeredX(xi, W), cy = centeredY(yi, H)
+        const r = Math.sqrt(cx * cx + cy * cy), angle = Math.atan2(cy, cx)
+        // x,y stay normalised 0..1 for backward compatibility; cx/cy/r/angle are new.
+        const v = fn(xi / (W - 1 || 1), yi / (H - 1 || 1), cx, cy, r, angle, t, W, H, a, b, 0, ...sv)
         return samplePalette(palette, ((v % 1) + 1) % 1)
       } catch {
         return { r: 0, g: 0, b: 0 }
@@ -1116,9 +1138,42 @@ function evalCustomFormula(formula: string, a: number, b: number, palette: Palet
   )
 }
 
+function evalFieldFormula(formula: string, a: number, b: number, fieldIn: Field | null, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+  const out = new Float32Array(W * H)
+  const fn = compileFormula(formula, fieldFormulaCache)
+  if (!fn) return out
+  const shims = makeShims(t)
+  const sv = SHIM_NAMES.map((n) => shims[n])
+
+  for (let yi = 0; yi < H; yi++) {
+    for (let xi = 0; xi < W; xi++) {
+      const cx = centeredX(xi, W), cy = centeredY(yi, H)
+      const r = Math.sqrt(cx * cx + cy * cy), angle = Math.atan2(cy, cx)
+      const fin = fieldIn ? fieldIn[yi * W + xi] : 0
+      let v = 0
+      // FieldFormula uses integer pixel coords for x,y (ANIMartRIX convention).
+      try { v = fn(xi, yi, cx, cy, r, angle, t, W, H, a, b, fin, ...sv) } catch { v = 0 }
+      out[yi * W + xi] = Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0
+    }
+  }
+  return out
+}
+
+function evalFieldToFrame(field: Field | null, palette: Palette, brightness: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const bv = Math.max(0, Math.min(1, brightness))
+  const b8 = (v: number) => Math.max(0, Math.min(255, Math.round(v * bv)))
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      if (!field) return { r: 0, g: 0, b: 0 }
+      const c = samplePalette(palette, field[y * W + x])
+      return { r: b8(c.r), g: b8(c.g), b: b8(c.b) }
+    })
+  )
+}
+
 // ── Main entry point ──────────────────────────────────────────────────────────
 
-type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | null
+type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | null
 
 /** A reusable pattern group: a named subgraph that a `Group` node evaluates. */
 export interface GroupDef { nodes: StudioNode[]; edges: StudioEdge[] }
@@ -1897,6 +1952,26 @@ function createEvalNode(
         const formula = String(props.formula ?? 'sin(x*6+t)*0.5+0.5')
         const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
         out = { frame: evalCustomFormula(formula, a, b, palette, t, W, H) }
+        break
+      }
+
+      // ── Float Field ────────────────────────────────────────────────────
+      case 'FieldFormula': {
+        const a = num(id, 'a', props, 'a', 0)
+        const b = num(id, 'b', props, 'b', 0)
+        const fin = input(id, 'fieldIn', null)
+        const fieldIn = fin instanceof Float32Array ? fin : null
+        const formula = String(props.formula ?? 'sin8(r*200 + t*60)/255')
+        out = { field: evalFieldFormula(formula, a, b, fieldIn, t, W, H) }
+        break
+      }
+
+      case 'FieldToFrame': {
+        const fv = input(id, 'field', null)
+        const field = fv instanceof Float32Array ? fv : null
+        const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
+        const brightness = num(id, 'brightness', props, 'brightness', 1)
+        out = { frame: evalFieldToFrame(field, palette, brightness, W, H) }
         break
       }
 
