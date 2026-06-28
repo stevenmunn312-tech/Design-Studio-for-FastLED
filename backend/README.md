@@ -37,8 +37,13 @@ The studio talks to `http://localhost:8008` by default; override with the
 
 ## Endpoints
 
-| Method | Path                | Purpose                                              |
-| ------ | ------------------- | ---------------------------------------------------- |
-| GET    | `/api/health`       | Liveness + whether `arduino-cli` is available.       |
-| GET    | `/api/serial/ports` | Connected serial boards/ports.                       |
-| POST   | `/api/upload`       | Compile a raw `.ino` and upload it (streams logs).   |
+| Method | Path                        | Purpose                                                                   |
+| ------ | --------------------------- | ------------------------------------------------------------------------- |
+| GET    | `/api/health`               | Liveness + whether `arduino-cli` is available.                            |
+| GET    | `/api/serial/ports`         | Connected serial boards/ports (`board list`).                             |
+| POST   | `/api/upload`               | Compile a raw `.ino` and upload it (streams logs).                        |
+| POST   | `/api/upload-show`          | Music-sync upload: provisioner sketch → SD file transfer → player sketch. |
+| GET    | `/api/cores`                | List installable board-manager cores.                                     |
+| POST   | `/api/core/install`         | Install a board-manager core (e.g. `esp32:esp32`).                        |
+| POST   | `/api/arduino-cli/locate`   | Point the helper at a user-supplied `arduino-cli` binary.                 |
+| POST   | `/api/arduino-cli/install`  | Download and install the official `arduino-cli` into `backend/bin`.       |

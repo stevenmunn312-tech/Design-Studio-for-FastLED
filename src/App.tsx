@@ -12,6 +12,7 @@ import StatusBar from './components/StatusBar/StatusBar'
 import BoardPopup from './components/Upload/BoardPopup'
 import ArduinoCliPopup from './components/Upload/ArduinoCliPopup'
 import OutputConsole from './components/Upload/OutputConsole'
+import HelpModal from './components/HelpModal/HelpModal'
 import { useUploadStore } from './state/uploadStore'
 import styles from './App.module.css'
 
@@ -44,7 +45,7 @@ function saveToLocalStorage(s: ReturnType<typeof useGraphStore.getState>) {
 }
 
 export default function App() {
-  const { sidebarOpen, inspectorOpen, setStatus, theme, reducedMotion, highContrast } = useUiStore()
+  const { sidebarOpen, inspectorOpen, setStatus, theme, reducedMotion, highContrast, helpOpen } = useUiStore()
   const { startAudio, stopAudio } = useAudioStore()
   const { boardPopupOpen, cliPopupOpen, consoleOpen, refreshHelper } = useUploadStore()
 
@@ -153,6 +154,7 @@ export default function App() {
       {boardPopupOpen && <BoardPopup />}
       {cliPopupOpen && <ArduinoCliPopup />}
       {consoleOpen && <OutputConsole />}
+      {helpOpen && <HelpModal />}
     </div>
   )
 }

@@ -5,7 +5,7 @@ import type { StudioNode, StudioEdge, WorkspaceExtras } from '../../state/graphS
 import styles from './MenuBar.module.css'
 
 export default function MenuBar() {
-  const { toggleSidebar, toggleInspector, setStatus, theme, cycleTheme, reducedMotion, toggleReducedMotion, highContrast, toggleHighContrast } = useUiStore()
+  const { toggleSidebar, toggleInspector, setStatus, theme, cycleTheme, reducedMotion, toggleReducedMotion, highContrast, toggleHighContrast, openHelp } = useUiStore()
 
   const THEME_ICON: Record<string, string> = { dark: '☾', solarized: '✦', light: '☀' }
   const THEME_LABEL: Record<string, string> = { dark: 'Dark', solarized: 'Solarized', light: 'Light' }
@@ -124,6 +124,15 @@ export default function MenuBar() {
           title="Toggle high contrast"
         >
           ◑ Contrast
+        </button>
+        <div className={styles.sep} />
+        <button
+          className={styles.btn}
+          onClick={openHelp}
+          aria-label="Open help"
+          title="Help (shortcuts, nodes, upload guide)"
+        >
+          ? Help
         </button>
       </nav>
       <div className={styles.info}>
