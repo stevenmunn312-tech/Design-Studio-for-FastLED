@@ -190,8 +190,11 @@ documented as a known divergence (same as `CustomFormula`'s existing caveat).
 
 ## Phased rollout
 
-### Phase 1 — `field` type + `FieldFormula` + `FieldToFrame`
-*Scope:* The minimum viable ANIMartRIX node.
+### Phase 1 — `field` type + `FieldFormula` + `FieldToFrame` — **implemented**
+*Scope:* The minimum viable ANIMartRIX node. Shipped: the `field` type, both
+nodes, the `CustomFormula` enhancement, evaluator + codegen, and the shared
+`src/state/fastledShims.ts` module, with unit tests for the shims, the evaluator
+field chain, and the codegen.
 
 - Add `field` to `PORT_COLORS` and `portsCompatible`.
 - Add `FieldFormula` node: expression sandbox with extended vars + FastLED shims,

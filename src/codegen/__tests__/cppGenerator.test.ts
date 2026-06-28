@@ -636,3 +636,53 @@ describe('generateCpp', () => {
     expect(transitionCpp('checkerboard', { tileSize: 3 })).toContain('_x/3')
   })
 })
+
+describe('Float Field codegen', () => {
+  it('FieldFormula declares a float field buffer and writes into it', () => {
+    const ff = node('ff', 'FieldFormula', 'pattern', { formula: 'r' })
+    const f2f = node('f2f', 'FieldToFrame', 'pattern', { palette: 'ocean', brightness: 1 })
+    const cpp = generateCpp(
+      [ff, f2f, outputNode],
+      [edge('e1', 'ff', 'f2f', 'field', 'field'), edge('e2', 'f2f', 'out', 'frame', 'frame')],
+    )
+    expect(cpp).toContain('float field_ff[NUM_LEDS];')
+    expect(cpp).toContain('field_ff[_y*WIDTH+_x]=constrain(')
+    // polar/centred coordinate vars available to the expression
+    expect(cpp).toContain('float r=sqrtf(cx*cx+cy*cy)')
+  })
+
+  it('FieldToFrame maps the upstream field through a palette', () => {
+    const ff = node('ff', 'FieldFormula', 'pattern', { formula: '0.5' })
+    const f2f = node('f2f', 'FieldToFrame', 'pattern', { palette: 'ocean', brightness: 1 })
+    const cpp = generateCpp(
+      [ff, f2f, outputNode],
+      [edge('e1', 'ff', 'f2f', 'field', 'field'), edge('e2', 'f2f', 'out', 'frame', 'frame')],
+    )
+    expect(cpp).toContain('ColorFromPalette(')
+    expect(cpp).toContain('field_ff[_i]*255')
+  })
+
+  it('emits the float shim helpers only when a formula uses them', () => {
+    const withShim = node('ff', 'FieldFormula', 'pattern', { formula: 'sin8(r*200)/255' })
+    const f2f = node('f2f', 'FieldToFrame', 'pattern', {})
+    const a = generateCpp(
+      [withShim, f2f, outputNode],
+      [edge('e1', 'ff', 'f2f', 'field', 'field'), edge('e2', 'f2f', 'out', 'frame', 'frame')],
+    )
+    expect(a).toContain('float _fsin8(float x)')
+    expect(a).toContain('_fsin8(r*200)/255')   // call rewritten to the wrapper
+
+    const noShim = node('ff', 'FieldFormula', 'pattern', { formula: 'r' })
+    const b = generateCpp(
+      [noShim, f2f, outputNode],
+      [edge('e1', 'ff', 'f2f', 'field', 'field'), edge('e2', 'f2f', 'out', 'frame', 'frame')],
+    )
+    expect(b).not.toContain('_fsin8')
+  })
+
+  it('FieldToFrame fills black when no field is wired', () => {
+    const f2f = node('f2f', 'FieldToFrame', 'pattern', {})
+    const cpp = generateCpp([f2f, outputNode], [edge('e2', 'f2f', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('fill_solid(buf_f2f, NUM_LEDS, CRGB::Black)')
+  })
+})

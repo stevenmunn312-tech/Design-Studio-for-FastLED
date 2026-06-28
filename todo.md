@@ -114,14 +114,14 @@ ANIMartRIX patterns use a **coordinate → scalar → color** model that the cur
 frame-centric graph can't express. Solution: add a `field` port type (per-pixel
 `Float32Array`, values 0–1) and a small set of field nodes.
 
-### Phase 1 — `field` type + core nodes
-- [ ] Add `field` to `PORT_COLORS` and `portsCompatible` in `nodeLibrary.ts`
-- [ ] **`FieldFormula`** node (category: `pattern`) — per-pixel expression outputting a `field`; built-in vars: `cx`, `cy`, `r`, `angle`, `t`, `W`, `H`, `a`, `b`, `fieldIn`; FastLED shims: `sin8`, `cos8`, `sin16`, `beatsin8`, `beatsin16`, `scale8`, `qadd8`, `qsub8`
-- [ ] **`FieldToFrame`** node (category: `pattern`) — maps a `field` through a palette → `frame`; `palette` input + property, `brightness` property
-- [ ] Enhance **`CustomFormula`** — add same `cx`/`cy`/`r`/`angle` vars and FastLED shims (backward-compatible; existing graphs unaffected)
-- [ ] Evaluator cases for `FieldFormula` and `FieldToFrame` (compile formula once into `formulaCache`, run per pixel into `Float32Array`; `FieldToFrame` samples palette)
-- [ ] Codegen cases for `FieldFormula` (double `for` loop + verbatim expression) and `FieldToFrame` (`ColorFromPalette` per pixel)
-- [ ] `NODE_DESCRIPTIONS` entries + unit tests (sandbox shims, codegen snapshot)
+### Phase 1 — `field` type + core nodes ✅ (PR pending)
+- [x] Add `field` to `PORT_COLORS` and `portsCompatible` in `nodeLibrary.ts`
+- [x] **`FieldFormula`** node (category: `pattern`) — per-pixel expression outputting a `field`; built-in vars: `cx`, `cy`, `r`, `angle`, `t`, `W`, `H`, `a`, `b`, `fieldIn`; FastLED shims: `sin8`, `cos8`, `sin16`, `beatsin8`, `beatsin16`, `scale8`, `qadd8`, `qsub8`
+- [x] **`FieldToFrame`** node (category: `pattern`) — maps a `field` through a palette → `frame`; `palette` input + property, `brightness` property
+- [x] Enhance **`CustomFormula`** — add same `cx`/`cy`/`r`/`angle` vars and FastLED shims (backward-compatible; existing graphs unaffected)
+- [x] Evaluator cases for `FieldFormula` and `FieldToFrame` (compile formula once into a cache, run per pixel into `Float32Array`; `FieldToFrame` samples palette)
+- [x] Codegen cases for `FieldFormula` (double `for` loop + verbatim expression) and `FieldToFrame` (`ColorFromPalette` per pixel)
+- [x] `NODE_DESCRIPTIONS` entries + unit tests (sandbox shims, evaluator, codegen) — `src/state/fastledShims.ts` shared by preview + codegen
 
 ### Phase 2 — field composition nodes
 - [ ] **`DistanceField`** node (category: `pattern`) — per-pixel Euclidean distance to a movable `(px, py)` point; inputs: `px`, `py` (float); output: `field`
