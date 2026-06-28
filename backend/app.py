@@ -257,32 +257,67 @@ def health():
 
 @app.get("/api/serial/ports")
 def serial_ports():
-    """List connected boards/ports via `arduino-cli board list --format json`."""
-    if not _ARDUINO_CLI:
-        return {"ok": False, "error": "arduino-cli not found", "ports": []}
+    """List serial ports for the upload dropdown.
+
+    Merges two sources so nothing is missed:
+      1. `arduino-cli board list` — richer (includes matching board names/FQBNs).
+      2. pyserial's OS-level enumeration — catches generic USB-serial adapters
+         (CH340/CH343/CP210x/FTDI) that arduino-cli's discovery often does NOT
+         report, which is why a CH343 (e.g. COM4) can show up in Device Manager
+         yet be absent from the dropdown.
+    Keyed by a normalised address so the same port from both sources is merged.
+    """
+    by_addr: dict[str, dict] = {}
+
+    def norm(addr):
+        return (addr or "").strip().upper()
+
+    # 1) arduino-cli detected ports (board/FQBN matches when recognised)
+    if _ARDUINO_CLI:
+        try:
+            proc = subprocess.run(
+                _ARDUINO_BASE + ["board", "list", "--format", "json"],
+                capture_output=True, text=True, timeout=30,
+            )
+            data = json.loads(proc.stdout or "{}")
+            # arduino-cli 1.x: {"detected_ports": [{"port": {...}, "matching_boards": [...]}]}
+            raw = data.get("detected_ports", data) if isinstance(data, dict) else data
+            for entry in raw or []:
+                port = entry.get("port", entry) if isinstance(entry, dict) else {}
+                if port.get("protocol") and port.get("protocol") != "serial":
+                    continue  # skip network ports
+                addr = port.get("address")
+                if not addr:
+                    continue
+                boards = entry.get("matching_boards") or [] if isinstance(entry, dict) else []
+                by_addr[norm(addr)] = {
+                    "address": addr,
+                    "label": port.get("label") or addr,
+                    "protocol": port.get("protocol", "serial"),
+                    "boards": [{"name": b.get("name"), "fqbn": b.get("fqbn")} for b in boards],
+                }
+        except Exception:
+            pass  # fall through to pyserial below
+
+    # 2) pyserial OS-level ports (the catch-all)
     try:
-        proc = subprocess.run(
-            _ARDUINO_BASE + ["board", "list", "--format", "json"],
-            capture_output=True, text=True, timeout=30,
-        )
-        data = json.loads(proc.stdout or "{}")
-    except Exception as e:
-        return {"ok": False, "error": str(e), "ports": []}
-    # arduino-cli 1.x: {"detected_ports": [{"port": {...}, "matching_boards": [...]}]}
-    raw = data.get("detected_ports", data) if isinstance(data, dict) else data
-    ports = []
-    for entry in raw or []:
-        port = entry.get("port", entry) if isinstance(entry, dict) else {}
-        if port.get("protocol") and port.get("protocol") != "serial":
-            continue  # skip network ports
-        boards = entry.get("matching_boards") or [] if isinstance(entry, dict) else []
-        ports.append({
-            "address": port.get("address"),
-            "label": port.get("label") or port.get("address"),
-            "protocol": port.get("protocol", "serial"),
-            "boards": [{"name": b.get("name"), "fqbn": b.get("fqbn")} for b in boards],
-        })
-    return {"ok": True, "ports": ports}
+        from serial.tools import list_ports
+        for p in list_ports.comports():
+            key = norm(p.device)
+            if not key:
+                continue
+            desc = (p.description or "").strip()
+            label = f"{p.device} ({desc})" if desc and desc.lower() != "n/a" else p.device
+            if key in by_addr:
+                # Enrich a bare arduino-cli entry with the OS description.
+                if by_addr[key]["label"] in (p.device, None) and desc:
+                    by_addr[key]["label"] = label
+            else:
+                by_addr[key] = {"address": p.device, "label": label, "protocol": "serial", "boards": []}
+    except Exception:
+        pass
+
+    return {"ok": True, "ports": sorted(by_addr.values(), key=lambda x: x["address"])}
 
 
 # ── arduino-cli management ────────────────────────────────────────────────────
