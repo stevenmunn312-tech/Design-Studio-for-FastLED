@@ -123,12 +123,12 @@ frame-centric graph can't express. Solution: add a `field` port type (per-pixel
 - [x] Codegen cases for `FieldFormula` (double `for` loop + verbatim expression) and `FieldToFrame` (`ColorFromPalette` per pixel)
 - [x] `NODE_DESCRIPTIONS` entries + unit tests (sandbox shims, evaluator, codegen) — `src/state/fastledShims.ts` shared by preview + codegen
 
-### Phase 2 — field composition nodes
-- [ ] **`DistanceField`** node (category: `pattern`) — per-pixel Euclidean distance to a movable `(px, py)` point; inputs: `px`, `py` (float); output: `field`
-- [ ] **`FieldMath`** node (category: `pattern`) — combine two fields pixel-by-pixel; `op` property: add, subtract, multiply, mix, min, max, difference; inputs: `a`, `b` (field); output: `field`
-- [ ] **`FieldWarp`** node (category: `composite`) — sample a `field` at coordinates shifted by two offset fields (`dx`, `dy`); `strength` property; output: `field`
-- [ ] Evaluator + codegen + tests for each
-- [ ] `Noise` node: optional `field` output mode (expose raw noise values pre-palette for field composition)
+### Phase 2 — field composition nodes ✅ (PR pending)
+- [x] **`DistanceField`** node (category: `pattern`) — per-pixel Euclidean distance to a movable `(px, py)` point; inputs: `px`, `py` (float); `scale` (1–4) stretches the ramp; output: `field`
+- [x] **`FieldMath`** node (category: `pattern`) — combine two fields pixel-by-pixel; `fieldOp` property: add, subtract, multiply, mix, min, max, difference; inputs: `a`, `b` (field); output: `field` (header reflects the op via `nodeDisplayLabel`)
+- [x] **`FieldWarp`** node (category: `composite`) — sample a `field` at coordinates shifted by two offset fields (`dx`, `dy`); `strength` property; nearest-neighbour, edge-clamped; output: `field`
+- [x] Evaluator + codegen + tests for each (9 new tests)
+- [ ] `Noise` node: optional `field` output mode (expose raw noise values pre-palette for field composition) — deferred follow-up
 
 ### Phase 3 — coordinate-space transforms
 - [ ] **`FieldRotate`** node — rotate the sample coordinate by a float `angle` input before evaluating a field; wraps at boundary

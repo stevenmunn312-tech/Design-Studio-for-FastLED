@@ -1171,6 +1171,63 @@ function evalFieldToFrame(field: Field | null, palette: Palette, brightness: num
   )
 }
 
+// Distance from each pixel to a movable point (px,py in normalised 0–1 space).
+// Output is 0 at the point, rising to 1; `scale` (≥1) stretches the ramp so it
+// reaches 1 sooner. The diagonal of the unit square (√2) is the 1.0 reference.
+function evalDistanceField(px: number, py: number, scale: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+  const out = new Float32Array(W * H)
+  const sc = Math.max(0.0001, scale)
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const nx = x / (W - 1 || 1), ny = y / (H - 1 || 1)
+      const dx = nx - px, dy = ny - py
+      const d = (Math.sqrt(dx * dx + dy * dy) / Math.SQRT2) * sc
+      out[y * W + x] = Math.max(0, Math.min(1, d))
+    }
+  }
+  return out
+}
+
+// Combine two fields pixel-by-pixel. An unwired input is a zero field, so unary
+// ops (e.g. `subtract` from 0 to negate, clamped) still behave sensibly.
+function evalFieldMath(a: Field | null, b: Field | null, op: string, W = DEFAULT_W, H = DEFAULT_H): Field {
+  const out = new Float32Array(W * H)
+  for (let i = 0; i < W * H; i++) {
+    const x = a ? a[i] : 0, y = b ? b[i] : 0
+    let v: number
+    switch (op) {
+      case 'subtract':   v = x - y; break
+      case 'multiply':   v = x * y; break
+      case 'mix':        v = (x + y) * 0.5; break
+      case 'min':        v = Math.min(x, y); break
+      case 'max':        v = Math.max(x, y); break
+      case 'difference': v = Math.abs(x - y); break
+      case 'add':
+      default:           v = x + y; break
+    }
+    out[i] = Math.max(0, Math.min(1, v))
+  }
+  return out
+}
+
+// Sample `field` at coordinates pushed by the dx/dy offset fields. Offsets map
+// 0–1 → −strength…+strength pixels (an unwired offset field = no push). Sample
+// is nearest-neighbour, clamped to the matrix edges.
+function evalFieldWarp(field: Field | null, dx: Field | null, dy: Field | null, strength: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+  const out = new Float32Array(W * H)
+  if (!field) return out
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const ox = dx ? (2 * dx[y * W + x] - 1) * strength : 0
+      const oy = dy ? (2 * dy[y * W + x] - 1) * strength : 0
+      const sx = Math.max(0, Math.min(W - 1, Math.round(x + ox)))
+      const sy = Math.max(0, Math.min(H - 1, Math.round(y + oy)))
+      out[y * W + x] = field[sy * W + sx]
+    }
+  }
+  return out
+}
+
 // ── Main entry point ──────────────────────────────────────────────────────────
 
 type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | null
@@ -1972,6 +2029,40 @@ function createEvalNode(
         const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
         const brightness = num(id, 'brightness', props, 'brightness', 1)
         out = { frame: evalFieldToFrame(field, palette, brightness, W, H) }
+        break
+      }
+
+      case 'DistanceField': {
+        const px = num(id, 'px', props, 'px', 0.5)
+        const py = num(id, 'py', props, 'py', 0.5)
+        const scale = num(id, 'scale', props, 'scale', 1)
+        out = { field: evalDistanceField(px, py, scale, W, H) }
+        break
+      }
+
+      case 'FieldMath': {
+        const av = input(id, 'a', null)
+        const bv = input(id, 'b', null)
+        const op = String(props.fieldOp ?? 'add')
+        out = { field: evalFieldMath(
+          av instanceof Float32Array ? av : null,
+          bv instanceof Float32Array ? bv : null,
+          op, W, H,
+        ) }
+        break
+      }
+
+      case 'FieldWarp': {
+        const fv = input(id, 'field', null)
+        const dxv = input(id, 'dx', null)
+        const dyv = input(id, 'dy', null)
+        const strength = num(id, 'strength', props, 'strength', 1)
+        out = { field: evalFieldWarp(
+          fv instanceof Float32Array ? fv : null,
+          dxv instanceof Float32Array ? dxv : null,
+          dyv instanceof Float32Array ? dyv : null,
+          strength, W, H,
+        ) }
         break
       }
 
