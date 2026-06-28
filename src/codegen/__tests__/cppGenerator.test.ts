@@ -736,3 +736,39 @@ describe('Float Field — Phase 2 codegen', () => {
     expect(cpp).toContain('if(_sx>WIDTH-1)_sx=WIDTH-1')
   })
 })
+
+describe('Float Field — Phase 3 codegen', () => {
+  const tail = (srcId: string) => {
+    const f2f = node('f2f', 'FieldToFrame', 'pattern', {})
+    return {
+      nodes: [f2f, outputNode],
+      edges: [edge('zf', srcId, 'f2f', 'field', 'field'), edge('zo', 'f2f', 'out', 'frame', 'frame')],
+    }
+  }
+
+  it('FieldRotate emits a time-driven rotation sampling the source field', () => {
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const fr = node('fr', 'FieldRotate', 'composite', { angle: 0, spin: 45 })
+    const t = tail('fr')
+    const cpp = generateCpp([src, fr, ...t.nodes], [
+      edge('e1', 'src', 'fr', 'field', 'field'),
+      ...t.edges,
+    ])
+    expect(cpp).toContain('/* FieldRotate */')
+    expect(cpp).toContain('t*45')                 // spin baked in
+    expect(cpp).toContain('float t = millis()')   // needsT triggered
+    expect(cpp).toContain('field_fr[_y*WIDTH+_x]=field_src[_sy*WIDTH+_sx]')
+  })
+
+  it('FieldTile bakes the tile counts into the C++', () => {
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const ft = node('ft', 'FieldTile', 'composite', { tilesX: 3, tilesY: 2 })
+    const t = tail('ft')
+    const cpp = generateCpp([src, ft, ...t.nodes], [
+      edge('e1', 'src', 'ft', 'field', 'field'),
+      ...t.edges,
+    ])
+    expect(cpp).toContain('/* FieldTile */')
+    expect(cpp).toContain('int _sx=(_x*3)%WIDTH,_sy=(_y*2)%HEIGHT;')
+  })
+})

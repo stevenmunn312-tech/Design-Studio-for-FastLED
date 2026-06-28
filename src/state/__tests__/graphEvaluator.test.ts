@@ -1212,3 +1212,70 @@ describe('Float Field — Phase 2 (DistanceField / FieldMath / FieldWarp)', () =
     expect(warped[0]).toBeCloseTo(ref[1])
   })
 })
+
+describe('Float Field — Phase 3 (FieldRotate / FieldTile)', () => {
+  function fieldOut(nodeId: string, nodes: StudioNode[], edges: StudioEdge[], tick = 0): Float32Array {
+    const { outputs } = evaluateGraphFull(nodes, edges, tick, W, H)
+    return outputs.get(nodeId)!.field as Float32Array
+  }
+  function withFieldTail(srcId: string, nodes: StudioNode[], edges: StudioEdge[]) {
+    const f2f = node('f2f', 'FieldToFrame', 'pattern', {})
+    const out = node('zzout', 'MatrixOutput', 'output', {})
+    return {
+      nodes: [...nodes, f2f, out],
+      edges: [...edges, edge('zf', srcId, 'field', 'f2f', 'field'), edge('zo', 'f2f', 'frame', 'zzout', 'frame')],
+    }
+  }
+
+  it('FieldRotate by 0° returns the source unchanged', () => {
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const fr = node('fr', 'FieldRotate', 'composite', { angle: 0, spin: 0 })
+    const g = withFieldTail('fr', [src, fr], [edge('e1', 'src', 'field', 'fr', 'field')])
+    const ref = fieldOut('src', g.nodes, g.edges)
+    const rot = fieldOut('fr', g.nodes, g.edges)
+    expect([...rot]).toEqual([...ref])
+  })
+
+  it('FieldRotate by 90° turns an x-ramp into a y-ramp', () => {
+    // x-ramp: value depends only on column. After a 90° rotation it should vary
+    // by row instead — i.e. each row becomes (near) constant across columns.
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const fr = node('fr', 'FieldRotate', 'composite', { angle: 90, spin: 0 })
+    const g = withFieldTail('fr', [src, fr], [edge('e1', 'src', 'field', 'fr', 'field')])
+    const rot = fieldOut('fr', g.nodes, g.edges)
+    for (let y = 0; y < H; y++) {
+      const row0 = rot[y * W]
+      for (let x = 1; x < W; x++) expect(rot[y * W + x]).toBeCloseTo(row0, 5)
+    }
+  })
+
+  it('FieldRotate spin advances with time', () => {
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const fr = node('fr', 'FieldRotate', 'composite', { angle: 0, spin: 90 })
+    const g = withFieldTail('fr', [src, fr], [edge('e1', 'src', 'field', 'fr', 'field')])
+    const at0 = fieldOut('fr', g.nodes, g.edges, 0)
+    const at1s = fieldOut('fr', g.nodes, g.edges, 60)  // tick/60 = 1s → 90° spin
+    expect([...at1s]).not.toEqual([...at0])
+  })
+
+  it('FieldTile 2×1 repeats the field horizontally', () => {
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const ft = node('ft', 'FieldTile', 'composite', { tilesX: 2, tilesY: 1 })
+    const g = withFieldTail('ft', [src, ft], [edge('e1', 'src', 'field', 'ft', 'field')])
+    const ref = fieldOut('src', g.nodes, g.edges)
+    const tiled = fieldOut('ft', g.nodes, g.edges)
+    // Column 0 of each horizontal tile samples source column 0.
+    expect(tiled[0]).toBeCloseTo(ref[0])
+    // tile mapping: out col x → src col (x*2)%W
+    for (let x = 0; x < W; x++) expect(tiled[x]).toBeCloseTo(ref[(x * 2) % W])
+  })
+
+  it('FieldTile clamps tile counts to ≥1', () => {
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const ft = node('ft', 'FieldTile', 'composite', { tilesX: 0, tilesY: 0 })
+    const g = withFieldTail('ft', [src, ft], [edge('e1', 'src', 'field', 'ft', 'field')])
+    const ref = fieldOut('src', g.nodes, g.edges)
+    const tiled = fieldOut('ft', g.nodes, g.edges)
+    expect([...tiled]).toEqual([...ref])  // tiles=1×1 → unchanged
+  })
+})

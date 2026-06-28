@@ -1333,6 +1333,33 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
+      case 'FieldRotate': {
+        needsT.v = true
+        const of = ownField()
+        const angle = f('angle', 'angle', 0), spin = Number(p.spin ?? 0)
+        const src = srcField('field')
+        ln(`  { /* FieldRotate */ float _ang=((${angle})+t*${spin})*0.01745329f;`)
+        ln(`    float _ca=cosf(-_ang),_sa=sinf(-_ang),_cx=(WIDTH-1)/2.0f,_cy=(HEIGHT-1)/2.0f;`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float _dx=_x-_cx,_dy=_y-_cy;`)
+        ln(`      int _sx=(((int)roundf(_dx*_ca-_dy*_sa+_cx))%WIDTH+WIDTH)%WIDTH;`)
+        ln(`      int _sy=(((int)roundf(_dx*_sa+_dy*_ca+_cy))%HEIGHT+HEIGHT)%HEIGHT;`)
+        ln(`      ${of}[_y*WIDTH+_x]=${src ? `${src}[_sy*WIDTH+_sx]` : '0.0f'};}}`)
+        break
+      }
+
+      case 'FieldTile': {
+        const of = ownField()
+        const tx = Math.max(1, Math.round(Number(p.tilesX ?? 2)))
+        const ty = Math.max(1, Math.round(Number(p.tilesY ?? 2)))
+        const src = srcField('field')
+        ln(`  { /* FieldTile */`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      int _sx=(_x*${tx})%WIDTH,_sy=(_y*${ty})%HEIGHT;`)
+        ln(`      ${of}[_y*WIDTH+_x]=${src ? `${src}[_sy*WIDTH+_sx]` : '0.0f'};}}`)
+        break
+      }
+
       case 'CHSV': {
         const hue = f('hue', 'hue', 128), sat = f('sat', 'sat', 255), val = f('val', 'val', 255)
         ln(`  CRGB ${v('rgb')} = CHSV((uint8_t)(${hue}), (uint8_t)(${sat}), (uint8_t)(${val}));`)

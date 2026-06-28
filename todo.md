@@ -130,10 +130,11 @@ frame-centric graph can't express. Solution: add a `field` port type (per-pixel
 - [x] Evaluator + codegen + tests for each (9 new tests)
 - [ ] `Noise` node: optional `field` output mode (expose raw noise values pre-palette for field composition) — deferred follow-up
 
-### Phase 3 — coordinate-space transforms
-- [ ] **`FieldRotate`** node — rotate the sample coordinate by a float `angle` input before evaluating a field; wraps at boundary
-- [ ] **`FieldTile`** node — tile/repeat a field N×M times across the matrix
-- [ ] Evaluate whether these fold into `FieldWarp` presets or warrant standalone nodes
+### Phase 3 — coordinate-space transforms ✅ (PR pending)
+- [x] **`FieldRotate`** node (category: `composite`) — rotate a field around its centre by an `angle` float input (degrees) + `spin` (deg/sec) property; wraps at boundary
+- [x] **`FieldTile`** node (category: `composite`) — tile/repeat a field `tilesX`×`tilesY` times across the matrix
+- [x] Evaluate whether these fold into `FieldWarp` presets or warrant standalone nodes → **standalone** (whole-field coordinate transform vs FieldWarp's per-pixel additive offsets)
+- [x] Evaluator + codegen + tests (7 new)
 
 ## Direction & In-Flight Work
 

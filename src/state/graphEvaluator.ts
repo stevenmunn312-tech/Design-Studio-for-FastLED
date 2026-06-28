@@ -1228,6 +1228,37 @@ function evalFieldWarp(field: Field | null, dx: Field | null, dy: Field | null, 
   return out
 }
 
+// Rotate a field around its centre by `angleRad`. Samples the source at the
+// inverse-rotated coordinate (nearest-neighbour), wrapping at the matrix edges.
+function evalFieldRotate(field: Field | null, angleRad: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+  const out = new Float32Array(W * H)
+  if (!field) return out
+  const cxc = (W - 1) / 2, cyc = (H - 1) / 2
+  const ca = Math.cos(-angleRad), sa = Math.sin(-angleRad)
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const dx = x - cxc, dy = y - cyc
+      const sx = ((Math.round(dx * ca - dy * sa + cxc) % W) + W) % W
+      const sy = ((Math.round(dx * sa + dy * ca + cyc) % H) + H) % H
+      out[y * W + x] = field[sy * W + sx]
+    }
+  }
+  return out
+}
+
+// Tile/repeat a field `tilesX`×`tilesY` times across the matrix (nearest sample).
+function evalFieldTile(field: Field | null, tilesX: number, tilesY: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+  const out = new Float32Array(W * H)
+  if (!field) return out
+  const tx = Math.max(1, Math.round(tilesX)), ty = Math.max(1, Math.round(tilesY))
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      out[y * W + x] = field[((y * ty) % H) * W + ((x * tx) % W)]
+    }
+  }
+  return out
+}
+
 // ── Main entry point ──────────────────────────────────────────────────────────
 
 type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | null
@@ -2063,6 +2094,24 @@ function createEvalNode(
           dyv instanceof Float32Array ? dyv : null,
           strength, W, H,
         ) }
+        break
+      }
+
+      case 'FieldRotate': {
+        const fv = input(id, 'field', null)
+        const field = fv instanceof Float32Array ? fv : null
+        // angle (degrees) plus an optional continuous spin (degrees/sec).
+        const deg = num(id, 'angle', props, 'angle', 0) + t * Number(props.spin ?? 0)
+        out = { field: evalFieldRotate(field, (deg * Math.PI) / 180, W, H) }
+        break
+      }
+
+      case 'FieldTile': {
+        const fv = input(id, 'field', null)
+        const field = fv instanceof Float32Array ? fv : null
+        const tx = num(id, 'tilesX', props, 'tilesX', 2)
+        const ty = num(id, 'tilesY', props, 'tilesY', 2)
+        out = { field: evalFieldTile(field, tx, ty, W, H) }
         break
       }
 
