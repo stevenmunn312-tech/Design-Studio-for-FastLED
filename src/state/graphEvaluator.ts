@@ -548,14 +548,19 @@ function evalParticles(nodeId: string, mode: string, rate: number, color: RGB, d
   if (particles.length > MAX_PARTICLES) particles = particles.slice(particles.length - MAX_PARTICLES)
   particleState.set(nodeId, particles)
 
+  // fireworks gives each burst its own random hue, so it renders the stored
+  // per-particle colour; every other mode shares the node colour, so it renders
+  // the *live* colour — letting a colour change apply to existing particles too.
+  const perParticle = mode === 'fireworks'
   const frame = blankFrame(W, H)
   for (const p of particles) {
     const px = Math.round(p.x), py = Math.round(p.y)
     if (px >= 0 && px < W && py >= 0 && py < H) {
       const cur = frame[py][px], k = Math.min(1, p.life)
-      cur.r = Math.min(255, cur.r + Math.round(p.r * k))
-      cur.g = Math.min(255, cur.g + Math.round(p.g * k))
-      cur.b = Math.min(255, cur.b + Math.round(p.b * k))
+      const cr = perParticle ? p.r : color.r, cg = perParticle ? p.g : color.g, cb = perParticle ? p.b : color.b
+      cur.r = Math.min(255, cur.r + Math.round(cr * k))
+      cur.g = Math.min(255, cur.g + Math.round(cg * k))
+      cur.b = Math.min(255, cur.b + Math.round(cb * k))
     }
   }
   return frame

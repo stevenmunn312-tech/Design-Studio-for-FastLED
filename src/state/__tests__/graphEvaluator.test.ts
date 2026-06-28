@@ -351,6 +351,23 @@ describe('evaluateGraph', () => {
       })
     }
 
+    it('reflects a live colour change on persistent particles (swarm)', () => {
+      const spy = vi.spyOn(Math, 'random').mockReturnValue(0.01)
+      try {
+        // Seed the swarm green, advance, then switch to red — already-live
+        // particles should render the new colour (no green left).
+        const green = withOutput(node('ppC', 'Particles', 'pattern', { particleType: 'swarm', rate: 1, r: 0, g: 255, b: 0 }))
+        for (let f = 0; f < 4; f++) evaluateGraph(green.nodes, green.edges, f, W, H)
+        const red = withOutput(node('ppC', 'Particles', 'pattern', { particleType: 'swarm', rate: 1, r: 255, g: 0, b: 0 }))
+        const frame = evaluateGraph(red.nodes, red.edges, 4, W, H)!
+        const lit = frame.flat().filter((px) => px.r + px.g + px.b > 0)
+        expect(lit.length).toBeGreaterThan(0)
+        expect(lit.every((px) => px.g === 0 && px.r > 0)).toBe(true)
+      } finally {
+        spy.mockRestore()
+      }
+    })
+
     it('defaults to the fountain behaviour when particleType is absent', () => {
       const spy = vi.spyOn(Math, 'random').mockReturnValue(0.01)
       try {

@@ -958,10 +958,15 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
             ln(`      ${A}y[i]+=${A}vy[i]; ${A}x[i]+=sin(t*1.5f+${A}s[i])*0.12f; if(${A}y[i]>=HEIGHT) ${A}l[i]=0; }`)
         }
 
-        // ── render (shared) ──
+        // ── render (shared) ── fireworks keeps per-particle (random-hue) colour;
+        // every other mode renders the live node colour so a colour change applies
+        // to existing particles too.
+        const cr = mode === 'fireworks' ? `${A}r[i]` : '_pc.r'
+        const cg = mode === 'fireworks' ? `${A}g[i]` : '_pc.g'
+        const cb = mode === 'fireworks' ? `${A}b[i]` : '_pc.b'
         ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
         ln(`    for(int i=0;i<_PN;i++){ if(${A}l[i]<=0.04f) continue; int X=(int)(${A}x[i]+0.5f), Y=(int)(${A}y[i]+0.5f);`)
-        ln(`      if(X>=0&&X<WIDTH&&Y>=0&&Y<HEIGHT){ float _k=min(1.0f,${A}l[i]); ${ob}[Y*WIDTH+X]+=CRGB((uint8_t)(${A}r[i]*_k),(uint8_t)(${A}g[i]*_k),(uint8_t)(${A}b[i]*_k)); } } }`)
+        ln(`      if(X>=0&&X<WIDTH&&Y>=0&&Y<HEIGHT){ float _k=min(1.0f,${A}l[i]); ${ob}[Y*WIDTH+X]+=CRGB((uint8_t)(${cr}*_k),(uint8_t)(${cg}*_k),(uint8_t)(${cb}*_k)); } } }`)
         break
       }
 
