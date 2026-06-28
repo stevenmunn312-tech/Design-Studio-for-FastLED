@@ -104,6 +104,7 @@ See *Music-Sync Show Pipeline* in `CLAUDE.md`.
 
 - [ ] Add more particle types — e.g. gravity/bounce, fireworks burst, sparkle rain, comet trail, snow drift, swarm flocking
 - [ ] Add more FastLED built-ins to code editor — e.g. `beatsin8`/`beatsin16`, `triwave8`, `quadwave8`, `cubicwave8`, `ease8InOutCubic`, `blend`, `lerp8by8`, `lerp16by16`, `sqrt16`, `scale8`, `nscale8`, `qadd8`, `qsub8`, FastLED palettes (`RainbowColors_p`, `LavaColors_p`, `OceanColors_p`, etc.)
+- [ ] **Code node** — paste raw FastLED C++ as a node (pass-through codegen, JS shim for preview); design note at `docs/development/design/code-node.md`
 
 ## Direction & In-Flight Work
 
