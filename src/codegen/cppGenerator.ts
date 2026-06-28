@@ -227,6 +227,9 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
   }
 
   const loopLines: string[] = []
+  // File-scope lines contributed by Code nodes (helpers, persistent vars, etc.),
+  // emitted between the buffer declarations and setup().
+  const globalLines: string[] = []
   const needsMapFloat: boolean[] = [false]
   const needsWorley = { v: false }
   const needsKelvin = { v: false }
@@ -1374,7 +1377,13 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         needsT.v = true
         const ob = ownBuf()
         const src = srcBuf('frame')
+        const global = String(p.globalCode ?? '').trim()
         const code = String(p.code ?? '')
+        if (global) {
+          globalLines.push(`// ── Code node ${node.id} — globals ──`)
+          for (const line of global.split('\n')) globalLines.push(line)
+          globalLines.push(``)
+        }
         ln(`  {`)
         if (src) ln(`    ::memmove(${ob}, ${src}, sizeof(CRGB) * NUM_LEDS);`)
         ln(`    CRGB* leds = ${ob}; (void)leds;`)
@@ -1540,6 +1549,11 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
     lines.push(`  return (y & 0x01) ? (uint16_t)y * WIDTH + (WIDTH - 1 - x) : (uint16_t)y * WIDTH + x;`)
     lines.push(`}`)
     lines.push(``)
+  }
+
+  // File-scope code from Code nodes (helpers, persistent vars, palettes).
+  if (globalLines.length) {
+    lines.push(...globalLines)
   }
 
   lines.push(`void setup() {`)

@@ -14,7 +14,18 @@ import PatternCollectionBody from './PatternCollectionBody'
 import PatternMasterBody from './PatternMasterBody'
 import MatrixOutputUpload from '../Upload/MatrixOutputUpload'
 import { usePreviewStore } from '../../state/previewStore'
+import { getCodeError } from '../../state/graphEvaluator'
 import styles from './StudioNode.module.css'
+
+// Shows the latest compile/runtime error from a Code node's preview evaluation.
+// Subscribes to previewStore so it refreshes each eval tick (errors surface in
+// near-real-time and clear once the code runs cleanly again).
+function CodeError({ nodeId }: { nodeId: string }) {
+  usePreviewStore((s) => s.outputs)   // re-render on each published eval pass
+  const err = getCodeError(nodeId)
+  if (!err) return null
+  return <div className={styles.codeErr} title={err}>⚠ {err}</div>
+}
 
 function toHex(r: number, g: number, b: number) {
   return '#' + [r, g, b].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')
@@ -132,7 +143,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const props = d.properties as Record<string, unknown>
   const hasRGB = ['r', 'g', 'b'].every((k) => typeof props[k] === 'number')
   const editable = Object.entries(props).filter(
-    ([k]) => k !== 'font' && k !== 'image' && k !== 'code' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'transitions'
+    ([k]) => k !== 'font' && k !== 'image' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'transitions'
       && !(hasRGB && (k === 'r' || k === 'g' || k === 'b'))
   )
   // The "clamp inputs" toggle is rendered specially (it has no entry in the
@@ -238,13 +249,26 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {d.nodeType === 'MatrixOutput' && <MatrixOutputUpload enabled={drivenBy('frame')} />}
 
         {isCode && (
-          <textarea
-            className={`nodrag nowheel ${styles.codeEditor}`}
-            spellCheck={false}
-            value={String(props.code ?? '')}
-            placeholder="// FastLED loop body — writes into leds[]"
-            onChange={(e) => updateNodeProperty(id, 'code', e.target.value)}
-          />
+          <>
+            <div className={styles.codeLabel}>Global</div>
+            <textarea
+              className={`nodrag nowheel ${styles.codeEditor}`}
+              style={{ minHeight: 56 }}
+              spellCheck={false}
+              value={String(props.globalCode ?? '')}
+              placeholder="// file scope: helpers, palettes, persistent vars"
+              onChange={(e) => updateNodeProperty(id, 'globalCode', e.target.value)}
+            />
+            <div className={styles.codeLabel}>Loop</div>
+            <textarea
+              className={`nodrag nowheel ${styles.codeEditor}`}
+              spellCheck={false}
+              value={String(props.code ?? '')}
+              placeholder="// loop body — runs each frame, writes into leds[]"
+              onChange={(e) => updateNodeProperty(id, 'code', e.target.value)}
+            />
+            <CodeError nodeId={id} />
+          </>
         )}
 
         {(hasRGB || editable.length > 0 || showClamp) && (

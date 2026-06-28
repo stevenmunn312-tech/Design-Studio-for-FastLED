@@ -134,7 +134,15 @@
   border-color: var(--accent-output);
 }
 
-/* Code node — multi-line C++ editor in the node body. */
+/* Code node — Global + Loop C++ editors in the node body. */
+.codeLabel {
+  margin-top: var(--space-1);
+  font-family: var(--font-code);
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  letter-spacing: 0.03em;
+}
+
 .codeEditor {
   width: 100%;
   min-height: 120px;
@@ -155,6 +163,22 @@
 .codeEditor:focus {
   outline: none;
   border-color: var(--accent-pattern);
+}
+
+.codeErr {
+  margin-top: 4px;
+  padding: 4px 6px;
+  background: rgba(255, 51, 102, 0.12);
+  border: 1px solid var(--error);
+  border-radius: 4px;
+  color: var(--error);
+  font-family: var(--font-code);
+  font-size: var(--fs-caption);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 64px;
+  overflow-y: auto;
 }
 
 .colorInput {

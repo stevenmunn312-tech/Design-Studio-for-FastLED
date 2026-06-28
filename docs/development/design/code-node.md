@@ -50,68 +50,114 @@ FastLED code into a bespoke API.)
 - Property `code: string` (the pasted body). Optional `frame` input so the code
   can seed from / fade an incoming frame (as the real demos do with
   `fadeToBlackBy(leds, NUM_LEDS, n)`), and a `frame` output.
-- Edited in a `<textarea>` in the node body (monospace, `nodrag` + `nowheel` so
-  React Flow doesn't pan/scroll while typing).
+- **Two editors** (`<textarea>`, monospace, `nodrag` + `nowheel`):
+  - **Global** (`properties.globalCode`) → emitted at **file scope** (helper
+    functions, persistent vars, palettes), mirroring how real FastLED sketches
+    declare state and helpers outside `loop()`.
+  - **Loop** (`properties.code`) → emitted inside `loop()`; runs each frame and
+    writes into `leds[]`.
 
 ### Codegen (near pass-through)
 
-Each node already owns a `buf_<id>` buffer. Emit:
+The **Global** section is collected into `globalLines` and emitted between the
+buffer declarations and `setup()`. The **Loop** section is emitted into the
+node's block in `loop()`; each node already owns a `buf_<id>` buffer:
 
 ```cpp
-{ CRGB* leds = buf_<id>;               // user code writes into this node's buffer
-  const int NUM_LEDS = WIDTH * HEIGHT;
-  /* seed buf_<id> from the frame input, or clear to black */
-  <pasted code, verbatim>
+// ── Code node <id> — globals ──
+<global section, verbatim, at file scope>
+
+void loop() {
+  ...
+  { CRGB* leds = buf_<id>;   // loop body writes into this node's buffer
+    /* memmove buf_<id> from the frame input if wired; else it persists */
+    <loop section, verbatim>
+  }
 }
 ```
 
-so `leds[i]`, `NUM_LEDS`, and the FastLED helpers resolve correctly and the
-node composes with the rest of the graph like any other frame source.
+`NUM_LEDS` is already `#define`d globally, so `leds[i]` and the FastLED helpers
+resolve and the node composes like any other frame source. Buffers are global
+arrays, so an unwired buffer persists across `loop()` — `fadeToBlackBy` trails
+accumulate on-device exactly as the preview shows.
 
 ### Preview (C++→JS shim)
 
-Mirror `formulaCache`: cache the transpiled function keyed by the source text,
+Mirror `formulaCache`: cache the transpiled function keyed by `globalCode + code`,
 clear when the cache grows past a cap, run inside `try/catch` so a malformed
-paste falls back to black/placeholder. The transpile is a handful of regex
-rewrites applied before `new Function`:
+paste falls back to black. The global section is transpiled and prepended to the
+loop section in one compiled function (so global helpers/constants are in scope
+for the loop). The transpile is a handful of regex rewrites applied before
+`new Function`:
 
-- **Strip C++ type keywords** at declaration sites:
-  `\b(uint8_t|uint16_t|uint32_t|int|long|float|double|bool|byte)\s+(\w+)` → `let $2`.
-  (Everything becomes an untyped JS `let`; integer-overflow wrap semantics are a
-  known divergence — see below.)
+- **Drop storage qualifiers** (`static uint8_t x` → `x`).
+- **C++ function definition → JS function**: `<retType> name(<typed args>) {` →
+  `function name(<stripped args>) {`, so global helper functions run.
+- **Strip C++ type keywords** at declaration sites → `let`.
+  (Integer-overflow wrap semantics are a known divergence — see below.)
 - **Rewrite `leds[]` writes** (JS can't overload `|=`):
   - `leds[EXPR] |= RHS;` → `addLed(EXPR, RHS);` (additive blend / `qadd8` per channel)
   - `leds[EXPR] = RHS;`  → `setLed(EXPR, RHS);`
   - index `EXPR` is matched as `leds\[([^\]]*)\]` (no nested `[`, which covers the
     demo vocabulary including `beatsin16(...)` indices).
+- **Named colour constants:** `CRGB::Red` (invalid JS `::`) → `crgbConst('Red')`,
+  resolved against a small common table (extend as needed).
 - **Shim runtime in scope:** `beatsin16/8`, `beat8/16`, `sin8/cos8`, `sin16`,
-  `CHSV`, `CRGB`, `qadd8`, `scale8`, `random8`, `millis()`, `XY(x,y)`, plus the
-  constants `NUM_LEDS / WIDTH / HEIGHT`. `t` (seconds) is available so timing
-  matches the rest of the evaluator (wall-clock based).
+  `CHSV`, `CRGB`, `qadd8`, `qsub8`, `scale8`, `random8/16`, `millis()`, `XY(x,y)`,
+  `fadeToBlackBy`, `fill_solid`, `fill_rainbow`, `nblend`, plus the constants
+  `NUM_LEDS / WIDTH / HEIGHT`. `t` (seconds) is available so timing matches the
+  rest of the evaluator (wall-clock based).
+- **Palettes:** `ColorFromPalette(pal, index, brightness)`, `fill_palette(...)`,
+  and the `CRGBPalette16(...)` constructor, all backed by the evaluator's own
+  `samplePalette`. The FastLED preset constants (`RainbowColors_p`,
+  `OceanColors_p`, `LavaColors_p`, `ForestColors_p`, `PartyColors_p`,
+  `HeatColors_p`, `CloudColors_p`, `RainbowStripeColors_p`) and blend-type enums
+  (`LINEARBLEND`/`NOBLEND`) are in scope; `CRGBPalette16 p = …` is type-stripped
+  like any declaration. (`RainbowStripe` approximates as `rainbow`.)
+
+### Error handling
+
+Errors never silently freeze the node. The compiled function runs in `try/catch`
+each frame; a **compile** error (e.g. unbalanced braces) or a **runtime** error
+(e.g. an unsupported function) is recorded per node-instance and surfaced as a
+red `⚠ <message>` banner under the editors (a `CodeError` component subscribes to
+`previewStore` so it refreshes ~each eval tick). The last good frame stays on
+screen, the render loop keeps evaluating, and the banner clears automatically the
+moment the code runs cleanly again. `getCodeError(stateKey)` is the accessor.
 
 ## First-slice scope
 
-Ships: the node + editor, pass-through codegen, and the shim preview covering
-the vocabulary above — enough that the motivating snippet renders live *and*
-compiles. Plus the standard 4-point registration (nodeLibrary entry, evaluator
-case, codegen case, `NODE_DESCRIPTIONS` tooltip) and unit tests (a transpile
-case + a codegen snapshot).
+Ships: the node + Global/Loop editors, two-section codegen (global at file
+scope, loop in `loop()`), and the shim preview covering the vocabulary above —
+enough that the motivating snippet renders live *and* compiles, and global
+helper functions work in both. Plus the standard 4-point registration
+(nodeLibrary entry, evaluator case, codegen case, `NODE_DESCRIPTIONS` tooltip)
+and unit tests (transpile/eval cases + codegen snapshots).
 
 ## Deferred (known divergences / follow-ups)
 
 - **Integer-overflow semantics.** `dothue += 32` wraps at 256 in `uint8_t` (and
   `CHSV` hue wraps); the JS preview uses floats and won't wrap identically.
   Acceptable for a visual approximation; revisit if it bites.
+- **Mutable global state doesn't persist in the preview.** The global section
+  re-runs each frame, so a global counter like `gHue` re-initialises every frame
+  in the preview (helper functions and constants are fine). It persists and
+  animates correctly **on-device** (file-scope vars). Making the preview persist
+  global state needs identifier-rewriting onto a per-node scope object — deferred.
 - `EVERY_N_MILLISECONDS` / `EVERY_N_SECONDS` and other timing macros.
-- User-defined helper functions and `#include`s above the loop body.
-- Palette globals (`CRGBPalette16`, `ColorFromPalette`) and `XY`-map customisation.
+- `#include`s; custom `CRGBPalette16` gradient definitions (`CRGBPalette16 p = { … }`
+  / `fill_gradient`*), beyond the constructor-from-colours and preset forms;
+  `XY`-map customisation in the preview shim.
 - Multi-statement type inference beyond the `let` blanket.
 
 ## Touch points
 
-- `src/state/nodeLibrary.ts` — node entry + `NODE_DESCRIPTIONS` tooltip.
-- `src/state/graphEvaluator.ts` — `Code` case + a `codeCache` (transpile + run),
-  modelled on `evalCustomFormula` / `formulaCache`.
-- `src/codegen/cppGenerator.ts` — `Code` case (buffer alias + verbatim body).
-- `src/components/Canvas/StudioNode.tsx` — the `<textarea>` editor in the body.
+- `src/state/nodeLibrary.ts` — node entry (`globalCode` + `code`) + `NODE_DESCRIPTIONS`.
+- `src/state/graphEvaluator.ts` — `Code` case + `codeCache`/`codeLeds`,
+  `transpileCode` (storage/function-def/type/`::`/leds rewrites), `makeCodeShim`,
+  `evalCode` (global + loop, persistent `leds[]`), and `codeError`/`getCodeError`.
+- `src/codegen/cppGenerator.ts` — `Code` case + `globalLines` (file scope) and
+  the loop block (buffer alias + verbatim body).
+- `src/components/Canvas/StudioNode.tsx` — the Global + Loop `<textarea>` editors
+  and the `CodeError` banner.
 - Tests under `src/state/__tests__/` and `src/codegen/__tests__/`.

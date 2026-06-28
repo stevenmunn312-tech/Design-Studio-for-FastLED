@@ -10,7 +10,7 @@ vi.mock('../audioStore', () => ({
   },
 }))
 
-import { evaluateGraph, evaluateGraphFull, evaluateScalar } from '../graphEvaluator'
+import { evaluateGraph, evaluateGraphFull, evaluateScalar, getCodeError } from '../graphEvaluator'
 import { waveSample, combineWaves } from '../wave'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import type { StudioNode, StudioEdge } from '../graphStore'
@@ -263,11 +263,62 @@ describe('evaluateGraph', () => {
     expect(px.r).toBeLessThan(136)
   })
 
+  it('Code runs a global helper function from the loop body', () => {
+    // A C++ helper defined in the global section must be in scope for the loop.
+    const { nodes, edges } = withOutput(node('cdG', 'Code', 'pattern', {
+      globalCode: 'uint8_t pick() { return 5; }',
+      code: 'leds[pick()] = CRGB(10, 20, 30);',
+    }))
+    const frame = evaluateGraph(nodes, edges, 0, W, H)
+    expect(frame![1][1]).toEqual({ r: 10, g: 20, b: 30 }) // index 5 = row 1, col 1
+  })
+
   it('Code with invalid source renders black instead of throwing', () => {
     const { nodes, edges } = withOutput(node('cdBad', 'Code', 'pattern', { code: '@@@ this is not valid;' }))
     const frame = evaluateGraph(nodes, edges, 0, W, H)
     expect(frame).not.toBeNull()
     expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
+  })
+
+  it('Code surfaces a runtime error via getCodeError, then recovers', () => {
+    const bad = withOutput(node('cdErr', 'Code', 'pattern', { code: 'someUndefinedFn();' }))
+    evaluateGraph(bad.nodes, bad.edges, 0, W, H)
+    expect(getCodeError('cdErr')).toBeTruthy()
+    // Fixing the code clears the error on the next clean evaluation (the loop
+    // never stopped — it kept evaluating each frame).
+    const good = withOutput(node('cdErr', 'Code', 'pattern', { code: 'leds[0] = CRGB::Red;' }))
+    const frame = evaluateGraph(good.nodes, good.edges, 1, W, H)
+    expect(getCodeError('cdErr')).toBeNull()
+    expect(frame![0][0]).toEqual({ r: 255, g: 0, b: 0 }) // CRGB::Red constant
+  })
+
+  it('Code supports fill_solid with CRGB colour constants', () => {
+    const { nodes, edges } = withOutput(node('cdFill', 'Code', 'pattern', { code: 'fill_solid(leds, NUM_LEDS, CRGB::Blue);' }))
+    const frame = evaluateGraph(nodes, edges, 0, W, H)
+    expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 255 })
+    expect(frame![H - 1][W - 1]).toEqual({ r: 0, g: 0, b: 255 })
+  })
+
+  it('Code resolves ColorFromPalette with a FastLED preset', () => {
+    // RainbowColors_p at index 0 is red; brightness 255 leaves it full.
+    const { nodes, edges } = withOutput(node('cdPal', 'Code', 'pattern', {
+      code: 'leds[0] = ColorFromPalette(RainbowColors_p, 0, 255);',
+    }))
+    const frame = evaluateGraph(nodes, edges, 0, W, H)
+    expect(frame![0][0]).toEqual({ r: 255, g: 0, b: 0 })
+    expect(getCodeError('cdPal')).toBeNull()
+  })
+
+  it('Code supports a CRGBPalette16 global from a preset with fill_palette', () => {
+    const { nodes, edges } = withOutput(node('cdPal2', 'Code', 'pattern', {
+      globalCode: 'CRGBPalette16 gPal = OceanColors_p;',
+      code: 'fill_palette(leds, NUM_LEDS, 0, 0, gPal, 255);',
+    }))
+    const frame = evaluateGraph(nodes, edges, 0, W, H)
+    expect(getCodeError('cdPal2')).toBeNull()
+    // Uniform fill (indexInc 0) and non-black.
+    expect(frame![0][0]).toEqual(frame![H - 1][W - 1])
+    expect(frame![0][0]).not.toEqual({ r: 0, g: 0, b: 0 })
   })
 
   it('Invert flips pixel values', () => {

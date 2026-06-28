@@ -66,6 +66,18 @@ function compileFormula(formula: string, cache: Map<string, FormulaFn | null>): 
 type CodeFn = (leds: RGB[], NUM_LEDS: number, WIDTH: number, HEIGHT: number, t: number, shim: Record<string, unknown>) => void
 const codeCache = new Map<string, CodeFn | null>()
 const codeLeds = new Map<string, RGB[]>()
+// Compile error per source (cacheKey) and the latest error per node-instance
+// (compile or runtime), surfaced on the node so a failing paste isn't a silent
+// freeze. Cleared the moment a frame runs cleanly.
+const codeCompileError = new Map<string, string>()
+const codeError = new Map<string, string>()
+
+/** Latest Code-node error (compile or runtime) for a node, or null if clean. */
+export function getCodeError(stateKey: string): string | null {
+  return codeError.get(stateKey) ?? null
+}
+
+const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 // ── Simplex noise 2D ─────────────────────────────────────────────────────────
 const _PERM = (() => {
@@ -1184,12 +1196,29 @@ function evalFieldToFrame(field: Field | null, palette: Palette, brightness: num
 // and rewrites leds[] writes to shim calls (JS can't overload |=). The pasted
 // text is still emitted verbatim into the firmware. See
 // docs/development/design/code-node.md for the rules and known divergences.
+const FN_RET_TYPES = 'void|uint8_t|uint16_t|uint32_t|int8_t|int16_t|int|long|float|double|bool|byte|CRGB|CHSV|fract8|fract16|accum88'
+
+// `fract8 chance, uint8_t x` → `chance, x` (keep the last token of each arg).
+function stripArgTypes(args: string): string {
+  return args.split(',').map((a) => a.trim()).filter(Boolean)
+    .map((a) => (a.split(/\s+/).pop() ?? a).replace(/[*&]/g, ''))
+    .join(', ')
+}
+
 function transpileCode(code: string): string {
   return code
+    // Drop C++ storage qualifiers JS doesn't have (`static uint8_t x` → `x`).
+    .replace(/\bstatic\s+/g, '')
+    // C++ function definition → JS function (strip return type and arg types).
+    // Runs before the declaration rule so `CRGB foo(...) {` isn't mangled.
+    .replace(new RegExp(`\\b(?:${FN_RET_TYPES})\\s+(\\w+)\\s*\\(([^)]*)\\)\\s*\\{`, 'g'),
+      (_m, name, args) => `function ${name}(${stripArgTypes(args)}) {`)
     // A C++ type keyword introducing a local (declaration position only —
     // followed by an identifier). Casts like `(uint8_t)x` have `)` after the
     // keyword, so they're left untouched.
-    .replace(/\b(?:uint8_t|uint16_t|uint32_t|int8_t|int16_t|int|long|float|double|bool|byte)\s+(?=[A-Za-z_])/g, 'let ')
+    .replace(/\b(?:uint8_t|uint16_t|uint32_t|int8_t|int16_t|int|long|float|double|bool|byte|CRGBPalette16|CRGBPalette256|TBlendType)\s+(?=[A-Za-z_])/g, 'let ')
+    // Named colour constants: `CRGB::Red` (invalid JS `::`) → crgbConst('Red').
+    .replace(/\b(?:CRGB|CHSV)::(\w+)/g, "crgbConst('$1')")
     // leds[i] |= rgb  → additive blend; leds[i] = rgb → overwrite. |= first.
     .replace(/leds\s*\[([^\]]*)\]\s*\|=\s*([^;]+);/g, 'addLed($1, $2);')
     .replace(/leds\s*\[([^\]]*)\]\s*=\s*([^;]+);/g, 'setLed($1, $2);')
@@ -1231,23 +1260,98 @@ function makeCodeShim(leds: RGB[], t: number, W: number, H: number) {
       const m = Math.min(n | 0, arr.length)
       for (let i = 0; i < m; i++) arr[i] = { r: arr[i].r * k, g: arr[i].g * k, b: arr[i].b * k }
     },
+    // Named CRGB colour constants (CRGB::Red etc., rewritten from `::` by the
+    // transpile). A small common subset; unknown names fall back to black.
+    crgbConst: (name: string): RGB => CRGB_CONSTANTS[name] ?? { r: 0, g: 0, b: 0 },
+    fill_solid: (arr: RGB[], n: number, c: RGB) => {
+      const m = Math.min(n | 0, arr.length)
+      for (let i = 0; i < m; i++) arr[i] = c ? { r: c8(c.r), g: c8(c.g), b: c8(c.b) } : { r: 0, g: 0, b: 0 }
+    },
+    fill_rainbow: (arr: RGB[], n: number, hue: number, dHue = 5) => {
+      const m = Math.min(n | 0, arr.length)
+      for (let i = 0; i < m; i++) arr[i] = hsv((((hue + i * dHue) % 256 + 256) % 256) / 255 * 360, 1, 1)
+    },
+    nblend: (a: RGB, b: RGB, amount: number) => {
+      if (!a || !b) return a
+      const k = c8(amount) / 255
+      a.r = Math.round(a.r + (b.r - a.r) * k)
+      a.g = Math.round(a.g + (b.g - a.g) * k)
+      a.b = Math.round(a.b + (b.b - a.b) * k)
+      return a
+    },
+    // ── Palettes ──────────────────────────────────────────────────────────
+    // FastLED preset palette constants → the evaluator's own palette model.
+    ...CODE_PALETTES,
+    // Blend-type enum values (ignored, but must be defined so they don't throw).
+    NOBLEND: 0, LINEARBLEND: 1, LINEARBLEND_NOWRAP: 2,
+    // CRGBPalette16(c0, c1, …) builds a stop list; from a preset token it passes
+    // it through. The declaration form (`CRGBPalette16 p = …`) is type-stripped.
+    CRGBPalette16: (...cols: unknown[]): Palette => {
+      const stops = cols.filter((c): c is RGB => !!c && typeof c === 'object' && 'r' in (c as RGB))
+      if (stops.length) return stops.map((c) => ({ r: c8(c.r), g: c8(c.g), b: c8(c.b) }))
+      if (cols.length === 1 && (typeof cols[0] === 'string' || Array.isArray(cols[0]))) return cols[0] as Palette
+      return 'rainbow'
+    },
+    // ColorFromPalette(pal, index0-255, brightness0-255) — blendType ignored.
+    ColorFromPalette: (pal: Palette, index: number, bright = 255): RGB =>
+      palAt(pal, index, bright),
+    // fill_palette(arr, n, startIndex, indexInc, pal, brightness) — blendType ignored.
+    fill_palette: (arr: RGB[], n: number, startIndex: number, indexInc: number, pal: Palette, bright = 255): void => {
+      const m = Math.min(n | 0, arr.length)
+      for (let i = 0; i < m; i++) arr[i] = palAt(pal, startIndex + i * indexInc, bright)
+    },
   }
 }
 
-function evalCode(key: string, code: string, seed: Frame | null, t: number, W: number, H: number): Frame {
-  if (!codeCache.has(code)) {
+// Sample a palette at a 0–255 index, scaled by 0–255 brightness (FastLED's
+// ColorFromPalette semantics) — shared by ColorFromPalette and fill_palette.
+function palAt(pal: Palette, index: number, bright: number): RGB {
+  const c8 = (v: number) => Math.max(0, Math.min(255, Math.round(v)))
+  const c = samplePalette(pal ?? 'rainbow', ((((index | 0) % 256) + 256) % 256) / 255)
+  const k = c8(bright) / 255
+  return { r: Math.round(c.r * k), g: Math.round(c.g * k), b: Math.round(c.b * k) }
+}
+
+// Common FastLED named colours for `CRGB::<Name>` (extend as needed).
+const CRGB_CONSTANTS: Record<string, RGB> = {
+  Black: { r: 0, g: 0, b: 0 }, White: { r: 255, g: 255, b: 255 },
+  Red: { r: 255, g: 0, b: 0 }, Green: { r: 0, g: 255, b: 0 }, Blue: { r: 0, g: 0, b: 255 },
+  Yellow: { r: 255, g: 255, b: 0 }, Cyan: { r: 0, g: 255, b: 255 }, Magenta: { r: 255, g: 0, b: 255 },
+  Orange: { r: 255, g: 165, b: 0 }, Purple: { r: 128, g: 0, b: 128 }, Pink: { r: 255, g: 192, b: 203 },
+  Gold: { r: 255, g: 215, b: 0 }, Aqua: { r: 0, g: 255, b: 255 }, Lime: { r: 0, g: 255, b: 0 },
+}
+
+// FastLED preset palette constants mapped onto the evaluator's palette model
+// (named presets where samplePalette has them, RGB stops otherwise).
+const CLOUD_STOPS: RGB[] = [
+  { r: 0, g: 0, b: 255 }, { r: 0, g: 0, b: 139 }, { r: 135, g: 206, b: 235 }, { r: 255, g: 255, b: 255 },
+]
+const CODE_PALETTES: Record<string, Palette> = {
+  RainbowColors_p: 'rainbow', RainbowStripeColors_p: 'rainbow',
+  OceanColors_p: 'ocean', LavaColors_p: 'lava', ForestColors_p: 'forest',
+  PartyColors_p: 'party', HeatColors_p: 'heat', CloudColors_p: CLOUD_STOPS,
+}
+
+function evalCode(key: string, globalCode: string, code: string, seed: Frame | null, t: number, W: number, H: number): Frame {
+  // Global section runs each frame above the loop body, so helper functions and
+  // constants are in scope. (Mutable global state re-inits per frame in the
+  // preview — it persists on-device; see docs/development/design/code-node.md.)
+  const cacheKey = globalCode + ' ' + code
+  if (!codeCache.has(cacheKey)) {
     if (codeCache.size > 50) codeCache.clear()
     try {
-      const body = transpileCode(code)
+      const body = transpileCode(globalCode) + '\n' + transpileCode(code)
       const fn = new Function('leds', 'NUM_LEDS', 'WIDTH', 'HEIGHT', 't', 'shim',
-        '"use strict"; const { CHSV,CRGB,beatsin16,beatsin8,beat8,beat16,sin8,cos8,sin16,qadd8,qsub8,scale8,random8,random16,millis,XY,addLed,setLed,fadeToBlackBy } = shim; ' + body
+        '"use strict"; const { CHSV,CRGB,beatsin16,beatsin8,beat8,beat16,sin8,cos8,sin16,qadd8,qsub8,scale8,random8,random16,millis,XY,addLed,setLed,fadeToBlackBy,crgbConst,fill_solid,fill_rainbow,nblend,ColorFromPalette,fill_palette,CRGBPalette16,NOBLEND,LINEARBLEND,LINEARBLEND_NOWRAP,RainbowColors_p,RainbowStripeColors_p,OceanColors_p,LavaColors_p,ForestColors_p,PartyColors_p,HeatColors_p,CloudColors_p } = shim; ' + body
       ) as CodeFn
-      codeCache.set(code, fn)
-    } catch {
-      codeCache.set(code, null)
+      codeCache.set(cacheKey, fn)
+      codeCompileError.delete(cacheKey)
+    } catch (e) {
+      codeCache.set(cacheKey, null)
+      codeCompileError.set(cacheKey, errMsg(e))
     }
   }
-  const fn = codeCache.get(code)
+  const fn = codeCache.get(cacheKey)
   const N = W * H
 
   // Persistent leds[] per node-instance (fade-trails accumulate across frames).
@@ -1264,7 +1368,16 @@ function evalCode(key: string, code: string, seed: Frame | null, t: number, W: n
     }
   }
   if (fn) {
-    try { fn(leds, N, W, H, t, makeCodeShim(leds, t, W, H)) } catch { /* keep current leds */ }
+    try {
+      fn(leds, N, W, H, t, makeCodeShim(leds, t, W, H))
+      codeError.delete(key)   // ran cleanly — clear any prior error
+    } catch (e) {
+      // Keep the last good leds and surface the error; the loop keeps running so
+      // it recovers automatically once the code (or its state) stops throwing.
+      codeError.set(key, errMsg(e))
+    }
+  } else {
+    codeError.set(key, codeCompileError.get(cacheKey) ?? 'compile error')
   }
   return Array.from({ length: H }, (_, y) =>
     Array.from({ length: W }, (_, x) => {
@@ -2221,7 +2334,8 @@ function createEvalNode(
       case 'Code': {
         const seed = input(id, 'frame', null) as Frame | null
         const code = String(props.code ?? '')
-        out = { frame: evalCode(stateKey(id), code, seed, t, W, H) }
+        const globalCode = String(props.globalCode ?? '')
+        out = { frame: evalCode(stateKey(id), globalCode, code, seed, t, W, H) }
         break
       }
 

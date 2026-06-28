@@ -910,6 +910,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
+      // File-scope: persistent vars, palettes, helper functions. Emitted above
+      // setup()/loop() in the sketch; runs each frame in the preview.
+      globalCode: '',
+      // The loop() body — runs every frame, writes into leds[].
       code: [
         'fadeToBlackBy(leds, NUM_LEDS, 20);',
         'uint8_t dothue = 0;',
