@@ -21,7 +21,7 @@ const fireHeat    = new Map<string, number[][]>()
 const flashLevel  = new Map<string, number>()
 const counterVals = new Map<string, number>()
 
-interface Particle { x: number; y: number; vx: number; vy: number; life: number; r: number; g: number; b: number }
+interface Particle { x: number; y: number; vx: number; vy: number; life: number; r: number; g: number; b: number; seed?: number }
 const particleState = new Map<string, Particle[]>()
 const patternShowState = new Map<string, ShowState>()
 
@@ -445,19 +445,118 @@ function evalKaleidoscope(src: Frame, segments: number, W = DEFAULT_W, H = DEFAU
   )
 }
 
-function evalParticles(nodeId: string, rate: number, color: RGB, decay: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+const MAX_PARTICLES = 600
+
+// Bundled particle systems — `mode` picks the simulation. Each mode spawns and
+// advances the persistent particle pool, then a shared pass renders every live
+// particle additively at its `life` brightness. Keep the modes in sync with
+// PROPERTY_META.particleType and cppGenerator's `Particles` case.
+function evalParticles(nodeId: string, mode: string, rate: number, color: RGB, decay: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   if (!particleState.has(nodeId)) particleState.set(nodeId, [])
-  const particles = particleState.get(nodeId)!
-  if (Math.random() < rate)
-    particles.push({ x: Math.random() * W, y: H - 1, vx: (Math.random() - 0.5) * 0.6, vy: -(Math.random() * 0.5 + 0.1), life: 1, r: color.r, g: color.g, b: color.b })
-  for (const p of particles) { p.x += p.vx; p.y += p.vy; p.vy += 0.02; p.life *= decay }
-  const active = particles.filter(p => p.life > 0.04 && p.y >= 0)
-  particleState.set(nodeId, active)
+  let particles = particleState.get(nodeId)!
+  const rnd = Math.random
+
+  switch (mode) {
+    case 'gravity': {
+      // Drops fall from the top and bounce off the floor, losing energy.
+      if (rnd() < rate) particles.push({ x: rnd() * W, y: 0, vx: (rnd() - 0.5) * 0.4, vy: rnd() * 0.2, life: 1, r: color.r, g: color.g, b: color.b })
+      for (const p of particles) {
+        p.vy += 0.045; p.x += p.vx; p.y += p.vy
+        if (p.y >= H - 1) { p.y = H - 1; p.vy *= -0.55; p.vx *= 0.8; p.life *= 0.9 }
+        p.life *= decay
+      }
+      particles = particles.filter(p => p.life > 0.05)
+      break
+    }
+    case 'fireworks': {
+      // Occasional radial burst from a random point; gravity + drag pull it apart.
+      if (rnd() < rate * 0.12) {
+        const cx = rnd() * W, cy = rnd() * H * 0.5 + H * 0.1
+        const hue = rnd() * 360, n = 14 + Math.floor(rnd() * 8)
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2 + rnd() * 0.3
+          const spd = rnd() * 0.5 + 0.35
+          const c = hsv(hue + (rnd() - 0.5) * 30, 1, 1)
+          particles.push({ x: cx, y: cy, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, life: 1, r: c.r, g: c.g, b: c.b })
+        }
+      }
+      for (const p of particles) { p.vy += 0.022; p.vx *= 0.965; p.vy *= 0.965; p.x += p.vx; p.y += p.vy; p.life *= decay * 0.985 }
+      particles = particles.filter(p => p.life > 0.05)
+      break
+    }
+    case 'sparkle': {
+      // Sparkle rain — random twinkles drizzle down and fade.
+      const spawn = Math.max(1, Math.round(rate * W * 0.8))
+      for (let i = 0; i < spawn; i++) if (rnd() < rate) particles.push({ x: rnd() * W, y: rnd() * H * 0.3, vx: 0, vy: rnd() * 0.25 + 0.05, life: 1, r: color.r, g: color.g, b: color.b })
+      for (const p of particles) { p.y += p.vy; p.life *= decay * 0.9 }
+      particles = particles.filter(p => p.life > 0.05 && p.y < H)
+      break
+    }
+    case 'comet': {
+      // A head traces a Lissajous path; each frame drops a fading trail dot.
+      const hx = (W - 1) * (0.5 + 0.45 * Math.sin(t * 0.9))
+      const hy = (H - 1) * (0.5 + 0.45 * Math.sin(t * 0.6 + 1.3))
+      particles.push({ x: hx, y: hy, vx: 0, vy: 0, life: 1, r: color.r, g: color.g, b: color.b })
+      for (const p of particles) p.life *= decay
+      particles = particles.filter(p => p.life > 0.04)
+      break
+    }
+    case 'snow': {
+      // Snow drifts down with a gentle horizontal sway; recycles at the floor.
+      if (rnd() < rate) particles.push({ x: rnd() * W, y: 0, vx: 0, vy: rnd() * 0.12 + 0.05, life: 0.7 + rnd() * 0.3, r: color.r, g: color.g, b: color.b, seed: rnd() * 6.28 })
+      for (const p of particles) { p.y += p.vy; p.x += Math.sin(t * 1.5 + (p.seed ?? 0)) * 0.12 }
+      particles = particles.filter(p => p.y < H)
+      break
+    }
+    case 'swarm': {
+      // Boids — cohesion, alignment, separation; wrap at the edges.
+      const N = Math.max(6, Math.min(60, Math.round(8 + rate * 60)))
+      while (particles.length < N) particles.push({ x: rnd() * W, y: rnd() * H, vx: (rnd() - 0.5) * 0.6, vy: (rnd() - 0.5) * 0.6, life: 1, r: color.r, g: color.g, b: color.b })
+      if (particles.length > N) particles = particles.slice(0, N)
+      const R = Math.max(3, Math.min(W, H) * 0.5)
+      particles = particles.map(p => {
+        let cx = 0, cy = 0, ax = 0, ay = 0, sx = 0, sy = 0, n = 0
+        for (const q of particles) {
+          if (q === p) continue
+          const dx = q.x - p.x, dy = q.y - p.y, d = Math.hypot(dx, dy)
+          if (d < R && d > 0) {
+            cx += q.x; cy += q.y; ax += q.vx; ay += q.vy; n++
+            if (d < R * 0.4) { sx -= dx / d; sy -= dy / d }
+          }
+        }
+        let vx = p.vx, vy = p.vy
+        if (n > 0) {
+          vx += (cx / n - p.x) * 0.0008 + (ax / n - p.vx) * 0.05 + sx * 0.04
+          vy += (cy / n - p.y) * 0.0008 + (ay / n - p.vy) * 0.05 + sy * 0.04
+        }
+        const sp = Math.hypot(vx, vy), max = 0.7
+        if (sp > max) { vx = (vx / sp) * max; vy = (vy / sp) * max }
+        return { ...p, x: (p.x + vx + W) % W, y: (p.y + vy + H) % H, vx, vy }
+      })
+      break
+    }
+    case 'fountain':
+    default: {
+      // Sparks rise from the bottom, arc under gravity, and fade.
+      if (rnd() < rate) particles.push({ x: rnd() * W, y: H - 1, vx: (rnd() - 0.5) * 0.6, vy: -(rnd() * 0.5 + 0.1), life: 1, r: color.r, g: color.g, b: color.b })
+      for (const p of particles) { p.x += p.vx; p.y += p.vy; p.vy += 0.02; p.life *= decay }
+      particles = particles.filter(p => p.life > 0.04 && p.y >= 0)
+      break
+    }
+  }
+
+  if (particles.length > MAX_PARTICLES) particles = particles.slice(particles.length - MAX_PARTICLES)
+  particleState.set(nodeId, particles)
+
   const frame = blankFrame(W, H)
-  for (const p of active) {
+  for (const p of particles) {
     const px = Math.round(p.x), py = Math.round(p.y)
-    if (px >= 0 && px < W && py >= 0 && py < H)
-      frame[py][px] = { r: Math.min(255, Math.round(p.r * p.life)), g: Math.min(255, Math.round(p.g * p.life)), b: Math.min(255, Math.round(p.b * p.life)) }
+    if (px >= 0 && px < W && py >= 0 && py < H) {
+      const cur = frame[py][px], k = Math.min(1, p.life)
+      cur.r = Math.min(255, cur.r + Math.round(p.r * k))
+      cur.g = Math.min(255, cur.g + Math.round(p.g * k))
+      cur.b = Math.min(255, cur.b + Math.round(p.b * k))
+    }
   }
   return frame
 }
@@ -2001,11 +2100,12 @@ function createEvalNode(
       }
 
       case 'Particles': {
+        const mode = String(props.particleType ?? 'fountain')
         const rate = num(id, 'rate', props, 'rate', 0.3)
         const decay = Number(props.decay ?? 0.92)
         const colorIn = input(id, 'color', null) as RGB | null
         const color = colorIn ?? { r: Number(props.r ?? 100), g: Number(props.g ?? 200), b: Number(props.b ?? 255) }
-        out = { frame: evalParticles(stateKey(id), rate, color, decay, W, H) }
+        out = { frame: evalParticles(stateKey(id), mode, rate, color, decay, t, W, H) }
         break
       }
 

@@ -803,3 +803,37 @@ describe('Float Field — Phase 3 codegen', () => {
     expect(cpp).toContain('int _sx=(_x*3)%WIDTH,_sy=(_y*2)%HEIGHT;')
   })
 })
+
+describe('generateCpp — Particles modes', () => {
+  const out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8 })
+  const gen = (mode: string, props: Record<string, unknown> = {}) => {
+    const pn = node('pp', 'Particles', 'pattern', { particleType: mode, rate: 0.5, ...props })
+    return generateCpp([pn, out], [edge('e', 'pp', 'out', 'frame', 'frame')])
+  }
+
+  for (const m of ['fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow', 'swarm']) {
+    it(`emits a real fixed-pool engine for "${m}"`, () => {
+      const cpp = gen(m)
+      expect(cpp).toContain(`// Particles: ${m}`)
+      expect(cpp).toContain('_PN=')
+      // additive render of every live particle at its life brightness
+      expect(cpp).toContain('buf_pp[Y*WIDTH+X]+=CRGB(')
+    })
+  }
+
+  it('swarm uses a smaller pool and a flocking (boids) step', () => {
+    const cpp = gen('swarm')
+    expect(cpp).toContain('_PN=40')
+    expect(cpp).toContain('sqrtf(')
+  })
+
+  it('fireworks bursts with a random hue', () => {
+    expect(gen('fireworks')).toContain('CHSV(_hue')
+  })
+
+  it('comet is time-driven (needs t)', () => {
+    const cpp = gen('comet')
+    expect(cpp).toContain('float t = millis()')
+    expect(cpp).toContain('sin(t*0.9f)')
+  })
+})

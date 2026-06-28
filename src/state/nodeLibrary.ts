@@ -336,6 +336,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { segments: 6 },
   },
   {
+    // Bundled particle systems — `particleType` selects the simulation. All
+    // variants share the (rate, color, decay)→frame signature; the evaluator and
+    // codegen dispatch on the variant. See PROPERTY_META.particleType.
     type: 'Particles',
     label: 'Particles',
     category: 'pattern',
@@ -344,7 +347,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'color', label: 'Color', dataType: 'color' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { rate: 0.3, decay: 0.92, r: 100, g: 200, b: 255 },
+    defaultProperties: { particleType: 'fountain', rate: 0.3, decay: 0.92, r: 100, g: 200, b: 255 },
   },
   {
     type: 'Invert',
@@ -1146,7 +1149,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   RadialBurst: 'Rings bursting from the center.',
   Spiral: 'Rotating spiral arms.',
   Kaleidoscope: 'Mirrors a frame into kaleidoscope symmetry.',
-  Particles: 'Emits drifting, fading particles.',
+  Particles: 'Particle FX: fountain, gravity, fireworks, sparkle, comet, snow, swarm.',
   GradientFrame: 'Two-color linear gradient fill.',
   FractalNoise: 'Fractal (fBm) noise — summed octaves, cloud-like.',
   Blobs: 'Metaballs — merging lava-lamp blobs.',
@@ -1276,6 +1279,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   ] },
   blendMode:      { control: 'select', options: ['normal', 'multiply', 'screen', 'overlay', 'add', 'difference'] },
   fieldOp:        { control: 'select', options: ['add', 'subtract', 'multiply', 'mix', 'min', 'max', 'difference'] },
+  particleType:   { control: 'select', options: ['fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow', 'swarm'] },
   // Poline position functions — keep in sync with polinePalette.ts POSITION_FNS.
   position:   { control: 'select', options: ['linear', 'sinusoidal', 'quadratic', 'cubic', 'arc', 'smoothStep', 'exponential'] },
   points:     { control: 'slider', min: 1, max: 12, step: 1 },
@@ -1405,6 +1409,10 @@ const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, stri
   FieldMath: {
     prop: 'fieldOp',
     labels: { add: 'Field Add', subtract: 'Field Subtract', multiply: 'Field Multiply', mix: 'Field Mix', min: 'Field Min', max: 'Field Max', difference: 'Field Difference' },
+  },
+  Particles: {
+    prop: 'particleType',
+    labels: { fountain: 'Fountain', gravity: 'Gravity', fireworks: 'Fireworks', sparkle: 'Sparkle Rain', comet: 'Comet', snow: 'Snow', swarm: 'Swarm' },
   },
 }
 

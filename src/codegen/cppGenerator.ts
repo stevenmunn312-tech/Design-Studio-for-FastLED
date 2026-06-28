@@ -779,7 +779,71 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
 
       case 'Particles': {
         const ob = ownBuf()
-        ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black);  // Particles: stateful — see FastLED particle examples`)
+        const mode = String(p.particleType ?? 'fountain')
+        if (mode === 'comet' || mode === 'snow') needsT.v = true
+        const rate = f('rate', 'rate', 0.3)
+        const decay = Number(p.decay ?? 0.92)
+        const decayL = (Number.isInteger(decay) ? `${decay}.0` : `${decay}`) + 'f'
+        const colorE = incoming.get(`${node.id}:color`)
+          ? colorExpr(node.id, 'color')
+          : `CRGB(${Number(p.r ?? 100)}, ${Number(p.g ?? 200)}, ${Number(p.b ?? 255)})`
+        // Fixed-size pool (SoA): l[i] <= 0.04 marks a free slot. swarm keeps every
+        // slot live (boids), so it uses a smaller pool for the O(N^2) step.
+        const cap = mode === 'swarm' ? 40 : 120
+        const A = `_pa_${id}`
+        ln(`  { // Particles: ${mode}`)
+        ln(`    const int _PN=${cap};`)
+        ln(`    static float ${A}x[_PN], ${A}y[_PN], ${A}vx[_PN], ${A}vy[_PN], ${A}l[_PN], ${A}s[_PN]; static uint8_t ${A}r[_PN], ${A}g[_PN], ${A}b[_PN]; static bool ${A}init=false;`)
+        ln(`    float _rate=${rate}; CRGB _pc=${colorE};`)
+
+        if (mode === 'swarm') {
+          ln(`    if(!${A}init){ for(int i=0;i<_PN;i++){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}vx[i]=(random8()/255.0f-0.5f)*0.6f; ${A}vy[i]=(random8()/255.0f-0.5f)*0.6f; ${A}l[i]=1; ${A}r[i]=_pc.r; ${A}g[i]=_pc.g; ${A}b[i]=_pc.b; } ${A}init=true; }`)
+          ln(`    float _R=max(3.0f, min(WIDTH,HEIGHT)*0.5f); static float ${A}nvx[_PN], ${A}nvy[_PN];`)
+          ln(`    for(int i=0;i<_PN;i++){ float cx=0,cy=0,ax=0,ay=0,sx=0,sy=0; int n=0;`)
+          ln(`      for(int j=0;j<_PN;j++){ if(j==i) continue; float dx=${A}x[j]-${A}x[i], dy=${A}y[j]-${A}y[i]; float d=sqrtf(dx*dx+dy*dy);`)
+          ln(`        if(d<_R&&d>0){ cx+=${A}x[j]; cy+=${A}y[j]; ax+=${A}vx[j]; ay+=${A}vy[j]; n++; if(d<_R*0.4f){ sx-=dx/d; sy-=dy/d; } } }`)
+          ln(`      float vx=${A}vx[i], vy=${A}vy[i];`)
+          ln(`      if(n>0){ vx+=(cx/n-${A}x[i])*0.0008f+(ax/n-${A}vx[i])*0.05f+sx*0.04f; vy+=(cy/n-${A}y[i])*0.0008f+(ay/n-${A}vy[i])*0.05f+sy*0.04f; }`)
+          ln(`      float sp=sqrtf(vx*vx+vy*vy); if(sp>0.7f){ vx=vx/sp*0.7f; vy=vy/sp*0.7f; } ${A}nvx[i]=vx; ${A}nvy[i]=vy; }`)
+          ln(`    for(int i=0;i<_PN;i++){ ${A}vx[i]=${A}nvx[i]; ${A}vy[i]=${A}nvy[i]; ${A}x[i]=fmodf(${A}x[i]+${A}vx[i]+WIDTH,WIDTH); ${A}y[i]=fmodf(${A}y[i]+${A}vy[i]+HEIGHT,HEIGHT); }`)
+        } else {
+          ln(`    if(!${A}init){ for(int i=0;i<_PN;i++) ${A}l[i]=0; ${A}init=true; }`)
+
+          // ── spawn ──
+          if (mode === 'fountain')
+            ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=HEIGHT-1; ${A}vx[i]=(random8()/255.0f-0.5f)*0.6f; ${A}vy[i]=-(random8()/255.0f*0.5f+0.1f); ${A}l[i]=1; ${A}r[i]=_pc.r; ${A}g[i]=_pc.g; ${A}b[i]=_pc.b; break; } }`)
+          else if (mode === 'gravity')
+            ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=0; ${A}vx[i]=(random8()/255.0f-0.5f)*0.4f; ${A}vy[i]=random8()/255.0f*0.2f; ${A}l[i]=1; ${A}r[i]=_pc.r; ${A}g[i]=_pc.g; ${A}b[i]=_pc.b; break; } }`)
+          else if (mode === 'fireworks') {
+            ln(`    if(random8()<(uint8_t)(_rate*0.12f*255)){ uint8_t _hue=random8(); int _n=14+random8()/32; float _cx=random8()/255.0f*WIDTH, _cy=random8()/255.0f*HEIGHT*0.5f+HEIGHT*0.1f;`)
+            ln(`      for(int k=0;k<_n;k++) for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ float _a=(k/(float)_n)*6.2831f+random8()/255.0f*0.3f, _sp=random8()/255.0f*0.5f+0.35f; ${A}x[i]=_cx; ${A}y[i]=_cy; ${A}vx[i]=cos(_a)*_sp; ${A}vy[i]=sin(_a)*_sp; ${A}l[i]=1; CRGB _fc=CHSV(_hue+(random8()%30)-15,255,255); ${A}r[i]=_fc.r; ${A}g[i]=_fc.g; ${A}b[i]=_fc.b; break; } }`)
+          } else if (mode === 'sparkle')
+            ln(`    { int _sp=max(1,(int)(_rate*WIDTH*0.8f)); for(int k=0;k<_sp;k++) if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT*0.3f; ${A}vx[i]=0; ${A}vy[i]=random8()/255.0f*0.25f+0.05f; ${A}l[i]=1; ${A}r[i]=_pc.r; ${A}g[i]=_pc.g; ${A}b[i]=_pc.b; break; } } }`)
+          else if (mode === 'comet')
+            ln(`    { float _hx=(WIDTH-1)*(0.5f+0.45f*sin(t*0.9f)), _hy=(HEIGHT-1)*(0.5f+0.45f*sin(t*0.6f+1.3f)); for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=_hx; ${A}y[i]=_hy; ${A}vx[i]=0; ${A}vy[i]=0; ${A}l[i]=1; ${A}r[i]=_pc.r; ${A}g[i]=_pc.g; ${A}b[i]=_pc.b; break; } }`)
+          else if (mode === 'snow')
+            ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=0; ${A}vy[i]=random8()/255.0f*0.12f+0.05f; ${A}l[i]=0.7f+random8()/255.0f*0.3f; ${A}s[i]=random8()/255.0f*6.28f; ${A}r[i]=_pc.r; ${A}g[i]=_pc.g; ${A}b[i]=_pc.b; break; } }`)
+
+          // ── update ──
+          ln(`    for(int i=0;i<_PN;i++){ if(${A}l[i]<=0.04f) continue;`)
+          if (mode === 'fountain')
+            ln(`      ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; ${A}vy[i]+=0.02f; ${A}l[i]*=${decayL}; if(${A}y[i]<0) ${A}l[i]=0; }`)
+          else if (mode === 'gravity')
+            ln(`      ${A}vy[i]+=0.045f; ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; if(${A}y[i]>=HEIGHT-1){ ${A}y[i]=HEIGHT-1; ${A}vy[i]*=-0.55f; ${A}vx[i]*=0.8f; ${A}l[i]*=0.9f; } ${A}l[i]*=${decayL}; }`)
+          else if (mode === 'fireworks')
+            ln(`      ${A}vy[i]=(${A}vy[i]+0.022f)*0.965f; ${A}vx[i]*=0.965f; ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; ${A}l[i]*=${decayL}*0.985f; }`)
+          else if (mode === 'sparkle')
+            ln(`      ${A}y[i]+=${A}vy[i]; ${A}l[i]*=${decayL}*0.9f; if(${A}y[i]>=HEIGHT) ${A}l[i]=0; }`)
+          else if (mode === 'comet')
+            ln(`      ${A}l[i]*=${decayL}; }`)
+          else if (mode === 'snow')
+            ln(`      ${A}y[i]+=${A}vy[i]; ${A}x[i]+=sin(t*1.5f+${A}s[i])*0.12f; if(${A}y[i]>=HEIGHT) ${A}l[i]=0; }`)
+        }
+
+        // ── render (shared) ──
+        ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
+        ln(`    for(int i=0;i<_PN;i++){ if(${A}l[i]<=0.04f) continue; int X=(int)(${A}x[i]+0.5f), Y=(int)(${A}y[i]+0.5f);`)
+        ln(`      if(X>=0&&X<WIDTH&&Y>=0&&Y<HEIGHT){ float _k=min(1.0f,${A}l[i]); ${ob}[Y*WIDTH+X]+=CRGB((uint8_t)(${A}r[i]*_k),(uint8_t)(${A}g[i]*_k),(uint8_t)(${A}b[i]*_k)); } } }`)
         break
       }
 

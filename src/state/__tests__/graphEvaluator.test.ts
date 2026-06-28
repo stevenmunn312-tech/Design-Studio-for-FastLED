@@ -331,6 +331,42 @@ describe('evaluateGraph', () => {
     expect(frame![0][0]).toEqual({ r: 255, g: 255, b: 255 })
   })
 
+  describe('Particles modes', () => {
+    const modes = ['fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow', 'swarm']
+    for (const m of modes) {
+      it(`"${m}" lights at least one pixel`, () => {
+        // Pin Math.random so every spawn-gate fires deterministically.
+        const spy = vi.spyOn(Math, 'random').mockReturnValue(0.01)
+        try {
+          const { nodes, edges } = withOutput(node(`pp_${m}`, 'Particles', 'pattern', { particleType: m, rate: 1, r: 0, g: 255, b: 0 }))
+          let lit = 0
+          for (let f = 0; f < 8; f++) {
+            const frame = evaluateGraph(nodes, edges, f, W, H)
+            lit = frame!.flat().filter((px) => px.r + px.g + px.b > 0).length
+          }
+          expect(lit).toBeGreaterThan(0)
+        } finally {
+          spy.mockRestore()
+        }
+      })
+    }
+
+    it('defaults to the fountain behaviour when particleType is absent', () => {
+      const spy = vi.spyOn(Math, 'random').mockReturnValue(0.01)
+      try {
+        const { nodes, edges } = withOutput(node('ppDef', 'Particles', 'pattern', { rate: 1, r: 255, g: 0, b: 0 }))
+        let lit = 0
+        for (let f = 0; f < 8; f++) {
+          const frame = evaluateGraph(nodes, edges, f, W, H)
+          lit = frame!.flat().filter((px) => px.r + px.g + px.b > 0).length
+        }
+        expect(lit).toBeGreaterThan(0)
+      } finally {
+        spy.mockRestore()
+      }
+    })
+  })
+
   it('Invert flips pixel values', () => {
     const sc  = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 128 })
     const inv = node('inv', 'Invert', 'pattern', {})
