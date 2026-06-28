@@ -147,6 +147,8 @@ A **3D view** toggle (`uiStore.preview3d`) wraps the canvas in a CSS `perspectiv
 
 App.tsx auto-starts audio when a `MicInput` node is added to the graph; auto-stops when it's removed.
 
+**On-device audio (firmware).** The `MicInput` node carries the I2S pins for an **INMP441** MEMS mic (`i2sWs`/`i2sSck`/`i2sSd`, default 39/40/41, plus `channel` Left/Right). When a `MicInput` node is present, `cppGenerator.ts` emits a self-contained audio engine (`audioEngineCpp()`): the legacy ESP32 I2S driver (`driver/i2s.h`) reading 24-bit samples + a built-in radix-2 FFT (no external library), updating globals `_audioBass`/`_audioMids`/`_audioTreble` (0–1, Hann-windowed, smoothed, slow auto-gain) and a `_audioBeat` flag once per frame via `updateAudio()` at the top of `loop()` (init in `setupAudio()`). `FFTAnalyzer`/`BeatDetect` then resolve to those globals instead of the 0.5 placeholders, so any audio-reactive pattern works on hardware. First slice — **ESP32-only and not yet hardware-validated**; fixed 512-pt FFT @ 16 kHz, fixed bass/mid/treble splits (<250 / <2000 / rest Hz).
+
 ### C++ Code Generator
 
 `src/codegen/cppGenerator.ts` — `generateCpp(nodes, edges)` topologically sorts the graph and emits a FastLED `.ino` sketch. Each node type has a `case` in the `emit()` switch that writes to `loopLines[]`. The `needsT` flag enables a `float t = millis() / 1000.0f` variable only when needed. Inputs are resolved to C++ expressions via `floatExpr()`, `colorExpr()`, `boolExpr()`.

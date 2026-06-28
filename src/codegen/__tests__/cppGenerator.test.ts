@@ -837,3 +837,57 @@ describe('generateCpp — Particles modes', () => {
     expect(cpp).toContain('sin(t*0.9f)')
   })
 })
+
+describe('generateCpp — INMP441 audio engine', () => {
+  const out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8 })
+  const micGraph = (channel = 'Left') => {
+    const mic = node('mic', 'MicInput', 'input', { i2sWs: 39, i2sSck: 40, i2sSd: 41, channel })
+    const fft = node('fft', 'FFTAnalyzer', 'audio', {})
+    const bp = node('bp', 'BassPulse', 'pattern', {})
+    return generateCpp([mic, fft, bp, out], [
+      edge('e1', 'mic', 'fft', 'audio', 'audio'),
+      edge('e2', 'fft', 'bp', 'bass', 'bass'),
+      edge('e3', 'bp', 'out', 'frame', 'frame'),
+    ])
+  }
+
+  it('emits the I2S driver, a self-contained FFT, and per-frame update', () => {
+    const cpp = micGraph()
+    expect(cpp).toContain('#include <driver/i2s.h>')
+    expect(cpp).toContain('#define MIC_WS   39')
+    expect(cpp).toContain('#define MIC_SCK  40')
+    expect(cpp).toContain('#define MIC_SD   41')
+    expect(cpp).toContain('void _audioFFT(')
+    expect(cpp).toContain('void setupAudio()')
+    expect(cpp).toContain('void updateAudio()')
+    expect(cpp).toContain('i2s_driver_install(I2S_NUM_0')
+    // wired into the lifecycle
+    expect(cpp).toContain('setupAudio();')
+    expect(cpp).toContain('updateAudio();')
+  })
+
+  it('FFTAnalyzer resolves to the live band globals when a mic is present', () => {
+    const cpp = micGraph()
+    expect(cpp).toContain('= _audioBass')
+    expect(cpp).toContain('_audioMids')
+    expect(cpp).toContain('_audioTreble')
+    expect(cpp).not.toContain('float n_fft_bass = 0.5f')
+  })
+
+  it('honours the selected I2S channel', () => {
+    expect(micGraph('Left')).toContain('I2S_CHANNEL_FMT_ONLY_LEFT')
+    expect(micGraph('Right')).toContain('I2S_CHANNEL_FMT_ONLY_RIGHT')
+  })
+
+  it('falls back to placeholder constants with no mic node', () => {
+    const fft = node('fft', 'FFTAnalyzer', 'audio', {})
+    const bp = node('bp', 'BassPulse', 'pattern', {})
+    const cpp = generateCpp([fft, bp, out], [
+      edge('e2', 'fft', 'bp', 'bass', 'bass'),
+      edge('e3', 'bp', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).not.toContain('driver/i2s.h')
+    expect(cpp).not.toContain('updateAudio()')
+    expect(cpp).toContain('float n_fft_bass = 0.5f')
+  })
+})

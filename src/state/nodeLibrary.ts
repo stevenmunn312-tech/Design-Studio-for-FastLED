@@ -8,7 +8,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'input',
     inputs: [],
     outputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
-    defaultProperties: { gain: 1.0, sampleRate: 44100 },
+    // gain/sampleRate drive the browser preview; the i2s* pins + channel drive
+    // the generated firmware's INMP441 I2S reader (ESP32). Defaults match a
+    // common ESP32-S3 wiring (WS 39 / SCK 40 / SD 41).
+    defaultProperties: { gain: 1.0, sampleRate: 44100, i2sWs: 39, i2sSck: 40, i2sSd: 41, channel: 'Left' },
   },
   {
     // Song source for the pre-planned show pipeline. Double-click on the canvas
@@ -1091,7 +1094,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   // audio
   FFTAnalyzer: 'Splits mic audio into bass / mids / treble levels.',
   BeatDetect: 'Emits a beat pulse and estimated BPM from audio.',
-  MicInput: 'Live microphone audio source.',
+  MicInput: 'Microphone — browser preview + on-device INMP441 I2S for firmware.',
   AudioHue: 'Maps bass/mids/treble to a hue value.',
   // hardware
   ButtonInput: 'Reads a hardware button as a boolean.',
@@ -1280,6 +1283,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   blendMode:      { control: 'select', options: ['normal', 'multiply', 'screen', 'overlay', 'add', 'difference'] },
   fieldOp:        { control: 'select', options: ['add', 'subtract', 'multiply', 'mix', 'min', 'max', 'difference'] },
   particleType:   { control: 'select', options: ['fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow', 'swarm'] },
+  channel:        { control: 'select', options: ['Left', 'Right'] },
   // Poline position functions — keep in sync with polinePalette.ts POSITION_FNS.
   position:   { control: 'select', options: ['linear', 'sinusoidal', 'quadratic', 'cubic', 'arc', 'smoothStep', 'exponential'] },
   points:     { control: 'slider', min: 1, max: 12, step: 1 },

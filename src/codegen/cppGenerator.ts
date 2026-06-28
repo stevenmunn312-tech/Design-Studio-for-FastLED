@@ -142,6 +142,102 @@ function topoSort(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
   return result
 }
 
+// On-device audio engine for an INMP441 MEMS mic on ESP32: a legacy-driver I2S
+// reader + a self-contained radix-2 FFT (no external library) that updates global
+// _audioBass/_audioMids/_audioTreble (0–1, smoothed + auto-gained) and a
+// _audioBeat flag once per frame. FFTAnalyzer/BeatDetect read these globals.
+// NOTE: ESP32-only; not yet hardware-validated — see docs.
+function audioEngineCpp(ws: number, sck: number, sd: number, chFmt: string): string[] {
+  return [
+    '// ── INMP441 I2S microphone + FFT (on-device audio reactivity) ───────────────',
+    `#define MIC_WS   ${ws}`,
+    `#define MIC_SCK  ${sck}`,
+    `#define MIC_SD   ${sd}`,
+    '#define AUDIO_N   512        // FFT size (power of two)',
+    '#define AUDIO_SR  16000      // I2S sample rate (Hz)',
+    'float _audioBass = 0, _audioMids = 0, _audioTreble = 0, _audioBpm = 120;',
+    'bool  _audioBeat = false;',
+    'static float _aRe[AUDIO_N], _aIm[AUDIO_N];',
+    '',
+    '// In-place iterative radix-2 FFT (Cooley–Tukey).',
+    'void _audioFFT(float* re, float* im, int n) {',
+    '  for (int i = 1, j = 0; i < n; i++) {',
+    '    int bit = n >> 1;',
+    '    for (; j & bit; bit >>= 1) j ^= bit;',
+    '    j ^= bit;',
+    '    if (i < j) { float tr = re[i]; re[i] = re[j]; re[j] = tr; float ti = im[i]; im[i] = im[j]; im[j] = ti; }',
+    '  }',
+    '  for (int len = 2; len <= n; len <<= 1) {',
+    '    float ang = -2.0f * PI / len, wr = cos(ang), wi = sin(ang);',
+    '    for (int i = 0; i < n; i += len) {',
+    '      float cr = 1, ci = 0;',
+    '      for (int k = 0; k < len / 2; k++) {',
+    '        int a = i + k, b = i + k + len / 2;',
+    '        float vr = re[b] * cr - im[b] * ci, vi = re[b] * ci + im[b] * cr;',
+    '        re[b] = re[a] - vr; im[b] = im[a] - vi;',
+    '        re[a] += vr;        im[a] += vi;',
+    '        float ncr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = ncr;',
+    '      }',
+    '    }',
+    '  }',
+    '}',
+    '',
+    'void setupAudio() {',
+    '  i2s_config_t cfg = {',
+    '    .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX),',
+    '    .sample_rate = AUDIO_SR,',
+    '    .bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT,',
+    `    .channel_format = ${chFmt},`,
+    '    .communication_format = I2S_COMM_FORMAT_STAND_I2S,',
+    '    .intr_alloc_flags = 0,',
+    '    .dma_buf_count = 4,',
+    '    .dma_buf_len = 256,',
+    '    .use_apll = false,',
+    '    .tx_desc_auto_clear = false,',
+    '    .fixed_mclk = 0',
+    '  };',
+    '  i2s_pin_config_t pins = { .bck_io_num = MIC_SCK, .ws_io_num = MIC_WS, .data_out_num = I2S_PIN_NO_CHANGE, .data_in_num = MIC_SD };',
+    '  i2s_driver_install(I2S_NUM_0, &cfg, 0, NULL);',
+    '  i2s_set_pin(I2S_NUM_0, &pins);',
+    '}',
+    '',
+    '// Read one block from the mic, FFT it, split into bass/mid/treble bands.',
+    'void updateAudio() {',
+    '  static int32_t raw[AUDIO_N];',
+    '  size_t bytesRead = 0;',
+    '  i2s_read(I2S_NUM_0, raw, sizeof(raw), &bytesRead, 20 / portTICK_PERIOD_MS);',
+    '  int got = bytesRead / sizeof(int32_t);',
+    '  for (int i = 0; i < AUDIO_N; i++) {',
+    '    float s = (i < got) ? (float)(raw[i] >> 8) / 8388608.0f : 0.0f;   // 24-bit sample',
+    '    float w = 0.5f - 0.5f * cos(2.0f * PI * i / (AUDIO_N - 1));        // Hann window',
+    '    _aRe[i] = s * w; _aIm[i] = 0;',
+    '  }',
+    '  _audioFFT(_aRe, _aIm, AUDIO_N);',
+    '  float binHz = (float)AUDIO_SR / AUDIO_N;',
+    '  float bass = 0, mids = 0, treble = 0; int nb = 0, nm = 0, nt = 0;',
+    '  for (int i = 1; i < AUDIO_N / 2; i++) {',
+    '    float mag = sqrtf(_aRe[i] * _aRe[i] + _aIm[i] * _aIm[i]);',
+    '    float hz = i * binHz;',
+    '    if (hz < 250)       { bass   += mag; nb++; }',
+    '    else if (hz < 2000) { mids   += mag; nm++; }',
+    '    else                { treble += mag; nt++; }',
+    '  }',
+    '  if (nb) bass /= nb; if (nm) mids /= nm; if (nt) treble /= nt;',
+    '  static float mx = 0.0001f;                  // slow auto-gain (running peak)',
+    '  float peak = max(bass, max(mids, treble));',
+    '  mx = (peak > mx) ? peak : (mx * 0.999f + peak * 0.001f);',
+    '  if (mx < 0.0001f) mx = 0.0001f;',
+    '  _audioBass   = _audioBass   * 0.6f + constrain(bass   / mx, 0.0f, 1.0f) * 0.4f;',
+    '  _audioMids   = _audioMids   * 0.6f + constrain(mids   / mx, 0.0f, 1.0f) * 0.4f;',
+    '  _audioTreble = _audioTreble * 0.6f + constrain(treble / mx, 0.0f, 1.0f) * 0.4f;',
+    '  static float avg = 0; static uint32_t lastBeat = 0; uint32_t now = millis();',
+    '  avg = avg * 0.95f + _audioBass * 0.05f;     // beat: bass spike vs rolling avg',
+    '  _audioBeat = (_audioBass > avg * 1.4f && _audioBass > 0.2f && now - lastBeat > 250);',
+    '  if (_audioBeat) lastBeat = now;',
+    '}',
+  ]
+}
+
 // ── Code generator ────────────────────────────────────────────────────────────
 
 export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: GroupRegistry = {}): string {
@@ -171,6 +267,16 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
   // Serpentine (zig-zag) matrices wire alternate rows in reverse; buffers stay
   // row-major and MatrixOutput remaps grid → physical index via XY().
   const serpentine = (outputNode ? props(outputNode).serpentine : false) === true
+
+  // A MicInput node turns on the on-device audio engine (INMP441 over I2S + FFT).
+  // Its pins/channel configure the generated I2S reader; FFTAnalyzer/BeatDetect
+  // then resolve to the live band levels instead of placeholder constants.
+  const micNode = nodes.find((n) => n.data.nodeType === 'MicInput')
+  const hasMic = !!micNode
+  const micWs  = Number(micNode ? props(micNode).i2sWs  ?? 39 : 39)
+  const micSck = Number(micNode ? props(micNode).i2sSck ?? 40 : 40)
+  const micSd  = Number(micNode ? props(micNode).i2sSd  ?? 41 : 41)
+  const micChannel = String(micNode ? props(micNode).channel ?? 'Left' : 'Left')
 
   const sorted = topoSort(nodes, edges)
 
@@ -375,20 +481,25 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       }
 
       case 'FFTAnalyzer':
-        ln(`  // FFTAnalyzer — wire to an audio library in your sketch`)
-        ln(`  float ${v('bass')} = 0.5f;  // replace with real FFT data`)
-        ln(`  float ${v('mids')} = 0.5f;`)
-        ln(`  float ${v('treble')} = 0.5f;`)
+        if (hasMic) {
+          ln(`  float ${v('bass')} = _audioBass, ${v('mids')} = _audioMids, ${v('treble')} = _audioTreble;`)
+        } else {
+          ln(`  // FFTAnalyzer — add a Microphone node to drive these from the INMP441`)
+          ln(`  float ${v('bass')} = 0.5f, ${v('mids')} = 0.5f, ${v('treble')} = 0.5f;`)
+        }
         break
 
       case 'BeatDetect':
-        ln(`  // BeatDetect — wire to your beat detection logic`)
-        ln(`  bool ${v('beat')} = false;`)
-        ln(`  float ${v('bpm')} = 120.0f;`)
+        if (hasMic) {
+          ln(`  bool ${v('beat')} = _audioBeat; float ${v('bpm')} = _audioBpm;`)
+        } else {
+          ln(`  // BeatDetect — add a Microphone node for on-device beat detection`)
+          ln(`  bool ${v('beat')} = false; float ${v('bpm')} = 120.0f;`)
+        }
         break
 
       case 'MicInput':
-        ln(`  // MicInput — connect your audio source here`)
+        ln(`  // MicInput — INMP441 I2S audio is read once per frame by updateAudio()`)
         break
 
       case 'ButtonInput':
@@ -1559,6 +1670,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
 
   // Header
   lines.push(`#include <FastLED.h>`)
+  if (hasMic) lines.push(`#include <driver/i2s.h>   // INMP441 I2S microphone (ESP32)`)
   lines.push(``)
   lines.push(`#define WIDTH    ${width}`)
   lines.push(`#define HEIGHT   ${height}`)
@@ -1615,6 +1727,12 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
     lines.push(``)
   }
 
+  if (hasMic) {
+    const chFmt = micChannel === 'Right' ? 'I2S_CHANNEL_FMT_ONLY_RIGHT' : 'I2S_CHANNEL_FMT_ONLY_LEFT'
+    lines.push(...audioEngineCpp(micWs, micSck, micSd, chFmt))
+    lines.push(``)
+  }
+
   // File-scope code from Code nodes (helpers, persistent vars, palettes).
   if (globalLines.length) {
     lines.push(...globalLines)
@@ -1623,10 +1741,12 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
   lines.push(`void setup() {`)
   lines.push(`  FastLED.addLeds<${chipset}, DATA_PIN, ${colorOrder}>(leds, NUM_LEDS);`)
   lines.push(`  FastLED.setBrightness(200);`)
+  if (hasMic) lines.push(`  setupAudio();`)
   lines.push(`}`)
   lines.push(``)
 
   lines.push(`void loop() {`)
+  if (hasMic) lines.push(`  updateAudio();`)
   if (needsT.v) lines.push(`  float t = millis() / 1000.0f;`)
   lines.push(...loopLines)
   if (!sorted.some((n) => n.data.nodeType === 'MatrixOutput')) {
