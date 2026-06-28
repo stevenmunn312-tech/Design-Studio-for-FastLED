@@ -106,6 +106,35 @@ See *Music-Sync Show Pipeline* in `CLAUDE.md`.
 - [ ] Add more FastLED built-ins to code editor — e.g. `beatsin8`/`beatsin16`, `triwave8`, `quadwave8`, `cubicwave8`, `ease8InOutCubic`, `blend`, `lerp8by8`, `lerp16by16`, `sqrt16`, `scale8`, `nscale8`, `qadd8`, `qsub8`, FastLED palettes (`RainbowColors_p`, `LavaColors_p`, `OceanColors_p`, etc.)
 - [ ] **Code node** — paste raw FastLED C++ as a node (pass-through codegen, JS shim for preview); design note at `docs/development/design/code-node.md`
 
+## ANIMartRIX / Float Field pipeline
+
+Design note: `docs/development/design/animartrix-float-field.md`
+
+ANIMartRIX patterns use a **coordinate → scalar → color** model that the current
+frame-centric graph can't express. Solution: add a `field` port type (per-pixel
+`Float32Array`, values 0–1) and a small set of field nodes.
+
+### Phase 1 — `field` type + core nodes
+- [ ] Add `field` to `PORT_COLORS` and `portsCompatible` in `nodeLibrary.ts`
+- [ ] **`FieldFormula`** node (category: `pattern`) — per-pixel expression outputting a `field`; built-in vars: `cx`, `cy`, `r`, `angle`, `t`, `W`, `H`, `a`, `b`, `fieldIn`; FastLED shims: `sin8`, `cos8`, `sin16`, `beatsin8`, `beatsin16`, `scale8`, `qadd8`, `qsub8`
+- [ ] **`FieldToFrame`** node (category: `pattern`) — maps a `field` through a palette → `frame`; `palette` input + property, `brightness` property
+- [ ] Enhance **`CustomFormula`** — add same `cx`/`cy`/`r`/`angle` vars and FastLED shims (backward-compatible; existing graphs unaffected)
+- [ ] Evaluator cases for `FieldFormula` and `FieldToFrame` (compile formula once into `formulaCache`, run per pixel into `Float32Array`; `FieldToFrame` samples palette)
+- [ ] Codegen cases for `FieldFormula` (double `for` loop + verbatim expression) and `FieldToFrame` (`ColorFromPalette` per pixel)
+- [ ] `NODE_DESCRIPTIONS` entries + unit tests (sandbox shims, codegen snapshot)
+
+### Phase 2 — field composition nodes
+- [ ] **`DistanceField`** node (category: `pattern`) — per-pixel Euclidean distance to a movable `(px, py)` point; inputs: `px`, `py` (float); output: `field`
+- [ ] **`FieldMath`** node (category: `pattern`) — combine two fields pixel-by-pixel; `op` property: add, subtract, multiply, mix, min, max, difference; inputs: `a`, `b` (field); output: `field`
+- [ ] **`FieldWarp`** node (category: `composite`) — sample a `field` at coordinates shifted by two offset fields (`dx`, `dy`); `strength` property; output: `field`
+- [ ] Evaluator + codegen + tests for each
+- [ ] `Noise` node: optional `field` output mode (expose raw noise values pre-palette for field composition)
+
+### Phase 3 — coordinate-space transforms
+- [ ] **`FieldRotate`** node — rotate the sample coordinate by a float `angle` input before evaluating a field; wraps at boundary
+- [ ] **`FieldTile`** node — tile/repeat a field N×M times across the matrix
+- [ ] Evaluate whether these fold into `FieldWarp` presets or warrant standalone nodes
+
 ## Direction & In-Flight Work
 
 Current focus (agreed 2026-06-25): **music-sync show pipeline** + **stabilize & document**.
