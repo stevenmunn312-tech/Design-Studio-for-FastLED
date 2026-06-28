@@ -43,6 +43,14 @@ describe('generateCpp', () => {
     expect(cpp).toContain('GRB')
   })
 
+  it('clamps a garbage width/height to a sane default (never emits NaN)', () => {
+    const bad = node('out', 'MatrixOutput', 'output', { width: '1efdd6', height: -5, dataPin: 5 })
+    const cpp = generateCpp([bad], [])
+    expect(cpp).not.toContain('NaN')
+    expect(cpp).toContain('#define WIDTH    16')  // garbage string → default
+    expect(cpp).toContain('#define HEIGHT   1')   // -5 → clamped to min 1
+  })
+
   it('emits fill_solid for SolidColor node', () => {
     const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
     const cpp = generateCpp([sc, outputNode], [edge('e1', 'sc', 'out', 'frame', 'frame')])

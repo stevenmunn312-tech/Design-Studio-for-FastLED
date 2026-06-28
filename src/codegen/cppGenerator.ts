@@ -259,9 +259,16 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
   const outputNode = nodes.find((n) => n.data.nodeType === 'MatrixOutput')
   const props = (n: StudioNode) => n.data.properties as Record<string, unknown>
 
-  const width      = Number(outputNode ? props(outputNode).width      ?? 16  : 16)
-  const height     = Number(outputNode ? props(outputNode).height     ?? 16  : 16)
-  const dataPin    = Number(outputNode ? props(outputNode).dataPin    ?? 5   : 5)
+  // Sanitise numeric properties so a stray/garbage value (e.g. a hex string
+  // pasted into the width field) can't emit `#define WIDTH NaN` and break the
+  // compile — clamp to sane integer bounds, matching the live-preview clamps.
+  const intProp = (val: unknown, def: number, min: number, max: number) => {
+    const n = Math.round(Number(val))
+    return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : def
+  }
+  const width      = intProp(outputNode ? props(outputNode).width   : undefined, 16, 1, 64)
+  const height     = intProp(outputNode ? props(outputNode).height  : undefined, 16, 1, 64)
+  const dataPin    = intProp(outputNode ? props(outputNode).dataPin : undefined, 5, 0, 48)
   const chipset    = String(outputNode ? props(outputNode).chipset    ?? 'WS2812B' : 'WS2812B')
   const colorOrder = String(outputNode ? props(outputNode).colorOrder ?? 'GRB' : 'GRB')
   // Serpentine (zig-zag) matrices wire alternate rows in reverse; buffers stay
@@ -273,9 +280,9 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
   // then resolve to the live band levels instead of placeholder constants.
   const micNode = nodes.find((n) => n.data.nodeType === 'MicInput')
   const hasMic = !!micNode
-  const micWs  = Number(micNode ? props(micNode).i2sWs  ?? 39 : 39)
-  const micSck = Number(micNode ? props(micNode).i2sSck ?? 40 : 40)
-  const micSd  = Number(micNode ? props(micNode).i2sSd  ?? 41 : 41)
+  const micWs  = intProp(micNode ? props(micNode).i2sWs  : undefined, 39, 0, 48)
+  const micSck = intProp(micNode ? props(micNode).i2sSck : undefined, 40, 0, 48)
+  const micSd  = intProp(micNode ? props(micNode).i2sSd  : undefined, 41, 0, 48)
   const micChannel = String(micNode ? props(micNode).channel ?? 'Left' : 'Left')
 
   const sorted = topoSort(nodes, edges)

@@ -347,7 +347,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                     step="any"
                     disabled={disabled}
                     value={typeof live === 'number' ? showNum(live) : val}
-                    onChange={(e) => updateNodeProperty(id, key, e.target.value === '' ? 0 : Number(e.target.value))}
+                    onChange={(e) => { const n = Number(e.target.value); updateNodeProperty(id, key, e.target.value === '' || !Number.isFinite(n) ? 0 : n) }}
                   />
                 ) : typeof val === 'string' && /^#[0-9a-f]{6}$/i.test(val) ? (
                   <input
