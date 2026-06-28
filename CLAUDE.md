@@ -8,6 +8,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Core user flow: drag nodes from sidebar → wire ports together → preview updates live → generate C++ → upload via WebSerial.
 
+## Git workflow (this repo) — keep it simple
+
+This is a solo, single-branch project. **These instructions override the global
+cortex / strict-git rules for this repository.**
+
+- **Use plain `git`** (`git add`, `git commit`, `git push`, `git pull`). Do **not**
+  use `cortex git` here.
+- **Work directly on `main`.** No feature branches, no rebasing, no squash
+  ceremony unless the user explicitly asks.
+- **Don't ask permission for routine git** — staging, committing, pushing, and
+  pulling are pre-approved. Just do them and report what happened in one line.
+- **Commit message style:** a short, plain summary line is fine (e.g.
+  `add Fade node`, `fix toolbar contrast`). No need to split into many tiny
+  atomic commits. Still end commit messages with the
+  `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>` trailer.
+- **Do still pause and ask** before genuinely destructive or irreversible things:
+  deleting branches, force-pushing, `git reset --hard`, or discarding the user's
+  uncommitted work.
+- Normal loop: code → `git commit -am "..."` → `git push`. If GitHub has new
+  changes, `git pull` first.
+
 ## Commands
 
 ```bash

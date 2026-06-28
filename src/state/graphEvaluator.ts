@@ -1230,21 +1230,16 @@ function makeCodeShim(leds: RGB[], t: number, W: number, H: number) {
   const N = leds.length
   const c8 = (v: number) => Math.max(0, Math.min(255, Math.round(v)))
   const inRange = (i: number) => i >= 0 && i < N
-  const wave = (bpm: number, lo: number, hi: number) =>
-    Math.round(lo + (Math.sin((2 * Math.PI * bpm / 60) * t) * 0.5 + 0.5) * (hi - lo))
   return {
+    // Shared FastLED fixed-point shims (sin8/cos8/sin16/beatsin8/beatsin16/
+    // scale8/qadd8/qsub8) — the same module the ANIMartRIX field nodes use, so
+    // the Code node and field formulas behave identically.
+    ...makeShims(t),
     CHSV: (h: number, s = 255, v = 255) => hsv((h / 255) * 360, s / 255, v / 255),
     CRGB: (r: number, g: number, b: number) => ({ r: c8(r), g: c8(g), b: c8(b) }),
-    beatsin16: (bpm: number, lo = 0, hi = 65535) => wave(bpm, lo, hi),
-    beatsin8: (bpm: number, lo = 0, hi = 255) => wave(bpm, lo, hi),
+    // beat8/beat16 (sawtooth ramps) aren't in the shared shim set; keep local.
     beat8: (bpm: number) => Math.floor((t * bpm / 60) * 256) % 256,
     beat16: (bpm: number) => Math.floor((t * bpm / 60) * 65536) % 65536,
-    sin8: (x: number) => Math.round(128 + 127 * Math.sin((x / 256) * 2 * Math.PI)),
-    cos8: (x: number) => Math.round(128 + 127 * Math.cos((x / 256) * 2 * Math.PI)),
-    sin16: (x: number) => Math.round(32767 * Math.sin((x / 65536) * 2 * Math.PI)),
-    qadd8: (a: number, b: number) => Math.min(255, a + b),
-    qsub8: (a: number, b: number) => Math.max(0, a - b),
-    scale8: (a: number, b: number) => Math.floor((a * b) / 255),
     random8: (lim?: number) => Math.floor(Math.random() * (lim ?? 256)),
     random16: (lim?: number) => Math.floor(Math.random() * (lim ?? 65536)),
     millis: () => t * 1000,
