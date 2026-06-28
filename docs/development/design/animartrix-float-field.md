@@ -225,17 +225,21 @@ This phase alone ports the majority of ANIMartRIX patterns as
 - *Deferred:* a `field` output mode on the bundled `Noise` node (raw noise
   pre-palette) — a follow-up, not required for the ANIMartRIX vocabulary.
 
-### Phase 3 — `FieldRotate` + `FieldTile`
+### Phase 3 — `FieldRotate` + `FieldTile` — **implemented**
 *Scope:* Coordinate-space transforms for the handful of ANIMartRIX patterns
 that spin or mirror the field.
 
-- `FieldRotate` — rotates the sample coordinate by a float `angle` input;
-  wraps at matrix boundaries.
-- `FieldTile` — repeats the field N×M times across the matrix.
+- `FieldRotate` (composite) — rotates a field around its centre. Takes an
+  `angle` float input (degrees) plus an `angle`/`spin` property (spin is
+  degrees/sec, so a freshly-dropped node animates); samples the source at the
+  inverse-rotated coordinate, wrapping at the matrix edges.
+- `FieldTile` (composite) — tiles/repeats a field `tilesX`×`tilesY` times.
 
-Both are pure coordinate remaps: they don't read the field value, they warp
-the `(x, y)` before it is evaluated. In practice they can be modelled as
-`FieldWarp` presets, so this phase may fold into Phase 2.
+**Resolved (open question):** these ship as **standalone nodes**, not `FieldWarp`
+presets. `FieldWarp` adds *per-pixel offset fields* to the sample coordinate;
+rotate/tile apply a *whole-field coordinate transform* from scalar/integer
+params — a different operation that doesn't map onto an additive offset field.
+7 tests added.
 
 ---
 

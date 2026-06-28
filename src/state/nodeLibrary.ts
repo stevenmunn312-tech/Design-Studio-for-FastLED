@@ -960,6 +960,26 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
     defaultProperties: { strength: 1 },
   },
+  // Phase 3 coordinate-space transforms (resample a field at remapped coords).
+  {
+    type: 'FieldRotate',
+    label: 'Field Rotate',
+    category: 'composite',
+    inputs: [
+      { id: 'field', label: 'Field', dataType: 'field' },
+      { id: 'angle', label: 'Angle', dataType: 'float' },
+    ],
+    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    defaultProperties: { angle: 0, spin: 30 },
+  },
+  {
+    type: 'FieldTile',
+    label: 'Field Tile',
+    category: 'composite',
+    inputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    defaultProperties: { tilesX: 2, tilesY: 2 },
+  },
 
   // ── Output ─────────────────────────────────────────────────────────────
   {
@@ -1118,6 +1138,8 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   DistanceField: 'Scalar field of distance from each pixel to a movable point.',
   FieldMath: 'Combines two scalar fields (add, subtract, multiply, mix, min, max, difference).',
   FieldWarp: 'Samples a field at coordinates pushed by two offset fields.',
+  FieldRotate: 'Rotates a field around its centre (angle + spin over time).',
+  FieldTile: 'Tiles/repeats a field across the matrix.',
   // composite
   Blur2D: 'Box-blurs the frame.',
   Blend: 'Blends B over A — normal, multiply, screen, overlay, add or difference.',
@@ -1248,6 +1270,9 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   px:       { control: 'slider', min: 0, max: 1, step: 0.01 },
   py:       { control: 'slider', min: 0, max: 1, step: 0.01 },
   strength: { control: 'slider', min: 0, max: 4, step: 0.1 },
+  spin:     { control: 'slider', min: -360, max: 360, step: 5 },
+  tilesX:   { control: 'slider', min: 1, max: 8, step: 1 },
+  tilesY:   { control: 'slider', min: 1, max: 8, step: 1 },
   count:    { control: 'slider', min: 1, max: 200, step: 1 },
   frequency:   { control: 'slider', min: 0, max: 4, step: 0.1 },
   orientation: { control: 'slider', min: 0, max: 360, step: 1 },
