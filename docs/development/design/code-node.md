@@ -103,10 +103,15 @@ for the loop). The transpile is a handful of regex rewrites applied before
 - **Named colour constants:** `CRGB::Red` (invalid JS `::`) → `crgbConst('Red')`,
   resolved against a small common table (extend as needed).
 - **Shim runtime in scope:** `beatsin16/8`, `beat8/16`, `sin8/cos8`, `sin16`,
-  `CHSV`, `CRGB`, `qadd8`, `qsub8`, `scale8`, `random8/16`, `millis()`, `XY(x,y)`,
+  `triwave8`, `quadwave8`, `cubicwave8`, `ease8InOutQuad`, `ease8InOutCubic`,
+  `CHSV`, `CRGB`, `qadd8`, `qsub8`, `scale8`, `nscale8`, `blend8`, `lerp8by8`,
+  `lerp16by16`, `sqrt16`, `random8/16`, `millis()`, `XY(x,y)`,
   `fadeToBlackBy`, `fill_solid`, `fill_rainbow`, `nblend`, plus the constants
   `NUM_LEDS / WIDTH / HEIGHT`. `t` (seconds) is available so timing matches the
-  rest of the evaluator (wall-clock based).
+  rest of the evaluator (wall-clock based). The fixed-point wave/scale shims
+  (`sin8`…`sqrt16`) come from the shared `src/state/fastledShims.ts`, so the
+  field-formula nodes accept the same vocabulary and the C++ generator stays in
+  sync.
 - **Palettes:** `ColorFromPalette(pal, index, brightness)`, `fill_palette(...)`,
   and the `CRGBPalette16(...)` constructor, all backed by the evaluator's own
   `samplePalette`. The FastLED preset constants (`RainbowColors_p`,

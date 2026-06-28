@@ -321,6 +321,16 @@ describe('evaluateGraph', () => {
     expect(frame![0][0]).not.toEqual({ r: 0, g: 0, b: 0 })
   })
 
+  it('Code exposes the new FastLED wave/scale builtins', () => {
+    // triwave8(128) peaks at 255 → setLed paints pixel 0 white via CHSV value.
+    const { nodes, edges } = withOutput(node('cdWave', 'Code', 'pattern', {
+      code: 'leds[0] = CHSV(0, 0, triwave8(128));',
+    }))
+    const frame = evaluateGraph(nodes, edges, 0, W, H)
+    expect(getCodeError('cdWave')).toBeNull()
+    expect(frame![0][0]).toEqual({ r: 255, g: 255, b: 255 })
+  })
+
   it('Invert flips pixel values', () => {
     const sc  = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 128 })
     const inv = node('inv', 'Invert', 'pattern', {})

@@ -43,6 +43,60 @@ describe('makeShims', () => {
     // Quarter beat at 60bpm = 0.25s → sine peak.
     expect(makeShims(0.25).beatsin8(60, 0, 100)).toBe(100)
   })
+
+  it('triwave8 ramps up then down across the byte domain', () => {
+    expect(s.triwave8(0)).toBe(0)
+    expect(s.triwave8(64)).toBe(128)
+    expect(s.triwave8(128)).toBe(255)   // peak at the midpoint
+    expect(s.triwave8(192)).toBe(127)
+    expect(s.triwave8(255)).toBe(1)
+  })
+
+  it('quadwave8 / cubicwave8 keep the triangle endpoints', () => {
+    expect(s.quadwave8(0)).toBe(0)
+    expect(s.quadwave8(128)).toBe(255)
+    expect(s.cubicwave8(0)).toBe(0)
+    expect(s.cubicwave8(128)).toBe(255)
+  })
+
+  it('ease8InOutCubic is smoothstep (0→0, 128→128, 255→255)', () => {
+    expect(s.ease8InOutCubic(0)).toBe(0)
+    expect(s.ease8InOutCubic(128)).toBe(128)
+    expect(s.ease8InOutCubic(255)).toBe(255)
+  })
+
+  it('ease8InOutQuad pins the endpoints', () => {
+    expect(s.ease8InOutQuad(0)).toBe(0)
+    expect(s.ease8InOutQuad(255)).toBe(255)
+  })
+
+  it('blend8 mixes two bytes by a 0–255 fraction', () => {
+    expect(s.blend8(0, 255, 0)).toBe(0)
+    expect(s.blend8(0, 255, 255)).toBe(254)
+    expect(s.blend8(0, 255, 128)).toBe(127)
+  })
+
+  it('lerp8by8 interpolates up and down', () => {
+    expect(s.lerp8by8(0, 255, 128)).toBe(127)
+    expect(s.lerp8by8(100, 200, 128)).toBe(150)
+    expect(s.lerp8by8(200, 100, 128)).toBe(150)
+  })
+
+  it('lerp16by16 interpolates over the 16-bit domain', () => {
+    expect(s.lerp16by16(0, 65535, 32768)).toBe(32767)
+    expect(s.lerp16by16(0, 1000, 65535)).toBe(999)
+  })
+
+  it('sqrt16 is an integer square root', () => {
+    expect(s.sqrt16(256)).toBe(16)
+    expect(s.sqrt16(255)).toBe(15)
+    expect(s.sqrt16(65535)).toBe(255)
+  })
+
+  it('nscale8 scales a byte like scale8', () => {
+    expect(s.nscale8(255, 128)).toBe(127)
+    expect(s.nscale8(255, 255)).toBe(254)
+  })
 })
 
 describe('cppRewriteShims', () => {
@@ -59,6 +113,16 @@ describe('cppRewriteShims', () => {
 
   it('leaves non-shim trig alone', () => {
     expect(cppRewriteShims('sin(x) + cos(y)')).toBe('sin(x) + cos(y)')
+  })
+
+  it('rewrites nscale8 without the scale8 rule clipping it', () => {
+    expect(cppRewriteShims('nscale8(v, s)')).toBe('_fnscale8(v, s)')
+    expect(cppRewriteShims('scale8(v, s) + nscale8(a, b)')).toBe('_fscale8(v, s) + _fnscale8(a, b)')
+  })
+
+  it('rewrites the new wave/easing/blend shims', () => {
+    expect(cppRewriteShims('cubicwave8(t) + triwave8(x)')).toBe('_fcubicwave8(t) + _ftriwave8(x)')
+    expect(cppRewriteShims('lerp8by8(a, b, f)')).toBe('_flerp8by8(a, b, f)')
   })
 })
 
