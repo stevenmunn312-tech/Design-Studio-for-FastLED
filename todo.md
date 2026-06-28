@@ -100,6 +100,11 @@ See *Music-Sync Show Pipeline* in `CLAUDE.md`.
 - [x] Component tests — @testing-library/react (StudioNode)
 - [x] Architecture decision record — `docs/architecture/decisions/0001-pattern-node-group-architecture.md`
 
+## Backlog
+
+- [ ] Add more particle types — e.g. gravity/bounce, fireworks burst, sparkle rain, comet trail, snow drift, swarm flocking
+- [ ] Add more FastLED built-ins to code editor — e.g. `beatsin8`/`beatsin16`, `triwave8`, `quadwave8`, `cubicwave8`, `ease8InOutCubic`, `blend`, `lerp8by8`, `lerp16by16`, `sqrt16`, `scale8`, `nscale8`, `qadd8`, `qsub8`, FastLED palettes (`RainbowColors_p`, `LavaColors_p`, `OceanColors_p`, etc.)
+
 ## Direction & In-Flight Work
 
 Current focus (agreed 2026-06-25): **music-sync show pipeline** + **stabilize & document**.
