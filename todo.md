@@ -103,8 +103,9 @@ See *Music-Sync Show Pipeline* in `CLAUDE.md`.
 ## Backlog
 
 - [ ] Add more particle types — e.g. gravity/bounce, fireworks burst, sparkle rain, comet trail, snow drift, swarm flocking
-- [ ] Add more FastLED built-ins to code editor — e.g. `beatsin8`/`beatsin16`, `triwave8`, `quadwave8`, `cubicwave8`, `ease8InOutCubic`, `blend`, `lerp8by8`, `lerp16by16`, `sqrt16`, `scale8`, `nscale8`, `qadd8`, `qsub8`, FastLED palettes (`RainbowColors_p`, `LavaColors_p`, `OceanColors_p`, etc.)
-- [ ] **Code node** — paste raw FastLED C++ as a node (pass-through codegen, JS shim for preview); design note at `docs/development/design/code-node.md`
+- [~] Add more FastLED built-ins to code editor — **done so far:** `sin8`/`cos8`/`sin16`, `beatsin8`/`beatsin16`, `beat8`/`beat16`, `scale8`, `qadd8`/`qsub8`, `fill_solid`/`fill_rainbow`, `nblend`, `CRGB::<Name>` constants, and FastLED preset palettes via `ColorFromPalette`/`fill_palette`/`CRGBPalette16` (`RainbowColors_p`, `OceanColors_p`, `LavaColors_p`, …). **Still TODO:** `triwave8`, `quadwave8`, `cubicwave8`, `ease8InOutCubic`, `blend`, `lerp8by8`, `lerp16by16`, `sqrt16`, `nscale8`
+- [x] **Code node** — paste raw FastLED C++ as a node (verbatim codegen, C++→JS shim for preview); Global + Loop editors, on-node error messages; design note at `docs/development/design/code-node.md`
+- [x] **Fade** node — fades a frame toward black (FastLED `fadeToBlackBy`), preview + codegen
 
 ## ANIMartRIX / Float Field pipeline
 
@@ -114,7 +115,7 @@ ANIMartRIX patterns use a **coordinate → scalar → color** model that the cur
 frame-centric graph can't express. Solution: add a `field` port type (per-pixel
 `Float32Array`, values 0–1) and a small set of field nodes.
 
-### Phase 1 — `field` type + core nodes ✅ (PR pending)
+### Phase 1 — `field` type + core nodes ✅ (merged, PR #69)
 - [x] Add `field` to `PORT_COLORS` and `portsCompatible` in `nodeLibrary.ts`
 - [x] **`FieldFormula`** node (category: `pattern`) — per-pixel expression outputting a `field`; built-in vars: `cx`, `cy`, `r`, `angle`, `t`, `W`, `H`, `a`, `b`, `fieldIn`; FastLED shims: `sin8`, `cos8`, `sin16`, `beatsin8`, `beatsin16`, `scale8`, `qadd8`, `qsub8`
 - [x] **`FieldToFrame`** node (category: `pattern`) — maps a `field` through a palette → `frame`; `palette` input + property, `brightness` property
@@ -123,14 +124,14 @@ frame-centric graph can't express. Solution: add a `field` port type (per-pixel
 - [x] Codegen cases for `FieldFormula` (double `for` loop + verbatim expression) and `FieldToFrame` (`ColorFromPalette` per pixel)
 - [x] `NODE_DESCRIPTIONS` entries + unit tests (sandbox shims, evaluator, codegen) — `src/state/fastledShims.ts` shared by preview + codegen
 
-### Phase 2 — field composition nodes ✅ (PR pending)
+### Phase 2 — field composition nodes ✅ (merged, PR #70)
 - [x] **`DistanceField`** node (category: `pattern`) — per-pixel Euclidean distance to a movable `(px, py)` point; inputs: `px`, `py` (float); `scale` (1–4) stretches the ramp; output: `field`
 - [x] **`FieldMath`** node (category: `pattern`) — combine two fields pixel-by-pixel; `fieldOp` property: add, subtract, multiply, mix, min, max, difference; inputs: `a`, `b` (field); output: `field` (header reflects the op via `nodeDisplayLabel`)
 - [x] **`FieldWarp`** node (category: `composite`) — sample a `field` at coordinates shifted by two offset fields (`dx`, `dy`); `strength` property; nearest-neighbour, edge-clamped; output: `field`
 - [x] Evaluator + codegen + tests for each (9 new tests)
 - [ ] `Noise` node: optional `field` output mode (expose raw noise values pre-palette for field composition) — deferred follow-up
 
-### Phase 3 — coordinate-space transforms ✅ (PR pending)
+### Phase 3 — coordinate-space transforms ✅ (merged, PR #71)
 - [x] **`FieldRotate`** node (category: `composite`) — rotate a field around its centre by an `angle` float input (degrees) + `spin` (deg/sec) property; wraps at boundary
 - [x] **`FieldTile`** node (category: `composite`) — tile/repeat a field `tilesX`×`tilesY` times across the matrix
 - [x] Evaluate whether these fold into `FieldWarp` presets or warrant standalone nodes → **standalone** (whole-field coordinate transform vs FieldWarp's per-pixel additive offsets)
