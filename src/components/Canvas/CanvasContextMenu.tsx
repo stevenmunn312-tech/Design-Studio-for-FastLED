@@ -18,7 +18,7 @@ interface Props {
 }
 
 export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onClose }: Props) {
-  const { addNode, onConnect, clipboard, pasteNode, selectAllNodes } = useGraphStore()
+  const { addNode, onConnect, clipboard, pasteNode, selectAllNodes, nodes } = useGraphStore()
   const menuRef = useRef<HTMLDivElement>(null)
   const [mode, setMode] = useState<'main' | 'picker'>(connectFrom ? 'picker' : 'main')
   const [query, setQuery] = useState('')
@@ -27,6 +27,8 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onC
   // First input on `def` that accepts the dragged output's type.
   const compatibleInput = (def: NodeDefinition) =>
     connectFrom && def.inputs.find((p) => portsCompatible(connectFrom.dataType, p.dataType))
+
+  const multiWireAudioTargets = new Set(['AudioCascade', 'AudioFlow'])
 
   useEffect(() => {
     const onMouseDown = (e: MouseEvent) => {
@@ -67,6 +69,27 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onC
     })
     // Auto-wire the dragged output to the new node's first compatible input.
     if (connectFrom) {
+      const sourceNode = nodes.find((n) => n.id === connectFrom.nodeId)
+      const sourceType = (sourceNode?.data as { nodeType?: string } | undefined)?.nodeType
+      const shouldFanOutAudio =
+        sourceType === 'FFTAnalyzer' &&
+        multiWireAudioTargets.has(def.type) &&
+        ['bass', 'mids', 'treble'].includes(connectFrom.handleId)
+
+      if (shouldFanOutAudio) {
+        for (const band of ['bass', 'mids', 'treble'] as const) {
+          if (!def.inputs.some((p) => p.id === band)) continue
+          onConnect({
+            source: connectFrom.nodeId,
+            sourceHandle: band,
+            target: id,
+            targetHandle: band,
+          })
+        }
+        onClose()
+        return
+      }
+
       const input = compatibleInput(def)
       if (input) {
         onConnect({

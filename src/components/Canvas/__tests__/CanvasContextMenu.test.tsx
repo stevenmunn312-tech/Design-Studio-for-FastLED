@@ -18,6 +18,18 @@ function seedSourceNode() {
   })
 }
 
+function seedFftSourceNode() {
+  const def = NODE_LIBRARY.find((n) => n.type === 'FFTAnalyzer')!
+  useGraphStore.setState({
+    nodes: [{
+      id: 'fft', type: 'studioNode', position: { x: 0, y: 0 },
+      data: { label: def.label, nodeType: 'FFTAnalyzer', category: def.category, properties: {}, inputs: def.inputs, outputs: def.outputs },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any],
+    edges: [],
+  })
+}
+
 describe('CanvasContextMenu — drag-to-empty picker', () => {
   beforeEach(() => seedSourceNode())
 
@@ -57,5 +69,26 @@ describe('CanvasContextMenu — drag-to-empty picker', () => {
     expect(wired).toBeTruthy()
     const firstFrameInput = target.inputs.find((p) => p.dataType === 'frame')!
     expect(wired!.targetHandle).toBe(firstFrameInput.id)
+  })
+
+  it('fans out FFT bass, mids, and treble together for Audio Flow', () => {
+    seedFftSourceNode()
+    const { getByText } = render(
+      <CanvasContextMenu
+        x={0} y={0} flowPosition={{ x: 100, y: 100 }}
+        connectFrom={{ nodeId: 'fft', handleId: 'bass', dataType: 'float' }}
+        onClose={() => {}}
+      />
+    )
+
+    fireEvent.click(getByText('Audio Flow'))
+
+    const { edges } = useGraphStore.getState()
+    expect(edges).toHaveLength(3)
+    expect(edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: 'fft', sourceHandle: 'bass', targetHandle: 'bass' }),
+      expect.objectContaining({ source: 'fft', sourceHandle: 'mids', targetHandle: 'mids' }),
+      expect.objectContaining({ source: 'fft', sourceHandle: 'treble', targetHandle: 'treble' }),
+    ]))
   })
 })
