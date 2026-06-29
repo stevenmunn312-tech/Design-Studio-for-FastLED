@@ -320,8 +320,13 @@ function evalBassPulse(bass: number, color: RGB, W = DEFAULT_W, H = DEFAULT_H): 
 function evalMidrangeWaves(mids: number, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   return Array.from({ length: H }, (_, y) =>
     Array.from({ length: W }, (_, x) => {
-      const wave = Math.sin(x * 0.8 + t * speed * 4) * Math.sin(y * 0.5 + t * speed * 2.5)
-      const v = (wave + 1) / 2 * (0.3 + mids * 0.7)
+      const midsAmt = Math.min(1, Math.max(0, mids))
+      const motion = speed * (1 + midsAmt * 1.5)
+      const contrast = 0.7 + midsAmt * 1.8
+      const waveBase = Math.sin(x * 0.8 + t * motion * 4) * Math.sin(y * 0.5 + t * motion * 2.5)
+      const wave = Math.max(-1, Math.min(1, waveBase * contrast))
+      const intensity = Math.min(1, 0.1 + Math.pow(Math.max(0, mids), 0.65) * 1.25)
+      const v = (wave + 1) / 2 * intensity
       const c = samplePalette(palette, (wave + 1) / 2)
       return {
         r: Math.round(c.r * v),
