@@ -509,6 +509,16 @@ describe('generateCpp', () => {
     expect(cpp).toContain('.nscale8((uint8_t)(_v * 255))')
   })
 
+  it('emits BassRings as a radial sine pattern with bass-scaled density and brightness', () => {
+    const br = node('br', 'BassRings', 'pattern', { bass: 0.6, speed: 1.25, r: 255, g: 120, b: 32 })
+    const cpp = generateCpp([br, outputNode], [edge('e', 'br', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('float _phase = t * (1.5f + _spd * 3.5f);')
+    expect(cpp).toContain('float _rings = 4.0f + _b * 8.0f;')
+    expect(cpp).toContain('sinf(_dist * _rings * 6.2831853f - _phase)')
+    expect(cpp).toContain('powf(max(0.0f, _wave * 0.5f + 0.5f), 2.4f)')
+    expect(cpp).toContain('CRGB(255, 120, 32)')
+  })
+
   it('emits Gabor noise with its Gaussian-cosine kernel and hash helper', () => {
     const g = node('g', 'GaborNoise', 'pattern', { speed: 0.5, scale: 0.35, frequency: 1.2, orientation: 45, palette: 'ocean' })
     const cpp = generateCpp([g, outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])

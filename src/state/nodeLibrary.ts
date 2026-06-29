@@ -280,6 +280,18 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { r: 255, g: 0, b: 80 },
   },
   {
+    type: 'BassRings',
+    label: 'Bass Rings',
+    category: 'pattern',
+    inputs: [
+      { id: 'bass', label: 'Bass', dataType: 'float' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'color', label: 'Color', dataType: 'color' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 1.0, r: 255, g: 120, b: 32 },
+  },
+  {
     type: 'MidrangeWaves',
     label: 'Midrange Waves',
     category: 'pattern',
@@ -1168,6 +1180,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Plasma: 'Animated plasma interference pattern.',
   SpectrumBars: 'Audio spectrum bars (bass/mids/treble).',
   BassPulse: 'Pulses a color with bass energy.',
+  BassRings: 'Concentric rings that swell and brighten with bass.',
   MidrangeWaves: 'Waves driven by midrange audio.',
   TrebleSparks: 'Glittering treble sparks with a tintable color input.',
   BeatFlash: 'Flashes the frame white on each beat.',

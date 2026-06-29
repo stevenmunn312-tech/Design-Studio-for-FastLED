@@ -343,6 +343,30 @@ function evalBassPulse(bass: number, color: RGB, W = DEFAULT_W, H = DEFAULT_H): 
   return solidFrame(lit, W, H)
 }
 
+function evalBassRings(bass: number, speed: number, color: RGB, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const level = Math.max(0, Math.min(1, bass))
+  const cx = W / 2
+  const cy = H / 2
+  const maxD = Math.max(1e-6, Math.hypot(cx, cy))
+  const phase = t * (1.5 + Math.max(0, speed) * 3.5)
+  const ringCount = 4 + level * 8
+  const floor = 0.05 + level * 0.12
+  const gain = 0.2 + level * 0.8
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const dist = Math.hypot(x - cx, y - cy) / maxD
+      const wave = Math.sin(dist * ringCount * Math.PI * 2 - phase)
+      const crisp = Math.pow(Math.max(0, wave * 0.5 + 0.5), 2.4)
+      const v = Math.min(1, floor + crisp * gain)
+      return {
+        r: Math.round(color.r * v),
+        g: Math.round(color.g * v),
+        b: Math.round(color.b * v),
+      }
+    })
+  )
+}
+
 function evalMidrangeWaves(mids: number, intensity: number, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   return Array.from({ length: H }, (_, y) =>
     Array.from({ length: W }, (_, x) => {
@@ -2134,6 +2158,15 @@ function createEvalNode(
         const colorIn = input(id, 'color', null) as RGB | null
         const color = colorIn ?? { r: Number(props.r ?? 255), g: Number(props.g ?? 0), b: Number(props.b ?? 80) }
         out = { frame: evalBassPulse(bass, color, W, H) }
+        break
+      }
+
+      case 'BassRings': {
+        const bass = num(id, 'bass', props, 'bass', 0.5)
+        const speed = num(id, 'speed', props, 'speed', 1)
+        const colorIn = input(id, 'color', null) as RGB | null
+        const color = colorIn ?? { r: Number(props.r ?? 255), g: Number(props.g ?? 120), b: Number(props.b ?? 32) }
+        out = { frame: evalBassRings(bass, speed, color, t, W, H) }
         break
       }
 

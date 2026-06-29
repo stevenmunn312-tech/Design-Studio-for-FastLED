@@ -58,6 +58,13 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('MidrangeWaves', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
+  it('BassRings exposes bass, speed, and tintable color inputs', () => {
+    const br = NODE_LIBRARY.find((n) => n.type === 'BassRings')
+    expect(br?.inputs.map((p) => p.id)).toEqual(['bass', 'speed', 'color'])
+    expect(br?.defaultProperties).toMatchObject({ speed: 1, r: 255, g: 120, b: 32 })
+    expect(propertyMeta('BassRings', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 5 })
+  })
+
   it('TrebleSparks exposes a color input with a cool-tinted fallback', () => {
     const ts = NODE_LIBRARY.find((n) => n.type === 'TrebleSparks')
     expect(ts?.inputs.map((p) => p.id)).toEqual(['treble', 'density', 'color'])

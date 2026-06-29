@@ -843,6 +843,37 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
+      case 'BassRings': {
+        needsT.v = true
+        const ob = ownBuf()
+        const bass = f('bass', 'bass', 0.5)
+        const speed = f('speed', 'speed', 1)
+        const colorE = incoming.get(`${node.id}:color`)
+          ? colorExpr(node.id, 'color')
+          : `CRGB(${Number(p.r ?? 255)}, ${Number(p.g ?? 120)}, ${Number(p.b ?? 32)})`
+        ln(`  {`)
+        ln(`    float _b = min(1.0f, max(0.0f, ${bass}));`)
+        ln(`    float _spd = max(0.0f, ${speed});`)
+        ln(`    float _cx = WIDTH * 0.5f, _cy = HEIGHT * 0.5f, _maxD = sqrtf(_cx * _cx + _cy * _cy);`)
+        ln(`    float _phase = t * (1.5f + _spd * 3.5f);`)
+        ln(`    float _rings = 4.0f + _b * 8.0f;`)
+        ln(`    float _floor = 0.05f + _b * 0.12f;`)
+        ln(`    float _gain = 0.2f + _b * 0.8f;`)
+        ln(`    CRGB _base = ${colorE};`)
+        ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
+        ln(`      float _dx = _x - _cx, _dy = _y - _cy;`)
+        ln(`      float _dist = sqrtf(_dx * _dx + _dy * _dy) / max(0.0001f, _maxD);`)
+        ln(`      float _wave = sinf(_dist * _rings * 6.2831853f - _phase);`)
+        ln(`      float _crisp = powf(max(0.0f, _wave * 0.5f + 0.5f), 2.4f);`)
+        ln(`      float _v = min(1.0f, _floor + _crisp * _gain);`)
+        ln(`      int _i = _y * WIDTH + _x;`)
+        ln(`      ${ob}[_i] = _base;`)
+        ln(`      ${ob}[_i].nscale8((uint8_t)(_v * 255));`)
+        ln(`    }`)
+        ln(`  }`)
+        break
+      }
+
       case 'MidrangeWaves': {
         needsT.v = true
         const ob = ownBuf()
