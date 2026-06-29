@@ -343,16 +343,17 @@ function evalBassPulse(bass: number, color: RGB, W = DEFAULT_W, H = DEFAULT_H): 
   return solidFrame(lit, W, H)
 }
 
-function evalMidrangeWaves(mids: number, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalMidrangeWaves(mids: number, intensity: number, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   return Array.from({ length: H }, (_, y) =>
     Array.from({ length: W }, (_, x) => {
       const midsAmt = Math.min(1, Math.max(0, mids))
-      const motion = speed * (1 + midsAmt * 1.5)
-      const contrast = 0.7 + midsAmt * 1.8
+      const strength = Math.min(1, Math.max(0, intensity))
+      const motion = speed * (1 + midsAmt * 1.5 * strength)
+      const contrast = 0.7 + midsAmt * 1.8 * strength
       const waveBase = Math.sin(x * 0.8 + t * motion * 4) * Math.sin(y * 0.5 + t * motion * 2.5)
       const wave = Math.max(-1, Math.min(1, waveBase * contrast))
-      const intensity = Math.min(1, 0.1 + Math.pow(Math.max(0, mids), 0.65) * 1.25)
-      const v = (wave + 1) / 2 * intensity
+      const waveIntensity = Math.min(1, 0.1 + Math.pow(midsAmt, 0.65) * 1.25 * strength)
+      const v = (wave + 1) / 2 * waveIntensity
       const c = samplePalette(palette, (wave + 1) / 2)
       return {
         r: Math.round(c.r * v),
@@ -2138,9 +2139,10 @@ function createEvalNode(
 
       case 'MidrangeWaves': {
         const mids = num(id, 'mids', props, 'mids', 0.5)
+        const intensity = num(id, 'intensity', props, 'intensity', 1)
         const speed = num(id, 'speed', props, 'speed', 1)
         const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
-        out = { frame: evalMidrangeWaves(mids, speed, t, palette, W, H) }
+        out = { frame: evalMidrangeWaves(mids, intensity, speed, t, palette, W, H) }
         break
       }
 

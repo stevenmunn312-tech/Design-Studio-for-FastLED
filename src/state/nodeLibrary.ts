@@ -285,11 +285,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'pattern',
     inputs: [
       { id: 'mids', label: 'Mids', dataType: 'float' },
+      { id: 'intensity', label: 'Intensity', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 1.0, palette: 'ocean' },
+    defaultProperties: { intensity: 1.0, speed: 1.0, palette: 'ocean' },
   },
   {
     type: 'TrebleSparks',
@@ -1394,6 +1395,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     scale: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   MidrangeWaves: {
+    intensity: { control: 'slider', min: 0, max: 2, step: 0.05 },
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   Particles:         { rate:  { control: 'slider', min: 0, max: 1,   step: 0.01 } },

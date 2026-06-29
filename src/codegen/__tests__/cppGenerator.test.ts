@@ -497,12 +497,14 @@ describe('generateCpp', () => {
     expect(cpp).toContain('* 0.200f')
   })
 
-  it('emits MidrangeWaves through a FastLED palette with normalized speed input support', () => {
-    const mw = node('mw', 'MidrangeWaves', 'pattern', { speed: 1, palette: 'ocean', mids: 0.5 })
+  it('emits MidrangeWaves through a FastLED palette with intensity-controlled reactivity', () => {
+    const mw = node('mw', 'MidrangeWaves', 'pattern', { intensity: 1.4, speed: 1, palette: 'ocean', mids: 0.5 })
     const cpp = generateCpp([mw, outputNode], [edge('e', 'mw', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _m =')
-    expect(cpp).toContain('float _motion = _spd * (1.0f + _mAmt * 1.5f);')
-    expect(cpp).toContain('float _contrast = 0.7f + _mAmt * 1.8f;')
+    expect(cpp).toContain('float _strength = min(1.0f, max(0.0f, _intensity));')
+    expect(cpp).toContain('float _motion = _spd * (1.0f + _mAmt * 1.5f * _strength);')
+    expect(cpp).toContain('float _contrast = 0.7f + _mAmt * 1.8f * _strength;')
+    expect(cpp).toContain('powf(_mAmt, 0.65f) * 1.25f * _strength')
     expect(cpp).toContain('ColorFromPalette(OceanColors_p')
     expect(cpp).toContain('.nscale8((uint8_t)(_v * 255))')
   })

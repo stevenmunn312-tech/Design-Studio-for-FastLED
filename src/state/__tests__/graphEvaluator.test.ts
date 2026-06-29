@@ -649,6 +649,16 @@ describe('evaluateGraph', () => {
     expect(brightnessAt(1)).toBeGreaterThan(brightnessAt(0))  // louder bass → brighter
   })
 
+  it('MidrangeWaves intensity scales the audio-reactive strength', () => {
+    const brightnessAt = (intensity: number) => {
+      const mw = node('mw', 'MidrangeWaves', 'pattern', { mids: 0.8, intensity, speed: 0.5, palette: 'ocean' })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      const f = evaluateGraph([mw, out], [edge('e', 'mw', 'frame', 'out', 'frame')], 30, 8, 8)!
+      return f.flat().reduce((a, px) => a + px.r + px.g + px.b, 0)
+    }
+    expect(brightnessAt(1.5)).toBeGreaterThan(brightnessAt(0.25))
+  })
+
   it('Blobs produces a varied field that moves over time', () => {
     const at = (tick: number) => {
       const b = node('b', 'Blobs', 'pattern', { speed: 0.6, scale: 0.25, count: 3, palette: 'lava' })
