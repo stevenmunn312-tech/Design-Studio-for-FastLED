@@ -24,27 +24,58 @@
   gap: 8px;
 }
 
-.micBtn {
-  background: none;
+.toggleBtn {
+  min-width: 72px;
+  height: 30px;
+  padding: 0 10px;
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-glow);
-  border-radius: 6px;
-  padding: 2px 6px;
-  font-size: 14px;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   cursor: pointer;
   line-height: 1;
-  transition: background var(--anim-hover), border-color var(--anim-hover);
+  transition:
+    background var(--anim-hover),
+    border-color var(--anim-hover),
+    box-shadow var(--anim-hover),
+    color var(--anim-hover);
 }
 
-.micBtn:hover {
-  background: rgba(255, 255, 255, 0.06);
+.toggleBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
 }
 
-.micActive {
-  border-color: var(--accent-audio);
-  box-shadow: 0 0 6px rgba(0, 255, 255, 0.3);
+.previewToggle {
+  border-color: color-mix(in srgb, var(--accent-output) 38%, var(--border-glow));
+}
+
+.micToggle {
+  border-color: color-mix(in srgb, var(--accent-audio) 38%, var(--border-glow));
+}
+
+.toggleActive {
+  color: #041317;
+  border-color: transparent;
+}
+
+.previewToggle.toggleActive {
+  background: linear-gradient(135deg, var(--accent-output), color-mix(in srgb, var(--accent-output) 62%, white));
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 14px color-mix(in srgb, var(--accent-output) 45%, transparent);
+}
+
+.micToggle.toggleActive {
+  background: linear-gradient(135deg, var(--accent-audio), color-mix(in srgb, var(--accent-audio) 55%, white));
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 14px color-mix(in srgb, var(--accent-audio) 45%, transparent);
 }
 
 .fps {
+  min-width: 56px;
+  text-align: right;
   font-size: var(--fs-caption);
   color: var(--text-secondary);
   font-family: var(--font-code);

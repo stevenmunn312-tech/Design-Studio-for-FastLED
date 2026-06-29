@@ -8,7 +8,7 @@ import { WebGLLEDRenderer } from './webglRenderer'
 import styles from './LEDPreview.module.css'
 
 const MAX_CANVAS_PX = 448
-const GLOW_RADIUS = 5
+const GLOW_RADIUS = 12
 const NUM_BARS = 16
 
 // Idle animation shown when no nodes are on the canvas
@@ -48,10 +48,12 @@ function renderFrame(ctx: CanvasRenderingContext2D, frame: Frame, pixel: number)
       const { r, g, b } = frame[y][x]
       const color = `rgb(${r},${g},${b})`
       const brightness = (r + g + b) / (3 * 255)
+      const inset = Math.max(1, Math.floor(pixel * 0.08))
+      const size = Math.max(1, pixel - inset * 2)
       ctx.fillStyle = color
       ctx.shadowColor = color
-      ctx.shadowBlur = GLOW_RADIUS * (0.3 + brightness * 1.2)
-      ctx.fillRect(x * pixel + 2, y * pixel + 2, pixel - 4, pixel - 4)
+      ctx.shadowBlur = GLOW_RADIUS * (0.45 + brightness * 1.9)
+      ctx.fillRect(x * pixel + inset, y * pixel + inset, size, size)
     }
   }
 }
@@ -201,18 +203,20 @@ export default function LEDPreview() {
         <span>LED Preview</span>
         <div className={styles.headerRight}>
           <button
-            className={`${styles.micBtn} ${preview3d ? styles.micActive : ''}`}
+            className={`${styles.toggleBtn} ${styles.previewToggle} ${preview3d ? styles.toggleActive : ''}`}
             onClick={togglePreview3d}
             title={preview3d ? 'Switch to 2D view' : 'Switch to 3D view (drag to orbit)'}
+            aria-pressed={preview3d}
           >
-            {preview3d ? '3D' : '2D'}
+            {preview3d ? '3D On' : '3D Off'}
           </button>
           <button
-            className={`${styles.micBtn} ${audioActive ? styles.micActive : ''}`}
+            className={`${styles.toggleBtn} ${styles.micToggle} ${audioActive ? styles.toggleActive : ''}`}
             onClick={toggleMic}
             title={audioActive ? 'Stop microphone' : 'Start microphone'}
+            aria-pressed={audioActive}
           >
-            {audioActive ? '🎙' : '🎤'}
+            {audioActive ? 'Mic On' : 'Mic Off'}
           </button>
           <span className={styles.fps}>{fps} fps</span>
         </div>

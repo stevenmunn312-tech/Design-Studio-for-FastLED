@@ -34,12 +34,13 @@ const FRAG = `
 
     // Circular LED disc (smooth edge)
     float r    = length(cf);
-    float core = smoothstep(0.47, 0.27, r);
+    float core = smoothstep(0.49, 0.18, r);
+    float halo = smoothstep(0.92, 0.24, r) * (1.0 - core * 0.55);
 
-    // Glow: 5×5 neighbourhood contribution
+    // Glow: 7×7 neighbourhood contribution
     vec3 glow = vec3(0.0);
-    for (int dy = -2; dy <= 2; dy++) {
-      for (int dx = -2; dx <= 2; dx++) {
+    for (int dy = -3; dy <= 3; dy++) {
+      for (int dx = -3; dx <= 3; dx++) {
         vec2 ni = ci + vec2(float(dx), float(dy));
         if (ni.x < 0.0 || ni.y < 0.0 || ni.x >= u_grid.x || ni.y >= u_grid.y) continue;
         vec3  nc  = texture2D(u_frame, (ni + 0.5) / u_grid).rgb;
@@ -47,13 +48,13 @@ const FRAG = `
         if (nb < 0.015) continue;
         vec2  dlt = cell - (ni + 0.5);
         float d2  = dot(dlt, dlt);
-        glow += nc * nb * exp(-d2 * 0.88);
+        glow += nc * (0.35 + nb * 1.1) * exp(-d2 * 0.48);
       }
     }
 
     vec3 col = vec3(0.04, 0.05, 0.07)
-             + glow * 0.17 * (1.0 - core * 0.65)
-             + led  * core;
+             + glow * (0.26 + halo * 0.18)
+             + led  * (core + halo * 0.22);
     gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
   }
 `
