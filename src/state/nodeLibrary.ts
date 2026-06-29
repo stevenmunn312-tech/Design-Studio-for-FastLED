@@ -297,6 +297,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'pattern',
     inputs: [
       { id: 'treble', label: 'Treble', dataType: 'float' },
+      { id: 'density', label: 'Density', dataType: 'float' },
       { id: 'color', label: 'Color', dataType: 'color' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],

@@ -59,7 +59,7 @@ describe('nodeLibrary', () => {
 
   it('TrebleSparks exposes a color input with a cool-tinted fallback', () => {
     const ts = NODE_LIBRARY.find((n) => n.type === 'TrebleSparks')
-    expect(ts?.inputs.map((p) => p.id)).toEqual(['treble', 'color'])
+    expect(ts?.inputs.map((p) => p.id)).toEqual(['treble', 'density', 'color'])
     expect(ts?.defaultProperties).toMatchObject({ density: 0.5, r: 180, g: 220, b: 255 })
   })
 })
