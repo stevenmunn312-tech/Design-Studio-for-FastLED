@@ -110,18 +110,164 @@
 }
 
 .visualizer {
+  position: relative;
+  height: 64px;
+  padding: 6px var(--space-2) 7px;
+  border-top: 1px solid var(--border-glow);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 110%, rgba(255, 0, 170, 0.22), transparent 38%),
+    linear-gradient(180deg, rgba(6, 10, 18, 0.9), rgba(4, 6, 10, 0.98));
+}
+
+.visualizerGlow {
+  position: absolute;
+  inset: auto 8% -18px;
+  height: 36px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(0, 229, 255, 0.24), rgba(136, 92, 255, 0.22), rgba(255, 0, 153, 0.24));
+  filter: blur(16px);
+  pointer-events: none;
+}
+
+.visualizerGrid {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px) 0 0 / 100% 12px,
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px) 0 0 / calc(100% / 14) 100%;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.3), black 24%, black);
+  pointer-events: none;
+}
+
+.visualizer::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -20%;
+  height: 18px;
+  background:
+    linear-gradient(180deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.06) 22%,
+      rgba(0, 255, 255, 0.2) 50%,
+      rgba(255, 0, 170, 0.12) 78%,
+      transparent 100%);
+  filter: blur(4px);
+  mix-blend-mode: screen;
+  opacity: 0.82;
+  pointer-events: none;
+  animation:
+    visualizerScan 3.4s cubic-bezier(0.32, 0.02, 0.2, 1) infinite,
+    visualizerFlicker 160ms steps(2, end) infinite;
+}
+
+.visualizer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0) 32%),
+    repeating-linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.028) 0,
+      rgba(255, 255, 255, 0.028) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  opacity: 0.42;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  animation: visualizerFlicker 220ms steps(3, end) infinite;
+}
+
+.spectrum {
+  position: relative;
+  z-index: 1;
+  height: 100%;
   display: flex;
   align-items: flex-end;
-  gap: 2px;
-  height: 48px;
-  padding: 4px var(--space-2);
-  border-top: 1px solid var(--border-glow);
-  background: rgba(0, 0, 0, 0.3);
+  gap: 3px;
+}
+
+.barWrap {
+  position: relative;
+  flex: 1 1 0;
+  height: 100%;
+  min-width: 2px;
+}
+
+.bar,
+.peak {
+  --bar-hue: 200;
 }
 
 .bar {
-  flex: 1;
-  border-radius: 2px 2px 0 0;
-  transition: height 0.05s ease-out;
-  min-height: 2px;
+  position: absolute;
+  inset: auto 0 0;
+  border-radius: 999px 999px 2px 2px;
+  min-height: 6px;
+  background:
+    linear-gradient(180deg,
+      hsl(var(--bar-hue) 100% 88%) 0%,
+      hsl(calc(var(--bar-hue) + 18) 100% 68%) 35%,
+      hsl(calc(var(--bar-hue) + 42) 100% 56%) 100%);
+  box-shadow:
+    0 0 10px hsl(var(--bar-hue) 100% 58% / 0.35),
+    0 0 22px hsl(calc(var(--bar-hue) + 20) 100% 55% / 0.22);
+  transition: height 70ms linear;
+}
+
+.peak {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  height: 3px;
+  border-radius: 999px;
+  background: hsl(calc(var(--bar-hue) + 12) 100% 92%);
+  box-shadow:
+    0 0 8px hsl(calc(var(--bar-hue) + 8) 100% 70% / 0.9),
+    0 0 14px hsl(calc(var(--bar-hue) + 24) 100% 60% / 0.35);
+  transition: bottom 110ms linear;
+}
+
+@keyframes visualizerScan {
+  0% {
+    transform: translateY(0) scaleY(0.92);
+  }
+  55% {
+    transform: translateY(44px) scaleY(1.04);
+  }
+  100% {
+    transform: translateY(84px) scaleY(0.94);
+  }
+}
+
+@keyframes visualizerFlicker {
+  0% {
+    opacity: 0.34;
+  }
+  25% {
+    opacity: 0.46;
+  }
+  50% {
+    opacity: 0.28;
+  }
+  75% {
+    opacity: 0.42;
+  }
+  100% {
+    opacity: 0.36;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar,
+  .peak,
+  .visualizer::before,
+  .visualizer::after {
+    transition: none;
+    animation: none;
+  }
 }
