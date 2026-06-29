@@ -343,15 +343,17 @@ function evalBassPulse(bass: number, color: RGB, W = DEFAULT_W, H = DEFAULT_H): 
   return solidFrame(lit, W, H)
 }
 
-function evalBassRings(bass: number, speed: number, color: RGB, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalBassRings(bass: number, intensity: number, speed: number, color: RGB, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const level = Math.max(0, Math.min(1, bass))
+  const strength = Math.max(0, Math.min(1, intensity))
   const cx = W / 2
   const cy = H / 2
   const maxD = Math.max(1e-6, Math.hypot(cx, cy))
-  const phase = t * (1.5 + Math.max(0, speed) * 3.5)
-  const ringCount = 4 + level * 8
-  const floor = 0.05 + level * 0.12
-  const gain = 0.2 + level * 0.8
+  const motion = Math.max(0, speed) * (0.75 + level * 1.75 * strength)
+  const phase = t * (1.2 + motion * 4.8)
+  const ringCount = 4 + level * 8 * strength
+  const floor = 0.04 + level * 0.1 * strength
+  const gain = 0.16 + level * 0.84 * strength
   return Array.from({ length: H }, (_, y) =>
     Array.from({ length: W }, (_, x) => {
       const dist = Math.hypot(x - cx, y - cy) / maxD
@@ -2163,10 +2165,11 @@ function createEvalNode(
 
       case 'BassRings': {
         const bass = num(id, 'bass', props, 'bass', 0.5)
+        const intensity = num(id, 'intensity', props, 'intensity', 1)
         const speed = num(id, 'speed', props, 'speed', 1)
         const colorIn = input(id, 'color', null) as RGB | null
         const color = colorIn ?? { r: Number(props.r ?? 255), g: Number(props.g ?? 120), b: Number(props.b ?? 32) }
-        out = { frame: evalBassRings(bass, speed, color, t, W, H) }
+        out = { frame: evalBassRings(bass, intensity, speed, color, t, W, H) }
         break
       }
 

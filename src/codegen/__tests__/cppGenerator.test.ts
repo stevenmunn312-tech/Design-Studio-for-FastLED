@@ -510,10 +510,12 @@ describe('generateCpp', () => {
   })
 
   it('emits BassRings as a radial sine pattern with bass-scaled density and brightness', () => {
-    const br = node('br', 'BassRings', 'pattern', { bass: 0.6, speed: 1.25, r: 255, g: 120, b: 32 })
+    const br = node('br', 'BassRings', 'pattern', { bass: 0.6, intensity: 0.75, speed: 1.25, r: 255, g: 120, b: 32 })
     const cpp = generateCpp([br, outputNode], [edge('e', 'br', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('float _phase = t * (1.5f + _spd * 3.5f);')
-    expect(cpp).toContain('float _rings = 4.0f + _b * 8.0f;')
+    expect(cpp).toContain('float _strength = min(1.0f, max(0.0f,')
+    expect(cpp).toContain('float _spd = min(1.0f, max(0.0f,')
+    expect(cpp).toContain('float _motion = _spd * (0.75f + _b * 1.75f * _strength);')
+    expect(cpp).toContain('float _rings = 4.0f + _b * 8.0f * _strength;')
     expect(cpp).toContain('sinf(_dist * _rings * 6.2831853f - _phase)')
     expect(cpp).toContain('powf(max(0.0f, _wave * 0.5f + 0.5f), 2.4f)')
     expect(cpp).toContain('CRGB(255, 120, 32)')

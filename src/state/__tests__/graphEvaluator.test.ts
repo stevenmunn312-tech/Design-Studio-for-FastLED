@@ -659,17 +659,17 @@ describe('evaluateGraph', () => {
     expect(brightnessAt(1.5)).toBeGreaterThan(brightnessAt(0.25))
   })
 
-  it('BassRings brightens and animates with bass-driven concentric waves', () => {
-    const render = (bass: number, tick: number) => {
-      const br = node('br', 'BassRings', 'pattern', { bass, speed: 1, r: 255, g: 120, b: 32 })
+  it('BassRings intensity scales the bass-driven concentric waves', () => {
+    const render = (intensity: number, bass: number, tick: number) => {
+      const br = node('br', 'BassRings', 'pattern', { bass, intensity, speed: 1, r: 255, g: 120, b: 32 })
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph([br, out], [edge('e', 'br', 'frame', 'out', 'frame')], tick, 8, 8)!
     }
-    const dim = render(0.1, 0)
-    const loud = render(1, 0)
+    const subtle = render(0.2, 1, 0)
+    const strong = render(1, 1, 0)
     const total = (f: ReturnType<typeof render>) => f.flat().reduce((a, px) => a + px.r + px.g + px.b, 0)
-    expect(total(loud)).toBeGreaterThan(total(dim))
-    expect(JSON.stringify(render(1, 120))).not.toEqual(JSON.stringify(loud))
+    expect(total(strong)).toBeGreaterThan(total(subtle))
+    expect(JSON.stringify(render(1, 1, 120))).not.toEqual(JSON.stringify(strong))
   })
 
   it('Blobs produces a varied field that moves over time', () => {

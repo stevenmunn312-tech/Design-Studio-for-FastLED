@@ -285,11 +285,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'pattern',
     inputs: [
       { id: 'bass', label: 'Bass', dataType: 'float' },
+      { id: 'intensity', label: 'Intensity', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'color', label: 'Color', dataType: 'color' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 1.0, r: 255, g: 120, b: 32 },
+    defaultProperties: { intensity: 1.0, speed: 1.0, r: 255, g: 120, b: 32 },
   },
   {
     type: 'MidrangeWaves',
@@ -1408,6 +1409,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     scale: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   MidrangeWaves: {
+    intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
+    speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
+  },
+  BassRings: {
     intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
