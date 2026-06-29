@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useUiStore } from './state/uiStore'
 import { useGraphStore } from './state/graphStore'
 import { useAudioStore } from './state/audioStore'
+import { AudioEngine } from './audio/audioEngine'
 import type { StudioNode, StudioEdge, WorkspaceExtras } from './state/graphStore'
 import MenuBar from './components/MenuBar/MenuBar'
 import Sidebar from './components/Sidebar/Sidebar'
@@ -107,13 +108,29 @@ export default function App() {
 
   // Auto-start audio when a MicInput node is on the canvas; stop when removed
   useEffect(() => {
+    const engine = AudioEngine.instance
     let hasMic = false
-    const unsub = useGraphStore.subscribe((state) => {
-      const nowHas = state.nodes.some(n => (n.data as { nodeType?: string }).nodeType === 'MicInput')
+    const sync = (state = useGraphStore.getState()) => {
+      const mic = state.nodes.find((n) => (n.data as { nodeType?: string }).nodeType === 'MicInput')
+      if (mic) {
+        const props = mic.data.properties as Record<string, unknown>
+        engine.configureMic({
+          gain: Number(props.gain ?? 1),
+          threshold: Number(props.threshold ?? 0.08),
+          attack: Number(props.attack ?? 0.2),
+          decay: Number(props.decay ?? 0.05),
+        })
+      }
+      const nowHas = !!mic
       if (nowHas && !hasMic) { hasMic = true; startAudio().catch(() => {}) }
       if (!nowHas && hasMic) { hasMic = false; stopAudio() }
-    })
-    return unsub
+    }
+    sync()
+    const unsub = useGraphStore.subscribe(sync)
+    return () => {
+      unsub()
+      if (hasMic) stopAudio()
+    }
   }, [startAudio, stopAudio])
 
   useEffect(() => {

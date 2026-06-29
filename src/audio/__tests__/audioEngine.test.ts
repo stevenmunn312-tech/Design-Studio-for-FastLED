@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { averageFrequencyBand, logarithmicSpectrum } from '../audioEngine'
+import { averageFrequencyBand, logarithmicSpectrum, applyNoiseGate } from '../audioEngine'
 
 describe('audioEngine FFT helpers', () => {
   it('selects bands using the actual sample rate', () => {
@@ -17,5 +17,12 @@ describe('audioEngine FFT helpers', () => {
     expect(spectrum).toHaveLength(24)
     expect(Math.max(...spectrum.slice(0, 8))).toBeGreaterThan(0)
     expect(Math.max(...spectrum.slice(16))).toBe(0)
+  })
+
+  it('suppresses values at or below the ambient floor', () => {
+    const quiet = applyNoiseGate(0.05, { floor: 0.04, level: 0 }, { threshold: 0.08, attack: 0.2, decay: 0.05 })
+    const loud = applyNoiseGate(0.5, { floor: 0.04, level: 0.4 }, { threshold: 0.08, attack: 0.2, decay: 0.05 })
+    expect(quiet.level).toBe(0)
+    expect(loud.level).toBeGreaterThan(0.4)
   })
 })

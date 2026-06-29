@@ -2,6 +2,11 @@ const FFT_SIZE = 512
 const SMOOTHING = 0.75
 export const NUM_SPECTRUM_BARS = 32
 
+const DEFAULT_MIC_GAIN = 1
+const DEFAULT_NOISE_THRESHOLD = 0.08
+const DEFAULT_NOISE_ATTACK = 0.2
+const DEFAULT_NOISE_DECAY = 0.05
+
 const MIN_SPECTRUM_HZ = 30
 const MAX_SPECTRUM_HZ = 12_000
 
@@ -15,6 +20,42 @@ export interface AudioData {
   treble: number
   beat: boolean
   spectrum: number[]  // logarithmically spaced values, low → high
+}
+
+export interface MicNoiseGateConfig {
+  gain: number
+  threshold: number
+  attack: number
+  decay: number
+}
+
+interface NoiseGateState {
+  floor: number
+  level: number
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value))
+}
+
+const DEFAULT_GATE_STATE = (): NoiseGateState => ({ floor: 0.02, level: 0 })
+
+/**
+ * Adaptive gate that tracks ambient noise, then only passes signal above the
+ * floor + threshold. Attack/decay smooth the output to avoid chatter.
+ */
+export function applyNoiseGate(
+  raw: number,
+  prev: NoiseGateState,
+  config: Pick<MicNoiseGateConfig, 'threshold' | 'attack' | 'decay'>,
+): NoiseGateState {
+  const floorTrack = raw > prev.floor ? 0.0025 : 0.03
+  const floor = clamp01(prev.floor + (raw - prev.floor) * floorTrack)
+  const gate = clamp01(floor + clamp01(config.threshold))
+  const target = raw > gate ? clamp01((raw - gate) / Math.max(1e-6, 1 - gate)) : 0
+  const follow = target > prev.level ? clamp01(config.attack) : clamp01(config.decay)
+  const level = clamp01(prev.level + (target - prev.level) * follow)
+  return { floor, level }
 }
 
 /** Average normalised FFT magnitude inside a frequency range. */
@@ -66,9 +107,30 @@ export class AudioEngine {
   private listeners = new Set<(data: AudioData) => void>()
   private rafId = 0
   private bassHistory: number[] = []
+  private gateState = {
+    bass: DEFAULT_GATE_STATE(),
+    mids: DEFAULT_GATE_STATE(),
+    treble: DEFAULT_GATE_STATE(),
+    spectrum: Array.from({ length: NUM_SPECTRUM_BARS }, () => DEFAULT_GATE_STATE()),
+  }
+  private micConfig: MicNoiseGateConfig = {
+    gain: DEFAULT_MIC_GAIN,
+    threshold: DEFAULT_NOISE_THRESHOLD,
+    attack: DEFAULT_NOISE_ATTACK,
+    decay: DEFAULT_NOISE_DECAY,
+  }
   private lastBeatMs = 0
 
   active = false
+
+  configureMic(config: Partial<MicNoiseGateConfig>): void {
+    this.micConfig = {
+      gain: Number.isFinite(config.gain ?? NaN) ? Math.max(0, Number(config.gain)) : this.micConfig.gain,
+      threshold: Number.isFinite(config.threshold ?? NaN) ? clamp01(Number(config.threshold)) : this.micConfig.threshold,
+      attack: Number.isFinite(config.attack ?? NaN) ? clamp01(Number(config.attack)) : this.micConfig.attack,
+      decay: Number.isFinite(config.decay ?? NaN) ? clamp01(Number(config.decay)) : this.micConfig.decay,
+    }
+  }
 
   async start(): Promise<void> {
     if (this.active) return
@@ -91,6 +153,12 @@ export class AudioEngine {
     this.stream?.getTracks().forEach(t => t.stop())
     this.ctx?.close()
     this.ctx = null; this.analyser = null; this.source = null; this.stream = null; this.buf = null
+    this.gateState = {
+      bass: DEFAULT_GATE_STATE(),
+      mids: DEFAULT_GATE_STATE(),
+      treble: DEFAULT_GATE_STATE(),
+      spectrum: Array.from({ length: NUM_SPECTRUM_BARS }, () => DEFAULT_GATE_STATE()),
+    }
     this.bassHistory = []; this.lastBeatMs = 0
     this.active = false
     this.emit({ bass: 0, mids: 0, treble: 0, beat: false, spectrum: Array(NUM_SPECTRUM_BARS).fill(0) })
@@ -112,13 +180,26 @@ export class AudioEngine {
     const treble = this.band(2000, 8000, sampleRate)
     const beat   = this.detectBeat(bass)
     const spectrum = logarithmicSpectrum(this.buf, sampleRate, FFT_SIZE)
+      .map((value, i) => this.gateSpectrum(value, i))
 
     this.emit({ bass, mids, treble, beat, spectrum })
   }
 
   private band(fromHz: number, toHz: number, sampleRate: number): number {
     if (!this.buf) return 0
-    return averageFrequencyBand(this.buf, sampleRate, FFT_SIZE, fromHz, toHz)
+    const gain = this.micConfig.gain
+    const raw = averageFrequencyBand(this.buf, sampleRate, FFT_SIZE, fromHz, toHz) * gain
+    const key = fromHz < 250 ? 'bass' : toHz <= 2000 ? 'mids' : 'treble'
+    const gated = applyNoiseGate(raw, this.gateState[key], this.micConfig)
+    this.gateState[key] = gated
+    return gated.level
+  }
+
+  private gateSpectrum(raw: number, index: number): number {
+    const gain = this.micConfig.gain
+    const gated = applyNoiseGate(raw * gain, this.gateState.spectrum[index], this.micConfig)
+    this.gateState.spectrum[index] = gated
+    return gated.level
   }
 
   private detectBeat(bass: number): boolean {

@@ -865,6 +865,9 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('#define MIC_WS   39')
     expect(cpp).toContain('#define MIC_SCK  40')
     expect(cpp).toContain('#define MIC_SD   41')
+    expect(cpp).toContain('#define MIC_GAIN')
+    expect(cpp).toContain('#define MIC_NOISE_THRESHOLD')
+    expect(cpp).toContain('float _audioNoiseGate(')
     expect(cpp).toContain('void _audioFFT(')
     expect(cpp).toContain('void setupAudio()')
     expect(cpp).toContain('void updateAudio()')
@@ -876,7 +879,7 @@ describe('generateCpp — INMP441 audio engine', () => {
 
   it('FFTAnalyzer resolves to the live band globals when a mic is present', () => {
     const cpp = micGraph()
-    expect(cpp).toContain('= _audioBass')
+    expect(cpp).toContain('n_fft_bass_target = constrain(_audioBass * 1.000f')
     expect(cpp).toContain('_audioMids')
     expect(cpp).toContain('_audioTreble')
     expect(cpp).not.toContain('float n_fft_bass = 0.5f')

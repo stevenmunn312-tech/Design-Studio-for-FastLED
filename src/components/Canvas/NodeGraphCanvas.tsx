@@ -81,10 +81,6 @@ function NodeGraphCanvasInner() {
   // Tracks whether a dragged noodle end landed on a valid port; if not (dropped
   // on empty space) we treat it as an unplug and delete the edge.
   const reconnectLanded = useRef(true)
-  // Set when a drag starts on an already-connected input port: we detach the
-  // existing noodle so the gesture unplugs (drop on empty) or re-routes (drop
-  // on a compatible output) instead of starting an unrelated new connection.
-  const detaching = useRef(false)
   // Origin of an in-progress connection dragged from an output port; used to
   // offer a type-filtered "add node" picker when the noodle is dropped on
   // empty space, then auto-wire the new node to this output.
@@ -162,11 +158,11 @@ function NodeGraphCanvasInner() {
   // After a node is dragged, tidy any connections it left too cramped.
   const onNodeDragStop = useCallback(() => spreadNodes(), [spreadNodes])
 
-  // Grabbing a connected input dot: detach its noodle up-front so the drag
-  // becomes an unplug/re-route rather than a fresh (dead-end) connection.
+  // Grabbing a connected input dot: let the noodle stay visible while it is
+  // being reconnected. If the drag ends on empty space we delete it; if it
+  // lands on a compatible port, React Flow re-routes it.
   const onConnectStart: OnConnectStart = useCallback(
     (_e, params) => {
-      detaching.current = false
       connectFrom.current = null
       // Dragging out of an output port: remember its type so an empty-space
       // drop can offer a compatible-node picker.
@@ -177,27 +173,12 @@ function NodeGraphCanvasInner() {
         if (out) connectFrom.current = { nodeId: params.nodeId, handleId: out.id, dataType: out.dataType }
         return
       }
-      if (params.handleType !== 'target' || !params.nodeId) return
-      const existing = edges.find(
-        (ed) => ed.target === params.nodeId && (ed.targetHandle ?? null) === (params.handleId ?? null)
-      )
-      if (existing) {
-        detaching.current = true
-        removeEdge(existing.id)
-      }
     },
-    [edges, removeEdge, getNode]
+    [getNode]
   )
 
   const onConnectEnd: OnConnectEnd = useCallback(
     (event, state) => {
-      if (detaching.current) {
-        // Detached noodle: a valid drop re-routed it (handleConnect ran),
-        // otherwise it was dropped on empty space and stays unplugged.
-        setStatus(state?.isValid ? 'Noodle re-routed' : 'Noodle unplugged', 'info')
-        detaching.current = false
-        return
-      }
       const origin = connectFrom.current
       connectFrom.current = null
       // Dropped a noodle from an output onto empty canvas (no end handle):
