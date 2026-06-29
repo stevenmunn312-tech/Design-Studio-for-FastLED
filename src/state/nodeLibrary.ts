@@ -8,11 +8,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'input',
     inputs: [],
     outputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
-    // gain/threshold/attack/decay drive the browser preview's adaptive noise
-    // gate; the i2s* pins + channel drive the generated firmware's INMP441
-    // I2S reader (ESP32). Defaults match a common ESP32-S3 wiring.
+    // gain/agc/threshold/attack/decay drive the browser preview's adaptive
+    // noise gate; the i2s* pins + channel drive the generated firmware's
+    // INMP441 I2S reader (ESP32). Defaults match a common ESP32-S3 wiring.
     defaultProperties: {
       gain: 1.0,
+      agc: false,
       threshold: 0.08,
       attack: 0.2,
       decay: 0.05,
@@ -1107,7 +1108,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   // audio
   FFTAnalyzer: 'Splits mic audio into bass / mids / treble levels.',
   BeatDetect: 'Emits a beat pulse and estimated BPM from audio.',
-  MicInput: 'Microphone — adaptive preview gate + on-device INMP441 I2S for firmware.',
+  MicInput: 'Microphone — optional AGC, preview gate, and INMP441 I2S firmware.',
   AudioHue: 'Maps bass/mids/treble to a hue value.',
   // hardware
   ButtonInput: 'Reads a hardware button as a boolean.',

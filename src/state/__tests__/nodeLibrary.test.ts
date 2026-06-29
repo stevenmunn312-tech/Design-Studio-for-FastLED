@@ -32,6 +32,16 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('BeatDetect', 'decay')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
+  it('MicInput defaults keep AGC off until the user opts in', () => {
+    expect(NODE_LIBRARY.find((n) => n.type === 'MicInput')?.defaultProperties).toMatchObject({
+      gain: 1,
+      agc: false,
+      threshold: 0.08,
+      attack: 0.2,
+      decay: 0.05,
+    })
+  })
+
   it('AudioFlow exposes speed/scale as normalized animatable inputs', () => {
     const af = NODE_LIBRARY.find((n) => n.type === 'AudioFlow')
     expect(af?.inputs.map((p) => p.id)).toEqual(['bass', 'mids', 'treble', 'speed', 'scale', 'paletteIn'])

@@ -868,6 +868,7 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('#define MIC_SCK  40')
     expect(cpp).toContain('#define MIC_SD   41')
     expect(cpp).toContain('#define MIC_GAIN')
+    expect(cpp).toContain('#define MIC_AGC   0')
     expect(cpp).toContain('#define MIC_NOISE_THRESHOLD')
     expect(cpp).toContain('float _audioNoiseGate(')
     expect(cpp).toContain('void _audioFFT(')
@@ -877,6 +878,15 @@ describe('generateCpp — INMP441 audio engine', () => {
     // wired into the lifecycle
     expect(cpp).toContain('setupAudio();')
     expect(cpp).toContain('updateAudio();')
+  })
+
+  it('enables on-device AGC when the MicInput checkbox is set', () => {
+    const mic = node('mic', 'MicInput', 'input', { agc: true })
+    const fft = node('fft', 'FFTAnalyzer', 'audio', {})
+    const cpp = generateCpp([mic, fft, out], [edge('e1', 'mic', 'fft', 'audio', 'audio')])
+    expect(cpp).toContain('#define MIC_AGC   1')
+    expect(cpp).toContain('if (MIC_AGC) {')
+    expect(cpp).toContain('float agcGain = MIC_GAIN * (MIC_AGC ? (1.0f / mx) : 1.0f);')
   })
 
   it('FFTAnalyzer resolves to the live band globals when a mic is present', () => {

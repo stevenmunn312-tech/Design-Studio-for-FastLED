@@ -76,6 +76,26 @@ describe('StudioNode', () => {
     expect(useGraphStore.getState().nodes[0].data.properties.speed).toBe(2.5)
   })
 
+  it('renders a checkbox for MicInput AGC and updates the property', () => {
+    const { container } = renderNode(makeNode('MicInput', {
+      gain: 1,
+      agc: false,
+      threshold: 0.08,
+      attack: 0.2,
+      decay: 0.05,
+      sampleRate: 44100,
+      i2sWs: 39,
+      i2sSck: 40,
+      i2sSd: 41,
+      channel: 'Left',
+    }))
+    const check = container.querySelector('input[type="checkbox"]') as HTMLInputElement
+    expect(check).toBeTruthy()
+    expect(check.checked).toBe(false)
+    fireEvent.click(check)
+    expect(useGraphStore.getState().nodes[0].data.properties.agc).toBe(true)
+  })
+
   it('centres connection handles on their port rows', () => {
     const { container } = renderNode(makeNode('AudioFlow', { speed: 0.5, scale: 0.5, palette: 'party' }))
     const bass = container.querySelector('[data-handle="target:bass"]') as HTMLElement

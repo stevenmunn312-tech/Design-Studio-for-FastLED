@@ -145,16 +145,17 @@ function topoSort(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
 
 // On-device audio engine for an INMP441 MEMS mic on ESP32: a legacy-driver I2S
 // reader + a self-contained radix-2 FFT (no external library) that updates
-// global _audioBass/_audioMids/_audioTreble (0–1, smoothed + auto-gained with
+// global _audioBass/_audioMids/_audioTreble (0–1, smoothed, optional AGC, and
 // an adaptive noise gate) and a _audioBeat flag once per frame.
 // NOTE: ESP32-only; not yet hardware-validated — see docs.
-function audioEngineCpp(ws: number, sck: number, sd: number, chFmt: string, gain: number, threshold: number, attack: number, decay: number): string[] {
+function audioEngineCpp(ws: number, sck: number, sd: number, chFmt: string, gain: number, agc: boolean, threshold: number, attack: number, decay: number): string[] {
   return [
     '// ── INMP441 I2S microphone + FFT (on-device audio reactivity) ───────────────',
     `#define MIC_WS   ${ws}`,
     `#define MIC_SCK  ${sck}`,
     `#define MIC_SD   ${sd}`,
     `#define MIC_GAIN  ${gain.toFixed(3)}f`,
+    `#define MIC_AGC   ${agc ? 1 : 0}`,
     `#define MIC_NOISE_THRESHOLD ${threshold.toFixed(3)}f`,
     `#define MIC_NOISE_ATTACK     ${attack.toFixed(3)}f`,
     `#define MIC_NOISE_DECAY      ${decay.toFixed(3)}f`,
@@ -247,11 +248,16 @@ function audioEngineCpp(ws: number, sck: number, sd: number, chFmt: string, gain
     '  if (nb) bass /= nb; if (nm) mids /= nm; if (nt) treble /= nt;',
     '  static float mx = 0.0001f;                  // slow auto-gain (running peak)',
     '  float peak = max(bass, max(mids, treble));',
-    '  mx = (peak > mx) ? peak : (mx * 0.999f + peak * 0.001f);',
-    '  if (mx < 0.0001f) mx = 0.0001f;',
-    '  _audioBass   = _audioNoiseGate(constrain(bass   / mx, 0.0f, 1.0f) * MIC_GAIN, _bassFloor, _bassSmooth);',
-    '  _audioMids   = _audioNoiseGate(constrain(mids   / mx, 0.0f, 1.0f) * MIC_GAIN, _midsFloor, _midsSmooth);',
-    '  _audioTreble = _audioNoiseGate(constrain(treble / mx, 0.0f, 1.0f) * MIC_GAIN, _trebleFloor, _trebleSmooth);',
+    '  if (MIC_AGC) {',
+    '    mx = (peak > mx) ? peak : (mx * 0.999f + peak * 0.001f);',
+    '    if (mx < 0.0001f) mx = 0.0001f;',
+    '  } else {',
+    '    mx = 1.0f;',
+    '  }',
+    '  float agcGain = MIC_GAIN * (MIC_AGC ? (1.0f / mx) : 1.0f);',
+    '  _audioBass   = _audioNoiseGate(constrain(bass   * agcGain, 0.0f, 1.0f), _bassFloor, _bassSmooth);',
+    '  _audioMids   = _audioNoiseGate(constrain(mids   * agcGain, 0.0f, 1.0f), _midsFloor, _midsSmooth);',
+    '  _audioTreble = _audioNoiseGate(constrain(treble * agcGain, 0.0f, 1.0f), _trebleFloor, _trebleSmooth);',
     '  float spectrum[32];',
     '  for (int band = 0; band < 32; band++) {',
     '    float t0 = (float)band / 32.0f;',
@@ -264,7 +270,7 @@ function audioEngineCpp(ws: number, sck: number, sd: number, chFmt: string, gain
     '    int count = 0;',
     '    for (int i = startBin; i <= endBin; i++) {',
     '      float mag = sqrtf(_aRe[i] * _aRe[i] + _aIm[i] * _aIm[i]);',
-    '      acc += constrain(mag / mx, 0.0f, 1.0f);',
+      '      acc += constrain(mag * agcGain, 0.0f, 1.0f);',
     '      count++;',
     '    }',
     '    spectrum[band] = count > 0 ? constrain(acc / count, 0.0f, 1.0f) : 0.0f;',
@@ -361,6 +367,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
   const micSd  = intProp(micNode ? props(micNode).i2sSd  : undefined, 41, 0, 48)
   const micChannel = String(micNode ? props(micNode).channel ?? 'Left' : 'Left')
   const micGain = floatProp(micNode ? props(micNode).gain : undefined, 1, 0, 4)
+  const micAgc = Boolean(micNode ? props(micNode).agc : false)
   const micThreshold = floatProp(micNode ? props(micNode).threshold : undefined, 0.08, 0, 1)
   const micAttack = floatProp(micNode ? props(micNode).attack : undefined, 0.2, 0, 1)
   const micDecay = floatProp(micNode ? props(micNode).decay : undefined, 0.05, 0, 1)
@@ -595,7 +602,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
 
       case 'MicInput':
         ln(`  // MicInput — INMP441 I2S audio is read once per frame by updateAudio()`)
-        ln(`  // The source gain + adaptive noise gate come from the MicInput sliders.`)
+        ln(`  // The source gain, AGC toggle, and adaptive noise gate come from the MicInput sliders.`)
         break
 
       case 'ButtonInput':
@@ -1831,7 +1838,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
 
   if (hasMic) {
     const chFmt = micChannel === 'Right' ? 'I2S_CHANNEL_FMT_ONLY_RIGHT' : 'I2S_CHANNEL_FMT_ONLY_LEFT'
-    lines.push(...audioEngineCpp(micWs, micSck, micSd, chFmt, micGain, micThreshold, micAttack, micDecay))
+    lines.push(...audioEngineCpp(micWs, micSck, micSd, chFmt, micGain, micAgc, micThreshold, micAttack, micDecay))
     lines.push(``)
   }
 

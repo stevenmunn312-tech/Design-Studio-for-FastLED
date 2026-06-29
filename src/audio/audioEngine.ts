@@ -24,6 +24,7 @@ export interface AudioData {
 
 export interface MicNoiseGateConfig {
   gain: number
+  agc: boolean
   threshold: number
   attack: number
   decay: number
@@ -113,8 +114,10 @@ export class AudioEngine {
     spectrum: Array.from({ length: NUM_SPECTRUM_BARS }, () => DEFAULT_GATE_STATE()),
   }
   private beatState = createBeatDetectorState()
+  private agcPeak = 0.0001
   private micConfig: MicNoiseGateConfig = {
     gain: DEFAULT_MIC_GAIN,
+    agc: false,
     threshold: DEFAULT_NOISE_THRESHOLD,
     attack: DEFAULT_NOISE_ATTACK,
     decay: DEFAULT_NOISE_DECAY,
@@ -125,6 +128,7 @@ export class AudioEngine {
   configureMic(config: Partial<MicNoiseGateConfig>): void {
     this.micConfig = {
       gain: Number.isFinite(config.gain ?? NaN) ? Math.max(0, Number(config.gain)) : this.micConfig.gain,
+      agc: typeof config.agc === 'boolean' ? config.agc : this.micConfig.agc,
       threshold: Number.isFinite(config.threshold ?? NaN) ? clamp01(Number(config.threshold)) : this.micConfig.threshold,
       attack: Number.isFinite(config.attack ?? NaN) ? clamp01(Number(config.attack)) : this.micConfig.attack,
       decay: Number.isFinite(config.decay ?? NaN) ? clamp01(Number(config.decay)) : this.micConfig.decay,
@@ -159,6 +163,7 @@ export class AudioEngine {
       spectrum: Array.from({ length: NUM_SPECTRUM_BARS }, () => DEFAULT_GATE_STATE()),
     }
     this.beatState = createBeatDetectorState()
+    this.agcPeak = 0.0001
     this.active = false
     this.emit({
       bass: 0,
@@ -182,11 +187,25 @@ export class AudioEngine {
     this.analyser.getByteFrequencyData(this.buf)
 
     const sampleRate = this.ctx?.sampleRate ?? 48_000
-    const bass   = this.band(30, 250, sampleRate)
-    const mids   = this.band(250, 2000, sampleRate)
-    const treble = this.band(2000, 8000, sampleRate)
-    const rawSpectrum = logarithmicSpectrum(this.buf, sampleRate, FFT_SIZE)
-      .map((value) => clamp01(value * this.micConfig.gain))
+    const bassRaw = this.bandRaw(30, 250, sampleRate)
+    const midsRaw = this.bandRaw(250, 2000, sampleRate)
+    const trebleRaw = this.bandRaw(2000, 8000, sampleRate)
+    const rawSpectrumValues = logarithmicSpectrum(this.buf, sampleRate, FFT_SIZE)
+    const peak = Math.max(
+      bassRaw,
+      midsRaw,
+      trebleRaw,
+      ...rawSpectrumValues,
+      0.0001,
+    )
+    this.agcPeak = this.micConfig.agc
+      ? Math.max(peak, this.agcPeak * 0.999)
+      : 0.0001
+    const scale = this.micConfig.agc ? this.micConfig.gain / Math.max(this.agcPeak, 0.0001) : this.micConfig.gain
+    const bass = this.band(30, 250, bassRaw, scale)
+    const mids = this.band(250, 2000, midsRaw, scale)
+    const treble = this.band(2000, 8000, trebleRaw, scale)
+    const rawSpectrum = rawSpectrumValues.map((value) => clamp01(value * scale))
     const spectrum = rawSpectrum
       .map((value, i) => this.gateSpectrum(value, i))
     const beatResult = updateBeatDetectorFromSpectrum(rawSpectrum, performance.now(), this.beatState)
@@ -203,19 +222,20 @@ export class AudioEngine {
     })
   }
 
-  private band(fromHz: number, toHz: number, sampleRate: number): number {
+  private bandRaw(fromHz: number, toHz: number, sampleRate: number): number {
     if (!this.buf) return 0
-    const gain = this.micConfig.gain
-    const raw = averageFrequencyBand(this.buf, sampleRate, FFT_SIZE, fromHz, toHz) * gain
+    return averageFrequencyBand(this.buf, sampleRate, FFT_SIZE, fromHz, toHz)
+  }
+
+  private band(fromHz: number, toHz: number, raw: number, scale: number): number {
     const key = fromHz < 250 ? 'bass' : toHz <= 2000 ? 'mids' : 'treble'
-    const gated = applyNoiseGate(raw, this.gateState[key], this.micConfig)
+    const gated = applyNoiseGate(raw * scale, this.gateState[key], this.micConfig)
     this.gateState[key] = gated
     return gated.level
   }
 
   private gateSpectrum(raw: number, index: number): number {
-    const gain = this.micConfig.gain
-    const gated = applyNoiseGate(raw * gain, this.gateState.spectrum[index], this.micConfig)
+    const gated = applyNoiseGate(raw, this.gateState.spectrum[index], this.micConfig)
     this.gateState.spectrum[index] = gated
     return gated.level
   }

@@ -116,6 +116,7 @@ export default function App() {
         const props = mic.data.properties as Record<string, unknown>
         engine.configureMic({
           gain: Number(props.gain ?? 1),
+          agc: Boolean(props.agc ?? false),
           threshold: Number(props.threshold ?? 0.08),
           attack: Number(props.attack ?? 0.2),
           decay: Number(props.decay ?? 0.05),
