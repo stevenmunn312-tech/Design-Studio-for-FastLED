@@ -81,6 +81,10 @@ function NodeGraphCanvasInner() {
   // Tracks whether a dragged noodle end landed on a valid port; if not (dropped
   // on empty space) we treat it as an unplug and delete the edge.
   const reconnectLanded = useRef(true)
+  // React Flow also emits connect lifecycle events while an existing noodle is
+  // being reconnected. Keep those gestures out of the output drag-to-create
+  // path, otherwise unplugging an input can open the add-node picker.
+  const reconnecting = useRef(false)
   // Origin of an in-progress connection dragged from an output port; used to
   // offer a type-filtered "add node" picker when the noodle is dropped on
   // empty space, then auto-wire the new node to this output.
@@ -181,6 +185,7 @@ function NodeGraphCanvasInner() {
     (event, state) => {
       const origin = connectFrom.current
       connectFrom.current = null
+      if (reconnecting.current) return
       // Dropped a noodle from an output onto empty canvas (no end handle):
       // offer a picker of nodes that have a compatible input, then auto-wire.
       if (origin && !state?.toHandle) {
@@ -199,7 +204,11 @@ function NodeGraphCanvasInner() {
 
   // Unplug a noodle: grab its input (target) end and drop it on empty space to
   // disconnect, or onto another compatible port to re-route.
-  const onReconnectStart = useCallback(() => { reconnectLanded.current = false }, [])
+  const onReconnectStart = useCallback(() => {
+    reconnecting.current = true
+    reconnectLanded.current = false
+    connectFrom.current = null
+  }, [])
 
   const onReconnect: OnReconnect = useCallback(
     (oldEdge, newConnection) => {
@@ -215,6 +224,7 @@ function NodeGraphCanvasInner() {
         removeEdge(edge.id)
         setStatus('Noodle unplugged', 'info')
       }
+      reconnecting.current = false
     },
     [removeEdge, setStatus]
   )
