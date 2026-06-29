@@ -2738,13 +2738,14 @@ function createEvalNode(
       }
 
       case 'Poline': {
-        // Polar-interpolated palette between two anchor colours (poline). Wired
-        // colours override the per-anchor hex defaults.
+        // Polar-interpolated palette between up to three anchor colours
+        // (poline). Wired colours override the per-anchor hex defaults.
         const a = (input(id, 'colorA', null) as RGB | null) ?? hexToRgb(String(props.anchorA ?? '#1020ff'))
         const b = (input(id, 'colorB', null) as RGB | null) ?? hexToRgb(String(props.anchorB ?? '#ff20a0'))
+        const c = (input(id, 'colorC', null) as RGB | null) ?? hexToRgb(String(props.anchorC ?? '#20ffd0'))
         const points = Number(props.points ?? 4)
         const position = String(props.position ?? 'sinusoidal')
-        out = { palette: polinePalette(a, b, points, position) }
+        out = { palette: polinePalette([a, b, c], points, position) }
         break
       }
 

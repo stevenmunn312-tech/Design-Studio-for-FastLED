@@ -1,5 +1,5 @@
 // Palette generation via poline (https://meodai.github.io/poline/): polar
-// interpolation between two anchor colours, producing a smooth multi-stop
+// interpolation between two or more anchor colours, producing a smooth multi-stop
 // palette. Shared by the Poline node's evaluator and the C++ generator so the
 // preview and baked firmware palette match.
 
@@ -61,14 +61,16 @@ function hslToRgb(h: number, s: number, l: number): RGB {
 }
 
 /**
- * Generate a poline palette as ordered RGB stops, interpolating from `anchorA`
- * to `anchorB` with `points` intermediate steps via the named position function.
+ * Generate a poline palette as ordered RGB stops across the given anchors with
+ * `points` intermediate steps via the named position function.
  */
-export function polinePalette(anchorA: RGB, anchorB: RGB, points: number, position: string): RGB[] {
+export function polinePalette(anchors: RGB[], points: number, position: string): RGB[] {
   const fn = POSITION_FNS[position as keyof typeof POSITION_FNS] ?? positionFunctions.sinusoidalPosition
   const numPoints = Math.max(1, Math.min(16, Math.floor(points)))
+  const anchorColors = anchors.slice(0, 3).map(rgbToHsl)
+  if (anchorColors.length < 2) return []
   const poline = new Poline({
-    anchorColors: [rgbToHsl(anchorA), rgbToHsl(anchorB)],
+    anchorColors,
     numPoints,
     positionFunction: fn,
   })
@@ -76,8 +78,9 @@ export function polinePalette(anchorA: RGB, anchorB: RGB, points: number, positi
 }
 
 /** Resample a poline palette to exactly 16 stops for a FastLED CRGBPalette16. */
-export function polineStops16(anchorA: RGB, anchorB: RGB, points: number, position: string): RGB[] {
-  const pal = polinePalette(anchorA, anchorB, points, position)
+export function polineStops16(anchors: RGB[], points: number, position: string): RGB[] {
+  const pal = polinePalette(anchors, points, position)
+  if (pal.length === 0) return Array.from({ length: 16 }, () => ({ r: 0, g: 0, b: 0 }))
   const out: RGB[] = []
   for (let i = 0; i < 16; i++) {
     const idx = Math.round((i / 15) * (pal.length - 1))

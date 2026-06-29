@@ -1872,9 +1872,10 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         // preview; firmware uses the configured anchors.
         const a = hexToRgb(String(p.anchorA ?? '#1020ff'))
         const b = hexToRgb(String(p.anchorB ?? '#ff20a0'))
-        const stops = polineStops16(a, b, Number(p.points ?? 4), String(p.position ?? 'sinusoidal'))
+        const c = hexToRgb(String(p.anchorC ?? '#20ffd0'))
+        const stops = polineStops16([a, b, c], Number(p.points ?? 4), String(p.position ?? 'sinusoidal'))
         const cppStops = stops.map((s) => `CRGB(${s.r},${s.g},${s.b})`).join(', ')
-        if (incoming.get(`${node.id}:colorA`) || incoming.get(`${node.id}:colorB`)) {
+        if (incoming.get(`${node.id}:colorA`) || incoming.get(`${node.id}:colorB`) || incoming.get(`${node.id}:colorC`)) {
           ln(`  // Poline: wired anchors drive the live preview; firmware bakes the configured anchors.`)
         }
         ln(`  CRGBPalette16 pal_${id}(${cppStops});`)

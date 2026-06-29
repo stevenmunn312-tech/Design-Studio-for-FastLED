@@ -723,16 +723,17 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: {},
   },
   {
-    // Polar-interpolated palette between two anchor colours (poline).
+    // Polar-interpolated palette between two or three anchor colours (poline).
     type: 'Poline',
     label: 'Poline Palette',
     category: 'color',
     inputs: [
       { id: 'colorA', label: 'Anchor A', dataType: 'color' },
       { id: 'colorB', label: 'Anchor B', dataType: 'color' },
+      { id: 'colorC', label: 'Anchor C', dataType: 'color' },
     ],
     outputs: [{ id: 'palette', label: 'Palette', dataType: 'palette' }],
-    defaultProperties: { anchorA: '#1020ff', anchorB: '#ff20a0', points: 4, position: 'sinusoidal' },
+    defaultProperties: { anchorA: '#1020ff', anchorB: '#ff20a0', anchorC: '#20ffd0', points: 4, position: 'sinusoidal' },
   },
   {
     type: 'PaletteBlend',
@@ -1207,7 +1208,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Temperature: 'White point from a colour temperature in Kelvin (warm→cool).',
   PaletteSelector: 'Outputs a named preset palette.',
   CustomPalette: 'Builds a palette from up to four colors.',
-  Poline: 'Smooth poline palette between two anchor colours.',
+  Poline: 'Smooth poline palette between up to three anchor colours.',
   PaletteBlend: 'Interpolates between two palettes.',
   // pattern
   SolidColor: 'Fills the matrix with one color.',

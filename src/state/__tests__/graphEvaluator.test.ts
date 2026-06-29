@@ -911,8 +911,8 @@ describe('evaluateGraph', () => {
   })
 
   it('a Poline palette drives a pattern, varying with its anchors', () => {
-    const run = (anchorA: string, anchorB: string) => {
-      const pl = node('pl', 'Poline', 'color', { anchorA, anchorB, points: 4, position: 'sinusoidal' })
+    const run = (anchorA: string, anchorB: string, anchorC = '#20ffd0') => {
+      const pl = node('pl', 'Poline', 'color', { anchorA, anchorB, anchorC, points: 4, position: 'sinusoidal' })
       const sx = noise('sx', 'simplex', { speed: 0, palette: 'rainbow' })
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph(
@@ -926,11 +926,12 @@ describe('evaluateGraph', () => {
     expect(a.flat().some((px) => JSON.stringify(px) !== p0)).toBe(true)  // palette applied → varied
     expect(JSON.stringify(run('#ff0000', '#0000ff'))).toEqual(JSON.stringify(a)) // deterministic
     expect(JSON.stringify(run('#00ff00', '#ffff00'))).not.toEqual(JSON.stringify(a)) // anchors matter
+    expect(JSON.stringify(run('#ff0000', '#0000ff', '#00ff00'))).not.toEqual(JSON.stringify(a)) // third anchor matters
   })
 
   it('a wired anchor colour overrides the Poline hex default', () => {
     const c = node('c', 'CHSV', 'color', { hue: 96, sat: 255, val: 255 })
-    const pl = node('pl', 'Poline', 'color', { anchorA: '#ff0000', anchorB: '#0000ff', points: 4, position: 'linear' })
+    const pl = node('pl', 'Poline', 'color', { anchorA: '#ff0000', anchorB: '#0000ff', anchorC: '#20ffd0', points: 4, position: 'linear' })
     const sx = noise('sx', 'simplex', { speed: 0, palette: 'rainbow' })
     const out = node('out', 'MatrixOutput', 'output', {})
     const edgesBase = [edge('e2', 'pl', 'palette', 'sx', 'paletteIn'), edge('e3', 'sx', 'frame', 'out', 'frame')]

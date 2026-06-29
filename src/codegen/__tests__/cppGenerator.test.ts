@@ -425,13 +425,13 @@ describe('generateCpp', () => {
   })
 
   it('bakes a poline palette into a CRGBPalette16 used downstream', () => {
-    const pl = node('pl', 'Poline', 'color', { anchorA: '#ff0000', anchorB: '#0000ff', points: 4, position: 'sinusoidal' })
+    const pl = node('pl', 'Poline', 'color', { anchorA: '#ff0000', anchorB: '#0000ff', anchorC: '#00ff00', points: 4, position: 'sinusoidal' })
     const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex', palette: 'rainbow' })
     const cpp = generateCpp([pl, sx, outputNode], [
       edge('e1', 'pl', 'sx', 'palette', 'paletteIn'),
       edge('e2', 'sx', 'out', 'frame', 'frame'),
     ])
-    // 16 baked CRGB stops, anchored at red and ending at blue.
+    // 16 baked CRGB stops across the configured anchors.
     expect(cpp).toContain('CRGBPalette16 pal_pl(CRGB(255,0,0)')
     expect(cpp).toMatch(/CRGBPalette16 pal_pl\((CRGB\(\d+,\d+,\d+\), ){15}CRGB\(\d+,\d+,\d+\)\);/)
     expect(cpp).toContain('ColorFromPalette(pal_pl,')

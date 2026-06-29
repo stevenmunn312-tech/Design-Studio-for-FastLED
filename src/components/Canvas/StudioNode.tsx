@@ -131,7 +131,17 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
 
   // Inline property editors (Blender-style). A node with `r/g/b` shows one
   // colour swatch; `font` (an object) is left to the Inspector.
-  const props = d.properties as Record<string, unknown>
+  const rawProps = d.properties as Record<string, unknown>
+  const props = useMemo(() => {
+    if (d.nodeType !== 'Math') return rawProps
+    const op = String(rawProps.mathOp ?? 'add')
+    const idn = op === 'multiply' || op === 'divide' ? 1 : 0
+    return {
+      a: typeof rawProps.a === 'number' ? rawProps.a : idn,
+      b: typeof rawProps.b === 'number' ? rawProps.b : idn,
+      ...rawProps,
+    }
+  }, [d.nodeType, rawProps])
   const hasRGB = ['r', 'g', 'b'].every((k) => typeof props[k] === 'number')
   const editable = Object.entries(props).filter(
     ([k]) => k !== 'font' && k !== 'image' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'transitions'
@@ -286,6 +296,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
               const gated = !isPropertyEnabled(d.nodeType, key, props)
               const disabled = wired || gated
               const live = wired ? liveFor(key) : undefined
+              const forceTextNumber = d.nodeType === 'Math' && (key === 'a' || key === 'b')
               return (
               <div
                 key={key}
@@ -326,7 +337,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                     checked={typeof live === 'boolean' ? live : val}
                     onChange={(e) => updateNodeProperty(id, key, e.target.checked)}
                   />
-                ) : typeof val === 'number' ? (
+                ) : typeof val === 'number' && !forceTextNumber ? (
                   <input
                     className={`nodrag nowheel ${styles.propInput}`}
                     type="number"
@@ -334,6 +345,18 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                     disabled={disabled}
                     value={typeof live === 'number' ? showNum(live) : val}
                     onChange={(e) => { const n = Number(e.target.value); updateNodeProperty(id, key, e.target.value === '' || !Number.isFinite(n) ? 0 : n) }}
+                  />
+                ) : typeof val === 'number' && forceTextNumber ? (
+                  <input
+                    className={`nodrag ${styles.propInput}`}
+                    type="text"
+                    inputMode="decimal"
+                    disabled={disabled}
+                    value={typeof live === 'number' ? showNum(live) : val}
+                    onChange={(e) => {
+                      const n = Number(e.target.value)
+                      updateNodeProperty(id, key, e.target.value === '' || !Number.isFinite(n) ? 0 : n)
+                    }}
                   />
                 ) : typeof val === 'string' && /^#[0-9a-f]{6}$/i.test(val) ? (
                   <input

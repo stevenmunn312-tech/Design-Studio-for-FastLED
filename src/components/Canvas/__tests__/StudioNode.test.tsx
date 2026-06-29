@@ -66,6 +66,15 @@ describe('StudioNode', () => {
     expect(useGraphStore.getState().nodes[0].data.properties.cx).toBe(5)
   })
 
+  it('shows Math a/b as inline text fields and writes numeric values back', () => {
+    const { container } = renderNode(makeNode('Math', { mathOp: 'add' }))
+    const textInputs = Array.from(container.querySelectorAll('input[type="text"]')) as HTMLInputElement[]
+    expect(textInputs).toHaveLength(2)
+    expect(textInputs.map((input) => input.value)).toEqual(['0', '0'])
+    fireEvent.change(textInputs[0], { target: { value: '2.5' } })
+    expect(useGraphStore.getState().nodes[0].data.properties.a).toBe(2.5)
+  })
+
   it('renders a slider for speed and updates the property', () => {
     const { container } = renderNode(makeNode('Noise', { speed: 1, scale: 1, palette: 'rainbow' }))
     const range = container.querySelector('input[type="range"]') as HTMLInputElement
@@ -139,6 +148,29 @@ describe('StudioNode', () => {
     expect(sliders).toHaveLength(2)
     expect(sliders.every((slider) => slider.disabled)).toBe(true)
     expect(sliders.map((slider) => slider.value)).toEqual(expect.arrayContaining(['0.17', '0.83']))
+  })
+
+  it('disables a wired Math input field and shows the live upstream value', () => {
+    const src = { ...makeNode('Counter', { speed: 1 }), id: 'src' } as StudioNodeT
+    const math = makeNode('Math', { mathOp: 'add', a: 0, b: 0 })
+    useGraphStore.setState({
+      nodes: [src, math],
+      edges: [
+        { id: 'e1', source: src.id, target: math.id, sourceHandle: 'value', targetHandle: 'a' } as never,
+      ],
+    })
+    usePreviewStore.setState({
+      outputs: new Map([
+        [src.id, { value: 0.17 }],
+      ]),
+    })
+    const props = { id: math.id, data: math.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
+    const { container } = render(<StudioNode {...props} />)
+    const textInputs = Array.from(container.querySelectorAll('input[type="text"]')) as HTMLInputElement[]
+    expect(textInputs).toHaveLength(2)
+    expect(textInputs[0].disabled).toBe(true)
+    expect(textInputs[0].value).toBe('0.17')
+    expect(textInputs[1].disabled).toBe(false)
   })
 
   it('renders a waveform preview scope for a Wave node', () => {

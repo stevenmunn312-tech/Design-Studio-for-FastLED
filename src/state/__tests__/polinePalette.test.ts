@@ -3,6 +3,7 @@ import { polinePalette, polineStops16, hexToRgb, POLINE_POSITIONS } from '../pol
 
 const RED = { r: 255, g: 0, b: 0 }
 const BLUE = { r: 0, g: 0, b: 255 }
+const GREEN = { r: 0, g: 255, b: 0 }
 
 describe('hexToRgb', () => {
   it('parses #rrggbb (with or without leading #)', () => {
@@ -14,7 +15,7 @@ describe('hexToRgb', () => {
 
 describe('polinePalette', () => {
   it('produces ordered RGB stops spanning the two anchors', () => {
-    const pal = polinePalette(RED, BLUE, 4, 'sinusoidal')
+    const pal = polinePalette([RED, BLUE], 4, 'sinusoidal')
     expect(pal.length).toBeGreaterThan(2)
     pal.forEach((c) => {
       expect(c.r).toBeGreaterThanOrEqual(0); expect(c.r).toBeLessThanOrEqual(255)
@@ -23,10 +24,17 @@ describe('polinePalette', () => {
   })
 
   it('is deterministic and anchor-dependent', () => {
-    const a = polinePalette(RED, BLUE, 4, 'sinusoidal')
-    expect(polinePalette(RED, BLUE, 4, 'sinusoidal')).toEqual(a) // deterministic
-    const b = polinePalette(RED, { r: 0, g: 255, b: 0 }, 4, 'sinusoidal')
+    const a = polinePalette([RED, BLUE], 4, 'sinusoidal')
+    expect(polinePalette([RED, BLUE], 4, 'sinusoidal')).toEqual(a) // deterministic
+    const b = polinePalette([RED, GREEN], 4, 'sinusoidal')
     expect(JSON.stringify(b)).not.toEqual(JSON.stringify(a))     // anchors matter
+  })
+
+  it('supports a third anchor colour', () => {
+    const twoAnchors = polinePalette([RED, BLUE], 4, 'sinusoidal')
+    const threeAnchors = polinePalette([RED, GREEN, BLUE], 4, 'sinusoidal')
+    expect(threeAnchors.length).toBeGreaterThan(twoAnchors.length)
+    expect(JSON.stringify(threeAnchors)).not.toEqual(JSON.stringify(twoAnchors))
   })
 
   it('exposes the position functions used by the node dropdown', () => {
@@ -34,11 +42,11 @@ describe('polinePalette', () => {
     expect(POLINE_POSITIONS).toContain('linear')
     // every advertised position function runs without throwing
     for (const pos of POLINE_POSITIONS) {
-      expect(polinePalette(RED, BLUE, 3, pos).length).toBeGreaterThan(2)
+      expect(polinePalette([RED, BLUE], 3, pos).length).toBeGreaterThan(2)
     }
   })
 
   it('resamples to exactly 16 stops for a CRGBPalette16', () => {
-    expect(polineStops16(RED, BLUE, 4, 'sinusoidal')).toHaveLength(16)
+    expect(polineStops16([RED, BLUE, GREEN], 4, 'sinusoidal')).toHaveLength(16)
   })
 })
