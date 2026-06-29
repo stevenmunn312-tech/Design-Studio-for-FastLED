@@ -361,6 +361,26 @@ describe('evaluateGraph', () => {
     expect(frame![0][0]).toEqual({ r: 255, g: 255, b: 255 })
   })
 
+  it('TrebleSparks uses its wired color input for the spark tint', () => {
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0)
+    try {
+      const color = node('c', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })
+      const sparks = node('ts', 'TrebleSparks', 'pattern', { treble: 1, density: 0.1 })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      const frame = evaluateGraph(
+        [color, sparks, out],
+        [
+          edge('e1', 'c', 'rgb', 'ts', 'color'),
+          edge('e2', 'ts', 'frame', 'out', 'frame'),
+        ],
+        0, W, H,
+      )!
+      expect(frame[0][0].r).toBeGreaterThan(frame[0][0].b)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
   describe('Particles modes', () => {
     const modes = ['fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow', 'swarm']
     for (const m of modes) {

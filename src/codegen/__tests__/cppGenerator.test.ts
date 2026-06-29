@@ -57,6 +57,20 @@ describe('generateCpp', () => {
     expect(cpp).toContain('fill_solid(buf_sc, NUM_LEDS, CRGB(255, 0, 0))')
   })
 
+  it('TrebleSparks uses its connected color input in generated C++', () => {
+    const color = node('c', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })
+    const sparks = node('ts', 'TrebleSparks', 'pattern', { treble: 1, density: 1 })
+    const cpp = generateCpp(
+      [color, sparks, outputNode],
+      [
+        edge('e1', 'c', 'ts', 'rgb', 'color'),
+        edge('e2', 'ts', 'out', 'frame', 'frame'),
+      ],
+    )
+    expect(cpp).toContain('CRGB _spark = blend(n_c_rgb, CRGB::White')
+    expect(cpp).toContain('fadeToBlackBy(buf_ts, NUM_LEDS')
+  })
+
   it('includes float t when a time-dependent node is present', () => {
     const plasma = node('p', 'Plasma', 'pattern', { speed: 1 })
     const cpp = generateCpp([plasma, outputNode], [edge('e1', 'p', 'out', 'frame', 'frame')])

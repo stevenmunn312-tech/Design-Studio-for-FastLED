@@ -56,4 +56,10 @@ describe('nodeLibrary', () => {
     expect(mw?.defaultProperties).toMatchObject({ speed: 1, palette: 'ocean' })
     expect(propertyMeta('MidrangeWaves', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
+
+  it('TrebleSparks exposes a color input with a cool-tinted fallback', () => {
+    const ts = NODE_LIBRARY.find((n) => n.type === 'TrebleSparks')
+    expect(ts?.inputs.map((p) => p.id)).toEqual(['treble', 'color'])
+    expect(ts?.defaultProperties).toMatchObject({ density: 0.5, r: 180, g: 220, b: 255 })
+  })
 })

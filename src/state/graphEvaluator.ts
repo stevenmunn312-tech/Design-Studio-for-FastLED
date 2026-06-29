@@ -41,6 +41,9 @@ const flowState = new Map<string, FlowState>()
 interface StarState { x: Float32Array; y: Float32Array; z: Float32Array; w: number; h: number }
 const starState = new Map<string, StarState>()
 
+interface SparkState { frame: Frame; w: number; h: number }
+const sparkState = new Map<string, SparkState>()
+
 // Per-pixel formula closure. Args are positional and shared by CustomFormula and
 // FieldFormula: x, y, cx, cy, r, angle, t, W, H, a, b, fieldIn, then the FastLED
 // shims (sin8, cos8, …) in SHIM_NAMES order.
@@ -172,6 +175,29 @@ function blendChannel(mode: string, a: number, b: number): number {
 function blendPixel(mode: string, a: RGB, b: RGB, opacity: number): RGB {
   const mix = (av: number, bv: number) =>
     Math.round(av * (1 - opacity) + blendChannel(mode, av, bv) * opacity)
+  return { r: mix(a.r, b.r), g: mix(a.g, b.g), b: mix(a.b, b.b) }
+}
+
+function scaleRgb(color: RGB, amount: number): RGB {
+  const t = Math.max(0, amount)
+  return {
+    r: Math.max(0, Math.min(255, Math.round(color.r * t))),
+    g: Math.max(0, Math.min(255, Math.round(color.g * t))),
+    b: Math.max(0, Math.min(255, Math.round(color.b * t))),
+  }
+}
+
+function addRgb(a: RGB, b: RGB): RGB {
+  return {
+    r: Math.min(255, a.r + b.r),
+    g: Math.min(255, a.g + b.g),
+    b: Math.min(255, a.b + b.b),
+  }
+}
+
+function mixRgb(a: RGB, b: RGB, t: number): RGB {
+  const m = Math.max(0, Math.min(1, t))
+  const mix = (av: number, bv: number) => Math.round(av * (1 - m) + bv * m)
   return { r: mix(a.r, b.r), g: mix(a.g, b.g), b: mix(a.b, b.b) }
 }
 
@@ -337,15 +363,51 @@ function evalMidrangeWaves(mids: number, speed: number, t: number, palette: Pale
   )
 }
 
-function evalTrebleSparks(treble: number, density: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  const frame = blankFrame(W, H)
-  const threshold = 1 - density * treble
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++)
-      if (Math.random() > threshold) {
-        const b = Math.random() * treble
-        frame[y][x] = hsv(Math.random() * 60 + 180, 0.6 + Math.random() * 0.4, b)
-      }
+function evalTrebleSparks(nodeId: string, treble: number, density: number, color: RGB, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const level = Math.max(0, Math.min(1, treble))
+  const amount = Math.max(0, Math.min(1, density))
+  let state = sparkState.get(nodeId)
+  if (!state || state.w !== W || state.h !== H) {
+    state = { frame: blankFrame(W, H), w: W, h: H }
+    sparkState.set(nodeId, state)
+  }
+
+  const frame = cloneFrame(state.frame)
+  const fade = 0.58 + (1 - level) * 0.16
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      frame[y][x] = scaleRgb(frame[y][x], fade)
+    }
+  }
+
+  const whiteHot = mixRgb(color, { r: 255, g: 255, b: 255 }, 0.35 + level * 0.35)
+  const spawnChance = 0.2 + level * 0.8
+  let spawnCount = Math.round(W * H * amount * (0.03 + level * 0.12))
+  if (spawnCount < 1 && amount * level > 0.05) spawnCount = 1
+
+  const addSpark = (x: number, y: number, spark: RGB, strength: number) => {
+    if (x < 0 || x >= W || y < 0 || y >= H || strength <= 0) return
+    frame[y][x] = addRgb(frame[y][x], scaleRgb(spark, strength))
+  }
+
+  for (let i = 0; i < spawnCount; i++) {
+    if (Math.random() > spawnChance) continue
+    const x = Math.floor(Math.random() * W)
+    const y = Math.floor(Math.random() * H)
+    const flash = 0.55 + Math.random() * 0.45
+    const spark = scaleRgb(whiteHot, (0.7 + level * 0.6) * flash)
+    addSpark(x, y, spark, 1)
+    addSpark(x - 1, y, spark, 0.42)
+    addSpark(x + 1, y, spark, 0.42)
+    addSpark(x, y - 1, spark, 0.42)
+    addSpark(x, y + 1, spark, 0.42)
+    addSpark(x - 1, y - 1, spark, 0.16)
+    addSpark(x + 1, y - 1, spark, 0.16)
+    addSpark(x - 1, y + 1, spark, 0.16)
+    addSpark(x + 1, y + 1, spark, 0.16)
+  }
+
+  state.frame = cloneFrame(frame)
   return frame
 }
 
@@ -2085,7 +2147,13 @@ function createEvalNode(
       case 'TrebleSparks': {
         const treble = num(id, 'treble', props, 'treble', 0.5)
         const density = num(id, 'density', props, 'density', 0.5)
-        out = { frame: evalTrebleSparks(treble, density, W, H) }
+        const colorIn = input(id, 'color', null) as RGB | null
+        const color = colorIn ?? {
+          r: Number(props.r ?? 180),
+          g: Number(props.g ?? 220),
+          b: Number(props.b ?? 255),
+        }
+        out = { frame: evalTrebleSparks(stateKey(id), treble, density, color, W, H) }
         break
       }
 

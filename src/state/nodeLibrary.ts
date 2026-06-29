@@ -295,9 +295,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'TrebleSparks',
     label: 'Treble Sparks',
     category: 'pattern',
-    inputs: [{ id: 'treble', label: 'Treble', dataType: 'float' }],
+    inputs: [
+      { id: 'treble', label: 'Treble', dataType: 'float' },
+      { id: 'color', label: 'Color', dataType: 'color' },
+    ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { density: 0.5 },
+    defaultProperties: { density: 0.5, r: 180, g: 220, b: 255 },
   },
   {
     type: 'BeatFlash',
@@ -1164,7 +1167,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   SpectrumBars: 'Audio spectrum bars (bass/mids/treble).',
   BassPulse: 'Pulses a color with bass energy.',
   MidrangeWaves: 'Waves driven by midrange audio.',
-  TrebleSparks: 'Sparkles driven by treble energy.',
+  TrebleSparks: 'Glittering treble sparks with a tintable color input.',
   BeatFlash: 'Flashes the frame white on each beat.',
   Noise2D: 'Layered 2D sine noise.',
   RadialBurst: 'Rings bursting from the center.',
