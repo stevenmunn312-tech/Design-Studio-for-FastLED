@@ -521,6 +521,26 @@ describe('generateCpp', () => {
     expect(cpp).toContain('CRGB(255, 120, 32)')
   })
 
+  it('emits MidrangeBloom through a palette with radial bloom modulation', () => {
+    const mb = node('mb', 'MidrangeBloom', 'pattern', { mids: 0.7, intensity: 0.8, speed: 0.6, palette: 'party' })
+    const cpp = generateCpp([mb, outputNode], [edge('e', 'mb', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('float _motion = min(1.0f, max(0.0f, _spd)) * (0.8f + _mAmt * 2.2f * _strength);')
+    expect(cpp).toContain('float _swirl = sinf((_cx * _cx - _cy * _cy) * 6 + t * _motion * 3.2f)')
+    expect(cpp).toContain('float _bloom = sinf(_radial * (5.0f + _mAmt * 8.0f * _strength) * 3.14159265f')
+    expect(cpp).toContain('ColorFromPalette(PartyColors_p')
+    expect(cpp).toContain('.nscale8((uint8_t)(_v * 255))')
+  })
+
+  it('emits TreblePrism as sharp diagonal treble-reactive shards', () => {
+    const tp = node('tp', 'TreblePrism', 'pattern', { treble: 0.85, intensity: 0.9, speed: 0.7, r: 200, g: 120, b: 255 })
+    const cpp = generateCpp([tp, outputNode], [edge('e', 'tp', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('float _motion = _spd * (1.2f + _t * 3.2f * _strength);')
+    expect(cpp).toContain('float _prism = max(0.0f, _waveA * 0.55f + _waveB * 0.45f);')
+    expect(cpp).toContain('powf(_prism, 3.6f)')
+    expect(cpp).toContain('powf(max(0.0f, sinf((_x + _y) * 2.4f - t * _motion * 9.0f) * 0.5f + 0.5f), 10.0f)')
+    expect(cpp).toContain('CRGB(200, 120, 255)')
+  })
+
   it('emits Gabor noise with its Gaussian-cosine kernel and hash helper', () => {
     const g = node('g', 'GaborNoise', 'pattern', { speed: 0.5, scale: 0.35, frequency: 1.2, orientation: 45, palette: 'ocean' })
     const cpp = generateCpp([g, outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])

@@ -390,6 +390,34 @@ function evalMidrangeWaves(mids: number, intensity: number, speed: number, t: nu
   )
 }
 
+function evalMidrangeBloom(mids: number, intensity: number, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const level = Math.max(0, Math.min(1, mids))
+  const strength = Math.max(0, Math.min(1, intensity))
+  const motion = Math.max(0, speed) * (0.8 + level * 2.2 * strength)
+  const cx0 = (W - 1) / 2
+  const cy0 = (H - 1) / 2
+  const sx = Math.max(1, W / 2)
+  const sy = Math.max(1, H / 2)
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const cx = (x - cx0) / sx
+      const cy = (y - cy0) / sy
+      const radial = Math.hypot(cx, cy)
+      const swirl = Math.sin((cx * cx - cy * cy) * 6 + t * motion * 3.2)
+        + Math.cos((cx + cy) * 4 - t * motion * 2.4)
+      const bloom = Math.sin(radial * (5 + level * 8 * strength) * Math.PI - t * motion * 4 + swirl * 0.6)
+      const crisp = Math.pow(Math.max(0, bloom * 0.5 + 0.5), 1.8)
+      const v = Math.min(1, crisp * (0.22 + level * 0.78 * strength))
+      const c = samplePalette(palette, radial * 0.6 + swirl * 0.12 + t * motion * 0.05)
+      return {
+        r: Math.round(c.r * v),
+        g: Math.round(c.g * v),
+        b: Math.round(c.b * v),
+      }
+    })
+  )
+}
+
 function evalTrebleSparks(nodeId: string, treble: number, density: number, color: RGB, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const level = Math.max(0, Math.min(1, treble))
   const amount = Math.max(0, Math.min(1, density))
@@ -436,6 +464,29 @@ function evalTrebleSparks(nodeId: string, treble: number, density: number, color
 
   state.frame = cloneFrame(frame)
   return frame
+}
+
+function evalTreblePrism(treble: number, intensity: number, speed: number, color: RGB, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const level = Math.max(0, Math.min(1, treble))
+  const strength = Math.max(0, Math.min(1, intensity))
+  const motion = Math.max(0, speed) * (1.2 + level * 3.2 * strength)
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const diagA = x * 1.7 + y * 1.15
+      const diagB = x * -1.1 + y * 1.9
+      const waveA = Math.sin(diagA + t * motion * 7.5)
+      const waveB = Math.sin(diagB - t * motion * 6.1)
+      const prism = Math.max(0, waveA * 0.55 + waveB * 0.45)
+      const shard = Math.pow(prism, 3.6)
+      const flash = Math.pow(Math.max(0, Math.sin((x + y) * 2.4 - t * motion * 9) * 0.5 + 0.5), 10)
+      const v = Math.min(1, shard * (0.3 + level * 0.7 * strength) + flash * level * 0.9 * strength)
+      return {
+        r: Math.round(color.r * v),
+        g: Math.round(color.g * v),
+        b: Math.round(color.b * v),
+      }
+    })
+  )
 }
 
 function evalBeatFlash(nodeId: string, beat: boolean, base: Frame | null, decay: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
@@ -2182,6 +2233,15 @@ function createEvalNode(
         break
       }
 
+      case 'MidrangeBloom': {
+        const mids = num(id, 'mids', props, 'mids', 0.5)
+        const intensity = num(id, 'intensity', props, 'intensity', 1)
+        const speed = num(id, 'speed', props, 'speed', 1)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'party')
+        out = { frame: evalMidrangeBloom(mids, intensity, speed, t, palette, W, H) }
+        break
+      }
+
       case 'TrebleSparks': {
         const treble = num(id, 'treble', props, 'treble', 0.5)
         const density = num(id, 'density', props, 'density', 0.5)
@@ -2192,6 +2252,16 @@ function createEvalNode(
           b: Number(props.b ?? 255),
         }
         out = { frame: evalTrebleSparks(stateKey(id), treble, density, color, W, H) }
+        break
+      }
+
+      case 'TreblePrism': {
+        const treble = num(id, 'treble', props, 'treble', 0.5)
+        const intensity = num(id, 'intensity', props, 'intensity', 1)
+        const speed = num(id, 'speed', props, 'speed', 1)
+        const colorIn = input(id, 'color', null) as RGB | null
+        const color = colorIn ?? { r: Number(props.r ?? 200), g: Number(props.g ?? 120), b: Number(props.b ?? 255) }
+        out = { frame: evalTreblePrism(treble, intensity, speed, color, t, W, H) }
         break
       }
 

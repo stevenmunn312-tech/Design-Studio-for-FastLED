@@ -902,6 +902,35 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
+      case 'MidrangeBloom': {
+        needsT.v = true
+        const ob = ownBuf()
+        const mids = f('mids', 'mids', 0.5)
+        const intensity = f('intensity', 'intensity', 1)
+        const speed = f('speed', 'speed', 1)
+        const pal = paletteExpr(node.id, 'paletteIn', p)
+        ln(`  {`)
+        ln(`    float _m = ${mids}, _intensity = ${intensity}, _spd = ${speed};`)
+        ln(`    float _mAmt = min(1.0f, max(0.0f, _m));`)
+        ln(`    float _strength = min(1.0f, max(0.0f, _intensity));`)
+        ln(`    float _motion = min(1.0f, max(0.0f, _spd)) * (0.8f + _mAmt * 2.2f * _strength);`)
+        ln(`    float _cx0 = (WIDTH - 1) / 2.0f, _cy0 = (HEIGHT - 1) / 2.0f;`)
+        ln(`    float _sx = max(1.0f, WIDTH / 2.0f), _sy = max(1.0f, HEIGHT / 2.0f);`)
+        ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
+        ln(`      float _cx = (_x - _cx0) / _sx, _cy = (_y - _cy0) / _sy;`)
+        ln(`      float _radial = sqrtf(_cx * _cx + _cy * _cy);`)
+        ln(`      float _swirl = sinf((_cx * _cx - _cy * _cy) * 6 + t * _motion * 3.2f) + cosf((_cx + _cy) * 4 - t * _motion * 2.4f);`)
+        ln(`      float _bloom = sinf(_radial * (5.0f + _mAmt * 8.0f * _strength) * 3.14159265f - t * _motion * 4.0f + _swirl * 0.6f);`)
+        ln(`      float _crisp = powf(max(0.0f, _bloom * 0.5f + 0.5f), 1.8f);`)
+        ln(`      float _v = min(1.0f, _crisp * (0.22f + _mAmt * 0.78f * _strength));`)
+        ln(`      float _pt = _radial * 0.6f + _swirl * 0.12f + t * _motion * 0.05f;`)
+        ln(`      ${ob}[_y * WIDTH + _x] = ColorFromPalette(${pal}, (uint8_t)(_pt * 255));`)
+        ln(`      ${ob}[_y * WIDTH + _x].nscale8((uint8_t)(_v * 255));`)
+        ln(`    }`)
+        ln(`  }`)
+        break
+      }
+
       case 'TrebleSparks': {
         const ob = ownBuf()
         const treble = f('treble', 'treble', 0.5)
@@ -928,6 +957,37 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         ln(`      if (_x + 1 < WIDTH && _y > 0) ${ob}[_i - WIDTH + 1] += _corner;`)
         ln(`      if (_x > 0 && _y + 1 < HEIGHT) ${ob}[_i + WIDTH - 1] += _corner;`)
         ln(`      if (_x + 1 < WIDTH && _y + 1 < HEIGHT) ${ob}[_i + WIDTH + 1] += _corner;`)
+        ln(`    }`)
+        ln(`  }`)
+        break
+      }
+
+      case 'TreblePrism': {
+        needsT.v = true
+        const ob = ownBuf()
+        const treble = f('treble', 'treble', 0.5)
+        const intensity = f('intensity', 'intensity', 1)
+        const speed = f('speed', 'speed', 1)
+        const colorE = incoming.get(`${node.id}:color`)
+          ? colorExpr(node.id, 'color')
+          : `CRGB(${Number(p.r ?? 200)}, ${Number(p.g ?? 120)}, ${Number(p.b ?? 255)})`
+        ln(`  {`)
+        ln(`    float _t = min(1.0f, max(0.0f, ${treble}));`)
+        ln(`    float _strength = min(1.0f, max(0.0f, ${intensity}));`)
+        ln(`    float _spd = min(1.0f, max(0.0f, ${speed}));`)
+        ln(`    float _motion = _spd * (1.2f + _t * 3.2f * _strength);`)
+        ln(`    CRGB _base = ${colorE};`)
+        ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
+        ln(`      float _diagA = _x * 1.7f + _y * 1.15f, _diagB = _x * -1.1f + _y * 1.9f;`)
+        ln(`      float _waveA = sinf(_diagA + t * _motion * 7.5f);`)
+        ln(`      float _waveB = sinf(_diagB - t * _motion * 6.1f);`)
+        ln(`      float _prism = max(0.0f, _waveA * 0.55f + _waveB * 0.45f);`)
+        ln(`      float _shard = powf(_prism, 3.6f);`)
+        ln(`      float _flash = powf(max(0.0f, sinf((_x + _y) * 2.4f - t * _motion * 9.0f) * 0.5f + 0.5f), 10.0f);`)
+        ln(`      float _v = min(1.0f, _shard * (0.3f + _t * 0.7f * _strength) + _flash * _t * 0.9f * _strength);`)
+        ln(`      int _i = _y * WIDTH + _x;`)
+        ln(`      ${ob}[_i] = _base;`)
+        ln(`      ${ob}[_i].nscale8((uint8_t)(_v * 255));`)
         ln(`    }`)
         ln(`  }`)
         break

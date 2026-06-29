@@ -66,9 +66,25 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('BassRings', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
+  it('MidrangeBloom exposes intensity, normalized speed, and palette inputs', () => {
+    const mb = NODE_LIBRARY.find((n) => n.type === 'MidrangeBloom')
+    expect(mb?.inputs.map((p) => p.id)).toEqual(['mids', 'intensity', 'speed', 'paletteIn'])
+    expect(mb?.defaultProperties).toMatchObject({ intensity: 1, speed: 1, palette: 'party' })
+    expect(propertyMeta('MidrangeBloom', 'intensity')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+    expect(propertyMeta('MidrangeBloom', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+  })
+
   it('TrebleSparks exposes a color input with a cool-tinted fallback', () => {
     const ts = NODE_LIBRARY.find((n) => n.type === 'TrebleSparks')
     expect(ts?.inputs.map((p) => p.id)).toEqual(['treble', 'density', 'color'])
     expect(ts?.defaultProperties).toMatchObject({ density: 0.5, r: 180, g: 220, b: 255 })
+  })
+
+  it('TreblePrism exposes intensity, normalized speed, and a tintable color input', () => {
+    const tp = NODE_LIBRARY.find((n) => n.type === 'TreblePrism')
+    expect(tp?.inputs.map((p) => p.id)).toEqual(['treble', 'intensity', 'speed', 'color'])
+    expect(tp?.defaultProperties).toMatchObject({ intensity: 1, speed: 1, r: 200, g: 120, b: 255 })
+    expect(propertyMeta('TreblePrism', 'intensity')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+    expect(propertyMeta('TreblePrism', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 })

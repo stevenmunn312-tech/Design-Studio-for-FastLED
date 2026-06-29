@@ -306,6 +306,19 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { intensity: 1.0, speed: 1.0, palette: 'ocean' },
   },
   {
+    type: 'MidrangeBloom',
+    label: 'Midrange Bloom',
+    category: 'pattern',
+    inputs: [
+      { id: 'mids', label: 'Mids', dataType: 'float' },
+      { id: 'intensity', label: 'Intensity', dataType: 'float' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { intensity: 1.0, speed: 1.0, palette: 'party' },
+  },
+  {
     type: 'TrebleSparks',
     label: 'Treble Sparks',
     category: 'pattern',
@@ -316,6 +329,19 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { density: 0.5, r: 180, g: 220, b: 255 },
+  },
+  {
+    type: 'TreblePrism',
+    label: 'Treble Prism',
+    category: 'pattern',
+    inputs: [
+      { id: 'treble', label: 'Treble', dataType: 'float' },
+      { id: 'intensity', label: 'Intensity', dataType: 'float' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'color', label: 'Color', dataType: 'color' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { intensity: 1.0, speed: 1.0, r: 200, g: 120, b: 255 },
   },
   {
     type: 'BeatFlash',
@@ -1183,7 +1209,9 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   BassPulse: 'Pulses a color with bass energy.',
   BassRings: 'Concentric rings that swell and brighten with bass.',
   MidrangeWaves: 'Waves driven by midrange audio.',
+  MidrangeBloom: 'Blooming palette contours driven by midrange energy.',
   TrebleSparks: 'Glittering treble sparks with a tintable color input.',
+  TreblePrism: 'Sharp diagonal prisms that shimmer with treble energy.',
   BeatFlash: 'Flashes the frame white on each beat.',
   Noise2D: 'Layered 2D sine noise.',
   RadialBurst: 'Rings bursting from the center.',
@@ -1412,7 +1440,15 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
+  MidrangeBloom: {
+    intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
+    speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
+  },
   BassRings: {
+    intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
+    speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
+  },
+  TreblePrism: {
     intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
