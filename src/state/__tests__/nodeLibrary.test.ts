@@ -54,7 +54,7 @@ describe('nodeLibrary', () => {
     const mw = NODE_LIBRARY.find((n) => n.type === 'MidrangeWaves')
     expect(mw?.inputs.map((p) => p.id)).toEqual(['mids', 'intensity', 'speed', 'paletteIn'])
     expect(mw?.defaultProperties).toMatchObject({ intensity: 1, speed: 1, palette: 'ocean' })
-    expect(propertyMeta('MidrangeWaves', 'intensity')).toMatchObject({ control: 'slider', min: 0, max: 2 })
+    expect(propertyMeta('MidrangeWaves', 'intensity')).toMatchObject({ control: 'slider', min: 0, max: 1 })
     expect(propertyMeta('MidrangeWaves', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 

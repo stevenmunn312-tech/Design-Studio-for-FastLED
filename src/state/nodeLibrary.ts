@@ -1395,7 +1395,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     scale: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   MidrangeWaves: {
-    intensity: { control: 'slider', min: 0, max: 2, step: 0.05 },
+    intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   Particles:         { rate:  { control: 'slider', min: 0, max: 1,   step: 0.01 } },
