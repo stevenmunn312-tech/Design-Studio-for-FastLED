@@ -82,23 +82,11 @@ It is a **multi-graph workspace** (ADR 0001): the *active* graph stays in the to
 
 ### Node Rendering
 
-`StudioNode` (`src/components/Canvas/StudioNode.tsx`) is the single custom node type (`{ studioNode: StudioNode }`). **Critical invariant:** React Flow requires `Handle` components to be `position: absolute`. Handle `top` offsets are calculated from constants that must stay in sync with the CSS:
+`StudioNode` (`src/components/Canvas/StudioNode.tsx`) is the single custom node type (`{ studioNode: StudioNode }`). React Flow requires `Handle` components to be `position: absolute`. Each handle is rendered inside its real `.portRow`, which is the positioned containing block, at `top: 50%`; do not move handles back to node-level pixel offsets. Row-relative positioning keeps noodles aligned when previews, widgets, gaps, or row dimensions change. Handles are inset by the body's 8px horizontal padding so their centres sit on the visible node edge.
 
-```ts
-// StudioNode.tsx — must match StudioNode.module.css
-const HEADER_H = 32   // .header height
-const BODY_PAD = 8    // .body padding-top (--space-1)
-const ROW_H    = 24   // .portRow height
-const ROW_GAP  = 4    // .body gap
-const PREVIEW_H = 40  // WaveScope .scope height (only on Wave/ComplexWave)
-const handleTop = (i, previewOffset) => HEADER_H + BODY_PAD + previewOffset + i * (ROW_H + ROW_GAP) + ROW_H / 2
-```
+**Per-node live previews:** every node whose primary output is a `frame`, `palette`, or `color` shows a live preview at the top of its body (`NodePreview`): a mini LED-matrix thumbnail (canvas), a gradient strip, or a colour swatch respectively. Frame thumbnails fill the node width at the matrix aspect ratio — `StudioNode` computes the height (`BODY_CONTENT_W × gridH/gridW`, grid dims read from the MatrixOutput node) and feeds it to `NodePreview`; palette/colour/wave previews use their fixed CSS height. These are driven by a **single shared evaluation pass**: `LEDPreview`'s render loop calls `evaluateGraphFull` (which returns the terminal frame *and* every node's output ports in one `createEvalNode` pass, so stateful nodes aren't double-advanced) and publishes the per-node outputs to `previewStore` throttled to ~15fps; each `NodePreview` subscribes to its node's entry. Because handles are anchored to their port rows, preview dimensions do not participate in connection geometry.
 
-Changing any of those CSS values without updating the constants will silently misalign all connection handles.
-
-**Per-node live previews:** every node whose primary output is a `frame`, `palette`, or `color` shows a live preview at the top of its body (`NodePreview`): a mini LED-matrix thumbnail (canvas), a gradient strip, or a colour swatch respectively. Frame thumbnails fill the node width at the matrix aspect ratio — `StudioNode` computes the height (`BODY_CONTENT_W × gridH/gridW`, grid dims read from the MatrixOutput node) and feeds it to both `NodePreview` and `handleTop` so the ports stay aligned; palette/colour/wave previews use the fixed `PREVIEW_H`. These are driven by a **single shared evaluation pass**: `LEDPreview`'s render loop calls `evaluateGraphFull` (which returns the terminal frame *and* every node's output ports in one `createEvalNode` pass, so stateful nodes aren't double-advanced) and publishes the per-node outputs to `previewStore` throttled to ~15fps; each `NodePreview` subscribes to its node's entry. Like the wave scopes, the preview adds `PREVIEW_H + ROW_GAP` to `handleTop` so port handles stay aligned.
-
-**Waveform preview scope:** `Wave` and `ComplexWave` nodes render a `WaveScope` mini-oscilloscope at the top of the body (above the port rows). Because handles are absolutely positioned, this scope pushes the rows down — so `handleTop` takes a `previewOffset` (`PREVIEW_H + ROW_GAP` for these nodes, else 0). `Wave`'s scope samples its own configured shape (`waveNodeSamples` in `src/state/wave.ts`, which also backs the evaluator). `ComplexWave`'s scope (`ComplexWaveScope`) is **live**: it subscribes to `nodes`/`edges` and samples the node's own `result` port across the window via `evaluateScalar`, so it reflects the actual upstream inputs and the chosen operation.
+**Waveform preview scope:** `Wave` and `ComplexWave` nodes render a `WaveScope` mini-oscilloscope at the top of the body (above the port rows). The scope naturally pushes the port rows and their child handles down through flex layout. `Wave`'s scope samples its own configured shape (`waveNodeSamples` in `src/state/wave.ts`, which also backs the evaluator). `ComplexWave`'s scope (`ComplexWaveScope`) is **live**: it subscribes to `nodes`/`edges` and samples the node's own `result` port across the window via `evaluateScalar`, so it reflects the actual upstream inputs and the chosen operation.
 
 `evaluateScalar(nodes, edges, nodeId, portId, tick)` probes a single node's scalar output by reusing the shared `createEvalNode` core (the same machinery `evaluateGraph` runs), so a probe matches what the graph actually computes. It runs under a reserved `__scope__/` state namespace so stateful upstream nodes don't disturb the live render.
 

@@ -47,23 +47,9 @@ function showNum(n: number) {
   return Math.round(n * 1000) / 1000
 }
 
-// Must match CSS: header=32px, body padding-top=8px, row=24px, gap=4px,
-// preview scope=40px (WaveScope.module.css .scope height).
-const HEADER_H = 32
-const BODY_PAD = 8
-const ROW_H = 24
-const ROW_GAP = 4
-const PREVIEW_H = 40
-const BEAT_WIDGET_H = 76
-const FFT_WIDGET_H = 104
 // Body content width = --node-width (180) − 2×--space-1 (8) horizontal padding.
 // Frame previews fill this width and keep the matrix aspect ratio.
 const BODY_CONTENT_W = 164
-
-// Handles are absolutely positioned; a preview scope at the top of the body
-// pushes the port rows down by its height + the body's flex gap.
-const handleTop = (i: number, previewOffset: number) =>
-  HEADER_H + BODY_PAD + previewOffset + i * (ROW_H + ROW_GAP) + ROW_H / 2
 
 const HANDLE_STYLE = {
   width: 12,
@@ -178,12 +164,6 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // Frame previews fill the node width at the matrix aspect ratio; palette /
   // colour / wave previews use the fixed scope height.
   const framePreviewH = Math.round((BODY_CONTENT_W * gridH) / gridW)
-  const previewH = previewKind === 'frame' ? framePreviewH : PREVIEW_H
-  const previewOffset =
-    (isWave || isComplexWave || previewKind ? previewH + ROW_GAP : 0) +
-    (isFFTAnalyzer ? FFT_WIDGET_H + ROW_GAP : 0) +
-    (isBeatDetect ? BEAT_WIDGET_H + ROW_GAP : 0)
-
   // The MusicLibrary node embeds the full library UI in its body, so it needs a
   // wider frame than the default node width.
   const isMusicLibrary = d.nodeType === 'MusicLibrary'
@@ -200,42 +180,6 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         boxShadow: selected ? `0 0 0 2px ${accent}, 0 0 12px ${accent}` : undefined,
       }}
     >
-      {/* Handles rendered absolutely so React Flow can hit-test them correctly */}
-      {inputs.map((port, i) => {
-        const pc = portColor(port.dataType)
-        return (
-        <span key={port.id}>
-          <Handle
-            type="target"
-            position={Position.Left}
-            id={port.id}
-            title={`${port.label} · ${port.dataType}`}
-            style={{ ...HANDLE_STYLE, top: handleTop(i, previewOffset), background: pc, boxShadow: `0 0 6px ${pc}` }}
-          />
-          {sparkPortId === port.id && (
-            <span
-              key={sparkPortId}
-              className={styles.spark}
-              style={{ top: handleTop(i, previewOffset), left: 0 }}
-            />
-          )}
-        </span>
-        )
-      })}
-      {outputs.map((port, i) => {
-        const pc = portColor(port.dataType)
-        return (
-        <Handle
-          key={port.id}
-          type="source"
-          position={Position.Right}
-          id={port.id}
-          title={`${port.label} · ${port.dataType}`}
-          style={{ ...HANDLE_STYLE, top: handleTop(i, previewOffset), background: pc, boxShadow: `0 0 6px ${pc}` }}
-        />
-        )
-      })}
-
       <div className={styles.header} style={{ background: accent }}>
         {nodeDisplayLabel(d.nodeType, props, d.label)}
       </div>
@@ -247,12 +191,39 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {previewKind && outPort && (
           <NodePreview nodeId={id} kind={previewKind} port={outPort.id} height={previewKind === 'frame' ? framePreviewH : undefined} />
         )}
-        {Array.from({ length: rowCount }).map((_, i) => (
-          <div key={i} className={styles.portRow}>
-            <span className={styles.portLabel}>{inputs[i]?.label ?? ''}</span>
-            <span className={styles.portLabelRight}>{outputs[i]?.label ?? ''}</span>
-          </div>
-        ))}
+        {Array.from({ length: rowCount }).map((_, i) => {
+          const input = inputs[i]
+          const output = outputs[i]
+          const inputColor = input ? portColor(input.dataType) : null
+          const outputColor = output ? portColor(output.dataType) : null
+          return (
+            <div key={i} className={styles.portRow}>
+              {input && inputColor && (
+                <>
+                  <Handle
+                    type="target"
+                    position={Position.Left}
+                    id={input.id}
+                    title={`${input.label} · ${input.dataType}`}
+                    style={{ ...HANDLE_STYLE, top: '50%', left: -8, background: inputColor, boxShadow: `0 0 6px ${inputColor}` }}
+                  />
+                  {sparkPortId === input.id && <span className={styles.spark} />}
+                </>
+              )}
+              <span className={styles.portLabel}>{input?.label ?? ''}</span>
+              <span className={styles.portLabelRight}>{output?.label ?? ''}</span>
+              {output && outputColor && (
+                <Handle
+                  type="source"
+                  position={Position.Right}
+                  id={output.id}
+                  title={`${output.label} · ${output.dataType}`}
+                  style={{ ...HANDLE_STYLE, top: '50%', right: -8, background: outputColor, boxShadow: `0 0 6px ${outputColor}` }}
+                />
+              )}
+            </div>
+          )
+        })}
 
         {d.nodeType === 'MusicLibrary' && <MusicLibraryNodeBody nodeId={id} />}
         {d.nodeType === 'PerformanceGenerator' && <PerformanceGeneratorBody nodeId={id} />}

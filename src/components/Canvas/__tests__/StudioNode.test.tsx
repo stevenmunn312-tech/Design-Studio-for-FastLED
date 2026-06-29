@@ -96,14 +96,22 @@ describe('StudioNode', () => {
     expect(useGraphStore.getState().nodes[0].data.properties.agc).toBe(true)
   })
 
-  it('centres connection handles on their port rows', () => {
-    const { container } = renderNode(makeNode('AudioFlow', { speed: 0.5, scale: 0.5, palette: 'party' }))
-    const bass = container.querySelector('[data-handle="target:bass"]') as HTMLElement
-    const mids = container.querySelector('[data-handle="target:mids"]') as HTMLElement
-    // AudioFlow has a square 164px preview before its rows. The first row
-    // centre is header(32) + padding(8) + preview/gap(168) + half-row(12).
-    expect(bass.style.top).toBe('220px')
-    expect(mids.style.top).toBe('248px')
+  it('anchors connection handles to their port rows', () => {
+    const { container } = renderNode(makeNode('FFTAnalyzer', { bands: 24, gain: 1, smoothing: 0.72 }))
+    const audio = container.querySelector('[data-handle="target:audio"]') as HTMLElement
+    const bass = container.querySelector('[data-handle="source:bass"]') as HTMLElement
+    const mids = container.querySelector('[data-handle="source:mids"]') as HTMLElement
+
+    // Handles follow the real row layout instead of duplicating preview/widget
+    // heights in TypeScript, so any body content can change without drift.
+    expect(audio.parentElement?.className).toContain('portRow')
+    expect(bass.parentElement?.className).toContain('portRow')
+    expect(mids.parentElement?.className).toContain('portRow')
+    expect(audio.style.top).toBe('50%')
+    expect(bass.style.top).toBe('50%')
+    expect(mids.style.top).toBe('50%')
+    expect(audio.style.left).toBe('-8px')
+    expect(bass.style.right).toBe('-8px')
   })
 
   it('disables wired AudioFlow sliders but keeps their live values visible', () => {

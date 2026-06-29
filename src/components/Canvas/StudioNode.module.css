@@ -10,6 +10,8 @@
 
 .spark {
   position: absolute;
+  top: 50%;
+  left: -8px;
   width: 12px;
   height: 12px;
   border-radius: 50%;
@@ -25,7 +27,7 @@
   background: var(--bg-node);
   border-radius: var(--node-radius);
   box-shadow: inset 0 0 0 1px var(--border-glow);
-  transition: background var(--anim-hover), transform var(--anim-hover);
+  transition: background var(--anim-hover);
   cursor: default;
   user-select: none;
   animation: nodePopin 0.2s ease-out;
@@ -33,7 +35,6 @@
 
 .node:hover {
   background: var(--bg-node-hover);
-  transform: scale(1.02);
 }
 
 .header {
@@ -56,6 +57,7 @@
 }
 
 .portRow {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
