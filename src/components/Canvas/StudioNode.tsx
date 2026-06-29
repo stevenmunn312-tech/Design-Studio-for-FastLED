@@ -11,6 +11,7 @@ import ComplexWaveScope from './ComplexWaveScope'
 import NodePreview, { type PreviewKind } from './NodePreview'
 import MusicLibraryNodeBody from './MusicLibraryNodeBody'
 import FFTAnalyzerBody from './FFTAnalyzerBody'
+import PerformanceGeneratorBody from './PerformanceGeneratorBody'
 import PatternCollectionBody from './PatternCollectionBody'
 import PatternMasterBody from './PatternMasterBody'
 import MatrixOutputUpload from '../Upload/MatrixOutputUpload'
@@ -180,12 +181,14 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const isMusicLibrary = d.nodeType === 'MusicLibrary'
   // The Code node embeds a multi-line C++ editor, so it needs a wider frame.
   const isCode = d.nodeType === 'Code'
+  // The Performance Generator embeds a show-preview player (canvas + transport).
+  const isPerfGen = d.nodeType === 'PerformanceGenerator'
 
   return (
     <div
       className={styles.node}
       style={{
-        width: isMusicLibrary ? 300 : isCode ? 320 : undefined,
+        width: isMusicLibrary ? 300 : isCode ? 320 : isPerfGen ? 300 : undefined,
         boxShadow: selected ? `0 0 0 2px ${accent}, 0 0 12px ${accent}` : undefined,
       }}
     >
@@ -241,9 +244,11 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           </div>
         ))}
 
-        {d.nodeType === 'MusicLibrary' && <MusicLibraryNodeBody />}
+        {d.nodeType === 'MusicLibrary' && <MusicLibraryNodeBody nodeId={id} />}
 
         {d.nodeType === 'FFTAnalyzer' && <FFTAnalyzerBody nodeId={id} bands={Number(props.bands ?? 24)} />}
+
+        {d.nodeType === 'PerformanceGenerator' && <PerformanceGeneratorBody nodeId={id} />}
 
         {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}
 

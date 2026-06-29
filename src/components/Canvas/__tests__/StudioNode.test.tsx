@@ -29,7 +29,10 @@ function renderNode(n: StudioNodeT) {
 }
 
 describe('StudioNode', () => {
-  beforeEach(() => useGraphStore.setState({ nodes: [], edges: [] }))
+  beforeEach(() => {
+    useGraphStore.setState({ nodes: [], edges: [] })
+    useMusicStore.setState({ entries: [] })
+  })
 
   it('renders the node label and port labels', () => {
     const { getByText } = renderNode(makeNode('SolidColor', { r: 255, g: 0, b: 128 }))
@@ -148,6 +151,22 @@ describe('StudioNode', () => {
     expect(getByText('two.mp3')).toBeTruthy()
     expect(getByText('Ready')).toBeTruthy()    // done badge
     expect(getByText('Pending')).toBeTruthy()  // pending badge
+  })
+
+  it('embeds an empty show monitor in the Performance Generator node', () => {
+    const node = makeNode('PerformanceGenerator', {
+      beatIntensity: 0.8,
+      energySensitivity: 0.7,
+      transitionDuration: 0.5,
+      paletteMode: 'mood',
+      fixedPalette: 'rainbow',
+    })
+    const { container, getByText } = renderNode(node)
+    expect(getByText('Analyse songs in a Music Library node, then preview the timed show here.')).toBeTruthy()
+    expect((container.firstElementChild as HTMLElement).style.width).toBe('300px')
+    const selects = Array.from(container.querySelectorAll('select')) as HTMLSelectElement[]
+    expect(selects.map((select) => select.value)).toEqual(['mood', 'rainbow'])
+    expect(selects[1].disabled).toBe(true)
   })
 
   it('a bundled node header reflects the selected variant', () => {

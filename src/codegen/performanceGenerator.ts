@@ -60,6 +60,31 @@ export interface PerformanceOptions {
   energySensitivity:  number   // 0-1
 }
 
+export const SHOW_PALETTES = ['rainbow', 'ocean', 'fire', 'forest', 'lava', 'party', 'ice', 'purple'] as const
+
+/** Normalise editable node properties into safe generator options. */
+export function performanceOptionsFromProperties(properties: Record<string, unknown>): PerformanceOptions {
+  const clamp = (value: unknown, fallback: number, min: number, max: number) => {
+    if (value === undefined || value === null || value === '') return fallback
+    const n = Number(value)
+    return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback
+  }
+  const rawMode = String(properties.paletteMode ?? 'mood')
+  const paletteMode: PerformanceOptions['paletteMode'] =
+    rawMode === 'fixed' || rawMode === 'cycle' ? rawMode : 'mood'
+  const rawPalette = String(properties.fixedPalette ?? 'rainbow')
+  const fixedPalette = SHOW_PALETTES.includes(rawPalette as typeof SHOW_PALETTES[number])
+    ? rawPalette
+    : 'rainbow'
+  return {
+    beatIntensity: clamp(properties.beatIntensity, 0.8, 0, 1),
+    energySensitivity: clamp(properties.energySensitivity, 0.7, 0, 1),
+    transitionDuration: clamp(properties.transitionDuration, 0.5, 0.1, 3),
+    paletteMode,
+    fixedPalette,
+  }
+}
+
 const DEFAULT_OPTIONS: PerformanceOptions = {
   beatIntensity:      0.8,
   transitionDuration: 0.5,

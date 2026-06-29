@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { generateProvisionerSketch, PROVISION_CHUNK } from '../provisionerSketchGenerator'
-import { playerConfigFromGraph } from '../playerSketchGenerator'
+import { generatePlayerSketch, playerConfigFromGraph } from '../playerSketchGenerator'
 
 describe('generateProvisionerSketch', () => {
   it('bakes the SD chip-select pin and chunk size into the sketch', () => {
@@ -43,5 +43,15 @@ describe('playerConfigFromGraph', () => {
     expect(cfg.chipset).toBe('WS2812B')
     expect(cfg.sdCsPin).toBe(5)
     expect(cfg.maxVolume).toBe(18)
+  })
+})
+
+describe('generatePlayerSketch', () => {
+  it('uses the encoded beat decay and lets FastLED apply global brightness', () => {
+    const ino = generatePlayerSketch()
+    expect(ino).toContain('flashDecay = expf(')
+    expect(ino).toContain('ev.paramCount > 1 ? ev.params[1] : 22.0f')
+    expect(ino).toContain('flashLevel *= flashDecay')
+    expect(ino.indexOf('// Beat flash overlay')).toBeLessThan(ino.indexOf('FastLED.show();'))
   })
 })

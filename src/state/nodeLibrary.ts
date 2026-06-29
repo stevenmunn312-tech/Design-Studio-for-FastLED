@@ -1066,6 +1066,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       energySensitivity:  0.7,
       transitionDuration: 0.5,
       paletteMode:        'mood',
+      fixedPalette:       'rainbow',
     },
   },
   {
@@ -1355,6 +1356,13 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     gain:      { control: 'slider', min: 0.25, max: 4, step: 0.05 },
     smoothing: { control: 'slider', min: 0, max: 0.95, step: 0.01 },
   },
+  PerformanceGenerator: {
+    beatIntensity:      { control: 'slider', min: 0, max: 1, step: 0.05 },
+    energySensitivity:  { control: 'slider', min: 0, max: 1, step: 0.05 },
+    transitionDuration: { control: 'slider', min: 0.1, max: 3, step: 0.1 },
+    paletteMode:        { control: 'select', options: ['mood', 'cycle', 'fixed'] },
+    fixedPalette:       { control: 'select', options: ['rainbow', 'ocean', 'fire', 'forest', 'lava', 'party', 'ice', 'purple'] },
+  },
   Particles:         { rate:  { control: 'slider', min: 0, max: 1,   step: 0.01 } },
   Transform:         { rate:  { control: 'slider', min: 0, max: 360, step: 1 } },
   GameOfLife:        { speed: { control: 'slider', min: 1, max: 30,  step: 1 } },
@@ -1437,6 +1445,9 @@ export function nodeDisplayLabel(nodeType: string, properties: Record<string, un
  *  inapplicable to the current variant (e.g. Transition `direction` only applies
  *  to a wipe), in which case the editor is shown disabled but keeps its value. */
 export function isPropertyEnabled(nodeType: string, key: string, properties: Record<string, unknown>): boolean {
+  if (nodeType === 'PerformanceGenerator' && key === 'fixedPalette') {
+    return String(properties.paletteMode ?? 'mood') === 'fixed'
+  }
   if (nodeType === 'Transition') {
     const tt = String(properties.transitionType ?? 'crossfade')
     switch (key) {

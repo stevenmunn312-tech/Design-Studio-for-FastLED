@@ -1,5 +1,7 @@
 import { useRef } from 'react'
 import { useMusicStore } from '../../state/musicStore'
+import { useGraphStore } from '../../state/graphStore'
+import { performanceOptionsFromProperties } from '../../codegen/performanceGenerator'
 import styles from './MusicLibraryNodeBody.module.css'
 
 // The full Music Library UI, embedded directly in the MusicLibrary canvas node
@@ -16,9 +18,18 @@ const STATUS_LABEL: Record<string, string> = {
 
 const SECTIONS = ['intro', 'verse', 'buildup', 'drop', 'chorus', 'bridge', 'outro'] as const
 
-export default function MusicLibraryNodeBody() {
+export default function MusicLibraryNodeBody({ nodeId }: { nodeId: string }) {
   const { entries, engine, addFiles, analyzeAll, removeEntry, clearAll, setEngine } = useMusicStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const performanceProperties = useGraphStore((s) => {
+    const targetId = s.edges.find((edge) =>
+      edge.source === nodeId && edge.sourceHandle === 'songs'
+    )?.target
+    const connected = targetId
+      ? s.nodes.find((node) => node.id === targetId && node.data.nodeType === 'PerformanceGenerator')
+      : undefined
+    return (connected ?? s.nodes.find((node) => node.data.nodeType === 'PerformanceGenerator'))?.data.properties
+  })
 
   const doneCount    = entries.filter(e => e.status === 'done').length
   const analyzingAny = entries.some(e => e.status === 'analyzing')
@@ -131,7 +142,7 @@ export default function MusicLibraryNodeBody() {
         <div className={styles.footerRight}>
           <button
             className={`nodrag ${styles.primaryBtn}`}
-            onClick={() => analyzeAll()}
+            onClick={() => analyzeAll(performanceOptionsFromProperties(performanceProperties ?? {}))}
             disabled={analyzingAny || entries.length === 0 || entries.every(e => e.status === 'done')}
           >
             {analyzingAny ? 'Analysing…' : 'Analyse All'}

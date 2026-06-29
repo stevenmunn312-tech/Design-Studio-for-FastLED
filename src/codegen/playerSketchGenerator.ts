@@ -105,6 +105,7 @@ float      animSpeed  = 1.0f;
 uint8_t    patternId  = 2;        // default: Plasma
 uint8_t    paletteId  = 0;        // default: Rainbow
 float      flashLevel = 0.0f;
+float      flashDecay = 0.82f;
 float      transProgress = 1.0f;  // 1 = no transition in progress
 
 // ── Palette helper ────────────────────────────────────────────────────────────
@@ -224,7 +225,10 @@ void applyEvent(const ShowEvent& ev) {
     case CMD_SET_PALETTE:    paletteId  = (uint8_t)ev.params[0]; break;
     case CMD_SET_SPEED:      animSpeed  = ev.params[0]; break;
     case CMD_SET_BRIGHTNESS: FastLED.setBrightness((uint8_t)ev.params[0]); break;
-    case CMD_BEAT_FLASH:     flashLevel = ev.params[0] / 255.0f; break;
+    case CMD_BEAT_FLASH:
+      flashLevel = ev.params[0] / 255.0f;
+      flashDecay = expf(-16.0f / (60.0f + ((ev.paramCount > 1 ? ev.params[1] : 22.0f) / 255.0f) * 240.0f));
+      break;
     case CMD_TRANSITION:     transProgress = 0.0f; break;
   }
 }
@@ -281,7 +285,7 @@ void loop() {
       leds[i].g = qadd8(leds[i].g, (uint8_t)((255 - leds[i].g) * flashLevel));
       leds[i].b = qadd8(leds[i].b, (uint8_t)((255 - leds[i].b) * flashLevel));
     }
-    flashLevel *= 0.82f;  // decay
+    flashLevel *= flashDecay;
   }
 
   FastLED.show();
