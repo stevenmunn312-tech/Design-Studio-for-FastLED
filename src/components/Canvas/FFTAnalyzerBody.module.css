@@ -1,4 +1,8 @@
 .analyzer {
+  display: flex;
+  flex-direction: column;
+  height: 104px;
+  box-sizing: border-box;
   margin-top: 4px;
   padding: 7px;
   overflow: hidden;
@@ -30,6 +34,8 @@
 
 .readout {
   display: grid;
+  flex: 1 1 auto;
+  align-content: start;
   gap: 4px;
   margin-top: 7px;
 }

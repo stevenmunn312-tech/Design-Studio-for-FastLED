@@ -6,6 +6,8 @@ import { waveSample, combineWaves } from './wave'
 import { polinePalette, hexToRgb } from './polinePalette'
 import { inputClampRange } from './nodeLibrary'
 import { makeShims, SHIM_NAMES } from './fastledShims'
+import { createBeatDetectorState, denormalizeBeatParam, updateBeatDetectorFromSpectrum } from '../audio/beatDetection'
+import { denormalizeAudioFlowParam } from './audioFlowRange'
 
 export interface RGB { r: number; g: number; b: number }
 export type Frame = RGB[][]   // row-major [y][x]
@@ -21,6 +23,7 @@ const fireHeat    = new Map<string, number[][]>()
 const flashLevel  = new Map<string, number>()
 const counterVals = new Map<string, number>()
 const fftLevels   = new Map<string, { bass: number; mids: number; treble: number }>()
+const beatLevels  = new Map<string, ReturnType<typeof createBeatDetectorState>>()
 
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; r: number; g: number; b: number; seed?: number }
 const particleState = new Map<string, Particle[]>()
@@ -1649,6 +1652,11 @@ function createEvalNode(
     return typeof v === 'string' ? v : fallback
   }
 
+  function normProp(value: unknown, fallback: number): number {
+    const n = Number(value)
+    return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : fallback
+  }
+
   function evalNode(id: string): Record<string, PortValue> {
     if (memo.has(id)) return memo.get(id)!
     // Re-entering a node still on the stack means the graph has a cycle.
@@ -1781,11 +1789,27 @@ function createEvalNode(
       }
 
       case 'BeatDetect': {
+        const key = stateKey(id)
         const audio = useAudioStore.getState()
         if (audio.active) {
-          out = { beat: audio.beat, bpm: 120 }
+          const threshold = denormalizeBeatParam('threshold', normProp(props.threshold, 0.2))
+          const attack = denormalizeBeatParam('attack', normProp(props.attack, 0.55))
+          const decay = denormalizeBeatParam('decay', normProp(props.decay, 0.25))
+          const prev = beatLevels.get(key) ?? createBeatDetectorState()
+          const result = updateBeatDetectorFromSpectrum(audio.detectorSpectrum ?? audio.spectrum ?? [], t * 1000, prev, { threshold, attack, decay })
+          beatLevels.set(key, result.state)
+          out = {
+            beat: result.beat || audio.beat,
+            bpm: Number.isFinite(audio.bpm) && audio.bpm > 0 ? audio.bpm : result.bpm,
+            flux: result.state.lastFlux,
+            onset: result.state.lastOnset,
+            contrast: result.state.lastContrast,
+            threshold: result.state.lastThreshold,
+            cooldownMs: result.state.lastCooldownMs,
+          }
         } else {
-          out = { beat: (Math.sin(t * Math.PI * 2) > 0.9), bpm: 120 }
+          beatLevels.delete(key)
+          out = { beat: false, bpm: 120, flux: 0, onset: 0, contrast: 0, threshold: 0, cooldownMs: 0 }
         }
         break
       }
@@ -2280,8 +2304,8 @@ function createEvalNode(
         const bass = num(id, 'bass', props, 'bass', 0.5)
         const mids = num(id, 'mids', props, 'mids', 0.5)
         const treble = num(id, 'treble', props, 'treble', 0.3)
-        const speed = num(id, 'speed', props, 'speed', 1)
-        const scale = num(id, 'scale', props, 'scale', 0.2)
+        const speed = denormalizeAudioFlowParam('speed', num(id, 'speed', props, 'speed', 0.5))
+        const scale = denormalizeAudioFlowParam('scale', num(id, 'scale', props, 'scale', 0.5))
         const palette = pal(id, 'paletteIn', props, 'palette', 'party')
         out = { frame: evalAudioFlow(bass, mids, treble, speed, scale, t, palette, W, H) }
         break

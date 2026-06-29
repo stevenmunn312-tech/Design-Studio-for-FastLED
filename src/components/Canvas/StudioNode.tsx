@@ -9,6 +9,7 @@ import { waveNodeSamples } from '../../state/wave'
 import WaveScope from './WaveScope'
 import ComplexWaveScope from './ComplexWaveScope'
 import NodePreview, { type PreviewKind } from './NodePreview'
+import BeatDetectBody from './BeatDetectBody'
 import MusicLibraryNodeBody from './MusicLibraryNodeBody'
 import FFTAnalyzerBody from './FFTAnalyzerBody'
 import PerformanceGeneratorBody from './PerformanceGeneratorBody'
@@ -53,6 +54,9 @@ const BODY_PAD = 8
 const ROW_H = 24
 const ROW_GAP = 4
 const PREVIEW_H = 40
+const BEAT_WIDGET_H = 76
+const FFT_WIDGET_H = 104
+const HANDLE_Y_NUDGE = 4
 // Body content width = --node-width (180) − 2×--space-1 (8) horizontal padding.
 // Frame previews fill this width and keep the matrix aspect ratio.
 const BODY_CONTENT_W = 164
@@ -60,7 +64,7 @@ const BODY_CONTENT_W = 164
 // Handles are absolutely positioned; a preview scope at the top of the body
 // pushes the port rows down by its height + the body's flex gap.
 const handleTop = (i: number, previewOffset: number) =>
-  HEADER_H + BODY_PAD + previewOffset + i * (ROW_H + ROW_GAP) + ROW_H / 2
+  HEADER_H + BODY_PAD + previewOffset + i * (ROW_H + ROW_GAP) + ROW_H / 2 + HANDLE_Y_NUDGE
 
 const HANDLE_STYLE = {
   width: 12,
@@ -157,6 +161,8 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // scope is its own configured shape; ComplexWave's reflects live upstream.
   const isWave = d.nodeType === 'Wave'
   const isComplexWave = d.nodeType === 'ComplexWave'
+  const isBeatDetect = d.nodeType === 'BeatDetect'
+  const isFFTAnalyzer = d.nodeType === 'FFTAnalyzer'
   const waveSamples = isWave
     ? waveNodeSamples(String(props.waveform ?? 'sine'), Number(props.amplitude ?? 1), Number(props.frequency ?? 1), Number(props.phase ?? 0))
     : null
@@ -174,7 +180,10 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // colour / wave previews use the fixed scope height.
   const framePreviewH = Math.round((BODY_CONTENT_W * gridH) / gridW)
   const previewH = previewKind === 'frame' ? framePreviewH : PREVIEW_H
-  const previewOffset = isWave || isComplexWave || previewKind ? previewH + ROW_GAP : 0
+  const previewOffset =
+    (isWave || isComplexWave || previewKind ? previewH + ROW_GAP : 0) +
+    (isFFTAnalyzer ? FFT_WIDGET_H + ROW_GAP : 0) +
+    (isBeatDetect ? BEAT_WIDGET_H + ROW_GAP : 0)
 
   // The MusicLibrary node embeds the full library UI in its body, so it needs a
   // wider frame than the default node width.
@@ -234,6 +243,8 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       <div className={styles.body}>
         {isWave && waveSamples && <WaveScope samples={waveSamples} />}
         {isComplexWave && <ComplexWaveScope nodeId={id} />}
+        {isBeatDetect && <BeatDetectBody nodeId={id} />}
+        {isFFTAnalyzer && <FFTAnalyzerBody nodeId={id} bands={Number(props.bands ?? 24)} />}
         {previewKind && outPort && (
           <NodePreview nodeId={id} kind={previewKind} port={outPort.id} height={previewKind === 'frame' ? framePreviewH : undefined} />
         )}
@@ -245,9 +256,6 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         ))}
 
         {d.nodeType === 'MusicLibrary' && <MusicLibraryNodeBody nodeId={id} />}
-
-        {d.nodeType === 'FFTAnalyzer' && <FFTAnalyzerBody nodeId={id} bands={Number(props.bands ?? 24)} />}
-
         {d.nodeType === 'PerformanceGenerator' && <PerformanceGeneratorBody nodeId={id} />}
 
         {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}

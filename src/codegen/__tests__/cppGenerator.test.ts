@@ -474,11 +474,13 @@ describe('generateCpp', () => {
   })
 
   it('emits an AudioFlow with flow advection scaled by bass brightness', () => {
-    const af = node('af', 'AudioFlow', 'pattern', { speed: 1, scale: 0.2, palette: 'party', bass: 0.5, mids: 0.5, treble: 0.3 })
+    const af = node('af', 'AudioFlow', 'pattern', { speed: 0.5, scale: 0.5, palette: 'party', bass: 0.5, mids: 0.5, treble: 0.3 })
     const cpp = generateCpp([af, outputNode], [edge('e', 'af', 'out', 'frame', 'frame')])
     expect(cpp).toContain('inoise8(')
     expect(cpp).toContain('ColorFromPalette(PartyColors_p')
     expect(cpp).toContain('.nscale8(_bright)')
+    expect(cpp).toContain('constrain((')
+    expect(cpp).toContain('* 0.200f')
   })
 
   it('emits Gabor noise with its Gaussian-cosine kernel and hash helper', () => {
@@ -892,6 +894,16 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('_audioBass * 1.500f')
     expect(cpp).toContain('_smooth * 0.800f')
     expect(cpp).toContain('* 0.200f')
+  })
+
+  it('emits a per-node BeatDetect envelope and BPM estimate', () => {
+    const mic = node('mic', 'MicInput', 'input', {})
+    const beat = node('bd', 'BeatDetect', 'audio', { threshold: 0.08, attack: 0.3, decay: 0.05 })
+    const cpp = generateCpp([mic, beat, out], [
+      edge('e1', 'mic', 'bd', 'audio', 'audio'),
+      edge('e2', 'bd', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('bool n_bd_beat = _audioBeat; float n_bd_bpm = _audioBpm;')
   })
 
   it('honours the selected I2S channel', () => {

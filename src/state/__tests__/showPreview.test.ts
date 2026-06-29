@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('../audioStore', () => ({
-  useAudioStore: { getState: () => ({ active: false, bass: 0, mids: 0, treble: 0, beat: false, spectrum: Array(16).fill(0) }) },
+  useAudioStore: { getState: () => ({ active: false, bass: 0, mids: 0, treble: 0, beat: false, bpm: 120, spectrum: Array(16).fill(0) }) },
 }))
 
 import { showStateAt, beatFlashAt, renderShowFrame, sectionAt } from '../showPreview'

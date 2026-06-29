@@ -56,7 +56,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'beat', label: 'Beat', dataType: 'bool' },
       { id: 'bpm', label: 'BPM', dataType: 'float' },
     ],
-    defaultProperties: { threshold: 0.5, attack: 0.1, decay: 0.3 },
+    defaultProperties: { threshold: 0.2, attack: 0.55, decay: 0.25 },
   },
 
   // ── Pattern ────────────────────────────────────────────────────────────
@@ -799,10 +799,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'bass', label: 'Bass', dataType: 'float' },
       { id: 'mids', label: 'Mids', dataType: 'float' },
       { id: 'treble', label: 'Treble', dataType: 'float' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'scale', label: 'Scale', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 1, scale: 0.2, palette: 'party' },
+    defaultProperties: { speed: 0.5, scale: 0.5, palette: 'rainbow' },
   },
   {
     // Gray-Scott reaction-diffusion — organic spots/stripes that evolve.
@@ -1105,7 +1107,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   // audio
   FFTAnalyzer: 'Splits mic audio into bass / mids / treble levels.',
   BeatDetect: 'Emits a beat pulse and estimated BPM from audio.',
-  MicInput: 'Microphone — adaptive noise gate in preview + on-device INMP441 I2S for firmware.',
+  MicInput: 'Microphone — adaptive preview gate + on-device INMP441 I2S for firmware.',
   AudioHue: 'Maps bass/mids/treble to a hue value.',
   // hardware
   ButtonInput: 'Reads a hardware button as a boolean.',
@@ -1372,6 +1374,15 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     transitionDuration: { control: 'slider', min: 0.1, max: 3, step: 0.1 },
     paletteMode:        { control: 'select', options: ['mood', 'cycle', 'fixed'] },
     fixedPalette:       { control: 'select', options: ['rainbow', 'ocean', 'fire', 'forest', 'lava', 'party', 'ice', 'purple'] },
+  },
+  BeatDetect: {
+    threshold: { control: 'slider', min: 0, max: 1, step: 0.01 },
+    attack:    { control: 'slider', min: 0, max: 1, step: 0.01 },
+    decay:     { control: 'slider', min: 0, max: 1, step: 0.01 },
+  },
+  AudioFlow: {
+    speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
+    scale: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   Particles:         { rate:  { control: 'slider', min: 0, max: 1,   step: 0.01 } },
   Transform:         { rate:  { control: 'slider', min: 0, max: 360, step: 1 } },

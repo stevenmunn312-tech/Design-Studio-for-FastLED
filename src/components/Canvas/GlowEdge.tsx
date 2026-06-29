@@ -13,11 +13,12 @@ function GlowEdge({
   sourcePosition,
   targetPosition,
   source,
+  style,
 }: EdgeProps) {
   const { getNode } = useReactFlow()
   const sourceNode = getNode(source)
   const category = (sourceNode?.data as { category?: string })?.category ?? 'output'
-  const color = CATEGORY_COLOR[category] ?? '#00bfff'
+  const color = (typeof style?.stroke === 'string' && style.stroke) || CATEGORY_COLOR[category] || '#00bfff'
 
   const [edgePath] = getBezierPath({
     sourceX,

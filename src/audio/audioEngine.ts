@@ -1,3 +1,5 @@
+import { createBeatDetectorState, updateBeatDetectorFromSpectrum } from './beatDetection'
+
 const FFT_SIZE = 512
 const SMOOTHING = 0.75
 export const NUM_SPECTRUM_BARS = 32
@@ -10,16 +12,14 @@ const DEFAULT_NOISE_DECAY = 0.05
 const MIN_SPECTRUM_HZ = 30
 const MAX_SPECTRUM_HZ = 12_000
 
-const BEAT_HISTORY = 30
-const BEAT_MULTIPLIER = 1.4
-const BEAT_COOLDOWN_MS = 300
-
 export interface AudioData {
   bass: number
   mids: number
   treble: number
   beat: boolean
+  bpm: number
   spectrum: number[]  // logarithmically spaced values, low → high
+  detectorSpectrum: number[]
 }
 
 export interface MicNoiseGateConfig {
@@ -106,20 +106,19 @@ export class AudioEngine {
   private buf: Uint8Array | null = null
   private listeners = new Set<(data: AudioData) => void>()
   private rafId = 0
-  private bassHistory: number[] = []
   private gateState = {
     bass: DEFAULT_GATE_STATE(),
     mids: DEFAULT_GATE_STATE(),
     treble: DEFAULT_GATE_STATE(),
     spectrum: Array.from({ length: NUM_SPECTRUM_BARS }, () => DEFAULT_GATE_STATE()),
   }
+  private beatState = createBeatDetectorState()
   private micConfig: MicNoiseGateConfig = {
     gain: DEFAULT_MIC_GAIN,
     threshold: DEFAULT_NOISE_THRESHOLD,
     attack: DEFAULT_NOISE_ATTACK,
     decay: DEFAULT_NOISE_DECAY,
   }
-  private lastBeatMs = 0
 
   active = false
 
@@ -159,9 +158,17 @@ export class AudioEngine {
       treble: DEFAULT_GATE_STATE(),
       spectrum: Array.from({ length: NUM_SPECTRUM_BARS }, () => DEFAULT_GATE_STATE()),
     }
-    this.bassHistory = []; this.lastBeatMs = 0
+    this.beatState = createBeatDetectorState()
     this.active = false
-    this.emit({ bass: 0, mids: 0, treble: 0, beat: false, spectrum: Array(NUM_SPECTRUM_BARS).fill(0) })
+    this.emit({
+      bass: 0,
+      mids: 0,
+      treble: 0,
+      beat: false,
+      bpm: 120,
+      spectrum: Array(NUM_SPECTRUM_BARS).fill(0),
+      detectorSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),
+    })
   }
 
   subscribe(cb: (data: AudioData) => void): () => void {
@@ -178,11 +185,22 @@ export class AudioEngine {
     const bass   = this.band(30, 250, sampleRate)
     const mids   = this.band(250, 2000, sampleRate)
     const treble = this.band(2000, 8000, sampleRate)
-    const beat   = this.detectBeat(bass)
-    const spectrum = logarithmicSpectrum(this.buf, sampleRate, FFT_SIZE)
+    const rawSpectrum = logarithmicSpectrum(this.buf, sampleRate, FFT_SIZE)
+      .map((value) => clamp01(value * this.micConfig.gain))
+    const spectrum = rawSpectrum
       .map((value, i) => this.gateSpectrum(value, i))
+    const beatResult = updateBeatDetectorFromSpectrum(rawSpectrum, performance.now(), this.beatState)
+    this.beatState = beatResult.state
 
-    this.emit({ bass, mids, treble, beat, spectrum })
+    this.emit({
+      bass,
+      mids,
+      treble,
+      beat: beatResult.beat,
+      bpm: beatResult.bpm,
+      spectrum,
+      detectorSpectrum: rawSpectrum,
+    })
   }
 
   private band(fromHz: number, toHz: number, sampleRate: number): number {
@@ -200,18 +218,6 @@ export class AudioEngine {
     const gated = applyNoiseGate(raw * gain, this.gateState.spectrum[index], this.micConfig)
     this.gateState.spectrum[index] = gated
     return gated.level
-  }
-
-  private detectBeat(bass: number): boolean {
-    this.bassHistory.push(bass)
-    if (this.bassHistory.length > BEAT_HISTORY) this.bassHistory.shift()
-    const avg = this.bassHistory.reduce((a, b) => a + b, 0) / this.bassHistory.length
-    const now = performance.now()
-    if (bass > avg * BEAT_MULTIPLIER && bass > 0.15 && now - this.lastBeatMs > BEAT_COOLDOWN_MS) {
-      this.lastBeatMs = now
-      return true
-    }
-    return false
   }
 
   private emit(data: AudioData) {

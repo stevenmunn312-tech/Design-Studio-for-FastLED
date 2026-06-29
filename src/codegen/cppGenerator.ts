@@ -3,6 +3,7 @@ import type { GroupRegistry } from '../state/graphEvaluator'
 import { asFont, textColumns } from '../state/font'
 import { asImage } from '../state/image'
 import { polineStops16, hexToRgb } from '../state/polinePalette'
+import { audioFlowExpr } from '../state/audioFlowRange'
 import { inputClampRange } from '../state/nodeLibrary'
 import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledShims'
 
@@ -161,6 +162,10 @@ function audioEngineCpp(ws: number, sck: number, sd: number, chFmt: string, gain
     '#define AUDIO_SR  16000      // I2S sample rate (Hz)',
     'float _audioBass = 0, _audioMids = 0, _audioTreble = 0, _audioBpm = 120;',
     'bool  _audioBeat = false;',
+    'static float _audioBeatFast = 0, _audioBeatSlow = 0, _audioBeatPrevFlux = 0, _audioBeatPrevPrevFlux = 0;',
+    'static float _audioPrevSpectrum[32];',
+    'static bool _audioHavePrevSpectrum = false;',
+    'static uint32_t _audioBeatLast = 0;',
     'static float _bassFloor = 0.02f, _midsFloor = 0.02f, _trebleFloor = 0.02f;',
     'static float _bassSmooth = 0, _midsSmooth = 0, _trebleSmooth = 0;',
     'static float _aRe[AUDIO_N], _aIm[AUDIO_N];',
@@ -247,10 +252,60 @@ function audioEngineCpp(ws: number, sck: number, sd: number, chFmt: string, gain
     '  _audioBass   = _audioNoiseGate(constrain(bass   / mx, 0.0f, 1.0f) * MIC_GAIN, _bassFloor, _bassSmooth);',
     '  _audioMids   = _audioNoiseGate(constrain(mids   / mx, 0.0f, 1.0f) * MIC_GAIN, _midsFloor, _midsSmooth);',
     '  _audioTreble = _audioNoiseGate(constrain(treble / mx, 0.0f, 1.0f) * MIC_GAIN, _trebleFloor, _trebleSmooth);',
-    '  static float avg = 0; static uint32_t lastBeat = 0; uint32_t now = millis();',
-    '  avg = avg * 0.95f + _audioBass * 0.05f;     // beat: bass spike vs rolling avg',
-    '  _audioBeat = (_audioBass > avg * 1.4f && _audioBass > 0.2f && now - lastBeat > 250);',
-    '  if (_audioBeat) lastBeat = now;',
+    '  float spectrum[32];',
+    '  for (int band = 0; band < 32; band++) {',
+    '    float t0 = (float)band / 32.0f;',
+    '    float t1 = (float)(band + 1) / 32.0f;',
+    '    float hz0 = 30.0f * powf(12000.0f / 30.0f, t0);',
+    '    float hz1 = 30.0f * powf(12000.0f / 30.0f, t1);',
+    '    int startBin = max(1, (int)floorf(hz0 / binHz));',
+    '    int endBin = min(AUDIO_N / 2 - 1, max(startBin, (int)ceilf(hz1 / binHz)));',
+    '    float acc = 0.0f;',
+    '    int count = 0;',
+    '    for (int i = startBin; i <= endBin; i++) {',
+    '      float mag = sqrtf(_aRe[i] * _aRe[i] + _aIm[i] * _aIm[i]);',
+    '      acc += constrain(mag / mx, 0.0f, 1.0f);',
+    '      count++;',
+    '    }',
+    '    spectrum[band] = count > 0 ? constrain(acc / count, 0.0f, 1.0f) : 0.0f;',
+    '  }',
+    '  _audioBeat = false;',
+    '  if (_audioHavePrevSpectrum) {',
+    '    float flux = 0.0f;',
+    '    float weightSum = 0.0f;',
+    '    for (int i = 0; i < 32; i++) {',
+    '      float diff = spectrum[i] - _audioPrevSpectrum[i];',
+    '      if (diff < 0.0f) diff = 0.0f;',
+    '      float weight = i < 6 ? 2.0f : (i < 12 ? 1.35f : (i < 20 ? 0.85f : 0.45f));',
+    '      flux += diff * weight;',
+    '      weightSum += weight;',
+    '    }',
+    '    flux = weightSum > 0.0f ? flux / weightSum : 0.0f;',
+    '    _audioBeatFast += (flux - _audioBeatFast) * 0.45f;',
+    '    _audioBeatSlow += (flux - _audioBeatSlow) * 0.13f;',
+    '    float onset = _audioBeatFast - _audioBeatSlow;',
+    '    float baseline = _audioBeatSlow > 0.02f ? _audioBeatSlow : 0.02f;',
+    '    float contrast = onset / baseline;',
+    '    uint32_t now = millis();',
+    '    float gap = _audioBpm > 0.0f ? 60000.0f / _audioBpm * 0.42f : 160.0f;',
+    '    if (gap < 160.0f) gap = 160.0f; else if (gap > 600.0f) gap = 600.0f;',
+    '    bool isPeak = flux > _audioBeatPrevFlux && _audioBeatPrevFlux >= _audioBeatPrevPrevFlux;',
+    '    _audioBeat = (flux > 0.07f && isPeak && onset > 0.07f * 0.45f && contrast > 1.1f && (_audioBeatLast == 0 || now - _audioBeatLast >= (uint32_t)gap));',
+    '    if (_audioBeat) {',
+    '      if (_audioBeatLast != 0) {',
+    '        float interval = now - _audioBeatLast;',
+    '        if (interval >= 220.0f && interval <= 1800.0f) {',
+    '          float instant = 60000.0f / interval;',
+    '          _audioBpm = _audioBpm * 0.65f + instant * 0.35f;',
+    '        }',
+    '      }',
+    '      _audioBeatLast = now;',
+    '    }',
+    '    _audioBeatPrevPrevFlux = _audioBeatPrevFlux;',
+    '    _audioBeatPrevFlux = flux;',
+    '  }',
+    '  for (int i = 0; i < 32; i++) _audioPrevSpectrum[i] = spectrum[i];',
+    '  _audioHavePrevSpectrum = true;',
     '}',
   ]
 }
@@ -1353,7 +1408,8 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         needsT.v = true
         const ob = ownBuf()
         const bass = f('bass', 'bass', 0.5), mids = f('mids', 'mids', 0.5), treble = f('treble', 'treble', 0.3)
-        const speed = f('speed', 'speed', 1), scale = f('scale', 'scale', 0.2)
+        const speed = audioFlowExpr('speed', f('speed', 'speed', 0.5))
+        const scale = audioFlowExpr('scale', f('scale', 'scale', 0.5))
         const pal = paletteExpr(node.id, 'paletteIn', p)
         ln(`  { float _b=${bass},_m=${mids},_tr=${treble},_spd=${speed},_sc=${scale};`)
         ln(`    float _flow=t*_spd*(0.2f+_m*1.5f); uint8_t _bright=(uint8_t)(min(1.0f,0.3f+_b)*255);`)

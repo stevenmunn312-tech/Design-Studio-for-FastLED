@@ -6,6 +6,8 @@ import { useGraphStore } from '../../../state/graphStore'
 import type { StudioNode as StudioNodeT, StudioNodeData } from '../../../state/graphStore'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import { useMusicStore } from '../../../state/musicStore'
+import { usePreviewStore } from '../../../state/previewStore'
+import { useAudioStore } from '../../../state/audioStore'
 
 // React Flow's <Handle> needs flow context; stub it — these tests cover the
 // node body (labels + inline property controls), not handle behaviour.
@@ -32,6 +34,8 @@ describe('StudioNode', () => {
   beforeEach(() => {
     useGraphStore.setState({ nodes: [], edges: [] })
     useMusicStore.setState({ entries: [] })
+    usePreviewStore.setState({ outputs: new Map() })
+    useAudioStore.setState({ active: false, bass: 0, mids: 0, treble: 0, beat: false, bpm: 120, spectrum: Array(16).fill(0) })
   })
 
   it('renders the node label and port labels', () => {
@@ -65,6 +69,33 @@ describe('StudioNode', () => {
     // First slider is `speed` (property iteration order).
     fireEvent.change(range, { target: { value: '2.5' } })
     expect(useGraphStore.getState().nodes[0].data.properties.speed).toBe(2.5)
+  })
+
+  it('disables wired AudioFlow sliders but keeps their live values visible', () => {
+    const speedSrc = { ...makeNode('Counter', { speed: 1 }), id: 'speedSrc' } as StudioNodeT
+    const scaleSrc = { ...makeNode('Counter', { speed: 1 }), id: 'scaleSrc' } as StudioNodeT
+    const af = makeNode('AudioFlow', { speed: 0.5, scale: 0.5, palette: 'party' })
+    useGraphStore.setState({
+      nodes: [speedSrc, scaleSrc, af],
+      edges: [
+        { id: 'e1', source: speedSrc.id, target: af.id, sourceHandle: 'value', targetHandle: 'speed' } as never,
+        { id: 'e2', source: scaleSrc.id, target: af.id, sourceHandle: 'value', targetHandle: 'scale' } as never,
+      ],
+    })
+    usePreviewStore.setState({
+      outputs: new Map([
+        [speedSrc.id, { value: 0.17 }],
+        [scaleSrc.id, { value: 0.83 }],
+      ]),
+    })
+    const props = { id: af.id, data: af.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
+    const { container, getByText } = render(<StudioNode {...props} />)
+    const sliders = Array.from(container.querySelectorAll('input[type="range"]')) as HTMLInputElement[]
+    expect(getByText('speed')).toBeTruthy()
+    expect(getByText('scale')).toBeTruthy()
+    expect(sliders).toHaveLength(2)
+    expect(sliders.every((slider) => slider.disabled)).toBe(true)
+    expect(sliders.map((slider) => slider.value)).toEqual(expect.arrayContaining(['0.17', '0.83']))
   })
 
   it('renders a waveform preview scope for a Wave node', () => {
@@ -167,6 +198,31 @@ describe('StudioNode', () => {
     const selects = Array.from(container.querySelectorAll('select')) as HTMLSelectElement[]
     expect(selects.map((select) => select.value)).toEqual(['mood', 'rainbow'])
     expect(selects[1].disabled).toBe(true)
+  })
+
+  it('embeds a live beat/BPM widget in the Beat Detect node', () => {
+    usePreviewStore.setState({
+      outputs: new Map([
+        ['n1', { beat: true, bpm: 132, flux: 0.18, onset: 0.09, threshold: 0.05, contrast: 1.8, cooldownMs: 210 }],
+      ]),
+    })
+    useAudioStore.setState({
+      active: true,
+      bass: 0.8,
+      mids: 0,
+      treble: 0,
+      beat: true,
+      bpm: 132,
+      spectrum: Array(16).fill(0),
+      detectorSpectrum: Array(16).fill(0),
+    })
+    const { getByLabelText, getByText } = renderNode(makeNode('BeatDetect', { threshold: 0.08, attack: 0.2, decay: 0.05 }))
+    expect(getByLabelText('Beat detector status')).toBeTruthy()
+    expect(getByText('BEAT')).toBeTruthy()
+    expect(getByText('132 BPM')).toBeTruthy()
+    expect(getByText('LIVE')).toBeTruthy()
+    expect(getByText('flux 0.18')).toBeTruthy()
+    expect(getByText('thr 0.05')).toBeTruthy()
   })
 
   it('a bundled node header reflects the selected variant', () => {

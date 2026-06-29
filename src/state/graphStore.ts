@@ -13,7 +13,7 @@ import {
   reconnectEdge,
 } from '@xyflow/react'
 import type { NodeCategory } from '../types'
-import { CATEGORY_COLOR } from './nodeLibrary'
+import { portColor } from './nodeLibrary'
 import type { GroupRegistry } from './graphEvaluator'
 import type { SavedPattern } from './patternLibrary'
 
@@ -215,6 +215,16 @@ function spreadNodesByEdges(nodes: StudioNode[], edges: StudioEdge[]): StudioNod
   })
 }
 
+function edgeStrokeForPort(node: StudioNode | undefined, handleId: string | undefined): string {
+  if (!node || !handleId) return '#00bfff'
+  const data = node.data as StudioNodeData & {
+    inputs?: { id: string; dataType: string }[]
+    outputs?: { id: string; dataType: string }[]
+  }
+  const port = [...(data.outputs ?? []), ...(data.inputs ?? [])].find((p) => p.id === handleId)
+  return portColor(port?.dataType ?? 'float')
+}
+
 export const useGraphStore = create<GraphState>()(
   temporal(
     (set) => ({
@@ -236,7 +246,7 @@ export const useGraphStore = create<GraphState>()(
       onConnect: (connection) =>
         set((s) => {
           const src = s.nodes.find((n) => n.id === connection.source)
-          const color = CATEGORY_COLOR[(src?.data as { category?: string })?.category ?? ''] ?? '#00bfff'
+          const color = edgeStrokeForPort(src, connection.sourceHandle ?? undefined)
           // `reconnectable: 'target'` lets a noodle be unplugged/re-routed from
           // the input (target) end only — grab it at the input port and drag.
           return { edges: addEdge({ ...connection, type: 'glowEdge', reconnectable: 'target', style: { stroke: color } }, s.edges) }
@@ -246,7 +256,14 @@ export const useGraphStore = create<GraphState>()(
         set((s) => ({ edges: s.edges.filter((e) => e.id !== id) })),
 
       reconnectNoodle: (oldEdge, newConnection) =>
-        set((s) => ({ edges: reconnectEdge(oldEdge, newConnection, s.edges) })),
+        set((s) => {
+          const edges = reconnectEdge(oldEdge, newConnection, s.edges)
+          const src = s.nodes.find((n) => n.id === newConnection.source)
+          const color = edgeStrokeForPort(src, newConnection.sourceHandle ?? undefined)
+          return {
+            edges: edges.map((edge) => edge.id === oldEdge.id ? { ...edge, style: { ...edge.style, stroke: color } } : edge),
+          }
+        }),
 
       addNode: (node) =>
         set((s) => ({ nodes: [...s.nodes, node] })),
@@ -256,8 +273,8 @@ export const useGraphStore = create<GraphState>()(
           const old = s.edges.find((e) => e.id === edgeId)
           if (!old) return { nodes: [...s.nodes, node] }
           const srcNode = s.nodes.find((n) => n.id === old.source)
-          const srcColor = CATEGORY_COLOR[(srcNode?.data as { category?: string })?.category ?? ''] ?? '#00bfff'
-          const newColor = CATEGORY_COLOR[node.data.category] ?? '#00bfff'
+          const srcColor = edgeStrokeForPort(srcNode, old.sourceHandle ?? undefined)
+          const newColor = edgeStrokeForPort(node, outHandle ?? undefined)
           // Two new noodles replace the old one, matching onConnect's style so the
           // MiniMap/reconnect behaviour is identical.
           const e1 = {

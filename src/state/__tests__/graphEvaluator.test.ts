@@ -1,12 +1,19 @@
 import { describe, it, expect, vi } from 'vitest'
 
+const mockAudio = vi.hoisted(() => ({
+  active: false,
+  bass: 0,
+  mids: 0,
+  treble: 0,
+  beat: false,
+  bpm: 120,
+  spectrum: Array(16).fill(0),
+  detectorSpectrum: Array(16).fill(0),
+}))
+
 vi.mock('../audioStore', () => ({
   useAudioStore: {
-    getState: () => ({
-      active: false,
-      bass: 0, mids: 0, treble: 0, beat: false,
-      spectrum: Array(16).fill(0),
-    }),
+    getState: () => mockAudio,
   },
 }))
 
@@ -122,6 +129,23 @@ describe('evaluateGraph', () => {
     // the four waveforms are not all identical at a shared tick.
     const vals = ['sine', 'triangle', 'square', 'sawtooth'].map((wf) => brightnessAt(wf, 7))
     expect(new Set(vals).size).toBeGreaterThan(1)
+  })
+
+  it('BeatDetect forwards the live audio beat and BPM', () => {
+    mockAudio.active = true
+    const beatNode = node('bd', 'BeatDetect', 'audio', { threshold: 0.12, attack: 0.295, decay: 0.143 })
+    mockAudio.beat = false
+    mockAudio.bpm = 124
+    evaluateGraphFull([beatNode], [], 0, W, H)
+    mockAudio.beat = true
+    const { outputs } = evaluateGraphFull([beatNode], [], 60, W, H)
+    const beat = outputs.get('bd')!
+    expect(beat.beat).toBe(true)
+    expect(beat.bpm).toBe(124)
+    expect(beat).toHaveProperty('flux')
+    expect(beat).toHaveProperty('threshold')
+    mockAudio.active = false
+    mockAudio.beat = false
   })
 
   it('ComplexWave combines two values per operation', () => {
@@ -591,7 +615,7 @@ describe('evaluateGraph', () => {
   it('AudioFlow brightens with bass', () => {
     const brightnessAt = (bass: number) => {
       // bass read from the node property when no FFTAnalyzer is wired.
-      const af = node('af', 'AudioFlow', 'pattern', { speed: 1, scale: 0.2, palette: 'party', bass, mids: 0.5, treble: 0.3 })
+      const af = node('af', 'AudioFlow', 'pattern', { speed: 0.5, scale: 0.5, palette: 'party', bass, mids: 0.5, treble: 0.3 })
       const out = node('out', 'MatrixOutput', 'output', {})
       const f = evaluateGraph([af, out], [edge('e', 'af', 'frame', 'out', 'frame')], 30, 8, 8)!
       return f.flat().reduce((a, px) => a + px.r + px.g + px.b, 0)

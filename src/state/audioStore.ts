@@ -7,7 +7,9 @@ interface AudioState {
   mids: number
   treble: number
   beat: boolean
+  bpm: number
   spectrum: number[]
+  detectorSpectrum: number[]
   startAudio: () => Promise<void>
   stopAudio: () => void
 }
@@ -16,7 +18,15 @@ export const useAudioStore = create<AudioState>()((set) => {
   const engine = AudioEngine.instance
 
   engine.subscribe((data) => {
-    set({ bass: data.bass, mids: data.mids, treble: data.treble, beat: data.beat, spectrum: data.spectrum })
+    set({
+      bass: data.bass,
+      mids: data.mids,
+      treble: data.treble,
+      beat: data.beat,
+      bpm: data.bpm,
+      spectrum: data.spectrum,
+      detectorSpectrum: data.detectorSpectrum,
+    })
   })
 
   return {
@@ -25,7 +35,9 @@ export const useAudioStore = create<AudioState>()((set) => {
     mids: 0,
     treble: 0,
     beat: false,
+    bpm: 120,
     spectrum: Array(NUM_SPECTRUM_BARS).fill(0),
+    detectorSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),
 
     startAudio: async () => {
       await engine.start()
@@ -34,7 +46,16 @@ export const useAudioStore = create<AudioState>()((set) => {
 
     stopAudio: () => {
       engine.stop()
-      set({ active: false, bass: 0, mids: 0, treble: 0, beat: false, spectrum: Array(NUM_SPECTRUM_BARS).fill(0) })
+      set({
+        active: false,
+        bass: 0,
+        mids: 0,
+        treble: 0,
+        beat: false,
+        bpm: 120,
+        spectrum: Array(NUM_SPECTRUM_BARS).fill(0),
+        detectorSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),
+      })
     },
   }
 })
