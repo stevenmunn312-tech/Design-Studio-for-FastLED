@@ -264,8 +264,6 @@ describe('StudioNode', () => {
     expect(getByText('BEAT')).toBeTruthy()
     expect(getByText('132 BPM')).toBeTruthy()
     expect(getByText('LIVE')).toBeTruthy()
-    expect(getByText('flux 0.18')).toBeTruthy()
-    expect(getByText('thr 0.05')).toBeTruthy()
   })
 
   it('a bundled node header reflects the selected variant', () => {

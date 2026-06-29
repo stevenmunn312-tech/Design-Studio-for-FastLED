@@ -129,25 +129,6 @@
   box-shadow: 0 0 6px rgba(0, 255, 255, 0.24);
 }
 
-.debugGrid,
-.debugFoot {
-  font-size: 9px;
-  line-height: 1;
-  font-family: var(--font-code);
-  font-variant-numeric: tabular-nums;
-  color: var(--text-secondary);
-}
-
-.debugGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 2px 8px;
-}
-
-.debugFoot {
-  color: color-mix(in srgb, var(--text-secondary) 84%, var(--accent-audio));
-}
-
 @media (prefers-reduced-motion: reduce) {
   .pulseCore {
     transition: none;
