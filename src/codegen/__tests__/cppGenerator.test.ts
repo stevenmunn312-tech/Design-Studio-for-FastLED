@@ -541,6 +541,16 @@ describe('generateCpp', () => {
     expect(cpp).toContain('CRGB(200, 120, 255)')
   })
 
+  it('emits AudioCascade as a full-spectrum palette pattern with ribbons and shimmer', () => {
+    const ac = node('ac', 'AudioCascade', 'pattern', { bass: 0.8, mids: 0.7, treble: 0.9, intensity: 0.85, speed: 0.75, palette: 'rainbow' })
+    const cpp = generateCpp([ac, outputNode], [edge('e', 'ac', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('float _motion = _spd * (0.8f + (_b + _m + _t) * 1.4f * _strength);')
+    expect(cpp).toContain('float _ribbon = sinf((_nx * 7.0f + _ny * 2.5f) + t * _motion * (2.0f + _m * 3.0f * _strength));')
+    expect(cpp).toContain('float _shimmer = powf(max(0.0f, sinf((_nx + _ny) * 18.0f + t * _motion * (4.0f + _t * 8.0f * _strength)) * 0.5f + 0.5f), 6.0f);')
+    expect(cpp).toContain('ColorFromPalette(RainbowColors_p')
+    expect(cpp).toContain('.nscale8((uint8_t)(_v * 255));')
+  })
+
   it('emits Gabor noise with its Gaussian-cosine kernel and hash helper', () => {
     const g = node('g', 'GaborNoise', 'pattern', { speed: 0.5, scale: 0.35, frequency: 1.2, orientation: 45, palette: 'ocean' })
     const cpp = generateCpp([g, outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])

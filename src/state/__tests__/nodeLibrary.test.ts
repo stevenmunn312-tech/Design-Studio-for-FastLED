@@ -87,4 +87,12 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('TreblePrism', 'intensity')).toMatchObject({ control: 'slider', min: 0, max: 1 })
     expect(propertyMeta('TreblePrism', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
+
+  it('AudioCascade exposes full-spectrum audio inputs with normalized controls', () => {
+    const ac = NODE_LIBRARY.find((n) => n.type === 'AudioCascade')
+    expect(ac?.inputs.map((p) => p.id)).toEqual(['bass', 'mids', 'treble', 'intensity', 'speed', 'paletteIn'])
+    expect(ac?.defaultProperties).toMatchObject({ intensity: 1, speed: 1, palette: 'rainbow' })
+    expect(propertyMeta('AudioCascade', 'intensity')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+    expect(propertyMeta('AudioCascade', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+  })
 })

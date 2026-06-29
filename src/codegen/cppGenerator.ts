@@ -993,6 +993,36 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
+      case 'AudioCascade': {
+        needsT.v = true
+        const ob = ownBuf()
+        const bass = f('bass', 'bass', 0.5)
+        const mids = f('mids', 'mids', 0.5)
+        const treble = f('treble', 'treble', 0.5)
+        const intensity = f('intensity', 'intensity', 1)
+        const speed = f('speed', 'speed', 1)
+        const pal = paletteExpr(node.id, 'paletteIn', p)
+        ln(`  {`)
+        ln(`    float _b = min(1.0f, max(0.0f, ${bass})), _m = min(1.0f, max(0.0f, ${mids})), _t = min(1.0f, max(0.0f, ${treble}));`)
+        ln(`    float _strength = min(1.0f, max(0.0f, ${intensity}));`)
+        ln(`    float _spd = min(1.0f, max(0.0f, ${speed}));`)
+        ln(`    float _motion = _spd * (0.8f + (_b + _m + _t) * 1.4f * _strength);`)
+        ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
+        ln(`      float _nx = WIDTH > 1 ? (float)_x / (float)(WIDTH - 1) : 0.0f;`)
+        ln(`      float _ny = HEIGHT > 1 ? (float)_y / (float)(HEIGHT - 1) : 0.0f;`)
+        ln(`      float _ribbon = sinf((_nx * 7.0f + _ny * 2.5f) + t * _motion * (2.0f + _m * 3.0f * _strength));`)
+        ln(`      float _sweep = cosf((_ny * 9.0f - _nx * 3.0f) - t * _motion * (1.4f + _b * 2.2f * _strength));`)
+        ln(`      float _shimmer = powf(max(0.0f, sinf((_nx + _ny) * 18.0f + t * _motion * (4.0f + _t * 8.0f * _strength)) * 0.5f + 0.5f), 6.0f);`)
+        ln(`      float _body = max(0.0f, _ribbon * 0.55f + _sweep * 0.45f);`)
+        ln(`      float _v = min(1.0f, _body * (0.18f + _m * 0.52f * _strength) + _b * 0.24f * _strength + _shimmer * _t * 0.85f * _strength);`)
+        ln(`      float _pt = _nx * (0.2f + _b * 0.5f) + _ny * (0.35f + _m * 0.45f) + _shimmer * 0.15f + t * _motion * 0.03f;`)
+        ln(`      ${ob}[_y * WIDTH + _x] = ColorFromPalette(${pal}, (uint8_t)(_pt * 255));`)
+        ln(`      ${ob}[_y * WIDTH + _x].nscale8((uint8_t)(_v * 255));`)
+        ln(`    }`)
+        ln(`  }`)
+        break
+      }
+
       case 'BeatFlash': {
         const ob = ownBuf()
         const beat = boolExpr(node.id, 'beat')

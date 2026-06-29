@@ -489,6 +489,32 @@ function evalTreblePrism(treble: number, intensity: number, speed: number, color
   )
 }
 
+function evalAudioCascade(bass: number, mids: number, treble: number, intensity: number, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const b = Math.max(0, Math.min(1, bass))
+  const m = Math.max(0, Math.min(1, mids))
+  const tr = Math.max(0, Math.min(1, treble))
+  const strength = Math.max(0, Math.min(1, intensity))
+  const motion = Math.max(0, speed) * (0.8 + (b + m + tr) * 1.4 * strength)
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const nx = W > 1 ? x / (W - 1) : 0
+      const ny = H > 1 ? y / (H - 1) : 0
+      const ribbon = Math.sin((nx * 7 + ny * 2.5) + t * motion * (2 + m * 3 * strength))
+      const sweep = Math.cos((ny * 9 - nx * 3) - t * motion * (1.4 + b * 2.2 * strength))
+      const shimmer = Math.pow(Math.max(0, Math.sin((nx + ny) * 18 + t * motion * (4 + tr * 8 * strength)) * 0.5 + 0.5), 6)
+      const body = Math.max(0, ribbon * 0.55 + sweep * 0.45)
+      const v = Math.min(1, body * (0.18 + m * 0.52 * strength) + b * 0.24 * strength + shimmer * tr * 0.85 * strength)
+      const pt = nx * (0.2 + b * 0.5) + ny * (0.35 + m * 0.45) + shimmer * 0.15 + t * motion * 0.03
+      const c = samplePalette(palette, pt)
+      return {
+        r: Math.round(c.r * v),
+        g: Math.round(c.g * v),
+        b: Math.round(c.b * v),
+      }
+    })
+  )
+}
+
 function evalBeatFlash(nodeId: string, beat: boolean, base: Frame | null, decay: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   let level = flashLevel.get(nodeId) ?? 0
   if (beat) level = 1
@@ -2262,6 +2288,17 @@ function createEvalNode(
         const colorIn = input(id, 'color', null) as RGB | null
         const color = colorIn ?? { r: Number(props.r ?? 200), g: Number(props.g ?? 120), b: Number(props.b ?? 255) }
         out = { frame: evalTreblePrism(treble, intensity, speed, color, t, W, H) }
+        break
+      }
+
+      case 'AudioCascade': {
+        const bass = num(id, 'bass', props, 'bass', 0.5)
+        const mids = num(id, 'mids', props, 'mids', 0.5)
+        const treble = num(id, 'treble', props, 'treble', 0.5)
+        const intensity = num(id, 'intensity', props, 'intensity', 1)
+        const speed = num(id, 'speed', props, 'speed', 1)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
+        out = { frame: evalAudioCascade(bass, mids, treble, intensity, speed, t, palette, W, H) }
         break
       }
 

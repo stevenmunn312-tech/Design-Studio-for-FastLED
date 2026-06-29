@@ -698,6 +698,19 @@ describe('evaluateGraph', () => {
     expect(JSON.stringify(render(1, 120))).not.toEqual(JSON.stringify(strong))
   })
 
+  it('AudioCascade uses bass, mids, and treble together in a moving palette pattern', () => {
+    const render = (intensity: number, tick: number) => {
+      const ac = node('ac', 'AudioCascade', 'pattern', { bass: 0.8, mids: 0.7, treble: 0.9, intensity, speed: 0.75, palette: 'rainbow' })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      return evaluateGraph([ac, out], [edge('e', 'ac', 'frame', 'out', 'frame')], tick, 8, 8)!
+    }
+    const subtle = render(0.2, 0)
+    const strong = render(1, 0)
+    const total = (f: ReturnType<typeof render>) => f.flat().reduce((a, px) => a + px.r + px.g + px.b, 0)
+    expect(total(strong)).toBeGreaterThan(total(subtle))
+    expect(JSON.stringify(render(1, 120))).not.toEqual(JSON.stringify(strong))
+  })
+
   it('Blobs produces a varied field that moves over time', () => {
     const at = (tick: number) => {
       const b = node('b', 'Blobs', 'pattern', { speed: 0.6, scale: 0.25, count: 3, palette: 'lava' })
@@ -858,7 +871,7 @@ describe('evaluateGraph', () => {
       { type: 'Noise', extra: { noiseType: 'plasma' } },
       { type: 'FractalNoise' }, { type: 'GaborNoise' },
       { type: 'PaletteGradient' }, { type: 'Blobs' }, { type: 'FlowField' },
-      { type: 'AudioFlow' }, { type: 'MidrangeWaves' }, { type: 'MidrangeBloom' }, { type: 'ReactionDiffusion' }, { type: 'CustomFormula' },
+      { type: 'AudioFlow' }, { type: 'MidrangeWaves' }, { type: 'MidrangeBloom' }, { type: 'AudioCascade' }, { type: 'ReactionDiffusion' }, { type: 'CustomFormula' },
     ]
     for (const { type, extra } of patterns) {
       const label = type + (extra?.noiseType ? `-${extra.noiseType}` : '')

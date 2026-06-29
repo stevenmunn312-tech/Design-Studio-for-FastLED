@@ -344,6 +344,21 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { intensity: 1.0, speed: 1.0, r: 200, g: 120, b: 255 },
   },
   {
+    type: 'AudioCascade',
+    label: 'Audio Cascade',
+    category: 'pattern',
+    inputs: [
+      { id: 'bass', label: 'Bass', dataType: 'float' },
+      { id: 'mids', label: 'Mids', dataType: 'float' },
+      { id: 'treble', label: 'Treble', dataType: 'float' },
+      { id: 'intensity', label: 'Intensity', dataType: 'float' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { intensity: 1.0, speed: 1.0, palette: 'rainbow' },
+  },
+  {
     type: 'BeatFlash',
     label: 'Beat Flash',
     category: 'pattern',
@@ -1212,6 +1227,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   MidrangeBloom: 'Blooming palette contours driven by midrange energy.',
   TrebleSparks: 'Glittering treble sparks with a tintable color input.',
   TreblePrism: 'Sharp diagonal prisms that shimmer with treble energy.',
+  AudioCascade: 'Full-spectrum ribbons with bass glow, mids flow, and treble shimmer.',
   BeatFlash: 'Flashes the frame white on each beat.',
   Noise2D: 'Layered 2D sine noise.',
   RadialBurst: 'Rings bursting from the center.',
@@ -1449,6 +1465,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   TreblePrism: {
+    intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
+    speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
+  },
+  AudioCascade: {
     intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
