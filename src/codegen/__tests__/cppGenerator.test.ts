@@ -913,7 +913,10 @@ describe('generateCpp — INMP441 audio engine', () => {
       edge('e1', 'mic', 'bd', 'audio', 'audio'),
       edge('e2', 'bd', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('bool n_bd_beat = _audioBeat; float n_bd_bpm = _audioBpm;')
+    expect(cpp).toContain('bool n_bd_beat = false;')
+    expect(cpp).toContain('n_bd_detector_fast += (_flux - n_bd_detector_fast) * 0.2540f;')
+    expect(cpp).toContain('_flux > 0.0200f')
+    expect(cpp).toContain('_audioSpectrum[_i] - n_bd_detector_prevSpectrum[_i]')
   })
 
   it('honours the selected I2S channel', () => {

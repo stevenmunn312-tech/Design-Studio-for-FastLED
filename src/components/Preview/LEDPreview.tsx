@@ -159,8 +159,10 @@ export default function LEDPreview() {
           renderFrame(ctx, frame, px)
         }
 
-        // Publish node-preview outputs at ~15fps to limit per-node re-renders.
-        if (now - lastPreviewPublish.current >= 66) {
+        // Beat pulses last one evaluation frame, so publish them immediately;
+        // the regular 15fps preview throttle would otherwise miss most beats.
+        const hasBeat = Array.from(outputs.values()).some((output) => output.beat === true)
+        if (hasBeat || now - lastPreviewPublish.current >= 66) {
           usePreviewStore.getState().setOutputs(outputs)
           lastPreviewPublish.current = now
         }

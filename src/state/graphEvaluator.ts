@@ -1799,8 +1799,8 @@ function createEvalNode(
           const result = updateBeatDetectorFromSpectrum(audio.detectorSpectrum ?? audio.spectrum ?? [], t * 1000, prev, { threshold, attack, decay })
           beatLevels.set(key, result.state)
           out = {
-            beat: result.beat || audio.beat,
-            bpm: Number.isFinite(audio.bpm) && audio.bpm > 0 ? audio.bpm : result.bpm,
+            beat: result.beat,
+            bpm: result.bpm,
             flux: result.state.lastFlux,
             onset: result.state.lastOnset,
             contrast: result.state.lastContrast,

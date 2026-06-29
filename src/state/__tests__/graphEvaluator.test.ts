@@ -131,17 +131,23 @@ describe('evaluateGraph', () => {
     expect(new Set(vals).size).toBeGreaterThan(1)
   })
 
-  it('BeatDetect forwards the live audio beat and BPM', () => {
+  it('BeatDetect uses its configured detector instead of the engine beat', () => {
     mockAudio.active = true
-    const beatNode = node('bd', 'BeatDetect', 'audio', { threshold: 0.12, attack: 0.295, decay: 0.143 })
+    const beatNode = node('bd', 'BeatDetect', 'audio', { threshold: 0.14, attack: 0.68, decay: 0.22 })
     mockAudio.beat = false
     mockAudio.bpm = 124
+    mockAudio.detectorSpectrum = [0.02, 0.01, 0, 0]
     evaluateGraphFull([beatNode], [], 0, W, H)
+    mockAudio.detectorSpectrum = [0.04, 0.03, 0.01, 0]
+    evaluateGraphFull([beatNode], [], 15, W, H)
+    mockAudio.detectorSpectrum = [0.10, 0.08, 0.03, 0.01]
+    evaluateGraphFull([beatNode], [], 30, W, H)
+    mockAudio.detectorSpectrum = [0.26, 0.22, 0.10, 0.03]
     mockAudio.beat = true
-    const { outputs } = evaluateGraphFull([beatNode], [], 60, W, H)
+    const { outputs } = evaluateGraphFull([beatNode], [], 45, W, H)
     const beat = outputs.get('bd')!
     expect(beat.beat).toBe(true)
-    expect(beat.bpm).toBe(124)
+    expect(beat.bpm).toBe(120)
     expect(beat).toHaveProperty('flux')
     expect(beat).toHaveProperty('threshold')
     mockAudio.active = false

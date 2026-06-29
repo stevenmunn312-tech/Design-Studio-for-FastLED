@@ -4,6 +4,7 @@ import { asFont, textColumns } from '../state/font'
 import { asImage } from '../state/image'
 import { polineStops16, hexToRgb } from '../state/polinePalette'
 import { audioFlowExpr } from '../state/audioFlowRange'
+import { denormalizeBeatParam } from '../audio/beatDetection'
 import { inputClampRange } from '../state/nodeLibrary'
 import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledShims'
 
@@ -165,6 +166,7 @@ function audioEngineCpp(ws: number, sck: number, sd: number, chFmt: string, gain
     'bool  _audioBeat = false;',
     'static float _audioBeatFast = 0, _audioBeatSlow = 0, _audioBeatPrevFlux = 0, _audioBeatPrevPrevFlux = 0;',
     'static float _audioPrevSpectrum[32];',
+    'static float _audioSpectrum[32];',
     'static bool _audioHavePrevSpectrum = false;',
     'static uint32_t _audioBeatLast = 0;',
     'static float _bassFloor = 0.02f, _midsFloor = 0.02f, _trebleFloor = 0.02f;',
@@ -258,7 +260,6 @@ function audioEngineCpp(ws: number, sck: number, sd: number, chFmt: string, gain
     '  _audioBass   = _audioNoiseGate(constrain(bass   * agcGain, 0.0f, 1.0f), _bassFloor, _bassSmooth);',
     '  _audioMids   = _audioNoiseGate(constrain(mids   * agcGain, 0.0f, 1.0f), _midsFloor, _midsSmooth);',
     '  _audioTreble = _audioNoiseGate(constrain(treble * agcGain, 0.0f, 1.0f), _trebleFloor, _trebleSmooth);',
-    '  float spectrum[32];',
     '  for (int band = 0; band < 32; band++) {',
     '    float t0 = (float)band / 32.0f;',
     '    float t1 = (float)(band + 1) / 32.0f;',
@@ -273,14 +274,14 @@ function audioEngineCpp(ws: number, sck: number, sd: number, chFmt: string, gain
       '      acc += constrain(mag * agcGain, 0.0f, 1.0f);',
     '      count++;',
     '    }',
-    '    spectrum[band] = count > 0 ? constrain(acc / count, 0.0f, 1.0f) : 0.0f;',
+    '    _audioSpectrum[band] = count > 0 ? constrain(acc / count, 0.0f, 1.0f) : 0.0f;',
     '  }',
     '  _audioBeat = false;',
     '  if (_audioHavePrevSpectrum) {',
     '    float flux = 0.0f;',
     '    float weightSum = 0.0f;',
     '    for (int i = 0; i < 32; i++) {',
-    '      float diff = spectrum[i] - _audioPrevSpectrum[i];',
+    '      float diff = _audioSpectrum[i] - _audioPrevSpectrum[i];',
     '      if (diff < 0.0f) diff = 0.0f;',
     '      float weight = i < 6 ? 2.0f : (i < 12 ? 1.35f : (i < 20 ? 0.85f : 0.45f));',
     '      flux += diff * weight;',
@@ -310,7 +311,7 @@ function audioEngineCpp(ws: number, sck: number, sd: number, chFmt: string, gain
     '    _audioBeatPrevPrevFlux = _audioBeatPrevFlux;',
     '    _audioBeatPrevFlux = flux;',
     '  }',
-    '  for (int i = 0; i < 32; i++) _audioPrevSpectrum[i] = spectrum[i];',
+    '  for (int i = 0; i < 32; i++) _audioPrevSpectrum[i] = _audioSpectrum[i];',
     '  _audioHavePrevSpectrum = true;',
     '}',
   ]
@@ -591,14 +592,38 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
-      case 'BeatDetect':
+      case 'BeatDetect': {
         if (hasMic) {
-          ln(`  bool ${v('beat')} = _audioBeat; float ${v('bpm')} = _audioBpm;`)
+          const threshold = denormalizeBeatParam('threshold', floatProp(p.threshold, 0.2, 0, 1))
+          const attack = denormalizeBeatParam('attack', floatProp(p.attack, 0.55, 0, 1))
+          const decay = denormalizeBeatParam('decay', floatProp(p.decay, 0.25, 0, 1))
+          const prefix = v('detector')
+          ln(`  bool ${v('beat')} = false;`)
+          ln(`  static float ${v('bpm')} = 120.0f, ${prefix}_fast = 0.0f, ${prefix}_slow = 0.0f, ${prefix}_prevFlux = 0.0f, ${prefix}_prevPrevFlux = 0.0f;`)
+          ln(`  static float ${prefix}_prevSpectrum[32]; static bool ${prefix}_ready = false; static uint32_t ${prefix}_lastBeat = 0;`)
+          ln(`  if (${prefix}_ready) {`)
+          ln(`    float _flux = 0.0f, _weightSum = 0.0f;`)
+          ln(`    for (int _i = 0; _i < 32; _i++) {`)
+          ln(`      float _diff = _audioSpectrum[_i] - ${prefix}_prevSpectrum[_i]; if (_diff < 0.0f) _diff = 0.0f;`)
+          ln(`      float _weight = _i < 6 ? 2.0f : (_i < 12 ? 1.35f : (_i < 20 ? 0.85f : 0.45f)); _flux += _diff * _weight; _weightSum += _weight;`)
+          ln(`    }`)
+          ln(`    _flux = _weightSum > 0.0f ? _flux / _weightSum : 0.0f;`)
+          ln(`    ${prefix}_fast += (_flux - ${prefix}_fast) * ${attack.toFixed(4)}f;`)
+          ln(`    ${prefix}_slow += (_flux - ${prefix}_slow) * ${decay.toFixed(4)}f;`)
+          ln(`    float _onset = ${prefix}_fast - ${prefix}_slow, _baseline = ${prefix}_slow > 0.02f ? ${prefix}_slow : 0.02f;`)
+          ln(`    float _gap = constrain(60000.0f / ${v('bpm')} * 0.42f, 150.0f, 600.0f); uint32_t _now = millis();`)
+          ln(`    bool _peak = _flux > ${prefix}_prevFlux && ${prefix}_prevFlux >= ${prefix}_prevPrevFlux;`)
+          ln(`    ${v('beat')} = _flux > ${threshold.toFixed(4)}f && _peak && _onset > ${(threshold * 0.45).toFixed(4)}f && _onset / _baseline > 1.1f && (${prefix}_lastBeat == 0 || _now - ${prefix}_lastBeat >= (uint32_t)_gap);`)
+          ln(`    if (${v('beat')}) { if (${prefix}_lastBeat != 0) { float _interval = _now - ${prefix}_lastBeat; if (_interval >= 220.0f && _interval <= 1800.0f) ${v('bpm')} = ${v('bpm')} * 0.65f + (60000.0f / _interval) * 0.35f; } ${prefix}_lastBeat = _now; }`)
+          ln(`    ${prefix}_prevPrevFlux = ${prefix}_prevFlux; ${prefix}_prevFlux = _flux;`)
+          ln(`  }`)
+          ln(`  for (int _i = 0; _i < 32; _i++) ${prefix}_prevSpectrum[_i] = _audioSpectrum[_i]; ${prefix}_ready = true;`)
         } else {
           ln(`  // BeatDetect — add a Microphone node for on-device beat detection`)
           ln(`  bool ${v('beat')} = false; float ${v('bpm')} = 120.0f;`)
         }
         break
+      }
 
       case 'MicInput':
         ln(`  // MicInput — INMP441 I2S audio is read once per frame by updateAudio()`)
