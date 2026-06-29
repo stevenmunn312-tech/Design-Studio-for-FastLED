@@ -20,6 +20,7 @@ const DEFAULT_H = 16
 const fireHeat    = new Map<string, number[][]>()
 const flashLevel  = new Map<string, number>()
 const counterVals = new Map<string, number>()
+const fftLevels   = new Map<string, { bass: number; mids: number; treble: number }>()
 
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; r: number; g: number; b: number; seed?: number }
 const particleState = new Map<string, Particle[]>()
@@ -1749,15 +1750,33 @@ function createEvalNode(
 
       case 'FFTAnalyzer': {
         const audio = useAudioStore.getState()
-        if (audio.active) {
-          out = { bass: audio.bass, mids: audio.mids, treble: audio.treble }
-        } else {
-          out = {
-            bass:   (Math.sin(t * 2.1) + 1) / 2,
-            mids:   (Math.sin(t * 3.7 + 1.0) + 1) / 2,
-            treble: (Math.sin(t * 5.3 + 2.0) + 1) / 2,
-          }
+        const raw = audio.active
+          ? { bass: audio.bass, mids: audio.mids, treble: audio.treble }
+          : {
+              bass:   (Math.sin(t * 2.1) + 1) / 2,
+              mids:   (Math.sin(t * 3.7 + 1.0) + 1) / 2,
+              treble: (Math.sin(t * 5.3 + 2.0) + 1) / 2,
+            }
+        const gain = Math.max(0.25, Math.min(4, Number(props.gain ?? 1)))
+        // Early builds stored smoothing as an integer (default 3) but never
+        // used it. Interpret that legacy value as quarters so saved graphs get
+        // the intended 0.75 response instead of becoming almost frozen.
+        const smoothingProp = Number(props.smoothing ?? 0.72)
+        const smoothing = Math.max(0, Math.min(0.95, smoothingProp > 1 ? smoothingProp / 4 : smoothingProp))
+        const target = {
+          bass: Math.min(1, raw.bass * gain),
+          mids: Math.min(1, raw.mids * gain),
+          treble: Math.min(1, raw.treble * gain),
         }
+        const key = stateKey(id)
+        const prev = fftLevels.get(key) ?? target
+        const levels = {
+          bass: prev.bass * smoothing + target.bass * (1 - smoothing),
+          mids: prev.mids * smoothing + target.mids * (1 - smoothing),
+          treble: prev.treble * smoothing + target.treble * (1 - smoothing),
+        }
+        fftLevels.set(key, levels)
+        out = levels
         break
       }
 

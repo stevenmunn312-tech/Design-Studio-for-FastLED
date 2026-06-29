@@ -77,6 +77,20 @@ describe('StudioNode', () => {
     expect(container.querySelector('svg polyline')).toBeTruthy()
   })
 
+  it('renders live band meters and bounded controls for an FFT Analyzer', () => {
+    const { container, getByText } = renderNode(makeNode('FFTAnalyzer', { bands: 24, gain: 1, smoothing: 0.72 }))
+    expect(getByText('LOW')).toBeTruthy()
+    expect(getByText('MID')).toBeTruthy()
+    expect(getByText('HIGH')).toBeTruthy()
+    expect(getByText('DEMO SIGNAL')).toBeTruthy()
+    expect(container.querySelector('[aria-label="Live FFT analysis"]')).toBeTruthy()
+    const sliders = Array.from(container.querySelectorAll('input[type="range"]')) as HTMLInputElement[]
+    expect(sliders).toHaveLength(3)
+    expect(sliders[0].min).toBe('8')
+    expect(sliders[1].max).toBe('4')
+    expect(sliders[2].max).toBe('0.95')
+  })
+
   it('renders a frame thumbnail (not a wave scope) for a frame node', () => {
     const { container } = renderNode(makeNode('SolidColor', { r: 1, g: 2, b: 3 }))
     expect(container.querySelector('svg polyline')).toBeNull()  // not a wave scope

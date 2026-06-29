@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { AudioEngine } from '../audio/audioEngine'
+import { AudioEngine, NUM_SPECTRUM_BARS } from '../audio/audioEngine'
 
 interface AudioState {
   active: boolean
@@ -25,7 +25,7 @@ export const useAudioStore = create<AudioState>()((set) => {
     mids: 0,
     treble: 0,
     beat: false,
-    spectrum: Array(16).fill(0),
+    spectrum: Array(NUM_SPECTRUM_BARS).fill(0),
 
     startAudio: async () => {
       await engine.start()
@@ -34,7 +34,7 @@ export const useAudioStore = create<AudioState>()((set) => {
 
     stopAudio: () => {
       engine.stop()
-      set({ active: false, bass: 0, mids: 0, treble: 0, beat: false, spectrum: Array(16).fill(0) })
+      set({ active: false, bass: 0, mids: 0, treble: 0, beat: false, spectrum: Array(NUM_SPECTRUM_BARS).fill(0) })
     },
   }
 })

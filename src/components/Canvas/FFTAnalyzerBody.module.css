@@ -1,0 +1,105 @@
+.analyzer {
+  margin-top: 4px;
+  padding: 7px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent-audio) 28%, var(--border-glow));
+  border-radius: 5px;
+  background:
+    linear-gradient(rgba(0, 255, 255, 0.035) 1px, transparent 1px) 0 0 / 100% 8px,
+    var(--bg-primary);
+  font-family: var(--font-code);
+}
+
+.spectrum {
+  height: 42px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 3px 2px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent-audio) 22%, transparent);
+}
+
+.spectrum span {
+  flex: 1 1 0;
+  min-width: 1px;
+  border-radius: 1px 1px 0 0;
+  background: linear-gradient(to top, #00b9ff, #00fff0 62%, #ecfffd);
+  box-shadow: 0 0 5px rgba(0, 255, 255, 0.32);
+  transition: height 80ms linear;
+}
+
+.readout {
+  display: grid;
+  gap: 4px;
+  margin-top: 7px;
+}
+
+.band {
+  display: grid;
+  grid-template-columns: 28px 1fr 22px;
+  align-items: center;
+  gap: 5px;
+  color: #00d9ff;
+}
+
+.band[data-band='mids'] { color: #8ea7ff; }
+.band[data-band='treble'] { color: #e49aff; }
+
+.bandLabel,
+.band output,
+.status {
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+}
+
+.band output {
+  color: var(--text-secondary);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.meter {
+  height: 3px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+  box-shadow: 0 0 5px currentColor;
+  transition: width 80ms linear;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 7px;
+  color: var(--text-secondary);
+}
+
+.status span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status[data-active='true'] {
+  color: var(--accent-audio);
+}
+
+.status[data-active='true'] span {
+  box-shadow: 0 0 6px var(--accent-audio);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spectrum span,
+  .meter span { transition: none; }
+}

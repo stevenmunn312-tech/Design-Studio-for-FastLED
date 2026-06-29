@@ -10,6 +10,7 @@ import WaveScope from './WaveScope'
 import ComplexWaveScope from './ComplexWaveScope'
 import NodePreview, { type PreviewKind } from './NodePreview'
 import MusicLibraryNodeBody from './MusicLibraryNodeBody'
+import FFTAnalyzerBody from './FFTAnalyzerBody'
 import PatternCollectionBody from './PatternCollectionBody'
 import PatternMasterBody from './PatternMasterBody'
 import MatrixOutputUpload from '../Upload/MatrixOutputUpload'
@@ -241,6 +242,8 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         ))}
 
         {d.nodeType === 'MusicLibrary' && <MusicLibraryNodeBody />}
+
+        {d.nodeType === 'FFTAnalyzer' && <FFTAnalyzerBody nodeId={id} bands={Number(props.bands ?? 24)} />}
 
         {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}
 

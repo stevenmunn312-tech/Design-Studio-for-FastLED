@@ -882,6 +882,15 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).not.toContain('float n_fft_bass = 0.5f')
   })
 
+  it('applies FFT Analyzer gain and smoothing on-device', () => {
+    const mic = node('mic', 'MicInput', 'input', {})
+    const fft = node('fft', 'FFTAnalyzer', 'audio', { gain: 1.5, smoothing: 0.8 })
+    const cpp = generateCpp([mic, fft, out], [edge('e1', 'mic', 'fft', 'audio', 'audio')])
+    expect(cpp).toContain('_audioBass * 1.500f')
+    expect(cpp).toContain('_smooth * 0.800f')
+    expect(cpp).toContain('* 0.200f')
+  })
+
   it('honours the selected I2S channel', () => {
     expect(micGraph('Left')).toContain('I2S_CHANNEL_FMT_ONLY_LEFT')
     expect(micGraph('Right')).toContain('I2S_CHANNEL_FMT_ONLY_RIGHT')
@@ -896,6 +905,7 @@ describe('generateCpp — INMP441 audio engine', () => {
     ])
     expect(cpp).not.toContain('driver/i2s.h')
     expect(cpp).not.toContain('updateAudio()')
-    expect(cpp).toContain('float n_fft_bass = 0.5f')
+    expect(cpp).toContain('constrain(0.5f * 1.000f')
+    expect(cpp).toContain('float n_fft_bass = n_fft_bass_smooth')
   })
 })

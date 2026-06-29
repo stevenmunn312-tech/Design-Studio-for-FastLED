@@ -1,11 +1,9 @@
 const FFT_SIZE = 512
 const SMOOTHING = 0.75
-const NUM_BARS = 16
+export const NUM_SPECTRUM_BARS = 32
 
-// Frequency bin boundaries for bass / mids / treble (at 44100 Hz, FFT_SIZE=512 → 256 bins, ~86 Hz/bin)
-const BASS_END   = 4   // 0–344 Hz
-const MIDS_END   = 40  // 344–3440 Hz
-const TREBLE_END = 120 // 3440–10320 Hz
+const MIN_SPECTRUM_HZ = 30
+const MAX_SPECTRUM_HZ = 12_000
 
 const BEAT_HISTORY = 30
 const BEAT_MULTIPLIER = 1.4
@@ -16,7 +14,41 @@ export interface AudioData {
   mids: number
   treble: number
   beat: boolean
-  spectrum: number[]  // NUM_BARS values 0–1
+  spectrum: number[]  // logarithmically spaced values, low → high
+}
+
+/** Average normalised FFT magnitude inside a frequency range. */
+export function averageFrequencyBand(
+  data: Uint8Array,
+  sampleRate: number,
+  fftSize: number,
+  fromHz: number,
+  toHz: number,
+): number {
+  const binHz = sampleRate / fftSize
+  const last = Math.max(0, data.length - 1)
+  const from = Math.max(0, Math.min(last, Math.ceil(fromHz / binHz)))
+  const to = Math.max(from, Math.min(last, Math.floor(toHz / binHz)))
+  let sum = 0
+  for (let i = from; i <= to; i++) sum += data[i]
+  return sum / ((to - from + 1) * 255)
+}
+
+/** Log spacing gives bass detail instead of spending most bars above 10 kHz. */
+export function logarithmicSpectrum(
+  data: Uint8Array,
+  sampleRate: number,
+  fftSize: number,
+  count = NUM_SPECTRUM_BARS,
+): number[] {
+  const nyquist = sampleRate / 2
+  const high = Math.min(MAX_SPECTRUM_HZ, nyquist)
+  const ratio = high / MIN_SPECTRUM_HZ
+  return Array.from({ length: count }, (_, i) => {
+    const from = MIN_SPECTRUM_HZ * ratio ** (i / count)
+    const to = MIN_SPECTRUM_HZ * ratio ** ((i + 1) / count)
+    return averageFrequencyBand(data, sampleRate, fftSize, from, to)
+  })
 }
 
 export class AudioEngine {
@@ -61,7 +93,7 @@ export class AudioEngine {
     this.ctx = null; this.analyser = null; this.source = null; this.stream = null; this.buf = null
     this.bassHistory = []; this.lastBeatMs = 0
     this.active = false
-    this.emit({ bass: 0, mids: 0, treble: 0, beat: false, spectrum: Array(NUM_BARS).fill(0) })
+    this.emit({ bass: 0, mids: 0, treble: 0, beat: false, spectrum: Array(NUM_SPECTRUM_BARS).fill(0) })
   }
 
   subscribe(cb: (data: AudioData) => void): () => void {
@@ -74,20 +106,19 @@ export class AudioEngine {
     if (!this.analyser || !this.buf) return
     this.analyser.getByteFrequencyData(this.buf)
 
-    const bass   = this.band(0, BASS_END)
-    const mids   = this.band(BASS_END + 1, MIDS_END)
-    const treble = this.band(MIDS_END + 1, TREBLE_END)
+    const sampleRate = this.ctx?.sampleRate ?? 48_000
+    const bass   = this.band(30, 250, sampleRate)
+    const mids   = this.band(250, 2000, sampleRate)
+    const treble = this.band(2000, 8000, sampleRate)
     const beat   = this.detectBeat(bass)
-    const spectrum = this.buildSpectrum()
+    const spectrum = logarithmicSpectrum(this.buf, sampleRate, FFT_SIZE)
 
     this.emit({ bass, mids, treble, beat, spectrum })
   }
 
-  private band(from: number, to: number): number {
+  private band(fromHz: number, toHz: number, sampleRate: number): number {
     if (!this.buf) return 0
-    let sum = 0
-    for (let i = from; i <= to; i++) sum += this.buf[i]
-    return sum / ((to - from + 1) * 255)
+    return averageFrequencyBand(this.buf, sampleRate, FFT_SIZE, fromHz, toHz)
   }
 
   private detectBeat(bass: number): boolean {
@@ -100,16 +131,6 @@ export class AudioEngine {
       return true
     }
     return false
-  }
-
-  private buildSpectrum(): number[] {
-    if (!this.buf) return Array(NUM_BARS).fill(0)
-    const binsPerBar = Math.floor(this.buf.length / NUM_BARS)
-    return Array.from({ length: NUM_BARS }, (_, i) => {
-      let sum = 0
-      for (let j = 0; j < binsPerBar; j++) sum += this.buf![i * binsPerBar + j]
-      return sum / (binsPerBar * 255)
-    })
   }
 
   private emit(data: AudioData) {

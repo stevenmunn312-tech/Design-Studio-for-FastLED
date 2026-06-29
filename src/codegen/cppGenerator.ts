@@ -487,14 +487,22 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
-      case 'FFTAnalyzer':
-        if (hasMic) {
-          ln(`  float ${v('bass')} = _audioBass, ${v('mids')} = _audioMids, ${v('treble')} = _audioTreble;`)
-        } else {
-          ln(`  // FFTAnalyzer — add a Microphone node to drive these from the INMP441`)
-          ln(`  float ${v('bass')} = 0.5f, ${v('mids')} = 0.5f, ${v('treble')} = 0.5f;`)
-        }
+      case 'FFTAnalyzer': {
+        const gain = Math.max(0.25, Math.min(4, Number(p.gain ?? 1)))
+        const rawSmoothing = Number(p.smoothing ?? 0.72)
+        const smoothing = Math.max(0, Math.min(0.95, rawSmoothing > 1 ? rawSmoothing / 4 : rawSmoothing))
+        const bass = hasMic ? '_audioBass' : '0.5f'
+        const mids = hasMic ? '_audioMids' : '0.5f'
+        const treble = hasMic ? '_audioTreble' : '0.5f'
+        if (!hasMic) ln(`  // FFTAnalyzer — add a Microphone node to drive these from the INMP441`)
+        ln(`  float ${v('bass')}_target = constrain(${bass} * ${gain.toFixed(3)}f, 0.0f, 1.0f), ${v('mids')}_target = constrain(${mids} * ${gain.toFixed(3)}f, 0.0f, 1.0f), ${v('treble')}_target = constrain(${treble} * ${gain.toFixed(3)}f, 0.0f, 1.0f);`)
+        ln(`  static float ${v('bass')}_smooth = -1, ${v('mids')}_smooth = -1, ${v('treble')}_smooth = -1;`)
+        ln(`  ${v('bass')}_smooth = ${v('bass')}_smooth < 0 ? ${v('bass')}_target : ${v('bass')}_smooth * ${smoothing.toFixed(3)}f + ${v('bass')}_target * ${(1 - smoothing).toFixed(3)}f;`)
+        ln(`  ${v('mids')}_smooth = ${v('mids')}_smooth < 0 ? ${v('mids')}_target : ${v('mids')}_smooth * ${smoothing.toFixed(3)}f + ${v('mids')}_target * ${(1 - smoothing).toFixed(3)}f;`)
+        ln(`  ${v('treble')}_smooth = ${v('treble')}_smooth < 0 ? ${v('treble')}_target : ${v('treble')}_smooth * ${smoothing.toFixed(3)}f + ${v('treble')}_target * ${(1 - smoothing).toFixed(3)}f;`)
+        ln(`  float ${v('bass')} = ${v('bass')}_smooth, ${v('mids')} = ${v('mids')}_smooth, ${v('treble')} = ${v('treble')}_smooth;`)
         break
+      }
 
       case 'BeatDetect':
         if (hasMic) {

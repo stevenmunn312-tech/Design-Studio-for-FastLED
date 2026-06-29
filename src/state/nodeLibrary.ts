@@ -35,7 +35,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'mids', label: 'Mids', dataType: 'float' },
       { id: 'treble', label: 'Treble', dataType: 'float' },
     ],
-    defaultProperties: { bands: 16, smoothing: 3 },
+    defaultProperties: { bands: 24, gain: 1, smoothing: 0.72 },
   },
   {
     type: 'BeatDetect',
@@ -1350,6 +1350,11 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
 // but a steps-per-second rate for the simulation patterns; `rate` is a 0–1
 // emission rate for Particles but a degrees/sec spin for Transform.
 export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyControl>> = {
+  FFTAnalyzer:       {
+    bands:     { control: 'slider', min: 8, max: 32, step: 1 },
+    gain:      { control: 'slider', min: 0.25, max: 4, step: 0.05 },
+    smoothing: { control: 'slider', min: 0, max: 0.95, step: 0.01 },
+  },
   Particles:         { rate:  { control: 'slider', min: 0, max: 1,   step: 0.01 } },
   Transform:         { rate:  { control: 'slider', min: 0, max: 360, step: 1 } },
   GameOfLife:        { speed: { control: 'slider', min: 1, max: 30,  step: 1 } },
