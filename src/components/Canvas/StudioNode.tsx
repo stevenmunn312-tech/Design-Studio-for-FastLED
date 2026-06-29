@@ -56,7 +56,6 @@ const ROW_GAP = 4
 const PREVIEW_H = 40
 const BEAT_WIDGET_H = 76
 const FFT_WIDGET_H = 104
-const HANDLE_Y_NUDGE = 4
 // Body content width = --node-width (180) − 2×--space-1 (8) horizontal padding.
 // Frame previews fill this width and keep the matrix aspect ratio.
 const BODY_CONTENT_W = 164
@@ -64,7 +63,7 @@ const BODY_CONTENT_W = 164
 // Handles are absolutely positioned; a preview scope at the top of the body
 // pushes the port rows down by its height + the body's flex gap.
 const handleTop = (i: number, previewOffset: number) =>
-  HEADER_H + BODY_PAD + previewOffset + i * (ROW_H + ROW_GAP) + ROW_H / 2 + HANDLE_Y_NUDGE
+  HEADER_H + BODY_PAD + previewOffset + i * (ROW_H + ROW_GAP) + ROW_H / 2
 
 const HANDLE_STYLE = {
   width: 12,

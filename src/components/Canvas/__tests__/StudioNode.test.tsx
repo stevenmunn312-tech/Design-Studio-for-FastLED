@@ -9,11 +9,16 @@ import { useMusicStore } from '../../../state/musicStore'
 import { usePreviewStore } from '../../../state/previewStore'
 import { useAudioStore } from '../../../state/audioStore'
 
-// React Flow's <Handle> needs flow context; stub it — these tests cover the
-// node body (labels + inline property controls), not handle behaviour.
+// React Flow's <Handle> needs flow context; keep a lightweight DOM stand-in so
+// node-body tests can also assert the absolute port geometry.
 vi.mock('@xyflow/react', async (orig) => {
   const actual = await orig<typeof import('@xyflow/react')>()
-  return { ...actual, Handle: () => null }
+  return {
+    ...actual,
+    Handle: ({ type, id, style }: { type: string; id: string; style?: React.CSSProperties }) => (
+      <span data-handle={`${type}:${id}`} style={style} />
+    ),
+  }
 })
 
 function makeNode(nodeType: string, props: Record<string, unknown>): StudioNodeT {
@@ -69,6 +74,16 @@ describe('StudioNode', () => {
     // First slider is `speed` (property iteration order).
     fireEvent.change(range, { target: { value: '2.5' } })
     expect(useGraphStore.getState().nodes[0].data.properties.speed).toBe(2.5)
+  })
+
+  it('centres connection handles on their port rows', () => {
+    const { container } = renderNode(makeNode('AudioFlow', { speed: 0.5, scale: 0.5, palette: 'party' }))
+    const bass = container.querySelector('[data-handle="target:bass"]') as HTMLElement
+    const mids = container.querySelector('[data-handle="target:mids"]') as HTMLElement
+    // AudioFlow has a square 164px preview before its rows. The first row
+    // centre is header(32) + padding(8) + preview/gap(168) + half-row(12).
+    expect(bass.style.top).toBe('220px')
+    expect(mids.style.top).toBe('248px')
   })
 
   it('disables wired AudioFlow sliders but keeps their live values visible', () => {
