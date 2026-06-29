@@ -283,9 +283,13 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'MidrangeWaves',
     label: 'Midrange Waves',
     category: 'pattern',
-    inputs: [{ id: 'mids', label: 'Mids', dataType: 'float' }],
+    inputs: [
+      { id: 'mids', label: 'Mids', dataType: 'float' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 1.0 },
+    defaultProperties: { speed: 1.0, palette: 'ocean' },
   },
   {
     type: 'TrebleSparks',
@@ -1384,6 +1388,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   AudioFlow: {
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
     scale: { control: 'slider', min: 0, max: 1, step: 0.01 },
+  },
+  MidrangeWaves: {
+    speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   Particles:         { rate:  { control: 'slider', min: 0, max: 1,   step: 0.01 } },
   Transform:         { rate:  { control: 'slider', min: 0, max: 360, step: 1 } },

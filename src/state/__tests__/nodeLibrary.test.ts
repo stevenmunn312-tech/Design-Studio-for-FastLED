@@ -49,4 +49,11 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('AudioFlow', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
     expect(propertyMeta('AudioFlow', 'scale')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
+
+  it('MidrangeWaves exposes normalized speed and palette inputs', () => {
+    const mw = NODE_LIBRARY.find((n) => n.type === 'MidrangeWaves')
+    expect(mw?.inputs.map((p) => p.id)).toEqual(['mids', 'speed', 'paletteIn'])
+    expect(mw?.defaultProperties).toMatchObject({ speed: 1, palette: 'ocean' })
+    expect(propertyMeta('MidrangeWaves', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+  })
 })

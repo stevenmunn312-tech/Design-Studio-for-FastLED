@@ -789,7 +789,7 @@ describe('evaluateGraph', () => {
       { type: 'Noise', extra: { noiseType: 'plasma' } },
       { type: 'FractalNoise' }, { type: 'GaborNoise' },
       { type: 'PaletteGradient' }, { type: 'Blobs' }, { type: 'FlowField' },
-      { type: 'AudioFlow' }, { type: 'ReactionDiffusion' }, { type: 'CustomFormula' },
+      { type: 'AudioFlow' }, { type: 'MidrangeWaves' }, { type: 'ReactionDiffusion' }, { type: 'CustomFormula' },
     ]
     for (const { type, extra } of patterns) {
       const label = type + (extra?.noiseType ? `-${extra.noiseType}` : '')

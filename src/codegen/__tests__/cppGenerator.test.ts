@@ -483,6 +483,15 @@ describe('generateCpp', () => {
     expect(cpp).toContain('* 0.200f')
   })
 
+  it('emits MidrangeWaves through a FastLED palette with normalized speed input support', () => {
+    const mw = node('mw', 'MidrangeWaves', 'pattern', { speed: 1, palette: 'ocean', mids: 0.5 })
+    const cpp = generateCpp([mw, outputNode], [edge('e', 'mw', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('float _m =')
+    expect(cpp).toContain('t * _spd * 4')
+    expect(cpp).toContain('ColorFromPalette(OceanColors_p')
+    expect(cpp).toContain('.nscale8((uint8_t)(_v * 255))')
+  })
+
   it('emits Gabor noise with its Gaussian-cosine kernel and hash helper', () => {
     const g = node('g', 'GaborNoise', 'pattern', { speed: 0.5, scale: 0.35, frequency: 1.2, orientation: 45, palette: 'ocean' })
     const cpp = generateCpp([g, outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])

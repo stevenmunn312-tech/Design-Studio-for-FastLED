@@ -317,12 +317,17 @@ function evalBassPulse(bass: number, color: RGB, W = DEFAULT_W, H = DEFAULT_H): 
   return solidFrame(lit, W, H)
 }
 
-function evalMidrangeWaves(mids: number, speed: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalMidrangeWaves(mids: number, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   return Array.from({ length: H }, (_, y) =>
     Array.from({ length: W }, (_, x) => {
       const wave = Math.sin(x * 0.8 + t * speed * 4) * Math.sin(y * 0.5 + t * speed * 2.5)
       const v = (wave + 1) / 2 * (0.3 + mids * 0.7)
-      return hsv(200 + wave * 40, 1, v)
+      const c = samplePalette(palette, (wave + 1) / 2)
+      return {
+        r: Math.round(c.r * v),
+        g: Math.round(c.g * v),
+        b: Math.round(c.b * v),
+      }
     })
   )
 }
@@ -2067,7 +2072,8 @@ function createEvalNode(
       case 'MidrangeWaves': {
         const mids = num(id, 'mids', props, 'mids', 0.5)
         const speed = num(id, 'speed', props, 'speed', 1)
-        out = { frame: evalMidrangeWaves(mids, speed, t, W, H) }
+        const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
+        out = { frame: evalMidrangeWaves(mids, speed, t, palette, W, H) }
         break
       }
 
