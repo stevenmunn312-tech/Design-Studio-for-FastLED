@@ -266,23 +266,31 @@ fixed-switch one whenever the wired `PerformanceGenerator` has a collection.
    collection. Patterns render exactly as authored — `SET_PALETTE/SPEED` are emitted
    but unused. **Remaining: flash an ESP32-S3 and confirm the merged player runs the
    collected patterns in time.**
-2. **"Use group inputs" modulation.** **`energy` + `speed` roles shipped (2026-07-01),
-   not yet hardware-validated.** Added a `SET_ENERGY` show command (0–1 section energy)
-   and the `PerformanceGenerator.useGroupInputs` toggle. Preview: `renderShowFrame`
-   evaluates the pattern group's subgraph directly and, when on, feeds the section
-   energy to any `GroupInput` with `paramId: 'energy'` via the evaluator's
-   `groupInputs` path. Codegen: `buildPattern` keeps role-tagged `GroupInput` nodes
-   and `generateCpp` emits `float n_<id>_out = <paramId>;`; `buildPatternRenderers(…,
-   roleParams)` widens each `render_pN` to `(uint32_t ms, float energy …)`; the player
-   declares the role globals, handles their commands, and passes them into the
-   dispatch. The **`speed` role reuses the existing `SET_SPEED`** event/command rather
-   than adding a new one: its 0–2 multiplier is normalised to 0–1 (`min(1, speed/2)`
-   in preview, `constrain(params[0]*0.5f, 0, 1)` in the player, which still also sets
-   the global `animSpeed`). Off by default. *Role assignment* is currently manual — a
-   `GroupInput`'s `paramId` defaults to `param0`, so the user renames it to `energy`
-   or `speed` in the node's property editor (a role dropdown is editor polish, slice
-   4). **Remaining in this slice: the `palette` role (a `CRGBPalette16` param — the
-   structurally harder one), plus hardware validation.**
+2. **"Use group inputs" modulation.** **All three roles (`energy`/`speed`/`palette`)
+   shipped (2026-07-01), not yet hardware-validated.** Added a `SET_ENERGY` show
+   command (0–1 section energy) and the `PerformanceGenerator.useGroupInputs` toggle.
+   Preview: `renderShowFrame` evaluates the pattern group's subgraph directly and,
+   when on, feeds the section energy/speed/palette to any `GroupInput` whose
+   `paramId` matches the role via the evaluator's `groupInputs` path. Codegen:
+   `buildPattern` keeps role-tagged `GroupInput` nodes and `generateCpp` emits
+   `float n_<id>_out = <paramId>;` (float roles) or `CRGBPalette16 pal_<id> = palette;`
+   (palette role); `buildPatternRenderers(…, roleParams)` widens each `render_pN` to
+   `(uint32_t ms, float energy, float speed, const CRGBPalette16& palette)` (type per
+   role via `ROLE_CPP_TYPE`); the player declares the role globals, handles their
+   commands, and passes them into the dispatch.
+   - The **`speed` role reuses `SET_SPEED`** (no new command): its 0–2 multiplier is
+     normalised to 0–1 (`min(1, speed/2)` in preview, `constrain(params[0]*0.5f, 0, 1)`
+     in the player, which still also sets the global `animSpeed`).
+   - The **`palette` role reuses `SET_PALETTE`**: preview feeds the studio palette
+     name (`PALETTE_MAP[st.palette]`); firmware adds a `CRGBPalette16 palette` global
+     and a `paletteFromId()` helper (mirroring `samplePalette`'s preset switch) that
+     `CMD_SET_PALETTE` updates alongside the global `paletteId`. A palette-role
+     `GroupInput` resolves through `paletteExpr` to its `pal_<id>` copy of the param.
+
+   Off by default. *Role assignment* is currently manual — a `GroupInput`'s `paramId`
+   defaults to `param0`, so the user renames it to `energy`/`speed`/`palette` in the
+   node's property editor (a role dropdown is editor polish, slice 4). **Remaining in
+   this slice: hardware validation.**
 3. **Section-aware pattern selection.** Optional per-pattern section tags so the
    generator picks contextually, not purely at random.
 4. **Editor polish.** Collection-aware `SET_PATTERN` dropdown; show which patterns
