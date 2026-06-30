@@ -133,7 +133,7 @@ generator computes them from analysis as today) — they become the *values fed 
 the exposed group inputs* when `useGroupInputs` is on, and no-ops when off.
 
 `SET_BRIGHTNESS` is global (FastLED `setBrightness`) and stays global in both
-modes — "intensity" as a *group input* is a separate, per-pattern knob (see §4),
+modes — `energy` as a *group input* is a separate, per-pattern knob (see §4),
 distinct from the global brightness command.
 
 ### 3. `.show` format — pattern set + indices
@@ -152,43 +152,87 @@ renderers:
 This is the one genuinely format-level change and deserves its own commit + tests
 (`showFileToBinary` round-trip for a collection show).
 
-### 4. Exposed group inputs — palette / speed / intensity
+### 4. Exposed group inputs — roles, not indices
 
-The opt-in contract: a pattern participates in modulation by exposing **named
-group inputs** with reserved `paramId`s the generator recognises:
+A pattern opts into modulation by exposing `GroupInput` nodes tagged with a
+reserved **role** — not a numbered port. Three roles:
 
+- `energy` (dataType `float`, 0–1) — the renamed reactivity knob (was `intensity`;
+  see *Prerequisite* below)
+- `speed` (dataType `float`, 0–1)
 - `palette` (dataType `palette`)
-- `speed` (dataType `float`)
-- `intensity` (dataType `float`)
 
-These are created the normal way (a `GroupInput` node inside the subgraph, wired to
-e.g. a pattern's palette port / speed property driver). Convention over config: the
-generator looks for `GroupInput` nodes whose `paramId` matches the reserved names
-and feeds the corresponding analysis value; any the pattern doesn't expose are
-simply not driven (graceful — that pattern just ignores that dimension).
+The generator emits **one 0–1 value per role** (from the analysis, the same numbers
+that drive `SET_SPEED` / `SET_PALETTE` / the section energy) and **broadcasts** it
+to every input carrying that role. The role is what the generator binds to; the
+input's *label* can still be human ("Layer A speed", "Layer B speed").
 
-**Preview** (`useGroupInputs` on): evaluate the group subgraph with a
-`groupInputs` map `{ palette, speed, intensity }` built from `showStateAt`, reusing
-the exact `Group`-node binding path in the evaluator. (Preview already has the
-machinery; it currently renders via `PATTERN_NODE` synthetic graphs — collection
-mode swaps in real subgraph evaluation.)
+**Why roles beat `Energy1 / Speed1 / Speed2 / Palette1 / Palette2`.** The generator
+has only *one* energy, *one* speed, *one* palette at any instant — numbered inputs
+would have nothing distinct to fill them. Broadcasting one value per role scales to
+any number of knobs, and the key move is: **the generator only supplies the value;
+how it combines is authored inside the pattern.** A two-layer pattern that wires its
+`speed` input through a `Math(multiply)` against each layer's authored constant gets
+both layers breathing with the song *while keeping their authored ratio* — one
+signal, many knobs, relationship preserved. Want a hard replace instead? Wire the
+input straight in. The generator stays dumb; the pattern author owns the semantics.
+(This is why everything trending to 0–1 matters — a role signal is dimensionally
+wire-able into any knob.)
+
+**Palette is the exception — opt-in per input.** You can't multiply a palette, so
+broadcasting one song-palette to both anchors of a two-palette blend collapses it.
+So only `palette`-tagged inputs follow the song; an untagged palette stays as
+authored. Tag the one you want to track the mood; leave the rest. (Tagging both is
+allowed but rarely wanted.)
+
+**Preview** (`useGroupInputs` on): evaluate the group subgraph with a `groupInputs`
+map keyed by role (`{ energy, speed, palette }`) built from `showStateAt`, reusing
+the exact `Group`-node binding path in the evaluator — every input sharing a role
+receives the same value. (Preview already has the machinery; it currently renders
+via `PATTERN_NODE` synthetic graphs — collection mode swaps in real subgraph
+evaluation.)
 
 **Codegen** (`useGroupInputs` on): teach `showGenerator.buildPattern` to **not**
-strip `GroupInput` nodes for the reserved ids; instead emit each `render_pN(ms,
-palette, speed, intensity)` taking the modulated params, and have the controller
-pass the current `SET_*`-derived values at call time. When off (or a pattern
-exposes none), `render_pN(ms)` keeps its current self-contained signature.
+strip role-tagged `GroupInput` nodes; instead emit each `render_pN(ms, energy,
+speed, palette)` taking the role values, and have the controller pass the current
+`SET_*`-derived values at call time. When off (or a pattern exposes no roles),
+`render_pN(ms)` keeps its current self-contained signature.
 
-This is where the bulk of the engineering sits — it's the same buffer-prefix /
-helper-dedupe rewrite `buildPattern` already does, extended to thread a few
+This is where the bulk of the engineering sits — the same buffer-prefix /
+helper-dedupe rewrite `buildPattern` already does, extended to thread a few role
 parameters through the generated function signature.
+
+**Deferred — advanced per-input mapping.** The genuine case of two *different*
+driven signals (Speed1 ← tempo, Speed2 ← bass energy) needs a richer generator
+signal set (tempo, bass/mid/treble energy, beat, mood-palette) and a small mapping
+UI on the Performance Generator that binds each signal to a specific named input.
+Additive on top of roles; not in the first cuts.
+
+### Prerequisite — `intensity → energy` rename + 0–1 normalization
+
+Independent of the collection work but needed for the `energy` role to read
+cleanly:
+
+- Rename the **node property/input `intensity`** (the 0–1 reactivity knob on
+  MidrangeWaves, BassRings, MidrangeBloom, TreblePrism, AudioCascade, Kaleidoscope)
+  to `energy`: input id+label and `defaultProperties` in `nodeLibrary.ts`, the
+  `PROPERTY_META` entries, `props.intensity` reads in `graphEvaluator.ts`,
+  `f('intensity', …)` in `cppGenerator.ts`, and tests. Add a **load-time migration**
+  (`migrateLegacyGraph`) for the property key *and* the `intensity` edge handle,
+  the same precedent as the BlendFrames `t → amount` rename.
+- **Leave alone:** `beatIntensity` (a Performance Generator option) and
+  `BEAT_FLASH.intensity` (a `.show` event param, 0–255 flash magnitude) — different
+  concepts; renaming would only collide with the new role.
+- Broader **0–1 normalization** of node values where suited is a separate, ongoing
+  refinement pass (done together, per-node) — it makes role signals wire cleanly
+  into any knob, but isn't a hard blocker for slice 1.
 
 ### 5. Firmware player — dispatch to render_pN
 
 The collection-mode player merges two existing generators:
 
-- **From `showGenerator`:** the `render_pN()` table + `renderPattern(i, ms[, palette,
-  speed, intensity])` dispatch, compiled from the wired collection.
+- **From `showGenerator`:** the `render_pN()` table + `renderPattern(i, ms[, energy,
+  speed, palette])` dispatch, compiled from the wired collection.
 - **From `playerSketchGenerator`:** the ESP32-audioI2S audio sync, the `.show`
   binary-search-by-position event loop, and the global brightness / beat-flash
   application.
@@ -216,24 +260,27 @@ fixed-switch one whenever the wired `PerformanceGenerator` has a collection.
    exports the merged `render_pN` player. Patterns render exactly as authored —
    `SET_PALETTE/SPEED` are emitted but unused. Ship + hardware-validate this first;
    it's the whole unification minus modulation.
-2. **"Use group inputs" modulation.** The toggle; reserved `palette/speed/intensity`
-   group-input convention; `buildPattern` threads params into `render_pN`; preview
-   binds `groupInputs`; controller passes modulated values.
+2. **"Use group inputs" modulation.** The toggle; reserved `energy/speed/palette`
+   **roles** (broadcast one 0–1 value per role to every input of that role);
+   `buildPattern` threads role params into `render_pN`; preview binds `groupInputs`
+   by role; controller passes the values. Depends on the `intensity → energy`
+   rename prerequisite.
 3. **Section-aware pattern selection.** Optional per-pattern section tags so the
    generator picks contextually, not purely at random.
 4. **Editor polish.** Collection-aware `SET_PATTERN` dropdown; show which patterns
    expose which inputs.
 
+## Resolved
+
+- **Roles, not numbered inputs.** Group inputs carry a role (`energy`/`speed`/
+  `palette`); the generator broadcasts one 0–1 value per role to every input of that
+  role. Combination (replace vs. scale) is authored inside the pattern. Palette is
+  opt-in per input. See §4. Per-input distinct-signal mapping is deferred.
+- **`energy` semantics.** A 0–1 analysis-energy value the pattern interprets however
+  it likes — zero generator assumptions. (Renamed from `intensity`.)
+
 ## Open questions
 
-- **Reserved paramId names vs. UI.** Convention (`palette`/`speed`/`intensity`) is
-  simplest. Alternative: an explicit mapping UI on the Performance Generator
-  ("drive *this* group input from speed"). Convention first; revisit if users want
-  to map arbitrary inputs.
-- **`intensity` semantics.** Is it a 0–1 master that the pattern interprets
-  (brightness-ish, density, amplitude…), or do we standardise it? Proposal: pass a
-  0–1 analysis-energy value and let each pattern decide how to use it — maximal
-  flexibility, zero generator assumptions.
 - **Collection drift.** A `.show` references group ids; if the user edits/deletes a
   group after generating, the show is stale. The package is self-contained at
   export (compiled `render_pN`), but the *preview* reads live `graphData` —
