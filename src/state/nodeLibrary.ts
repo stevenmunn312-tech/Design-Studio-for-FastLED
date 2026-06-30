@@ -631,9 +631,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Counter',
     label: 'Counter',
     category: 'math',
-    inputs: [{ id: 'speed', label: 'Speed', dataType: 'float' }],
+    inputs: [{ id: 'rate', label: 'Rate', dataType: 'float' }],
     outputs: [{ id: 'value', label: 'Value 0–1', dataType: 'float' }],
-    defaultProperties: { speed: 0.5 },
+    defaultProperties: { rate: 0.5 },
   },
   {
     type: 'Gate',
@@ -1221,7 +1221,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Abs: 'Absolute value.',
   Mod: 'Modulo — x wrapped into [0, m).',
   Random: 'Random value in a range.',
-  Counter: 'Ramps 0→1 over time at a set speed.',
+  Counter: 'Ramps 0→1 over time at a set rate.',
   Gate: 'Passes a value when a boolean is true, else a fallback.',
   Not: 'Logical NOT of a boolean.',
   Compare: 'True when a > b.',
@@ -1534,6 +1534,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   FlowField:       { speed: N01, scale: N01 },
   Particles:         { rate:  { control: 'slider', min: 0, max: 1,   step: 0.01 } },
   Transform:         { rate:  { control: 'slider', min: 0, max: 360, step: 1 } },
+  Counter:           { rate:  { control: 'slider', min: 0, max: 5,   step: 0.1 } },
   GameOfLife:        { speed: { control: 'slider', min: 1, max: 30,  step: 1 } },
   ReactionDiffusion: { speed: { control: 'slider', min: 1, max: 30,  step: 1 } },
   // DistanceField stretches the distance ramp 1×–4× (the shared `scale` is 0–2).

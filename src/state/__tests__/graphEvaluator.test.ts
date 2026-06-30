@@ -1137,7 +1137,7 @@ describe('evaluateGraph', () => {
 
   it('Counter value stays in 0–1 range across ticks', () => {
     // Run 200 ticks to check Counter doesn't exceed 1
-    const counter = node('cnt', 'Counter', 'math', { speed: 1.0 })
+    const counter = node('cnt', 'Counter', 'math', { rate: 1.0 })
     for (let tick = 0; tick < 200; tick++) {
       evaluateGraph([counter], [], tick, W, H)
     }
@@ -1306,7 +1306,7 @@ describe('evaluateGraph — groups', () => {
       fade: {
         nodes: [
           node('white', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 }),
-          node('cnt', 'Counter', 'math', { speed: 3 }),
+          node('cnt', 'Counter', 'math', { rate: 3 }),
           node('bm', 'BrightnessMod', 'composite', {}),
           node('go', 'GroupOutput', 'output', {}),
         ],

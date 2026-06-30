@@ -2617,9 +2617,9 @@ function createEvalNode(
       }
 
       case 'Counter': {
-        const speed = num(id, 'speed', props, 'speed', 0.5)
+        const rate = num(id, 'rate', props, 'rate', 0.5)
         const prev = counterVals.get(stateKey(id)) ?? 0
-        const next = (prev + speed / 60) % 1
+        const next = (prev + rate / 60) % 1
         counterVals.set(stateKey(id), next)
         out = { value: next }
         break

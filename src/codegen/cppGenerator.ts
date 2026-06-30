@@ -1414,9 +1414,9 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       }
 
       case 'Counter': {
-        const speed = f('speed', 'speed', 0.5)
+        const rate = f('rate', 'rate', 0.5)
         ln(`  static float ${v('value')} = 0;`)
-        ln(`  ${v('value')} = fmod(${v('value')} + (${speed}) / 60.0f, 1.0f);`)
+        ln(`  ${v('value')} = fmod(${v('value')} + (${rate}) / 60.0f, 1.0f);`)
         break
       }
 

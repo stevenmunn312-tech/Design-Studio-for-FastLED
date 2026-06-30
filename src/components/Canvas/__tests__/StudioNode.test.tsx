@@ -125,8 +125,8 @@ describe('StudioNode', () => {
   })
 
   it('disables wired AudioFlow sliders but keeps their live values visible', () => {
-    const speedSrc = { ...makeNode('Counter', { speed: 1 }), id: 'speedSrc' } as StudioNodeT
-    const scaleSrc = { ...makeNode('Counter', { speed: 1 }), id: 'scaleSrc' } as StudioNodeT
+    const speedSrc = { ...makeNode('Counter', { rate: 1 }), id: 'speedSrc' } as StudioNodeT
+    const scaleSrc = { ...makeNode('Counter', { rate: 1 }), id: 'scaleSrc' } as StudioNodeT
     const af = makeNode('AudioFlow', { speed: 0.5, scale: 0.5, palette: 'party' })
     useGraphStore.setState({
       nodes: [speedSrc, scaleSrc, af],
@@ -152,7 +152,7 @@ describe('StudioNode', () => {
   })
 
   it('disables a wired Math input field and shows the live upstream value', () => {
-    const src = { ...makeNode('Counter', { speed: 1 }), id: 'src' } as StudioNodeT
+    const src = { ...makeNode('Counter', { rate: 1 }), id: 'src' } as StudioNodeT
     const math = makeNode('Math', { mathOp: 'add', a: 0, b: 0 })
     useGraphStore.setState({
       nodes: [src, math],
