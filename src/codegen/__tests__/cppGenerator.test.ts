@@ -974,6 +974,24 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('* 0.200f')
   })
 
+  it('emits SpectrumBars as a palette-driven on-device equalizer', () => {
+    const sb = node('sb', 'SpectrumBars', 'pattern', {
+      bass: 0.8,
+      mids: 0.5,
+      treble: 0.9,
+      intensity: 0.7,
+      speed: 0.6,
+      palette: 'ocean',
+      mirror: true,
+    })
+    const cpp = generateCpp([sb, out], [edge('e1', 'sb', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('fill_solid(buf_sb, NUM_LEDS, CRGB::Black);')
+    expect(cpp).toContain('float _levels[3] = { _b, _m, _t };')
+    expect(cpp).toContain('ColorFromPalette(OceanColors_p')
+    expect(cpp).toContain('WIDTH - 1 - _x')
+    expect(cpp).not.toContain('// SpectrumBars')
+  })
+
   it('emits a per-node BeatDetect envelope and BPM estimate', () => {
     const mic = node('mic', 'MicInput', 'input', {})
     const beat = node('bd', 'BeatDetect', 'audio', { threshold: 0.08, attack: 0.3, decay: 0.05 })

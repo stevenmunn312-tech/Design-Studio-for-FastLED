@@ -214,9 +214,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'bass', label: 'Bass', dataType: 'float' },
       { id: 'mids', label: 'Mids', dataType: 'float' },
       { id: 'treble', label: 'Treble', dataType: 'float' },
+      { id: 'intensity', label: 'Intensity', dataType: 'float' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { mirror: true },
+    defaultProperties: { intensity: 1, speed: 0.6, palette: 'rainbow', mirror: true },
   },
 
   // ── Compositing ────────────────────────────────────────────────────────
@@ -1221,7 +1224,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Fire: 'Classic rising fire effect.',
   Fire2012: 'FastLED Fire2012 heat simulation.',
   Plasma: 'Animated plasma interference pattern.',
-  SpectrumBars: 'Audio spectrum bars (bass/mids/treble).',
+  SpectrumBars: 'Palette-driven equalizer bars with audio-reactive motion.',
   BassPulse: 'Pulses a color with bass energy.',
   BassRings: 'Concentric rings that swell and brighten with bass.',
   MidrangeWaves: 'Waves driven by midrange audio.',
@@ -1454,6 +1457,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     scale: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   MidrangeWaves: {
+    intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
+    speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
+  },
+  SpectrumBars: {
     intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },

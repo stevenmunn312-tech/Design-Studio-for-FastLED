@@ -58,6 +58,14 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('MidrangeWaves', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
+  it('SpectrumBars exposes palette-driven intensity and speed controls', () => {
+    const sb = NODE_LIBRARY.find((n) => n.type === 'SpectrumBars')
+    expect(sb?.inputs.map((p) => p.id)).toEqual(['bass', 'mids', 'treble', 'intensity', 'speed', 'paletteIn'])
+    expect(sb?.defaultProperties).toMatchObject({ intensity: 1, speed: 0.6, palette: 'rainbow', mirror: true })
+    expect(propertyMeta('SpectrumBars', 'intensity')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+    expect(propertyMeta('SpectrumBars', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+  })
+
   it('BassRings exposes bass, intensity, normalized speed, and tintable color inputs', () => {
     const br = NODE_LIBRARY.find((n) => n.type === 'BassRings')
     expect(br?.inputs.map((p) => p.id)).toEqual(['bass', 'intensity', 'speed', 'color'])

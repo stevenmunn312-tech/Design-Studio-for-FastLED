@@ -649,6 +649,32 @@ describe('evaluateGraph', () => {
     expect(brightnessAt(1)).toBeGreaterThan(brightnessAt(0))  // louder bass → brighter
   })
 
+  it('SpectrumBars responds to intensity, palette, and motion controls', () => {
+    const render = (props: Record<string, unknown>, tick: number) => {
+      const sb = node('sb', 'SpectrumBars', 'pattern', {
+        bass: 0.85,
+        mids: 0.55,
+        treble: 0.9,
+        intensity: 1,
+        speed: 0.6,
+        palette: 'rainbow',
+        mirror: true,
+        ...props,
+      })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      return evaluateGraph([sb, out], [edge('e', 'sb', 'frame', 'out', 'frame')], tick, 8, 8)!
+    }
+    const dim = render({ intensity: 0.2 }, 0)
+    const bright = render({ intensity: 1 }, 0)
+    const ocean = render({ palette: 'ocean' }, 0)
+    const still = render({ speed: 0 }, 0)
+    const moving = render({ speed: 1 }, 120)
+    const total = (f: ReturnType<typeof render>) => f.flat().reduce((a, px) => a + px.r + px.g + px.b, 0)
+    expect(total(bright)).toBeGreaterThan(total(dim))
+    expect(JSON.stringify(ocean)).not.toEqual(JSON.stringify(bright))
+    expect(JSON.stringify(moving)).not.toEqual(JSON.stringify(still))
+  })
+
   it('MidrangeWaves intensity scales the audio-reactive strength', () => {
     const brightnessAt = (intensity: number) => {
       const mw = node('mw', 'MidrangeWaves', 'pattern', { mids: 0.8, intensity, speed: 0.5, palette: 'ocean' })

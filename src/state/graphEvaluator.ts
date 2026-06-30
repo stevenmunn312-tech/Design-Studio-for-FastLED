@@ -319,21 +319,70 @@ function evalFire(nodeId: string, intensity: number, W = DEFAULT_W, H = DEFAULT_
   )
 }
 
-function evalSpectrumBars(bass: number, mids: number, treble: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalSpectrumBars(
+  bass: number,
+  mids: number,
+  treble: number,
+  intensity: number,
+  speed: number,
+  t: number,
+  palette: Palette,
+  mirror: boolean,
+  W = DEFAULT_W,
+  H = DEFAULT_H,
+): Frame {
   const frame: Frame = blankFrame(W, H)
-  const bands: Array<{ start: number; end: number; val: number; hueBase: number }> = [
-    { start: 0,         end: Math.floor(W * 0.33),  val: bass,   hueBase: 0   },
-    { start: Math.floor(W * 0.34), end: Math.floor(W * 0.66),  val: mids,   hueBase: 180 },
-    { start: Math.floor(W * 0.67), end: W - 1,      val: treble, hueBase: 270 },
-  ]
-  for (const { start, end, val, hueBase } of bands) {
-    const barH = Math.round(Math.max(0, Math.min(1, val)) * H)
-    for (let col = start; col <= end; col++)
-      for (let row = 0; row < barH; row++) {
-        const y = H - 1 - row
-        frame[y][col] = hsv(hueBase + (row / H) * 60, 1, 0.9)
+  const b = Math.max(0, Math.min(1, bass))
+  const m = Math.max(0, Math.min(1, mids))
+  const tr = Math.max(0, Math.min(1, treble))
+  const strength = Math.max(0, Math.min(1, intensity))
+  const spd = Math.max(0, Math.min(1, speed))
+  const columns = Math.max(1, mirror ? Math.ceil(W / 2) : W)
+  const levels = [b, m, tr]
+  const motion = t * (0.8 + spd * 5.5)
+
+  for (let x = 0; x < columns; x++) {
+    const nx = columns <= 1 ? 0 : x / (columns - 1)
+    const spectrumPos = nx * (levels.length - 1)
+    const left = Math.floor(spectrumPos)
+    const right = Math.min(levels.length - 1, left + 1)
+    const blend = spectrumPos - left
+    const baseLevel = levels[left] * (1 - blend) + levels[right] * blend
+    const ripple = Math.sin(nx * 10.5 - motion * (1.1 + tr * 1.8)) * 0.08 * strength
+    const shimmer = Math.max(0, Math.sin(nx * 21 + motion * (2 + m * 2.5))) * 0.06 * tr * strength
+    const level = Math.max(0, Math.min(1, baseLevel * (0.45 + strength * 0.9) + ripple + shimmer))
+    const barH = Math.max(0, Math.round(level * H))
+
+    for (let row = 0; row < barH; row++) {
+      const y = H - 1 - row
+      const vertical = H <= 1 ? 0 : row / (H - 1)
+      const pulse = 0.72 + 0.28 * Math.sin(vertical * 6.2 - motion * (1.4 + b * 1.6))
+      const v = Math.max(0, Math.min(1, (0.28 + vertical * 0.72) * pulse))
+      const colorPos = nx * (0.7 + b * 0.25) + vertical * (0.45 + m * 0.35) + motion * 0.018
+      const c = samplePalette(palette, colorPos)
+      const px = {
+        r: Math.round(c.r * v),
+        g: Math.round(c.g * v),
+        b: Math.round(c.b * v),
       }
+      frame[y][x] = px
+      if (mirror) frame[y][W - 1 - x] = px
+    }
+
+    if (barH > 0) {
+      const peakY = Math.max(0, H - barH)
+      const peak = samplePalette(palette, nx + motion * 0.03)
+      const glow = Math.min(1, 0.6 + tr * 0.35 + strength * 0.2)
+      const cap = {
+        r: Math.round(peak.r * glow),
+        g: Math.round(peak.g * glow),
+        b: Math.round(peak.b * glow),
+      }
+      frame[peakY][x] = cap
+      if (mirror) frame[peakY][W - 1 - x] = cap
+    }
   }
+
   return frame
 }
 
@@ -2131,7 +2180,11 @@ function createEvalNode(
         const bass   = num(id, 'bass',   props, 'bass',   (Math.sin(t * 2.1) + 1) / 2)
         const mids   = num(id, 'mids',   props, 'mids',   (Math.sin(t * 3.7 + 1) + 1) / 2)
         const treble = num(id, 'treble', props, 'treble', (Math.sin(t * 5.3 + 2) + 1) / 2)
-        out = { frame: evalSpectrumBars(bass, mids, treble, W, H) }
+        const intensity = num(id, 'intensity', props, 'intensity', 1)
+        const speed = num(id, 'speed', props, 'speed', 0.6)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
+        const mirror = !!props.mirror
+        out = { frame: evalSpectrumBars(bass, mids, treble, intensity, speed, t, palette, mirror, W, H) }
         break
       }
 
