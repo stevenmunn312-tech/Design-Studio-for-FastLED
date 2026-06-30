@@ -1,6 +1,6 @@
 # Plan — Integrate `feature/thmi-touchscreen-ui` onto `main`
 
-Status: **proposed** · Created 2026-06-25
+Status: **closed** · Created 2026-06-25 · Closed 2026-06-30
 
 ## Why this is a plan and not a merge
 
@@ -53,3 +53,9 @@ Each step: branch off `main`, replay, get `lint` + `test` + `build` green, PR.
 - All seven features live on `main` (or explicitly dropped, noted here).
 - `feature/thmi-touchscreen-ui` deleted.
 - `CLAUDE.md` node lists + `todo.md` updated per merged PR.
+
+## Outcome (2026-06-30)
+
+All features except T-HMI firmware are on `main`. The branch no longer exists on
+the remote. T-HMI firmware is dropped — no `firmware/` directory was ever committed
+and the branch is gone; treat it as a future standalone effort if needed.

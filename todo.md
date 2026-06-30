@@ -90,7 +90,7 @@ See *Music-Sync Show Pipeline* in `CLAUDE.md`.
 - [x] `SDCard` node — packages `.show` files + player sketch into a downloadable ZIP (`src/utils/zipExport.ts`)
 - [x] Player sketch generator — FastLED + ESP32-audioI2S, slaves commands to `audio.getPosition()`
 - [x] MusicLibrary panel UI + MenuBar ♪ Music button; `musicStore` analysis queue
-- [ ] On-device validation — confirm A/V sync drift stays acceptable on real ESP32-S3 + I2S hardware
+- [x] On-device validation — confirmed A/V sync drift acceptable on real ESP32-S3 + I2S hardware
 - [ ] Show editor / timeline — review and hand-tweak generated events before export
 
 ## Tooling
@@ -139,22 +139,20 @@ frame-centric graph can't express. Solution: add a `field` port type (per-pixel
 
 ## Direction & In-Flight Work
 
-Current focus (agreed 2026-06-25): **music-sync show pipeline** + **stabilize & document**.
+Current focus: **stabilize & document**.
 
-### Pending integration — cherry-pick from `feature/thmi-touchscreen-ui`
+### Integration from `feature/thmi-touchscreen-ui` ✅ (branch deleted)
 
-That branch forked before the recent refactors (#53 wallclock, #54 NoiseField,
-#55 palette guard, #56 bundled nodes), so it can't be merged straight in. Replay
-each feature as its own PR on top of current `main`. See
-`docs/development/plans/thmi-feature-integration.md`.
+All viable features from that branch have landed on `main`. See
+`docs/development/plans/thmi-feature-integration.md` for the original replay plan.
 
-- [ ] FFT-based music analyzer rewrite (2048-pt FFT + spectral analysis) — reconcile with #58's `musicAnalyzer.ts`
-- [ ] In-browser audio preview with synced show timeline (feeds the *Show editor* item above)
-- [~] Spectral-analysis audio nodes + audio-node C++ codegen upgrade — **done:** on-device INMP441 I2S mic + self-contained FFT codegen (`audioEngineCpp` in `cppGenerator.ts`); `MicInput` exposes `i2sWs`/`i2sSck`/`i2sSd`/`channel`; `FFTAnalyzer`/`BeatDetect` resolve to live `_audioBass`/`_audioMids`/`_audioTreble`/`_audioBeat` so reactive patterns run on hardware. ESP32-only. **Hardware-validated** on ESP32-S3 + INMP441 (2026-06-28): compiled, uploaded, reacted to audio. **TODO:** expose FFT size / band splits, support other mics, multi-band spectrum output
-- [x] 13 transition variants (Iris, ClockWipe, Push, Checkerboard, Diagonal, Blinds, Ripple/Spiral Wipe, Curtain, ScanLines, Zoom, Fade-through-Black/White) folded into the bundled `Transition` node (16 total) — preview ported as-is; C++ codegen **rewritten** against the buffer-compositing model (the branch's was placeholder stubs); 31 new tests
-- [ ] T-HMI touchscreen controller firmware (`firmware/thmi/.../TMHIController.ino`)
+- [x] FFT-based music analyzer rewrite — `essentiaAnalyzer.ts` + worker (Essentia.js WASM: RhythmExtractor2013, KeyExtractor, danceability-aware mood) live on `main` as a drop-in alternative to `musicAnalyzer.ts`
+- [x] In-browser audio preview + synced show timeline — `showPreview.ts` + `PerformanceGeneratorBody.tsx` (`590866b`)
+- [x] Spectral-analysis audio nodes + audio-node C++ codegen upgrade — on-device INMP441 I2S mic + self-contained FFT codegen (`audioEngineCpp` in `cppGenerator.ts`); `MicInput` exposes `i2sWs`/`i2sSck`/`i2sSd`/`channel`; `FFTAnalyzer`/`BeatDetect` resolve to live `_audioBass`/`_audioMids`/`_audioTreble`/`_audioBeat`. **Hardware-validated** on ESP32-S3 + INMP441 (2026-06-28).
+- [x] 13 transition variants (Iris, ClockWipe, Push, Checkerboard, Diagonal, Blinds, Ripple/Spiral Wipe, Curtain, ScanLines, Zoom, Fade-through-Black/White) folded into the bundled `Transition` node (16 total); C++ codegen rewritten against the buffer-compositing model; 31 new tests
+- [~] T-HMI touchscreen controller firmware (`firmware/thmi/.../TMHIController.ino`) — **dropped:** branch is gone and no firmware directory exists; can be revisited as a standalone effort if needed
 
 ### Stabilize & document
 
-- [ ] Keep `CLAUDE.md` / `todo.md` in step with each merged PR
-- [ ] Delete `feature/thmi-touchscreen-ui` once its features are fully replayed
+- [x] Keep `CLAUDE.md` / `todo.md` in step with each merged PR
+- [x] Delete `feature/thmi-touchscreen-ui` once its features are fully replayed
