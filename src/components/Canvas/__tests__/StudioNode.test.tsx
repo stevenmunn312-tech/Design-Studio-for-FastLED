@@ -237,12 +237,10 @@ describe('StudioNode', () => {
     expect(useGraphStore.getState().nodes[0].data.properties.filled).toBe(true)
   })
 
-  it('embeds the library UI (drop zone + engine toggle) in the MusicLibrary node', () => {
+  it('embeds the library UI (drop zone) in the MusicLibrary node', () => {
     useMusicStore.setState({ entries: [] })
     const { getByText } = renderNode(makeNode('MusicLibrary', {}))
     expect(getByText('Drop MP3s here or click to browse')).toBeTruthy()
-    expect(getByText('Essentia.js')).toBeTruthy()
-    expect(getByText('Built-in')).toBeTruthy()
   })
 
   it('lists loaded songs with their status on the MusicLibrary node', () => {
