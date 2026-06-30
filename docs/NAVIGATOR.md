@@ -17,6 +17,10 @@ build/architecture overview aimed at contributors.
     — the Library → Collection → Pattern Master flow for a random pattern/
     transition show (localStorage library, audio-reactive patterns, per-pattern
     `.h` codegen), and its phased rollout.
+  - [Collection-driven performance](development/design/collection-driven-performance.md)
+    — plug a Pattern Collection into the Performance Generator so the music-sync
+    rules engine schedules the user's own patterns, with a "Use group inputs"
+    toggle that modulates each pattern's palette/speed/intensity.
   - [Code node](development/design/code-node.md)
     — pasting raw FastLED C++ as a node: verbatim codegen plus a lightweight
     C++→JS shim that approximates the code in the live preview.
