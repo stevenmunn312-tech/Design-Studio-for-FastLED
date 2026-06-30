@@ -254,12 +254,18 @@ fixed-switch one whenever the wired `PerformanceGenerator` has a collection.
 
 ## Slices
 
-1. **Wiring + index scheduling (no modulation).** Add the `patternset` input;
-   `generateShow` picks random collection indices; `.show` `version: 2` with
-   `patternSet`; preview renders indexed subgraphs (self-contained); `SDCard`
-   exports the merged `render_pN` player. Patterns render exactly as authored —
-   `SET_PALETTE/SPEED` are emitted but unused. Ship + hardware-validate this first;
-   it's the whole unification minus modulation.
+1. **Wiring + index scheduling (no modulation).** ✅ **shipped (2026-06-30), not yet
+   hardware-validated.** Added the `patternset` input on `PerformanceGenerator`;
+   `generateShow(analysis, options, patternIds)` picks a random collection index per
+   section; `.show` is `version: 2` with a `patternSet` array and `SET_PATTERN`
+   carrying `params.index`; `musicStore` resolves the wired collection live from the
+   graph; `showPreview` renders the indexed group's subgraph via the group registry;
+   `buildPatternRenderers` (extracted from `showGenerator`) compiles the collection
+   into `render_pN()` and the player (`generatePlayerSketch(cfg, renderers)`)
+   dispatches by index; `validateGraph` warns on collection-without-song / empty
+   collection. Patterns render exactly as authored — `SET_PALETTE/SPEED` are emitted
+   but unused. **Remaining: flash an ESP32-S3 and confirm the merged player runs the
+   collected patterns in time.**
 2. **"Use group inputs" modulation.** The toggle; reserved `energy/speed/palette`
    **roles** (broadcast one 0–1 value per role to every input of that role);
    `buildPattern` threads role params into `render_pN`; preview binds `groupInputs`
