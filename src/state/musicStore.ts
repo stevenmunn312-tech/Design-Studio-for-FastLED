@@ -1,16 +1,23 @@
 import { create } from 'zustand'
 import type { SongAnalysis, ShowFile } from '../types/showFile'
-import { analyzeSong as analyzeBuiltin } from '../audio/musicAnalyzer'
-import { analyzeSong as analyzeEssentia } from '../audio/essentiaAnalyzer'
 import { generateShow } from '../codegen/performanceGenerator'
 import type { PerformanceOptions } from '../codegen/performanceGenerator'
 
 // Offline analysis engine. 'essentia' (Essentia.js WASM) is the higher-quality
 // default for the pre-planned export path; 'builtin' is the dependency-free DSP.
 export type AnalyzerEngine = 'essentia' | 'builtin'
-const ANALYZERS: Record<AnalyzerEngine, (file: File, onProgress?: (p: number) => void) => Promise<SongAnalysis>> = {
-  essentia: analyzeEssentia,
-  builtin:  analyzeBuiltin,
+
+async function analyzeWithEngine(
+  engine: AnalyzerEngine,
+  file: File,
+  onProgress?: (p: number) => void,
+): Promise<SongAnalysis> {
+  if (engine === 'essentia') {
+    const { analyzeSong } = await import('../audio/essentiaAnalyzer')
+    return analyzeSong(file, onProgress)
+  }
+  const { analyzeSong } = await import('../audio/musicAnalyzer')
+  return analyzeSong(file, onProgress)
 }
 
 export interface MusicEntry {
@@ -68,7 +75,7 @@ export const useMusicStore = create<MusicState>((set, get) => ({
             e.id === entry.id ? { ...e, progress: p } : e
           ),
         }))
-        const analysis = await ANALYZERS[get().engine](entry.file, onProgress)
+        const analysis = await analyzeWithEngine(get().engine, entry.file, onProgress)
         const show     = generateShow(analysis, options)
         set(s => ({
           entries: s.entries.map(e =>

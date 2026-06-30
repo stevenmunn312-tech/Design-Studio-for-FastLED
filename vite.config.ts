@@ -7,6 +7,17 @@ export default defineConfig({
   // The Essentia analysis worker lazily `import()`s its WASM, so it needs the ES
   // worker format — the default 'iife' can't code-split a worker.
   worker: { format: 'es' },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return
+          if (id.includes('@xyflow/react')) return 'xyflow'
+          if (id.includes('react') || id.includes('zustand') || id.includes('zundo')) return 'react-vendor'
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     // Boots the local upload helper alongside the dev/preview server so
