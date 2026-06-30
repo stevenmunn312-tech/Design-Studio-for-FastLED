@@ -63,6 +63,33 @@ describe('validateGraph', () => {
     expect(warnings.some(w => w.includes('Pattern Master'))).toBe(false)
   })
 
+  function collection(id: string, patternIds: string[]): StudioNode {
+    const n = node(id, 'PatternCollection')
+    ;(n.data as unknown as { properties: Record<string, unknown> }).properties = { patternIds }
+    return n
+  }
+
+  it('warns when a Performance Generator has patterns but no song source', () => {
+    const nodes = [collection('pc', ['g1']), node('pg', 'PerformanceGenerator'), node('out', 'MatrixOutput')]
+    const edges = [edge('e1', 'pc', 'pg', 'patternset')]
+    const { warnings } = validateGraph(nodes, edges)
+    expect(warnings.some(w => w.includes('no song source'))).toBe(true)
+  })
+
+  it('warns when the wired Pattern Collection is empty', () => {
+    const nodes = [collection('pc', []), node('lib', 'MusicLibrary'), node('pg', 'PerformanceGenerator'), node('out', 'MatrixOutput')]
+    const edges = [edge('e1', 'pc', 'pg', 'patternset'), edge('e2', 'lib', 'pg', 'songs')]
+    const { warnings } = validateGraph(nodes, edges)
+    expect(warnings.some(w => w.includes('is empty'))).toBe(true)
+  })
+
+  it('does not warn when songs and a non-empty collection are both wired', () => {
+    const nodes = [collection('pc', ['g1']), node('lib', 'MusicLibrary'), node('pg', 'PerformanceGenerator'), node('out', 'MatrixOutput')]
+    const edges = [edge('e1', 'pc', 'pg', 'patternset'), edge('e2', 'lib', 'pg', 'songs')]
+    const { warnings } = validateGraph(nodes, edges)
+    expect(warnings.some(w => w.includes('no song source') || w.includes('is empty'))).toBe(false)
+  })
+
   it('counts multiple isolated nodes correctly', () => {
     const nodes = [node('out', 'MatrixOutput'), node('a', 'Plasma'), node('b', 'Fire')]
     const edges: StudioEdge[] = []
