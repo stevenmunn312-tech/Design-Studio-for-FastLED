@@ -247,9 +247,12 @@ export const useGraphStore = create<GraphState>()(
         set((s) => {
           const src = s.nodes.find((n) => n.id === connection.source)
           const color = edgeStrokeForPort(src, connection.sourceHandle ?? undefined)
+          const replaced = connection.target && connection.targetHandle
+            ? s.edges.filter((e) => !(e.target === connection.target && e.targetHandle === connection.targetHandle))
+            : s.edges
           // `reconnectable: 'target'` lets a noodle be unplugged/re-routed from
           // the input (target) end only — grab it at the input port and drag.
-          return { edges: addEdge({ ...connection, type: 'glowEdge', reconnectable: 'target', style: { stroke: color } }, s.edges) }
+          return { edges: addEdge({ ...connection, type: 'glowEdge', reconnectable: 'target', style: { stroke: color } }, replaced) }
         }),
 
       removeEdge: (id) =>
@@ -257,7 +260,11 @@ export const useGraphStore = create<GraphState>()(
 
       reconnectNoodle: (oldEdge, newConnection) =>
         set((s) => {
-          const edges = reconnectEdge(oldEdge, newConnection, s.edges)
+          const replaced = newConnection.target && newConnection.targetHandle
+            ? s.edges.filter((e) =>
+              e.id === oldEdge.id || !(e.target === newConnection.target && e.targetHandle === newConnection.targetHandle))
+            : s.edges
+          const edges = reconnectEdge(oldEdge, newConnection, replaced)
           const src = s.nodes.find((n) => n.id === newConnection.source)
           const color = edgeStrokeForPort(src, newConnection.sourceHandle ?? undefined)
           return {

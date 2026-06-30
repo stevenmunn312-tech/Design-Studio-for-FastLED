@@ -93,6 +93,37 @@ describe('graphStore — grouping', () => {
     expect(e[0].targetHandle).toBe('frame')
   })
 
+  it('onConnect replaces an existing noodle on the same input slot', () => {
+    reset(
+      [node('a', 'SolidColor', {}), node('b', 'Noise', {}), node('out', 'MatrixOutput', {})],
+      [edge('e1', 'a', 'frame', 'out', 'frame')],
+    )
+    useGraphStore.getState().onConnect({
+      source: 'b', sourceHandle: 'frame', target: 'out', targetHandle: 'frame',
+    })
+    const e = useGraphStore.getState().edges
+    expect(e).toHaveLength(1)
+    expect(e[0].source).toBe('b')
+    expect(e[0].target).toBe('out')
+    expect(e[0].targetHandle).toBe('frame')
+  })
+
+  it('reconnectNoodle replaces the noodle already occupying the destination input', () => {
+    reset(
+      [node('a', 'SolidColor', {}), node('b', 'Noise', {}), node('c', 'Image', {}), node('out', 'MatrixOutput', {})],
+      [edge('e1', 'a', 'frame', 'out', 'frame'), edge('e2', 'b', 'frame', 'c', 'frame')],
+    )
+    const moving = useGraphStore.getState().edges.find((e) => e.id === 'e2')!
+    useGraphStore.getState().reconnectNoodle(moving, {
+      source: 'b', sourceHandle: 'frame', target: 'out', targetHandle: 'frame',
+    })
+    const e = useGraphStore.getState().edges
+    expect(e).toHaveLength(1)
+    expect(e[0].source).toBe('b')
+    expect(e[0].target).toBe('out')
+    expect(e[0].targetHandle).toBe('frame')
+  })
+
   it('createGroup exposes incoming edges as group parameters', () => {
     reset(
       [
