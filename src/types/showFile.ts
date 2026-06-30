@@ -17,11 +17,19 @@ export interface ShowEvent {
 }
 
 export interface ShowFile {
-  version: 1
+  version: 1 | 2
   songTitle: string
   durationMs: number
   bpm: number
   events: ShowEvent[]
+  /**
+   * Collection shows (version 2): the ordered group ids the show draws from,
+   * parallel to `PatternCollection.patternIds`. A `SET_PATTERN` event then
+   * carries `params.index` (a position in this array) instead of `params.name`,
+   * and the player maps that index to its compiled `render_pN()` function.
+   * Absent on enum shows (version 1), where `SET_PATTERN` uses `params.name`.
+   */
+  patternSet?: string[]
 }
 
 // ── Song analysis output from musicAnalyzer ───────────────────────────────────

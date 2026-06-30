@@ -95,8 +95,13 @@ const DEFAULT_OPTIONS: PerformanceOptions = {
 export function generateShow(
   analysis: SongAnalysis,
   options: Partial<PerformanceOptions> = {},
+  patternIds: string[] = [],
 ): ShowFile {
   const opts = { ...DEFAULT_OPTIONS, ...options }
+  // When a Pattern Collection is wired, draw from the user's own patterns by
+  // index (slice 1: a random pattern per section, ignoring section type) rather
+  // than the built-in section→pattern map.
+  const useCollection = patternIds.length > 0
   const events: ShowEvent[] = []
   const push = (t: number, cmd: ShowEvent['cmd'], params: ShowEvent['params']) =>
     events.push({ t: Math.round(t), cmd, params })
@@ -111,7 +116,6 @@ export function generateShow(
   let prevSectionType: SongSection['type'] | null = null
 
   for (const section of analysis.sections) {
-    const pattern = choosePattern(section.type)
     const palette = opts.paletteMode === 'cycle'
       ? choosePalette(section.energy, analysis.mood.valence)
       : basePalette
@@ -125,7 +129,10 @@ export function generateShow(
       })
     }
 
-    push(section.startMs, 'SET_PATTERN', { name: pattern })
+    const patternParams: ShowEvent['params'] = useCollection
+      ? { index: Math.floor(Math.random() * patternIds.length) }
+      : { name: choosePattern(section.type) }
+    push(section.startMs, 'SET_PATTERN', patternParams)
     push(section.startMs, 'SET_PALETTE', { name: palette })
 
     // Speed scales with section energy and BPM
@@ -180,11 +187,12 @@ export function generateShow(
   }
 
   return {
-    version: 1,
+    version: useCollection ? 2 : 1,
     songTitle: analysis.title,
     durationMs: analysis.durationMs,
     bpm: analysis.beats.bpm,
     events: sortShowEvents(events),
+    ...(useCollection ? { patternSet: patternIds } : {}),
   }
 }
 
@@ -221,8 +229,12 @@ export function showFileToJson(show: ShowFile): string {
 // Per event: t_ms(4) + cmd(1) + param_count(1) + params[](4*N float32)
 //
 // Commands: 0=SET_PATTERN 1=SET_PALETTE 2=SET_SPEED 3=SET_BRIGHTNESS 4=BEAT_FLASH 5=TRANSITION
+// Version 1 (enum show): SET_PATTERN's param is a built-in patternId.
+// Version 2 (collection show, `patternSet` present): SET_PATTERN's param is the
+// pattern *index* (a position in patternSet), which the player maps to its
+// compiled render_pN() function.
 // Param encoding (all float32):
-//   SET_PATTERN:   patternId(float)
+//   SET_PATTERN:   patternId | patternIndex (float)
 //   SET_PALETTE:   paletteId(float)
 //   SET_SPEED:     value
 //   SET_BRIGHTNESS: value
@@ -258,10 +270,12 @@ export function showFileToBinary(show: ShowFile): ArrayBuffer {
   const view = new DataView(buf)
   let off = 0
 
+  const collection = !!(show.patternSet && show.patternSet.length > 0)
+
   // Magic "SHOW"
   view.setUint8(off++, 0x53); view.setUint8(off++, 0x48)
   view.setUint8(off++, 0x4F); view.setUint8(off++, 0x57)
-  view.setUint8(off++, 1)                                    // version
+  view.setUint8(off++, collection ? 2 : 1)                  // version
   view.setUint16(off, Math.round(show.bpm * 10), true); off += 2
   view.setUint32(off, Math.round(show.durationMs), true);   off += 4
   view.setUint32(off, show.events.length, true);            off += 4
@@ -272,7 +286,7 @@ export function showFileToBinary(show: ShowFile): ArrayBuffer {
 
     const params: number[] = []
     switch (ev.cmd) {
-      case 'SET_PATTERN':    params.push(PATTERN_IDS[ev.params.name as string] ?? 0); break
+      case 'SET_PATTERN':    params.push(collection ? Number(ev.params.index ?? 0) : (PATTERN_IDS[ev.params.name as string] ?? 0)); break
       case 'SET_PALETTE':    params.push(PALETTE_IDS[ev.params.name as string] ?? 0); break
       case 'SET_SPEED':      params.push(Number(ev.params.value)); break
       case 'SET_BRIGHTNESS': params.push(Number(ev.params.value)); break
