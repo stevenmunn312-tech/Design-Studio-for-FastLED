@@ -2314,11 +2314,11 @@ function createEvalNode(
         const bass   = num(id, 'bass',   props, 'bass',   (Math.sin(t * 2.1) + 1) / 2)
         const mids   = num(id, 'mids',   props, 'mids',   (Math.sin(t * 3.7 + 1) + 1) / 2)
         const treble = num(id, 'treble', props, 'treble', (Math.sin(t * 5.3 + 2) + 1) / 2)
-        const intensity = num(id, 'intensity', props, 'intensity', 1)
+        const energy = num(id, 'energy', props, 'energy', 0.7)
         const speed = num(id, 'speed', props, 'speed', 0.6)
         const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
         const mirror = !!props.mirror
-        out = { frame: evalSpectrumBars(bass, mids, treble, intensity, speed, t, palette, mirror, W, H) }
+        out = { frame: evalSpectrumBars(bass, mids, treble, energy, speed, t, palette, mirror, W, H) }
         break
       }
 
@@ -2429,29 +2429,29 @@ function createEvalNode(
 
       case 'BassRings': {
         const bass = num(id, 'bass', props, 'bass', 0.5)
-        const intensity = num(id, 'intensity', props, 'intensity', 1)
+        const energy = num(id, 'energy', props, 'energy', 0.7)
         const speed = num(id, 'speed', props, 'speed', 1)
         const colorIn = input(id, 'color', null) as RGB | null
         const color = colorIn ?? { r: Number(props.r ?? 255), g: Number(props.g ?? 120), b: Number(props.b ?? 32) }
-        out = { frame: evalBassRings(bass, intensity, speed, color, t, W, H) }
+        out = { frame: evalBassRings(bass, energy, speed, color, t, W, H) }
         break
       }
 
       case 'MidrangeWaves': {
         const mids = num(id, 'mids', props, 'mids', 0.5)
-        const intensity = num(id, 'intensity', props, 'intensity', 1)
+        const energy = num(id, 'energy', props, 'energy', 0.7)
         const speed = num(id, 'speed', props, 'speed', 1)
         const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
-        out = { frame: evalMidrangeWaves(mids, intensity, speed, t, palette, W, H) }
+        out = { frame: evalMidrangeWaves(mids, energy, speed, t, palette, W, H) }
         break
       }
 
       case 'MidrangeBloom': {
         const mids = num(id, 'mids', props, 'mids', 0.5)
-        const intensity = num(id, 'intensity', props, 'intensity', 1)
+        const energy = num(id, 'energy', props, 'energy', 0.7)
         const speed = num(id, 'speed', props, 'speed', 1)
         const palette = pal(id, 'paletteIn', props, 'palette', 'party')
-        out = { frame: evalMidrangeBloom(mids, intensity, speed, t, palette, W, H) }
+        out = { frame: evalMidrangeBloom(mids, energy, speed, t, palette, W, H) }
         break
       }
 
@@ -2470,11 +2470,11 @@ function createEvalNode(
 
       case 'TreblePrism': {
         const treble = num(id, 'treble', props, 'treble', 0.5)
-        const intensity = num(id, 'intensity', props, 'intensity', 1)
+        const energy = num(id, 'energy', props, 'energy', 0.7)
         const speed = num(id, 'speed', props, 'speed', 1)
         const colorIn = input(id, 'color', null) as RGB | null
         const color = colorIn ?? { r: Number(props.r ?? 200), g: Number(props.g ?? 120), b: Number(props.b ?? 255) }
-        out = { frame: evalTreblePrism(treble, intensity, speed, color, t, W, H) }
+        out = { frame: evalTreblePrism(treble, energy, speed, color, t, W, H) }
         break
       }
 
@@ -2482,10 +2482,10 @@ function createEvalNode(
         const bass = num(id, 'bass', props, 'bass', 0.5)
         const mids = num(id, 'mids', props, 'mids', 0.5)
         const treble = num(id, 'treble', props, 'treble', 0.5)
-        const intensity = num(id, 'intensity', props, 'intensity', 1)
+        const energy = num(id, 'energy', props, 'energy', 0.7)
         const speed = num(id, 'speed', props, 'speed', 1)
         const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-        out = { frame: evalAudioCascade(bass, mids, treble, intensity, speed, t, palette, W, H) }
+        out = { frame: evalAudioCascade(bass, mids, treble, energy, speed, t, palette, W, H) }
         break
       }
 

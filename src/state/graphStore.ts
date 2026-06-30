@@ -130,6 +130,10 @@ const LEGACY_BUNDLE: Record<string, { nodeType: string; label: string; props: Re
   BlendFrames:   { nodeType: 'Blend', label: 'Blend', props: { blendMode: 'normal' } },
 }
 
+// The spectral pattern nodes' audio-reactivity knob/input was renamed
+// `intensity` → `energy` (Fire keeps its own separate `intensity` input).
+const ENERGY_RENAMED = new Set(['SpectrumBars', 'BassRings', 'MidrangeWaves', 'MidrangeBloom', 'TreblePrism', 'AudioCascade'])
+
 function normalizeCategory(nodeType: string, category: NodeCategory): NodeCategory {
   if (category !== 'input') return category
   return nodeType === 'MicInput' ? 'hardware' : 'audio'
@@ -159,6 +163,12 @@ function migrateLegacyGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes: 
         properties = { ...bundle.props, ...rest, amount: Number(t ?? 0.5) }
         handleRenames.set(n.id, { t: 'amount' })
       }
+    }
+    // `intensity` → `energy` on the spectral pattern nodes (property + input port).
+    if (ENERGY_RENAMED.has(nodeType) && 'intensity' in properties && !('energy' in properties)) {
+      const { intensity, ...rest } = properties
+      properties = { ...rest, energy: intensity }
+      handleRenames.set(n.id, { intensity: 'energy' })
     }
     // `amount` moved from a 0–255 opacity to a normalised 0–1 value. Older
     // graphs (and the legacy LayerBlend) stored it 0–255 — anything above 1 must

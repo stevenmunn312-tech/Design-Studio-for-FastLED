@@ -497,8 +497,8 @@ describe('generateCpp', () => {
     expect(cpp).toContain('* 0.200f')
   })
 
-  it('emits MidrangeWaves through a FastLED palette with intensity-controlled reactivity', () => {
-    const mw = node('mw', 'MidrangeWaves', 'pattern', { intensity: 1.4, speed: 1, palette: 'ocean', mids: 0.5 })
+  it('emits MidrangeWaves through a FastLED palette with energy-controlled reactivity', () => {
+    const mw = node('mw', 'MidrangeWaves', 'pattern', { energy: 1.4, speed: 1, palette: 'ocean', mids: 0.5 })
     const cpp = generateCpp([mw, outputNode], [edge('e', 'mw', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _m =')
     expect(cpp).toContain('float _strength = min(1.0f, max(0.0f, _intensity));')
@@ -510,7 +510,7 @@ describe('generateCpp', () => {
   })
 
   it('emits BassRings as a radial sine pattern with bass-scaled density and brightness', () => {
-    const br = node('br', 'BassRings', 'pattern', { bass: 0.6, intensity: 0.75, speed: 1.25, r: 255, g: 120, b: 32 })
+    const br = node('br', 'BassRings', 'pattern', { bass: 0.6, energy: 0.75, speed: 1.25, r: 255, g: 120, b: 32 })
     const cpp = generateCpp([br, outputNode], [edge('e', 'br', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _strength = min(1.0f, max(0.0f,')
     expect(cpp).toContain('float _spd = min(1.0f, max(0.0f,')
@@ -522,7 +522,7 @@ describe('generateCpp', () => {
   })
 
   it('emits MidrangeBloom through a palette with radial bloom modulation', () => {
-    const mb = node('mb', 'MidrangeBloom', 'pattern', { mids: 0.7, intensity: 0.8, speed: 0.6, palette: 'party' })
+    const mb = node('mb', 'MidrangeBloom', 'pattern', { mids: 0.7, energy: 0.8, speed: 0.6, palette: 'party' })
     const cpp = generateCpp([mb, outputNode], [edge('e', 'mb', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _motion = min(1.0f, max(0.0f, _spd)) * (0.8f + _mAmt * 2.2f * _strength);')
     expect(cpp).toContain('float _swirl = sinf((_cx * _cx - _cy * _cy) * 6 + t * _motion * 3.2f)')
@@ -532,7 +532,7 @@ describe('generateCpp', () => {
   })
 
   it('emits TreblePrism as sharp diagonal treble-reactive shards', () => {
-    const tp = node('tp', 'TreblePrism', 'pattern', { treble: 0.85, intensity: 0.9, speed: 0.7, r: 200, g: 120, b: 255 })
+    const tp = node('tp', 'TreblePrism', 'pattern', { treble: 0.85, energy: 0.9, speed: 0.7, r: 200, g: 120, b: 255 })
     const cpp = generateCpp([tp, outputNode], [edge('e', 'tp', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _motion = _spd * (1.2f + _t * 3.2f * _strength);')
     expect(cpp).toContain('float _prism = max(0.0f, _waveA * 0.55f + _waveB * 0.45f);')
@@ -542,7 +542,7 @@ describe('generateCpp', () => {
   })
 
   it('emits AudioCascade as a full-spectrum palette pattern with ribbons and shimmer', () => {
-    const ac = node('ac', 'AudioCascade', 'pattern', { bass: 0.8, mids: 0.7, treble: 0.9, intensity: 0.85, speed: 0.75, palette: 'rainbow' })
+    const ac = node('ac', 'AudioCascade', 'pattern', { bass: 0.8, mids: 0.7, treble: 0.9, energy: 0.85, speed: 0.75, palette: 'rainbow' })
     const cpp = generateCpp([ac, outputNode], [edge('e', 'ac', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _motion = _spd * (0.8f + (_b + _m + _t) * 1.4f * _strength);')
     expect(cpp).toContain('float _ribbon = sinf((_nx * 7.0f + _ny * 2.5f) + t * _motion * (2.0f + _m * 3.0f * _strength));')
@@ -979,7 +979,7 @@ describe('generateCpp — INMP441 audio engine', () => {
       bass: 0.8,
       mids: 0.5,
       treble: 0.9,
-      intensity: 0.7,
+      energy: 0.7,
       speed: 0.6,
       palette: 'ocean',
       mirror: true,

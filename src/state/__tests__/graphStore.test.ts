@@ -240,6 +240,24 @@ describe('graphStore — legacy node migration on load', () => {
     expect(e.targetHandle).toBe('amount')        // edge rewired to the new port
   })
 
+  it('renames the spectral nodes’ intensity → energy (property + input port), leaving Fire alone', () => {
+    useGraphStore.getState().loadGraph(
+      [
+        node('src', 'FFTAnalyzer'),
+        node('mw', 'MidrangeWaves', { intensity: 0.9, speed: 1, palette: 'ocean' }),
+        node('fire', 'Fire', { intensity: 0.3 }),   // Fire's own intensity input is untouched
+      ],
+      [edge('e1', 'src', 'mids', 'mw', 'intensity')],   // a noodle into the old `intensity` port
+    )
+    const d = dataOf('mw')
+    expect(d.properties.energy).toBe(0.9)
+    expect(d.properties.intensity).toBeUndefined()
+    expect(useGraphStore.getState().edges[0].targetHandle).toBe('energy')
+    // Fire is excluded from the rename.
+    expect(dataOf('fire').properties.intensity).toBe(0.3)
+    expect(dataOf('fire').properties.energy).toBeUndefined()
+  })
+
   it('rescales a legacy 0–255 Blend amount to the 0–1 range on load', () => {
     useGraphStore.getState().loadGraph(
       [node('bl', 'Blend', { blendMode: 'normal', amount: 128 }), node('bl2', 'Blend', { amount: 0.5 })],

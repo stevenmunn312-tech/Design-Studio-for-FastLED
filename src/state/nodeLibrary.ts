@@ -237,12 +237,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'bass', label: 'Bass', dataType: 'float' },
       { id: 'mids', label: 'Mids', dataType: 'float' },
       { id: 'treble', label: 'Treble', dataType: 'float' },
-      { id: 'intensity', label: 'Intensity', dataType: 'float' },
+      { id: 'energy', label: 'Energy', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { intensity: 1, speed: 0.6, palette: 'rainbow', mirror: true },
+    defaultProperties: { energy: 0.7, speed: 0.6, palette: 'rainbow', mirror: true },
   },
 
   // ── Compositing ────────────────────────────────────────────────────────
@@ -311,12 +311,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'pattern',
     inputs: [
       { id: 'bass', label: 'Bass', dataType: 'float' },
-      { id: 'intensity', label: 'Intensity', dataType: 'float' },
+      { id: 'energy', label: 'Energy', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'color', label: 'Color', dataType: 'color' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { intensity: 1.0, speed: 1.0, r: 255, g: 120, b: 32 },
+    defaultProperties: { energy: 0.7, speed: 1.0, r: 255, g: 120, b: 32 },
   },
   {
     type: 'MidrangeWaves',
@@ -324,12 +324,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'pattern',
     inputs: [
       { id: 'mids', label: 'Mids', dataType: 'float' },
-      { id: 'intensity', label: 'Intensity', dataType: 'float' },
+      { id: 'energy', label: 'Energy', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { intensity: 1.0, speed: 1.0, palette: 'ocean' },
+    defaultProperties: { energy: 0.7, speed: 1.0, palette: 'ocean' },
   },
   {
     type: 'MidrangeBloom',
@@ -337,12 +337,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'pattern',
     inputs: [
       { id: 'mids', label: 'Mids', dataType: 'float' },
-      { id: 'intensity', label: 'Intensity', dataType: 'float' },
+      { id: 'energy', label: 'Energy', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { intensity: 1.0, speed: 1.0, palette: 'party' },
+    defaultProperties: { energy: 0.7, speed: 1.0, palette: 'party' },
   },
   {
     type: 'TrebleSparks',
@@ -362,12 +362,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'pattern',
     inputs: [
       { id: 'treble', label: 'Treble', dataType: 'float' },
-      { id: 'intensity', label: 'Intensity', dataType: 'float' },
+      { id: 'energy', label: 'Energy', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'color', label: 'Color', dataType: 'color' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { intensity: 1.0, speed: 1.0, r: 200, g: 120, b: 255 },
+    defaultProperties: { energy: 0.7, speed: 1.0, r: 200, g: 120, b: 255 },
   },
   {
     type: 'AudioCascade',
@@ -377,12 +377,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'bass', label: 'Bass', dataType: 'float' },
       { id: 'mids', label: 'Mids', dataType: 'float' },
       { id: 'treble', label: 'Treble', dataType: 'float' },
-      { id: 'intensity', label: 'Intensity', dataType: 'float' },
+      { id: 'energy', label: 'Energy', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { intensity: 1.0, speed: 1.0, palette: 'rainbow' },
+    defaultProperties: { energy: 0.7, speed: 1.0, palette: 'rainbow' },
   },
   {
     type: 'BeatFlash',
@@ -1447,6 +1447,8 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   separation: { control: 'slider', min: 0, max: 1, step: 0.01 },
   gate:       { control: 'slider', min: 0, max: 1, step: 0.01 },
   density:    { control: 'slider', min: 0, max: 1, step: 0.01 },
+  // Audio-reactivity amount on the spectral pattern nodes (was `intensity`).
+  energy:     { control: 'slider', min: 0, max: 1, step: 0.01 },
   brightness: { control: 'slider', min: 0, max: 1, step: 0.01 },
   s:          { control: 'slider', min: 0, max: 1, step: 0.01 },
   v:          { control: 'slider', min: 0, max: 1, step: 0.01 },
@@ -1495,27 +1497,21 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     scale: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   MidrangeWaves: {
-    intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   SpectrumBars: {
-    intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   MidrangeBloom: {
-    intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   BassRings: {
-    intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   TreblePrism: {
-    intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   AudioCascade: {
-    intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   Particles:         { rate:  { control: 'slider', min: 0, max: 1,   step: 0.01 } },

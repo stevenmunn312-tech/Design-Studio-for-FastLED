@@ -688,13 +688,13 @@ describe('evaluateGraph', () => {
     expect(brightnessAt(1)).toBeGreaterThan(brightnessAt(0))  // louder bass → brighter
   })
 
-  it('SpectrumBars responds to intensity, palette, and motion controls', () => {
+  it('SpectrumBars responds to energy, palette, and motion controls', () => {
     const render = (props: Record<string, unknown>, tick: number) => {
       const sb = node('sb', 'SpectrumBars', 'pattern', {
         bass: 0.85,
         mids: 0.55,
         treble: 0.9,
-        intensity: 1,
+        energy: 1,
         speed: 0.6,
         palette: 'rainbow',
         mirror: true,
@@ -703,8 +703,8 @@ describe('evaluateGraph', () => {
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph([sb, out], [edge('e', 'sb', 'frame', 'out', 'frame')], tick, 8, 8)!
     }
-    const dim = render({ intensity: 0.2 }, 0)
-    const bright = render({ intensity: 1 }, 0)
+    const dim = render({ energy: 0.2 }, 0)
+    const bright = render({ energy: 1 }, 0)
     const ocean = render({ palette: 'ocean' }, 0)
     const still = render({ speed: 0 }, 0)
     const moving = render({ speed: 1 }, 120)
@@ -714,9 +714,9 @@ describe('evaluateGraph', () => {
     expect(JSON.stringify(moving)).not.toEqual(JSON.stringify(still))
   })
 
-  it('MidrangeWaves intensity scales the audio-reactive strength', () => {
-    const brightnessAt = (intensity: number) => {
-      const mw = node('mw', 'MidrangeWaves', 'pattern', { mids: 0.8, intensity, speed: 0.5, palette: 'ocean' })
+  it('MidrangeWaves energy scales the audio-reactive strength', () => {
+    const brightnessAt = (energy: number) => {
+      const mw = node('mw', 'MidrangeWaves', 'pattern', { mids: 0.8, energy, speed: 0.5, palette: 'ocean' })
       const out = node('out', 'MatrixOutput', 'output', {})
       const f = evaluateGraph([mw, out], [edge('e', 'mw', 'frame', 'out', 'frame')], 30, 8, 8)!
       return f.flat().reduce((a, px) => a + px.r + px.g + px.b, 0)
@@ -724,9 +724,9 @@ describe('evaluateGraph', () => {
     expect(brightnessAt(1.5)).toBeGreaterThan(brightnessAt(0.25))
   })
 
-  it('BassRings intensity scales the bass-driven concentric waves', () => {
-    const render = (intensity: number, bass: number, tick: number) => {
-      const br = node('br', 'BassRings', 'pattern', { bass, intensity, speed: 1, r: 255, g: 120, b: 32 })
+  it('BassRings energy scales the bass-driven concentric waves', () => {
+    const render = (energy: number, bass: number, tick: number) => {
+      const br = node('br', 'BassRings', 'pattern', { bass, energy, speed: 1, r: 255, g: 120, b: 32 })
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph([br, out], [edge('e', 'br', 'frame', 'out', 'frame')], tick, 8, 8)!
     }
@@ -737,9 +737,9 @@ describe('evaluateGraph', () => {
     expect(JSON.stringify(render(1, 1, 120))).not.toEqual(JSON.stringify(strong))
   })
 
-  it('MidrangeBloom intensity scales a palette-driven midrange pattern', () => {
-    const render = (intensity: number, tick: number) => {
-      const mb = node('mb', 'MidrangeBloom', 'pattern', { mids: 0.85, intensity, speed: 0.6, palette: 'party' })
+  it('MidrangeBloom energy scales a palette-driven midrange pattern', () => {
+    const render = (energy: number, tick: number) => {
+      const mb = node('mb', 'MidrangeBloom', 'pattern', { mids: 0.85, energy, speed: 0.6, palette: 'party' })
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph([mb, out], [edge('e', 'mb', 'frame', 'out', 'frame')], tick, 8, 8)!
     }
@@ -750,9 +750,9 @@ describe('evaluateGraph', () => {
     expect(JSON.stringify(render(1, 120))).not.toEqual(JSON.stringify(strong))
   })
 
-  it('TreblePrism intensity scales sharp treble highlights', () => {
-    const render = (intensity: number, tick: number) => {
-      const tp = node('tp', 'TreblePrism', 'pattern', { treble: 0.9, intensity, speed: 0.8, r: 200, g: 120, b: 255 })
+  it('TreblePrism energy scales sharp treble highlights', () => {
+    const render = (energy: number, tick: number) => {
+      const tp = node('tp', 'TreblePrism', 'pattern', { treble: 0.9, energy, speed: 0.8, r: 200, g: 120, b: 255 })
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph([tp, out], [edge('e', 'tp', 'frame', 'out', 'frame')], tick, 8, 8)!
     }
@@ -764,8 +764,8 @@ describe('evaluateGraph', () => {
   })
 
   it('AudioCascade uses bass, mids, and treble together in a moving palette pattern', () => {
-    const render = (intensity: number, tick: number) => {
-      const ac = node('ac', 'AudioCascade', 'pattern', { bass: 0.8, mids: 0.7, treble: 0.9, intensity, speed: 0.75, palette: 'rainbow' })
+    const render = (energy: number, tick: number) => {
+      const ac = node('ac', 'AudioCascade', 'pattern', { bass: 0.8, mids: 0.7, treble: 0.9, energy, speed: 0.75, palette: 'rainbow' })
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph([ac, out], [edge('e', 'ac', 'frame', 'out', 'frame')], tick, 8, 8)!
     }
