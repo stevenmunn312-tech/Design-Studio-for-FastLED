@@ -4,9 +4,11 @@
 // into MatrixOutput.
 
 import type { StudioNode, StudioEdge, StudioNodeData } from '../state/graphStore'
+import type { GroupRegistry } from '../state/graphEvaluator'
 import type { MusicEntry } from '../state/musicStore'
 import { generateProvisionerSketch } from '../codegen/provisionerSketchGenerator'
 import { generatePlayerSketch, playerConfigFromGraph } from '../codegen/playerSketchGenerator'
+import { buildPatternRenderers } from '../codegen/showGenerator'
 import { showFileToBinary } from '../codegen/performanceGenerator'
 import type { ShowUploadFile } from './backendClient'
 
@@ -39,13 +41,22 @@ const safeTitle = (s: string) => s.replace(/[^a-zA-Z0-9_\- ]/g, '_')
 export function buildShowPayload(
   nodes: StudioNode[],
   entries: MusicEntry[],
+  groups: GroupRegistry = {},
 ): { provisioner: string; player: string; files: ShowUploadFile[] } | null {
   const done = entries.filter((e) => e.status === 'done' && e.show)
   if (done.length === 0) return null
 
   const sd = (nodes.find((n) => nodeType(n) === 'SDCard')?.data as StudioNodeData | undefined)?.properties ?? {}
   const provisioner = generateProvisionerSketch({ sdCsPin: Number(sd.sdCsPin ?? 5) })
-  const player = generatePlayerSketch(playerConfigFromGraph(nodes))
+
+  // A collection (version 2) show carries its pattern group ids in patternSet;
+  // compile those subgraphs into render_pN() so the player draws the user's own
+  // patterns instead of the built-in enum set.
+  const patternSet = done[0].show!.patternSet
+  const renderers = patternSet && patternSet.length > 0
+    ? buildPatternRenderers(patternSet, groups)
+    : undefined
+  const player = generatePlayerSketch(playerConfigFromGraph(nodes), renderers)
 
   const files: ShowUploadFile[] = []
   for (const e of done) {

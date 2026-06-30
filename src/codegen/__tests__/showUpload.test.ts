@@ -54,4 +54,29 @@ describe('generatePlayerSketch', () => {
     expect(ino).toContain('flashLevel *= flashDecay')
     expect(ino.indexOf('// Beat flash overlay')).toBeLessThan(ino.indexOf('FastLED.show();'))
   })
+
+  it('emits the built-in pattern switch for an enum show', () => {
+    const ino = generatePlayerSketch()
+    expect(ino).toContain('case 2:  // Plasma')
+    expect(ino).not.toContain('render_p0(ms)')
+  })
+
+  it('dispatches to compiled render_pN functions for a collection show', () => {
+    const renderers = {
+      buffers: ['CRGB p0_buf_a[NUM_LEDS];'],
+      helpers: [],
+      functions: [
+        'void render_p0(uint32_t ms) { fill_solid(leds, NUM_LEDS, CRGB::Blue); }',
+        'void render_p1(uint32_t ms) { fill_solid(leds, NUM_LEDS, CRGB::Red); }',
+      ],
+      count: 2,
+    }
+    const ino = generatePlayerSketch({}, renderers)
+    expect(ino).toContain('Music-Sync Player (collection show)')
+    expect(ino).toContain('void render_p0(uint32_t ms)')
+    expect(ino).toContain('case 0: render_p0(ms); break;')
+    expect(ino).toContain('case 1: render_p1(ms); break;')
+    expect(ino).not.toContain('case 2:  // Plasma')   // no built-in switch
+    expect(ino).toContain('patternId  = 0;')          // index default
+  })
 })

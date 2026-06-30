@@ -33,7 +33,7 @@ export default function MatrixOutputUpload({ enabled }: { enabled: boolean }) {
   const sdConnected = useMemo(() => sdCardConnected(nodes, edges), [nodes, edges])
   const readySongs = readySongCount(entries)
   function handleShowUpload() {
-    const payload = buildShowPayload(nodes, entries)
+    const payload = buildShowPayload(nodes, entries, getGroupRegistry())
     if (payload) runShowUpload(payload)
   }
 

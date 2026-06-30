@@ -108,6 +108,28 @@ function buildPattern(groupId: string, groups: GroupRegistry, index: number): Pa
   return { buffers, helpers, fn: [`void ${fnName}(uint32_t ms) {`, ...body, '}'].join('\n') }
 }
 
+/** The reusable C++ pieces for a set of collected patterns: per-pattern frame
+ *  buffers, deduped helpers, and one `render_pN(uint32_t ms)` per pattern.
+ *  Shared by the generative show sketch and the music-sync collection player. */
+export interface PatternRenderers {
+  buffers: string[]
+  helpers: string[]
+  functions: string[]
+  count: number
+}
+
+export function buildPatternRenderers(patternIds: string[], groups: GroupRegistry): PatternRenderers {
+  const units = patternIds.map((id, i) => buildPattern(id, groups, i))
+  const helpers = new Map<string, string>()
+  for (const u of units) for (const [k, v] of u.helpers) helpers.set(k, v)
+  return {
+    buffers: units.flatMap((u) => u.buffers),
+    helpers: [...helpers.values()],
+    functions: units.map((u) => u.fn),
+    count: units.length,
+  }
+}
+
 export function generateShowSketch(nodes: StudioNode[], edges: StudioEdge[], groups: GroupRegistry = {}): string {
   const info = showInfo(nodes, edges)
   if (!info || info.patternIds.length === 0) {
@@ -120,9 +142,7 @@ export function generateShowSketch(nodes: StudioNode[], edges: StudioEdge[], gro
   const dataPin = Number(op.dataPin ?? 5)
   const chipset = String(op.chipset ?? 'WS2812B'), colorOrder = String(op.colorOrder ?? 'GRB')
 
-  const units = info.patternIds.map((id, i) => buildPattern(id, groups, i))
-  const helpers = new Map<string, string>()
-  for (const u of units) for (const [k, v] of u.helpers) helpers.set(k, v)
+  const renderers = buildPatternRenderers(info.patternIds, groups)
 
   const L: string[] = []
   L.push('// FastLED Studio — generative pattern show (Phase 4, first slice)')
@@ -132,20 +152,20 @@ export function generateShowSketch(nodes: StudioNode[], edges: StudioEdge[], gro
   L.push(`#define HEIGHT   ${height}`)
   L.push('#define NUM_LEDS (WIDTH * HEIGHT)')
   L.push(`#define DATA_PIN ${dataPin}`)
-  L.push(`#define PATTERN_COUNT ${units.length}`)
+  L.push(`#define PATTERN_COUNT ${renderers.count}`)
   L.push('')
   L.push('CRGB leds[NUM_LEDS];')
   L.push('CRGB showA[NUM_LEDS];   // outgoing pattern during a transition')
-  for (const u of units) for (const b of u.buffers) L.push(b)
+  for (const b of renderers.buffers) L.push(b)
   L.push('')
-  for (const h of helpers.values()) { L.push(h); L.push('') }
+  for (const h of renderers.helpers) { L.push(h); L.push('') }
 
-  for (const u of units) { L.push(u.fn); L.push('') }
+  for (const fn of renderers.functions) { L.push(fn); L.push('') }
 
   // Pattern dispatch table (renders pattern i into `leds`).
   L.push('void renderPattern(uint8_t i, uint32_t ms) {')
   L.push('  switch (i) {')
-  units.forEach((_, i) => L.push(`    case ${i}: render_p${i}(ms); break;`))
+  for (let i = 0; i < renderers.count; i++) L.push(`    case ${i}: render_p${i}(ms); break;`)
   L.push('  }')
   L.push('}')
   L.push('')

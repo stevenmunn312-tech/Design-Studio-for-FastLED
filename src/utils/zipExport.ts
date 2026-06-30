@@ -1,6 +1,8 @@
 import type { MusicEntry } from '../state/musicStore'
+import type { GroupRegistry } from '../state/graphEvaluator'
 import { showFileToBinary } from '../codegen/performanceGenerator'
 import { generatePlayerSketch } from '../codegen/playerSketchGenerator'
+import { buildPatternRenderers } from '../codegen/showGenerator'
 import type { PlayerConfig } from '../codegen/playerSketchGenerator'
 
 // Minimal ZIP builder — no external dependency required.
@@ -112,6 +114,7 @@ function buildZip(entries: ZipEntry[]): Uint8Array {
 export async function exportShowPackage(
   entries: MusicEntry[],
   playerCfg: Partial<PlayerConfig> = {},
+  groups: GroupRegistry = {},
 ): Promise<void> {
   const enc = new TextEncoder()
   const zipEntries: ZipEntry[] = []
@@ -133,8 +136,12 @@ export async function exportShowPackage(
     })
   }
 
-  // Player sketch
-  const sketch = generatePlayerSketch(playerCfg)
+  // Player sketch — collection (v2) shows compile their pattern subgraphs.
+  const patternSet = done[0]?.show!.patternSet
+  const renderers = patternSet && patternSet.length > 0
+    ? buildPatternRenderers(patternSet, groups)
+    : undefined
+  const sketch = generatePlayerSketch(playerCfg, renderers)
   zipEntries.push({
     name: 'player/player.ino',
     data: enc.encode(sketch),
