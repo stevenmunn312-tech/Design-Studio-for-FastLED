@@ -990,7 +990,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'composite',
     inputs: [{ id: 'pattern', label: 'Pattern', dataType: 'frame' }],
     outputs: [{ id: 'patternset', label: 'Patterns', dataType: 'patternset' }],
-    defaultProperties: { patternIds: [] },
+    defaultProperties: { patternIds: [], patternSections: {} },
   },
 
   // ── Custom Formula ────────────────────────────────────────────────────

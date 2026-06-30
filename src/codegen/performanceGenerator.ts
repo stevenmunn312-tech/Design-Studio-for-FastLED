@@ -34,6 +34,12 @@ function choosePattern(type: SongSection['type']): string {
   return opts[Math.floor(Math.random() * opts.length)]
 }
 
+/** The seven song-section types, in rough song order — shared with the
+ *  collection's per-pattern section tagging UI. */
+export const SECTION_TYPES: SongSection['type'][] = [
+  'intro', 'verse', 'buildup', 'drop', 'chorus', 'bridge', 'outro',
+]
+
 // ── Transition map: from section type → transition style ──────────────────────
 
 function chooseTransition(from: SongSection['type'], to: SongSection['type']): string {
@@ -96,12 +102,28 @@ export function generateShow(
   analysis: SongAnalysis,
   options: Partial<PerformanceOptions> = {},
   patternIds: string[] = [],
+  // Per-pattern eligible section types, aligned by index with `patternIds`.
+  // An empty (or missing) entry means the pattern is eligible in any section.
+  sectionTags: string[][] = [],
 ): ShowFile {
   const opts = { ...DEFAULT_OPTIONS, ...options }
   // When a Pattern Collection is wired, draw from the user's own patterns by
-  // index (slice 1: a random pattern per section, ignoring section type) rather
-  // than the built-in section→pattern map.
+  // index rather than the built-in section→pattern map.
   const useCollection = patternIds.length > 0
+
+  // Section-aware pattern pick (slice 3): a collection pattern is eligible in a
+  // section if it is untagged (any) or tagged with that section's type. When no
+  // pattern matches the section, fall back to the whole set so a section always
+  // renders something.
+  const chooseCollectionIndex = (type: SongSection['type']): number => {
+    const eligible: number[] = []
+    for (let i = 0; i < patternIds.length; i++) {
+      const tags = sectionTags[i]
+      if (!tags || tags.length === 0 || tags.includes(type)) eligible.push(i)
+    }
+    const pool = eligible.length > 0 ? eligible : patternIds.map((_, i) => i)
+    return pool[Math.floor(Math.random() * pool.length)]
+  }
   const events: ShowEvent[] = []
   const push = (t: number, cmd: ShowEvent['cmd'], params: ShowEvent['params']) =>
     events.push({ t: Math.round(t), cmd, params })
@@ -130,7 +152,7 @@ export function generateShow(
     }
 
     const patternParams: ShowEvent['params'] = useCollection
-      ? { index: Math.floor(Math.random() * patternIds.length) }
+      ? { index: chooseCollectionIndex(section.type) }
       : { name: choosePattern(section.type) }
     push(section.startMs, 'SET_PATTERN', patternParams)
     push(section.startMs, 'SET_PALETTE', { name: palette })

@@ -97,6 +97,9 @@ interface GraphState {
   addToCollection: (collectionNodeId: string, groupNodeId: string) => void
   /** Remove a pattern (group id) from a PatternCollection, dropping its subgraph. */
   removeFromCollection: (collectionNodeId: string, groupId: string) => void
+  /** Toggle a song-section tag on a collection pattern (section-aware selection).
+   *  An empty tag set means the pattern is eligible in any section. */
+  togglePatternSection: (collectionNodeId: string, groupId: string, section: string) => void
 }
 
 type HistorySlice = Pick<GraphState, 'nodes' | 'edges'>
@@ -595,12 +598,29 @@ export const useGraphStore = create<GraphState>()(
         set((s) => {
           const nodes = s.nodes.map((n) => {
             if (n.id !== collectionNodeId) return n
-            const ids = (((n.data.properties as { patternIds?: string[] }).patternIds) ?? []).filter((x) => x !== groupId)
-            return { ...n, data: { ...n.data, properties: { ...n.data.properties, patternIds: ids } } }
+            const props = n.data.properties as { patternIds?: string[]; patternSections?: Record<string, string[]> }
+            const ids = (props.patternIds ?? []).filter((x) => x !== groupId)
+            const patternSections = { ...(props.patternSections ?? {}) }; delete patternSections[groupId]
+            return { ...n, data: { ...n.data, properties: { ...n.data.properties, patternIds: ids, patternSections } } }
           })
           const graphData = { ...s.graphData }; delete graphData[groupId]
           const graphs = { ...s.graphs }; delete graphs[groupId]
           return { nodes, graphData, graphs }
+        }),
+
+      togglePatternSection: (collectionNodeId, groupId, section) =>
+        set((s) => {
+          const nodes = s.nodes.map((n) => {
+            if (n.id !== collectionNodeId) return n
+            const props = n.data.properties as { patternSections?: Record<string, string[]> }
+            const map = { ...(props.patternSections ?? {}) }
+            const cur = map[groupId] ?? []
+            const next = cur.includes(section) ? cur.filter((x) => x !== section) : [...cur, section]
+            if (next.length === 0) delete map[groupId]
+            else map[groupId] = next
+            return { ...n, data: { ...n.data, properties: { ...n.data.properties, patternSections: map } } }
+          })
+          return { nodes }
         }),
     }),
     {

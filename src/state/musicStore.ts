@@ -5,20 +5,27 @@ import type { PerformanceOptions } from '../codegen/performanceGenerator'
 import { useGraphStore } from './graphStore'
 
 /**
- * The ordered group ids of a Pattern Collection wired into a Performance
- * Generator's `patternset` input, or `[]` when none is wired (the built-in
- * enum-pattern flow). Resolved live from the active graph, so generation picks
- * up the current collection regardless of which node body triggered it.
+ * The Pattern Collection wired into a Performance Generator's `patternset`
+ * input: its ordered group `ids` and the per-pattern `sectionTags` (aligned by
+ * index; `[]` = eligible in any section). Both empty when none is wired (the
+ * built-in enum-pattern flow). Resolved live from the active graph, so
+ * generation picks up the current collection regardless of which node body
+ * triggered it.
  */
-function wiredPatternIds(): string[] {
+function wiredCollection(): { ids: string[]; sectionTags: string[][] } {
+  const empty = { ids: [], sectionTags: [] }
   const { nodes, edges } = useGraphStore.getState()
   const typeOf = (n: { data: { nodeType?: string } }) => n.data.nodeType
   const gen = nodes.find((n) => typeOf(n) === 'PerformanceGenerator')
-  if (!gen) return []
+  if (!gen) return empty
   const link = edges.find((e) => e.target === gen.id && e.targetHandle === 'patternset')
-  if (!link) return []
+  if (!link) return empty
   const coll = nodes.find((n) => n.id === link.source && typeOf(n) === 'PatternCollection')
-  return (coll?.data.properties.patternIds as string[] | undefined) ?? []
+  if (!coll) return empty
+  const props = coll.data.properties as { patternIds?: string[]; patternSections?: Record<string, string[]> }
+  const ids = props.patternIds ?? []
+  const sections = props.patternSections ?? {}
+  return { ids, sectionTags: ids.map((id) => sections[id] ?? []) }
 }
 
 async function analyzeWithEssentia(
@@ -89,7 +96,8 @@ export const useMusicStore = create<MusicState>((set, get) => ({
           ),
         }))
         const analysis = await analyzeWithEssentia(entry.file, onProgress)
-        const show     = generateShow(analysis, options, wiredPatternIds())
+        const { ids, sectionTags } = wiredCollection()
+        const show     = generateShow(analysis, options, ids, sectionTags)
         set(s => ({
           entries: s.entries.map(e =>
             e.id === entry.id ? { ...e, analysis, show, status: 'done', progress: 1 } : e
@@ -113,7 +121,8 @@ export const useMusicStore = create<MusicState>((set, get) => ({
   regenerateShow: (id, options = {}) => {
     const entry = get().entries.find(e => e.id === id)
     if (!entry?.analysis) return
-    const show = generateShow(entry.analysis, options, wiredPatternIds())
+    const { ids, sectionTags } = wiredCollection()
+    const show = generateShow(entry.analysis, options, ids, sectionTags)
     set(s => ({
       entries: s.entries.map(e => e.id === id ? { ...e, show } : e),
     }))
@@ -127,7 +136,8 @@ export const useMusicStore = create<MusicState>((set, get) => ({
   revertShow: (id, options = {}) => {
     const entry = get().entries.find(e => e.id === id)
     if (!entry?.analysis) return
-    const show = generateShow(entry.analysis, options, wiredPatternIds())
+    const { ids, sectionTags } = wiredCollection()
+    const show = generateShow(entry.analysis, options, ids, sectionTags)
     set(s => ({
       entries: s.entries.map(e => e.id === id ? { ...e, show, edited: false } : e),
     }))

@@ -107,6 +107,31 @@ describe('generateShow — collection vs enum patterns', () => {
       expect(idx).toBeLessThan(ids.length)
     }
   })
+
+  // Section-aware selection (slice 3): the fixture has a verse section at t=0 and
+  // a drop section at t=2000, so tagging makes the per-section pick deterministic.
+  it('restricts a tagged collection pattern to its eligible sections', () => {
+    const ids = ['g-verse', 'g-drop']
+    const tags = [['verse'], ['drop']]   // aligned by index with ids
+    const setPatterns = generateShow(analysis, {}, ids, tags).events.filter((e) => e.cmd === 'SET_PATTERN')
+    expect(setPatterns).toHaveLength(2)
+    expect(setPatterns.find((e) => e.t === 0)!.params.index).toBe(0)      // verse → pattern 0
+    expect(setPatterns.find((e) => e.t === 2000)!.params.index).toBe(1)   // drop  → pattern 1
+  })
+
+  it('treats an untagged collection pattern as eligible in any section', () => {
+    const ids = ['g-intro-only', 'g-any']
+    const tags = [['intro'], []]   // pattern 0 never matches verse/drop; pattern 1 is "any"
+    const setPatterns = generateShow(analysis, {}, ids, tags).events.filter((e) => e.cmd === 'SET_PATTERN')
+    expect(setPatterns.every((e) => e.params.index === 1)).toBe(true)
+  })
+
+  it('falls back to the whole set when no pattern matches a section', () => {
+    const ids = ['a', 'b']
+    const tags = [['intro'], ['intro']]   // nothing is eligible in verse/drop
+    const setPatterns = generateShow(analysis, {}, ids, tags).events.filter((e) => e.cmd === 'SET_PATTERN')
+    expect(setPatterns.every((e) => [0, 1].includes(e.params.index as number))).toBe(true)
+  })
 })
 
 describe('showFileToBinary — version 2 collection shows', () => {

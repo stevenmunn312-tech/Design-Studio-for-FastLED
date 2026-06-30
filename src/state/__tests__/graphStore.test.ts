@@ -343,3 +343,38 @@ describe('graphStore — splice & spread', () => {
     expect(useGraphStore.getState().nodes.find((n) => n.id === 'out')!.position.x).toBe(0)
   })
 })
+
+describe('graphStore — collection section tags', () => {
+  beforeEach(() => reset())
+
+  const sections = (collId: string, groupId: string) =>
+    (useGraphStore.getState().nodes.find((n) => n.id === collId)!.data.properties as { patternSections?: Record<string, string[]> })
+      .patternSections?.[groupId]
+
+  it('togglePatternSection adds and removes a section, pruning the empty entry', () => {
+    reset([node('coll', 'PatternCollection', { patternIds: ['g1'], patternSections: {} })])
+    const toggle = useGraphStore.getState().togglePatternSection
+
+    toggle('coll', 'g1', 'drop')
+    expect(sections('coll', 'g1')).toEqual(['drop'])
+
+    toggle('coll', 'g1', 'chorus')
+    expect(sections('coll', 'g1')).toEqual(['drop', 'chorus'])
+
+    toggle('coll', 'g1', 'drop')        // remove
+    expect(sections('coll', 'g1')).toEqual(['chorus'])
+
+    toggle('coll', 'g1', 'chorus')      // now empty → entry pruned
+    expect(sections('coll', 'g1')).toBeUndefined()
+  })
+
+  it('removeFromCollection drops the pattern and its section tags', () => {
+    reset([node('coll', 'PatternCollection', { patternIds: ['g1', 'g2'], patternSections: { g1: ['drop'], g2: ['verse'] } })])
+    useGraphStore.setState((s) => ({ graphData: { ...s.graphData, g1: { nodes: [], edges: [] } } }))
+
+    useGraphStore.getState().removeFromCollection('coll', 'g1')
+    const props = useGraphStore.getState().nodes.find((n) => n.id === 'coll')!.data.properties as { patternIds: string[]; patternSections: Record<string, string[]> }
+    expect(props.patternIds).toEqual(['g2'])
+    expect(props.patternSections).toEqual({ g2: ['verse'] })
+  })
+})
