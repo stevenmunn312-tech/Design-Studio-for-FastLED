@@ -4,7 +4,7 @@ import { asFont, textColumns } from '../state/font'
 import { asImage } from '../state/image'
 import { polineStops16, hexToRgb } from '../state/polinePalette'
 import { audioFlowExpr } from '../state/audioFlowRange'
-import { SPEED_MAX, SCALE_MAX, rateCpp } from '../state/speedRange'
+import { SPEED_MAX, SCALE_MAX, NOISE_SPEED_MAX, NOISE_SCALE_MAX, rateCpp } from '../state/speedRange'
 import { denormalizeBeatParam } from '../audio/beatDetection'
 import { inputClampRange } from '../state/nodeLibrary'
 import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledShims'
@@ -816,9 +816,10 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       case 'Noise': {
         needsT.v = true
         const ob = ownBuf()
-        const speed = f('speed', 'speed', 1), scale = f('scale', 'scale', 0.4)
-        const pal = paletteExpr(node.id, 'paletteIn', p)
         const noiseType = String(p.noiseType ?? 'field')
+        const speed = rateCpp(f('speed', 'speed', 0.5), NOISE_SPEED_MAX[noiseType] ?? 1)
+        const scale = rateCpp(f('scale', 'scale', 0.5), NOISE_SCALE_MAX[noiseType] ?? 1)
+        const pal = paletteExpr(node.id, 'paletteIn', p)
         switch (noiseType) {
           case 'simplex':
             ln(`  { // Simplex2D`)

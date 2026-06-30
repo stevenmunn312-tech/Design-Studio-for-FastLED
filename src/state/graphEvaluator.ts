@@ -8,7 +8,7 @@ import { inputClampRange } from './nodeLibrary'
 import { makeShims, SHIM_NAMES } from './fastledShims'
 import { createBeatDetectorState, denormalizeBeatParam, updateBeatDetectorFromSpectrum } from '../audio/beatDetection'
 import { denormalizeAudioFlowParam } from './audioFlowRange'
-import { SPEED_MAX, SCALE_MAX, denormRate } from './speedRange'
+import { SPEED_MAX, SCALE_MAX, NOISE_SPEED_MAX, NOISE_SCALE_MAX, denormRate } from './speedRange'
 
 export interface RGB { r: number; g: number; b: number }
 export type Frame = RGB[][]   // row-major [y][x]
@@ -2291,10 +2291,10 @@ function createEvalNode(
       // `noiseType` picks the algorithm. Keep in sync with PROPERTY_META.noiseType
       // and the `Noise` case in cppGenerator.ts.
       case 'Noise': {
-        const speed = num(id, 'speed', props, 'speed', 1)
-        const scale = num(id, 'scale', props, 'scale', 0.4)
-        const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
         const noiseType = String(props.noiseType ?? 'field')
+        const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), NOISE_SPEED_MAX[noiseType] ?? 1)
+        const scale = denormRate(num(id, 'scale', props, 'scale', 0.5), NOISE_SCALE_MAX[noiseType] ?? 1)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
         out = { frame: evalNoiseByType(noiseType, speed, scale, t, palette, W, H) }
         break
       }

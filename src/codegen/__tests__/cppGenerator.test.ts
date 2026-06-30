@@ -84,6 +84,13 @@ describe('generateCpp', () => {
     expect(cpp).toContain('* 2.000f)')
   })
 
+  it('scales Noise speed per noiseType variant', () => {
+    const worley = node('w', 'Noise', 'pattern', { noiseType: 'worley', speed: 1, scale: 1 })
+    const simplex = node('s', 'Noise', 'pattern', { noiseType: 'simplex', speed: 1, scale: 1 })
+    expect(generateCpp([worley, outputNode], [edge('e', 'w', 'out', 'frame', 'frame')])).toContain('* 5.000f)')
+    expect(generateCpp([simplex, outputNode], [edge('e', 's', 'out', 'frame', 'frame')])).toContain('* 3.000f)')
+  })
+
   it('does not include float t for static graphs', () => {
     const sc = node('sc', 'SolidColor', 'pattern', { r: 100, g: 100, b: 100 })
     const cpp = generateCpp([sc, outputNode], [edge('e1', 'sc', 'out', 'frame', 'frame')])

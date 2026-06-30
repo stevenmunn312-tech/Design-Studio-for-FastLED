@@ -80,9 +80,10 @@ describe('StudioNode', () => {
     const range = container.querySelector('input[type="range"]') as HTMLInputElement
     expect(range).toBeTruthy()
     expect(range.min).toBe('0')
+    expect(range.max).toBe('1')   // speed is now a normalised 0–1 slider
     // First slider is `speed` (property iteration order).
-    fireEvent.change(range, { target: { value: '2.5' } })
-    expect(useGraphStore.getState().nodes[0].data.properties.speed).toBe(2.5)
+    fireEvent.change(range, { target: { value: '0.5' } })
+    expect(useGraphStore.getState().nodes[0].data.properties.speed).toBe(0.5)
   })
 
   it('renders a checkbox for MicInput AGC and updates the property', () => {

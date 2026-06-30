@@ -166,7 +166,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { noiseType: 'field', speed: 1.0, scale: 0.4, palette: 'rainbow' },
+    defaultProperties: { noiseType: 'field', speed: 0.5, scale: 0.5, palette: 'rainbow' },
   },
   {
     type: 'Fire',
@@ -1521,6 +1521,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   // Normalised speed/scale pattern nodes (internal range in speedRange.ts).
+  Noise:           { speed: N01, scale: N01 },
   Plasma:          { speed: N01 },
   RadialBurst:     { speed: N01 },
   Spiral:          { speed: N01 },
