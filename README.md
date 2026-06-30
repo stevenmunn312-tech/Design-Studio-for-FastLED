@@ -3,7 +3,7 @@ Node‑Based Visual Designer for FastLED LED Matrix Systems
 
 ## Features
 
-- **Visual node graph** — drag, drop, and wire 80+ node types across input, audio, math, color, pattern, composite, hardware, and output categories
+- **Visual node graph** — drag, drop, and wire 100+ node types across audio, hardware, math, color, pattern, composite, and output categories
 - **Live LED preview** — WebGL renderer with per-LED glow at 60 fps; falls back to Canvas 2D
 - **Audio-reactive** — microphone FFT via Web Audio API drives bass/mids/treble/beat outputs in real time
 - **C++ code generation** — export a ready-to-flash FastLED `.ino` sketch from any graph
@@ -24,13 +24,12 @@ Requires Node 18+. For WebSerial upload, use Chrome or Edge 89+.
 
 | Category | Color | Examples |
 |----------|-------|---------|
-| Input | Violet | Mic Input, Music Library |
-| Audio | Cyan | FFT Analyzer, Beat Detect, Audio → Hue |
+| Audio | Cyan | Mic Input, Music Library, FFT Analyzer, Beat Detect, Percussion Detect, Audio → Hue |
 | Hardware | Orange | Button, Potentiometer, Performance Generator, SD Card |
 | Math | Lime | Sin, Cos, Wave, BeatSin, Lerp, Counter, XY Mapper |
 | Color | Pink | HSV→RGB, CHSV, Palette Selector, Poline, Custom Palette |
-| Pattern | Magenta | Fire 2012, Plasma, Noise, Kaleidoscope, Particles, Starfield, Blobs |
-| Composite | Teal | Blend, Transition (16 variants), Blur 2D, Fade to Black, Mask |
+| Pattern | Magenta | Fire 2012, Plasma, Noise, Kaleidoscope, Particles (7 types), Starfield, Blobs, Code |
+| Composite | Teal | Blend (6 modes), Transition (16 variants), Blur 2D, Fade, Mask, Field Warp |
 | Output | Blue | Matrix Output |
 
 ## Workflow

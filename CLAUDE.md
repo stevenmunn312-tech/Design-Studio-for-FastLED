@@ -102,7 +102,7 @@ Changing any of those CSS values without updating the constants will silently mi
 
 `evaluateScalar(nodes, edges, nodeId, portId, tick)` probes a single node's scalar output by reusing the shared `createEvalNode` core (the same machinery `evaluateGraph` runs), so a probe matches what the graph actually computes. It runs under a reserved `__scope__/` state namespace so stateful upstream nodes don't disturb the live render.
 
-**Typed port colours:** each handle (input/output dot) is tinted by its port `dataType` via `portColor()` (`nodeLibrary.ts`), so ports that can connect share a colour — `float`/`bool` share one (they interconvert per `portsCompatible`, also in `nodeLibrary.ts` and shared by the canvas + picker), `color`/`palette`/`frame`/`audio` are distinct. The node header/border still uses the category accent. Handles also carry a `label · dataType` title.
+**Typed port colours:** each handle (input/output dot) is tinted by its port `dataType` via `portColor()` (`nodeLibrary.ts`), so ports that can connect share a colour — `float`/`bool` share grey `#9aa0a6` (they interconvert per `portsCompatible`, also in `nodeLibrary.ts` and shared by the canvas + picker); `color` `#ffd24a`, `palette` `#ff5cf0`, `frame` `#5ad1ff`, `field` `#f5c542`, `audio` `#00e0a4`, `songs` `#ffb74d`, `shows` `#ffa726`, `sdcard` `#ffa500`, `patternset` `#00e0a4` are each distinct. The node header/border still uses the category accent. Handles also carry a `label · dataType` title.
 
 **Drag-to-create:** dropping a noodle dragged from an **output** onto empty canvas opens the `CanvasContextMenu` picker pre-filtered to nodes that have an input compatible with the dragged type, then auto-wires the chosen node to its first matching input. `onConnectStart` records the output's `{ nodeId, handleId, dataType }` in a `connectFrom` ref; `onConnectEnd` opens the picker only when the drop has no end handle (`!state.toHandle`). `CanvasContextMenu` takes an optional `connectFrom` prop that puts it straight into picker mode, filters `NODE_LIBRARY` via `compatibleInput()`, and calls `onConnect` after `addNode`.
 
@@ -169,7 +169,7 @@ A browser page can't launch a local CLI, so `backend/` is a small **FastAPI** se
 
 ### Music-Sync Show Pipeline
 
-A second, **offline** authoring path (distinct from the live preview/codegen flow above) turns audio tracks into timed LED "shows" the ESP32-S3 plays back in sync. It is a three-node chain in the `hardware` category, wired by new `dataType`s `songs` and `shows`:
+A second, **offline** authoring path (distinct from the live preview/codegen flow above) turns audio tracks into timed LED "shows" the ESP32-S3 plays back in sync. It is a three-node chain spanning the `audio` and `hardware` categories, wired by new `dataType`s `songs` and `shows`:
 
 `MusicLibrary` (drop MP3s) **→** `PerformanceGenerator` (rules engine) **→** `SDCard` (export ZIP).
 
@@ -178,7 +178,7 @@ A second, **offline** authoring path (distinct from the live preview/codegen flo
 - **`src/types/showFile.ts`** — the `.show` format: a compact, sorted event stream (timestamps in ms from song start) the player binary-searches by audio position for frame-perfect A/V sync. Also defines the `SongAnalysis`/`BeatInfo`/`EnergyPoint`/`SongSection` analysis types.
 - **`src/codegen/playerSketchGenerator.ts`** — emits a FastLED + **ESP32-audioI2S** player `.ino` that slaves LED commands to `audio.getPosition()`. The `SDCard` node properties configure its pins (SD CS, LED data, I2S BCLK/LRC/DOUT), matrix size, chipset/colour order, and volume.
 - **`src/utils/zipExport.ts`** — a zero-dependency ZIP builder; `SDCard` packages the `.show` files + the generated player sketch into one downloadable archive (drop onto the board's SD card).
-- **`src/state/musicStore.ts`** — Zustand store managing the analysis queue and generated shows; **`src/components/Canvas/MusicLibraryNodeBody.tsx`** is the library UI (engine toggle, drop zone, per-song status, *Analyse All* / *Export ZIP* / *Clear*) rendered **directly in the `MusicLibrary` node body** in `StudioNode` (the node widens to fit; interactive controls carry `nodrag`, the song list `nowheel`). `MusicLibrary` is an **input**-category node (the song source), not a menu-bar button — there is no separate modal panel.
+- **`src/state/musicStore.ts`** — Zustand store managing the analysis queue and generated shows; **`src/components/Canvas/MusicLibraryNodeBody.tsx`** is the library UI (engine toggle, drop zone, per-song status, *Analyse All* / *Export ZIP* / *Clear*) rendered **directly in the `MusicLibrary` node body** in `StudioNode` (the node widens to fit; interactive controls carry `nodrag`, the song list `nowheel`). `MusicLibrary` is an **audio**-category node (the song source), not a menu-bar button — there is no separate modal panel.
 
 These nodes have no `frame`/`palette`/`color` output, so they don't participate in the live LED preview or the `cppGenerator.ts` sketch — they are a parallel export pipeline. (Added in PR #58.)
 
@@ -188,7 +188,6 @@ All colors, spacing, and typography are CSS variables in `src/themes/tokens.css`
 
 | Category | Hex | CSS var |
 |----------|-----|---------|
-| input | `#b388ff` | `--accent-input` |
 | audio | `#00ffff` | `--accent-audio` |
 | hardware | `#ffa500` | `--accent-hardware` |
 | math | `#a8ff00` | `--accent-math` |
@@ -197,7 +196,7 @@ All colors, spacing, and typography are CSS variables in `src/themes/tokens.css`
 | composite | `#00e0a4` | `--accent-composite` |
 | output | `#00bfff` | `--accent-output` |
 
-Categories group nodes by **primary output type** (the real type system is the per-port `dataType`, of which category is a coarse, UI-facing reflection): `color` produces colors/palettes, `pattern` is frame *generators*, `composite` is frame→frame operations. Sidebar grouping order follows the authoring pipeline and `CATEGORIES` order (input → audio → hardware → math → color → pattern → composite → output); `input` holds the signal sources (MicInput, MusicLibrary).
+Categories group nodes by **primary output type** (the real type system is the per-port `dataType`, of which category is a coarse, UI-facing reflection): `color` produces colors/palettes, `pattern` is frame *generators*, `composite` is frame→frame operations. Sidebar grouping order follows the authoring pipeline and `CATEGORIES` order (audio → hardware → math → color → pattern → composite → output); `audio` holds MusicLibrary and the analysis/reactive nodes; `hardware` holds MicInput and the physical control/SD-card nodes.
 
 Key layout constants: sidebar `280px`, inspector `280px`, menu bar `48px`, status bar `40px`, node `220px × 140px`, base spacing `8px`.
 
@@ -210,12 +209,11 @@ Nodes are grouped into categories. Adding a new node type requires:
 4. A one-line tooltip in `NODE_DESCRIPTIONS` (`nodeLibrary.ts`) — enforced by `nodeLibrary.test.ts`
 
 Current nodes by category (see `nodeLibrary.ts` for the authoritative list):
-- **input** (signal sources): MicInput, MusicLibrary
-- **audio**: FFTAnalyzer, BeatDetect, AudioHue
-- **hardware**: ButtonInput, PotInput, PerformanceGenerator, SDCard (the last two are the rest of the music-sync export chain — see *Music-Sync Show Pipeline*)
+- **audio** (analysis & reactive sources): MusicLibrary, FFTAnalyzer, BeatDetect, PercussionDetect, AudioFeatures, AudioHue
+- **hardware** (physical I/O & export): MicInput, ButtonInput, PotInput, PerformanceGenerator, SDCard (PerformanceGenerator and SDCard are the music-sync export chain — see *Music-Sync Show Pipeline*)
 - **math**: Math, Clamp, MapRange, Sin, Cos, Wave, ComplexWave, Lerp, TimeNode, Abs, Mod, Random, Counter, Gate, Not, Compare, BeatSin, XYMapper
 - **color**: HSVToRGB, BlendColors, CHSV, Temperature, GradientSampler, PaletteSampler, PaletteSelector, CustomPalette, Poline, PaletteBlend
-- **pattern** (frame generators): SolidColor, Span, Rect, Circle, Line, Text, Noise, Fire, Fire2012, Plasma, SpectrumBars, BassPulse, MidrangeWaves, TrebleSparks, BeatFlash, Noise2D, RadialBurst, Spiral, Kaleidoscope, Particles, GradientFrame, FractalNoise, Blobs, FlowField, ReactionDiffusion, GameOfLife, PatternMaster, CustomFormula, FieldFormula, FieldToFrame, DistanceField, FieldMath, Starfield, AudioFlow, GaborNoise, PaletteGradient, Image
+- **pattern** (frame generators): SolidColor, Span, Rect, Circle, Line, Text, Noise, Fire, Fire2012, Plasma, SpectrumBars, BassPulse, BassRings, MidrangeWaves, MidrangeBloom, TrebleSparks, TreblePrism, AudioCascade, BeatFlash, Noise2D, RadialBurst, Spiral, Kaleidoscope, Particles, GradientFrame, FractalNoise, GaborNoise, PaletteGradient, Image, Blobs, FlowField, Starfield, AudioFlow, ReactionDiffusion, GameOfLife, PatternMaster, CustomFormula, Code, FieldFormula, FieldToFrame, DistanceField, FieldMath
 - **composite** (frame→frame): Blend, BrightnessMod, HueShift, Transform, Invert, Blur2D, Mask, Fade, Transition, Sequencer, PatternCollection, FieldWarp, FieldRotate, FieldTile
 
 ### Bundled nodes
@@ -226,6 +224,8 @@ Several former node types are collapsed into one **bundled** node, selected by a
 - **`Math`** — `mathOp` (`add`/`subtract`/`multiply`/`divide`/`min`/`max`); folds MathAdd/Multiply/MinNode/MaxNode (`subtract`/`divide` are new ops). Mod (`x,m` ports) and Compare (bool out) stay separate.
 - **`Transition`** — `transitionType` selects one of **16** A→B effects: `crossfade`/`wipe`/`dissolve` plus `iris`/`clockwipe`/`push`/`checkerboard`/`diagonal`/`fadeblack`/`fadewhite`/`blinds`/`ripple`/`spiral`/`curtain`/`scanlines`/`zoom`. Variant-specific props (`direction` for wipe/push, `axis` for blinds/curtain, `tileSize` for checkerboard, `count` for blinds, `turns` for spiral) are gated by `isPropertyEnabled`. The C++ generator emits real buffer compositing per variant (seed `ob` from A, write B in), not just the three originals.
 - **`Blend`** — `blendMode` (`normal`/`multiply`/`screen`/`overlay`/`add`/`difference`); replaces LayerBlend + BlendFrames. Composites B over A per mode, mixed by `amount` (opacity, **0–1**; scaled ×255 in the evaluator + codegen for FastLED's `nblend`). `Blur2D`/`PaletteBlend` share the same 0–1 `amount`. Migration rescales any legacy 0–255 `amount` (value > 1 ⇒ old scale) to 0–1 on load. The `normal` path emits FastLED `nblend`; other modes emit a per-channel blend loop in C++. (The former BlendFrames used a 0–1 `t` port, so its migration carries `t`→`amount` and rewires that edge — the one bundle whose port id changed.)
+- **`FieldMath`** — `fieldOp` (`add`/`subtract`/`multiply`/`mix`/`min`/`max`/`difference`); combines two `field` inputs into one. `mix` blends by a scalar `t` input; the rest are per-pixel operations. Dispatches on `fieldOp` in the evaluator and codegen.
+- **`Particles`** — `particleType` (`fountain`/`gravity`/`fireworks`/`sparkle`/`comet`/`snow`/`swarm`); a single stateful particle system node with seven movement styles selected by the property dropdown.
 
 Mechanics: each variant set lives in `PROPERTY_META` (the inline dropdown); the evaluator and C++ generator dispatch on the variant property in their single `case`; `graphStore.loadGraph` (via `migrateLegacyGraph`/`LEGACY_BUNDLE`) migrates the legacy node types — and any renamed edge handles — on import. `nodeDisplayLabel()` makes the node header reflect the selected variant, and `isPropertyEnabled()` disables an inline editor that doesn't apply to the current variant (e.g. Transition `direction`) while still showing its value. Bundling is **by identical port signature** — properties may differ between variants (Blend is the one exception, unifying two near-identical nodes whose mix-port id/scale differed).
 - **output**: MatrixOutput
