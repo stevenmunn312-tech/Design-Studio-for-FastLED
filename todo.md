@@ -46,7 +46,6 @@
 - [x] `.ino` download button
 - [x] Serpentine matrix layout — `XY()` remap on output (toggle on MatrixOutput)
 - [x] Local build & flash via `arduino-cli` — Upload panel generates per-board compile/upload commands
-- [~] WebSerial flashing / in-browser (or cloud) compilation — intentionally **not** pursued; local `arduino-cli` keeps the app a pure static frontend (no backend/hosting/sandboxing burden)
 
 ## Nodes
 
@@ -91,7 +90,7 @@ See *Music-Sync Show Pipeline* in `CLAUDE.md`.
 - [x] Player sketch generator — FastLED + ESP32-audioI2S, slaves commands to `audio.getPosition()`
 - [x] MusicLibrary panel UI + MenuBar ♪ Music button; `musicStore` analysis queue
 - [x] On-device validation — confirmed A/V sync drift acceptable on real ESP32-S3 + I2S hardware
-- [ ] Show editor / timeline — review and hand-tweak generated events before export
+- [x] Show editor / timeline — review and hand-tweak generated events before export (`ShowTimeline.tsx`: scrubbable marker track + editable event list; retime / change command / edit params / add / duplicate / delete; edits persist via `musicStore.updateShow` and survive generator-option changes until **Revert**)
 
 ## Tooling
 
@@ -150,7 +149,6 @@ All viable features from that branch have landed on `main`. See
 - [x] In-browser audio preview + synced show timeline — `showPreview.ts` + `PerformanceGeneratorBody.tsx` (`590866b`)
 - [x] Spectral-analysis audio nodes + audio-node C++ codegen upgrade — on-device INMP441 I2S mic + self-contained FFT codegen (`audioEngineCpp` in `cppGenerator.ts`); `MicInput` exposes `i2sWs`/`i2sSck`/`i2sSd`/`channel`; `FFTAnalyzer`/`BeatDetect` resolve to live `_audioBass`/`_audioMids`/`_audioTreble`/`_audioBeat`. **Hardware-validated** on ESP32-S3 + INMP441 (2026-06-28).
 - [x] 13 transition variants (Iris, ClockWipe, Push, Checkerboard, Diagonal, Blinds, Ripple/Spiral Wipe, Curtain, ScanLines, Zoom, Fade-through-Black/White) folded into the bundled `Transition` node (16 total); C++ codegen rewritten against the buffer-compositing model; 31 new tests
-- [~] T-HMI touchscreen controller firmware (`firmware/thmi/.../TMHIController.ino`) — **dropped:** branch is gone and no firmware directory exists; can be revisited as a standalone effort if needed
 
 ### Stabilize & document
 

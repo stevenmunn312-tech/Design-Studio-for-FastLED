@@ -19,6 +19,9 @@ export interface MusicEntry {
   status:   'pending' | 'analyzing' | 'done' | 'error'
   /** 0–1 analysis progress, set while `status === 'analyzing'`. */
   progress?: number
+  /** True once the show has been hand-tweaked in the timeline editor, so the
+   *  generator options no longer auto-regenerate over the manual edits. */
+  edited?:  boolean
   error?:   string
 }
 
@@ -30,6 +33,10 @@ interface MusicState {
   removeEntry:    (id: string) => void
   clearAll:       () => void
   regenerateShow: (id: string, options?: Partial<PerformanceOptions>) => void
+  /** Replace an entry's show with a hand-edited one and mark it edited. */
+  updateShow:     (id: string, show: ShowFile) => void
+  /** Discard manual edits and regenerate from the analysis. */
+  revertShow:     (id: string, options?: Partial<PerformanceOptions>) => void
 }
 
 export const useMusicStore = create<MusicState>((set, get) => ({
@@ -91,6 +98,20 @@ export const useMusicStore = create<MusicState>((set, get) => ({
     const show = generateShow(entry.analysis, options)
     set(s => ({
       entries: s.entries.map(e => e.id === id ? { ...e, show } : e),
+    }))
+  },
+
+  updateShow: (id, show) =>
+    set(s => ({
+      entries: s.entries.map(e => e.id === id ? { ...e, show, edited: true } : e),
+    })),
+
+  revertShow: (id, options = {}) => {
+    const entry = get().entries.find(e => e.id === id)
+    if (!entry?.analysis) return
+    const show = generateShow(entry.analysis, options)
+    set(s => ({
+      entries: s.entries.map(e => e.id === id ? { ...e, show, edited: false } : e),
     }))
   },
 }))

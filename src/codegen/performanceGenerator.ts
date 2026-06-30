@@ -179,25 +179,36 @@ export function generateShow(
     }
   }
 
-  // Sort by timestamp, break ties so SET_PATTERN comes before BEAT_FLASH
-  const cmdOrder: Record<ShowEvent['cmd'], number> = {
-    TRANSITION:     0,
-    SET_PATTERN:    1,
-    SET_PALETTE:    2,
-    SET_SPEED:      3,
-    SET_BRIGHTNESS: 4,
-    BEAT_FLASH:     5,
-  }
-  events.sort((a, b) => a.t !== b.t ? a.t - b.t : cmdOrder[a.cmd] - cmdOrder[b.cmd])
-
   return {
     version: 1,
     songTitle: analysis.title,
     durationMs: analysis.durationMs,
     bpm: analysis.beats.bpm,
-    events,
+    events: sortShowEvents(events),
   }
 }
+
+// ── Event ordering ────────────────────────────────────────────────────────────
+// Sort by timestamp, breaking ties so a pattern is set before the palette/speed
+// that decorate it and before any beat flash that lands on the same instant.
+// Shared by the generator and the timeline editor so hand-tweaked shows keep the
+// same deterministic order the player and binary exporter expect.
+
+const CMD_ORDER: Record<ShowEvent['cmd'], number> = {
+  TRANSITION:     0,
+  SET_PATTERN:    1,
+  SET_PALETTE:    2,
+  SET_SPEED:      3,
+  SET_BRIGHTNESS: 4,
+  BEAT_FLASH:     5,
+}
+
+export function sortShowEvents(events: ShowEvent[]): ShowEvent[] {
+  return [...events].sort((a, b) => (a.t !== b.t ? a.t - b.t : CMD_ORDER[a.cmd] - CMD_ORDER[b.cmd]))
+}
+
+/** Commands the editor can author, in their tie-break order. */
+export const SHOW_COMMANDS = Object.keys(CMD_ORDER) as ShowEvent['cmd'][]
 
 // ── Show file → JSON string ───────────────────────────────────────────────────
 
@@ -234,6 +245,11 @@ const CMD_IDS: Record<ShowEvent['cmd'], number> = {
   SET_PATTERN: 0, SET_PALETTE: 1, SET_SPEED: 2, SET_BRIGHTNESS: 3,
   BEAT_FLASH: 4, TRANSITION: 5,
 }
+
+// Option lists the timeline editor offers — derived from the binary-export ID
+// maps so every value a user can pick survives the `.show` round-trip.
+export const SHOW_PATTERNS = Object.keys(PATTERN_IDS)
+export const SHOW_TRANSITIONS = Object.keys(TRANSITION_IDS)
 
 export function showFileToBinary(show: ShowFile): ArrayBuffer {
   const headerBytes = 4 + 1 + 2 + 4 + 4   // magic + version + bpm + duration + count

@@ -4,6 +4,8 @@ import { useGraphStore } from '../../state/graphStore'
 import { renderShowFrame, showStateAt, sectionAt } from '../../state/showPreview'
 import type { Frame } from '../../state/graphEvaluator'
 import { performanceOptionsFromProperties } from '../../codegen/performanceGenerator'
+import type { ShowEvent } from '../../types/showFile'
+import ShowTimeline from './ShowTimeline'
 import styles from './PerformanceGeneratorBody.module.css'
 
 // Plays a scanned song and renders its generated .show in sync — the browser
@@ -53,6 +55,8 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
   const [playing, setPlaying] = useState(false)
   const [posMs, setPosMs] = useState(0)
   const [playbackError, setPlaybackError] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [selectedEvent, setSelectedEvent] = useState<number | null>(null)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -90,7 +94,8 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
     const timer = window.setTimeout(() => {
       const music = useMusicStore.getState()
       for (const candidate of music.entries) {
-        if (candidate.analysis) music.regenerateShow(candidate.id, options)
+        // Manual timeline edits win until the user reverts — don't clobber them.
+        if (candidate.analysis && !candidate.edited) music.regenerateShow(candidate.id, options)
       }
     }, 250)
     return () => window.clearTimeout(timer)
@@ -130,6 +135,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
     setPlaying(false)
     setPosMs(0)
     setPlaybackError(null)
+    setSelectedEvent(null)
     setPreviewId(id)
   }
 
@@ -183,6 +189,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
             aria-pressed={e.id === previewId}
           >
             <span aria-hidden="true">♪</span> {e.analysis?.title ?? e.file.name}
+            {e.edited && <span className={styles.editedDot} title="Hand-edited" aria-label="hand-edited"> ✎</span>}
           </button>
         ))}
       </div>
@@ -226,6 +233,44 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
             </div>
           )}
           {playbackError && <p className={styles.error} role="alert">{playbackError}</p>}
+
+          <div className={styles.editRow}>
+            <button
+              type="button"
+              className={`nodrag ${editing ? styles.tabOn : styles.tab}`}
+              onClick={() => setEditing((v) => !v)}
+              aria-pressed={editing}
+            >
+              ✎ Edit timeline
+            </button>
+            {entry.edited && (
+              <>
+                <span className={styles.editedBadge} title="This show has manual edits">Edited</span>
+                <button
+                  type="button"
+                  className={`nodrag ${styles.revert}`}
+                  onClick={() => { useMusicStore.getState().revertShow(entry.id, options); setSelectedEvent(null) }}
+                  title="Discard manual edits and regenerate from the analysis"
+                >
+                  Revert
+                </button>
+              </>
+            )}
+          </div>
+
+          {editing && (
+            <ShowTimeline
+              show={show}
+              posMs={posMs}
+              selected={selectedEvent}
+              onSelect={setSelectedEvent}
+              onSeek={seek}
+              onChange={(events: ShowEvent[]) =>
+                useMusicStore.getState().updateShow(entry.id, { ...show, events })
+              }
+            />
+          )}
+
           <audio
             ref={audioRef}
             src={audioUrl ?? undefined}

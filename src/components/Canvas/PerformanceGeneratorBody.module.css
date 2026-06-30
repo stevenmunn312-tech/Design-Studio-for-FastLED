@@ -157,3 +157,68 @@
   font-size: var(--fs-caption);
   line-height: 1.35;
 }
+
+/* ── Edit toggle / revert ── */
+.editRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tab,
+.tabOn {
+  padding: 3px 9px;
+  font-size: var(--fs-caption);
+  font-family: var(--font-body);
+  border: 1px solid var(--border-glow);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.tab:hover { border-color: var(--accent-hardware); color: var(--accent-hardware); }
+
+.tabOn {
+  background: color-mix(in srgb, var(--accent-hardware) 16%, var(--bg-primary));
+  border-color: var(--accent-hardware);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.editedBadge {
+  margin-left: auto;
+  padding: 2px 7px;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--accent-hardware) 22%, var(--bg-primary));
+  color: var(--accent-hardware);
+  border: 1px solid var(--accent-hardware);
+}
+
+.revert {
+  padding: 3px 8px;
+  font-size: var(--fs-caption);
+  font-family: var(--font-body);
+  border: 1px solid var(--border-glow);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.revert:hover { border-color: var(--error); color: var(--error); }
+
+.editedDot {
+  color: var(--accent-hardware);
+  font-size: 10px;
+}
+
+.tab:focus-visible,
+.tabOn:focus-visible,
+.revert:focus-visible {
+  outline: 2px solid var(--accent-hardware);
+  outline-offset: 2px;
+}
