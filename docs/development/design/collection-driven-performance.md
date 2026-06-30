@@ -291,8 +291,17 @@ fixed-switch one whenever the wired `PerformanceGenerator` has a collection.
    defaults to `param0`, so the user renames it to `energy`/`speed`/`palette` in the
    node's property editor (a role dropdown is editor polish, slice 4). **Remaining in
    this slice: hardware validation.**
-3. **Section-aware pattern selection.** Optional per-pattern section tags so the
-   generator picks contextually, not purely at random.
+3. **Section-aware pattern selection.** ✅ **shipped (2026-07-01).** Each collection
+   pattern can be tagged with the song-section types it's eligible for via section
+   chips in `PatternCollectionBody` (`graphStore.togglePatternSection`, stored as
+   `PatternCollection.properties.patternSections: Record<groupId, sectionType[]>`).
+   `generateShow(analysis, options, patternIds, sectionTags)` takes the per-pattern
+   tags (aligned by index) and `chooseCollectionIndex(sectionType)` picks only among
+   eligible patterns — a pattern is eligible if untagged (any) or tagged with the
+   section's type — falling back to the whole set when nothing matches so a section
+   always renders. `musicStore.wiredCollection()` resolves both ids and tags live
+   from the wired collection. Untagged patterns behave exactly as slice 1's random
+   pick, so existing collections are unchanged.
 4. **Editor polish.** Collection-aware `SET_PATTERN` dropdown; show which patterns
    expose which inputs.
 
