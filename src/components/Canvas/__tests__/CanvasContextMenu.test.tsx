@@ -91,4 +91,46 @@ describe('CanvasContextMenu — drag-to-empty picker', () => {
       expect.objectContaining({ source: 'fft', sourceHandle: 'treble', targetHandle: 'treble' }),
     ]))
   })
+
+  it('fans out FFT bass, mids, and treble together for Audio Hue', () => {
+    seedFftSourceNode()
+    const { getByText } = render(
+      <CanvasContextMenu
+        x={0} y={0} flowPosition={{ x: 100, y: 100 }}
+        connectFrom={{ nodeId: 'fft', handleId: 'treble', dataType: 'float' }}
+        onClose={() => {}}
+      />
+    )
+
+    fireEvent.click(getByText('Audio → Hue'))
+
+    const { edges } = useGraphStore.getState()
+    expect(edges).toHaveLength(3)
+    expect(edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: 'fft', sourceHandle: 'bass', targetHandle: 'bass' }),
+      expect.objectContaining({ source: 'fft', sourceHandle: 'mids', targetHandle: 'mids' }),
+      expect.objectContaining({ source: 'fft', sourceHandle: 'treble', targetHandle: 'treble' }),
+    ]))
+  })
+
+  it('keeps single-wire behavior for FFT targets without the full three-band signature', () => {
+    seedFftSourceNode()
+    const { getByText } = render(
+      <CanvasContextMenu
+        x={0} y={0} flowPosition={{ x: 100, y: 100 }}
+        connectFrom={{ nodeId: 'fft', handleId: 'bass', dataType: 'float' }}
+        onClose={() => {}}
+      />
+    )
+
+    fireEvent.click(getByText('Bass Pulse'))
+
+    const { edges } = useGraphStore.getState()
+    expect(edges).toHaveLength(1)
+    expect(edges[0]).toEqual(expect.objectContaining({
+      source: 'fft',
+      sourceHandle: 'bass',
+      targetHandle: 'bass',
+    }))
+  })
 })

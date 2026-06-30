@@ -4,6 +4,8 @@ import { NODE_LIBRARY, CATEGORIES, portsCompatible } from '../../state/nodeLibra
 import type { NodeDefinition } from '../../types'
 import styles from './CanvasContextMenu.module.css'
 
+const FFT_BAND_IDS = ['bass', 'mids', 'treble'] as const
+
 interface Props {
   x: number
   y: number
@@ -27,8 +29,6 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onC
   // First input on `def` that accepts the dragged output's type.
   const compatibleInput = (def: NodeDefinition) =>
     connectFrom && def.inputs.find((p) => portsCompatible(connectFrom.dataType, p.dataType))
-
-  const multiWireAudioTargets = new Set(['AudioCascade', 'AudioFlow'])
 
   useEffect(() => {
     const onMouseDown = (e: MouseEvent) => {
@@ -73,12 +73,11 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onC
       const sourceType = (sourceNode?.data as { nodeType?: string } | undefined)?.nodeType
       const shouldFanOutAudio =
         sourceType === 'FFTAnalyzer' &&
-        multiWireAudioTargets.has(def.type) &&
-        ['bass', 'mids', 'treble'].includes(connectFrom.handleId)
+        FFT_BAND_IDS.includes(connectFrom.handleId as typeof FFT_BAND_IDS[number]) &&
+        FFT_BAND_IDS.every((band) => def.inputs.some((p) => p.id === band))
 
       if (shouldFanOutAudio) {
-        for (const band of ['bass', 'mids', 'treble'] as const) {
-          if (!def.inputs.some((p) => p.id === band)) continue
+        for (const band of FFT_BAND_IDS) {
           onConnect({
             source: connectFrom.nodeId,
             sourceHandle: band,
