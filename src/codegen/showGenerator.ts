@@ -52,11 +52,20 @@ function showInfo(nodes: StudioNode[], edges: StudioEdge[]): ShowInfo | null {
 // function. Per-pattern buffers are prefixed so two patterns can't collide.
 interface PatternUnit { buffers: string[]; helpers: Map<string, string>; fn: string }
 
+// C++ parameter type per group-input role. Float roles (energy/speed) pass a
+// scalar; the palette role passes a CRGBPalette16 by const reference.
+const ROLE_CPP_TYPE: Record<string, string> = {
+  energy:  'float',
+  speed:   'float',
+  palette: 'const CRGBPalette16&',
+}
+const roleSig = (p: string) => `${ROLE_CPP_TYPE[p] ?? 'float'} ${p}`
+
 function buildPattern(groupId: string, groups: GroupRegistry, index: number, roleParams: string[] = []): PatternUnit {
   const fnName = `render_p${index}`
-  // Signature: render_pN(uint32_t ms[, float energy …]) — one extra float per
-  // exposed role when "Use group inputs" is on.
-  const sig = `uint32_t ms${roleParams.map((p) => `, float ${p}`).join('')}`
+  // Signature: render_pN(uint32_t ms[, float energy, …][, const CRGBPalette16& palette])
+  // — one extra param per exposed role when "Use group inputs" is on.
+  const sig = `uint32_t ms${roleParams.map((p) => `, ${roleSig(p)}`).join('')}`
   const sub = groups[groupId]
   const empty: PatternUnit = { buffers: [], helpers: new Map(), fn: `void ${fnName}(${sig}) { fill_solid(leds, NUM_LEDS, CRGB::Black); }` }
   if (!sub) return empty
@@ -69,7 +78,8 @@ function buildPattern(groupId: string, groups: GroupRegistry, index: number, rol
   const matrix = { id: `__mo_${index}`, type: 'studioNode', position: { x: 0, y: 0 },
     data: { label: 'Matrix', nodeType: 'MatrixOutput', category: 'output', properties: {}, inputs: [{ id: 'frame' }], outputs: [] } } as unknown as StudioNode
   // Keep a GroupInput only if its role is being driven (its paramId is a wired
-  // render_pN param); generateCpp emits it as `float n_<id>_out = <paramId>;`.
+  // render_pN param); generateCpp emits it as `float n_<id>_out = <paramId>;`
+  // for float roles, or `CRGBPalette16 pal_<id> = palette;` for the palette role.
   const keepGI = (n: StudioNode) => roleParams.includes(String((n.data.properties as { paramId?: string }).paramId ?? ''))
   const nodes = [...sub.nodes.filter((n) => nodeType(n) !== 'GroupOutput' && (nodeType(n) !== 'GroupInput' || keepGI(n))), matrix]
   const edges = sub.edges

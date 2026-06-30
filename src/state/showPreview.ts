@@ -125,8 +125,8 @@ function renderGroupFrame(
 
 /** Render the show's LED frame at a playback position (ms). `groups` is the live
  *  group registry (collection shows). When `useGroupInputs` is on, the section
- *  energy and (normalised) speed are fed to the patterns' `energy`/`speed`
- *  group-input roles. */
+ *  energy, (normalised) speed, and palette are fed to the patterns'
+ *  `energy`/`speed`/`palette` group-input roles. */
 export function renderShowFrame(
   show: ShowFile, timeMs: number, W: number, H: number,
   groups: GroupRegistry = {}, useGroupInputs = false,
@@ -134,9 +134,11 @@ export function renderShowFrame(
   const st = showStateAt(show, timeMs)
   const groupId = show.patternSet && st.patternIndex >= 0 ? show.patternSet[st.patternIndex] : undefined
   // SET_SPEED is a 0–2 multiplier; the `speed` role wants 0–1, so normalise it
-  // (matched by the firmware player's CMD_SET_SPEED → speed normalisation).
+  // (matched by the firmware player's CMD_SET_SPEED → speed normalisation). The
+  // palette role passes the studio palette name (PALETTE_MAP maps show → studio,
+  // mirroring renderEnumFrame), which the evaluator's `pal()` accepts directly.
   const groupInputs: Record<string, PortValue> = useGroupInputs
-    ? { energy: st.energy, speed: Math.min(1, st.speed / 2) }
+    ? { energy: st.energy, speed: Math.min(1, st.speed / 2), palette: PALETTE_MAP[st.palette] ?? 'rainbow' }
     : {}
   const result: Frame = groupId
     ? renderGroupFrame(groupId, timeMs, W, H, groups, groupInputs)

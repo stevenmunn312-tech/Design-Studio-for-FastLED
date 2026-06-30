@@ -52,11 +52,11 @@ export function buildShowPayload(
   // A collection (version 2) show carries its pattern group ids in patternSet;
   // compile those subgraphs into render_pN() so the player draws the user's own
   // patterns instead of the built-in enum set. "Use group inputs" threads the
-  // section energy and (normalised) speed into each pattern's `energy`/`speed`
-  // roles.
+  // section energy, (normalised) speed, and palette into each pattern's
+  // `energy`/`speed`/`palette` roles.
   const patternSet = done[0].show!.patternSet
   const pgProps = (nodes.find((n) => nodeType(n) === 'PerformanceGenerator')?.data as StudioNodeData | undefined)?.properties ?? {}
-  const roleParams = pgProps.useGroupInputs ? ['energy', 'speed'] : []
+  const roleParams = pgProps.useGroupInputs ? ['energy', 'speed', 'palette'] : []
   const renderers = patternSet && patternSet.length > 0
     ? buildPatternRenderers(patternSet, groups, roleParams)
     : undefined

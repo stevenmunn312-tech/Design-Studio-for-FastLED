@@ -104,5 +104,27 @@ describe('showGenerator', () => {
       expect(r.functions[0]).toContain('void render_p0(uint32_t ms, float energy, float speed)')
       expect(r.functions[0]).toContain('= speed;')   // GroupInput → speed param
     })
+
+    // A group whose Noise pattern is coloured by a `palette` GroupInput.
+    const paletteGroups = {
+      gp: {
+        nodes: [
+          node('noise', 'Noise', { noiseType: 'field', palette: 'rainbow' }, [{ id: 'paletteIn', dataType: 'palette' }], [{ id: 'frame', dataType: 'frame' }]),
+          node('gi', 'GroupInput', { paramId: 'palette' }, [], [{ id: 'out', dataType: 'palette' }]),
+          node('go', 'GroupOutput', {}, [{ id: 'frame', dataType: 'frame' }], []),
+        ],
+        edges: [
+          edge('e1', 'gi', 'out', 'noise', 'paletteIn'),
+          edge('e2', 'noise', 'frame', 'go', 'frame'),
+        ],
+      },
+    } as unknown as GroupRegistry
+
+    it('threads the palette role as a CRGBPalette16 param and resolves the GroupInput to pal_<id>', () => {
+      const r = buildPatternRenderers(['gp'], paletteGroups, ['palette'])
+      expect(r.params).toEqual(['palette'])
+      expect(r.functions[0]).toContain('void render_p0(uint32_t ms, const CRGBPalette16& palette)')
+      expect(r.functions[0]).toContain('CRGBPalette16 pal_gi = palette;')   // GroupInput → palette param
+    })
   })
 })

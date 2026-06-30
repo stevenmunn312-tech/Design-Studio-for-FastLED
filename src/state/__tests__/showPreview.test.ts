@@ -170,6 +170,40 @@ describe('renderShowFrame', () => {
     expect(sum(modulated)).toBeLessThan(sum(authored))
   })
 
+  it('feeds the section palette to the palette group-input role only when enabled', () => {
+    const mk = (id: string, nodeType: string, properties: Record<string, unknown>, inputs: unknown[] = [], outputs: unknown[] = []) =>
+      ({ id, type: 'studioNode', position: { x: 0, y: 0 }, data: { label: nodeType, nodeType, category: 'pattern', properties, inputs, outputs } })
+    // A Noise pattern coloured by its `palette` input, driven by a palette
+    // GroupInput. Role on → the show's palette (ocean); off → the node's own
+    // authored palette (rainbow), so the frames differ.
+    const groups = {
+      g1: {
+        nodes: [
+          mk('noise', 'Noise', { noiseType: 'field', palette: 'rainbow' }, [{ id: 'paletteIn', dataType: 'palette' }], [{ id: 'frame', dataType: 'frame' }]),
+          mk('gi', 'GroupInput', { paramId: 'palette' }, [], [{ id: 'out', dataType: 'palette' }]),
+          mk('go', 'GroupOutput', {}, [{ id: 'frame', dataType: 'frame' }], []),
+        ],
+        edges: [
+          { id: 'e1', source: 'gi', sourceHandle: 'out', target: 'noise', targetHandle: 'paletteIn' },
+          { id: 'e2', source: 'noise', sourceHandle: 'frame', target: 'go', targetHandle: 'frame' },
+        ],
+      },
+    } as unknown as Parameters<typeof renderShowFrame>[4]
+
+    const show: ShowFile = {
+      version: 2, songTitle: 'C', durationMs: 1000, bpm: 120, patternSet: ['g1'],
+      events: [
+        { t: 0, cmd: 'SET_PATTERN', params: { index: 0 } },
+        { t: 0, cmd: 'SET_BRIGHTNESS', params: { value: 255 } },
+        { t: 0, cmd: 'SET_PALETTE', params: { name: 'ocean' } },
+      ],
+    }
+    const sum = (f: ReturnType<typeof renderShowFrame>) => f.flat().reduce((a, px) => a + px.r + px.g + px.b, 0)
+    const modulated = renderShowFrame(show, 0, 8, 8, groups, true)   // ocean palette
+    const authored  = renderShowFrame(show, 0, 8, 8, groups, false)  // rainbow (authored)
+    expect(sum(modulated)).not.toBe(sum(authored))
+  })
+
   it('scales a beat flash through global brightness like FastLED', () => {
     const dimShow: ShowFile = {
       ...show,

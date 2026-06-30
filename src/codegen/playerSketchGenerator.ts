@@ -81,6 +81,7 @@ export function generatePlayerSketch(cfg: Partial<PlayerConfig> = {}, renderers?
   const argList = roleParams.map((pName) => `, ${pName}`).join('')
   const hasEnergy = roleParams.includes('energy')
   const hasSpeed = roleParams.includes('speed')
+  const hasPalette = roleParams.includes('palette')
 
   // renderPattern() either dispatches to a render_pN() (collection) or runs the
   // built-in pattern switch (enum). The render_pN() bodies expect ms.
@@ -211,7 +212,7 @@ uint8_t    paletteId  = 0;        // default: Rainbow
 float      flashLevel = 0.0f;
 float      flashDecay = 0.82f;
 float      transProgress = 1.0f;  // 1 = no transition in progress
-${hasEnergy ? 'float      energy    = 0.0f;      // SET_ENERGY → energy group-input role\n' : ''}${hasSpeed ? 'float      speed     = 0.5f;      // SET_SPEED (normalised 0–1) → speed group-input role\n' : ''}
+${hasEnergy ? 'float      energy    = 0.0f;      // SET_ENERGY → energy group-input role\n' : ''}${hasSpeed ? 'float      speed     = 0.5f;      // SET_SPEED (normalised 0–1) → speed group-input role\n' : ''}${hasPalette ? 'CRGBPalette16 palette = RainbowColors_p;  // SET_PALETTE → palette group-input role\n' : ''}
 
 // ── Palette helper ────────────────────────────────────────────────────────────
 CRGB samplePalette(uint8_t palId, uint8_t index) {
@@ -224,7 +225,21 @@ CRGB samplePalette(uint8_t palId, uint8_t index) {
     default: return ColorFromPalette(RainbowColors_p, index);
   }
 }
-
+${hasPalette ? `
+// Palette-role helper: map a SET_PALETTE id to a CRGBPalette16 (mirrors the
+// samplePalette() switch above) so the \`palette\` group-input role tracks the
+// same preset the global enum path would use.
+CRGBPalette16 paletteFromId(uint8_t palId) {
+  switch (palId) {
+    case 1:  return OceanColors_p;
+    case 2:  return LavaColors_p;
+    case 3:  return ForestColors_p;
+    case 4:  return HeatColors_p;
+    case 5:  return PartyColors_p;
+    default: return RainbowColors_p;
+  }
+}
+` : ''}
 // ── Pattern renderers ─────────────────────────────────────────────────────────
 ${patternDecls}${renderPatternFn}
 
@@ -265,7 +280,7 @@ bool loadShowFile(const char* path) {
 void applyEvent(const ShowEvent& ev) {
   switch (ev.cmd) {
     case CMD_SET_PATTERN:    patternId  = (uint8_t)ev.params[0]; break;
-    case CMD_SET_PALETTE:    paletteId  = (uint8_t)ev.params[0]; break;
+    case CMD_SET_PALETTE:    paletteId  = (uint8_t)ev.params[0];${hasPalette ? ' palette = paletteFromId(paletteId);' : ''} break;
     case CMD_SET_SPEED:      animSpeed  = ev.params[0];${hasSpeed ? ' speed = constrain(ev.params[0] * 0.5f, 0.0f, 1.0f);' : ''} break;
     case CMD_SET_BRIGHTNESS: FastLED.setBrightness((uint8_t)ev.params[0]); break;
     case CMD_BEAT_FLASH:

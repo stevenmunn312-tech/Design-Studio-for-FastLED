@@ -132,4 +132,31 @@ describe('generatePlayerSketch', () => {
     expect(ino).not.toContain('float      speed')
     expect(ino).toContain('animSpeed  = ev.params[0]; break;')
   })
+
+  it('threads the palette role: global, paletteFromId helper, CMD_SET_PALETTE, and render arg', () => {
+    const renderers = {
+      buffers: [],
+      helpers: [],
+      functions: ['void render_p0(uint32_t ms, const CRGBPalette16& palette) { fill_solid(leds, NUM_LEDS, CRGB::Blue); }'],
+      count: 1,
+      params: ['palette'],
+    }
+    const ino = generatePlayerSketch({}, renderers)
+    expect(ino).toContain('CRGBPalette16 palette = RainbowColors_p;')          // role global
+    expect(ino).toContain('CRGBPalette16 paletteFromId(uint8_t palId)')        // helper mirrors samplePalette
+    expect(ino).toContain('paletteId  = (uint8_t)ev.params[0]; palette = paletteFromId(paletteId); break;')
+    expect(ino).toContain('case 0: render_p0(ms, palette); break;')            // passed to render fn
+  })
+
+  it('omits the palette plumbing when no palette role is threaded', () => {
+    const renderers = {
+      buffers: [], helpers: [],
+      functions: ['void render_p0(uint32_t ms) { fill_solid(leds, NUM_LEDS, CRGB::Blue); }'],
+      count: 1, params: [],
+    }
+    const ino = generatePlayerSketch({}, renderers)
+    expect(ino).not.toContain('CRGBPalette16 palette')
+    expect(ino).not.toContain('paletteFromId')
+    expect(ino).toContain('paletteId  = (uint8_t)ev.params[0]; break;')
+  })
 })

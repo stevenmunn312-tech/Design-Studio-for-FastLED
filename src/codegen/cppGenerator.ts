@@ -420,8 +420,11 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       const src = nodeMap.get(up.srcId)
       if (src) {
         // CustomPalette and PaletteBlend build a runtime CRGBPalette16 (see
-        // their emit cases); reference it by name.
+        // their emit cases); reference it by name. A palette-role GroupInput
+        // (collection-show codegen) likewise resolves to its `pal_<id>` copy of
+        // the render_pN palette param.
         if (src.data.nodeType === 'CustomPalette' || src.data.nodeType === 'PaletteBlend' || src.data.nodeType === 'Poline') return `pal_${safeId(up.srcId)}`
+        if (src.data.nodeType === 'GroupInput' && String(props(src).paramId ?? '') === 'palette') return `pal_${safeId(up.srcId)}`
         return fastledPalette(String(props(src).palette ?? 'rainbow'))
       }
     }
@@ -486,12 +489,17 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
 
       // A role-tagged group input kept by buildPattern (collection-show codegen)
-      // resolves to the matching render_pN parameter (e.g. `energy`). Normal
-      // graphs flatten GroupInputs away via flattenGroups, so this case is only
-      // reached for the patterns the show player drives.
-      case 'GroupInput':
-        ln(`  float ${v('out')} = ${String(p.paramId ?? 'energy')};`)
+      // resolves to the matching render_pN parameter. Float roles (energy/speed)
+      // become `float n_<id>_out = <role>;`; the palette role copies the param
+      // into `pal_<id>` so paletteExpr can reference it. Normal graphs flatten
+      // GroupInputs away via flattenGroups, so this case is only reached for the
+      // patterns the show player drives.
+      case 'GroupInput': {
+        const role = String(p.paramId ?? 'energy')
+        if (role === 'palette') ln(`  CRGBPalette16 pal_${id} = palette;`)
+        else ln(`  float ${v('out')} = ${role};`)
         break
+      }
 
       // Bundled binary math — `mathOp` picks the operator. Keep in sync with the
       // `Math` case in graphEvaluator.ts.
