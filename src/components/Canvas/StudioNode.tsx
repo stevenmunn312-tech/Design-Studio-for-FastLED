@@ -15,6 +15,7 @@ import FFTAnalyzerBody from './FFTAnalyzerBody'
 import PerformanceGeneratorBody from './PerformanceGeneratorBody'
 import PatternCollectionBody from './PatternCollectionBody'
 import PatternMasterBody from './PatternMasterBody'
+import ImageNodeBody from './ImageNodeBody'
 import MatrixOutputUpload from '../Upload/MatrixOutputUpload'
 import { usePreviewStore } from '../../state/previewStore'
 import { getCodeError } from '../../state/graphEvaluator'
@@ -237,6 +238,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
 
         {d.nodeType === 'MusicLibrary' && <MusicLibraryNodeBody nodeId={id} />}
         {d.nodeType === 'PerformanceGenerator' && <PerformanceGeneratorBody nodeId={id} />}
+        {d.nodeType === 'Image' && <ImageNodeBody nodeId={id} />}
 
         {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}
 
