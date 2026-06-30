@@ -7,7 +7,7 @@
 // like the studio's. SET_PALETTE / SET_SPEED / SET_BRIGHTNESS and BEAT_FLASH are
 // applied on top. Transitions are rendered as instant switches for now.
 
-import { evaluateGraph, type Frame, type GroupRegistry } from './graphEvaluator'
+import { evaluateGraph, type Frame, type GroupRegistry, type PortValue } from './graphEvaluator'
 import { NODE_LIBRARY } from './nodeLibrary'
 import type { StudioNode, StudioEdge } from './graphStore'
 import type { ShowFile, SongSection } from '../types/showFile'
@@ -41,12 +41,13 @@ export interface ShowState {
   patternIndex: number
   palette: string
   speed: number
+  energy: number       // 0–1 section energy — drives the `energy` group-input role
   brightness: number   // 0–255
 }
 
-/** The active pattern/palette/speed/brightness at a playback position (ms). */
+/** The active pattern/palette/speed/energy/brightness at a playback position (ms). */
 export function showStateAt(show: ShowFile, timeMs: number): ShowState {
-  const st: ShowState = { pattern: 'NoiseField', patternIndex: -1, palette: 'rainbow', speed: 1, brightness: 200 }
+  const st: ShowState = { pattern: 'NoiseField', patternIndex: -1, palette: 'rainbow', speed: 1, energy: 0, brightness: 200 }
   for (const ev of show.events) {
     if (ev.t > timeMs) break
     switch (ev.cmd) {
@@ -57,6 +58,7 @@ export function showStateAt(show: ShowFile, timeMs: number): ShowState {
         break
       case 'SET_PALETTE':    st.palette = String(ev.params.name); break
       case 'SET_SPEED':      st.speed = Number(ev.params.value); break
+      case 'SET_ENERGY':     st.energy = Number(ev.params.value); break
       case 'SET_BRIGHTNESS': st.brightness = Number(ev.params.value); break
     }
   }
@@ -106,22 +108,33 @@ function renderEnumFrame(st: ShowState, timeMs: number, W: number, H: number): F
   return evaluateGraph([pat, out], edges, timeMs * 0.06, W, H) ?? blank(W, H)
 }
 
-// Collection show: render the active pattern group's subgraph via a synthetic
-// Group node, reusing the evaluator's group machinery + the live group registry.
-function renderGroupFrame(groupId: string, timeMs: number, W: number, H: number, groups: GroupRegistry): Frame {
-  const grp = synthNode('__show_grp', 'Group', 'pattern', { groupId })
-  const out = synthNode('__show_out', 'MatrixOutput', 'output', { width: W, height: H })
-  const edges = [{ id: '__show_e', source: '__show_grp', target: '__show_out', sourceHandle: 'frame', targetHandle: 'frame' }] as unknown as StudioEdge[]
-  return evaluateGraph([grp, out], edges, timeMs * 0.06, W, H, groups) ?? blank(W, H)
+// Collection show: render the active pattern group's subgraph directly (its
+// GroupOutput is the terminal), feeding role values to any GroupInput nodes. A
+// stable per-group state prefix keeps stateful patterns continuous across frames.
+function renderGroupFrame(
+  groupId: string, timeMs: number, W: number, H: number,
+  groups: GroupRegistry, groupInputs: Record<string, PortValue>,
+): Frame {
+  const def = groups[groupId]
+  if (!def) return blank(W, H)
+  return evaluateGraph(
+    def.nodes, def.edges, timeMs * 0.06, W, H, groups,
+    `__show_${groupId}/`, new Set([groupId]), groupInputs,
+  ) ?? blank(W, H)
 }
 
 /** Render the show's LED frame at a playback position (ms). `groups` is the live
- *  group registry, needed for collection (version 2) shows. */
-export function renderShowFrame(show: ShowFile, timeMs: number, W: number, H: number, groups: GroupRegistry = {}): Frame {
+ *  group registry (collection shows). When `useGroupInputs` is on, the section
+ *  energy is fed to the patterns' `energy` group-input role. */
+export function renderShowFrame(
+  show: ShowFile, timeMs: number, W: number, H: number,
+  groups: GroupRegistry = {}, useGroupInputs = false,
+): Frame {
   const st = showStateAt(show, timeMs)
   const groupId = show.patternSet && st.patternIndex >= 0 ? show.patternSet[st.patternIndex] : undefined
+  const groupInputs: Record<string, PortValue> = useGroupInputs ? { energy: st.energy } : {}
   const result: Frame = groupId
-    ? renderGroupFrame(groupId, timeMs, W, H, groups)
+    ? renderGroupFrame(groupId, timeMs, W, H, groups, groupInputs)
     : renderEnumFrame(st, timeMs, W, H)
 
   const b = Math.max(0, Math.min(1, st.brightness / 255))

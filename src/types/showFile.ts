@@ -7,6 +7,7 @@ export type ShowCommand =
   | 'SET_PALETTE'      // switch colour palette
   | 'SET_SPEED'        // animation speed multiplier (0-1 → slow-fast)
   | 'SET_BRIGHTNESS'   // global brightness (0-255)
+  | 'SET_ENERGY'       // section energy 0-1 — drives the `energy` group-input role
   | 'BEAT_FLASH'       // instantaneous brightness spike + decay
   | 'TRANSITION'       // crossfade/wipe/dissolve to next pattern
 

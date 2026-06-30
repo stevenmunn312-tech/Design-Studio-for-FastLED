@@ -41,6 +41,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
   )
   const options = useMemo(() => performanceOptionsFromProperties(properties), [properties])
   const optionsKey = JSON.stringify(options)
+  const useGroupInputs = !!properties.useGroupInputs
 
   const gridW = useGraphStore((s) => {
     const o = s.nodes.find((n) => (n.data as { nodeType?: string }).nodeType === 'MatrixOutput')
@@ -114,20 +115,20 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
       const canvas = canvasRef.current
       if (audio && canvas) {
         const ms = Math.min(show.durationMs, audio.currentTime * 1000)
-        draw(canvas, renderShowFrame(show, ms, gridW, gridH, getGroupRegistry()), gridW, gridH)
+        draw(canvas, renderShowFrame(show, ms, gridW, gridH, getGroupRegistry(), useGroupInputs), gridW, gridH)
         if (ms - lastStateUpdate > 120) { setPosMs(ms); lastStateUpdate = ms }
       }
       rafRef.current = requestAnimationFrame(tick)
     }
     rafRef.current = requestAnimationFrame(tick)
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
-  }, [playing, show, gridW, gridH])
+  }, [playing, show, gridW, gridH, useGroupInputs])
 
   // Draw a static frame at the current position when paused/seeking.
   useEffect(() => {
     if (playing || !show || !canvasRef.current) return
-    draw(canvasRef.current, renderShowFrame(show, posMs, gridW, gridH, getGroupRegistry()), gridW, gridH)
-  }, [playing, show, posMs, gridW, gridH])
+    draw(canvasRef.current, renderShowFrame(show, posMs, gridW, gridH, getGroupRegistry(), useGroupInputs), gridW, gridH)
+  }, [playing, show, posMs, gridW, gridH, useGroupInputs])
 
   function startPreview(id: string) {
     if (previewId === id) return

@@ -1849,7 +1849,7 @@ function evalFieldTile(field: Field | null, tilesX: number, tilesY: number, W = 
 
 // ── Main entry point ──────────────────────────────────────────────────────────
 
-type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | null
+export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | null
 
 /** A reusable pattern group: a named subgraph that a `Group` node evaluates. */
 export interface GroupDef { nodes: StudioNode[]; edges: StudioEdge[] }

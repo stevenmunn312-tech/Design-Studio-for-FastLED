@@ -85,6 +85,13 @@ describe('generateShow — collection vs enum patterns', () => {
     expect(setPattern.params.index).toBeUndefined()
   })
 
+  it('emits a SET_ENERGY event per section carrying the 0–1 section energy', () => {
+    const show = generateShow(analysis)
+    const energyEvents = show.events.filter((e) => e.cmd === 'SET_ENERGY')
+    expect(energyEvents).toHaveLength(analysis.sections.length)
+    expect(energyEvents.map((e) => e.params.value)).toEqual(analysis.sections.map((s) => s.energy))
+  })
+
   it('schedules by index into a wired collection (version 2 + patternSet)', () => {
     const ids = ['grp-a', 'grp-b', 'grp-c']
     const show = generateShow(analysis, {}, ids)

@@ -21,6 +21,7 @@ const CMD_META: Record<ShowCommand, { label: string; color: string }> = {
   SET_PALETTE:    { label: 'Palette',    color: 'var(--accent-color)' },
   SET_SPEED:      { label: 'Speed',      color: 'var(--accent-math)' },
   SET_BRIGHTNESS: { label: 'Brightness', color: 'var(--accent-output)' },
+  SET_ENERGY:     { label: 'Energy',     color: 'var(--accent-hardware)' },
   BEAT_FLASH:     { label: 'Flash',      color: 'var(--accent-audio)' },
   TRANSITION:     { label: 'Transition', color: 'var(--accent-composite)' },
 }
@@ -32,6 +33,7 @@ function defaultParams(cmd: ShowCommand): ShowEvent['params'] {
     case 'SET_PALETTE':    return { name: 'rainbow' }
     case 'SET_SPEED':      return { value: 1 }
     case 'SET_BRIGHTNESS': return { value: 200 }
+    case 'SET_ENERGY':     return { value: 0.5 }
     case 'BEAT_FLASH':     return { intensity: 200, decay: 200 }
     case 'TRANSITION':     return { type: 'crossfade', duration: 0.5 }
   }
@@ -49,6 +51,7 @@ function summary(ev: ShowEvent): string {
     case 'SET_PALETTE':    return String(ev.params.name)
     case 'SET_SPEED':      return `×${Number(ev.params.value).toFixed(2)}`
     case 'SET_BRIGHTNESS': return String(Math.round(Number(ev.params.value)))
+    case 'SET_ENERGY':     return Number(ev.params.value).toFixed(2)
     case 'BEAT_FLASH':     return `i${Math.round(Number(ev.params.intensity))} d${Math.round(Number(ev.params.decay))}`
     case 'TRANSITION':     return `${ev.params.type} ${Number(ev.params.duration).toFixed(1)}s`
   }
@@ -229,6 +232,10 @@ export default function ShowTimeline({ show, posMs, selected, onSelect, onSeek, 
           {sel.cmd === 'SET_BRIGHTNESS' && (
             <ParamSlider label="Brightness" min={0} max={255} step={1} value={Number(sel.params.value)} fmtVal={(v) => String(Math.round(v))}
               onChange={(v) => commit(selected, (x) => ({ ...x, params: { value: Math.round(v) } }))} />
+          )}
+          {sel.cmd === 'SET_ENERGY' && (
+            <ParamSlider label="Energy" min={0} max={1} step={0.01} value={Number(sel.params.value)} fmtVal={(v) => v.toFixed(2)}
+              onChange={(v) => commit(selected, (x) => ({ ...x, params: { value: v } }))} />
           )}
           {sel.cmd === 'BEAT_FLASH' && (
             <>

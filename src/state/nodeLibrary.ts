@@ -1173,6 +1173,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       transitionDuration: 0.5,
       paletteMode:        'mood',
       fixedPalette:       'rainbow',
+      useGroupInputs:     false,
     },
   },
   {

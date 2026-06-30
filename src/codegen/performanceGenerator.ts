@@ -145,6 +145,10 @@ export function generateShow(
       : Math.round(160 + section.energy * 95)
     push(section.startMs, 'SET_BRIGHTNESS', { value: brightness })
 
+    // Section energy (0–1) — drives the `energy` group-input role when a
+    // collection's patterns expose it and "Use group inputs" is on.
+    push(section.startMs, 'SET_ENERGY', { value: section.energy })
+
     prevSectionType = section.type
   }
 
@@ -208,7 +212,8 @@ const CMD_ORDER: Record<ShowEvent['cmd'], number> = {
   SET_PALETTE:    2,
   SET_SPEED:      3,
   SET_BRIGHTNESS: 4,
-  BEAT_FLASH:     5,
+  SET_ENERGY:     5,
+  BEAT_FLASH:     6,
 }
 
 export function sortShowEvents(events: ShowEvent[]): ShowEvent[] {
@@ -255,7 +260,7 @@ const TRANSITION_IDS: Record<string, number> = {
 }
 const CMD_IDS: Record<ShowEvent['cmd'], number> = {
   SET_PATTERN: 0, SET_PALETTE: 1, SET_SPEED: 2, SET_BRIGHTNESS: 3,
-  BEAT_FLASH: 4, TRANSITION: 5,
+  BEAT_FLASH: 4, TRANSITION: 5, SET_ENERGY: 6,
 }
 
 // Option lists the timeline editor offers — derived from the binary-export ID
@@ -290,6 +295,7 @@ export function showFileToBinary(show: ShowFile): ArrayBuffer {
       case 'SET_PALETTE':    params.push(PALETTE_IDS[ev.params.name as string] ?? 0); break
       case 'SET_SPEED':      params.push(Number(ev.params.value)); break
       case 'SET_BRIGHTNESS': params.push(Number(ev.params.value)); break
+      case 'SET_ENERGY':     params.push(Number(ev.params.value)); break
       case 'BEAT_FLASH':     params.push(Number(ev.params.intensity), Number(ev.params.decay)); break
       case 'TRANSITION':     params.push(TRANSITION_IDS[ev.params.type as string] ?? 0, Number(ev.params.duration)); break
     }
