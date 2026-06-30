@@ -485,6 +485,14 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         ln(`  float ${v('dt')} = 0.016f;`)
         break
 
+      // A role-tagged group input kept by buildPattern (collection-show codegen)
+      // resolves to the matching render_pN parameter (e.g. `energy`). Normal
+      // graphs flatten GroupInputs away via flattenGroups, so this case is only
+      // reached for the patterns the show player drives.
+      case 'GroupInput':
+        ln(`  float ${v('out')} = ${String(p.paramId ?? 'energy')};`)
+        break
+
       // Bundled binary math — `mathOp` picks the operator. Keep in sync with the
       // `Math` case in graphEvaluator.ts.
       case 'Math': {

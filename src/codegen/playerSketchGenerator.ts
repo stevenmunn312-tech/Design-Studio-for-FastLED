@@ -75,6 +75,12 @@ export function generatePlayerSketch(cfg: Partial<PlayerConfig> = {}, renderers?
       ].join('\n')
     : ''
 
+  // Role params ("Use group inputs"): each render_pN takes extra floats fed
+  // from globals the event stream updates (e.g. SET_ENERGY → energy).
+  const roleParams = collection ? renderers!.params : []
+  const argList = roleParams.map((pName) => `, ${pName}`).join('')
+  const hasEnergy = roleParams.includes('energy')
+
   // renderPattern() either dispatches to a render_pN() (collection) or runs the
   // built-in pattern switch (enum). The render_pN() bodies expect ms.
   const renderPatternFn = collection
@@ -82,8 +88,8 @@ export function generatePlayerSketch(cfg: Partial<PlayerConfig> = {}, renderers?
         'void renderPattern(float t) {',
         '  uint32_t ms = (uint32_t)(t * 1000.0f);',
         '  switch (patternId) {',
-        ...Array.from({ length: renderers!.count }, (_, i) => `    case ${i}: render_p${i}(ms); break;`),
-        '    default: render_p0(ms); break;',
+        ...Array.from({ length: renderers!.count }, (_, i) => `    case ${i}: render_p${i}(ms${argList}); break;`),
+        `    default: render_p0(ms${argList}); break;`,
         '  }',
         '}',
       ].join('\n')
@@ -182,6 +188,7 @@ export function generatePlayerSketch(cfg: Partial<PlayerConfig> = {}, renderers?
 #define CMD_SET_BRIGHTNESS 3
 #define CMD_BEAT_FLASH     4
 #define CMD_TRANSITION     5
+#define CMD_SET_ENERGY     6
 
 struct ShowEvent {
   uint32_t t;
@@ -203,6 +210,7 @@ uint8_t    paletteId  = 0;        // default: Rainbow
 float      flashLevel = 0.0f;
 float      flashDecay = 0.82f;
 float      transProgress = 1.0f;  // 1 = no transition in progress
+${hasEnergy ? 'float      energy    = 0.0f;      // SET_ENERGY → energy group-input role\n' : ''}
 
 // ── Palette helper ────────────────────────────────────────────────────────────
 CRGB samplePalette(uint8_t palId, uint8_t index) {
@@ -263,7 +271,7 @@ void applyEvent(const ShowEvent& ev) {
       flashLevel = ev.params[0] / 255.0f;
       flashDecay = expf(-16.0f / (60.0f + ((ev.paramCount > 1 ? ev.params[1] : 22.0f) / 255.0f) * 240.0f));
       break;
-    case CMD_TRANSITION:     transProgress = 0.0f; break;
+    case CMD_TRANSITION:     transProgress = 0.0f; break;${hasEnergy ? '\n    case CMD_SET_ENERGY:     energy = ev.params[0]; break;' : ''}
   }
 }
 

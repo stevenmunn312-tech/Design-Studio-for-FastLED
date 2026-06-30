@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { generateShowSketch, isPatternShow } from '../showGenerator'
+import { generateShowSketch, isPatternShow, buildPatternRenderers } from '../showGenerator'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
+import type { GroupRegistry } from '../../state/graphEvaluator'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}, inputs: unknown[] = [], outputs: unknown[] = []): StudioNode {
   return { id, type: 'studioNode', position: { x: 0, y: 0 },
@@ -46,5 +47,38 @@ describe('showGenerator', () => {
   it('handles a Pattern Master with no patterns', () => {
     const lone = [node('pm', 'PatternMaster', {}), node('out', 'MatrixOutput', {})]
     expect(generateShowSketch(lone, [], {})).toContain('no patterns')
+  })
+
+  describe('buildPatternRenderers — group-input roles', () => {
+    // A group whose brightness is driven by an `energy` GroupInput.
+    const energyGroups = {
+      ge: {
+        nodes: [
+          node('white', 'SolidColor', { r: 255, g: 255, b: 255 }, [], [{ id: 'frame', dataType: 'frame' }]),
+          node('gi', 'GroupInput', { paramId: 'energy' }, [], [{ id: 'out', dataType: 'float' }]),
+          node('bm', 'BrightnessMod', {}, [{ id: 'frame', dataType: 'frame' }, { id: 'brightness', dataType: 'float' }], [{ id: 'frame', dataType: 'frame' }]),
+          node('go', 'GroupOutput', {}, [{ id: 'frame', dataType: 'frame' }], []),
+        ],
+        edges: [
+          edge('e1', 'white', 'frame', 'bm', 'frame'),
+          edge('e2', 'gi', 'out', 'bm', 'brightness'),
+          edge('e3', 'bm', 'frame', 'go', 'frame'),
+        ],
+      },
+    } as unknown as GroupRegistry
+
+    it('threads role params into render_pN and resolves the GroupInput to the param', () => {
+      const r = buildPatternRenderers(['ge'], energyGroups, ['energy'])
+      expect(r.params).toEqual(['energy'])
+      expect(r.functions[0]).toContain('void render_p0(uint32_t ms, float energy)')
+      expect(r.functions[0]).toContain('= energy;')   // GroupInput → param
+    })
+
+    it('strips group inputs and keeps the bare signature when roles are off', () => {
+      const r = buildPatternRenderers(['ge'], energyGroups)
+      expect(r.params).toEqual([])
+      expect(r.functions[0]).toContain('void render_p0(uint32_t ms)')
+      expect(r.functions[0]).not.toContain('float energy')
+    })
   })
 })

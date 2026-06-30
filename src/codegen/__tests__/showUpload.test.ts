@@ -70,6 +70,7 @@ describe('generatePlayerSketch', () => {
         'void render_p1(uint32_t ms) { fill_solid(leds, NUM_LEDS, CRGB::Red); }',
       ],
       count: 2,
+      params: [],
     }
     const ino = generatePlayerSketch({}, renderers)
     expect(ino).toContain('Music-Sync Player (collection show)')
@@ -78,5 +79,31 @@ describe('generatePlayerSketch', () => {
     expect(ino).toContain('case 1: render_p1(ms); break;')
     expect(ino).not.toContain('case 2:  // Plasma')   // no built-in switch
     expect(ino).toContain('patternId  = 0;')          // index default
+  })
+
+  it('threads the energy role param into render_pN and the event dispatcher', () => {
+    const renderers = {
+      buffers: [],
+      helpers: [],
+      functions: ['void render_p0(uint32_t ms, float energy) { fill_solid(leds, NUM_LEDS, CRGB::Blue); }'],
+      count: 1,
+      params: ['energy'],
+    }
+    const ino = generatePlayerSketch({}, renderers)
+    expect(ino).toContain('float      energy')                    // global
+    expect(ino).toContain('#define CMD_SET_ENERGY     6')
+    expect(ino).toContain('case CMD_SET_ENERGY:     energy = ev.params[0]; break;')
+    expect(ino).toContain('case 0: render_p0(ms, energy); break;')   // passed to render fn
+  })
+
+  it('omits the energy plumbing when no role params are threaded', () => {
+    const renderers = {
+      buffers: [], helpers: [],
+      functions: ['void render_p0(uint32_t ms) { fill_solid(leds, NUM_LEDS, CRGB::Blue); }'],
+      count: 1, params: [],
+    }
+    const ino = generatePlayerSketch({}, renderers)
+    expect(ino).not.toContain('case CMD_SET_ENERGY')
+    expect(ino).toContain('case 0: render_p0(ms); break;')
   })
 })

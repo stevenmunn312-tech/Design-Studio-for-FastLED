@@ -52,10 +52,13 @@ function showInfo(nodes: StudioNode[], edges: StudioEdge[]): ShowInfo | null {
 // function. Per-pattern buffers are prefixed so two patterns can't collide.
 interface PatternUnit { buffers: string[]; helpers: Map<string, string>; fn: string }
 
-function buildPattern(groupId: string, groups: GroupRegistry, index: number): PatternUnit {
+function buildPattern(groupId: string, groups: GroupRegistry, index: number, roleParams: string[] = []): PatternUnit {
   const fnName = `render_p${index}`
+  // Signature: render_pN(uint32_t ms[, float energy …]) — one extra float per
+  // exposed role when "Use group inputs" is on.
+  const sig = `uint32_t ms${roleParams.map((p) => `, float ${p}`).join('')}`
   const sub = groups[groupId]
-  const empty: PatternUnit = { buffers: [], helpers: new Map(), fn: `void ${fnName}(uint32_t ms) { fill_solid(leds, NUM_LEDS, CRGB::Black); }` }
+  const empty: PatternUnit = { buffers: [], helpers: new Map(), fn: `void ${fnName}(${sig}) { fill_solid(leds, NUM_LEDS, CRGB::Black); }` }
   if (!sub) return empty
 
   // Re-terminate the subgraph at a MatrixOutput so generateCpp renders to `leds`.
@@ -65,7 +68,10 @@ function buildPattern(groupId: string, groups: GroupRegistry, index: number): Pa
   if (!term) return empty
   const matrix = { id: `__mo_${index}`, type: 'studioNode', position: { x: 0, y: 0 },
     data: { label: 'Matrix', nodeType: 'MatrixOutput', category: 'output', properties: {}, inputs: [{ id: 'frame' }], outputs: [] } } as unknown as StudioNode
-  const nodes = [...sub.nodes.filter((n) => nodeType(n) !== 'GroupOutput' && nodeType(n) !== 'GroupInput'), matrix]
+  // Keep a GroupInput only if its role is being driven (its paramId is a wired
+  // render_pN param); generateCpp emits it as `float n_<id>_out = <paramId>;`.
+  const keepGI = (n: StudioNode) => roleParams.includes(String((n.data.properties as { paramId?: string }).paramId ?? ''))
+  const nodes = [...sub.nodes.filter((n) => nodeType(n) !== 'GroupOutput' && (nodeType(n) !== 'GroupInput' || keepGI(n))), matrix]
   const edges = sub.edges
     .filter((e) => e.target !== out.id)
     .concat([{ id: `__e_${index}`, source: term.source, sourceHandle: term.sourceHandle, target: matrix.id, targetHandle: 'frame' } as StudioEdge])
@@ -105,7 +111,7 @@ function buildPattern(groupId: string, groups: GroupRegistry, index: number): Pa
     }
   }
 
-  return { buffers, helpers, fn: [`void ${fnName}(uint32_t ms) {`, ...body, '}'].join('\n') }
+  return { buffers, helpers, fn: [`void ${fnName}(${sig}) {`, ...body, '}'].join('\n') }
 }
 
 /** The reusable C++ pieces for a set of collected patterns: per-pattern frame
@@ -116,10 +122,12 @@ export interface PatternRenderers {
   helpers: string[]
   functions: string[]
   count: number
+  /** Role params threaded into every render_pN (e.g. ['energy']); [] when off. */
+  params: string[]
 }
 
-export function buildPatternRenderers(patternIds: string[], groups: GroupRegistry): PatternRenderers {
-  const units = patternIds.map((id, i) => buildPattern(id, groups, i))
+export function buildPatternRenderers(patternIds: string[], groups: GroupRegistry, roleParams: string[] = []): PatternRenderers {
+  const units = patternIds.map((id, i) => buildPattern(id, groups, i, roleParams))
   const helpers = new Map<string, string>()
   for (const u of units) for (const [k, v] of u.helpers) helpers.set(k, v)
   return {
@@ -127,6 +135,7 @@ export function buildPatternRenderers(patternIds: string[], groups: GroupRegistr
     helpers: [...helpers.values()],
     functions: units.map((u) => u.fn),
     count: units.length,
+    params: roleParams,
   }
 }
 
