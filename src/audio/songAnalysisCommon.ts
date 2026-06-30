@@ -1,8 +1,6 @@
 // ── Shared song-analysis helpers ──────────────────────────────────────────────
-// Pieces common to every offline analyzer engine (built-in DSP, Essentia.js):
-// decoding the file to mono, and deriving labelled song sections from a
-// normalised energy envelope. Keeping these here means each engine only has to
-// produce a `SongAnalysis` and the rest stays consistent.
+// Shared utilities for the Essentia.js offline analyzer: decoding a file to
+// mono PCM and deriving labelled song sections from a normalised energy envelope.
 
 import type { EnergyPoint, SongSection } from '../types/showFile'
 

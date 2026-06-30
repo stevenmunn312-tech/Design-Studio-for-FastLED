@@ -22,58 +22,6 @@
   transition: width 0.15s linear;
 }
 
-/* ── Analysis engine toggle ── */
-.engineRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.engineLabel {
-  font-size: var(--fs-caption);
-  color: var(--text-secondary);
-  font-family: var(--font-code);
-}
-
-.engineToggle {
-  display: flex;
-  border: 1px solid var(--border-glow);
-  border-radius: 6px;
-  overflow: hidden;
-  margin-left: auto;
-}
-
-.engineOn,
-.engineOff {
-  padding: 3px 10px;
-  font-size: var(--fs-caption);
-  border: none;
-  cursor: pointer;
-  font-family: var(--font-body);
-}
-
-.engineOn {
-  background: var(--accent-audio);
-  color: #000;
-  font-weight: 600;
-}
-
-.engineOff {
-  background: none;
-  color: var(--text-secondary);
-}
-
-.engineOff:hover:not(:disabled) {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-}
-
-.engineOn:disabled,
-.engineOff:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 /* ── Drop zone ── */
 .dropZone {
   border: 2px dashed var(--border-glow);

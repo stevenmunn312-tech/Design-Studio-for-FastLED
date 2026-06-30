@@ -3,20 +3,11 @@ import type { SongAnalysis, ShowFile } from '../types/showFile'
 import { generateShow } from '../codegen/performanceGenerator'
 import type { PerformanceOptions } from '../codegen/performanceGenerator'
 
-// Offline analysis engine. 'essentia' (Essentia.js WASM) is the higher-quality
-// default for the pre-planned export path; 'builtin' is the dependency-free DSP.
-export type AnalyzerEngine = 'essentia' | 'builtin'
-
-async function analyzeWithEngine(
-  engine: AnalyzerEngine,
+async function analyzeWithEssentia(
   file: File,
   onProgress?: (p: number) => void,
 ): Promise<SongAnalysis> {
-  if (engine === 'essentia') {
-    const { analyzeSong } = await import('../audio/essentiaAnalyzer')
-    return analyzeSong(file, onProgress)
-  }
-  const { analyzeSong } = await import('../audio/musicAnalyzer')
+  const { analyzeSong } = await import('../audio/essentiaAnalyzer')
   return analyzeSong(file, onProgress)
 }
 
@@ -33,19 +24,16 @@ export interface MusicEntry {
 
 interface MusicState {
   entries:   MusicEntry[]
-  engine:    AnalyzerEngine
 
   addFiles:       (files: File[]) => void
   analyzeAll:     (options?: Partial<PerformanceOptions>) => Promise<void>
   removeEntry:    (id: string) => void
   clearAll:       () => void
-  setEngine:      (e: AnalyzerEngine) => void
   regenerateShow: (id: string, options?: Partial<PerformanceOptions>) => void
 }
 
 export const useMusicStore = create<MusicState>((set, get) => ({
   entries: [],
-  engine:  'essentia',
 
   addFiles: (files) => {
     const newEntries: MusicEntry[] = files
@@ -75,7 +63,7 @@ export const useMusicStore = create<MusicState>((set, get) => ({
             e.id === entry.id ? { ...e, progress: p } : e
           ),
         }))
-        const analysis = await analyzeWithEngine(get().engine, entry.file, onProgress)
+        const analysis = await analyzeWithEssentia(entry.file, onProgress)
         const show     = generateShow(analysis, options)
         set(s => ({
           entries: s.entries.map(e =>
@@ -96,8 +84,6 @@ export const useMusicStore = create<MusicState>((set, get) => ({
     set(s => ({ entries: s.entries.filter(e => e.id !== id) })),
 
   clearAll: () => set({ entries: [] }),
-
-  setEngine: (e) => set({ engine: e }),
 
   regenerateShow: (id, options = {}) => {
     const entry = get().entries.find(e => e.id === id)

@@ -19,7 +19,7 @@ const STATUS_LABEL: Record<string, string> = {
 const SECTIONS = ['intro', 'verse', 'buildup', 'drop', 'chorus', 'bridge', 'outro'] as const
 
 export default function MusicLibraryNodeBody({ nodeId }: { nodeId: string }) {
-  const { entries, engine, addFiles, analyzeAll, removeEntry, clearAll, setEngine } = useMusicStore()
+  const { entries, addFiles, analyzeAll, removeEntry, clearAll } = useMusicStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const performanceProperties = useGraphStore((s) => {
     const targetId = s.edges.find((edge) =>
@@ -47,29 +47,6 @@ export default function MusicLibraryNodeBody({ nodeId }: { nodeId: string }) {
 
   return (
     <div className={`nodrag ${styles.wrap}`}>
-      {/* Analysis engine */}
-      <div className={styles.engineRow}>
-        <span className={styles.engineLabel}>Engine</span>
-        <div className={styles.engineToggle} role="group" aria-label="Analysis engine">
-          <button
-            className={`nodrag ${engine === 'essentia' ? styles.engineOn : styles.engineOff}`}
-            onClick={() => setEngine('essentia')}
-            disabled={analyzingAny}
-            title="Essentia.js — best quality (BPM, beats, real key, danceability). Loads a WASM module."
-          >
-            Essentia.js
-          </button>
-          <button
-            className={`nodrag ${engine === 'builtin' ? styles.engineOn : styles.engineOff}`}
-            onClick={() => setEngine('builtin')}
-            disabled={analyzingAny}
-            title="Built-in DSP — dependency-free, lower quality."
-          >
-            Built-in
-          </button>
-        </div>
-      </div>
-
       {/* Drop zone */}
       <div
         className={`nodrag ${styles.dropZone}`}

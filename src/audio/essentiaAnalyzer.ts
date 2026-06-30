@@ -1,9 +1,7 @@
 // ── Essentia.js song analyzer (main-thread client) ────────────────────────────
-// A drop-in alternative to the built-in DSP analyzer (`musicAnalyzer.ts`),
-// producing the same `SongAnalysis` shape but using Essentia.js — a WebAssembly
-// build of the Essentia C++ MIR library — for materially better results on the
-// pre-planned export path: validated BPM/beat tracking (RhythmExtractor2013),
-// real key detection (KeyExtractor), and danceability-aware mood.
+// Offline song analysis using Essentia.js — a WebAssembly build of the Essentia
+// C++ MIR library. Provides validated BPM/beat tracking (RhythmExtractor2013),
+// real key detection (KeyExtractor), and danceability-aware mood estimation.
 //
 // The heavy Essentia passes run in `essentiaAnalyzer.worker.ts` so the UI stays
 // responsive during "Analyse All". This module only decodes the file to mono
@@ -46,7 +44,7 @@ function getWorker(): Worker {
   return worker
 }
 
-// ── Public API (mirrors musicAnalyzer.analyzeSong) ────────────────────────────
+// ── Public API ────────────────────────────────────────────────────────────────
 export async function analyzeSong(file: File, onProgress?: (p: number) => void): Promise<SongAnalysis> {
   const { mono, sampleRate, durationMs } = await decodeToMono(file, SAMPLE_RATE)
   // Decode is the only main-thread stage we can measure; the WASM passes run in
