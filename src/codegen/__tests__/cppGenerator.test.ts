@@ -987,6 +987,7 @@ describe('generateCpp — INMP441 audio engine', () => {
     const cpp = generateCpp([sb, out], [edge('e1', 'sb', 'out', 'frame', 'frame')])
     expect(cpp).toContain('fill_solid(buf_sb, NUM_LEDS, CRGB::Black);')
     expect(cpp).toContain('float _levels[3] = { _b, _m, _t };')
+    expect(cpp).toContain('float _paletteScroll = t * (0.08f + _spd * 0.42f);')
     expect(cpp).toContain('ColorFromPalette(OceanColors_p')
     expect(cpp).toContain('WIDTH - 1 - _x')
     expect(cpp).not.toContain('// SpectrumBars')

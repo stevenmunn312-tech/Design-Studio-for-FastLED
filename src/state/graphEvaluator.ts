@@ -339,7 +339,8 @@ function evalSpectrumBars(
   const spd = Math.max(0, Math.min(1, speed))
   const columns = Math.max(1, mirror ? Math.ceil(W / 2) : W)
   const levels = [b, m, tr]
-  const motion = t * (0.8 + spd * 5.5)
+  const geometryMotion = t * (0.45 + spd * 3.2)
+  const paletteScroll = t * (0.08 + spd * 0.42)
 
   for (let x = 0; x < columns; x++) {
     const nx = columns <= 1 ? 0 : x / (columns - 1)
@@ -348,17 +349,17 @@ function evalSpectrumBars(
     const right = Math.min(levels.length - 1, left + 1)
     const blend = spectrumPos - left
     const baseLevel = levels[left] * (1 - blend) + levels[right] * blend
-    const ripple = Math.sin(nx * 10.5 - motion * (1.1 + tr * 1.8)) * 0.08 * strength
-    const shimmer = Math.max(0, Math.sin(nx * 21 + motion * (2 + m * 2.5))) * 0.06 * tr * strength
+    const ripple = Math.sin(nx * 10.5 - geometryMotion * (1.1 + tr * 1.8)) * 0.08 * strength
+    const shimmer = Math.max(0, Math.sin(nx * 21 + geometryMotion * (2 + m * 2.5))) * 0.06 * tr * strength
     const level = Math.max(0, Math.min(1, baseLevel * (0.45 + strength * 0.9) + ripple + shimmer))
     const barH = Math.max(0, Math.round(level * H))
 
     for (let row = 0; row < barH; row++) {
       const y = H - 1 - row
       const vertical = H <= 1 ? 0 : row / (H - 1)
-      const pulse = 0.72 + 0.28 * Math.sin(vertical * 6.2 - motion * (1.4 + b * 1.6))
+      const pulse = 0.72 + 0.28 * Math.sin(vertical * 6.2 - geometryMotion * (1.4 + b * 1.6))
       const v = Math.max(0, Math.min(1, (0.28 + vertical * 0.72) * pulse))
-      const colorPos = nx * (0.7 + b * 0.25) + vertical * (0.45 + m * 0.35) + motion * 0.018
+      const colorPos = nx + paletteScroll + vertical * (0.12 + m * 0.12) + spectrumPos * 0.08
       const c = samplePalette(palette, colorPos)
       const px = {
         r: Math.round(c.r * v),
@@ -371,7 +372,7 @@ function evalSpectrumBars(
 
     if (barH > 0) {
       const peakY = Math.max(0, H - barH)
-      const peak = samplePalette(palette, nx + motion * 0.03)
+      const peak = samplePalette(palette, nx + paletteScroll + spectrumPos * 0.08)
       const glow = Math.min(1, 0.6 + tr * 0.35 + strength * 0.2)
       const cap = {
         r: Math.round(peak.r * glow),
