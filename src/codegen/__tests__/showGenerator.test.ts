@@ -80,5 +80,29 @@ describe('showGenerator', () => {
       expect(r.functions[0]).toContain('void render_p0(uint32_t ms)')
       expect(r.functions[0]).not.toContain('float energy')
     })
+
+    // A group whose brightness is driven by a `speed` GroupInput.
+    const speedGroups = {
+      gs: {
+        nodes: [
+          node('white', 'SolidColor', { r: 255, g: 255, b: 255 }, [], [{ id: 'frame', dataType: 'frame' }]),
+          node('gi', 'GroupInput', { paramId: 'speed' }, [], [{ id: 'out', dataType: 'float' }]),
+          node('bm', 'BrightnessMod', {}, [{ id: 'frame', dataType: 'frame' }, { id: 'brightness', dataType: 'float' }], [{ id: 'frame', dataType: 'frame' }]),
+          node('go', 'GroupOutput', {}, [{ id: 'frame', dataType: 'frame' }], []),
+        ],
+        edges: [
+          edge('e1', 'white', 'frame', 'bm', 'frame'),
+          edge('e2', 'gi', 'out', 'bm', 'brightness'),
+          edge('e3', 'bm', 'frame', 'go', 'frame'),
+        ],
+      },
+    } as unknown as GroupRegistry
+
+    it('threads energy + speed in order and resolves a speed GroupInput to the param', () => {
+      const r = buildPatternRenderers(['gs'], speedGroups, ['energy', 'speed'])
+      expect(r.params).toEqual(['energy', 'speed'])
+      expect(r.functions[0]).toContain('void render_p0(uint32_t ms, float energy, float speed)')
+      expect(r.functions[0]).toContain('= speed;')   // GroupInput → speed param
+    })
   })
 })

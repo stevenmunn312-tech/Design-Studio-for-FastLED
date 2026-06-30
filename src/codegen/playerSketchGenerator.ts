@@ -80,6 +80,7 @@ export function generatePlayerSketch(cfg: Partial<PlayerConfig> = {}, renderers?
   const roleParams = collection ? renderers!.params : []
   const argList = roleParams.map((pName) => `, ${pName}`).join('')
   const hasEnergy = roleParams.includes('energy')
+  const hasSpeed = roleParams.includes('speed')
 
   // renderPattern() either dispatches to a render_pN() (collection) or runs the
   // built-in pattern switch (enum). The render_pN() bodies expect ms.
@@ -210,7 +211,7 @@ uint8_t    paletteId  = 0;        // default: Rainbow
 float      flashLevel = 0.0f;
 float      flashDecay = 0.82f;
 float      transProgress = 1.0f;  // 1 = no transition in progress
-${hasEnergy ? 'float      energy    = 0.0f;      // SET_ENERGY → energy group-input role\n' : ''}
+${hasEnergy ? 'float      energy    = 0.0f;      // SET_ENERGY → energy group-input role\n' : ''}${hasSpeed ? 'float      speed     = 0.5f;      // SET_SPEED (normalised 0–1) → speed group-input role\n' : ''}
 
 // ── Palette helper ────────────────────────────────────────────────────────────
 CRGB samplePalette(uint8_t palId, uint8_t index) {
@@ -265,7 +266,7 @@ void applyEvent(const ShowEvent& ev) {
   switch (ev.cmd) {
     case CMD_SET_PATTERN:    patternId  = (uint8_t)ev.params[0]; break;
     case CMD_SET_PALETTE:    paletteId  = (uint8_t)ev.params[0]; break;
-    case CMD_SET_SPEED:      animSpeed  = ev.params[0]; break;
+    case CMD_SET_SPEED:      animSpeed  = ev.params[0];${hasSpeed ? ' speed = constrain(ev.params[0] * 0.5f, 0.0f, 1.0f);' : ''} break;
     case CMD_SET_BRIGHTNESS: FastLED.setBrightness((uint8_t)ev.params[0]); break;
     case CMD_BEAT_FLASH:
       flashLevel = ev.params[0] / 255.0f;

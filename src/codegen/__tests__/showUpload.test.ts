@@ -106,4 +106,30 @@ describe('generatePlayerSketch', () => {
     expect(ino).not.toContain('case CMD_SET_ENERGY')
     expect(ino).toContain('case 0: render_p0(ms); break;')
   })
+
+  it('normalises CMD_SET_SPEED into the speed role global and threads it into render_pN', () => {
+    const renderers = {
+      buffers: [],
+      helpers: [],
+      functions: ['void render_p0(uint32_t ms, float energy, float speed) { fill_solid(leds, NUM_LEDS, CRGB::Blue); }'],
+      count: 1,
+      params: ['energy', 'speed'],
+    }
+    const ino = generatePlayerSketch({}, renderers)
+    expect(ino).toContain('float      speed')                       // role global (distinct from animSpeed)
+    // CMD_SET_SPEED still sets animSpeed AND derives the normalised speed role.
+    expect(ino).toContain('animSpeed  = ev.params[0]; speed = constrain(ev.params[0] * 0.5f, 0.0f, 1.0f); break;')
+    expect(ino).toContain('case 0: render_p0(ms, energy, speed); break;')
+  })
+
+  it('does not touch the speed global when speed is not a threaded role', () => {
+    const renderers = {
+      buffers: [], helpers: [],
+      functions: ['void render_p0(uint32_t ms, float energy) { fill_solid(leds, NUM_LEDS, CRGB::Blue); }'],
+      count: 1, params: ['energy'],
+    }
+    const ino = generatePlayerSketch({}, renderers)
+    expect(ino).not.toContain('float      speed')
+    expect(ino).toContain('animSpeed  = ev.params[0]; break;')
+  })
 })

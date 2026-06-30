@@ -135,6 +135,41 @@ describe('renderShowFrame', () => {
     expect(sum(modulated)).toBeLessThan(sum(authored))
   })
 
+  it('feeds the normalised section speed to the speed group-input role only when enabled', () => {
+    const mk = (id: string, nodeType: string, properties: Record<string, unknown>, inputs: unknown[] = [], outputs: unknown[] = []) =>
+      ({ id, type: 'studioNode', position: { x: 0, y: 0 }, data: { label: nodeType, nodeType, category: 'pattern', properties, inputs, outputs } })
+    // A group whose white frame is dimmed by a BrightnessMod driven by the
+    // `speed` GroupInput, so a lower speed → a darker frame (when enabled).
+    const groups = {
+      g1: {
+        nodes: [
+          mk('white', 'SolidColor', { r: 255, g: 255, b: 255 }, [], [{ id: 'frame', dataType: 'frame' }]),
+          mk('gi', 'GroupInput', { paramId: 'speed' }, [], [{ id: 'out', dataType: 'float' }]),
+          mk('bm', 'BrightnessMod', {}, [{ id: 'frame', dataType: 'frame' }, { id: 'brightness', dataType: 'float' }], [{ id: 'frame', dataType: 'frame' }]),
+          mk('go', 'GroupOutput', {}, [{ id: 'frame', dataType: 'frame' }], []),
+        ],
+        edges: [
+          { id: 'e1', source: 'white', sourceHandle: 'frame', target: 'bm', targetHandle: 'frame' },
+          { id: 'e2', source: 'gi', sourceHandle: 'out', target: 'bm', targetHandle: 'brightness' },
+          { id: 'e3', source: 'bm', sourceHandle: 'frame', target: 'go', targetHandle: 'frame' },
+        ],
+      },
+    } as unknown as Parameters<typeof renderShowFrame>[4]
+
+    const show: ShowFile = {
+      version: 2, songTitle: 'C', durationMs: 1000, bpm: 120, patternSet: ['g1'],
+      events: [
+        { t: 0, cmd: 'SET_PATTERN', params: { index: 0 } },
+        { t: 0, cmd: 'SET_BRIGHTNESS', params: { value: 255 } },
+        { t: 0, cmd: 'SET_SPEED', params: { value: 0.4 } },   // 0.4 / 2 = 0.2 → dim
+      ],
+    }
+    const sum = (f: ReturnType<typeof renderShowFrame>) => f.flat().reduce((a, px) => a + px.r + px.g + px.b, 0)
+    const modulated = renderShowFrame(show, 0, 4, 4, groups, true)   // speed role dims it
+    const authored  = renderShowFrame(show, 0, 4, 4, groups, false)  // speed ignored → full
+    expect(sum(modulated)).toBeLessThan(sum(authored))
+  })
+
   it('scales a beat flash through global brightness like FastLED', () => {
     const dimShow: ShowFile = {
       ...show,
