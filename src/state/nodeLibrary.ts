@@ -227,7 +227,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'pattern',
     inputs: [{ id: 'speed', label: 'Speed', dataType: 'float' }],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 1.0 },
+    defaultProperties: { speed: 0.5 },
   },
   {
     type: 'SpectrumBars',
@@ -417,7 +417,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'color', label: 'Color', dataType: 'color' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 1.0, r: 0, g: 200, b: 255 },
+    defaultProperties: { speed: 0.5, r: 0, g: 200, b: 255 },
   },
   {
     type: 'Spiral',
@@ -425,7 +425,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'pattern',
     inputs: [{ id: 'speed', label: 'Speed', dataType: 'float' }],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 1.0, arms: 2 },
+    defaultProperties: { speed: 0.5, arms: 2 },
   },
   {
     type: 'Kaleidoscope',
@@ -806,7 +806,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.3, scale: 0.15, octaves: 4, palette: 'forest' },
+    defaultProperties: { speed: 0.25, scale: 0.3, octaves: 4, palette: 'forest' },
   },
   {
     // Gabor noise — sparse-convolution oriented bands through a palette.
@@ -820,7 +820,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.5, scale: 0.35, frequency: 1.2, orientation: 45, palette: 'ocean' },
+    defaultProperties: { speed: 0.33, scale: 0.7, frequency: 1.2, orientation: 45, palette: 'ocean' },
   },
   {
     // Angled palette gradient across the matrix.
@@ -854,7 +854,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.6, scale: 0.22, count: 3, palette: 'lava' },
+    defaultProperties: { speed: 0.3, scale: 0.44, count: 3, palette: 'lava' },
   },
   {
     // Flow field — particles drift along a noise direction field, leaving trails.
@@ -867,7 +867,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 1, scale: 0.08, count: 80, fade: 0.9, palette: 'ocean' },
+    defaultProperties: { speed: 0.67, scale: 0.08, count: 80, fade: 0.9, palette: 'ocean' },
   },
   {
     // Warp starfield — stars streak outward from the centre.
@@ -879,7 +879,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 1, count: 60, r: 255, g: 255, b: 255 },
+    defaultProperties: { speed: 0.33, count: 60, r: 255, g: 255, b: 255 },
   },
   {
     // Audio-reactive flowing noise field (bass/mids/treble drive it).
@@ -1460,10 +1460,16 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   val:        { control: 'slider', min: 0, max: 255, step: 1 },
 }
 
+// A normalised 0–1 slider, the standard for `speed`/`scale` and most reactive
+// controls. The evaluator/codegen map these onto each node's internal rate (see
+// speedRange.ts), so the slider is uniform even where the underlying range
+// differs.
+const N01: PropertyControl = { control: 'slider', min: 0, max: 1, step: 0.01 }
+
 // Per-node overrides for property names that collide across nodes with a
-// different meaning or range. `speed` is a 0–5 animation speed for most nodes
-// but a steps-per-second rate for the simulation patterns; `rate` is a 0–1
-// emission rate for Particles but a degrees/sec spin for Transform.
+// different meaning or range. Most `speed`/`scale` sliders are 0–1 (normalised
+// via speedRange.ts); the simulation patterns use a steps-per-second rate, and
+// `rate` is a 0–1 emission rate for Particles but a degrees/sec spin for Transform.
 export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyControl>> = {
   FFTAnalyzer:       {
     bands:     { control: 'slider', min: 8, max: 32, step: 1 },
@@ -1514,6 +1520,17 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   AudioCascade: {
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
+  // Normalised speed/scale pattern nodes (internal range in speedRange.ts).
+  Plasma:          { speed: N01 },
+  RadialBurst:     { speed: N01 },
+  Spiral:          { speed: N01 },
+  Starfield:       { speed: N01 },
+  PaletteGradient: { speed: N01 },
+  Noise2D:         { speed: N01, scale: N01 },
+  FractalNoise:    { speed: N01, scale: N01 },
+  GaborNoise:      { speed: N01, scale: N01 },
+  Blobs:           { speed: N01, scale: N01 },
+  FlowField:       { speed: N01, scale: N01 },
   Particles:         { rate:  { control: 'slider', min: 0, max: 1,   step: 0.01 } },
   Transform:         { rate:  { control: 'slider', min: 0, max: 360, step: 1 } },
   GameOfLife:        { speed: { control: 'slider', min: 1, max: 30,  step: 1 } },

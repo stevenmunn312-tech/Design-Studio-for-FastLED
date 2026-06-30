@@ -4,6 +4,7 @@ import { asFont, textColumns } from '../state/font'
 import { asImage } from '../state/image'
 import { polineStops16, hexToRgb } from '../state/polinePalette'
 import { audioFlowExpr } from '../state/audioFlowRange'
+import { SPEED_MAX, SCALE_MAX, rateCpp } from '../state/speedRange'
 import { denormalizeBeatParam } from '../audio/beatDetection'
 import { inputClampRange } from '../state/nodeLibrary'
 import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledShims'
@@ -874,7 +875,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       case 'Plasma': {
         needsT.v = true
         const ob = ownBuf()
-        const speed = f('speed', 'speed', 1)
+        const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.Plasma)
         ln(`  {`)
         ln(`    float _spd = ${speed};`)
         ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
@@ -1253,7 +1254,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       case 'Noise2D': {
         needsT.v = true
         const ob = ownBuf()
-        const speed = f('speed', 'speed', 0.4), scale = f('scale', 'scale', 0.4)
+        const speed = rateCpp(f('speed', 'speed', 0.4), SPEED_MAX.Noise2D), scale = rateCpp(f('scale', 'scale', 0.4), SCALE_MAX.Noise2D)
         ln(`  { float _spd=${speed},_sc=${scale}; for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`    float _v=sin(_x*_sc+t*_spd+1.7f)*cos(_y*_sc*1.3f+t*_spd*0.8f+2.3f)+0.5f*sin(_x*_sc*2.1f+t*_spd*2.0f)*cos(_y*_sc*2.7f+t*_spd*1.6f);`)
         ln(`    ${ob}[_y*WIDTH+_x]=CHSV((uint8_t)((_v*0.5f+0.5f)*255),255,220);}}`)
@@ -1263,7 +1264,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       case 'RadialBurst': {
         needsT.v = true
         const ob = ownBuf()
-        const speed = f('speed', 'speed', 1)
+        const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.RadialBurst)
         const r = Number(p.r ?? 0), g = Number(p.g ?? 200), b = Number(p.b ?? 255)
         ln(`  { float _spd=${speed}; for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`    float _d=sqrt((_x-WIDTH/2.0f)*(_x-WIDTH/2.0f)+(_y-HEIGHT/2.0f)*(_y-HEIGHT/2.0f))/sqrt(WIDTH*WIDTH/4.0f+HEIGHT*HEIGHT/4.0f);`)
@@ -1275,7 +1276,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       case 'Spiral': {
         needsT.v = true
         const ob = ownBuf()
-        const speed = f('speed', 'speed', 1), arms = Number(p.arms ?? 2)
+        const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.Spiral), arms = Number(p.arms ?? 2)
         ln(`  { float _spd=${speed}; for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`    float _d=sqrt((_x-WIDTH/2.0f)*(_x-WIDTH/2.0f)+(_y-HEIGHT/2.0f)*(_y-HEIGHT/2.0f))/sqrt(WIDTH*WIDTH/4.0f+HEIGHT*HEIGHT/4.0f);`)
         ln(`    float _a=atan2(_y-HEIGHT/2.0f,_x-WIDTH/2.0f);float _s=(_a+_d*12.57f-t*_spd*3.14159f)*${arms};`)
@@ -1582,7 +1583,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       case 'FractalNoise': {
         needsT.v = true
         const ob = ownBuf()
-        const speed = f('speed', 'speed', 0.3), scale = f('scale', 'scale', 0.15)
+        const speed = rateCpp(f('speed', 'speed', 0.25), SPEED_MAX.FractalNoise), scale = rateCpp(f('scale', 'scale', 0.3), SCALE_MAX.FractalNoise)
         const octaves = Math.max(1, Math.min(6, Math.floor(Number(p.octaves ?? 4))))
         const pal = paletteExpr(node.id, 'paletteIn', p)
         ln(`  { // Fractal noise (fBm via inoise8)`)
@@ -1600,7 +1601,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         needsT.v = true
         needsWorley.v = true
         const ob = ownBuf()
-        const speed = f('speed', 'speed', 0.5), scale = f('scale', 'scale', 0.35)
+        const speed = rateCpp(f('speed', 'speed', 0.33), SPEED_MAX.GaborNoise), scale = rateCpp(f('scale', 'scale', 0.7), SCALE_MAX.GaborNoise)
         const freq = f('frequency', 'frequency', 1.2)
         const orientation = Number(p.orientation ?? 45)
         const pal = paletteExpr(node.id, 'paletteIn', p)
@@ -1620,7 +1621,8 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
 
       case 'PaletteGradient': {
         const ob = ownBuf()
-        const angle = Number(p.angle ?? 45), repeat = Number(p.repeat ?? 1), speed = Number(p.speed ?? 0)
+        const angle = Number(p.angle ?? 45), repeat = Number(p.repeat ?? 1)
+        const speed = Math.max(0, Math.min(1, Number(p.speed ?? 0))) * SPEED_MAX.PaletteGradient
         const pal = paletteExpr(node.id, 'paletteIn', p)
         const scroll = speed !== 0 ? `+t*${speed}f` : ''
         if (speed !== 0) needsT.v = true
@@ -1655,7 +1657,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       case 'Blobs': {
         needsT.v = true
         const ob = ownBuf()
-        const speed = f('speed', 'speed', 0.6), scale = f('scale', 'scale', 0.22)
+        const speed = rateCpp(f('speed', 'speed', 0.3), SPEED_MAX.Blobs), scale = rateCpp(f('scale', 'scale', 0.44), SCALE_MAX.Blobs)
         const count = Math.max(1, Math.min(6, Math.floor(Number(p.count ?? 3))))
         const pal = paletteExpr(node.id, 'paletteIn', p)
         ln(`  { // Blobs (metaballs)`)
@@ -1671,7 +1673,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       case 'FlowField': {
         needsT.v = true
         const ob = ownBuf()
-        const speed = f('speed', 'speed', 1), scale = f('scale', 'scale', 0.08)
+        const speed = rateCpp(f('speed', 'speed', 0.67), SPEED_MAX.FlowField), scale = rateCpp(f('scale', 'scale', 0.08), SCALE_MAX.FlowField)
         const count = Math.max(8, Math.min(400, Math.floor(Number(p.count ?? 80))))
         const fade = Number(p.fade ?? 0.9)
         const fadeL = (Number.isInteger(fade) ? `${fade}.0` : `${fade}`) + 'f'
@@ -1692,7 +1694,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
 
       case 'Starfield': {
         const ob = ownBuf()
-        const speed = f('speed', 'speed', 1)
+        const speed = rateCpp(f('speed', 'speed', 0.33), SPEED_MAX.Starfield)
         const count = Math.max(8, Math.min(300, Math.floor(Number(p.count ?? 60))))
         const colorE = incoming.get(`${node.id}:color`)
           ? colorExpr(node.id, 'color')

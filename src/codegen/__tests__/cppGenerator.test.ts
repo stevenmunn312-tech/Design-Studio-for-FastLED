@@ -77,6 +77,13 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float t = millis()')
   })
 
+  it('normalizes a 0–1 speed slider onto the node’s internal rate', () => {
+    const plasma = node('p', 'Plasma', 'pattern', { speed: 1 })
+    const cpp = generateCpp([plasma, outputNode], [edge('e1', 'p', 'out', 'frame', 'frame')])
+    // Plasma's slider max maps to an internal rate of 2 (was a raw 0–5 speed).
+    expect(cpp).toContain('* 2.000f)')
+  })
+
   it('does not include float t for static graphs', () => {
     const sc = node('sc', 'SolidColor', 'pattern', { r: 100, g: 100, b: 100 })
     const cpp = generateCpp([sc, outputNode], [edge('e1', 'sc', 'out', 'frame', 'frame')])

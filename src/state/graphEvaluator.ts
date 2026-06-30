@@ -8,6 +8,7 @@ import { inputClampRange } from './nodeLibrary'
 import { makeShims, SHIM_NAMES } from './fastledShims'
 import { createBeatDetectorState, denormalizeBeatParam, updateBeatDetectorFromSpectrum } from '../audio/beatDetection'
 import { denormalizeAudioFlowParam } from './audioFlowRange'
+import { SPEED_MAX, SCALE_MAX, denormRate } from './speedRange'
 
 export interface RGB { r: number; g: number; b: number }
 export type Frame = RGB[][]   // row-major [y][x]
@@ -2299,7 +2300,7 @@ function createEvalNode(
       }
 
       case 'Plasma': {
-        const speed = num(id, 'speed', props, 'speed', 1)
+        const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.Plasma)
         out = { frame: evalPlasma(speed, t, W, H) }
         break
       }
@@ -2529,14 +2530,14 @@ function createEvalNode(
 
       // ── New pattern nodes ──────────────────────────────────────────────
       case 'Noise2D': {
-        const speed = num(id, 'speed', props, 'speed', 0.4)
-        const scale = num(id, 'scale', props, 'scale', 0.4)
+        const speed = denormRate(num(id, 'speed', props, 'speed', 0.4), SPEED_MAX.Noise2D)
+        const scale = denormRate(num(id, 'scale', props, 'scale', 0.4), SCALE_MAX.Noise2D)
         out = { frame: evalNoise2D(speed, scale, t, W, H) }
         break
       }
 
       case 'RadialBurst': {
-        const speed = num(id, 'speed', props, 'speed', 1)
+        const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.RadialBurst)
         const colorIn = input(id, 'color', null) as RGB | null
         const color = colorIn ?? { r: Number(props.r ?? 0), g: Number(props.g ?? 200), b: Number(props.b ?? 255) }
         out = { frame: evalRadialBurst(speed, color, t, W, H) }
@@ -2544,7 +2545,7 @@ function createEvalNode(
       }
 
       case 'Spiral': {
-        const speed = num(id, 'speed', props, 'speed', 1)
+        const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.Spiral)
         const arms = Number(props.arms ?? 2)
         out = { frame: evalSpiral(speed, arms, t, W, H) }
         break
@@ -2646,8 +2647,8 @@ function createEvalNode(
 
       // ── Proper noise nodes ────────────────────────────────────────────
       case 'FractalNoise': {
-        const speed   = num(id, 'speed', props, 'speed', 0.3)
-        const scale   = num(id, 'scale', props, 'scale', 0.15)
+        const speed   = denormRate(num(id, 'speed', props, 'speed', 0.25), SPEED_MAX.FractalNoise)
+        const scale   = denormRate(num(id, 'scale', props, 'scale', 0.3), SCALE_MAX.FractalNoise)
         const octaves = Number(props.octaves ?? 4)
         const palette = pal(id, 'paletteIn', props, 'palette', 'forest')
         out = { frame: evalFractalNoise(speed, scale, octaves, t, palette, W, H) }
@@ -2655,8 +2656,8 @@ function createEvalNode(
       }
 
       case 'GaborNoise': {
-        const speed       = num(id, 'speed', props, 'speed', 0.5)
-        const scale       = num(id, 'scale', props, 'scale', 0.35)
+        const speed       = denormRate(num(id, 'speed', props, 'speed', 0.33), SPEED_MAX.GaborNoise)
+        const scale       = denormRate(num(id, 'scale', props, 'scale', 0.7), SCALE_MAX.GaborNoise)
         const frequency   = num(id, 'frequency', props, 'frequency', 1.2)
         const orientation = Number(props.orientation ?? 45)
         const palette     = pal(id, 'paletteIn', props, 'palette', 'ocean')
@@ -2667,7 +2668,7 @@ function createEvalNode(
       case 'PaletteGradient': {
         const angle   = Number(props.angle ?? 45)
         const repeat  = Number(props.repeat ?? 1)
-        const speed   = num(id, 'speed', props, 'speed', 0)
+        const speed   = denormRate(num(id, 'speed', props, 'speed', 0), SPEED_MAX.PaletteGradient)
         const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
         out = { frame: evalPaletteGradient(angle, repeat, speed, t, palette, W, H) }
         break
@@ -2680,8 +2681,8 @@ function createEvalNode(
       }
 
       case 'Blobs': {
-        const speed = num(id, 'speed', props, 'speed', 0.6)
-        const scale = num(id, 'scale', props, 'scale', 0.22)
+        const speed = denormRate(num(id, 'speed', props, 'speed', 0.3), SPEED_MAX.Blobs)
+        const scale = denormRate(num(id, 'scale', props, 'scale', 0.44), SCALE_MAX.Blobs)
         const count = Number(props.count ?? 3)
         const palette = pal(id, 'paletteIn', props, 'palette', 'lava')
         out = { frame: evalBlobs(speed, scale, count, t, palette, W, H) }
@@ -2689,8 +2690,8 @@ function createEvalNode(
       }
 
       case 'FlowField': {
-        const speed = num(id, 'speed', props, 'speed', 1)
-        const scale = num(id, 'scale', props, 'scale', 0.08)
+        const speed = denormRate(num(id, 'speed', props, 'speed', 0.67), SPEED_MAX.FlowField)
+        const scale = denormRate(num(id, 'scale', props, 'scale', 0.08), SCALE_MAX.FlowField)
         const count = Number(props.count ?? 80)
         const fade = Number(props.fade ?? 0.9)
         const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
@@ -2699,7 +2700,7 @@ function createEvalNode(
       }
 
       case 'Starfield': {
-        const speed = num(id, 'speed', props, 'speed', 1)
+        const speed = denormRate(num(id, 'speed', props, 'speed', 0.33), SPEED_MAX.Starfield)
         const count = Number(props.count ?? 60)
         const colorIn = input(id, 'color', null) as RGB | null
         const color = colorIn ?? {
