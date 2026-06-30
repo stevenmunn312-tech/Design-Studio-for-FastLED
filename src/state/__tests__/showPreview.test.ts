@@ -71,6 +71,35 @@ describe('renderShowFrame', () => {
     expect(lit).toBe(0)
   })
 
+  it('renders a collection (v2) show by evaluating the indexed group subgraph', () => {
+    const mk = (id: string, nodeType: string, properties: Record<string, unknown>, inputs: unknown[] = [], outputs: unknown[] = []) =>
+      ({ id, type: 'studioNode', position: { x: 0, y: 0 }, data: { label: nodeType, nodeType, category: 'pattern', properties, inputs, outputs } })
+    const groups = {
+      g1: {
+        nodes: [
+          mk('inner', 'SolidColor', { r: 255, g: 0, b: 0 }, [], [{ id: 'frame', dataType: 'frame' }]),
+          mk('go', 'GroupOutput', {}, [{ id: 'frame', dataType: 'frame' }], []),
+        ],
+        edges: [{ id: 'ie', source: 'inner', sourceHandle: 'frame', target: 'go', targetHandle: 'frame' }],
+      },
+    } as unknown as Parameters<typeof renderShowFrame>[4]
+
+    const collectionShow: ShowFile = {
+      version: 2, songTitle: 'C', durationMs: 1000, bpm: 120,
+      patternSet: ['g1'],
+      events: [
+        { t: 0, cmd: 'SET_PATTERN', params: { index: 0 } },
+        { t: 0, cmd: 'SET_BRIGHTNESS', params: { value: 255 } },
+      ],
+    }
+    const frame = renderShowFrame(collectionShow, 0, 4, 4, groups)
+    expect(frame.flat().some((px) => px.r > 100)).toBe(true)   // the group's red SolidColor
+
+    // With no registry the group can't resolve, so it renders blank.
+    const blankFrame = renderShowFrame(collectionShow, 0, 4, 4)
+    expect(blankFrame.flat().every((px) => px.r + px.g + px.b === 0)).toBe(true)
+  })
+
   it('scales a beat flash through global brightness like FastLED', () => {
     const dimShow: ShowFile = {
       ...show,

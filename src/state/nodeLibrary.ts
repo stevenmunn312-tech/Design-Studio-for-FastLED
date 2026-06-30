@@ -1162,7 +1162,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'PerformanceGenerator',
     label: 'Performance Generator',
     category: 'hardware',
-    inputs: [{ id: 'songs', label: 'Songs', dataType: 'songs' }],
+    inputs: [
+      { id: 'songs', label: 'Songs', dataType: 'songs' },
+      { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
+    ],
     outputs: [{ id: 'shows', label: 'Shows', dataType: 'shows' }],
     defaultProperties: {
       beatIntensity:      0.8,

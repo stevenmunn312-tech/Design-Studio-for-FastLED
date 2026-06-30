@@ -45,7 +45,7 @@ function fmt(ms: number): string {
 /** One-line human summary of an event's params for the list rows. */
 function summary(ev: ShowEvent): string {
   switch (ev.cmd) {
-    case 'SET_PATTERN':    return String(ev.params.name)
+    case 'SET_PATTERN':    return ev.params.name !== undefined ? String(ev.params.name) : `#${Number(ev.params.index) + 1}`
     case 'SET_PALETTE':    return String(ev.params.name)
     case 'SET_SPEED':      return `×${Number(ev.params.value).toFixed(2)}`
     case 'SET_BRIGHTNESS': return String(Math.round(Number(ev.params.value)))

@@ -2,6 +2,24 @@ import { create } from 'zustand'
 import type { SongAnalysis, ShowFile } from '../types/showFile'
 import { generateShow } from '../codegen/performanceGenerator'
 import type { PerformanceOptions } from '../codegen/performanceGenerator'
+import { useGraphStore } from './graphStore'
+
+/**
+ * The ordered group ids of a Pattern Collection wired into a Performance
+ * Generator's `patternset` input, or `[]` when none is wired (the built-in
+ * enum-pattern flow). Resolved live from the active graph, so generation picks
+ * up the current collection regardless of which node body triggered it.
+ */
+function wiredPatternIds(): string[] {
+  const { nodes, edges } = useGraphStore.getState()
+  const typeOf = (n: { data: { nodeType?: string } }) => n.data.nodeType
+  const gen = nodes.find((n) => typeOf(n) === 'PerformanceGenerator')
+  if (!gen) return []
+  const link = edges.find((e) => e.target === gen.id && e.targetHandle === 'patternset')
+  if (!link) return []
+  const coll = nodes.find((n) => n.id === link.source && typeOf(n) === 'PatternCollection')
+  return (coll?.data.properties.patternIds as string[] | undefined) ?? []
+}
 
 async function analyzeWithEssentia(
   file: File,
@@ -71,7 +89,7 @@ export const useMusicStore = create<MusicState>((set, get) => ({
           ),
         }))
         const analysis = await analyzeWithEssentia(entry.file, onProgress)
-        const show     = generateShow(analysis, options)
+        const show     = generateShow(analysis, options, wiredPatternIds())
         set(s => ({
           entries: s.entries.map(e =>
             e.id === entry.id ? { ...e, analysis, show, status: 'done', progress: 1 } : e
@@ -95,7 +113,7 @@ export const useMusicStore = create<MusicState>((set, get) => ({
   regenerateShow: (id, options = {}) => {
     const entry = get().entries.find(e => e.id === id)
     if (!entry?.analysis) return
-    const show = generateShow(entry.analysis, options)
+    const show = generateShow(entry.analysis, options, wiredPatternIds())
     set(s => ({
       entries: s.entries.map(e => e.id === id ? { ...e, show } : e),
     }))
@@ -109,7 +127,7 @@ export const useMusicStore = create<MusicState>((set, get) => ({
   revertShow: (id, options = {}) => {
     const entry = get().entries.find(e => e.id === id)
     if (!entry?.analysis) return
-    const show = generateShow(entry.analysis, options)
+    const show = generateShow(entry.analysis, options, wiredPatternIds())
     set(s => ({
       entries: s.entries.map(e => e.id === id ? { ...e, show, edited: false } : e),
     }))

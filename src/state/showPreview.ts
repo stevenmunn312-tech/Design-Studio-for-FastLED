@@ -7,7 +7,7 @@
 // like the studio's. SET_PALETTE / SET_SPEED / SET_BRIGHTNESS and BEAT_FLASH are
 // applied on top. Transitions are rendered as instant switches for now.
 
-import { evaluateGraph, type Frame } from './graphEvaluator'
+import { evaluateGraph, type Frame, type GroupRegistry } from './graphEvaluator'
 import { NODE_LIBRARY } from './nodeLibrary'
 import type { StudioNode, StudioEdge } from './graphStore'
 import type { ShowFile, SongSection } from '../types/showFile'
@@ -37,6 +37,8 @@ const PALETTE_MAP: Record<string, string> = {
 
 export interface ShowState {
   pattern: string
+  /** Collection shows (version 2): the active index into `show.patternSet`, else -1. */
+  patternIndex: number
   palette: string
   speed: number
   brightness: number   // 0–255
@@ -44,11 +46,15 @@ export interface ShowState {
 
 /** The active pattern/palette/speed/brightness at a playback position (ms). */
 export function showStateAt(show: ShowFile, timeMs: number): ShowState {
-  const st: ShowState = { pattern: 'NoiseField', palette: 'rainbow', speed: 1, brightness: 200 }
+  const st: ShowState = { pattern: 'NoiseField', patternIndex: -1, palette: 'rainbow', speed: 1, brightness: 200 }
   for (const ev of show.events) {
     if (ev.t > timeMs) break
     switch (ev.cmd) {
-      case 'SET_PATTERN':    st.pattern = String(ev.params.name); break
+      case 'SET_PATTERN':
+        // Enum shows carry a pattern name; collection shows (v2) carry an index.
+        if (ev.params.index !== undefined) st.patternIndex = Number(ev.params.index)
+        else st.pattern = String(ev.params.name)
+        break
       case 'SET_PALETTE':    st.palette = String(ev.params.name); break
       case 'SET_SPEED':      st.speed = Number(ev.params.value); break
       case 'SET_BRIGHTNESS': st.brightness = Number(ev.params.value); break
@@ -84,9 +90,11 @@ function synthNode(id: string, nodeType: string, category: string, properties: R
   } as unknown as StudioNode
 }
 
-/** Render the show's LED frame at a playback position (ms). */
-export function renderShowFrame(show: ShowFile, timeMs: number, W: number, H: number): Frame {
-  const st = showStateAt(show, timeMs)
+const blank = (W: number, H: number): Frame =>
+  Array.from({ length: H }, () => Array.from({ length: W }, () => ({ r: 0, g: 0, b: 0 })))
+
+// Enum show: render the active built-in pattern through a synthetic one-node graph.
+function renderEnumFrame(st: ShowState, timeMs: number, W: number, H: number): Frame {
   const map = PATTERN_NODE[st.pattern] ?? PATTERN_NODE.NoiseField
   const props = { ...(map.props ?? {}), palette: PALETTE_MAP[st.palette] ?? 'rainbow', speed: st.speed }
   // Stable per-pattern id so stateful patterns (Fire…) keep continuity.
@@ -94,10 +102,27 @@ export function renderShowFrame(show: ShowFile, timeMs: number, W: number, H: nu
   const pat = synthNode(patId, map.nodeType, 'pattern', props)
   const out = synthNode('__show_out', 'MatrixOutput', 'output', { width: W, height: H })
   const edges = [{ id: '__show_e', source: patId, target: '__show_out', sourceHandle: 'frame', targetHandle: 'frame' }] as unknown as StudioEdge[]
-
   // t = tick/60 = seconds, so tick = ms * 0.06 keeps animation on the song clock.
-  const frame = evaluateGraph([pat, out], edges, timeMs * 0.06, W, H)
-  const result: Frame = frame ?? Array.from({ length: H }, () => Array.from({ length: W }, () => ({ r: 0, g: 0, b: 0 })))
+  return evaluateGraph([pat, out], edges, timeMs * 0.06, W, H) ?? blank(W, H)
+}
+
+// Collection show: render the active pattern group's subgraph via a synthetic
+// Group node, reusing the evaluator's group machinery + the live group registry.
+function renderGroupFrame(groupId: string, timeMs: number, W: number, H: number, groups: GroupRegistry): Frame {
+  const grp = synthNode('__show_grp', 'Group', 'pattern', { groupId })
+  const out = synthNode('__show_out', 'MatrixOutput', 'output', { width: W, height: H })
+  const edges = [{ id: '__show_e', source: '__show_grp', target: '__show_out', sourceHandle: 'frame', targetHandle: 'frame' }] as unknown as StudioEdge[]
+  return evaluateGraph([grp, out], edges, timeMs * 0.06, W, H, groups) ?? blank(W, H)
+}
+
+/** Render the show's LED frame at a playback position (ms). `groups` is the live
+ *  group registry, needed for collection (version 2) shows. */
+export function renderShowFrame(show: ShowFile, timeMs: number, W: number, H: number, groups: GroupRegistry = {}): Frame {
+  const st = showStateAt(show, timeMs)
+  const groupId = show.patternSet && st.patternIndex >= 0 ? show.patternSet[st.patternIndex] : undefined
+  const result: Frame = groupId
+    ? renderGroupFrame(groupId, timeMs, W, H, groups)
+    : renderEnumFrame(st, timeMs, W, H)
 
   const b = Math.max(0, Math.min(1, st.brightness / 255))
   const flash = beatFlashAt(show, timeMs)

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMusicStore } from '../../state/musicStore'
-import { useGraphStore } from '../../state/graphStore'
+import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
 import { renderShowFrame, showStateAt, sectionAt } from '../../state/showPreview'
 import type { Frame } from '../../state/graphEvaluator'
 import { performanceOptionsFromProperties } from '../../codegen/performanceGenerator'
@@ -114,7 +114,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
       const canvas = canvasRef.current
       if (audio && canvas) {
         const ms = Math.min(show.durationMs, audio.currentTime * 1000)
-        draw(canvas, renderShowFrame(show, ms, gridW, gridH), gridW, gridH)
+        draw(canvas, renderShowFrame(show, ms, gridW, gridH, getGroupRegistry()), gridW, gridH)
         if (ms - lastStateUpdate > 120) { setPosMs(ms); lastStateUpdate = ms }
       }
       rafRef.current = requestAnimationFrame(tick)
@@ -126,7 +126,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
   // Draw a static frame at the current position when paused/seeking.
   useEffect(() => {
     if (playing || !show || !canvasRef.current) return
-    draw(canvasRef.current, renderShowFrame(show, posMs, gridW, gridH), gridW, gridH)
+    draw(canvasRef.current, renderShowFrame(show, posMs, gridW, gridH, getGroupRegistry()), gridW, gridH)
   }, [playing, show, posMs, gridW, gridH])
 
   function startPreview(id: string) {
@@ -227,7 +227,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
           </div>
           {live && (
             <div className={styles.statusRow}>
-              <span className={styles.chip}><b>Pattern</b>{live.pattern}</span>
+              <span className={styles.chip}><b>Pattern</b>{live.patternIndex >= 0 ? `#${live.patternIndex + 1}` : live.pattern}</span>
               <span className={styles.chip}><b>Palette</b>{live.palette}</span>
               {sec && <span className={`${styles.chip} ${styles.section}`}><b>Section</b>{sec.type}</span>}
             </div>
