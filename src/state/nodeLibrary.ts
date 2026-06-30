@@ -1,11 +1,11 @@
 import type { NodeDefinition } from '../types'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
-  // ── Input (signal sources) ─────────────────────────────────────────────
+  // ── Hardware ───────────────────────────────────────────────────────────
   {
     type: 'MicInput',
     label: 'Microphone',
-    category: 'input',
+    category: 'hardware',
     inputs: [],
     outputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
     // gain/agc/threshold/attack/decay drive the browser preview's adaptive
@@ -24,18 +24,17 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       channel: 'Left',
     },
   },
+  // ── Audio ──────────────────────────────────────────────────────────────
   {
     // Song source for the pre-planned show pipeline. Double-click on the canvas
     // opens the Music Library panel (drop MP3s, analyse, export).
     type: 'MusicLibrary',
     label: 'Music Library',
-    category: 'input',
+    category: 'audio',
     inputs: [],
     outputs: [{ id: 'songs', label: 'Songs', dataType: 'songs' }],
     defaultProperties: {},
   },
-
-  // ── Audio ──────────────────────────────────────────────────────────────
   {
     type: 'FFTAnalyzer',
     label: 'FFT Analyzer',
@@ -58,6 +57,30 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'bpm', label: 'BPM', dataType: 'float' },
     ],
     defaultProperties: { threshold: 0.2, attack: 0.55, decay: 0.25 },
+  },
+  {
+    type: 'PercussionDetect',
+    label: 'Percussion Detect',
+    category: 'audio',
+    inputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
+    outputs: [
+      { id: 'kick', label: 'Kick', dataType: 'float' },
+      { id: 'snare', label: 'Snare', dataType: 'float' },
+      { id: 'hihat', label: 'Hi-Hat', dataType: 'float' },
+    ],
+    defaultProperties: { sensitivity: 0.55, decay: 0.72, separation: 0.4 },
+  },
+  {
+    type: 'AudioFeatures',
+    label: 'Audio Features',
+    category: 'audio',
+    inputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
+    outputs: [
+      { id: 'vocals', label: 'Vocals', dataType: 'float' },
+      { id: 'energy', label: 'Energy', dataType: 'float' },
+      { id: 'silence', label: 'Silence', dataType: 'bool' },
+    ],
+    defaultProperties: { sensitivity: 0.5, gate: 0.12, smoothing: 0.8 },
   },
 
   // ── Pattern ────────────────────────────────────────────────────────────
@@ -1134,7 +1157,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { pin: 34 },
   },
 
-  // ── Music-sync pipeline (the Music Library source lives in the Input group) ─
+  // ── Music-sync pipeline (the Music Library source lives in Audio) ─────────
   {
     type: 'PerformanceGenerator',
     label: 'Performance Generator',
@@ -1175,6 +1198,8 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   // audio
   FFTAnalyzer: 'Splits mic audio into bass / mids / treble levels.',
   BeatDetect: 'Emits a beat pulse and estimated BPM from audio.',
+  PercussionDetect: 'Heuristic kick, snare, and hi-hat envelopes from audio.',
+  AudioFeatures: 'Heuristic vocals, energy, and silence features from audio.',
   MicInput: 'Microphone — optional AGC, preview gate, and INMP441 I2S firmware.',
   AudioHue: 'Maps bass/mids/treble to a hue value.',
   // hardware
@@ -1279,9 +1304,9 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
 // `color` is the literal hex used in canvas/SVG contexts (minimap, edges); the
 // CSS var is used wherever theming should apply.
 // Order here drives the sidebar grouping order, following the authoring
-// pipeline: sources → value transforms → color → frames → compositing → output.
+// pipeline: analysis/audio → hardware/control → value transforms → color →
+// frames → compositing → output.
 export const CATEGORIES = [
-  { id: 'input',     label: 'Input',      accentVar: '--accent-input',     color: '#b388ff' },
   { id: 'audio',     label: 'Audio',      accentVar: '--accent-audio',     color: '#00ffff' },
   { id: 'hardware',  label: 'Hardware',   accentVar: '--accent-hardware',  color: '#ffa500' },
   { id: 'math',      label: 'Math',       accentVar: '--accent-math',      color: '#a8ff00' },
@@ -1418,6 +1443,9 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   threshold:  { control: 'slider', min: 0, max: 1, step: 0.01 },
   attack:     { control: 'slider', min: 0, max: 1, step: 0.01 },
   decay:      { control: 'slider', min: 0, max: 1, step: 0.01 },
+  sensitivity:{ control: 'slider', min: 0, max: 1, step: 0.01 },
+  separation: { control: 'slider', min: 0, max: 1, step: 0.01 },
+  gate:       { control: 'slider', min: 0, max: 1, step: 0.01 },
   density:    { control: 'slider', min: 0, max: 1, step: 0.01 },
   brightness: { control: 'slider', min: 0, max: 1, step: 0.01 },
   s:          { control: 'slider', min: 0, max: 1, step: 0.01 },
@@ -1451,6 +1479,16 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     threshold: { control: 'slider', min: 0, max: 1, step: 0.01 },
     attack:    { control: 'slider', min: 0, max: 1, step: 0.01 },
     decay:     { control: 'slider', min: 0, max: 1, step: 0.01 },
+  },
+  PercussionDetect: {
+    sensitivity: { control: 'slider', min: 0, max: 1, step: 0.01 },
+    decay:       { control: 'slider', min: 0, max: 1, step: 0.01 },
+    separation:  { control: 'slider', min: 0, max: 1, step: 0.01 },
+  },
+  AudioFeatures: {
+    sensitivity: { control: 'slider', min: 0, max: 1, step: 0.01 },
+    gate:        { control: 'slider', min: 0, max: 1, step: 0.01 },
+    smoothing:   { control: 'slider', min: 0, max: 0.95, step: 0.01 },
   },
   AudioFlow: {
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },

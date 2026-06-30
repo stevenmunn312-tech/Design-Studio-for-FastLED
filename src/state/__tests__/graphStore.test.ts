@@ -250,6 +250,16 @@ describe('graphStore — legacy node migration on load', () => {
     expect(dataOf('bl2').properties.amount).toBe(0.5)
   })
 
+  it('remaps legacy input-category nodes onto audio and hardware on load', () => {
+    const mic = node('mic', 'MicInput')
+    mic.data.category = 'input'
+    const music = node('lib', 'MusicLibrary')
+    music.data.category = 'input'
+    useGraphStore.getState().loadGraph([mic, music], [])
+    expect(dataOf('mic').category).toBe('hardware')
+    expect(dataOf('lib').category).toBe('audio')
+  })
+
   // Regression: a reload that dropped graphData wiped every group's subgraph,
   // so instantiated patterns showed no preview. loadGraph must restore it.
   it('restores group subgraphs and metadata so groups survive a reload', () => {

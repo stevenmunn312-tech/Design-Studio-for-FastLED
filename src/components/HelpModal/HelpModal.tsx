@@ -12,9 +12,8 @@ const TABS: { id: Tab; label: string }[] = [
 ]
 
 const CATEGORIES = [
-  { color: '#b388ff', name: 'Input',     nodes: 'Mic Input, Music Library' },
-  { color: '#00ffff', name: 'Audio',     nodes: 'FFT Analyzer, Beat Detect, Audio Hue' },
-  { color: '#ffa500', name: 'Hardware',  nodes: 'Button, Potentiometer, Performance Generator, SD Card' },
+  { color: '#00ffff', name: 'Audio',     nodes: 'Music Library, FFT Analyzer, Beat Detect, Percussion Detect, Audio Features, Audio Hue' },
+  { color: '#ffa500', name: 'Hardware',  nodes: 'Microphone, Button, Potentiometer, Performance Generator, SD Card' },
   { color: '#a8ff00', name: 'Math',      nodes: 'Math, Clamp, MapRange, Sin, Cos, Wave, ComplexWave, Lerp, Time, Abs, Mod, Random, Counter, Gate, Not, Compare, BeatSin, XY Mapper' },
   { color: '#ff4d8d', name: 'Color',     nodes: 'HSV→RGB, CHSV, Temperature, Blend Colors, Gradient Sampler, Palette Sampler, Palette Selector, Custom Palette, Poline, Palette Blend' },
   { color: '#ff00ff', name: 'Pattern',   nodes: 'Solid Color, Span, Rect, Circle, Line, Text, Noise (5 variants), Fire, Fire 2012, Plasma, Spectrum Bars, Bass Pulse, Midrange Waves, Treble Sparks, Beat Flash, Noise 2D, Radial Burst, Spiral, Kaleidoscope, Particles (7 modes), Gradient Frame, Fractal Noise, Gabor Noise, Palette Gradient, Image, Blobs, Flow Field, Starfield, Audio Flow, Reaction Diffusion, Game of Life, Pattern Master, Custom Formula' },
@@ -49,7 +48,7 @@ function QuickStartTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>4</div>
             <div className={styles.stepText}>
-              <strong>Add audio reactivity.</strong> Drop a Mic Input node, wire it through FFT Analyzer (splits into bass/mids/treble floats), then connect those values to any audio-reactive node or math input.
+              <strong>Add audio reactivity.</strong> Drop a Microphone node from Hardware, wire it through FFT Analyzer or the newer audio feature nodes, then connect those values to any audio-reactive node or math input.
             </div>
           </div>
           <div className={styles.step}>

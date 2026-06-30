@@ -91,15 +91,15 @@
 }
 
 .dropZone:hover {
-  border-color: var(--accent-input);
-  background: rgba(179, 136, 255, 0.06);
+  border-color: var(--accent-audio);
+  background: rgba(0, 255, 255, 0.06);
   color: var(--text-primary);
 }
 
 .dropIcon {
   font-size: 22px;
   line-height: 1;
-  color: var(--accent-input);
+  color: var(--accent-audio);
 }
 
 /* ── Song list ── */

@@ -130,6 +130,11 @@ const LEGACY_BUNDLE: Record<string, { nodeType: string; label: string; props: Re
   BlendFrames:   { nodeType: 'Blend', label: 'Blend', props: { blendMode: 'normal' } },
 }
 
+function normalizeCategory(nodeType: string, category: NodeCategory): NodeCategory {
+  if (category !== 'input') return category
+  return nodeType === 'MicInput' ? 'hardware' : 'audio'
+}
+
 // Migrate a saved graph's legacy node types to their bundle, fixing up edge
 // handles where a port was renamed (BlendFrames' `t` → Blend's `amount`) and
 // rescaling the old 0–255 `amount` opacity to the new 0–1 range.
@@ -164,7 +169,8 @@ function migrateLegacyGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes: 
     ) {
       properties = { ...properties, amount: properties.amount / 255 }
     }
-    return { ...n, data: { ...data, nodeType, label, properties } }
+    const category = normalizeCategory(nodeType, data.category)
+    return { ...n, data: { ...data, nodeType, label, category, properties } }
   })
   const migratedEdges = edges.map((e) => {
     const rename = handleRenames.get(e.target)

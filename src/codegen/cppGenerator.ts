@@ -625,6 +625,83 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         break
       }
 
+      case 'PercussionDetect': {
+        const sensitivity = floatProp(p.sensitivity, 0.55, 0, 1)
+        const decay = Math.max(0, Math.min(0.98, Number(p.decay ?? 0.72)))
+        const separation = floatProp(p.separation, 0.4, 0, 1)
+        if (hasMic) {
+          const prefix = v('perc')
+          const threshold = 0.06 + (1 - sensitivity) * 0.18
+          ln(`  static float ${prefix}_prevSpectrum[32]; static bool ${prefix}_ready = false;`)
+          ln(`  static float ${v('kick')} = 0.0f, ${v('snare')} = 0.0f, ${v('hihat')} = 0.0f;`)
+          ln(`  {`)
+          ln(`    float _low = 0.0f, _lowMid = 0.0f, _mids = 0.0f, _highs = 0.0f, _lowFlux = 0.0f, _midFlux = 0.0f, _highFlux = 0.0f;`)
+          ln(`    for (int _i = 0; _i < 32; _i++) {`)
+          ln(`      float _cur = _audioSpectrum[_i];`)
+          ln(`      float _prev = ${prefix}_ready ? ${prefix}_prevSpectrum[_i] : _cur;`)
+          ln(`      float _diff = _cur - _prev; if (_diff < 0.0f) _diff = 0.0f;`)
+          ln(`      if (_i < 4) _low += _cur;`)
+          ln(`      if (_i >= 4 && _i < 9) _lowMid += _cur;`)
+          ln(`      if (_i >= 8 && _i < 16) _mids += _cur;`)
+          ln(`      if (_i >= 20) _highs += _cur;`)
+          ln(`      if (_i < 5) _lowFlux += _diff;`)
+          ln(`      if (_i >= 6 && _i < 17) _midFlux += _diff;`)
+          ln(`      if (_i >= 18) _highFlux += _diff;`)
+          ln(`      ${prefix}_prevSpectrum[_i] = _cur;`)
+          ln(`    }`)
+          ln(`    _low /= 4.0f; _lowMid /= 5.0f; _mids /= 8.0f; _highs /= 12.0f;`)
+          ln(`    _lowFlux /= 5.0f; _midFlux /= 11.0f; _highFlux /= 14.0f;`)
+          ln(`    float _kickTarget = constrain(_lowFlux * 3.1f + _low * 0.9f - _lowMid * ${(0.3 + separation * 0.45).toFixed(4)}f - ${threshold.toFixed(4)}f, 0.0f, 1.0f);`)
+          ln(`    float _snareTarget = constrain(_midFlux * 2.6f + _mids * 0.55f - _low * ${(0.18 + separation * 0.22).toFixed(4)}f - _highs * 0.08f - ${(threshold * 0.8).toFixed(4)}f, 0.0f, 1.0f);`)
+          ln(`    float _hihatTarget = constrain(_highFlux * 3.2f + _highs * 0.45f - _mids * ${(0.08 + separation * 0.18).toFixed(4)}f - ${(threshold * 0.65).toFixed(4)}f, 0.0f, 1.0f);`)
+          ln(`    ${v('kick')} = _kickTarget >= ${v('kick')} ? _kickTarget : ${v('kick')} * ${decay.toFixed(4)}f + _kickTarget * ${(1 - decay).toFixed(4)}f;`)
+          ln(`    ${v('snare')} = _snareTarget >= ${v('snare')} ? _snareTarget : ${v('snare')} * ${decay.toFixed(4)}f + _snareTarget * ${(1 - decay).toFixed(4)}f;`)
+          ln(`    ${v('hihat')} = _hihatTarget >= ${v('hihat')} ? _hihatTarget : ${v('hihat')} * ${decay.toFixed(4)}f + _hihatTarget * ${(1 - decay).toFixed(4)}f;`)
+          ln(`    ${prefix}_ready = true;`)
+          ln(`  }`)
+        } else {
+          ln(`  // PercussionDetect — add a Microphone node for on-device percussion envelopes`)
+          ln(`  float ${v('kick')} = 0.0f, ${v('snare')} = 0.0f, ${v('hihat')} = 0.0f;`)
+        }
+        break
+      }
+
+      case 'AudioFeatures': {
+        const sensitivity = floatProp(p.sensitivity, 0.5, 0, 1)
+        const gate = floatProp(p.gate, 0.12, 0, 1)
+        const smoothing = Math.max(0, Math.min(0.95, Number(p.smoothing ?? 0.8)))
+        if (hasMic) {
+          const prefix = v('feat')
+          const silenceThreshold = 0.015 + gate * 0.35
+          ln(`  static float ${prefix}_prevSpectrum[32]; static bool ${prefix}_ready = false;`)
+          ln(`  static float ${v('vocals')} = 0.0f, ${v('energy')} = 0.0f;`)
+          ln(`  {`)
+          ln(`    float _low = 0.0f, _presence = 0.0f, _air = 0.0f, _presenceFlux = 0.0f, _total = 0.0f;`)
+          ln(`    for (int _i = 0; _i < 32; _i++) {`)
+          ln(`      float _cur = _audioSpectrum[_i];`)
+          ln(`      float _prev = ${prefix}_ready ? ${prefix}_prevSpectrum[_i] : _cur;`)
+          ln(`      float _diff = _cur - _prev; if (_diff < 0.0f) _diff = 0.0f;`)
+          ln(`      _total += _cur;`)
+          ln(`      if (_i < 5) _low += _cur;`)
+          ln(`      if (_i >= 9 && _i < 18) { _presence += _cur; _presenceFlux += _diff; }`)
+          ln(`      if (_i >= 18) _air += _cur;`)
+          ln(`      ${prefix}_prevSpectrum[_i] = _cur;`)
+          ln(`    }`)
+          ln(`    _total /= 32.0f; _low /= 5.0f; _presence /= 9.0f; _presenceFlux /= 9.0f; _air /= 14.0f;`)
+          ln(`    float _energyTarget = constrain((_total * 0.7f + _low * 0.2f + _presence * 0.1f) * ${(0.8 + sensitivity * 0.6).toFixed(4)}f, 0.0f, 1.0f);`)
+          ln(`    float _vocalsTarget = constrain((_presence * 1.35f + _presenceFlux * 2.1f - _low * 0.3f - _air * 0.12f) * ${(0.75 + sensitivity * 0.7).toFixed(4)}f - ${(gate * 0.35).toFixed(4)}f, 0.0f, 1.0f);`)
+          ln(`    ${v('energy')} = ${v('energy')} * ${smoothing.toFixed(4)}f + _energyTarget * ${(1 - smoothing).toFixed(4)}f;`)
+          ln(`    ${v('vocals')} = ${v('vocals')} * ${smoothing.toFixed(4)}f + _vocalsTarget * ${(1 - smoothing).toFixed(4)}f;`)
+          ln(`    ${prefix}_ready = true;`)
+          ln(`  }`)
+          ln(`  bool ${v('silence')} = ${v('energy')} < ${silenceThreshold.toFixed(4)}f;`)
+        } else {
+          ln(`  // AudioFeatures — add a Microphone node for on-device audio feature extraction`)
+          ln(`  float ${v('vocals')} = 0.0f, ${v('energy')} = 0.0f; bool ${v('silence')} = true;`)
+        }
+        break
+      }
+
       case 'MicInput':
         ln(`  // MicInput — INMP441 I2S audio is read once per frame by updateAudio()`)
         ln(`  // The source gain, AGC toggle, and adaptive noise gate come from the MicInput sliders.`)

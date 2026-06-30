@@ -919,7 +919,7 @@ describe('generateCpp — Particles modes', () => {
 describe('generateCpp — INMP441 audio engine', () => {
   const out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8 })
   const micGraph = (channel = 'Left') => {
-    const mic = node('mic', 'MicInput', 'input', { i2sWs: 39, i2sSck: 40, i2sSd: 41, channel })
+    const mic = node('mic', 'MicInput', 'hardware', { i2sWs: 39, i2sSck: 40, i2sSd: 41, channel })
     const fft = node('fft', 'FFTAnalyzer', 'audio', {})
     const bp = node('bp', 'BassPulse', 'pattern', {})
     return generateCpp([mic, fft, bp, out], [
@@ -949,7 +949,7 @@ describe('generateCpp — INMP441 audio engine', () => {
   })
 
   it('enables on-device AGC when the MicInput checkbox is set', () => {
-    const mic = node('mic', 'MicInput', 'input', { agc: true })
+    const mic = node('mic', 'MicInput', 'hardware', { agc: true })
     const fft = node('fft', 'FFTAnalyzer', 'audio', {})
     const cpp = generateCpp([mic, fft, out], [edge('e1', 'mic', 'fft', 'audio', 'audio')])
     expect(cpp).toContain('#define MIC_AGC   1')
@@ -966,7 +966,7 @@ describe('generateCpp — INMP441 audio engine', () => {
   })
 
   it('applies FFT Analyzer gain and smoothing on-device', () => {
-    const mic = node('mic', 'MicInput', 'input', {})
+    const mic = node('mic', 'MicInput', 'hardware', {})
     const fft = node('fft', 'FFTAnalyzer', 'audio', { gain: 1.5, smoothing: 0.8 })
     const cpp = generateCpp([mic, fft, out], [edge('e1', 'mic', 'fft', 'audio', 'audio')])
     expect(cpp).toContain('_audioBass * 1.500f')
@@ -994,7 +994,7 @@ describe('generateCpp — INMP441 audio engine', () => {
   })
 
   it('emits a per-node BeatDetect envelope and BPM estimate', () => {
-    const mic = node('mic', 'MicInput', 'input', {})
+    const mic = node('mic', 'MicInput', 'hardware', {})
     const beat = node('bd', 'BeatDetect', 'audio', { threshold: 0.08, attack: 0.3, decay: 0.05 })
     const cpp = generateCpp([mic, beat, out], [
       edge('e1', 'mic', 'bd', 'audio', 'audio'),
@@ -1004,6 +1004,34 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('n_bd_detector_fast += (_flux - n_bd_detector_fast) * 0.2540f;')
     expect(cpp).toContain('_flux > 0.0200f')
     expect(cpp).toContain('_audioSpectrum[_i] - n_bd_detector_prevSpectrum[_i]')
+  })
+
+  it('emits heuristic PercussionDetect envelopes from the live spectrum', () => {
+    const mic = node('mic', 'MicInput', 'hardware', {})
+    const perc = node('pd', 'PercussionDetect', 'audio', { sensitivity: 0.65, decay: 0.6, separation: 0.5 })
+    const cpp = generateCpp([mic, perc, out], [
+      edge('e1', 'mic', 'pd', 'audio', 'audio'),
+      edge('e2', 'pd', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('static float n_pd_perc_prevSpectrum[32];')
+    expect(cpp).toContain('float n_pd_kick = 0.0f, n_pd_snare = 0.0f, n_pd_hihat = 0.0f;')
+    expect(cpp).toContain('_audioSpectrum[_i]')
+    expect(cpp).toContain('_kickTarget')
+    expect(cpp).toContain('_hihatTarget')
+  })
+
+  it('emits heuristic AudioFeatures outputs from the live spectrum', () => {
+    const mic = node('mic', 'MicInput', 'hardware', {})
+    const feat = node('af', 'AudioFeatures', 'audio', { sensitivity: 0.6, gate: 0.1, smoothing: 0.2 })
+    const cpp = generateCpp([mic, feat, out], [
+      edge('e1', 'mic', 'af', 'audio', 'audio'),
+      edge('e2', 'af', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('static float n_af_feat_prevSpectrum[32];')
+    expect(cpp).toContain('float n_af_vocals = 0.0f, n_af_energy = 0.0f;')
+    expect(cpp).toContain('bool n_af_silence = n_af_energy <')
+    expect(cpp).toContain('_presenceFlux')
+    expect(cpp).toContain('_energyTarget')
   })
 
   it('honours the selected I2S channel', () => {

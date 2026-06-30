@@ -7,8 +7,8 @@ const mockAudio = vi.hoisted(() => ({
   treble: 0,
   beat: false,
   bpm: 120,
-  spectrum: Array(16).fill(0),
-  detectorSpectrum: Array(16).fill(0),
+  spectrum: Array(32).fill(0),
+  detectorSpectrum: Array(32).fill(0),
 }))
 
 vi.mock('../audioStore', () => ({
@@ -152,6 +152,45 @@ describe('evaluateGraph', () => {
     expect(beat).toHaveProperty('threshold')
     mockAudio.active = false
     mockAudio.beat = false
+  })
+
+  it('PercussionDetect emits separate kick, snare, and hi-hat envelopes', () => {
+    mockAudio.active = true
+    const perc = node('pd', 'PercussionDetect', 'audio', { sensitivity: 0.65, decay: 0.5, separation: 0.45 })
+    mockAudio.detectorSpectrum = Array(32).fill(0)
+    evaluateGraphFull([perc], [], 0, W, H)
+    mockAudio.detectorSpectrum = [0.9, 0.82, 0.64, 0.4, 0.14, 0.08, 0.03, 0.02, 0.01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    const kickHit = evaluateGraphFull([perc], [], 15, W, H).outputs.get('pd')!
+    expect(kickHit.kick).toBeGreaterThan(kickHit.snare as number)
+    expect(kickHit.kick).toBeGreaterThan(kickHit.hihat as number)
+
+    mockAudio.detectorSpectrum = [0.04, 0.05, 0.06, 0.08, 0.14, 0.2, 0.34, 0.48, 0.55, 0.42, 0.26, 0.18, 0.12, 0.08, 0.04, 0.02, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01]
+    const snareHit = evaluateGraphFull([perc], [], 30, W, H).outputs.get('pd')!
+    expect(snareHit.snare).toBeGreaterThan(snareHit.hihat as number)
+
+    mockAudio.detectorSpectrum = [0.01, 0.01, 0.02, 0.02, 0.03, 0.04, 0.06, 0.07, 0.09, 0.12, 0.16, 0.24, 0.28, 0.3, 0.26, 0.24, 0.2, 0.18, 0.22, 0.28, 0.34, 0.46, 0.58, 0.68, 0.76, 0.84, 0.92, 0.98, 0.94, 0.88, 0.82, 0.78]
+    const hatHit = evaluateGraphFull([perc], [], 45, W, H).outputs.get('pd')!
+    expect(hatHit.hihat).toBeGreaterThan(hatHit.kick as number)
+    mockAudio.active = false
+  })
+
+  it('AudioFeatures emits vocals, energy, and silence heuristics', () => {
+    mockAudio.active = true
+    const features = node('af', 'AudioFeatures', 'audio', { sensitivity: 0.6, gate: 0.1, smoothing: 0.2 })
+    mockAudio.detectorSpectrum = Array(32).fill(0)
+    let out = evaluateGraphFull([features], [], 0, W, H).outputs.get('af')!
+    expect(out.silence).toBe(true)
+
+    mockAudio.detectorSpectrum = [0.05, 0.06, 0.07, 0.08, 0.1, 0.12, 0.18, 0.26, 0.36, 0.48, 0.58, 0.64, 0.62, 0.54, 0.44, 0.34, 0.26, 0.2, 0.16, 0.14, 0.12, 0.1, 0.08, 0.06, 0.05, 0.04, 0.03, 0.03, 0.02, 0.02, 0.01, 0.01]
+    out = evaluateGraphFull([features], [], 15, W, H).outputs.get('af')!
+    expect(out.energy).toBeGreaterThan(0.15)
+    expect(out.vocals).toBeGreaterThan(0.1)
+    expect(out.silence).toBe(false)
+
+    mockAudio.detectorSpectrum = Array(32).fill(0)
+    out = evaluateGraphFull([features], [], 30, W, H).outputs.get('af')!
+    expect(out.energy).toBeLessThan(0.2)
+    mockAudio.active = false
   })
 
   it('ComplexWave combines two values per operation', () => {

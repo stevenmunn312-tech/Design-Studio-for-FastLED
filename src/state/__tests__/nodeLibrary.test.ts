@@ -32,8 +32,28 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('BeatDetect', 'decay')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
+  it('PercussionDetect exposes kick/snare/hihat with tunable heuristics', () => {
+    const pd = NODE_LIBRARY.find((n) => n.type === 'PercussionDetect')
+    expect(pd?.category).toBe('audio')
+    expect(pd?.outputs.map((p) => p.id)).toEqual(['kick', 'snare', 'hihat'])
+    expect(pd?.defaultProperties).toMatchObject({ sensitivity: 0.55, decay: 0.72, separation: 0.4 })
+    expect(propertyMeta('PercussionDetect', 'sensitivity')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+    expect(propertyMeta('PercussionDetect', 'separation')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+  })
+
+  it('AudioFeatures exposes vocals, energy, and silence controls in Audio', () => {
+    const af = NODE_LIBRARY.find((n) => n.type === 'AudioFeatures')
+    expect(af?.category).toBe('audio')
+    expect(af?.outputs.map((p) => p.id)).toEqual(['vocals', 'energy', 'silence'])
+    expect(af?.defaultProperties).toMatchObject({ sensitivity: 0.5, gate: 0.12, smoothing: 0.8 })
+    expect(propertyMeta('AudioFeatures', 'gate')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+    expect(propertyMeta('AudioFeatures', 'smoothing')).toMatchObject({ control: 'slider', min: 0, max: 0.95 })
+  })
+
   it('MicInput defaults keep AGC off until the user opts in', () => {
-    expect(NODE_LIBRARY.find((n) => n.type === 'MicInput')?.defaultProperties).toMatchObject({
+    const mic = NODE_LIBRARY.find((n) => n.type === 'MicInput')
+    expect(mic?.category).toBe('hardware')
+    expect(mic?.defaultProperties).toMatchObject({
       gain: 1,
       agc: false,
       threshold: 0.08,
@@ -102,5 +122,9 @@ describe('nodeLibrary', () => {
     expect(ac?.defaultProperties).toMatchObject({ intensity: 1, speed: 1, palette: 'rainbow' })
     expect(propertyMeta('AudioCascade', 'intensity')).toMatchObject({ control: 'slider', min: 0, max: 1 })
     expect(propertyMeta('AudioCascade', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+  })
+
+  it('MusicLibrary now shelves with audio analysis nodes', () => {
+    expect(NODE_LIBRARY.find((n) => n.type === 'MusicLibrary')?.category).toBe('audio')
   })
 })

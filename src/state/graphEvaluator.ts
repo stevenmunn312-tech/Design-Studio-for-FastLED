@@ -24,6 +24,17 @@ const flashLevel  = new Map<string, number>()
 const counterVals = new Map<string, number>()
 const fftLevels   = new Map<string, { bass: number; mids: number; treble: number }>()
 const beatLevels  = new Map<string, ReturnType<typeof createBeatDetectorState>>()
+type AudioFeatureState = {
+  prevSpectrum: number[]
+  kick: number
+  snare: number
+  hihat: number
+  vocals: number
+  energy: number
+  silence: boolean
+}
+const percussionLevels = new Map<string, AudioFeatureState>()
+const audioFeatureLevels = new Map<string, AudioFeatureState>()
 
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; r: number; g: number; b: number; seed?: number }
 const particleState = new Map<string, Particle[]>()
@@ -85,6 +96,37 @@ export function getCodeError(stateKey: string): string | null {
 }
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e))
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value))
+}
+
+function avgRange(values: readonly number[], start: number, end: number): number {
+  const from = Math.max(0, Math.floor(start))
+  const to = Math.max(from + 1, Math.min(values.length, Math.ceil(end)))
+  if (from >= values.length) return 0
+  let sum = 0
+  for (let i = from; i < to; i++) sum += clamp01(Number(values[i]) || 0)
+  return sum / Math.max(1, to - from)
+}
+
+function fluxRange(current: readonly number[], previous: readonly number[], start: number, end: number): number {
+  const from = Math.max(0, Math.floor(start))
+  const to = Math.max(from + 1, Math.min(current.length, previous.length || current.length, Math.ceil(end)))
+  if (from >= current.length) return 0
+  let sum = 0
+  for (let i = from; i < to; i++) {
+    const cur = clamp01(Number(current[i]) || 0)
+    const prev = clamp01(Number(previous[i]) || 0)
+    sum += Math.max(0, cur - prev)
+  }
+  return sum / Math.max(1, to - from)
+}
+
+function followLevel(prev: number, target: number, decay: number): number {
+  if (target >= prev) return target
+  return prev * decay + target * (1 - decay)
+}
 
 // ── Simplex noise 2D ─────────────────────────────────────────────────────────
 const _PERM = (() => {
@@ -2036,6 +2078,97 @@ function createEvalNode(
         } else {
           beatLevels.delete(key)
           out = { beat: false, bpm: 120, flux: 0, onset: 0, contrast: 0, threshold: 0, cooldownMs: 0 }
+        }
+        break
+      }
+
+      case 'PercussionDetect': {
+        const key = stateKey(id)
+        const sensitivity = normProp(props.sensitivity, 0.55)
+        const decay = Math.max(0, Math.min(0.98, Number(props.decay ?? 0.72)))
+        const separation = normProp(props.separation, 0.4)
+        const audio = useAudioStore.getState()
+        if (audio.active) {
+          const spectrum = (audio.detectorSpectrum ?? audio.spectrum ?? []).map((v) => clamp01(Number(v) || 0))
+          const prev = percussionLevels.get(key) ?? {
+            prevSpectrum: spectrum,
+            kick: 0,
+            snare: 0,
+            hihat: 0,
+            vocals: 0,
+            energy: 0,
+            silence: false,
+          }
+          const low = avgRange(spectrum, 0, 4)
+          const lowMid = avgRange(spectrum, 4, 9)
+          const mids = avgRange(spectrum, 8, 16)
+          const highs = avgRange(spectrum, 20, spectrum.length)
+          const lowFlux = fluxRange(spectrum, prev.prevSpectrum, 0, 5)
+          const midFlux = fluxRange(spectrum, prev.prevSpectrum, 6, 17)
+          const highFlux = fluxRange(spectrum, prev.prevSpectrum, 18, spectrum.length)
+          const threshold = 0.06 + (1 - sensitivity) * 0.18
+          const kickTarget = clamp01(lowFlux * 3.1 + low * 0.9 - lowMid * (0.3 + separation * 0.45) - threshold)
+          const snareTarget = clamp01(midFlux * 2.6 + mids * 0.55 - low * (0.18 + separation * 0.22) - highs * 0.08 - threshold * 0.8)
+          const hihatTarget = clamp01(highFlux * 3.2 + highs * 0.45 - mids * (0.08 + separation * 0.18) - threshold * 0.65)
+          const next = {
+            ...prev,
+            prevSpectrum: spectrum,
+            kick: followLevel(prev.kick, kickTarget, decay),
+            snare: followLevel(prev.snare, snareTarget, decay),
+            hihat: followLevel(prev.hihat, hihatTarget, decay),
+          }
+          percussionLevels.set(key, next)
+          out = { kick: next.kick, snare: next.snare, hihat: next.hihat }
+        } else {
+          percussionLevels.delete(key)
+          out = {
+            kick: clamp01(Math.sin(t * 2.1) * 0.5 + 0.5),
+            snare: clamp01(Math.sin(t * 4.0 + 1.2) * 0.5 + 0.5),
+            hihat: clamp01(Math.sin(t * 7.5 + 2.1) * 0.5 + 0.5),
+          }
+        }
+        break
+      }
+
+      case 'AudioFeatures': {
+        const key = stateKey(id)
+        const sensitivity = normProp(props.sensitivity, 0.5)
+        const gate = normProp(props.gate, 0.12)
+        const smoothing = Math.max(0, Math.min(0.95, Number(props.smoothing ?? 0.8)))
+        const audio = useAudioStore.getState()
+        if (audio.active) {
+          const spectrum = (audio.detectorSpectrum ?? audio.spectrum ?? []).map((v) => clamp01(Number(v) || 0))
+          const prev = audioFeatureLevels.get(key) ?? {
+            prevSpectrum: spectrum,
+            kick: 0,
+            snare: 0,
+            hihat: 0,
+            vocals: 0,
+            energy: 0,
+            silence: false,
+          }
+          const low = avgRange(spectrum, 0, 5)
+          const presence = avgRange(spectrum, 9, 18)
+          const air = avgRange(spectrum, 18, spectrum.length)
+          const presenceFlux = fluxRange(spectrum, prev.prevSpectrum, 9, 18)
+          const total = avgRange(spectrum, 0, spectrum.length)
+          const energyTarget = clamp01((total * 0.7 + low * 0.2 + presence * 0.1) * (0.8 + sensitivity * 0.6))
+          const vocalsTarget = clamp01((presence * 1.35 + presenceFlux * 2.1 - low * 0.3 - air * 0.12) * (0.75 + sensitivity * 0.7) - gate * 0.35)
+          const energy = prev.energy * smoothing + energyTarget * (1 - smoothing)
+          const vocals = prev.vocals * smoothing + vocalsTarget * (1 - smoothing)
+          const silenceThreshold = 0.015 + gate * 0.35
+          const silence = energy < silenceThreshold
+          const next = { ...prev, prevSpectrum: spectrum, vocals, energy, silence }
+          audioFeatureLevels.set(key, next)
+          out = { vocals, energy, silence }
+        } else {
+          audioFeatureLevels.delete(key)
+          const energy = clamp01((Math.sin(t * 0.8) + 1) / 2)
+          out = {
+            vocals: clamp01((Math.sin(t * 1.6 + 0.8) + 1) / 2),
+            energy,
+            silence: energy < 0.2,
+          }
         }
         break
       }
