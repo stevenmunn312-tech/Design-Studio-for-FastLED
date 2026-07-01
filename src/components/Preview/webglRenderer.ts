@@ -34,8 +34,8 @@ const FRAG = `
 
     // Circular LED disc (smooth edge)
     float r    = length(cf);
-    float core = smoothstep(0.49, 0.18, r);
-    float halo = smoothstep(0.92, 0.24, r) * (1.0 - core * 0.55);
+    float core = smoothstep(0.5, 0.17, r);
+    float halo = smoothstep(1.0, 0.2, r) * (1.0 - core * 0.48);
 
     // Glow: 7×7 neighbourhood contribution
     vec3 glow = vec3(0.0);
@@ -48,13 +48,14 @@ const FRAG = `
         if (nb < 0.015) continue;
         vec2  dlt = cell - (ni + 0.5);
         float d2  = dot(dlt, dlt);
-        glow += nc * (0.35 + nb * 1.1) * exp(-d2 * 0.48);
-      }
+        glow += nc * (0.42 + nb * 1.18) * exp(-d2 * 0.38);
     }
+  }
 
+    vec3 ledBoost = min(vec3(1.0), led + vec3(0.075));
     vec3 col = vec3(0.04, 0.05, 0.07)
-             + glow * (0.26 + halo * 0.18)
-             + led  * (core + halo * 0.22);
+             + glow * (0.31 + halo * 0.2)
+             + ledBoost * (core * 1.08 + halo * 0.24);
     gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
   }
 `
@@ -71,6 +72,8 @@ export class WebGLLEDRenderer {
   private uRes:        WebGLUniformLocation
   private lastW = 0
   private lastH = 0
+  private lastCanvasW = 0
+  private lastCanvasH = 0
 
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext('webgl', { antialias: false, powerPreference: 'high-performance' })
@@ -109,7 +112,12 @@ export class WebGLLEDRenderer {
         (gl.canvas as HTMLCanvasElement).height !== ch) {
       ;(gl.canvas as HTMLCanvasElement).width  = cw
       ;(gl.canvas as HTMLCanvasElement).height = ch
+    }
+
+    if (this.lastCanvasW !== cw || this.lastCanvasH !== ch) {
       gl.viewport(0, 0, cw, ch)
+      this.lastCanvasW = cw
+      this.lastCanvasH = ch
     }
 
     // Pack frame → RGBA Uint8Array

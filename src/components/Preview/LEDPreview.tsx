@@ -8,7 +8,8 @@ import { WebGLLEDRenderer } from './webglRenderer'
 import styles from './LEDPreview.module.css'
 
 const MAX_CANVAS_PX = 448
-const GLOW_RADIUS = 12
+const FULLSCREEN_CANVAS_PX = 1080
+const GLOW_RADIUS = 16
 const NUM_BARS = 28
 
 const clamp01 = (value: unknown) =>
@@ -68,20 +69,28 @@ function renderFrame(ctx: CanvasRenderingContext2D, frame: Frame, pixel: number)
       const brightness = (r + g + b) / (3 * 255)
       const inset = Math.max(1, Math.floor(pixel * 0.08))
       const size = Math.max(1, pixel - inset * 2)
-      ctx.fillStyle = color
+      const ledBoost = Math.min(255, Math.round(18 + brightness * 20))
+      const litR = Math.min(255, r + ledBoost)
+      const litG = Math.min(255, g + ledBoost)
+      const litB = Math.min(255, b + ledBoost)
+      const boostedColor = `rgb(${litR},${litG},${litB})`
+      ctx.fillStyle = boostedColor
       ctx.shadowColor = color
-      ctx.shadowBlur = GLOW_RADIUS * (0.45 + brightness * 1.9)
+      ctx.shadowBlur = GLOW_RADIUS * (0.5 + brightness * 2)
       ctx.fillRect(x * pixel + inset, y * pixel + inset, size, size)
     }
   }
 }
 
 export default function LEDPreview() {
+  const canvasWrapRef = useRef<HTMLDivElement>(null)
   const canvasRef   = useRef<HTMLCanvasElement>(null)
   const glRef       = useRef<WebGLLEDRenderer | null>(null)
   const tickRef     = useRef(0)
   const animRef     = useRef<number>(0)
   const [fps, setFps] = useState(0)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [viewport, setViewport] = useState(() => ({ width: window.innerWidth, height: window.innerHeight }))
   const lastFpsTime   = useRef(performance.now())
   const frameCount    = useRef(0)
   // Wall-clock time base so the preview animates at real-time speed regardless
@@ -104,7 +113,10 @@ export default function LEDPreview() {
   )
   const gridW = Math.max(2, Math.min(64, Number(outputNode?.data.properties.width  ?? 16)))
   const gridH = Math.max(2, Math.min(64, Number(outputNode?.data.properties.height ?? 16)))
-  const pixel = Math.max(4, Math.floor(MAX_CANVAS_PX / Math.max(gridW, gridH)))
+  const fullscreenCanvasPx = Math.min(FULLSCREEN_CANVAS_PX, viewport.width, viewport.height)
+  const pixel = isFullscreen
+    ? fullscreenCanvasPx / Math.max(gridW, gridH)
+    : Math.max(4, Math.floor(MAX_CANVAS_PX / Math.max(gridW, gridH)))
   const gridWRef = useRef(gridW)
   const gridHRef = useRef(gridH)
   const pixelRef = useRef(pixel)
@@ -126,6 +138,19 @@ export default function LEDPreview() {
   const [musicDuration, setMusicDuration] = useState(0)
   const [musicError, setMusicError] = useState<string | null>(null)
 
+  useEffect(() => {
+    const syncFullscreen = () => setIsFullscreen(document.fullscreenElement === canvasWrapRef.current)
+    const syncViewport = () => setViewport({ width: window.innerWidth, height: window.innerHeight })
+    syncFullscreen()
+    syncViewport()
+    document.addEventListener('fullscreenchange', syncFullscreen)
+    window.addEventListener('resize', syncViewport)
+    return () => {
+      document.removeEventListener('fullscreenchange', syncFullscreen)
+      window.removeEventListener('resize', syncViewport)
+    }
+  }, [])
+
   const onRotateDown = (e: React.PointerEvent) => {
     if (!preview3d) return
     drag.current = { x: e.clientX, y: e.clientY }
@@ -138,6 +163,17 @@ export default function LEDPreview() {
     setRot((r) => ({ x: Math.max(0, Math.min(90, r.x - dy * 0.5)), y: r.y + dx * 0.5 }))
   }
   const onRotateUp = () => { drag.current = null }
+
+  const toggleFullscreen = async () => {
+    const canvasWrap = canvasWrapRef.current
+    if (!canvasWrap) return
+    try {
+      if (document.fullscreenElement === canvasWrap) await document.exitFullscreen()
+      else await canvasWrap.requestFullscreen()
+    } catch {
+      // Ignore rejected fullscreen requests; the button will simply do nothing.
+    }
+  }
 
   const { mode: audioMode, spectrum, startAudio, attachAudioElement, stopAudio } = useAudioStore()
   const spectrumRef = useRef(spectrum)
@@ -325,6 +361,14 @@ export default function LEDPreview() {
         <span>LED Preview</span>
         <div className={styles.headerRight}>
           <button
+            className={styles.toggleBtn}
+            onClick={toggleFullscreen}
+            title={isFullscreen ? 'Exit fullscreen preview' : 'Open fullscreen preview'}
+            aria-pressed={isFullscreen}
+          >
+            {isFullscreen ? 'Windowed' : 'Fullscreen'}
+          </button>
+          <button
             className={`${styles.toggleBtn} ${styles.previewToggle} ${preview3d ? styles.toggleActive : ''}`}
             onClick={togglePreview3d}
             title={preview3d ? 'Switch to 2D view' : 'Switch to 3D view (drag to orbit)'}
@@ -343,12 +387,15 @@ export default function LEDPreview() {
           <span className={styles.fps}>{fps} fps</span>
         </div>
       </div>
-      <div className={`${styles.canvasWrap} ${preview3d ? styles.canvasWrap3d : ''}`}>
+      <div
+        ref={canvasWrapRef}
+        className={`${styles.canvasWrap} ${preview3d ? styles.canvasWrap3d : ''} ${isFullscreen ? styles.canvasWrapFullscreen : ''}`}
+      >
         <canvas
           ref={canvasRef}
           width={gridW * pixel}
           height={gridH * pixel}
-          className={styles.canvas}
+          className={`${styles.canvas} ${isFullscreen ? styles.canvasFullscreen : ''}`}
           style={preview3d ? { transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg)`, cursor: drag.current ? 'grabbing' : 'grab' } : undefined}
           onPointerDown={onRotateDown}
           onPointerMove={onRotateMove}
