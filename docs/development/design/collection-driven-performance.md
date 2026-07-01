@@ -302,8 +302,16 @@ fixed-switch one whenever the wired `PerformanceGenerator` has a collection.
    always renders. `musicStore.wiredCollection()` resolves both ids and tags live
    from the wired collection. Untagged patterns behave exactly as slice 1's random
    pick, so existing collections are unchanged.
-4. **Editor polish.** Collection-aware `SET_PATTERN` dropdown; show which patterns
-   expose which inputs.
+4. **Editor polish.** ✅ **shipped (2026-07-01).** Two pieces: (a) a **role dropdown**
+   on the `GroupInput` node body (`StudioNode`) that sets `paramId` to `energy`/`speed`/
+   `palette` (or "— input —" for an untagged input), replacing the manual/typo-prone
+   rename — the value is exactly what the evaluator and codegen key off; (b) a
+   **collection-aware `SET_PATTERN` dropdown** in `ShowTimeline`: for a version-2
+   (collection) show it lists the collection's patterns by group name (resolved from
+   the graph store) and edits/creates `SET_PATTERN` by **index**, while version-1
+   shows keep the enum-name dropdown. The event list/marker summaries show the group
+   name too. Remaining across the whole design note: **hardware validation** of the
+   modulation player (slice 2).
 
 ## Resolved
 
