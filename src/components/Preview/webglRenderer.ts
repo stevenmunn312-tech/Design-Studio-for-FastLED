@@ -35,7 +35,7 @@ const FRAG = `
     // Circular LED disc (smooth edge)
     float r    = length(cf);
     float core = smoothstep(0.5, 0.17, r);
-    float halo = smoothstep(1.0, 0.2, r) * (1.0 - core * 0.48);
+    float halo = smoothstep(0.98, 0.22, r) * (1.0 - core * 0.5);
 
     // Glow: 7×7 neighbourhood contribution
     vec3 glow = vec3(0.0);
@@ -48,14 +48,13 @@ const FRAG = `
         if (nb < 0.015) continue;
         vec2  dlt = cell - (ni + 0.5);
         float d2  = dot(dlt, dlt);
-        glow += nc * (0.42 + nb * 1.18) * exp(-d2 * 0.38);
+        glow += nc * (0.4 + nb * 1.18) * exp(-d2 * 0.42);
+      }
     }
-  }
 
-    vec3 ledBoost = min(vec3(1.0), led + vec3(0.075));
     vec3 col = vec3(0.04, 0.05, 0.07)
-             + glow * (0.31 + halo * 0.2)
-             + ledBoost * (core * 1.08 + halo * 0.24);
+             + glow * (0.3 + halo * 0.2)
+             + led  * (core + halo * 0.24);
     gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
   }
 `

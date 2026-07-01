@@ -9,7 +9,7 @@ import styles from './LEDPreview.module.css'
 
 const MAX_CANVAS_PX = 448
 const FULLSCREEN_CANVAS_PX = 1080
-const GLOW_RADIUS = 16
+const GLOW_RADIUS = 14
 const NUM_BARS = 28
 
 const clamp01 = (value: unknown) =>
@@ -69,14 +69,9 @@ function renderFrame(ctx: CanvasRenderingContext2D, frame: Frame, pixel: number)
       const brightness = (r + g + b) / (3 * 255)
       const inset = Math.max(1, Math.floor(pixel * 0.08))
       const size = Math.max(1, pixel - inset * 2)
-      const ledBoost = Math.min(255, Math.round(18 + brightness * 20))
-      const litR = Math.min(255, r + ledBoost)
-      const litG = Math.min(255, g + ledBoost)
-      const litB = Math.min(255, b + ledBoost)
-      const boostedColor = `rgb(${litR},${litG},${litB})`
-      ctx.fillStyle = boostedColor
+      ctx.fillStyle = color
       ctx.shadowColor = color
-      ctx.shadowBlur = GLOW_RADIUS * (0.5 + brightness * 2)
+      ctx.shadowBlur = GLOW_RADIUS * (0.45 + brightness * 1.9)
       ctx.fillRect(x * pixel + inset, y * pixel + inset, size, size)
     }
   }
@@ -175,12 +170,12 @@ export default function LEDPreview() {
     }
   }
 
-  const { mode: audioMode, spectrum, startAudio, attachAudioElement, stopAudio } = useAudioStore()
-  const spectrumRef = useRef(spectrum)
-  useEffect(() => { spectrumRef.current = spectrum }, [spectrum])
+  const { mode: audioMode, previewSpectrum, startAudio, attachAudioElement, stopAudio } = useAudioStore()
+  const spectrumRef = useRef(previewSpectrum)
+  useEffect(() => { spectrumRef.current = previewSpectrum }, [previewSpectrum])
   const peakRef = useRef(Array(NUM_BARS).fill(0))
 
-  const displaySpectrum = resample(spectrum, NUM_BARS).map((value, i, arr) => {
+  const displaySpectrum = resample(previewSpectrum, NUM_BARS).map((value, i, arr) => {
     const prev = arr[i - 1] ?? value
     const next = arr[i + 1] ?? value
     return clamp01(value * 0.55 + ((prev + value + next) / 3) * 0.45)
@@ -276,10 +271,7 @@ export default function LEDPreview() {
 
   const toggleMic = () => {
     if (audioMode === 'mic') stopAudio()
-    else {
-      if (musicPlaying) playerRef.current?.pause()
-      startAudio().catch(() => {})
-    }
+    else startAudio().catch(() => {})
   }
 
   const openFilePicker = () => fileInputRef.current?.click()
@@ -291,7 +283,6 @@ export default function LEDPreview() {
       player.removeAttribute('src')
       player.load()
     }
-    if (audioMode === 'media') stopAudio()
     if (musicUrlRef.current) URL.revokeObjectURL(musicUrlRef.current)
     musicUrlRef.current = null
     setMusicUrl(null)
@@ -327,7 +318,7 @@ export default function LEDPreview() {
     try {
       await attachAudioElement(player)
     } catch {
-      setMusicError('Could not route this file through the audio analyzer.')
+      setMusicError('This audio file could not be prepared for playback.')
     }
   }
 
@@ -339,13 +330,9 @@ export default function LEDPreview() {
       return
     }
     setMusicError(null)
-    if (audioMode !== 'media') {
-      attachAudioElement(player)
-        .then(() => player.play())
-        .catch(() => setMusicError('This audio file could not be played in the browser.'))
-      return
-    }
-    player.play().catch(() => setMusicError('This audio file could not be played in the browser.'))
+    attachAudioElement(player)
+      .then(() => player.play())
+      .catch(() => setMusicError('This audio file could not be played in the browser.'))
   }
 
   const onSeekMusic = (event: ChangeEvent<HTMLInputElement>) => {

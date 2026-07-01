@@ -11,6 +11,13 @@ interface AudioState {
   bpm: number
   spectrum: number[]
   detectorSpectrum: number[]
+  previewSpectrum: number[]
+  micActive: boolean
+  micBass: number
+  micMids: number
+  micTreble: number
+  micSpectrum: number[]
+  micDetectorSpectrum: number[]
   startAudio: () => Promise<void>
   attachAudioElement: (element: HTMLMediaElement) => Promise<void>
   stopAudio: () => void
@@ -28,6 +35,13 @@ export const useAudioStore = create<AudioState>()((set) => {
       bpm: data.bpm,
       spectrum: data.spectrum,
       detectorSpectrum: data.detectorSpectrum,
+      previewSpectrum: data.previewSpectrum,
+      micActive: data.micActive,
+      micBass: data.micBass,
+      micMids: data.micMids,
+      micTreble: data.micTreble,
+      micSpectrum: data.micSpectrum,
+      micDetectorSpectrum: data.micDetectorSpectrum,
     })
   })
 
@@ -41,6 +55,13 @@ export const useAudioStore = create<AudioState>()((set) => {
     bpm: 120,
     spectrum: Array(NUM_SPECTRUM_BARS).fill(0),
     detectorSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),
+    previewSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),
+    micActive: false,
+    micBass: 0,
+    micMids: 0,
+    micTreble: 0,
+    micSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),
+    micDetectorSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),
 
     startAudio: async () => {
       await engine.start()
@@ -49,7 +70,7 @@ export const useAudioStore = create<AudioState>()((set) => {
 
     attachAudioElement: async (element: HTMLMediaElement) => {
       await engine.attachMediaElement(element)
-      set({ active: true, mode: engine.mode })
+      set({ active: engine.active, mode: engine.mode })
     },
 
     stopAudio: () => {
@@ -64,6 +85,13 @@ export const useAudioStore = create<AudioState>()((set) => {
         bpm: 120,
         spectrum: Array(NUM_SPECTRUM_BARS).fill(0),
         detectorSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),
+        previewSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),
+        micActive: false,
+        micBass: 0,
+        micMids: 0,
+        micTreble: 0,
+        micSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),
+        micDetectorSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),
       })
     },
   }

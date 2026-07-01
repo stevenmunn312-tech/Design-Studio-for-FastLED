@@ -2072,8 +2072,8 @@ function createEvalNode(
 
       case 'FFTAnalyzer': {
         const audio = useAudioStore.getState()
-        const raw = audio.active
-          ? { bass: audio.bass, mids: audio.mids, treble: audio.treble }
+        const raw = audio.micActive
+          ? { bass: audio.micBass, mids: audio.micMids, treble: audio.micTreble }
           : {
               bass:   (Math.sin(t * 2.1) + 1) / 2,
               mids:   (Math.sin(t * 3.7 + 1.0) + 1) / 2,

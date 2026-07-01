@@ -20,6 +20,13 @@ export interface AudioData {
   bpm: number
   spectrum: number[]  // logarithmically spaced values, low → high
   detectorSpectrum: number[]
+  previewSpectrum: number[]
+  micActive: boolean
+  micBass: number
+  micMids: number
+  micTreble: number
+  micSpectrum: number[]
+  micDetectorSpectrum: number[]
 }
 
 export type AudioInputMode = 'mic' | 'media' | null
@@ -104,10 +111,13 @@ export class AudioEngine {
 
   private ctx: AudioContext | null = null
   private analyser: AnalyserNode | null = null
-  private source: AudioNode | null = null
+  private micSource: AudioNode | null = null
+  private mediaSource: MediaElementAudioSourceNode | null = null
+  private mediaAnalyser: AnalyserNode | null = null
   private stream: MediaStream | null = null
   private mediaElement: HTMLMediaElement | null = null
   private buf: Uint8Array | null = null
+  private mediaBuf: Uint8Array | null = null
   private listeners = new Set<(data: AudioData) => void>()
   private rafId = 0
   private gateState = {
@@ -143,53 +153,49 @@ export class AudioEngine {
     if (this.active && this.mode === 'mic') return
     this.stop()
     this.stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-    this.ctx = new AudioContext()
+    if (!this.ctx || this.ctx.state === 'closed') this.ctx = new AudioContext()
     this.analyser = this.ctx.createAnalyser()
     this.analyser.fftSize = FFT_SIZE
     this.analyser.smoothingTimeConstant = SMOOTHING
-    this.source = this.ctx.createMediaStreamSource(this.stream)
-    this.source.connect(this.analyser)
+    this.micSource = this.ctx.createMediaStreamSource(this.stream)
+    this.micSource.connect(this.analyser)
     this.buf = new Uint8Array(this.analyser.frequencyBinCount)
     this.active = true
     this.mode = 'mic'
-    this.tick()
-  }
-
-  async attachMediaElement(element: HTMLMediaElement): Promise<void> {
-    if (this.mediaElement === element && this.active && this.mode === 'media') {
-      if (this.ctx?.state === 'suspended') await this.ctx.resume()
-      return
-    }
-
-    this.stop()
-    this.ctx = new AudioContext()
-    this.analyser = this.ctx.createAnalyser()
-    this.analyser.fftSize = FFT_SIZE
-    this.analyser.smoothingTimeConstant = SMOOTHING
-    this.source = this.ctx.createMediaElementSource(element)
-    this.source.connect(this.analyser)
-    this.analyser.connect(this.ctx.destination)
-    this.mediaElement = element
-    this.buf = new Uint8Array(this.analyser.frequencyBinCount)
-    this.active = true
-    this.mode = 'media'
     await this.ctx.resume()
     this.tick()
   }
 
-  stop(): void {
-    if (!this.active) {
-      this.mode = null
-      this.mediaElement = null
+  async attachMediaElement(element: HTMLMediaElement): Promise<void> {
+    if (this.mediaElement === element && this.mediaSource) {
+      if (this.ctx?.state === 'suspended') await this.ctx.resume()
       return
     }
+
+    if (!this.ctx || this.ctx.state === 'closed') this.ctx = new AudioContext()
+    if (this.mediaSource) this.mediaSource.disconnect()
+    this.mediaSource = this.ctx.createMediaElementSource(element)
+    this.mediaAnalyser = this.ctx.createAnalyser()
+    this.mediaAnalyser.fftSize = FFT_SIZE
+    this.mediaAnalyser.smoothingTimeConstant = SMOOTHING
+    this.mediaSource.connect(this.mediaAnalyser)
+    this.mediaAnalyser.connect(this.ctx.destination)
+    this.mediaElement = element
+    this.mediaBuf = new Uint8Array(this.mediaAnalyser.frequencyBinCount)
+    await this.ctx.resume()
+    if (!this.rafId) this.tick()
+  }
+
+  stop(): void {
     cancelAnimationFrame(this.rafId)
-    this.source?.disconnect()
+    this.rafId = 0
+    this.micSource?.disconnect()
     this.analyser?.disconnect()
     this.stream?.getTracks().forEach(t => t.stop())
-    this.mediaElement = null
-    this.ctx?.close()
-    this.ctx = null; this.analyser = null; this.source = null; this.stream = null; this.buf = null
+    this.analyser = null
+    this.micSource = null
+    this.stream = null
+    this.buf = null
     this.gateState = {
       bass: DEFAULT_GATE_STATE(),
       mids: DEFAULT_GATE_STATE(),
@@ -200,6 +206,14 @@ export class AudioEngine {
     this.agcPeak = 0.0001
     this.active = false
     this.mode = null
+    if (!this.mediaSource) {
+      this.mediaElement = null
+      this.mediaAnalyser?.disconnect()
+      this.mediaAnalyser = null
+      this.mediaBuf = null
+      this.ctx?.close()
+      this.ctx = null
+    }
     this.emit({
       bass: 0,
       mids: 0,
@@ -208,6 +222,13 @@ export class AudioEngine {
       bpm: 120,
       spectrum: Array(NUM_SPECTRUM_BARS).fill(0),
       detectorSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),
+      previewSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),
+      micActive: false,
+      micBass: 0,
+      micMids: 0,
+      micTreble: 0,
+      micSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),
+      micDetectorSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),
     })
   }
 
@@ -218,14 +239,24 @@ export class AudioEngine {
 
   private tick = () => {
     this.rafId = requestAnimationFrame(this.tick)
-    if (!this.analyser || !this.buf) return
-    this.analyser.getByteFrequencyData(this.buf)
+    const micReady = !!this.analyser && !!this.buf
+    const mediaReady = !!this.mediaAnalyser && !!this.mediaBuf
+    if (!micReady && !mediaReady) {
+      cancelAnimationFrame(this.rafId)
+      this.rafId = 0
+      return
+    }
+    if (this.analyser && this.buf) this.analyser.getByteFrequencyData(this.buf)
+    if (this.mediaAnalyser && this.mediaBuf) this.mediaAnalyser.getByteFrequencyData(this.mediaBuf)
 
     const sampleRate = this.ctx?.sampleRate ?? 48_000
-    const bassRaw = this.bandRaw(30, 250, sampleRate)
-    const midsRaw = this.bandRaw(250, 2000, sampleRate)
-    const trebleRaw = this.bandRaw(2000, 8000, sampleRate)
-    const rawSpectrumValues = logarithmicSpectrum(this.buf, sampleRate, FFT_SIZE)
+    const bassRaw = micReady ? this.bandRaw(30, 250, sampleRate) : 0
+    const midsRaw = micReady ? this.bandRaw(250, 2000, sampleRate) : 0
+    const trebleRaw = micReady ? this.bandRaw(2000, 8000, sampleRate) : 0
+    const rawSpectrumValues = micReady && this.buf ? logarithmicSpectrum(this.buf, sampleRate, FFT_SIZE) : Array(NUM_SPECTRUM_BARS).fill(0)
+    const previewSpectrum = mediaReady && this.mediaBuf
+      ? logarithmicSpectrum(this.mediaBuf, sampleRate, FFT_SIZE)
+      : rawSpectrumValues
     const peak = Math.max(
       bassRaw,
       midsRaw,
@@ -243,17 +274,28 @@ export class AudioEngine {
     const rawSpectrum = rawSpectrumValues.map((value) => clamp01(value * scale))
     const spectrum = rawSpectrum
       .map((value, i) => this.gateSpectrum(value, i))
-    const beatResult = updateBeatDetectorFromSpectrum(rawSpectrum, performance.now(), this.beatState)
+    const beatSource = mediaReady && this.mediaBuf ? previewSpectrum : rawSpectrum
+    const beatResult = updateBeatDetectorFromSpectrum(beatSource, performance.now(), this.beatState)
     this.beatState = beatResult.state
+    const previewBass = mediaReady && this.mediaBuf ? averageFrequencyBand(this.mediaBuf, sampleRate, FFT_SIZE, 30, 250) : bassRaw
+    const previewMids = mediaReady && this.mediaBuf ? averageFrequencyBand(this.mediaBuf, sampleRate, FFT_SIZE, 250, 2000) : midsRaw
+    const previewTreble = mediaReady && this.mediaBuf ? averageFrequencyBand(this.mediaBuf, sampleRate, FFT_SIZE, 2000, 8000) : trebleRaw
 
     this.emit({
-      bass,
-      mids,
-      treble,
+      bass: clamp01(previewBass),
+      mids: clamp01(previewMids),
+      treble: clamp01(previewTreble),
       beat: beatResult.beat,
       bpm: beatResult.bpm,
-      spectrum,
-      detectorSpectrum: rawSpectrum,
+      spectrum: previewSpectrum,
+      detectorSpectrum: beatSource,
+      previewSpectrum,
+      micActive: micReady,
+      micBass: bass,
+      micMids: mids,
+      micTreble: treble,
+      micSpectrum: spectrum,
+      micDetectorSpectrum: rawSpectrum,
     })
   }
 
