@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateCpp } from '../cppGenerator'
+import { generateCpp, audioEngineForGraph } from '../cppGenerator'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1064,5 +1064,37 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).not.toContain('updateAudio()')
     expect(cpp).toContain('constrain(0.5f * 1.000f')
     expect(cpp).toContain('float n_fft_bass = n_fft_bass_smooth')
+  })
+
+  it('externalAudio references the mic globals without emitting the engine', () => {
+    // A host controller provides _audioBass etc.; this subgraph must reference
+    // them (not the 0.5f placeholder) yet not re-declare the engine.
+    const fft = node('fft', 'FFTAnalyzer', 'audio', {})
+    const bp = node('bp', 'BassPulse', 'pattern', {})
+    const cpp = generateCpp([fft, bp, out], [
+      edge('e2', 'fft', 'bp', 'bass', 'bass'),
+      edge('e3', 'bp', 'out', 'frame', 'frame'),
+    ], {}, { externalAudio: true })
+    expect(cpp).toContain('constrain(_audioBass * 1.000f')   // live global, not 0.5f
+    expect(cpp).not.toContain('constrain(0.5f * 1.000f')
+    expect(cpp).not.toContain('void updateAudio()')          // engine is the host's job
+    expect(cpp).not.toContain('driver/i2s.h')
+    expect(cpp).not.toContain('setupAudio();')
+  })
+})
+
+describe('audioEngineForGraph', () => {
+  it('returns null when the graph has no MicInput', () => {
+    expect(audioEngineForGraph([node('fft', 'FFTAnalyzer', 'audio', {})])).toBeNull()
+  })
+
+  it('returns the I2S include and engine code when a MicInput is present', () => {
+    const mic = node('mic', 'MicInput', 'hardware', { i2sWs: 39, i2sSck: 40, i2sSd: 41, channel: 'Right' })
+    const eng = audioEngineForGraph([mic])!
+    expect(eng.include).toContain('driver/i2s.h')
+    const joined = eng.code.join('\n')
+    expect(joined).toContain('void setupAudio()')
+    expect(joined).toContain('void updateAudio()')
+    expect(joined).toContain('I2S_CHANNEL_FMT_ONLY_RIGHT')   // channel honoured
   })
 })

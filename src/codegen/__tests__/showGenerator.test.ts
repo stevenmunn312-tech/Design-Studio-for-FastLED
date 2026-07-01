@@ -127,4 +127,43 @@ describe('showGenerator', () => {
       expect(r.functions[0]).toContain('CRGBPalette16 pal_gi = palette;')   // GroupInput → palette param
     })
   })
+
+  describe('on-device mic audio in a generative show', () => {
+    // A pattern whose BassPulse is driven by an in-group FFTAnalyzer.
+    const audioGroups = {
+      ga: {
+        nodes: [
+          node('fft', 'FFTAnalyzer', {}, [], [{ id: 'bass', dataType: 'float' }]),
+          node('bp', 'BassPulse', {}, [{ id: 'bass', dataType: 'float' }], [{ id: 'frame', dataType: 'frame' }]),
+          node('go', 'GroupOutput'),
+        ],
+        edges: [edge('e1', 'fft', 'bass', 'bp', 'bass'), edge('e2', 'bp', 'frame', 'go', 'frame')],
+      },
+    } as unknown as GroupRegistry
+    const showNodes = (withMic: boolean) => [
+      node('pc', 'PatternCollection', { patternIds: ['ga'] }),
+      node('pm', 'PatternMaster', { minTime: 4, maxTime: 12, transitionSec: 1 }),
+      node('out', 'MatrixOutput', { width: 8, height: 8 }),
+      ...(withMic ? [node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })] : []),
+    ]
+    const showEdges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
+
+    it('hosts the audio engine and makes patterns read the live mic when a MicInput is present', () => {
+      const cpp = generateShowSketch(showNodes(true), showEdges, audioGroups)
+      expect(cpp).toContain('#include <driver/i2s.h>')
+      expect(cpp).toContain('void setupAudio()')
+      expect(cpp).toContain('void updateAudio()')
+      expect(cpp).toContain('setupAudio();')              // in setup()
+      expect(cpp).toMatch(/void loop\(\) \{\n {2}updateAudio\(\);/)   // once per frame
+      expect(cpp).toContain('_audioBass')                 // render_p0 reads the live global
+      expect(cpp).not.toContain('constrain(0.5f')         // not the placeholder
+    })
+
+    it('keeps the placeholder (no engine) when there is no MicInput', () => {
+      const cpp = generateShowSketch(showNodes(false), showEdges, audioGroups)
+      expect(cpp).not.toContain('driver/i2s.h')
+      expect(cpp).not.toContain('updateAudio()')
+      expect(cpp).toContain('constrain(0.5f')             // frozen placeholder
+    })
+  })
 })

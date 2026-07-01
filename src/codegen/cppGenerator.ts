@@ -320,7 +320,41 @@ function audioEngineCpp(ws: number, sck: number, sd: number, chFmt: string, gain
 
 // ── Code generator ────────────────────────────────────────────────────────────
 
-export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: GroupRegistry = {}): string {
+/**
+ * The on-device audio engine (INMP441 I2S reader + FFT) for a graph that
+ * contains a MicInput, so a *controller* sketch (e.g. the generative pattern
+ * show) can host the engine once while the render functions it compiles from
+ * subgraphs reference the `_audioBass`/`_audioMids`/`_audioTreble`/`_audioBeat`
+ * globals. Returns null when the graph has no MicInput. Mirrors the block
+ * generateCpp inlines for a mic-bearing single-pattern sketch.
+ */
+export function audioEngineForGraph(nodes: StudioNode[]): { include: string; code: string[] } | null {
+  const micNode = nodes.find((n) => n.data.nodeType === 'MicInput')
+  if (!micNode) return null
+  const p = micNode.data.properties as Record<string, unknown>
+  const ic = (v: unknown, d: number, min: number, max: number) => {
+    const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : d
+  }
+  const fc = (v: unknown, d: number, min: number, max: number) => {
+    const n = Number(v); return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : d
+  }
+  const chFmt = String(p.channel ?? 'Left') === 'Right' ? 'I2S_CHANNEL_FMT_ONLY_RIGHT' : 'I2S_CHANNEL_FMT_ONLY_LEFT'
+  return {
+    include: `#include <driver/i2s.h>   // INMP441 I2S microphone (ESP32)`,
+    code: audioEngineCpp(
+      ic(p.i2sWs, 39, 0, 48), ic(p.i2sSck, 40, 0, 48), ic(p.i2sSd, 41, 0, 48), chFmt,
+      fc(p.gain, 1, 0, 4), Boolean(p.agc), fc(p.threshold, 0.08, 0, 1), fc(p.attack, 0.2, 0, 1), fc(p.decay, 0.05, 0, 1),
+    ),
+  }
+}
+
+export function generateCpp(
+  nodes: StudioNode[], edges: StudioEdge[], groups: GroupRegistry = {},
+  // `externalAudio`: the host sketch already provides the audio-engine globals
+  // (used when compiling a pattern subgraph into a controller that hosts the
+  // engine), so FFTAnalyzer/BeatDetect reference them without re-emitting it.
+  opts: { externalAudio?: boolean } = {},
+): string {
   if (nodes.length === 0) return '// No nodes in graph\n'
 
   // Inline any Group nodes so the rest of the generator works on a flat graph.
@@ -359,20 +393,14 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
   // row-major and MatrixOutput remaps grid → physical index via XY().
   const serpentine = (outputNode ? props(outputNode).serpentine : false) === true
 
-  // A MicInput node turns on the on-device audio engine (INMP441 over I2S + FFT).
-  // Its pins/channel configure the generated I2S reader; FFTAnalyzer/BeatDetect
-  // then resolve to the live band levels instead of placeholder constants.
-  const micNode = nodes.find((n) => n.data.nodeType === 'MicInput')
-  const hasMic = !!micNode
-  const micWs  = intProp(micNode ? props(micNode).i2sWs  : undefined, 39, 0, 48)
-  const micSck = intProp(micNode ? props(micNode).i2sSck : undefined, 40, 0, 48)
-  const micSd  = intProp(micNode ? props(micNode).i2sSd  : undefined, 41, 0, 48)
-  const micChannel = String(micNode ? props(micNode).channel ?? 'Left' : 'Left')
-  const micGain = floatProp(micNode ? props(micNode).gain : undefined, 1, 0, 4)
-  const micAgc = Boolean(micNode ? props(micNode).agc : false)
-  const micThreshold = floatProp(micNode ? props(micNode).threshold : undefined, 0.08, 0, 1)
-  const micAttack = floatProp(micNode ? props(micNode).attack : undefined, 0.2, 0, 1)
-  const micDecay = floatProp(micNode ? props(micNode).decay : undefined, 0.05, 0, 1)
+  // A MicInput node turns on the on-device audio engine (INMP441 over I2S + FFT);
+  // its pins/channel configure the generated I2S reader. `emitEngine` means this
+  // sketch hosts the engine itself; `useAudioGlobals` means FFTAnalyzer/BeatDetect
+  // resolve to the live band levels (either because we host the engine, or a
+  // controller does — `externalAudio`) instead of placeholder constants.
+  const audio = audioEngineForGraph(nodes)
+  const emitEngine = !!audio
+  const useAudioGlobals = emitEngine || !!opts.externalAudio
 
   const sorted = topoSort(nodes, edges)
 
@@ -596,10 +624,10 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         const gain = Math.max(0.25, Math.min(4, Number(p.gain ?? 1)))
         const rawSmoothing = Number(p.smoothing ?? 0.72)
         const smoothing = Math.max(0, Math.min(0.95, rawSmoothing > 1 ? rawSmoothing / 4 : rawSmoothing))
-        const bass = hasMic ? '_audioBass' : '0.5f'
-        const mids = hasMic ? '_audioMids' : '0.5f'
-        const treble = hasMic ? '_audioTreble' : '0.5f'
-        if (!hasMic) ln(`  // FFTAnalyzer — add a Microphone node to drive these from the INMP441`)
+        const bass = useAudioGlobals ? '_audioBass' : '0.5f'
+        const mids = useAudioGlobals ? '_audioMids' : '0.5f'
+        const treble = useAudioGlobals ? '_audioTreble' : '0.5f'
+        if (!useAudioGlobals) ln(`  // FFTAnalyzer — add a Microphone node to drive these from the INMP441`)
         ln(`  float ${v('bass')}_target = constrain(${bass} * ${gain.toFixed(3)}f, 0.0f, 1.0f), ${v('mids')}_target = constrain(${mids} * ${gain.toFixed(3)}f, 0.0f, 1.0f), ${v('treble')}_target = constrain(${treble} * ${gain.toFixed(3)}f, 0.0f, 1.0f);`)
         ln(`  static float ${v('bass')}_smooth = -1, ${v('mids')}_smooth = -1, ${v('treble')}_smooth = -1;`)
         ln(`  ${v('bass')}_smooth = ${v('bass')}_smooth < 0 ? ${v('bass')}_target : ${v('bass')}_smooth * ${smoothing.toFixed(3)}f + ${v('bass')}_target * ${(1 - smoothing).toFixed(3)}f;`)
@@ -610,7 +638,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
       }
 
       case 'BeatDetect': {
-        if (hasMic) {
+        if (useAudioGlobals) {
           const threshold = denormalizeBeatParam('threshold', floatProp(p.threshold, 0.2, 0, 1))
           const attack = denormalizeBeatParam('attack', floatProp(p.attack, 0.55, 0, 1))
           const decay = denormalizeBeatParam('decay', floatProp(p.decay, 0.25, 0, 1))
@@ -646,7 +674,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         const sensitivity = floatProp(p.sensitivity, 0.55, 0, 1)
         const decay = Math.max(0, Math.min(0.98, Number(p.decay ?? 0.72)))
         const separation = floatProp(p.separation, 0.4, 0, 1)
-        if (hasMic) {
+        if (useAudioGlobals) {
           const prefix = v('perc')
           const threshold = 0.06 + (1 - sensitivity) * 0.18
           ln(`  static float ${prefix}_prevSpectrum[32]; static bool ${prefix}_ready = false;`)
@@ -687,7 +715,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
         const sensitivity = floatProp(p.sensitivity, 0.5, 0, 1)
         const gate = floatProp(p.gate, 0.12, 0, 1)
         const smoothing = Math.max(0, Math.min(0.95, Number(p.smoothing ?? 0.8)))
-        if (hasMic) {
+        if (useAudioGlobals) {
           const prefix = v('feat')
           const silenceThreshold = 0.015 + gate * 0.35
           ln(`  static float ${prefix}_prevSpectrum[32]; static bool ${prefix}_ready = false;`)
@@ -2097,7 +2125,7 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
 
   // Header
   lines.push(`#include <FastLED.h>`)
-  if (hasMic) lines.push(`#include <driver/i2s.h>   // INMP441 I2S microphone (ESP32)`)
+  if (audio) lines.push(audio.include)
   lines.push(``)
   lines.push(`#define WIDTH    ${width}`)
   lines.push(`#define HEIGHT   ${height}`)
@@ -2154,9 +2182,8 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
     lines.push(``)
   }
 
-  if (hasMic) {
-    const chFmt = micChannel === 'Right' ? 'I2S_CHANNEL_FMT_ONLY_RIGHT' : 'I2S_CHANNEL_FMT_ONLY_LEFT'
-    lines.push(...audioEngineCpp(micWs, micSck, micSd, chFmt, micGain, micAgc, micThreshold, micAttack, micDecay))
+  if (audio) {
+    lines.push(...audio.code)
     lines.push(``)
   }
 
@@ -2168,12 +2195,12 @@ export function generateCpp(nodes: StudioNode[], edges: StudioEdge[], groups: Gr
   lines.push(`void setup() {`)
   lines.push(`  FastLED.addLeds<${chipset}, DATA_PIN, ${colorOrder}>(leds, NUM_LEDS);`)
   lines.push(`  FastLED.setBrightness(200);`)
-  if (hasMic) lines.push(`  setupAudio();`)
+  if (emitEngine) lines.push(`  setupAudio();`)
   lines.push(`}`)
   lines.push(``)
 
   lines.push(`void loop() {`)
-  if (hasMic) lines.push(`  updateAudio();`)
+  if (emitEngine) lines.push(`  updateAudio();`)
   if (needsT.v) lines.push(`  float t = millis() / 1000.0f;`)
   lines.push(...loopLines)
   if (!sorted.some((n) => n.data.nodeType === 'MatrixOutput')) {

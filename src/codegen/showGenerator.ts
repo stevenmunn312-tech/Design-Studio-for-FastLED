@@ -13,7 +13,7 @@
 
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
-import { generateCpp } from './cppGenerator'
+import { generateCpp, audioEngineForGraph } from './cppGenerator'
 
 const nodeType = (n: StudioNode) => (n.data as { nodeType?: string }).nodeType
 const props = (n: StudioNode) => n.data.properties as Record<string, unknown>
@@ -61,7 +61,7 @@ const ROLE_CPP_TYPE: Record<string, string> = {
 }
 const roleSig = (p: string) => `${ROLE_CPP_TYPE[p] ?? 'float'} ${p}`
 
-function buildPattern(groupId: string, groups: GroupRegistry, index: number, roleParams: string[] = []): PatternUnit {
+function buildPattern(groupId: string, groups: GroupRegistry, index: number, roleParams: string[] = [], externalAudio = false): PatternUnit {
   const fnName = `render_p${index}`
   // Signature: render_pN(uint32_t ms[, float energy, …][, const CRGBPalette16& palette])
   // — one extra param per exposed role when "Use group inputs" is on.
@@ -86,7 +86,9 @@ function buildPattern(groupId: string, groups: GroupRegistry, index: number, rol
     .filter((e) => e.target !== out.id)
     .concat([{ id: `__e_${index}`, source: term.source, sourceHandle: term.sourceHandle, target: matrix.id, targetHandle: 'frame' } as StudioEdge])
 
-  const sketch = generateCpp(nodes, edges, groups)
+  // `externalAudio` lets the pattern's FFTAnalyzer/BeatDetect reference the
+  // controller-hosted mic globals (the controller emits the engine once).
+  const sketch = generateCpp(nodes, edges, groups, { externalAudio })
   const lines = sketch.split('\n')
   const pfx = (s: string) => s.replace(/\bbuf_[A-Za-z0-9_]+\b/g, (m) => `p${index}_${m}`)
 
@@ -136,8 +138,8 @@ export interface PatternRenderers {
   params: string[]
 }
 
-export function buildPatternRenderers(patternIds: string[], groups: GroupRegistry, roleParams: string[] = []): PatternRenderers {
-  const units = patternIds.map((id, i) => buildPattern(id, groups, i, roleParams))
+export function buildPatternRenderers(patternIds: string[], groups: GroupRegistry, roleParams: string[] = [], externalAudio = false): PatternRenderers {
+  const units = patternIds.map((id, i) => buildPattern(id, groups, i, roleParams, externalAudio))
   const helpers = new Map<string, string>()
   for (const u of units) for (const [k, v] of u.helpers) helpers.set(k, v)
   return {
@@ -161,11 +163,17 @@ export function generateShowSketch(nodes: StudioNode[], edges: StudioEdge[], gro
   const dataPin = Number(op.dataPin ?? 5)
   const chipset = String(op.chipset ?? 'WS2812B'), colorOrder = String(op.colorOrder ?? 'GRB')
 
-  const renderers = buildPatternRenderers(info.patternIds, groups)
+  // A MicInput on the canvas turns the controller into an audio host: it runs
+  // the INMP441 I2S + FFT engine and the collected patterns' FFTAnalyzer/
+  // BeatDetect read the live band globals (externalAudio), so a mic-reactive
+  // pattern reacts on-device the same way it does in the live preview.
+  const audio = audioEngineForGraph(nodes)
+  const renderers = buildPatternRenderers(info.patternIds, groups, [], !!audio)
 
   const L: string[] = []
   L.push('// FastLED Studio — generative pattern show (Phase 4, first slice)')
   L.push('#include <FastLED.h>')
+  if (audio) L.push(audio.include)
   L.push('')
   L.push(`#define WIDTH    ${width}`)
   L.push(`#define HEIGHT   ${height}`)
@@ -177,6 +185,7 @@ export function generateShowSketch(nodes: StudioNode[], edges: StudioEdge[], gro
   L.push('CRGB showA[NUM_LEDS];   // outgoing pattern during a transition')
   for (const b of renderers.buffers) L.push(b)
   L.push('')
+  if (audio) { for (const line of audio.code) L.push(line); L.push('') }
   for (const h of renderers.helpers) { L.push(h); L.push('') }
 
   for (const fn of renderers.functions) { L.push(fn); L.push('') }
@@ -193,6 +202,7 @@ export function generateShowSketch(nodes: StudioNode[], edges: StudioEdge[], gro
   L.push(`  FastLED.addLeds<${chipset}, DATA_PIN, ${colorOrder}>(leds, NUM_LEDS);`)
   L.push('  FastLED.setBrightness(200);')
   L.push('  randomSeed(analogRead(A0));')
+  if (audio) L.push('  setupAudio();')
   L.push('}')
   L.push('')
 
@@ -201,6 +211,7 @@ export function generateShowSketch(nodes: StudioNode[], edges: StudioEdge[], gro
   const minMs = Math.round(info.minTime * 1000), maxMs = Math.round(info.maxTime * 1000)
   const transMs = Math.round(info.transitionSec * 1000)
   L.push('void loop() {')
+  if (audio) L.push('  updateAudio();   // refresh mic band levels once per frame')
   L.push('  static uint8_t  cur = random8(PATTERN_COUNT), nxt = 0;')
   L.push('  static bool     transitioning = false;')
   L.push('  static uint32_t phaseStart = 0, dwell = 0;')
