@@ -314,4 +314,30 @@ describe('StudioNode', () => {
     const on = renderNode(makeNode('Transition', { transitionType: 'wipe', t: 0.5, direction: 'right' }))
     expect(directionSelect(on.container)!.disabled).toBe(false)
   })
+
+  // GroupInput is minted programmatically (no NODE_LIBRARY entry), so build it
+  // directly. Its `paramId` is edited via a role dropdown, not a text field.
+  const groupInput = (paramId: string): StudioNodeT => ({
+    id: 'n1', type: 'studioNode', position: { x: 0, y: 0 },
+    data: { label: 'In', nodeType: 'GroupInput', category: 'composite', properties: { paramId }, inputs: [], outputs: [{ id: 'out', dataType: 'float' }] },
+  } as unknown as StudioNodeT)
+
+  it('shows a role dropdown (not a text field) for a GroupInput and writes the role to paramId', () => {
+    const { container, getByText } = renderNode(groupInput('param0'))
+    expect(getByText('role')).toBeTruthy()
+    expect(container.querySelector('input[type="text"]')).toBeNull()   // no raw paramId field
+    const select = container.querySelector('select') as HTMLSelectElement
+    expect(select.value).toBe('')   // param0 isn't a role → "— input —"
+    expect(Array.from(select.options).map((o) => o.value)).toEqual(['', 'energy', 'speed', 'palette'])
+    fireEvent.change(select, { target: { value: 'speed' } })
+    expect(useGraphStore.getState().nodes[0].data.properties.paramId).toBe('speed')
+  })
+
+  it('reflects an existing role and reverts to a plain input id', () => {
+    const { container } = renderNode(groupInput('energy'))
+    const select = container.querySelector('select') as HTMLSelectElement
+    expect(select.value).toBe('energy')
+    fireEvent.change(select, { target: { value: '' } })   // back to a plain input
+    expect(useGraphStore.getState().nodes[0].data.properties.paramId).toBe('param0')
+  })
 })

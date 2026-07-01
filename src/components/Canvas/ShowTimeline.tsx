@@ -7,6 +7,7 @@ import {
   SHOW_TRANSITIONS,
 } from '../../codegen/performanceGenerator'
 import type { ShowCommand, ShowEvent, ShowFile } from '../../types/showFile'
+import { useGraphStore } from '../../state/graphStore'
 import styles from './ShowTimeline.module.css'
 
 // Hand-tweak editor for a generated .show. Renders the event stream as a
@@ -45,7 +46,11 @@ function fmt(ms: number): string {
 }
 
 /** One-line human summary of an event's params for the list rows. */
-function summary(ev: ShowEvent): string {
+function summary(ev: ShowEvent, patternLabels?: string[]): string {
+  if (ev.cmd === 'SET_PATTERN' && ev.params.index !== undefined) {
+    const i = Number(ev.params.index)
+    return patternLabels?.[i] ?? `#${i + 1}`
+  }
   switch (ev.cmd) {
     case 'SET_PATTERN':    return ev.params.name !== undefined ? String(ev.params.name) : `#${Number(ev.params.index) + 1}`
     case 'SET_PALETTE':    return String(ev.params.name)
@@ -71,6 +76,15 @@ export default function ShowTimeline({ show, posMs, selected, onSelect, onSeek, 
   const events = show.events
   const dur = Math.max(1, show.durationMs)
 
+  // Collection (version 2) shows reference patterns by index into `patternSet`;
+  // resolve those group ids to names so SET_PATTERN can be edited by pattern
+  // rather than a bare number. Undefined for enum (version 1) shows.
+  const graphs = useGraphStore((s) => s.graphs)
+  const patternLabels = useMemo(
+    () => show.patternSet?.map((gid, i) => graphs[gid]?.name ?? `#${i + 1}`),
+    [show.patternSet, graphs],
+  )
+
   const sel = selected !== null && selected >= 0 && selected < events.length ? events[selected] : null
 
   // Commit a change to one event, re-sort, and keep the selection on the same
@@ -83,7 +97,9 @@ export default function ShowTimeline({ show, posMs, selected, onSelect, onSeek, 
   }
 
   function addEvent() {
-    const ev: ShowEvent = { t: Math.round(Math.min(posMs, dur)), cmd: 'SET_PATTERN', params: defaultParams('SET_PATTERN') }
+    // A collection show addresses patterns by index, not name.
+    const params: ShowEvent['params'] = patternLabels ? { index: 0 } : defaultParams('SET_PATTERN')
+    const ev: ShowEvent = { t: Math.round(Math.min(posMs, dur)), cmd: 'SET_PATTERN', params }
     const next = sortShowEvents([...events, ev])
     onChange(next)
     onSelect(next.indexOf(ev))
@@ -138,7 +154,7 @@ export default function ShowTimeline({ show, posMs, selected, onSelect, onSeek, 
             className={`nodrag ${styles.marker} ${i === selected ? styles.markerOn : ''}`}
             style={{ left: `${left}%`, background: CMD_META[cmd].color }}
             onClick={(e) => { e.stopPropagation(); selectAndSeek(i) }}
-            title={`${fmt(events[i].t)} · ${CMD_META[cmd].label} · ${summary(events[i])}`}
+            title={`${fmt(events[i].t)} · ${CMD_META[cmd].label} · ${summary(events[i], patternLabels)}`}
             aria-label={`${CMD_META[cmd].label} at ${fmt(events[i].t)}`}
           />
         ))}
@@ -181,7 +197,7 @@ export default function ShowTimeline({ show, posMs, selected, onSelect, onSeek, 
             <span className={styles.dot} style={{ background: CMD_META[ev.cmd].color }} aria-hidden="true" />
             <span className={styles.rowTime}>{fmt(ev.t)}</span>
             <span className={styles.rowCmd}>{CMD_META[ev.cmd].label}</span>
-            <span className={styles.rowSum}>{summary(ev)}</span>
+            <span className={styles.rowSum}>{summary(ev, patternLabels)}</span>
           </button>
         ))}
       </div>
@@ -218,8 +234,13 @@ export default function ShowTimeline({ show, posMs, selected, onSelect, onSeek, 
           </label>
 
           {sel.cmd === 'SET_PATTERN' && (
-            <ParamSelect label="Pattern" options={SHOW_PATTERNS} value={String(sel.params.name)}
-              onChange={(v) => commit(selected, (x) => ({ ...x, params: { name: v } }))} />
+            patternLabels ? (
+              <IndexSelect label="Pattern" options={patternLabels} value={Number(sel.params.index ?? 0)}
+                onChange={(i) => commit(selected, (x) => ({ ...x, params: { index: i } }))} />
+            ) : (
+              <ParamSelect label="Pattern" options={SHOW_PATTERNS} value={String(sel.params.name)}
+                onChange={(v) => commit(selected, (x) => ({ ...x, params: { name: v } }))} />
+            )
           )}
           {sel.cmd === 'SET_PALETTE' && (
             <ParamSelect label="Palette" options={[...SHOW_PALETTES]} value={String(sel.params.name)}
@@ -267,6 +288,21 @@ function ParamSelect({ label, options, value, onChange }: {
       <span>{label}</span>
       <select className="nodrag" value={value} onChange={(e) => onChange(e.target.value)}>
         {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
+    </label>
+  )
+}
+
+// Like ParamSelect but the option value is an index (for collection SET_PATTERN,
+// which stores a numeric index into the show's patternSet, not a name).
+function IndexSelect({ label, options, value, onChange }: {
+  label: string; options: string[]; value: number; onChange: (i: number) => void
+}) {
+  return (
+    <label className={styles.field}>
+      <span>{label}</span>
+      <select className="nodrag" value={value} onChange={(e) => onChange(Number(e.target.value))}>
+        {options.map((o, i) => <option key={i} value={i}>{o}</option>)}
       </select>
     </label>
   )

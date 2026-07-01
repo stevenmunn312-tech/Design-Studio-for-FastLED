@@ -59,6 +59,11 @@ const HANDLE_STYLE = {
   border: 'none',
 }
 
+// Group-input "roles" a Performance Generator show can drive (see the collection
+// -driven-performance design note). Setting a GroupInput's paramId to one of
+// these tags it for that show signal; keep in sync with the generator/codegen.
+const GROUP_INPUT_ROLES = ['energy', 'speed', 'palette']
+
 type StudioNodeProps = NodeProps<Node<StudioNodeData>>
 
 function StudioNode({ id, data, selected }: StudioNodeProps) {
@@ -144,8 +149,13 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     }
   }, [d.nodeType, rawProps])
   const hasRGB = ['r', 'g', 'b'].every((k) => typeof props[k] === 'number')
+  // A GroupInput's `paramId` is edited via a dedicated role dropdown (below), not
+  // the generic text field. `patternSections` is an object rendered by the
+  // PatternCollection body's section chips.
+  const isGroupInput = d.nodeType === 'GroupInput'
   const editable = Object.entries(props).filter(
-    ([k]) => k !== 'font' && k !== 'image' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'transitions'
+    ([k]) => k !== 'font' && k !== 'image' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions'
+      && !(isGroupInput && k === 'paramId')
       && !(hasRGB && (k === 'r' || k === 'g' || k === 'b'))
   )
   // The "clamp inputs" toggle is rendered specially (it has no entry in the
@@ -269,8 +279,29 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           </>
         )}
 
-        {(hasRGB || editable.length > 0 || showClamp) && (
+        {(hasRGB || editable.length > 0 || showClamp || isGroupInput) && (
           <div className={styles.props}>
+            {isGroupInput && (() => {
+              // Group-input role: tag this input so a Performance Generator show
+              // drives it (energy/speed/palette). Sets `paramId` to the role name
+              // — the same value the evaluator/codegen key off — so no manual
+              // rename is needed. "— input —" is an ordinary (untagged) input.
+              const cur = String(props.paramId ?? '')
+              const role = GROUP_INPUT_ROLES.includes(cur) ? cur : ''
+              return (
+                <div className={styles.propRow} title="Show role this input is driven by">
+                  <span className={styles.propKey}>role</span>
+                  <select
+                    className={`nodrag ${styles.propSelect}`}
+                    value={role}
+                    onChange={(e) => updateNodeProperty(id, 'paramId', e.target.value || 'param0')}
+                  >
+                    <option value="">— input —</option>
+                    {GROUP_INPUT_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+              )
+            })()}
             {hasRGB && (() => {
               const wired = drivenBy('color')
               const live = wired ? liveFor('color') : undefined
