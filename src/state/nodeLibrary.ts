@@ -1232,7 +1232,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
       { id: 'transitions', label: 'Transitions', dataType: 'transitionset' },
     ],
-    outputs: [{ id: 'shows', label: 'Shows', dataType: 'shows' }],
+    outputs: [
+      { id: 'shows', label: 'Shows', dataType: 'shows' },
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+    ],
     defaultProperties: {
       beatIntensity:      0.8,
       energySensitivity:  0.7,

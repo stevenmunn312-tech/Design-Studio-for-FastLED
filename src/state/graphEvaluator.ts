@@ -3148,7 +3148,10 @@ function createEvalNode(
         break
 
       case 'PerformanceGenerator':
-        out = { shows: null }
+        // The timed-show player lives in the node body. Its graph output is a
+        // safe black frame when that player is not actively supplying pixels,
+        // allowing the generator to terminate the main MatrixOutput graph.
+        out = { shows: null, frame: blankFrame(W, H) }
         break
 
       case 'SDCard':

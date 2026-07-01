@@ -202,7 +202,15 @@ function migrateLegacyGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes: 
       properties = { ...properties, amount: properties.amount / 255 }
     }
     const category = normalizeCategory(nodeType, data.category)
-    return { ...n, data: { ...data, nodeType, label, category, properties } }
+    // Saved nodes carry their own port snapshots. Add the new frame terminal
+    // to existing Performance Generators as well as newly-created ones.
+    const outputs = Array.isArray(data.outputs) ? data.outputs : []
+    const migratedOutputs = nodeType === 'PerformanceGenerator' && !outputs.some((port) => (
+      typeof port === 'object' && port !== null && 'id' in port && port.id === 'frame'
+    ))
+      ? [...outputs, { id: 'frame', label: 'Frame', dataType: 'frame' }]
+      : outputs
+    return { ...n, data: { ...data, nodeType, label, category, properties, outputs: migratedOutputs } }
   })
   const migratedEdges = edges.map((e) => {
     const rename = handleRenames.get(e.target)

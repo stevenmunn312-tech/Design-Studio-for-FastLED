@@ -57,6 +57,13 @@ describe('generateCpp', () => {
     expect(cpp).toContain('fill_solid(buf_sc, NUM_LEDS, CRGB(255, 0, 0))')
   })
 
+  it('emits a safe frame buffer for a wired PerformanceGenerator', () => {
+    const generator = node('pg', 'PerformanceGenerator', 'hardware')
+    const cpp = generateCpp([generator, outputNode], [edge('e1', 'pg', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('fill_solid(buf_pg, NUM_LEDS, CRGB::Black)')
+    expect(cpp).toContain('::memmove(leds, buf_pg, sizeof(CRGB) * NUM_LEDS)')
+  })
+
   it('TrebleSparks uses its connected color input in generated C++', () => {
     const color = node('c', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })
     const sparks = node('ts', 'TrebleSparks', 'pattern', { treble: 1, density: 1 })

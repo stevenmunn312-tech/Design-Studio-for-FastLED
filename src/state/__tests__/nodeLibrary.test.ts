@@ -127,4 +127,11 @@ describe('nodeLibrary', () => {
   it('MusicLibrary now shelves with audio analysis nodes', () => {
     expect(NODE_LIBRARY.find((n) => n.type === 'MusicLibrary')?.category).toBe('audio')
   })
+
+  it('PerformanceGenerator exposes shows and a MatrixOutput-compatible frame', () => {
+    expect(NODE_LIBRARY.find((n) => n.type === 'PerformanceGenerator')?.outputs).toEqual([
+      { id: 'shows', label: 'Shows', dataType: 'shows' },
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+    ])
+  })
 })

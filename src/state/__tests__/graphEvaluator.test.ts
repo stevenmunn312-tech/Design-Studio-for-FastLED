@@ -87,6 +87,13 @@ describe('evaluateGraph', () => {
     expect(evaluateGraph([node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })], [], 0, W, H)).toBeNull()
   })
 
+  it('lets PerformanceGenerator terminate at MatrixOutput with a safe frame', () => {
+    const { nodes, edges } = withOutput(node('pg', 'PerformanceGenerator', 'hardware'))
+    const frame = evaluateGraph(nodes, edges, 0, W, H)
+    expect(frame).not.toBeNull()
+    expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
+  })
+
   it('Math computes each bundled operation on a and b', () => {
     const run = (mathOp: string, a: number, b: number) =>
       evaluateScalar([node('m', 'Math', 'math', { mathOp, a, b })], [], 'm', 'result', 0)
