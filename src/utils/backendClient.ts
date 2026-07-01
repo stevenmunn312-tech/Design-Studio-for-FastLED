@@ -4,6 +4,8 @@
 // gracefully when the helper isn't running — callers treat a null/throw as
 // "offline" and fall back to the copy-paste arduino-cli commands.
 
+import type { SavedPattern } from '../state/patternLibrary'
+
 const ENV_URL = (import.meta.env as Record<string, string | undefined>).VITE_BACKEND_URL
 export const BACKEND_URL = (ENV_URL ?? 'http://localhost:8008').replace(/\/$/, '')
 
@@ -142,4 +144,47 @@ export async function uploadShow(
   for (const f of opts.files) form.append('files', f.data, f.path.split('/').pop() ?? 'file')
   const res = await fetch(`${BACKEND_URL}/api/upload-show`, { method: 'POST', body: form, signal })
   await pipeStream(res, onLog)
+}
+
+// ── Saved patterns ("My Patterns" folder on disk) ────────────────────────────
+// Each pattern is one shareable JSON file. Every call degrades to null/false
+// when the helper isn't running, so the library falls back to localStorage.
+
+/** All patterns saved on disk, or `null` if the helper isn't reachable (which
+ *  the caller treats as "offline — keep the localStorage copy"). */
+export async function listPatterns(): Promise<SavedPattern[] | null> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/patterns`)
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.ok ? (data.patterns as SavedPattern[]) : null
+  } catch {
+    return null
+  }
+}
+
+/** Write one pattern to its own file. Returns false when the helper is absent. */
+export async function savePatternToDisk(pattern: SavedPattern): Promise<boolean> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/patterns`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(pattern),
+    })
+    const data = await res.json()
+    return !!data.ok
+  } catch {
+    return false
+  }
+}
+
+/** Delete a pattern's file by id. Returns false when the helper is absent. */
+export async function deletePatternFromDisk(id: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/patterns/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    const data = await res.json()
+    return !!data.ok
+  } catch {
+    return false
+  }
 }

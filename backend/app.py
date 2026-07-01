@@ -46,6 +46,12 @@ _HELPER_DIR = Path(__file__).parent
 _CONFIG_PATH = _HELPER_DIR / ".helper-config.json"
 _BIN_DIR = _HELPER_DIR / "bin"  # where a self-installed arduino-cli lands
 
+# Saved node-graph patterns ("My Patterns") live as one JSON file each in this
+# folder at the repo root, so users can share a pattern by simply sending the
+# file. The browser can't write arbitrary folders, so it round-trips through the
+# /api/patterns endpoints below. Override the location with FLS_PATTERNS_DIR.
+_PATTERNS_DIR = Path(os.environ.get("FLS_PATTERNS_DIR") or (_HELPER_DIR.parent / "My Patterns"))
+
 # Board-manager URLs for the third-party cores we can install, so `core install`
 # works against a fresh CLI that has never seen them.
 _CORE_URLS = {
@@ -553,3 +559,98 @@ async def upload_show(
                     shutil.rmtree(w, ignore_errors=True)
 
     return StreamingResponse(stream(), media_type="text/plain")
+
+
+# ── Saved patterns ("My Patterns") ────────────────────────────────────────────
+# Each pattern is one JSON file (the SavedPattern the frontend store uses). The
+# pattern's `id` is the stable identity; the filename is derived from its name
+# purely so the folder is human-readable and shareable.
+import re as _re  # local alias — only the patterns endpoints need it
+
+
+def _sanitize_filename(name: str) -> str:
+    """A safe, human-readable basename for a pattern file. Strips path
+    separators and characters illegal on Windows, collapses whitespace, and
+    trims length — never returns something that could escape the folder."""
+    cleaned = _re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", name or "").strip().rstrip(". ")
+    cleaned = _re.sub(r"\s+", " ", cleaned)
+    return cleaned[:80] or "pattern"
+
+
+def _patterns_dir() -> Path:
+    _PATTERNS_DIR.mkdir(parents=True, exist_ok=True)
+    return _PATTERNS_DIR
+
+
+def _iter_pattern_files():
+    try:
+        return sorted(_patterns_dir().glob("*.json"))
+    except Exception:
+        return []
+
+
+def _remove_files_for_id(pattern_id: str) -> None:
+    """Delete any existing file(s) holding this pattern id, so a save that
+    renames (and thus changes the derived filename) doesn't leave a stale copy."""
+    for f in _iter_pattern_files():
+        try:
+            if json.loads(f.read_text(encoding="utf-8")).get("id") == pattern_id:
+                f.unlink(missing_ok=True)
+        except Exception:
+            continue
+
+
+def _unique_path(base: str, pattern_id: str) -> Path:
+    """`<base>.json`, disambiguated only when a *different* pattern already owns
+    that filename (rare — two patterns sharing a name)."""
+    d = _patterns_dir()
+    candidate = d / f"{base}.json"
+    if candidate.exists():
+        try:
+            if json.loads(candidate.read_text(encoding="utf-8")).get("id") != pattern_id:
+                candidate = d / f"{base}-{pattern_id}.json"
+        except Exception:
+            candidate = d / f"{base}-{pattern_id}.json"
+    return candidate
+
+
+@app.get("/api/patterns")
+def list_patterns():
+    """Every saved pattern on disk, newest first. `[]` when the folder is empty."""
+    out = []
+    for f in _iter_pattern_files():
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and data.get("id") and data.get("name"):
+                out.append(data)
+        except Exception:
+            continue  # skip an unreadable/hand-broken file rather than 500
+    out.sort(key=lambda p: p.get("createdAt", 0), reverse=True)
+    return {"ok": True, "dir": str(_PATTERNS_DIR), "patterns": out}
+
+
+@app.post("/api/patterns")
+def save_pattern(pattern: dict = Body(...)):
+    """Write one pattern to its own file. Overwrites any existing file with the
+    same `id` (so renames don't orphan the old file)."""
+    pid = str(pattern.get("id") or "").strip()
+    name = str(pattern.get("name") or "").strip()
+    if not pid or not name or "subgraph" not in pattern:
+        return JSONResponse({"ok": False, "error": "pattern needs id, name and subgraph"}, status_code=400)
+    _remove_files_for_id(pid)
+    path = _unique_path(_sanitize_filename(name), pid)
+    # Defence in depth: never write outside the patterns folder.
+    if _patterns_dir().resolve() not in path.resolve().parents:
+        return JSONResponse({"ok": False, "error": "invalid pattern name"}, status_code=400)
+    try:
+        path.write_text(json.dumps(pattern, indent=2), encoding="utf-8")
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    return {"ok": True, "file": path.name}
+
+
+@app.delete("/api/patterns/{pattern_id}")
+def delete_pattern(pattern_id: str):
+    """Delete the file(s) holding this pattern id."""
+    _remove_files_for_id(pattern_id)
+    return {"ok": True}

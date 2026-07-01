@@ -15,6 +15,7 @@ import ArduinoCliPopup from './components/Upload/ArduinoCliPopup'
 import OutputConsole from './components/Upload/OutputConsole'
 import HelpModal from './components/HelpModal/HelpModal'
 import { useUploadStore } from './state/uploadStore'
+import { usePatternLibrary } from './state/patternLibrary'
 import styles from './App.module.css'
 
 const AUTOSAVE_KEY = 'fastled-studio-graph'
@@ -77,6 +78,12 @@ export default function App() {
     } catch {
       // corrupt data — ignore
     }
+  }, [])
+
+  // Repopulate "My Patterns" from the on-disk folder (via the upload helper),
+  // migrating any localStorage-only patterns up to disk. No-op when offline.
+  useEffect(() => {
+    void usePatternLibrary.getState().refreshFromDisk()
   }, [])
 
   // Autosave every 10 seconds when graph changes
