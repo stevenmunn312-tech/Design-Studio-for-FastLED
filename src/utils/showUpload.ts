@@ -57,10 +57,13 @@ export function buildShowPayload(
   const patternSet = done[0].show!.patternSet
   const pgProps = (nodes.find((n) => nodeType(n) === 'PerformanceGenerator')?.data as StudioNodeData | undefined)?.properties ?? {}
   const roleParams = pgProps.useGroupInputs ? ['energy', 'speed', 'palette'] : []
+  // A baked audio envelope means the collected patterns should read the song's
+  // FFT (externalAudio) and the player hosts the audio globals from the track.
+  const bakedAudio = !!done[0].show!.audio
   const renderers = patternSet && patternSet.length > 0
-    ? buildPatternRenderers(patternSet, groups, roleParams)
+    ? buildPatternRenderers(patternSet, groups, roleParams, bakedAudio)
     : undefined
-  const player = generatePlayerSketch(playerConfigFromGraph(nodes), renderers)
+  const player = generatePlayerSketch(playerConfigFromGraph(nodes), renderers, { audioEnvelope: bakedAudio && !!renderers })
 
   const files: ShowUploadFile[] = []
   for (const e of done) {

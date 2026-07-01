@@ -159,4 +159,29 @@ describe('generatePlayerSketch', () => {
     expect(ino).not.toContain('paletteFromId')
     expect(ino).toContain('paletteId  = (uint8_t)ev.params[0]; break;')
   })
+
+  it('hosts the baked audio globals and feeds them from the envelope when enabled', () => {
+    const renderers = {
+      buffers: [], helpers: [],
+      functions: ['void render_p0(uint32_t ms) { leds[0] = CRGB(_audioBass * 255, 0, 0); }'],
+      count: 1, params: [],
+    }
+    const ino = generatePlayerSketch({}, renderers, { audioEnvelope: true })
+    expect(ino).toContain('_audioBass = 0, _audioMids = 0, _audioTreble = 0')   // globals
+    expect(ino).toContain('float     _audioSpectrum[32]')                        // for beat nodes
+    expect(ino).toContain('void updateShowAudio(uint32_t ms)')                   // interpolator
+    expect(ino).toContain('audioEnv = (uint8_t*)malloc')                         // envelope loader
+    expect(ino).toContain('updateShowAudio(posMs)')                             // called each frame
+  })
+
+  it('omits the baked audio plumbing by default', () => {
+    const renderers = {
+      buffers: [], helpers: [],
+      functions: ['void render_p0(uint32_t ms) { fill_solid(leds, NUM_LEDS, CRGB::Blue); }'],
+      count: 1, params: [],
+    }
+    const ino = generatePlayerSketch({}, renderers)
+    expect(ino).not.toContain('updateShowAudio')
+    expect(ino).not.toContain('_audioSpectrum')
+  })
 })

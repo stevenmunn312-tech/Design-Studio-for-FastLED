@@ -136,12 +136,15 @@ export async function exportShowPackage(
     })
   }
 
-  // Player sketch — collection (v2) shows compile their pattern subgraphs.
+  // Player sketch — collection (v2) shows compile their pattern subgraphs. A
+  // baked audio envelope makes those patterns song-reactive (externalAudio +
+  // the player hosts the audio globals fed from the track).
   const patternSet = done[0]?.show!.patternSet
+  const bakedAudio = !!done[0]?.show!.audio
   const renderers = patternSet && patternSet.length > 0
-    ? buildPatternRenderers(patternSet, groups)
+    ? buildPatternRenderers(patternSet, groups, [], bakedAudio)
     : undefined
-  const sketch = generatePlayerSketch(playerCfg, renderers)
+  const sketch = generatePlayerSketch(playerCfg, renderers, { audioEnvelope: bakedAudio && !!renderers })
   zipEntries.push({
     name: 'player/player.ino',
     data: enc.encode(sketch),

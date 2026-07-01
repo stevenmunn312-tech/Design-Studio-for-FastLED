@@ -4,10 +4,25 @@ import {
   sortShowEvents,
   generateShow,
   showFileToBinary,
+  bakeEnvelope,
+  ENVELOPE_RATE_HZ,
   SHOW_PATTERNS,
   SHOW_TRANSITIONS,
 } from '../performanceGenerator'
 import type { ShowEvent, SongAnalysis } from '../../types/showFile'
+
+// An analysis carrying a 0–2s energy track (bass ramps 0→1→0.5), for envelope tests.
+const withEnergy: SongAnalysis = {
+  title: 'E', durationMs: 2000,
+  beats: { timestamps: [], bpm: 120, confidence: 0.9 },
+  energy: [
+    { t: 0,    bass: 0,   mids: 0.2, treble: 0.4, overall: 0.2 },
+    { t: 1000, bass: 1,   mids: 0.6, treble: 0.8, overall: 0.8 },
+    { t: 2000, bass: 0.5, mids: 0.5, treble: 0.5, overall: 0.5 },
+  ],
+  sections: [{ startMs: 0, endMs: 2000, type: 'drop', energy: 0.8 }],
+  mood: { energy: 0.7, valence: 0.6, key: 'C major' },
+}
 
 const analysis: SongAnalysis = {
   title: 'Test Song',
@@ -174,6 +189,38 @@ describe('generateShow — collection vs enum patterns', () => {
     const setPatterns = generateShow(longAnalysis, { patternHold: 5 }, ['solo']).events.filter((e) => e.cmd === 'SET_PATTERN')
     expect(setPatterns).toHaveLength(1)
     expect(setPatterns[0].params.index).toBe(0)
+  })
+})
+
+describe('bakeEnvelope + baked audio', () => {
+  it('resamples the energy track to the fixed frame rate with interpolation', () => {
+    const env = bakeEnvelope(withEnergy)
+    expect(env.rateHz).toBe(ENVELOPE_RATE_HZ)
+    expect(env.bass).toHaveLength(100)          // 2000ms × 50/1000
+    expect(env.bass[0]).toBeCloseTo(0)          // first point
+    expect(env.bass[25]).toBeCloseTo(0.5, 1)    // 500ms → halfway 0→1
+    expect(env.bass[50]).toBeCloseTo(1, 1)      // 1000ms → the peak point
+  })
+
+  it('generateShow attaches the envelope only when the analysis has energy', () => {
+    expect(generateShow(withEnergy).audio).toBeDefined()
+    expect(generateShow(withEnergy).audio!.rateHz).toBe(50)
+    expect(generateShow(analysis).audio).toBeUndefined()   // fixture has energy: []
+  })
+
+  it('appends the envelope after the events in the binary, quantised to bytes', () => {
+    const show = generateShow(withEnergy)
+    const view = new DataView(showFileToBinary(show))
+    // Walk the header + events to reach the trailing envelope block.
+    let off = 15
+    const count = view.getUint32(11, true)
+    for (let i = 0; i < count; i++) { off += 4 + 1; const pc = view.getUint8(off); off += 1 + pc * 4 }
+    const rate = view.getUint8(off); off += 1
+    const frames = view.getUint32(off, true); off += 4
+    expect(rate).toBe(50)
+    expect(frames).toBe(show.audio!.bass.length)
+    expect(view.byteLength).toBe(off + frames * 3)      // 3 bytes/frame, nothing trailing
+    expect(view.getUint8(off + 50 * 3)).toBe(255)       // frame 50 bass (1.0) → 255
   })
 })
 

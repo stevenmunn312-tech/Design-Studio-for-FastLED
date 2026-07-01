@@ -59,10 +59,17 @@ export function playerConfigFromGraph(nodes: ConfigNode[]): Partial<PlayerConfig
   }
 }
 
-export function generatePlayerSketch(cfg: Partial<PlayerConfig> = {}, renderers?: PatternRenderers): string {
+export function generatePlayerSketch(
+  cfg: Partial<PlayerConfig> = {}, renderers?: PatternRenderers,
+  // `audioEnvelope`: the .show carries a baked bass/mids/treble track (see
+  // bakeEnvelope) and the collected patterns were compiled with externalAudio,
+  // so the player hosts the _audio* globals and feeds them from the track.
+  opts: { audioEnvelope?: boolean } = {},
+): string {
   const c = { ...DEFAULTS, ...cfg }
   const numLeds = c.ledWidth * c.ledHeight
   const collection = !!(renderers && renderers.count > 0)
+  const bakedAudio = !!opts.audioEnvelope
 
   // Collection patterns: per-pattern frame buffers, deduped helpers, and the
   // render_pN() functions — emitted above renderPattern().
@@ -212,7 +219,14 @@ uint8_t    paletteId  = 0;        // default: Rainbow
 float      flashLevel = 0.0f;
 float      flashDecay = 0.82f;
 float      transProgress = 1.0f;  // 1 = no transition in progress
-${hasEnergy ? 'float      energy    = 0.0f;      // SET_ENERGY → energy group-input role\n' : ''}${hasSpeed ? 'float      speed     = 0.5f;      // SET_SPEED (normalised 0–1) → speed group-input role\n' : ''}${hasPalette ? 'CRGBPalette16 palette = RainbowColors_p;  // SET_PALETTE → palette group-input role\n' : ''}
+${hasEnergy ? 'float      energy    = 0.0f;      // SET_ENERGY → energy group-input role\n' : ''}${hasSpeed ? 'float      speed     = 0.5f;      // SET_SPEED (normalised 0–1) → speed group-input role\n' : ''}${hasPalette ? 'CRGBPalette16 palette = RainbowColors_p;  // SET_PALETTE → palette group-input role\n' : ''}${bakedAudio ? `
+// Baked audio envelope (song-synced FFT), fed into the pattern audio globals.
+float     _audioBass = 0, _audioMids = 0, _audioTreble = 0;   // 0–1, current frame
+float     _audioSpectrum[32];        // coarse spectrum for BeatDetect/PercussionDetect
+uint8_t*  audioEnv = nullptr;        // frameCount * 3 bytes (bass, mids, treble)
+uint32_t  audioEnvFrames = 0;
+uint8_t   audioEnvRate = 50;
+` : ''}
 
 // ── Palette helper ────────────────────────────────────────────────────────────
 CRGB samplePalette(uint8_t palId, uint8_t index) {
@@ -271,10 +285,40 @@ bool loadShowFile(const char* path) {
       memcpy(&showEvents[i].params[p], &raw, 4);
     }
   }
-  f.close();
+${bakedAudio ? `
+  // Trailing audio envelope: rate(1) + frameCount(4) + 3 bytes/frame.
+  if (f.available() >= 5) {
+    audioEnvRate = f.read();
+    uint8_t cb[4]; f.read(cb, 4);
+    audioEnvFrames = ((uint32_t)cb[0])|((uint32_t)cb[1]<<8)|((uint32_t)cb[2]<<16)|((uint32_t)cb[3]<<24);
+    if (audioEnv) free(audioEnv);
+    audioEnv = (uint8_t*)malloc(audioEnvFrames * 3);
+    if (audioEnv) f.read(audioEnv, audioEnvFrames * 3);
+    else audioEnvFrames = 0;
+  }
+` : ''}  f.close();
   eventIdx = 0;
   return true;
 }
+${bakedAudio ? `
+// Drive the pattern audio globals from the baked envelope at the current audio
+// position (linear interpolation), so a pattern's FFTAnalyzer reacts in sync.
+void updateShowAudio(uint32_t ms) {
+  if (!audioEnv || audioEnvFrames == 0) { _audioBass = _audioMids = _audioTreble = 0; return; }
+  float fpos = ms * (audioEnvRate / 1000.0f);
+  uint32_t i = (uint32_t)fpos;
+  if (i >= audioEnvFrames) i = audioEnvFrames - 1;
+  uint32_t j = (i + 1 < audioEnvFrames) ? i + 1 : i;
+  float frac = fpos - (float)i;
+  _audioBass   = (audioEnv[i*3+0] + (audioEnv[j*3+0] - audioEnv[i*3+0]) * frac) / 255.0f;
+  _audioMids   = (audioEnv[i*3+1] + (audioEnv[j*3+1] - audioEnv[i*3+1]) * frac) / 255.0f;
+  _audioTreble = (audioEnv[i*3+2] + (audioEnv[j*3+2] - audioEnv[i*3+2]) * frac) / 255.0f;
+  // Coarse spectrum so BeatDetect/PercussionDetect still respond (bass→low bins,
+  // mids→mid, treble→high). Approximate — full baked spectrum is a follow-up.
+  for (int b = 0; b < 32; b++)
+    _audioSpectrum[b] = b < 6 ? _audioBass : (b < 16 ? _audioMids : _audioTreble);
+}
+` : ''}
 
 // ── Event dispatcher ──────────────────────────────────────────────────────────
 void applyEvent(const ShowEvent& ev) {
@@ -332,7 +376,7 @@ void loop() {
     applyEvent(showEvents[eventIdx]);
     eventIdx++;
   }
-
+${bakedAudio ? '  updateShowAudio(posMs);   // song-synced FFT → pattern audio globals\n' : ''}
   float t = posMs / 1000.0f;
   renderPattern(t);
 

@@ -31,6 +31,21 @@ export interface ShowFile {
    * Absent on enum shows (version 1), where `SET_PATTERN` uses `params.name`.
    */
   patternSet?: string[]
+  /**
+   * Baked per-frame audio envelope for music-sync shows: fixed-rate bass/mids/
+   * treble levels (0–1) resampled from the song analysis. The player feeds these
+   * into the `_audioBass`/`_audioMids`/`_audioTreble` globals each frame so a
+   * pattern's FFTAnalyzer reacts in perfect sync with the track (deterministic,
+   * no live mic). Absent when the analysis had no energy envelope.
+   */
+  audio?: AudioEnvelope
+}
+
+export interface AudioEnvelope {
+  rateHz: number         // frames per second (e.g. 50)
+  bass: number[]         // 0–1, one entry per frame
+  mids: number[]         // 0–1
+  treble: number[]       // 0–1
 }
 
 // ── Song analysis output from musicAnalyzer ───────────────────────────────────

@@ -1,4 +1,34 @@
-import type { SongAnalysis, SongSection, ShowFile, ShowEvent } from '../types/showFile'
+import type { SongAnalysis, SongSection, ShowFile, ShowEvent, AudioEnvelope } from '../types/showFile'
+
+// Frame rate of the baked audio envelope (see bakeEnvelope). 50 Hz is smooth
+// enough for per-frame band reactivity while staying tiny (~3 bytes/frame).
+export const ENVELOPE_RATE_HZ = 50
+
+/**
+ * Resample the analysis's ~100 ms energy envelope to a fixed `rateHz` bass/mids/
+ * treble track (0–1) so the player can drive a pattern's FFTAnalyzer in perfect
+ * sync with the song. Linear interpolation between analysis points.
+ */
+export function bakeEnvelope(analysis: SongAnalysis, rateHz = ENVELOPE_RATE_HZ): AudioEnvelope {
+  const pts = analysis.energy
+  const frameCount = Math.max(1, Math.floor((analysis.durationMs / 1000) * rateHz))
+  const bass: number[] = new Array(frameCount)
+  const mids: number[] = new Array(frameCount)
+  const treble: number[] = new Array(frameCount)
+  let pi = 0
+  for (let k = 0; k < frameCount; k++) {
+    const tms = (k / rateHz) * 1000
+    while (pi < pts.length - 1 && pts[pi + 1].t <= tms) pi++
+    const a = pts[pi]
+    const b = pts[Math.min(pts.length - 1, pi + 1)]
+    const span = b.t - a.t
+    const f = span > 0 ? Math.max(0, Math.min(1, (tms - a.t) / span)) : 0
+    bass[k]   = a.bass   + (b.bass   - a.bass)   * f
+    mids[k]   = a.mids   + (b.mids   - a.mids)   * f
+    treble[k] = a.treble + (b.treble - a.treble) * f
+  }
+  return { rateHz, bass, mids, treble }
+}
 
 // ── Palette map: mood → palette name ─────────────────────────────────────────
 
@@ -243,6 +273,10 @@ export function generateShow(
     }
   }
 
+  // Bake the per-frame audio envelope so a pattern's FFTAnalyzer reacts to the
+  // song on-device (only when the analysis actually carries an energy envelope).
+  const audio = analysis.energy.length > 0 ? bakeEnvelope(analysis) : undefined
+
   return {
     version: useCollection ? 2 : 1,
     songTitle: analysis.title,
@@ -250,6 +284,7 @@ export function generateShow(
     bpm: analysis.beats.bpm,
     events: sortShowEvents(events),
     ...(useCollection ? { patternSet: patternIds } : {}),
+    ...(audio ? { audio } : {}),
   }
 }
 
@@ -324,7 +359,10 @@ export const SHOW_TRANSITIONS = Object.keys(TRANSITION_IDS)
 export function showFileToBinary(show: ShowFile): ArrayBuffer {
   const headerBytes = 4 + 1 + 2 + 4 + 4   // magic + version + bpm + duration + count
   const eventBytes  = show.events.length * (4 + 1 + 1 + 4 * 2)  // worst case 2 params each
-  const buf = new ArrayBuffer(headerBytes + eventBytes)
+  // Optional trailing audio envelope: rate(1) + frameCount(4) + 3 bytes/frame.
+  const env = show.audio
+  const envBytes = env ? 1 + 4 + env.bass.length * 3 : 0
+  const buf = new ArrayBuffer(headerBytes + eventBytes + envBytes)
   const view = new DataView(buf)
   let off = 0
 
@@ -355,6 +393,21 @@ export function showFileToBinary(show: ShowFile): ArrayBuffer {
 
     view.setUint8(off++, params.length)
     for (const p of params) { view.setFloat32(off, p, true); off += 4 }
+  }
+
+  // Audio envelope block (after all events): rate(1) + frameCount(4) + per frame
+  // 3 bytes (bass, mids, treble) as 0–255. Old players simply stop after the
+  // events and ignore this trailing data.
+  if (env) {
+    const n = env.bass.length
+    view.setUint8(off++, env.rateHz)
+    view.setUint32(off, n, true); off += 4
+    const q = (v: number) => Math.max(0, Math.min(255, Math.round(v * 255)))
+    for (let i = 0; i < n; i++) {
+      view.setUint8(off++, q(env.bass[i]))
+      view.setUint8(off++, q(env.mids[i]))
+      view.setUint8(off++, q(env.treble[i]))
+    }
   }
 
   return buf.slice(0, off)
