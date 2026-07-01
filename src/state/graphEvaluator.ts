@@ -1073,10 +1073,15 @@ function evalPlasmaFractal(speed: number, scale: number, t: number, palette: Pal
 // brightness pulsed by bass, hue nudged by treble.
 function evalAudioFlow(bass: number, mids: number, treble: number, speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const flow = t * speed * (0.2 + mids * 1.5)
+  // Random vertical drift: a slow noise wander (random up/down direction) whose
+  // reach grows with treble/bass, so the field bobs vertically in time with the
+  // music while `flow` scrolls it horizontally.
+  const vAmp = 0.2 + treble * 0.7 + bass * 0.3
+  const vflow = _snoise2(t * speed * 4 + 50, 17.3) * vAmp
   const bright = Math.min(1, 0.3 + bass)
   return Array.from({ length: H }, (_, y) =>
     Array.from({ length: W }, (_, x) => {
-      const v = _snoise2(x * scale + flow, y * scale * 0.6) * 0.5 + 0.5
+      const v = _snoise2(x * scale + flow, y * scale * 0.6 + vflow) * 0.5 + 0.5
       const c = samplePalette(palette, (((v + treble * 0.3) % 1) + 1) % 1)
       return { r: Math.round(c.r * bright), g: Math.round(c.g * bright), b: Math.round(c.b * bright) }
     })
