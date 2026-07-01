@@ -100,6 +100,9 @@ interface GraphState {
   /** Toggle a song-section tag on a collection pattern (section-aware selection).
    *  An empty tag set means the pattern is eligible in any section. */
   togglePatternSection: (collectionNodeId: string, groupId: string, section: string) => void
+  /** Replace a collection pattern's whole section-tag set in one go — backs the
+   *  "all" chip (selects every section) and its clear-back-to-any toggle. */
+  setPatternSections: (collectionNodeId: string, groupId: string, sections: string[]) => void
   /** Add a GroupInput node to the current subgraph so a pattern can expose a role
    *  knob (energy/speed/palette) for show modulation. Only acts inside a group. */
   addGroupInput: () => void
@@ -712,6 +715,19 @@ export const useGraphStore = create<GraphState>()(
             const next = cur.includes(section) ? cur.filter((x) => x !== section) : [...cur, section]
             if (next.length === 0) delete map[groupId]
             else map[groupId] = next
+            return { ...n, data: { ...n.data, properties: { ...n.data.properties, patternSections: map } } }
+          })
+          return { nodes }
+        }),
+
+      setPatternSections: (collectionNodeId, groupId, sections) =>
+        set((s) => {
+          const nodes = s.nodes.map((n) => {
+            if (n.id !== collectionNodeId) return n
+            const props = n.data.properties as { patternSections?: Record<string, string[]> }
+            const map = { ...(props.patternSections ?? {}) }
+            if (sections.length === 0) delete map[groupId]
+            else map[groupId] = sections
             return { ...n, data: { ...n.data, properties: { ...n.data.properties, patternSections: map } } }
           })
           return { nodes }

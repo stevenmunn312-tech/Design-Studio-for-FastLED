@@ -27,6 +27,7 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
   const graphs = useGraphStore((s) => s.graphs)
   const removeFromCollection = useGraphStore((s) => s.removeFromCollection)
   const togglePatternSection = useGraphStore((s) => s.togglePatternSection)
+  const setPatternSections = useGraphStore((s) => s.setPatternSections)
 
   return (
     <div className={`nodrag nowheel ${styles.wrap}`}>
@@ -49,6 +50,13 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
                   </button>
                 </div>
                 <div className={styles.sections} title="Sections this pattern plays in (none = any)">
+                  <button
+                    className={`${styles.chip} ${tags.length === SECTION_TYPES.length ? styles.chipOn : ''}`}
+                    title="All sections"
+                    onClick={() => setPatternSections(nodeId, id, tags.length === SECTION_TYPES.length ? [] : [...SECTION_TYPES])}
+                  >
+                    all
+                  </button>
                   {SECTION_TYPES.map((sec) => (
                     <button
                       key={sec}

@@ -439,6 +439,18 @@ describe('graphStore — collection section tags', () => {
     expect(sections('coll', 'g1')).toBeUndefined()
   })
 
+  it('setPatternSections bulk-sets the "all" chip and clears back to any on re-toggle', () => {
+    reset([node('coll', 'PatternCollection', { patternIds: ['g1'], patternSections: {} })])
+    const setAll = useGraphStore.getState().setPatternSections
+    const allSections = ['intro', 'verse', 'buildup', 'drop', 'chorus', 'bridge', 'outro']
+
+    setAll('coll', 'g1', allSections)
+    expect(sections('coll', 'g1')).toEqual(allSections)
+
+    setAll('coll', 'g1', [])   // clearing back to "any" prunes the entry
+    expect(sections('coll', 'g1')).toBeUndefined()
+  })
+
   it('removeFromCollection drops the pattern and its section tags', () => {
     reset([node('coll', 'PatternCollection', { patternIds: ['g1', 'g2'], patternSections: { g1: ['drop'], g2: ['verse'] } })])
     useGraphStore.setState((s) => ({ graphData: { ...s.graphData, g1: { nodes: [], edges: [] } } }))
