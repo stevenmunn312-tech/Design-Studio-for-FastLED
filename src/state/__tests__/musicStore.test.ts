@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useMusicStore } from '../musicStore'
 import type { MusicEntry } from '../musicStore'
+import { useGraphStore, ROOT_GRAPH_ID } from '../graphStore'
 import type { SongAnalysis, ShowFile } from '../../types/showFile'
 
 // A minimal but valid analysis so revertShow can regenerate a show.
@@ -74,5 +75,56 @@ describe('musicStore manual edits', () => {
     })
     useMusicStore.getState().revertShow('e2')
     expect(useMusicStore.getState().entries[0].show).toBe(baseShow)
+  })
+})
+
+describe('musicStore — wired TransitionSet', () => {
+  beforeEach(() => {
+    useMusicStore.setState({ entries: [] })
+    useGraphStore.setState({
+      nodes: [], edges: [], selectedNodeId: null, clipboard: null,
+      activeGraphId: ROOT_GRAPH_ID,
+      graphs: { [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' } },
+      graphData: {},
+    })
+  })
+
+  it('mixes a wired TransitionSet pool into the regenerated show', () => {
+    seedEntry()
+    useGraphStore.setState({
+      nodes: [
+        { id: 'gen', type: 'studioNode', position: { x: 0, y: 0 },
+          data: { label: 'Performance Generator', nodeType: 'PerformanceGenerator', category: 'hardware', properties: {} } },
+        { id: 'ts', type: 'studioNode', position: { x: 0, y: 0 },
+          data: { label: 'Transitions', nodeType: 'TransitionSet', category: 'composite', properties: { transitions: ['iris', 'zoom'] } } },
+      ] as unknown as ReturnType<typeof useGraphStore.getState>['nodes'],
+      edges: [
+        { id: 'e1', source: 'ts', sourceHandle: 'transitions', target: 'gen', targetHandle: 'transitions' },
+      ] as unknown as ReturnType<typeof useGraphStore.getState>['edges'],
+    })
+
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0)
+    try {
+      useMusicStore.getState().revertShow('e1')
+      const show = useMusicStore.getState().entries[0].show!
+      const types = show.events.filter((e) => e.cmd === 'TRANSITION').map((e) => e.params.type)
+      expect(types.length).toBeGreaterThan(0)
+      expect(types.every((t) => t === 'iris')).toBe(true)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('falls back to the rule-based pool when nothing is wired', () => {
+    seedEntry()
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0)
+    try {
+      useMusicStore.getState().revertShow('e1')
+      const show = useMusicStore.getState().entries[0].show!
+      const types = show.events.filter((e) => e.cmd === 'TRANSITION').map((e) => e.params.type)
+      expect(types.every((t) => ['crossfade', 'wipe', 'dissolve'].includes(t as string))).toBe(true)
+    } finally {
+      spy.mockRestore()
+    }
   })
 })

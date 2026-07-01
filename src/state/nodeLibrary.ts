@@ -992,6 +992,18 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [{ id: 'patternset', label: 'Patterns', dataType: 'patternset' }],
     defaultProperties: { patternIds: [], patternSections: {} },
   },
+  {
+    // A pool of extra transition styles (toggled via the chip grid, same
+    // catalogue as the Transition node) for a Performance Generator's
+    // `transitions` input — when wired, generateShow mixes these into its
+    // rule-based crossfade/wipe/dissolve picks instead of only ever using those three.
+    type: 'TransitionSet',
+    label: 'Transitions',
+    category: 'composite',
+    inputs: [],
+    outputs: [{ id: 'transitions', label: 'Transitions', dataType: 'transitionset' }],
+    defaultProperties: { transitions: [] },
+  },
 
   // ── Custom Formula ────────────────────────────────────────────────────
   {
@@ -1165,6 +1177,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     inputs: [
       { id: 'songs', label: 'Songs', dataType: 'songs' },
       { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
+      { id: 'transitions', label: 'Transitions', dataType: 'transitionset' },
     ],
     outputs: [{ id: 'shows', label: 'Shows', dataType: 'shows' }],
     defaultProperties: {
@@ -1301,6 +1314,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Transition: 'Transitions A→B — 16 styles: wipe, iris, push, blinds, spiral, zoom + more.',
   Sequencer: 'Crossfades through its inputs on a timer.',
   PatternCollection: 'Absorbs pattern groups into a set for the Pattern Master.',
+  TransitionSet: 'A pool of extra transition styles for the Performance Generator to draw from.',
   // output
   MatrixOutput: 'The LED matrix output — board, pin, and size.',
 }
@@ -1343,6 +1357,7 @@ const PORT_COLORS: Record<string, string> = {
   shows: '#ffa726',
   sdcard: '#ffa500',
   patternset: '#00e0a4',
+  transitionset: '#b388ff',
 }
 
 /** Colour for a port's data type (used to tint node handles). */

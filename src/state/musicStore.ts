@@ -28,6 +28,23 @@ function wiredCollection(): { ids: string[]; sectionTags: string[][] } {
   return { ids, sectionTags: ids.map((id) => sections[id] ?? []) }
 }
 
+/**
+ * The TransitionSet wired into a Performance Generator's `transitions` input:
+ * its pool of extra transition styles (empty when none is wired). Resolved
+ * live from the graph, same as `wiredCollection`.
+ */
+function wiredTransitions(): string[] {
+  const { nodes, edges } = useGraphStore.getState()
+  const typeOf = (n: { data: { nodeType?: string } }) => n.data.nodeType
+  const gen = nodes.find((n) => typeOf(n) === 'PerformanceGenerator')
+  if (!gen) return []
+  const link = edges.find((e) => e.target === gen.id && e.targetHandle === 'transitions')
+  if (!link) return []
+  const src = nodes.find((n) => n.id === link.source && typeOf(n) === 'TransitionSet')
+  if (!src) return []
+  return (src.data.properties as { transitions?: string[] } | undefined)?.transitions ?? []
+}
+
 async function analyzeWithEssentia(
   file: File,
   onProgress?: (p: number) => void,
@@ -97,7 +114,7 @@ export const useMusicStore = create<MusicState>((set, get) => ({
         }))
         const analysis = await analyzeWithEssentia(entry.file, onProgress)
         const { ids, sectionTags } = wiredCollection()
-        const show     = generateShow(analysis, options, ids, sectionTags)
+        const show     = generateShow(analysis, options, ids, sectionTags, wiredTransitions())
         set(s => ({
           entries: s.entries.map(e =>
             e.id === entry.id ? { ...e, analysis, show, status: 'done', progress: 1 } : e
@@ -122,7 +139,7 @@ export const useMusicStore = create<MusicState>((set, get) => ({
     const entry = get().entries.find(e => e.id === id)
     if (!entry?.analysis) return
     const { ids, sectionTags } = wiredCollection()
-    const show = generateShow(entry.analysis, options, ids, sectionTags)
+    const show = generateShow(entry.analysis, options, ids, sectionTags, wiredTransitions())
     set(s => ({
       entries: s.entries.map(e => e.id === id ? { ...e, show } : e),
     }))
@@ -137,7 +154,7 @@ export const useMusicStore = create<MusicState>((set, get) => ({
     const entry = get().entries.find(e => e.id === id)
     if (!entry?.analysis) return
     const { ids, sectionTags } = wiredCollection()
-    const show = generateShow(entry.analysis, options, ids, sectionTags)
+    const show = generateShow(entry.analysis, options, ids, sectionTags, wiredTransitions())
     set(s => ({
       entries: s.entries.map(e => e.id === id ? { ...e, show, edited: false } : e),
     }))

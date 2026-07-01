@@ -15,6 +15,7 @@ import FFTAnalyzerBody from './FFTAnalyzerBody'
 import PerformanceGeneratorBody from './PerformanceGeneratorBody'
 import PatternCollectionBody from './PatternCollectionBody'
 import PatternMasterBody from './PatternMasterBody'
+import TransitionSetBody from './TransitionSetBody'
 import ImageNodeBody from './ImageNodeBody'
 import MatrixOutputUpload from '../Upload/MatrixOutputUpload'
 import { usePreviewStore } from '../../state/previewStore'
@@ -252,6 +253,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {d.nodeType === 'Image' && <ImageNodeBody nodeId={id} />}
 
         {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}
+        {d.nodeType === 'TransitionSet' && <TransitionSetBody nodeId={id} />}
 
         {d.nodeType === 'PatternMaster' && <PatternMasterBody nodeId={id} />}
 

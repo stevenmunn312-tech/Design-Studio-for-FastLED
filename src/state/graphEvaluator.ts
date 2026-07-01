@@ -2913,6 +2913,14 @@ function createEvalNode(
         out = { patternset: (props.patternIds as string[] | undefined) ?? [] }
         break
 
+      // Outputs its toggled pool of extra transition styles; a Performance
+      // Generator wired to it mixes them into its rule-based picks (resolved
+      // live from the graph by musicStore, not through this frame-eval path —
+      // this case just keeps the port well-defined for any generic probe).
+      case 'TransitionSet':
+        out = { transitions: (props.transitions as string[] | undefined) ?? [] }
+        break
+
       case 'CustomPalette': {
         // Build a palette from connected color inputs (in order); unconnected
         // slots are skipped. Falls back to rainbow when nothing is wired.

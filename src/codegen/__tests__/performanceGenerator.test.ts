@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   performanceOptionsFromProperties,
   sortShowEvents,
@@ -192,6 +192,49 @@ describe('generateShow — collection vs enum patterns', () => {
   })
 })
 
+describe('generateShow — extra transitions from a wired TransitionSet', () => {
+  it('only ever uses the rule-based crossfade/wipe/dissolve pool when no extras are given', () => {
+    const show = generateShow(analysis)
+    const types = show.events.filter((e) => e.cmd === 'TRANSITION').map((e) => e.params.type)
+    expect(types.length).toBeGreaterThan(0)
+    expect(types.every((t) => ['crossfade', 'wipe', 'dissolve'].includes(t as string))).toBe(true)
+  })
+
+  it('mixes in the extra pool when a TransitionSet is wired', () => {
+    // Force the 50/50 gate to always take the extra branch, and its index pick
+    // to always land on the first entry, so the result is deterministic.
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0)
+    try {
+      const show = generateShow(analysis, {}, [], [], ['iris', 'zoom'])
+      const types = show.events.filter((e) => e.cmd === 'TRANSITION').map((e) => e.params.type)
+      expect(types.length).toBeGreaterThan(0)
+      expect(types.every((t) => t === 'iris')).toBe(true)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('round-trips an extra transition style through the binary export', () => {
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0)
+    try {
+      const show = generateShow(analysis, {}, [], [], ['iris'])
+      const view = new DataView(showFileToBinary(show))
+      const count = view.getUint32(11, true)
+      let off = 15
+      let foundIrisId = -1
+      for (let i = 0; i < count; i++) {
+        const cmd = view.getUint8(off + 4)          // t_ms(4) then cmd(1)
+        const pc = view.getUint8(off + 5)           // param count byte
+        if (cmd === 5) foundIrisId = view.getFloat32(off + 6, true)   // 5 = TRANSITION, first param = type id
+        off += 4 + 1 + 1 + pc * 4
+      }
+      expect(foundIrisId).toBe(3)   // iris's stable id in TRANSITION_IDS
+    } finally {
+      spy.mockRestore()
+    }
+  })
+})
+
 describe('bakeEnvelope + baked audio', () => {
   it('resamples the energy track to the fixed frame rate with interpolation', () => {
     const env = bakeEnvelope(withEnergy)
@@ -255,6 +298,10 @@ describe('editor option lists', () => {
   it('exposes round-trippable patterns and transitions for the editor dropdowns', () => {
     expect(SHOW_PATTERNS).toContain('Plasma')
     expect(SHOW_PATTERNS).toContain('Fire2012')
-    expect(SHOW_TRANSITIONS).toEqual(['crossfade', 'wipe', 'dissolve'])
+    expect(SHOW_TRANSITIONS).toEqual([
+      'crossfade', 'wipe', 'dissolve', 'iris', 'clockwipe', 'push', 'checkerboard',
+      'diagonal', 'fadeblack', 'fadewhite', 'blinds', 'ripple', 'spiral', 'curtain',
+      'scanlines', 'zoom',
+    ])
   })
 })

@@ -73,11 +73,17 @@ export const SECTION_TYPES: SongSection['type'][] = [
 
 // ── Transition map: from section type → transition style ──────────────────────
 
-function chooseTransition(from: SongSection['type'], to: SongSection['type']): string {
-  if (to === 'drop' || to === 'chorus') return 'wipe'
-  if (to === 'outro')                   return 'dissolve'
-  if (from === 'buildup')               return 'wipe'
-  return 'crossfade'
+// `extra` is the pool from a TransitionSet node wired into the Performance
+// Generator's `transitions` input (empty when none is wired). When present, it
+// has a 50/50 chance of overriding the rule-based pick below, so a show gets a
+// taste of the wider 16-style catalogue instead of only ever crossfade/wipe/dissolve.
+function chooseTransition(from: SongSection['type'], to: SongSection['type'], extra: string[] = []): string {
+  const pick = (base: string) =>
+    extra.length > 0 && Math.random() < 0.5 ? extra[Math.floor(Math.random() * extra.length)] : base
+  if (to === 'drop' || to === 'chorus') return pick('wipe')
+  if (to === 'outro')                   return pick('dissolve')
+  if (from === 'buildup')               return pick('wipe')
+  return pick('crossfade')
 }
 
 // ── Speed from BPM ────────────────────────────────────────────────────────────
@@ -139,6 +145,8 @@ export function generateShow(
   // Per-pattern eligible section types, aligned by index with `patternIds`.
   // An empty (or missing) entry means the pattern is eligible in any section.
   sectionTags: string[][] = [],
+  // Extra transition styles from a wired TransitionSet node (see chooseTransition).
+  extraTransitions: string[] = [],
 ): ShowFile {
   const opts = { ...DEFAULT_OPTIONS, ...options }
   // When a Pattern Collection is wired, draw from the user's own patterns by
@@ -183,7 +191,7 @@ export function generateShow(
 
     // Transition into the section (from the previous section's pattern).
     if (prevSectionType !== null) {
-      const transStyle = chooseTransition(prevSectionType, section.type)
+      const transStyle = chooseTransition(prevSectionType, section.type, extraTransitions)
       push(section.startMs - opts.transitionDuration * 1000 * 0.5, 'TRANSITION', {
         type: transStyle,
         duration: opts.transitionDuration,
@@ -206,7 +214,7 @@ export function generateShow(
       // own same-section transition.
       if (k > 0) {
         push(slotStart - opts.transitionDuration * 1000 * 0.5, 'TRANSITION', {
-          type: chooseTransition(section.type, section.type),
+          type: chooseTransition(section.type, section.type, extraTransitions),
           duration: opts.transitionDuration,
         })
       }
@@ -343,8 +351,14 @@ const PALETTE_IDS: Record<string, number> = {
   rainbow: 0, ocean: 1, fire: 2, forest: 3, lava: 4,
   party: 5, ice: 6, purple: 7,
 }
+// Mirrors the `Transition` node's 16-style catalogue (nodeLibrary.ts
+// PROPERTY_META.transitionType) so a style chosen from a wired TransitionSet
+// round-trips through the binary export. crossfade/wipe/dissolve keep their
+// original ids for backward compatibility with already-exported `.show` files.
 const TRANSITION_IDS: Record<string, number> = {
-  crossfade: 0, wipe: 1, dissolve: 2,
+  crossfade: 0, wipe: 1, dissolve: 2, iris: 3, clockwipe: 4, push: 5,
+  checkerboard: 6, diagonal: 7, fadeblack: 8, fadewhite: 9, blinds: 10,
+  ripple: 11, spiral: 12, curtain: 13, scanlines: 14, zoom: 15,
 }
 const CMD_IDS: Record<ShowEvent['cmd'], number> = {
   SET_PATTERN: 0, SET_PALETTE: 1, SET_SPEED: 2, SET_BRIGHTNESS: 3,

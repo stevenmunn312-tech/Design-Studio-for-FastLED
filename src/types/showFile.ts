@@ -9,7 +9,7 @@ export type ShowCommand =
   | 'SET_BRIGHTNESS'   // global brightness (0-255)
   | 'SET_ENERGY'       // section energy 0-1 — drives the `energy` group-input role
   | 'BEAT_FLASH'       // instantaneous brightness spike + decay
-  | 'TRANSITION'       // crossfade/wipe/dissolve to next pattern
+  | 'TRANSITION'       // crossfade/wipe/dissolve (+ extras from a wired TransitionSet) to next pattern
 
 export interface ShowEvent {
   t: number            // timestamp in milliseconds from song start
