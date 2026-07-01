@@ -21,10 +21,20 @@ export default function TransitionSetBody({ nodeId }: { nodeId: string }) {
     updateNodeProperty(nodeId, 'transitions', next)
   }
 
+  const allOn = pool.length === ALL_TRANSITIONS.length
+  const toggleAll = () => updateNodeProperty(nodeId, 'transitions', allOn ? [] : [...ALL_TRANSITIONS])
+
   return (
     <div className={`nodrag nowheel ${styles.wrap}`}>
       <div className={styles.label}>Extra transitions ({pool.length})</div>
       <div className={styles.grid}>
+        <button
+          className={`${styles.chip} ${allOn ? styles.on : ''}`}
+          onClick={toggleAll}
+          title={allOn ? 'Clear the pool' : 'Add every style to the pool'}
+        >
+          all
+        </button>
         {ALL_TRANSITIONS.map((tt) => (
           <button
             key={tt}
