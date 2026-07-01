@@ -230,6 +230,15 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { speed: 0.5 },
   },
   {
+    // FastLED fill_rainbow — a scrolling hue sweep; `deltaHue` sets the spread per LED.
+    type: 'Rainbow',
+    label: 'Rainbow',
+    category: 'pattern',
+    inputs: [{ id: 'speed', label: 'Speed', dataType: 'float' }],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 0.3, deltaHue: 6 },
+  },
+  {
     type: 'SpectrumBars',
     label: 'Spectrum Bars',
     category: 'pattern',
@@ -279,6 +288,16 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { shift: 0 },
+  },
+  {
+    // Perceptual gamma correction (FastLED napplyGamma_video) so gradients and
+    // fades look right on the LEDs. gamma ≈ 2.2–2.8 for typical WS2812B strips.
+    type: 'Gamma',
+    label: 'Gamma',
+    category: 'composite',
+    inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { gamma: 2.2 },
   },
   {
     // Animated geometric transform of a frame (rotate / scale / translate).
@@ -588,6 +607,26 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: {},
   },
   {
+    // Easing curve on a 0–1 value — FastLED lib8tion (ease8/*wave8). `easeType`
+    // selects the curve; the header reflects it. See PROPERTY_META.easeType.
+    type: 'Ease',
+    label: 'Ease',
+    category: 'math',
+    inputs: [{ id: 't', label: 'T (0–1)', dataType: 'float' }],
+    outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+    defaultProperties: { easeType: 'inOutCubic' },
+  },
+  {
+    // Metronome — emits a boolean pulse once every `interval` seconds (a non-audio
+    // rhythmic trigger; the software analogue of FastLED's EVERY_N_MILLISECONDS).
+    type: 'Interval',
+    label: 'Interval',
+    category: 'math',
+    inputs: [],
+    outputs: [{ id: 'pulse', label: 'Pulse', dataType: 'bool' }],
+    defaultProperties: { interval: 0.5 },
+  },
+  {
     type: 'TimeNode',
     label: 'Time',
     category: 'math',
@@ -701,6 +740,15 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     inputs: [{ id: 'kelvin', label: 'Kelvin', dataType: 'float' }],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
     defaultProperties: { kelvin: 4000 },
+  },
+  {
+    // FastLED HeatColor — a 0–1 heat value → black-body ramp (black→red→yellow→white).
+    type: 'HeatColor',
+    label: 'Heat Color',
+    category: 'color',
+    inputs: [{ id: 'heat', label: 'Heat', dataType: 'float' }],
+    outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
+    defaultProperties: { heat: 0.5 },
   },
   {
     type: 'BlendColors',
@@ -1148,6 +1196,11 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       colorOrder: 'GRB',
       dataPin: 5,
       serpentine: false,
+      // Optional PSU power cap (FastLED.setMaxPowerInVoltsAndMilliamps) — when on,
+      // FastLED auto-dims to keep total draw under volts × milliamps.
+      powerLimit: false,
+      volts: 5,
+      milliamps: 2000,
     },
   },
 
@@ -1235,6 +1288,8 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Wave: 'Oscillator — sine, triangle, square or sawtooth over time.',
   ComplexWave: 'Combines two waves (add, multiply, average, min/max, difference).',
   Lerp: 'Linear interpolation between a and b by t.',
+  Ease: 'Easing curve on a 0–1 value — cubic, quad, or tri/quad/cubic waves.',
+  Interval: 'Metronome — pulses true every N seconds (EVERY_N_MILLISECONDS).',
   TimeNode: 'Elapsed time in seconds, plus a frame delta.',
   Abs: 'Absolute value.',
   Mod: 'Modulo — x wrapped into [0, m).',
@@ -1252,6 +1307,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   BlendColors: 'Blends two colors by an amount.',
   CHSV: 'FastLED CHSV color (0–255 hue/sat/val).',
   Temperature: 'White point from a colour temperature in Kelvin (warm→cool).',
+  HeatColor: 'FastLED HeatColor — a 0–1 heat value to a fire-ramp colour.',
   PaletteSelector: 'Outputs a named preset palette.',
   CustomPalette: 'Builds a palette from up to four colors.',
   Poline: 'Smooth poline palette between up to three anchor colours.',
@@ -1267,6 +1323,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Fire: 'Classic rising fire effect.',
   Fire2012: 'FastLED Fire2012 heat simulation.',
   Plasma: 'Animated plasma interference pattern.',
+  Rainbow: 'FastLED fill_rainbow — a scrolling hue sweep across the matrix.',
   SpectrumBars: 'Palette-driven equalizer bars with audio-reactive motion.',
   BassPulse: 'Pulses a color with bass energy.',
   BassRings: 'Concentric rings that swell and brighten with bass.',
@@ -1309,6 +1366,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   BrightnessMod: 'Scales frame brightness.',
   Fade: 'Fades the frame toward black (fadeToBlackBy).',
   HueShift: 'Rotates all hues.',
+  Gamma: 'Perceptual gamma correction so gradients look right on the LEDs.',
   Transform: 'Animated rotate, scale or translate of a frame.',
   Invert: 'Inverts colors.',
   Transition: 'Transitions A→B — 16 styles: wipe, iris, push, blinds, spiral, zoom + more.',
@@ -1411,6 +1469,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
     'scanlines', 'zoom',
   ] },
   blendMode:      { control: 'select', options: ['normal', 'multiply', 'screen', 'overlay', 'add', 'difference'] },
+  easeType:       { control: 'select', options: ['inOutCubic', 'inOutQuad', 'triwave', 'quadwave', 'cubicwave'] },
   fieldOp:        { control: 'select', options: ['add', 'subtract', 'multiply', 'mix', 'min', 'max', 'difference'] },
   particleType:   { control: 'select', options: ['fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow', 'swarm'] },
   channel:        { control: 'select', options: ['Left', 'Right'] },
@@ -1450,6 +1509,12 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   kill:     { control: 'slider', min: 0, max: 0.1, step: 0.001 },
   interval: { control: 'slider', min: 0.1, max: 20, step: 0.1 },
   kelvin:   { control: 'slider', min: 1000, max: 12000, step: 100 },
+  // HeatColor input, Rainbow spread, Gamma exponent, and MatrixOutput power cap.
+  heat:     { control: 'slider', min: 0, max: 1, step: 0.01 },
+  deltaHue: { control: 'slider', min: 0, max: 32, step: 1 },
+  gamma:    { control: 'slider', min: 1, max: 3.5, step: 0.1 },
+  volts:    { control: 'slider', min: 3, max: 24, step: 1 },
+  milliamps:{ control: 'slider', min: 100, max: 20000, step: 100 },
   // Pattern Master show timing.
   minTime:       { control: 'slider', min: 0, max: 30, step: 0.5 },
   maxTime:       { control: 'slider', min: 0, max: 60, step: 0.5 },
@@ -1544,6 +1609,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   // Normalised speed/scale pattern nodes (internal range in speedRange.ts).
   Noise:           { speed: N01, scale: N01 },
   Plasma:          { speed: N01 },
+  Rainbow:         { speed: N01 },
   RadialBurst:     { speed: N01 },
   Spiral:          { speed: N01 },
   Starfield:       { speed: N01 },
@@ -1622,6 +1688,10 @@ const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, stri
     prop: 'particleType',
     labels: { fountain: 'Fountain', gravity: 'Gravity', fireworks: 'Fireworks', sparkle: 'Sparkle Rain', comet: 'Comet', snow: 'Snow', swarm: 'Swarm' },
   },
+  Ease: {
+    prop: 'easeType',
+    labels: { inOutCubic: 'Ease · Cubic', inOutQuad: 'Ease · Quad', triwave: 'Triangle Wave', quadwave: 'Quad Wave', cubicwave: 'Cubic Wave' },
+  },
 }
 
 /** Header label for a node — for bundled nodes this reflects the selected
@@ -1638,6 +1708,9 @@ export function nodeDisplayLabel(nodeType: string, properties: Record<string, un
 export function isPropertyEnabled(nodeType: string, key: string, properties: Record<string, unknown>): boolean {
   if (nodeType === 'PerformanceGenerator' && key === 'fixedPalette') {
     return String(properties.paletteMode ?? 'mood') === 'fixed'
+  }
+  if (nodeType === 'MatrixOutput' && (key === 'volts' || key === 'milliamps')) {
+    return properties.powerLimit === true
   }
   if (nodeType === 'Transition') {
     const tt = String(properties.transitionType ?? 'crossfade')

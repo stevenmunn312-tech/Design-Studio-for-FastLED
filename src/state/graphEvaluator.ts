@@ -23,6 +23,8 @@ const DEFAULT_H = 16
 const fireHeat    = new Map<string, number[][]>()
 const flashLevel  = new Map<string, number>()
 const counterVals = new Map<string, number>()
+// Interval (metronome) node — last fire time in seconds, keyed by state id.
+const intervalLast = new Map<string, number>()
 const fftLevels   = new Map<string, { bass: number; mids: number; treble: number }>()
 const beatLevels  = new Map<string, ReturnType<typeof createBeatDetectorState>>()
 type AudioFeatureState = {
@@ -180,6 +182,44 @@ function kelvinToRgb(kelvin: number): RGB {
   else if (t <= 19) b = 0
   else b = 138.5177312231 * Math.log(t - 10) - 305.0447927307
   return { r: clamp(r), g: clamp(g), b: clamp(b) }
+}
+
+// Easing curves matching FastLED's lib8tion, on a normalised 0–1 value. Each
+// maps 0–1 → 0–1 and mirrors the corresponding ease8/*wave8 firmware call so the
+// preview matches on-device. Keep in sync with the `Ease` case in cppGenerator.
+function easeInOutQuad(x: number): number {
+  return x < 0.5 ? 2 * x * x : 1 - 2 * (1 - x) * (1 - x)
+}
+function easeInOutCubic(x: number): number {
+  // smoothstep: 3x² − 2x³ (FastLED ease8InOutCubic)
+  return x * x * (3 - 2 * x)
+}
+function triwave(x: number): number {
+  const h = ((x % 1) + 1) % 1
+  return h < 0.5 ? 2 * h : 2 * (1 - h)
+}
+function applyEase(type: string, x: number): number {
+  const t = Math.max(0, Math.min(1, x))
+  switch (type) {
+    case 'inOutQuad':  return easeInOutQuad(t)
+    case 'triwave':    return triwave(t)
+    case 'quadwave':   return easeInOutQuad(triwave(t))
+    case 'cubicwave':  return easeInOutCubic(triwave(t))
+    case 'inOutCubic':
+    default:           return easeInOutCubic(t)
+  }
+}
+
+// FastLED fill_rainbow: a scrolling hue sweep across the strip (hue in 0–255
+// units, +deltaHue per LED, animated by `start`). Index order matches the
+// buffer's [y*W+x] layout so the preview lines up with the firmware.
+function evalRainbow(start: number, deltaHue: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const hue = start + (y * W + x) * deltaHue
+      return hsv((((hue % 256) + 256) % 256) / 256 * 360, 1, 1)
+    })
+  )
 }
 
 function solidFrame(color: RGB, W = DEFAULT_W, H = DEFAULT_H): Frame {
@@ -2310,6 +2350,13 @@ function createEvalNode(
         break
       }
 
+      case 'Rainbow': {
+        const speed = denormRate(num(id, 'speed', props, 'speed', 0.3), SPEED_MAX.Rainbow)
+        const deltaHue = Number(props.deltaHue ?? 6)
+        out = { frame: evalRainbow(t * speed, deltaHue, W, H) }
+        break
+      }
+
       case 'Fire': {
         const intensity = num(id, 'intensity', props, 'intensity', 0.7)
         out = { frame: evalFire(stateKey(id), intensity, W, H) }
@@ -2425,6 +2472,15 @@ function createEvalNode(
         break
       }
 
+      case 'Gamma': {
+        const src = input(id, 'frame', null) as Frame | null
+        const g = Math.max(0.1, Number(props.gamma ?? 2.2))
+        if (!src) { out = { frame: null }; break }
+        const corr = (c: number) => Math.round(255 * Math.pow(c / 255, g))
+        out = { frame: src.map(row => row.map(px => ({ r: corr(px.r), g: corr(px.g), b: corr(px.b) }))) }
+        break
+      }
+
       case 'BassPulse': {
         const bass = num(id, 'bass', props, 'bass', 0)
         const colorIn = input(id, 'color', null) as RGB | null
@@ -2514,6 +2570,14 @@ function createEvalNode(
 
       case 'Temperature': {
         out = { color: kelvinToRgb(num(id, 'kelvin', props, 'kelvin', 4000)) }
+        break
+      }
+
+      case 'HeatColor': {
+        // heatColor() takes a 0–255 temperature (shared with Fire2012); the node
+        // input is a normalised 0–1 heat.
+        const heat = Math.max(0, Math.min(1, num(id, 'heat', props, 'heat', 0.5)))
+        out = { color: heatColor(heat * 255) }
         break
       }
 
@@ -2975,6 +3039,31 @@ function createEvalNode(
         const hi  = Number(props.high ?? 255)
         const phase = (t * bpm / 60) % 1
         out = { value: lo + ((Math.sin(phase * Math.PI * 2) + 1) / 2) * (hi - lo) }
+        break
+      }
+
+      case 'Ease': {
+        const type = String(props.easeType ?? 'inOutCubic')
+        const tin = num(id, 't', props, 't', 0)
+        out = { result: applyEase(type, tin) }
+        break
+      }
+
+      // Metronome — fires a boolean pulse once every `interval` seconds. Stateful
+      // (module-level intervalLast), keyed per group instance like other stateful
+      // nodes. Mirrors the millis()-based timer the C++ generator emits.
+      case 'Interval': {
+        const interval = Math.max(0.05, Number(props.interval ?? 0.5))
+        const key = stateKey(id)
+        const last = intervalLast.get(key)
+        let pulse = false
+        if (last === undefined || t < last) {
+          intervalLast.set(key, t)          // first tick, or clock reset
+        } else if (t - last >= interval) {
+          intervalLast.set(key, last + interval)
+          pulse = true
+        }
+        out = { pulse }
         break
       }
 

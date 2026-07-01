@@ -14,6 +14,8 @@ const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
 export const SPEED_MAX: Record<string, number> = {
   Plasma: 2, RadialBurst: 2, Spiral: 2, FlowField: 1.5, Starfield: 3,
   Blobs: 2, GaborNoise: 1.5, Noise2D: 1, FractalNoise: 1.2, PaletteGradient: 2,
+  // Rainbow — startHue units (0–255) per second; ~one sweep every couple seconds.
+  Rainbow: 120,
 }
 
 /** scale `1.0` (slider max) maps to this internal scale, per node type. */

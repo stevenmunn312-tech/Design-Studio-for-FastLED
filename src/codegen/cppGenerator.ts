@@ -392,6 +392,11 @@ export function generateCpp(
   // Serpentine (zig-zag) matrices wire alternate rows in reverse; buffers stay
   // row-major and MatrixOutput remaps grid → physical index via XY().
   const serpentine = (outputNode ? props(outputNode).serpentine : false) === true
+  // Optional power cap (FastLED.setMaxPowerInVoltsAndMilliamps) — dims globally
+  // to keep the PSU draw under a limit so a big matrix can't brown out the board.
+  const powerLimit = (outputNode ? props(outputNode).powerLimit : false) === true
+  const volts      = intProp(outputNode ? props(outputNode).volts     : undefined, 5, 1, 60)
+  const milliamps  = intProp(outputNode ? props(outputNode).milliamps : undefined, 2000, 100, 100000)
 
   // A MicInput node turns on the on-device audio engine (INMP441 over I2S + FFT);
   // its pins/channel configure the generated I2S reader. `emitEngine` means this
@@ -603,6 +608,28 @@ export function generateCpp(
         break
       }
 
+      // Easing curve on a 0–1 value via FastLED lib8tion. Keep the branch map in
+      // sync with `applyEase` in graphEvaluator.ts.
+      case 'Ease': {
+        const type = String(p.easeType ?? 'inOutCubic')
+        const fn = type === 'inOutQuad' ? 'ease8InOutQuad'
+          : type === 'triwave' ? 'triwave8'
+          : type === 'quadwave' ? 'quadwave8'
+          : type === 'cubicwave' ? 'cubicwave8'
+          : 'ease8InOutCubic'
+        ln(`  float ${v('result')} = ${fn}((uint8_t)(constrain(${f('t', 't', 0)}, 0.0f, 1.0f) * 255)) / 255.0f;`)
+        break
+      }
+
+      // Metronome — a boolean pulse every `interval` seconds, via a millis timer.
+      // Mirrors the stateful `Interval` case in graphEvaluator.ts.
+      case 'Interval': {
+        const ms = Math.max(50, Math.round(Number(p.interval ?? 0.5) * 1000))
+        ln(`  static uint32_t _iv_${id} = 0; bool ${v('pulse')} = false;`)
+        ln(`  if (millis() - _iv_${id} >= ${ms}u) { _iv_${id} = millis(); ${v('pulse')} = true; }`)
+        break
+      }
+
       case 'HSVToRGB':
         ln(`  CRGB ${v('color')} = CHSV((uint8_t)((${f('h', 'h', 0)}) / 360.0f * 255), (uint8_t)((${f('s', 's', 1)}) * 255), (uint8_t)((${f('v', 'v', 1)}) * 255));`)
         break
@@ -610,6 +637,10 @@ export function generateCpp(
       case 'Temperature':
         needsKelvin.v = true
         ln(`  CRGB ${v('color')} = kelvinToRGB(${f('kelvin', 'kelvin', 4000)});`)
+        break
+
+      case 'HeatColor':
+        ln(`  CRGB ${v('color')} = HeatColor((uint8_t)(constrain(${f('heat', 'heat', 0.5)}, 0.0f, 1.0f) * 255));`)
         break
 
       case 'BlendColors': {
@@ -933,6 +964,15 @@ export function generateCpp(
         break
       }
 
+      case 'Rainbow': {
+        needsT.v = true
+        const ob = ownBuf()
+        const deltaHue = Math.max(0, Math.min(255, Math.round(Number(p.deltaHue ?? 6))))
+        const rate = rateCpp(f('speed', 'speed', 0.3), SPEED_MAX.Rainbow)
+        ln(`  fill_rainbow(${ob}, NUM_LEDS, (uint8_t)(t * ${rate}), ${deltaHue});`)
+        break
+      }
+
       case 'Fire': {
         const ob = ownBuf()
         ln(`  { // Fire pattern`)
@@ -1236,6 +1276,13 @@ export function generateCpp(
         const ob = ownBuf()
         const shift = f('shift', 'shift', 0)
         ln(`  { ${seedFrom('frame')} uint8_t _sh = (uint8_t)((${shift}) / 360.0f * 255); for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i] = CHSV(rgb2hsv_approximate(${ob}[_i]).hue + _sh, rgb2hsv_approximate(${ob}[_i]).sat, rgb2hsv_approximate(${ob}[_i]).val); }`)
+        break
+      }
+
+      case 'Gamma': {
+        const ob = ownBuf()
+        const g = Math.max(0.1, Number(p.gamma ?? 2.2))
+        ln(`  { ${seedFrom('frame')} napplyGamma_video(${ob}, NUM_LEDS, ${g.toFixed(3)}f); }`)
         break
       }
 
@@ -2197,6 +2244,7 @@ export function generateCpp(
   lines.push(`void setup() {`)
   lines.push(`  FastLED.addLeds<${chipset}, DATA_PIN, ${colorOrder}>(leds, NUM_LEDS);`)
   lines.push(`  FastLED.setBrightness(200);`)
+  if (powerLimit) lines.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${volts}, ${milliamps});`)
   if (emitEngine) lines.push(`  setupAudio();`)
   lines.push(`}`)
   lines.push(``)
