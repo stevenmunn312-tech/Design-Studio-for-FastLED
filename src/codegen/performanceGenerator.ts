@@ -29,8 +29,9 @@ const SECTION_PATTERNS: Record<SongSection['type'], string[]> = {
   outro:   ['NoiseField', 'GradientFrame'],
 }
 
-function choosePattern(type: SongSection['type']): string {
-  const opts = SECTION_PATTERNS[type]
+function choosePattern(type: SongSection['type'], exclude?: string): string {
+  let opts = SECTION_PATTERNS[type]
+  if (exclude !== undefined && opts.length > 1) opts = opts.filter((o) => o !== exclude)
   return opts[Math.floor(Math.random() * opts.length)]
 }
 
@@ -64,6 +65,7 @@ export interface PerformanceOptions {
   paletteMode:        'mood' | 'fixed' | 'cycle'
   fixedPalette?:      string
   energySensitivity:  number   // 0-1
+  patternHold:        number   // seconds a pattern holds before switching within a section
 }
 
 export const SHOW_PALETTES = ['rainbow', 'ocean', 'fire', 'forest', 'lava', 'party', 'ice', 'purple'] as const
@@ -88,6 +90,7 @@ export function performanceOptionsFromProperties(properties: Record<string, unkn
     transitionDuration: clamp(properties.transitionDuration, 0.5, 0.1, 3),
     paletteMode,
     fixedPalette,
+    patternHold: clamp(properties.patternHold, 6, 1, 30),
   }
 }
 
@@ -96,6 +99,7 @@ const DEFAULT_OPTIONS: PerformanceOptions = {
   transitionDuration: 0.5,
   paletteMode:        'mood',
   energySensitivity:  0.7,
+  patternHold:        6,
 }
 
 export function generateShow(
@@ -115,13 +119,18 @@ export function generateShow(
   // section if it is untagged (any) or tagged with that section's type. When no
   // pattern matches the section, fall back to the whole set so a section always
   // renders something.
-  const chooseCollectionIndex = (type: SongSection['type']): number => {
+  const eligibleIndices = (type: SongSection['type']): number[] => {
     const eligible: number[] = []
     for (let i = 0; i < patternIds.length; i++) {
       const tags = sectionTags[i]
       if (!tags || tags.length === 0 || tags.includes(type)) eligible.push(i)
     }
-    const pool = eligible.length > 0 ? eligible : patternIds.map((_, i) => i)
+    return eligible.length > 0 ? eligible : patternIds.map((_, i) => i)
+  }
+  // `exclude` avoids repeating the previous pattern on a within-section switch.
+  const chooseCollectionIndex = (type: SongSection['type'], exclude?: number): number => {
+    let pool = eligibleIndices(type)
+    if (exclude !== undefined && pool.length > 1) pool = pool.filter((i) => i !== exclude)
     return pool[Math.floor(Math.random() * pool.length)]
   }
   const events: ShowEvent[] = []
@@ -142,7 +151,7 @@ export function generateShow(
       ? choosePalette(section.energy, analysis.mood.valence)
       : basePalette
 
-    // Pattern change with transition
+    // Transition into the section (from the previous section's pattern).
     if (prevSectionType !== null) {
       const transStyle = chooseTransition(prevSectionType, section.type)
       push(section.startMs - opts.transitionDuration * 1000 * 0.5, 'TRANSITION', {
@@ -151,10 +160,32 @@ export function generateShow(
       })
     }
 
-    const patternParams: ShowEvent['params'] = useCollection
-      ? { index: chooseCollectionIndex(section.type) }
-      : { name: choosePattern(section.type) }
-    push(section.startMs, 'SET_PATTERN', patternParams)
+    // Within-section pattern cycling: rather than holding one pattern for the
+    // whole section, switch through several (each ~patternHold seconds) with a
+    // transition between, for more variety. Collapses to a single pattern when
+    // the section is short or fewer than two patterns are available for it.
+    const durMs = Math.max(0, section.endMs - section.startMs)
+    const poolN = useCollection ? eligibleIndices(section.type).length : SECTION_PATTERNS[section.type].length
+    const slots = poolN < 2 ? 1 : Math.max(1, Math.round(durMs / (opts.patternHold * 1000)))
+    const slotDur = durMs / slots
+    let prevIdx: number | undefined
+    let prevName: string | undefined
+    for (let k = 0; k < slots; k++) {
+      const slotStart = section.startMs + k * slotDur
+      // Slot 0 uses the section-boundary transition above; later slots get their
+      // own same-section transition.
+      if (k > 0) {
+        push(slotStart - opts.transitionDuration * 1000 * 0.5, 'TRANSITION', {
+          type: chooseTransition(section.type, section.type),
+          duration: opts.transitionDuration,
+        })
+      }
+      const patternParams: ShowEvent['params'] = useCollection
+        ? { index: (prevIdx = chooseCollectionIndex(section.type, prevIdx)) }
+        : { name: (prevName = choosePattern(section.type, prevName)) }
+      push(slotStart, 'SET_PATTERN', patternParams)
+    }
+
     push(section.startMs, 'SET_PALETTE', { name: palette })
 
     // Speed scales with section energy and BPM

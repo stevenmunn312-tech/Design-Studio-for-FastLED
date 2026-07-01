@@ -12,6 +12,7 @@ export default function GroupControls() {
   const nodes = useGraphStore((s) => s.nodes)
   const enterGraph = useGraphStore((s) => s.enterGraph)
   const createGroup = useGraphStore((s) => s.createGroup)
+  const addGroupInput = useGraphStore((s) => s.addGroupInput)
   const setStatus = useUiStore((s) => s.setStatus)
 
   const inGroup = activeGraphId !== ROOT_GRAPH_ID
@@ -32,6 +33,13 @@ export default function GroupControls() {
         <>
           <button className={styles.back} onClick={() => enterGraph(ROOT_GRAPH_ID)}>← Main</button>
           <span className={styles.crumb}>{activeName}</span>
+          <button
+            className={styles.group}
+            title="Add an input this pattern exposes for show modulation (energy/speed/palette role)"
+            onClick={() => { addGroupInput(); setStatus('Added a group input — set its role and wire it to a knob', 'info') }}
+          >
+            ＋ Input
+          </button>
         </>
       ) : (
         <span className={styles.crumb}>Main</span>

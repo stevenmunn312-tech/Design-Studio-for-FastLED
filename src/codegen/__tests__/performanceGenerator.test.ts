@@ -35,6 +35,7 @@ describe('performanceOptionsFromProperties', () => {
       transitionDuration: 3,
       paletteMode: 'fixed',
       fixedPalette: 'ice',
+      patternHold: 6,
     })
   })
 
@@ -131,6 +132,48 @@ describe('generateShow — collection vs enum patterns', () => {
     const tags = [['intro'], ['intro']]   // nothing is eligible in verse/drop
     const setPatterns = generateShow(analysis, {}, ids, tags).events.filter((e) => e.cmd === 'SET_PATTERN')
     expect(setPatterns.every((e) => [0, 1].includes(e.params.index as number))).toBe(true)
+  })
+
+  // A single long section so within-section cycling has room to switch.
+  const longAnalysis: SongAnalysis = {
+    ...analysis,
+    durationMs: 20000,
+    sections: [{ startMs: 0, endMs: 20000, type: 'drop', energy: 0.9 }],
+  }
+
+  it('cycles through several patterns within a long section', () => {
+    // 20s / 5s hold → 4 slots; a 3-pattern collection gives real variety.
+    const ids = ['g0', 'g1', 'g2']
+    const show = generateShow(longAnalysis, { patternHold: 5 }, ids)
+    const setPatterns = show.events.filter((e) => e.cmd === 'SET_PATTERN')
+    expect(setPatterns).toHaveLength(4)
+    // No two consecutive slots repeat the same pattern.
+    for (let i = 1; i < setPatterns.length; i++) {
+      expect(setPatterns[i].params.index).not.toBe(setPatterns[i - 1].params.index)
+    }
+    // Each switch after the first is preceded by a transition.
+    expect(show.events.filter((e) => e.cmd === 'TRANSITION')).toHaveLength(3)
+  })
+
+  it('cycles enum patterns too, avoiding immediate repeats', () => {
+    const setPatterns = generateShow(longAnalysis, { patternHold: 5 }).events.filter((e) => e.cmd === 'SET_PATTERN')
+    expect(setPatterns.length).toBeGreaterThan(1)
+    for (let i = 1; i < setPatterns.length; i++) {
+      expect(setPatterns[i].params.name).not.toBe(setPatterns[i - 1].params.name)
+    }
+  })
+
+  it('holds a single pattern when a section is too short to cycle', () => {
+    // The fixture's sections are 2s each — far shorter than the 6s default hold.
+    const perSection = generateShow(analysis, {}, ['a', 'b']).events.filter((e) => e.cmd === 'SET_PATTERN')
+    expect(perSection).toHaveLength(analysis.sections.length)
+  })
+
+  it('does not cycle when only one pattern is available for the section', () => {
+    // One pattern in the collection → nothing to switch to, even in a long section.
+    const setPatterns = generateShow(longAnalysis, { patternHold: 5 }, ['solo']).events.filter((e) => e.cmd === 'SET_PATTERN')
+    expect(setPatterns).toHaveLength(1)
+    expect(setPatterns[0].params.index).toBe(0)
   })
 })
 

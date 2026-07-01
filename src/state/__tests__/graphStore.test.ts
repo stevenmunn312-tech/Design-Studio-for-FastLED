@@ -378,3 +378,50 @@ describe('graphStore — collection section tags', () => {
     expect(props.patternSections).toEqual({ g2: ['verse'] })
   })
 })
+
+describe('graphStore — group input roles', () => {
+  beforeEach(() => reset())
+
+  const groupInput = (id: string, paramId: string, dataType = 'float'): StudioNode => ({
+    id, type: 'studioNode', position: { x: 0, y: 0 },
+    data: { label: 'In', nodeType: 'GroupInput', category: 'composite', properties: { paramId }, inputs: [], outputs: [{ id: 'out', dataType }] },
+  } as unknown as StudioNode)
+  const outType = (id: string) =>
+    (useGraphStore.getState().nodes.find((n) => n.id === id)!.data.outputs as { dataType?: string }[])[0].dataType
+
+  it('addGroupInput is a no-op at the root graph', () => {
+    reset([node('sc', 'SolidColor')])
+    useGraphStore.getState().addGroupInput()
+    expect(useGraphStore.getState().nodes).toHaveLength(1)
+  })
+
+  it('addGroupInput adds a role-defaulted GroupInput inside a group and selects it', () => {
+    reset([])
+    useGraphStore.setState({ activeGraphId: 'g1', graphs: { g1: { id: 'g1', name: 'P' } } as never })
+    useGraphStore.getState().addGroupInput()
+    const s = useGraphStore.getState()
+    const gi = s.nodes.find((n) => n.data.nodeType === 'GroupInput')!
+    expect(gi.data.properties.paramId).toBe('energy')
+    expect(s.selectedNodeId).toBe(gi.id)
+  })
+
+  it('setGroupInputRole keeps float edges for float roles but retypes + unwires for palette', () => {
+    reset([groupInput('gi', 'energy'), node('bm', 'BrightnessMod')], [edge('e', 'gi', 'out', 'bm', 'brightness')])
+
+    useGraphStore.getState().setGroupInputRole('gi', 'speed')   // float → float
+    expect(useGraphStore.getState().nodes[0].data.properties.paramId).toBe('speed')
+    expect(outType('gi')).toBe('float')
+    expect(useGraphStore.getState().edges).toHaveLength(1)      // edge kept
+
+    useGraphStore.getState().setGroupInputRole('gi', 'palette') // float → palette
+    expect(outType('gi')).toBe('palette')
+    expect(useGraphStore.getState().edges).toHaveLength(0)      // mismatched edge dropped
+  })
+
+  it('setGroupInputRole maps the empty role back to a plain input id', () => {
+    reset([groupInput('gi', 'palette', 'palette')])
+    useGraphStore.getState().setGroupInputRole('gi', '')
+    expect(useGraphStore.getState().nodes[0].data.properties.paramId).toBe('param0')
+    expect(outType('gi')).toBe('float')
+  })
+})

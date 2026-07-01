@@ -100,6 +100,12 @@ interface GraphState {
   /** Toggle a song-section tag on a collection pattern (section-aware selection).
    *  An empty tag set means the pattern is eligible in any section. */
   togglePatternSection: (collectionNodeId: string, groupId: string, section: string) => void
+  /** Add a GroupInput node to the current subgraph so a pattern can expose a role
+   *  knob (energy/speed/palette) for show modulation. Only acts inside a group. */
+  addGroupInput: () => void
+  /** Set a GroupInput's show role: its `paramId` (what the generator drives) plus
+   *  its output port dataType (`palette` for the palette role, else `float`). */
+  setGroupInputRole: (nodeId: string, role: string) => void
 }
 
 type HistorySlice = Pick<GraphState, 'nodes' | 'edges'>
@@ -621,6 +627,44 @@ export const useGraphStore = create<GraphState>()(
             return { ...n, data: { ...n.data, properties: { ...n.data.properties, patternSections: map } } }
           })
           return { nodes }
+        }),
+
+      addGroupInput: () =>
+        set((s) => {
+          // Only meaningful inside a group's subgraph (a GroupInput at the root
+          // has nothing to expose to).
+          if (s.activeGraphId === ROOT_GRAPH_ID) return s
+          const node = {
+            id: `groupin-${Date.now()}`,
+            type: 'studioNode',
+            position: { x: 40, y: 40 + s.nodes.length * 16 },
+            data: {
+              label: 'Input', nodeType: 'GroupInput', category: 'composite',
+              properties: { paramId: 'energy' },   // defaults to a role; change via the node's dropdown
+              inputs: [], outputs: [{ id: 'out', label: 'Input', dataType: 'float' }],
+            },
+          } as unknown as StudioNode
+          return { nodes: [...s.nodes, node], selectedNodeId: node.id }
+        }),
+
+      setGroupInputRole: (nodeId, role) =>
+        set((s) => {
+          const target = s.nodes.find((n) => n.id === nodeId)
+          if (!target) return s
+          const nextType = role === 'palette' ? 'palette' : 'float'
+          const prevType = (target.data.outputs as { dataType?: string }[])[0]?.dataType ?? 'float'
+          const nodes = s.nodes.map((n) => {
+            if (n.id !== nodeId) return n
+            const outputs = (n.data.outputs as { id: string; label?: string; dataType?: string }[]).map((o) =>
+              o.id === 'out' ? { ...o, dataType: nextType } : o)
+            return { ...n, data: { ...n.data, properties: { ...n.data.properties, paramId: role || 'param0' }, outputs } }
+          })
+          // A palette↔float switch changes what the output can wire into, so drop
+          // any now-mismatched noodle from this input's port.
+          const edges = nextType !== prevType
+            ? s.edges.filter((e) => !(e.source === nodeId && e.sourceHandle === 'out'))
+            : s.edges
+          return { nodes, edges }
         }),
     }),
     {

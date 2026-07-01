@@ -82,6 +82,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   })
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
+  const setGroupInputRole = useGraphStore((s) => s.setGroupInputRole)
   const accent = CATEGORY_ACCENT_VAR[d.category] ?? 'var(--accent-output)'
   const inputs = d.inputs as { id: string; label: string; dataType: string }[]
   const outputs = d.outputs as { id: string; label: string; dataType: string }[]
@@ -294,7 +295,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                   <select
                     className={`nodrag ${styles.propSelect}`}
                     value={role}
-                    onChange={(e) => updateNodeProperty(id, 'paramId', e.target.value || 'param0')}
+                    onChange={(e) => setGroupInputRole(id, e.target.value)}
                   >
                     <option value="">— input —</option>
                     {GROUP_INPUT_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
