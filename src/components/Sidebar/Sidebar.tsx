@@ -67,7 +67,7 @@ export default function Sidebar() {
     x: viewCenter.x + (Math.random() - 0.5) * 80,
     y: viewCenter.y + (Math.random() - 0.5) * 80,
   })
-  const handleAddPattern = (p: SavedPattern) => instantiatePattern(p, dropPos())
+  const handleAddPattern = (p: SavedPattern) => instantiatePattern(p, dropPos(), true)
 
   const startRename = (p: SavedPattern) => {
     setRenamingId(p.id)
@@ -89,6 +89,9 @@ export default function Sidebar() {
   const handleAddNode = (type: string) => {
     const def = NODE_LIBRARY.find((n) => n.type === type)
     if (!def) return
+    // Pass `centreOnDrop` so the node settles vertically centred on the drop
+    // point once React Flow measures its (variable) height, rather than hanging
+    // below it — i.e. it ends up half its height above where the top-left lands.
     addNode({
       id: `${type}-${Date.now()}`,
       type: 'studioNode',
@@ -101,7 +104,7 @@ export default function Sidebar() {
         inputs: def.inputs,
         outputs: def.outputs,
       },
-    })
+    }, true)
   }
 
   return (

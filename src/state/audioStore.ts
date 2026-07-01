@@ -1,8 +1,9 @@
 import { create } from 'zustand'
-import { AudioEngine, NUM_SPECTRUM_BARS } from '../audio/audioEngine'
+import { AudioEngine, NUM_SPECTRUM_BARS, type AudioInputMode } from '../audio/audioEngine'
 
 interface AudioState {
   active: boolean
+  mode: AudioInputMode
   bass: number
   mids: number
   treble: number
@@ -11,6 +12,7 @@ interface AudioState {
   spectrum: number[]
   detectorSpectrum: number[]
   startAudio: () => Promise<void>
+  attachAudioElement: (element: HTMLMediaElement) => Promise<void>
   stopAudio: () => void
 }
 
@@ -31,6 +33,7 @@ export const useAudioStore = create<AudioState>()((set) => {
 
   return {
     active: false,
+    mode: null,
     bass: 0,
     mids: 0,
     treble: 0,
@@ -41,13 +44,19 @@ export const useAudioStore = create<AudioState>()((set) => {
 
     startAudio: async () => {
       await engine.start()
-      set({ active: true })
+      set({ active: true, mode: engine.mode })
+    },
+
+    attachAudioElement: async (element: HTMLMediaElement) => {
+      await engine.attachMediaElement(element)
+      set({ active: true, mode: engine.mode })
     },
 
     stopAudio: () => {
       engine.stop()
       set({
         active: false,
+        mode: null,
         bass: 0,
         mids: 0,
         treble: 0,

@@ -111,8 +111,7 @@
 
 .visualizer {
   position: relative;
-  height: 64px;
-  padding: 6px var(--space-2) 7px;
+  padding: 6px var(--space-2) 10px;
   border-top: 1px solid var(--border-glow);
   overflow: hidden;
   background:
@@ -185,10 +184,81 @@
 .spectrum {
   position: relative;
   z-index: 1;
-  height: 100%;
+  height: 64px;
   display: flex;
   align-items: flex-end;
   gap: 3px;
+}
+
+.musicControls {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.musicRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.musicBtn {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent-audio) 30%, var(--border-glow));
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.musicBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.musicBtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.musicMeta {
+  min-width: 0;
+  flex: 1 1 auto;
+  color: var(--text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.musicSeek {
+  flex: 1 1 auto;
+  accent-color: var(--accent-audio);
+}
+
+.musicTime {
+  min-width: 82px;
+  text-align: right;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-family: var(--font-code);
+}
+
+.musicError {
+  margin: 0;
+  color: #ff8fa8;
+  font-size: 12px;
+}
+
+.fileInput {
+  display: none;
 }
 
 .barWrap {

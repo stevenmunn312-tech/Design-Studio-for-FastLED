@@ -16,10 +16,16 @@ interface Props {
    * input, and auto-wires the chosen node back to this output.
    */
   connectFrom?: { nodeId: string; handleId: string; dataType: string }
+  /**
+   * Called after a drag-to-create node is added and auto-wired, with the new
+   * node id and the input handle it was wired to, so the canvas can reposition
+   * the node to sit its connected handle at the drop point.
+   */
+  onPlaced?: (nodeId: string, handleId: string, flow: { x: number; y: number }) => void
   onClose: () => void
 }
 
-export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onClose }: Props) {
+export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onPlaced, onClose }: Props) {
   const { addNode, onConnect, clipboard, pasteNode, selectAllNodes, nodes } = useGraphStore()
   const menuRef = useRef<HTMLDivElement>(null)
   const [mode, setMode] = useState<'main' | 'picker'>(connectFrom ? 'picker' : 'main')
@@ -85,6 +91,8 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onC
             targetHandle: band,
           })
         }
+        // Anchor to the first wired band so the fanned-out node lands on the drop.
+        onPlaced?.(id, FFT_BAND_IDS[0], flowPosition)
         onClose()
         return
       }
@@ -97,6 +105,7 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onC
           target: id,
           targetHandle: input.id,
         })
+        onPlaced?.(id, input.id, flowPosition)
       }
     }
     onClose()

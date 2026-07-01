@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties } from 'react'
 import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audioStore'
@@ -22,6 +22,11 @@ function resample(values: number[], count: number): number[] {
     const slice = values.slice(start, end)
     return clamp01(slice.reduce((sum, value) => sum + clamp01(value), 0) / slice.length)
   })
+}
+
+function fmtTime(seconds: number): string {
+  const safe = Math.max(0, Math.floor(seconds))
+  return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, '0')}`
 }
 
 // Idle animation shown when no nodes are on the canvas
@@ -110,6 +115,16 @@ export default function LEDPreview() {
   // Orbit angles for 3D mode (degrees): pitch about X, yaw about Y.
   const [rot, setRot] = useState({ x: 50, y: 0 })
   const drag = useRef<{ x: number; y: number } | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const playerRef = useRef<HTMLAudioElement>(null)
+  const musicUrlRef = useRef<string | null>(null)
+  const [musicName, setMusicName] = useState('')
+  const [musicUrl, setMusicUrl] = useState<string | null>(null)
+  const [musicReady, setMusicReady] = useState(false)
+  const [musicPlaying, setMusicPlaying] = useState(false)
+  const [musicCurrentTime, setMusicCurrentTime] = useState(0)
+  const [musicDuration, setMusicDuration] = useState(0)
+  const [musicError, setMusicError] = useState<string | null>(null)
 
   const onRotateDown = (e: React.PointerEvent) => {
     if (!preview3d) return
@@ -124,7 +139,7 @@ export default function LEDPreview() {
   }
   const onRotateUp = () => { drag.current = null }
 
-  const { active: audioActive, spectrum, startAudio, stopAudio } = useAudioStore()
+  const { mode: audioMode, spectrum, startAudio, attachAudioElement, stopAudio } = useAudioStore()
   const spectrumRef = useRef(spectrum)
   useEffect(() => { spectrumRef.current = spectrum }, [spectrum])
   const peakRef = useRef(Array(NUM_BARS).fill(0))
@@ -217,9 +232,91 @@ export default function LEDPreview() {
     }
   }, [])
 
+  useEffect(() => {
+    return () => {
+      if (musicUrlRef.current) URL.revokeObjectURL(musicUrlRef.current)
+    }
+  }, [])
+
   const toggleMic = () => {
-    if (audioActive) stopAudio()
-    else startAudio().catch(() => {})
+    if (audioMode === 'mic') stopAudio()
+    else {
+      if (musicPlaying) playerRef.current?.pause()
+      startAudio().catch(() => {})
+    }
+  }
+
+  const openFilePicker = () => fileInputRef.current?.click()
+
+  const clearMusic = () => {
+    const player = playerRef.current
+    if (player) {
+      player.pause()
+      player.removeAttribute('src')
+      player.load()
+    }
+    if (audioMode === 'media') stopAudio()
+    if (musicUrlRef.current) URL.revokeObjectURL(musicUrlRef.current)
+    musicUrlRef.current = null
+    setMusicUrl(null)
+    setMusicName('')
+    setMusicReady(false)
+    setMusicPlaying(false)
+    setMusicCurrentTime(0)
+    setMusicDuration(0)
+    setMusicError(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const onPickMusic = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    if (musicUrlRef.current) URL.revokeObjectURL(musicUrlRef.current)
+    const nextUrl = URL.createObjectURL(file)
+    musicUrlRef.current = nextUrl
+    setMusicUrl(nextUrl)
+    setMusicName(file.name)
+    setMusicReady(false)
+    setMusicPlaying(false)
+    setMusicCurrentTime(0)
+    setMusicDuration(0)
+    setMusicError(null)
+  }
+
+  const onLoadedMetadata = async () => {
+    const player = playerRef.current
+    if (!player) return
+    setMusicDuration(Number.isFinite(player.duration) ? player.duration : 0)
+    setMusicReady(true)
+    try {
+      await attachAudioElement(player)
+    } catch {
+      setMusicError('Could not route this file through the audio analyzer.')
+    }
+  }
+
+  const toggleMusicPlayback = () => {
+    const player = playerRef.current
+    if (!player || !musicUrl) return
+    if (musicPlaying) {
+      player.pause()
+      return
+    }
+    setMusicError(null)
+    if (audioMode !== 'media') {
+      attachAudioElement(player)
+        .then(() => player.play())
+        .catch(() => setMusicError('This audio file could not be played in the browser.'))
+      return
+    }
+    player.play().catch(() => setMusicError('This audio file could not be played in the browser.'))
+  }
+
+  const onSeekMusic = (event: ChangeEvent<HTMLInputElement>) => {
+    const player = playerRef.current
+    const next = Number(event.target.value)
+    setMusicCurrentTime(next)
+    if (player) player.currentTime = next
   }
 
   return (
@@ -236,12 +333,12 @@ export default function LEDPreview() {
             {preview3d ? '3D On' : '3D Off'}
           </button>
           <button
-            className={`${styles.toggleBtn} ${styles.micToggle} ${audioActive ? styles.toggleActive : ''}`}
+            className={`${styles.toggleBtn} ${styles.micToggle} ${audioMode === 'mic' ? styles.toggleActive : ''}`}
             onClick={toggleMic}
-            title={audioActive ? 'Stop microphone' : 'Start microphone'}
-            aria-pressed={audioActive}
+            title={audioMode === 'mic' ? 'Stop microphone' : 'Start microphone'}
+            aria-pressed={audioMode === 'mic'}
           >
-            {audioActive ? 'Mic On' : 'Mic Off'}
+            {audioMode === 'mic' ? 'Mic On' : 'Mic Off'}
           </button>
           <span className={styles.fps}>{fps} fps</span>
         </div>
@@ -259,11 +356,10 @@ export default function LEDPreview() {
           onPointerCancel={onRotateUp}
         />
       </div>
-      {audioActive && (
-        <div className={styles.visualizer} aria-hidden>
+      <div className={styles.visualizer}>
           <div className={styles.visualizerGlow} />
           <div className={styles.visualizerGrid} />
-          <div className={styles.spectrum}>
+          <div className={styles.spectrum} aria-hidden>
             {displaySpectrum.map((value, i) => {
               const hue = 188 + (i / Math.max(1, NUM_BARS - 1)) * 148
               const colorVars = { '--bar-hue': `${hue}` } as CSSProperties
@@ -287,8 +383,73 @@ export default function LEDPreview() {
               )
             })}
           </div>
+          <div className={styles.musicControls}>
+            <div className={styles.musicRow}>
+              <button type="button" className={styles.musicBtn} onClick={openFilePicker}>
+                {musicUrl ? 'Change Track' : 'Choose Track'}
+              </button>
+              <button
+                type="button"
+                className={styles.musicBtn}
+                onClick={toggleMusicPlayback}
+                disabled={!musicReady}
+              >
+                {musicPlaying ? 'Pause' : 'Play'}
+              </button>
+              <button
+                type="button"
+                className={styles.musicBtn}
+                onClick={clearMusic}
+                disabled={!musicUrl}
+              >
+                Clear
+              </button>
+              <span className={styles.musicMeta}>
+                {musicName || 'Load a local music file'}
+              </span>
+            </div>
+            <div className={styles.musicRow}>
+              <input
+                className={styles.musicSeek}
+                type="range"
+                min={0}
+                max={Math.max(0, musicDuration)}
+                step={0.01}
+                value={Math.min(musicCurrentTime, musicDuration || 0)}
+                onChange={onSeekMusic}
+                disabled={!musicReady}
+                aria-label="Music playback position"
+              />
+              <span className={styles.musicTime}>
+                {fmtTime(musicCurrentTime)} / {fmtTime(musicDuration)}
+              </span>
+            </div>
+            {musicError && <p className={styles.musicError} role="alert">{musicError}</p>}
+          </div>
         </div>
-      )}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="audio/*"
+        className={styles.fileInput}
+        onChange={onPickMusic}
+      />
+      <audio
+        ref={playerRef}
+        src={musicUrl ?? undefined}
+        preload="metadata"
+        onLoadedMetadata={onLoadedMetadata}
+        onTimeUpdate={() => setMusicCurrentTime(playerRef.current?.currentTime ?? 0)}
+        onPlay={() => setMusicPlaying(true)}
+        onPause={() => setMusicPlaying(false)}
+        onEnded={() => {
+          setMusicPlaying(false)
+          setMusicCurrentTime(0)
+          const player = playerRef.current
+          if (player) player.currentTime = 0
+        }}
+        onError={() => setMusicError('This audio file could not be decoded in the browser.')}
+      />
     </div>
   )
 }

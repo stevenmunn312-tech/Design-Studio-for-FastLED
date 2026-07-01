@@ -61,7 +61,11 @@ interface GraphState {
   onNodesChange: (changes: NodeChange[]) => void
   onEdgesChange: (changes: EdgeChange[]) => void
   onConnect: (connection: Connection) => void
-  addNode: (node: StudioNode) => void
+  /** Add a node. With `centreOnDrop`, the node's `position` is treated as the
+   *  point its *centre* should land on once measured (used by click-to-add so
+   *  the node appears vertically centred on the drop point rather than hanging
+   *  below it). */
+  addNode: (node: StudioNode, centreOnDrop?: boolean) => void
   /** Drop-to-splice: insert a node onto an existing edge, rewiring it as
    *  source → node → target (then spread the area so the noodles aren't tiny). */
   insertNodeOnEdge: (node: StudioNode, edgeId: string, inHandle: string, outHandle: string) => void
@@ -90,8 +94,10 @@ interface GraphState {
    *  active graph with a single Group node. Returns the new group id. */
   createGroup: (name: string, nodeIds: string[], options?: CreateGroupOptions) => string
   /** Drop a copy of a saved library pattern onto the canvas as a Group node,
-   *  registering its subgraph under a fresh group id. */
-  instantiatePattern: (saved: SavedPattern, position: { x: number; y: number }) => void
+   *  registering its subgraph under a fresh group id. With `centreOnDrop`, the
+   *  Group node settles vertically centred on `position` once measured (see
+   *  `addNode`). */
+  instantiatePattern: (saved: SavedPattern, position: { x: number; y: number }, centreOnDrop?: boolean) => void
   /** Absorb a Group node into a PatternCollection: remove it (and its edges)
    *  from the canvas and record its group id in the collection's list. */
   addToCollection: (collectionNodeId: string, groupNodeId: string) => void
@@ -226,6 +232,13 @@ const MIN_NODE_GAP = 60
 const DEFAULT_NODE_W = 180
 const DEFAULT_NODE_H = 100
 
+// Nodes added via "click to add" want to settle centred on the drop point, but
+// their real height is only known after React Flow measures them. This maps a
+// pending node id → the flow-y its *centre* should land on; onNodesChange
+// consumes it on the first `dimensions` change (ResizeObserver-driven, so it
+// fires even in a background tab, unlike requestAnimationFrame).
+const pendingCentreY = new Map<string, number>()
+
 // Walk edges left-to-right and shift any target that crowds its source rightward
 // to restore MIN_NODE_GAP. "Crowds" means too close horizontally *and*
 // overlapping vertically — so a pair you've deliberately stacked vertically (a
@@ -284,7 +297,21 @@ export const useGraphStore = create<GraphState>()(
       graphData: {},
 
       onNodesChange: (changes) =>
-        set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) as StudioNode[] })),
+        set((s) => {
+          let nodes = applyNodeChanges(changes, s.nodes) as StudioNode[]
+          // Once a click-to-add node has been measured, lift it by half its
+          // height so it settles centred on the drop point (see pendingCentreY).
+          if (pendingCentreY.size) {
+            nodes = nodes.map((n) => {
+              const centreY = pendingCentreY.get(n.id)
+              const h = n.measured?.height
+              if (centreY === undefined || !h) return n
+              pendingCentreY.delete(n.id)
+              return { ...n, position: { ...n.position, y: centreY - h / 2 } }
+            })
+          }
+          return { nodes }
+        }),
 
       onEdgesChange: (changes) =>
         set((s) => ({ edges: applyEdgeChanges(changes, s.edges) })),
@@ -318,8 +345,10 @@ export const useGraphStore = create<GraphState>()(
           }
         }),
 
-      addNode: (node) =>
-        set((s) => ({ nodes: [...s.nodes, node] })),
+      addNode: (node, centreOnDrop) => {
+        if (centreOnDrop) pendingCentreY.set(node.id, node.position.y)
+        set((s) => ({ nodes: [...s.nodes, node] }))
+      },
 
       insertNodeOnEdge: (node, edgeId, inHandle, outHandle) =>
         set((s) => {
@@ -657,14 +686,16 @@ export const useGraphStore = create<GraphState>()(
         return groupId
       },
 
-      instantiatePattern: (saved, position) =>
+      instantiatePattern: (saved, position, centreOnDrop) =>
         set((s) => {
           const groupId = `group-${Date.now()}`
           // Clone the saved subgraph so two instances of the same pattern don't
           // share node/edge objects (editing one would otherwise touch both).
           const sub = structuredClone(saved.subgraph)
+          const nodeId = `groupnode-${groupId}`
+          if (centreOnDrop) pendingCentreY.set(nodeId, position.y)
           const groupNode: StudioNode = {
-            id: `groupnode-${groupId}`,
+            id: nodeId,
             type: 'studioNode',
             position,
             data: {
@@ -791,6 +822,14 @@ export const useGraphStore = create<GraphState>()(
     }
   )
 )
+
+// Dev-only: expose the store on window so external tooling (e.g. a browser
+// automation session building a demo graph) can call actions like `loadGraph`
+// directly, without the localStorage round-trip that a `pagehide` flush can
+// clobber. No-op in production builds.
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  ;(window as unknown as { useGraphStore?: typeof useGraphStore }).useGraphStore = useGraphStore
+}
 
 // Convenience hook for undo/redo state and actions
 export const useTemporalStore = <T>(

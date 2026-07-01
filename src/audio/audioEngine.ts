@@ -22,6 +22,8 @@ export interface AudioData {
   detectorSpectrum: number[]
 }
 
+export type AudioInputMode = 'mic' | 'media' | null
+
 export interface MicNoiseGateConfig {
   gain: number
   agc: boolean
@@ -102,8 +104,9 @@ export class AudioEngine {
 
   private ctx: AudioContext | null = null
   private analyser: AnalyserNode | null = null
-  private source: MediaStreamAudioSourceNode | null = null
+  private source: AudioNode | null = null
   private stream: MediaStream | null = null
+  private mediaElement: HTMLMediaElement | null = null
   private buf: Uint8Array | null = null
   private listeners = new Set<(data: AudioData) => void>()
   private rafId = 0
@@ -124,6 +127,7 @@ export class AudioEngine {
   }
 
   active = false
+  mode: AudioInputMode = null
 
   configureMic(config: Partial<MicNoiseGateConfig>): void {
     this.micConfig = {
@@ -136,7 +140,8 @@ export class AudioEngine {
   }
 
   async start(): Promise<void> {
-    if (this.active) return
+    if (this.active && this.mode === 'mic') return
+    this.stop()
     this.stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
     this.ctx = new AudioContext()
     this.analyser = this.ctx.createAnalyser()
@@ -146,14 +151,43 @@ export class AudioEngine {
     this.source.connect(this.analyser)
     this.buf = new Uint8Array(this.analyser.frequencyBinCount)
     this.active = true
+    this.mode = 'mic'
+    this.tick()
+  }
+
+  async attachMediaElement(element: HTMLMediaElement): Promise<void> {
+    if (this.mediaElement === element && this.active && this.mode === 'media') {
+      if (this.ctx?.state === 'suspended') await this.ctx.resume()
+      return
+    }
+
+    this.stop()
+    this.ctx = new AudioContext()
+    this.analyser = this.ctx.createAnalyser()
+    this.analyser.fftSize = FFT_SIZE
+    this.analyser.smoothingTimeConstant = SMOOTHING
+    this.source = this.ctx.createMediaElementSource(element)
+    this.source.connect(this.analyser)
+    this.analyser.connect(this.ctx.destination)
+    this.mediaElement = element
+    this.buf = new Uint8Array(this.analyser.frequencyBinCount)
+    this.active = true
+    this.mode = 'media'
+    await this.ctx.resume()
     this.tick()
   }
 
   stop(): void {
-    if (!this.active) return
+    if (!this.active) {
+      this.mode = null
+      this.mediaElement = null
+      return
+    }
     cancelAnimationFrame(this.rafId)
     this.source?.disconnect()
+    this.analyser?.disconnect()
     this.stream?.getTracks().forEach(t => t.stop())
+    this.mediaElement = null
     this.ctx?.close()
     this.ctx = null; this.analyser = null; this.source = null; this.stream = null; this.buf = null
     this.gateState = {
@@ -165,6 +199,7 @@ export class AudioEngine {
     this.beatState = createBeatDetectorState()
     this.agcPeak = 0.0001
     this.active = false
+    this.mode = null
     this.emit({
       bass: 0,
       mids: 0,

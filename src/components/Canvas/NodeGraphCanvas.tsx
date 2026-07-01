@@ -30,6 +30,7 @@ import GlowEdge from './GlowEdge'
 import NodeContextMenu from './NodeContextMenu'
 import CanvasContextMenu from './CanvasContextMenu'
 import GroupControls from './GroupControls'
+import { anchorPosition } from '../../utils/anchorNode'
 import styles from './NodeGraphCanvas.module.css'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -92,7 +93,7 @@ function NodeGraphCanvasInner() {
   // Timestamp of the last drag-to-create picker open, so the trailing pane
   // click that React Flow emits right after the drop doesn't close it.
   const menuOpenedAt = useRef(0)
-  const { screenToFlowPosition, getNode } = useReactFlow()
+  const { screenToFlowPosition, getNode, getInternalNode } = useReactFlow()
   const { setStatus, setSparkPort, setViewCenter } = useUiStore()
   const wrapperRef = useRef<HTMLDivElement>(null)
 
@@ -200,6 +201,29 @@ function NodeGraphCanvasInner() {
       }
     },
     [setStatus, screenToFlowPosition]
+  )
+
+  // After the picker adds + auto-wires a node from a dropped noodle, nudge the
+  // node so its *connected* handle sits where the noodle was dropped (rather
+  // than the node's top-left). React Flow only knows the handle's offset once
+  // the node is measured, so poll a few frames for its handleBounds.
+  const anchorHandleToDrop = useCallback(
+    (nodeId: string, handleId: string, dropFlow: { x: number; y: number }) => {
+      let tries = 0
+      const tryAnchor = () => {
+        const bounds = getInternalNode(nodeId)?.internals.handleBounds
+        const handle =
+          bounds?.target?.find((h) => h.id === handleId) ??
+          bounds?.source?.find((h) => h.id === handleId)
+        if (handle) {
+          onNodesChange([{ id: nodeId, type: 'position', position: anchorPosition(dropFlow, handle) }])
+        } else if (tries++ < 30) {
+          requestAnimationFrame(tryAnchor)
+        }
+      }
+      requestAnimationFrame(tryAnchor)
+    },
+    [getInternalNode, onNodesChange]
   )
 
   // Unplug a noodle: grab its input (target) end and drop it on empty space to
@@ -343,12 +367,15 @@ function NodeGraphCanvasInner() {
 
       if (best) {
         insertNodeOnEdge(newNode, best.edgeId, best.inHandle, best.outHandle)
+        // Nudge the spliced node so its wired input handle sits on the drop
+        // point, matching the noodle-drop add flow.
+        anchorHandleToDrop(newNode.id, best.inHandle, position)
         setStatus(`Spliced ${def.label} into the connection`, 'success')
       } else {
         addNode(newNode)
       }
     },
-    [screenToFlowPosition, addNode, insertNodeOnEdge, instantiatePattern, edges, getNode, setStatus]
+    [screenToFlowPosition, addNode, insertNodeOnEdge, instantiatePattern, edges, getNode, setStatus, anchorHandleToDrop]
   )
 
   return (
@@ -420,6 +447,7 @@ function NodeGraphCanvasInner() {
           y={canvasMenu.y}
           flowPosition={{ x: canvasMenu.fx, y: canvasMenu.fy }}
           connectFrom={canvasMenu.connectFrom}
+          onPlaced={anchorHandleToDrop}
           onClose={() => setCanvasMenu(null)}
         />
       )}

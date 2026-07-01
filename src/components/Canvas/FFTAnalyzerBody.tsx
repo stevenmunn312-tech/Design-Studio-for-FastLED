@@ -22,6 +22,7 @@ function resample(values: number[], count: number): number[] {
 
 export default function FFTAnalyzerBody({ nodeId, bands }: Props) {
   const active = useAudioStore((s) => s.active)
+  const mode = useAudioStore((s) => s.mode)
   const liveSpectrum = useAudioStore((s) => s.spectrum)
   const outputs = usePreviewStore((s) => s.outputs.get(nodeId))
   const levels = [
@@ -61,7 +62,7 @@ export default function FFTAnalyzerBody({ nodeId, bands }: Props) {
         ))}
       </div>
       <div className={styles.status} data-active={active}>
-        <span />{active ? 'MIC LIVE' : 'DEMO SIGNAL'}
+        <span />{active ? (mode === 'media' ? 'MEDIA LIVE' : 'MIC LIVE') : 'DEMO SIGNAL'}
       </div>
     </div>
   )

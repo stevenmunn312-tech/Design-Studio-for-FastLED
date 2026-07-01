@@ -68,6 +68,48 @@ describe('graphStore — grouping', () => {
     expect(reg[gid].nodes.some((n) => n.data.nodeType === 'GroupOutput')).toBe(true)
   })
 
+  it('addNode with centreOnDrop lifts the node by half its measured height', () => {
+    reset()
+    const n = node('bd', 'BeatDetect')
+    n.position = { x: 40, y: 200 }
+    useGraphStore.getState().addNode(n, true)
+    // Before measurement, the node stays where it was dropped (top-left at y).
+    expect(useGraphStore.getState().nodes.find((x) => x.id === 'bd')!.position.y).toBe(200)
+    // React Flow measures the node → dimensions change carries its real height.
+    useGraphStore.getState().onNodesChange([
+      { id: 'bd', type: 'dimensions', dimensions: { width: 180, height: 140 }, setAttributes: true },
+    ])
+    // It settles centred on the drop point: y = 200 - 140/2.
+    expect(useGraphStore.getState().nodes.find((x) => x.id === 'bd')!.position.y).toBe(130)
+  })
+
+  it('addNode without centreOnDrop leaves the node at its dropped position', () => {
+    reset()
+    const n = node('bd', 'BeatDetect')
+    n.position = { x: 40, y: 200 }
+    useGraphStore.getState().addNode(n)
+    useGraphStore.getState().onNodesChange([
+      { id: 'bd', type: 'dimensions', dimensions: { width: 180, height: 140 }, setAttributes: true },
+    ])
+    expect(useGraphStore.getState().nodes.find((x) => x.id === 'bd')!.position.y).toBe(200)
+  })
+
+  it('instantiatePattern with centreOnDrop lifts the Group node by half its measured height', () => {
+    reset()
+    const saved = {
+      id: 'p1', name: 'MyPattern',
+      inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+      subgraph: { nodes: [], edges: [] },
+    } as unknown as import('../patternLibrary').SavedPattern
+    useGraphStore.getState().instantiatePattern(saved, { x: 40, y: 300 }, true)
+    const gn = useGraphStore.getState().nodes.find((n) => n.data.nodeType === 'Group')!
+    expect(gn.position.y).toBe(300) // unmeasured: stays at drop point
+    useGraphStore.getState().onNodesChange([
+      { id: gn.id, type: 'dimensions', dimensions: { width: 180, height: 120 }, setAttributes: true },
+    ])
+    expect(useGraphStore.getState().nodes.find((n) => n.id === gn.id)!.position.y).toBe(240)
+  })
+
   it('removeEdge unplugs a single noodle', () => {
     reset(
       [node('sc', 'SolidColor', {}), node('out', 'MatrixOutput', {})],
