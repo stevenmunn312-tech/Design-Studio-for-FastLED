@@ -87,7 +87,8 @@
   justify-content: center;
   align-items: flex-start;
   flex: 1;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* 3D mode: orbit the matrix panel in perspective (drag to rotate). */
