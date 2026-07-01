@@ -6,6 +6,7 @@
 // Pattern Master) read the same store.
 
 import { create } from 'zustand'
+import { useGraphStore } from './graphStore'
 import type { StudioNode, StudioEdge } from './graphStore'
 
 interface Port { id: string; label: string; dataType: string }
@@ -73,3 +74,24 @@ export const usePatternLibrary = create<LibraryState>((set) => ({
       return { patterns }
     }),
 }))
+
+/** Save a Group node (a named pattern) into the persistent library so it can
+ *  be re-used later. Reads the group's port signature + its subgraph from the
+ *  graph store. Shared by the node context menu's "Save to Library" and the
+ *  create-group dialog's "Save to library" checkbox. Returns the saved name,
+ *  or null if `groupNodeId` isn't a Group node. */
+export function saveGroupToLibrary(groupNodeId: string): string | null {
+  const s = useGraphStore.getState()
+  const node = s.nodes.find((n) => n.id === groupNodeId)
+  const groupId = (node?.data.properties as { groupId?: string } | undefined)?.groupId
+  const sub = groupId ? s.graphData[groupId] : undefined
+  if (!node || !sub) return null
+  const name = String(node.data.label ?? 'Pattern')
+  usePatternLibrary.getState().savePattern({
+    name,
+    inputs: (node.data.inputs as Port[] | undefined) ?? [],
+    outputs: (node.data.outputs as Port[] | undefined) ?? [],
+    subgraph: { nodes: sub.nodes, edges: sub.edges },
+  })
+  return name
+}

@@ -88,7 +88,7 @@ interface GraphState {
   enterGraph: (id: string) => void
   /** Encapsulate the given nodes into a new group, replacing them in the
    *  active graph with a single Group node. Returns the new group id. */
-  createGroup: (name: string, nodeIds: string[]) => string
+  createGroup: (name: string, nodeIds: string[], options?: CreateGroupOptions) => string
   /** Drop a copy of a saved library pattern onto the canvas as a Group node,
    *  registering its subgraph under a fresh group id. */
   instantiatePattern: (saved: SavedPattern, position: { x: number; y: number }) => void
@@ -119,6 +119,16 @@ type HistorySlice = Pick<GraphState, 'nodes' | 'edges'>
 // sources (mic / music library) — these are left behind in the parent graph
 // when encapsulating a selection into a group, not sealed inside it.
 const GROUP_EXCLUDED_TYPES = new Set(['MatrixOutput', 'MicInput', 'MusicLibrary'])
+
+export interface CreateGroupOptions {
+  /** Saved to the pattern library right after creation (the caller still has
+   *  to actually save it — this flag is just threaded through from the dialog). */
+  saveToLibrary?: boolean
+  /** Node ids (within the selection) whose unconnected `paletteIn` port should
+   *  be wired to a shared "palette" show-input role, so a PerformanceGenerator
+   *  with "use group inputs" on can replace it per-section. */
+  exposePaletteNodeIds?: string[]
+}
 
 const LEGACY_BUNDLE: Record<string, { nodeType: string; label: string; props: Record<string, unknown> }> = {
   NoiseField:    { nodeType: 'Noise', label: 'Noise', props: { noiseType: 'field' } },
@@ -436,7 +446,7 @@ export const useGraphStore = create<GraphState>()(
           }
         }),
 
-      createGroup: (name, nodeIds) => {
+      createGroup: (name, nodeIds, options) => {
         const groupId = `group-${Date.now()}`
         set((s) => {
           const idSet = new Set(nodeIds)
@@ -514,11 +524,89 @@ export const useGraphStore = create<GraphState>()(
             target: pm.edge.target!, targetHandle: pm.edge.targetHandle,
           } as StudioEdge))
 
+          // ── Auto-expose speed/energy/palette as show-input roles ──────────
+          // A node's `speed`/`energy`/`paletteIn` port already falls back to its
+          // own property when unwired (same mechanism the GroupInput role system
+          // uses), so wiring one in here is dormant until a PerformanceGenerator
+          // with "use group inputs" actually drives it — the pattern behaves
+          // exactly as authored otherwise.
+          const isPortFree = (nodeId: string, portId: string) =>
+            !s.edges.some((e) => e.target === nodeId && e.targetHandle === portId)
+
+          const roleInputNodes: StudioNode[] = []
+          const roleEdges: StudioEdge[] = []
+          const roleInputId: Partial<Record<'speed' | 'energy' | 'palette', string>> = {}
+          let roleY = 40
+
+          const ensureRoleInput = (role: 'speed' | 'energy' | 'palette', dataType: 'float' | 'palette') => {
+            const existing = roleInputId[role]
+            if (existing) return existing
+            const id = `groupin-${groupId}-${role}`
+            roleInputNodes.push({
+              id,
+              type: 'studioNode',
+              position: { x: -180, y: roleY },
+              data: {
+                label: role[0].toUpperCase() + role.slice(1), nodeType: 'GroupInput', category: 'composite',
+                properties: { paramId: role },
+                inputs: [], outputs: [{ id: 'out', label: role, dataType }],
+              },
+            } as unknown as StudioNode)
+            roleY += 80
+            roleInputId[role] = id
+            return id
+          }
+
+          // speed/energy: unwired ports get a shared per-role GroupInput
+          // multiplied against the node's own slider value, so the section's
+          // 0–1 signal scales (never overrides) what the pattern already does.
+          for (const role of ['speed', 'energy'] as const) {
+            selected
+              .filter((n) => (n.data.inputs as { id: string }[] | undefined)?.some((p) => p.id === role))
+              .filter((n) => isPortFree(n.id, role))
+              .forEach((n, i) => {
+                const base = Number((n.data.properties as Record<string, unknown>)[role] ?? 0.5)
+                const gi = ensureRoleInput(role, 'float')
+                const mulId = `groupmul-${groupId}-${role}-${i}`
+                roleInputNodes.push({
+                  id: mulId,
+                  type: 'studioNode',
+                  position: { x: -60, y: n.position.y },
+                  data: {
+                    label: `${role[0].toUpperCase()}${role.slice(1)} ×`, nodeType: 'Math', category: 'math',
+                    properties: { mathOp: 'multiply', a: base, b: 1 },
+                    inputs: [
+                      { id: 'a', label: 'A', dataType: 'float' },
+                      { id: 'b', label: 'B', dataType: 'float' },
+                    ],
+                    outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+                  },
+                } as unknown as StudioNode)
+                roleEdges.push(
+                  { id: `e-${mulId}-b`, source: gi, sourceHandle: 'out', target: mulId, targetHandle: 'b' } as StudioEdge,
+                  { id: `e-${mulId}-out`, source: mulId, sourceHandle: 'result', target: n.id, targetHandle: role } as StudioEdge,
+                )
+              })
+          }
+
+          // palette: only for nodes the caller opted into (checked in the
+          // create-group dialog) — replaces the palette outright rather than
+          // multiplying, since palettes aren't numeric.
+          for (const nodeId of options?.exposePaletteNodeIds ?? []) {
+            const target = selected.find((n) => n.id === nodeId)
+            if (!target) continue
+            const hasPort = (target.data.inputs as { id: string }[] | undefined)?.some((p) => p.id === 'paletteIn')
+            if (!hasPort || !isPortFree(nodeId, 'paletteIn')) continue
+            const gi = ensureRoleInput('palette', 'palette')
+            roleEdges.push({ id: `e-${nodeId}-palette`, source: gi, sourceHandle: 'out', target: nodeId, targetHandle: 'paletteIn' } as StudioEdge)
+          }
+
           const groupSubgraph: GraphContent = {
-            nodes: [...selected.map((n) => ({ ...n, selected: false })), ...groupInputNodes, groupOutput],
+            nodes: [...selected.map((n) => ({ ...n, selected: false })), ...groupInputNodes, ...roleInputNodes, groupOutput],
             edges: [
               ...internal,
               ...inputEdges,
+              ...roleEdges,
               { id: `e-${groupId}-out`, source: terminal.id, sourceHandle: 'frame', target: groupOutput.id, targetHandle: 'frame' } as StudioEdge,
             ],
           }

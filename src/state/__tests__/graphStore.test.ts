@@ -204,6 +204,77 @@ describe('graphStore — grouping', () => {
     const frame = evaluateGraph(s.nodes, s.edges, 0, 4, 4, getGroupRegistry())
     expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 255 })
   })
+
+  it('auto-exposes unconnected speed/energy ports as show-input roles, multiplied against the original slider value', () => {
+    reset([node('n', 'Noise', { speed: 0.5, scale: 0.5, palette: 'rainbow' })], [])
+    const gid = useGraphStore.getState().createGroup('Wavy', ['n'])
+    const sub = useGraphStore.getState().graphData[gid]
+
+    // One shared "speed" GroupInput was minted, plus a Math(multiply) feeding
+    // Noise's speed port — no "energy" role since Noise has no energy port.
+    const speedInputs = sub.nodes.filter(
+      (n) => n.data.nodeType === 'GroupInput' && (n.data.properties as { paramId?: string }).paramId === 'speed',
+    )
+    expect(speedInputs).toHaveLength(1)
+    expect(sub.nodes.some((n) => n.data.properties?.paramId === 'energy')).toBe(false)
+
+    const mul = sub.nodes.find((n) => n.data.nodeType === 'Math')!
+    expect(mul).toBeTruthy()
+    expect(mul.data.properties.mathOp).toBe('multiply')
+    expect(mul.data.properties.a).toBe(0.5)   // the node's own slider value, preserved
+    expect(sub.edges.some((e) => e.source === speedInputs[0].id && e.target === mul.id && e.targetHandle === 'b')).toBe(true)
+    expect(sub.edges.some((e) => e.source === mul.id && e.target === 'n' && e.targetHandle === 'speed')).toBe(true)
+
+    // Standalone (undriven) behaviour is unchanged: GroupInput resolves to null,
+    // the multiplier's `b` falls back to its identity default (1), so speed*1 = speed.
+    const frameA = evaluateGraph(sub.nodes, sub.edges.concat(
+      [{ id: 'e-out', source: 'n', sourceHandle: 'frame', target: sub.nodes.find((n) => n.data.nodeType === 'GroupOutput')!.id, targetHandle: 'frame' } as StudioEdge],
+    ), 5, 4, 4, {})
+    expect(frameA).toBeTruthy()
+  })
+
+  it('leaves an already-wired speed port alone instead of auto-exposing it', () => {
+    reset(
+      [node('wave', 'Sin'), node('n', 'Noise', { speed: 0.5, scale: 0.5, palette: 'rainbow' })],
+      [edge('e1', 'wave', 'result', 'n', 'speed')],
+    )
+    const gid = useGraphStore.getState().createGroup('Wavy', ['wave', 'n'])
+    const sub = useGraphStore.getState().graphData[gid]
+    expect(sub.nodes.some((n) => n.data.nodeType === 'GroupInput')).toBe(false)
+    expect(sub.nodes.some((n) => n.data.nodeType === 'Math')).toBe(false)
+    // The original wire from Sin into Noise's speed port survives untouched.
+    expect(sub.edges.some((e) => e.source === 'wave' && e.sourceHandle === 'result' && e.target === 'n' && e.targetHandle === 'speed')).toBe(true)
+  })
+
+  it('exposes an opted-in palette as a shared show-input role, replacing (not multiplying) the palette', () => {
+    reset([node('n', 'Noise', { speed: 0.5, scale: 0.5, palette: 'rainbow' })], [])
+    const gid = useGraphStore.getState().createGroup('Wavy', ['n'], { exposePaletteNodeIds: ['n'] })
+    const sub = useGraphStore.getState().graphData[gid]
+    const paletteInput = sub.nodes.find(
+      (n) => n.data.nodeType === 'GroupInput' && (n.data.properties as { paramId?: string }).paramId === 'palette',
+    )
+    expect(paletteInput).toBeTruthy()
+    expect((paletteInput!.data.outputs as { dataType?: string }[])[0].dataType).toBe('palette')
+    expect(sub.edges.some((e) => e.source === paletteInput!.id && e.target === 'n' && e.targetHandle === 'paletteIn')).toBe(true)
+  })
+
+  it('does not auto-expose a palette unless explicitly opted in', () => {
+    reset([node('n', 'Noise', { speed: 0.5, scale: 0.5, palette: 'rainbow' })], [])
+    const gid = useGraphStore.getState().createGroup('Wavy', ['n'])
+    const sub = useGraphStore.getState().graphData[gid]
+    expect(sub.nodes.some((n) => n.data.properties?.paramId === 'palette')).toBe(false)
+  })
+
+  it('saveGroupToLibrary saves a Group node and returns its name', async () => {
+    const { saveGroupToLibrary } = await import('../patternLibrary')
+    const { usePatternLibrary } = await import('../patternLibrary')
+    reset([node('sc', 'SolidColor', { r: 1, g: 2, b: 3 })], [])
+    const gid = useGraphStore.getState().createGroup('MyPattern', ['sc'])
+    usePatternLibrary.setState({ patterns: [] })
+    const name = saveGroupToLibrary(`groupnode-${gid}`)
+    expect(name).toBe('MyPattern')
+    expect(usePatternLibrary.getState().patterns.some((p) => p.name === 'MyPattern')).toBe(true)
+  })
 })
 
 describe('graphStore — legacy node migration on load', () => {
