@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import type { NodeProps, Node } from '@xyflow/react'
 import { useGraphStore } from '../../state/graphStore'
@@ -47,6 +47,114 @@ function isRGB(v: unknown): v is RGB {
 // Trim a live float to a readable precision for display in a disabled editor.
 function showNum(n: number) {
   return Math.round(n * 1000) / 1000
+}
+
+function validSliderValue(value: string, min: number, max: number, step: number) {
+  if (value.trim() === '') return false
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed < min || parsed > max) return false
+
+  // Allow for floating-point noise while still enforcing the same increments
+  // as the range input (for example 0.1, 0.2, ...).
+  const stepsFromMin = (parsed - min) / step
+  return Math.abs(stepsFromMin - Math.round(stepsFromMin)) < 1e-8
+}
+
+function SliderProperty({
+  label,
+  value,
+  min,
+  max,
+  step,
+  disabled,
+  onChange,
+}: {
+  label: string
+  value: number
+  min: number
+  max: number
+  step: number
+  disabled: boolean
+  onChange: (value: number) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const [invalid, setInvalid] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editing) inputRef.current?.select()
+  }, [editing])
+
+  const beginEditing = () => {
+    if (disabled) return
+    setDraft(String(value))
+    setInvalid(false)
+    setEditing(true)
+  }
+
+  const commit = () => {
+    if (!validSliderValue(draft, min, max, step)) {
+      setInvalid(true)
+      return false
+    }
+    onChange(Number(draft))
+    setEditing(false)
+    setInvalid(false)
+    return true
+  }
+
+  if (editing) {
+    return (
+      <span className={styles.sliderWrap}>
+        <input
+          ref={inputRef}
+          className={`nodrag nowheel ${styles.sliderInput}${invalid ? ` ${styles.invalid}` : ''}`}
+          type="text"
+          inputMode="decimal"
+          aria-label={`${label} value`}
+          aria-invalid={invalid}
+          title={invalid ? `Enter a value from ${min} to ${max} in steps of ${step}` : undefined}
+          value={draft}
+          onChange={(e) => {
+            setDraft(e.target.value)
+            setInvalid(false)
+          }}
+          onBlur={() => {
+            if (!commit()) setEditing(false)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commit()
+            if (e.key === 'Escape') {
+              setEditing(false)
+              setInvalid(false)
+            }
+          }}
+          onDoubleClick={(e) => e.stopPropagation()}
+        />
+      </span>
+    )
+  }
+
+  return (
+    <span className={styles.sliderWrap}>
+      <input
+        className={`nodrag nowheel ${styles.propRange}`}
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        disabled={disabled}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        onDoubleClick={(e) => {
+          e.stopPropagation()
+          beginEditing()
+        }}
+      />
+      <span className={styles.propVal} onDoubleClick={beginEditing}>{showNum(value)}</span>
+    </span>
+  )
 }
 
 // Body content width = --node-width (180) − 2×--space-1 (8) horizontal padding.
@@ -352,19 +460,15 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                     ))}
                   </select>
                 ) : meta?.control === 'slider' && typeof val === 'number' ? (
-                  <span className={styles.sliderWrap}>
-                    <input
-                      className={`nodrag nowheel ${styles.propRange}`}
-                      type="range"
-                      min={meta.min}
-                      max={meta.max}
-                      step={meta.step}
-                      disabled={disabled}
-                      value={typeof live === 'number' ? live : val}
-                      onChange={(e) => updateNodeProperty(id, key, Number(e.target.value))}
-                    />
-                    <span className={styles.propVal}>{showNum(typeof live === 'number' ? live : val)}</span>
-                  </span>
+                  <SliderProperty
+                    label={key}
+                    value={typeof live === 'number' ? live : val}
+                    min={meta.min}
+                    max={meta.max}
+                    step={meta.step}
+                    disabled={disabled}
+                    onChange={(value) => updateNodeProperty(id, key, value)}
+                  />
                 ) : typeof val === 'boolean' ? (
                   <input
                     className="nodrag"

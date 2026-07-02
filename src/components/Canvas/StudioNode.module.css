@@ -234,3 +234,26 @@
   color: var(--text-primary);
   white-space: nowrap;
 }
+
+.sliderInput {
+  width: 106px;
+  box-sizing: border-box;
+  border: 1px solid var(--accent-output);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--fs-caption);
+  font-family: var(--font-code);
+  padding: 2px 4px;
+  text-align: right;
+}
+
+.sliderInput:focus {
+  outline: none;
+  box-shadow: 0 0 0 1px var(--accent-output);
+}
+
+.sliderInput.invalid {
+  border-color: var(--error);
+  box-shadow: 0 0 0 1px var(--error);
+}

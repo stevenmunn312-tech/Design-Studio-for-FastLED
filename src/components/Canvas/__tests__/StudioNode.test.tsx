@@ -86,6 +86,33 @@ describe('StudioNode', () => {
     expect(useGraphStore.getState().nodes[0].data.properties.speed).toBe(0.5)
   })
 
+  it('temporarily accepts validated keyboard input after a slider double-click', () => {
+    const { container, getByLabelText } = renderNode(makeNode('Noise', { speed: 0.5, scale: 1, palette: 'rainbow' }))
+    const range = container.querySelector('input[type="range"]') as HTMLInputElement
+
+    fireEvent.doubleClick(range)
+    const editor = getByLabelText('speed value') as HTMLInputElement
+    expect(editor.value).toBe('0.5')
+
+    fireEvent.change(editor, { target: { value: '0.73' } })
+    fireEvent.keyDown(editor, { key: 'Enter' })
+    expect(useGraphStore.getState().nodes[0].data.properties.speed).toBe(0.73)
+    expect(container.querySelector('input[type="range"]')).toBeTruthy()
+  })
+
+  it('rejects invalid, out-of-range, and off-step slider keyboard input', () => {
+    const { container, getByLabelText } = renderNode(makeNode('Noise', { speed: 0.5, scale: 1, palette: 'rainbow' }))
+    fireEvent.doubleClick(container.querySelector('input[type="range"]') as HTMLInputElement)
+    const editor = getByLabelText('speed value') as HTMLInputElement
+
+    for (const badValue of ['not a number', '2', '0.735']) {
+      fireEvent.change(editor, { target: { value: badValue } })
+      fireEvent.keyDown(editor, { key: 'Enter' })
+      expect(editor.getAttribute('aria-invalid')).toBe('true')
+      expect(useGraphStore.getState().nodes[0].data.properties.speed).toBe(0.5)
+    }
+  })
+
   it('renders a checkbox for MicInput AGC and updates the property', () => {
     const { container } = renderNode(makeNode('MicInput', {
       gain: 1,
