@@ -106,15 +106,17 @@
 .revealBtn {
   background: none;
   border: none;
-  color: var(--text-secondary);
+  color: var(--accent);
+  opacity: 0.75;
   cursor: pointer;
-  font-size: 13px;
+  display: flex;
+  align-items: center;
   padding: 0 6px;
   flex-shrink: 0;
 }
 
 .revealBtn:hover {
-  color: var(--accent);
+  opacity: 1;
 }
 
 /* Drop target for importing pattern .json files dragged in from the OS. */
