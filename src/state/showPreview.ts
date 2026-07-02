@@ -5,9 +5,10 @@
 // It reuses the real graph evaluator: each SET_PATTERN maps to a one-node
 // synthetic graph (pattern → MatrixOutput), so previewed patterns look exactly
 // like the studio's. SET_PALETTE / SET_SPEED / SET_BRIGHTNESS and BEAT_FLASH are
-// applied on top. Transitions are rendered as instant switches for now.
+// applied on top. A TRANSITION event crossfades (or wipes/dissolves/…) from the
+// outgoing pattern to the incoming one over its `duration`, mirroring the device.
 
-import { evaluateGraph, type Frame, type GroupRegistry, type PortValue } from './graphEvaluator'
+import { evaluateGraph, compositeTransition, type Frame, type GroupRegistry, type PortValue } from './graphEvaluator'
 import { NODE_LIBRARY } from './nodeLibrary'
 import { isStudioPalette } from './paletteCatalog'
 import type { StudioNode, StudioEdge } from './graphStore'
@@ -119,6 +120,43 @@ function renderGroupFrame(
   ) ?? blank(W, H)
 }
 
+// Render the pattern active in a given ShowState (enum name or collection index),
+// before brightness/flash. Shared by the steady-state and transition paths.
+function renderStateFrame(
+  show: ShowFile, st: ShowState, timeMs: number, W: number, H: number,
+  groups: GroupRegistry, useGroupInputs: boolean,
+): Frame {
+  const groupId = show.patternSet && st.patternIndex >= 0 ? show.patternSet[st.patternIndex] : undefined
+  const palette = isStudioPalette(st.palette) ? st.palette : 'rainbow'
+  // SET_SPEED is a 0–2 multiplier; the `speed` role wants 0–1, so normalise it
+  // (matched by the firmware player's CMD_SET_SPEED → speed normalisation). The
+  // palette role passes the same palette id the studio uses.
+  const groupInputs: Record<string, PortValue> = useGroupInputs
+    ? { energy: st.energy, speed: Math.min(1, st.speed / 2), palette }
+    : {}
+  return groupId
+    ? renderGroupFrame(groupId, timeMs, W, H, groups, groupInputs)
+    : renderEnumFrame(st, timeMs, W, H)
+}
+
+/** The TRANSITION currently in progress at `timeMs`, if any: its start, style,
+ *  and 0–1 progress. A transition runs over [t, t + duration] from the event. */
+function activeTransitionAt(
+  show: ShowFile, timeMs: number,
+): { startMs: number; type: string; progress: number } | null {
+  let active: { startMs: number; type: string; progress: number } | null = null
+  for (const ev of show.events) {
+    if (ev.t > timeMs) break            // events are time-sorted
+    if (ev.cmd !== 'TRANSITION') continue
+    const durMs = Number(ev.params.duration) * 1000
+    if (durMs <= 0) continue
+    if (timeMs < ev.t + durMs) {
+      active = { startMs: ev.t, type: String(ev.params.type ?? 'crossfade'), progress: (timeMs - ev.t) / durMs }
+    }
+  }
+  return active
+}
+
 /** Render the show's LED frame at a playback position (ms). `groups` is the live
  *  group registry (collection shows). When `useGroupInputs` is on, the section
  *  energy, (normalised) speed, and palette are fed to the patterns'
@@ -128,17 +166,20 @@ export function renderShowFrame(
   groups: GroupRegistry = {}, useGroupInputs = false,
 ): Frame {
   const st = showStateAt(show, timeMs)
-  const groupId = show.patternSet && st.patternIndex >= 0 ? show.patternSet[st.patternIndex] : undefined
-  const palette = isStudioPalette(st.palette) ? st.palette : 'rainbow'
-  // SET_SPEED is a 0–2 multiplier; the `speed` role wants 0–1, so normalise it
-  // (matched by the firmware player's CMD_SET_SPEED → speed normalisation). The
-  // palette role passes the same palette id the studio uses.
-  const groupInputs: Record<string, PortValue> = useGroupInputs
-    ? { energy: st.energy, speed: Math.min(1, st.speed / 2), palette }
-    : {}
-  const result: Frame = groupId
-    ? renderGroupFrame(groupId, timeMs, W, H, groups, groupInputs)
-    : renderEnumFrame(st, timeMs, W, H)
+
+  // Mid-transition: blend the outgoing pattern (state just before the switch)
+  // into the incoming one (state at the switch) via the chosen transition style.
+  const tr = activeTransitionAt(show, timeMs)
+  let result: Frame
+  if (tr) {
+    const fromState = showStateAt(show, tr.startMs - 1)
+    const toState = showStateAt(show, tr.startMs)
+    const fromFrame = renderStateFrame(show, fromState, timeMs, W, H, groups, useGroupInputs)
+    const toFrame = renderStateFrame(show, toState, timeMs, W, H, groups, useGroupInputs)
+    result = compositeTransition(tr.type, fromFrame, toFrame, tr.progress, W, H)
+  } else {
+    result = renderStateFrame(show, st, timeMs, W, H, groups, useGroupInputs)
+  }
 
   const b = Math.max(0, Math.min(1, st.brightness / 255))
   const flash = beatFlashAt(show, timeMs)

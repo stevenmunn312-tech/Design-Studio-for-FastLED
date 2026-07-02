@@ -104,16 +104,16 @@ export function generatePlayerSketch(
   // built-in pattern switch (enum). The render_pN() bodies expect ms.
   const renderPatternFn = collection
     ? [
-        'void renderPattern(float t) {',
+        'void renderPattern(uint8_t pid, float t) {',
         '  uint32_t ms = (uint32_t)(t * 1000.0f);',
-        '  switch (patternId) {',
+        '  switch (pid) {',
         ...Array.from({ length: renderers!.count }, (_, i) => `    case ${i}: render_p${i}(ms${argList}); break;`),
         `    default: render_p0(ms${argList}); break;`,
         '  }',
         '}',
       ].join('\n')
-    : `void renderPattern(float t) {
-  switch (patternId) {
+    : `void renderPattern(uint8_t pid, float t) {
+  switch (pid) {
     case 0:  // SolidColor
       fill_solid(leds, NUM_LEDS, samplePalette(paletteId, 0));
       break;
@@ -218,6 +218,7 @@ struct ShowEvent {
 
 // ── Globals ───────────────────────────────────────────────────────────────────
 CRGB leds[NUM_LEDS];
+CRGB showA[NUM_LEDS];             // outgoing pattern held during a crossfade
 Audio audio;
 
 ShowEvent* showEvents = nullptr;
@@ -225,10 +226,12 @@ uint32_t   eventCount = 0;
 uint32_t   eventIdx   = 0;
 float      animSpeed  = 1.0f;
 uint8_t    patternId  = ${collection ? 0 : 2};        // active pattern${collection ? ' index' : ' (default: Plasma)'}
+uint8_t    prevPatternId = ${collection ? 0 : 2};     // outgoing pattern during a transition
 uint8_t    paletteId  = 0;        // default: Rainbow
 float      flashLevel = 0.0f;
 float      flashDecay = 0.82f;
-float      transProgress = 1.0f;  // 1 = no transition in progress
+uint32_t   transStart = 0;        // ms the current transition began
+float      transDurMs = 0.0f;     // 0 = no transition in progress
 ${hasEnergy ? 'float      energy    = 0.0f;      // SET_ENERGY → energy group-input role\n' : ''}${hasSpeed ? 'float      speed     = 0.5f;      // SET_SPEED (normalised 0–1) → speed group-input role\n' : ''}${hasPalette ? 'CRGBPalette16 palette = RainbowColors_p;  // SET_PALETTE → palette group-input role\n' : ''}${bakedAudio ? `
 // Baked audio envelope (song-synced FFT), fed into the pattern audio globals.
 float     _audioBass = 0, _audioMids = 0, _audioTreble = 0;   // 0–1, current frame
@@ -335,7 +338,13 @@ void applyEvent(const ShowEvent& ev) {
       flashLevel = ev.params[0] / 255.0f;
       flashDecay = expf(-16.0f / (60.0f + ((ev.paramCount > 1 ? ev.params[1] : 22.0f) / 255.0f) * 240.0f));
       break;
-    case CMD_TRANSITION:     transProgress = 0.0f; break;${hasEnergy ? '\n    case CMD_SET_ENERGY:     energy = ev.params[0]; break;' : ''}
+    case CMD_TRANSITION:
+      // Fired just before the incoming SET_PATTERN (same timestamp, sorted so
+      // TRANSITION lands first), so patternId still holds the outgoing pattern.
+      prevPatternId = patternId;
+      transStart    = ev.t;
+      transDurMs    = (ev.paramCount > 1 ? ev.params[1] : 0.0f) * 1000.0f;
+      break;${hasEnergy ? '\n    case CMD_SET_ENERGY:     energy = ev.params[0]; break;' : ''}
   }
 }
 
@@ -382,7 +391,19 @@ void loop() {
   }
 ${bakedAudio ? '  updateShowAudio(posMs);   // song-synced FFT → pattern audio globals\n' : ''}
   float t = posMs / 1000.0f;
-  renderPattern(t);
+  // Crossfade: while a transition is running, render the outgoing pattern into
+  // showA and the incoming one into leds, then blend by progress. (First slice:
+  // crossfade only — the other transition styles fall back to this blend.)
+  float tp = transDurMs > 0.0f ? (float)(posMs - transStart) / transDurMs : 1.0f;
+  if (tp < 1.0f) {
+    renderPattern(prevPatternId, t);
+    ::memmove(showA, leds, sizeof(CRGB) * NUM_LEDS);   // outgoing
+    renderPattern(patternId, t);                        // incoming → leds
+    uint8_t mix = (uint8_t)(tp * 255);
+    for (int i = 0; i < NUM_LEDS; i++) leds[i] = blend(showA[i], leds[i], mix);
+  } else {
+    renderPattern(patternId, t);
+  }
 
   // Beat flash overlay
   if (flashLevel > 0.01f) {

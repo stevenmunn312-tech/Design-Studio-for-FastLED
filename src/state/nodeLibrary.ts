@@ -1241,7 +1241,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       beatIntensity:      0.8,
       energySensitivity:  0.7,
       transitionDuration: 0.5,
-      patternHold:        6,
+      patternHold:        10,
       paletteMode:        'mood',
       fixedPalette:       'rainbow',
       useGroupInputs:     false,

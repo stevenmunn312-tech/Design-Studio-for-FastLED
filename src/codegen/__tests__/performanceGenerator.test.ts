@@ -9,7 +9,7 @@ import {
   SHOW_PATTERNS,
   SHOW_TRANSITIONS,
 } from '../performanceGenerator'
-import type { ShowEvent, SongAnalysis } from '../../types/showFile'
+import type { ShowEvent, SongAnalysis, EnergyPoint } from '../../types/showFile'
 
 // An analysis carrying a 0–2s energy track (bass ramps 0→1→0.5), for envelope tests.
 const withEnergy: SongAnalysis = {
@@ -50,7 +50,7 @@ describe('performanceOptionsFromProperties', () => {
       transitionDuration: 3,
       paletteMode: 'fixed',
       fixedPalette: 'ice',
-      patternHold: 6,
+      patternHold: 10,
     })
   })
 
@@ -157,7 +157,9 @@ describe('generateShow — collection vs enum patterns', () => {
   }
 
   it('cycles through several patterns within a long section', () => {
-    // 20s / 5s hold → 4 slots; a 3-pattern collection gives real variety.
+    // 20s section, 5s min hold → switches at 0/5/10/15s; a 3-pattern collection
+    // gives real variety. (No beats past 2s in this fixture, so switches fall
+    // back to plain time-based, which is what makes the count deterministic.)
     const ids = ['g0', 'g1', 'g2']
     const show = generateShow(longAnalysis, { patternHold: 5 }, ids)
     const setPatterns = show.events.filter((e) => e.cmd === 'SET_PATTERN')
@@ -189,6 +191,43 @@ describe('generateShow — collection vs enum patterns', () => {
     const setPatterns = generateShow(longAnalysis, { patternHold: 5 }, ['solo']).events.filter((e) => e.cmd === 'SET_PATTERN')
     expect(setPatterns).toHaveLength(1)
     expect(setPatterns[0].params.index).toBe(0)
+  })
+
+  it('snaps within-section switches to the beat after the minimum hold', () => {
+    // Beats every 700ms so the 5s hold never lands exactly on one — each switch
+    // must fall on a beat *after* at least 5s have elapsed (hold longer to sync).
+    const beatsArr = Array.from({ length: 60 }, (_, i) => i * 700)
+    const beatSong: SongAnalysis = {
+      ...analysis,
+      durationMs: 30000,
+      beats: { timestamps: beatsArr, bpm: 120, confidence: 0.9 },
+      sections: [{ startMs: 0, endMs: 30000, type: 'drop', energy: 0.9 }],
+    }
+    const setPatterns = generateShow(beatSong, { patternHold: 5 }, ['x', 'y']).events.filter((e) => e.cmd === 'SET_PATTERN')
+    expect(setPatterns[0].t).toBe(0)                      // first is a plain cut-in
+    for (let i = 1; i < setPatterns.length; i++) {
+      expect(beatsArr).toContain(setPatterns[i].t)        // lands on a beat
+      expect(setPatterns[i].t - setPatterns[i - 1].t).toBeGreaterThanOrEqual(5000)  // held ≥ minimum
+    }
+  })
+
+  it('adds an extra beat-aligned switch on a significant energy surge', () => {
+    // Energy is flat then jumps hard at 15s. With a 10s hold the periodic schedule
+    // switches at ~10s and ~20s; the surge forces an extra switch near 15s.
+    const energy: EnergyPoint[] = []
+    for (let t = 0; t <= 30000; t += 100) energy.push({ t, bass: 0, mids: 0, treble: 0, overall: t >= 15000 ? 0.9 : 0.1 })
+    const beatsArr = Array.from({ length: 120 }, (_, i) => i * 250)
+    const surgeSong: SongAnalysis = {
+      ...analysis,
+      durationMs: 30000,
+      beats: { timestamps: beatsArr, bpm: 120, confidence: 0.9 },
+      energy,
+      sections: [{ startMs: 0, endMs: 30000, type: 'chorus', energy: 0.7 }],
+    }
+    const withSurge = generateShow(surgeSong, { patternHold: 10 }, ['x', 'y', 'z']).events.filter((e) => e.cmd === 'SET_PATTERN')
+    const noSurge = generateShow({ ...surgeSong, energy: [] }, { patternHold: 10 }, ['x', 'y', 'z']).events.filter((e) => e.cmd === 'SET_PATTERN')
+    expect(withSurge.length).toBeGreaterThan(noSurge.length)
+    expect(withSurge.some((e) => e.t === 15000)).toBe(true)
   })
 })
 
