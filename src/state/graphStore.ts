@@ -129,6 +129,15 @@ type HistorySlice = Pick<GraphState, 'nodes' | 'edges'>
 // when encapsulating a selection into a group, not sealed inside it.
 const GROUP_EXCLUDED_TYPES = new Set(['MatrixOutput', 'MicInput', 'MusicLibrary'])
 
+/** Nodes that represent one scene-wide hardware resource. Creation actions use
+ *  this set as a final guard, so every UI path (click, drop, paste, duplicate)
+ *  preserves the one-per-canvas invariant. */
+export const SINGLETON_NODE_TYPES = new Set(['MatrixOutput', 'MicInput'])
+
+export function canAddNodeType(nodes: StudioNode[], nodeType: string): boolean {
+  return !SINGLETON_NODE_TYPES.has(nodeType) || !nodes.some((n) => n.data.nodeType === nodeType)
+}
+
 export interface CreateGroupOptions {
   /** Saved to the pattern library right after creation (the caller still has
    *  to actually save it — this flag is just threaded through from the dialog). */
@@ -346,12 +355,16 @@ export const useGraphStore = create<GraphState>()(
         }),
 
       addNode: (node, centreOnDrop) => {
-        if (centreOnDrop) pendingCentreY.set(node.id, node.position.y)
-        set((s) => ({ nodes: [...s.nodes, node] }))
+        set((s) => {
+          if (!canAddNodeType(s.nodes, node.data.nodeType)) return s
+          if (centreOnDrop) pendingCentreY.set(node.id, node.position.y)
+          return { nodes: [...s.nodes, node] }
+        })
       },
 
       insertNodeOnEdge: (node, edgeId, inHandle, outHandle) =>
         set((s) => {
+          if (!canAddNodeType(s.nodes, node.data.nodeType)) return s
           const old = s.edges.find((e) => e.id === edgeId)
           if (!old) return { nodes: [...s.nodes, node] }
           const srcNode = s.nodes.find((n) => n.id === old.source)
@@ -389,6 +402,7 @@ export const useGraphStore = create<GraphState>()(
         set((s) => {
           if (!s.clipboard) return s
           const node = s.clipboard
+          if (!canAddNodeType(s.nodes, node.data.nodeType)) return s
           return {
             nodes: [...s.nodes, {
               ...node,
@@ -443,7 +457,7 @@ export const useGraphStore = create<GraphState>()(
       duplicateNode: (id) =>
         set((s) => {
           const node = s.nodes.find((n) => n.id === id)
-          if (!node) return s
+          if (!node || !canAddNodeType(s.nodes, node.data.nodeType)) return s
           return {
             nodes: [...s.nodes, {
               ...node,

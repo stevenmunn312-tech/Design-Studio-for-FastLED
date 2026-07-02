@@ -94,6 +94,24 @@ describe('graphStore — grouping', () => {
     expect(useGraphStore.getState().nodes.find((x) => x.id === 'bd')!.position.y).toBe(200)
   })
 
+  it.each(['MatrixOutput', 'MicInput'])('allows only one %s node on the canvas', (nodeType) => {
+    reset([node('existing', nodeType)])
+    useGraphStore.getState().addNode(node('added', nodeType))
+    useGraphStore.getState().duplicateNode('existing')
+    useGraphStore.getState().copyNode('existing')
+    useGraphStore.getState().pasteNode({ x: 100, y: 100 })
+
+    expect(useGraphStore.getState().nodes.filter((n) => n.data.nodeType === nodeType)).toHaveLength(1)
+  })
+
+  it('still allows multiple ordinary nodes', () => {
+    reset([node('first', 'SolidColor')])
+    useGraphStore.getState().addNode(node('second', 'SolidColor'))
+    useGraphStore.getState().duplicateNode('first')
+
+    expect(useGraphStore.getState().nodes.filter((n) => n.data.nodeType === 'SolidColor')).toHaveLength(3)
+  })
+
   it('instantiatePattern with centreOnDrop lifts the Group node by half its measured height', () => {
     reset()
     const saved = {

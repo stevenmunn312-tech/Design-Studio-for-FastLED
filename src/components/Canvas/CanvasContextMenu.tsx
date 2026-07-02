@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useGraphStore } from '../../state/graphStore'
+import { canAddNodeType, useGraphStore } from '../../state/graphStore'
 import { NODE_LIBRARY, CATEGORIES, portsCompatible } from '../../state/nodeLibrary'
 import type { NodeDefinition } from '../../types'
 import styles from './CanvasContextMenu.module.css'
@@ -59,6 +59,7 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
   }, [mode])
 
   const placeNode = (def: NodeDefinition) => {
+    if (!canAddNodeType(nodes, def.type)) return
     const id = `${def.type}-${Date.now()}`
     addNode({
       id,
@@ -114,8 +115,11 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
   const filtered = NODE_LIBRARY.filter(
     (n) =>
       (query === '' || n.label.toLowerCase().includes(query.toLowerCase())) &&
-      (!connectFrom || !!compatibleInput(n))
+      (!connectFrom || !!compatibleInput(n)) &&
+      canAddNodeType(nodes, n.type)
   )
+
+  const canPaste = !!clipboard && canAddNodeType(nodes, clipboard.data.nodeType)
 
   const act = (fn: () => void) => { fn(); onClose() }
 
@@ -162,8 +166,8 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
         Select All
       </button>
       <button
-        className={`${styles.item} ${!clipboard ? styles.disabled : ''}`}
-        onClick={() => { if (clipboard) act(() => pasteNode(flowPosition)) }}
+        className={`${styles.item} ${!canPaste ? styles.disabled : ''}`}
+        onClick={() => { if (canPaste) act(() => pasteNode(flowPosition)) }}
       >
         Paste
       </button>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useGraphStore } from '../../state/graphStore'
+import { canAddNodeType, useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { usePatternLibrary, importPatternFile, type SavedPattern } from '../../state/patternLibrary'
 import { NODE_LIBRARY, CATEGORIES, CATEGORY_ACCENT_VAR, NODE_DESCRIPTIONS } from '../../state/nodeLibrary'
@@ -10,6 +10,7 @@ const EXPANDED_KEY = 'fastled-studio-sidebar-expanded'
 
 export default function Sidebar() {
   const addNode = useGraphStore((s) => s.addNode)
+  const canvasNodes = useGraphStore((s) => s.nodes)
   const instantiatePattern = useGraphStore((s) => s.instantiatePattern)
   const patterns = usePatternLibrary((s) => s.patterns)
   const renamePattern = usePatternLibrary((s) => s.renamePattern)
@@ -188,10 +189,13 @@ export default function Sidebar() {
                       key={n.type}
                       className={styles.nodeItem}
                       style={{ '--accent': accent } as React.CSSProperties}
-                      draggable
+                      draggable={canAddNodeType(canvasNodes, n.type)}
+                      aria-disabled={!canAddNodeType(canvasNodes, n.type)}
                       onDragStart={(e) => handleDragStart(e, n.type)}
-                      onClick={() => handleAddNode(n.type)}
-                      title={`${NODE_DESCRIPTIONS[n.type] ?? n.label}\nClick to add · drag to place`}
+                      onClick={() => { if (canAddNodeType(canvasNodes, n.type)) handleAddNode(n.type) }}
+                      title={canAddNodeType(canvasNodes, n.type)
+                        ? `${NODE_DESCRIPTIONS[n.type] ?? n.label}\nClick to add · drag to place`
+                        : `${n.label} already exists on this canvas`}
                     >
                       {n.label}
                     </li>

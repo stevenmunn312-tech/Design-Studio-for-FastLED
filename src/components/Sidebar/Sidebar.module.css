@@ -156,6 +156,16 @@
   cursor: grabbing;
 }
 
+.nodeItem[aria-disabled='true'] {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.nodeItem[aria-disabled='true']:hover {
+  color: var(--text-secondary);
+  background: transparent;
+}
+
 .nodeItem[draggable='true']:hover::after {
   content: '⠿';
   float: right;
