@@ -5,6 +5,7 @@ import {
   SHOW_PATTERNS,
   SHOW_PALETTES,
   SHOW_TRANSITIONS,
+  PARTICLE_STYLES,
 } from '../../codegen/performanceGenerator'
 import type { ShowCommand, ShowEvent, ShowFile } from '../../types/showFile'
 import { useGraphStore } from '../../state/graphStore'
@@ -37,7 +38,7 @@ function defaultParams(cmd: ShowCommand): ShowEvent['params'] {
     case 'SET_BRIGHTNESS': return { value: 200 }
     case 'SET_ENERGY':     return { value: 0.5 }
     case 'BEAT_FLASH':     return { intensity: 200, decay: 200 }
-    case 'PARTICLE_BURST': return { intensity: 200, hue: 0 }
+    case 'PARTICLE_BURST': return { intensity: 200, hue: 0, style: 0 }
     case 'TRANSITION':     return { type: 'crossfade', duration: 0.5 }
   }
 }
@@ -60,7 +61,7 @@ function summary(ev: ShowEvent, patternLabels?: string[]): string {
     case 'SET_BRIGHTNESS': return String(Math.round(Number(ev.params.value)))
     case 'SET_ENERGY':     return Number(ev.params.value).toFixed(2)
     case 'BEAT_FLASH':     return `i${Math.round(Number(ev.params.intensity))} d${Math.round(Number(ev.params.decay))}`
-    case 'PARTICLE_BURST': return `i${Math.round(Number(ev.params.intensity))} h${Math.round(Number(ev.params.hue))}`
+    case 'PARTICLE_BURST': return `${PARTICLE_STYLES[Number(ev.params.style ?? 0)] ?? 'rise'} i${Math.round(Number(ev.params.intensity))}`
     case 'TRANSITION':     return `${ev.params.type} ${Number(ev.params.duration).toFixed(1)}s`
   }
 }
@@ -271,6 +272,8 @@ export default function ShowTimeline({ show, posMs, selected, onSelect, onSeek, 
           )}
           {sel.cmd === 'PARTICLE_BURST' && (
             <>
+              <ParamSelect label="Style" options={PARTICLE_STYLES as unknown as string[]} value={PARTICLE_STYLES[Number(sel.params.style ?? 0)] ?? 'rise'}
+                onChange={(v) => commit(selected, (x) => ({ ...x, params: { ...x.params, style: Math.max(0, PARTICLE_STYLES.indexOf(v as typeof PARTICLE_STYLES[number])) } }))} />
               <ParamSlider label="Intensity" min={0} max={255} step={1} value={Number(sel.params.intensity)} fmtVal={(v) => String(Math.round(v))}
                 onChange={(v) => commit(selected, (x) => ({ ...x, params: { ...x.params, intensity: Math.round(v) } }))} />
               <ParamSlider label="Hue" min={0} max={255} step={1} value={Number(sel.params.hue)} fmtVal={(v) => String(Math.round(v))}

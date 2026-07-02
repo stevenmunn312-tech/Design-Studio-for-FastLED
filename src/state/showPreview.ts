@@ -158,12 +158,14 @@ function activeTransitionAt(
 }
 
 // ── Particle-burst overlay ────────────────────────────────────────────────────
-// A PARTICLE_BURST spawns a fixed set of short-lived colored sparks that drift
-// up (then arc down under a little gravity) and fade. The motion is a pure
-// function of the burst time + spark index, so it is deterministic and mirrored
-// exactly by the firmware player (see playerSketchGenerator's particle block).
+// A PARTICLE_BURST spawns a fixed set of short-lived colored sparks that fade
+// out. Its `style` param picks one of six motions (see PARTICLE_STYLES in
+// performanceGenerator.ts). The motion is a pure function of the burst time +
+// spark index, so it is deterministic and mirrored exactly by the firmware
+// player (keep the switch below in sync with playerSketchGenerator's).
 export const PARTICLE_LIFE_MS = 600
 export const PARTICLE_COUNT = 16
+const TAU = Math.PI * 2
 
 // Hash → [0,1). The classic GLSL fract(sin(...)) hash, matched in the firmware
 // so preview and device spawn the same sparks.
@@ -198,15 +200,49 @@ function particleOverlayAt(show: ShowFile, timeMs: number, W: number, H: number)
   const ageSec = (timeMs - burst.t) / 1000
   const f = (timeMs - burst.t) / PARTICLE_LIFE_MS
   const intensity = Number(burst.params.intensity) / 255
+  const style = Number(burst.params.style ?? 0)
   const col = phsv(Number(burst.params.hue))
+  const cx = W * 0.5, cy = H * 0.5, maxR = Math.min(W, H) * 0.5
   for (let i = 0; i < PARTICLE_COUNT; i++) {
     const base = burst.t * 0.001 + i * 7.13
-    const ox = prnd(base + 1) * W, oy = prnd(base + 2) * H
-    const vx = (prnd(base + 3) - 0.5) * 8, vy = -(1 + prnd(base + 4) * 3)
-    const xi = Math.round(ox + vx * ageSec)
-    const yi = Math.round(oy + vy * ageSec + 0.5 * 6 * ageSec * ageSec)
+    const r1 = prnd(base + 1), r2 = prnd(base + 2), r3 = prnd(base + 3), r4 = prnd(base + 4)
+    let x: number, y: number, bri = 1 - f
+    switch (style) {
+      case 1:  // rain — sparks fall from the upper half
+        x = r1 * W + (r4 - 0.5) * 2 * ageSec
+        y = r2 * H * 0.5 + (4 + r3 * 6) * ageSec
+        break
+      case 2: {  // explode — sparks fly radially out from the centre
+        const a = r1 * TAU, sp = 2 + r2 * 6
+        x = cx + Math.cos(a) * sp * ageSec
+        y = cy + Math.sin(a) * sp * ageSec
+        break
+      }
+      case 3: {  // fireworks — explode out from a random point, then fall
+        const a = r1 * TAU, sp = 3 + r2 * 5
+        x = cx + (r3 - 0.5) * W * 0.3 + Math.cos(a) * sp * ageSec
+        y = cy + Math.sin(a) * sp * ageSec + 4 * ageSec * ageSec
+        bri = (1 - f) * (1 - f)
+        break
+      }
+      case 4: {  // swirl — sparks orbit the centre on a widening radius
+        const a = r1 * TAU + 6 * ageSec, rad = (0.15 + f * 0.85) * maxR
+        x = cx + Math.cos(a) * rad
+        y = cy + Math.sin(a) * rad
+        break
+      }
+      case 5:  // twinkle — fixed positions, each peaking at its own moment
+        x = r1 * W; y = r2 * H
+        bri = Math.max(0, 1 - Math.abs(f - r3) * 3)
+        break
+      default:  // rise — sparks drift up and arc down under gravity
+        x = r1 * W + (r3 - 0.5) * 8 * ageSec
+        y = r2 * H + (-(1 + r4 * 3)) * ageSec + 3 * ageSec * ageSec
+        break
+    }
+    const xi = Math.round(x), yi = Math.round(y)
     if (xi < 0 || xi >= W || yi < 0 || yi >= H) continue
-    const b = intensity * (1 - f)
+    const b = intensity * Math.max(0, Math.min(1, bri))
     const cell = ov[yi][xi]
     cell.r = Math.min(255, cell.r + col.r * b)
     cell.g = Math.min(255, cell.g + col.g * b)

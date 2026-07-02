@@ -79,6 +79,11 @@ describe('generatePlayerSketch', () => {
     expect(ino).toContain('float prnd(float n)')                  // shared spawn hash
     expect(ino).toContain('CHSV(burstHue, 217, 255)')            // colored sparks
     expect(ino).toContain('(float)(posMs - burstStart) < PARTICLE_LIFE_MS')
+    // Six motion styles dispatched by the burst's style id.
+    expect(ino).toContain('switch (burstStyle)')
+    expect(ino).toContain('case 2: {  // explode')
+    expect(ino).toContain('case 5:  // twinkle')
+    expect(ino).toContain('burstStyle     = (uint8_t)(ev.paramCount > 2 ? ev.params[2] : 0.0f);')
   })
 
   it('dispatches to compiled render_pN functions for a collection show', () => {

@@ -72,6 +72,12 @@ export const SECTION_TYPES: SongSection['type'][] = [
   'intro', 'verse', 'buildup', 'drop', 'chorus', 'bridge', 'outro',
 ]
 
+/** Particle-burst overlay styles, indexed by the PARTICLE_BURST `style` param
+ *  (the value is the on-wire id). The spark motion for each lives in
+ *  showPreview.ts (`particleOverlayAt`) and the firmware player, kept in sync.
+ *  Shared with the timeline editor's style dropdown. */
+export const PARTICLE_STYLES = ['rise', 'rain', 'explode', 'fireworks', 'swirl', 'twinkle'] as const
+
 // ── Transition map: from section type → transition style ──────────────────────
 
 // `extra` is the pool from a TransitionSet node wired into the Performance
@@ -356,6 +362,7 @@ export function generateShow(
       push(t, 'PARTICLE_BURST', {
         intensity: Math.round(intensity * 255),
         hue: Math.round(Math.random() * 255),
+        style: Math.floor(Math.random() * PARTICLE_STYLES.length),
       })
     } else {
       push(t, 'BEAT_FLASH', {
@@ -463,7 +470,7 @@ export function showFileToJson(show: ShowFile): string {
 //   SET_SPEED:     value
 //   SET_BRIGHTNESS: value
 //   BEAT_FLASH:    intensity, decay
-//   PARTICLE_BURST: intensity, hue
+//   PARTICLE_BURST: intensity, hue, style
 //   TRANSITION:    typeId(float), duration
 
 const PATTERN_IDS: Record<string, number> = {
@@ -492,7 +499,7 @@ export const SHOW_TRANSITIONS = Object.keys(TRANSITION_IDS)
 
 export function showFileToBinary(show: ShowFile): ArrayBuffer {
   const headerBytes = 4 + 1 + 2 + 4 + 4   // magic + version + bpm + duration + count
-  const eventBytes  = show.events.length * (4 + 1 + 1 + 4 * 2)  // worst case 2 params each
+  const eventBytes  = show.events.length * (4 + 1 + 1 + 4 * 3)  // worst case 3 params (PARTICLE_BURST)
   // Optional trailing audio envelope: rate(1) + frameCount(4) + 3 bytes/frame.
   const env = show.audio
   const envBytes = env ? 1 + 4 + env.bass.length * 3 : 0
@@ -522,7 +529,7 @@ export function showFileToBinary(show: ShowFile): ArrayBuffer {
       case 'SET_BRIGHTNESS': params.push(Number(ev.params.value)); break
       case 'SET_ENERGY':     params.push(Number(ev.params.value)); break
       case 'BEAT_FLASH':     params.push(Number(ev.params.intensity), Number(ev.params.decay)); break
-      case 'PARTICLE_BURST': params.push(Number(ev.params.intensity), Number(ev.params.hue)); break
+      case 'PARTICLE_BURST': params.push(Number(ev.params.intensity), Number(ev.params.hue), Number(ev.params.style ?? 0)); break
       case 'TRANSITION':     params.push(TRANSITION_IDS[ev.params.type as string] ?? 0, Number(ev.params.duration)); break
     }
 

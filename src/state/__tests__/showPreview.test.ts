@@ -272,6 +272,33 @@ describe('renderShowFrame', () => {
     expect(afterLife.flat().every((px) => px.r + px.g + px.b === 0)).toBe(true)
   })
 
+  it('renders every particle style with lit sparks mid-life', () => {
+    const mk = (id: string, nodeType: string, properties: Record<string, unknown>, inputs: unknown[] = [], outputs: unknown[] = []) =>
+      ({ id, type: 'studioNode', position: { x: 0, y: 0 }, data: { label: nodeType, nodeType, category: 'pattern', properties, inputs, outputs } })
+    const groups = {
+      blk: {
+        nodes: [
+          mk('s', 'SolidColor', { r: 0, g: 0, b: 0 }, [], [{ id: 'frame', dataType: 'frame' }]),
+          mk('go', 'GroupOutput', {}, [{ id: 'frame', dataType: 'frame' }], []),
+        ],
+        edges: [{ id: 'e', source: 's', sourceHandle: 'frame', target: 'go', targetHandle: 'frame' }],
+      },
+    } as unknown as Parameters<typeof renderShowFrame>[4]
+
+    for (let style = 0; style < 6; style++) {
+      const show: ShowFile = {
+        version: 2, songTitle: 'P', durationMs: 2000, bpm: 120, patternSet: ['blk'],
+        events: [
+          { t: 0, cmd: 'SET_PATTERN', params: { index: 0 } },
+          { t: 0, cmd: 'SET_BRIGHTNESS', params: { value: 255 } },
+          { t: 0, cmd: 'PARTICLE_BURST', params: { intensity: 255, hue: 40, style } },
+        ],
+      }
+      const lit = renderShowFrame(show, 200, 16, 16, groups).flat().filter((px) => px.r + px.g + px.b > 0).length
+      expect(lit, `style ${style} should light sparks`).toBeGreaterThan(0)
+    }
+  })
+
   it('scales a beat flash through global brightness like FastLED', () => {
     const dimShow: ShowFile = {
       ...show,

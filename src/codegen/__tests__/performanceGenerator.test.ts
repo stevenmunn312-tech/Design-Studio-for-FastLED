@@ -8,6 +8,7 @@ import {
   ENVELOPE_RATE_HZ,
   SHOW_PATTERNS,
   SHOW_TRANSITIONS,
+  PARTICLE_STYLES,
 } from '../performanceGenerator'
 import type { ShowEvent, SongAnalysis, EnergyPoint } from '../../types/showFile'
 
@@ -253,7 +254,7 @@ describe('generateShow — beat accents (flash vs particles)', () => {
     } finally { spy.mockRestore() }
   })
 
-  it('round-trips a PARTICLE_BURST (cmd id 7, intensity+hue) through the binary', () => {
+  it('round-trips a PARTICLE_BURST (cmd id 7, intensity+hue+style) through the binary', () => {
     const spy = vi.spyOn(Math, 'random').mockReturnValue(0)
     try {
       const view = new DataView(showFileToBinary(generateShow(analysis)))
@@ -261,10 +262,24 @@ describe('generateShow — beat accents (flash vs particles)', () => {
       let off = 15, found = false
       for (let i = 0; i < count; i++) {
         const cmd = view.getUint8(off + 4), pc = view.getUint8(off + 5)
-        if (cmd === 7) { expect(pc).toBe(2); found = true }   // PARTICLE_BURST: intensity, hue
+        if (cmd === 7) { expect(pc).toBe(3); found = true }   // PARTICLE_BURST: intensity, hue, style
         off += 4 + 1 + 1 + pc * 4
       }
       expect(found).toBe(true)
+    } finally { spy.mockRestore() }
+  })
+
+  it('tags each particle burst with an in-range style id', () => {
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0)   // force particle bursts
+    try {
+      const bursts = generateShow(analysis).events.filter((e) => e.cmd === 'PARTICLE_BURST')
+      expect(bursts.length).toBeGreaterThan(0)
+      for (const ev of bursts) {
+        const s = Number(ev.params.style)
+        expect(Number.isInteger(s)).toBe(true)
+        expect(s).toBeGreaterThanOrEqual(0)
+        expect(s).toBeLessThan(PARTICLE_STYLES.length)
+      }
     } finally { spy.mockRestore() }
   })
 })

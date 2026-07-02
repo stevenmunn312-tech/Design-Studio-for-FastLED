@@ -387,6 +387,7 @@ float      transDurMs = 0.0f;     // 0 = no transition in progress
 uint32_t   burstStart = 0;        // ms the current particle burst began
 float      burstIntensity = 0.0f; // 0–1 spark brightness (0 = no burst)
 uint8_t    burstHue   = 0;        // spark hue
+uint8_t    burstStyle = 0;        // particle motion style (see PARTICLE_STYLES)
 ${hasEnergy ? 'float      energy    = 0.0f;      // SET_ENERGY → energy group-input role\n' : ''}${hasSpeed ? 'float      speed     = 0.5f;      // SET_SPEED (normalised 0–1) → speed group-input role\n' : ''}${hasPalette ? 'CRGBPalette16 palette = RainbowColors_p;  // SET_PALETTE → palette group-input role\n' : ''}${bakedAudio ? `
 // Baked audio envelope (song-synced FFT), fed into the pattern audio globals.
 float     _audioBass = 0, _audioMids = 0, _audioTreble = 0;   // 0–1, current frame
@@ -506,6 +507,7 @@ void applyEvent(const ShowEvent& ev) {
       burstStart     = ev.t;
       burstIntensity = ev.params[0] / 255.0f;
       burstHue       = (uint8_t)(ev.paramCount > 1 ? ev.params[1] : 0.0f);
+      burstStyle     = (uint8_t)(ev.paramCount > 2 ? ev.params[2] : 0.0f);
       break;${hasEnergy ? '\n    case CMD_SET_ENERGY:     energy = ev.params[0]; break;' : ''}
   }
 }
@@ -576,22 +578,55 @@ ${bakedAudio ? '  updateShowAudio(posMs);   // song-synced FFT → pattern audio
     flashLevel *= flashDecay;
   }
 
-  // Particle-burst overlay: short-lived colored sparks that drift up, arc down,
-  // and fade — added on top of the frame (FastLED's brightness then scales them,
-  // so they fade with a silence fade-to-black). Matches showPreview.ts.
+  // Particle-burst overlay: short-lived colored sparks (one of six motion
+  // styles) added on top of the frame — FastLED's brightness then scales them,
+  // so they fade with a silence fade-to-black. Keep the switch in sync with
+  // particleOverlayAt() in showPreview.ts.
   if (burstIntensity > 0.01f && (float)(posMs - burstStart) < PARTICLE_LIFE_MS) {
     float ageSec = (posMs - burstStart) / 1000.0f;
     float f = (float)(posMs - burstStart) / PARTICLE_LIFE_MS;
-    CRGB spark = CHSV(burstHue, 217, 255);
-    spark.nscale8((uint8_t)(burstIntensity * (1.0f - f) * 255.0f));
+    CRGB base = CHSV(burstHue, 217, 255);
+    float cx = WIDTH * 0.5f, cy = HEIGHT * 0.5f, maxR = min(WIDTH, HEIGHT) * 0.5f;
     for (int i = 0; i < PARTICLE_COUNT; i++) {
-      float base = burstStart * 0.001f + i * 7.13f;
-      float ox = prnd(base + 1.0f) * WIDTH, oy = prnd(base + 2.0f) * HEIGHT;
-      float vx = (prnd(base + 3.0f) - 0.5f) * 8.0f, vy = -(1.0f + prnd(base + 4.0f) * 3.0f);
-      int xi = (int)lroundf(ox + vx * ageSec);
-      int yi = (int)lroundf(oy + vy * ageSec + 0.5f * 6.0f * ageSec * ageSec);
+      float bp = burstStart * 0.001f + i * 7.13f;
+      float r1 = prnd(bp + 1.0f), r2 = prnd(bp + 2.0f), r3 = prnd(bp + 3.0f), r4 = prnd(bp + 4.0f);
+      float x, y, bri = 1.0f - f;
+      switch (burstStyle) {
+        case 1:  // rain
+          x = r1 * WIDTH + (r4 - 0.5f) * 2.0f * ageSec;
+          y = r2 * HEIGHT * 0.5f + (4.0f + r3 * 6.0f) * ageSec;
+          break;
+        case 2: {  // explode
+          float a = r1 * 6.2831853f, sp = 2.0f + r2 * 6.0f;
+          x = cx + cosf(a) * sp * ageSec; y = cy + sinf(a) * sp * ageSec;
+          break;
+        }
+        case 3: {  // fireworks
+          float a = r1 * 6.2831853f, sp = 3.0f + r2 * 5.0f;
+          x = cx + (r3 - 0.5f) * WIDTH * 0.3f + cosf(a) * sp * ageSec;
+          y = cy + sinf(a) * sp * ageSec + 4.0f * ageSec * ageSec;
+          bri = (1.0f - f) * (1.0f - f);
+          break;
+        }
+        case 4: {  // swirl
+          float a = r1 * 6.2831853f + 6.0f * ageSec, rad = (0.15f + f * 0.85f) * maxR;
+          x = cx + cosf(a) * rad; y = cy + sinf(a) * rad;
+          break;
+        }
+        case 5:  // twinkle
+          x = r1 * WIDTH; y = r2 * HEIGHT;
+          bri = max(0.0f, 1.0f - fabsf(f - r3) * 3.0f);
+          break;
+        default:  // rise
+          x = r1 * WIDTH + (r3 - 0.5f) * 8.0f * ageSec;
+          y = r2 * HEIGHT + (-(1.0f + r4 * 3.0f)) * ageSec + 3.0f * ageSec * ageSec;
+          break;
+      }
+      int xi = (int)lroundf(x), yi = (int)lroundf(y);
       if (xi < 0 || xi >= WIDTH || yi < 0 || yi >= HEIGHT) continue;
-      leds[yi * WIDTH + xi] += spark;
+      CRGB s = base;
+      s.nscale8((uint8_t)(constrain(burstIntensity * bri, 0.0f, 1.0f) * 255.0f));
+      leds[yi * WIDTH + xi] += s;
     }
   }
 
