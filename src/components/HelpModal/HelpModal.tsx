@@ -109,10 +109,22 @@ function ShortcutsTab() {
           <div className={styles.shortcutDesc}>Redo (alternative)</div>
           <div className={styles.kbd}><span className={styles.key}>Ctrl</span><span className={styles.key}>S</span></div>
           <div className={styles.shortcutDesc}>Save graph to browser storage</div>
-          <div className={styles.kbd}><span className={styles.key}>Del</span></div>
+          <div className={styles.kbd}><span className={styles.key}>Ctrl</span><span className={styles.key}>A</span></div>
+          <div className={styles.shortcutDesc}>Select all nodes</div>
+          <div className={styles.kbd}><span className={styles.key}>Ctrl</span><span className={styles.key}>C</span></div>
+          <div className={styles.shortcutDesc}>Copy the selected node</div>
+          <div className={styles.kbd}><span className={styles.key}>Ctrl</span><span className={styles.key}>V</span></div>
+          <div className={styles.shortcutDesc}>Paste the copied node near the view centre</div>
+          <div className={styles.kbd}><span className={styles.key}>Ctrl</span><span className={styles.key}>D</span></div>
+          <div className={styles.shortcutDesc}>Duplicate the selected node</div>
+          <div className={styles.kbd}><span className={styles.key}>Ctrl</span><span className={styles.key}>G</span></div>
+          <div className={styles.shortcutDesc}>Group the selected nodes (opens the naming dialog)</div>
+          <div className={styles.kbd}><span className={styles.key}>Del</span><span className={styles.key}>Backspace</span></div>
           <div className={styles.shortcutDesc}>Delete selected node(s)</div>
           <div className={styles.kbd}><span className={styles.key}>Esc</span></div>
-          <div className={styles.shortcutDesc}>Close this dialog / deselect</div>
+          <div className={styles.shortcutDesc}>Close this dialog / menu, or deselect nodes on the canvas</div>
+          <div className={styles.kbd}><span className={styles.key}>?</span></div>
+          <div className={styles.shortcutDesc}>Open this Help dialog</div>
         </div>
       </div>
 

@@ -139,7 +139,7 @@ export default function MenuBar() {
           className={styles.btn}
           onClick={openHelp}
           aria-label="Open help"
-          title="Help (shortcuts, nodes, upload guide)"
+          title="Help (shortcuts, nodes, upload guide) — press ?"
         >
           ? Help
         </button>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useGraphStore, ROOT_GRAPH_ID } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { saveGroupToLibrary } from '../../state/patternLibrary'
@@ -22,6 +22,21 @@ export default function GroupControls() {
   const inGroup = activeGraphId !== ROOT_GRAPH_ID
   const activeName = graphs[activeGraphId]?.name ?? 'Main'
   const selectedIds = nodes.filter((n) => n.selected).map((n) => n.id)
+
+  // Ctrl/Cmd+G — the keyboard mirror of the "⊞ Group" button, gated the same
+  // way (needs a selection) so it's a no-op rather than opening an empty dialog.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null
+      const isTyping = !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
+      if (isTyping || !(e.ctrlKey || e.metaKey) || e.key !== 'g') return
+      if (selectedIds.length === 0) return
+      e.preventDefault()
+      setShowDialog(true)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [selectedIds])
 
   const handleCreate = (name: string, { saveToLibrary, exposePaletteNodeIds }: CreateGroupResult) => {
     const groupId = createGroup(name, selectedIds, { saveToLibrary, exposePaletteNodeIds })

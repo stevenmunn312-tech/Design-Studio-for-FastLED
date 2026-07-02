@@ -77,6 +77,9 @@ interface GraphState {
   spreadNodes: () => void
   selectNode: (id: string | null) => void
   selectAllNodes: () => void
+  /** Deselect every node (Escape) — clears both the marquee/click selection
+   *  state on the nodes and the Inspector's `selectedNodeId`. */
+  clearSelection: () => void
   updateNodeProperty: (id: string, key: string, value: unknown) => void
   updateNodeProperties: (id: string, updates: Record<string, unknown>) => void
   loadGraph: (nodes: StudioNode[], edges: StudioEdge[], workspace?: WorkspaceExtras) => void
@@ -420,6 +423,14 @@ export const useGraphStore = create<GraphState>()(
 
       selectAllNodes: () =>
         set((s) => ({ nodes: s.nodes.map((n) => ({ ...n, selected: true })) })),
+
+      clearSelection: () =>
+        set((s) => ({
+          selectedNodeId: null,
+          nodes: s.nodes.some((n) => n.selected)
+            ? s.nodes.map((n) => (n.selected ? { ...n, selected: false } : n))
+            : s.nodes,
+        })),
 
       copyNode: (id) =>
         set((s) => ({ clipboard: s.nodes.find((n) => n.id === id) ?? s.clipboard })),

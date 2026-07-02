@@ -143,8 +143,25 @@ export default function App() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Never hijack normal text editing — node property fields, the node
+      // search picker, and the graph/song rename inputs all live in plain
+      // <input>/<textarea> elements with no shortcut opt-out of their own.
+      const el = e.target as HTMLElement | null
+      const isTyping = !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
+
+      if (e.key === 'Escape' && !isTyping) {
+        useGraphStore.getState().clearSelection()
+        return
+      }
+
+      if ((e.key === '?' || e.key === 'F1') && !isTyping) {
+        e.preventDefault()
+        useUiStore.getState().openHelp()
+        return
+      }
+
       const mod = e.ctrlKey || e.metaKey
-      if (!mod) return
+      if (!mod || isTyping) return
 
       if (e.key === 'z' && !e.shiftKey) {
         e.preventDefault()
@@ -158,6 +175,32 @@ export default function App() {
         e.preventDefault()
         saveToLocalStorage(useGraphStore.getState())
         setStatus('Graph saved', 'success')
+      }
+      if (e.key === 'a') {
+        e.preventDefault()
+        useGraphStore.getState().selectAllNodes()
+      }
+      if (e.key === 'c') {
+        const id = useGraphStore.getState().selectedNodeId
+        if (id) {
+          useGraphStore.getState().copyNode(id)
+          setStatus('Node copied', 'info')
+        }
+      }
+      if (e.key === 'd') {
+        e.preventDefault()
+        const id = useGraphStore.getState().selectedNodeId
+        if (id) useGraphStore.getState().duplicateNode(id)
+      }
+      if (e.key === 'v') {
+        const { clipboard, pasteNode } = useGraphStore.getState()
+        const { viewCenter } = useUiStore.getState()
+        if (clipboard) {
+          pasteNode({
+            x: viewCenter.x + (Math.random() - 0.5) * 80,
+            y: viewCenter.y + (Math.random() - 0.5) * 80,
+          })
+        }
       }
     }
     window.addEventListener('keydown', handler)

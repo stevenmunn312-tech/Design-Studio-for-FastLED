@@ -566,7 +566,7 @@ function NodeGraphCanvasInner() {
         maxZoom={2}
         defaultViewport={initialViewport ?? undefined}
         fitView={!initialViewport}
-        deleteKeyCode="Delete"
+        deleteKeyCode={['Delete', 'Backspace']}
         multiSelectionKeyCode="Shift"
         selectionKeyCode="Shift"
         style={{ background: 'var(--bg-primary)' }}
