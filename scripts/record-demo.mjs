@@ -25,6 +25,7 @@
 
 import { chromium } from 'playwright'
 import { spawn } from 'node:child_process'
+import fs from 'node:fs'
 import { createInterface } from 'node:readline/promises'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
@@ -391,6 +392,20 @@ async function ensureVisible(page, cursor, node) {
   await sleep(700)
 }
 
+// The MP3 for the music shot: DEMO_MP3 wins, otherwise the first one found
+// in the usual folders.
+function findMp3() {
+  if (process.env.DEMO_MP3) return process.env.DEMO_MP3
+  const home = process.env.USERPROFILE ?? process.env.HOME ?? ''
+  for (const dir of ['Music', 'Downloads', 'Desktop']) {
+    try {
+      const hits = fs.globSync('**/*.mp3', { cwd: path.join(home, dir) })
+      if (hits.length) return path.join(home, dir, hits[0])
+    } catch { /* folder missing — try the next one */ }
+  }
+  return null
+}
+
 // ---------------------------------------------------------------------------
 // Shots
 // ---------------------------------------------------------------------------
@@ -446,6 +461,34 @@ const SHOTS = [
       await item.waitFor({ state: 'visible' })
       await cursor.click(item, { duration: 400 })
       await sleep(1200)
+    },
+  },
+  {
+    name: 'music',
+    desc: 'Add a Music Library node, load an MP3 into it, start analysis',
+    async run({ page, cursor }) {
+      const mp3 = findMp3()
+      if (!mp3) throw new Error('No MP3 found in Music/Downloads/Desktop — set DEMO_MP3=C:\\path\\to\\song.mp3')
+      let node = nodeByLabel(page, 'Music Library')
+      if (!(await node.count())) {
+        node = await addNode(page, cursor, 'Music Library')
+        await ensureVisible(page, cursor, node)
+        await cursor.dragTo({ x: 620, y: Math.round(VIEWPORT.height * 0.4) }, { from: () => nodeHeaderPos(node), duration: 650 })
+      }
+      // A real click on the drop zone pops the file chooser; Playwright
+      // intercepts it at the browser level, so no OS dialog appears on
+      // camera — the song just lands in the library.
+      const dropZone = node.getByText('click to browse')
+      const chooser = page.waitForEvent('filechooser')
+      await cursor.click(dropZone, { duration: 500 })
+      await (await chooser).setFiles(mp3)
+      console.log(`  loaded ${path.basename(mp3)}`)
+      await sleep(1500)
+      const analyze = node.getByRole('button', { name: 'Analyze All' })
+      if (await analyze.isEnabled().catch(() => false)) {
+        await cursor.click(analyze, { duration: 450 })
+        await sleep(5000) // hold on the analysis progress for the camera
+      }
     },
   },
   {
