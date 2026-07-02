@@ -39,6 +39,8 @@ interface UiState {
   previewStyle: PreviewStyle
   fps: number
   sparkPort: { nodeId: string; portId: string } | null
+  /** Sidebar node currently being dragged, used for canvas drop affordances. */
+  draggingNodeType: string | null
   /** Centre of the visible canvas in flow coordinates — where click-to-add
    *  drops a node so it lands on screen wherever the user has panned. */
   viewCenter: { x: number; y: number }
@@ -55,6 +57,7 @@ interface UiState {
   cyclePreviewStyle: () => void
   setFps: (fps: number) => void
   setSparkPort: (port: { nodeId: string; portId: string } | null) => void
+  setDraggingNodeType: (nodeType: string | null) => void
   setViewCenter: (center: { x: number; y: number }) => void
   setTheme: (theme: AppTheme) => void
   cycleTheme: () => void
@@ -81,6 +84,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   previewStyle: loadPreviewStyle(),
   fps: 0,
   sparkPort: null,
+  draggingNodeType: null,
   viewCenter: { x: 300, y: 250 },
   theme: load<AppTheme>(THEME_KEY, 'dark'),
   reducedMotion: load<boolean>(MOTION_KEY, false),
@@ -114,6 +118,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   toggleInspector: () => set((s) => ({ inspectorOpen: !s.inspectorOpen })),
   setFps: (fps) => set({ fps }),
   setSparkPort: (port) => set({ sparkPort: port }),
+  setDraggingNodeType: (draggingNodeType) => set({ draggingNodeType }),
   setViewCenter: (center) => set({ viewCenter: center }),
 
   setTheme: (theme) => {

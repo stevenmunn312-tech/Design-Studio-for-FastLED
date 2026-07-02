@@ -17,6 +17,7 @@ export default function Sidebar() {
   const deletePattern = usePatternLibrary((s) => s.deletePattern)
   const viewCenter = useUiStore((s) => s.viewCenter)
   const setStatus = useUiStore((s) => s.setStatus)
+  const setDraggingNodeType = useUiStore((s) => s.setDraggingNodeType)
   // Persisted expand/collapse state. First load starts with only the first
   // category open so the list is scannable rather than a long scroll; after
   // that we restore whatever the user last left open. A search query
@@ -56,6 +57,7 @@ export default function Sidebar() {
   const handleDragStart = (e: React.DragEvent, type: string) => {
     e.dataTransfer.setData('application/studio-node', type)
     e.dataTransfer.effectAllowed = 'copy'
+    setDraggingNodeType(type)
   }
 
   const handlePatternDragStart = (e: React.DragEvent, id: string) => {
@@ -192,6 +194,7 @@ export default function Sidebar() {
                       draggable={canAddNodeType(canvasNodes, n.type)}
                       aria-disabled={!canAddNodeType(canvasNodes, n.type)}
                       onDragStart={(e) => handleDragStart(e, n.type)}
+                      onDragEnd={() => setDraggingNodeType(null)}
                       onClick={() => { if (canAddNodeType(canvasNodes, n.type)) handleAddNode(n.type) }}
                       title={canAddNodeType(canvasNodes, n.type)
                         ? `${NODE_DESCRIPTIONS[n.type] ?? n.label}\nClick to add · drag to place`

@@ -11,3 +11,21 @@
 .core {
   animation: flow 1.4s linear infinite;
 }
+
+@keyframes splicePulse {
+  0%, 100% { stroke-opacity: 0.2; stroke-width: 16; }
+  50% { stroke-opacity: 0.48; stroke-width: 22; }
+}
+
+.spliceTarget {
+  animation: splicePulse 0.85s ease-in-out infinite;
+  filter: drop-shadow(0 0 7px var(--edge-color));
+  pointer-events: none;
+}
+
+.coreReady {
+  stroke-width: 4;
+  stroke-dasharray: 4 4;
+  animation-duration: 0.55s;
+  filter: drop-shadow(0 0 4px var(--edge-color));
+}

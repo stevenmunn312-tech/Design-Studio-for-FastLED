@@ -94,8 +94,15 @@ function NodeGraphCanvasInner() {
   // click that React Flow emits right after the drop doesn't close it.
   const menuOpenedAt = useRef(0)
   const { screenToFlowPosition, getNode, getInternalNode } = useReactFlow()
-  const { setStatus, setSparkPort, setViewCenter } = useUiStore()
+  const { setStatus, setSparkPort, setViewCenter, draggingNodeType, setDraggingNodeType } = useUiStore()
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const [spliceCue, setSpliceCue] = useState<{
+    edgeId: string
+    x: number
+    y: number
+    label: string
+    color: string
+  } | null>(null)
 
   // Publish the click-to-add drop point (in flow coords) so sidebar clicks land
   // on screen wherever the user has panned. Biased to the left third — vertically
@@ -300,14 +307,84 @@ function NodeGraphCanvasInner() {
     setCanvasMenu(null)
   }, [selectNode])
 
+  const findSpliceTarget = useCallback((
+    position: Pt,
+    def: (typeof NODE_LIBRARY)[number],
+  ): { edgeId: string; inHandle: string; outHandle: string; color: string } | null => {
+    let best: { edgeId: string; inHandle: string; outHandle: string; color: string } | null = null
+    let bestDist = SPLICE_DIST
+    for (const edge of edges) {
+      const sN = getNode(edge.source)
+      const tN = getNode(edge.target)
+      if (!sN || !tN) continue
+      const sPt = {
+        x: sN.position.x + (sN.measured?.width ?? FALLBACK_W),
+        y: sN.position.y + (sN.measured?.height ?? FALLBACK_H) / 2,
+      }
+      const tPt = {
+        x: tN.position.x,
+        y: tN.position.y + (tN.measured?.height ?? FALLBACK_H) / 2,
+      }
+      const distance = distToSegment(position, sPt, tPt)
+      if (distance >= bestDist) continue
+      const outType = (sN.data as { outputs?: Array<{ id: string; dataType: string }> }).outputs
+        ?.find((p) => p.id === edge.sourceHandle)?.dataType
+      const inType = (tN.data as { inputs?: Array<{ id: string; dataType: string }> }).inputs
+        ?.find((p) => p.id === edge.targetHandle)?.dataType
+      if (!outType || !inType) continue
+      const preferredInput = def.spliceInput
+        ? def.inputs.find((p) => p.id === def.spliceInput && portsCompatible(outType, p.dataType))
+        : undefined
+      const inPort = preferredInput ?? def.inputs.find((p) => portsCompatible(outType, p.dataType))
+      const outPort = def.outputs.find((p) => portsCompatible(p.dataType, inType))
+      if (inPort && outPort) {
+        const category = (sN.data as { category?: string }).category ?? 'output'
+        best = {
+          edgeId: edge.id,
+          inHandle: inPort.id,
+          outHandle: outPort.id,
+          color: (typeof edge.style?.stroke === 'string' && edge.style.stroke) || CATEGORY_COLOR[category] || '#00bfff',
+        }
+        bestDist = distance
+      }
+    }
+    return best
+  }, [edges, getNode])
+
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'copy'
+
+    const def = NODE_LIBRARY.find((node) => node.type === draggingNodeType)
+    const wrapper = wrapperRef.current
+    if (!def || !wrapper) {
+      setSpliceCue(null)
+      return
+    }
+    const target = findSpliceTarget(screenToFlowPosition({ x: e.clientX, y: e.clientY }), def)
+    if (!target) {
+      setSpliceCue(null)
+      return
+    }
+    const rect = wrapper.getBoundingClientRect()
+    setSpliceCue({
+      edgeId: target.edgeId,
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      label: def.label,
+      color: target.color,
+    })
+  }, [draggingNodeType, findSpliceTarget, screenToFlowPosition])
+
+  const onDragLeave = useCallback((e: React.DragEvent) => {
+    if (!wrapperRef.current?.contains(e.relatedTarget as ChildNode | null)) setSpliceCue(null)
   }, [])
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault()
+      setSpliceCue(null)
+      setDraggingNodeType(null)
 
       // A saved library pattern dropped from the sidebar → instantiate it as a
       // Group node at the drop point.
@@ -340,39 +417,9 @@ function NodeGraphCanvasInner() {
         },
       }
 
-      // Drop-to-splice: if the node landed on a noodle whose endpoints are
-      // type-compatible with one of the node's inputs and outputs, wire it in
-      // between (source → new → target) instead of leaving it unconnected.
-      let best: { edgeId: string; inHandle: string; outHandle: string } | null = null
-      let bestDist = SPLICE_DIST
-      for (const edge of edges) {
-        const sN = getNode(edge.source)
-        const tN = getNode(edge.target)
-        if (!sN || !tN) continue
-        const sPt = {
-          x: sN.position.x + (sN.measured?.width ?? FALLBACK_W),
-          y: sN.position.y + (sN.measured?.height ?? FALLBACK_H) / 2,
-        }
-        const tPt = {
-          x: tN.position.x,
-          y: tN.position.y + (tN.measured?.height ?? FALLBACK_H) / 2,
-        }
-        if (distToSegment(position, sPt, tPt) >= bestDist) continue
-        const outType = (sN.data as { outputs?: Array<{ id: string; dataType: string }> }).outputs
-          ?.find((p) => p.id === edge.sourceHandle)?.dataType
-        const inType = (tN.data as { inputs?: Array<{ id: string; dataType: string }> }).inputs
-          ?.find((p) => p.id === edge.targetHandle)?.dataType
-        if (!outType || !inType) continue
-        const preferredInput = def.spliceInput
-          ? def.inputs.find((p) => p.id === def.spliceInput && portsCompatible(outType, p.dataType))
-          : undefined
-        const inPort = preferredInput ?? def.inputs.find((p) => portsCompatible(outType, p.dataType))
-        const outPort = def.outputs.find((p) => portsCompatible(p.dataType, inType))
-        if (inPort && outPort) {
-          best = { edgeId: edge.id, inHandle: inPort.id, outHandle: outPort.id }
-          bestDist = distToSegment(position, sPt, tPt)
-        }
-      }
+      // Use the same hit test that drives the live visual cue, so the highlighted
+      // noodle is always the one that receives the dropped node.
+      const best = findSpliceTarget(position, def)
 
       if (best) {
         insertNodeOnEdge(newNode, best.edgeId, best.inHandle, best.outHandle)
@@ -384,15 +431,37 @@ function NodeGraphCanvasInner() {
         addNode(newNode)
       }
     },
-    [screenToFlowPosition, addNode, insertNodeOnEdge, instantiatePattern, edges, getNode, setStatus, anchorHandleToDrop]
+    [screenToFlowPosition, addNode, insertNodeOnEdge, instantiatePattern, setStatus, anchorHandleToDrop, findSpliceTarget, setDraggingNodeType]
   )
 
+  const spliceEdgeId = spliceCue?.edgeId ?? null
+  const displayEdges = useMemo(() => {
+    if (!spliceEdgeId) return edges
+    return edges.map((edge) => edge.id === spliceEdgeId
+      ? { ...edge, data: { ...edge.data, splicePreview: true } }
+      : edge)
+  }, [edges, spliceEdgeId])
+
   return (
-    <div ref={wrapperRef} className={styles.canvas} onDragOver={onDragOver} onDrop={onDrop}>
+    <div ref={wrapperRef} className={styles.canvas} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
       <GroupControls />
+      {spliceCue && (
+        <div
+          className={styles.spliceCue}
+          style={{
+            left: spliceCue.x,
+            top: spliceCue.y,
+            '--cue-color': spliceCue.color,
+          } as React.CSSProperties}
+          role="status"
+        >
+          <span className={styles.spliceCueDot} />
+          Release to insert {spliceCue.label}
+        </div>
+      )}
       <ReactFlow
         nodes={nodes}
-        edges={edges}
+        edges={displayEdges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
