@@ -13,6 +13,8 @@ export interface NodeDefinition {
   category: NodeCategory
   inputs: NodePort[]
   outputs: NodePort[]
+  /** Preferred input when this node is dropped onto a compatible noodle. */
+  spliceInput?: string
   defaultProperties?: Record<string, unknown>
 }
 

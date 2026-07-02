@@ -207,6 +207,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'amount', label: 'Opacity', dataType: 'float' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    // Dropping Blend onto a frame noodle inserts that existing stream as the
+    // base layer; B remains free for the frame that will be composited over it.
+    spliceInput: 'a',
     defaultProperties: { blendMode: 'normal', amount: 0.5 },
   },
   {

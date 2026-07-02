@@ -363,7 +363,10 @@ function NodeGraphCanvasInner() {
         const inType = (tN.data as { inputs?: Array<{ id: string; dataType: string }> }).inputs
           ?.find((p) => p.id === edge.targetHandle)?.dataType
         if (!outType || !inType) continue
-        const inPort = def.inputs.find((p) => portsCompatible(outType, p.dataType))
+        const preferredInput = def.spliceInput
+          ? def.inputs.find((p) => p.id === def.spliceInput && portsCompatible(outType, p.dataType))
+          : undefined
+        const inPort = preferredInput ?? def.inputs.find((p) => portsCompatible(outType, p.dataType))
         const outPort = def.outputs.find((p) => portsCompatible(p.dataType, inType))
         if (inPort && outPort) {
           best = { edgeId: edge.id, inHandle: inPort.id, outHandle: outPort.id }

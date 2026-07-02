@@ -451,6 +451,27 @@ describe('graphStore — splice & spread', () => {
     expect(s.edges.some((e) => e.source === 'inv' && e.target === 'out' && e.targetHandle === 'frame')).toBe(true)
   })
 
+  it('Blend declares A as its frame-noodle splice input', () => {
+    const blend = NODE_LIBRARY.find((n) => n.type === 'Blend')!
+    expect(blend.spliceInput).toBe('a')
+    expect(blend.inputs.find((p) => p.id === blend.spliceInput)?.dataType).toBe('frame')
+    expect(blend.outputs.some((p) => p.dataType === 'frame')).toBe(true)
+  })
+
+  it('inserts Blend between frame nodes through its A input', () => {
+    reset(
+      [at(node('sc', 'SolidColor'), 0), at(node('out', 'MatrixOutput'), 600)],
+      [edge('e1', 'sc', 'frame', 'out', 'frame')],
+    )
+    useGraphStore.getState().insertNodeOnEdge(node('blend', 'Blend'), 'e1', 'a', 'frame')
+    const s = useGraphStore.getState()
+    expect(s.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: 'sc', sourceHandle: 'frame', target: 'blend', targetHandle: 'a' }),
+      expect.objectContaining({ source: 'blend', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' }),
+    ]))
+    expect(s.edges.some((e) => e.target === 'blend' && e.targetHandle === 'b')).toBe(false)
+  })
+
   it('spreadNodes pushes a cramped target node rightward, leaving roomy ones alone', () => {
     reset(
       [at(node('sc', 'SolidColor'), 0), at(node('bm', 'BrightnessMod'), 30), at(node('out', 'MatrixOutput'), 1000)],
