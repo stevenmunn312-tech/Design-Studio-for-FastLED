@@ -225,6 +225,7 @@ describe('StudioNode', () => {
     const opts = Array.from(select.options).map((o) => o.value)
     expect(opts).toContain('ocean')
     expect(opts).toContain('party')
+    expect(opts).toContain('synthwave')
     fireEvent.change(select, { target: { value: 'ocean' } })
     expect(useGraphStore.getState().nodes[0].data.properties.palette).toBe('ocean')
   })

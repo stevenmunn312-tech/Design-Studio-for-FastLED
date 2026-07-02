@@ -9,6 +9,7 @@
 
 import { evaluateGraph, type Frame, type GroupRegistry, type PortValue } from './graphEvaluator'
 import { NODE_LIBRARY } from './nodeLibrary'
+import { isStudioPalette } from './paletteCatalog'
 import type { StudioNode, StudioEdge } from './graphStore'
 import type { ShowFile, SongSection } from '../types/showFile'
 
@@ -27,12 +28,6 @@ const PATTERN_NODE: Record<string, { nodeType: string; props?: Record<string, un
   Kaleidoscope: { nodeType: 'Kaleidoscope' },
   Particles:    { nodeType: 'Particles' },
   GradientFrame:{ nodeType: 'GradientFrame' },
-}
-
-// Show palette name → studio palette (some show palettes have no studio twin).
-const PALETTE_MAP: Record<string, string> = {
-  rainbow: 'rainbow', ocean: 'ocean', forest: 'forest', lava: 'lava',
-  party: 'party', fire: 'lava', ice: 'ocean', purple: 'rainbow',
 }
 
 export interface ShowState {
@@ -98,7 +93,8 @@ const blank = (W: number, H: number): Frame =>
 // Enum show: render the active built-in pattern through a synthetic one-node graph.
 function renderEnumFrame(st: ShowState, timeMs: number, W: number, H: number): Frame {
   const map = PATTERN_NODE[st.pattern] ?? PATTERN_NODE.NoiseField
-  const props = { ...(map.props ?? {}), palette: PALETTE_MAP[st.palette] ?? 'rainbow', speed: st.speed }
+  const palette = isStudioPalette(st.palette) ? st.palette : 'rainbow'
+  const props = { ...(map.props ?? {}), palette, speed: st.speed }
   // Stable per-pattern id so stateful patterns (Fire…) keep continuity.
   const patId = `__show_${map.nodeType}`
   const pat = synthNode(patId, map.nodeType, 'pattern', props)
@@ -133,12 +129,12 @@ export function renderShowFrame(
 ): Frame {
   const st = showStateAt(show, timeMs)
   const groupId = show.patternSet && st.patternIndex >= 0 ? show.patternSet[st.patternIndex] : undefined
+  const palette = isStudioPalette(st.palette) ? st.palette : 'rainbow'
   // SET_SPEED is a 0–2 multiplier; the `speed` role wants 0–1, so normalise it
   // (matched by the firmware player's CMD_SET_SPEED → speed normalisation). The
-  // palette role passes the studio palette name (PALETTE_MAP maps show → studio,
-  // mirroring renderEnumFrame), which the evaluator's `pal()` accepts directly.
+  // palette role passes the same palette id the studio uses.
   const groupInputs: Record<string, PortValue> = useGroupInputs
-    ? { energy: st.energy, speed: Math.min(1, st.speed / 2), palette: PALETTE_MAP[st.palette] ?? 'rainbow' }
+    ? { energy: st.energy, speed: Math.min(1, st.speed / 2), palette }
     : {}
   const result: Frame = groupId
     ? renderGroupFrame(groupId, timeMs, W, H, groups, groupInputs)

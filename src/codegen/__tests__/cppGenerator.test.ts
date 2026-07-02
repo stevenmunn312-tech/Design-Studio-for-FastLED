@@ -310,6 +310,13 @@ describe('generateCpp', () => {
     expect(cpp).toContain('ColorFromPalette(LavaColors_p')
   })
 
+  it('emits custom named palettes for generated firmware', () => {
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex', palette: 'synthwave' })
+    const cpp = generateCpp([sx, outputNode], [edge('e1', 'sx', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('CRGBPalette16 paldef_synthwave(')
+    expect(cpp).toContain('ColorFromPalette(paldef_synthwave')
+  })
+
   it('resolves a connected PaletteSelector into the consuming node', () => {
     const sel = node('sel', 'PaletteSelector', 'color', { palette: 'ocean' })
     const sx  = node('sx', 'Noise', 'pattern', { noiseType: 'simplex', palette: 'rainbow' })

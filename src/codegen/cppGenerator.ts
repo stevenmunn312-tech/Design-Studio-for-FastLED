@@ -3,6 +3,7 @@ import type { GroupRegistry } from '../state/graphEvaluator'
 import { asFont, textColumns } from '../state/font'
 import { asImage } from '../state/image'
 import { polineStops16, hexToRgb } from '../state/polinePalette'
+import { customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCatalog'
 import { audioFlowExpr } from '../state/audioFlowRange'
 import { SPEED_MAX, SCALE_MAX, NOISE_SPEED_MAX, NOISE_SCALE_MAX, rateCpp } from '../state/speedRange'
 import { denormalizeBeatParam } from '../audio/beatDetection'
@@ -108,17 +109,6 @@ function flattenGroups(
   }
 
   return { nodes: outNodes, edges: outEdges }
-}
-
-// Maps the studio palette names (see samplePalette in graphEvaluator) to the
-// matching FastLED preset palette constants.
-const PALETTE_CPP: Record<string, string> = {
-  rainbow: 'RainbowColors_p',
-  heat:    'HeatColors_p',
-  ocean:   'OceanColors_p',
-  lava:    'LavaColors_p',
-  forest:  'ForestColors_p',
-  party:   'PartyColors_p',
 }
 
 /** Topological sort: dependencies before dependents */
@@ -440,7 +430,7 @@ export function generateCpp(
 
   // Resolve a palette name to its FastLED preset palette constant.
   function fastledPalette(name: string): string {
-    return PALETTE_CPP[name.toLowerCase()] ?? 'RainbowColors_p'
+    return paletteCppRef(name.toLowerCase())
   }
 
   // Resolve the FastLED palette constant for a palette-consuming port: follow a
@@ -2241,6 +2231,9 @@ export function generateCpp(
     lines.push(...audio.code)
     lines.push(``)
   }
+
+  lines.push(...customPaletteDeclarationsCpp())
+  lines.push(``)
 
   // File-scope code from Code nodes (helpers, persistent vars, palettes).
   if (globalLines.length) {

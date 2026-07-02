@@ -1,4 +1,5 @@
 import type { SongAnalysis, SongSection, ShowFile, ShowEvent, AudioEnvelope } from '../types/showFile'
+import { PALETTE_IDS, STUDIO_PALETTES, isStudioPalette } from '../state/paletteCatalog'
 
 // Frame rate of the baked audio envelope (see bakeEnvelope). 50 Hz is smooth
 // enough for per-frame band reactivity while staying tiny (~3 bytes/frame).
@@ -33,10 +34,10 @@ export function bakeEnvelope(analysis: SongAnalysis, rateHz = ENVELOPE_RATE_HZ):
 // ── Palette map: mood → palette name ─────────────────────────────────────────
 
 const MOOD_PALETTES: Record<string, string[]> = {
-  energetic_bright:  ['rainbow', 'party'],
-  energetic_dark:    ['fire', 'lava'],
-  calm_bright:       ['ocean', 'forest'],
-  calm_dark:         ['ice', 'purple'],
+  energetic_bright:  ['rainbow', 'party', 'citrus', 'synthwave'],
+  energetic_dark:    ['fire', 'lava', 'volcano', 'emberglow'],
+  calm_bright:       ['ocean', 'forest', 'laguna', 'opal'],
+  calm_dark:         ['ice', 'purple', 'deepsea', 'amethyst', 'aurora'],
 }
 
 function choosePalette(energy: number, valence: number): string {
@@ -104,7 +105,7 @@ export interface PerformanceOptions {
   patternHold:        number   // seconds a pattern holds before switching within a section
 }
 
-export const SHOW_PALETTES = ['rainbow', 'ocean', 'fire', 'forest', 'lava', 'party', 'ice', 'purple'] as const
+export const SHOW_PALETTES = STUDIO_PALETTES
 
 /** Normalise editable node properties into safe generator options. */
 export function performanceOptionsFromProperties(properties: Record<string, unknown>): PerformanceOptions {
@@ -117,7 +118,7 @@ export function performanceOptionsFromProperties(properties: Record<string, unkn
   const paletteMode: PerformanceOptions['paletteMode'] =
     rawMode === 'fixed' || rawMode === 'cycle' ? rawMode : 'mood'
   const rawPalette = String(properties.fixedPalette ?? 'rainbow')
-  const fixedPalette = SHOW_PALETTES.includes(rawPalette as typeof SHOW_PALETTES[number])
+  const fixedPalette = isStudioPalette(rawPalette)
     ? rawPalette
     : 'rainbow'
   return {
@@ -346,10 +347,6 @@ const PATTERN_IDS: Record<string, number> = {
   SolidColor: 0, NoiseField: 1, Plasma: 2, Fire: 3, Fire2012: 4,
   Noise2D: 5, RadialBurst: 6, Spiral: 7, Kaleidoscope: 8, Particles: 9,
   Simplex2D: 10, GradientFrame: 11,
-}
-const PALETTE_IDS: Record<string, number> = {
-  rainbow: 0, ocean: 1, fire: 2, forest: 3, lava: 4,
-  party: 5, ice: 6, purple: 7,
 }
 // Mirrors the `Transition` node's 16-style catalogue (nodeLibrary.ts
 // PROPERTY_META.transitionType) so a style chosen from a wired TransitionSet

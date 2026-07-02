@@ -10,6 +10,7 @@
 //     SET_PATTERN index then dispatches to a `render_pN()` function.
 
 import type { PatternRenderers } from './showGenerator'
+import { STUDIO_PALETTES, customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCatalog'
 
 export interface PlayerConfig {
   ledWidth:    number
@@ -89,6 +90,15 @@ export function generatePlayerSketch(
   const hasEnergy = roleParams.includes('energy')
   const hasSpeed = roleParams.includes('speed')
   const hasPalette = roleParams.includes('palette')
+  const paletteSampleCases = STUDIO_PALETTES
+    .slice(1)
+    .map((palette, index) => `    case ${index + 1}:  return ColorFromPalette(${paletteCppRef(palette)}, index);`)
+    .join('\n')
+  const paletteFromIdCases = STUDIO_PALETTES
+    .slice(1)
+    .map((palette, index) => `    case ${index + 1}:  return ${paletteCppRef(palette)};`)
+    .join('\n')
+  const paletteGlobals = customPaletteDeclarationsCpp().join('\n')
 
   // renderPattern() either dispatches to a render_pN() (collection) or runs the
   // built-in pattern switch (enum). The render_pN() bodies expect ms.
@@ -228,14 +238,12 @@ uint32_t  audioEnvFrames = 0;
 uint8_t   audioEnvRate = 50;
 ` : ''}
 
+${paletteGlobals}
+
 // ── Palette helper ────────────────────────────────────────────────────────────
 CRGB samplePalette(uint8_t palId, uint8_t index) {
   switch (palId) {
-    case 1:  return ColorFromPalette(OceanColors_p,   index);
-    case 2:  return ColorFromPalette(LavaColors_p,    index);
-    case 3:  return ColorFromPalette(ForestColors_p,  index);
-    case 4:  return ColorFromPalette(HeatColors_p,    index);
-    case 5:  return ColorFromPalette(PartyColors_p,   index);
+${paletteSampleCases}
     default: return ColorFromPalette(RainbowColors_p, index);
   }
 }
@@ -245,11 +253,7 @@ ${hasPalette ? `
 // same preset the global enum path would use.
 CRGBPalette16 paletteFromId(uint8_t palId) {
   switch (palId) {
-    case 1:  return OceanColors_p;
-    case 2:  return LavaColors_p;
-    case 3:  return ForestColors_p;
-    case 4:  return HeatColors_p;
-    case 5:  return PartyColors_p;
+${paletteFromIdCases}
     default: return RainbowColors_p;
   }
 }

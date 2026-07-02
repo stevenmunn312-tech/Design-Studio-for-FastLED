@@ -1,4 +1,5 @@
 import type { NodeDefinition } from '../types'
+import { STUDIO_PALETTES } from './paletteCatalog'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   // ── Hardware ───────────────────────────────────────────────────────────
@@ -1436,8 +1437,8 @@ export function portsCompatible(srcType: string, dstType: string): boolean {
   return false
 }
 
-/** Built-in FastLED preset palettes a `palette` property can select. */
-export const PALETTES = ['rainbow', 'heat', 'ocean', 'lava', 'forest', 'party'] as const
+/** Named palettes a `palette` property can select. */
+export const PALETTES = STUDIO_PALETTES
 
 /**
  * Control hints for inline node property editors (StudioNode), keyed by
@@ -1570,7 +1571,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     transitionDuration: { control: 'slider', min: 0.1, max: 3, step: 0.1 },
     patternHold:        { control: 'slider', min: 1, max: 30, step: 1 },
     paletteMode:        { control: 'select', options: ['mood', 'cycle', 'fixed'] },
-    fixedPalette:       { control: 'select', options: ['rainbow', 'ocean', 'fire', 'forest', 'lava', 'party', 'ice', 'purple'] },
+    fixedPalette:       { control: 'select', options: STUDIO_PALETTES },
   },
   BeatDetect: {
     threshold: { control: 'slider', min: 0, max: 1, step: 0.01 },

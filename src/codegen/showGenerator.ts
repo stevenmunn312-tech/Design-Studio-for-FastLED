@@ -13,6 +13,7 @@
 
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
+import { customPaletteDeclarationsCpp } from '../state/paletteCatalog'
 import { generateCpp, audioEngineForGraph } from './cppGenerator'
 
 const nodeType = (n: StudioNode) => (n.data as { nodeType?: string }).nodeType
@@ -184,6 +185,8 @@ export function generateShowSketch(nodes: StudioNode[], edges: StudioEdge[], gro
   L.push('CRGB leds[NUM_LEDS];')
   L.push('CRGB showA[NUM_LEDS];   // outgoing pattern during a transition')
   for (const b of renderers.buffers) L.push(b)
+  L.push('')
+  for (const decl of customPaletteDeclarationsCpp()) L.push(decl)
   L.push('')
   if (audio) { for (const line of audio.code) L.push(line); L.push('') }
   for (const h of renderers.helpers) { L.push(h); L.push('') }

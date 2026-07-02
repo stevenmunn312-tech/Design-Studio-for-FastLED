@@ -6,6 +6,7 @@ import { waveSample, combineWaves } from './wave'
 import { polinePalette, hexToRgb } from './polinePalette'
 import { inputClampRange } from './nodeLibrary'
 import { makeShims, SHIM_NAMES } from './fastledShims'
+import { sampleNamedPalette } from './paletteCatalog'
 import { createBeatDetectorState, denormalizeBeatParam, updateBeatDetectorFromSpectrum } from '../audio/beatDetection'
 import { denormalizeAudioFlowParam } from './audioFlowRange'
 import { SPEED_MAX, SCALE_MAX, NOISE_SPEED_MAX, NOISE_SCALE_MAX, denormRate } from './speedRange'
@@ -685,22 +686,7 @@ function samplePalette(palette: Palette, t: number): RGB {
       b: Math.round(a.b * (1 - f) + b.b * f),
     }
   }
-  switch (palette) {
-    case 'heat':
-      if (h < 0.33) return { r: Math.round(h * 3 * 255), g: 0, b: 0 }
-      if (h < 0.66) return { r: 255, g: Math.round(((h - 0.33) / 0.33) * 255), b: 0 }
-      return { r: 255, g: 255, b: Math.round(((h - 0.66) / 0.34) * 255) }
-    case 'ocean':
-      return hsv(200 + h * 40, 0.8 + h * 0.2, h * 0.9 + 0.1)
-    case 'lava':
-      return hsv(h * 40, 1, h > 0.08 ? 0.9 : h * 11)
-    case 'forest':
-      return hsv(90 + h * 60, 0.7 + h * 0.3, 0.4 + h * 0.6)
-    case 'party':
-      return hsv(((h * 360 * 6.7) % 360 + 360) % 360, 1, 1)
-    default: // rainbow
-      return hsv(h * 360, 1, 1)
-  }
+  return sampleNamedPalette(palette, h) ?? hsv(h * 360, 1, 1)
 }
 
 function evalNoise2D(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
