@@ -12,10 +12,12 @@
  *    crossing noodles.
  * 3. The result is anchored to the scope's current top-left corner and snapped
  *    to the canvas grid, so tidying doesn't fling the graph elsewhere.
+ * 4. Isolated nodes (no edge to anything in scope) stay where the user put
+ *    them — unless they'd sit on top of the tidied graph, in which case they
+ *    are parked in a row beneath it so they don't obscure anything.
  *
- * Pure function: nodes go in as plain boxes, new positions come out. Isolated
- * nodes (no edge to anything in scope) are left out of the result — the caller
- * leaves them where the user put them.
+ * Pure function: nodes go in as plain boxes, new positions come out. A node
+ * absent from the result doesn't move.
  */
 
 export interface TidyItem {
@@ -157,5 +159,34 @@ export function tidyLayout(
       out.set(n.id, { x: colX[i], y: snap(cy.get(n.id)! - n.height / 2 + dy, grid) })
     }
   })
+
+  // ── 4. Park stray unconnected nodes that would obscure the graph ────────
+  // An isolated node clear of the tidied layout stays where the user put it;
+  // one sitting on top of the layout is moved into a row beneath it.
+  const isolated = items.filter((i) => !inputs.has(i.id) && !outputs.has(i.id))
+  if (isolated.length) {
+    let minX = Infinity
+    let minY = Infinity
+    let maxX = -Infinity
+    let maxY = -Infinity
+    for (const n of connected) {
+      const p = out.get(n.id)!
+      minX = Math.min(minX, p.x)
+      minY = Math.min(minY, p.y)
+      maxX = Math.max(maxX, p.x + n.width)
+      maxY = Math.max(maxY, p.y + n.height)
+    }
+    const obscuring = isolated
+      .filter((n) => n.x < maxX && n.x + n.width > minX && n.y < maxY && n.y + n.height > minY)
+      .sort((a, b) => a.x - b.x || a.y - b.y)
+    // Row top rounds *up* so a parked node can never creep back into the
+    // layout's bounding box (which would un-park it again on the next tidy).
+    const parkY = Math.ceil((maxY + gapY) / grid) * grid
+    let parkX = snap(minX, grid)
+    for (const n of obscuring) {
+      out.set(n.id, { x: parkX, y: parkY })
+      parkX = snap(parkX + n.width + gapX, grid)
+    }
+  }
   return out
 }

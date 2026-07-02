@@ -54,13 +54,45 @@ describe('tidyLayout', () => {
     expect(result.get('s')!.x).toBe(result.get('b')!.x)
   })
 
-  it('leaves isolated nodes out of the result', () => {
+  it('leaves isolated nodes that are clear of the graph untouched', () => {
     const result = tidyLayout(
       [box('a', 0, 0), box('b', 300, 0), box('lone', 900, 900)],
       [{ source: 'a', target: 'b' }],
     )
     expect(result.has('lone')).toBe(false)
     expect(result.size).toBe(2)
+  })
+
+  it('parks isolated nodes that obscure the graph in a row beneath it', () => {
+    const result = tidyLayout(
+      [
+        box('a', 0, 0),
+        box('b', 300, 0),
+        box('stray1', 250, 20),  // sits right on top of the tidied chain
+        box('stray2', 100, 40),
+      ],
+      [{ source: 'a', target: 'b' }],
+    )
+    const a = result.get('a')!
+    const b = result.get('b')!
+    const s1 = result.get('stray1')!
+    const s2 = result.get('stray2')!
+    const graphBottom = Math.max(a.y, b.y) + 100
+    // Both strays end up below the graph, side by side, no overlap.
+    expect(s1.y).toBeGreaterThanOrEqual(graphBottom + 40)
+    expect(s2.y).toBe(s1.y)
+    // Sorted by original x: stray2 (x 100) parks left of stray1 (x 250).
+    expect(s1.x - s2.x).toBeGreaterThanOrEqual(200)
+  })
+
+  it('does not re-park an already-parked stray on the next tidy', () => {
+    const items = [box('a', 0, 0), box('b', 300, 0), box('stray', 150, 30)]
+    const edges = [{ source: 'a', target: 'b' }]
+    const first = tidyLayout(items, edges)
+    expect(first.has('stray')).toBe(true)
+    const moved = items.map((i) => ({ ...i, ...first.get(i.id)! }))
+    const second = tidyLayout(moved, edges)
+    expect(second.has('stray')).toBe(false)
   })
 
   it('survives cycles without hanging and places both nodes', () => {
