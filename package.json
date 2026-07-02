@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "helper": "python -m uvicorn app:app --reload --port 8008 --app-dir backend"
+    "helper": "python -m uvicorn app:app --reload --port 8008 --app-dir backend",
+    "demo": "node scripts/record-demo.mjs"
   },
   "dependencies": {
     "@xyflow/react": "^12.3.6",
@@ -36,6 +37,7 @@
     "eslint-plugin-react-refresh": "^0.4.16",
     "globals": "^15.14.0",
     "jsdom": "^29.1.1",
+    "playwright": "^1.61.1",
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.18.2",
     "vite": "^6.0.5",
