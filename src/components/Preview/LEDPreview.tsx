@@ -396,8 +396,6 @@ export default function LEDPreview() {
   // of the display refresh rate (matching the firmware's millis()-based timing).
   const startTime     = useRef(0)
   const lastStep      = useRef(0)
-  // Per-node previews refresh slower than the main canvas to bound React work.
-  const lastPreviewPublish = useRef(0)
 
   const nodes = useGraphStore((s) => s.nodes)
   const edges = useGraphStore((s) => s.edges)
@@ -587,13 +585,9 @@ export default function LEDPreview() {
           renderFrame(ctx, frame, px, previewStyleRef.current)
         }
 
-        // Beat pulses last one evaluation frame, so publish them immediately;
-        // the regular 15fps preview throttle would otherwise miss most beats.
-        const hasBeat = Array.from(outputs.values()).some((output) => output.beat === true)
-        if (hasBeat || now - lastPreviewPublish.current >= 66) {
-          usePreviewStore.getState().setOutputs(outputs)
-          lastPreviewPublish.current = now
-        }
+        // Publish every evaluated frame so per-node previews stay in lockstep
+        // with the main canvas (same ~60fps wall-clock cadence, no throttle).
+        usePreviewStore.getState().setOutputs(outputs)
 
         frameCount.current++
         if (now - lastFpsTime.current >= 1000) {

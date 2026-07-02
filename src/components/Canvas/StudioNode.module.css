@@ -58,6 +58,53 @@
   gap: 4px;
 }
 
+.previewWrap {
+  position: relative;
+}
+
+.previewToggle {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 14px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  border: none;
+  border-radius: 3px;
+  color: var(--text-secondary);
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.previewToggle:hover {
+  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.previewToggleCollapsed {
+  width: 100%;
+  height: 16px;
+  padding: 0;
+  background: none;
+  border: 1px dashed var(--border-glow);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  font-family: var(--font-code);
+  cursor: pointer;
+  text-align: center;
+}
+
+.previewToggleCollapsed:hover {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
 .portRow {
   position: relative;
   display: flex;

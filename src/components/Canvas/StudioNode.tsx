@@ -264,7 +264,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // PatternCollection body's section chips.
   const isGroupInput = d.nodeType === 'GroupInput'
   const editable = Object.entries(props).filter(
-    ([k]) => k !== 'font' && k !== 'image' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions'
+    ([k]) => k !== 'font' && k !== 'image' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions' && k !== 'previewHidden'
       && !(isGroupInput && k === 'paramId')
       && !(hasRGB && (k === 'r' || k === 'g' || k === 'b'))
   )
@@ -295,6 +295,9 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // Frame previews fill the node width at the matrix aspect ratio; palette /
   // colour / wave previews use the fixed scope height.
   const framePreviewH = Math.round((BODY_CONTENT_W * gridH) / gridW)
+  // Per-node opt-out of the live preview thumbnail (a small toggle button on
+  // the preview itself), so a busy graph can be quieted node by node.
+  const previewHidden = Boolean(rawProps.previewHidden)
   // The MusicLibrary node embeds the full library UI in its body, so it needs a
   // wider frame than the default node width.
   const isMusicLibrary = d.nodeType === 'MusicLibrary'
@@ -320,7 +323,30 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {isBeatDetect && <BeatDetectBody nodeId={id} />}
         {isFFTAnalyzer && <FFTAnalyzerBody nodeId={id} bands={Number(props.bands ?? 24)} />}
         {previewKind && outPort && (
-          <NodePreview nodeId={id} kind={previewKind} port={outPort.id} height={previewKind === 'frame' ? framePreviewH : undefined} />
+          previewHidden ? (
+            <button
+              type="button"
+              className={`nodrag ${styles.previewToggleCollapsed}`}
+              onClick={() => updateNodeProperty(id, 'previewHidden', false)}
+              title="Show preview"
+              aria-label="Show preview"
+            >
+              ▸ preview
+            </button>
+          ) : (
+            <div className={styles.previewWrap}>
+              <NodePreview nodeId={id} kind={previewKind} port={outPort.id} height={previewKind === 'frame' ? framePreviewH : undefined} />
+              <button
+                type="button"
+                className={`nodrag ${styles.previewToggle}`}
+                onClick={() => updateNodeProperty(id, 'previewHidden', true)}
+                title="Hide preview"
+                aria-label="Hide preview"
+              >
+                ▾
+              </button>
+            </div>
+          )
         )}
         {Array.from({ length: rowCount }).map((_, i) => {
           const input = inputs[i]
