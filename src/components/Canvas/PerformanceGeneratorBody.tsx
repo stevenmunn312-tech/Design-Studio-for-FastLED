@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMusicStore } from '../../state/musicStore'
 import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
+import { useAudioStore } from '../../state/audioStore'
+import { useShowPlayback } from '../../state/showPlayback'
 import { renderShowFrame, showStateAt, sectionAt } from '../../state/showPreview'
 import type { Frame } from '../../state/graphEvaluator'
 import { performanceOptionsFromProperties } from '../../codegen/performanceGenerator'
@@ -50,6 +52,23 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
   const gridH = useGraphStore((s) => {
     const o = s.nodes.find((n) => (n.data as { nodeType?: string }).nodeType === 'MatrixOutput')
     return Math.max(1, Math.min(64, Number(o?.data.properties.height ?? 16)))
+  })
+
+  // When this generator's `frame` output feeds a MatrixOutput, the show plays in
+  // the big LED preview instead of on the node (see showPlayback.ts).
+  const wiredToMatrix = useGraphStore((s) => {
+    const matrixIds = new Set(
+      s.nodes
+        .filter((n) => (n.data as { nodeType?: string }).nodeType === 'MatrixOutput')
+        .map((n) => n.id),
+    )
+    return s.edges.some(
+      (e) =>
+        e.source === nodeId &&
+        e.sourceHandle === 'frame' &&
+        e.targetHandle === 'frame' &&
+        matrixIds.has(e.target),
+    )
   })
 
   const [previewId, setPreviewId] = useState<string | null>(null)
@@ -106,29 +125,45 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
   const audioUrl = useMemo(() => (entry ? URL.createObjectURL(entry.file) : null), [entry])
   useEffect(() => () => { if (audioUrl) URL.revokeObjectURL(audioUrl) }, [audioUrl])
 
-  // Render loop: drive the canvas from the audio clock while playing.
+  // Render loop: drive the canvas from the audio clock while playing. When
+  // wired to MatrixOutput the frame goes to the main preview instead — we just
+  // publish the position to the shared playback store and let LEDPreview draw.
   useEffect(() => {
     if (!playing || !show) return
     let lastStateUpdate = 0
     const tick = () => {
       const audio = audioRef.current
-      const canvas = canvasRef.current
-      if (audio && canvas) {
+      if (audio) {
         const ms = Math.min(show.durationMs, audio.currentTime * 1000)
-        draw(canvas, renderShowFrame(show, ms, gridW, gridH, getGroupRegistry(), useGroupInputs), gridW, gridH)
+        if (wiredToMatrix) {
+          useShowPlayback.getState().setPlayback({ nodeId, show, posMs: ms, useGroupInputs, playing: true })
+        } else if (canvasRef.current) {
+          draw(canvasRef.current, renderShowFrame(show, ms, gridW, gridH, getGroupRegistry(), useGroupInputs), gridW, gridH)
+        }
         if (ms - lastStateUpdate > 120) { setPosMs(ms); lastStateUpdate = ms }
       }
       rafRef.current = requestAnimationFrame(tick)
     }
     rafRef.current = requestAnimationFrame(tick)
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
-  }, [playing, show, gridW, gridH, useGroupInputs])
+  }, [playing, show, gridW, gridH, useGroupInputs, wiredToMatrix, nodeId])
 
   // Draw a static frame at the current position when paused/seeking.
   useEffect(() => {
-    if (playing || !show || !canvasRef.current) return
-    draw(canvasRef.current, renderShowFrame(show, posMs, gridW, gridH, getGroupRegistry(), useGroupInputs), gridW, gridH)
-  }, [playing, show, posMs, gridW, gridH, useGroupInputs])
+    if (playing || !show) return
+    if (wiredToMatrix) {
+      useShowPlayback.getState().setPlayback({ nodeId, show, posMs, useGroupInputs, playing: false })
+    } else if (canvasRef.current) {
+      draw(canvasRef.current, renderShowFrame(show, posMs, gridW, gridH, getGroupRegistry(), useGroupInputs), gridW, gridH)
+    }
+  }, [playing, show, posMs, gridW, gridH, useGroupInputs, wiredToMatrix, nodeId])
+
+  // Release the main preview when this node is no longer wired / has no show,
+  // and on unmount, so a stale show doesn't linger in the big canvas.
+  useEffect(() => {
+    if (!wiredToMatrix || !show) useShowPlayback.getState().clearPlayback(nodeId)
+    return () => useShowPlayback.getState().clearPlayback(nodeId)
+  }, [wiredToMatrix, show, nodeId])
 
   function startPreview(id: string) {
     if (previewId === id) return
@@ -147,7 +182,12 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
     else {
       setPlaybackError(null)
       audio.play()
-        .then(() => setPlaying(true))
+        .then(() => {
+          setPlaying(true)
+          // Route the song through the AudioEngine so the main preview's
+          // spectrum analyzer reacts to it while the show plays.
+          useAudioStore.getState().attachAudioElement(audio).catch(() => {})
+        })
         .catch(() => setPlaybackError('This audio file could not be played in the browser.'))
     }
   }
@@ -197,14 +237,18 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
 
       {entry && show && (
         <div className={styles.player}>
-          <canvas
-            ref={canvasRef}
-            className={styles.canvas}
-            width={gridW * 10}
-            height={gridH * 10}
-            role="img"
-            aria-label={`LED preview for ${entry.analysis?.title ?? entry.file.name}`}
-          />
+          {wiredToMatrix ? (
+            <div className={styles.mainNote}>▶ Playing in the main LED preview</div>
+          ) : (
+            <canvas
+              ref={canvasRef}
+              className={styles.canvas}
+              width={gridW * 10}
+              height={gridH * 10}
+              role="img"
+              aria-label={`LED preview for ${entry.analysis?.title ?? entry.file.name}`}
+            />
+          )}
           <div className={styles.transport}>
             <button
               type="button"

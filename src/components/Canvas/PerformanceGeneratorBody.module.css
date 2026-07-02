@@ -75,6 +75,17 @@
   border: 1px solid var(--divider);
 }
 
+.mainNote {
+  padding: 10px 8px;
+  text-align: center;
+  font-size: var(--fs-caption);
+  font-family: var(--font-body);
+  color: var(--accent-hardware);
+  border: 1px dashed var(--accent-hardware);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent-hardware) 8%, var(--bg-primary));
+}
+
 .transport {
   display: flex;
   align-items: center;
