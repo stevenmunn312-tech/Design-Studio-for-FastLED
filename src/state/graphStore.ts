@@ -69,6 +69,8 @@ interface GraphState {
   /** Drop-to-splice: insert a node onto an existing edge, rewiring it as
    *  source → node → target (then spread the area so the noodles aren't tiny). */
   insertNodeOnEdge: (node: StudioNode, edgeId: string, inHandle: string, outHandle: string) => void
+  /** Splice an unconnected node that already exists on the canvas into an edge. */
+  spliceNodeOnEdge: (nodeId: string, edgeId: string, inHandle: string, outHandle: string) => void
   /** Push connected nodes apart so no noodle is uncomfortably short. Only ever
    *  moves nodes rightward, so it tidies a cramped area without disturbing a
    *  layout that already has room. */
@@ -385,6 +387,30 @@ export const useGraphStore = create<GraphState>()(
           const nodes = [...s.nodes, node]
           const edges = [...s.edges.filter((e) => e.id !== edgeId), e1, e2]
           return { nodes: spreadNodesByEdges(nodes, edges), edges }
+        }),
+
+      spliceNodeOnEdge: (nodeId, edgeId, inHandle, outHandle) =>
+        set((s) => {
+          const node = s.nodes.find((n) => n.id === nodeId)
+          const old = s.edges.find((e) => e.id === edgeId)
+          // Existing-node splicing is deliberately limited to loose nodes; a
+          // connected node would otherwise silently tear or duplicate wiring.
+          if (!node || !old || s.edges.some((e) => e.source === nodeId || e.target === nodeId)) return s
+          const srcNode = s.nodes.find((n) => n.id === old.source)
+          const srcColor = edgeStrokeForPort(srcNode, old.sourceHandle ?? undefined)
+          const newColor = edgeStrokeForPort(node, outHandle)
+          const e1 = {
+            id: `e-${node.id}-in`, source: old.source!, sourceHandle: old.sourceHandle,
+            target: node.id, targetHandle: inHandle,
+            type: 'glowEdge', reconnectable: 'target', style: { stroke: srcColor },
+          } as StudioEdge
+          const e2 = {
+            id: `e-${node.id}-out`, source: node.id, sourceHandle: outHandle,
+            target: old.target!, targetHandle: old.targetHandle,
+            type: 'glowEdge', reconnectable: 'target', style: { stroke: newColor },
+          } as StudioEdge
+          const edges = [...s.edges.filter((e) => e.id !== edgeId), e1, e2]
+          return { nodes: spreadNodesByEdges(s.nodes, edges), edges }
         }),
 
       spreadNodes: () =>

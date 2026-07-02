@@ -472,6 +472,30 @@ describe('graphStore — splice & spread', () => {
     expect(s.edges.some((e) => e.target === 'blend' && e.targetHandle === 'b')).toBe(false)
   })
 
+  it('splices an existing unconnected node into a noodle without duplicating it', () => {
+    reset(
+      [at(node('sc', 'SolidColor'), 0), at(node('inv', 'Invert'), 300), at(node('out', 'MatrixOutput'), 600)],
+      [edge('e1', 'sc', 'frame', 'out', 'frame')],
+    )
+    useGraphStore.getState().spliceNodeOnEdge('inv', 'e1', 'frame', 'frame')
+    const s = useGraphStore.getState()
+    expect(s.nodes.filter((n) => n.id === 'inv')).toHaveLength(1)
+    expect(s.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: 'sc', target: 'inv', targetHandle: 'frame' }),
+      expect.objectContaining({ source: 'inv', sourceHandle: 'frame', target: 'out' }),
+    ]))
+    expect(s.edges.some((e) => e.id === 'e1')).toBe(false)
+  })
+
+  it('does not splice a canvas node that already has a connection', () => {
+    reset(
+      [at(node('sc', 'SolidColor'), 0), at(node('inv', 'Invert'), 300), at(node('out', 'MatrixOutput'), 600)],
+      [edge('e1', 'sc', 'frame', 'out', 'frame'), edge('existing', 'sc', 'frame', 'inv', 'frame')],
+    )
+    useGraphStore.getState().spliceNodeOnEdge('inv', 'e1', 'frame', 'frame')
+    expect(useGraphStore.getState().edges.map((e) => e.id)).toEqual(['e1', 'existing'])
+  })
+
   it('spreadNodes pushes a cramped target node rightward, leaving roomy ones alone', () => {
     reset(
       [at(node('sc', 'SolidColor'), 0), at(node('bm', 'BrightnessMod'), 30), at(node('out', 'MatrixOutput'), 1000)],

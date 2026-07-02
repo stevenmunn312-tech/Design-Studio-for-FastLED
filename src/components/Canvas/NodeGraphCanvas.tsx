@@ -10,6 +10,7 @@ import {
   type NodeTypes,
   type EdgeTypes,
   type NodeMouseHandler,
+  type OnNodeDrag,
   type IsValidConnection,
   type OnConnectEnd,
   type OnConnectStart,
@@ -78,8 +79,16 @@ function hoveredSpliceEdge(eventTarget: EventTarget | null): string | undefined 
   return eventTarget.closest('[data-splice-edge-id]')?.getAttribute('data-splice-edge-id') ?? undefined
 }
 
+function hoveredSpliceEdgeAt(x: number, y: number): string | undefined {
+  for (const element of document.elementsFromPoint(x, y)) {
+    const edgeId = element.closest('[data-splice-edge-id]')?.getAttribute('data-splice-edge-id')
+    if (edgeId) return edgeId
+  }
+  return undefined
+}
+
 function NodeGraphCanvasInner() {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, insertNodeOnEdge, spreadNodes, instantiatePattern, addToCollection, enterGraph, removeEdge, reconnectNoodle } =
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, insertNodeOnEdge, spliceNodeOnEdge, spreadNodes, instantiatePattern, addToCollection, enterGraph, removeEdge, reconnectNoodle } =
     useGraphStore()
   // Restore the saved pan/zoom on mount; fit the view only when there's none
   // (first run). Read once so it isn't re-applied on every render.
@@ -98,7 +107,7 @@ function NodeGraphCanvasInner() {
   // Timestamp of the last drag-to-create picker open, so the trailing pane
   // click that React Flow emits right after the drop doesn't close it.
   const menuOpenedAt = useRef(0)
-  const { screenToFlowPosition, getNode, getInternalNode } = useReactFlow()
+  const { screenToFlowPosition, flowToScreenPosition, getNode, getInternalNode } = useReactFlow()
   const { setStatus, setSparkPort, setViewCenter, draggingNodeType, setDraggingNodeType } = useUiStore()
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [spliceCue, setSpliceCue] = useState<{
@@ -108,6 +117,7 @@ function NodeGraphCanvasInner() {
     label: string
     color: string
   } | null>(null)
+  const [canvasDragNodeId, setCanvasDragNodeId] = useState<string | null>(null)
 
   // Publish the click-to-add drop point (in flow coords) so sidebar clicks land
   // on screen wherever the user has panned. Biased to the left third — vertically
@@ -171,9 +181,6 @@ function NodeGraphCanvasInner() {
     },
     [onConnect, spreadNodes, setSparkPort, getNode, setStatus, addToCollection]
   )
-
-  // After a node is dragged, tidy any connections it left too cramped.
-  const onNodeDragStop = useCallback(() => spreadNodes(), [spreadNodes])
 
   // Grabbing a connected input dot: let the noodle stay visible while it is
   // being reconnected. If the drag ends on empty space we delete it; if it
@@ -316,11 +323,13 @@ function NodeGraphCanvasInner() {
     position: Pt,
     def: (typeof NODE_LIBRARY)[number],
     preferredEdgeId?: string,
+    excludedNodeId?: string,
   ): { edgeId: string; inHandle: string; outHandle: string; color: string } | null => {
     let best: { edgeId: string; inHandle: string; outHandle: string; color: string } | null = null
     let bestDist = SPLICE_DIST
     for (const edge of edges) {
       if (preferredEdgeId && edge.id !== preferredEdgeId) continue
+      if (excludedNodeId && (edge.source === excludedNodeId || edge.target === excludedNodeId)) continue
       const sN = getNode(edge.source)
       const tN = getNode(edge.target)
       if (!sN || !tN) continue
@@ -357,6 +366,57 @@ function NodeGraphCanvasInner() {
     }
     return best
   }, [edges, getNode])
+
+  const canvasNodeSpliceTarget = useCallback((node: Node) => {
+    const def = NODE_LIBRARY.find((entry) => entry.type === (node.data as { nodeType?: string }).nodeType)
+    if (!def || edges.some((edge) => edge.source === node.id || edge.target === node.id)) return null
+    const centre = {
+      x: node.position.x + (node.measured?.width ?? FALLBACK_W) / 2,
+      y: node.position.y + (node.measured?.height ?? FALLBACK_H) / 2,
+    }
+    const screenCentre = flowToScreenPosition(centre)
+    const hoveredEdgeId = hoveredSpliceEdgeAt(screenCentre.x, screenCentre.y)
+    const target = (hoveredEdgeId ? findSpliceTarget(centre, def, hoveredEdgeId, node.id) : null)
+      ?? findSpliceTarget(centre, def, undefined, node.id)
+    return target ? { target, def } : null
+  }, [edges, findSpliceTarget, flowToScreenPosition])
+
+  const onNodeDragStart: OnNodeDrag = useCallback((_event, node) => {
+    const unconnected = !edges.some((edge) => edge.source === node.id || edge.target === node.id)
+    setCanvasDragNodeId(unconnected ? node.id : null)
+  }, [edges])
+
+  const onNodeDrag: OnNodeDrag = useCallback((event, node) => {
+    const match = canvasNodeSpliceTarget(node)
+    const wrapper = wrapperRef.current
+    if (!match || !wrapper) {
+      setSpliceCue(null)
+      return
+    }
+    const pointer = 'clientX' in event ? event : event.touches[0] ?? event.changedTouches[0]
+    if (!pointer) return
+    const rect = wrapper.getBoundingClientRect()
+    setSpliceCue({
+      edgeId: match.target.edgeId,
+      x: pointer.clientX - rect.left,
+      y: pointer.clientY - rect.top,
+      label: match.def.label,
+      color: match.target.color,
+    })
+  }, [canvasNodeSpliceTarget])
+
+  const onNodeDragStop: OnNodeDrag = useCallback((_event, node) => {
+    const match = canvasNodeSpliceTarget(node)
+    setCanvasDragNodeId(null)
+    setSpliceCue(null)
+    if (match) {
+      spliceNodeOnEdge(node.id, match.target.edgeId, match.target.inHandle, match.target.outHandle)
+      setStatus(`Spliced ${match.def.label} into the connection`, 'success')
+      return
+    }
+    // Preserve the existing quiet cleanup for connected nodes and loose drops.
+    spreadNodes()
+  }, [canvasNodeSpliceTarget, setStatus, spliceNodeOnEdge, spreadNodes])
 
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -448,16 +508,16 @@ function NodeGraphCanvasInner() {
 
   const spliceEdgeId = spliceCue?.edgeId ?? null
   const displayEdges = useMemo(() => {
-    if (!draggingNodeType && !spliceEdgeId) return edges
+    if (!draggingNodeType && !canvasDragNodeId && !spliceEdgeId) return edges
     return edges.map((edge) => ({
       ...edge,
       data: {
         ...edge.data,
-        spliceArmed: Boolean(draggingNodeType),
+        spliceArmed: Boolean(draggingNodeType || canvasDragNodeId),
         splicePreview: edge.id === spliceEdgeId,
       },
     }))
-  }, [draggingNodeType, edges, spliceEdgeId])
+  }, [canvasDragNodeId, draggingNodeType, edges, spliceEdgeId])
 
   return (
     <div ref={wrapperRef} className={styles.canvas} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
@@ -489,6 +549,8 @@ function NodeGraphCanvasInner() {
         onReconnectStart={onReconnectStart}
         onReconnect={onReconnect}
         onReconnectEnd={onReconnectEnd}
+        onNodeDragStart={onNodeDragStart}
+        onNodeDrag={onNodeDrag}
         onNodeDragStop={onNodeDragStop}
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
