@@ -231,6 +231,63 @@ describe('generateShow — collection vs enum patterns', () => {
   })
 })
 
+describe('generateShow — beat accents (flash vs particles)', () => {
+  it('mixes particle bursts into the beat accents', () => {
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0)   // always roll into the particle branch
+    try {
+      const bursts = generateShow(analysis).events.filter((e) => e.cmd === 'PARTICLE_BURST')
+      expect(bursts.length).toBeGreaterThan(0)
+      for (const ev of bursts) {
+        expect(Number(ev.params.intensity)).toBeGreaterThan(0)
+        expect(ev.params.hue).toBeDefined()
+      }
+    } finally { spy.mockRestore() }
+  })
+
+  it('falls back to white flashes when the particle roll misses', () => {
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0.99)  // never rolls into particles
+    try {
+      const show = generateShow(analysis)
+      expect(show.events.some((e) => e.cmd === 'BEAT_FLASH')).toBe(true)
+      expect(show.events.some((e) => e.cmd === 'PARTICLE_BURST')).toBe(false)
+    } finally { spy.mockRestore() }
+  })
+
+  it('round-trips a PARTICLE_BURST (cmd id 7, intensity+hue) through the binary', () => {
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0)
+    try {
+      const view = new DataView(showFileToBinary(generateShow(analysis)))
+      const count = view.getUint32(11, true)
+      let off = 15, found = false
+      for (let i = 0; i < count; i++) {
+        const cmd = view.getUint8(off + 4), pc = view.getUint8(off + 5)
+        if (cmd === 7) { expect(pc).toBe(2); found = true }   // PARTICLE_BURST: intensity, hue
+        off += 4 + 1 + 1 + pc * 4
+      }
+      expect(found).toBe(true)
+    } finally { spy.mockRestore() }
+  })
+})
+
+describe('generateShow — fade to black on silence', () => {
+  it('ramps brightness down to 0 during a silent gap and back up after', () => {
+    const energy = []
+    for (let t = 0; t <= 4000; t += 100) energy.push({ t, bass: 0, mids: 0, treble: 0, overall: (t >= 1500 && t < 2500) ? 0 : 0.5 })
+    const silentGap: SongAnalysis = { ...analysis, energy }
+    const br = generateShow(silentGap).events.filter((e) => e.cmd === 'SET_BRIGHTNESS')
+    expect(br.some((e) => Number(e.params.value) === 0 && e.t >= 1500 && e.t <= 2500)).toBe(true)  // faded out
+    expect(br.some((e) => Number(e.params.value) > 0 && e.t >= 2500)).toBe(true)                    // restored
+  })
+
+  it('leaves brightness alone when the song never goes silent', () => {
+    const energy = []
+    for (let t = 0; t <= 4000; t += 100) energy.push({ t, bass: 0.5, mids: 0.5, treble: 0.5, overall: 0.5 })
+    const loud: SongAnalysis = { ...analysis, energy }
+    const zeros = generateShow(loud).events.filter((e) => e.cmd === 'SET_BRIGHTNESS' && Number(e.params.value) === 0)
+    expect(zeros).toHaveLength(0)
+  })
+})
+
 describe('generateShow — extra transitions from a wired TransitionSet', () => {
   it('only ever uses the rule-based crossfade/wipe/dissolve pool when no extras are given', () => {
     const show = generateShow(analysis)

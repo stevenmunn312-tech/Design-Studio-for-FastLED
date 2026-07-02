@@ -369,6 +369,7 @@ export default function LEDPreview() {
   const animRef     = useRef<number>(0)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [viewport, setViewport] = useState(() => ({ width: window.innerWidth, height: window.innerHeight }))
+  const [canvasWrapSize, setCanvasWrapSize] = useState({ width: 0, height: 0 })
   const lastFpsTime   = useRef(performance.now())
   const frameCount    = useRef(0)
   // Wall-clock time base so the preview animates at real-time speed regardless
@@ -392,9 +393,20 @@ export default function LEDPreview() {
   const gridW = Math.max(2, Math.min(64, Number(outputNode?.data.properties.width  ?? 16)))
   const gridH = Math.max(2, Math.min(64, Number(outputNode?.data.properties.height ?? 16)))
   const fullscreenCanvasPx = Math.min(FULLSCREEN_CANVAS_PX, viewport.width, viewport.height)
+  const wrapEl = canvasWrapRef.current
+  const wrapStyle = wrapEl ? window.getComputedStyle(wrapEl) : null
+  const wrapPadX = wrapStyle ? Number.parseFloat(wrapStyle.paddingLeft) + Number.parseFloat(wrapStyle.paddingRight) : 0
+  const wrapPadY = wrapStyle ? Number.parseFloat(wrapStyle.paddingTop) + Number.parseFloat(wrapStyle.paddingBottom) : 0
+  const availableCanvasW = Math.max(0, canvasWrapSize.width - wrapPadX)
+  const availableCanvasH = Math.max(0, canvasWrapSize.height - wrapPadY)
+  const windowedPixelLimit = Math.min(
+    MAX_CANVAS_PX,
+    availableCanvasW > 0 ? availableCanvasW / gridW : MAX_CANVAS_PX,
+    availableCanvasH > 0 ? availableCanvasH / gridH : MAX_CANVAS_PX,
+  )
   const pixel = isFullscreen
     ? fullscreenCanvasPx / Math.max(gridW, gridH)
-    : Math.max(4, Math.floor(MAX_CANVAS_PX / Math.max(gridW, gridH)))
+    : Math.max(1, Math.floor(windowedPixelLimit))
   const gridWRef = useRef(gridW)
   const gridHRef = useRef(gridH)
   const pixelRef = useRef(pixel)
@@ -431,6 +443,23 @@ export default function LEDPreview() {
       document.removeEventListener('fullscreenchange', syncFullscreen)
       window.removeEventListener('resize', syncViewport)
     }
+  }, [])
+
+  useEffect(() => {
+    const canvasWrap = canvasWrapRef.current
+    if (!canvasWrap) return
+
+    const syncSize = () => {
+      setCanvasWrapSize({
+        width: canvasWrap.clientWidth,
+        height: canvasWrap.clientHeight,
+      })
+    }
+
+    syncSize()
+    const observer = new ResizeObserver(syncSize)
+    observer.observe(canvasWrap)
+    return () => observer.disconnect()
   }, [])
 
   const onRotateDown = (e: React.PointerEvent) => {

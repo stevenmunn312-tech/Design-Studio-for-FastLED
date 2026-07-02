@@ -157,6 +157,64 @@ function activeTransitionAt(
   return active
 }
 
+// ── Particle-burst overlay ────────────────────────────────────────────────────
+// A PARTICLE_BURST spawns a fixed set of short-lived colored sparks that drift
+// up (then arc down under a little gravity) and fade. The motion is a pure
+// function of the burst time + spark index, so it is deterministic and mirrored
+// exactly by the firmware player (see playerSketchGenerator's particle block).
+export const PARTICLE_LIFE_MS = 600
+export const PARTICLE_COUNT = 16
+
+// Hash → [0,1). The classic GLSL fract(sin(...)) hash, matched in the firmware
+// so preview and device spawn the same sparks.
+function prnd(n: number): number {
+  const s = Math.sin(n * 12.9898) * 43758.5453
+  return s - Math.floor(s)
+}
+
+function phsv(hue: number): { r: number; g: number; b: number } {
+  const h = ((hue / 255) * 360) % 360
+  const c = 1, x = c * (1 - Math.abs(((h / 60) % 2) - 1))
+  let r = 0, g = 0, b = 0
+  if (h < 60) { r = c; g = x } else if (h < 120) { r = x; g = c }
+  else if (h < 180) { g = c; b = x } else if (h < 240) { g = x; b = c }
+  else if (h < 300) { r = x; b = c } else { r = c; b = x }
+  return { r: r * 255, g: g * 255, b: b * 255 }
+}
+
+/** Additive spark overlay (0–255 per channel, pre-brightness) for the most
+ *  recent PARTICLE_BURST still within its lifetime, or null if none is active.
+ *  Single active burst so it matches the firmware's single-slot model. */
+function particleOverlayAt(show: ShowFile, timeMs: number, W: number, H: number): Frame | null {
+  let burst: ShowFile['events'][number] | null = null
+  for (const ev of show.events) {
+    if (ev.t > timeMs) break
+    if (ev.cmd !== 'PARTICLE_BURST') continue
+    if (timeMs < ev.t + PARTICLE_LIFE_MS) burst = ev
+  }
+  if (!burst) return null
+
+  const ov = blank(W, H)
+  const ageSec = (timeMs - burst.t) / 1000
+  const f = (timeMs - burst.t) / PARTICLE_LIFE_MS
+  const intensity = Number(burst.params.intensity) / 255
+  const col = phsv(Number(burst.params.hue))
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    const base = burst.t * 0.001 + i * 7.13
+    const ox = prnd(base + 1) * W, oy = prnd(base + 2) * H
+    const vx = (prnd(base + 3) - 0.5) * 8, vy = -(1 + prnd(base + 4) * 3)
+    const xi = Math.round(ox + vx * ageSec)
+    const yi = Math.round(oy + vy * ageSec + 0.5 * 6 * ageSec * ageSec)
+    if (xi < 0 || xi >= W || yi < 0 || yi >= H) continue
+    const b = intensity * (1 - f)
+    const cell = ov[yi][xi]
+    cell.r = Math.min(255, cell.r + col.r * b)
+    cell.g = Math.min(255, cell.g + col.g * b)
+    cell.b = Math.min(255, cell.b + col.b * b)
+  }
+  return ov
+}
+
 /** Render the show's LED frame at a playback position (ms). `groups` is the live
  *  group registry (collection shows). When `useGroupInputs` is on, the section
  *  energy, (normalised) speed, and palette are fed to the patterns'
@@ -183,14 +241,18 @@ export function renderShowFrame(
 
   const b = Math.max(0, Math.min(1, st.brightness / 255))
   const flash = beatFlashAt(show, timeMs)
-  for (const row of result) {
-    for (const px of row) {
-      // Firmware applies the white flash to the raw frame, then FastLED's
-      // global brightness scales the result in show(). Keep that order so a
-      // brightness of zero is truly dark and preview matches the device.
-      px.r = Math.round((px.r + (255 - px.r) * flash) * b)
-      px.g = Math.round((px.g + (255 - px.g) * flash) * b)
-      px.b = Math.round((px.b + (255 - px.b) * flash) * b)
+  const ov = particleOverlayAt(show, timeMs, W, H)
+  for (let y = 0; y < result.length; y++) {
+    for (let x = 0; x < result[y].length; x++) {
+      const px = result[y][x]
+      // Firmware applies the white flash + additive particle sparks to the raw
+      // frame, then FastLED's global brightness scales the result in show().
+      // Keep that order so a brightness of zero (silence) is truly dark and the
+      // sparks fade with it — and so preview matches the device.
+      const sp = ov?.[y][x]
+      px.r = Math.round((Math.min(255, px.r + (255 - px.r) * flash + (sp?.r ?? 0))) * b)
+      px.g = Math.round((Math.min(255, px.g + (255 - px.g) * flash + (sp?.g ?? 0))) * b)
+      px.b = Math.round((Math.min(255, px.b + (255 - px.b) * flash + (sp?.b ?? 0))) * b)
     }
   }
   return result

@@ -94,6 +94,35 @@ function speedFromBpm(bpm: number): number {
   return 0.3 + ((bpm - 60) / 140) * 1.2
 }
 
+// ── Brightness per section ────────────────────────────────────────────────────
+// The steady brightness a section renders at (drops/choruses bright, outros dim).
+// Factored out so the silence fade-to-black can restore the right level.
+function sectionBrightness(section: SongSection): number {
+  return section.type === 'outro' ? 120
+    : section.type === 'intro'    ? 150
+    : Math.round(160 + section.energy * 95)
+}
+
+// ── Silence detection ─────────────────────────────────────────────────────────
+/** Spans (ms) where the song goes near-silent — overall energy below `threshold`
+ *  for at least `minDurMs`. Drives the fade-to-black brightness ramps. */
+function detectSilences(
+  energy: EnergyPoint[], threshold: number, minDurMs: number,
+): { start: number; end: number }[] {
+  const spans: { start: number; end: number }[] = []
+  let runStart = -1
+  for (let i = 0; i < energy.length; i++) {
+    const quiet = energy[i].overall < threshold
+    if (quiet && runStart < 0) runStart = energy[i].t
+    if ((!quiet || i === energy.length - 1) && runStart >= 0) {
+      const end = energy[i].t   // where sound returns (or the track ends)
+      if (end - runStart >= minDurMs) spans.push({ start: runStart, end })
+      runStart = -1
+    }
+  }
+  return spans
+}
+
 // ── Main generator ────────────────────────────────────────────────────────────
 
 export interface PerformanceOptions {
@@ -291,10 +320,7 @@ export function generateShow(
     push(section.startMs, 'SET_SPEED',   { value: Math.min(2, sectionSpeed) })
 
     // Brightness: drops and choruses are bright, outros fade
-    const brightness = section.type === 'outro' ? 120
-      : section.type === 'intro'             ? 150
-      : Math.round(160 + section.energy * 95)
-    push(section.startMs, 'SET_BRIGHTNESS', { value: brightness })
+    push(section.startMs, 'SET_BRIGHTNESS', { value: sectionBrightness(section) })
 
     // Section energy (0–1) — drives the `energy` group-input role when a
     // collection's patterns expose it and "Use group inputs" is on.
@@ -303,8 +329,10 @@ export function generateShow(
     prevSectionType = section.type
   }
 
-  // ── 2. Beat flash events ───────────────────────────────────────────────────
-  // Skip flashes in intro/outro and on every other beat at lower energies
+  // ── 2. Beat accent events (flash / particle burst) ─────────────────────────
+  // Skip accents in intro/outro and on every other beat at lower energies. Each
+  // eligible beat is either a white BEAT_FLASH or a colored PARTICLE_BURST, so
+  // the show isn't just flashing — bursts are favoured in high-energy sections.
   const sectionAt = (ms: number): SongSection | undefined =>
     analysis.sections.find(s => ms >= s.startMs && ms < s.endMs)
 
@@ -316,15 +344,25 @@ export function generateShow(
     if (!sec) continue
     if (sec.type === 'intro' || sec.type === 'outro') continue
 
-    // Only flash every beat in high-energy sections; every 2 beats in verses
+    // Only accent every beat in high-energy sections; every 2 beats in verses
     const isHigh = sec.type === 'drop' || sec.type === 'chorus'
     if (!isHigh && i % 2 !== 0) continue
 
     const intensity = Math.min(1, opts.beatIntensity * (0.6 + sec.energy * 0.6))
-    push(t, 'BEAT_FLASH', {
-      intensity: Math.round(intensity * 255),
-      decay: Math.round(decayValue * 255),
-    })
+    // Mix particle bursts in — more often when the section is energetic, so a
+    // drop/chorus sparkles while a verse mostly flashes.
+    const particleChance = isHigh ? 0.5 : 0.25
+    if (Math.random() < particleChance) {
+      push(t, 'PARTICLE_BURST', {
+        intensity: Math.round(intensity * 255),
+        hue: Math.round(Math.random() * 255),
+      })
+    } else {
+      push(t, 'BEAT_FLASH', {
+        intensity: Math.round(intensity * 255),
+        decay: Math.round(decayValue * 255),
+      })
+    }
   }
 
   // ── 3. Buildup energy ramps ───────────────────────────────────────────────
@@ -338,6 +376,30 @@ export function generateShow(
       push(t, 'SET_SPEED', { value: Math.min(3, speed) })
       const brightness = Math.round(150 + (s / steps) * 105)
       push(t, 'SET_BRIGHTNESS', { value: brightness })
+    }
+  }
+
+  // ── 4. Fade to black on silence ────────────────────────────────────────────
+  // Where the song goes near-silent, ramp brightness down to 0 and back up when
+  // sound returns (a stepped ramp reads as a smooth fade at preview/frame rate).
+  const FADE_STEPS = 4
+  for (const gap of detectSilences(analysis.energy, 0.05, 350)) {
+    const fadeMs = Math.min(400, (gap.end - gap.start) * 0.5)
+    const from = sectionAt(gap.start)
+    const bFrom = from ? sectionBrightness(from) : 200
+    // Fade out over the first part of the gap.
+    for (let s = 1; s <= FADE_STEPS; s++) {
+      push(gap.start + (s / FADE_STEPS) * fadeMs, 'SET_BRIGHTNESS', {
+        value: Math.round(bFrom * (1 - s / FADE_STEPS)),
+      })
+    }
+    // Fade back up to the level of whatever section is playing when sound returns.
+    const to = sectionAt(gap.end)
+    const bTo = to ? sectionBrightness(to) : 200
+    for (let s = 1; s <= FADE_STEPS; s++) {
+      push(gap.end + (s / FADE_STEPS) * fadeMs, 'SET_BRIGHTNESS', {
+        value: Math.round((bTo * s) / FADE_STEPS),
+      })
     }
   }
 
@@ -370,6 +432,7 @@ const CMD_ORDER: Record<ShowEvent['cmd'], number> = {
   SET_BRIGHTNESS: 4,
   SET_ENERGY:     5,
   BEAT_FLASH:     6,
+  PARTICLE_BURST: 7,
 }
 
 export function sortShowEvents(events: ShowEvent[]): ShowEvent[] {
@@ -389,7 +452,7 @@ export function showFileToJson(show: ShowFile): string {
 // Format: magic(4) + version(1) + bpm_x10(2) + duration_ms(4) + event_count(4)
 // Per event: t_ms(4) + cmd(1) + param_count(1) + params[](4*N float32)
 //
-// Commands: 0=SET_PATTERN 1=SET_PALETTE 2=SET_SPEED 3=SET_BRIGHTNESS 4=BEAT_FLASH 5=TRANSITION
+// Commands: 0=SET_PATTERN 1=SET_PALETTE 2=SET_SPEED 3=SET_BRIGHTNESS 4=BEAT_FLASH 5=TRANSITION 6=SET_ENERGY 7=PARTICLE_BURST
 // Version 1 (enum show): SET_PATTERN's param is a built-in patternId.
 // Version 2 (collection show, `patternSet` present): SET_PATTERN's param is the
 // pattern *index* (a position in patternSet), which the player maps to its
@@ -400,6 +463,7 @@ export function showFileToJson(show: ShowFile): string {
 //   SET_SPEED:     value
 //   SET_BRIGHTNESS: value
 //   BEAT_FLASH:    intensity, decay
+//   PARTICLE_BURST: intensity, hue
 //   TRANSITION:    typeId(float), duration
 
 const PATTERN_IDS: Record<string, number> = {
@@ -418,7 +482,7 @@ const TRANSITION_IDS: Record<string, number> = {
 }
 const CMD_IDS: Record<ShowEvent['cmd'], number> = {
   SET_PATTERN: 0, SET_PALETTE: 1, SET_SPEED: 2, SET_BRIGHTNESS: 3,
-  BEAT_FLASH: 4, TRANSITION: 5, SET_ENERGY: 6,
+  BEAT_FLASH: 4, TRANSITION: 5, SET_ENERGY: 6, PARTICLE_BURST: 7,
 }
 
 // Option lists the timeline editor offers — derived from the binary-export ID
@@ -458,6 +522,7 @@ export function showFileToBinary(show: ShowFile): ArrayBuffer {
       case 'SET_BRIGHTNESS': params.push(Number(ev.params.value)); break
       case 'SET_ENERGY':     params.push(Number(ev.params.value)); break
       case 'BEAT_FLASH':     params.push(Number(ev.params.intensity), Number(ev.params.decay)); break
+      case 'PARTICLE_BURST': params.push(Number(ev.params.intensity), Number(ev.params.hue)); break
       case 'TRANSITION':     params.push(TRANSITION_IDS[ev.params.type as string] ?? 0, Number(ev.params.duration)); break
     }
 

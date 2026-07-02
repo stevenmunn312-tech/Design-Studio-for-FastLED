@@ -314,6 +314,10 @@ void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, 
     }
   }
 }
+
+// Hash → [0,1) (GLSL fract(sin(...)) — mirrors prnd() in showPreview.ts so the
+// device spawns the same particle sparks as the browser preview).
+float prnd(float n) { float s = sinf(n * 12.9898f) * 43758.5453f; return s - floorf(s); }
 `
 
   return `// FastLED Studio — Music-Sync Player${collection ? ' (collection show)' : ''}
@@ -348,6 +352,12 @@ void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, 
 #define CMD_BEAT_FLASH     4
 #define CMD_TRANSITION     5
 #define CMD_SET_ENERGY     6
+#define CMD_PARTICLE_BURST 7
+
+// Particle-burst overlay — keep in sync with showPreview.ts (PARTICLE_LIFE_MS,
+// PARTICLE_COUNT) so the device spawns the same sparks the browser preview does.
+#define PARTICLE_LIFE_MS   600
+#define PARTICLE_COUNT     16
 
 struct ShowEvent {
   uint32_t t;
@@ -374,6 +384,9 @@ float      flashDecay = 0.82f;
 uint8_t    transType  = 0;        // transition style id (see compositeTransition)
 uint32_t   transStart = 0;        // ms the current transition began
 float      transDurMs = 0.0f;     // 0 = no transition in progress
+uint32_t   burstStart = 0;        // ms the current particle burst began
+float      burstIntensity = 0.0f; // 0–1 spark brightness (0 = no burst)
+uint8_t    burstHue   = 0;        // spark hue
 ${hasEnergy ? 'float      energy    = 0.0f;      // SET_ENERGY → energy group-input role\n' : ''}${hasSpeed ? 'float      speed     = 0.5f;      // SET_SPEED (normalised 0–1) → speed group-input role\n' : ''}${hasPalette ? 'CRGBPalette16 palette = RainbowColors_p;  // SET_PALETTE → palette group-input role\n' : ''}${bakedAudio ? `
 // Baked audio envelope (song-synced FFT), fed into the pattern audio globals.
 float     _audioBass = 0, _audioMids = 0, _audioTreble = 0;   // 0–1, current frame
@@ -488,6 +501,11 @@ void applyEvent(const ShowEvent& ev) {
       transType     = (uint8_t)ev.params[0];
       transStart    = ev.t;
       transDurMs    = (ev.paramCount > 1 ? ev.params[1] : 0.0f) * 1000.0f;
+      break;
+    case CMD_PARTICLE_BURST:
+      burstStart     = ev.t;
+      burstIntensity = ev.params[0] / 255.0f;
+      burstHue       = (uint8_t)(ev.paramCount > 1 ? ev.params[1] : 0.0f);
       break;${hasEnergy ? '\n    case CMD_SET_ENERGY:     energy = ev.params[0]; break;' : ''}
   }
 }
@@ -556,6 +574,25 @@ ${bakedAudio ? '  updateShowAudio(posMs);   // song-synced FFT → pattern audio
       leds[i].b = qadd8(leds[i].b, (uint8_t)((255 - leds[i].b) * flashLevel));
     }
     flashLevel *= flashDecay;
+  }
+
+  // Particle-burst overlay: short-lived colored sparks that drift up, arc down,
+  // and fade — added on top of the frame (FastLED's brightness then scales them,
+  // so they fade with a silence fade-to-black). Matches showPreview.ts.
+  if (burstIntensity > 0.01f && (float)(posMs - burstStart) < PARTICLE_LIFE_MS) {
+    float ageSec = (posMs - burstStart) / 1000.0f;
+    float f = (float)(posMs - burstStart) / PARTICLE_LIFE_MS;
+    CRGB spark = CHSV(burstHue, 217, 255);
+    spark.nscale8((uint8_t)(burstIntensity * (1.0f - f) * 255.0f));
+    for (int i = 0; i < PARTICLE_COUNT; i++) {
+      float base = burstStart * 0.001f + i * 7.13f;
+      float ox = prnd(base + 1.0f) * WIDTH, oy = prnd(base + 2.0f) * HEIGHT;
+      float vx = (prnd(base + 3.0f) - 0.5f) * 8.0f, vy = -(1.0f + prnd(base + 4.0f) * 3.0f);
+      int xi = (int)lroundf(ox + vx * ageSec);
+      int yi = (int)lroundf(oy + vy * ageSec + 0.5f * 6.0f * ageSec * ageSec);
+      if (xi < 0 || xi >= WIDTH || yi < 0 || yi >= HEIGHT) continue;
+      leds[yi * WIDTH + xi] += spark;
+    }
   }
 
   FastLED.show();

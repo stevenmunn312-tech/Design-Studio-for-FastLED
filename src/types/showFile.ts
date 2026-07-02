@@ -9,6 +9,7 @@ export type ShowCommand =
   | 'SET_BRIGHTNESS'   // global brightness (0-255)
   | 'SET_ENERGY'       // section energy 0-1 — drives the `energy` group-input role
   | 'BEAT_FLASH'       // instantaneous brightness spike + decay
+  | 'PARTICLE_BURST'   // a burst of short-lived colored sparks overlaid on the frame
   | 'TRANSITION'       // crossfade/wipe/dissolve (+ extras from a wired TransitionSet) to next pattern
 
 export interface ShowEvent {

@@ -24,6 +24,7 @@ const CMD_META: Record<ShowCommand, { label: string; color: string }> = {
   SET_BRIGHTNESS: { label: 'Brightness', color: 'var(--accent-output)' },
   SET_ENERGY:     { label: 'Energy',     color: 'var(--accent-hardware)' },
   BEAT_FLASH:     { label: 'Flash',      color: 'var(--accent-audio)' },
+  PARTICLE_BURST: { label: 'Particles',  color: 'var(--accent-pattern)' },
   TRANSITION:     { label: 'Transition', color: 'var(--accent-composite)' },
 }
 
@@ -36,6 +37,7 @@ function defaultParams(cmd: ShowCommand): ShowEvent['params'] {
     case 'SET_BRIGHTNESS': return { value: 200 }
     case 'SET_ENERGY':     return { value: 0.5 }
     case 'BEAT_FLASH':     return { intensity: 200, decay: 200 }
+    case 'PARTICLE_BURST': return { intensity: 200, hue: 0 }
     case 'TRANSITION':     return { type: 'crossfade', duration: 0.5 }
   }
 }
@@ -58,6 +60,7 @@ function summary(ev: ShowEvent, patternLabels?: string[]): string {
     case 'SET_BRIGHTNESS': return String(Math.round(Number(ev.params.value)))
     case 'SET_ENERGY':     return Number(ev.params.value).toFixed(2)
     case 'BEAT_FLASH':     return `i${Math.round(Number(ev.params.intensity))} d${Math.round(Number(ev.params.decay))}`
+    case 'PARTICLE_BURST': return `i${Math.round(Number(ev.params.intensity))} h${Math.round(Number(ev.params.hue))}`
     case 'TRANSITION':     return `${ev.params.type} ${Number(ev.params.duration).toFixed(1)}s`
   }
 }
@@ -264,6 +267,14 @@ export default function ShowTimeline({ show, posMs, selected, onSelect, onSeek, 
                 onChange={(v) => commit(selected, (x) => ({ ...x, params: { ...x.params, intensity: Math.round(v) } }))} />
               <ParamSlider label="Decay" min={0} max={255} step={1} value={Number(sel.params.decay)} fmtVal={(v) => String(Math.round(v))}
                 onChange={(v) => commit(selected, (x) => ({ ...x, params: { ...x.params, decay: Math.round(v) } }))} />
+            </>
+          )}
+          {sel.cmd === 'PARTICLE_BURST' && (
+            <>
+              <ParamSlider label="Intensity" min={0} max={255} step={1} value={Number(sel.params.intensity)} fmtVal={(v) => String(Math.round(v))}
+                onChange={(v) => commit(selected, (x) => ({ ...x, params: { ...x.params, intensity: Math.round(v) } }))} />
+              <ParamSlider label="Hue" min={0} max={255} step={1} value={Number(sel.params.hue)} fmtVal={(v) => String(Math.round(v))}
+                onChange={(v) => commit(selected, (x) => ({ ...x, params: { ...x.params, hue: Math.round(v) } }))} />
             </>
           )}
           {sel.cmd === 'TRANSITION' && (

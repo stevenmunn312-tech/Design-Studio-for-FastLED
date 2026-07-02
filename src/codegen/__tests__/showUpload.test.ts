@@ -72,6 +72,15 @@ describe('generatePlayerSketch', () => {
     expect(ino).toContain('compositeTransition(transType, leds, showA, showB, tp);')
   })
 
+  it('overlays a particle burst on CMD_PARTICLE_BURST', () => {
+    const ino = generatePlayerSketch()
+    expect(ino).toContain('#define CMD_PARTICLE_BURST 7')
+    expect(ino).toContain('case CMD_PARTICLE_BURST:')
+    expect(ino).toContain('float prnd(float n)')                  // shared spawn hash
+    expect(ino).toContain('CHSV(burstHue, 217, 255)')            // colored sparks
+    expect(ino).toContain('(float)(posMs - burstStart) < PARTICLE_LIFE_MS')
+  })
+
   it('dispatches to compiled render_pN functions for a collection show', () => {
     const renderers = {
       buffers: ['CRGB p0_buf_a[NUM_LEDS];'],

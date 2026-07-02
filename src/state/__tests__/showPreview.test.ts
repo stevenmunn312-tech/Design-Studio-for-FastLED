@@ -244,6 +244,34 @@ describe('renderShowFrame', () => {
     expect(mid.g).toBeGreaterThan(40)
   })
 
+  it('overlays colored sparks from a PARTICLE_BURST, then clears after its lifetime', () => {
+    const mk = (id: string, nodeType: string, properties: Record<string, unknown>, inputs: unknown[] = [], outputs: unknown[] = []) =>
+      ({ id, type: 'studioNode', position: { x: 0, y: 0 }, data: { label: nodeType, nodeType, category: 'pattern', properties, inputs, outputs } })
+    // An all-black base so any lit pixel must be a spark.
+    const groups = {
+      blk: {
+        nodes: [
+          mk('s', 'SolidColor', { r: 0, g: 0, b: 0 }, [], [{ id: 'frame', dataType: 'frame' }]),
+          mk('go', 'GroupOutput', {}, [{ id: 'frame', dataType: 'frame' }], []),
+        ],
+        edges: [{ id: 'e', source: 's', sourceHandle: 'frame', target: 'go', targetHandle: 'frame' }],
+      },
+    } as unknown as Parameters<typeof renderShowFrame>[4]
+
+    const burstShow: ShowFile = {
+      version: 2, songTitle: 'P', durationMs: 3000, bpm: 120, patternSet: ['blk'],
+      events: [
+        { t: 0, cmd: 'SET_PATTERN', params: { index: 0 } },
+        { t: 0, cmd: 'SET_BRIGHTNESS', params: { value: 255 } },
+        { t: 100, cmd: 'PARTICLE_BURST', params: { intensity: 255, hue: 120 } },
+      ],
+    }
+    const duringBurst = renderShowFrame(burstShow, 140, 16, 16, groups)   // shortly after the burst
+    expect(duringBurst.flat().some((px) => px.r + px.g + px.b > 0)).toBe(true)
+    const afterLife = renderShowFrame(burstShow, 1000, 16, 16, groups)     // past the spark lifetime
+    expect(afterLife.flat().every((px) => px.r + px.g + px.b === 0)).toBe(true)
+  })
+
   it('scales a beat flash through global brightness like FastLED', () => {
     const dimShow: ShowFile = {
       ...show,
