@@ -562,7 +562,7 @@ function NodeGraphCanvasInner() {
         isValidConnection={isValidConnection}
         snapToGrid
         snapGrid={SNAP_GRID}
-        minZoom={0.5}
+        minZoom={0.4}
         maxZoom={2}
         defaultViewport={initialViewport ?? undefined}
         fitView={!initialViewport}
