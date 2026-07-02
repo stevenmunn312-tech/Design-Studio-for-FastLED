@@ -82,6 +82,56 @@
   color: var(--accent);
 }
 
+/* My Patterns header splits into a toggle button + a reveal-folder button. */
+.categoryHeaderBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: inherit;
+  text-align: left;
+  padding: 0;
+}
+
+.categoryHeaderBtn:hover {
+  color: var(--accent);
+}
+
+.revealBtn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 6px;
+  flex-shrink: 0;
+}
+
+.revealBtn:hover {
+  color: var(--accent);
+}
+
+/* Drop target for importing pattern .json files dragged in from the OS. */
+.dropTarget {
+  outline: 1px dashed var(--accent-composite);
+  outline-offset: -1px;
+  background: rgba(0, 224, 164, 0.06);
+}
+
+.patternDropHint {
+  padding: 10px var(--space-2);
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  opacity: 0.7;
+  text-align: center;
+}
+
 .nodeList {
   list-style: none;
   padding: 4px 0;

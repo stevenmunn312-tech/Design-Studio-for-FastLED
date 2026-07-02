@@ -188,3 +188,15 @@ export async function deletePatternFromDisk(id: string): Promise<boolean> {
     return false
   }
 }
+
+/** Open the "My Patterns" folder in the OS file manager. Returns false when the
+ *  helper is absent (caller should hide/disable the reveal button in that case). */
+export async function revealPatternsFolder(): Promise<boolean> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/patterns/reveal`, { method: 'POST' })
+    const data = await res.json()
+    return !!data.ok
+  } catch {
+    return false
+  }
+}

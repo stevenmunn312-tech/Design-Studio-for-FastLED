@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { usePatternLibrary, type SavedPattern } from '../../state/patternLibrary'
+import { usePatternLibrary, importPatternFile, type SavedPattern } from '../../state/patternLibrary'
 import { NODE_LIBRARY, CATEGORIES, CATEGORY_ACCENT_VAR, NODE_DESCRIPTIONS } from '../../state/nodeLibrary'
+import { revealPatternsFolder } from '../../utils/backendClient'
 import styles from './Sidebar.module.css'
 
 const EXPANDED_KEY = 'fastled-studio-sidebar-expanded'
@@ -14,6 +15,7 @@ export default function Sidebar() {
   const renamePattern = usePatternLibrary((s) => s.renamePattern)
   const deletePattern = usePatternLibrary((s) => s.deletePattern)
   const viewCenter = useUiStore((s) => s.viewCenter)
+  const setStatus = useUiStore((s) => s.setStatus)
   // Persisted expand/collapse state. First load starts with only the first
   // category open so the list is scannable rather than a long scroll; after
   // that we restore whatever the user last left open. A search query
@@ -58,6 +60,42 @@ export default function Sidebar() {
   const handlePatternDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.setData('application/studio-pattern', id)
     e.dataTransfer.effectAllowed = 'copy'
+  }
+
+  // Importing pattern files dragged in from the OS (e.g. a `.json` shared by
+  // someone else, or one copied out of the "My Patterns" disk folder). Only
+  // reacts to real OS files — internal node/pattern drags carry no `files`,
+  // so they pass through untouched.
+  const [patternDragOver, setPatternDragOver] = useState(false)
+  const handlePatternDragOver = (e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('Files')) {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+      setPatternDragOver(true)
+    }
+  }
+  const handlePatternDragLeave = () => setPatternDragOver(false)
+  const handlePatternDrop = async (e: React.DragEvent) => {
+    if (e.dataTransfer.files.length === 0) return
+    e.preventDefault()
+    setPatternDragOver(false)
+    const files = Array.from(e.dataTransfer.files).filter((f) => f.name.toLowerCase().endsWith('.json'))
+    let imported = 0
+    for (const file of files) {
+      try {
+        const name = importPatternFile(JSON.parse(await file.text()))
+        if (name) imported++
+      } catch {
+        // not valid JSON / not a saved pattern — skip it
+      }
+    }
+    if (imported > 0) setStatus(`Imported ${imported} pattern${imported === 1 ? '' : 's'}`, 'success')
+    else if (files.length > 0) setStatus('No valid pattern files found in drop', 'error')
+  }
+
+  const handleRevealFolder = async () => {
+    const ok = await revealPatternsFolder()
+    if (!ok) setStatus('Upload helper offline — can’t open the patterns folder', 'error')
   }
 
   // Drop click-added nodes at the centre of the visible canvas (with a little
@@ -164,15 +202,38 @@ export default function Sidebar() {
           )
         })}
 
-        {/* My Patterns — the persistent library of saved pattern groups. */}
-        {visiblePatterns.length > 0 && (
-          <div className={styles.category}>
+        {/* My Patterns — the persistent library of saved pattern groups. Always
+            rendered (even empty) so it doubles as a drop target for importing
+            pattern files dragged in from the OS. */}
+        <div
+          className={`${styles.category} ${patternDragOver ? styles.dropTarget : ''}`}
+          onDragOver={handlePatternDragOver}
+          onDragLeave={handlePatternDragLeave}
+          onDrop={handlePatternDrop}
+        >
+          <div
+            className={styles.categoryHeader}
+            style={{ '--accent': 'var(--accent-composite)' } as React.CSSProperties}
+          >
             <button
-              className={styles.categoryHeader}
-              style={{ '--accent': 'var(--accent-composite)' } as React.CSSProperties}
+              className={styles.categoryHeaderBtn}
               onClick={() => toggle('library')}
             >
               <span>My Patterns</span>
+            </button>
+            <button
+              className={styles.revealBtn}
+              aria-label="Reveal My Patterns folder"
+              title="Reveal My Patterns folder on disk"
+              onClick={handleRevealFolder}
+            >
+              📁
+            </button>
+            <button
+              className={styles.categoryHeaderBtn}
+              style={{ flex: '0 0 auto' }}
+              onClick={() => toggle('library')}
+            >
               <span
                 className={styles.chevron}
                 style={{ transform: (query !== '' || expanded.has('library')) ? 'rotate(180deg)' : 'rotate(0deg)' }}
@@ -180,7 +241,11 @@ export default function Sidebar() {
                 ▾
               </span>
             </button>
-            {(query !== '' || expanded.has('library')) && (
+          </div>
+          {(query !== '' || expanded.has('library')) && (
+            visiblePatterns.length === 0 ? (
+              <div className={styles.patternDropHint}>Drag pattern .json files here to import</div>
+            ) : (
               <ul className={styles.nodeList}>
                 {visiblePatterns.map((p) => {
                   const renaming = renamingId === p.id
@@ -241,9 +306,9 @@ export default function Sidebar() {
                   )
                 })}
               </ul>
-            )}
-          </div>
-        )}
+            )
+          )}
+        </div>
       </div>
     </aside>
   )

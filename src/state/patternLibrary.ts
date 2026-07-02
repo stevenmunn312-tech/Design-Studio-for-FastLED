@@ -124,3 +124,22 @@ export function saveGroupToLibrary(groupNodeId: string): string | null {
   })
   return name
 }
+
+/** Import a pattern from a dropped/uploaded `.json` file's parsed contents
+ *  (the same shape `savePatternToDisk` writes, so any file from a "My
+ *  Patterns" folder round-trips). Rejects anything that isn't recognisably a
+ *  saved pattern rather than polluting the library with garbage. Returns the
+ *  imported name, or null if `data` doesn't look like a saved pattern. */
+export function importPatternFile(data: unknown): string | null {
+  if (!data || typeof data !== 'object') return null
+  const p = data as Partial<SavedPattern>
+  if (typeof p.name !== 'string' || !p.name.trim()) return null
+  if (!p.subgraph || !Array.isArray(p.subgraph.nodes) || !Array.isArray(p.subgraph.edges)) return null
+  usePatternLibrary.getState().savePattern({
+    name: p.name,
+    inputs: Array.isArray(p.inputs) ? p.inputs : [],
+    outputs: Array.isArray(p.outputs) ? p.outputs : [],
+    subgraph: { nodes: p.subgraph.nodes, edges: p.subgraph.edges },
+  })
+  return p.name
+}

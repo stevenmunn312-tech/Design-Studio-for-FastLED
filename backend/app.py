@@ -654,3 +654,130 @@ def delete_pattern(pattern_id: str):
     """Delete the file(s) holding this pattern id."""
     _remove_files_for_id(pattern_id)
     return {"ok": True}
+
+
+def _focus_windows_explorer(folder_name: str) -> bool:
+    """Bring an already-open Explorer window for `folder_name` to the front.
+
+    `os.startfile` reuses an existing Explorer window for the folder rather
+    than opening a new one, and Windows' focus-stealing prevention then leaves
+    that window sitting behind whatever app currently has focus (the browser).
+    A single trick rarely beats that heuristic reliably across Windows
+    versions, so this stacks three, checking `SetForegroundWindow`'s return
+    value (0 = still blocked) before escalating:
+      1. `AttachThreadInput` to the foreground thread + zero the
+         foreground-lock timeout for the duration of the call.
+      2. Minimize-then-restore — restoring from the taskbar is specifically
+         exempt from the lock, so this forces the exemption path.
+      3. Synthesize an Alt keypress first — a real input event on our thread
+         resets the "last input" state the lock heuristic checks.
+    Best-effort throughout: returns False (never raises) if the window can't
+    be found, or all three still fail to focus it."""
+    import ctypes
+    from ctypes import wintypes
+
+    user32 = ctypes.windll.user32
+    kernel32 = ctypes.windll.kernel32
+
+    # Explicit signatures — without these, ctypes defaults return types to
+    # `c_int` (32-bit), silently truncating HWNDs on 64-bit Windows and making
+    # every call below a no-op with no exception to show for it.
+    user32.GetForegroundWindow.restype = wintypes.HWND
+    user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+    user32.GetWindowThreadProcessId.restype = wintypes.DWORD
+    user32.SetForegroundWindow.argtypes = [wintypes.HWND]
+    user32.SetForegroundWindow.restype = wintypes.BOOL
+    user32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
+    user32.BringWindowToTop.argtypes = [wintypes.HWND]
+    user32.AttachThreadInput.argtypes = [wintypes.DWORD, wintypes.DWORD, wintypes.BOOL]
+    kernel32.GetCurrentThreadId.restype = wintypes.DWORD
+
+    found: list[int] = []
+    seen_titles: list[str] = []  # every Explorer window seen, for diagnostics if nothing matches
+
+    # Substring, case-insensitive: with Explorer's "show full path in title
+    # bar" option on, the title is the whole path (e.g. `...\My Patterns`),
+    # not the bare folder name — an exact match would silently find nothing,
+    # every time, on any machine with that option set.
+    needle = folder_name.lower()
+
+    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    def _enum(hwnd, _lparam):
+        if not user32.IsWindowVisible(hwnd):
+            return True
+        length = user32.GetWindowTextLengthW(hwnd)
+        title = ctypes.create_unicode_buffer(length + 1)
+        user32.GetWindowTextW(hwnd, title, length + 1)
+        cls = ctypes.create_unicode_buffer(256)
+        user32.GetClassNameW(hwnd, cls, 256)
+        if cls.value in ("CabinetWClass", "ExploreWClass"):
+            seen_titles.append(title.value)
+            if needle in title.value.lower():
+                found.append(hwnd)
+        return True
+
+    user32.EnumWindows(_enum, 0)
+    if not found:
+        print(f"[reveal] no Explorer window title matched {needle!r}; open Explorer windows: {seen_titles}")
+        return False
+    hwnd = found[-1]
+
+    SPI_GETFOREGROUNDLOCKTIMEOUT = 0x2000
+    SPI_SETFOREGROUNDLOCKTIMEOUT = 0x2001
+    SPIF_SENDCHANGE = 0x2
+    VK_MENU = 0x12
+    KEYEVENTF_KEYUP = 0x2
+
+    old_timeout = wintypes.DWORD(0)
+    user32.SystemParametersInfoW(SPI_GETFOREGROUNDLOCKTIMEOUT, 0, ctypes.byref(old_timeout), 0)
+    user32.SystemParametersInfoW(SPI_SETFOREGROUNDLOCKTIMEOUT, 0, 0, SPIF_SENDCHANGE)
+
+    fg_hwnd = user32.GetForegroundWindow()
+    cur_thread = kernel32.GetCurrentThreadId()
+    fg_thread = user32.GetWindowThreadProcessId(fg_hwnd, None) if fg_hwnd else 0
+    attached = bool(fg_thread and fg_thread != cur_thread and user32.AttachThreadInput(cur_thread, fg_thread, True))
+    try:
+        user32.ShowWindow(hwnd, 9)  # SW_RESTORE — un-minimize if needed
+        ok = bool(user32.SetForegroundWindow(hwnd))
+
+        if not ok:  # try #2: minimize-then-restore's exemption from the lock
+            user32.ShowWindow(hwnd, 6)  # SW_MINIMIZE
+            user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+            ok = bool(user32.SetForegroundWindow(hwnd))
+
+        if not ok:  # try #3: a synthesized Alt keypress resets the input lock
+            user32.keybd_event(VK_MENU, 0, 0, 0)
+            ok = bool(user32.SetForegroundWindow(hwnd))
+            user32.keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, 0)
+
+        user32.BringWindowToTop(hwnd)
+    finally:
+        if attached:
+            user32.AttachThreadInput(cur_thread, fg_thread, False)
+        user32.SystemParametersInfoW(SPI_SETFOREGROUNDLOCKTIMEOUT, 0, old_timeout, SPIF_SENDCHANGE)
+    return ok
+
+
+@app.post("/api/patterns/reveal")
+def reveal_patterns_folder():
+    """Open the "My Patterns" folder in the OS file manager, focused."""
+    path = _patterns_dir()
+    try:
+        system = platform.system()
+        if system == "Windows":
+            os.startfile(str(path))  # noqa: S606 — local-only helper, fixed folder
+            # The window may take a beat to appear (new) or update (reused).
+            for _ in range(20):
+                try:
+                    if _focus_windows_explorer(path.name):
+                        break
+                except Exception:
+                    pass
+                time.sleep(0.1)
+        elif system == "Darwin":
+            subprocess.run(["open", str(path)], check=True)
+        else:
+            subprocess.run(["xdg-open", str(path)], check=True)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    return {"ok": True}
