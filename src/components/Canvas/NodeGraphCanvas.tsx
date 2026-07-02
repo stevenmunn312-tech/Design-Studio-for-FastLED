@@ -73,6 +73,11 @@ function distToSegment(p: Pt, a: Pt, b: Pt): number {
   return Math.hypot(p.x - cx, p.y - cy)
 }
 
+function hoveredSpliceEdge(eventTarget: EventTarget | null): string | undefined {
+  if (!(eventTarget instanceof Element)) return undefined
+  return eventTarget.closest('[data-splice-edge-id]')?.getAttribute('data-splice-edge-id') ?? undefined
+}
+
 function NodeGraphCanvasInner() {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, insertNodeOnEdge, spreadNodes, instantiatePattern, addToCollection, enterGraph, removeEdge, reconnectNoodle } =
     useGraphStore()
@@ -310,10 +315,12 @@ function NodeGraphCanvasInner() {
   const findSpliceTarget = useCallback((
     position: Pt,
     def: (typeof NODE_LIBRARY)[number],
+    preferredEdgeId?: string,
   ): { edgeId: string; inHandle: string; outHandle: string; color: string } | null => {
     let best: { edgeId: string; inHandle: string; outHandle: string; color: string } | null = null
     let bestDist = SPLICE_DIST
     for (const edge of edges) {
+      if (preferredEdgeId && edge.id !== preferredEdgeId) continue
       const sN = getNode(edge.source)
       const tN = getNode(edge.target)
       if (!sN || !tN) continue
@@ -326,7 +333,7 @@ function NodeGraphCanvasInner() {
         y: tN.position.y + (tN.measured?.height ?? FALLBACK_H) / 2,
       }
       const distance = distToSegment(position, sPt, tPt)
-      if (distance >= bestDist) continue
+      if (!preferredEdgeId && distance >= bestDist) continue
       const outType = (sN.data as { outputs?: Array<{ id: string; dataType: string }> }).outputs
         ?.find((p) => p.id === edge.sourceHandle)?.dataType
       const inType = (tN.data as { inputs?: Array<{ id: string; dataType: string }> }).inputs
@@ -361,7 +368,10 @@ function NodeGraphCanvasInner() {
       setSpliceCue(null)
       return
     }
-    const target = findSpliceTarget(screenToFlowPosition({ x: e.clientX, y: e.clientY }), def)
+    const position = screenToFlowPosition({ x: e.clientX, y: e.clientY })
+    const hoveredEdgeId = hoveredSpliceEdge(e.target)
+    const target = (hoveredEdgeId ? findSpliceTarget(position, def, hoveredEdgeId) : null)
+      ?? findSpliceTarget(position, def)
     if (!target) {
       setSpliceCue(null)
       return
@@ -419,7 +429,9 @@ function NodeGraphCanvasInner() {
 
       // Use the same hit test that drives the live visual cue, so the highlighted
       // noodle is always the one that receives the dropped node.
-      const best = findSpliceTarget(position, def)
+      const hoveredEdgeId = hoveredSpliceEdge(e.target)
+      const best = (hoveredEdgeId ? findSpliceTarget(position, def, hoveredEdgeId) : null)
+        ?? findSpliceTarget(position, def)
 
       if (best) {
         insertNodeOnEdge(newNode, best.edgeId, best.inHandle, best.outHandle)
@@ -436,11 +448,16 @@ function NodeGraphCanvasInner() {
 
   const spliceEdgeId = spliceCue?.edgeId ?? null
   const displayEdges = useMemo(() => {
-    if (!spliceEdgeId) return edges
-    return edges.map((edge) => edge.id === spliceEdgeId
-      ? { ...edge, data: { ...edge.data, splicePreview: true } }
-      : edge)
-  }, [edges, spliceEdgeId])
+    if (!draggingNodeType && !spliceEdgeId) return edges
+    return edges.map((edge) => ({
+      ...edge,
+      data: {
+        ...edge.data,
+        spliceArmed: Boolean(draggingNodeType),
+        splicePreview: edge.id === spliceEdgeId,
+      },
+    }))
+  }, [draggingNodeType, edges, spliceEdgeId])
 
   return (
     <div ref={wrapperRef} className={styles.canvas} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>

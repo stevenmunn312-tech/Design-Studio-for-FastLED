@@ -20,7 +20,9 @@ function GlowEdge({
   const sourceNode = getNode(source)
   const category = (sourceNode?.data as { category?: string })?.category ?? 'output'
   const color = (typeof style?.stroke === 'string' && style.stroke) || CATEGORY_COLOR[category] || '#00bfff'
-  const splicePreview = (data as { splicePreview?: boolean } | undefined)?.splicePreview === true
+  const edgeData = data as { spliceArmed?: boolean; splicePreview?: boolean } | undefined
+  const spliceArmed = edgeData?.spliceArmed === true
+  const splicePreview = edgeData?.splicePreview === true
 
   const [edgePath] = getBezierPath({
     sourceX,
@@ -33,6 +35,18 @@ function GlowEdge({
 
   return (
     <g>
+      {/* During a sidebar drag this transparent stroke makes the real curved
+          noodle—not a straight-line approximation—the splice hit target. */}
+      {spliceArmed && (
+        <path
+          data-splice-edge-id={id}
+          d={edgePath}
+          fill="none"
+          stroke="transparent"
+          strokeWidth={SPLICE_HIT_WIDTH}
+          pointerEvents="stroke"
+        />
+      )}
       {/* Compatible node hovering in the splice zone — make the target
           unmistakable without changing the normal noodle treatment. */}
       {splicePreview && (
@@ -67,5 +81,9 @@ function GlowEdge({
     </g>
   )
 }
+
+// Matches the 48-flow-unit radius used by the geometric fallback in the
+// canvas (SVG stroke width extends equally on both sides of the noodle).
+const SPLICE_HIT_WIDTH = 96
 
 export default memo(GlowEdge)
