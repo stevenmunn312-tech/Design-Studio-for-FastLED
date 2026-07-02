@@ -45,4 +45,21 @@ describe('uiStore.setStatus auto-clear', () => {
     vi.advanceTimersByTime(4000)
     expect(useUiStore.getState().statusLevel).toBe('idle')
   })
+
+  it('sets preview style and persists the preference', () => {
+    useUiStore.getState().setPreviewStyle('neon')
+    expect(useUiStore.getState().previewStyle).toBe('neon')
+    expect(localStorage.getItem('fastled-studio-preview-style')).toBe('"neon"')
+
+    useUiStore.getState().setPreviewStyle('crt')
+    expect(useUiStore.getState().previewStyle).toBe('crt')
+    expect(localStorage.getItem('fastled-studio-preview-style')).toBe('"crt"')
+  })
+
+  it('cycles preview style and persists the next value', () => {
+    useUiStore.getState().setPreviewStyle('soft')
+    useUiStore.getState().cyclePreviewStyle()
+    expect(useUiStore.getState().previewStyle).toBe('dreamy')
+    expect(localStorage.getItem('fastled-studio-preview-style')).toBe('"dreamy"')
+  })
 })

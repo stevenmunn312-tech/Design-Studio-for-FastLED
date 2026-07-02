@@ -1,14 +1,33 @@
 import { create } from 'zustand'
 import type { StatusLevel } from '../types'
+import type { PreviewStyle } from '../components/Preview/previewStyles'
+import { nextPreviewStyle } from '../components/Preview/previewStyles'
 
 export type AppTheme = 'dark' | 'solarized' | 'light'
 
 const THEME_KEY  = 'fastled-studio-theme'
 const MOTION_KEY = 'fastled-studio-reduced-motion'
 const CONTRAST_KEY = 'fastled-studio-high-contrast'
+const PREVIEW_STYLE_KEY = 'fastled-studio-preview-style'
+const LEGACY_DIFFUSION_KEY = 'fastled-studio-preview-diffusion'
 
 function load<T>(key: string, fallback: T): T {
   try { const v = localStorage.getItem(key); return v !== null ? JSON.parse(v) : fallback } catch { return fallback }
+}
+
+function loadPreviewStyle(): PreviewStyle {
+  try {
+    const style = localStorage.getItem(PREVIEW_STYLE_KEY)
+    if (style) {
+      const parsed = JSON.parse(style) as PreviewStyle
+      if (['standard', 'soft', 'dreamy', 'cyberpunk', 'neon', 'crt'].includes(parsed)) return parsed
+    }
+    const legacy = localStorage.getItem(LEGACY_DIFFUSION_KEY)
+    if (legacy !== null) return JSON.parse(legacy) ? 'neon' : 'standard'
+  } catch {
+    // Ignore malformed preview-style storage and fall back to the default.
+  }
+  return 'standard'
 }
 
 interface UiState {
@@ -17,6 +36,7 @@ interface UiState {
   sidebarOpen: boolean
   inspectorOpen: boolean
   preview3d: boolean
+  previewStyle: PreviewStyle
   fps: number
   sparkPort: { nodeId: string; portId: string } | null
   /** Centre of the visible canvas in flow coordinates — where click-to-add
@@ -31,6 +51,8 @@ interface UiState {
   toggleSidebar: () => void
   toggleInspector: () => void
   togglePreview3d: () => void
+  setPreviewStyle: (style: PreviewStyle) => void
+  cyclePreviewStyle: () => void
   setFps: (fps: number) => void
   setSparkPort: (port: { nodeId: string; portId: string } | null) => void
   setViewCenter: (center: { x: number; y: number }) => void
@@ -56,6 +78,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   // opt-in panel (toggle from the menu bar).
   inspectorOpen: false,
   preview3d: false,
+  previewStyle: loadPreviewStyle(),
   fps: 0,
   sparkPort: null,
   viewCenter: { x: 300, y: 250 },
@@ -79,6 +102,15 @@ export const useUiStore = create<UiState>((set, get) => ({
   },
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   togglePreview3d: () => set((s) => ({ preview3d: !s.preview3d })),
+  setPreviewStyle: (style) => {
+    localStorage.setItem(PREVIEW_STYLE_KEY, JSON.stringify(style))
+    set({ previewStyle: style })
+  },
+  cyclePreviewStyle: () => {
+    const next = nextPreviewStyle(get().previewStyle)
+    localStorage.setItem(PREVIEW_STYLE_KEY, JSON.stringify(next))
+    set({ previewStyle: next })
+  },
   toggleInspector: () => set((s) => ({ inspectorOpen: !s.inspectorOpen })),
   setFps: (fps) => set({ fps }),
   setSparkPort: (port) => set({ sparkPort: port }),

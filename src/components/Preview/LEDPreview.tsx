@@ -7,12 +7,152 @@ import { usePreviewStore } from '../../state/previewStore'
 import { useShowPlayback } from '../../state/showPlayback'
 import { renderShowFrame } from '../../state/showPreview'
 import { WebGLLEDRenderer } from './webglRenderer'
+import { isDiffusedStyle, previewStyleLabel, type PreviewStyle } from './previewStyles'
 import styles from './LEDPreview.module.css'
 
 const MAX_CANVAS_PX = 448
 const FULLSCREEN_CANVAS_PX = 1080
 const GLOW_RADIUS = 14
 const NUM_BARS = 28
+const DIFFUSION_BG = 'rgb(4,3,9)'
+let diffusionScratch: HTMLCanvasElement | null = null
+let diffusionSourceScratch: HTMLCanvasElement | null = null
+
+interface CanvasStyleConfig {
+  atmosphereInner: string
+  atmosphereMid: string
+  edgeBlurMul: number
+  closeBlurMul: number
+  midBlurMul: number
+  farBlurMul: number
+  farFilter: string
+  farAlpha: number
+  midFilter: string
+  midAlpha: number
+  closeFilter: string
+  closeAlpha: number
+  edgeFilter: string
+  edgeAlpha: number
+  veilTop: string
+  veilMid: string
+  veilBottom: string
+  finalFilter: string
+  finalScreenAlpha: number
+  finalGlowAlpha: number
+}
+
+const CANVAS_STYLE_CONFIG: Record<Exclude<PreviewStyle, 'standard'>, CanvasStyleConfig> = {
+  soft: {
+    atmosphereInner: 'rgba(34, 28, 54, 0.32)',
+    atmosphereMid: 'rgba(12, 11, 22, 0.18)',
+    edgeBlurMul: 0.08,
+    closeBlurMul: 0.18,
+    midBlurMul: 0.62,
+    farBlurMul: 1.52,
+    farFilter: 'saturate(1.08) brightness(1.04)',
+    farAlpha: 0.96,
+    midFilter: 'saturate(1.14) brightness(1.06)',
+    midAlpha: 0.92,
+    closeFilter: 'saturate(1.08) brightness(1.02)',
+    closeAlpha: 0.12,
+    edgeFilter: 'saturate(1.02) brightness(1.01)',
+    edgeAlpha: 0.03,
+    veilTop: 'rgba(255, 245, 255, 0.045)',
+    veilMid: 'rgba(234, 238, 255, 0.03)',
+    veilBottom: 'rgba(255, 248, 240, 0.022)',
+    finalFilter: 'saturate(1.08) brightness(1.06) contrast(0.96)',
+    finalScreenAlpha: 0.22,
+    finalGlowAlpha: 0.12,
+  },
+  dreamy: {
+    atmosphereInner: 'rgba(44, 38, 70, 0.42)',
+    atmosphereMid: 'rgba(15, 13, 28, 0.24)',
+    edgeBlurMul: 0.1,
+    closeBlurMul: 0.22,
+    midBlurMul: 0.74,
+    farBlurMul: 1.7,
+    farFilter: 'saturate(1.18) brightness(1.08)',
+    farAlpha: 1,
+    midFilter: 'saturate(1.24) brightness(1.12)',
+    midAlpha: 0.98,
+    closeFilter: 'saturate(1.12) brightness(1.04)',
+    closeAlpha: 0.14,
+    edgeFilter: 'saturate(1.04) brightness(1.01)',
+    edgeAlpha: 0.04,
+    veilTop: 'rgba(255, 244, 255, 0.06)',
+    veilMid: 'rgba(232, 238, 255, 0.045)',
+    veilBottom: 'rgba(255, 248, 240, 0.032)',
+    finalFilter: 'saturate(1.12) brightness(1.08) contrast(0.92)',
+    finalScreenAlpha: 0.3,
+    finalGlowAlpha: 0.18,
+  },
+  cyberpunk: {
+    atmosphereInner: 'rgba(38, 26, 78, 0.44)',
+    atmosphereMid: 'rgba(13, 10, 32, 0.24)',
+    edgeBlurMul: 0.14,
+    closeBlurMul: 0.26,
+    midBlurMul: 0.58,
+    farBlurMul: 1.18,
+    farFilter: 'saturate(1.54) brightness(1.2) hue-rotate(-5deg)',
+    farAlpha: 0.78,
+    midFilter: 'saturate(1.72) brightness(1.28) hue-rotate(-4deg)',
+    midAlpha: 0.98,
+    closeFilter: 'saturate(1.86) brightness(1.34)',
+    closeAlpha: 0.44,
+    edgeFilter: 'saturate(2.02) brightness(1.46) contrast(1.18)',
+    edgeAlpha: 0.34,
+    veilTop: 'rgba(255, 236, 255, 0.04)',
+    veilMid: 'rgba(226, 236, 255, 0.026)',
+    veilBottom: 'rgba(255, 244, 255, 0.018)',
+    finalFilter: 'saturate(1.18) brightness(1.1) contrast(1.04)',
+    finalScreenAlpha: 0.38,
+    finalGlowAlpha: 0.24,
+  },
+  neon: {
+    atmosphereInner: 'rgba(42, 36, 68, 0.4)',
+    atmosphereMid: 'rgba(15, 13, 28, 0.22)',
+    edgeBlurMul: 0.16,
+    closeBlurMul: 0.34,
+    midBlurMul: 0.72,
+    farBlurMul: 1.42,
+    farFilter: 'saturate(1.46) brightness(1.14) hue-rotate(-4deg)',
+    farAlpha: 0.84,
+    midFilter: 'saturate(1.72) brightness(1.28) hue-rotate(-3deg)',
+    midAlpha: 0.94,
+    closeFilter: 'saturate(1.84) brightness(1.36)',
+    closeAlpha: 0.58,
+    edgeFilter: 'saturate(1.95) brightness(1.44) contrast(1.18)',
+    edgeAlpha: 0.48,
+    veilTop: 'rgba(255, 244, 255, 0.055)',
+    veilMid: 'rgba(232, 238, 255, 0.04)',
+    veilBottom: 'rgba(255, 248, 240, 0.03)',
+    finalFilter: 'saturate(1.32) brightness(1.14) contrast(1.12)',
+    finalScreenAlpha: 0.44,
+    finalGlowAlpha: 0.28,
+  },
+  crt: {
+    atmosphereInner: 'rgba(36, 28, 62, 0.36)',
+    atmosphereMid: 'rgba(14, 12, 24, 0.2)',
+    edgeBlurMul: 0.14,
+    closeBlurMul: 0.28,
+    midBlurMul: 0.6,
+    farBlurMul: 1.22,
+    farFilter: 'saturate(1.32) brightness(1.12)',
+    farAlpha: 0.86,
+    midFilter: 'saturate(1.5) brightness(1.2)',
+    midAlpha: 0.92,
+    closeFilter: 'saturate(1.62) brightness(1.26)',
+    closeAlpha: 0.36,
+    edgeFilter: 'saturate(1.72) brightness(1.32) contrast(1.18)',
+    edgeAlpha: 0.22,
+    veilTop: 'rgba(255, 244, 255, 0.032)',
+    veilMid: 'rgba(232, 236, 250, 0.02)',
+    veilBottom: 'rgba(255, 248, 240, 0.014)',
+    finalFilter: 'saturate(1.14) brightness(1.08) contrast(1.02)',
+    finalScreenAlpha: 0.28,
+    finalGlowAlpha: 0.18,
+  },
+}
 
 const clamp01 = (value: unknown) =>
   Math.max(0, Math.min(1, typeof value === 'number' && Number.isFinite(value) ? value : 0))
@@ -77,10 +217,12 @@ function genWiredToOutput(nodes: StudioNode[], edges: StudioEdge[], genId: strin
   )
 }
 
-function renderFrame(ctx: CanvasRenderingContext2D, frame: Frame, pixel: number) {
+function renderGridFrame(ctx: CanvasRenderingContext2D, frame: Frame, pixel: number) {
   const gridH = frame.length
   const gridW = frame[0]?.length ?? 0
   ctx.clearRect(0, 0, gridW * pixel, gridH * pixel)
+  ctx.fillStyle = '#14181d'
+  ctx.fillRect(0, 0, gridW * pixel, gridH * pixel)
   for (let y = 0; y < gridH; y++) {
     for (let x = 0; x < gridW; x++) {
       const { r, g, b } = frame[y][x]
@@ -96,13 +238,135 @@ function renderFrame(ctx: CanvasRenderingContext2D, frame: Frame, pixel: number)
   }
 }
 
+function renderDiffusionFrame(ctx: CanvasRenderingContext2D, frame: Frame, pixel: number, style: Exclude<PreviewStyle, 'standard'>) {
+  const gridH = frame.length
+  const gridW = frame[0]?.length ?? 0
+  const width = gridW * pixel
+  const height = gridH * pixel
+  const cfg = CANVAS_STYLE_CONFIG[style]
+  if (!diffusionScratch) diffusionScratch = document.createElement('canvas')
+  if (!diffusionSourceScratch) diffusionSourceScratch = document.createElement('canvas')
+  if (diffusionScratch.width !== width || diffusionScratch.height !== height) {
+    diffusionScratch.width = width
+    diffusionScratch.height = height
+  }
+  if (diffusionSourceScratch.width !== gridW || diffusionSourceScratch.height !== gridH) {
+    diffusionSourceScratch.width = gridW
+    diffusionSourceScratch.height = gridH
+  }
+  const scratch = diffusionScratch.getContext('2d')
+  const source = diffusionSourceScratch.getContext('2d')
+  if (!scratch || !source) {
+    renderGridFrame(ctx, frame, pixel)
+    return
+  }
+
+  const image = source.createImageData(gridW, gridH)
+  for (let y = 0; y < gridH; y++) {
+    for (let x = 0; x < gridW; x++) {
+      const i = (y * gridW + x) * 4
+      const p = frame[y]?.[x] ?? { r: 0, g: 0, b: 0 }
+      image.data[i] = p.r
+      image.data[i + 1] = p.g
+      image.data[i + 2] = p.b
+      image.data[i + 3] = 255
+    }
+  }
+  source.putImageData(image, 0, 0)
+
+  scratch.clearRect(0, 0, width, height)
+  const atmosphere = scratch.createRadialGradient(
+    width * 0.54, height * 0.48, 0,
+    width * 0.54, height * 0.48, Math.max(width, height) * 0.72,
+  )
+  atmosphere.addColorStop(0, cfg.atmosphereInner)
+  atmosphere.addColorStop(0.42, cfg.atmosphereMid)
+  atmosphere.addColorStop(1, 'rgba(4, 3, 9, 0)')
+  scratch.fillStyle = DIFFUSION_BG
+  scratch.fillRect(0, 0, width, height)
+  scratch.fillStyle = atmosphere
+  scratch.fillRect(0, 0, width, height)
+  scratch.imageSmoothingEnabled = true
+
+  const edgeBlur = Math.max(2.2, pixel * cfg.edgeBlurMul)
+  const closeBlur = Math.max(4, pixel * cfg.closeBlurMul)
+  const midBlur = Math.max(8, pixel * cfg.midBlurMul)
+  const farBlur = Math.max(16, pixel * cfg.farBlurMul)
+
+  scratch.save()
+  scratch.filter = `blur(${farBlur}px) ${cfg.farFilter}`
+  scratch.globalAlpha = cfg.farAlpha
+  scratch.drawImage(diffusionSourceScratch, 0, 0, width, height)
+  scratch.restore()
+
+  scratch.save()
+  scratch.globalCompositeOperation = 'screen'
+  scratch.filter = `blur(${midBlur}px) ${cfg.midFilter}`
+  scratch.globalAlpha = cfg.midAlpha
+  scratch.drawImage(diffusionSourceScratch, 0, 0, width, height)
+  scratch.restore()
+
+  scratch.save()
+  scratch.globalCompositeOperation = 'lighter'
+  scratch.filter = `blur(${closeBlur}px) ${cfg.closeFilter}`
+  scratch.globalAlpha = cfg.closeAlpha
+  scratch.drawImage(diffusionSourceScratch, 0, 0, width, height)
+  scratch.restore()
+
+  scratch.save()
+  scratch.globalCompositeOperation = 'screen'
+  scratch.filter = `blur(${edgeBlur}px) ${cfg.edgeFilter}`
+  scratch.globalAlpha = cfg.edgeAlpha
+  scratch.drawImage(diffusionSourceScratch, 0, 0, width, height)
+  scratch.restore()
+
+  if (style === 'crt') {
+    scratch.save()
+    scratch.globalCompositeOperation = 'screen'
+    scratch.fillStyle = 'rgba(255, 255, 255, 0.035)'
+    for (let y = 0; y < height; y += 3) scratch.fillRect(0, y, width, 1)
+    scratch.restore()
+  }
+
+  const veil = scratch.createLinearGradient(0, 0, 0, height)
+  veil.addColorStop(0, cfg.veilTop)
+  veil.addColorStop(0.45, cfg.veilMid)
+  veil.addColorStop(1, cfg.veilBottom)
+  scratch.fillStyle = veil
+  scratch.fillRect(0, 0, width, height)
+
+  ctx.clearRect(0, 0, width, height)
+  ctx.fillStyle = DIFFUSION_BG
+  ctx.fillRect(0, 0, width, height)
+  ctx.imageSmoothingEnabled = true
+  ctx.save()
+  ctx.filter = `blur(${Math.max(1.1, pixel * 0.16)}px) ${cfg.finalFilter}`
+  ctx.globalAlpha = 1
+  ctx.drawImage(diffusionScratch, 0, 0)
+  ctx.restore()
+  ctx.save()
+  ctx.globalCompositeOperation = 'screen'
+  ctx.globalAlpha = cfg.finalScreenAlpha
+  ctx.drawImage(diffusionScratch, 0, 0)
+  ctx.restore()
+  ctx.save()
+  ctx.globalCompositeOperation = 'lighter'
+  ctx.globalAlpha = cfg.finalGlowAlpha
+  ctx.drawImage(diffusionScratch, 0, 0)
+  ctx.restore()
+}
+
+function renderFrame(ctx: CanvasRenderingContext2D, frame: Frame, pixel: number, style: PreviewStyle) {
+  if (style !== 'standard') renderDiffusionFrame(ctx, frame, pixel, style)
+  else renderGridFrame(ctx, frame, pixel)
+}
+
 export default function LEDPreview() {
   const canvasWrapRef = useRef<HTMLDivElement>(null)
   const canvasRef   = useRef<HTMLCanvasElement>(null)
   const glRef       = useRef<WebGLLEDRenderer | null>(null)
   const tickRef     = useRef(0)
   const animRef     = useRef<number>(0)
-  const [fps, setFps] = useState(0)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [viewport, setViewport] = useState(() => ({ width: window.innerWidth, height: window.innerHeight }))
   const lastFpsTime   = useRef(performance.now())
@@ -137,7 +401,11 @@ export default function LEDPreview() {
   useEffect(() => { gridWRef.current = gridW; gridHRef.current = gridH; pixelRef.current = pixel }, [gridW, gridH, pixel])
 
   const preview3d = useUiStore((s) => s.preview3d)
+  const previewStyle = useUiStore((s) => s.previewStyle)
   const togglePreview3d = useUiStore((s) => s.togglePreview3d)
+  const cyclePreviewStyle = useUiStore((s) => s.cyclePreviewStyle)
+  const previewStyleRef = useRef(previewStyle)
+  useEffect(() => { previewStyleRef.current = previewStyle }, [previewStyle])
   // Orbit angles for 3D mode (degrees): pitch about X, yaw about Y.
   const [rot, setRot] = useState({ x: 50, y: 0 })
   const drag = useRef<{ x: number; y: number } | null>(null)
@@ -250,12 +518,12 @@ export default function LEDPreview() {
         }
 
         if (useWebGL && glRef.current) {
-          glRef.current.render(frame, gW, gH, px)
+          glRef.current.render(frame, gW, gH, px, previewStyleRef.current)
         } else if (ctx) {
           if (canvas.width !== gW * px || canvas.height !== gH * px) {
             canvas.width = gW * px; canvas.height = gH * px
           }
-          renderFrame(ctx, frame, px)
+          renderFrame(ctx, frame, px, previewStyleRef.current)
         }
 
         // Beat pulses last one evaluation frame, so publish them immediately;
@@ -269,7 +537,6 @@ export default function LEDPreview() {
         frameCount.current++
         if (now - lastFpsTime.current >= 1000) {
           const count = frameCount.current
-          setFps(count)
           useUiStore.getState().setFps(count)
           frameCount.current = 0
           lastFpsTime.current = now
@@ -390,6 +657,13 @@ export default function LEDPreview() {
             {preview3d ? '3D On' : '3D Off'}
           </button>
           <button
+            className={`${styles.toggleBtn} ${styles.styleBtn} ${isDiffusedStyle(previewStyle) ? styles.toggleActive : ''}`}
+            onClick={cyclePreviewStyle}
+            title="Cycle preview style"
+          >
+            {previewStyleLabel(previewStyle)}
+          </button>
+          <button
             className={`${styles.toggleBtn} ${styles.micToggle} ${audioMode === 'mic' ? styles.toggleActive : ''}`}
             onClick={toggleMic}
             title={audioMode === 'mic' ? 'Stop microphone' : 'Start microphone'}
@@ -397,7 +671,6 @@ export default function LEDPreview() {
           >
             {audioMode === 'mic' ? 'Mic On' : 'Mic Off'}
           </button>
-          <span className={styles.fps}>{fps} fps</span>
         </div>
       </div>
       <div
@@ -408,7 +681,7 @@ export default function LEDPreview() {
           ref={canvasRef}
           width={gridW * pixel}
           height={gridH * pixel}
-          className={`${styles.canvas} ${isFullscreen ? styles.canvasFullscreen : ''}`}
+          className={`${styles.canvas} ${isDiffusedStyle(previewStyle) ? styles.canvasDiffusion : ''} ${isDiffusedStyle(previewStyle) && preview3d ? styles.canvasDiffusion3d : ''} ${previewStyle === 'crt' ? styles.canvasCrt : ''} ${isFullscreen ? styles.canvasFullscreen : ''}`}
           style={preview3d ? { transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg)`, cursor: drag.current ? 'grabbing' : 'grab' } : undefined}
           onPointerDown={onRotateDown}
           onPointerMove={onRotateMove}
