@@ -671,14 +671,15 @@ export default function LEDPreview() {
       name: file.name,
       url: URL.createObjectURL(file),
     }))
-    const hadTracks = tracks.length > 0
+    // Opening files is an explicit playback gesture: select the first newly
+    // added track and let onLoadedMetadata start it as soon as it is ready.
+    pendingPlayRef.current = true
     setTracks([...tracks, ...added])
-    if (!hadTracks) {
-      setTrackIndex(0)
-      setMusicReady(false)
-      setMusicCurrentTime(0)
-      setMusicDuration(0)
-    }
+    setTrackIndex(tracks.length)
+    setMusicReady(false)
+    setMusicPlaying(false)
+    setMusicCurrentTime(0)
+    setMusicDuration(0)
     setMusicError(null)
     // Reset so re-adding the same file fires another change event.
     event.target.value = ''
