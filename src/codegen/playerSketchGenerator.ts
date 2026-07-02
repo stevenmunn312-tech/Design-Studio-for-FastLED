@@ -176,6 +176,146 @@ export function generatePlayerSketch(
   }
 }`
 
+  // All 16 transition styles as one self-contained function operating on generic
+  // buffers, so the player composites A→B the same way the browser preview does
+  // (compositeTransition in graphEvaluator.ts). A .show transition carries only
+  // its style id + duration, so the direction/axis/tile/count/turns params use
+  // the same defaults the preview falls back to. `out` must differ from a and b.
+  const transitionHelper = `// ── Transitions ─────────────────────────────────────────────────────────────
+void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt) {
+  switch (type) {
+    case 1: {  // wipe (rightward)
+      ::memmove(out, a, sizeof(CRGB) * NUM_LEDS);
+      int thr = (int)(tt * WIDTH);
+      for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++)
+        if (x < thr) out[y*WIDTH+x] = b[y*WIDTH+x];
+      break;
+    }
+    case 2: {  // dissolve
+      ::memmove(out, a, sizeof(CRGB) * NUM_LEDS);
+      for (int i = 0; i < NUM_LEDS; i++) {
+        uint32_t h = ((uint32_t)i * 1664525u + 1013904223u);
+        if ((h & 0xFFFF) < (uint32_t)(tt * 65535)) out[i] = b[i];
+      }
+      break;
+    }
+    case 3: {  // iris
+      ::memmove(out, a, sizeof(CRGB) * NUM_LEDS);
+      float cx = WIDTH*0.5f, cy = HEIGHT*0.5f, r = tt * sqrtf(cx*cx + cy*cy);
+      for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
+        float dx = x - cx, dy = y - cy;
+        if (sqrtf(dx*dx + dy*dy) < r) out[y*WIDTH+x] = b[y*WIDTH+x];
+      }
+      break;
+    }
+    case 4: {  // clockwipe
+      ::memmove(out, a, sizeof(CRGB) * NUM_LEDS);
+      float cx = WIDTH*0.5f, cy = HEIGHT*0.5f;
+      for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
+        float n = (atan2f(x - cx, -(y - cy)) + 3.14159265f) / 6.2831853f;
+        if (n < tt) out[y*WIDTH+x] = b[y*WIDTH+x];
+      }
+      break;
+    }
+    case 5: {  // push (rightward)
+      fill_solid(out, NUM_LEDS, CRGB::Black);
+      for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
+        int ax = (int)roundf(x + tt*WIDTH), bx = (int)roundf(x - (1.0f-tt)*WIDTH);
+        if (bx >= 0 && bx < WIDTH) out[y*WIDTH+x] = b[y*WIDTH+bx];
+        else if (ax >= 0 && ax < WIDTH) out[y*WIDTH+x] = a[y*WIDTH+ax];
+      }
+      break;
+    }
+    case 6: {  // checkerboard (tile 4)
+      ::memmove(out, a, sizeof(CRGB) * NUM_LEDS);
+      for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
+        float thr = ((x/4 + y/4) % 2 == 0) ? tt*2.0f : tt*2.0f - 1.0f;
+        if (thr >= 1.0f) out[y*WIDTH+x] = b[y*WIDTH+x];
+      }
+      break;
+    }
+    case 7: {  // diagonal
+      ::memmove(out, a, sizeof(CRGB) * NUM_LEDS);
+      for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
+        float n = ((float)x/WIDTH + (float)y/HEIGHT) * 0.5f;
+        if (n < tt) out[y*WIDTH+x] = b[y*WIDTH+x];
+      }
+      break;
+    }
+    case 8: {  // fadeblack
+      float al = tt < 0.5f ? 1.0f - tt*2.0f : (tt - 0.5f)*2.0f;
+      for (int i = 0; i < NUM_LEDS; i++) { CRGB s = tt < 0.5f ? a[i] : b[i];
+        out[i] = CRGB((uint8_t)(s.r*al), (uint8_t)(s.g*al), (uint8_t)(s.b*al)); }
+      break;
+    }
+    case 9: {  // fadewhite
+      float al = tt < 0.5f ? 1.0f - tt*2.0f : (tt - 0.5f)*2.0f, w = (1.0f - al)*255.0f;
+      for (int i = 0; i < NUM_LEDS; i++) { CRGB s = tt < 0.5f ? a[i] : b[i];
+        out[i] = CRGB((uint8_t)(s.r*al+w), (uint8_t)(s.g*al+w), (uint8_t)(s.b*al+w)); }
+      break;
+    }
+    case 10: {  // blinds (4, horizontal)
+      ::memmove(out, a, sizeof(CRGB) * NUM_LEDS);
+      int slat = max(1, HEIGHT / 4);
+      for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++)
+        if ((float)(y % slat) / slat < tt) out[y*WIDTH+x] = b[y*WIDTH+x];
+      break;
+    }
+    case 11: {  // ripple
+      ::memmove(out, a, sizeof(CRGB) * NUM_LEDS);
+      float cx = WIDTH*0.5f, cy = HEIGHT*0.5f, maxR = sqrtf(cx*cx+cy*cy), e = 0.08f;
+      for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
+        float dx = x-cx, dy = y-cy, n = sqrtf(dx*dx+dy*dy) / maxR;
+        int idx = y*WIDTH+x;
+        if (n < tt - e) out[idx] = b[idx];
+        else if (n < tt) { float bl = (tt - n) / e; out[idx] = blend(a[idx], b[idx], (uint8_t)(bl*255)); }
+      }
+      break;
+    }
+    case 12: {  // spiral (2 turns)
+      ::memmove(out, a, sizeof(CRGB) * NUM_LEDS);
+      float cx = WIDTH*0.5f, cy = HEIGHT*0.5f, maxR = sqrtf(cx*cx+cy*cy), k = 1.0f + 1.0f/2.0f;
+      for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
+        float dx = x-cx, dy = y-cy, r = sqrtf(dx*dx+dy*dy) / maxR;
+        float na = (atan2f(dy, dx) + 3.14159265f) / 6.2831853f;
+        if ((r + na/2.0f) / k < tt) out[y*WIDTH+x] = b[y*WIDTH+x];
+      }
+      break;
+    }
+    case 13: {  // curtain (horizontal)
+      ::memmove(out, a, sizeof(CRGB) * NUM_LEDS);
+      for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++)
+        if (fabsf(2.0f*y/HEIGHT - 1.0f) < tt) out[y*WIDTH+x] = b[y*WIDTH+x];
+      break;
+    }
+    case 14: {  // scanlines
+      ::memmove(out, a, sizeof(CRGB) * NUM_LEDS);
+      for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
+        float thr = (y % 2 == 0) ? ((float)y/HEIGHT)*0.5f : 0.5f + ((float)(y-1)/HEIGHT)*0.5f;
+        if (tt > thr) out[y*WIDTH+x] = b[y*WIDTH+x];
+      }
+      break;
+    }
+    case 15: {  // zoom
+      ::memmove(out, a, sizeof(CRGB) * NUM_LEDS);
+      float cx = WIDTH*0.5f, cy = HEIGHT*0.5f, sc = max(0.01f, tt);
+      for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
+        int bx = (int)((x-cx)/sc + cx), by = (int)((y-cy)/sc + cy), idx = y*WIDTH+x;
+        if (bx >= 0 && bx < WIDTH && by >= 0 && by < HEIGHT)
+          out[idx] = blend(out[idx], b[by*WIDTH+bx], (uint8_t)(tt*255));
+        else out[idx].nscale8((uint8_t)((1.0f-tt)*255));
+      }
+      break;
+    }
+    default: {  // crossfade (0)
+      ::memmove(out, a, sizeof(CRGB) * NUM_LEDS);
+      nblend(out, b, NUM_LEDS, (uint8_t)(tt * 255));
+      break;
+    }
+  }
+}
+`
+
   return `// FastLED Studio — Music-Sync Player${collection ? ' (collection show)' : ''}
 // Generated by FastLED Studio. Requires:
 //   - ESP32-audioI2S  (schreibfaul1/ESP32-audioI2S on GitHub)
@@ -218,7 +358,8 @@ struct ShowEvent {
 
 // ── Globals ───────────────────────────────────────────────────────────────────
 CRGB leds[NUM_LEDS];
-CRGB showA[NUM_LEDS];             // outgoing pattern held during a crossfade
+CRGB showA[NUM_LEDS];             // outgoing pattern during a transition
+CRGB showB[NUM_LEDS];            // incoming pattern during a transition
 Audio audio;
 
 ShowEvent* showEvents = nullptr;
@@ -230,6 +371,7 @@ uint8_t    prevPatternId = ${collection ? 0 : 2};     // outgoing pattern during
 uint8_t    paletteId  = 0;        // default: Rainbow
 float      flashLevel = 0.0f;
 float      flashDecay = 0.82f;
+uint8_t    transType  = 0;        // transition style id (see compositeTransition)
 uint32_t   transStart = 0;        // ms the current transition began
 float      transDurMs = 0.0f;     // 0 = no transition in progress
 ${hasEnergy ? 'float      energy    = 0.0f;      // SET_ENERGY → energy group-input role\n' : ''}${hasSpeed ? 'float      speed     = 0.5f;      // SET_SPEED (normalised 0–1) → speed group-input role\n' : ''}${hasPalette ? 'CRGBPalette16 palette = RainbowColors_p;  // SET_PALETTE → palette group-input role\n' : ''}${bakedAudio ? `
@@ -264,6 +406,7 @@ ${paletteFromIdCases}
 // ── Pattern renderers ─────────────────────────────────────────────────────────
 ${patternDecls}${renderPatternFn}
 
+${transitionHelper}
 // ── Show file loader ──────────────────────────────────────────────────────────
 bool loadShowFile(const char* path) {
   File f = SD.open(path, FILE_READ);
@@ -342,6 +485,7 @@ void applyEvent(const ShowEvent& ev) {
       // Fired just before the incoming SET_PATTERN (same timestamp, sorted so
       // TRANSITION lands first), so patternId still holds the outgoing pattern.
       prevPatternId = patternId;
+      transType     = (uint8_t)ev.params[0];
       transStart    = ev.t;
       transDurMs    = (ev.paramCount > 1 ? ev.params[1] : 0.0f) * 1000.0f;
       break;${hasEnergy ? '\n    case CMD_SET_ENERGY:     energy = ev.params[0]; break;' : ''}
@@ -391,16 +535,15 @@ void loop() {
   }
 ${bakedAudio ? '  updateShowAudio(posMs);   // song-synced FFT → pattern audio globals\n' : ''}
   float t = posMs / 1000.0f;
-  // Crossfade: while a transition is running, render the outgoing pattern into
-  // showA and the incoming one into leds, then blend by progress. (First slice:
-  // crossfade only — the other transition styles fall back to this blend.)
+  // Transition: while one is running, render the outgoing pattern into showA and
+  // the incoming one into showB, then composite A→B into leds by its style.
   float tp = transDurMs > 0.0f ? (float)(posMs - transStart) / transDurMs : 1.0f;
   if (tp < 1.0f) {
     renderPattern(prevPatternId, t);
-    ::memmove(showA, leds, sizeof(CRGB) * NUM_LEDS);   // outgoing
-    renderPattern(patternId, t);                        // incoming → leds
-    uint8_t mix = (uint8_t)(tp * 255);
-    for (int i = 0; i < NUM_LEDS; i++) leds[i] = blend(showA[i], leds[i], mix);
+    ::memmove(showA, leds, sizeof(CRGB) * NUM_LEDS);   // outgoing → showA
+    renderPattern(patternId, t);
+    ::memmove(showB, leds, sizeof(CRGB) * NUM_LEDS);   // incoming → showB
+    compositeTransition(transType, leds, showA, showB, tp);
   } else {
     renderPattern(patternId, t);
   }

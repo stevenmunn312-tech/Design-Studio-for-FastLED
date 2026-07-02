@@ -61,6 +61,17 @@ describe('generatePlayerSketch', () => {
     expect(ino).not.toContain('render_p0(ms)')
   })
 
+  it('composites transitions by style id instead of a plain crossfade', () => {
+    const ino = generatePlayerSketch()
+    // The style id is captured and dispatched through the shared helper, which
+    // implements all 16 styles (wipe/iris/… plus the crossfade default).
+    expect(ino).toContain('transType     = (uint8_t)ev.params[0];')
+    expect(ino).toContain('void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt)')
+    expect(ino).toContain('case 1: {  // wipe')
+    expect(ino).toContain('case 15: {  // zoom')
+    expect(ino).toContain('compositeTransition(transType, leds, showA, showB, tp);')
+  })
+
   it('dispatches to compiled render_pN functions for a collection show', () => {
     const renderers = {
       buffers: ['CRGB p0_buf_a[NUM_LEDS];'],
