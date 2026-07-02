@@ -3,6 +3,7 @@ import { useMusicStore } from '../../state/musicStore'
 import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
 import { useAudioStore } from '../../state/audioStore'
 import { useShowPlayback } from '../../state/showPlayback'
+import { usePlayerTransport } from '../../state/playerTransport'
 import { renderShowFrame, showStateAt, sectionAt } from '../../state/showPreview'
 import type { Frame } from '../../state/graphEvaluator'
 import { performanceOptionsFromProperties } from '../../codegen/performanceGenerator'
@@ -13,11 +14,8 @@ import styles from './PerformanceGeneratorBody.module.css'
 // Plays a scanned song and renders its generated .show in sync — the browser
 // mirror of the on-device player, so you can preview the timed performance
 // before exporting. Reuses the real pattern evaluator via showPreview.ts.
-
-function fmt(ms: number): string {
-  const s = Math.max(0, Math.floor(ms / 1000))
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
-}
+// Transport (play/seek/prev/next/volume) lives in the music player under the
+// main LED preview, wired through the shared playerTransport store.
 
 function draw(canvas: HTMLCanvasElement, frame: Frame, W: number, H: number) {
   const ctx = canvas.getContext('2d')
@@ -82,9 +80,12 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const rafRef = useRef<number | null>(null)
   const previousOptionsRef = useRef(optionsKey)
+  // Resume playback after a prev/next track switch once the new audio loads.
+  const pendingPlayRef = useRef(false)
 
   const entry = ready.find((e) => e.id === previewId) ?? null
   const show = entry?.show ?? null
+  const readyIndex = ready.findIndex((e) => e.id === previewId)
 
   // Keep the first available show selected, and recover cleanly if the active
   // song is removed from the library.
@@ -175,21 +176,25 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
     setPreviewId(id)
   }
 
+  function playAudio() {
+    const audio = audioRef.current
+    if (!audio) return
+    setPlaybackError(null)
+    audio.play()
+      .then(() => {
+        setPlaying(true)
+        // Route the song through the AudioEngine so the main preview's
+        // spectrum analyzer reacts to it while the show plays.
+        useAudioStore.getState().attachAudioElement(audio).catch(() => {})
+      })
+      .catch(() => setPlaybackError('This audio file could not be played in the browser.'))
+  }
+
   function togglePlay() {
     const audio = audioRef.current
     if (!audio) return
     if (playing) { audio.pause(); setPlaying(false) }
-    else {
-      setPlaybackError(null)
-      audio.play()
-        .then(() => {
-          setPlaying(true)
-          // Route the song through the AudioEngine so the main preview's
-          // spectrum analyzer reacts to it while the show plays.
-          useAudioStore.getState().attachAudioElement(audio).catch(() => {})
-        })
-        .catch(() => setPlaybackError('This audio file could not be played in the browser.'))
-    }
+    else playAudio()
   }
 
   function seek(ms: number) {
@@ -199,12 +204,68 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
     setPosMs(next)
   }
 
+  // Prev restarts the current song when it's more than a moment in (or is the
+  // first song); otherwise both directions move through the analysed list,
+  // resuming playback once the next file loads.
+  function step(dir: number) {
+    if (dir < 0 && (posMs > 3000 || readyIndex <= 0)) { seek(0); return }
+    const target = ready[readyIndex + dir]
+    if (!target) return
+    pendingPlayRef.current = playing
+    startPreview(target.id)
+  }
+
+  function handleLoadedMetadata() {
+    const audio = audioRef.current
+    if (audio) audio.volume = usePlayerTransport.getState().volume
+    if (pendingPlayRef.current) {
+      pendingPlayRef.current = false
+      playAudio()
+    }
+  }
+
   function handleEnded() {
     const audio = audioRef.current
     if (audio) audio.currentTime = 0
     setPlaying(false)
     setPosMs(0)
   }
+
+  // The transport callbacks live behind refs so the registration below doesn't
+  // have to re-run (and the player re-render) every time a closure changes.
+  const toggleRef = useRef(togglePlay)
+  const seekRef = useRef(seek)
+  const stepRef = useRef(step)
+  toggleRef.current = togglePlay
+  seekRef.current = seek
+  stepRef.current = step
+
+  // Publish this show's transport to the music player under the main preview.
+  useEffect(() => {
+    const store = usePlayerTransport.getState()
+    if (!entry || !show) { store.clearTransport(nodeId); return }
+    store.setTransport({
+      nodeId,
+      title: entry.analysis?.title ?? entry.file.name,
+      durationMs: show.durationMs,
+      hasPrev: true,
+      hasNext: readyIndex >= 0 && readyIndex < ready.length - 1,
+      toggle: () => toggleRef.current(),
+      seek: (ms) => seekRef.current(ms),
+      prev: () => stepRef.current(-1),
+      next: () => stepRef.current(1),
+    })
+  }, [entry, show, nodeId, readyIndex, ready.length])
+  useEffect(() => () => usePlayerTransport.getState().clearTransport(nodeId), [nodeId])
+
+  // Keep the shared player's position/state and this element's volume in sync.
+  useEffect(() => {
+    usePlayerTransport.getState().setPos(posMs, playing)
+  }, [posMs, playing])
+  const volume = usePlayerTransport((s) => s.volume)
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.volume = volume
+  }, [volume, audioUrl])
 
   const live = show ? showStateAt(show, posMs) : null
   const sec = entry?.analysis ? sectionAt(entry.analysis.sections, posMs) : undefined
@@ -249,27 +310,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
               aria-label={`LED preview for ${entry.analysis?.title ?? entry.file.name}`}
             />
           )}
-          <div className={styles.transport}>
-            <button
-              type="button"
-              className={`nodrag ${styles.playBtn}`}
-              onClick={togglePlay}
-              aria-label={playing ? 'Pause show preview' : 'Play show preview'}
-            >
-              {playing ? '❚❚' : '▶'}
-            </button>
-            <input
-              className={`nodrag ${styles.seek}`}
-              type="range"
-              min={0}
-              max={show.durationMs}
-              step={100}
-              value={posMs}
-              onChange={(e) => seek(Number(e.target.value))}
-              aria-label="Show preview position"
-            />
-            <span className={styles.time}>{fmt(posMs)} / {fmt(show.durationMs)}</span>
-          </div>
+          <div className={styles.transportNote}>⏯ Controls in the player under the LED preview</div>
           {live && (
             <div className={styles.statusRow}>
               <span className={styles.chip}><b>Pattern</b>{live.patternIndex >= 0 ? `#${live.patternIndex + 1}` : live.pattern}</span>
@@ -320,6 +361,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
             ref={audioRef}
             src={audioUrl ?? undefined}
             preload="metadata"
+            onLoadedMetadata={handleLoadedMetadata}
             onEnded={handleEnded}
             onError={() => setPlaybackError('This audio file could not be decoded in the browser.')}
           />

@@ -5,9 +5,20 @@ import { useAudioStore } from '../../state/audioStore'
 import { evaluateGraphFull, type Frame } from '../../state/graphEvaluator'
 import { usePreviewStore } from '../../state/previewStore'
 import { useShowPlayback } from '../../state/showPlayback'
+import { usePlayerTransport } from '../../state/playerTransport'
 import { renderShowFrame } from '../../state/showPreview'
 import { WebGLLEDRenderer } from './webglRenderer'
 import { isDiffusedStyle, previewStyleLabel, type PreviewStyle } from './previewStyles'
+import {
+  IconAdd,
+  IconClear,
+  IconNext,
+  IconPause,
+  IconPlay,
+  IconPrev,
+  IconVolume,
+  IconVolumeMuted,
+} from './PlayerIcons'
 import styles from './LEDPreview.module.css'
 
 const MAX_CANVAS_PX = 448
@@ -171,6 +182,15 @@ function fmtTime(seconds: number): string {
   const safe = Math.max(0, Math.floor(seconds))
   return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, '0')}`
 }
+
+// A locally-opened audio file in the simple player's playlist.
+interface LocalTrack {
+  id: string
+  name: string
+  url: string
+}
+
+let nextTrackId = 0
 
 // Idle animation shown when no nodes are on the canvas
 function idleFrame(tick: number, gridW: number, gridH: number): Frame {
@@ -423,14 +443,26 @@ export default function LEDPreview() {
   const drag = useRef<{ x: number; y: number } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const playerRef = useRef<HTMLAudioElement>(null)
-  const musicUrlRef = useRef<string | null>(null)
-  const [musicName, setMusicName] = useState('')
-  const [musicUrl, setMusicUrl] = useState<string | null>(null)
+  const [tracks, setTracks] = useState<LocalTrack[]>([])
+  const [trackIndex, setTrackIndex] = useState(0)
   const [musicReady, setMusicReady] = useState(false)
   const [musicPlaying, setMusicPlaying] = useState(false)
   const [musicCurrentTime, setMusicCurrentTime] = useState(0)
   const [musicDuration, setMusicDuration] = useState(0)
   const [musicError, setMusicError] = useState<string | null>(null)
+  // Resume playback after a prev/next track switch once the new file loads.
+  const pendingPlayRef = useRef(false)
+  const tracksRef = useRef<LocalTrack[]>([])
+  useEffect(() => { tracksRef.current = tracks }, [tracks])
+
+  // When a PerformanceGenerator has a show selected, its transport takes over
+  // this player; otherwise the local playlist plays.
+  const transport = usePlayerTransport((s) => s.transport)
+  const showPosMs = usePlayerTransport((s) => s.posMs)
+  const showPlaying = usePlayerTransport((s) => s.playing)
+  const volume = usePlayerTransport((s) => s.volume)
+  const setVolume = usePlayerTransport((s) => s.setVolume)
+  const lastAudibleVolume = useRef(volume > 0 ? volume : 0.9)
 
   useEffect(() => {
     const syncFullscreen = () => setIsFullscreen(document.fullscreenElement === canvasWrapRef.current)
@@ -585,11 +617,25 @@ export default function LEDPreview() {
     }
   }, [])
 
+  // Revoke every playlist object URL on unmount.
   useEffect(() => {
     return () => {
-      if (musicUrlRef.current) URL.revokeObjectURL(musicUrlRef.current)
+      for (const track of tracksRef.current) URL.revokeObjectURL(track.url)
     }
   }, [])
+
+  const currentTrack = tracks[trackIndex] ?? null
+
+  // The show transport owns the audio focus — silence the local playlist the
+  // moment a show preview becomes active.
+  useEffect(() => {
+    if (transport) playerRef.current?.pause()
+  }, [transport])
+
+  // One volume for both modes: apply the shared value to the local element.
+  useEffect(() => {
+    if (playerRef.current) playerRef.current.volume = volume
+  }, [volume, currentTrack])
 
   const toggleMic = () => {
     if (audioMode === 'mic') stopAudio()
@@ -605,10 +651,10 @@ export default function LEDPreview() {
       player.removeAttribute('src')
       player.load()
     }
-    if (musicUrlRef.current) URL.revokeObjectURL(musicUrlRef.current)
-    musicUrlRef.current = null
-    setMusicUrl(null)
-    setMusicName('')
+    for (const track of tracks) URL.revokeObjectURL(track.url)
+    pendingPlayRef.current = false
+    setTracks([])
+    setTrackIndex(0)
     setMusicReady(false)
     setMusicPlaying(false)
     setMusicCurrentTime(0)
@@ -618,13 +664,30 @@ export default function LEDPreview() {
   }
 
   const onPickMusic = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-    if (musicUrlRef.current) URL.revokeObjectURL(musicUrlRef.current)
-    const nextUrl = URL.createObjectURL(file)
-    musicUrlRef.current = nextUrl
-    setMusicUrl(nextUrl)
-    setMusicName(file.name)
+    const files = Array.from(event.target.files ?? [])
+    if (!files.length) return
+    const added = files.map((file) => ({
+      id: `track-${nextTrackId++}`,
+      name: file.name,
+      url: URL.createObjectURL(file),
+    }))
+    const hadTracks = tracks.length > 0
+    setTracks([...tracks, ...added])
+    if (!hadTracks) {
+      setTrackIndex(0)
+      setMusicReady(false)
+      setMusicCurrentTime(0)
+      setMusicDuration(0)
+    }
+    setMusicError(null)
+    // Reset so re-adding the same file fires another change event.
+    event.target.value = ''
+  }
+
+  const selectTrack = (index: number, autoplay: boolean) => {
+    if (index < 0 || index >= tracks.length) return
+    pendingPlayRef.current = autoplay
+    setTrackIndex(index)
     setMusicReady(false)
     setMusicPlaying(false)
     setMusicCurrentTime(0)
@@ -635,6 +698,7 @@ export default function LEDPreview() {
   const onLoadedMetadata = async () => {
     const player = playerRef.current
     if (!player) return
+    player.volume = usePlayerTransport.getState().volume
     setMusicDuration(Number.isFinite(player.duration) ? player.duration : 0)
     setMusicReady(true)
     try {
@@ -642,11 +706,15 @@ export default function LEDPreview() {
     } catch {
       setMusicError('This audio file could not be prepared for playback.')
     }
+    if (pendingPlayRef.current) {
+      pendingPlayRef.current = false
+      player.play().catch(() => setMusicError('This audio file could not be played in the browser.'))
+    }
   }
 
   const toggleMusicPlayback = () => {
     const player = playerRef.current
-    if (!player || !musicUrl) return
+    if (!player || !currentTrack) return
     if (musicPlaying) {
       player.pause()
       return
@@ -657,11 +725,67 @@ export default function LEDPreview() {
       .catch(() => setMusicError('This audio file could not be played in the browser.'))
   }
 
-  const onSeekMusic = (event: ChangeEvent<HTMLInputElement>) => {
+  // Prev restarts the current track when it's more than a moment in (or is the
+  // first track); otherwise it steps back through the playlist.
+  const prevTrack = () => {
     const player = playerRef.current
-    const next = Number(event.target.value)
-    setMusicCurrentTime(next)
-    if (player) player.currentTime = next
+    if ((player && player.currentTime > 3) || trackIndex === 0) {
+      if (player) player.currentTime = 0
+      setMusicCurrentTime(0)
+      return
+    }
+    selectTrack(trackIndex - 1, musicPlaying)
+  }
+
+  const nextTrack = () => selectTrack(trackIndex + 1, musicPlaying)
+
+  const onTrackEnded = () => {
+    if (trackIndex < tracks.length - 1) {
+      selectTrack(trackIndex + 1, true)
+      return
+    }
+    setMusicPlaying(false)
+    setMusicCurrentTime(0)
+    const player = playerRef.current
+    if (player) player.currentTime = 0
+  }
+
+  const toggleMute = () => {
+    if (volume > 0) {
+      lastAudibleVolume.current = volume
+      setVolume(0)
+    } else {
+      setVolume(lastAudibleVolume.current || 0.9)
+    }
+  }
+
+  // ── Transport view state: show mode when a generator registered itself. ──
+  const showMode = transport !== null
+  const durationMs = showMode ? transport.durationMs : musicDuration * 1000
+  const positionMs = showMode ? Math.min(showPosMs, durationMs) : Math.min(musicCurrentTime, musicDuration) * 1000
+  const isPlaying = showMode ? showPlaying : musicPlaying
+  const canTransport = showMode || musicReady
+  const canPrev = showMode ? true : tracks.length > 0
+  const canNext = showMode ? transport.hasNext : trackIndex < tracks.length - 1
+  const trackLabel = showMode
+    ? `♪ ${transport.title}`
+    : currentTrack
+      ? `${currentTrack.name}${tracks.length > 1 ? ` · ${trackIndex + 1}/${tracks.length}` : ''}`
+      : 'Add local tracks, or preview a generated show'
+  const progressPct = durationMs > 0 ? Math.max(0, Math.min(100, (positionMs / durationMs) * 100)) : 0
+
+  const onTogglePlay = () => (showMode ? transport.toggle() : toggleMusicPlayback())
+  const onPrev = () => (showMode ? transport.prev() : prevTrack())
+  const onNext = () => (showMode ? transport.next() : nextTrack())
+  const onSeek = (event: ChangeEvent<HTMLInputElement>) => {
+    const ms = Number(event.target.value)
+    if (showMode) {
+      transport.seek(ms)
+      return
+    }
+    const player = playerRef.current
+    setMusicCurrentTime(ms / 1000)
+    if (player) player.currentTime = ms / 1000
   }
 
   return (
@@ -746,70 +870,125 @@ export default function LEDPreview() {
             })}
           </div>
           <div className={styles.musicControls}>
-            <div className={styles.musicRow}>
-              <button type="button" className={styles.musicBtn} onClick={openFilePicker}>
-                {musicUrl ? 'Change Track' : 'Choose Track'}
-              </button>
-              <button
-                type="button"
-                className={styles.musicBtn}
-                onClick={toggleMusicPlayback}
-                disabled={!musicReady}
-              >
-                {musicPlaying ? 'Pause' : 'Play'}
-              </button>
-              <button
-                type="button"
-                className={styles.musicBtn}
-                onClick={clearMusic}
-                disabled={!musicUrl}
-              >
-                Clear
-              </button>
-              <span className={styles.musicMeta}>
-                {musicName || 'Load a local music file'}
-              </span>
-            </div>
-            <div className={styles.musicRow}>
-              <input
-                className={styles.musicSeek}
-                type="range"
-                min={0}
-                max={Math.max(0, musicDuration)}
-                step={0.01}
-                value={Math.min(musicCurrentTime, musicDuration || 0)}
-                onChange={onSeekMusic}
-                disabled={!musicReady}
-                aria-label="Music playback position"
-              />
+            <div className={styles.musicTop}>
+              <span className={styles.musicMeta} title={trackLabel}>{trackLabel}</span>
               <span className={styles.musicTime}>
-                {fmtTime(musicCurrentTime)} / {fmtTime(musicDuration)}
+                {fmtTime(positionMs / 1000)} / {fmtTime(durationMs / 1000)}
               </span>
             </div>
-            {musicError && <p className={styles.musicError} role="alert">{musicError}</p>}
+            <input
+              className={styles.progress}
+              type="range"
+              min={0}
+              max={Math.max(1000, durationMs)}
+              step={100}
+              value={positionMs}
+              onChange={onSeek}
+              disabled={!canTransport || durationMs <= 0}
+              style={{ '--pp': `${progressPct}%` } as CSSProperties}
+              aria-label={showMode ? 'Show preview position' : 'Music playback position'}
+            />
+            <div className={styles.controlsRow}>
+              <div className={styles.controlsSide}>
+                {!showMode && (
+                  <>
+                    <button
+                      type="button"
+                      className={styles.iconBtn}
+                      onClick={openFilePicker}
+                      title="Add tracks"
+                      aria-label="Add tracks"
+                    >
+                      <IconAdd />
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.iconBtn}
+                      onClick={clearMusic}
+                      disabled={!tracks.length}
+                      title="Clear playlist"
+                      aria-label="Clear playlist"
+                    >
+                      <IconClear />
+                    </button>
+                  </>
+                )}
+              </div>
+              <div className={styles.controlsCenter}>
+                <button
+                  type="button"
+                  className={styles.iconBtn}
+                  onClick={onPrev}
+                  disabled={!canTransport || !canPrev}
+                  title="Previous"
+                  aria-label="Previous track"
+                >
+                  <IconPrev />
+                </button>
+                <button
+                  type="button"
+                  className={styles.playIconBtn}
+                  onClick={onTogglePlay}
+                  disabled={!canTransport}
+                  title={isPlaying ? 'Pause' : 'Play'}
+                  aria-label={isPlaying ? 'Pause' : 'Play'}
+                >
+                  {isPlaying ? <IconPause size={18} /> : <IconPlay size={18} />}
+                </button>
+                <button
+                  type="button"
+                  className={styles.iconBtn}
+                  onClick={onNext}
+                  disabled={!canTransport || !canNext}
+                  title="Next"
+                  aria-label="Next track"
+                >
+                  <IconNext />
+                </button>
+              </div>
+              <div className={`${styles.controlsSide} ${styles.volWrap}`}>
+                <button
+                  type="button"
+                  className={styles.iconBtn}
+                  onClick={toggleMute}
+                  title={volume === 0 ? 'Unmute' : 'Mute'}
+                  aria-label={volume === 0 ? 'Unmute' : 'Mute'}
+                >
+                  {volume === 0 ? <IconVolumeMuted /> : <IconVolume />}
+                </button>
+                <input
+                  className={styles.vol}
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={volume}
+                  onChange={(e) => setVolume(Number(e.target.value))}
+                  style={{ '--pp': `${volume * 100}%` } as CSSProperties}
+                  aria-label="Volume"
+                />
+              </div>
+            </div>
+            {musicError && !showMode && <p className={styles.musicError} role="alert">{musicError}</p>}
           </div>
         </div>
       <input
         ref={fileInputRef}
         type="file"
         accept="audio/*"
+        multiple
         className={styles.fileInput}
         onChange={onPickMusic}
       />
       <audio
         ref={playerRef}
-        src={musicUrl ?? undefined}
+        src={currentTrack?.url ?? undefined}
         preload="metadata"
         onLoadedMetadata={onLoadedMetadata}
         onTimeUpdate={() => setMusicCurrentTime(playerRef.current?.currentTime ?? 0)}
         onPlay={() => setMusicPlaying(true)}
         onPause={() => setMusicPlaying(false)}
-        onEnded={() => {
-          setMusicPlaying(false)
-          setMusicCurrentTime(0)
-          const player = playerRef.current
-          if (player) player.currentTime = 0
-        }}
+        onEnded={onTrackEnded}
         onError={() => setMusicError('This audio file could not be decoded in the browser.')}
       />
     </div>

@@ -52,9 +52,7 @@
 .songOn:hover { border-color: var(--accent-hardware); }
 
 .song:focus-visible,
-.songOn:focus-visible,
-.playBtn:focus-visible,
-.seek:focus-visible {
+.songOn:focus-visible {
   outline: 2px solid var(--accent-hardware);
   outline-offset: 2px;
 }
@@ -86,40 +84,14 @@
   background: color-mix(in srgb, var(--accent-hardware) 8%, var(--bg-primary));
 }
 
-.transport {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.playBtn {
-  flex: 0 0 auto;
-  width: 28px;
-  height: 24px;
-  border: 1px solid var(--border-glow);
-  border-radius: 6px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  cursor: pointer;
-  font-size: 11px;
-}
-
-.playBtn:hover {
-  border-color: var(--accent-hardware);
-  color: var(--accent-hardware);
-}
-
-.seek {
-  flex: 1 1 auto;
-  min-width: 0;
-  accent-color: var(--accent-hardware);
-}
-
-.time {
-  flex: 0 0 auto;
+.transportNote {
+  padding: 3px 8px;
   font-size: var(--fs-caption);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   color: var(--text-secondary);
+  border: 1px dashed var(--divider);
+  border-radius: 6px;
+  text-align: center;
 }
 
 .statusRow {
