@@ -206,9 +206,12 @@ function NodeGraphCanvasInner() {
   // After the picker adds + auto-wires a node from a dropped noodle, nudge the
   // node so its *connected* handle sits where the noodle was dropped (rather
   // than the node's top-left). React Flow only knows the handle's offset once
-  // the node is measured, so poll a few frames for its handleBounds.
+  // the node is measured, so poll a few frames for its handleBounds. When
+  // `alignTopWith` names the source node, the new node's top is aligned with
+  // that node's top instead of vertically anchoring the handle, so a chain
+  // built by dragging noodles reads as a tidy row.
   const anchorHandleToDrop = useCallback(
-    (nodeId: string, handleId: string, dropFlow: { x: number; y: number }) => {
+    (nodeId: string, handleId: string, dropFlow: { x: number; y: number }, alignTopWith?: string) => {
       let tries = 0
       const tryAnchor = () => {
         const bounds = getInternalNode(nodeId)?.internals.handleBounds
@@ -216,14 +219,17 @@ function NodeGraphCanvasInner() {
           bounds?.target?.find((h) => h.id === handleId) ??
           bounds?.source?.find((h) => h.id === handleId)
         if (handle) {
-          onNodesChange([{ id: nodeId, type: 'position', position: anchorPosition(dropFlow, handle) }])
+          const position = anchorPosition(dropFlow, handle)
+          const sourceNode = alignTopWith ? getNode(alignTopWith) : undefined
+          if (sourceNode) position.y = sourceNode.position.y
+          onNodesChange([{ id: nodeId, type: 'position', position }])
         } else if (tries++ < 30) {
           requestAnimationFrame(tryAnchor)
         }
       }
       requestAnimationFrame(tryAnchor)
     },
-    [getInternalNode, onNodesChange]
+    [getInternalNode, getNode, onNodesChange]
   )
 
   // Unplug a noodle: grab its input (target) end and drop it on empty space to
@@ -447,7 +453,9 @@ function NodeGraphCanvasInner() {
           y={canvasMenu.y}
           flowPosition={{ x: canvasMenu.fx, y: canvasMenu.fy }}
           connectFrom={canvasMenu.connectFrom}
-          onPlaced={anchorHandleToDrop}
+          onPlaced={(nodeId, handleId, flow) =>
+            anchorHandleToDrop(nodeId, handleId, flow, canvasMenu.connectFrom?.nodeId)
+          }
           onClose={() => setCanvasMenu(null)}
         />
       )}
