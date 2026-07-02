@@ -81,14 +81,6 @@ export default function MusicLibraryNodeBody({ nodeId }: { nodeId: string }) {
                   </span>
                 )}
                 {entry.error && <span className={styles.songError}>{entry.error}</span>}
-                {entry.status === 'analyzing' && (
-                  <div className={styles.progressTrack}>
-                    <div
-                      className={styles.progressFill}
-                      style={{ width: `${Math.round((entry.progress ?? 0) * 100)}%` }}
-                    />
-                  </div>
-                )}
               </div>
               <div className={styles.songActions}>
                 <span className={`${styles.badge} ${styles[`badge_${entry.status}`]}`}>

@@ -7,21 +7,6 @@
   border-top: 1px solid var(--divider);
 }
 
-/* ── Per-song analysis progress bar ── */
-.progressTrack {
-  margin-top: 4px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--bg-primary);
-  overflow: hidden;
-}
-.progressFill {
-  height: 100%;
-  background: var(--accent-audio);
-  border-radius: 2px;
-  transition: width 0.15s linear;
-}
-
 /* ── Drop zone ── */
 .dropZone {
   border: 2px dashed var(--border-glow);
@@ -114,9 +99,25 @@
 }
 
 .badge_pending   { background: var(--bg-panel);            color: var(--text-secondary); }
-.badge_analyzing { background: rgba(168, 255, 0, 0.15);   color: var(--accent-math); }
 .badge_done      { background: rgba(0, 191, 255, 0.15);   color: var(--accent-output); }
 .badge_error     { background: rgba(255, 51, 102, 0.15);  color: var(--error); }
+
+/* Pulse the "Analyzing…" badge to show work is in progress (the analyzer
+   reports no reliable percentage, so this replaces the old progress bar). */
+.badge_analyzing {
+  background: rgba(168, 255, 0, 0.15);
+  color: var(--accent-math);
+  animation: badgePulse 1s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .badge_analyzing { animation: none; }
+}
 
 .removeBtn {
   background: none;
