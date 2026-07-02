@@ -114,7 +114,7 @@ export default function MusicLibraryNodeBody({ nodeId }: { nodeId: string }) {
             onClick={() => analyzeAll(performanceOptionsFromProperties(performanceProperties ?? {}))}
             disabled={analyzingAny || entries.length === 0 || entries.every(e => e.status === 'done')}
           >
-            {analyzingAny ? 'Analysing…' : 'Analyse All'}
+            {analyzingAny ? 'Analyzing…' : 'Analyze All'}
           </button>
         </div>
       </div>
