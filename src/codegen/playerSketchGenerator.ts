@@ -578,7 +578,7 @@ ${bakedAudio ? '  updateShowAudio(posMs);   // song-synced FFT → pattern audio
     flashLevel *= flashDecay;
   }
 
-  // Particle-burst overlay: short-lived colored sparks (one of six motion
+  // Particle-burst overlay: short-lived colored sparks (one of eleven motion
   // styles) added on top of the frame — FastLED's brightness then scales them,
   // so they fade with a silence fade-to-black. Keep the switch in sync with
   // particleOverlayAt() in showPreview.ts.
@@ -616,6 +616,32 @@ ${bakedAudio ? '  updateShowAudio(posMs);   // song-synced FFT → pattern audio
         case 5:  // twinkle
           x = r1 * WIDTH; y = r2 * HEIGHT;
           bri = max(0.0f, 1.0f - fabsf(f - r3) * 3.0f);
+          break;
+        case 6: {  // ring
+          float a = r1 * 6.2831853f, rad = f * maxR;
+          x = cx + cosf(a) * rad; y = cy + sinf(a) * rad;
+          bri = (1.0f - f) * 1.25f;
+          break;
+        }
+        case 7:  // fountain
+          x = cx + (r1 - 0.5f) * 10.0f * ageSec;
+          y = HEIGHT - 1 - (3.0f + r2 * 6.0f) * ageSec + 5.0f * ageSec * ageSec;
+          break;
+        case 8: {  // helix
+          float a = (i % 2) * 3.14159265f + r1 * 0.7f + ageSec * 9.0f;
+          x = cx + cosf(a) * maxR * 0.55f;
+          y = HEIGHT - 1 - f * (HEIGHT + 2) + (r2 - 0.5f) * 2.0f;
+          break;
+        }
+        case 9:  // meteor
+          x = -2.0f + f * (WIDTH + 6) - r1 * 5.0f;
+          y = r2 * HEIGHT + x * 0.35f + (r3 - 0.5f) * 2.0f;
+          bri = (1.0f - r1 * 0.7f) * (1.0f - f * 0.5f);
+          break;
+        case 10:  // confetti
+          x = r1 * WIDTH + sinf(ageSec * 7.0f + r3 * 6.2831853f) * 1.5f;
+          y = fmodf(r2 * HEIGHT + ageSec * (2.0f + r4 * 4.0f), (float)HEIGHT);
+          bri = (1.0f - f) * (0.55f + 0.45f * powf(sinf(ageSec * 12.0f + r3 * 6.2831853f), 2.0f));
           break;
         default:  // rise
           x = r1 * WIDTH + (r3 - 0.5f) * 8.0f * ageSec;

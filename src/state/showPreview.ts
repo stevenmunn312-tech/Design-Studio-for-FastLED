@@ -159,7 +159,7 @@ function activeTransitionAt(
 
 // ── Particle-burst overlay ────────────────────────────────────────────────────
 // A PARTICLE_BURST spawns a fixed set of short-lived colored sparks that fade
-// out. Its `style` param picks one of six motions (see PARTICLE_STYLES in
+// out. Its `style` param picks one of eleven motions (see PARTICLE_STYLES in
 // performanceGenerator.ts). The motion is a pure function of the burst time +
 // spark index, so it is deterministic and mirrored exactly by the firmware
 // player (keep the switch below in sync with playerSketchGenerator's).
@@ -234,6 +234,33 @@ function particleOverlayAt(show: ShowFile, timeMs: number, W: number, H: number)
       case 5:  // twinkle — fixed positions, each peaking at its own moment
         x = r1 * W; y = r2 * H
         bri = Math.max(0, 1 - Math.abs(f - r3) * 3)
+        break
+      case 6: {  // ring — a crisp expanding circular shockwave
+        const a = r1 * TAU, rad = f * maxR
+        x = cx + Math.cos(a) * rad
+        y = cy + Math.sin(a) * rad
+        bri = (1 - f) * 1.25
+        break
+      }
+      case 7:  // fountain — jets launch from the bottom centre and arc outward
+        x = cx + (r1 - 0.5) * 10 * ageSec
+        y = H - 1 - (3 + r2 * 6) * ageSec + 5 * ageSec * ageSec
+        break
+      case 8: {  // helix — two intertwined strands climb through the matrix
+        const a = (i % 2) * Math.PI + r1 * 0.7 + ageSec * 9
+        x = cx + Math.cos(a) * maxR * 0.55
+        y = H - 1 - f * (H + 2) + (r2 - 0.5) * 2
+        break
+      }
+      case 9:  // meteor — a bright diagonal shower sweeps across the panel
+        x = -2 + f * (W + 6) - r1 * 5
+        y = r2 * H + x * 0.35 + (r3 - 0.5) * 2
+        bri = (1 - r1 * 0.7) * (1 - f * 0.5)
+        break
+      case 10:  // confetti — drifting flecks shimmer at staggered phases
+        x = r1 * W + Math.sin(ageSec * 7 + r3 * TAU) * 1.5
+        y = (r2 * H + ageSec * (2 + r4 * 4)) % H
+        bri = (1 - f) * (0.55 + 0.45 * Math.sin(ageSec * 12 + r3 * TAU) ** 2)
         break
       default:  // rise — sparks drift up and arc down under gravity
         x = r1 * W + (r3 - 0.5) * 8 * ageSec

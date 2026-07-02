@@ -254,6 +254,18 @@ describe('generateShow — beat accents (flash vs particles)', () => {
     } finally { spy.mockRestore() }
   })
 
+  it('keeps white flashes occasional by favouring particles in energetic sections', () => {
+    // 0.7 is above the verse particle threshold (so it flashes), but below the
+    // energetic-section threshold (so the drop uses a particle instead).
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0.7)
+    try {
+      const accents = generateShow(analysis).events.filter((e) =>
+        e.cmd === 'BEAT_FLASH' || e.cmd === 'PARTICLE_BURST')
+      expect(accents.some((e) => e.cmd === 'BEAT_FLASH' && e.t < 2000)).toBe(true)
+      expect(accents.some((e) => e.cmd === 'PARTICLE_BURST' && e.t >= 2000)).toBe(true)
+    } finally { spy.mockRestore() }
+  })
+
   it('round-trips a PARTICLE_BURST (cmd id 7, intensity+hue+style) through the binary', () => {
     const spy = vi.spyOn(Math, 'random').mockReturnValue(0)
     try {

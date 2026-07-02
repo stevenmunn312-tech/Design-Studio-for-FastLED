@@ -285,7 +285,7 @@ describe('renderShowFrame', () => {
       },
     } as unknown as Parameters<typeof renderShowFrame>[4]
 
-    for (let style = 0; style < 6; style++) {
+    for (let style = 0; style < 11; style++) {
       const show: ShowFile = {
         version: 2, songTitle: 'P', durationMs: 2000, bpm: 120, patternSet: ['blk'],
         events: [

@@ -76,7 +76,10 @@ export const SECTION_TYPES: SongSection['type'][] = [
  *  (the value is the on-wire id). The spark motion for each lives in
  *  showPreview.ts (`particleOverlayAt`) and the firmware player, kept in sync.
  *  Shared with the timeline editor's style dropdown. */
-export const PARTICLE_STYLES = ['rise', 'rain', 'explode', 'fireworks', 'swirl', 'twinkle'] as const
+export const PARTICLE_STYLES = [
+  'rise', 'rain', 'explode', 'fireworks', 'swirl', 'twinkle',
+  'ring', 'fountain', 'helix', 'meteor', 'confetti',
+] as const
 
 // ── Transition map: from section type → transition style ──────────────────────
 
@@ -355,9 +358,9 @@ export function generateShow(
     if (!isHigh && i % 2 !== 0) continue
 
     const intensity = Math.min(1, opts.beatIntensity * (0.6 + sec.energy * 0.6))
-    // Mix particle bursts in — more often when the section is energetic, so a
-    // drop/chorus sparkles while a verse mostly flashes.
-    const particleChance = isHigh ? 0.5 : 0.25
+    // Keep white flashes as an occasional hard accent, but favour the more
+    // textured particle overlays so repeated beats do not strobe the matrix.
+    const particleChance = isHigh ? 0.8 : 0.6
     if (Math.random() < particleChance) {
       push(t, 'PARTICLE_BURST', {
         intensity: Math.round(intensity * 255),
