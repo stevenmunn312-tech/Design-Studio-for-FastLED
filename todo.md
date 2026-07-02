@@ -154,3 +154,10 @@ All viable features from that branch have landed on `main`. See
 
 - [x] Keep `CLAUDE.md` / `todo.md` in step with each merged PR
 - [x] Delete `feature/thmi-touchscreen-ui` once its features are fully replayed
+
+### Non-functional code audit follow-ups
+
+- [ ] Fix `ButtonInput` firmware setup: honour the `pullup` property by emitting `pinMode(pin, INPUT_PULLUP)` (or `INPUT`) before `digitalRead`
+- [ ] Make pattern-show detection follow the graph path into `MatrixOutput`; a disconnected `PatternMaster` must not replace a valid normal sketch
+- [ ] Complete Pattern Master firmware parity: support the wired `beat` trigger and selected transition pool instead of always using a time-based crossfade
+- [ ] Review intentional preview fallbacks and make them explicit in the UI: fixed `ButtonInput` / `PotInput` values, synthetic no-mic audio, and the black `PerformanceGenerator.frame` output
