@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { canAddNodeType, useGraphStore } from '../../state/graphStore'
 import { NODE_LIBRARY, CATEGORIES, portsCompatible } from '../../state/nodeLibrary'
+import { runTidy } from '../../utils/tidyGraph'
 import type { NodeDefinition } from '../../types'
 import styles from './CanvasContextMenu.module.css'
 
@@ -164,6 +165,9 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
       <div className={styles.divider} />
       <button className={styles.item} onClick={() => act(selectAllNodes)}>
         Select All
+      </button>
+      <button className={styles.item} onClick={() => act(() => { runTidy() })}>
+        Tidy Graph
       </button>
       <button
         className={`${styles.item} ${!canPaste ? styles.disabled : ''}`}

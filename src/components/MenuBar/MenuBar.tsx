@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import { useGraphStore, useTemporalStore } from '../../state/graphStore'
 import type { StudioNode, StudioEdge, WorkspaceExtras } from '../../state/graphStore'
+import { runTidy } from '../../utils/tidyGraph'
 import styles from './MenuBar.module.css'
 
 export default function MenuBar() {
@@ -83,6 +84,14 @@ export default function MenuBar() {
           title={`Redo (Ctrl+Y) — ${futureStates.length} step${futureStates.length !== 1 ? 's' : ''}`}
         >
           ↪ Redo {futureStates.length > 0 ? futureStates.length : ''}
+        </button>
+        <button
+          className={styles.btn}
+          onClick={() => runTidy()}
+          aria-label="Tidy graph layout"
+          title="Auto-arrange nodes into tidy columns (select 2+ nodes to tidy just those)"
+        >
+          ▦ Tidy
         </button>
         <div className={styles.sep} />
         <button className={styles.btn} onClick={handleSaveJSON} aria-label="Export graph as JSON" title="Export graph as JSON (Ctrl+S)">
