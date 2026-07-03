@@ -2058,13 +2058,12 @@ function createEvalNode(
 
       case 'FFTAnalyzer': {
         const audio = useAudioStore.getState()
+        // No live mic → no signal. (We deliberately don't synthesise a demo
+        // oscillation here: it drove every downstream pattern into "hyperdrive"
+        // and made unwired/grouped patterns impossible to tune.)
         const raw = audio.micActive
           ? { bass: audio.micBass, mids: audio.micMids, treble: audio.micTreble }
-          : {
-              bass:   (Math.sin(t * 2.1) + 1) / 2,
-              mids:   (Math.sin(t * 3.7 + 1.0) + 1) / 2,
-              treble: (Math.sin(t * 5.3 + 2.0) + 1) / 2,
-            }
+          : { bass: 0, mids: 0, treble: 0 }
         const gain = Math.max(0.25, Math.min(4, Number(props.gain ?? 1)))
         // Early builds stored smoothing as an integer (default 3) but never
         // used it. Interpret that legacy value as quarters so saved graphs get
@@ -2153,11 +2152,7 @@ function createEvalNode(
           out = { kick: next.kick, snare: next.snare, hihat: next.hihat }
         } else {
           percussionLevels.delete(key)
-          out = {
-            kick: clamp01(Math.sin(t * 2.1) * 0.5 + 0.5),
-            snare: clamp01(Math.sin(t * 4.0 + 1.2) * 0.5 + 0.5),
-            hihat: clamp01(Math.sin(t * 7.5 + 2.1) * 0.5 + 0.5),
-          }
+          out = { kick: 0, snare: 0, hihat: 0 }
         }
         break
       }
@@ -2195,12 +2190,7 @@ function createEvalNode(
           out = { vocals, energy, silence }
         } else {
           audioFeatureLevels.delete(key)
-          const energy = clamp01((Math.sin(t * 0.8) + 1) / 2)
-          out = {
-            vocals: clamp01((Math.sin(t * 1.6 + 0.8) + 1) / 2),
-            energy,
-            silence: energy < 0.2,
-          }
+          out = { vocals: 0, energy: 0, silence: true }
         }
         break
       }
@@ -2350,9 +2340,9 @@ function createEvalNode(
       }
 
       case 'SpectrumBars': {
-        const bass   = num(id, 'bass',   props, 'bass',   (Math.sin(t * 2.1) + 1) / 2)
-        const mids   = num(id, 'mids',   props, 'mids',   (Math.sin(t * 3.7 + 1) + 1) / 2)
-        const treble = num(id, 'treble', props, 'treble', (Math.sin(t * 5.3 + 2) + 1) / 2)
+        const bass   = num(id, 'bass',   props, 'bass',   0)
+        const mids   = num(id, 'mids',   props, 'mids',   0)
+        const treble = num(id, 'treble', props, 'treble', 0)
         const energy = num(id, 'energy', props, 'energy', 0.7)
         const speed = num(id, 'speed', props, 'speed', 0.6)
         const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')

@@ -48,9 +48,14 @@
     color var(--anim-hover);
 }
 
-.toggleBtn:hover {
+.toggleBtn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.08);
   color: var(--text-primary);
+}
+
+.toggleBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .previewToggle {

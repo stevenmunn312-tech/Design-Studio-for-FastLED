@@ -404,6 +404,16 @@ export default function LEDPreview() {
   useEffect(() => { nodesRef.current = nodes }, [nodes])
   useEffect(() => { edgesRef.current = edges }, [edges])
 
+  // The mic toggle only makes sense when a MicInput node exists somewhere in
+  // the workspace. MicInput is a root-level singleton (never sealed inside a
+  // group), so it may live in an inactive graph while the user is inside a
+  // group — check the active graph and every stored subgraph.
+  const hasMicNode = useGraphStore((s) =>
+    s.nodes.some((n) => (n.data as { nodeType?: string }).nodeType === 'MicInput') ||
+    Object.values(s.graphData).some((g) =>
+      g.nodes.some((n) => (n.data as { nodeType?: string }).nodeType === 'MicInput'))
+  )
+
   // Read grid dimensions from MatrixOutput node
   const outputNode = useGraphStore((s) =>
     s.nodes.find((n) => (n.data as { nodeType?: string }).nodeType === 'MatrixOutput')
@@ -814,7 +824,12 @@ export default function LEDPreview() {
           <button
             className={`${styles.toggleBtn} ${styles.micToggle} ${audioMode === 'mic' ? styles.toggleActive : ''}`}
             onClick={toggleMic}
-            title={audioMode === 'mic' ? 'Stop microphone' : 'Start microphone'}
+            disabled={!hasMicNode}
+            title={
+              !hasMicNode
+                ? 'Add a MicInput node to enable the microphone'
+                : audioMode === 'mic' ? 'Stop microphone' : 'Start microphone'
+            }
             aria-pressed={audioMode === 'mic'}
           >
             {audioMode === 'mic' ? 'Mic On' : 'Mic Off'}
