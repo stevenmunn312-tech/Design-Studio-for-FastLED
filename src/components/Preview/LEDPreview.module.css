@@ -104,7 +104,9 @@
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  flex: 1 1 auto;
+  /* Size to the matrix; let the visualizer below absorb the leftover height so
+     the spectrum bars fill the gap instead of leaving a dead band. */
+  flex: 0 1 auto;
   min-height: 0;
   overflow: hidden;
 }
@@ -180,6 +182,10 @@
 
 .visualizer {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 6px var(--space-2) 10px;
   border-top: 1px solid var(--border-glow);
   overflow: hidden;
@@ -253,7 +259,8 @@
 .spectrum {
   position: relative;
   z-index: 1;
-  height: 64px;
+  flex: 1 1 auto;
+  min-height: 64px;
   display: flex;
   align-items: flex-end;
   gap: 3px;
