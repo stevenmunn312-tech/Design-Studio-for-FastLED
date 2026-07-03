@@ -50,6 +50,14 @@ function clamp01(value: number): number {
 
 const DEFAULT_GATE_STATE = (): NoiseGateState => ({ floor: 0.02, level: 0 })
 
+// The 0..1 threshold slider maps onto this much absolute FFT-magnitude head-room
+// above the ambient floor. Per-band mic magnitudes rarely exceed ~0.3 even for
+// loud audio, so a slider applied 1:1 would push the gate above the entire
+// signal range and zero out every band once it left the low end — the whole
+// point of the slider is to tune within that small range, not exceed it. This
+// mirrors BeatDetect's denormalizeBeatParam('threshold') tuned max.
+const THRESHOLD_RANGE = 0.25
+
 /**
  * Adaptive gate that tracks ambient noise, then only passes signal above the
  * floor + threshold. Attack/decay smooth the output to avoid chatter.
@@ -61,7 +69,7 @@ export function applyNoiseGate(
 ): NoiseGateState {
   const floorTrack = raw > prev.floor ? 0.0025 : 0.03
   const floor = clamp01(prev.floor + (raw - prev.floor) * floorTrack)
-  const gate = clamp01(floor + clamp01(config.threshold))
+  const gate = clamp01(floor + clamp01(config.threshold) * THRESHOLD_RANGE)
   const target = raw > gate ? clamp01((raw - gate) / Math.max(1e-6, 1 - gate)) : 0
   const follow = target > prev.level ? clamp01(config.attack) : clamp01(config.decay)
   const level = clamp01(prev.level + (target - prev.level) * follow)
