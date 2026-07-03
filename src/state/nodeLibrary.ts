@@ -15,9 +15,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: {
       gain: 1.0,
       agc: false,
-      threshold: 0.08,
-      attack: 0.2,
-      decay: 0.05,
+      threshold: 0.10,
+      attack: 0.30,
+      decay: 0.08,
       sampleRate: 44100,
       i2sWs: 39,
       i2sSck: 40,

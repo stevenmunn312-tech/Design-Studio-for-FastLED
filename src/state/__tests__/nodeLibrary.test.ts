@@ -56,9 +56,9 @@ describe('nodeLibrary', () => {
     expect(mic?.defaultProperties).toMatchObject({
       gain: 1,
       agc: false,
-      threshold: 0.08,
-      attack: 0.2,
-      decay: 0.05,
+      threshold: 0.10,
+      attack: 0.30,
+      decay: 0.08,
     })
   })
 
