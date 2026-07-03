@@ -1887,6 +1887,18 @@ export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Fra
 export interface GroupDef { nodes: StudioNode[]; edges: StudioEdge[] }
 export type GroupRegistry = Record<string, GroupDef>
 
+/** Audio values fed to reactive nodes in place of the live mic store. The field
+ *  set mirrors exactly what the audio cases read from `useAudioStore`. */
+export interface AudioOverride {
+  active: boolean
+  micActive: boolean
+  micBass: number
+  micMids: number
+  micTreble: number
+  spectrum: number[]
+  detectorSpectrum: number[]
+}
+
 // Build the memoised evaluator closure for one graph (or group subgraph) at a
 // given tick. `instancePrefix` namespaces stateful-node state per group
 // instance; `groupStack` breaks group-level recursion; `groupInputs` carries
@@ -1901,6 +1913,10 @@ function createEvalNode(
   instancePrefix: string,
   groupStack: ReadonlySet<string>,
   groupInputs: Record<string, PortValue>,
+  // When set, audio-reactive nodes read from this instead of the live mic store
+  // — the show preview uses it to feed a group's FFTAnalyzer/BeatDetect the
+  // song's baked bass/mids/treble, matching what firmware plays back on-device.
+  audioOverride: AudioOverride | null = null,
 ) {
   const t = tick / 60   // seconds at assumed 60 fps
 
@@ -2058,7 +2074,7 @@ function createEvalNode(
         break
 
       case 'FFTAnalyzer': {
-        const audio = useAudioStore.getState()
+        const audio = audioOverride ?? useAudioStore.getState()
         // No live mic → no signal, unless the Test Signal toggle is on (a
         // synthetic oscillation for previewing motion without a microphone).
         // It's off by default so unwired/grouped patterns aren't driven into
@@ -2097,7 +2113,7 @@ function createEvalNode(
 
       case 'BeatDetect': {
         const key = stateKey(id)
-        const audio = useAudioStore.getState()
+        const audio = audioOverride ?? useAudioStore.getState()
         if (audio.active) {
           const threshold = denormalizeBeatParam('threshold', normProp(props.threshold, 0.2))
           const attack = denormalizeBeatParam('attack', normProp(props.attack, 0.55))
@@ -2126,7 +2142,7 @@ function createEvalNode(
         const sensitivity = normProp(props.sensitivity, 0.55)
         const decay = Math.max(0, Math.min(0.98, Number(props.decay ?? 0.72)))
         const separation = normProp(props.separation, 0.4)
-        const audio = useAudioStore.getState()
+        const audio = audioOverride ?? useAudioStore.getState()
         if (audio.active) {
           const spectrum = (audio.detectorSpectrum ?? audio.spectrum ?? []).map((v) => clamp01(Number(v) || 0))
           const prev = percussionLevels.get(key) ?? {
@@ -2176,7 +2192,7 @@ function createEvalNode(
         const sensitivity = normProp(props.sensitivity, 0.5)
         const gate = normProp(props.gate, 0.12)
         const smoothing = Math.max(0, Math.min(0.95, Number(props.smoothing ?? 0.8)))
-        const audio = useAudioStore.getState()
+        const audio = audioOverride ?? useAudioStore.getState()
         if (audio.active) {
           const spectrum = (audio.detectorSpectrum ?? audio.spectrum ?? []).map((v) => clamp01(Number(v) || 0))
           const prev = audioFeatureLevels.get(key) ?? {
@@ -2844,7 +2860,7 @@ function createEvalNode(
           return evaluateGraph(
             def.nodes, def.edges, tick, W, H, groups,
             `${instancePrefix}${id}/${gid}/`,
-            new Set([...groupStack, gid]), {},
+            new Set([...groupStack, gid]), {}, audioOverride,
           ) ?? blankFrame(W, H)
         }
         const o = {
@@ -3123,7 +3139,7 @@ function createEvalNode(
           def.nodes, def.edges, tick, W, H, groups,
           `${instancePrefix}${id}/`,
           new Set([...groupStack, groupId]),
-          boundInputs,
+          boundInputs, audioOverride,
         ) ?? blankFrame(W, H)
         out = { frame }
         break
@@ -3185,9 +3201,10 @@ export function evaluateGraph(
   instancePrefix = '',
   groupStack: ReadonlySet<string> = new Set(),
   groupInputs: Record<string, PortValue> = {},
+  audioOverride: AudioOverride | null = null,
 ): Frame | null {
   if (nodes.length === 0) return null
-  const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, groups, instancePrefix, groupStack, groupInputs)
+  const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, groups, instancePrefix, groupStack, groupInputs, audioOverride)
   // Render only what reaches an explicit terminal: a GroupOutput inside a group
   // subgraph, or a MatrixOutput at the root, each passing through its `frame`
   // input. A graph with no terminal previews nothing — the canvas falls back to

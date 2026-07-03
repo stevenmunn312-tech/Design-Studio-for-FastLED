@@ -204,6 +204,41 @@ describe('renderShowFrame', () => {
     expect(sum(modulated)).not.toBe(sum(authored))
   })
 
+  it('feeds the song envelope to a group FFTAnalyzer (preview ↔ firmware parity)', () => {
+    const mk = (id: string, nodeType: string, properties: Record<string, unknown>, inputs: unknown[] = [], outputs: unknown[] = []) =>
+      ({ id, type: 'studioNode', position: { x: 0, y: 0 }, data: { label: nodeType, nodeType, category: 'pattern', properties, inputs, outputs } })
+    // A white frame dimmed by a BrightnessMod driven by FFTAnalyzer.bass — so the
+    // frame is only lit when the show's baked bass envelope is high at that time.
+    const makeGroup = () => ({
+      nodes: [
+        mk('white', 'SolidColor', { r: 255, g: 255, b: 255 }, [], [{ id: 'frame', dataType: 'frame' }]),
+        mk('fft', 'FFTAnalyzer', {}, [], [{ id: 'bass', dataType: 'float' }, { id: 'mids', dataType: 'float' }, { id: 'treble', dataType: 'float' }]),
+        mk('bm', 'BrightnessMod', {}, [{ id: 'frame', dataType: 'frame' }, { id: 'brightness', dataType: 'float' }], [{ id: 'frame', dataType: 'frame' }]),
+        mk('go', 'GroupOutput', {}, [{ id: 'frame', dataType: 'frame' }], []),
+      ],
+      edges: [
+        { id: 'e1', source: 'white', sourceHandle: 'frame', target: 'bm', targetHandle: 'frame' },
+        { id: 'e2', source: 'fft', sourceHandle: 'bass', target: 'bm', targetHandle: 'brightness' },
+        { id: 'e3', source: 'bm', sourceHandle: 'frame', target: 'go', targetHandle: 'frame' },
+      ],
+    })
+    // Separate group ids so the two FFTAnalyzer instances don't share smoothing state.
+    const groups = { loud: makeGroup(), quiet: makeGroup() } as unknown as Parameters<typeof renderShowFrame>[4]
+    const showFor = (patternSet: string[], bass: number[]): ShowFile => ({
+      version: 2, songTitle: 'A', durationMs: 1000, bpm: 120, patternSet,
+      audio: { rateHz: 10, bass, mids: [0], treble: [0] },
+      events: [
+        { t: 0, cmd: 'SET_PATTERN', params: { index: 0 } },
+        { t: 0, cmd: 'SET_BRIGHTNESS', params: { value: 255 } },
+      ],
+    })
+    const sum = (f: ReturnType<typeof renderShowFrame>) => f.flat().reduce((a, px) => a + px.r + px.g + px.b, 0)
+    const loud = renderShowFrame(showFor(['loud'], [1]), 0, 4, 4, groups)
+    const quiet = renderShowFrame(showFor(['quiet'], [0]), 0, 4, 4, groups)
+    expect(sum(loud)).toBeGreaterThan(sum(quiet)) // high bass → lit
+    expect(sum(quiet)).toBe(0)                     // silent bass → dark
+  })
+
   it('crossfades between patterns during a TRANSITION instead of hard-cutting', () => {
     const mk = (id: string, nodeType: string, properties: Record<string, unknown>, inputs: unknown[] = [], outputs: unknown[] = []) =>
       ({ id, type: 'studioNode', position: { x: 0, y: 0 }, data: { label: nodeType, nodeType, category: 'pattern', properties, inputs, outputs } })

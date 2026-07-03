@@ -200,6 +200,27 @@ describe('evaluateGraph', () => {
     mockAudio.active = false
   })
 
+  it('audio-reactive nodes read an audioOverride instead of the mic store', () => {
+    // The show preview passes the song's baked bass/mids/treble as an override so
+    // a group's FFTAnalyzer reacts to the track without a live mic. FFTAnalyzer
+    // seeds its smoothing from the first target, so frame 0 == the raw band.
+    const fft = node('fftov', 'FFTAnalyzer', 'audio', {})
+    const sc = node('scov', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })
+    const bm = node('bmov', 'BrightnessMod', 'composite', {})
+    const out = node('outov', 'MatrixOutput', 'output', {})
+    const edges = [
+      edge('e1', 'fftov', 'bass', 'bmov', 'brightness'),
+      edge('e2', 'scov', 'frame', 'bmov', 'frame'),
+      edge('e3', 'bmov', 'frame', 'outov', 'frame'),
+    ]
+    const override = {
+      active: true, micActive: true, micBass: 0.6, micMids: 0, micTreble: 0,
+      spectrum: [], detectorSpectrum: [],
+    }
+    const f = evaluateGraph([fft, sc, bm, out], edges, 0, 4, 4, {}, '', new Set(), {}, override)!
+    expect(f[0][0].r).toBe(Math.round(255 * 0.6))
+  })
+
   it('ComplexWave combines two values per operation', () => {
     // ComplexWave.result → BrightnessMod over white, so frame[0][0].r = round(255 * result).
     const brightnessAt = (operation: string, a: number, b: number) => {

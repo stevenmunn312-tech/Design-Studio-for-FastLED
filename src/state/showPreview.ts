@@ -8,7 +8,8 @@
 // applied on top. A TRANSITION event crossfades (or wipes/dissolves/…) from the
 // outgoing pattern to the incoming one over its `duration`, mirroring the device.
 
-import { evaluateGraph, compositeTransition, type Frame, type GroupRegistry, type PortValue } from './graphEvaluator'
+import { evaluateGraph, compositeTransition, type Frame, type GroupRegistry, type PortValue, type AudioOverride } from './graphEvaluator'
+import { showAudioOverride } from './showAudio'
 import { NODE_LIBRARY } from './nodeLibrary'
 import { isStudioPalette } from './paletteCatalog'
 import type { StudioNode, StudioEdge } from './graphStore'
@@ -111,12 +112,13 @@ function renderEnumFrame(st: ShowState, timeMs: number, W: number, H: number): F
 function renderGroupFrame(
   groupId: string, timeMs: number, W: number, H: number,
   groups: GroupRegistry, groupInputs: Record<string, PortValue>,
+  audioOverride: AudioOverride | null,
 ): Frame {
   const def = groups[groupId]
   if (!def) return blank(W, H)
   return evaluateGraph(
     def.nodes, def.edges, timeMs * 0.06, W, H, groups,
-    `__show_${groupId}/`, new Set([groupId]), groupInputs,
+    `__show_${groupId}/`, new Set([groupId]), groupInputs, audioOverride,
   ) ?? blank(W, H)
 }
 
@@ -124,7 +126,7 @@ function renderGroupFrame(
 // before brightness/flash. Shared by the steady-state and transition paths.
 function renderStateFrame(
   show: ShowFile, st: ShowState, timeMs: number, W: number, H: number,
-  groups: GroupRegistry, useGroupInputs: boolean,
+  groups: GroupRegistry, useGroupInputs: boolean, audioOverride: AudioOverride | null,
 ): Frame {
   const groupId = show.patternSet && st.patternIndex >= 0 ? show.patternSet[st.patternIndex] : undefined
   const palette = isStudioPalette(st.palette) ? st.palette : 'rainbow'
@@ -135,7 +137,7 @@ function renderStateFrame(
     ? { energy: st.energy, speed: Math.min(1, st.speed / 2), palette }
     : {}
   return groupId
-    ? renderGroupFrame(groupId, timeMs, W, H, groups, groupInputs)
+    ? renderGroupFrame(groupId, timeMs, W, H, groups, groupInputs, audioOverride)
     : renderEnumFrame(st, timeMs, W, H)
 }
 
@@ -288,6 +290,11 @@ export function renderShowFrame(
 ): Frame {
   const st = showStateAt(show, timeMs)
 
+  // Feed the song's baked bass/mids/treble to the group's audio-reactive nodes,
+  // mirroring the firmware player — so FFTAnalyzer/BeatDetect react to the track
+  // in the preview without a live mic. Independent of the group-input roles.
+  const audioOverride = showAudioOverride(show.audio, timeMs)
+
   // Mid-transition: blend the outgoing pattern (state just before the switch)
   // into the incoming one (state at the switch) via the chosen transition style.
   const tr = activeTransitionAt(show, timeMs)
@@ -295,11 +302,11 @@ export function renderShowFrame(
   if (tr) {
     const fromState = showStateAt(show, tr.startMs - 1)
     const toState = showStateAt(show, tr.startMs)
-    const fromFrame = renderStateFrame(show, fromState, timeMs, W, H, groups, useGroupInputs)
-    const toFrame = renderStateFrame(show, toState, timeMs, W, H, groups, useGroupInputs)
+    const fromFrame = renderStateFrame(show, fromState, timeMs, W, H, groups, useGroupInputs, audioOverride)
+    const toFrame = renderStateFrame(show, toState, timeMs, W, H, groups, useGroupInputs, audioOverride)
     result = compositeTransition(tr.type, fromFrame, toFrame, tr.progress, W, H)
   } else {
-    result = renderStateFrame(show, st, timeMs, W, H, groups, useGroupInputs)
+    result = renderStateFrame(show, st, timeMs, W, H, groups, useGroupInputs, audioOverride)
   }
 
   const b = Math.max(0, Math.min(1, st.brightness / 255))
