@@ -1,5 +1,6 @@
 import type { StudioNode, StudioEdge } from './graphStore'
 import { useAudioStore } from './audioStore'
+import { useUiStore } from './uiStore'
 import { asFont, textColumns, type BitmapFont, DEFAULT_FONT } from './font'
 import { asImage, sampleImageToFrame } from './image'
 import { waveSample, combineWaves } from './wave'
@@ -2058,12 +2059,19 @@ function createEvalNode(
 
       case 'FFTAnalyzer': {
         const audio = useAudioStore.getState()
-        // No live mic → no signal. (We deliberately don't synthesise a demo
-        // oscillation here: it drove every downstream pattern into "hyperdrive"
-        // and made unwired/grouped patterns impossible to tune.)
+        // No live mic → no signal, unless the Test Signal toggle is on (a
+        // synthetic oscillation for previewing motion without a microphone).
+        // It's off by default so unwired/grouped patterns aren't driven into
+        // "hyperdrive" and stay tunable.
         const raw = audio.micActive
           ? { bass: audio.micBass, mids: audio.micMids, treble: audio.micTreble }
-          : { bass: 0, mids: 0, treble: 0 }
+          : useUiStore.getState().testSignal
+            ? {
+                bass:   (Math.sin(t * 2.1) + 1) / 2,
+                mids:   (Math.sin(t * 3.7 + 1.0) + 1) / 2,
+                treble: (Math.sin(t * 5.3 + 2.0) + 1) / 2,
+              }
+            : { bass: 0, mids: 0, treble: 0 }
         const gain = Math.max(0.25, Math.min(4, Number(props.gain ?? 1)))
         // Early builds stored smoothing as an integer (default 3) but never
         // used it. Interpret that legacy value as quarters so saved graphs get
@@ -2152,7 +2160,13 @@ function createEvalNode(
           out = { kick: next.kick, snare: next.snare, hihat: next.hihat }
         } else {
           percussionLevels.delete(key)
-          out = { kick: 0, snare: 0, hihat: 0 }
+          out = useUiStore.getState().testSignal
+            ? {
+                kick: clamp01(Math.sin(t * 2.1) * 0.5 + 0.5),
+                snare: clamp01(Math.sin(t * 4.0 + 1.2) * 0.5 + 0.5),
+                hihat: clamp01(Math.sin(t * 7.5 + 2.1) * 0.5 + 0.5),
+              }
+            : { kick: 0, snare: 0, hihat: 0 }
         }
         break
       }
@@ -2190,7 +2204,12 @@ function createEvalNode(
           out = { vocals, energy, silence }
         } else {
           audioFeatureLevels.delete(key)
-          out = { vocals: 0, energy: 0, silence: true }
+          if (useUiStore.getState().testSignal) {
+            const energy = clamp01((Math.sin(t * 0.8) + 1) / 2)
+            out = { vocals: clamp01((Math.sin(t * 1.6 + 0.8) + 1) / 2), energy, silence: energy < 0.2 }
+          } else {
+            out = { vocals: 0, energy: 0, silence: true }
+          }
         }
         break
       }
@@ -2340,9 +2359,11 @@ function createEvalNode(
       }
 
       case 'SpectrumBars': {
-        const bass   = num(id, 'bass',   props, 'bass',   0)
-        const mids   = num(id, 'mids',   props, 'mids',   0)
-        const treble = num(id, 'treble', props, 'treble', 0)
+        // Unwired bands rest at 0 unless the Test Signal toggle drives a demo.
+        const demo = useUiStore.getState().testSignal
+        const bass   = num(id, 'bass',   props, 'bass',   demo ? (Math.sin(t * 2.1) + 1) / 2 : 0)
+        const mids   = num(id, 'mids',   props, 'mids',   demo ? (Math.sin(t * 3.7 + 1) + 1) / 2 : 0)
+        const treble = num(id, 'treble', props, 'treble', demo ? (Math.sin(t * 5.3 + 2) + 1) / 2 : 0)
         const energy = num(id, 'energy', props, 'energy', 0.7)
         const speed = num(id, 'speed', props, 'speed', 0.6)
         const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')

@@ -10,6 +10,7 @@ const MOTION_KEY = 'fastled-studio-reduced-motion'
 const CONTRAST_KEY = 'fastled-studio-high-contrast'
 const PREVIEW_STYLE_KEY = 'fastled-studio-preview-style'
 const LEGACY_DIFFUSION_KEY = 'fastled-studio-preview-diffusion'
+const TEST_SIGNAL_KEY = 'fastled-studio-test-signal'
 
 function load<T>(key: string, fallback: T): T {
   try { const v = localStorage.getItem(key); return v !== null ? JSON.parse(v) : fallback } catch { return fallback }
@@ -37,6 +38,9 @@ interface UiState {
   inspectorOpen: boolean
   preview3d: boolean
   previewStyle: PreviewStyle
+  /** When on, audio-reactive nodes with no live mic run off a synthetic demo
+   *  oscillation so their motion can be previewed without a microphone. */
+  testSignal: boolean
   fps: number
   sparkPort: { nodeId: string; portId: string } | null
   /** Sidebar node currently being dragged, used for canvas drop affordances. */
@@ -53,6 +57,7 @@ interface UiState {
   toggleSidebar: () => void
   toggleInspector: () => void
   togglePreview3d: () => void
+  toggleTestSignal: () => void
   setPreviewStyle: (style: PreviewStyle) => void
   cyclePreviewStyle: () => void
   setFps: (fps: number) => void
@@ -82,6 +87,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   inspectorOpen: false,
   preview3d: false,
   previewStyle: loadPreviewStyle(),
+  testSignal: load<boolean>(TEST_SIGNAL_KEY, false),
   fps: 0,
   sparkPort: null,
   draggingNodeType: null,
@@ -106,6 +112,11 @@ export const useUiStore = create<UiState>((set, get) => ({
   },
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   togglePreview3d: () => set((s) => ({ preview3d: !s.preview3d })),
+  toggleTestSignal: () => {
+    const next = !get().testSignal
+    localStorage.setItem(TEST_SIGNAL_KEY, JSON.stringify(next))
+    set({ testSignal: next })
+  },
   setPreviewStyle: (style) => {
     localStorage.setItem(PREVIEW_STYLE_KEY, JSON.stringify(style))
     set({ previewStyle: style })

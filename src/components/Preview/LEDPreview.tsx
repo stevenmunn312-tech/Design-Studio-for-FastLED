@@ -444,6 +444,8 @@ export default function LEDPreview() {
   const previewStyle = useUiStore((s) => s.previewStyle)
   const togglePreview3d = useUiStore((s) => s.togglePreview3d)
   const cyclePreviewStyle = useUiStore((s) => s.cyclePreviewStyle)
+  const testSignal = useUiStore((s) => s.testSignal)
+  const toggleTestSignal = useUiStore((s) => s.toggleTestSignal)
   const previewStyleRef = useRef(previewStyle)
   useEffect(() => { previewStyleRef.current = previewStyle }, [previewStyle])
   // Orbit angles for 3D mode (degrees): pitch about X, yaw about Y.
@@ -833,6 +835,14 @@ export default function LEDPreview() {
             aria-pressed={audioMode === 'mic'}
           >
             {audioMode === 'mic' ? 'Mic On' : 'Mic Off'}
+          </button>
+          <button
+            className={`${styles.toggleBtn} ${testSignal ? styles.toggleActive : ''}`}
+            onClick={toggleTestSignal}
+            title="Drive audio-reactive nodes with a synthetic demo signal (no mic needed)"
+            aria-pressed={testSignal}
+          >
+            {testSignal ? 'Test On' : 'Test Off'}
           </button>
         </div>
       </div>
