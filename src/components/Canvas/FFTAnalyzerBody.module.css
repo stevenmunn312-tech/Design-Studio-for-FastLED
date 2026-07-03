@@ -1,7 +1,7 @@
 .analyzer {
   display: flex;
   flex-direction: column;
-  height: 104px;
+  height: 124px;
   box-sizing: border-box;
   margin-top: 4px;
   padding: 7px;
@@ -81,12 +81,45 @@
   transition: width 80ms linear;
 }
 
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.testBtn {
+  padding: 3px 8px;
+  font-family: var(--font-code);
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid color-mix(in srgb, var(--accent-audio) 28%, var(--border-glow));
+  border-radius: 99px;
+  cursor: pointer;
+  transition: background var(--anim-hover), color var(--anim-hover), border-color var(--anim-hover), box-shadow var(--anim-hover);
+}
+
+.testBtn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.testOn {
+  color: var(--accent-audio);
+  border-color: var(--accent-audio);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent-audio) 40%, transparent);
+}
+
 .status {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 4px;
-  margin-top: 7px;
   color: var(--text-secondary);
 }
 

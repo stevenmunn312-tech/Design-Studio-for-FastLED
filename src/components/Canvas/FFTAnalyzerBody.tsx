@@ -1,4 +1,5 @@
 import { useAudioStore } from '../../state/audioStore'
+import { useUiStore } from '../../state/uiStore'
 import { usePreviewStore } from '../../state/previewStore'
 import styles from './FFTAnalyzerBody.module.css'
 
@@ -24,6 +25,8 @@ export default function FFTAnalyzerBody({ nodeId, bands }: Props) {
   const active = useAudioStore((s) => s.active)
   const mode = useAudioStore((s) => s.mode)
   const liveSpectrum = useAudioStore((s) => s.spectrum)
+  const testSignal = useUiStore((s) => s.testSignal)
+  const toggleTestSignal = useUiStore((s) => s.toggleTestSignal)
   const outputs = usePreviewStore((s) => s.outputs.get(nodeId))
   const levels = [
     { key: 'bass', label: 'LOW', value: clamp01(outputs?.bass) },
@@ -33,8 +36,9 @@ export default function FFTAnalyzerBody({ nodeId, bands }: Props) {
   const count = Math.max(8, Math.min(32, Math.round(bands || 24)))
   const spectrum = (() => {
     if (active) return resample(liveSpectrum, count)
-    // The evaluator supplies animated demo levels while the mic is off. Shape
-    // them into a spectrum so the node still explains itself before wiring.
+    // With the mic off the evaluator emits zero — unless the Test Signal toggle
+    // is on, when it supplies an animated demo. Shape whatever the levels are
+    // (flat or animated) into a spectrum so the node reflects its real output.
     const anchors = levels.map((level) => level.value)
     return Array.from({ length: count }, (_, i) => {
       const p = (i / Math.max(1, count - 1)) * 2
@@ -61,8 +65,19 @@ export default function FFTAnalyzerBody({ nodeId, bands }: Props) {
           </div>
         ))}
       </div>
-      <div className={styles.status} data-active={active}>
-        <span />{active ? (mode === 'media' ? 'MEDIA LIVE' : 'MIC LIVE') : 'DEMO SIGNAL'}
+      <div className={styles.footer}>
+        <button
+          type="button"
+          className={`${styles.testBtn} nodrag ${testSignal ? styles.testOn : ''}`}
+          onClick={toggleTestSignal}
+          aria-pressed={testSignal}
+          title="Test signal — animate this node without a mic or song"
+        >
+          Test {testSignal ? 'On' : 'Off'}
+        </button>
+        <div className={styles.status} data-active={active}>
+          <span />{active ? (mode === 'media' ? 'MEDIA LIVE' : 'MIC LIVE') : testSignal ? 'TEST SIGNAL' : 'SILENT'}
+        </div>
       </div>
     </div>
   )

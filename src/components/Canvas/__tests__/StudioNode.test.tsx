@@ -219,7 +219,9 @@ describe('StudioNode', () => {
     expect(getByText('LOW')).toBeTruthy()
     expect(getByText('MID')).toBeTruthy()
     expect(getByText('HIGH')).toBeTruthy()
-    expect(getByText('DEMO SIGNAL')).toBeTruthy()
+    // Mic off + test signal off → SILENT, with an on-node Test toggle to animate it.
+    expect(getByText('SILENT')).toBeTruthy()
+    expect(getByText('Test Off')).toBeTruthy()
     expect(container.querySelector('[aria-label="Live FFT analysis"]')).toBeTruthy()
     const sliders = Array.from(container.querySelectorAll('input[type="range"]')) as HTMLInputElement[]
     expect(sliders).toHaveLength(3)
