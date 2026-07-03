@@ -404,14 +404,13 @@ export default function LEDPreview() {
   useEffect(() => { nodesRef.current = nodes }, [nodes])
   useEffect(() => { edgesRef.current = edges }, [edges])
 
-  // The mic toggle only makes sense when a MicInput node exists somewhere in
-  // the workspace. MicInput is a root-level singleton (never sealed inside a
-  // group), so it may live in an inactive graph while the user is inside a
-  // group — check the active graph and every stored subgraph.
+  // The mic toggle only makes sense when a MicInput node is on the active
+  // canvas — the same condition App.tsx uses to auto-start/stop the mic. We
+  // deliberately DON'T scan graphData: a MicInput stranded in a group subgraph
+  // (which "select all → delete" on the canvas can't reach) would otherwise
+  // keep the button lit even on an empty canvas.
   const hasMicNode = useGraphStore((s) =>
-    s.nodes.some((n) => (n.data as { nodeType?: string }).nodeType === 'MicInput') ||
-    Object.values(s.graphData).some((g) =>
-      g.nodes.some((n) => (n.data as { nodeType?: string }).nodeType === 'MicInput'))
+    s.nodes.some((n) => (n.data as { nodeType?: string }).nodeType === 'MicInput')
   )
 
   // Read grid dimensions from MatrixOutput node
