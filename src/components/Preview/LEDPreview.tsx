@@ -980,6 +980,13 @@ export default function LEDPreview() {
             </div>
             {musicError && !showMode && <p className={styles.musicError} role="alert">{musicError}</p>}
           </div>
+          <div className={styles.brandWrap} aria-hidden>
+            <img
+              className={styles.brandLogo}
+              src="/fastled-studio.svg"
+              alt=""
+            />
+          </div>
         </div>
       <input
         ref={fileInputRef}

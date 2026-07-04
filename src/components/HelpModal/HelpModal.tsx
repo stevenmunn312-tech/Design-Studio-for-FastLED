@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import styles from './HelpModal.module.css'
+import NodeReference from './NodeReference'
 
 type Tab = 'quickstart' | 'shortcuts' | 'nodes' | 'upload'
 
@@ -9,16 +10,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'shortcuts', label: 'Shortcuts' },
   { id: 'nodes', label: 'Node Reference' },
   { id: 'upload', label: 'Upload & Export' },
-]
-
-const CATEGORIES = [
-  { color: '#00ffff', name: 'Audio',     nodes: 'Music Library, FFT Analyzer, Beat Detect, Percussion Detect, Audio Features, Audio Hue' },
-  { color: '#ffa500', name: 'Hardware',  nodes: 'Microphone, Button, Potentiometer, Performance Generator, SD Card' },
-  { color: '#a8ff00', name: 'Math',      nodes: 'Math, Clamp, MapRange, Sin, Cos, Wave, ComplexWave, Lerp, Time, Abs, Mod, Random, Counter, Gate, Not, Compare, BeatSin, XY Mapper' },
-  { color: '#ff4d8d', name: 'Color',     nodes: 'HSV→RGB, CHSV, Temperature, Blend Colors, Gradient Sampler, Palette Sampler, Palette Selector, Custom Palette, Poline, Palette Blend' },
-  { color: '#ff00ff', name: 'Pattern',   nodes: 'Solid Color, Span, Rect, Circle, Line, Text, Noise (5 variants), Fire, Fire 2012, Plasma, Spectrum Bars, Bass Pulse, Midrange Waves, Treble Sparks, Beat Flash, Noise 2D, Radial Burst, Spiral, Kaleidoscope, Particles (7 modes), Gradient Frame, Fractal Noise, Gabor Noise, Palette Gradient, Image, Blobs, Flow Field, Starfield, Audio Flow, Reaction Diffusion, Game of Life, Pattern Master, Custom Formula' },
-  { color: '#00e0a4', name: 'Composite', nodes: 'Blend (6 modes), Brightness, Hue Shift, Transform, Invert, Blur 2D, Mask, Fade to Black, Transition (16 effects), Sequencer, Pattern Collection' },
-  { color: '#00bfff', name: 'Output',    nodes: 'Matrix Output' },
 ]
 
 function QuickStartTab() {
@@ -167,86 +158,6 @@ function ShortcutsTab() {
   )
 }
 
-function NodesTab() {
-  return (
-    <>
-      <div className={styles.section}>
-        <div className={styles.sectionTitle}>Categories &amp; nodes</div>
-        <div className={styles.text}>
-          Nodes are grouped by their primary output type. Port and handle colours match the category accent. The sidebar lists them in authoring pipeline order.
-        </div>
-        <div className={styles.catGrid}>
-          {CATEGORIES.map((c) => (
-            <div key={c.name} className={styles.catRow}>
-              <div className={styles.catDot} style={{ background: c.color }} />
-              <div className={styles.catName}>{c.name}</div>
-              <div className={styles.catNodes}>{c.nodes}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className={styles.divider} />
-
-      <div className={styles.section}>
-        <div className={styles.sectionTitle}>Bundled nodes</div>
-        <div className={styles.tipList}>
-          <div className={styles.tip}>
-            <div className={styles.tipIcon}>⬡</div>
-            <div className={styles.tipText}>
-              <strong>Noise</strong> — one node, five variants selected by the <code>noiseType</code> dropdown: Field, Simplex, Noise3D, Worley (Voronoi), Plasma Fractal.
-            </div>
-          </div>
-          <div className={styles.tip}>
-            <div className={styles.tipIcon}>⬡</div>
-            <div className={styles.tipText}>
-              <strong>Math</strong> — six ops (add, subtract, multiply, divide, min, max) in one node. Mod and Compare stay separate.
-            </div>
-          </div>
-          <div className={styles.tip}>
-            <div className={styles.tipIcon}>⬡</div>
-            <div className={styles.tipText}>
-              <strong>Blend</strong> — six composite modes (normal, multiply, screen, overlay, add, difference) with an <code>amount</code> (0–1) opacity slider.
-            </div>
-          </div>
-          <div className={styles.tip}>
-            <div className={styles.tipIcon}>⬡</div>
-            <div className={styles.tipText}>
-              <strong>Transition</strong> — 16 A→B effects in one node: crossfade, wipe, dissolve, iris, clock wipe, push, checkerboard, diagonal, fade-to-black/white, blinds, ripple, spiral, curtain, scanlines, zoom.
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className={styles.divider} />
-
-      <div className={styles.section}>
-        <div className={styles.sectionTitle}>Generative show pipeline</div>
-        <div className={styles.steps}>
-          <div className={styles.step}>
-            <div className={styles.stepNum}>1</div>
-            <div className={styles.stepText}>
-              <strong>Build patterns as groups.</strong> Select nodes → right-click → Make Group. Save a group to the library via its context menu → Save to Library.
-            </div>
-          </div>
-          <div className={styles.step}>
-            <div className={styles.stepNum}>2</div>
-            <div className={styles.stepText}>
-              <strong>Pattern Collection</strong> absorbs groups: wire a group's frame output into the Collection's <code>pattern</code> input to add it to the set (no visual noodle — the group disappears into the list).
-            </div>
-          </div>
-          <div className={styles.step}>
-            <div className={styles.stepNum}>3</div>
-            <div className={styles.stepText}>
-              <strong>Pattern Master</strong> drives the show: wire Collection → Master → Matrix Output. Set dwell time, transition pool, and optional beat input. The firmware mirrors the live preview exactly.
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
-  )
-}
-
 function UploadTab() {
   return (
     <>
@@ -365,7 +276,7 @@ export default function HelpModal() {
         <div className={styles.body}>
           {tab === 'quickstart' && <QuickStartTab />}
           {tab === 'shortcuts' && <ShortcutsTab />}
-          {tab === 'nodes' && <NodesTab />}
+          {tab === 'nodes' && <NodeReference />}
           {tab === 'upload' && <UploadTab />}
         </div>
       </div>

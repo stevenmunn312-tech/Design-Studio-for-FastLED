@@ -11,7 +11,7 @@
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 .modal {
-  width: min(700px, 96vw);
+  width: min(1120px, 96vw);
   max-height: 88vh;
   background: var(--bg-panel);
   border: 1px solid var(--border-glow);
@@ -58,6 +58,7 @@
   padding: 10px 20px 0;
   border-bottom: 1px solid var(--border-glow);
   flex-shrink: 0;
+  overflow-x: auto;
 }
 
 .tab {

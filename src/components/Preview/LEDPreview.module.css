@@ -186,7 +186,7 @@
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
-  padding: 6px var(--space-2) 10px;
+  padding: 6px var(--space-2) 82px;
   border-top: 1px solid var(--border-glow);
   overflow: hidden;
   background:
@@ -260,10 +260,11 @@
   position: relative;
   z-index: 1;
   flex: 1 1 auto;
-  min-height: 64px;
+  min-height: 86px;
   display: flex;
   align-items: flex-end;
-  gap: 3px;
+  gap: 4px;
+  margin-bottom: 12px;
 }
 
 .musicControls {
@@ -271,8 +272,7 @@
   z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 10px;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -287,7 +287,7 @@
   min-width: 0;
   flex: 1 1 auto;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -297,7 +297,7 @@
   flex: 0 0 auto;
   text-align: right;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: 12px;
   font-family: var(--font-code);
 }
 
@@ -306,7 +306,7 @@
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 6px;
+  height: 7px;
   margin: 4px 0;
   border-radius: 999px;
   background:
@@ -322,8 +322,8 @@
 .progress::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border: none;
   border-radius: 50%;
   background: #fff;
@@ -333,8 +333,8 @@
 }
 
 .progress::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border: none;
   border-radius: 50%;
   background: #fff;
@@ -369,7 +369,7 @@
 .controlsRow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -377,7 +377,7 @@
   flex: 1 1 0;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -385,7 +385,7 @@
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .volWrap {
@@ -393,8 +393,8 @@
 }
 
 .iconBtn {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   display: inline-grid;
   place-items: center;
   padding: 0;
@@ -423,8 +423,8 @@
 }
 
 .playIconBtn {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   display: inline-grid;
   place-items: center;
   padding: 0;
@@ -463,8 +463,8 @@
 .vol {
   -webkit-appearance: none;
   appearance: none;
-  width: 68px;
-  height: 4px;
+  width: 84px;
+  height: 5px;
   border-radius: 999px;
   background:
     linear-gradient(90deg,
@@ -478,8 +478,8 @@
 .vol::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border: none;
   border-radius: 50%;
   background: #fff;
@@ -487,8 +487,8 @@
 }
 
 .vol::-moz-range-thumb {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border: none;
   border-radius: 50%;
   background: #fff;
@@ -510,6 +510,28 @@
   font-size: 12px;
 }
 
+.brandWrap {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-end;
+  left: calc(var(--space-2) - 22px);
+  bottom: -26px;
+  width: min(115%, 608px);
+  overflow: visible;
+}
+
+.brandLogo {
+  display: block;
+  width: 100%;
+  height: auto;
+  opacity: 0.82;
+  filter: drop-shadow(0 0 14px rgba(0, 240, 255, 0.12));
+  pointer-events: none;
+  transform: translateX(-1%);
+}
+
 .fileInput {
   display: none;
 }
@@ -518,7 +540,7 @@
   position: relative;
   flex: 1 1 0;
   height: 100%;
-  min-width: 2px;
+  min-width: 4px;
 }
 
 .bar,
@@ -530,7 +552,7 @@
   position: absolute;
   inset: auto 0 0;
   border-radius: 999px 999px 2px 2px;
-  min-height: 6px;
+  min-height: 8px;
   background:
     linear-gradient(180deg,
       hsl(var(--bar-hue) 100% 88%) 0%,

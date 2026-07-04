@@ -1,0 +1,570 @@
+.reference {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.referenceIntro {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.referenceTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.referenceText {
+  font-size: var(--fs-caption);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border-glow);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+}
+
+.search {
+  width: 100%;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: var(--font-body);
+  font-size: 12px;
+}
+
+.search::placeholder {
+  color: var(--text-secondary);
+}
+
+.filterRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filterChip {
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.03);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--anim-hover), color var(--anim-hover), background var(--anim-hover);
+}
+
+.filterChip:hover {
+  color: var(--text-primary);
+  border-color: rgba(255,255,255,0.2);
+}
+
+.filterChipActive {
+  color: var(--text-primary);
+  background: rgba(0, 224, 164, 0.14);
+  border-color: rgba(0, 224, 164, 0.38);
+}
+
+.resultsLine {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.nodeList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.nodeCard {
+  border: 1px solid var(--border-glow);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0.01));
+  overflow: hidden;
+}
+
+.nodeSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.nodeSummary::-webkit-details-marker {
+  display: none;
+}
+
+.nodeSummaryMain {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.nodeSummaryTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.nodeSummaryAccent {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.nodeSummaryTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.nodeBadge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.05);
+}
+
+.nodeSummaryDesc {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.nodeSummaryMeta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.nodeBody {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 0 16px 16px;
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.heroLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.nodeMock {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid;
+  border-radius: 14px;
+  padding: 14px;
+  background: radial-gradient(circle at top, rgba(255,255,255,0.04), rgba(0,0,0,0.06));
+}
+
+.nodeMockHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid;
+}
+
+.nodeMockAccent {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.nodeMockTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.nodeMockCategory {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.nodePreview {
+  height: 108px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background-color: rgba(255,255,255,0.03);
+}
+
+.previewFrame {
+  background:
+    radial-gradient(circle at 20% 30%, rgba(255,0,170,0.55), transparent 30%),
+    radial-gradient(circle at 72% 38%, rgba(0,190,255,0.52), transparent 28%),
+    radial-gradient(circle at 45% 75%, rgba(168,255,0,0.45), transparent 34%),
+    linear-gradient(135deg, rgba(5,12,22,0.95), rgba(20,10,28,0.92));
+}
+
+.previewColor {
+  background:
+    linear-gradient(135deg, rgba(255,210,74,0.95), rgba(255,77,141,0.95));
+}
+
+.previewPalette {
+  background:
+    linear-gradient(90deg, #00ffff 0%, #00bfff 22%, #a8ff00 45%, #ffd24a 65%, #ff4d8d 82%, #ff00ff 100%);
+}
+
+.previewSignal {
+  background:
+    linear-gradient(180deg, rgba(7,12,20,0.96), rgba(11,17,28,0.94)),
+    linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.01));
+  position: relative;
+}
+
+.previewSignal::after {
+  content: '';
+  position: absolute;
+  inset: 22px 16px;
+  border-radius: 10px;
+  background:
+    linear-gradient(transparent 49%, rgba(255,255,255,0.08) 50%, transparent 51%),
+    linear-gradient(90deg, transparent 7%, rgba(255,255,255,0.06) 8%, transparent 9%, transparent 17%, rgba(255,255,255,0.06) 18%, transparent 19%),
+    linear-gradient(120deg, rgba(0,224,164,0.1), rgba(0,191,255,0.08));
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+}
+
+.previewAudio {
+  background:
+    linear-gradient(180deg, rgba(7,12,20,0.96), rgba(11,17,28,0.94));
+  position: relative;
+}
+
+.previewAudio::after {
+  content: '';
+  position: absolute;
+  inset: 20px 16px;
+  border-radius: 10px;
+  background:
+    linear-gradient(90deg,
+      rgba(0,224,164,0.15) 0 8%,
+      rgba(0,224,164,0.8) 8% 12%,
+      transparent 12% 18%,
+      rgba(0,191,255,0.82) 18% 24%,
+      transparent 24% 30%,
+      rgba(255,77,141,0.82) 30% 36%,
+      transparent 36% 42%,
+      rgba(168,255,0,0.82) 42% 50%,
+      transparent 50% 58%,
+      rgba(255,210,74,0.82) 58% 66%,
+      transparent 66% 100%);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+}
+
+.previewField {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255,210,74,0.26), transparent 34%),
+    repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,0.06) 0 6px, transparent 6px 15px),
+    linear-gradient(135deg, rgba(20,10,5,0.95), rgba(14,16,28,0.95));
+}
+
+.previewControl {
+  background:
+    linear-gradient(135deg, rgba(0,191,255,0.18), rgba(255,165,0,0.18)),
+    linear-gradient(180deg, rgba(10,14,24,0.96), rgba(10,13,22,0.96));
+}
+
+.nodePorts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.portColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.portColumnTitle {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.portRow {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.portDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.portType {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.portEmpty {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.propertyPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.propertyPill,
+.propertyPillMuted {
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.05);
+  color: var(--text-secondary);
+}
+
+.propertyPill strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.propertyPillMuted {
+  border: 1px dashed rgba(255,255,255,0.12);
+}
+
+.contentGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.infoBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.02);
+}
+
+.infoTitle {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.infoList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.infoItem {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.propertyGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.propertyRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 4px 10px;
+}
+
+.propertyName {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.propertyValue {
+  font-size: 12px;
+  color: var(--text-primary);
+  text-align: right;
+}
+
+.propertyHint {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.emptyState {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.graphCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background:
+    radial-gradient(circle at top left, rgba(0,191,255,0.08), transparent 28%),
+    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015));
+}
+
+.graphHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.graphTitle {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.graphResult {
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.graphCanvas {
+  position: relative;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.graphEdges {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.graphEdge {
+  fill: none;
+  stroke: rgba(90, 209, 255, 0.9);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 6px rgba(90, 209, 255, 0.35));
+}
+
+.graphNode {
+  position: absolute;
+  width: 130px;
+  min-height: 58px;
+  padding: 9px 11px 9px 13px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(7, 12, 20, 0.92);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.graphNodeHighlight {
+  background: rgba(10, 18, 28, 0.98);
+}
+
+.graphNodeBar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  border-radius: 12px 0 0 12px;
+}
+
+.graphNodeLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  padding-left: 2px;
+}
+
+.graphNodeType {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  padding-left: 2px;
+}
+
+.graphExplanation {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 900px) {
+  .contentGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .nodePorts {
+    grid-template-columns: 1fr;
+  }
+
+  .nodeSummary {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .nodeSummaryMeta {
+    white-space: normal;
+  }
+}

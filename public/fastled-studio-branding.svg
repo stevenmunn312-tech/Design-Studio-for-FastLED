@@ -1,0 +1,147 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 420" role="img" aria-labelledby="title desc">
+  <title id="title">FastLED Studio branding</title>
+  <desc id="desc">Transparent FastLED Studio logo lockup with icon, wordmark, and tagline.</desc>
+
+  <defs>
+    <radialGradient id="led-r" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff00ff" stop-opacity="1"/>
+      <stop offset="60%" stop-color="#ff00ff" stop-opacity="0.65"/>
+      <stop offset="100%" stop-color="#ff00ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="led-c" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00ffff" stop-opacity="1"/>
+      <stop offset="60%" stop-color="#00ffff" stop-opacity="0.65"/>
+      <stop offset="100%" stop-color="#00ffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="led-g" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#a8ff00" stop-opacity="1"/>
+      <stop offset="60%" stop-color="#a8ff00" stop-opacity="0.65"/>
+      <stop offset="100%" stop-color="#a8ff00" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="led-b" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00bfff" stop-opacity="1"/>
+      <stop offset="60%" stop-color="#00bfff" stop-opacity="0.65"/>
+      <stop offset="100%" stop-color="#00bfff" stop-opacity="0"/>
+    </radialGradient>
+
+    <filter id="soft-cyan-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="14" result="blur"/>
+      <feColorMatrix
+        in="blur"
+        type="matrix"
+        values="0 0 0 0 0
+                0 0 0 0 1
+                0 0 0 0 1
+                0 0 0 0.55 0"
+      />
+    </filter>
+
+    <filter id="soft-magenta-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="14" result="blur"/>
+      <feColorMatrix
+        in="blur"
+        type="matrix"
+        values="0 0 0 0 1
+                0 0 0 0 0
+                0 0 0 0 1
+                0 0 0 0.35 0"
+      />
+    </filter>
+
+    <filter id="wordmark-glow" x="-25%" y="-25%" width="150%" height="150%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feColorMatrix
+        in="blur"
+        type="matrix"
+        values="0 0 0 0 0
+                0 0 0 0 0.95
+                0 0 0 0 1
+                0 0 0 0.22 0"
+      />
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <linearGradient id="tagline-accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00ffff"/>
+      <stop offset="55%" stop-color="#00bfff"/>
+      <stop offset="100%" stop-color="#a8ff00"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(24 22)">
+    <circle cx="126" cy="188" r="92" fill="#00ffff" opacity="0.12" filter="url(#soft-cyan-glow)"/>
+    <circle cx="160" cy="160" r="82" fill="#ff00ff" opacity="0.08" filter="url(#soft-magenta-glow)"/>
+
+    <g transform="translate(12 18) scale(0.36)">
+      <circle cx="112" cy="112" r="44" fill="url(#led-c)"/>
+      <circle cx="208" cy="112" r="44" fill="url(#led-r)"/>
+      <circle cx="304" cy="112" r="44" fill="url(#led-r)"/>
+      <circle cx="400" cy="112" r="44" fill="url(#led-c)"/>
+
+      <circle cx="112" cy="208" r="44" fill="url(#led-r)"/>
+      <circle cx="208" cy="208" r="44" fill="url(#led-g)"/>
+      <circle cx="304" cy="208" r="44" fill="url(#led-b)"/>
+      <circle cx="400" cy="208" r="44" fill="url(#led-r)"/>
+
+      <circle cx="112" cy="304" r="44" fill="url(#led-r)"/>
+      <circle cx="208" cy="304" r="44" fill="url(#led-b)"/>
+      <circle cx="304" cy="304" r="44" fill="url(#led-g)"/>
+      <circle cx="400" cy="304" r="44" fill="url(#led-r)"/>
+
+      <circle cx="112" cy="400" r="44" fill="url(#led-c)"/>
+      <circle cx="208" cy="400" r="44" fill="url(#led-r)"/>
+      <circle cx="304" cy="400" r="44" fill="url(#led-r)"/>
+      <circle cx="400" cy="400" r="44" fill="url(#led-c)"/>
+
+      <circle cx="112" cy="112" r="16" fill="#00ffff" opacity="0.95"/>
+      <circle cx="208" cy="112" r="16" fill="#ff00ff" opacity="0.95"/>
+      <circle cx="304" cy="112" r="16" fill="#ff00ff" opacity="0.95"/>
+      <circle cx="400" cy="112" r="16" fill="#00ffff" opacity="0.95"/>
+
+      <circle cx="112" cy="208" r="16" fill="#ff00ff" opacity="0.95"/>
+      <circle cx="208" cy="208" r="16" fill="#a8ff00" opacity="0.95"/>
+      <circle cx="304" cy="208" r="16" fill="#00bfff" opacity="0.95"/>
+      <circle cx="400" cy="208" r="16" fill="#ff00ff" opacity="0.95"/>
+
+      <circle cx="112" cy="304" r="16" fill="#ff00ff" opacity="0.95"/>
+      <circle cx="208" cy="304" r="16" fill="#00bfff" opacity="0.95"/>
+      <circle cx="304" cy="304" r="16" fill="#a8ff00" opacity="0.95"/>
+      <circle cx="400" cy="304" r="16" fill="#ff00ff" opacity="0.95"/>
+
+      <circle cx="112" cy="400" r="16" fill="#00ffff" opacity="0.95"/>
+      <circle cx="208" cy="400" r="16" fill="#ff00ff" opacity="0.95"/>
+      <circle cx="304" cy="400" r="16" fill="#ff00ff" opacity="0.95"/>
+      <circle cx="400" cy="400" r="16" fill="#00ffff" opacity="0.95"/>
+    </g>
+  </g>
+
+  <g transform="translate(260 136)">
+    <text
+      x="0"
+      y="0"
+      fill="#f5fbff"
+      font-family="Segoe UI, Arial, sans-serif"
+      font-size="108"
+      font-weight="800"
+      letter-spacing="2.5"
+      filter="url(#wordmark-glow)"
+    >
+      FastLED Studio
+    </text>
+
+    <text
+      x="2"
+      y="74"
+      fill="url(#tagline-accent)"
+      font-family="Segoe UI, Arial, sans-serif"
+      font-size="33"
+      font-weight="600"
+      letter-spacing="1.8"
+    >
+      A node-based visual designer for FastLED
+    </text>
+  </g>
+</svg>
