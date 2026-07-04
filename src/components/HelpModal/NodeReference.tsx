@@ -575,6 +575,15 @@ function matchesNode(node: NodeDefinition, search: string, category: FilterCateg
   return haystack.includes(search)
 }
 
+function searchRank(node: NodeDefinition, search: string): number {
+  const label = node.label.toLowerCase()
+  const type = node.type.toLowerCase()
+  if (label === search || type === search) return 0
+  if (label.startsWith(search) || type.startsWith(search)) return 1
+  if (label.includes(search) || type.includes(search)) return 2
+  return 3
+}
+
 function colorSwatch(node: NodeDefinition): string | null {
   const props = node.defaultProperties ?? {}
   const red = typeof props.r === 'number' ? props.r : null
@@ -586,6 +595,42 @@ function colorSwatch(node: NodeDefinition): string | null {
 
 function previewClass(node: NodeDefinition): string {
   return PREVIEW_CLASS_BY_TYPE[node.outputs[0]?.dataType ?? 'frame'] ?? styles.previewControl
+}
+
+function describePort(dataType: string, direction: 'input' | 'output'): string {
+  const descriptions: Record<string, string> = {
+    audio: 'a live microphone or analysed audio stream',
+    bool: 'a true/false gate or one-frame trigger',
+    color: 'a single RGB colour',
+    field: 'a scalar value for every matrix coordinate',
+    float: 'a numeric control signal',
+    frame: 'a complete LED matrix frame',
+    palette: 'a reusable gradient of colours',
+    patternset: 'a collection of saved pattern groups',
+    sdcard: 'an SD-card provisioning configuration',
+    shows: 'a set of generated, timed show files',
+    songs: 'a library of analysed music tracks',
+    transitionset: 'a curated set of transition styles',
+  }
+  const value = descriptions[dataType] ?? `a ${humanizeText(dataType)} value`
+  return direction === 'input'
+    ? `Accepts ${value}. Leave it unwired to use the node's own setting where available.`
+    : `Provides ${value} to compatible downstream nodes.`
+}
+
+function describeProperty(node: NodeDefinition, key: string): string {
+  const meta = propertyMeta(node.type, key)
+  if (meta?.control === 'slider') {
+    return `Adjusts ${humanizeText(key).toLowerCase()} from ${formatNumber(meta.min)} to ${formatNumber(meta.max)}.`
+  }
+  if (meta?.control === 'select') {
+    return `Chooses how the node handles ${humanizeText(key).toLowerCase()}. Available options: ${meta.options.join(', ')}.`
+  }
+  const value = node.defaultProperties?.[key]
+  if (typeof value === 'boolean') return `Turns ${humanizeText(key).toLowerCase()} on or off.`
+  if (typeof value === 'number') return `Sets the default ${humanizeText(key).toLowerCase()} value.`
+  if (typeof value === 'string') return `Sets the ${humanizeText(key).toLowerCase()} used by the node.`
+  return `Configures ${humanizeText(key).toLowerCase()} for this node.`
 }
 
 function GraphScreenshot({ recipe }: { recipe: ExampleRecipe }) {
@@ -612,7 +657,7 @@ function GraphScreenshot({ recipe }: { recipe: ExampleRecipe }) {
   return (
     <div className={styles.graphCard}>
       <div className={styles.graphHeader}>
-        <div className={styles.graphTitle}>Graph Screenshot</div>
+        <div className={styles.graphTitle}>Example graph</div>
         <div className={styles.graphResult}>{recipe.result}</div>
       </div>
       <div className={styles.graphCanvas} style={{ minHeight: height }}>
@@ -658,126 +703,140 @@ function GraphScreenshot({ recipe }: { recipe: ExampleRecipe }) {
   )
 }
 
-function NodeHero({ node }: { node: NodeDefinition }) {
+function NodeScreenshot({ node }: { node: NodeDefinition }) {
   const swatch = colorSwatch(node)
   const properties = propertyEntries(node)
   const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
   const previewStyle = swatch ? { background: swatch } : undefined
   return (
-    <div className={styles.hero}>
-      <div className={styles.heroLabel}>Node Image</div>
-      <div className={styles.nodeMock} style={{ borderColor: `${accent}66`, boxShadow: `0 0 0 1px ${accent}33, inset 0 1px 0 rgba(255,255,255,0.04)` }}>
-        <div className={styles.nodeMockHeader} style={{ borderBottomColor: `${accent}55` }}>
-          <div className={styles.nodeMockAccent} style={{ background: accent }} />
-          <div>
-            <div className={styles.nodeMockTitle}>{node.label}</div>
-            <div className={styles.nodeMockCategory}>{categoryLabel(node.category)}</div>
+    <figure className={styles.nodeFigure}>
+      <div className={styles.nodeStage}>
+        <div className={styles.nodeMock}>
+          <div className={styles.nodeMockHeader} style={{ background: accent }}>
+            {node.label}
+            <span>{categoryLabel(node.category)}</span>
           </div>
-        </div>
-        <div className={`${styles.nodePreview} ${previewClass(node)}`} style={previewStyle} />
-        <div className={styles.nodePorts}>
-          <div className={styles.portColumn}>
-            <div className={styles.portColumnTitle}>Inputs</div>
-            {node.inputs.length === 0 && <div className={styles.portEmpty}>None</div>}
-            {node.inputs.map((input) => (
-              <div key={input.id} className={styles.portRow}>
-                <span className={styles.portDot} style={{ background: portColor(input.dataType) }} />
-                <span>{input.label}</span>
-                <span className={styles.portType}>{input.dataType}</span>
+          <div className={styles.nodeMockBody}>
+            {node.outputs.length > 0 && <div className={`${styles.nodePreview} ${previewClass(node)}`} style={previewStyle} />}
+            <div className={styles.socketRows}>
+              {Array.from({ length: Math.max(node.inputs.length, node.outputs.length, 1) }, (_, index) => {
+                const input = node.inputs[index]
+                const output = node.outputs[index]
+                return (
+                  <div className={styles.socketRow} key={`${input?.id ?? 'none'}-${output?.id ?? 'none'}-${index}`}>
+                    <span className={styles.socketSide}>
+                      {input && <><i style={{ background: portColor(input.dataType) }} />{input.label}</>}
+                    </span>
+                    <span className={`${styles.socketSide} ${styles.socketSideOutput}`}>
+                      {output && <>{output.label}<i style={{ background: portColor(output.dataType) }} /></>}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+            {properties.length > 0 && (
+              <div className={styles.nodeMockProperties}>
+                {properties.slice(0, 5).map(([key, value]) => (
+                  <div className={styles.nodeMockProperty} key={key}>
+                    <span>{humanizePropertyKey(key)}</span>
+                    <b>{formatPropertyValue(value)}</b>
+                  </div>
+                ))}
+                {properties.length > 5 && <div className={styles.moreProperties}>+ {properties.length - 5} more properties</div>}
               </div>
-            ))}
+            )}
           </div>
-          <div className={styles.portColumn}>
-            <div className={styles.portColumnTitle}>Outputs</div>
-            {node.outputs.length === 0 && <div className={styles.portEmpty}>None</div>}
-            {node.outputs.map((output) => (
-              <div key={output.id} className={styles.portRow}>
-                <span className={styles.portDot} style={{ background: portColor(output.dataType) }} />
-                <span>{output.label}</span>
-                <span className={styles.portType}>{output.dataType}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className={styles.propertyPills}>
-          {properties.length === 0 && <span className={styles.propertyPillMuted}>No inline properties</span>}
-          {properties.map(([key, value]) => (
-            <span key={key} className={styles.propertyPill}>
-              <strong>{humanizePropertyKey(key)}:</strong> {formatPropertyValue(value)}
-            </span>
-          ))}
         </div>
       </div>
-    </div>
+      <figcaption>The {node.label} node as it appears on the canvas. Socket colours indicate compatible data types.</figcaption>
+    </figure>
   )
 }
 
-function NodeCard({ node, openByDefault }: { node: NodeDefinition; openByDefault: boolean }) {
+function PortSection({ title, ports, direction }: { title: string; ports: NodeDefinition['inputs']; direction: 'input' | 'output' }) {
+  return (
+    <section className={styles.manualSection}>
+      <h2>{title}</h2>
+      {ports.length === 0 ? (
+        <p className={styles.emptyState}>This node has no {direction}s.</p>
+      ) : (
+        <dl className={styles.definitionList}>
+          {ports.map((port) => (
+            <div className={styles.definitionItem} key={port.id}>
+              <dt><i style={{ background: portColor(port.dataType) }} />{port.label}<code>{port.dataType}</code></dt>
+              <dd>{describePort(port.dataType, direction)}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </section>
+  )
+}
+
+function NodeArticle({ node }: { node: NodeDefinition }) {
   const properties = propertyEntries(node)
   const useCases = buildUseCases(node)
   const recipe = buildExampleRecipe(node)
   const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
   return (
-    <details className={styles.nodeCard} open={openByDefault}>
-      <summary className={styles.nodeSummary}>
-        <div className={styles.nodeSummaryMain}>
-          <div className={styles.nodeSummaryTitleRow}>
-            <div className={styles.nodeSummaryAccent} style={{ background: accent }} />
-            <div className={styles.nodeSummaryTitle}>{node.label}</div>
-            <span className={styles.nodeBadge}>{categoryLabel(node.category)}</span>
-          </div>
-          <div className={styles.nodeSummaryDesc}>{NODE_DESCRIPTIONS[node.type]}</div>
+    <article className={styles.article} style={{ '--node-accent': accent } as React.CSSProperties}>
+      <div className={styles.breadcrumb}>{categoryLabel(node.category)} nodes <span>/</span> {node.label}</div>
+      <header className={styles.articleHeader}>
+        <div>
+          <div className={styles.eyebrow}><i style={{ background: accent }} />{categoryLabel(node.category)}</div>
+          <h1>{node.label}</h1>
+          <p>{NODE_DESCRIPTIONS[node.type]}</p>
         </div>
-        <div className={styles.nodeSummaryMeta}>
-          <span>{node.inputs.length} in</span>
-          <span>{node.outputs.length} out</span>
-          <span>{properties.length} props</span>
+        <div className={styles.articleMeta}>{node.inputs.length} inputs · {node.outputs.length} outputs · {properties.length} properties</div>
+      </header>
+
+      <NodeScreenshot node={node} />
+
+      <section className={styles.manualSection}>
+        <h2>Overview</h2>
+        <div className={styles.proseList}>
+          {useCases.map((useCase) => <p key={useCase}>{useCase}</p>)}
         </div>
-      </summary>
+      </section>
 
-      <div className={styles.nodeBody}>
-        <NodeHero node={node} />
+      <PortSection title="Inputs" ports={node.inputs} direction="input" />
 
-        <div className={styles.contentGrid}>
-          <section className={styles.infoBlock}>
-            <div className={styles.infoTitle}>Typical Use Cases</div>
-            <div className={styles.infoList}>
-              {useCases.map((useCase) => (
-                <div key={useCase} className={styles.infoItem}>{useCase}</div>
-              ))}
-            </div>
-          </section>
-
-          <section className={styles.infoBlock}>
-            <div className={styles.infoTitle}>Properties</div>
-            {properties.length === 0 ? (
-              <div className={styles.emptyState}>No inline properties. This node is configured mostly by its incoming connections or by its node-specific UI.</div>
-            ) : (
-              <div className={styles.propertyGrid}>
-                {properties.map(([key, value]) => (
-                  <div key={key} className={styles.propertyRow}>
-                    <div className={styles.propertyName}>{humanizePropertyKey(key)}</div>
-                    <div className={styles.propertyValue}>{formatPropertyValue(value)}</div>
-                    <div className={styles.propertyHint}>{describeControl(node, key)}</div>
-                  </div>
-                ))}
+      <section className={styles.manualSection}>
+        <h2>Properties</h2>
+        {properties.length === 0 ? (
+          <p className={styles.emptyState}>This node has no standard inline properties. Configure it with its sockets or node-specific controls.</p>
+        ) : (
+          <dl className={styles.definitionList}>
+            {properties.map(([key, value]) => (
+              <div className={styles.definitionItem} key={key}>
+                <dt>{humanizePropertyKey(key)} <span className={styles.defaultValue}>Default: {formatPropertyValue(value)}</span></dt>
+                <dd>{describeProperty(node, key)} <span className={styles.controlHint}>{describeControl(node, key)}.</span></dd>
               </div>
-            )}
-          </section>
-        </div>
+            ))}
+          </dl>
+        )}
+      </section>
 
+      <PortSection title="Outputs" ports={node.outputs} direction="output" />
+
+      <section className={styles.manualSection}>
+        <h2>Example</h2>
         <GraphScreenshot recipe={recipe} />
-      </div>
-    </details>
+      </section>
+    </article>
   )
 }
 
 export default function NodeReference() {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<FilterCategory>('all')
+  const [selectedType, setSelectedType] = useState(NODE_LIBRARY[0]?.type ?? '')
   const deferredSearch = useDeferredValue(search.trim().toLowerCase())
   const visibleNodes = NODE_LIBRARY.filter((node) => matchesNode(node, deferredSearch, category))
-  const orderedVisibleNodes = CATEGORY_ORDER.flatMap((group) => visibleNodes.filter((node) => node.category === group))
+  const orderedVisibleNodes = deferredSearch
+    ? [...visibleNodes].sort((a, b) => searchRank(a, deferredSearch) - searchRank(b, deferredSearch) || a.label.localeCompare(b.label))
+    : CATEGORY_ORDER.flatMap((group) => visibleNodes.filter((node) => node.category === group))
+  const selectedNode = orderedVisibleNodes.find((node) => node.type === selectedType) ?? orderedVisibleNodes[0]
   const categoryCounts = CATEGORY_ORDER.reduce<Record<string, number>>((acc, group) => {
     acc[group] = NODE_LIBRARY.filter((node) => node.category === group).length
     return acc
@@ -785,14 +844,11 @@ export default function NodeReference() {
 
   return (
     <div className={styles.reference}>
-      <div className={styles.referenceIntro}>
-        <div className={styles.referenceTitle}>Node Reference</div>
-        <div className={styles.referenceText}>
-          Every node below includes a node image, common use cases, its editable properties, and a canvas-style example showing how it fits into a working graph.
+      <aside className={styles.directory} aria-label="Node reference index">
+        <div className={styles.directoryHeader}>
+          <div className={styles.referenceTitle}>Node reference</div>
+          <div className={styles.referenceText}>Choose a node to read its manual page.</div>
         </div>
-      </div>
-
-      <div className={styles.toolbar}>
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
@@ -800,7 +856,7 @@ export default function NodeReference() {
           placeholder="Search nodes, ports, properties, or descriptions..."
           aria-label="Search node reference"
         />
-        <div className={styles.filterRow}>
+        <div className={styles.filterRow} aria-label="Filter by category">
           <button
             className={`${styles.filterChip} ${category === 'all' ? styles.filterChipActive : ''}`}
             onClick={() => setCategory('all')}
@@ -821,13 +877,28 @@ export default function NodeReference() {
               </button>
             ))}
         </div>
-        <div className={styles.resultsLine}>{orderedVisibleNodes.length} matching nodes</div>
-      </div>
+        <div className={styles.resultsLine}>{orderedVisibleNodes.length} nodes</div>
+        <nav className={styles.nodeIndex}>
+          {orderedVisibleNodes.map((node) => {
+            const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
+            return (
+              <button
+                key={node.type}
+                type="button"
+                className={`${styles.indexItem} ${selectedNode?.type === node.type ? styles.indexItemActive : ''}`}
+                onClick={() => setSelectedType(node.type)}
+              >
+                <i style={{ background: accent }} />
+                <span><b>{node.label}</b><small>{categoryLabel(node.category)}</small></span>
+              </button>
+            )
+          })}
+          {orderedVisibleNodes.length === 0 && <div className={styles.noResults}>No nodes match “{search}”.</div>}
+        </nav>
+      </aside>
 
-      <div className={styles.nodeList}>
-        {orderedVisibleNodes.map((node) => (
-          <NodeCard key={node.type} node={node} openByDefault={deferredSearch.length > 0} />
-        ))}
+      <div className={styles.reader}>
+        {selectedNode && <NodeArticle key={selectedNode.type} node={selectedNode} />}
       </div>
     </div>
   )

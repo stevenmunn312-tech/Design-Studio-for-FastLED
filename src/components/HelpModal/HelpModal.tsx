@@ -273,7 +273,7 @@ export default function HelpModal() {
           ))}
         </div>
 
-        <div className={styles.body}>
+        <div className={`${styles.body} ${tab === 'nodes' ? styles.bodyNodeReference : ''}`}>
           {tab === 'quickstart' && <QuickStartTab />}
           {tab === 'shortcuts' && <ShortcutsTab />}
           {tab === 'nodes' && <NodeReference />}
