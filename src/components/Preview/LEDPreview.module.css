@@ -104,13 +104,13 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  /* Claim a real share of the column height (grow=1) rather than hugging the
-     canvas. The canvas size is measured off this wrap; if the wrap sizes to its
-     own content (flex-grow 0), that measurement feeds back into the canvas
-     height with gain ~1 and the matrix collapses when gridH grows (e.g. 32×32).
-     Growing to fill makes the height layout-driven and stable, so the width
-     term binds and the matrix fills the panel at any grid size. */
-  flex: 1 1 auto;
+  /* Grow to fill so the canvas measurement (availableCanvasH in LEDPreview.tsx)
+     is layout-driven and stable. If this wrap hugs its own content instead
+     (flex-grow 0), the measured size feeds back into the canvas size and the
+     matrix drifts. We keep a low grow weight vs the visualizer below (which
+     grows faster) so this wrap keeps only a little slack and the wordmark gets
+     the rest of the column height. */
+  flex: 1 6 auto;
   min-height: 0;
   overflow: hidden;
 }
@@ -188,7 +188,9 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
+  /* Grow faster than the canvas wrap above so the spare column height lands
+     here (spectrum + wordmark) rather than as dead space around the canvas. */
+  flex: 6 1 auto;
   min-height: 0;
   padding: 6px var(--space-2) 12px;
   border-top: 1px solid var(--border-glow);
@@ -263,10 +265,11 @@
 .spectrum {
   position: relative;
   z-index: 1;
-  /* Shares the visualizer's spare height with the branding below (2:1), so the
-     bars stay a moderate height instead of filling the whole panel. */
-  flex: 2 1 0;
-  min-height: 72px;
+  /* Shares the visualizer's spare height with the branding below — the wordmark
+     gets the larger share so it reads as a footer, while the bars keep a
+     moderate floor. */
+  flex: 1 1 0;
+  min-height: 52px;
   display: flex;
   align-items: flex-end;
   gap: 4px;
@@ -520,11 +523,16 @@
   position: relative;
   z-index: 0;
   /* An in-flow footer that takes the remaining spare height below the controls
-     and centres the wordmark in it — never overlapping the transport. */
-  flex: 1 1 0;
-  min-height: 0;
+     and anchors the wordmark to the bottom of it — never overlapping the
+     transport. */
+  flex: 1.6 1 0;
+  /* Reserve real footer height so a tall (square) canvas in a short panel
+     yields column height to the wordmark instead of collapsing it — the canvas
+     wrap has a high flex-shrink, so this min-height pushes the canvas smaller
+     rather than squashing the logo. */
+  min-height: 72px;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
   margin-top: 10px;
   overflow: hidden;
@@ -532,9 +540,12 @@
 
 .brandLogo {
   display: block;
-  width: min(55%, 200px);
-  max-height: 100%;
+  /* Aspect-preserving: fill up to 340px wide, but scale down by height when the
+     footer space is short so the wordmark never squishes. */
+  width: auto;
   height: auto;
+  max-width: min(92%, 340px);
+  max-height: 100%;
   opacity: 0.4;
   filter: drop-shadow(0 0 10px rgba(0, 240, 255, 0.1));
   pointer-events: none;
