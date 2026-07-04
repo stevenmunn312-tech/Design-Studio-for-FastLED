@@ -1007,8 +1007,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     label: 'Pattern Master',
     category: 'pattern',
     inputs: [
-      { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
-      { id: 'beat',       label: 'Beat',     dataType: 'bool' },
+      { id: 'patternset',  label: 'Patterns',    dataType: 'patternset' },
+      { id: 'transitions', label: 'Transitions', dataType: 'transitionset' },
+      { id: 'beat',        label: 'Beat',        dataType: 'bool' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {

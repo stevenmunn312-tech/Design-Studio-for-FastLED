@@ -230,7 +230,21 @@ function migrateLegacyGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes: 
     ))
       ? [...outputs, { id: 'frame', label: 'Frame', dataType: 'frame' }]
       : outputs
-    return { ...n, data: { ...data, nodeType, label, category, properties, outputs: migratedOutputs } }
+    // Likewise, give existing Pattern Masters the new `transitions` input (a
+    // wired TransitionSet pool) — inserted after `patternset` to match new nodes.
+    const inputs = Array.isArray(data.inputs) ? data.inputs : []
+    const hasPort = (id: string) => inputs.some((port) => (
+      typeof port === 'object' && port !== null && 'id' in port && port.id === id
+    ))
+    let migratedInputs = inputs
+    if (nodeType === 'PatternMaster' && !hasPort('transitions')) {
+      const transPort = { id: 'transitions', label: 'Transitions', dataType: 'transitionset' }
+      const idx = inputs.findIndex((port) => (
+        typeof port === 'object' && port !== null && 'id' in port && port.id === 'patternset'
+      ))
+      migratedInputs = idx >= 0 ? [...inputs.slice(0, idx + 1), transPort, ...inputs.slice(idx + 1)] : [...inputs, transPort]
+    }
+    return { ...n, data: { ...data, nodeType, label, category, properties, inputs: migratedInputs, outputs: migratedOutputs } }
   })
   const migratedEdges = edges.map((e) => {
     const rename = handleRenames.get(e.target)

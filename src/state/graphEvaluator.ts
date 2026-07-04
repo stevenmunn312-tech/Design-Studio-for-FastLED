@@ -2863,11 +2863,16 @@ function createEvalNode(
             new Set([...groupStack, gid]), {}, audioOverride,
           ) ?? blankFrame(W, H)
         }
+        // A wired TransitionSet's pool overrides the on-node chip grid (which
+        // becomes the unwired fallback) — the same node type feeds the pool to
+        // both PatternMaster and PerformanceGenerator.
+        const wiredPool = input(id, 'transitions', null) as string[] | null
+        const pool = (wiredPool && wiredPool.length ? wiredPool : (props.transitions as string[] | undefined)) ?? ['crossfade']
         const o = {
           minTime: Number(props.minTime ?? 4),
           maxTime: Number(props.maxTime ?? 12),
           transSec: Number(props.transitionSec ?? 1),
-          pool: (props.transitions as string[] | undefined) ?? ['crossfade'],
+          pool,
           beatEnabled: incoming.has(`${id}:beat`),
         }
         out = { frame: evalPatternShow(stateKey(id), ids, render, beat, o, t, W, H) }
