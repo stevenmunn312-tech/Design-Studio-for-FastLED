@@ -15,6 +15,8 @@ import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import { customPaletteDeclarationsCpp } from '../state/paletteCatalog'
 import { generateCpp, audioEngineForGraph } from './cppGenerator'
+import { SHOW_TRANSITIONS } from './performanceGenerator'
+import { TRANSITION_HELPER_CPP } from './transitionHelperCpp'
 
 const nodeType = (n: StudioNode) => (n.data as { nodeType?: string }).nodeType
 const props = (n: StudioNode) => n.data.properties as Record<string, unknown>
@@ -29,6 +31,22 @@ interface ShowInfo {
   minTime: number
   maxTime: number
   transitionSec: number
+  /** Transition style ids (0–15) the show draws from at random. */
+  transitionIds: number[]
+  /** Whether a beat is wired into the Pattern Master (advances early on beat). */
+  beatWired: boolean
+}
+
+// The transition pool: a wired TransitionSet overrides the Pattern Master's own
+// chip-grid pool (matching the evaluator). Names → style ids via SHOW_TRANSITIONS
+// so preview and firmware pick from the same set.
+function transitionPool(nodes: StudioNode[], edges: StudioEdge[], master: StudioNode): number[] {
+  const link = edges.find((e) => e.target === master.id && e.targetHandle === 'transitions')
+  const set = link && nodes.find((n) => n.id === link.source && nodeType(n) === 'TransitionSet')
+  const wired = set ? ((props(set).transitions as string[] | undefined) ?? []) : []
+  const names = wired.length ? wired : ((props(master).transitions as string[] | undefined) ?? ['crossfade'])
+  const ids = names.map((n) => SHOW_TRANSITIONS.indexOf(n)).filter((i) => i >= 0)
+  return ids.length ? ids : [0]
 }
 
 // Resolve the PatternMaster + the collection feeding its patternset input.
@@ -44,6 +62,8 @@ function showInfo(nodes: StudioNode[], edges: StudioEdge[]): ShowInfo | null {
     minTime: Number(p.minTime ?? 4),
     maxTime: Number(p.maxTime ?? 12),
     transitionSec: Number(p.transitionSec ?? 1),
+    transitionIds: transitionPool(nodes, edges, master),
+    beatWired: edges.some((e) => e.target === master.id && e.targetHandle === 'beat'),
   }
 }
 
@@ -170,6 +190,8 @@ export function generateShowSketch(nodes: StudioNode[], edges: StudioEdge[], gro
   // pattern reacts on-device the same way it does in the live preview.
   const audio = audioEngineForGraph(nodes)
   const renderers = buildPatternRenderers(info.patternIds, groups, [], !!audio)
+  // A beat trigger needs a source on-device; the mic engine supplies _audioBeat.
+  const beatTrigger = info.beatWired && !!audio
 
   const L: string[] = []
   L.push('// FastLED Studio — generative pattern show (Phase 4, first slice)')
@@ -184,11 +206,18 @@ export function generateShowSketch(nodes: StudioNode[], edges: StudioEdge[], gro
   L.push('')
   L.push('CRGB leds[NUM_LEDS];')
   L.push('CRGB showA[NUM_LEDS];   // outgoing pattern during a transition')
+  L.push('CRGB showB[NUM_LEDS];   // incoming pattern during a transition')
   for (const b of renderers.buffers) L.push(b)
+  L.push('')
+  // The random pool of transition style ids the controller draws from.
+  L.push(`const uint8_t TRANS_POOL[] = { ${info.transitionIds.join(', ')} };`)
+  L.push(`#define TRANS_POOL_N ${info.transitionIds.length}`)
   L.push('')
   for (const decl of customPaletteDeclarationsCpp()) L.push(decl)
   L.push('')
   if (audio) { for (const line of audio.code) L.push(line); L.push('') }
+  L.push(TRANSITION_HELPER_CPP)
+  L.push('')
   for (const h of renderers.helpers) { L.push(h); L.push('') }
 
   for (const fn of renderers.functions) { L.push(fn); L.push('') }
@@ -209,13 +238,15 @@ export function generateShowSketch(nodes: StudioNode[], edges: StudioEdge[], gro
   L.push('}')
   L.push('')
 
-  // Controller: hold a random pattern for a random dwell, then crossfade to a
-  // new random one over transitionSec. Mirrors evalPatternShow (time-based).
+  // Controller: hold a random pattern for a random dwell, then transition (a
+  // random style from the pool) into a new random one over transitionSec. A
+  // wired beat (mic) advances early once minTime has elapsed. Mirrors
+  // evalPatternShow.
   const minMs = Math.round(info.minTime * 1000), maxMs = Math.round(info.maxTime * 1000)
   const transMs = Math.round(info.transitionSec * 1000)
   L.push('void loop() {')
   if (audio) L.push('  updateAudio();   // refresh mic band levels once per frame')
-  L.push('  static uint8_t  cur = random8(PATTERN_COUNT), nxt = 0;')
+  L.push('  static uint8_t  cur = random8(PATTERN_COUNT), nxt = 0, transType = 0;')
   L.push('  static bool     transitioning = false;')
   L.push('  static uint32_t phaseStart = 0, dwell = 0;')
   L.push('  uint32_t now = millis();')
@@ -223,18 +254,20 @@ export function generateShowSketch(nodes: StudioNode[], edges: StudioEdge[], gro
   L.push('')
   L.push('  if (!transitioning) {')
   L.push('    renderPattern(cur, now);')
-  L.push('    if (now - phaseStart >= dwell && PATTERN_COUNT > 1) {')
+  L.push('    bool timeUp = now - phaseStart >= dwell;')
+  if (beatTrigger) L.push(`    bool beatTrig = _audioBeat && now - phaseStart >= ${minMs};`)
+  const advance = beatTrigger ? '(timeUp || beatTrig)' : 'timeUp'
+  L.push(`    if (${advance} && PATTERN_COUNT > 1) {`)
   L.push('      nxt = (cur + 1 + random8(PATTERN_COUNT - 1)) % PATTERN_COUNT;')
+  L.push('      transType = TRANS_POOL[random8(TRANS_POOL_N)];')
   L.push('      transitioning = true; phaseStart = now;')
   L.push('    }')
   L.push('  } else {')
   L.push(`    float p = ${transMs} > 0 ? (float)(now - phaseStart) / ${transMs} : 1.0f;`)
   L.push('    if (p >= 1.0f) p = 1.0f;')
-  L.push('    renderPattern(cur, now);')
-  L.push('    ::memmove(showA, leds, sizeof(CRGB) * NUM_LEDS);  // outgoing')
-  L.push('    renderPattern(nxt, now);                          // incoming → leds')
-  L.push('    uint8_t mix = (uint8_t)(p * 255);')
-  L.push('    for (int i = 0; i < NUM_LEDS; i++) leds[i] = blend(showA[i], leds[i], mix);')
+  L.push('    renderPattern(cur, now); ::memmove(showA, leds, sizeof(CRGB) * NUM_LEDS);  // outgoing')
+  L.push('    renderPattern(nxt, now); ::memmove(showB, leds, sizeof(CRGB) * NUM_LEDS);  // incoming')
+  L.push('    compositeTransition(transType, leds, showA, showB, p);')
   L.push('    if (p >= 1.0f) { cur = nxt; transitioning = false; phaseStart = now; dwell = random16(' + minMs + ', ' + maxMs + '); }')
   L.push('  }')
   L.push('')

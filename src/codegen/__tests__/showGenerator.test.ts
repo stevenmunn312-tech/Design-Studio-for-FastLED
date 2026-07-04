@@ -38,8 +38,11 @@ describe('showGenerator', () => {
     expect(cpp).toContain('case 0: render_p0(ms); break;')
     expect(cpp).toContain('void setup()')
     expect(cpp).toContain('void loop()')
-    // The crossfade compositing between outgoing/incoming patterns.
-    expect(cpp).toContain('blend(showA[i], leds[i], mix)')
+    // Transitions are composited via the shared 16-style helper, picking a
+    // random style from the pool (crossfade-only pool → { 0 }).
+    expect(cpp).toContain('void compositeTransition(uint8_t type, CRGB* out')
+    expect(cpp).toContain('const uint8_t TRANS_POOL[] = { 0 };')
+    expect(cpp).toContain('compositeTransition(transType, leds, showA, showB, p)')
     // Each pattern's body actually renders (the SolidColor fill reaches leds).
     expect(cpp).toMatch(/render_p0[\s\S]*CRGB\(0, 0, 255\)[\s\S]*?\n\}/)
   })
@@ -47,6 +50,29 @@ describe('showGenerator', () => {
   it('handles a Pattern Master with no patterns', () => {
     const lone = [node('pm', 'PatternMaster', {}), node('out', 'MatrixOutput', {})]
     expect(generateShowSketch(lone, [], {})).toContain('no patterns')
+  })
+
+  it('draws the transition pool from a wired TransitionSet (names → style ids)', () => {
+    const withSet = [
+      ...nodes,
+      node('ts', 'TransitionSet', { transitions: ['iris', 'zoom'] }, [], [{ id: 'transitions', dataType: 'transitionset' }]),
+    ]
+    const withEdge = [...edges, edge('e3', 'ts', 'transitions', 'pm', 'transitions')]
+    const cpp = generateShowSketch(withSet, withEdge, groups)
+    expect(cpp).toContain('const uint8_t TRANS_POOL[] = { 3, 15 };')  // iris=3, zoom=15
+    expect(cpp).toContain('transType = TRANS_POOL[random8(TRANS_POOL_N)];')
+  })
+
+  it('adds a beat-triggered early advance only when a beat is wired and a mic hosts _audioBeat', () => {
+    // Beat wired but no MicInput → no on-device beat source, so time-based only.
+    const noMic = [...nodes]
+    const beatEdge = [...edges, edge('eb', 'pm', 'beat', 'pm', 'beat')]
+    expect(generateShowSketch(noMic, beatEdge, groups)).not.toContain('_audioBeat &&')
+
+    // Beat wired + a MicInput on the canvas → the controller hosts the engine
+    // and uses _audioBeat to advance early after minTime.
+    const withMic = [...nodes, node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })]
+    expect(generateShowSketch(withMic, beatEdge, groups)).toContain('_audioBeat && now - phaseStart >=')
   })
 
   describe('buildPatternRenderers — group-input roles', () => {

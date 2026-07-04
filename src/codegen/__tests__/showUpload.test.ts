@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { generateProvisionerSketch, PROVISION_CHUNK } from '../provisionerSketchGenerator'
 import { generatePlayerSketch, playerConfigFromGraph } from '../playerSketchGenerator'
+import { TRANSITION_HELPER_CPP } from '../transitionHelperCpp'
 
 describe('generateProvisionerSketch', () => {
   it('bakes the SD chip-select pin and chunk size into the sketch', () => {
@@ -70,6 +71,12 @@ describe('generatePlayerSketch', () => {
     expect(ino).toContain('case 1: {  // wipe')
     expect(ino).toContain('case 15: {  // zoom')
     expect(ino).toContain('compositeTransition(transType, leds, showA, showB, tp);')
+  })
+
+  it('emits the shared transition helper verbatim (parity with the generative show)', () => {
+    // Guards against drift between the player's copy and the shared module the
+    // generative-show sketch uses, so both composite transitions identically.
+    expect(generatePlayerSketch()).toContain(TRANSITION_HELPER_CPP)
   })
 
   it('overlays a particle burst on CMD_PARTICLE_BURST', () => {
