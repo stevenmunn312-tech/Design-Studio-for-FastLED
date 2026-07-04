@@ -1015,6 +1015,8 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: {
       minTime: 4, maxTime: 12, transitionSec: 1,
       transitions: ['crossfade', 'wipe', 'dissolve', 'iris', 'push', 'fadeblack'],
+      // Beat-triggered particle overlay (needs a wired beat). Off by default.
+      particles: false, particleStyle: 0, particleHue: 24, particleIntensity: 0.8,
     },
   },
   {
@@ -1543,6 +1545,10 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   // Audio-reactivity amount on the spectral pattern nodes (was `intensity`).
   energy:     { control: 'slider', min: 0, max: 1, step: 0.01 },
   brightness: { control: 'slider', min: 0, max: 1, step: 0.01 },
+  // Pattern Master beat-triggered particle overlay (style 0–10, hue 0–255).
+  particleStyle:     { control: 'slider', min: 0, max: 10, step: 1 },
+  particleHue:       { control: 'slider', min: 0, max: 255, step: 1 },
+  particleIntensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
   s:          { control: 'slider', min: 0, max: 1, step: 0.01 },
   v:          { control: 'slider', min: 0, max: 1, step: 0.01 },
   // 0–255 byte ranges (FastLED heat sim + CHSV channels).

@@ -63,6 +63,27 @@ describe('showGenerator', () => {
     expect(cpp).toContain('transType = TRANS_POOL[random8(TRANS_POOL_N)];')
   })
 
+  it('emits a beat-triggered particle overlay only with particles on, a beat wired, and a mic', () => {
+    const pmParticles = node('pm', 'PatternMaster', {
+      minTime: 4, maxTime: 12, transitionSec: 1,
+      particles: true, particleStyle: 3, particleHue: 200, particleIntensity: 0.9,
+    })
+    const base = [node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }), pmParticles,
+      node('out', 'MatrixOutput', { width: 8, height: 8 })]
+    const wire = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame'),
+      edge('eb', 'pm', 'beat', 'pm', 'beat')]
+
+    // No mic → no on-device beat source → no particle overlay.
+    expect(generateShowSketch(base, wire, groups)).not.toContain('void particleOverlay(')
+
+    // Mic present → the controller hosts _audioBeat and overlays sparks on the beat.
+    const withMic = [...base, node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })]
+    const cpp = generateShowSketch(withMic, wire, groups)
+    expect(cpp).toContain('void particleOverlay(')
+    expect(cpp).toContain('if (_audioBeat && !prevBeat) burstStart = now;')
+    expect(cpp).toContain('particleOverlay(burstStart, 3, 200, 0.9f, now);')
+  })
+
   it('adds a beat-triggered early advance only when a beat is wired and a mic hosts _audioBeat', () => {
     // Beat wired but no MicInput → no on-device beat source, so time-based only.
     const noMic = [...nodes]

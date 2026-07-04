@@ -8,7 +8,7 @@
 // applied on top. A TRANSITION event crossfades (or wipes/dissolves/…) from the
 // outgoing pattern to the incoming one over its `duration`, mirroring the device.
 
-import { evaluateGraph, compositeTransition, type Frame, type GroupRegistry, type PortValue, type AudioOverride } from './graphEvaluator'
+import { evaluateGraph, compositeTransition, renderParticleBurst, PARTICLE_LIFE_MS, type Frame, type GroupRegistry, type PortValue, type AudioOverride } from './graphEvaluator'
 import { showAudioOverride } from './showAudio'
 import { NODE_LIBRARY } from './nodeLibrary'
 import { isStudioPalette } from './paletteCatalog'
@@ -160,35 +160,11 @@ function activeTransitionAt(
 }
 
 // ── Particle-burst overlay ────────────────────────────────────────────────────
-// A PARTICLE_BURST spawns a fixed set of short-lived colored sparks that fade
-// out. Its `style` param picks one of eleven motions (see PARTICLE_STYLES in
-// performanceGenerator.ts). The motion is a pure function of the burst time +
-// spark index, so it is deterministic and mirrored exactly by the firmware
-// player (keep the switch below in sync with playerSketchGenerator's).
-export const PARTICLE_LIFE_MS = 600
-export const PARTICLE_COUNT = 16
-const TAU = Math.PI * 2
-
-// Hash → [0,1). The classic GLSL fract(sin(...)) hash, matched in the firmware
-// so preview and device spawn the same sparks.
-function prnd(n: number): number {
-  const s = Math.sin(n * 12.9898) * 43758.5453
-  return s - Math.floor(s)
-}
-
-function phsv(hue: number): { r: number; g: number; b: number } {
-  const h = ((hue / 255) * 360) % 360
-  const c = 1, x = c * (1 - Math.abs(((h / 60) % 2) - 1))
-  let r = 0, g = 0, b = 0
-  if (h < 60) { r = c; g = x } else if (h < 120) { r = x; g = c }
-  else if (h < 180) { g = c; b = x } else if (h < 240) { g = x; b = c }
-  else if (h < 300) { r = x; b = c } else { r = c; b = x }
-  return { r: r * 255, g: g * 255, b: b * 255 }
-}
-
-/** Additive spark overlay (0–255 per channel, pre-brightness) for the most
- *  recent PARTICLE_BURST still within its lifetime, or null if none is active.
- *  Single active burst so it matches the firmware's single-slot model. */
+// The spark motion lives in graphEvaluator (renderParticleBurst), shared with the
+// PatternMaster beat-triggered overlay; here we just find the active PARTICLE_BURST
+// event and delegate. A single active burst matches the firmware's single slot.
+/** Additive spark overlay for the most recent PARTICLE_BURST still within its
+ *  lifetime, or null if none is active. */
 function particleOverlayAt(show: ShowFile, timeMs: number, W: number, H: number): Frame | null {
   let burst: ShowFile['events'][number] | null = null
   for (const ev of show.events) {
@@ -197,87 +173,10 @@ function particleOverlayAt(show: ShowFile, timeMs: number, W: number, H: number)
     if (timeMs < ev.t + PARTICLE_LIFE_MS) burst = ev
   }
   if (!burst) return null
-
-  const ov = blank(W, H)
-  const ageSec = (timeMs - burst.t) / 1000
-  const f = (timeMs - burst.t) / PARTICLE_LIFE_MS
-  const intensity = Number(burst.params.intensity) / 255
-  const style = Number(burst.params.style ?? 0)
-  const col = phsv(Number(burst.params.hue))
-  const cx = W * 0.5, cy = H * 0.5, maxR = Math.min(W, H) * 0.5
-  for (let i = 0; i < PARTICLE_COUNT; i++) {
-    const base = burst.t * 0.001 + i * 7.13
-    const r1 = prnd(base + 1), r2 = prnd(base + 2), r3 = prnd(base + 3), r4 = prnd(base + 4)
-    let x: number, y: number, bri = 1 - f
-    switch (style) {
-      case 1:  // rain — sparks fall from the upper half
-        x = r1 * W + (r4 - 0.5) * 2 * ageSec
-        y = r2 * H * 0.5 + (4 + r3 * 6) * ageSec
-        break
-      case 2: {  // explode — sparks fly radially out from the centre
-        const a = r1 * TAU, sp = 2 + r2 * 6
-        x = cx + Math.cos(a) * sp * ageSec
-        y = cy + Math.sin(a) * sp * ageSec
-        break
-      }
-      case 3: {  // fireworks — explode out from a random point, then fall
-        const a = r1 * TAU, sp = 3 + r2 * 5
-        x = cx + (r3 - 0.5) * W * 0.3 + Math.cos(a) * sp * ageSec
-        y = cy + Math.sin(a) * sp * ageSec + 4 * ageSec * ageSec
-        bri = (1 - f) * (1 - f)
-        break
-      }
-      case 4: {  // swirl — sparks orbit the centre on a widening radius
-        const a = r1 * TAU + 6 * ageSec, rad = (0.15 + f * 0.85) * maxR
-        x = cx + Math.cos(a) * rad
-        y = cy + Math.sin(a) * rad
-        break
-      }
-      case 5:  // twinkle — fixed positions, each peaking at its own moment
-        x = r1 * W; y = r2 * H
-        bri = Math.max(0, 1 - Math.abs(f - r3) * 3)
-        break
-      case 6: {  // ring — a crisp expanding circular shockwave
-        const a = r1 * TAU, rad = f * maxR
-        x = cx + Math.cos(a) * rad
-        y = cy + Math.sin(a) * rad
-        bri = (1 - f) * 1.25
-        break
-      }
-      case 7:  // fountain — jets launch from the bottom centre and arc outward
-        x = cx + (r1 - 0.5) * 10 * ageSec
-        y = H - 1 - (3 + r2 * 6) * ageSec + 5 * ageSec * ageSec
-        break
-      case 8: {  // helix — two intertwined strands climb through the matrix
-        const a = (i % 2) * Math.PI + r1 * 0.7 + ageSec * 9
-        x = cx + Math.cos(a) * maxR * 0.55
-        y = H - 1 - f * (H + 2) + (r2 - 0.5) * 2
-        break
-      }
-      case 9:  // meteor — a bright diagonal shower sweeps across the panel
-        x = -2 + f * (W + 6) - r1 * 5
-        y = r2 * H + x * 0.35 + (r3 - 0.5) * 2
-        bri = (1 - r1 * 0.7) * (1 - f * 0.5)
-        break
-      case 10:  // confetti — drifting flecks shimmer at staggered phases
-        x = r1 * W + Math.sin(ageSec * 7 + r3 * TAU) * 1.5
-        y = (r2 * H + ageSec * (2 + r4 * 4)) % H
-        bri = (1 - f) * (0.55 + 0.45 * Math.sin(ageSec * 12 + r3 * TAU) ** 2)
-        break
-      default:  // rise — sparks drift up and arc down under gravity
-        x = r1 * W + (r3 - 0.5) * 8 * ageSec
-        y = r2 * H + (-(1 + r4 * 3)) * ageSec + 3 * ageSec * ageSec
-        break
-    }
-    const xi = Math.round(x), yi = Math.round(y)
-    if (xi < 0 || xi >= W || yi < 0 || yi >= H) continue
-    const b = intensity * Math.max(0, Math.min(1, bri))
-    const cell = ov[yi][xi]
-    cell.r = Math.min(255, cell.r + col.r * b)
-    cell.g = Math.min(255, cell.g + col.g * b)
-    cell.b = Math.min(255, cell.b + col.b * b)
-  }
-  return ov
+  return renderParticleBurst(
+    burst.t, timeMs, Number(burst.params.intensity) / 255,
+    Number(burst.params.style ?? 0), Number(burst.params.hue), W, H,
+  )
 }
 
 /** Render the show's LED frame at a playback position (ms). `groups` is the live

@@ -145,3 +145,86 @@ void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, 
 // device spawns the same particle sparks as the browser preview).
 float prnd(float n) { float s = sinf(n * 12.9898f) * 43758.5453f; return s - floorf(s); }
 `
+
+// Beat-triggered particle overlay as a self-contained function that adds sparks
+// onto the global `leds`. The 11-style switch mirrors renderParticleBurst in
+// graphEvaluator.ts (and the inline block in playerSketchGenerator.ts) — keep
+// the three in sync. Requires WIDTH/HEIGHT #defines, the `leds` buffer, and the
+// prnd() from TRANSITION_HELPER_CPP.
+export const PARTICLE_OVERLAY_CPP = `#define PARTICLE_LIFE_MS   600
+#define PARTICLE_COUNT     16
+void particleOverlay(uint32_t burstStart, uint8_t burstStyle, uint8_t burstHue, float burstIntensity, uint32_t posMs) {
+  if (!(burstIntensity > 0.01f && (float)(posMs - burstStart) < PARTICLE_LIFE_MS)) return;
+  float ageSec = (posMs - burstStart) / 1000.0f;
+  float f = (float)(posMs - burstStart) / PARTICLE_LIFE_MS;
+  CRGB base = CHSV(burstHue, 217, 255);
+  float cx = WIDTH * 0.5f, cy = HEIGHT * 0.5f, maxR = min(WIDTH, HEIGHT) * 0.5f;
+  for (int i = 0; i < PARTICLE_COUNT; i++) {
+    float bp = burstStart * 0.001f + i * 7.13f;
+    float r1 = prnd(bp + 1.0f), r2 = prnd(bp + 2.0f), r3 = prnd(bp + 3.0f), r4 = prnd(bp + 4.0f);
+    float x, y, bri = 1.0f - f;
+    switch (burstStyle) {
+      case 1:  // rain
+        x = r1 * WIDTH + (r4 - 0.5f) * 2.0f * ageSec;
+        y = r2 * HEIGHT * 0.5f + (4.0f + r3 * 6.0f) * ageSec;
+        break;
+      case 2: {  // explode
+        float a = r1 * 6.2831853f, sp = 2.0f + r2 * 6.0f;
+        x = cx + cosf(a) * sp * ageSec; y = cy + sinf(a) * sp * ageSec;
+        break;
+      }
+      case 3: {  // fireworks
+        float a = r1 * 6.2831853f, sp = 3.0f + r2 * 5.0f;
+        x = cx + (r3 - 0.5f) * WIDTH * 0.3f + cosf(a) * sp * ageSec;
+        y = cy + sinf(a) * sp * ageSec + 4.0f * ageSec * ageSec;
+        bri = (1.0f - f) * (1.0f - f);
+        break;
+      }
+      case 4: {  // swirl
+        float a = r1 * 6.2831853f + 6.0f * ageSec, rad = (0.15f + f * 0.85f) * maxR;
+        x = cx + cosf(a) * rad; y = cy + sinf(a) * rad;
+        break;
+      }
+      case 5:  // twinkle
+        x = r1 * WIDTH; y = r2 * HEIGHT;
+        bri = max(0.0f, 1.0f - fabsf(f - r3) * 3.0f);
+        break;
+      case 6: {  // ring
+        float a = r1 * 6.2831853f, rad = f * maxR;
+        x = cx + cosf(a) * rad; y = cy + sinf(a) * rad;
+        bri = (1.0f - f) * 1.25f;
+        break;
+      }
+      case 7:  // fountain
+        x = cx + (r1 - 0.5f) * 10.0f * ageSec;
+        y = HEIGHT - 1 - (3.0f + r2 * 6.0f) * ageSec + 5.0f * ageSec * ageSec;
+        break;
+      case 8: {  // helix
+        float a = (i % 2) * 3.14159265f + r1 * 0.7f + ageSec * 9.0f;
+        x = cx + cosf(a) * maxR * 0.55f;
+        y = HEIGHT - 1 - f * (HEIGHT + 2) + (r2 - 0.5f) * 2.0f;
+        break;
+      }
+      case 9:  // meteor
+        x = -2.0f + f * (WIDTH + 6) - r1 * 5.0f;
+        y = r2 * HEIGHT + x * 0.35f + (r3 - 0.5f) * 2.0f;
+        bri = (1.0f - r1 * 0.7f) * (1.0f - f * 0.5f);
+        break;
+      case 10:  // confetti
+        x = r1 * WIDTH + sinf(ageSec * 7.0f + r3 * 6.2831853f) * 1.5f;
+        y = fmodf(r2 * HEIGHT + ageSec * (2.0f + r4 * 4.0f), (float)HEIGHT);
+        bri = (1.0f - f) * (0.55f + 0.45f * powf(sinf(ageSec * 12.0f + r3 * 6.2831853f), 2.0f));
+        break;
+      default:  // rise
+        x = r1 * WIDTH + (r3 - 0.5f) * 8.0f * ageSec;
+        y = r2 * HEIGHT + (-(1.0f + r4 * 3.0f)) * ageSec + 3.0f * ageSec * ageSec;
+        break;
+    }
+    int xi = (int)lroundf(x), yi = (int)lroundf(y);
+    if (xi < 0 || xi >= WIDTH || yi < 0 || yi >= HEIGHT) continue;
+    CRGB s = base;
+    s.nscale8((uint8_t)(constrain(burstIntensity * bri, 0.0f, 1.0f) * 255.0f));
+    leds[yi * WIDTH + xi] += s;
+  }
+}
+`

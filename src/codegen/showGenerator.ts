@@ -16,7 +16,7 @@ import type { GroupRegistry } from '../state/graphEvaluator'
 import { customPaletteDeclarationsCpp } from '../state/paletteCatalog'
 import { generateCpp, audioEngineForGraph } from './cppGenerator'
 import { SHOW_TRANSITIONS } from './performanceGenerator'
-import { TRANSITION_HELPER_CPP } from './transitionHelperCpp'
+import { TRANSITION_HELPER_CPP, PARTICLE_OVERLAY_CPP } from './transitionHelperCpp'
 
 const nodeType = (n: StudioNode) => (n.data as { nodeType?: string }).nodeType
 const props = (n: StudioNode) => n.data.properties as Record<string, unknown>
@@ -35,6 +35,11 @@ interface ShowInfo {
   transitionIds: number[]
   /** Whether a beat is wired into the Pattern Master (advances early on beat). */
   beatWired: boolean
+  /** Beat-triggered particle overlay params (particles off ⇒ no overlay). */
+  particles: boolean
+  particleStyle: number
+  particleHue: number
+  particleIntensity: number
 }
 
 // The transition pool: a wired TransitionSet overrides the Pattern Master's own
@@ -64,6 +69,10 @@ function showInfo(nodes: StudioNode[], edges: StudioEdge[]): ShowInfo | null {
     transitionSec: Number(p.transitionSec ?? 1),
     transitionIds: transitionPool(nodes, edges, master),
     beatWired: edges.some((e) => e.target === master.id && e.targetHandle === 'beat'),
+    particles: !!p.particles,
+    particleStyle: Number(p.particleStyle ?? 0),
+    particleHue: Number(p.particleHue ?? 0),
+    particleIntensity: Number(p.particleIntensity ?? 0.8),
   }
 }
 
@@ -192,6 +201,8 @@ export function generateShowSketch(nodes: StudioNode[], edges: StudioEdge[], gro
   const renderers = buildPatternRenderers(info.patternIds, groups, [], !!audio)
   // A beat trigger needs a source on-device; the mic engine supplies _audioBeat.
   const beatTrigger = info.beatWired && !!audio
+  // Particle overlay also rides the mic beat, so it needs the same source.
+  const particlesOn = info.particles && beatTrigger
 
   const L: string[] = []
   L.push('// FastLED Studio — generative pattern show (Phase 4, first slice)')
@@ -218,6 +229,7 @@ export function generateShowSketch(nodes: StudioNode[], edges: StudioEdge[], gro
   if (audio) { for (const line of audio.code) L.push(line); L.push('') }
   L.push(TRANSITION_HELPER_CPP)
   L.push('')
+  if (particlesOn) { L.push(PARTICLE_OVERLAY_CPP); L.push('') }
   for (const h of renderers.helpers) { L.push(h); L.push('') }
 
   for (const fn of renderers.functions) { L.push(fn); L.push('') }
@@ -249,7 +261,12 @@ export function generateShowSketch(nodes: StudioNode[], edges: StudioEdge[], gro
   L.push('  static uint8_t  cur = random8(PATTERN_COUNT), nxt = 0, transType = 0;')
   L.push('  static bool     transitioning = false;')
   L.push('  static uint32_t phaseStart = 0, dwell = 0;')
+  if (particlesOn) L.push('  static uint32_t burstStart = 0; static bool prevBeat = false;')
   L.push('  uint32_t now = millis();')
+  if (particlesOn) {
+    L.push('  if (_audioBeat && !prevBeat) burstStart = now;   // spawn a burst on each beat')
+    L.push('  prevBeat = _audioBeat;')
+  }
   L.push(`  if (dwell == 0) dwell = random16(${minMs}, ${maxMs});`)
   L.push('')
   L.push('  if (!transitioning) {')
@@ -271,6 +288,9 @@ export function generateShowSketch(nodes: StudioNode[], edges: StudioEdge[], gro
   L.push('    if (p >= 1.0f) { cur = nxt; transitioning = false; phaseStart = now; dwell = random16(' + minMs + ', ' + maxMs + '); }')
   L.push('  }')
   L.push('')
+  if (particlesOn) {
+    L.push(`  particleOverlay(burstStart, ${info.particleStyle}, ${info.particleHue}, ${info.particleIntensity}f, now);`)
+  }
   L.push('  FastLED.show();')
   L.push('  FastLED.delay(16);')
   L.push('}')

@@ -1450,13 +1450,127 @@ export function compositeTransition(
 interface ShowState {
   cur: number; nxt: number; phase: 'hold' | 'trans'
   start: number; dwell: number; trans: string; lastBeat: boolean; n: number
+  /** ms of the most recent beat-triggered particle burst, if any. */
+  burstT?: number
 }
-interface ShowOpts { minTime: number; maxTime: number; transSec: number; pool: string[]; beatEnabled: boolean }
+interface ShowOpts {
+  minTime: number; maxTime: number; transSec: number; pool: string[]; beatEnabled: boolean
+  particles: boolean; particleStyle: number; particleHue: number; particleIntensity: number
+}
 
 // The generative show: hold a random pattern for a random dwell in
 // [minTime, maxTime], then transition (a random style from `pool`) into another
 // random pattern. A wired beat advances early, once at least minTime has passed.
 // `render(groupId)` rasterises a pattern's subgraph to a frame.
+// ── Particle-burst overlay ────────────────────────────────────────────────────
+// A burst spawns PARTICLE_COUNT short-lived colored sparks that fade out, in one
+// of eleven motion styles. The motion is a pure function of burst time + spark
+// index (deterministic), so the browser preview (showPreview re-exports this) and
+// the firmware (the switch in playerSketchGenerator / showGenerator) spawn the
+// same sparks. Keep the three switches in sync.
+export const PARTICLE_LIFE_MS = 600
+export const PARTICLE_COUNT = 16
+const P_TAU = Math.PI * 2
+
+function particlePrnd(n: number): number {
+  const s = Math.sin(n * 12.9898) * 43758.5453
+  return s - Math.floor(s)
+}
+
+function particleHsv(hue: number): RGB {
+  const h = ((hue / 255) * 360) % 360
+  const c = 1, x = c * (1 - Math.abs(((h / 60) % 2) - 1))
+  let r = 0, g = 0, b = 0
+  if (h < 60) { r = c; g = x } else if (h < 120) { r = x; g = c }
+  else if (h < 180) { g = c; b = x } else if (h < 240) { g = x; b = c }
+  else if (h < 300) { r = x; b = c } else { r = c; b = x }
+  return { r: r * 255, g: g * 255, b: b * 255 }
+}
+
+/** Additive spark overlay (0–255 per channel, pre-brightness) for a burst that
+ *  started at `burstTms`, or null when outside its lifetime. `intensity` 0–1. */
+export function renderParticleBurst(
+  burstTms: number, timeMs: number, intensity: number, style: number, hue: number,
+  W = DEFAULT_W, H = DEFAULT_H,
+): Frame | null {
+  if (timeMs < burstTms || timeMs >= burstTms + PARTICLE_LIFE_MS) return null
+  const ov = blankFrame(W, H)
+  const ageSec = (timeMs - burstTms) / 1000
+  const f = (timeMs - burstTms) / PARTICLE_LIFE_MS
+  const col = particleHsv(hue)
+  const cx = W * 0.5, cy = H * 0.5, maxR = Math.min(W, H) * 0.5
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    const base = burstTms * 0.001 + i * 7.13
+    const r1 = particlePrnd(base + 1), r2 = particlePrnd(base + 2), r3 = particlePrnd(base + 3), r4 = particlePrnd(base + 4)
+    let x: number, y: number, bri = 1 - f
+    switch (style) {
+      case 1:  // rain
+        x = r1 * W + (r4 - 0.5) * 2 * ageSec
+        y = r2 * H * 0.5 + (4 + r3 * 6) * ageSec
+        break
+      case 2: {  // explode
+        const a = r1 * P_TAU, sp = 2 + r2 * 6
+        x = cx + Math.cos(a) * sp * ageSec; y = cy + Math.sin(a) * sp * ageSec
+        break
+      }
+      case 3: {  // fireworks
+        const a = r1 * P_TAU, sp = 3 + r2 * 5
+        x = cx + (r3 - 0.5) * W * 0.3 + Math.cos(a) * sp * ageSec
+        y = cy + Math.sin(a) * sp * ageSec + 4 * ageSec * ageSec
+        bri = (1 - f) * (1 - f)
+        break
+      }
+      case 4: {  // swirl
+        const a = r1 * P_TAU + 6 * ageSec, rad = (0.15 + f * 0.85) * maxR
+        x = cx + Math.cos(a) * rad; y = cy + Math.sin(a) * rad
+        break
+      }
+      case 5:  // twinkle
+        x = r1 * W; y = r2 * H
+        bri = Math.max(0, 1 - Math.abs(f - r3) * 3)
+        break
+      case 6: {  // ring
+        const a = r1 * P_TAU, rad = f * maxR
+        x = cx + Math.cos(a) * rad; y = cy + Math.sin(a) * rad
+        bri = (1 - f) * 1.25
+        break
+      }
+      case 7:  // fountain
+        x = cx + (r1 - 0.5) * 10 * ageSec
+        y = H - 1 - (3 + r2 * 6) * ageSec + 5 * ageSec * ageSec
+        break
+      case 8: {  // helix
+        const a = (i % 2) * Math.PI + r1 * 0.7 + ageSec * 9
+        x = cx + Math.cos(a) * maxR * 0.55
+        y = H - 1 - f * (H + 2) + (r2 - 0.5) * 2
+        break
+      }
+      case 9:  // meteor
+        x = -2 + f * (W + 6) - r1 * 5
+        y = r2 * H + x * 0.35 + (r3 - 0.5) * 2
+        bri = (1 - r1 * 0.7) * (1 - f * 0.5)
+        break
+      case 10:  // confetti
+        x = r1 * W + Math.sin(ageSec * 7 + r3 * P_TAU) * 1.5
+        y = (r2 * H + ageSec * (2 + r4 * 4)) % H
+        bri = (1 - f) * (0.55 + 0.45 * Math.sin(ageSec * 12 + r3 * P_TAU) ** 2)
+        break
+      default:  // rise
+        x = r1 * W + (r3 - 0.5) * 8 * ageSec
+        y = r2 * H + (-(1 + r4 * 3)) * ageSec + 3 * ageSec * ageSec
+        break
+    }
+    const xi = Math.round(x), yi = Math.round(y)
+    if (xi < 0 || xi >= W || yi < 0 || yi >= H) continue
+    const b = intensity * Math.max(0, Math.min(1, bri))
+    const cell = ov[yi][xi]
+    cell.r = Math.min(255, cell.r + col.r * b)
+    cell.g = Math.min(255, cell.g + col.g * b)
+    cell.b = Math.min(255, cell.b + col.b * b)
+  }
+  return ov
+}
+
 function evalPatternShow(
   key: string, ids: string[], render: (groupId: string) => Frame,
   beat: boolean, o: ShowOpts, t: number, W = DEFAULT_W, H = DEFAULT_H,
@@ -1473,6 +1587,9 @@ function evalPatternShow(
 
   const beatEdge = o.beatEnabled && beat && !st.lastBeat
   st.lastBeat = beat
+  // Each beat also fires a particle burst (independent of the dwell-gated
+  // pattern advance), if the node has particles enabled.
+  if (beatEdge && o.particles) st.burstT = t * 1000
 
   if (st.phase === 'hold' && n > 1) {
     const timeUp = t >= st.start + st.dwell
@@ -1497,6 +1614,18 @@ function evalPatternShow(
     }
   } else {
     frame = render(ids[st.cur])
+  }
+
+  // Overlay a beat-triggered particle burst additively (pre-brightness), the
+  // same sparks the firmware spawns on _audioBeat.
+  if (o.particles && st.burstT != null) {
+    const ov = renderParticleBurst(st.burstT, t * 1000, o.particleIntensity, o.particleStyle, o.particleHue, W, H)
+    if (ov) {
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const s = ov[y][x], px = frame[y][x]
+        px.r = Math.min(255, px.r + s.r); px.g = Math.min(255, px.g + s.g); px.b = Math.min(255, px.b + s.b)
+      }
+    }
   }
 
   patternShowState.set(key, st)
@@ -2874,6 +3003,10 @@ function createEvalNode(
           transSec: Number(props.transitionSec ?? 1),
           pool,
           beatEnabled: incoming.has(`${id}:beat`),
+          particles: !!props.particles,
+          particleStyle: Number(props.particleStyle ?? 0),
+          particleHue: Number(props.particleHue ?? 0),
+          particleIntensity: Number(props.particleIntensity ?? 1),
         }
         out = { frame: evalPatternShow(stateKey(id), ids, render, beat, o, t, W, H) }
         break
