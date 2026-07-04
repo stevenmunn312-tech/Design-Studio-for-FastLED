@@ -514,12 +514,13 @@
   position: absolute;
   z-index: 1;
   display: flex;
-  justify-content: flex-start;
+  justify-content: center;
   align-items: flex-end;
-  left: calc(var(--space-2) - 22px);
+  left: 50%;
   bottom: -26px;
   width: min(115%, 608px);
   overflow: visible;
+  transform: translateX(-50%);
 }
 
 .brandLogo {
@@ -529,7 +530,7 @@
   opacity: 0.82;
   filter: drop-shadow(0 0 14px rgba(0, 240, 255, 0.12));
   pointer-events: none;
-  transform: translateX(-1%);
+  transform: translateX(18%);
 }
 
 .fileInput {
