@@ -14,7 +14,6 @@ import MusicLibraryNodeBody from './MusicLibraryNodeBody'
 import FFTAnalyzerBody from './FFTAnalyzerBody'
 import PerformanceGeneratorBody from './PerformanceGeneratorBody'
 import PatternCollectionBody from './PatternCollectionBody'
-import PatternMasterBody from './PatternMasterBody'
 import TransitionSetBody from './TransitionSetBody'
 import ImageNodeBody from './ImageNodeBody'
 import MatrixOutputUpload from '../Upload/MatrixOutputUpload'
@@ -388,8 +387,6 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
 
         {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}
         {d.nodeType === 'TransitionSet' && <TransitionSetBody nodeId={id} />}
-
-        {d.nodeType === 'PatternMaster' && <PatternMasterBody nodeId={id} />}
 
         {d.nodeType === 'MatrixOutput' && <MatrixOutputUpload enabled={drivenBy('frame')} />}
 

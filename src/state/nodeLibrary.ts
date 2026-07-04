@@ -1014,7 +1014,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       minTime: 4, maxTime: 12, transitionSec: 1,
-      transitions: ['crossfade', 'wipe', 'dissolve', 'iris', 'push', 'fadeblack'],
+      // Transition styles come from a wired TransitionSet; unwired ⇒ crossfade.
       // Beat-triggered particle overlay (needs a wired beat). Off by default.
       particles: false, particleStyle: 0, particleHue: 24, particleIntensity: 0.8,
     },

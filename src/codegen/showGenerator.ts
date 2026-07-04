@@ -42,15 +42,14 @@ interface ShowInfo {
   particleIntensity: number
 }
 
-// The transition pool: a wired TransitionSet overrides the Pattern Master's own
-// chip-grid pool (matching the evaluator). Names → style ids via SHOW_TRANSITIONS
-// so preview and firmware pick from the same set.
+// The transition pool comes from a wired TransitionSet (names → style ids via
+// SHOW_TRANSITIONS, matching the evaluator); with nothing wired the show just
+// crossfades (style id 0).
 function transitionPool(nodes: StudioNode[], edges: StudioEdge[], master: StudioNode): number[] {
   const link = edges.find((e) => e.target === master.id && e.targetHandle === 'transitions')
   const set = link && nodes.find((n) => n.id === link.source && nodeType(n) === 'TransitionSet')
   const wired = set ? ((props(set).transitions as string[] | undefined) ?? []) : []
-  const names = wired.length ? wired : ((props(master).transitions as string[] | undefined) ?? ['crossfade'])
-  const ids = names.map((n) => SHOW_TRANSITIONS.indexOf(n)).filter((i) => i >= 0)
+  const ids = wired.map((n) => SHOW_TRANSITIONS.indexOf(n)).filter((i) => i >= 0)
   return ids.length ? ids : [0]
 }
 

@@ -1132,8 +1132,8 @@ describe('evaluateGraph', () => {
       },
     }
     const pc = node('pc', 'PatternCollection', 'composite', { patternIds: [groupId] })
-    // Huge dwell + empty pool → stays on the (single) pattern, no transition.
-    const pm = node('pm', 'PatternMaster', 'pattern', { minTime: 999, maxTime: 999, transitionSec: 1, transitions: [] })
+    // Huge dwell + a single pattern → stays put, no transition.
+    const pm = node('pm', 'PatternMaster', 'pattern', { minTime: 999, maxTime: 999, transitionSec: 1 })
     const out = node('out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph(
       [pc, pm, out],
