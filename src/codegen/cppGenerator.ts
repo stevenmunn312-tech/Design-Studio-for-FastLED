@@ -343,7 +343,7 @@ export function generateCpp(
   // `externalAudio`: the host sketch already provides the audio-engine globals
   // (used when compiling a pattern subgraph into a controller that hosts the
   // engine), so FFTAnalyzer/BeatDetect reference them without re-emitting it.
-  opts: { externalAudio?: boolean } = {},
+  opts: { externalAudio?: boolean; groupInputExprs?: Record<string, string> } = {},
 ): string {
   if (nodes.length === 0) return '// No nodes in graph\n'
 
@@ -520,7 +520,7 @@ export function generateCpp(
       case 'GroupInput': {
         const role = String(p.paramId ?? 'energy')
         if (role === 'palette') ln(`  CRGBPalette16 pal_${id} = palette;`)
-        else ln(`  float ${v('out')} = ${role};`)
+        else ln(`  float ${v('out')} = ${opts.groupInputExprs?.[role] ?? role};`)
         break
       }
 
@@ -1706,7 +1706,8 @@ export function generateCpp(
         const angle = Number(p.angle ?? 45), repeat = Number(p.repeat ?? 1)
         const speed = Math.max(0, Math.min(1, Number(p.speed ?? 0))) * SPEED_MAX.PaletteGradient
         const pal = paletteExpr(node.id, 'paletteIn', p)
-        const scroll = speed !== 0 ? `+t*${speed}f` : ''
+        const fl = (value: number) => `${Number.isInteger(value) ? value.toFixed(1) : value}f`
+        const scroll = speed !== 0 ? `+t*${fl(speed)}` : ''
         if (speed !== 0) needsT.v = true
         ln(`  { // Palette gradient`)
         ln(`    float _a=${angle}*0.01745329f,_co=cos(_a),_si=sin(_a);`)
@@ -1715,7 +1716,7 @@ export function generateCpp(
         ln(`    float _rng=max(1e-6f,_pmax-_pmin);`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float _tn=(_x*_co+_y*_si-_pmin)/_rng;`)
-        ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_tn*${repeat}f${scroll})*255));}}`)
+        ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_tn*${fl(repeat)}${scroll})*255));}}`)
         break
       }
 
@@ -1908,6 +1909,7 @@ export function generateCpp(
         const ob = ownBuf()
         const pal = paletteExpr(node.id, 'paletteIn', p)
         ln(`  { /* CustomFormula: ${raw.replace(/\*\//g, '* /')} */`)
+        ln(`    float a=${f('a', 'a', 0)}, b=${f('b', 'b', 0)}; (void)a; (void)b;`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float x=(float)_x/(WIDTH-1>0?WIDTH-1:1),y=(float)_y/(HEIGHT-1>0?HEIGHT-1:1);`)
         ln(`      float cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)

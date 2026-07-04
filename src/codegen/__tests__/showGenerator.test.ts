@@ -156,6 +156,8 @@ describe('showGenerator', () => {
       expect(r.params).toEqual(['energy'])
       expect(r.functions[0]).toContain('void render_p0(uint32_t ms, float energy)')
       expect(r.functions[0]).toContain('= energy;')   // GroupInput → param
+      const withAudio = buildPatternRenderers(['ge'], energyGroups, ['energy'], true)
+      expect(withAudio.functions[0]).toContain('= energy;') // explicit show role wins over audio alias
     })
 
     it('strips group inputs and keeps the bare signature when roles are off', () => {
@@ -163,6 +165,7 @@ describe('showGenerator', () => {
       expect(r.params).toEqual([])
       expect(r.functions[0]).toContain('void render_p0(uint32_t ms)')
       expect(r.functions[0]).not.toContain('float energy')
+      expect(r.functions[0]).not.toContain('n_gi_out')
     })
 
     // A group whose brightness is driven by a `speed` GroupInput.
@@ -248,6 +251,21 @@ describe('showGenerator', () => {
       expect(cpp).not.toContain('driver/i2s.h')
       expect(cpp).not.toContain('updateAudio()')
       expect(cpp).toContain('constrain(0.5f')             // frozen placeholder
+    })
+
+    it('binds exposed audio GroupInputs to host audio bands', () => {
+      const inputGroups = {
+        gi: {
+          nodes: [
+            node('in', 'GroupInput', { paramId: 'bass' }, [], [{ id: 'out', dataType: 'float' }]),
+            node('bp', 'BassPulse', {}, [{ id: 'bass', dataType: 'float' }], [{ id: 'frame', dataType: 'frame' }]),
+            node('go', 'GroupOutput'),
+          ],
+          edges: [edge('e1', 'in', 'out', 'bp', 'bass'), edge('e2', 'bp', 'frame', 'go', 'frame')],
+        },
+      } as unknown as GroupRegistry
+      const r = buildPatternRenderers(['gi'], inputGroups, [], true)
+      expect(r.functions[0]).toContain('float n_in_out = _audioBass;')
     })
   })
 })

@@ -594,6 +594,15 @@ describe('generateCpp', () => {
     expect(cpp).toContain('45*0.01745329f')
     expect(cpp).toContain('_pmax-_pmin')
     expect(cpp).toContain('ColorFromPalette(RainbowColors_p')
+    expect(cpp).toContain('_tn*2.0f')
+    expect(cpp).not.toContain('_tn*2f')
+  })
+
+  it('declares CustomFormula A/B inputs before using them', () => {
+    const formula = node('cf', 'CustomFormula', 'pattern', { formula: 'sin(r + a + b + t)', a: 0.2, b: 0.4 })
+    const cpp = generateCpp([formula, outputNode], [edge('e', 'cf', 'frame', 'out', 'frame')])
+    expect(cpp).toContain('float a=0.2, b=0.4;')
+    expect(cpp.indexOf('float a=')).toBeLessThan(cpp.indexOf('float _v=sin(r + a + b + t)'))
   })
 
   it('emits an Image as a PROGMEM pixel array blitted to the matrix', () => {

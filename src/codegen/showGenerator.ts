@@ -104,7 +104,22 @@ const ROLE_CPP_TYPE: Record<string, string> = {
 }
 const roleSig = (p: string) => `${ROLE_CPP_TYPE[p] ?? 'float'} ${p}`
 
-function buildPattern(groupId: string, groups: GroupRegistry, index: number, roleParams: string[] = [], externalAudio = false): PatternUnit {
+// Exposed audio inputs on saved patterns have no physical noodle once the
+// Group is absorbed by a collection. When the host supplies audio globals,
+// bind those roles directly. The broader semantic bands are conservative
+// aliases of the three bands available in both the mic and baked-audio hosts.
+const AUDIO_GROUP_INPUTS: Record<string, string> = {
+  bass: '_audioBass', mids: '_audioMids', treble: '_audioTreble',
+  kick: '_audioBass', snare: '_audioMids', hihat: '_audioTreble', vocals: '_audioMids',
+  energy: '((_audioBass + _audioMids + _audioTreble) / 3.0f)',
+  beat: '0.0f',
+  silence: '((_audioBass + _audioMids + _audioTreble) < 0.03f)',
+}
+
+function buildPattern(
+  groupId: string, groups: GroupRegistry, index: number, roleParams: string[] = [],
+  externalAudio = false, audioExprOverrides: Record<string, string> = {},
+): PatternUnit {
   const fnName = `render_p${index}`
   // Signature: render_pN(uint32_t ms[, float energy, …][, const CRGBPalette16& palette])
   // — one extra param per exposed role when "Use group inputs" is on.
@@ -120,18 +135,25 @@ function buildPattern(groupId: string, groups: GroupRegistry, index: number, rol
   if (!term) return empty
   const matrix = { id: `__mo_${index}`, type: 'studioNode', position: { x: 0, y: 0 },
     data: { label: 'Matrix', nodeType: 'MatrixOutput', category: 'output', properties: {}, inputs: [{ id: 'frame' }], outputs: [] } } as unknown as StudioNode
-  // Keep a GroupInput only if its role is being driven (its paramId is a wired
-  // render_pN param); generateCpp emits it as `float n_<id>_out = <paramId>;`
-  // for float roles, or `CRGBPalette16 pal_<id> = palette;` for the palette role.
-  const keepGI = (n: StudioNode) => roleParams.includes(String((n.data.properties as { paramId?: string }).paramId ?? ''))
+  // Keep inputs supplied by an explicit render parameter or by the host audio
+  // globals. Edges from every other GroupInput are removed so downstream nodes
+  // correctly fall back to their own property defaults.
+  const groupInputExprs = externalAudio
+    ? Object.fromEntries(Object.entries({ ...AUDIO_GROUP_INPUTS, ...audioExprOverrides }).filter(([role]) => !roleParams.includes(role)))
+    : {}
+  const groupInputRole = (n: StudioNode) => String((n.data.properties as { paramId?: string }).paramId ?? '')
+  const keepGI = (n: StudioNode) => roleParams.includes(groupInputRole(n)) || groupInputRole(n) in groupInputExprs
   const nodes = [...sub.nodes.filter((n) => nodeType(n) !== 'GroupOutput' && (nodeType(n) !== 'GroupInput' || keepGI(n))), matrix]
-  const edges = sub.edges
-    .filter((e) => e.target !== out.id)
-    .concat([{ id: `__e_${index}`, source: term.source, sourceHandle: term.sourceHandle, target: matrix.id, targetHandle: 'frame' } as StudioEdge])
+  const keptIds = new Set(nodes.map((n) => n.id))
+  const retainedEdges = sub.edges
+    .filter((e) => e.target !== out.id && keptIds.has(e.source) && keptIds.has(e.target))
+  if (keptIds.has(term.source)) retainedEdges.push(
+    { id: `__e_${index}`, source: term.source, sourceHandle: term.sourceHandle, target: matrix.id, targetHandle: 'frame' } as StudioEdge,
+  )
 
   // `externalAudio` lets the pattern's FFTAnalyzer/BeatDetect reference the
   // controller-hosted mic globals (the controller emits the engine once).
-  const sketch = generateCpp(nodes, edges, groups, { externalAudio })
+  const sketch = generateCpp(nodes, retainedEdges, groups, { externalAudio, groupInputExprs })
   const lines = sketch.split('\n')
   const pfx = (s: string) => s.replace(/\b(?:buf|field)_[A-Za-z0-9_]+\b/g, (m) => `p${index}_${m}`)
 
@@ -194,8 +216,11 @@ export interface PatternRenderers {
   params: string[]
 }
 
-export function buildPatternRenderers(patternIds: string[], groups: GroupRegistry, roleParams: string[] = [], externalAudio = false): PatternRenderers {
-  const units = patternIds.map((id, i) => buildPattern(id, groups, i, roleParams, externalAudio))
+export function buildPatternRenderers(
+  patternIds: string[], groups: GroupRegistry, roleParams: string[] = [],
+  externalAudio = false, audioExprOverrides: Record<string, string> = {},
+): PatternRenderers {
+  const units = patternIds.map((id, i) => buildPattern(id, groups, i, roleParams, externalAudio, audioExprOverrides))
   const helpers = new Map<string, string>()
   for (const u of units) for (const [k, v] of u.helpers) helpers.set(k, v)
   return {
@@ -225,7 +250,7 @@ export function generateShowSketch(nodes: StudioNode[], edges: StudioEdge[], gro
   // BeatDetect read the live band globals (externalAudio), so a mic-reactive
   // pattern reacts on-device the same way it does in the live preview.
   const audio = audioEngineForGraph(nodes)
-  const renderers = buildPatternRenderers(info.patternIds, groups, [], !!audio)
+  const renderers = buildPatternRenderers(info.patternIds, groups, [], !!audio, audio ? { beat: '_audioBeat' } : {})
   // A beat trigger needs a source on-device; the mic engine supplies _audioBeat.
   const beatTrigger = info.beatWired && !!audio
   // Particle overlay also rides the mic beat, so it needs the same source.
