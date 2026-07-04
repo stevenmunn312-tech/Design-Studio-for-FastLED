@@ -36,31 +36,10 @@
   font-family: var(--font-code);
 }
 
-/* ── Preview state ── */
-.preview {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.thumb {
-  width: 100%;
-  border-radius: 6px;
-  cursor: pointer;
-  display: block;
-  image-rendering: pixelated;
-  border: 1px solid var(--border-glow);
-  transition: border-color 0.15s;
-}
-
-.thumb:hover {
-  border-color: var(--accent-pattern);
-}
-
+/* ── Loaded state (controls only — the frame NodePreview above is the image) ── */
 .meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 4px;
 }
 
@@ -68,6 +47,23 @@
   font-size: 10px;
   font-family: var(--font-code);
   color: var(--text-secondary);
+  margin-right: auto;
+}
+
+.replaceBtn {
+  background: none;
+  border: 1px solid var(--border-glow);
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.replaceBtn:hover {
+  border-color: var(--accent-pattern);
+  color: var(--text-primary);
 }
 
 .clearBtn {

@@ -3,6 +3,10 @@ import { useGraphStore } from '../../state/graphStore'
 import { asImage, IMAGE_MAX_DIM } from '../../state/image'
 import styles from './ImageNodeBody.module.css'
 
+// Note: the loaded state deliberately shows *controls only*, not a thumbnail —
+// StudioNode already renders the generic frame NodePreview for this node (its
+// primary output is a frame), so a thumbnail here would be a second preview.
+
 function loadImageFile(
   file: File,
   onDone: (data: { w: number; h: number; pixels: number[] }) => void,
@@ -28,34 +32,18 @@ function loadImageFile(
   el.src = url
 }
 
-function pixelsToDataUrl(w: number, h: number, pixels: number[]): string {
-  const canvas = document.createElement('canvas')
-  canvas.width = w; canvas.height = h
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return ''
-  const raw = ctx.createImageData(w, h)
-  for (let i = 0, j = 0; i < pixels.length; i += 3, j += 4) {
-    raw.data[j] = pixels[i]; raw.data[j + 1] = pixels[i + 1]
-    raw.data[j + 2] = pixels[i + 2]; raw.data[j + 3] = 255
-  }
-  ctx.putImageData(raw, 0, 0)
-  return canvas.toDataURL()
-}
-
 export default function ImageNodeBody({ nodeId }: { nodeId: string }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const updateNodeProperty = useGraphStore(s => s.updateNodeProperty)
-  const imgData = useGraphStore(s => {
+  // Select the *raw* stored value (a stable reference until the property
+  // actually changes) — validating with asImage() inside the selector would
+  // return a fresh object every render and spin useSyncExternalStore into an
+  // infinite loop ("getSnapshot should be cached").
+  const rawImage = useGraphStore(s => {
     const node = s.nodes.find(n => n.id === nodeId)
-    return node ? asImage((node.data.properties as Record<string, unknown>).image) : null
+    return node ? (node.data.properties as Record<string, unknown>).image : undefined
   })
-
-  // Reconstruct a data URL from stored pixels — only recomputed when pixels change.
-  const thumbUrl = useMemo(
-    () => imgData ? pixelsToDataUrl(imgData.w, imgData.h, imgData.pixels) : null,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [imgData?.pixels],
-  )
+  const imgData = useMemo(() => asImage(rawImage), [rawImage])
 
   function handleFile(file: File) {
     if (!file.type.startsWith('image/')) return
@@ -78,25 +66,23 @@ export default function ImageNodeBody({ nodeId }: { nodeId: string }) {
         onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]); e.target.value = '' }}
       />
 
-      {imgData && thumbUrl ? (
-        <div className={styles.preview}>
-          <img
-            className={styles.thumb}
-            src={thumbUrl}
-            alt="uploaded image"
+      {imgData ? (
+        <div className={styles.meta}>
+          <span className={styles.dims}>{imgData.w}×{imgData.h}</span>
+          <button
+            className={`nodrag ${styles.replaceBtn}`}
             onClick={() => fileInputRef.current?.click()}
-            title="Click to replace"
-          />
-          <div className={styles.meta}>
-            <span className={styles.dims}>{imgData.w}×{imgData.h}</span>
-            <button
-              className={`nodrag ${styles.clearBtn}`}
-              onClick={() => updateNodeProperty(nodeId, 'image', undefined)}
-              title="Remove image"
-            >
-              ✕
-            </button>
-          </div>
+            title="Replace image"
+          >
+            Replace
+          </button>
+          <button
+            className={`nodrag ${styles.clearBtn}`}
+            onClick={() => updateNodeProperty(nodeId, 'image', undefined)}
+            title="Remove image"
+          >
+            ✕
+          </button>
         </div>
       ) : (
         <div
