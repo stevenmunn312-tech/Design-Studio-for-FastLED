@@ -21,9 +21,20 @@ import { TRANSITION_HELPER_CPP, PARTICLE_OVERLAY_CPP } from './transitionHelperC
 const nodeType = (n: StudioNode) => (n.data as { nodeType?: string }).nodeType
 const props = (n: StudioNode) => n.data.properties as Record<string, unknown>
 
-/** Whether the graph is a generative pattern show (has a PatternMaster). */
-export function isPatternShow(nodes: StudioNode[]): boolean {
-  return nodes.some((n) => nodeType(n) === 'PatternMaster')
+/** Whether the graph contains the connected collection → master → output
+ * pipeline required by the generative-show exporter. A stray PatternMaster
+ * must not hijack an otherwise ordinary sketch export. */
+export function isPatternShow(nodes: StudioNode[], edges: StudioEdge[]): boolean {
+  const outputs = new Set(nodes.filter((n) => nodeType(n) === 'MatrixOutput').map((n) => n.id))
+  return nodes.some((master) => {
+    if (nodeType(master) !== 'PatternMaster') return false
+    const reachesOutput = edges.some((e) =>
+      e.source === master.id && e.sourceHandle === 'frame' &&
+      outputs.has(e.target) && e.targetHandle === 'frame')
+    const setEdge = edges.find((e) => e.target === master.id && e.targetHandle === 'patternset')
+    const hasCollection = !!setEdge && nodes.some((n) => n.id === setEdge.source && nodeType(n) === 'PatternCollection')
+    return reachesOutput && hasCollection
+  })
 }
 
 interface ShowInfo {
@@ -55,10 +66,13 @@ function transitionPool(nodes: StudioNode[], edges: StudioEdge[], master: Studio
 
 // Resolve the PatternMaster + the collection feeding its patternset input.
 function showInfo(nodes: StudioNode[], edges: StudioEdge[]): ShowInfo | null {
-  const master = nodes.find((n) => nodeType(n) === 'PatternMaster')
+  const outputIds = new Set(nodes.filter((n) => nodeType(n) === 'MatrixOutput').map((n) => n.id))
+  const master = nodes.find((n) => nodeType(n) === 'PatternMaster' && edges.some((e) =>
+    e.source === n.id && e.sourceHandle === 'frame' && outputIds.has(e.target) && e.targetHandle === 'frame'))
   if (!master) return null
   const setEdge = edges.find((e) => e.target === master.id && e.targetHandle === 'patternset')
   const collection = setEdge && nodes.find((n) => n.id === setEdge.source && nodeType(n) === 'PatternCollection')
+  if (!collection) return null
   const patternIds = collection ? ((props(collection).patternIds as string[] | undefined) ?? []) : []
   const p = props(master)
   return {
@@ -119,7 +133,7 @@ function buildPattern(groupId: string, groups: GroupRegistry, index: number, rol
   // controller-hosted mic globals (the controller emits the engine once).
   const sketch = generateCpp(nodes, edges, groups, { externalAudio })
   const lines = sketch.split('\n')
-  const pfx = (s: string) => s.replace(/\bbuf_[A-Za-z0-9_]+\b/g, (m) => `p${index}_${m}`)
+  const pfx = (s: string) => s.replace(/\b(?:buf|field)_[A-Za-z0-9_]+\b/g, (m) => `p${index}_${m}`)
 
   const buffers: string[] = []
   const helpers = new Map<string, string>()
@@ -134,7 +148,20 @@ function buildPattern(groupId: string, groups: GroupRegistry, index: number, rol
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
-    if (/^CRGB buf_[A-Za-z0-9_]+\[NUM_LEDS\];$/.test(line)) { buffers.push(pfx(line)); continue }
+    if (/^(?:CRGB buf_|float field_)[A-Za-z0-9_]+\[NUM_LEDS\];$/.test(line)) { buffers.push(pfx(line)); continue }
+    // Formula shims are emitted as one-line helper functions. They used to be
+    // discarded here, leaving calls such as `_fsin8(...)` undeclared.
+    const shim = line.match(/^float (_f[A-Za-z0-9_]+)\(/)
+    if (shim) { helpers.set(shim[1], line); continue }
+    // Code-node file-scope declarations are emitted immediately before setup.
+    // Preserve the complete block (including user functions and blank lines).
+    if (/^\/\/ .*Code node .*globals/.test(line)) {
+      const block: string[] = []
+      for (; i < lines.length && lines[i] !== 'void setup() {'; i++) block.push(pfx(lines[i]))
+      helpers.set(`codeGlobals:${index}`, block.join('\n').trimEnd())
+      i--
+      continue
+    }
     const helper = Object.entries(HELPER_SIGS).find(([, re]) => re.test(line))
     if (helper) {
       const block: string[] = []
@@ -182,8 +209,9 @@ export function buildPatternRenderers(patternIds: string[], groups: GroupRegistr
 
 export function generateShowSketch(nodes: StudioNode[], edges: StudioEdge[], groups: GroupRegistry = {}): string {
   const info = showInfo(nodes, edges)
-  if (!info || info.patternIds.length === 0) {
-    return '// Pattern Master has no patterns — add a Pattern Collection with saved patterns.\n'
+  if (!info) return generateCpp(nodes, edges, groups)
+  if (info.patternIds.length === 0) {
+    return '// Pattern Master has no patterns — add patterns to its Pattern Collection.\n' + generateCpp(nodes, edges, groups)
   }
 
   const out = nodes.find((n) => nodeType(n) === 'MatrixOutput')

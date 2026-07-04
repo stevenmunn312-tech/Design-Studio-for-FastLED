@@ -25,8 +25,9 @@ describe('showGenerator', () => {
   const edges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
 
   it('detects a pattern show', () => {
-    expect(isPatternShow(nodes)).toBe(true)
-    expect(isPatternShow([node('x', 'SolidColor')])).toBe(false)
+    expect(isPatternShow(nodes, edges)).toBe(true)
+    expect(isPatternShow([node('x', 'SolidColor')], [])).toBe(false)
+    expect(isPatternShow([...nodes, node('stray', 'PatternMaster')], [])).toBe(false)
   })
 
   it('emits a render function per pattern and a controller', () => {
@@ -48,8 +49,44 @@ describe('showGenerator', () => {
   })
 
   it('handles a Pattern Master with no patterns', () => {
-    const lone = [node('pm', 'PatternMaster', {}), node('out', 'MatrixOutput', {})]
-    expect(generateShowSketch(lone, [], {})).toContain('no patterns')
+    const lone = [node('pc', 'PatternCollection', { patternIds: [] }), node('pm', 'PatternMaster', {}), node('out', 'MatrixOutput', {})]
+    const loneEdges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
+    const cpp = generateShowSketch(lone, loneEdges, {})
+    expect(cpp).toContain('no patterns')
+    expect(cpp).toContain('void setup()')
+    expect(cpp).toContain('void loop()')
+  })
+
+  it('preserves field buffers and FastLED formula shims used by collected patterns', () => {
+    const fieldGroups = {
+      gf: {
+        nodes: [
+          node('ff', 'FieldFormula', { formula: 'sin8(r * 200 + t) / 255' }),
+          node('f2f', 'FieldToFrame'),
+          node('go', 'GroupOutput'),
+        ],
+        edges: [edge('e1', 'ff', 'field', 'f2f', 'field'), edge('e2', 'f2f', 'frame', 'go', 'frame')],
+      },
+    } as unknown as GroupRegistry
+    const r = buildPatternRenderers(['gf'], fieldGroups)
+    expect(r.buffers).toContain('float p0_field_ff[NUM_LEDS];')
+    expect(r.functions[0]).toContain('p0_field_ff[')
+    expect(r.helpers.join('\n')).toContain('float _fsin8(float x)')
+  })
+
+  it('preserves Code-node file-scope declarations used by a collected pattern', () => {
+    const codeGroups = {
+      gc: {
+        nodes: [
+          node('code', 'Code', { globalCode: 'float patternGain = 0.5f;', code: 'fill_solid(leds, NUM_LEDS, CRGB((uint8_t)(255 * patternGain), 0, 0));' }),
+          node('go', 'GroupOutput'),
+        ],
+        edges: [edge('e1', 'code', 'frame', 'go', 'frame')],
+      },
+    } as unknown as GroupRegistry
+    const r = buildPatternRenderers(['gc'], codeGroups)
+    expect(r.helpers.join('\n')).toContain('float patternGain = 0.5f;')
+    expect(r.functions[0]).toContain('patternGain')
   })
 
   it('draws the transition pool from a wired TransitionSet (names → style ids)', () => {

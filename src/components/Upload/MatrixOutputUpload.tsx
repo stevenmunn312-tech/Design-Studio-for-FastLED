@@ -22,7 +22,7 @@ export default function MatrixOutputUpload({ enabled }: { enabled: boolean }) {
   // other graph generates the normal single-pattern sketch.
   const code = useMemo(() => {
     const groups = getGroupRegistry()
-    return isPatternShow(nodes) ? generateShowSketch(nodes, edges, groups) : generateCpp(nodes, edges, groups)
+    return isPatternShow(nodes, edges) ? generateShowSketch(nodes, edges, groups) : generateCpp(nodes, edges, groups)
   }, [nodes, edges])
 
   const board = boardByFqbn(selectedFqbn)
