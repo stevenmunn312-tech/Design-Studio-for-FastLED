@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useUploadStore } from '../../state/uploadStore'
 import styles from './Upload.module.css'
 
@@ -8,10 +8,32 @@ import styles from './Upload.module.css'
 export default function OutputConsole() {
   const { log, status, busy, closeConsole, clearLog } = useUploadStore()
   const bodyRef = useRef<HTMLPreElement>(null)
+  const copyResetRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
 
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight
   }, [log])
+
+  useEffect(() => () => {
+    if (copyResetRef.current) clearTimeout(copyResetRef.current)
+  }, [])
+
+  const copyLog = async () => {
+    if (!log) return
+    try {
+      await navigator.clipboard.writeText(log)
+      setCopyState('copied')
+    } catch {
+      setCopyState('failed')
+    }
+    if (copyResetRef.current) clearTimeout(copyResetRef.current)
+    copyResetRef.current = setTimeout(() => setCopyState('idle'), 2000)
+  }
+
+  const copyLabel = copyState === 'copied'
+    ? 'Copied'
+    : copyState === 'failed' ? 'Copy failed' : 'Copy text'
 
   return (
     <div className={styles.consolePanel} role="log" aria-label="Upload output">
@@ -23,6 +45,15 @@ export default function OutputConsole() {
           </span>
         )}
         <span className={styles.spacer} />
+        <button
+          className={styles.consoleCopyBtn}
+          onClick={copyLog}
+          disabled={!log}
+          title="Copy the complete output as text"
+          aria-live="polite"
+        >
+          {copyLabel}
+        </button>
         <button className={styles.consoleBtn} onClick={clearLog} disabled={busy} title="Clear">Clear</button>
         <button className={styles.consoleBtn} onClick={closeConsole} title="Hide">×</button>
       </div>

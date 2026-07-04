@@ -249,6 +249,28 @@
 .consoleTitle { font-size: var(--fs-caption); font-weight: 700; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.08em; }
 .consoleStatus { font-family: var(--font-code); font-size: 11px; }
 .spacer { flex: 1; }
+.consoleCopyBtn {
+  padding: 2px 3px;
+  background: none;
+  border: 0;
+  color: var(--accent-output);
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent-output) 52%, transparent);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.consoleCopyBtn:hover:not(:disabled) {
+  color: color-mix(in srgb, var(--accent-output) 70%, white);
+  text-decoration-color: currentColor;
+}
+.consoleCopyBtn:focus-visible {
+  outline: 2px solid var(--accent-output);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.consoleCopyBtn:disabled { opacity: 0.38; cursor: not-allowed; }
 .consoleBtn {
   background: none;
   border: 1px solid var(--border-glow);
