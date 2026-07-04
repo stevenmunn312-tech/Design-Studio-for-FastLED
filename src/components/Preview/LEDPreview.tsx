@@ -23,7 +23,6 @@ import styles from './LEDPreview.module.css'
 
 const MAX_CANVAS_PX = 448
 const FULLSCREEN_CANVAS_PX = 1080
-const GLOW_RADIUS = 14
 const NUM_BARS = 28
 const DIFFUSION_BG = 'rgb(4,3,9)'
 let diffusionScratch: HTMLCanvasElement | null = null
@@ -240,22 +239,69 @@ function genWiredToOutput(nodes: StudioNode[], edges: StudioEdge[], genId: strin
 function renderGridFrame(ctx: CanvasRenderingContext2D, frame: Frame, pixel: number) {
   const gridH = frame.length
   const gridW = frame[0]?.length ?? 0
-  ctx.clearRect(0, 0, gridW * pixel, gridH * pixel)
-  ctx.fillStyle = '#14181d'
-  ctx.fillRect(0, 0, gridW * pixel, gridH * pixel)
+  const width = gridW * pixel
+  const height = gridH * pixel
+  ctx.clearRect(0, 0, width, height)
+  const substrate = ctx.createRadialGradient(
+    width * 0.5, height * 0.46, 0,
+    width * 0.5, height * 0.46, Math.max(width, height) * 0.72,
+  )
+  substrate.addColorStop(0, '#080c10')
+  substrate.addColorStop(1, '#020405')
+  ctx.fillStyle = substrate
+  ctx.fillRect(0, 0, width, height)
+
+  // Soft spill first, then the physical emitter. Keeping the lit disc small
+  // preserves the black matrix gaps while neighbouring bloom can still merge.
+  ctx.save()
+  ctx.globalCompositeOperation = 'lighter'
   for (let y = 0; y < gridH; y++) {
     for (let x = 0; x < gridW; x++) {
       const { r, g, b } = frame[y][x]
       const color = `rgb(${r},${g},${b})`
-      const brightness = (r + g + b) / (3 * 255)
-      const inset = Math.max(1, Math.floor(pixel * 0.08))
-      const size = Math.max(1, pixel - inset * 2)
+      const brightness = Math.max(r, g, b) / 255
+      if (brightness < 0.012) continue
+      const cx = (x + 0.5) * pixel
+      const cy = (y + 0.5) * pixel
       ctx.fillStyle = color
       ctx.shadowColor = color
-      ctx.shadowBlur = GLOW_RADIUS * (0.45 + brightness * 1.9)
-      ctx.fillRect(x * pixel + inset, y * pixel + inset, size, size)
+      ctx.shadowBlur = pixel * (0.52 + brightness * 0.9)
+      ctx.globalAlpha = 0.18 + brightness * 0.3
+      ctx.beginPath()
+      ctx.arc(cx, cy, Math.max(0.55, pixel * 0.17), 0, Math.PI * 2)
+      ctx.fill()
     }
   }
+  ctx.restore()
+
+  for (let y = 0; y < gridH; y++) {
+    for (let x = 0; x < gridW; x++) {
+      const { r, g, b } = frame[y][x]
+      const brightness = Math.max(r, g, b) / 255
+      if (brightness < 0.012) continue
+      const cx = (x + 0.5) * pixel
+      const cy = (y + 0.5) * pixel
+      const radius = Math.max(0.65, pixel * (0.15 + brightness * 0.055))
+      ctx.fillStyle = `rgb(${r},${g},${b})`
+      ctx.shadowColor = ctx.fillStyle
+      ctx.shadowBlur = pixel * (0.1 + brightness * 0.16)
+      ctx.globalAlpha = 0.72 + brightness * 0.28
+      ctx.beginPath()
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2)
+      ctx.fill()
+
+      if (brightness > 0.66) {
+        ctx.shadowBlur = 0
+        ctx.globalAlpha = (brightness - 0.66) * 1.5
+        ctx.fillStyle = '#fff'
+        ctx.beginPath()
+        ctx.arc(cx, cy, Math.max(0.35, pixel * 0.045), 0, Math.PI * 2)
+        ctx.fill()
+      }
+    }
+  }
+  ctx.globalAlpha = 1
+  ctx.shadowBlur = 0
 }
 
 function renderDiffusionFrame(ctx: CanvasRenderingContext2D, frame: Frame, pixel: number, style: Exclude<PreviewStyle, 'standard'>) {
@@ -857,7 +903,7 @@ export default function LEDPreview() {
           ref={canvasRef}
           width={canvasBufW}
           height={canvasBufH}
-          className={`${styles.canvas} ${isDiffusedStyle(previewStyle) ? styles.canvasDiffusion : ''} ${isDiffusedStyle(previewStyle) && preview3d ? styles.canvasDiffusion3d : ''} ${previewStyle === 'crt' ? styles.canvasCrt : ''} ${isFullscreen ? styles.canvasFullscreen : ''}`}
+          className={`${styles.canvas} ${previewStyle === 'standard' ? styles.canvasStandard : ''} ${isDiffusedStyle(previewStyle) ? styles.canvasDiffusion : ''} ${isDiffusedStyle(previewStyle) && preview3d ? styles.canvasDiffusion3d : ''} ${previewStyle === 'crt' ? styles.canvasCrt : ''} ${isFullscreen ? styles.canvasFullscreen : ''}`}
           style={preview3d ? { transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg)`, cursor: drag.current ? 'grabbing' : 'grab' } : undefined}
           onPointerDown={onRotateDown}
           onPointerMove={onRotateMove}

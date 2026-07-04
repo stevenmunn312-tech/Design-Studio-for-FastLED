@@ -36,15 +36,19 @@ const FRAG = `
     vec3 led = texture2D(u_frame, uv).rgb;
     float ledLum = dot(led, vec3(0.299, 0.587, 0.114));
 
-    // Circular LED disc (smooth edge)
-    float r    = length(cf);
-    float core = smoothstep(0.5, 0.17, r);
-    float halo = smoothstep(0.98, 0.22, r) * (1.0 - core * 0.5);
+    // Circular LED package. The standard view deliberately leaves plenty of
+    // black substrate between emitters, like a photographed matrix panel.
+    float r       = length(cf);
+    float emitter = smoothstep(0.29, 0.12, r);
+    float hotCore = smoothstep(0.115, 0.015, r);
+    float halo    = smoothstep(0.62, 0.18, r) * (1.0 - emitter * 0.72);
 
-    // Glow: 7×7 neighbourhood contribution
+    // Glow: 9×9 neighbourhood contribution, wider falloff so light bleeds
+    // further between LEDs (matches a real diffused matrix's bloom).
     vec3 glow = vec3(0.0);
-    for (int dy = -3; dy <= 3; dy++) {
-      for (int dx = -3; dx <= 3; dx++) {
+    vec3 closeGlow = vec3(0.0);
+    for (int dy = -4; dy <= 4; dy++) {
+      for (int dx = -4; dx <= 4; dx++) {
         vec2 ni = ci + vec2(float(dx), float(dy));
         if (ni.x < 0.0 || ni.y < 0.0 || ni.x >= u_grid.x || ni.y >= u_grid.y) continue;
         vec3  nc  = texture2D(u_frame, (ni + 0.5) / u_grid).rgb;
@@ -52,7 +56,9 @@ const FRAG = `
         if (nb < 0.015) continue;
         vec2  dlt = cell - (ni + 0.5);
         float d2  = dot(dlt, dlt);
-        glow += nc * (0.4 + nb * 1.18) * exp(-d2 * 0.42);
+        float energy = 0.22 + nb * 0.96;
+        glow += nc * energy * exp(-d2 * 0.32);
+        closeGlow += nc * energy * exp(-d2 * 1.18);
       }
     }
 
@@ -143,9 +149,16 @@ const FRAG = `
         col *= scan * 1.08;
       }
     } else {
-      col = vec3(0.04, 0.05, 0.07)
-          + glow * (0.3 + halo * 0.2)
-          + led  * (core + halo * 0.24);
+      // Photographic LED-matrix look: a near-black PCB, soft overlapping light
+      // spill, a small saturated emitter, and a pinpoint hot centre.
+      float peak = max(led.r, max(led.g, led.b));
+      float whiteHeat = smoothstep(0.62, 1.0, peak) * ledLum;
+      vec3 hot = mix(led, vec3(1.0), whiteHeat * 0.78);
+      col = vec3(0.003, 0.005, 0.007)
+          + glow * 0.115
+          + closeGlow * (0.12 + halo * 0.08)
+          + led * (emitter * 1.12 + halo * 0.16)
+          + hot * hotCore * (0.24 + whiteHeat * 0.72);
     }
 
     gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);

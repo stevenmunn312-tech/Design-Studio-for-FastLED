@@ -133,10 +133,21 @@
 
 .canvas {
   display: block;
-  background: #14181d;
+  background: #020405;
   border-radius: 4px;
   image-rendering: pixelated;
   transition: transform 0.05s linear;
+}
+
+.canvasStandard {
+  border-radius: 2px;
+  image-rendering: auto;
+  filter: saturate(1.12) contrast(1.04);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.035),
+    0 12px 30px rgba(0, 0, 0, 0.56),
+    0 0 34px rgba(30, 116, 255, 0.055),
+    0 0 58px rgba(255, 35, 151, 0.035);
 }
 
 .canvasDiffusion {
