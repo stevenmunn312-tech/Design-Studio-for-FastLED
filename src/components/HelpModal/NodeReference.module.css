@@ -60,7 +60,13 @@
   letter-spacing: .08em;
 }
 
-.nodeIndex { overflow-y: auto; padding: 7px; }
+.nodeIndex {
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.28) rgba(255,255,255,.035);
+  padding: 7px;
+}
 .indexItem {
   width: 100%;
   display: grid;
@@ -83,7 +89,40 @@
 .indexItem small { color: var(--text-secondary); font-size: 10px; }
 .noResults { padding: 20px 10px; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
 
-.reader { height: 100%; overflow-y: auto; scroll-behavior: smooth; }
+.reader {
+  height: 100%;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.3) rgba(255,255,255,.035);
+  scroll-behavior: smooth;
+}
+
+.nodeIndex::-webkit-scrollbar,
+.reader::-webkit-scrollbar {
+  width: 10px;
+}
+
+.nodeIndex::-webkit-scrollbar-track,
+.reader::-webkit-scrollbar-track {
+  background: rgba(255,255,255,.035);
+  border-left: 1px solid rgba(255,255,255,.045);
+}
+
+.nodeIndex::-webkit-scrollbar-thumb,
+.reader::-webkit-scrollbar-thumb {
+  min-height: 36px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(255,255,255,.28);
+  background-clip: padding-box;
+}
+
+.nodeIndex::-webkit-scrollbar-thumb:hover,
+.reader::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,.42);
+  background-clip: padding-box;
+}
 .article { max-width: 790px; margin: 0 auto; padding: 27px 38px 50px; }
 .breadcrumb { color: var(--text-secondary); font-size: 10px; letter-spacing: .03em; }
 .breadcrumb span { margin: 0 6px; opacity: .6; }
