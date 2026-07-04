@@ -433,11 +433,24 @@ export default function LEDPreview() {
   )
   const pixel = isFullscreen
     ? fullscreenCanvasPx / Math.max(gridW, gridH)
-    : Math.max(1, Math.floor(windowedPixelLimit))
+    : Math.max(1, windowedPixelLimit)
+  // Integer drawing-buffer size — floor the *canvas* dimensions, not the per-LED
+  // pixel size. Flooring `pixel` and then multiplying by the grid scales the
+  // rounding loss with resolution (~1px lost per LED × 64 ≈ a 14% shrink at
+  // 64×64), so a denser matrix visibly shrinks. Flooring the product keeps the
+  // preview the same physical size at any resolution, with the per-LED size left
+  // fractional (the canvas 2D fills and the WebGL shader both handle that).
+  const canvasBufW = Math.max(1, Math.floor(gridW * pixel))
+  const canvasBufH = Math.max(1, Math.floor(gridH * pixel))
   const gridWRef = useRef(gridW)
   const gridHRef = useRef(gridH)
   const pixelRef = useRef(pixel)
-  useEffect(() => { gridWRef.current = gridW; gridHRef.current = gridH; pixelRef.current = pixel }, [gridW, gridH, pixel])
+  const canvasBufWRef = useRef(canvasBufW)
+  const canvasBufHRef = useRef(canvasBufH)
+  useEffect(() => {
+    gridWRef.current = gridW; gridHRef.current = gridH; pixelRef.current = pixel
+    canvasBufWRef.current = canvasBufW; canvasBufHRef.current = canvasBufH
+  }, [gridW, gridH, pixel, canvasBufW, canvasBufH])
 
   const preview3d = useUiStore((s) => s.preview3d)
   const previewStyle = useUiStore((s) => s.previewStyle)
@@ -585,11 +598,12 @@ export default function LEDPreview() {
           frame = renderShowFrame(pb.show, pb.posMs, gW, gH, getGroupRegistry(), pb.useGroupInputs)
         }
 
+        const bw = canvasBufWRef.current, bh = canvasBufHRef.current
         if (useWebGL && glRef.current) {
           glRef.current.render(frame, gW, gH, px, previewStyleRef.current)
         } else if (ctx) {
-          if (canvas.width !== gW * px || canvas.height !== gH * px) {
-            canvas.width = gW * px; canvas.height = gH * px
+          if (canvas.width !== bw || canvas.height !== bh) {
+            canvas.width = bw; canvas.height = bh
           }
           renderFrame(ctx, frame, px, previewStyleRef.current)
         }
@@ -841,8 +855,8 @@ export default function LEDPreview() {
       >
         <canvas
           ref={canvasRef}
-          width={gridW * pixel}
-          height={gridH * pixel}
+          width={canvasBufW}
+          height={canvasBufH}
           className={`${styles.canvas} ${isDiffusedStyle(previewStyle) ? styles.canvasDiffusion : ''} ${isDiffusedStyle(previewStyle) && preview3d ? styles.canvasDiffusion3d : ''} ${previewStyle === 'crt' ? styles.canvasCrt : ''} ${isFullscreen ? styles.canvasFullscreen : ''}`}
           style={preview3d ? { transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg)`, cursor: drag.current ? 'grabbing' : 'grab' } : undefined}
           onPointerDown={onRotateDown}

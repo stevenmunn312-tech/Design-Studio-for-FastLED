@@ -103,10 +103,14 @@
   padding: var(--space-3);
   display: flex;
   justify-content: center;
-  align-items: flex-start;
-  /* Size to the matrix; let the visualizer below absorb the leftover height so
-     the spectrum bars fill the gap instead of leaving a dead band. */
-  flex: 0 1 auto;
+  align-items: center;
+  /* Claim a real share of the column height (grow=1) rather than hugging the
+     canvas. The canvas size is measured off this wrap; if the wrap sizes to its
+     own content (flex-grow 0), that measurement feeds back into the canvas
+     height with gain ~1 and the matrix collapses when gridH grows (e.g. 32×32).
+     Growing to fill makes the height layout-driven and stable, so the width
+     term binds and the matrix fills the panel at any grid size. */
+  flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
 }

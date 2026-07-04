@@ -201,7 +201,10 @@ export class WebGLLEDRenderer {
 
   render(frame: Frame, gridW: number, gridH: number, pixel: number, style: PreviewStyle): void {
     const gl = this.gl
-    const cw = gridW * pixel, ch = gridH * pixel
+    // Match LEDPreview: floor the canvas buffer, keep `pixel` fractional for the
+    // shader's cell math, so a denser matrix fills the same box instead of
+    // shrinking by the accumulated per-LED rounding loss.
+    const cw = Math.max(1, Math.floor(gridW * pixel)), ch = Math.max(1, Math.floor(gridH * pixel))
     const diffused = isDiffusedStyle(style)
 
     if ((gl.canvas as HTMLCanvasElement).width  !== cw ||
