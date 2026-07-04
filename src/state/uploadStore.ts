@@ -33,11 +33,21 @@ const IDLE: UploadStatus = { phase: 'idle', message: '' }
 // helper emits `=== … compile ===` / `=== … upload ===` markers, esptool prints
 // `(NN %)` during the write, and each phase ends with `[… exit code: N]`.
 export function parseStatus(log: string): UploadStatus {
+  // A capacity overflow is a compile failure — the helper tags it `[size-error]`
+  // so we can show a specific "won't fit" message instead of the generic one
+  // (the console auto-opens with the full explanation).
+  if (/\[size-error\]/.test(log)) {
+    return { phase: 'error', message: "Won't fit — too big for this board" }
+  }
   if (/\*\*\* FAILED|\*\*\* .*failed|\[error\]|exit code: [1-9]/i.test(log)) {
     return { phase: 'error', message: 'Error — see output' }
   }
+  // Flash/RAM headroom parsed from the compile step (`[size] flash N% · ram M%`),
+  // shown alongside the later phases; `[size-warning]` flags a tight fit.
+  const sizeM = [...log.matchAll(/\[size\] flash (\d+)%/g)].pop()
+  const sizeTag = sizeM ? ` · flash ${sizeM[1]}%${/\[size-warning\]/.test(log) ? ' ⚠' : ''}` : ''
   if (/Upload complete|All done|ready\.\n/i.test(log)) {
-    return { phase: 'done', message: 'Done' }
+    return { phase: 'done', message: `Done${sizeTag}` }
   }
   const upIdx = log.lastIndexOf('upload ===')
   if (upIdx >= 0) {
@@ -45,7 +55,7 @@ export function parseStatus(log: string): UploadStatus {
     const p = pcts.length ? Number(pcts[pcts.length - 1][1]) : undefined
     return { phase: 'uploading', percent: p, message: p != null ? `Uploading ${p}%` : 'Uploading…' }
   }
-  if (/compile ===/.test(log)) return { phase: 'compiling', message: 'Compiling…' }
+  if (/compile ===/.test(log)) return { phase: 'compiling', message: `Compiling…${sizeTag}` }
   return { phase: 'working', message: 'Working…' }
 }
 

@@ -20,6 +20,7 @@ import io
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import tarfile
@@ -146,8 +147,10 @@ def _make_sketch(name: str, ino: str):
     return work, sketch_dir
 
 
-def _run_phase(label, args):
-    """Run one arduino-cli phase, yielding its output lines; returns the exit code."""
+def _run_phase(label, args, sink=None):
+    """Run one arduino-cli phase, yielding its output lines; returns the exit code.
+    If `sink` (a list) is given, each output line is also appended to it so the
+    caller can inspect the phase output (e.g. to parse the flash/RAM size report)."""
     yield f"\n=== {label} ===\n$ {' '.join(args)}\n"
     try:
         proc = subprocess.Popen(
@@ -158,17 +161,88 @@ def _run_phase(label, args):
         yield f"[error] failed to launch arduino-cli: {e}\n"
         return -1
     for line in proc.stdout:
+        if sink is not None:
+            sink.append(line)
         yield line
     proc.wait()
     yield f"[{label} exit code: {proc.returncode}]\n"
     return proc.returncode
 
 
+# arduino-cli prints these at the end of a successful compile. The percentages
+# are measured against the board's real limits (for ESP32 that's the app
+# *partition*, not the whole chip), so parsing them is authoritative.
+_FLASH_RE = re.compile(r"Sketch uses (\d+) bytes \((\d+)%\) of program storage", re.I)
+_RAM_RE = re.compile(r"Global variables use (\d+) bytes \((\d+)%\) of dynamic memory", re.I)
+
+# Substrings the linker/toolchain emit when the binary is too big to fit. These
+# vary by core (AVR: "region `text' overflowed"; ESP32: "will not fit in
+# region"; etc.), so match loosely — the compile has already failed regardless.
+_OVERFLOW_MARKERS = (
+    "overflowed by", "will not fit in region", "section exceeds",
+    "does not fit in region", "sketch too big", "flash overflow",
+    "not enough room", "exceeds the maximum",
+)
+
+# Warn (but still upload) once usage crosses this — little headroom left.
+_SIZE_WARN_PCT = 90
+
+
+def _size_report(lines):
+    """Pull flash/RAM usage percentages out of a compile phase's output.
+    Returns {"flash": pct|None, "ram": pct|None} (percentages, ints)."""
+    text = "".join(lines)
+    flash = _FLASH_RE.search(text)
+    ram = _RAM_RE.search(text)
+    return {
+        "flash": int(flash.group(2)) if flash else None,
+        "ram": int(ram.group(2)) if ram else None,
+    }
+
+
+def _looks_like_overflow(lines):
+    text = "".join(lines).lower()
+    return any(marker in text for marker in _OVERFLOW_MARKERS)
+
+
 def _compile_upload(label, sketch_dir, fqbn, port):
-    """Compile, then (if a port is given) upload a sketch. Returns the exit code."""
-    rc = yield from _run_phase(f"{label} · compile", _ARDUINO_BASE + ["compile", "-v", "--fqbn", fqbn, str(sketch_dir)])
+    """Compile, then (if a port is given) upload a sketch. Returns the exit code.
+
+    Compiling is also the size gate: arduino-cli refuses to link a binary that
+    overflows flash/RAM, so an over-capacity design fails here and never reaches
+    the upload step. We translate that (otherwise cryptic) failure into a clear
+    message, and on success surface the headroom / warn when it's tight."""
+    compile_lines = []
+    rc = yield from _run_phase(
+        f"{label} · compile", _ARDUINO_BASE + ["compile", "-v", "--fqbn", fqbn, str(sketch_dir)],
+        sink=compile_lines,
+    )
     if rc != 0:
+        # A capacity overflow is the interesting failure — say so plainly so the
+        # UI can show "won't fit" instead of a wall of linker errors.
+        if _looks_like_overflow(compile_lines):
+            yield (
+                f"\n=== ✗ Too big for {fqbn} ===\n"
+                "  This design is larger than the board can hold. Try fewer\n"
+                "  patterns in the collection, a smaller matrix, or fewer heavy\n"
+                "  nodes (Image / audio / field) — or pick a board (or ESP32\n"
+                "  partition scheme) with more space.\n"
+                "  [size-error] won't fit on this board\n"
+            )
         return rc
+
+    report = _size_report(compile_lines)
+    if report["flash"] is not None:
+        ram = f" · ram {report['ram']}%" if report["ram"] is not None else ""
+        yield f"  [size] flash {report['flash']}%{ram}\n"
+        tight = [
+            f"{kind} {report[kind]}%"
+            for kind in ("flash", "ram")
+            if report[kind] is not None and report[kind] >= _SIZE_WARN_PCT
+        ]
+        if tight:
+            yield f"  [size-warning] little headroom left ({', '.join(tight)})\n"
+
     if not port:
         yield "  (no port selected — compiled only)\n"
         return 0

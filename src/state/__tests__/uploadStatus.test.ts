@@ -44,4 +44,30 @@ describe('parseStatus', () => {
   it('is idle/working with no recognised markers', () => {
     expect(parseStatus('Uploading to COM4…\n').phase).toBe('working')
   })
+
+  it('reports a specific "won\'t fit" message on a capacity overflow', () => {
+    // The overflow also produces a non-zero exit code, but the size-error tag
+    // must win so the message is specific rather than the generic one.
+    const log =
+      '=== Sketch · compile ===\nregion `iram0_0_seg\' overflowed by 2048 bytes\n' +
+      '  [size-error] won\'t fit on this board\n[Sketch · compile exit code: 1]\n'
+    const s = parseStatus(log)
+    expect(s.phase).toBe('error')
+    expect(s.message).toBe("Won't fit — too big for this board")
+  })
+
+  it('surfaces flash headroom from the compile size report', () => {
+    const s = parseStatus('=== Sketch · compile ===\n  [size] flash 21% · ram 13%\n')
+    expect(s.phase).toBe('compiling')
+    expect(s.message).toBe('Compiling… · flash 21%')
+  })
+
+  it('flags a tight fit with a warning marker on done', () => {
+    const log =
+      '=== Sketch · compile ===\n  [size] flash 96% · ram 71%\n  [size-warning] little headroom left (flash 96%)\n' +
+      '=== Sketch · upload ===\nUpload complete.\n'
+    const s = parseStatus(log)
+    expect(s.phase).toBe('done')
+    expect(s.message).toBe('Done · flash 96% ⚠')
+  })
 })
