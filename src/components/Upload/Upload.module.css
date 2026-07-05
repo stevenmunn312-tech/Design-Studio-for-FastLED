@@ -68,7 +68,22 @@
   font-weight: 700;
 }
 .uploadBtn:hover:not(:disabled) { filter: brightness(1.1); }
-.uploadBtn.stBusy  { background: #ffcc00; border-color: #ffcc00 !important; }
+.uploadBtn.stBusy  {
+  background: var(--bg-node-hover);
+  border-color: var(--border-glow) !important;
+  color: #ffcc00;
+}
+.uploadBtn.stBusy:disabled { opacity: 1; }
+.busyText {
+  animation: uploadBusyPulse 1.1s ease-in-out infinite;
+}
+@keyframes uploadBusyPulse {
+  0%, 100% { opacity: 0.48; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .busyText { animation: none; }
+}
 .uploadBtn.stDone  { background: var(--success); border-color: var(--success) !important; }
 .uploadBtn.stError { background: var(--error); border-color: var(--error) !important; color: #fff; }
 

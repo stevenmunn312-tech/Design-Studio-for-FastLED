@@ -99,10 +99,11 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
       <button
         className={`${styles.uploadBtn} ${phaseClass}`}
         disabled={!enabled || busy}
+        aria-busy={busy}
         onClick={() => runUpload(code, usePsram ? psramChoice?.opt : undefined)}
-        title={enabled ? 'Compile & upload to the board' : 'Connect a frame to enable upload'}
+        title={busy ? status.message : enabled ? 'Compile & upload to the board' : 'Connect a frame to enable upload'}
       >
-        {uploadLabel}
+        <span className={busy ? styles.busyText : undefined}>{uploadLabel}</span>
       </button>
 
       <button
