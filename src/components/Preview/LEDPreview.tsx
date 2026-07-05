@@ -1043,7 +1043,7 @@ export default function LEDPreview() {
           <div className={styles.brandWrap} aria-hidden>
             <img
               className={styles.brandLogo}
-              src="/fastled-studio.svg"
+              src="/fastled-studio-pixel-brand.png"
               alt=""
             />
           </div>
