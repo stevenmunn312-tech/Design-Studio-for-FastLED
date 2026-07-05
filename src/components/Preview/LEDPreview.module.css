@@ -560,7 +560,6 @@
   max-width: none;
   flex: 0 0 auto;
   opacity: 0.68;
-  mix-blend-mode: screen;
   pointer-events: none;
 }
 
