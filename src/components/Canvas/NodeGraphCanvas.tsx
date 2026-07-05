@@ -139,7 +139,14 @@ function NodeGraphCanvasInner() {
     targetHandle: string | null
     key: number
   } | null>(null)
+  const [connectionRipple, setConnectionRipple] = useState<{
+    key: number
+    x: number
+    y: number
+    color: string
+  } | null>(null)
   const pulseTimer = useRef<number | undefined>(undefined)
+  const rippleTimer = useRef<number | undefined>(undefined)
   const sparkDelayTimer = useRef<number | undefined>(undefined)
   const sparkClearTimer = useRef<number | undefined>(undefined)
   const beatNow = usePreviewStore((s) => {
@@ -156,9 +163,37 @@ function NodeGraphCanvasInner() {
 
   useEffect(() => () => {
     if (pulseTimer.current) window.clearTimeout(pulseTimer.current)
+    if (rippleTimer.current) window.clearTimeout(rippleTimer.current)
     if (sparkDelayTimer.current) window.clearTimeout(sparkDelayTimer.current)
     if (sparkClearTimer.current) window.clearTimeout(sparkClearTimer.current)
   }, [])
+
+  // The field colour follows the brightest frame-producing node. Subscribe
+  // directly and throttle DOM variable updates so the 60 fps preview stream
+  // never causes the React Flow tree itself to re-render.
+  const frameSignalKeys = useMemo(() => nodes.flatMap((node) => {
+    const outputs = (node.data as { outputs?: Array<{ id: string; dataType: string }> }).outputs ?? []
+    return outputs.filter((output) => output.dataType === 'frame').map((output) => `${node.id}:${output.id}`)
+  }).join('|'), [nodes])
+
+  useEffect(() => {
+    let lastUpdate = 0
+    const keys = frameSignalKeys ? frameSignalKeys.split('|') : []
+    return usePreviewStore.subscribe((state) => {
+      const now = performance.now()
+      if (now - lastUpdate < 100) return
+      lastUpdate = now
+      let strongest = null as (typeof state.signals extends Map<string, infer V> ? V : never) | null
+      for (const key of keys) {
+        const signal = state.signals.get(key)
+        if (signal && (!strongest || signal.energy > strongest.energy)) strongest = signal
+      }
+      const wrapper = wrapperRef.current
+      if (!wrapper) return
+      wrapper.style.setProperty('--field-color', strongest?.emissive ?? 'rgb(0 191 255)')
+      wrapper.style.setProperty('--field-energy', String(0.12 + (strongest?.energy ?? 0) * 0.3))
+    })
+  }, [frameSignalKeys])
 
   const fireConnectionCeremony = useCallback((connection: {
     source: string | null
@@ -180,6 +215,26 @@ function NodeGraphCanvasInner() {
     })
     pulseTimer.current = window.setTimeout(() => setConnectionPulse(null), 720)
 
+    const targetNode = getNode(connection.target)
+    const sourceNode = getNode(connection.source)
+    const wrapper = wrapperRef.current
+    if (targetNode && wrapper) {
+      const screen = flowToScreenPosition({
+        x: targetNode.position.x,
+        y: targetNode.position.y + (targetNode.measured?.height ?? FALLBACK_H) / 2,
+      })
+      const rect = wrapper.getBoundingClientRect()
+      const category = (sourceNode?.data as { category?: string } | undefined)?.category ?? 'output'
+      setConnectionRipple({
+        key: Date.now(),
+        x: screen.x - rect.left,
+        y: screen.y - rect.top,
+        color: CATEGORY_COLOR[category] ?? '#00bfff',
+      })
+      if (rippleTimer.current) window.clearTimeout(rippleTimer.current)
+      rippleTimer.current = window.setTimeout(() => setConnectionRipple(null), 900)
+    }
+
     if (connection.targetHandle) {
       setSparkPort(null)
       sparkDelayTimer.current = window.setTimeout(() => {
@@ -187,7 +242,20 @@ function NodeGraphCanvasInner() {
       }, 410)
       sparkClearTimer.current = window.setTimeout(() => setSparkPort(null), 790)
     }
-  }, [setSparkPort])
+  }, [flowToScreenPosition, getNode, setSparkPort])
+
+  const updateCursorField = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const wrapper = wrapperRef.current
+    if (!wrapper) return
+    const rect = wrapper.getBoundingClientRect()
+    wrapper.style.setProperty('--field-x', `${event.clientX - rect.left}px`)
+    wrapper.style.setProperty('--field-y', `${event.clientY - rect.top}px`)
+    wrapper.style.setProperty('--field-hover', '0.38')
+  }, [])
+
+  const quietCursorField = useCallback(() => {
+    wrapperRef.current?.style.setProperty('--field-hover', '0')
+  }, [])
 
   // Publish the click-to-add drop point (in flow coords) so sidebar clicks land
   // on screen wherever the user has panned. Biased to the left third — vertically
@@ -625,8 +693,31 @@ function NodeGraphCanvasInner() {
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
+      onPointerMove={updateCursorField}
+      onPointerLeave={quietCursorField}
     >
       <GroupControls />
+      {nodes.length === 0 && (
+        <div className={styles.emptyField} role="status">
+          <div className={styles.emptyBeacon} aria-hidden="true"><span /></div>
+          <strong>Patch your first signal</strong>
+          <span>Drag in a pattern, then wire its frame to Matrix Output.</span>
+        </div>
+      )}
+      {connectionRipple && (
+        <div
+          key={connectionRipple.key}
+          className={styles.connectionRipple}
+          style={{
+            left: connectionRipple.x,
+            top: connectionRipple.y,
+            '--ripple-color': connectionRipple.color,
+          } as React.CSSProperties}
+          aria-hidden="true"
+        >
+          <span /><span />
+        </div>
+      )}
       {beatRippleKey > 0 && (
         <div key={beatRippleKey} className={styles.beatRipple} aria-hidden="true">
           <span />
@@ -685,6 +776,11 @@ function NodeGraphCanvasInner() {
         defaultEdgeOptions={{ type: 'glowEdge' }}
         proOptions={{ hideAttribution: true }}
       >
+        <div className={styles.atmosphere} aria-hidden="true">
+          <div className={styles.signalField} />
+          <div className={styles.cursorWake} />
+          <div className={styles.fieldScan} />
+        </div>
         <Background
           variant={BackgroundVariant.Dots}
           gap={20}
