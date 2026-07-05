@@ -125,8 +125,8 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
         </button>
       )}
 
-      <button className={styles.outputBtn} onClick={openConsole} title="Show detailed output">
-        ⌗ Output
+      <button className={styles.outputBtn} onClick={openConsole} title="Show build and serial output">
+        ⌗ Output / Serial
       </button>
     </div>
   )

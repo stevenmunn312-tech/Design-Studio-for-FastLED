@@ -15,6 +15,11 @@ describe('OutputConsole', () => {
     })
     useUploadStore.setState({
       log: 'compile line\nupload line\n',
+      serialLog: '',
+      serialConnected: false,
+      serialError: '',
+      serialBaud: 115200,
+      selectedPort: 'COM4',
       busy: false,
       status: { phase: 'done', message: 'Done' },
       consoleOpen: true,
@@ -43,5 +48,25 @@ describe('OutputConsole', () => {
 
     await waitFor(() => expect(getByRole('button', { name: 'Copy failed' })).toBeTruthy())
     expect(getByText(/compile line/)).toBeTruthy()
+  })
+
+  it('shows serial output and copies the active tab', async () => {
+    useUploadStore.setState({ serialLog: 'booted\nready\n' })
+    const { getByRole, getByText } = render(<OutputConsole />)
+
+    fireEvent.click(getByRole('tab', { name: 'Serial' }))
+    expect(getByText(/booted/)).toBeTruthy()
+    expect((getByRole('combobox', { name: 'Baud rate' }) as HTMLSelectElement).value).toBe('115200')
+
+    fireEvent.click(getByRole('button', { name: 'Copy text' }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('booted\nready\n'))
+  })
+
+  it('disables serial connect until a port is selected', () => {
+    useUploadStore.setState({ selectedPort: '' })
+    const { getByRole } = render(<OutputConsole />)
+
+    fireEvent.click(getByRole('tab', { name: 'Serial' }))
+    expect((getByRole('button', { name: 'Connect' }) as HTMLButtonElement).disabled).toBe(true)
   })
 })

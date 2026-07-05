@@ -405,6 +405,49 @@ def serial_ports():
     return {"ok": True, "ports": sorted(by_addr.values(), key=lambda x: x["address"])}
 
 
+@app.get("/api/serial/monitor")
+def serial_monitor(port: str, baud: int = 115200):
+    """Stream text received from a board until the browser disconnects.
+
+    The endpoint owns the port only for the lifetime of this response.  That
+    keeps serial monitoring opt-in and lets an upload reclaim the same port as
+    soon as the frontend aborts the stream.
+    """
+    if not port:
+        return JSONResponse({"ok": False, "error": "a serial port is required"}, status_code=400)
+    if baud < 300 or baud > 4_000_000:
+        return JSONResponse({"ok": False, "error": "unsupported baud rate"}, status_code=400)
+
+    def stream():
+        try:
+            import serial
+        except ImportError:
+            yield b"[error] pyserial is not installed\n"
+            return
+
+        ser = None
+        try:
+            ser = serial.Serial(port, baud, timeout=0.2)
+            # Avoid deliberately asserting the common auto-reset lines while
+            # monitoring. Some USB bridges may still pulse them when opened.
+            ser.dtr = False
+            ser.rts = False
+            yield f"[serial] connected to {port} at {baud} baud\n".encode()
+            while True:
+                data = ser.read(ser.in_waiting or 1)
+                if data:
+                    yield data
+        except GeneratorExit:
+            return
+        except Exception as e:
+            yield f"[error] {e}\n".encode(errors="replace")
+        finally:
+            if ser is not None and ser.is_open:
+                ser.close()
+
+    return StreamingResponse(stream(), media_type="text/plain; charset=utf-8")
+
+
 # ── arduino-cli management ────────────────────────────────────────────────────
 @app.post("/api/arduino-cli/locate")
 def locate_cli(payload: dict = Body(...)):

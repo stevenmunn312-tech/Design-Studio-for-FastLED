@@ -275,7 +275,21 @@
   border-bottom: 1px solid var(--border-glow);
   flex-shrink: 0;
 }
-.consoleTitle { font-size: var(--fs-caption); font-weight: 700; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.08em; }
+.consoleTabs { display: flex; gap: 2px; }
+.consoleTab, .consoleTabActive {
+  padding: 3px 7px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-size: var(--fs-caption);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+.consoleTabActive { background: var(--bg-node-hover); color: var(--text-primary); }
 .consoleStatus { font-family: var(--font-code); font-size: 11px; }
 .spacer { flex: 1; }
 .consoleCopyBtn {
@@ -311,6 +325,18 @@
 }
 .consoleBtn:hover:not(:disabled) { color: var(--text-primary); }
 .consoleBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.serialToolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px var(--space-2);
+  border-bottom: 1px solid var(--border-glow);
+  flex-shrink: 0;
+}
+.serialPort { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font: 11px var(--font-code); }
+.serialBaud { height: 26px; border: 1px solid var(--border-glow); border-radius: 5px; background: #1a1e23; color: var(--text-primary); font: 11px var(--font-code); }
+.serialIdle { color: var(--text-secondary); font: 11px var(--font-code); }
 
 .consoleBody {
   flex: 1;

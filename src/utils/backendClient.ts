@@ -44,6 +44,19 @@ export async function listPorts(): Promise<SerialPort[]> {
   }
 }
 
+/** Stream text received from a serial port until `signal` is aborted. */
+export async function monitorSerial(
+  port: string,
+  baud: number,
+  onData: (chunk: string) => void,
+  signal: AbortSignal,
+): Promise<void> {
+  const query = new URLSearchParams({ port, baud: String(baud) })
+  const res = await fetch(`${BACKEND_URL}/api/serial/monitor?${query}`, { signal })
+  if (!res.ok) throw new Error(`Serial monitor failed (${res.status})`)
+  await pipeStream(res, onData)
+}
+
 /** Installed board-core ids (e.g. `esp32:esp32`), so the board manager can show status. */
 export async function listCores(): Promise<string[]> {
   try {

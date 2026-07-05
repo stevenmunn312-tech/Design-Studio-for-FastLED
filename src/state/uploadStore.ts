@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import {
   checkBackend, listPorts, listCores, uploadSketch, uploadShow, locateCli, installCli, installCore,
+  monitorSerial,
   type BackendHealth, type SerialPort, type ShowUploadFile,
 } from '../utils/backendClient'
 
@@ -102,6 +103,10 @@ interface UploadState {
   busy: boolean
   status: UploadStatus
   log: string
+  serialLog: string
+  serialConnected: boolean
+  serialError: string
+  serialBaud: number
   // overlays
   boardPopupOpen: boolean
   cliPopupOpen: boolean
@@ -126,6 +131,10 @@ interface UploadState {
   // logging
   appendLog: (chunk: string) => void
   clearLog: () => void
+  startSerial: () => Promise<void>
+  stopSerial: () => void
+  clearSerialLog: () => void
+  setSerialBaud: (baud: number) => void
   // actions
   // `fqbnOpt` is an optional FQBN board option appended at upload time (e.g.
   // 'PSRAM=opi' when the MatrixOutput "Use PSRAM" toggle is on).
@@ -138,6 +147,7 @@ interface UploadState {
 }
 
 const persisted = load()
+let serialController: AbortController | null = null
 function persist(s: Pick<UploadState, 'myBoards' | 'selectedFqbn' | 'selectedPort'>) {
   try { localStorage.setItem(KEY, JSON.stringify({ myBoards: s.myBoards, selectedFqbn: s.selectedFqbn, selectedPort: s.selectedPort })) } catch { /* quota */ }
 }
@@ -152,6 +162,10 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   busy: false,
   status: IDLE,
   log: '',
+  serialLog: '',
+  serialConnected: false,
+  serialError: '',
+  serialBaud: 115200,
   boardPopupOpen: false,
   cliPopupOpen: false,
   consoleOpen: false,
@@ -190,16 +204,45 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   openCliPopup: () => set({ cliPopupOpen: true, boardPopupOpen: false }),
   closeCliPopup: () => set({ cliPopupOpen: false }),
   openConsole: () => set({ consoleOpen: true }),
-  closeConsole: () => set({ consoleOpen: false }),
+  closeConsole: () => { get().stopSerial(); set({ consoleOpen: false }) },
 
   appendLog: (chunk) => set((s) => ({ log: (s.log + chunk).slice(-60000) })),
   clearLog: () => set({ log: '' }),
+  clearSerialLog: () => set({ serialLog: '' }),
+  setSerialBaud: (serialBaud) => set({ serialBaud }),
+  stopSerial: () => {
+    serialController?.abort()
+    serialController = null
+    set({ serialConnected: false })
+  },
+  startSerial: async () => {
+    const { selectedPort, serialBaud, busy, serialConnected } = get()
+    if (!selectedPort || busy || serialConnected) return
+    serialController?.abort()
+    const controller = new AbortController()
+    serialController = controller
+    set({ serialConnected: true, serialError: '' })
+    try {
+      await monitorSerial(selectedPort, serialBaud, (chunk) => set((s) => ({
+        serialLog: (s.serialLog + chunk).slice(-60000),
+      })), controller.signal)
+    } catch (err) {
+      if (!controller.signal.aborted) {
+        const message = err instanceof Error ? err.message : String(err)
+        set((s) => ({ serialError: message, serialLog: `${s.serialLog}[error] ${message}\n` }))
+      }
+    } finally {
+      if (serialController === controller) serialController = null
+      set({ serialConnected: false })
+    }
+  },
 
   runUpload: async (code, fqbnOpt) => {
     const { selectedFqbn, selectedPort, busy, helper } = get()
     if (busy) return
     if (!helper?.arduinoCli) { set({ cliPopupOpen: true }); return }
     if (!selectedPort) { set({ boardPopupOpen: true }); return }
+    get().stopSerial()
     const fqbn = fqbnOpt ? `${selectedFqbn}:${fqbnOpt}` : selectedFqbn
     set({ busy: true, log: `Uploading to ${selectedPort} (${fqbn})…\n`, status: { phase: 'working', message: 'Starting…' } })
     try {
@@ -226,6 +269,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     if (busy) return
     if (!helper?.arduinoCli) { set({ cliPopupOpen: true }); return }
     if (!selectedPort) { set({ boardPopupOpen: true }); return }
+    get().stopSerial()
     set({ busy: true, consoleOpen: true, log: `Provisioning show to ${selectedPort} (${selectedFqbn})…\n`, status: { phase: 'working', message: 'Provisioning…' } })
     try {
       await uploadShow({ fqbn: selectedFqbn, port: selectedPort, ...payload }, (chunk) => {
