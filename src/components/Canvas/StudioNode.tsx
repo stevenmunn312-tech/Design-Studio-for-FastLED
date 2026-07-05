@@ -299,6 +299,9 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // Frame / palette / colour nodes show a live preview of their primary output,
   // driven from the shared evaluation pass (previewStore).
   const outPort = outputs[0]
+  const outputSignal = usePreviewStore((s) =>
+    outPort ? s.signals.get(`${id}:${outPort.id}`) : undefined
+  )
   const previewKind: PreviewKind | null =
     !isWave && !isComplexWave && outPort
       ? outPort.dataType === 'frame' ? 'frame'
@@ -322,11 +325,13 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
 
   return (
     <div
-      className={styles.node}
+      className={`${styles.node} ${selected ? styles.nodeSelected : ''}`}
       style={{
         width: isMusicLibrary ? 300 : isCode ? 320 : isPerfGen ? 300 : undefined,
-        boxShadow: selected ? `0 0 0 2px ${accent}, 0 0 12px ${accent}` : undefined,
-      }}
+        '--node-accent': accent,
+        '--signal-glow': outputSignal?.glow ?? 'transparent',
+        '--signal-soft-glow': outputSignal?.softGlow ?? 'transparent',
+      } as React.CSSProperties}
     >
       <div className={styles.header} style={{ background: accent }}>
         {nodeDisplayLabel(d.nodeType, props, d.label)}

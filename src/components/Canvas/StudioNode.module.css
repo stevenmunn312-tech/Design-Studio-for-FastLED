@@ -28,11 +28,22 @@
   min-height: var(--node-height);
   background: var(--bg-node);
   border-radius: var(--node-radius);
-  box-shadow: inset 0 0 0 1px var(--border-glow);
-  transition: background var(--anim-hover);
+  box-shadow:
+    inset 0 0 0 1px var(--border-glow),
+    0 0 15px var(--signal-glow, transparent),
+    0 0 38px var(--signal-soft-glow, transparent);
+  transition: background var(--anim-hover), box-shadow 240ms linear;
   cursor: default;
   user-select: none;
   animation: nodePopin 0.2s ease-out;
+}
+
+.nodeSelected {
+  box-shadow:
+    inset 0 0 0 2px var(--node-accent),
+    0 0 12px var(--node-accent),
+    0 0 28px var(--signal-glow, transparent),
+    0 0 48px var(--signal-soft-glow, transparent);
 }
 
 .node:hover {
@@ -49,6 +60,7 @@
   align-items: center;
   border-radius: var(--node-radius) var(--node-radius) 0 0;
   font-family: var(--font-display);
+  box-shadow: 0 6px 18px var(--signal-soft-glow, transparent);
 }
 
 .body {

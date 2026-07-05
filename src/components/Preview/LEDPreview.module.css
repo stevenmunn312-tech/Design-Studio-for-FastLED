@@ -101,6 +101,8 @@
 }
 
 .canvasWrap {
+  position: relative;
+  isolation: isolate;
   padding: var(--space-3);
   display: flex;
   justify-content: center;
@@ -114,6 +116,23 @@
   flex: 1 6 auto;
   min-height: 0;
   overflow: hidden;
+}
+
+.ambilight {
+  position: absolute;
+  z-index: 0;
+  inset: 5% 9%;
+  border-radius: 22%;
+  opacity: var(--ambient-opacity, 0);
+  background:
+    radial-gradient(circle at 16% 18%, var(--ambient-nw, transparent), transparent 48%),
+    radial-gradient(circle at 84% 18%, var(--ambient-ne, transparent), transparent 48%),
+    radial-gradient(circle at 16% 82%, var(--ambient-sw, transparent), transparent 48%),
+    radial-gradient(circle at 84% 82%, var(--ambient-se, transparent), transparent 48%);
+  filter: blur(34px) saturate(1.35);
+  transform: scale(1.16);
+  transition: opacity 180ms linear, background 180ms linear;
+  pointer-events: none;
 }
 
 .canvasWrapFullscreen {
@@ -133,6 +152,8 @@
 }
 
 .canvas {
+  position: relative;
+  z-index: 1;
   display: block;
   background: #020405;
   border-radius: 4px;
@@ -639,11 +660,44 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .ambilight {
+    transition: none;
+  }
+
   .bar,
   .peak,
   .visualizer::before,
   .visualizer::after {
     transition: none;
     animation: none;
+  }
+}
+
+/* In a short split-pane the branding yields its space to the actual light
+   instrument. This keeps the matrix useful instead of collapsing to a tiny
+   postage stamp while preserving the full visualizer on normal displays. */
+@media (max-height: 620px) {
+  .canvasWrap {
+    flex: 2 3 auto;
+    min-height: 150px;
+    padding: var(--space-2);
+  }
+
+  .visualizer {
+    flex: 2 1 auto;
+    padding-bottom: 8px;
+  }
+
+  .spectrum {
+    min-height: 48px;
+    margin-bottom: 8px;
+  }
+
+  .musicControls {
+    gap: 6px;
+  }
+
+  .brandWrap {
+    display: none;
   }
 }

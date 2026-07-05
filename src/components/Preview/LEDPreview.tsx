@@ -20,6 +20,7 @@ import {
   IconVolumeMuted,
 } from './PlayerIcons'
 import styles from './LEDPreview.module.css'
+import { frameAmbient } from '../../utils/signalVisual'
 
 const MAX_CANVAS_PX = 448
 const FULLSCREEN_CANVAS_PX = 1080
@@ -654,6 +655,19 @@ export default function LEDPreview() {
           renderFrame(ctx, frame, px, previewStyleRef.current)
         }
 
+        // Sample the matrix itself for an Ambilight-style spill. Updating CSS
+        // variables directly at 10 fps avoids making the full preview React
+        // tree re-render just to animate decorative light.
+        if (frameCount.current % 6 === 0 && canvasWrapRef.current) {
+          const ambient = frameAmbient(frame)
+          const wrap = canvasWrapRef.current
+          wrap.style.setProperty('--ambient-nw', ambient.colors[0])
+          wrap.style.setProperty('--ambient-ne', ambient.colors[1])
+          wrap.style.setProperty('--ambient-sw', ambient.colors[2])
+          wrap.style.setProperty('--ambient-se', ambient.colors[3])
+          wrap.style.setProperty('--ambient-opacity', String(Math.min(0.78, 0.08 + ambient.energy * 0.7)))
+        }
+
         // Publish every evaluated frame so per-node previews stay in lockstep
         // with the main canvas (same ~60fps wall-clock cadence, no throttle).
         usePreviewStore.getState().setOutputs(outputs)
@@ -899,6 +913,7 @@ export default function LEDPreview() {
         ref={canvasWrapRef}
         className={`${styles.canvasWrap} ${preview3d ? styles.canvasWrap3d : ''} ${isFullscreen ? styles.canvasWrapFullscreen : ''}`}
       >
+        <div className={styles.ambilight} aria-hidden="true" />
         <canvas
           ref={canvasRef}
           width={canvasBufW}

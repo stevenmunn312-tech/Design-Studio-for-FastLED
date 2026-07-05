@@ -12,6 +12,11 @@
   animation: flow 1.4s linear infinite;
 }
 
+.packet {
+  filter: drop-shadow(0 0 3px var(--edge-color)) drop-shadow(0 0 7px var(--edge-color));
+  pointer-events: none;
+}
+
 @keyframes splicePulse {
   0%, 100% { stroke-opacity: 0.2; stroke-width: 16; }
   50% { stroke-opacity: 0.48; stroke-width: 22; }
@@ -28,4 +33,24 @@
   stroke-dasharray: 4 4;
   animation-duration: 0.55s;
   filter: drop-shadow(0 0 4px var(--edge-color));
+}
+
+:global([data-reduced-motion]) .core,
+:global([data-reduced-motion]) .spliceTarget {
+  animation: none;
+}
+
+:global([data-reduced-motion]) .packet {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .core,
+  .spliceTarget {
+    animation: none;
+  }
+
+  .packet {
+    display: none;
+  }
 }
