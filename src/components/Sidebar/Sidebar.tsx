@@ -5,9 +5,34 @@ import { usePatternLibrary, importPatternFile, type SavedPattern } from '../../s
 import { NODE_LIBRARY, CATEGORIES, CATEGORY_ACCENT_VAR, NODE_DESCRIPTIONS } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { revealPatternsFolder } from '../../utils/backendClient'
+import type { NodeDefinition } from '../../types'
 import styles from './Sidebar.module.css'
 
 const EXPANDED_KEY = 'fastled-studio-sidebar-expanded'
+const RECENT_KEY = 'fastled-studio-recent-nodes'
+const MAX_RECENT = 5
+
+const TYPE_GLYPH: Record<string, string> = {
+  frame: '▦', palette: '≋', color: '●', audio: '⌁', float: '∿', bool: '◆',
+  field: '⌖', songs: '♫', shows: '▶', sdcard: '▣', patternset: '◫', transitionset: '⇄',
+}
+
+function moduleType(def: NodeDefinition) {
+  return def.outputs[0]?.dataType ?? def.inputs[0]?.dataType ?? 'control'
+}
+
+function moduleGlyph(def: NodeDefinition) {
+  return TYPE_GLYPH[moduleType(def)] ?? '·'
+}
+
+function loadRecent(): string[] {
+  try {
+    const stored = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]')
+    return Array.isArray(stored) ? stored.filter((type): type is string => typeof type === 'string').slice(0, MAX_RECENT) : []
+  } catch {
+    return []
+  }
+}
 
 export default function Sidebar() {
   const addNode = useGraphStore((s) => s.addNode)
@@ -19,6 +44,7 @@ export default function Sidebar() {
   const viewCenter = useUiStore((s) => s.viewCenter)
   const setStatus = useUiStore((s) => s.setStatus)
   const setDraggingNodeType = useUiStore((s) => s.setDraggingNodeType)
+  const [recent, setRecent] = useState<string[]>(loadRecent)
   // Persisted expand/collapse state. First load starts with only the first
   // category open so the list is scannable rather than a long scroll; after
   // that we restore whatever the user last left open. A search query
@@ -55,10 +81,39 @@ export default function Sidebar() {
       return next
     })
 
+  const rememberNode = (type: string) => {
+    setRecent((previous) => {
+      const next = [type, ...previous.filter((entry) => entry !== type)].slice(0, MAX_RECENT)
+      try { localStorage.setItem(RECENT_KEY, JSON.stringify(next)) } catch { /* non-critical */ }
+      return next
+    })
+  }
+
   const handleDragStart = (e: React.DragEvent, type: string) => {
     e.dataTransfer.setData('application/studio-node', type)
     e.dataTransfer.effectAllowed = 'copy'
     setDraggingNodeType(type)
+    rememberNode(type)
+
+    const def = NODE_LIBRARY.find((node) => node.type === type)
+    if (!def || typeof e.dataTransfer.setDragImage !== 'function') return
+    const ghost = document.createElement('div')
+    ghost.className = styles.dragGhost
+    ghost.style.setProperty('--accent', CATEGORY_ACCENT_VAR[def.category])
+    const glyph = document.createElement('span')
+    glyph.className = styles.dragGhostGlyph
+    glyph.textContent = moduleGlyph(def)
+    const copy = document.createElement('span')
+    copy.className = styles.dragGhostCopy
+    const name = document.createElement('strong')
+    name.textContent = def.label
+    const typeLabel = document.createElement('small')
+    typeLabel.textContent = `${moduleType(def)} module`
+    copy.append(name, typeLabel)
+    ghost.append(glyph, copy)
+    document.body.appendChild(ghost)
+    e.dataTransfer.setDragImage(ghost, 22, 24)
+    window.setTimeout(() => ghost.remove(), 0)
   }
 
   const handlePatternDragStart = (e: React.DragEvent, id: string) => {
@@ -131,6 +186,7 @@ export default function Sidebar() {
   const handleAddNode = (type: string) => {
     const def = NODE_LIBRARY.find((n) => n.type === type)
     if (!def) return
+    rememberNode(type)
     // Pass `centreOnDrop` so the node settles vertically centred on the drop
     // point once React Flow measures its (variable) height, rather than hanging
     // below it — i.e. it ends up half its height above where the top-left lands.
@@ -149,6 +205,47 @@ export default function Sidebar() {
     }, true)
   }
 
+  const recentNodes = recent
+    .map((type) => NODE_LIBRARY.find((node) => node.type === type))
+    .filter((node): node is NodeDefinition => Boolean(node))
+
+  const renderModule = (n: NodeDefinition, compact = false) => {
+    const enabled = canAddNodeType(canvasNodes, n.type)
+    const accent = CATEGORY_ACCENT_VAR[n.category]
+    const outputType = moduleType(n)
+    return (
+      <li
+        key={`${compact ? 'recent-' : ''}${n.type}`}
+        className={`${styles.nodeItem} ${compact ? styles.recentModule : ''}`}
+        style={{ '--accent': accent } as React.CSSProperties}
+        draggable={enabled}
+        aria-disabled={!enabled}
+        role="button"
+        tabIndex={enabled ? 0 : -1}
+        aria-label={compact ? `Add ${n.label} from recent rack` : `Add ${n.label}`}
+        onDragStart={(e) => handleDragStart(e, n.type)}
+        onDragEnd={() => setDraggingNodeType(null)}
+        onClick={() => { if (enabled) handleAddNode(n.type) }}
+        onKeyDown={(e) => {
+          if (enabled && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault()
+            handleAddNode(n.type)
+          }
+        }}
+        title={enabled
+          ? `${NODE_DESCRIPTIONS[n.type] ?? n.label}\nClick to add · drag to place`
+          : `${n.label} already exists on this canvas`}
+      >
+        <span className={styles.moduleGlyph} data-output-type={outputType} aria-hidden="true">{moduleGlyph(n)}</span>
+        <span className={styles.moduleCopy}>
+          <span className={styles.moduleName}>{n.label}</span>
+          {!compact && <span className={styles.moduleType}>{outputType}</span>}
+        </span>
+        <span className={styles.moduleGrip} aria-hidden="true">⠿</span>
+      </li>
+    )
+  }
+
   return (
     <aside className={styles.sidebar} id="node-library">
       <div className={styles.header}>Node Library</div>
@@ -162,6 +259,15 @@ export default function Sidebar() {
         />
       </div>
       <div className={styles.scroll}>
+        {query === '' && recentNodes.length > 0 && (
+          <section className={styles.recentRack} aria-label="Recently used nodes">
+            <div className={styles.recentHeader}>
+              <span>Recent rack</span>
+              <span>{recentNodes.length}/{MAX_RECENT}</span>
+            </div>
+            <ul className={styles.recentList}>{recentNodes.map((node) => renderModule(node, true))}</ul>
+          </section>
+        )}
         {CATEGORIES.map(({ id, label }) => {
           const nodes = NODE_LIBRARY.filter(
             (n) => n.category === id && (query === '' || n.label.toLowerCase().includes(query))
@@ -177,7 +283,11 @@ export default function Sidebar() {
                 style={{ '--accent': accent } as React.CSSProperties}
                 onClick={() => toggle(id)}
               >
-                <span>{label}</span>
+                <span className={styles.drawerLabel}>
+                  <span className={styles.drawerLight} aria-hidden="true" />
+                  {label}
+                  <span className={styles.drawerCount}>{nodes.length}</span>
+                </span>
                 <span
                   className={styles.chevron}
                   style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
@@ -187,23 +297,7 @@ export default function Sidebar() {
               </button>
               {open && (
                 <ul className={styles.nodeList}>
-                  {nodes.map((n) => (
-                    <li
-                      key={n.type}
-                      className={styles.nodeItem}
-                      style={{ '--accent': accent } as React.CSSProperties}
-                      draggable={canAddNodeType(canvasNodes, n.type)}
-                      aria-disabled={!canAddNodeType(canvasNodes, n.type)}
-                      onDragStart={(e) => handleDragStart(e, n.type)}
-                      onDragEnd={() => setDraggingNodeType(null)}
-                      onClick={() => { if (canAddNodeType(canvasNodes, n.type)) handleAddNode(n.type) }}
-                      title={canAddNodeType(canvasNodes, n.type)
-                        ? `${NODE_DESCRIPTIONS[n.type] ?? n.label}\nClick to add · drag to place`
-                        : `${n.label} already exists on this canvas`}
-                    >
-                      {n.label}
-                    </li>
-                  ))}
+                  {nodes.map((n) => renderModule(n))}
                 </ul>
               )}
             </div>
