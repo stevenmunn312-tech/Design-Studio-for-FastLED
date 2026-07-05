@@ -155,6 +155,12 @@ function NodeGraphCanvasInner() {
   })
   const lastBeat = useRef(false)
   const [beatRippleKey, setBeatRippleKey] = useState(0)
+  const hasTerminalFrame = useMemo(() => {
+    const terminalIds = new Set(nodes
+      .filter((node) => ['MatrixOutput', 'GroupOutput'].includes(String((node.data as { nodeType?: string }).nodeType)))
+      .map((node) => node.id))
+    return edges.some((edge) => terminalIds.has(edge.target) && edge.targetHandle === 'frame')
+  }, [edges, nodes])
 
   useEffect(() => {
     if (beatNow && !lastBeat.current) setBeatRippleKey((key) => key + 1)
@@ -699,9 +705,15 @@ function NodeGraphCanvasInner() {
       <GroupControls />
       {nodes.length === 0 && (
         <div className={styles.emptyField} role="status">
+          <div className={styles.dormantSignal} aria-hidden="true"><span /></div>
           <div className={styles.emptyBeacon} aria-hidden="true"><span /></div>
-          <strong>Patch your first signal</strong>
-          <span>Drag in a pattern, then wire its frame to Matrix Output.</span>
+          <strong>Signal path awaiting input</strong>
+          <span>Drop a generator. Patch an output. Make light.</span>
+        </div>
+      )}
+      {nodes.length > 0 && !hasTerminalFrame && (
+        <div className={styles.unpatchedFlag} role="status">
+          <span aria-hidden="true" /> Output waiting for a frame
         </div>
       )}
       {connectionRipple && (

@@ -232,6 +232,54 @@
   pointer-events: none;
 }
 
+.standbyHud {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 9px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 8px;
+  border: 1px solid rgba(90, 209, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(3, 6, 10, 0.72);
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+  backdrop-filter: blur(7px);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.standbyHud span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #9ce8ff;
+}
+
+.standbyHud i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #5ad1ff;
+  box-shadow: 0 0 7px #5ad1ff;
+  animation: standbyBlink 1.8s steps(2, end) infinite;
+}
+
+.standbyHud small {
+  font-size: 8px;
+  opacity: 0.64;
+}
+
+@keyframes standbyBlink {
+  50% { opacity: 0.34; }
+}
+
 .canvasWrapFullscreen {
   width: 100vw;
   height: 100vh;
@@ -765,6 +813,10 @@
     animation: none;
   }
 
+  .standbyHud i {
+    animation: none;
+  }
+
   .bar,
   .peak,
   .visualizer::before,
@@ -775,6 +827,10 @@
 }
 
 :global([data-reduced-motion]) .liveDot {
+  animation: none;
+}
+
+:global([data-reduced-motion]) .standbyHud i {
   animation: none;
 }
 

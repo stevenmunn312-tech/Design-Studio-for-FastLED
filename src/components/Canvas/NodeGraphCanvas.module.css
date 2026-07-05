@@ -122,6 +122,65 @@
   opacity: 0.72;
 }
 
+.dormantSignal {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(360px, 54%);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(90, 209, 255, 0.2) 24%, rgba(255, 92, 240, 0.18) 76%, transparent);
+  transform: translate(-50%, -50%);
+}
+
+.dormantSignal span {
+  position: absolute;
+  top: -3px;
+  left: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #bdf2ff;
+  box-shadow: 0 0 7px #5ad1ff, 0 0 15px rgba(255, 92, 240, 0.5);
+  animation: dormantTravel 3.8s ease-in-out infinite;
+}
+
+@keyframes dormantTravel {
+  0% { opacity: 0; transform: translateX(0); }
+  12% { opacity: 0.8; }
+  88% { opacity: 0.8; }
+  100% { opacity: 0; transform: translateX(min(360px, 54vw)); }
+}
+
+.unpatchedFlag {
+  position: absolute;
+  z-index: 8;
+  top: 14px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 9px;
+  border: 1px solid rgba(90, 209, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(8, 12, 17, 0.72);
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+  backdrop-filter: blur(7px);
+  pointer-events: none;
+}
+
+.unpatchedFlag span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent-output);
+  box-shadow: 0 0 6px var(--accent-output);
+}
+
 .emptyBeacon {
   position: relative;
   width: 48px;
@@ -163,14 +222,16 @@
 
 :global([data-reduced-motion]) .fieldScan,
 :global([data-reduced-motion]) .connectionRipple,
-:global([data-reduced-motion]) .emptyBeacon span {
+:global([data-reduced-motion]) .emptyBeacon span,
+:global([data-reduced-motion]) .dormantSignal span {
   display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .fieldScan,
   .connectionRipple,
-  .emptyBeacon span { display: none; }
+  .emptyBeacon span,
+  .dormantSignal span { display: none; }
 }
 
 .beatRipple {

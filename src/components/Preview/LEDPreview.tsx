@@ -21,6 +21,7 @@ import {
 } from './PlayerIcons'
 import styles from './LEDPreview.module.css'
 import { frameAmbient } from '../../utils/signalVisual'
+import { idleFrame } from './idleFrame'
 
 const MAX_CANVAS_PX = 448
 const STAGE_CANVAS_PX = 840
@@ -192,34 +193,6 @@ interface LocalTrack {
 }
 
 let nextTrackId = 0
-
-// Idle animation shown when no nodes are on the canvas
-function idleFrame(tick: number, gridW: number, gridH: number): Frame {
-  const t = tick / 60
-  return Array.from({ length: gridH }, (_, y) =>
-    Array.from({ length: gridW }, (_, x) => {
-      const v = (Math.sin(x * 0.4 + t * 0.8) + Math.cos(y * 0.4 + t * 0.6)) / 2
-      const hue = (v + 1) * 90 + t * 15
-      const h = ((hue % 360) + 360) % 360
-      const s = 1, lv = 0.5
-      const c = lv * s
-      const xc = c * (1 - Math.abs(((h / 60) % 2) - 1))
-      const m = lv - c
-      let r = 0, g = 0, b = 0
-      if      (h < 60)  { r = c; g = xc }
-      else if (h < 120) { r = xc; g = c }
-      else if (h < 180) { g = c; b = xc }
-      else if (h < 240) { g = xc; b = c }
-      else if (h < 300) { r = xc; b = c }
-      else              { r = c; b = xc }
-      return {
-        r: Math.round((r + m) * 255),
-        g: Math.round((g + m) * 255),
-        b: Math.round((b + m) * 255),
-      }
-    })
-  )
-}
 
 // True when a PerformanceGenerator's `frame` output feeds a MatrixOutput — the
 // signal the main preview should show that generator's live show playback.
@@ -465,6 +438,12 @@ export default function LEDPreview() {
   const outputNode = useGraphStore((s) =>
     s.nodes.find((n) => (n.data as { nodeType?: string }).nodeType === 'MatrixOutput')
   )
+  const hasFrameSignal = useGraphStore((s) => {
+    const terminalIds = new Set(s.nodes
+      .filter((node) => ['MatrixOutput', 'GroupOutput'].includes(String(node.data.nodeType)))
+      .map((node) => node.id))
+    return s.edges.some((edge) => terminalIds.has(edge.target) && edge.targetHandle === 'frame')
+  })
   const gridW = Math.max(2, Math.min(64, Number(outputNode?.data.properties.width  ?? 16)))
   const gridH = Math.max(2, Math.min(64, Number(outputNode?.data.properties.height ?? 16)))
   const stageMode = useUiStore((s) => s.stageMode)
@@ -934,6 +913,12 @@ export default function LEDPreview() {
         className={`${styles.canvasWrap} ${preview3d ? styles.canvasWrap3d : ''} ${isFullscreen ? styles.canvasWrapFullscreen : ''}`}
       >
         <div className={styles.ambilight} aria-hidden="true" />
+        {!hasFrameSignal && (
+          <div className={styles.standbyHud} aria-live="polite">
+            <span><i aria-hidden="true" /> Signal standby</span>
+            <small>Patch a frame into output</small>
+          </div>
+        )}
         <canvas
           ref={canvasRef}
           width={canvasBufW}
