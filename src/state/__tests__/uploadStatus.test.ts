@@ -41,6 +41,13 @@ describe('parseStatus', () => {
     expect(parseStatus('\n*** FAILED (exit code 74) ***\n').phase).toBe('error')
   })
 
+  it('reports error on the phase-specific failure banners', () => {
+    // The helper now says which phase failed (build vs upload) — both wordings
+    // must still register as errors.
+    expect(parseStatus("\n*** BUILD FAILED (exit code 1) *** The sketch didn't compile, so nothing was sent to the board — see the errors above.\n").phase).toBe('error')
+    expect(parseStatus('\n*** UPLOAD FAILED (exit code 74) *** The sketch compiled, but flashing failed.\n').phase).toBe('error')
+  })
+
   it('is idle/working with no recognised markers', () => {
     expect(parseStatus('Uploading to COM4…\n').phase).toBe('working')
   })

@@ -206,7 +206,11 @@ def _looks_like_overflow(lines):
 
 
 def _compile_upload(label, sketch_dir, fqbn, port):
-    """Compile, then (if a port is given) upload a sketch. Returns the exit code.
+    """Compile, then (if a port is given) upload a sketch. Returns
+    (exit code, phase) where phase is "compile" or "upload" — the phase the
+    run ended in, so callers can tailor the failure message (a compile failure
+    never touched the board; only an upload failure warrants download-mode
+    advice).
 
     Compiling is also the size gate: arduino-cli refuses to link a binary that
     overflows flash/RAM, so an over-capacity design fails here and never reaches
@@ -229,7 +233,7 @@ def _compile_upload(label, sketch_dir, fqbn, port):
                 "  partition scheme) with more space.\n"
                 "  [size-error] won't fit on this board\n"
             )
-        return rc
+        return rc, "compile"
 
     report = _size_report(compile_lines)
     if report["flash"] is not None:
@@ -245,8 +249,9 @@ def _compile_upload(label, sketch_dir, fqbn, port):
 
     if not port:
         yield "  (no port selected — compiled only)\n"
-        return 0
-    return (yield from _run_phase(f"{label} · upload", _ARDUINO_BASE + ["upload", "-v", "-p", port, "--fqbn", fqbn, str(sketch_dir)]))
+        return 0, "compile"
+    rc = yield from _run_phase(f"{label} · upload", _ARDUINO_BASE + ["upload", "-v", "-p", port, "--fqbn", fqbn, str(sketch_dir)])
+    return rc, "upload"
 
 
 def _serial_send(port, payloads):
@@ -571,12 +576,16 @@ def upload(payload: dict = Body(...)):
 
     def stream():
         try:
-            rc = yield from _compile_upload("Sketch", sketch_dir, fqbn, port)
+            rc, phase = yield from _compile_upload("Sketch", sketch_dir, fqbn, port)
             if rc == 0 and port:
                 yield "\nUpload complete.\n"
+            elif rc != 0 and phase == "compile":
+                yield (f"\n*** BUILD FAILED (exit code {rc}) *** The sketch didn't compile, so "
+                       "nothing was sent to the board — see the errors above.\n")
             elif rc != 0:
-                yield (f"\n*** FAILED (exit code {rc}) *** If upload couldn't connect, put the "
-                       "board in download mode (hold BOOT, tap RST) and retry.\n")
+                yield (f"\n*** UPLOAD FAILED (exit code {rc}) *** The sketch compiled, but flashing "
+                       "failed. If it couldn't connect, put the board in download mode "
+                       "(hold BOOT, tap RST) and retry.\n")
         finally:
             shutil.rmtree(work, ignore_errors=True)
 
@@ -615,18 +624,26 @@ async def upload_show(
                 yield "[error] a serial port is required to write the SD card\n"
                 return
             prov_work, prov_dir = _make_sketch("provisioner", provisioner)
-            rc = yield from _compile_upload("Provisioner", prov_dir, fqbn, port)
+            rc, phase = yield from _compile_upload("Provisioner", prov_dir, fqbn, port)
             if rc != 0:
-                yield f"\n*** Provisioner flash failed (exit {rc}) ***\n"
+                yield (f"\n*** Provisioner build failed (exit {rc}) — nothing was flashed ***\n"
+                       if phase == "compile" else
+                       f"\n*** Provisioner flash failed (exit {rc}) — if it couldn't connect, put "
+                       "the board in download mode (hold BOOT, tap RST) and retry ***\n")
                 return
             ok = yield from _serial_send(port, payloads)
             if not ok:
                 yield "\n*** SD transfer failed — not flashing the player ***\n"
                 return
             play_work, play_dir = _make_sketch("player", player)
-            rc = yield from _compile_upload("Player", play_dir, fqbn, port)
-            yield ("\nAll done — songs/shows are on the card and the player is flashed.\n"
-                   if rc == 0 else f"\n*** Player flash failed (exit {rc}) ***\n")
+            rc, phase = yield from _compile_upload("Player", play_dir, fqbn, port)
+            if rc == 0:
+                yield "\nAll done — songs/shows are on the card and the player is flashed.\n"
+            else:
+                yield (f"\n*** Player build failed (exit {rc}) — the board is still running the provisioner ***\n"
+                       if phase == "compile" else
+                       f"\n*** Player flash failed (exit {rc}) — if it couldn't connect, put the "
+                       "board in download mode (hold BOOT, tap RST) and retry ***\n")
         finally:
             for w in (prov_work, play_work):
                 if w:

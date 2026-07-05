@@ -1208,6 +1208,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       powerLimit: false,
       volts: 5,
       milliamps: 2000,
+      // Place per-node render buffers in external PSRAM (ESP32 family). These
+      // are rendered by MatrixOutputUpload (not the generic property list)
+      // because visibility depends on the *selected board* supporting PSRAM;
+      // `psramMode` holds the board's PsramOption id (OPI vs QSPI on the S3).
+      usePsram: false,
+      psramMode: 'opi',
     },
   },
 

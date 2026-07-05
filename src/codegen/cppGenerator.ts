@@ -310,6 +310,43 @@ function audioEngineCpp(ws: number, sck: number, sd: number, chFmt: string, gain
 
 // ── Code generator ────────────────────────────────────────────────────────────
 
+// PSRAM buffer placement (ESP32 family only). When the MatrixOutput node's
+// "Use PSRAM" toggle is on, the per-node render buffers — the dominant static
+// RAM cost, one CRGB/float buffer per frame/field node — are declared as
+// pointers and allocated from external PSRAM in setup() instead of landing in
+// the (small, fixed) internal `.bss` segment. `leds` itself deliberately stays
+// a static internal-RAM array: FastLED's ESP32 drivers read it from ISR/DMA
+// context, where PSRAM access can fault while the flash cache is disabled.
+// `_psAlloc` falls back to the internal heap when the module has no PSRAM (or
+// the build didn't enable it), so the sketch still runs — just without the
+// RAM relief.
+export const PSRAM_ALLOC_CPP = [
+  '// Allocate a render buffer in external PSRAM when present; falls back to the',
+  '// internal heap, and halts (rather than crashing on a null write) if neither',
+  '// has room.',
+  'void* _psAlloc(size_t n) {',
+  '  void* p = psramFound() ? ps_malloc(n) : nullptr;',
+  '  if (!p) p = malloc(n);',
+  '  if (!p) { for (;;) delay(1000); }  // out of memory',
+  '  memset(p, 0, n);',
+  '  return p;',
+  '}',
+].join('\n')
+
+/** Convert a static render-buffer declaration (`CRGB name[NUM_LEDS];` or
+ *  `float name[NUM_LEDS];`) into its PSRAM form: a null pointer declaration
+ *  plus the matching `_psAlloc` line for setup(). Returns null for any other
+ *  line. Shared with the show generator, which collects the same declarations
+ *  from the per-pattern sub-sketches. */
+export function psramBufferDecl(decl: string): { decl: string; alloc: string } | null {
+  const m = decl.match(/^(CRGB|float) ([A-Za-z0-9_]+)\[NUM_LEDS\];/)
+  if (!m) return null
+  return {
+    decl: `${m[1]}* ${m[2]} = nullptr;`,
+    alloc: `  ${m[2]} = (${m[1]}*)_psAlloc(sizeof(${m[1]}) * NUM_LEDS);`,
+  }
+}
+
 /**
  * The on-device audio engine (INMP441 I2S reader + FFT) for a graph that
  * contains a MicInput, so a *controller* sketch (e.g. the generative pattern
@@ -343,7 +380,10 @@ export function generateCpp(
   // `externalAudio`: the host sketch already provides the audio-engine globals
   // (used when compiling a pattern subgraph into a controller that hosts the
   // engine), so FFTAnalyzer/BeatDetect reference them without re-emitting it.
-  opts: { externalAudio?: boolean; groupInputExprs?: Record<string, string> } = {},
+  // `psramAllowed`: gate for the MatrixOutput `usePsram` property — the upload
+  // UI passes false when the selected board has no PSRAM support, so a stale
+  // toggle can't emit ESP32-only allocation calls into an AVR/RP2040 sketch.
+  opts: { externalAudio?: boolean; groupInputExprs?: Record<string, string>; psramAllowed?: boolean } = {},
 ): string {
   if (nodes.length === 0) return '// No nodes in graph\n'
 
@@ -387,6 +427,8 @@ export function generateCpp(
   const powerLimit = (outputNode ? props(outputNode).powerLimit : false) === true
   const volts      = intProp(outputNode ? props(outputNode).volts     : undefined, 5, 1, 60)
   const milliamps  = intProp(outputNode ? props(outputNode).milliamps : undefined, 2000, 100, 100000)
+  // Per-node render buffers in external PSRAM (ESP32 family; see PSRAM_ALLOC_CPP).
+  const usePsram = opts.psramAllowed !== false && (outputNode ? props(outputNode).usePsram : false) === true
 
   // A MicInput node turns on the on-device audio engine (INMP441 over I2S + FFT);
   // its pins/channel configure the generated I2S reader. `emitEngine` means this
@@ -2180,11 +2222,25 @@ export function generateCpp(
   lines.push(`#define DATA_PIN ${dataPin}`)
   lines.push(``)
   lines.push(`CRGB leds[NUM_LEDS];`)
-  // One render buffer per frame-producing node so layers can be composited.
-  for (const b of frameBufs) lines.push(`CRGB buf_${b}[NUM_LEDS];`)
-  // One float buffer per field-producing node (FieldFormula …).
-  for (const b of fieldBufs) lines.push(`float field_${b}[NUM_LEDS];`)
+  // One render buffer per frame-producing node so layers can be composited, and
+  // one float buffer per field-producing node (FieldFormula …). With `usePsram`
+  // these become pointers allocated in setup() (leds stays internal — see
+  // PSRAM_ALLOC_CPP); otherwise they're plain static arrays.
+  const bufferDecls = [
+    ...[...frameBufs].map((b) => `CRGB buf_${b}[NUM_LEDS];`),
+    ...[...fieldBufs].map((b) => `float field_${b}[NUM_LEDS];`),
+  ]
+  const psramAllocs: string[] = []
+  for (const d of bufferDecls) {
+    const ps = usePsram ? psramBufferDecl(d) : null
+    if (ps) { lines.push(ps.decl); psramAllocs.push(ps.alloc) }
+    else lines.push(d)
+  }
   lines.push(``)
+  if (usePsram) {
+    lines.push(PSRAM_ALLOC_CPP)
+    lines.push(``)
+  }
 
   if (needsShims.v) {
     lines.push(CPP_SHIM_HELPERS)
@@ -2243,6 +2299,7 @@ export function generateCpp(
   }
 
   lines.push(`void setup() {`)
+  lines.push(...psramAllocs)
   lines.push(`  FastLED.addLeds<${chipset}, DATA_PIN, ${colorOrder}>(leds, NUM_LEDS);`)
   lines.push(`  FastLED.setBrightness(200);`)
   if (powerLimit) lines.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${volts}, ${milliamps});`)

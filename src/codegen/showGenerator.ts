@@ -14,7 +14,7 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import { customPaletteDeclarationsCpp } from '../state/paletteCatalog'
-import { generateCpp, audioEngineForGraph } from './cppGenerator'
+import { generateCpp, audioEngineForGraph, psramBufferDecl, PSRAM_ALLOC_CPP } from './cppGenerator'
 import { SHOW_TRANSITIONS } from './performanceGenerator'
 import { TRANSITION_HELPER_CPP, PARTICLE_OVERLAY_CPP } from './transitionHelperCpp'
 
@@ -232,11 +232,16 @@ export function buildPatternRenderers(
   }
 }
 
-export function generateShowSketch(nodes: StudioNode[], edges: StudioEdge[], groups: GroupRegistry = {}): string {
+export function generateShowSketch(
+  nodes: StudioNode[], edges: StudioEdge[], groups: GroupRegistry = {},
+  // `psramAllowed` mirrors generateCpp's option: the upload UI passes false
+  // when the selected board has no PSRAM support.
+  opts: { psramAllowed?: boolean } = {},
+): string {
   const info = showInfo(nodes, edges)
-  if (!info) return generateCpp(nodes, edges, groups)
+  if (!info) return generateCpp(nodes, edges, groups, opts)
   if (info.patternIds.length === 0) {
-    return '// Pattern Master has no patterns — add patterns to its Pattern Collection.\n' + generateCpp(nodes, edges, groups)
+    return '// Pattern Master has no patterns — add patterns to its Pattern Collection.\n' + generateCpp(nodes, edges, groups, opts)
   }
 
   const out = nodes.find((n) => nodeType(n) === 'MatrixOutput')
@@ -244,6 +249,12 @@ export function generateShowSketch(nodes: StudioNode[], edges: StudioEdge[], gro
   const width = Number(op.width ?? 16), height = Number(op.height ?? 16)
   const dataPin = Number(op.dataPin ?? 5)
   const chipset = String(op.chipset ?? 'WS2812B'), colorOrder = String(op.colorOrder ?? 'GRB')
+  // "Use PSRAM": every collected pattern contributes its own set of render
+  // buffers, so a show is the heaviest static-RAM consumer — move those (and
+  // the two transition compositing buffers) to external PSRAM. The sub-pattern
+  // sketches always emit plain arrays (their synthetic MatrixOutput carries no
+  // properties); the conversion happens here, at the show level.
+  const usePsram = opts.psramAllowed !== false && op.usePsram === true
 
   // A MicInput on the canvas turns the controller into an audio host: it runs
   // the INMP441 I2S + FFT engine and the collected patterns' FFTAnalyzer/
@@ -267,11 +278,22 @@ export function generateShowSketch(nodes: StudioNode[], edges: StudioEdge[], gro
   L.push(`#define DATA_PIN ${dataPin}`)
   L.push(`#define PATTERN_COUNT ${renderers.count}`)
   L.push('')
+  // `leds` stays a static internal-RAM array even with PSRAM on (FastLED's
+  // ESP32 drivers read it from ISR/DMA context); everything else moves.
   L.push('CRGB leds[NUM_LEDS];')
-  L.push('CRGB showA[NUM_LEDS];   // outgoing pattern during a transition')
-  L.push('CRGB showB[NUM_LEDS];   // incoming pattern during a transition')
-  for (const b of renderers.buffers) L.push(b)
+  const showBufs = [
+    'CRGB showA[NUM_LEDS];   // outgoing pattern during a transition',
+    'CRGB showB[NUM_LEDS];   // incoming pattern during a transition',
+    ...renderers.buffers,
+  ]
+  const psramAllocs: string[] = []
+  for (const b of showBufs) {
+    const ps = usePsram ? psramBufferDecl(b) : null
+    if (ps) { L.push(ps.decl); psramAllocs.push(ps.alloc) }
+    else L.push(b)
+  }
   L.push('')
+  if (usePsram) { L.push(PSRAM_ALLOC_CPP); L.push('') }
   // The random pool of transition style ids the controller draws from.
   L.push(`const uint8_t TRANS_POOL[] = { ${info.transitionIds.join(', ')} };`)
   L.push(`#define TRANS_POOL_N ${info.transitionIds.length}`)
@@ -295,6 +317,7 @@ export function generateShowSketch(nodes: StudioNode[], edges: StudioEdge[], gro
   L.push('')
 
   L.push('void setup() {')
+  for (const a of psramAllocs) L.push(a)
   L.push(`  FastLED.addLeds<${chipset}, DATA_PIN, ${colorOrder}>(leds, NUM_LEDS);`)
   L.push('  FastLED.setBrightness(200);')
   L.push('  randomSeed(analogRead(A0));')

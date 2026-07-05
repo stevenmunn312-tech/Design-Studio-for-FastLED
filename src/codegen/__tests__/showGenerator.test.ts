@@ -48,6 +48,21 @@ describe('showGenerator', () => {
     expect(cpp).toMatch(/render_p0[\s\S]*CRGB\(0, 0, 255\)[\s\S]*?\n\}/)
   })
 
+  it('moves show + pattern buffers to PSRAM when the MatrixOutput toggle is on', () => {
+    const psNodes = [nodes[0], nodes[1], node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5, usePsram: true })]
+    const cpp = generateShowSketch(psNodes, edges, groups)
+    expect(cpp).toContain('CRGB leds[NUM_LEDS];')            // stays internal
+    expect(cpp).toContain('CRGB* showA = nullptr;')
+    expect(cpp).toContain('CRGB* p0_buf_sc = nullptr;')
+    expect(cpp).toContain('showA = (CRGB*)_psAlloc(sizeof(CRGB) * NUM_LEDS);')
+    expect(cpp).toContain('p0_buf_sc = (CRGB*)_psAlloc(sizeof(CRGB) * NUM_LEDS);')
+    expect(cpp).toContain('void* _psAlloc(size_t n)')
+    // The stale-toggle gate (board without PSRAM) falls back to static arrays.
+    const noPs = generateShowSketch(psNodes, edges, groups, { psramAllowed: false })
+    expect(noPs).toContain('CRGB p0_buf_sc[NUM_LEDS];')
+    expect(noPs).not.toContain('_psAlloc')
+  })
+
   it('handles a Pattern Master with no patterns', () => {
     const lone = [node('pc', 'PatternCollection', { patternIds: [] }), node('pm', 'PatternMaster', {}), node('out', 'MatrixOutput', {})]
     const loneEdges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]

@@ -265,6 +265,9 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const isGroupInput = d.nodeType === 'GroupInput'
   const editable = Object.entries(props).filter(
     ([k]) => k !== 'font' && k !== 'image' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions' && k !== 'previewHidden'
+      // PSRAM controls render in MatrixOutputUpload — their visibility depends
+      // on whether the *selected board* supports PSRAM, which only it knows.
+      && k !== 'usePsram' && k !== 'psramMode'
       && !(isGroupInput && k === 'paramId')
       && !(hasRGB && (k === 'r' || k === 'g' || k === 'b'))
   )
@@ -396,7 +399,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}
         {d.nodeType === 'TransitionSet' && <TransitionSetBody nodeId={id} />}
 
-        {d.nodeType === 'MatrixOutput' && <MatrixOutputUpload enabled={drivenBy('frame')} />}
+        {d.nodeType === 'MatrixOutput' && <MatrixOutputUpload nodeId={id} enabled={drivenBy('frame')} />}
 
         {isCode && (
           <>

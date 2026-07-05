@@ -1121,3 +1121,32 @@ describe('audioEngineForGraph', () => {
     expect(joined).toContain('I2S_CHANNEL_FMT_ONLY_RIGHT')   // channel honoured
   })
 })
+
+describe('PSRAM buffer placement (MatrixOutput usePsram)', () => {
+  const psOut = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, dataPin: 5, usePsram: true })
+  const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+  const wiring = [edge('e1', 'sc', 'out', 'frame', 'frame')]
+
+  it('moves per-node buffers to _psAlloc and keeps leds internal', () => {
+    const cpp = generateCpp([sc, psOut], wiring)
+    expect(cpp).toContain('CRGB* buf_sc = nullptr;')
+    expect(cpp).toContain('buf_sc = (CRGB*)_psAlloc(sizeof(CRGB) * NUM_LEDS);')
+    expect(cpp).toContain('void* _psAlloc(size_t n)')
+    // leds stays a static internal-RAM array — FastLED's ESP32 drivers read it
+    // from ISR/DMA context where PSRAM access can fault.
+    expect(cpp).toContain('CRGB leds[NUM_LEDS];')
+    expect(cpp).not.toContain('CRGB buf_sc[NUM_LEDS];')
+  })
+
+  it('ignores a stale toggle when the board has no PSRAM (psramAllowed: false)', () => {
+    const cpp = generateCpp([sc, psOut], wiring, {}, { psramAllowed: false })
+    expect(cpp).toContain('CRGB buf_sc[NUM_LEDS];')
+    expect(cpp).not.toContain('_psAlloc')
+  })
+
+  it('emits plain static buffers when the toggle is off', () => {
+    const cpp = generateCpp([sc, outputNode], wiring)
+    expect(cpp).toContain('CRGB buf_sc[NUM_LEDS];')
+    expect(cpp).not.toContain('_psAlloc')
+  })
+})

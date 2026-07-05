@@ -8,11 +8,25 @@ import {
 // Each board maps to an arduino-cli FQBN and the core that provides it. ESP32,
 // RP2040 and Teensy are third-party cores (their board-manager URL is registered
 // by the helper when their core is installed).
-export interface Board { label: string; fqbn: string; core: string; thirdParty?: boolean }
+//
+// `psram` lists the board's external-PSRAM build options (FQBN menu values):
+// PSRAM is a chip-package option that can't be probed from the host before
+// flashing, so the catalogue records which MCUs *can* have it and the generated
+// firmware checks `psramFound()` at runtime. Boards without the field (AVR,
+// RP2040, Teensy) have no PSRAM support.
+export interface PsramOption { id: string; label: string; opt: string }
+export interface Board { label: string; fqbn: string; core: string; thirdParty?: boolean; psram?: PsramOption[] }
 
 export const BOARDS: Board[] = [
-  { label: 'ESP32-S3',      fqbn: 'esp32:esp32:esp32s3',   core: 'esp32:esp32',   thirdParty: true },
-  { label: 'ESP32',         fqbn: 'esp32:esp32:esp32',     core: 'esp32:esp32',   thirdParty: true },
+  { label: 'ESP32-S3',      fqbn: 'esp32:esp32:esp32s3',   core: 'esp32:esp32',   thirdParty: true,
+    psram: [
+      { id: 'opi',  label: 'OPI (R8 modules, e.g. N16R8)', opt: 'PSRAM=opi' },
+      { id: 'qspi', label: 'QSPI (R2 modules, e.g. N8R2)', opt: 'PSRAM=enabled' },
+    ] },
+  { label: 'ESP32',         fqbn: 'esp32:esp32:esp32',     core: 'esp32:esp32',   thirdParty: true,
+    psram: [
+      { id: 'qspi', label: 'QSPI (WROVER modules)', opt: 'PSRAM=enabled' },
+    ] },
   { label: 'Arduino Uno',   fqbn: 'arduino:avr:uno',       core: 'arduino:avr' },
   { label: 'Arduino Nano',  fqbn: 'arduino:avr:nano',      core: 'arduino:avr' },
   { label: 'Teensy 4.1',    fqbn: 'teensy:avr:teensy41',   core: 'teensy:avr',    thirdParty: true },
@@ -113,7 +127,9 @@ interface UploadState {
   appendLog: (chunk: string) => void
   clearLog: () => void
   // actions
-  runUpload: (code: string) => Promise<void>
+  // `fqbnOpt` is an optional FQBN board option appended at upload time (e.g.
+  // 'PSRAM=opi' when the MatrixOutput "Use PSRAM" toggle is on).
+  runUpload: (code: string, fqbnOpt?: string) => Promise<void>
   runShowUpload: (payload: { provisioner: string; player: string; files: ShowUploadFile[] }) => Promise<void>
   exportIno: (code: string, filename?: string) => void
   locate: (path: string) => Promise<{ ok: boolean; error?: string }>
@@ -179,14 +195,15 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   appendLog: (chunk) => set((s) => ({ log: (s.log + chunk).slice(-60000) })),
   clearLog: () => set({ log: '' }),
 
-  runUpload: async (code) => {
+  runUpload: async (code, fqbnOpt) => {
     const { selectedFqbn, selectedPort, busy, helper } = get()
     if (busy) return
     if (!helper?.arduinoCli) { set({ cliPopupOpen: true }); return }
     if (!selectedPort) { set({ boardPopupOpen: true }); return }
-    set({ busy: true, log: `Uploading to ${selectedPort} (${selectedFqbn})…\n`, status: { phase: 'working', message: 'Starting…' } })
+    const fqbn = fqbnOpt ? `${selectedFqbn}:${fqbnOpt}` : selectedFqbn
+    set({ busy: true, log: `Uploading to ${selectedPort} (${fqbn})…\n`, status: { phase: 'working', message: 'Starting…' } })
     try {
-      await uploadSketch(code, selectedFqbn, selectedPort, (chunk) => {
+      await uploadSketch(code, fqbn, selectedPort, (chunk) => {
         const log = (get().log + chunk).slice(-60000)
         const status = parseStatus(log)
         set({ log, status })
