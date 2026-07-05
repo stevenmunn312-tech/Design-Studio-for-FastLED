@@ -5,6 +5,17 @@
   position: relative;
 }
 
+.controls {
+  left: auto !important;
+  right: calc(var(--canvas-right-inset, 0px) + 200px) !important;
+  bottom: 0 !important;
+}
+
+.minimap {
+  right: var(--canvas-right-inset, 0px) !important;
+  bottom: 0 !important;
+}
+
 .spliceCue {
   --cue-color: var(--accent-composite);
   position: absolute;
@@ -44,14 +55,42 @@
 }
 
 /* Zoom/fit controls — override React Flow's default white buttons for dark theme contrast */
+.controls:global(.react-flow__controls) {
+  height: 150px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: none !important;
+  border-radius: 8px 0 0 0;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 4%, var(--bg-panel)), var(--bg-panel)) !important;
+  box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.22);
+}
+
+.minimap:global(.react-flow__minimap) {
+  border-left: 1px solid var(--border-glow) !important;
+  border-radius: 0 8px 0 0;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 4%, var(--bg-panel)), var(--bg-panel)) !important;
+  box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.22);
+}
+
 .controls :global(.react-flow__controls-button) {
-  background: var(--bg-panel);
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  background: transparent;
   border-bottom: 1px solid var(--border-glow);
   fill: var(--text-primary);
 }
 
+.controls :global(.react-flow__controls-button:last-child) {
+  border-bottom: none;
+}
+
 .controls :global(.react-flow__controls-button:hover) {
-  background: var(--bg-elevated, rgba(255, 255, 255, 0.08));
+  background: color-mix(in srgb, var(--accent-output) 7%, transparent);
 }
 
 .controls :global(.react-flow__controls-button svg) {
@@ -60,7 +99,7 @@
 
 /* Minimap edge colors — edges carry stroke color from their source category */
 .minimap :global(.react-flow__minimap-svg) {
-  border-radius: 6px;
+  border-radius: 0 8px 0 0;
 }
 
 .minimap :global(.react-flow__minimap-edge) {

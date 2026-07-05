@@ -35,7 +35,7 @@ interface UiState {
   statusText: string
   statusLevel: StatusLevel
   sidebarOpen: boolean
-  inspectorOpen: boolean
+  previewPanelOpen: boolean
   preview3d: boolean
   previewStyle: PreviewStyle
   /** When on, audio-reactive nodes with no live mic run off a synthetic demo
@@ -55,7 +55,7 @@ interface UiState {
   setStatus: (text: string, level?: StatusLevel) => void
   clearStatus: () => void
   toggleSidebar: () => void
-  toggleInspector: () => void
+  togglePreviewPanel: () => void
   togglePreview3d: () => void
   toggleTestSignal: () => void
   setPreviewStyle: (style: PreviewStyle) => void
@@ -82,9 +82,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   statusText: 'Ready',
   statusLevel: 'idle',
   sidebarOpen: true,
-  // Node properties are edited inline on the nodes; the Inspector is an
-  // opt-in panel (toggle from the menu bar).
-  inspectorOpen: false,
+  previewPanelOpen: true,
   preview3d: false,
   previewStyle: loadPreviewStyle(),
   testSignal: load<boolean>(TEST_SIGNAL_KEY, false),
@@ -111,6 +109,7 @@ export const useUiStore = create<UiState>((set, get) => ({
     set({ statusText: 'Ready', statusLevel: 'idle' })
   },
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+  togglePreviewPanel: () => set((s) => ({ previewPanelOpen: !s.previewPanelOpen })),
   togglePreview3d: () => set((s) => ({ preview3d: !s.preview3d })),
   toggleTestSignal: () => {
     const next = !get().testSignal
@@ -126,7 +125,6 @@ export const useUiStore = create<UiState>((set, get) => ({
     localStorage.setItem(PREVIEW_STYLE_KEY, JSON.stringify(next))
     set({ previewStyle: next })
   },
-  toggleInspector: () => set((s) => ({ inspectorOpen: !s.inspectorOpen })),
   setFps: (fps) => set({ fps }),
   setSparkPort: (port) => set({ sparkPort: port }),
   setDraggingNodeType: (draggingNodeType) => set({ draggingNodeType }),

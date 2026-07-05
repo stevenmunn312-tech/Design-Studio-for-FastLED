@@ -7,16 +7,187 @@
 }
 
 .workspace {
+  position: relative;
   display: flex;
   flex: 1;
   overflow: hidden;
 }
 
-.rightPanel {
+.mainRegion {
+  position: relative;
   display: flex;
-  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sidebarDock {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--sidebar-width);
+  z-index: 11;
+  pointer-events: none;
+}
+
+.sidebarPanel {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--sidebar-width);
+  height: 100%;
+  pointer-events: auto;
+  transition:
+    transform 380ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 240ms ease-out;
+  will-change: transform;
+}
+
+.sidebarDockClosed .sidebarPanel,
+.sidebarPanelClosed {
+  transform: translateX(calc(-1 * var(--sidebar-width)));
+  opacity: 0.82;
+  pointer-events: none;
+}
+
+.sidebarHandle {
+  position: absolute;
+  top: 0;
+  z-index: 12;
+  width: 22px;
+  height: calc(var(--space-2) * 2 + var(--fs-body) + 1px);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-style: solid;
+  border-width: 0 1px 1px 0;
+  border-color: var(--border-glow);
+  border-radius: 0 10px 10px 0;
+  background:
+    radial-gradient(circle at 32% 50%, rgba(255, 255, 255, 0.08), transparent 56%),
+    color-mix(in srgb, var(--bg-panel) 90%, transparent);
+  color: var(--text-primary);
+  opacity: 0.58;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+  transition:
+    left 380ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity var(--anim-hover),
+    color var(--anim-hover),
+    border-color var(--anim-hover),
+    box-shadow var(--anim-hover),
+    background var(--anim-hover);
+}
+
+.sidebarHandle:hover {
+  opacity: 0.96;
+  color: var(--accent-output);
+  border-color: color-mix(in srgb, var(--accent-output) 35%, var(--border-glow));
+  background:
+    radial-gradient(circle at 32% 50%, color-mix(in srgb, var(--accent-output) 28%, transparent), transparent 58%),
+    color-mix(in srgb, var(--bg-panel) 94%, var(--accent-output) 6%);
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.24),
+    0 0 0 1px color-mix(in srgb, var(--accent-output) 22%, transparent);
+}
+
+.sidebarHandleOpen {
+  left: calc(var(--sidebar-width) - 1px);
+}
+
+.sidebarHandleClosed {
+  left: 0;
+}
+
+.sidebarHandleArrow {
+  font-size: 14px;
+  opacity: 0.72;
+  line-height: 1;
+  transform: translateX(-1px);
+}
+
+.previewDock {
+  position: absolute;
+  inset: 0 0 0 auto;
   width: var(--right-panel-width);
-  flex-shrink: 0;
+  z-index: 11;
+  pointer-events: none;
+}
+
+.previewPanel {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: var(--right-panel-width);
+  height: 100%;
+  pointer-events: auto;
+  background: var(--bg-panel);
   border-left: 1px solid var(--border-glow);
   overflow: hidden;
+  transition:
+    transform 380ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 240ms ease-out;
+  will-change: transform;
+}
+
+.previewDockClosed .previewPanel,
+.previewPanelClosed {
+  transform: translateX(var(--right-panel-width));
+  opacity: 0.82;
+  pointer-events: none;
+}
+
+.previewHandle {
+  position: absolute;
+  top: 0;
+  z-index: 12;
+  width: 22px;
+  height: var(--menubar-height);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-style: solid;
+  border-width: 0 0 1px 1px;
+  border-color: var(--border-glow);
+  border-radius: 10px 0 0 10px;
+  background:
+    radial-gradient(circle at 68% 50%, rgba(255, 255, 255, 0.08), transparent 56%),
+    color-mix(in srgb, var(--bg-panel) 90%, transparent);
+  color: var(--text-primary);
+  opacity: 0.58;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+  transition:
+    right 380ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity var(--anim-hover),
+    color var(--anim-hover),
+    border-color var(--anim-hover),
+    box-shadow var(--anim-hover),
+    background var(--anim-hover);
+}
+
+.previewHandle:hover {
+  opacity: 0.96;
+  color: var(--accent-output);
+  border-color: color-mix(in srgb, var(--accent-output) 35%, var(--border-glow));
+  background:
+    radial-gradient(circle at 68% 50%, color-mix(in srgb, var(--accent-output) 28%, transparent), transparent 58%),
+    color-mix(in srgb, var(--bg-panel) 94%, var(--accent-output) 6%);
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.24),
+    0 0 0 1px color-mix(in srgb, var(--accent-output) 22%, transparent);
+}
+
+.previewHandleOpen {
+  right: calc(var(--right-panel-width) - 1px);
+}
+
+.previewHandleClosed {
+  right: 0;
+}
+
+.previewHandleArrow {
+  font-size: 14px;
+  opacity: 0.72;
+  line-height: 1;
+  transform: translateX(1px);
 }

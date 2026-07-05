@@ -22,6 +22,7 @@ export default function GroupControls() {
   const inGroup = activeGraphId !== ROOT_GRAPH_ID
   const activeName = graphs[activeGraphId]?.name ?? 'Main'
   const selectedIds = nodes.filter((n) => n.selected).map((n) => n.id)
+  const showBar = inGroup || selectedIds.length > 0
 
   // Ctrl/Cmd+G — the keyboard mirror of the "⊞ Group" button, gated the same
   // way (needs a selection) so it's a no-op rather than opening an empty dialog.
@@ -48,6 +49,8 @@ export default function GroupControls() {
     )
   }
 
+  if (!showBar) return null
+
   return (
     <div className={styles.bar}>
       {inGroup ? (
@@ -62,9 +65,7 @@ export default function GroupControls() {
             ＋ Input
           </button>
         </>
-      ) : (
-        <span className={styles.crumb}>Main</span>
-      )}
+      ) : null}
       {selectedIds.length > 0 && (
         <button className={styles.group} onClick={() => setShowDialog(true)}>
           ⊞ Group {selectedIds.length}

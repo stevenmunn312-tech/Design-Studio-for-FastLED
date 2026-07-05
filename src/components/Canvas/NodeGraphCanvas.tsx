@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -59,6 +59,8 @@ const SNAP_GRID: [number, number] = [20, 20]
 const SPLICE_DIST = 48
 const FALLBACK_W = 180
 const FALLBACK_H = 70
+const DEFAULT_SIDEBAR_W = 280
+const DEFAULT_PREVIEW_W = 496
 
 type Pt = { x: number; y: number }
 
@@ -87,6 +89,13 @@ function hoveredSpliceEdgeAt(x: number, y: number): string | undefined {
   return undefined
 }
 
+function panelInsetPx(cssVar: '--sidebar-width' | '--right-panel-width', fallback: number, open: boolean): number {
+  if (!open || typeof window === 'undefined') return 0
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim()
+  const parsed = Number.parseFloat(raw)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
 function NodeGraphCanvasInner() {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, insertNodeOnEdge, spliceNodeOnEdge, spreadNodes, instantiatePattern, addToCollection, enterGraph, removeEdge, reconnectNoodle } =
     useGraphStore()
@@ -107,9 +116,11 @@ function NodeGraphCanvasInner() {
   // Timestamp of the last drag-to-create picker open, so the trailing pane
   // click that React Flow emits right after the drop doesn't close it.
   const menuOpenedAt = useRef(0)
-  const { screenToFlowPosition, flowToScreenPosition, getNode, getInternalNode } = useReactFlow()
-  const { setStatus, setSparkPort, setViewCenter, draggingNodeType, setDraggingNodeType } = useUiStore()
+  const { screenToFlowPosition, flowToScreenPosition, getNode, getInternalNode, setCenter, getZoom } = useReactFlow()
+  const { setStatus, setSparkPort, setViewCenter, draggingNodeType, setDraggingNodeType, sidebarOpen, previewPanelOpen } = useUiStore()
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const leftInset = panelInsetPx('--sidebar-width', DEFAULT_SIDEBAR_W, sidebarOpen)
+  const rightInset = panelInsetPx('--right-panel-width', DEFAULT_PREVIEW_W, previewPanelOpen)
   const [spliceCue, setSpliceCue] = useState<{
     edgeId: string
     x: number
@@ -126,8 +137,18 @@ function NodeGraphCanvasInner() {
     const el = wrapperRef.current
     if (!el) return
     const r = el.getBoundingClientRect()
-    setViewCenter(screenToFlowPosition({ x: r.left + r.width * 0.05, y: r.top + r.height / 2 }))
-  }, [screenToFlowPosition, setViewCenter])
+    const insetLeft = panelInsetPx('--sidebar-width', DEFAULT_SIDEBAR_W, sidebarOpen)
+    const insetRight = panelInsetPx('--right-panel-width', DEFAULT_PREVIEW_W, previewPanelOpen)
+    const usableWidth = Math.max(0, r.width - insetLeft - insetRight)
+    setViewCenter(screenToFlowPosition({
+      x: r.left + insetLeft + usableWidth * 0.05,
+      y: r.top + r.height / 2,
+    }))
+  }, [screenToFlowPosition, setViewCenter, sidebarOpen, previewPanelOpen])
+
+  useEffect(() => {
+    publishCenter()
+  }, [publishCenter])
 
   // On pan/zoom: remember the viewport (so a reload restores it) and refresh
   // the click-to-add centre.
@@ -318,6 +339,14 @@ function NodeGraphCanvasInner() {
     setContextMenu(null)
     setCanvasMenu(null)
   }, [selectNode])
+
+  const onMiniMapClick = useCallback((_: React.MouseEvent, position: { x: number; y: number }) => {
+    void setCenter(position.x, position.y, {
+      zoom: getZoom(),
+      duration: 260,
+      ease: (t) => 1 - Math.pow(1 - t, 3),
+    })
+  }, [getZoom, setCenter])
 
   const findSpliceTarget = useCallback((
     position: Pt,
@@ -520,7 +549,14 @@ function NodeGraphCanvasInner() {
   }, [canvasDragNodeId, draggingNodeType, edges, spliceEdgeId])
 
   return (
-    <div ref={wrapperRef} className={styles.canvas} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
+    <div
+      ref={wrapperRef}
+      className={styles.canvas}
+      style={{ '--canvas-left-inset': `${leftInset}px`, '--canvas-right-inset': `${rightInset}px` } as React.CSSProperties}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
       <GroupControls />
       {spliceCue && (
         <div
@@ -571,6 +607,7 @@ function NodeGraphCanvasInner() {
         selectionKeyCode="Shift"
         style={{ background: 'var(--bg-primary)' }}
         defaultEdgeOptions={{ type: 'glowEdge' }}
+        proOptions={{ hideAttribution: true }}
       >
         <Background
           variant={BackgroundVariant.Dots}
@@ -586,8 +623,9 @@ function NodeGraphCanvasInner() {
           nodeColor={minimapNodeColor}
           nodeStrokeWidth={0}
           maskColor="rgba(0,0,0,0.55)"
-          style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-glow)' }}
+          style={{ width: 200, height: 150, background: 'var(--bg-panel)', border: '1px solid var(--border-glow)' }}
           className={styles.minimap}
+          onClick={onMiniMapClick}
         />
       </ReactFlow>
       {contextMenu && (

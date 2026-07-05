@@ -1,4 +1,5 @@
 .sidebar {
+  height: 100%;
   width: var(--sidebar-width);
   background: var(--bg-panel);
   border-right: 1px solid var(--border-glow);

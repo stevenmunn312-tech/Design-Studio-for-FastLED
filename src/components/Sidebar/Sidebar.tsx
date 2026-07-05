@@ -149,7 +149,7 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className={styles.sidebar}>
+    <aside className={styles.sidebar} id="node-library">
       <div className={styles.header}>Node Library</div>
       <div className={styles.searchWrap}>
         <input

@@ -6,7 +6,7 @@ import { runTidy } from '../../utils/tidyGraph'
 import styles from './MenuBar.module.css'
 
 export default function MenuBar() {
-  const { toggleSidebar, toggleInspector, setStatus, theme, cycleTheme, reducedMotion, toggleReducedMotion, highContrast, toggleHighContrast, openHelp } = useUiStore()
+  const { setStatus, theme, cycleTheme, reducedMotion, toggleReducedMotion, highContrast, toggleHighContrast, openHelp } = useUiStore()
 
   const THEME_ICON: Record<string, string> = { dark: '☾', solarized: '✦', light: '☀' }
   const THEME_LABEL: Record<string, string> = { dark: 'Dark', solarized: 'Solarized', light: 'Light' }
@@ -60,13 +60,6 @@ export default function MenuBar() {
         <span className={styles.title}>FastLED Studio</span>
       </div>
       <nav className={styles.nav}>
-        <button className={styles.btn} onClick={toggleSidebar} aria-label="Toggle node library">
-          Nodes
-        </button>
-        <button className={styles.btn} onClick={toggleInspector} aria-label="Toggle inspector">
-          Inspector
-        </button>
-        <div className={styles.sep} />
         <button
           className={styles.btn}
           onClick={() => undo()}
