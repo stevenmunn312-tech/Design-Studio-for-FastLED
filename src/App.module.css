@@ -13,6 +13,44 @@
   overflow: hidden;
 }
 
+.menuShell,
+.statusShell {
+  display: contents;
+}
+
+.appStage {
+  background: #05070a;
+}
+
+.appStage .menuShell,
+.appStage .statusShell {
+  display: none;
+}
+
+.workspaceStage .mainRegion,
+.workspaceStage .previewHandle {
+  display: none;
+}
+
+.workspaceStage .previewDock {
+  inset: 0;
+  width: 100%;
+  pointer-events: auto;
+}
+
+.workspaceStage .previewPanel,
+.workspaceStage .previewPanelClosed,
+.workspaceStage .previewDockClosed .previewPanel {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+  opacity: 1;
+  pointer-events: auto;
+  border-left: none;
+  transition: none;
+}
+
 .mainRegion {
   position: relative;
   display: flex;

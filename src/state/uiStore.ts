@@ -36,6 +36,8 @@ interface UiState {
   statusLevel: StatusLevel
   sidebarOpen: boolean
   previewPanelOpen: boolean
+  /** Show-ready layout that gives the live matrix and transport the viewport. */
+  stageMode: boolean
   preview3d: boolean
   previewStyle: PreviewStyle
   /** When on, audio-reactive nodes with no live mic run off a synthetic demo
@@ -56,6 +58,8 @@ interface UiState {
   clearStatus: () => void
   toggleSidebar: () => void
   togglePreviewPanel: () => void
+  toggleStageMode: () => void
+  setStageMode: (active: boolean) => void
   togglePreview3d: () => void
   toggleTestSignal: () => void
   setPreviewStyle: (style: PreviewStyle) => void
@@ -83,6 +87,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   statusLevel: 'idle',
   sidebarOpen: true,
   previewPanelOpen: true,
+  stageMode: false,
   preview3d: false,
   previewStyle: loadPreviewStyle(),
   testSignal: load<boolean>(TEST_SIGNAL_KEY, false),
@@ -110,6 +115,8 @@ export const useUiStore = create<UiState>((set, get) => ({
   },
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   togglePreviewPanel: () => set((s) => ({ previewPanelOpen: !s.previewPanelOpen })),
+  toggleStageMode: () => set((s) => ({ stageMode: !s.stageMode })),
+  setStageMode: (stageMode) => set({ stageMode }),
   togglePreview3d: () => set((s) => ({ preview3d: !s.preview3d })),
   toggleTestSignal: () => {
     const next = !get().testSignal

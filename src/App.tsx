@@ -49,6 +49,7 @@ export default function App() {
   const {
     sidebarOpen,
     previewPanelOpen,
+    stageMode,
     setStatus,
     theme,
     reducedMotion,
@@ -159,7 +160,17 @@ export default function App() {
       const isTyping = !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
 
       if (e.key === 'Escape' && !isTyping) {
+        if (useUiStore.getState().stageMode) {
+          useUiStore.getState().setStageMode(false)
+          return
+        }
         useGraphStore.getState().clearSelection()
+        return
+      }
+
+      if (e.key === 'F10' && !isTyping) {
+        e.preventDefault()
+        useUiStore.getState().toggleStageMode()
         return
       }
 
@@ -217,9 +228,9 @@ export default function App() {
   }, [setStatus])
 
   return (
-    <div className={styles.app}>
-      <MenuBar />
-      <div className={styles.workspace}>
+    <div className={`${styles.app} ${stageMode ? styles.appStage : ''}`}>
+      <div className={styles.menuShell}><MenuBar /></div>
+      <div className={`${styles.workspace} ${stageMode ? styles.workspaceStage : ''}`}>
         <div className={styles.mainRegion}>
           <div className={`${styles.sidebarDock} ${sidebarOpen ? '' : styles.sidebarDockClosed}`}>
             <div
@@ -246,8 +257,8 @@ export default function App() {
         <div className={`${styles.previewDock} ${previewPanelOpen ? '' : styles.previewDockClosed}`}>
           <div
             className={`${styles.previewPanel} ${previewPanelOpen ? '' : styles.previewPanelClosed}`}
-            aria-hidden={!previewPanelOpen}
-            inert={!previewPanelOpen}
+            aria-hidden={!previewPanelOpen && !stageMode}
+            inert={!previewPanelOpen && !stageMode}
             id="preview-panel"
           >
             <LEDPreview />
@@ -265,7 +276,7 @@ export default function App() {
           <span className={styles.previewHandleArrow} aria-hidden="true">{previewPanelOpen ? '›' : '‹'}</span>
         </button>
       </div>
-      <StatusBar />
+      <div className={styles.statusShell}><StatusBar /></div>
       {boardPopupOpen && <BoardPopup />}
       {cliPopupOpen && <ArduinoCliPopup />}
       {consoleOpen && <OutputConsole />}

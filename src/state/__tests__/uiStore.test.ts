@@ -62,4 +62,12 @@ describe('uiStore.setStatus auto-clear', () => {
     expect(useUiStore.getState().previewStyle).toBe('dreamy')
     expect(localStorage.getItem('fastled-studio-preview-style')).toBe('"dreamy"')
   })
+
+  it('enters and exits stage mode without persisting it across sessions', () => {
+    useUiStore.getState().setStageMode(false)
+    useUiStore.getState().toggleStageMode()
+    expect(useUiStore.getState().stageMode).toBe(true)
+    useUiStore.getState().setStageMode(false)
+    expect(useUiStore.getState().stageMode).toBe(false)
+  })
 })

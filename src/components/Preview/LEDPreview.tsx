@@ -23,6 +23,7 @@ import styles from './LEDPreview.module.css'
 import { frameAmbient } from '../../utils/signalVisual'
 
 const MAX_CANVAS_PX = 448
+const STAGE_CANVAS_PX = 840
 const FULLSCREEN_CANVAS_PX = 1080
 const NUM_BARS = 28
 const DIFFUSION_BG = 'rgb(4,3,9)'
@@ -466,6 +467,9 @@ export default function LEDPreview() {
   )
   const gridW = Math.max(2, Math.min(64, Number(outputNode?.data.properties.width  ?? 16)))
   const gridH = Math.max(2, Math.min(64, Number(outputNode?.data.properties.height ?? 16)))
+  const stageMode = useUiStore((s) => s.stageMode)
+  const setStageMode = useUiStore((s) => s.setStageMode)
+  const fps = useUiStore((s) => s.fps)
   const fullscreenCanvasPx = Math.min(FULLSCREEN_CANVAS_PX, viewport.width, viewport.height)
   const wrapEl = canvasWrapRef.current
   const wrapStyle = wrapEl ? window.getComputedStyle(wrapEl) : null
@@ -474,9 +478,9 @@ export default function LEDPreview() {
   const availableCanvasW = Math.max(0, canvasWrapSize.width - wrapPadX)
   const availableCanvasH = Math.max(0, canvasWrapSize.height - wrapPadY)
   const windowedPixelLimit = Math.min(
-    MAX_CANVAS_PX,
-    availableCanvasW > 0 ? availableCanvasW / gridW : MAX_CANVAS_PX,
-    availableCanvasH > 0 ? availableCanvasH / gridH : MAX_CANVAS_PX,
+    stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX,
+    availableCanvasW > 0 ? availableCanvasW / gridW : stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX,
+    availableCanvasH > 0 ? availableCanvasH / gridH : stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX,
   )
   const pixel = isFullscreen
     ? fullscreenCanvasPx / Math.max(gridW, gridH)
@@ -867,9 +871,15 @@ export default function LEDPreview() {
   }
 
   return (
-    <div className={styles.panel}>
-      <div className={styles.header}>
-        <span>LED Preview</span>
+    <div className={`${styles.panel} ${stageMode ? styles.panelStage : ''}`}>
+      <div className={`${styles.header} ${stageMode ? styles.headerStage : ''}`}>
+        {stageMode ? (
+          <div className={styles.stageIdentity}>
+            <span className={styles.liveDot} aria-hidden="true" />
+            <span className={styles.stageTitle}>Live output</span>
+            <span className={styles.stageMeta}>{gridW}×{gridH} · {fps} FPS</span>
+          </div>
+        ) : <span>LED Preview</span>}
         <div className={styles.headerRight}>
           <button
             className={styles.toggleBtn}
@@ -907,6 +917,16 @@ export default function LEDPreview() {
           >
             {audioMode === 'mic' ? 'Mic On' : 'Mic Off'}
           </button>
+          {stageMode && (
+            <button
+              className={`${styles.toggleBtn} ${styles.stageExit}`}
+              onClick={() => setStageMode(false)}
+              title="Return to editor (Esc or F10)"
+              aria-label="Exit Stage Mode"
+            >
+              Exit stage
+            </button>
+          )}
         </div>
       </div>
       <div
