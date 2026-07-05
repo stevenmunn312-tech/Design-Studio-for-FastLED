@@ -505,6 +505,7 @@ export function generateCpp(
   const needsKelvin = { v: false }
   const needsT = { v: false }
   const needsShims = { v: false }
+  const needsXyMap = { v: false }
   // Frame-producing nodes each render into their own CRGB buffer, so multiple
   // layers can coexist and be composited. Collected here, declared as globals.
   const frameBufs = new Set<string>()
@@ -2170,8 +2171,13 @@ export function generateCpp(
       case 'Blur2D': {
         const ob = ownBuf()
         // `amount` is a 0–1 strength; blur2d takes a 0–255 blur amount.
+        // FastLED 3.10+ requires an XYMap argument — without it blur2d logs
+        // "XY function not provided" and maps every pixel to index 0. Our
+        // buffers are always row-major (serpentine remaps only at
+        // MatrixOutput), so a rectangular grid map is correct here.
+        needsXyMap.v = true
         const amount = Math.max(0, Math.min(1, Number(p.amount ?? 0.15)))
-        ln(`  ${seedFrom('frame')} blur2d(${ob}, WIDTH, HEIGHT, ${Math.round(amount * 255)});`)
+        ln(`  ${seedFrom('frame')} blur2d(${ob}, WIDTH, HEIGHT, ${Math.round(amount * 255)}, _xyMap);`)
         break
       }
 
@@ -2244,6 +2250,13 @@ export function generateCpp(
 
   if (needsShims.v) {
     lines.push(CPP_SHIM_HELPERS)
+    lines.push(``)
+  }
+
+  if (needsXyMap.v) {
+    lines.push(`// Row-major coordinate map for FastLED 3.10+'s blur2d (buffers are always`)
+    lines.push(`// row-major; serpentine wiring is remapped only at MatrixOutput).`)
+    lines.push(`fl::XYMap _xyMap = fl::XYMap::constructRectangularGrid(WIDTH, HEIGHT);`)
     lines.push(``)
   }
 

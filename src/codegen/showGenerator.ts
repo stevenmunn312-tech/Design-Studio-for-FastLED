@@ -175,6 +175,9 @@ function buildPattern(
     // discarded here, leaving calls such as `_fsin8(...)` undeclared.
     const shim = line.match(/^float (_f[A-Za-z0-9_]+)\(/)
     if (shim) { helpers.set(shim[1], line); continue }
+    // The row-major XYMap Blur2D needs (one-line declaration, shared by all
+    // patterns that blur — same name, so hoisting dedupes it).
+    if (/^fl::XYMap _xyMap/.test(line)) { helpers.set('_xyMap', line); continue }
     // Code-node file-scope declarations are emitted immediately before setup.
     // Preserve the complete block (including user functions and blank lines).
     if (/^\/\/ .*Code node .*globals/.test(line)) {

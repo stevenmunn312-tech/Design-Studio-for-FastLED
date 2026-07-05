@@ -189,10 +189,17 @@ describe('generateCpp', () => {
     expect(cpp).not.toContain('CHSV((uint8_t)((_v')  // no longer hardcoded hue
   })
 
-  it('emits blur2d call for Blur2D node', () => {
+  it('emits blur2d with an XYMap (required since FastLED 3.10)', () => {
     const blur = node('bl', 'Blur2D', 'pattern', { amount: 0.5 })
     const cpp = generateCpp([blur, outputNode], [])
-    expect(cpp).toContain('blur2d(buf_bl, WIDTH, HEIGHT, 128)')   // 0.5 × 255
+    expect(cpp).toContain('blur2d(buf_bl, WIDTH, HEIGHT, 128, _xyMap)')   // 0.5 × 255
+    expect(cpp).toContain('fl::XYMap _xyMap = fl::XYMap::constructRectangularGrid(WIDTH, HEIGHT);')
+  })
+
+  it('omits the XYMap declaration when nothing blurs', () => {
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const cpp = generateCpp([sc, outputNode], [edge('e1', 'sc', 'out', 'frame', 'frame')])
+    expect(cpp).not.toContain('XYMap')
   })
 
   it('emits fadeToBlackBy for a Fade node', () => {

@@ -63,6 +63,20 @@ describe('showGenerator', () => {
     expect(noPs).not.toContain('_psAlloc')
   })
 
+  it('hoists the Blur2D XYMap declaration out of pattern bodies (deduped)', () => {
+    const blurGroups: GroupRegistry = {
+      g0: { nodes: [node('bl', 'Blur2D', { amount: 0.5 }), node('go', 'GroupOutput')],
+            edges: [edge('e', 'bl', 'frame', 'go', 'frame')] },
+      g1: { nodes: [node('bl', 'Blur2D', { amount: 0.25 }), node('go', 'GroupOutput')],
+            edges: [edge('e', 'bl', 'frame', 'go', 'frame')] },
+    }
+    const cpp = generateShowSketch(nodes, edges, blurGroups)
+    expect(cpp).toContain('blur2d(p0_buf_bl, WIDTH, HEIGHT, 128, _xyMap)')
+    expect(cpp).toContain('blur2d(p1_buf_bl, WIDTH, HEIGHT, 64, _xyMap)')
+    // Declared once at file scope, not per pattern.
+    expect(cpp.match(/fl::XYMap _xyMap =/g)).toHaveLength(1)
+  })
+
   it('handles a Pattern Master with no patterns', () => {
     const lone = [node('pc', 'PatternCollection', { patternIds: [] }), node('pm', 'PatternMaster', {}), node('out', 'MatrixOutput', {})]
     const loneEdges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
