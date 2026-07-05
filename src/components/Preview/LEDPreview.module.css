@@ -280,8 +280,8 @@
   /* Shares the visualizer's spare height with the branding below — the wordmark
      gets the larger share so it reads as a footer, while the bars keep a
      moderate floor. */
-  flex: 1 1 0;
-  min-height: 52px;
+  flex: 1.35 1 0;
+  min-height: 68px;
   display: flex;
   align-items: flex-end;
   gap: 4px;
