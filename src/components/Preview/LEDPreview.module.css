@@ -281,7 +281,7 @@
      gets the larger share so it reads as a footer, while the bars keep a
      moderate floor. */
   flex: 1.35 1 0;
-  min-height: 68px;
+  min-height: 80px;
   display: flex;
   align-items: flex-end;
   gap: 4px;
@@ -542,7 +542,7 @@
      yields column height to the wordmark instead of collapsing it — the canvas
      wrap has a high flex-shrink, so this min-height pushes the canvas smaller
      rather than squashing the logo. */
-  min-height: 72px;
+  min-height: 60px;
   display: flex;
   align-items: center;
   justify-content: center;
