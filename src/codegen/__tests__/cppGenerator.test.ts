@@ -975,7 +975,16 @@ describe('generateCpp — INMP441 audio engine', () => {
 
   it('emits the I2S driver, a self-contained FFT, and per-frame update', () => {
     const cpp = micGraph()
+    // Both driver paths behind the IDF-version gate: the new channel driver on
+    // IDF 5+ (FastLED 3.10 links it, and IDF 5 aborts if the legacy one is
+    // also compiled in), the legacy driver on older cores.
+    expect(cpp).toContain('#include <esp_idf_version.h>')
+    expect(cpp).toContain('#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)')
+    expect(cpp).toContain('#include <driver/i2s_std.h>')
     expect(cpp).toContain('#include <driver/i2s.h>')
+    expect(cpp).toContain('i2s_channel_init_std_mode(_micChan, &cfg);')
+    expect(cpp).toContain('i2s_channel_read(_micChan')
+    expect(cpp).toContain('cfg.slot_cfg.slot_mask = I2S_STD_SLOT_LEFT;')
     expect(cpp).toContain('#define MIC_WS   39')
     expect(cpp).toContain('#define MIC_SCK  40')
     expect(cpp).toContain('#define MIC_SD   41')
@@ -1121,11 +1130,14 @@ describe('audioEngineForGraph', () => {
   it('returns the I2S include and engine code when a MicInput is present', () => {
     const mic = node('mic', 'MicInput', 'hardware', { i2sWs: 39, i2sSck: 40, i2sSd: 41, channel: 'Right' })
     const eng = audioEngineForGraph([mic])!
-    expect(eng.include).toContain('driver/i2s.h')
+    expect(eng.include).toContain('driver/i2s_std.h')        // new driver (IDF 5+)
+    expect(eng.include).toContain('driver/i2s.h')            // legacy fallback
     const joined = eng.code.join('\n')
     expect(joined).toContain('void setupAudio()')
     expect(joined).toContain('void updateAudio()')
-    expect(joined).toContain('I2S_CHANNEL_FMT_ONLY_RIGHT')   // channel honoured
+    // channel honoured on both driver paths
+    expect(joined).toContain('I2S_CHANNEL_FMT_ONLY_RIGHT')
+    expect(joined).toContain('cfg.slot_cfg.slot_mask = I2S_STD_SLOT_RIGHT;')
   })
 })
 

@@ -135,12 +135,22 @@ function topoSort(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
   return result
 }
 
-// On-device audio engine for an INMP441 MEMS mic on ESP32: a legacy-driver I2S
-// reader + a self-contained radix-2 FFT (no external library) that updates
-// global _audioBass/_audioMids/_audioTreble (0–1, smoothed, optional AGC, and
-// an adaptive noise gate) and a _audioBeat flag once per frame.
-// NOTE: ESP32-only; not yet hardware-validated — see docs.
-function audioEngineCpp(ws: number, sck: number, sd: number, chFmt: string, gain: number, agc: boolean, threshold: number, attack: number, decay: number): string[] {
+// On-device audio engine for an INMP441 MEMS mic on ESP32: an I2S reader + a
+// self-contained radix-2 FFT (no external library) that updates global
+// _audioBass/_audioMids/_audioTreble (0–1, smoothed, optional AGC, and an
+// adaptive noise gate) and a _audioBeat flag once per frame.
+//
+// The I2S code is emitted twice behind an ESP_IDF_VERSION gate: the new
+// channel-based driver (driver/i2s_std.h) on IDF 5+ (Arduino core 3.x) and the
+// legacy driver (driver/i2s.h) on older cores. This is not just politeness —
+// FastLED 3.10's bundled audio framework links the *new* driver into every
+// ESP32 binary, and IDF 5 aborts at boot ("i2s(legacy): CONFLICT!") if the
+// legacy driver is linked alongside it, so on modern cores the legacy path
+// must not even be compiled.
+// NOTE: ESP32-only.
+function audioEngineCpp(ws: number, sck: number, sd: number, channel: 'Left' | 'Right', gain: number, agc: boolean, threshold: number, attack: number, decay: number): string[] {
+  const legacyFmt = channel === 'Right' ? 'I2S_CHANNEL_FMT_ONLY_RIGHT' : 'I2S_CHANNEL_FMT_ONLY_LEFT'
+  const stdSlot = channel === 'Right' ? 'I2S_STD_SLOT_RIGHT' : 'I2S_STD_SLOT_LEFT'
   return [
     '// ── INMP441 I2S microphone + FFT (on-device audio reactivity) ───────────────',
     `#define MIC_WS   ${ws}`,
@@ -198,12 +208,37 @@ function audioEngineCpp(ws: number, sck: number, sd: number, chFmt: string, gain
     '  return smooth;',
     '}',
     '',
+    '#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)',
+    '// New channel-based I2S driver (IDF 5 / Arduino core 3.x). The legacy',
+    '// driver cannot coexist with FastLED 3.10\'s audio framework on IDF 5.',
+    'static i2s_chan_handle_t _micChan = NULL;',
+    'void setupAudio() {',
+    '  i2s_chan_config_t chanCfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_AUTO, I2S_ROLE_MASTER);',
+    '  i2s_new_channel(&chanCfg, NULL, &_micChan);',
+    '  i2s_std_config_t cfg = {',
+    '    .clk_cfg  = I2S_STD_CLK_DEFAULT_CONFIG(AUDIO_SR),',
+    '    .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_32BIT, I2S_SLOT_MODE_MONO),',
+    '    .gpio_cfg = {',
+    '      .mclk = I2S_GPIO_UNUSED,',
+    '      .bclk = (gpio_num_t)MIC_SCK,',
+    '      .ws   = (gpio_num_t)MIC_WS,',
+    '      .dout = I2S_GPIO_UNUSED,',
+    '      .din  = (gpio_num_t)MIC_SD,',
+    '      .invert_flags = { .mclk_inv = false, .bclk_inv = false, .ws_inv = false },',
+    '    },',
+    '  };',
+    `  cfg.slot_cfg.slot_mask = ${stdSlot};   // INMP441 outputs on the slot its L/R pin selects`,
+    '  i2s_channel_init_std_mode(_micChan, &cfg);',
+    '  i2s_channel_enable(_micChan);',
+    '}',
+    '#else',
+    '// Legacy I2S driver (IDF 4 / Arduino core 2.x).',
     'void setupAudio() {',
     '  i2s_config_t cfg = {',
     '    .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX),',
     '    .sample_rate = AUDIO_SR,',
     '    .bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT,',
-    `    .channel_format = ${chFmt},`,
+    `    .channel_format = ${legacyFmt},`,
     '    .communication_format = I2S_COMM_FORMAT_STAND_I2S,',
     '    .intr_alloc_flags = 0,',
     '    .dma_buf_count = 4,',
@@ -216,12 +251,17 @@ function audioEngineCpp(ws: number, sck: number, sd: number, chFmt: string, gain
     '  i2s_driver_install(I2S_NUM_0, &cfg, 0, NULL);',
     '  i2s_set_pin(I2S_NUM_0, &pins);',
     '}',
+    '#endif',
     '',
     '// Read one block from the mic, FFT it, split into bass/mid/treble bands.',
     'void updateAudio() {',
     '  static int32_t raw[AUDIO_N];',
     '  size_t bytesRead = 0;',
+    '#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)',
+    '  i2s_channel_read(_micChan, raw, sizeof(raw), &bytesRead, 20);   // timeout in ms',
+    '#else',
     '  i2s_read(I2S_NUM_0, raw, sizeof(raw), &bytesRead, 20 / portTICK_PERIOD_MS);',
+    '#endif',
     '  int got = bytesRead / sizeof(int32_t);',
     '  for (int i = 0; i < AUDIO_N; i++) {',
     '    float s = (i < got) ? (float)(raw[i] >> 8) / 8388608.0f : 0.0f;   // 24-bit sample',
@@ -365,11 +405,20 @@ export function audioEngineForGraph(nodes: StudioNode[]): { include: string; cod
   const fc = (v: unknown, d: number, min: number, max: number) => {
     const n = Number(v); return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : d
   }
-  const chFmt = String(p.channel ?? 'Left') === 'Right' ? 'I2S_CHANNEL_FMT_ONLY_RIGHT' : 'I2S_CHANNEL_FMT_ONLY_LEFT'
+  const channel: 'Left' | 'Right' = String(p.channel ?? 'Left') === 'Right' ? 'Right' : 'Left'
   return {
-    include: `#include <driver/i2s.h>   // INMP441 I2S microphone (ESP32)`,
+    include: [
+      `// INMP441 I2S microphone (ESP32) — new driver on IDF 5+ (the legacy one`,
+      `// conflicts with FastLED 3.10's audio framework there), legacy before.`,
+      `#include <esp_idf_version.h>`,
+      `#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)`,
+      `#include <driver/i2s_std.h>`,
+      `#else`,
+      `#include <driver/i2s.h>`,
+      `#endif`,
+    ].join('\n'),
     code: audioEngineCpp(
-      ic(p.i2sWs, 39, 0, 48), ic(p.i2sSck, 40, 0, 48), ic(p.i2sSd, 41, 0, 48), chFmt,
+      ic(p.i2sWs, 39, 0, 48), ic(p.i2sSck, 40, 0, 48), ic(p.i2sSd, 41, 0, 48), channel,
       fc(p.gain, 1, 0, 4), Boolean(p.agc), fc(p.threshold, 0.08, 0, 1), fc(p.attack, 0.2, 0, 1), fc(p.decay, 0.05, 0, 1),
     ),
   }
