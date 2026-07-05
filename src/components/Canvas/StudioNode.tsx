@@ -4,7 +4,7 @@ import type { NodeProps, Node } from '@xyflow/react'
 import { useGraphStore } from '../../state/graphStore'
 import type { StudioNodeData } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { CATEGORY_ACCENT_VAR, portColor, propertyMeta, hasClampableInputs, nodeDisplayLabel, isPropertyEnabled } from '../../state/nodeLibrary'
+import { CATEGORY_ACCENT_VAR, portColor, propertyMeta, hasClampableInputs, nodeDisplayLabel, isPropertyEnabled, libraryDefaults } from '../../state/nodeLibrary'
 import { waveNodeSamples } from '../../state/wave'
 import WaveScope from './WaveScope'
 import ComplexWaveScope from './ComplexWaveScope'
@@ -249,13 +249,17 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // colour swatch; `font` (an object) is left to the Inspector.
   const rawProps = d.properties as Record<string, unknown>
   const props = useMemo(() => {
-    if (d.nodeType !== 'Math') return rawProps
+    // Layer the saved properties over the library defaults, so a property
+    // added to the library after this node was saved still gets an editor
+    // (showing its default value until first edited).
+    const merged = { ...libraryDefaults(d.nodeType), ...rawProps }
+    if (d.nodeType !== 'Math') return merged
     const op = String(rawProps.mathOp ?? 'add')
     const idn = op === 'multiply' || op === 'divide' ? 1 : 0
     return {
       a: typeof rawProps.a === 'number' ? rawProps.a : idn,
       b: typeof rawProps.b === 'number' ? rawProps.b : idn,
-      ...rawProps,
+      ...merged,
     }
   }, [d.nodeType, rawProps])
   const hasRGB = ['r', 'g', 'b'].every((k) => typeof props[k] === 'number')

@@ -55,11 +55,13 @@ export const useNodeDefaults = create<NodeDefaultsState>((set) => ({
 
 /** Resolve the properties a newly created node of `nodeType` should start
  *  with: the saved custom default if one was pinned via "Set Default", else
- *  the library's hardcoded default. */
+ *  the library's hardcoded default. A pinned override is layered *over* the
+ *  library default so properties added to the library after the pin was saved
+ *  still exist on new nodes. */
 export function resolveDefaultProperties(
   nodeType: string,
   libraryDefault: Record<string, unknown> | undefined
 ): Record<string, unknown> {
   const override = useNodeDefaults.getState().overrides[nodeType]
-  return override ? { ...override } : { ...(libraryDefault ?? {}) }
+  return { ...(libraryDefault ?? {}), ...(override ?? {}) }
 }

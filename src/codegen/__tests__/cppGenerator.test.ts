@@ -1001,6 +1001,17 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('updateAudio();')
   })
 
+  it('prints band levels to serial only when Serial Debug is on', () => {
+    const dbgMic = node('mic', 'MicInput', 'hardware', { serialDebug: true })
+    const fft = node('fft', 'FFTAnalyzer', 'audio', {})
+    const on = generateCpp([dbgMic, fft, out], [edge('e1', 'mic', 'fft', 'audio', 'audio')])
+    expect(on).toContain('#define MIC_DEBUG 1')
+    expect(on).toContain('Serial.begin(115200);')
+    expect(on).toContain('Serial.printf("audio bass=%.2f mids=%.2f treble=%.2f beat=%d bpm=%.0f raw=%d\\n"')
+    // Off by default — the print block is still emitted but compiled out.
+    expect(micGraph()).toContain('#define MIC_DEBUG 0')
+  })
+
   it('enables on-device AGC when the MicInput checkbox is set', () => {
     const mic = node('mic', 'MicInput', 'hardware', { agc: true })
     const fft = node('fft', 'FFTAnalyzer', 'audio', {})

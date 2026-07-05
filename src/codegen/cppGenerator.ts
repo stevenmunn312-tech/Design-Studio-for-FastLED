@@ -148,7 +148,7 @@ function topoSort(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
 // legacy driver is linked alongside it, so on modern cores the legacy path
 // must not even be compiled.
 // NOTE: ESP32-only.
-function audioEngineCpp(ws: number, sck: number, sd: number, channel: 'Left' | 'Right', gain: number, agc: boolean, threshold: number, attack: number, decay: number): string[] {
+function audioEngineCpp(ws: number, sck: number, sd: number, channel: 'Left' | 'Right', gain: number, agc: boolean, threshold: number, attack: number, decay: number, serialDebug = false): string[] {
   const legacyFmt = channel === 'Right' ? 'I2S_CHANNEL_FMT_ONLY_RIGHT' : 'I2S_CHANNEL_FMT_ONLY_LEFT'
   const stdSlot = channel === 'Right' ? 'I2S_STD_SLOT_RIGHT' : 'I2S_STD_SLOT_LEFT'
   return [
@@ -161,6 +161,7 @@ function audioEngineCpp(ws: number, sck: number, sd: number, channel: 'Left' | '
     `#define MIC_NOISE_THRESHOLD ${threshold.toFixed(3)}f`,
     `#define MIC_NOISE_ATTACK     ${attack.toFixed(3)}f`,
     `#define MIC_NOISE_DECAY      ${decay.toFixed(3)}f`,
+    `#define MIC_DEBUG ${serialDebug ? 1 : 0}   // print band levels to serial (~10×/sec)`,
     '#define AUDIO_N   512        // FFT size (power of two)',
     '#define AUDIO_SR  16000      // I2S sample rate (Hz)',
     'float _audioBass = 0, _audioMids = 0, _audioTreble = 0, _audioBpm = 120;',
@@ -213,6 +214,9 @@ function audioEngineCpp(ws: number, sck: number, sd: number, channel: 'Left' | '
     '// driver cannot coexist with FastLED 3.10\'s audio framework on IDF 5.',
     'static i2s_chan_handle_t _micChan = NULL;',
     'void setupAudio() {',
+    '#if MIC_DEBUG',
+    '  Serial.begin(115200);',
+    '#endif',
     '  i2s_chan_config_t chanCfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_AUTO, I2S_ROLE_MASTER);',
     '  i2s_new_channel(&chanCfg, NULL, &_micChan);',
     '  i2s_std_config_t cfg = {',
@@ -234,6 +238,9 @@ function audioEngineCpp(ws: number, sck: number, sd: number, channel: 'Left' | '
     '#else',
     '// Legacy I2S driver (IDF 4 / Arduino core 2.x).',
     'void setupAudio() {',
+    '#if MIC_DEBUG',
+    '  Serial.begin(115200);',
+    '#endif',
     '  i2s_config_t cfg = {',
     '    .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX),',
     '    .sample_rate = AUDIO_SR,',
@@ -344,6 +351,12 @@ function audioEngineCpp(ws: number, sck: number, sd: number, channel: 'Left' | '
     '  }',
     '  for (int i = 0; i < 32; i++) _audioPrevSpectrum[i] = _audioSpectrum[i];',
     '  _audioHavePrevSpectrum = true;',
+    '#if MIC_DEBUG',
+    '  { static uint32_t _dbgLast = 0;',
+    '    if (millis() - _dbgLast >= 100) { _dbgLast = millis();',
+    '      Serial.printf("audio bass=%.2f mids=%.2f treble=%.2f beat=%d bpm=%.0f raw=%d\\n",',
+    '                    _audioBass, _audioMids, _audioTreble, (int)_audioBeat, _audioBpm, got); } }',
+    '#endif',
     '}',
   ]
 }
@@ -420,6 +433,7 @@ export function audioEngineForGraph(nodes: StudioNode[]): { include: string; cod
     code: audioEngineCpp(
       ic(p.i2sWs, 39, 0, 48), ic(p.i2sSck, 40, 0, 48), ic(p.i2sSd, 41, 0, 48), channel,
       fc(p.gain, 1, 0, 4), Boolean(p.agc), fc(p.threshold, 0.08, 0, 1), fc(p.attack, 0.2, 0, 1), fc(p.decay, 0.05, 0, 1),
+      p.serialDebug === true,
     ),
   }
 }

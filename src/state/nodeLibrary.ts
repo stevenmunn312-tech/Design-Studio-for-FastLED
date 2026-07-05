@@ -23,6 +23,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       i2sSck: 40,
       i2sSd: 41,
       channel: 'Left',
+      // Firmware-only: print _audioBass/_audioMids/_audioTreble (+beat/bpm) to
+      // the serial monitor ~10×/sec, for checking the mic wiring on-device.
+      serialDebug: false,
     },
   },
   // ── Audio ──────────────────────────────────────────────────────────────
@@ -1281,6 +1284,15 @@ export const NODE_LIBRARY: NodeDefinition[] = [
 
 // One-line descriptions shown as tooltips in the node shelf. Keyed by node
 // `type`; a test enforces that every NODE_LIBRARY entry has one.
+// Library defaults by node type (empty for programmatically minted types like
+// Group/GroupInput). Lets the node renderer backfill properties that were
+// added to the library *after* a node was saved, so old graphs surface new
+// controls instead of hiding them until the node is recreated.
+const DEFAULTS_BY_TYPE = new Map(NODE_LIBRARY.map((n) => [n.type, n.defaultProperties ?? {}]))
+export function libraryDefaults(nodeType: string): Record<string, unknown> {
+  return DEFAULTS_BY_TYPE.get(nodeType) ?? {}
+}
+
 export const NODE_DESCRIPTIONS: Record<string, string> = {
   // audio
   FFTAnalyzer: 'Splits mic audio into bass / mids / treble levels.',

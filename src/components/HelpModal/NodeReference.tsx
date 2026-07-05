@@ -67,6 +67,7 @@ const PROPERTY_LABELS: Record<string, string> = {
   rB: 'Color B Red',
   radius: 'Radius',
   sdCsPin: 'SD CS Pin',
+  serialDebug: 'Serial Debug',
   serpentine: 'Serpentine',
   snare: 'Snare',
   t: 'Mix / T',

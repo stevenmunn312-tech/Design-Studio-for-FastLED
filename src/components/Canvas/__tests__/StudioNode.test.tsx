@@ -248,7 +248,10 @@ describe('StudioNode', () => {
 
   it('renders a dropdown for palette with the preset options', () => {
     const { container } = renderNode(makeNode('Noise', { speed: 1, scale: 1, palette: 'rainbow' }))
-    const select = container.querySelector('select') as HTMLSelectElement
+    // Library defaults are backfilled onto saved nodes, so the node also grows
+    // a `noiseType` dropdown — pick the one holding the palette value.
+    const selects = [...container.querySelectorAll('select')] as HTMLSelectElement[]
+    const select = selects.find((s) => [...s.options].some((o) => o.value === 'rainbow'))!
     expect(select).toBeTruthy()
     expect(select.value).toBe('rainbow')
     const opts = Array.from(select.options).map((o) => o.value)
