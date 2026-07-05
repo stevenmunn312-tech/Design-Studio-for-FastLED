@@ -19,11 +19,12 @@
   border-radius: 50%;
   background: white;
   pointer-events: none;
-  animation: portSpark 0.15s ease-out forwards;
+  animation: portSpark 0.36s ease-out forwards;
   transform: translate(-50%, -50%);
 }
 
 .node {
+  position: relative;
   width: var(--node-width);
   min-height: var(--node-height);
   background: var(--bg-node);
@@ -32,10 +33,33 @@
     inset 0 0 0 1px var(--border-glow),
     0 0 15px var(--signal-glow, transparent),
     0 0 38px var(--signal-soft-glow, transparent);
-  transition: background var(--anim-hover), box-shadow 240ms linear;
+  transition: background var(--anim-hover), box-shadow 240ms linear, opacity 180ms ease-out;
   cursor: default;
   user-select: none;
   animation: nodePopin 0.2s ease-out;
+}
+
+.node::after {
+  content: '';
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  border-radius: var(--node-radius);
+  background: transparent;
+  pointer-events: none;
+  transition: background-color 180ms ease-out;
+}
+
+.nodePath {
+  opacity: 1;
+}
+
+.nodeDim {
+  opacity: 1;
+}
+
+.nodeDim::after {
+  background: color-mix(in srgb, var(--bg-primary) 78%, transparent);
 }
 
 .nodeSelected {

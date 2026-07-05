@@ -33,6 +33,8 @@ import NodeContextMenu from './NodeContextMenu'
 import CanvasContextMenu from './CanvasContextMenu'
 import GroupControls from './GroupControls'
 import { anchorPosition } from '../../utils/anchorNode'
+import { traceSignalPath } from '../../utils/signalPath'
+import { usePreviewStore } from '../../state/previewStore'
 import styles from './NodeGraphCanvas.module.css'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -98,7 +100,7 @@ function panelInsetPx(cssVar: '--sidebar-width' | '--right-panel-width', fallbac
 }
 
 function NodeGraphCanvasInner() {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, insertNodeOnEdge, spliceNodeOnEdge, spreadNodes, instantiatePattern, addToCollection, enterGraph, removeEdge, reconnectNoodle } =
+  const { nodes, edges, selectedNodeId, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, insertNodeOnEdge, spliceNodeOnEdge, spreadNodes, instantiatePattern, addToCollection, enterGraph, removeEdge, reconnectNoodle } =
     useGraphStore()
   // Restore the saved pan/zoom on mount; fit the view only when there's none
   // (first run). Read once so it isn't re-applied on every render.
@@ -130,6 +132,62 @@ function NodeGraphCanvasInner() {
     color: string
   } | null>(null)
   const [canvasDragNodeId, setCanvasDragNodeId] = useState<string | null>(null)
+  const [connectionPulse, setConnectionPulse] = useState<{
+    source: string
+    target: string
+    sourceHandle: string | null
+    targetHandle: string | null
+    key: number
+  } | null>(null)
+  const pulseTimer = useRef<number | undefined>(undefined)
+  const sparkDelayTimer = useRef<number | undefined>(undefined)
+  const sparkClearTimer = useRef<number | undefined>(undefined)
+  const beatNow = usePreviewStore((s) => {
+    for (const output of s.outputs.values()) if (output.beat === true) return true
+    return false
+  })
+  const lastBeat = useRef(false)
+  const [beatRippleKey, setBeatRippleKey] = useState(0)
+
+  useEffect(() => {
+    if (beatNow && !lastBeat.current) setBeatRippleKey((key) => key + 1)
+    lastBeat.current = beatNow
+  }, [beatNow])
+
+  useEffect(() => () => {
+    if (pulseTimer.current) window.clearTimeout(pulseTimer.current)
+    if (sparkDelayTimer.current) window.clearTimeout(sparkDelayTimer.current)
+    if (sparkClearTimer.current) window.clearTimeout(sparkClearTimer.current)
+  }, [])
+
+  const fireConnectionCeremony = useCallback((connection: {
+    source: string | null
+    target: string | null
+    sourceHandle?: string | null
+    targetHandle?: string | null
+  }) => {
+    if (!connection.source || !connection.target) return
+    if (pulseTimer.current) window.clearTimeout(pulseTimer.current)
+    if (sparkDelayTimer.current) window.clearTimeout(sparkDelayTimer.current)
+    if (sparkClearTimer.current) window.clearTimeout(sparkClearTimer.current)
+
+    setConnectionPulse({
+      source: connection.source,
+      target: connection.target,
+      sourceHandle: connection.sourceHandle ?? null,
+      targetHandle: connection.targetHandle ?? null,
+      key: Date.now(),
+    })
+    pulseTimer.current = window.setTimeout(() => setConnectionPulse(null), 720)
+
+    if (connection.targetHandle) {
+      setSparkPort(null)
+      sparkDelayTimer.current = window.setTimeout(() => {
+        setSparkPort({ nodeId: connection.target!, portId: connection.targetHandle! })
+      }, 410)
+      sparkClearTimer.current = window.setTimeout(() => setSparkPort(null), 790)
+    }
+  }, [setSparkPort])
 
   // Publish the click-to-add drop point (in flow coords) so sidebar clicks land
   // on screen wherever the user has panned. Biased to the left third — vertically
@@ -196,12 +254,9 @@ function NodeGraphCanvasInner() {
       onConnect(connection)
       // Spread the freshly-connected pair apart if the new noodle is too short.
       spreadNodes()
-      if (connection.target && connection.targetHandle) {
-        setSparkPort({ nodeId: connection.target, portId: connection.targetHandle })
-        setTimeout(() => setSparkPort(null), 150)
-      }
+      fireConnectionCeremony(connection)
     },
-    [onConnect, spreadNodes, setSparkPort, getNode, setStatus, addToCollection]
+    [onConnect, spreadNodes, fireConnectionCeremony, getNode, setStatus, addToCollection]
   )
 
   // Grabbing a connected input dot: let the noodle stay visible while it is
@@ -285,8 +340,9 @@ function NodeGraphCanvasInner() {
     (oldEdge, newConnection) => {
       reconnectLanded.current = true
       reconnectNoodle(oldEdge, newConnection)
+      fireConnectionCeremony(newConnection)
     },
-    [reconnectNoodle]
+    [reconnectNoodle, fireConnectionCeremony]
   )
 
   const onReconnectEnd = useCallback(
@@ -537,17 +593,29 @@ function NodeGraphCanvasInner() {
   )
 
   const spliceEdgeId = spliceCue?.edgeId ?? null
+  const focusedNodes = useMemo(() => traceSignalPath(edges, selectedNodeId), [edges, selectedNodeId])
   const displayEdges = useMemo(() => {
-    if (!draggingNodeType && !canvasDragNodeId && !spliceEdgeId) return edges
+    if (!draggingNodeType && !canvasDragNodeId && !spliceEdgeId && !selectedNodeId && !connectionPulse) return edges
     return edges.map((edge) => ({
       ...edge,
       data: {
         ...edge.data,
         spliceArmed: Boolean(draggingNodeType || canvasDragNodeId),
         splicePreview: edge.id === spliceEdgeId,
+        focusState: selectedNodeId
+          ? focusedNodes.has(edge.source) && focusedNodes.has(edge.target) ? 'active' : 'dim'
+          : undefined,
+        connectionPulse:
+          connectionPulse
+          && edge.source === connectionPulse.source
+          && edge.target === connectionPulse.target
+          && edge.sourceHandle === connectionPulse.sourceHandle
+          && edge.targetHandle === connectionPulse.targetHandle
+            ? connectionPulse.key
+            : undefined,
       },
     }))
-  }, [canvasDragNodeId, draggingNodeType, edges, spliceEdgeId])
+  }, [canvasDragNodeId, connectionPulse, draggingNodeType, edges, focusedNodes, selectedNodeId, spliceEdgeId])
 
   return (
     <div
@@ -559,6 +627,13 @@ function NodeGraphCanvasInner() {
       onDrop={onDrop}
     >
       <GroupControls />
+      {beatRippleKey > 0 && (
+        <div key={beatRippleKey} className={styles.beatRipple} aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+      )}
       {spliceCue && (
         <div
           className={styles.spliceCue}

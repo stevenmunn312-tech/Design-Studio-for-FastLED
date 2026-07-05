@@ -25,9 +25,15 @@ function GlowEdge({
     sourceHandleId ? state.signals.get(`${source}:${sourceHandleId}`) : undefined
   )
   const color = signal?.emissive || (typeof style?.stroke === 'string' && style.stroke) || CATEGORY_COLOR[category] || '#00bfff'
-  const edgeData = data as { spliceArmed?: boolean; splicePreview?: boolean } | undefined
+  const edgeData = data as {
+    spliceArmed?: boolean
+    splicePreview?: boolean
+    focusState?: 'active' | 'dim'
+    connectionPulse?: number
+  } | undefined
   const spliceArmed = edgeData?.spliceArmed === true
   const splicePreview = edgeData?.splicePreview === true
+  const focusState = edgeData?.focusState
 
   const [edgePath] = getBezierPath({
     sourceX,
@@ -39,7 +45,7 @@ function GlowEdge({
   })
 
   return (
-    <g>
+    <g className={focusState === 'dim' ? styles.focusDim : focusState === 'active' ? styles.focusActive : undefined}>
       {/* During a sidebar drag this transparent stroke makes the real curved
           noodle—not a straight-line approximation—the splice hit target. */}
       {spliceArmed && (
@@ -81,6 +87,30 @@ function GlowEdge({
         strokeDasharray="10 6"
         style={{ '--edge-color': color } as React.CSSProperties}
       />
+      {edgeData?.connectionPulse && (
+        <>
+          <path
+            key={`flash-${edgeData.connectionPulse}`}
+            className={styles.connectionFlash}
+            d={edgePath}
+            fill="none"
+            stroke={color}
+            strokeWidth={5}
+            strokeLinecap="round"
+            style={{ '--edge-color': color } as React.CSSProperties}
+          />
+          <circle
+            key={`charge-${edgeData.connectionPulse}`}
+            data-connection-charge
+            className={styles.connectionCharge}
+            r={5}
+            fill="#fff"
+            style={{ '--edge-color': color } as React.CSSProperties}
+          >
+            <animateMotion dur="0.52s" repeatCount="1" path={edgePath} />
+          </circle>
+        </>
+      )}
       {/* Discrete packets make direction and activity legible at a glance. The
           staggered pair reads like charge moving through a physical patch
           cable rather than another decorative dashed line. */}

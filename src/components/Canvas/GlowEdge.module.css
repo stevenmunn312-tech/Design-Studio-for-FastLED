@@ -17,6 +17,45 @@
   pointer-events: none;
 }
 
+.focusDim {
+  opacity: 0.12;
+  transition: opacity 180ms ease-out;
+}
+
+.focusDim .packet {
+  display: none;
+}
+
+.focusActive {
+  opacity: 1;
+  transition: opacity 180ms ease-out;
+}
+
+.focusActive .core {
+  stroke-width: 3.2;
+  filter: drop-shadow(0 0 3px var(--edge-color));
+}
+
+@keyframes connectionFlash {
+  0% { stroke-opacity: 0; stroke-width: 3; }
+  22% { stroke-opacity: 0.82; stroke-width: 7; }
+  100% { stroke-opacity: 0; stroke-width: 3; }
+}
+
+.connectionFlash {
+  animation: connectionFlash 0.68s ease-out forwards;
+  filter: drop-shadow(0 0 7px var(--edge-color));
+  pointer-events: none;
+}
+
+.connectionCharge {
+  filter:
+    drop-shadow(0 0 3px white)
+    drop-shadow(0 0 7px var(--edge-color))
+    drop-shadow(0 0 13px var(--edge-color));
+  pointer-events: none;
+}
+
 @keyframes splicePulse {
   0%, 100% { stroke-opacity: 0.2; stroke-width: 16; }
   50% { stroke-opacity: 0.48; stroke-width: 22; }
@@ -44,6 +83,11 @@
   display: none;
 }
 
+:global([data-reduced-motion]) .connectionFlash,
+:global([data-reduced-motion]) .connectionCharge {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .core,
   .spliceTarget {
@@ -51,6 +95,12 @@
   }
 
   .packet {
+    display: none;
+  }
+
+
+  .connectionFlash,
+  .connectionCharge {
     display: none;
   }
 }

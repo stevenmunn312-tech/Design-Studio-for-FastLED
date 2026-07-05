@@ -20,6 +20,7 @@ import MatrixOutputUpload from '../Upload/MatrixOutputUpload'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
 import { getCodeError } from '../../state/graphEvaluator'
+import { traceSignalPath } from '../../utils/signalPath'
 import styles from './StudioNode.module.css'
 
 // Shows the latest compile/runtime error from a Code node's preview evaluation.
@@ -180,6 +181,10 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const sparkPortId = useUiStore((s) =>
     s.sparkPort?.nodeId === id ? (s.sparkPort?.portId ?? null) : null
   )
+  const focusState = useGraphStore((s) => {
+    if (!s.selectedNodeId) return 'neutral'
+    return traceSignalPath(s.edges, s.selectedNodeId).has(id) ? 'active' : 'dim'
+  })
   // Matrix dimensions (from MatrixOutput) set the frame-preview aspect ratio.
   const gridW = useGraphStore((s) => {
     const o = s.nodes.find((n) => (n.data as { nodeType?: string }).nodeType === 'MatrixOutput')
@@ -325,7 +330,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
 
   return (
     <div
-      className={`${styles.node} ${selected ? styles.nodeSelected : ''}`}
+      className={`${styles.node} ${selected ? styles.nodeSelected : ''} ${focusState === 'dim' ? styles.nodeDim : focusState === 'active' ? styles.nodePath : ''}`}
       style={{
         width: isMusicLibrary ? 300 : isCode ? 320 : isPerfGen ? 300 : undefined,
         '--node-accent': accent,
