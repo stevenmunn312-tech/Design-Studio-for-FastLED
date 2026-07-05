@@ -3,6 +3,7 @@ import { canAddNodeType, useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { usePatternLibrary, importPatternFile, type SavedPattern } from '../../state/patternLibrary'
 import { NODE_LIBRARY, CATEGORIES, CATEGORY_ACCENT_VAR, NODE_DESCRIPTIONS } from '../../state/nodeLibrary'
+import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { revealPatternsFolder } from '../../utils/backendClient'
 import styles from './Sidebar.module.css'
 
@@ -141,7 +142,7 @@ export default function Sidebar() {
         label: def.label,
         nodeType: def.type,
         category: def.category,
-        properties: def.defaultProperties ?? {},
+        properties: resolveDefaultProperties(def.type, def.defaultProperties),
         inputs: def.inputs,
         outputs: def.outputs,
       },

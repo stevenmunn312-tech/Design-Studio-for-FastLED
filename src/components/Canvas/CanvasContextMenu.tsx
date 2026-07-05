@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { canAddNodeType, useGraphStore } from '../../state/graphStore'
 import { NODE_LIBRARY, CATEGORIES, portsCompatible } from '../../state/nodeLibrary'
+import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { runTidy } from '../../utils/tidyGraph'
 import type { NodeDefinition } from '../../types'
 import styles from './CanvasContextMenu.module.css'
@@ -70,7 +71,7 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
         label: def.label,
         nodeType: def.type,
         category: def.category,
-        properties: def.defaultProperties ?? {},
+        properties: resolveDefaultProperties(def.type, def.defaultProperties),
         inputs: def.inputs,
         outputs: def.outputs,
       },

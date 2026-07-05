@@ -26,6 +26,7 @@ import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { usePatternLibrary } from '../../state/patternLibrary'
 import { NODE_LIBRARY, CATEGORY_COLOR, portsCompatible } from '../../state/nodeLibrary'
+import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import StudioNode from './StudioNode'
 import GlowEdge from './GlowEdge'
 import NodeContextMenu from './NodeContextMenu'
@@ -510,7 +511,7 @@ function NodeGraphCanvasInner() {
           label: def.label,
           nodeType: def.type,
           category: def.category,
-          properties: def.defaultProperties ?? {},
+          properties: resolveDefaultProperties(def.type, def.defaultProperties),
           inputs: def.inputs,
           outputs: def.outputs,
         },

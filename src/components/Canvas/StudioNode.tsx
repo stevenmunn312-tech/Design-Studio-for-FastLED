@@ -18,6 +18,7 @@ import TransitionSetBody from './TransitionSetBody'
 import ImageNodeBody from './ImageNodeBody'
 import MatrixOutputUpload from '../Upload/MatrixOutputUpload'
 import { usePreviewStore } from '../../state/previewStore'
+import { useNodeDefaults } from '../../state/nodeDefaults'
 import { getCodeError } from '../../state/graphEvaluator'
 import styles from './StudioNode.module.css'
 
@@ -271,6 +272,13 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // node's default properties); show it only where it would do something.
   const showClamp = hasClampableInputs(d.nodeType, inputs)
 
+  // "Set Default" — pins this node's current properties as the starting point
+  // for future nodes of the same type (persisted; see nodeDefaults.ts). Only
+  // offered on nodes whose settings are hardware/rig-specific and rarely
+  // change once dialled in (mic pins, matrix wiring).
+  const showSetDefault = d.nodeType === 'MicInput' || d.nodeType === 'MatrixOutput'
+  const isCustomDefault = useNodeDefaults((s) => d.nodeType in s.overrides)
+
   // Waveform nodes show a scope at the top of the body; this shifts the port
   // handles below it down by the scope height + the body's flex gap. Wave's
   // scope is its own configured shape; ComplexWave's reflects live upstream.
@@ -413,7 +421,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           </>
         )}
 
-        {(hasRGB || editable.length > 0 || showClamp || isGroupInput) && (
+        {(hasRGB || editable.length > 0 || showClamp || isGroupInput || showSetDefault) && (
           <div className={styles.props}>
             {isGroupInput && (() => {
               // Group-input role: tag this input so a Performance Generator show
@@ -552,6 +560,23 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                   type="checkbox"
                   checked={Boolean(props.clampInputs)}
                   onChange={(e) => updateNodeProperty(id, 'clampInputs', e.target.checked)}
+                />
+              </div>
+            )}
+            {showSetDefault && (
+              <div
+                className={styles.propRow}
+                title={`Remember these settings as the default for new ${d.label} nodes`}
+              >
+                <span className={styles.propKey}>set default</span>
+                <input
+                  className="nodrag"
+                  type="checkbox"
+                  checked={isCustomDefault}
+                  onChange={(e) => {
+                    if (e.target.checked) useNodeDefaults.getState().setDefault(d.nodeType, rawProps)
+                    else useNodeDefaults.getState().clearDefault(d.nodeType)
+                  }}
                 />
               </div>
             )}
