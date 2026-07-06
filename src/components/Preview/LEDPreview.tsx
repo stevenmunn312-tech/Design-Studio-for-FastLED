@@ -12,6 +12,7 @@ import { WebGLLEDRenderer } from './webglRenderer'
 import { applyShowPlaybackSignal } from './showPlaybackSignal'
 import { isDiffusedStyle, previewStyleLabel, type PreviewStyle } from './previewStyles'
 import { graphConsumesAudio } from './previewAudioUsage'
+import PreviewSpectrum from './PreviewSpectrum'
 import DevPerformanceHud, { DevPerformanceHudToggle } from './DevPerformanceHud'
 import { recordPerfFrame } from '../../dev/perfMonitor'
 import {
@@ -30,7 +31,6 @@ import { idleFrame } from './idleFrame'
 
 const MAX_CANVAS_PX = 448
 const STAGE_CANVAS_PX = 840
-const NUM_BARS = 28
 const BYTES_PER_MIB = 1024 * 1024
 const MEMORY_SAMPLE_INTERVAL_MS = 30_000
 
@@ -207,19 +207,6 @@ const CANVAS_STYLE_CONFIG: Record<Exclude<PreviewStyle, 'standard'>, CanvasStyle
     finalScreenAlpha: 0.28,
     finalGlowAlpha: 0.18,
   },
-}
-
-const clamp01 = (value: unknown) =>
-  Math.max(0, Math.min(1, typeof value === 'number' && Number.isFinite(value) ? value : 0))
-
-function resample(values: number[], count: number): number[] {
-  if (!values.length) return Array(count).fill(0)
-  return Array.from({ length: count }, (_, i) => {
-    const start = Math.floor((i * values.length) / count)
-    const end = Math.max(start + 1, Math.ceil(((i + 1) * values.length) / count))
-    const slice = values.slice(start, end)
-    return clamp01(slice.reduce((sum, value) => sum + clamp01(value), 0) / slice.length)
-  })
 }
 
 function fmtTime(seconds: number): string {
@@ -595,7 +582,10 @@ export default function LEDPreview() {
   const previewStyle = useUiStore((s) => s.previewStyle)
   const togglePreview3d = useUiStore((s) => s.togglePreview3d)
   const cyclePreviewStyle = useUiStore((s) => s.cyclePreviewStyle)
-  const { micActive, previewSpectrum, startAudio, attachAudioElement, stopAudio } = useAudioStore()
+  const micActive = useAudioStore((s) => s.micActive)
+  const startAudio = useAudioStore((s) => s.startAudio)
+  const attachAudioElement = useAudioStore((s) => s.attachAudioElement)
+  const stopAudio = useAudioStore((s) => s.stopAudio)
   const previewStyleRef = useRef(previewStyle)
   useEffect(() => { previewStyleRef.current = previewStyle }, [previewStyle])
   const stageModeRef = useRef(stageMode)
@@ -663,20 +653,6 @@ export default function LEDPreview() {
     setRot((r) => ({ x: Math.max(0, Math.min(90, r.x - dy * 0.5)), y: r.y + dx * 0.5 }))
   }
   const onRotateUp = () => { drag.current = null }
-  const peakRef = useRef(Array(NUM_BARS).fill(0))
-
-  const displaySpectrum = resample(audioVisualizerLive ? previewSpectrum : [], NUM_BARS).map((value, i, arr) => {
-    const prev = arr[i - 1] ?? value
-    const next = arr[i + 1] ?? value
-    return clamp01(value * 0.55 + ((prev + value + next) / 3) * 0.45)
-  })
-
-  peakRef.current = audioVisualizerLive
-    ? displaySpectrum.map((value, i) => {
-        const nextPeak = Math.max(value, peakRef.current[i] - 0.02)
-        return clamp01(nextPeak)
-      })
-    : Array(NUM_BARS).fill(0)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -1084,30 +1060,7 @@ export default function LEDPreview() {
       <div className={styles.visualizer}>
           <div className={styles.visualizerGlow} />
           <div className={styles.visualizerGrid} />
-          <div className={styles.spectrum} aria-hidden>
-            {displaySpectrum.map((value, i) => {
-              const hue = 188 + (i / Math.max(1, NUM_BARS - 1)) * 148
-              const colorVars = { '--bar-hue': `${hue}` } as CSSProperties
-              return (
-                <div key={i} className={styles.barWrap}>
-                  <div
-                    className={styles.bar}
-                    style={{
-                      height: `${Math.max(6, value * 100)}%`,
-                      ...colorVars,
-                    }}
-                  />
-                  <div
-                    className={styles.peak}
-                    style={{
-                      bottom: `${Math.max(0, peakRef.current[i] * 100 - 3)}%`,
-                      ...colorVars,
-                    }}
-                  />
-                </div>
-              )
-            })}
-          </div>
+          <PreviewSpectrum audioVisualizerLive={audioVisualizerLive} />
           <div className={styles.musicControls}>
             <div className={styles.musicTop}>
               <span className={styles.musicMeta} title={trackLabel}>{trackLabel}</span>

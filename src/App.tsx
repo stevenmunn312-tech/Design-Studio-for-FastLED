@@ -20,6 +20,7 @@ const HelpModal = lazy(() => import('./components/HelpModal/HelpModal'))
 
 const AUTOSAVE_KEY = 'fastled-studio-graph'
 const AUTOSAVE_INTERVAL = 10_000
+const AUTOSAVE_IDLE_TIMEOUT = 2_000
 
 // Persist the whole multi-graph workspace, not just the active graph — the
 // `graphData`/`graphs` hold every pattern-group subgraph, without which groups
@@ -47,20 +48,22 @@ function saveToLocalStorage(s: ReturnType<typeof useGraphStore.getState>) {
 }
 
 export default function App() {
-  const {
-    sidebarOpen,
-    previewPanelOpen,
-    stageMode,
-    setStatus,
-    theme,
-    reducedMotion,
-    highContrast,
-    helpOpen,
-    toggleSidebar,
-    togglePreviewPanel,
-  } = useUiStore()
-  const { startAudio, stopAudio } = useAudioStore()
-  const { boardPopupOpen, cliPopupOpen, consoleOpen, refreshHelper } = useUploadStore()
+  const sidebarOpen = useUiStore((s) => s.sidebarOpen)
+  const previewPanelOpen = useUiStore((s) => s.previewPanelOpen)
+  const stageMode = useUiStore((s) => s.stageMode)
+  const setStatus = useUiStore((s) => s.setStatus)
+  const theme = useUiStore((s) => s.theme)
+  const reducedMotion = useUiStore((s) => s.reducedMotion)
+  const highContrast = useUiStore((s) => s.highContrast)
+  const helpOpen = useUiStore((s) => s.helpOpen)
+  const toggleSidebar = useUiStore((s) => s.toggleSidebar)
+  const togglePreviewPanel = useUiStore((s) => s.togglePreviewPanel)
+  const startAudio = useAudioStore((s) => s.startAudio)
+  const stopAudio = useAudioStore((s) => s.stopAudio)
+  const boardPopupOpen = useUploadStore((s) => s.boardPopupOpen)
+  const cliPopupOpen = useUploadStore((s) => s.cliPopupOpen)
+  const consoleOpen = useUploadStore((s) => s.consoleOpen)
+  const refreshHelper = useUploadStore((s) => s.refreshHelper)
 
   // Probe the upload helper once on mount (the Vite plugin should have spawned it).
   useEffect(() => { refreshHelper() }, [refreshHelper])
@@ -76,6 +79,8 @@ export default function App() {
     else delete root.dataset.highContrast
   }, [theme, reducedMotion, highContrast])
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const autosaveIdle = useRef<number | null>(null)
+  const latestAutosaveState = useRef<ReturnType<typeof useGraphStore.getState> | null>(null)
 
   // Restore autosaved graph on first mount
   useEffect(() => {
@@ -99,15 +104,40 @@ export default function App() {
 
   // Autosave every 10 seconds when graph changes
   useEffect(() => {
-    const unsub = useGraphStore.subscribe((state) => {
+    const cancelQueuedAutosave = () => {
       if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
+      autosaveTimer.current = null
+      if (autosaveIdle.current !== null) {
+        if (typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(autosaveIdle.current)
+        else window.clearTimeout(autosaveIdle.current)
+        autosaveIdle.current = null
+      }
+    }
+
+    const queueAutosave = () => {
+      const run = () => {
+        autosaveIdle.current = null
+        const state = latestAutosaveState.current
+        if (state) saveToLocalStorage(state)
+      }
+      if (typeof window.requestIdleCallback === 'function') {
+        autosaveIdle.current = window.requestIdleCallback(run, { timeout: AUTOSAVE_IDLE_TIMEOUT })
+      } else {
+        autosaveIdle.current = window.setTimeout(run, 0)
+      }
+    }
+
+    const unsub = useGraphStore.subscribe((state) => {
+      latestAutosaveState.current = state
+      cancelQueuedAutosave()
       autosaveTimer.current = setTimeout(() => {
-        saveToLocalStorage(state)
+        autosaveTimer.current = null
+        queueAutosave()
       }, AUTOSAVE_INTERVAL)
     })
     return () => {
       unsub()
-      if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
+      cancelQueuedAutosave()
     }
   }, [])
 

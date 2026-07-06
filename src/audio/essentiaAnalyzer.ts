@@ -12,6 +12,7 @@
 
 import type { SongAnalysis } from '../types/showFile'
 import { decodeToMono } from './songAnalysisCommon'
+import { analyzeDecodedSong, formatWorkerError } from './essentiaCore'
 import type { AnalyzeRequest, AnalyzeResponse } from './essentiaAnalyzer.worker'
 
 const SAMPLE_RATE = 44100
@@ -20,6 +21,17 @@ let worker: Worker | null = null
 let nextId = 1
 const pending = new Map<number, { resolve: (a: SongAnalysis) => void; reject: (e: Error) => void }>()
 let idleTimer: ReturnType<typeof setTimeout> | null = null
+let workerBroken = false
+
+function workerEventMessage(e: ErrorEvent): string {
+  const parts = [
+    e.message || 'essentia worker error',
+    e.filename ? `at ${e.filename}` : '',
+    e.lineno ? `:${e.lineno}` : '',
+    e.colno ? `:${e.colno}` : '',
+  ].filter(Boolean)
+  return parts.join('')
+}
 
 // Essentia's Emscripten heap grows to the analysis high-water mark and cannot
 // shrink. Keeping the worker forever therefore pins hundreds of megabytes (or
@@ -37,13 +49,27 @@ function scheduleIdleShutdown() {
   }, 5_000)
 }
 
-function getWorker(): Worker {
+function disposeWorker() {
+  if (idleTimer) clearTimeout(idleTimer)
+  idleTimer = null
+  worker?.terminate()
+  worker = null
+}
+
+function getWorker(): Worker | null {
+  if (workerBroken) return null
   if (idleTimer) {
     clearTimeout(idleTimer)
     idleTimer = null
   }
   if (!worker) {
-    worker = new Worker(new URL('./essentiaAnalyzer.worker.ts', import.meta.url), { type: 'module' })
+    try {
+      worker = new Worker(new URL('./essentiaAnalyzer.worker.ts', import.meta.url), { type: 'module', name: 'essentia-analyzer' })
+    } catch (err) {
+      workerBroken = true
+      console.warn('Essentia worker could not be created; falling back to main-thread analysis.', err)
+      return null
+    }
     worker.onmessage = (e: MessageEvent<AnalyzeResponse>) => {
       const msg = e.data
       const p = pending.get(msg.id)
@@ -56,13 +82,20 @@ function getWorker(): Worker {
     worker.onerror = (e) => {
       // A worker-level failure (e.g. WASM init) can't be tied to one request, so
       // fail every in-flight analysis and reset for a fresh worker next time.
-      const err = new Error(e.message || 'essentia worker error')
+      const err = new Error(workerEventMessage(e))
+      console.error('Essentia worker crashed', e)
       for (const p of pending.values()) p.reject(err)
       pending.clear()
-      if (idleTimer) clearTimeout(idleTimer)
-      idleTimer = null
-      worker?.terminate()
-      worker = null
+      workerBroken = true
+      disposeWorker()
+    }
+    worker.onmessageerror = (e) => {
+      const err = new Error(`essentia worker message error: ${formatWorkerError(e)}`)
+      console.error('Essentia worker message error', e)
+      for (const p of pending.values()) p.reject(err)
+      pending.clear()
+      workerBroken = true
+      disposeWorker()
     }
   }
   return worker
@@ -70,10 +103,24 @@ function getWorker(): Worker {
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
-    if (idleTimer) clearTimeout(idleTimer)
-    worker?.terminate()
-    worker = null
-    idleTimer = null
+    disposeWorker()
+  })
+}
+
+async function analyzeViaWorker(
+  mono: Float32Array,
+  sampleRate: number,
+  durationMs: number,
+  title: string,
+): Promise<SongAnalysis> {
+  const w = getWorker()
+  if (!w) throw new Error('essentia worker unavailable')
+  const id = nextId++
+
+  return new Promise<SongAnalysis>((resolve, reject) => {
+    pending.set(id, { resolve, reject })
+    const req: AnalyzeRequest = { id, mono, sampleRate, durationMs, title }
+    w.postMessage(req, [mono.buffer])
   })
 }
 
@@ -84,13 +131,12 @@ export async function analyzeSong(file: File, onProgress?: (p: number) => void):
   // the worker as one opaque call, so progress jumps to "done" when it resolves.
   onProgress?.(0.3)
   const title = file.name.replace(/\.[^/.]+$/, '')
-  const w = getWorker()
-  const id = nextId++
-
-  return new Promise<SongAnalysis>((resolve, reject) => {
-    pending.set(id, { resolve, reject })
-    const req: AnalyzeRequest = { id, mono, sampleRate, durationMs, title }
-    // Transfer the PCM buffer (zero-copy); `mono` is not used again here.
-    w.postMessage(req, [mono.buffer])
-  })
+  try {
+    return await analyzeViaWorker(mono, sampleRate, durationMs, title)
+  } catch (err) {
+    const message = formatWorkerError(err)
+    console.warn(`Essentia worker failed; retrying on the main thread. ${message}`)
+    onProgress?.(0.45)
+    return analyzeDecodedSong(mono, sampleRate, durationMs, title)
+  }
 }
