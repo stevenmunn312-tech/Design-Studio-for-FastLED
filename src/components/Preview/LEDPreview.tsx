@@ -25,7 +25,6 @@ import { idleFrame } from './idleFrame'
 
 const MAX_CANVAS_PX = 448
 const STAGE_CANVAS_PX = 840
-const FULLSCREEN_CANVAS_PX = 1080
 const NUM_BARS = 28
 const DIFFUSION_BG = 'rgb(4,3,9)'
 let diffusionScratch: HTMLCanvasElement | null = null
@@ -408,8 +407,6 @@ export default function LEDPreview() {
   const glRef       = useRef<WebGLLEDRenderer | null>(null)
   const tickRef     = useRef(0)
   const animRef     = useRef<number>(0)
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  const [viewport, setViewport] = useState(() => ({ width: window.innerWidth, height: window.innerHeight }))
   const [canvasWrapSize, setCanvasWrapSize] = useState({ width: 0, height: 0 })
   const lastFpsTime   = useRef(performance.now())
   const frameCount    = useRef(0)
@@ -449,7 +446,6 @@ export default function LEDPreview() {
   const stageMode = useUiStore((s) => s.stageMode)
   const setStageMode = useUiStore((s) => s.setStageMode)
   const fps = useUiStore((s) => s.fps)
-  const fullscreenCanvasPx = Math.min(FULLSCREEN_CANVAS_PX, viewport.width, viewport.height)
   const wrapEl = canvasWrapRef.current
   const wrapStyle = wrapEl ? window.getComputedStyle(wrapEl) : null
   const wrapPadX = wrapStyle ? Number.parseFloat(wrapStyle.paddingLeft) + Number.parseFloat(wrapStyle.paddingRight) : 0
@@ -461,9 +457,7 @@ export default function LEDPreview() {
     availableCanvasW > 0 ? availableCanvasW / gridW : stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX,
     availableCanvasH > 0 ? availableCanvasH / gridH : stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX,
   )
-  const pixel = isFullscreen
-    ? fullscreenCanvasPx / Math.max(gridW, gridH)
-    : Math.max(1, windowedPixelLimit)
+  const pixel = Math.max(1, windowedPixelLimit)
   // Integer drawing-buffer size — floor the *canvas* dimensions, not the per-LED
   // pixel size. Flooring `pixel` and then multiplying by the grid scales the
   // rounding loss with resolution (~1px lost per LED × 64 ≈ a 14% shrink at
@@ -515,19 +509,6 @@ export default function LEDPreview() {
   const lastAudibleVolume = useRef(volume > 0 ? volume : 0.9)
 
   useEffect(() => {
-    const syncFullscreen = () => setIsFullscreen(document.fullscreenElement === canvasWrapRef.current)
-    const syncViewport = () => setViewport({ width: window.innerWidth, height: window.innerHeight })
-    syncFullscreen()
-    syncViewport()
-    document.addEventListener('fullscreenchange', syncFullscreen)
-    window.addEventListener('resize', syncViewport)
-    return () => {
-      document.removeEventListener('fullscreenchange', syncFullscreen)
-      window.removeEventListener('resize', syncViewport)
-    }
-  }, [])
-
-  useEffect(() => {
     const canvasWrap = canvasWrapRef.current
     if (!canvasWrap) return
 
@@ -556,17 +537,6 @@ export default function LEDPreview() {
     setRot((r) => ({ x: Math.max(0, Math.min(90, r.x - dy * 0.5)), y: r.y + dx * 0.5 }))
   }
   const onRotateUp = () => { drag.current = null }
-
-  const toggleFullscreen = async () => {
-    const canvasWrap = canvasWrapRef.current
-    if (!canvasWrap) return
-    try {
-      if (document.fullscreenElement === canvasWrap) await document.exitFullscreen()
-      else await canvasWrap.requestFullscreen()
-    } catch {
-      // Ignore rejected fullscreen requests; the button will simply do nothing.
-    }
-  }
 
   const { mode: audioMode, previewSpectrum, startAudio, attachAudioElement, stopAudio } = useAudioStore()
   const spectrumRef = useRef(previewSpectrum)
@@ -861,12 +831,12 @@ export default function LEDPreview() {
         ) : <span>LED Preview</span>}
         <div className={styles.headerRight}>
           <button
-            className={styles.toggleBtn}
-            onClick={toggleFullscreen}
-            title={isFullscreen ? 'Exit fullscreen preview' : 'Open fullscreen preview'}
-            aria-pressed={isFullscreen}
+            className={`${styles.toggleBtn} ${styles.stageToggle} ${stageMode ? styles.toggleActive : ''}`}
+            onClick={() => setStageMode(!stageMode)}
+            title={stageMode ? 'Exit Stage Mode (Esc or F10)' : 'Enter Stage Mode (F10)'}
+            aria-pressed={stageMode}
           >
-            {isFullscreen ? 'Windowed' : 'Fullscreen'}
+            Stage
           </button>
           <button
             className={`${styles.toggleBtn} ${styles.previewToggle} ${preview3d ? styles.toggleActive : ''}`}
@@ -896,21 +866,11 @@ export default function LEDPreview() {
           >
             {audioMode === 'mic' ? 'Mic On' : 'Mic Off'}
           </button>
-          {stageMode && (
-            <button
-              className={`${styles.toggleBtn} ${styles.stageExit}`}
-              onClick={() => setStageMode(false)}
-              title="Return to editor (Esc or F10)"
-              aria-label="Exit Stage Mode"
-            >
-              Exit stage
-            </button>
-          )}
         </div>
       </div>
       <div
         ref={canvasWrapRef}
-        className={`${styles.canvasWrap} ${preview3d ? styles.canvasWrap3d : ''} ${isFullscreen ? styles.canvasWrapFullscreen : ''}`}
+        className={`${styles.canvasWrap} ${preview3d ? styles.canvasWrap3d : ''}`}
       >
         <div className={styles.ambilight} aria-hidden="true" />
         {!hasFrameSignal && (
@@ -923,7 +883,7 @@ export default function LEDPreview() {
           ref={canvasRef}
           width={canvasBufW}
           height={canvasBufH}
-          className={`${styles.canvas} ${previewStyle === 'standard' ? styles.canvasStandard : ''} ${isDiffusedStyle(previewStyle) ? styles.canvasDiffusion : ''} ${isDiffusedStyle(previewStyle) && preview3d ? styles.canvasDiffusion3d : ''} ${previewStyle === 'crt' ? styles.canvasCrt : ''} ${isFullscreen ? styles.canvasFullscreen : ''}`}
+          className={`${styles.canvas} ${previewStyle === 'standard' ? styles.canvasStandard : ''} ${isDiffusedStyle(previewStyle) ? styles.canvasDiffusion : ''} ${isDiffusedStyle(previewStyle) && preview3d ? styles.canvasDiffusion3d : ''} ${previewStyle === 'crt' ? styles.canvasCrt : ''}`}
           style={preview3d ? { transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg)`, cursor: drag.current ? 'grabbing' : 'grab' } : undefined}
           onPointerDown={onRotateDown}
           onPointerMove={onRotateMove}
@@ -1061,11 +1021,14 @@ export default function LEDPreview() {
             {musicError && !showMode && <p className={styles.musicError} role="alert">{musicError}</p>}
           </div>
           <div className={styles.brandWrap} aria-hidden>
-            <img
-              className={styles.brandLogo}
-              src="/fastled-studio-pixel-brand.png"
-              alt=""
-            />
+            <div className={styles.brandLockup}>
+              <img
+                className={styles.brandLogo}
+                src="/fastled-studio-pixel-brand.png"
+                alt=""
+              />
+              <span className={styles.brandShine} />
+            </div>
           </div>
         </div>
       <input
