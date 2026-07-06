@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { canAddNodeType, useGraphStore } from '../../state/graphStore'
+import { memo, useEffect, useMemo, useState } from 'react'
+import { SINGLETON_NODE_TYPES, useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { usePatternLibrary, importPatternFile, type SavedPattern } from '../../state/patternLibrary'
 import { NODE_LIBRARY, CATEGORIES, CATEGORY_ACCENT_VAR, NODE_DESCRIPTIONS, categoryNodes } from '../../state/nodeLibrary'
@@ -34,9 +34,17 @@ function loadRecent(): string[] {
   }
 }
 
-export default function Sidebar() {
+function Sidebar() {
   const addNode = useGraphStore((s) => s.addNode)
-  const canvasNodes = useGraphStore((s) => s.nodes)
+  // Availability only changes when one of the singleton node types is added or
+  // removed. Subscribing to the full node array made every drag position update
+  // re-render the entire library rack.
+  const singletonSignature = useGraphStore((s) =>
+    [...SINGLETON_NODE_TYPES]
+      .filter((type) => s.nodes.some((node) => node.data.nodeType === type))
+      .join('|')
+  )
+  const presentSingletons = useMemo(() => new Set(singletonSignature.split('|').filter(Boolean)), [singletonSignature])
   const instantiatePattern = useGraphStore((s) => s.instantiatePattern)
   const patterns = usePatternLibrary((s) => s.patterns)
   const renamePattern = usePatternLibrary((s) => s.renamePattern)
@@ -210,7 +218,7 @@ export default function Sidebar() {
     .filter((node): node is NodeDefinition => Boolean(node))
 
   const renderModule = (n: NodeDefinition, compact = false) => {
-    const enabled = canAddNodeType(canvasNodes, n.type)
+    const enabled = !SINGLETON_NODE_TYPES.has(n.type) || !presentSingletons.has(n.type)
     const accent = CATEGORY_ACCENT_VAR[n.category]
     const outputType = moduleType(n)
     return (
@@ -430,3 +438,5 @@ export default function Sidebar() {
     </aside>
   )
 }
+
+export default memo(Sidebar)

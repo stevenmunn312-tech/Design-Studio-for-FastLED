@@ -663,15 +663,14 @@ export default function LEDPreview() {
     const canvas = canvasRef.current
     if (!canvas) return
 
-    // Try WebGL first, fall back to Canvas 2D
+    // Compile the relatively large preview shader in an idle slice. Doing this
+    // synchronously in the passive-effect flush can put ~100 ms of GPU-driver
+    // work directly in front of the first meaningful paint in development.
     let useWebGL = false
-    try {
-      glRef.current = new WebGLLEDRenderer(canvas)
-      useWebGL = true
-    } catch {
-      glRef.current = null
-    }
-    const ctx = useWebGL ? null : canvas.getContext('2d')
+    let ctx: CanvasRenderingContext2D | null = null
+    let idleId: number | null = null
+    let fallbackId: number | null = null
+    let disposed = false
 
     const STEP = 1000 / 60   // simulate at 60 steps/sec regardless of display Hz
 
@@ -806,8 +805,28 @@ export default function LEDPreview() {
       animRef.current = requestAnimationFrame(loop)
     }
 
-    animRef.current = requestAnimationFrame(loop)
+    const startRenderer = () => {
+      if (disposed) return
+      try {
+        glRef.current = new WebGLLEDRenderer(canvas)
+        useWebGL = true
+      } catch {
+        glRef.current = null
+        ctx = canvas.getContext('2d')
+      }
+      animRef.current = requestAnimationFrame(loop)
+    }
+
+    if (typeof window.requestIdleCallback === 'function') {
+      idleId = window.requestIdleCallback(startRenderer, { timeout: 500 })
+    } else {
+      fallbackId = window.setTimeout(startRenderer, 0)
+    }
+
     return () => {
+      disposed = true
+      if (idleId !== null) window.cancelIdleCallback(idleId)
+      if (fallbackId !== null) window.clearTimeout(fallbackId)
       cancelAnimationFrame(animRef.current)
       glRef.current?.destroy()
       glRef.current = null
@@ -1179,6 +1198,9 @@ export default function LEDPreview() {
               <img
                 className={styles.brandLogo}
                 src="/fastled-studio-pixel-brand.png"
+                width="1535"
+                height="221"
+                fetchPriority="high"
                 alt=""
               />
               <div className={styles.brandTwinkles}>

@@ -182,6 +182,7 @@ export class WebGLLEDRenderer {
   private lastCanvasW = 0
   private lastCanvasH = 0
   private lastDiffusion = false
+  private destroyed = false
 
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext('webgl', { antialias: false, powerPreference: 'high-performance' })
@@ -270,6 +271,8 @@ export class WebGLLEDRenderer {
   }
 
   destroy(): void {
+    if (this.destroyed) return
+    this.destroyed = true
     this.gl.deleteTexture(this.texture)
     this.gl.deleteBuffer(this.buffer)
     this.gl.deleteProgram(this.program)
@@ -301,8 +304,11 @@ export class WebGLLEDRenderer {
     const shader = gl.createShader(type)!
     gl.shaderSource(shader, src)
     gl.compileShader(shader)
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
-      throw new Error(gl.getShaderInfoLog(shader) ?? 'compile error')
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      const message = gl.getShaderInfoLog(shader) ?? 'compile error'
+      gl.deleteShader(shader)
+      throw new Error(message)
+    }
     return shader
   }
 }
