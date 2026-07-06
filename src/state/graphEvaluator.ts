@@ -95,6 +95,52 @@ const codeLeds = new Map<string, RGB[]>()
 const codeCompileError = new Map<string, string>()
 const codeError = new Map<string, string>()
 
+// Stateful previews intentionally survive between frames, but node and group
+// ids are never reused. Track the last evaluation of each instance so buffers
+// belonging to deleted or long-inactive graph instances can be reclaimed.
+const stateLastUsed = new Map<string, number>()
+const STATE_IDLE_TTL_MS = 30_000
+const STATE_PRUNE_INTERVAL_MS = 5_000
+let lastStatePrune = 0
+
+const stateClock = () => typeof performance !== 'undefined' ? performance.now() : Date.now()
+
+function markStateUsed(key: string): string {
+  stateLastUsed.set(key, stateClock())
+  return key
+}
+
+/** Drop persistent evaluator buffers that have not participated in a recent
+ * evaluation. Exported so graph lifecycle code/tests can force an immediate
+ * sweep; normal preview evaluation runs a throttled sweep automatically. */
+export function pruneEvaluatorState(maxIdleMs = STATE_IDLE_TTL_MS, now = stateClock()): number {
+  const cutoff = now - Math.max(0, maxIdleMs)
+  const stale: string[] = []
+  for (const [key, lastUsed] of stateLastUsed) {
+    if (lastUsed < cutoff) stale.push(key)
+  }
+  if (stale.length === 0) return 0
+
+  const maps: Array<{ delete: (key: string) => boolean }> = [
+    fireHeat, flashLevel, counterVals, intervalLast, fftLevels, beatLevels,
+    percussionLevels, audioFeatureLevels, particleState, patternShowState,
+    rdState, golState, flowState, starState, sparkState, fire2012Heat,
+    codeLeds, codeError,
+  ]
+  for (const key of stale) {
+    for (const map of maps) map.delete(key)
+    stateLastUsed.delete(key)
+  }
+  return stale.length
+}
+
+function maybePruneEvaluatorState(): void {
+  const now = stateClock()
+  if (now - lastStatePrune < STATE_PRUNE_INTERVAL_MS) return
+  pruneEvaluatorState(STATE_IDLE_TTL_MS, now)
+  lastStatePrune = now
+}
+
 /** Latest Code-node error (compile or runtime) for a node, or null if clean. */
 export function getCodeError(stateKey: string): string | null {
   return codeError.get(stateKey) ?? null
@@ -1871,7 +1917,10 @@ function evalCode(key: string, globalCode: string, code: string, seed: Frame | n
   // preview — it persists on-device; see docs/development/design/code-node.md.)
   const cacheKey = globalCode + ' ' + code
   if (!codeCache.has(cacheKey)) {
-    if (codeCache.size > 50) codeCache.clear()
+    if (codeCache.size > 50) {
+      codeCache.clear()
+      codeCompileError.clear()
+    }
     try {
       const body = transpileCode(globalCode) + '\n' + transpileCode(code)
       const fn = new Function('leds', 'NUM_LEDS', 'WIDTH', 'HEIGHT', 't', 'shim',
@@ -2051,7 +2100,7 @@ function createEvalNode(
 
   // State maps are module-level and keyed by node id; prefix with the group
   // instance path so two instances of the same group don't share state.
-  const stateKey = (id: string) => instancePrefix + id
+  const stateKey = (id: string) => markStateUsed(instancePrefix + id)
 
   const nodeMap = new Map(nodes.map(n => [n.id, n]))
 
@@ -3345,6 +3394,7 @@ export function evaluateGraph(
   groupInputs: Record<string, PortValue> = {},
   audioOverride: AudioOverride | null = null,
 ): Frame | null {
+  maybePruneEvaluatorState()
   if (nodes.length === 0) return null
   const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, groups, instancePrefix, groupStack, groupInputs, audioOverride)
   // Render only what reaches an explicit terminal: a GroupOutput inside a group
@@ -3398,6 +3448,7 @@ export function evaluateGraphFull(
   gridH = DEFAULT_H,
   groups: GroupRegistry = {},
 ): { frame: Frame | null; outputs: Map<string, Record<string, unknown>> } {
+  maybePruneEvaluatorState()
   const outputs = new Map<string, Record<string, unknown>>()
   if (nodes.length === 0) return { frame: null, outputs }
   const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, groups, '', new Set(), {})

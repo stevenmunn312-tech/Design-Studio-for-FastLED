@@ -10,6 +10,7 @@ export type PreviewKind = 'frame' | 'palette' | 'color'
 // the node width at the matrix aspect ratio (`height` from the caller).
 function FrameThumb({ frame, height }: { frame?: Frame; height?: number }) {
   const ref = useRef<HTMLCanvasElement>(null)
+  const imageRef = useRef<ImageData | null>(null)
   useEffect(() => {
     const cv = ref.current
     if (!cv) return
@@ -18,8 +19,15 @@ function FrameThumb({ frame, height }: { frame?: Frame; height?: number }) {
     if (!w || !h) return // nothing to draw yet
     const ctx = cv.getContext('2d')
     if (!ctx) return
-    cv.width = w; cv.height = h
-    const img = ctx.createImageData(w, h)
+    if (cv.width !== w || cv.height !== h) {
+      cv.width = w
+      cv.height = h
+      imageRef.current = null
+    }
+    if (!imageRef.current || imageRef.current.width !== w || imageRef.current.height !== h) {
+      imageRef.current = ctx.createImageData(w, h)
+    }
+    const img = imageRef.current
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const i = (y * w + x) * 4
@@ -28,7 +36,7 @@ function FrameThumb({ frame, height }: { frame?: Frame; height?: number }) {
       }
     }
     ctx.putImageData(img, 0, 0)
-  }) // redraw on every render (each preview-store publish)
+  }, [frame])
   return <canvas ref={ref} className={styles.frame} style={height ? { height } : undefined} aria-hidden="true" />
 }
 

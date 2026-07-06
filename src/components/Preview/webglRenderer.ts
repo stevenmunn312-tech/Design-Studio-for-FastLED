@@ -171,6 +171,7 @@ export class WebGLLEDRenderer {
   private gl:          WebGLRenderingContext
   private program:     WebGLProgram
   private texture:     WebGLTexture
+  private buffer:      WebGLBuffer
   private texData:     Uint8Array = new Uint8Array(4)
   private uGrid:       WebGLUniformLocation
   private uPixel:      WebGLUniformLocation
@@ -191,8 +192,8 @@ export class WebGLLEDRenderer {
     gl.useProgram(this.program)
 
     // Fullscreen quad
-    const buf = gl.createBuffer()!
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf)
+    this.buffer = gl.createBuffer()!
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer)
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW)
     const loc = gl.getAttribLocation(this.program, 'a_pos')
     gl.enableVertexAttribArray(loc)
@@ -233,7 +234,8 @@ export class WebGLLEDRenderer {
     }
 
     // Pack frame → RGBA Uint8Array
-    if (this.lastW !== gridW || this.lastH !== gridH) {
+    const sizeChanged = this.lastW !== gridW || this.lastH !== gridH
+    if (sizeChanged) {
       this.texData = new Uint8Array(gridW * gridH * 4)
       this.lastW = gridW; this.lastH = gridH
     }
@@ -253,7 +255,11 @@ export class WebGLLEDRenderer {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter)
       this.lastDiffusion = diffused
     }
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gridW, gridH, 0, gl.RGBA, gl.UNSIGNED_BYTE, d)
+    if (sizeChanged) {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gridW, gridH, 0, gl.RGBA, gl.UNSIGNED_BYTE, d)
+    } else {
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gridW, gridH, gl.RGBA, gl.UNSIGNED_BYTE, d)
+    }
 
     gl.uniform2f(this.uGrid,  gridW, gridH)
     gl.uniform1f(this.uPixel, pixel)
@@ -265,6 +271,7 @@ export class WebGLLEDRenderer {
 
   destroy(): void {
     this.gl.deleteTexture(this.texture)
+    this.gl.deleteBuffer(this.buffer)
     this.gl.deleteProgram(this.program)
   }
 
@@ -275,8 +282,17 @@ export class WebGLLEDRenderer {
     const prog = gl.createProgram()!
     gl.attachShader(prog, vert); gl.attachShader(prog, frag)
     gl.linkProgram(prog)
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS))
-      throw new Error(gl.getProgramInfoLog(prog) ?? 'link error')
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      const message = gl.getProgramInfoLog(prog) ?? 'link error'
+      gl.deleteProgram(prog)
+      gl.deleteShader(vert)
+      gl.deleteShader(frag)
+      throw new Error(message)
+    }
+    gl.detachShader(prog, vert)
+    gl.detachShader(prog, frag)
+    gl.deleteShader(vert)
+    gl.deleteShader(frag)
     return prog
   }
 

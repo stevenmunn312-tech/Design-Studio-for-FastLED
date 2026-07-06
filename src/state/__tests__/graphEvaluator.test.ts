@@ -17,7 +17,7 @@ vi.mock('../audioStore', () => ({
   },
 }))
 
-import { evaluateGraph, evaluateGraphFull, evaluateScalar, getCodeError, renderParticleBurst, PARTICLE_LIFE_MS } from '../graphEvaluator'
+import { evaluateGraph, evaluateGraphFull, evaluateScalar, getCodeError, pruneEvaluatorState, renderParticleBurst, PARTICLE_LIFE_MS } from '../graphEvaluator'
 import { waveSample, combineWaves } from '../wave'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import type { StudioNode, StudioEdge } from '../graphStore'
@@ -1182,6 +1182,16 @@ describe('evaluateGraph', () => {
     for (let tick = 0; tick < 200; tick++) {
       evaluateGraph([counter], [], tick, W, H)
     }
+  })
+
+  it('prunes persistent state left by inactive node instances', () => {
+    const counter = node('pruned-counter', 'Counter', 'math', { rate: 1 })
+    const first = evaluateScalar([counter], [], counter.id, 'value', 0)
+    const second = evaluateScalar([counter], [], counter.id, 'value', 1)
+    expect(second).toBeGreaterThan(first)
+
+    expect(pruneEvaluatorState(0, Number.POSITIVE_INFINITY)).toBeGreaterThan(0)
+    expect(evaluateScalar([counter], [], counter.id, 'value', 2)).toBe(first)
   })
 
   it('breaks a direct self-loop without overflowing the stack', () => {

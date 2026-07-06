@@ -430,6 +430,11 @@ export default function LEDPreview() {
   // of the display refresh rate (matching the firmware's millis()-based timing).
   const startTime     = useRef(0)
   const lastStep      = useRef(0)
+  // React-driven node previews and signal lighting do not need the matrix's
+  // full 60 fps cadence. Bounding their publish rate prevents a busy graph
+  // from queuing UI work faster than React and the canvas thumbnails can draw.
+  const lastPreviewPublish = useRef(0)
+  const reportedPreviewErrors = useRef(new Set<string>())
 
   const nodes = useGraphStore((s) => s.nodes)
   const edges = useGraphStore((s) => s.edges)
@@ -637,9 +642,13 @@ export default function LEDPreview() {
           wrap.style.setProperty('--ambient-opacity', String(Math.min(0.78, 0.08 + ambient.energy * 0.7)))
         }
 
-        // Publish every evaluated frame so per-node previews stay in lockstep
-        // with the main canvas (same ~60fps wall-clock cadence, no throttle).
-        usePreviewStore.getState().setOutputs(outputs)
+        // Beat pulses last one evaluation frame, so publish them immediately;
+        // otherwise keep React/store work to ~15 fps while the matrix stays at 60.
+        const hasBeat = Array.from(outputs.values()).some((output) => output.beat === true)
+        if (hasBeat || now - lastPreviewPublish.current >= 66) {
+          usePreviewStore.getState().setOutputs(outputs)
+          lastPreviewPublish.current = now
+        }
 
         frameCount.current++
         if (now - lastFpsTime.current >= 1000) {
@@ -649,7 +658,15 @@ export default function LEDPreview() {
           lastFpsTime.current = now
         }
       } catch (err) {
-        console.error('LED preview frame failed:', err)
+        // A persistent bad graph can fail every animation frame. Log each
+        // distinct message once (as text, so devtools does not retain Error
+        // objects and stacks indefinitely) while allowing the loop to recover.
+        const message = err instanceof Error ? err.message : String(err)
+        if (!reportedPreviewErrors.current.has(message)) {
+          if (reportedPreviewErrors.current.size >= 20) reportedPreviewErrors.current.clear()
+          reportedPreviewErrors.current.add(message)
+          console.error(`LED preview frame failed: ${message}`)
+        }
       }
 
       animRef.current = requestAnimationFrame(loop)
