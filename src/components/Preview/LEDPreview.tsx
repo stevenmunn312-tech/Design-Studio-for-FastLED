@@ -26,6 +26,11 @@ import { idleFrame } from './idleFrame'
 const MAX_CANVAS_PX = 448
 const STAGE_CANVAS_PX = 840
 const NUM_BARS = 28
+const BYTES_PER_MIB = 1024 * 1024
+
+interface PerformanceWithMemory extends Performance {
+  memory?: { usedJSHeapSize: number }
+}
 // Sparkle spots for the branding twinkle, in % of the lockup box. Hues follow
 // the wordmark's cyan→magenta gradient at each x; the logo art masks the layer
 // so a glint only lights actual LED pixels. Periods are co-prime-ish and
@@ -450,6 +455,7 @@ export default function LEDPreview() {
   const stageMode = useUiStore((s) => s.stageMode)
   const setStageMode = useUiStore((s) => s.setStageMode)
   const fps = useUiStore((s) => s.fps)
+  const memoryMb = useUiStore((s) => s.memoryMb)
   const wrapEl = canvasWrapRef.current
   const wrapStyle = wrapEl ? window.getComputedStyle(wrapEl) : null
   const wrapPadX = wrapStyle ? Number.parseFloat(wrapStyle.paddingLeft) + Number.parseFloat(wrapStyle.paddingRight) : 0
@@ -640,6 +646,10 @@ export default function LEDPreview() {
         if (now - lastFpsTime.current >= 1000) {
           const count = frameCount.current
           useUiStore.getState().setFps(count)
+          const heap = (performance as PerformanceWithMemory).memory
+          useUiStore.getState().setMemoryMb(
+            heap ? Math.round(heap.usedJSHeapSize / BYTES_PER_MIB) : null,
+          )
           frameCount.current = 0
           lastFpsTime.current = now
         }
@@ -845,7 +855,9 @@ export default function LEDPreview() {
           <div className={styles.stageIdentity}>
             <span className={styles.liveDot} aria-hidden="true" />
             <span className={styles.stageTitle}>Live output</span>
-            <span className={styles.stageMeta}>{gridW}×{gridH} · {fps} FPS</span>
+            <span className={styles.stageMeta}>
+              {gridW}×{gridH} · {fps} FPS · {memoryMb === null ? 'Memory unavailable' : `${memoryMb} MiB`}
+            </span>
           </div>
         ) : <span>LED Preview</span>}
         <div className={styles.headerRight}>

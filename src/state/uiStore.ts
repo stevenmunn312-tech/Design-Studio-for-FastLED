@@ -44,6 +44,8 @@ interface UiState {
    *  oscillation so their motion can be previewed without a microphone. */
   testSignal: boolean
   fps: number
+  /** Browser JavaScript heap usage in MiB, when exposed by the runtime. */
+  memoryMb: number | null
   sparkPort: { nodeId: string; portId: string } | null
   /** Sidebar node currently being dragged, used for canvas drop affordances. */
   draggingNodeType: string | null
@@ -65,6 +67,7 @@ interface UiState {
   setPreviewStyle: (style: PreviewStyle) => void
   cyclePreviewStyle: () => void
   setFps: (fps: number) => void
+  setMemoryMb: (memoryMb: number | null) => void
   setSparkPort: (port: { nodeId: string; portId: string } | null) => void
   setDraggingNodeType: (nodeType: string | null) => void
   setViewCenter: (center: { x: number; y: number }) => void
@@ -92,6 +95,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   previewStyle: loadPreviewStyle(),
   testSignal: load<boolean>(TEST_SIGNAL_KEY, false),
   fps: 0,
+  memoryMb: null,
   sparkPort: null,
   draggingNodeType: null,
   viewCenter: { x: 300, y: 250 },
@@ -133,6 +137,7 @@ export const useUiStore = create<UiState>((set, get) => ({
     set({ previewStyle: next })
   },
   setFps: (fps) => set({ fps }),
+  setMemoryMb: (memoryMb) => set({ memoryMb }),
   setSparkPort: (port) => set({ sparkPort: port }),
   setDraggingNodeType: (draggingNodeType) => set({ draggingNodeType }),
   setViewCenter: (center) => set({ viewCenter: center }),

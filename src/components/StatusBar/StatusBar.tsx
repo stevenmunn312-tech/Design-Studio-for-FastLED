@@ -11,7 +11,7 @@ const LEVEL_COLOR: Record<StatusLevel, string> = {
 }
 
 export default function StatusBar() {
-  const { statusText, statusLevel, fps } = useUiStore()
+  const { statusText, statusLevel, fps, memoryMb } = useUiStore()
 
   const outputNode = useGraphStore((s) =>
     s.nodes.find((n) => n.data.nodeType === 'MatrixOutput')
@@ -36,6 +36,9 @@ export default function StatusBar() {
           </span>
         )}
         <span className={styles.chip}>FPS: {fps}</span>
+        <span className={styles.chip} title="JavaScript heap usage">
+          Memory: {memoryMb === null ? 'Unavailable' : `${memoryMb} MiB`}
+        </span>
       </div>
     </footer>
   )
