@@ -700,61 +700,17 @@
 }
 
 
-.brandLockup {
-  position: relative;
+.brandLogo {
+  display: block;
   /* The generated concept has generous vertical presentation space. Render it
      at the footer's full width and let brandWrap crop that space around the
      centered lockup instead of shrinking the wordmark to fit by height. */
   width: min(92%, 340px);
-  flex: 0 0 auto;
-  pointer-events: none;
-}
-
-.brandLogo {
-  display: block;
-  width: 100%;
   height: auto;
   max-width: none;
+  flex: 0 0 auto;
   opacity: 0.68;
-}
-
-/* Occasional glow ripple: a light band sweeps across the wordmark, masked by
-   the logo art itself so only the LED pixels catch the light. Mostly idle —
-   the sweep occupies a short slice of a long cycle. */
-.brandShine {
-  position: absolute;
-  inset: 0;
-  -webkit-mask-image: url('/fastled-studio-pixel-brand.png');
-  mask-image: url('/fastled-studio-pixel-brand.png');
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
-  background:
-    linear-gradient(
-      115deg,
-      transparent 38%,
-      rgba(90, 209, 255, 0.35) 45%,
-      rgba(180, 240, 255, 0.9) 50%,
-      rgba(255, 255, 255, 1) 52%,
-      rgba(255, 170, 255, 0.9) 54%,
-      rgba(255, 92, 240, 0.35) 59%,
-      transparent 66%
-    )
-    no-repeat;
-  background-size: 320% 100%;
-  background-position: 100% 0;
-  animation: brandShineSweep 14s ease-in-out infinite;
-}
-
-@keyframes brandShineSweep {
-  0% {
-    background-position: 100% 0;
-  }
-  16% {
-    background-position: 0% 0;
-  }
-  100% {
-    background-position: 0% 0;
-  }
+  pointer-events: none;
 }
 
 .fileInput {
@@ -853,11 +809,6 @@
     animation: none;
   }
 
-  .brandShine {
-    animation: none;
-    background: none;
-  }
-
 }
 
 :global([data-reduced-motion]) .liveDot {
@@ -867,12 +818,6 @@
 :global([data-reduced-motion]) .standbyHud i {
   animation: none;
 }
-
-:global([data-reduced-motion]) .brandShine {
-  animation: none;
-  background: none;
-}
-
 
 @media (max-width: 900px) {
   .panelStage {

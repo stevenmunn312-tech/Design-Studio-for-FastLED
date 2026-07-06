@@ -1021,14 +1021,11 @@ export default function LEDPreview() {
             {musicError && !showMode && <p className={styles.musicError} role="alert">{musicError}</p>}
           </div>
           <div className={styles.brandWrap} aria-hidden>
-            <div className={styles.brandLockup}>
-              <img
-                className={styles.brandLogo}
-                src="/fastled-studio-pixel-brand.png"
-                alt=""
-              />
-              <span className={styles.brandShine} />
-            </div>
+            <img
+              className={styles.brandLogo}
+              src="/fastled-studio-pixel-brand.png"
+              alt=""
+            />
           </div>
         </div>
       <input
