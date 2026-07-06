@@ -6,17 +6,19 @@
   --bg-node-hover: #252a31;
 
   /* Accent colors per node category — keep in sync with CATEGORIES in
-     src/state/nodeLibrary.ts (which carries the literal hex for canvas/SVG). */
-  --accent-input: #ffa500;
-  --accent-audio: #00ffff;
-  --accent-signal: #b388ff;
-  --accent-math: #a8ff00;
-  --accent-color: #ff4d8d;
-  --accent-pattern: #ff00ff;
-  --accent-field: #f5c542;
-  --accent-composite: #00e0a4;
-  --accent-show: #ff5a3c;
-  --accent-output: #00bfff;
+     src/state/nodeLibrary.ts (which carries the literal hex for canvas/SVG).
+     Hues sweep the wheel in sidebar order: 36° per category from red,
+     all at hsl(h, 100%, 60%) so every accent reads equally on the dark UI. */
+  --accent-input: #ff3333;
+  --accent-audio: #ff9933;
+  --accent-signal: #ccff33;
+  --accent-math: #66ff33;
+  --accent-color: #33ff99;
+  --accent-pattern: #33ffff;
+  --accent-field: #3385ff;
+  --accent-composite: #5c33ff;
+  --accent-show: #d633ff;
+  --accent-output: #ff33ad;
 
   /* Text */
   --text-primary: #e0e0e0;

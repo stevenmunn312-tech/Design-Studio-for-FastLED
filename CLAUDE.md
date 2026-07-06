@@ -200,18 +200,22 @@ These nodes have no `frame`/`palette`/`color` output, so they don't participate 
 
 All colors, spacing, and typography are CSS variables in `src/themes/tokens.css`. Each node category maps to an accent color. Category metadata (display order, label, accent CSS var, and literal hex for canvas/SVG) lives in one place — the `CATEGORIES` table in `src/state/nodeLibrary.ts`, which also exports `CATEGORY_COLOR` (hex) and `CATEGORY_ACCENT_VAR` (CSS var). Do not re-inline these maps in components.
 
-| Category id | Label | Hex | CSS var |
-|-------------|-------|-----|---------|
-| input | Inputs | `#ffa500` | `--accent-input` |
-| audio | Audio | `#00ffff` | `--accent-audio` |
-| signal | Signals | `#b388ff` | `--accent-signal` |
-| math | Math & Logic | `#a8ff00` | `--accent-math` |
-| color | Color | `#ff4d8d` | `--accent-color` |
-| pattern | Patterns | `#ff00ff` | `--accent-pattern` |
-| field | Fields | `#f5c542` | `--accent-field` |
-| composite | Effects | `#00e0a4` | `--accent-composite` |
-| show | Show | `#ff5a3c` | `--accent-show` |
-| output | Output | `#00bfff` | `--accent-output` |
+Accent hues sweep the wheel in sidebar order — 36° per category starting at red, all `hsl(h, 100%, 60%)` — so the category list reads as a rainbow ramp:
+
+| Category id | Label | Hue | Hex | CSS var |
+|-------------|-------|-----|-----|---------|
+| input | Inputs | 0° | `#ff3333` | `--accent-input` |
+| audio | Audio | 36° | `#ff9933` | `--accent-audio` |
+| signal | Signals | 72° | `#ccff33` | `--accent-signal` |
+| math | Math & Logic | 108° | `#66ff33` | `--accent-math` |
+| color | Color | 144° | `#33ff99` | `--accent-color` |
+| pattern | Patterns | 180° | `#33ffff` | `--accent-pattern` |
+| field | Fields | 216° | `#3385ff` | `--accent-field` |
+| composite | Effects | 252° | `#5c33ff` | `--accent-composite` |
+| show | Show | 288° | `#d633ff` | `--accent-show` |
+| output | Output | 324° | `#ff33ad` | `--accent-output` |
+
+(The song-section chips in `MusicLibraryNodeBody.module.css` keep their own fixed literal colours — they are a section legend, not category accents.)
 
 Categories group nodes by **the job the user is doing** (the real type system is still the per-port `dataType`): `input` is live device IO, `signal` produces time-varying control values, `math` transforms them, `pattern` is frame *generators*, `field` is the whole scalar-field pipeline, `composite` (displayed **"Effects"** — it keeps its historical id) is frame→frame operations, and `show` is the entire show workflow (Library → Collection → Show Engine, plus the music-sync export chain). Sidebar grouping order follows the authoring pipeline and `CATEGORIES` order (input → audio → signal → math → color → pattern → field → composite/Effects → show → output). The `color` and `pattern` sections render **subcategory sub-headings** (a `subcategory` field on the node definition, ordered by `SUBCATEGORY_ORDER`); `categoryNodes(id)` in `nodeLibrary.ts` returns a category's nodes in display order (subcategory groups, then `CATEGORY_NODE_ORDER` workflow order for signal/field/show, else declaration order) — the Sidebar renders from it. `migrateLegacyGraph` refreshes each saved node's `category` and `label` from the library on load, so old saves pick up moves/renames automatically (`hardware` remains in the `NodeCategory` union as an accepted-on-load legacy id).
 

@@ -1461,17 +1461,19 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
 // pipeline: live inputs → audio analysis → control signals → value transforms
 // → color → frame generators → fields → frame effects → the show pipeline →
 // output. (`composite` keeps its historical id but displays as "Effects".)
+// Accent hues sweep the wheel in display order — 36° per category starting at
+// red, all hsl(h, 100%, 60%) — so the sidebar reads as a rainbow ramp.
 export const CATEGORIES = [
-  { id: 'input',     label: 'Inputs',       accentVar: '--accent-input',     color: '#ffa500' },
-  { id: 'audio',     label: 'Audio',        accentVar: '--accent-audio',     color: '#00ffff' },
-  { id: 'signal',    label: 'Signals',      accentVar: '--accent-signal',    color: '#b388ff' },
-  { id: 'math',      label: 'Math & Logic', accentVar: '--accent-math',      color: '#a8ff00' },
-  { id: 'color',     label: 'Color',        accentVar: '--accent-color',     color: '#ff4d8d' },
-  { id: 'pattern',   label: 'Patterns',     accentVar: '--accent-pattern',   color: '#ff00ff' },
-  { id: 'field',     label: 'Fields',       accentVar: '--accent-field',     color: '#f5c542' },
-  { id: 'composite', label: 'Effects',      accentVar: '--accent-composite', color: '#00e0a4' },
-  { id: 'show',      label: 'Show',         accentVar: '--accent-show',      color: '#ff5a3c' },
-  { id: 'output',    label: 'Output',       accentVar: '--accent-output',    color: '#00bfff' },
+  { id: 'input',     label: 'Inputs',       accentVar: '--accent-input',     color: '#ff3333' },
+  { id: 'audio',     label: 'Audio',        accentVar: '--accent-audio',     color: '#ff9933' },
+  { id: 'signal',    label: 'Signals',      accentVar: '--accent-signal',    color: '#ccff33' },
+  { id: 'math',      label: 'Math & Logic', accentVar: '--accent-math',      color: '#66ff33' },
+  { id: 'color',     label: 'Color',        accentVar: '--accent-color',     color: '#33ff99' },
+  { id: 'pattern',   label: 'Patterns',     accentVar: '--accent-pattern',   color: '#33ffff' },
+  { id: 'field',     label: 'Fields',       accentVar: '--accent-field',     color: '#3385ff' },
+  { id: 'composite', label: 'Effects',      accentVar: '--accent-composite', color: '#5c33ff' },
+  { id: 'show',      label: 'Show',         accentVar: '--accent-show',      color: '#d633ff' },
+  { id: 'output',    label: 'Output',       accentVar: '--accent-output',    color: '#ff33ad' },
 ] as const
 
 // Ordered sub-headings shown inside a category's sidebar section. A category

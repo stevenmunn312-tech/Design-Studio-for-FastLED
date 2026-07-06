@@ -66,7 +66,7 @@
   background:
     radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.6), transparent 34%),
     radial-gradient(circle, color-mix(in srgb, var(--accent-audio) 72%, #fff 28%), var(--accent-audio));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-audio) 35%, transparent), 0 0 10px rgba(0, 255, 255, 0.2);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-audio) 35%, transparent), 0 0 10px color-mix(in srgb, var(--accent-audio) 20%, transparent);
   overflow: hidden;
 }
 
