@@ -231,6 +231,25 @@ describe('StudioNode', () => {
     expect(sliders[3].max).toBe('1')
   })
 
+  it('keeps an unwired FFT Analyzer visually silent even when the mic is active', () => {
+    useAudioStore.setState({
+      active: true,
+      mode: 'mic',
+      bass: 0.6,
+      mids: 0.3,
+      treble: 0.1,
+      spectrum: Array(16).fill(0.8),
+      micActive: true,
+      micBass: 0.6,
+      micMids: 0.3,
+      micTreble: 0.1,
+      micSpectrum: Array(16).fill(0.8),
+    })
+    usePreviewStore.setState({ outputs: new Map([['n1', { bass: 0, mids: 0, treble: 0 }]]) })
+    const { getByText } = renderNode(makeNode('FFTAnalyzer', { bands: 24, gain: 1, smoothing: 0.72, tilt: 0 }))
+    expect(getByText('SILENT')).toBeTruthy()
+  })
+
   it('renders a frame thumbnail (not a wave scope) for a frame node', () => {
     const { container } = renderNode(makeNode('SolidColor', { r: 1, g: 2, b: 3 }))
     expect(container.querySelector('svg polyline')).toBeNull()  // not a wave scope
@@ -272,27 +291,27 @@ describe('StudioNode', () => {
     expect(useGraphStore.getState().nodes[0].data.properties.filled).toBe(true)
   })
 
-  it('embeds the library UI (drop zone) in the MusicLibrary node', () => {
+  it('embeds the library UI (drop zone) in the MusicLibrary node', async () => {
     useMusicStore.setState({ entries: [] })
-    const { getByText } = renderNode(makeNode('MusicLibrary', {}))
-    expect(getByText('Drop MP3s here or click to browse')).toBeTruthy()
+    const { findByText } = renderNode(makeNode('MusicLibrary', {}))
+    expect(await findByText('Drop MP3s here or click to browse')).toBeTruthy()
   })
 
-  it('lists loaded songs with their status on the MusicLibrary node', () => {
+  it('lists loaded music with its status on the MusicLibrary node', async () => {
     useMusicStore.setState({
       entries: [
         { id: 'a', file: { name: 'one.mp3' } as File, analysis: null, show: null, status: 'done' },
         { id: 'b', file: { name: 'two.mp3' } as File, analysis: null, show: null, status: 'pending' },
       ],
     })
-    const { getByText } = renderNode(makeNode('MusicLibrary', {}))
-    expect(getByText('one.mp3')).toBeTruthy()
-    expect(getByText('two.mp3')).toBeTruthy()
-    expect(getByText('Ready')).toBeTruthy()    // done badge
-    expect(getByText('Pending')).toBeTruthy()  // pending badge
+    const { findByText } = renderNode(makeNode('MusicLibrary', {}))
+    expect(await findByText('one.mp3')).toBeTruthy()
+    expect(await findByText('two.mp3')).toBeTruthy()
+    expect(await findByText('Ready')).toBeTruthy()    // done badge
+    expect(await findByText('Pending')).toBeTruthy()  // pending badge
   })
 
-  it('embeds an empty show monitor in the Performance Generator node', () => {
+  it('embeds an empty show monitor in the Performance Generator node', async () => {
     const node = makeNode('PerformanceGenerator', {
       beatIntensity: 0.8,
       energySensitivity: 0.7,
@@ -300,8 +319,8 @@ describe('StudioNode', () => {
       paletteMode: 'mood',
       fixedPalette: 'rainbow',
     })
-    const { container, getByText } = renderNode(node)
-    expect(getByText('Analyse songs in a Music Library node, then preview the timed show here.')).toBeTruthy()
+    const { container, findByText } = renderNode(node)
+    expect(await findByText('Analyse music in a Music Library node, then preview the timed show here.')).toBeTruthy()
     expect((container.firstElementChild as HTMLElement).style.width).toBe('300px')
     const selects = Array.from(container.querySelectorAll('select')) as HTMLSelectElement[]
     expect(selects.map((select) => select.value)).toEqual(['mood', 'rainbow'])
@@ -317,7 +336,7 @@ describe('StudioNode', () => {
       fixedPalette: 'rainbow',
     })
     node.data.inputs = [
-      { id: 'songs', label: 'Songs', dataType: 'songs' },
+      { id: 'music', label: 'Music', dataType: 'music' },
       { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
     ]
     node.data.outputs = [
@@ -346,7 +365,16 @@ describe('StudioNode', () => {
       spectrum: Array(16).fill(0),
       detectorSpectrum: Array(16).fill(0),
     })
-    const { getByLabelText, getByText } = renderNode(makeNode('BeatDetect', { threshold: 0.08, attack: 0.2, decay: 0.05 }))
+    const mic = { ...makeNode('MicInput', {}), id: 'mic' } as StudioNodeT
+    const beat = makeNode('BeatDetect', { threshold: 0.08, attack: 0.2, decay: 0.05 })
+    useGraphStore.setState({
+      nodes: [mic, beat],
+      edges: [
+        { id: 'e-audio', source: 'mic', sourceHandle: 'audio', target: 'n1', targetHandle: 'audio' } as never,
+      ],
+    })
+    const props = { id: beat.id, data: beat.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
+    const { getByLabelText, getByText } = render(<StudioNode {...props} />)
     expect(getByLabelText('Beat detector status')).toBeTruthy()
     expect(getByText('BEAT')).toBeTruthy()
     expect(getByText('132 BPM')).toBeTruthy()

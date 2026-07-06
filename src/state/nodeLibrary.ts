@@ -2,7 +2,7 @@ import type { NodeDefinition } from '../types'
 import { STUDIO_PALETTES } from './paletteCatalog'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
-  // ── Hardware ───────────────────────────────────────────────────────────
+  // ── Inputs ─────────────────────────────────────────────────────────────
   {
     type: 'MicInput',
     label: 'Microphone',
@@ -28,15 +28,15 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       serialDebug: false,
     },
   },
-  // ── Audio ──────────────────────────────────────────────────────────────
+  // ── Show pipeline source ───────────────────────────────────────────────
   {
-    // Song source for the pre-planned show pipeline. Double-click on the canvas
+    // Music source for the pre-planned show pipeline. Double-click on the canvas
     // opens the Music Library panel (drop MP3s, analyse, export).
     type: 'MusicLibrary',
     label: 'Music Library',
     category: 'show',
     inputs: [],
-    outputs: [{ id: 'songs', label: 'Songs', dataType: 'songs' }],
+    outputs: [{ id: 'music', label: 'Music', dataType: 'music' }],
     defaultProperties: {},
   },
   {
@@ -1047,7 +1047,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
 
-  // ── Pattern Master — the generative show engine (Phase 3) ──────────────
+  // ── Show Engine — the generative show engine (Phase 3) ─────────────────
   {
     // Runs a random show from a Pattern Collection: holds a random pattern for
     // a random dwell (minTime…maxTime), then transitions (a random style from
@@ -1058,6 +1058,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'show',
     inputs: [
       { id: 'patternset',  label: 'Patterns',    dataType: 'patternset' },
+      { id: 'audio',       label: 'Audio',       dataType: 'audio' },
       { id: 'transitions', label: 'Transitions', dataType: 'transitionset' },
       { id: 'beat',        label: 'Beat',        dataType: 'bool' },
     ],
@@ -1088,7 +1089,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     // Holds a chosen subset of pattern groups for a show. Wire a Group node's
     // frame output here and confirm to *absorb* it into the collection's list
-    // (it leaves the canvas). Outputs a `patternset` for the Pattern Master.
+    // (it leaves the canvas). Outputs a `patternset` for the Show Engine.
     // See docs/development/design/generative-pattern-show.md.
     type: 'PatternCollection',
     label: 'Pattern Collection',
@@ -1243,7 +1244,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'output',
     inputs: [
       { id: 'frame',  label: 'Frame',   dataType: 'frame' },
-      // Optional: wire an SD Card node here to bundle songs/shows onto the card
+      // Optional: wire an SD Card node here to bundle music/show files onto the card
       // (written first over serial) before the sketch is flashed on upload.
       { id: 'sdcard', label: 'SD Card', dataType: 'sdcard' },
     ],
@@ -1269,7 +1270,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
 
-  // ── Hardware ───────────────────────────────────────────────────────────
+  // ── Inputs ─────────────────────────────────────────────────────────────
   {
     type: 'ButtonInput',
     label: 'Button',
@@ -1287,13 +1288,13 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { pin: 34 },
   },
 
-  // ── Music-sync pipeline (the Music Library source lives in Audio) ─────────
+  // ── Music-sync pipeline (the Music Library source lives in Show) ───────
   {
     type: 'PerformanceGenerator',
     label: 'Performance Generator',
     category: 'show',
     inputs: [
-      { id: 'songs', label: 'Songs', dataType: 'songs' },
+      { id: 'music', label: 'Music', dataType: 'music' },
       { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
       { id: 'transitions', label: 'Transitions', dataType: 'transitionset' },
     ],
@@ -1315,7 +1316,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // The SD card + audio-output module. Holds only the SD/I2S pin config (the
     // LED matrix config comes from the MatrixOutput node it connects to); its
     // `sdcard` output plugs into MatrixOutput's `sdcard` input to enable the
-    // write-songs-to-SD-then-flash upload flow.
+    // write-music-to-SD-then-flash upload flow.
     type: 'SDCard',
     label: 'SD Card',
     category: 'show',
@@ -1353,9 +1354,9 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   // hardware
   ButtonInput: 'Reads a hardware button as a boolean.',
   PotInput: 'Reads a potentiometer as a 0–1 value.',
-  MusicLibrary: 'MP3 song source — double-click to drop tracks, analyse and export.',
-  PerformanceGenerator: 'Converts song analysis into a timed LED show file.',
-  SDCard: 'SD + audio pins; connect to Matrix Output to load songs/shows on upload.',
+  MusicLibrary: 'Music source — double-click to drop tracks, analyse and export.',
+  PerformanceGenerator: 'Converts analysed music into timed LED show files.',
+  SDCard: 'SD + audio pins; connect to Matrix Output to load music/show files on upload.',
   // math
   Math: 'Binary math — add, subtract, multiply, divide, min or max (a op b).',
   Clamp: 'Constrains a value between min and max.',
@@ -1533,7 +1534,7 @@ const PORT_COLORS: Record<string, string> = {
   frame: '#5ad1ff',
   field: '#f5c542',
   audio: '#00e0a4',
-  songs: '#ffb74d',
+  music: '#ffb74d',
   shows: '#ffa726',
   sdcard: '#ffa500',
   patternset: '#00e0a4',
@@ -1637,7 +1638,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   gamma:    { control: 'slider', min: 1, max: 3.5, step: 0.1 },
   volts:    { control: 'slider', min: 3, max: 24, step: 1 },
   milliamps:{ control: 'slider', min: 100, max: 20000, step: 100 },
-  // Pattern Master show timing.
+  // Show Engine timing.
   minTime:       { control: 'slider', min: 0, max: 30, step: 0.5 },
   maxTime:       { control: 'slider', min: 0, max: 60, step: 0.5 },
   transitionSec: { control: 'slider', min: 0.1, max: 5, step: 0.1 },
@@ -1657,7 +1658,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   // Audio-reactivity amount on the spectral pattern nodes (was `intensity`).
   energy:     { control: 'slider', min: 0, max: 1, step: 0.01 },
   brightness: { control: 'slider', min: 0, max: 1, step: 0.01 },
-  // Pattern Master beat-triggered particle overlay (style 0–10, hue 0–255).
+  // Show Engine beat-triggered particle overlay (style 0–10, hue 0–255).
   particleStyle:     { control: 'slider', min: 0, max: 10, step: 1 },
   particleHue:       { control: 'slider', min: 0, max: 255, step: 1 },
   particleIntensity: { control: 'slider', min: 0, max: 1, step: 0.01 },

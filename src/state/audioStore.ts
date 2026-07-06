@@ -28,6 +28,8 @@ export const useAudioStore = create<AudioState>()((set) => {
 
   engine.subscribe((data) => {
     set({
+      active: data.active,
+      mode: data.mode,
       bass: data.bass,
       mids: data.mids,
       treble: data.treble,

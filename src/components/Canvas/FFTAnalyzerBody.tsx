@@ -1,6 +1,7 @@
 import { useAudioStore } from '../../state/audioStore'
 import { useUiStore } from '../../state/uiStore'
 import { usePreviewStore } from '../../state/previewStore'
+import { useGraphStore } from '../../state/graphStore'
 import styles from './FFTAnalyzerBody.module.css'
 
 interface Props {
@@ -25,6 +26,7 @@ export default function FFTAnalyzerBody({ nodeId, bands }: Props) {
   const active = useAudioStore((s) => s.active)
   const mode = useAudioStore((s) => s.mode)
   const liveSpectrum = useAudioStore((s) => s.spectrum)
+  const wired = useGraphStore((s) => s.edges.some((e) => e.target === nodeId && e.targetHandle === 'audio'))
   const testSignal = useUiStore((s) => s.testSignal)
   const toggleTestSignal = useUiStore((s) => s.toggleTestSignal)
   const outputs = usePreviewStore((s) => s.outputs.get(nodeId))
@@ -34,8 +36,9 @@ export default function FFTAnalyzerBody({ nodeId, bands }: Props) {
     { key: 'treble', label: 'HIGH', value: clamp01(outputs?.treble) },
   ]
   const count = Math.max(8, Math.min(32, Math.round(bands || 24)))
+  const nodeLive = wired && active
   const spectrum = (() => {
-    if (active) return resample(liveSpectrum, count)
+    if (nodeLive) return resample(liveSpectrum, count)
     // With the mic off the evaluator emits zero — unless the Test Signal toggle
     // is on, when it supplies an animated demo. Shape whatever the levels are
     // (flat or animated) into a spectrum so the node reflects its real output.
@@ -75,8 +78,8 @@ export default function FFTAnalyzerBody({ nodeId, bands }: Props) {
         >
           Test {testSignal ? 'On' : 'Off'}
         </button>
-        <div className={styles.status} data-active={active}>
-          <span />{active ? (mode === 'media' ? 'MEDIA LIVE' : 'MIC LIVE') : testSignal ? 'TEST SIGNAL' : 'SILENT'}
+        <div className={styles.status} data-active={nodeLive}>
+          <span />{nodeLive ? (mode === 'media' ? 'MEDIA LIVE' : 'MIC LIVE') : testSignal ? 'TEST SIGNAL' : 'SILENT'}
         </div>
       </div>
     </div>

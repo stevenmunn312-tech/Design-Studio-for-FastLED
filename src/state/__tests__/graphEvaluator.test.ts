@@ -2,9 +2,13 @@ import { describe, it, expect, vi } from 'vitest'
 
 const mockAudio = vi.hoisted(() => ({
   active: false,
+  micActive: false,
   bass: 0,
   mids: 0,
   treble: 0,
+  micBass: 0,
+  micMids: 0,
+  micTreble: 0,
   beat: false,
   bpm: 120,
   spectrum: Array(32).fill(0),
@@ -140,18 +144,19 @@ describe('evaluateGraph', () => {
 
   it('BeatDetect uses its configured detector instead of the engine beat', () => {
     mockAudio.active = true
+    const mic = node('mic', 'MicInput', 'input', {})
     const beatNode = node('bd', 'BeatDetect', 'audio', { threshold: 0.14, attack: 0.68, decay: 0.22 })
     mockAudio.beat = false
     mockAudio.bpm = 124
     mockAudio.detectorSpectrum = [0.02, 0.01, 0, 0]
-    evaluateGraphFull([beatNode], [], 0, W, H)
+    evaluateGraphFull([mic, beatNode], [edge('ea0', 'mic', 'audio', 'bd', 'audio')], 0, W, H)
     mockAudio.detectorSpectrum = [0.04, 0.03, 0.01, 0]
-    evaluateGraphFull([beatNode], [], 15, W, H)
+    evaluateGraphFull([mic, beatNode], [edge('ea1', 'mic', 'audio', 'bd', 'audio')], 15, W, H)
     mockAudio.detectorSpectrum = [0.10, 0.08, 0.03, 0.01]
-    evaluateGraphFull([beatNode], [], 30, W, H)
+    evaluateGraphFull([mic, beatNode], [edge('ea2', 'mic', 'audio', 'bd', 'audio')], 30, W, H)
     mockAudio.detectorSpectrum = [0.26, 0.22, 0.10, 0.03]
     mockAudio.beat = true
-    const { outputs } = evaluateGraphFull([beatNode], [], 45, W, H)
+    const { outputs } = evaluateGraphFull([mic, beatNode], [edge('ea3', 'mic', 'audio', 'bd', 'audio')], 45, W, H)
     const beat = outputs.get('bd')!
     expect(beat.beat).toBe(true)
     expect(beat.bpm).toBe(120)
@@ -163,39 +168,41 @@ describe('evaluateGraph', () => {
 
   it('PercussionDetect emits separate kick, snare, and hi-hat envelopes', () => {
     mockAudio.active = true
+    const mic = node('micp', 'MicInput', 'input', {})
     const perc = node('pd', 'PercussionDetect', 'audio', { sensitivity: 0.65, decay: 0.5, separation: 0.45 })
     mockAudio.detectorSpectrum = Array(32).fill(0)
-    evaluateGraphFull([perc], [], 0, W, H)
+    evaluateGraphFull([mic, perc], [edge('ep0', 'micp', 'audio', 'pd', 'audio')], 0, W, H)
     mockAudio.detectorSpectrum = [0.9, 0.82, 0.64, 0.4, 0.14, 0.08, 0.03, 0.02, 0.01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    const kickHit = evaluateGraphFull([perc], [], 15, W, H).outputs.get('pd')!
+    const kickHit = evaluateGraphFull([mic, perc], [edge('ep1', 'micp', 'audio', 'pd', 'audio')], 15, W, H).outputs.get('pd')!
     expect(kickHit.kick).toBeGreaterThan(kickHit.snare as number)
     expect(kickHit.kick).toBeGreaterThan(kickHit.hihat as number)
 
     mockAudio.detectorSpectrum = [0.04, 0.05, 0.06, 0.08, 0.14, 0.2, 0.34, 0.48, 0.55, 0.42, 0.26, 0.18, 0.12, 0.08, 0.04, 0.02, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01]
-    const snareHit = evaluateGraphFull([perc], [], 30, W, H).outputs.get('pd')!
+    const snareHit = evaluateGraphFull([mic, perc], [edge('ep2', 'micp', 'audio', 'pd', 'audio')], 30, W, H).outputs.get('pd')!
     expect(snareHit.snare).toBeGreaterThan(snareHit.hihat as number)
 
     mockAudio.detectorSpectrum = [0.01, 0.01, 0.02, 0.02, 0.03, 0.04, 0.06, 0.07, 0.09, 0.12, 0.16, 0.24, 0.28, 0.3, 0.26, 0.24, 0.2, 0.18, 0.22, 0.28, 0.34, 0.46, 0.58, 0.68, 0.76, 0.84, 0.92, 0.98, 0.94, 0.88, 0.82, 0.78]
-    const hatHit = evaluateGraphFull([perc], [], 45, W, H).outputs.get('pd')!
+    const hatHit = evaluateGraphFull([mic, perc], [edge('ep3', 'micp', 'audio', 'pd', 'audio')], 45, W, H).outputs.get('pd')!
     expect(hatHit.hihat).toBeGreaterThan(hatHit.kick as number)
     mockAudio.active = false
   })
 
   it('AudioFeatures emits vocals, energy, and silence heuristics', () => {
     mockAudio.active = true
+    const mic = node('micaf', 'MicInput', 'input', {})
     const features = node('af', 'AudioFeatures', 'audio', { sensitivity: 0.6, gate: 0.1, smoothing: 0.2 })
     mockAudio.detectorSpectrum = Array(32).fill(0)
-    let out = evaluateGraphFull([features], [], 0, W, H).outputs.get('af')!
+    let out = evaluateGraphFull([mic, features], [edge('ef0', 'micaf', 'audio', 'af', 'audio')], 0, W, H).outputs.get('af')!
     expect(out.silence).toBe(true)
 
     mockAudio.detectorSpectrum = [0.05, 0.06, 0.07, 0.08, 0.1, 0.12, 0.18, 0.26, 0.36, 0.48, 0.58, 0.64, 0.62, 0.54, 0.44, 0.34, 0.26, 0.2, 0.16, 0.14, 0.12, 0.1, 0.08, 0.06, 0.05, 0.04, 0.03, 0.03, 0.02, 0.02, 0.01, 0.01]
-    out = evaluateGraphFull([features], [], 15, W, H).outputs.get('af')!
+    out = evaluateGraphFull([mic, features], [edge('ef1', 'micaf', 'audio', 'af', 'audio')], 15, W, H).outputs.get('af')!
     expect(out.energy).toBeGreaterThan(0.15)
     expect(out.vocals).toBeGreaterThan(0.1)
     expect(out.silence).toBe(false)
 
     mockAudio.detectorSpectrum = Array(32).fill(0)
-    out = evaluateGraphFull([features], [], 30, W, H).outputs.get('af')!
+    out = evaluateGraphFull([mic, features], [edge('ef2', 'micaf', 'audio', 'af', 'audio')], 30, W, H).outputs.get('af')!
     expect(out.energy).toBeLessThan(0.2)
     mockAudio.active = false
   })
@@ -232,6 +239,68 @@ describe('evaluateGraph', () => {
     }
     const f = evaluateGraph([fft, sc, bm, out], edges, 0, 4, 4, {}, '', new Set(), {}, override)!
     expect(f[0][0].r).toBe(Math.round(255 * 0.6))
+  })
+
+  it('FFTAnalyzer uses the active shared audio bands even without mic-specific values', () => {
+    mockAudio.active = true
+    mockAudio.micActive = false
+    mockAudio.bass = 0.65
+    mockAudio.mids = 0.35
+    mockAudio.treble = 0.2
+    const mic = node('mic-live', 'MicInput', 'input', {})
+    const fft = node('fft-live', 'FFTAnalyzer', 'audio', { gain: 1, smoothing: 0 })
+    const sc = node('sc-live', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })
+    const bm = node('bm-live', 'BrightnessMod', 'composite', {})
+    const out = node('out-live', 'MatrixOutput', 'output', {})
+    const f = evaluateGraph(
+      [mic, fft, sc, bm, out],
+      [
+        edge('ea', 'mic-live', 'audio', 'fft-live', 'audio'),
+        edge('e1', 'fft-live', 'bass', 'bm-live', 'brightness'),
+        edge('e2', 'sc-live', 'frame', 'bm-live', 'frame'),
+        edge('e3', 'bm-live', 'frame', 'out-live', 'frame'),
+      ],
+      0, 4, 4,
+    )!
+    expect(f[0][0].r).toBe(Math.round(255 * 0.65))
+    mockAudio.active = false
+    mockAudio.micActive = false
+    mockAudio.bass = 0
+    mockAudio.mids = 0
+    mockAudio.treble = 0
+  })
+
+  it('FFTAnalyzer stays silent when its audio input is not wired', () => {
+    mockAudio.active = true
+    mockAudio.micActive = true
+    mockAudio.bass = 0.65
+    mockAudio.mids = 0.35
+    mockAudio.treble = 0.2
+    mockAudio.micBass = 0.65
+    mockAudio.micMids = 0.35
+    mockAudio.micTreble = 0.2
+    const fft = node('fft-unwired', 'FFTAnalyzer', 'audio', { gain: 1, smoothing: 0 })
+    const sc = node('sc-unwired', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })
+    const bm = node('bm-unwired', 'BrightnessMod', 'composite', {})
+    const out = node('out-unwired', 'MatrixOutput', 'output', {})
+    const f = evaluateGraph(
+      [fft, sc, bm, out],
+      [
+        edge('e1', 'fft-unwired', 'bass', 'bm-unwired', 'brightness'),
+        edge('e2', 'sc-unwired', 'frame', 'bm-unwired', 'frame'),
+        edge('e3', 'bm-unwired', 'frame', 'out-unwired', 'frame'),
+      ],
+      0, 4, 4,
+    )!
+    expect(f[0][0].r).toBe(0)
+    mockAudio.active = false
+    mockAudio.micActive = false
+    mockAudio.bass = 0
+    mockAudio.mids = 0
+    mockAudio.treble = 0
+    mockAudio.micBass = 0
+    mockAudio.micMids = 0
+    mockAudio.micTreble = 0
   })
 
   it('ComplexWave combines two values per operation', () => {
@@ -1143,6 +1212,61 @@ describe('evaluateGraph', () => {
     expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 255 })
   })
 
+  it('PatternMaster forwards its wired audio input into absorbed groups', () => {
+    mockAudio.active = true
+    mockAudio.micActive = true
+    mockAudio.bass = 0.7
+    mockAudio.mids = 0.2
+    mockAudio.treble = 0.1
+    mockAudio.micBass = 0.7
+    mockAudio.micMids = 0.2
+    mockAudio.micTreble = 0.1
+    const groupId = 'grp-audio-show'
+    const groups = {
+      [groupId]: {
+        nodes: [
+          node('gi', 'GroupInput', 'composite', { paramId: 'param0' }),
+          node('fft', 'FFTAnalyzer', 'audio', { gain: 1, smoothing: 0 }),
+          node('white', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 }),
+          node('bm', 'BrightnessMod', 'composite', {}),
+          node('go', 'GroupOutput', 'output', {}),
+        ],
+        edges: [
+          edge('eg0', 'gi', 'out', 'fft', 'audio'),
+          edge('eg1', 'fft', 'bass', 'bm', 'brightness'),
+          edge('eg2', 'white', 'frame', 'bm', 'frame'),
+          edge('eg3', 'bm', 'frame', 'go', 'frame'),
+        ],
+      },
+    }
+    const gi = groups[groupId].nodes[0]
+    ;(gi.data as unknown as { outputs: Array<{ id: string; label?: string; dataType: string }> }).outputs = [
+      { id: 'out', label: 'Audio', dataType: 'audio' },
+    ]
+    const pc = node('pc', 'PatternCollection', 'composite', { patternIds: [groupId] })
+    const pm = node('pm', 'PatternMaster', 'pattern', { minTime: 999, maxTime: 999, transitionSec: 1 })
+    const mic = node('mic', 'MicInput', 'input', {})
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph(
+      [mic, pc, pm, out],
+      [
+        edge('e1', 'pc', 'patternset', 'pm', 'patternset'),
+        edge('e2', 'mic', 'audio', 'pm', 'audio'),
+        edge('e3', 'pm', 'frame', 'out', 'frame'),
+      ],
+      0, 4, 4, groups,
+    )
+    expect(frame![0][0].r).toBe(Math.round(255 * 0.7))
+    mockAudio.active = false
+    mockAudio.micActive = false
+    mockAudio.bass = 0
+    mockAudio.mids = 0
+    mockAudio.treble = 0
+    mockAudio.micBass = 0
+    mockAudio.micMids = 0
+    mockAudio.micTreble = 0
+  })
+
   it('Transition blends A→B per transitionType', () => {
     const black = node('b', 'SolidColor', 'pattern', { r: 0, g: 0, b: 0 })
     const white = node('w', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })
@@ -1349,6 +1473,64 @@ describe('evaluateGraph — groups', () => {
     const frame = evaluateGraph([clamp, grp, out], edges, 0, 2, 2, groups)
     expect(frame![0][0].r).toBeGreaterThan(100)
     expect(frame![0][0].r).toBeLessThan(160)
+  })
+
+  it('a grouped FFT stays silent until the group audio input is actually wired', () => {
+    mockAudio.active = true
+    mockAudio.micActive = true
+    mockAudio.bass = 0.7
+    mockAudio.mids = 0.2
+    mockAudio.treble = 0.1
+    mockAudio.micBass = 0.7
+    mockAudio.micMids = 0.2
+    mockAudio.micTreble = 0.1
+    const groups = {
+      spectrum: {
+        nodes: [
+          node('gi', 'GroupInput', 'composite', { paramId: 'audio' }),
+          node('fft', 'FFTAnalyzer', 'audio', { gain: 1, smoothing: 0 }),
+          node('white', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 }),
+          node('bm', 'BrightnessMod', 'composite', {}),
+          node('go', 'GroupOutput', 'output', {}),
+        ],
+        edges: [
+          edge('e0', 'gi', 'out', 'fft', 'audio'),
+          edge('e1', 'fft', 'bass', 'bm', 'brightness'),
+          edge('e2', 'white', 'frame', 'bm', 'frame'),
+          edge('e3', 'bm', 'frame', 'go', 'frame'),
+        ],
+      },
+    }
+    const grp = node('g1', 'Group', 'composite', { groupId: 'spectrum' })
+    ;(grp.data as unknown as { inputs: unknown[] }).inputs = [{ id: 'audio', label: 'Audio', dataType: 'audio' }]
+    const mic = node('micg', 'MicInput', 'input', {})
+    const outNode = out()
+
+    const unwired = evaluateGraph(
+      [grp, outNode],
+      [edge('eg0', 'g1', 'frame', 'out', 'frame')],
+      0, 2, 2, groups,
+    )
+    expect(unwired![0][0].r).toBe(0)
+
+    const wired = evaluateGraph(
+      [mic, grp, outNode],
+      [
+        edge('eg1', 'micg', 'audio', 'g1', 'audio'),
+        edge('eg2', 'g1', 'frame', 'out', 'frame'),
+      ],
+      0, 2, 2, groups,
+    )
+    expect(wired![0][0].r).toBe(Math.round(255 * 0.7))
+
+    mockAudio.active = false
+    mockAudio.micActive = false
+    mockAudio.bass = 0
+    mockAudio.mids = 0
+    mockAudio.treble = 0
+    mockAudio.micBass = 0
+    mockAudio.micMids = 0
+    mockAudio.micTreble = 0
   })
 
   it('keeps stateful node state isolated per group instance', () => {

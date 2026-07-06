@@ -409,82 +409,25 @@ describe('graphStore — grouping', () => {
   })
 })
 
-describe('graphStore — legacy node migration on load', () => {
+describe('graphStore — loadGraph normalization', () => {
   beforeEach(() => reset())
 
   const dataOf = (id: string) => useGraphStore.getState().nodes.find((n) => n.id === id)!.data
 
-  it('upgrades bundled node types and preserves variant-specific props', () => {
-    useGraphStore.getState().loadGraph([
-      node('m', 'Multiply', { a: 2, b: 3 }),
-      node('w', 'Wipe', { t: 0.5, direction: 'up' }),
-      node('n', 'PlasmaFractal', { speed: 1, scale: 0.2, palette: 'ocean' }),
-    ], [])
-    expect(dataOf('m').nodeType).toBe('Math')
-    expect(dataOf('m').properties.mathOp).toBe('multiply')
-    expect(dataOf('w').nodeType).toBe('Transition')
-    expect(dataOf('w').properties.transitionType).toBe('wipe')
-    expect(dataOf('w').properties.direction).toBe('up')        // wipe keeps direction
-    expect(dataOf('n').nodeType).toBe('Noise')
-    expect(dataOf('n').properties.noiseType).toBe('plasma')
-  })
-
-  it('migrates BlendFrames to Blend, scaling t→amount and rewiring its edge', () => {
-    useGraphStore.getState().loadGraph(
-      [node('src', 'SolidColor', { r: 1, g: 1, b: 1 }), node('bf', 'BlendFrames', { t: 0.8 })],
-      [edge('e1', 'src', 'value', 'bf', 't')],   // a noodle into the old `t` port
-    )
-    const d = dataOf('bf')
-    expect(d.nodeType).toBe('Blend')
-    expect(d.properties.blendMode).toBe('normal')
-    expect(d.properties.amount).toBe(0.8)        // 0–1 amount carries t straight over
-    expect(d.properties.t).toBeUndefined()       // old prop dropped
-    const e = useGraphStore.getState().edges[0]
-    expect(e.targetHandle).toBe('amount')        // edge rewired to the new port
-  })
-
-  it('renames the spectral nodes’ intensity → energy (property + input port), leaving Fire alone', () => {
-    useGraphStore.getState().loadGraph(
-      [
-        node('src', 'FFTAnalyzer'),
-        node('mw', 'MidrangeWaves', { intensity: 0.9, speed: 1, palette: 'ocean' }),
-        node('fire', 'Fire', { intensity: 0.3 }),   // Fire's own intensity input is untouched
-      ],
-      [edge('e1', 'src', 'mids', 'mw', 'intensity')],   // a noodle into the old `intensity` port
-    )
-    const d = dataOf('mw')
-    expect(d.properties.energy).toBe(0.9)
-    expect(d.properties.intensity).toBeUndefined()
-    expect(useGraphStore.getState().edges[0].targetHandle).toBe('energy')
-    // Fire is excluded from the rename.
-    expect(dataOf('fire').properties.intensity).toBe(0.3)
-    expect(dataOf('fire').properties.energy).toBeUndefined()
-  })
-
-  it('rescales a legacy 0–255 Blend amount to the 0–1 range on load', () => {
-    useGraphStore.getState().loadGraph(
-      [node('bl', 'Blend', { blendMode: 'normal', amount: 128 }), node('bl2', 'Blend', { amount: 0.5 })],
-      [],
-    )
-    // 128 (old scale) → ~0.5; a value already ≤ 1 is left untouched.
-    expect(dataOf('bl').properties.amount).toBeCloseTo(128 / 255, 5)
-    expect(dataOf('bl2').properties.amount).toBe(0.5)
-  })
-
-  it('refreshes stale saved categories from the node library on load', () => {
+  it('refreshes saved categories from the node library on load', () => {
     const mic = node('mic', 'MicInput')
-    mic.data.category = 'hardware' // pre-split save
+    mic.data.category = 'pattern'
     const music = node('lib', 'MusicLibrary')
-    music.data.category = 'audio' // pre-show-category save
+    music.data.category = 'input'
     useGraphStore.getState().loadGraph([mic, music], [])
     expect(dataOf('mic').category).toBe('input')
     expect(dataOf('lib').category).toBe('show')
   })
 
-  it('refreshes stale saved ports from the node library on load', () => {
+  it('refreshes saved ports from the node library on load', () => {
     const perf = node('pg', 'PerformanceGenerator')
     perf.data.inputs = [
-      { id: 'songs', label: 'Songs', dataType: 'songs' },
+      { id: 'legacy', label: 'Legacy', dataType: 'float' },
       { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
     ]
     perf.data.outputs = [

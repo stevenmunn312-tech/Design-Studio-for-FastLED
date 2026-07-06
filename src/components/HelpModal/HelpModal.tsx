@@ -39,7 +39,7 @@ function QuickStartTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>4</div>
             <div className={styles.stepText}>
-              <strong>Add audio reactivity.</strong> Drop a Microphone node from Hardware, wire it through FFT Analyzer or the newer audio feature nodes, then connect those values to any audio-reactive node or math input.
+              <strong>Add audio reactivity.</strong> Drop a Microphone node from <strong>Inputs</strong>, wire it into FFT Analyzer, Beat Detect, or the newer audio feature nodes, then connect those values to any audio-reactive pattern or math input.
             </div>
           </div>
           <div className={styles.step}>

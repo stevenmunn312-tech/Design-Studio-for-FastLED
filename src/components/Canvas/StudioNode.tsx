@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, memo, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import type { NodeProps, Node } from '@xyflow/react'
 import { useGraphStore } from '../../state/graphStore'
@@ -10,18 +10,19 @@ import WaveScope from './WaveScope'
 import ComplexWaveScope from './ComplexWaveScope'
 import NodePreview, { type PreviewKind } from './NodePreview'
 import BeatDetectBody from './BeatDetectBody'
-import MusicLibraryNodeBody from './MusicLibraryNodeBody'
 import FFTAnalyzerBody from './FFTAnalyzerBody'
-import PerformanceGeneratorBody from './PerformanceGeneratorBody'
-import PatternCollectionBody from './PatternCollectionBody'
-import TransitionSetBody from './TransitionSetBody'
-import ImageNodeBody from './ImageNodeBody'
-import MatrixOutputUpload from '../Upload/MatrixOutputUpload'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
 import { getCodeError } from '../../state/graphEvaluator'
 import { traceSignalPath } from '../../utils/signalPath'
 import styles from './StudioNode.module.css'
+
+const MusicLibraryNodeBody = lazy(() => import('./MusicLibraryNodeBody'))
+const PerformanceGeneratorBody = lazy(() => import('./PerformanceGeneratorBody'))
+const PatternCollectionBody = lazy(() => import('./PatternCollectionBody'))
+const TransitionSetBody = lazy(() => import('./TransitionSetBody'))
+const ImageNodeBody = lazy(() => import('./ImageNodeBody'))
+const MatrixOutputUpload = lazy(() => import('../Upload/MatrixOutputUpload'))
 
 // Shows the latest compile/runtime error from a Code node's preview evaluation.
 // Subscribes to previewStore so it refreshes each eval tick (errors surface in
@@ -407,14 +408,16 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           )
         })}
 
-        {d.nodeType === 'MusicLibrary' && <MusicLibraryNodeBody nodeId={id} />}
-        {d.nodeType === 'PerformanceGenerator' && <PerformanceGeneratorBody nodeId={id} />}
-        {d.nodeType === 'Image' && <ImageNodeBody nodeId={id} />}
+        <Suspense fallback={null}>
+          {d.nodeType === 'MusicLibrary' && <MusicLibraryNodeBody nodeId={id} />}
+          {d.nodeType === 'PerformanceGenerator' && <PerformanceGeneratorBody nodeId={id} />}
+          {d.nodeType === 'Image' && <ImageNodeBody nodeId={id} />}
 
-        {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}
-        {d.nodeType === 'TransitionSet' && <TransitionSetBody nodeId={id} />}
+          {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}
+          {d.nodeType === 'TransitionSet' && <TransitionSetBody nodeId={id} />}
 
-        {d.nodeType === 'MatrixOutput' && <MatrixOutputUpload nodeId={id} enabled={drivenBy('frame')} />}
+          {d.nodeType === 'MatrixOutput' && <MatrixOutputUpload nodeId={id} enabled={drivenBy('frame')} />}
+        </Suspense>
 
         {isCode && (
           <>

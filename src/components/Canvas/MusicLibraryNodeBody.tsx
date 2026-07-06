@@ -22,11 +22,11 @@ export default function MusicLibraryNodeBody({ nodeId }: { nodeId: string }) {
   const { entries, addFiles, analyzeAll, removeEntry, clearAll } = useMusicStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const performanceProperties = useGraphStore((s) => {
-    const targetId = s.edges.find((edge) =>
-      edge.source === nodeId && edge.sourceHandle === 'songs'
+    const perfId = s.edges.find((edge) =>
+      edge.source === nodeId && edge.sourceHandle === 'music'
     )?.target
-    const connected = targetId
-      ? s.nodes.find((node) => node.id === targetId && node.data.nodeType === 'PerformanceGenerator')
+    const connected = perfId
+      ? s.nodes.find((node) => node.id === perfId && node.data.nodeType === 'PerformanceGenerator')
       : undefined
     return (connected ?? s.nodes.find((node) => node.data.nodeType === 'PerformanceGenerator'))?.data.properties
   })

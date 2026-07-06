@@ -156,94 +156,25 @@ export interface CreateGroupOptions {
   exposePaletteNodeIds?: string[]
 }
 
-const LEGACY_BUNDLE: Record<string, { nodeType: string; label: string; props: Record<string, unknown> }> = {
-  NoiseField:    { nodeType: 'Noise', label: 'Noise', props: { noiseType: 'field' } },
-  Simplex2D:     { nodeType: 'Noise', label: 'Noise', props: { noiseType: 'simplex' } },
-  Noise3D:       { nodeType: 'Noise', label: 'Noise', props: { noiseType: 'noise3d' } },
-  Worley:        { nodeType: 'Noise', label: 'Noise', props: { noiseType: 'worley' } },
-  PlasmaFractal: { nodeType: 'Noise', label: 'Noise', props: { noiseType: 'plasma' } },
-  MathAdd:       { nodeType: 'Math', label: 'Math', props: { mathOp: 'add' } },
-  Multiply:      { nodeType: 'Math', label: 'Math', props: { mathOp: 'multiply' } },
-  MinNode:       { nodeType: 'Math', label: 'Math', props: { mathOp: 'min' } },
-  MaxNode:       { nodeType: 'Math', label: 'Math', props: { mathOp: 'max' } },
-  Crossfade:     { nodeType: 'Transition', label: 'Transition', props: { transitionType: 'crossfade' } },
-  Wipe:          { nodeType: 'Transition', label: 'Transition', props: { transitionType: 'wipe' } },
-  Dissolve:      { nodeType: 'Transition', label: 'Transition', props: { transitionType: 'dissolve' } },
-  // Both old blend nodes did a linear mix → the Blend node's `normal` mode.
-  // LayerBlend used a 0–255 `amount`; migrateLegacyGraph rescales it to 0–1.
-  LayerBlend:    { nodeType: 'Blend', label: 'Blend', props: { blendMode: 'normal' } },
-  BlendFrames:   { nodeType: 'Blend', label: 'Blend', props: { blendMode: 'normal' } },
-}
-
-// The spectral pattern nodes' audio-reactivity knob/input was renamed
-// `intensity` → `energy` (Fire keeps its own separate `intensity` input).
-const ENERGY_RENAMED = new Set(['SpectrumBars', 'BassRings', 'MidrangeWaves', 'MidrangeBloom', 'TreblePrism', 'AudioCascade'])
-
 // Library definitions by type, for refreshing saved nodes on load.
 const LIBRARY_DEF = new Map(NODE_LIBRARY.map((def) => [def.type, def]))
 
-// Migrate a saved graph's legacy node types to their bundle, fixing up edge
-// handles where a port was renamed (BlendFrames' `t` → Blend's `amount`) and
-// rescaling the old 0–255 `amount` opacity to the new 0–1 range.
-function migrateLegacyGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes: StudioNode[]; edges: StudioEdge[] } {
-  const handleRenames = new Map<string, Record<string, string>>()
-  const migratedNodes = nodes.map((n) => {
+// Reload library-backed nodes from the current node library so categories,
+// labels, and port definitions stay canonical across save/load. Programmatic
+// group-family nodes keep their saved shape.
+function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes: StudioNode[]; edges: StudioEdge[] } {
+  const normalizedNodes = nodes.map((n) => {
     const data = n.data as StudioNodeData
-    const bundle = LEGACY_BUNDLE[data?.nodeType]
-    let nodeType = data.nodeType
-    let label = data.label
-    // Existing props win, so a migrated Wipe keeps its `direction`.
-    let properties: Record<string, unknown> = bundle
-      ? { ...bundle.props, ...data.properties }
-      : { ...data.properties }
-    if (bundle) {
-      nodeType = bundle.nodeType
-      label = bundle.label
-      // BlendFrames' 0–1 `t` becomes Blend's `amount` (also 0–1 since the
-      // amount scale moved to 0–1); the port is renamed t → amount.
-      if (data.nodeType === 'BlendFrames') {
-        const { t, ...rest } = data.properties as Record<string, unknown>
-        properties = { ...bundle.props, ...rest, amount: Number(t ?? 0.5) }
-        handleRenames.set(n.id, { t: 'amount' })
-      }
-    }
-    // `intensity` → `energy` on the spectral pattern nodes (property + input port).
-    if (ENERGY_RENAMED.has(nodeType) && 'intensity' in properties && !('energy' in properties)) {
-      const { intensity, ...rest } = properties
-      properties = { ...rest, energy: intensity }
-      handleRenames.set(n.id, { intensity: 'energy' })
-    }
-    // `amount` moved from a 0–255 opacity to a normalised 0–1 value. Older
-    // graphs (and the legacy LayerBlend) stored it 0–255 — anything above 1 must
-    // be on the old scale, so rescale it.
-    if (
-      (nodeType === 'Blend' || nodeType === 'Blur2D' || nodeType === 'PaletteBlend') &&
-      typeof properties.amount === 'number' && properties.amount > 1
-    ) {
-      properties = { ...properties, amount: properties.amount / 255 }
-    }
-    // Category and display label are the library's business — refresh both on
-    // load so old saves pick up category moves (e.g. hardware → input/show)
-    // and label renames (e.g. Pattern Master → Show Engine). Programmatic
-    // types (Group, GroupInput, GroupOutput) aren't in the library and keep
-    // their saved values, including user-chosen group names.
+    const nodeType = data.nodeType
     const def = LIBRARY_DEF.get(nodeType)
     const category: NodeCategory = def?.category ?? data.category
-    if (def) label = def.label
-    // For library-backed nodes, the registry is the source of truth for ports:
-    // refreshing them on load lets old saves pick up newly-added handles (for
-    // example PerformanceGenerator.frame) and retire renamed ones. Only the
-    // programmatic group-family nodes keep their saved port snapshots.
+    const label = def?.label ?? data.label
+    const properties = { ...data.properties }
     const inputs = def?.inputs ?? (Array.isArray(data.inputs) ? data.inputs : [])
     const outputs = def?.outputs ?? (Array.isArray(data.outputs) ? data.outputs : [])
     return { ...n, data: { ...data, nodeType, label, category, properties, inputs, outputs } }
   })
-  const migratedEdges = edges.map((e) => {
-    const rename = handleRenames.get(e.target)
-    if (rename && e.targetHandle && rename[e.targetHandle]) return { ...e, targetHandle: rename[e.targetHandle] }
-    return e
-  })
-  return { nodes: migratedNodes, edges: migratedEdges }
+  return { nodes: normalizedNodes, edges: edges.map((e) => ({ ...e })) }
 }
 
 // Minimum horizontal clearance to keep between a node's right edge and the left
@@ -489,12 +420,10 @@ export const useGraphStore = create<GraphState>()(
       loadGraph: (nodes, edges, workspace) =>
         set(() => {
           // Restore the active graph plus every stashed pattern-group subgraph.
-          // Each subgraph is migrated too, so old bundles inside a group are
-          // upgraded just like the top level.
-          const active = migrateLegacyGraph(nodes, edges)
+          const active = normalizeLoadedGraph(nodes, edges)
           const graphData: Record<string, GraphContent> = {}
           for (const [id, content] of Object.entries(workspace?.graphData ?? {})) {
-            graphData[id] = migrateLegacyGraph(content.nodes ?? [], content.edges ?? [])
+            graphData[id] = normalizeLoadedGraph(content.nodes ?? [], content.edges ?? [])
           }
           const graphs: Record<string, GraphMeta> = {
             [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' },

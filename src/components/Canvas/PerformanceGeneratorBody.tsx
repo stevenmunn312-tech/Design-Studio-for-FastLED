@@ -273,7 +273,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
   if (ready.length === 0) {
     return (
       <div className={`nodrag ${styles.wrap}`}>
-        <p className={styles.empty}>Analyse songs in a Music Library node, then preview the timed show here.</p>
+        <p className={styles.empty}>Analyse music in a Music Library node, then preview the timed show here.</p>
       </div>
     )
   }

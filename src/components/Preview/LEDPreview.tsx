@@ -9,6 +9,7 @@ import { usePlayerTransport } from '../../state/playerTransport'
 import { WebGLLEDRenderer } from './webglRenderer'
 import { applyShowPlaybackSignal } from './showPlaybackSignal'
 import { isDiffusedStyle, previewStyleLabel, type PreviewStyle } from './previewStyles'
+import { graphConsumesAudio } from './previewAudioUsage'
 import {
   IconAdd,
   IconClear,
@@ -469,6 +470,7 @@ export default function LEDPreview() {
       .map((node) => node.id))
     return s.edges.some((edge) => terminalIds.has(edge.target) && edge.targetHandle === 'frame')
   })
+  const audioVisualizerLive = useGraphStore((s) => graphConsumesAudio(s.nodes, s.edges))
   const gridW = Math.max(2, Math.min(64, Number(outputNode?.data.properties.width  ?? 16)))
   const gridH = Math.max(2, Math.min(64, Number(outputNode?.data.properties.height ?? 16)))
   const stageMode = useUiStore((s) => s.stageMode)
@@ -567,21 +569,21 @@ export default function LEDPreview() {
   }
   const onRotateUp = () => { drag.current = null }
 
-  const { mode: audioMode, previewSpectrum, startAudio, attachAudioElement, stopAudio } = useAudioStore()
-  const spectrumRef = useRef(previewSpectrum)
-  useEffect(() => { spectrumRef.current = previewSpectrum }, [previewSpectrum])
+  const { micActive, previewSpectrum, startAudio, attachAudioElement, stopAudio } = useAudioStore()
   const peakRef = useRef(Array(NUM_BARS).fill(0))
 
-  const displaySpectrum = resample(previewSpectrum, NUM_BARS).map((value, i, arr) => {
+  const displaySpectrum = resample(audioVisualizerLive ? previewSpectrum : [], NUM_BARS).map((value, i, arr) => {
     const prev = arr[i - 1] ?? value
     const next = arr[i + 1] ?? value
     return clamp01(value * 0.55 + ((prev + value + next) / 3) * 0.45)
   })
 
-  peakRef.current = displaySpectrum.map((value, i) => {
-    const nextPeak = Math.max(value, peakRef.current[i] - 0.02)
-    return clamp01(nextPeak)
-  })
+  peakRef.current = audioVisualizerLive
+    ? displaySpectrum.map((value, i) => {
+        const nextPeak = Math.max(value, peakRef.current[i] - 0.02)
+        return clamp01(nextPeak)
+      })
+    : Array(NUM_BARS).fill(0)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -719,7 +721,7 @@ export default function LEDPreview() {
   }, [volume, currentTrack])
 
   const toggleMic = () => {
-    if (audioMode === 'mic') stopAudio()
+    if (micActive) stopAudio()
     else startAudio().catch(() => {})
   }
 
@@ -907,17 +909,17 @@ export default function LEDPreview() {
             {previewStyleLabel(previewStyle)}
           </button>
           <button
-            className={`${styles.toggleBtn} ${styles.micToggle} ${audioMode === 'mic' ? styles.toggleActive : ''}`}
+            className={`${styles.toggleBtn} ${styles.micToggle} ${micActive ? styles.toggleActive : ''}`}
             onClick={toggleMic}
             disabled={!hasMicNode}
             title={
               !hasMicNode
                 ? 'Add a MicInput node to enable the microphone'
-                : audioMode === 'mic' ? 'Stop microphone' : 'Start microphone'
+                : micActive ? 'Stop microphone' : 'Start microphone'
             }
-            aria-pressed={audioMode === 'mic'}
+            aria-pressed={micActive}
           >
-            {audioMode === 'mic' ? 'Mic On' : 'Mic Off'}
+            {micActive ? 'Mic On' : 'Mic Off'}
           </button>
         </div>
       </div>

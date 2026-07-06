@@ -120,7 +120,7 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
           className={styles.exportBtn}
           disabled={busy || readySongs === 0}
           onClick={handleShowUpload}
-          title={readySongs === 0 ? 'Analyse songs in the Music Library node first' : 'Flash the provisioner, write songs/shows to SD, then flash the player'}
+          title={readySongs === 0 ? 'Analyse music in the Music Library node first' : 'Flash the provisioner, write music/show files to SD, then flash the player'}
         >
           ♪ Upload show to SD ({readySongs})
         </button>

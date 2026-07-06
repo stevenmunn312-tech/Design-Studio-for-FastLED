@@ -51,6 +51,9 @@ export function showAudioOverride(env: AudioEnvelope | undefined, ms: number): A
   return {
     active: true,
     micActive: true,
+    bass,
+    mids,
+    treble,
     micBass: bass,
     micMids: mids,
     micTreble: treble,

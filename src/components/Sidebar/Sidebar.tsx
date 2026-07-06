@@ -14,7 +14,7 @@ const MAX_RECENT = 5
 
 const TYPE_GLYPH: Record<string, string> = {
   frame: '▦', palette: '≋', color: '●', audio: '⌁', float: '∿', bool: '◆',
-  field: '⌖', songs: '♫', shows: '▶', sdcard: '▣', patternset: '◫', transitionset: '⇄',
+  field: '⌖', music: '♫', shows: '▶', sdcard: '▣', patternset: '◫', transitionset: '⇄',
 }
 
 function moduleType(def: NodeDefinition) {

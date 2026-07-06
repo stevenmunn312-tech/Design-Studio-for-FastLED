@@ -2070,11 +2070,29 @@ export type GroupRegistry = Record<string, GroupDef>
 export interface AudioOverride {
   active: boolean
   micActive: boolean
+  bass?: number
+  mids?: number
+  treble?: number
   micBass: number
   micMids: number
   micTreble: number
   spectrum: number[]
   detectorSpectrum: number[]
+}
+
+function semanticAudioInputs(audio: Pick<AudioOverride, 'micBass' | 'micMids' | 'micTreble'>): Record<string, PortValue> {
+  return {
+    bass: audio.micBass,
+    mids: audio.micMids,
+    treble: audio.micTreble,
+    kick: audio.micBass,
+    snare: audio.micMids,
+    hihat: audio.micTreble,
+    vocals: audio.micMids,
+    energy: (audio.micBass + audio.micMids + audio.micTreble) / 3,
+    beat: false,
+    silence: audio.micBass + audio.micMids + audio.micTreble < 0.03,
+  }
 }
 
 // Build the memoised evaluator closure for one graph (or group subgraph) at a
@@ -2248,17 +2266,29 @@ function createEvalNode(
 
       // ── Audio ─────────────────────────────────────────────────────────
       case 'MicInput':
-        out = { audio: null }
+        // Carries an explicit "audio signal is present" token through the graph.
+        // Audio-reactive nodes still read their band values from the live store
+        // (or a show override), but this token lets grouped subgraphs tell the
+        // difference between a real wired mic path and an unbound GroupInput.
+        out = { audio: true }
         break
 
       case 'FFTAnalyzer': {
         const audio = audioOverride ?? useAudioStore.getState()
-        // No live mic → no signal, unless the Test Signal toggle is on (a
-        // synthetic oscillation for previewing motion without a microphone).
+        const audioConnected = audioOverride !== null || input(id, 'audio', null) !== null
+        // No live audio source → no signal, unless the Test Signal toggle is on
+        // (a synthetic oscillation for previewing motion without a microphone).
         // It's off by default so unwired/grouped patterns aren't driven into
         // "hyperdrive" and stay tunable.
-        const raw = audio.micActive
-          ? { bass: audio.micBass, mids: audio.micMids, treble: audio.micTreble }
+        const hasLiveAudio = audioConnected && Boolean(audio.active || audio.micActive)
+        const band = (value: number | undefined, fallback: number | undefined) =>
+          clamp01(Number.isFinite(value) ? Number(value) : Number(fallback ?? 0))
+        const raw = hasLiveAudio
+          ? {
+              bass: band(audio.bass, audio.micBass),
+              mids: band(audio.mids, audio.micMids),
+              treble: band(audio.treble, audio.micTreble),
+            }
           : useUiStore.getState().testSignal
             ? {
                 bass:   (Math.sin(t * 2.1) + 1) / 2,
@@ -2297,7 +2327,8 @@ function createEvalNode(
       case 'BeatDetect': {
         const key = stateKey(id)
         const audio = audioOverride ?? useAudioStore.getState()
-        if (audio.active) {
+        const audioConnected = audioOverride !== null || input(id, 'audio', null) !== null
+        if (audioConnected && audio.active) {
           const threshold = denormalizeBeatParam('threshold', normProp(props.threshold, 0.2))
           const attack = denormalizeBeatParam('attack', normProp(props.attack, 0.55))
           const decay = denormalizeBeatParam('decay', normProp(props.decay, 0.25))
@@ -2326,7 +2357,8 @@ function createEvalNode(
         const decay = Math.max(0, Math.min(0.98, Number(props.decay ?? 0.72)))
         const separation = normProp(props.separation, 0.4)
         const audio = audioOverride ?? useAudioStore.getState()
-        if (audio.active) {
+        const audioConnected = audioOverride !== null || input(id, 'audio', null) !== null
+        if (audioConnected && audio.active) {
           const spectrum = (audio.detectorSpectrum ?? audio.spectrum ?? []).map((v) => clamp01(Number(v) || 0))
           const prev = percussionLevels.get(key) ?? {
             prevSpectrum: spectrum,
@@ -2376,7 +2408,8 @@ function createEvalNode(
         const gate = normProp(props.gate, 0.12)
         const smoothing = Math.max(0, Math.min(0.95, Number(props.smoothing ?? 0.8)))
         const audio = audioOverride ?? useAudioStore.getState()
-        if (audio.active) {
+        const audioConnected = audioOverride !== null || input(id, 'audio', null) !== null
+        if (audioConnected && audio.active) {
           const spectrum = (audio.detectorSpectrum ?? audio.spectrum ?? []).map((v) => clamp01(Number(v) || 0))
           const prev = audioFeatureLevels.get(key) ?? {
             prevSpectrum: spectrum,
@@ -3034,16 +3067,34 @@ function createEvalNode(
 
       case 'PatternMaster': {
         const ids = (input(id, 'patternset', null) as string[] | null) ?? []
+        const audioSignal = input(id, 'audio', null)
         const beat = input(id, 'beat', false) as boolean
+        const liveAudio = useAudioStore.getState()
+        const liveGroupAudio = audioSignal !== null
+          ? semanticAudioInputs({
+              micBass: clamp01(Number(liveAudio.bass ?? liveAudio.micBass ?? 0)),
+              micMids: clamp01(Number(liveAudio.mids ?? liveAudio.micMids ?? 0)),
+              micTreble: clamp01(Number(liveAudio.treble ?? liveAudio.micTreble ?? 0)),
+            })
+          : {}
         // Rasterise a collected pattern (a group) to a frame, the same way the
         // Group case does — namespaced per pattern so stateful nodes don't clash.
         const render = (gid: string): Frame => {
           const def = groups[gid]
           if (!def || groupStack.has(gid)) return blankFrame(W, H)
+          const groupInputs: Record<string, PortValue> = { ...liveGroupAudio }
+          if (audioSignal !== null) {
+            for (const groupNode of def.nodes) {
+              if (String(groupNode.data.nodeType ?? '') !== 'GroupInput') continue
+              const paramId = String((groupNode.data.properties as { paramId?: string } | undefined)?.paramId ?? '')
+              const outputType = ((groupNode.data.outputs as { dataType?: string }[] | undefined)?.[0]?.dataType) ?? ''
+              if (paramId && outputType === 'audio') groupInputs[paramId] = audioSignal
+            }
+          }
           return evaluateGraph(
             def.nodes, def.edges, tick, W, H, groups,
             `${instancePrefix}${id}/${gid}/`,
-            new Set([...groupStack, gid]), {}, audioOverride,
+            new Set([...groupStack, gid]), groupInputs, audioOverride,
           ) ?? blankFrame(W, H)
         }
         // Transitions come from a wired TransitionSet (the same node type feeds
@@ -3180,8 +3231,8 @@ function createEvalNode(
         out = { palette: String(props.palette ?? 'rainbow').toLowerCase() }
         break
 
-      // Outputs its absorbed patterns (group ids) as a patternset; the Pattern
-      // Master (a later phase) resolves each id via the group registry.
+      // Outputs its absorbed patterns (group ids) as a patternset; the Show
+      // Engine resolves each id via the group registry.
       case 'PatternCollection':
         out = { patternset: (props.patternIds as string[] | undefined) ?? [] }
         break
@@ -3348,7 +3399,7 @@ function createEvalNode(
 
       // ── Music-sync pipeline (data managed by musicStore, not frame graph) ──
       case 'MusicLibrary':
-        out = { songs: null }
+        out = { music: true }
         break
 
       case 'PerformanceGenerator':

@@ -13,6 +13,8 @@ const MIN_SPECTRUM_HZ = 30
 const MAX_SPECTRUM_HZ = 12_000
 
 export interface AudioData {
+  active: boolean
+  mode: AudioInputMode
   bass: number
   mids: number
   treble: number
@@ -182,6 +184,7 @@ export class AudioEngine {
 
     if (!this.ctx || this.ctx.state === 'closed') this.ctx = new AudioContext()
     if (this.mediaSource) this.mediaSource.disconnect()
+    this.mediaAnalyser?.disconnect()
     this.mediaSource = this.ctx.createMediaElementSource(element)
     this.mediaAnalyser = this.ctx.createAnalyser()
     this.mediaAnalyser.fftSize = FFT_SIZE
@@ -195,8 +198,10 @@ export class AudioEngine {
   }
 
   stop(): void {
-    cancelAnimationFrame(this.rafId)
-    this.rafId = 0
+    if (!this.mediaSource) {
+      cancelAnimationFrame(this.rafId)
+      this.rafId = 0
+    }
     this.micSource?.disconnect()
     this.analyser?.disconnect()
     this.stream?.getTracks().forEach(t => t.stop())
@@ -214,15 +219,19 @@ export class AudioEngine {
     this.agcPeak = 0.0001
     this.active = false
     this.mode = null
-    if (!this.mediaSource) {
-      this.mediaElement = null
-      this.mediaAnalyser?.disconnect()
-      this.mediaAnalyser = null
-      this.mediaBuf = null
-      this.ctx?.close()
-      this.ctx = null
+    if (this.mediaSource) {
+      if (!this.rafId) this.tick()
+      return
     }
+    this.mediaElement = null
+    this.mediaAnalyser?.disconnect()
+    this.mediaAnalyser = null
+    this.mediaBuf = null
+    this.ctx?.close()
+    this.ctx = null
     this.emit({
+      active: false,
+      mode: null,
       bass: 0,
       mids: 0,
       treble: 0,
@@ -258,11 +267,12 @@ export class AudioEngine {
     if (this.mediaAnalyser && this.mediaBuf) this.mediaAnalyser.getByteFrequencyData(this.mediaBuf)
 
     const sampleRate = this.ctx?.sampleRate ?? 48_000
+    const mediaLive = mediaReady && this.mediaElementIsLive()
     const bassRaw = micReady ? this.bandRaw(30, 250, sampleRate) : 0
     const midsRaw = micReady ? this.bandRaw(250, 2000, sampleRate) : 0
     const trebleRaw = micReady ? this.bandRaw(2000, 8000, sampleRate) : 0
     const rawSpectrumValues = micReady && this.buf ? logarithmicSpectrum(this.buf, sampleRate, FFT_SIZE) : Array(NUM_SPECTRUM_BARS).fill(0)
-    const previewSpectrum = mediaReady && this.mediaBuf
+    const mediaSpectrum = mediaReady && this.mediaBuf
       ? logarithmicSpectrum(this.mediaBuf, sampleRate, FFT_SIZE)
       : rawSpectrumValues
     const peak = Math.max(
@@ -282,22 +292,30 @@ export class AudioEngine {
     const rawSpectrum = rawSpectrumValues.map((value) => clamp01(value * scale))
     const spectrum = rawSpectrum
       .map((value, i) => this.gateSpectrum(value, i))
-    const beatSource = mediaReady && this.mediaBuf ? previewSpectrum : rawSpectrum
+    const sourceMode: AudioInputMode = mediaLive ? 'media' : micReady ? 'mic' : null
+    const beatSource = sourceMode === 'media' ? mediaSpectrum : rawSpectrum
     const beatResult = updateBeatDetectorFromSpectrum(beatSource, performance.now(), this.beatState)
     this.beatState = beatResult.state
-    const previewBass = mediaReady && this.mediaBuf ? averageFrequencyBand(this.mediaBuf, sampleRate, FFT_SIZE, 30, 250) : bassRaw
-    const previewMids = mediaReady && this.mediaBuf ? averageFrequencyBand(this.mediaBuf, sampleRate, FFT_SIZE, 250, 2000) : midsRaw
-    const previewTreble = mediaReady && this.mediaBuf ? averageFrequencyBand(this.mediaBuf, sampleRate, FFT_SIZE, 2000, 8000) : trebleRaw
+    const mediaBass = mediaReady && this.mediaBuf ? averageFrequencyBand(this.mediaBuf, sampleRate, FFT_SIZE, 30, 250) : 0
+    const mediaMids = mediaReady && this.mediaBuf ? averageFrequencyBand(this.mediaBuf, sampleRate, FFT_SIZE, 250, 2000) : 0
+    const mediaTreble = mediaReady && this.mediaBuf ? averageFrequencyBand(this.mediaBuf, sampleRate, FFT_SIZE, 2000, 8000) : 0
+    const selectedSpectrum = sourceMode === 'media'
+      ? mediaSpectrum
+      : sourceMode === 'mic'
+        ? spectrum
+        : Array(NUM_SPECTRUM_BARS).fill(0)
 
     this.emit({
-      bass: clamp01(previewBass),
-      mids: clamp01(previewMids),
-      treble: clamp01(previewTreble),
+      active: sourceMode !== null,
+      mode: sourceMode,
+      bass: sourceMode === 'media' ? clamp01(mediaBass) : bass,
+      mids: sourceMode === 'media' ? clamp01(mediaMids) : mids,
+      treble: sourceMode === 'media' ? clamp01(mediaTreble) : treble,
       beat: beatResult.beat,
       bpm: beatResult.bpm,
-      spectrum: previewSpectrum,
+      spectrum: selectedSpectrum,
       detectorSpectrum: beatSource,
-      previewSpectrum,
+      previewSpectrum: selectedSpectrum,
       micActive: micReady,
       micBass: bass,
       micMids: mids,
@@ -305,6 +323,13 @@ export class AudioEngine {
       micSpectrum: spectrum,
       micDetectorSpectrum: rawSpectrum,
     })
+  }
+
+  private mediaElementIsLive(): boolean {
+    return !!this.mediaElement &&
+      !this.mediaElement.paused &&
+      !this.mediaElement.ended &&
+      this.mediaElement.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
   }
 
   private bandRaw(fromHz: number, toHz: number, sampleRate: number): number {

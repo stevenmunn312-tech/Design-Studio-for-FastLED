@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { lazy, Suspense, useEffect, useRef } from 'react'
 import { useUiStore } from './state/uiStore'
 import { useGraphStore } from './state/graphStore'
 import { useAudioStore } from './state/audioStore'
@@ -9,13 +9,14 @@ import Sidebar from './components/Sidebar/Sidebar'
 import NodeGraphCanvas from './components/Canvas/NodeGraphCanvas'
 import LEDPreview from './components/Preview/LEDPreview'
 import StatusBar from './components/StatusBar/StatusBar'
-import BoardPopup from './components/Upload/BoardPopup'
-import ArduinoCliPopup from './components/Upload/ArduinoCliPopup'
-import OutputConsole from './components/Upload/OutputConsole'
-import HelpModal from './components/HelpModal/HelpModal'
 import { useUploadStore } from './state/uploadStore'
 import { usePatternLibrary } from './state/patternLibrary'
 import styles from './App.module.css'
+
+const BoardPopup = lazy(() => import('./components/Upload/BoardPopup'))
+const ArduinoCliPopup = lazy(() => import('./components/Upload/ArduinoCliPopup'))
+const OutputConsole = lazy(() => import('./components/Upload/OutputConsole'))
+const HelpModal = lazy(() => import('./components/HelpModal/HelpModal'))
 
 const AUTOSAVE_KEY = 'fastled-studio-graph'
 const AUTOSAVE_INTERVAL = 10_000
@@ -277,10 +278,12 @@ export default function App() {
         </button>
       </div>
       <div className={styles.statusShell}><StatusBar /></div>
-      {boardPopupOpen && <BoardPopup />}
-      {cliPopupOpen && <ArduinoCliPopup />}
-      {consoleOpen && <OutputConsole />}
-      {helpOpen && <HelpModal />}
+      <Suspense fallback={null}>
+        {boardPopupOpen && <BoardPopup />}
+        {cliPopupOpen && <ArduinoCliPopup />}
+        {consoleOpen && <OutputConsole />}
+        {helpOpen && <HelpModal />}
+      </Suspense>
     </div>
   )
 }

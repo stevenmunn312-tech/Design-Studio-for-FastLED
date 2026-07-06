@@ -93,7 +93,7 @@ const PREVIEW_CLASS_BY_TYPE: Record<string, string> = {
   patternset: styles.previewControl,
   sdcard: styles.previewControl,
   shows: styles.previewControl,
-  songs: styles.previewControl,
+  music: styles.previewControl,
   transitionset: styles.previewControl,
 }
 
@@ -184,7 +184,7 @@ function sourceNodeForType(dataType: string, nodeType: string, index: number): E
     palette: { label: 'Palette Selector', category: 'color' },
     patternset: { label: 'Pattern Collection', category: 'show' },
     shows: { label: 'Performance Generator', category: 'show' },
-    songs: { label: 'Music Library', category: 'show' },
+    music: { label: 'Music Library', category: 'show' },
     transitionset: { label: 'Transitions', category: 'show' },
   }
   const fallbackPresets: Record<string, { label: string; category: NodeCategory }> = {
@@ -197,7 +197,7 @@ function sourceNodeForType(dataType: string, nodeType: string, index: number): E
     palette: { label: 'Custom Palette', category: 'color' },
     patternset: { label: 'Show Engine', category: 'show' },
     shows: { label: 'SD Card', category: 'show' },
-    songs: { label: 'Performance Generator', category: 'show' },
+    music: { label: 'Performance Generator', category: 'show' },
     transitionset: { label: 'Performance Generator', category: 'show' },
   }
   const preset = presets[dataType] ?? { label: 'Value Source', category: 'math' as NodeCategory }
@@ -348,7 +348,7 @@ function buildAudioRecipe(node: NodeDefinition): ExampleRecipe {
   }
 }
 
-function buildSongsRecipe(node: NodeDefinition): ExampleRecipe {
+function buildMusicRecipe(node: NodeDefinition): ExampleRecipe {
   return {
     columns: [
       [makeNode('target', node.label, node.category, true)],
@@ -361,8 +361,8 @@ function buildSongsRecipe(node: NodeDefinition): ExampleRecipe {
       { from: 'perf', to: 'sd' },
       { from: 'sd', to: 'sink' },
     ],
-    explanation: `${node.label} feeds analysed songs into the offline show pipeline, which ends at SD Card and Matrix Output for device playback.`,
-    result: 'An analysed music library ready for rule-based show generation.',
+    explanation: `${node.label} feeds analysed music straight into Performance Generator for offline show building and SD export.`,
+    result: 'An analysed music library ready for show generation.',
   }
 }
 
@@ -370,13 +370,13 @@ function buildShowsRecipe(node: NodeDefinition): ExampleRecipe {
   const sources = node.inputs.map((input, index) => sourceNodeForType(input.dataType, node.label, index))
   return {
     columns: [
-      sources.length > 0 ? sources : [makeNode('source-fallback', 'Music Library', 'audio')],
+      sources.length > 0 ? sources : [makeNode('source-fallback', 'Music Library', 'show')],
       [makeNode('target', node.label, node.category, true)],
       [makeNode('sd', 'SD Card', 'show')],
       [makeNode('sink', 'Matrix Output', 'output')],
     ],
     edges: [
-      ...(sources.length > 0 ? sources : [makeNode('source-fallback', 'Music Library', 'audio')]).map((source) => ({ from: source.id, to: 'target' })),
+      ...(sources.length > 0 ? sources : [makeNode('source-fallback', 'Music Library', 'show')]).map((source) => ({ from: source.id, to: 'target' })),
       { from: 'target', to: 'sd' },
       { from: 'sd', to: 'sink' },
     ],
@@ -434,7 +434,7 @@ function buildSDCardRecipe(node: NodeDefinition): ExampleRecipe {
       { from: 'target', to: 'sink' },
     ],
     explanation: `${node.label} bridges generated shows into Matrix Output so the helper can provision the card before flashing the board.`,
-    result: 'An SD-backed upload path for songs, show files, and player firmware.',
+    result: 'An SD-backed upload path for music, show files, and player firmware.',
   }
 }
 
@@ -456,22 +456,22 @@ function buildMatrixOutputRecipe(node: NodeDefinition): ExampleRecipe {
 function buildSpecialRecipe(node: NodeDefinition): ExampleRecipe | null {
   switch (node.type) {
     case 'MusicLibrary':
-      return buildSongsRecipe(node)
+      return buildMusicRecipe(node)
     case 'PerformanceGenerator':
       return {
         columns: [
-          [makeNode('songs', 'Music Library', 'show'), makeNode('patterns', 'Pattern Collection', 'show'), makeNode('transitions', 'Transitions', 'show')],
+          [makeNode('music', 'Music Library', 'show'), makeNode('patterns', 'Pattern Collection', 'show'), makeNode('transitions', 'Transitions', 'show')],
           [makeNode('target', node.label, node.category, true)],
           [makeNode('sd', 'SD Card', 'show'), makeNode('preview', 'Matrix Output', 'output')],
         ],
         edges: [
-          { from: 'songs', to: 'target' },
+          { from: 'music', to: 'target' },
           { from: 'patterns', to: 'target' },
           { from: 'transitions', to: 'target' },
           { from: 'target', to: 'sd' },
           { from: 'target', to: 'preview' },
         ],
-        explanation: `${node.label} turns analysed songs and saved pattern sets into timed show files, while also previewing the result as a frame.`,
+        explanation: `${node.label} turns a direct music input plus a selected Pattern Collection into timed show files, while also previewing the result as a frame.`,
         result: 'A full offline music-show build stage for SD export.',
       }
     case 'PatternCollection':
@@ -479,17 +479,18 @@ function buildSpecialRecipe(node: NodeDefinition): ExampleRecipe | null {
     case 'PatternMaster':
       return {
         columns: [
-          [makeNode('collection', 'Pattern Collection', 'show'), makeNode('beat', 'Beat Detect', 'audio')],
+          [makeNode('collection', 'Pattern Collection', 'show'), makeNode('mic', 'Microphone', 'input'), makeNode('transitions', 'Transitions', 'show')],
           [makeNode('target', node.label, node.category, true)],
           [makeNode('sink', 'Matrix Output', 'output')],
         ],
         edges: [
           { from: 'collection', to: 'target' },
-          { from: 'beat', to: 'target' },
+          { from: 'mic', to: 'target' },
+          { from: 'transitions', to: 'target' },
           { from: 'target', to: 'sink' },
         ],
-        explanation: `${node.label} performs the generative show, switching between absorbed patterns and transitions before the final output.`,
-        result: 'A live multi-pattern show with dwell timing and transitions.',
+        explanation: `${node.label} performs the live generative show, reading patterns from Pattern Collection and only reacting to audio when that audio is actually wired into the show graph.`,
+        result: 'A live multi-pattern show with dwell timing, transitions, and optional audio reactivity.',
       }
     case 'TransitionSet':
       return buildTransitionSetRecipe(node)
@@ -518,7 +519,7 @@ function buildExampleRecipe(node: NodeDefinition): ExampleRecipe {
     case 'patternset': return buildPatternSetRecipe(node)
     case 'sdcard': return buildSDCardRecipe(node)
     case 'shows': return buildShowsRecipe(node)
-    case 'songs': return buildSongsRecipe(node)
+    case 'music': return buildMusicRecipe(node)
     case 'transitionset': return buildTransitionSetRecipe(node)
     case 'frame':
     default:
@@ -552,7 +553,7 @@ function buildUseCases(node: NodeDefinition): string[] {
     patternset: 'Its output is used by the Show Engine to run a reusable multi-pattern show.',
     sdcard: 'Its output is only needed when you want Matrix Output to provision music/show files onto an SD card.',
     shows: 'Its output is used by SD Card to assemble a synchronized playback package.',
-    songs: 'Its output is used by Performance Generator to create timed show events from analysed tracks.',
+    music: 'Its output is used by Performance Generator to create timed show events from analysed tracks.',
     transitionset: 'Its output is used by Performance Generator to widen the pool of transitions used in exported shows.',
   }
   const inputDrivenUse = node.inputs.length === 0
@@ -615,7 +616,7 @@ function describePort(dataType: string, direction: 'input' | 'output'): string {
     patternset: 'a collection of saved pattern groups',
     sdcard: 'an SD-card provisioning configuration',
     shows: 'a set of generated, timed show files',
-    songs: 'a library of analysed music tracks',
+    music: 'a library of analysed music tracks',
     transitionset: 'a curated set of transition styles',
   }
   const value = descriptions[dataType] ?? `a ${humanizeText(dataType)} value`

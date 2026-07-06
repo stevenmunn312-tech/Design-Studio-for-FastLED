@@ -1,4 +1,5 @@
 import { useAudioStore } from '../../state/audioStore'
+import { useGraphStore } from '../../state/graphStore'
 import { usePreviewStore } from '../../state/previewStore'
 import styles from './BeatDetectBody.module.css'
 
@@ -8,6 +9,7 @@ function clamp01(value: unknown) {
 
 export default function BeatDetectBody({ nodeId }: { nodeId: string }) {
   const active = useAudioStore((s) => s.active)
+  const wired = useGraphStore((s) => s.edges.some((e) => e.target === nodeId && e.targetHandle === 'audio'))
   const output = usePreviewStore((s) => s.outputs.get(nodeId))
   const beat = Boolean(output?.beat)
   const bpm = Math.max(0, Math.round(Number(output?.bpm ?? 120)))
@@ -17,8 +19,8 @@ export default function BeatDetectBody({ nodeId }: { nodeId: string }) {
     <div className={styles.wrap} aria-label="Beat detector status">
       <div className={styles.topLine}>
         <span className={styles.label}>Beat Detect</span>
-        <span className={styles.mode} data-live={active}>
-          {active ? 'LIVE' : 'PREVIEW'}
+        <span className={styles.mode} data-live={active && wired}>
+          {active && wired ? 'LIVE' : 'PREVIEW'}
         </span>
       </div>
 
