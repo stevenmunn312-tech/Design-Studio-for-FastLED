@@ -27,9 +27,26 @@ const MAX_CANVAS_PX = 448
 const STAGE_CANVAS_PX = 840
 const NUM_BARS = 28
 const BYTES_PER_MIB = 1024 * 1024
+const MEMORY_SAMPLE_INTERVAL_MS = 30_000
 
 interface PerformanceWithMemory extends Performance {
   memory?: { usedJSHeapSize: number }
+  measureUserAgentSpecificMemory?: () => Promise<{ bytes: number }>
+}
+
+async function measurePageMemoryMb(): Promise<number | null> {
+  const extendedPerformance = performance as PerformanceWithMemory
+  if (window.crossOriginIsolated && extendedPerformance.measureUserAgentSpecificMemory) {
+    try {
+      const measurement = await extendedPerformance.measureUserAgentSpecificMemory()
+      return Math.round(measurement.bytes / BYTES_PER_MIB)
+    } catch {
+      // Fall through to the legacy heap-only reading when measurement is denied.
+    }
+  }
+
+  const heap = extendedPerformance.memory
+  return heap ? Math.round(heap.usedJSHeapSize / BYTES_PER_MIB) : null
 }
 // Sparkle spots for the branding twinkle, in % of the lockup box. Hues follow
 // the wordmark's cyan→magenta gradient at each x; the logo art masks the layer
@@ -414,6 +431,8 @@ export default function LEDPreview() {
   const [canvasWrapSize, setCanvasWrapSize] = useState({ width: 0, height: 0 })
   const lastFpsTime   = useRef(performance.now())
   const frameCount    = useRef(0)
+  const lastMemorySample = useRef(-MEMORY_SAMPLE_INTERVAL_MS)
+  const memorySamplePending = useRef(false)
   // Wall-clock time base so the preview animates at real-time speed regardless
   // of the display refresh rate (matching the firmware's millis()-based timing).
   const startTime     = useRef(0)
@@ -646,10 +665,13 @@ export default function LEDPreview() {
         if (now - lastFpsTime.current >= 1000) {
           const count = frameCount.current
           useUiStore.getState().setFps(count)
-          const heap = (performance as PerformanceWithMemory).memory
-          useUiStore.getState().setMemoryMb(
-            heap ? Math.round(heap.usedJSHeapSize / BYTES_PER_MIB) : null,
-          )
+          if (!memorySamplePending.current && now - lastMemorySample.current >= MEMORY_SAMPLE_INTERVAL_MS) {
+            memorySamplePending.current = true
+            lastMemorySample.current = now
+            void measurePageMemoryMb()
+              .then((memoryMb) => useUiStore.getState().setMemoryMb(memoryMb))
+              .finally(() => { memorySamplePending.current = false })
+          }
           frameCount.current = 0
           lastFpsTime.current = now
         }
@@ -856,7 +878,7 @@ export default function LEDPreview() {
             <span className={styles.liveDot} aria-hidden="true" />
             <span className={styles.stageTitle}>Live output</span>
             <span className={styles.stageMeta}>
-              {gridW}×{gridH} · {fps} FPS · {memoryMb === null ? 'Memory unavailable' : `${memoryMb} MiB`}
+              {gridW}×{gridH} · {fps} FPS · Memory Used: {memoryMb === null ? 'Unavailable' : `${memoryMb} MiB`}
             </span>
           </div>
         ) : <span>LED Preview</span>}

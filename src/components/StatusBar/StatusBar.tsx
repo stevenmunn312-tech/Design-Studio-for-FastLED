@@ -36,8 +36,8 @@ export default function StatusBar() {
           </span>
         )}
         <span className={styles.chip}>FPS: {fps}</span>
-        <span className={styles.chip} title="JavaScript heap usage">
-          Memory: {memoryMb === null ? 'Unavailable' : `${memoryMb} MiB`}
+        <span className={styles.chip} title="Estimated memory used by this page, its iframes, and workers">
+          Memory Used: {memoryMb === null ? 'Unavailable' : `${memoryMb} MiB`}
         </span>
       </div>
     </footer>

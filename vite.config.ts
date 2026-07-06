@@ -3,7 +3,16 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { uploadHelper } from './vite-plugin-upload-helper'
 
+const crossOriginIsolationHeaders = {
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Embedder-Policy': 'credentialless',
+}
+
 export default defineConfig({
+  // Chromium's page-wide memory estimate requires a cross-origin-isolated
+  // context. These headers cover both the local authoring server and preview.
+  server: { headers: crossOriginIsolationHeaders },
+  preview: { headers: crossOriginIsolationHeaders },
   // The Essentia analysis worker lazily `import()`s its WASM, so it needs the ES
   // worker format — the default 'iife' can't code-split a worker.
   worker: { format: 'es' },
