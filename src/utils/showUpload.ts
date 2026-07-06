@@ -61,7 +61,7 @@ export function buildShowPayload(
   // FFT (externalAudio) and the player hosts the audio globals from the track.
   const bakedAudio = !!done[0].show!.audio
   const renderers = patternSet && patternSet.length > 0
-    ? buildPatternRenderers(patternSet, groups, roleParams, bakedAudio)
+    ? buildPatternRenderers(patternSet, groups, roleParams, bakedAudio, { beat: '(flashLevel > 0.01f)' })
     : undefined
   const player = generatePlayerSketch(playerConfigFromGraph(nodes), renderers, { audioEnvelope: bakedAudio && !!renderers })
 

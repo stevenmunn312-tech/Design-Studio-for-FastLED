@@ -296,5 +296,20 @@ describe('showGenerator', () => {
       const r = buildPatternRenderers(['gi'], inputGroups, [], true)
       expect(r.functions[0]).toContain('float n_in_out = _audioBass;')
     })
+
+    it('lets the player bind a legacy beat GroupInput to its show beat pulse', () => {
+      const inputGroups = {
+        gi: {
+          nodes: [
+            node('in', 'GroupInput', { paramId: 'beat' }, [], [{ id: 'out', dataType: 'bool' }]),
+            node('flash', 'BeatFlash', {}, [{ id: 'beat', dataType: 'bool' }], [{ id: 'frame', dataType: 'frame' }]),
+            node('go', 'GroupOutput'),
+          ],
+          edges: [edge('e1', 'in', 'out', 'flash', 'beat'), edge('e2', 'flash', 'frame', 'go', 'frame')],
+        },
+      } as unknown as GroupRegistry
+      const r = buildPatternRenderers(['gi'], inputGroups, [], true, { beat: '(flashLevel > 0.01f)' })
+      expect(r.functions[0]).toContain('float n_in_out = (flashLevel > 0.01f);')
+    })
   })
 })

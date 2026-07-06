@@ -239,6 +239,40 @@ describe('renderShowFrame', () => {
     expect(sum(quiet)).toBe(0)                     // silent bass → dark
   })
 
+  it('feeds baked audio and beat events to legacy semantic GroupInputs', () => {
+    const mk = (id: string, nodeType: string, properties: Record<string, unknown>, inputs: unknown[] = [], outputs: unknown[] = []) =>
+      ({ id, type: 'studioNode', position: { x: 0, y: 0 }, data: { label: nodeType, nodeType, category: 'pattern', properties, inputs, outputs } })
+    const makeGroup = (role: 'bass' | 'beat', dataType: 'float' | 'bool') => ({
+      nodes: [
+        mk('white', 'SolidColor', { r: 255, g: 255, b: 255 }, [], [{ id: 'frame', dataType: 'frame' }]),
+        mk('gi', 'GroupInput', { paramId: role }, [], [{ id: 'out', dataType }]),
+        mk('bm', 'BrightnessMod', {}, [{ id: 'frame', dataType: 'frame' }, { id: 'brightness', dataType: 'float' }], [{ id: 'frame', dataType: 'frame' }]),
+        mk('go', 'GroupOutput', {}, [{ id: 'frame', dataType: 'frame' }], []),
+      ],
+      edges: [
+        { id: 'e1', source: 'white', sourceHandle: 'frame', target: 'bm', targetHandle: 'frame' },
+        { id: 'e2', source: 'gi', sourceHandle: 'out', target: 'bm', targetHandle: 'brightness' },
+        { id: 'e3', source: 'bm', sourceHandle: 'frame', target: 'go', targetHandle: 'frame' },
+      ],
+    })
+    const groups = { bass: makeGroup('bass', 'float'), beat: makeGroup('beat', 'bool') } as unknown as Parameters<typeof renderShowFrame>[4]
+    const showFor = (pattern: string, bass: number, withBeat = false): ShowFile => ({
+      version: 2, songTitle: 'Legacy', durationMs: 1000, bpm: 120, patternSet: [pattern],
+      audio: { rateHz: 10, bass: [bass], mids: [0], treble: [0] },
+      events: [
+        { t: 0, cmd: 'SET_PATTERN', params: { index: 0 } },
+        { t: 0, cmd: 'SET_BRIGHTNESS', params: { value: 255 } },
+        ...(withBeat ? [{ t: 0, cmd: 'BEAT_FLASH' as const, params: { intensity: 255, decay: 255 } }] : []),
+      ],
+    })
+    const sum = (f: ReturnType<typeof renderShowFrame>) => f.flat().reduce((a, px) => a + px.r + px.g + px.b, 0)
+
+    expect(sum(renderShowFrame(showFor('bass', 1), 0, 4, 4, groups))).toBeGreaterThan(0)
+    expect(sum(renderShowFrame(showFor('bass', 0), 0, 4, 4, groups))).toBe(0)
+    expect(sum(renderShowFrame(showFor('beat', 0, true), 0, 4, 4, groups))).toBeGreaterThan(0)
+    expect(sum(renderShowFrame(showFor('beat', 0, false), 0, 4, 4, groups))).toBe(0)
+  })
+
   it('crossfades between patterns during a TRANSITION instead of hard-cutting', () => {
     const mk = (id: string, nodeType: string, properties: Record<string, unknown>, inputs: unknown[] = [], outputs: unknown[] = []) =>
       ({ id, type: 'studioNode', position: { x: 0, y: 0 }, data: { label: nodeType, nodeType, category: 'pattern', properties, inputs, outputs } })

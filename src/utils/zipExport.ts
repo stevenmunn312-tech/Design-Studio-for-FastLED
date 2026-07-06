@@ -142,7 +142,7 @@ export async function exportShowPackage(
   const patternSet = done[0]?.show!.patternSet
   const bakedAudio = !!done[0]?.show!.audio
   const renderers = patternSet && patternSet.length > 0
-    ? buildPatternRenderers(patternSet, groups, [], bakedAudio)
+    ? buildPatternRenderers(patternSet, groups, [], bakedAudio, { beat: '(flashLevel > 0.01f)' })
     : undefined
   const sketch = generatePlayerSketch(playerCfg, renderers, { audioEnvelope: bakedAudio && !!renderers })
   zipEntries.push({
