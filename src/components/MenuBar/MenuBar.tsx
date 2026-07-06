@@ -6,7 +6,7 @@ import { runTidy } from '../../utils/tidyGraph'
 import styles from './MenuBar.module.css'
 
 export default function MenuBar() {
-  const { setStatus, theme, cycleTheme, reducedMotion, toggleReducedMotion, highContrast, toggleHighContrast, openHelp, toggleStageMode } = useUiStore()
+  const { setStatus, theme, cycleTheme, reducedMotion, toggleReducedMotion, highContrast, toggleHighContrast, openHelp } = useUiStore()
 
   const THEME_ICON: Record<string, string> = { dark: '☾', solarized: '✦', light: '☀' }
   const THEME_LABEL: Record<string, string> = { dark: 'Dark', solarized: 'Solarized', light: 'Light' }
@@ -100,15 +100,6 @@ export default function MenuBar() {
           style={{ display: 'none' }}
           onChange={handleFileChange}
         />
-        <div className={styles.sep} />
-        <button
-          className={styles.stageBtn}
-          onClick={toggleStageMode}
-          aria-label="Enter Stage Mode"
-          title="Enter Stage Mode (F10)"
-        >
-          ◈ Stage
-        </button>
         <div className={styles.sep} />
         <button
           className={styles.btn}

@@ -96,21 +96,6 @@
   color: var(--accent-audio);
 }
 
-.stageBtn {
-  composes: btn;
-  border-color: color-mix(in srgb, #ff5e9d 52%, var(--border-glow));
-  color: #ff9bc4;
-  background:
-    linear-gradient(135deg, rgba(138, 77, 255, 0.1), rgba(255, 94, 157, 0.08));
-  box-shadow: inset 0 0 12px rgba(255, 94, 157, 0.04);
-}
-
-.stageBtn:hover:not(:disabled) {
-  color: #fff;
-  border-color: #ff5e9d;
-  box-shadow: 0 0 14px rgba(255, 94, 157, 0.18);
-}
-
 .info {
   font-size: var(--fs-caption);
   color: var(--text-secondary);
