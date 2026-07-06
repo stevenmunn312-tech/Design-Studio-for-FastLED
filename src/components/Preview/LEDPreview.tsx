@@ -26,6 +26,22 @@ import { idleFrame } from './idleFrame'
 const MAX_CANVAS_PX = 448
 const STAGE_CANVAS_PX = 840
 const NUM_BARS = 28
+// Sparkle spots for the branding twinkle, in % of the lockup box. Hues follow
+// the wordmark's cyan→magenta gradient at each x; the logo art masks the layer
+// so a glint only lights actual LED pixels. Periods are co-prime-ish and
+// delays staggered so pops never fall into a visible rhythm.
+const BRAND_TWINKLES = [
+  { x: 6,  y: 28, color: '#5ad1ff', period: 8.1,  delay: 0.0 },
+  { x: 10, y: 68, color: '#7de4ff', period: 9.7,  delay: 3.1 },
+  { x: 22, y: 34, color: '#4fd8ff', period: 7.3,  delay: 5.4 },
+  { x: 33, y: 62, color: '#5db2ff', period: 10.9, delay: 1.7 },
+  { x: 45, y: 30, color: '#6a8dff', period: 8.9,  delay: 6.8 },
+  { x: 56, y: 66, color: '#8f79ff', period: 9.3,  delay: 4.2 },
+  { x: 67, y: 36, color: '#b06bff', period: 7.9,  delay: 8.6 },
+  { x: 78, y: 60, color: '#e05cff', period: 10.3, delay: 2.5 },
+  { x: 88, y: 32, color: '#ff5cf0', period: 8.7,  delay: 7.4 },
+  { x: 96, y: 58, color: '#ff4d8d', period: 11.3, delay: 5.9 },
+]
 const DIFFUSION_BG = 'rgb(4,3,9)'
 let diffusionScratch: HTMLCanvasElement | null = null
 let diffusionSourceScratch: HTMLCanvasElement | null = null
@@ -1021,11 +1037,27 @@ export default function LEDPreview() {
             {musicError && !showMode && <p className={styles.musicError} role="alert">{musicError}</p>}
           </div>
           <div className={styles.brandWrap} aria-hidden>
-            <img
-              className={styles.brandLogo}
-              src="/fastled-studio-pixel-brand.png"
-              alt=""
-            />
+            <div className={styles.brandLockup}>
+              <img
+                className={styles.brandLogo}
+                src="/fastled-studio-pixel-brand.png"
+                alt=""
+              />
+              <div className={styles.brandTwinkles}>
+                {BRAND_TWINKLES.map((tw, i) => (
+                  <i
+                    key={i}
+                    style={{
+                      '--tx': `${tw.x}%`,
+                      '--ty': `${tw.y}%`,
+                      '--tc': tw.color,
+                      '--tt': `${tw.period}s`,
+                      '--td': `${tw.delay}s`,
+                    } as CSSProperties}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       <input
