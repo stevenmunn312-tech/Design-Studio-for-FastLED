@@ -1057,6 +1057,7 @@ export default function LEDPreview() {
                   />
                 ))}
               </div>
+              <span className={styles.brandShine} />
             </div>
           </div>
         </div>

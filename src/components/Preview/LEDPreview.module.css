@@ -757,6 +757,45 @@
   }
 }
 
+/* Occasional glow ripple: a light band sweeps across the wordmark, masked by
+   the logo art itself so only the LED pixels catch the light. Mostly idle —
+   the sweep occupies a short slice of a long cycle. */
+.brandShine {
+  position: absolute;
+  inset: 0;
+  -webkit-mask-image: url('/fastled-studio-pixel-brand.png');
+  mask-image: url('/fastled-studio-pixel-brand.png');
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  background:
+    linear-gradient(
+      115deg,
+      transparent 30%,
+      rgba(90, 209, 255, 0.55) 40%,
+      rgba(180, 240, 255, 1) 47%,
+      rgba(255, 255, 255, 1) 51%,
+      rgba(255, 170, 255, 1) 55%,
+      rgba(255, 92, 240, 0.55) 62%,
+      transparent 72%
+    )
+    no-repeat;
+  background-size: 320% 100%;
+  background-position: 100% 0;
+  animation: brandShineSweep 14s ease-in-out infinite;
+}
+
+@keyframes brandShineSweep {
+  0% {
+    background-position: 100% 0;
+  }
+  16% {
+    background-position: 0% 0;
+  }
+  100% {
+    background-position: 0% 0;
+  }
+}
+
 .fileInput {
   display: none;
 }
@@ -853,7 +892,8 @@
     animation: none;
   }
 
-  .brandTwinkles {
+  .brandTwinkles,
+  .brandShine {
     display: none;
   }
 
@@ -867,7 +907,8 @@
   animation: none;
 }
 
-:global([data-reduced-motion]) .brandTwinkles {
+:global([data-reduced-motion]) .brandTwinkles,
+:global([data-reduced-motion]) .brandShine {
   display: none;
 }
 
