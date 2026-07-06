@@ -7,6 +7,7 @@ import { usePreviewStore } from '../../state/previewStore'
 import { useShowPlayback } from '../../state/showPlayback'
 import { usePlayerTransport } from '../../state/playerTransport'
 import { usePatternLibrary } from '../../state/patternLibrary'
+import { useMusicStore } from '../../state/musicStore'
 import { showStateAt } from '../../state/showPreview'
 import { WebGLLEDRenderer } from './webglRenderer'
 import { applyShowPlaybackSignal } from './showPlaybackSignal'
@@ -33,6 +34,7 @@ const MAX_CANVAS_PX = 448
 const STAGE_CANVAS_PX = 840
 const BYTES_PER_MIB = 1024 * 1024
 const MEMORY_SAMPLE_INTERVAL_MS = 30_000
+const PREVIEW_PUBLISH_INTERVAL_MS = 125
 
 interface PerformanceWithMemory extends Performance {
   memory?: { usedJSHeapSize: number }
@@ -586,16 +588,19 @@ export default function LEDPreview() {
   const startAudio = useAudioStore((s) => s.startAudio)
   const attachAudioElement = useAudioStore((s) => s.attachAudioElement)
   const stopAudio = useAudioStore((s) => s.stopAudio)
+  const analyzingMusic = useMusicStore((s) => s.entries.some((entry) => entry.status === 'analyzing'))
   const previewStyleRef = useRef(previewStyle)
   useEffect(() => { previewStyleRef.current = previewStyle }, [previewStyle])
   const stageModeRef = useRef(stageMode)
   const preview3dRef = useRef(preview3d)
   const micActiveRef = useRef(micActive)
+  const analyzingMusicRef = useRef(analyzingMusic)
   const audioVisualizerLiveRef = useRef(audioVisualizerLive)
   const hasFrameSignalRef = useRef(hasFrameSignal)
   useEffect(() => { stageModeRef.current = stageMode }, [stageMode])
   useEffect(() => { preview3dRef.current = preview3d }, [preview3d])
   useEffect(() => { micActiveRef.current = micActive }, [micActive])
+  useEffect(() => { analyzingMusicRef.current = analyzingMusic }, [analyzingMusic])
   useEffect(() => { audioVisualizerLiveRef.current = audioVisualizerLive }, [audioVisualizerLive])
   useEffect(() => { hasFrameSignalRef.current = hasFrameSignal }, [hasFrameSignal])
   // Orbit angles for 3D mode (degrees): pitch about X, yaw about Y.
@@ -738,7 +743,7 @@ export default function LEDPreview() {
         // otherwise keep React/store work to ~15 fps while the matrix stays at 60.
         const hasBeat = Array.from(outputs.values()).some((output) => output.beat === true)
         const publishStart = performance.now()
-        if (hasBeat || now - lastPreviewPublish.current >= 66) {
+        if (!analyzingMusicRef.current && (hasBeat || now - lastPreviewPublish.current >= PREVIEW_PUBLISH_INTERVAL_MS)) {
           usePreviewStore.getState().setOutputs(outputs)
           lastPreviewPublish.current = now
         }

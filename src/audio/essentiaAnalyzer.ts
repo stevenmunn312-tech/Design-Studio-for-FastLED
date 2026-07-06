@@ -14,14 +14,15 @@ import type { SongAnalysis } from '../types/showFile'
 import { decodeToMono } from './songAnalysisCommon'
 import { analyzeDecodedSong, formatWorkerError } from './essentiaCore'
 import type { AnalyzeRequest, AnalyzeResponse } from './essentiaAnalyzer.worker'
+import { recordPerfTask } from '../dev/perfMonitor'
 
 const SAMPLE_RATE = 44100
+const WORKER_RETRY_LIMIT = 1
 
 let worker: Worker | null = null
 let nextId = 1
 const pending = new Map<number, { resolve: (a: SongAnalysis) => void; reject: (e: Error) => void }>()
 let idleTimer: ReturnType<typeof setTimeout> | null = null
-let workerBroken = false
 
 function workerEventMessage(e: ErrorEvent): string {
   const parts = [
@@ -57,7 +58,6 @@ function disposeWorker() {
 }
 
 function getWorker(): Worker | null {
-  if (workerBroken) return null
   if (idleTimer) {
     clearTimeout(idleTimer)
     idleTimer = null
@@ -66,7 +66,6 @@ function getWorker(): Worker | null {
     try {
       worker = new Worker(new URL('./essentiaAnalyzer.worker.ts', import.meta.url), { type: 'module', name: 'essentia-analyzer' })
     } catch (err) {
-      workerBroken = true
       console.warn('Essentia worker could not be created; falling back to main-thread analysis.', err)
       return null
     }
@@ -86,7 +85,6 @@ function getWorker(): Worker | null {
       console.error('Essentia worker crashed', e)
       for (const p of pending.values()) p.reject(err)
       pending.clear()
-      workerBroken = true
       disposeWorker()
     }
     worker.onmessageerror = (e) => {
@@ -94,7 +92,6 @@ function getWorker(): Worker | null {
       console.error('Essentia worker message error', e)
       for (const p of pending.values()) p.reject(err)
       pending.clear()
-      workerBroken = true
       disposeWorker()
     }
   }
@@ -112,31 +109,51 @@ async function analyzeViaWorker(
   sampleRate: number,
   durationMs: number,
   title: string,
+  retriesLeft = WORKER_RETRY_LIMIT,
 ): Promise<SongAnalysis> {
   const w = getWorker()
-  if (!w) throw new Error('essentia worker unavailable')
+  if (!w) {
+    if (retriesLeft > 0) {
+      disposeWorker()
+      return analyzeViaWorker(mono, sampleRate, durationMs, title, retriesLeft - 1)
+    }
+    throw new Error('essentia worker unavailable')
+  }
   const id = nextId++
 
   return new Promise<SongAnalysis>((resolve, reject) => {
     pending.set(id, { resolve, reject })
-    const req: AnalyzeRequest = { id, mono, sampleRate, durationMs, title }
-    w.postMessage(req, [mono.buffer])
+    const workerMono = mono.slice()
+    const req: AnalyzeRequest = { id, mono: workerMono, sampleRate, durationMs, title }
+    w.postMessage(req, [workerMono.buffer])
+  }).catch((err) => {
+    if (retriesLeft <= 0) throw err
+    disposeWorker()
+    return analyzeViaWorker(mono, sampleRate, durationMs, title, retriesLeft - 1)
   })
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
 export async function analyzeSong(file: File, onProgress?: (p: number) => void): Promise<SongAnalysis> {
+  const decodeStart = performance.now()
   const { mono, sampleRate, durationMs } = await decodeToMono(file, SAMPLE_RATE)
+  recordPerfTask('musicDecode', performance.now() - decodeStart)
   // Decode is the only main-thread stage we can measure; the WASM passes run in
   // the worker as one opaque call, so progress jumps to "done" when it resolves.
   onProgress?.(0.3)
   const title = file.name.replace(/\.[^/.]+$/, '')
   try {
-    return await analyzeViaWorker(mono, sampleRate, durationMs, title)
+    const analyzeStart = performance.now()
+    const analysis = await analyzeViaWorker(mono, sampleRate, durationMs, title)
+    recordPerfTask('musicAnalyze', performance.now() - analyzeStart, { mode: 'worker' })
+    return analysis
   } catch (err) {
     const message = formatWorkerError(err)
     console.warn(`Essentia worker failed; retrying on the main thread. ${message}`)
     onProgress?.(0.45)
-    return analyzeDecodedSong(mono, sampleRate, durationMs, title)
+    const analyzeStart = performance.now()
+    const analysis = await analyzeDecodedSong(mono, sampleRate, durationMs, title)
+    recordPerfTask('musicAnalyze', performance.now() - analyzeStart, { mode: 'main-thread' })
+    return analysis
   }
 }

@@ -10,13 +10,28 @@ interface PreviewState {
   setOutputs: (outputs: Map<string, Record<string, unknown>>) => void
 }
 
+function samePortValues(a: Record<string, unknown> | undefined, b: Record<string, unknown>): boolean {
+  if (!a) return false
+  const aKeys = Object.keys(a)
+  const bKeys = Object.keys(b)
+  if (aKeys.length !== bKeys.length) return false
+  for (const key of bKeys) {
+    if (!Object.is(a[key], b[key])) return false
+  }
+  return true
+}
+
 export const usePreviewStore = create<PreviewState>((set) => ({
   outputs: new Map(),
   signals: new Map(),
   setOutputs: (outputs) => set((state) => {
+    const stableOutputs = new Map<string, Record<string, unknown>>()
     const signals = new Map<string, SignalVisual>()
     for (const [nodeId, ports] of outputs) {
-      for (const [portId, value] of Object.entries(ports)) {
+      const previousPorts = state.outputs.get(nodeId)
+      const nextPorts = previousPorts && samePortValues(previousPorts, ports) ? previousPorts : ports
+      stableOutputs.set(nodeId, nextPorts)
+      for (const [portId, value] of Object.entries(nextPorts)) {
         const visual = signalVisual(value)
         if (!visual) continue
         const key = `${nodeId}:${portId}`
@@ -32,6 +47,6 @@ export const usePreviewStore = create<PreviewState>((set) => ({
         )
       }
     }
-    return { outputs, signals }
+    return { outputs: stableOutputs, signals }
   }),
 }))

@@ -3,6 +3,7 @@ import type { SongAnalysis, ShowFile } from '../types/showFile'
 import { generateShow } from '../codegen/performanceGenerator'
 import type { PerformanceOptions } from '../codegen/performanceGenerator'
 import { useGraphStore } from './graphStore'
+import { recordPerfTask } from '../dev/perfMonitor'
 
 /**
  * The Pattern Collection wired into a Performance Generator's `patternset`
@@ -114,7 +115,9 @@ export const useMusicStore = create<MusicState>((set, get) => ({
         }))
         const analysis = await analyzeWithEssentia(entry.file, onProgress)
         const { ids, sectionTags } = wiredCollection()
-        const show     = generateShow(analysis, options, ids, sectionTags, wiredTransitions())
+        const showStart = performance.now()
+        const show = generateShow(analysis, options, ids, sectionTags, wiredTransitions())
+        recordPerfTask('musicShow', performance.now() - showStart)
         set(s => ({
           entries: s.entries.map(e =>
             e.id === entry.id ? { ...e, analysis, show, status: 'done', progress: 1 } : e

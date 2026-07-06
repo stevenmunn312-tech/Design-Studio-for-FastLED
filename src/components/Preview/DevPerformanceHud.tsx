@@ -21,6 +21,12 @@ function fmtMs(value: number): string {
 function diagnosis(snapshot: PerfSnapshot): string {
   const { bottleneck, metrics } = snapshot
   const outsideGap = metrics.gap.avg - metrics.frame.avg
+  if (snapshot.musicAnalysis.fallbackRuns > 0) {
+    return 'Music analysis has fallen back to the main thread, which is a likely source of the stalls.'
+  }
+  if (snapshot.tasks.musicDecode.max > 24) return 'Audio decoding on the main thread is taking noticeable time during analysis.'
+  if (snapshot.tasks.musicAnalyze.max > 24) return 'Music analysis work is expensive right now; the new task timings should help confirm whether the worker is insulating the UI.'
+  if (snapshot.tasks.musicShow.max > 12) return 'Show generation is taking noticeable time after each song analysis.'
   if (outsideGap > 6) return 'Frame gaps are larger than preview work, so another main-thread task is likely blocking the app.'
   if (bottleneck === 'eval') return 'Graph evaluation is the biggest cost right now.'
   if (bottleneck === 'draw') return 'Preview drawing is the biggest cost right now.'
@@ -37,6 +43,18 @@ function PhaseRow({ label, latest, avg, p95, max }: { label: string; latest: num
       <span>{fmtMs(avg)}</span>
       <span>{fmtMs(p95)}</span>
       <span>{fmtMs(max)}</span>
+    </div>
+  )
+}
+
+function TaskRow({ label, latest, avg, p95, max, count }: { label: string; latest: number; avg: number; p95: number; max: number; count: number }) {
+  return (
+    <div className={styles.phaseRow}>
+      <span className={styles.phaseLabel}>{label}</span>
+      <span>{count ? fmtMs(latest) : '—'}</span>
+      <span>{count ? fmtMs(avg) : '—'}</span>
+      <span>{count ? fmtMs(p95) : '—'}</span>
+      <span>{count ? fmtMs(max) : '—'}</span>
     </div>
   )
 }
@@ -114,6 +132,19 @@ export default function DevPerformanceHud() {
         <PhaseRow label="Publish" {...snapshot.metrics.publish} />
       </div>
 
+      <div className={styles.table}>
+        <div className={styles.phaseHeader}>
+          <span>Music Task</span>
+          <span>Latest</span>
+          <span>Avg</span>
+          <span>P95</span>
+          <span>Max</span>
+        </div>
+        <TaskRow label="Decode" {...snapshot.tasks.musicDecode} />
+        <TaskRow label="Analyze" {...snapshot.tasks.musicAnalyze} />
+        <TaskRow label="Show gen" {...snapshot.tasks.musicShow} />
+      </div>
+
       <div className={styles.contextGrid}>
         <span>Graph {snapshot.context.nodes}n / {snapshot.context.edges}e / {snapshot.context.groups} groups</span>
         <span>Matrix {snapshot.context.gridW}×{snapshot.context.gridH} ({snapshot.context.canvasW}×{snapshot.context.canvasH})</span>
@@ -121,6 +152,7 @@ export default function DevPerformanceHud() {
         <span>Outputs {snapshot.context.outputs} · signal {snapshot.context.hasSignal ? 'live' : 'idle'}</span>
         <span>Audio {snapshot.context.micActive ? 'mic on' : 'mic off'} · {snapshot.context.audioReactive ? 'reactive' : 'static'}</span>
         <span>View {snapshot.context.stageMode ? 'stage' : 'studio'} · {snapshot.context.preview3d ? '3D' : '2D'} · {snapshot.context.hidden ? 'hidden tab' : 'visible tab'}</span>
+        <span>Music worker {snapshot.musicAnalysis.workerRuns} · fallback {snapshot.musicAnalysis.fallbackRuns} · last {snapshot.musicAnalysis.lastMode}</span>
       </div>
 
       <p className={styles.note}>{diagnosis(snapshot)}</p>

@@ -24,12 +24,18 @@ const TransitionSetBody = lazy(() => import('./TransitionSetBody'))
 const ImageNodeBody = lazy(() => import('./ImageNodeBody'))
 const MatrixOutputUpload = lazy(() => import('../Upload/MatrixOutputUpload'))
 
+type PortDef = { id: string; label: string; dataType: string }
+
 // Shows the latest compile/runtime error from a Code node's preview evaluation.
-// Subscribes to previewStore so it refreshes each eval tick (errors surface in
-// near-real-time and clear once the code runs cleanly again).
 function CodeError({ nodeId }: { nodeId: string }) {
-  usePreviewStore((s) => s.outputs)   // re-render on each published eval pass
-  const err = getCodeError(nodeId)
+  const [err, setErr] = useState(() => getCodeError(nodeId))
+  useEffect(() => {
+    setErr(getCodeError(nodeId))
+    return usePreviewStore.subscribe(() => {
+      const next = getCodeError(nodeId)
+      setErr((current) => (current === next ? current : next))
+    })
+  }, [nodeId])
   if (!err) return null
   return <div className={styles.codeErr} title={err}>⚠ {err}</div>
 }
@@ -60,6 +66,15 @@ function validSliderValue(value: string, min: number, max: number, step: number)
   // as the range input (for example 0.1, 0.2, ...).
   const stepsFromMin = (parsed - min) / step
   return Math.abs(stepsFromMin - Math.round(stepsFromMin)) < 1e-8
+}
+
+function applyNodeSignal(
+  node: HTMLDivElement | null,
+  signal: { glow: string; softGlow: string } | undefined
+) {
+  if (!node) return
+  node.style.setProperty('--signal-glow', signal?.glow ?? 'transparent')
+  node.style.setProperty('--signal-soft-glow', signal?.softGlow ?? 'transparent')
 }
 
 function SliderProperty({
@@ -159,6 +174,236 @@ function SliderProperty({
   )
 }
 
+interface LivePropertyControlsProps {
+  nodeId: string
+  nodeType: string
+  nodeLabel: string
+  rawProps: Record<string, unknown>
+  props: Record<string, unknown>
+  sourceMap: Map<string, { srcId: string; srcPort: string }>
+  editable: [string, unknown][]
+  hasRGB: boolean
+  isGroupInput: boolean
+  showClamp: boolean
+  showSetDefault: boolean
+  isCustomDefault: boolean
+  updateNodeProperty: (id: string, key: string, value: unknown) => void
+  updateNodeProperties: (id: string, updates: Record<string, unknown>) => void
+  setGroupInputRole: (nodeId: string, role: string) => void
+}
+
+const LivePropertyControls = memo(function LivePropertyControls({
+  nodeId,
+  nodeType,
+  nodeLabel,
+  rawProps,
+  props,
+  sourceMap,
+  editable,
+  hasRGB,
+  isGroupInput,
+  showClamp,
+  showSetDefault,
+  isCustomDefault,
+  updateNodeProperty,
+  updateNodeProperties,
+  setGroupInputRole,
+}: LivePropertyControlsProps) {
+  // Port id matching a property key drives that property (evaluator convention);
+  // the `paletteIn` port drives the `palette` property, and the `color` port
+  // drives the `r/g/b` swatch.
+  const portFor = (propKey: string) => (propKey === 'palette' ? 'paletteIn' : propKey)
+  const drivenBy = (propKey: string) => sourceMap.has(portFor(propKey))
+
+  // Live upstream values for this node's wired inputs, pulled from the shared
+  // evaluation pass (previewStore). Serialised so the props section only
+  // re-renders when one of its own driven values changes. Frames (2D arrays)
+  // aren't shown in inline editors, so they're skipped to keep the payload small.
+  const liveJson = usePreviewStore((s) => {
+    if (sourceMap.size === 0) return ''
+    const o: Record<string, unknown> = {}
+    for (const [handle, src] of sourceMap) {
+      const v = s.outputs.get(src.srcId)?.[src.srcPort]
+      if (v === undefined || v === null) continue
+      if (Array.isArray(v) && Array.isArray((v as unknown[])[0])) continue
+      o[handle] = v
+    }
+    return JSON.stringify(o)
+  })
+  const liveValues = useMemo<Record<string, unknown>>(
+    () => (liveJson ? JSON.parse(liveJson) : {}),
+    [liveJson]
+  )
+  const liveFor = (propKey: string): unknown => liveValues[portFor(propKey)]
+
+  if (!(hasRGB || editable.length > 0 || showClamp || isGroupInput || showSetDefault)) return null
+
+  return (
+    <div className={styles.props}>
+      {isGroupInput && (() => {
+        // Group-input role: tag this input so a Performance Generator show
+        // drives it (energy/speed/palette). Sets `paramId` to the role name
+        // — the same value the evaluator/codegen key off — so no manual
+        // rename is needed. "— input —" is an ordinary (untagged) input.
+        const cur = String(props.paramId ?? '')
+        const role = GROUP_INPUT_ROLES.includes(cur) ? cur : ''
+        return (
+          <div className={styles.propRow} title="Show role this input is driven by">
+            <span className={styles.propKey}>role</span>
+            <select
+              className={`nodrag ${styles.propSelect}`}
+              value={role}
+              onChange={(e) => setGroupInputRole(nodeId, e.target.value)}
+            >
+              <option value="">— input —</option>
+              {GROUP_INPUT_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+        )
+      })()}
+      {hasRGB && (() => {
+        const wired = drivenBy('color')
+        const live = wired ? liveFor('color') : undefined
+        const swatch = isRGB(live)
+          ? toHex(live.r, live.g, live.b)
+          : toHex(props.r as number, props.g as number, props.b as number)
+        return (
+          <div className={`${styles.propRow}${wired ? ` ${styles.wired}` : ''}`} title={wired ? 'Driven by connection' : undefined}>
+            <span className={styles.propKey}>color</span>
+            <input
+              className={`nodrag ${styles.colorInput}`}
+              type="color"
+              disabled={wired}
+              value={swatch}
+              onChange={(e) => updateNodeProperties(nodeId, hexToRgb(e.target.value))}
+            />
+          </div>
+        )
+      })()}
+      {editable.map(([key, val]) => {
+        const meta = propertyMeta(nodeType, key)
+        const wired = drivenBy(key)
+        // A property may be inapplicable to the current variant (e.g. a
+        // Transition's `direction` outside wipe): shown but disabled.
+        const gated = !isPropertyEnabled(nodeType, key, props)
+        const disabled = wired || gated
+        const live = wired ? liveFor(key) : undefined
+        const forceTextNumber = nodeType === 'Math' && (key === 'a' || key === 'b')
+        return (
+          <div
+            key={key}
+            className={`${styles.propRow}${disabled ? ` ${styles.wired}` : ''}`}
+            title={wired ? 'Driven by connection' : gated ? 'Not used by this mode' : undefined}
+          >
+            <span className={styles.propKey} title={key}>{key}</span>
+            {meta?.control === 'select' ? (
+              <select
+                className={`nodrag ${styles.propSelect}`}
+                disabled={disabled}
+                value={typeof live === 'string' && meta.options.includes(live) ? live : String(val)}
+                onChange={(e) => updateNodeProperty(nodeId, key, e.target.value)}
+              >
+                {meta.options.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            ) : meta?.control === 'slider' && typeof val === 'number' ? (
+              <SliderProperty
+                label={key}
+                value={typeof live === 'number' ? live : val}
+                min={meta.min}
+                max={meta.max}
+                step={meta.step}
+                disabled={disabled}
+                onChange={(value) => updateNodeProperty(nodeId, key, value)}
+              />
+            ) : typeof val === 'boolean' ? (
+              <input
+                className="nodrag"
+                type="checkbox"
+                disabled={disabled}
+                checked={typeof live === 'boolean' ? live : val}
+                onChange={(e) => updateNodeProperty(nodeId, key, e.target.checked)}
+              />
+            ) : typeof val === 'number' && !forceTextNumber ? (
+              <input
+                className={`nodrag nowheel ${styles.propInput}`}
+                type="number"
+                step="any"
+                disabled={disabled}
+                value={typeof live === 'number' ? showNum(live) : val}
+                onChange={(e) => {
+                  const n = Number(e.target.value)
+                  updateNodeProperty(nodeId, key, e.target.value === '' || !Number.isFinite(n) ? 0 : n)
+                }}
+              />
+            ) : typeof val === 'number' && forceTextNumber ? (
+              <input
+                className={`nodrag ${styles.propInput}`}
+                type="text"
+                inputMode="decimal"
+                disabled={disabled}
+                value={typeof live === 'number' ? showNum(live) : val}
+                onChange={(e) => {
+                  const n = Number(e.target.value)
+                  updateNodeProperty(nodeId, key, e.target.value === '' || !Number.isFinite(n) ? 0 : n)
+                }}
+              />
+            ) : typeof val === 'string' && /^#[0-9a-f]{6}$/i.test(val) ? (
+              <input
+                className={`nodrag ${styles.colorInput}`}
+                type="color"
+                disabled={disabled}
+                value={isRGB(live) ? toHex(live.r, live.g, live.b) : typeof live === 'string' && /^#[0-9a-f]{6}$/i.test(live) ? live : val}
+                onChange={(e) => updateNodeProperty(nodeId, key, e.target.value)}
+              />
+            ) : (
+              <input
+                className={`nodrag ${styles.propInput}`}
+                type="text"
+                disabled={disabled}
+                value={wired && live !== undefined ? String(live) : String(val)}
+                onChange={(e) => updateNodeProperty(nodeId, key, e.target.value)}
+              />
+            )}
+          </div>
+        )
+      })}
+      {showClamp && (
+        <div
+          className={styles.propRow}
+          title="Clamp wired inputs to each control’s range — like inserting a Clamp node on every connection"
+        >
+          <span className={styles.propKey}>clamp inputs</span>
+          <input
+            className="nodrag"
+            type="checkbox"
+            checked={Boolean(props.clampInputs)}
+            onChange={(e) => updateNodeProperty(nodeId, 'clampInputs', e.target.checked)}
+          />
+        </div>
+      )}
+      {showSetDefault && (
+        <div
+          className={styles.propRow}
+          title={`Remember these settings as the default for new ${nodeLabel} nodes`}
+        >
+          <span className={styles.propKey}>set default</span>
+          <input
+            className="nodrag"
+            type="checkbox"
+            checked={isCustomDefault}
+            onChange={(e) => {
+              if (e.target.checked) useNodeDefaults.getState().setDefault(nodeType, rawProps)
+              else useNodeDefaults.getState().clearDefault(nodeType)
+            }}
+          />
+        </div>
+      )}
+    </div>
+  )
+})
+
 // Body content width = --node-width (180) − 2×--space-1 (8) horizontal padding.
 // Frame previews fill this width and keep the matrix aspect ratio.
 const BODY_CONTENT_W = 164
@@ -179,6 +424,7 @@ type StudioNodeProps = NodeProps<Node<StudioNodeData>>
 
 function StudioNode({ id, data, selected }: StudioNodeProps) {
   const d = data as StudioNodeData
+  const nodeRef = useRef<HTMLDivElement>(null)
   const def = useMemo(() => NODE_LIBRARY.find((entry) => entry.type === d.nodeType), [d.nodeType])
   const sparkPortId = useUiStore((s) =>
     s.sparkPort?.nodeId === id ? (s.sparkPort?.portId ?? null) : null
@@ -200,8 +446,8 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
   const setGroupInputRole = useGraphStore((s) => s.setGroupInputRole)
   const accent = CATEGORY_ACCENT_VAR[d.category] ?? 'var(--accent-output)'
-  const inputs = (def?.inputs ?? d.inputs) as { id: string; label: string; dataType: string }[]
-  const outputs = (def?.outputs ?? d.outputs) as { id: string; label: string; dataType: string }[]
+  const inputs = (def?.inputs ?? d.inputs) as PortDef[]
+  const outputs = (def?.outputs ?? d.outputs) as PortDef[]
   const rowCount = Math.max(inputs.length, outputs.length)
 
   // Which of this node's input ports are wired, and to which upstream port. When
@@ -225,32 +471,6 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     }
     return m
   }, [incomingKey])
-  // Port id matching a property key drives that property (evaluator convention);
-  // the `paletteIn` port drives the `palette` property, and the `color` port
-  // drives the `r/g/b` swatch.
-  const portFor = (propKey: string) => (propKey === 'palette' ? 'paletteIn' : propKey)
-  const drivenBy = (propKey: string) => sourceMap.has(portFor(propKey))
-
-  // Live upstream values for this node's wired inputs, pulled from the shared
-  // evaluation pass (previewStore). Serialised so the node re-renders only when
-  // one of its own driven values changes. Frames (2D arrays) aren't shown in
-  // inline editors, so they're skipped to keep the payload small.
-  const liveJson = usePreviewStore((s) => {
-    if (sourceMap.size === 0) return ''
-    const o: Record<string, unknown> = {}
-    for (const [handle, src] of sourceMap) {
-      const v = s.outputs.get(src.srcId)?.[src.srcPort]
-      if (v === undefined || v === null) continue
-      if (Array.isArray(v) && Array.isArray((v as unknown[])[0])) continue
-      o[handle] = v
-    }
-    return JSON.stringify(o)
-  })
-  const liveValues = useMemo<Record<string, unknown>>(
-    () => (liveJson ? JSON.parse(liveJson) : {}),
-    [liveJson]
-  )
-  const liveFor = (propKey: string): unknown => liveValues[portFor(propKey)]
 
   // Inline property editors (Blender-style). A node with `r/g/b` shows one
   // colour swatch; `font` (an object) is left to the Inspector.
@@ -306,9 +526,6 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // Frame / palette / colour nodes show a live preview of their primary output,
   // driven from the shared evaluation pass (previewStore).
   const outPort = outputs[0]
-  const outputSignal = usePreviewStore((s) =>
-    outPort ? s.signals.get(`${id}:${outPort.id}`) : undefined
-  )
   const previewKind: PreviewKind | null =
     !isWave && !isComplexWave && outPort
       ? outPort.dataType === 'frame' ? 'frame'
@@ -329,15 +546,23 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const isCode = d.nodeType === 'Code'
   // The Performance Generator embeds a show-preview player (canvas + transport).
   const isPerfGen = d.nodeType === 'PerformanceGenerator'
+  const signalKey = outPort ? `${id}:${outPort.id}` : null
+
+  useEffect(() => {
+    applyNodeSignal(nodeRef.current, signalKey ? usePreviewStore.getState().signals.get(signalKey) : undefined)
+    if (!signalKey) return
+    return usePreviewStore.subscribe((state) => {
+      applyNodeSignal(nodeRef.current, state.signals.get(signalKey))
+    })
+  }, [signalKey])
 
   return (
     <div
+      ref={nodeRef}
       className={`${styles.node} ${selected ? styles.nodeSelected : ''} ${focusState === 'dim' ? styles.nodeDim : focusState === 'active' ? styles.nodePath : ''}`}
       style={{
         width: isMusicLibrary ? 300 : isCode ? 320 : isPerfGen ? 300 : undefined,
         '--node-accent': accent,
-        '--signal-glow': outputSignal?.glow ?? 'transparent',
-        '--signal-soft-glow': outputSignal?.softGlow ?? 'transparent',
       } as React.CSSProperties}
     >
       <div className={styles.header} style={{ background: accent }}>
@@ -416,7 +641,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}
           {d.nodeType === 'TransitionSet' && <TransitionSetBody nodeId={id} />}
 
-          {d.nodeType === 'MatrixOutput' && <MatrixOutputUpload nodeId={id} enabled={drivenBy('frame')} />}
+          {d.nodeType === 'MatrixOutput' && <MatrixOutputUpload nodeId={id} enabled={sourceMap.has('frame')} />}
         </Suspense>
 
         {isCode && (
@@ -442,167 +667,23 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           </>
         )}
 
-        {(hasRGB || editable.length > 0 || showClamp || isGroupInput || showSetDefault) && (
-          <div className={styles.props}>
-            {isGroupInput && (() => {
-              // Group-input role: tag this input so a Performance Generator show
-              // drives it (energy/speed/palette). Sets `paramId` to the role name
-              // — the same value the evaluator/codegen key off — so no manual
-              // rename is needed. "— input —" is an ordinary (untagged) input.
-              const cur = String(props.paramId ?? '')
-              const role = GROUP_INPUT_ROLES.includes(cur) ? cur : ''
-              return (
-                <div className={styles.propRow} title="Show role this input is driven by">
-                  <span className={styles.propKey}>role</span>
-                  <select
-                    className={`nodrag ${styles.propSelect}`}
-                    value={role}
-                    onChange={(e) => setGroupInputRole(id, e.target.value)}
-                  >
-                    <option value="">— input —</option>
-                    {GROUP_INPUT_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                </div>
-              )
-            })()}
-            {hasRGB && (() => {
-              const wired = drivenBy('color')
-              const live = wired ? liveFor('color') : undefined
-              const swatch = isRGB(live)
-                ? toHex(live.r, live.g, live.b)
-                : toHex(props.r as number, props.g as number, props.b as number)
-              return (
-              <div className={`${styles.propRow}${wired ? ` ${styles.wired}` : ''}`} title={wired ? 'Driven by connection' : undefined}>
-                <span className={styles.propKey}>color</span>
-                <input
-                  className={`nodrag ${styles.colorInput}`}
-                  type="color"
-                  disabled={wired}
-                  value={swatch}
-                  onChange={(e) => updateNodeProperties(id, hexToRgb(e.target.value))}
-                />
-              </div>
-              )
-            })()}
-            {editable.map(([key, val]) => {
-              const meta = propertyMeta(d.nodeType, key)
-              const wired = drivenBy(key)
-              // A property may be inapplicable to the current variant (e.g. a
-              // Transition's `direction` outside wipe): shown but disabled.
-              const gated = !isPropertyEnabled(d.nodeType, key, props)
-              const disabled = wired || gated
-              const live = wired ? liveFor(key) : undefined
-              const forceTextNumber = d.nodeType === 'Math' && (key === 'a' || key === 'b')
-              return (
-              <div
-                key={key}
-                className={`${styles.propRow}${disabled ? ` ${styles.wired}` : ''}`}
-                title={wired ? 'Driven by connection' : gated ? 'Not used by this mode' : undefined}
-              >
-                <span className={styles.propKey} title={key}>{key}</span>
-                {meta?.control === 'select' ? (
-                  <select
-                    className={`nodrag ${styles.propSelect}`}
-                    disabled={disabled}
-                    value={typeof live === 'string' && meta.options.includes(live) ? live : String(val)}
-                    onChange={(e) => updateNodeProperty(id, key, e.target.value)}
-                  >
-                    {meta.options.map((opt) => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </select>
-                ) : meta?.control === 'slider' && typeof val === 'number' ? (
-                  <SliderProperty
-                    label={key}
-                    value={typeof live === 'number' ? live : val}
-                    min={meta.min}
-                    max={meta.max}
-                    step={meta.step}
-                    disabled={disabled}
-                    onChange={(value) => updateNodeProperty(id, key, value)}
-                  />
-                ) : typeof val === 'boolean' ? (
-                  <input
-                    className="nodrag"
-                    type="checkbox"
-                    disabled={disabled}
-                    checked={typeof live === 'boolean' ? live : val}
-                    onChange={(e) => updateNodeProperty(id, key, e.target.checked)}
-                  />
-                ) : typeof val === 'number' && !forceTextNumber ? (
-                  <input
-                    className={`nodrag nowheel ${styles.propInput}`}
-                    type="number"
-                    step="any"
-                    disabled={disabled}
-                    value={typeof live === 'number' ? showNum(live) : val}
-                    onChange={(e) => { const n = Number(e.target.value); updateNodeProperty(id, key, e.target.value === '' || !Number.isFinite(n) ? 0 : n) }}
-                  />
-                ) : typeof val === 'number' && forceTextNumber ? (
-                  <input
-                    className={`nodrag ${styles.propInput}`}
-                    type="text"
-                    inputMode="decimal"
-                    disabled={disabled}
-                    value={typeof live === 'number' ? showNum(live) : val}
-                    onChange={(e) => {
-                      const n = Number(e.target.value)
-                      updateNodeProperty(id, key, e.target.value === '' || !Number.isFinite(n) ? 0 : n)
-                    }}
-                  />
-                ) : typeof val === 'string' && /^#[0-9a-f]{6}$/i.test(val) ? (
-                  <input
-                    className={`nodrag ${styles.colorInput}`}
-                    type="color"
-                    disabled={disabled}
-                    value={isRGB(live) ? toHex(live.r, live.g, live.b) : typeof live === 'string' && /^#[0-9a-f]{6}$/i.test(live) ? live : val}
-                    onChange={(e) => updateNodeProperty(id, key, e.target.value)}
-                  />
-                ) : (
-                  <input
-                    className={`nodrag ${styles.propInput}`}
-                    type="text"
-                    disabled={disabled}
-                    value={wired && live !== undefined ? String(live) : String(val)}
-                    onChange={(e) => updateNodeProperty(id, key, e.target.value)}
-                  />
-                )}
-              </div>
-              )
-            })}
-            {showClamp && (
-              <div
-                className={styles.propRow}
-                title="Clamp wired inputs to each control’s range — like inserting a Clamp node on every connection"
-              >
-                <span className={styles.propKey}>clamp inputs</span>
-                <input
-                  className="nodrag"
-                  type="checkbox"
-                  checked={Boolean(props.clampInputs)}
-                  onChange={(e) => updateNodeProperty(id, 'clampInputs', e.target.checked)}
-                />
-              </div>
-            )}
-            {showSetDefault && (
-              <div
-                className={styles.propRow}
-                title={`Remember these settings as the default for new ${d.label} nodes`}
-              >
-                <span className={styles.propKey}>set default</span>
-                <input
-                  className="nodrag"
-                  type="checkbox"
-                  checked={isCustomDefault}
-                  onChange={(e) => {
-                    if (e.target.checked) useNodeDefaults.getState().setDefault(d.nodeType, rawProps)
-                    else useNodeDefaults.getState().clearDefault(d.nodeType)
-                  }}
-                />
-              </div>
-            )}
-          </div>
-        )}
+        <LivePropertyControls
+          nodeId={id}
+          nodeType={d.nodeType}
+          nodeLabel={d.label}
+          rawProps={rawProps}
+          props={props}
+          sourceMap={sourceMap}
+          editable={editable}
+          hasRGB={hasRGB}
+          isGroupInput={isGroupInput}
+          showClamp={showClamp}
+          showSetDefault={showSetDefault}
+          isCustomDefault={isCustomDefault}
+          updateNodeProperty={updateNodeProperty}
+          updateNodeProperties={updateNodeProperties}
+          setGroupInputRole={setGroupInputRole}
+        />
       </div>
     </div>
   )

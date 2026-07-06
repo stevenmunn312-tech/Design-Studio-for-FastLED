@@ -12,6 +12,15 @@ export interface DecodedAudio {
   durationMs: number
 }
 
+const MIX_CHUNK_SAMPLES = 131_072
+
+function yieldToMainThread(): Promise<void> {
+  if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+    return new Promise((resolve) => window.requestAnimationFrame(() => resolve()))
+  }
+  return new Promise((resolve) => setTimeout(resolve, 0))
+}
+
 /** Decode an audio File to a mono Float32Array at the requested sample rate. */
 export async function decodeToMono(file: File, sampleRate = 44100): Promise<DecodedAudio> {
   const arrayBuffer = await file.arrayBuffer()
@@ -23,13 +32,36 @@ export async function decodeToMono(file: File, sampleRate = 44100): Promise<Deco
     ctx.close()
   }
 
-  const mono = new Float32Array(audioBuffer.length)
-  for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
-    const channel = audioBuffer.getChannelData(ch)
-    for (let i = 0; i < mono.length; i++) mono[i] += channel[i]
+  const { length, numberOfChannels } = audioBuffer
+  if (numberOfChannels === 1) {
+    return {
+      mono: audioBuffer.getChannelData(0).slice(),
+      sampleRate: audioBuffer.sampleRate,
+      durationMs: audioBuffer.duration * 1000,
+    }
   }
-  if (audioBuffer.numberOfChannels > 1) {
-    for (let i = 0; i < mono.length; i++) mono[i] /= audioBuffer.numberOfChannels
+  const mono = new Float32Array(length)
+
+  if (numberOfChannels === 2) {
+    const left = audioBuffer.getChannelData(0)
+    const right = audioBuffer.getChannelData(1)
+    for (let offset = 0; offset < length; offset += MIX_CHUNK_SAMPLES) {
+      const end = Math.min(length, offset + MIX_CHUNK_SAMPLES)
+      for (let i = offset; i < end; i++) mono[i] = (left[i] + right[i]) * 0.5
+      if (end < length) await yieldToMainThread()
+    }
+  } else {
+    const channels = Array.from({ length: numberOfChannels }, (_, i) => audioBuffer.getChannelData(i))
+    const divisor = 1 / numberOfChannels
+    for (let offset = 0; offset < length; offset += MIX_CHUNK_SAMPLES) {
+      const end = Math.min(length, offset + MIX_CHUNK_SAMPLES)
+      for (let i = offset; i < end; i++) {
+        let sum = 0
+        for (const channel of channels) sum += channel[i]
+        mono[i] = sum * divisor
+      }
+      if (end < length) await yieldToMainThread()
+    }
   }
 
   return { mono, sampleRate: audioBuffer.sampleRate, durationMs: audioBuffer.duration * 1000 }

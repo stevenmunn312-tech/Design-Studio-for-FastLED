@@ -6,12 +6,17 @@ const SNAPSHOT_INTERVAL_MS = 250
 export const FRAME_BUDGET_MS = 1000 / 60
 
 export type PerfPhase = 'gap' | 'frame' | 'eval' | 'show' | 'draw' | 'publish'
+export type PerfTask = 'musicDecode' | 'musicAnalyze' | 'musicShow'
 
 export interface PerfMetricSummary {
   latest: number
   avg: number
   p95: number
   max: number
+}
+
+export interface PerfTaskSummary extends PerfMetricSummary {
+  count: number
 }
 
 export interface PerfContext {
@@ -60,7 +65,13 @@ export interface PerfSnapshot {
   lastUpdatedAt: number
   bottleneck: 'eval' | 'show' | 'draw' | 'publish' | 'mixed'
   metrics: Record<PerfPhase, PerfMetricSummary>
+  tasks: Record<PerfTask, PerfTaskSummary>
   longTasks: PerfLongTaskSummary
+  musicAnalysis: {
+    workerRuns: number
+    fallbackRuns: number
+    lastMode: 'none' | 'worker' | 'main-thread'
+  }
   context: PerfContext
 }
 
@@ -93,6 +104,7 @@ const EMPTY_CONTEXT: PerfContext = {
 }
 
 const BOTTLENECK_PHASES: Array<Exclude<PerfPhase, 'gap' | 'frame'>> = ['eval', 'show', 'draw', 'publish']
+const ZERO_TASK: PerfTaskSummary = { ...ZERO_METRIC, count: 0 }
 
 const listeners = new Set<() => void>()
 
@@ -104,6 +116,11 @@ let phaseBuffers: Record<PerfPhase, number[]> = {
   draw: [],
   publish: [],
 }
+let taskBuffers: Record<PerfTask, number[]> = {
+  musicDecode: [],
+  musicAnalyze: [],
+  musicShow: [],
+}
 let sampleCount = 0
 let overBudgetFrames = 0
 let stallFrames = 0
@@ -114,6 +131,9 @@ let longTaskLatestMs = 0
 let longTaskWorstMs = 0
 let lastSnapshotAt = 0
 let observerStarted = false
+let musicWorkerRuns = 0
+let musicFallbackRuns = 0
+let lastMusicMode: PerfSnapshot['musicAnalysis']['lastMode'] = 'none'
 
 function loadVisible(): boolean {
   if (typeof localStorage === 'undefined') return false
@@ -139,12 +159,22 @@ let snapshot: PerfSnapshot = {
     draw: ZERO_METRIC,
     publish: ZERO_METRIC,
   },
+  tasks: {
+    musicDecode: ZERO_TASK,
+    musicAnalyze: ZERO_TASK,
+    musicShow: ZERO_TASK,
+  },
   longTasks: {
     supported: false,
     count: 0,
     totalMs: 0,
     latestMs: 0,
     worstMs: 0,
+  },
+  musicAnalysis: {
+    workerRuns: 0,
+    fallbackRuns: 0,
+    lastMode: 'none',
   },
   context: EMPTY_CONTEXT,
 }
@@ -194,6 +224,12 @@ function pushPhaseValue(phase: PerfPhase, value: number) {
   if (next.length > SAMPLE_WINDOW) next.shift()
 }
 
+function pushTaskValue(task: PerfTask, value: number) {
+  const next = taskBuffers[task]
+  next.push(value)
+  if (next.length > SAMPLE_WINDOW) next.shift()
+}
+
 function detectBottleneck(metrics: Record<PerfPhase, PerfMetricSummary>): PerfSnapshot['bottleneck'] {
   let winner: PerfSnapshot['bottleneck'] = 'mixed'
   let winnerAvg = 0
@@ -221,6 +257,11 @@ function rebuildSnapshot(now: number, context = snapshot.context) {
     draw: summarizePerfMetric(phaseBuffers.draw),
     publish: summarizePerfMetric(phaseBuffers.publish),
   }
+  const tasks = {
+    musicDecode: { ...summarizePerfMetric(taskBuffers.musicDecode), count: taskBuffers.musicDecode.length },
+    musicAnalyze: { ...summarizePerfMetric(taskBuffers.musicAnalyze), count: taskBuffers.musicAnalyze.length },
+    musicShow: { ...summarizePerfMetric(taskBuffers.musicShow), count: taskBuffers.musicShow.length },
+  }
   snapshot = {
     ...snapshot,
     sampleCount,
@@ -229,12 +270,18 @@ function rebuildSnapshot(now: number, context = snapshot.context) {
     lastUpdatedAt: now,
     bottleneck: detectBottleneck(metrics),
     metrics,
+    tasks,
     longTasks: {
       supported: longTaskSupported,
       count: longTaskCount,
       totalMs: round(longTaskTotalMs),
       latestMs: round(longTaskLatestMs),
       worstMs: round(longTaskWorstMs),
+    },
+    musicAnalysis: {
+      workerRuns: musicWorkerRuns,
+      fallbackRuns: musicFallbackRuns,
+      lastMode: lastMusicMode,
     },
     context,
   }
@@ -268,6 +315,21 @@ export function recordLongTask(durationMs: number, now = performance.now()) {
   longTaskLatestMs = durationMs
   longTaskWorstMs = Math.max(longTaskWorstMs, durationMs)
   publishSnapshot(now)
+}
+
+export function recordPerfTask(
+  task: PerfTask,
+  durationMs: number,
+  options?: { mode?: PerfSnapshot['musicAnalysis']['lastMode']; now?: number },
+) {
+  if (!import.meta.env.DEV) return
+  pushTaskValue(task, durationMs)
+  if (task === 'musicAnalyze') {
+    if (options?.mode === 'worker') musicWorkerRuns++
+    if (options?.mode === 'main-thread') musicFallbackRuns++
+    if (options?.mode) lastMusicMode = options.mode
+  }
+  publishSnapshot(options?.now ?? performance.now())
 }
 
 export function ensurePerfObserver() {
@@ -314,6 +376,11 @@ export function resetPerfMonitor() {
     draw: [],
     publish: [],
   }
+  taskBuffers = {
+    musicDecode: [],
+    musicAnalyze: [],
+    musicShow: [],
+  }
   sampleCount = 0
   overBudgetFrames = 0
   stallFrames = 0
@@ -321,6 +388,9 @@ export function resetPerfMonitor() {
   longTaskTotalMs = 0
   longTaskLatestMs = 0
   longTaskWorstMs = 0
+  musicWorkerRuns = 0
+  musicFallbackRuns = 0
+  lastMusicMode = 'none'
   lastSnapshotAt = 0
   publishSnapshot(performance.now(), snapshot.context, true)
 }
