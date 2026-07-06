@@ -6,7 +6,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'MicInput',
     label: 'Microphone',
-    category: 'hardware',
+    category: 'input',
     inputs: [],
     outputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
     // gain/agc/threshold/attack/decay drive the browser preview's adaptive
@@ -34,7 +34,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // opens the Music Library panel (drop MP3s, analyse, export).
     type: 'MusicLibrary',
     label: 'Music Library',
-    category: 'audio',
+    category: 'show',
     inputs: [],
     outputs: [{ id: 'songs', label: 'Songs', dataType: 'songs' }],
     defaultProperties: {},
@@ -92,6 +92,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'SolidColor',
     label: 'Solid Color',
     category: 'pattern',
+    subcategory: 'Shapes & Text',
     inputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { r: 255, g: 0, b: 128 },
@@ -99,8 +100,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     // Paints a horizontal run on one row over an optional base frame.
     type: 'Span',
-    label: 'Span',
+    label: 'Bar',
     category: 'pattern',
+    subcategory: 'Shapes & Text',
     inputs: [
       { id: 'base',  label: 'Base',  dataType: 'frame' },
       { id: 'color', label: 'Color', dataType: 'color' },
@@ -113,6 +115,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Rect',
     label: 'Rect',
     category: 'pattern',
+    subcategory: 'Shapes & Text',
     inputs: [
       { id: 'base',  label: 'Base',  dataType: 'frame' },
       { id: 'color', label: 'Color', dataType: 'color' },
@@ -125,6 +128,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Text',
     label: 'Text',
     category: 'pattern',
+    subcategory: 'Shapes & Text',
     inputs: [
       { id: 'color',  label: 'Color',  dataType: 'color' },
       { id: 'scroll', label: 'Scroll', dataType: 'float' },
@@ -137,6 +141,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Circle',
     label: 'Circle',
     category: 'pattern',
+    subcategory: 'Shapes & Text',
     inputs: [
       { id: 'base',  label: 'Base',  dataType: 'frame' },
       { id: 'color', label: 'Color', dataType: 'color' },
@@ -149,6 +154,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Line',
     label: 'Line',
     category: 'pattern',
+    subcategory: 'Shapes & Text',
     inputs: [
       { id: 'base',  label: 'Base',  dataType: 'frame' },
       { id: 'color', label: 'Color', dataType: 'color' },
@@ -164,6 +170,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Noise',
     label: 'Noise',
     category: 'pattern',
+    subcategory: 'Generative',
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'scale', label: 'Scale', dataType: 'float' },
@@ -176,6 +183,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Fire',
     label: 'Fire',
     category: 'pattern',
+    subcategory: 'Simulations',
     inputs: [{ id: 'intensity', label: 'Intensity', dataType: 'float' }],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { cooling: 55, sparking: 120 },
@@ -184,6 +192,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Fire2012',
     label: 'Fire 2012',
     category: 'pattern',
+    subcategory: 'Simulations',
     inputs: [],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { cooling: 55, sparking: 120 },
@@ -232,6 +241,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Plasma',
     label: 'Plasma',
     category: 'pattern',
+    subcategory: 'Generative',
     inputs: [{ id: 'speed', label: 'Speed', dataType: 'float' }],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { speed: 0.5 },
@@ -241,6 +251,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Rainbow',
     label: 'Rainbow',
     category: 'pattern',
+    subcategory: 'Generative',
     inputs: [{ id: 'speed', label: 'Speed', dataType: 'float' }],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { speed: 0.3, deltaHue: 6 },
@@ -249,6 +260,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'SpectrumBars',
     label: 'Spectrum Bars',
     category: 'pattern',
+    subcategory: 'Audio-Reactive',
     inputs: [
       { id: 'bass', label: 'Bass', dataType: 'float' },
       { id: 'mids', label: 'Mids', dataType: 'float' },
@@ -324,6 +336,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'BassPulse',
     label: 'Bass Pulse',
     category: 'pattern',
+    subcategory: 'Audio-Reactive',
     inputs: [
       { id: 'bass', label: 'Bass', dataType: 'float' },
       { id: 'color', label: 'Color', dataType: 'color' },
@@ -335,6 +348,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'BassRings',
     label: 'Bass Rings',
     category: 'pattern',
+    subcategory: 'Audio-Reactive',
     inputs: [
       { id: 'bass', label: 'Bass', dataType: 'float' },
       { id: 'energy', label: 'Energy', dataType: 'float' },
@@ -348,6 +362,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'MidrangeWaves',
     label: 'Midrange Waves',
     category: 'pattern',
+    subcategory: 'Audio-Reactive',
     inputs: [
       { id: 'mids', label: 'Mids', dataType: 'float' },
       { id: 'energy', label: 'Energy', dataType: 'float' },
@@ -361,6 +376,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'MidrangeBloom',
     label: 'Midrange Bloom',
     category: 'pattern',
+    subcategory: 'Audio-Reactive',
     inputs: [
       { id: 'mids', label: 'Mids', dataType: 'float' },
       { id: 'energy', label: 'Energy', dataType: 'float' },
@@ -374,6 +390,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'TrebleSparks',
     label: 'Treble Sparks',
     category: 'pattern',
+    subcategory: 'Audio-Reactive',
     inputs: [
       { id: 'treble', label: 'Treble', dataType: 'float' },
       { id: 'density', label: 'Density', dataType: 'float' },
@@ -386,6 +403,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'TreblePrism',
     label: 'Treble Prism',
     category: 'pattern',
+    subcategory: 'Audio-Reactive',
     inputs: [
       { id: 'treble', label: 'Treble', dataType: 'float' },
       { id: 'energy', label: 'Energy', dataType: 'float' },
@@ -399,6 +417,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'AudioCascade',
     label: 'Audio Cascade',
     category: 'pattern',
+    subcategory: 'Audio-Reactive',
     inputs: [
       { id: 'bass', label: 'Bass', dataType: 'float' },
       { id: 'mids', label: 'Mids', dataType: 'float' },
@@ -414,6 +433,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'BeatFlash',
     label: 'Beat Flash',
     category: 'pattern',
+    subcategory: 'Audio-Reactive',
     inputs: [
       { id: 'beat', label: 'Beat', dataType: 'bool' },
       { id: 'frame', label: 'Base', dataType: 'frame' },
@@ -427,6 +447,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Noise2D',
     label: 'Noise 2D',
     category: 'pattern',
+    subcategory: 'Generative',
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'scale', label: 'Scale', dataType: 'float' },
@@ -438,6 +459,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'RadialBurst',
     label: 'Radial Burst',
     category: 'pattern',
+    subcategory: 'Generative',
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'color', label: 'Color', dataType: 'color' },
@@ -449,6 +471,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Spiral',
     label: 'Spiral',
     category: 'pattern',
+    subcategory: 'Generative',
     inputs: [{ id: 'speed', label: 'Speed', dataType: 'float' }],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { speed: 0.5, arms: 2 },
@@ -457,6 +480,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Kaleidoscope',
     label: 'Kaleidoscope',
     category: 'pattern',
+    subcategory: 'Generative',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'segments', label: 'Segments', dataType: 'float' },
@@ -471,6 +495,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Particles',
     label: 'Particles',
     category: 'pattern',
+    subcategory: 'Simulations',
     inputs: [
       { id: 'rate', label: 'Rate', dataType: 'float' },
       { id: 'color', label: 'Color', dataType: 'color' },
@@ -490,6 +515,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'GradientFrame',
     label: 'Gradient Frame',
     category: 'pattern',
+    subcategory: 'Shapes & Text',
     inputs: [
       { id: 'colorA', label: 'Color A', dataType: 'color' },
       { id: 'colorB', label: 'Color B', dataType: 'color' },
@@ -501,6 +527,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'GradientSampler',
     label: 'Gradient Sampler',
     category: 'color',
+    subcategory: 'Palettes',
     inputs: [
       { id: 't', label: 'T (0–1)', dataType: 'float' },
       { id: 'colorA', label: 'Color A', dataType: 'color' },
@@ -513,6 +540,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'PaletteSampler',
     label: 'Palette Sampler',
     category: 'color',
+    subcategory: 'Palettes',
     inputs: [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 't', label: 'T (0–1)', dataType: 'float' },
@@ -563,7 +591,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'Sin',
     label: 'Sin',
-    category: 'math',
+    category: 'signal',
     inputs: [{ id: 'x', label: 'X', dataType: 'float' }],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
     defaultProperties: {},
@@ -571,7 +599,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'Cos',
     label: 'Cos',
-    category: 'math',
+    category: 'signal',
     inputs: [{ id: 'x', label: 'X', dataType: 'float' }],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
     defaultProperties: {},
@@ -580,7 +608,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // Waveform oscillator over time: amplitude · wave(frequency·t + phase).
     type: 'Wave',
     label: 'Wave',
-    category: 'math',
+    category: 'signal',
     inputs: [
       { id: 'amplitude', label: 'Amplitude', dataType: 'float' },
       { id: 'frequency', label: 'Frequency', dataType: 'float' },
@@ -593,7 +621,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // Combines two wave (float) signals via a selectable operation.
     type: 'ComplexWave',
     label: 'Complex Wave',
-    category: 'math',
+    category: 'signal',
     inputs: [
       { id: 'a', label: 'Wave A', dataType: 'float' },
       { id: 'b', label: 'Wave B', dataType: 'float' },
@@ -628,7 +656,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // rhythmic trigger; the software analogue of FastLED's EVERY_N_MILLISECONDS).
     type: 'Interval',
     label: 'Interval',
-    category: 'math',
+    category: 'signal',
     inputs: [],
     outputs: [{ id: 'pulse', label: 'Pulse', dataType: 'bool' }],
     defaultProperties: { interval: 0.5 },
@@ -636,7 +664,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'TimeNode',
     label: 'Time',
-    category: 'math',
+    category: 'signal',
     inputs: [],
     outputs: [
       { id: 'time', label: 'Time', dataType: 'float' },
@@ -668,7 +696,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'Random',
     label: 'Random',
-    category: 'math',
+    category: 'signal',
     inputs: [],
     outputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
     defaultProperties: { min: 0, max: 1 },
@@ -676,7 +704,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'Counter',
     label: 'Counter',
-    category: 'math',
+    category: 'signal',
     inputs: [{ id: 'rate', label: 'Rate', dataType: 'float' }],
     outputs: [{ id: 'value', label: 'Value 0–1', dataType: 'float' }],
     defaultProperties: { rate: 0.5 },
@@ -702,7 +730,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   },
   {
     type: 'Compare',
-    label: 'Compare (A > B)',
+    label: 'Compare',
     category: 'math',
     inputs: [
       { id: 'a', label: 'A', dataType: 'float' },
@@ -731,6 +759,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'HSVToRGB',
     label: 'HSV → RGB',
     category: 'color',
+    subcategory: 'Colors',
     inputs: [
       { id: 'h', label: 'H (0–360)', dataType: 'float' },
       { id: 's', label: 'S (0–1)', dataType: 'float' },
@@ -744,6 +773,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Temperature',
     label: 'Color Temperature',
     category: 'color',
+    subcategory: 'Colors',
     inputs: [{ id: 'kelvin', label: 'Kelvin', dataType: 'float' }],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
     defaultProperties: { kelvin: 4000 },
@@ -753,6 +783,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'HeatColor',
     label: 'Heat Color',
     category: 'color',
+    subcategory: 'Colors',
     inputs: [{ id: 'heat', label: 'Heat', dataType: 'float' }],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
     defaultProperties: { heat: 0.5 },
@@ -761,6 +792,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'BlendColors',
     label: 'Blend Colors',
     category: 'color',
+    subcategory: 'Colors',
     inputs: [
       { id: 'a', label: 'A', dataType: 'color' },
       { id: 'b', label: 'B', dataType: 'color' },
@@ -773,6 +805,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'CHSV',
     label: 'CHSV',
     category: 'color',
+    subcategory: 'Colors',
     inputs: [
       { id: 'hue', label: 'Hue (0–255)', dataType: 'float' },
       { id: 'sat', label: 'Sat (0–255)', dataType: 'float' },
@@ -785,6 +818,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'PaletteSelector',
     label: 'Palette Selector',
     category: 'color',
+    subcategory: 'Palettes',
     inputs: [],
     outputs: [{ id: 'palette', label: 'Palette', dataType: 'palette' }],
     defaultProperties: { palette: 'rainbow' },
@@ -794,6 +828,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'CustomPalette',
     label: 'Custom Palette',
     category: 'color',
+    subcategory: 'Palettes',
     inputs: [
       { id: 'color0', label: 'Color 1', dataType: 'color' },
       { id: 'color1', label: 'Color 2', dataType: 'color' },
@@ -808,6 +843,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Poline',
     label: 'Poline Palette',
     category: 'color',
+    subcategory: 'Palettes',
     inputs: [
       { id: 'colorA', label: 'Anchor A', dataType: 'color' },
       { id: 'colorB', label: 'Anchor B', dataType: 'color' },
@@ -820,6 +856,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'PaletteBlend',
     label: 'Blend Palettes',
     category: 'color',
+    subcategory: 'Palettes',
     inputs: [
       { id: 'paletteA', label: 'Palette A', dataType: 'palette' },
       { id: 'paletteB', label: 'Palette B', dataType: 'palette' },
@@ -831,7 +868,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'BeatSin',
     label: 'BeatSin',
-    category: 'math',
+    category: 'signal',
     inputs: [],
     outputs: [{ id: 'value', label: 'Value (0–255)', dataType: 'float' }],
     defaultProperties: { bpm: 60, low: 0, high: 255 },
@@ -855,6 +892,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'FractalNoise',
     label: 'Fractal Noise',
     category: 'pattern',
+    subcategory: 'Generative',
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'scale', label: 'Scale', dataType: 'float' },
@@ -868,6 +906,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'GaborNoise',
     label: 'Gabor Noise',
     category: 'pattern',
+    subcategory: 'Generative',
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'scale', label: 'Scale', dataType: 'float' },
@@ -882,6 +921,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'PaletteGradient',
     label: 'Palette Gradient',
     category: 'pattern',
+    subcategory: 'Shapes & Text',
     inputs: [
       { id: 'speed', label: 'Scroll', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
@@ -894,6 +934,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Image',
     label: 'Image',
     category: 'pattern',
+    subcategory: 'Shapes & Text',
     inputs: [],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {},
@@ -903,6 +944,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Blobs',
     label: 'Blobs',
     category: 'pattern',
+    subcategory: 'Generative',
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'scale', label: 'Size', dataType: 'float' },
@@ -916,6 +958,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'FlowField',
     label: 'Flow Field',
     category: 'pattern',
+    subcategory: 'Simulations',
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'scale', label: 'Scale', dataType: 'float' },
@@ -929,6 +972,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Starfield',
     label: 'Starfield',
     category: 'pattern',
+    subcategory: 'Simulations',
     inputs: [
       { id: 'color', label: 'Color', dataType: 'color' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
@@ -941,6 +985,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'AudioFlow',
     label: 'Audio Flow',
     category: 'pattern',
+    subcategory: 'Audio-Reactive',
     inputs: [
       { id: 'bass', label: 'Bass', dataType: 'float' },
       { id: 'mids', label: 'Mids', dataType: 'float' },
@@ -957,6 +1002,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'ReactionDiffusion',
     label: 'Reaction Diffusion',
     category: 'pattern',
+    subcategory: 'Simulations',
     inputs: [
       { id: 'feed', label: 'Feed', dataType: 'float' },
       { id: 'kill', label: 'Kill', dataType: 'float' },
@@ -970,6 +1016,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'GameOfLife',
     label: 'Game of Life',
     category: 'pattern',
+    subcategory: 'Simulations',
     inputs: [
       { id: 'color', label: 'Color', dataType: 'color' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
@@ -987,7 +1034,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // See the `Transition` case in graphEvaluator/cppGenerator.
     type: 'Transition',
     label: 'Transition',
-    category: 'composite',
+    category: 'show',
     inputs: [
       { id: 'a', label: 'From', dataType: 'frame' },
       { id: 'b', label: 'To', dataType: 'frame' },
@@ -1007,8 +1054,8 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // the chosen pool) into another. A wired `beat` advances early (after
     // minTime). See docs/development/design/generative-pattern-show.md.
     type: 'PatternMaster',
-    label: 'Pattern Master',
-    category: 'pattern',
+    label: 'Show Engine',
+    category: 'show',
     inputs: [
       { id: 'patternset',  label: 'Patterns',    dataType: 'patternset' },
       { id: 'transitions', label: 'Transitions', dataType: 'transitionset' },
@@ -1026,7 +1073,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // Timeline-as-a-node: cycles its inputs with a timed crossfade.
     type: 'Sequencer',
     label: 'Sequencer',
-    category: 'composite',
+    category: 'show',
     inputs: [
       { id: 'p0', label: 'Pattern 1', dataType: 'frame' },
       { id: 'p1', label: 'Pattern 2', dataType: 'frame' },
@@ -1045,7 +1092,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // See docs/development/design/generative-pattern-show.md.
     type: 'PatternCollection',
     label: 'Pattern Collection',
-    category: 'composite',
+    category: 'show',
     inputs: [{ id: 'pattern', label: 'Pattern', dataType: 'frame' }],
     outputs: [{ id: 'patternset', label: 'Patterns', dataType: 'patternset' }],
     defaultProperties: { patternIds: [], patternSections: {} },
@@ -1057,7 +1104,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // rule-based crossfade/wipe/dissolve picks instead of only ever using those three.
     type: 'TransitionSet',
     label: 'Transitions',
-    category: 'composite',
+    category: 'show',
     inputs: [],
     outputs: [{ id: 'transitions', label: 'Transitions', dataType: 'transitionset' }],
     defaultProperties: { transitions: [] },
@@ -1068,6 +1115,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'CustomFormula',
     label: 'Custom Formula',
     category: 'pattern',
+    subcategory: 'Code',
     inputs: [
       { id: 'a', label: 'A', dataType: 'float' },
       { id: 'b', label: 'B', dataType: 'float' },
@@ -1083,6 +1131,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Code',
     label: 'Code',
     category: 'pattern',
+    subcategory: 'Code',
     inputs: [
       // Optional: seed leds[] from an upstream frame (e.g. to fadeToBlackBy it).
       { id: 'frame', label: 'Frame', dataType: 'frame' },
@@ -1111,7 +1160,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'FieldFormula',
     label: 'Field Formula',
-    category: 'pattern',
+    category: 'field',
     inputs: [
       { id: 'a', label: 'A', dataType: 'float' },
       { id: 'b', label: 'B', dataType: 'float' },
@@ -1123,7 +1172,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'FieldToFrame',
     label: 'Field → Frame',
-    category: 'pattern',
+    category: 'field',
     inputs: [
       { id: 'field', label: 'Field', dataType: 'field' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
@@ -1135,7 +1184,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'DistanceField',
     label: 'Distance Field',
-    category: 'pattern',
+    category: 'field',
     inputs: [
       { id: 'px', label: 'X', dataType: 'float' },
       { id: 'py', label: 'Y', dataType: 'float' },
@@ -1146,7 +1195,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'FieldMath',
     label: 'Field Math',
-    category: 'pattern',
+    category: 'field',
     inputs: [
       { id: 'a', label: 'A', dataType: 'field' },
       { id: 'b', label: 'B', dataType: 'field' },
@@ -1157,7 +1206,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'FieldWarp',
     label: 'Field Warp',
-    category: 'composite',
+    category: 'field',
     inputs: [
       { id: 'field', label: 'Field', dataType: 'field' },
       { id: 'dx', label: 'dX', dataType: 'field' },
@@ -1170,7 +1219,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'FieldRotate',
     label: 'Field Rotate',
-    category: 'composite',
+    category: 'field',
     inputs: [
       { id: 'field', label: 'Field', dataType: 'field' },
       { id: 'angle', label: 'Angle', dataType: 'float' },
@@ -1181,7 +1230,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'FieldTile',
     label: 'Field Tile',
-    category: 'composite',
+    category: 'field',
     inputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
     defaultProperties: { tilesX: 2, tilesY: 2 },
@@ -1224,7 +1273,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'ButtonInput',
     label: 'Button',
-    category: 'hardware',
+    category: 'input',
     inputs: [],
     outputs: [{ id: 'pressed', label: 'Pressed', dataType: 'bool' }],
     defaultProperties: { pin: 0, pullup: true },
@@ -1232,7 +1281,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'PotInput',
     label: 'Potentiometer',
-    category: 'hardware',
+    category: 'input',
     inputs: [],
     outputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
     defaultProperties: { pin: 34 },
@@ -1242,7 +1291,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     type: 'PerformanceGenerator',
     label: 'Performance Generator',
-    category: 'hardware',
+    category: 'show',
     inputs: [
       { id: 'songs', label: 'Songs', dataType: 'songs' },
       { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
@@ -1269,7 +1318,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // write-songs-to-SD-then-flash upload flow.
     type: 'SDCard',
     label: 'SD Card',
-    category: 'hardware',
+    category: 'show',
     inputs: [{ id: 'shows', label: 'Shows', dataType: 'shows' }],
     outputs: [{ id: 'sdcard', label: 'SD Card', dataType: 'sdcard' }],
     defaultProperties: {
@@ -1399,8 +1448,8 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Invert: 'Inverts colors.',
   Transition: 'Transitions A→B — 16 styles: wipe, iris, push, blinds, spiral, zoom + more.',
   Sequencer: 'Crossfades through its inputs on a timer.',
-  PatternCollection: 'Absorbs pattern groups into a set for the Pattern Master.',
-  TransitionSet: 'A pool of extra transition styles for the Performance Generator to draw from.',
+  PatternCollection: 'Absorbs pattern groups into a set for the Show Engine.',
+  TransitionSet: 'A pool of transition styles for the Show Engine / Performance Generator.',
   // output
   MatrixOutput: 'The LED matrix output — board, pin, and size.',
 }
@@ -1409,17 +1458,60 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
 // `color` is the literal hex used in canvas/SVG contexts (minimap, edges); the
 // CSS var is used wherever theming should apply.
 // Order here drives the sidebar grouping order, following the authoring
-// pipeline: analysis/audio → hardware/control → value transforms → color →
-// frames → compositing → output.
+// pipeline: live inputs → audio analysis → control signals → value transforms
+// → color → frame generators → fields → frame effects → the show pipeline →
+// output. (`composite` keeps its historical id but displays as "Effects".)
 export const CATEGORIES = [
-  { id: 'audio',     label: 'Audio',      accentVar: '--accent-audio',     color: '#00ffff' },
-  { id: 'hardware',  label: 'Hardware',   accentVar: '--accent-hardware',  color: '#ffa500' },
-  { id: 'math',      label: 'Math',       accentVar: '--accent-math',      color: '#a8ff00' },
-  { id: 'color',     label: 'Color',      accentVar: '--accent-color',     color: '#ff4d8d' },
-  { id: 'pattern',   label: 'Pattern',    accentVar: '--accent-pattern',   color: '#ff00ff' },
-  { id: 'composite', label: 'Composite',  accentVar: '--accent-composite', color: '#00e0a4' },
-  { id: 'output',    label: 'Output',     accentVar: '--accent-output',    color: '#00bfff' },
+  { id: 'input',     label: 'Inputs',       accentVar: '--accent-input',     color: '#ffa500' },
+  { id: 'audio',     label: 'Audio',        accentVar: '--accent-audio',     color: '#00ffff' },
+  { id: 'signal',    label: 'Signals',      accentVar: '--accent-signal',    color: '#b388ff' },
+  { id: 'math',      label: 'Math & Logic', accentVar: '--accent-math',      color: '#a8ff00' },
+  { id: 'color',     label: 'Color',        accentVar: '--accent-color',     color: '#ff4d8d' },
+  { id: 'pattern',   label: 'Patterns',     accentVar: '--accent-pattern',   color: '#ff00ff' },
+  { id: 'field',     label: 'Fields',       accentVar: '--accent-field',     color: '#f5c542' },
+  { id: 'composite', label: 'Effects',      accentVar: '--accent-composite', color: '#00e0a4' },
+  { id: 'show',      label: 'Show',         accentVar: '--accent-show',      color: '#ff5a3c' },
+  { id: 'output',    label: 'Output',       accentVar: '--accent-output',    color: '#00bfff' },
 ] as const
+
+// Ordered sub-headings shown inside a category's sidebar section. A category
+// without an entry renders flat. Every node in a listed category should carry
+// a `subcategory` matching one of these labels.
+export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
+  color:   ['Colors', 'Palettes'],
+  pattern: ['Shapes & Text', 'Generative', 'Simulations', 'Audio-Reactive', 'Code'],
+}
+
+// Explicit workflow ordering for categories where the pipeline sequence
+// matters more than the library's declaration order (fields compose toward
+// Field → Frame; the show category reads top-to-bottom like the show flow).
+const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
+  signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin'],
+  field:  ['FieldFormula', 'DistanceField', 'FieldMath', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldToFrame'],
+  show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'PatternMaster', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
+}
+
+/**
+ * The nodes of one category in sidebar display order: grouped by subcategory
+ * (per SUBCATEGORY_ORDER), then by CATEGORY_NODE_ORDER where defined, else by
+ * library declaration order.
+ */
+export function categoryNodes(categoryId: string): NodeDefinition[] {
+  const nodes = NODE_LIBRARY.filter((n) => n.category === categoryId)
+  const subs = SUBCATEGORY_ORDER[categoryId]
+  const explicit = CATEGORY_NODE_ORDER[categoryId]
+  if (!subs && !explicit) return nodes
+  const subIndex = (n: NodeDefinition) => {
+    const i = subs?.indexOf(n.subcategory ?? '') ?? -1
+    return i === -1 ? subs?.length ?? 0 : i
+  }
+  const nodeIndex = (n: NodeDefinition) => {
+    const i = explicit?.indexOf(n.type) ?? -1
+    return i === -1 ? explicit?.length ?? 0 : i
+  }
+  // Array.sort is stable, so untouched ties keep library order.
+  return [...nodes].sort((a, b) => subIndex(a) - subIndex(b) || nodeIndex(a) - nodeIndex(b))
+}
 
 /** id → literal hex (canvas/SVG: minimap nodes, edge strokes). */
 export const CATEGORY_COLOR: Record<string, string> =

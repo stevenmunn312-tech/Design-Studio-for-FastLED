@@ -200,17 +200,20 @@ These nodes have no `frame`/`palette`/`color` output, so they don't participate 
 
 All colors, spacing, and typography are CSS variables in `src/themes/tokens.css`. Each node category maps to an accent color. Category metadata (display order, label, accent CSS var, and literal hex for canvas/SVG) lives in one place — the `CATEGORIES` table in `src/state/nodeLibrary.ts`, which also exports `CATEGORY_COLOR` (hex) and `CATEGORY_ACCENT_VAR` (CSS var). Do not re-inline these maps in components.
 
-| Category | Hex | CSS var |
-|----------|-----|---------|
-| audio | `#00ffff` | `--accent-audio` |
-| hardware | `#ffa500` | `--accent-hardware` |
-| math | `#a8ff00` | `--accent-math` |
-| color | `#ff4d8d` | `--accent-color` |
-| pattern | `#ff00ff` | `--accent-pattern` |
-| composite | `#00e0a4` | `--accent-composite` |
-| output | `#00bfff` | `--accent-output` |
+| Category id | Label | Hex | CSS var |
+|-------------|-------|-----|---------|
+| input | Inputs | `#ffa500` | `--accent-input` |
+| audio | Audio | `#00ffff` | `--accent-audio` |
+| signal | Signals | `#b388ff` | `--accent-signal` |
+| math | Math & Logic | `#a8ff00` | `--accent-math` |
+| color | Color | `#ff4d8d` | `--accent-color` |
+| pattern | Patterns | `#ff00ff` | `--accent-pattern` |
+| field | Fields | `#f5c542` | `--accent-field` |
+| composite | Effects | `#00e0a4` | `--accent-composite` |
+| show | Show | `#ff5a3c` | `--accent-show` |
+| output | Output | `#00bfff` | `--accent-output` |
 
-Categories group nodes by **primary output type** (the real type system is the per-port `dataType`, of which category is a coarse, UI-facing reflection): `color` produces colors/palettes, `pattern` is frame *generators*, `composite` is frame→frame operations. Sidebar grouping order follows the authoring pipeline and `CATEGORIES` order (audio → hardware → math → color → pattern → composite → output); `audio` holds MusicLibrary and the analysis/reactive nodes; `hardware` holds MicInput and the physical control/SD-card nodes.
+Categories group nodes by **the job the user is doing** (the real type system is still the per-port `dataType`): `input` is live device IO, `signal` produces time-varying control values, `math` transforms them, `pattern` is frame *generators*, `field` is the whole scalar-field pipeline, `composite` (displayed **"Effects"** — it keeps its historical id) is frame→frame operations, and `show` is the entire show workflow (Library → Collection → Show Engine, plus the music-sync export chain). Sidebar grouping order follows the authoring pipeline and `CATEGORIES` order (input → audio → signal → math → color → pattern → field → composite/Effects → show → output). The `color` and `pattern` sections render **subcategory sub-headings** (a `subcategory` field on the node definition, ordered by `SUBCATEGORY_ORDER`); `categoryNodes(id)` in `nodeLibrary.ts` returns a category's nodes in display order (subcategory groups, then `CATEGORY_NODE_ORDER` workflow order for signal/field/show, else declaration order) — the Sidebar renders from it. `migrateLegacyGraph` refreshes each saved node's `category` and `label` from the library on load, so old saves pick up moves/renames automatically (`hardware` remains in the `NodeCategory` union as an accepted-on-load legacy id).
 
 Key layout constants: sidebar `280px`, inspector `280px`, menu bar `48px`, status bar `40px`, node `220px × 140px`, base spacing `8px`.
 
@@ -223,12 +226,16 @@ Nodes are grouped into categories. Adding a new node type requires:
 4. A one-line tooltip in `NODE_DESCRIPTIONS` (`nodeLibrary.ts`) — enforced by `nodeLibrary.test.ts`
 
 Current nodes by category (see `nodeLibrary.ts` for the authoritative list):
-- **audio** (analysis & reactive sources): MusicLibrary, FFTAnalyzer, BeatDetect, PercussionDetect, AudioFeatures, AudioHue
-- **hardware** (physical I/O & export): MicInput, ButtonInput, PotInput, PerformanceGenerator, SDCard (PerformanceGenerator and SDCard are the music-sync export chain — see *Music-Sync Show Pipeline*)
-- **math**: Math, Clamp, MapRange, Sin, Cos, Wave, ComplexWave, Lerp, Ease, Interval, TimeNode, Abs, Mod, Random, Counter, Gate, Not, Compare, BeatSin, XYMapper
-- **color**: HSVToRGB, BlendColors, CHSV, Temperature, HeatColor, GradientSampler, PaletteSampler, PaletteSelector, CustomPalette, Poline, PaletteBlend
-- **pattern** (frame generators): SolidColor, Span, Rect, Circle, Line, Text, Noise, Fire, Fire2012, Plasma, Rainbow, SpectrumBars, BassPulse, BassRings, MidrangeWaves, MidrangeBloom, TrebleSparks, TreblePrism, AudioCascade, BeatFlash, Noise2D, RadialBurst, Spiral, Kaleidoscope, Particles, GradientFrame, FractalNoise, GaborNoise, PaletteGradient, Image, Blobs, FlowField, Starfield, AudioFlow, ReactionDiffusion, GameOfLife, PatternMaster, CustomFormula, Code, FieldFormula, FieldToFrame, DistanceField, FieldMath
-- **composite** (frame→frame): Blend, BrightnessMod, HueShift, Gamma, Transform, Invert, Blur2D, Mask, Fade, Transition, Sequencer, PatternCollection, FieldWarp, FieldRotate, FieldTile
+- **input** (live device IO): MicInput, ButtonInput, PotInput
+- **audio** (analysis): FFTAnalyzer, BeatDetect, PercussionDetect, AudioFeatures, AudioHue
+- **signal** (time-varying control sources): TimeNode, Interval, Counter, Random, Sin, Cos, Wave, ComplexWave, BeatSin
+- **math** (value transforms, label "Math & Logic"): Math, Clamp, MapRange, Lerp, Ease, Abs, Mod, Compare, Not, Gate, XYMapper
+- **color** (subcategories *Colors* / *Palettes*): HSVToRGB, CHSV, Temperature, HeatColor, BlendColors / GradientSampler, PaletteSampler, PaletteSelector, CustomPalette, Poline, PaletteBlend
+- **pattern** (frame generators, five subcategories): *Shapes & Text*: SolidColor, Span (label "Bar"), Rect, Circle, Line, Text, Image, GradientFrame, PaletteGradient · *Generative*: Noise, Noise2D, FractalNoise, GaborNoise, Plasma, Rainbow, Blobs, RadialBurst, Spiral, Kaleidoscope · *Simulations*: Fire, Fire2012, Particles, FlowField, Starfield, ReactionDiffusion, GameOfLife · *Audio-Reactive*: SpectrumBars, BassPulse, BassRings, MidrangeWaves, MidrangeBloom, TrebleSparks, TreblePrism, AudioCascade, BeatFlash, AudioFlow · *Code*: CustomFormula, Code
+- **field** (the scalar-field pipeline, in workflow order): FieldFormula, DistanceField, FieldMath, FieldWarp, FieldRotate, FieldTile, FieldToFrame
+- **composite** (frame→frame, label "Effects"): Blend, BrightnessMod, HueShift, Gamma, Transform, Invert, Blur2D, Mask, Fade
+- **show** (the show workflow, in pipeline order): MusicLibrary, PatternCollection, TransitionSet, PatternMaster (label **"Show Engine"**), Sequencer, Transition, PerformanceGenerator, SDCard (PerformanceGenerator and SDCard are the music-sync export chain — see *Music-Sync Show Pipeline*)
+- **output**: MatrixOutput
 
 ### Bundled nodes
 
@@ -243,7 +250,6 @@ Several former node types are collapsed into one **bundled** node, selected by a
 - **`Ease`** — `easeType` (`inOutCubic`/`inOutQuad`/`triwave`/`quadwave`/`cubicwave`); maps a 0–1 value through a FastLED lib8tion easing/wave curve. The evaluator's `applyEase` and the codegen (`ease8InOutCubic`/`ease8InOutQuad`/`triwave8`/`quadwave8`/`cubicwave8`, `/255.0f`) stay in lockstep; options are limited to the curves with an exact firmware counterpart so preview matches on-device.
 
 Mechanics: each variant set lives in `PROPERTY_META` (the inline dropdown); the evaluator and C++ generator dispatch on the variant property in their single `case`; `graphStore.loadGraph` (via `migrateLegacyGraph`/`LEGACY_BUNDLE`) migrates the legacy node types — and any renamed edge handles — on import. `nodeDisplayLabel()` makes the node header reflect the selected variant, and `isPropertyEnabled()` disables an inline editor that doesn't apply to the current variant (e.g. Transition `direction`) while still showing its value. Bundling is **by identical port signature** — properties may differ between variants (Blend is the one exception, unifying two near-identical nodes whose mix-port id/scale differed).
-- **output**: MatrixOutput
 
 Some node types are created programmatically rather than dragged from the sidebar (so they have no `NODE_LIBRARY` entry): `Group` and `GroupOutput`/`GroupInput` are minted by `graphStore.createGroup` (see the multi-graph/group section above).
 

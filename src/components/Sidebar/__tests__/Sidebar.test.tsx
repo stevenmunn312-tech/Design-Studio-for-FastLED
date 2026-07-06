@@ -8,7 +8,9 @@ import { useUiStore } from '../../../state/uiStore'
 describe('Sidebar equipment rack', () => {
   beforeEach(() => {
     localStorage.removeItem('fastled-studio-recent-nodes')
-    localStorage.removeItem('fastled-studio-sidebar-expanded')
+    // Only the first category (Inputs) opens by default — these tests poke
+    // FFT Analyzer, so start with the Audio section expanded.
+    localStorage.setItem('fastled-studio-sidebar-expanded', JSON.stringify(['audio']))
     useGraphStore.setState({ nodes: [], edges: [], selectedNodeId: null })
     usePatternLibrary.setState({ patterns: [] })
     useUiStore.setState({ viewCenter: { x: 200, y: 180 }, draggingNodeType: null })

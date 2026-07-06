@@ -23,7 +23,7 @@ const CMD_META: Record<ShowCommand, { label: string; color: string }> = {
   SET_PALETTE:    { label: 'Palette',    color: 'var(--accent-color)' },
   SET_SPEED:      { label: 'Speed',      color: 'var(--accent-math)' },
   SET_BRIGHTNESS: { label: 'Brightness', color: 'var(--accent-output)' },
-  SET_ENERGY:     { label: 'Energy',     color: 'var(--accent-hardware)' },
+  SET_ENERGY:     { label: 'Energy',     color: 'var(--accent-show)' },
   BEAT_FLASH:     { label: 'Flash',      color: 'var(--accent-audio)' },
   PARTICLE_BURST: { label: 'Particles',  color: 'var(--accent-pattern)' },
   TRANSITION:     { label: 'Transition', color: 'var(--accent-composite)' },

@@ -20,7 +20,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[]): Validat
 
   const master = nodes.find(n => n.data.nodeType === 'PatternMaster')
   if (master && !incoming.has(`${master.id}:patternset`)) {
-    warnings.push('Pattern Master has no Pattern Collection wired')
+    warnings.push('Show Engine has no Pattern Collection wired')
   }
 
   // Music-sync generator: a wired Pattern Collection needs a song source to

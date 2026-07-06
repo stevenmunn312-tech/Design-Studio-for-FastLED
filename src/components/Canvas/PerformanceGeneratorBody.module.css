@@ -41,19 +41,19 @@
 }
 
 .songOn {
-  background: color-mix(in srgb, var(--accent-hardware) 14%, var(--bg-primary));
+  background: color-mix(in srgb, var(--accent-show) 14%, var(--bg-primary));
   color: var(--text-primary);
   font-weight: 600;
-  border-color: var(--accent-hardware);
-  box-shadow: inset 3px 0 0 var(--accent-hardware);
+  border-color: var(--accent-show);
+  box-shadow: inset 3px 0 0 var(--accent-show);
 }
 
 .song:hover,
-.songOn:hover { border-color: var(--accent-hardware); }
+.songOn:hover { border-color: var(--accent-show); }
 
 .song:focus-visible,
 .songOn:focus-visible {
-  outline: 2px solid var(--accent-hardware);
+  outline: 2px solid var(--accent-show);
   outline-offset: 2px;
 }
 
@@ -78,10 +78,10 @@
   text-align: center;
   font-size: var(--fs-caption);
   font-family: var(--font-body);
-  color: var(--accent-hardware);
-  border: 1px dashed var(--accent-hardware);
+  color: var(--accent-show);
+  border: 1px dashed var(--accent-show);
   border-radius: 6px;
-  background: color-mix(in srgb, var(--accent-hardware) 8%, var(--bg-primary));
+  background: color-mix(in srgb, var(--accent-show) 8%, var(--bg-primary));
 }
 
 .transportNote {
@@ -122,9 +122,9 @@
 }
 
 .section {
-  background: var(--accent-hardware);
+  background: var(--accent-show);
   color: #000;
-  border-color: var(--accent-hardware);
+  border-color: var(--accent-show);
 }
 
 .section b { color: #000; }
@@ -160,11 +160,11 @@
   cursor: pointer;
 }
 
-.tab:hover { border-color: var(--accent-hardware); color: var(--accent-hardware); }
+.tab:hover { border-color: var(--accent-show); color: var(--accent-show); }
 
 .tabOn {
-  background: color-mix(in srgb, var(--accent-hardware) 16%, var(--bg-primary));
-  border-color: var(--accent-hardware);
+  background: color-mix(in srgb, var(--accent-show) 16%, var(--bg-primary));
+  border-color: var(--accent-show);
   color: var(--text-primary);
   font-weight: 600;
 }
@@ -176,9 +176,9 @@
   letter-spacing: 0.05em;
   text-transform: uppercase;
   border-radius: 9px;
-  background: color-mix(in srgb, var(--accent-hardware) 22%, var(--bg-primary));
-  color: var(--accent-hardware);
-  border: 1px solid var(--accent-hardware);
+  background: color-mix(in srgb, var(--accent-show) 22%, var(--bg-primary));
+  color: var(--accent-show);
+  border: 1px solid var(--accent-show);
 }
 
 .revert {
@@ -195,13 +195,13 @@
 .revert:hover { border-color: var(--error); color: var(--error); }
 
 .editedDot {
-  color: var(--accent-hardware);
+  color: var(--accent-show);
   font-size: 10px;
 }
 
 .tab:focus-visible,
 .tabOn:focus-visible,
 .revert:focus-visible {
-  outline: 2px solid var(--accent-hardware);
+  outline: 2px solid var(--accent-show);
   outline-offset: 2px;
 }

@@ -23,7 +23,7 @@ const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
   CATEGORIES.map((category) => [category.id, category.label]),
 )
 
-const CATEGORY_ORDER: NodeCategory[] = ['audio', 'hardware', 'math', 'color', 'pattern', 'composite', 'output', 'input']
+const CATEGORY_ORDER: NodeCategory[] = ['input', 'audio', 'signal', 'math', 'color', 'pattern', 'field', 'composite', 'show', 'output']
 
 const HIDDEN_PROPERTIES = new Set(['patternIds', 'patternSections'])
 
@@ -175,30 +175,30 @@ function makeNode(id: string, label: string, category: NodeCategory, highlight =
 
 function sourceNodeForType(dataType: string, nodeType: string, index: number): ExampleNode {
   const presets: Record<string, { label: string; category: NodeCategory }> = {
-    audio: { label: 'Microphone', category: 'hardware' },
+    audio: { label: 'Microphone', category: 'input' },
     bool: { label: 'Beat Detect', category: 'audio' },
     color: { label: 'CHSV', category: 'color' },
-    field: { label: 'Distance Field', category: 'pattern' },
-    float: { label: 'Wave', category: 'math' },
+    field: { label: 'Distance Field', category: 'field' },
+    float: { label: 'Wave', category: 'signal' },
     frame: { label: 'Noise', category: 'pattern' },
     palette: { label: 'Palette Selector', category: 'color' },
-    patternset: { label: 'Pattern Collection', category: 'composite' },
-    shows: { label: 'Performance Generator', category: 'hardware' },
-    songs: { label: 'Music Library', category: 'audio' },
-    transitionset: { label: 'Transitions', category: 'composite' },
+    patternset: { label: 'Pattern Collection', category: 'show' },
+    shows: { label: 'Performance Generator', category: 'show' },
+    songs: { label: 'Music Library', category: 'show' },
+    transitionset: { label: 'Transitions', category: 'show' },
   }
   const fallbackPresets: Record<string, { label: string; category: NodeCategory }> = {
     audio: { label: 'FFT Analyzer', category: 'audio' },
-    bool: { label: 'Interval', category: 'math' },
+    bool: { label: 'Interval', category: 'signal' },
     color: { label: 'Blend Colors', category: 'color' },
-    field: { label: 'Field Formula', category: 'pattern' },
-    float: { label: 'Counter', category: 'math' },
+    field: { label: 'Field Formula', category: 'field' },
+    float: { label: 'Counter', category: 'signal' },
     frame: { label: 'Gradient Frame', category: 'pattern' },
     palette: { label: 'Custom Palette', category: 'color' },
-    patternset: { label: 'Pattern Master', category: 'pattern' },
-    shows: { label: 'SD Card', category: 'hardware' },
-    songs: { label: 'Performance Generator', category: 'hardware' },
-    transitionset: { label: 'Performance Generator', category: 'hardware' },
+    patternset: { label: 'Show Engine', category: 'show' },
+    shows: { label: 'SD Card', category: 'show' },
+    songs: { label: 'Performance Generator', category: 'show' },
+    transitionset: { label: 'Performance Generator', category: 'show' },
   }
   const preset = presets[dataType] ?? { label: 'Value Source', category: 'math' as NodeCategory }
   const fallback = fallbackPresets[dataType] ?? preset
@@ -352,8 +352,8 @@ function buildSongsRecipe(node: NodeDefinition): ExampleRecipe {
   return {
     columns: [
       [makeNode('target', node.label, node.category, true)],
-      [makeNode('perf', 'Performance Generator', 'hardware')],
-      [makeNode('sd', 'SD Card', 'hardware')],
+      [makeNode('perf', 'Performance Generator', 'show')],
+      [makeNode('sd', 'SD Card', 'show')],
       [makeNode('sink', 'Matrix Output', 'output')],
     ],
     edges: [
@@ -372,7 +372,7 @@ function buildShowsRecipe(node: NodeDefinition): ExampleRecipe {
     columns: [
       sources.length > 0 ? sources : [makeNode('source-fallback', 'Music Library', 'audio')],
       [makeNode('target', node.label, node.category, true)],
-      [makeNode('sd', 'SD Card', 'hardware')],
+      [makeNode('sd', 'SD Card', 'show')],
       [makeNode('sink', 'Matrix Output', 'output')],
     ],
     edges: [
@@ -391,7 +391,7 @@ function buildPatternSetRecipe(node: NodeDefinition): ExampleRecipe {
     columns: [
       sources.length > 0 ? sources : [makeNode('group', 'Group Pattern', 'pattern')],
       [makeNode('target', node.label, node.category, true)],
-      [makeNode('master', 'Pattern Master', 'pattern')],
+      [makeNode('master', 'Show Engine', 'show')],
       [makeNode('sink', 'Matrix Output', 'output')],
     ],
     edges: [
@@ -399,7 +399,7 @@ function buildPatternSetRecipe(node: NodeDefinition): ExampleRecipe {
       { from: 'target', to: 'master' },
       { from: 'master', to: 'sink' },
     ],
-    explanation: `${node.label} gathers reusable patterns. Pattern Master then performs the show from that collection.`,
+    explanation: `${node.label} gathers reusable patterns. The Show Engine then performs the show from that collection.`,
     result: 'A reusable pattern set for the generative show engine.',
   }
 }
@@ -408,8 +408,8 @@ function buildTransitionSetRecipe(node: NodeDefinition): ExampleRecipe {
   return {
     columns: [
       [makeNode('target', node.label, node.category, true)],
-      [makeNode('perf', 'Performance Generator', 'hardware')],
-      [makeNode('sd', 'SD Card', 'hardware')],
+      [makeNode('perf', 'Performance Generator', 'show')],
+      [makeNode('sd', 'SD Card', 'show')],
       [makeNode('sink', 'Matrix Output', 'output')],
     ],
     edges: [
@@ -425,7 +425,7 @@ function buildTransitionSetRecipe(node: NodeDefinition): ExampleRecipe {
 function buildSDCardRecipe(node: NodeDefinition): ExampleRecipe {
   return {
     columns: [
-      [makeNode('shows', 'Performance Generator', 'hardware')],
+      [makeNode('shows', 'Performance Generator', 'show')],
       [makeNode('target', node.label, node.category, true)],
       [makeNode('sink', 'Matrix Output', 'output')],
     ],
@@ -460,9 +460,9 @@ function buildSpecialRecipe(node: NodeDefinition): ExampleRecipe | null {
     case 'PerformanceGenerator':
       return {
         columns: [
-          [makeNode('songs', 'Music Library', 'audio'), makeNode('patterns', 'Pattern Collection', 'composite'), makeNode('transitions', 'Transitions', 'composite')],
+          [makeNode('songs', 'Music Library', 'show'), makeNode('patterns', 'Pattern Collection', 'show'), makeNode('transitions', 'Transitions', 'show')],
           [makeNode('target', node.label, node.category, true)],
-          [makeNode('sd', 'SD Card', 'hardware'), makeNode('preview', 'Matrix Output', 'output')],
+          [makeNode('sd', 'SD Card', 'show'), makeNode('preview', 'Matrix Output', 'output')],
         ],
         edges: [
           { from: 'songs', to: 'target' },
@@ -479,7 +479,7 @@ function buildSpecialRecipe(node: NodeDefinition): ExampleRecipe | null {
     case 'PatternMaster':
       return {
         columns: [
-          [makeNode('collection', 'Pattern Collection', 'composite'), makeNode('beat', 'Beat Detect', 'audio')],
+          [makeNode('collection', 'Pattern Collection', 'show'), makeNode('beat', 'Beat Detect', 'audio')],
           [makeNode('target', node.label, node.category, true)],
           [makeNode('sink', 'Matrix Output', 'output')],
         ],
@@ -530,13 +530,16 @@ function buildUseCases(node: NodeDefinition): string[] {
   const primaryOutput = node.outputs[0]?.dataType
   const primaryUse = NODE_DESCRIPTIONS[node.type] ?? `${node.label} is part of the FastLED Studio graph pipeline.`
   const categoryUseCases: Partial<Record<NodeCategory, string>> = {
+    input: 'Use it when the graph needs real device IO — a microphone, button, or knob driving the pattern live.',
     audio: 'Pair it with reactive pattern or math nodes whenever you want sound to drive motion, timing, or colour.',
+    signal: 'Use it as an animated control source for speed, brightness, motion, thresholds, or timing.',
+    math: 'Use it to shape, combine, or gate control values on their way to a pattern input.',
     color: 'Use it anywhere a downstream pattern or blend node expects a color or palette-driven input.',
-    composite: 'Drop it between a frame generator and Matrix Output when you want to refine, mix, or transition the result.',
-    hardware: 'Use it when the graph needs real device IO, offline show export, or upload-related configuration.',
-    math: 'Use it as a reusable control signal for speed, brightness, size, thresholds, gating, or timing.',
-    output: 'Use it as the terminal stage that turns the graph into preview pixels, firmware, and uploads.',
     pattern: 'Use it as a frame-building stage, either as the main generator or as a reusable pattern block inside a larger graph.',
+    field: 'Use it to build and shape scalar fields, composing freely before Field → Frame turns the result into pixels.',
+    composite: 'Drop it between a frame generator and Matrix Output when you want to refine, mix, or transition the result.',
+    show: 'Use it in the show pipeline — collecting patterns, scheduling them to music, and exporting to hardware.',
+    output: 'Use it as the terminal stage that turns the graph into preview pixels, firmware, and uploads.',
   }
   const outputUseCases: Record<string, string> = {
     audio: 'It usually sits near the start of the graph and feeds analyzers, beat detectors, or audio-reactive patterns.',
@@ -546,7 +549,7 @@ function buildUseCases(node: NodeDefinition): string[] {
     float: 'Its output is typically wired into sliders-as-inputs such as speed, amount, fade, scale, or brightness.',
     frame: 'Its frame can go straight to Matrix Output, or pass through Blend, Blur 2D, Transform, Fade, or Transition first.',
     palette: 'Its palette is typically sampled by Noise, Spectrum Bars, Field → Frame, or Palette Sampler.',
-    patternset: 'Its output is used by Pattern Master to run a reusable multi-pattern show.',
+    patternset: 'Its output is used by the Show Engine to run a reusable multi-pattern show.',
     sdcard: 'Its output is only needed when you want Matrix Output to provision music/show files onto an SD card.',
     shows: 'Its output is used by SD Card to assemble a synchronized playback package.',
     songs: 'Its output is used by Performance Generator to create timed show events from analysed tracks.',

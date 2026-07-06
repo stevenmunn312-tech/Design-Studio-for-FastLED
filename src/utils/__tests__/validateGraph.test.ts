@@ -50,7 +50,7 @@ describe('validateGraph', () => {
     const nodes = [node('pm', 'PatternMaster'), node('out', 'MatrixOutput')]
     const edges = [edge('e1', 'pm', 'out', 'frame')]
     const { warnings } = validateGraph(nodes, edges)
-    expect(warnings.some(w => w.includes('Pattern Master'))).toBe(true)
+    expect(warnings.some(w => w.includes('Show Engine'))).toBe(true)
   })
 
   it('does not warn about PatternMaster when a collection is wired', () => {
@@ -60,7 +60,7 @@ describe('validateGraph', () => {
       edge('e2', 'pm', 'out', 'frame'),
     ]
     const { warnings } = validateGraph(nodes, edges)
-    expect(warnings.some(w => w.includes('Pattern Master'))).toBe(false)
+    expect(warnings.some(w => w.includes('Show Engine'))).toBe(false)
   })
 
   function collection(id: string, patternIds: string[]): StudioNode {

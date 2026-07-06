@@ -399,14 +399,14 @@ describe('graphStore — legacy node migration on load', () => {
     expect(dataOf('bl2').properties.amount).toBe(0.5)
   })
 
-  it('remaps legacy input-category nodes onto audio and hardware on load', () => {
+  it('refreshes stale saved categories from the node library on load', () => {
     const mic = node('mic', 'MicInput')
-    mic.data.category = 'input'
+    mic.data.category = 'hardware' // pre-split save
     const music = node('lib', 'MusicLibrary')
-    music.data.category = 'input'
+    music.data.category = 'audio' // pre-show-category save
     useGraphStore.getState().loadGraph([mic, music], [])
-    expect(dataOf('mic').category).toBe('hardware')
-    expect(dataOf('lib').category).toBe('audio')
+    expect(dataOf('mic').category).toBe('input')
+    expect(dataOf('lib').category).toBe('show')
   })
 
   // Regression: a reload that dropped graphData wiped every group's subgraph,

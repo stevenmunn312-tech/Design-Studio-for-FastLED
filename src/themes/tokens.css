@@ -5,15 +5,18 @@
   --bg-node: #1f242b;
   --bg-node-hover: #252a31;
 
-  /* Accent colors per node type */
-  --accent-input: #b388ff;
+  /* Accent colors per node category — keep in sync with CATEGORIES in
+     src/state/nodeLibrary.ts (which carries the literal hex for canvas/SVG). */
+  --accent-input: #ffa500;
   --accent-audio: #00ffff;
-  --accent-pattern: #ff00ff;
+  --accent-signal: #b388ff;
   --accent-math: #a8ff00;
-  --accent-output: #00bfff;
-  --accent-hardware: #ffa500;
   --accent-color: #ff4d8d;
+  --accent-pattern: #ff00ff;
+  --accent-field: #f5c542;
   --accent-composite: #00e0a4;
+  --accent-show: #ff5a3c;
+  --accent-output: #00bfff;
 
   /* Text */
   --text-primary: #e0e0e0;

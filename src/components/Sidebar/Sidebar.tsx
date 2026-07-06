@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { canAddNodeType, useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { usePatternLibrary, importPatternFile, type SavedPattern } from '../../state/patternLibrary'
-import { NODE_LIBRARY, CATEGORIES, CATEGORY_ACCENT_VAR, NODE_DESCRIPTIONS } from '../../state/nodeLibrary'
+import { NODE_LIBRARY, CATEGORIES, CATEGORY_ACCENT_VAR, NODE_DESCRIPTIONS, categoryNodes } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { revealPatternsFolder } from '../../utils/backendClient'
 import type { NodeDefinition } from '../../types'
@@ -269,8 +269,8 @@ export default function Sidebar() {
           </section>
         )}
         {CATEGORIES.map(({ id, label }) => {
-          const nodes = NODE_LIBRARY.filter(
-            (n) => n.category === id && (query === '' || n.label.toLowerCase().includes(query))
+          const nodes = categoryNodes(id).filter(
+            (n) => query === '' || n.label.toLowerCase().includes(query)
           )
           if (nodes.length === 0) return null
           const accent = CATEGORY_ACCENT_VAR[id]
@@ -297,7 +297,20 @@ export default function Sidebar() {
               </button>
               {open && (
                 <ul className={styles.nodeList}>
-                  {nodes.map((n) => renderModule(n))}
+                  {nodes.flatMap((n, i) => {
+                    const items = []
+                    // Sub-heading row whenever the subcategory changes (nodes
+                    // arrive grouped from categoryNodes).
+                    if (n.subcategory && n.subcategory !== nodes[i - 1]?.subcategory) {
+                      items.push(
+                        <li key={`sub-${id}-${n.subcategory}`} className={styles.subHeader} aria-hidden="true">
+                          {n.subcategory}
+                        </li>
+                      )
+                    }
+                    items.push(renderModule(n))
+                    return items
+                  })}
                 </ul>
               )}
             </div>

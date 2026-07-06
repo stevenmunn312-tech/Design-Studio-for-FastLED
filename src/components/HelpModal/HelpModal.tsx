@@ -71,7 +71,7 @@ function QuickStartTab() {
           <div className={styles.tip}>
             <div className={styles.tipIcon}>⬡</div>
             <div className={styles.tipText}>
-              <strong>Pattern groups</strong> — select nodes and right-click → <strong>Make Group</strong> to encapsulate them into a reusable pattern. Double-click a group to enter it. Groups can be saved to the Pattern Library (sidebar) and dropped into a show via Pattern Collection + Pattern Master.
+              <strong>Pattern groups</strong> — select nodes and right-click → <strong>Make Group</strong> to encapsulate them into a reusable pattern. Double-click a group to enter it. Groups can be saved to the Pattern Library (sidebar) and dropped into a show via Pattern Collection + Show Engine.
             </div>
           </div>
           <div className={styles.tip}>

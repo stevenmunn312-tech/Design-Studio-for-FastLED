@@ -1,5 +1,8 @@
+// `hardware` is legacy (split into `input` + `show`); accepted on load and
+// migrated to the library's current category in graphStore.loadGraph.
 export type NodeCategory =
-  | 'audio' | 'hardware' | 'math' | 'color' | 'pattern' | 'composite' | 'output' | 'input'
+  | 'input' | 'audio' | 'signal' | 'math' | 'color' | 'pattern' | 'field'
+  | 'composite' | 'show' | 'output' | 'hardware'
 
 export interface NodePort {
   id: string
@@ -11,6 +14,8 @@ export interface NodeDefinition {
   type: string
   label: string
   category: NodeCategory
+  /** Sidebar sub-heading within the category (see SUBCATEGORY_ORDER in nodeLibrary). */
+  subcategory?: string
   inputs: NodePort[]
   outputs: NodePort[]
   /** Preferred input when this node is dropped onto a compatible noodle. */

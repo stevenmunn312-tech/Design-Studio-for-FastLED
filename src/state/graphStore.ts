@@ -13,7 +13,7 @@ import {
   reconnectEdge,
 } from '@xyflow/react'
 import type { NodeCategory } from '../types'
-import { portColor } from './nodeLibrary'
+import { NODE_LIBRARY, portColor } from './nodeLibrary'
 import type { GroupRegistry } from './graphEvaluator'
 import type { SavedPattern } from './patternLibrary'
 
@@ -176,10 +176,8 @@ const LEGACY_BUNDLE: Record<string, { nodeType: string; label: string; props: Re
 // `intensity` → `energy` (Fire keeps its own separate `intensity` input).
 const ENERGY_RENAMED = new Set(['SpectrumBars', 'BassRings', 'MidrangeWaves', 'MidrangeBloom', 'TreblePrism', 'AudioCascade'])
 
-function normalizeCategory(nodeType: string, category: NodeCategory): NodeCategory {
-  if (category !== 'input') return category
-  return nodeType === 'MicInput' ? 'hardware' : 'audio'
-}
+// Library definitions by type, for refreshing saved nodes on load.
+const LIBRARY_DEF = new Map(NODE_LIBRARY.map((def) => [def.type, def]))
 
 // Migrate a saved graph's legacy node types to their bundle, fixing up edge
 // handles where a port was renamed (BlendFrames' `t` → Blend's `amount`) and
@@ -221,7 +219,14 @@ function migrateLegacyGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes: 
     ) {
       properties = { ...properties, amount: properties.amount / 255 }
     }
-    const category = normalizeCategory(nodeType, data.category)
+    // Category and display label are the library's business — refresh both on
+    // load so old saves pick up category moves (e.g. hardware → input/show)
+    // and label renames (e.g. Pattern Master → Show Engine). Programmatic
+    // types (Group, GroupInput, GroupOutput) aren't in the library and keep
+    // their saved values, including user-chosen group names.
+    const def = LIBRARY_DEF.get(nodeType)
+    const category: NodeCategory = def?.category ?? data.category
+    if (def) label = def.label
     // Saved nodes carry their own port snapshots. Add the new frame terminal
     // to existing Performance Generators as well as newly-created ones.
     const outputs = Array.isArray(data.outputs) ? data.outputs : []

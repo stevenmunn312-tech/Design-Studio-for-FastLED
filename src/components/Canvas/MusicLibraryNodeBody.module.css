@@ -176,7 +176,7 @@
 }
 
 .exportBtn {
-  background: var(--accent-hardware);
+  background: var(--accent-show);
   color: #000;
 }
 
@@ -211,7 +211,7 @@
 
 .section_intro   { background: rgba(0, 191, 255, 0.2);   color: var(--accent-output); }
 .section_verse   { background: rgba(168, 255, 0, 0.15);  color: var(--accent-math); }
-.section_buildup { background: rgba(255, 165, 0, 0.2);   color: var(--accent-hardware); }
+.section_buildup { background: rgba(255, 165, 0, 0.2);   color: var(--accent-input); }
 .section_drop    { background: rgba(255, 0, 255, 0.2);   color: var(--accent-pattern); }
 .section_chorus  { background: rgba(255, 0, 255, 0.15);  color: var(--accent-pattern); }
 .section_bridge  { background: rgba(0, 255, 255, 0.15);  color: var(--accent-audio); }

@@ -451,3 +451,16 @@
 .patternItem {
   grid-template-columns: minmax(0, 1fr) auto;
 }
+
+/* Sub-heading rows inside a category section (e.g. Patterns > Generative). */
+.subHeader {
+  list-style: none;
+  padding: 8px 6px 3px 8px;
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.subHeader:first-child { padding-top: 3px; }

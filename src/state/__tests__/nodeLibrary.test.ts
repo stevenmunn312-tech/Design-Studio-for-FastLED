@@ -52,7 +52,7 @@ describe('nodeLibrary', () => {
 
   it('MicInput defaults keep AGC off until the user opts in', () => {
     const mic = NODE_LIBRARY.find((n) => n.type === 'MicInput')
-    expect(mic?.category).toBe('hardware')
+    expect(mic?.category).toBe('input')
     expect(mic?.defaultProperties).toMatchObject({
       gain: 1,
       agc: false,
@@ -124,8 +124,8 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('AudioCascade', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
-  it('MusicLibrary now shelves with audio analysis nodes', () => {
-    expect(NODE_LIBRARY.find((n) => n.type === 'MusicLibrary')?.category).toBe('audio')
+  it('MusicLibrary shelves with the show pipeline nodes', () => {
+    expect(NODE_LIBRARY.find((n) => n.type === 'MusicLibrary')?.category).toBe('show')
   })
 
   it('PerformanceGenerator exposes shows and a MatrixOutput-compatible frame', () => {
