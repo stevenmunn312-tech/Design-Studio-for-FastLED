@@ -1499,9 +1499,26 @@ interface ShowState {
   /** ms of the most recent beat-triggered particle burst, if any. */
   burstT?: number
 }
+export interface PatternShowSelection {
+  currentIndex: number
+  nextIndex: number
+  transitioning: boolean
+}
 interface ShowOpts {
   minTime: number; maxTime: number; transSec: number; pool: string[]; beatEnabled: boolean
   particles: boolean; particleStyle: number; particleHue: number; particleIntensity: number
+}
+
+/** Read the current selection of a live PatternMaster by its evaluator state key.
+ *  Root-level PatternMaster nodes use their node id as the key. */
+export function getPatternShowSelection(key: string): PatternShowSelection | null {
+  const st = patternShowState.get(key)
+  if (!st) return null
+  return {
+    currentIndex: st.cur,
+    nextIndex: st.nxt,
+    transitioning: st.phase === 'trans',
+  }
 }
 
 // The generative show: hold a random pattern for a random dwell in

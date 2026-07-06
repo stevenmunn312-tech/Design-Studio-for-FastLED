@@ -46,10 +46,6 @@
   margin-bottom: 24px;
 }
 
-.panelStage .brandWrap {
-  opacity: 0.42;
-}
-
 .header {
   padding: 0 var(--space-2);
   height: var(--menubar-height);
@@ -680,6 +676,33 @@
   font-size: 12px;
 }
 
+.stagePatternBrand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 14px;
+  text-align: center;
+}
+
+.stagePatternKicker {
+  color: #8adfff;
+  font-family: var(--font-code);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.stagePatternName {
+  max-width: min(92%, 320px);
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-wrap: balance;
+}
+
 .brandWrap {
   position: relative;
   z-index: 0;
@@ -708,6 +731,10 @@
   width: min(92%, 340px);
   flex: 0 0 auto;
   pointer-events: none;
+}
+
+.panelStage .brandLockup {
+  opacity: 0.42;
 }
 
 .brandLogo {

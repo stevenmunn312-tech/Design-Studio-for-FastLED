@@ -30,7 +30,12 @@ export type StudioEdge = Edge
 /** The implicit top-level graph that owns the MatrixOutput. */
 export const ROOT_GRAPH_ID = 'root'
 
-export interface GraphMeta { id: string; name: string }
+export interface GraphMeta {
+  id: string
+  name: string
+  /** Present when this group came from a saved "My Patterns" library entry. */
+  sourcePatternId?: string
+}
 export interface GraphContent { nodes: StudioNode[]; edges: StudioEdge[] }
 
 /** The pieces of the multi-graph workspace that must survive save/restore on
@@ -809,7 +814,10 @@ export const useGraphStore = create<GraphState>()(
             },
           } as StudioNode
           return {
-            graphs: { ...s.graphs, [groupId]: { id: groupId, name: saved.name } },
+            graphs: {
+              ...s.graphs,
+              [groupId]: { id: groupId, name: saved.name, sourcePatternId: saved.id },
+            },
             graphData: { ...s.graphData, [groupId]: { nodes: sub.nodes, edges: sub.edges } },
             nodes: [...s.nodes, groupNode],
           }

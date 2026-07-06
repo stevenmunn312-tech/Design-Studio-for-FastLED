@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties } from 'react'
-import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
+import { useGraphStore, getGroupRegistry, type GraphMeta, type StudioEdge, type StudioNode } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audioStore'
-import { evaluateGraphFull, type Frame } from '../../state/graphEvaluator'
+import { evaluateGraphFull, getPatternShowSelection, type Frame } from '../../state/graphEvaluator'
 import { usePreviewStore } from '../../state/previewStore'
 import { useShowPlayback } from '../../state/showPlayback'
 import { usePlayerTransport } from '../../state/playerTransport'
+import { usePatternLibrary } from '../../state/patternLibrary'
+import { showStateAt } from '../../state/showPreview'
 import { WebGLLEDRenderer } from './webglRenderer'
 import { applyShowPlaybackSignal } from './showPlaybackSignal'
 import { isDiffusedStyle, previewStyleLabel, type PreviewStyle } from './previewStyles'
@@ -234,6 +236,67 @@ interface LocalTrack {
 
 let nextTrackId = 0
 
+function nodeTypeOf(node: StudioNode | undefined): string {
+  return String(node?.data.nodeType ?? '')
+}
+
+function groupIdOf(node: StudioNode | undefined): string | null {
+  const groupId = (node?.data.properties as { groupId?: string } | undefined)?.groupId
+  return typeof groupId === 'string' && groupId ? groupId : null
+}
+
+function libraryPatternNameForGroup(
+  groupId: string | undefined | null,
+  graphs: Record<string, GraphMeta>,
+  libraryPatternIds: Set<string>,
+  libraryNameCounts: Map<string, number>,
+): string | null {
+  if (!groupId) return null
+  const meta = graphs[groupId]
+  if (!meta) return null
+  if (meta.sourcePatternId) return libraryPatternIds.has(meta.sourcePatternId) ? meta.name : null
+  // Best-effort fallback for workspaces saved before sourcePatternId existed.
+  return (libraryNameCounts.get(meta.name) ?? 0) === 1 ? meta.name : null
+}
+
+function activeStagePatternName(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  graphs: Record<string, GraphMeta>,
+  libraryPatternIds: Set<string>,
+  libraryNameCounts: Map<string, number>,
+  playbackShow: ReturnType<typeof useShowPlayback.getState>['show'],
+  playbackPosMs: number,
+): string | null {
+  if (playbackShow?.patternSet?.length) {
+    const live = showStateAt(playbackShow, playbackPosMs)
+    const groupId = live.patternIndex >= 0 ? playbackShow.patternSet[live.patternIndex] : undefined
+    return libraryPatternNameForGroup(groupId, graphs, libraryPatternIds, libraryNameCounts)
+  }
+
+  const output = nodes.find((node) => nodeTypeOf(node) === 'MatrixOutput')
+  if (!output) return null
+  const sourceEdge = edges.find((edge) => edge.target === output.id && edge.targetHandle === 'frame')
+  const sourceNode = nodes.find((node) => node.id === sourceEdge?.source)
+  if (!sourceNode) return null
+
+  if (nodeTypeOf(sourceNode) === 'Group') {
+    return libraryPatternNameForGroup(groupIdOf(sourceNode), graphs, libraryPatternIds, libraryNameCounts)
+  }
+
+  if (nodeTypeOf(sourceNode) === 'PatternMaster') {
+    const setEdge = edges.find((edge) => edge.target === sourceNode.id && edge.targetHandle === 'patternset')
+    const collection = nodes.find((node) => node.id === setEdge?.source && nodeTypeOf(node) === 'PatternCollection')
+    const patternIds = ((collection?.data.properties as { patternIds?: string[] } | undefined)?.patternIds) ?? []
+    if (patternIds.length === 0) return null
+    const live = getPatternShowSelection(sourceNode.id)
+    const groupId = patternIds[live?.currentIndex ?? 0]
+    return libraryPatternNameForGroup(groupId, graphs, libraryPatternIds, libraryNameCounts)
+  }
+
+  return null
+}
+
 function renderGridFrame(ctx: CanvasRenderingContext2D, frame: Frame, pixel: number) {
   const gridH = frame.length
   const gridW = frame[0]?.length ?? 0
@@ -449,10 +512,28 @@ export default function LEDPreview() {
 
   const nodes = useGraphStore((s) => s.nodes)
   const edges = useGraphStore((s) => s.edges)
+  const graphs = useGraphStore((s) => s.graphs)
   const nodesRef = useRef(nodes)
   const edgesRef = useRef(edges)
   useEffect(() => { nodesRef.current = nodes }, [nodes])
   useEffect(() => { edgesRef.current = edges }, [edges])
+  const libraryPatterns = usePatternLibrary((s) => s.patterns)
+  const playbackShow = useShowPlayback((s) => s.show)
+  const playbackPosMs = useShowPlayback((s) => s.posMs)
+  const libraryPatternIds = new Set(libraryPatterns.map((pattern) => pattern.id))
+  const libraryNameCounts = libraryPatterns.reduce((counts, pattern) => {
+    counts.set(pattern.name, (counts.get(pattern.name) ?? 0) + 1)
+    return counts
+  }, new Map<string, number>())
+  const stagePatternName = activeStagePatternName(
+    nodes,
+    edges,
+    graphs,
+    libraryPatternIds,
+    libraryNameCounts,
+    playbackShow,
+    playbackPosMs,
+  )
 
   // The mic toggle only makes sense when a MicInput node is on the active
   // canvas — the same condition App.tsx uses to auto-start/stop the mic. We
@@ -1129,6 +1210,12 @@ export default function LEDPreview() {
             </div>
             {musicError && !showMode && <p className={styles.musicError} role="alert">{musicError}</p>}
           </div>
+          {stageMode && stagePatternName && (
+            <div className={styles.stagePatternBrand}>
+              <span className={styles.stagePatternKicker}>My Pattern</span>
+              <strong className={styles.stagePatternName} title={stagePatternName}>{stagePatternName}</strong>
+            </div>
+          )}
           <div className={styles.brandWrap} aria-hidden>
             <div className={styles.brandLockup}>
               <img

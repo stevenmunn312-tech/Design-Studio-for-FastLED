@@ -126,6 +126,12 @@ describe('graphStore — grouping', () => {
       { id: gn.id, type: 'dimensions', dimensions: { width: 180, height: 120 }, setAttributes: true },
     ])
     expect(useGraphStore.getState().nodes.find((n) => n.id === gn.id)!.position.y).toBe(240)
+    const groupId = (gn.data.properties as { groupId?: string }).groupId!
+    expect(useGraphStore.getState().graphs[groupId]).toMatchObject({
+      id: groupId,
+      name: 'MyPattern',
+      sourcePatternId: 'p1',
+    })
   })
 
   it('removeEdge unplugs a single noodle', () => {
