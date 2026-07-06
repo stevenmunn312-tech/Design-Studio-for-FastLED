@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties } from 'react'
-import { useGraphStore, getGroupRegistry, type StudioNode, type StudioEdge } from '../../state/graphStore'
+import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audioStore'
 import { evaluateGraphFull, type Frame } from '../../state/graphEvaluator'
 import { usePreviewStore } from '../../state/previewStore'
 import { useShowPlayback } from '../../state/showPlayback'
 import { usePlayerTransport } from '../../state/playerTransport'
-import { renderShowFrame } from '../../state/showPreview'
 import { WebGLLEDRenderer } from './webglRenderer'
+import { applyShowPlaybackSignal } from './showPlaybackSignal'
 import { isDiffusedStyle, previewStyleLabel, type PreviewStyle } from './previewStyles'
 import {
   IconAdd,
@@ -208,23 +208,6 @@ interface LocalTrack {
 }
 
 let nextTrackId = 0
-
-// True when a PerformanceGenerator's `frame` output feeds a MatrixOutput — the
-// signal the main preview should show that generator's live show playback.
-function genWiredToOutput(nodes: StudioNode[], edges: StudioEdge[], genId: string): boolean {
-  const matrixIds = new Set(
-    nodes
-      .filter((n) => (n.data as { nodeType?: string }).nodeType === 'MatrixOutput')
-      .map((n) => n.id),
-  )
-  return edges.some(
-    (e) =>
-      e.source === genId &&
-      e.sourceHandle === 'frame' &&
-      e.targetHandle === 'frame' &&
-      matrixIds.has(e.target),
-  )
-}
 
 function renderGridFrame(ctx: CanvasRenderingContext2D, frame: Frame, pixel: number) {
   const gridH = frame.length
@@ -611,13 +594,16 @@ export default function LEDPreview() {
         // One evaluation pass feeds both the main matrix and every node preview.
         const { frame: rendered, outputs } = evaluateGraphFull(nodesRef.current, edgesRef.current, tick, gW, gH, getGroupRegistry())
         let frame = rendered ?? idleFrame(tick, gW, gH)
-
-        // If a wired PerformanceGenerator is playing a show, its timed playback
-        // takes over the main canvas (its graph output is only a blank frame).
-        const pb = useShowPlayback.getState()
-        if (pb.show && pb.nodeId && genWiredToOutput(nodesRef.current, edgesRef.current, pb.nodeId)) {
-          frame = renderShowFrame(pb.show, pb.posMs, gW, gH, getGroupRegistry(), pb.useGroupInputs)
-        }
+        frame = applyShowPlaybackSignal(
+          frame,
+          outputs,
+          nodesRef.current,
+          edgesRef.current,
+          useShowPlayback.getState(),
+          gW,
+          gH,
+          getGroupRegistry(),
+        )
 
         const bw = canvasBufWRef.current, bh = canvasBufHRef.current
         if (useWebGL && glRef.current) {
