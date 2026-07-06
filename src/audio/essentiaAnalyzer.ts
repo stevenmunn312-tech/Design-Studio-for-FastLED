@@ -19,8 +19,29 @@ const SAMPLE_RATE = 44100
 let worker: Worker | null = null
 let nextId = 1
 const pending = new Map<number, { resolve: (a: SongAnalysis) => void; reject: (e: Error) => void }>()
+let idleTimer: ReturnType<typeof setTimeout> | null = null
+
+// Essentia's Emscripten heap grows to the analysis high-water mark and cannot
+// shrink. Keeping the worker forever therefore pins hundreds of megabytes (or
+// more for long tracks) in Chrome after analysis has finished. A short idle
+// grace period lets Analyse All reuse one worker for consecutive songs, then
+// releases the entire WASM heap once the batch is done.
+function scheduleIdleShutdown() {
+  if (pending.size > 0 || !worker) return
+  if (idleTimer) clearTimeout(idleTimer)
+  idleTimer = setTimeout(() => {
+    if (pending.size > 0) return
+    worker?.terminate()
+    worker = null
+    idleTimer = null
+  }, 5_000)
+}
 
 function getWorker(): Worker {
+  if (idleTimer) {
+    clearTimeout(idleTimer)
+    idleTimer = null
+  }
   if (!worker) {
     worker = new Worker(new URL('./essentiaAnalyzer.worker.ts', import.meta.url), { type: 'module' })
     worker.onmessage = (e: MessageEvent<AnalyzeResponse>) => {
@@ -30,6 +51,7 @@ function getWorker(): Worker {
       pending.delete(msg.id)
       if (msg.ok) p.resolve(msg.analysis)
       else p.reject(new Error(msg.error))
+      scheduleIdleShutdown()
     }
     worker.onerror = (e) => {
       // A worker-level failure (e.g. WASM init) can't be tied to one request, so
@@ -37,11 +59,22 @@ function getWorker(): Worker {
       const err = new Error(e.message || 'essentia worker error')
       for (const p of pending.values()) p.reject(err)
       pending.clear()
+      if (idleTimer) clearTimeout(idleTimer)
+      idleTimer = null
       worker?.terminate()
       worker = null
     }
   }
   return worker
+}
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    if (idleTimer) clearTimeout(idleTimer)
+    worker?.terminate()
+    worker = null
+    idleTimer = null
+  })
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

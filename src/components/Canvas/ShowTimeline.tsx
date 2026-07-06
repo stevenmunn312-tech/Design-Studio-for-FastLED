@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   sortShowEvents,
   SHOW_COMMANDS,
@@ -28,6 +28,11 @@ const CMD_META: Record<ShowCommand, { label: string; color: string }> = {
   PARTICLE_BURST: { label: 'Particles',  color: 'var(--accent-pattern)' },
   TRANSITION:     { label: 'Transition', color: 'var(--accent-composite)' },
 }
+
+const MAX_MARKERS = 240
+const LIST_HEIGHT = 132
+const ROW_HEIGHT = 24
+const ROW_OVERSCAN = 3
 
 // Default params when an event is created or its command changes.
 function defaultParams(cmd: ShowCommand): ShowEvent['params'] {
@@ -77,6 +82,8 @@ export interface ShowTimelineProps {
 
 export default function ShowTimeline({ show, posMs, selected, onSelect, onSeek, onChange }: ShowTimelineProps) {
   const trackRef = useRef<HTMLDivElement | null>(null)
+  const listRef = useRef<HTMLDivElement | null>(null)
+  const [listScrollTop, setListScrollTop] = useState(0)
   const events = show.events
   const dur = Math.max(1, show.durationMs)
 
@@ -138,14 +145,39 @@ export default function ShowTimeline({ show, posMs, selected, onSelect, onSeek, 
   // readable without drawing hundreds of overlapping lines.
   const markers = useMemo(() => {
     const seen = new Set<string>()
-    return events.flatMap((ev, i) => {
+    const deduped = events.flatMap((ev, i) => {
       const left = (ev.t / dur) * 100
       const key = `${left.toFixed(1)}:${ev.cmd}`
       if (i !== selected && seen.has(key)) return []
       seen.add(key)
       return [{ i, left, cmd: ev.cmd }]
     })
+    if (deduped.length <= MAX_MARKERS) return deduped
+
+    // Preserve a representative overview without mounting a button for every
+    // beat in a long show. Always retain the selected marker.
+    const sampled = Array.from({ length: MAX_MARKERS }, (_, i) =>
+      deduped[Math.round((i * (deduped.length - 1)) / (MAX_MARKERS - 1))])
+    if (selected !== null && !sampled.some((m) => m.i === selected)) {
+      const selectedMarker = deduped.find((m) => m.i === selected)
+      if (selectedMarker) sampled[Math.floor(MAX_MARKERS / 2)] = selectedMarker
+    }
+    return sampled
   }, [events, dur, selected])
+
+  const visibleStart = Math.max(0, Math.floor(listScrollTop / ROW_HEIGHT) - ROW_OVERSCAN)
+  const visibleCount = Math.ceil(LIST_HEIGHT / ROW_HEIGHT) + ROW_OVERSCAN * 2
+  const visibleEvents = events.slice(visibleStart, visibleStart + visibleCount)
+
+  useEffect(() => {
+    if (selected === null || !listRef.current) return
+    const top = selected * ROW_HEIGHT
+    const bottom = top + ROW_HEIGHT
+    const viewTop = listRef.current.scrollTop
+    const viewBottom = viewTop + LIST_HEIGHT
+    if (top < viewTop) listRef.current.scrollTop = top
+    else if (bottom > viewBottom) listRef.current.scrollTop = bottom - LIST_HEIGHT
+  }, [selected])
 
   return (
     <div className={styles.editor}>
@@ -188,22 +220,33 @@ export default function ShowTimeline({ show, posMs, selected, onSelect, onSeek, 
       </div>
 
       {/* ── Event list ── */}
-      <div className={`nowheel ${styles.list}`}>
+      <div
+        ref={listRef}
+        className={`nowheel ${styles.list}`}
+        style={{ height: Math.min(LIST_HEIGHT, Math.max(ROW_HEIGHT, events.length * ROW_HEIGHT)) }}
+        onScroll={(e) => setListScrollTop(e.currentTarget.scrollTop)}
+      >
         {events.length === 0 && <p className={styles.empty}>No events. Add one to start the show.</p>}
-        {events.map((ev, i) => (
-          <button
-            type="button"
-            key={i}
-            className={`nodrag ${styles.row} ${i === selected ? styles.rowOn : ''}`}
-            onClick={() => selectAndSeek(i)}
-            aria-pressed={i === selected}
-          >
-            <span className={styles.dot} style={{ background: CMD_META[ev.cmd].color }} aria-hidden="true" />
-            <span className={styles.rowTime}>{fmt(ev.t)}</span>
-            <span className={styles.rowCmd}>{CMD_META[ev.cmd].label}</span>
-            <span className={styles.rowSum}>{summary(ev, patternLabels)}</span>
-          </button>
-        ))}
+        <div className={styles.listSizer} style={{ height: events.length * ROW_HEIGHT }}>
+          {visibleEvents.map((ev, offset) => {
+            const i = visibleStart + offset
+            return (
+              <button
+                type="button"
+                key={i}
+                className={`nodrag ${styles.row} ${i === selected ? styles.rowOn : ''}`}
+                style={{ transform: `translateY(${i * ROW_HEIGHT}px)` }}
+                onClick={() => selectAndSeek(i)}
+                aria-pressed={i === selected}
+              >
+                <span className={styles.dot} style={{ background: CMD_META[ev.cmd].color }} aria-hidden="true" />
+                <span className={styles.rowTime}>{fmt(ev.t)}</span>
+                <span className={styles.rowCmd}>{CMD_META[ev.cmd].label}</span>
+                <span className={styles.rowSum}>{summary(ev, patternLabels)}</span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* ── Selected-event editor ── */}

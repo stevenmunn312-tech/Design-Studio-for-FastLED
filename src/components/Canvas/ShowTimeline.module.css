@@ -81,11 +81,14 @@
 
 /* ── Event list ── */
 .list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  position: relative;
   max-height: 132px;
   overflow-y: auto;
+}
+
+.listSizer {
+  position: relative;
+  width: 100%;
 }
 
 .empty {
@@ -97,6 +100,10 @@
 
 .row,
 .rowOn {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 22px;
+  box-sizing: border-box;
   display: grid;
   grid-template-columns: 10px 54px 64px 1fr;
   align-items: center;

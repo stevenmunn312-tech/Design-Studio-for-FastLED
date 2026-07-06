@@ -50,4 +50,22 @@ describe('ShowTimeline — collection-aware SET_PATTERN', () => {
       Array.from(s.options).some((o) => o.value === 'Plasma'))
     expect(editorSelect).toBeTruthy()   // enum names, not collection indices
   })
+
+  it('bounds mounted controls for a dense generated show', () => {
+    const denseShow: ShowFile = {
+      version: 1,
+      songTitle: 'Long show',
+      durationMs: 300_000,
+      bpm: 120,
+      events: Array.from({ length: 2_000 }, (_, i) => ({
+        t: i * 150,
+        cmd: 'BEAT_FLASH' as const,
+        params: { intensity: 200, decay: 200 },
+      })),
+    }
+
+    const { container } = renderTimeline(denseShow)
+    expect(container.querySelectorAll('[aria-label^="Flash at"]')).toHaveLength(240)
+    expect(container.querySelectorAll('button[aria-pressed]')).toHaveLength(12)
+  })
 })
