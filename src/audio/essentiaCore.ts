@@ -50,17 +50,19 @@ export async function getEssentia(): Promise<EssentiaApi> {
 
 function extractRhythm(essentia: EssentiaApi, signal: EssentiaVector): BeatInfo {
   const r = essentia.RhythmExtractor2013(signal, 208, 'multifeature', 40)
-  const ticks = essentia.vectorToArray(r.ticks)
-  const timestamps = Array.from(ticks, (s) => s * 1000)
-  r.ticks.delete()
-  return {
-    timestamps,
-    bpm: Math.round(r.bpm),
-    confidence: clamp01(r.confidence / MAX_RHYTHM_CONFIDENCE),
+  try {
+    const ticks = essentia.vectorToArray(r.ticks)
+    return {
+      timestamps: Array.from(ticks, (s) => s * 1000),
+      bpm: Math.round(r.bpm),
+      confidence: clamp01(r.confidence / MAX_RHYTHM_CONFIDENCE),
+    }
+  } finally {
+    r.ticks.delete()
   }
 }
 
-function extractEnergy(essentia: EssentiaApi, mono: Float32Array, sampleRate: number): EnergyPoint[] {
+export function extractEnergy(essentia: EssentiaApi, mono: Float32Array, sampleRate: number): EnergyPoint[] {
   const frameMs = (HOP_SIZE / sampleRate) * 1000
   const frames = essentia.FrameGenerator(mono, FRAME_SIZE, HOP_SIZE)
   const nFrames = frames.size()
@@ -68,25 +70,37 @@ function extractEnergy(essentia: EssentiaApi, mono: Float32Array, sampleRate: nu
   interface Acc { b: number; m: number; t: number; o: number; n: number }
   const buckets = new Map<number, Acc>()
 
-  for (let i = 0; i < nFrames; i++) {
-    const win  = essentia.Windowing(frames.get(i), false, FRAME_SIZE, 'hann')
-    const spec = essentia.Spectrum(win.frame, FRAME_SIZE)
-    const bass   = essentia.EnergyBand(spec.spectrum, sampleRate, 20, 250).energyBand
-    const mids   = essentia.EnergyBand(spec.spectrum, sampleRate, 250, 4000).energyBand
-    const treble = essentia.EnergyBand(spec.spectrum, sampleRate, 4000, 16000).energyBand
-    win.frame.delete()
-    spec.spectrum.delete()
+  try {
+    for (let i = 0; i < nFrames; i++) {
+      // Embind returns a newly-owned vector wrapper from vector<vector<float>>
+      // `.get()`. It must be deleted independently from the outer collection.
+      const inputFrame = frames.get(i)
+      let windowedFrame: EssentiaVector | null = null
+      let spectrum: EssentiaVector | null = null
+      try {
+        windowedFrame = essentia.Windowing(inputFrame, false, FRAME_SIZE, 'hann').frame
+        spectrum = essentia.Spectrum(windowedFrame, FRAME_SIZE).spectrum
+        const bass   = essentia.EnergyBand(spectrum, sampleRate, 20, 250).energyBand
+        const mids   = essentia.EnergyBand(spectrum, sampleRate, 250, 4000).energyBand
+        const treble = essentia.EnergyBand(spectrum, sampleRate, 4000, 16000).energyBand
 
-    const bucketKey = Math.floor((i * frameMs) / ENERGY_HOP_MS)
-    const acc = buckets.get(bucketKey) ?? { b: 0, m: 0, t: 0, o: 0, n: 0 }
-    acc.b += Math.sqrt(bass)
-    acc.m += Math.sqrt(mids)
-    acc.t += Math.sqrt(treble)
-    acc.o += Math.sqrt(bass + mids + treble)
-    acc.n += 1
-    buckets.set(bucketKey, acc)
+        const bucketKey = Math.floor((i * frameMs) / ENERGY_HOP_MS)
+        const acc = buckets.get(bucketKey) ?? { b: 0, m: 0, t: 0, o: 0, n: 0 }
+        acc.b += Math.sqrt(bass)
+        acc.m += Math.sqrt(mids)
+        acc.t += Math.sqrt(treble)
+        acc.o += Math.sqrt(bass + mids + treble)
+        acc.n += 1
+        buckets.set(bucketKey, acc)
+      } finally {
+        spectrum?.delete()
+        windowedFrame?.delete()
+        inputFrame.delete()
+      }
+    }
+  } finally {
+    frames.delete()
   }
-  frames.delete()
 
   const maxBucketKey = buckets.size ? Math.max(...buckets.keys()) : 0
   const points: EnergyPoint[] = []
