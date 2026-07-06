@@ -215,7 +215,7 @@ describe('StudioNode', () => {
   })
 
   it('renders live band meters and bounded controls for an FFT Analyzer', () => {
-    const { container, getByText } = renderNode(makeNode('FFTAnalyzer', { bands: 24, gain: 1, smoothing: 0.72 }))
+    const { container, getByText } = renderNode(makeNode('FFTAnalyzer', { bands: 24, gain: 1, smoothing: 0.72, tilt: 0 }))
     expect(getByText('LOW')).toBeTruthy()
     expect(getByText('MID')).toBeTruthy()
     expect(getByText('HIGH')).toBeTruthy()
@@ -224,10 +224,11 @@ describe('StudioNode', () => {
     expect(getByText('Test Off')).toBeTruthy()
     expect(container.querySelector('[aria-label="Live FFT analysis"]')).toBeTruthy()
     const sliders = Array.from(container.querySelectorAll('input[type="range"]')) as HTMLInputElement[]
-    expect(sliders).toHaveLength(3)
+    expect(sliders).toHaveLength(4)
     expect(sliders[0].min).toBe('8')
     expect(sliders[1].max).toBe('4')
     expect(sliders[2].max).toBe('0.95')
+    expect(sliders[3].max).toBe('1')
   })
 
   it('renders a frame thumbnail (not a wave scope) for a frame node', () => {

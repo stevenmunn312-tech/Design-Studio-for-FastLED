@@ -756,11 +756,14 @@ export function generateCpp(
         const gain = Math.max(0.25, Math.min(4, Number(p.gain ?? 1)))
         const rawSmoothing = Number(p.smoothing ?? 0.72)
         const smoothing = Math.max(0, Math.min(0.95, rawSmoothing > 1 ? rawSmoothing / 4 : rawSmoothing))
+        const tilt = Math.max(0, Math.min(1, Number(p.tilt ?? 0)))
+        const midsGain = gain * (1 + tilt * 0.6)
+        const trebleGain = gain * (1 + tilt * 1.8)
         const bass = useAudioGlobals ? '_audioBass' : '0.5f'
         const mids = useAudioGlobals ? '_audioMids' : '0.5f'
         const treble = useAudioGlobals ? '_audioTreble' : '0.5f'
         if (!useAudioGlobals) ln(`  // FFTAnalyzer — add a Microphone node to drive these from the INMP441`)
-        ln(`  float ${v('bass')}_target = constrain(${bass} * ${gain.toFixed(3)}f, 0.0f, 1.0f), ${v('mids')}_target = constrain(${mids} * ${gain.toFixed(3)}f, 0.0f, 1.0f), ${v('treble')}_target = constrain(${treble} * ${gain.toFixed(3)}f, 0.0f, 1.0f);`)
+        ln(`  float ${v('bass')}_target = constrain(${bass} * ${gain.toFixed(3)}f, 0.0f, 1.0f), ${v('mids')}_target = constrain(${mids} * ${midsGain.toFixed(3)}f, 0.0f, 1.0f), ${v('treble')}_target = constrain(${treble} * ${trebleGain.toFixed(3)}f, 0.0f, 1.0f);`)
         ln(`  static float ${v('bass')}_smooth = -1, ${v('mids')}_smooth = -1, ${v('treble')}_smooth = -1;`)
         ln(`  ${v('bass')}_smooth = ${v('bass')}_smooth < 0 ? ${v('bass')}_target : ${v('bass')}_smooth * ${smoothing.toFixed(3)}f + ${v('bass')}_target * ${(1 - smoothing).toFixed(3)}f;`)
         ln(`  ${v('mids')}_smooth = ${v('mids')}_smooth < 0 ? ${v('mids')}_target : ${v('mids')}_smooth * ${smoothing.toFixed(3)}f + ${v('mids')}_target * ${(1 - smoothing).toFixed(3)}f;`)

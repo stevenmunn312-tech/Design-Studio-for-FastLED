@@ -49,7 +49,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'mids', label: 'Mids', dataType: 'float' },
       { id: 'treble', label: 'Treble', dataType: 'float' },
     ],
-    defaultProperties: { bands: 24, gain: 1, smoothing: 0.72 },
+    defaultProperties: { bands: 24, gain: 1, smoothing: 0.72, tilt: 0 },
   },
   {
     type: 'BeatDetect',
@@ -1295,7 +1295,7 @@ export function libraryDefaults(nodeType: string): Record<string, unknown> {
 
 export const NODE_DESCRIPTIONS: Record<string, string> = {
   // audio
-  FFTAnalyzer: 'Splits mic audio into bass / mids / treble levels.',
+  FFTAnalyzer: 'Splits mic audio into bass/mids/treble; tilt boosts weak treble.',
   BeatDetect: 'Emits a beat pulse and estimated BPM from audio.',
   PercussionDetect: 'Heuristic kick, snare, and hi-hat envelopes from audio.',
   AudioFeatures: 'Heuristic vocals, energy, and silence features from audio.',
@@ -1592,6 +1592,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     bands:     { control: 'slider', min: 8, max: 32, step: 1 },
     gain:      { control: 'slider', min: 0.25, max: 4, step: 0.05 },
     smoothing: { control: 'slider', min: 0, max: 0.95, step: 0.01 },
+    tilt:      { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   PerformanceGenerator: {
     beatIntensity:      { control: 'slider', min: 0, max: 1, step: 0.05 },

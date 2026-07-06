@@ -2223,10 +2223,15 @@ function createEvalNode(
         // the intended 0.75 response instead of becoming almost frozen.
         const smoothingProp = Number(props.smoothing ?? 0.72)
         const smoothing = Math.max(0, Math.min(0.95, smoothingProp > 1 ? smoothingProp / 4 : smoothingProp))
+        // Real-world audio (and raw, unweighted FFT magnitude) carries far more
+        // energy in the bass than the treble, so treble reads weak by default.
+        // `tilt` (0–1) counteracts that with a rising per-band boost — bass is
+        // left alone, mids get a partial lift, treble gets the most.
+        const tilt = Math.max(0, Math.min(1, Number(props.tilt ?? 0)))
         const target = {
           bass: Math.min(1, raw.bass * gain),
-          mids: Math.min(1, raw.mids * gain),
-          treble: Math.min(1, raw.treble * gain),
+          mids: Math.min(1, raw.mids * gain * (1 + tilt * 0.6)),
+          treble: Math.min(1, raw.treble * gain * (1 + tilt * 1.8)),
         }
         const key = stateKey(id)
         const prev = fftLevels.get(key) ?? target
