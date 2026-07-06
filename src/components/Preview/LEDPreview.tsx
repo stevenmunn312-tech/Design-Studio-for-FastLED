@@ -10,6 +10,8 @@ import { WebGLLEDRenderer } from './webglRenderer'
 import { applyShowPlaybackSignal } from './showPlaybackSignal'
 import { isDiffusedStyle, previewStyleLabel, type PreviewStyle } from './previewStyles'
 import { graphConsumesAudio } from './previewAudioUsage'
+import DevPerformanceHud, { DevPerformanceHudToggle } from './DevPerformanceHud'
+import { recordPerfFrame } from '../../dev/perfMonitor'
 import {
   IconAdd,
   IconClear,
@@ -443,6 +445,7 @@ export default function LEDPreview() {
   // from queuing UI work faster than React and the canvas thumbnails can draw.
   const lastPreviewPublish = useRef(0)
   const reportedPreviewErrors = useRef(new Set<string>())
+  const lastFrameNow = useRef(0)
 
   const nodes = useGraphStore((s) => s.nodes)
   const edges = useGraphStore((s) => s.edges)
@@ -511,8 +514,19 @@ export default function LEDPreview() {
   const previewStyle = useUiStore((s) => s.previewStyle)
   const togglePreview3d = useUiStore((s) => s.togglePreview3d)
   const cyclePreviewStyle = useUiStore((s) => s.cyclePreviewStyle)
+  const { micActive, previewSpectrum, startAudio, attachAudioElement, stopAudio } = useAudioStore()
   const previewStyleRef = useRef(previewStyle)
   useEffect(() => { previewStyleRef.current = previewStyle }, [previewStyle])
+  const stageModeRef = useRef(stageMode)
+  const preview3dRef = useRef(preview3d)
+  const micActiveRef = useRef(micActive)
+  const audioVisualizerLiveRef = useRef(audioVisualizerLive)
+  const hasFrameSignalRef = useRef(hasFrameSignal)
+  useEffect(() => { stageModeRef.current = stageMode }, [stageMode])
+  useEffect(() => { preview3dRef.current = preview3d }, [preview3d])
+  useEffect(() => { micActiveRef.current = micActive }, [micActive])
+  useEffect(() => { audioVisualizerLiveRef.current = audioVisualizerLive }, [audioVisualizerLive])
+  useEffect(() => { hasFrameSignalRef.current = hasFrameSignal }, [hasFrameSignal])
   // Orbit angles for 3D mode (degrees): pitch about X, yaw about Y.
   const [rot, setRot] = useState({ x: 50, y: 0 })
   const drag = useRef<{ x: number; y: number } | null>(null)
@@ -568,8 +582,6 @@ export default function LEDPreview() {
     setRot((r) => ({ x: Math.max(0, Math.min(90, r.x - dy * 0.5)), y: r.y + dx * 0.5 }))
   }
   const onRotateUp = () => { drag.current = null }
-
-  const { micActive, previewSpectrum, startAudio, attachAudioElement, stopAudio } = useAudioStore()
   const peakRef = useRef(Array(NUM_BARS).fill(0))
 
   const displaySpectrum = resample(audioVisualizerLive ? previewSpectrum : [], NUM_BARS).map((value, i, arr) => {
@@ -606,6 +618,7 @@ export default function LEDPreview() {
       // animation loop, so swallow errors and keep scheduling the next frame.
       try {
         const now = performance.now()
+        const frameStart = now
         if (startTime.current === 0) { startTime.current = now; lastStep.current = now }
         // Gate to ~60fps off the wall clock: on high-refresh displays this skips
         // the extra rAF callbacks instead of advancing time faster than real.
@@ -614,13 +627,19 @@ export default function LEDPreview() {
           return
         }
         lastStep.current = now
+        const gapMs = lastFrameNow.current === 0 ? STEP : now - lastFrameNow.current
+        lastFrameNow.current = now
         // t = tick / 60 = seconds elapsed, matching the firmware's millis()/1000.
         const tick = (now - startTime.current) / STEP
         tickRef.current = tick
         const gW = gridWRef.current, gH = gridHRef.current, px = pixelRef.current
+        const groups = getGroupRegistry()
         // One evaluation pass feeds both the main matrix and every node preview.
-        const { frame: rendered, outputs } = evaluateGraphFull(nodesRef.current, edgesRef.current, tick, gW, gH, getGroupRegistry())
+        const evalStart = performance.now()
+        const { frame: rendered, outputs } = evaluateGraphFull(nodesRef.current, edgesRef.current, tick, gW, gH, groups)
+        const evalMs = performance.now() - evalStart
         let frame = rendered ?? idleFrame(tick, gW, gH)
+        const showStart = performance.now()
         frame = applyShowPlaybackSignal(
           frame,
           outputs,
@@ -629,10 +648,12 @@ export default function LEDPreview() {
           useShowPlayback.getState(),
           gW,
           gH,
-          getGroupRegistry(),
+          groups,
         )
+        const showMs = performance.now() - showStart
 
         const bw = canvasBufWRef.current, bh = canvasBufHRef.current
+        const drawStart = performance.now()
         if (useWebGL && glRef.current) {
           glRef.current.render(frame, gW, gH, px, previewStyleRef.current)
         } else if (ctx) {
@@ -641,6 +662,7 @@ export default function LEDPreview() {
           }
           renderFrame(ctx, frame, px, previewStyleRef.current)
         }
+        const drawMs = performance.now() - drawStart
 
         // Sample the matrix itself for an Ambilight-style spill. Updating CSS
         // variables directly at 10 fps avoids making the full preview React
@@ -658,10 +680,40 @@ export default function LEDPreview() {
         // Beat pulses last one evaluation frame, so publish them immediately;
         // otherwise keep React/store work to ~15 fps while the matrix stays at 60.
         const hasBeat = Array.from(outputs.values()).some((output) => output.beat === true)
+        const publishStart = performance.now()
         if (hasBeat || now - lastPreviewPublish.current >= 66) {
           usePreviewStore.getState().setOutputs(outputs)
           lastPreviewPublish.current = now
         }
+        const publishMs = performance.now() - publishStart
+        const frameMs = performance.now() - frameStart
+        recordPerfFrame({
+          now,
+          gapMs,
+          frameMs,
+          evalMs,
+          showMs,
+          drawMs,
+          publishMs,
+          context: {
+            nodes: nodesRef.current.length,
+            edges: edgesRef.current.length,
+            groups: Object.keys(groups).length,
+            outputs: outputs.size,
+            gridW: gW,
+            gridH: gH,
+            canvasW: bw,
+            canvasH: bh,
+            renderer: useWebGL ? 'webgl' : '2d',
+            previewStyle: previewStyleRef.current,
+            stageMode: stageModeRef.current,
+            preview3d: preview3dRef.current,
+            micActive: micActiveRef.current,
+            audioReactive: audioVisualizerLiveRef.current,
+            hidden: document.visibilityState === 'hidden',
+            hasSignal: hasFrameSignalRef.current,
+          },
+        })
 
         frameCount.current++
         if (now - lastFpsTime.current >= 1000) {
@@ -885,6 +937,7 @@ export default function LEDPreview() {
           </div>
         ) : <span>LED Preview</span>}
         <div className={styles.headerRight}>
+          {import.meta.env.DEV && <DevPerformanceHudToggle />}
           <button
             className={`${styles.toggleBtn} ${styles.stageToggle} ${stageMode ? styles.toggleActive : ''}`}
             onClick={() => setStageMode(!stageMode)}
@@ -927,6 +980,7 @@ export default function LEDPreview() {
         ref={canvasWrapRef}
         className={`${styles.canvasWrap} ${preview3d ? styles.canvasWrap3d : ''}`}
       >
+        {import.meta.env.DEV && <DevPerformanceHud />}
         <div className={styles.ambilight} aria-hidden="true" />
         {!hasFrameSignal && (
           <div className={styles.standbyHud} aria-live="polite">
