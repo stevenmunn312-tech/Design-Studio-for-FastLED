@@ -12,15 +12,27 @@ interface Props {
 }
 
 export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
-  const { duplicateNode, deleteNode, disconnectNode, copyNode } = useGraphStore()
+  const { duplicateNode, deleteNode, disconnectNode, copyNode, ungroupNode } = useGraphStore()
+  const setStatus = useUiStore((s) => s.setStatus)
   const isGroup = useGraphStore(
     (s) => s.nodes.find((n) => n.id === nodeId)?.data.nodeType === 'Group',
+  )
+  const groupLabel = useGraphStore(
+    (s) => s.nodes.find((n) => n.id === nodeId)?.data.label,
   )
   const menuRef = useRef<HTMLDivElement>(null)
 
   const handleSaveToLibrary = () => {
     const name = saveGroupToLibrary(nodeId)
-    if (name) useUiStore.getState().setStatus(`Saved “${name}” to the library`, 'success')
+    if (name) setStatus(`Saved “${name}” to the library`, 'success')
+  }
+
+  const handleUngroup = () => {
+    if (!ungroupNode(nodeId)) {
+      setStatus('Could not ungroup that node', 'error')
+      return
+    }
+    setStatus(`Ungrouped “${String(groupLabel ?? 'Group')}”`, 'success')
   }
 
   useEffect(() => {
@@ -56,6 +68,11 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
       {isGroup && (
         <button className={styles.item} onClick={() => act(handleSaveToLibrary)}>
           Save to Library
+        </button>
+      )}
+      {isGroup && (
+        <button className={styles.item} onClick={() => act(handleUngroup)}>
+          Ungroup
         </button>
       )}
       <div className={styles.divider} />

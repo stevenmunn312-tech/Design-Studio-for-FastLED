@@ -265,6 +265,41 @@ describe('graphStore — grouping', () => {
     expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 255 })
   })
 
+  it('ungroupNode restores the grouped nodes, rewires the boundary edges, and drops the wrapper subgraph', () => {
+    const clamp = { ...node('c', 'Clamp', { value: 0.5, min: 0, max: 1 }), position: { x: -180, y: 100 } }
+    const solid = { ...node('sc', 'SolidColor', { r: 0, g: 0, b: 255 }), position: { x: 20, y: 40 } }
+    const mod = { ...node('bm', 'BrightnessMod'), position: { x: 140, y: 120 } }
+    const out = { ...node('out', 'MatrixOutput'), position: { x: 620, y: 100 } }
+    reset(
+      [clamp, solid, mod, out],
+      [
+        edge('e1', 'sc', 'frame', 'bm', 'frame'),
+        edge('e2', 'c', 'result', 'bm', 'brightness'),
+        edge('e3', 'bm', 'frame', 'out', 'frame'),
+      ],
+    )
+
+    const gid = useGraphStore.getState().createGroup('Dim', ['sc', 'bm'])
+    const groupId = `groupnode-${gid}`
+    useGraphStore.setState((s) => ({
+      nodes: s.nodes.map((n) => n.id === groupId ? { ...n, position: { x: 300, y: 400 } } : n),
+    }))
+
+    expect(useGraphStore.getState().ungroupNode(groupId)).toBe(true)
+    const s = useGraphStore.getState()
+
+    expect(s.nodes.some((n) => n.id === groupId)).toBe(false)
+    expect(s.graphData[gid]).toBeUndefined()
+    expect(s.graphs[gid]).toBeUndefined()
+    expect(s.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: 'sc', sourceHandle: 'frame', target: 'bm', targetHandle: 'frame' }),
+      expect.objectContaining({ source: 'c', sourceHandle: 'result', target: 'bm', targetHandle: 'brightness' }),
+      expect.objectContaining({ source: 'bm', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' }),
+    ]))
+    expect(s.nodes.find((n) => n.id === 'sc')!.position).toEqual({ x: 240, y: 360 })
+    expect(s.nodes.find((n) => n.id === 'bm')!.position).toEqual({ x: 360, y: 440 })
+  })
+
   it('auto-exposes unconnected speed/energy ports as show-input roles, multiplied against the original slider value', () => {
     reset([node('n', 'Noise', { speed: 0.5, scale: 0.5, palette: 'rainbow' })], [])
     const gid = useGraphStore.getState().createGroup('Wavy', ['n'])
@@ -323,6 +358,43 @@ describe('graphStore — grouping', () => {
     const gid = useGraphStore.getState().createGroup('Wavy', ['n'])
     const sub = useGraphStore.getState().graphData[gid]
     expect(sub.nodes.some((n) => n.data.properties?.paramId === 'palette')).toBe(false)
+  })
+
+  it('ungroupNode strips auto-generated group helper nodes back out of the canvas', () => {
+    reset([node('n', 'Noise', { speed: 0.5, scale: 0.5, palette: 'rainbow' })], [])
+    const gid = useGraphStore.getState().createGroup('Wavy', ['n'])
+
+    expect(useGraphStore.getState().ungroupNode(`groupnode-${gid}`)).toBe(true)
+
+    const types = useGraphStore.getState().nodes.map((n) => n.data.nodeType)
+    expect(types).toEqual(['Noise'])
+  })
+
+  it('ungroupNode remaps colliding internal ids from instantiated patterns', () => {
+    reset([node('sc', 'SolidColor'), node('out', 'MatrixOutput')], [])
+    const saved = {
+      id: 'pat-1', name: 'Blue', createdAt: 0,
+      inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+      subgraph: {
+        nodes: [node('sc', 'SolidColor', { r: 0, g: 0, b: 255 }), node('go', 'GroupOutput')],
+        edges: [edge('inner', 'sc', 'frame', 'go', 'frame')],
+      },
+    } as unknown as import('../patternLibrary').SavedPattern
+
+    useGraphStore.getState().instantiatePattern(saved, { x: 240, y: 120 })
+    const group = useGraphStore.getState().nodes.find((n) => n.data.nodeType === 'Group')!
+    useGraphStore.getState().onConnect({
+      source: group.id, sourceHandle: 'frame', target: 'out', targetHandle: 'frame',
+    })
+
+    expect(useGraphStore.getState().ungroupNode(group.id)).toBe(true)
+
+    const s = useGraphStore.getState()
+    const ids = s.nodes.map((n) => n.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(s.nodes.filter((n) => n.data.nodeType === 'SolidColor')).toHaveLength(2)
+    expect(s.nodes.some((n) => n.id !== 'sc' && n.id.startsWith('sc-'))).toBe(true)
+    expect(s.edges.find((e) => e.target === 'out' && e.targetHandle === 'frame')!.source).not.toBe('sc')
   })
 
   it('saveGroupToLibrary saves a Group node and returns its name', async () => {
@@ -407,6 +479,34 @@ describe('graphStore — legacy node migration on load', () => {
     useGraphStore.getState().loadGraph([mic, music], [])
     expect(dataOf('mic').category).toBe('input')
     expect(dataOf('lib').category).toBe('show')
+  })
+
+  it('refreshes stale saved ports from the node library on load', () => {
+    const perf = node('pg', 'PerformanceGenerator')
+    perf.data.inputs = [
+      { id: 'songs', label: 'Songs', dataType: 'songs' },
+      { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
+    ]
+    perf.data.outputs = [
+      { id: 'shows', label: 'Shows', dataType: 'shows' },
+    ]
+    const master = node('pm', 'PatternMaster')
+    master.data.inputs = [
+      { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
+      { id: 'beat', label: 'Beat', dataType: 'bool' },
+    ]
+
+    useGraphStore.getState().loadGraph([perf, master], [])
+
+    expect(dataOf('pg').inputs).toEqual(
+      NODE_LIBRARY.find((n) => n.type === 'PerformanceGenerator')!.inputs,
+    )
+    expect(dataOf('pg').outputs).toEqual(
+      NODE_LIBRARY.find((n) => n.type === 'PerformanceGenerator')!.outputs,
+    )
+    expect(dataOf('pm').inputs).toEqual(
+      NODE_LIBRARY.find((n) => n.type === 'PatternMaster')!.inputs,
+    )
   })
 
   // Regression: a reload that dropped graphData wiped every group's subgraph,

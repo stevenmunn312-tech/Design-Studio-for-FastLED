@@ -308,6 +308,28 @@ describe('StudioNode', () => {
     expect(selects[1].disabled).toBe(true)
   })
 
+  it('renders the library frame handle for a stale Performance Generator snapshot', () => {
+    const node = makeNode('PerformanceGenerator', {
+      beatIntensity: 0.8,
+      energySensitivity: 0.7,
+      transitionDuration: 0.5,
+      paletteMode: 'mood',
+      fixedPalette: 'rainbow',
+    })
+    node.data.inputs = [
+      { id: 'songs', label: 'Songs', dataType: 'songs' },
+      { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
+    ]
+    node.data.outputs = [
+      { id: 'shows', label: 'Shows', dataType: 'shows' },
+    ]
+
+    const { container } = renderNode(node)
+
+    expect(container.querySelector('[data-handle="source:frame"]')).toBeTruthy()
+    expect(container.querySelector('[data-handle="target:transitions"]')).toBeTruthy()
+  })
+
   it('embeds a live beat/BPM widget in the Beat Detect node', () => {
     usePreviewStore.setState({
       outputs: new Map([

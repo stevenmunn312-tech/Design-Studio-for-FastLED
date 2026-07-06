@@ -98,6 +98,9 @@ interface GraphState {
   /** Encapsulate the given nodes into a new group, replacing them in the
    *  active graph with a single Group node. Returns the new group id. */
   createGroup: (name: string, nodeIds: string[], options?: CreateGroupOptions) => string
+  /** Inline a Group node back into the active graph, deleting its wrapper
+   *  subgraph entry once its contents have been restored. */
+  ungroupNode: (id: string) => boolean
   /** Drop a copy of a saved library pattern onto the canvas as a Group node,
    *  registering its subgraph under a fresh group id. With `centreOnDrop`, the
    *  Group node settles vertically centred on `position` once measured (see
@@ -227,29 +230,13 @@ function migrateLegacyGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes: 
     const def = LIBRARY_DEF.get(nodeType)
     const category: NodeCategory = def?.category ?? data.category
     if (def) label = def.label
-    // Saved nodes carry their own port snapshots. Add the new frame terminal
-    // to existing Performance Generators as well as newly-created ones.
-    const outputs = Array.isArray(data.outputs) ? data.outputs : []
-    const migratedOutputs = nodeType === 'PerformanceGenerator' && !outputs.some((port) => (
-      typeof port === 'object' && port !== null && 'id' in port && port.id === 'frame'
-    ))
-      ? [...outputs, { id: 'frame', label: 'Frame', dataType: 'frame' }]
-      : outputs
-    // Likewise, give existing Pattern Masters the new `transitions` input (a
-    // wired TransitionSet pool) — inserted after `patternset` to match new nodes.
-    const inputs = Array.isArray(data.inputs) ? data.inputs : []
-    const hasPort = (id: string) => inputs.some((port) => (
-      typeof port === 'object' && port !== null && 'id' in port && port.id === id
-    ))
-    let migratedInputs = inputs
-    if (nodeType === 'PatternMaster' && !hasPort('transitions')) {
-      const transPort = { id: 'transitions', label: 'Transitions', dataType: 'transitionset' }
-      const idx = inputs.findIndex((port) => (
-        typeof port === 'object' && port !== null && 'id' in port && port.id === 'patternset'
-      ))
-      migratedInputs = idx >= 0 ? [...inputs.slice(0, idx + 1), transPort, ...inputs.slice(idx + 1)] : [...inputs, transPort]
-    }
-    return { ...n, data: { ...data, nodeType, label, category, properties, inputs: migratedInputs, outputs: migratedOutputs } }
+    // For library-backed nodes, the registry is the source of truth for ports:
+    // refreshing them on load lets old saves pick up newly-added handles (for
+    // example PerformanceGenerator.frame) and retire renamed ones. Only the
+    // programmatic group-family nodes keep their saved port snapshots.
+    const inputs = def?.inputs ?? (Array.isArray(data.inputs) ? data.inputs : [])
+    const outputs = def?.outputs ?? (Array.isArray(data.outputs) ? data.outputs : [])
+    return { ...n, data: { ...data, nodeType, label, category, properties, inputs, outputs } }
   })
   const migratedEdges = edges.map((e) => {
     const rename = handleRenames.get(e.target)
@@ -315,6 +302,18 @@ function edgeStrokeForPort(node: StudioNode | undefined, handleId: string | unde
   }
   const port = [...(data.outputs ?? []), ...(data.inputs ?? [])].find((p) => p.id === handleId)
   return portColor(port?.dataType ?? 'float')
+}
+
+function studioNodeType(node: StudioNode | undefined): string {
+  return String(node?.data.nodeType ?? '')
+}
+
+function uniqueId(base: string, used: Set<string>): string {
+  let candidate = base
+  let suffix = 1
+  while (used.has(candidate)) candidate = `${base}-${suffix++}`
+  used.add(candidate)
+  return candidate
 }
 
 export const useGraphStore = create<GraphState>()(
@@ -754,6 +753,112 @@ export const useGraphStore = create<GraphState>()(
           }
         })
         return groupId
+      },
+
+      ungroupNode: (id) => {
+        let ungrouped = false
+        set((s) => {
+          const groupNode = s.nodes.find((n) => n.id === id)
+          const groupId = (groupNode?.data.properties as { groupId?: string } | undefined)?.groupId
+          const sub = groupId ? s.graphData[groupId] : undefined
+          if (!groupNode || studioNodeType(groupNode) !== 'Group' || !groupId || !sub) return s
+
+          const isRestorableNode = (node: StudioNode) => {
+            const type = studioNodeType(node)
+            if (type === 'GroupInput' || type === 'GroupOutput') return false
+            // Auto-exposed speed/energy group roles synthesize helper Math nodes;
+            // strip those back out so ungroup restores the authored graph rather
+            // than leaking grouping internals onto the canvas.
+            if (type === 'Math' && node.id.startsWith('groupmul-')) return false
+            return true
+          }
+
+          const restorable = sub.nodes.filter(isRestorableNode)
+          const anchor = restorable.length ? restorable : [groupNode]
+          const cx = anchor.reduce((sum, node) => sum + node.position.x, 0) / anchor.length
+          const cy = anchor.reduce((sum, node) => sum + node.position.y, 0) / anchor.length
+          const dx = groupNode.position.x - cx
+          const dy = groupNode.position.y - cy
+
+          const usedNodeIds = new Set(s.nodes.filter((n) => n.id !== id).map((n) => n.id))
+          const nodeIdMap = new Map<string, string>()
+          const restoredNodes = restorable.map((node) => {
+            const nextId = uniqueId(node.id, usedNodeIds)
+            nodeIdMap.set(node.id, nextId)
+            return {
+              ...node,
+              id: nextId,
+              position: { x: node.position.x + dx, y: node.position.y + dy },
+              selected: false,
+            }
+          })
+
+          const survivingEdges = s.edges.filter((e) => e.source !== id && e.target !== id)
+          const usedEdgeIds = new Set(survivingEdges.map((e) => e.id))
+          const emittedEdges: StudioEdge[] = []
+          const pushEdge = (edge: StudioEdge) => {
+            emittedEdges.push({ ...edge, id: uniqueId(edge.id, usedEdgeIds) })
+          }
+
+          // Restore all internal wiring between ordinary nodes verbatim.
+          for (const edge of sub.edges) {
+            const source = nodeIdMap.get(edge.source ?? '')
+            const target = nodeIdMap.get(edge.target ?? '')
+            if (!source || !target) continue
+            pushEdge({ ...edge, source, target } as StudioEdge)
+          }
+
+          // External sources that previously fed the Group node's exposed inputs
+          // are wired straight to the old GroupInput consumers inside.
+          const exposedInputs = new Set(((groupNode.data.inputs as { id: string }[] | undefined) ?? []).map((port) => port.id))
+          for (const groupInput of sub.nodes.filter((node) => studioNodeType(node) === 'GroupInput')) {
+            const paramId = String((groupInput.data.properties as { paramId?: string } | undefined)?.paramId ?? '')
+            if (!exposedInputs.has(paramId)) continue
+            const inbound = s.edges.filter((edge) => edge.target === id && edge.targetHandle === paramId)
+            const consumers = sub.edges.filter((edge) => edge.source === groupInput.id)
+            for (const outer of inbound) {
+              for (const consumer of consumers) {
+                const target = nodeIdMap.get(consumer.target ?? '')
+                if (!target) continue
+                pushEdge({ ...outer, target, targetHandle: consumer.targetHandle } as StudioEdge)
+              }
+            }
+          }
+
+          // The group's frame output becomes the source that used to feed the
+          // primary GroupOutput terminal inside the subgraph.
+          const groupOutput = sub.nodes.find((node) => studioNodeType(node) === 'GroupOutput')
+          const feeder = groupOutput
+            ? sub.edges.find((edge) => edge.target === groupOutput.id && edge.targetHandle === 'frame')
+            : undefined
+          const feederSource = feeder ? nodeIdMap.get(feeder.source ?? '') : undefined
+          const feederNode = feederSource ? restoredNodes.find((node) => node.id === feederSource) : undefined
+          const feederColor = feeder ? edgeStrokeForPort(feederNode, feeder.sourceHandle ?? undefined) : '#00bfff'
+          if (feeder && feederSource) {
+            for (const outer of s.edges.filter((edge) => edge.source === id)) {
+              pushEdge({
+                ...outer,
+                source: feederSource,
+                sourceHandle: feeder.sourceHandle,
+                style: { ...outer.style, stroke: feederColor },
+              } as StudioEdge)
+            }
+          }
+
+          const graphData = { ...s.graphData }
+          delete graphData[groupId]
+          const graphs = { ...s.graphs }
+          delete graphs[groupId]
+          ungrouped = true
+          return {
+            nodes: [...s.nodes.filter((n) => n.id !== id), ...restoredNodes],
+            edges: [...survivingEdges, ...emittedEdges],
+            graphData,
+            graphs,
+            selectedNodeId: s.selectedNodeId === id ? null : s.selectedNodeId,
+          }
+        })
+        return ungrouped
       },
 
       instantiatePattern: (saved, position, centreOnDrop) =>

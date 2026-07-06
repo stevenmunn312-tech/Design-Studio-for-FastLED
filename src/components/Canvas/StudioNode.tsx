@@ -178,6 +178,7 @@ type StudioNodeProps = NodeProps<Node<StudioNodeData>>
 
 function StudioNode({ id, data, selected }: StudioNodeProps) {
   const d = data as StudioNodeData
+  const def = useMemo(() => NODE_LIBRARY.find((entry) => entry.type === d.nodeType), [d.nodeType])
   const sparkPortId = useUiStore((s) =>
     s.sparkPort?.nodeId === id ? (s.sparkPort?.portId ?? null) : null
   )
@@ -198,8 +199,8 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
   const setGroupInputRole = useGraphStore((s) => s.setGroupInputRole)
   const accent = CATEGORY_ACCENT_VAR[d.category] ?? 'var(--accent-output)'
-  const inputs = d.inputs as { id: string; label: string; dataType: string }[]
-  const outputs = d.outputs as { id: string; label: string; dataType: string }[]
+  const inputs = (def?.inputs ?? d.inputs) as { id: string; label: string; dataType: string }[]
+  const outputs = (def?.outputs ?? d.outputs) as { id: string; label: string; dataType: string }[]
   const rowCount = Math.max(inputs.length, outputs.length)
 
   // Which of this node's input ports are wired, and to which upstream port. When
