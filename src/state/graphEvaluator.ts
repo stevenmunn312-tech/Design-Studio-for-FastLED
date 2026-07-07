@@ -27,6 +27,12 @@ const flashLevel  = new Map<string, number>()
 const counterVals = new Map<string, number>()
 // Interval (metronome) node — last fire time in seconds, keyed by state id.
 const intervalLast = new Map<string, number>()
+// Smooth node — smoothed value + the time it was last advanced.
+const smoothState = new Map<string, { v: number; t: number }>()
+// SampleHold node — the latched value + previous trigger level (edge detect).
+const holdState = new Map<string, { v: number; prev: boolean }>()
+// Envelope node — trigger fire time (seconds) + previous trigger level.
+const envState = new Map<string, { fire: number; prev: boolean }>()
 const fftLevels   = new Map<string, { bass: number; mids: number; treble: number }>()
 const beatLevels  = new Map<string, ReturnType<typeof createBeatDetectorState>>()
 type AudioFeatureState = {
@@ -122,7 +128,8 @@ export function pruneEvaluatorState(maxIdleMs = STATE_IDLE_TTL_MS, now = stateCl
   if (stale.length === 0) return 0
 
   const maps: Array<{ delete: (key: string) => boolean }> = [
-    fireHeat, flashLevel, counterVals, intervalLast, fftLevels, beatLevels,
+    fireHeat, flashLevel, counterVals, intervalLast, smoothState, holdState,
+    envState, fftLevels, beatLevels,
     percussionLevels, audioFeatureLevels, particleState, patternShowState,
     rdState, golState, flowState, starState, sparkState, fire2012Heat,
     codeLeds, codeError,
@@ -2678,6 +2685,17 @@ function createEvalNode(
         break
       }
 
+      // Manual A/B frame selector; falls back to the wired side when the
+      // selected one is empty. Both inputs are evaluated every frame so a
+      // stateful upstream pattern keeps advancing while hidden.
+      case 'FrameSwitch': {
+        const a = input(id, 'a', null) as Frame | null
+        const b = input(id, 'b', null) as Frame | null
+        const sel = Boolean(input(id, 'sel', false))
+        out = { frame: (sel ? b : a) ?? (sel ? a : b) }
+        break
+      }
+
       case 'Mask': {
         const src = input(id, 'frame', null) as Frame | null
         const maskF = input(id, 'mask', null) as Frame | null
@@ -2944,6 +2962,63 @@ function createEvalNode(
         const val = num(id, 'value', props, 'value', 0)
         const gate = input(id, 'gate', false) as boolean
         out = { result: gate ? val : Number(props.fallback ?? 0) }
+        break
+      }
+
+      // Low-pass smoothing — EMA toward the input with time constant `response`
+      // (seconds to ~63% of a step; ≤0.01 = passthrough). dt comes from the
+      // wall-clock t so smoothing speed is framerate-independent, mirroring the
+      // millis()-based version the C++ generator emits.
+      case 'Smooth': {
+        const value = num(id, 'value', props, 'value', 0)
+        const response = Math.max(0, Number(props.response ?? 0.25))
+        const key = stateKey(id)
+        const prev = smoothState.get(key)
+        let v = value
+        if (prev && t >= prev.t && response > 0.01) {
+          const alpha = 1 - Math.exp(-(t - prev.t) / response)
+          v = prev.v + (value - prev.v) * alpha
+        }
+        smoothState.set(key, { v, t })
+        out = { result: v }
+        break
+      }
+
+      // Sample & hold — latches `value` on each rising edge of `trigger`,
+      // initialised to the first value seen so it never emits a stale 0.
+      case 'SampleHold': {
+        const value = num(id, 'value', props, 'value', 0)
+        const trig = Boolean(input(id, 'trigger', false))
+        const key = stateKey(id)
+        const prev = holdState.get(key)
+        const held = !prev || (trig && !prev.prev) ? value : prev.v
+        holdState.set(key, { v: held, prev: trig })
+        out = { result: held }
+        break
+      }
+
+      // A/B selector — unlike Gate (value vs. constant fallback), both sides
+      // are live inputs.
+      case 'Switch': {
+        const a = num(id, 'a', props, 'a', 0)
+        const b = num(id, 'b', props, 'b', 1)
+        const sel = Boolean(input(id, 'sel', false))
+        out = { result: sel ? b : a }
+        break
+      }
+
+      // Trigger envelope — 1 on a rising edge of `trigger`, decaying linearly
+      // to 0 over `decay` seconds (wire through Ease for a shaped curve).
+      case 'Envelope': {
+        const trig = Boolean(input(id, 'trigger', false))
+        const decay = Math.max(0.05, Number(props.decay ?? 0.5))
+        const key = stateKey(id)
+        const prev = envState.get(key)
+        // Forget the fire time on a clock reset (t jumped backwards).
+        let fire = prev && prev.fire <= t ? prev.fire : -Infinity
+        if (trig && !prev?.prev) fire = t
+        envState.set(key, { fire, prev: trig })
+        out = { result: Math.max(0, Math.min(1, 1 - (t - fire) / decay)) }
         break
       }
 

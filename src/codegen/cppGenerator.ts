@@ -1367,6 +1367,17 @@ export function generateCpp(
         break
       }
 
+      // Manual A/B frame selector; copies the wired side when the other is
+      // empty (matching the evaluator's fallback).
+      case 'FrameSwitch': {
+        const ob = ownBuf()
+        const a = srcBuf('a'), b = srcBuf('b'), sel = boolExpr(node.id, 'sel')
+        if (a && b) ln(`  ::memmove(${ob}, (${sel}) ? ${b} : ${a}, sizeof(CRGB) * NUM_LEDS);`)
+        else if (a || b) ln(`  ::memmove(${ob}, ${a ?? b}, sizeof(CRGB) * NUM_LEDS);`)
+        else ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
+        break
+      }
+
       case 'Mask': {
         const ob = ownBuf()
         const mask = srcBuf('mask')
@@ -1618,6 +1629,46 @@ export function generateCpp(
       case 'Gate': {
         const val = f('value', 'value', 0), gate = boolExpr(node.id, 'gate')
         ln(`  float ${v('result')} = (${gate}) ? (${val}) : ${Number(p.fallback ?? 0)};`)
+        break
+      }
+
+      // Low-pass smoothing — millis()-based EMA with time constant `response`
+      // seconds, seeded from the first sample. Mirrors the evaluator's Smooth.
+      case 'Smooth': {
+        const resp = Math.max(0, Number(p.response ?? 0.25))
+        const val = f('value', 'value', 0)
+        if (resp <= 0.01) { ln(`  float ${v('result')} = ${val};`); break }
+        ln(`  static float ${v('result')} = 0; static uint32_t _smT_${id} = 0; static bool _smI_${id} = false;`)
+        ln(`  { float _in = ${val}; uint32_t _now = millis();`)
+        ln(`    if (!_smI_${id}) { ${v('result')} = _in; _smI_${id} = true; }`)
+        ln(`    else ${v('result')} += (_in - ${v('result')}) * (1.0f - expf(-(float)(_now - _smT_${id}) / 1000.0f / ${resp.toFixed(3)}f));`)
+        ln(`    _smT_${id} = _now; }`)
+        break
+      }
+
+      // Sample & hold — latch `value` on a rising edge of `trigger` (seeded
+      // from the first sample, matching the evaluator).
+      case 'SampleHold': {
+        const val = f('value', 'value', 0), trig = boolExpr(node.id, 'trigger')
+        ln(`  static float ${v('result')} = 0; static bool _shP_${id} = false, _shI_${id} = false;`)
+        ln(`  { bool _t = (${trig}); if (!_shI_${id} || (_t && !_shP_${id})) { ${v('result')} = ${val}; _shI_${id} = true; } _shP_${id} = _t; }`)
+        break
+      }
+
+      case 'Switch': {
+        const a = f('a', 'a', 0), b2 = f('b', 'b', 1), sel = boolExpr(node.id, 'sel')
+        ln(`  float ${v('result')} = (${sel}) ? (${b2}) : (${a});`)
+        break
+      }
+
+      // Trigger envelope — 1 on a rising edge, linear decay to 0 over `decay`
+      // seconds; outputs 0 until the first trigger.
+      case 'Envelope': {
+        const trig = boolExpr(node.id, 'trigger')
+        const ms = Math.max(50, Math.round(Number(p.decay ?? 0.5) * 1000))
+        ln(`  static uint32_t _envT_${id} = 0; static bool _envF_${id} = false, _envP_${id} = false;`)
+        ln(`  { bool _t = (${trig}); if (_t && !_envP_${id}) { _envT_${id} = millis(); _envF_${id} = true; } _envP_${id} = _t; }`)
+        ln(`  float ${v('result')} = _envF_${id} ? constrain(1.0f - (millis() - _envT_${id}) / ${ms}.0f, 0.0f, 1.0f) : 0.0f;`)
         break
       }
 

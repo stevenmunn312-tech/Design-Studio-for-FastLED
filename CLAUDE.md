@@ -232,12 +232,12 @@ Nodes are grouped into categories. Adding a new node type requires:
 Current nodes by category (see `nodeLibrary.ts` for the authoritative list):
 - **input** (live device IO): MicInput, ButtonInput, PotInput
 - **audio** (analysis): FFTAnalyzer, BeatDetect, PercussionDetect, AudioFeatures, AudioHue
-- **signal** (time-varying control sources): TimeNode, Interval, Counter, Random, Sin, Cos, Wave, ComplexWave, BeatSin
-- **math** (value transforms, label "Math & Logic"): Math, Clamp, MapRange, Lerp, Ease, Abs, Mod, Compare, Not, Gate, XYMapper
+- **signal** (time-varying control sources): TimeNode, Interval, Counter, Random, Envelope, Sin, Cos, Wave, ComplexWave, BeatSin
+- **math** (value transforms, label "Math & Logic"): Math, Clamp, MapRange, Lerp, Ease, Abs, Mod, Compare, Not, Gate, Smooth, SampleHold (label "Sample & Hold"), Switch, XYMapper
 - **color** (subcategories *Colors* / *Palettes*): HSVToRGB, CHSV, Temperature, HeatColor, BlendColors / GradientSampler, PaletteSampler, PaletteSelector, CustomPalette, Poline, PaletteBlend
 - **pattern** (frame generators, five subcategories): *Shapes & Text*: SolidColor, Span (label "Bar"), Rect, Circle, Line, Text, Image, GradientFrame, PaletteGradient · *Generative*: Noise, Noise2D, FractalNoise, GaborNoise, Plasma, Rainbow, Blobs, RadialBurst, Spiral, Kaleidoscope · *Simulations*: Fire, Fire2012, Particles, FlowField, Starfield, ReactionDiffusion, GameOfLife · *Audio-Reactive*: SpectrumBars, BassPulse, BassRings, MidrangeWaves, MidrangeBloom, TrebleSparks, TreblePrism, AudioCascade, BeatFlash, AudioFlow · *Code*: CustomFormula, Code
 - **field** (the scalar-field pipeline, in workflow order): FieldFormula, DistanceField, FieldMath, FieldWarp, FieldRotate, FieldTile, FieldToFrame
-- **composite** (frame→frame, label "Effects"): Blend, BrightnessMod, HueShift, Gamma, Transform, Invert, Blur2D, Mask, Fade
+- **composite** (frame→frame, label "Effects"): Blend, BrightnessMod, HueShift, Gamma, Transform, Invert, FrameSwitch (label "Frame Switch"), Blur2D, Mask, Fade
 - **show** (the show workflow, in pipeline order): MusicLibrary, PatternCollection, TransitionSet, PatternMaster (label **"Show Engine"**), Sequencer, Transition, PerformanceGenerator, SDCard (PerformanceGenerator and SDCard are the music-sync export chain — see *Music-Sync Show Pipeline*)
 - **output**: MatrixOutput
 
@@ -271,6 +271,8 @@ The `Image` node follows the same shared-data pattern via `src/state/image.ts`: 
 - **`Rainbow`** (pattern) — FastLED `fill_rainbow`: a scrolling hue sweep, `deltaHue` sets the per-LED spread. `speed` is a normalised 0–1 slider (`SPEED_MAX.Rainbow = 120` hue-units/sec in `speedRange.ts`); index order matches the `[y*W+x]` buffer layout so preview lines up with the sketch.
 - **`Gamma`** (composite) — perceptual gamma correction, `frame`→`frame`. Evaluator applies `255·(c/255)^γ` per channel; codegen emits `napplyGamma_video(buf, NUM_LEDS, γ)`.
 - **`Interval`** (math) — a metronome that emits a `bool` pulse every `interval` seconds (the non-audio analogue of `EVERY_N_MILLISECONDS`). Stateful in the evaluator (module-level `intervalLast`, keyed per group instance like the other stateful nodes); codegen emits a `static uint32_t` millis timer.
+
+**Signal utility nodes.** Small float/trigger plumbing that makes signals composable: `Smooth` (low-pass EMA toward the input with a `response` time constant — the tool for taming jittery FFT bands or a PotInput, since the cycle guard forbids self-feeding a `Lerp`), `SampleHold` (latches `value` on each rising edge of `trigger` — `Random → SampleHold ← BeatDetect` is the "new random value every beat" idiom; `Random` alone re-rolls every frame), `Envelope` (rising trigger edge → 1, linear decay to 0 over `decay` seconds — the generic float analogue of BeatFlash; wire through `Ease` for a curve), `Switch` (A/B float selector by a `sel` bool — unlike `Gate`, both branches are live signals), and `FrameSwitch` (the frame-typed A/B counterpart, composite category; falls back to the wired side when the selected one is empty, and evaluates both inputs so hidden stateful patterns keep advancing). The stateful three keep per-instance state in module-level maps (`smoothState`/`holdState`/`envState`, pruned like the rest) and their firmware mirrors use `millis()`-based statics seeded from the first sample, so preview matches on-device; all are dwell-time based, not framerate based.
 
 **MatrixOutput power cap.** MatrixOutput gained an optional `powerLimit` toggle plus `volts`/`milliamps` (the volts/mA editors are gated on the toggle via `isPropertyEnabled`). When on, `cppGenerator.ts` emits `FastLED.setMaxPowerInVoltsAndMilliamps(volts, milliamps)` in `setup()` so FastLED auto-dims to keep PSU draw under the cap. Preview-only (no effect on the live render).
 

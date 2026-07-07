@@ -1181,3 +1181,81 @@ describe('PSRAM buffer placement (MatrixOutput usePsram)', () => {
     expect(cpp).not.toContain('_psAlloc')
   })
 })
+
+describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameSwitch)', () => {
+  // Each scalar node drives BrightnessMod so its output participates in the sketch.
+  const tail = (srcId: string, srcPort: string) => {
+    const sc = node('bg', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })
+    const bm = node('bm', 'BrightnessMod', 'composite', {})
+    return {
+      nodes: [sc, bm, outputNode],
+      edges: [
+        edge('t1', 'bg', 'bm', 'frame', 'frame'),
+        edge('t2', srcId, 'bm', srcPort, 'brightness'),
+        edge('t3', 'bm', 'out', 'frame', 'frame'),
+      ],
+    }
+  }
+
+  it('Smooth emits a millis()-based EMA seeded from the first sample', () => {
+    const t = tail('sm', 'result')
+    const cpp = generateCpp([node('sm', 'Smooth', 'math', { value: 0.5, response: 0.25 }), ...t.nodes], t.edges)
+    expect(cpp).toContain('static float n_sm_result')
+    expect(cpp).toContain('expf(')
+    expect(cpp).toContain('0.250f')
+  })
+
+  it('Smooth with ~0 response is a passthrough', () => {
+    const t = tail('sm', 'result')
+    const cpp = generateCpp([node('sm', 'Smooth', 'math', { value: 0.5, response: 0 }), ...t.nodes], t.edges)
+    expect(cpp).toContain('float n_sm_result = 0.5;')
+    expect(cpp).not.toContain('expf(')
+  })
+
+  it('SampleHold latches on a rising edge with static state', () => {
+    const t = tail('sh', 'result')
+    const iv = node('iv', 'Interval', 'signal', { interval: 1 })
+    const cpp = generateCpp([iv, node('sh', 'SampleHold', 'math', { value: 0.5 }), ...t.nodes],
+      [edge('e0', 'iv', 'sh', 'pulse', 'trigger'), ...t.edges])
+    expect(cpp).toContain('static float n_sh_result')
+    expect(cpp).toContain('_t && !_shP_sh')
+    expect(cpp).toContain('n_iv_pulse')
+  })
+
+  it('Switch emits a ternary over both live inputs', () => {
+    const t = tail('sw', 'result')
+    const cpp = generateCpp([node('sw', 'Switch', 'math', { a: 0.25, b: 0.75 }), ...t.nodes], t.edges)
+    expect(cpp).toContain('float n_sw_result = (false) ? (0.75) : (0.25);')
+  })
+
+  it('Envelope decays from a millis() fire time over the decay window', () => {
+    const t = tail('env', 'result')
+    const iv = node('iv', 'Interval', 'signal', { interval: 1 })
+    const cpp = generateCpp([iv, node('env', 'Envelope', 'signal', { decay: 0.5 }), ...t.nodes],
+      [edge('e0', 'iv', 'env', 'pulse', 'trigger'), ...t.edges])
+    expect(cpp).toContain('static uint32_t _envT_env')
+    expect(cpp).toContain('constrain(1.0f - (millis() - _envT_env) / 500.0f, 0.0f, 1.0f)')
+  })
+
+  it('FrameSwitch copies the selected source buffer', () => {
+    const a = node('fa', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const b = node('fb', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 })
+    const fs = node('fs', 'FrameSwitch', 'composite', {})
+    const cpp = generateCpp([a, b, fs, outputNode], [
+      edge('e1', 'fa', 'fs', 'frame', 'a'),
+      edge('e2', 'fb', 'fs', 'frame', 'b'),
+      edge('e3', 'fs', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('::memmove(buf_fs, (false) ? buf_fb : buf_fa, sizeof(CRGB) * NUM_LEDS);')
+  })
+
+  it('FrameSwitch with one wired side copies it regardless of sel', () => {
+    const a = node('fa', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const fs = node('fs', 'FrameSwitch', 'composite', {})
+    const cpp = generateCpp([a, fs, outputNode], [
+      edge('e1', 'fa', 'fs', 'frame', 'a'),
+      edge('e3', 'fs', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('::memmove(buf_fs, buf_fa, sizeof(CRGB) * NUM_LEDS);')
+  })
+})

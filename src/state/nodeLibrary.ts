@@ -512,6 +512,21 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: {},
   },
   {
+    // Manual A/B frame selector — shows A when `sel` is false, B when true
+    // (the bool-driven counterpart of the time-based Sequencer). Falls back to
+    // whichever side is wired when the other is empty.
+    type: 'FrameSwitch',
+    label: 'Frame Switch',
+    category: 'composite',
+    inputs: [
+      { id: 'a', label: 'Frame A', dataType: 'frame' },
+      { id: 'b', label: 'Frame B', dataType: 'frame' },
+      { id: 'sel', label: 'Select', dataType: 'bool' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: {},
+  },
+  {
     type: 'GradientFrame',
     label: 'Gradient Frame',
     category: 'pattern',
@@ -662,6 +677,17 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { interval: 0.5 },
   },
   {
+    // Trigger envelope — jumps to 1 on a rising edge of `trigger`, then decays
+    // linearly to 0 over `decay` seconds (pipe through Ease for a curve). The
+    // generic float analogue of BeatFlash: drive any knob from a beat/button.
+    type: 'Envelope',
+    label: 'Envelope',
+    category: 'signal',
+    inputs: [{ id: 'trigger', label: 'Trigger', dataType: 'bool' }],
+    outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+    defaultProperties: { decay: 0.5 },
+  },
+  {
     type: 'TimeNode',
     label: 'Time',
     category: 'signal',
@@ -719,6 +745,46 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
     defaultProperties: { fallback: 0 },
+  },
+  {
+    // Low-pass smoothing — eases a jittery value (FFT bands, PotInput) toward
+    // the input over a `response` time constant (seconds to ~63% of a step).
+    // Fills the gap left by Lerp, which can't self-feed (the cycle guard
+    // breaks feedback loops by design).
+    type: 'Smooth',
+    label: 'Smooth',
+    category: 'math',
+    inputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
+    outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+    defaultProperties: { response: 0.25 },
+  },
+  {
+    // Sample & hold — latches `value` on each rising edge of `trigger`
+    // (initialised to the first value seen). Random → SampleHold ← BeatDetect
+    // is the "new random value every beat" idiom.
+    type: 'SampleHold',
+    label: 'Sample & Hold',
+    category: 'math',
+    inputs: [
+      { id: 'value', label: 'Value', dataType: 'float' },
+      { id: 'trigger', label: 'Trigger', dataType: 'bool' },
+    ],
+    outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+    defaultProperties: {},
+  },
+  {
+    // A/B selector — outputs A when `sel` is false, B when true (unlike Gate,
+    // both branches are live signals). FrameSwitch is the frame counterpart.
+    type: 'Switch',
+    label: 'Switch',
+    category: 'math',
+    inputs: [
+      { id: 'a', label: 'A', dataType: 'float' },
+      { id: 'b', label: 'B', dataType: 'float' },
+      { id: 'sel', label: 'Select', dataType: 'bool' },
+    ],
+    outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+    defaultProperties: { a: 0, b: 1 },
   },
   {
     type: 'Not',
@@ -1374,6 +1440,10 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Random: 'Random value in a range.',
   Counter: 'Ramps 0→1 over time at a set rate.',
   Gate: 'Passes a value when a boolean is true, else a fallback.',
+  Smooth: 'Low-pass — eases a jittery value in over a response time.',
+  SampleHold: 'Latches the value each time the trigger pulses true.',
+  Switch: 'Outputs A or B, selected by a boolean.',
+  Envelope: 'Jumps to 1 on a trigger, then decays to 0 over the decay time.',
   Not: 'Logical NOT of a boolean.',
   Compare: 'True when a > b.',
   BeatSin: 'FastLED beatsin8 — oscillates low↔high at a BPM.',
@@ -1447,6 +1517,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Gamma: 'Perceptual gamma correction so gradients look right on the LEDs.',
   Transform: 'Animated rotate, scale or translate of a frame.',
   Invert: 'Inverts colors.',
+  FrameSwitch: 'Shows frame A or B, selected by a boolean.',
   Transition: 'Transitions A→B — 16 styles: wipe, iris, push, blinds, spiral, zoom + more.',
   Sequencer: 'Crossfades through its inputs on a timer.',
   PatternCollection: 'Absorbs pattern groups into a set for the Show Engine.',
@@ -1489,7 +1560,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // matters more than the library's declaration order (fields compose toward
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
-  signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin'],
+  signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin'],
   field:  ['FieldFormula', 'DistanceField', 'FieldMath', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'PatternMaster', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
@@ -1631,6 +1702,8 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   feed:     { control: 'slider', min: 0, max: 0.1, step: 0.001 },
   kill:     { control: 'slider', min: 0, max: 0.1, step: 0.001 },
   interval: { control: 'slider', min: 0.1, max: 20, step: 0.1 },
+  // Smooth's time constant (seconds to ~63% of a step; 0 = passthrough).
+  response: { control: 'slider', min: 0, max: 2, step: 0.01 },
   kelvin:   { control: 'slider', min: 1000, max: 12000, step: 100 },
   // HeatColor input, Rainbow spread, Gamma exponent, and MatrixOutput power cap.
   heat:     { control: 'slider', min: 0, max: 1, step: 0.01 },
@@ -1696,6 +1769,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     patternHold:        { control: 'slider', min: 1, max: 30, step: 1 },
     paletteMode:        { control: 'select', options: ['mood', 'cycle', 'fixed'] },
     fixedPalette:       { control: 'select', options: STUDIO_PALETTES },
+  },
+  // Envelope's decay is a duration in seconds, not the shared 0–1 rate.
+  Envelope: {
+    decay: { control: 'slider', min: 0.05, max: 5, step: 0.05 },
   },
   BeatDetect: {
     threshold: { control: 'slider', min: 0, max: 1, step: 0.01 },

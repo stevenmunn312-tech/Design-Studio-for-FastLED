@@ -1838,3 +1838,100 @@ describe('Float Field — Phase 3 (FieldRotate / FieldTile)', () => {
     expect([...tiled]).toEqual([...ref])  // tiles=1×1 → unchanged
   })
 })
+
+// ── Signal utilities (Smooth / SampleHold / Switch / Envelope / FrameSwitch) ──
+
+describe('signal utility nodes', () => {
+  // A Compare node with a controllable `a` prop is the trigger/select source:
+  // a=1 → true, a=0 → false (b defaults against 0.5).
+  const boolSrc = (id: string, on: number) => node(id, 'Compare', 'math', { a: on, b: 0.5 })
+
+  it('Switch outputs A or B by the select boolean', () => {
+    const run = (on: number) => evaluateScalar(
+      [boolSrc('swsel', on), node('sw1', 'Switch', 'math', { a: 2, b: 5 })],
+      [edge('e', 'swsel', 'result', 'sw1', 'sel')],
+      'sw1', 'result', 0)
+    expect(run(0)).toBe(2)
+    expect(run(1)).toBe(5)
+  })
+
+  it('Switch defaults to A when sel is unwired', () => {
+    expect(evaluateScalar([node('sw2', 'Switch', 'math', { a: 3, b: 7 })], [], 'sw2', 'result', 0)).toBe(3)
+  })
+
+  it('SampleHold latches only on a rising edge of the trigger', () => {
+    const graph = (on: number, value: number) => [boolSrc('sht', on), node('sh1', 'SampleHold', 'math', { value })]
+    const edges = [edge('e', 'sht', 'result', 'sh1', 'trigger')]
+    // Initialises to the first value seen (not a stale 0).
+    expect(evaluateScalar(graph(0, 0.3), edges, 'sh1', 'result', 0)).toBe(0.3)
+    // Input changes without a trigger → still held.
+    expect(evaluateScalar(graph(0, 0.9), edges, 'sh1', 'result', 1)).toBe(0.3)
+    // Rising edge → latch the new value.
+    expect(evaluateScalar(graph(1, 0.9), edges, 'sh1', 'result', 2)).toBe(0.9)
+    // Trigger held high (no new edge) → keeps the latched value.
+    expect(evaluateScalar(graph(1, 0.1), edges, 'sh1', 'result', 3)).toBe(0.9)
+    // Falls, then rises again → latches again.
+    expect(evaluateScalar(graph(0, 0.2), edges, 'sh1', 'result', 4)).toBe(0.9)
+    expect(evaluateScalar(graph(1, 0.2), edges, 'sh1', 'result', 5)).toBe(0.2)
+  })
+
+  it('Envelope jumps to 1 on a trigger and decays linearly to 0', () => {
+    const graph = (on: number) => [boolSrc('envt', on), node('env1', 'Envelope', 'signal', { decay: 0.5 })]
+    const edges = [edge('e', 'envt', 'result', 'env1', 'trigger')]
+    // Never fired → 0.
+    expect(evaluateScalar(graph(0), edges, 'env1', 'result', 0)).toBe(0)
+    // Rising edge at t=1s → 1.
+    expect(evaluateScalar(graph(1), edges, 'env1', 'result', 60)).toBe(1)
+    // 0.25s later, trigger still high (no retrigger) → halfway down.
+    expect(evaluateScalar(graph(1), edges, 'env1', 'result', 75)).toBeCloseTo(0.5, 6)
+    // Fully decayed and clamped at 0.
+    expect(evaluateScalar(graph(1), edges, 'env1', 'result', 120)).toBe(0)
+  })
+
+  it('Smooth eases toward the input over the response time constant', () => {
+    const probe = (value: number, tick: number) =>
+      evaluateScalar([node('sm1', 'Smooth', 'math', { value, response: 0.5 })], [], 'sm1', 'result', tick)
+    // First sample seeds the state — no lag from an arbitrary 0.
+    expect(probe(1, 0)).toBe(1)
+    // Input drops to 0; one time constant later it has moved to e⁻¹.
+    const stepped = probe(0, 30)
+    expect(stepped).toBeCloseTo(Math.exp(-1), 3)
+    // Keeps converging on later frames.
+    expect(probe(0, 60)).toBeLessThan(stepped)
+  })
+
+  it('Smooth passes through when response is ~0', () => {
+    const probe = (value: number, tick: number) =>
+      evaluateScalar([node('sm2', 'Smooth', 'math', { value, response: 0 })], [], 'sm2', 'result', tick)
+    expect(probe(1, 0)).toBe(1)
+    expect(probe(0.2, 30)).toBe(0.2)
+  })
+
+  it('FrameSwitch shows frame A or B by the select boolean', () => {
+    const build = (on: number) => {
+      const red = node('fsa', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+      const blue = node('fsb', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 })
+      const fs = node('fs1', 'FrameSwitch', 'composite', {})
+      return withOutput(fs, [red, blue, boolSrc('fssel', on)], [
+        edge('ea', 'fsa', 'frame', 'fs1', 'a'),
+        edge('eb', 'fsb', 'frame', 'fs1', 'b'),
+        edge('es', 'fssel', 'result', 'fs1', 'sel'),
+      ])
+    }
+    const a = build(0)
+    expect(evaluateGraph(a.nodes, a.edges, 0, W, H)![0][0]).toEqual({ r: 255, g: 0, b: 0 })
+    const b = build(1)
+    expect(evaluateGraph(b.nodes, b.edges, 0, W, H)![0][0]).toEqual({ r: 0, g: 0, b: 255 })
+  })
+
+  it('FrameSwitch falls back to the wired side when the selected one is empty', () => {
+    const red = node('fsa2', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const fs = node('fs2', 'FrameSwitch', 'composite', {})
+    // Only A wired, sel=true selects the missing B → shows A anyway.
+    const g = withOutput(fs, [red, boolSrc('fssel2', 1)], [
+      edge('ea', 'fsa2', 'frame', 'fs2', 'a'),
+      edge('es', 'fssel2', 'result', 'fs2', 'sel'),
+    ])
+    expect(evaluateGraph(g.nodes, g.edges, 0, W, H)![0][0]).toEqual({ r: 255, g: 0, b: 0 })
+  })
+})
