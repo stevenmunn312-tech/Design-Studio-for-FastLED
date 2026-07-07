@@ -262,8 +262,8 @@ describe('StudioNode', () => {
     useGraphStore.setState({ nodes: [solid, mo], edges: [] })
     const props = { id: solid.id, data: solid.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
     const { container } = render(<StudioNode {...props} />)
-    // height = bodyContentWidth(164) × gridH/gridW = 164 × 8/16 = 82px
-    expect((container.querySelector('canvas') as HTMLCanvasElement).style.height).toBe('82px')
+    // height = bodyContentWidth(224) × gridH/gridW = 224 × 8/16 = 112px
+    expect((container.querySelector('canvas') as HTMLCanvasElement).style.height).toBe('112px')
   })
 
   it('renders a dropdown for palette with the preset options', () => {
