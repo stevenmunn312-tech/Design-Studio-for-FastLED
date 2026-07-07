@@ -70,11 +70,13 @@ function validSliderValue(value: string, min: number, max: number, step: number)
 
 function applyNodeSignal(
   node: HTMLDivElement | null,
-  signal: { glow: string; softGlow: string } | undefined
+  signal: { glow: string; softGlow: string; emissive: string; energy: number } | undefined
 ) {
   if (!node) return
   node.style.setProperty('--signal-glow', signal?.glow ?? 'transparent')
   node.style.setProperty('--signal-soft-glow', signal?.softGlow ?? 'transparent')
+  node.style.setProperty('--signal-emissive', signal?.emissive ?? 'rgb(0 0 0)')
+  node.style.setProperty('--signal-energy', String(signal?.energy ?? 0))
 }
 
 function SliderProperty({
@@ -404,9 +406,9 @@ const LivePropertyControls = memo(function LivePropertyControls({
   )
 })
 
-// Body content width = --node-width (180) − 2×--space-1 (8) horizontal padding.
+// Body content width = --node-width (240) − 2×--space-1 (8) horizontal padding.
 // Frame previews fill this width and keep the matrix aspect ratio.
-const BODY_CONTENT_W = 164
+const BODY_CONTENT_W = 224
 
 const HANDLE_STYLE = {
   width: 12,
@@ -422,6 +424,36 @@ const GROUP_INPUT_ROLES = ['energy', 'speed', 'palette']
 
 type StudioNodeProps = NodeProps<Node<StudioNodeData>>
 
+const CATEGORY_CLASS: Record<string, string> = {
+  input: styles.categoryInput,
+  audio: styles.categoryAudio,
+  signal: styles.categorySignal,
+  math: styles.categoryMath,
+  color: styles.categoryColor,
+  pattern: styles.categoryPattern,
+  field: styles.categoryField,
+  composite: styles.categoryComposite,
+  show: styles.categoryShow,
+  output: styles.categoryOutput,
+}
+
+const CATEGORY_TAG: Record<string, string> = {
+  input: 'IN',
+  audio: 'AUD',
+  signal: 'SIG',
+  math: 'MTH',
+  color: 'CLR',
+  pattern: 'PAT',
+  field: 'FLD',
+  composite: 'CMP',
+  show: 'SHW',
+  output: 'OUT',
+}
+
+function moduleCode(nodeType: string) {
+  return nodeType.replace(/[^A-Z0-9]/gi, '').slice(0, 3).toUpperCase().padEnd(3, '·')
+}
+
 function StudioNode({ id, data, selected }: StudioNodeProps) {
   const d = data as StudioNodeData
   const nodeRef = useRef<HTMLDivElement>(null)
@@ -429,6 +461,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const sparkPortId = useUiStore((s) =>
     s.sparkPort?.nodeId === id ? (s.sparkPort?.portId ?? null) : null
   )
+  const performanceMode = useUiStore((s) => s.performanceMode)
   const focusState = useGraphStore((s) => {
     if (!s.selectedNodeId) return 'neutral'
     return traceSignalPath(s.edges, s.selectedNodeId).has(id) ? 'active' : 'dim'
@@ -547,6 +580,10 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // The Performance Generator embeds a show-preview player (canvas + transport).
   const isPerfGen = d.nodeType === 'PerformanceGenerator'
   const signalKey = outPort ? `${id}:${outPort.id}` : null
+  const categoryClass = CATEGORY_CLASS[d.category] ?? ''
+  const categoryTag = CATEGORY_TAG[d.category] ?? 'MOD'
+  const headerCode = moduleCode(d.nodeType)
+  const nodeTag = id.slice(-3).toUpperCase()
 
   useEffect(() => {
     applyNodeSignal(nodeRef.current, signalKey ? usePreviewStore.getState().signals.get(signalKey) : undefined)
@@ -559,14 +596,23 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   return (
     <div
       ref={nodeRef}
-      className={`${styles.node} ${selected ? styles.nodeSelected : ''} ${focusState === 'dim' ? styles.nodeDim : focusState === 'active' ? styles.nodePath : ''}`}
+      className={`${styles.node} ${categoryClass} ${performanceMode ? styles.nodePerformance : ''} ${selected ? styles.nodeSelected : ''} ${focusState === 'dim' ? styles.nodeDim : focusState === 'active' ? styles.nodePath : ''} ${previewKind === 'frame' ? styles.nodeFrameSource : ''}`}
       style={{
         width: isMusicLibrary ? 300 : isCode ? 320 : isPerfGen ? 300 : undefined,
         '--node-accent': accent,
       } as React.CSSProperties}
     >
       <div className={styles.header} style={{ background: accent }}>
-        {nodeDisplayLabel(d.nodeType, props, d.label)}
+        <span className={styles.headerTitle}>{nodeDisplayLabel(d.nodeType, props, d.label)}</span>
+        <span className={styles.headerMeta}>
+          <span className={styles.headerTag}>{categoryTag}</span>
+          <span className={styles.headerCode}>{headerCode}-{nodeTag}</span>
+          <span className={styles.headerMeter} aria-hidden="true">
+            <span style={{ opacity: 'clamp(0.2, calc(var(--signal-energy) * 1.5), 1)' }} />
+            <span style={{ opacity: 'clamp(0.12, calc((var(--signal-energy) - 0.18) * 1.8), 1)' }} />
+            <span style={{ opacity: 'clamp(0.08, calc((var(--signal-energy) - 0.42) * 2.1), 1)' }} />
+          </span>
+        </span>
       </div>
       <div className={styles.body}>
         {isWave && waveSamples && <WaveScope samples={waveSamples} />}

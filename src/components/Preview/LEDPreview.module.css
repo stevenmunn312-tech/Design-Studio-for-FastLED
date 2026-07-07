@@ -10,6 +10,12 @@
   overflow-y: auto;
 }
 
+.panelPerformance {
+  background:
+    radial-gradient(circle at 50% 8%, rgba(0, 191, 255, 0.04), transparent 20%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 94%, black), color-mix(in srgb, var(--bg-panel) 88%, black));
+}
+
 .panelStage {
   display: grid;
   grid-template-columns: minmax(0, 1.65fr) minmax(320px, 0.72fr);
@@ -56,6 +62,26 @@
   font-weight: 600;
   border-bottom: 1px solid var(--border-glow);
   flex-shrink: 0;
+  background: linear-gradient(180deg, rgba(18, 22, 27, 0.92), rgba(11, 14, 18, 0.86));
+}
+
+.previewIdentity {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.previewTitle {
+  color: var(--text-primary);
+  letter-spacing: 0.04em;
+}
+
+.previewMeta {
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }
 
 .headerRight {
@@ -114,12 +140,13 @@
   height: 30px;
   padding: 0 10px;
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border-glow);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-family: var(--font-code);
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
   line-height: 1;
@@ -208,6 +235,31 @@
   overflow: hidden;
 }
 
+.canvasHud {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.canvasHudChip {
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(4, 8, 14, 0.72);
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  backdrop-filter: blur(8px);
+}
+
 .ambilight {
   position: absolute;
   z-index: 0;
@@ -222,6 +274,67 @@
   filter: blur(34px) saturate(1.35);
   transform: scale(1.16);
   transition: opacity 180ms linear, background 180ms linear;
+  pointer-events: none;
+}
+
+.canvasBay {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.canvasFrame {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.canvasFrame::before {
+  content: '';
+  position: absolute;
+  inset: -12px;
+  border: 1px solid rgba(90, 209, 255, 0.16);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0)),
+    radial-gradient(circle at 14% 16%, rgba(0, 191, 255, 0.08), transparent 26%),
+    radial-gradient(circle at 86% 84%, rgba(255, 77, 141, 0.08), transparent 28%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.025),
+    0 0 0 1px rgba(255, 255, 255, 0.025),
+    0 12px 38px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.canvasFrame::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  pointer-events: none;
+}
+
+.canvasFrameTag {
+  position: absolute;
+  z-index: 2;
+  left: -4px;
+  top: -28px;
+  padding: 4px 8px;
+  border: 1px solid rgba(90, 209, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(4, 8, 14, 0.86);
+  color: #9ce8ff;
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  backdrop-filter: blur(8px);
   pointer-events: none;
 }
 
@@ -419,6 +532,35 @@
   animation: visualizerFlicker 220ms steps(3, end) infinite;
 }
 
+.visualizerSection,
+.transportHeader {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.visualizerKicker {
+  color: #9ce8ff;
+  font-family: var(--font-code);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.visualizerMeta {
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
 .spectrum {
   position: relative;
   z-index: 1;
@@ -440,6 +582,25 @@
   flex-direction: column;
   gap: 10px;
   min-width: 0;
+}
+
+.transportChips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.transportChip {
+  padding: 3px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .musicTop {
@@ -556,6 +717,14 @@
 
 .volWrap {
   justify-content: flex-end;
+}
+
+.volumeLabel {
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .iconBtn {
@@ -979,6 +1148,17 @@
   .panelStage .toggleBtn:not(.stageToggle) {
     display: none;
   }
+
+  .canvasHud {
+    top: 10px;
+    left: 10px;
+    right: 10px;
+  }
+
+  .canvasFrameTag {
+    left: 0;
+    top: -26px;
+  }
 }
 
 /* In a short split-pane the branding yields its space to the actual light
@@ -1003,6 +1183,11 @@
 
   .musicControls {
     gap: 6px;
+  }
+
+  .canvasHud,
+  .transportChips {
+    gap: 4px;
   }
 
   .brandWrap {

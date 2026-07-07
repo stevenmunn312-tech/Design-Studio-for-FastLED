@@ -1,32 +1,43 @@
 .bar {
   position: absolute;
-  top: 12px;
+  bottom: 14px;
   left: calc(var(--canvas-left-inset, 0px) + 12px);
   z-index: 5;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border-glow);
-  border-radius: 8px;
-  font-size: 12px;
+  padding: 7px 10px;
+  background:
+    linear-gradient(180deg, rgba(10, 16, 23, 0.94), rgba(6, 10, 15, 0.82));
+  border: 1px solid rgba(169, 214, 255, 0.12);
+  border-radius: 999px;
+  font-size: 11px;
   color: var(--text-secondary);
+  font-family: var(--font-code);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.02),
+    0 12px 30px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(10px);
 }
 
 .crumb {
   color: var(--text-primary);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .back,
 .group {
   background: transparent;
-  border: 1px solid var(--border-glow);
-  border-radius: 6px;
-  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 4px 9px;
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 10px;
+  font-family: var(--font-code);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   cursor: pointer;
 }
 
@@ -39,4 +50,5 @@
 .group {
   border-color: var(--accent-composite);
   color: var(--accent-composite);
+  box-shadow: inset 0 0 10px color-mix(in srgb, var(--accent-composite) 8%, transparent);
 }

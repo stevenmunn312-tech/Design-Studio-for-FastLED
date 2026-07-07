@@ -551,6 +551,7 @@ export default function LEDPreview() {
   const gridW = Math.max(2, Math.min(64, Number(outputNode?.data.properties.width  ?? 16)))
   const gridH = Math.max(2, Math.min(64, Number(outputNode?.data.properties.height ?? 16)))
   const stageMode = useUiStore((s) => s.stageMode)
+  const performanceMode = useUiStore((s) => s.performanceMode)
   const setStageMode = useUiStore((s) => s.setStageMode)
   const setStatus = useUiStore((s) => s.setStatus)
   const fps = useUiStore((s) => s.fps)
@@ -1016,7 +1017,7 @@ export default function LEDPreview() {
   }
 
   return (
-    <div className={`${styles.panel} ${stageMode ? styles.panelStage : ''}`}>
+    <div className={`${styles.panel} ${stageMode ? styles.panelStage : ''} ${performanceMode ? styles.panelPerformance : ''}`}>
       <div className={`${styles.header} ${stageMode ? styles.headerStage : ''}`}>
         {stageMode ? (
           <div className={styles.stageIdentity}>
@@ -1026,7 +1027,12 @@ export default function LEDPreview() {
               {gridW}×{gridH} · {fps} FPS · Memory Used: {memoryMb === null ? 'Unavailable' : `${memoryMb} MiB`}
             </span>
           </div>
-        ) : <span>LED Preview</span>}
+        ) : (
+          <div className={styles.previewIdentity}>
+            <span className={styles.previewTitle}>LED Preview</span>
+            <span className={styles.previewMeta}>Output bay</span>
+          </div>
+        )}
         <div className={styles.headerRight}>
           {import.meta.env.DEV && <DevPerformanceHudToggle />}
           <button
@@ -1074,30 +1080,58 @@ export default function LEDPreview() {
         className={`${styles.canvasWrap} ${preview3d ? styles.canvasWrap3d : ''}`}
       >
         {import.meta.env.DEV && <DevPerformanceHud />}
+        <div className={styles.canvasHud} aria-label="Preview telemetry">
+          <span className={styles.canvasHudChip}>{gridW}×{gridH}</span>
+          <span className={styles.canvasHudChip}>{previewStyleLabel(previewStyle)}</span>
+          <span className={styles.canvasHudChip}>{hasFrameSignal ? 'Signal live' : 'Signal idle'}</span>
+          <span className={styles.canvasHudChip}>
+            {showMode ? 'Show sync' : audioVisualizerLive ? 'Audio reactive' : 'Workbench'}
+          </span>
+          {performanceMode && <span className={styles.canvasHudChip}>Performance</span>}
+        </div>
         <div className={styles.ambilight} aria-hidden="true" />
+        <div className={styles.canvasBay}>
+          <div className={styles.canvasFrame}>
+            <span className={styles.canvasFrameTag}>Output matrix</span>
+            <canvas
+              ref={canvasRef}
+              width={canvasBufW}
+              height={canvasBufH}
+              className={`${styles.canvas} ${previewStyle === 'standard' ? styles.canvasStandard : ''} ${isDiffusedStyle(previewStyle) ? styles.canvasDiffusion : ''} ${isDiffusedStyle(previewStyle) && preview3d ? styles.canvasDiffusion3d : ''} ${previewStyle === 'crt' ? styles.canvasCrt : ''}`}
+              style={preview3d ? { transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg)`, cursor: drag.current ? 'grabbing' : 'grab' } : undefined}
+              onPointerDown={onRotateDown}
+              onPointerMove={onRotateMove}
+              onPointerUp={onRotateUp}
+              onPointerCancel={onRotateUp}
+            />
+          </div>
+        </div>
         {!hasFrameSignal && (
           <div className={styles.standbyHud} aria-live="polite">
             <span><i aria-hidden="true" /> Signal standby</span>
             <small>Patch a frame into output</small>
           </div>
         )}
-        <canvas
-          ref={canvasRef}
-          width={canvasBufW}
-          height={canvasBufH}
-          className={`${styles.canvas} ${previewStyle === 'standard' ? styles.canvasStandard : ''} ${isDiffusedStyle(previewStyle) ? styles.canvasDiffusion : ''} ${isDiffusedStyle(previewStyle) && preview3d ? styles.canvasDiffusion3d : ''} ${previewStyle === 'crt' ? styles.canvasCrt : ''}`}
-          style={preview3d ? { transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg)`, cursor: drag.current ? 'grabbing' : 'grab' } : undefined}
-          onPointerDown={onRotateDown}
-          onPointerMove={onRotateMove}
-          onPointerUp={onRotateUp}
-          onPointerCancel={onRotateUp}
-        />
       </div>
       <div className={styles.visualizer}>
           <div className={styles.visualizerGlow} />
           <div className={styles.visualizerGrid} />
+          <div className={styles.visualizerSection}>
+            <span className={styles.visualizerKicker}>Spectrum</span>
+            <span className={styles.visualizerMeta}>
+              {audioVisualizerLive ? 'Live analysis bus' : showMode ? 'Show playback feed' : 'Idle transport'}
+            </span>
+          </div>
           <PreviewSpectrum audioVisualizerLive={audioVisualizerLive} spectrumOverride={playbackSpectrum} />
           <div className={styles.musicControls}>
+            <div className={styles.transportHeader}>
+              <span className={styles.visualizerKicker}>Transport</span>
+              <div className={styles.transportChips}>
+                <span className={styles.transportChip}>{showMode ? 'Show' : 'Local'}</span>
+                <span className={styles.transportChip}>{isPlaying ? 'Running' : 'Standing by'}</span>
+                <span className={styles.transportChip}>{volume === 0 ? 'Muted' : `${Math.round(volume * 100)}%`}</span>
+              </div>
+            </div>
             <div className={styles.musicTop}>
               <span className={styles.musicMeta} title={trackLabel}>{trackLabel}</span>
               <span className={styles.musicTime}>
@@ -1175,6 +1209,7 @@ export default function LEDPreview() {
                 </button>
               </div>
               <div className={`${styles.controlsSide} ${styles.volWrap}`}>
+                <span className={styles.volumeLabel}>Gain</span>
                 <button
                   type="button"
                   className={styles.iconBtn}

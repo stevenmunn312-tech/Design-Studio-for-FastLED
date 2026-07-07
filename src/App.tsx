@@ -52,6 +52,7 @@ export default function App() {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen)
   const previewPanelOpen = useUiStore((s) => s.previewPanelOpen)
   const stageMode = useUiStore((s) => s.stageMode)
+  const performanceMode = useUiStore((s) => s.performanceMode)
   const setStatus = useUiStore((s) => s.setStatus)
   const theme = useUiStore((s) => s.theme)
   const reducedMotion = useUiStore((s) => s.reducedMotion)
@@ -210,6 +211,10 @@ export default function App() {
           useUiStore.getState().setStageMode(false)
           return
         }
+        if (useUiStore.getState().performanceMode) {
+          useUiStore.getState().setPerformanceMode(false)
+          return
+        }
         useGraphStore.getState().clearSelection()
         return
       }
@@ -217,6 +222,12 @@ export default function App() {
       if (e.key === 'F10' && !isTyping) {
         e.preventDefault()
         useUiStore.getState().toggleStageMode()
+        return
+      }
+
+      if (e.key === 'F9' && !isTyping) {
+        e.preventDefault()
+        useUiStore.getState().togglePerformanceMode()
         return
       }
 
@@ -274,7 +285,7 @@ export default function App() {
   }, [setStatus])
 
   return (
-    <div className={`${styles.app} ${stageMode ? styles.appStage : ''}`}>
+    <div className={`${styles.app} ${stageMode ? styles.appStage : ''} ${performanceMode ? styles.appPerformance : ''}`}>
       <div className={styles.menuShell}><MenuBar /></div>
       <div className={`${styles.workspace} ${stageMode ? styles.workspaceStage : ''}`}>
         <div className={styles.mainRegion}>

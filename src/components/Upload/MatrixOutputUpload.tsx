@@ -66,6 +66,14 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
 
   return (
     <div className={`nodrag ${styles.nodeBox}`}>
+      <div className={styles.nodeHeader}>
+        <span className={styles.nodeKicker}>Hardware bay</span>
+        <span className={styles.nodeMeta}>{sdConnected ? 'Matrix + SD pipeline' : 'Matrix pipeline'}</span>
+      </div>
+      <div className={styles.targetRow}>
+        <span className={styles.targetChip}>{board?.label ?? 'No board selected'}</span>
+        <span className={styles.targetChip}>{portLabel || 'No port'}</span>
+      </div>
       <button className={styles.boardBtn} onClick={openBoardPopup} title="Choose board & port, manage boards">
         ⚙ Board
       </button>

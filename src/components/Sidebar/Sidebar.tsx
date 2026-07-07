@@ -9,8 +9,6 @@ import type { NodeDefinition } from '../../types'
 import styles from './Sidebar.module.css'
 
 const EXPANDED_KEY = 'fastled-studio-sidebar-expanded'
-const RECENT_KEY = 'fastled-studio-recent-nodes'
-const MAX_RECENT = 5
 
 const TYPE_GLYPH: Record<string, string> = {
   frame: '▦', palette: '≋', color: '●', audio: '⌁', float: '∿', bool: '◆',
@@ -25,12 +23,23 @@ function moduleGlyph(def: NodeDefinition) {
   return TYPE_GLYPH[moduleType(def)] ?? '·'
 }
 
-function loadRecent(): string[] {
+function moduleCode(def: NodeDefinition) {
+  return def.type
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .split(/[^a-z0-9]+/i)
+    .filter(Boolean)
+    .map((part) => part.slice(0, 3).toUpperCase())
+    .join('-')
+}
+
+function loadExpanded(): string | null {
   try {
-    const stored = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]')
-    return Array.isArray(stored) ? stored.filter((type): type is string => typeof type === 'string').slice(0, MAX_RECENT) : []
+    const stored = JSON.parse(localStorage.getItem(EXPANDED_KEY) ?? 'null') as unknown
+    if (typeof stored === 'string') return stored
+    if (Array.isArray(stored)) return typeof stored[0] === 'string' ? stored[0] : null
+    return null
   } catch {
-    return []
+    return null
   }
 }
 
@@ -52,56 +61,33 @@ function Sidebar() {
   const viewCenter = useUiStore((s) => s.viewCenter)
   const setStatus = useUiStore((s) => s.setStatus)
   const setDraggingNodeType = useUiStore((s) => s.setDraggingNodeType)
-  const [recent, setRecent] = useState<string[]>(loadRecent)
-  // Persisted expand/collapse state. First load starts with only the first
-  // category open so the list is scannable rather than a long scroll; after
-  // that we restore whatever the user last left open. A search query
-  // force-opens every section regardless (see `open` below).
-  const [expanded, setExpanded] = useState<Set<string>>(() => {
-    try {
-      const saved = localStorage.getItem(EXPANDED_KEY)
-      if (saved) return new Set(JSON.parse(saved) as string[])
-    } catch {
-      // corrupt/unavailable storage — fall through to the default
-    }
-    return new Set([CATEGORIES[0]?.id].filter(Boolean) as string[])
-  })
+  // One-bank-at-a-time accordion. We still persist the last opened section,
+  // but unlike the old multi-open drawer this keeps the library scan tight.
+  const [expandedId, setExpandedId] = useState<string | null>(() => loadExpanded() ?? CATEGORIES[0]?.id ?? null)
 
   // Persist on every change so the layout survives reloads.
   useEffect(() => {
     try {
-      localStorage.setItem(EXPANDED_KEY, JSON.stringify([...expanded]))
+      localStorage.setItem(EXPANDED_KEY, JSON.stringify(expandedId))
     } catch {
       // storage full/unavailable — non-critical, skip
     }
-  }, [expanded])
+  }, [expandedId])
   const [search, setSearch] = useState('')
   // Inline rename: the pattern id currently being edited + its draft name.
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [draftName, setDraftName] = useState('')
   const query = search.trim().toLowerCase()
+  const visibleNodeCount = CATEGORIES.reduce((count, category) => (
+    count + categoryNodes(category.id).filter((n) => query === '' || n.label.toLowerCase().includes(query)).length
+  ), 0)
 
-  const toggle = (id: string) =>
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-
-  const rememberNode = (type: string) => {
-    setRecent((previous) => {
-      const next = [type, ...previous.filter((entry) => entry !== type)].slice(0, MAX_RECENT)
-      try { localStorage.setItem(RECENT_KEY, JSON.stringify(next)) } catch { /* non-critical */ }
-      return next
-    })
-  }
+  const toggle = (id: string) => setExpandedId((prev) => (prev === id ? null : id))
 
   const handleDragStart = (e: React.DragEvent, type: string) => {
     e.dataTransfer.setData('application/studio-node', type)
     e.dataTransfer.effectAllowed = 'copy'
     setDraggingNodeType(type)
-    rememberNode(type)
 
     const def = NODE_LIBRARY.find((node) => node.type === type)
     if (!def || typeof e.dataTransfer.setDragImage !== 'function') return
@@ -190,11 +176,26 @@ function Sidebar() {
   const visiblePatterns = patterns.filter(
     (p) => query === '' || p.name.toLowerCase().includes(query)
   )
+  const visibleSectionIds = useMemo(() => [
+    ...CATEGORIES
+      .filter(({ id }) => categoryNodes(id).some((n) => query === '' || n.label.toLowerCase().includes(query)))
+      .map(({ id }) => id),
+    ...(visiblePatterns.length > 0 || query === '' ? ['library'] : []),
+  ], [query, visiblePatterns.length])
+
+  useEffect(() => {
+    if (query === '') return
+    if (expandedId && visibleSectionIds.includes(expandedId)) return
+    setExpandedId(visibleSectionIds[0] ?? null)
+  }, [expandedId, query, visibleSectionIds])
+
+  const searchStatus = query === ''
+    ? `${NODE_LIBRARY.length} modules`
+    : `${visibleNodeCount + visiblePatterns.length} matches`
 
   const handleAddNode = (type: string) => {
     const def = NODE_LIBRARY.find((n) => n.type === type)
     if (!def) return
-    rememberNode(type)
     // Pass `centreOnDrop` so the node settles vertically centred on the drop
     // point once React Flow measures its (variable) height, rather than hanging
     // below it — i.e. it ends up half its height above where the top-left lands.
@@ -213,24 +214,21 @@ function Sidebar() {
     }, true)
   }
 
-  const recentNodes = recent
-    .map((type) => NODE_LIBRARY.find((node) => node.type === type))
-    .filter((node): node is NodeDefinition => Boolean(node))
-
-  const renderModule = (n: NodeDefinition, compact = false) => {
+  const renderModule = (n: NodeDefinition) => {
     const enabled = !SINGLETON_NODE_TYPES.has(n.type) || !presentSingletons.has(n.type)
     const accent = CATEGORY_ACCENT_VAR[n.category]
     const outputType = moduleType(n)
+    const description = NODE_DESCRIPTIONS[n.type] ?? n.label
     return (
       <li
-        key={`${compact ? 'recent-' : ''}${n.type}`}
-        className={`${styles.nodeItem} ${compact ? styles.recentModule : ''}`}
+        key={n.type}
+        className={styles.nodeItem}
         style={{ '--accent': accent } as React.CSSProperties}
         draggable={enabled}
         aria-disabled={!enabled}
         role="button"
         tabIndex={enabled ? 0 : -1}
-        aria-label={compact ? `Add ${n.label} from recent rack` : `Add ${n.label}`}
+        aria-label={`Add ${n.label}`}
         onDragStart={(e) => handleDragStart(e, n.type)}
         onDragEnd={() => setDraggingNodeType(null)}
         onClick={() => { if (enabled) handleAddNode(n.type) }}
@@ -246,8 +244,14 @@ function Sidebar() {
       >
         <span className={styles.moduleGlyph} data-output-type={outputType} aria-hidden="true">{moduleGlyph(n)}</span>
         <span className={styles.moduleCopy}>
-          <span className={styles.moduleName}>{n.label}</span>
-          {!compact && <span className={styles.moduleType}>{outputType}</span>}
+          <span className={styles.moduleTopline}>
+            <span className={styles.moduleName}>{n.label}</span>
+            <span className={styles.moduleCode}>{moduleCode(n)}</span>
+          </span>
+          <span className={styles.moduleType}>
+            {outputType} {n.subcategory ? `· ${n.subcategory}` : ''}
+          </span>
+          <span className={styles.moduleDesc}>{description}</span>
         </span>
         <span className={styles.moduleGrip} aria-hidden="true">⠿</span>
       </li>
@@ -256,8 +260,19 @@ function Sidebar() {
 
   return (
     <aside className={styles.sidebar} id="node-library">
-      <div className={styles.header}>Node Library</div>
+      <div className={styles.header}>
+        <div className={styles.headerTop}>
+          <span className={styles.headerTitle}>Node Library</span>
+          <span className={styles.headerMeta}>Patch rack</span>
+        </div>
+        <div className={styles.headerStats} aria-label="Library status">
+          <span className={styles.headerChip}>{searchStatus}</span>
+          <span className={styles.headerChip}>{patterns.length} saved</span>
+          <span className={styles.headerChip}>{CATEGORIES.length} banks</span>
+        </div>
+      </div>
       <div className={styles.searchWrap}>
+        <div className={styles.searchLabel}>Find module</div>
         <input
           className={styles.searchInput}
           type="search"
@@ -267,22 +282,13 @@ function Sidebar() {
         />
       </div>
       <div className={styles.scroll}>
-        {query === '' && recentNodes.length > 0 && (
-          <section className={styles.recentRack} aria-label="Recently used nodes">
-            <div className={styles.recentHeader}>
-              <span>Recent rack</span>
-              <span>{recentNodes.length}/{MAX_RECENT}</span>
-            </div>
-            <ul className={styles.recentList}>{recentNodes.map((node) => renderModule(node, true))}</ul>
-          </section>
-        )}
         {CATEGORIES.map(({ id, label }) => {
           const nodes = categoryNodes(id).filter(
             (n) => query === '' || n.label.toLowerCase().includes(query)
           )
           if (nodes.length === 0) return null
           const accent = CATEGORY_ACCENT_VAR[id]
-          const open = query !== '' || expanded.has(id)
+          const open = expandedId === id
 
           return (
             <div key={id} className={styles.category}>
@@ -290,8 +296,8 @@ function Sidebar() {
                 className={styles.categoryHeader}
                 style={{ '--accent': accent } as React.CSSProperties}
                 onClick={() => toggle(id)}
-              >
-                <span className={styles.drawerLabel}>
+            >
+              <span className={styles.drawerLabel}>
                   <span className={styles.drawerLight} aria-hidden="true" />
                   {label}
                   <span className={styles.drawerCount}>{nodes.length}</span>
@@ -361,13 +367,13 @@ function Sidebar() {
             >
               <span
                 className={styles.chevron}
-                style={{ transform: (query !== '' || expanded.has('library')) ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                style={{ transform: expandedId === 'library' ? 'rotate(180deg)' : 'rotate(0deg)' }}
               >
                 ▾
               </span>
             </button>
           </div>
-          {(query !== '' || expanded.has('library')) && (
+          {expandedId === 'library' && (
             visiblePatterns.length === 0 ? (
               <div className={styles.patternDropHint}>Drag pattern .json files here to import</div>
             ) : (

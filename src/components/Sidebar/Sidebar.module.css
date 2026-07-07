@@ -10,11 +10,50 @@
 
 .header {
   padding: var(--space-2);
-  font-size: var(--fs-body);
-  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   color: var(--text-primary);
   border-bottom: 1px solid var(--border-glow);
   flex-shrink: 0;
+}
+
+.headerTop {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.headerTitle {
+  font-size: var(--fs-body);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.headerMeta {
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.headerStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.headerChip {
+  padding: 3px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-primary) 82%, black);
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .searchWrap {
@@ -23,17 +62,28 @@
   flex-shrink: 0;
 }
 
+.searchLabel {
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
 .searchInput {
   width: 100%;
   box-sizing: border-box;
   height: 28px;
   padding: 0 8px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-glow);
-  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg-primary) 88%, black);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
   color: var(--text-primary);
-  font-family: var(--font-body);
-  font-size: var(--fs-caption);
+  font-family: var(--font-code);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   outline: none;
 }
 
@@ -289,7 +339,7 @@
   grid-template-columns: 25px minmax(0, 1fr) 12px;
   align-items: center;
   gap: 8px;
-  min-height: 38px;
+  min-height: 52px;
   margin: 2px 0;
   padding: 4px 7px 4px 5px;
   border: 1px solid transparent;
@@ -330,16 +380,37 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
+}
+
+.moduleTopline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
 .moduleName {
+  min-width: 0;
+  flex: 1 1 auto;
   overflow: hidden;
   color: currentColor;
   font-size: 12px;
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.moduleCode {
+  flex: 0 0 auto;
+  padding: 1px 4px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--accent) 62%, white);
+  font-family: var(--font-code);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .moduleType {
@@ -352,6 +423,17 @@
   opacity: 0.52;
 }
 
+.moduleDesc {
+  display: -webkit-box;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--text-secondary) 92%, white 8%);
+  font-size: 10px;
+  line-height: 1.25;
+  opacity: 0.82;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .moduleGrip {
   color: var(--accent);
   font-size: 10px;
@@ -359,50 +441,6 @@
 }
 
 .nodeItem:hover .moduleGrip { opacity: 0.72; }
-
-.recentRack {
-  margin: 0 0 8px;
-  padding: 7px;
-  border: 1px solid rgba(255, 255, 255, 0.065);
-  border-radius: 7px;
-  background:
-    linear-gradient(145deg, rgba(0, 191, 255, 0.045), rgba(255, 77, 141, 0.025)),
-    rgba(0, 0, 0, 0.12);
-}
-
-.recentHeader {
-  display: flex;
-  justify-content: space-between;
-  padding: 0 2px 6px;
-  color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.recentList {
-  display: flex;
-  gap: 5px;
-  margin: 0;
-  padding: 0;
-  overflow-x: auto;
-  list-style: none;
-  scrollbar-width: none;
-}
-
-.recentList::-webkit-scrollbar { display: none; }
-
-.recentModule {
-  flex: 0 0 42px;
-  min-height: 38px;
-  grid-template-columns: 25px;
-  justify-content: center;
-  padding: 5px 8px;
-}
-
-.recentModule .moduleCopy,
-.recentModule .moduleGrip { display: none; }
 
 .dragGhost {
   position: fixed;
@@ -450,6 +488,13 @@
 
 .patternItem {
   grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 40px;
+}
+
+.patternItem:hover {
+  box-shadow:
+    inset 2px 0 var(--accent),
+    0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 /* Sub-heading rows inside a category section (e.g. Patterns > Generative). */
@@ -464,3 +509,15 @@
 }
 
 .subHeader:first-child { padding-top: 3px; }
+
+.patternDropHint {
+  padding: 14px 12px;
+  border-top: 1px dashed color-mix(in srgb, var(--accent-composite) 24%, transparent);
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+  opacity: 0.82;
+}

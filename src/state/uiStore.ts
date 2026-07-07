@@ -11,6 +11,7 @@ const CONTRAST_KEY = 'fastled-studio-high-contrast'
 const PREVIEW_STYLE_KEY = 'fastled-studio-preview-style'
 const LEGACY_DIFFUSION_KEY = 'fastled-studio-preview-diffusion'
 const TEST_SIGNAL_KEY = 'fastled-studio-test-signal'
+const PERFORMANCE_MODE_KEY = 'fastled-studio-performance-mode'
 
 function load<T>(key: string, fallback: T): T {
   try { const v = localStorage.getItem(key); return v !== null ? JSON.parse(v) : fallback } catch { return fallback }
@@ -38,6 +39,8 @@ interface UiState {
   previewPanelOpen: boolean
   /** Show-ready layout that gives the live matrix and transport the viewport. */
   stageMode: boolean
+  /** Canvas-focused presentation mode that hushes chrome and emphasizes signal flow. */
+  performanceMode: boolean
   preview3d: boolean
   previewStyle: PreviewStyle
   /** When on, audio-reactive nodes with no live mic run off a synthetic demo
@@ -62,6 +65,8 @@ interface UiState {
   togglePreviewPanel: () => void
   toggleStageMode: () => void
   setStageMode: (active: boolean) => void
+  togglePerformanceMode: () => void
+  setPerformanceMode: (active: boolean) => void
   togglePreview3d: () => void
   toggleTestSignal: () => void
   setPreviewStyle: (style: PreviewStyle) => void
@@ -91,6 +96,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   sidebarOpen: true,
   previewPanelOpen: true,
   stageMode: false,
+  performanceMode: load<boolean>(PERFORMANCE_MODE_KEY, false),
   preview3d: false,
   previewStyle: loadPreviewStyle(),
   testSignal: load<boolean>(TEST_SIGNAL_KEY, false),
@@ -121,6 +127,15 @@ export const useUiStore = create<UiState>((set, get) => ({
   togglePreviewPanel: () => set((s) => ({ previewPanelOpen: !s.previewPanelOpen })),
   toggleStageMode: () => set((s) => ({ stageMode: !s.stageMode })),
   setStageMode: (stageMode) => set({ stageMode }),
+  togglePerformanceMode: () => {
+    const next = !get().performanceMode
+    localStorage.setItem(PERFORMANCE_MODE_KEY, JSON.stringify(next))
+    set({ performanceMode: next })
+  },
+  setPerformanceMode: (performanceMode) => {
+    localStorage.setItem(PERFORMANCE_MODE_KEY, JSON.stringify(performanceMode))
+    set({ performanceMode })
+  },
   togglePreview3d: () => set((s) => ({ preview3d: !s.preview3d })),
   toggleTestSignal: () => {
     const next = !get().testSignal

@@ -6,7 +6,18 @@ import { runTidy } from '../../utils/tidyGraph'
 import styles from './MenuBar.module.css'
 
 export default function MenuBar() {
-  const { setStatus, theme, cycleTheme, reducedMotion, toggleReducedMotion, highContrast, toggleHighContrast, openHelp } = useUiStore()
+  const {
+    setStatus,
+    theme,
+    cycleTheme,
+    reducedMotion,
+    toggleReducedMotion,
+    highContrast,
+    toggleHighContrast,
+    performanceMode,
+    togglePerformanceMode,
+    openHelp,
+  } = useUiStore()
 
   const THEME_ICON: Record<string, string> = { dark: '☾', solarized: '✦', light: '☀' }
   const THEME_LABEL: Record<string, string> = { dark: 'Dark', solarized: 'Solarized', light: 'Light' }
@@ -57,7 +68,10 @@ export default function MenuBar() {
     <header className={styles.menubar}>
       <div className={styles.brand}>
         <span className={styles.logo}>⬡</span>
-        <span className={styles.title}>FastLED Studio</span>
+        <div className={styles.brandCopy}>
+          <span className={styles.title}>FastLED Studio</span>
+          <span className={styles.subtitle}>Lighting console</span>
+        </div>
       </div>
       <nav className={styles.nav}>
         <button
@@ -126,6 +140,15 @@ export default function MenuBar() {
           title="Toggle high contrast"
         >
           ◑ Contrast
+        </button>
+        <button
+          className={`${styles.btn} ${performanceMode ? styles.btnActive : ''}`}
+          onClick={togglePerformanceMode}
+          aria-label="Toggle performance mode"
+          aria-pressed={performanceMode}
+          title="Performance mode: hush chrome and emphasize live signal flow"
+        >
+          {performanceMode ? '◆' : '◇'} Perform
         </button>
         <div className={styles.sep} />
         <button

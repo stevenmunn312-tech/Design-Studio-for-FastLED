@@ -7,10 +7,7 @@ import { useUiStore } from '../../../state/uiStore'
 
 describe('Sidebar equipment rack', () => {
   beforeEach(() => {
-    localStorage.removeItem('fastled-studio-recent-nodes')
-    // Only the first category (Inputs) opens by default — these tests poke
-    // FFT Analyzer, so start with the Audio section expanded.
-    localStorage.setItem('fastled-studio-sidebar-expanded', JSON.stringify(['audio']))
+    localStorage.setItem('fastled-studio-sidebar-expanded', JSON.stringify('audio'))
     useGraphStore.setState({ nodes: [], edges: [], selectedNodeId: null })
     usePatternLibrary.setState({ patterns: [] })
     useUiStore.setState({ viewCenter: { x: 200, y: 180 }, draggingNodeType: null })
@@ -23,13 +20,20 @@ describe('Sidebar equipment rack', () => {
     expect(fft.textContent).toContain('float')
   })
 
-  it('adds clicked modules to a persistent recent rack', () => {
-    const { getByLabelText, getByText } = render(<Sidebar />)
+  it('adds clicked modules to the graph without rendering a recent rack', () => {
+    const { getByLabelText, queryByText } = render(<Sidebar />)
     fireEvent.click(getByLabelText('Add FFT Analyzer'))
 
-    expect(getByText('Recent rack')).toBeTruthy()
-    expect(getByLabelText('Add FFT Analyzer from recent rack')).toBeTruthy()
-    expect(JSON.parse(localStorage.getItem('fastled-studio-recent-nodes') ?? '[]')).toEqual(['FFTAnalyzer'])
+    expect(queryByText('Recent rack')).toBeNull()
     expect(useGraphStore.getState().nodes[0].data.nodeType).toBe('FFTAnalyzer')
+  })
+
+  it('keeps only one category open at a time', () => {
+    const { getByRole, getByLabelText, queryByLabelText } = render(<Sidebar />)
+
+    fireEvent.click(getByRole('button', { name: /Math & Logic/i }))
+
+    expect(queryByLabelText('Add FFT Analyzer')).toBeNull()
+    expect(getByLabelText('Add Math')).toBeTruthy()
   })
 })

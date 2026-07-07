@@ -2,34 +2,106 @@
 .nodeBox {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   margin-top: var(--space-1);
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0.01)),
+    radial-gradient(circle at 16% 0%, rgba(0, 191, 255, 0.08), transparent 34%),
+    radial-gradient(circle at 84% 100%, rgba(255, 77, 141, 0.08), transparent 32%),
+    rgba(0, 0, 0, 0.16);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.025);
+}
+
+.nodeHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nodeKicker,
+.nodeMeta,
+.targetChip,
+.targetLabel,
+.psramCheck,
+.sectionTitle,
+.consoleStatus,
+.serialPort,
+.serialBaud,
+.serialIdle,
+.targetBig {
+  font-family: var(--font-code);
+}
+
+.nodeKicker {
+  color: #9ce8ff;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.nodeMeta {
+  color: var(--text-secondary);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.targetRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .nodeBox button {
   width: 100%;
-  padding: 4px 8px;
-  font-family: var(--font-display);
-  font-size: var(--fs-caption);
-  border-radius: var(--node-radius);
-  border: 1px solid var(--border-glow);
+  min-height: 30px;
+  padding: 5px 10px;
+  font-family: var(--font-code);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
   cursor: pointer;
-  transition: background var(--anim-hover), color var(--anim-hover), border-color var(--anim-hover);
+  transition: background var(--anim-hover), color var(--anim-hover), border-color var(--anim-hover), box-shadow var(--anim-hover);
 }
 .nodeBox button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.boardBtn { background: var(--bg-node-hover); color: var(--text-primary); }
-.boardBtn:hover { border-color: rgba(255,255,255,0.3); }
+.boardBtn {
+  background:
+    linear-gradient(135deg, rgba(0, 191, 255, 0.14), rgba(255, 255, 255, 0.04)),
+    var(--bg-node-hover);
+  color: var(--text-primary);
+}
+.boardBtn:hover {
+  border-color: rgba(255,255,255,0.3);
+  box-shadow: 0 0 14px rgba(0, 191, 255, 0.18);
+}
+
+.targetChip {
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
 
 .targetLabel {
-  font-family: var(--font-code);
   font-size: 10px;
   color: var(--text-secondary);
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding: 1px 0;
+  padding: 2px 0 4px;
+  letter-spacing: 0.04em;
 }
 
 /* "Use PSRAM" toggle + OPI/QSPI type picker (shown only for PSRAM-capable boards) */
@@ -42,34 +114,36 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: var(--fs-caption);
+  font-size: 10px;
   color: var(--text-secondary);
   cursor: pointer;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 .psramCheck input { cursor: pointer; }
 .psramSelect {
   width: 100%;
-  height: 24px;
-  background: #1a1e23;
-  border: 1px solid var(--border-glow);
-  border-radius: 5px;
+  height: 28px;
+  background: color-mix(in srgb, var(--bg-primary) 88%, black);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
   color: var(--text-primary);
-  font-family: var(--font-code);
   font-size: 10px;
-  padding: 0 4px;
+  padding: 0 8px;
   cursor: pointer;
   outline: none;
 }
 
 .uploadBtn {
-  background: var(--accent-output);
+  background: linear-gradient(135deg, var(--accent-output), color-mix(in srgb, var(--accent-output) 56%, white));
   color: var(--bg-primary);
   border-color: var(--accent-output) !important;
   font-weight: 700;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent-output) 24%, transparent);
 }
 .uploadBtn:hover:not(:disabled) { filter: brightness(1.1); }
 .uploadBtn.stBusy  {
-  background: var(--bg-node-hover);
+  background: linear-gradient(135deg, rgba(255, 204, 0, 0.16), rgba(255, 255, 255, 0.04));
   border-color: var(--border-glow) !important;
   color: #ffcc00;
 }
@@ -87,17 +161,33 @@
 .uploadBtn.stDone  { background: var(--success); border-color: var(--success) !important; }
 .uploadBtn.stError { background: var(--error); border-color: var(--error) !important; color: #fff; }
 
-.exportBtn { background: none; color: var(--text-secondary); }
-.exportBtn:hover:not(:disabled) { color: var(--text-primary); border-color: rgba(255,255,255,0.25); }
+.exportBtn {
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-secondary);
+}
+.exportBtn:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: rgba(255,255,255,0.25);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.06);
+}
 
-.outputBtn { background: none; color: var(--text-secondary); font-size: 10px; }
-.outputBtn:hover { color: var(--text-primary); }
+.outputBtn {
+  background: none;
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+.outputBtn:hover {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--accent-output) 26%, transparent);
+}
 
 /* ── Popups (Board / arduino-cli) ─────────────────────────────────────────── */
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background:
+    radial-gradient(circle at 50% 20%, rgba(0, 191, 255, 0.08), transparent 24%),
+    rgba(0, 0, 0, 0.68);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -110,13 +200,19 @@
   width: min(420px, 92vw);
   max-height: 88vh;
   overflow-y: auto;
-  background: var(--bg-panel);
-  border: 1px solid var(--border-glow);
-  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(18, 22, 27, 0.98), rgba(9, 12, 16, 0.96)),
+    var(--bg-panel);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
   padding: var(--space-2);
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  box-shadow:
+    0 22px 60px rgba(0, 0, 0, 0.46),
+    0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 0 40px rgba(0, 191, 255, 0.06);
   animation: slideUp 0.18s ease-out;
 }
 @keyframes slideUp {
@@ -132,24 +228,32 @@
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 4px;
+  letter-spacing: 0.03em;
 }
 .closeBtn {
   background: none;
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text-secondary);
-  font-size: 20px;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  font-size: 18px;
   cursor: pointer;
   line-height: 1;
-  padding: 2px 6px;
+  padding: 0;
 }
-.closeBtn:hover { color: var(--text-primary); }
+.closeBtn:hover {
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+}
 
 .sectionTitle {
-  font-size: var(--fs-caption);
-  font-weight: 600;
-  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  color: #9ce8ff;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.16em;
   margin-top: 6px;
 }
 
@@ -173,13 +277,12 @@
 .select, .textInput {
   width: 100%;
   height: 32px;
-  background: #1a1e23;
-  border: 1px solid var(--border-glow);
-  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg-primary) 88%, black);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
   color: var(--text-primary);
-  font-family: var(--font-code);
   font-size: var(--fs-caption);
-  padding: 0 var(--space-1);
+  padding: 0 10px;
   outline: none;
 }
 .select { cursor: pointer; }
@@ -187,17 +290,20 @@
 .boardList {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  border: 1px solid var(--border-glow);
-  border-radius: 6px;
+  gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
   padding: 6px;
+  background: rgba(255, 255, 255, 0.018);
 }
 .boardRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 2px 0;
+  padding: 6px 4px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.018);
 }
 .boardCheck {
   display: flex;
@@ -210,11 +316,11 @@
 .coreOk { font-size: 11px; color: var(--success); font-family: var(--font-code); }
 .coreBtn {
   background: none;
-  border: 1px solid var(--border-glow);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text-secondary);
-  border-radius: 5px;
+  border-radius: 999px;
   font-size: 11px;
-  padding: 2px 8px;
+  padding: 4px 10px;
   cursor: pointer;
 }
 .coreBtn:hover:not(:disabled) { color: var(--text-primary); border-color: rgba(255,255,255,0.25); }
@@ -227,8 +333,8 @@
   min-width: 38px;
   padding: 0 10px;
   background: none;
-  border: 1px solid var(--border-glow);
-  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
   color: var(--text-secondary);
   cursor: pointer;
 }
@@ -238,23 +344,25 @@
 .targetBig {
   margin-top: 8px;
   text-align: center;
-  font-family: var(--font-code);
   font-size: var(--fs-body);
   font-weight: 700;
   color: var(--accent-output);
+  letter-spacing: 0.04em;
 }
 
-.divider { height: 1px; background: var(--border-glow); margin: 6px 0; }
+.divider { height: 1px; background: linear-gradient(90deg, transparent, var(--border-glow), transparent); margin: 6px 0; }
 
 .installBtn {
   width: 100%;
   height: 36px;
-  border-radius: 8px;
+  border-radius: 999px;
   border: 1px solid var(--accent-output);
   background: none;
   color: var(--accent-output);
-  font-family: var(--font-body);
+  font-family: var(--font-code);
   font-size: var(--fs-caption);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
 }
 .installBtn:hover:not(:disabled) { background: var(--accent-output); color: #000; }
@@ -267,11 +375,13 @@
   bottom: 40px;          /* clear the status bar */
   width: min(560px, 96vw);
   height: min(46vh, 420px);
-  background: var(--bg-panel);
-  border: 1px solid var(--border-glow);
+  background:
+    linear-gradient(180deg, rgba(15, 18, 24, 0.98), rgba(6, 8, 12, 0.98)),
+    var(--bg-panel);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-right: none;
-  border-radius: 10px 0 0 10px;
-  box-shadow: -8px 0 24px rgba(0,0,0,0.4);
+  border-radius: 14px 0 0 14px;
+  box-shadow: -8px 0 24px rgba(0,0,0,0.4), 0 0 40px rgba(0, 191, 255, 0.05);
   display: flex;
   flex-direction: column;
   z-index: 110;
@@ -289,23 +399,28 @@
   padding: 8px var(--space-2);
   border-bottom: 1px solid var(--border-glow);
   flex-shrink: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
 }
 .consoleTabs { display: flex; gap: 2px; }
 .consoleTab, .consoleTabActive {
   padding: 3px 7px;
-  border: 0;
-  border-radius: 4px;
+  border: 1px solid transparent;
+  border-radius: 999px;
   background: none;
   color: var(--text-secondary);
-  font-family: var(--font-display);
-  font-size: var(--fs-caption);
+  font-family: var(--font-code);
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   cursor: pointer;
 }
-.consoleTabActive { background: var(--bg-node-hover); color: var(--text-primary); }
-.consoleStatus { font-family: var(--font-code); font-size: 11px; }
+.consoleTabActive {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+.consoleStatus { font-size: 11px; }
 .spacer { flex: 1; }
 .consoleCopyBtn {
   padding: 2px 3px;
@@ -331,11 +446,11 @@
 .consoleCopyBtn:disabled { opacity: 0.38; cursor: not-allowed; }
 .consoleBtn {
   background: none;
-  border: 1px solid var(--border-glow);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text-secondary);
-  border-radius: 5px;
+  border-radius: 999px;
   font-size: 11px;
-  padding: 2px 8px;
+  padding: 4px 10px;
   cursor: pointer;
 }
 .consoleBtn:hover:not(:disabled) { color: var(--text-primary); }
@@ -349,15 +464,25 @@
   border-bottom: 1px solid var(--border-glow);
   flex-shrink: 0;
 }
-.serialPort { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font: 11px var(--font-code); }
-.serialBaud { height: 26px; border: 1px solid var(--border-glow); border-radius: 5px; background: #1a1e23; color: var(--text-primary); font: 11px var(--font-code); }
-.serialIdle { color: var(--text-secondary); font: 11px var(--font-code); }
+.serialPort { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: 11px; }
+.serialBaud {
+  height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-primary) 88%, black);
+  color: var(--text-primary);
+  font-size: 11px;
+  padding: 0 8px;
+}
+.serialIdle { color: var(--text-secondary); font-size: 11px; }
 
 .consoleBody {
   flex: 1;
   margin: 0;
   padding: var(--space-2);
-  background: #0d0f12;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.012), rgba(255, 255, 255, 0)),
+    #0b0f14;
   color: #c9d1d9;
   font-family: var(--font-code);
   font-size: 11px;
@@ -365,6 +490,10 @@
   overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-word;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 100% 20px, 20px 100%;
 }
 
 /* shared status colours */

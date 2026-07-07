@@ -60,7 +60,7 @@ const SNAP_GRID: [number, number] = [20, 20]
 // How close (in flow units) a dropped node must land to a noodle to splice into
 // it, and fallback node dimensions when a node hasn't been measured yet.
 const SPLICE_DIST = 48
-const FALLBACK_W = 180
+const FALLBACK_W = 240
 const FALLBACK_H = 70
 const DEFAULT_SIDEBAR_W = 280
 const DEFAULT_PREVIEW_W = 496
@@ -120,7 +120,7 @@ function NodeGraphCanvasInner() {
   // click that React Flow emits right after the drop doesn't close it.
   const menuOpenedAt = useRef(0)
   const { screenToFlowPosition, flowToScreenPosition, getNode, getInternalNode, setCenter, getZoom } = useReactFlow()
-  const { setStatus, setSparkPort, setViewCenter, draggingNodeType, setDraggingNodeType, sidebarOpen, previewPanelOpen } = useUiStore()
+  const { setStatus, setSparkPort, setViewCenter, draggingNodeType, setDraggingNodeType, sidebarOpen, previewPanelOpen, performanceMode } = useUiStore()
   const wrapperRef = useRef<HTMLDivElement>(null)
   const leftInset = panelInsetPx('--sidebar-width', DEFAULT_SIDEBAR_W, sidebarOpen)
   const rightInset = panelInsetPx('--right-panel-width', DEFAULT_PREVIEW_W, previewPanelOpen)
@@ -141,6 +141,8 @@ function NodeGraphCanvasInner() {
   } | null>(null)
   const [connectionRipple, setConnectionRipple] = useState<{
     key: number
+    sourceX: number
+    sourceY: number
     x: number
     y: number
     color: string
@@ -166,6 +168,12 @@ function NodeGraphCanvasInner() {
       .map((node) => node.id))
     return edges.some((edge) => terminalIds.has(edge.target) && edge.targetHandle === 'frame')
   }, [edges, nodes])
+  const hasAudioGraph = useMemo(() => nodes.some((node) => {
+    const data = node.data as { category?: string; nodeType?: string }
+    return data.category === 'audio' || data.nodeType === 'MicInput'
+  }), [nodes])
+  const hasShowGraph = useMemo(() => nodes.some((node) => (node.data as { category?: string }).category === 'show'), [nodes])
+  const hasPatternGraph = useMemo(() => nodes.some((node) => (node.data as { category?: string }).category === 'pattern'), [nodes])
 
   useEffect(() => {
     if (beatNow && !lastBeat.current) setBeatRippleKey((key) => key + 1)
@@ -234,6 +242,10 @@ function NodeGraphCanvasInner() {
     const sourceNode = getNode(connection.source)
     const wrapper = wrapperRef.current
     if (targetNode && wrapper) {
+      const sourceScreen = flowToScreenPosition({
+        x: (sourceNode?.position.x ?? 0) + (sourceNode?.measured?.width ?? FALLBACK_W),
+        y: (sourceNode?.position.y ?? 0) + (sourceNode?.measured?.height ?? FALLBACK_H) / 2,
+      })
       const screen = flowToScreenPosition({
         x: targetNode.position.x,
         y: targetNode.position.y + (targetNode.measured?.height ?? FALLBACK_H) / 2,
@@ -242,6 +254,8 @@ function NodeGraphCanvasInner() {
       const category = (sourceNode?.data as { category?: string } | undefined)?.category ?? 'output'
       setConnectionRipple({
         key: Date.now(),
+        sourceX: sourceScreen.x - rect.left,
+        sourceY: sourceScreen.y - rect.top,
         x: screen.x - rect.left,
         y: screen.y - rect.top,
         color: CATEGORY_COLOR[category] ?? '#00bfff',
@@ -703,7 +717,7 @@ function NodeGraphCanvasInner() {
   return (
     <div
       ref={wrapperRef}
-      className={`${styles.canvas} ${selectedNodeId ? styles.canvasFocused : ''} ${nodes.length === 0 ? styles.canvasIdle : ''}`}
+      className={`${styles.canvas} ${selectedNodeId ? styles.canvasFocused : ''} ${nodes.length === 0 ? styles.canvasIdle : ''} ${hasAudioGraph ? styles.canvasAudioLive : ''} ${hasShowGraph ? styles.canvasShowLive : ''} ${hasPatternGraph ? styles.canvasPatternLive : ''} ${performanceMode ? styles.canvasPerformance : ''}`}
       style={{ '--canvas-left-inset': `${leftInset}px`, '--canvas-right-inset': `${rightInset}px` } as React.CSSProperties}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
@@ -745,6 +759,21 @@ function NodeGraphCanvasInner() {
           aria-hidden="true"
         >
           <span /><span />
+        </div>
+      )}
+      {connectionRipple && (
+        <div
+          key={`source-${connectionRipple.key}`}
+          className={styles.connectionLaunch}
+          style={{
+            left: connectionRipple.sourceX,
+            top: connectionRipple.sourceY,
+            '--ripple-color': connectionRipple.color,
+          } as React.CSSProperties}
+          aria-hidden="true"
+        >
+          <span />
+          <span />
         </div>
       )}
       {beatRippleKey > 0 && (
@@ -831,6 +860,10 @@ function NodeGraphCanvasInner() {
           className={styles.minimap}
           onClick={onMiniMapClick}
         />
+        <div className={styles.overviewLegend} aria-hidden="true">
+          <span />
+          Signal overview
+        </div>
       </ReactFlow>
       {contextMenu && (
         <NodeContextMenu

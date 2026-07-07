@@ -13,6 +13,15 @@ function hexToRgb(hex: string) {
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
 }
 
+function moduleCode(type: string) {
+  return type
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .split(/[^a-z0-9]+/i)
+    .filter(Boolean)
+    .map((part) => part.slice(0, 3).toUpperCase())
+    .join('-')
+}
+
 export default function Inspector() {
   const { nodes, selectedNodeId, updateNodeProperty, updateNodeProperties } = useGraphStore()
   const setStatus = useUiStore((s) => s.setStatus)
@@ -62,26 +71,48 @@ export default function Inspector() {
   if (!node) {
     return (
       <aside className={styles.inspector}>
-        <div className={styles.header}>Inspector</div>
+        <div className={styles.header}>
+          <div className={styles.headerTop}>
+            <div className={styles.headerTitle}>Inspector</div>
+            <div className={styles.headerMeta}>Signal inspector</div>
+          </div>
+          <div className={styles.headerStats}>
+            <span className={styles.headerChip}>No selection</span>
+          </div>
+        </div>
         <div className={styles.empty}>Select a node to inspect</div>
       </aside>
     )
   }
 
   const props = node.data.properties as Record<string, unknown>
+  const propertyEntries = Object.entries(props).filter(([key]) => key !== 'font' && key !== 'image')
+  const propertyCount = propertyEntries.length + (node.data.nodeType === 'Text' ? 1 : 0) + (node.data.nodeType === 'Image' ? 1 : 0)
   const hasRGB =
     'r' in props && 'g' in props && 'b' in props &&
     typeof props.r === 'number' && typeof props.g === 'number' && typeof props.b === 'number'
 
   return (
     <aside className={styles.inspector}>
-      <div className={styles.header}>Inspector</div>
-      <div className={styles.section}>
+      <div className={styles.header}>
+        <div className={styles.headerTop}>
+          <div className={styles.headerTitle}>Inspector</div>
+          <div className={styles.headerMeta}>Signal inspector</div>
+        </div>
+        <div className={styles.headerStats}>
+          <span className={styles.headerChip}>{node.data.category}</span>
+          <span className={styles.headerChip}>{moduleCode(node.data.nodeType)}</span>
+          <span className={styles.headerChip}>{propertyCount} fields</span>
+        </div>
+      </div>
+      <div className={`${styles.section} ${styles.sectionCard}`}>
+        <div className={styles.sectionKicker}>Selected node</div>
         <div className={styles.sectionTitle}>{node.data.label}</div>
         <div className={styles.meta}>{node.data.category}</div>
       </div>
       <div className={styles.divider} />
-      <div className={styles.section}>
+      <div className={`${styles.section} ${styles.sectionCard}`}>
+        <div className={styles.sectionKicker}>Controls</div>
         <div className={styles.sectionTitle}>Properties</div>
         {hasRGB && (
           <div className={styles.fieldRow}>
@@ -98,7 +129,7 @@ export default function Inspector() {
             />
           </div>
         )}
-        {Object.entries(props).filter(([key]) => key !== 'font' && key !== 'image').map(([key, val]) =>
+        {propertyEntries.map(([key, val]) =>
           typeof val === 'boolean' ? (
             <div key={key} className={styles.fieldRow}>
               <label className={styles.fieldLabel} htmlFor={`prop-${key}`}>{key}</label>
@@ -202,7 +233,8 @@ export default function Inspector() {
         })()}
       </div>
       <div className={styles.divider} />
-      <div className={styles.section}>
+      <div className={`${styles.section} ${styles.sectionCard}`}>
+        <div className={styles.sectionKicker}>Placement</div>
         <div className={styles.sectionTitle}>Position</div>
         <div className={styles.fieldRow}>
           <label className={styles.fieldLabel}>X</label>

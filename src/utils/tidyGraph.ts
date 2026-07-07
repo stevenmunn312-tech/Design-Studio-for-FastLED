@@ -11,7 +11,7 @@ import { useGraphStore } from '../state/graphStore'
 import { useUiStore } from '../state/uiStore'
 import { tidyLayout } from './tidyLayout'
 
-const FALLBACK_W = 180
+const FALLBACK_W = 240
 const FALLBACK_H = 100
 const TIDY_ANIM_MS = 200
 const HISTORY_LIMIT = 100 // graphStore's zundo `limit`

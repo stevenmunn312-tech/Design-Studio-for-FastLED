@@ -1,6 +1,7 @@
 .statusbar {
   height: var(--statusbar-height);
-  background: #121417;
+  background:
+    linear-gradient(180deg, rgba(16, 20, 25, 0.96), rgba(10, 12, 16, 0.98));
   border-top: 1px solid var(--border-glow);
   padding: 0 var(--space-2);
   display: flex;
@@ -11,24 +12,65 @@
   flex-shrink: 0;
 }
 
+.leftRail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .indicator {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
   transition: background 300ms ease;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.modeTag {
+  padding: 2px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.message {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .right {
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
+  min-width: 0;
 }
 
 .chip {
+  padding: 2px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 999px;
   color: var(--text-secondary);
-  font-size: var(--fs-caption);
+  font-size: 11px;
   font-family: var(--font-code);
-  opacity: 0.7;
+  opacity: 0.78;
+  white-space: nowrap;
+}
+
+.chipStrong {
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.chipAccent {
+  color: var(--accent-output);
+  border-color: color-mix(in srgb, var(--accent-output) 28%, transparent);
+  box-shadow: inset 0 0 10px color-mix(in srgb, var(--accent-output) 8%, transparent);
 }

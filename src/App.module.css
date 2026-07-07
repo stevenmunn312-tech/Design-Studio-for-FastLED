@@ -6,6 +6,12 @@
   overflow: hidden;
 }
 
+.appPerformance {
+  background:
+    radial-gradient(circle at 50% 16%, rgba(10, 18, 27, 0.66), transparent 32%),
+    #040608;
+}
+
 .workspace {
   position: relative;
   display: flex;
@@ -57,6 +63,22 @@
   flex: 1;
   min-width: 0;
   overflow: hidden;
+}
+
+.appPerformance .sidebarPanel,
+.appPerformance .previewPanel {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 94%, black), color-mix(in srgb, var(--bg-panel) 86%, black));
+}
+
+.appPerformance .sidebarHandle,
+.appPerformance .previewHandle {
+  opacity: 0.3;
+}
+
+.appPerformance .sidebarHandle:hover,
+.appPerformance .previewHandle:hover {
+  opacity: 0.8;
 }
 
 .sidebarDock {
