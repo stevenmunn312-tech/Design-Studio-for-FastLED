@@ -278,7 +278,10 @@ export const useGraphStore = create<GraphState>()(
               return { ...n, position: { ...n.position, y: centreY - h / 2 } }
             })
           }
-          return { nodes }
+          const selectedNodeId = s.selectedNodeId && nodes.some((n) => n.id === s.selectedNodeId)
+            ? s.selectedNodeId
+            : null
+          return { nodes, selectedNodeId }
         }),
 
       onEdgesChange: (changes) =>

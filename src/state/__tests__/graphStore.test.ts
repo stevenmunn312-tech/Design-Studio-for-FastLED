@@ -94,6 +94,19 @@ describe('graphStore — grouping', () => {
     expect(useGraphStore.getState().nodes.find((x) => x.id === 'bd')!.position.y).toBe(200)
   })
 
+  it('clears a stale selectedNodeId when React Flow removes the selected node', () => {
+    reset([node('a', 'SolidColor'), node('b', 'Noise')])
+    useGraphStore.getState().selectNode('a')
+
+    useGraphStore.getState().onNodesChange([
+      { id: 'a', type: 'remove' },
+    ])
+
+    const s = useGraphStore.getState()
+    expect(s.nodes.map((n) => n.id)).toEqual(['b'])
+    expect(s.selectedNodeId).toBeNull()
+  })
+
   it.each(['MatrixOutput', 'MicInput'])('allows only one %s node on the canvas', (nodeType) => {
     reset([node('existing', nodeType)])
     useGraphStore.getState().addNode(node('added', nodeType))
