@@ -52,9 +52,9 @@
 }
 
 .focusDim {
-  opacity: 0.08;
+  opacity: 0.22;
   transition: opacity 180ms ease-out, filter 180ms ease-out;
-  filter: saturate(0.55);
+  filter: saturate(0.7);
 }
 
 .focusDim .packet {

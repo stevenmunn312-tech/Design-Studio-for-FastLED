@@ -112,12 +112,12 @@
 }
 
 .nodeDim {
-  opacity: 0.38;
-  filter: saturate(0.6) brightness(0.82);
+  opacity: 0.54;
+  filter: saturate(0.72) brightness(0.9);
 }
 
 .nodeDim::after {
-  background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
+  background: color-mix(in srgb, var(--bg-primary) 76%, transparent);
 }
 
 .nodeSelected {

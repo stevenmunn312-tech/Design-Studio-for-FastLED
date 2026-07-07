@@ -141,7 +141,7 @@
 }
 
 .canvasFocused .focusVeil {
-  opacity: calc(0.24 + var(--field-focus-energy) * 0.18);
+  opacity: calc(0.18 + var(--field-focus-energy) * 0.12);
 }
 
 @keyframes fieldScan {
