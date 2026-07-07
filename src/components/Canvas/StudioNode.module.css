@@ -33,7 +33,7 @@
     inset 0 0 0 1px var(--border-glow),
     0 0 15px var(--signal-glow, transparent),
     0 0 38px var(--signal-soft-glow, transparent);
-  transition: background var(--anim-hover), box-shadow 240ms linear, opacity 180ms ease-out;
+  transition: background var(--anim-hover), box-shadow 240ms linear, opacity 180ms ease-out, filter 180ms ease-out;
   cursor: default;
   user-select: none;
   animation: nodePopin 0.2s ease-out;
@@ -52,14 +52,21 @@
 
 .nodePath {
   opacity: 1;
+  filter: saturate(1.06) brightness(1.02);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--node-accent) 28%, var(--border-glow)),
+    0 0 16px var(--signal-glow, transparent),
+    0 0 42px var(--signal-soft-glow, transparent),
+    0 18px 40px rgba(0, 0, 0, 0.24);
 }
 
 .nodeDim {
-  opacity: 1;
+  opacity: 0.38;
+  filter: saturate(0.6) brightness(0.82);
 }
 
 .nodeDim::after {
-  background: color-mix(in srgb, var(--bg-primary) 78%, transparent);
+  background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
 }
 
 .nodeSelected {
@@ -67,7 +74,8 @@
     inset 0 0 0 2px var(--node-accent),
     0 0 12px var(--node-accent),
     0 0 28px var(--signal-glow, transparent),
-    0 0 48px var(--signal-soft-glow, transparent);
+    0 0 48px var(--signal-soft-glow, transparent),
+    0 22px 46px rgba(0, 0, 0, 0.28);
 }
 
 .node:hover {

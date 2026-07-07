@@ -153,6 +153,11 @@ function NodeGraphCanvasInner() {
     for (const output of s.outputs.values()) if (output.beat === true) return true
     return false
   })
+  const selectedNodeLabel = useMemo(() => {
+    if (!selectedNodeId) return null
+    const node = nodes.find((entry) => entry.id === selectedNodeId)
+    return node ? String((node.data as { label?: string }).label ?? 'signal path') : null
+  }, [nodes, selectedNodeId])
   const lastBeat = useRef(false)
   const [beatRippleKey, setBeatRippleKey] = useState(0)
   const hasTerminalFrame = useMemo(() => {
@@ -174,32 +179,36 @@ function NodeGraphCanvasInner() {
     if (sparkClearTimer.current) window.clearTimeout(sparkClearTimer.current)
   }, [])
 
-  // The field colour follows the brightest frame-producing node. Subscribe
-  // directly and throttle DOM variable updates so the 60 fps preview stream
-  // never causes the React Flow tree itself to re-render.
-  const frameSignalKeys = useMemo(() => nodes.flatMap((node) => {
-    const outputs = (node.data as { outputs?: Array<{ id: string; dataType: string }> }).outputs ?? []
-    return outputs.filter((output) => output.dataType === 'frame').map((output) => `${node.id}:${output.id}`)
-  }).join('|'), [nodes])
-
   useEffect(() => {
     let lastUpdate = 0
-    const keys = frameSignalKeys ? frameSignalKeys.split('|') : []
     return usePreviewStore.subscribe((state) => {
       const now = performance.now()
       if (now - lastUpdate < 100) return
       lastUpdate = now
-      let strongest = null as (typeof state.signals extends Map<string, infer V> ? V : never) | null
-      for (const key of keys) {
-        const signal = state.signals.get(key)
-        if (signal && (!strongest || signal.energy > strongest.energy)) strongest = signal
+      const strongest = Array.from(state.signals.values())
+        .sort((a, b) => b.energy - a.energy)
+        .slice(0, 3)
+      const primary = strongest[0]
+      const secondary = strongest[1]
+      const tertiary = strongest[2]
+      let focusEnergy = 0
+      if (selectedNodeId) {
+        const selectedNode = nodes.find((entry) => entry.id === selectedNodeId)
+        const outputs = (selectedNode?.data as { outputs?: Array<{ id: string }> } | undefined)?.outputs ?? []
+        for (const output of outputs) {
+          const signal = state.signals.get(`${selectedNodeId}:${output.id}`)
+          if (signal) focusEnergy = Math.max(focusEnergy, signal.energy)
+        }
       }
       const wrapper = wrapperRef.current
       if (!wrapper) return
-      wrapper.style.setProperty('--field-color', strongest?.emissive ?? 'rgb(0 191 255)')
-      wrapper.style.setProperty('--field-energy', String(0.12 + (strongest?.energy ?? 0) * 0.3))
+      wrapper.style.setProperty('--field-color', primary?.emissive ?? 'rgb(0 191 255)')
+      wrapper.style.setProperty('--field-color-2', secondary?.emissive ?? 'rgb(255 77 141)')
+      wrapper.style.setProperty('--field-color-3', tertiary?.emissive ?? 'rgb(0 224 164)')
+      wrapper.style.setProperty('--field-energy', String(0.16 + (primary?.energy ?? 0) * 0.34))
+      wrapper.style.setProperty('--field-focus-energy', String(Math.max(focusEnergy, primary?.energy ?? 0)))
     })
-  }, [frameSignalKeys])
+  }, [nodes, selectedNodeId])
 
   const fireConnectionCeremony = useCallback((connection: {
     source: string | null
@@ -694,7 +703,7 @@ function NodeGraphCanvasInner() {
   return (
     <div
       ref={wrapperRef}
-      className={styles.canvas}
+      className={`${styles.canvas} ${selectedNodeId ? styles.canvasFocused : ''} ${nodes.length === 0 ? styles.canvasIdle : ''}`}
       style={{ '--canvas-left-inset': `${leftInset}px`, '--canvas-right-inset': `${rightInset}px` } as React.CSSProperties}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
@@ -703,12 +712,20 @@ function NodeGraphCanvasInner() {
       onPointerLeave={quietCursorField}
     >
       <GroupControls />
+      {selectedNodeLabel && (
+        <div className={styles.focusBadge} role="status">
+          <span aria-hidden="true" />
+          Tracing {selectedNodeLabel}
+        </div>
+      )}
       {nodes.length === 0 && (
         <div className={styles.emptyField} role="status">
+          <div className={styles.emptyFieldFrame} aria-hidden="true" />
+          <span className={styles.emptyEyebrow}>Signal lab idle</span>
           <div className={styles.dormantSignal} aria-hidden="true"><span /></div>
           <div className={styles.emptyBeacon} aria-hidden="true"><span /></div>
-          <strong>Signal path awaiting input</strong>
-          <span>Drop a generator. Patch an output. Make light.</span>
+          <strong>Patch the first light path</strong>
+          <span>Drag a generator onto the field, route it to Matrix Output, and the studio wakes up like an instrument.</span>
         </div>
       )}
       {nodes.length > 0 && !hasTerminalFrame && (
@@ -790,8 +807,11 @@ function NodeGraphCanvasInner() {
       >
         <div className={styles.atmosphere} aria-hidden="true">
           <div className={styles.signalField} />
+          <div className={styles.fieldLattice} />
+          <div className={styles.fieldOrbits} />
           <div className={styles.cursorWake} />
           <div className={styles.fieldScan} />
+          <div className={styles.focusVeil} />
         </div>
         <Background
           variant={BackgroundVariant.Dots}

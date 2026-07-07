@@ -3,13 +3,12 @@
     stroke-dashoffset: 0;
   }
   to {
-    /* total dash cycle = 10 + 6 = 16; animate 3 cycles */
-    stroke-dashoffset: -48;
+    stroke-dashoffset: -72;
   }
 }
 
 .core {
-  animation: flow 1.4s linear infinite;
+  animation: flow var(--edge-flow-duration, 1.4s) linear infinite;
 }
 
 .packet {
@@ -17,9 +16,38 @@
   pointer-events: none;
 }
 
+.familyFrame .core {
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--edge-color) 38%, transparent));
+}
+
+.familyFrame .packet {
+  filter:
+    drop-shadow(0 0 4px var(--edge-color))
+    drop-shadow(0 0 10px color-mix(in srgb, var(--edge-color) 42%, transparent));
+}
+
+.familyAudio .core {
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--edge-color) 32%, transparent));
+}
+
+.familyAudio .packet {
+  filter:
+    drop-shadow(0 0 4px white)
+    drop-shadow(0 0 9px var(--edge-color));
+}
+
+.familyColor .core {
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--edge-color) 42%, transparent));
+}
+
+.familyControl .packet {
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--edge-color) 55%, transparent));
+}
+
 .focusDim {
-  opacity: 0.12;
-  transition: opacity 180ms ease-out;
+  opacity: 0.08;
+  transition: opacity 180ms ease-out, filter 180ms ease-out;
+  filter: saturate(0.55);
 }
 
 .focusDim .packet {
@@ -33,7 +61,7 @@
 
 .focusActive .core {
   stroke-width: 3.2;
-  filter: drop-shadow(0 0 3px var(--edge-color));
+  filter: drop-shadow(0 0 3px var(--edge-color)) drop-shadow(0 0 10px color-mix(in srgb, var(--edge-color) 22%, transparent));
 }
 
 @keyframes connectionFlash {

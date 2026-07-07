@@ -1,6 +1,9 @@
 .canvas {
   --field-color: rgb(0 191 255);
+  --field-color-2: rgb(255 77 141);
+  --field-color-3: rgb(0 224 164);
   --field-energy: 0.12;
+  --field-focus-energy: 0;
   --field-x: 50%;
   --field-y: 50%;
   --field-hover: 0;
@@ -8,7 +11,15 @@
   height: 100%;
   overflow: hidden;
   position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(8, 14, 21, 0.96), rgba(2, 4, 7, 0.99) 58%, #010204 100%),
+    linear-gradient(180deg, rgba(7, 11, 17, 0.94), rgba(2, 3, 6, 0.99));
 }
+
+.canvasFocused {}
+
+.canvasIdle {}
 
 .atmosphere {
   position: absolute;
@@ -19,7 +30,10 @@
 }
 
 .signalField,
+.fieldLattice,
+.fieldOrbits,
 .cursorWake,
+.focusVeil,
 .fieldScan {
   position: absolute;
   inset: 0;
@@ -29,9 +43,43 @@
 .signalField {
   opacity: var(--field-energy);
   background:
-    radial-gradient(circle at 52% 46%, color-mix(in srgb, var(--field-color) 34%, transparent), transparent 34%),
-    radial-gradient(circle at 18% 82%, color-mix(in srgb, var(--accent-pattern) 14%, transparent), transparent 30%);
+    radial-gradient(circle at 52% 44%, color-mix(in srgb, var(--field-color) 24%, transparent), transparent 32%),
+    radial-gradient(circle at 14% 78%, color-mix(in srgb, var(--field-color-2) 16%, transparent), transparent 28%),
+    radial-gradient(circle at 86% 22%, color-mix(in srgb, var(--field-color-3) 18%, transparent), transparent 30%),
+    linear-gradient(180deg, rgba(9, 14, 20, 0.12), transparent 24%, rgba(3, 5, 8, 0.3) 100%);
   transition: opacity 240ms linear, background 320ms linear;
+}
+
+.fieldLattice {
+  opacity: calc(0.12 + var(--field-energy) * 0.14);
+  background-image:
+    linear-gradient(rgba(190, 216, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(190, 216, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.04) 50%, transparent);
+  background-size: 20px 20px, 20px 20px, 100% 100%;
+  -webkit-mask-image: radial-gradient(circle at 50% 44%, black 34%, transparent 96%);
+  mask-image: radial-gradient(circle at 50% 44%, black 34%, transparent 96%);
+}
+
+.fieldLattice::after {
+  content: '';
+  position: absolute;
+  inset: 10% 7% 12%;
+  border: 1px solid color-mix(in srgb, var(--field-color) 10%, transparent);
+  border-radius: 28px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.015),
+    0 0 42px color-mix(in srgb, var(--field-color) 8%, transparent);
+  opacity: 0.72;
+}
+
+.fieldOrbits {
+  opacity: calc(0.1 + var(--field-energy) * 0.18);
+  background:
+    radial-gradient(circle at 50% 44%, transparent 0 16%, rgba(255, 255, 255, 0.028) 16.2% 16.45%, transparent 16.7%),
+    radial-gradient(circle at 50% 44%, transparent 0 28%, color-mix(in srgb, var(--field-color) 14%, transparent) 28.2% 28.45%, transparent 28.8%),
+    radial-gradient(circle at 50% 44%, transparent 0 40%, color-mix(in srgb, var(--field-color-2) 12%, transparent) 40.2% 40.45%, transparent 40.8%),
+    radial-gradient(circle at 50% 44%, transparent 0 56%, color-mix(in srgb, var(--field-color-3) 10%, transparent) 56.2% 56.45%, transparent 56.8%);
 }
 
 .cursorWake {
@@ -55,10 +103,23 @@
 .fieldScan {
   height: 18%;
   top: -22%;
-  opacity: 0.1;
-  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--field-color) 20%, transparent), transparent);
+  opacity: 0.14;
+  background:
+    linear-gradient(180deg, transparent, color-mix(in srgb, var(--field-color) 18%, transparent), transparent),
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06) 50%, transparent);
   filter: blur(12px);
   animation: fieldScan 12s linear infinite;
+}
+
+.focusVeil {
+  opacity: 0;
+  background:
+    radial-gradient(circle at 50% 44%, transparent 0 18%, rgba(2, 4, 8, 0.08) 34%, rgba(1, 2, 4, 0.42) 100%);
+  transition: opacity 180ms ease-out;
+}
+
+.canvasFocused .focusVeil {
+  opacity: calc(0.24 + var(--field-focus-energy) * 0.18);
 }
 
 @keyframes fieldScan {
@@ -101,35 +162,93 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 8px;
   color: var(--text-secondary);
   text-align: center;
   pointer-events: none;
 }
 
+.emptyFieldFrame {
+  position: absolute;
+  inset: 11% 8%;
+  border: 1px solid rgba(169, 204, 255, 0.08);
+  border-radius: 28px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.015),
+    0 0 60px rgba(0, 191, 255, 0.05);
+}
+
+.emptyEyebrow {
+  position: relative;
+  padding: 0 10px;
+  color: color-mix(in srgb, var(--field-color) 62%, white);
+  font-family: var(--font-code);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.emptyEyebrow::before,
+.emptyEyebrow::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 44px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(182, 225, 255, 0.26));
+}
+
+.emptyEyebrow::before {
+  right: 100%;
+}
+
+.emptyEyebrow::after {
+  left: 100%;
+  transform: scaleX(-1);
+}
+
 .emptyField strong {
   color: var(--text-primary);
   font-family: var(--font-display);
-  font-size: 15px;
-  letter-spacing: 0.025em;
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .emptyField > span {
-  max-width: 320px;
+  max-width: 380px;
   font-family: var(--font-code);
   font-size: 11px;
-  line-height: 1.5;
-  opacity: 0.72;
+  line-height: 1.6;
+  opacity: 0.78;
 }
 
 .dormantSignal {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: min(360px, 54%);
+  width: min(420px, 58%);
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(90, 209, 255, 0.2) 24%, rgba(255, 92, 240, 0.18) 76%, transparent);
+  background: linear-gradient(90deg, transparent, rgba(90, 209, 255, 0.22) 18%, rgba(255, 92, 240, 0.18) 52%, rgba(0, 224, 164, 0.18) 84%, transparent);
   transform: translate(-50%, -50%);
+}
+
+.dormantSignal::before,
+.dormantSignal::after {
+  content: '';
+  position: absolute;
+  top: -9px;
+  width: 1px;
+  height: 19px;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+}
+
+.dormantSignal::before {
+  left: 18%;
+}
+
+.dormantSignal::after {
+  right: 18%;
 }
 
 .dormantSignal span {
@@ -148,28 +267,29 @@
   0% { opacity: 0; transform: translateX(0); }
   12% { opacity: 0.8; }
   88% { opacity: 0.8; }
-  100% { opacity: 0; transform: translateX(min(360px, 54vw)); }
+  100% { opacity: 0; transform: translateX(min(420px, 58vw)); }
 }
 
 .unpatchedFlag {
   position: absolute;
   z-index: 8;
-  top: 14px;
+  top: 16px;
   left: 50%;
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 5px 9px;
-  border: 1px solid rgba(90, 209, 255, 0.16);
+  padding: 6px 10px;
+  border: 1px solid rgba(90, 209, 255, 0.2);
   border-radius: 999px;
-  background: rgba(8, 12, 17, 0.72);
+  background: linear-gradient(180deg, rgba(13, 19, 27, 0.92), rgba(8, 12, 17, 0.74));
   color: var(--text-secondary);
   font-family: var(--font-code);
   font-size: 9px;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   transform: translateX(-50%);
   backdrop-filter: blur(7px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
   pointer-events: none;
 }
 
@@ -183,8 +303,8 @@
 
 .emptyBeacon {
   position: relative;
-  width: 48px;
-  height: 48px;
+  width: 58px;
+  height: 58px;
   margin-bottom: 8px;
   border: 1px solid color-mix(in srgb, var(--accent-output) 38%, transparent);
   border-radius: 50%;
@@ -200,12 +320,12 @@
 }
 
 .emptyBeacon::before {
-  inset: 10px;
+  inset: 12px;
   border: 1px solid color-mix(in srgb, var(--accent-audio) 55%, transparent);
 }
 
 .emptyBeacon::after {
-  inset: 20px;
+  inset: 24px;
   background: var(--accent-audio);
   box-shadow: 0 0 8px var(--accent-audio);
 }
@@ -222,6 +342,7 @@
 
 :global([data-reduced-motion]) .fieldScan,
 :global([data-reduced-motion]) .connectionRipple,
+:global([data-reduced-motion]) .fieldOrbits,
 :global([data-reduced-motion]) .emptyBeacon span,
 :global([data-reduced-motion]) .dormantSignal span {
   display: none;
@@ -230,6 +351,7 @@
 @media (prefers-reduced-motion: reduce) {
   .fieldScan,
   .connectionRipple,
+  .fieldOrbits,
   .emptyBeacon span,
   .dormantSignal span { display: none; }
 }
@@ -281,6 +403,40 @@
 .minimap {
   right: var(--canvas-right-inset, 0px) !important;
   bottom: 0 !important;
+}
+
+.focusBadge {
+  position: absolute;
+  z-index: 8;
+  top: 16px;
+  left: calc(var(--canvas-left-inset, 0px) + 16px);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px 7px 10px;
+  border: 1px solid rgba(169, 214, 255, 0.12);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(11, 18, 25, 0.92), rgba(7, 10, 15, 0.74));
+  color: var(--text-primary);
+  font-family: var(--font-code);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.02),
+    0 12px 30px rgba(0, 0, 0, 0.26);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
+.focusBadge span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--field-color);
+  box-shadow:
+    0 0 8px var(--field-color),
+    0 0 16px color-mix(in srgb, var(--field-color) 40%, transparent);
 }
 
 .spliceCue {
