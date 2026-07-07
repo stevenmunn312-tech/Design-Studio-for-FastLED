@@ -1,9 +1,15 @@
 import { useRef } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import { useGraphStore, useTemporalStore } from '../../state/graphStore'
+import { useAudioStore } from '../../state/audioStore'
+import { useShowPlayback } from '../../state/showPlayback'
 import type { StudioNode, StudioEdge, WorkspaceExtras } from '../../state/graphStore'
 import { runTidy } from '../../utils/tidyGraph'
+import { DevPerformanceHudToggle } from '../Preview/DevPerformanceHud'
+import { isDiffusedStyle, previewStyleLabel } from '../Preview/previewStyles'
 import styles from './MenuBar.module.css'
+
+const MIC_BLOCKED_MESSAGE = 'Microphone is disabled while a performance is playing music. Stop the player to enable the microphone.'
 
 export default function MenuBar() {
   const {
@@ -16,18 +22,39 @@ export default function MenuBar() {
     toggleHighContrast,
     performanceMode,
     togglePerformanceMode,
+    stageMode,
+    setStageMode,
+    preview3d,
+    togglePreview3d,
+    previewStyle,
+    cyclePreviewStyle,
     openHelp,
   } = useUiStore()
 
   const THEME_ICON: Record<string, string> = { dark: '☾', solarized: '✦', light: '☀' }
   const THEME_LABEL: Record<string, string> = { dark: 'Dark', solarized: 'Solarized', light: 'Light' }
-  const nodeCount = useGraphStore((s) => s.nodes.length)
-  const edgeCount = useGraphStore((s) => s.edges.length)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const hasMicNode = useGraphStore((s) =>
+    s.nodes.some((n) => (n.data as { nodeType?: string }).nodeType === 'MicInput')
+  )
+  const micActive = useAudioStore((s) => s.micActive)
+  const startAudio = useAudioStore((s) => s.startAudio)
+  const stopAudio = useAudioStore((s) => s.stopAudio)
+  const showPlaying = useShowPlayback((s) => s.playing)
 
   const { undo, redo, pastStates, futureStates } = useTemporalStore((s) => s)
   const canUndo = pastStates.length > 0
   const canRedo = futureStates.length > 0
+
+  const toggleMic = () => {
+    if (!micActive && showPlaying) {
+      window.alert(MIC_BLOCKED_MESSAGE)
+      setStatus(MIC_BLOCKED_MESSAGE, 'info')
+      return
+    }
+    if (micActive) stopAudio()
+    else startAudio().catch(() => {})
+  }
 
   const handleSaveJSON = () => {
     // Export the whole workspace so pattern-group subgraphs travel with the file.
@@ -160,9 +187,52 @@ export default function MenuBar() {
           ? Help
         </button>
       </nav>
-      <div className={styles.info}>
-        <span>{nodeCount} nodes · {edgeCount} connections</span>
-      </div>
+      {!stageMode && (
+        <div className={styles.previewControls}>
+          {import.meta.env.DEV && <DevPerformanceHudToggle />}
+          <button
+            className={`${styles.btn} ${styles.stageBtn} ${stageMode ? styles.btnStageActive : ''}`}
+            onClick={() => setStageMode(!stageMode)}
+            aria-label="Toggle stage mode"
+            aria-pressed={stageMode}
+            title={stageMode ? 'Exit Stage Mode (Esc or F10)' : 'Enter Stage Mode (F10)'}
+          >
+            Stage
+          </button>
+          <button
+            className={`${styles.btn} ${styles.previewBtn} ${preview3d ? styles.btnPreviewActive : ''}`}
+            onClick={togglePreview3d}
+            aria-label="Toggle 3D preview"
+            aria-pressed={preview3d}
+            title={preview3d ? 'Switch to 2D view' : 'Switch to 3D view (drag to orbit)'}
+          >
+            {preview3d ? '3D On' : '3D Off'}
+          </button>
+          <button
+            className={`${styles.btn} ${styles.styleBtn} ${isDiffusedStyle(previewStyle) ? styles.btnStyleActive : ''}`}
+            onClick={cyclePreviewStyle}
+            title="Cycle preview style"
+          >
+            {previewStyleLabel(previewStyle)}
+          </button>
+          <button
+            className={`${styles.btn} ${styles.micBtn} ${micActive ? styles.btnMicActive : ''}`}
+            onClick={toggleMic}
+            disabled={!hasMicNode}
+            aria-label="Toggle microphone preview input"
+            aria-pressed={micActive}
+            title={
+              !hasMicNode
+                ? 'Add a MicInput node to enable the microphone'
+                : !micActive && showPlaying
+                  ? 'Microphone is disabled while a performance is playing music'
+                  : micActive ? 'Stop microphone' : 'Start microphone'
+            }
+          >
+            {micActive ? 'Mic On' : 'Mic Off'}
+          </button>
+        </div>
+      )}
     </header>
   )
 }

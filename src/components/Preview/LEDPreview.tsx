@@ -1033,47 +1033,49 @@ export default function LEDPreview() {
             <span className={styles.previewMeta}>Output bay</span>
           </div>
         )}
-        <div className={styles.headerRight}>
-          {import.meta.env.DEV && <DevPerformanceHudToggle />}
-          <button
-            className={`${styles.toggleBtn} ${styles.stageToggle} ${stageMode ? styles.toggleActive : ''}`}
-            onClick={() => setStageMode(!stageMode)}
-            title={stageMode ? 'Exit Stage Mode (Esc or F10)' : 'Enter Stage Mode (F10)'}
-            aria-pressed={stageMode}
-          >
-            Stage
-          </button>
-          <button
-            className={`${styles.toggleBtn} ${styles.previewToggle} ${preview3d ? styles.toggleActive : ''}`}
-            onClick={togglePreview3d}
-            title={preview3d ? 'Switch to 2D view' : 'Switch to 3D view (drag to orbit)'}
-            aria-pressed={preview3d}
-          >
-            {preview3d ? '3D On' : '3D Off'}
-          </button>
-          <button
-            className={`${styles.toggleBtn} ${styles.styleBtn} ${isDiffusedStyle(previewStyle) ? styles.toggleActive : ''}`}
-            onClick={cyclePreviewStyle}
-            title="Cycle preview style"
-          >
-            {previewStyleLabel(previewStyle)}
-          </button>
-          <button
-            className={`${styles.toggleBtn} ${styles.micToggle} ${micActive ? styles.toggleActive : ''}`}
-            onClick={toggleMic}
-            disabled={!hasMicNode}
-            title={
-              !hasMicNode
-                ? 'Add a MicInput node to enable the microphone'
-                : !micActive && showPlaying
-                  ? 'Microphone is disabled while a performance is playing music'
-                : micActive ? 'Stop microphone' : 'Start microphone'
-            }
-            aria-pressed={micActive}
-          >
-            {micActive ? 'Mic On' : 'Mic Off'}
-          </button>
-        </div>
+        {stageMode && (
+          <div className={styles.headerRight}>
+            {import.meta.env.DEV && <DevPerformanceHudToggle />}
+            <button
+              className={`${styles.toggleBtn} ${styles.stageToggle} ${stageMode ? styles.toggleActive : ''}`}
+              onClick={() => setStageMode(!stageMode)}
+              title={stageMode ? 'Exit Stage Mode (Esc or F10)' : 'Enter Stage Mode (F10)'}
+              aria-pressed={stageMode}
+            >
+              Stage
+            </button>
+            <button
+              className={`${styles.toggleBtn} ${styles.previewToggle} ${preview3d ? styles.toggleActive : ''}`}
+              onClick={togglePreview3d}
+              title={preview3d ? 'Switch to 2D view' : 'Switch to 3D view (drag to orbit)'}
+              aria-pressed={preview3d}
+            >
+              {preview3d ? '3D On' : '3D Off'}
+            </button>
+            <button
+              className={`${styles.toggleBtn} ${styles.styleBtn} ${isDiffusedStyle(previewStyle) ? styles.toggleActive : ''}`}
+              onClick={cyclePreviewStyle}
+              title="Cycle preview style"
+            >
+              {previewStyleLabel(previewStyle)}
+            </button>
+            <button
+              className={`${styles.toggleBtn} ${styles.micToggle} ${micActive ? styles.toggleActive : ''}`}
+              onClick={toggleMic}
+              disabled={!hasMicNode}
+              title={
+                !hasMicNode
+                  ? 'Add a MicInput node to enable the microphone'
+                  : !micActive && showPlaying
+                    ? 'Microphone is disabled while a performance is playing music'
+                    : micActive ? 'Stop microphone' : 'Start microphone'
+              }
+              aria-pressed={micActive}
+            >
+              {micActive ? 'Mic On' : 'Mic Off'}
+            </button>
+          </div>
+        )}
       </div>
       <div
         ref={canvasWrapRef}
