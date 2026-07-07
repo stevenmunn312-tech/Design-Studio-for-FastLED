@@ -12,6 +12,15 @@ import { listPatterns, savePatternToDisk, deletePatternFromDisk } from '../utils
 
 interface Port { id: string; label: string; dataType: string }
 
+interface SavePatternOptions {
+  replaceByName?: boolean
+}
+
+export interface SaveGroupToLibraryResult {
+  name: string
+  replaced: boolean
+}
+
 export interface SavedPattern {
   id: string
   name: string
@@ -47,6 +56,10 @@ function patternFingerprint(pattern: Omit<SavedPattern, 'id' | 'createdAt'>): st
     outputs: pattern.outputs,
     subgraph: pattern.subgraph,
   }))
+}
+
+function normalizedPatternName(name: string): string {
+  return name.trim().toLocaleLowerCase()
 }
 
 function dedupePatterns(patterns: SavedPattern[]) {
@@ -93,7 +106,7 @@ function persist(patterns: SavedPattern[]) {
 
 interface LibraryState {
   patterns: SavedPattern[]
-  savePattern: (p: Omit<SavedPattern, 'id' | 'createdAt'>) => void
+  savePattern: (p: Omit<SavedPattern, 'id' | 'createdAt'>, options?: SavePatternOptions) => void
   putPattern: (p: SavedPattern) => void
   renamePattern: (id: string, name: string) => void
   deletePattern: (id: string) => void
@@ -107,14 +120,32 @@ interface LibraryState {
 export const usePatternLibrary = create<LibraryState>((set, get) => ({
   patterns: load(),
 
-  savePattern: (p) =>
+  savePattern: (p, options) =>
     set((s) => {
-      const item: SavedPattern = { ...p, id: `pat-${Date.now()}`, createdAt: Date.now() }
-      const { patterns, removedIds, keptIds } = dedupePatterns([...s.patterns, item])
+      const now = Date.now()
+      const sameName = options?.replaceByName
+        ? s.patterns.filter((pattern) => normalizedPatternName(pattern.name) === normalizedPatternName(p.name))
+        : []
+      const retained = sameName[sameName.length - 1]
+      const item: SavedPattern = {
+        ...p,
+        id: retained?.id ?? `pat-${now}`,
+        createdAt: now,
+      }
+      const basePatterns = options?.replaceByName
+        ? s.patterns.filter((pattern) => !sameName.some((match) => match.id === pattern.id))
+        : s.patterns
+      const { patterns, removedIds, keptIds } = dedupePatterns([...basePatterns, item])
+      const deletedIds = new Set([
+        ...removedIds,
+        ...sameName
+          .filter((pattern) => pattern.id !== item.id)
+          .map((pattern) => pattern.id),
+      ])
       persist(patterns)
       if (DISK_SYNC) void savePatternToDisk(item)  // write-through; harmless if the helper is offline
       if (DISK_SYNC) {
-        for (const id of removedIds) {
+        for (const id of deletedIds) {
           if (!keptIds.has(id)) void deletePatternFromDisk(id)
         }
       }
@@ -183,20 +214,25 @@ export const usePatternLibrary = create<LibraryState>((set, get) => ({
  *  graph store. Shared by the node context menu's "Save to Library" and the
  *  create-group dialog's "Save to library" checkbox. Returns the saved name,
  *  or null if `groupNodeId` isn't a Group node. */
-export function saveGroupToLibrary(groupNodeId: string): string | null {
+export function saveGroupToLibrary(
+  groupNodeId: string,
+  options?: SavePatternOptions,
+): SaveGroupToLibraryResult | null {
   const s = useGraphStore.getState()
   const node = s.nodes.find((n) => n.id === groupNodeId)
   const groupId = (node?.data.properties as { groupId?: string } | undefined)?.groupId
   const sub = groupId ? s.graphData[groupId] : undefined
   if (!node || !sub) return null
   const name = String(node.data.label ?? 'Pattern')
+  const replaced = options?.replaceByName
+    && usePatternLibrary.getState().patterns.some((pattern) => normalizedPatternName(pattern.name) === normalizedPatternName(name))
   usePatternLibrary.getState().savePattern({
     name,
     inputs: (node.data.inputs as Port[] | undefined) ?? [],
     outputs: (node.data.outputs as Port[] | undefined) ?? [],
     subgraph: { nodes: sub.nodes, edges: sub.edges },
-  })
-  return name
+  }, options)
+  return { name, replaced: !!replaced }
 }
 
 /** Import a pattern from a dropped/uploaded `.json` file's parsed contents

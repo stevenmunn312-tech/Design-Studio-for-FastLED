@@ -47,6 +47,29 @@ describe('patternLibrary', () => {
     expect(JSON.parse(localStorage.getItem('fastled-studio.pattern-library.v1')!)).toHaveLength(0)
   })
 
+  it('can replace an existing pattern with the same name', () => {
+    const lib = usePatternLibrary.getState()
+    lib.savePattern({
+      name: 'Glow',
+      inputs: [],
+      outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+      subgraph: { nodes: [node('red', 'SolidColor')], edges: [] as StudioEdge[] },
+    })
+    const original = usePatternLibrary.getState().patterns[0]
+
+    lib.savePattern({
+      name: 'Glow',
+      inputs: [],
+      outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+      subgraph: { nodes: [node('blue', 'Plasma')], edges: [] as StudioEdge[] },
+    }, { replaceByName: true })
+
+    const saved = usePatternLibrary.getState().patterns
+    expect(saved).toHaveLength(1)
+    expect(saved[0].id).toBe(original.id)
+    expect(saved[0].subgraph.nodes.map((n) => n.id)).toEqual(['blue'])
+  })
+
   it('instantiatePattern drops a Group node and registers its subgraph', () => {
     const saved = {
       id: 'pat-1', name: 'Blue', createdAt: 0,

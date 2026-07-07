@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useGraphStore } from '../../state/graphStore'
-import { saveGroupToLibrary } from '../../state/patternLibrary'
+import { saveGroupToLibrary, usePatternLibrary } from '../../state/patternLibrary'
 import { useUiStore } from '../../state/uiStore'
 import styles from './NodeContextMenu.module.css'
 
@@ -14,6 +14,7 @@ interface Props {
 export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
   const { duplicateNode, deleteNode, disconnectNode, copyNode, ungroupNode } = useGraphStore()
   const setStatus = useUiStore((s) => s.setStatus)
+  const patterns = usePatternLibrary((s) => s.patterns)
   const isGroup = useGraphStore(
     (s) => s.nodes.find((n) => n.id === nodeId)?.data.nodeType === 'Group',
   )
@@ -23,8 +24,16 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
   const menuRef = useRef<HTMLDivElement>(null)
 
   const handleSaveToLibrary = () => {
-    const name = saveGroupToLibrary(nodeId)
-    if (name) setStatus(`Saved “${name}” to the library`, 'success')
+    const name = String(groupLabel ?? 'Pattern').trim()
+    const replacing = patterns.some((pattern) => pattern.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase())
+    if (replacing && !window.confirm(`A library pattern named “${name}” already exists. Replace it?`)) return
+    const result = saveGroupToLibrary(nodeId, { replaceByName: replacing })
+    if (result) {
+      setStatus(
+        result.replaced ? `Replaced “${result.name}” in the library` : `Saved “${result.name}” to the library`,
+        'success',
+      )
+    }
   }
 
   const handleUngroup = () => {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useGraphStore, ROOT_GRAPH_ID } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { saveGroupToLibrary } from '../../state/patternLibrary'
+import { saveGroupToLibrary, usePatternLibrary } from '../../state/patternLibrary'
 import CreateGroupDialog, { type CreateGroupResult } from './CreateGroupDialog'
 import styles from './GroupControls.module.css'
 
@@ -17,6 +17,7 @@ export default function GroupControls() {
   const createGroup = useGraphStore((s) => s.createGroup)
   const addGroupInput = useGraphStore((s) => s.addGroupInput)
   const setStatus = useUiStore((s) => s.setStatus)
+  const patterns = usePatternLibrary((s) => s.patterns)
   const [showDialog, setShowDialog] = useState(false)
 
   const inGroup = activeGraphId !== ROOT_GRAPH_ID
@@ -41,10 +42,24 @@ export default function GroupControls() {
 
   const handleCreate = (name: string, { saveToLibrary, exposePaletteNodeIds }: CreateGroupResult) => {
     const groupId = createGroup(name, selectedIds, { saveToLibrary, exposePaletteNodeIds })
-    if (saveToLibrary) saveGroupToLibrary(`groupnode-${groupId}`)
+    let savedToLibrary = false
+    let replacedLibraryPattern = false
+    if (saveToLibrary) {
+      const trimmedName = name.trim()
+      const replacing = patterns.some((pattern) => pattern.name.trim().toLocaleLowerCase() === trimmedName.toLocaleLowerCase())
+      if (!replacing || window.confirm(`A library pattern named “${trimmedName}” already exists. Replace it?`)) {
+        const result = saveGroupToLibrary(`groupnode-${groupId}`, { replaceByName: replacing })
+        savedToLibrary = !!result
+        replacedLibraryPattern = !!result?.replaced
+      }
+    }
     setShowDialog(false)
     setStatus(
-      `Grouped ${selectedIds.length} node(s) into “${name}”${saveToLibrary ? ' and saved to library' : ''}`,
+      `Grouped ${selectedIds.length} node(s) into “${name}”${
+        savedToLibrary
+          ? replacedLibraryPattern ? ' and replaced its library copy' : ' and saved to library'
+          : ''
+      }`,
       'success',
     )
   }
