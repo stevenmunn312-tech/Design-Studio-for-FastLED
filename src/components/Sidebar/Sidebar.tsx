@@ -367,7 +367,11 @@ function Sidebar() {
               className={styles.categoryHeaderBtn}
               onClick={() => toggle('library')}
             >
-              <span>My Patterns</span>
+              <span className={styles.drawerLabel}>
+                <span className={styles.drawerLight} aria-hidden="true" />
+                My Patterns
+                <span className={styles.drawerCount}>{patterns.length}</span>
+              </span>
             </button>
             <button
               className={styles.collectionBtn}
