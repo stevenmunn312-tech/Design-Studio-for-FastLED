@@ -1088,7 +1088,6 @@ export default function LEDPreview() {
             <div className={styles.canvasFrameHeader} aria-label="Preview telemetry">
               <span className={`${styles.visualizerKicker} ${styles.canvasFrameTag}`}>Output matrix</span>
               <div className={styles.canvasHud}>
-                <span className={styles.canvasHudChip}>{gridW}×{gridH}</span>
                 <span className={styles.canvasHudChip}>{previewStyleLabel(previewStyle)}</span>
                 <span className={styles.canvasHudChip}>{hasFrameSignal ? 'Signal live' : 'Signal idle'}</span>
                 <span className={styles.canvasHudChip}>

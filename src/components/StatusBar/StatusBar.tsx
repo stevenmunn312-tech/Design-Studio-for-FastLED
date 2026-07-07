@@ -34,6 +34,8 @@ export default function StatusBar() {
   )
   const props = outputNode?.data.properties as Record<string, unknown> | undefined
   const chipset = props?.chipset as string | undefined
+  const matrixWidth = Number(props?.width ?? 16)
+  const matrixHeight = Number(props?.height ?? 16)
   const boardLabel = boardByFqbn(selectedFqbn)?.label
   const detectedPort = ports.find((port) => port.address === selectedPort)
   const portLabel = detectedPort?.address ?? 'Not detected'
@@ -61,6 +63,7 @@ export default function StatusBar() {
         <span className={styles.chip}>Board: {boardLabel ?? 'Not selected'}</span>
         <span className={styles.chip}>Port: {portLabel}</span>
         <span className={styles.chip}>Chip: {chipset ?? 'Not selected'}</span>
+        <span className={styles.chip}>Size: {matrixWidth} x {matrixHeight}</span>
       </div>
     </footer>
   )
