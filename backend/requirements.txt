@@ -2,3 +2,5 @@ fastapi>=0.110
 uvicorn[standard]>=0.29
 python-multipart>=0.0.9
 pyserial>=3.5
+fbuild>=2.4.0
+esptool>=5.0  # fbuild's ESP32 image conversion (firmware.elf -> firmware.bin) shells out to this

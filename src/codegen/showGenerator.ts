@@ -104,6 +104,11 @@ const ROLE_CPP_TYPE: Record<string, string> = {
 }
 const roleSig = (p: string) => `${ROLE_CPP_TYPE[p] ?? 'float'} ${p}`
 
+function cppPrototype(definition: string): string | null {
+  const match = definition.match(/^([^\n{]+?\([^)]*\))\s*\{/m)
+  return match ? `${match[1]};` : null
+}
+
 // Exposed audio inputs on saved patterns have no physical noodle once the
 // Group is absorbed by a collection. When the host supplies audio globals,
 // bind those roles directly. The broader semantic bands are conservative
@@ -269,11 +274,23 @@ export function generateShowSketch(
   const beatTrigger = info.beatWired && !!audio
   // Particle overlay also rides the mic beat, so it needs the same source.
   const particlesOn = info.particles && beatTrigger
+  const fastLedDecls = new Set<string>([
+    'void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt);',
+  ])
+  if (particlesOn) fastLedDecls.add('void particleOverlay(uint32_t burstStart, uint8_t burstStyle, uint8_t burstHue, float burstIntensity, uint32_t posMs);')
+  for (const block of [...renderers.helpers, ...renderers.functions]) {
+    const proto = cppPrototype(block)
+    if (proto && /CRGB(?:Palette16)?/.test(proto)) fastLedDecls.add(proto)
+  }
 
   const L: string[] = []
   L.push('// FastLED Studio — generative pattern show (Phase 4, first slice)')
   L.push('#include <FastLED.h>')
   if (audio) L.push(audio.include)
+  L.push('')
+  L.push('// Explicit FastLED-typed declarations keep the Arduino preprocessor')
+  L.push('// from injecting its own before <FastLED.h>, which breaks CRGB names.')
+  for (const decl of fastLedDecls) L.push(decl)
   L.push('')
   L.push(`#define WIDTH    ${width}`)
   L.push(`#define HEIGHT   ${height}`)

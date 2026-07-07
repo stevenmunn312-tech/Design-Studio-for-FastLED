@@ -1,8 +1,14 @@
 """FastLED Studio — local upload helper.
 
 A tiny FastAPI service the browser app talks to so it can compile and upload
-sketches to a board over USB via `arduino-cli` — the browser can't launch a
-local CLI itself. Mirrors the proven setup from the Matrix Studio backend.
+sketches to a board over USB — the browser can't launch a local CLI itself.
+Mirrors the proven setup from the Matrix Studio backend.
+
+Two build engines are supported: `fbuild` (FastLED's own PlatformIO-compatible
+build tool — preferred when installed, since it manages its own toolchains and
+needs no per-board core install) and `arduino-cli` (the original engine, kept
+as a fallback). `_active_engine()` picks one; `/api/engine` lets the UI query
+or override the choice.
 
 Run (from the repo root):
 
@@ -11,7 +17,7 @@ Run (from the repo root):
     pip install -r backend/requirements.txt
     uvicorn app:app --reload --port 8008 --app-dir backend
 
-Every endpoint degrades gracefully when arduino-cli isn't installed, so the
+Every endpoint degrades gracefully when neither engine is installed, so the
 studio keeps working (it just falls back to showing copy-paste commands).
 """
 from __future__ import annotations
@@ -116,6 +122,198 @@ def _refresh_cli() -> None:
 
 _refresh_cli()
 
+
+# ── fbuild resolution ─────────────────────────────────────────────────────────
+# fbuild (https://github.com/FastLED/fbuild, `pip install fbuild`) is FastLED's
+# own PlatformIO-compatible build tool. It removes most of arduino-cli's
+# lifecycle management (per-board core install, FastLED lib install) — a board
+# just needs one `[env:X]` section in `platformio.ini` and fbuild downloads its
+# own toolchain/framework on first use. Preferred engine when present; falls
+# back to arduino-cli otherwise (see `_active_engine`).
+_FBUILD_BIN: str | None = None
+
+
+def _find_fbuild() -> str | None:
+    saved = _load_config().get("fbuild")
+    if saved and Path(saved).exists():
+        return saved
+    env = os.environ.get("FBUILD_BIN")
+    if env and Path(env).exists():
+        return env
+    return shutil.which("fbuild")
+
+
+def _refresh_fbuild() -> None:
+    global _FBUILD_BIN
+    _FBUILD_BIN = _find_fbuild()
+
+
+_refresh_fbuild()
+
+
+def _active_engine() -> str:
+    """Which build engine to use. A saved `engine` preference wins if that
+    engine is actually available; otherwise prefer fbuild (fewer moving parts)
+    and fall back to arduino-cli."""
+    saved = _load_config().get("engine")
+    if saved == "fbuild" and _FBUILD_BIN:
+        return "fbuild"
+    if saved == "arduino-cli" and _ARDUINO_CLI:
+        return "arduino-cli"
+    return "fbuild" if _FBUILD_BIN else "arduino-cli"
+
+
+# ── fbuild project scaffold ───────────────────────────────────────────────────
+# fbuild runs a persistent background daemon bound to whichever project
+# directory first started it, so (unlike arduino-cli) each compile can't use a
+# fresh temp directory — everything shares this one stable project. Only
+# `src/main.ino` is rewritten per request; the `[env:*]` sections (one per
+# `BOARDS` entry, plus PSRAM variants) are static.
+_FBUILD_PROJECT_DIR = _HELPER_DIR / ".fbuild-project"
+_FBUILD_SRC_DIR = _FBUILD_PROJECT_DIR / "src"
+_FBUILD_INI_PATH = _FBUILD_PROJECT_DIR / "platformio.ini"
+_FBUILD_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "FastLED"
+# The music-sync Player sketch (playerSketchGenerator.ts) additionally needs
+# ESP32-audioI2S. Vendored the same way as FastLED, but lazily — only the
+# Player build path needs it, so it's not fetched for every ordinary compile.
+_FBUILD_AUDIO_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "ESP32-audioI2S"
+
+# arduino-cli FQBN -> PlatformIO platform/board, mirroring `BOARDS` in
+# `src/state/uploadStore.ts`. `psram_memory_type` maps this repo's PSRAM option
+# id (`opi`/`qspi`, from `PsramOption.id`) to the `board_build.arduino.memory_type`
+# PlatformIO expects — not yet hardware-validated (see CLAUDE.md PSRAM section).
+_PIO_BOARDS: dict[str, dict] = {
+    "esp32:esp32:esp32s3": {
+        "platform": "espressif32", "board": "esp32-s3-devkitc-1",
+        "psram_memory_type": {"opi": "qio_opi", "qspi": "qio_qspi"},
+    },
+    "esp32:esp32:esp32": {
+        "platform": "espressif32", "board": "esp32dev",
+        "psram_memory_type": {"qspi": "qio_qspi"},
+    },
+    "arduino:avr:uno": {"platform": "atmelavr", "board": "uno"},
+    "arduino:avr:nano": {"platform": "atmelavr", "board": "nanoatmega328new"},
+    "teensy:avr:teensy41": {"platform": "teensy", "board": "teensy41"},
+    "rp2040:rp2040:rpipico": {"platform": "raspberrypi", "board": "pico"},
+}
+
+# arduino-cli's FQBN "menu option" suffix (e.g. `PSRAM=opi`) -> our PSRAM id.
+_FQBN_PSRAM_VALUES = {"opi": "opi", "enabled": "qspi"}
+
+_fbuild_project_ready = False
+
+
+def _env_id(base_fqbn: str, psram_id: str | None = None) -> str:
+    slug = re.sub(r"[^A-Za-z0-9_]", "_", base_fqbn)
+    return f"{slug}_{psram_id}" if psram_id else slug
+
+
+def _parse_fqbn(fqbn: str) -> tuple[str, str | None]:
+    """`"esp32:esp32:esp32s3:PSRAM=opi"` -> `("esp32:esp32:esp32s3", "opi")`."""
+    parts = fqbn.split(":")
+    base = ":".join(parts[:3])
+    opt = parts[3] if len(parts) > 3 else None
+    psram_id = _FQBN_PSRAM_VALUES.get(opt.split("=", 1)[1]) if opt and "=" in opt else None
+    return base, psram_id
+
+
+def _fbuild_env_for_fqbn(fqbn: str) -> str | None:
+    base, psram_id = _parse_fqbn(fqbn)
+    meta = _PIO_BOARDS.get(base)
+    if meta is None:
+        return None
+    if psram_id and psram_id not in meta.get("psram_memory_type", {}):
+        psram_id = None  # unsupported/unknown option — build without it rather than fail
+    return _env_id(base, psram_id)
+
+
+def _write_fbuild_ini() -> None:
+    lines: list[str] = []
+    for base_fqbn, meta in _PIO_BOARDS.items():
+        # arduino-cli/Arduino IDE always define CORE_DEBUG_LEVEL (from the "Core
+        # Debug Level" board menu); PlatformIO/fbuild's espressif32 platform
+        # doesn't, so anything referencing it (e.g. ESP32-audioI2S's Audio.h)
+        # fails to compile without this — a known PlatformIO+esp32 gotcha, not
+        # specific to this project.
+        base_flags = ["-DCORE_DEBUG_LEVEL=0"] if meta["platform"] == "espressif32" else []
+        lines += [
+            f"[env:{_env_id(base_fqbn)}]", f"platform = {meta['platform']}", f"board = {meta['board']}", "framework = arduino",
+            *([f"build_flags = {' '.join(base_flags)}"] if base_flags else []), "",
+        ]
+        for psram_id, mem_type in meta.get("psram_memory_type", {}).items():
+            lines += [
+                f"[env:{_env_id(base_fqbn, psram_id)}]",
+                f"platform = {meta['platform']}", f"board = {meta['board']}", "framework = arduino",
+                f"build_flags = {' '.join([*base_flags, '-DBOARD_HAS_PSRAM'])}",
+                f"board_build.arduino.memory_type = {mem_type}", "",
+            ]
+    _FBUILD_INI_PATH.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _ensure_fbuild_project():
+    """Idempotent scaffold, run before the first fbuild compile. A generator so
+    the one-time FastLED vendor-clone streams into the caller's log.
+
+    FastLED is vendored into `lib/FastLED` (PlatformIO's local-lib
+    auto-discovery) rather than declared via `lib_deps` — as of fbuild 2.4.0,
+    registry `lib_deps` resolution isn't implemented yet (`fbuild sync` marks
+    it `unresolved` and the build fails with `FastLED.h: No such file or
+    directory`); a vendored local lib sidesteps that entirely."""
+    global _fbuild_project_ready
+    if _fbuild_project_ready:
+        return
+    _FBUILD_SRC_DIR.mkdir(parents=True, exist_ok=True)
+    _write_fbuild_ini()
+    if not (_FBUILD_LIB_DIR / "library.json").exists():
+        yield "\n=== vendoring FastLED (first run only) ===\n"
+        _FBUILD_LIB_DIR.parent.mkdir(parents=True, exist_ok=True)
+        rc = yield from _run_phase(
+            "vendor FastLED",
+            ["git", "clone", "--depth", "1", "https://github.com/FastLED/FastLED.git", str(_FBUILD_LIB_DIR)],
+        )
+        if rc != 0:
+            yield "[error] failed to vendor FastLED — the build below will fail on FastLED.h\n"
+    _fbuild_project_ready = True
+
+
+_fbuild_audio_lib_ready = False
+
+
+def _ensure_fbuild_audio_lib():
+    """Vendor ESP32-audioI2S (schreibfaul1/ESP32-audioI2S), same rationale as
+    `_ensure_fbuild_project`'s FastLED vendoring — fbuild 2.4.0's `lib_deps`
+    registry resolution doesn't work. Only the Player sketch (`#include
+    <Audio.h>`) needs this, so it's fetched lazily on first Player build rather
+    than unconditionally for every compile."""
+    global _fbuild_audio_lib_ready
+    if _fbuild_audio_lib_ready:
+        return
+    if (_FBUILD_AUDIO_LIB_DIR / "library.json").exists():
+        _fbuild_audio_lib_ready = True
+        return
+    yield "\n=== vendoring ESP32-audioI2S (first run only) ===\n"
+    _FBUILD_AUDIO_LIB_DIR.parent.mkdir(parents=True, exist_ok=True)
+    rc = yield from _run_phase(
+        "vendor ESP32-audioI2S",
+        ["git", "clone", "--depth", "1", "https://github.com/schreibfaul1/ESP32-audioI2S.git", str(_FBUILD_AUDIO_LIB_DIR)],
+    )
+    if rc != 0:
+        yield "[error] failed to vendor ESP32-audioI2S — the Player build below will fail on Audio.h\n"
+    _fbuild_audio_lib_ready = True
+
+
+def _write_fbuild_main(ino: str) -> None:
+    # fbuild preprocesses `.ino` into `main.ino.cpp`, auto-inserting function
+    # prototypes before any user includes. That breaks FastLED-typed helpers
+    # such as `CRGB kelvinToRGB(...)` because `CRGB` is still unknown there.
+    # Writing a plain `.cpp` sidesteps Arduino sketch preprocessing entirely.
+    cpp = ino if "#include <Arduino.h>" in ino else f"#include <Arduino.h>\n{ino}"
+    (_FBUILD_SRC_DIR / "main.cpp").write_text(cpp, encoding="utf-8")
+    old_ino = _FBUILD_SRC_DIR / "main.ino"
+    if old_ino.exists():
+        old_ino.unlink()
+
+
 app = FastAPI(title="FastLED Studio Upload Helper")
 
 # The studio is served from a different origin (the Vite dev server or the static
@@ -147,18 +345,19 @@ def _make_sketch(name: str, ino: str):
     return work, sketch_dir
 
 
-def _run_phase(label, args, sink=None):
-    """Run one arduino-cli phase, yielding its output lines; returns the exit code.
-    If `sink` (a list) is given, each output line is also appended to it so the
-    caller can inspect the phase output (e.g. to parse the flash/RAM size report)."""
+def _run_phase(label, args, sink=None, cwd=None):
+    """Run one build-tool phase (arduino-cli or fbuild), yielding its output
+    lines; returns the exit code. If `sink` (a list) is given, each output line
+    is also appended to it so the caller can inspect the phase output (e.g. to
+    parse the flash/RAM size report)."""
     yield f"\n=== {label} ===\n$ {' '.join(args)}\n"
     try:
         proc = subprocess.Popen(
             args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            text=True, encoding="utf-8", errors="replace", bufsize=1, env=_TOOLCHAIN_ENV,
+            text=True, encoding="utf-8", errors="replace", bufsize=1, env=_TOOLCHAIN_ENV, cwd=cwd,
         )
     except Exception as e:
-        yield f"[error] failed to launch arduino-cli: {e}\n"
+        yield f"[error] failed to launch {args[0]}: {e}\n"
         return -1
     for line in proc.stdout:
         if sink is not None:
@@ -254,6 +453,85 @@ def _compile_upload(label, sketch_dir, fqbn, port):
     return rc, "upload"
 
 
+# fbuild prints its size report as e.g. "Flash: 4.45KB / 31.50KB (14.1%)" and
+# "RAM:   367 bytes / 2.00KB (17.9%)" — same idea as arduino-cli's report, a
+# different line shape.
+_FBUILD_FLASH_RE = re.compile(r"Flash:\s*[\d.]+\s*\w*\s*/\s*[\d.]+\s*\w*\s*\((\d+(?:\.\d+)?)%\)", re.I)
+_FBUILD_RAM_RE = re.compile(r"RAM:\s*[\d.]+\s*\w*\s*/\s*[\d.]+\s*\w*\s*\((\d+(?:\.\d+)?)%\)", re.I)
+
+
+def _fbuild_size_report(lines):
+    text = "".join(lines)
+    flash = _FBUILD_FLASH_RE.search(text)
+    ram = _FBUILD_RAM_RE.search(text)
+    return {
+        "flash": int(float(flash.group(1))) if flash else None,
+        "ram": int(float(ram.group(1))) if ram else None,
+    }
+
+
+def _compile_upload_fbuild(label, ino, fqbn, port):
+    """fbuild-engine counterpart to `_compile_upload` — same (rc, phase)
+    contract, so callers don't need to know which engine ran."""
+    yield from _ensure_fbuild_project()
+    env = _fbuild_env_for_fqbn(fqbn)
+    if env is None:
+        yield f"\n=== ✗ {label}: no fbuild board mapping for {fqbn} ===\n"
+        return -1, "compile"
+    _write_fbuild_main(ino)
+
+    compile_lines = []
+    rc = yield from _run_phase(
+        f"{label} · compile", [_FBUILD_BIN, "build", "-e", env, "-v", "--no-timestamp"],
+        sink=compile_lines, cwd=_FBUILD_PROJECT_DIR,
+    )
+    if rc != 0:
+        if _looks_like_overflow(compile_lines):
+            yield (
+                f"\n=== ✗ Too big for {fqbn} ===\n"
+                "  This design is larger than the board can hold. Try fewer\n"
+                "  patterns in the collection, a smaller matrix, or fewer heavy\n"
+                "  nodes (Image / audio / field) — or pick a board (or ESP32\n"
+                "  partition scheme) with more space.\n"
+                "  [size-error] won't fit on this board\n"
+            )
+        return rc, "compile"
+
+    report = _fbuild_size_report(compile_lines)
+    if report["flash"] is not None:
+        ram = f" · ram {report['ram']}%" if report["ram"] is not None else ""
+        yield f"  [size] flash {report['flash']}%{ram}\n"
+        tight = [
+            f"{kind} {report[kind]}%"
+            for kind in ("flash", "ram")
+            if report[kind] is not None and report[kind] >= _SIZE_WARN_PCT
+        ]
+        if tight:
+            yield f"  [size-warning] little headroom left ({', '.join(tight)})\n"
+
+    if not port:
+        yield "  (no port selected — compiled only)\n"
+        return 0, "compile"
+    rc = yield from _run_phase(
+        f"{label} · upload", [_FBUILD_BIN, "deploy", "-e", env, "-p", port, "--skip-build", "--no-timestamp"],
+        cwd=_FBUILD_PROJECT_DIR,
+    )
+    return rc, "upload"
+
+
+def _upload_result_lines(rc, phase, port):
+    """Shared status messaging after a compile/upload run, whichever engine ran it."""
+    if rc == 0 and port:
+        yield "\nUpload complete.\n"
+    elif rc != 0 and phase == "compile":
+        yield (f"\n*** BUILD FAILED (exit code {rc}) *** The sketch didn't compile, so "
+               "nothing was sent to the board — see the errors above.\n")
+    elif rc != 0:
+        yield (f"\n*** UPLOAD FAILED (exit code {rc}) *** The sketch compiled, but flashing "
+               "failed. If it couldn't connect, put the board in download mode "
+               "(hold BOOT, tap RST) and retry.\n")
+
+
 def _serial_send(port, payloads):
     """Host side of the provisioner protocol: PING -> READY, then PUT each file in
     CHUNK blocks with a per-block ack. Yields progress lines; returns True on ok."""
@@ -329,7 +607,9 @@ def _serial_send(port, payloads):
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 @app.get("/api/health")
 def health():
-    """Liveness + whether arduino-cli is available (so the UI can show status)."""
+    """Liveness + which build engine is active + arduino-cli availability (so
+    the UI can show status). `arduinoCli`/`version` are kept as-is even when
+    fbuild is the active engine, since older frontend builds only read those."""
     version = None
     if _ARDUINO_CLI:
         try:
@@ -337,7 +617,38 @@ def health():
             version = (proc.stdout or "").strip() or None
         except Exception:
             version = None
-    return {"ok": True, "arduinoCli": bool(_ARDUINO_CLI), "version": version}
+    fbuild_version = None
+    if _FBUILD_BIN:
+        try:
+            proc = subprocess.run([_FBUILD_BIN, "--version"], capture_output=True, text=True, timeout=15)
+            fbuild_version = (proc.stdout or "").strip() or None
+        except Exception:
+            fbuild_version = None
+    return {
+        "ok": True,
+        "arduinoCli": bool(_ARDUINO_CLI),
+        "version": version,
+        "engine": _active_engine(),
+        "fbuild": bool(_FBUILD_BIN),
+        "fbuildVersion": fbuild_version,
+    }
+
+
+@app.get("/api/engine")
+def get_engine():
+    return {"ok": True, "engine": _active_engine(), "fbuild": bool(_FBUILD_BIN), "arduinoCli": bool(_ARDUINO_CLI)}
+
+
+@app.post("/api/engine")
+def set_engine(payload: dict = Body(...)):
+    """Persist a build-engine preference. Body: {"engine": "fbuild" | "arduino-cli"}."""
+    engine = (payload.get("engine") or "").strip()
+    if engine not in ("fbuild", "arduino-cli"):
+        return JSONResponse({"ok": False, "error": "engine must be 'fbuild' or 'arduino-cli'"}, status_code=400)
+    cfg = _load_config()
+    cfg["engine"] = engine
+    _save_config(cfg)
+    return {"ok": True, "engine": _active_engine()}
 
 
 @app.get("/api/serial/ports")
@@ -610,25 +921,27 @@ def upload(payload: dict = Body(...)):
     Body: {"ino": "<sketch source>", "fqbn": "esp32:esp32:esp32s3", "port": "COM5"}.
     Compiles first; uploads only if that succeeds and a port was given.
     """
-    if not _ARDUINO_CLI:
+    engine = _active_engine()
+    if engine == "fbuild" and not _FBUILD_BIN:
+        return JSONResponse({"ok": False, "error": "fbuild not found"}, status_code=400)
+    if engine == "arduino-cli" and not _ARDUINO_CLI:
         return JSONResponse({"ok": False, "error": "arduino-cli not found"}, status_code=400)
     ino = payload.get("ino") or ""
     fqbn = (payload.get("fqbn") or _DEFAULT_FQBN).strip()
     port = (payload.get("port") or "").strip()
+
+    if engine == "fbuild":
+        def stream():
+            rc, phase = yield from _compile_upload_fbuild("Sketch", ino, fqbn, port)
+            yield from _upload_result_lines(rc, phase, port)
+        return StreamingResponse(stream(), media_type="text/plain")
+
     work, sketch_dir = _make_sketch(SKETCH, ino)
 
     def stream():
         try:
             rc, phase = yield from _compile_upload("Sketch", sketch_dir, fqbn, port)
-            if rc == 0 and port:
-                yield "\nUpload complete.\n"
-            elif rc != 0 and phase == "compile":
-                yield (f"\n*** BUILD FAILED (exit code {rc}) *** The sketch didn't compile, so "
-                       "nothing was sent to the board — see the errors above.\n")
-            elif rc != 0:
-                yield (f"\n*** UPLOAD FAILED (exit code {rc}) *** The sketch compiled, but flashing "
-                       "failed. If it couldn't connect, put the board in download mode "
-                       "(hold BOOT, tap RST) and retry.\n")
+            yield from _upload_result_lines(rc, phase, port)
         finally:
             shutil.rmtree(work, ignore_errors=True)
 
@@ -648,7 +961,10 @@ async def upload_show(
     `meta` is JSON {"fqbn", "port", "paths": [...]} where `paths[i]` is the SD
     destination for `files[i]` (e.g. "/music/song.mp3", "/shows/song.show").
     """
-    if not _ARDUINO_CLI:
+    engine = _active_engine()
+    if engine == "fbuild" and not _FBUILD_BIN:
+        return JSONResponse({"ok": False, "error": "fbuild not found"}, status_code=400)
+    if engine == "arduino-cli" and not _ARDUINO_CLI:
         return JSONResponse({"ok": False, "error": "arduino-cli not found"}, status_code=400)
     info = json.loads(meta)
     fqbn = (info.get("fqbn") or _DEFAULT_FQBN).strip()
@@ -660,14 +976,26 @@ async def upload_show(
         data = await uf.read()
         payloads.append((paths[i] if i < len(paths) else f"/{uf.filename}", data))
 
+    def _build_flash(label, ino, work_slot):
+        """Compile+flash one sketch (provisioner or player) through the active
+        engine. `work_slot` is a single-item list used as an out-param for the
+        arduino-cli temp dir, so the caller's `finally` can clean it up."""
+        if engine == "fbuild":
+            if label == "Player":
+                yield from _ensure_fbuild_audio_lib()
+            return (yield from _compile_upload_fbuild(label, ino, fqbn, port))
+        work, sketch_dir = _make_sketch(label.lower(), ino)
+        work_slot[0] = work
+        return (yield from _compile_upload(label, sketch_dir, fqbn, port))
+
     def stream():
-        prov_work = play_work = None
+        prov_work: list = [None]
+        play_work: list = [None]
         try:
             if not port:
                 yield "[error] a serial port is required to write the SD card\n"
                 return
-            prov_work, prov_dir = _make_sketch("provisioner", provisioner)
-            rc, phase = yield from _compile_upload("Provisioner", prov_dir, fqbn, port)
+            rc, phase = yield from _build_flash("Provisioner", provisioner, prov_work)
             if rc != 0:
                 yield (f"\n*** Provisioner build failed (exit {rc}) — nothing was flashed ***\n"
                        if phase == "compile" else
@@ -678,8 +1006,7 @@ async def upload_show(
             if not ok:
                 yield "\n*** SD transfer failed — not flashing the player ***\n"
                 return
-            play_work, play_dir = _make_sketch("player", player)
-            rc, phase = yield from _compile_upload("Player", play_dir, fqbn, port)
+            rc, phase = yield from _build_flash("Player", player, play_work)
             if rc == 0:
                 yield "\nAll done — songs/shows are on the card and the player is flashed.\n"
             else:
@@ -688,7 +1015,7 @@ async def upload_show(
                        f"\n*** Player flash failed (exit {rc}) — if it couldn't connect, put the "
                        "board in download mode (hold BOOT, tap RST) and retry ***\n")
         finally:
-            for w in (prov_work, play_work):
+            for w in (prov_work[0], play_work[0]):
                 if w:
                     shutil.rmtree(w, ignore_errors=True)
 

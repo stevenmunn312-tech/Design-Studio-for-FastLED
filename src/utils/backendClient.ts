@@ -13,6 +13,12 @@ export interface BackendHealth {
   ok: boolean
   arduinoCli: boolean
   version?: string | null
+  /** Which build engine the helper will actually use for the next compile —
+   *  `fbuild` (preferred: manages its own toolchains, no per-board core
+   *  install) when present, else the `arduino-cli` fallback. */
+  engine?: 'fbuild' | 'arduino-cli'
+  fbuild?: boolean
+  fbuildVersion?: string | null
 }
 
 export interface SerialPort {

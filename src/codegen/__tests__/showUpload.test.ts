@@ -66,6 +66,9 @@ describe('generatePlayerSketch', () => {
     const ino = generatePlayerSketch()
     // The style id is captured and dispatched through the shared helper, which
     // implements all 16 styles (wipe/iris/… plus the crossfade default).
+    expect(ino).toContain('#include <Audio.h>       // ESP32-audioI2S\n\n// Explicit FastLED-typed declarations')
+    expect(ino).toContain('CRGB samplePalette(uint8_t palId, uint8_t index);')
+    expect(ino).toContain('void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt);')
     expect(ino).toContain('transType     = (uint8_t)ev.params[0];')
     expect(ino).toContain('void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt)')
     expect(ino).toContain('case 1: {  // wipe')

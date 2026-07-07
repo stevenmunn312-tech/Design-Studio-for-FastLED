@@ -16,6 +16,7 @@ import type { NodeCategory } from '../types'
 import { NODE_LIBRARY, portColor } from './nodeLibrary'
 import type { GroupRegistry } from './graphEvaluator'
 import type { SavedPattern } from './patternLibrary'
+import { useUiStore } from './uiStore'
 
 export interface StudioNodeData extends Record<string, unknown> {
   label: string
@@ -491,7 +492,11 @@ export const useGraphStore = create<GraphState>()(
           const target = s.graphData[id] ?? { nodes: [], edges: [] }
           const nextData = { ...s.graphData, [s.activeGraphId]: { nodes: s.nodes, edges: s.edges } }
           delete nextData[id]
-          queueMicrotask(() => { temporalApi.clear(); temporalApi.resume() })
+          queueMicrotask(() => {
+            temporalApi.clear()
+            temporalApi.resume()
+            useUiStore.getState().requestFitView()
+          })
           return {
             graphData: nextData,
             nodes: target.nodes,

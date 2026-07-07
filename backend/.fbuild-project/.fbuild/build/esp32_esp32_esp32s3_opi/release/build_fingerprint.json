@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "metadata_hash": "6576039852ee1d0073de8f8059b7d0e8650f9777e32bb284ed4064b75c604b80",
+  "file_set_hash": "e4775138d122fcaec961917a5c3768b4c2f821661f061c223bbd364066ed1f53",
+  "size_info": {
+    "text": 467547,
+    "data": 368392,
+    "bss": 1431637,
+    "total_flash": 835939,
+    "total_ram": 1800029,
+    "max_flash": 8388608,
+    "max_ram": 327680
+  }
+}

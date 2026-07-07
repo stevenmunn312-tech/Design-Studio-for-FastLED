@@ -3,6 +3,7 @@ import { useGraphStore, getGroupRegistry, ROOT_GRAPH_ID } from '../graphStore'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { evaluateGraph } from '../graphEvaluator'
 import type { StudioNode, StudioEdge } from '../graphStore'
+import { useUiStore } from '../uiStore'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,7 @@ function reset(nodes: StudioNode[] = [], edges: StudioEdge[] = []) {
     graphs: { [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' } },
     graphData: {},
   })
+  useUiStore.setState({ fitViewRequest: { nonce: 0 } })
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -292,20 +294,24 @@ describe('graphStore — grouping', () => {
     expect(s.graphData[gid].nodes.some((n) => n.data.nodeType === 'GroupInput')).toBe(true)
   })
 
-  it('enterGraph swaps the active graph and back', () => {
+  it('enterGraph swaps the active graph and back', async () => {
     reset([node('sc', 'SolidColor', { r: 0, g: 0, b: 255 })], [])
     const gid = useGraphStore.getState().createGroup('Blue', ['sc'])
 
     useGraphStore.getState().enterGraph(gid)
+    await Promise.resolve()
     let s = useGraphStore.getState()
     expect(s.activeGraphId).toBe(gid)
     expect(s.nodes.some((n) => n.data.nodeType === 'GroupOutput')).toBe(true)
     expect(s.graphData[ROOT_GRAPH_ID]).toBeTruthy()   // root stashed
+    expect(useUiStore.getState().fitViewRequest).toEqual({ nonce: 1, nodeIds: undefined })
 
     useGraphStore.getState().enterGraph(ROOT_GRAPH_ID)
+    await Promise.resolve()
     s = useGraphStore.getState()
     expect(s.activeGraphId).toBe(ROOT_GRAPH_ID)
     expect(s.nodes.some((n) => n.data.nodeType === 'Group')).toBe(true)
+    expect(useUiStore.getState().fitViewRequest).toEqual({ nonce: 2, nodeIds: undefined })
   })
 
   it('a grouped pipeline still renders the same frame through evaluateGraph', () => {

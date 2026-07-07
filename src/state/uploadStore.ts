@@ -38,6 +38,15 @@ export function boardByFqbn(fqbn: string): Board | undefined {
   return BOARDS.find((b) => b.fqbn === fqbn)
 }
 
+// Whether the helper's *active* engine is actually usable — fbuild needs no
+// per-board core install, so its readiness is just "the binary is there";
+// arduino-cli additionally needs a core installed per board, checked
+// separately by callers (BoardPopup's per-row status).
+export function engineReady(helper: BackendHealth | null | undefined): boolean {
+  if (!helper) return false
+  return helper.engine === 'fbuild' ? !!helper.fbuild : !!helper.arduinoCli
+}
+
 // ── Live upload status ────────────────────────────────────────────────────────
 export type UploadPhase = 'idle' | 'compiling' | 'uploading' | 'done' | 'error' | 'working'
 export interface UploadStatus { phase: UploadPhase; percent?: number; message: string }
@@ -173,7 +182,9 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   refreshHelper: async () => {
     const h = await checkBackend()
     set({ helper: h })
-    if (h?.arduinoCli) { get().refreshPorts(); get().refreshCores() }
+    // Ports/cores enumeration degrades gracefully on its own (empty lists), so
+    // just gate on the helper being reachable at all, not on a specific engine.
+    if (h?.ok) { get().refreshPorts(); get().refreshCores() }
   },
 
   refreshPorts: async () => {
@@ -240,7 +251,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   runUpload: async (code, fqbnOpt) => {
     const { selectedFqbn, selectedPort, busy, helper } = get()
     if (busy) return
-    if (!helper?.arduinoCli) { set({ cliPopupOpen: true }); return }
+    if (!engineReady(helper)) { set({ cliPopupOpen: true }); return }
     if (!selectedPort) { set({ boardPopupOpen: true }); return }
     get().stopSerial()
     const fqbn = fqbnOpt ? `${selectedFqbn}:${fqbnOpt}` : selectedFqbn
@@ -267,7 +278,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   runShowUpload: async (payload) => {
     const { selectedFqbn, selectedPort, busy, helper } = get()
     if (busy) return
-    if (!helper?.arduinoCli) { set({ cliPopupOpen: true }); return }
+    if (!engineReady(helper)) { set({ cliPopupOpen: true }); return }
     if (!selectedPort) { set({ boardPopupOpen: true }); return }
     get().stopSerial()
     set({ busy: true, consoleOpen: true, log: `Provisioning show to ${selectedPort} (${selectedFqbn})…\n`, status: { phase: 'working', message: 'Provisioning…' } })

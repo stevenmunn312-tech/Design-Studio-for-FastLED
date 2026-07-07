@@ -33,6 +33,11 @@ const DEFAULTS: PlayerConfig = {
   maxVolume: 18,
 }
 
+function cppPrototype(definition: string): string | null {
+  const match = definition.match(/^([^\n{]+?\([^)]*\))\s*\{/m)
+  return match ? `${match[1]};` : null
+}
+
 // Minimal node shape so this stays decoupled from the graph store.
 interface ConfigNode { data: { nodeType: string; properties: Record<string, unknown> } }
 
@@ -99,6 +104,17 @@ export function generatePlayerSketch(
     .map((palette, index) => `    case ${index + 1}:  return ${paletteCppRef(palette)};`)
     .join('\n')
   const paletteGlobals = customPaletteDeclarationsCpp().join('\n')
+  const fastLedDecls = new Set<string>([
+    'void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt);',
+    'CRGB samplePalette(uint8_t palId, uint8_t index);',
+  ])
+  if (hasPalette) fastLedDecls.add('CRGBPalette16 paletteFromId(uint8_t palId);')
+  if (collection) {
+    for (const block of [...renderers!.helpers, ...renderers!.functions]) {
+      const proto = cppPrototype(block)
+      if (proto && /CRGB(?:Palette16)?/.test(proto)) fastLedDecls.add(proto)
+    }
+  }
 
   // renderPattern() either dispatches to a render_pN() (collection) or runs the
   // built-in pattern switch (enum). The render_pN() bodies expect ms.
@@ -331,6 +347,10 @@ float prnd(float n) { float s = sinf(n * 12.9898f) * 43758.5453f; return s - flo
 #include <SD.h>
 #include <SPI.h>
 #include <Audio.h>       // ESP32-audioI2S
+
+// Explicit FastLED-typed declarations keep the Arduino preprocessor from
+// inventing its own before <FastLED.h>, which breaks CRGB names.
+${[...fastLedDecls].join('\n')}
 
 // ── Pin config ────────────────────────────────────────────────────────────────
 #define LED_DATA_PIN  ${c.ledDataPin}

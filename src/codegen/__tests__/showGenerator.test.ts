@@ -33,6 +33,8 @@ describe('showGenerator', () => {
   it('emits a render function per pattern and a controller', () => {
     const cpp = generateShowSketch(nodes, edges, groups)
     expect(cpp).toContain('#define PATTERN_COUNT 2')
+    expect(cpp).toContain('#include <FastLED.h>\n\n// Explicit FastLED-typed declarations')
+    expect(cpp).toContain('void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt);')
     expect(cpp).toContain('void render_p0(uint32_t ms)')
     expect(cpp).toContain('void render_p1(uint32_t ms)')
     expect(cpp).toContain('void renderPattern(uint8_t i, uint32_t ms)')
@@ -46,6 +48,28 @@ describe('showGenerator', () => {
     expect(cpp).toContain('compositeTransition(transType, leds, showA, showB, p)')
     // Each pattern's body actually renders (the SolidColor fill reaches leds).
     expect(cpp).toMatch(/render_p0[\s\S]*CRGB\(0, 0, 255\)[\s\S]*?\n\}/)
+  })
+
+  it('declares FastLED-typed helpers explicitly so Arduino does not auto-prototype them above the include', () => {
+    const tempGroups: GroupRegistry = {
+      gt: {
+        nodes: [
+          node('t', 'Temperature', { kelvin: 3000 }, [], [{ id: 'color', dataType: 'color' }]),
+          node('sp', 'Span', {}, [{ id: 'color', dataType: 'color' }], [{ id: 'frame', dataType: 'frame' }]),
+          node('go', 'GroupOutput'),
+        ],
+        edges: [edge('e1', 't', 'color', 'sp', 'color'), edge('e2', 'sp', 'frame', 'go', 'frame')],
+      },
+    }
+    const tempNodes = [
+      node('pc', 'PatternCollection', { patternIds: ['gt'] }),
+      node('pm', 'PatternMaster', { minTime: 4, maxTime: 12, transitionSec: 1 }),
+      node('out', 'MatrixOutput', { width: 8, height: 8 }),
+    ]
+    const tempEdges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
+    const cpp = generateShowSketch(tempNodes, tempEdges, tempGroups)
+    expect(cpp).toContain('CRGB kelvinToRGB(float kelvin);')
+    expect(cpp.indexOf('CRGB kelvinToRGB(float kelvin);')).toBeLessThan(cpp.indexOf('CRGB kelvinToRGB(float kelvin) {'))
   })
 
   it('moves show + pattern buffers to PSRAM when the MatrixOutput toggle is on', () => {

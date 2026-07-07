@@ -1,9 +1,10 @@
-import { BOARDS, boardByFqbn, useUploadStore } from '../../state/uploadStore'
+import { BOARDS, boardByFqbn, engineReady, useUploadStore } from '../../state/uploadStore'
 import styles from './Upload.module.css'
 
 // Popup launched from the MatrixOutput "Board" button. Top: a board manager to
-// toggle which boards appear in the dropdown and install their cores. Then a
-// board dropdown, a port dropdown, and the resolved "<board> · <port>" label.
+// toggle which boards appear in the dropdown (plus, on the arduino-cli
+// fallback engine, install their cores). Then a board dropdown, a port
+// dropdown, and the resolved "<board> · <port>" label.
 export default function BoardPopup() {
   const {
     helper, ports, installedCores, myBoards, selectedFqbn, selectedPort, busy,
@@ -11,7 +12,8 @@ export default function BoardPopup() {
     installCore, closeBoardPopup, openCliPopup,
   } = useUploadStore()
 
-  const cliReady = !!helper?.arduinoCli
+  const usingFbuild = helper?.engine === 'fbuild'
+  const ready = engineReady(helper)
   const selectable = BOARDS.filter((b) => myBoards.includes(b.fqbn))
   const board = boardByFqbn(selectedFqbn)
   const portLabel = ports.find((p) => p.address === selectedPort)?.label ?? selectedPort
@@ -25,14 +27,19 @@ export default function BoardPopup() {
           <button className={styles.closeBtn} onClick={closeBoardPopup} title="Close">×</button>
         </div>
 
-        {/* CLI status / not-found bridge */}
+        {/* Engine status / not-found bridge (arduino-cli fallback only — fbuild
+            manages its own toolchains, so there's nothing to "fix" here). */}
         {helper === undefined ? (
           <div className={styles.note}>Checking for the upload helper…</div>
         ) : !helper ? (
           <div className={styles.note}>Upload helper not running — start the dev server, or run <code>npm run helper</code>.</div>
-        ) : !cliReady ? (
+        ) : !ready && !usingFbuild ? (
           <div className={`${styles.note} ${styles.noteWarn}`}>
             arduino-cli not found. <button className={styles.linkBtn} onClick={openCliPopup}>Fix…</button>
+          </div>
+        ) : usingFbuild ? (
+          <div className={styles.note}>
+            Using fbuild — the first build for a new board downloads its toolchain (a few minutes); after that, builds are fast.
           </div>
         ) : null}
 
@@ -48,7 +55,7 @@ export default function BoardPopup() {
                   <input type="checkbox" checked={on} onChange={() => toggleBoard(b.fqbn)} />
                   <span>{b.label}</span>
                 </label>
-                {cliReady && (
+                {!usingFbuild && ready && (
                   coreReady ? (
                     <span className={styles.coreOk} title={`${b.core} installed`}>✓ core</span>
                   ) : (
@@ -81,7 +88,7 @@ export default function BoardPopup() {
             className={styles.select}
             value={selectedPort}
             onChange={(e) => setSelectedPort(e.target.value)}
-            disabled={!cliReady}
+            disabled={!ready}
           >
             {ports.length === 0 && <option value="">No boards detected</option>}
             {ports.map((p) => (
@@ -90,7 +97,7 @@ export default function BoardPopup() {
               </option>
             ))}
           </select>
-          <button className={styles.refreshBtn} onClick={refreshPorts} disabled={!cliReady} title="Refresh ports">↻</button>
+          <button className={styles.refreshBtn} onClick={refreshPorts} disabled={!ready} title="Refresh ports">↻</button>
         </div>
 
         <div className={styles.targetBig}>{target}</div>

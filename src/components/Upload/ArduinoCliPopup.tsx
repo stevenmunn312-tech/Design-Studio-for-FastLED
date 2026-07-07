@@ -2,8 +2,11 @@ import { useState } from 'react'
 import { useUploadStore } from '../../state/uploadStore'
 import styles from './Upload.module.css'
 
-// Shown when the helper is running but arduino-cli isn't found. Two ways out:
-// point the helper at an existing binary, or have it download + install one.
+// Shown when the helper is running but neither build engine is usable — fbuild
+// isn't installed (it ships in backend/requirements.txt; a stale venv is the
+// usual cause) and arduino-cli, the fallback, isn't found either. Two ways out
+// for arduino-cli: point the helper at an existing binary, or have it download
+// + install one.
 export default function ArduinoCliPopup() {
   const { busy, locate, installCli, closeCliPopup } = useUploadStore()
   const [path, setPath] = useState('')
