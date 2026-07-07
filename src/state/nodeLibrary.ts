@@ -257,6 +257,37 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { speed: 0.3, deltaHue: 6 },
   },
   {
+    // Homage to Mark Kriegsman's Pride2015 — a shifting full-spectrum rainbow
+    // with a breathing brightness wave along the strip. Same evocative-formula
+    // approach as Plasma (identical trig on both the preview and firmware
+    // side), not a literal port of the original's 16-bit fixed-point math.
+    type: 'Pride2015',
+    label: 'Pride 2015',
+    category: 'pattern',
+    subcategory: 'Generative',
+    inputs: [
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'scale', label: 'Scale', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 0.4, scale: 0.4 },
+  },
+  {
+    // Homage to the FastLED "Pacifica" ocean-wave demo — layered scrolling
+    // waves through an ocean palette plus a whitecap sparkle at wave crests.
+    type: 'Pacifica',
+    label: 'Pacifica',
+    category: 'pattern',
+    subcategory: 'Generative',
+    inputs: [
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'scale', label: 'Scale', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 0.35, scale: 0.5, palette: 'ocean' },
+  },
+  {
     type: 'SpectrumBars',
     label: 'Spectrum Bars',
     category: 'pattern',
@@ -317,6 +348,19 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { gamma: 2.2 },
+  },
+  {
+    // RGB→HSV→scale saturation→RGB; `amount` 1 = unchanged, 0 = greyscale,
+    // >1 = boosted (clamped). Shares HueShift's inline RGB↔HSV extraction.
+    type: 'Saturation',
+    label: 'Saturation',
+    category: 'composite',
+    inputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      { id: 'amount', label: 'Amount', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { amount: 1 },
   },
   {
     // Animated geometric transform of a frame (rotate / scale / translate).
@@ -845,6 +889,21 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
     defaultProperties: { h: 0, s: 1, v: 1 },
+  },
+  {
+    // The inverse of HSV → RGB — extracts hue/sat/val from a connected color
+    // (e.g. to read the hue out of a sampled palette color or a PaletteSampler).
+    type: 'RGBToHSV',
+    label: 'RGB → HSV',
+    category: 'color',
+    subcategory: 'Colors',
+    inputs: [{ id: 'rgb', label: 'Color', dataType: 'color' }],
+    outputs: [
+      { id: 'h', label: 'H (0–360)', dataType: 'float' },
+      { id: 's', label: 'S (0–1)', dataType: 'float' },
+      { id: 'v', label: 'V (0–1)', dataType: 'float' },
+    ],
+    defaultProperties: {},
   },
   {
     // Black-body white point from a colour temperature in Kelvin.
@@ -1390,6 +1449,21 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
     defaultProperties: { pin: 34 },
   },
+  {
+    // Rotary encoder (e.g. KY-040) — polling quadrature decode (no interrupts,
+    // matching ButtonInput/PotInput's plain digitalRead/analogRead approach).
+    // `position` is an unbounded running count; wire through MapRange/Mod to
+    // normalise or wrap it.
+    type: 'EncoderInput',
+    label: 'Encoder',
+    category: 'input',
+    inputs: [],
+    outputs: [
+      { id: 'position', label: 'Position', dataType: 'float' },
+      { id: 'pressed', label: 'Pressed', dataType: 'bool' },
+    ],
+    defaultProperties: { pinA: 32, pinB: 33, pinSW: 25 },
+  },
 
   // ── Music-sync pipeline (the Music Library source lives in Show) ───────
   {
@@ -1457,6 +1531,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   // hardware
   ButtonInput: 'Reads a hardware button as a boolean.',
   PotInput: 'Reads a potentiometer as a 0–1 value.',
+  EncoderInput: 'Reads a rotary encoder — running position plus its push-button.',
   MusicLibrary: 'Music source — double-click to drop tracks, analyse and export.',
   PerformanceGenerator: 'Converts analysed music into timed LED show files.',
   SDCard: 'SD + audio pins; connect to Matrix Output to load music/show files on upload.',
@@ -1489,6 +1564,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   GradientSampler: 'Samples a two-color gradient at t.',
   PaletteSampler: 'Samples a palette at t to a color.',
   HSVToRGB: 'Converts hue/sat/val to an RGB color.',
+  RGBToHSV: 'Converts an RGB color to hue/sat/val.',
   BlendColors: 'Blends two colors by an amount.',
   CHSV: 'FastLED CHSV color (0–255 hue/sat/val).',
   Temperature: 'White point from a colour temperature in Kelvin (warm→cool).',
@@ -1509,6 +1585,8 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Fire2012: 'FastLED Fire2012 heat simulation.',
   Plasma: 'Animated plasma interference pattern.',
   Rainbow: 'FastLED fill_rainbow — a scrolling hue sweep across the matrix.',
+  Pride2015: 'Shifting rainbow with a breathing brightness wave.',
+  Pacifica: 'Layered ocean waves through a palette, with whitecap sparkle.',
   SpectrumBars: 'Palette-driven equalizer bars with audio-reactive motion.',
   BassPulse: 'Pulses a color with bass energy.',
   BassRings: 'Concentric rings that swell and brighten with bass.',
@@ -1556,6 +1634,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Gamma: 'Perceptual gamma correction so gradients look right on the LEDs.',
   Transform: 'Animated rotate, scale or translate of a frame.',
   Invert: 'Inverts colors.',
+  Saturation: 'Scales color saturation (0 = greyscale, 1 = unchanged).',
   FrameSwitch: 'Shows frame A or B, selected by a boolean.',
   Trails: 'Fades the previous frame and re-lightens where the input is brighter.',
   Transition: 'Transitions A→B — 16 styles: wipe, iris, push, blinds, spiral, zoom + more.',
@@ -1814,6 +1893,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Envelope: {
     decay: { control: 'slider', min: 0.05, max: 5, step: 0.05 },
   },
+  // Saturation's amount is 0–2 (1 = unchanged), not the shared 0–1 opacity.
+  Saturation: {
+    amount: { control: 'slider', min: 0, max: 2, step: 0.01 },
+  },
   BeatDetect: {
     threshold: { control: 'slider', min: 0, max: 1, step: 0.01 },
     attack:    { control: 'slider', min: 0, max: 1, step: 0.01 },
@@ -1864,6 +1947,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   GaborNoise:      { speed: N01, scale: N01 },
   Blobs:           { speed: N01, scale: N01 },
   FlowField:       { speed: N01, scale: N01 },
+  Pride2015:       { speed: N01, scale: N01 },
+  Pacifica:        { speed: N01, scale: N01 },
   Particles:         { rate:  { control: 'slider', min: 0, max: 1,   step: 0.01 } },
   Transform:         { rate:  { control: 'slider', min: 0, max: 360, step: 1 } },
   Counter:           { rate:  { control: 'slider', min: 0, max: 5,   step: 0.1 } },

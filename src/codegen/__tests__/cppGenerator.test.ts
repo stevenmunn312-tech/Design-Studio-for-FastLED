@@ -1321,3 +1321,59 @@ describe('FieldNoise / FrameToField', () => {
     expect(cpp).toContain('field_f2f[_i]=0.0f;')
   })
 })
+
+describe('Pride2015 / Pacifica (codegen)', () => {
+  it('Pride2015 emits the shared per-pixel loop mapped through CHSV', () => {
+    const pr = node('pr', 'Pride2015', 'pattern', { speed: 0.4, scale: 0.4 })
+    const cpp = generateCpp([pr, outputNode], [edge('e1', 'pr', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('CRGB buf_pr[NUM_LEDS];')
+    expect(cpp).toContain('buf_pr[_y*WIDTH+_x]=CHSV(')
+    expect(cpp).toContain('fmodf(_i*_sc*6.0f+t*_spd*40.0f,360.0f)')
+  })
+
+  it('Pacifica emits the layered-wave formula through ColorFromPalette with a whitecap blend', () => {
+    const pa = node('pa', 'Pacifica', 'pattern', { speed: 0.35, scale: 0.5, palette: 'ocean' })
+    const cpp = generateCpp([pa, outputNode], [edge('e1', 'pa', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('CRGB buf_pa[NUM_LEDS];')
+    expect(cpp).toContain('ColorFromPalette(OceanColors_p,(uint8_t)(_n*255.0f))')
+    expect(cpp).toContain('if(_foam>0.85f)')
+  })
+})
+
+describe('Saturation / RGBToHSV (codegen)', () => {
+  it('Saturation scales sat via rgb2hsv_approximate and reconstructs with CHSV', () => {
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 200, g: 50, b: 50 })
+    const satn = node('satn', 'Saturation', 'composite', { amount: 0 })
+    const cpp = generateCpp(
+      [sc, satn, outputNode],
+      [edge('e1', 'sc', 'satn', 'frame', 'frame'), edge('e2', 'satn', 'out', 'frame', 'frame')],
+    )
+    expect(cpp).toContain('rgb2hsv_approximate(buf_satn[_i])')
+    expect(cpp).toContain('_hs.sat * (0)')
+  })
+
+  it('RGBToHSV emits h/s/v floats via rgb2hsv_approximate', () => {
+    const c = node('c', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })
+    const rh = node('rh', 'RGBToHSV', 'color', {})
+    const cpp = generateCpp(
+      [c, rh, outputNode],
+      [edge('e1', 'c', 'rh', 'rgb', 'rgb'), edge('e2', 'c', 'out', 'rgb', 'frame')],
+    )
+    expect(cpp).toContain('CHSV _hsv_rh = rgb2hsv_approximate(n_c_rgb);')
+    expect(cpp).toContain('float n_rh_h = _hsv_rh.hue / 255.0f * 360.0f;')
+    expect(cpp).toContain('float n_rh_s = _hsv_rh.sat / 255.0f;')
+    expect(cpp).toContain('float n_rh_v = _hsv_rh.val / 255.0f;')
+  })
+})
+
+describe('EncoderInput (codegen)', () => {
+  it('emits a polling quadrature decode with static per-node state', () => {
+    const enc = node('enc', 'EncoderInput', 'input', { pinA: 32, pinB: 33, pinSW: 25 })
+    const cpp = generateCpp([enc, outputNode], [])
+    expect(cpp).toContain('static int8_t _encLast_enc = 0; static float _encPos_enc = 0;')
+    expect(cpp).toContain('digitalRead(32)')
+    expect(cpp).toContain('digitalRead(33)')
+    expect(cpp).toContain('float n_enc_position = _encPos_enc;')
+    expect(cpp).toContain('bool n_enc_pressed = digitalRead(25) == LOW;')
+  })
+})

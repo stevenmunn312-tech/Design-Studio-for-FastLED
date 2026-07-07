@@ -2027,3 +2027,118 @@ describe('FieldNoise and FrameToField', () => {
     expect(frame).not.toBeNull()
   })
 })
+
+// ── Pride2015 / Pacifica (evocative Kriegsman homages) ───────────────────────
+
+describe('Pride2015 and Pacifica', () => {
+  function frameOf(nodeType: string, props: Record<string, unknown>, tick = 0) {
+    const gen = node('gen', nodeType, 'pattern', props)
+    const { nodes, edges } = withOutput(gen)
+    return evaluateGraph(nodes, edges, tick, W, H)!
+  }
+
+  it('Pride2015 produces valid RGB bytes across the matrix', () => {
+    const frame = frameOf('Pride2015', { speed: 0.4, scale: 0.4 }, 30)
+    for (const row of frame) for (const px of row) {
+      for (const ch of [px.r, px.g, px.b]) {
+        expect(ch).toBeGreaterThanOrEqual(0)
+        expect(ch).toBeLessThanOrEqual(255)
+        expect(Number.isInteger(ch)).toBe(true)
+      }
+    }
+  })
+
+  it('Pride2015 shifts over time (not a frozen frame)', () => {
+    const a = frameOf('Pride2015', { speed: 0.5, scale: 0.5 }, 0)
+    const b = frameOf('Pride2015', { speed: 0.5, scale: 0.5 }, 90)
+    expect(a).not.toEqual(b)
+  })
+
+  it('Pacifica produces valid RGB bytes across the matrix', () => {
+    const frame = frameOf('Pacifica', { speed: 0.35, scale: 0.5, palette: 'ocean' }, 45)
+    for (const row of frame) for (const px of row) {
+      for (const ch of [px.r, px.g, px.b]) {
+        expect(ch).toBeGreaterThanOrEqual(0)
+        expect(ch).toBeLessThanOrEqual(255)
+        expect(Number.isInteger(ch)).toBe(true)
+      }
+    }
+  })
+
+  it('Pacifica varies over time and responds to the connected palette', () => {
+    const a = frameOf('Pacifica', { speed: 0.35, scale: 0.5, palette: 'ocean' }, 0)
+    const b = frameOf('Pacifica', { speed: 0.35, scale: 0.5, palette: 'ocean' }, 90)
+    expect(a).not.toEqual(b)
+    const oceanFrame = frameOf('Pacifica', { speed: 0.35, scale: 0.5, palette: 'ocean' }, 10)
+    const fireFrame = frameOf('Pacifica', { speed: 0.35, scale: 0.5, palette: 'fire' }, 10)
+    expect(oceanFrame).not.toEqual(fireFrame)
+  })
+})
+
+// ── Saturation / RGBToHSV ─────────────────────────────────────────────────────
+
+describe('Saturation and RGBToHSV', () => {
+  it('Saturation amount=0 desaturates to the value channel (grey)', () => {
+    const sc = node('satsrc', 'SolidColor', 'pattern', { r: 200, g: 50, b: 50 })
+    const satNode = node('satn', 'Saturation', 'composite', { amount: 0 })
+    const { nodes, edges } = withOutput(satNode, [sc], [edge('e1', 'satsrc', 'frame', 'satn', 'frame')])
+    const frame = evaluateGraph(nodes, edges, 0, W, H)!
+    expect(frame[0][0]).toEqual({ r: 200, g: 200, b: 200 })
+  })
+
+  it('Saturation amount=1 leaves the color effectively unchanged', () => {
+    const sc = node('satsrc2', 'SolidColor', 'pattern', { r: 200, g: 50, b: 50 })
+    const satNode = node('satn2', 'Saturation', 'composite', { amount: 1 })
+    const { nodes, edges } = withOutput(satNode, [sc], [edge('e1', 'satsrc2', 'frame', 'satn2', 'frame')])
+    const frame = evaluateGraph(nodes, edges, 0, W, H)!
+    const px = frame[0][0]
+    expect(px.r).toBeCloseTo(200, 0)
+    expect(px.g).toBeCloseTo(50, 0)
+    expect(px.b).toBeCloseTo(50, 0)
+  })
+
+  it('Saturation outputs null when unwired', () => {
+    const satNode = node('satnu', 'Saturation', 'composite', {})
+    const { outputs } = evaluateGraphFull([satNode], [], 0, W, H)
+    expect(outputs.get('satnu')!.frame).toBeNull()
+  })
+
+  it('RGBToHSV extracts hue/sat/val from a connected color', () => {
+    const c = node('rgbsrc', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })   // pure red
+    const rh = node('rh', 'RGBToHSV', 'color', {})
+    const { outputs } = evaluateGraphFull([c, rh], [edge('e1', 'rgbsrc', 'rgb', 'rh', 'rgb')], 0, W, H)
+    const hsvOut = outputs.get('rh')!
+    expect(hsvOut.h).toBeCloseTo(0, 0)
+    expect(hsvOut.s).toBeCloseTo(1, 1)
+    expect(hsvOut.v).toBeCloseTo(1, 1)
+  })
+
+  it('RGBToHSV round-trips through HSVToRGB', () => {
+    const src = node('hsvsrc', 'HSVToRGB', 'color', { h: 120, s: 1, v: 1 })     // pure green
+    const rh = node('rh2', 'RGBToHSV', 'color', {})
+    const { outputs } = evaluateGraphFull([src, rh], [edge('e1', 'hsvsrc', 'color', 'rh2', 'rgb')], 0, W, H)
+    const hsvOut = outputs.get('rh2')!
+    expect(hsvOut.h).toBeCloseTo(120, 0)
+    expect(hsvOut.s).toBeCloseTo(1, 1)
+    expect(hsvOut.v).toBeCloseTo(1, 1)
+  })
+
+  it('RGBToHSV defaults to black when unwired', () => {
+    const rh = node('rhu', 'RGBToHSV', 'color', {})
+    const { outputs } = evaluateGraphFull([rh], [], 0, W, H)
+    const hsvOut = outputs.get('rhu')!
+    expect(hsvOut.h).toBe(0)
+    expect(hsvOut.s).toBe(0)
+    expect(hsvOut.v).toBe(0)
+  })
+})
+
+// ── EncoderInput ──────────────────────────────────────────────────────────────
+
+describe('EncoderInput', () => {
+  it('is an inert preview stub, like ButtonInput/PotInput', () => {
+    const enc = node('enc', 'EncoderInput', 'input', {})
+    const { outputs } = evaluateGraphFull([enc], [], 0, W, H)
+    expect(outputs.get('enc')).toEqual({ position: 0, pressed: false })
+  })
+})

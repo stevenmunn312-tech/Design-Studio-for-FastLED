@@ -735,6 +735,16 @@ export function generateCpp(
         ln(`  CRGB ${v('color')} = CHSV((uint8_t)((${f('h', 'h', 0)}) / 360.0f * 255), (uint8_t)((${f('s', 's', 1)}) * 255), (uint8_t)((${f('v', 'v', 1)}) * 255));`)
         break
 
+      // The inverse of HSVToRGB — via FastLED's rgb2hsv_approximate.
+      case 'RGBToHSV': {
+        const rgb = colorExpr(node.id, 'rgb')
+        ln(`  CHSV _hsv_${id} = rgb2hsv_approximate(${rgb});`)
+        ln(`  float ${v('h')} = _hsv_${id}.hue / 255.0f * 360.0f;`)
+        ln(`  float ${v('s')} = _hsv_${id}.sat / 255.0f;`)
+        ln(`  float ${v('v')} = _hsv_${id}.val / 255.0f;`)
+        break
+      }
+
       case 'Temperature':
         needsKelvin.v = true
         ln(`  CRGB ${v('color')} = kelvinToRGB(${f('kelvin', 'kelvin', 4000)});`)
@@ -894,6 +904,19 @@ export function generateCpp(
       case 'PotInput':
         ln(`  float ${v('value')} = analogRead(${Number(p.pin ?? 34)}) / 4095.0f;`)
         break
+
+      // Polling quadrature decode (no interrupts) via a standard 4x lookup
+      // table; `position` is an unbounded running count.
+      case 'EncoderInput': {
+        const pinA = Number(p.pinA ?? 32), pinB = Number(p.pinB ?? 33), pinSW = Number(p.pinSW ?? 25)
+        ln(`  static int8_t _encLast_${id} = 0; static float _encPos_${id} = 0;`)
+        ln(`  { int8_t _a=digitalRead(${pinA}),_b=digitalRead(${pinB}); int8_t _s=(_a<<1)|_b;`)
+        ln(`    static const int8_t _encTbl_${id}[16]={0,-1,1,0, 1,0,0,-1, -1,0,0,1, 0,1,-1,0};`)
+        ln(`    _encPos_${id}+=_encTbl_${id}[(_encLast_${id}<<2)|_s]; _encLast_${id}=_s; }`)
+        ln(`  float ${v('position')} = _encPos_${id};`)
+        ln(`  bool ${v('pressed')} = digitalRead(${pinSW}) == LOW;`)
+        break
+      }
 
       case 'SolidColor': {
         const ob = ownBuf()
@@ -1074,6 +1097,46 @@ export function generateCpp(
         const deltaHue = Math.max(0, Math.min(255, Math.round(Number(p.deltaHue ?? 6))))
         const rate = rateCpp(f('speed', 'speed', 0.3), SPEED_MAX.Rainbow)
         ln(`  fill_rainbow(${ob}, NUM_LEDS, (uint8_t)(t * ${rate}), ${deltaHue});`)
+        break
+      }
+
+      // Homage to Pride2015 (see the evaluator's evalPride2015 comment) —
+      // identical formula on both sides, mapped through CHSV like Plasma.
+      case 'Pride2015': {
+        needsT.v = true
+        const ob = ownBuf()
+        const speed = rateCpp(f('speed', 'speed', 0.4), SPEED_MAX.Pride2015)
+        const scale = rateCpp(f('scale', 'scale', 0.4), SCALE_MAX.Pride2015)
+        ln(`  { float _spd=${speed},_sc=${scale}; int _i=0;`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float _hue=fmodf(_i*_sc*6.0f+t*_spd*40.0f,360.0f); if(_hue<0)_hue+=360.0f;`)
+        ln(`      float _bt=_i*_sc*3.0f+t*_spd*15.0f;`)
+        ln(`      float _bri=0.35f+0.65f*(sinf(_bt)*0.5f+0.5f);`)
+        ln(`      ${ob}[_y*WIDTH+_x]=CHSV((uint8_t)(_hue/360.0f*255.0f),230,(uint8_t)(_bri*255.0f));`)
+        ln(`      _i++; } }`)
+        break
+      }
+
+      // Homage to the FastLED "Pacifica" ocean-wave demo (see the evaluator's
+      // evalPacifica comment) — identical layered-wave formula on both sides.
+      case 'Pacifica': {
+        needsT.v = true
+        const ob = ownBuf()
+        const speed = rateCpp(f('speed', 'speed', 0.35), SPEED_MAX.Pacifica)
+        const scale = rateCpp(f('scale', 'scale', 0.5), SCALE_MAX.Pacifica)
+        const pal = paletteExpr(node.id, 'paletteIn', p)
+        ln(`  { float _spd=${speed},_sc=${scale};`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float _v=sinf(_x*0.3f*_sc+t*_spd)`)
+        ln(`              +sinf((_x*0.15f*_sc-_y*0.1f*_sc)+t*_spd*0.6f)*0.7f`)
+        ln(`              +sinf((_x+_y)*0.08f*_sc+t*_spd*1.3f)*0.5f;`)
+        ln(`      float _n=constrain(_v/2.2f*0.5f+0.5f,0.0f,1.0f);`)
+        ln(`      CRGB _c=ColorFromPalette(${pal},(uint8_t)(_n*255.0f));`)
+        ln(`      float _foam=sinf(_x*0.9f*_sc+_y*0.4f*_sc+t*_spd*2.2f);`)
+        ln(`      if(_foam>0.85f){float _w=(_foam-0.85f)/0.15f;`)
+        ln(`        _c.r=(uint8_t)(_c.r+(255-_c.r)*_w); _c.g=(uint8_t)(_c.g+(255-_c.g)*_w); _c.b=(uint8_t)(_c.b+(255-_c.b)*_w);}`)
+        ln(`      ${ob}[_y*WIDTH+_x]=_c;`)
+        ln(`    } }`)
         break
       }
 
@@ -1411,6 +1474,17 @@ export function generateCpp(
         const ob = ownBuf()
         const shift = f('shift', 'shift', 0)
         ln(`  { ${seedFrom('frame')} uint8_t _sh = (uint8_t)((${shift}) / 360.0f * 255); for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i] = CHSV(rgb2hsv_approximate(${ob}[_i]).hue + _sh, rgb2hsv_approximate(${ob}[_i]).sat, rgb2hsv_approximate(${ob}[_i]).val); }`)
+        break
+      }
+
+      // RGB→HSV (rgb2hsv_approximate)→scale saturation→CHSV back to RGB.
+      case 'Saturation': {
+        const ob = ownBuf()
+        const amount = f('amount', 'amount', 1)
+        ln(`  { ${seedFrom('frame')} for (int _i = 0; _i < NUM_LEDS; _i++) {`)
+        ln(`      CHSV _hs = rgb2hsv_approximate(${ob}[_i]);`)
+        ln(`      uint8_t _s2 = (uint8_t)constrain((float)_hs.sat * (${amount}), 0.0f, 255.0f);`)
+        ln(`      ${ob}[_i] = CHSV(_hs.hue, _s2, _hs.val); } }`)
         break
       }
 

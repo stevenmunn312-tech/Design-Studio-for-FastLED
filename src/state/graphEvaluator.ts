@@ -424,6 +424,53 @@ function evalPlasma(speed: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Fra
   )
 }
 
+// Homage to Mark Kriegsman's Pride2015 — a shifting full-spectrum rainbow with
+// a breathing brightness wave along the strip. Same evocative-formula approach
+// as Plasma above (identical trig on the preview and firmware side), not a
+// literal port of the original's 16-bit fixed-point beatsin88 arithmetic.
+function evalPride2015(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const out: Frame = []
+  let i = 0
+  for (let y = 0; y < H; y++) {
+    const row: RGB[] = []
+    for (let x = 0; x < W; x++) {
+      const hue = (i * scale * 6 + t * speed * 40) % 360
+      const briTheta = i * scale * 3 + t * speed * 15
+      const bri = 0.35 + 0.65 * (Math.sin(briTheta) * 0.5 + 0.5)
+      row.push(hsv(hue, 0.9, bri))
+      i++
+    }
+    out.push(row)
+  }
+  return out
+}
+
+// Homage to the FastLED "Pacifica" ocean-wave demo — several scrolling sine
+// wave layers through an ocean palette, with a whitecap sparkle where a
+// faster secondary wave crests. Same evocative-formula approach as Plasma,
+// not a literal port of Pacifica's palette-blend/deepen/whitecap pipeline.
+function evalPacifica(speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => {
+      const v = Math.sin(x * 0.3 * scale + t * speed)
+              + Math.sin((x * 0.15 * scale - y * 0.1 * scale) + t * speed * 0.6) * 0.7
+              + Math.sin((x + y) * 0.08 * scale + t * speed * 1.3) * 0.5
+      const n = Math.max(0, Math.min(1, v / 2.2 * 0.5 + 0.5))
+      const c = samplePalette(palette, n)
+      const foam = Math.sin(x * 0.9 * scale + y * 0.4 * scale + t * speed * 2.2)
+      if (foam > 0.85) {
+        const w = (foam - 0.85) / 0.15
+        return {
+          r: Math.round(c.r + (255 - c.r) * w),
+          g: Math.round(c.g + (255 - c.g) * w),
+          b: Math.round(c.b + (255 - c.b) * w),
+        }
+      }
+      return c
+    })
+  )
+}
+
 function evalFire(nodeId: string, intensity: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const stored = fireHeat.get(nodeId)
   if (!stored || stored.length !== H || stored[0].length !== W) {
@@ -2630,6 +2677,21 @@ function createEvalNode(
         break
       }
 
+      case 'Pride2015': {
+        const speed = denormRate(num(id, 'speed', props, 'speed', 0.4), SPEED_MAX.Pride2015)
+        const scale = denormRate(num(id, 'scale', props, 'scale', 0.4), SCALE_MAX.Pride2015)
+        out = { frame: evalPride2015(speed, scale, t, W, H) }
+        break
+      }
+
+      case 'Pacifica': {
+        const speed = denormRate(num(id, 'speed', props, 'speed', 0.35), SPEED_MAX.Pacifica)
+        const scale = denormRate(num(id, 'scale', props, 'scale', 0.5), SCALE_MAX.Pacifica)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
+        out = { frame: evalPacifica(speed, scale, t, palette, W, H) }
+        break
+      }
+
       case 'Fire': {
         const intensity = num(id, 'intensity', props, 'intensity', 0.7)
         out = { frame: evalFire(stateKey(id), intensity, W, H) }
@@ -2787,6 +2849,32 @@ function createEvalNode(
         break
       }
 
+      // RGB→HSV→scale saturation→RGB; shares HueShift's inline extraction.
+      case 'Saturation': {
+        const src = input(id, 'frame', null) as Frame | null
+        const amount = num(id, 'amount', props, 'amount', 1)
+        if (!src) { out = { frame: null }; break }
+        out = {
+          frame: src.map(row =>
+            row.map(px => {
+              const r = px.r / 255, g = px.g / 255, b = px.b / 255
+              const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
+              let h = 0
+              if (d > 0) {
+                if (max === r) h = ((g - b) / d) % 6
+                else if (max === g) h = (b - r) / d + 2
+                else h = (r - g) / d + 4
+                h = h * 60
+              }
+              const s = max > 0 ? d / max : 0
+              const s2 = Math.max(0, Math.min(1, s * amount))
+              return hsv((h + 360) % 360, s2, max)
+            })
+          ),
+        }
+        break
+      }
+
       case 'Gamma': {
         const src = input(id, 'frame', null) as Frame | null
         const g = Math.max(0.1, Number(props.gamma ?? 2.2))
@@ -2880,6 +2968,23 @@ function createEvalNode(
         const s = num(id, 's', props, 's', 1)
         const v = num(id, 'v', props, 'v', 1)
         out = { color: hsv(h, s, v) }
+        break
+      }
+
+      // The inverse of HSVToRGB — shares HueShift/Saturation's inline extraction.
+      case 'RGBToHSV': {
+        const c = (input(id, 'rgb', null) as RGB | null) ?? { r: 0, g: 0, b: 0 }
+        const r = c.r / 255, g = c.g / 255, b = c.b / 255
+        const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
+        let h = 0
+        if (d > 0) {
+          if (max === r) h = ((g - b) / d) % 6
+          else if (max === g) h = (b - r) / d + 2
+          else h = (r - g) / d + 4
+          h = h * 60
+        }
+        const s = max > 0 ? d / max : 0
+        out = { h: (h + 360) % 360, s, v: max }
         break
       }
 
@@ -3529,6 +3634,12 @@ function createEvalNode(
 
       case 'PotInput':
         out = { value: 0.5 }
+        break
+
+      // Preview stub — same inert convention as ButtonInput/PotInput; the
+      // meaningful quadrature-decode behavior only exists in firmware.
+      case 'EncoderInput':
+        out = { position: 0, pressed: false }
         break
 
       // ── Groups ─────────────────────────────────────────────────────────
