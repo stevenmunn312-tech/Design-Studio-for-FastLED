@@ -377,7 +377,13 @@ function Sidebar() {
               onClick={handleCreateCollection}
               disabled={patterns.length === 0}
             >
-              Create Collection
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="2" y="3" width="8" height="3.2" rx="0.8" />
+                <rect x="2" y="9.2" width="8" height="3.2" rx="0.8" />
+                <path d="M12 5.1h2.5" />
+                <path d="M13.25 3.85v2.5" />
+                <path d="M10 10.8h4.5" />
+              </svg>
             </button>
             <button
               className={styles.revealBtn}
