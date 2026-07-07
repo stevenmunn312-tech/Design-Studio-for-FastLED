@@ -5,6 +5,36 @@
   to   { opacity: 1; }
 }
 
+@keyframes musicLibraryNodePulse {
+  0%, 100% {
+    box-shadow:
+      inset 0 0 0 1px var(--border-glow),
+      0 0 15px var(--signal-glow, transparent),
+      0 0 38px var(--signal-soft-glow, transparent),
+      0 0 0 rgba(168, 255, 0, 0);
+    background-color: transparent;
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--accent-show) 24%, var(--border-glow)),
+      0 0 15px var(--signal-glow, transparent),
+      0 0 38px var(--signal-soft-glow, transparent),
+      0 0 20px rgba(168, 255, 0, 0.12);
+    background-color: color-mix(in srgb, var(--accent-show) 4%, transparent);
+  }
+}
+
+@keyframes musicLibraryAuraPulse {
+  0%, 100% {
+    opacity: calc(0.06 + var(--signal-energy) * 0.2);
+    filter: blur(18px);
+  }
+  50% {
+    opacity: calc(0.18 + var(--signal-energy) * 0.26);
+    filter: blur(22px);
+  }
+}
+
 @keyframes portSpark {
   0%   { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
   100% { transform: translate(-50%, -50%) scale(4);   opacity: 0; }
@@ -101,6 +131,18 @@
 
 .nodeFrameSource::before {
   opacity: calc(0.1 + var(--signal-energy) * 0.46);
+}
+
+.nodeMusicAnalyzing {
+  animation:
+    nodePopin 0.2s ease-out,
+    musicLibraryNodePulse 1s ease-in-out infinite;
+}
+
+.nodeMusicAnalyzing::before {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(168, 255, 0, 0.18), transparent 60%);
+  animation: musicLibraryAuraPulse 1s ease-in-out infinite;
 }
 
 .nodePerformance {
@@ -477,4 +519,16 @@
 .sliderInput.invalid {
   border-color: var(--error);
   box-shadow: 0 0 0 1px var(--error);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nodeMusicAnalyzing,
+  .nodeMusicAnalyzing::before {
+    animation: none;
+  }
+}
+
+:global([data-reduced-motion]) .nodeMusicAnalyzing,
+:global([data-reduced-motion]) .nodeMusicAnalyzing::before {
+  animation: none;
 }

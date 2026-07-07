@@ -1082,19 +1082,21 @@ export default function LEDPreview() {
         className={`${styles.canvasWrap} ${preview3d ? styles.canvasWrap3d : ''}`}
       >
         {import.meta.env.DEV && <DevPerformanceHud />}
-        <div className={styles.canvasHud} aria-label="Preview telemetry">
-          <span className={styles.canvasHudChip}>{gridW}×{gridH}</span>
-          <span className={styles.canvasHudChip}>{previewStyleLabel(previewStyle)}</span>
-          <span className={styles.canvasHudChip}>{hasFrameSignal ? 'Signal live' : 'Signal idle'}</span>
-          <span className={styles.canvasHudChip}>
-            {showMode ? 'Show sync' : audioVisualizerLive ? 'Audio reactive' : 'Workbench'}
-          </span>
-          {performanceMode && <span className={styles.canvasHudChip}>Performance</span>}
-        </div>
         <div className={styles.ambilight} aria-hidden="true" />
         <div className={styles.canvasBay}>
           <div className={styles.canvasFrame}>
-            <span className={styles.canvasFrameTag}>Output matrix</span>
+            <div className={styles.canvasFrameHeader} aria-label="Preview telemetry">
+              <span className={`${styles.visualizerKicker} ${styles.canvasFrameTag}`}>Output matrix</span>
+              <div className={styles.canvasHud}>
+                <span className={styles.canvasHudChip}>{gridW}×{gridH}</span>
+                <span className={styles.canvasHudChip}>{previewStyleLabel(previewStyle)}</span>
+                <span className={styles.canvasHudChip}>{hasFrameSignal ? 'Signal live' : 'Signal idle'}</span>
+                <span className={styles.canvasHudChip}>
+                  {showMode ? 'Show sync' : audioVisualizerLive ? 'Audio reactive' : 'Workbench'}
+                </span>
+                {performanceMode && <span className={styles.canvasHudChip}>Performance</span>}
+              </div>
+            </div>
             <canvas
               ref={canvasRef}
               width={canvasBufW}

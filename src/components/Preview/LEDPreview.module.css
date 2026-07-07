@@ -235,16 +235,24 @@
   overflow: hidden;
 }
 
-.canvasHud {
+.canvasFrameHeader {
   position: absolute;
   z-index: 2;
-  top: 12px;
-  left: 12px;
-  right: 12px;
+  left: 0;
+  right: 0;
+  top: -28px;
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   pointer-events: none;
+}
+
+.canvasHud {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
 }
 
 .canvasHudChip {
@@ -321,21 +329,7 @@
 }
 
 .canvasFrameTag {
-  position: absolute;
-  z-index: 2;
-  left: -4px;
-  top: -28px;
-  padding: 4px 8px;
-  border: 1px solid rgba(90, 209, 255, 0.18);
-  border-radius: 999px;
-  background: rgba(4, 8, 14, 0.86);
-  color: #9ce8ff;
-  font-family: var(--font-code);
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  backdrop-filter: blur(8px);
-  pointer-events: none;
+  flex: 0 0 auto;
 }
 
 .standbyHud {
@@ -1149,14 +1143,7 @@
     display: none;
   }
 
-  .canvasHud {
-    top: 10px;
-    left: 10px;
-    right: 10px;
-  }
-
-  .canvasFrameTag {
-    left: 0;
+  .canvasFrameHeader {
     top: -26px;
   }
 }

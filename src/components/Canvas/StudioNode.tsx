@@ -14,6 +14,7 @@ import FFTAnalyzerBody from './FFTAnalyzerBody'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
 import { getCodeError } from '../../state/graphEvaluator'
+import { useMusicStore } from '../../state/musicStore'
 import { traceSignalPath } from '../../utils/signalPath'
 import styles from './StudioNode.module.css'
 
@@ -575,6 +576,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // The MusicLibrary node embeds the full library UI in its body, so it needs a
   // wider frame than the default node width.
   const isMusicLibrary = d.nodeType === 'MusicLibrary'
+  const musicLibraryAnalyzing = useMusicStore((s) => s.entries.some((entry) => entry.status === 'analyzing'))
   // The Code node embeds a multi-line C++ editor, so it needs a wider frame.
   const isCode = d.nodeType === 'Code'
   // The Performance Generator embeds a show-preview player (canvas + transport).
@@ -596,7 +598,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   return (
     <div
       ref={nodeRef}
-      className={`${styles.node} ${categoryClass} ${performanceMode ? styles.nodePerformance : ''} ${selected ? styles.nodeSelected : ''} ${focusState === 'dim' ? styles.nodeDim : focusState === 'active' ? styles.nodePath : ''} ${previewKind === 'frame' ? styles.nodeFrameSource : ''}`}
+      className={`${styles.node} ${categoryClass} ${performanceMode ? styles.nodePerformance : ''} ${selected ? styles.nodeSelected : ''} ${focusState === 'dim' ? styles.nodeDim : focusState === 'active' ? styles.nodePath : ''} ${previewKind === 'frame' ? styles.nodeFrameSource : ''} ${isMusicLibrary && musicLibraryAnalyzing ? styles.nodeMusicAnalyzing : ''}`}
       style={{
         width: isMusicLibrary ? 300 : isCode ? 320 : isPerfGen ? 300 : undefined,
         '--node-accent': accent,
