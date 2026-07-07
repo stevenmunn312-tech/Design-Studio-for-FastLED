@@ -39,15 +39,22 @@ export function bandsToSpectrum(bass: number, mids: number, treble: number): num
   )
 }
 
+/** Build the preview/player spectrum directly from a baked show envelope. */
+export function showAudioSpectrum(env: AudioEnvelope | undefined, ms: number): number[] | null {
+  if (!env || env.bass.length === 0) return null
+  const { bass, mids, treble } = sampleEnvelope(env, ms)
+  return bandsToSpectrum(bass, mids, treble)
+}
+
 /**
  * Build the AudioOverride a show preview feeds into a pattern group's evaluation,
  * or null when the show carries no baked envelope (nodes then fall back to the
  * live mic / zero, as on the plain canvas).
  */
 export function showAudioOverride(env: AudioEnvelope | undefined, ms: number): AudioOverride | null {
-  if (!env || env.bass.length === 0) return null
+  const spectrum = showAudioSpectrum(env, ms)
+  if (!env || !spectrum) return null
   const { bass, mids, treble } = sampleEnvelope(env, ms)
-  const spectrum = bandsToSpectrum(bass, mids, treble)
   return {
     active: true,
     micActive: true,

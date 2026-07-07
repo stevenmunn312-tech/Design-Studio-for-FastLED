@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef } from 'react'
 import { useUiStore } from './state/uiStore'
 import { useGraphStore } from './state/graphStore'
 import { useAudioStore } from './state/audioStore'
+import { useShowPlayback } from './state/showPlayback'
 import { AudioEngine } from './audio/audioEngine'
 import type { StudioNode, StudioEdge, WorkspaceExtras } from './state/graphStore'
 import MenuBar from './components/MenuBar/MenuBar'
@@ -60,10 +61,17 @@ export default function App() {
   const togglePreviewPanel = useUiStore((s) => s.togglePreviewPanel)
   const startAudio = useAudioStore((s) => s.startAudio)
   const stopAudio = useAudioStore((s) => s.stopAudio)
+  const micNodeProps = useGraphStore((s) => {
+    const mic = s.nodes.find((n) => (n.data as { nodeType?: string }).nodeType === 'MicInput')
+    return (mic?.data.properties as Record<string, unknown> | undefined) ?? null
+  })
+  const hasMicNode = micNodeProps !== null
+  const showPreviewPlaying = useShowPlayback((s) => s.playing)
   const boardPopupOpen = useUploadStore((s) => s.boardPopupOpen)
   const cliPopupOpen = useUploadStore((s) => s.cliPopupOpen)
   const consoleOpen = useUploadStore((s) => s.consoleOpen)
   const refreshHelper = useUploadStore((s) => s.refreshHelper)
+  const hadMicNode = useRef(false)
 
   // Probe the upload helper once on mount (the Vite plugin should have spawned it).
   useEffect(() => { refreshHelper() }, [refreshHelper])
@@ -154,33 +162,40 @@ export default function App() {
     }
   }, [])
 
-  // Auto-start audio when a MicInput node is on the canvas; stop when removed
+  // Keep the engine's noise gate and AGC settings in sync with the MicInput node.
   useEffect(() => {
     const engine = AudioEngine.instance
-    let hasMic = false
-    const sync = (state = useGraphStore.getState()) => {
-      const mic = state.nodes.find((n) => (n.data as { nodeType?: string }).nodeType === 'MicInput')
-      if (mic) {
-        const props = mic.data.properties as Record<string, unknown>
-        engine.configureMic({
-          gain: Number(props.gain ?? 1),
-          agc: Boolean(props.agc ?? false),
-          threshold: Number(props.threshold ?? 0.08),
-          attack: Number(props.attack ?? 0.2),
-          decay: Number(props.decay ?? 0.05),
-        })
-      }
-      const nowHas = !!mic
-      if (nowHas && !hasMic) { hasMic = true; startAudio().catch(() => {}) }
-      if (!nowHas && hasMic) { hasMic = false; stopAudio() }
+    if (!micNodeProps) return
+    engine.configureMic({
+      gain: Number(micNodeProps.gain ?? 1),
+      agc: Boolean(micNodeProps.agc ?? false),
+      threshold: Number(micNodeProps.threshold ?? 0.08),
+      attack: Number(micNodeProps.attack ?? 0.2),
+      decay: Number(micNodeProps.decay ?? 0.05),
+    })
+  }, [micNodeProps])
+
+  // A show preview owns audio while it is playing: suspend the live mic so
+  // FFT/beat-driven previews reflect the baked song envelope instead.
+  useEffect(() => {
+    if (showPreviewPlaying) {
+      if (hadMicNode.current) stopAudio()
+      return
     }
-    sync()
-    const unsub = useGraphStore.subscribe(sync)
-    return () => {
-      unsub()
-      if (hasMic) stopAudio()
+    if (hasMicNode) {
+      hadMicNode.current = true
+      startAudio().catch(() => {})
+      return
     }
-  }, [startAudio, stopAudio])
+    if (hadMicNode.current) {
+      hadMicNode.current = false
+      stopAudio()
+    }
+  }, [hasMicNode, showPreviewPlaying, startAudio, stopAudio])
+
+  useEffect(() => () => {
+    if (hadMicNode.current) stopAudio()
+  }, [stopAudio])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

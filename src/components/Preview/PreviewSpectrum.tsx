@@ -17,11 +17,18 @@ function resample(values: number[], count: number): number[] {
   })
 }
 
-export default function PreviewSpectrum({ audioVisualizerLive }: { audioVisualizerLive: boolean }) {
+export default function PreviewSpectrum({
+  audioVisualizerLive,
+  spectrumOverride,
+}: {
+  audioVisualizerLive: boolean
+  spectrumOverride?: number[] | null
+}) {
   const previewSpectrum = useAudioStore((s) => s.previewSpectrum)
   const peakRef = useRef(Array(NUM_BARS).fill(0))
+  const sourceSpectrum = spectrumOverride?.length ? spectrumOverride : previewSpectrum
 
-  const displaySpectrum = resample(audioVisualizerLive ? previewSpectrum : [], NUM_BARS).map((value, i, arr) => {
+  const displaySpectrum = resample(audioVisualizerLive ? sourceSpectrum : [], NUM_BARS).map((value, i, arr) => {
     const prev = arr[i - 1] ?? value
     const next = arr[i + 1] ?? value
     return clamp01(value * 0.55 + ((prev + value + next) / 3) * 0.45)

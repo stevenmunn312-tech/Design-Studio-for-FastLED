@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   sampleEnvelope,
   bandsToSpectrum,
+  showAudioSpectrum,
   showAudioOverride,
   BASS_BIN_END,
   MID_BIN_END,
@@ -29,8 +30,17 @@ describe('showAudio envelope sampling', () => {
   })
 
   it('returns null when the show carries no envelope', () => {
+    expect(showAudioSpectrum(undefined, 0)).toBeNull()
     expect(showAudioOverride(undefined, 0)).toBeNull()
+    expect(showAudioSpectrum({ rateHz: 50, bass: [], mids: [], treble: [] }, 0)).toBeNull()
     expect(showAudioOverride({ rateHz: 50, bass: [], mids: [], treble: [] }, 0)).toBeNull()
+  })
+
+  it('builds a preview spectrum from the envelope', () => {
+    const spectrum = showAudioSpectrum({ rateHz: 10, bass: [0.25], mids: [0.5], treble: [0.75] }, 0)!
+    expect(spectrum[0]).toBeCloseTo(0.25)
+    expect(spectrum[BASS_BIN_END]).toBeCloseTo(0.5)
+    expect(spectrum[SPECTRUM_BINS - 1]).toBeCloseTo(0.75)
   })
 
   it('builds an active override from the envelope', () => {

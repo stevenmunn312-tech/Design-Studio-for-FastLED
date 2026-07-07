@@ -9,6 +9,7 @@ import { usePlayerTransport } from '../../state/playerTransport'
 import { usePatternLibrary } from '../../state/patternLibrary'
 import { useMusicStore } from '../../state/musicStore'
 import { showStateAt } from '../../state/showPreview'
+import { showAudioSpectrum } from '../../state/showAudio'
 import { WebGLLEDRenderer } from './webglRenderer'
 import { applyShowPlaybackSignal } from './showPlaybackSignal'
 import { isDiffusedStyle, previewStyleLabel, type PreviewStyle } from './previewStyles'
@@ -543,7 +544,9 @@ export default function LEDPreview() {
       .map((node) => node.id))
     return s.edges.some((edge) => terminalIds.has(edge.target) && edge.targetHandle === 'frame')
   })
-  const audioVisualizerLive = useGraphStore((s) => graphConsumesAudio(s.nodes, s.edges))
+  const graphAudioVisualizerLive = useGraphStore((s) => graphConsumesAudio(s.nodes, s.edges))
+  const playbackSpectrum = playbackShow ? showAudioSpectrum(playbackShow.audio, playbackPosMs) : null
+  const audioVisualizerLive = graphAudioVisualizerLive || !!playbackSpectrum
   const gridW = Math.max(2, Math.min(64, Number(outputNode?.data.properties.width  ?? 16)))
   const gridH = Math.max(2, Math.min(64, Number(outputNode?.data.properties.height ?? 16)))
   const stageMode = useUiStore((s) => s.stageMode)
@@ -1084,7 +1087,7 @@ export default function LEDPreview() {
       <div className={styles.visualizer}>
           <div className={styles.visualizerGlow} />
           <div className={styles.visualizerGrid} />
-          <PreviewSpectrum audioVisualizerLive={audioVisualizerLive} />
+          <PreviewSpectrum audioVisualizerLive={audioVisualizerLive} spectrumOverride={playbackSpectrum} />
           <div className={styles.musicControls}>
             <div className={styles.musicTop}>
               <span className={styles.musicMeta} title={trackLabel}>{trackLabel}</span>
