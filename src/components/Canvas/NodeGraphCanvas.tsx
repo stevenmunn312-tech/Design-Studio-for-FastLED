@@ -35,6 +35,7 @@ import GroupControls from './GroupControls'
 import { anchorPosition } from '../../utils/anchorNode'
 import { traceSignalPath } from '../../utils/signalPath'
 import { usePreviewStore } from '../../state/previewStore'
+import { playNoodleConnectSfx, playNoodleDisconnectSfx } from '../../audio/interactionSfx'
 import styles from './NodeGraphCanvas.module.css'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -345,6 +346,7 @@ function NodeGraphCanvasInner() {
         }
         const name = (src?.data as { label?: string })?.label ?? 'pattern'
         addToCollection(connection.target!, connection.source!)
+        playNoodleConnectSfx()
         setStatus(`Added “${name}” to the collection`, 'success')
         return
       }
@@ -352,6 +354,7 @@ function NodeGraphCanvasInner() {
       // Spread the freshly-connected pair apart if the new noodle is too short.
       spreadNodes()
       fireConnectionCeremony(connection)
+      playNoodleConnectSfx()
     },
     [onConnect, spreadNodes, fireConnectionCeremony, getNode, setStatus, addToCollection]
   )
@@ -438,6 +441,7 @@ function NodeGraphCanvasInner() {
       reconnectLanded.current = true
       reconnectNoodle(oldEdge, newConnection)
       fireConnectionCeremony(newConnection)
+      playNoodleConnectSfx()
     },
     [reconnectNoodle, fireConnectionCeremony]
   )
@@ -446,6 +450,7 @@ function NodeGraphCanvasInner() {
     (_e: MouseEvent | TouchEvent, edge: Edge) => {
       if (!reconnectLanded.current) {
         removeEdge(edge.id)
+        playNoodleDisconnectSfx()
         setStatus('Noodle unplugged', 'info')
       }
       reconnecting.current = false
@@ -860,10 +865,6 @@ function NodeGraphCanvasInner() {
           className={styles.minimap}
           onClick={onMiniMapClick}
         />
-        <div className={styles.overviewLegend} aria-hidden="true">
-          <span />
-          Signal overview
-        </div>
       </ReactFlow>
       {contextMenu && (
         <NodeContextMenu

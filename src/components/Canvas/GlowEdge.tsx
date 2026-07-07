@@ -90,6 +90,8 @@ function GlowEdge({
   const signal = usePreviewStore((state) =>
     sourceHandleId ? state.signals.get(`${source}:${sourceHandleId}`) : undefined
   )
+  const signalEnergy = signal?.energy ?? 0
+  const idleVisibility = 1 - Math.min(1, signalEnergy * 1.35)
   const color = signal?.emissive || (typeof style?.stroke === 'string' && style.stroke) || CATEGORY_COLOR[category] || '#00bfff'
   const edgeData = data as {
     spliceArmed?: boolean
@@ -146,6 +148,18 @@ function GlowEdge({
       <path d={edgePath} fill="none" stroke={color} strokeWidth={motion.outerWidth} strokeOpacity={motion.outerOpacity} />
       {/* Mid bloom */}
       <path d={edgePath} fill="none" stroke={color} strokeWidth={motion.midWidth} strokeOpacity={motion.midOpacity} />
+      {/* Neutral carrier keeps dark noodles legible against the field even when
+          the sampled signal is resting near black. It fades back as activity
+          increases so the live color still owns the motion cue. */}
+      <path
+        className={styles.carrier}
+        d={edgePath}
+        fill="none"
+        stroke="rgba(255 255 255 / 0.78)"
+        strokeWidth={motion.coreWidth + 2}
+        strokeLinecap="round"
+        strokeOpacity={0.12 + idleVisibility * 0.2}
+      />
       {/* Core — animated dash */}
       <path
         id={id}
@@ -156,6 +170,7 @@ function GlowEdge({
         strokeWidth={motion.coreWidth}
         strokeLinecap="round"
         strokeDasharray={motion.dash}
+        strokeOpacity={0.74 + idleVisibility * 0.16}
         style={{
           '--edge-color': color,
           '--edge-flow-duration': `${motion.duration}s`,
@@ -194,7 +209,7 @@ function GlowEdge({
           className={styles.packet}
           r={radius}
           fill={color}
-          opacity={Math.min(0.95, 0.3 + (signal?.energy ?? 0.4) * 0.55)}
+          opacity={Math.min(0.95, 0.36 + Math.max(signalEnergy, 0.18) * 0.5)}
           style={{
             '--edge-color': color,
             '--packet-duration': `${motion.packetDuration}s`,

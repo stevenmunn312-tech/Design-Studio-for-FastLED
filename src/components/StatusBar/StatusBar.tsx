@@ -1,5 +1,6 @@
 import { useUiStore } from '../../state/uiStore'
 import { useGraphStore } from '../../state/graphStore'
+import { useUploadStore, boardByFqbn } from '../../state/uploadStore'
 import type { StatusLevel } from '../../types'
 import styles from './StatusBar.module.css'
 
@@ -11,19 +12,32 @@ const LEVEL_COLOR: Record<StatusLevel, string> = {
 }
 
 export default function StatusBar() {
-  const { statusText, statusLevel, fps, memoryMb, performanceMode, stageMode } = useUiStore()
+  const { statusText, statusLevel, fps, performanceMode, stageMode } = useUiStore()
   const nodeCount = useGraphStore((s) => s.nodes.length)
   const edgeCount = useGraphStore((s) => s.edges.length)
   const hasAudio = useGraphStore((s) => s.nodes.some((n) => n.data.category === 'audio' || n.data.nodeType === 'MicInput'))
   const hasShow = useGraphStore((s) => s.nodes.some((n) => n.data.category === 'show'))
+  const hasFrameSignal = useGraphStore((s) => {
+    const terminalIds = new Set(
+      s.nodes
+        .filter((node) => ['MatrixOutput', 'GroupOutput'].includes(String(node.data.nodeType)))
+        .map((node) => node.id),
+    )
+    return s.edges.some((edge) => terminalIds.has(edge.target) && edge.targetHandle === 'frame')
+  })
+  const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
+  const selectedPort = useUploadStore((s) => s.selectedPort)
+  const ports = useUploadStore((s) => s.ports)
 
   const outputNode = useGraphStore((s) =>
     s.nodes.find((n) => n.data.nodeType === 'MatrixOutput')
   )
   const props = outputNode?.data.properties as Record<string, unknown> | undefined
   const chipset = props?.chipset as string | undefined
-  const width   = props?.width  as number | undefined
-  const height  = props?.height as number | undefined
+  const boardLabel = boardByFqbn(selectedFqbn)?.label
+  const detectedPort = ports.find((port) => port.address === selectedPort)
+  const portLabel = detectedPort?.address ?? 'Not detected'
+  const displayFps = hasFrameSignal ? fps : 0
 
   return (
     <footer className={styles.statusbar}>
@@ -43,15 +57,10 @@ export default function StatusBar() {
         {stageMode && <span className={`${styles.chip} ${styles.chipAccent}`}>Stage</span>}
         {hasAudio && <span className={styles.chip}>Audio live</span>}
         {hasShow && <span className={styles.chip}>Show graph</span>}
-        {chipset && (
-          <span className={styles.chip}>
-            Board: {chipset} {width}×{height}
-          </span>
-        )}
-        <span className={styles.chip}>FPS: {fps}</span>
-        <span className={styles.chip} title="Estimated memory used by this page, its iframes, and workers">
-          Memory Used: {memoryMb === null ? 'Unavailable' : `${memoryMb} MiB`}
-        </span>
+        <span className={styles.chip}>FPS: {displayFps}</span>
+        <span className={styles.chip}>Board: {boardLabel ?? 'Not selected'}</span>
+        <span className={styles.chip}>Port: {portLabel}</span>
+        <span className={styles.chip}>Chip: {chipset ?? 'Not selected'}</span>
       </div>
     </footer>
   )

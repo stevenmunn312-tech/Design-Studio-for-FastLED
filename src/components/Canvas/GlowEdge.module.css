@@ -11,6 +11,13 @@
   animation: flow var(--edge-flow-duration, 1.4s) linear infinite;
 }
 
+.carrier {
+  filter:
+    drop-shadow(0 0 1px rgb(255 255 255 / 0.5))
+    drop-shadow(0 0 4px rgb(255 255 255 / 0.22));
+  pointer-events: none;
+}
+
 .packet {
   filter: drop-shadow(0 0 3px var(--edge-color)) drop-shadow(0 0 7px var(--edge-color));
   pointer-events: none;

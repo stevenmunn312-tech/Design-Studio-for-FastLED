@@ -464,35 +464,6 @@
   bottom: 0 !important;
 }
 
-.overviewLegend {
-  position: absolute;
-  z-index: 2;
-  right: calc(var(--canvas-right-inset, 0px) + 10px);
-  bottom: 154px;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 6px 10px 6px 8px;
-  border: 1px solid rgba(169, 214, 255, 0.12);
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(10, 16, 23, 0.92), rgba(6, 10, 15, 0.76));
-  color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 9px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
-  pointer-events: none;
-}
-
-.overviewLegend span {
-  width: 18px;
-  height: 6px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--field-color), var(--field-color-2), var(--field-color-3));
-  box-shadow: 0 0 8px color-mix(in srgb, var(--field-color) 34%, transparent);
-}
-
 .focusBadge {
   position: absolute;
   z-index: 8;
