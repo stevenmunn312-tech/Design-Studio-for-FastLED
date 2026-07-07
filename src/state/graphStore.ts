@@ -111,6 +111,15 @@ interface GraphState {
    *  Group node settles vertically centred on `position` once measured (see
    *  `addNode`). */
   instantiatePattern: (saved: SavedPattern, position: { x: number; y: number }, centreOnDrop?: boolean) => void
+  /** Create a Pattern Collection pre-populated with cloned copies of the given
+   *  saved library patterns, registering each as a fresh subgraph in the
+   *  workspace so the collection can drive previews/codegen immediately. */
+  createCollectionFromPatterns: (
+    savedPatterns: SavedPattern[],
+    position: { x: number; y: number },
+    properties?: Record<string, unknown>,
+    centreOnDrop?: boolean,
+  ) => void
   /** Absorb a Group node into a PatternCollection: remove it (and its edges)
    *  from the canvas and record its group id in the collection's list. */
   addToCollection: (collectionNodeId: string, groupNodeId: string) => void
@@ -823,6 +832,51 @@ export const useGraphStore = create<GraphState>()(
             },
             graphData: { ...s.graphData, [groupId]: { nodes: sub.nodes, edges: sub.edges } },
             nodes: [...s.nodes, groupNode],
+          }
+        }),
+
+      createCollectionFromPatterns: (savedPatterns, position, properties = {}, centreOnDrop) =>
+        set((s) => {
+          if (savedPatterns.length === 0) return s
+
+          const def = LIBRARY_DEF.get('PatternCollection')
+          if (!def) return s
+          const usedGraphIds = new Set(Object.keys(s.graphs))
+          const usedNodeIds = new Set(s.nodes.map((n) => n.id))
+          const stamp = Date.now()
+          const collectionNodeId = uniqueId(`patterncollection-${stamp}`, usedNodeIds)
+          if (centreOnDrop) pendingCentreY.set(collectionNodeId, position.y)
+
+          const patternIds: string[] = []
+          const graphs = { ...s.graphs }
+          const graphData = { ...s.graphData }
+
+          savedPatterns.forEach((saved, index) => {
+            const groupId = uniqueId(`group-${stamp + index}`, usedGraphIds)
+            const sub = structuredClone(saved.subgraph)
+            patternIds.push(groupId)
+            graphs[groupId] = { id: groupId, name: saved.name, sourcePatternId: saved.id }
+            graphData[groupId] = { nodes: sub.nodes, edges: sub.edges }
+          })
+
+          const collectionNode: StudioNode = {
+            id: collectionNodeId,
+            type: 'studioNode',
+            position,
+            data: {
+              label: def.label,
+              nodeType: def.type,
+              category: def.category,
+              properties: { ...properties, patternIds, patternSections: {} },
+              inputs: def.inputs,
+              outputs: def.outputs,
+            },
+          } as StudioNode
+
+          return {
+            graphs,
+            graphData,
+            nodes: [...s.nodes, collectionNode],
           }
         }),
 

@@ -55,6 +55,7 @@ function Sidebar() {
   )
   const presentSingletons = useMemo(() => new Set(singletonSignature.split('|').filter(Boolean)), [singletonSignature])
   const instantiatePattern = useGraphStore((s) => s.instantiatePattern)
+  const createCollectionFromPatterns = useGraphStore((s) => s.createCollectionFromPatterns)
   const patterns = usePatternLibrary((s) => s.patterns)
   const renamePattern = usePatternLibrary((s) => s.renamePattern)
   const deletePattern = usePatternLibrary((s) => s.deletePattern)
@@ -159,6 +160,24 @@ function Sidebar() {
     y: viewCenter.y + (Math.random() - 0.5) * 80,
   })
   const handleAddPattern = (p: SavedPattern) => instantiatePattern(p, dropPos(), true)
+  const handleCreateCollection = () => {
+    if (patterns.length === 0) {
+      setStatus('My Patterns is empty', 'error')
+      return
+    }
+    const def = NODE_LIBRARY.find((n) => n.type === 'PatternCollection')
+    if (!def) {
+      setStatus('Pattern Collection node is unavailable', 'error')
+      return
+    }
+    createCollectionFromPatterns(
+      patterns,
+      dropPos(),
+      resolveDefaultProperties(def.type, def.defaultProperties),
+      true,
+    )
+    setStatus(`Created collection with ${patterns.length} pattern${patterns.length === 1 ? '' : 's'}`, 'success')
+  }
 
   const startRename = (p: SavedPattern) => {
     setRenamingId(p.id)
@@ -349,6 +368,16 @@ function Sidebar() {
               onClick={() => toggle('library')}
             >
               <span>My Patterns</span>
+            </button>
+            <button
+              className={styles.collectionBtn}
+              type="button"
+              aria-label="Create Pattern Collection from My Patterns"
+              title="Create a Pattern Collection containing all saved patterns"
+              onClick={handleCreateCollection}
+              disabled={patterns.length === 0}
+            >
+              Create Collection
             </button>
             <button
               className={styles.revealBtn}

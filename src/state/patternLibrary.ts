@@ -30,11 +30,54 @@ const KEY = 'fastled-studio.pattern-library.v1'
 // and must not create/delete real files in the "My Patterns" folder.
 const DISK_SYNC = !import.meta.env.VITEST
 
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalize)
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(
+    Object.entries(value)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, entry]) => [key, canonicalize(entry)])
+  )
+}
+
+function patternFingerprint(pattern: Omit<SavedPattern, 'id' | 'createdAt'>): string {
+  return JSON.stringify(canonicalize({
+    name: pattern.name.trim(),
+    inputs: pattern.inputs,
+    outputs: pattern.outputs,
+    subgraph: pattern.subgraph,
+  }))
+}
+
+function dedupePatterns(patterns: SavedPattern[]) {
+  const seenIds = new Set<string>()
+  const seenFingerprints = new Set<string>()
+  const deduped: SavedPattern[] = []
+  const removedIds: string[] = []
+
+  for (let i = patterns.length - 1; i >= 0; i -= 1) {
+    const pattern = patterns[i]
+    const fingerprint = patternFingerprint(pattern)
+    if (seenIds.has(pattern.id) || seenFingerprints.has(fingerprint)) {
+      removedIds.push(pattern.id)
+      continue
+    }
+    seenIds.add(pattern.id)
+    seenFingerprints.add(fingerprint)
+    deduped.unshift(pattern)
+  }
+
+  return { patterns: deduped, removedIds, keptIds: seenIds }
+}
+
 function load(): SavedPattern[] {
   try {
     const raw = localStorage.getItem(KEY)
     const parsed = raw ? JSON.parse(raw) : []
-    return Array.isArray(parsed) ? parsed : []
+    if (!Array.isArray(parsed)) return []
+    const { patterns } = dedupePatterns(parsed)
+    if (patterns.length !== parsed.length) localStorage.setItem(KEY, JSON.stringify(patterns))
+    return patterns
   } catch {
     return []
   }
@@ -51,6 +94,7 @@ function persist(patterns: SavedPattern[]) {
 interface LibraryState {
   patterns: SavedPattern[]
   savePattern: (p: Omit<SavedPattern, 'id' | 'createdAt'>) => void
+  putPattern: (p: SavedPattern) => void
   renamePattern: (id: string, name: string) => void
   deletePattern: (id: string) => void
   /** Reconcile the in-memory library with the on-disk "My Patterns" folder:
@@ -66,18 +110,45 @@ export const usePatternLibrary = create<LibraryState>((set, get) => ({
   savePattern: (p) =>
     set((s) => {
       const item: SavedPattern = { ...p, id: `pat-${Date.now()}`, createdAt: Date.now() }
-      const patterns = [...s.patterns, item]
+      const { patterns, removedIds, keptIds } = dedupePatterns([...s.patterns, item])
       persist(patterns)
       if (DISK_SYNC) void savePatternToDisk(item)  // write-through; harmless if the helper is offline
+      if (DISK_SYNC) {
+        for (const id of removedIds) {
+          if (!keptIds.has(id)) void deletePatternFromDisk(id)
+        }
+      }
+      return { patterns }
+    }),
+
+  putPattern: (item) =>
+    set((s) => {
+      const { patterns, removedIds, keptIds } = dedupePatterns([
+        ...s.patterns.filter((pattern) => pattern.id !== item.id),
+        item,
+      ])
+      persist(patterns)
+      if (DISK_SYNC) void savePatternToDisk(item)
+      if (DISK_SYNC) {
+        for (const id of removedIds) {
+          if (!keptIds.has(id)) void deletePatternFromDisk(id)
+        }
+      }
       return { patterns }
     }),
 
   renamePattern: (id, name) =>
     set((s) => {
-      const patterns = s.patterns.map((x) => (x.id === id ? { ...x, name } : x))
+      const renamedPatterns = s.patterns.map((x) => (x.id === id ? { ...x, name } : x))
+      const { patterns, removedIds, keptIds } = dedupePatterns(renamedPatterns)
       persist(patterns)
       const renamed = patterns.find((x) => x.id === id)
       if (DISK_SYNC && renamed) void savePatternToDisk(renamed)  // rewrites the file (dedup by id drops the old name)
+      if (DISK_SYNC) {
+        for (const duplicateId of removedIds) {
+          if (!keptIds.has(duplicateId)) void deletePatternFromDisk(duplicateId)
+        }
+      }
       return { patterns }
     }),
 
@@ -98,8 +169,11 @@ export const usePatternLibrary = create<LibraryState>((set, get) => ({
     // One-time migration: push any patterns that only existed in localStorage up
     // to disk so they become shareable files too.
     for (const p of localOnly) void savePatternToDisk(p)
-    const patterns = [...disk, ...localOnly]
+    const { patterns, removedIds, keptIds } = dedupePatterns([...localOnly, ...disk])
     persist(patterns)
+    for (const id of removedIds) {
+      if (!keptIds.has(id)) void deletePatternFromDisk(id)
+    }
     set({ patterns })
   },
 }))
@@ -135,8 +209,10 @@ export function importPatternFile(data: unknown): string | null {
   const p = data as Partial<SavedPattern>
   if (typeof p.name !== 'string' || !p.name.trim()) return null
   if (!p.subgraph || !Array.isArray(p.subgraph.nodes) || !Array.isArray(p.subgraph.edges)) return null
-  usePatternLibrary.getState().savePattern({
-    name: p.name,
+  usePatternLibrary.getState().putPattern({
+    id: typeof p.id === 'string' && p.id.trim() ? p.id : `pat-${Date.now()}`,
+    name: p.name.trim(),
+    createdAt: typeof p.createdAt === 'number' ? p.createdAt : Date.now(),
     inputs: Array.isArray(p.inputs) ? p.inputs : [],
     outputs: Array.isArray(p.outputs) ? p.outputs : [],
     subgraph: { nodes: p.subgraph.nodes, edges: p.subgraph.edges },

@@ -170,6 +170,33 @@
   opacity: 1;
 }
 
+.collectionBtn {
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, var(--accent-composite) 32%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-composite) 10%, transparent);
+  color: var(--accent-composite);
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--anim-hover), border-color var(--anim-hover), color var(--anim-hover), opacity var(--anim-hover);
+}
+
+.collectionBtn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-composite) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent-composite) 50%, transparent);
+  color: var(--text-primary);
+}
+
+.collectionBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* Drop target for importing pattern .json files dragged in from the OS. */
 .dropTarget {
   outline: 1px dashed var(--accent-composite);

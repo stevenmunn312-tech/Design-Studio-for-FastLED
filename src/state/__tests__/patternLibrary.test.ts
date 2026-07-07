@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { usePatternLibrary } from '../patternLibrary'
+import { importPatternFile, usePatternLibrary } from '../patternLibrary'
 import { useGraphStore, ROOT_GRAPH_ID } from '../graphStore'
 import type { StudioNode, StudioEdge } from '../graphStore'
 
@@ -62,6 +62,24 @@ describe('patternLibrary', () => {
     expect(s.graphData[groupId].nodes.map((n) => n.id)).toEqual(['sc', 'out'])
     // Cloned, not aliased to the saved object.
     expect(s.graphData[groupId].nodes).not.toBe(saved.subgraph.nodes)
+  })
+
+  it('dedupes repeated imports of the same saved pattern file', () => {
+    const pattern = {
+      id: 'pat-import',
+      name: 'Glow',
+      createdAt: 123,
+      inputs: [],
+      outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+      subgraph: { nodes: [node('sc', 'SolidColor')], edges: [] as StudioEdge[] },
+    }
+
+    expect(importPatternFile(pattern)).toBe('Glow')
+    expect(importPatternFile(pattern)).toBe('Glow')
+
+    const saved = usePatternLibrary.getState().patterns
+    expect(saved).toHaveLength(1)
+    expect(saved[0].id).toBe('pat-import')
   })
 
   it('addToCollection absorbs a Group node and removes it from the canvas', () => {

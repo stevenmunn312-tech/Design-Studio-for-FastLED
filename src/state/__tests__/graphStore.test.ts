@@ -147,6 +147,41 @@ describe('graphStore — grouping', () => {
     })
   })
 
+  it('createCollectionFromPatterns adds a populated Pattern Collection node', () => {
+    reset()
+    const saved = [
+      {
+        id: 'p1',
+        name: 'Aurora',
+        createdAt: 1,
+        inputs: [],
+        outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+        subgraph: { nodes: [node('a', 'SolidColor'), node('out-a', 'GroupOutput')], edges: [] },
+      },
+      {
+        id: 'p2',
+        name: 'Pulse',
+        createdAt: 2,
+        inputs: [],
+        outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+        subgraph: { nodes: [node('b', 'Noise'), node('out-b', 'GroupOutput')], edges: [] },
+      },
+    ] as import('../patternLibrary').SavedPattern[]
+
+    useGraphStore.getState().createCollectionFromPatterns(saved, { x: 120, y: 180 }, { patternSections: { stale: ['drop'] } }, true)
+
+    const s = useGraphStore.getState()
+    const coll = s.nodes.find((n) => n.data.nodeType === 'PatternCollection')!
+    expect(coll).toBeTruthy()
+    expect(coll.position).toEqual({ x: 120, y: 180 })
+    const props = coll.data.properties as { patternIds: string[]; patternSections: Record<string, string[]> }
+    expect(props.patternIds).toHaveLength(2)
+    expect(props.patternSections).toEqual({})
+    expect(props.patternIds.every((id) => s.graphData[id] && s.graphs[id])).toBe(true)
+    expect(props.patternIds.map((id) => s.graphs[id].sourcePatternId)).toEqual(['p1', 'p2'])
+    expect(s.graphData[props.patternIds[0]].nodes).not.toBe(saved[0].subgraph.nodes)
+  })
+
   it('removeEdge unplugs a single noodle', () => {
     reset(
       [node('sc', 'SolidColor', {}), node('out', 'MatrixOutput', {})],
