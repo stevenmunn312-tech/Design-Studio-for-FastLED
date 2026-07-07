@@ -512,6 +512,18 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: {},
   },
   {
+    // Feedback/trails buffer — persists its own output across frames, fading
+    // by `decay` each tick and re-lightening wherever the incoming frame is
+    // brighter (per-channel max). The canonical fadeToBlackBy()-and-accumulate
+    // idiom, generalised to any upstream pattern (Circle, Blobs, Text, …).
+    type: 'Trails',
+    label: 'Trails',
+    category: 'composite',
+    inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { decay: 0.15 },
+  },
+  {
     // Manual A/B frame selector — shows A when `sel` is false, B when true
     // (the bool-driven counterpart of the time-based Sequencer). Falls back to
     // whichever side is wired when the other is empty.
@@ -1237,6 +1249,20 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { formula: 'sin8(r*200 + t*60)/255' },
   },
   {
+    // Organic fBm noise source (sum of Simplex octaves, same construction as
+    // the FractalNoise pattern node) direct as a field — the noise-driven
+    // counterpart of FieldFormula's hand-written expressions.
+    type: 'FieldNoise',
+    label: 'Field Noise',
+    category: 'field',
+    inputs: [
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'scale', label: 'Scale', dataType: 'float' },
+    ],
+    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    defaultProperties: { speed: 0.25, scale: 0.3, octaves: 4 },
+  },
+  {
     type: 'FieldToFrame',
     label: 'Field → Frame',
     category: 'field',
@@ -1258,6 +1284,17 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
     defaultProperties: { px: 0.5, py: 0.5, scale: 1 },
+  },
+  {
+    // The inverse of Field → Frame: extracts a 0–1 brightness field from a
+    // rendered frame (average of r,g,b — the same convention Mask uses for a
+    // mask frame's opacity), so a pattern's output can drive a warp or mask.
+    type: 'FrameToField',
+    label: 'Frame → Field',
+    category: 'field',
+    inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    defaultProperties: {},
   },
   {
     type: 'FieldMath',
@@ -1501,8 +1538,10 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   CustomFormula: 'Per-pixel JS expression f(x, y, t) — with cx/cy/r/angle and FastLED shims.',
   Code: 'Paste raw FastLED C++ that writes into leds[].',
   FieldFormula: 'Per-pixel scalar field from an expression (cx/cy/r/angle, sin8/beatsin8…).',
+  FieldNoise: 'Organic fBm noise as a scalar field (same construction as Fractal Noise).',
   FieldToFrame: 'Maps a scalar field through a palette to a frame.',
   DistanceField: 'Scalar field of distance from each pixel to a movable point.',
+  FrameToField: 'Extracts a brightness field from a rendered frame.',
   FieldMath: 'Combines two scalar fields (add, subtract, multiply, mix, min, max, difference).',
   FieldWarp: 'Samples a field at coordinates pushed by two offset fields.',
   FieldRotate: 'Rotates a field around its centre (angle + spin over time).',
@@ -1518,6 +1557,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Transform: 'Animated rotate, scale or translate of a frame.',
   Invert: 'Inverts colors.',
   FrameSwitch: 'Shows frame A or B, selected by a boolean.',
+  Trails: 'Fades the previous frame and re-lightens where the input is brighter.',
   Transition: 'Transitions A→B — 16 styles: wipe, iris, push, blinds, spiral, zoom + more.',
   Sequencer: 'Crossfades through its inputs on a timer.',
   PatternCollection: 'Absorbs pattern groups into a set for the Show Engine.',
@@ -1561,7 +1601,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
   signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin'],
-  field:  ['FieldFormula', 'DistanceField', 'FieldMath', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldToFrame'],
+  field:  ['FieldFormula', 'FieldNoise', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'PatternMaster', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 

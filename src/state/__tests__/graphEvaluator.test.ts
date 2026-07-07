@@ -1935,3 +1935,95 @@ describe('signal utility nodes', () => {
     expect(evaluateGraph(g.nodes, g.edges, 0, W, H)![0][0]).toEqual({ r: 255, g: 0, b: 0 })
   })
 })
+
+// ── Trails (feedback/persistence) ────────────────────────────────────────────
+
+describe('Trails', () => {
+  const pixel = (nodes: StudioNode[], edges: StudioEdge[], tick: number) => {
+    const frame = evaluateGraph(nodes, edges, tick, W, H)
+    return frame![0][0]
+  }
+  const build = (r: number) => {
+    const sc = node('trsrc', 'SolidColor', 'pattern', { r, g: 0, b: 0 })
+    const tr = node('tr', 'Trails', 'composite', { decay: 0.5 })
+    return withOutput(tr, [sc], [edge('e1', 'trsrc', 'frame', 'tr', 'frame')])
+  }
+
+  it('lights immediately from an empty buffer (max picks the bright input)', () => {
+    const g = build(255)
+    expect(pixel(g.nodes, g.edges, 0)).toEqual({ r: 255, g: 0, b: 0 })
+  })
+
+  it('fades toward black by decay once the input goes dark, instead of resetting', () => {
+    build(255)                       // seed the persistent buffer at tick 0
+    const dark = build(0)
+    const after = pixel(dark.nodes, dark.edges, 1)
+    expect(after.r).toBe(Math.round(255 * (1 - 0.5)))
+  })
+
+  it('keeps re-lightening from a steady bright input rather than fading it away', () => {
+    build(255)
+    const g = build(255)
+    expect(pixel(g.nodes, g.edges, 1)).toEqual({ r: 255, g: 0, b: 0 })
+  })
+
+  it('outputs null when unwired', () => {
+    const tr = node('trunwired', 'Trails', 'composite', { decay: 0.5 })
+    const { outputs } = evaluateGraphFull([tr], [], 0, W, H)
+    expect(outputs.get('trunwired')!.frame).toBeNull()
+  })
+})
+
+// ── Field Noise / Frame → Field ──────────────────────────────────────────────
+
+describe('FieldNoise and FrameToField', () => {
+  function fieldOut(nodeId: string, nodes: StudioNode[], edges: StudioEdge[], tick = 0): Float32Array {
+    const { outputs } = evaluateGraphFull(nodes, edges, tick, W, H)
+    return outputs.get(nodeId)!.field as Float32Array
+  }
+
+  it('FieldNoise produces values within 0–1', () => {
+    const fn = node('fn', 'FieldNoise', 'pattern', { speed: 0.4, scale: 0.5, octaves: 3 })
+    const fld = fieldOut('fn', [fn], [], 10)
+    expect(fld.length).toBe(W * H)
+    for (const v of fld) { expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThanOrEqual(1) }
+  })
+
+  it('FieldNoise varies over time (not a frozen field)', () => {
+    const fn = node('fn2', 'FieldNoise', 'pattern', { speed: 0.5, scale: 0.5, octaves: 3 })
+    const a = fieldOut('fn2', [fn], [], 0)
+    const b = fieldOut('fn2', [fn], [], 120)
+    expect([...a]).not.toEqual([...b])
+  })
+
+  it('FrameToField extracts average-brightness as a 0–1 field', () => {
+    const sc = node('f2fsrc', 'SolidColor', 'pattern', { r: 255, g: 128, b: 0 })
+    const f2f = node('f2f', 'FrameToField', 'pattern', {})
+    const fld = fieldOut('f2f', [sc, f2f], [edge('e1', 'f2fsrc', 'frame', 'f2f', 'frame')])
+    const expected = (255 + 128 + 0) / 3 / 255
+    expect(fld[0]).toBeCloseTo(expected, 6)
+  })
+
+  it('FrameToField is all-zero when unwired', () => {
+    const f2f = node('f2funwired', 'FrameToField', 'pattern', {})
+    const fld = fieldOut('f2funwired', [f2f], [])
+    expect([...fld]).toEqual(new Array(W * H).fill(0))
+  })
+
+  it('round-trips FrameToField → FieldToFrame back to (near enough) grey', () => {
+    const sc = node('rtsrc', 'SolidColor', 'pattern', { r: 200, g: 200, b: 200 })
+    const f2f = node('rtf2f', 'FrameToField', 'pattern', {})
+    const back = node('rtback', 'FieldToFrame', 'pattern', { palette: 'ocean', brightness: 1 })
+    const out = node('rtout', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph(
+      [sc, f2f, back, out],
+      [
+        edge('e1', 'rtsrc', 'frame', 'rtf2f', 'frame'),
+        edge('e2', 'rtf2f', 'field', 'rtback', 'field'),
+        edge('e3', 'rtback', 'frame', 'rtout', 'frame'),
+      ],
+      0, W, H,
+    )
+    expect(frame).not.toBeNull()
+  })
+})

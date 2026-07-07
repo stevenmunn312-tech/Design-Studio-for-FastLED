@@ -33,6 +33,8 @@ const smoothState = new Map<string, { v: number; t: number }>()
 const holdState = new Map<string, { v: number; prev: boolean }>()
 // Envelope node — trigger fire time (seconds) + previous trigger level.
 const envState = new Map<string, { fire: number; prev: boolean }>()
+// Trails node — the persisted, fading accumulator frame.
+const trailState = new Map<string, Frame>()
 const fftLevels   = new Map<string, { bass: number; mids: number; treble: number }>()
 const beatLevels  = new Map<string, ReturnType<typeof createBeatDetectorState>>()
 type AudioFeatureState = {
@@ -129,7 +131,7 @@ export function pruneEvaluatorState(maxIdleMs = STATE_IDLE_TTL_MS, now = stateCl
 
   const maps: Array<{ delete: (key: string) => boolean }> = [
     fireHeat, flashLevel, counterVals, intervalLast, smoothState, holdState,
-    envState, fftLevels, beatLevels,
+    envState, trailState, fftLevels, beatLevels,
     percussionLevels, audioFeatureLevels, particleState, patternShowState,
     rdState, golState, flowState, starState, sparkState, fire2012Heat,
     codeLeds, codeError,
@@ -1064,6 +1066,26 @@ function evalFractalNoise(speed: number, scale: number, octaves: number, t: numb
       return samplePalette(palette, ((n % 1) + 1) % 1)
     })
   )
+}
+
+// Same fBm construction as evalFractalNoise, but returns the raw 0–1 scalar
+// field instead of sampling it through a palette — the noise-driven Field
+// source, alongside FieldFormula's hand-written expressions.
+function evalFieldNoise(speed: number, scale: number, octaves: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+  const z = t * speed * 0.15
+  const oct = Math.max(1, Math.min(6, Math.floor(octaves)))
+  const out = new Float32Array(W * H)
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      let v = 0, amp = 0.5, freq = scale, norm = 0
+      for (let o = 0; o < oct; o++) {
+        v += amp * _snoise2(x * freq + z, y * freq - z * 0.5)
+        norm += amp; amp *= 0.5; freq *= 2
+      }
+      out[y * W + x] = Math.max(0, Math.min(1, (v / norm) * 0.5 + 0.5))
+    }
+  }
+  return out
 }
 
 // Metaballs: several moving charges; each pixel's field is the summed inverse-
@@ -2696,6 +2718,35 @@ function createEvalNode(
         break
       }
 
+      // Feedback/trails buffer — the persistent accumulator fades by `decay`
+      // each tick, then re-lightens per-channel wherever the incoming frame is
+      // brighter (fadeToBlackBy()-and-accumulate, generalised to any upstream
+      // pattern). Left untouched while unwired so it resumes cleanly.
+      case 'Trails': {
+        const src = input(id, 'frame', null) as Frame | null
+        if (!src) { out = { frame: null }; break }
+        const decay = Math.max(0, Math.min(1, Number(props.decay ?? 0.15)))
+        const key = stateKey(id)
+        const prev = trailState.get(key)
+        const buf = prev && prev.length === H && prev[0]?.length === W
+          ? prev
+          : Array.from({ length: H }, () => Array.from({ length: W }, () => ({ r: 0, g: 0, b: 0 })))
+        const s = 1 - decay
+        const next: Frame = buf.map((row, y) =>
+          row.map((px, x) => {
+            const inpx = src[y][x]
+            return {
+              r: Math.max(Math.round(px.r * s), inpx.r),
+              g: Math.max(Math.round(px.g * s), inpx.g),
+              b: Math.max(Math.round(px.b * s), inpx.b),
+            }
+          })
+        )
+        trailState.set(key, next)
+        out = { frame: next }
+        break
+      }
+
       case 'Mask': {
         const src = input(id, 'frame', null) as Frame | null
         const maskF = input(id, 'mask', null) as Frame | null
@@ -3241,12 +3292,38 @@ function createEvalNode(
         break
       }
 
+      case 'FieldNoise': {
+        const speed   = denormRate(num(id, 'speed', props, 'speed', 0.25), SPEED_MAX.FieldNoise)
+        const scale   = denormRate(num(id, 'scale', props, 'scale', 0.3), SCALE_MAX.FieldNoise)
+        const octaves = Number(props.octaves ?? 4)
+        out = { field: evalFieldNoise(speed, scale, octaves, t, W, H) }
+        break
+      }
+
       case 'FieldToFrame': {
         const fv = input(id, 'field', null)
         const field = fv instanceof Float32Array ? fv : null
         const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
         const brightness = num(id, 'brightness', props, 'brightness', 1)
         out = { frame: evalFieldToFrame(field, palette, brightness, W, H) }
+        break
+      }
+
+      // The inverse of FieldToFrame: a 0–1 brightness field from a rendered
+      // frame (average of r,g,b — the same convention Mask uses for a mask
+      // frame's opacity).
+      case 'FrameToField': {
+        const src = input(id, 'frame', null) as Frame | null
+        const out2 = new Float32Array(W * H)
+        if (src) {
+          for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+              const px = src[y][x]
+              out2[y * W + x] = (px.r + px.g + px.b) / 3 / 255
+            }
+          }
+        }
+        out = { field: out2 }
         break
       }
 

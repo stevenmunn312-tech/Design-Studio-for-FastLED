@@ -1259,3 +1259,65 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
     expect(cpp).toContain('::memmove(buf_fs, buf_fa, sizeof(CRGB) * NUM_LEDS);')
   })
 })
+
+describe('Trails (feedback/persistence)', () => {
+  it('fades the persistent buffer in place and re-lightens from the input (no reset)', () => {
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const tr = node('tr', 'Trails', 'composite', { decay: 0.4 })
+    const cpp = generateCpp([sc, tr, outputNode], [
+      edge('e1', 'sc', 'tr', 'frame', 'frame'),
+      edge('e2', 'tr', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('CRGB buf_tr[NUM_LEDS];')
+    expect(cpp).toContain('fadeToBlackBy(buf_tr, NUM_LEDS, 102);')
+    expect(cpp).toContain('if(buf_sc[_i].r>buf_tr[_i].r)buf_tr[_i].r=buf_sc[_i].r;')
+    // No memmove/fill_solid seeding buf_tr from buf_sc — it must persist across frames.
+    expect(cpp).not.toContain('::memmove(buf_tr')
+  })
+
+  it('fills solid black when unwired', () => {
+    const tr = node('tr', 'Trails', 'composite', {})
+    const cpp = generateCpp([tr, outputNode], [edge('e1', 'tr', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('fill_solid(buf_tr, NUM_LEDS, CRGB::Black);')
+  })
+})
+
+describe('FieldNoise / FrameToField', () => {
+  it('FieldNoise declares a field buffer and writes an inoise8-based fBm', () => {
+    const fn = node('fn', 'FieldNoise', 'pattern', { speed: 0.4, scale: 0.3, octaves: 3 })
+    const f2f = node('f2f', 'FieldToFrame', 'pattern', { palette: 'ocean' })
+    const cpp = generateCpp(
+      [fn, f2f, outputNode],
+      [edge('e1', 'fn', 'f2f', 'field', 'field'), edge('e2', 'f2f', 'out', 'frame', 'frame')],
+    )
+    expect(cpp).toContain('float field_fn[NUM_LEDS];')
+    expect(cpp).toContain('inoise8(')
+    expect(cpp).toContain('for(int _o=0;_o<3;_o++){')
+  })
+
+  it('FrameToField extracts average brightness per pixel', () => {
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 128, b: 0 })
+    const f2f = node('f2f', 'FrameToField', 'pattern', {})
+    const back = node('back', 'FieldToFrame', 'pattern', { palette: 'ocean' })
+    const cpp = generateCpp(
+      [sc, f2f, back, outputNode],
+      [
+        edge('e1', 'sc', 'f2f', 'frame', 'frame'),
+        edge('e2', 'f2f', 'back', 'field', 'field'),
+        edge('e3', 'back', 'out', 'frame', 'frame'),
+      ],
+    )
+    expect(cpp).toContain('float field_f2f[NUM_LEDS];')
+    expect(cpp).toContain('field_f2f[_i]=(buf_sc[_i].r+buf_sc[_i].g+buf_sc[_i].b)/3.0f/255.0f;')
+  })
+
+  it('FrameToField zeroes the field when unwired', () => {
+    const f2f = node('f2f', 'FrameToField', 'pattern', {})
+    const back = node('back', 'FieldToFrame', 'pattern', { palette: 'ocean' })
+    const cpp = generateCpp(
+      [f2f, back, outputNode],
+      [edge('e1', 'f2f', 'back', 'field', 'field'), edge('e2', 'back', 'out', 'frame', 'frame')],
+    )
+    expect(cpp).toContain('field_f2f[_i]=0.0f;')
+  })
+})

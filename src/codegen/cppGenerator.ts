@@ -1378,6 +1378,26 @@ export function generateCpp(
         break
       }
 
+      // Feedback/trails buffer — the persistent buf_ own buffer is deliberately
+      // not seeded from the input each frame (see the Code node comment above);
+      // it fades in place, then re-lightens per-channel wherever the input is
+      // brighter. Mirrors the evaluator's Trails case.
+      case 'Trails': {
+        const ob = ownBuf()
+        const src = srcBuf('frame')
+        if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black);`); break }
+        const decay = Math.max(0, Math.min(1, Number(p.decay ?? 0.15)))
+        const amt = Math.round(decay * 255)
+        ln(`  { // Trails: fadeToBlackBy(${amt}) then re-lighten from the input (per-channel max)`)
+        ln(`    fadeToBlackBy(${ob}, NUM_LEDS, ${amt});`)
+        ln(`    for(int _i=0;_i<NUM_LEDS;_i++){`)
+        ln(`      if(${src}[_i].r>${ob}[_i].r)${ob}[_i].r=${src}[_i].r;`)
+        ln(`      if(${src}[_i].g>${ob}[_i].g)${ob}[_i].g=${src}[_i].g;`)
+        ln(`      if(${src}[_i].b>${ob}[_i].b)${ob}[_i].b=${src}[_i].b;}`)
+        ln(`  }`)
+        break
+      }
+
       case 'Mask': {
         const ob = ownBuf()
         const mask = srcBuf('mask')
@@ -2105,6 +2125,25 @@ export function generateCpp(
         break
       }
 
+      // Same fBm construction as FractalNoise's codegen (inoise8), but written
+      // straight to the field buffer instead of through a palette.
+      case 'FieldNoise': {
+        needsT.v = true
+        const of = ownField()
+        const speed = rateCpp(f('speed', 'speed', 0.25), SPEED_MAX.FieldNoise)
+        const scale = rateCpp(f('scale', 'scale', 0.3), SCALE_MAX.FieldNoise)
+        const octaves = Math.max(1, Math.min(6, Math.floor(Number(p.octaves ?? 4))))
+        ln(`  { // Field noise (fBm via inoise8)`)
+        ln(`    float _spd=${speed},_sc=${scale}; uint16_t _z=(uint16_t)(t*_spd*40);`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float _v=0,_amp=0.5f,_norm=0,_freq=_sc*96;`)
+        ln(`      for(int _o=0;_o<${octaves};_o++){`)
+        ln(`        _v+=_amp*(inoise8((uint16_t)(_x*_freq),(uint16_t)(_y*_freq),_z)/255.0f);`)
+        ln(`        _norm+=_amp; _amp*=0.5f; _freq*=2; }`)
+        ln(`      ${of}[_y*WIDTH+_x]=constrain(_v/_norm,0.0f,1.0f);}}`)
+        break
+      }
+
       case 'FieldToFrame': {
         const ob = ownBuf()
         const pal = paletteExpr(node.id, 'paletteIn', p)
@@ -2116,6 +2155,19 @@ export function generateCpp(
           ln(`  { float _br=constrain(${bright},0.0f,1.0f);`)
           ln(`    for(int _i=0;_i<NUM_LEDS;_i++)`)
           ln(`      ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${src}[_i]*255),(uint8_t)(_br*255)); }`)
+        }
+        break
+      }
+
+      // The inverse of FieldToFrame: a 0–1 brightness field from a rendered
+      // frame (average of r,g,b, matching Mask's mask-opacity convention).
+      case 'FrameToField': {
+        const of = ownField()
+        const src = srcBuf('frame')
+        if (!src) {
+          ln(`  for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=0.0f;`)
+        } else {
+          ln(`  for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=(${src}[_i].r+${src}[_i].g+${src}[_i].b)/3.0f/255.0f;`)
         }
         break
       }
