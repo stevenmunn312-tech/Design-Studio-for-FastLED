@@ -120,8 +120,8 @@ function NodeGraphCanvasInner() {
   // Timestamp of the last drag-to-create picker open, so the trailing pane
   // click that React Flow emits right after the drop doesn't close it.
   const menuOpenedAt = useRef(0)
-  const { screenToFlowPosition, flowToScreenPosition, getNode, getInternalNode, setCenter, getZoom } = useReactFlow()
-  const { setStatus, setSparkPort, setViewCenter, draggingNodeType, setDraggingNodeType, sidebarOpen, previewPanelOpen, performanceMode } = useUiStore()
+  const { screenToFlowPosition, flowToScreenPosition, getNode, getInternalNode, setCenter, getZoom, fitView } = useReactFlow()
+  const { setStatus, setSparkPort, setViewCenter, draggingNodeType, setDraggingNodeType, sidebarOpen, previewPanelOpen, performanceMode, reducedMotion, fitViewRequest } = useUiStore()
   const wrapperRef = useRef<HTMLDivElement>(null)
   const leftInset = panelInsetPx('--sidebar-width', DEFAULT_SIDEBAR_W, sidebarOpen)
   const rightInset = panelInsetPx('--right-panel-width', DEFAULT_PREVIEW_W, previewPanelOpen)
@@ -306,6 +306,19 @@ function NodeGraphCanvasInner() {
   useEffect(() => {
     publishCenter()
   }, [publishCenter])
+
+  const lastFitViewNonce = useRef(0)
+
+  useEffect(() => {
+    if (fitViewRequest.nonce === 0 || fitViewRequest.nonce === lastFitViewNonce.current) return
+    lastFitViewNonce.current = fitViewRequest.nonce
+    void fitView({
+      padding: 0.16,
+      duration: reducedMotion ? 0 : 260,
+      ease: (t) => 1 - Math.pow(1 - t, 3),
+      nodes: fitViewRequest.nodeIds?.map((id) => ({ id })),
+    })
+  }, [fitView, fitViewRequest, reducedMotion])
 
   // On pan/zoom: remember the viewport (so a reload restores it) and refresh
   // the click-to-add centre.

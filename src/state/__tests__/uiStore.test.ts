@@ -70,4 +70,14 @@ describe('uiStore.setStatus auto-clear', () => {
     useUiStore.getState().setStageMode(false)
     expect(useUiStore.getState().stageMode).toBe(false)
   })
+
+  it('queues fit-view requests with an incrementing nonce', () => {
+    useUiStore.setState({ fitViewRequest: { nonce: 0 } })
+
+    useUiStore.getState().requestFitView(['a', 'b'])
+    expect(useUiStore.getState().fitViewRequest).toEqual({ nonce: 1, nodeIds: ['a', 'b'] })
+
+    useUiStore.getState().requestFitView()
+    expect(useUiStore.getState().fitViewRequest).toEqual({ nonce: 2, nodeIds: undefined })
+  })
 })

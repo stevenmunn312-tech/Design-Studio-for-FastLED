@@ -24,6 +24,8 @@ export function runTidy(): number {
   const selected = s.nodes.filter((n) => n.selected)
   const scoped = selected.length >= 2
   const scope = scoped ? selected : s.nodes
+  const requestFitView = useUiStore.getState().requestFitView
+  const fitNodeIds = scope.map((n) => n.id)
 
   const targets = tidyLayout(
     scope.map((n) => ({
@@ -43,6 +45,7 @@ export function runTidy(): number {
   }
   const setStatus = useUiStore.getState().setStatus
   if (start.size === 0) {
+    if (fitNodeIds.length > 0) requestFitView(fitNodeIds)
     setStatus('Layout already tidy', 'info')
     return 0
   }
@@ -72,6 +75,7 @@ export function runTidy(): number {
   if (useUiStore.getState().reducedMotion) {
     apply(1)
     temporal.getState().resume()
+    requestFitView(fitNodeIds)
   } else {
     const t0 = performance.now()
     let done = false
@@ -80,6 +84,7 @@ export function runTidy(): number {
       done = true
       apply(1)
       temporal.getState().resume()
+      requestFitView(fitNodeIds)
     }
     const step = () => {
       if (done) return

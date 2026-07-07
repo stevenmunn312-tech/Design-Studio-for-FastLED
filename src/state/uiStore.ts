@@ -55,6 +55,8 @@ interface UiState {
   /** Centre of the visible canvas in flow coordinates — where click-to-add
    *  drops a node so it lands on screen wherever the user has panned. */
   viewCenter: { x: number; y: number }
+  /** Monotonic fit-view request consumed by the canvas. */
+  fitViewRequest: { nonce: number; nodeIds?: string[] }
   theme: AppTheme
   reducedMotion: boolean
   highContrast: boolean
@@ -76,6 +78,7 @@ interface UiState {
   setSparkPort: (port: { nodeId: string; portId: string } | null) => void
   setDraggingNodeType: (nodeType: string | null) => void
   setViewCenter: (center: { x: number; y: number }) => void
+  requestFitView: (nodeIds?: string[]) => void
   setTheme: (theme: AppTheme) => void
   cycleTheme: () => void
   toggleReducedMotion: () => void
@@ -105,6 +108,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   sparkPort: null,
   draggingNodeType: null,
   viewCenter: { x: 300, y: 250 },
+  fitViewRequest: { nonce: 0 },
   theme: load<AppTheme>(THEME_KEY, 'dark'),
   reducedMotion: load<boolean>(MOTION_KEY, false),
   highContrast: load<boolean>(CONTRAST_KEY, false),
@@ -156,6 +160,9 @@ export const useUiStore = create<UiState>((set, get) => ({
   setSparkPort: (port) => set({ sparkPort: port }),
   setDraggingNodeType: (draggingNodeType) => set({ draggingNodeType }),
   setViewCenter: (center) => set({ viewCenter: center }),
+  requestFitView: (nodeIds) => set((state) => ({
+    fitViewRequest: { nonce: state.fitViewRequest.nonce + 1, nodeIds },
+  })),
 
   setTheme: (theme) => {
     localStorage.setItem(THEME_KEY, JSON.stringify(theme))
