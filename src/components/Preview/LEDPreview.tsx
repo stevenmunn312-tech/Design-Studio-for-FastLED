@@ -36,6 +36,7 @@ const STAGE_CANVAS_PX = 840
 const BYTES_PER_MIB = 1024 * 1024
 const MEMORY_SAMPLE_INTERVAL_MS = 30_000
 const PREVIEW_PUBLISH_INTERVAL_MS = 125
+const MIC_BLOCKED_MESSAGE = 'Microphone is disabled while a performance is playing music. Stop the player to enable the microphone.'
 
 interface PerformanceWithMemory extends Performance {
   memory?: { usedJSHeapSize: number }
@@ -551,6 +552,7 @@ export default function LEDPreview() {
   const gridH = Math.max(2, Math.min(64, Number(outputNode?.data.properties.height ?? 16)))
   const stageMode = useUiStore((s) => s.stageMode)
   const setStageMode = useUiStore((s) => s.setStageMode)
+  const setStatus = useUiStore((s) => s.setStatus)
   const fps = useUiStore((s) => s.fps)
   const memoryMb = useUiStore((s) => s.memoryMb)
   const wrapEl = canvasWrapRef.current
@@ -857,6 +859,11 @@ export default function LEDPreview() {
   }, [volume, currentTrack])
 
   const toggleMic = () => {
+    if (!micActive && showPlaying) {
+      window.alert(MIC_BLOCKED_MESSAGE)
+      setStatus(MIC_BLOCKED_MESSAGE, 'info')
+      return
+    }
     if (micActive) stopAudio()
     else startAudio().catch(() => {})
   }
@@ -1052,6 +1059,8 @@ export default function LEDPreview() {
             title={
               !hasMicNode
                 ? 'Add a MicInput node to enable the microphone'
+                : !micActive && showPlaying
+                  ? 'Microphone is disabled while a performance is playing music'
                 : micActive ? 'Stop microphone' : 'Start microphone'
             }
             aria-pressed={micActive}
