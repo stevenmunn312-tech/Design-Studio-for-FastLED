@@ -127,6 +127,17 @@ export default function MusicLibraryNodeBody({ nodeId }: { nodeId: string }) {
           ))}
         </div>
       )}
+
+      <p className={styles.credit}>
+        Music analysis uses Essentia.js / Essentia. Origin:{' '}
+        <a
+          href="http://essentia.upf.edu"
+          target="_blank"
+          rel="noreferrer"
+        >
+          http://essentia.upf.edu
+        </a>
+      </p>
     </div>
   )
 }

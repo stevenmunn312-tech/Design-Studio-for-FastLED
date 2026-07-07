@@ -219,3 +219,21 @@
 .section_chorus  { background: rgba(255, 0, 255, 0.15);  color: #ff00ff; }
 .section_bridge  { background: rgba(0, 255, 255, 0.15);  color: #00ffff; }
 .section_outro   { background: rgba(120, 120, 120, 0.2); color: var(--text-secondary); }
+
+.credit {
+  margin: 0;
+  padding-top: 4px;
+  border-top: 1px solid var(--divider);
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+
+.credit a {
+  color: var(--accent-output);
+  text-decoration: none;
+}
+
+.credit a:hover {
+  text-decoration: underline;
+}

@@ -56,6 +56,11 @@ npm run preview    # serve dist/ locally
 | Microphone (FFT) | Any modern browser |
 | WebSerial upload | Chrome / Edge 89+ |
 
+## Credits
+
+Offline music analysis in the Music Library pipeline uses Essentia.js / Essentia.
+Please acknowledge its origin as [http://essentia.upf.edu](http://essentia.upf.edu).
+
 ## Project Structure
 
 ```
