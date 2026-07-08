@@ -1074,7 +1074,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     subcategory: 'Shapes & Text',
     inputs: [],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: {},
+    defaultProperties: {
+      fit: 'stretch',
+      positionX: 0.5,
+      positionY: 0.5,
+      rotation: '0',
+      flipX: false,
+      flipY: false,
+    },
   },
   {
     // Metaballs — merging lava-lamp blobs from summed inverse-square fields.
@@ -1958,6 +1965,12 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Counter:           { rate:  { control: 'slider', min: 0, max: 5,   step: 0.1 } },
   GameOfLife:        { speed: { control: 'slider', min: 1, max: 30,  step: 1 } },
   ReactionDiffusion: { speed: { control: 'slider', min: 1, max: 30,  step: 1 } },
+  Image: {
+    fit:       { control: 'select', options: ['stretch', 'contain', 'cover', 'original'] },
+    positionX: { control: 'slider', min: 0, max: 1, step: 0.01 },
+    positionY: { control: 'slider', min: 0, max: 1, step: 0.01 },
+    rotation:  { control: 'select', options: ['0', '90', '180', '270'] },
+  },
   // DistanceField stretches the distance ramp 1×–4× (the shared `scale` is 0–2).
   DistanceField:     { scale: { control: 'slider', min: 1, max: 4,   step: 0.1 } },
 }

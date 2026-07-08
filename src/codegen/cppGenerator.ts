@@ -2038,11 +2038,40 @@ export function generateCpp(
           ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // Image: none uploaded`)
           break
         }
+        const fit = ['contain', 'cover', 'original'].includes(String(p.fit)) ? String(p.fit) : 'stretch'
+        const rawRotation = ((Number(p.rotation ?? 0) % 360) + 360) % 360
+        const rotation = [90, 180, 270].includes(rawRotation) ? rawRotation : 0
+        const rw = rotation === 90 || rotation === 270 ? img.h : img.w
+        const rh = rotation === 90 || rotation === 270 ? img.w : img.h
+        const position = (value: unknown) => {
+          const n = Number(value ?? 0.5)
+          return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0.5
+        }
+        const positionX = position(p.positionX)
+        const positionY = position(p.positionY)
+        const fl = (value: number) => `${Number.isInteger(value) ? value.toFixed(1) : value}f`
         ln(`  { // Image ${img.w}x${img.h}`)
         ln(`    static const uint8_t _img_${id}[] PROGMEM = {${img.pixels.join(',')}};`)
-        ln(`    const int _iw=${img.w}, _ih=${img.h};`)
+        ln(`    const int _iw=${img.w}, _ih=${img.h}, _rw=${rw}, _rh=${rh};`)
+        if (fit === 'contain' || fit === 'cover') {
+          const scaleFn = fit === 'contain' ? 'fminf' : 'fmaxf'
+          ln(`    float _isc=${scaleFn}((float)WIDTH/_rw,(float)HEIGHT/_rh), _dw=_rw*_isc, _dh=_rh*_isc;`)
+        } else if (fit === 'original') {
+          ln(`    float _dw=(float)_rw, _dh=(float)_rh;`)
+        } else {
+          ln(`    float _dw=(float)WIDTH, _dh=(float)HEIGHT;`)
+        }
+        ln(`    float _iox=(WIDTH-_dw)*${fl(positionX)}, _ioy=(HEIGHT-_dh)*${fl(positionY)};`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`      int _sx=min(_iw-1,(int)((long)_x*_iw/WIDTH)), _sy=min(_ih-1,(int)((long)_y*_ih/HEIGHT));`)
+        ln(`      float _u=(_x+0.5f-_iox)/_dw, _v=(_y+0.5f-_ioy)/_dh;`)
+        ln(`      if(_u<0||_u>=1||_v<0||_v>=1){ ${ob}[_y*WIDTH+_x]=CRGB::Black; continue; }`)
+        ln(`      int _ox=min(_rw-1,(int)(_u*_rw)), _oy=min(_rh-1,(int)(_v*_rh));`)
+        if (p.flipX) ln(`      _ox=_rw-1-_ox;`)
+        if (p.flipY) ln(`      _oy=_rh-1-_oy;`)
+        if (rotation === 90) ln(`      int _sx=_oy, _sy=_ih-1-_ox;`)
+        else if (rotation === 180) ln(`      int _sx=_iw-1-_ox, _sy=_ih-1-_oy;`)
+        else if (rotation === 270) ln(`      int _sx=_iw-1-_oy, _sy=_ox;`)
+        else ln(`      int _sx=_ox, _sy=_oy;`)
         ln(`      int _ii=(_sy*_iw+_sx)*3;`)
         ln(`      ${ob}[_y*WIDTH+_x]=CRGB(pgm_read_byte(&_img_${id}[_ii]),pgm_read_byte(&_img_${id}[_ii+1]),pgm_read_byte(&_img_${id}[_ii+2]));}}`)
         break

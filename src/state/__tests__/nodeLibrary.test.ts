@@ -2,6 +2,17 @@ import { describe, it, expect } from 'vitest'
 import { NODE_LIBRARY, NODE_DESCRIPTIONS, portColor, propertyMeta } from '../nodeLibrary'
 
 describe('nodeLibrary', () => {
+  it('gives Image nodes placement and transform defaults', () => {
+    expect(NODE_LIBRARY.find((n) => n.type === 'Image')?.defaultProperties).toEqual({
+      fit: 'stretch',
+      positionX: 0.5,
+      positionY: 0.5,
+      rotation: '0',
+      flipX: false,
+      flipY: false,
+    })
+  })
+
   it('every node in the shelf has a tooltip description', () => {
     const missing = NODE_LIBRARY.filter((n) => !NODE_DESCRIPTIONS[n.type]).map((n) => n.type)
     expect(missing).toEqual([])

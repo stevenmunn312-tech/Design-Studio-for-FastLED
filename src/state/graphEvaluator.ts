@@ -3353,7 +3353,14 @@ function createEvalNode(
 
       case 'Image': {
         const img = asImage(props.image)
-        out = { frame: img ? sampleImageToFrame(img, W, H) : blankFrame(W, H) }
+        out = { frame: img ? sampleImageToFrame(img, W, H, {
+          fit: props.fit as 'stretch' | 'contain' | 'cover' | 'original',
+          positionX: Number(props.positionX ?? 0.5),
+          positionY: Number(props.positionY ?? 0.5),
+          rotation: props.rotation as number | string,
+          flipX: Boolean(props.flipX),
+          flipY: Boolean(props.flipY),
+        }) : blankFrame(W, H) }
         break
       }
 

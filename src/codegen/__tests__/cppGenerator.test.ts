@@ -627,6 +627,21 @@ describe('generateCpp', () => {
     expect(cpp).toContain('Image: none uploaded')
   })
 
+  it('emits Image fit, position, rotation, and flip transforms', () => {
+    const image = { w: 2, h: 1, pixels: [255, 0, 0, 0, 255, 0] }
+    const img = node('img', 'Image', 'pattern', {
+      image, fit: 'contain', positionX: 0.25, positionY: 1, rotation: '90', flipX: true, flipY: true,
+    })
+    const cpp = generateCpp([img, outputNode], [edge('e', 'img', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('_rw=1, _rh=2')
+    expect(cpp).toContain('fminf((float)WIDTH/_rw,(float)HEIGHT/_rh)')
+    expect(cpp).toContain('(WIDTH-_dw)*0.25f')
+    expect(cpp).toContain('(HEIGHT-_dh)*1.0f')
+    expect(cpp).toContain('_ox=_rw-1-_ox')
+    expect(cpp).toContain('_oy=_rh-1-_oy')
+    expect(cpp).toContain('int _sx=_oy, _sy=_ih-1-_ox')
+  })
+
   it('emits fractal noise via summed inoise8 octaves', () => {
     const fn = node('fn', 'FractalNoise', 'pattern', { speed: 0.3, scale: 0.15, octaves: 4, palette: 'forest' })
     const cpp = generateCpp([fn, outputNode], [edge('e', 'fn', 'out', 'frame', 'frame')])
