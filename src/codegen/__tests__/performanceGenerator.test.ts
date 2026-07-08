@@ -359,13 +359,41 @@ describe('generateShow — extra transitions from a wired TransitionSet', () => 
 })
 
 describe('bakeEnvelope + baked audio', () => {
-  it('resamples the energy track to the fixed frame rate with interpolation', () => {
+  it('resamples the energy track to the fixed frame rate with interpolation, then AGC-rescales it', () => {
     const env = bakeEnvelope(withEnergy)
     expect(env.rateHz).toBe(ENVELOPE_RATE_HZ)
     expect(env.bass).toHaveLength(100)          // 2000ms × 50/1000
-    expect(env.bass[0]).toBeCloseTo(0)          // first point
-    expect(env.bass[25]).toBeCloseTo(0.5, 1)    // 500ms → halfway 0→1
+    expect(env.bass[0]).toBeCloseTo(0)          // first point — no signal yet to normalise against
+    // 500ms: the rolling peak (shared across bands, tracking whatever's
+    // loudest so far — treble at 0.6 here) has been chasing the rising
+    // envelope, so bass reads well above its raw linear-interpolated 0.5.
+    expect(env.bass[25]).toBeCloseTo(0.833, 2)
     expect(env.bass[50]).toBeCloseTo(1, 1)      // 1000ms → the peak point
+  })
+
+  it('AGC-rescales a quiet section after a loud peak so it still reacts, unlike whole-song normalisation', () => {
+    // A loud spike at 1s, then a much quieter but non-trivial tail running out
+    // to 25s. Whole-song normalisation (the old behaviour) would divide the
+    // quiet tail by the spike's peak, permanently crushing it to a flat 0.2.
+    // The rolling peak decays with an ~11.5s half-life, so by 24s out it's
+    // decayed enough to let the tail read well above its raw 0.2.
+    const quietTail: SongAnalysis = {
+      title: 'Q', durationMs: 25000,
+      beats: { timestamps: [], bpm: 120, confidence: 0.9 },
+      energy: [
+        { t: 0,     bass: 0,   mids: 0,   treble: 0,   overall: 0 },
+        { t: 1000,  bass: 1,   mids: 1,   treble: 1,   overall: 1 },
+        { t: 1200,  bass: 0,   mids: 0,   treble: 0,   overall: 0 },
+        { t: 3000,  bass: 0.2, mids: 0.2, treble: 0.2, overall: 0.2 },
+        { t: 25000, bass: 0.2, mids: 0.2, treble: 0.2, overall: 0.2 },
+      ],
+      sections: [{ startMs: 0, endMs: 25000, type: 'verse', energy: 0.3 }],
+      mood: { energy: 0.3, valence: 0.5, key: 'C major' },
+    }
+    const env = bakeEnvelope(quietTail)
+    const tailIdx = Math.round(24 * ENVELOPE_RATE_HZ)   // 24s — well after the spike's decay
+    expect(env.bass[tailIdx]).toBeGreaterThan(0.5)
+    expect(env.bass[tailIdx]).toBeGreaterThan(0.2)   // strictly better than the old flat whole-song-normalised reading
   })
 
   it('generateShow attaches the envelope only when the analysis has energy', () => {

@@ -5,10 +5,40 @@ import { PALETTE_IDS, STUDIO_PALETTES, isStudioPalette } from '../state/paletteC
 // enough for per-frame band reactivity while staying tiny (~3 bytes/frame).
 export const ENVELOPE_RATE_HZ = 50
 
+// The live mic path (audioEngine.ts) tracks a single decaying peak across all
+// bands (`agcPeak = max(peak, agcPeak * 0.999)` per ~60fps frame — a ~11.5s
+// half-life) and scales bass/mids/treble by it, so a quiet verse still swings
+// through most of 0–1 relative to whatever was loudest recently. The baked
+// envelope's bands are normalised once by the whole song's peak (see
+// normalizeEnergy), so anything short of the song's single loudest moment
+// reads flat by comparison. agcNormalize reproduces the live engine's rolling
+// peak here so a collection pattern's FFTAnalyzer/BeatDetect react with the
+// same punch whether driven by Performance Generator's baked track or a live
+// mic, keeping a pattern usable in either engine without re-tuning.
+const AGC_DECAY_PER_SEC = 0.9417
+const AGC_FLOOR = 0.05
+
+/** Rescale bass/mids/treble in place by one shared decaying peak (matching the
+ *  live engine's single agcPeak across bands, so relative band balance is kept). */
+function agcNormalize(bass: number[], mids: number[], treble: number[], rateHz: number): void {
+  const decay = Math.pow(AGC_DECAY_PER_SEC, 1 / rateHz)
+  let peak = AGC_FLOOR
+  for (let k = 0; k < bass.length; k++) {
+    const raw = Math.max(bass[k], mids[k], treble[k])
+    peak = Math.max(raw, peak * decay)
+    const scale = 1 / Math.max(peak, AGC_FLOOR)
+    bass[k]   = Math.min(1, bass[k]   * scale)
+    mids[k]   = Math.min(1, mids[k]   * scale)
+    treble[k] = Math.min(1, treble[k] * scale)
+  }
+}
+
 /**
  * Resample the analysis's ~100 ms energy envelope to a fixed `rateHz` bass/mids/
  * treble track (0–1) so the player can drive a pattern's FFTAnalyzer in perfect
- * sync with the song. Linear interpolation between analysis points.
+ * sync with the song. Linear interpolation between analysis points, then an
+ * AGC-style rolling-peak rescale (see agcNormalize) so the baked track reacts
+ * with the same dynamic range as the live mic path.
  */
 export function bakeEnvelope(analysis: SongAnalysis, rateHz = ENVELOPE_RATE_HZ): AudioEnvelope {
   const pts = analysis.energy
@@ -28,6 +58,7 @@ export function bakeEnvelope(analysis: SongAnalysis, rateHz = ENVELOPE_RATE_HZ):
     mids[k]   = a.mids   + (b.mids   - a.mids)   * f
     treble[k] = a.treble + (b.treble - a.treble) * f
   }
+  agcNormalize(bass, mids, treble, rateHz)
   return { rateHz, bass, mids, treble }
 }
 
