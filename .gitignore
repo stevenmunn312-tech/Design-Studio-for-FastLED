@@ -13,8 +13,10 @@ backend/.fbuild-project/      # fbuild build workspace + vendored FastLED lib
 __pycache__/
 *.pyc
 
-# Local Claude Code agent/editor state
-.claude/
+# Local Claude Code agent/editor state (settings.local.json, launch.json) —
+# but project skills are part of the repo's tooling and travel with it.
+.claude/*
+!.claude/skills/
 
 # Saved node-graph patterns ("My Patterns") — per-user local content, written by
 # the upload helper. Share individual pattern files by hand; don't commit the folder.
