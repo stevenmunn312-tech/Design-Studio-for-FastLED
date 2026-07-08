@@ -8,6 +8,7 @@ interface PreviewState {
   outputs: Map<string, Record<string, unknown>>
   signals: Map<string, SignalVisual>
   setOutputs: (outputs: Map<string, Record<string, unknown>>) => void
+  clear: () => void
 }
 
 function samePortValues(a: Record<string, unknown> | undefined, b: Record<string, unknown>): boolean {
@@ -24,6 +25,7 @@ function samePortValues(a: Record<string, unknown> | undefined, b: Record<string
 export const usePreviewStore = create<PreviewState>((set) => ({
   outputs: new Map(),
   signals: new Map(),
+  clear: () => set({ outputs: new Map(), signals: new Map() }),
   setOutputs: (outputs) => set((state) => {
     const stableOutputs = new Map<string, Record<string, unknown>>()
     const signals = new Map<string, SignalVisual>()

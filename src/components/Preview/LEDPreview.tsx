@@ -500,6 +500,7 @@ export default function LEDPreview() {
   const lastPreviewPublish = useRef(0)
   const reportedPreviewErrors = useRef(new Set<string>())
   const lastFrameNow = useRef(0)
+  const clearedPreviewStore = useRef(false)
 
   const nodes = useGraphStore((s) => s.nodes)
   const edges = useGraphStore((s) => s.edges)
@@ -552,6 +553,7 @@ export default function LEDPreview() {
   const gridH = Math.max(2, Math.min(64, Number(outputNode?.data.properties.height ?? 16)))
   const stageMode = useUiStore((s) => s.stageMode)
   const performanceMode = useUiStore((s) => s.performanceMode)
+  const uiEffectsEnabled = useUiStore((s) => s.uiEffectsEnabled)
   const setStageMode = useUiStore((s) => s.setStageMode)
   const setStatus = useUiStore((s) => s.setStatus)
   const fps = useUiStore((s) => s.fps)
@@ -595,16 +597,20 @@ export default function LEDPreview() {
   const attachAudioElement = useAudioStore((s) => s.attachAudioElement)
   const stopAudio = useAudioStore((s) => s.stopAudio)
   const analyzingMusic = useMusicStore((s) => s.entries.some((entry) => entry.status === 'analyzing'))
-  const previewStyleRef = useRef(previewStyle)
-  useEffect(() => { previewStyleRef.current = previewStyle }, [previewStyle])
+  const effectivePreview3d = uiEffectsEnabled && preview3d
+  const effectivePreviewStyle: PreviewStyle = uiEffectsEnabled ? previewStyle : 'standard'
+  const uiEffectsEnabledRef = useRef(uiEffectsEnabled)
+  const previewStyleRef = useRef<PreviewStyle>(effectivePreviewStyle)
+  useEffect(() => { uiEffectsEnabledRef.current = uiEffectsEnabled }, [uiEffectsEnabled])
+  useEffect(() => { previewStyleRef.current = effectivePreviewStyle }, [effectivePreviewStyle])
   const stageModeRef = useRef(stageMode)
-  const preview3dRef = useRef(preview3d)
+  const preview3dRef = useRef(effectivePreview3d)
   const micActiveRef = useRef(micActive)
   const analyzingMusicRef = useRef(analyzingMusic)
   const audioVisualizerLiveRef = useRef(audioVisualizerLive)
   const hasFrameSignalRef = useRef(hasFrameSignal)
   useEffect(() => { stageModeRef.current = stageMode }, [stageMode])
-  useEffect(() => { preview3dRef.current = preview3d }, [preview3d])
+  useEffect(() => { preview3dRef.current = effectivePreview3d }, [effectivePreview3d])
   useEffect(() => { micActiveRef.current = micActive }, [micActive])
   useEffect(() => { analyzingMusicRef.current = analyzingMusic }, [analyzingMusic])
   useEffect(() => { audioVisualizerLiveRef.current = audioVisualizerLive }, [audioVisualizerLive])
@@ -652,18 +658,31 @@ export default function LEDPreview() {
     return () => observer.disconnect()
   }, [])
 
+  useEffect(() => {
+    if (uiEffectsEnabled) {
+      clearedPreviewStore.current = false
+      return
+    }
+    if (clearedPreviewStore.current) return
+    usePreviewStore.getState().clear()
+    clearedPreviewStore.current = true
+  }, [uiEffectsEnabled])
+
   const onRotateDown = (e: React.PointerEvent) => {
-    if (!preview3d) return
+    if (!effectivePreview3d) return
     drag.current = { x: e.clientX, y: e.clientY }
     ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
   }
   const onRotateMove = (e: React.PointerEvent) => {
-    if (!drag.current) return
+    if (!effectivePreview3d || !drag.current) return
     const dx = e.clientX - drag.current.x, dy = e.clientY - drag.current.y
     drag.current = { x: e.clientX, y: e.clientY }
     setRot((r) => ({ x: Math.max(0, Math.min(90, r.x - dy * 0.5)), y: r.y + dx * 0.5 }))
   }
   const onRotateUp = () => { drag.current = null }
+  useEffect(() => {
+    if (!effectivePreview3d) drag.current = null
+  }, [effectivePreview3d])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -734,7 +753,7 @@ export default function LEDPreview() {
         // Sample the matrix itself for an Ambilight-style spill. Updating CSS
         // variables directly at 10 fps avoids making the full preview React
         // tree re-render just to animate decorative light.
-        if (frameCount.current % 6 === 0 && canvasWrapRef.current) {
+        if (uiEffectsEnabledRef.current && frameCount.current % 6 === 0 && canvasWrapRef.current) {
           const ambient = frameAmbient(frame)
           const wrap = canvasWrapRef.current
           wrap.style.setProperty('--ambient-nw', ambient.colors[0])
@@ -748,7 +767,7 @@ export default function LEDPreview() {
         // otherwise keep React/store work to ~15 fps while the matrix stays at 60.
         const hasBeat = Array.from(outputs.values()).some((output) => output.beat === true)
         const publishStart = performance.now()
-        if (!analyzingMusicRef.current && (hasBeat || now - lastPreviewPublish.current >= PREVIEW_PUBLISH_INTERVAL_MS)) {
+        if (uiEffectsEnabledRef.current && !analyzingMusicRef.current && (hasBeat || now - lastPreviewPublish.current >= PREVIEW_PUBLISH_INTERVAL_MS)) {
           usePreviewStore.getState().setOutputs(outputs)
           lastPreviewPublish.current = now
         }
@@ -1045,19 +1064,25 @@ export default function LEDPreview() {
               Stage
             </button>
             <button
-              className={`${styles.toggleBtn} ${styles.previewToggle} ${preview3d ? styles.toggleActive : ''}`}
+              className={`${styles.toggleBtn} ${styles.previewToggle} ${effectivePreview3d ? styles.toggleActive : ''}`}
               onClick={togglePreview3d}
-              title={preview3d ? 'Switch to 2D view' : 'Switch to 3D view (drag to orbit)'}
-              aria-pressed={preview3d}
+              title={
+                !uiEffectsEnabled
+                  ? 'Disabled while UI FX are off'
+                  : effectivePreview3d ? 'Switch to 2D view' : 'Switch to 3D view (drag to orbit)'
+              }
+              aria-pressed={effectivePreview3d}
+              disabled={!uiEffectsEnabled}
             >
-              {preview3d ? '3D On' : '3D Off'}
+              {effectivePreview3d ? '3D On' : '3D Off'}
             </button>
             <button
-              className={`${styles.toggleBtn} ${styles.styleBtn} ${isDiffusedStyle(previewStyle) ? styles.toggleActive : ''}`}
+              className={`${styles.toggleBtn} ${styles.styleBtn} ${isDiffusedStyle(effectivePreviewStyle) ? styles.toggleActive : ''}`}
               onClick={cyclePreviewStyle}
-              title="Cycle preview style"
+              title={uiEffectsEnabled ? 'Cycle preview style' : 'Forced to Standard while UI FX are off'}
+              disabled={!uiEffectsEnabled}
             >
-              {previewStyleLabel(previewStyle)}
+              {previewStyleLabel(effectivePreviewStyle)}
             </button>
             <button
               className={`${styles.toggleBtn} ${styles.micToggle} ${micActive ? styles.toggleActive : ''}`}
@@ -1079,16 +1104,16 @@ export default function LEDPreview() {
       </div>
       <div
         ref={canvasWrapRef}
-        className={`${styles.canvasWrap} ${preview3d ? styles.canvasWrap3d : ''}`}
+        className={`${styles.canvasWrap} ${effectivePreview3d ? styles.canvasWrap3d : ''}`}
       >
         {import.meta.env.DEV && <DevPerformanceHud />}
-        <div className={styles.ambilight} aria-hidden="true" />
+        {uiEffectsEnabled && <div className={styles.ambilight} aria-hidden="true" />}
         <div className={styles.canvasBay}>
           <div className={styles.canvasFrame}>
             <div className={styles.canvasFrameHeader} aria-label="Preview telemetry">
               <span className={`${styles.visualizerKicker} ${styles.canvasFrameTag}`}>Output matrix</span>
               <div className={styles.canvasHud}>
-                <span className={styles.canvasHudChip}>{previewStyleLabel(previewStyle)}</span>
+                <span className={styles.canvasHudChip}>{previewStyleLabel(effectivePreviewStyle)}</span>
                 <span className={styles.canvasHudChip}>{hasFrameSignal ? 'Signal live' : 'Signal idle'}</span>
                 <span className={styles.canvasHudChip}>
                   {showMode ? 'Show sync' : audioVisualizerLive ? 'Audio reactive' : 'Workbench'}
@@ -1100,8 +1125,8 @@ export default function LEDPreview() {
               ref={canvasRef}
               width={canvasBufW}
               height={canvasBufH}
-              className={`${styles.canvas} ${previewStyle === 'standard' ? styles.canvasStandard : ''} ${isDiffusedStyle(previewStyle) ? styles.canvasDiffusion : ''} ${isDiffusedStyle(previewStyle) && preview3d ? styles.canvasDiffusion3d : ''} ${previewStyle === 'crt' ? styles.canvasCrt : ''}`}
-              style={preview3d ? { transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg)`, cursor: drag.current ? 'grabbing' : 'grab' } : undefined}
+              className={`${styles.canvas} ${effectivePreviewStyle === 'standard' ? styles.canvasStandard : ''} ${isDiffusedStyle(effectivePreviewStyle) ? styles.canvasDiffusion : ''} ${isDiffusedStyle(effectivePreviewStyle) && effectivePreview3d ? styles.canvasDiffusion3d : ''} ${effectivePreviewStyle === 'crt' ? styles.canvasCrt : ''}`}
+              style={effectivePreview3d ? { transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg)`, cursor: drag.current ? 'grabbing' : 'grab' } : undefined}
               onPointerDown={onRotateDown}
               onPointerMove={onRotateMove}
               onPointerUp={onRotateUp}
@@ -1117,8 +1142,8 @@ export default function LEDPreview() {
         )}
       </div>
       <div className={styles.visualizer}>
-          <div className={styles.visualizerGlow} />
-          <div className={styles.visualizerGrid} />
+          {uiEffectsEnabled && <div className={styles.visualizerGlow} />}
+          {uiEffectsEnabled && <div className={styles.visualizerGrid} />}
           <div className={styles.visualizerSection}>
             <span className={styles.visualizerKicker}>Spectrum</span>
             <span className={styles.visualizerMeta}>
@@ -1243,33 +1268,35 @@ export default function LEDPreview() {
               <strong className={styles.stagePatternName} title={stagePatternName}>{stagePatternName}</strong>
             </div>
           )}
-          <div className={styles.brandWrap} aria-hidden>
-            <div className={styles.brandLockup}>
-              <img
-                className={styles.brandLogo}
-                src="/fastled-studio-pixel-brand.png"
-                width="1535"
-                height="221"
-                fetchPriority="high"
-                alt=""
-              />
-              <div className={styles.brandTwinkles}>
-                {BRAND_TWINKLES.map((tw, i) => (
-                  <i
-                    key={i}
-                    style={{
-                      '--tx': `${tw.x}%`,
-                      '--ty': `${tw.y}%`,
-                      '--tc': tw.color,
-                      '--tt': `${tw.period}s`,
-                      '--td': `${tw.delay}s`,
-                    } as CSSProperties}
-                  />
-                ))}
+          {uiEffectsEnabled && (
+            <div className={styles.brandWrap} aria-hidden>
+              <div className={styles.brandLockup}>
+                <img
+                  className={styles.brandLogo}
+                  src="/fastled-studio-pixel-brand.png"
+                  width="1535"
+                  height="221"
+                  fetchPriority="high"
+                  alt=""
+                />
+                <div className={styles.brandTwinkles}>
+                  {BRAND_TWINKLES.map((tw, i) => (
+                    <i
+                      key={i}
+                      style={{
+                        '--tx': `${tw.x}%`,
+                        '--ty': `${tw.y}%`,
+                        '--tc': tw.color,
+                        '--tt': `${tw.period}s`,
+                        '--td': `${tw.delay}s`,
+                      } as CSSProperties}
+                    />
+                  ))}
+                </div>
+                <span className={styles.brandShine} />
               </div>
-              <span className={styles.brandShine} />
             </div>
-          </div>
+          )}
         </div>
       <input
         ref={fileInputRef}

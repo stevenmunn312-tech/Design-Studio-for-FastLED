@@ -22,6 +22,8 @@ export default function MenuBar() {
     toggleHighContrast,
     performanceMode,
     togglePerformanceMode,
+    uiEffectsEnabled,
+    toggleUiEffects,
     stageMode,
     setStageMode,
     preview3d,
@@ -45,6 +47,9 @@ export default function MenuBar() {
   const { undo, redo, pastStates, futureStates } = useTemporalStore((s) => s)
   const canUndo = pastStates.length > 0
   const canRedo = futureStates.length > 0
+  const effectiveReducedMotion = reducedMotion || !uiEffectsEnabled
+  const effectivePreview3d = uiEffectsEnabled && preview3d
+  const effectivePreviewStyle = uiEffectsEnabled ? previewStyle : 'standard'
 
   const toggleMic = () => {
     if (!micActive && showPlaying) {
@@ -151,13 +156,14 @@ export default function MenuBar() {
           {THEME_ICON[theme]} {THEME_LABEL[theme]}
         </button>
         <button
-          className={`${styles.btn} ${reducedMotion ? styles.btnActive : ''}`}
+          className={`${styles.btn} ${effectiveReducedMotion ? styles.btnActive : ''}`}
           onClick={toggleReducedMotion}
           aria-label="Toggle reduced motion"
-          aria-pressed={reducedMotion}
-          title="Toggle reduced motion"
+          aria-pressed={effectiveReducedMotion}
+          title={uiEffectsEnabled ? 'Toggle reduced motion' : 'Forced on while UI FX are off'}
+          disabled={!uiEffectsEnabled}
         >
-          {reducedMotion ? '⏸' : '▶'} Motion
+          {effectiveReducedMotion ? '⏸' : '▶'} Motion
         </button>
         <button
           className={`${styles.btn} ${highContrast ? styles.btnActive : ''}`}
@@ -176,6 +182,15 @@ export default function MenuBar() {
           title="Performance mode: hush chrome and emphasize live signal flow"
         >
           {performanceMode ? '◆' : '◇'} Perform
+        </button>
+        <button
+          className={`${styles.btn} ${!uiEffectsEnabled ? styles.btnActive : ''}`}
+          onClick={toggleUiEffects}
+          aria-label="Toggle extra UI effects"
+          aria-pressed={!uiEffectsEnabled}
+          title={uiEffectsEnabled ? 'Disable extra UI effects' : 'Enable extra UI effects'}
+        >
+          {uiEffectsEnabled ? 'FX On' : 'FX Off'}
         </button>
         <div className={styles.sep} />
         <button
@@ -200,20 +215,26 @@ export default function MenuBar() {
             Stage
           </button>
           <button
-            className={`${styles.btn} ${styles.previewBtn} ${preview3d ? styles.btnPreviewActive : ''}`}
+            className={`${styles.btn} ${styles.previewBtn} ${effectivePreview3d ? styles.btnPreviewActive : ''}`}
             onClick={togglePreview3d}
             aria-label="Toggle 3D preview"
-            aria-pressed={preview3d}
-            title={preview3d ? 'Switch to 2D view' : 'Switch to 3D view (drag to orbit)'}
+            aria-pressed={effectivePreview3d}
+            title={
+              !uiEffectsEnabled
+                ? 'Disabled while UI FX are off'
+                : effectivePreview3d ? 'Switch to 2D view' : 'Switch to 3D view (drag to orbit)'
+            }
+            disabled={!uiEffectsEnabled}
           >
-            {preview3d ? '3D On' : '3D Off'}
+            {effectivePreview3d ? '3D On' : '3D Off'}
           </button>
           <button
-            className={`${styles.btn} ${styles.styleBtn} ${isDiffusedStyle(previewStyle) ? styles.btnStyleActive : ''}`}
+            className={`${styles.btn} ${styles.styleBtn} ${isDiffusedStyle(effectivePreviewStyle) ? styles.btnStyleActive : ''}`}
             onClick={cyclePreviewStyle}
-            title="Cycle preview style"
+            title={uiEffectsEnabled ? 'Cycle preview style' : 'Forced to Standard while UI FX are off'}
+            disabled={!uiEffectsEnabled}
           >
-            {previewStyleLabel(previewStyle)}
+            {previewStyleLabel(effectivePreviewStyle)}
           </button>
           <button
             className={`${styles.btn} ${styles.micBtn} ${micActive ? styles.btnMicActive : ''}`}

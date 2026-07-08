@@ -53,6 +53,7 @@ export default function App() {
   const previewPanelOpen = useUiStore((s) => s.previewPanelOpen)
   const stageMode = useUiStore((s) => s.stageMode)
   const performanceMode = useUiStore((s) => s.performanceMode)
+  const uiEffectsEnabled = useUiStore((s) => s.uiEffectsEnabled)
   const setStatus = useUiStore((s) => s.setStatus)
   const theme = useUiStore((s) => s.theme)
   const reducedMotion = useUiStore((s) => s.reducedMotion)
@@ -82,11 +83,13 @@ export default function App() {
     const root = document.documentElement
     if (theme === 'dark') delete root.dataset.theme
     else root.dataset.theme = theme
-    if (reducedMotion) root.dataset.reducedMotion = ''
+    if (reducedMotion || !uiEffectsEnabled) root.dataset.reducedMotion = ''
     else delete root.dataset.reducedMotion
     if (highContrast) root.dataset.highContrast = ''
     else delete root.dataset.highContrast
-  }, [theme, reducedMotion, highContrast])
+    if (!uiEffectsEnabled) root.dataset.uiEffects = 'off'
+    else delete root.dataset.uiEffects
+  }, [theme, reducedMotion, highContrast, uiEffectsEnabled])
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autosaveIdle = useRef<number | null>(null)
   const latestAutosaveState = useRef<ReturnType<typeof useGraphStore.getState> | null>(null)

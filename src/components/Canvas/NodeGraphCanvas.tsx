@@ -121,7 +121,19 @@ function NodeGraphCanvasInner() {
   // click that React Flow emits right after the drop doesn't close it.
   const menuOpenedAt = useRef(0)
   const { screenToFlowPosition, flowToScreenPosition, getNode, getInternalNode, setCenter, getZoom, fitView } = useReactFlow()
-  const { setStatus, setSparkPort, setViewCenter, draggingNodeType, setDraggingNodeType, sidebarOpen, previewPanelOpen, performanceMode, reducedMotion, fitViewRequest } = useUiStore()
+  const {
+    setStatus,
+    setSparkPort,
+    setViewCenter,
+    draggingNodeType,
+    setDraggingNodeType,
+    sidebarOpen,
+    previewPanelOpen,
+    performanceMode,
+    reducedMotion,
+    fitViewRequest,
+    uiEffectsEnabled,
+  } = useUiStore()
   const wrapperRef = useRef<HTMLDivElement>(null)
   const leftInset = panelInsetPx('--sidebar-width', DEFAULT_SIDEBAR_W, sidebarOpen)
   const rightInset = panelInsetPx('--right-panel-width', DEFAULT_PREVIEW_W, previewPanelOpen)
@@ -177,9 +189,10 @@ function NodeGraphCanvasInner() {
   const hasPatternGraph = useMemo(() => nodes.some((node) => (node.data as { category?: string }).category === 'pattern'), [nodes])
 
   useEffect(() => {
+    if (!uiEffectsEnabled) return
     if (beatNow && !lastBeat.current) setBeatRippleKey((key) => key + 1)
     lastBeat.current = beatNow
-  }, [beatNow])
+  }, [beatNow, uiEffectsEnabled])
 
   useEffect(() => () => {
     if (pulseTimer.current) window.clearTimeout(pulseTimer.current)
@@ -189,6 +202,7 @@ function NodeGraphCanvasInner() {
   }, [])
 
   useEffect(() => {
+    if (!uiEffectsEnabled) return
     let lastUpdate = 0
     return usePreviewStore.subscribe((state) => {
       const now = performance.now()
@@ -217,7 +231,7 @@ function NodeGraphCanvasInner() {
       wrapper.style.setProperty('--field-energy', String(0.16 + (primary?.energy ?? 0) * 0.34))
       wrapper.style.setProperty('--field-focus-energy', String(Math.max(focusEnergy, primary?.energy ?? 0)))
     })
-  }, [nodes, selectedNodeId])
+  }, [nodes, selectedNodeId, uiEffectsEnabled])
 
   const fireConnectionCeremony = useCallback((connection: {
     source: string | null
@@ -225,6 +239,7 @@ function NodeGraphCanvasInner() {
     sourceHandle?: string | null
     targetHandle?: string | null
   }) => {
+    if (!uiEffectsEnabled) return
     if (!connection.source || !connection.target) return
     if (pulseTimer.current) window.clearTimeout(pulseTimer.current)
     if (sparkDelayTimer.current) window.clearTimeout(sparkDelayTimer.current)
@@ -272,16 +287,17 @@ function NodeGraphCanvasInner() {
       }, 410)
       sparkClearTimer.current = window.setTimeout(() => setSparkPort(null), 790)
     }
-  }, [flowToScreenPosition, getNode, setSparkPort])
+  }, [flowToScreenPosition, getNode, setSparkPort, uiEffectsEnabled])
 
   const updateCursorField = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (!uiEffectsEnabled) return
     const wrapper = wrapperRef.current
     if (!wrapper) return
     const rect = wrapper.getBoundingClientRect()
     wrapper.style.setProperty('--field-x', `${event.clientX - rect.left}px`)
     wrapper.style.setProperty('--field-y', `${event.clientY - rect.top}px`)
     wrapper.style.setProperty('--field-hover', '0.38')
-  }, [])
+  }, [uiEffectsEnabled])
 
   const quietCursorField = useCallback(() => {
     wrapperRef.current?.style.setProperty('--field-hover', '0')
@@ -752,10 +768,10 @@ function NodeGraphCanvasInner() {
       )}
       {nodes.length === 0 && (
         <div className={styles.emptyField} role="status">
-          <div className={styles.emptyFieldFrame} aria-hidden="true" />
+          {uiEffectsEnabled && <div className={styles.emptyFieldFrame} aria-hidden="true" />}
           <span className={styles.emptyEyebrow}>Signal lab idle</span>
-          <div className={styles.dormantSignal} aria-hidden="true"><span /></div>
-          <div className={styles.emptyBeacon} aria-hidden="true"><span /></div>
+          {uiEffectsEnabled && <div className={styles.dormantSignal} aria-hidden="true"><span /></div>}
+          {uiEffectsEnabled && <div className={styles.emptyBeacon} aria-hidden="true"><span /></div>}
           <strong>Patch the first light path</strong>
           <span>Drag a generator onto the field, route it to Matrix Output, and the studio wakes up like an instrument.</span>
         </div>
@@ -765,7 +781,7 @@ function NodeGraphCanvasInner() {
           <span aria-hidden="true" /> Output waiting for a frame
         </div>
       )}
-      {connectionRipple && (
+      {uiEffectsEnabled && connectionRipple && (
         <div
           key={connectionRipple.key}
           className={styles.connectionRipple}
@@ -779,7 +795,7 @@ function NodeGraphCanvasInner() {
           <span /><span />
         </div>
       )}
-      {connectionRipple && (
+      {uiEffectsEnabled && connectionRipple && (
         <div
           key={`source-${connectionRipple.key}`}
           className={styles.connectionLaunch}
@@ -794,7 +810,7 @@ function NodeGraphCanvasInner() {
           <span />
         </div>
       )}
-      {beatRippleKey > 0 && (
+      {uiEffectsEnabled && beatRippleKey > 0 && (
         <div key={beatRippleKey} className={styles.beatRipple} aria-hidden="true">
           <span />
           <span />
@@ -852,14 +868,16 @@ function NodeGraphCanvasInner() {
         defaultEdgeOptions={{ type: 'glowEdge' }}
         proOptions={{ hideAttribution: true }}
       >
-        <div className={styles.atmosphere} aria-hidden="true">
-          <div className={styles.signalField} />
-          <div className={styles.fieldLattice} />
-          <div className={styles.fieldOrbits} />
-          <div className={styles.cursorWake} />
-          <div className={styles.fieldScan} />
-          <div className={styles.focusVeil} />
-        </div>
+        {uiEffectsEnabled && (
+          <div className={styles.atmosphere} aria-hidden="true">
+            <div className={styles.signalField} />
+            <div className={styles.fieldLattice} />
+            <div className={styles.fieldOrbits} />
+            <div className={styles.cursorWake} />
+            <div className={styles.fieldScan} />
+            <div className={styles.focusVeil} />
+          </div>
+        )}
         <Background
           variant={BackgroundVariant.Dots}
           gap={20}

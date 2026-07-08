@@ -184,6 +184,7 @@ interface LivePropertyControlsProps {
   rawProps: Record<string, unknown>
   props: Record<string, unknown>
   sourceMap: Map<string, { srcId: string; srcPort: string }>
+  uiEffectsEnabled: boolean
   editable: [string, unknown][]
   hasRGB: boolean
   isGroupInput: boolean
@@ -202,6 +203,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
   rawProps,
   props,
   sourceMap,
+  uiEffectsEnabled,
   editable,
   hasRGB,
   isGroupInput,
@@ -223,7 +225,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
   // re-renders when one of its own driven values changes. Frames (2D arrays)
   // aren't shown in inline editors, so they're skipped to keep the payload small.
   const liveJson = usePreviewStore((s) => {
-    if (sourceMap.size === 0) return ''
+    if (!uiEffectsEnabled || sourceMap.size === 0) return ''
     const o: Record<string, unknown> = {}
     for (const [handle, src] of sourceMap) {
       const v = s.outputs.get(src.srcId)?.[src.srcPort]
@@ -463,6 +465,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     s.sparkPort?.nodeId === id ? (s.sparkPort?.portId ?? null) : null
   )
   const performanceMode = useUiStore((s) => s.performanceMode)
+  const uiEffectsEnabled = useUiStore((s) => s.uiEffectsEnabled)
   const focusState = useGraphStore((s) => {
     if (!s.selectedNodeId) return 'neutral'
     return traceSignalPath(s.edges, s.selectedNodeId).has(id) ? 'active' : 'dim'
@@ -586,14 +589,18 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const categoryTag = CATEGORY_TAG[d.category] ?? 'MOD'
   const headerCode = moduleCode(d.nodeType)
   const nodeTag = id.slice(-3).toUpperCase()
+  const showLiveNodeVisuals = uiEffectsEnabled
 
   useEffect(() => {
-    applyNodeSignal(nodeRef.current, signalKey ? usePreviewStore.getState().signals.get(signalKey) : undefined)
-    if (!signalKey) return
+    if (!showLiveNodeVisuals || !signalKey) {
+      applyNodeSignal(nodeRef.current, undefined)
+      return
+    }
+    applyNodeSignal(nodeRef.current, usePreviewStore.getState().signals.get(signalKey))
     return usePreviewStore.subscribe((state) => {
       applyNodeSignal(nodeRef.current, state.signals.get(signalKey))
     })
-  }, [signalKey])
+  }, [showLiveNodeVisuals, signalKey])
 
   return (
     <div
@@ -609,19 +616,21 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         <span className={styles.headerMeta}>
           <span className={styles.headerTag}>{categoryTag}</span>
           <span className={styles.headerCode}>{headerCode}-{nodeTag}</span>
-          <span className={styles.headerMeter} aria-hidden="true">
-            <span style={{ opacity: 'clamp(0.2, calc(var(--signal-energy) * 1.5), 1)' }} />
-            <span style={{ opacity: 'clamp(0.12, calc((var(--signal-energy) - 0.18) * 1.8), 1)' }} />
-            <span style={{ opacity: 'clamp(0.08, calc((var(--signal-energy) - 0.42) * 2.1), 1)' }} />
-          </span>
+          {showLiveNodeVisuals && (
+            <span className={styles.headerMeter} aria-hidden="true">
+              <span style={{ opacity: 'clamp(0.2, calc(var(--signal-energy) * 1.5), 1)' }} />
+              <span style={{ opacity: 'clamp(0.12, calc((var(--signal-energy) - 0.18) * 1.8), 1)' }} />
+              <span style={{ opacity: 'clamp(0.08, calc((var(--signal-energy) - 0.42) * 2.1), 1)' }} />
+            </span>
+          )}
         </span>
       </div>
       <div className={styles.body}>
-        {isWave && waveSamples && <WaveScope samples={waveSamples} />}
-        {isComplexWave && <ComplexWaveScope nodeId={id} />}
-        {isBeatDetect && <BeatDetectBody nodeId={id} />}
-        {isFFTAnalyzer && <FFTAnalyzerBody nodeId={id} bands={Number(props.bands ?? 24)} />}
-        {previewKind && outPort && (
+        {showLiveNodeVisuals && isWave && waveSamples && <WaveScope samples={waveSamples} />}
+        {showLiveNodeVisuals && isComplexWave && <ComplexWaveScope nodeId={id} />}
+        {showLiveNodeVisuals && isBeatDetect && <BeatDetectBody nodeId={id} />}
+        {showLiveNodeVisuals && isFFTAnalyzer && <FFTAnalyzerBody nodeId={id} bands={Number(props.bands ?? 24)} />}
+        {showLiveNodeVisuals && previewKind && outPort && (
           previewHidden ? (
             <button
               type="button"
@@ -722,6 +731,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           rawProps={rawProps}
           props={props}
           sourceMap={sourceMap}
+          uiEffectsEnabled={uiEffectsEnabled}
           editable={editable}
           hasRGB={hasRGB}
           isGroupInput={isGroupInput}

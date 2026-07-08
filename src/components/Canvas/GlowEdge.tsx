@@ -3,6 +3,7 @@ import { getBezierPath, useReactFlow } from '@xyflow/react'
 import type { EdgeProps } from '@xyflow/react'
 import { CATEGORY_COLOR } from '../../state/nodeLibrary'
 import { usePreviewStore } from '../../state/previewStore'
+import { useUiStore } from '../../state/uiStore'
 import styles from './GlowEdge.module.css'
 
 type SignalFamily = 'frame' | 'audio' | 'color' | 'control'
@@ -90,6 +91,7 @@ function GlowEdge({
   const signal = usePreviewStore((state) =>
     sourceHandleId ? state.signals.get(`${source}:${sourceHandleId}`) : undefined
   )
+  const uiEffectsEnabled = useUiStore((state) => state.uiEffectsEnabled)
   const signalEnergy = signal?.energy ?? 0
   const idleVisibility = 1 - Math.min(1, signalEnergy * 1.35)
   const color = signal?.emissive || (typeof style?.stroke === 'string' && style.stroke) || CATEGORY_COLOR[category] || '#00bfff'
@@ -116,6 +118,43 @@ function GlowEdge({
     targetY,
     targetPosition,
   })
+
+  if (!uiEffectsEnabled) {
+    return (
+      <g className={focusState === 'dim' ? styles.focusDim : focusState === 'active' ? styles.focusActive : ''}>
+        {spliceArmed && (
+          <path
+            data-splice-edge-id={id}
+            d={edgePath}
+            fill="none"
+            stroke="transparent"
+            strokeWidth={SPLICE_HIT_WIDTH}
+            pointerEvents="stroke"
+          />
+        )}
+        {splicePreview && (
+          <path
+            className={styles.spliceTarget}
+            d={edgePath}
+            fill="none"
+            stroke={color}
+            strokeWidth={14}
+            strokeLinecap="round"
+            style={{ '--edge-color': color } as React.CSSProperties}
+          />
+        )}
+        <path
+          d={edgePath}
+          fill="none"
+          stroke={color}
+          strokeWidth={2.4}
+          strokeLinecap="round"
+          strokeOpacity={0.76 + idleVisibility * 0.12}
+        />
+        <circle cx={targetX} cy={targetY} r={3.2} fill={color} opacity={0.82} />
+      </g>
+    )
+  }
 
   return (
     <g className={`${familyClass} ${focusState === 'dim' ? styles.focusDim : focusState === 'active' ? styles.focusActive : ''}`}>
