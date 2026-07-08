@@ -3363,6 +3363,9 @@ function createEvalNode(
           sampling: props.sampling === 'smooth' ? 'smooth' : 'nearest',
           brightness: Number(props.brightness ?? 1),
           background: hexToRgb(String(props.background ?? '#000000')),
+          zoom: Number(props.zoom ?? 1),
+          cropX: Number(props.cropX ?? 0.5),
+          cropY: Number(props.cropY ?? 0.5),
         }) : blankFrame(W, H) }
         break
       }

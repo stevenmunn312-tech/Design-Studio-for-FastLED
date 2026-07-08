@@ -60,8 +60,14 @@ export default function Inspector() {
       ctx.drawImage(img, 0, 0, w, h)
       const data = ctx.getImageData(0, 0, w, h).data
       const pixels: number[] = []
-      for (let i = 0; i < w * h; i++) pixels.push(data[i * 4], data[i * 4 + 1], data[i * 4 + 2])
-      updateNodeProperty(nodeId, 'image', { w, h, pixels })
+      const alpha: number[] = []
+      let hasTransparency = false
+      for (let i = 0; i < w * h; i++) {
+        pixels.push(data[i * 4], data[i * 4 + 1], data[i * 4 + 2])
+        alpha.push(data[i * 4 + 3])
+        if (data[i * 4 + 3] < 255) hasTransparency = true
+      }
+      updateNodeProperty(nodeId, 'image', hasTransparency ? { w, h, pixels, alpha } : { w, h, pixels })
       setStatus(`Loaded image (${w}×${h})`, 'success')
     }
     img.onerror = () => { URL.revokeObjectURL(url); setStatus('Could not load image', 'error') }

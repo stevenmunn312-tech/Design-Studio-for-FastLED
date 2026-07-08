@@ -13,6 +13,9 @@ describe('nodeLibrary', () => {
       sampling: 'nearest',
       brightness: 1,
       background: '#000000',
+      zoom: 1,
+      cropX: 0.5,
+      cropY: 0.5,
     })
   })
 

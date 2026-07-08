@@ -30,6 +30,13 @@ describe('sampleImageToFrame', () => {
     expect(frame[3][3]).toEqual({ r: 40, g: 40, b: 40 })  // bottom-right
   })
 
+  it('accepts optional alpha and rejects a mismatched alpha plane', () => {
+    expect(asImage({ w: 1, h: 1, pixels: [1, 2, 3], alpha: [128] })).toEqual({
+      w: 1, h: 1, pixels: [1, 2, 3], alpha: [128],
+    })
+    expect(asImage({ w: 2, h: 1, pixels: [1, 2, 3, 4, 5, 6], alpha: [255] })).toBeNull()
+  })
+
   it('contains an image and positions the letterbox area', () => {
     const img = { w: 2, h: 1, pixels: [255, 0, 0, 0, 255, 0] }
     const top = sampleImageToFrame(img, 2, 2, { fit: 'contain', positionY: 0 })
@@ -90,5 +97,34 @@ describe('sampleImageToFrame', () => {
     })
     expect(frame[0]).toEqual([{ r: 50, g: 40, b: 30 }, { r: 20, g: 10, b: 5 }])
     expect(frame[1]).toEqual([{ r: 10, g: 20, b: 30 }, { r: 10, g: 20, b: 30 }])
+  })
+
+  it('zooms into the source and steers the crop window', () => {
+    const img = { w: 4, h: 1, pixels: [10, 0, 0, 20, 0, 0, 30, 0, 0, 40, 0, 0] }
+    const left = sampleImageToFrame(img, 2, 1, { zoom: 2, cropX: 0 })
+    const right = sampleImageToFrame(img, 2, 1, { zoom: 2, cropX: 1 })
+    expect(left[0].map(p => p.r)).toEqual([10, 20])
+    expect(right[0].map(p => p.r)).toEqual([30, 40])
+  })
+
+  it('composites alpha over the configured background', () => {
+    const img = {
+      w: 2, h: 1, pixels: [255, 0, 0, 0, 0, 255], alpha: [0, 128],
+    }
+    const frame = sampleImageToFrame(img, 2, 1, { background: { r: 0, g: 100, b: 0 } })
+    expect(frame[0]).toEqual([{ r: 0, g: 100, b: 0 }, { r: 0, g: 50, b: 128 }])
+  })
+
+  it('smoothly interpolates premultiplied alpha without colour halos', () => {
+    const img = {
+      w: 2, h: 1, pixels: [255, 0, 0, 0, 0, 255], alpha: [0, 255],
+    }
+    const frame = sampleImageToFrame(img, 4, 1, { sampling: 'smooth' })
+    expect(frame[0]).toEqual([
+      { r: 0, g: 0, b: 0 },
+      { r: 0, g: 0, b: 64 },
+      { r: 0, g: 0, b: 191 },
+      { r: 0, g: 0, b: 255 },
+    ])
   })
 })

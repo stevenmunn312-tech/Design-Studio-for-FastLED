@@ -970,6 +970,20 @@ describe('evaluateGraph', () => {
     expect(f[3]).toEqual(Array(4).fill({ r: 10, g: 20, b: 30 }))
   })
 
+  it('Image applies alpha compositing and source crop controls', () => {
+    const image = {
+      w: 4, h: 1,
+      pixels: [255, 0, 0, 255, 0, 0, 0, 0, 255, 0, 0, 255],
+      alpha: [255, 255, 128, 0],
+    }
+    const img = node('img', 'Image', 'pattern', {
+      image, zoom: 2, cropX: 1, background: '#006400',
+    })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const f = evaluateGraph([img, out], [edge('e', 'img', 'frame', 'out', 'frame')], 0, 2, 1)!
+    expect(f[0]).toEqual([{ r: 0, g: 50, b: 128 }, { r: 0, g: 100, b: 0 }])
+  })
+
   it('FlowField deposits trails that build up over frames', () => {
     const ff = node('ff', 'FlowField', 'pattern', { speed: 1, scale: 0.1, count: 60, fade: 0.9, palette: 'ocean' })
     const out = node('out', 'MatrixOutput', 'output', {})

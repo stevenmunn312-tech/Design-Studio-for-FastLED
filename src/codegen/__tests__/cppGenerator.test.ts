@@ -651,8 +651,22 @@ describe('generateCpp', () => {
     expect(cpp).toContain('const float _ibr=0.5f')
     expect(cpp).toContain('CRGB(8,16,24); continue;')
     expect(cpp).toContain('floorf(_fx)')
-    expect(cpp).toContain('CRGB _c00=_imgpx(')
-    expect(cpp).toContain('_rr*_ibr+0.5f')
+    expect(cpp).toContain('_ImgPx _c00=_imgpx(')
+    expect(cpp).toContain('_imgcolor({_rr,_rg,_rb,_ra})')
+  })
+
+  it('emits Image alpha compositing and crop/zoom controls', () => {
+    const image = { w: 2, h: 1, pixels: [255, 0, 0, 0, 0, 255], alpha: [0, 128] }
+    const img = node('img', 'Image', 'pattern', {
+      image, zoom: 2, cropX: 0.25, cropY: 0.75, background: '#102030',
+    })
+    const cpp = generateCpp([img, outputNode], [edge('e', 'img', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('PROGMEM = {0,128}')
+    expect(cpp).toContain('_izv=0.5f')
+    expect(cpp).toContain('_u=(1-_izv)*0.25f+_u*_izv')
+    expect(cpp).toContain('_v=(1-_izv)*0.75f+_v*_izv')
+    expect(cpp).toContain('pgm_read_byte(&_imga_img[_ai])/255.0f')
+    expect(cpp).toContain('_p.r+16.0f*(1-_p.a)')
   })
 
   it('emits fractal noise via summed inoise8 octaves', () => {

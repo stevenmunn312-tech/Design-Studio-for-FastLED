@@ -1067,7 +1067,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { angle: 45, repeat: 1, speed: 0, palette: 'rainbow' },
   },
   {
-    // Uploaded image, downscaled and nearest-sampled to the matrix.
+    // Uploaded image with placement, sampling, alpha, and crop controls.
     type: 'Image',
     label: 'Image',
     category: 'pattern',
@@ -1084,6 +1084,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       sampling: 'nearest',
       brightness: 1,
       background: '#000000',
+      zoom: 1,
+      cropX: 0.5,
+      cropY: 0.5,
     },
   },
   {
@@ -1616,7 +1619,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Blobs: 'Metaballs — merging lava-lamp blobs.',
   GaborNoise: 'Gabor noise — oriented bands via sparse convolution.',
   PaletteGradient: 'Palette gradient across the matrix at any angle.',
-  Image: 'Uploaded image, downscaled to the matrix.',
+  Image: 'Uploaded image with fit, crop, smoothing and alpha controls.',
   FlowField: 'Particles drifting along a noise flow field, with trails.',
   Starfield: 'Warp starfield — stars streak outward from the centre.',
   AudioFlow: 'Audio-reactive flowing noise field.',
@@ -1974,6 +1977,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     positionX: { control: 'slider', min: 0, max: 1, step: 0.01 },
     positionY: { control: 'slider', min: 0, max: 1, step: 0.01 },
     rotation:  { control: 'select', options: ['0', '90', '180', '270'] },
+    zoom:      { control: 'slider', min: 1, max: 8, step: 0.1 },
+    cropX:     { control: 'slider', min: 0, max: 1, step: 0.01 },
+    cropY:     { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   // DistanceField stretches the distance ramp 1×–4× (the shared `scale` is 0–2).
   DistanceField:     { scale: { control: 'slider', min: 1, max: 4,   step: 0.1 } },

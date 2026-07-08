@@ -9,7 +9,7 @@ import styles from './ImageNodeBody.module.css'
 
 function loadImageFile(
   file: File,
-  onDone: (data: { w: number; h: number; pixels: number[] }) => void,
+  onDone: (data: { w: number; h: number; pixels: number[]; alpha?: number[] }) => void,
 ) {
   const url = URL.createObjectURL(file)
   const el = new Image()
@@ -25,8 +25,14 @@ function loadImageFile(
     ctx.drawImage(el, 0, 0, w, h)
     const data = ctx.getImageData(0, 0, w, h).data
     const pixels: number[] = []
-    for (let i = 0; i < w * h; i++) pixels.push(data[i * 4], data[i * 4 + 1], data[i * 4 + 2])
-    onDone({ w, h, pixels })
+    const alpha: number[] = []
+    let hasTransparency = false
+    for (let i = 0; i < w * h; i++) {
+      pixels.push(data[i * 4], data[i * 4 + 1], data[i * 4 + 2])
+      alpha.push(data[i * 4 + 3])
+      if (data[i * 4 + 3] < 255) hasTransparency = true
+    }
+    onDone(hasTransparency ? { w, h, pixels, alpha } : { w, h, pixels })
   }
   el.onerror = () => URL.revokeObjectURL(url)
   el.src = url

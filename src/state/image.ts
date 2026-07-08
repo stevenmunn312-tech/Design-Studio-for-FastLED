@@ -15,6 +15,7 @@ export interface ImageData {
   w: number
   h: number
   pixels: number[] // flat r,g,b triples, length w*h*3
+  alpha?: number[] // optional row-major alpha bytes, length w*h
 }
 
 export type ImageFit = 'stretch' | 'contain' | 'cover' | 'original'
@@ -30,17 +31,23 @@ export interface ImageTransform {
   sampling?: ImageSampling
   brightness?: number
   background?: RGB
+  zoom?: number
+  cropX?: number
+  cropY?: number
 }
 
 /** Validate an unknown value as ImageData, or null if it isn't one. */
 export function asImage(value: unknown): ImageData | null {
   if (!value || typeof value !== 'object') return null
   const v = value as Record<string, unknown>
-  const w = v.w, h = v.h, pixels = v.pixels
+  const w = v.w, h = v.h, pixels = v.pixels, alpha = v.alpha
   if (typeof w !== 'number' || typeof h !== 'number') return null
   if (!Number.isInteger(w) || !Number.isInteger(h) || w <= 0 || h <= 0) return null
   if (!Array.isArray(pixels) || pixels.length !== w * h * 3) return null
-  return { w, h, pixels: pixels as number[] }
+  if (alpha !== undefined && (!Array.isArray(alpha) || alpha.length !== w * h)) return null
+  return alpha === undefined
+    ? { w, h, pixels: pixels as number[] }
+    : { w, h, pixels: pixels as number[], alpha: alpha as number[] }
 }
 
 /** Sample an image to a W×H frame with placement and colour transforms. */
@@ -64,6 +71,10 @@ export function sampleImageToFrame(
   const rawBrightness = Number(transform.brightness ?? 1)
   const brightness = Number.isFinite(rawBrightness) ? Math.max(0, Math.min(1, rawBrightness)) : 1
   const background = transform.background ?? { r: 0, g: 0, b: 0 }
+  const rawZoom = Number(transform.zoom ?? 1)
+  const zoom = Number.isFinite(rawZoom) ? Math.max(1, Math.min(8, rawZoom)) : 1
+  const cropX = position(transform.cropX)
+  const cropY = position(transform.cropY)
   const scaleRgb = (color: RGB): RGB => ({
     r: Math.round(color.r * brightness),
     g: Math.round(color.g * brightness),
@@ -88,7 +99,8 @@ export function sampleImageToFrame(
   const offsetX = (W - drawW) * positionX
   const offsetY = (H - drawH) * positionY
 
-  const sourcePixel = (orientedX: number, orientedY: number): RGB => {
+  type PremultipliedPixel = RGB & { a: number }
+  const sourcePixel = (orientedX: number, orientedY: number): PremultipliedPixel => {
     let ox = orientedX
     let oy = orientedY
     if (transform.flipX) ox = rw - 1 - ox
@@ -105,19 +117,28 @@ export function sampleImageToFrame(
       sx = ox; sy = oy
     }
     const i = (sy * img.w + sx) * 3
-    return { r: img.pixels[i], g: img.pixels[i + 1], b: img.pixels[i + 2] }
+    const a = (img.alpha?.[sy * img.w + sx] ?? 255) / 255
+    return { r: img.pixels[i] * a, g: img.pixels[i + 1] * a, b: img.pixels[i + 2] * a, a }
   }
+  const composite = (pixel: PremultipliedPixel): RGB => ({
+    r: Math.round((pixel.r + background.r * (1 - pixel.a)) * brightness),
+    g: Math.round((pixel.g + background.g * (1 - pixel.a)) * brightness),
+    b: Math.round((pixel.b + background.b * (1 - pixel.a)) * brightness),
+  })
 
   const frame: Frame = []
   for (let y = 0; y < H; y++) {
     const row: RGB[] = []
     for (let x = 0; x < W; x++) {
-      const u = (x + 0.5 - offsetX) / drawW
-      const v = (y + 0.5 - offsetY) / drawH
+      let u = (x + 0.5 - offsetX) / drawW
+      let v = (y + 0.5 - offsetY) / drawH
       if (u < 0 || u >= 1 || v < 0 || v >= 1) {
         row.push(scaleRgb(background))
         continue
       }
+      const view = 1 / zoom
+      u = (1 - view) * cropX + u * view
+      v = (1 - view) * cropY + v * view
 
       if (sampling === 'smooth') {
         const fx = u * rw - 0.5
@@ -132,16 +153,16 @@ export function sampleImageToFrame(
         const y1 = Math.max(0, Math.min(rh - 1, floorY + 1))
         const c00 = sourcePixel(x0, y0), c10 = sourcePixel(x1, y0)
         const c01 = sourcePixel(x0, y1), c11 = sourcePixel(x1, y1)
-        const channel = (key: keyof RGB) => {
+        const channel = (key: keyof PremultipliedPixel) => {
           const top = c00[key] + (c10[key] - c00[key]) * tx
           const bottom = c01[key] + (c11[key] - c01[key]) * tx
-          return Math.round((top + (bottom - top) * ty) * brightness)
+          return top + (bottom - top) * ty
         }
-        row.push({ r: channel('r'), g: channel('g'), b: channel('b') })
+        row.push(composite({ r: channel('r'), g: channel('g'), b: channel('b'), a: channel('a') }))
       } else {
         const ox = Math.min(rw - 1, Math.floor(u * rw))
         const oy = Math.min(rh - 1, Math.floor(v * rh))
-        row.push(scaleRgb(sourcePixel(ox, oy)))
+        row.push(composite(sourcePixel(ox, oy)))
       }
     }
     frame.push(row)
