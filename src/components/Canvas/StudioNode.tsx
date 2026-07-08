@@ -24,6 +24,7 @@ const PerformanceGeneratorBody = lazy(() => import('./PerformanceGeneratorBody')
 const PatternCollectionBody = lazy(() => import('./PatternCollectionBody'))
 const TransitionSetBody = lazy(() => import('./TransitionSetBody'))
 const ImageNodeBody = lazy(() => import('./ImageNodeBody'))
+const AnimatedImageNodeBody = lazy(() => import('./AnimatedImageNodeBody'))
 const MatrixOutputUpload = lazy(() => import('../Upload/MatrixOutputUpload'))
 
 type PortDef = { id: string; label: string; dataType: string }
@@ -581,7 +582,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // PatternCollection body's section chips.
   const isGroupInput = d.nodeType === 'GroupInput'
   const editable = Object.entries(props).filter(
-    ([k]) => k !== 'font' && k !== 'image' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions' && k !== 'previewHidden'
+    ([k]) => k !== 'font' && k !== 'image' && k !== 'animation' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions' && k !== 'previewHidden'
       // PSRAM controls render in MatrixOutputUpload — their visibility depends
       // on whether the *selected board* supports PSRAM, which only it knows.
       && k !== 'usePsram' && k !== 'psramMode'
@@ -746,6 +747,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           {d.nodeType === 'MusicLibrary' && <MusicLibraryNodeBody nodeId={id} />}
           {d.nodeType === 'PerformanceGenerator' && <PerformanceGeneratorBody nodeId={id} />}
           {d.nodeType === 'Image' && <ImageNodeBody nodeId={id} />}
+          {d.nodeType === 'AnimatedImage' && <AnimatedImageNodeBody nodeId={id} />}
 
           {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}
           {d.nodeType === 'TransitionSet' && <TransitionSetBody nodeId={id} />}

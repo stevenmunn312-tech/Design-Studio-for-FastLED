@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { asImage, sampleImageToFrame } from '../image'
+import { animatedImageFrame, asAnimatedImage, asImage, sampleImageToFrame } from '../image'
 
 describe('asImage', () => {
   it('accepts a well-formed image', () => {
@@ -126,5 +126,44 @@ describe('sampleImageToFrame', () => {
       { r: 0, g: 0, b: 191 },
       { r: 0, g: 0, b: 255 },
     ])
+  })
+
+  it('applies monochrome, contrast, hue, and gamma treatment', () => {
+    const img = { w: 1, h: 1, pixels: [255, 0, 0] }
+    expect(sampleImageToFrame(img, 1, 1, { monochrome: true })[0][0]).toEqual({ r: 54, g: 54, b: 54 })
+    expect(sampleImageToFrame(img, 1, 1, { contrast: 0 })[0][0]).toEqual({ r: 128, g: 128, b: 128 })
+    const shifted = sampleImageToFrame(img, 1, 1, { hueShift: 120 })[0][0]
+    expect(shifted.g).toBeGreaterThan(shifted.r)
+    const gamma = sampleImageToFrame({ w: 1, h: 1, pixels: [128, 128, 128] }, 1, 1, { gamma: 2 })[0][0]
+    expect(gamma).toEqual({ r: 64, g: 64, b: 64 })
+  })
+
+  it('reduces palette levels with optional ordered dithering', () => {
+    const img = { w: 1, h: 1, pixels: [100, 100, 100] }
+    const flat = sampleImageToFrame(img, 2, 2, { paletteLevels: 2 })
+    expect(flat.flat().every(px => px.r === 0 && px.g === 0 && px.b === 0)).toBe(true)
+    const dithered = sampleImageToFrame(img, 2, 2, { paletteLevels: 2, dithering: 'ordered2x2' })
+    expect(dithered.map(row => row.map(px => px.r))).toEqual([[255, 0], [0, 255]])
+  })
+})
+
+describe('animated images', () => {
+  const red = { w: 1, h: 1, pixels: [255, 0, 0] }
+  const blue = { w: 1, h: 1, pixels: [0, 0, 255] }
+
+  it('validates matching frames and durations', () => {
+    expect(asAnimatedImage({ frames: [red, blue], durations: [100, 200] })).toEqual({
+      frames: [red, blue], durations: [100, 200],
+    })
+    expect(asAnimatedImage({ frames: [red, blue], durations: [100] })).toBeNull()
+    expect(asAnimatedImage({ frames: [red, { w: 2, h: 1, pixels: [0, 0, 0, 0, 0, 0] }], durations: [100, 100] })).toBeNull()
+  })
+
+  it('selects frames with looping and hold-last playback', () => {
+    const animation = { frames: [red, blue], durations: [100, 200] }
+    expect(animatedImageFrame(animation, 99)).toEqual(red)
+    expect(animatedImageFrame(animation, 100)).toEqual(blue)
+    expect(animatedImageFrame(animation, 300)).toEqual(red)
+    expect(animatedImageFrame(animation, 500, false)).toEqual(blue)
   })
 })

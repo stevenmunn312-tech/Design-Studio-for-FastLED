@@ -1,7 +1,7 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import { asFont, textColumns } from '../state/font'
-import { asImage } from '../state/image'
+import { asAnimatedImage, asImage } from '../state/image'
 import { polineStops16, hexToRgb } from '../state/polinePalette'
 import { customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCatalog'
 import { audioFlowExpr } from '../state/audioFlowRange'
@@ -2031,13 +2031,21 @@ export function generateCpp(
         break
       }
 
-      case 'Image': {
+      case 'Image':
+      case 'AnimatedImage': {
         const ob = ownBuf()
-        const img = asImage(p.image)
+        const animation = node.data.nodeType === 'AnimatedImage' ? asAnimatedImage(p.animation) : null
+        const frames = animation?.frames
+        const img = frames?.[0] ?? asImage(p.image)
         if (!img) {
-          ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // Image: none uploaded`)
+          ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // ${node.data.nodeType}: none uploaded`)
           break
         }
+        const storedPixels = frames ? frames.flatMap((frame) => frame.pixels) : img.pixels
+        const hasAlpha = frames ? frames.some((frame) => Boolean(frame.alpha)) : Boolean(img.alpha)
+        const storedAlpha = hasAlpha
+          ? (frames ?? [img]).flatMap((frame) => frame.alpha ?? Array(frame.w * frame.h).fill(255))
+          : null
         const fit = ['contain', 'cover', 'original'].includes(String(p.fit)) ? String(p.fit) : 'stretch'
         const rawRotation = ((Number(p.rotation ?? 0) % 360) + 360) % 360
         const rotation = [90, 180, 270].includes(rawRotation) ? rawRotation : 0
@@ -2056,17 +2064,41 @@ export function generateCpp(
         const rawBrightness = Number(p.brightness ?? 1)
         const brightness = Number.isFinite(rawBrightness) ? Math.max(0, Math.min(1, rawBrightness)) : 1
         const background = hexToRgb(String(p.background ?? '#000000'))
-        const scaledBackground = {
-          r: Math.round(background.r * brightness),
-          g: Math.round(background.g * brightness),
-          b: Math.round(background.b * brightness),
+        const finite = (value: unknown, fallback: number, min: number, max: number) => {
+          const n = Number(value ?? fallback)
+          return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback
         }
+        const saturation = p.monochrome ? 0 : finite(p.saturation, 1, 0, 2)
+        const contrast = finite(p.contrast, 1, 0, 2)
+        const hue = finite(p.hueShift, 0, -180, 180) * Math.PI / 180
+        const gamma = finite(p.gamma, 1, 1, 3.5)
+        const rawLevels = Number(p.paletteLevels)
+        const paletteLevels = Number.isFinite(rawLevels) && rawLevels >= 2 ? Math.min(32, Math.round(rawLevels)) : 0
+        const dithering = p.dithering === 'ordered2x2' || p.dithering === 'ordered4x4' ? p.dithering : 'none'
+        const hc = Math.cos(hue), hs = Math.sin(hue)
+        const hm = [
+          .213 + .787 * hc - .213 * hs, .715 - .715 * hc - .715 * hs, .072 - .072 * hc + .928 * hs,
+          .213 - .213 * hc + .143 * hs, .715 + .285 * hc + .140 * hs, .072 - .072 * hc - .283 * hs,
+          .213 - .213 * hc - .787 * hs, .715 - .715 * hc + .715 * hs, .072 + .928 * hc + .072 * hs,
+        ]
         const sampling = p.sampling === 'smooth' ? 'smooth' : 'nearest'
         const fl = (value: number) => `${Number.isInteger(value) ? value.toFixed(1) : value}f`
-        ln(`  { // Image ${img.w}x${img.h}`)
-        ln(`    static const uint8_t _img_${id}[] PROGMEM = {${img.pixels.join(',')}};`)
-        if (img.alpha) ln(`    static const uint8_t _imga_${id}[] PROGMEM = {${img.alpha.join(',')}};`)
+        ln(`  { // ${node.data.nodeType} ${img.w}x${img.h}`)
+        ln(`    static const uint8_t _img_${id}[] PROGMEM = {${storedPixels.join(',')}};`)
+        if (storedAlpha) ln(`    static const uint8_t _imga_${id}[] PROGMEM = {${storedAlpha.join(',')}};`)
+        if (animation) ln(`    static const uint32_t _imgd_${id}[] PROGMEM = {${animation.durations.map((duration) => Math.round(duration)).join(',')}};`)
         ln(`    const int _iw=${img.w}, _ih=${img.h}, _rw=${rw}, _rh=${rh};`)
+        if (animation) {
+          const total = Math.max(1, Math.round(animation.durations.reduce((sum, duration) => sum + duration, 0)))
+          const playbackRate = finite(p.playbackRate, 1, 0.25, 4)
+          ln(`    uint32_t _it=(uint32_t)(millis()*${fl(playbackRate)});`)
+          if (p.loop !== false) ln(`    _it%=${total}UL;`)
+          else ln(`    _it=min(_it,${total - 1}UL);`)
+          ln(`    int _ifr=0; uint32_t _iacc=0; for(int _i=0;_i<${animation.frames.length};_i++){ _iacc+=pgm_read_dword(&_imgd_${id}[_i]); if(_it<_iacc){_ifr=_i;break;} }`)
+          ln(`    const int _ibase=_ifr*_iw*_ih;`)
+        } else {
+          ln(`    const int _ibase=0;`)
+        }
         if (fit === 'contain' || fit === 'cover') {
           const scaleFn = fit === 'contain' ? 'fminf' : 'fmaxf'
           ln(`    float _isc=${scaleFn}((float)WIDTH/_rw,(float)HEIGHT/_rh), _dw=_rw*_isc, _dh=_rh*_isc;`)
@@ -2077,6 +2109,8 @@ export function generateCpp(
         }
         ln(`    float _iox=(WIDTH-_dw)*${fl(positionX)}, _ioy=(HEIGHT-_dh)*${fl(positionY)};`)
         ln(`    const float _ibr=${fl(brightness)}, _izv=${fl(1 / zoom)};`)
+        if (dithering === 'ordered2x2') ln(`    static const uint8_t _idither[] PROGMEM={0,2,3,1};`)
+        else if (dithering === 'ordered4x4') ln(`    static const uint8_t _idither[] PROGMEM={0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5};`)
         ln(`    struct _ImgPx { float r,g,b,a; };`)
         ln(`    auto _imgpx=[&](int _px,int _py)->_ImgPx{`)
         if (p.flipX) ln(`      _px=_rw-1-_px;`)
@@ -2085,14 +2119,27 @@ export function generateCpp(
         else if (rotation === 180) ln(`      int _sx=_iw-1-_px, _sy=_ih-1-_py;`)
         else if (rotation === 270) ln(`      int _sx=_iw-1-_py, _sy=_px;`)
         else ln(`      int _sx=_px, _sy=_py;`)
-        ln(`      int _ai=_sy*_iw+_sx, _pi=_ai*3;`)
-        if (img.alpha) ln(`      float _a=pgm_read_byte(&_imga_${id}[_ai])/255.0f;`)
+        ln(`      int _ai=_ibase+_sy*_iw+_sx, _pi=_ai*3;`)
+        if (storedAlpha) ln(`      float _a=pgm_read_byte(&_imga_${id}[_ai])/255.0f;`)
         else ln(`      float _a=1.0f;`)
         ln(`      return {(float)pgm_read_byte(&_img_${id}[_pi])*_a,(float)pgm_read_byte(&_img_${id}[_pi+1])*_a,(float)pgm_read_byte(&_img_${id}[_pi+2])*_a,_a};};`)
-        ln(`    auto _imgcolor=[&](_ImgPx _p)->CRGB{ return CRGB((uint8_t)((_p.r+${fl(background.r)}*(1-_p.a))*_ibr+0.5f),(uint8_t)((_p.g+${fl(background.g)}*(1-_p.a))*_ibr+0.5f),(uint8_t)((_p.b+${fl(background.b)}*(1-_p.a))*_ibr+0.5f));};`)
+        ln(`    auto _imgcolor=[&](_ImgPx _p,int _x,int _y)->CRGB{`)
+        ln(`      float _r=(_p.r+${fl(background.r)}*(1-_p.a))*_ibr, _g=(_p.g+${fl(background.g)}*(1-_p.a))*_ibr, _b=(_p.b+${fl(background.b)}*(1-_p.a))*_ibr;`)
+        ln(`      float _hr=_r*${fl(hm[0])}+_g*${fl(hm[1])}+_b*${fl(hm[2])}, _hg=_r*${fl(hm[3])}+_g*${fl(hm[4])}+_b*${fl(hm[5])}, _hb=_r*${fl(hm[6])}+_g*${fl(hm[7])}+_b*${fl(hm[8])};`)
+        ln(`      float _lum=_hr*0.2126f+_hg*0.7152f+_hb*0.0722f; _r=(_lum+(_hr-_lum)*${fl(saturation)}-127.5f)*${fl(contrast)}+127.5f; _g=(_lum+(_hg-_lum)*${fl(saturation)}-127.5f)*${fl(contrast)}+127.5f; _b=(_lum+(_hb-_lum)*${fl(saturation)}-127.5f)*${fl(contrast)}+127.5f;`)
+        if (gamma !== 1) ln(`      _r=powf(constrain(_r,0.0f,255.0f)/255.0f,${fl(gamma)})*255.0f; _g=powf(constrain(_g,0.0f,255.0f)/255.0f,${fl(gamma)})*255.0f; _b=powf(constrain(_b,0.0f,255.0f)/255.0f,${fl(gamma)})*255.0f;`)
+        else ln(`      _r=constrain(_r,0.0f,255.0f); _g=constrain(_g,0.0f,255.0f); _b=constrain(_b,0.0f,255.0f);`)
+        if (paletteLevels) {
+          if (dithering === 'ordered2x2') ln(`      float _dt=(pgm_read_byte(&_idither[(_y&1)*2+(_x&1)])+0.5f)/4.0f;`)
+          else if (dithering === 'ordered4x4') ln(`      float _dt=(pgm_read_byte(&_idither[(_y&3)*4+(_x&3)])+0.5f)/16.0f;`)
+          else ln(`      float _dt=0.5f;`)
+          ln(`      auto _iq=[&](float _c)->uint8_t{ float _s=_c*${paletteLevels - 1}.0f/255.0f; int _base=(int)floorf(_s), _lv=_base+((_s-_base)>=_dt?1:0); return (uint8_t)(constrain(_lv,0,${paletteLevels - 1})*255.0f/${paletteLevels - 1}.0f+0.5f);}; return CRGB(_iq(_r),_iq(_g),_iq(_b));};`)
+        } else {
+          ln(`      return CRGB((uint8_t)(_r+0.5f),(uint8_t)(_g+0.5f),(uint8_t)(_b+0.5f));};`)
+        }
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float _u=(_x+0.5f-_iox)/_dw, _v=(_y+0.5f-_ioy)/_dh;`)
-        ln(`      if(_u<0||_u>=1||_v<0||_v>=1){ ${ob}[_y*WIDTH+_x]=CRGB(${scaledBackground.r},${scaledBackground.g},${scaledBackground.b}); continue; }`)
+        ln(`      if(_u<0||_u>=1||_v<0||_v>=1){ ${ob}[_y*WIDTH+_x]=_imgcolor({${fl(background.r)},${fl(background.g)},${fl(background.b)},1.0f},_x,_y); continue; }`)
         ln(`      _u=(1-_izv)*${fl(cropX)}+_u*_izv; _v=(1-_izv)*${fl(cropY)}+_v*_izv;`)
         if (sampling === 'smooth') {
           ln(`      float _fx=_u*_rw-0.5f, _fy=_v*_rh-0.5f; int _x0=(int)floorf(_fx), _y0=(int)floorf(_fy);`)
@@ -2102,10 +2149,10 @@ export function generateCpp(
           ln(`      float _rr=_c00.r+(_c10.r-_c00.r)*_tx, _rg=_c00.g+(_c10.g-_c00.g)*_tx, _rb=_c00.b+(_c10.b-_c00.b)*_tx;`)
           ln(`      _rr+=((_c01.r+(_c11.r-_c01.r)*_tx)-_rr)*_ty; _rg+=((_c01.g+(_c11.g-_c01.g)*_tx)-_rg)*_ty; _rb+=((_c01.b+(_c11.b-_c01.b)*_tx)-_rb)*_ty;`)
           ln(`      float _ra=_c00.a+(_c10.a-_c00.a)*_tx; _ra+=((_c01.a+(_c11.a-_c01.a)*_tx)-_ra)*_ty;`)
-          ln(`      ${ob}[_y*WIDTH+_x]=_imgcolor({_rr,_rg,_rb,_ra});}}`)
+          ln(`      ${ob}[_y*WIDTH+_x]=_imgcolor({_rr,_rg,_rb,_ra},_x,_y);}}`)
         } else {
           ln(`      _ImgPx _ic=_imgpx(min(_rw-1,(int)(_u*_rw)),min(_rh-1,(int)(_v*_rh)));`)
-          ln(`      ${ob}[_y*WIDTH+_x]=_imgcolor(_ic);}}`)
+          ln(`      ${ob}[_y*WIDTH+_x]=_imgcolor(_ic,_x,_y);}}`)
         }
         break
       }

@@ -649,10 +649,10 @@ describe('generateCpp', () => {
     })
     const cpp = generateCpp([img, outputNode], [edge('e', 'img', 'out', 'frame', 'frame')])
     expect(cpp).toContain('const float _ibr=0.5f')
-    expect(cpp).toContain('CRGB(8,16,24); continue;')
+    expect(cpp).toContain('_imgcolor({16.0f,32.0f,48.0f,1.0f},_x,_y); continue;')
     expect(cpp).toContain('floorf(_fx)')
     expect(cpp).toContain('_ImgPx _c00=_imgpx(')
-    expect(cpp).toContain('_imgcolor({_rr,_rg,_rb,_ra})')
+    expect(cpp).toContain('_imgcolor({_rr,_rg,_rb,_ra},_x,_y)')
   })
 
   it('emits Image alpha compositing and crop/zoom controls', () => {
@@ -667,6 +667,37 @@ describe('generateCpp', () => {
     expect(cpp).toContain('_v=(1-_izv)*0.75f+_v*_izv')
     expect(cpp).toContain('pgm_read_byte(&_imga_img[_ai])/255.0f')
     expect(cpp).toContain('_p.r+16.0f*(1-_p.a)')
+  })
+
+  it('emits Image colour treatment, gamma, palette reduction, and dithering', () => {
+    const image = { w: 1, h: 1, pixels: [100, 120, 140] }
+    const img = node('img', 'Image', 'pattern', {
+      image, saturation: 0.5, contrast: 1.2, hueShift: 90, gamma: 2.2,
+      paletteLevels: '4', dithering: 'ordered4x4',
+    })
+    const cpp = generateCpp([img, outputNode], [edge('e', 'img', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('powf(constrain(_r')
+    expect(cpp).toContain('_idither[] PROGMEM={0,8,2,10')
+    expect(cpp).toContain('(_y&3)*4+(_x&3)')
+    expect(cpp).toContain('_c*3.0f/255.0f')
+  })
+
+  it('emits AnimatedImage frame data and source timing playback', () => {
+    const animation = {
+      frames: [
+        { w: 1, h: 1, pixels: [255, 0, 0] },
+        { w: 1, h: 1, pixels: [0, 0, 255], alpha: [128] },
+      ],
+      durations: [100, 200],
+    }
+    const animated = node('anim', 'AnimatedImage', 'pattern', { animation, playbackRate: 2, loop: true })
+    const cpp = generateCpp([animated, outputNode], [edge('e', 'anim', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('_img_anim[] PROGMEM = {255,0,0,0,0,255}')
+    expect(cpp).toContain('_imga_anim[] PROGMEM = {255,128}')
+    expect(cpp).toContain('_imgd_anim[] PROGMEM = {100,200}')
+    expect(cpp).toContain('millis()*2.0f')
+    expect(cpp).toContain('_it%=300UL')
+    expect(cpp).toContain('_ibase=_ifr*_iw*_ih')
   })
 
   it('emits fractal noise via summed inoise8 octaves', () => {

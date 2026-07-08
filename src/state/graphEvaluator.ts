@@ -2,7 +2,7 @@ import type { StudioNode, StudioEdge } from './graphStore'
 import { useAudioStore } from './audioStore'
 import { useUiStore } from './uiStore'
 import { asFont, textColumns, type BitmapFont, DEFAULT_FONT } from './font'
-import { asImage, sampleImageToFrame } from './image'
+import { animatedImageFrame, asAnimatedImage, asImage, sampleImageToFrame } from './image'
 import { waveSample, combineWaves } from './wave'
 import { polinePalette, hexToRgb } from './polinePalette'
 import { inputClampRange } from './nodeLibrary'
@@ -3351,8 +3351,15 @@ function createEvalNode(
         break
       }
 
-      case 'Image': {
-        const img = asImage(props.image)
+      case 'Image':
+      case 'AnimatedImage': {
+        let img = asImage(props.image)
+        if (node.data.nodeType === 'AnimatedImage') {
+          const animation = asAnimatedImage(props.animation)
+          const rawRate = Number(props.playbackRate ?? 1)
+          const rate = Number.isFinite(rawRate) ? Math.max(0.25, Math.min(4, rawRate)) : 1
+          img = animation ? animatedImageFrame(animation, t * 1000 * rate, Boolean(props.loop ?? true)) : null
+        }
         out = { frame: img ? sampleImageToFrame(img, W, H, {
           fit: props.fit as 'stretch' | 'contain' | 'cover' | 'original',
           positionX: Number(props.positionX ?? 0.5),
@@ -3366,6 +3373,13 @@ function createEvalNode(
           zoom: Number(props.zoom ?? 1),
           cropX: Number(props.cropX ?? 0.5),
           cropY: Number(props.cropY ?? 0.5),
+          saturation: Number(props.saturation ?? 1),
+          contrast: Number(props.contrast ?? 1),
+          hueShift: Number(props.hueShift ?? 0),
+          monochrome: Boolean(props.monochrome),
+          gamma: Number(props.gamma ?? 1),
+          paletteLevels: props.paletteLevels as number | string,
+          dithering: props.dithering === 'ordered2x2' || props.dithering === 'ordered4x4' ? props.dithering : 'none',
         }) : blankFrame(W, H) }
         break
       }

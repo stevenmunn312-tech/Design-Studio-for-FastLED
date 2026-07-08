@@ -984,6 +984,32 @@ describe('evaluateGraph', () => {
     expect(f[0]).toEqual([{ r: 0, g: 50, b: 128 }, { r: 0, g: 100, b: 0 }])
   })
 
+  it('Image applies colour treatment and LED palette processing', () => {
+    const image = { w: 1, h: 1, pixels: [100, 100, 100] }
+    const img = node('img', 'Image', 'pattern', {
+      image, contrast: 0, gamma: 2, paletteLevels: '2', dithering: 'ordered2x2',
+    })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const f = evaluateGraph([img, out], [edge('e', 'img', 'frame', 'out', 'frame')], 0, 2, 2)!
+    expect(f.map(row => row.map(px => px.r))).toEqual([[255, 0], [0, 0]])
+  })
+
+  it('AnimatedImage plays decoded frames with source timing', () => {
+    const animation = {
+      frames: [
+        { w: 1, h: 1, pixels: [255, 0, 0] },
+        { w: 1, h: 1, pixels: [0, 0, 255] },
+      ],
+      durations: [100, 200],
+    }
+    const animated = node('anim', 'AnimatedImage', 'pattern', { animation, playbackRate: 1, loop: true })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [edge('e', 'anim', 'frame', 'out', 'frame')]
+    expect(evaluateGraph([animated, out], edges, 0, 1, 1)![0][0]).toEqual({ r: 255, g: 0, b: 0 })
+    expect(evaluateGraph([animated, out], edges, 6, 1, 1)![0][0]).toEqual({ r: 0, g: 0, b: 255 })
+    expect(evaluateGraph([animated, out], edges, 18, 1, 1)![0][0]).toEqual({ r: 255, g: 0, b: 0 })
+  })
+
   it('FlowField deposits trails that build up over frames', () => {
     const ff = node('ff', 'FlowField', 'pattern', { speed: 1, scale: 0.1, count: 60, fade: 0.9, palette: 'ocean' })
     const out = node('out', 'MatrixOutput', 'output', {})

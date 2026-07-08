@@ -92,7 +92,7 @@ export default function Inspector() {
   }
 
   const props = node.data.properties as Record<string, unknown>
-  const propertyEntries = Object.entries(props).filter(([key]) => key !== 'font' && key !== 'image')
+  const propertyEntries = Object.entries(props).filter(([key]) => key !== 'font' && key !== 'image' && key !== 'animation')
   const propertyCount = propertyEntries.length + (node.data.nodeType === 'Text' ? 1 : 0) + (node.data.nodeType === 'Image' ? 1 : 0)
   const hasRGB =
     'r' in props && 'g' in props && 'b' in props &&
@@ -176,7 +176,7 @@ export default function Inspector() {
             </div>
           )
         )}
-        {Object.keys(props).filter((k) => k !== 'font' && k !== 'image').length === 0 &&
+        {Object.keys(props).filter((k) => k !== 'font' && k !== 'image' && k !== 'animation').length === 0 &&
           node.data.nodeType !== 'Image' && (
           <div className={styles.empty}>No properties</div>
         )}

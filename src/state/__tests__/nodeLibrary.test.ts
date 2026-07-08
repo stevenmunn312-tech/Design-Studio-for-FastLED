@@ -16,6 +16,22 @@ describe('nodeLibrary', () => {
       zoom: 1,
       cropX: 0.5,
       cropY: 0.5,
+      saturation: 1,
+      contrast: 1,
+      hueShift: 0,
+      monochrome: false,
+      gamma: 1,
+      paletteLevels: 'full',
+      dithering: 'none',
+    })
+  })
+
+  it('gives Animated Image playback defaults', () => {
+    expect(NODE_LIBRARY.find((n) => n.type === 'AnimatedImage')?.defaultProperties).toMatchObject({
+      playbackRate: 1,
+      loop: true,
+      sampling: 'nearest',
+      paletteLevels: 'full',
     })
   })
 
