@@ -103,6 +103,76 @@ const codeLeds = new Map<string, RGB[]>()
 const codeCompileError = new Map<string, string>()
 const codeError = new Map<string, string>()
 
+// ── Frame / field buffer pool ─────────────────────────────────────────────────
+// Per-pass frame and field outputs are drawn from a recycling pool instead of
+// being freshly allocated: at 60 fps a moderate graph otherwise churns through
+// millions of row arrays and pixel objects per second, which is the preview
+// loop's dominant GC cost. A buffer handed out during pass N is only recycled
+// at the start of pass N+2 (two-generation delay), so anything that reads a
+// frame within its own pass — or compares consecutive passes — never sees a
+// recycled buffer. The only cross-pass retainer is previewStore, which copies
+// frames into its own buffers at publish time. Persistent per-node state
+// (trailState, sparkState, codeLeds, …) must NOT store pooled buffers.
+const framePoolFree = new Map<string, Frame[]>()
+const fieldPoolFree = new Map<number, Field[]>()
+let poolPrev: { frames: Frame[]; fields: Field[] } = { frames: [], fields: [] }
+let poolCurr: { frames: Frame[]; fields: Field[] } = { frames: [], fields: [] }
+const POOL_FREE_CAP = 256
+
+/** Advance the pool generation — called once per top-level preview pass
+ *  (evaluateGraphFull). Buffers from two passes ago become reusable. */
+function advanceFramePool(): void {
+  for (const frame of poolPrev.frames) {
+    const key = `${frame[0]?.length ?? 0}x${frame.length}`
+    let free = framePoolFree.get(key)
+    if (!free) framePoolFree.set(key, (free = []))
+    if (free.length < POOL_FREE_CAP) free.push(frame)
+  }
+  for (const field of poolPrev.fields) {
+    let free = fieldPoolFree.get(field.length)
+    if (!free) fieldPoolFree.set(field.length, (free = []))
+    if (free.length < POOL_FREE_CAP) free.push(field)
+  }
+  poolPrev = poolCurr
+  poolCurr = { frames: [], fields: [] }
+}
+
+// Pixel contents are NOT cleared — every caller overwrites all W×H pixels.
+function allocFrame(W: number, H: number): Frame {
+  const frame = framePoolFree.get(`${W}x${H}`)?.pop()
+    ?? Array.from({ length: H }, () => Array.from({ length: W }, () => ({ r: 0, g: 0, b: 0 })))
+  poolCurr.frames.push(frame)
+  return frame
+}
+
+function allocField(len: number): Field {
+  const field = fieldPoolFree.get(len)?.pop() ?? new Float32Array(len)
+  field.fill(0)
+  poolCurr.fields.push(field)
+  return field
+}
+
+// Unpooled blank frame for persistent per-node state (trailState, sparkState):
+// those buffers live across passes, so they must never enter the pool.
+function rawBlankFrame(W: number, H: number): Frame {
+  return Array.from({ length: H }, () => Array.from({ length: W }, () => ({ r: 0, g: 0, b: 0 })))
+}
+
+/** Fill a pooled frame from a per-pixel function, writing into the existing
+ *  pixel objects — the pooled replacement for the nested Array.from pattern. */
+export function buildFrame(W: number, H: number, fn: (x: number, y: number) => RGB): Frame {
+  const frame = allocFrame(W, H)
+  for (let y = 0; y < H; y++) {
+    const row = frame[y]
+    for (let x = 0; x < W; x++) {
+      const c = fn(x, y)
+      const px = row[x]
+      px.r = c.r; px.g = c.g; px.b = c.b
+    }
+  }
+  return frame
+}
+
 // Stateful previews intentionally survive between frames, but node and group
 // ids are never reused. Track the last evaluation of each instance so buffers
 // belonging to deleted or long-inactive graph instances can be reclaimed.
@@ -271,26 +341,38 @@ function applyEase(type: string, x: number): number {
 // units, +deltaHue per LED, animated by `start`). Index order matches the
 // buffer's [y*W+x] layout so the preview lines up with the firmware.
 function evalRainbow(start: number, deltaHue: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const hue = start + (y * W + x) * deltaHue
       return hsv((((hue % 256) + 256) % 256) / 256 * 360, 1, 1)
     })
-  )
 }
 
 function solidFrame(color: RGB, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return Array.from({ length: H }, () => Array.from({ length: W }, () => ({ ...color })))
+  return buildFrame(W, H, () => color)
 }
 
 function blankFrame(W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return Array.from({ length: H }, () => Array.from({ length: W }, () => ({ r: 0, g: 0, b: 0 })))
+  const frame = allocFrame(W, H)
+  for (let y = 0; y < H; y++) {
+    const row = frame[y]
+    for (let x = 0; x < W; x++) { const px = row[x]; px.r = 0; px.g = 0; px.b = 0 }
+  }
+  return frame
 }
 
-// Deep copy so painting onto a base frame never mutates an upstream node's
-// memoised output.
+// Copy into a pooled frame so painting onto a base frame never mutates an
+// upstream node's memoised output.
 function cloneFrame(frame: Frame): Frame {
-  return frame.map(row => row.map(px => ({ ...px })))
+  const H = frame.length, W = frame[0]?.length ?? 0
+  const out = allocFrame(W, H)
+  for (let y = 0; y < H; y++) {
+    const src = frame[y], dst = out[y]
+    for (let x = 0; x < W; x++) {
+      const s = src[x], d = dst[x]
+      d.r = s.r; d.g = s.g; d.b = s.b
+    }
+  }
+  return out
 }
 
 // Per-channel blend-mode math for the Blend node. `a`/`b` are 0–255 base/blend
@@ -354,29 +436,23 @@ function evalTransform(src: Frame, mode: string, rate: number, angle: number, t:
   if (mode === 'translate') {
     const a = (angle * Math.PI) / 180
     const dx = Math.cos(a) * rate * t, dy = Math.sin(a) * rate * t
-    return Array.from({ length: H }, (_, y) =>
-      Array.from({ length: W }, (_, x) => {
+    return buildFrame(W, H, (x, y) => {
         const sx = ((Math.round(x - dx) % W) + W) % W
         const sy = ((Math.round(y - dy) % H) + H) % H
         return { ...src[sy][sx] }
       })
-    )
   }
   if (mode === 'scale') {
     const s = Math.max(0.05, Math.min(20, 1 + (rate / 100) * t))
-    return Array.from({ length: H }, (_, y) =>
-      Array.from({ length: W }, (_, x) => sample(cx + (x - cx) / s, cy + (y - cy) / s))
-    )
+    return buildFrame(W, H, (x, y) => sample(cx + (x - cx) / s, cy + (y - cy) / s))
   }
   // rotate: sample the source under the inverse rotation
   const a = (rate * t * Math.PI) / 180
   const cosA = Math.cos(a), sinA = Math.sin(a)
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const rx = x - cx, ry = y - cy
       return sample(cx + rx * cosA + ry * sinA, cy - rx * sinA + ry * cosA)
     })
-  )
 }
 
 // Render `text` onto a blank frame at (startX, startY), optionally scrolling
@@ -403,25 +479,21 @@ function renderText(text: string, color: RGB, startX: number, startY: number, sc
 
 // ── Pattern evaluators ────────────────────────────────────────────────────────
 function evalNoiseField(speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const v = (Math.sin(x * scale * 0.5 + t * speed) +
                  Math.cos(y * scale * 0.5 + t * speed * 0.7)) / 2
       return samplePalette(palette, (v + 1) / 2)
     })
-  )
 }
 
 function evalPlasma(speed: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const v = Math.sin(x / 3 + t * speed)
               + Math.sin(y / 3 + t * speed * 0.8)
               + Math.sin((x + y) / 5 + t * speed * 0.6)
               + Math.sin(Math.hypot(x - W / 2, y - H / 2) / 3 + t * speed * 0.5)
       return hsv(v * 45 + t * 20, 1, 0.9)
     })
-  )
 }
 
 // Homage to Mark Kriegsman's Pride2015 — a shifting full-spectrum rainbow with
@@ -450,8 +522,7 @@ function evalPride2015(speed: number, scale: number, t: number, W = DEFAULT_W, H
 // faster secondary wave crests. Same evocative-formula approach as Plasma,
 // not a literal port of Pacifica's palette-blend/deepen/whitecap pipeline.
 function evalPacifica(speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const v = Math.sin(x * 0.3 * scale + t * speed)
               + Math.sin((x * 0.15 * scale - y * 0.1 * scale) + t * speed * 0.6) * 0.7
               + Math.sin((x + y) * 0.08 * scale + t * speed * 1.3) * 0.5
@@ -468,7 +539,6 @@ function evalPacifica(speed: number, scale: number, t: number, palette: Palette,
       }
       return c
     })
-  )
 }
 
 function evalFire(nodeId: string, intensity: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
@@ -591,8 +661,7 @@ function evalBassRings(bass: number, intensity: number, speed: number, color: RG
   const ringCount = 4 + level * 8 * strength
   const floor = 0.04 + level * 0.1 * strength
   const gain = 0.16 + level * 0.84 * strength
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const dist = Math.hypot(x - cx, y - cy) / maxD
       const wave = Math.sin(dist * ringCount * Math.PI * 2 - phase)
       const crisp = Math.pow(Math.max(0, wave * 0.5 + 0.5), 2.4)
@@ -603,12 +672,10 @@ function evalBassRings(bass: number, intensity: number, speed: number, color: RG
         b: Math.round(color.b * v),
       }
     })
-  )
 }
 
 function evalMidrangeWaves(mids: number, intensity: number, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const midsAmt = Math.min(1, Math.max(0, mids))
       const strength = Math.min(1, Math.max(0, intensity))
       const motion = speed * (1 + midsAmt * 1.5 * strength)
@@ -624,7 +691,6 @@ function evalMidrangeWaves(mids: number, intensity: number, speed: number, t: nu
         b: Math.round(c.b * v),
       }
     })
-  )
 }
 
 function evalMidrangeBloom(mids: number, intensity: number, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
@@ -635,8 +701,7 @@ function evalMidrangeBloom(mids: number, intensity: number, speed: number, t: nu
   const cy0 = (H - 1) / 2
   const sx = Math.max(1, W / 2)
   const sy = Math.max(1, H / 2)
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const cx = (x - cx0) / sx
       const cy = (y - cy0) / sy
       const radial = Math.hypot(cx, cy)
@@ -652,7 +717,6 @@ function evalMidrangeBloom(mids: number, intensity: number, speed: number, t: nu
         b: Math.round(c.b * v),
       }
     })
-  )
 }
 
 function evalTrebleSparks(nodeId: string, treble: number, density: number, color: RGB, W = DEFAULT_W, H = DEFAULT_H): Frame {
@@ -660,15 +724,18 @@ function evalTrebleSparks(nodeId: string, treble: number, density: number, color
   const amount = Math.max(0, Math.min(1, density))
   let state = sparkState.get(nodeId)
   if (!state || state.w !== W || state.h !== H) {
-    state = { frame: blankFrame(W, H), w: W, h: H }
+    // Persistent buffer, mutated in place each pass — never pool-allocated.
+    state = { frame: rawBlankFrame(W, H), w: W, h: H }
     sparkState.set(nodeId, state)
   }
 
-  const frame = cloneFrame(state.frame)
+  const frame = state.frame
   const fade = 0.58 + (1 - level) * 0.16
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
-      frame[y][x] = scaleRgb(frame[y][x], fade)
+      const px = frame[y][x]
+      const faded = scaleRgb(px, fade)
+      px.r = faded.r; px.g = faded.g; px.b = faded.b
     }
   }
 
@@ -679,7 +746,9 @@ function evalTrebleSparks(nodeId: string, treble: number, density: number, color
 
   const addSpark = (x: number, y: number, spark: RGB, strength: number) => {
     if (x < 0 || x >= W || y < 0 || y >= H || strength <= 0) return
-    frame[y][x] = addRgb(frame[y][x], scaleRgb(spark, strength))
+    const px = frame[y][x]
+    const sum = addRgb(px, scaleRgb(spark, strength))
+    px.r = sum.r; px.g = sum.g; px.b = sum.b
   }
 
   for (let i = 0; i < spawnCount; i++) {
@@ -699,7 +768,8 @@ function evalTrebleSparks(nodeId: string, treble: number, density: number, color
     addSpark(x + 1, y + 1, spark, 0.16)
   }
 
-  state.frame = cloneFrame(frame)
+  // `frame` IS the persistent state buffer (mutated in place above);
+  // downstream consumers never mutate their inputs, so return it directly.
   return frame
 }
 
@@ -707,8 +777,7 @@ function evalTreblePrism(treble: number, intensity: number, speed: number, color
   const level = Math.max(0, Math.min(1, treble))
   const strength = Math.max(0, Math.min(1, intensity))
   const motion = Math.max(0, speed) * (1.2 + level * 3.2 * strength)
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const diagA = x * 1.7 + y * 1.15
       const diagB = x * -1.1 + y * 1.9
       const waveA = Math.sin(diagA + t * motion * 7.5)
@@ -723,7 +792,6 @@ function evalTreblePrism(treble: number, intensity: number, speed: number, color
         b: Math.round(color.b * v),
       }
     })
-  )
 }
 
 function evalAudioCascade(bass: number, mids: number, treble: number, intensity: number, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
@@ -732,8 +800,7 @@ function evalAudioCascade(bass: number, mids: number, treble: number, intensity:
   const tr = Math.max(0, Math.min(1, treble))
   const strength = Math.max(0, Math.min(1, intensity))
   const motion = Math.max(0, speed) * (0.8 + (b + m + tr) * 1.4 * strength)
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const nx = W > 1 ? x / (W - 1) : 0
       const ny = H > 1 ? y / (H - 1) : 0
       const ribbon = Math.sin((nx * 7 + ny * 2.5) + t * motion * (2 + m * 3 * strength))
@@ -749,7 +816,6 @@ function evalAudioCascade(bass: number, mids: number, treble: number, intensity:
         b: Math.round(c.b * v),
       }
     })
-  )
 }
 
 function evalBeatFlash(nodeId: string, beat: boolean, base: Frame | null, decay: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
@@ -793,8 +859,7 @@ function samplePalette(palette: Palette, t: number): RGB {
 }
 
 function evalNoise2D(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       let v = 0, amp = 1, freq = scale
       for (let oct = 0; oct < 3; oct++) {
         v += amp * Math.sin(x * freq + t * speed + oct * 1.7) * Math.cos(y * freq * 1.3 + t * speed * 0.8 + oct * 2.3)
@@ -802,24 +867,20 @@ function evalNoise2D(speed: number, scale: number, t: number, W = DEFAULT_W, H =
       }
       return hsv((v * 0.5 + 0.5) * 360, 1, 0.85)
     })
-  )
 }
 
 function evalRadialBurst(speed: number, color: RGB, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const cx = W / 2, cy = H / 2, maxD = Math.hypot(cx, cy)
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const dist = Math.hypot(x - cx, y - cy) / maxD
       const wave = (Math.sin((dist * 8 - t * speed * 3) * Math.PI) + 1) / 2
       return { r: Math.round(color.r * wave), g: Math.round(color.g * wave), b: Math.round(color.b * wave) }
     })
-  )
 }
 
 function evalSpiral(speed: number, arms: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const cx = W / 2, cy = H / 2, maxD = Math.hypot(cx, cy)
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const dx = x - cx, dy = y - cy
       const dist = Math.hypot(dx, dy) / maxD
       const angle = Math.atan2(dy, dx)
@@ -827,14 +888,12 @@ function evalSpiral(speed: number, arms: number, t: number, W = DEFAULT_W, H = D
       const v = (Math.sin(spiral) + 1) / 2
       return hsv(dist * 360 + t * 30, 1, v * 0.9)
     })
-  )
 }
 
 function evalKaleidoscope(src: Frame, segments: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const cx = W / 2, cy = H / 2
   const segAngle = (Math.PI * 2) / Math.max(2, segments)
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const dx = x - cx, dy = y - cy
       const dist = Math.hypot(dx, dy)
       let angle = ((Math.atan2(dy, dx) % segAngle) + segAngle) % segAngle
@@ -844,7 +903,6 @@ function evalKaleidoscope(src: Frame, segments: number, W = DEFAULT_W, H = DEFAU
       if (sx < 0 || sx >= W || sy < 0 || sy >= H) return { r: 0, g: 0, b: 0 }
       return { ...src[sy][sx] }
     })
-  )
 }
 
 const MAX_PARTICLES = 600
@@ -969,12 +1027,10 @@ function evalParticles(nodeId: string, mode: string, rate: number, color: RGB, d
 }
 
 function evalGradientFrame(cA: RGB, cB: RGB, vertical: boolean, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const t = vertical ? y / (H - 1) : x / (W - 1)
       return { r: Math.round(cA.r * (1-t) + cB.r * t), g: Math.round(cA.g * (1-t) + cB.g * t), b: Math.round(cA.b * (1-t) + cB.b * t) }
     })
-  )
 }
 
 // Dispatch for the bundled `Noise` node — `noiseType` picks the algorithm.
@@ -992,8 +1048,7 @@ function evalNoiseByType(noiseType: string, speed: number, scale: number, t: num
 }
 
 function evalSimplex2D(speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       let v = 0, amp = 1, freq = scale
       for (let oct = 0; oct < 4; oct++) {
         v += amp * _snoise2(x * freq + t * speed * 0.13, y * freq + t * speed * 0.1)
@@ -1001,13 +1056,11 @@ function evalSimplex2D(speed: number, scale: number, t: number, palette: Palette
       }
       return samplePalette(palette, (v * 0.5 + 0.5) % 1)
     })
-  )
 }
 
 function evalNoise3D(speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   // 3D via two orthogonal 2D slices animated along the z (time) axis
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const z = t * speed * 0.08
       let v = 0, amp = 1, freq = scale
       for (let oct = 0; oct < 3; oct++) {
@@ -1017,7 +1070,6 @@ function evalNoise3D(speed: number, scale: number, t: number, palette: Palette, 
       }
       return samplePalette(palette, ((v * 0.5 + 0.5) % 1 + 1) % 1)
     })
-  )
 }
 
 // Integer hash → [0,1), used to place a feature point per cell for Worley noise.
@@ -1030,8 +1082,7 @@ function worleyHash(x: number, y: number): number {
 // Worley (cellular) noise: distance to the nearest animated feature point,
 // coloured through a palette. Feature points jitter on a circle over time.
 function evalWorley(speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const px = x * scale, py = y * scale
       const xi = Math.floor(px), yi = Math.floor(py)
       let f1 = Infinity
@@ -1046,7 +1097,6 @@ function evalWorley(speed: number, scale: number, t: number, palette: Palette, W
         }
       return samplePalette(palette, Math.min(1, f1))
     })
-  )
 }
 
 // Gabor noise: sparse-convolution noise summing one Gaussian-windowed cosine
@@ -1057,8 +1107,7 @@ function evalGaborNoise(speed: number, scale: number, frequency: number, orienta
   const omega = (orientation * Math.PI) / 180
   const cosO = Math.cos(omega), sinO = Math.sin(omega)
   const TAU = Math.PI * 2
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const px = x * scale, py = y * scale
       const xi = Math.floor(px), yi = Math.floor(py)
       let v = 0
@@ -1077,7 +1126,6 @@ function evalGaborNoise(speed: number, scale: number, frequency: number, orienta
         }
       return samplePalette(palette, v * 0.5 + 0.5)
     })
-  )
 }
 
 // Angled palette gradient: project each pixel onto a direction set by `angle`,
@@ -1089,12 +1137,10 @@ function evalPaletteGradient(angle: number, repeat: number, speed: number, t: nu
   const projMin = (cosA < 0 ? (W - 1) * cosA : 0) + (sinA < 0 ? (H - 1) * sinA : 0)
   const projMax = (cosA > 0 ? (W - 1) * cosA : 0) + (sinA > 0 ? (H - 1) * sinA : 0)
   const range = Math.max(1e-6, projMax - projMin)
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const tnorm = (x * cosA + y * sinA - projMin) / range
       return samplePalette(palette, tnorm * repeat + t * speed)
     })
-  )
 }
 
 // Fractal (fBm) noise: sum simplex octaves at doubling frequency / halving
@@ -1102,8 +1148,7 @@ function evalPaletteGradient(angle: number, repeat: number, speed: number, t: nu
 function evalFractalNoise(speed: number, scale: number, octaves: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const z = t * speed * 0.15
   const oct = Math.max(1, Math.min(6, Math.floor(octaves)))
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       let v = 0, amp = 0.5, freq = scale, norm = 0
       for (let o = 0; o < oct; o++) {
         v += amp * _snoise2(x * freq + z, y * freq - z * 0.5)
@@ -1112,7 +1157,6 @@ function evalFractalNoise(speed: number, scale: number, octaves: number, t: numb
       const n = (v / norm) * 0.5 + 0.5
       return samplePalette(palette, ((n % 1) + 1) % 1)
     })
-  )
 }
 
 // Same fBm construction as evalFractalNoise, but returns the raw 0–1 scalar
@@ -1121,7 +1165,7 @@ function evalFractalNoise(speed: number, scale: number, octaves: number, t: numb
 function evalFieldNoise(speed: number, scale: number, octaves: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
   const z = t * speed * 0.15
   const oct = Math.max(1, Math.min(6, Math.floor(octaves)))
-  const out = new Float32Array(W * H)
+  const out = allocField(W * H)
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       let v = 0, amp = 0.5, freq = scale, norm = 0
@@ -1145,13 +1189,11 @@ function evalBlobs(speed: number, scale: number, count: number, t: number, palet
     bx.push(W * (0.5 + 0.4 * Math.sin(t * speed * (0.7 + i * 0.13) + i * 1.7)))
     by.push(H * (0.5 + 0.4 * Math.cos(t * speed * (0.6 + i * 0.17) + i * 2.3)))
   }
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       let f = 0
       for (let i = 0; i < n; i++) { const dx = x - bx[i], dy = y - by[i]; f += r2 / (dx * dx + dy * dy + 1) }
       return samplePalette(palette, f / (f + 1))
     })
-  )
 }
 
 // Flow field: particles drift along a simplex-noise direction field, depositing
@@ -1177,9 +1219,7 @@ function evalFlowField(nodeId: string, speed: number, scale: number, count: numb
     const idx = Math.floor(py[i]) * W + Math.floor(px[i])
     trail[idx] = Math.min(1, trail[idx] + 0.5)
   }
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => samplePalette(palette, trail[y * W + x]))
-  )
+  return buildFrame(W, H, (x, y) => samplePalette(palette, trail[y * W + x]))
 }
 
 // Warp starfield: stars fly outward from the centre; nearer stars are brighter.
@@ -1207,15 +1247,13 @@ function evalStarfield(nodeId: string, speed: number, count: number, color: RGB,
 
 // Plasma blended with fractal (simplex) noise for an organic flowing field.
 function evalPlasmaFractal(speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       let v = Math.sin(x * 0.2 + t * speed) + Math.sin(y * 0.25 + t * speed * 0.8) + Math.sin((x + y) * 0.15 + t * speed * 0.6)
       let amp = 1, freq = scale, fn = 0
       for (let o = 0; o < 3; o++) { fn += amp * _snoise2(x * freq + t * speed * 0.1, y * freq); amp *= 0.5; freq *= 2 }
       v += fn * 2.5
       return samplePalette(palette, (((v * 0.15) % 1) + 1) % 1)
     })
-  )
 }
 
 // Audio-reactive flow: a simplex band field scrolling at a speed set by mids,
@@ -1228,13 +1266,11 @@ function evalAudioFlow(bass: number, mids: number, treble: number, speed: number
   const vAmp = 0.2 + treble * 0.7 + bass * 0.3
   const vflow = _snoise2(t * speed * 4 + 50, 17.3) * vAmp
   const bright = Math.min(1, 0.3 + bass)
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const v = _snoise2(x * scale + flow, y * scale * 0.6 + vflow) * 0.5 + 0.5
       const c = samplePalette(palette, (((v + treble * 0.3) % 1) + 1) % 1)
       return { r: Math.round(c.r * bright), g: Math.round(c.g * bright), b: Math.round(c.b * bright) }
     })
-  )
 }
 
 // Gray-Scott reaction-diffusion. Two chemicals U, V diffuse on a toroidal grid
@@ -1270,9 +1306,7 @@ function evalReactionDiffusion(nodeId: string, feed: number, kill: number, iters
     s.u = un; s.un = u; s.v = vn; s.vn = v   // swap front/back buffers
   }
   const v = s.v
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => samplePalette(palette, v[y * W + x]))
-  )
+  return buildFrame(W, H, (x, y) => samplePalette(palette, v[y * W + x]))
 }
 
 // Conway's Game of Life on a toroidal grid. Live cells glow in `color`; dead
@@ -1308,12 +1342,10 @@ function evalGameOfLife(nodeId: string, color: RGB, speed: number, fade: number,
   const { cells, bright } = s
   const f = Math.max(0, Math.min(1, fade))
   for (let i = 0; i < N; i++) bright[i] = cells[i] ? 1 : bright[i] * f
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const b = bright[y * W + x]
       return { r: Math.round(color.r * b), g: Math.round(color.g * b), b: Math.round(color.b * b) }
     })
-  )
 }
 
 function heatColor(temperature: number): RGB {
@@ -1353,8 +1385,7 @@ function evalFire2012(nodeId: string, cooling: number, sparking: number, W = DEF
 
 function evalBlur2D(src: Frame, amount: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const radius = Math.max(1, Math.round(amount / 255 * 3))
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       let r = 0, g = 0, b = 0, count = 0
       for (let dy = -radius; dy <= radius; dy++) {
         for (let dx = -radius; dx <= radius; dx++) {
@@ -1365,12 +1396,10 @@ function evalBlur2D(src: Frame, amount: number, W = DEFAULT_W, H = DEFAULT_H): F
       }
       return { r: Math.round(r/count), g: Math.round(g/count), b: Math.round(b/count) }
     })
-  )
 }
 
 function evalWipe(a: Frame, b: Frame, tt: number, direction: string, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       let revealed: boolean
       switch (direction) {
         case 'left':  revealed = x > W * (1 - tt); break
@@ -1380,16 +1409,13 @@ function evalWipe(a: Frame, b: Frame, tt: number, direction: string, W = DEFAULT
       }
       return revealed ? { ...b[y][x] } : { ...a[y][x] }
     })
-  )
 }
 
 function evalDissolve(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const hash = (((x * 1664525 + y * 1013904223) >>> 0) / 0xffffffff)
       return hash < tt ? { ...b[y][x] } : { ...a[y][x] }
     })
-  )
 }
 
 // ── Extra transition variants (bundled into the `Transition` node) ───────────
@@ -1399,24 +1425,20 @@ function evalDissolve(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT
 function evalIris(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const cx = W / 2, cy = H / 2
   const r = tt * Math.hypot(cx, cy)
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) =>
-      Math.hypot(x - cx, y - cy) < r ? { ...b[y][x] } : { ...a[y][x] }))
+  return buildFrame(W, H, (x, y) => Math.hypot(x - cx, y - cy) < r ? { ...b[y][x] } : { ...a[y][x] })
 }
 
 function evalClockWipe(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const cx = W / 2, cy = H / 2
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       // atan2 shifted so 12 o'clock = 0 and the sweep goes clockwise
       const norm = (Math.atan2(x - cx, -(y - cy)) + Math.PI) / (2 * Math.PI)
       return norm < tt ? { ...b[y][x] } : { ...a[y][x] }
-    }))
+    })
 }
 
 function evalPush(a: Frame, b: Frame, tt: number, direction: string, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       let ax: number, ay: number, bx: number, by: number
       switch (direction) {
         case 'left':
@@ -1431,52 +1453,49 @@ function evalPush(a: Frame, b: Frame, tt: number, direction: string, W = DEFAULT
       if (bx >= 0 && bx < W && by >= 0 && by < H) return { ...b[by][bx] }
       if (ax >= 0 && ax < W && ay >= 0 && ay < H) return { ...a[ay][ax] }
       return { r: 0, g: 0, b: 0 }
-    }))
+    })
 }
 
 function evalCheckerboard(a: Frame, b: Frame, tt: number, tileSize: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const isEven = (Math.floor(x / tileSize) + Math.floor(y / tileSize)) % 2 === 0
       const threshold = isEven ? tt * 2 : tt * 2 - 1
       return threshold >= 1 ? { ...b[y][x] } : { ...a[y][x] }
-    }))
+    })
 }
 
 function evalDiagonal(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) =>
-      (x / W + y / H) / 2 < tt ? { ...b[y][x] } : { ...a[y][x] }))
+  return buildFrame(W, H, (x, y) => (x / W + y / H) / 2 < tt ? { ...b[y][x] } : { ...a[y][x] })
 }
 
 function evalFadeThroughBlack(a: Frame, b: Frame, tt: number): Frame {
   const [src, alpha] = tt < 0.5 ? [a, 1 - tt * 2] : [b, (tt - 0.5) * 2]
-  return src.map(row => row.map(px => ({
-    r: Math.round(px.r * alpha), g: Math.round(px.g * alpha), b: Math.round(px.b * alpha),
-  })))
+  return buildFrame(src[0]?.length ?? 0, src.length, (x, y) => {
+    const px = src[y][x]
+    return { r: Math.round(px.r * alpha), g: Math.round(px.g * alpha), b: Math.round(px.b * alpha) }
+  })
 }
 
 function evalFadeThroughWhite(a: Frame, b: Frame, tt: number): Frame {
   const [src, alpha] = tt < 0.5 ? [a, 1 - tt * 2] : [b, (tt - 0.5) * 2]
   const w = (1 - alpha) * 255
-  return src.map(row => row.map(px => ({
-    r: Math.round(px.r * alpha + w), g: Math.round(px.g * alpha + w), b: Math.round(px.b * alpha + w),
-  })))
+  return buildFrame(src[0]?.length ?? 0, src.length, (x, y) => {
+    const px = src[y][x]
+    return { r: Math.round(px.r * alpha + w), g: Math.round(px.g * alpha + w), b: Math.round(px.b * alpha + w) }
+  })
 }
 
 function evalBlinds(a: Frame, b: Frame, tt: number, count: number, axis: string, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const slatSize = Math.max(1, Math.floor((axis === 'horizontal' ? H : W) / count))
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const pos = axis === 'horizontal' ? y : x
       return (pos % slatSize) / slatSize < tt ? { ...b[y][x] } : { ...a[y][x] }
-    }))
+    })
 }
 
 function evalRippleWipe(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const cx = W / 2, cy = H / 2, maxR = Math.hypot(cx, cy), edge = 0.08
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const norm = Math.hypot(x - cx, y - cy) / maxR
       if (norm < tt - edge) return { ...b[y][x] }
       if (norm >= tt) return { ...a[y][x] }
@@ -1486,41 +1505,37 @@ function evalRippleWipe(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAU
         g: Math.round(pa.g * (1 - blend) + pb.g * blend),
         b: Math.round(pa.b * (1 - blend) + pb.b * blend),
       }
-    }))
+    })
 }
 
 function evalSpiralWipe(a: Frame, b: Frame, tt: number, turns: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const cx = W / 2, cy = H / 2, maxR = Math.hypot(cx, cy)
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const r = Math.hypot(x - cx, y - cy) / maxR
       const normAngle = (Math.atan2(y - cy, x - cx) + Math.PI) / (2 * Math.PI)
       return (r + normAngle / turns) / (1 + 1 / turns) < tt ? { ...b[y][x] } : { ...a[y][x] }
-    }))
+    })
 }
 
 function evalCurtain(a: Frame, b: Frame, tt: number, axis: string, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       // distance from the centre axis: reveals the centre gap first
       const dist = axis === 'horizontal' ? Math.abs(2 * y / H - 1) : Math.abs(2 * x / W - 1)
       return dist < tt ? { ...b[y][x] } : { ...a[y][x] }
-    }))
+    })
 }
 
 function evalScanLines(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return Array.from({ length: H }, (_, y) => {
+  return buildFrame(W, H, (x, y) => {
     // even rows complete in [0, 0.5), odd rows in [0.5, 1.0)
     const threshold = y % 2 === 0 ? (y / H) * 0.5 : 0.5 + ((y - 1) / H) * 0.5
-    return Array.from({ length: W }, (_, x) =>
-      tt > threshold ? { ...b[y][x] } : { ...a[y][x] })
+    return tt > threshold ? b[y][x] : a[y][x]
   })
 }
 
 function evalZoom(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const cx = W / 2, cy = H / 2
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const pa = a[y][x]
       if (tt <= 0) return { ...pa }
       if (tt >= 1) return { ...b[y][x] }
@@ -1535,7 +1550,7 @@ function evalZoom(a: Frame, b: Frame, tt: number, W = DEFAULT_W, H = DEFAULT_H):
         }
       }
       return { r: Math.round(pa.r * (1 - tt)), g: Math.round(pa.g * (1 - tt)), b: Math.round(pa.b * (1 - tt)) }
-    }))
+    })
 }
 
 // Dispatch one of the 16 A→B transition styles (the Transition node + the
@@ -1774,8 +1789,7 @@ function evalPatternShow(
 /** Per-pixel linear blend of two frames, m=0 → a, m=1 → b. */
 function blendFrame(a: Frame, b: Frame, m: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const k = Math.max(0, Math.min(1, m))
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const pa = a[y]?.[x] ?? { r: 0, g: 0, b: 0 }
       const pb = b[y]?.[x] ?? { r: 0, g: 0, b: 0 }
       return {
@@ -1784,7 +1798,6 @@ function blendFrame(a: Frame, b: Frame, m: number, W = DEFAULT_W, H = DEFAULT_H)
         b: Math.round(pa.b * (1 - k) + pb.b * k),
       }
     })
-  )
 }
 
 /**
@@ -1819,8 +1832,7 @@ function evalCustomFormula(formula: string, a: number, b: number, palette: Palet
   const shims = makeShims(t)
   const sv = SHIM_NAMES.map((n) => shims[n])
 
-  return Array.from({ length: H }, (_, yi) =>
-    Array.from({ length: W }, (_, xi) => {
+  return buildFrame(W, H, (xi, yi) => {
       try {
         const cx = centeredX(xi, W), cy = centeredY(yi, H)
         const r = Math.sqrt(cx * cx + cy * cy), angle = Math.atan2(cy, cx)
@@ -1831,11 +1843,10 @@ function evalCustomFormula(formula: string, a: number, b: number, palette: Palet
         return { r: 0, g: 0, b: 0 }
       }
     })
-  )
 }
 
 function evalFieldFormula(formula: string, a: number, b: number, fieldIn: Field | null, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
-  const out = new Float32Array(W * H)
+  const out = allocField(W * H)
   const fn = compileFormula(formula, fieldFormulaCache)
   if (!fn) return out
   const shims = makeShims(t)
@@ -1858,13 +1869,11 @@ function evalFieldFormula(formula: string, a: number, b: number, fieldIn: Field 
 function evalFieldToFrame(field: Field | null, palette: Palette, brightness: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const bv = Math.max(0, Math.min(1, brightness))
   const b8 = (v: number) => Math.max(0, Math.min(255, Math.round(v * bv)))
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       if (!field) return { r: 0, g: 0, b: 0 }
       const c = samplePalette(palette, field[y * W + x])
       return { r: b8(c.r), g: b8(c.g), b: b8(c.b) }
     })
-  )
 }
 
 // ── Code node ─────────────────────────────────────────────────────────────────
@@ -2054,19 +2063,17 @@ function evalCode(key: string, globalCode: string, code: string, seed: Frame | n
   } else {
     codeError.set(key, codeCompileError.get(cacheKey) ?? 'compile error')
   }
-  return Array.from({ length: H }, (_, y) =>
-    Array.from({ length: W }, (_, x) => {
+  return buildFrame(W, H, (x, y) => {
       const px = leds![y * W + x]
       return { r: Math.max(0, Math.min(255, Math.round(px.r))), g: Math.max(0, Math.min(255, Math.round(px.g))), b: Math.max(0, Math.min(255, Math.round(px.b))) }
     })
-  )
 }
 
 // Distance from each pixel to a movable point (px,py in normalised 0–1 space).
 // Output is 0 at the point, rising to 1; `scale` (≥1) stretches the ramp so it
 // reaches 1 sooner. The diagonal of the unit square (√2) is the 1.0 reference.
 function evalDistanceField(px: number, py: number, scale: number, W = DEFAULT_W, H = DEFAULT_H): Field {
-  const out = new Float32Array(W * H)
+  const out = allocField(W * H)
   const sc = Math.max(0.0001, scale)
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
@@ -2082,7 +2089,7 @@ function evalDistanceField(px: number, py: number, scale: number, W = DEFAULT_W,
 // Combine two fields pixel-by-pixel. An unwired input is a zero field, so unary
 // ops (e.g. `subtract` from 0 to negate, clamped) still behave sensibly.
 function evalFieldMath(a: Field | null, b: Field | null, op: string, W = DEFAULT_W, H = DEFAULT_H): Field {
-  const out = new Float32Array(W * H)
+  const out = allocField(W * H)
   for (let i = 0; i < W * H; i++) {
     const x = a ? a[i] : 0, y = b ? b[i] : 0
     let v: number
@@ -2105,7 +2112,7 @@ function evalFieldMath(a: Field | null, b: Field | null, op: string, W = DEFAULT
 // 0–1 → −strength…+strength pixels (an unwired offset field = no push). Sample
 // is nearest-neighbour, clamped to the matrix edges.
 function evalFieldWarp(field: Field | null, dx: Field | null, dy: Field | null, strength: number, W = DEFAULT_W, H = DEFAULT_H): Field {
-  const out = new Float32Array(W * H)
+  const out = allocField(W * H)
   if (!field) return out
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
@@ -2122,7 +2129,7 @@ function evalFieldWarp(field: Field | null, dx: Field | null, dy: Field | null, 
 // Rotate a field around its centre by `angleRad`. Samples the source at the
 // inverse-rotated coordinate (nearest-neighbour), wrapping at the matrix edges.
 function evalFieldRotate(field: Field | null, angleRad: number, W = DEFAULT_W, H = DEFAULT_H): Field {
-  const out = new Float32Array(W * H)
+  const out = allocField(W * H)
   if (!field) return out
   const cxc = (W - 1) / 2, cyc = (H - 1) / 2
   const ca = Math.cos(-angleRad), sa = Math.sin(-angleRad)
@@ -2139,7 +2146,7 @@ function evalFieldRotate(field: Field | null, angleRad: number, W = DEFAULT_W, H
 
 // Tile/repeat a field `tilesX`×`tilesY` times across the matrix (nearest sample).
 function evalFieldTile(field: Field | null, tilesX: number, tilesY: number, W = DEFAULT_W, H = DEFAULT_H): Field {
-  const out = new Float32Array(W * H)
+  const out = allocField(W * H)
   if (!field) return out
   const tx = Math.max(1, Math.round(tilesX)), ty = Math.max(1, Math.round(tilesY))
   for (let y = 0; y < H; y++) {
@@ -2803,22 +2810,23 @@ function createEvalNode(
         const decay = Math.max(0, Math.min(1, Number(props.decay ?? 0.15)))
         const key = stateKey(id)
         const prev = trailState.get(key)
+        // Persistent buffer, faded + re-lightened in place each pass — never
+        // pool-allocated. Consumers don't mutate inputs, so it's returned as-is.
         const buf = prev && prev.length === H && prev[0]?.length === W
           ? prev
-          : Array.from({ length: H }, () => Array.from({ length: W }, () => ({ r: 0, g: 0, b: 0 })))
+          : rawBlankFrame(W, H)
         const s = 1 - decay
-        const next: Frame = buf.map((row, y) =>
-          row.map((px, x) => {
-            const inpx = src[y][x]
-            return {
-              r: Math.max(Math.round(px.r * s), inpx.r),
-              g: Math.max(Math.round(px.g * s), inpx.g),
-              b: Math.max(Math.round(px.b * s), inpx.b),
-            }
-          })
-        )
-        trailState.set(key, next)
-        out = { frame: next }
+        for (let y = 0; y < H; y++) {
+          const row = buf[y], srcRow = src[y]
+          for (let x = 0; x < W; x++) {
+            const px = row[x], inpx = srcRow[x]
+            px.r = Math.max(Math.round(px.r * s), inpx.r)
+            px.g = Math.max(Math.round(px.g * s), inpx.g)
+            px.b = Math.max(Math.round(px.b * s), inpx.b)
+          }
+        }
+        trailState.set(key, buf)
+        out = { frame: buf }
         break
       }
 
@@ -2893,7 +2901,7 @@ function createEvalNode(
         const g = Math.max(0.1, Number(props.gamma ?? 2.2))
         if (!src) { out = { frame: null }; break }
         const corr = (c: number) => Math.round(255 * Math.pow(c / 255, g))
-        out = { frame: src.map(row => row.map(px => ({ r: corr(px.r), g: corr(px.g), b: corr(px.b) }))) }
+        out = { frame: buildFrame(W, H, (x, y) => { const px = src[y][x]; return { r: corr(px.r), g: corr(px.g), b: corr(px.b) } }) }
         break
       }
 
@@ -3074,7 +3082,7 @@ function createEvalNode(
       case 'Invert': {
         const src = input(id, 'frame', null) as Frame | null
         if (!src) { out = { frame: blankFrame(W, H) }; break }
-        out = { frame: src.map(row => row.map(px => ({ r: 255 - px.r, g: 255 - px.g, b: 255 - px.b }))) }
+        out = { frame: buildFrame(W, H, (x, y) => { const px = src[y][x]; return { r: 255 - px.r, g: 255 - px.g, b: 255 - px.b } }) }
         break
       }
 
@@ -3432,7 +3440,7 @@ function createEvalNode(
       // frame's opacity).
       case 'FrameToField': {
         const src = input(id, 'frame', null) as Frame | null
-        const out2 = new Float32Array(W * H)
+        const out2 = allocField(W * H)
         if (src) {
           for (let y = 0; y < H; y++) {
             for (let x = 0; x < W; x++) {
