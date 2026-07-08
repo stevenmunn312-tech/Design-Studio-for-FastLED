@@ -2142,3 +2142,39 @@ describe('EncoderInput', () => {
     expect(outputs.get('enc')).toEqual({ position: 0, pressed: false })
   })
 })
+
+// ── Hot-set evaluation (auxNodes = false) ─────────────────────────────────────
+
+describe('evaluateGraphFull hot set', () => {
+  it('skips nodes disconnected from the terminal when auxNodes is false', () => {
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const aux = node('aux', 'SolidColor', 'pattern', { r: 0, g: 255, b: 0 })
+    const out = node('mo', 'MatrixOutput', 'output', {})
+    const wires = [edge('e1', 'sc', 'frame', 'mo', 'frame')]
+    const { frame, outputs } = evaluateGraphFull([sc, aux, out], wires, 0, W, H, {}, false)
+    expect(frame).not.toBeNull()
+    expect(outputs.has('sc')).toBe(true)
+    expect(outputs.has('mo')).toBe(true)
+    expect(outputs.has('aux')).toBe(false)
+  })
+
+  it('keeps a disconnected BeatDetect (and its upstream) in the hot set', () => {
+    const mic = node('mic', 'MicInput', 'input', {})
+    const bd = node('bd', 'BeatDetect', 'audio', {})
+    const aux = node('aux', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 })
+    const wires = [edge('e1', 'mic', 'audio', 'bd', 'audio')]
+    const { outputs } = evaluateGraphFull([mic, bd, aux], wires, 0, W, H, {}, false)
+    expect(outputs.has('bd')).toBe(true)
+    expect(outputs.has('mic')).toBe(true)
+    expect(outputs.has('aux')).toBe(false)
+  })
+
+  it('evaluates every node by default', () => {
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const aux = node('aux', 'SolidColor', 'pattern', { r: 0, g: 255, b: 0 })
+    const out = node('mo', 'MatrixOutput', 'output', {})
+    const wires = [edge('e1', 'sc', 'frame', 'mo', 'frame')]
+    const { outputs } = evaluateGraphFull([sc, aux, out], wires, 0, W, H)
+    expect(outputs.has('aux')).toBe(true)
+  })
+})

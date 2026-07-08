@@ -43,25 +43,6 @@ const FRAG = `
     float hotCore = smoothstep(0.115, 0.015, r);
     float halo    = smoothstep(0.62, 0.18, r) * (1.0 - emitter * 0.72);
 
-    // Glow: 9×9 neighbourhood contribution, wider falloff so light bleeds
-    // further between LEDs (matches a real diffused matrix's bloom).
-    vec3 glow = vec3(0.0);
-    vec3 closeGlow = vec3(0.0);
-    for (int dy = -4; dy <= 4; dy++) {
-      for (int dx = -4; dx <= 4; dx++) {
-        vec2 ni = ci + vec2(float(dx), float(dy));
-        if (ni.x < 0.0 || ni.y < 0.0 || ni.x >= u_grid.x || ni.y >= u_grid.y) continue;
-        vec3  nc  = texture2D(u_frame, (ni + 0.5) / u_grid).rgb;
-        float nb  = dot(nc, vec3(0.299, 0.587, 0.114));
-        if (nb < 0.015) continue;
-        vec2  dlt = cell - (ni + 0.5);
-        float d2  = dot(dlt, dlt);
-        float energy = 0.22 + nb * 0.96;
-        glow += nc * energy * exp(-d2 * 0.32);
-        closeGlow += nc * energy * exp(-d2 * 1.18);
-      }
-    }
-
     vec3 col;
     if (u_style > 0.5) {
       vec3 nearField = vec3(0.0);
@@ -72,18 +53,30 @@ const FRAG = `
         for (int dx = -6; dx <= 6; dx++) {
           vec2 step = vec2(float(dx), float(dy));
           float d2 = dot(step, step);
-          vec2 uvNear = clamp(baseUv + step / u_grid * 0.42, vec2(0.0), vec2(1.0));
           vec2 uvFar  = clamp(baseUv + step / u_grid * 1.05, vec2(0.0), vec2(1.0));
-          float wNear = exp(-d2 * 0.22);
           float wFar  = exp(-d2 * 0.065);
-          nearField += texture2D(u_frame, uvNear).rgb * wNear;
           farField  += texture2D(u_frame, uvFar).rgb * wFar;
-          nearWeight += wNear;
           farWeight += wFar;
+          // The near kernel exp(-0.22·d²) is < 1.2% beyond d² = 20, so skip
+          // those taps — the condition depends only on the loop constants, so
+          // every fragment in a warp takes the same branch.
+          if (d2 <= 20.0) {
+            vec2 uvNear = clamp(baseUv + step / u_grid * 0.42, vec2(0.0), vec2(1.0));
+            float wNear = exp(-d2 * 0.22);
+            nearField += texture2D(u_frame, uvNear).rgb * wNear;
+            nearWeight += wNear;
+          }
         }
       }
       nearField /= max(nearWeight, 0.0001);
       farField /= max(farWeight, 0.0001);
+
+      // The diffused styles only add a faint glow term on top of the far/near
+      // fields, so approximate the standard path's neighbourhood sum from the
+      // near field (self term + normalised neighbourhood × the kernel mass)
+      // instead of paying its full sampling loop again.
+      float nearLum = dot(nearField, vec3(0.299, 0.587, 0.114));
+      vec3 glow = led * 1.18 + nearField * 8.6 * (0.22 + nearLum * 0.96);
 
       vec3 hazeField = mix(farField, nearField, 0.38);
       float haze = clamp(dot(hazeField, vec3(0.24, 0.48, 0.18)) * 1.8, 0.0, 1.0);
@@ -149,6 +142,27 @@ const FRAG = `
         col *= scan * 1.08;
       }
     } else {
+      // Glow: 7×7 neighbourhood contribution, wider falloff so light bleeds
+      // further between LEDs (matches a real diffused matrix's bloom). The
+      // kernel exp(-0.32·d²) is under 0.6% at d ≥ 4, so a ±3 window is
+      // visually identical to the former ±4 at 60% of the taps.
+      vec3 glow = vec3(0.0);
+      vec3 closeGlow = vec3(0.0);
+      for (int dy = -3; dy <= 3; dy++) {
+        for (int dx = -3; dx <= 3; dx++) {
+          vec2 ni = ci + vec2(float(dx), float(dy));
+          if (ni.x < 0.0 || ni.y < 0.0 || ni.x >= u_grid.x || ni.y >= u_grid.y) continue;
+          vec3  nc  = texture2D(u_frame, (ni + 0.5) / u_grid).rgb;
+          float nb  = dot(nc, vec3(0.299, 0.587, 0.114));
+          if (nb < 0.015) continue;
+          vec2  dlt = cell - (ni + 0.5);
+          float d2  = dot(dlt, dlt);
+          float energy = 0.22 + nb * 0.96;
+          glow += nc * energy * exp(-d2 * 0.32);
+          closeGlow += nc * energy * exp(-d2 * 1.18);
+        }
+      }
+
       // Photographic LED-matrix look: a near-black PCB, soft overlapping light
       // spill, a small saturated emitter, and a pinpoint hot centre.
       float peak = max(led.r, max(led.g, led.b));

@@ -741,8 +741,13 @@ export default function LEDPreview() {
         const { nodes: graphNodes, edges: graphEdges } = useGraphStore.getState()
         const groups = getGroupRegistry()
         // One evaluation pass feeds both the main matrix and every node preview.
+        // Nodes disconnected from the output only feed previews published at
+        // the 125 ms cadence, so they're evaluated only on publish frames —
+        // the every-frame pass covers the terminal chain and beat emitters.
+        const previewsOn = uiEffectsEnabledRef.current && !analyzingMusicRef.current
+        const fullPass = previewsOn && now - lastPreviewPublish.current >= PREVIEW_PUBLISH_INTERVAL_MS
         const evalStart = performance.now()
-        const { frame: rendered, outputs } = evaluateGraphFull(graphNodes, graphEdges, tick, gW, gH, groups)
+        const { frame: rendered, outputs } = evaluateGraphFull(graphNodes, graphEdges, tick, gW, gH, groups, fullPass)
         const evalMs = performance.now() - evalStart
         let frame = rendered ?? idleFrame(tick, gW, gH)
         const showStart = performance.now()
@@ -786,10 +791,18 @@ export default function LEDPreview() {
         }
 
         // Beat pulses last one evaluation frame, so publish them immediately;
-        // otherwise keep React/store work to ~15 fps while the matrix stays at 60.
+        // otherwise keep React/store work to ~8 fps while the matrix stays at 60.
         const hasBeat = Array.from(outputs.values()).some((output) => output.beat === true)
         const publishStart = performance.now()
-        if (uiEffectsEnabledRef.current && !analyzingMusicRef.current && (hasBeat || now - lastPreviewPublish.current >= PREVIEW_PUBLISH_INTERVAL_MS)) {
+        if (fullPass || (previewsOn && hasBeat)) {
+          if (!fullPass) {
+            // A beat fired on a hot-only frame: carry the previous auxiliary
+            // outputs forward so their previews don't blank until the next
+            // full pass repopulates them.
+            for (const [id, ports] of usePreviewStore.getState().outputs) {
+              if (!outputs.has(id)) outputs.set(id, ports)
+            }
+          }
           usePreviewStore.getState().setOutputs(outputs)
           lastPreviewPublish.current = now
         }

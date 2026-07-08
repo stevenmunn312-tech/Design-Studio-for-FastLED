@@ -3798,11 +3798,62 @@ export function evaluateScalarSeries(
   })
 }
 
+// Node types every frame pass must evaluate even when skipping auxiliary
+// nodes: the terminals (they define the rendered frame) and BeatDetect, whose
+// one-frame beat pulse triggers the preview loop's early publish — sampling it
+// only on publish frames would miss most beats.
+const HOT_NODE_TYPES = new Set(['GroupOutput', 'MatrixOutput', 'BeatDetect'])
+
+// Single-entry cache of the "hot" node set — the upstream closure of the
+// terminals and beat emitters — recomputed only when the graph arrays change
+// (the preview loop asks for it 60×/s with stable references between edits).
+let hotIdsNodes: StudioNode[] | null = null
+let hotIdsEdges: StudioEdge[] | null = null
+let hotIdsCache = new Set<string>()
+
+function hotNodeIds(nodes: StudioNode[], edges: StudioEdge[]): Set<string> {
+  if (nodes === hotIdsNodes && edges === hotIdsEdges) return hotIdsCache
+  hotIdsNodes = nodes
+  hotIdsEdges = edges
+  const byTarget = new Map<string, string[]>()
+  for (const e of edges) {
+    if (!e.source || !e.target) continue
+    const into = byTarget.get(e.target)
+    if (into) into.push(e.source)
+    else byTarget.set(e.target, [e.source])
+  }
+  const hot = new Set<string>()
+  const pending: string[] = []
+  for (const n of nodes) {
+    if (HOT_NODE_TYPES.has(String((n.data as { nodeType?: unknown }).nodeType))) {
+      hot.add(n.id)
+      pending.push(n.id)
+    }
+  }
+  while (pending.length) {
+    const id = pending.pop()!
+    for (const src of byTarget.get(id) ?? []) {
+      if (hot.has(src)) continue
+      hot.add(src)
+      pending.push(src)
+    }
+  }
+  hotIdsCache = hot
+  return hot
+}
+
 /**
  * Evaluate the whole graph once, returning the terminal frame (as
  * `evaluateGraph` would) plus every node's output ports — so per-node previews
  * can be driven from the same single pass without double-advancing stateful
  * nodes. Outputs are keyed by node id; each is a `{ portId: value }` record.
+ *
+ * With `auxNodes` false, only the hot set is evaluated: nodes feeding a
+ * terminal, plus beat emitters and their upstream chains. Nodes disconnected
+ * from the output only feed previews published at ~8 fps, so the preview loop
+ * passes false on non-publish frames and their evaluation cost drops to the
+ * publish cadence (their per-call stateful simulations advance at that rate —
+ * the same trade-off the hidden-panel throttle already makes graph-wide).
  */
 export function evaluateGraphFull(
   nodes: StudioNode[],
@@ -3811,12 +3862,17 @@ export function evaluateGraphFull(
   gridW = DEFAULT_W,
   gridH = DEFAULT_H,
   groups: GroupRegistry = {},
+  auxNodes = true,
 ): { frame: Frame | null; outputs: Map<string, Record<string, unknown>> } {
   maybePruneEvaluatorState()
   const outputs = new Map<string, Record<string, unknown>>()
   if (nodes.length === 0) return { frame: null, outputs }
   const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, groups, '', new Set(), {})
-  for (const n of nodes) outputs.set(n.id, evalNode(n.id))
+  const hot = auxNodes ? null : hotNodeIds(nodes, edges)
+  for (const n of nodes) {
+    if (hot && !hot.has(n.id)) continue
+    outputs.set(n.id, evalNode(n.id))
+  }
   const outputNode = nodes.find(n => {
     const nt = (n.data as { nodeType?: string }).nodeType
     return nt === 'GroupOutput' || nt === 'MatrixOutput'
