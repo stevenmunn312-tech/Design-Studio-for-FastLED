@@ -1010,6 +1010,26 @@ export const useTemporalStore = <T>(
   selector: (state: TemporalState<HistorySlice>) => T
 ): T => useStore(useGraphStore.temporal, selector)
 
+// Single-entry cache for the MatrixOutput dimensions: every node's preview
+// aspect-ratio selector (and the LED preview) asks for these on every store
+// update, so scan the nodes array once per update instead of once per node.
+let matrixDimsNodes: StudioNode[] | null = null
+let matrixDimsCache = { w: 16, h: 16 }
+
+/** Raw width/height from the MatrixOutput node (16×16 when absent). Memoised
+ *  on the nodes array identity — safe to call from per-node store selectors. */
+export function matrixDims(nodes: StudioNode[]): { w: number; h: number } {
+  if (nodes !== matrixDimsNodes) {
+    matrixDimsNodes = nodes
+    const output = nodes.find((n) => (n.data as { nodeType?: string }).nodeType === 'MatrixOutput')
+    matrixDimsCache = {
+      w: Number(output?.data.properties.width ?? 16),
+      h: Number(output?.data.properties.height ?? 16),
+    }
+  }
+  return matrixDimsCache
+}
+
 /**
  * Assemble the group registry the evaluator needs: every non-root graph keyed
  * by id. The active graph lives in `nodes`/`edges`, the rest in `graphData`.

@@ -33,7 +33,7 @@ import NodeContextMenu from './NodeContextMenu'
 import CanvasContextMenu from './CanvasContextMenu'
 import GroupControls from './GroupControls'
 import { anchorPosition } from '../../utils/anchorNode'
-import { traceSignalPath } from '../../utils/signalPath'
+import { signalPathFor } from '../../utils/signalPath'
 import { usePreviewStore } from '../../state/previewStore'
 import { playNoodleConnectSfx, playNoodleDisconnectSfx } from '../../audio/interactionSfx'
 import styles from './NodeGraphCanvas.module.css'
@@ -724,7 +724,7 @@ function NodeGraphCanvasInner() {
   )
 
   const spliceEdgeId = spliceCue?.edgeId ?? null
-  const focusedNodes = useMemo(() => traceSignalPath(edges, selectedNodeId), [edges, selectedNodeId])
+  const focusedNodes = useMemo(() => signalPathFor(edges, selectedNodeId), [edges, selectedNodeId])
   const displayEdges = useMemo(() => {
     if (!draggingNodeType && !canvasDragNodeId && !spliceEdgeId && !selectedNodeId && !connectionPulse) return edges
     return edges.map((edge) => ({

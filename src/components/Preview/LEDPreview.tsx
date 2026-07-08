@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties } from 'react'
-import { useGraphStore, getGroupRegistry, type GraphMeta, type StudioEdge, type StudioNode } from '../../state/graphStore'
+import { useGraphStore, getGroupRegistry, matrixDims, type GraphMeta, type StudioEdge, type StudioNode } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audioStore'
 import { evaluateGraphFull, getPatternShowSelection, type Frame } from '../../state/graphEvaluator'
@@ -234,6 +234,26 @@ function nodeTypeOf(node: StudioNode | undefined): string {
 function groupIdOf(node: StudioNode | undefined): string | null {
   const groupId = (node?.data.properties as { groupId?: string } | undefined)?.groupId
   return typeof groupId === 'string' && groupId ? groupId : null
+}
+
+// Single-entry cache of the library-pattern lookups (id set + name counts),
+// rebuilt only when the saved-patterns array changes — the stage-name selector
+// consuming these runs on every graph-store update.
+let libraryLookupSource: { id: string; name: string }[] | null = null
+let libraryLookupCache = { ids: new Set<string>(), nameCounts: new Map<string, number>() }
+
+function libraryLookup(patterns: { id: string; name: string }[]) {
+  if (patterns !== libraryLookupSource) {
+    libraryLookupSource = patterns
+    const ids = new Set<string>()
+    const nameCounts = new Map<string, number>()
+    for (const pattern of patterns) {
+      ids.add(pattern.id)
+      nameCounts.set(pattern.name, (nameCounts.get(pattern.name) ?? 0) + 1)
+    }
+    libraryLookupCache = { ids, nameCounts }
+  }
+  return libraryLookupCache
 }
 
 function libraryPatternNameForGroup(
@@ -485,7 +505,7 @@ export default function LEDPreview() {
   const glRef       = useRef<WebGLLEDRenderer | null>(null)
   const tickRef     = useRef(0)
   const animRef     = useRef<number>(0)
-  const [canvasWrapSize, setCanvasWrapSize] = useState({ width: 0, height: 0 })
+  const [canvasWrapSize, setCanvasWrapSize] = useState({ width: 0, height: 0, padX: 0, padY: 0 })
   const lastFpsTime   = useRef(performance.now())
   const frameCount    = useRef(0)
   const lastMemorySample = useRef(-MEMORY_SAMPLE_INTERVAL_MS)
@@ -502,30 +522,9 @@ export default function LEDPreview() {
   const lastFrameNow = useRef(0)
   const clearedPreviewStore = useRef(false)
 
-  const nodes = useGraphStore((s) => s.nodes)
-  const edges = useGraphStore((s) => s.edges)
-  const graphs = useGraphStore((s) => s.graphs)
-  const nodesRef = useRef(nodes)
-  const edgesRef = useRef(edges)
-  useEffect(() => { nodesRef.current = nodes }, [nodes])
-  useEffect(() => { edgesRef.current = edges }, [edges])
   const libraryPatterns = usePatternLibrary((s) => s.patterns)
   const playbackShow = useShowPlayback((s) => s.show)
   const playbackPosMs = useShowPlayback((s) => s.posMs)
-  const libraryPatternIds = new Set(libraryPatterns.map((pattern) => pattern.id))
-  const libraryNameCounts = libraryPatterns.reduce((counts, pattern) => {
-    counts.set(pattern.name, (counts.get(pattern.name) ?? 0) + 1)
-    return counts
-  }, new Map<string, number>())
-  const stagePatternName = activeStagePatternName(
-    nodes,
-    edges,
-    graphs,
-    libraryPatternIds,
-    libraryNameCounts,
-    playbackShow,
-    playbackPosMs,
-  )
 
   // The mic toggle only makes sense when a MicInput node is on the active
   // canvas — the same condition App.tsx uses to auto-start/stop the mic. We
@@ -536,10 +535,6 @@ export default function LEDPreview() {
     s.nodes.some((n) => (n.data as { nodeType?: string }).nodeType === 'MicInput')
   )
 
-  // Read grid dimensions from MatrixOutput node
-  const outputNode = useGraphStore((s) =>
-    s.nodes.find((n) => (n.data as { nodeType?: string }).nodeType === 'MatrixOutput')
-  )
   const hasFrameSignal = useGraphStore((s) => {
     const terminalIds = new Set(s.nodes
       .filter((node) => ['MatrixOutput', 'GroupOutput'].includes(String(node.data.nodeType)))
@@ -549,21 +544,26 @@ export default function LEDPreview() {
   const graphAudioVisualizerLive = useGraphStore((s) => graphConsumesAudio(s.nodes, s.edges))
   const playbackSpectrum = playbackShow ? showAudioSpectrum(playbackShow.audio, playbackPosMs) : null
   const audioVisualizerLive = graphAudioVisualizerLive || !!playbackSpectrum
-  const gridW = Math.max(2, Math.min(64, Number(outputNode?.data.properties.width  ?? 16)))
-  const gridH = Math.max(2, Math.min(64, Number(outputNode?.data.properties.height ?? 16)))
+  // Grid dimensions from the MatrixOutput node, via the shared single-scan memo.
+  const gridW = useGraphStore((s) => Math.max(2, Math.min(64, matrixDims(s.nodes).w)))
+  const gridH = useGraphStore((s) => Math.max(2, Math.min(64, matrixDims(s.nodes).h)))
   const stageMode = useUiStore((s) => s.stageMode)
+  // Stage-mode pattern name, derived inside a selector that returns a plain
+  // string — graph edits (including every drag pointermove) only re-render this
+  // panel when the displayed name actually changes. Off stage, skip the walk.
+  const stagePatternName = useGraphStore((s) => {
+    if (!stageMode) return null
+    const lib = libraryLookup(libraryPatterns)
+    return activeStagePatternName(s.nodes, s.edges, s.graphs, lib.ids, lib.nameCounts, playbackShow, playbackPosMs)
+  })
   const performanceMode = useUiStore((s) => s.performanceMode)
   const uiEffectsEnabled = useUiStore((s) => s.uiEffectsEnabled)
   const setStageMode = useUiStore((s) => s.setStageMode)
   const setStatus = useUiStore((s) => s.setStatus)
   const fps = useUiStore((s) => s.fps)
   const memoryMb = useUiStore((s) => s.memoryMb)
-  const wrapEl = canvasWrapRef.current
-  const wrapStyle = wrapEl ? window.getComputedStyle(wrapEl) : null
-  const wrapPadX = wrapStyle ? Number.parseFloat(wrapStyle.paddingLeft) + Number.parseFloat(wrapStyle.paddingRight) : 0
-  const wrapPadY = wrapStyle ? Number.parseFloat(wrapStyle.paddingTop) + Number.parseFloat(wrapStyle.paddingBottom) : 0
-  const availableCanvasW = Math.max(0, canvasWrapSize.width - wrapPadX)
-  const availableCanvasH = Math.max(0, canvasWrapSize.height - wrapPadY)
+  const availableCanvasW = Math.max(0, canvasWrapSize.width - canvasWrapSize.padX)
+  const availableCanvasH = Math.max(0, canvasWrapSize.height - canvasWrapSize.padY)
   const windowedPixelLimit = Math.min(
     stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX,
     availableCanvasW > 0 ? availableCanvasW / gridW : stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX,
@@ -646,9 +646,14 @@ export default function LEDPreview() {
     if (!canvasWrap) return
 
     const syncSize = () => {
+      // Measure padding here (once per resize) rather than in the render body,
+      // where getComputedStyle would force a style recalc on every re-render.
+      const style = window.getComputedStyle(canvasWrap)
       setCanvasWrapSize({
         width: canvasWrap.clientWidth,
         height: canvasWrap.clientHeight,
+        padX: Number.parseFloat(style.paddingLeft) + Number.parseFloat(style.paddingRight),
+        padY: Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom),
       })
     }
 
@@ -719,18 +724,22 @@ export default function LEDPreview() {
         const tick = (now - startTime.current) / STEP
         tickRef.current = tick
         const gW = gridWRef.current, gH = gridHRef.current, px = pixelRef.current
+        // Read the graph straight from the store each frame — the loop runs at
+        // 60 fps anyway, and this keeps the React component free of a full
+        // nodes/edges subscription (which would re-render it on every drag).
+        const { nodes: graphNodes, edges: graphEdges } = useGraphStore.getState()
         const groups = getGroupRegistry()
         // One evaluation pass feeds both the main matrix and every node preview.
         const evalStart = performance.now()
-        const { frame: rendered, outputs } = evaluateGraphFull(nodesRef.current, edgesRef.current, tick, gW, gH, groups)
+        const { frame: rendered, outputs } = evaluateGraphFull(graphNodes, graphEdges, tick, gW, gH, groups)
         const evalMs = performance.now() - evalStart
         let frame = rendered ?? idleFrame(tick, gW, gH)
         const showStart = performance.now()
         frame = applyShowPlaybackSignal(
           frame,
           outputs,
-          nodesRef.current,
-          edgesRef.current,
+          graphNodes,
+          graphEdges,
           useShowPlayback.getState(),
           gW,
           gH,
@@ -782,8 +791,8 @@ export default function LEDPreview() {
           drawMs,
           publishMs,
           context: {
-            nodes: nodesRef.current.length,
-            edges: edgesRef.current.length,
+            nodes: graphNodes.length,
+            edges: graphEdges.length,
             groups: Object.keys(groups).length,
             outputs: outputs.size,
             gridW: gW,

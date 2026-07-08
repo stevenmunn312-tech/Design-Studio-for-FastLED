@@ -1,8 +1,8 @@
 import { lazy, memo, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import type { NodeProps, Node } from '@xyflow/react'
-import { useGraphStore } from '../../state/graphStore'
-import type { StudioNodeData } from '../../state/graphStore'
+import { matrixDims, useGraphStore } from '../../state/graphStore'
+import type { StudioEdge, StudioNodeData } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { NODE_LIBRARY, CATEGORY_ACCENT_VAR, portColor, propertyMeta, hasClampableInputs, nodeDisplayLabel, isPropertyEnabled, libraryDefaults } from '../../state/nodeLibrary'
 import { waveNodeSamples } from '../../state/wave'
@@ -16,7 +16,7 @@ import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
 import { getCodeError } from '../../state/graphEvaluator'
 import { useMusicStore } from '../../state/musicStore'
-import { traceSignalPath } from '../../utils/signalPath'
+import { signalPathFor } from '../../utils/signalPath'
 import styles from './StudioNode.module.css'
 
 const MusicLibraryNodeBody = lazy(() => import('./MusicLibraryNodeBody'))
@@ -497,6 +497,27 @@ function moduleCode(nodeType: string) {
   return nodeType.replace(/[^A-Z0-9]/gi, '').slice(0, 3).toUpperCase().padEnd(3, '·')
 }
 
+// Single-entry cache mapping node id → serialised incoming-wiring key, rebuilt
+// once per edges array. Every mounted node's wiring selector runs on every
+// store update (including each drag pointermove), so one O(E) pass here
+// replaces an O(E) scan per node per update.
+let incomingKeysEdges: StudioEdge[] | null = null
+let incomingKeysCache = new Map<string, string>()
+
+function incomingKeyFor(edges: StudioEdge[], nodeId: string): string {
+  if (edges !== incomingKeysEdges) {
+    incomingKeysEdges = edges
+    incomingKeysCache = new Map()
+    for (const e of edges) {
+      if (e.target && e.targetHandle && e.source && e.sourceHandle) {
+        const prev = incomingKeysCache.get(e.target) ?? ''
+        incomingKeysCache.set(e.target, `${prev}${e.targetHandle}>${e.source}:${e.sourceHandle};`)
+      }
+    }
+  }
+  return incomingKeysCache.get(nodeId) ?? ''
+}
+
 function StudioNode({ id, data, selected }: StudioNodeProps) {
   const d = data as StudioNodeData
   const nodeRef = useRef<HTMLDivElement>(null)
@@ -508,17 +529,11 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const uiEffectsEnabled = useUiStore((s) => s.uiEffectsEnabled)
   const focusState = useGraphStore((s) => {
     if (!s.selectedNodeId) return 'neutral'
-    return traceSignalPath(s.edges, s.selectedNodeId).has(id) ? 'active' : 'dim'
+    return signalPathFor(s.edges, s.selectedNodeId).has(id) ? 'active' : 'dim'
   })
   // Matrix dimensions (from MatrixOutput) set the frame-preview aspect ratio.
-  const gridW = useGraphStore((s) => {
-    const o = s.nodes.find((n) => (n.data as { nodeType?: string }).nodeType === 'MatrixOutput')
-    return Math.max(1, Math.min(64, Number(o?.data.properties.width ?? 16)))
-  })
-  const gridH = useGraphStore((s) => {
-    const o = s.nodes.find((n) => (n.data as { nodeType?: string }).nodeType === 'MatrixOutput')
-    return Math.max(1, Math.min(64, Number(o?.data.properties.height ?? 16)))
-  })
+  const gridW = useGraphStore((s) => Math.max(1, Math.min(64, matrixDims(s.nodes).w)))
+  const gridH = useGraphStore((s) => Math.max(1, Math.min(64, matrixDims(s.nodes).h)))
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
   const setGroupInputRole = useGraphStore((s) => s.setGroupInputRole)
@@ -532,13 +547,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // editor is disabled and shows the live value coming from the connection.
   // Selected as a stable string so the node only re-renders when its own wiring
   // changes; the parsed source map feeds the live-value lookup below.
-  const incomingKey = useGraphStore((s) => {
-    let k = ''
-    for (const e of s.edges)
-      if (e.target === id && e.targetHandle && e.source && e.sourceHandle)
-        k += `${e.targetHandle}>${e.source}:${e.sourceHandle};`
-    return k
-  })
+  const incomingKey = useGraphStore((s) => incomingKeyFor(s.edges, id))
   const sourceMap = useMemo(() => {
     const m = new Map<string, { srcId: string; srcPort: string }>()
     for (const part of incomingKey.split(';').filter(Boolean)) {
