@@ -1,4 +1,4 @@
-import { useRef, type CSSProperties } from 'react'
+import { useEffect, useRef, type CSSProperties } from 'react'
 import { useAudioStore } from '../../state/audioStore'
 import styles from './LEDPreview.module.css'
 
@@ -17,6 +17,12 @@ function resample(values: number[], count: number): number[] {
   })
 }
 
+/**
+ * Spectrum bars under the LED preview. The bar/peak elements are rendered once
+ * and animated by writing styles directly from an audio-store subscription —
+ * the live mic publishes a fresh spectrum every animation frame, and driving
+ * 28×2 elements through React re-renders at that rate is pure overhead.
+ */
 export default function PreviewSpectrum({
   audioVisualizerLive,
   spectrumOverride,
@@ -24,41 +30,65 @@ export default function PreviewSpectrum({
   audioVisualizerLive: boolean
   spectrumOverride?: number[] | null
 }) {
-  const previewSpectrum = useAudioStore((s) => s.previewSpectrum)
-  const peakRef = useRef(Array(NUM_BARS).fill(0))
-  const sourceSpectrum = spectrumOverride?.length ? spectrumOverride : previewSpectrum
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const peaksRef = useRef<number[]>(Array(NUM_BARS).fill(0))
+  const propsRef = useRef({ audioVisualizerLive, spectrumOverride })
+  propsRef.current = { audioVisualizerLive, spectrumOverride }
+  const paintRef = useRef<() => void>(() => {})
 
-  const displaySpectrum = resample(audioVisualizerLive ? sourceSpectrum : [], NUM_BARS).map((value, i, arr) => {
-    const prev = arr[i - 1] ?? value
-    const next = arr[i + 1] ?? value
-    return clamp01(value * 0.55 + ((prev + value + next) / 3) * 0.45)
-  })
+  useEffect(() => {
+    const wrap = wrapRef.current
+    if (!wrap) return
+    // The bar wrappers are static; cache their children once.
+    const bars: HTMLElement[] = []
+    const peaks: HTMLElement[] = []
+    for (const barWrap of wrap.children) {
+      bars.push(barWrap.children[0] as HTMLElement)
+      peaks.push(barWrap.children[1] as HTMLElement)
+    }
 
-  peakRef.current = audioVisualizerLive
-    ? displaySpectrum.map((value, i) => clamp01(Math.max(value, peakRef.current[i] - 0.02)))
-    : Array(NUM_BARS).fill(0)
+    const paint = () => {
+      const { audioVisualizerLive: live, spectrumOverride: override } = propsRef.current
+      const source = override?.length ? override : useAudioStore.getState().previewSpectrum
+      const sampled = resample(live ? source : [], NUM_BARS)
+      const held = peaksRef.current
+      for (let i = 0; i < NUM_BARS; i++) {
+        const prev = sampled[i - 1] ?? sampled[i]
+        const next = sampled[i + 1] ?? sampled[i]
+        const value = clamp01(sampled[i] * 0.55 + ((prev + sampled[i] + next) / 3) * 0.45)
+        held[i] = live ? clamp01(Math.max(value, held[i] - 0.02)) : 0
+        bars[i].style.height = `${Math.max(6, value * 100)}%`
+        peaks[i].style.bottom = `${Math.max(0, held[i] * 100 - 3)}%`
+      }
+    }
+    paintRef.current = paint
+    paint()
+
+    // Live mic/media data arrives via the audio store; an active show override
+    // is painted by the prop effect below instead.
+    let lastSpectrum: number[] | null = null
+    return useAudioStore.subscribe((state) => {
+      if (propsRef.current.spectrumOverride?.length) return
+      if (state.previewSpectrum === lastSpectrum) return
+      lastSpectrum = state.previewSpectrum
+      paint()
+    })
+  }, [])
+
+  // Repaint when the show override or live flag changes (playback cadence).
+  useEffect(() => {
+    paintRef.current()
+  }, [audioVisualizerLive, spectrumOverride])
 
   return (
-    <div className={styles.spectrum} aria-hidden>
-      {displaySpectrum.map((value, i) => {
+    <div ref={wrapRef} className={styles.spectrum} aria-hidden>
+      {Array.from({ length: NUM_BARS }, (_, i) => {
         const hue = 188 + (i / Math.max(1, NUM_BARS - 1)) * 148
         const colorVars = { '--bar-hue': `${hue}` } as CSSProperties
         return (
           <div key={i} className={styles.barWrap}>
-            <div
-              className={styles.bar}
-              style={{
-                height: `${Math.max(6, value * 100)}%`,
-                ...colorVars,
-              }}
-            />
-            <div
-              className={styles.peak}
-              style={{
-                bottom: `${Math.max(0, peakRef.current[i] * 100 - 3)}%`,
-                ...colorVars,
-              }}
-            />
+            <div className={styles.bar} style={{ height: '6%', ...colorVars }} />
+            <div className={styles.peak} style={{ bottom: '0%', ...colorVars }} />
           </div>
         )
       })}

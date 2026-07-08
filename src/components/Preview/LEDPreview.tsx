@@ -548,6 +548,7 @@ export default function LEDPreview() {
   const gridW = useGraphStore((s) => Math.max(2, Math.min(64, matrixDims(s.nodes).w)))
   const gridH = useGraphStore((s) => Math.max(2, Math.min(64, matrixDims(s.nodes).h)))
   const stageMode = useUiStore((s) => s.stageMode)
+  const previewPanelOpen = useUiStore((s) => s.previewPanelOpen)
   // Stage-mode pattern name, derived inside a selector that returns a plain
   // string — graph edits (including every drag pointermove) only re-render this
   // panel when the displayed name actually changes. Off stage, skip the walk.
@@ -604,6 +605,11 @@ export default function LEDPreview() {
   useEffect(() => { uiEffectsEnabledRef.current = uiEffectsEnabled }, [uiEffectsEnabled])
   useEffect(() => { previewStyleRef.current = effectivePreviewStyle }, [effectivePreviewStyle])
   const stageModeRef = useRef(stageMode)
+  // Whether the matrix canvas is actually on screen: the panel stays mounted
+  // while its dock is closed (the render loop keeps feeding node previews),
+  // and stage mode shows it regardless of the dock.
+  const previewVisibleRef = useRef(previewPanelOpen || stageMode)
+  useEffect(() => { previewVisibleRef.current = previewPanelOpen || stageMode }, [previewPanelOpen, stageMode])
   const preview3dRef = useRef(effectivePreview3d)
   const micActiveRef = useRef(micActive)
   const analyzingMusicRef = useRef(analyzingMusic)
@@ -713,7 +719,12 @@ export default function LEDPreview() {
         if (startTime.current === 0) { startTime.current = now; lastStep.current = now }
         // Gate to ~60fps off the wall clock: on high-refresh displays this skips
         // the extra rAF callbacks instead of advancing time faster than real.
-        if (now - lastStep.current < STEP) {
+        // With the preview panel closed, node previews (published at the
+        // 125 ms cadence) are the only consumer of this loop, so evaluation
+        // drops to that rate — stateful nodes are wall-clock based and resume
+        // seamlessly when the panel reopens.
+        const visible = previewVisibleRef.current
+        if (now - lastStep.current < (visible ? STEP : PREVIEW_PUBLISH_INTERVAL_MS)) {
           animRef.current = requestAnimationFrame(loop)
           return
         }
@@ -749,9 +760,11 @@ export default function LEDPreview() {
 
         const bw = canvasBufWRef.current, bh = canvasBufHRef.current
         const drawStart = performance.now()
-        if (useWebGL && glRef.current) {
+        // Nothing shows the matrix canvas while the panel is hidden — skip the
+        // draw (evaluation still ran above so node previews stay live).
+        if (visible && useWebGL && glRef.current) {
           glRef.current.render(frame, gW, gH, px, previewStyleRef.current)
-        } else if (ctx) {
+        } else if (visible && ctx) {
           if (canvas.width !== bw || canvas.height !== bh) {
             canvas.width = bw; canvas.height = bh
           }
@@ -762,7 +775,7 @@ export default function LEDPreview() {
         // Sample the matrix itself for an Ambilight-style spill. Updating CSS
         // variables directly at 10 fps avoids making the full preview React
         // tree re-render just to animate decorative light.
-        if (uiEffectsEnabledRef.current && frameCount.current % 6 === 0 && canvasWrapRef.current) {
+        if (visible && uiEffectsEnabledRef.current && frameCount.current % 6 === 0 && canvasWrapRef.current) {
           const ambient = frameAmbient(frame)
           const wrap = canvasWrapRef.current
           wrap.style.setProperty('--ambient-nw', ambient.colors[0])
