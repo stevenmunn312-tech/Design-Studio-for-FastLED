@@ -959,6 +959,17 @@ describe('evaluateGraph', () => {
     expect(f[1]).toEqual([{ r: 255, g: 0, b: 0 }, { r: 0, g: 255, b: 0 }])
   })
 
+  it('Image applies smooth sampling, brightness, and background colour', () => {
+    const image = { w: 2, h: 1, pixels: [0, 0, 0, 100, 200, 40] }
+    const img = node('img', 'Image', 'pattern', {
+      image, fit: 'contain', positionY: 0, sampling: 'smooth', brightness: 0.5, background: '#14283c',
+    })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const f = evaluateGraph([img, out], [edge('e', 'img', 'frame', 'out', 'frame')], 0, 4, 4)!
+    expect(f[0].map(px => px.r)).toEqual([0, 13, 38, 50])
+    expect(f[3]).toEqual(Array(4).fill({ r: 10, g: 20, b: 30 }))
+  })
+
   it('FlowField deposits trails that build up over frames', () => {
     const ff = node('ff', 'FlowField', 'pattern', { speed: 1, scale: 0.1, count: 60, fade: 0.9, palette: 'ocean' })
     const out = node('out', 'MatrixOutput', 'output', {})

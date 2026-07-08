@@ -637,9 +637,22 @@ describe('generateCpp', () => {
     expect(cpp).toContain('fminf((float)WIDTH/_rw,(float)HEIGHT/_rh)')
     expect(cpp).toContain('(WIDTH-_dw)*0.25f')
     expect(cpp).toContain('(HEIGHT-_dh)*1.0f')
-    expect(cpp).toContain('_ox=_rw-1-_ox')
-    expect(cpp).toContain('_oy=_rh-1-_oy')
-    expect(cpp).toContain('int _sx=_oy, _sy=_ih-1-_ox')
+    expect(cpp).toContain('_px=_rw-1-_px')
+    expect(cpp).toContain('_py=_rh-1-_py')
+    expect(cpp).toContain('int _sx=_py, _sy=_ih-1-_px')
+  })
+
+  it('emits Image smooth sampling, brightness, and background colour', () => {
+    const image = { w: 2, h: 1, pixels: [0, 0, 0, 100, 200, 40] }
+    const img = node('img', 'Image', 'pattern', {
+      image, fit: 'contain', sampling: 'smooth', brightness: 0.5, background: '#102030',
+    })
+    const cpp = generateCpp([img, outputNode], [edge('e', 'img', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('const float _ibr=0.5f')
+    expect(cpp).toContain('CRGB(8,16,24); continue;')
+    expect(cpp).toContain('floorf(_fx)')
+    expect(cpp).toContain('CRGB _c00=_imgpx(')
+    expect(cpp).toContain('_rr*_ibr+0.5f')
   })
 
   it('emits fractal noise via summed inoise8 octaves', () => {

@@ -2049,6 +2049,15 @@ export function generateCpp(
         }
         const positionX = position(p.positionX)
         const positionY = position(p.positionY)
+        const rawBrightness = Number(p.brightness ?? 1)
+        const brightness = Number.isFinite(rawBrightness) ? Math.max(0, Math.min(1, rawBrightness)) : 1
+        const background = hexToRgb(String(p.background ?? '#000000'))
+        const scaledBackground = {
+          r: Math.round(background.r * brightness),
+          g: Math.round(background.g * brightness),
+          b: Math.round(background.b * brightness),
+        }
+        const sampling = p.sampling === 'smooth' ? 'smooth' : 'nearest'
         const fl = (value: number) => `${Number.isInteger(value) ? value.toFixed(1) : value}f`
         ln(`  { // Image ${img.w}x${img.h}`)
         ln(`    static const uint8_t _img_${id}[] PROGMEM = {${img.pixels.join(',')}};`)
@@ -2062,18 +2071,31 @@ export function generateCpp(
           ln(`    float _dw=(float)WIDTH, _dh=(float)HEIGHT;`)
         }
         ln(`    float _iox=(WIDTH-_dw)*${fl(positionX)}, _ioy=(HEIGHT-_dh)*${fl(positionY)};`)
+        ln(`    const float _ibr=${fl(brightness)};`)
+        ln(`    auto _imgpx=[&](int _px,int _py)->CRGB{`)
+        if (p.flipX) ln(`      _px=_rw-1-_px;`)
+        if (p.flipY) ln(`      _py=_rh-1-_py;`)
+        if (rotation === 90) ln(`      int _sx=_py, _sy=_ih-1-_px;`)
+        else if (rotation === 180) ln(`      int _sx=_iw-1-_px, _sy=_ih-1-_py;`)
+        else if (rotation === 270) ln(`      int _sx=_iw-1-_py, _sy=_px;`)
+        else ln(`      int _sx=_px, _sy=_py;`)
+        ln(`      int _pi=(_sy*_iw+_sx)*3;`)
+        ln(`      return CRGB(pgm_read_byte(&_img_${id}[_pi]),pgm_read_byte(&_img_${id}[_pi+1]),pgm_read_byte(&_img_${id}[_pi+2]));};`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float _u=(_x+0.5f-_iox)/_dw, _v=(_y+0.5f-_ioy)/_dh;`)
-        ln(`      if(_u<0||_u>=1||_v<0||_v>=1){ ${ob}[_y*WIDTH+_x]=CRGB::Black; continue; }`)
-        ln(`      int _ox=min(_rw-1,(int)(_u*_rw)), _oy=min(_rh-1,(int)(_v*_rh));`)
-        if (p.flipX) ln(`      _ox=_rw-1-_ox;`)
-        if (p.flipY) ln(`      _oy=_rh-1-_oy;`)
-        if (rotation === 90) ln(`      int _sx=_oy, _sy=_ih-1-_ox;`)
-        else if (rotation === 180) ln(`      int _sx=_iw-1-_ox, _sy=_ih-1-_oy;`)
-        else if (rotation === 270) ln(`      int _sx=_iw-1-_oy, _sy=_ox;`)
-        else ln(`      int _sx=_ox, _sy=_oy;`)
-        ln(`      int _ii=(_sy*_iw+_sx)*3;`)
-        ln(`      ${ob}[_y*WIDTH+_x]=CRGB(pgm_read_byte(&_img_${id}[_ii]),pgm_read_byte(&_img_${id}[_ii+1]),pgm_read_byte(&_img_${id}[_ii+2]));}}`)
+        ln(`      if(_u<0||_u>=1||_v<0||_v>=1){ ${ob}[_y*WIDTH+_x]=CRGB(${scaledBackground.r},${scaledBackground.g},${scaledBackground.b}); continue; }`)
+        if (sampling === 'smooth') {
+          ln(`      float _fx=_u*_rw-0.5f, _fy=_v*_rh-0.5f; int _x0=(int)floorf(_fx), _y0=(int)floorf(_fy);`)
+          ln(`      float _tx=_fx-_x0, _ty=_fy-_y0; int _x1=_x0+1, _y1=_y0+1;`)
+          ln(`      _x0=max(0,min(_rw-1,_x0)); _x1=max(0,min(_rw-1,_x1)); _y0=max(0,min(_rh-1,_y0)); _y1=max(0,min(_rh-1,_y1));`)
+          ln(`      CRGB _c00=_imgpx(_x0,_y0), _c10=_imgpx(_x1,_y0), _c01=_imgpx(_x0,_y1), _c11=_imgpx(_x1,_y1);`)
+          ln(`      float _rr=_c00.r+(_c10.r-_c00.r)*_tx, _rg=_c00.g+(_c10.g-_c00.g)*_tx, _rb=_c00.b+(_c10.b-_c00.b)*_tx;`)
+          ln(`      _rr+=((_c01.r+(_c11.r-_c01.r)*_tx)-_rr)*_ty; _rg+=((_c01.g+(_c11.g-_c01.g)*_tx)-_rg)*_ty; _rb+=((_c01.b+(_c11.b-_c01.b)*_tx)-_rb)*_ty;`)
+          ln(`      ${ob}[_y*WIDTH+_x]=CRGB((uint8_t)(_rr*_ibr+0.5f),(uint8_t)(_rg*_ibr+0.5f),(uint8_t)(_rb*_ibr+0.5f));}}`)
+        } else {
+          ln(`      CRGB _ic=_imgpx(min(_rw-1,(int)(_u*_rw)),min(_rh-1,(int)(_v*_rh)));`)
+          ln(`      ${ob}[_y*WIDTH+_x]=CRGB((uint8_t)(_ic.r*_ibr+0.5f),(uint8_t)(_ic.g*_ibr+0.5f),(uint8_t)(_ic.b*_ibr+0.5f));}}`)
+        }
         break
       }
 

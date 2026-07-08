@@ -10,6 +10,9 @@ describe('nodeLibrary', () => {
       rotation: '0',
       flipX: false,
       flipY: false,
+      sampling: 'nearest',
+      brightness: 1,
+      background: '#000000',
     })
   })
 

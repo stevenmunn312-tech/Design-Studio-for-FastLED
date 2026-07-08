@@ -71,4 +71,24 @@ describe('sampleImageToFrame', () => {
       [0, 0, 10, 20],
     ])
   })
+
+  it('smoothly samples between source pixels', () => {
+    const img = { w: 2, h: 1, pixels: [0, 0, 0, 100, 200, 40] }
+    const frame = sampleImageToFrame(img, 4, 1, { sampling: 'smooth' })
+    expect(frame[0]).toEqual([
+      { r: 0, g: 0, b: 0 },
+      { r: 25, g: 50, b: 10 },
+      { r: 75, g: 150, b: 30 },
+      { r: 100, g: 200, b: 40 },
+    ])
+  })
+
+  it('applies brightness to image pixels and the gap background', () => {
+    const img = { w: 2, h: 1, pixels: [100, 80, 60, 40, 20, 10] }
+    const frame = sampleImageToFrame(img, 2, 2, {
+      fit: 'contain', positionY: 0, brightness: 0.5, background: { r: 20, g: 40, b: 60 },
+    })
+    expect(frame[0]).toEqual([{ r: 50, g: 40, b: 30 }, { r: 20, g: 10, b: 5 }])
+    expect(frame[1]).toEqual([{ r: 10, g: 20, b: 30 }, { r: 10, g: 20, b: 30 }])
+  })
 })

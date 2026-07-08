@@ -1081,6 +1081,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       rotation: '0',
       flipX: false,
       flipY: false,
+      sampling: 'nearest',
+      brightness: 1,
+      background: '#000000',
     },
   },
   {
@@ -1967,6 +1970,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   ReactionDiffusion: { speed: { control: 'slider', min: 1, max: 30,  step: 1 } },
   Image: {
     fit:       { control: 'select', options: ['stretch', 'contain', 'cover', 'original'] },
+    sampling:  { control: 'select', options: ['nearest', 'smooth'] },
     positionX: { control: 'slider', min: 0, max: 1, step: 0.01 },
     positionY: { control: 'slider', min: 0, max: 1, step: 0.01 },
     rotation:  { control: 'select', options: ['0', '90', '180', '270'] },

@@ -3360,6 +3360,9 @@ function createEvalNode(
           rotation: props.rotation as number | string,
           flipX: Boolean(props.flipX),
           flipY: Boolean(props.flipY),
+          sampling: props.sampling === 'smooth' ? 'smooth' : 'nearest',
+          brightness: Number(props.brightness ?? 1),
+          background: hexToRgb(String(props.background ?? '#000000')),
         }) : blankFrame(W, H) }
         break
       }
