@@ -31,6 +31,10 @@ import styles from './LEDPreview.module.css'
 import { frameAmbient } from '../../utils/signalVisual'
 import { idleFrame } from './idleFrame'
 
+// Statically replaced at build time, so the telemetry branches (phase timers +
+// the per-frame context object for the dev HUD) are dead-code-stripped in prod.
+const PERF_TELEMETRY = import.meta.env.DEV
+
 const MAX_CANVAS_PX = 448
 const STAGE_CANVAS_PX = 840
 const BYTES_PER_MIB = 1024 * 1024
@@ -308,6 +312,43 @@ function activeStagePatternName(
   return null
 }
 
+// ── Canvas-2D fallback LED sprites ────────────────────────────────────────────
+// The WebGL-less fallback used to draw every lit LED as two `arc` fills with
+// shadowBlur — a per-LED Gaussian blur that crawls on large grids. Instead,
+// pre-render each look (soft spill / emitter disc) as a small radial-gradient
+// sprite per quantised colour and drawImage it, scaled per LED.
+const SPRITE_SIZE = 64
+const SPRITE_CACHE_CAP = 512
+const spriteCache = new Map<string, HTMLCanvasElement>()
+
+function ledSprite(kind: 'spill' | 'core', r: number, g: number, b: number): HTMLCanvasElement {
+  // 5 bits per channel — LED art rarely has more distinct colours per frame.
+  const qr = r & 0xf8, qg = g & 0xf8, qb = b & 0xf8
+  const key = `${kind}:${qr},${qg},${qb}`
+  let sprite = spriteCache.get(key)
+  if (!sprite) {
+    if (spriteCache.size >= SPRITE_CACHE_CAP) spriteCache.clear()
+    sprite = document.createElement('canvas')
+    sprite.width = sprite.height = SPRITE_SIZE
+    const c = sprite.getContext('2d')!
+    const half = SPRITE_SIZE / 2
+    const grad = c.createRadialGradient(half, half, 0, half, half, half)
+    if (kind === 'spill') {
+      grad.addColorStop(0, `rgba(${qr},${qg},${qb},1)`)
+      grad.addColorStop(0.35, `rgba(${qr},${qg},${qb},0.5)`)
+      grad.addColorStop(1, `rgba(${qr},${qg},${qb},0)`)
+    } else {
+      grad.addColorStop(0, `rgb(${qr},${qg},${qb})`)
+      grad.addColorStop(0.6, `rgba(${qr},${qg},${qb},0.95)`)
+      grad.addColorStop(1, `rgba(${qr},${qg},${qb},0)`)
+    }
+    c.fillStyle = grad
+    c.fillRect(0, 0, SPRITE_SIZE, SPRITE_SIZE)
+    spriteCache.set(key, sprite)
+  }
+  return sprite
+}
+
 function renderGridFrame(ctx: CanvasRenderingContext2D, frame: Frame, pixel: number) {
   const gridH = frame.length
   const gridW = frame[0]?.length ?? 0
@@ -330,18 +371,13 @@ function renderGridFrame(ctx: CanvasRenderingContext2D, frame: Frame, pixel: num
   for (let y = 0; y < gridH; y++) {
     for (let x = 0; x < gridW; x++) {
       const { r, g, b } = frame[y][x]
-      const color = `rgb(${r},${g},${b})`
       const brightness = Math.max(r, g, b) / 255
       if (brightness < 0.012) continue
       const cx = (x + 0.5) * pixel
       const cy = (y + 0.5) * pixel
-      ctx.fillStyle = color
-      ctx.shadowColor = color
-      ctx.shadowBlur = pixel * (0.52 + brightness * 0.9)
+      const size = pixel * (1.4 + brightness * 1.8)
       ctx.globalAlpha = 0.18 + brightness * 0.3
-      ctx.beginPath()
-      ctx.arc(cx, cy, Math.max(0.55, pixel * 0.17), 0, Math.PI * 2)
-      ctx.fill()
+      ctx.drawImage(ledSprite('spill', r, g, b), cx - size / 2, cy - size / 2, size, size)
     }
   }
   ctx.restore()
@@ -353,17 +389,11 @@ function renderGridFrame(ctx: CanvasRenderingContext2D, frame: Frame, pixel: num
       if (brightness < 0.012) continue
       const cx = (x + 0.5) * pixel
       const cy = (y + 0.5) * pixel
-      const radius = Math.max(0.65, pixel * (0.15 + brightness * 0.055))
-      ctx.fillStyle = `rgb(${r},${g},${b})`
-      ctx.shadowColor = ctx.fillStyle
-      ctx.shadowBlur = pixel * (0.1 + brightness * 0.16)
+      const size = Math.max(1.6, pixel * (0.52 + brightness * 0.42))
       ctx.globalAlpha = 0.72 + brightness * 0.28
-      ctx.beginPath()
-      ctx.arc(cx, cy, radius, 0, Math.PI * 2)
-      ctx.fill()
+      ctx.drawImage(ledSprite('core', r, g, b), cx - size / 2, cy - size / 2, size, size)
 
       if (brightness > 0.66) {
-        ctx.shadowBlur = 0
         ctx.globalAlpha = (brightness - 0.66) * 1.5
         ctx.fillStyle = '#fff'
         ctx.beginPath()
@@ -373,7 +403,6 @@ function renderGridFrame(ctx: CanvasRenderingContext2D, frame: Frame, pixel: num
     }
   }
   ctx.globalAlpha = 1
-  ctx.shadowBlur = 0
 }
 
 function renderDiffusionFrame(ctx: CanvasRenderingContext2D, frame: Frame, pixel: number, style: Exclude<PreviewStyle, 'standard'>) {
@@ -746,11 +775,11 @@ export default function LEDPreview() {
         // the every-frame pass covers the terminal chain and beat emitters.
         const previewsOn = uiEffectsEnabledRef.current && !analyzingMusicRef.current
         const fullPass = previewsOn && now - lastPreviewPublish.current >= PREVIEW_PUBLISH_INTERVAL_MS
-        const evalStart = performance.now()
+        const evalStart = PERF_TELEMETRY ? performance.now() : 0
         const { frame: rendered, outputs } = evaluateGraphFull(graphNodes, graphEdges, tick, gW, gH, groups, fullPass)
-        const evalMs = performance.now() - evalStart
+        const evalMs = PERF_TELEMETRY ? performance.now() - evalStart : 0
         let frame = rendered ?? idleFrame(tick, gW, gH)
-        const showStart = performance.now()
+        const showStart = PERF_TELEMETRY ? performance.now() : 0
         frame = applyShowPlaybackSignal(
           frame,
           outputs,
@@ -761,10 +790,10 @@ export default function LEDPreview() {
           gH,
           groups,
         )
-        const showMs = performance.now() - showStart
+        const showMs = PERF_TELEMETRY ? performance.now() - showStart : 0
 
         const bw = canvasBufWRef.current, bh = canvasBufHRef.current
-        const drawStart = performance.now()
+        const drawStart = PERF_TELEMETRY ? performance.now() : 0
         // Nothing shows the matrix canvas while the panel is hidden — skip the
         // draw (evaluation still ran above so node previews stay live).
         if (visible && useWebGL && glRef.current) {
@@ -775,7 +804,7 @@ export default function LEDPreview() {
           }
           renderFrame(ctx, frame, px, previewStyleRef.current)
         }
-        const drawMs = performance.now() - drawStart
+        const drawMs = PERF_TELEMETRY ? performance.now() - drawStart : 0
 
         // Sample the matrix itself for an Ambilight-style spill. Updating CSS
         // variables directly at 10 fps avoids making the full preview React
@@ -793,7 +822,7 @@ export default function LEDPreview() {
         // Beat pulses last one evaluation frame, so publish them immediately;
         // otherwise keep React/store work to ~8 fps while the matrix stays at 60.
         const hasBeat = Array.from(outputs.values()).some((output) => output.beat === true)
-        const publishStart = performance.now()
+        const publishStart = PERF_TELEMETRY ? performance.now() : 0
         if (fullPass || (previewsOn && hasBeat)) {
           if (!fullPass) {
             // A beat fired on a hot-only frame: carry the previous auxiliary
@@ -806,35 +835,39 @@ export default function LEDPreview() {
           usePreviewStore.getState().setOutputs(outputs)
           lastPreviewPublish.current = now
         }
-        const publishMs = performance.now() - publishStart
-        const frameMs = performance.now() - frameStart
-        recordPerfFrame({
-          now,
-          gapMs,
-          frameMs,
-          evalMs,
-          showMs,
-          drawMs,
-          publishMs,
-          context: {
-            nodes: graphNodes.length,
-            edges: graphEdges.length,
-            groups: Object.keys(groups).length,
-            outputs: outputs.size,
-            gridW: gW,
-            gridH: gH,
-            canvasW: bw,
-            canvasH: bh,
-            renderer: useWebGL ? 'webgl' : '2d',
-            previewStyle: previewStyleRef.current,
-            stageMode: stageModeRef.current,
-            preview3d: preview3dRef.current,
-            micActive: micActiveRef.current,
-            audioReactive: audioVisualizerLiveRef.current,
-            hidden: document.visibilityState === 'hidden',
-            hasSignal: hasFrameSignalRef.current,
-          },
-        })
+        // Phase timings and the context object are dev-HUD-only; in production
+        // recordPerfFrame is a no-op, so skip building its payload entirely.
+        if (PERF_TELEMETRY) {
+          const publishMs = performance.now() - publishStart
+          const frameMs = performance.now() - frameStart
+          recordPerfFrame({
+            now,
+            gapMs,
+            frameMs,
+            evalMs,
+            showMs,
+            drawMs,
+            publishMs,
+            context: {
+              nodes: graphNodes.length,
+              edges: graphEdges.length,
+              groups: Object.keys(groups).length,
+              outputs: outputs.size,
+              gridW: gW,
+              gridH: gH,
+              canvasW: bw,
+              canvasH: bh,
+              renderer: useWebGL ? 'webgl' : '2d',
+              previewStyle: previewStyleRef.current,
+              stageMode: stageModeRef.current,
+              preview3d: preview3dRef.current,
+              micActive: micActiveRef.current,
+              audioReactive: audioVisualizerLiveRef.current,
+              hidden: document.visibilityState === 'hidden',
+              hasSignal: hasFrameSignalRef.current,
+            },
+          })
+        }
 
         frameCount.current++
         if (now - lastFpsTime.current >= 1000) {

@@ -95,21 +95,27 @@ export function averageFrequencyBand(
   return sum / ((to - from + 1) * 255)
 }
 
-/** Log spacing gives bass detail instead of spending most bars above 10 kHz. */
+/** Log spacing gives bass detail instead of spending most bars above 10 kHz.
+ *  Pass `out` to fill a reused buffer instead of allocating (the engine runs
+ *  this every animation frame). */
 export function logarithmicSpectrum(
   data: Uint8Array,
   sampleRate: number,
   fftSize: number,
   count = NUM_SPECTRUM_BARS,
+  out?: number[],
 ): number[] {
   const nyquist = sampleRate / 2
   const high = Math.min(MAX_SPECTRUM_HZ, nyquist)
   const ratio = high / MIN_SPECTRUM_HZ
-  return Array.from({ length: count }, (_, i) => {
+  const result = out ?? new Array<number>(count)
+  result.length = count
+  for (let i = 0; i < count; i++) {
     const from = MIN_SPECTRUM_HZ * ratio ** (i / count)
     const to = MIN_SPECTRUM_HZ * ratio ** ((i + 1) / count)
-    return averageFrequencyBand(data, sampleRate, fftSize, from, to)
-  })
+    result[i] = averageFrequencyBand(data, sampleRate, fftSize, from, to)
+  }
+  return result
 }
 
 export class AudioEngine {
@@ -138,6 +144,19 @@ export class AudioEngine {
   }
   private beatState = createBeatDetectorState()
   private agcPeak = 0.0001
+  // Per-frame spectrum output buffers, in alternating pairs: consumers (the
+  // audio store and its subscribers) dedupe on array identity, so each frame
+  // must publish a *different* array object — alternating two reused buffers
+  // gives that without allocating four fresh arrays per animation frame.
+  private specBufs: Record<'raw' | 'media' | 'scaled' | 'gated', [number[], number[]]> = {
+    raw: [[], []], media: [[], []], scaled: [[], []], gated: [[], []],
+  }
+  private specFlip = 0
+  private specBuf(name: 'raw' | 'media' | 'scaled' | 'gated'): number[] {
+    const buf = this.specBufs[name][this.specFlip]
+    buf.length = NUM_SPECTRUM_BARS
+    return buf
+  }
   private micConfig: MicNoiseGateConfig = {
     gain: DEFAULT_MIC_GAIN,
     agc: false,
@@ -268,20 +287,18 @@ export class AudioEngine {
 
     const sampleRate = this.ctx?.sampleRate ?? 48_000
     const mediaLive = mediaReady && this.mediaElementIsLive()
+    this.specFlip = 1 - this.specFlip
     const bassRaw = micReady ? this.bandRaw(30, 250, sampleRate) : 0
     const midsRaw = micReady ? this.bandRaw(250, 2000, sampleRate) : 0
     const trebleRaw = micReady ? this.bandRaw(2000, 8000, sampleRate) : 0
-    const rawSpectrumValues = micReady && this.buf ? logarithmicSpectrum(this.buf, sampleRate, FFT_SIZE) : Array(NUM_SPECTRUM_BARS).fill(0)
+    const rawSpectrumValues = micReady && this.buf
+      ? logarithmicSpectrum(this.buf, sampleRate, FFT_SIZE, NUM_SPECTRUM_BARS, this.specBuf('raw'))
+      : this.specBuf('raw').fill(0)
     const mediaSpectrum = mediaReady && this.mediaBuf
-      ? logarithmicSpectrum(this.mediaBuf, sampleRate, FFT_SIZE)
+      ? logarithmicSpectrum(this.mediaBuf, sampleRate, FFT_SIZE, NUM_SPECTRUM_BARS, this.specBuf('media'))
       : rawSpectrumValues
-    const peak = Math.max(
-      bassRaw,
-      midsRaw,
-      trebleRaw,
-      ...rawSpectrumValues,
-      0.0001,
-    )
+    let peak = Math.max(bassRaw, midsRaw, trebleRaw, 0.0001)
+    for (const value of rawSpectrumValues) if (value > peak) peak = value
     this.agcPeak = this.micConfig.agc
       ? Math.max(peak, this.agcPeak * 0.999)
       : 0.0001
@@ -289,9 +306,12 @@ export class AudioEngine {
     const bass = this.band(30, 250, bassRaw, scale)
     const mids = this.band(250, 2000, midsRaw, scale)
     const treble = this.band(2000, 8000, trebleRaw, scale)
-    const rawSpectrum = rawSpectrumValues.map((value) => clamp01(value * scale))
-    const spectrum = rawSpectrum
-      .map((value, i) => this.gateSpectrum(value, i))
+    const rawSpectrum = this.specBuf('scaled')
+    const spectrum = this.specBuf('gated')
+    for (let i = 0; i < NUM_SPECTRUM_BARS; i++) {
+      rawSpectrum[i] = clamp01(rawSpectrumValues[i] * scale)
+      spectrum[i] = this.gateSpectrum(rawSpectrum[i], i)
+    }
     const sourceMode: AudioInputMode = mediaLive ? 'media' : micReady ? 'mic' : null
     const beatSource = sourceMode === 'media' ? mediaSpectrum : rawSpectrum
     const beatResult = updateBeatDetectorFromSpectrum(beatSource, performance.now(), this.beatState)
@@ -303,7 +323,7 @@ export class AudioEngine {
       ? mediaSpectrum
       : sourceMode === 'mic'
         ? spectrum
-        : Array(NUM_SPECTRUM_BARS).fill(0)
+        : this.specBuf('media').fill(0)
 
     this.emit({
       active: sourceMode !== null,
