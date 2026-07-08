@@ -167,7 +167,7 @@ def _active_engine() -> str:
 # fbuild runs a persistent background daemon bound to whichever project
 # directory first started it, so (unlike arduino-cli) each compile can't use a
 # fresh temp directory — everything shares this one stable project. Only
-# `src/main.ino` is rewritten per request; the `[env:*]` sections (one per
+# `src/main.cpp` is rewritten per request; the `[env:*]` sections (one per
 # `BOARDS` entry, plus PSRAM variants) are static.
 _FBUILD_PROJECT_DIR = _HELPER_DIR / ".fbuild-project"
 _FBUILD_SRC_DIR = _FBUILD_PROJECT_DIR / "src"

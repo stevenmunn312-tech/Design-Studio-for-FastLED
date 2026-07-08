@@ -21,7 +21,15 @@ and `/api/engine`.
   Player, `ESP32-audioI2S` are vendored into `.fbuild-project/lib/` — as of
   fbuild 2.4.0 its `lib_deps` registry resolution doesn't actually fetch
   anything (`fbuild sync` marks entries `unresolved`), so a local vendored
-  copy is the working alternative.
+  copy is the working alternative. The generated source is also written as
+  `main.cpp`, not `main.ino` (`_write_fbuild_main` in `app.py`) — fbuild's
+  `.ino`→`.cpp` preprocessing auto-inserts function prototypes *before* any
+  user `#include`s, which breaks on FastLED-typed helpers (e.g. `CRGB
+  kelvinToRGB(...)`) since `CRGB` isn't declared yet at that point. Writing
+  a plain `.cpp` (with `#include <Arduino.h>` prepended) skips that
+  preprocessing entirely. **Hardware-validated** on a real ESP32-S3
+  (16×16 WS2812B matrix, GPIO6): fbuild compiled, flashed via `esptool`,
+  and the uploaded pattern ran correctly.
 - **`arduino-cli`** (fallback) — the original engine. Needs the ESP32 core +
   FastLED library installed per board (via the Arduino IDE, or
   `arduino-cli core install esp32:esp32` / `arduino-cli lib install FastLED`).
