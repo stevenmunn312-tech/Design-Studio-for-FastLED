@@ -18,9 +18,24 @@
   pointer-events: none;
 }
 
+/* Packets travel their noodle via offset-path/offset-distance (the element
+   carries `offset-path: path(...)` inline) — a CSS animation instead of SMIL
+   animateMotion, which forces continuous main-thread SVG work per element. */
+@keyframes packetTravel {
+  from {
+    offset-distance: 0%;
+  }
+  to {
+    offset-distance: 100%;
+  }
+}
+
 .packet {
   filter: drop-shadow(0 0 3px var(--edge-color)) drop-shadow(0 0 7px var(--edge-color));
   pointer-events: none;
+  offset-rotate: 0deg;
+  animation: packetTravel var(--packet-duration, 1.5s) linear infinite;
+  animation-delay: var(--packet-delay, 0s);
 }
 
 .familyFrame .core {
@@ -89,6 +104,8 @@
     drop-shadow(0 0 7px var(--edge-color))
     drop-shadow(0 0 13px var(--edge-color));
   pointer-events: none;
+  offset-rotate: 0deg;
+  animation: packetTravel 0.52s linear forwards;
 }
 
 @keyframes splicePulse {

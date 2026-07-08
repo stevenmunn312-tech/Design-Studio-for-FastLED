@@ -2,9 +2,16 @@ import { memo } from 'react'
 import { getBezierPath, useReactFlow } from '@xyflow/react'
 import type { EdgeProps } from '@xyflow/react'
 import { CATEGORY_COLOR } from '../../state/nodeLibrary'
+import { useGraphStore } from '../../state/graphStore'
 import { usePreviewStore } from '../../state/previewStore'
 import { useUiStore } from '../../state/uiStore'
 import styles from './GlowEdge.module.css'
+
+// Packet budget by graph size: every packet is a continuously-animating element,
+// so on busy graphs each noodle drops to a single packet, and past the upper
+// bound packets are dropped entirely (the dashed core still shows flow).
+const PACKET_LEAN_EDGE_COUNT = 24
+const PACKET_OFF_EDGE_COUNT = 60
 
 type SignalFamily = 'frame' | 'audio' | 'color' | 'control'
 
@@ -92,6 +99,10 @@ function GlowEdge({
     sourceHandleId ? state.signals.get(`${source}:${sourceHandleId}`) : undefined
   )
   const uiEffectsEnabled = useUiStore((state) => state.uiEffectsEnabled)
+  const packetCap = useGraphStore((s) =>
+    s.edges.length > PACKET_OFF_EDGE_COUNT ? 0
+    : s.edges.length > PACKET_LEAN_EDGE_COUNT ? 1
+    : Number.POSITIVE_INFINITY)
   const signalEnergy = signal?.energy ?? 0
   const idleVisibility = 1 - Math.min(1, signalEnergy * 1.35)
   const color = signal?.emissive || (typeof style?.stroke === 'string' && style.stroke) || CATEGORY_COLOR[category] || '#00bfff'
@@ -233,16 +244,16 @@ function GlowEdge({
             className={styles.connectionCharge}
             r={5}
             fill="#fff"
-            style={{ '--edge-color': color } as React.CSSProperties}
-          >
-            <animateMotion dur="0.52s" repeatCount="1" path={edgePath} />
-          </circle>
+            style={{ '--edge-color': color, offsetPath: `path('${edgePath}')` } as React.CSSProperties}
+          />
         </>
       )}
       {/* Discrete packets make direction and activity legible at a glance. The
           staggered pair reads like charge moving through a physical patch
-          cable rather than another decorative dashed line. */}
-      {motion.packetRadii.map((radius, packet) => (
+          cable rather than another decorative dashed line. Motion is a CSS
+          offset-path animation (not SMIL animateMotion): CSS animations are far
+          cheaper for the main thread with many edges alive at once. */}
+      {motion.packetRadii.slice(0, packetCap).map((radius, packet) => (
         <circle
           key={`${family}-${packet}`}
           className={styles.packet}
@@ -252,15 +263,10 @@ function GlowEdge({
           style={{
             '--edge-color': color,
             '--packet-duration': `${motion.packetDuration}s`,
+            '--packet-delay': `${-(packet / motion.packetRadii.length) * motion.packetDuration}s`,
+            offsetPath: `path('${edgePath}')`,
           } as React.CSSProperties}
-        >
-          <animateMotion
-            dur={`${motion.packetDuration}s`}
-            begin={`${-(packet / motion.packetRadii.length) * motion.packetDuration}s`}
-            repeatCount="indefinite"
-            path={edgePath}
-          />
-        </circle>
+        />
       ))}
       {/* Bright dot at the target port */}
       <circle cx={targetX} cy={targetY} r={4} fill={color} opacity={0.85} />

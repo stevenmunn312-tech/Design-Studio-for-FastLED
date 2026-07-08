@@ -2192,6 +2192,26 @@ function semanticAudioInputs(audio: Pick<AudioOverride, 'micBass' | 'micMids' | 
 // given tick. `instancePrefix` namespaces stateful-node state per group
 // instance; `groupStack` breaks group-level recursion; `groupInputs` carries
 // the values bound to the current group's exposed parameters.
+interface EvalMaps {
+  nodeMap: Map<string, StudioNode>
+  incoming: Map<string, { srcId: string; srcPort: string }>
+}
+
+// The per-evaluator lookup tables: node id → node, and
+// "targetNodeId:targetPortId" → upstream {srcId, srcPort}.
+function buildEvalMaps(nodes: StudioNode[], edges: StudioEdge[]): EvalMaps {
+  const nodeMap = new Map(nodes.map(n => [n.id, n]))
+  const incoming = new Map<string, { srcId: string; srcPort: string }>()
+  for (const edge of edges) {
+    if (edge.source && edge.target && edge.sourceHandle && edge.targetHandle)
+      incoming.set(`${edge.target}:${edge.targetHandle}`, {
+        srcId: edge.source,
+        srcPort: edge.sourceHandle,
+      })
+  }
+  return { nodeMap, incoming }
+}
+
 function createEvalNode(
   nodes: StudioNode[],
   edges: StudioEdge[],
@@ -2206,6 +2226,9 @@ function createEvalNode(
   // — the show preview uses it to feed a group's FFTAnalyzer/BeatDetect the
   // song's baked bass/mids/treble, matching what firmware plays back on-device.
   audioOverride: AudioOverride | null = null,
+  // Prebuilt lookup maps for callers that create many evaluators over the same
+  // graph (e.g. sampling a scope across a tick series) — see buildEvalMaps.
+  shared: EvalMaps | null = null,
 ) {
   const t = tick / 60   // seconds at assumed 60 fps
 
@@ -2213,17 +2236,7 @@ function createEvalNode(
   // instance path so two instances of the same group don't share state.
   const stateKey = (id: string) => markStateUsed(instancePrefix + id)
 
-  const nodeMap = new Map(nodes.map(n => [n.id, n]))
-
-  // Map "targetNodeId:targetPortId" → upstream {srcId, srcPort}
-  const incoming = new Map<string, { srcId: string; srcPort: string }>()
-  for (const edge of edges) {
-    if (edge.source && edge.target && edge.sourceHandle && edge.targetHandle)
-      incoming.set(`${edge.target}:${edge.targetHandle}`, {
-        srcId: edge.source,
-        srcPort: edge.sourceHandle,
-      })
-  }
+  const { nodeMap, incoming } = shared ?? buildEvalMaps(nodes, edges)
 
   const memo = new Map<string, Record<string, PortValue>>()
   // Nodes currently on the evaluation stack — used to break graph cycles.
@@ -3759,10 +3772,30 @@ export function evaluateScalar(
   gridW = DEFAULT_W,
   gridH = DEFAULT_H,
 ): number {
-  if (nodes.length === 0) return 0
-  const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, {}, '__scope__/', new Set(), {})
-  const v = evalNode(nodeId)?.[portId]
-  return typeof v === 'number' ? v : typeof v === 'boolean' ? (v ? 1 : 0) : 0
+  return evaluateScalarSeries(nodes, edges, nodeId, portId, [tick], gridW, gridH)[0]
+}
+
+/**
+ * `evaluateScalar` across a series of ticks in one call: the graph lookup maps
+ * are built once and shared by every per-tick evaluator, so sampling a scope
+ * window costs one graph walk per tick instead of one full setup per tick.
+ */
+export function evaluateScalarSeries(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  nodeId: string,
+  portId: string,
+  ticks: readonly number[],
+  gridW = DEFAULT_W,
+  gridH = DEFAULT_H,
+): number[] {
+  if (nodes.length === 0) return ticks.map(() => 0)
+  const shared = buildEvalMaps(nodes, edges)
+  return ticks.map((tick) => {
+    const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, {}, '__scope__/', new Set(), {}, null, shared)
+    const v = evalNode(nodeId)?.[portId]
+    return typeof v === 'number' ? v : typeof v === 'boolean' ? (v ? 1 : 0) : 0
+  })
 }
 
 /**
