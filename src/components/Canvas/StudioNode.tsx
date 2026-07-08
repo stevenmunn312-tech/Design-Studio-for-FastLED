@@ -9,6 +9,7 @@ import { waveNodeSamples } from '../../state/wave'
 import WaveScope from './WaveScope'
 import ComplexWaveScope from './ComplexWaveScope'
 import NodePreview, { type PreviewKind } from './NodePreview'
+import MatrixSizePopup from './MatrixSizePopup'
 import BeatDetectBody from './BeatDetectBody'
 import FFTAnalyzerBody from './FFTAnalyzerBody'
 import { usePreviewStore } from '../../state/previewStore'
@@ -40,6 +41,10 @@ function CodeError({ nodeId }: { nodeId: string }) {
   if (!err) return null
   return <div className={styles.codeErr} title={err}>⚠ {err}</div>
 }
+
+// MatrixOutput's size dropdown offers these square presets, plus "Custom"
+// which opens MatrixSizePopup for an arbitrary width/height.
+const MATRIX_SIZE_PRESETS = [16, 32, 64]
 
 function toHex(r: number, g: number, b: number) {
   return '#' + [r, g, b].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')
@@ -241,10 +246,45 @@ const LivePropertyControls = memo(function LivePropertyControls({
   )
   const liveFor = (propKey: string): unknown => liveValues[portFor(propKey)]
 
-  if (!(hasRGB || editable.length > 0 || showClamp || isGroupInput || showSetDefault)) return null
+  const isMatrixOutput = nodeType === 'MatrixOutput'
+  const [sizePopupOpen, setSizePopupOpen] = useState(false)
+
+  if (!(hasRGB || editable.length > 0 || showClamp || isGroupInput || showSetDefault || isMatrixOutput)) return null
 
   return (
     <div className={styles.props}>
+      {isMatrixOutput && (() => {
+        const w = Number(props.width ?? 16)
+        const h = Number(props.height ?? 16)
+        const preset = w === h && MATRIX_SIZE_PRESETS.includes(w) ? String(w) : 'custom'
+        return (
+          <div className={styles.propRow} title="LED matrix dimensions">
+            <span className={styles.propKey}>size</span>
+            <select
+              className={`nodrag ${styles.propSelect}`}
+              value={preset}
+              onChange={(e) => {
+                const v = e.target.value
+                if (v === 'custom') setSizePopupOpen(true)
+                else updateNodeProperties(nodeId, { width: Number(v), height: Number(v) })
+              }}
+            >
+              <option value="16">16 × 16</option>
+              <option value="32">32 × 32</option>
+              <option value="64">64 × 64</option>
+              <option value="custom">Custom…</option>
+            </select>
+            {sizePopupOpen && (
+              <MatrixSizePopup
+                width={w}
+                height={h}
+                onApply={(nw, nh) => updateNodeProperties(nodeId, { width: nw, height: nh })}
+                onClose={() => setSizePopupOpen(false)}
+              />
+            )}
+          </div>
+        )
+      })()}
       {isGroupInput && (() => {
         // Group-input role: tag this input so a Performance Generator show
         // drives it (energy/speed/palette). Sets `paramId` to the role name
@@ -536,6 +576,9 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       // PSRAM controls render in MatrixOutputUpload — their visibility depends
       // on whether the *selected board* supports PSRAM, which only it knows.
       && k !== 'usePsram' && k !== 'psramMode'
+      // MatrixOutput's width/height are edited via the dedicated size dropdown
+      // (16/32/64/Custom) below, not the generic number-field editor.
+      && k !== 'width' && k !== 'height'
       && !(isGroupInput && k === 'paramId')
       && !(hasRGB && (k === 'r' || k === 'g' || k === 'b'))
   )
