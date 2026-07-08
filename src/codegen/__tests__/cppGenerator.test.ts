@@ -933,7 +933,11 @@ describe('generateCpp — Particles modes', () => {
     return generateCpp([pn, out], [edge('e', 'pp', 'out', 'frame', 'frame')])
   }
 
-  for (const m of ['fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow', 'swarm']) {
+  for (const m of [
+    'fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow', 'swarm',
+    'rain', 'embers', 'bubbles', 'vortex', 'orbit', 'confetti', 'fireflies',
+    'meteor', 'tornado', 'pinwheel', 'bounce', 'attractor', 'waterfall',
+  ]) {
     it(`emits a real fixed-pool engine for "${m}"`, () => {
       const cpp = gen(m)
       expect(cpp).toContain(`// Particles: ${m}`)
@@ -957,6 +961,12 @@ describe('generateCpp — Particles modes', () => {
     const cpp = gen('comet')
     expect(cpp).toContain('float t = millis()')
     expect(cpp).toContain('sin(t*0.9f)')
+  })
+
+  it('time-driven displays emit the shared animation clock', () => {
+    for (const mode of ['embers', 'bubbles', 'fireflies', 'meteor', 'tornado', 'attractor']) {
+      expect(gen(mode)).toContain('float t = millis()')
+    }
   })
 })
 

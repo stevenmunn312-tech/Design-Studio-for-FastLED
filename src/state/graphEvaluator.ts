@@ -995,6 +995,116 @@ function evalParticles(nodeId: string, mode: string, rate: number, color: RGB, d
       })
       break
     }
+    case 'rain': {
+      // Fast wind-blown streaks from the top.
+      if (rnd() < rate) particles.push({ x: rnd() * W, y: 0, vx: (rnd() - 0.5) * 0.18, vy: rnd() * 0.45 + 0.35, life: 1, r: color.r, g: color.g, b: color.b })
+      for (const p of particles) { p.x += p.vx; p.y += p.vy; p.life *= decay * 0.995 }
+      particles = particles.filter(p => p.y < H && p.life > 0.05)
+      break
+    }
+    case 'embers': {
+      // Warm motes lift from the floor and wander as they cool.
+      if (rnd() < rate) particles.push({ x: rnd() * W, y: H - 1, vx: (rnd() - 0.5) * 0.12, vy: -(rnd() * 0.18 + 0.04), life: 1, r: color.r, g: color.g, b: color.b, seed: rnd() * 6.28 })
+      for (const p of particles) { p.x += p.vx + Math.sin(t * 2 + (p.seed ?? 0)) * 0.05; p.y += p.vy; p.life *= decay * 0.985 }
+      particles = particles.filter(p => p.y >= 0 && p.life > 0.05)
+      break
+    }
+    case 'bubbles': {
+      // Buoyant dots rise from below with a broad side-to-side wobble.
+      if (rnd() < rate) particles.push({ x: rnd() * W, y: H - 1, vx: 0, vy: -(rnd() * 0.16 + 0.06), life: 1, r: color.r, g: color.g, b: color.b, seed: rnd() * 6.28 })
+      for (const p of particles) { p.x += Math.sin(t * 3 + (p.seed ?? 0)) * 0.1; p.y += p.vy }
+      particles = particles.filter(p => p.y >= 0)
+      break
+    }
+    case 'vortex': {
+      // Particles spiral around the centre while being pulled slowly inward.
+      if (rnd() < rate) particles.push({ x: rnd() * W, y: rnd() * H, vx: 0, vy: 0, life: 1, r: color.r, g: color.g, b: color.b })
+      const cx = (W - 1) / 2, cy = (H - 1) / 2
+      for (const p of particles) {
+        const dx = p.x - cx, dy = p.y - cy, d = Math.max(0.5, Math.hypot(dx, dy))
+        p.x += (-dy / d) * 0.24 - dx * 0.006; p.y += (dx / d) * 0.24 - dy * 0.006; p.life *= decay * 0.995
+      }
+      particles = particles.filter(p => p.life > 0.05)
+      break
+    }
+    case 'orbit': {
+      // A stable constellation of dots circles the matrix centre.
+      const N = Math.max(4, Math.min(48, Math.round(4 + rate * 44)))
+      while (particles.length < N) particles.push({ x: rnd() * W, y: rnd() * H, vx: 0, vy: 0, life: 1, r: color.r, g: color.g, b: color.b, seed: rnd() * 0.08 + 0.025 })
+      if (particles.length > N) particles = particles.slice(0, N)
+      const cx = (W - 1) / 2, cy = (H - 1) / 2
+      for (const p of particles) {
+        const dx = p.x - cx, dy = p.y - cy, a = p.seed ?? 0.04
+        p.x = cx + dx * Math.cos(a) - dy * Math.sin(a); p.y = cy + dx * Math.sin(a) + dy * Math.cos(a); p.life = 1
+      }
+      break
+    }
+    case 'confetti': {
+      // Short-lived flecks appear throughout the matrix and drift downward.
+      const spawn = Math.max(1, Math.round(rate * 4))
+      for (let i = 0; i < spawn; i++) if (rnd() < rate) particles.push({ x: rnd() * W, y: rnd() * H, vx: (rnd() - 0.5) * 0.16, vy: rnd() * 0.08 + 0.02, life: 1, r: color.r, g: color.g, b: color.b })
+      for (const p of particles) { p.x += p.vx; p.y += p.vy; p.life *= decay * 0.94 }
+      particles = particles.filter(p => p.life > 0.05 && p.y < H)
+      break
+    }
+    case 'fireflies': {
+      // A persistent cloud meanders in smoothly changing directions.
+      const N = Math.max(5, Math.min(50, Math.round(5 + rate * 45)))
+      while (particles.length < N) particles.push({ x: rnd() * W, y: rnd() * H, vx: (rnd() - 0.5) * 0.12, vy: (rnd() - 0.5) * 0.12, life: 0.45 + rnd() * 0.55, r: color.r, g: color.g, b: color.b, seed: rnd() * 6.28 })
+      if (particles.length > N) particles = particles.slice(0, N)
+      const spanX = Math.max(1, W - 1), spanY = Math.max(1, H - 1)
+      for (const p of particles) { p.x = (p.x + p.vx + Math.sin(t + (p.seed ?? 0)) * 0.035 + spanX) % spanX; p.y = (p.y + p.vy + Math.cos(t * 0.8 + (p.seed ?? 0)) * 0.035 + spanY) % spanY; p.life = 0.65 + Math.sin(t * 3 + (p.seed ?? 0)) * 0.35 }
+      break
+    }
+    case 'meteor': {
+      // A bright diagonal head continuously lays down a fading tail.
+      const span = Math.max(1, Math.max(W, H) - 1), phase = (t * Math.max(2, W * 0.45)) % span
+      particles.push({ x: phase * (W - 1) / span, y: phase * (H - 1) / span, vx: 0, vy: 0, life: 1, r: color.r, g: color.g, b: color.b })
+      for (const p of particles) p.life *= decay * 0.96
+      particles = particles.filter(p => p.life > 0.04)
+      break
+    }
+    case 'tornado': {
+      // Rising motes tighten into a rotating funnel.
+      if (rnd() < rate) particles.push({ x: W / 2, y: H - 1, vx: 0, vy: -(rnd() * 0.16 + 0.06), life: 1, r: color.r, g: color.g, b: color.b, seed: rnd() * 6.28 })
+      for (const p of particles) { p.y += p.vy; const h = Math.max(0, Math.min(1, 1 - p.y / H)); p.x = W / 2 + Math.sin(t * 5 + (p.seed ?? 0) + p.y * 0.7) * (0.5 + h * W * 0.35); p.life *= decay * 0.995 }
+      particles = particles.filter(p => p.y >= 0 && p.life > 0.05)
+      break
+    }
+    case 'pinwheel': {
+      // Curved spokes stream out from the centre.
+      if (rnd() < rate) {
+        const a = rnd() * Math.PI * 2
+        particles.push({ x: W / 2, y: H / 2, vx: Math.cos(a) * 0.18, vy: Math.sin(a) * 0.18, life: 1, r: color.r, g: color.g, b: color.b })
+      }
+      for (const p of particles) { const vx = p.vx - p.vy * 0.035, vy = p.vy + p.vx * 0.035; p.vx = vx; p.vy = vy; p.x += vx; p.y += vy; p.life *= decay * 0.99 }
+      particles = particles.filter(p => p.life > 0.05 && p.x >= 0 && p.x < W && p.y >= 0 && p.y < H)
+      break
+    }
+    case 'bounce': {
+      // A rate-controlled set of particles ricochets around the panel.
+      const N = Math.max(4, Math.min(50, Math.round(4 + rate * 46)))
+      while (particles.length < N) particles.push({ x: rnd() * W, y: rnd() * H, vx: (rnd() - 0.5) * 0.5, vy: (rnd() - 0.5) * 0.5, life: 1, r: color.r, g: color.g, b: color.b })
+      if (particles.length > N) particles = particles.slice(0, N)
+      for (const p of particles) { p.x += p.vx; p.y += p.vy; if (p.x <= 0 || p.x >= W - 1) { p.x = Math.max(0, Math.min(W - 1, p.x)); p.vx *= -1 } if (p.y <= 0 || p.y >= H - 1) { p.y = Math.max(0, Math.min(H - 1, p.y)); p.vy *= -1 } p.life = 1 }
+      break
+    }
+    case 'attractor': {
+      // Particles chase a moving attractor, overshooting into loose loops.
+      if (rnd() < rate) particles.push({ x: rnd() * W, y: rnd() * H, vx: (rnd() - 0.5) * 0.1, vy: (rnd() - 0.5) * 0.1, life: 1, r: color.r, g: color.g, b: color.b })
+      const ax = (W - 1) * (0.5 + 0.35 * Math.sin(t * 0.7)), ay = (H - 1) * (0.5 + 0.35 * Math.cos(t * 0.9))
+      for (const p of particles) { const dx = ax - p.x, dy = ay - p.y, d = Math.max(1, Math.hypot(dx, dy)); p.vx = p.vx * 0.97 + dx / d * 0.025; p.vy = p.vy * 0.97 + dy / d * 0.025; p.x += p.vx; p.y += p.vy; p.life *= decay * 0.998 }
+      particles = particles.filter(p => p.life > 0.05)
+      break
+    }
+    case 'waterfall': {
+      // Dense drops accelerate down a narrow central stream and splash outward.
+      const spawn = Math.max(1, Math.round(rate * 3))
+      for (let i = 0; i < spawn; i++) if (rnd() < rate) particles.push({ x: W * (0.35 + rnd() * 0.3), y: 0, vx: (rnd() - 0.5) * 0.08, vy: rnd() * 0.2 + 0.12, life: 1, r: color.r, g: color.g, b: color.b })
+      for (const p of particles) { p.vy += 0.025; p.x += p.vx; p.y += p.vy; if (p.y >= H - 1) { p.y = H - 1; p.vy *= -0.3; p.vx += (rnd() - 0.5) * 0.35; p.life *= 0.7 } p.life *= decay * 0.995 }
+      particles = particles.filter(p => p.life > 0.05 && p.y < H)
+      break
+    }
     case 'fountain':
     default: {
       // Sparks rise from the bottom, arc under gravity, and fade.
@@ -3873,6 +3983,7 @@ export function evaluateGraphFull(
   auxNodes = true,
 ): { frame: Frame | null; outputs: Map<string, Record<string, unknown>> } {
   maybePruneEvaluatorState()
+  advanceFramePool()
   const outputs = new Map<string, Record<string, unknown>>()
   if (nodes.length === 0) return { frame: null, outputs }
   const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, groups, '', new Set(), {})

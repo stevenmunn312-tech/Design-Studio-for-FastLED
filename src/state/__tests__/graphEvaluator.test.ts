@@ -531,7 +531,11 @@ describe('evaluateGraph', () => {
   })
 
   describe('Particles modes', () => {
-    const modes = ['fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow', 'swarm']
+    const modes = [
+      'fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow', 'swarm',
+      'rain', 'embers', 'bubbles', 'vortex', 'orbit', 'confetti', 'fireflies',
+      'meteor', 'tornado', 'pinwheel', 'bounce', 'attractor', 'waterfall',
+    ]
     for (const m of modes) {
       it(`"${m}" lights at least one pixel`, () => {
         // Pin Math.random so every spawn-gate fires deterministically.

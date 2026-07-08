@@ -1600,7 +1600,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   RadialBurst: 'Rings bursting from the center.',
   Spiral: 'Rotating spiral arms.',
   Kaleidoscope: 'Mirrors a frame into kaleidoscope symmetry.',
-  Particles: 'Particle FX: fountain, gravity, fireworks, sparkle, comet, snow, swarm.',
+  Particles: 'Twenty particle displays: weather, trails, flocking, orbits, and more.',
   GradientFrame: 'Two-color linear gradient fill.',
   FractalNoise: 'Fractal (fBm) noise — summed octaves, cloud-like.',
   Blobs: 'Metaballs — merging lava-lamp blobs.',
@@ -1784,7 +1784,11 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   blendMode:      { control: 'select', options: ['normal', 'multiply', 'screen', 'overlay', 'add', 'difference'] },
   easeType:       { control: 'select', options: ['inOutCubic', 'inOutQuad', 'triwave', 'quadwave', 'cubicwave'] },
   fieldOp:        { control: 'select', options: ['add', 'subtract', 'multiply', 'mix', 'min', 'max', 'difference'] },
-  particleType:   { control: 'select', options: ['fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow', 'swarm'] },
+  particleType:   { control: 'select', options: [
+    'fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow', 'swarm',
+    'rain', 'embers', 'bubbles', 'vortex', 'orbit', 'confetti', 'fireflies',
+    'meteor', 'tornado', 'pinwheel', 'bounce', 'attractor', 'waterfall',
+  ] },
   channel:        { control: 'select', options: ['Left', 'Right'] },
   // Poline position functions — keep in sync with polinePalette.ts POSITION_FNS.
   position:   { control: 'select', options: ['linear', 'sinusoidal', 'quadratic', 'cubic', 'arc', 'smoothStep', 'exponential'] },
@@ -2016,7 +2020,13 @@ const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, stri
   },
   Particles: {
     prop: 'particleType',
-    labels: { fountain: 'Fountain', gravity: 'Gravity', fireworks: 'Fireworks', sparkle: 'Sparkle Rain', comet: 'Comet', snow: 'Snow', swarm: 'Swarm' },
+    labels: {
+      fountain: 'Fountain', gravity: 'Gravity', fireworks: 'Fireworks', sparkle: 'Sparkle Rain',
+      comet: 'Comet', snow: 'Snow', swarm: 'Swarm', rain: 'Rain', embers: 'Embers',
+      bubbles: 'Bubbles', vortex: 'Vortex', orbit: 'Orbit', confetti: 'Confetti',
+      fireflies: 'Fireflies', meteor: 'Meteor', tornado: 'Tornado', pinwheel: 'Pinwheel',
+      bounce: 'Bounce', attractor: 'Attractor', waterfall: 'Waterfall',
+    },
   },
   Ease: {
     prop: 'easeType',
