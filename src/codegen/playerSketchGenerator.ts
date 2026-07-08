@@ -598,7 +598,7 @@ ${bakedAudio ? '  updateShowAudio(posMs);   // song-synced FFT → pattern audio
     flashLevel *= flashDecay;
   }
 
-  // Particle-burst overlay: short-lived colored sparks (one of eleven motion
+  // Particle-burst overlay: short-lived colored sparks (one of seventeen motion
   // styles) added on top of the frame — FastLED's brightness then scales them,
   // so they fade with a silence fade-to-black. Keep the switch in sync with
   // particleOverlayAt() in showPreview.ts.
@@ -663,6 +663,40 @@ ${bakedAudio ? '  updateShowAudio(posMs);   // song-synced FFT → pattern audio
           y = fmodf(r2 * HEIGHT + ageSec * (2.0f + r4 * 4.0f), (float)HEIGHT);
           bri = (1.0f - f) * (0.55f + 0.45f * powf(sinf(ageSec * 12.0f + r3 * 6.2831853f), 2.0f));
           break;
+        case 11:  // sparkle — fast twinkle drizzling slowly down
+          x = r1 * WIDTH + (r4 - 0.5f);
+          y = r2 * HEIGHT * 0.3f + ageSec * (2.0f + r3 * 3.0f);
+          bri = max(0.0f, sinf(ageSec * (30.0f + r3 * 30.0f) + r4 * 6.2831853f)) * (1.0f - f);
+          break;
+        case 12: {  // comet — one shared Lissajous head with a fading trail of sparks
+          float trailT = ageSec - ((float)i / PARTICLE_COUNT) * 0.4f;
+          float tt = max(0.0f, trailT);
+          x = WIDTH * 0.5f + 0.42f * (WIDTH - 1) * sinf(tt * 8.0f);
+          y = HEIGHT * 0.5f + 0.42f * (HEIGHT - 1) * sinf(tt * 5.5f + 1.3f);
+          bri = trailT < 0.0f ? 0.0f : (1.0f - f) * (1.0f - (float)i / PARTICLE_COUNT);
+          break;
+        }
+        case 13:  // snow — slow fall with a gentle horizontal sway
+          x = r1 * WIDTH + sinf(ageSec * 1.5f + r4 * 6.2831853f) * 1.3f;
+          y = r2 * HEIGHT * 0.5f + ageSec * (1.2f + r3 * 1.3f);
+          bri = (1.0f - f) * (0.6f + 0.4f * r4);
+          break;
+        case 14:  // gravity — drops from the top, accelerating as they fall
+          x = r1 * WIDTH + (r4 - 0.5f);
+          y = r2 * HEIGHT * 0.35f + 5.5f * ageSec * ageSec;
+          break;
+        case 15: {  // bubbles — buoyant rise with a wobble, popping partway up
+          x = r1 * WIDTH + sinf(ageSec * 3.0f + r4 * 6.2831853f);
+          y = (HEIGHT - 1) - ageSec * (2.0f + r2 * 2.0f);
+          float popT = 0.3f + r3 * 0.5f;
+          bri = f < popT ? 1.0f - f : 0.0f;
+          break;
+        }
+        case 16: {  // vortex — spirals inward toward the centre, spinning faster as it collapses
+          float a = r1 * 6.2831853f + (2.0f + f * 10.0f) * ageSec, rad = (1.0f - f * 0.85f) * maxR;
+          x = cx + cosf(a) * rad; y = cy + sinf(a) * rad;
+          break;
+        }
         default:  // rise
           x = r1 * WIDTH + (r3 - 0.5f) * 8.0f * ageSec;
           y = r2 * HEIGHT + (-(1.0f + r4 * 3.0f)) * ageSec + 3.0f * ageSec * ageSec;

@@ -79,6 +79,7 @@ export const SECTION_TYPES: SongSection['type'][] = [
 export const PARTICLE_STYLES = [
   'rise', 'rain', 'explode', 'fireworks', 'swirl', 'twinkle',
   'ring', 'fountain', 'helix', 'meteor', 'confetti',
+  'sparkle', 'comet', 'snow', 'gravity', 'bubbles', 'vortex',
 ] as const
 
 // ── Transition map: from section type → transition style ──────────────────────

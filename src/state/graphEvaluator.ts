@@ -1728,7 +1728,7 @@ export function getPatternShowSelection(key: string): PatternShowSelection | nul
 // `render(groupId)` rasterises a pattern's subgraph to a frame.
 // ── Particle-burst overlay ────────────────────────────────────────────────────
 // A burst spawns PARTICLE_COUNT short-lived colored sparks that fade out, in one
-// of eleven motion styles. The motion is a pure function of burst time + spark
+// of seventeen motion styles. The motion is a pure function of burst time + spark
 // index (deterministic), so the browser preview (showPreview re-exports this) and
 // the firmware (the switch in playerSketchGenerator / showGenerator) spawn the
 // same sparks. Keep the three switches in sync.
@@ -1819,6 +1819,40 @@ export function renderParticleBurst(
         y = (r2 * H + ageSec * (2 + r4 * 4)) % H
         bri = (1 - f) * (0.55 + 0.45 * Math.sin(ageSec * 12 + r3 * P_TAU) ** 2)
         break
+      case 11:  // sparkle — fast twinkle drizzling slowly down
+        x = r1 * W + (r4 - 0.5)
+        y = r2 * H * 0.3 + ageSec * (2 + r3 * 3)
+        bri = Math.max(0, Math.sin(ageSec * (30 + r3 * 30) + r4 * P_TAU)) * (1 - f)
+        break
+      case 12: {  // comet — one shared Lissajous head with a fading trail of sparks
+        const trailT = ageSec - (i / PARTICLE_COUNT) * 0.4
+        const tt = Math.max(0, trailT)
+        x = W * 0.5 + 0.42 * (W - 1) * Math.sin(tt * 8.0)
+        y = H * 0.5 + 0.42 * (H - 1) * Math.sin(tt * 5.5 + 1.3)
+        bri = trailT < 0 ? 0 : (1 - f) * (1 - i / PARTICLE_COUNT)
+        break
+      }
+      case 13:  // snow — slow fall with a gentle horizontal sway
+        x = r1 * W + Math.sin(ageSec * 1.5 + r4 * P_TAU) * 1.3
+        y = r2 * H * 0.5 + ageSec * (1.2 + r3 * 1.3)
+        bri = (1 - f) * (0.6 + 0.4 * r4)
+        break
+      case 14:  // gravity — drops from the top, accelerating as they fall
+        x = r1 * W + (r4 - 0.5)
+        y = r2 * H * 0.35 + 5.5 * ageSec * ageSec
+        break
+      case 15: {  // bubbles — buoyant rise with a wobble, popping partway up
+        x = r1 * W + Math.sin(ageSec * 3 + r4 * P_TAU)
+        y = (H - 1) - ageSec * (2 + r2 * 2)
+        const popT = 0.3 + r3 * 0.5
+        bri = f < popT ? 1 - f : 0
+        break
+      }
+      case 16: {  // vortex — spirals inward toward the centre, spinning faster as it collapses
+        const a = r1 * P_TAU + (2 + f * 10) * ageSec, rad = (1 - f * 0.85) * maxR
+        x = cx + Math.cos(a) * rad; y = cy + Math.sin(a) * rad
+        break
+      }
       default:  // rise
         x = r1 * W + (r3 - 0.5) * 8 * ageSec
         y = r2 * H + (-(1 + r4 * 3)) * ageSec + 3 * ageSec * ageSec
