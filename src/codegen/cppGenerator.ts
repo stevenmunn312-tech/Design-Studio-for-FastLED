@@ -9,6 +9,7 @@ import { SPEED_MAX, SCALE_MAX, NOISE_SPEED_MAX, NOISE_SCALE_MAX, rateCpp } from 
 import { denormalizeBeatParam } from '../audio/beatDetection'
 import { inputClampRange } from '../state/nodeLibrary'
 import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledShims'
+import { particleRadius } from '../state/particleScale'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -1712,9 +1713,14 @@ export function generateCpp(
         const cr = mode === 'fireworks' ? `${A}r[i]` : '_pc.r'
         const cg = mode === 'fireworks' ? `${A}g[i]` : '_pc.g'
         const cb = mode === 'fireworks' ? `${A}b[i]` : '_pc.b'
+        // Blob radius baked from the panel's configured WIDTH/HEIGHT — mirrors
+        // the evaluator's particleScale.ts so firmware matches preview.
+        const R = particleRadius(width, height)
         ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
-        ln(`    for(int i=0;i<_PN;i++){ if(${A}l[i]<=0.04f) continue; int X=(int)(${A}x[i]+0.5f), Y=(int)(${A}y[i]+0.5f);`)
-        ln(`      if(X>=0&&X<WIDTH&&Y>=0&&Y<HEIGHT){ float _k=min(1.0f,${A}l[i]); ${ob}[Y*WIDTH+X]+=CRGB((uint8_t)(${cr}*_k),(uint8_t)(${cg}*_k),(uint8_t)(${cb}*_k)); } } }`)
+        ln(`    for(int i=0;i<_PN;i++){ if(${A}l[i]<=0.04f) continue; int X=(int)(${A}x[i]+0.5f), Y=(int)(${A}y[i]+0.5f); float _k=min(1.0f,${A}l[i]);`)
+        ln(`      for(int dy=-${R};dy<=${R};dy++) for(int dx=-${R};dx<=${R};dx++){ int Xx=X+dx,Yy=Y+dy; if(Xx<0||Xx>=WIDTH||Yy<0||Yy>=HEIGHT) continue;`)
+        ln(`        float _f=1.0f-sqrtf((float)(dx*dx+dy*dy))/${R + 1}.0f; if(_f<=0.0f) continue; float _kk=_k*_f;`)
+        ln(`        ${ob}[Yy*WIDTH+Xx]+=CRGB((uint8_t)(${cr}*_kk),(uint8_t)(${cg}*_kk),(uint8_t)(${cb}*_kk)); } } }`)
         break
       }
 

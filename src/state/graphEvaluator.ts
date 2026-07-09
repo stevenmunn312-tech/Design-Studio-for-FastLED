@@ -11,6 +11,7 @@ import { sampleNamedPalette } from './paletteCatalog'
 import { createBeatDetectorState, denormalizeBeatParam, updateBeatDetectorFromSpectrum } from '../audio/beatDetection'
 import { denormalizeAudioFlowParam } from './audioFlowRange'
 import { SPEED_MAX, SCALE_MAX, NOISE_SPEED_MAX, NOISE_SCALE_MAX, denormRate } from './speedRange'
+import { particleRadius } from './particleScale'
 
 export interface RGB { r: number; g: number; b: number }
 export type Frame = RGB[][]   // row-major [y][x]
@@ -1123,14 +1124,30 @@ function evalParticles(nodeId: string, mode: string, rate: number, color: RGB, d
   // the *live* colour — letting a colour change apply to existing particles too.
   const perParticle = mode === 'fireworks'
   const frame = blankFrame(W, H)
+  // Particles render as a soft circular blob whose radius scales with matrix
+  // size (see particleScale.ts) so a spark reads at roughly the same visual
+  // size on a 64x64 panel as on the reference 16x16 one, instead of shrinking
+  // to a single near-invisible pixel.
+  const radius = particleRadius(W, H)
   for (const p of particles) {
     const px = Math.round(p.x), py = Math.round(p.y)
-    if (px >= 0 && px < W && py >= 0 && py < H) {
-      const cur = frame[py][px], k = Math.min(1, p.life)
-      const cr = perParticle ? p.r : color.r, cg = perParticle ? p.g : color.g, cb = perParticle ? p.b : color.b
-      cur.r = Math.min(255, cur.r + Math.round(cr * k))
-      cur.g = Math.min(255, cur.g + Math.round(cg * k))
-      cur.b = Math.min(255, cur.b + Math.round(cb * k))
+    const k = Math.min(1, p.life)
+    const cr = perParticle ? p.r : color.r, cg = perParticle ? p.g : color.g, cb = perParticle ? p.b : color.b
+    for (let dy = -radius; dy <= radius; dy++) {
+      const y = py + dy
+      if (y < 0 || y >= H) continue
+      for (let dx = -radius; dx <= radius; dx++) {
+        const x = px + dx
+        if (x < 0 || x >= W) continue
+        const dist = Math.hypot(dx, dy)
+        const falloff = 1 - dist / (radius + 1)
+        if (falloff <= 0) continue
+        const kk = k * falloff
+        const cur = frame[y][x]
+        cur.r = Math.min(255, cur.r + Math.round(cr * kk))
+        cur.g = Math.min(255, cur.g + Math.round(cg * kk))
+        cur.b = Math.min(255, cur.b + Math.round(cb * kk))
+      }
     }
   }
   return frame
