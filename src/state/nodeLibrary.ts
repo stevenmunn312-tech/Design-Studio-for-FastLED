@@ -485,6 +485,168 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { decay: 0.85 },
   },
+  {
+    // Expanding shockwave rings spawned by kick/snare, textured with hihat grain.
+    type: 'KickShock',
+    label: 'Kick Shock',
+    category: 'pattern',
+    subcategory: 'Audio-Reactive',
+    inputs: [
+      { id: 'kick', label: 'Kick', dataType: 'float' },
+      { id: 'snare', label: 'Snare', dataType: 'float' },
+      { id: 'hihat', label: 'Hi-Hat', dataType: 'float' },
+      { id: 'energy', label: 'Energy', dataType: 'float' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { energy: 0.7, speed: 1.0, palette: 'volcano' },
+  },
+  {
+    // Vertical aurora-borealis curtains shaped by vocal presence; dims on silence.
+    type: 'VocalAurora',
+    label: 'Vocal Aurora',
+    category: 'pattern',
+    subcategory: 'Audio-Reactive',
+    inputs: [
+      { id: 'vocals', label: 'Vocals', dataType: 'float' },
+      { id: 'energy', label: 'Energy', dataType: 'float' },
+      { id: 'silence', label: 'Silence', dataType: 'bool' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { energy: 0.7, speed: 1.0, palette: 'aurora' },
+  },
+  {
+    // Wedge-mirrored plasma that punches wider/spins harder on each beat.
+    type: 'BeatKaleidoscope',
+    label: 'Beat Kaleidoscope',
+    category: 'pattern',
+    subcategory: 'Audio-Reactive',
+    inputs: [
+      { id: 'beat', label: 'Beat', dataType: 'bool' },
+      { id: 'hue', label: 'Hue', dataType: 'float' },
+      { id: 'energy', label: 'Energy', dataType: 'float' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { hue: 0, energy: 0.7, speed: 1.0, palette: 'ultraviolet' },
+  },
+  {
+    // Tiled VU mosaic — bass/mids/treble sweep diagonally across the grid cells.
+    type: 'SpectraMosaic',
+    label: 'Spectra Mosaic',
+    category: 'pattern',
+    subcategory: 'Audio-Reactive',
+    inputs: [
+      { id: 'bass', label: 'Bass', dataType: 'float' },
+      { id: 'mids', label: 'Mids', dataType: 'float' },
+      { id: 'treble', label: 'Treble', dataType: 'float' },
+      { id: 'energy', label: 'Energy', dataType: 'float' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { energy: 0.7, speed: 1.0, palette: 'peacock', tiles: 4 },
+  },
+  {
+    // Three-tier metaball blobs — kick/snare/hihat each spawn their own tier.
+    type: 'PercussionBlobs',
+    label: 'Percussion Blobs',
+    category: 'pattern',
+    subcategory: 'Audio-Reactive',
+    inputs: [
+      { id: 'kick', label: 'Kick', dataType: 'float' },
+      { id: 'snare', label: 'Snare', dataType: 'float' },
+      { id: 'hihat', label: 'Hi-Hat', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { palette: 'party' },
+  },
+  {
+    // Bottom-up column fire (HeatColor ramp) — bass/mids/treble shape the columns.
+    type: 'EmberPulse',
+    label: 'Ember Pulse',
+    category: 'pattern',
+    subcategory: 'Audio-Reactive',
+    inputs: [
+      { id: 'bass', label: 'Bass', dataType: 'float' },
+      { id: 'mids', label: 'Mids', dataType: 'float' },
+      { id: 'treble', label: 'Treble', dataType: 'float' },
+      { id: 'beat', label: 'Beat', dataType: 'bool' },
+      { id: 'energy', label: 'Energy', dataType: 'float' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { energy: 0.7, speed: 1.0 },
+  },
+  {
+    // Radial bloom whose sample coordinates are pushed through noise turbulence.
+    type: 'TurbulentBloom',
+    label: 'Turbulent Bloom',
+    category: 'pattern',
+    subcategory: 'Audio-Reactive',
+    inputs: [
+      { id: 'bass', label: 'Bass', dataType: 'float' },
+      { id: 'mids', label: 'Mids', dataType: 'float' },
+      { id: 'treble', label: 'Treble', dataType: 'float' },
+      { id: 'energy', label: 'Energy', dataType: 'float' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { energy: 0.7, speed: 1.0, palette: 'deepsea' },
+  },
+  {
+    // Gravitational-lensing rings — bass drives density, rings bunch near the well.
+    type: 'GravityWell',
+    label: 'Gravity Well',
+    category: 'pattern',
+    subcategory: 'Audio-Reactive',
+    inputs: [
+      { id: 'bass', label: 'Bass', dataType: 'float' },
+      { id: 'energy', label: 'Energy', dataType: 'float' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'color', label: 'Color', dataType: 'color' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { energy: 0.7, speed: 1.0, r: 80, g: 160, b: 255 },
+  },
+  {
+    // A pool of expanding, fading ripples — one born on each trigger pulse.
+    type: 'RainRipples',
+    label: 'Rain Ripples',
+    category: 'pattern',
+    subcategory: 'Audio-Reactive',
+    inputs: [
+      { id: 'trigger', label: 'Trigger', dataType: 'bool' },
+      { id: 'energy', label: 'Energy', dataType: 'float' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { energy: 0.7, speed: 1.0, palette: 'laguna' },
+  },
+  {
+    // Oriented Gabor-noise shards that snap to a new angle on each hihat hit.
+    type: 'PrismStorm',
+    label: 'Prism Storm',
+    category: 'pattern',
+    subcategory: 'Audio-Reactive',
+    inputs: [
+      { id: 'treble', label: 'Treble', dataType: 'float' },
+      { id: 'mids', label: 'Mids', dataType: 'float' },
+      { id: 'hihat', label: 'Hi-Hat', dataType: 'float' },
+      { id: 'energy', label: 'Energy', dataType: 'float' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { energy: 0.7, speed: 1.0, palette: 'amethyst' },
+  },
 
   // ── More pattern nodes ─────────────────────────────────────────────────
   {
@@ -1631,6 +1793,16 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   TreblePrism: 'Sharp diagonal prisms that shimmer with treble energy.',
   AudioCascade: 'Full-spectrum ribbons with bass glow, mids flow, and treble shimmer.',
   BeatFlash: 'Flashes the frame white on each beat.',
+  KickShock: 'Expanding shockwave rings triggered by kick and snare, with hi-hat grain.',
+  VocalAurora: 'Vertical aurora curtains shaped by vocals; dims to black on silence.',
+  BeatKaleidoscope: 'Wedge-mirrored plasma that snaps wider and spins on every beat.',
+  SpectraMosaic: 'Tiled mosaic grid — bass, mids, and treble sweep diagonally across it.',
+  PercussionBlobs: 'Three-tier metaball blobs — kick, snare, and hi-hat each spawn their own.',
+  EmberPulse: 'Bottom-up column fire — bass, mids, and treble drive heat by column.',
+  TurbulentBloom: 'Radial bloom warped by noise turbulence — treble adds fine jitter.',
+  GravityWell: 'Gravitational-lensing rings that bunch up as they near the drifting well.',
+  RainRipples: 'A pool of expanding, fading ripples — one born on each trigger pulse.',
+  PrismStorm: 'Oriented shard noise that snaps to a new angle on every hi-hat hit.',
   Noise2D: 'Layered 2D sine noise.',
   RadialBurst: 'Rings bursting from the center.',
   Spiral: 'Rotating spiral arms.',
@@ -1844,6 +2016,10 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   bass:     { control: 'slider', min: 0, max: 1, step: 0.01 },
   mids:     { control: 'slider', min: 0, max: 1, step: 0.01 },
   treble:   { control: 'slider', min: 0, max: 1, step: 0.01 },
+  kick:     { control: 'slider', min: 0, max: 1, step: 0.01 },
+  snare:    { control: 'slider', min: 0, max: 1, step: 0.01 },
+  hihat:    { control: 'slider', min: 0, max: 1, step: 0.01 },
+  vocals:   { control: 'slider', min: 0, max: 1, step: 0.01 },
   octaves:  { control: 'slider', min: 1, max: 6, step: 1 },
   px:       { control: 'slider', min: 0, max: 1, step: 0.01 },
   py:       { control: 'slider', min: 0, max: 1, step: 0.01 },
@@ -1973,6 +2149,25 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   AudioCascade: {
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
+  },
+  KickShock:        { speed: N01 },
+  VocalAurora:      { speed: N01 },
+  PercussionBlobs:  {},
+  EmberPulse:       { speed: N01 },
+  TurbulentBloom:   { speed: N01 },
+  GravityWell:      { speed: N01 },
+  RainRipples:      { speed: N01 },
+  PrismStorm:       { speed: N01 },
+  // BeatKaleidoscope's hue comes from AudioHue (0-360°), not the generic
+  // CHSV-style hue (0-255).
+  BeatKaleidoscope: {
+    speed: N01,
+    hue: { control: 'slider', min: 0, max: 360, step: 1 },
+  },
+  // No generic `tiles` key exists elsewhere (tilesX/tilesY are separate).
+  SpectraMosaic: {
+    speed: N01,
+    tiles: { control: 'slider', min: 2, max: 8, step: 1 },
   },
   // Normalised speed/scale pattern nodes (internal range in speedRange.ts).
   Noise:           { speed: N01, scale: N01 },

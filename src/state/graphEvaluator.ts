@@ -69,6 +69,26 @@ const starState = new Map<string, StarState>()
 interface SparkState { frame: Frame; w: number; h: number }
 const sparkState = new Map<string, SparkState>()
 
+// ── New audio-reactive pattern state ──────────────────────────────────────
+// KickShock — pool of expanding shockwave rings, spawned on kick/snare edges.
+interface ShockRing { born: number; kind: 0 | 1 }
+interface KickShockState { rings: (ShockRing | null)[]; next: number; prevKick: boolean; prevSnare: boolean }
+const kickShockState = new Map<string, KickShockState>()
+// BeatKaleidoscope — a decaying "punch" level, same shape as BeatFlash's flashLevel.
+const kaleidoPunch = new Map<string, number>()
+// PercussionBlobs — pool of metaball blobs, spawned on kick/snare/hihat edges.
+interface Blob { x: number; y: number; born: number; kind: 0 | 1 | 2 }
+interface PercussionBlobsState { blobs: (Blob | null)[]; next: number; prevKick: boolean; prevSnare: boolean; prevHihat: boolean }
+const percussionBlobsState = new Map<string, PercussionBlobsState>()
+// EmberPulse — a decaying beat-triggered "ember burst" level.
+const emberBurst = new Map<string, number>()
+// RainRipples — pool of expanding ripples, spawned on a trigger rising edge.
+interface Ripple { x: number; y: number; born: number }
+interface RainRipplesState { ripples: (Ripple | null)[]; next: number; prevTrig: boolean }
+const rainRipplesState = new Map<string, RainRipplesState>()
+// PrismStorm — held shard orientation (degrees), snapped on a hihat rising edge.
+const prismOrientation = new Map<string, { v: number; prev: boolean }>()
+
 // Per-pixel formula closure. Args are positional and shared by CustomFormula and
 // FieldFormula: x, y, cx, cy, r, angle, t, W, H, a, b, fieldIn, then the FastLED
 // shims (sin8, cos8, …) in SHIM_NAMES order.
@@ -206,6 +226,8 @@ export function pruneEvaluatorState(maxIdleMs = STATE_IDLE_TTL_MS, now = stateCl
     percussionLevels, audioFeatureLevels, particleState, patternShowState,
     rdState, golState, flowState, starState, sparkState, fire2012Heat,
     codeLeds, codeError,
+    kickShockState, kaleidoPunch, percussionBlobsState, emberBurst,
+    rainRipplesState, prismOrientation,
   ]
   for (const key of stale) {
     for (const map of maps) map.delete(key)
@@ -857,6 +879,326 @@ function samplePalette(palette: Palette, t: number): RGB {
     }
   }
   return sampleNamedPalette(palette, h) ?? hsv(h * 360, 1, 1)
+}
+
+// ── New audio-reactive patterns ───────────────────────────────────────────
+
+// Expanding shockwave rings triggered by kick (big/slow) and snare (small/fast),
+// textured with hihat grain — a Particles-pool-style capped spawn array.
+function evalKickShock(
+  key: string, kick: number, snare: number, hihat: number, energy: number, speed: number,
+  t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H,
+): Frame {
+  const CAP = 8
+  let state = kickShockState.get(key)
+  if (!state) { state = { rings: new Array(CAP).fill(null), next: 0, prevKick: false, prevSnare: false }; kickShockState.set(key, state) }
+  const kickHit = kick > 0.5, snareHit = snare > 0.5
+  if (kickHit && !state.prevKick) { state.rings[state.next] = { born: t, kind: 0 }; state.next = (state.next + 1) % CAP }
+  if (snareHit && !state.prevSnare) { state.rings[state.next] = { born: t, kind: 1 }; state.next = (state.next + 1) % CAP }
+  state.prevKick = kickHit; state.prevSnare = snareHit
+
+  const strength = clamp01(energy)
+  const spd = Math.max(0.2, speed)
+  const speedK = (0.35 + strength * 0.5) * spd, speedS = speedK * 1.8
+  const lifeK = 1.9, lifeS = 1.0, bandK = 0.10, bandS = 0.055
+  const cx = (W - 1) / 2, cy = (H - 1) / 2
+  const maxD = Math.max(1e-6, Math.hypot(cx, cy))
+  const hihatAmt = clamp01(hihat)
+
+  return buildFrame(W, H, (x, y) => {
+    const dist = Math.hypot(x - cx, y - cy) / maxD
+    let wave = 0
+    for (const ring of state.rings) {
+      if (!ring) continue
+      const age = t - ring.born
+      const isKick = ring.kind === 0
+      const spdR = isKick ? speedK : speedS, life = isKick ? lifeK : lifeS, band = isKick ? bandK : bandS
+      if (age < 0 || age > life) continue
+      const front = Math.exp(-((dist - age * spdR) ** 2) / (2 * band * band))
+      wave += front * (1 - age / life)
+    }
+    wave = Math.min(1, wave)
+    const jitter = hihatAmt * 0.18 * (Math.sin(dist * 50 - t * speed * 22) * 0.5 + 0.5)
+    const v = Math.min(1, wave * (0.5 + strength * 0.5) + jitter * wave + 0.03 * strength)
+    const c = samplePalette(palette, dist * 0.5 + t * speed * 0.03)
+    return { r: Math.round(c.r * v), g: Math.round(c.g * v), b: Math.round(c.b * v) }
+  })
+}
+
+// Vertical aurora-borealis curtains shaped by vocal presence; dims toward black
+// on silence.
+function evalVocalAurora(
+  vocals: number, energy: number, silence: boolean, speed: number, t: number,
+  palette: Palette, W = DEFAULT_W, H = DEFAULT_H,
+): Frame {
+  const level = clamp01(vocals), strength = clamp01(energy)
+  const gate = silence ? 0 : 1
+  const drift = t * speed * (0.15 + level * 0.35)
+  return buildFrame(W, H, (x, y) => {
+    const ny = H > 1 ? y / (H - 1) : 0
+    let curtain = 0
+    for (let bnd = 0; bnd < 3; bnd++) {
+      const bandPhase = ny * 3.0 + bnd * 2.1 + drift * (1 + bnd * 0.4)
+      const xOff = Math.sin(bandPhase) * (1.2 + level * 1.8) + Math.sin(bandPhase * 0.5 + bnd) * 0.6
+      const dx = (x - W / 2) / Math.max(1, W / 2) - xOff * 0.35
+      curtain += Math.exp(-dx * dx * 3.0) * (0.5 + 0.5 * Math.sin(bandPhase * 1.7 + bnd * 1.3))
+    }
+    const vBrightness = Math.min(1, (0.12 + strength * 0.35 + level * 0.65) * gate)
+    const v = Math.min(1, curtain * 0.6) * vBrightness
+    const c = samplePalette(palette, ny * 0.6 + drift * 0.08 + level * 0.25)
+    return { r: Math.round(c.r * v), g: Math.round(c.g * v), b: Math.round(c.b * v) }
+  })
+}
+
+// Wedge-mirrored plasma that punches wider and spins harder on every beat
+// (beat is already a one-frame pulse, so no separate edge tracking is needed —
+// the punch level decays the same way BeatFlash's flashLevel does).
+function evalBeatKaleidoscope(
+  key: string, beat: boolean, hue: number, energy: number, speed: number, t: number,
+  palette: Palette, W = DEFAULT_W, H = DEFAULT_H,
+): Frame {
+  let punch = kaleidoPunch.get(key) ?? 0
+  punch = beat ? 1 : punch * 0.85
+  kaleidoPunch.set(key, punch)
+
+  const strength = clamp01(energy)
+  const wedges = 6 + Math.round(punch * 6)
+  const rot = t * speed * (0.15 + strength * 0.35) + punch * 0.8
+  const wedgeAngle = (Math.PI * 2) / wedges
+  const cx = (W - 1) / 2, cy = (H - 1) / 2
+  const maxD = Math.max(1e-6, Math.hypot(cx, cy))
+
+  return buildFrame(W, H, (x, y) => {
+    const dx = x - cx, dy = y - cy
+    const dist = Math.hypot(dx, dy) / maxD
+    const ang = Math.atan2(dy, dx) + rot
+    let a = ((ang % wedgeAngle) + wedgeAngle) % wedgeAngle
+    if (a > wedgeAngle / 2) a = wedgeAngle - a
+    const tex = Math.sin(a * 10 + dist * 8 * (1 + punch * 0.6) - t * speed * 3) * Math.cos(dist * 5 * (1 + punch * 0.6) - a * 6)
+    const v = Math.min(1, Math.max(0, tex * 0.5 + 0.5) * (0.35 + strength * 0.65) + punch * 0.25)
+    const c = samplePalette(palette, dist * 0.5 + a * 0.3 + hue / 360 + t * speed * 0.05)
+    return { r: Math.round(c.r * v), g: Math.round(c.g * v), b: Math.round(c.b * v) }
+  })
+}
+
+// Tiled mosaic grid — bass/mids/treble sweep diagonally across the cells.
+function evalSpectraMosaic(
+  bass: number, mids: number, treble: number, energy: number, speed: number, tiles: number,
+  t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H,
+): Frame {
+  const n = Math.max(2, Math.min(8, Math.round(tiles)))
+  const strength = clamp01(energy)
+  const cellW = W / n, cellH = H / n
+  return buildFrame(W, H, (x, y) => {
+    const cx = Math.floor(x / cellW), cy = Math.floor(y / cellH)
+    const diag = (cx + cy) / (2 * Math.max(1, n - 1))
+    const mix = bass * (1 - diag) + mids * 0.5 + treble * diag
+    const phase = cx * 0.6 + cy * 0.9 + t * speed * (0.4 + strength * 0.8)
+    const shimmer = Math.sin(phase) * 0.5 + 0.5
+    const v = Math.min(1, 0.15 + mix * 0.6 * strength + shimmer * 0.25)
+    const c = samplePalette(palette, diag * 0.6 + mix * 0.3 + t * speed * 0.04)
+    return { r: Math.round(c.r * v), g: Math.round(c.g * v), b: Math.round(c.b * v) }
+  })
+}
+
+// Three-tier metaball blobs — kick (large/slow), snare (medium/sharp), and
+// hihat (tiny/fast) each spawn their own tier.
+function evalPercussionBlobs(
+  key: string, kick: number, snare: number, hihat: number, t: number,
+  palette: Palette, W = DEFAULT_W, H = DEFAULT_H,
+): Frame {
+  const CAP = 12
+  let state = percussionBlobsState.get(key)
+  if (!state) { state = { blobs: new Array(CAP).fill(null), next: 0, prevKick: false, prevSnare: false, prevHihat: false }; percussionBlobsState.set(key, state) }
+  const kickHit = kick > 0.5, snareHit = snare > 0.5, hihatHit = hihat > 0.55
+  const spawn = (kind: 0 | 1 | 2) => {
+    state.blobs[state.next] = { x: Math.random() * W, y: Math.random() * H, born: t, kind }
+    state.next = (state.next + 1) % CAP
+  }
+  if (kickHit && !state.prevKick) spawn(0)
+  if (snareHit && !state.prevSnare) spawn(1)
+  if (hihatHit && !state.prevHihat) spawn(2)
+  state.prevKick = kickHit; state.prevSnare = snareHit; state.prevHihat = hihatHit
+
+  const PARAMS = { 0: { r: 0.34, life: 1.4 }, 1: { r: 0.20, life: 0.7 }, 2: { r: 0.10, life: 0.35 } } as const
+  const minDim = Math.min(W, H)
+
+  return buildFrame(W, H, (x, y) => {
+    let field = 0
+    for (const blob of state.blobs) {
+      if (!blob) continue
+      const age = t - blob.born
+      const p = PARAMS[blob.kind]
+      if (age < 0 || age > p.life) continue
+      const lifeT = age / p.life
+      const radius = p.r * minDim * (0.4 + 0.6 * Math.min(1, lifeT * 2))
+      const decay = 1 - lifeT
+      const dx = x - blob.x, dy = y - blob.y
+      field += decay * (radius * radius) / (dx * dx + dy * dy + radius * radius * 0.15)
+    }
+    const v = Math.min(1, field / (field + 1.1))
+    const c = samplePalette(palette, Math.min(1, field * 0.4))
+    return { r: Math.round(c.r * v), g: Math.round(c.g * v), b: Math.round(c.b * v) }
+  })
+}
+
+// Bottom-up column fire (the shared black-body heatColor() ramp) — bass/mids/
+// treble shape which columns run hot, with a beat-triggered ember burst.
+function evalEmberPulse(
+  key: string, bass: number, mids: number, treble: number, beat: boolean, energy: number,
+  speed: number, t: number, W = DEFAULT_W, H = DEFAULT_H,
+): Frame {
+  let burst = emberBurst.get(key) ?? 0
+  burst = beat ? Math.min(1, burst + 0.6) : burst * 0.90
+  emberBurst.set(key, burst)
+
+  const strength = clamp01(energy)
+  const flicker = t * speed * 3.0
+
+  return buildFrame(W, H, (x, y) => {
+    const nx = W > 1 ? x / (W - 1) : 0
+    const heightFromBottom = H > 1 ? (H - 1 - y) / (H - 1) : 0   // 0 at bottom, 1 at top
+    const centerDist = Math.abs(nx - 0.5) * 2
+    const bandWeight = bass * (1 - centerDist) + mids * (1 - Math.abs(centerDist - 0.5) * 2) + treble * centerDist
+    const flicker1 = Math.sin(nx * 17 + flicker + heightFromBottom * 4) * 0.5 + 0.5
+    const flicker2 = Math.sin(nx * 29 - flicker * 1.3) * 0.5 + 0.5
+    const heightFalloff = Math.max(0, 1 - heightFromBottom * (1.1 - bandWeight * 0.5 - strength * 0.3))
+    let heat = heightFalloff * (0.35 + bandWeight * 0.65 * strength) * (0.7 + flicker1 * 0.2 + flicker2 * 0.1)
+    heat = Math.min(1, heat + burst * Math.max(0, 1 - heightFromBottom * 0.6) * 0.8)
+    return heatColor(heat * 255)
+  })
+}
+
+// Radial bloom whose sample coordinates are pushed through noise turbulence
+// before evaluating the bloom — treble drives fine/fast jitter, mids the
+// slow/large-scale drift.
+function evalTurbulentBloom(
+  bass: number, mids: number, treble: number, energy: number, speed: number, t: number,
+  palette: Palette, W = DEFAULT_W, H = DEFAULT_H,
+): Frame {
+  const strength = clamp01(energy)
+  const trebleAmp = 0.15 + treble * 0.6, midsAmp = 0.3 + mids * 0.9
+  const bassPulse = Math.min(1, 0.5 + bass * 0.9)
+  const tFast = t * speed * (1.5 + treble * 2), tSlow = t * speed * (0.3 + mids * 0.6)
+
+  return buildFrame(W, H, (x, y) => {
+    const cx = (x - (W - 1) / 2) / Math.max(1, W / 2)
+    const cy = (y - (H - 1) / 2) / Math.max(1, H / 2)
+    const nOffX = _snoise2(cx * 3 + tFast, cy * 3 - tFast) * trebleAmp + _snoise2(cx * 0.6 + tSlow, cy * 0.6 + 50 + tSlow) * midsAmp
+    const nOffY = _snoise2(cx * 3 + 50 + tFast, cy * 3 + 50 - tFast) * trebleAmp + _snoise2(cx * 0.6 + 50 + tSlow, cy * 0.6 + tSlow) * midsAmp
+    const wx = cx + nOffX, wy = cy + nOffY
+    const radial = Math.hypot(wx, wy)
+    const bloom = Math.sin(radial * 6 - t * speed * 3) + Math.cos((wx + wy) * 3 + t * speed * 2)
+    const crisp = Math.pow(Math.max(0, bloom * 0.5 + 0.5), 1.6)
+    const v = Math.min(1, crisp * (0.2 + 0.8 * strength) * bassPulse)
+    const c = samplePalette(palette, radial * 0.5 + tSlow * 0.05)
+    return { r: Math.round(c.r * v), g: Math.round(c.g * v), b: Math.round(c.b * v) }
+  })
+}
+
+// Gravitational-lensing rings around a drifting well — rings bunch up near the
+// well instead of BassRings' evenly-spaced sine rings.
+function evalGravityWell(
+  bass: number, energy: number, speed: number, color: RGB, t: number,
+  W = DEFAULT_W, H = DEFAULT_H,
+): Frame {
+  const level = clamp01(bass), strength = clamp01(energy)
+  const cx0 = (W - 1) / 2, cy0 = (H - 1) / 2
+  const orbitR = Math.min(W, H) * 0.12 * (0.5 + strength * 0.5)
+  const wellX = cx0 + Math.cos(t * speed * 0.25) * orbitR
+  const wellY = cy0 + Math.sin(t * speed * 0.35) * orbitR
+  const maxD = Math.max(1e-6, Math.hypot(cx0, cy0))
+  const k = 5 + level * 10 * strength
+  const phase = t * (1.0 + speed * 2.2)
+
+  return buildFrame(W, H, (x, y) => {
+    const dist = Math.hypot(x - wellX, y - wellY) / maxD
+    const wave = Math.sin(k / (dist + 0.12) - phase)
+    const crisp = Math.pow(Math.max(0, wave * 0.5 + 0.5), 2.2)
+    const v = Math.min(1, 0.03 + level * 0.08 * strength + crisp * (0.15 + level * 0.85 * strength))
+    return { r: Math.round(color.r * v), g: Math.round(color.g * v), b: Math.round(color.b * v) }
+  })
+}
+
+// A pool of expanding, fading ripples — one born on each trigger rising edge,
+// max-combined so overlapping ripples don't blow out.
+function evalRainRipples(
+  key: string, trigger: boolean, energy: number, speed: number, t: number,
+  palette: Palette, W = DEFAULT_W, H = DEFAULT_H,
+): Frame {
+  const CAP = 8
+  let state = rainRipplesState.get(key)
+  if (!state) { state = { ripples: new Array(CAP).fill(null), next: 0, prevTrig: false }; rainRipplesState.set(key, state) }
+  if (trigger && !state.prevTrig) {
+    state.ripples[state.next] = { x: Math.random() * W, y: Math.random() * H, born: t }
+    state.next = (state.next + 1) % CAP
+  }
+  state.prevTrig = trigger
+
+  const strength = clamp01(energy)
+  const spd = Math.max(0.2, speed)
+  const life = 1.6 / spd
+  const speedPx = Math.max(W, H) * 0.9 / life
+  const band = 0.9 + (1 - strength) * 0.6
+
+  return buildFrame(W, H, (x, y) => {
+    let v = 0
+    for (const ripple of state.ripples) {
+      if (!ripple) continue
+      const age = t - ripple.born
+      if (age < 0 || age > life) continue
+      const dist = Math.hypot(x - ripple.x, y - ripple.y)
+      const ring = Math.exp(-((dist - age * speedPx) ** 2) / (2 * band * band))
+      v = Math.max(v, ring * (1 - age / life))
+    }
+    v = Math.min(1, v * (0.6 + strength * 0.6))
+    const c = samplePalette(palette, v * 0.5 + t * speed * 0.02)
+    return { r: Math.round(c.r * v), g: Math.round(c.g * v), b: Math.round(c.b * v) }
+  })
+}
+
+// Oriented Gabor-noise shards (same sparse-hash convolution as GaborNoise) that
+// snap to a new pseudo-random orientation on every hihat rising edge.
+function evalPrismStorm(
+  key: string, treble: number, mids: number, hihat: number, energy: number, speed: number,
+  t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H,
+): Frame {
+  let held = prismOrientation.get(key)
+  if (!held) { held = { v: Math.random() * 360, prev: false }; prismOrientation.set(key, held) }
+  const above = hihat > 0.55
+  if (above && !held.prev) held.v = Math.random() * 360
+  held.prev = above
+
+  const strength = clamp01(energy)
+  const drift = t * speed * (4 + mids * 8)
+  const omega = ((held.v + drift) * Math.PI) / 180
+  const cosO = Math.cos(omega), sinO = Math.sin(omega)
+  const freq = 0.8 + treble * 2.5
+  const scale = 0.5 + mids * 0.4
+  const TAU = Math.PI * 2
+
+  return buildFrame(W, H, (x, y) => {
+    const px = x * scale, py = y * scale
+    const xi = Math.floor(px), yi = Math.floor(py)
+    let v = 0
+    for (let dj = -1; dj <= 1; dj++) {
+      for (let di = -1; di <= 1; di++) {
+        const cx = xi + di, cy = yi + dj
+        const h = worleyHash(cx, cy)
+        const h2 = worleyHash(cx + 31, cy - 17)
+        const fx = cx + 0.5 + (h - 0.5), fy = cy + 0.5 + (h2 - 0.5)
+        const dx = px - fx, dy = py - fy
+        const gauss = Math.exp(-2.5 * (dx * dx + dy * dy))
+        const proj = dx * cosO + dy * sinO
+        const w = h2 < 0.5 ? 1 : -1
+        v += w * gauss * Math.cos(TAU * freq * proj + t * speed * 2 + h * TAU)
+      }
+    }
+    const shard = Math.pow(Math.max(0, v * 0.5 + 0.5), 1.4)
+    const vv = Math.min(1, shard * (0.25 + strength * 0.75))
+    const c = samplePalette(palette, v * 0.5 + 0.5 + mids * 0.2)
+    return { r: Math.round(c.r * vv), g: Math.round(c.g * vv), b: Math.round(c.b * vv) }
+  })
 }
 
 function evalNoise2D(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
@@ -3141,6 +3483,110 @@ function createEvalNode(
         const baseFrame = input(id, 'frame', null) as Frame | null
         const decay = num(id, 'decay', props, 'decay', 0.85)
         out = { frame: evalBeatFlash(stateKey(id), beatVal, baseFrame, decay, W, H) }
+        break
+      }
+
+      case 'KickShock': {
+        const kick = num(id, 'kick', props, 'kick', 0)
+        const snare = num(id, 'snare', props, 'snare', 0)
+        const hihat = num(id, 'hihat', props, 'hihat', 0)
+        const energy = num(id, 'energy', props, 'energy', 0.7)
+        const speed = num(id, 'speed', props, 'speed', 1)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'volcano')
+        out = { frame: evalKickShock(stateKey(id), kick, snare, hihat, energy, speed, t, palette, W, H) }
+        break
+      }
+
+      case 'VocalAurora': {
+        const vocals = num(id, 'vocals', props, 'vocals', 0)
+        const energy = num(id, 'energy', props, 'energy', 0.7)
+        const silence = input(id, 'silence', false) as boolean
+        const speed = num(id, 'speed', props, 'speed', 1)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'aurora')
+        out = { frame: evalVocalAurora(vocals, energy, silence, speed, t, palette, W, H) }
+        break
+      }
+
+      case 'BeatKaleidoscope': {
+        const beatVal = input(id, 'beat', false) as boolean
+        const hue = num(id, 'hue', props, 'hue', 0)
+        const energy = num(id, 'energy', props, 'energy', 0.7)
+        const speed = num(id, 'speed', props, 'speed', 1)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'ultraviolet')
+        out = { frame: evalBeatKaleidoscope(stateKey(id), beatVal, hue, energy, speed, t, palette, W, H) }
+        break
+      }
+
+      case 'SpectraMosaic': {
+        const bass = num(id, 'bass', props, 'bass', 0.5)
+        const mids = num(id, 'mids', props, 'mids', 0.5)
+        const treble = num(id, 'treble', props, 'treble', 0.5)
+        const energy = num(id, 'energy', props, 'energy', 0.7)
+        const speed = num(id, 'speed', props, 'speed', 1)
+        const tiles = num(id, 'tiles', props, 'tiles', 4)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'peacock')
+        out = { frame: evalSpectraMosaic(bass, mids, treble, energy, speed, tiles, t, palette, W, H) }
+        break
+      }
+
+      case 'PercussionBlobs': {
+        const kick = num(id, 'kick', props, 'kick', 0)
+        const snare = num(id, 'snare', props, 'snare', 0)
+        const hihat = num(id, 'hihat', props, 'hihat', 0)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'party')
+        out = { frame: evalPercussionBlobs(stateKey(id), kick, snare, hihat, t, palette, W, H) }
+        break
+      }
+
+      case 'EmberPulse': {
+        const bass = num(id, 'bass', props, 'bass', 0.5)
+        const mids = num(id, 'mids', props, 'mids', 0.5)
+        const treble = num(id, 'treble', props, 'treble', 0.5)
+        const beatVal = input(id, 'beat', false) as boolean
+        const energy = num(id, 'energy', props, 'energy', 0.7)
+        const speed = num(id, 'speed', props, 'speed', 1)
+        out = { frame: evalEmberPulse(stateKey(id), bass, mids, treble, beatVal, energy, speed, t, W, H) }
+        break
+      }
+
+      case 'TurbulentBloom': {
+        const bass = num(id, 'bass', props, 'bass', 0.5)
+        const mids = num(id, 'mids', props, 'mids', 0.5)
+        const treble = num(id, 'treble', props, 'treble', 0.5)
+        const energy = num(id, 'energy', props, 'energy', 0.7)
+        const speed = num(id, 'speed', props, 'speed', 1)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'deepsea')
+        out = { frame: evalTurbulentBloom(bass, mids, treble, energy, speed, t, palette, W, H) }
+        break
+      }
+
+      case 'GravityWell': {
+        const bass = num(id, 'bass', props, 'bass', 0.5)
+        const energy = num(id, 'energy', props, 'energy', 0.7)
+        const speed = num(id, 'speed', props, 'speed', 1)
+        const colorIn = input(id, 'color', null) as RGB | null
+        const color = colorIn ?? { r: Number(props.r ?? 80), g: Number(props.g ?? 160), b: Number(props.b ?? 255) }
+        out = { frame: evalGravityWell(bass, energy, speed, color, t, W, H) }
+        break
+      }
+
+      case 'RainRipples': {
+        const trigger = input(id, 'trigger', false) as boolean
+        const energy = num(id, 'energy', props, 'energy', 0.7)
+        const speed = num(id, 'speed', props, 'speed', 1)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'laguna')
+        out = { frame: evalRainRipples(stateKey(id), trigger, energy, speed, t, palette, W, H) }
+        break
+      }
+
+      case 'PrismStorm': {
+        const treble = num(id, 'treble', props, 'treble', 0.5)
+        const mids = num(id, 'mids', props, 'mids', 0.5)
+        const hihat = num(id, 'hihat', props, 'hihat', 0)
+        const energy = num(id, 'energy', props, 'energy', 0.7)
+        const speed = num(id, 'speed', props, 'speed', 1)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'amethyst')
+        out = { frame: evalPrismStorm(stateKey(id), treble, mids, hihat, energy, speed, t, palette, W, H) }
         break
       }
 
