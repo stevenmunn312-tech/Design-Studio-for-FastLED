@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useGraphStore } from '../../state/graphStore'
 import styles from './CreateGroupDialog.module.css'
 
@@ -51,7 +52,9 @@ export default function CreateGroupDialog({ selectedIds, onClose, onCreate }: Pr
     onCreate(trimmed, { saveToLibrary, exposePaletteNodeIds: [...checkedPalettes] })
   }
 
-  return (
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
     <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className={styles.popup} role="dialog" aria-label="Create group">
         <div className={styles.header}>
@@ -106,6 +109,7 @@ export default function CreateGroupDialog({ selectedIds, onClose, onCreate }: Pr
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
