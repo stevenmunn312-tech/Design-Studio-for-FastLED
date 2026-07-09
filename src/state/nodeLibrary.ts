@@ -1669,8 +1669,8 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'show',
     inputs: [
       { id: 'music', label: 'Music', dataType: 'music' },
-      { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
       { id: 'transitions', label: 'Transitions', dataType: 'transitionset' },
+      { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
     ],
     outputs: [
       { id: 'shows', label: 'Shows', dataType: 'shows' },
