@@ -13,7 +13,7 @@ import { showAudioOverride } from './showAudio'
 import { NODE_LIBRARY } from './nodeLibrary'
 import { isStudioPalette } from './paletteCatalog'
 import type { StudioNode, StudioEdge } from './graphStore'
-import type { ShowFile, SongSection } from '../types/showFile'
+import type { ShowFile, ShowEvent, SongSection } from '../types/showFile'
 
 // Show pattern name → studio node type (+ fixed props). The performance
 // generator emits legacy names (NoiseField/Simplex2D) folded into `Noise`.
@@ -42,33 +42,94 @@ export interface ShowState {
   brightness: number   // 0–255
 }
 
-/** The active pattern/palette/speed/energy/brightness at a playback position (ms). */
-export function showStateAt(show: ShowFile, timeMs: number): ShowState {
-  const st: ShowState = { pattern: 'NoiseField', patternIndex: -1, palette: 'rainbow', speed: 1, energy: 0, brightness: 200 }
-  for (const ev of show.events) {
-    if (ev.t > timeMs) break
+const DEFAULT_SHOW_STATE: ShowState = { pattern: 'NoiseField', patternIndex: -1, palette: 'rainbow', speed: 1, energy: 0, brightness: 200 }
+
+// ── Event index ────────────────────────────────────────────────────────────────
+// showStateAt/beatFlashAt/activeTransitionAt/particleOverlayAt are each called
+// several times per rendered frame (more during a transition), and a naive scan
+// of `show.events` from the start makes every call O(n) — getting slower as
+// playback approaches the end of a long, event-dense show. `show.events` is
+// time-sorted, so instead we index it once per show object (cached by identity
+// — every edit path, e.g. ShowTimeline's onChange, produces a fresh `show`
+// object, so the cache never needs to be invalidated) and binary-search it.
+interface ShowEventIndex {
+  times: number[]              // show.events[i].t, ascending
+  states: ShowState[]          // cumulative ShowState immediately after event i
+  transitions: ShowEvent[]     // TRANSITION events only, ascending by t
+  bursts: ShowEvent[]          // PARTICLE_BURST events only, ascending by t
+  beats: ShowEvent[]           // BEAT_FLASH events only, ascending by t
+}
+
+const showIndexCache = new WeakMap<ShowFile, ShowEventIndex>()
+
+function buildShowIndex(show: ShowFile): ShowEventIndex {
+  const n = show.events.length
+  const times: number[] = new Array(n)
+  const states: ShowState[] = new Array(n)
+  const transitions: ShowEvent[] = []
+  const bursts: ShowEvent[] = []
+  const beats: ShowEvent[] = []
+  let st = DEFAULT_SHOW_STATE
+  for (let i = 0; i < n; i++) {
+    const ev = show.events[i]
     switch (ev.cmd) {
       case 'SET_PATTERN':
         // Enum shows carry a pattern name; collection shows (v2) carry an index.
-        if (ev.params.index !== undefined) st.patternIndex = Number(ev.params.index)
-        else st.pattern = String(ev.params.name)
+        st = ev.params.index !== undefined
+          ? { ...st, patternIndex: Number(ev.params.index) }
+          : { ...st, pattern: String(ev.params.name) }
         break
-      case 'SET_PALETTE':    st.palette = String(ev.params.name); break
-      case 'SET_SPEED':      st.speed = Number(ev.params.value); break
-      case 'SET_ENERGY':     st.energy = Number(ev.params.value); break
-      case 'SET_BRIGHTNESS': st.brightness = Number(ev.params.value); break
+      case 'SET_PALETTE':    st = { ...st, palette: String(ev.params.name) }; break
+      case 'SET_SPEED':      st = { ...st, speed: Number(ev.params.value) }; break
+      case 'SET_ENERGY':     st = { ...st, energy: Number(ev.params.value) }; break
+      case 'SET_BRIGHTNESS': st = { ...st, brightness: Number(ev.params.value) }; break
+      case 'TRANSITION':     transitions.push(ev); break
+      case 'PARTICLE_BURST': bursts.push(ev); break
+      case 'BEAT_FLASH':     beats.push(ev); break
     }
+    times[i] = ev.t
+    states[i] = st
   }
-  return st
+  return { times, states, transitions, bursts, beats }
 }
+
+function getShowIndex(show: ShowFile): ShowEventIndex {
+  let idx = showIndexCache.get(show)
+  if (!idx) { idx = buildShowIndex(show); showIndexCache.set(show, idx) }
+  return idx
+}
+
+/** Index of the last item with `timeOf(item) <= timeMs`, or -1 if none. */
+function lastIndexAtOrBefore<T>(items: T[], timeMs: number, timeOf: (item: T) => number): number {
+  let lo = 0, hi = items.length - 1, ans = -1
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1
+    if (timeOf(items[mid]) <= timeMs) { ans = mid; lo = mid + 1 } else hi = mid - 1
+  }
+  return ans
+}
+
+/** The active pattern/palette/speed/energy/brightness at a playback position (ms). */
+export function showStateAt(show: ShowFile, timeMs: number): ShowState {
+  const idx = getShowIndex(show)
+  const i = lastIndexAtOrBefore(idx.times, timeMs, (t) => t)
+  return i === -1 ? DEFAULT_SHOW_STATE : idx.states[i]
+}
+
+// Any BEAT_FLASH older than this cannot move a rendered channel by even one
+// 0–255 step (255 * exp(-age/decayMs) rounds to 0 well before this, since
+// decayMs is at most 300ms), so it's safe — not just a close approximation —
+// to stop the backward scan here instead of walking every earlier flash.
+const BEAT_FLASH_HORIZON_MS = 2000
 
 /** Current beat-flash level (0–1) from the most recent BEAT_FLASH, decaying. */
 export function beatFlashAt(show: ShowFile, timeMs: number): number {
+  const idx = getShowIndex(show)
   let flash = 0
-  for (const ev of show.events) {
-    if (ev.t > timeMs) break
-    if (ev.cmd !== 'BEAT_FLASH') continue
+  for (let i = lastIndexAtOrBefore(idx.beats, timeMs, (ev) => ev.t); i >= 0; i--) {
+    const ev = idx.beats[i]
     const age = timeMs - ev.t
+    if (age > BEAT_FLASH_HORIZON_MS) break
     const decayMs = 60 + (Number(ev.params.decay) / 255) * 240
     const f = (Number(ev.params.intensity) / 255) * Math.exp(-age / decayMs)
     if (f > flash) flash = f
@@ -162,21 +223,19 @@ function renderStateFrame(
 }
 
 /** The TRANSITION currently in progress at `timeMs`, if any: its start, style,
- *  and 0–1 progress. A transition runs over [t, t + duration] from the event. */
+ *  and 0–1 progress. A transition runs over [t, t + duration] from the event.
+ *  Transitions don't overlap, so the most recent one at-or-before `timeMs` is
+ *  the only one that could still be active — no need to scan earlier ones. */
 function activeTransitionAt(
   show: ShowFile, timeMs: number,
 ): { startMs: number; type: string; progress: number } | null {
-  let active: { startMs: number; type: string; progress: number } | null = null
-  for (const ev of show.events) {
-    if (ev.t > timeMs) break            // events are time-sorted
-    if (ev.cmd !== 'TRANSITION') continue
-    const durMs = Number(ev.params.duration) * 1000
-    if (durMs <= 0) continue
-    if (timeMs < ev.t + durMs) {
-      active = { startMs: ev.t, type: String(ev.params.type ?? 'crossfade'), progress: (timeMs - ev.t) / durMs }
-    }
-  }
-  return active
+  const idx = getShowIndex(show)
+  const i = lastIndexAtOrBefore(idx.transitions, timeMs, (ev) => ev.t)
+  if (i === -1) return null
+  const ev = idx.transitions[i]
+  const durMs = Number(ev.params.duration) * 1000
+  if (durMs <= 0 || timeMs >= ev.t + durMs) return null
+  return { startMs: ev.t, type: String(ev.params.type ?? 'crossfade'), progress: (timeMs - ev.t) / durMs }
 }
 
 // ── Particle-burst overlay ────────────────────────────────────────────────────
@@ -184,15 +243,15 @@ function activeTransitionAt(
 // PatternMaster beat-triggered overlay; here we just find the active PARTICLE_BURST
 // event and delegate. A single active burst matches the firmware's single slot.
 /** Additive spark overlay for the most recent PARTICLE_BURST still within its
- *  lifetime, or null if none is active. */
+ *  lifetime, or null if none is active. Bursts don't overlap (the firmware
+ *  keeps a single active slot), so if the most recent one at-or-before
+ *  `timeMs` has already expired, no earlier one could still be live either. */
 function particleOverlayAt(show: ShowFile, timeMs: number, W: number, H: number): Frame | null {
-  let burst: ShowFile['events'][number] | null = null
-  for (const ev of show.events) {
-    if (ev.t > timeMs) break
-    if (ev.cmd !== 'PARTICLE_BURST') continue
-    if (timeMs < ev.t + PARTICLE_LIFE_MS) burst = ev
-  }
-  if (!burst) return null
+  const idx = getShowIndex(show)
+  const i = lastIndexAtOrBefore(idx.bursts, timeMs, (ev) => ev.t)
+  if (i === -1) return null
+  const burst = idx.bursts[i]
+  if (timeMs >= burst.t + PARTICLE_LIFE_MS) return null
   return renderParticleBurst(
     burst.t, timeMs, Number(burst.params.intensity) / 255,
     Number(burst.params.style ?? 0), Number(burst.params.hue), W, H,
