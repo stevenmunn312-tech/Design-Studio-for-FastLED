@@ -1016,7 +1016,7 @@ describe('generateCpp — Particles modes', () => {
       expect(cpp).toContain(`// Particles: ${m}`)
       expect(cpp).toContain('_PN=')
       // additive render of every live particle at its life brightness
-      expect(cpp).toContain('buf_pp[Y*WIDTH+X]+=CRGB(')
+      expect(cpp).toContain('buf_pp[Yy*WIDTH+Xx]+=CRGB(')
     })
   }
 
