@@ -93,6 +93,11 @@ function hoveredSpliceEdgeAt(x: number, y: number): string | undefined {
   return undefined
 }
 
+function hoveredNodeId(eventTarget: EventTarget | null): string | undefined {
+  if (!(eventTarget instanceof Element)) return undefined
+  return eventTarget.closest('.react-flow__node')?.getAttribute('data-id') ?? undefined
+}
+
 function panelInsetPx(cssVar: '--sidebar-width' | '--right-panel-width', fallback: number, open: boolean): number {
   if (!open || typeof window === 'undefined') return 0
   const raw = getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim()
@@ -101,7 +106,7 @@ function panelInsetPx(cssVar: '--sidebar-width' | '--right-panel-width', fallbac
 }
 
 function NodeGraphCanvasInner() {
-  const { nodes, edges, selectedNodeId, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, insertNodeOnEdge, spliceNodeOnEdge, spreadNodes, instantiatePattern, addToCollection, enterGraph, removeEdge, reconnectNoodle } =
+  const { nodes, edges, selectedNodeId, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, insertNodeOnEdge, spliceNodeOnEdge, spreadNodes, instantiatePattern, addToCollection, addPatternToCollection, enterGraph, removeEdge, reconnectNoodle } =
     useGraphStore()
   // Restore the saved pan/zoom on mount; fit the view only when there's none
   // (first run). Read once so it isn't re-applied on every render.
@@ -144,6 +149,9 @@ function NodeGraphCanvasInner() {
     label: string
     color: string
   } | null>(null)
+  // Hovering a dragged "My Patterns" card over a PatternCollection node —
+  // dropping there absorbs the pattern directly instead of spawning a Group.
+  const [collectionDropCue, setCollectionDropCue] = useState<{ nodeId: string; x: number; y: number } | null>(null)
   const [canvasDragNodeId, setCanvasDragNodeId] = useState<string | null>(null)
   const [connectionPulse, setConnectionPulse] = useState<{
     source: string
@@ -639,6 +647,26 @@ function NodeGraphCanvasInner() {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'copy'
 
+    // A "My Patterns" card being dragged: only look for a PatternCollection
+    // node to hover over (no splicing — pattern drags don't touch edges).
+    // `getData` isn't readable during dragover, only `types`, so the cue can't
+    // show the pattern's name yet — that's filled in at drop time.
+    if (e.dataTransfer.types.includes('application/studio-pattern')) {
+      setSpliceCue(null)
+      const wrapper = wrapperRef.current
+      const hoveredId = hoveredNodeId(e.target)
+      const hovered = hoveredId ? getNode(hoveredId) : undefined
+      const isCollection = (hovered?.data as { nodeType?: string })?.nodeType === 'PatternCollection'
+      if (!wrapper || !hovered || !isCollection) {
+        setCollectionDropCue(null)
+        return
+      }
+      const rect = wrapper.getBoundingClientRect()
+      setCollectionDropCue({ nodeId: hovered.id, x: e.clientX - rect.left, y: e.clientY - rect.top })
+      return
+    }
+    setCollectionDropCue(null)
+
     const def = NODE_LIBRARY.find((node) => node.type === draggingNodeType)
     const wrapper = wrapperRef.current
     if (!def || !wrapper) {
@@ -661,24 +689,39 @@ function NodeGraphCanvasInner() {
       label: def.label,
       color: target.color,
     })
-  }, [draggingNodeType, findSpliceTarget, screenToFlowPosition])
+  }, [draggingNodeType, findSpliceTarget, screenToFlowPosition, getNode])
 
   const onDragLeave = useCallback((e: React.DragEvent) => {
-    if (!wrapperRef.current?.contains(e.relatedTarget as ChildNode | null)) setSpliceCue(null)
+    if (!wrapperRef.current?.contains(e.relatedTarget as ChildNode | null)) {
+      setSpliceCue(null)
+      setCollectionDropCue(null)
+    }
   }, [])
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault()
       setSpliceCue(null)
+      setCollectionDropCue(null)
       setDraggingNodeType(null)
 
-      // A saved library pattern dropped from the sidebar → instantiate it as a
-      // Group node at the drop point.
+      // A saved library pattern dropped from the sidebar: dropping it directly
+      // on a PatternCollection node absorbs it into the collection (no Group
+      // node ever touches the canvas); anywhere else, instantiate it as a
+      // Group node at the drop point, same as before.
       const patternId = e.dataTransfer.getData('application/studio-pattern')
       if (patternId) {
         const saved = usePatternLibrary.getState().patterns.find((p) => p.id === patternId)
-        if (saved) instantiatePattern(saved, screenToFlowPosition({ x: e.clientX, y: e.clientY }))
+        if (!saved) return
+        const hoveredId = hoveredNodeId(e.target)
+        const hovered = hoveredId ? getNode(hoveredId) : undefined
+        if (hovered && (hovered.data as { nodeType?: string }).nodeType === 'PatternCollection') {
+          addPatternToCollection(hovered.id, saved)
+          playNoodleConnectSfx()
+          setStatus(`Added “${saved.name}” to the collection`, 'success')
+          return
+        }
+        instantiatePattern(saved, screenToFlowPosition({ x: e.clientX, y: e.clientY }))
         return
       }
 
@@ -720,7 +763,7 @@ function NodeGraphCanvasInner() {
         addNode(newNode)
       }
     },
-    [screenToFlowPosition, addNode, insertNodeOnEdge, instantiatePattern, setStatus, anchorHandleToDrop, findSpliceTarget, setDraggingNodeType]
+    [screenToFlowPosition, addNode, insertNodeOnEdge, instantiatePattern, addPatternToCollection, getNode, setStatus, anchorHandleToDrop, findSpliceTarget, setDraggingNodeType]
   )
 
   const spliceEdgeId = spliceCue?.edgeId ?? null
@@ -829,6 +872,20 @@ function NodeGraphCanvasInner() {
         >
           <span className={styles.spliceCueDot} />
           Release to insert {spliceCue.label}
+        </div>
+      )}
+      {collectionDropCue && (
+        <div
+          className={styles.spliceCue}
+          style={{
+            left: collectionDropCue.x,
+            top: collectionDropCue.y,
+            '--cue-color': 'var(--accent-show)',
+          } as React.CSSProperties}
+          role="status"
+        >
+          <span className={styles.spliceCueDot} />
+          Release to add to collection
         </div>
       )}
       <ReactFlow

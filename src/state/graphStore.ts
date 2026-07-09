@@ -124,6 +124,10 @@ interface GraphState {
   /** Absorb a Group node into a PatternCollection: remove it (and its edges)
    *  from the canvas and record its group id in the collection's list. */
   addToCollection: (collectionNodeId: string, groupNodeId: string) => void
+  /** Add a saved library pattern directly into a PatternCollection — clones its
+   *  subgraph into a fresh group id (like `instantiatePattern`) and appends it to
+   *  the collection's list, without ever placing a Group node on the canvas. */
+  addPatternToCollection: (collectionNodeId: string, saved: SavedPattern) => void
   /** Remove a pattern (group id) from a PatternCollection, dropping its subgraph. */
   removeFromCollection: (collectionNodeId: string, groupId: string) => void
   /** Toggle a song-section tag on a collection pattern (section-aware selection).
@@ -902,6 +906,25 @@ export const useGraphStore = create<GraphState>()(
             })
           const edges = s.edges.filter((e) => e.source !== groupNodeId && e.target !== groupNodeId)
           return { nodes, edges }
+        }),
+
+      addPatternToCollection: (collectionNodeId, saved) =>
+        set((s) => {
+          const collection = s.nodes.find((n) => n.id === collectionNodeId)
+          if (!collection) return s
+          const usedGraphIds = new Set(Object.keys(s.graphs))
+          const groupId = uniqueId(`group-${Date.now()}`, usedGraphIds)
+          const sub = structuredClone(saved.subgraph)
+          const nodes = s.nodes.map((n) => {
+            if (n.id !== collectionNodeId) return n
+            const ids = ((n.data.properties as { patternIds?: string[] }).patternIds) ?? []
+            return { ...n, data: { ...n.data, properties: { ...n.data.properties, patternIds: [...ids, groupId] } } }
+          })
+          return {
+            nodes,
+            graphs: { ...s.graphs, [groupId]: { id: groupId, name: saved.name, sourcePatternId: saved.id } },
+            graphData: { ...s.graphData, [groupId]: { nodes: sub.nodes, edges: sub.edges } },
+          }
         }),
 
       removeFromCollection: (collectionNodeId, groupId) =>
