@@ -624,7 +624,7 @@ function evalSpectrumBars(
         b: Math.round(c.b * v),
       }
       frame[y][x] = px
-      if (mirror) frame[y][W - 1 - x] = px
+      if (mirror) frame[y][W - 1 - x] = { ...px }
     }
 
     if (barH > 0) {
@@ -637,7 +637,7 @@ function evalSpectrumBars(
         b: Math.round(peak.b * glow),
       }
       frame[peakY][x] = cap
-      if (mirror) frame[peakY][W - 1 - x] = cap
+      if (mirror) frame[peakY][W - 1 - x] = { ...cap }
     }
   }
 

@@ -828,6 +828,24 @@ describe('evaluateGraph', () => {
     expect(JSON.stringify(moving)).not.toEqual(JSON.stringify(still))
   })
 
+  it('SpectrumBars mirror gives each mirrored pixel its own object (no pool aliasing)', () => {
+    // Regression: mirror used to assign the *same* pixel object to both x and
+    // W-1-x. That aliased object then re-entered the pooled-frame free list, so
+    // a later, unrelated pattern reusing the buffer got silently corrupted
+    // wherever buildFrame() mutated one aliased slot in place — the mirrored
+    // slot changed with it. Every slot must be a distinct object.
+    const sb = node('sb', 'SpectrumBars', 'pattern', {
+      bass: 0.9, mids: 0.9, treble: 0.9, energy: 1, speed: 0.6, palette: 'rainbow', mirror: true,
+    })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const f = evaluateGraph([sb, out], [edge('e', 'sb', 'frame', 'out', 'frame')], 0, 8, 8)!
+    for (let y = 0; y < 8; y++) {
+      for (let x = 0; x < 4; x++) {
+        expect(f[y][x]).not.toBe(f[y][7 - x])
+      }
+    }
+  })
+
   it('MidrangeWaves energy scales the audio-reactive strength', () => {
     const brightnessAt = (energy: number) => {
       const mw = node('mw', 'MidrangeWaves', 'pattern', { mids: 0.8, energy, speed: 0.5, palette: 'ocean' })
