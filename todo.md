@@ -136,6 +136,43 @@ frame-centric graph can't express. Solution: add a `field` port type (per-pixel
 - [x] Evaluate whether these fold into `FieldWarp` presets or warrant standalone nodes → **standalone** (whole-field coordinate transform vs FieldWarp's per-pixel additive offsets)
 - [x] Evaluator + codegen + tests (7 new)
 
+## FastLED library parity (repo review, 2026-07-10)
+
+From a review of the upstream FastLED repo (README, 3.9.x/3.10.x release notes,
+and the bundled `src/fx` effect catalogue) against Studio's node library and
+codegen. Ordered by value-for-effort.
+
+### MatrixOutput hardware parity (quick wins — one small codegen PR)
+
+- [ ] **Global brightness** property on MatrixOutput — `cppGenerator.ts` / `showGenerator.ts` currently hardcode `FastLED.setBrightness(200)`; expose a slider and apply the same scale in the live preview so they match
+- [ ] **Color correction** dropdown — `FastLED.setCorrection(TypicalLEDStrip / TypicalSMD5050 / …)`; pairs with the existing power-limit toggle (optionally also `setTemperature`)
+- [ ] **Temporal dithering** toggle — `FastLED.setDither(0 | BINARY_DITHER)`; matters most at low brightness
+- [ ] **WS2812 overclock** — checkbox + factor emitting `#define FASTLED_OVERCLOCK 1.2` before the FastLED include (3.9 feature, up to ~70% faster refresh)
+- [ ] **Expanded chipset list** — dropdown has 6 entries; add WS2815, SM16824E, HD108 (16-bit), and **APA102HD** (HD gamma — free visual upgrade over plain APA102)
+- [ ] **RGBW strips** (SK6812-RGBW, WS2816) — needs the `Rgbw` mode on `addLeds` in codegen; graph model unaffected
+
+### Missing classic `fx/` effects (pattern nodes)
+
+- [ ] **TwinkleFox** — palette-driven twinkling lights (Kriegsman classic); Generative subcategory, `palette` input; evocative homage like Pride2015/Pacifica so preview = firmware
+- [ ] **Cylon / Scanner** — Larson scanner as a one-node pattern (width, fade, palette, orientation); composable today via Sin→Circle→Trails but iconic enough to deserve its own node
+- [ ] **Confetti** — random fading speckles (DemoReel100); small stateful node in the Fire2012 mould
+- [ ] **Juggle / Sinelon** — N sine-driven dots with trails (DemoReel100); could bundle with Confetti behind a variant property if signatures match
+
+### Bigger features
+
+- [ ] **`WaveSim` — 2D wave/ripple simulation** (FastLED 3.9/3.10's flagship `fxWave2d`) — Simulations subcategory next to ReactionDiffusion/GameOfLife; best as a **field-pipeline citizen**: `trigger` bool input (BeatDetect → beat-driven ripples) outputting a `field` so it composes with FieldMath/FieldToFrame
+- [ ] **`Path` node — parametric path drawing** (FastLED 3.10 `XYPath`) — shape dropdown (circle, heart, lissajous, rose, …) traced by a 0–1 `t` float input with subpixel rendering; pairs naturally with Trails
+- [ ] **Subpixel splatting** for Circle/Line/Particles — FastLED renders float coordinates by splatting brightness across a 2×2 tile; would fix visible stair-stepping at 16×16 in both preview and firmware
+- [ ] **Supersample toggle** on MatrixOutput — render at 2×, downscale by pixel averaging (FastLED `downscale`); lower priority than per-node splatting
+- [ ] **ColorBoost** — saturation enhancement preserving luminosity (3.10, built for washed-out video content); variant on the `Saturation` node or a small composite node with an exact firmware counterpart
+- [ ] **4D Perlin noise** — `inoise16(x, y, z, t)` as a `noiseType: 'noise4d'` variant on the bundled `Noise` node; gives seamlessly looping noise (useful for pattern-show dwells that restart)
+
+### Noted, lower priority
+
+- [ ] **Animated GIF on the `Image` node** — frames + fps in `properties.image`, PROGMEM frame array in codegen; Studio-scale mirror of `fx/video` playback
+- [ ] Long-term: **non-matrix layouts** (strip / ring / corkscrew) — FastLED is investing in corkscrew mapping and 1D geometries; Studio is matrix-only end to end, so this is a project, not a feature
+- Migrating the custom I2S+FFT engine to FastLED 3.10's native audio framework was considered and **deliberately deferred** — ours is hardware-validated and already gates around their IDF driver conflict; revisit when theirs stabilizes
+
 ## Direction & In-Flight Work
 
 Current focus: **stabilize & document**.
