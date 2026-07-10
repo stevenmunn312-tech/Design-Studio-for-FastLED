@@ -367,7 +367,7 @@ export function nodeHandle(node, portId, side) {
 // Sidebar search filters + force-expands every matching category, so this
 // works regardless of which categories are collapsed. Clicking is real; only
 // the typing is synthetic (the real click focused the field first).
-async function addNode(page, cursor, label) {
+export async function addNode(page, cursor, label) {
   const search = page.getByPlaceholder('Search nodes…')
   await cursor.click(search, { duration: 350 })
   await search.pressSequentially(label, { delay: 45 })
@@ -381,7 +381,7 @@ async function addNode(page, cursor, label) {
 // If the node (or part of it) sits outside the safe working area — which can
 // happen when the canvas is panned/zoomed oddly — click React Flow's fit-view
 // control so everything is on-screen before we try to grab it.
-async function ensureVisible(page, cursor, node) {
+export async function ensureVisible(page, cursor, node) {
   const box = await node.boundingBox()
   const ok = box &&
     box.y > 60 && box.y + 40 < VIEWPORT.height &&
@@ -639,11 +639,15 @@ async function runShot(shot, ctx) {
   }
 }
 
-async function main() {
-  const res = await fetch(APP_URL).catch(() => null)
+// Launches the browser, starts the real-mouse driver, maximizes and measures
+// the window, and calibrates real-cursor → page coordinates. Returns a ctx
+// plus a `shutdown()` that closes everything — shared by the shot director
+// below and by scripts/freeform-shot.mjs, which drives one ad-hoc shot per
+// process instead of a persistent SHOTS menu.
+export async function startSession({ url = APP_URL, ring = process.env.DEMO_RING === '1' } = {}) {
+  const res = await fetch(url).catch(() => null)
   if (!res || !res.ok) {
-    console.error(`Could not reach ${APP_URL} — start the dev server first (npm run dev).`)
-    process.exit(1)
+    throw new Error(`Could not reach ${url} — start the dev server first (npm run dev).`)
   }
 
   const mouse = new RealMouse()
@@ -654,8 +658,8 @@ async function main() {
   // the on-screen pixels, and the recording all agree with each other.
   const context = await browser.newContext({ viewport: null })
   const page = await context.newPage()
-  if (process.env.DEMO_RING === '1') await installCursorRing(page)
-  await page.goto(APP_URL)
+  if (ring) await installCursorRing(page)
+  await page.goto(url)
   await page.waitForSelector('.react-flow')
   await page.bringToFront()
   // A unique window title so foregrounding can't grab the user's own browser —
@@ -680,16 +684,28 @@ async function main() {
   await sleep(300)
   const map = await calibrate(page, mouse)
   const cursor = new Cursor(mouse, map, page)
-  const ctx = { page, cursor, mouse, title: DEMO_TITLE }
   page.setDefaultTimeout(8000) // fail shots fast instead of hanging 30s
   console.log('Calibrated. The browser window must stay where it is — if you move or resize it, restart the script.')
 
   const shutdown = async () => {
     mouse.close()
     await browser.close().catch(() => {})
-    process.exit(0)
   }
-  process.on('SIGINT', shutdown)
+  return { page, cursor, mouse, title: DEMO_TITLE, browser, shutdown }
+}
+
+async function main() {
+  const session = await startSession().catch((err) => {
+    console.error(err.message)
+    process.exit(1)
+  })
+  const { page, cursor, mouse, title, shutdown } = session
+  const ctx = { page, cursor, mouse, title }
+
+  process.on('SIGINT', async () => {
+    await shutdown()
+    process.exit(0)
+  })
 
   const byKey = (key) =>
     SHOTS.find((s) => s.name === key) ?? SHOTS[Number(key) - 1]

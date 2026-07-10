@@ -21,3 +21,10 @@ __pycache__/
 # Saved node-graph patterns ("My Patterns") — per-user local content, written by
 # the upload helper. Share individual pattern files by hand; don't commit the folder.
 /My Patterns/
+
+# scripts/freeform-shot.mjs timing log + raw/trimmed recordings — local
+# working state for the demo rig, not curated assets. Committed screenshots
+# in video-shots/ (e.g. *.png) are unaffected.
+video-shots/timing-log.json
+video-shots/*.mp4
+video-shots/*.mkv
