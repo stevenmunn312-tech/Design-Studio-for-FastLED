@@ -2,6 +2,7 @@ import type { GroupRegistry } from '../../state/graphEvaluator'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import type { ShowFile } from '../../types/showFile'
 import { renderShowFrame } from '../../state/showPreview'
+import { bakedFrameAt } from '../../state/performanceBakeStore'
 
 interface ShowPlaybackPreview {
   nodeId: string | null
@@ -43,7 +44,8 @@ export function applyShowPlaybackSignal(
 ): ReturnType<typeof renderShowFrame> {
   if (!playback.show || !playback.nodeId || !genWiredToOutput(nodes, edges, playback.nodeId)) return frame
 
-  const showFrame = renderShowFrame(playback.show, playback.posMs, W, H, groups, playback.useGroupInputs)
+  const showFrame = bakedFrameAt(playback.nodeId, playback.posMs)
+    ?? renderShowFrame(playback.show, playback.posMs, W, H, groups, playback.useGroupInputs)
   outputs.set(playback.nodeId, { ...(outputs.get(playback.nodeId) ?? {}), frame: showFrame })
   return showFrame
 }

@@ -2,6 +2,7 @@ import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { asFont, DEFAULT_FONT } from '../../state/font'
 import { asImage, IMAGE_MAX_DIM } from '../../state/image'
+import { usePerformanceBakeStore } from '../../state/performanceBakeStore'
 import styles from './Inspector.module.css'
 
 function toHex(r: number, g: number, b: number) {
@@ -26,6 +27,10 @@ export default function Inspector() {
   const { nodes, selectedNodeId, updateNodeProperty, updateNodeProperties } = useGraphStore()
   const setStatus = useUiStore((s) => s.setStatus)
   const node = nodes.find((n) => n.id === selectedNodeId)
+  const bakeStatus = usePerformanceBakeStore((s) => (selectedNodeId ? s.byNode[selectedNodeId]?.status : undefined))
+  const bakeLocked = selectedNodeId
+    ? (bakeStatus ?? usePerformanceBakeStore.getState().byNode[selectedNodeId]?.status ?? 'idle') !== 'idle'
+    : false
 
   const onFontUpload = (e: React.ChangeEvent<HTMLInputElement>, nodeId: string) => {
     const file = e.target.files?.[0]
@@ -120,6 +125,9 @@ export default function Inspector() {
       <div className={`${styles.section} ${styles.sectionCard}`}>
         <div className={styles.sectionKicker}>Controls</div>
         <div className={styles.sectionTitle}>Properties</div>
+        {bakeLocked && (
+          <div className={styles.empty}>Preview is baked on this Performance Generator, so its controls are temporarily locked.</div>
+        )}
         {hasRGB && (
           <div className={styles.fieldRow}>
             <label className={styles.fieldLabel} htmlFor="prop-color">Color</label>
@@ -127,6 +135,7 @@ export default function Inspector() {
               id="prop-color"
               type="color"
               className={styles.colorPicker}
+              disabled={bakeLocked}
               value={toHex(props.r as number, props.g as number, props.b as number)}
               onChange={(e) => {
                 const { r, g, b } = hexToRgb(e.target.value)
@@ -142,6 +151,7 @@ export default function Inspector() {
               <input
                 id={`prop-${key}`}
                 type="checkbox"
+                disabled={bakeLocked}
                 checked={val}
                 onChange={(e) => updateNodeProperty(node.id, key, e.target.checked)}
               />
@@ -155,6 +165,7 @@ export default function Inspector() {
                 value={String(val)}
                 rows={3}
                 spellCheck={false}
+                disabled={bakeLocked}
                 onChange={(e) => updateNodeProperty(node.id, key, e.target.value)}
               />
             </div>
@@ -166,6 +177,7 @@ export default function Inspector() {
               <input
                 id={`prop-${key}`}
                 className={styles.fieldInput}
+                disabled={bakeLocked}
                 value={String(val)}
                 onChange={(e) => {
                   const raw = e.target.value

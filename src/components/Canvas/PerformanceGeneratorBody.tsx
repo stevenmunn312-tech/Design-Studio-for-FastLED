@@ -8,6 +8,7 @@ import { renderShowFrame, showStateAt, sectionAt } from '../../state/showPreview
 import type { Frame } from '../../state/graphEvaluator'
 import { performanceOptionsFromProperties } from '../../codegen/performanceGenerator'
 import type { ShowEvent } from '../../types/showFile'
+import { bakedFrameAt, chooseBakeFps, packFrame, usePerformanceBakeStore } from '../../state/performanceBakeStore'
 import ShowTimeline from './ShowTimeline'
 import styles from './PerformanceGeneratorBody.module.css'
 
@@ -33,9 +34,14 @@ function draw(canvas: HTMLCanvasElement, frame: Frame, W: number, H: number) {
   }
 }
 
+function waitForPaint(): Promise<void> {
+  return new Promise((resolve) => window.requestAnimationFrame(() => resolve()))
+}
+
 export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string }) {
   const entries = useMusicStore((s) => s.entries)
   const ready = useMemo(() => entries.filter((e) => e.status === 'done' && e.show), [entries])
+  const bake = usePerformanceBakeStore((s) => s.byNode[nodeId])
   const properties = useGraphStore((s) =>
     s.nodes.find((n) => n.id === nodeId)?.data.properties ?? {}
   )
@@ -86,12 +92,16 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
   const entry = ready.find((e) => e.id === previewId) ?? null
   const show = entry?.show ?? null
   const readyIndex = ready.findIndex((e) => e.id === previewId)
+  const bakeLocked = !!bake && bake.status !== 'idle'
+  const bakeMatchesEntry = !!entry && bake?.entryId === entry.id
+  const bakedPreviewActive = bake?.status === 'baked' && bakeMatchesEntry
 
   // Keep the first available show selected, and recover cleanly if the active
   // song is removed from the library.
   useEffect(() => {
     if (ready.length === 0) {
       audioRef.current?.pause()
+      usePerformanceBakeStore.getState().clearBake(nodeId)
       setPreviewId(null)
       setPlaying(false)
       setPosMs(0)
@@ -104,7 +114,16 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
       setPosMs(0)
       setPlaybackError(null)
     }
-  }, [previewId, ready])
+  }, [nodeId, previewId, ready])
+
+  useEffect(() => {
+    if (!bake?.entryId) return
+    if (!ready.some((candidate) => candidate.id === bake.entryId)) {
+      usePerformanceBakeStore.getState().clearBake(nodeId)
+      return
+    }
+    if (previewId !== bake.entryId) setPreviewId(bake.entryId)
+  }, [bake?.entryId, nodeId, previewId, ready])
 
   // Regenerate analysed shows shortly after generator controls settle. Skip
   // the initial mount: songs were already generated with these options by the
@@ -139,7 +158,13 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
         if (wiredToMatrix) {
           useShowPlayback.getState().setPlayback({ nodeId, show, posMs: ms, useGroupInputs, playing: true })
         } else if (canvasRef.current) {
-          draw(canvasRef.current, renderShowFrame(show, ms, gridW, gridH, getGroupRegistry(), useGroupInputs), gridW, gridH)
+          const baked = bakedPreviewActive ? bakedFrameAt(nodeId, ms) : null
+          draw(
+            canvasRef.current,
+            baked ?? renderShowFrame(show, ms, gridW, gridH, getGroupRegistry(), useGroupInputs),
+            gridW,
+            gridH,
+          )
         }
         if (ms - lastStateUpdate > 120) { setPosMs(ms); lastStateUpdate = ms }
       }
@@ -147,7 +172,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
     }
     rafRef.current = requestAnimationFrame(tick)
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
-  }, [playing, show, gridW, gridH, useGroupInputs, wiredToMatrix, nodeId])
+  }, [bakedPreviewActive, playing, show, gridW, gridH, useGroupInputs, wiredToMatrix, nodeId])
 
   // Draw a static frame at the current position when paused/seeking.
   useEffect(() => {
@@ -155,9 +180,15 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
     if (wiredToMatrix) {
       useShowPlayback.getState().setPlayback({ nodeId, show, posMs, useGroupInputs, playing: false })
     } else if (canvasRef.current) {
-      draw(canvasRef.current, renderShowFrame(show, posMs, gridW, gridH, getGroupRegistry(), useGroupInputs), gridW, gridH)
+      const baked = bakedPreviewActive ? bakedFrameAt(nodeId, posMs) : null
+      draw(
+        canvasRef.current,
+        baked ?? renderShowFrame(show, posMs, gridW, gridH, getGroupRegistry(), useGroupInputs),
+        gridW,
+        gridH,
+      )
     }
-  }, [playing, show, posMs, gridW, gridH, useGroupInputs, wiredToMatrix, nodeId])
+  }, [bakedPreviewActive, playing, show, posMs, gridW, gridH, useGroupInputs, wiredToMatrix, nodeId])
 
   // Release the main preview when this node is no longer wired / has no show,
   // and on unmount, so a stale show doesn't linger in the big canvas.
@@ -167,6 +198,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
   }, [wiredToMatrix, show, nodeId])
 
   function startPreview(id: string) {
+    if (bakeLocked) return
     if (previewId === id) return
     audioRef.current?.pause()
     setPlaying(false)
@@ -174,6 +206,42 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
     setPlaybackError(null)
     setSelectedEvent(null)
     setPreviewId(id)
+  }
+
+  async function bakePreview() {
+    if (!entry || !show || bakeLocked) return
+    audioRef.current?.pause()
+    setPlaying(false)
+    setEditing(false)
+    setSelectedEvent(null)
+
+    const fps = chooseBakeFps(show.durationMs, gridW, gridH)
+    const frameCount = Math.max(1, Math.floor((show.durationMs / 1000) * fps) + 1)
+    const groups = getGroupRegistry()
+    const bakeStore = usePerformanceBakeStore.getState()
+    bakeStore.startBake(nodeId, {
+      entryId: entry.id,
+      durationMs: show.durationMs,
+      width: gridW,
+      height: gridH,
+      fps,
+    })
+
+    const frames: Uint8Array[] = []
+    for (let i = 0; i < frameCount; i++) {
+      const ms = Math.min(show.durationMs, (i / fps) * 1000)
+      frames.push(packFrame(renderShowFrame(show, ms, gridW, gridH, groups, useGroupInputs)))
+      if (i % 8 === 0 || i === frameCount - 1) {
+        bakeStore.setProgress(nodeId, (i + 1) / frameCount)
+        await waitForPaint()
+      }
+    }
+
+    usePerformanceBakeStore.getState().finishBake(nodeId, frames)
+  }
+
+  function freeBake() {
+    usePerformanceBakeStore.getState().clearBake(nodeId)
   }
 
   function playAudio() {
@@ -248,14 +316,14 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
       nodeId,
       title: entry.analysis?.title ?? entry.file.name,
       durationMs: show.durationMs,
-      hasPrev: true,
-      hasNext: readyIndex >= 0 && readyIndex < ready.length - 1,
+      hasPrev: !bakeLocked,
+      hasNext: !bakeLocked && readyIndex >= 0 && readyIndex < ready.length - 1,
       toggle: () => toggleRef.current(),
       seek: (ms) => seekRef.current(ms),
       prev: () => stepRef.current(-1),
       next: () => stepRef.current(1),
     })
-  }, [entry, show, nodeId, readyIndex, ready.length])
+  }, [bakeLocked, entry, show, nodeId, readyIndex, ready.length])
   useEffect(() => () => usePlayerTransport.getState().clearTransport(nodeId), [nodeId])
 
   // Keep the shared player's position/state and this element's volume in sync.
@@ -269,17 +337,46 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
 
   const live = show ? showStateAt(show, posMs) : null
   const sec = entry?.analysis ? sectionAt(entry.analysis.sections, posMs) : undefined
+  const bakeButtonLabel = bake?.status === 'baking' ? 'Baking…' : bake?.status === 'baked' ? 'Free Bake' : 'Bake'
+  const bakeProgress = Math.round((bake?.progress ?? 0) * 100)
+  const bakeFps = bake ? Math.max(1, Math.round(bake.fps * 10) / 10) : null
 
   if (ready.length === 0) {
     return (
       <div className={`nodrag ${styles.wrap}`}>
         <p className={styles.empty}>Analyse music in a Music Library node, then preview the timed show here.</p>
+        <div className={styles.bakeRow}>
+          <button type="button" className={`nodrag ${styles.bakeBtn}`} disabled>Bake</button>
+        </div>
       </div>
     )
   }
 
   return (
     <div className={`nodrag ${styles.wrap}`}>
+      <div className={styles.bakeRow}>
+        <button
+          type="button"
+          className={`nodrag ${styles.bakeBtn}`}
+          onClick={bake?.status === 'baked' ? freeBake : () => { void bakePreview() }}
+          disabled={!entry || !show || bake?.status === 'baking'}
+        >
+          {bakeButtonLabel}
+        </button>
+        {bake?.status === 'baked' && <span className={styles.bakeBadge}>Controls locked</span>}
+      </div>
+      {bake?.status === 'baking' && (
+        <div className={styles.progressWrap} aria-live="polite">
+          <div className={styles.progressMeta}>
+            <span>Baking preview…</span>
+            <span>{bakeProgress}%</span>
+          </div>
+          <div className={styles.progressTrack} aria-hidden="true">
+            <div className={styles.progressFill} style={{ width: `${bakeProgress}%` }} />
+          </div>
+          <div className={styles.progressNote}>Sampling at {bakeFps} fps and freezing the node controls until freed.</div>
+        </div>
+      )}
       <div className={`nowheel ${styles.list}`}>
         {ready.map((e) => (
           <button
@@ -287,6 +384,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
             key={e.id}
             className={`nodrag ${e.id === previewId ? styles.songOn : styles.song}`}
             onClick={() => startPreview(e.id)}
+            disabled={bakeLocked}
             title={`${e.analysis?.beats.bpm ?? '?'} BPM · ${e.show?.events.length ?? 0} events`}
             aria-pressed={e.id === previewId}
           >
@@ -326,6 +424,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
               className={`nodrag ${editing ? styles.tabOn : styles.tab}`}
               onClick={() => setEditing((v) => !v)}
               aria-pressed={editing}
+              disabled={bakeLocked}
             >
               ✎ Edit timeline
             </button>
@@ -337,6 +436,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
                   className={`nodrag ${styles.revert}`}
                   onClick={() => { useMusicStore.getState().revertShow(entry.id, options); setSelectedEvent(null) }}
                   title="Discard manual edits and regenerate from the analysis"
+                  disabled={bakeLocked}
                 >
                   Revert
                 </button>

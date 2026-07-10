@@ -15,6 +15,90 @@
   line-height: 1.4;
 }
 
+.bakeRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bakeBtn {
+  padding: 4px 10px;
+  font-size: var(--fs-caption);
+  font-family: var(--font-body);
+  border: 1px solid var(--accent-show);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent-show) 14%, var(--bg-primary));
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.bakeBtn:hover:not(:disabled) {
+  border-color: var(--accent-show);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-show) 35%, transparent);
+}
+
+.bakeBtn:disabled,
+.song:disabled,
+.songOn:disabled,
+.tab:disabled,
+.tabOn:disabled,
+.revert:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.bakeBadge {
+  padding: 2px 7px;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--accent-show) 22%, var(--bg-primary));
+  color: var(--accent-show);
+  border: 1px solid var(--accent-show);
+}
+
+.progressWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--divider);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent-show) 6%, var(--bg-primary));
+}
+
+.progressMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--fs-caption);
+  font-family: var(--font-body);
+  color: var(--text-primary);
+}
+
+.progressTrack {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--bg-primary);
+  border: 1px solid var(--divider);
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent-show) 60%, #fff), var(--accent-show));
+}
+
+.progressNote {
+  font-size: var(--fs-caption);
+  font-family: var(--font-body);
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
 /* ── Analysed-song picker ── */
 .list {
   display: flex;

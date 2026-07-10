@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { applyShowPlaybackSignal } from '../showPlaybackSignal'
 import type { StudioEdge, StudioNode } from '../../../state/graphStore'
 import type { ShowFile } from '../../../types/showFile'
+import { usePerformanceBakeStore } from '../../../state/performanceBakeStore'
 
 vi.mock('../../../state/audioStore', () => ({
   useAudioStore: { getState: () => ({ active: false, bass: 0, mids: 0, treble: 0, beat: false, bpm: 120, spectrum: Array(16).fill(0) }) },
@@ -35,6 +36,36 @@ const litShow: ShowFile = {
 }
 
 describe('applyShowPlaybackSignal', () => {
+  it('prefers a baked preview frame over live rendering when one exists for the generator', () => {
+    usePerformanceBakeStore.getState().startBake('pg', {
+      entryId: 'track-1',
+      durationMs: 1000,
+      width: 1,
+      height: 1,
+      fps: 1,
+    })
+    usePerformanceBakeStore.getState().finishBake('pg', [new Uint8Array([9, 8, 7])])
+    const outputs = new Map<string, Record<string, unknown>>([
+      ['pg', { frame: [[{ r: 0, g: 0, b: 0 }]] }],
+    ])
+    const nodes = [node('pg', 'PerformanceGenerator'), node('out', 'MatrixOutput')]
+    const edges = [{ id: 'e1', source: 'pg', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' }] as StudioEdge[]
+
+    const frame = applyShowPlaybackSignal(
+      [[{ r: 0, g: 0, b: 0 }]],
+      outputs,
+      nodes,
+      edges,
+      { nodeId: 'pg', show: litShow, posMs: 0, useGroupInputs: false },
+      1,
+      1,
+      {},
+    )
+
+    expect(frame[0][0]).toEqual({ r: 9, g: 8, b: 7 })
+    usePerformanceBakeStore.getState().clearBake('pg')
+  })
+
   it('publishes the live show frame back onto the generator output when wired to MatrixOutput', () => {
     const outputs = new Map<string, Record<string, unknown>>([
       ['pg', { frame: [[{ r: 0, g: 0, b: 0 }]] }],

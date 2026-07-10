@@ -14,6 +14,7 @@ import BeatDetectBody from './BeatDetectBody'
 import FFTAnalyzerBody from './FFTAnalyzerBody'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
+import { usePerformanceBakeStore } from '../../state/performanceBakeStore'
 import { getCodeError } from '../../state/graphEvaluator'
 import { useMusicStore } from '../../state/musicStore'
 import { signalPathFor } from '../../utils/signalPath'
@@ -190,6 +191,7 @@ interface LivePropertyControlsProps {
   props: Record<string, unknown>
   sourceMap: Map<string, { srcId: string; srcPort: string }>
   uiEffectsEnabled: boolean
+  locked: boolean
   editable: [string, unknown][]
   hasRGB: boolean
   isGroupInput: boolean
@@ -209,6 +211,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
   props,
   sourceMap,
   uiEffectsEnabled,
+  locked,
   editable,
   hasRGB,
   isGroupInput,
@@ -262,6 +265,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
             <span className={styles.propKey}>size</span>
             <select
               className={`nodrag ${styles.propSelect}`}
+              disabled={locked}
               value={preset}
               onChange={(e) => {
                 const v = e.target.value
@@ -297,6 +301,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
             <span className={styles.propKey}>role</span>
             <select
               className={`nodrag ${styles.propSelect}`}
+              disabled={locked}
               value={role}
               onChange={(e) => setGroupInputRole(nodeId, e.target.value)}
             >
@@ -318,7 +323,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
             <input
               className={`nodrag ${styles.colorInput}`}
               type="color"
-              disabled={wired}
+              disabled={wired || locked}
               value={swatch}
               onChange={(e) => updateNodeProperties(nodeId, hexToRgb(e.target.value))}
             />
@@ -331,7 +336,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
         // A property may be inapplicable to the current variant (e.g. a
         // Transition's `direction` outside wipe): shown but disabled.
         const gated = !isPropertyEnabled(nodeType, key, props)
-        const disabled = wired || gated
+        const disabled = wired || gated || locked
         const live = wired ? liveFor(key) : undefined
         const forceTextNumber = nodeType === 'Math' && (key === 'a' || key === 'b')
         return (
@@ -423,6 +428,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
           <input
             className="nodrag"
             type="checkbox"
+            disabled={locked}
             checked={Boolean(props.clampInputs)}
             onChange={(e) => updateNodeProperty(nodeId, 'clampInputs', e.target.checked)}
           />
@@ -437,6 +443,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
           <input
             className="nodrag"
             type="checkbox"
+            disabled={locked}
             checked={isCustomDefault}
             onChange={(e) => {
               if (e.target.checked) useNodeDefaults.getState().setDefault(nodeType, rawProps)
@@ -562,6 +569,8 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
   const setGroupInputRole = useGraphStore((s) => s.setGroupInputRole)
+  const bakeStatus = usePerformanceBakeStore((s) => s.byNode[id]?.status)
+  const bakeLocked = (bakeStatus ?? usePerformanceBakeStore.getState().byNode[id]?.status ?? 'idle') !== 'idle'
   const accent = CATEGORY_ACCENT_VAR[d.category] ?? 'var(--accent-output)'
   const inputs = (def?.inputs ?? d.inputs) as PortDef[]
   const outputs = (def?.outputs ?? d.outputs) as PortDef[]
@@ -809,6 +818,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           props={props}
           sourceMap={sourceMap}
           uiEffectsEnabled={uiEffectsEnabled}
+          locked={bakeLocked}
           editable={editable}
           hasRGB={hasRGB}
           isGroupInput={isGroupInput}
