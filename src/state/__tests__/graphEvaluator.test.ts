@@ -674,6 +674,53 @@ describe('evaluateGraph', () => {
     expect(frame![0][3]).toEqual({ r: 0, g: 0, b: 0 })     // off the diagonal
   })
 
+  it('Path traces a smooth moving point around its selected curve', () => {
+    const render = (tt: number) => {
+      const p = node('p', 'Path', 'pattern', { pathShape: 'circle', t: tt, scale: 0.85, thickness: 1, r: 255, g: 0, b: 0 })
+      const out = node(`out-${tt}`, 'MatrixOutput', 'output', {})
+      return evaluateGraph([p, out], [edge(`e-${tt}`, 'p', 'frame', out.id, 'frame')], 0, 9, 9)!
+    }
+    const centroid = (frame: NonNullable<ReturnType<typeof render>>) => {
+      let sum = 0, sx = 0, sy = 0, lit = 0
+      for (let y = 0; y < frame.length; y++) for (let x = 0; x < frame[0].length; x++) {
+        const w = frame[y][x].r + frame[y][x].g + frame[y][x].b
+        if (w > 0) lit++
+        sum += w; sx += x * w; sy += y * w
+      }
+      return { x: sx / sum, y: sy / sum, lit }
+    }
+    const right = centroid(render(0))
+    const top = centroid(render(0.25))
+    expect(right.lit).toBeGreaterThan(1)   // subpixel splat touches multiple pixels
+    expect(right.x).toBeGreaterThan(top.x + 1)
+    expect(top.y).toBeLessThan(right.y - 1)
+  })
+
+  it('Path uses a wired t input over its property and preserves the base frame elsewhere', () => {
+    const tVal = node('tv', 'Math', 'math', { mathOp: 'add', a: 0.25, b: 0 })
+    const bg = node('bg', 'SolidColor', 'pattern', { r: 30, g: 0, b: 0 })
+    const path = node('pth', 'Path', 'pattern', { pathShape: 'rose', t: 0, scale: 0.85, thickness: 1, r: 0, g: 255, b: 0 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const wired = evaluateGraph(
+      [tVal, bg, path, out],
+      [
+        edge('e1', 'tv', 'result', 'pth', 't'),
+        edge('e2', 'bg', 'frame', 'pth', 'base'),
+        edge('e3', 'pth', 'frame', 'out', 'frame'),
+      ],
+      0, 9, 9,
+    )!
+    const propPath = node('pth2', 'Path', 'pattern', { pathShape: 'rose', t: 0.25, scale: 0.85, thickness: 1, r: 0, g: 255, b: 0 })
+    const propOut = node('out2', 'MatrixOutput', 'output', {})
+    const expected = evaluateGraph(
+      [bg, propPath, propOut],
+      [edge('e4', 'bg', 'frame', 'pth2', 'base'), edge('e5', 'pth2', 'frame', 'out2', 'frame')],
+      0, 9, 9,
+    )!
+    expect(wired).toEqual(expected)
+    expect(wired[0][0]).toEqual({ r: 30, g: 0, b: 0 })
+  })
+
   it('Text renders glyph pixels in the chosen color', () => {
     // "I" at x=1,y=1: the 3×5 'I' has a full top row (### = cols all lit at r=0).
     const txt = node('t', 'Text', 'pattern', { text: 'I', x: 1, y: 1, scroll: 0, r: 0, g: 255, b: 0 })

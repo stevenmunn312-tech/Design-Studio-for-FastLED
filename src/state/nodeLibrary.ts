@@ -163,6 +163,21 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { x1: 0, y1: 0, x2: 15, y2: 15, r: 0, g: 200, b: 255 },
   },
   {
+    // Traces a point around a parametric curve. Feed a 0–1 `t` signal into it
+    // and stack it into Trails for a persistent orbit/heart/rose drawing.
+    type: 'Path',
+    label: 'Path',
+    category: 'pattern',
+    subcategory: 'Shapes & Text',
+    inputs: [
+      { id: 'base',  label: 'Base', dataType: 'frame' },
+      { id: 'color', label: 'Color', dataType: 'color' },
+      { id: 't',     label: 'T (0–1)', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { pathShape: 'circle', t: 0, scale: 0.8, thickness: 1.25, r: 255, g: 220, b: 80 },
+  },
+  {
     // Bundled noise generators — `noiseType` selects the algorithm. The
     // variants share the same speed/scale/palette controls, expose a raw scalar
     // `field`, and also map that field through a palette to the normal `frame`
@@ -1866,6 +1881,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Rect: 'Draws a filled rectangle.',
   Circle: 'Draws a circle — ring or filled disc.',
   Line: 'Draws a line between two points.',
+  Path: 'Traces a parametric curve point with subpixel splatting.',
   Text: 'Renders scrolling text in a bitmap font.',
   Noise: 'Bundled noise variants with frame and raw field outputs.',
   Fire: 'Classic rising fire effect.',
@@ -2092,6 +2108,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   turns:      { control: 'slider', min: 1, max: 6, step: 1 },
   mode:       { control: 'select', options: ['cycle', 'beat'] },
   waveform:   { control: 'select', options: ['sine', 'triangle', 'square', 'sawtooth'] },
+  pathShape:  { control: 'select', options: ['circle', 'heart', 'lissajous', 'rose'] },
   operation:  { control: 'select', options: ['add', 'multiply', 'average', 'min', 'max', 'difference'] },
   transform:  { control: 'select', options: ['rotate', 'scale', 'translate'] },
   // Bundled-node selectors — each picks a variant; keep in sync with the
@@ -2124,6 +2141,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   speed:    { control: 'slider', min: 0, max: 5, step: 0.1 },
   scale:    { control: 'slider', min: 0, max: 2, step: 0.01 },
   fade:     { control: 'slider', min: 0, max: 1, step: 0.01 },
+  thickness:{ control: 'slider', min: 0.5, max: 4, step: 0.05 },
   // Opacity / mix amount, normalised 0–1 (scaled to FastLED's 0–255 in the
   // evaluator + codegen). Shared by Blend / Blur2D / PaletteBlend.
   amount:   { control: 'slider', min: 0, max: 1, step: 0.01 },
@@ -2391,6 +2409,10 @@ const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, stri
   Noise: {
     prop: 'noiseType',
     labels: { field: 'Noise Field', simplex: 'Simplex', noise3d: 'Noise 3D', noise4d: 'Noise 4D', worley: 'Worley', plasma: 'Plasma Fractal' },
+  },
+  Path: {
+    prop: 'pathShape',
+    labels: { circle: 'Path · Circle', heart: 'Path · Heart', lissajous: 'Path · Lissajous', rose: 'Path · Rose' },
   },
   Math: {
     prop: 'mathOp',

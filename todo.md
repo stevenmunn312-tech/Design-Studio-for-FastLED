@@ -165,7 +165,7 @@ music-sync player initialise the strip identically from the MatrixOutput node.
 ### Bigger features
 
 - [ ] **`WaveSim` — 2D wave/ripple simulation** (FastLED 3.9/3.10's flagship `fxWave2d`) — Simulations subcategory next to ReactionDiffusion/GameOfLife; best as a **field-pipeline citizen**: `trigger` bool input (BeatDetect → beat-driven ripples) outputting a `field` so it composes with FieldMath/FieldToFrame
-- [ ] **`Path` node — parametric path drawing** (FastLED 3.10 `XYPath`) — shape dropdown (circle, heart, lissajous, rose, …) traced by a 0–1 `t` float input with subpixel rendering; pairs naturally with Trails
+- [x] **`Path` node — parametric path drawing** — added as a Shapes & Text node with circle / heart / lissajous / rose presets, a 0–1 `t` input, and subpixel splatting in both preview and firmware codegen
 - [ ] **Subpixel splatting** for Circle/Line/Particles — FastLED renders float coordinates by splatting brightness across a 2×2 tile; would fix visible stair-stepping at 16×16 in both preview and firmware
 - [ ] **Supersample toggle** on MatrixOutput — render at 2×, downscale by pixel averaging (FastLED `downscale`); lower priority than per-node splatting
 - [x] **ColorBoost** — added as a small composite node (`ColorBoost`) with luminance-preserving channel scaling in both preview and firmware codegen

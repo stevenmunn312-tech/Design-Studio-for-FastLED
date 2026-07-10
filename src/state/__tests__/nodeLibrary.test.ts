@@ -164,6 +164,15 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('Juggle', 'count')).toMatchObject({ control: 'slider', min: 1, max: 8 })
   })
 
+  it('Path exposes base/color/t inputs with selectable curve presets', () => {
+    const path = NODE_LIBRARY.find((n) => n.type === 'Path')
+    expect(path?.inputs.map((p) => p.id)).toEqual(['base', 'color', 't'])
+    expect(path?.defaultProperties).toMatchObject({ pathShape: 'circle', t: 0, scale: 0.8, thickness: 1.25 })
+    expect(propertyMeta('Path', 'pathShape')).toMatchObject({ control: 'select' })
+    expect((propertyMeta('Path', 'pathShape') as { options?: string[] }).options).toEqual(['circle', 'heart', 'lissajous', 'rose'])
+    expect(propertyMeta('Path', 'thickness')).toMatchObject({ control: 'slider', min: 0.5 })
+  })
+
   it('Noise exposes both frame and raw field outputs', () => {
     const nz = NODE_LIBRARY.find((n) => n.type === 'Noise')
     expect(nz?.outputs.map((p) => p.id)).toEqual(['frame', 'field'])

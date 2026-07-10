@@ -1068,6 +1068,41 @@ export function generateCpp(
         break
       }
 
+      case 'Path': {
+        const ob = ownBuf()
+        const colorE = incoming.get(`${node.id}:color`)
+          ? colorExpr(node.id, 'color')
+          : `CRGB(${Number(p.r ?? 255)}, ${Number(p.g ?? 220)}, ${Number(p.b ?? 80)})`
+        const shape = String(p.pathShape ?? 'circle')
+        const scale = Number(p.scale ?? 0.8)
+        const thickness = Number(p.thickness ?? 1.25)
+        const tExpr = f('t', 't', 0)
+        const fl = (value: number) => `${Number.isInteger(value) ? value.toFixed(1) : value}f`
+        let pathExpr = `float _px = cosf(_ang), _py = sinf(_ang);`
+        if (shape === 'heart') {
+          pathExpr = `float _px = 16.0f * powf(sinf(_ang), 3.0f) / 18.0f; float _py = (13.0f*cosf(_ang)-5.0f*cosf(_ang*2.0f)-2.0f*cosf(_ang*3.0f)-cosf(_ang*4.0f)) / 18.0f;`
+        } else if (shape === 'lissajous') {
+          pathExpr = `float _px = sinf(_ang + 1.5707963f), _py = sinf(_ang * 2.0f);`
+        } else if (shape === 'rose') {
+          pathExpr = `float _pr = cosf(_ang * 4.0f); float _px = _pr * cosf(_ang), _py = _pr * sinf(_ang);`
+        }
+        ln(`  { ${seedFrom('base')}`)
+        ln(`    float _tt = constrain(${tExpr}, 0.0f, 1.0f);`)
+        ln(`    float _ang = _tt * 6.2831853f;`)
+        ln(`    ${pathExpr}`)
+        ln(`    float _rad = max(0.25f, ${fl(thickness)} * 0.5f);`)
+        ln(`    float _ext = max(0.0f, min((float)WIDTH, (float)HEIGHT) * 0.5f * ${fl(scale)} - _rad);`)
+        ln(`    float _sx = (WIDTH - 1) * 0.5f + _px * _ext;`)
+        ln(`    float _sy = (HEIGHT - 1) * 0.5f - _py * _ext;`)
+        ln(`    int _x0 = max(0, (int)floorf(_sx - _rad - 1.0f)), _x1 = min(WIDTH - 1, (int)ceilf(_sx + _rad + 1.0f));`)
+        ln(`    int _y0 = max(0, (int)floorf(_sy - _rad - 1.0f)), _y1 = min(HEIGHT - 1, (int)ceilf(_sy + _rad + 1.0f));`)
+        ln(`    for (int _y = _y0; _y <= _y1; _y++) for (int _x = _x0; _x <= _x1; _x++) {`)
+        ln(`      float _dx = (_x + 0.5f) - _sx, _dy = (_y + 0.5f) - _sy;`)
+        ln(`      float _cov = constrain(_rad + 0.5f - sqrtf(_dx * _dx + _dy * _dy), 0.0f, 1.0f);`)
+        ln(`      if (_cov <= 0.0f) continue; CRGB _add = ${colorE}; _add.nscale8((uint8_t)(_cov * 255.0f)); ${ob}[_y * WIDTH + _x] += _add; } }`)
+        break
+      }
+
       case 'Text': {
         const ob = ownBuf()
         const text = String(p.text ?? 'HELLO')

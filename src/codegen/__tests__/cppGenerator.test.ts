@@ -860,6 +860,26 @@ describe('generateCpp', () => {
     expect(cpp).toContain('CRGB(0, 200, 255)')
   })
 
+  it('emits a Path curve with subpixel splat coverage', () => {
+    const p = node('p', 'Path', 'pattern', { pathShape: 'heart', t: 0.25, scale: 0.8, thickness: 1.5, r: 255, g: 220, b: 80 })
+    const cpp = generateCpp([p, outputNode], [edge('e', 'p', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('powf(sinf(_ang), 3.0f)')
+    expect(cpp).toContain('float _cov = constrain(_rad + 0.5f - sqrtf(_dx * _dx + _dy * _dy), 0.0f, 1.0f);')
+    expect(cpp).toContain('_add.nscale8((uint8_t)(_cov * 255.0f));')
+    expect(cpp).toContain('buf_p[_y * WIDTH + _x] += _add;')
+  })
+
+  it('Path codegen uses a wired t input over the property', () => {
+    const tVal = node('tv', 'Math', 'math', { mathOp: 'add', a: 0.25, b: 0 })
+    const p = node('p', 'Path', 'pattern', { pathShape: 'rose', t: 0, scale: 0.8, thickness: 1.25 })
+    const cpp = generateCpp([tVal, p, outputNode], [
+      edge('e1', 'tv', 'p', 'result', 't'),
+      edge('e2', 'p', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('float _tt = constrain(n_tv_result, 0.0f, 1.0f);')
+    expect(cpp).toContain('float _pr = cosf(_ang * 4.0f);')
+  })
+
   it('emits a Text node with embedded font columns', () => {
     const txt = node('t', 'Text', 'pattern', { text: 'HI', x: 1, y: 1, scroll: 0, r: 0, g: 255, b: 0 })
     const cpp = generateCpp([txt, outputNode], [edge('e', 't', 'out', 'frame', 'frame')])

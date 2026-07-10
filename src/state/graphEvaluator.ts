@@ -446,6 +446,50 @@ function mixRgb(a: RGB, b: RGB, t: number): RGB {
   return { r: mix(a.r, b.r), g: mix(a.g, b.g), b: mix(a.b, b.b) }
 }
 
+function wrapUnit(v: number): number {
+  return ((v % 1) + 1) % 1
+}
+
+function pathPoint(shape: string, t: number): { x: number; y: number } {
+  const TAU = Math.PI * 2
+  const ang = wrapUnit(t) * TAU
+  switch (shape) {
+    case 'heart': {
+      const x = 16 * Math.sin(ang) ** 3 / 18
+      const y = (13 * Math.cos(ang) - 5 * Math.cos(ang * 2) - 2 * Math.cos(ang * 3) - Math.cos(ang * 4)) / 18
+      return { x, y }
+    }
+    case 'lissajous':
+      return { x: Math.sin(ang + Math.PI / 2), y: Math.sin(ang * 2) }
+    case 'rose': {
+      const r = Math.cos(ang * 4)
+      return { x: r * Math.cos(ang), y: r * Math.sin(ang) }
+    }
+    case 'circle':
+    default:
+      return { x: Math.cos(ang), y: Math.sin(ang) }
+  }
+}
+
+// Soft circular splat centred at a subpixel coordinate. Coverage is based on
+// the distance from each pixel centre to the splat centre, so animating the
+// point across fractional coordinates yields smooth anti-aliased motion.
+function splatDisc(frame: Frame, x: number, y: number, radius: number, color: RGB): void {
+  const H = frame.length, W = frame[0]?.length ?? 0
+  const x0 = Math.max(0, Math.floor(x - radius - 1))
+  const x1 = Math.min(W - 1, Math.ceil(x + radius + 1))
+  const y0 = Math.max(0, Math.floor(y - radius - 1))
+  const y1 = Math.min(H - 1, Math.ceil(y + radius + 1))
+  for (let py = y0; py <= y1; py++) {
+    for (let px = x0; px <= x1; px++) {
+      const dist = Math.hypot((px + 0.5) - x, (py + 0.5) - y)
+      const coverage = clamp01(radius + 0.5 - dist)
+      if (coverage <= 0) continue
+      frame[py][px] = addRgb(frame[py][px], scaleRgb(color, coverage))
+    }
+  }
+}
+
 // Animated geometric transform of a frame, resampled nearest-neighbour about
 // the matrix centre. `rotate` spins by rate°/s, `scale` zooms by rate%/s
 // (clamped), `translate` shifts by rate px/s along `angle°` (toroidal wrap).
@@ -3372,6 +3416,28 @@ function createEvalNode(
           if (e2 >= dy) { err += dy; x0 += sx }
           if (e2 <= dx) { err += dx; y0 += sy }
         }
+        out = { frame }
+        break
+      }
+
+      case 'Path': {
+        const baseIn = input(id, 'base', null) as Frame | null
+        const frame  = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
+        const colorIn = input(id, 'color', null) as RGB | null
+        const color = colorIn ?? {
+          r: byte(Number(props.r ?? 255) / 255),
+          g: byte(Number(props.g ?? 220) / 255),
+          b: byte(Number(props.b ?? 80)  / 255),
+        }
+        const tt = clamp01(num(id, 't', props, 't', 0))
+        const scale = Math.max(0, Number(props.scale ?? 0.8))
+        const thickness = Math.max(0.5, Number(props.thickness ?? 1.25))
+        const shape = String(props.pathShape ?? 'circle')
+        const p = pathPoint(shape, tt)
+        const cx = (W - 1) / 2, cy = (H - 1) / 2
+        const radius = thickness * 0.5
+        const extent = Math.max(0, Math.min(W, H) * 0.5 * scale - radius)
+        splatDisc(frame, cx + p.x * extent, cy - p.y * extent, radius, color)
         out = { frame }
         break
       }
