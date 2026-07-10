@@ -11,7 +11,25 @@ Node‑Based Visual Designer for FastLED LED Matrix Systems
 - **Three theme variants** — Dark, Solarized Dark, Studio Light
 - **Undo/redo** (100 steps), autosave to localStorage, save/load graph as JSON
 
-## Getting Started
+## Quick Start (no experience needed)
+
+1. Install [Node.js](https://nodejs.org) (the LTS installer, default options). To also
+   upload patterns to a board, install [Python 3](https://python.org) too — on Windows,
+   tick **"Add python.exe to PATH"** in its installer.
+2. Download this project (green **Code** button → **Download ZIP**) and unzip it,
+   or `git clone` it.
+3. Launch it:
+   - **Windows** — double-click **`Start FastLED Studio.bat`**
+   - **macOS** — double-click **`Start FastLED Studio.command`** (first time only:
+     right-click it, choose **Open**, then confirm)
+   - **Linux** — run **`./start.sh`**
+
+The first launch installs everything and takes a few minutes; after that it starts in
+seconds. Your browser opens the studio automatically — keep the launcher window open
+while you use the app. Python is optional: without it the designer runs fine, only
+board upload stays disabled.
+
+## Getting Started (developers)
 
 ```bash
 npm install
