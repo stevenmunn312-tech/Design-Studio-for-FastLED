@@ -638,6 +638,9 @@ export function generateCpp(
   }
 
   const loopLines: string[] = []
+  // pinMode(...) calls contributed by hardware-input nodes, emitted in setup().
+  // A Set so two nodes reading the same pin don't emit it twice.
+  const pinSetupLines = new Set<string>()
   // File-scope lines contributed by Code nodes (helpers, persistent vars, etc.),
   // emitted between the buffer declarations and setup().
   const globalLines: string[] = []
@@ -970,9 +973,12 @@ export function generateCpp(
         ln(`  // The source gain, AGC toggle, and adaptive noise gate come from the MicInput sliders.`)
         break
 
-      case 'ButtonInput':
-        ln(`  bool ${v('pressed')} = digitalRead(${Number(p.pin ?? 0)}) == LOW;`)
+      case 'ButtonInput': {
+        const pin = Number(p.pin ?? 0)
+        pinSetupLines.add(`  pinMode(${pin}, ${p.pullup === false ? 'INPUT' : 'INPUT_PULLUP'});`)
+        ln(`  bool ${v('pressed')} = digitalRead(${pin}) == LOW;`)
         break
+      }
 
       case 'PotInput':
         ln(`  float ${v('value')} = analogRead(${Number(p.pin ?? 34)}) / 4095.0f;`)
@@ -3125,6 +3131,7 @@ export function generateCpp(
 
   lines.push(`void setup() {`)
   lines.push(...psramAllocs)
+  lines.push(...pinSetupLines)
   lines.push(...fastledSetupCpp(hw))
   if (powerLimit) lines.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${volts}, ${milliamps});`)
   if (emitEngine) lines.push(`  setupAudio();`)

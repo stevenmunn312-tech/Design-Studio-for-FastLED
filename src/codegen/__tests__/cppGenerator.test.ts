@@ -63,6 +63,25 @@ describe('generateCpp', () => {
     expect(cpp).toContain('FastLED.setDither(DISABLE_DITHER);')
   })
 
+  it('emits a setup() pinMode for ButtonInput honouring the pullup property', () => {
+    const btn = node('btn', 'ButtonInput', 'input', { pin: 7, pullup: true })
+    const bm = node('bm', 'BrightnessMod', 'composite', {})
+    const sc = node('sc', 'SolidColor', 'pattern', {})
+    const edges = [
+      edge('e1', 'btn', 'bm', 'pressed', 'brightness'),
+      edge('e2', 'sc', 'bm', 'frame', 'frame'),
+      edge('e3', 'bm', 'out', 'frame', 'frame'),
+    ]
+    const cpp = generateCpp([btn, bm, sc, outputNode], edges)
+    const pinMode = cpp.indexOf('pinMode(7, INPUT_PULLUP);')
+    expect(pinMode).toBeGreaterThan(cpp.indexOf('void setup()'))
+    expect(pinMode).toBeLessThan(cpp.indexOf('void loop()'))
+    expect(cpp).toContain('digitalRead(7) == LOW')
+
+    const noPull = node('btn', 'ButtonInput', 'input', { pin: 7, pullup: false })
+    expect(generateCpp([noPull, bm, sc, outputNode], edges)).toContain('pinMode(7, INPUT);')
+  })
+
   it('emits the FASTLED_OVERCLOCK define before the FastLED include', () => {
     const out = node('out', 'MatrixOutput', 'output', { overclock: 1.25 })
     const cpp = generateCpp([out], [])
