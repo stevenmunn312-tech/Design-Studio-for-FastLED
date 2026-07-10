@@ -7,7 +7,7 @@ Node‑Based Visual Designer for FastLED LED Matrix Systems
 - **Live LED preview** — WebGL renderer with per-LED glow at 60 fps; falls back to Canvas 2D
 - **Audio-reactive** — microphone FFT via Web Audio API drives bass/mids/treble/beat outputs in real time
 - **C++ code generation** — export a ready-to-flash FastLED `.ino` sketch from any graph
-- **WebSerial upload** — connect an ESP32/Arduino directly in Chrome/Edge and flash without leaving the browser
+- **One-click upload** — a small local helper compiles and flashes to your board over USB via `arduino-cli` or FastLED's own `fbuild` tool; falls back to copy-paste CLI commands if the helper isn't running
 - **Three theme variants** — Dark, Solarized Dark, Studio Light
 - **Undo/redo** (100 steps), autosave to localStorage, save/load graph as JSON
 
@@ -40,15 +40,20 @@ Requires Node 18+. For WebSerial upload, use Chrome or Edge 89+.
 
 ## Node Categories
 
-| Category | Color | Examples |
-|----------|-------|---------|
-| Audio | Cyan | Mic Input, Music Library, FFT Analyzer, Beat Detect, Percussion Detect, Audio → Hue |
-| Hardware | Orange | Button, Potentiometer, Performance Generator, SD Card |
-| Math | Lime | Sin, Cos, Wave, BeatSin, Lerp, Counter, XY Mapper |
-| Color | Pink | HSV→RGB, CHSV, Palette Selector, Poline, Custom Palette |
-| Pattern | Magenta | Fire 2012, Plasma, Noise, Kaleidoscope, Particles (7 types), Starfield, Blobs, Code |
-| Composite | Teal | Blend (6 modes), Transition (16 variants), Blur 2D, Fade, Mask, Field Warp |
-| Output | Blue | Matrix Output |
+| Category | Examples |
+|----------|---------|
+| Input | Mic Input, Button, Potentiometer, Encoder |
+| Audio | FFT Analyzer, Beat Detect, Percussion Detect, Audio Features, Audio → Hue |
+| Signals | Time, Counter, Random, Wave, ComplexWave, BeatSin |
+| Math & Logic | Math, Clamp, Lerp, Compare, Switch, XY Mapper |
+| Color | HSV→RGB, CHSV, Palette Selector, Poline, Custom Palette |
+| Patterns | Fire 2012, Plasma, Noise, Kaleidoscope, Particles (7 types), Starfield, Blobs, Code |
+| Fields | Field Formula, Distance Field, Field Warp, Field Rotate/Tile |
+| Effects | Blend (6 modes), Transition (16 variants), Blur 2D, Fade, Mask, Trails |
+| Show | Music Library, Pattern Collection, Show Engine, Performance Generator, SD Card |
+| Output | Matrix Output |
+
+See the Design Tokens section of `CLAUDE.md` for the full category → accent-color mapping.
 
 ## Workflow
 
@@ -72,7 +77,7 @@ npm run preview    # serve dist/ locally
 |---------|---------|
 | WebGL preview | Any modern browser |
 | Microphone (FFT) | Any modern browser |
-| WebSerial upload | Chrome / Edge 89+ |
+| Board upload | Local upload helper running (Python 3 + `arduino-cli` or `fbuild`) — any browser |
 
 ## Credits
 

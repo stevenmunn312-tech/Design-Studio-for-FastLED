@@ -158,6 +158,6 @@ All viable features from that branch have landed on `main`. See
 ### Non-functional code audit follow-ups
 
 - [ ] Fix `ButtonInput` firmware setup: honour the `pullup` property by emitting `pinMode(pin, INPUT_PULLUP)` (or `INPUT`) before `digitalRead`
-- [ ] Make pattern-show detection follow the graph path into `MatrixOutput`; a disconnected `PatternMaster` must not replace a valid normal sketch
-- [ ] Complete Pattern Master firmware parity: support the wired `beat` trigger and selected transition pool instead of always using a time-based crossfade
+- [x] Make pattern-show detection follow the graph path into `MatrixOutput`; a disconnected `PatternMaster` must not replace a valid normal sketch — `isPatternShow` requires the `PatternMaster`'s `frame` output to actually reach a `MatrixOutput`
+- [x] Complete Pattern Master firmware parity: support the wired `beat` trigger and selected transition pool instead of always using a time-based crossfade — `showGenerator.ts` now draws from the full 16-style pool and honours a wired beat; not yet hardware-validated
 - [ ] Review intentional preview fallbacks and make them explicit in the UI: fixed `ButtonInput` / `PotInput` values, synthetic no-mic audio, and the black `PerformanceGenerator.frame` output

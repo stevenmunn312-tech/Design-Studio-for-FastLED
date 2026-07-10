@@ -1,6 +1,6 @@
 # ANIMartRIX patterns — Float Field design note
 
-Status: proposed · Owner: app · Date: 2026-06-28
+Status: implemented (phases 1–3 shipped) · Owner: app · Date: 2026-06-28
 
 ## Problem
 

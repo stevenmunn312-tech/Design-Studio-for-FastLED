@@ -1,6 +1,6 @@
 # Collection-driven performance — design note
 
-Status: proposed · Owner: app · Date: 2026-06-30
+Status: implemented (all 4 slices shipped; hardware validation of slice 2's modulation player still pending) · Owner: app · Date: 2026-06-30
 
 Let the **Performance Generator** draw its patterns from a user-curated
 **Pattern Collection** instead of the 11 hardcoded section patterns, and let the

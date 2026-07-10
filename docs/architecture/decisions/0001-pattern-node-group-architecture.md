@@ -142,11 +142,14 @@ where it is needed.
 
 ## Open questions
 
-- **Node category model.** `category` currently conflates a node's accent colour
-  with an implied data domain, while the real type system is the per-port
-  `dataType`. A regrouping (e.g. by output type: Sources / Color / Generators /
-  Compositing / Math / Output) is desirable but deferred; it is orthogonal to
-  this decision and tracked separately.
+- **Node category model.** _Resolved._ Categories were regrouped by the job the
+  user is doing rather than by primary output type: `input` (live device IO),
+  `audio` (analysis), `signal` (time-varying control sources), `math`, `color`,
+  `pattern` (frame generators), `field` (the scalar-field pipeline), `composite`
+  (frame→frame, displayed "Effects"), `show` (the show workflow), `output` — ten
+  categories total, each with a hue-swept accent colour (see the `CATEGORIES`
+  table and Design Tokens section in `CLAUDE.md`). `category` is still a coarse,
+  UI-facing grouping; the real type system remains the per-port `dataType`.
 - **Serpentine wiring.** _Resolved._ Buffers stay row-major in grid space; the
   `MatrixOutput` node has a `serpentine` toggle and, when set, codegen emits an
   `XY(x, y)` helper and remaps grid → physical index on the final copy to

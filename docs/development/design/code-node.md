@@ -1,6 +1,6 @@
 # Code node — design note
 
-Status: proposed · Owner: app · Date: 2026-06-27
+Status: implemented (first-slice scope shipped) · Owner: app · Date: 2026-06-27
 
 A **Code node** lets a user paste raw FastLED/Arduino C++ — a loop body that
 writes directly into `leds[]` — and have it both (a) compile into the generated

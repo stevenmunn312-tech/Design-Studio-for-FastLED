@@ -1,6 +1,6 @@
 # Generative pattern show — design note
 
-Status: proposed · Owner: app · Date: 2026-06-26
+Status: implemented (phases 1–4 shipped; see `CLAUDE.md` for current behavior) · Owner: app · Date: 2026-06-26
 
 How the studio should author a **generative pattern show** — a matrix that
 endlessly picks from a large set of patterns and transitions, the way the
@@ -64,28 +64,35 @@ Three distinct concepts (Library ≠ Collection):
 Today `cppGenerator` emits a single flat `loop()`. The show needs:
 
 - **One `render_<name>(CRGB* leds, uint32_t ms)` per pattern**, each compiled from
-  its pattern subgraph standalone, emitted in its own `.h`.
+  its pattern subgraph standalone.
 - A controller **`.ino`** holding the pattern table, current/next index, the
-  min/max-timer + beat/drop trigger logic, and a transition state machine that
+  min/max-timer + beat trigger logic, and a transition state machine that
   reuses the 16 transition effects' existing C++ emitters to composite the
   outgoing/incoming patterns.
 
-This is the largest piece and is sequenced last.
+_As shipped:_ `src/codegen/showGenerator.ts` implements this as a single
+controller file (one `render_pN()` per pattern plus the dispatch/transition
+loop) rather than emitting a separate `.h` per pattern — see *Show codegen
+(Phase 4)* in `CLAUDE.md`. Multi-file `.h`-per-pattern output remains an
+unshipped follow-up if flash-size or build-time pressure ever calls for it.
 
 ## Phased rollout
 
-1. **Library** — save a named group to `localStorage`; a "My Patterns" sidebar
+1. **Library** ✅ — save a named group to `localStorage`; a "My Patterns" sidebar
    section; drag to instantiate; rename/delete. A `patternLibrary.ts` store so
    later phases read the same source. *(Self-contained — no codegen / Pattern
    Master changes.)*
-2. **Collection node** — absorb patterns into an internal list; `patternset` data
+2. **Collection node** ✅ — absorb patterns into an internal list; `patternset` data
    type; declutter.
-3. **Pattern Master upgrade** — `patternset` input, transition-pool selection,
-   trigger options (audio-gated); live random-show preview.
-4. **Multi-file codegen** — per-pattern `.h` render functions + the controller
-   `.ino` (random pattern + random transition on triggers).
+3. **Pattern Master upgrade** ✅ — `patternset` input, transition-pool selection
+   (via a wired `TransitionSet`), beat trigger (audio-gated); live random-show
+   preview.
+4. **Codegen** ✅ — per-pattern `render_pN()` functions + the controller `.ino`
+   (random pattern + random transition on triggers, beat-triggered particle
+   overlay), as a single file rather than per-pattern `.h`s (see above).
 
-Phases 1–3 are pure frontend; phase 4 is the codegen refactor.
+All four phases are implemented; only the basic time-based crossfade path has
+been hardware-validated (see `CLAUDE.md`).
 
 ## Open questions / later
 

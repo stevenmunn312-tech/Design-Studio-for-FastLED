@@ -7,9 +7,10 @@
 // subgraph and rewriting it into a function — so every node type already
 // supported by the generator works inside a show with no extra wiring.
 //
-// Scope of this first slice: single file, time-based switching, crossfade
-// transition. Remaining transition styles, the `beat` trigger, and multi-file
-// (.h-per-pattern) output are follow-ups. Untested on hardware.
+// Implements the full 16-style transition pool (via a wired TransitionSet) and
+// the beat trigger (via a wired MicInput's _audioBeat). Remaining scope: a
+// single controller file — multi-file (.h-per-pattern) output is a follow-up.
+// Only the basic time-based crossfade case has been hardware-validated.
 
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
