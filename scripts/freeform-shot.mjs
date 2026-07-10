@@ -20,17 +20,68 @@
 // — the same primitives record-demo.mjs's SHOTS use. Never use page.mouse;
 // use `cursor` so OBS records the real Windows cursor, not a teleporting one.
 //
+// If `node scripts/freeform-session.mjs start` has been run, this reconnects
+// to THAT browser (same tab, same graph state) instead of launching a fresh
+// isolated one — a fresh browser starts on an empty canvas with no shared
+// localStorage with the user's regular Chrome, which is wrong for a shot
+// that expects nodes the user already built. Falls back to a one-off
+// browser (and closes it afterward) when no session is running.
+//
 // Every run appends { label, actionStart, actionEnd } (wall-clock epoch ms,
 // spanning only the actual shot — not the countdown) to the timing log, so
 // scripts/trim-dead-sections.mjs can later cut the dead gaps between shots
 // out of the raw OBS recording.
 
+import { chromium } from 'playwright'
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { startSession, nodeByLabel, nodeHandle, addNode, ensureVisible, centerOf, VIEWPORT } from './record-demo.mjs'
+import { startSession, RealMouse, calibrate, Cursor, nodeByLabel, nodeHandle, addNode, ensureVisible, centerOf, VIEWPORT } from './record-demo.mjs'
+import { SESSION_FILE } from './freeform-session.mjs'
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+// Reconnects to the persistent session (scripts/freeform-session.mjs start)
+// when one is running; otherwise falls back to a fresh one-off session.
+async function getSession() {
+  if (fs.existsSync(SESSION_FILE)) {
+    const { wsEndpoint, title } = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'))
+    try {
+      const browser = await chromium.connect(wsEndpoint)
+      const context = browser.contexts()[0]
+      const page = context.pages()[0]
+      await page.bringToFront()
+      const size = await page.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }))
+      VIEWPORT.width = size.w
+      VIEWPORT.height = size.h
+
+      const mouse = new RealMouse()
+      await mouse.ready()
+      await mouse.focus(title)
+      await sleep(300)
+      const map = await calibrate(page, mouse)
+      const cursor = new Cursor(mouse, map, page)
+      page.setDefaultTimeout(8000)
+
+      console.log('Reusing the persistent freeform session.')
+      return {
+        page,
+        cursor,
+        mouse,
+        title,
+        // Only the per-process real-mouse driver gets torn down — the shared
+        // browser stays up for the next shot. `node scripts/freeform-session.mjs
+        // stop` closes it explicitly.
+        shutdown: async () => {
+          mouse.close()
+        },
+      }
+    } catch (err) {
+      console.warn(`Could not reuse the persistent session (${err.message}) — falling back to a fresh one-off browser.`)
+    }
+  }
+  return startSession()
+}
 
 function parseArgs(argv) {
   const opts = { countdown: 10, log: 'video-shots/timing-log.json', keepOpen: false }
@@ -68,7 +119,7 @@ async function main() {
   }
 
   console.log(`Starting demo session for "${opts.label}"…`)
-  const session = await startSession().catch((err) => {
+  const session = await getSession().catch((err) => {
     console.error(err.message)
     process.exit(1)
   })

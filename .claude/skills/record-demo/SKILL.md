@@ -16,7 +16,8 @@ front-ends below talk to it.
 | Tool | What it is | When to use |
 |------|-----------|-------------|
 | `npm run demo` (`scripts/record-demo.mjs`) | Interactive **shot director**: a persistent SHOTS menu, Playwright builds the graph state itself, real cursor for every click/drag | Scripted, repeatable shots of app features, canvas state composes across shots |
-| `npm run demo:shot` (`scripts/freeform-shot.mjs`) | **One-off ad-hoc shot**: plays a single hand-written shot module after a long countdown, timestamps it for later trimming | The user describes a shot in chat, arranges the on-screen state themselves, and wants just that motion recorded |
+| `npm run demo:session` (`scripts/freeform-session.mjs`) | **Persistent browser session** (`start`/`status`/`stop`) that freeform shots reconnect to | Run `start` once before any freeform shots — the user builds their graph in that window with no time pressure |
+| `npm run demo:shot` (`scripts/freeform-shot.mjs`) | **One-off ad-hoc shot**: plays a single hand-written shot module after a countdown, timestamps it for later trimming | The user describes a shot in chat; wires/clicks against whatever's on the canvas in the session above |
 | `node scripts/mouse-take.mjs` | **Manual choreographer**: eased real-mouse moves at absolute screen coordinates from a take file or `-c` string; no browser automation | One-off motion over a screen the user arranged themselves, no Playwright element lookups needed |
 | `npm run demo:trim` (`scripts/trim-dead-sections.mjs`) | **Post-processing**: cuts the dead gaps out of a raw OBS recording using the timing log `freeform-shot.mjs` writes | After recording one or more freeform shots into a single OBS file, to make it seamless |
 
@@ -44,9 +45,47 @@ If the dev server is not on 5173, point the director at it:
 
 ## Freeform shot workflow (one shot per turn, cut later)
 
-For "the user describes a shot in chat, arranges the app themselves during a
-long countdown, then just that motion gets recorded" — as opposed to the
-director's pre-registered `SHOTS` menu:
+For "the user describes a shot in chat, arranges the app themselves, then
+just that motion gets recorded" — as opposed to the director's pre-registered
+`SHOTS` menu. **Two things that aren't obvious going in:**
+
+- Each `freeform-shot.mjs` invocation is a **separate OS process**, and by
+  default launches its own **fresh, isolated Chromium instance** — no shared
+  localStorage with the user's regular Chrome, and an empty canvas. A 10 s
+  countdown is nowhere near enough time to hand-build a multi-node graph from
+  scratch, and the user's "already set up" tab is a different browser
+  profile the automation can't see. **Always start a persistent session
+  first** (step 0) rather than letting a shot launch its own throwaway
+  browser — that combination (fresh browser + short countdown assuming
+  pre-built state) doesn't work and fails with "node not found on canvas".
+- The shot itself still has a countdown before it plays — that's for arming
+  OBS, not for building the graph.
+
+0. **Start the persistent session once, before any shots — as a background
+   command, not a foreground one:**
+
+   ```bash
+   npm run demo:session -- start
+   ```
+
+   Run this with the tool's background-execution option. `start` blocks
+   forever by design and must keep running for the whole recording session:
+   the spawned browser is a child process of `start`, and in this sandboxed
+   shell the whole process tree dies the instant its owning command exits
+   (confirmed empirically — not a Playwright default) — so a foreground
+   `start` that runs to completion leaves no browser behind at all, even
+   though it reports success.
+
+   This opens a window titled "FastLED Studio DEMO RIG" (backed by
+   `chromium.launchServer()`, address saved to
+   `video-shots/.freeform-session.json`). **The user builds their graph in
+   THAT window**, not their regular Chrome tab — with no time limit, since
+   nothing is counting down yet. `npm run demo:session -- status` (a normal
+   foreground command — it only opens a network connection, no child
+   process) checks whether it's still alive; `npm run demo:session -- stop`
+   closes it remotely, which the backgrounded `start` process detects and
+   exits from on its own. Do this when the whole recording session is over,
+   not between shots.
 
 1. Write a small shot module to the scratchpad (or anywhere outside the
    repo) implementing the described motion:
@@ -66,7 +105,9 @@ director's pre-registered `SHOTS` menu:
    ```
 
    Same rules as director shots: use `cursor`/`mouse`, never `page.mouse`;
-   resolve locators right before pressing (rule 4 below).
+   resolve locators right before pressing (rule 4 below). Assume the nodes
+   this shot needs already exist on the canvas (the user built them in step
+   0) — a shot wires/clicks, it doesn't add or position nodes unless asked.
 
 2. Run it:
 
@@ -74,23 +115,29 @@ director's pre-registered `SHOTS` menu:
    npm run demo:shot -- path/to/shot.mjs --countdown 10 --label wire-fire
    ```
 
-   The script launches its own browser + real-mouse session (same
-   `startSession()` the director uses), then counts down (default 10 s,
-   `--countdown` to change) — **that's the window for the user to arrange the
-   on-screen state and arm OBS**, exactly like the director's countdown but
-   longer since there's no scripted setup to skip. It logs the wall-clock
-   start/end of the actual motion (not the countdown) to
+   `freeform-shot.mjs` reconnects to the session from step 0 if one is
+   running (same tab, same graph state — falls back to a fresh one-off
+   browser with a warning if no session is found, which almost always means
+   step 0 was skipped). It then counts down (default 10 s, `--countdown` to
+   change) — **that's the window to arm OBS**, not to build anything. It
+   logs the wall-clock start/end of the actual motion (not the countdown) to
    `video-shots/timing-log.json`, appending across runs.
 
 3. Repeat for each shot the user describes, all against the *same* OBS
-   recording if desired — the timing log accumulates entries across process
-   invocations.
+   recording if desired, and all against the *same* browser session (so
+   graph state accumulates too, e.g. wiring done in shot 1 is still there
+   for shot 2) — the timing log accumulates entries across process
+   invocations regardless.
 
-4. When done, trim the dead time out (see below).
+4. When done, trim the dead time out (see below), then
+   `npm run demo:session -- stop`.
 
-Add `--keep-open` to leave the browser/mouse driver running after a shot (so
-you can immediately eyeball the result) — you're then responsible for
-killing that process before starting a fresh session.
+`--keep-open` skips a shot's own end-of-run cleanup: when reusing the
+persistent session (the normal case) that only means the per-process
+real-mouse driver is left running for you to kill yourself; the shared
+browser is never touched by a shot regardless — only `demo:session -- stop`
+closes it. `--keep-open` matters more for the one-off fallback path (no
+session running), where it also skips closing that throwaway browser.
 
 ## Trimming the recording
 

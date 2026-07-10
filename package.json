@@ -13,6 +13,7 @@
     "test:coverage": "vitest run --coverage",
     "helper": "python -m uvicorn app:app --reload --port 8008 --app-dir backend",
     "demo": "node scripts/record-demo.mjs",
+    "demo:session": "node scripts/freeform-session.mjs",
     "demo:shot": "node scripts/freeform-shot.mjs",
     "demo:trim": "node scripts/trim-dead-sections.mjs"
   },

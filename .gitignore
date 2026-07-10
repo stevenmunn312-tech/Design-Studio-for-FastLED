@@ -26,5 +26,6 @@ __pycache__/
 # working state for the demo rig, not curated assets. Committed screenshots
 # in video-shots/ (e.g. *.png) are unaffected.
 video-shots/timing-log.json
+video-shots/.freeform-session.json
 video-shots/*.mp4
 video-shots/*.mkv
