@@ -69,6 +69,9 @@ const flowState = new Map<string, FlowState>()
 interface StarState { x: Float32Array; y: Float32Array; z: Float32Array; w: number; h: number }
 const starState = new Map<string, StarState>()
 
+interface BoidState { x: Float32Array; y: Float32Array; vx: Float32Array; vy: Float32Array; w: number; h: number }
+const boidState = new Map<string, BoidState>()
+
 interface SparkState { frame: Frame; w: number; h: number }
 const sparkState = new Map<string, SparkState>()
 
@@ -227,7 +230,7 @@ export function pruneEvaluatorState(maxIdleMs = STATE_IDLE_TTL_MS, now = stateCl
     fireHeat, flashLevel, counterVals, intervalLast, smoothState, holdState,
     envState, trailState, fftLevels, beatLevels,
     percussionLevels, audioFeatureLevels, particleState, patternShowState,
-    rdState, golState, waveSimState, flowState, starState, sparkState, fire2012Heat,
+    rdState, golState, waveSimState, flowState, starState, boidState, sparkState, fire2012Heat,
     codeLeds, codeError,
     kickShockState, kaleidoPunch, percussionBlobsState, emberBurst,
     rainRipplesState, prismOrientation,
@@ -2062,6 +2065,68 @@ function evalStarfield(nodeId: string, speed: number, count: number, color: RGB,
     if (px >= 0 && px < W && py >= 0 && py < H) {
       const b = Math.min(1, 1 - z[i])
       frame[py][px] = { r: Math.round(color.r * b), g: Math.round(color.g * b), b: Math.round(color.b * b) }
+    }
+  }
+  return frame
+}
+
+// Boids — Reynolds flocking. Each agent steers by three weighted rules over the
+// neighbours inside `range` px: separation (push off close ones), alignment
+// (match average heading), cohesion (drift toward the local centre of mass).
+// Velocities update simultaneously (read old, write new), then are renormalised
+// to a constant speed so the swarm stays bounded; positions wrap toroidally.
+// Rendered as a bright head pixel plus a dim one-pixel tail along the heading.
+// Kept a faithful mirror of the C++ emitter in cppGenerator.ts.
+function evalBoids(nodeId: string, speed: number, count: number, sep: number, ali: number, coh: number, range: number, color: RGB, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const n = Math.max(2, Math.min(80, Math.floor(count)))
+  let s = boidState.get(nodeId)
+  if (!s || s.w !== W || s.h !== H || s.x.length !== n) {
+    const x = new Float32Array(n), y = new Float32Array(n), vx = new Float32Array(n), vy = new Float32Array(n)
+    for (let i = 0; i < n; i++) {
+      x[i] = Math.random() * W; y[i] = Math.random() * H
+      const a = Math.random() * Math.PI * 2; vx[i] = Math.cos(a); vy[i] = Math.sin(a)
+    }
+    s = { x, y, vx, vy, w: W, h: H }; boidState.set(nodeId, s)
+  }
+  const { x, y, vx, vy } = s
+  const maxSpeed = Math.max(0.1, speed)
+  const range2 = range * range
+  const sepR2 = (range * 0.5) * (range * 0.5)
+  const nvx = new Float32Array(n), nvy = new Float32Array(n)
+  for (let i = 0; i < n; i++) {
+    let sx = 0, sy = 0, avx = 0, avy = 0, cx = 0, cy = 0, near = 0, sc = 0
+    for (let j = 0; j < n; j++) {
+      if (j === i) continue
+      const dx = x[j] - x[i], dy = y[j] - y[i]
+      const d2 = dx * dx + dy * dy
+      if (d2 < range2) {
+        avx += vx[j]; avy += vy[j]; cx += x[j]; cy += y[j]; near++
+        if (d2 < sepR2 && d2 > 0) { sx -= dx; sy -= dy; sc++ }
+      }
+    }
+    let stx = 0, sty = 0
+    if (near > 0) {
+      stx += (avx / near - vx[i]) * ali * 0.08
+      sty += (avy / near - vy[i]) * ali * 0.08
+      stx += (cx / near - x[i]) * coh * 0.005
+      sty += (cy / near - y[i]) * coh * 0.005
+    }
+    if (sc > 0) { stx += sx * sep * 0.05; sty += sy * sep * 0.05 }
+    nvx[i] = vx[i] + stx; nvy[i] = vy[i] + sty
+  }
+  const frame = blankFrame(W, H)
+  const tail = { r: color.r >> 2, g: color.g >> 2, b: color.b >> 2 }
+  for (let i = 0; i < n; i++) {
+    const sp = Math.hypot(nvx[i], nvy[i]) || 1
+    const dirx = nvx[i] / sp, diry = nvy[i] / sp
+    vx[i] = dirx * maxSpeed; vy[i] = diry * maxSpeed
+    x[i] = (x[i] + vx[i] + W) % W; y[i] = (y[i] + vy[i] + H) % H
+    const px = Math.floor(x[i]), py = Math.floor(y[i])
+    if (px >= 0 && px < W && py >= 0 && py < H) frame[py][px] = color
+    const tx = Math.floor((x[i] - dirx + W) % W), ty = Math.floor((y[i] - diry + H) % H)
+    if (tx >= 0 && tx < W && ty >= 0 && ty < H) {
+      const c = frame[ty][tx]
+      frame[ty][tx] = { r: Math.max(c.r, tail.r), g: Math.max(c.g, tail.g), b: Math.max(c.b, tail.b) }
     }
   }
   return frame
@@ -4422,6 +4487,23 @@ function createEvalNode(
           b: byte(Number(props.b ?? 255) / 255),
         }
         out = { frame: evalStarfield(stateKey(id), speed, count, color, W, H) }
+        break
+      }
+
+      case 'Boids': {
+        const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.Boids)
+        const count = Number(props.count ?? 24)
+        const sep = Number(props.separation ?? 0.6)
+        const ali = Number(props.alignment ?? 0.5)
+        const coh = Number(props.cohesion ?? 0.4)
+        const range = Number(props.visualRange ?? 4)
+        const colorIn = input(id, 'color', null) as RGB | null
+        const color = colorIn ?? {
+          r: byte(Number(props.r ?? 120) / 255),
+          g: byte(Number(props.g ?? 200) / 255),
+          b: byte(Number(props.b ?? 255) / 255),
+        }
+        out = { frame: evalBoids(stateKey(id), speed, count, sep, ali, coh, range, color, W, H) }
         break
       }
 

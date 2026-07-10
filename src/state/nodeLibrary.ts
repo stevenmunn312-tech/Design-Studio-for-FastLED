@@ -1430,6 +1430,19 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { speed: 0.33, count: 60, r: 255, g: 255, b: 255 },
   },
   {
+    // Boids — Reynolds flocking swarm (separation / alignment / cohesion).
+    type: 'Boids',
+    label: 'Boids',
+    category: 'pattern',
+    subcategory: 'Simulations',
+    inputs: [
+      { id: 'color', label: 'Color', dataType: 'color' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 0.5, count: 24, separation: 0.6, alignment: 0.5, cohesion: 0.4, visualRange: 4, r: 120, g: 200, b: 255 },
+  },
+  {
     // Audio-reactive flowing noise field (bass/mids/treble drive it).
     type: 'AudioFlow',
     label: 'Audio Flow',
@@ -1963,6 +1976,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Image: 'Still or animated (GIF/APNG/WebP) image with fit, crop, colour controls.',
   FlowField: 'Particles drifting along a noise flow field, with trails.',
   Starfield: 'Warp starfield — stars streak outward from the centre.',
+  Boids: 'Flocking swarm — agents steer by separation, alignment and cohesion.',
   AudioFlow: 'Audio-reactive flowing noise field.',
   ReactionDiffusion: 'Gray-Scott reaction-diffusion — organic spots & stripes.',
   GameOfLife: 'Conway’s Game of Life with fading trails.',
@@ -2354,6 +2368,14 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   RadialBurst:     { speed: N01 },
   Spiral:          { speed: N01 },
   Starfield:       { speed: N01 },
+  Boids:           {
+    speed: N01,
+    count:       { control: 'slider', min: 2, max: 80, step: 1 },
+    separation:  { control: 'slider', min: 0, max: 1, step: 0.01 },
+    alignment:   { control: 'slider', min: 0, max: 1, step: 0.01 },
+    cohesion:    { control: 'slider', min: 0, max: 1, step: 0.01 },
+    visualRange: { control: 'slider', min: 1, max: 8, step: 0.5 },
+  },
   PaletteGradient: { speed: N01 },
   Noise2D:         { speed: N01, scale: N01 },
   FractalNoise:    { speed: N01, scale: N01 },

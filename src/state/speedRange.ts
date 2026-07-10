@@ -13,6 +13,8 @@ const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
 /** speed `1.0` (slider max) maps to this internal rate, per node type. */
 export const SPEED_MAX: Record<string, number> = {
   Plasma: 2, RadialBurst: 2, Spiral: 2, FlowField: 1.5, Starfield: 3,
+  // Boids — constant flock speed in px/tick (floored at 0.1 in the evaluator).
+  Boids: 0.7,
   Blobs: 2, GaborNoise: 1.5, Noise2D: 1, FractalNoise: 1.2, FieldNoise: 1.2, PaletteGradient: 2,
   // Rainbow — startHue units (0–255) per second; ~one sweep every couple seconds.
   Rainbow: 120,
