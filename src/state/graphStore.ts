@@ -181,10 +181,15 @@ const LIBRARY_DEF = new Map(NODE_LIBRARY.map((def) => [def.type, def]))
 // Reload library-backed nodes from the current node library so categories,
 // labels, and port definitions stay canonical across save/load. Programmatic
 // group-family nodes keep their saved shape.
+// Legacy node types folded into another node on load. AnimatedImage merged into
+// the single Image node (which now handles stills and animations alike) — its
+// `animation`/`playbackRate`/`loop` properties carry over unchanged.
+const LEGACY_TYPE_RENAME: Record<string, string> = { AnimatedImage: 'Image' }
+
 function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes: StudioNode[]; edges: StudioEdge[] } {
   const normalizedNodes = nodes.map((n) => {
     const data = n.data as StudioNodeData
-    const nodeType = data.nodeType
+    const nodeType = LEGACY_TYPE_RENAME[data.nodeType] ?? data.nodeType
     const def = LIBRARY_DEF.get(nodeType)
     const category: NodeCategory = def?.category ?? data.category
     const label = def?.label ?? data.label

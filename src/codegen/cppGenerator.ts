@@ -2626,10 +2626,10 @@ export function generateCpp(
         break
       }
 
-      case 'Image':
-      case 'AnimatedImage': {
+      case 'Image': {
         const ob = ownBuf()
-        const animation = node.data.nodeType === 'AnimatedImage' ? asAnimatedImage(p.animation) : null
+        // Animation if one is loaded, else the still — the node carries one only.
+        const animation = asAnimatedImage(p.animation)
         const frames = animation?.frames
         const img = frames?.[0] ?? asImage(p.image)
         if (!img) {

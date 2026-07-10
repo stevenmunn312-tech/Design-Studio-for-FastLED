@@ -1068,7 +1068,7 @@ describe('evaluateGraph', () => {
     expect(f.map(row => row.map(px => px.r))).toEqual([[255, 0], [0, 0]])
   })
 
-  it('AnimatedImage plays decoded frames with source timing', () => {
+  it('Image plays a loaded animation with source timing', () => {
     const animation = {
       frames: [
         { w: 1, h: 1, pixels: [255, 0, 0] },
@@ -1076,7 +1076,7 @@ describe('evaluateGraph', () => {
       ],
       durations: [100, 200],
     }
-    const animated = node('anim', 'AnimatedImage', 'pattern', { animation, playbackRate: 1, loop: true })
+    const animated = node('anim', 'Image', 'pattern', { animation, playbackRate: 1, loop: true })
     const out = node('out', 'MatrixOutput', 'output', {})
     const edges = [edge('e', 'anim', 'frame', 'out', 'frame')]
     expect(evaluateGraph([animated, out], edges, 0, 1, 1)![0][0]).toEqual({ r: 255, g: 0, b: 0 })

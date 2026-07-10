@@ -24,7 +24,6 @@ const PerformanceGeneratorBody = lazy(() => import('./PerformanceGeneratorBody')
 const PatternCollectionBody = lazy(() => import('./PatternCollectionBody'))
 const TransitionSetBody = lazy(() => import('./TransitionSetBody'))
 const ImageNodeBody = lazy(() => import('./ImageNodeBody'))
-const AnimatedImageNodeBody = lazy(() => import('./AnimatedImageNodeBody'))
 const MatrixOutputUpload = lazy(() => import('../Upload/MatrixOutputUpload'))
 
 type PortDef = { id: string; label: string; dataType: string }
@@ -772,7 +771,6 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           {d.nodeType === 'MusicLibrary' && <MusicLibraryNodeBody nodeId={id} />}
           {d.nodeType === 'PerformanceGenerator' && <PerformanceGeneratorBody nodeId={id} />}
           {d.nodeType === 'Image' && <ImageNodeBody nodeId={id} />}
-          {d.nodeType === 'AnimatedImage' && <AnimatedImageNodeBody nodeId={id} />}
 
           {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}
           {d.nodeType === 'TransitionSet' && <TransitionSetBody nodeId={id} />}

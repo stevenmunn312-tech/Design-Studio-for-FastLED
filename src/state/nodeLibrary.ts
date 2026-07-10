@@ -1321,6 +1321,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   },
   {
     // Uploaded image with placement, sampling, alpha, and crop controls.
+    // Handles both a still image and a GIF/APNG/WebP animation — whichever the
+    // uploaded file is (stored in `properties.image` or `properties.animation`
+    // respectively; see ImageNodeBody). `playbackRate`/`loop` apply only to an
+    // animation (gated off in the inline editor for a still).
     type: 'Image',
     label: 'Image',
     category: 'pattern',
@@ -1347,21 +1351,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       gamma: 1,
       paletteLevels: 'full',
       dithering: 'none',
-    },
-  },
-  {
-    // Multi-frame GIF/APNG/WebP baked into firmware with source timing.
-    type: 'AnimatedImage',
-    label: 'Animated Image',
-    category: 'pattern',
-    subcategory: 'Shapes & Text',
-    inputs: [],
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: {
-      fit: 'stretch', positionX: 0.5, positionY: 0.5, rotation: '0', flipX: false, flipY: false,
-      sampling: 'nearest', brightness: 1, background: '#000000', zoom: 1, cropX: 0.5, cropY: 0.5,
-      saturation: 1, contrast: 1, hueShift: 0, monochrome: false, gamma: 1,
-      paletteLevels: 'full', dithering: 'none', playbackRate: 1, loop: true,
+      // Animation playback (ignored for a still image).
+      playbackRate: 1,
+      loop: true,
     },
   },
   {
@@ -1937,8 +1929,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Blobs: 'Metaballs — merging lava-lamp blobs.',
   GaborNoise: 'Gabor noise — oriented bands via sparse convolution.',
   PaletteGradient: 'Palette gradient across the matrix at any angle.',
-  Image: 'Uploaded image with fit, crop, colour, dithering and alpha controls.',
-  AnimatedImage: 'GIF, APNG or WebP animation with source timing and Image controls.',
+  Image: 'Still or animated (GIF/APNG/WebP) image with fit, crop, colour controls.',
   FlowField: 'Particles drifting along a noise flow field, with trails.',
   Starfield: 'Warp starfield — stars streak outward from the centre.',
   AudioFlow: 'Audio-reactive flowing noise field.',
@@ -2374,22 +2365,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     gamma:     { control: 'slider', min: 1, max: 3.5, step: 0.1 },
     paletteLevels: { control: 'select', options: ['full', '2', '4', '8', '16', '32'] },
     dithering: { control: 'select', options: ['none', 'ordered2x2', 'ordered4x4'] },
-  },
-  AnimatedImage: {
-    fit:       { control: 'select', options: ['stretch', 'contain', 'cover', 'original'] },
-    sampling:  { control: 'select', options: ['nearest', 'smooth'] },
-    positionX: { control: 'slider', min: 0, max: 1, step: 0.01 },
-    positionY: { control: 'slider', min: 0, max: 1, step: 0.01 },
-    rotation:  { control: 'select', options: ['0', '90', '180', '270'] },
-    zoom:      { control: 'slider', min: 1, max: 8, step: 0.1 },
-    cropX:     { control: 'slider', min: 0, max: 1, step: 0.01 },
-    cropY:     { control: 'slider', min: 0, max: 1, step: 0.01 },
-    saturation:{ control: 'slider', min: 0, max: 2, step: 0.01 },
-    contrast:  { control: 'slider', min: 0, max: 2, step: 0.01 },
-    hueShift:  { control: 'slider', min: -180, max: 180, step: 1 },
-    gamma:     { control: 'slider', min: 1, max: 3.5, step: 0.1 },
-    paletteLevels: { control: 'select', options: ['full', '2', '4', '8', '16', '32'] },
-    dithering: { control: 'select', options: ['none', 'ordered2x2', 'ordered4x4'] },
+    // Animation-only (disabled for a still image via isPropertyEnabled).
     playbackRate: { control: 'slider', min: 0.25, max: 4, step: 0.05 },
   },
   // DistanceField stretches the distance ramp 1×–4× (the shared `scale` is 0–2).
@@ -2486,6 +2462,10 @@ export function nodeDisplayLabel(nodeType: string, properties: Record<string, un
 export function isPropertyEnabled(nodeType: string, key: string, properties: Record<string, unknown>): boolean {
   if (nodeType === 'PerformanceGenerator' && key === 'fixedPalette') {
     return String(properties.paletteMode ?? 'mood') === 'fixed'
+  }
+  if (nodeType === 'Image') {
+    // Playback controls only apply once an animation (not a still) is loaded.
+    if (key === 'playbackRate' || key === 'loop') return properties.animation != null
   }
   if (nodeType === 'MatrixOutput') {
     if (key === 'volts' || key === 'milliamps') return properties.powerLimit === true

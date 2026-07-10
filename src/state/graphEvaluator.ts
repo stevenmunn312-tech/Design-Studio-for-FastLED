@@ -2,7 +2,7 @@ import type { StudioNode, StudioEdge } from './graphStore'
 import { useAudioStore } from './audioStore'
 import { useUiStore } from './uiStore'
 import { asFont, textColumns, type BitmapFont, DEFAULT_FONT } from './font'
-import { animatedImageFrame, asAnimatedImage, asImage, sampleImageToFrame } from './image'
+import { animatedImageFrame, asAnimatedImage, asImage, sampleImageToFrame, type ImageData } from './image'
 import { waveSample, combineWaves } from './wave'
 import { polinePalette, hexToRgb } from './polinePalette'
 import { inputClampRange } from './nodeLibrary'
@@ -4250,14 +4250,17 @@ function createEvalNode(
         break
       }
 
-      case 'Image':
-      case 'AnimatedImage': {
-        let img = asImage(props.image)
-        if (node.data.nodeType === 'AnimatedImage') {
-          const animation = asAnimatedImage(props.animation)
+      case 'Image': {
+        // A loaded animation takes precedence over a still; a node has one or
+        // the other (ImageNodeBody clears whichever it isn't).
+        const animation = asAnimatedImage(props.animation)
+        let img: ImageData | null
+        if (animation) {
           const rawRate = Number(props.playbackRate ?? 1)
           const rate = Number.isFinite(rawRate) ? Math.max(0.25, Math.min(4, rawRate)) : 1
-          img = animation ? animatedImageFrame(animation, t * 1000 * rate, Boolean(props.loop ?? true)) : null
+          img = animatedImageFrame(animation, t * 1000 * rate, Boolean(props.loop ?? true))
+        } else {
+          img = asImage(props.image)
         }
         out = { frame: img ? sampleImageToFrame(img, W, H, {
           fit: props.fit as 'stretch' | 'contain' | 'cover' | 'original',

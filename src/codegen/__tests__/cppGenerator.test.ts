@@ -815,7 +815,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('_c*3.0f/255.0f')
   })
 
-  it('emits AnimatedImage frame data and source timing playback', () => {
+  it('emits an Image node animation with frame data and source timing', () => {
     const animation = {
       frames: [
         { w: 1, h: 1, pixels: [255, 0, 0] },
@@ -823,7 +823,7 @@ describe('generateCpp', () => {
       ],
       durations: [100, 200],
     }
-    const animated = node('anim', 'AnimatedImage', 'pattern', { animation, playbackRate: 2, loop: true })
+    const animated = node('anim', 'Image', 'pattern', { animation, playbackRate: 2, loop: true })
     const cpp = generateCpp([animated, outputNode], [edge('e', 'anim', 'out', 'frame', 'frame')])
     expect(cpp).toContain('_img_anim[] PROGMEM = {255,0,0,0,0,255}')
     expect(cpp).toContain('_imga_anim[] PROGMEM = {255,128}')

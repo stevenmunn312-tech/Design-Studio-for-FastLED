@@ -23,16 +23,21 @@ describe('nodeLibrary', () => {
       gamma: 1,
       paletteLevels: 'full',
       dithering: 'none',
+      playbackRate: 1,
+      loop: true,
     })
   })
 
-  it('gives Animated Image playback defaults', () => {
-    expect(NODE_LIBRARY.find((n) => n.type === 'AnimatedImage')?.defaultProperties).toMatchObject({
+  it('gives the Image node animation playback defaults', () => {
+    // The Image node handles both stills and animations, so it carries the
+    // playback defaults too (AnimatedImage was merged into it).
+    expect(NODE_LIBRARY.find((n) => n.type === 'Image')?.defaultProperties).toMatchObject({
       playbackRate: 1,
       loop: true,
       sampling: 'nearest',
       paletteLevels: 'full',
     })
+    expect(NODE_LIBRARY.find((n) => n.type === 'AnimatedImage')).toBeUndefined()
   })
 
   it('every node in the shelf has a tooltip description', () => {

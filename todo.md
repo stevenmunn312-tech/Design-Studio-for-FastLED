@@ -173,7 +173,7 @@ music-sync player initialise the strip identically from the MatrixOutput node.
 
 ### Noted, lower priority
 
-- [ ] **Animated GIF on the `Image` node** — frames + fps in `properties.image`, PROGMEM frame array in codegen; Studio-scale mirror of `fx/video` playback
+- [x] **Animated GIF on the `Image` node** — the `Image` node now handles both stills and GIF/APNG/WebP animations in one node (drop either; frames + per-frame durations stored in `properties.animation`, still in `properties.image`). Live-preview playback with source timing + `playbackRate`/`loop`, and a PROGMEM multi-frame array with a millis-driven frame lookup in codegen. The separate `AnimatedImage` node was folded in and old saves migrate on load
 - [ ] Long-term: **non-matrix layouts** (strip / ring / corkscrew) — FastLED is investing in corkscrew mapping and 1D geometries; Studio is matrix-only end to end, so this is a project, not a feature
 - Migrating the custom I2S+FFT engine to FastLED 3.10's native audio framework was considered and **deliberately deferred** — ours is hardware-validated and already gates around their IDF driver conflict; revisit when theirs stabilizes
 
