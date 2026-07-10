@@ -381,6 +381,29 @@ describe('StudioNode', () => {
     expect(getByText('LIVE')).toBeTruthy()
   })
 
+  // Intentional preview fallbacks (hardware stubs, export-only outputs) are
+  // flagged with an explicit on-node note so they don't read as broken.
+  it('flags the fixed preview values on hardware-input nodes', () => {
+    expect(renderNode(makeNode('ButtonInput', { pin: 0, pullup: true }))
+      .getByText(/preview stub — always unpressed/)).toBeTruthy()
+    expect(renderNode(makeNode('PotInput', { pin: 34 }))
+      .getByText(/preview stub — fixed at 0\.5/)).toBeTruthy()
+    expect(renderNode(makeNode('EncoderInput', { pinA: 32, pinB: 33, pinSW: 25, pullup: true }))
+      .getByText(/preview stub — inert/)).toBeTruthy()
+  })
+
+  it('flags the black frame placeholder on the Performance Generator, and only there', () => {
+    const perf = renderNode(makeNode('PerformanceGenerator', {
+      beatIntensity: 0.8, energySensitivity: 0.7, transitionDuration: 0.5,
+      paletteMode: 'mood', fixedPalette: 'rainbow',
+    }))
+    expect(perf.getByText(/frame output is black/)).toBeTruthy()
+    // An ordinary node carries no fallback note. (Scoped to this render's own
+    // container — getByText/queryByText search the whole shared document.)
+    const solid = renderNode(makeNode('SolidColor', { r: 1, g: 2, b: 3 }))
+    expect(solid.container.textContent).not.toMatch(/preview stub|frame output is black/)
+  })
+
   it('a bundled node header reflects the selected variant', () => {
     const { getByText } = renderNode(makeNode('Math', { mathOp: 'multiply', a: 1, b: 2 }))
     expect(getByText('Multiply')).toBeTruthy()   // not the generic "Math"
