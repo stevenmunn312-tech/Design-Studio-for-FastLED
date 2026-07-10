@@ -1084,6 +1084,29 @@ describe('evaluateGraph', () => {
     expect(evaluateGraph([animated, out], edges, 18, 1, 1)![0][0]).toEqual({ r: 255, g: 0, b: 0 })
   })
 
+  it('Array repeats the source with an accumulating offset', () => {
+    // A single lit pixel at (0,0) echoed 3× at +2px steps lands on x = 0, 2, 4.
+    const rect = node('rect', 'Rect', 'pattern', { x: 0, y: 0, w: 1, h: 1, r: 255, g: 0, b: 0 })
+    const arr = node('arr', 'Array', 'composite', { count: 3, offsetX: 2, offsetY: 0, angle: 0, scale: 1, falloff: 1, blendMode: 'add' })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [edge('e1', 'rect', 'frame', 'arr', 'frame'), edge('e2', 'arr', 'frame', 'out', 'frame')]
+    const f = evaluateGraph([rect, arr, out], edges, 0, 8, 8)!
+    expect(f[0][0]).toEqual({ r: 255, g: 0, b: 0 })
+    expect(f[0][2]).toEqual({ r: 255, g: 0, b: 0 })
+    expect(f[0][4]).toEqual({ r: 255, g: 0, b: 0 })
+    expect(f[0][1]).toEqual({ r: 0, g: 0, b: 0 })
+  })
+
+  it('Array dims successive copies by falloff', () => {
+    const rect = node('rect', 'Rect', 'pattern', { x: 0, y: 0, w: 1, h: 1, r: 200, g: 0, b: 0 })
+    const arr = node('arr', 'Array', 'composite', { count: 2, offsetX: 2, offsetY: 0, angle: 0, scale: 1, falloff: 0.5, blendMode: 'add' })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [edge('e1', 'rect', 'frame', 'arr', 'frame'), edge('e2', 'arr', 'frame', 'out', 'frame')]
+    const f = evaluateGraph([rect, arr, out], edges, 0, 8, 8)!
+    expect(f[0][0]).toEqual({ r: 200, g: 0, b: 0 })   // copy 0 (identity): full
+    expect(f[0][2]).toEqual({ r: 100, g: 0, b: 0 })   // copy 1: falloff^1 = 0.5
+  })
+
   it('FlowField deposits trails that build up over frames', () => {
     const ff = node('ff', 'FlowField', 'pattern', { speed: 1, scale: 0.1, count: 60, fade: 0.9, palette: 'ocean' })
     const out = node('out', 'MatrixOutput', 'output', {})

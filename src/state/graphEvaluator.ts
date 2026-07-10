@@ -541,6 +541,56 @@ function evalTransform(src: Frame, mode: string, rate: number, angle: number, t:
     })
 }
 
+// Hard cap on Array copies (guards a garbage `count` from allocating a huge loop).
+const ARRAY_MAX_COPIES = 32
+
+// Blender-style array: composite `count` copies of `src`, copy i offset by
+// (offsetX·i, offsetY·i), rotated by angle·i and scaled by scale^i about the
+// matrix centre, dimmed by falloff^i. Copies paint high→low index so copy 0
+// (the identity) lands on top for the `over` mode; `add`/`lighten` are order-
+// independent. Kept in lockstep with the Array case in cppGenerator.ts.
+function evalArray(
+  src: Frame, count: number, offsetX: number, offsetY: number,
+  angleDeg: number, scale: number, falloff: number, mode: string,
+  W = DEFAULT_W, H = DEFAULT_H,
+): Frame {
+  const out = rawBlankFrame(W, H)
+  const cx = (W - 1) / 2, cy = (H - 1) / 2
+  const n = Math.max(1, Math.min(ARRAY_MAX_COPIES, Math.round(count)))
+  const sc0 = Math.max(0.05, scale)
+  const fo = Math.max(0, Math.min(1, falloff))
+  for (let i = n - 1; i >= 0; i--) {
+    const ox = offsetX * i, oy = offsetY * i
+    const ang = (angleDeg * i * Math.PI) / 180
+    const co = Math.cos(ang), si = Math.sin(ang)
+    const inv = 1 / Math.pow(sc0, i)
+    const dim = Math.pow(fo, i)
+    for (let y = 0; y < H; y++) {
+      const orow = out[y]
+      for (let x = 0; x < W; x++) {
+        const px = x - ox - cx, py = y - oy - cy
+        const rx = px * co + py * si, ry = -px * si + py * co
+        const sx = Math.round(cx + rx * inv), sy = Math.round(cy + ry * inv)
+        if (sx < 0 || sx >= W || sy < 0 || sy >= H) continue
+        const s = src[sy][sx]
+        const r = s.r * dim, g = s.g * dim, b = s.b * dim
+        const o = orow[x]
+        if (mode === 'lighten') {
+          o.r = Math.max(o.r, Math.round(r)); o.g = Math.max(o.g, Math.round(g)); o.b = Math.max(o.b, Math.round(b))
+        } else if (mode === 'over') {
+          const cov = Math.max(r, g, b) / 255
+          o.r = Math.min(255, Math.round(o.r * (1 - cov) + r))
+          o.g = Math.min(255, Math.round(o.g * (1 - cov) + g))
+          o.b = Math.min(255, Math.round(o.b * (1 - cov) + b))
+        } else {
+          o.r = Math.min(255, o.r + Math.round(r)); o.g = Math.min(255, o.g + Math.round(g)); o.b = Math.min(255, o.b + Math.round(b))
+        }
+      }
+    }
+  }
+  return out
+}
+
 // Render `text` onto a blank frame at (startX, startY), optionally scrolling
 // left over time (scroll = columns/second). Shares textColumns() with codegen.
 function renderText(text: string, color: RGB, startX: number, startY: number, scroll: number, t: number, font: BitmapFont = DEFAULT_FONT, W = DEFAULT_W, H = DEFAULT_H): Frame {
@@ -3670,6 +3720,23 @@ function createEvalNode(
         const rate = num(id, 'rate', props, 'rate', 90)
         const angle = Number(props.angle ?? 0)
         out = { frame: evalTransform(src, mode, rate, angle, t, W, H) }
+        break
+      }
+
+      case 'Array': {
+        const src = input(id, 'frame', null) as Frame | null
+        if (!src) { out = { frame: null }; break }
+        out = { frame: evalArray(
+          src,
+          Number(props.count ?? 5),
+          Number(props.offsetX ?? 3),
+          Number(props.offsetY ?? 0),
+          Number(props.angle ?? 0),
+          Number(props.scale ?? 1),
+          Number(props.falloff ?? 0.7),
+          String(props.blendMode ?? 'add'),
+          W, H,
+        ) }
         break
       }
 

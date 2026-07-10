@@ -465,6 +465,27 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { transform: 'rotate', rate: 90, angle: 0 },
   },
+  {
+    // Blender-style array modifier: repeat the input frame `count` times, each
+    // copy offset/rotated/scaled by an accumulating step from the previous, then
+    // composited. Rotation/scale accumulate about the matrix centre (angle with
+    // zero offset ⇒ a radial ring; offset + falloff ⇒ an echo trail; scale<1 +
+    // angle ⇒ a recursive spiral). Best fed a small/sparse source shape.
+    type: 'Array',
+    label: 'Array',
+    category: 'composite',
+    inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: {
+      count: 5,
+      offsetX: 3,
+      offsetY: 0,
+      angle: 0,
+      scale: 1,
+      falloff: 0.7,
+      blendMode: 'add',
+    },
+  },
 
   // ── Audio-reactive patterns ─────────────────────────────────────────────
   {
@@ -1957,6 +1978,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   HueShift: 'Rotates all hues.',
   Gamma: 'Perceptual gamma correction so gradients look right on the LEDs.',
   Transform: 'Animated rotate, scale or translate of a frame.',
+  Array: 'Repeats a frame N times with an accumulating offset/rotate/scale, composited.',
   Invert: 'Inverts colors.',
   Saturation: 'Scales color saturation (0 = greyscale, 1 = unchanged).',
   ColorBoost: 'Boosts saturation while approximately preserving luminance.',
@@ -2342,6 +2364,15 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   Particles:         { rate:  { control: 'slider', min: 0, max: 1,   step: 0.01 } },
   Transform:         { rate:  { control: 'slider', min: 0, max: 360, step: 1 } },
+  Array: {
+    count:     { control: 'slider', min: 1, max: 24,  step: 1 },
+    offsetX:   { control: 'slider', min: -16, max: 16, step: 0.5 },
+    offsetY:   { control: 'slider', min: -16, max: 16, step: 0.5 },
+    angle:     { control: 'slider', min: -180, max: 180, step: 1 },
+    scale:     { control: 'slider', min: 0.25, max: 2, step: 0.05 },
+    falloff:   { control: 'slider', min: 0, max: 1, step: 0.01 },
+    blendMode: { control: 'select', options: ['add', 'lighten', 'over'] },
+  },
   Counter:           { rate:  { control: 'slider', min: 0, max: 5,   step: 0.1 } },
   GameOfLife:        { speed: { control: 'slider', min: 1, max: 30,  step: 1 } },
   ReactionDiffusion: { speed: { control: 'slider', min: 1, max: 30,  step: 1 } },

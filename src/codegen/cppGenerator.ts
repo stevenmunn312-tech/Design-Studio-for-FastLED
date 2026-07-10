@@ -2110,6 +2110,47 @@ export function generateCpp(
         break
       }
 
+      // Blender-style array: composite `count` copies of the input, each offset/
+      // rotated/scaled by an accumulating step about the matrix centre, dimmed by
+      // falloff^i. High→low paint order so copy 0 lands on top for `over`. Keep
+      // in sync with evalArray() in graphEvaluator.ts.
+      case 'Array': {
+        const ob = ownBuf()
+        const src = srcBuf('frame')
+        if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // Array: no input`); break }
+        const count = Math.max(1, Math.min(32, Math.round(Number(p.count ?? 5))))
+        const flt = (val: unknown, def: number) => {
+          const n = Number(val ?? def)
+          const v = Number.isFinite(n) ? n : def
+          return Number.isInteger(v) ? `${v}.0f` : `${v}f`
+        }
+        const offX = flt(p.offsetX, 3), offY = flt(p.offsetY, 0), ang = flt(p.angle, 0)
+        const scl = flt(Math.max(0.05, Number(p.scale ?? 1)), 1), fo = flt(p.falloff, 0.7)
+        const mode = ['lighten', 'over'].includes(String(p.blendMode)) ? String(p.blendMode) : 'add'
+        ln(`  { // Array x${count}`)
+        ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
+        ln(`    float _cx=(WIDTH-1)/2.0f,_cy=(HEIGHT-1)/2.0f;`)
+        ln(`    for(int _i=${count - 1};_i>=0;_i--){`)
+        ln(`      float _ox=${offX}*_i,_oy=${offY}*_i,_a=${ang}*_i*0.01745329f,_co=cos(_a),_si=sin(_a);`)
+        ln(`      float _inv=1.0f/powf(${scl},_i),_dim=powf(${fo},_i);`)
+        ln(`      for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`        float _px=_x-_ox-_cx,_py=_y-_oy-_cy,_rx=_px*_co+_py*_si,_ry=-_px*_si+_py*_co;`)
+        ln(`        int _sx=(int)floorf(_cx+_rx*_inv+0.5f),_sy=(int)floorf(_cy+_ry*_inv+0.5f);`)
+        ln(`        if(_sx<0||_sx>=WIDTH||_sy<0||_sy>=HEIGHT) continue;`)
+        ln(`        CRGB _s=${src}[_sy*WIDTH+_sx]; uint8_t _r=(uint8_t)(_s.r*_dim),_g=(uint8_t)(_s.g*_dim),_b=(uint8_t)(_s.b*_dim);`)
+        ln(`        CRGB& _o=${ob}[_y*WIDTH+_x];`)
+        if (mode === 'lighten') {
+          ln(`        _o.r=max(_o.r,_r); _o.g=max(_o.g,_g); _o.b=max(_o.b,_b);`)
+        } else if (mode === 'over') {
+          ln(`        float _cov=max(_r,max(_g,_b))/255.0f;`)
+          ln(`        _o.r=(uint8_t)min(255.0f,_o.r*(1-_cov)+_r); _o.g=(uint8_t)min(255.0f,_o.g*(1-_cov)+_g); _o.b=(uint8_t)min(255.0f,_o.b*(1-_cov)+_b);`)
+        } else {
+          ln(`        _o.r=qadd8(_o.r,_r); _o.g=qadd8(_o.g,_g); _o.b=qadd8(_o.b,_b);`)
+        }
+        ln(`      } } }`)
+        break
+      }
+
       // Frame blend with real blend modes — `blendMode` picks the operator,
       // `amount` is opacity (0–255). Keep in sync with the `Blend` case in
       // graphEvaluator.ts. `normal` uses FastLED's nblend; other modes blend

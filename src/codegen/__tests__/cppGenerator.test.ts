@@ -364,6 +364,32 @@ describe('generateCpp', () => {
     expect(cpp).toContain('Transform: no input')
   })
 
+  it('emits an Array loop that composites accumulating copies from the source', () => {
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const mk = (props: Record<string, unknown>) => {
+      const arr = node('arr', 'Array', 'composite', props)
+      return generateCpp([sc, arr, outputNode], [
+        edge('e1', 'sc', 'arr', 'frame', 'frame'),
+        edge('e2', 'arr', 'out', 'frame', 'frame'),
+      ])
+    }
+    const add = mk({ count: 4, offsetX: 3, offsetY: 0, angle: 30, scale: 0.9, falloff: 0.7, blendMode: 'add' })
+    expect(add).toContain('// Array x4')
+    expect(add).toContain('for(int _i=3;_i>=0;_i--)')       // high→low paint order
+    expect(add).toContain('powf(0.9f,_i)')                   // per-copy scale accumulation
+    expect(add).toContain('_dim=powf(0.7f,_i)')              // per-copy falloff
+    expect(add).toContain('buf_sc[_sy*WIDTH+_sx]')           // samples the source buffer
+    expect(add).toContain('qadd8(_o.r,_r)')                  // add = saturating add
+    expect(mk({ blendMode: 'lighten' })).toContain('max(_o.r,_r)')
+    expect(mk({ blendMode: 'over' })).toContain('_cov=max(_r,max(_g,_b))/255.0f')
+  })
+
+  it('emits a blank Array when its frame input is unconnected', () => {
+    const arr = node('arr', 'Array', 'composite', { count: 3 })
+    const cpp = generateCpp([arr, outputNode], [edge('e', 'arr', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('Array: no input')
+  })
+
   it('remaps through XY() for a serpentine matrix', () => {
     const out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, serpentine: true })
     const sc = node('sc', 'SolidColor', 'pattern', { r: 1, g: 2, b: 3 })
