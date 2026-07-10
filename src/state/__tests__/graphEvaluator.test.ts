@@ -613,6 +613,40 @@ describe('evaluateGraph', () => {
     expect(frame![0][0]).toEqual({ r: 0, g: 255, b: 127 })
   })
 
+  it('Mirror horizontal reflects into left-right symmetry', () => {
+    // GradientFrame (horizontal) is asymmetric L→R; a horizontal mirror should
+    // make column 0 equal column W-1.
+    const gf  = node('gf', 'GradientFrame', 'pattern', { rA: 255, gA: 0, bA: 0, rB: 0, gB: 0, bB: 255 })
+    const mir = node('mir', 'Mirror', 'composite', { mirrorMode: 'horizontal' })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [
+      edge('e1', 'gf', 'frame', 'mir', 'frame'),
+      edge('e2', 'mir', 'frame', 'out', 'frame'),
+    ]
+    const frame = evaluateGraph([gf, mir, out], edges, 0, W, H)!
+    for (let y = 0; y < H; y++) expect(frame[y][0]).toEqual(frame[y][W - 1])
+  })
+
+  it('Mirror glow keeps symmetry and blooms where halves overlap', () => {
+    const gf  = node('gf', 'GradientFrame', 'pattern', { rA: 255, gA: 0, bA: 0, rB: 0, gB: 0, bB: 255 })
+    const hard = node('hard', 'Mirror', 'composite', { mirrorMode: 'horizontal', glow: false })
+    const glow = node('glow', 'Mirror', 'composite', { mirrorMode: 'horizontal', glow: true })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    // Hard mirror keeps column 0 (pure red); glow blends in the far half.
+    const hardFrame = evaluateGraph([gf, hard, out], [
+      edge('e1', 'gf', 'frame', 'hard', 'frame'),
+      edge('e2', 'hard', 'frame', 'out', 'frame'),
+    ], 0, W, H)!
+    const glowFrame = evaluateGraph([gf, glow, out], [
+      edge('e3', 'gf', 'frame', 'glow', 'frame'),
+      edge('e4', 'glow', 'frame', 'out', 'frame'),
+    ], 0, W, H)!
+    // Still left-right symmetric.
+    for (let y = 0; y < H; y++) expect(glowFrame[y][0]).toEqual(glowFrame[y][W - 1])
+    // Glow adds the dimmer partner's channel, so column 0 gains some blue vs. hard.
+    expect(glowFrame[0][0].b).toBeGreaterThan(hardFrame[0][0].b)
+  })
+
   it('MatrixOutput passes through its frame input', () => {
     const sc  = node('sc', 'SolidColor', 'pattern', { r: 100, g: 150, b: 200 })
     const out = node('out', 'MatrixOutput', 'output', {})

@@ -2390,7 +2390,18 @@ export function generateCpp(
         const src = srcBuf('frame')
         if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // Mirror: no input`); break }
         const mode = String(p.mirrorMode ?? 'horizontal')
+        const glow = Boolean(p.glow)
         ln(`  { for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        if (glow) {
+          // subtle symmetric bloom: max of the two halves + 0.35× the min (scale8 89/255)
+          if (mode === 'vertical') ln(`    int _px=_x,_py=HEIGHT-1-_y;`)
+          else if (mode === 'quad') ln(`    int _px=WIDTH-1-_x,_py=HEIGHT-1-_y;`)
+          else if (mode === 'diagonal') ln(`    int _px=min(_y,WIDTH-1),_py=min(_x,HEIGHT-1);`)
+          else ln(`    int _px=WIDTH-1-_x,_py=_y;`)
+          ln(`    CRGB _a=${src}[_y*WIDTH+_x], _b=${src}[_py*WIDTH+_px];`)
+          ln(`    ${ob}[_y*WIDTH+_x]=CRGB(qadd8(max(_a.r,_b.r),scale8(min(_a.r,_b.r),89)),qadd8(max(_a.g,_b.g),scale8(min(_a.g,_b.g),89)),qadd8(max(_a.b,_b.b),scale8(min(_a.b,_b.b),89)));}}`)
+          break
+        }
         ln(`    int _sx=_x,_sy=_y;`)
         if (mode === 'horizontal' || mode === 'quad') ln(`    _sx=min(_x,WIDTH-1-_x);`)
         if (mode === 'vertical' || mode === 'quad') ln(`    _sy=min(_y,HEIGHT-1-_y);`)

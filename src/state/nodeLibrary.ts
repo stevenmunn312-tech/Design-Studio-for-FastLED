@@ -845,12 +845,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // (left→right), vertical (top→bottom), quad (4-way), or diagonal (across the
     // main diagonal). A pure per-pixel coordinate remap; evaluator and codegen
     // share the same source-coordinate logic. See PROPERTY_META.mirrorMode.
+    // `glow` blends each pixel with its reflected partner instead of hard-copying
+    // one half — a subtle symmetric bloom where the two halves overlap.
     type: 'Mirror',
     label: 'Mirror',
     category: 'composite',
     inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { mirrorMode: 'horizontal' },
+    defaultProperties: { mirrorMode: 'horizontal', glow: false },
   },
   {
     // Feedback/trails buffer — persists its own output across frames, fading
@@ -2016,7 +2018,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Transform: 'Animated rotate, scale or translate of a frame.',
   Array: 'Repeats a frame N times with an accumulating offset/rotate/scale, composited.',
   Invert: 'Inverts colors.',
-  Mirror: 'Reflects the frame into symmetry — horizontal, vertical, quad or diagonal.',
+  Mirror: 'Mirrors a frame into symmetry (4 axes), with an optional subtle glow blend.',
   Saturation: 'Scales color saturation (0 = greyscale, 1 = unchanged).',
   ColorBoost: 'Boosts saturation while approximately preserving luminance.',
   FrameSwitch: 'Shows frame A or B, selected by a boolean.',

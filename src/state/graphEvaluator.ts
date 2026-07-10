@@ -4271,7 +4271,19 @@ function createEvalNode(
         const src = input(id, 'frame', null) as Frame | null
         if (!src) { out = { frame: blankFrame(W, H) }; break }
         const mode = String(props.mirrorMode ?? 'horizontal')
+        const glow = Boolean(props.glow)
+        // Subtle symmetric bloom: keep the brighter of the two reflected halves,
+        // add a soft fraction of the dimmer. Kept in lockstep with cppGenerator.
+        const gCh = (a: number, b: number) => Math.min(255, Math.max(a, b) + Math.min(a, b) * 0.35)
         out = { frame: buildFrame(W, H, (x, y) => {
+          if (glow) {
+            let px = W - 1 - x, py = y
+            if (mode === 'vertical') { px = x; py = H - 1 - y }
+            else if (mode === 'quad') { px = W - 1 - x; py = H - 1 - y }
+            else if (mode === 'diagonal') { px = Math.min(y, W - 1); py = Math.min(x, H - 1) }
+            const o = src[y][x], b = src[py][px]
+            return { r: gCh(o.r, b.r), g: gCh(o.g, b.g), b: gCh(o.b, b.b) }
+          }
           let sx = x, sy = y
           if (mode === 'horizontal' || mode === 'quad') sx = Math.min(x, W - 1 - x)
           if (mode === 'vertical' || mode === 'quad') sy = Math.min(y, H - 1 - y)
