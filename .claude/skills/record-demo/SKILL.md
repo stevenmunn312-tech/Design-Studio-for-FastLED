@@ -94,23 +94,27 @@ killing that process before starting a fresh session.
 
 ## Trimming the recording
 
-Once OBS's raw file is saved:
+Once the user turns OBS off and gives the go-ahead:
 
 ```bash
-npm run demo:trim -- "C:\path\to\obs-recording.mp4"
+npm run demo:trim                              # auto-picks the newest file in C:\Users\User\Videos
+npm run demo:trim -- "C:\path\to\specific.mp4"  # or name one explicitly
 ```
 
-This reads `video-shots/timing-log.json`, estimates when the recording
-started (container `creation_time` tag if present, else the file's
-last-write time minus its duration — OBS finalizes the file right when
-recording stops), maps each logged shot window onto video-relative seconds,
-pads it (`--pad`, default 0.6 s), merges windows closer than `--merge-gap`
-(default 1.2 s) so it doesn't make pointless micro-cuts, and re-encodes only
-those windows back-to-back via an ffmpeg `trim`+`concat` filter — so the
+This reads `video-shots/timing-log.json` and estimates when the recording
+started, in priority order: OBS's default filename timestamp
+(`YYYY-MM-DD_HH-MM-SS.mp4`, stamped at record-start off the same local clock
+`freeform-shot.mjs` used) → the container's `creation_time` tag → the file's
+last-write time minus its duration. `--rec-start <ISO>` overrides outright.
+It then maps each logged shot window onto video-relative seconds, pads it
+(`--pad`, default 0.6 s), merges windows closer than `--merge-gap` (default
+1.2 s) so it doesn't make pointless micro-cuts, and re-encodes only those
+windows back-to-back via an ffmpeg `trim`+`concat` filter — so the
 countdowns and idle gaps between shots disappear and the cuts land clean.
-Output defaults to `<input>-trimmed.mp4` next to the input; `--out` to
+Output defaults to `video-shots/<input-basename>-trimmed.mp4`; `--out` to
 override. `--clear-log` deletes the timing log after a successful trim so
-the next recording session starts fresh.
+the next recording session starts fresh. `--videos-dir` overrides where the
+"newest recording" search looks (default `C:\Users\User\Videos`).
 
 `ffmpeg`/`ffprobe` are resolved via `PATH`, then a `winget install
 Gyan.FFmpeg` fallback location, then error out with install instructions —

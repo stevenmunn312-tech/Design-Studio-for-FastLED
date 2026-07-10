@@ -3,24 +3,33 @@
 // padding), so a raw multi-shot recording becomes one seamless clip.
 //
 // Usage:
-//   node scripts/trim-dead-sections.mjs <input.mp4> [options]
+//   node scripts/trim-dead-sections.mjs [input.mp4] [options]
+//
+// If input.mp4 is omitted, the newest recording in --videos-dir (default
+// C:\Users\User\Videos, OBS's usual output folder) is used — so once you say
+// "go ahead", this can run with no arguments at all.
 //
 // Options:
 //   --log <path>        timing log written by freeform-shot.mjs
 //                        (default video-shots/timing-log.json)
 //   --pad <seconds>      padding kept before/after each action window (default 0.6)
 //   --merge-gap <sec>    windows closer than this get merged into one cut (default 1.2)
-//   --out <path>         output file (default <input>-trimmed<ext> next to the input)
+//   --out <path>         output file (default video-shots/<input-basename>-trimmed<ext>)
+//   --videos-dir <path>  where to look for the newest recording when input.mp4
+//                        is omitted (default C:\Users\User\Videos)
 //   --ffmpeg <path>      ffmpeg binary to use (default: resolved automatically)
+//   --rec-start <ISO>    override the detected recording start time
 //   --clear-log          delete the timing log after a successful trim
 //
 // How the alignment works: freeform-shot.mjs logs wall-clock epoch ms for
 // when each shot's cursor motion started and stopped. This script estimates
-// when the OBS recording itself started — from the container's
-// creation_time tag if present, otherwise from the file's last-write time
-// minus its duration (OBS finalizes the file right when you stop recording,
-// so mtime is a good proxy for "recording stopped") — and uses that offset
-// to map each logged window onto video-relative seconds to cut around.
+// when the OBS recording itself started, in priority order: (1) OBS's
+// default filename timestamp (`YYYY-MM-DD_HH-MM-SS.mp4`), which is stamped
+// at record-start and matches the local system clock freeform-shot.mjs's
+// Date.now() also used; (2) the container's creation_time tag, if present;
+// (3) the file's last-write time minus its duration (OBS finalizes the file
+// right when you stop recording, so mtime is a rough proxy for "recording
+// stopped"). Use --rec-start to override outright if none of those fit.
 
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -28,7 +37,13 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 function parseArgs(argv) {
-  const opts = { pad: 0.6, mergeGap: 1.2, log: 'video-shots/timing-log.json', clearLog: false }
+  const opts = {
+    pad: 0.6,
+    mergeGap: 1.2,
+    log: 'video-shots/timing-log.json',
+    videosDir: 'C:\\Users\\User\\Videos',
+    clearLog: false,
+  }
   const positional = []
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -36,12 +51,33 @@ function parseArgs(argv) {
     else if (a === '--pad') opts.pad = Number(argv[++i])
     else if (a === '--merge-gap') opts.mergeGap = Number(argv[++i])
     else if (a === '--out') opts.out = argv[++i]
+    else if (a === '--videos-dir') opts.videosDir = argv[++i]
     else if (a === '--ffmpeg') opts.ffmpeg = argv[++i]
+    else if (a === '--rec-start') opts.recStart = argv[++i]
     else if (a === '--clear-log') opts.clearLog = true
     else positional.push(a)
   }
   opts.input = positional[0]
   return opts
+}
+
+// OBS's default output naming — used both to recognise candidate recordings
+// when auto-picking the newest one, and (elsewhere) to read off the exact
+// recording-start time.
+const VIDEO_EXT = /\.(mp4|mkv|flv|mov)$/i
+
+function findNewestRecording(dir) {
+  if (!fs.existsSync(dir)) throw new Error(`--videos-dir not found: ${dir}`)
+  const candidates = fs
+    .readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isFile() && VIDEO_EXT.test(e.name) && !e.name.includes('-trimmed'))
+    .map((e) => {
+      const full = path.join(dir, e.name)
+      return { full, mtimeMs: fs.statSync(full).mtimeMs }
+    })
+  if (!candidates.length) throw new Error(`No recordings found in ${dir}`)
+  candidates.sort((a, b) => b.mtimeMs - a.mtimeMs)
+  return candidates[0].full
 }
 
 // arduino-cli in this repo's backend resolves its binary the same way:
@@ -85,6 +121,20 @@ function findInDir(dir, filename) {
   return null
 }
 
+// OBS's default recording filename format is `YYYY-MM-DD HH-MM-SS` (spaces
+// or underscores between date and time, and between the H/M/S groups may be
+// `-` or `.` depending on the user's OBS profile) stamped at record-start
+// using the local system clock — the same clock freeform-shot.mjs's
+// Date.now() uses, so this is a more precise anchor than mtime or a
+// container tag when it matches.
+function parseObsFilenameTimestamp(filePath) {
+  const base = path.basename(filePath)
+  const m = base.match(/(\d{4})-(\d{2})-(\d{2})[ _](\d{2})[-.](\d{2})[-.](\d{2})/)
+  if (!m) return null
+  const [, y, mo, d, h, mi, s] = m.map(Number)
+  return new Date(y, mo - 1, d, h, mi, s).getTime()
+}
+
 function ffprobeJson(ffprobeBin, input) {
   const res = spawnSync(ffprobeBin, ['-v', 'error', '-print_format', 'json', '-show_format', '-show_streams', input], {
     encoding: 'utf8',
@@ -96,8 +146,8 @@ function ffprobeJson(ffprobeBin, input) {
 function run() {
   const opts = parseArgs(process.argv.slice(2))
   if (!opts.input) {
-    console.error('Usage: node scripts/trim-dead-sections.mjs <input.mp4> [--log path] [--pad s] [--merge-gap s] [--out path] [--clear-log]')
-    process.exit(1)
+    opts.input = findNewestRecording(opts.videosDir)
+    console.log(`No input given — using the newest recording in ${opts.videosDir}:\n  ${opts.input}`)
   }
   if (!fs.existsSync(opts.input)) throw new Error(`Input not found: ${opts.input}`)
   if (!fs.existsSync(opts.log)) {
@@ -116,13 +166,20 @@ function run() {
 
   const stat = fs.statSync(opts.input)
   const creationTag = probe.format.tags && (probe.format.tags.creation_time || probe.format.tags['com.apple.quicktime.creationdate'])
+  const filenameStart = parseObsFilenameTimestamp(opts.input)
   let recStartMs
-  if (creationTag) {
+  if (opts.recStart) {
+    recStartMs = new Date(opts.recStart).getTime()
+    console.log(`Using --rec-start override: ${new Date(recStartMs).toISOString()}`)
+  } else if (filenameStart) {
+    recStartMs = filenameStart
+    console.log(`Using OBS filename timestamp as recording start: ${new Date(recStartMs).toISOString()}`)
+  } else if (creationTag) {
     recStartMs = new Date(creationTag).getTime()
     console.log(`Using container creation_time as recording start: ${new Date(recStartMs).toISOString()}`)
   } else {
     recStartMs = stat.mtimeMs - duration * 1000
-    console.log(`No creation_time tag — estimating recording start from file mtime: ${new Date(recStartMs).toISOString()}`)
+    console.log(`No filename timestamp or creation_time tag — estimating recording start from file mtime: ${new Date(recStartMs).toISOString()}`)
   }
 
   const segments = entries
@@ -156,8 +213,15 @@ function run() {
   }
   console.log(`Total kept: ${kept.toFixed(1)}s — cutting ${(duration - kept).toFixed(1)}s of dead time.\n`)
 
-  const ext = path.extname(opts.input) || '.mp4'
-  const out = opts.out ?? path.join(path.dirname(opts.input), `${path.basename(opts.input, ext)}-trimmed${ext}`)
+  // Always mux to .mp4 regardless of the source container — the encode below
+  // is hard-coded to libx264/aac, so an .mp4 extension is what actually
+  // matches the output stream, and it defaults into video-shots/ rather than
+  // next to the (large) source recording in the OBS output folder.
+  const inExt = path.extname(opts.input)
+  const out = opts.out ?? (() => {
+    fs.mkdirSync('video-shots', { recursive: true })
+    return path.join('video-shots', `${path.basename(opts.input, inExt)}-trimmed.mp4`)
+  })()
 
   const filterParts = []
   const vLabels = []
