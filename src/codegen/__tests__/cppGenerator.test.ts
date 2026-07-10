@@ -498,14 +498,6 @@ describe('generateCpp', () => {
     expect(cpp).toContain('max(3.0f,(float)(n_tm_time))')   // wired sides expression
   })
 
-  it('emits a nested bounded loop for a Rect node', () => {
-    const rect = node('r', 'Rect', 'pattern', { x: 1, y: 1, w: 3, h: 2, r: 0, g: 255, b: 0 })
-    const cpp = generateCpp([rect, outputNode], [edge('e1', 'r', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('for (int _y = 1; _y < 3;')
-    expect(cpp).toContain('for (int _x = 1; _x < 4;')
-    expect(cpp).toContain('CRGB(0, 255, 0)')
-  })
-
   it('maps a Simplex2D palette property to its FastLED constant', () => {
     const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex', palette: 'lava' })
     const cpp = generateCpp([sx, outputNode], [edge('e1', 'sx', 'out', 'frame', 'frame')])
@@ -932,7 +924,7 @@ describe('generateCpp', () => {
 
   it('emits a Color Temperature node with the kelvinToRGB helper', () => {
     const t = node('t', 'Temperature', 'color', { kelvin: 3000 })
-    const sp = node('sp', 'Rect', 'pattern', { x: 0, y: 0, w: 4, h: 1 })
+    const sp = node('sp', 'Circle', 'pattern', { cx: 2, cy: 2, radius: 2 })
     const cpp = generateCpp([t, sp, outputNode], [
       edge('e1', 't', 'sp', 'color', 'color'),
       edge('e2', 'sp', 'out', 'frame', 'frame'),

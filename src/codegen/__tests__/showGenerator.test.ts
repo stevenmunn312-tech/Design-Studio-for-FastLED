@@ -67,7 +67,7 @@ describe('showGenerator', () => {
       gt: {
         nodes: [
           node('t', 'Temperature', { kelvin: 3000 }, [], [{ id: 'color', dataType: 'color' }]),
-          node('sp', 'Rect', {}, [{ id: 'color', dataType: 'color' }], [{ id: 'frame', dataType: 'frame' }]),
+          node('sp', 'Circle', {}, [{ id: 'color', dataType: 'color' }], [{ id: 'frame', dataType: 'frame' }]),
           node('go', 'GroupOutput'),
         ],
         edges: [edge('e1', 't', 'color', 'sp', 'color'), edge('e2', 'sp', 'frame', 'go', 'frame')],

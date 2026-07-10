@@ -1019,21 +1019,6 @@ export function generateCpp(
         break
       }
 
-      case 'Rect': {
-        const ob = ownBuf()
-        const colorE = incoming.get(`${node.id}:color`)
-          ? colorExpr(node.id, 'color')
-          : `CRGB(${Number(p.r ?? 0)}, ${Number(p.g ?? 128)}, ${Number(p.b ?? 255)})`
-        const rx = Math.floor(Number(p.x ?? 0)), ry = Math.floor(Number(p.y ?? 0))
-        const rw = Math.floor(Number(p.w ?? width)), rh = Math.floor(Number(p.h ?? height))
-        const x0 = Math.max(0, rx), x1 = Math.min(width, rx + rw)
-        const y0 = Math.max(0, ry), y1 = Math.min(height, ry + rh)
-        ln(`  ${seedFrom('base')}`)
-        if (x1 > x0 && y1 > y0)
-          ln(`  for (int _y = ${y0}; _y < ${y1}; _y++) for (int _x = ${x0}; _x < ${x1}; _x++) ${ob}[_y * WIDTH + _x] = ${colorE};`)
-        break
-      }
-
       case 'Circle': {
         const ob = ownBuf()
         const colorE = incoming.get(`${node.id}:color`)

@@ -3510,26 +3510,6 @@ function createEvalNode(
         break
       }
 
-      case 'Rect': {
-        const baseIn = input(id, 'base', null) as Frame | null
-        const frame  = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
-        const colorIn = input(id, 'color', null) as RGB | null
-        const color = colorIn ?? {
-          r: byte(Number(props.r ?? 0)   / 255),
-          g: byte(Number(props.g ?? 128) / 255),
-          b: byte(Number(props.b ?? 255) / 255),
-        }
-        const rx = Math.floor(Number(props.x ?? 0))
-        const ry = Math.floor(Number(props.y ?? 0))
-        const rw = Math.floor(Number(props.w ?? W))
-        const rh = Math.floor(Number(props.h ?? H))
-        for (let yy = ry; yy < ry + rh; yy++)
-          for (let xx = rx; xx < rx + rw; xx++)
-            if (xx >= 0 && xx < W && yy >= 0 && yy < H) frame[yy][xx] = { ...color }
-        out = { frame }
-        break
-      }
-
       case 'Text': {
         const text = String(props.text ?? 'HELLO')
         const colorIn = input(id, 'color', null) as RGB | null

@@ -51,6 +51,16 @@ function noise(id: string, noiseType: string, props: Record<string, unknown> = {
   return node(id, 'Noise', 'pattern', { noiseType, ...props })
 }
 
+// A crisp single-pixel source at (0,0): a Shape rect covering exactly one cell,
+// coverage 1 inside and 0 elsewhere (a deterministic stand-in for the retired
+// Rect node in Array/Transform tests).
+function dot(id: string, hex: string): StudioNode {
+  return node(id, 'Shape', 'pattern', {
+    shape: 'rect', cx: 0.5, cy: 0.5, size: 0.5, aspect: 1,
+    rotation: 0, thickness: 0, filled: true, fill: hex, edge: hex,
+  })
+}
+
 // The evaluator only renders graphs that reach an output terminal, so wrap a
 // lone frame producer through a MatrixOutput for focused single-node tests.
 function withOutput(gen: StudioNode, extra: StudioNode[] = [], extraEdges: StudioEdge[] = []) {
@@ -356,7 +366,11 @@ describe('evaluateGraph', () => {
   it('Transform translates a frame and is identity at rate 0', () => {
     // A blue top row, then a Transform. Grid 16×4.
     const run = (transform: string, rate: number, angle: number, tick: number) => {
-      const sp = node('sp', 'Rect', 'pattern', { x: 0, y: 0, w: 16, h: 1, r: 0, g: 0, b: 255 })
+      // A crisp blue top row: a Shape rect covering exactly row 0 across the width.
+      const sp = node('sp', 'Shape', 'pattern', {
+        shape: 'rect', cx: 8, cy: 0.5, size: 0.5, aspect: 16,
+        rotation: 0, thickness: 0, filled: true, fill: '#0000ff', edge: '#0000ff',
+      })
       const tr = node('tr', 'Transform', 'composite', { transform, rate, angle })
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph(
@@ -790,16 +804,6 @@ describe('evaluateGraph', () => {
     expect(frame![0][0]).toEqual({ r: 200, g: 100, b: 50 })
   })
 
-  it('Rect fills the specified rectangle', () => {
-    const rect  = node('r', 'Rect', 'pattern', { x: 1, y: 1, w: 2, h: 2, r: 0, g: 255, b: 0 })
-    const { nodes, edges } = withOutput(rect)
-    const frame = evaluateGraph(nodes, edges, 0, 4, 4)
-    expect(frame![1][1]).toEqual({ r: 0, g: 255, b: 0 })
-    expect(frame![2][2]).toEqual({ r: 0, g: 255, b: 0 })
-    expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
-    expect(frame![3][3]).toEqual({ r: 0, g: 0, b: 0 })
-  })
-
   it('PaletteBlend interpolates between two palettes', () => {
     const driveSimplex = (amount: number) => {
       const pb = node('pb', 'PaletteBlend', 'color', { paletteA: 'heat', paletteB: 'ocean', amount })
@@ -1089,7 +1093,7 @@ describe('evaluateGraph', () => {
 
   it('Array repeats the source with an accumulating offset', () => {
     // A single lit pixel at (0,0) echoed 3× at +2px steps lands on x = 0, 2, 4.
-    const rect = node('rect', 'Rect', 'pattern', { x: 0, y: 0, w: 1, h: 1, r: 255, g: 0, b: 0 })
+    const rect = dot('rect', '#ff0000')
     const arr = node('arr', 'Array', 'composite', { count: 3, offsetX: 2, offsetY: 0, angle: 0, scale: 1, falloff: 1, blendMode: 'add' })
     const out = node('out', 'MatrixOutput', 'output', {})
     const edges = [edge('e1', 'rect', 'frame', 'arr', 'frame'), edge('e2', 'arr', 'frame', 'out', 'frame')]
@@ -1103,7 +1107,7 @@ describe('evaluateGraph', () => {
   it('Array count can be driven by a wired signal', () => {
     // TimeNode.time = t = tick/60; at tick 180 that's 3, so the wired count
     // overrides the count:1 property and produces 3 copies at x = 0, 2, 4.
-    const rect = node('rect', 'Rect', 'pattern', { x: 0, y: 0, w: 1, h: 1, r: 255, g: 0, b: 0 })
+    const rect = dot('rect', '#ff0000')
     const time = node('tm', 'TimeNode', 'signal', {})
     const arr = node('arr', 'Array', 'composite', { count: 1, offsetX: 2, offsetY: 0, angle: 0, scale: 1, falloff: 1, blendMode: 'add' })
     const out = node('out', 'MatrixOutput', 'output', {})
@@ -1120,7 +1124,7 @@ describe('evaluateGraph', () => {
   })
 
   it('Array dims successive copies by falloff', () => {
-    const rect = node('rect', 'Rect', 'pattern', { x: 0, y: 0, w: 1, h: 1, r: 200, g: 0, b: 0 })
+    const rect = dot('rect', '#c80000')   // 200 = 0xc8
     const arr = node('arr', 'Array', 'composite', { count: 2, offsetX: 2, offsetY: 0, angle: 0, scale: 1, falloff: 0.5, blendMode: 'add' })
     const out = node('out', 'MatrixOutput', 'output', {})
     const edges = [edge('e1', 'rect', 'frame', 'arr', 'frame'), edge('e2', 'arr', 'frame', 'out', 'frame')]

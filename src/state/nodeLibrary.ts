@@ -98,19 +98,6 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { r: 255, g: 0, b: 128 },
   },
   {
-    // Paints an axis-aligned rectangle over an optional base frame.
-    type: 'Rect',
-    label: 'Rect',
-    category: 'pattern',
-    subcategory: 'Shapes & Text',
-    inputs: [
-      { id: 'base',  label: 'Base',  dataType: 'frame' },
-      { id: 'color', label: 'Color', dataType: 'color' },
-    ],
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { x: 0, y: 0, w: 4, h: 4, r: 0, g: 128, b: 255 },
-  },
-  {
     // Renders text with the built-in 3×5 font; scroll > 0 scrolls it left.
     type: 'Text',
     label: 'Text',
@@ -1928,7 +1915,6 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   PaletteBlend: 'Interpolates between two palettes.',
   // pattern
   SolidColor: 'Fills the matrix with one color.',
-  Rect: 'Draws a filled rectangle.',
   Circle: 'Draws a circle — ring or filled disc.',
   Line: 'Draws a line between two points.',
   Shape: 'Rect, ellipse or morphing N-gon with a fill and outline colour.',
