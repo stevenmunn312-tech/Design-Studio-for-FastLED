@@ -2118,19 +2118,25 @@ export function generateCpp(
         const ob = ownBuf()
         const src = srcBuf('frame')
         if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // Array: no input`); break }
-        const count = Math.max(1, Math.min(32, Math.round(Number(p.count ?? 5))))
         const flt = (val: unknown, def: number) => {
           const n = Number(val ?? def)
           const v = Number.isFinite(n) ? n : def
           return Number.isInteger(v) ? `${v}.0f` : `${v}f`
         }
-        const offX = flt(p.offsetX, 3), offY = flt(p.offsetY, 0), ang = flt(p.angle, 0)
+        const offX = flt(p.offsetX, 3), offY = flt(p.offsetY, 0)
+        // `angle` and `count` are wire-able (see nodeLibrary inputs) so an
+        // animated signal can spin/grow the array; unwired they bake the slider.
+        const ang = f('angle', 'angle', 0)
         const scl = flt(Math.max(0.05, Number(p.scale ?? 1)), 1), fo = flt(p.falloff, 0.7)
         const mode = ['lighten', 'over'].includes(String(p.blendMode)) ? String(p.blendMode) : 'add'
-        ln(`  { // Array x${count}`)
+        const countWired = incoming.has(`${node.id}:count`)
+        const countLit = Math.max(1, Math.min(32, Math.round(Number(p.count ?? 5))))
+        ln(`  { // Array${countWired ? '' : ` x${countLit}`}`)
         ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
+        // A wired count is clamped to [1, 32] at runtime (the evaluator's cap).
+        if (countWired) ln(`    int _cnt=(int)(${f('count', 'count', 5)}+0.5f); _cnt=_cnt<1?1:(_cnt>32?32:_cnt);`)
         ln(`    float _cx=(WIDTH-1)/2.0f,_cy=(HEIGHT-1)/2.0f;`)
-        ln(`    for(int _i=${count - 1};_i>=0;_i--){`)
+        ln(`    for(int _i=${countWired ? '_cnt-1' : countLit - 1};_i>=0;_i--){`)
         ln(`      float _ox=${offX}*_i,_oy=${offY}*_i,_a=${ang}*_i*0.01745329f,_co=cos(_a),_si=sin(_a);`)
         ln(`      float _inv=1.0f/powf(${scl},_i),_dim=powf(${fo},_i);`)
         ln(`      for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)

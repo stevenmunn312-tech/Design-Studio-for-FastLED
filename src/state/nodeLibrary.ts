@@ -474,7 +474,13 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Array',
     label: 'Array',
     category: 'composite',
-    inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    inputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      // Wire a signal here to animate the array — e.g. a Counter/Sin into `angle`
+      // spins the whole ring; a stepped signal into `count` grows/shrinks it.
+      { id: 'count', label: 'Count', dataType: 'float' },
+      { id: 'angle', label: 'Angle', dataType: 'float' },
+    ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       count: 5,

@@ -390,6 +390,24 @@ describe('generateCpp', () => {
     expect(cpp).toContain('Array: no input')
   })
 
+  it('uses a runtime loop bound when count/angle are wired', () => {
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const cnt = node('cnt', 'Counter', 'signal', { rate: 1 })
+    const ang = node('ang', 'TimeNode', 'signal', {})
+    const arr = node('arr', 'Array', 'composite', { count: 5, angle: 0, blendMode: 'add' })
+    const cpp = generateCpp([sc, cnt, ang, arr, outputNode], [
+      edge('e1', 'sc', 'arr', 'frame', 'frame'),
+      edge('e2', 'cnt', 'arr', 'value', 'count'),
+      edge('e3', 'ang', 'arr', 'time', 'angle'),
+      edge('e4', 'arr', 'out', 'frame', 'frame'),
+    ])
+    // Wired count → runtime bound clamped to [1,32]; wired angle → expression.
+    expect(cpp).toContain('_cnt=_cnt<1?1:(_cnt>32?32:_cnt)')
+    expect(cpp).toContain('for(int _i=_cnt-1;_i>=0;_i--)')
+    expect(cpp).toContain('_a=n_ang_time*_i*0.01745329f')
+    expect(cpp).not.toContain('// Array x')                  // count is dynamic now
+  })
+
   it('remaps through XY() for a serpentine matrix', () => {
     const out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, serpentine: true })
     const sc = node('sc', 'SolidColor', 'pattern', { r: 1, g: 2, b: 3 })

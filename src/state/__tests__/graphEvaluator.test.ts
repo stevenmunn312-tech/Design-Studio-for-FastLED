@@ -1097,6 +1097,25 @@ describe('evaluateGraph', () => {
     expect(f[0][1]).toEqual({ r: 0, g: 0, b: 0 })
   })
 
+  it('Array count can be driven by a wired signal', () => {
+    // TimeNode.time = t = tick/60; at tick 180 that's 3, so the wired count
+    // overrides the count:1 property and produces 3 copies at x = 0, 2, 4.
+    const rect = node('rect', 'Rect', 'pattern', { x: 0, y: 0, w: 1, h: 1, r: 255, g: 0, b: 0 })
+    const time = node('tm', 'TimeNode', 'signal', {})
+    const arr = node('arr', 'Array', 'composite', { count: 1, offsetX: 2, offsetY: 0, angle: 0, scale: 1, falloff: 1, blendMode: 'add' })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [
+      edge('e1', 'rect', 'frame', 'arr', 'frame'),
+      edge('e2', 'tm', 'time', 'arr', 'count'),
+      edge('e3', 'arr', 'frame', 'out', 'frame'),
+    ]
+    const f = evaluateGraph([rect, time, arr, out], edges, 180, 8, 8)!
+    expect(f[0][0]).toEqual({ r: 255, g: 0, b: 0 })
+    expect(f[0][2]).toEqual({ r: 255, g: 0, b: 0 })
+    expect(f[0][4]).toEqual({ r: 255, g: 0, b: 0 })
+    expect(f[0][6]).toEqual({ r: 0, g: 0, b: 0 })   // only 3 copies, not more
+  })
+
   it('Array dims successive copies by falloff', () => {
     const rect = node('rect', 'Rect', 'pattern', { x: 0, y: 0, w: 1, h: 1, r: 200, g: 0, b: 0 })
     const arr = node('arr', 'Array', 'composite', { count: 2, offsetX: 2, offsetY: 0, angle: 0, scale: 1, falloff: 0.5, blendMode: 'add' })

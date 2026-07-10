@@ -3728,10 +3728,10 @@ function createEvalNode(
         if (!src) { out = { frame: null }; break }
         out = { frame: evalArray(
           src,
-          Number(props.count ?? 5),
+          num(id, 'count', props, 'count', 5),
           Number(props.offsetX ?? 3),
           Number(props.offsetY ?? 0),
-          Number(props.angle ?? 0),
+          num(id, 'angle', props, 'angle', 0),
           Number(props.scale ?? 1),
           Number(props.falloff ?? 0.7),
           String(props.blendMode ?? 'add'),
