@@ -647,6 +647,22 @@ describe('evaluateGraph', () => {
     expect(glowFrame[0][0].b).toBeGreaterThan(hardFrame[0][0].b)
   })
 
+  it('Mirror glowAmount scales the bloom strength', () => {
+    const gf  = node('gf', 'GradientFrame', 'pattern', { rA: 255, gA: 0, bA: 0, rB: 0, gB: 0, bB: 255 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const run = (amt: number) => {
+      const m = node('m', 'Mirror', 'composite', { mirrorMode: 'horizontal', glow: true, glowAmount: amt })
+      return evaluateGraph([gf, m, out], [
+        edge('e1', 'gf', 'frame', 'm', 'frame'),
+        edge('e2', 'm', 'frame', 'out', 'frame'),
+      ], 0, W, H)!
+    }
+    // More glow → more of the dimmer partner's blue bleeds into column 0.
+    expect(run(0.8)[0][0].b).toBeGreaterThan(run(0.2)[0][0].b)
+    // Zero glow leaves the brighter half untouched (no bloom added).
+    expect(run(0)[0][0].b).toBe(0)
+  })
+
   it('MatrixOutput passes through its frame input', () => {
     const sc  = node('sc', 'SolidColor', 'pattern', { r: 100, g: 150, b: 200 })
     const out = node('out', 'MatrixOutput', 'output', {})

@@ -4272,24 +4272,26 @@ function createEvalNode(
         if (!src) { out = { frame: blankFrame(W, H) }; break }
         const mode = String(props.mirrorMode ?? 'horizontal')
         const glow = Boolean(props.glow)
-        // Subtle symmetric bloom: keep the brighter of the two reflected halves,
-        // add a soft fraction of the dimmer. Kept in lockstep with cppGenerator.
-        const gCh = (a: number, b: number) => Math.min(255, Math.max(a, b) + Math.min(a, b) * 0.35)
+        // Additive bloom: the plain mirror (base) plus a `glowAmount` fraction of
+        // the discarded partner, so 0 = clean mirror, 1 = full add. Both coords are
+        // symmetric under the reflection. Kept in lockstep with cppGenerator.
+        const glowAmt = Math.max(0, Math.min(1, Number(props.glowAmount ?? 0.35)))
+        const gCh = (base: number, add: number) => Math.min(255, base + add * glowAmt)
         out = { frame: buildFrame(W, H, (x, y) => {
-          if (glow) {
-            let px = W - 1 - x, py = y
-            if (mode === 'vertical') { px = x; py = H - 1 - y }
-            else if (mode === 'quad') { px = W - 1 - x; py = H - 1 - y }
-            else if (mode === 'diagonal') { px = Math.min(y, W - 1); py = Math.min(x, H - 1) }
-            const o = src[y][x], b = src[py][px]
-            return { r: gCh(o.r, b.r), g: gCh(o.g, b.g), b: gCh(o.b, b.b) }
-          }
-          let sx = x, sy = y
-          if (mode === 'horizontal' || mode === 'quad') sx = Math.min(x, W - 1 - x)
-          if (mode === 'vertical' || mode === 'quad') sy = Math.min(y, H - 1 - y)
-          if (mode === 'diagonal' && x > y) { sy = Math.min(x, H - 1); sx = Math.min(y, W - 1) }
-          const px = src[sy][sx]
-          return { r: px.r, g: px.g, b: px.b }
+          // base = the mirrored source pixel (min-side of the reflection)
+          let bx = x, by = y
+          if (mode === 'horizontal' || mode === 'quad') bx = Math.min(x, W - 1 - x)
+          if (mode === 'vertical' || mode === 'quad') by = Math.min(y, H - 1 - y)
+          if (mode === 'diagonal') { bx = Math.min(Math.min(x, y), W - 1); by = Math.min(Math.max(x, y), H - 1) }
+          const b = src[by][bx]
+          if (!glow) return { r: b.r, g: b.g, b: b.b }
+          // add = the opposite (discarded) partner (max-side of the reflection)
+          let ax = x, ay = y
+          if (mode === 'horizontal' || mode === 'quad') ax = Math.max(x, W - 1 - x)
+          if (mode === 'vertical' || mode === 'quad') ay = Math.max(y, H - 1 - y)
+          if (mode === 'diagonal') { ax = Math.min(Math.max(x, y), W - 1); ay = Math.min(Math.min(x, y), H - 1) }
+          const a = src[ay][ax]
+          return { r: gCh(b.r, a.r), g: gCh(b.g, a.g), b: gCh(b.b, a.b) }
         }) }
         break
       }

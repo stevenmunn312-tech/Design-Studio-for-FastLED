@@ -846,13 +846,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // main diagonal). A pure per-pixel coordinate remap; evaluator and codegen
     // share the same source-coordinate logic. See PROPERTY_META.mirrorMode.
     // `glow` blends each pixel with its reflected partner instead of hard-copying
-    // one half — a subtle symmetric bloom where the two halves overlap.
+    // one half — a symmetric bloom where the two halves overlap, its strength set
+    // by `glowAmount` (fraction of the dimmer half added to the brighter).
     type: 'Mirror',
     label: 'Mirror',
     category: 'composite',
     inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { mirrorMode: 'horizontal', glow: false },
+    defaultProperties: { mirrorMode: 'horizontal', glow: false, glowAmount: 0.35 },
   },
   {
     // Feedback/trails buffer — persists its own output across frames, fading
@@ -2189,6 +2190,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   ] },
   blendMode:      { control: 'select', options: ['normal', 'multiply', 'screen', 'overlay', 'add', 'difference'] },
   mirrorMode:     { control: 'select', options: ['horizontal', 'vertical', 'quad', 'diagonal'] },
+  glowAmount:     { control: 'slider', min: 0, max: 1, step: 0.01 },
   easeType:       { control: 'select', options: ['inOutCubic', 'inOutQuad', 'triwave', 'quadwave', 'cubicwave'] },
   fieldOp:        { control: 'select', options: ['add', 'subtract', 'multiply', 'mix', 'min', 'max', 'difference'] },
   particleType:   { control: 'select', options: [
@@ -2572,6 +2574,9 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     // to clockless ones.
     if (key === 'clockPin') return spi
     if (key === 'overclock') return !spi
+  }
+  if (nodeType === 'Mirror' && key === 'glowAmount') {
+    return properties.glow === true
   }
   if (nodeType === 'Transition') {
     const tt = String(properties.transitionType ?? 'crossfade')
