@@ -8,6 +8,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Core user flow: drag nodes from sidebar → wire ports together → preview updates live → generate C++ → upload via the local build helper (`arduino-cli`/`fbuild`).
 
+## Pre-release — don't build backward-compatibility migrations
+
+**The project is pre-release with no external users and no saved graphs to
+protect.** When a change renames, bundles, removes, or reshapes a node type or
+its properties/port ids, **just make the change** — do not add
+`migrateLegacyGraph`/`LEGACY_BUNDLE` remappers, prop rescalers, or edge-handle
+rewrites to keep old saves loading. Delete the old node's definition, cases, and
+tests outright; update or delete any tests that referenced it. (The existing
+migration entries described below are historical and can be simplified away when
+convenient — leaving them is harmless but adding new ones is not required.) Once
+the project ships and real users have saved work, revisit this note.
+
 ## Git workflow (this repo) — keep it simple
 
 This is a solo, single-branch project. **These instructions override the global
@@ -245,9 +257,9 @@ Current nodes by category (see `nodeLibrary.ts` for the authoritative list):
 - **signal** (time-varying control sources): TimeNode, Interval, Counter, Random, Envelope, Sin, Cos, Wave, ComplexWave, BeatSin
 - **math** (value transforms, label "Math & Logic"): Math, Clamp, MapRange, Lerp, Ease, Abs, Mod, Compare, Not, Gate, Smooth, SampleHold (label "Sample & Hold"), Switch, XYMapper
 - **color** (subcategories *Colors* / *Palettes*): HSVToRGB, RGBToHSV, CHSV, Temperature, HeatColor, BlendColors / GradientSampler, PaletteSampler, PaletteSelector, CustomPalette, Poline, PaletteBlend
-- **pattern** (frame generators, five subcategories): *Shapes & Text*: SolidColor, Span (label "Bar"), Rect, Circle, Line, Text, Image, GradientFrame, PaletteGradient · *Generative*: Noise, Noise2D, FractalNoise, GaborNoise, Plasma, Rainbow, Pride2015 (label "Pride 2015"), Pacifica, TwinkleFox, Blobs, RadialBurst, Spiral, Kaleidoscope · *Simulations*: Fire, Fire2012, Particles, FlowField, Starfield, ReactionDiffusion, GameOfLife · *Audio-Reactive*: SpectrumBars, BassPulse, BassRings, MidrangeWaves, MidrangeBloom, TrebleSparks, TreblePrism, AudioCascade, BeatFlash, AudioFlow · *Code*: CustomFormula, Code
+- **pattern** (frame generators, five subcategories): *Shapes & Text*: SolidColor, Rect, Circle, Line, Shape, Text, Image, GradientFrame, PaletteGradient · *Generative*: Noise, Noise2D, FractalNoise, GaborNoise, Plasma, Rainbow, Pride2015 (label "Pride 2015"), Pacifica, TwinkleFox, Blobs, RadialBurst, Spiral, Kaleidoscope · *Simulations*: Fire, Fire2012, Particles, FlowField, Starfield, ReactionDiffusion, GameOfLife · *Audio-Reactive*: SpectrumBars, BassPulse, BassRings, MidrangeWaves, MidrangeBloom, TrebleSparks, TreblePrism, AudioCascade, BeatFlash, AudioFlow · *Code*: CustomFormula, Code
 - **field** (the scalar-field pipeline, in workflow order): FieldFormula, FieldNoise, DistanceField, FrameToField (label "Frame → Field"), FieldMath, FieldWarp, FieldRotate, FieldTile, FieldToFrame
-- **composite** (frame→frame, label "Effects"): Blend, BrightnessMod, HueShift, Gamma, Saturation, Transform, Invert, FrameSwitch (label "Frame Switch"), Trails, Blur2D, Mask, Fade
+- **composite** (frame→frame, label "Effects"): Blend, BrightnessMod, HueShift, Gamma, Saturation, Transform, Array, Invert, FrameSwitch (label "Frame Switch"), Trails, Blur2D, Mask, Fade
 - **show** (the show workflow, in pipeline order): MusicLibrary, PatternCollection, TransitionSet, PatternMaster (label **"Show Engine"**), Sequencer, Transition, PerformanceGenerator, SDCard (PerformanceGenerator and SDCard are the music-sync export chain — see *Music-Sync Show Pipeline*)
 - **output**: MatrixOutput
 

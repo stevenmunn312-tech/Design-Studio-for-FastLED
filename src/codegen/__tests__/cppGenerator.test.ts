@@ -465,19 +465,37 @@ describe('generateCpp', () => {
     expect(cpp).toContain('HeatColor')
   })
 
-  it('emits a bounded loop for a Span node', () => {
-    const span = node('sp', 'Span', 'pattern', { row: 1, start: 2, count: 4, r: 0, g: 0, b: 255 })
-    const cpp = generateCpp([span, outputNode], [edge('e1', 'sp', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('for (int _x = 2; _x < 6;')
-    expect(cpp).toContain('1 * WIDTH + _x')
-    expect(cpp).toContain('CRGB(0, 0, 255)')
+  it('emits a Shape polygon with a fractional-sides morph blend and AA composite', () => {
+    const shape = node('sh', 'Shape', 'pattern', {
+      shape: 'polygon', cx: 8, cy: 8, size: 6, sides: 5, rotation: 30,
+      thickness: 1.5, filled: true, fill: '#ff0080', edge: '#00e0ff',
+    })
+    const cpp = generateCpp([shape, outputNode], [edge('e1', 'sh', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('int _nlo=(int)floorf(_n); float _fr=_n-_nlo')  // fractional morph
+    expect(cpp).toContain('atan2f(_ly,_lx)')                              // polygon SDF
+    expect(cpp).toContain('CRGB _fill=CRGB(255, 0, 128)')                 // fill hex → CRGB
+    expect(cpp).toContain('CRGB(0, 224, 255)')                           // edge hex → CRGB
+    expect(cpp).toContain('nblend(buf_sh[_y*WIDTH+_x],_col,')             // over-composite
   })
 
-  it('clips a Span to the matrix width', () => {
-    // start=6, count=10 on an 8-wide matrix → clipped to _x < 8.
-    const span = node('sp', 'Span', 'pattern', { row: 0, start: 6, count: 10 })
-    const cpp = generateCpp([span, outputNode], [edge('e1', 'sp', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('for (int _x = 6; _x < 8;')
+  it('emits a Shape rect/ellipse without the polygon branch', () => {
+    const rectShape = node('sh', 'Shape', 'pattern', { shape: 'rect', cx: 8, cy: 8, size: 4, aspect: 2, filled: true, thickness: 0 })
+    const rectCpp = generateCpp([rectShape, outputNode], [edge('e1', 'sh', 'out', 'frame', 'frame')])
+    expect(rectCpp).toContain('fabsf(_lx)-8.0f')     // rect half-width = size*aspect = 8
+    expect(rectCpp).not.toContain('atan2f')          // no polygon math
+    const ell = node('sh', 'Shape', 'pattern', { shape: 'ellipse', cx: 8, cy: 8, size: 4, aspect: 1 })
+    const ellCpp = generateCpp([ell, outputNode], [edge('e1', 'sh', 'out', 'frame', 'frame')])
+    expect(ellCpp).toContain('sqrtf(_ex*_ex+_ey*_ey)')
+  })
+
+  it('Shape count/sides can be driven by a wired signal', () => {
+    const shape = node('sh', 'Shape', 'pattern', { shape: 'polygon', sides: 5 })
+    const time = node('tm', 'TimeNode', 'signal', {})
+    const cpp = generateCpp([time, shape, outputNode], [
+      edge('e1', 'tm', 'sh', 'time', 'sides'),
+      edge('e2', 'sh', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('max(3.0f,(float)(n_tm_time))')   // wired sides expression
   })
 
   it('emits a nested bounded loop for a Rect node', () => {
@@ -914,7 +932,7 @@ describe('generateCpp', () => {
 
   it('emits a Color Temperature node with the kelvinToRGB helper', () => {
     const t = node('t', 'Temperature', 'color', { kelvin: 3000 })
-    const sp = node('sp', 'Span', 'pattern', { row: 0, start: 0, count: 4 })
+    const sp = node('sp', 'Rect', 'pattern', { x: 0, y: 0, w: 4, h: 1 })
     const cpp = generateCpp([t, sp, outputNode], [
       edge('e1', 't', 'sp', 'color', 'color'),
       edge('e2', 'sp', 'out', 'frame', 'frame'),

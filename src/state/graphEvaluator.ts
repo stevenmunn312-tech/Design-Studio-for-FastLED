@@ -509,6 +509,64 @@ function splatRing(frame: Frame, x: number, y: number, radius: number, color: RG
   }
 }
 
+// Signed distance (negative inside) from a point to a regular polygon of
+// `sides` sides and circumradius `size`, in the shape's local frame. Radial
+// approximation (exact along apothems, softer near vertices) — good enough for
+// 1px-band anti-aliasing and, crucially, continuous in `sides`.
+function polygonSd(lx: number, ly: number, sides: number, size: number): number {
+  const seg = (Math.PI * 2) / sides
+  const apothem = Math.cos(Math.PI / sides)
+  const r = Math.hypot(lx, ly)
+  const a = Math.atan2(ly, lx)
+  const folded = ((a % seg) + seg) % seg - seg / 2
+  return r - (size * apothem) / Math.cos(folded)
+}
+
+// Draw a rect / ellipse / regular polygon onto `frame` (which already holds the
+// base), over-composited with 1px anti-aliasing. `size` is the half-height
+// (circumradius for polygons); `aspect` widens rect/ellipse. Fractional `sides`
+// blends the floor/ceil polygon SDFs so the shape morphs seamlessly between
+// vertex counts. Kept in lockstep with the Shape case in cppGenerator.ts.
+function evalShape(
+  frame: Frame, shape: string, cx: number, cy: number, size: number,
+  aspect: number, sides: number, rotation: number, thickness: number,
+  filled: boolean, fill: RGB, edge: RGB, W: number, H: number,
+): void {
+  const ax = Math.max(0.01, size * (shape === 'polygon' ? 1 : aspect))
+  const ay = Math.max(0.01, size)
+  const reach = Math.max(ax, ay) + thickness * 0.5 + 1
+  const x0 = Math.max(0, Math.floor(cx - reach)), x1 = Math.min(W - 1, Math.ceil(cx + reach))
+  const y0 = Math.max(0, Math.floor(cy - reach)), y1 = Math.min(H - 1, Math.ceil(cy + reach))
+  const ra = (-rotation * Math.PI) / 180
+  const cosR = Math.cos(ra), sinR = Math.sin(ra)
+  const n = Math.max(3, sides)
+  const nlo = Math.floor(n), nhi = Math.ceil(n), fr = n - nlo
+  const half = thickness * 0.5
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const dx = (x + 0.5) - cx, dy = (y + 0.5) - cy
+      const lx = dx * cosR - dy * sinR, ly = dx * sinR + dy * cosR
+      let sd: number
+      if (shape === 'rect') {
+        const qx = Math.abs(lx) - ax, qy = Math.abs(ly) - ay
+        sd = Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0)
+      } else if (shape === 'ellipse') {
+        sd = (Math.hypot(lx / ax, ly / ay) - 1) * Math.min(ax, ay)
+      } else {
+        sd = nlo === nhi
+          ? polygonSd(lx, ly, nlo, size)
+          : polygonSd(lx, ly, nlo, size) * (1 - fr) + polygonSd(lx, ly, nhi, size) * fr
+      }
+      const fillCov = filled ? clamp01(0.5 - sd) : 0
+      const edgeCov = thickness > 0 ? clamp01(half + 0.5 - Math.abs(sd)) : 0
+      const alpha = Math.max(fillCov, edgeCov)
+      if (alpha <= 0) continue
+      const col = edgeCov > 0 ? mixRgb(fill, edge, edgeCov) : fill
+      frame[y][x] = mixRgb(frame[y][x], col, alpha)
+    }
+  }
+}
+
 // Animated geometric transform of a frame, resampled nearest-neighbour about
 // the matrix centre. `rotate` spins by rate°/s, `scale` zooms by rate%/s
 // (clamped), `translate` shifts by rate px/s along `angle°` (toroidal wrap).
@@ -3452,25 +3510,6 @@ function createEvalNode(
         break
       }
 
-      case 'Span': {
-        const baseIn = input(id, 'base', null) as Frame | null
-        const frame  = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
-        const colorIn = input(id, 'color', null) as RGB | null
-        const color = colorIn ?? {
-          r: byte(Number(props.r ?? 0)   / 255),
-          g: byte(Number(props.g ?? 128) / 255),
-          b: byte(Number(props.b ?? 255) / 255),
-        }
-        const row   = Math.floor(Number(props.row   ?? 0))
-        const start = Math.floor(Number(props.start ?? 0))
-        const count = Math.floor(Number(props.count ?? W))
-        if (row >= 0 && row < H)
-          for (let x = start; x < start + count; x++)
-            if (x >= 0 && x < W) frame[row][x] = { ...color }
-        out = { frame }
-        break
-      }
-
       case 'Rect': {
         const baseIn = input(id, 'base', null) as Frame | null
         const frame  = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
@@ -3541,6 +3580,27 @@ function createEvalNode(
           const u = i / steps
           splatDisc(frame, x0 + (x1 - x0) * u, y0 + (y1 - y0) * u, 0.5, color)
         }
+        out = { frame }
+        break
+      }
+
+      case 'Shape': {
+        const baseIn = input(id, 'base', null) as Frame | null
+        const frame = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
+        const fill = (input(id, 'fill', null) as RGB | null) ?? hexToRgb(String(props.fill ?? '#ff3080'))
+        const edge = (input(id, 'edge', null) as RGB | null) ?? hexToRgb(String(props.edge ?? '#00e0ff'))
+        evalShape(
+          frame,
+          String(props.shape ?? 'polygon'),
+          Number(props.cx ?? W / 2), Number(props.cy ?? H / 2),
+          Math.max(0.5, Number(props.size ?? 6)),
+          Math.max(0.01, Number(props.aspect ?? 1)),
+          num(id, 'sides', props, 'sides', 5),
+          Number(props.rotation ?? 0),
+          Math.max(0, Number(props.thickness ?? 1.5)),
+          Boolean(props.filled ?? true),
+          fill, edge, W, H,
+        )
         out = { frame }
         break
       }

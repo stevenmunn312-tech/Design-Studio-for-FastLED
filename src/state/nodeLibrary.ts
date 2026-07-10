@@ -98,19 +98,6 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { r: 255, g: 0, b: 128 },
   },
   {
-    // Paints a horizontal run on one row over an optional base frame.
-    type: 'Span',
-    label: 'Bar',
-    category: 'pattern',
-    subcategory: 'Shapes & Text',
-    inputs: [
-      { id: 'base',  label: 'Base',  dataType: 'frame' },
-      { id: 'color', label: 'Color', dataType: 'color' },
-    ],
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { row: 0, start: 0, count: 8, r: 0, g: 128, b: 255 },
-  },
-  {
     // Paints an axis-aligned rectangle over an optional base frame.
     type: 'Rect',
     label: 'Rect',
@@ -161,6 +148,37 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { x1: 0, y1: 0, x2: 15, y2: 15, r: 0, g: 200, b: 255 },
+  },
+  {
+    // Bundled shape generator: draws a rect / ellipse / regular polygon at
+    // (cx, cy) with a filled interior (fill colour) and/or an outline (edge
+    // colour, thickness). `sides` is wire-able and fractional, so a polygon
+    // morphs triangle→square→…→decagon — an ideal Array source. `fill`/`edge`
+    // are hex props that double as colour inputs (port id == prop name).
+    type: 'Shape',
+    label: 'Shape',
+    category: 'pattern',
+    subcategory: 'Shapes & Text',
+    inputs: [
+      { id: 'base', label: 'Base', dataType: 'frame' },
+      { id: 'fill', label: 'Fill', dataType: 'color' },
+      { id: 'edge', label: 'Edge', dataType: 'color' },
+      { id: 'sides', label: 'Sides', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: {
+      shape: 'polygon',
+      cx: 8,
+      cy: 8,
+      size: 6,
+      aspect: 1,
+      sides: 5,
+      rotation: 0,
+      thickness: 1.5,
+      filled: true,
+      fill: '#ff3080',
+      edge: '#00e0ff',
+    },
   },
   {
     // Traces a point around a parametric curve. Feed a 0–1 `t` signal into it
@@ -1910,10 +1928,10 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   PaletteBlend: 'Interpolates between two palettes.',
   // pattern
   SolidColor: 'Fills the matrix with one color.',
-  Span: 'Lights a horizontal run on one row.',
   Rect: 'Draws a filled rectangle.',
   Circle: 'Draws a circle — ring or filled disc.',
   Line: 'Draws a line between two points.',
+  Shape: 'Rect, ellipse or morphing N-gon with a fill and outline colour.',
   Path: 'Traces a parametric curve point with subpixel splatting.',
   Text: 'Renders scrolling text in a bitmap font.',
   Noise: 'Bundled noise variants with frame and raw field outputs.',
@@ -2379,6 +2397,14 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     falloff:   { control: 'slider', min: 0, max: 1, step: 0.01 },
     blendMode: { control: 'select', options: ['add', 'lighten', 'over'] },
   },
+  Shape: {
+    shape:     { control: 'select', options: ['rect', 'ellipse', 'polygon'] },
+    aspect:    { control: 'slider', min: 0.25, max: 4, step: 0.05 },
+    // Fractional sides morph the polygon between vertex counts.
+    sides:     { control: 'slider', min: 3, max: 10, step: 0.1 },
+    rotation:  { control: 'slider', min: -180, max: 180, step: 1 },
+    thickness: { control: 'slider', min: 0, max: 6, step: 0.1 },
+  },
   Counter:           { rate:  { control: 'slider', min: 0, max: 5,   step: 0.1 } },
   GameOfLife:        { speed: { control: 'slider', min: 1, max: 30,  step: 1 } },
   ReactionDiffusion: { speed: { control: 'slider', min: 1, max: 30,  step: 1 } },
@@ -2503,6 +2529,13 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
   if (nodeType === 'Image') {
     // Playback controls only apply once an animation (not a still) is loaded.
     if (key === 'playbackRate' || key === 'loop') return properties.animation != null
+  }
+  if (nodeType === 'Shape') {
+    const shape = String(properties.shape ?? 'polygon')
+    if (key === 'sides')  return shape === 'polygon'
+    if (key === 'aspect') return shape === 'rect' || shape === 'ellipse'
+    // Fill colour is unused when only the outline is drawn.
+    if (key === 'fill')   return properties.filled === true
   }
   if (nodeType === 'MatrixOutput') {
     if (key === 'volts' || key === 'milliamps') return properties.powerLimit === true

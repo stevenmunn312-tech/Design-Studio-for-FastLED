@@ -1019,21 +1019,6 @@ export function generateCpp(
         break
       }
 
-      case 'Span': {
-        const ob = ownBuf()
-        const colorE = incoming.get(`${node.id}:color`)
-          ? colorExpr(node.id, 'color')
-          : `CRGB(${Number(p.r ?? 0)}, ${Number(p.g ?? 128)}, ${Number(p.b ?? 255)})`
-        const row   = Math.floor(Number(p.row   ?? 0))
-        const start = Math.floor(Number(p.start ?? 0))
-        const count = Math.floor(Number(p.count ?? width))
-        const x0 = Math.max(0, start), x1 = Math.min(width, start + count)
-        ln(`  ${seedFrom('base')}`)
-        if (row >= 0 && row < height && x1 > x0)
-          ln(`  for (int _x = ${x0}; _x < ${x1}; _x++) ${ob}[${row} * WIDTH + _x] = ${colorE};`)
-        break
-      }
-
       case 'Rect': {
         const ob = ownBuf()
         const colorE = incoming.get(`${node.id}:color`)
@@ -1086,6 +1071,55 @@ export function generateCpp(
         ln(`        float _dx = (_x + 0.5f) - _sx, _dy = (_y + 0.5f) - _sy;`)
         ln(`        float _cov = constrain(_rad + 0.5f - sqrtf(_dx * _dx + _dy * _dy), 0.0f, 1.0f);`)
         ln(`        if (_cov <= 0.0f) continue; CRGB _add = ${colorE}; _add.nscale8((uint8_t)(_cov * 255.0f)); ${ob}[_y * WIDTH + _x] += _add; } } }`)
+        break
+      }
+
+      // Bundled shape: rect / ellipse / regular polygon, filled (fill colour)
+      // and/or outlined (edge colour, thickness), over-composited with AA.
+      // Fractional `sides` blends floor/ceil polygon SDFs for a seamless morph.
+      // Keep in sync with evalShape() in graphEvaluator.ts.
+      case 'Shape': {
+        const ob = ownBuf()
+        const fl = (value: number) => `${Number.isInteger(value) ? value.toFixed(1) : value}f`
+        const hexCrgb = (hex: unknown, def: number) => {
+          const m = /^#([0-9a-f]{6})$/i.exec(String(hex))
+          const n = m ? parseInt(m[1], 16) : def
+          return `CRGB(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
+        }
+        const shape = ['rect', 'ellipse'].includes(String(p.shape)) ? String(p.shape) : 'polygon'
+        const cx = Number(p.cx ?? 8), cy = Number(p.cy ?? 8)
+        const size = Math.max(0.5, Number(p.size ?? 6))
+        const aspect = shape === 'polygon' ? 1 : Math.max(0.01, Number(p.aspect ?? 1))
+        const rot = Number(p.rotation ?? 0)
+        const thick = Math.max(0, Number(p.thickness ?? 1.5))
+        const filled = (p.filled ?? true) !== false
+        const ax = size * aspect, ay = size
+        const reach = Math.sqrt(ax * ax + ay * ay) + thick / 2 + 1
+        const bx0 = Math.max(0, Math.floor(cx - reach)), bx1 = Math.min(width - 1, Math.ceil(cx + reach))
+        const by0 = Math.max(0, Math.floor(cy - reach)), by1 = Math.min(height - 1, Math.ceil(cy + reach))
+        const fillE = incoming.get(`${node.id}:fill`) ? colorExpr(node.id, 'fill') : hexCrgb(p.fill, 0xff3080)
+        const edgeE = incoming.get(`${node.id}:edge`) ? colorExpr(node.id, 'edge') : hexCrgb(p.edge, 0x00e0ff)
+        ln(`  { ${seedFrom('base')}`)
+        ln(`    float _cx=${fl(cx)},_cy=${fl(cy)},_ra=${fl(-rot)}*0.01745329f,_cr=cosf(_ra),_sr=sinf(_ra);`)
+        ln(`    CRGB _fill=${fillE},_edge=${edgeE};`)
+        if (shape === 'polygon') ln(`    float _n=max(3.0f,(float)(${f('sides', 'sides', 5)})); int _nlo=(int)floorf(_n); float _fr=_n-_nlo;`)
+        ln(`    for(int _y=${by0};_y<=${by1};_y++) for(int _x=${bx0};_x<=${bx1};_x++){`)
+        ln(`      float _dx=(_x+0.5f)-_cx,_dy=(_y+0.5f)-_cy,_lx=_dx*_cr-_dy*_sr,_ly=_dx*_sr+_dy*_cr,_sd;`)
+        if (shape === 'rect') {
+          ln(`      float _qx=fabsf(_lx)-${fl(ax)},_qy=fabsf(_ly)-${fl(ay)},_mx=max(_qx,0.0f),_my=max(_qy,0.0f);`)
+          ln(`      _sd=sqrtf(_mx*_mx+_my*_my)+min(max(_qx,_qy),0.0f);`)
+        } else if (shape === 'ellipse') {
+          ln(`      float _ex=_lx/${fl(ax)},_ey=_ly/${fl(ay)}; _sd=(sqrtf(_ex*_ex+_ey*_ey)-1.0f)*${fl(Math.min(ax, ay))};`)
+        } else {
+          ln(`      float _r=sqrtf(_lx*_lx+_ly*_ly),_pa=atan2f(_ly,_lx);`)
+          ln(`      float _s0=6.2831853f/_nlo,_a0=fmodf(fmodf(_pa,_s0)+_s0,_s0)-_s0*0.5f,_sdl=_r-${fl(size)}*cosf(3.14159265f/_nlo)/cosf(_a0),_sd2=_sdl;`)
+          ln(`      if(_fr>0.0f){ float _s1=6.2831853f/(_nlo+1),_a1=fmodf(fmodf(_pa,_s1)+_s1,_s1)-_s1*0.5f; _sd2=_r-${fl(size)}*cosf(3.14159265f/(_nlo+1))/cosf(_a1); }`)
+          ln(`      _sd=_sdl*(1.0f-_fr)+_sd2*_fr;`)
+        }
+        ln(`      float _fc=${filled ? 'constrain(0.5f-_sd,0.0f,1.0f)' : '0.0f'};`)
+        ln(`      float _ec=${thick > 0 ? `constrain(${fl(thick * 0.5)}+0.5f-fabsf(_sd),0.0f,1.0f)` : '0.0f'};`)
+        ln(`      float _al=max(_fc,_ec); if(_al<=0.0f) continue;`)
+        ln(`      CRGB _col=_fill; nblend(_col,_edge,(uint8_t)(_ec*255.0f)); nblend(${ob}[_y*WIDTH+_x],_col,(uint8_t)(_al*255.0f)); } }`)
         break
       }
 

@@ -356,7 +356,7 @@ describe('evaluateGraph', () => {
   it('Transform translates a frame and is identity at rate 0', () => {
     // A blue top row, then a Transform. Grid 16×4.
     const run = (transform: string, rate: number, angle: number, tick: number) => {
-      const sp = node('sp', 'Span', 'pattern', { row: 0, start: 0, count: 16, r: 0, g: 0, b: 255 })
+      const sp = node('sp', 'Rect', 'pattern', { x: 0, y: 0, w: 16, h: 1, r: 0, g: 0, b: 255 })
       const tr = node('tr', 'Transform', 'composite', { transform, rate, angle })
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph(
@@ -622,31 +622,34 @@ describe('evaluateGraph', () => {
     evaluateGraph([ps, samp], edges, 0, W, H)
   })
 
-  it('Span lights a run on its row and leaves the rest dark', () => {
-    // "4th–13th LED of the top row blue" → 0-indexed start=3, count=10.
-    const span  = node('sp', 'Span', 'pattern', { row: 0, start: 3, count: 10, r: 0, g: 0, b: 255 })
-    const { nodes, edges } = withOutput(span)
-    const frame = evaluateGraph(nodes, edges, 0, 16, 4)
-    expect(frame![0][3]).toEqual({ r: 0, g: 0, b: 255 })   // first lit LED
-    expect(frame![0][12]).toEqual({ r: 0, g: 0, b: 255 })  // last lit LED
-    expect(frame![0][2]).toEqual({ r: 0, g: 0, b: 0 })     // just before the run
-    expect(frame![0][13]).toEqual({ r: 0, g: 0, b: 0 })    // just after the run
-    expect(frame![1][5]).toEqual({ r: 0, g: 0, b: 0 })     // other rows untouched
+  it('Shape draws a filled polygon over the centre and leaves corners dark', () => {
+    // A filled pentagon centred on an 8×8 grid: centre lit, corners dark.
+    const shape = node('sh', 'Shape', 'pattern', {
+      shape: 'polygon', cx: 4, cy: 4, size: 3, sides: 5, rotation: 0,
+      thickness: 1, filled: true, fill: '#00ff00', edge: '#00ff00',
+    })
+    const { nodes, edges } = withOutput(shape)
+    const frame = evaluateGraph(nodes, edges, 0, 8, 8)!
+    const lit = (px: { r: number; g: number; b: number }) => px.r + px.g + px.b > 0
+    expect(lit(frame[4][4])).toBe(true)     // centre filled
+    expect(frame[0][0]).toEqual({ r: 0, g: 0, b: 0 })   // corner outside the shape
+    expect(frame[7][7]).toEqual({ r: 0, g: 0, b: 0 })
   })
 
-  it('Span paints over a base frame, preserving the rest', () => {
-    const bg   = node('bg', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })  // red fill
-    const span = node('sp', 'Span', 'pattern', { row: 0, start: 1, count: 2, r: 0, g: 0, b: 255 })
-    const out  = node('out', 'MatrixOutput', 'output', {})
+  it('Shape paints over a base frame, preserving the rest', () => {
+    const bg = node('bg', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })  // red fill
+    const shape = node('sh', 'Shape', 'pattern', {
+      shape: 'rect', cx: 1.5, cy: 1.5, size: 1, aspect: 1, rotation: 0,
+      thickness: 0, filled: true, fill: '#0000ff', edge: '#0000ff',
+    })
+    const out = node('out', 'MatrixOutput', 'output', {})
     const edges = [
-      edge('e1', 'bg', 'frame', 'sp', 'base'),
-      edge('e2', 'sp', 'frame', 'out', 'frame'),
+      edge('e1', 'bg', 'frame', 'sh', 'base'),
+      edge('e2', 'sh', 'frame', 'out', 'frame'),
     ]
-    const frame = evaluateGraph([bg, span, out], edges, 0, 4, 4)
-    expect(frame![0][1]).toEqual({ r: 0, g: 0, b: 255 })   // painted blue
-    expect(frame![0][2]).toEqual({ r: 0, g: 0, b: 255 })
-    expect(frame![0][0]).toEqual({ r: 255, g: 0, b: 0 })   // base shows through
-    expect(frame![1][1]).toEqual({ r: 255, g: 0, b: 0 })
+    const frame = evaluateGraph([bg, shape, out], edges, 0, 8, 8)!
+    expect(frame[7][7]).toEqual({ r: 255, g: 0, b: 0 })   // base shows through far from the shape
+    expect(frame[1][1].b).toBeGreaterThan(0)              // shape painted blue near its centre
   })
 
   it('Circle (filled) lights the center and clears the corners', () => {
