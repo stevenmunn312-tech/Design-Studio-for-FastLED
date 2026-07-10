@@ -1244,6 +1244,30 @@ export function generateCpp(
         break
       }
 
+      case 'Scanner': {
+        needsT.v = true
+        const ob = ownBuf()
+        const speed = rateCpp(f('speed', 'speed', 0.45), SPEED_MAX.Scanner)
+        const width = Math.max(1, Number(p.width ?? 2))
+        const fade = `constrain((${f('fade', 'fade', 0.6)}),0.0f,1.0f)`
+        const horizontal = String(p.axis ?? 'horizontal') !== 'vertical'
+        const pal = paletteExpr(node.id, 'paletteIn', p)
+        ln(`  { float _spd=${speed},_w=${width.toFixed(3)}f,_fd=${fade};`)
+        ln(`    float _span=${horizontal ? 'WIDTH' : 'HEIGHT'};`)
+        ln(`    float _ph=fmodf(t*_spd,2.0f); if(_ph<0)_ph+=2.0f;`)
+        ln(`    float _travel=_ph<=1.0f?_ph:2.0f-_ph;`)
+        ln(`    float _pos=_travel*max(0.0f,_span-1.0f);`)
+        ln(`    float _core=max(0.5f,_w*0.5f),_tail=_core+_fd*max(1.0f,_span*0.35f),_den=max(0.001f,_tail-_core);`)
+        ln(`    CRGB _base=ColorFromPalette(${pal},(uint8_t)(_travel*255.0f));`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float _coord=${horizontal ? '(float)_x' : '(float)_y'};`)
+        ln(`      float _dist=fabsf(_coord-_pos);`)
+        ln(`      float _v=_dist<=_core?1.0f:max(0.0f,1.0f-(_dist-_core)/_den);`)
+        ln(`      _v*=_v; CRGB _px=_base; _px.nscale8_video((uint8_t)(_v*255.0f));`)
+        ln(`      ${ob}[_y*WIDTH+_x]=_px; } }`)
+        break
+      }
+
       case 'Fire': {
         const ob = ownBuf()
         ln(`  { // Fire pattern`)

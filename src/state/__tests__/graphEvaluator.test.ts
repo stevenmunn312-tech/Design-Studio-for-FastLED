@@ -2187,6 +2187,35 @@ describe('Pride2015 and Pacifica', () => {
     const dense = litCount({ speed: 0.5, density: 0.95, palette: 'party' })
     expect(dense).toBeGreaterThan(sparse)
   })
+
+  it('Scanner sweeps over time and responds to the palette', () => {
+    const a = frameOf('Scanner', { speed: 0.45, width: 2, fade: 0.6, axis: 'horizontal', palette: 'lava' }, 0)
+    const b = frameOf('Scanner', { speed: 0.45, width: 2, fade: 0.6, axis: 'horizontal', palette: 'lava' }, 90)
+    expect(a).not.toEqual(b)
+    const lava = frameOf('Scanner', { speed: 0.45, width: 2, fade: 0.6, axis: 'horizontal', palette: 'lava' }, 20)
+    const ocean = frameOf('Scanner', { speed: 0.45, width: 2, fade: 0.6, axis: 'horizontal', palette: 'ocean' }, 20)
+    expect(lava).not.toEqual(ocean)
+  })
+
+  it('Scanner axis changes whether the beam spans columns or rows', () => {
+    const horizontal = frameOf('Scanner', { speed: 0, width: 1, fade: 0, axis: 'horizontal', palette: 'lava' }, 0)
+    const vertical = frameOf('Scanner', { speed: 0, width: 1, fade: 0, axis: 'vertical', palette: 'lava' }, 0)
+    expect(horizontal[0][0]).toEqual(horizontal[1][0])
+    expect(horizontal[0][1]).toEqual(horizontal[1][1])
+    expect(vertical[0][0]).toEqual(vertical[0][1])
+    expect(vertical[1][0]).toEqual(vertical[1][1])
+    expect(horizontal).not.toEqual(vertical)
+  })
+
+  it('Scanner width and fade widen the lit coverage', () => {
+    const litCount = (props: Record<string, unknown>) =>
+      frameOf('Scanner', props, 15)
+        .flat()
+        .filter(px => px.r + px.g + px.b > 30).length
+    const tight = litCount({ speed: 0.45, width: 1, fade: 0, axis: 'horizontal', palette: 'lava' })
+    const wide = litCount({ speed: 0.45, width: 4, fade: 1, axis: 'horizontal', palette: 'lava' })
+    expect(wide).toBeGreaterThan(tight)
+  })
 })
 
 // ── Saturation / RGBToHSV ─────────────────────────────────────────────────────

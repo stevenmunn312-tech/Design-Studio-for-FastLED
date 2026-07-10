@@ -305,6 +305,20 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { speed: 0.5, density: 0.5, palette: 'party' },
   },
   {
+    // Palette-driven Larson scanner / Cylon eye — a bar that sweeps back and
+    // forth across one axis, with a soft trail controlled by `fade`.
+    type: 'Scanner',
+    label: 'Scanner',
+    category: 'pattern',
+    subcategory: 'Generative',
+    inputs: [
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 0.45, width: 2, fade: 0.6, axis: 'horizontal', palette: 'lava' },
+  },
+  {
     type: 'SpectrumBars',
     label: 'Spectrum Bars',
     category: 'pattern',
@@ -1816,6 +1830,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Pride2015: 'Shifting rainbow with a breathing brightness wave.',
   Pacifica: 'Layered ocean waves through a palette, with whitecap sparkle.',
   TwinkleFox: 'Palette-driven lights that twinkle on independent schedules.',
+  Scanner: 'Larson scanner / Cylon eye — a palette-driven beam with adjustable width and trail fade.',
   SpectrumBars: 'Palette-driven equalizer bars with audio-reactive motion.',
   BassPulse: 'Pulses a color with bass energy.',
   BassRings: 'Concentric rings that swell and brighten with bass.',
@@ -2243,6 +2258,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Pride2015:       { speed: N01, scale: N01 },
   Pacifica:        { speed: N01, scale: N01 },
   TwinkleFox:      { speed: N01 },
+  Scanner:         {
+    speed: N01,
+    width: { control: 'slider', min: 1, max: 16, step: 1 },
+  },
   Particles:         { rate:  { control: 'slider', min: 0, max: 1,   step: 0.01 } },
   Transform:         { rate:  { control: 'slider', min: 0, max: 360, step: 1 } },
   Counter:           { rate:  { control: 'slider', min: 0, max: 5,   step: 0.1 } },

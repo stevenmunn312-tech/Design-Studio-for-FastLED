@@ -1528,6 +1528,16 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     expect(cpp).toContain('ColorFromPalette(PartyColors_p,(uint8_t)(_ci*255.0f))')
     expect(cpp).toContain('_px.nscale8_video((uint8_t)(_bri*255.0f))')
   })
+
+  it('Scanner emits a ping-pong palette beam along the selected axis', () => {
+    const sc = node('sc', 'Scanner', 'pattern', { speed: 0.45, width: 2, fade: 0.6, axis: 'vertical', palette: 'lava' })
+    const cpp = generateCpp([sc, outputNode], [edge('e1', 'sc', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('CRGB buf_sc[NUM_LEDS];')
+    expect(cpp).toContain('float _travel=_ph<=1.0f?_ph:2.0f-_ph;')
+    expect(cpp).toContain('ColorFromPalette(LavaColors_p,(uint8_t)(_travel*255.0f))')
+    expect(cpp).toContain('float _coord=(float)_y;')
+    expect(cpp).toContain('_px.nscale8_video((uint8_t)(_v*255.0f));')
+  })
 })
 
 describe('Saturation / RGBToHSV (codegen)', () => {

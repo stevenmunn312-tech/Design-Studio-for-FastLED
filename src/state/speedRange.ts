@@ -19,6 +19,8 @@ export const SPEED_MAX: Record<string, number> = {
   Pride2015: 1.2, Pacifica: 1,
   // TwinkleFox — cycles per second of each pixel's independent twinkle.
   TwinkleFox: 1,
+  // Scanner — ping-pong sweeps per second across the chosen axis.
+  Scanner: 1.2,
 }
 
 /** scale `1.0` (slider max) maps to this internal scale, per node type. */

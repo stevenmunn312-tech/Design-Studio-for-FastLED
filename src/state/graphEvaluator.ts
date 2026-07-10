@@ -602,6 +602,33 @@ function evalTwinkleFox(speed: number, density: number, t: number, palette: Pale
   return out
 }
 
+function evalScanner(
+  speed: number, width: number, fade: number, axis: string, t: number, palette: Palette,
+  W = DEFAULT_W, H = DEFAULT_H,
+): Frame {
+  const horizontal = axis !== 'vertical'
+  const span = Math.max(1, horizontal ? W : H)
+  const phase = ((t * speed) % 2 + 2) % 2
+  const travel = phase <= 1 ? phase : 2 - phase
+  const pos = travel * Math.max(0, span - 1)
+  const core = Math.max(0.5, Number.isFinite(width) ? width * 0.5 : 1)
+  const tail = core + clamp01(fade) * Math.max(1, span * 0.35)
+  const tailDen = Math.max(1e-6, tail - core)
+  const base = samplePalette(palette, travel)
+
+  return buildFrame(W, H, (x, y) => {
+    const coord = horizontal ? x : y
+    const dist = Math.abs(coord - pos)
+    let v = dist <= core ? 1 : Math.max(0, 1 - (dist - core) / tailDen)
+    v *= v
+    return {
+      r: Math.round(base.r * v),
+      g: Math.round(base.g * v),
+      b: Math.round(base.b * v),
+    }
+  })
+}
+
 function evalFire(nodeId: string, intensity: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const stored = fireHeat.get(nodeId)
   if (!stored || stored.length !== H || stored[0].length !== W) {
@@ -3258,6 +3285,16 @@ function createEvalNode(
         const density = num(id, 'density', props, 'density', 0.5)
         const palette = pal(id, 'paletteIn', props, 'palette', 'party')
         out = { frame: evalTwinkleFox(speed, density, t, palette, W, H) }
+        break
+      }
+
+      case 'Scanner': {
+        const speed = denormRate(num(id, 'speed', props, 'speed', 0.45), SPEED_MAX.Scanner)
+        const width = Math.max(1, Number(props.width ?? 2))
+        const fade = num(id, 'fade', props, 'fade', 0.6)
+        const axis = String(props.axis ?? 'horizontal')
+        const palette = pal(id, 'paletteIn', props, 'palette', 'lava')
+        out = { frame: evalScanner(speed, width, fade, axis, t, palette, W, H) }
         break
       }
 
