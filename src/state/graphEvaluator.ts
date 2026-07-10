@@ -4273,10 +4273,13 @@ function createEvalNode(
         const mode = String(props.mirrorMode ?? 'horizontal')
         const glow = Boolean(props.glow)
         // Additive bloom: the plain mirror (base) plus a `glowAmount` fraction of
-        // the discarded partner, so 0 = clean mirror, 1 = full add. Both coords are
-        // symmetric under the reflection. Kept in lockstep with cppGenerator.
+        // the discarded partner, tinted per-channel by the `color` input (white =
+        // neutral). 0 = clean mirror, 1 = full add. Both coords are symmetric under
+        // the reflection. Kept in lockstep with cppGenerator.
         const glowAmt = Math.max(0, Math.min(1, Number(props.glowAmount ?? 0.35)))
-        const gCh = (base: number, add: number) => Math.min(255, base + add * glowAmt)
+        const tint = (input(id, 'color', null) as RGB | null)
+          ?? { r: Number(props.r ?? 255), g: Number(props.g ?? 255), b: Number(props.b ?? 255) }
+        const gCh = (base: number, add: number, tintCh: number) => Math.min(255, base + add * (tintCh / 255) * glowAmt)
         out = { frame: buildFrame(W, H, (x, y) => {
           // base = the mirrored source pixel (min-side of the reflection)
           let bx = x, by = y
@@ -4291,7 +4294,7 @@ function createEvalNode(
           if (mode === 'vertical' || mode === 'quad') ay = Math.max(y, H - 1 - y)
           if (mode === 'diagonal') { ax = Math.min(Math.max(x, y), W - 1); ay = Math.min(Math.min(x, y), H - 1) }
           const a = src[ay][ax]
-          return { r: gCh(b.r, a.r), g: gCh(b.g, a.g), b: gCh(b.b, a.b) }
+          return { r: gCh(b.r, a.r, tint.r), g: gCh(b.g, a.g, tint.g), b: gCh(b.b, a.b, tint.b) }
         }) }
         break
       }

@@ -663,6 +663,22 @@ describe('evaluateGraph', () => {
     expect(run(0)[0][0].b).toBe(0)
   })
 
+  it('Mirror glow tint filters the bloom per channel', () => {
+    const gf  = node('gf', 'GradientFrame', 'pattern', { rA: 255, gA: 0, bA: 0, rB: 0, gB: 0, bB: 255 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const run = (tint: Record<string, number>) => {
+      const m = node('m', 'Mirror', 'composite', { mirrorMode: 'horizontal', glow: true, glowAmount: 1, ...tint })
+      return evaluateGraph([gf, m, out], [
+        edge('e1', 'gf', 'frame', 'm', 'frame'),
+        edge('e2', 'm', 'frame', 'out', 'frame'),
+      ], 0, W, H)!
+    }
+    // White tint (default) blooms the far half's blue into column 0.
+    expect(run({ r: 255, g: 255, b: 255 })[0][0].b).toBeGreaterThan(0)
+    // A red tint zeroes the blue channel of the bloom, so column 0 stays pure red.
+    expect(run({ r: 255, g: 0, b: 0 })[0][0].b).toBe(0)
+  })
+
   it('MatrixOutput passes through its frame input', () => {
     const sc  = node('sc', 'SolidColor', 'pattern', { r: 100, g: 150, b: 200 })
     const out = node('out', 'MatrixOutput', 'output', {})

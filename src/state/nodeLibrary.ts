@@ -847,13 +847,17 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // share the same source-coordinate logic. See PROPERTY_META.mirrorMode.
     // `glow` blends each pixel with its reflected partner instead of hard-copying
     // one half — a symmetric bloom where the two halves overlap, its strength set
-    // by `glowAmount` (fraction of the dimmer half added to the brighter).
+    // by `glowAmount`. The bloom is multiplied per-channel by the `Tint` colour
+    // (wired or the r/g/b swatch); white is neutral, so a colour filters the glow.
     type: 'Mirror',
     label: 'Mirror',
     category: 'composite',
-    inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    inputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      { id: 'color', label: 'Tint', dataType: 'color' },
+    ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { mirrorMode: 'horizontal', glow: false, glowAmount: 0.35 },
+    defaultProperties: { mirrorMode: 'horizontal', glow: false, glowAmount: 0.35, r: 255, g: 255, b: 255 },
   },
   {
     // Feedback/trails buffer — persists its own output across frames, fading
@@ -2019,7 +2023,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Transform: 'Animated rotate, scale or translate of a frame.',
   Array: 'Repeats a frame N times with an accumulating offset/rotate/scale, composited.',
   Invert: 'Inverts colors.',
-  Mirror: 'Mirrors a frame into symmetry (4 axes), with an optional subtle glow blend.',
+  Mirror: 'Mirrors a frame into symmetry (4 axes) with an optional tinted glow bloom.',
   Saturation: 'Scales color saturation (0 = greyscale, 1 = unchanged).',
   ColorBoost: 'Boosts saturation while approximately preserving luminance.',
   FrameSwitch: 'Shows frame A or B, selected by a boolean.',
