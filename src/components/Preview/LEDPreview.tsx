@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties } fro
 import { useGraphStore, getGroupRegistry, matrixDims, type GraphMeta, type StudioEdge, type StudioNode } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audioStore'
-import { evaluateGraphFull, getPatternShowSelection, type Frame } from '../../state/graphEvaluator'
+import { evaluateGraphFull, getPatternShowSelection, type Frame, type RGB } from '../../state/graphEvaluator'
 import { usePreviewStore } from '../../state/previewStore'
 import { useShowPlayback } from '../../state/showPlayback'
 import { usePlayerTransport } from '../../state/playerTransport'
@@ -326,6 +326,47 @@ function applyMasterBrightness(frame: Frame | null, nodes: StudioNode[]): Frame 
   if (brightness >= 255) return frame
   const s = brightness / 255
   return frame.map((row) => row.map(({ r, g, b }) => ({ r: r * s, g: g * s, b: b * s })))
+}
+
+// MatrixOutput `supersample`: when on, the graph is evaluated at SUPERSAMPLE×
+// the matrix resolution and averaged back down (see downscaleFrame), matching
+// the FastLED-style downscale the generated sketch emits. 2× only for now.
+const SUPERSAMPLE = 2
+function matrixSupersampleFactor(nodes: StudioNode[]): number {
+  const output = nodes.find((node) => nodeTypeOf(node) === 'MatrixOutput')
+  return (output?.data.properties as { supersample?: unknown } | undefined)?.supersample === true
+    ? SUPERSAMPLE
+    : 1
+}
+
+// Average each factor×factor block of a super-sampled frame down to one pixel —
+// the antialiasing pass that makes float-coordinate motion read smoothly on a
+// small panel. Mirrors the C++ downscale loop in the MatrixOutput codegen.
+function downscaleFrame(frame: Frame, factor: number): Frame {
+  const srcH = frame.length
+  const srcW = frame[0]?.length ?? 0
+  const h = Math.floor(srcH / factor)
+  const w = Math.floor(srcW / factor)
+  const n = factor * factor
+  const out: Frame = new Array(h)
+  for (let y = 0; y < h; y++) {
+    const row: RGB[] = new Array(w)
+    const by = y * factor
+    for (let x = 0; x < w; x++) {
+      const bx = x * factor
+      let r = 0, g = 0, b = 0
+      for (let dy = 0; dy < factor; dy++) {
+        const frow = frame[by + dy]
+        for (let dx = 0; dx < factor; dx++) {
+          const px = frow[bx + dx]
+          r += px.r; g += px.g; b += px.b
+        }
+      }
+      row[x] = { r: r / n, g: g / n, b: b / n }
+    }
+    out[y] = row
+  }
+  return out
 }
 
 // ── Canvas-2D fallback LED sprites ────────────────────────────────────────────
@@ -792,9 +833,15 @@ export default function LEDPreview() {
         const previewsOn = uiEffectsEnabledRef.current && !analyzingMusicRef.current
         const fullPass = previewsOn && now - lastPreviewPublish.current >= PREVIEW_PUBLISH_INTERVAL_MS
         const evalStart = PERF_TELEMETRY ? performance.now() : 0
-        const { frame: rendered, outputs } = evaluateGraphFull(graphNodes, graphEdges, tick, gW, gH, groups, fullPass)
+        // Supersampling evaluates the whole graph at ss× the matrix resolution;
+        // the terminal frame is averaged back to gW×gH below (node previews ride
+        // along at the higher res, which only sharpens their thumbnails).
+        const ss = matrixSupersampleFactor(graphNodes)
+        const { frame: rendered, outputs } = evaluateGraphFull(graphNodes, graphEdges, tick, gW * ss, gH * ss, groups, fullPass)
         const evalMs = PERF_TELEMETRY ? performance.now() - evalStart : 0
-        let frame = applyMasterBrightness(rendered, graphNodes) ?? idleFrame(tick, gW, gH)
+        let frame = applyMasterBrightness(rendered, graphNodes)
+        if (frame) { if (ss > 1) frame = downscaleFrame(frame, ss) }
+        else frame = idleFrame(tick, gW, gH)
         const showStart = PERF_TELEMETRY ? performance.now() : 0
         frame = applyShowPlaybackSignal(
           frame,

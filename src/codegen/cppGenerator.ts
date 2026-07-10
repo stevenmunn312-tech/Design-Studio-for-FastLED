@@ -460,16 +460,19 @@ export function overclockDefineCpp(hw: LedHardware): string[] {
  *  player drives brightness from show events instead). */
 export function fastledSetupCpp(
   hw: LedHardware,
-  opts: { dataPinMacro?: string; clockPinMacro?: string; brightness?: number | null } = {},
+  opts: { dataPinMacro?: string; clockPinMacro?: string; brightness?: number | null; ledCountMacro?: string } = {},
 ): string[] {
   const data = opts.dataPinMacro ?? 'DATA_PIN'
   const clock = opts.clockPinMacro ?? 'CLOCK_PIN'
+  // Physical strip length — differs from the render buffer's NUM_LEDS when the
+  // sketch supersamples (renders large, then downscales into `leds`).
+  const count = opts.ledCountMacro ?? 'NUM_LEDS'
   const chip = hw.chipset === 'SK6812-RGBW' ? 'SK6812' : hw.chipset
   const rgbw = hw.chipset === 'SK6812-RGBW' ? '.setRgbw(RgbwDefault())' : ''
   const pins = SPI_CHIPSETS.has(hw.chipset) ? `${data}, ${clock}` : data
   // FastLED's NEOPIXEL alias hardcodes GRB and takes no order template arg.
   const args = chip === 'NEOPIXEL' ? `${pins}` : `${pins}, ${hw.colorOrder}`
-  const lines = [`  FastLED.addLeds<${chip}, ${args}>(leds, NUM_LEDS)${rgbw};`]
+  const lines = [`  FastLED.addLeds<${chip}, ${args}>(leds, ${count})${rgbw};`]
   const brightness = opts.brightness === undefined ? hw.brightness : opts.brightness
   if (brightness !== null) lines.push(`  FastLED.setBrightness(${brightness});`)
   if (hw.correction !== 'none') lines.push(`  FastLED.setCorrection(${hw.correction});`)
@@ -563,6 +566,16 @@ export function generateCpp(
   // Serpentine (zig-zag) matrices wire alternate rows in reverse; buffers stay
   // row-major and MatrixOutput remaps grid → physical index via XY().
   const serpentine = (outputNode ? props(outputNode).serpentine : false) === true
+  // Supersample: render every buffer at SS× the panel resolution (so WIDTH/
+  // HEIGHT/NUM_LEDS become the render size) and average each SS×SS block down
+  // into the physical `leds` (PANEL_LEDS) at MatrixOutput. 1 = off (unchanged
+  // output). 2× only for now, matching the preview.
+  const supersample = (outputNode ? props(outputNode).supersample : false) === true ? 2 : 1
+  const ss = supersample > 1
+  // Physical strip length + panel width for the XY map (differ from the render
+  // NUM_LEDS/WIDTH only when supersampling).
+  const physLeds = ss ? 'PANEL_LEDS' : 'NUM_LEDS'
+  const panelW = ss ? 'PANEL_W' : 'WIDTH'
   // Optional power cap (FastLED.setMaxPowerInVoltsAndMilliamps) — dims globally
   // to keep the PSU draw under a limit so a big matrix can't brown out the board.
   const powerLimit = (outputNode ? props(outputNode).powerLimit : false) === true
@@ -3219,9 +3232,24 @@ export function generateCpp(
 
       case 'MatrixOutput': {
         const src = srcBuf('frame')
-        if (!src) ln(`  fill_solid(leds, NUM_LEDS, CRGB::Black);`)
-        else if (serpentine) ln(`  for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) leds[XY(_x, _y)] = ${src}[_y * WIDTH + _x];`)
-        else ln(`  ::memmove(leds, ${src}, sizeof(CRGB) * NUM_LEDS);`)
+        if (!src) {
+          ln(`  fill_solid(leds, ${physLeds}, CRGB::Black);`)
+        } else if (ss) {
+          // Average each SS×SS block of the render buffer into one physical LED.
+          const dst = serpentine ? 'XY(_x, _y)' : `_y * PANEL_W + _x`
+          ln(`  for (int _y = 0; _y < PANEL_H; _y++) for (int _x = 0; _x < PANEL_W; _x++) {`)
+          ln(`    uint16_t _r = 0, _g = 0, _b = 0;`)
+          ln(`    for (int _sy = 0; _sy < SS; _sy++) for (int _sx = 0; _sx < SS; _sx++) {`)
+          ln(`      CRGB _c = ${src}[(_y * SS + _sy) * WIDTH + (_x * SS + _sx)];`)
+          ln(`      _r += _c.r; _g += _c.g; _b += _c.b;`)
+          ln(`    }`)
+          ln(`    leds[${dst}] = CRGB(_r / (SS * SS), _g / (SS * SS), _b / (SS * SS));`)
+          ln(`  }`)
+        } else if (serpentine) {
+          ln(`  for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) leds[XY(_x, _y)] = ${src}[_y * WIDTH + _x];`)
+        } else {
+          ln(`  ::memmove(leds, ${src}, sizeof(CRGB) * NUM_LEDS);`)
+        }
         ln(`  FastLED.show();`)
         break
       }
@@ -3241,13 +3269,23 @@ export function generateCpp(
   lines.push(`#include <FastLED.h>`)
   if (audio) lines.push(audio.include)
   lines.push(``)
-  lines.push(`#define WIDTH    ${width}`)
-  lines.push(`#define HEIGHT   ${height}`)
-  lines.push(`#define NUM_LEDS (WIDTH * HEIGHT)`)
+  if (ss) {
+    lines.push(`#define SS       ${supersample}          // supersample factor: render at SS×, downscale`)
+    lines.push(`#define PANEL_W  ${width}`)
+    lines.push(`#define PANEL_H  ${height}`)
+    lines.push(`#define PANEL_LEDS (PANEL_W * PANEL_H)   // physical LED count`)
+    lines.push(`#define WIDTH    (PANEL_W * SS)`)
+    lines.push(`#define HEIGHT   (PANEL_H * SS)`)
+    lines.push(`#define NUM_LEDS (WIDTH * HEIGHT)        // render-buffer resolution`)
+  } else {
+    lines.push(`#define WIDTH    ${width}`)
+    lines.push(`#define HEIGHT   ${height}`)
+    lines.push(`#define NUM_LEDS (WIDTH * HEIGHT)`)
+  }
   lines.push(`#define DATA_PIN ${dataPin}`)
   if (SPI_CHIPSETS.has(hw.chipset)) lines.push(`#define CLOCK_PIN ${hw.clockPin}`)
   lines.push(``)
-  lines.push(`CRGB leds[NUM_LEDS];`)
+  lines.push(`CRGB leds[${physLeds}];`)
   // One render buffer per frame-producing node so layers can be composited, and
   // one float buffer per field-producing node (FieldFormula …). With `usePsram`
   // these become pointers allocated in setup() (leds stays internal — see
@@ -3313,7 +3351,7 @@ export function generateCpp(
   if (serpentine) {
     lines.push(`// Serpentine (zig-zag) layout: every other row runs right-to-left.`)
     lines.push(`uint16_t XY(uint8_t x, uint8_t y) {`)
-    lines.push(`  return (y & 0x01) ? (uint16_t)y * WIDTH + (WIDTH - 1 - x) : (uint16_t)y * WIDTH + x;`)
+    lines.push(`  return (y & 0x01) ? (uint16_t)y * ${panelW} + (${panelW} - 1 - x) : (uint16_t)y * ${panelW} + x;`)
     lines.push(`}`)
     lines.push(``)
   }
@@ -3334,7 +3372,7 @@ export function generateCpp(
   lines.push(`void setup() {`)
   lines.push(...psramAllocs)
   lines.push(...pinSetupLines)
-  lines.push(...fastledSetupCpp(hw))
+  lines.push(...fastledSetupCpp(hw, ss ? { ledCountMacro: physLeds } : {}))
   if (powerLimit) lines.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${volts}, ${milliamps});`)
   if (emitEngine) lines.push(`  setupAudio();`)
   lines.push(`}`)

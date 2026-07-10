@@ -167,7 +167,7 @@ music-sync player initialise the strip identically from the MatrixOutput node.
 - [x] **`WaveSim` — 2D wave/ripple simulation** — added as a field node with a triggerable damped-ripple solver, live preview, C++ codegen, and clean composition through `FieldToFrame` / the rest of the field pipeline
 - [x] **`Path` node — parametric path drawing** — added as a Shapes & Text node with circle / heart / lissajous / rose presets, a 0–1 `t` input, and subpixel splatting in both preview and firmware codegen
 - [x] **Subpixel splatting** for Circle/Line/Particles — preview + C++ now use soft additive coverage for shape/particle float coordinates instead of hard integer snapping, so motion reads much smoother on small matrices
-- [ ] **Supersample toggle** on MatrixOutput — render at 2×, downscale by pixel averaging (FastLED `downscale`); lower priority than per-node splatting
+- [x] **Supersample toggle** on MatrixOutput — a `supersample` toggle renders the whole graph at 2× the matrix resolution and averages each 2×2 block down to one LED, in both the live preview and the generated sketch (render buffers become the 2× size; the physical `leds` strip stays native, downscaled at MatrixOutput). Applies to the normal sketch + preview; show/player generators stay native
 - [x] **ColorBoost** — added as a small composite node (`ColorBoost`) with luminance-preserving channel scaling in both preview and firmware codegen
 - [x] **4D Perlin noise** — bundled `Noise` now has a `noise4d` variant using a circular `z/t` path through `inoise16(x, y, z, t)` for seamless looping; preview mirrors the same loop with a browser-side approximation
 

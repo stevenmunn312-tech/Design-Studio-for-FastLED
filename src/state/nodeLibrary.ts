@@ -1719,6 +1719,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // Ignored (editor disabled) for clockless chipsets.
       clockPin: 6,
       serpentine: false,
+      // Render the graph at 2× the matrix resolution and average each 2×2 block
+      // down to one physical LED (FastLED-style downscale) — antialiases moving
+      // shapes on small panels at ~4× the render cost. Preview + normal sketch.
+      supersample: false,
       // FastLED.setBrightness — the global master dim (0–255; also applied to
       // the live preview so preview matches firmware).
       brightness: 200,

@@ -380,6 +380,40 @@ describe('generateCpp', () => {
     expect(cpp).toContain('::memmove(leds, buf_sc, sizeof(CRGB) * NUM_LEDS)')
   })
 
+  it('renders at 2× and downscales into leds when supersample is on', () => {
+    const out = node('out', 'MatrixOutput', 'output', { width: 16, height: 16, supersample: true })
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 1, g: 2, b: 3 })
+    const cpp = generateCpp([sc, out], [edge('e', 'sc', 'out', 'frame', 'frame')])
+    // Render buffers are the 2× resolution; the physical strip stays 16×16.
+    expect(cpp).toContain('#define SS       2')
+    expect(cpp).toContain('#define PANEL_W  16')
+    expect(cpp).toContain('#define PANEL_LEDS (PANEL_W * PANEL_H)')
+    expect(cpp).toContain('#define WIDTH    (PANEL_W * SS)')
+    expect(cpp).toContain('CRGB leds[PANEL_LEDS];')
+    expect(cpp).toContain('FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, PANEL_LEDS)')
+    // Block-average downscale into the physical LED index.
+    expect(cpp).toContain('CRGB _c = buf_sc[(_y * SS + _sy) * WIDTH + (_x * SS + _sx)];')
+    expect(cpp).toContain('leds[_y * PANEL_W + _x] = CRGB(_r / (SS * SS), _g / (SS * SS), _b / (SS * SS));')
+    expect(cpp).not.toContain('::memmove(leds,')
+  })
+
+  it('downscales through XY() when supersample and serpentine are both on', () => {
+    const out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, supersample: true, serpentine: true })
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 1, g: 2, b: 3 })
+    const cpp = generateCpp([sc, out], [edge('e', 'sc', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('return (y & 0x01) ? (uint16_t)y * PANEL_W + (PANEL_W - 1 - x) : (uint16_t)y * PANEL_W + x;')
+    expect(cpp).toContain('leds[XY(_x, _y)] = CRGB(_r / (SS * SS), _g / (SS * SS), _b / (SS * SS));')
+  })
+
+  it('leaves output unchanged when supersample is off', () => {
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 1, g: 2, b: 3 })
+    const cpp = generateCpp([sc, outputNode], [edge('e', 'sc', 'out', 'frame', 'frame')])
+    expect(cpp).not.toContain('#define SS')
+    expect(cpp).not.toContain('PANEL_')
+    expect(cpp).toContain('#define NUM_LEDS (WIDTH * HEIGHT)')
+    expect(cpp).toContain('CRGB leds[NUM_LEDS];')
+  })
+
   it('emits Fire2012 heat simulation', () => {
     const fire = node('f', 'Fire2012', 'pattern', { cooling: 55, sparking: 120 })
     const cpp = generateCpp([fire, outputNode], [])
