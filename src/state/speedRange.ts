@@ -17,6 +17,8 @@ export const SPEED_MAX: Record<string, number> = {
   // Rainbow — startHue units (0–255) per second; ~one sweep every couple seconds.
   Rainbow: 120,
   Pride2015: 1.2, Pacifica: 1,
+  // TwinkleFox — cycles per second of each pixel's independent twinkle.
+  TwinkleFox: 1,
 }
 
 /** scale `1.0` (slider max) maps to this internal scale, per node type. */

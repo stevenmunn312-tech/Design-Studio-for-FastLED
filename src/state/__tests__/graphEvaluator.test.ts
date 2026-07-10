@@ -2157,6 +2157,36 @@ describe('Pride2015 and Pacifica', () => {
     const fireFrame = frameOf('Pacifica', { speed: 0.35, scale: 0.5, palette: 'fire' }, 10)
     expect(oceanFrame).not.toEqual(fireFrame)
   })
+
+  it('TwinkleFox produces valid RGB bytes across the matrix', () => {
+    const frame = frameOf('TwinkleFox', { speed: 0.5, density: 0.5, palette: 'party' }, 30)
+    for (const row of frame) for (const px of row) {
+      for (const ch of [px.r, px.g, px.b]) {
+        expect(ch).toBeGreaterThanOrEqual(0)
+        expect(ch).toBeLessThanOrEqual(255)
+        expect(Number.isInteger(ch)).toBe(true)
+      }
+    }
+  })
+
+  it('TwinkleFox twinkles over time and responds to the connected palette', () => {
+    const a = frameOf('TwinkleFox', { speed: 0.5, density: 0.5, palette: 'party' }, 0)
+    const b = frameOf('TwinkleFox', { speed: 0.5, density: 0.5, palette: 'party' }, 90)
+    expect(a).not.toEqual(b)
+    const partyFrame = frameOf('TwinkleFox', { speed: 0.5, density: 0.5, palette: 'party' }, 10)
+    const fireFrame = frameOf('TwinkleFox', { speed: 0.5, density: 0.5, palette: 'fire' }, 10)
+    expect(partyFrame).not.toEqual(fireFrame)
+  })
+
+  it('TwinkleFox density widens coverage (more lit pixels at higher density)', () => {
+    const litCount = (props: Record<string, unknown>) =>
+      frameOf('TwinkleFox', props, 25)
+        .flat()
+        .filter(px => px.r + px.g + px.b > 30).length
+    const sparse = litCount({ speed: 0.5, density: 0.05, palette: 'party' })
+    const dense = litCount({ speed: 0.5, density: 0.95, palette: 'party' })
+    expect(dense).toBeGreaterThan(sparse)
+  })
 })
 
 // ── Saturation / RGBToHSV ─────────────────────────────────────────────────────

@@ -1221,6 +1221,29 @@ export function generateCpp(
         break
       }
 
+      // Homage to Mark Kriegsman's TwinkleFox (see the evaluator's
+      // evalTwinkleFox comment) — the same per-pixel hash + brightness cycle on
+      // both sides, so each pixel twinkles identically in preview and firmware.
+      case 'TwinkleFox': {
+        needsT.v = true
+        const ob = ownBuf()
+        const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.TwinkleFox)
+        const density = `constrain((${f('density', 'density', 0.5)}),0.0f,1.0f)`
+        const pal = paletteExpr(node.id, 'paletteIn', p)
+        ln(`  { float _spd=${speed}; float _exp=6.0f-5.0f*${density}; int _i=0;`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float _ph=sinf(_i*12.9898f)*43758.5453f; _ph=_ph-floorf(_ph);`)
+        ln(`      float _rt=sinf((_i+11)*12.9898f)*43758.5453f; _rt=0.5f+(_rt-floorf(_rt));`)
+        ln(`      float _ci=sinf((_i+23)*12.9898f)*43758.5453f; _ci=_ci-floorf(_ci);`)
+        ln(`      float _cy=fmodf(t*_spd*_rt+_ph,1.0f);`)
+        ln(`      float _tri=1.0f-fabsf(2.0f*_cy-1.0f);`)
+        ln(`      float _bri=powf(_tri,_exp);`)
+        ln(`      CRGB _px=ColorFromPalette(${pal},(uint8_t)(_ci*255.0f));`)
+        ln(`      _px.nscale8_video((uint8_t)(_bri*255.0f));`)
+        ln(`      ${ob}[_y*WIDTH+_x]=_px; _i++; } }`)
+        break
+      }
+
       case 'Fire': {
         const ob = ownBuf()
         ln(`  { // Fire pattern`)

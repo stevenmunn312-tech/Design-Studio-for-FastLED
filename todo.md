@@ -157,7 +157,7 @@ music-sync player initialise the strip identically from the MatrixOutput node.
 
 ### Missing classic `fx/` effects (pattern nodes)
 
-- [ ] **TwinkleFox** — palette-driven twinkling lights (Kriegsman classic); Generative subcategory, `palette` input; evocative homage like Pride2015/Pacifica so preview = firmware
+- [x] **TwinkleFox** — palette-driven twinkling lights (Kriegsman classic); Generative subcategory, `speed` + `palette` inputs, `density` slider (sparse sharp sparkles → most pixels lit); evocative homage like Pride2015/Pacifica (a per-pixel `twinkleHash` driving an independent brightness cycle, identical maths on preview + firmware). Not yet hardware-validated.
 - [ ] **Cylon / Scanner** — Larson scanner as a one-node pattern (width, fade, palette, orientation); composable today via Sin→Circle→Trails but iconic enough to deserve its own node
 - [ ] **Confetti** — random fading speckles (DemoReel100); small stateful node in the Fire2012 mould
 - [ ] **Juggle / Sinelon** — N sine-driven dots with trails (DemoReel100); could bundle with Confetti behind a variant property if signatures match

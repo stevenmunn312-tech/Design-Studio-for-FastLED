@@ -288,6 +288,23 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { speed: 0.35, scale: 0.5, palette: 'ocean' },
   },
   {
+    // Homage to Mark Kriegsman's TwinkleFox — palette-driven lights that each
+    // twinkle on their own deterministic schedule. Same evocative-formula
+    // approach as Pride2015/Pacifica (a per-pixel hash driving an independent
+    // brightness cycle, identical on preview and firmware), not a literal port
+    // of the original's PRNG16 walk.
+    type: 'TwinkleFox',
+    label: 'TwinkleFox',
+    category: 'pattern',
+    subcategory: 'Generative',
+    inputs: [
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 0.5, density: 0.5, palette: 'party' },
+  },
+  {
     type: 'SpectrumBars',
     label: 'Spectrum Bars',
     category: 'pattern',
@@ -1798,6 +1815,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Rainbow: 'FastLED fill_rainbow — a scrolling hue sweep across the matrix.',
   Pride2015: 'Shifting rainbow with a breathing brightness wave.',
   Pacifica: 'Layered ocean waves through a palette, with whitecap sparkle.',
+  TwinkleFox: 'Palette-driven lights that twinkle on independent schedules.',
   SpectrumBars: 'Palette-driven equalizer bars with audio-reactive motion.',
   BassPulse: 'Pulses a color with bass energy.',
   BassRings: 'Concentric rings that swell and brighten with bass.',
@@ -2224,6 +2242,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   FlowField:       { speed: N01, scale: N01 },
   Pride2015:       { speed: N01, scale: N01 },
   Pacifica:        { speed: N01, scale: N01 },
+  TwinkleFox:      { speed: N01 },
   Particles:         { rate:  { control: 'slider', min: 0, max: 1,   step: 0.01 } },
   Transform:         { rate:  { control: 'slider', min: 0, max: 360, step: 1 } },
   Counter:           { rate:  { control: 'slider', min: 0, max: 5,   step: 0.1 } },

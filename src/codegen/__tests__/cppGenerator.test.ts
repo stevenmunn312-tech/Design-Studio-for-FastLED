@@ -1518,6 +1518,16 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     expect(cpp).toContain('ColorFromPalette(OceanColors_p,(uint8_t)(_n*255.0f))')
     expect(cpp).toContain('if(_foam>0.85f)')
   })
+
+  it('TwinkleFox emits the shared per-pixel hash + twinkle cycle through the palette', () => {
+    const tf = node('tf', 'TwinkleFox', 'pattern', { speed: 0.5, density: 0.5, palette: 'party' })
+    const cpp = generateCpp([tf, outputNode], [edge('e1', 'tf', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('CRGB buf_tf[NUM_LEDS];')
+    expect(cpp).toContain('_ph=sinf(_i*12.9898f)*43758.5453f')
+    expect(cpp).toContain('float _tri=1.0f-fabsf(2.0f*_cy-1.0f);')
+    expect(cpp).toContain('ColorFromPalette(PartyColors_p,(uint8_t)(_ci*255.0f))')
+    expect(cpp).toContain('_px.nscale8_video((uint8_t)(_bri*255.0f))')
+  })
 })
 
 describe('Saturation / RGBToHSV (codegen)', () => {

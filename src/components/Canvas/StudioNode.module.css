@@ -401,6 +401,18 @@
   border-color: var(--accent-output);
 }
 
+/* Muted caption flagging an intentional preview fallback (hardware-input
+   stubs, export-only outputs) — see PREVIEW_NOTES in StudioNode.tsx. */
+.previewNote {
+  margin-top: var(--space-1);
+  font-family: var(--font-code);
+  font-size: var(--fs-caption);
+  font-style: italic;
+  line-height: 1.3;
+  color: var(--text-secondary);
+  cursor: help;
+}
+
 /* Code node — Global + Loop C++ editors in the node body. */
 .codeLabel {
   margin-top: var(--space-1);

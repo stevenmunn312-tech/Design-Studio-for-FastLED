@@ -466,6 +466,30 @@ const HANDLE_STYLE = {
 // these tags it for that show signal; keep in sync with the generator/codegen.
 const GROUP_INPUT_ROLES = ['energy', 'speed', 'palette']
 
+// Nodes whose canvas preview intentionally diverges from firmware behaviour
+// (hardware-input stubs, export-only outputs). Rendered as a muted note at the
+// bottom of the body so the fallback reads as deliberate, not broken. The
+// audio nodes surface their own state (FFTAnalyzerBody's MIC LIVE / TEST
+// SIGNAL / SILENT pill, BeatDetectBody's LIVE / PREVIEW badge).
+const PREVIEW_NOTES: Record<string, { text: string; title: string }> = {
+  ButtonInput: {
+    text: 'preview stub — always unpressed',
+    title: 'The canvas preview has no real button to read, so Pressed is always off here. The generated firmware reads the pin.',
+  },
+  PotInput: {
+    text: 'preview stub — fixed at 0.5',
+    title: 'The canvas preview has no real potentiometer to read, so Value is fixed at 0.5 here. The generated firmware reads the pin.',
+  },
+  EncoderInput: {
+    text: 'preview stub — inert',
+    title: 'The canvas preview has no real encoder to read, so Position stays 0 and Pressed off here. The generated firmware decodes the encoder.',
+  },
+  PerformanceGenerator: {
+    text: 'frame output is black — shows play via SD export',
+    title: 'The frame port is a black placeholder that lets this node terminate MatrixOutput (in preview and firmware). Generated shows play through the SD-card player export; watch one in the player above.',
+  },
+}
+
 type StudioNodeProps = NodeProps<Node<StudioNodeData>>
 
 const CATEGORY_CLASS: Record<string, string> = {
@@ -797,6 +821,12 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           updateNodeProperties={updateNodeProperties}
           setGroupInputRole={setGroupInputRole}
         />
+
+        {PREVIEW_NOTES[d.nodeType] && (
+          <div className={styles.previewNote} title={PREVIEW_NOTES[d.nodeType].title}>
+            ⓘ {PREVIEW_NOTES[d.nodeType].text}
+          </div>
+        )}
       </div>
     </div>
   )

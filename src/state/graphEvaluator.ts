@@ -564,6 +564,44 @@ function evalPacifica(speed: number, scale: number, t: number, palette: Palette,
     })
 }
 
+// Deterministic per-index hash → [0,1). Shared verbatim with the codegen so a
+// pixel twinkles identically on the preview and on hardware.
+function twinkleHash(n: number): number {
+  const s = Math.sin(n * 12.9898) * 43758.5453
+  return s - Math.floor(s)
+}
+
+// Homage to Mark Kriegsman's TwinkleFox — every pixel twinkles on its own
+// deterministic schedule, coloured from a palette. Same evocative-formula
+// approach as Pride2015/Pacifica (identical maths on both sides), not a literal
+// port of the original's PRNG16 walk. `density` blends from sparse, sharp
+// sparkles (low) to most pixels lit (high) by softening the brightness curve.
+function evalTwinkleFox(speed: number, density: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const exponent = 6 - 5 * Math.max(0, Math.min(1, density))
+  const out: Frame = []
+  let i = 0
+  for (let y = 0; y < H; y++) {
+    const row: RGB[] = []
+    for (let x = 0; x < W; x++) {
+      const phase = twinkleHash(i)
+      const rate = 0.5 + twinkleHash(i + 11)
+      const colorIdx = twinkleHash(i + 23)
+      const cycle = (t * speed * rate + phase) % 1
+      const tri = 1 - Math.abs(2 * cycle - 1)   // 0 → 1 → 0 across the cycle
+      const bri = Math.pow(tri, exponent)
+      const base = samplePalette(palette, colorIdx)
+      row.push({
+        r: Math.round(base.r * bri),
+        g: Math.round(base.g * bri),
+        b: Math.round(base.b * bri),
+      })
+      i++
+    }
+    out.push(row)
+  }
+  return out
+}
+
 function evalFire(nodeId: string, intensity: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const stored = fireHeat.get(nodeId)
   if (!stored || stored.length !== H || stored[0].length !== W) {
@@ -3212,6 +3250,14 @@ function createEvalNode(
         const scale = denormRate(num(id, 'scale', props, 'scale', 0.5), SCALE_MAX.Pacifica)
         const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
         out = { frame: evalPacifica(speed, scale, t, palette, W, H) }
+        break
+      }
+
+      case 'TwinkleFox': {
+        const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.TwinkleFox)
+        const density = num(id, 'density', props, 'density', 0.5)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'party')
+        out = { frame: evalTwinkleFox(speed, density, t, palette, W, H) }
         break
       }
 
