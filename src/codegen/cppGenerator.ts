@@ -2385,6 +2385,20 @@ export function generateCpp(
         break
       }
 
+      case 'Mirror': {
+        const ob = ownBuf()
+        const src = srcBuf('frame')
+        if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // Mirror: no input`); break }
+        const mode = String(p.mirrorMode ?? 'horizontal')
+        ln(`  { for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`    int _sx=_x,_sy=_y;`)
+        if (mode === 'horizontal' || mode === 'quad') ln(`    _sx=min(_x,WIDTH-1-_x);`)
+        if (mode === 'vertical' || mode === 'quad') ln(`    _sy=min(_y,HEIGHT-1-_y);`)
+        if (mode === 'diagonal') ln(`    if(_x>_y){_sy=min(_x,HEIGHT-1);_sx=min(_y,WIDTH-1);}`)
+        ln(`    ${ob}[_y*WIDTH+_x]=${src}[_sy*WIDTH+_sx];}}`)
+        break
+      }
+
       case 'GradientFrame': {
         const ob = ownBuf()
         const rA = Number(p.rA ?? 0), gA = Number(p.gA ?? 200), bA = Number(p.bA ?? 255)

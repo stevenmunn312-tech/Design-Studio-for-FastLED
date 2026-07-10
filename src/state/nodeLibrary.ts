@@ -841,6 +841,18 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: {},
   },
   {
+    // Reflects a frame into symmetry — `mirrorMode` picks the axis: horizontal
+    // (left→right), vertical (top→bottom), quad (4-way), or diagonal (across the
+    // main diagonal). A pure per-pixel coordinate remap; evaluator and codegen
+    // share the same source-coordinate logic. See PROPERTY_META.mirrorMode.
+    type: 'Mirror',
+    label: 'Mirror',
+    category: 'composite',
+    inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { mirrorMode: 'horizontal' },
+  },
+  {
     // Feedback/trails buffer — persists its own output across frames, fading
     // by `decay` each tick and re-lightening wherever the incoming frame is
     // brighter (per-channel max). The canonical fadeToBlackBy()-and-accumulate
@@ -2004,6 +2016,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Transform: 'Animated rotate, scale or translate of a frame.',
   Array: 'Repeats a frame N times with an accumulating offset/rotate/scale, composited.',
   Invert: 'Inverts colors.',
+  Mirror: 'Reflects the frame into symmetry — horizontal, vertical, quad or diagonal.',
   Saturation: 'Scales color saturation (0 = greyscale, 1 = unchanged).',
   ColorBoost: 'Boosts saturation while approximately preserving luminance.',
   FrameSwitch: 'Shows frame A or B, selected by a boolean.',
@@ -2173,6 +2186,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
     'scanlines', 'zoom',
   ] },
   blendMode:      { control: 'select', options: ['normal', 'multiply', 'screen', 'overlay', 'add', 'difference'] },
+  mirrorMode:     { control: 'select', options: ['horizontal', 'vertical', 'quad', 'diagonal'] },
   easeType:       { control: 'select', options: ['inOutCubic', 'inOutQuad', 'triwave', 'quadwave', 'cubicwave'] },
   fieldOp:        { control: 'select', options: ['add', 'subtract', 'multiply', 'mix', 'min', 'max', 'difference'] },
   particleType:   { control: 'select', options: [
@@ -2498,6 +2512,10 @@ const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, stri
   Blend: {
     prop: 'blendMode',
     labels: { normal: 'Blend', multiply: 'Multiply', screen: 'Screen', overlay: 'Overlay', add: 'Add', difference: 'Difference' },
+  },
+  Mirror: {
+    prop: 'mirrorMode',
+    labels: { horizontal: 'Mirror · Horizontal', vertical: 'Mirror · Vertical', quad: 'Mirror · Quad', diagonal: 'Mirror · Diagonal' },
   },
   FieldMath: {
     prop: 'fieldOp',

@@ -4267,6 +4267,21 @@ function createEvalNode(
         break
       }
 
+      case 'Mirror': {
+        const src = input(id, 'frame', null) as Frame | null
+        if (!src) { out = { frame: blankFrame(W, H) }; break }
+        const mode = String(props.mirrorMode ?? 'horizontal')
+        out = { frame: buildFrame(W, H, (x, y) => {
+          let sx = x, sy = y
+          if (mode === 'horizontal' || mode === 'quad') sx = Math.min(x, W - 1 - x)
+          if (mode === 'vertical' || mode === 'quad') sy = Math.min(y, H - 1 - y)
+          if (mode === 'diagonal' && x > y) { sy = Math.min(x, H - 1); sx = Math.min(y, W - 1) }
+          const px = src[sy][sx]
+          return { r: px.r, g: px.g, b: px.b }
+        }) }
+        break
+      }
+
       case 'GradientFrame': {
         const cA = (input(id, 'colorA', null) as RGB | null) ?? { r: Number(props.rA ?? 0), g: Number(props.gA ?? 200), b: Number(props.bA ?? 255) }
         const cB = (input(id, 'colorB', null) as RGB | null) ?? { r: Number(props.rB ?? 255), g: Number(props.gB ?? 0), b: Number(props.bB ?? 255) }
