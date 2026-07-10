@@ -1538,6 +1538,15 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     expect(cpp).toContain('float _coord=(float)_y;')
     expect(cpp).toContain('_px.nscale8_video((uint8_t)(_v*255.0f));')
   })
+
+  it('Confetti emits persistent fade-and-sprinkle palette logic', () => {
+    const cf = node('cf', 'Confetti', 'pattern', { speed: 0.45, density: 0.45, fade: 0.28, palette: 'party' })
+    const cpp = generateCpp([cf, outputNode], [edge('e1', 'cf', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('CRGB buf_cf[NUM_LEDS];')
+    expect(cpp).toContain('fadeToBlackBy(buf_cf, NUM_LEDS, (uint8_t)(_fd * 255.0f));')
+    expect(cpp).toContain('int _spawns=(int)(_den * (0.08f + _spd * 0.2142857f) * sqrtf((float)NUM_LEDS));')
+    expect(cpp).toContain('buf_cf[_i] += ColorFromPalette(PartyColors_p, random8() + _drift);')
+  })
 })
 
 describe('Saturation / RGBToHSV (codegen)', () => {

@@ -629,6 +629,46 @@ function evalScanner(
   })
 }
 
+function evalConfetti(
+  nodeId: string, speed: number, density: number, fade: number, t: number, palette: Palette,
+  W = DEFAULT_W, H = DEFAULT_H,
+): Frame {
+  let state = sparkState.get(nodeId)
+  if (!state || state.w !== W || state.h !== H) {
+    state = { frame: rawBlankFrame(W, H), w: W, h: H }
+    sparkState.set(nodeId, state)
+  }
+
+  const frame = state.frame
+  const retention = Math.max(0, Math.min(1, 1 - fade))
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const px = frame[y][x]
+      const faded = scaleRgb(px, retention)
+      px.r = faded.r; px.g = faded.g; px.b = faded.b
+    }
+  }
+
+  const area = W * H
+  const amount = clamp01(density)
+  const motion = Math.max(0, speed)
+  let spawnCount = Math.round(amount * (0.08 + motion * 0.3) * Math.max(1, Math.sqrt(area)))
+  if (spawnCount < 1 && amount * motion > 0.08) spawnCount = 1
+  const hueDrift = t * motion * 0.08
+
+  for (let i = 0; i < spawnCount; i++) {
+    const x = Math.floor(Math.random() * W)
+    const y = Math.floor(Math.random() * H)
+    const v = ((Math.random() + hueDrift) % 1 + 1) % 1
+    const spark = samplePalette(palette, v)
+    const px = frame[y][x]
+    const sum = addRgb(px, spark)
+    px.r = sum.r; px.g = sum.g; px.b = sum.b
+  }
+
+  return frame
+}
+
 function evalFire(nodeId: string, intensity: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const stored = fireHeat.get(nodeId)
   if (!stored || stored.length !== H || stored[0].length !== W) {
@@ -3295,6 +3335,15 @@ function createEvalNode(
         const axis = String(props.axis ?? 'horizontal')
         const palette = pal(id, 'paletteIn', props, 'palette', 'lava')
         out = { frame: evalScanner(speed, width, fade, axis, t, palette, W, H) }
+        break
+      }
+
+      case 'Confetti': {
+        const speed = denormRate(num(id, 'speed', props, 'speed', 0.45), SPEED_MAX.Confetti)
+        const density = num(id, 'density', props, 'density', 0.45)
+        const fade = num(id, 'fade', props, 'fade', 0.28)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'party')
+        out = { frame: evalConfetti(stateKey(id), speed, density, fade, t, palette, W, H) }
         break
       }
 

@@ -21,6 +21,8 @@ export const SPEED_MAX: Record<string, number> = {
   TwinkleFox: 1,
   // Scanner — ping-pong sweeps per second across the chosen axis.
   Scanner: 1.2,
+  // Confetti — spawn-rate multiplier for random speckles.
+  Confetti: 1.4,
 }
 
 /** scale `1.0` (slider max) maps to this internal scale, per node type. */

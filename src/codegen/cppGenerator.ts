@@ -1268,6 +1268,27 @@ export function generateCpp(
         break
       }
 
+      case 'Confetti': {
+        needsT.v = true
+        const ob = ownBuf()
+        const speed = rateCpp(f('speed', 'speed', 0.45), SPEED_MAX.Confetti)
+        const density = `constrain((${f('density', 'density', 0.45)}),0.0f,1.0f)`
+        const fade = `constrain((${f('fade', 'fade', 0.28)}),0.0f,1.0f)`
+        const pal = paletteExpr(node.id, 'paletteIn', p)
+        ln(`  {`)
+        ln(`    float _spd=${speed}, _den=${density}, _fd=${fade};`)
+        ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)(_fd * 255.0f));`)
+        ln(`    int _spawns=(int)(_den * (0.08f + _spd * 0.2142857f) * sqrtf((float)NUM_LEDS));`)
+        ln(`    if(_spawns<1 && _den * _spd > 0.08f) _spawns=1;`)
+        ln(`    uint8_t _drift=(uint8_t)(t * _spd * 14.5714f);`)
+        ln(`    for(int _s=0; _s<_spawns; _s++){`)
+        ln(`      int _i=random16(NUM_LEDS);`)
+        ln(`      ${ob}[_i] += ColorFromPalette(${pal}, random8() + _drift);`)
+        ln(`    }`)
+        ln(`  }`)
+        break
+      }
+
       case 'Fire': {
         const ob = ownBuf()
         ln(`  { // Fire pattern`)

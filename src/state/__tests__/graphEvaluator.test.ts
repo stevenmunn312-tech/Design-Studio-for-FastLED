@@ -2216,6 +2216,34 @@ describe('Pride2015 and Pacifica', () => {
     const wide = litCount({ speed: 0.45, width: 4, fade: 1, axis: 'horizontal', palette: 'lava' })
     expect(wide).toBeGreaterThan(tight)
   })
+
+  it('Confetti accumulates over time and responds to the palette', () => {
+    const confettiFrame = (id: string, props: Record<string, unknown>, tick: number) => {
+      const gen = node(id, 'Confetti', 'pattern', props)
+      const { nodes, edges } = withOutput(gen)
+      return evaluateGraph(nodes, edges, tick, W, H)!
+    }
+    const a = structuredClone(confettiFrame('confetti-a', { speed: 1, density: 1, fade: 0, palette: 'party' }, 0))
+    const b = confettiFrame('confetti-a', { speed: 1, density: 1, fade: 0, palette: 'party' }, 30)
+    expect(a).not.toEqual(b)
+    const party = confettiFrame('confetti-party', { speed: 1, density: 1, fade: 0.1, palette: 'party' }, 10)
+    const fire = confettiFrame('confetti-fire', { speed: 1, density: 1, fade: 0.1, palette: 'fire' }, 10)
+    expect(party).not.toEqual(fire)
+  })
+
+  it('Confetti fade clears the persistent buffer faster', () => {
+    const litCount = (id: string, props: Record<string, unknown>) => {
+      const gen = node(id, 'Confetti', 'pattern', props)
+      const { nodes, edges } = withOutput(gen)
+      for (let tick = 0; tick < 40; tick += 10) evaluateGraph(nodes, edges, tick, W, H)
+      return evaluateGraph(nodes, edges, 50, W, H)!
+        .flat()
+        .filter(px => px.r + px.g + px.b > 30).length
+    }
+    const lingering = litCount('confetti-lingering', { speed: 1, density: 1, fade: 0, palette: 'party' })
+    const fleeting = litCount('confetti-fleeting', { speed: 1, density: 1, fade: 0.9, palette: 'party' })
+    expect(lingering).toBeGreaterThan(fleeting)
+  })
 })
 
 // ── Saturation / RGBToHSV ─────────────────────────────────────────────────────

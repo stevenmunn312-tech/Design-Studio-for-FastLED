@@ -149,6 +149,13 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('TreblePrism', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
+  it('Confetti exposes normalized speed, palette input, and fading speckle defaults', () => {
+    const cf = NODE_LIBRARY.find((n) => n.type === 'Confetti')
+    expect(cf?.inputs.map((p) => p.id)).toEqual(['speed', 'paletteIn'])
+    expect(cf?.defaultProperties).toMatchObject({ speed: 0.45, density: 0.45, fade: 0.28, palette: 'party' })
+    expect(propertyMeta('Confetti', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+  })
+
   it('AudioCascade exposes full-spectrum audio inputs with normalized controls', () => {
     const ac = NODE_LIBRARY.find((n) => n.type === 'AudioCascade')
     expect(ac?.inputs.map((p) => p.id)).toEqual(['bass', 'mids', 'treble', 'energy', 'speed', 'paletteIn'])
