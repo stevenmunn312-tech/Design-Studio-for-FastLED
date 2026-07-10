@@ -669,6 +669,53 @@ function evalConfetti(
   return frame
 }
 
+function evalJuggle(
+  nodeId: string, speed: number, count: number, fade: number, t: number, palette: Palette,
+  W = DEFAULT_W, H = DEFAULT_H,
+): Frame {
+  let state = sparkState.get(nodeId)
+  if (!state || state.w !== W || state.h !== H) {
+    state = { frame: rawBlankFrame(W, H), w: W, h: H }
+    sparkState.set(nodeId, state)
+  }
+
+  const frame = state.frame
+  const retention = Math.max(0, Math.min(1, 1 - fade))
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const px = frame[y][x]
+      const faded = scaleRgb(px, retention)
+      px.r = faded.r; px.g = faded.g; px.b = faded.b
+    }
+  }
+
+  const dots = Math.max(1, Math.round(count))
+  const laneY = (i: number) =>
+    dots <= 1 ? Math.round((H - 1) / 2) : Math.round(((i + 0.5) * H) / dots - 0.5)
+  const addDot = (x: number, y: number, color: RGB, strength: number) => {
+    if (x < 0 || x >= W || y < 0 || y >= H || strength <= 0) return
+    const px = frame[y][x]
+    const sum = addRgb(px, scaleRgb(color, strength))
+    px.r = sum.r; px.g = sum.g; px.b = sum.b
+  }
+
+  for (let i = 0; i < dots; i++) {
+    const travel = Math.sin(t * speed * (2.5 + i * 0.35) + i * 0.9) * 0.5 + 0.5
+    const x = Math.round(travel * (W - 1))
+    const y = laneY(i)
+    const pulse = 0.75 + 0.25 * Math.sin(t * speed * 3 + i)
+    const base = samplePalette(palette, (travel * 0.35 + i / dots) % 1)
+    const dot = scaleRgb(base, pulse)
+    addDot(x, y, dot, 1)
+    addDot(x - 1, y, dot, 0.35)
+    addDot(x + 1, y, dot, 0.35)
+    addDot(x, y - 1, dot, 0.18)
+    addDot(x, y + 1, dot, 0.18)
+  }
+
+  return frame
+}
+
 function evalFire(nodeId: string, intensity: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const stored = fireHeat.get(nodeId)
   if (!stored || stored.length !== H || stored[0].length !== W) {
@@ -3344,6 +3391,15 @@ function createEvalNode(
         const fade = num(id, 'fade', props, 'fade', 0.28)
         const palette = pal(id, 'paletteIn', props, 'palette', 'party')
         out = { frame: evalConfetti(stateKey(id), speed, density, fade, t, palette, W, H) }
+        break
+      }
+
+      case 'Juggle': {
+        const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.Juggle)
+        const count = Number(props.count ?? 4)
+        const fade = num(id, 'fade', props, 'fade', 0.22)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
+        out = { frame: evalJuggle(stateKey(id), speed, count, fade, t, palette, W, H) }
         break
       }
 

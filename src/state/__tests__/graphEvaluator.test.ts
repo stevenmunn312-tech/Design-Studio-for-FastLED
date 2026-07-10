@@ -2244,6 +2244,34 @@ describe('Pride2015 and Pacifica', () => {
     const fleeting = litCount('confetti-fleeting', { speed: 1, density: 1, fade: 0.9, palette: 'party' })
     expect(lingering).toBeGreaterThan(fleeting)
   })
+
+  it('Juggle accumulates over time and responds to the palette', () => {
+    const juggleFrame = (id: string, props: Record<string, unknown>, tick: number) => {
+      const gen = node(id, 'Juggle', 'pattern', props)
+      const { nodes, edges } = withOutput(gen)
+      return evaluateGraph(nodes, edges, tick, W, H)!
+    }
+    const a = structuredClone(juggleFrame('juggle-a', { speed: 1, count: 4, fade: 0.1, palette: 'rainbow' }, 0))
+    const b = juggleFrame('juggle-a', { speed: 1, count: 4, fade: 0.1, palette: 'rainbow' }, 30)
+    expect(a).not.toEqual(b)
+    const rainbow = juggleFrame('juggle-rainbow', { speed: 1, count: 4, fade: 0.1, palette: 'rainbow' }, 20)
+    const lava = juggleFrame('juggle-lava', { speed: 1, count: 4, fade: 0.1, palette: 'lava' }, 20)
+    expect(rainbow).not.toEqual(lava)
+  })
+
+  it('Juggle count widens the lit coverage; count 1 covers the Sinelon case', () => {
+    const litCount = (id: string, props: Record<string, unknown>) => {
+      const gen = node(id, 'Juggle', 'pattern', props)
+      const { nodes, edges } = withOutput(gen)
+      for (let tick = 0; tick < 50; tick += 10) evaluateGraph(nodes, edges, tick, W, H)
+      return evaluateGraph(nodes, edges, 60, W, H)!
+        .flat()
+        .filter(px => px.r + px.g + px.b > 30).length
+    }
+    const sinelonish = litCount('juggle-one', { speed: 1, count: 1, fade: 0.12, palette: 'rainbow' })
+    const juggling = litCount('juggle-four', { speed: 1, count: 4, fade: 0.12, palette: 'rainbow' })
+    expect(juggling).toBeGreaterThan(sinelonish)
+  })
 })
 
 // ── Saturation / RGBToHSV ─────────────────────────────────────────────────────

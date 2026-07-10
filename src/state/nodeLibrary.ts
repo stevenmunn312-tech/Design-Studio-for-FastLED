@@ -333,6 +333,20 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { speed: 0.45, density: 0.45, fade: 0.28, palette: 'party' },
   },
   {
+    // DemoReel-style juggling dots — multiple sine-driven palette dots on a
+    // fading persistent buffer. `count = 1` gives the Sinelon-style case.
+    type: 'Juggle',
+    label: 'Juggle',
+    category: 'pattern',
+    subcategory: 'Generative',
+    inputs: [
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 0.5, count: 4, fade: 0.22, palette: 'rainbow' },
+  },
+  {
     type: 'SpectrumBars',
     label: 'Spectrum Bars',
     category: 'pattern',
@@ -1846,6 +1860,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   TwinkleFox: 'Palette-driven lights that twinkle on independent schedules.',
   Scanner: 'Larson scanner / Cylon eye — a palette beam with adjustable width and fade.',
   Confetti: 'Random fading palette speckles on a persistent frame buffer.',
+  Juggle: 'N sine-driven dots with trails; count 1 gives the Sinelon case.',
   SpectrumBars: 'Palette-driven equalizer bars with audio-reactive motion.',
   BassPulse: 'Pulses a color with bass energy.',
   BassRings: 'Concentric rings that swell and brighten with bass.',
@@ -2278,6 +2293,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     width: { control: 'slider', min: 1, max: 16, step: 1 },
   },
   Confetti:        { speed: N01 },
+  Juggle:          {
+    speed: N01,
+    count: { control: 'slider', min: 1, max: 8, step: 1 },
+  },
   Particles:         { rate:  { control: 'slider', min: 0, max: 1,   step: 0.01 } },
   Transform:         { rate:  { control: 'slider', min: 0, max: 360, step: 1 } },
   Counter:           { rate:  { control: 'slider', min: 0, max: 5,   step: 0.1 } },

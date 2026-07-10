@@ -1289,6 +1289,34 @@ export function generateCpp(
         break
       }
 
+      case 'Juggle': {
+        needsT.v = true
+        const ob = ownBuf()
+        const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.Juggle)
+        const dots = Math.max(1, Math.round(Number(p.count ?? 4)))
+        const fade = `constrain((${f('fade', 'fade', 0.22)}),0.0f,1.0f)`
+        const pal = paletteExpr(node.id, 'paletteIn', p)
+        ln(`  {`)
+        ln(`    float _spd=${speed}, _fd=${fade};`)
+        ln(`    const int _dots=${dots};`)
+        ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)(_fd * 255.0f));`)
+        ln(`    for(int _d=0; _d<_dots; _d++){`)
+        ln(`      float _travel=sinf(t*_spd*(2.5f+_d*0.35f)+_d*0.9f)*0.5f+0.5f;`)
+        ln(`      int _x=(int)roundf(_travel*(WIDTH-1));`)
+        ln(`      int _y=_dots<=1 ? (int)roundf((HEIGHT-1)*0.5f) : (int)roundf(((_d+0.5f)*HEIGHT)/(float)_dots-0.5f);`)
+        ln(`      float _pulse=0.75f+0.25f*sinf(t*_spd*3.0f+_d);`)
+        ln(`      CRGB _dot=ColorFromPalette(${pal}, (uint8_t)fmodf((_travel*0.35f+_d/(float)_dots)*255.0f, 255.0f));`)
+        ln(`      _dot.nscale8_video((uint8_t)(_pulse*255.0f));`)
+        ln(`      int _i=_y*WIDTH+_x; ${ob}[_i]+=_dot;`)
+        ln(`      CRGB _edge=_dot; _edge.nscale8_video(89);`)
+        ln(`      if(_x>0) ${ob}[_i-1]+=_edge; if(_x+1<WIDTH) ${ob}[_i+1]+=_edge;`)
+        ln(`      CRGB _vert=_dot; _vert.nscale8_video(46);`)
+        ln(`      if(_y>0) ${ob}[_i-WIDTH]+=_vert; if(_y+1<HEIGHT) ${ob}[_i+WIDTH]+=_vert;`)
+        ln(`    }`)
+        ln(`  }`)
+        break
+      }
+
       case 'Fire': {
         const ob = ownBuf()
         ln(`  { // Fire pattern`)

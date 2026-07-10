@@ -1547,6 +1547,16 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     expect(cpp).toContain('int _spawns=(int)(_den * (0.08f + _spd * 0.2142857f) * sqrtf((float)NUM_LEDS));')
     expect(cpp).toContain('buf_cf[_i] += ColorFromPalette(PartyColors_p, random8() + _drift);')
   })
+
+  it('Juggle emits fading multi-dot palette motion and supports the Sinelon count=1 case', () => {
+    const jg = node('jg', 'Juggle', 'pattern', { speed: 0.5, count: 1, fade: 0.22, palette: 'rainbow' })
+    const cpp = generateCpp([jg, outputNode], [edge('e1', 'jg', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('CRGB buf_jg[NUM_LEDS];')
+    expect(cpp).toContain('const int _dots=1;')
+    expect(cpp).toContain('fadeToBlackBy(buf_jg, NUM_LEDS, (uint8_t)(_fd * 255.0f));')
+    expect(cpp).toContain('float _travel=sinf(t*_spd*(2.5f+_d*0.35f)+_d*0.9f)*0.5f+0.5f;')
+    expect(cpp).toContain('ColorFromPalette(RainbowColors_p, (uint8_t)fmodf((_travel*0.35f+_d/(float)_dots)*255.0f, 255.0f));')
+  })
 })
 
 describe('Saturation / RGBToHSV (codegen)', () => {

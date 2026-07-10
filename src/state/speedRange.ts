@@ -23,6 +23,8 @@ export const SPEED_MAX: Record<string, number> = {
   Scanner: 1.2,
   // Confetti — spawn-rate multiplier for random speckles.
   Confetti: 1.4,
+  // Juggle — sweep rate for the dot phases.
+  Juggle: 1.2,
 }
 
 /** scale `1.0` (slider max) maps to this internal scale, per node type. */

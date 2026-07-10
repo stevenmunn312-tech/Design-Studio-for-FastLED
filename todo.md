@@ -160,7 +160,7 @@ music-sync player initialise the strip identically from the MatrixOutput node.
 - [x] **TwinkleFox** — palette-driven twinkling lights (Kriegsman classic); Generative subcategory, `speed` + `palette` inputs, `density` slider (sparse sharp sparkles → most pixels lit); evocative homage like Pride2015/Pacifica (a per-pixel `twinkleHash` driving an independent brightness cycle, identical maths on preview + firmware). Not yet hardware-validated.
 - [x] **Cylon / Scanner** — Larson scanner as a one-node pattern (`Scanner`: width, fade, palette, horizontal/vertical axis); live preview + firmware codegen land together so the beam sweeps identically in Studio and on hardware
 - [x] **Confetti** — random fading speckles (`Confetti`: palette-driven speckles on a persistent buffer with `speed`, `density`, and `fade`); live preview + firmware codegen now mirror the same fade-and-sprinkle structure
-- [ ] **Juggle / Sinelon** — N sine-driven dots with trails (DemoReel100); could bundle with Confetti behind a variant property if signatures match
+- [x] **Juggle / Sinelon** — `Juggle` now renders N sine-driven palette dots on a persistent trail buffer; `count = 1` covers the Sinelon case, and preview + firmware codegen share the same fade-and-sweep structure
 
 ### Bigger features
 

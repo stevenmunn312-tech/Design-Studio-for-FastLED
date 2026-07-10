@@ -156,6 +156,14 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('Confetti', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
+  it('Juggle exposes normalized speed, palette input, and a bounded dot count', () => {
+    const jg = NODE_LIBRARY.find((n) => n.type === 'Juggle')
+    expect(jg?.inputs.map((p) => p.id)).toEqual(['speed', 'paletteIn'])
+    expect(jg?.defaultProperties).toMatchObject({ speed: 0.5, count: 4, fade: 0.22, palette: 'rainbow' })
+    expect(propertyMeta('Juggle', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+    expect(propertyMeta('Juggle', 'count')).toMatchObject({ control: 'slider', min: 1, max: 8 })
+  })
+
   it('AudioCascade exposes full-spectrum audio inputs with normalized controls', () => {
     const ac = NODE_LIBRARY.find((n) => n.type === 'AudioCascade')
     expect(ac?.inputs.map((p) => p.id)).toEqual(['bass', 'mids', 'treble', 'energy', 'speed', 'paletteIn'])
