@@ -60,6 +60,9 @@ const rdState = new Map<string, RDState>()
 interface GolState { cells: Uint8Array; next: Uint8Array; bright: Float32Array; w: number; h: number; lastStep: number; stale: number }
 const golState = new Map<string, GolState>()
 
+interface WaveSimState { prev: Float32Array; cur: Float32Array; next: Float32Array; w: number; h: number; prevTrigger: boolean; pulse: number }
+const waveSimState = new Map<string, WaveSimState>()
+
 interface FlowState { px: Float32Array; py: Float32Array; trail: Float32Array; w: number; h: number }
 const flowState = new Map<string, FlowState>()
 
@@ -224,7 +227,7 @@ export function pruneEvaluatorState(maxIdleMs = STATE_IDLE_TTL_MS, now = stateCl
     fireHeat, flashLevel, counterVals, intervalLast, smoothState, holdState,
     envState, trailState, fftLevels, beatLevels,
     percussionLevels, audioFeatureLevels, particleState, patternShowState,
-    rdState, golState, flowState, starState, sparkState, fire2012Heat,
+    rdState, golState, waveSimState, flowState, starState, sparkState, fire2012Heat,
     codeLeds, codeError,
     kickShockState, kaleidoPunch, percussionBlobsState, emberBurst,
     rainRipplesState, prismOrientation,
@@ -484,6 +487,22 @@ function splatDisc(frame: Frame, x: number, y: number, radius: number, color: RG
     for (let px = x0; px <= x1; px++) {
       const dist = Math.hypot((px + 0.5) - x, (py + 0.5) - y)
       const coverage = clamp01(radius + 0.5 - dist)
+      if (coverage <= 0) continue
+      frame[py][px] = addRgb(frame[py][px], scaleRgb(color, coverage))
+    }
+  }
+}
+
+function splatRing(frame: Frame, x: number, y: number, radius: number, color: RGB): void {
+  const H = frame.length, W = frame[0]?.length ?? 0
+  const x0 = Math.max(0, Math.floor(x - radius - 1.5))
+  const x1 = Math.min(W - 1, Math.ceil(x + radius + 1.5))
+  const y0 = Math.max(0, Math.floor(y - radius - 1.5))
+  const y1 = Math.min(H - 1, Math.ceil(y + radius + 1.5))
+  for (let py = y0; py <= y1; py++) {
+    for (let px = x0; px <= x1; px++) {
+      const dist = Math.hypot((px + 0.5) - x, (py + 0.5) - y)
+      const coverage = clamp01(0.5 - Math.abs(dist - radius))
       if (coverage <= 0) continue
       frame[py][px] = addRgb(frame[py][px], scaleRgb(color, coverage))
     }
@@ -1658,27 +1677,11 @@ function evalParticles(nodeId: string, mode: string, rate: number, color: RGB, d
   // size (see particleScale.ts) so a spark reads at roughly the same visual
   // size on a 64x64 panel as on the reference 16x16 one, instead of shrinking
   // to a single near-invisible pixel.
-  const radius = particleRadius(W, H)
+  const radius = Math.max(0.5, particleRadius(W, H))
   for (const p of particles) {
-    const px = Math.round(p.x), py = Math.round(p.y)
     const k = Math.min(1, p.life)
     const cr = perParticle ? p.r : color.r, cg = perParticle ? p.g : color.g, cb = perParticle ? p.b : color.b
-    for (let dy = -radius; dy <= radius; dy++) {
-      const y = py + dy
-      if (y < 0 || y >= H) continue
-      for (let dx = -radius; dx <= radius; dx++) {
-        const x = px + dx
-        if (x < 0 || x >= W) continue
-        const dist = Math.hypot(dx, dy)
-        const falloff = 1 - dist / (radius + 1)
-        if (falloff <= 0) continue
-        const kk = k * falloff
-        const cur = frame[y][x]
-        cur.r = Math.min(255, cur.r + Math.round(cr * kk))
-        cur.g = Math.min(255, cur.g + Math.round(cg * kk))
-        cur.b = Math.min(255, cur.b + Math.round(cb * kk))
-      }
-    }
+    splatDisc(frame, p.x, p.y, radius, scaleRgb({ r: cr, g: cg, b: cb }, k))
   }
   return frame
 }
@@ -2615,6 +2618,85 @@ function evalFieldFormula(formula: string, a: number, b: number, fieldIn: Field 
   return out
 }
 
+const WAVE_SIM_POINTS: ReadonlyArray<readonly [number, number]> = [
+  [0.5, 0.5],
+  [0.26, 0.34],
+  [0.74, 0.4],
+  [0.34, 0.76],
+  [0.7, 0.7],
+]
+
+function injectWaveSimRipple(field: Float32Array, pulse: number, impulse: number, W: number, H: number): void {
+  const [px, py] = WAVE_SIM_POINTS[pulse % WAVE_SIM_POINTS.length]
+  const cx = px * (W - 1), cy = py * (H - 1)
+  const radius = Math.max(1.5, Math.min(W, H) * 0.12)
+  const x0 = Math.max(0, Math.floor(cx - radius - 1))
+  const x1 = Math.min(W - 1, Math.ceil(cx + radius + 1))
+  const y0 = Math.max(0, Math.floor(cy - radius - 1))
+  const y1 = Math.min(H - 1, Math.ceil(cy + radius + 1))
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const dist = Math.hypot(x - cx, y - cy)
+      const falloff = Math.max(0, 1 - dist / radius)
+      if (falloff <= 0) continue
+      const i = y * W + x
+      field[i] = Math.max(-1, Math.min(1, field[i] + impulse * falloff * falloff))
+    }
+  }
+}
+
+function evalWaveSim(nodeId: string, trigger: boolean, speed: number, damping: number, impulse: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+  const N = W * H
+  let s = waveSimState.get(nodeId)
+  if (!s || s.w !== W || s.h !== H) {
+    s = {
+      prev: new Float32Array(N),
+      cur: new Float32Array(N),
+      next: new Float32Array(N),
+      w: W,
+      h: H,
+      prevTrigger: false,
+      pulse: 1,
+    }
+    injectWaveSimRipple(s.cur, 0, impulse, W, H)
+    waveSimState.set(nodeId, s)
+  }
+
+  if (trigger && !s.prevTrigger) {
+    injectWaveSimRipple(s.cur, s.pulse, impulse, W, H)
+    s.pulse++
+  }
+  s.prevTrigger = trigger
+
+  const iters = Math.max(1, Math.min(12, Math.floor(speed)))
+  const damp = Math.max(0.8, Math.min(0.999, damping))
+  for (let it = 0; it < iters; it++) {
+    for (let y = 0; y < H; y++) {
+      const ym = ((y - 1 + H) % H) * W, yp = ((y + 1) % H) * W, yr = y * W
+      for (let x = 0; x < W; x++) {
+        const xm = (x - 1 + W) % W, xp = (x + 1) % W, i = yr + x
+        const neighbourAvg = (s.cur[ym + x] + s.cur[yp + x] + s.cur[yr + xm] + s.cur[yr + xp]) * 0.5
+        s.next[i] = Math.max(-1, Math.min(1, (neighbourAvg - s.prev[i]) * damp))
+      }
+    }
+    const swap = s.prev
+    s.prev = s.cur
+    s.cur = s.next
+    s.next = swap
+  }
+
+  let peak = 0
+  for (let i = 0; i < N; i++) peak = Math.max(peak, Math.abs(s.cur[i]))
+  if (peak < 0.002) {
+    injectWaveSimRipple(s.cur, s.pulse, impulse * 0.6, W, H)
+    s.pulse++
+  }
+
+  const out = allocField(N)
+  for (let i = 0; i < N; i++) out[i] = Math.max(0, Math.min(1, Math.abs(s.cur[i]) * 1.5))
+  return out
+}
+
 function evalFieldToFrame(field: Field | null, palette: Palette, brightness: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const bv = Math.max(0, Math.min(1, brightness))
   const b8 = (v: number) => Math.max(0, Math.min(255, Math.round(v * bv)))
@@ -3386,11 +3468,8 @@ function createEvalNode(
         const cx = Number(props.cx ?? W / 2), cy = Number(props.cy ?? H / 2)
         const rad = Number(props.radius ?? 4)
         const filled = Boolean(props.filled)
-        for (let y = 0; y < H; y++)
-          for (let x = 0; x < W; x++) {
-            const d = Math.hypot(x - cx, y - cy)
-            if (filled ? d <= rad + 0.5 : Math.abs(d - rad) < 0.5) frame[y][x] = { ...color }
-          }
+        if (filled) splatDisc(frame, cx, cy, rad, color)
+        else splatRing(frame, cx, cy, rad, color)
         out = { frame }
         break
       }
@@ -3404,17 +3483,13 @@ function createEvalNode(
           g: byte(Number(props.g ?? 200) / 255),
           b: byte(Number(props.b ?? 255) / 255),
         }
-        let x0 = Math.round(Number(props.x1 ?? 0)), y0 = Math.round(Number(props.y1 ?? 0))
-        const x1 = Math.round(Number(props.x2 ?? 0)), y1 = Math.round(Number(props.y2 ?? 0))
-        const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0)
-        const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1
-        let err = dx + dy
-        for (;;) {
-          if (x0 >= 0 && x0 < W && y0 >= 0 && y0 < H) frame[y0][x0] = { ...color }
-          if (x0 === x1 && y0 === y1) break
-          const e2 = 2 * err
-          if (e2 >= dy) { err += dy; x0 += sx }
-          if (e2 <= dx) { err += dx; y0 += sy }
+        const x0 = Number(props.x1 ?? 0), y0 = Number(props.y1 ?? 0)
+        const x1 = Number(props.x2 ?? 0), y1 = Number(props.y2 ?? 0)
+        const len = Math.hypot(x1 - x0, y1 - y0)
+        const steps = Math.max(1, Math.ceil(len * 2))
+        for (let i = 0; i <= steps; i++) {
+          const u = i / steps
+          splatDisc(frame, x0 + (x1 - x0) * u, y0 + (y1 - y0) * u, 0.5, color)
         }
         out = { frame }
         break
@@ -4384,6 +4459,15 @@ function createEvalNode(
         const scale   = denormRate(num(id, 'scale', props, 'scale', 0.3), SCALE_MAX.FieldNoise)
         const octaves = Number(props.octaves ?? 4)
         out = { field: evalFieldNoise(speed, scale, octaves, t, W, H) }
+        break
+      }
+
+      case 'WaveSim': {
+        const trigger = Boolean(input(id, 'trigger', false))
+        const speed = Number(props.speed ?? 4)
+        const damping = Number(props.damping ?? 0.985)
+        const impulse = Number(props.impulse ?? 1)
+        out = { field: evalWaveSim(stateKey(id), trigger, speed, damping, impulse, W, H) }
         break
       }
 

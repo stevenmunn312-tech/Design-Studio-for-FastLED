@@ -164,9 +164,9 @@ music-sync player initialise the strip identically from the MatrixOutput node.
 
 ### Bigger features
 
-- [ ] **`WaveSim` — 2D wave/ripple simulation** (FastLED 3.9/3.10's flagship `fxWave2d`) — Simulations subcategory next to ReactionDiffusion/GameOfLife; best as a **field-pipeline citizen**: `trigger` bool input (BeatDetect → beat-driven ripples) outputting a `field` so it composes with FieldMath/FieldToFrame
+- [x] **`WaveSim` — 2D wave/ripple simulation** — added as a field node with a triggerable damped-ripple solver, live preview, C++ codegen, and clean composition through `FieldToFrame` / the rest of the field pipeline
 - [x] **`Path` node — parametric path drawing** — added as a Shapes & Text node with circle / heart / lissajous / rose presets, a 0–1 `t` input, and subpixel splatting in both preview and firmware codegen
-- [ ] **Subpixel splatting** for Circle/Line/Particles — FastLED renders float coordinates by splatting brightness across a 2×2 tile; would fix visible stair-stepping at 16×16 in both preview and firmware
+- [x] **Subpixel splatting** for Circle/Line/Particles — preview + C++ now use soft additive coverage for shape/particle float coordinates instead of hard integer snapping, so motion reads much smoother on small matrices
 - [ ] **Supersample toggle** on MatrixOutput — render at 2×, downscale by pixel averaging (FastLED `downscale`); lower priority than per-node splatting
 - [x] **ColorBoost** — added as a small composite node (`ColorBoost`) with luminance-preserving channel scaling in both preview and firmware codegen
 - [x] **4D Perlin noise** — bundled `Noise` now has a `noise4d` variant using a circular `z/t` path through `inoise16(x, y, z, t)` for seamless looping; preview mirrors the same loop with a browser-side approximation

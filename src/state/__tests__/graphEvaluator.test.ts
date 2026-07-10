@@ -662,16 +662,25 @@ describe('evaluateGraph', () => {
     const out = node('out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([c, out], [edge('e', 'c', 'frame', 'out', 'frame')], 0, 9, 9)
     expect(frame![4][4]).toEqual({ r: 0, g: 0, b: 0 })     // hollow center
-    expect(frame![4][1]).toEqual({ r: 255, g: 0, b: 0 })   // on the ring (d=3)
+    expect(frame![4][1].r).toBeGreaterThan(0)              // soft ring coverage
   })
 
   it('Line draws a diagonal between its endpoints', () => {
     const l = node('l', 'Line', 'pattern', { x1: 0, y1: 0, x2: 3, y2: 3, r: 0, g: 255, b: 0 })
     const out = node('out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([l, out], [edge('e', 'l', 'frame', 'out', 'frame')], 0, 4, 4)
-    expect(frame![0][0]).toEqual({ r: 0, g: 255, b: 0 })
-    expect(frame![3][3]).toEqual({ r: 0, g: 255, b: 0 })
+    expect(frame![0][0].g).toBeGreaterThan(0)
+    expect(frame![3][3].g).toBeGreaterThan(0)
     expect(frame![0][3]).toEqual({ r: 0, g: 0, b: 0 })     // off the diagonal
+  })
+
+  it('Line splats fractional coverage across adjacent pixels', () => {
+    const l = node('l', 'Line', 'pattern', { x1: 1, y1: 0, x2: 1, y2: 3, r: 0, g: 255, b: 0 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph([l, out], [edge('e', 'l', 'frame', 'out', 'frame')], 0, 4, 4)
+    expect(frame![1][0].g).toBeGreaterThan(0)
+    expect(frame![1][1].g).toBeGreaterThan(0)
+    expect(frame![1][2]).toEqual({ r: 0, g: 0, b: 0 })
   })
 
   it('Path traces a smooth moving point around its selected curve', () => {
@@ -1832,6 +1841,23 @@ describe('Float Field pipeline', () => {
     )
     const fld = outputs.get('b')!.field as Float32Array
     expect([...fld].every((v) => Math.abs(v - 0.8) < 1e-6)).toBe(true)
+  })
+
+  it('WaveSim emits a live ripple field and evolves after a trigger', () => {
+    const trig = node('tr', 'Math', 'math', { mathOp: 'add', a: 1, b: 0 })
+    const ws = node('ws', 'WaveSim', 'field', { speed: 4, damping: 0.985, impulse: 1 })
+    const f2f = node('f2f', 'FieldToFrame', 'pattern', { palette: 'ocean', brightness: 1 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const nodes = [trig, ws, f2f, out]
+    const edges = [
+      edge('e1', 'tr', 'result', 'ws', 'trigger'),
+      edge('e2', 'ws', 'field', 'f2f', 'field'),
+      edge('e3', 'f2f', 'frame', 'out', 'frame'),
+    ]
+    const first = evaluateGraph(nodes, edges, 0, W, H)!
+    const later = evaluateGraph(nodes, edges, 8, W, H)!
+    expect(first.flat().some((px) => px.r + px.g + px.b > 0)).toBe(true)
+    expect(JSON.stringify(later)).not.toEqual(JSON.stringify(first))
   })
 })
 

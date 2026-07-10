@@ -845,18 +845,21 @@ describe('generateCpp', () => {
     expect(cpp).toContain('n_t_color = kelvinToRGB(3000)')
   })
 
-  it('emits a Circle distance test', () => {
+  it('emits a Circle subpixel coverage loop', () => {
     const c = node('c', 'Circle', 'pattern', { cx: 4, cy: 4, radius: 3, filled: false, r: 255, g: 0, b: 0 })
     const cpp = generateCpp([c, outputNode], [edge('e', 'c', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('sqrtf((_x - 4) * (_x - 4) + (_y - 4) * (_y - 4))')
-    expect(cpp).toContain('fabsf(_d - 3) < 0.5f')
+    expect(cpp).toContain('float _dx = (_x + 0.5f) - 4')
+    expect(cpp).toContain('constrain(0.5f - fabsf(_d - 3), 0.0f, 1.0f)')
+    expect(cpp).toContain('_add.nscale8((uint8_t)(_cov * 255.0f));')
     expect(cpp).toContain('CRGB(255, 0, 0)')
   })
 
-  it('emits a Bresenham loop for a Line', () => {
+  it('emits a sampled subpixel loop for a Line', () => {
     const l = node('l', 'Line', 'pattern', { x1: 0, y1: 0, x2: 7, y2: 7, r: 0, g: 200, b: 255 })
     const cpp = generateCpp([l, outputNode], [edge('e', 'l', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('int _x0 = 0, _y0 = 0, _dx = abs(7 - _x0)')
+    expect(cpp).toContain('float _len = sqrtf((_x1 - _x0) * (_x1 - _x0) + (_y1 - _y0) * (_y1 - _y0));')
+    expect(cpp).toContain('int _steps = max(1, (int)ceilf(_len * 2.0f));')
+    expect(cpp).toContain('float _cov = constrain(_rad + 0.5f - sqrtf(_dx * _dx + _dy * _dy), 0.0f, 1.0f);')
     expect(cpp).toContain('CRGB(0, 200, 255)')
   })
 
@@ -1052,6 +1055,25 @@ describe('Float Field codegen', () => {
     const cpp = generateCpp([f2f, outputNode], [edge('e2', 'f2f', 'out', 'frame', 'frame')])
     expect(cpp).toContain('fill_solid(buf_f2f, NUM_LEDS, CRGB::Black)')
   })
+
+  it('WaveSim emits a persistent damped ripple field with trigger edge detection', () => {
+    const trig = node('tr', 'Math', 'math', { mathOp: 'add', a: 1, b: 0 })
+    const ws = node('ws', 'WaveSim', 'field', { speed: 4, damping: 0.985, impulse: 1 })
+    const f2f = node('f2f', 'FieldToFrame', 'pattern', { palette: 'ocean', brightness: 1 })
+    const cpp = generateCpp(
+      [trig, ws, f2f, outputNode],
+      [
+        edge('e1', 'tr', 'ws', 'result', 'trigger'),
+        edge('e2', 'ws', 'f2f', 'field', 'field'),
+        edge('e3', 'f2f', 'out', 'frame', 'frame'),
+      ],
+    )
+    expect(cpp).toContain('// WaveSim')
+    expect(cpp).toContain('static float _ws_wsp[NUM_LEDS], _ws_wsc[NUM_LEDS], _ws_wsn[NUM_LEDS];')
+    expect(cpp).toContain('bool _tr=(n_tr_result);')
+    expect(cpp).toContain('fabsf(_ws_wsc[_i])')
+    expect(cpp).toContain('field_ws[_i]=constrain(')
+  })
 })
 
 describe('Float Field — Phase 2 codegen', () => {
@@ -1157,9 +1179,17 @@ describe('generateCpp — Particles modes', () => {
       expect(cpp).toContain(`// Particles: ${m}`)
       expect(cpp).toContain('_PN=')
       // additive render of every live particle at its life brightness
-      expect(cpp).toContain('buf_pp[Yy*WIDTH+Xx]+=CRGB(')
+      expect(cpp).toContain('float _k=min(1.0f,_pa_ppl[i]), _sx=_pa_ppx[i], _sy=_pa_ppy[i];')
+      expect(cpp).toContain('float _cov=constrain(')
+      expect(cpp).toContain('buf_pp[_y*WIDTH+_x]+=_add;')
     })
   }
+
+  it('particles render from float centres instead of rounded integer pixels', () => {
+    const cpp = gen('fountain')
+    expect(cpp).not.toContain('int X=(int)(_pa_ppx[i]+0.5f), Y=(int)(_pa_ppy[i]+0.5f);')
+    expect(cpp).toContain('float _dx=(_x+0.5f)-_sx,_dy=(_y+0.5f)-_sy;')
+  })
 
   it('swarm uses a smaller pool and a flocking (boids) step', () => {
     const cpp = gen('swarm')

@@ -1042,13 +1042,14 @@ export function generateCpp(
           ? colorExpr(node.id, 'color')
           : `CRGB(${Number(p.r ?? 255)}, ${Number(p.g ?? 0)}, ${Number(p.b ?? 128)})`
         const cx = Number(p.cx ?? 8), cy = Number(p.cy ?? 8), rad = Number(p.radius ?? 4)
-        const test = p.filled
-          ? `_d <= ${rad} + 0.5f`
-          : `fabsf(_d - ${rad}) < 0.5f`
         ln(`  { ${seedFrom('base')}`)
-        ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
-        ln(`      float _d = sqrtf((_x - ${cx}) * (_x - ${cx}) + (_y - ${cy}) * (_y - ${cy}));`)
-        ln(`      if (${test}) ${ob}[_y * WIDTH + _x] = ${colorE}; } }`)
+        ln(`    int _x0 = max(0, (int)floorf(${cx} - ${rad} - 1.5f)), _x1 = min(WIDTH - 1, (int)ceilf(${cx} + ${rad} + 1.5f));`)
+        ln(`    int _y0 = max(0, (int)floorf(${cy} - ${rad} - 1.5f)), _y1 = min(HEIGHT - 1, (int)ceilf(${cy} + ${rad} + 1.5f));`)
+        ln(`    for (int _y = _y0; _y <= _y1; _y++) for (int _x = _x0; _x <= _x1; _x++) {`)
+        ln(`      float _dx = (_x + 0.5f) - ${cx}, _dy = (_y + 0.5f) - ${cy}, _d = sqrtf(_dx * _dx + _dy * _dy);`)
+        if (p.filled) ln(`      float _cov = constrain(${rad} + 0.5f - _d, 0.0f, 1.0f);`)
+        else ln(`      float _cov = constrain(0.5f - fabsf(_d - ${rad}), 0.0f, 1.0f);`)
+        ln(`      if (_cov <= 0.0f) continue; CRGB _add = ${colorE}; _add.nscale8((uint8_t)(_cov * 255.0f)); ${ob}[_y * WIDTH + _x] += _add; } }`)
         break
       }
 
@@ -1057,14 +1058,21 @@ export function generateCpp(
         const colorE = incoming.get(`${node.id}:color`)
           ? colorExpr(node.id, 'color')
           : `CRGB(${Number(p.r ?? 0)}, ${Number(p.g ?? 200)}, ${Number(p.b ?? 255)})`
-        const x1 = Math.round(Number(p.x1 ?? 0)), y1 = Math.round(Number(p.y1 ?? 0))
-        const x2 = Math.round(Number(p.x2 ?? 0)), y2 = Math.round(Number(p.y2 ?? 0))
+        const x1 = Number(p.x1 ?? 0), y1 = Number(p.y1 ?? 0)
+        const x2 = Number(p.x2 ?? 0), y2 = Number(p.y2 ?? 0)
         ln(`  { ${seedFrom('base')}`)
-        ln(`    int _x0 = ${x1}, _y0 = ${y1}, _dx = abs(${x2} - _x0), _dy = -abs(${y2} - _y0);`)
-        ln(`    int _sx = _x0 < ${x2} ? 1 : -1, _sy = _y0 < ${y2} ? 1 : -1, _err = _dx + _dy;`)
-        ln(`    for (;;) { if (_x0 >= 0 && _x0 < WIDTH && _y0 >= 0 && _y0 < HEIGHT) ${ob}[_y0 * WIDTH + _x0] = ${colorE};`)
-        ln(`      if (_x0 == ${x2} && _y0 == ${y2}) break; int _e2 = 2 * _err;`)
-        ln(`      if (_e2 >= _dy) { _err += _dy; _x0 += _sx; } if (_e2 <= _dx) { _err += _dx; _y0 += _sy; } } }`)
+        ln(`    float _x0 = ${x1}, _y0 = ${y1}, _x1 = ${x2}, _y1 = ${y2};`)
+        ln(`    float _len = sqrtf((_x1 - _x0) * (_x1 - _x0) + (_y1 - _y0) * (_y1 - _y0));`)
+        ln(`    int _steps = max(1, (int)ceilf(_len * 2.0f));`)
+        ln(`    for (int _i = 0; _i <= _steps; _i++) {`)
+        ln(`      float _u = _i / (float)_steps;`)
+        ln(`      float _sx = _x0 + (_x1 - _x0) * _u, _sy = _y0 + (_y1 - _y0) * _u, _rad = 0.5f;`)
+        ln(`      int _xmin = max(0, (int)floorf(_sx - _rad - 1.0f)), _xmax = min(WIDTH - 1, (int)ceilf(_sx + _rad + 1.0f));`)
+        ln(`      int _ymin = max(0, (int)floorf(_sy - _rad - 1.0f)), _ymax = min(HEIGHT - 1, (int)ceilf(_sy + _rad + 1.0f));`)
+        ln(`      for (int _y = _ymin; _y <= _ymax; _y++) for (int _x = _xmin; _x <= _xmax; _x++) {`)
+        ln(`        float _dx = (_x + 0.5f) - _sx, _dy = (_y + 0.5f) - _sy;`)
+        ln(`        float _cov = constrain(_rad + 0.5f - sqrtf(_dx * _dx + _dy * _dy), 0.0f, 1.0f);`)
+        ln(`        if (_cov <= 0.0f) continue; CRGB _add = ${colorE}; _add.nscale8((uint8_t)(_cov * 255.0f)); ${ob}[_y * WIDTH + _x] += _add; } } }`)
         break
       }
 
@@ -2280,12 +2288,15 @@ export function generateCpp(
         const cb = mode === 'fireworks' ? `${A}b[i]` : '_pc.b'
         // Blob radius baked from the panel's configured WIDTH/HEIGHT — mirrors
         // the evaluator's particleScale.ts so firmware matches preview.
-        const R = particleRadius(width, height)
+        const R = Math.max(0.5, particleRadius(width, height))
+        const Rf = Number.isInteger(R) ? R.toFixed(1) : String(R)
         ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
-        ln(`    for(int i=0;i<_PN;i++){ if(${A}l[i]<=0.04f) continue; int X=(int)(${A}x[i]+0.5f), Y=(int)(${A}y[i]+0.5f); float _k=min(1.0f,${A}l[i]);`)
-        ln(`      for(int dy=-${R};dy<=${R};dy++) for(int dx=-${R};dx<=${R};dx++){ int Xx=X+dx,Yy=Y+dy; if(Xx<0||Xx>=WIDTH||Yy<0||Yy>=HEIGHT) continue;`)
-        ln(`        float _f=1.0f-sqrtf((float)(dx*dx+dy*dy))/${R + 1}.0f; if(_f<=0.0f) continue; float _kk=_k*_f;`)
-        ln(`        ${ob}[Yy*WIDTH+Xx]+=CRGB((uint8_t)(${cr}*_kk),(uint8_t)(${cg}*_kk),(uint8_t)(${cb}*_kk)); } } }`)
+        ln(`    for(int i=0;i<_PN;i++){ if(${A}l[i]<=0.04f) continue; float _k=min(1.0f,${A}l[i]), _sx=${A}x[i], _sy=${A}y[i];`)
+        ln(`      int _x0=max(0,(int)floorf(_sx-${Rf}f-1.0f)), _x1=min(WIDTH-1,(int)ceilf(_sx+${Rf}f+1.0f));`)
+        ln(`      int _y0=max(0,(int)floorf(_sy-${Rf}f-1.0f)), _y1=min(HEIGHT-1,(int)ceilf(_sy+${Rf}f+1.0f));`)
+        ln(`      for(int _y=_y0;_y<=_y1;_y++) for(int _x=_x0;_x<=_x1;_x++){`)
+        ln(`        float _dx=(_x+0.5f)-_sx,_dy=(_y+0.5f)-_sy; float _cov=constrain(${Rf}f+0.5f-sqrtf(_dx*_dx+_dy*_dy),0.0f,1.0f);`)
+        ln(`        if(_cov<=0.0f) continue; CRGB _add=CRGB((uint8_t)(${cr}*_k),(uint8_t)(${cg}*_k),(uint8_t)(${cb}*_k)); _add.nscale8((uint8_t)(_cov*255.0f)); ${ob}[_y*WIDTH+_x]+=_add; } } }`)
         break
       }
 
@@ -2947,6 +2958,33 @@ export function generateCpp(
         ln(`        _v+=_amp*(inoise8((uint16_t)(_x*_freq),(uint16_t)(_y*_freq),_z)/255.0f);`)
         ln(`        _norm+=_amp; _amp*=0.5f; _freq*=2; }`)
         ln(`      ${of}[_y*WIDTH+_x]=constrain(_v/_norm,0.0f,1.0f);}}`)
+        break
+      }
+
+      case 'WaveSim': {
+        const of = ownField()
+        const trig = boolExpr(node.id, 'trigger')
+        const speed = Math.max(1, Math.min(12, Math.floor(Number(p.speed ?? 4))))
+        const damping = Math.max(0.8, Math.min(0.999, Number(p.damping ?? 0.985)))
+        const impulse = Math.max(0.1, Math.min(1, Number(p.impulse ?? 1)))
+        const dampL = (Number.isInteger(damping) ? damping.toFixed(1) : String(damping)) + 'f'
+        const impulseL = (Number.isInteger(impulse) ? impulse.toFixed(1) : String(impulse)) + 'f'
+        const A = `_ws_${id}`
+        ln(`  { // WaveSim`)
+        ln(`    static float ${A}p[NUM_LEDS], ${A}c[NUM_LEDS], ${A}n[NUM_LEDS]; static bool ${A}prev=false, ${A}init=false; static uint8_t ${A}pulse=1;`)
+        ln(`    static const float ${A}px[5]={0.5f,0.26f,0.74f,0.34f,0.7f}, ${A}py[5]={0.5f,0.34f,0.4f,0.76f,0.7f};`)
+        ln(`    auto _wsInject_${id}=[&](uint8_t _pulse,float _amp){ float _cx=${A}px[_pulse%5]*(WIDTH-1),_cy=${A}py[_pulse%5]*(HEIGHT-1),_rad=max(1.5f,min(WIDTH,HEIGHT)*0.12f);`)
+        ln(`      int _x0=max(0,(int)floorf(_cx-_rad-1.0f)),_x1=min(WIDTH-1,(int)ceilf(_cx+_rad+1.0f)); int _y0=max(0,(int)floorf(_cy-_rad-1.0f)),_y1=min(HEIGHT-1,(int)ceilf(_cy+_rad+1.0f));`)
+        ln(`      for(int _y=_y0;_y<=_y1;_y++) for(int _x=_x0;_x<=_x1;_x++){ float _d=sqrtf((_x-_cx)*(_x-_cx)+(_y-_cy)*(_y-_cy)); float _f=max(0.0f,1.0f-_d/_rad); if(_f<=0.0f) continue; int _i=_y*WIDTH+_x; ${A}c[_i]=constrain(${A}c[_i]+_amp*_f*_f,-1.0f,1.0f); } };`)
+        ln(`    if(!${A}init){ for(int _i=0;_i<NUM_LEDS;_i++){ ${A}p[_i]=0; ${A}c[_i]=0; ${A}n[_i]=0; } _wsInject_${id}(0,${impulseL}); ${A}init=true; }`)
+        ln(`    bool _tr=(${trig}); if(_tr&&!${A}prev){ _wsInject_${id}(${A}pulse,${impulseL}); ${A}pulse++; } ${A}prev=_tr;`)
+        ln(`    for(int _it=0;_it<${speed};_it++){`)
+        ln(`      for(int _y=0;_y<HEIGHT;_y++){ int _ym=((_y-1+HEIGHT)%HEIGHT)*WIDTH,_yp=((_y+1)%HEIGHT)*WIDTH,_yr=_y*WIDTH;`)
+        ln(`        for(int _x=0;_x<WIDTH;_x++){ int _xm=(_x-1+WIDTH)%WIDTH,_xp=(_x+1)%WIDTH,_i=_yr+_x; float _avg=(${A}c[_ym+_x]+${A}c[_yp+_x]+${A}c[_yr+_xm]+${A}c[_yr+_xp])*0.5f; ${A}n[_i]=constrain((_avg-${A}p[_i])*${dampL},-1.0f,1.0f); } }`)
+        ln(`      ::memcpy(${A}p,${A}c,sizeof(${A}p)); ::memcpy(${A}c,${A}n,sizeof(${A}c)); }`)
+        ln(`    float _peak=0.0f; for(int _i=0;_i<NUM_LEDS;_i++) _peak=max(_peak,fabsf(${A}c[_i]));`)
+        ln(`    if(_peak<0.002f){ _wsInject_${id}(${A}pulse,${impulseL}*0.6f); ${A}pulse++; }`)
+        ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=constrain(fabsf(${A}c[_i])*1.5f,0.0f,1.0f); }`)
         break
       }
 

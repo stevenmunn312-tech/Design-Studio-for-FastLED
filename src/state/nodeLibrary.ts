@@ -1610,6 +1610,16 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { speed: 0.25, scale: 0.3, octaves: 4 },
   },
   {
+    // Damped ripple simulation on a scalar field. A rising-edge trigger injects
+    // a new splash, so BeatDetect or a button can kick the water.
+    type: 'WaveSim',
+    label: 'Wave Sim',
+    category: 'field',
+    inputs: [{ id: 'trigger', label: 'Trigger', dataType: 'bool' }],
+    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    defaultProperties: { speed: 4, damping: 0.985, impulse: 1 },
+  },
+  {
     type: 'FieldToFrame',
     label: 'Field → Frame',
     category: 'field',
@@ -1935,6 +1945,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Code: 'Paste raw FastLED C++ that writes into leds[].',
   FieldFormula: 'Per-pixel scalar field from an expression (cx/cy/r/angle, sin8/beatsin8…).',
   FieldNoise: 'Organic fBm noise as a scalar field (same construction as Fractal Noise).',
+  WaveSim: 'Damped 2D ripple simulation as a scalar field, with triggerable splashes.',
   FieldToFrame: 'Maps a scalar field through a palette to a frame.',
   DistanceField: 'Scalar field of distance from each pixel to a movable point.',
   FrameToField: 'Extracts a brightness field from a rendered frame.',
@@ -1999,7 +2010,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
   signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin'],
-  field:  ['FieldFormula', 'FieldNoise', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldToFrame'],
+  field:  ['FieldFormula', 'FieldNoise', 'WaveSim', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'PatternMaster', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
@@ -2339,6 +2350,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Counter:           { rate:  { control: 'slider', min: 0, max: 5,   step: 0.1 } },
   GameOfLife:        { speed: { control: 'slider', min: 1, max: 30,  step: 1 } },
   ReactionDiffusion: { speed: { control: 'slider', min: 1, max: 30,  step: 1 } },
+  WaveSim: {
+    speed:   { control: 'slider', min: 1, max: 12,    step: 1 },
+    damping: { control: 'slider', min: 0.8, max: 0.999, step: 0.001 },
+    impulse: { control: 'slider', min: 0.1, max: 1,   step: 0.01 },
+  },
   Image: {
     fit:       { control: 'select', options: ['stretch', 'contain', 'cover', 'original'] },
     sampling:  { control: 'select', options: ['nearest', 'smooth'] },
