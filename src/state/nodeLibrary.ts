@@ -1673,7 +1673,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'position', label: 'Position', dataType: 'float' },
       { id: 'pressed', label: 'Pressed', dataType: 'bool' },
     ],
-    defaultProperties: { pinA: 32, pinB: 33, pinSW: 25 },
+    defaultProperties: { pinA: 32, pinB: 33, pinSW: 25, pullup: true },
   },
 
   // ── Music-sync pipeline (the Music Library source lives in Show) ───────

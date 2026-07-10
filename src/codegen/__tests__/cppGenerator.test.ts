@@ -82,6 +82,29 @@ describe('generateCpp', () => {
     expect(generateCpp([noPull, bm, sc, outputNode], edges)).toContain('pinMode(7, INPUT);')
   })
 
+  it('emits setup() pinModes for all three EncoderInput pins, honouring pullup', () => {
+    const enc = node('enc', 'EncoderInput', 'input', { pinA: 18, pinB: 19, pinSW: 21, pullup: true })
+    const bm = node('bm', 'BrightnessMod', 'composite', {})
+    const sc = node('sc', 'SolidColor', 'pattern', {})
+    const edges = [
+      edge('e1', 'enc', 'bm', 'position', 'brightness'),
+      edge('e2', 'sc', 'bm', 'frame', 'frame'),
+      edge('e3', 'bm', 'out', 'frame', 'frame'),
+    ]
+    const cpp = generateCpp([enc, bm, sc, outputNode], edges)
+    const setupIdx = cpp.indexOf('void setup()')
+    const loopIdx = cpp.indexOf('void loop()')
+    for (const pin of [18, 19, 21]) {
+      const pinMode = cpp.indexOf(`pinMode(${pin}, INPUT_PULLUP);`)
+      expect(pinMode).toBeGreaterThan(setupIdx)
+      expect(pinMode).toBeLessThan(loopIdx)
+    }
+
+    const noPull = node('enc', 'EncoderInput', 'input', { pinA: 18, pinB: 19, pinSW: 21, pullup: false })
+    const cpp2 = generateCpp([noPull, bm, sc, outputNode], edges)
+    for (const pin of [18, 19, 21]) expect(cpp2).toContain(`pinMode(${pin}, INPUT);`)
+  })
+
   it('emits the FASTLED_OVERCLOCK define before the FastLED include', () => {
     const out = node('out', 'MatrixOutput', 'output', { overclock: 1.25 })
     const cpp = generateCpp([out], [])

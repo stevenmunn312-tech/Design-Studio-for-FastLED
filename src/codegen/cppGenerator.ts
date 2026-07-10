@@ -988,6 +988,8 @@ export function generateCpp(
       // table; `position` is an unbounded running count.
       case 'EncoderInput': {
         const pinA = Number(p.pinA ?? 32), pinB = Number(p.pinB ?? 33), pinSW = Number(p.pinSW ?? 25)
+        const mode = p.pullup === false ? 'INPUT' : 'INPUT_PULLUP'
+        for (const pin of [pinA, pinB, pinSW]) pinSetupLines.add(`  pinMode(${pin}, ${mode});`)
         ln(`  static int8_t _encLast_${id} = 0; static float _encPos_${id} = 0;`)
         ln(`  { int8_t _a=digitalRead(${pinA}),_b=digitalRead(${pinB}); int8_t _s=(_a<<1)|_b;`)
         ln(`    static const int8_t _encTbl_${id}[16]={0,-1,1,0, 1,0,0,-1, -1,0,0,1, 0,1,-1,0};`)
