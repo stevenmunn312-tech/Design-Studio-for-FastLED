@@ -50,6 +50,18 @@ describe('showGenerator', () => {
     expect(cpp).toMatch(/render_p0[\s\S]*CRGB\(0, 0, 255\)[\s\S]*?\n\}/)
   })
 
+  it('applies the MatrixOutput hardware settings to the controller sketch', () => {
+    const out = node('out', 'MatrixOutput', {
+      width: 8, height: 8, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB',
+      brightness: 64, correction: 'TypicalLEDStrip', dither: false, overclock: 1.2,
+    })
+    const cpp = generateShowSketch([nodes[0], nodes[1], out], edges, groups)
+    expect(cpp).toContain('FastLED.setBrightness(64);')
+    expect(cpp).toContain('FastLED.setCorrection(TypicalLEDStrip);')
+    expect(cpp).toContain('FastLED.setDither(DISABLE_DITHER);')
+    expect(cpp.indexOf('#define FASTLED_OVERCLOCK 1.2')).toBeLessThan(cpp.indexOf('#include <FastLED.h>'))
+  })
+
   it('declares FastLED-typed helpers explicitly so Arduino does not auto-prototype them above the include', () => {
     const tempGroups: GroupRegistry = {
       gt: {

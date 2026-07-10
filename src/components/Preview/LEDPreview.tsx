@@ -312,6 +312,22 @@ function activeStagePatternName(
   return null
 }
 
+// Mirror the firmware's FastLED.setBrightness master dim: scale the terminal
+// frame by the MatrixOutput node's `brightness` (0–255, default 200 matching
+// the generated sketch) so the preview matches what the hardware shows. Only
+// the graph's own frame is dimmed — the idle shimmer isn't a real output, and
+// show playback drives brightness through its own SET_BRIGHTNESS events.
+function applyMasterBrightness(frame: Frame | null, nodes: StudioNode[]): Frame | null {
+  if (!frame) return null
+  const output = nodes.find((node) => nodeTypeOf(node) === 'MatrixOutput')
+  if (!output) return frame
+  const raw = Number((output.data.properties as { brightness?: unknown }).brightness)
+  const brightness = Number.isFinite(raw) ? Math.max(0, Math.min(255, raw)) : 200
+  if (brightness >= 255) return frame
+  const s = brightness / 255
+  return frame.map((row) => row.map(({ r, g, b }) => ({ r: r * s, g: g * s, b: b * s })))
+}
+
 // ── Canvas-2D fallback LED sprites ────────────────────────────────────────────
 // The WebGL-less fallback used to draw every lit LED as two `arc` fills with
 // shadowBlur — a per-LED Gaussian blur that crawls on large grids. Instead,
@@ -778,7 +794,7 @@ export default function LEDPreview() {
         const evalStart = PERF_TELEMETRY ? performance.now() : 0
         const { frame: rendered, outputs } = evaluateGraphFull(graphNodes, graphEdges, tick, gW, gH, groups, fullPass)
         const evalMs = PERF_TELEMETRY ? performance.now() - evalStart : 0
-        let frame = rendered ?? idleFrame(tick, gW, gH)
+        let frame = applyMasterBrightness(rendered, graphNodes) ?? idleFrame(tick, gW, gH)
         const showStart = PERF_TELEMETRY ? performance.now() : 0
         frame = applyShowPlaybackSignal(
           frame,

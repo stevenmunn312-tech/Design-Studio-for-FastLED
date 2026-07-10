@@ -15,7 +15,8 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import { customPaletteDeclarationsCpp } from '../state/paletteCatalog'
-import { generateCpp, audioEngineForGraph, psramBufferDecl, PSRAM_ALLOC_CPP } from './cppGenerator'
+import { generateCpp, audioEngineForGraph, psramBufferDecl, PSRAM_ALLOC_CPP, ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp } from './cppGenerator'
+import { SPI_CHIPSETS } from '../state/nodeLibrary'
 import { SHOW_TRANSITIONS } from './performanceGenerator'
 import { TRANSITION_HELPER_CPP, PARTICLE_OVERLAY_CPP } from './transitionHelperCpp'
 
@@ -257,7 +258,7 @@ export function generateShowSketch(
   const op = out ? props(out) : {}
   const width = Number(op.width ?? 16), height = Number(op.height ?? 16)
   const dataPin = Number(op.dataPin ?? 5)
-  const chipset = String(op.chipset ?? 'WS2812B'), colorOrder = String(op.colorOrder ?? 'GRB')
+  const hw = ledHardwareFromProps(op)
   // "Use PSRAM": every collected pattern contributes its own set of render
   // buffers, so a show is the heaviest static-RAM consumer — move those (and
   // the two transition compositing buffers) to external PSRAM. The sub-pattern
@@ -286,6 +287,7 @@ export function generateShowSketch(
 
   const L: string[] = []
   L.push('// FastLED Studio — generative pattern show (Phase 4, first slice)')
+  for (const d of overclockDefineCpp(hw)) L.push(d)
   L.push('#include <FastLED.h>')
   if (audio) L.push(audio.include)
   L.push('')
@@ -297,6 +299,7 @@ export function generateShowSketch(
   L.push(`#define HEIGHT   ${height}`)
   L.push('#define NUM_LEDS (WIDTH * HEIGHT)')
   L.push(`#define DATA_PIN ${dataPin}`)
+  if (SPI_CHIPSETS.has(hw.chipset)) L.push(`#define CLOCK_PIN ${hw.clockPin}`)
   L.push(`#define PATTERN_COUNT ${renderers.count}`)
   L.push('')
   // `leds` stays a static internal-RAM array even with PSRAM on (FastLED's
@@ -339,8 +342,7 @@ export function generateShowSketch(
 
   L.push('void setup() {')
   for (const a of psramAllocs) L.push(a)
-  L.push(`  FastLED.addLeds<${chipset}, DATA_PIN, ${colorOrder}>(leds, NUM_LEDS);`)
-  L.push('  FastLED.setBrightness(200);')
+  for (const s of fastledSetupCpp(hw)) L.push(s)
   L.push('  randomSeed(analogRead(A0));')
   if (audio) L.push('  setupAudio();')
   L.push('}')

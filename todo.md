@@ -142,14 +142,18 @@ From a review of the upstream FastLED repo (README, 3.9.x/3.10.x release notes,
 and the bundled `src/fx` effect catalogue) against Studio's node library and
 codegen. Ordered by value-for-effort.
 
-### MatrixOutput hardware parity (quick wins — one small codegen PR)
+### MatrixOutput hardware parity (quick wins) ✅
 
-- [ ] **Global brightness** property on MatrixOutput — `cppGenerator.ts` / `showGenerator.ts` currently hardcode `FastLED.setBrightness(200)`; expose a slider and apply the same scale in the live preview so they match
-- [ ] **Color correction** dropdown — `FastLED.setCorrection(TypicalLEDStrip / TypicalSMD5050 / …)`; pairs with the existing power-limit toggle (optionally also `setTemperature`)
-- [ ] **Temporal dithering** toggle — `FastLED.setDither(0 | BINARY_DITHER)`; matters most at low brightness
-- [ ] **WS2812 overclock** — checkbox + factor emitting `#define FASTLED_OVERCLOCK 1.2` before the FastLED include (3.9 feature, up to ~70% faster refresh)
-- [ ] **Expanded chipset list** — dropdown has 6 entries; add WS2815, SM16824E, HD108 (16-bit), and **APA102HD** (HD gamma — free visual upgrade over plain APA102)
-- [ ] **RGBW strips** (SK6812-RGBW, WS2816) — needs the `Rgbw` mode on `addLeds` in codegen; graph model unaffected
+All six ship through a shared `ledHardwareFromProps`/`fastledSetupCpp`/`overclockDefineCpp`
+helper in `cppGenerator.ts`, so the normal sketch, the show controller, and the
+music-sync player initialise the strip identically from the MatrixOutput node.
+
+- [x] **Global brightness** — `brightness` slider (0–255, default 200 = the old hardcoded value) on MatrixOutput; emitted as `FastLED.setBrightness(...)` and mirrored in the live preview (`applyMasterBrightness` in `LEDPreview.tsx`) so preview matches firmware
+- [x] **Color correction** dropdown — `correction`: none / TypicalLEDStrip / TypicalPixelString → `FastLED.setCorrection(...)` (preview deliberately *not* corrected: correction compensates the LEDs so hardware matches the intent the preview shows)
+- [x] **Temporal dithering** toggle — `dither` (default on = FastLED's own default, emits nothing); off emits `FastLED.setDither(DISABLE_DITHER)`
+- [x] **Overclock** — `overclock` slider (1–1.7×) emitting `#define FASTLED_OVERCLOCK <x>` before the FastLED include; editor disabled (and define suppressed) for SPI chipsets
+- [x] **Expanded chipset list** — added WS2815, WS2816, SM16824E, APA102HD, HD108; SPI chipsets (APA102/APA102HD/WS2801/HD108) now get a `clockPin` property + `CLOCK_PIN` in `addLeds` (the old two-arg emission silently used the colour-order enum as the clock pin); `NEOPIXEL` fixed to omit the order arg (its FastLED alias hardcodes GRB)
+- [x] **RGBW strips** — `SK6812-RGBW` chipset option → `addLeds<SK6812, …>(…).setRgbw(RgbwDefault())`; chipset/correction strings are sanitised against the nodeLibrary option lists before hitting C++ template args
 
 ### Missing classic `fx/` effects (pattern nodes)
 

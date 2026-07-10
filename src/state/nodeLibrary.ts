@@ -1614,7 +1614,21 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       chipset: 'WS2812B',
       colorOrder: 'GRB',
       dataPin: 5,
+      // Clock pin for SPI (clocked) chipsets — APA102/APA102HD/WS2801/HD108.
+      // Ignored (editor disabled) for clockless chipsets.
+      clockPin: 6,
       serpentine: false,
+      // FastLED.setBrightness — the global master dim (0–255; also applied to
+      // the live preview so preview matches firmware).
+      brightness: 200,
+      // FastLED.setCorrection colour-correction profile ('none' = uncorrected).
+      correction: 'none',
+      // FastLED temporal dithering (recovers colour depth at low brightness);
+      // on is FastLED's own default, off emits setDither(DISABLE_DITHER).
+      dither: true,
+      // Clockless-chipset overclock multiplier; >1 emits
+      // `#define FASTLED_OVERCLOCK <x>` (WS2812 tolerates up to ~1.25 typically).
+      overclock: 1,
       // Optional PSU power cap (FastLED.setMaxPowerInVoltsAndMilliamps) — when on,
       // FastLED auto-dims to keep total draw under volts × milliamps.
       powerLimit: false,
@@ -1957,6 +1971,25 @@ export function portsCompatible(srcType: string, dstType: string): boolean {
 /** Named palettes a `palette` property can select. */
 export const PALETTES = STUDIO_PALETTES
 
+// ── MatrixOutput hardware options ────────────────────────────────────────────
+// Single source for the chipset/correction dropdowns AND the codegen's
+// sanitisation (chipset strings are interpolated into C++ template args, so
+// cppGenerator only emits values from these lists). 'SK6812-RGBW' is the one
+// non-literal entry: codegen maps it to `SK6812` + `.setRgbw(RgbwDefault())`.
+export const CHIPSET_OPTIONS = [
+  'WS2812B', 'WS2811', 'WS2815', 'SK6812', 'SK6812-RGBW', 'WS2816', 'SM16824E',
+  'NEOPIXEL', 'APA102', 'APA102HD', 'WS2801', 'HD108',
+] as const
+
+/** SPI (clocked) chipsets — need a `clockPin` alongside the data pin, and the
+ *  FASTLED_OVERCLOCK define doesn't apply to them. */
+export const SPI_CHIPSETS: ReadonlySet<string> = new Set(['APA102', 'APA102HD', 'WS2801', 'HD108'])
+
+export const COLOR_ORDER_OPTIONS = ['GRB', 'RGB', 'BGR', 'BRG', 'GBR', 'RBG'] as const
+
+/** FastLED.setCorrection profiles ('none' = leave colours uncorrected). */
+export const CORRECTION_OPTIONS = ['none', 'TypicalLEDStrip', 'TypicalPixelString'] as const
+
 /**
  * Control hints for inline node property editors (StudioNode), keyed by
  * property name. `select` → dropdown of fixed options; `slider` → range input
@@ -2001,8 +2034,10 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   // Poline position functions — keep in sync with polinePalette.ts POSITION_FNS.
   position:   { control: 'select', options: ['linear', 'sinusoidal', 'quadratic', 'cubic', 'arc', 'smoothStep', 'exponential'] },
   points:     { control: 'slider', min: 1, max: 12, step: 1 },
-  chipset:    { control: 'select', options: ['WS2812B', 'WS2811', 'SK6812', 'APA102', 'WS2801', 'NEOPIXEL'] },
-  colorOrder: { control: 'select', options: ['GRB', 'RGB', 'BGR', 'BRG', 'GBR', 'RBG'] },
+  chipset:    { control: 'select', options: CHIPSET_OPTIONS },
+  colorOrder: { control: 'select', options: COLOR_ORDER_OPTIONS },
+  correction: { control: 'select', options: CORRECTION_OPTIONS },
+  overclock:  { control: 'slider', min: 1, max: 1.7, step: 0.05 },
 
   // Bounded numeric ranges → slider
   speed:    { control: 'slider', min: 0, max: 5, step: 0.1 },
@@ -2108,6 +2143,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   // Envelope's decay is a duration in seconds, not the shared 0–1 rate.
   Envelope: {
     decay: { control: 'slider', min: 0.05, max: 5, step: 0.05 },
+  },
+  // MatrixOutput's brightness is FastLED.setBrightness's native 0–255 (the
+  // shared `brightness` meta is a 0–1 frame-level scale).
+  MatrixOutput: {
+    brightness: { control: 'slider', min: 0, max: 255, step: 1 },
   },
   // Saturation's amount is 0–2 (1 = unchanged), not the shared 0–1 opacity.
   Saturation: {
@@ -2313,8 +2353,13 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
   if (nodeType === 'PerformanceGenerator' && key === 'fixedPalette') {
     return String(properties.paletteMode ?? 'mood') === 'fixed'
   }
-  if (nodeType === 'MatrixOutput' && (key === 'volts' || key === 'milliamps')) {
-    return properties.powerLimit === true
+  if (nodeType === 'MatrixOutput') {
+    if (key === 'volts' || key === 'milliamps') return properties.powerLimit === true
+    const spi = SPI_CHIPSETS.has(String(properties.chipset ?? 'WS2812B'))
+    // The clock pin only exists on SPI chipsets; FASTLED_OVERCLOCK only applies
+    // to clockless ones.
+    if (key === 'clockPin') return spi
+    if (key === 'overclock') return !spi
   }
   if (nodeType === 'Transition') {
     const tt = String(properties.transitionType ?? 'crossfade')

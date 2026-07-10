@@ -43,6 +43,61 @@ describe('generateCpp', () => {
     expect(cpp).toContain('GRB')
   })
 
+  it('emits the default hardware setup (brightness 200, no correction, dither untouched)', () => {
+    const cpp = generateCpp([outputNode], [])
+    expect(cpp).toContain('FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);')
+    expect(cpp).toContain('FastLED.setBrightness(200);')
+    expect(cpp).not.toContain('setCorrection')
+    expect(cpp).not.toContain('setDither')
+    expect(cpp).not.toContain('FASTLED_OVERCLOCK')
+    expect(cpp).not.toContain('CLOCK_PIN')
+  })
+
+  it('honours brightness / correction / dither-off on MatrixOutput', () => {
+    const out = node('out', 'MatrixOutput', 'output', {
+      brightness: 96, correction: 'TypicalLEDStrip', dither: false,
+    })
+    const cpp = generateCpp([out], [])
+    expect(cpp).toContain('FastLED.setBrightness(96);')
+    expect(cpp).toContain('FastLED.setCorrection(TypicalLEDStrip);')
+    expect(cpp).toContain('FastLED.setDither(DISABLE_DITHER);')
+  })
+
+  it('emits the FASTLED_OVERCLOCK define before the FastLED include', () => {
+    const out = node('out', 'MatrixOutput', 'output', { overclock: 1.25 })
+    const cpp = generateCpp([out], [])
+    const def = cpp.indexOf('#define FASTLED_OVERCLOCK 1.25')
+    const inc = cpp.indexOf('#include <FastLED.h>')
+    expect(def).toBeGreaterThanOrEqual(0)
+    expect(def).toBeLessThan(inc)
+  })
+
+  it('gives SPI chipsets a clock pin and suppresses the overclock define', () => {
+    const out = node('out', 'MatrixOutput', 'output', {
+      chipset: 'APA102HD', colorOrder: 'BGR', clockPin: 12, overclock: 1.25,
+    })
+    const cpp = generateCpp([out], [])
+    expect(cpp).toContain('#define CLOCK_PIN 12')
+    expect(cpp).toContain('FastLED.addLeds<APA102HD, DATA_PIN, CLOCK_PIN, BGR>(leds, NUM_LEDS);')
+    expect(cpp).not.toContain('FASTLED_OVERCLOCK')
+  })
+
+  it('maps SK6812-RGBW to SK6812 with an Rgbw mode', () => {
+    const out = node('out', 'MatrixOutput', 'output', { chipset: 'SK6812-RGBW' })
+    const cpp = generateCpp([out], [])
+    expect(cpp).toContain('FastLED.addLeds<SK6812, DATA_PIN, GRB>(leds, NUM_LEDS).setRgbw(RgbwDefault());')
+  })
+
+  it('sanitises a garbage chipset/correction so C++ template args stay valid', () => {
+    const out = node('out', 'MatrixOutput', 'output', {
+      chipset: 'WS9999; system("rm")', correction: 'Bogus', brightness: 'loud',
+    })
+    const cpp = generateCpp([out], [])
+    expect(cpp).toContain('FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);')
+    expect(cpp).toContain('FastLED.setBrightness(200);')
+    expect(cpp).not.toContain('setCorrection')
+  })
+
   it('clamps a garbage width/height to a sane default (never emits NaN)', () => {
     const bad = node('out', 'MatrixOutput', 'output', { width: '1efdd6', height: -5, dataPin: 5 })
     const cpp = generateCpp([bad], [])

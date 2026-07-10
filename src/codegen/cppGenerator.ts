@@ -7,7 +7,7 @@ import { customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCat
 import { audioFlowExpr } from '../state/audioFlowRange'
 import { SPEED_MAX, SCALE_MAX, NOISE_SPEED_MAX, NOISE_SCALE_MAX, rateCpp } from '../state/speedRange'
 import { denormalizeBeatParam } from '../audio/beatDetection'
-import { inputClampRange } from '../state/nodeLibrary'
+import { inputClampRange, CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, CORRECTION_OPTIONS, SPI_CHIPSETS } from '../state/nodeLibrary'
 import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledShims'
 import { particleRadius } from '../state/particleScale'
 
@@ -406,6 +406,77 @@ export function psramBufferDecl(decl: string): { decl: string; alloc: string } |
   }
 }
 
+// ── LED hardware setup (MatrixOutput → FastLED init) ────────────────────────
+// Shared by generateCpp, the show generator, and the music-sync player so all
+// three sketches initialise the strip identically from the same MatrixOutput
+// properties.
+
+export interface LedHardware {
+  chipset: string      // sanitised against CHIPSET_OPTIONS (interpolated into C++)
+  colorOrder: string
+  brightness: number   // FastLED.setBrightness, 0–255
+  correction: string   // 'none' | a CORRECTION_OPTIONS constant
+  dither: boolean      // false → setDither(DISABLE_DITHER)
+  overclock: number    // 1 = stock; >1 → #define FASTLED_OVERCLOCK (clockless only)
+  clockPin: number     // SPI chipsets only
+}
+
+/** Resolve + sanitise a MatrixOutput node's LED hardware properties. Enum-ish
+ *  strings are validated against the nodeLibrary option lists (they end up in
+ *  C++ template arguments), numerics clamped; missing values keep the exact
+ *  pre-quick-wins behaviour (brightness 200, no correction, dither on). */
+export function ledHardwareFromProps(p: Record<string, unknown>): LedHardware {
+  const pick = (v: unknown, options: readonly string[], def: string) =>
+    options.includes(String(v)) ? String(v) : def
+  const num = (v: unknown, def: number, min: number, max: number) => {
+    const n = Number(v)
+    return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : def
+  }
+  return {
+    chipset:    pick(p.chipset, CHIPSET_OPTIONS, 'WS2812B'),
+    colorOrder: pick(p.colorOrder, COLOR_ORDER_OPTIONS, 'GRB'),
+    brightness: Math.round(num(p.brightness, 200, 0, 255)),
+    correction: pick(p.correction, CORRECTION_OPTIONS, 'none'),
+    dither:     p.dither !== false,
+    overclock:  num(p.overclock, 1, 1, 2),
+    clockPin:   Math.round(num(p.clockPin, 6, 0, 48)),
+  }
+}
+
+/** `#define FASTLED_OVERCLOCK …` lines — MUST be emitted before
+ *  `#include <FastLED.h>`. Empty unless overclocking a clockless chipset. */
+export function overclockDefineCpp(hw: LedHardware): string[] {
+  if (hw.overclock <= 1.001 || SPI_CHIPSETS.has(hw.chipset)) return []
+  return [
+    `// Overclock clockless-chipset timing by ${hw.overclock}× (WS2812 usually`,
+    `// tolerates up to ~1.25; back off if the strip glitches).`,
+    `#define FASTLED_OVERCLOCK ${hw.overclock}`,
+  ]
+}
+
+/** setup() lines initialising the strip: addLeds (SPI chipsets get the clock
+ *  pin, SK6812-RGBW gets `.setRgbw()`), brightness, correction, dithering.
+ *  Pass `brightness: null` to skip the setBrightness line (the music-sync
+ *  player drives brightness from show events instead). */
+export function fastledSetupCpp(
+  hw: LedHardware,
+  opts: { dataPinMacro?: string; clockPinMacro?: string; brightness?: number | null } = {},
+): string[] {
+  const data = opts.dataPinMacro ?? 'DATA_PIN'
+  const clock = opts.clockPinMacro ?? 'CLOCK_PIN'
+  const chip = hw.chipset === 'SK6812-RGBW' ? 'SK6812' : hw.chipset
+  const rgbw = hw.chipset === 'SK6812-RGBW' ? '.setRgbw(RgbwDefault())' : ''
+  const pins = SPI_CHIPSETS.has(hw.chipset) ? `${data}, ${clock}` : data
+  // FastLED's NEOPIXEL alias hardcodes GRB and takes no order template arg.
+  const args = chip === 'NEOPIXEL' ? `${pins}` : `${pins}, ${hw.colorOrder}`
+  const lines = [`  FastLED.addLeds<${chip}, ${args}>(leds, NUM_LEDS)${rgbw};`]
+  const brightness = opts.brightness === undefined ? hw.brightness : opts.brightness
+  if (brightness !== null) lines.push(`  FastLED.setBrightness(${brightness});`)
+  if (hw.correction !== 'none') lines.push(`  FastLED.setCorrection(${hw.correction});`)
+  if (!hw.dither) lines.push(`  FastLED.setDither(DISABLE_DITHER);`)
+  return lines
+}
+
 /**
  * The on-device audio engine (INMP441 I2S reader + FFT) for a graph that
  * contains a MicInput, so a *controller* sketch (e.g. the generative pattern
@@ -486,8 +557,9 @@ export function generateCpp(
   const width      = intProp(outputNode ? props(outputNode).width   : undefined, 16, 1, 64)
   const height     = intProp(outputNode ? props(outputNode).height  : undefined, 16, 1, 64)
   const dataPin    = intProp(outputNode ? props(outputNode).dataPin : undefined, 5, 0, 48)
-  const chipset    = String(outputNode ? props(outputNode).chipset    ?? 'WS2812B' : 'WS2812B')
-  const colorOrder = String(outputNode ? props(outputNode).colorOrder ?? 'GRB' : 'GRB')
+  // Chipset, colour order, master brightness, correction, dithering, overclock
+  // — sanitised centrally (shared with the show/player generators).
+  const hw = ledHardwareFromProps(outputNode ? props(outputNode) : {})
   // Serpentine (zig-zag) matrices wire alternate rows in reverse; buffers stay
   // row-major and MatrixOutput remaps grid → physical index via XY().
   const serpentine = (outputNode ? props(outputNode).serpentine : false) === true
@@ -2956,7 +3028,8 @@ export function generateCpp(
 
   const lines: string[] = []
 
-  // Header
+  // Header (the overclock define must precede the FastLED include)
+  lines.push(...overclockDefineCpp(hw))
   lines.push(`#include <FastLED.h>`)
   if (audio) lines.push(audio.include)
   lines.push(``)
@@ -2964,6 +3037,7 @@ export function generateCpp(
   lines.push(`#define HEIGHT   ${height}`)
   lines.push(`#define NUM_LEDS (WIDTH * HEIGHT)`)
   lines.push(`#define DATA_PIN ${dataPin}`)
+  if (SPI_CHIPSETS.has(hw.chipset)) lines.push(`#define CLOCK_PIN ${hw.clockPin}`)
   lines.push(``)
   lines.push(`CRGB leds[NUM_LEDS];`)
   // One render buffer per frame-producing node so layers can be composited, and
@@ -3051,8 +3125,7 @@ export function generateCpp(
 
   lines.push(`void setup() {`)
   lines.push(...psramAllocs)
-  lines.push(`  FastLED.addLeds<${chipset}, DATA_PIN, ${colorOrder}>(leds, NUM_LEDS);`)
-  lines.push(`  FastLED.setBrightness(200);`)
+  lines.push(...fastledSetupCpp(hw))
   if (powerLimit) lines.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${volts}, ${milliamps});`)
   if (emitEngine) lines.push(`  setupAudio();`)
   lines.push(`}`)

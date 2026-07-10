@@ -11,13 +11,19 @@
 
 import type { PatternRenderers } from './showGenerator'
 import { STUDIO_PALETTES, customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCatalog'
+import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp } from './cppGenerator'
+import { SPI_CHIPSETS } from '../state/nodeLibrary'
 
 export interface PlayerConfig {
   ledWidth:    number
   ledHeight:   number
   ledDataPin:  number
+  ledClockPin: number   // SPI chipsets (APA102/WS2801/HD108) only
   chipset:     string
   colorOrder:  string
+  correction:  string   // FastLED.setCorrection profile ('none' = uncorrected)
+  dither:      boolean  // false → setDither(DISABLE_DITHER)
+  overclock:   number   // clockless-chipset FASTLED_OVERCLOCK multiplier
   sdCsPin:     number
   i2sBclk:     number   // I2S bit clock pin
   i2sLrc:      number   // I2S left/right clock (word select)
@@ -26,8 +32,9 @@ export interface PlayerConfig {
 }
 
 const DEFAULTS: PlayerConfig = {
-  ledWidth: 16, ledHeight: 16, ledDataPin: 18,
+  ledWidth: 16, ledHeight: 16, ledDataPin: 18, ledClockPin: 6,
   chipset: 'WS2812B', colorOrder: 'GRB',
+  correction: 'none', dither: true, overclock: 1,
   sdCsPin: 5,
   i2sBclk: 26, i2sLrc: 25, i2sDout: 22,
   maxVolume: 18,
@@ -52,11 +59,15 @@ export function playerConfigFromGraph(nodes: ConfigNode[]): Partial<PlayerConfig
   const num = (v: unknown, d: number) => (v === undefined || v === null ? d : Number(v))
   const str = (v: unknown, d: string) => (v === undefined || v === null ? d : String(v))
   return {
-    ledWidth:   num(mo.width, DEFAULTS.ledWidth),
-    ledHeight:  num(mo.height, DEFAULTS.ledHeight),
-    ledDataPin: num(mo.dataPin, DEFAULTS.ledDataPin),
-    chipset:    str(mo.chipset, DEFAULTS.chipset),
-    colorOrder: str(mo.colorOrder, DEFAULTS.colorOrder),
+    ledWidth:    num(mo.width, DEFAULTS.ledWidth),
+    ledHeight:   num(mo.height, DEFAULTS.ledHeight),
+    ledDataPin:  num(mo.dataPin, DEFAULTS.ledDataPin),
+    ledClockPin: num(mo.clockPin, DEFAULTS.ledClockPin),
+    chipset:     str(mo.chipset, DEFAULTS.chipset),
+    colorOrder:  str(mo.colorOrder, DEFAULTS.colorOrder),
+    correction:  str(mo.correction, DEFAULTS.correction),
+    dither:      mo.dither !== false,
+    overclock:   num(mo.overclock, DEFAULTS.overclock),
     sdCsPin:    num(sd.sdCsPin, DEFAULTS.sdCsPin),
     i2sBclk:    num(sd.i2sBclk, DEFAULTS.i2sBclk),
     i2sLrc:     num(sd.i2sLrc, DEFAULTS.i2sLrc),
@@ -76,6 +87,17 @@ export function generatePlayerSketch(
   const numLeds = c.ledWidth * c.ledHeight
   const collection = !!(renderers && renderers.count > 0)
   const bakedAudio = !!opts.audioEnvelope
+  // Strip init shared with the main/show generators. Brightness stays the
+  // player's own fixed 180 — the show's SET_BRIGHTNESS events drive it live.
+  const hw = ledHardwareFromProps({
+    chipset: c.chipset, colorOrder: c.colorOrder, correction: c.correction,
+    dither: c.dither, overclock: c.overclock, clockPin: c.ledClockPin,
+  })
+  const overclockDefines = overclockDefineCpp(hw).map((l) => `${l}\n`).join('')
+  const clockPinDefine = SPI_CHIPSETS.has(hw.chipset) ? `#define LED_CLOCK_PIN ${hw.clockPin}\n` : ''
+  const ledSetupLines = fastledSetupCpp(hw, {
+    dataPinMacro: 'LED_DATA_PIN', clockPinMacro: 'LED_CLOCK_PIN', brightness: 180,
+  }).join('\n')
 
   // Collection patterns: per-pattern frame buffers, deduped helpers, and the
   // render_pN() functions — emitted above renderPattern().
@@ -343,7 +365,7 @@ float prnd(float n) { float s = sinf(n * 12.9898f) * 43758.5453f; return s - flo
 //   - SD (built-in Arduino)
 // Hardware: SD card on SPI, I2S DAC (MAX98357A or PCM5102) on pins below.
 
-#include <FastLED.h>
+${overclockDefines}#include <FastLED.h>
 #include <SD.h>
 #include <SPI.h>
 #include <Audio.h>       // ESP32-audioI2S
@@ -354,7 +376,7 @@ ${[...fastLedDecls].join('\n')}
 
 // ── Pin config ────────────────────────────────────────────────────────────────
 #define LED_DATA_PIN  ${c.ledDataPin}
-#define WIDTH         ${c.ledWidth}
+${clockPinDefine}#define WIDTH         ${c.ledWidth}
 #define HEIGHT        ${c.ledHeight}
 #define NUM_LEDS      ${numLeds}
 #define SD_CS         ${c.sdCsPin}
@@ -536,8 +558,7 @@ void applyEvent(const ShowEvent& ev) {
 void setup() {
   Serial.begin(115200);
 
-  FastLED.addLeds<${c.chipset}, LED_DATA_PIN, ${c.colorOrder}>(leds, NUM_LEDS);
-  FastLED.setBrightness(180);
+${ledSetupLines}
 
   if (!SD.begin(SD_CS)) { Serial.println("SD mount failed"); while(1); }
 
