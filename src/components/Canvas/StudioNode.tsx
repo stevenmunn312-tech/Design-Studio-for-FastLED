@@ -528,8 +528,9 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   )
   const performanceMode = useUiStore((s) => s.performanceMode)
   const uiEffectsEnabled = useUiStore((s) => s.uiEffectsEnabled)
+  const signalPathDimEnabled = useUiStore((s) => s.signalPathDimEnabled)
   const focusState = useGraphStore((s) => {
-    if (!s.selectedNodeId) return 'neutral'
+    if (!signalPathDimEnabled || !s.selectedNodeId) return 'neutral'
     return signalPathFor(s.edges, s.selectedNodeId).has(id) ? 'active' : 'dim'
   })
   // Matrix dimensions (from MatrixOutput) set the frame-preview aspect ratio.

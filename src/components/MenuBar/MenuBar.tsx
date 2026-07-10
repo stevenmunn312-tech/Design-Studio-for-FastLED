@@ -24,6 +24,8 @@ export default function MenuBar() {
     togglePerformanceMode,
     uiEffectsEnabled,
     toggleUiEffects,
+    signalPathDimEnabled,
+    toggleSignalPathDim,
     stageMode,
     setStageMode,
     preview3d,
@@ -191,6 +193,15 @@ export default function MenuBar() {
           title={uiEffectsEnabled ? 'Disable extra UI effects' : 'Enable extra UI effects'}
         >
           {uiEffectsEnabled ? 'FX On' : 'FX Off'}
+        </button>
+        <button
+          className={`${styles.btn} ${!signalPathDimEnabled ? styles.btnActive : ''}`}
+          onClick={toggleSignalPathDim}
+          aria-label="Toggle signal path dimming"
+          aria-pressed={!signalPathDimEnabled}
+          title={signalPathDimEnabled ? 'Disable dimming unrelated nodes on selection' : 'Enable dimming unrelated nodes on selection'}
+        >
+          {signalPathDimEnabled ? 'Dim On' : 'Dim Off'}
         </button>
         <div className={styles.sep} />
         <button

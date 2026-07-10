@@ -13,6 +13,7 @@ const LEGACY_DIFFUSION_KEY = 'fastled-studio-preview-diffusion'
 const TEST_SIGNAL_KEY = 'fastled-studio-test-signal'
 const PERFORMANCE_MODE_KEY = 'fastled-studio-performance-mode'
 const UI_EFFECTS_KEY = 'fastled-studio-ui-effects-enabled'
+const SIGNAL_PATH_DIM_KEY = 'fastled-studio-signal-path-dim-enabled'
 
 function load<T>(key: string, fallback: T): T {
   try { const v = localStorage.getItem(key); return v !== null ? JSON.parse(v) : fallback } catch { return fallback }
@@ -43,6 +44,8 @@ interface UiState {
   /** Canvas-focused presentation mode that hushes chrome and emphasizes signal flow. */
   performanceMode: boolean
   uiEffectsEnabled: boolean
+  /** When on, selecting a node dims everything outside its signal path. */
+  signalPathDimEnabled: boolean
   preview3d: boolean
   previewStyle: PreviewStyle
   /** When on, audio-reactive nodes with no live mic run off a synthetic demo
@@ -72,6 +75,7 @@ interface UiState {
   togglePerformanceMode: () => void
   setPerformanceMode: (active: boolean) => void
   toggleUiEffects: () => void
+  toggleSignalPathDim: () => void
   togglePreview3d: () => void
   toggleTestSignal: () => void
   setPreviewStyle: (style: PreviewStyle) => void
@@ -104,6 +108,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   stageMode: false,
   performanceMode: load<boolean>(PERFORMANCE_MODE_KEY, false),
   uiEffectsEnabled: load<boolean>(UI_EFFECTS_KEY, true),
+  signalPathDimEnabled: load<boolean>(SIGNAL_PATH_DIM_KEY, true),
   preview3d: false,
   previewStyle: loadPreviewStyle(),
   testSignal: load<boolean>(TEST_SIGNAL_KEY, false),
@@ -148,6 +153,11 @@ export const useUiStore = create<UiState>((set, get) => ({
     const next = !get().uiEffectsEnabled
     localStorage.setItem(UI_EFFECTS_KEY, JSON.stringify(next))
     set({ uiEffectsEnabled: next })
+  },
+  toggleSignalPathDim: () => {
+    const next = !get().signalPathDimEnabled
+    localStorage.setItem(SIGNAL_PATH_DIM_KEY, JSON.stringify(next))
+    set({ signalPathDimEnabled: next })
   },
   togglePreview3d: () => set((s) => ({ preview3d: !s.preview3d })),
   toggleTestSignal: () => {
