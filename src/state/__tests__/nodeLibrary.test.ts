@@ -164,6 +164,20 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('Juggle', 'count')).toMatchObject({ control: 'slider', min: 1, max: 8 })
   })
 
+  it('Noise exposes both frame and raw field outputs', () => {
+    const nz = NODE_LIBRARY.find((n) => n.type === 'Noise')
+    expect(nz?.outputs.map((p) => p.id)).toEqual(['frame', 'field'])
+    expect(propertyMeta('Noise', 'noiseType')).toMatchObject({ control: 'select' })
+    expect((propertyMeta('Noise', 'noiseType') as { options?: string[] }).options).toContain('noise4d')
+  })
+
+  it('ColorBoost exposes a frame input and bounded boost control', () => {
+    const cb = NODE_LIBRARY.find((n) => n.type === 'ColorBoost')
+    expect(cb?.inputs.map((p) => p.id)).toEqual(['frame', 'boost'])
+    expect(cb?.defaultProperties).toMatchObject({ boost: 0.5 })
+    expect(propertyMeta('ColorBoost', 'boost')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+  })
+
   it('AudioCascade exposes full-spectrum audio inputs with normalized controls', () => {
     const ac = NODE_LIBRARY.find((n) => n.type === 'AudioCascade')
     expect(ac?.inputs.map((p) => p.id)).toEqual(['bass', 'mids', 'treble', 'energy', 'speed', 'paletteIn'])

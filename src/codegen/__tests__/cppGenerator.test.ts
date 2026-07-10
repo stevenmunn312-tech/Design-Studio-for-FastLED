@@ -191,8 +191,10 @@ describe('generateCpp', () => {
   it('scales Noise speed per noiseType variant', () => {
     const worley = node('w', 'Noise', 'pattern', { noiseType: 'worley', speed: 1, scale: 1 })
     const simplex = node('s', 'Noise', 'pattern', { noiseType: 'simplex', speed: 1, scale: 1 })
+    const noise4d = node('n4', 'Noise', 'pattern', { noiseType: 'noise4d', speed: 1, scale: 1 })
     expect(generateCpp([worley, outputNode], [edge('e', 'w', 'out', 'frame', 'frame')])).toContain('* 5.000f)')
     expect(generateCpp([simplex, outputNode], [edge('e', 's', 'out', 'frame', 'frame')])).toContain('* 3.000f)')
+    expect(generateCpp([noise4d, outputNode], [edge('e', 'n4', 'out', 'frame', 'frame')])).toContain('* 2.000f)')
   })
 
   it('does not include float t for static graphs', () => {
@@ -813,6 +815,15 @@ describe('generateCpp', () => {
     expect(cpp).toContain('ColorFromPalette(ForestColors_p')
   })
 
+  it('emits looping 4D noise through inoise16(x, y, z, t)', () => {
+    const n4 = node('n4', 'Noise', 'pattern', { noiseType: 'noise4d', speed: 0.5, scale: 0.5, palette: 'ocean' })
+    const cpp = generateCpp([n4, outputNode], [edge('e', 'n4', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('inoise16((uint32_t)(_x*_fr),(uint32_t)(_y*_fr),_z+(uint32_t)(_o*8192),_w+(uint32_t)(_o*12288))')
+    expect(cpp).toContain('float _spd=')
+    expect(cpp).toContain('_ang=t*_spd*6.2831853f;')
+    expect(cpp).toContain('ColorFromPalette(OceanColors_p')
+  })
+
   it('emits the right Transition code per transitionType', () => {
     const emit = (transitionType: string, props: Record<string, unknown> = {}) =>
       generateCpp([node('tr', 'Transition', 'composite', { transitionType, t: 0.5, ...props }), outputNode],
@@ -1001,6 +1012,19 @@ describe('Float Field codegen', () => {
       [edge('e1', 'ff', 'f2f', 'field', 'field'), edge('e2', 'f2f', 'out', 'frame', 'frame')],
     )
     expect(b).not.toContain('_fsin8')
+  })
+
+  it('Noise declares a raw field buffer and remaps it through the palette', () => {
+    const nz = node('nz', 'Noise', 'pattern', { noiseType: 'simplex', speed: 0.4, scale: 0.5, palette: 'ocean' })
+    const f2f = node('f2f', 'FieldToFrame', 'pattern', { palette: 'ocean', brightness: 1 })
+    const cpp = generateCpp(
+      [nz, f2f, outputNode],
+      [edge('e1', 'nz', 'f2f', 'field', 'field'), edge('e2', 'f2f', 'out', 'frame', 'frame')],
+    )
+    expect(cpp).toContain('float field_nz[NUM_LEDS];')
+    expect(cpp).toContain('field_nz[_y*WIDTH+_x]=')
+    expect(cpp).toContain('buf_nz[_i]=ColorFromPalette(OceanColors_p,(uint8_t)(constrain(field_nz[_i],0.0f,1.0f)*255.0f));')
+    expect(cpp).toContain('field_nz[_i]*255')
   })
 
   it('FieldToFrame fills black when no field is wired', () => {
@@ -1569,6 +1593,18 @@ describe('Saturation / RGBToHSV (codegen)', () => {
     )
     expect(cpp).toContain('rgb2hsv_approximate(buf_satn[_i])')
     expect(cpp).toContain('_hs.sat * (0)')
+  })
+
+  it('ColorBoost emits luminance-preserving channel scaling', () => {
+    const sc = node('scb', 'SolidColor', 'pattern', { r: 170, g: 140, b: 120 })
+    const cb = node('cb', 'ColorBoost', 'composite', { boost: 1 })
+    const cpp = generateCpp(
+      [sc, cb, outputNode],
+      [edge('e1', 'scb', 'cb', 'frame', 'frame'), edge('e2', 'cb', 'out', 'frame', 'frame')],
+    )
+    expect(cpp).toContain('float _cb = constrain(1, 0.0f, 1.0f);')
+    expect(cpp).toContain('float _l = buf_cb[_i].r * 0.2126f + buf_cb[_i].g * 0.7152f + buf_cb[_i].b * 0.0722f;')
+    expect(cpp).toContain('buf_cb[_i].r = (uint8_t)constrain(_l + (buf_cb[_i].r - _l) * _cs, 0.0f, 255.0f);')
   })
 
   it('RGBToHSV emits h/s/v floats via rgb2hsv_approximate', () => {

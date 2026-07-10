@@ -501,14 +501,6 @@ function renderText(text: string, color: RGB, startX: number, startY: number, sc
 }
 
 // ── Pattern evaluators ────────────────────────────────────────────────────────
-function evalNoiseField(speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return buildFrame(W, H, (x, y) => {
-      const v = (Math.sin(x * scale * 0.5 + t * speed) +
-                 Math.cos(y * scale * 0.5 + t * speed * 0.7)) / 2
-      return samplePalette(palette, (v + 1) / 2)
-    })
-}
-
 function evalPlasma(speed: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   return buildFrame(W, H, (x, y) => {
       const v = Math.sin(x / 3 + t * speed)
@@ -1654,34 +1646,58 @@ function evalGradientFrame(cA: RGB, cB: RGB, vertical: boolean, W = DEFAULT_W, H
     })
 }
 
+function wrap01(v: number): number {
+  return ((v % 1) + 1) % 1
+}
+
 // Dispatch for the bundled `Noise` node — `noiseType` picks the algorithm.
-// All variants share the (speed, scale, palette)→frame signature. Keep the
-// cases in sync with PROPERTY_META.noiseType and cppGenerator's `Noise` case.
-function evalNoiseByType(noiseType: string, speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+// All variants share the (speed, scale)→field signature, then the node maps
+// that field through a palette for its normal `frame` output. Keep the cases
+// in sync with PROPERTY_META.noiseType and cppGenerator's `Noise` case.
+function evalNoiseFieldByType(noiseType: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
   switch (noiseType) {
-    case 'simplex': return evalSimplex2D(speed, scale, t, palette, W, H)
-    case 'noise3d': return evalNoise3D(speed, scale, t, palette, W, H)
-    case 'worley':  return evalWorley(speed, scale, t, palette, W, H)
-    case 'plasma':  return evalPlasmaFractal(speed, scale, t, palette, W, H)
+    case 'simplex': return evalSimplex2DField(speed, scale, t, W, H)
+    case 'noise3d': return evalNoise3DField(speed, scale, t, W, H)
+    case 'noise4d': return evalNoise4DField(speed, scale, t, W, H)
+    case 'worley':  return evalWorleyField(speed, scale, t, W, H)
+    case 'plasma':  return evalPlasmaFractalField(speed, scale, t, W, H)
     case 'field':
-    default:        return evalNoiseField(speed, scale, t, palette, W, H)
+    default:        return evalNoiseFieldRaw(speed, scale, t, W, H)
   }
 }
 
-function evalSimplex2D(speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return buildFrame(W, H, (x, y) => {
+function evalNoiseFieldRaw(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+  const out = allocField(W * H)
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const v = (Math.sin(x * scale * 0.5 + t * speed) +
+                 Math.cos(y * scale * 0.5 + t * speed * 0.7)) / 2
+      out[y * W + x] = Math.max(0, Math.min(1, (v + 1) / 2))
+    }
+  }
+  return out
+}
+
+function evalSimplex2DField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+  const out = allocField(W * H)
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
       let v = 0, amp = 1, freq = scale
       for (let oct = 0; oct < 4; oct++) {
         v += amp * _snoise2(x * freq + t * speed * 0.13, y * freq + t * speed * 0.1)
         amp *= 0.5; freq *= 2
       }
-      return samplePalette(palette, (v * 0.5 + 0.5) % 1)
-    })
+      out[y * W + x] = wrap01(v * 0.5 + 0.5)
+    }
+  }
+  return out
 }
 
-function evalNoise3D(speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalNoise3DField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
   // 3D via two orthogonal 2D slices animated along the z (time) axis
-  return buildFrame(W, H, (x, y) => {
+  const out = allocField(W * H)
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
       const z = t * speed * 0.08
       let v = 0, amp = 1, freq = scale
       for (let oct = 0; oct < 3; oct++) {
@@ -1689,8 +1705,34 @@ function evalNoise3D(speed: number, scale: number, t: number, palette: Palette, 
                     _snoise2(x * freq * 0.9, y * freq + z * 0.61) * 0.4)
         amp *= 0.5; freq *= 2.1
       }
-      return samplePalette(palette, ((v * 0.5 + 0.5) % 1 + 1) % 1)
-    })
+      out[y * W + x] = wrap01(v * 0.5 + 0.5)
+    }
+  }
+  return out
+}
+
+// Looping "4D" noise approximation for the browser preview: animate around a
+// circle in two hidden dimensions so the pattern returns to its starting point
+// every cycle, matching the firmware variant's circular z/t path through
+// FastLED's real inoise16(x, y, z, t).
+function evalNoise4DField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+  const ang = t * speed * Math.PI * 2
+  const out = allocField(W * H)
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      let v = 0, amp = 1, freq = scale
+      for (let oct = 0; oct < 3; oct++) {
+        const ox = Math.cos(ang + oct * 0.9) * 0.8
+        const oy = Math.sin(ang + oct * 1.1) * 0.8
+        const a = _snoise2(x * freq + ox, y * freq + oy)
+        const b = _snoise2(x * freq + oy * 0.7 + 11.3, y * freq + ox * 0.7 - 7.1)
+        v += amp * (a * 0.65 + b * 0.35)
+        amp *= 0.5; freq *= 2
+      }
+      out[y * W + x] = wrap01(v * 0.5 + 0.5)
+    }
+  }
+  return out
 }
 
 // Integer hash → [0,1), used to place a feature point per cell for Worley noise.
@@ -1702,8 +1744,10 @@ function worleyHash(x: number, y: number): number {
 
 // Worley (cellular) noise: distance to the nearest animated feature point,
 // coloured through a palette. Feature points jitter on a circle over time.
-function evalWorley(speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return buildFrame(W, H, (x, y) => {
+function evalWorleyField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+  const out = allocField(W * H)
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
       const px = x * scale, py = y * scale
       const xi = Math.floor(px), yi = Math.floor(py)
       let f1 = Infinity
@@ -1716,8 +1760,10 @@ function evalWorley(speed: number, scale: number, t: number, palette: Palette, W
           const d = Math.hypot(px - fx, py - fy)
           if (d < f1) f1 = d
         }
-      return samplePalette(palette, Math.min(1, f1))
-    })
+      out[y * W + x] = Math.min(1, f1)
+    }
+  }
+  return out
 }
 
 // Gabor noise: sparse-convolution noise summing one Gaussian-windowed cosine
@@ -1867,14 +1913,18 @@ function evalStarfield(nodeId: string, speed: number, count: number, color: RGB,
 }
 
 // Plasma blended with fractal (simplex) noise for an organic flowing field.
-function evalPlasmaFractal(speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return buildFrame(W, H, (x, y) => {
+function evalPlasmaFractalField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+  const out = allocField(W * H)
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
       let v = Math.sin(x * 0.2 + t * speed) + Math.sin(y * 0.25 + t * speed * 0.8) + Math.sin((x + y) * 0.15 + t * speed * 0.6)
       let amp = 1, freq = scale, fn = 0
       for (let o = 0; o < 3; o++) { fn += amp * _snoise2(x * freq + t * speed * 0.1, y * freq); amp *= 0.5; freq *= 2 }
       v += fn * 2.5
-      return samplePalette(palette, (((v * 0.15) % 1) + 1) % 1)
-    })
+      out[y * W + x] = wrap01(v * 0.15)
+    }
+  }
+  return out
 }
 
 // Audio-reactive flow: a simplex band field scrolling at a speed set by mids,
@@ -3326,16 +3376,18 @@ function createEvalNode(
         break
       }
 
-      // Bundled noise generators (NoiseField / Simplex2D / Noise3D / Worley /
-      // PlasmaFractal). All share the (speed, scale, palette)→frame signature;
-      // `noiseType` picks the algorithm. Keep in sync with PROPERTY_META.noiseType
+      // Bundled noise generators (NoiseField / Simplex2D / Noise3D / Noise4D /
+      // Worley / PlasmaFractal). All share the same scalar-field core; the
+      // node exposes that raw `field` output and also maps it through a palette
+      // to its normal `frame` output. Keep in sync with PROPERTY_META.noiseType
       // and the `Noise` case in cppGenerator.ts.
       case 'Noise': {
         const noiseType = String(props.noiseType ?? 'field')
         const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), NOISE_SPEED_MAX[noiseType] ?? 1)
         const scale = denormRate(num(id, 'scale', props, 'scale', 0.5), NOISE_SCALE_MAX[noiseType] ?? 1)
         const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-        out = { frame: evalNoiseByType(noiseType, speed, scale, t, palette, W, H) }
+        const field = evalNoiseFieldByType(noiseType, speed, scale, t, W, H)
+        out = { field, frame: evalFieldToFrame(field, palette, 1, W, H) }
         break
       }
 
@@ -3581,6 +3633,27 @@ function createEvalNode(
               const s = max > 0 ? d / max : 0
               const s2 = Math.max(0, Math.min(1, s * amount))
               return hsv((h + 360) % 360, s2, max)
+            })
+          ),
+        }
+        break
+      }
+
+      case 'ColorBoost': {
+        const src = input(id, 'frame', null) as Frame | null
+        const boost = Math.max(0, Math.min(1, num(id, 'boost', props, 'boost', 0.5)))
+        if (!src) { out = { frame: null }; break }
+        const scale = 1 + boost * 1.5
+        const clamp255 = (v: number) => Math.max(0, Math.min(255, Math.round(v)))
+        out = {
+          frame: src.map(row =>
+            row.map(px => {
+              const luma = px.r * 0.2126 + px.g * 0.7152 + px.b * 0.0722
+              return {
+                r: clamp255(luma + (px.r - luma) * scale),
+                g: clamp255(luma + (px.g - luma) * scale),
+                b: clamp255(luma + (px.b - luma) * scale),
+              }
             })
           ),
         }

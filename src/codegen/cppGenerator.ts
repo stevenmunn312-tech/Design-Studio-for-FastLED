@@ -1094,11 +1094,14 @@ export function generateCpp(
         break
       }
 
-      // Bundled noise node — `noiseType` picks the algorithm. Keep the cases in
-      // sync with PROPERTY_META.noiseType and the `Noise` case in graphEvaluator.
+      // Bundled noise node — `noiseType` picks the algorithm. Each variant
+      // writes a raw scalar field, then the node maps that field through its
+      // palette for the normal frame output. Keep the cases in sync with
+      // PROPERTY_META.noiseType and the `Noise` case in graphEvaluator.
       case 'Noise': {
         needsT.v = true
         const ob = ownBuf()
+        const of = ownField()
         const noiseType = String(p.noiseType ?? 'field')
         const speed = rateCpp(f('speed', 'speed', 0.5), NOISE_SPEED_MAX[noiseType] ?? 1)
         const scale = rateCpp(f('scale', 'scale', 0.5), NOISE_SCALE_MAX[noiseType] ?? 1)
@@ -1110,7 +1113,7 @@ export function generateCpp(
             ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
             ln(`      float _n=sin(_x*_sc+sin(_y*_sc*0.8f+t*_spd*0.5f)+t*_spd)`)
             ln(`            +0.5f*sin(_x*_sc*2+t*_spd*1.9f)+0.25f*sin(_x*_sc*4+t*_spd*4.1f);`)
-            ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_n*0.25f+0.5f)*255));}}`)
+            ln(`      ${of}[_y*WIDTH+_x]=constrain(_n*0.25f+0.5f,0.0f,1.0f);}}`)
             break
           case 'noise3d':
             ln(`  { // Noise3D`)
@@ -1119,7 +1122,22 @@ export function generateCpp(
             ln(`      float _n=(sin(_x*_sc+t*_spd)+cos(_y*_sc+t*_spd*0.7f))*0.5f`)
             ln(`            +(sin(_x*_sc*1.7f+t*_spd*1.3f+_y*_sc*0.9f)*0.33f)`)
             ln(`            +(cos(_x*_sc*2.9f+t*_spd*2.1f)*0.17f);`)
-            ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_n*0.3f+0.5f)*255));}}`)
+            ln(`      ${of}[_y*WIDTH+_x]=constrain(_n*0.3f+0.5f,0.0f,1.0f);}}`)
+            break
+          case 'noise4d':
+            ln(`  { // Noise4D (looping inoise16 x,y,z,t path)`)
+            ln(`    float _spd=${speed},_sc=${scale},_ang=t*_spd*6.2831853f;`)
+            ln(`    uint32_t _z=(uint32_t)((cosf(_ang)*0.5f+0.5f)*65535.0f);`)
+            ln(`    uint32_t _w=(uint32_t)((sinf(_ang)*0.5f+0.5f)*65535.0f);`)
+            ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+            ln(`      float _amp=1.0f,_fr=_sc*128.0f,_fn=0.0f,_sum=0.0f;`)
+            ln(`      for(int _o=0;_o<3;_o++){`)
+            ln(`        uint16_t _raw=inoise16((uint32_t)(_x*_fr),(uint32_t)(_y*_fr),_z+(uint32_t)(_o*8192),_w+(uint32_t)(_o*12288));`)
+            ln(`        _fn+=_amp*(_raw/65535.0f); _sum+=_amp; _amp*=0.5f; _fr*=2.0f;`)
+            ln(`      }`)
+            ln(`      ${of}[_y*WIDTH+_x]=constrain(_fn/max(0.001f,_sum),0.0f,1.0f);`)
+            ln(`    }`)
+            ln(`  }`)
             break
           case 'worley':
             needsWorley.v = true
@@ -1132,15 +1150,15 @@ export function generateCpp(
             ln(`        float _fx=_cx+0.5f+0.45f*sin(t*_spd+_h*6.2831f);`)
             ln(`        float _fy=_cy+0.5f+0.45f*cos(t*_spd*1.1f+_h*6.2831f);`)
             ln(`        float _d=sqrtf((_px-_fx)*(_px-_fx)+(_py-_fy)*(_py-_fy)); if(_d<_f1)_f1=_d; }`)
-            ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(min(1.0f,_f1)*255));}}`)
+            ln(`      ${of}[_y*WIDTH+_x]=min(1.0f,_f1);}}`)
             break
           case 'plasma':
             ln(`  { float _spd=${speed},_sc=${scale}; uint16_t _z=(uint16_t)(t*_spd*10);`)
             ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
             ln(`      float _v=sin(_x*0.2f+t*_spd)+sin(_y*0.25f+t*_spd*0.8f)+sin((_x+_y)*0.15f+t*_spd*0.6f);`)
             ln(`      float _amp=1,_fr=_sc*96,_fn=0; for(int _o=0;_o<3;_o++){ _fn+=_amp*(inoise8((uint16_t)(_x*_fr),(uint16_t)(_y*_fr),_z)/255.0f-0.5f); _amp*=0.5f; _fr*=2; }`)
-            ln(`      _v+=_fn*5; int _idx=((int)(_v*38)%256+256)%256;`)
-            ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)_idx);}}`)
+            ln(`      _v+=_fn*5; float _nf=fmodf(_v*0.15f,1.0f); if(_nf<0)_nf+=1.0f;`)
+            ln(`      ${of}[_y*WIDTH+_x]=_nf;}}`)
             break
           case 'field':
           default:
@@ -1148,11 +1166,12 @@ export function generateCpp(
             ln(`    float _spd = ${speed}, _scl = ${scale};`)
             ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
             ln(`      float _v = (sin(_x * _scl * 0.5f + t * _spd) + cos(_y * _scl * 0.5f + t * _spd * 0.7f)) / 2.0f;`)
-            ln(`      ${ob}[_y * WIDTH + _x] = ColorFromPalette(${pal}, (uint8_t)(((_v + 1) * 0.5f) * 255));`)
+            ln(`      ${of}[_y * WIDTH + _x] = constrain((_v + 1) * 0.5f, 0.0f, 1.0f);`)
             ln(`    }`)
             ln(`  }`)
             break
         }
+        ln(`  for(int _i=0;_i<NUM_LEDS;_i++) ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(constrain(${of}[_i],0.0f,1.0f)*255.0f));`)
         break
       }
 
@@ -1985,6 +2004,18 @@ export function generateCpp(
         ln(`      CHSV _hs = rgb2hsv_approximate(${ob}[_i]);`)
         ln(`      uint8_t _s2 = (uint8_t)constrain((float)_hs.sat * (${amount}), 0.0f, 255.0f);`)
         ln(`      ${ob}[_i] = CHSV(_hs.hue, _s2, _hs.val); } }`)
+        break
+      }
+
+      case 'ColorBoost': {
+        const ob = ownBuf()
+        const boost = f('boost', 'boost', 0.5)
+        ln(`  { ${seedFrom('frame')} float _cb = constrain(${boost}, 0.0f, 1.0f); float _cs = 1.0f + _cb * 1.5f; for (int _i = 0; _i < NUM_LEDS; _i++) {`)
+        ln(`      float _l = ${ob}[_i].r * 0.2126f + ${ob}[_i].g * 0.7152f + ${ob}[_i].b * 0.0722f;`)
+        ln(`      ${ob}[_i].r = (uint8_t)constrain(_l + (${ob}[_i].r - _l) * _cs, 0.0f, 255.0f);`)
+        ln(`      ${ob}[_i].g = (uint8_t)constrain(_l + (${ob}[_i].g - _l) * _cs, 0.0f, 255.0f);`)
+        ln(`      ${ob}[_i].b = (uint8_t)constrain(_l + (${ob}[_i].b - _l) * _cs, 0.0f, 255.0f);`)
+        ln(`    } }`)
         break
       }
 

@@ -35,12 +35,12 @@ export const SCALE_MAX: Record<string, number> = {
 
 /** Bundled Noise node — speed `1.0` per `noiseType` variant. */
 export const NOISE_SPEED_MAX: Record<string, number> = {
-  field: 5, simplex: 3, noise3d: 5, worley: 5, plasma: 5,
+  field: 5, simplex: 3, noise3d: 5, noise4d: 2, worley: 5, plasma: 5,
 }
 
 /** Bundled Noise node — scale `1.0` per `noiseType` variant. */
 export const NOISE_SCALE_MAX: Record<string, number> = {
-  field: 2, simplex: 0.5, noise3d: 0.5, worley: 0.3, plasma: 0.2,
+  field: 2, simplex: 0.5, noise3d: 0.5, noise4d: 0.5, worley: 0.3, plasma: 0.2,
 }
 
 /** Map a 0–1 UI value onto the internal `[0, max]` rate (evaluator side). */

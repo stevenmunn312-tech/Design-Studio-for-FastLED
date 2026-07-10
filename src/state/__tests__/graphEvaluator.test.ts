@@ -1126,6 +1126,7 @@ describe('evaluateGraph', () => {
       { type: 'Noise', extra: { noiseType: 'field' } },
       { type: 'Noise', extra: { noiseType: 'simplex' } },
       { type: 'Noise', extra: { noiseType: 'noise3d' } },
+      { type: 'Noise', extra: { noiseType: 'noise4d' } },
       { type: 'Noise', extra: { noiseType: 'worley' } },
       { type: 'Noise', extra: { noiseType: 'plasma' } },
       { type: 'FractalNoise' }, { type: 'GaborNoise' },
@@ -1167,6 +1168,19 @@ describe('evaluateGraph', () => {
       30, 8, 8,
     )
     expect(JSON.stringify(wired)).not.toEqual(JSON.stringify(base))
+  })
+
+  it('Noise4D loops seamlessly over its cycle while still animating within it', () => {
+    const run = (tick: number) => {
+      const n4 = noise('n4', 'noise4d', { speed: 1, scale: 1, palette: 'rainbow' })
+      const out = node('out4', 'MatrixOutput', 'output', {})
+      return evaluateGraph([n4, out], [edge(`e4-${tick}`, 'n4', 'frame', 'out4', 'frame')], tick, 8, 8)!
+    }
+    const start = run(0)
+    const mid = run(15)
+    const looped = run(30)
+    expect(JSON.stringify(mid)).not.toEqual(JSON.stringify(start))
+    expect(JSON.stringify(looped)).toEqual(JSON.stringify(start))
   })
 
   it('a Poline palette drives a pattern, varying with its anchors', () => {
@@ -2066,6 +2080,24 @@ describe('FieldNoise and FrameToField', () => {
     return outputs.get(nodeId)!.field as Float32Array
   }
 
+  it('Noise exposes a raw field output that round-trips through FieldToFrame', () => {
+    const nz = noise('nzf', 'simplex', { speed: 0.45, scale: 0.4, palette: 'ocean' })
+    const f2f = node('nzf2f', 'FieldToFrame', 'pattern', { palette: 'ocean', brightness: 1 })
+    const out = node('nzout', 'MatrixOutput', 'output', {})
+    const { outputs } = evaluateGraphFull(
+      [nz, f2f, out],
+      [
+        edge('e1', 'nzf', 'field', 'nzf2f', 'field'),
+        edge('e2', 'nzf2f', 'frame', 'nzout', 'frame'),
+      ],
+      18, W, H,
+    )
+    const fld = outputs.get('nzf')!.field as Float32Array
+    expect(fld.length).toBe(W * H)
+    for (const v of fld) { expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThanOrEqual(1) }
+    expect(outputs.get('nzf2f')!.frame).toEqual(outputs.get('nzf')!.frame)
+  })
+
   it('FieldNoise produces values within 0–1', () => {
     const fn = node('fn', 'FieldNoise', 'pattern', { speed: 0.4, scale: 0.5, octaves: 3 })
     const fld = fieldOut('fn', [fn], [], 10)
@@ -2300,6 +2332,33 @@ describe('Saturation and RGBToHSV', () => {
     const satNode = node('satnu', 'Saturation', 'composite', {})
     const { outputs } = evaluateGraphFull([satNode], [], 0, W, H)
     expect(outputs.get('satnu')!.frame).toBeNull()
+  })
+
+  it('ColorBoost boost=0 leaves the frame unchanged', () => {
+    const sc = node('cbsrc0', 'SolidColor', 'pattern', { r: 180, g: 140, b: 120 })
+    const cb = node('cb0', 'ColorBoost', 'composite', { boost: 0 })
+    const { nodes, edges } = withOutput(cb, [sc], [edge('e1', 'cbsrc0', 'frame', 'cb0', 'frame')])
+    const frame = evaluateGraph(nodes, edges, 0, W, H)!
+    expect(frame[0][0]).toEqual({ r: 180, g: 140, b: 120 })
+  })
+
+  it('ColorBoost increases channel separation while roughly preserving luminance', () => {
+    const sc = node('cbsrc1', 'SolidColor', 'pattern', { r: 170, g: 140, b: 120 })
+    const cb = node('cb1', 'ColorBoost', 'composite', { boost: 1 })
+    const { nodes, edges } = withOutput(cb, [sc], [edge('e1', 'cbsrc1', 'frame', 'cb1', 'frame')])
+    const px = evaluateGraph(nodes, edges, 0, W, H)![0][0]
+    const inSpread = Math.max(170, 140, 120) - Math.min(170, 140, 120)
+    const outSpread = Math.max(px.r, px.g, px.b) - Math.min(px.r, px.g, px.b)
+    const inLuma = 170 * 0.2126 + 140 * 0.7152 + 120 * 0.0722
+    const outLuma = px.r * 0.2126 + px.g * 0.7152 + px.b * 0.0722
+    expect(outSpread).toBeGreaterThan(inSpread)
+    expect(Math.abs(outLuma - inLuma)).toBeLessThan(2)
+  })
+
+  it('ColorBoost outputs null when unwired', () => {
+    const cb = node('cbu', 'ColorBoost', 'composite', {})
+    const { outputs } = evaluateGraphFull([cb], [], 0, W, H)
+    expect(outputs.get('cbu')!.frame).toBeNull()
   })
 
   it('RGBToHSV extracts hue/sat/val from a connected color', () => {

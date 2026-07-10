@@ -128,7 +128,7 @@ frame-centric graph can't express. Solution: add a `field` port type (per-pixel
 - [x] **`FieldMath`** node (category: `pattern`) — combine two fields pixel-by-pixel; `fieldOp` property: add, subtract, multiply, mix, min, max, difference; inputs: `a`, `b` (field); output: `field` (header reflects the op via `nodeDisplayLabel`)
 - [x] **`FieldWarp`** node (category: `composite`) — sample a `field` at coordinates shifted by two offset fields (`dx`, `dy`); `strength` property; nearest-neighbour, edge-clamped; output: `field`
 - [x] Evaluator + codegen + tests for each (9 new tests)
-- [ ] `Noise` node: optional `field` output mode (expose raw noise values pre-palette for field composition) — deferred follow-up
+- [x] `Noise` node: now exposes a raw `field` output alongside `frame`, so bundled noise variants can feed FieldMath / FieldWarp / FieldToFrame directly
 
 ### Phase 3 — coordinate-space transforms ✅ (merged, PR #71)
 - [x] **`FieldRotate`** node (category: `composite`) — rotate a field around its centre by an `angle` float input (degrees) + `spin` (deg/sec) property; wraps at boundary
@@ -168,8 +168,8 @@ music-sync player initialise the strip identically from the MatrixOutput node.
 - [ ] **`Path` node — parametric path drawing** (FastLED 3.10 `XYPath`) — shape dropdown (circle, heart, lissajous, rose, …) traced by a 0–1 `t` float input with subpixel rendering; pairs naturally with Trails
 - [ ] **Subpixel splatting** for Circle/Line/Particles — FastLED renders float coordinates by splatting brightness across a 2×2 tile; would fix visible stair-stepping at 16×16 in both preview and firmware
 - [ ] **Supersample toggle** on MatrixOutput — render at 2×, downscale by pixel averaging (FastLED `downscale`); lower priority than per-node splatting
-- [ ] **ColorBoost** — saturation enhancement preserving luminosity (3.10, built for washed-out video content); variant on the `Saturation` node or a small composite node with an exact firmware counterpart
-- [ ] **4D Perlin noise** — `inoise16(x, y, z, t)` as a `noiseType: 'noise4d'` variant on the bundled `Noise` node; gives seamlessly looping noise (useful for pattern-show dwells that restart)
+- [x] **ColorBoost** — added as a small composite node (`ColorBoost`) with luminance-preserving channel scaling in both preview and firmware codegen
+- [x] **4D Perlin noise** — bundled `Noise` now has a `noise4d` variant using a circular `z/t` path through `inoise16(x, y, z, t)` for seamless looping; preview mirrors the same loop with a browser-side approximation
 
 ### Noted, lower priority
 

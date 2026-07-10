@@ -164,9 +164,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   },
   {
     // Bundled noise generators — `noiseType` selects the algorithm. The
-    // variants (sine field, simplex, 3D, Worley, plasma-fractal) all share the
-    // same (speed, scale, palette)→frame signature, so they collapse into one
-    // node with an inline dropdown. See PROPERTY_META.noiseType.
+    // variants share the same speed/scale/palette controls, expose a raw scalar
+    // `field`, and also map that field through a palette to the normal `frame`
+    // output. See PROPERTY_META.noiseType.
     type: 'Noise',
     label: 'Noise',
     category: 'pattern',
@@ -176,7 +176,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'scale', label: 'Scale', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    outputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      { id: 'field', label: 'Field', dataType: 'field' },
+    ],
     defaultProperties: { noiseType: 'field', speed: 0.5, scale: 0.5, palette: 'rainbow' },
   },
   {
@@ -420,6 +423,20 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { amount: 1 },
+  },
+  {
+    // Luminance-preserving saturation enhancement — pushes channels away from
+    // their Rec. 709 luma so washed-out content gains colour without simply
+    // brightening the whole frame.
+    type: 'ColorBoost',
+    label: 'Color Boost',
+    category: 'composite',
+    inputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      { id: 'boost', label: 'Boost', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { boost: 0.5 },
   },
   {
     // Animated geometric transform of a frame (rotate / scale / translate).
@@ -1850,7 +1867,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Circle: 'Draws a circle — ring or filled disc.',
   Line: 'Draws a line between two points.',
   Text: 'Renders scrolling text in a bitmap font.',
-  Noise: 'Noise generator — pick the algorithm with the type dropdown.',
+  Noise: 'Bundled noise variants with frame and raw field outputs.',
   Fire: 'Classic rising fire effect.',
   Fire2012: 'FastLED Fire2012 heat simulation.',
   Plasma: 'Animated plasma interference pattern.',
@@ -1920,6 +1937,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Transform: 'Animated rotate, scale or translate of a frame.',
   Invert: 'Inverts colors.',
   Saturation: 'Scales color saturation (0 = greyscale, 1 = unchanged).',
+  ColorBoost: 'Boosts saturation while approximately preserving luminance.',
   FrameSwitch: 'Shows frame A or B, selected by a boolean.',
   Trails: 'Fades the previous frame and re-lightens where the input is brighter.',
   Transition: 'Transitions A→B — 16 styles: wipe, iris, push, blinds, spiral, zoom + more.',
@@ -2078,7 +2096,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   transform:  { control: 'select', options: ['rotate', 'scale', 'translate'] },
   // Bundled-node selectors — each picks a variant; keep in sync with the
   // matching case in graphEvaluator.ts and cppGenerator.ts.
-  noiseType:      { control: 'select', options: ['field', 'simplex', 'noise3d', 'worley', 'plasma'] },
+  noiseType:      { control: 'select', options: ['field', 'simplex', 'noise3d', 'noise4d', 'worley', 'plasma'] },
   mathOp:         { control: 'select', options: ['add', 'subtract', 'multiply', 'divide', 'min', 'max'] },
   transitionType: { control: 'select', options: [
     'crossfade', 'wipe', 'dissolve', 'iris', 'clockwipe', 'push', 'checkerboard',
@@ -2164,6 +2182,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   // Audio-reactivity amount on the spectral pattern nodes (was `intensity`).
   energy:     { control: 'slider', min: 0, max: 1, step: 0.01 },
   brightness: { control: 'slider', min: 0, max: 1, step: 0.01 },
+  boost:      { control: 'slider', min: 0, max: 1, step: 0.01 },
   // Show Engine beat-triggered particle overlay (style 0–10, hue 0–255).
   particleStyle:     { control: 'slider', min: 0, max: 10, step: 1 },
   particleHue:       { control: 'slider', min: 0, max: 255, step: 1 },
@@ -2371,7 +2390,7 @@ export function hasClampableInputs(nodeType: string, inputs: { id: string; dataT
 const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, string> }> = {
   Noise: {
     prop: 'noiseType',
-    labels: { field: 'Noise Field', simplex: 'Simplex', noise3d: 'Noise 3D', worley: 'Worley', plasma: 'Plasma Fractal' },
+    labels: { field: 'Noise Field', simplex: 'Simplex', noise3d: 'Noise 3D', noise4d: 'Noise 4D', worley: 'Worley', plasma: 'Plasma Fractal' },
   },
   Math: {
     prop: 'mathOp',
