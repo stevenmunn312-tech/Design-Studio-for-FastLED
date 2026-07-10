@@ -45,11 +45,14 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 // when one is running; otherwise falls back to a fresh one-off session.
 async function getSession() {
   if (fs.existsSync(SESSION_FILE)) {
-    const { wsEndpoint, title } = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'))
+    const { cdpUrl, title } = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'))
     try {
-      const browser = await chromium.connect(wsEndpoint)
-      const context = browser.contexts()[0]
-      const page = context.pages()[0]
+      const browser = await chromium.connectOverCDP(cdpUrl)
+      const page = browser
+        .contexts()
+        .flatMap((c) => c.pages())
+        .find((p) => !p.url().startsWith('about:') && !p.url().startsWith('devtools:'))
+      if (!page) throw new Error('session browser has no app page open')
       await page.bringToFront()
       const size = await page.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }))
       VIEWPORT.width = size.w

@@ -22,6 +22,15 @@
 // empirically, this is not a Playwright default. `start` therefore blocks
 // forever (until `stop` closes the browser remotely, which it then detects
 // via the 'disconnected' event and exits on) rather than returning.
+//
+// Cross-process attach uses REAL Chrome DevTools Protocol
+// (chromium.launch() + --remote-debugging-port, other processes attach via
+// connectOverCDP), not Playwright's own launchServer()/connect() pairing.
+// launchServer()'s wire protocol turned out to scope BrowserContexts to the
+// connection that created them — a fresh connect() from freeform-shot.mjs
+// saw zero contexts even though the page was right there on screen
+// (confirmed empirically). Real CDP has no such per-connection isolation:
+// any attached client sees the browser's actual state.
 
 import { chromium } from 'playwright'
 import fs from 'node:fs'
@@ -29,6 +38,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const APP_URL = process.env.DEMO_URL ?? 'http://localhost:5173'
+const CDP_PORT = Number(process.env.DEMO_CDP_PORT ?? 9333)
 export const SESSION_FILE = path.join('video-shots', '.freeform-session.json')
 export const DEMO_TITLE = 'FastLED Studio DEMO RIG' // ASCII only — survives the stdin pipe to PowerShell
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -42,17 +52,24 @@ function readSession() {
   }
 }
 
+async function isAlive(cdpUrl) {
+  try {
+    const res = await fetch(`${cdpUrl}/json/version`)
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
 async function start() {
   const existing = readSession()
   if (existing) {
-    try {
-      await chromium.connect(existing.wsEndpoint)
+    if (await isAlive(existing.cdpUrl)) {
       console.log('A session is already running — reusing it. Run `stop` first if you want to start clean.')
-      process.exit(0) // deliberately not calling browser.close(): that terminates the shared browser
-    } catch {
-      console.log('Stale session file found (browser no longer reachable) — starting fresh.')
-      fs.unlinkSync(SESSION_FILE)
+      process.exit(0)
     }
+    console.log('Stale session file found (browser no longer reachable) — starting fresh.')
+    fs.unlinkSync(SESSION_FILE)
   }
 
   const res = await fetch(APP_URL).catch(() => null)
@@ -61,8 +78,8 @@ async function start() {
     process.exit(1)
   }
 
-  const browserServer = await chromium.launchServer({ headless: false })
-  const browser = await chromium.connect(browserServer.wsEndpoint())
+  const cdpUrl = `http://127.0.0.1:${CDP_PORT}`
+  const browser = await chromium.launch({ headless: false, args: [`--remote-debugging-port=${CDP_PORT}`] })
   const context = await browser.newContext({ viewport: null })
   const page = await context.newPage()
   await page.goto(APP_URL)
@@ -82,10 +99,7 @@ async function start() {
   await sleep(600)
 
   fs.mkdirSync('video-shots', { recursive: true })
-  fs.writeFileSync(
-    SESSION_FILE,
-    JSON.stringify({ wsEndpoint: browserServer.wsEndpoint(), title: DEMO_TITLE, startedAt: Date.now() }, null, 2),
-  )
+  fs.writeFileSync(SESSION_FILE, JSON.stringify({ cdpUrl, title: DEMO_TITLE, startedAt: Date.now() }, null, 2))
 
   console.log(`\nSession started — the "${DEMO_TITLE}" window is open at ${APP_URL}.`)
   console.log('Build your graph in THAT window (not your regular Chrome tab) — no time limit.')
@@ -100,7 +114,7 @@ async function start() {
     })
     const onSignal = () => {
       console.log('\nClosing session...')
-      browserServer.close().catch(() => {}).finally(resolve)
+      browser.close().catch(() => {}).finally(resolve)
     }
     process.on('SIGINT', onSignal)
     process.on('SIGTERM', onSignal)
@@ -121,10 +135,9 @@ async function status() {
     console.log('No active session.')
     return
   }
-  try {
-    await chromium.connect(existing.wsEndpoint)
+  if (await isAlive(existing.cdpUrl)) {
     console.log(`Session alive, started ${new Date(existing.startedAt).toISOString()}.`)
-  } catch {
+  } else {
     console.log('Session file exists but the browser is unreachable (stale) — run `stop` to clear it.')
   }
   process.exit(0)
@@ -136,13 +149,22 @@ async function stop() {
     console.log('No active session.')
     return
   }
-  try {
-    const browser = await chromium.connect(existing.wsEndpoint)
-    await browser.close() // connected to a launchServer() endpoint — this terminates the shared browser
-  } catch (err) {
-    console.log(`(browser already gone: ${err.message})`)
+  if (await isAlive(existing.cdpUrl)) {
+    try {
+      const browser = await chromium.connectOverCDP(existing.cdpUrl)
+      // browser.close() over connectOverCDP only disconnects the client by
+      // design (Playwright deliberately won't kill a browser it merely
+      // attached to) — issue the raw CDP command instead, which genuinely
+      // quits the browser regardless of who "owns" the connection.
+      const cdpSession = await browser.newBrowserCDPSession()
+      await cdpSession.send('Browser.close')
+    } catch (err) {
+      console.log(`(could not close cleanly: ${err.message})`)
+    }
+  } else {
+    console.log('(browser already gone)')
   }
-  fs.unlinkSync(SESSION_FILE)
+  if (fs.existsSync(SESSION_FILE)) fs.unlinkSync(SESSION_FILE)
   console.log('Session stopped.')
 }
 
