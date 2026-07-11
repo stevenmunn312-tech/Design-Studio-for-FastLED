@@ -1,0 +1,100 @@
+.button {
+  margin-top: 4px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-glow);
+  background: none;
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.button:hover {
+  border-color: var(--accent-input);
+  color: var(--text-primary);
+}
+
+.buttonPressed {
+  background: var(--accent-input);
+  border-color: var(--accent-input);
+  color: #000;
+}
+
+.potRow,
+.encoderRow {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.potTrack {
+  position: relative;
+  flex: 1;
+  height: 14px;
+  border-radius: 7px;
+  background: var(--surface-recessed, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border-glow);
+  cursor: pointer;
+}
+
+.potFill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 7px;
+  background: var(--accent-input);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.potThumb {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-input);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  box-shadow: 0 0 4px var(--accent-input);
+}
+
+.potReadout {
+  font-family: var(--font-code);
+  font-size: 10px;
+  color: var(--text-secondary);
+  min-width: 26px;
+  text-align: right;
+}
+
+.encoderDial {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border-glow);
+  background: var(--surface-recessed, rgba(255, 255, 255, 0.06));
+  cursor: ns-resize;
+  flex-shrink: 0;
+}
+
+.encoderDialPressed {
+  border-color: var(--accent-input);
+  background: var(--accent-input);
+}
+
+.encoderNotch {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  width: 2px;
+  height: 8px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--accent-input);
+  transform-origin: 1px 11px;
+  pointer-events: none;
+}

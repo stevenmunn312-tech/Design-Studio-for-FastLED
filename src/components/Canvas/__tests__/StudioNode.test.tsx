@@ -389,15 +389,16 @@ describe('StudioNode', () => {
     expect(getByText('LIVE')).toBeTruthy()
   })
 
-  // Intentional preview fallbacks (hardware stubs, export-only outputs) are
-  // flagged with an explicit on-node note so they don't read as broken.
-  it('flags the fixed preview values on hardware-input nodes', () => {
+  // ButtonInput/PotInput/EncoderInput render a live interactive widget
+  // (HardwareInputBody) instead of a fixed value, so their pressed/value/
+  // position ports actually respond in preview.
+  it('renders a live widget on hardware-input nodes', () => {
     expect(renderNode(makeNode('ButtonInput', { pin: 0, pullup: true }))
-      .getByText(/preview stub — always unpressed/)).toBeTruthy()
+      .getByText('press')).toBeTruthy()
     expect(renderNode(makeNode('PotInput', { pin: 34 }))
-      .getByText(/preview stub — fixed at 0\.5/)).toBeTruthy()
+      .getByText('0.50')).toBeTruthy()
     expect(renderNode(makeNode('EncoderInput', { pinA: 32, pinB: 33, pinSW: 25, pullup: true }))
-      .getByText(/preview stub — inert/)).toBeTruthy()
+      .getByText('0')).toBeTruthy()
   })
 
   it('flags the black frame placeholder on the Performance Generator, and only there', () => {

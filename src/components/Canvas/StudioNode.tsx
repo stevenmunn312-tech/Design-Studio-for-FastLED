@@ -12,6 +12,7 @@ import NodePreview, { type PreviewKind } from './NodePreview'
 import MatrixSizePopup from './MatrixSizePopup'
 import BeatDetectBody from './BeatDetectBody'
 import FFTAnalyzerBody from './FFTAnalyzerBody'
+import HardwareInputBody from './HardwareInputBody'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
 import { usePerformanceBakeStore } from '../../state/performanceBakeStore'
@@ -501,23 +502,12 @@ const HANDLE_STYLE = {
 const GROUP_INPUT_ROLES = ['energy', 'speed', 'palette']
 
 // Nodes whose canvas preview intentionally diverges from firmware behaviour
-// (hardware-input stubs, export-only outputs). Rendered as a muted note at the
-// bottom of the body so the fallback reads as deliberate, not broken. The
-// audio nodes surface their own state (FFTAnalyzerBody's MIC LIVE / TEST
-// SIGNAL / SILENT pill, BeatDetectBody's LIVE / PREVIEW badge).
+// (export-only outputs). Rendered as a muted note at the bottom of the body
+// so the fallback reads as deliberate, not broken. The audio nodes surface
+// their own state (FFTAnalyzerBody's MIC LIVE / TEST SIGNAL / SILENT pill,
+// BeatDetectBody's LIVE / PREVIEW badge); ButtonInput/PotInput/EncoderInput
+// get a live widget (HardwareInputBody) instead of a note.
 const PREVIEW_NOTES: Record<string, { text: string; title: string }> = {
-  ButtonInput: {
-    text: 'preview stub — always unpressed',
-    title: 'The canvas preview has no real button to read, so Pressed is always off here. The generated firmware reads the pin.',
-  },
-  PotInput: {
-    text: 'preview stub — fixed at 0.5',
-    title: 'The canvas preview has no real potentiometer to read, so Value is fixed at 0.5 here. The generated firmware reads the pin.',
-  },
-  EncoderInput: {
-    text: 'preview stub — inert',
-    title: 'The canvas preview has no real encoder to read, so Position stays 0 and Pressed off here. The generated firmware decodes the encoder.',
-  },
   PerformanceGenerator: {
     text: 'frame output is black — shows play via SD export',
     title: 'The frame port is a black placeholder that lets this node terminate MatrixOutput (in preview and firmware). Generated shows play through the SD-card player export; watch one in the player above.',
@@ -690,6 +680,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const isComplexWave = d.nodeType === 'ComplexWave'
   const isBeatDetect = d.nodeType === 'BeatDetect'
   const isFFTAnalyzer = d.nodeType === 'FFTAnalyzer'
+  const isHardwareInput = d.nodeType === 'ButtonInput' || d.nodeType === 'PotInput' || d.nodeType === 'EncoderInput'
   const waveSamples = isWave
     ? waveNodeSamples(String(props.waveform ?? 'sine'), Number(props.amplitude ?? 1), Number(props.frequency ?? 1), Number(props.phase ?? 0))
     : null
@@ -772,6 +763,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {showLiveNodeVisuals && isComplexWave && <ComplexWaveScope nodeId={id} />}
         {showLiveNodeVisuals && isBeatDetect && <BeatDetectBody nodeId={id} />}
         {showLiveNodeVisuals && isFFTAnalyzer && <FFTAnalyzerBody nodeId={id} bands={Number(props.bands ?? 24)} />}
+        {showLiveNodeVisuals && isHardwareInput && <HardwareInputBody nodeId={id} nodeType={d.nodeType} />}
         {showLiveNodeVisuals && previewKind && outPort && (
           previewHidden ? (
             <button

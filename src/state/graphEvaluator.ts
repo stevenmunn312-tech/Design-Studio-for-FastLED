@@ -1,5 +1,6 @@
 import type { StudioNode, StudioEdge } from './graphStore'
 import { useAudioStore } from './audioStore'
+import { useHardwareInputStore } from './hardwareInputStore'
 import { useUiStore } from './uiStore'
 import { asFont, textColumns, type BitmapFont, DEFAULT_FONT } from './font'
 import { animatedImageFrame, asAnimatedImage, asImage, sampleImageToFrame, type ImageData } from './image'
@@ -5014,20 +5015,25 @@ function createEvalNode(
         break
       }
 
-      // ── Hardware (stubs) ───────────────────────────────────────────────
+      // ── Hardware ───────────────────────────────────────────────────────
+      // Live values come from the on-node widget (ButtonInputBody/PotInputBody
+      // /EncoderInputBody), written into hardwareInputStore on pointer
+      // interaction — the same getState()-in-evalNode bridge useAudioStore
+      // uses for MicInput. Falls back to the old inert defaults when the
+      // widget hasn't been touched yet.
       case 'ButtonInput':
-        out = { pressed: false }
+        out = { pressed: useHardwareInputStore.getState().button.get(id) ?? false }
         break
 
       case 'PotInput':
-        out = { value: 0.5 }
+        out = { value: useHardwareInputStore.getState().pot.get(id) ?? 0.5 }
         break
 
-      // Preview stub — same inert convention as ButtonInput/PotInput; the
-      // meaningful quadrature-decode behavior only exists in firmware.
-      case 'EncoderInput':
-        out = { position: 0, pressed: false }
+      case 'EncoderInput': {
+        const enc = useHardwareInputStore.getState().encoder.get(id)
+        out = { position: enc?.position ?? 0, pressed: enc?.pressed ?? false }
         break
+      }
 
       // ── Groups ─────────────────────────────────────────────────────────
       case 'Group': {
