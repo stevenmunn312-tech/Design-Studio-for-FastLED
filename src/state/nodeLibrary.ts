@@ -2397,7 +2397,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     alignment:   { control: 'slider', min: 0, max: 1, step: 0.01 },
     cohesion:    { control: 'slider', min: 0, max: 1, step: 0.01 },
     visualRange: { control: 'slider', min: 1, max: 8, step: 0.5 },
-    colorMode:   { control: 'select', options: ['solid', 'heading', 'spectrum', 'density', 'position'] },
+    colorMode:   { control: 'select', options: ['solid', 'heading', 'spectrum', 'density', 'position', 'cycle', 'radial'] },
   },
   PaletteGradient: { speed: N01 },
   Noise2D:         { speed: N01, scale: N01 },

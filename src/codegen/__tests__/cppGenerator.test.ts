@@ -210,6 +210,12 @@ describe('generateCpp', () => {
     expect(mk('spectrum')).not.toContain('_bnn_bd[10]')
     // Position colours by matrix coordinate.
     expect(mk('position')).toContain('_bx_bd[_i]/WIDTH+_by_bd[_i]/HEIGHT')
+    // Cycle is time-driven, so it pulls in the `t` clock; radial builds a
+    // centre-distance ramp with pre-loop centre/max-radius constants.
+    expect(mk('cycle')).toContain('t*0.1f*255.0f')
+    expect(mk('cycle')).toContain('float t = millis()')
+    expect(mk('radial')).toContain('float _bcx=WIDTH/2.0f,_bcy=HEIGHT/2.0f')
+    expect(mk('radial')).toContain('/_bmr*255.0f')
     // Solid keeps the single base-colour path (no per-boid hue maths).
     expect(mk('solid')).toContain('_bc=_bc0')
     expect(mk('solid')).not.toContain('atan2f')

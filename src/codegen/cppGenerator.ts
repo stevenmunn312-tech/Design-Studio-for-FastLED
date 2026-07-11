@@ -2913,6 +2913,7 @@ export function generateCpp(
         const sep = Number(p.separation ?? 0.6), ali = Number(p.alignment ?? 0.5)
         const coh = Number(p.cohesion ?? 0.4), range = Number(p.visualRange ?? 4)
         const colorMode = String(p.colorMode ?? 'solid')
+        if (colorMode === 'cycle') needsT.v = true  // time-cycling hue needs `t`
         const colorE = incoming.get(`${node.id}:color`)
           ? colorExpr(node.id, 'color')
           : `CRGB(${Number(p.r ?? 120)}, ${Number(p.g ?? 200)}, ${Number(p.b ?? 255)})`
@@ -2934,11 +2935,14 @@ export function generateCpp(
         ln(`      ${nvx}[_i]=${bvx}[_i]+_stx; ${nvy}[_i]=${bvy}[_i]+_sty;${needNN ? ` ${nn}[_i]=_near;` : ''} }`)
         ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
         if (colorMode === 'solid') ln(`    CRGB _bc0=${colorE};`)
+        else if (colorMode === 'radial') ln(`    float _bcx=WIDTH/2.0f,_bcy=HEIGHT/2.0f,_bmr=sqrtf(_bcx*_bcx+_bcy*_bcy); if(_bmr<=0)_bmr=1;`)
         const boidColor =
           colorMode === 'heading' ? `CRGB _bc=CHSV((uint8_t)((atan2f(_diry,_dirx)/6.2831853f+0.5f)*255.0f),255,255);`
           : colorMode === 'spectrum' ? `CRGB _bc=CHSV((uint8_t)(_i/(float)${count}*255.0f),255,255);`
           : colorMode === 'density' ? `CRGB _bc=CHSV((uint8_t)((1.0f-min(1.0f,${nn}[_i]/8.0f))*0.7f*255.0f),255,255);`
           : colorMode === 'position' ? `CRGB _bc=CHSV((uint8_t)((${bx}[_i]/WIDTH+${by}[_i]/HEIGHT)*0.5f*255.0f),255,255);`
+          : colorMode === 'cycle' ? `CRGB _bc=CHSV((uint8_t)(t*0.1f*255.0f),255,255);`
+          : colorMode === 'radial' ? `CRGB _bc=CHSV((uint8_t)(sqrtf((${bx}[_i]-_bcx)*(${bx}[_i]-_bcx)+(${by}[_i]-_bcy)*(${by}[_i]-_bcy))/_bmr*255.0f),255,255);`
           : `CRGB _bc=_bc0;`
         ln(`    for(int _i=0;_i<${count};_i++){`)
         ln(`      float _sp=sqrtf(${nvx}[_i]*${nvx}[_i]+${nvy}[_i]*${nvy}[_i]); if(_sp<=0)_sp=1; float _dirx=${nvx}[_i]/_sp,_diry=${nvy}[_i]/_sp;`)

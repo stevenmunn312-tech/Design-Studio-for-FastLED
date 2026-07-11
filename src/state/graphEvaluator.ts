@@ -2078,10 +2078,12 @@ function evalStarfield(nodeId: string, speed: number, count: number, color: RGB,
 // Rendered as a bright head pixel plus a dim one-pixel tail along the heading.
 // `colorMode` tints each boid: 'solid' (the wired/prop colour), 'heading' (hue
 // from movement direction), 'spectrum' (a fixed per-boid hue across the wheel),
-// 'density' (hue by local neighbour count — warm where the flock clusters), or
-// 'position' (a spatial hue gradient the flock moves through).
+// 'density' (hue by local neighbour count — warm where the flock clusters),
+// 'position' (a spatial hue gradient the flock moves through), 'cycle' (the whole
+// flock breathing through the wheel over time), or 'radial' (hue by distance from
+// the matrix centre — concentric rings the flock crosses).
 // Kept a faithful mirror of the C++ emitter in cppGenerator.ts.
-function evalBoids(nodeId: string, speed: number, count: number, sep: number, ali: number, coh: number, range: number, color: RGB, colorMode: string, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalBoids(nodeId: string, speed: number, count: number, sep: number, ali: number, coh: number, range: number, color: RGB, colorMode: string, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const n = Math.max(2, Math.min(80, Math.floor(count)))
   let s = boidState.get(nodeId)
   if (!s || s.w !== W || s.h !== H || s.x.length !== n) {
@@ -2129,6 +2131,8 @@ function evalBoids(nodeId: string, speed: number, count: number, sep: number, al
       : colorMode === 'spectrum' ? hsv((i / n) * 360, 1, 1)
       : colorMode === 'density' ? hsv((1 - Math.min(1, nn[i] / 8)) * 0.7 * 360, 1, 1)
       : colorMode === 'position' ? hsv((x[i] / W + y[i] / H) * 0.5 * 360, 1, 1)
+      : colorMode === 'cycle' ? hsv(t * 0.1 * 360, 1, 1)
+      : colorMode === 'radial' ? hsv(Math.hypot(x[i] - W / 2, y[i] - H / 2) / (Math.hypot(W / 2, H / 2) || 1) * 360, 1, 1)
       : color
     const tr = bc.r >> 2, tg = bc.g >> 2, tb = bc.b >> 2
     const px = Math.floor(x[i]), py = Math.floor(y[i])
@@ -4546,7 +4550,7 @@ function createEvalNode(
           g: byte(Number(props.g ?? 200) / 255),
           b: byte(Number(props.b ?? 255) / 255),
         }
-        out = { frame: evalBoids(stateKey(id), speed, count, sep, ali, coh, range, color, colorMode, W, H) }
+        out = { frame: evalBoids(stateKey(id), speed, count, sep, ali, coh, range, color, colorMode, t, W, H) }
         break
       }
 

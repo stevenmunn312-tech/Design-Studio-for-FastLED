@@ -1005,6 +1005,20 @@ describe('evaluateGraph', () => {
       // Density colours by neighbour count ⇒ at least renders more than nothing.
       expect(distinct(density)).toBeGreaterThan(0)
     })
+
+    it('cycle recolours the whole flock over time; radial varies hue by radius', () => {
+      const colours = (frame: Frame) =>
+        new Set(frame.flat().filter((px) => px.r + px.g + px.b > 0).map((px) => `${px.r},${px.g},${px.b}`))
+      // Cycle: hue is a pure function of time ⇒ well-separated ticks differ.
+      const early = colours(run('cy1', { count: 12, colorMode: 'cycle' }, 60))   // t≈1s
+      const late = colours(run('cy2', { count: 12, colorMode: 'cycle' }, 360))   // t≈6s
+      expect([...early].some((c) => !late.has(c))).toBe(true)
+      // Radial: boids at different radii ⇒ several distinct hues in one frame.
+      const r = seedRandom(77)
+      const radial = colours(run('cy3', { count: 18, colorMode: 'radial' }, 5))
+      r.mockRestore()
+      expect(radial.size).toBeGreaterThan(2)
+    })
   })
 
   it('PlasmaFractal produces a varied frame that animates', () => {
