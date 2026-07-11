@@ -24,13 +24,15 @@ interface Props {
    * the node to sit its connected handle at the drop point.
    */
   onPlaced?: (nodeId: string, handleId: string, flow: { x: number; y: number }) => void
+  /** Open straight into the search picker (e.g. Tab / double-click empty canvas), without a drag-to-create origin. */
+  startInPicker?: boolean
   onClose: () => void
 }
 
-export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onPlaced, onClose }: Props) {
+export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onPlaced, startInPicker, onClose }: Props) {
   const { addNode, onConnect, clipboard, pasteNode, selectAllNodes, nodes } = useGraphStore()
   const menuRef = useRef<HTMLDivElement>(null)
-  const [mode, setMode] = useState<'main' | 'picker'>(connectFrom ? 'picker' : 'main')
+  const [mode, setMode] = useState<'main' | 'picker'>(connectFrom || startInPicker ? 'picker' : 'main')
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -44,7 +46,7 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (mode === 'picker' && !connectFrom) setMode('main')
+        if (mode === 'picker' && !connectFrom && !startInPicker) setMode('main')
         else onClose()
       }
     }
@@ -54,7 +56,7 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
       document.removeEventListener('mousedown', onMouseDown)
       document.removeEventListener('keydown', onKey)
     }
-  }, [onClose, mode, connectFrom])
+  }, [onClose, mode, connectFrom, startInPicker])
 
   useEffect(() => {
     if (mode === 'picker') inputRef.current?.focus()

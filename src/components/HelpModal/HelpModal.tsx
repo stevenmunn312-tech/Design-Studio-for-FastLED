@@ -116,6 +116,8 @@ function ShortcutsTab() {
           <div className={styles.shortcutDesc}>Close this dialog / menu, or deselect nodes on the canvas</div>
           <div className={styles.kbd}><span className={styles.key}>?</span></div>
           <div className={styles.shortcutDesc}>Open this Help dialog</div>
+          <div className={styles.kbd}><span className={styles.key}>Tab</span></div>
+          <div className={styles.shortcutDesc}>Open the node search picker at the view centre</div>
         </div>
       </div>
 
@@ -126,6 +128,8 @@ function ShortcutsTab() {
         <div className={styles.shortcutGrid}>
           <div className={styles.kbd}><span className={styles.key}>Drag</span></div>
           <div className={styles.shortcutDesc}>Pan the canvas (background drag)</div>
+          <div className={styles.kbd}><span className={styles.key}>Double-click</span></div>
+          <div className={styles.shortcutDesc}>Open the node search picker on empty canvas</div>
           <div className={styles.kbd}><span className={styles.key}>Scroll</span></div>
           <div className={styles.shortcutDesc}>Zoom in / out</div>
           <div className={styles.kbd}><span className={styles.key}>Ctrl</span><span className={styles.key}>Scroll</span></div>

@@ -349,7 +349,14 @@ function NodeGraphCanvasInner() {
   const handleMoveEnd = useCallback<OnMove>((_, vp) => { saveViewport(vp); publishCenter() }, [publishCenter])
   const [contextMenu, setContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null)
   const [canvasMenu, setCanvasMenu] = useState<
-    { x: number; y: number; fx: number; fy: number; connectFrom?: { nodeId: string; handleId: string; dataType: string } } | null
+    {
+      x: number
+      y: number
+      fx: number
+      fy: number
+      connectFrom?: { nodeId: string; handleId: string; dataType: string }
+      picker?: boolean
+    } | null
   >(null)
 
   const isValidConnection: IsValidConnection = useCallback(
@@ -525,6 +532,41 @@ function NodeGraphCanvasInner() {
     },
     [screenToFlowPosition]
   )
+
+  // Double-clicking empty canvas (not a node/edge/control) opens the node
+  // search picker at that point, mirroring the "Add Node" picker from the
+  // right-click menu — a faster path for power users who'd rather not leave
+  // the keyboard/mouse-drag flow. Double-click on a node still enters a group
+  // (see `onNodeDoubleClick`); `zoomOnDoubleClick={false}` on <ReactFlow>
+  // frees up the gesture on empty background.
+  const onPaneDoubleClick = useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.classList.contains('react-flow__pane')) return
+      const fp = screenToFlowPosition({ x: e.clientX, y: e.clientY })
+      menuOpenedAt.current = Date.now()
+      setCanvasMenu({ x: e.clientX, y: e.clientY, fx: fp.x, fy: fp.y, picker: true })
+    },
+    [screenToFlowPosition]
+  )
+
+  // Tab opens the same search picker at the current view centre — a
+  // keyboard-only path to add a node without touching the mouse.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return
+      const el = e.target as HTMLElement | null
+      const isTyping = !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
+      if (isTyping) return
+      e.preventDefault()
+      const { viewCenter } = useUiStore.getState()
+      const screen = flowToScreenPosition(viewCenter)
+      menuOpenedAt.current = Date.now()
+      setCanvasMenu({ x: screen.x, y: screen.y, fx: viewCenter.x, fy: viewCenter.y, picker: true })
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [flowToScreenPosition])
 
   const onPaneClick = useCallback(() => {
     // A noodle dropped on empty space opens the picker in onConnectEnd, but the
@@ -801,6 +843,7 @@ function NodeGraphCanvasInner() {
       onDrop={onDrop}
       onPointerMove={updateCursorField}
       onPointerLeave={quietCursorField}
+      onDoubleClick={onPaneDoubleClick}
     >
       <GroupControls />
       {selectedNodeLabel && (
@@ -912,6 +955,7 @@ function NodeGraphCanvasInner() {
         onMoveEnd={handleMoveEnd}
         onInit={publishCenter}
         isValidConnection={isValidConnection}
+        zoomOnDoubleClick={false}
         snapToGrid
         snapGrid={SNAP_GRID}
         minZoom={0.4}
@@ -968,6 +1012,7 @@ function NodeGraphCanvasInner() {
           y={canvasMenu.y}
           flowPosition={{ x: canvasMenu.fx, y: canvasMenu.fy }}
           connectFrom={canvasMenu.connectFrom}
+          startInPicker={canvasMenu.picker}
           onPlaced={(nodeId, handleId, flow) =>
             anchorHandleToDrop(nodeId, handleId, flow, canvasMenu.connectFrom?.nodeId)
           }
