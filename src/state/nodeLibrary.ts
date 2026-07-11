@@ -1972,6 +1972,19 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       maxVolume:   18,
     },
   },
+
+  // ── Notes ──────────────────────────────────────────────────────────────
+  {
+    // A freeform annotation for the canvas — no ports, no evaluation, no
+    // codegen. Rendered specially in StudioNode (a resizable textarea; the
+    // `color` hex property tints the node itself, not just a swatch).
+    type: 'Comment',
+    label: 'Comment',
+    category: 'note',
+    inputs: [],
+    outputs: [],
+    defaultProperties: { text: 'Note', color: '#ffd24a' },
+  },
 ]
 
 // One-line descriptions shown as tooltips in the node shelf. Keyed by node
@@ -2126,6 +2139,8 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   TransitionSet: 'A pool of transition styles for the Show Engine / Performance Generator.',
   // output
   MatrixOutput: 'The LED matrix output — board, pin, and size.',
+  // note
+  Comment: 'A sticky note for the canvas — no ports, just text and color.',
 }
 
 // Single source of truth for category display order, labels, and accent colors.
@@ -2148,6 +2163,9 @@ export const CATEGORIES = [
   { id: 'composite', label: 'Effects',      accentVar: '--accent-composite', color: '#5c33ff' },
   { id: 'show',      label: 'Show',         accentVar: '--accent-show',      color: '#d633ff' },
   { id: 'output',    label: 'Output',       accentVar: '--accent-output',    color: '#ff33ad' },
+  // Outside the hue sweep — comments carry no ports/data, so they're not
+  // part of the pipeline the rainbow ramp represents.
+  { id: 'note',      label: 'Notes',        accentVar: '--accent-note',      color: '#ffd24a' },
 ] as const
 
 // Ordered sub-headings shown inside a category's sidebar section. A category

@@ -19,6 +19,9 @@
   --accent-composite: #5c33ff;
   --accent-show: #d633ff;
   --accent-output: #ff33ad;
+  /* Comment/annotation nodes — a neutral sticky-note yellow, outside the
+     dataflow-category hue sweep since they carry no ports. */
+  --accent-note: #ffd24a;
 
   /* Text */
   --text-primary: #e0e0e0;

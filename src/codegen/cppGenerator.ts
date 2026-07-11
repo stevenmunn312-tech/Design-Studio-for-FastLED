@@ -3417,6 +3417,10 @@ export function generateCpp(
         break
       }
 
+      case 'Comment':
+        // Canvas-only annotation — no ports, nothing to emit.
+        break
+
       default:
         ln(`  // ${type} — not yet supported in code gen`)
     }

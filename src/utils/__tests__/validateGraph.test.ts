@@ -96,4 +96,11 @@ describe('validateGraph', () => {
     const { warnings } = validateGraph(nodes, edges)
     expect(warnings.some(w => w.includes('2 nodes'))).toBe(true)
   })
+
+  it('does not warn about an unconnected Comment node', () => {
+    const nodes = [node('sc', 'SolidColor'), node('out', 'MatrixOutput'), node('note', 'Comment')]
+    const edges = [edge('e1', 'sc', 'out', 'frame')]
+    const { warnings } = validateGraph(nodes, edges)
+    expect(warnings.some(w => w.includes('not connected'))).toBe(false)
+  })
 })

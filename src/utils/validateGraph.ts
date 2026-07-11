@@ -40,6 +40,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[]): Validat
 
   const isolated = nodes.filter(n =>
     n.data.nodeType !== 'MatrixOutput' &&
+    n.data.nodeType !== 'Comment' &&
     !edges.some(e => e.source === n.id || e.target === n.id)
   )
   if (isolated.length > 0)

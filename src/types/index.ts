@@ -2,7 +2,7 @@
 // migrated to the library's current category in graphStore.loadGraph.
 export type NodeCategory =
   | 'input' | 'audio' | 'signal' | 'math' | 'color' | 'pattern' | 'field'
-  | 'composite' | 'show' | 'output' | 'hardware'
+  | 'composite' | 'show' | 'output' | 'hardware' | 'note'
 
 export interface NodePort {
   id: string

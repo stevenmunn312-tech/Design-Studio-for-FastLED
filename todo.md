@@ -220,7 +220,7 @@ show pipeline). Ordered by expected impact within each tier.
 ### Smaller feature gaps
 
 - [ ] **Node bypass/mute** — per-node "bypass" toggle (pass input through unchanged) for effect-chain nodes; much faster than unwiring/rewiring when A/B-ing an effect. `previewHidden` is precedent for a per-node overlay toggle
-- [ ] **Canvas annotations** — a comment/sticky-note node (no ports, just text and color) so big show graphs stay legible
+- [x] **Canvas annotations** — a `Comment` node (no ports, just text and color) so big show graphs stay legible. Its own `note` category (`#ffd24a`, outside the pipeline hue sweep), a multi-line textarea body, and a color picker that tints the node itself rather than the fixed category accent. No evaluator/codegen participation — excluded from the isolated-node warning and skipped explicitly in both switches
 - [ ] **View generated C++** — read-only "show me the code" panel (even a modal `<pre>`); a learning tool and a debugging aid for preview-vs-firmware parity
 - [ ] **Float signal visibility** — frames/palettes/colors get live previews but floats are invisible except on Wave nodes. Hover readout on a float noodle (current value) or a tiny inline sparkline via the existing `evaluateScalar` probe
 - [ ] **Web MIDI input** — a `MidiInput` node (note/CC → float) via the Web MIDI API, no deps; unlocks VJ-style control for the performance-mode positioning. Preview-only is still valuable

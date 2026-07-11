@@ -210,4 +210,12 @@ describe('nodeLibrary', () => {
       { id: 'frame', label: 'Frame', dataType: 'frame' },
     ])
   })
+
+  it('Comment has no ports and a text + color default', () => {
+    const c = NODE_LIBRARY.find((n) => n.type === 'Comment')
+    expect(c?.category).toBe('note')
+    expect(c?.inputs).toEqual([])
+    expect(c?.outputs).toEqual([])
+    expect(c?.defaultProperties).toMatchObject({ text: 'Note', color: '#ffd24a' })
+  })
 })

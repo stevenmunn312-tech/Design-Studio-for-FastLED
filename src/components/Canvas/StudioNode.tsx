@@ -520,6 +520,7 @@ const CATEGORY_CLASS: Record<string, string> = {
   composite: styles.categoryComposite,
   show: styles.categoryShow,
   output: styles.categoryOutput,
+  note: styles.categoryNote,
 }
 
 const CATEGORY_TAG: Record<string, string> = {
@@ -533,6 +534,7 @@ const CATEGORY_TAG: Record<string, string> = {
   composite: 'CMP',
   show: 'SHW',
   output: 'OUT',
+  note: 'NOTE',
 }
 
 function moduleCode(nodeType: string) {
@@ -582,7 +584,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const setGroupInputRole = useGraphStore((s) => s.setGroupInputRole)
   const bakeStatus = usePerformanceBakeStore((s) => s.byNode[id]?.status)
   const bakeLocked = (bakeStatus ?? usePerformanceBakeStore.getState().byNode[id]?.status ?? 'idle') !== 'idle'
-  const accent = CATEGORY_ACCENT_VAR[d.category] ?? 'var(--accent-output)'
+  const categoryAccent = CATEGORY_ACCENT_VAR[d.category] ?? 'var(--accent-output)'
   const inputs = (def?.inputs ?? d.inputs) as PortDef[]
   const outputs = (def?.outputs ?? d.outputs) as PortDef[]
   const rowCount = Math.max(inputs.length, outputs.length)
@@ -632,8 +634,15 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // the generic text field. `patternSections` is an object rendered by the
   // PatternCollection body's section chips.
   const isGroupInput = d.nodeType === 'GroupInput'
+  const isComment = d.nodeType === 'Comment'
+  // A Comment's own color picker tints the node directly (sticky-note
+  // convention) instead of the fixed category accent every other node uses.
+  const accent = isComment && isHexColor(props.color) ? props.color : categoryAccent
   const editable = Object.entries(props).filter(
     ([k]) => k !== 'font' && k !== 'image' && k !== 'animation' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions' && k !== 'previewHidden'
+      // Comment's `text` gets its own multi-line editor in the body, not the
+      // generic single-line field list.
+      && !(isComment && k === 'text')
       // PSRAM controls render in MatrixOutputUpload — their visibility depends
       // on whether the *selected board* supports PSRAM, which only it knows.
       && k !== 'usePsram' && k !== 'psramMode'
@@ -730,6 +739,15 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         </span>
       </div>
       <div className={styles.body}>
+        {isComment && (
+          <textarea
+            className={`nodrag nowheel ${styles.commentEditor}`}
+            spellCheck={false}
+            value={String(props.text ?? '')}
+            placeholder="Note…"
+            onChange={(e) => updateNodeProperty(id, 'text', e.target.value)}
+          />
+        )}
         {showLiveNodeVisuals && isWave && waveSamples && <WaveScope samples={waveSamples} />}
         {showLiveNodeVisuals && isComplexWave && <ComplexWaveScope nodeId={id} />}
         {showLiveNodeVisuals && isBeatDetect && <BeatDetectBody nodeId={id} />}

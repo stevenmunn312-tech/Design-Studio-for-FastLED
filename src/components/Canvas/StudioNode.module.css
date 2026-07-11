@@ -267,6 +267,10 @@
     linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.022) 50%, transparent);
 }
 
+.categoryNote {
+  background: color-mix(in srgb, var(--node-accent) 16%, var(--bg-node));
+}
+
 .body {
   padding: var(--space-1) var(--space-1);
   display: flex;
@@ -442,6 +446,27 @@
 .codeEditor:focus {
   outline: none;
   border-color: var(--accent-pattern);
+}
+
+/* Comment node — a freeform sticky-note textarea filling the body. */
+.commentEditor {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  background: transparent;
+  border: 1px dashed var(--border-glow);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-body, var(--font-display));
+  font-size: var(--fs-body);
+  line-height: 1.4;
+  padding: 6px 8px;
+}
+
+.commentEditor:focus {
+  outline: none;
+  border-color: var(--node-accent);
+  border-style: solid;
 }
 
 .codeErr {

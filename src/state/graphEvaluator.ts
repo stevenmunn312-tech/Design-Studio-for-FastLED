@@ -5070,6 +5070,11 @@ function createEvalNode(
         out = { frame: input(id, 'frame', null) }
         break
 
+      // Canvas-only annotation — no ports, nothing to evaluate.
+      case 'Comment':
+        out = {}
+        break
+
       default:
         out = {}
     }
