@@ -202,3 +202,34 @@ All viable features from that branch have landed on `main`. See
 - [x] Make pattern-show detection follow the graph path into `MatrixOutput`; a disconnected `PatternMaster` must not replace a valid normal sketch — `isPatternShow` requires the `PatternMaster`'s `frame` output to actually reach a `MatrixOutput`
 - [x] Complete Pattern Master firmware parity: support the wired `beat` trigger and selected transition pool instead of always using a time-based crossfade — `showGenerator.ts` now draws from the full 16-style pool and honours a wired beat; not yet hardware-validated
 - [x] Review intentional preview fallbacks and make them explicit in the UI — `PREVIEW_NOTES` in `StudioNode.tsx` renders a muted on-node caption for the `ButtonInput`/`PotInput`/`EncoderInput` stubs and the black `PerformanceGenerator.frame` placeholder; the audio fallback was already explicit (FFTAnalyzer's MIC LIVE / TEST SIGNAL / SILENT pill + opt-in Test toggle, BeatDetect's LIVE / PREVIEW badge)
+
+## App review suggestions (2026-07-12)
+
+From a full app review (state stores, canvas, menu bar, codegen, upload path,
+show pipeline). Ordered by expected impact within each tier.
+
+### Highest impact
+
+- [ ] **Multi-node copy/paste** — clipboard holds exactly one node (`clipboard: StudioNode | null` in `graphStore.ts`); copying a *selection with its internal edges* is the bread-and-butter graph-editor operation. `createGroup` already computes internal vs. boundary edges — reuse that logic for a selection clipboard
+- [ ] **Named projects / multiple workspaces** — autosave is a single slot (`fastled-studio-graph`); switching designs means manual JSON export/import, and loading a file silently overwrites the workspace. The pattern library already persists to disk via the upload helper — back a lightweight project switcher (File → New / Recent / Rename) the same way. Related: a couple of rolling autosave *snapshots* to cover what undo can't (history is cleared on every load/reload)
+- [ ] **Starter templates** — no example gallery; new users face a blank canvas and ~90 node types. Bundle a handful of JSON graphs loaded through the existing `loadGraph`: Audio spectrum, Fire, Scrolling text, Field warp demo, and critically a pre-wired **show pipeline** (MusicLibrary → PerformanceGenerator → SDCard and Collection → Show Engine → MatrixOutput)
+- [ ] **Live streaming to hardware** — every tweak on real LEDs is a compile+flash cycle. Stream the already-computed preview frames to the device over serial (Adalight/TPM2 — a tiny generic receiver sketch flashed once) or WiFi (DDP/E1.31, which also makes WLED devices instant preview targets). The frame already exists every 16 ms in `LEDPreview`'s loop and the Python helper owns the serial port — plumbing is mostly there. Turns "design, flash, squint, repeat" into "design while watching the actual matrix"
+- [ ] **Interactive stubs for hardware input nodes** — `ButtonInput`/`PotInput`/`EncoderInput` are inert in the preview (always 0/false). Give each node body a live widget (pressable button, draggable knob) feeding the evaluator, consistent with how `MicInput` gets real browser input — makes interactive firmware designable in the browser
+- [ ] **Beyond the single rectangular matrix** — a `layout` option on MatrixOutput: strip / matrix / multi-panel grid with per-panel orientation / custom XY-map JSON, mirrored in the preview renderer. Multi-panel tiling is the most-requested real-world case. (Subsumes the long-term "non-matrix layouts" note under *FastLED library parity → Noted, lower priority*)
+
+### Smaller feature gaps
+
+- [ ] **Node bypass/mute** — per-node "bypass" toggle (pass input through unchanged) for effect-chain nodes; much faster than unwiring/rewiring when A/B-ing an effect. `previewHidden` is precedent for a per-node overlay toggle
+- [ ] **Canvas annotations** — a comment/sticky-note node (no ports, just text and color) so big show graphs stay legible
+- [ ] **View generated C++** — read-only "show me the code" panel (even a modal `<pre>`); a learning tool and a debugging aid for preview-vs-firmware parity
+- [ ] **Float signal visibility** — frames/palettes/colors get live previews but floats are invisible except on Wave nodes. Hover readout on a float noodle (current value) or a tiny inline sparkline via the existing `evaluateScalar` probe
+- [ ] **Web MIDI input** — a `MidiInput` node (note/CC → float) via the Web MIDI API, no deps; unlocks VJ-style control for the performance-mode positioning. Preview-only is still valuable
+- [ ] **Share via URL** — compress graph JSON into a URL fragment (`lz-string`) for one-click pattern sharing without file juggling; pairs with the template gallery later becoming community-fed
+
+### Workflow improvements
+
+- [ ] **Keyboard-first node add** — press Tab / double-click *empty canvas* → search picker (double-click is taken by group entry on nodes, but the pane is free); power users in Blender-style editors live on this
+- [ ] **"Save selection to library" in one step** — today it's select → group → node menu → Save to Library; a context-menu item on any multi-selection that groups + saves in one action
+- [ ] **Check undo granularity on slider drags** — if every `updateNodeProperty` during a drag lands in zundo history, one drag eats dozens of undo steps; coalesce history entries per drag gesture (unverified — may already be handled)
+- [ ] **Import safety** — loading a JSON file or dropping one on the sidebar replaces the workspace instantly; confirm when the current graph is non-trivial, or auto-snapshot before replace
+- [ ] **Upload ergonomics** — remember board+port per *project* (currently global) and add a "re-upload last sketch" one-click shortcut (both matter less for tweaking if live streaming lands)
