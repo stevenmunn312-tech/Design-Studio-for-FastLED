@@ -35,6 +35,7 @@ export default function MenuBar() {
     cyclePreviewStyle,
     openHelp,
     openRecover,
+    openTemplates,
   } = useUiStore()
 
   const THEME_ICON: Record<string, string> = { dark: '☾', solarized: '✦', light: '☀' }
@@ -162,6 +163,9 @@ export default function MenuBar() {
         </button>
         <button className={styles.btn} onClick={handleLoadJSON} aria-label="Import graph from JSON" title="Import graph from JSON">
           ↑ Load
+        </button>
+        <button className={styles.btn} onClick={openTemplates} aria-label="Load a starter template" title="Load a starter template">
+          ✦ Templates
         </button>
         <button className={styles.btn} onClick={handleShare} aria-label="Copy share link" title="Copy a shareable link that reproduces this graph">
           ⇗ Share

@@ -21,6 +21,7 @@ const ArduinoCliPopup = lazy(() => import('./components/Upload/ArduinoCliPopup')
 const OutputConsole = lazy(() => import('./components/Upload/OutputConsole'))
 const HelpModal = lazy(() => import('./components/HelpModal/HelpModal'))
 const RecoverPopup = lazy(() => import('./components/Recover/RecoverPopup'))
+const TemplatesPopup = lazy(() => import('./components/Templates/TemplatesPopup'))
 
 const AUTOSAVE_KEY = 'fastled-studio-graph'
 const AUTOSAVE_INTERVAL = 10_000
@@ -64,6 +65,7 @@ export default function App() {
   const highContrast = useUiStore((s) => s.highContrast)
   const helpOpen = useUiStore((s) => s.helpOpen)
   const recoverOpen = useUiStore((s) => s.recoverOpen)
+  const templatesOpen = useUiStore((s) => s.templatesOpen)
   const toggleSidebar = useUiStore((s) => s.toggleSidebar)
   const togglePreviewPanel = useUiStore((s) => s.togglePreviewPanel)
   const startAudio = useAudioStore((s) => s.startAudio)
@@ -382,6 +384,7 @@ export default function App() {
         {consoleOpen && <OutputConsole />}
         {helpOpen && <HelpModal />}
         {recoverOpen && <RecoverPopup />}
+        {templatesOpen && <TemplatesPopup />}
       </Suspense>
     </div>
   )
