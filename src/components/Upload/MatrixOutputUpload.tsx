@@ -1,10 +1,12 @@
 import { useMemo } from 'react'
 import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
 import { useUploadStore, boardByFqbn } from '../../state/uploadStore'
+import { useStreamStore } from '../../state/streamStore'
 import { useMusicStore } from '../../state/musicStore'
 import { useProjectStore } from '../../state/projectStore'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
+import { generateStreamReceiverSketch, streamLayoutForGraph } from '../../codegen/streamReceiverGenerator'
 import { sdCardConnected, readySongCount, buildShowPayload } from '../../utils/showUpload'
 import CodeViewPopup from './CodeViewPopup'
 import styles from './Upload.module.css'
@@ -22,6 +24,7 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
     openBoardPopup, openConsole, openCodeView, runUpload, runLastUpload, runShowUpload, exportIno,
   } = useUploadStore()
   const hasLastSketch = useUploadStore((s) => !!(currentProjectId && s.lastSketchByProject[currentProjectId]))
+  const { streaming, fps: streamFps, error: streamError, start: startStreaming, stop: stopStreaming } = useStreamStore()
 
   const board = boardByFqbn(selectedFqbn)
 
@@ -47,6 +50,19 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
   }, [nodes, edges, psramOptions])
   const portLabel = ports.find((p) => p.address === selectedPort)?.label ?? selectedPort
   const target = `${board?.label ?? 'No board'} · ${portLabel || 'no port'}`
+
+  // Live streaming: push already-computed preview frames to a once-flashed
+  // generic Adalight receiver instead of a compile+flash cycle per tweak.
+  const streamLayout = useMemo(() => streamLayoutForGraph(nodes), [nodes])
+  function handleFlashReceiver() {
+    const sketch = generateStreamReceiverSketch(nodes)
+    if (sketch) runUpload(sketch, usePsram ? psramChoice?.opt : undefined, { cache: false })
+  }
+  function handleToggleStream() {
+    if (streaming) { stopStreaming(); return }
+    if (!selectedPort || !streamLayout) return
+    void startStreaming(selectedPort, streamLayout)
+  }
 
   // Music-sync show upload appears only when an SDCard node is wired in.
   const sdConnected = useMemo(() => sdCardConnected(nodes, edges), [nodes, edges])
@@ -146,6 +162,25 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
       </button>
 
       {codeViewOpen && <CodeViewPopup code={code} />}
+
+      <button
+        className={styles.exportBtn}
+        disabled={!enabled || busy || streaming}
+        onClick={handleFlashReceiver}
+        title="Flash a tiny generic receiver sketch once — after that, Live Stream pushes preview frames straight to the board without recompiling"
+      >
+        ⚡ Flash Stream Receiver
+      </button>
+
+      <button
+        className={`${styles.exportBtn} ${streaming ? styles.streamBtnActive : ''}`}
+        disabled={!enabled || busy || !selectedPort}
+        onClick={handleToggleStream}
+        title={streaming ? 'Stop pushing live preview frames to the board' : 'Push live preview frames to a board already running the Stream Receiver sketch'}
+      >
+        {streaming ? `⏹ Streaming — ${streamFps} fps` : '📡 Live Stream'}
+      </button>
+      {streamError && <div className={styles.streamError}>{streamError}</div>}
 
       {sdConnected && (
         <button

@@ -30,6 +30,7 @@ import {
 import styles from './LEDPreview.module.css'
 import { frameAmbient } from '../../utils/signalVisual'
 import { idleFrame } from './idleFrame'
+import { publishStreamFrame } from '../../state/streamStore'
 
 // Statically replaced at build time, so the telemetry branches (phase timers +
 // the per-frame context object for the dev HUD) are dead-code-stripped in prod.
@@ -854,6 +855,11 @@ export default function LEDPreview() {
           groups,
         )
         const showMs = PERF_TELEMETRY ? performance.now() - showStart : 0
+
+        // Feed the live-stream send-loop the exact matrix frame the preview
+        // just computed — cheap (a reference store, not a copy) since the
+        // stream sends at its own throttled rate independent of this 60fps loop.
+        publishStreamFrame(frame, gW, gH)
 
         const bw = canvasBufWRef.current, bh = canvasBufHRef.current
         const drawStart = PERF_TELEMETRY ? performance.now() : 0

@@ -36,7 +36,9 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-from fastapi import Body, FastAPI, File, Form, UploadFile
+import threading
+
+from fastapi import Body, FastAPI, File, Form, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
@@ -729,6 +731,8 @@ def serial_monitor(port: str, baud: int = 115200):
         return JSONResponse({"ok": False, "error": "a serial port is required"}, status_code=400)
     if baud < 300 or baud > 4_000_000:
         return JSONResponse({"ok": False, "error": "unsupported baud rate"}, status_code=400)
+    if _stream_active() and _stream_port == port:
+        return JSONResponse({"ok": False, "error": "port is in use by a live stream — stop it first"}, status_code=409)
 
     def stream():
         try:
@@ -758,6 +762,109 @@ def serial_monitor(port: str, baud: int = 115200):
                 ser.close()
 
     return StreamingResponse(stream(), media_type="text/plain; charset=utf-8")
+
+
+# ── Live streaming (Adalight) ─────────────────────────────────────────────────
+# A lightweight alternative to a compile+flash cycle: once the tiny generic
+# Adalight receiver sketch (src/codegen/streamReceiverGenerator.ts) is flashed
+# once, the already-computed live-preview frames can be pushed straight to the
+# board over the same serial port at interactive rates. Unlike every other
+# serial use in this file, the port has to stay open *across* many small
+# per-frame requests (reopening it every frame would blow the frame budget),
+# so it's held in module state between /api/stream/start and /api/stream/stop
+# rather than scoped to one request's generator lifetime.
+_stream_lock = threading.Lock()
+_stream_serial = None
+_stream_port: str | None = None
+_stream_baud: int = 0
+
+
+def _stream_active() -> bool:
+    return _stream_serial is not None
+
+
+@app.post("/api/stream/start")
+def stream_start(payload: dict = Body(...)):
+    """Open (or reuse) a serial port for a live-streaming session.
+
+    Body: {"port": "COM5", "baud": 115200}.
+    """
+    global _stream_serial, _stream_port, _stream_baud
+    port = (payload.get("port") or "").strip()
+    baud = int(payload.get("baud") or 115200)
+    if not port:
+        return JSONResponse({"ok": False, "error": "a serial port is required"}, status_code=400)
+    try:
+        import serial
+    except ImportError:
+        return JSONResponse({"ok": False, "error": "pyserial is not installed"}, status_code=500)
+    with _stream_lock:
+        if _stream_serial is not None:
+            if _stream_port == port and _stream_baud == baud:
+                return {"ok": True}
+            try:
+                _stream_serial.close()
+            except Exception:
+                pass
+            _stream_serial = None
+        try:
+            ser = serial.Serial(port, baud, timeout=0)
+            # Avoid pulsing the common auto-reset lines on open — the receiver
+            # sketch is already running, a reset would just show a black frame.
+            ser.dtr = False
+            ser.rts = False
+        except Exception as e:
+            return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+        _stream_serial = ser
+        _stream_port = port
+        _stream_baud = baud
+    return {"ok": True}
+
+
+@app.post("/api/stream/frame")
+async def stream_frame(request: Request):
+    """Write one pre-framed Adalight packet straight to the open stream port.
+
+    The body is already the exact bytes to send (header + checksum + RGB data,
+    built client-side by `src/utils/adalight.ts`) — this endpoint is deliberately
+    just a thin pipe so per-frame overhead stays minimal.
+    """
+    body = await request.body()
+    with _stream_lock:
+        if _stream_serial is None:
+            return JSONResponse({"ok": False, "error": "stream not started"}, status_code=409)
+        try:
+            _stream_serial.write(body)
+        except Exception as e:
+            # A write failure (e.g. the board was unplugged) ends the session —
+            # the frontend should call /api/stream/start again to resume.
+            try:
+                _stream_serial.close()
+            except Exception:
+                pass
+            _stream_serial = None
+            return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    return {"ok": True}
+
+
+@app.post("/api/stream/stop")
+def stream_stop():
+    global _stream_serial, _stream_port, _stream_baud
+    with _stream_lock:
+        if _stream_serial is not None:
+            try:
+                _stream_serial.close()
+            except Exception:
+                pass
+        _stream_serial = None
+        _stream_port = None
+        _stream_baud = 0
+    return {"ok": True}
+
+
+@app.get("/api/stream/status")
+def stream_status():
+    return {"ok": True, "streaming": _stream_active(), "port": _stream_port, "baud": _stream_baud}
 
 
 # ── arduino-cli management ────────────────────────────────────────────────────
@@ -930,6 +1037,8 @@ def upload(payload: dict = Body(...)):
     ino = payload.get("ino") or ""
     fqbn = (payload.get("fqbn") or _DEFAULT_FQBN).strip()
     port = (payload.get("port") or "").strip()
+    if port and _stream_active() and _stream_port == port:
+        return JSONResponse({"ok": False, "error": "port is in use by a live stream — stop it first"}, status_code=409)
 
     if engine == "fbuild":
         def stream():
@@ -970,6 +1079,8 @@ async def upload_show(
     info = json.loads(meta)
     fqbn = (info.get("fqbn") or _DEFAULT_FQBN).strip()
     port = (info.get("port") or "").strip()
+    if port and _stream_active() and _stream_port == port:
+        return JSONResponse({"ok": False, "error": "port is in use by a live stream — stop it first"}, status_code=409)
     paths = info.get("paths") or []
     # Read every upload into memory now (sync generator can't await later).
     payloads = []

@@ -171,6 +171,22 @@
   box-shadow: 0 0 12px rgba(255, 255, 255, 0.06);
 }
 
+.streamBtnActive {
+  background: linear-gradient(135deg, rgba(0, 224, 164, 0.16), rgba(255, 255, 255, 0.04));
+  border-color: #00e0a4 !important;
+  color: #00e0a4;
+}
+.streamBtnActive:hover:not(:disabled) {
+  color: #00e0a4;
+  box-shadow: 0 0 12px rgba(0, 224, 164, 0.2);
+}
+.streamError {
+  font-size: 10px;
+  color: var(--error);
+  text-align: center;
+  line-height: 1.4;
+}
+
 .outputBtn {
   background: none;
   color: var(--text-secondary);

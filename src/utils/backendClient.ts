@@ -64,6 +64,51 @@ export async function monitorSerial(
   await pipeStream(res, onData)
 }
 
+// ── Live streaming (Adalight) ────────────────────────────────────────────────
+// The port is opened once and held by the helper across many small per-frame
+// POSTs — see backend/app.py's /api/stream/* for why (reopening it every frame
+// would blow the frame budget).
+
+/** Open (or reuse) a serial port for a live-streaming session. */
+export async function startStream(port: string, baud: number): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/stream/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ port, baud }),
+    })
+    return (await res.json()) as { ok: boolean; error?: string }
+  } catch (e) {
+    return { ok: false, error: String(e) }
+  }
+}
+
+/** Write one pre-built Adalight packet to the open stream port. Resolves
+ *  `false` (rather than throwing) on any failure — a dropped frame during
+ *  live streaming isn't worth surfacing as an error, just skip it. */
+export async function sendStreamFrame(packet: Uint8Array, signal?: AbortSignal): Promise<boolean> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/stream/frame`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream' },
+      body: packet,
+      signal,
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+/** Close the stream port. Best-effort — safe to call even if nothing is open. */
+export async function stopStream(): Promise<void> {
+  try {
+    await fetch(`${BACKEND_URL}/api/stream/stop`, { method: 'POST' })
+  } catch {
+    // helper offline — nothing to clean up
+  }
+}
+
 /** Installed board-core ids (e.g. `esp32:esp32`), so the board manager can show status. */
 export async function listCores(): Promise<string[]> {
   try {

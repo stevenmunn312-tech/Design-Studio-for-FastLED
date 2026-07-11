@@ -5,6 +5,7 @@ import {
   type BackendHealth, type SerialPort, type ShowUploadFile,
 } from '../utils/backendClient'
 import { useProjectStore } from './projectStore'
+import { useStreamStore } from './streamStore'
 
 // ── Board catalogue ───────────────────────────────────────────────────────────
 // Each board maps to an arduino-cli FQBN and the core that provides it. ESP32,
@@ -167,7 +168,10 @@ interface UploadState {
   // actions
   // `fqbnOpt` is an optional FQBN board option appended at upload time (e.g.
   // 'PSRAM=opi' when the MatrixOutput "Use PSRAM" toggle is on).
-  runUpload: (code: string, fqbnOpt?: string) => Promise<void>
+  // `cache: false` skips saving this sketch as the project's "re-upload last
+  // sketch" target — used for one-off flashes like the live-stream receiver,
+  // which shouldn't clobber the cached pattern sketch.
+  runUpload: (code: string, fqbnOpt?: string, opts?: { cache?: boolean }) => Promise<void>
   runLastUpload: () => Promise<void>
   runShowUpload: (payload: { provisioner: string; player: string; files: ShowUploadFile[] }) => Promise<void>
   exportIno: (code: string, filename?: string) => void
@@ -286,13 +290,16 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     }
   },
 
-  runUpload: async (code, fqbnOpt) => {
+  runUpload: async (code, fqbnOpt, opts) => {
     const { selectedFqbn, selectedPort, busy, helper } = get()
     if (busy) return
     if (!engineReady(helper)) { set({ cliPopupOpen: true }); return }
     if (!selectedPort) { set({ boardPopupOpen: true }); return }
+    // The board only has one serial port — a live stream and a compile+flash
+    // can't hold it at once, so an upload always wins and reclaims it.
+    useStreamStore.getState().stop()
     const currentProjectId = useProjectStore.getState().currentProjectId
-    if (currentProjectId) {
+    if (currentProjectId && opts?.cache !== false) {
       set((s) => ({
         lastSketchByProject: {
           ...s.lastSketchByProject,
@@ -335,6 +342,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     if (!engineReady(helper)) { set({ cliPopupOpen: true }); return }
     if (!selectedPort) { set({ boardPopupOpen: true }); return }
     get().stopSerial()
+    useStreamStore.getState().stop()
     set({ busy: true, consoleOpen: true, log: `Provisioning show to ${selectedPort} (${selectedFqbn})…\n`, status: { phase: 'working', message: 'Provisioning…' } })
     try {
       await uploadShow({ fqbn: selectedFqbn, port: selectedPort, ...payload }, (chunk) => {
