@@ -22,16 +22,10 @@ export type Field = Float32Array
 const DEFAULT_W = 16
 const DEFAULT_H = 16
 
-function normalizedCircleX(x: number, W: number, radius: number, wrap: boolean): number {
-  if (wrap) return W * 0.5 - W + x * (W * 2)
-  const margin = radius + 1
-  return 0.5 - margin + x * (Math.max(0, W - 1) + 2 * margin)
-}
-
-function normalizedCircleY(y: number, H: number, radius: number, wrap: boolean): number {
-  if (wrap) return H * 0.5 - H + y * (H * 2)
-  const margin = radius + 1
-  return 0.5 - margin + y * (Math.max(0, H - 1) + 2 * margin)
+function normalizedCenterAxis(value: number, size: number, extent: number, wrap: boolean): number {
+  if (wrap) return size * 0.5 - size + value * (size * 2)
+  const margin = extent + 1
+  return 0.5 - margin + value * (Math.max(0, size - 1) + 2 * margin)
 }
 
 // ── Persistent state for stateful pattern nodes ───────────────────────────────
@@ -582,6 +576,20 @@ function evalShape(
   }
 }
 
+function evalWrappedShape(
+  frame: Frame, shape: string, cx: number, cy: number, size: number,
+  aspect: number, sides: number, rotation: number, thickness: number,
+  filled: boolean, fill: RGB, edge: RGB, W: number, H: number, wrap: boolean,
+): void {
+  const xOffsets = wrap ? [-W, 0, W] : [0]
+  const yOffsets = wrap ? [-H, 0, H] : [0]
+  for (const ox of xOffsets) {
+    for (const oy of yOffsets) {
+      evalShape(frame, shape, cx + ox, cy + oy, size, aspect, sides, rotation, thickness, filled, fill, edge, W, H)
+    }
+  }
+}
+
 // Animated geometric transform of a frame, resampled nearest-neighbour about
 // the matrix centre. `rotate` spins by rate°/s, `scale` zooms by rate%/s
 // (clamped), `translate` shifts by rate px/s along `angle°` (toroidal wrap).
@@ -664,14 +672,7 @@ function evalArray(
   return out
 }
 
-// Render `text` onto a blank frame at (startX, startY), optionally scrolling
-// left over time (scroll = columns/second). Shares textColumns() with codegen.
-function renderText(text: string, color: RGB, startX: number, startY: number, scroll: number, t: number, font: BitmapFont = DEFAULT_FONT, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  const frame = blankFrame(W, H)
-  const cols = textColumns(text, font)
-  if (cols.length === 0) return frame
-  const total = cols.length + W
-  const offset = scroll !== 0 ? Math.floor((((t * scroll) % total) + total) % total) : 0
+function renderTextInto(frame: Frame, cols: number[], color: RGB, startX: number, startY: number, font: BitmapFont, W: number, H: number, offset: number): void {
   for (let x = 0; x < W; x++) {
     const ci = x - startX + offset
     if (ci < 0 || ci >= cols.length) continue
@@ -683,7 +684,44 @@ function renderText(text: string, color: RGB, startX: number, startY: number, sc
       }
     }
   }
+}
+
+// Render `text` onto a blank frame at (startX, startY), optionally scrolling
+// left over time (scroll = columns/second). Shares textColumns() with codegen.
+function renderText(text: string, color: RGB, startX: number, startY: number, scroll: number, t: number, font: BitmapFont = DEFAULT_FONT, W = DEFAULT_W, H = DEFAULT_H, wrap = false): Frame {
+  const frame = blankFrame(W, H)
+  const cols = textColumns(text, font)
+  if (cols.length === 0) return frame
+  const total = cols.length + W
+  const offset = scroll !== 0 ? Math.floor((((t * scroll) % total) + total) % total) : 0
+  const xOffsets = wrap ? [-W, 0, W] : [0]
+  const yOffsets = wrap ? [-H, 0, H] : [0]
+  for (const ox of xOffsets) {
+    for (const oy of yOffsets) {
+      renderTextInto(frame, cols, color, startX + ox, startY + oy, font, W, H, offset)
+    }
+  }
   return frame
+}
+
+function shapeExtents(shape: string, size: number, aspect: number, rotation: number, thickness: number): { x: number; y: number } {
+  if (shape === 'polygon') {
+    const extent = Math.max(0.01, size) + Math.max(0, thickness) * 0.5
+    return { x: extent, y: extent }
+  }
+  const ax = Math.max(0.01, size * aspect)
+  const ay = Math.max(0.01, size)
+  const ra = (-rotation * Math.PI) / 180
+  const cosR = Math.abs(Math.cos(ra)), sinR = Math.abs(Math.sin(ra))
+  const edge = Math.max(0, thickness) * 0.5
+  return {
+    x: ax * cosR + ay * sinR + edge,
+    y: ax * sinR + ay * cosR + edge,
+  }
+}
+
+function textStartPosition(value: number, size: number, extent: number, wrap: boolean): number {
+  return Math.floor(normalizedCenterAxis(value, size, extent, wrap) - extent)
 }
 
 // ── Pattern evaluators ────────────────────────────────────────────────────────
@@ -3614,16 +3652,19 @@ function createEvalNode(
 
       case 'Text': {
         const text = String(props.text ?? 'HELLO')
+        const font = asFont(props.font)
+        const cols = textColumns(text, font)
+        const wrap = Boolean(props.wrap)
         const colorIn = input(id, 'color', null) as RGB | null
         const color = colorIn ?? {
           r: byte(Number(props.r ?? 0)   / 255),
           g: byte(Number(props.g ?? 255) / 255),
           b: byte(Number(props.b ?? 255) / 255),
         }
-        const sx = Math.floor(num(id, 'x', props, 'x', 0))
-        const sy = Math.floor(num(id, 'y', props, 'y', 0))
+        const sx = textStartPosition(num(id, 'x', props, 'x', 0.5), W, cols.length * 0.5, wrap)
+        const sy = textStartPosition(num(id, 'y', props, 'y', 0.5), H, font.h * 0.5, wrap)
         const scroll = num(id, 'scroll', props, 'scroll', 0)
-        out = { frame: renderText(text, color, sx, sy, scroll, t, asFont(props.font), W, H) }
+        out = { frame: renderText(text, color, sx, sy, scroll, t, font, W, H, wrap) }
         break
       }
 
@@ -3640,8 +3681,8 @@ function createEvalNode(
         const rad = num(id, 'radius', props, 'radius', 4)
         const filled = Boolean(props.filled)
         const wrap = Boolean(props.wrap)
-        const cx = normalizedCircleX(num(id, 'cx', props, 'cx', 0.5), W, rad, wrap)
-        const cy = normalizedCircleY(num(id, 'cy', props, 'cy', 0.5), H, rad, wrap)
+        const cx = normalizedCenterAxis(num(id, 'cx', props, 'cx', 0.5), W, rad, wrap)
+        const cy = normalizedCenterAxis(num(id, 'cy', props, 'cy', 0.5), H, rad, wrap)
         const xOffsets = wrap ? [-W, 0, W] : [0]
         const yOffsets = wrap ? [-H, 0, H] : [0]
         for (const ox of xOffsets) {
@@ -3684,19 +3725,27 @@ function createEvalNode(
       case 'Shape': {
         const baseIn = input(id, 'base', null) as Frame | null
         const frame = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
+        const shape = String(props.shape ?? 'polygon')
+        const size = Math.max(0.5, num(id, 'size', props, 'size', 6))
+        const aspect = Math.max(0.01, num(id, 'aspect', props, 'aspect', 1))
+        const thickness = Math.max(0, num(id, 'thickness', props, 'thickness', 1.5))
+        const wrap = Boolean(props.wrap)
         const fill = (input(id, 'fill', null) as RGB | null) ?? hexToRgb(String(props.fill ?? '#ff3080'))
         const edge = (input(id, 'edge', null) as RGB | null) ?? hexToRgb(String(props.edge ?? '#00e0ff'))
-        evalShape(
+        const extent = shapeExtents(shape, size, aspect, num(id, 'rotation', props, 'rotation', 0), thickness)
+        evalWrappedShape(
           frame,
-          String(props.shape ?? 'polygon'),
-          num(id, 'cx', props, 'cx', W / 2), num(id, 'cy', props, 'cy', H / 2),
-          Math.max(0.5, num(id, 'size', props, 'size', 6)),
-          Math.max(0.01, num(id, 'aspect', props, 'aspect', 1)),
+          shape,
+          normalizedCenterAxis(num(id, 'cx', props, 'cx', 0.5), W, extent.x, wrap),
+          normalizedCenterAxis(num(id, 'cy', props, 'cy', 0.5), H, extent.y, wrap),
+          size,
+          aspect,
           num(id, 'sides', props, 'sides', 5),
           num(id, 'rotation', props, 'rotation', 0),
-          Math.max(0, num(id, 'thickness', props, 'thickness', 1.5)),
+          thickness,
           Boolean(props.filled ?? true),
           fill, edge, W, H,
+          wrap,
         )
         out = { frame }
         break

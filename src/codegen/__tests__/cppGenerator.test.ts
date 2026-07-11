@@ -501,7 +501,7 @@ describe('generateCpp', () => {
 
   it('emits a Shape polygon with a fractional-sides morph blend and AA composite', () => {
     const shape = node('sh', 'Shape', 'pattern', {
-      shape: 'polygon', cx: 8, cy: 8, size: 6, sides: 5, rotation: 30,
+      shape: 'polygon', cx: 0.5, cy: 0.5, size: 6, sides: 5, rotation: 30,
       thickness: 1.5, filled: true, fill: '#ff0080', edge: '#00e0ff',
     })
     const cpp = generateCpp([shape, outputNode], [edge('e1', 'sh', 'out', 'frame', 'frame')])
@@ -513,14 +513,22 @@ describe('generateCpp', () => {
   })
 
   it('emits a Shape rect/ellipse without the polygon branch', () => {
-    const rectShape = node('sh', 'Shape', 'pattern', { shape: 'rect', cx: 8, cy: 8, size: 4, aspect: 2, filled: true, thickness: 0 })
+    const rectShape = node('sh', 'Shape', 'pattern', { shape: 'rect', cx: 0.5, cy: 0.5, size: 4, aspect: 2, filled: true, thickness: 0 })
     const rectCpp = generateCpp([rectShape, outputNode], [edge('e1', 'sh', 'out', 'frame', 'frame')])
     expect(rectCpp).toContain('float _ax=_size*_aspect,_ay=_size;')
     expect(rectCpp).toContain('fabsf(_lx)-_ax')
     expect(rectCpp).not.toContain('atan2f')          // no polygon math
-    const ell = node('sh', 'Shape', 'pattern', { shape: 'ellipse', cx: 8, cy: 8, size: 4, aspect: 1 })
+    const ell = node('sh', 'Shape', 'pattern', { shape: 'ellipse', cx: 0.5, cy: 0.5, size: 4, aspect: 1 })
     const ellCpp = generateCpp([ell, outputNode], [edge('e1', 'sh', 'out', 'frame', 'frame')])
     expect(ellCpp).toContain('sqrtf(_ex*_ex+_ey*_ey)')
+  })
+
+  it('emits wrapped Shape copies when wrap is enabled', () => {
+    const shape = node('sh', 'Shape', 'pattern', { shape: 'rect', cx: 0.25, cy: 0.5, size: 2, aspect: 1, wrap: true, filled: true })
+    const cpp = generateCpp([shape, outputNode], [edge('e1', 'sh', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('float _cx=(WIDTH*0.5f-WIDTH)+(0.25)*(WIDTH*2.0f),_cy=(HEIGHT*0.5f-HEIGHT)+(0.5)*(HEIGHT*2.0f);')
+    expect(cpp).toContain('float _wrapX[3]={-(float)WIDTH,0.0f,(float)WIDTH};')
+    expect(cpp).toContain('float _wcx=_cx+_wrapX[_wx],_wcy=_cy+_wrapY[_wy];')
   })
 
   it('Shape count/sides can be driven by a wired signal', () => {
@@ -1029,7 +1037,7 @@ describe('generateCpp', () => {
   })
 
   it('emits a Text node with embedded font columns', () => {
-    const txt = node('t', 'Text', 'pattern', { text: 'HI', x: 1, y: 1, scroll: 0, r: 0, g: 255, b: 0 })
+    const txt = node('t', 'Text', 'pattern', { text: 'HI', x: 0.5, y: 0.5, scroll: 0, r: 0, g: 255, b: 0 })
     const cpp = generateCpp([txt, outputNode], [edge('e', 't', 'out', 'frame', 'frame')])
     expect(cpp).toContain('static const uint8_t _txt_t[] = {')
     expect(cpp).toContain('CRGB(0, 255, 0)')
@@ -1038,16 +1046,24 @@ describe('generateCpp', () => {
 
   it('Text codegen uses a custom font height', () => {
     const font = { w: 3, h: 7, glyphs: { A: [1, 1, 1, 1, 1, 1, 1] } }
-    const txt = node('t', 'Text', 'pattern', { text: 'A', x: 0, y: 0, scroll: 0, font })
+    const txt = node('t', 'Text', 'pattern', { text: 'A', x: 0.5, y: 0.5, scroll: 0, font })
     const cpp = generateCpp([txt, outputNode], [edge('e', 't', 'out', 'frame', 'frame')])
     expect(cpp).toContain('_r < 7;')
   })
 
   it('emits a scrolling Text node that uses millis()', () => {
-    const txt = node('t', 'Text', 'pattern', { text: 'GO', x: 0, y: 1, scroll: 4 })
+    const txt = node('t', 'Text', 'pattern', { text: 'GO', x: 0.5, y: 0.5, scroll: 4 })
     const cpp = generateCpp([txt, outputNode], [edge('e', 't', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float t = millis()')
     expect(cpp).toContain('_off =')
+  })
+
+  it('emits wrapped Text copies when wrap is enabled', () => {
+    const txt = node('t', 'Text', 'pattern', { text: 'I', x: 0.25, y: 0.5, wrap: true, scroll: 0 })
+    const cpp = generateCpp([txt, outputNode], [edge('e', 't', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('int _sx = (int)floorf((WIDTH * 0.5f - WIDTH) + (0.25) * (WIDTH * 2.0f) - _halfW);')
+    expect(cpp).toContain('int _wrapX[3] = {-WIDTH, 0, WIDTH};')
+    expect(cpp).toContain('_sx + _wrapX[_wx]')
   })
 
   it('emits a luminance Mask that scales the frame buffer', () => {

@@ -99,6 +99,8 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   },
   {
     // Renders text with the built-in 3×5 font; scroll > 0 scrolls it left.
+    // X/Y are normalised 0..1 around the text's visual centre; `wrap` tiles it
+    // across the opposite edges.
     type: 'Text',
     label: 'Text',
     category: 'pattern',
@@ -110,7 +112,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'scroll', label: 'Scroll', dataType: 'float' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { text: 'HELLO', x: 1, y: 1, scroll: 0, r: 0, g: 255, b: 255 },
+    defaultProperties: { text: 'HELLO', x: 0.5, y: 0.5, scroll: 0, wrap: false, r: 0, g: 255, b: 255 },
   },
   {
     // Draws a circle (ring, or filled disc) over an optional base frame.
@@ -173,14 +175,15 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       shape: 'polygon',
-      cx: 8,
-      cy: 8,
+      cx: 0.5,
+      cy: 0.5,
       size: 6,
       aspect: 1,
       sides: 5,
       rotation: 0,
       thickness: 1.5,
       filled: true,
+      wrap: false,
       fill: '#ff3080',
       edge: '#00e0ff',
     },
@@ -2393,6 +2396,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     cx: N01,
     cy: N01,
   },
+  Text: {
+    x: N01,
+    y: N01,
+  },
   FFTAnalyzer:       {
     bands:     { control: 'slider', min: 8, max: 32, step: 1 },
     gain:      { control: 'slider', min: 0.25, max: 4, step: 0.05 },
@@ -2521,6 +2528,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     blendMode: { control: 'select', options: ['add', 'lighten', 'over'] },
   },
   Shape: {
+    cx:        N01,
+    cy:        N01,
     shape:     { control: 'select', options: ['rect', 'ellipse', 'polygon'] },
     aspect:    { control: 'slider', min: 0.25, max: 4, step: 0.05 },
     // Fractional sides morph the polygon between vertex counts.

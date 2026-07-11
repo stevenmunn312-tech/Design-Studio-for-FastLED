@@ -1098,7 +1098,7 @@ export function generateCpp(
           return `CRGB(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
         }
         const shape = ['rect', 'ellipse'].includes(String(p.shape)) ? String(p.shape) : 'polygon'
-        const cx = Number(p.cx ?? 8), cy = Number(p.cy ?? 8)
+        const cx = Number(p.cx ?? 0.5), cy = Number(p.cy ?? 0.5)
         const size = Math.max(0.5, Number(p.size ?? 6))
         const aspect = shape === 'polygon' ? 1 : Math.max(0.01, Number(p.aspect ?? 1))
         const rot = Number(p.rotation ?? 0)
@@ -1106,29 +1106,50 @@ export function generateCpp(
         const filled = (p.filled ?? true) !== false
         const fillE = incoming.get(`${node.id}:fill`) ? colorExpr(node.id, 'fill') : hexCrgb(p.fill, 0xff3080)
         const edgeE = incoming.get(`${node.id}:edge`) ? colorExpr(node.id, 'edge') : hexCrgb(p.edge, 0x00e0ff)
-        ln(`  { ${seedFrom('base')}`)
-        ln(`    float _cx=${f('cx', 'cx', cx)},_cy=${f('cy', 'cy', cy)},_size=max(0.5f,${f('size', 'size', size)}),_aspect=max(0.01f,${f('aspect', 'aspect', aspect)}),_ra=-(${f('rotation', 'rotation', rot)})*0.01745329f,_cr=cosf(_ra),_sr=sinf(_ra);`)
-        ln(`    CRGB _fill=${fillE},_edge=${edgeE};`)
-        if (shape === 'polygon') ln(`    float _n=max(3.0f,(float)(${f('sides', 'sides', 5)})); int _nlo=(int)floorf(_n); float _fr=_n-_nlo;`)
-        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`      float _dx=(_x+0.5f)-_cx,_dy=(_y+0.5f)-_cy,_lx=_dx*_cr-_dy*_sr,_ly=_dx*_sr+_dy*_cr,_sd;`)
-        if (shape === 'rect') {
-          ln(`      float _ax=_size*_aspect,_ay=_size;`)
-          ln(`      float _qx=fabsf(_lx)-_ax,_qy=fabsf(_ly)-_ay,_mx=max(_qx,0.0f),_my=max(_qy,0.0f);`)
-          ln(`      _sd=sqrtf(_mx*_mx+_my*_my)+min(max(_qx,_qy),0.0f);`)
-        } else if (shape === 'ellipse') {
-          ln(`      float _ax=_size*_aspect,_ay=_size,_ex=_lx/_ax,_ey=_ly/_ay; _sd=(sqrtf(_ex*_ex+_ey*_ey)-1.0f)*min(_ax,_ay);`)
-        } else {
-          ln(`      float _r=sqrtf(_lx*_lx+_ly*_ly),_pa=atan2f(_ly,_lx);`)
-          ln(`      float _s0=6.2831853f/_nlo,_a0=fmodf(fmodf(_pa,_s0)+_s0,_s0)-_s0*0.5f,_sdl=_r-_size*cosf(3.14159265f/_nlo)/cosf(_a0),_sd2=_sdl;`)
-          ln(`      if(_fr>0.0f){ float _s1=6.2831853f/(_nlo+1),_a1=fmodf(fmodf(_pa,_s1)+_s1,_s1)-_s1*0.5f; _sd2=_r-_size*cosf(3.14159265f/(_nlo+1))/cosf(_a1); }`)
-          ln(`      _sd=_sdl*(1.0f-_fr)+_sd2*_fr;`)
+        const emitShapePass = (cxExpr: string, cyExpr: string, indent: string) => {
+          ln(`${indent}for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+          ln(`${indent}  float _dx=(_x+0.5f)-${cxExpr},_dy=(_y+0.5f)-${cyExpr},_lx=_dx*_cr-_dy*_sr,_ly=_dx*_sr+_dy*_cr,_sd;`)
+          if (shape === 'rect') {
+            ln(`${indent}  float _ax=_size*_aspect,_ay=_size;`)
+            ln(`${indent}  float _qx=fabsf(_lx)-_ax,_qy=fabsf(_ly)-_ay,_mx=max(_qx,0.0f),_my=max(_qy,0.0f);`)
+            ln(`${indent}  _sd=sqrtf(_mx*_mx+_my*_my)+min(max(_qx,_qy),0.0f);`)
+          } else if (shape === 'ellipse') {
+            ln(`${indent}  float _ax=_size*_aspect,_ay=_size,_ex=_lx/_ax,_ey=_ly/_ay; _sd=(sqrtf(_ex*_ex+_ey*_ey)-1.0f)*min(_ax,_ay);`)
+          } else {
+            ln(`${indent}  float _r=sqrtf(_lx*_lx+_ly*_ly),_pa=atan2f(_ly,_lx);`)
+            ln(`${indent}  float _s0=6.2831853f/_nlo,_a0=fmodf(fmodf(_pa,_s0)+_s0,_s0)-_s0*0.5f,_sdl=_r-_size*cosf(3.14159265f/_nlo)/cosf(_a0),_sd2=_sdl;`)
+            ln(`${indent}  if(_fr>0.0f){ float _s1=6.2831853f/(_nlo+1),_a1=fmodf(fmodf(_pa,_s1)+_s1,_s1)-_s1*0.5f; _sd2=_r-_size*cosf(3.14159265f/(_nlo+1))/cosf(_a1); }`)
+            ln(`${indent}  _sd=_sdl*(1.0f-_fr)+_sd2*_fr;`)
+          }
+          ln(`${indent}  float _fc=${filled ? 'constrain(0.5f-_sd,0.0f,1.0f)' : '0.0f'};`)
+          ln(`${indent}  float _ec=constrain(_th*0.5f+0.5f-fabsf(_sd),0.0f,1.0f);`)
+          ln(`${indent}  float _al=max(_fc,_ec); if(_al<=0.0f) continue;`)
+          ln(`${indent}  CRGB _col=_fill; nblend(_col,_edge,(uint8_t)(_ec*255.0f)); nblend(${ob}[_y*WIDTH+_x],_col,(uint8_t)(_al*255.0f)); }`)
         }
-        ln(`      float _fc=${filled ? 'constrain(0.5f-_sd,0.0f,1.0f)' : '0.0f'};`)
-        ln(`      float _th=max(0.0f,${f('thickness', 'thickness', thick)});`)
-        ln(`      float _ec=constrain(_th*0.5f+0.5f-fabsf(_sd),0.0f,1.0f);`)
-        ln(`      float _al=max(_fc,_ec); if(_al<=0.0f) continue;`)
-        ln(`      CRGB _col=_fill; nblend(_col,_edge,(uint8_t)(_ec*255.0f)); nblend(${ob}[_y*WIDTH+_x],_col,(uint8_t)(_al*255.0f)); } }`)
+        ln(`  { ${seedFrom('base')}`)
+        ln(`    float _size=max(0.5f,${f('size', 'size', size)}),_aspect=max(0.01f,${f('aspect', 'aspect', aspect)}),_ra=-(${f('rotation', 'rotation', rot)})*0.01745329f,_cr=cosf(_ra),_sr=sinf(_ra);`)
+        ln(`    CRGB _fill=${fillE},_edge=${edgeE};`)
+        ln(`    float _th=max(0.0f,${f('thickness', 'thickness', thick)});`)
+        if (shape === 'polygon') {
+          ln(`    float _extentX=_size+_th*0.5f,_extentY=_size+_th*0.5f;`)
+        } else {
+          ln(`    float _ax=max(0.01f,_size*_aspect),_ay=max(0.01f,_size);`)
+          ln(`    float _extentX=_ax*fabsf(_cr)+_ay*fabsf(_sr)+_th*0.5f,_extentY=_ax*fabsf(_sr)+_ay*fabsf(_cr)+_th*0.5f;`)
+        }
+        if (shape === 'polygon') ln(`    float _n=max(3.0f,(float)(${f('sides', 'sides', 5)})); int _nlo=(int)floorf(_n); float _fr=_n-_nlo;`)
+        if (p.wrap) {
+          ln(`    float _cx=(WIDTH*0.5f-WIDTH)+(${f('cx', 'cx', cx)})*(WIDTH*2.0f),_cy=(HEIGHT*0.5f-HEIGHT)+(${f('cy', 'cy', cy)})*(HEIGHT*2.0f);`)
+          ln(`    float _wrapX[3]={-(float)WIDTH,0.0f,(float)WIDTH};`)
+          ln(`    float _wrapY[3]={-(float)HEIGHT,0.0f,(float)HEIGHT};`)
+          ln(`    for(int _wy=0;_wy<3;_wy++) for(int _wx=0;_wx<3;_wx++){`)
+          ln(`      float _wcx=_cx+_wrapX[_wx],_wcy=_cy+_wrapY[_wy];`)
+          emitShapePass('_wcx', '_wcy', '      ')
+          ln(`    }`)
+        } else {
+          ln(`    float _mx=_extentX+1.0f,_my=_extentY+1.0f;`)
+          ln(`    float _cx=(0.5f-_mx)+(${f('cx', 'cx', cx)})*((WIDTH-1.0f)+2.0f*_mx),_cy=(0.5f-_my)+(${f('cy', 'cy', cy)})*((HEIGHT-1.0f)+2.0f*_my);`)
+          emitShapePass('_cx', '_cy', '    ')
+        }
         break
       }
 
@@ -1171,7 +1192,10 @@ export function generateCpp(
         const text = String(p.text ?? 'HELLO')
         const font = asFont(p.font)
         const cols = textColumns(text, font)
-        const sx = `floorf(${f('x', 'x', 0)})`, sy = `floorf(${f('y', 'y', 0)})`
+        const emitTextPass = (sxExpr: string, syExpr: string, indent: string) => {
+          ln(`${indent}for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - (int)${sxExpr} + _off; if (_ci < 0 || _ci >= _tn_${id}) continue; uint8_t _col = _txt_${id}[_ci];`)
+          ln(`${indent}  for (int _r = 0; _r < ${font.h}; _r++) if (_col & (1 << _r)) { int _yy = (int)${syExpr} + _r; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
+        }
         const dynamic = !!incoming.get(`${node.id}:scroll`) || Number(p.scroll ?? 0) !== 0
         const colorE = incoming.get(`${node.id}:color`)
           ? colorExpr(node.id, 'color')
@@ -1179,6 +1203,7 @@ export function generateCpp(
         ln(`  { // Text "${text.replace(/[^ -~]/g, '?')}"`)
         ln(`    static const uint8_t _txt_${id}[] = {${cols.join(',')}};`)
         ln(`    const int _tn_${id} = ${cols.length};`)
+        ln(`    float _halfW = _tn_${id} * 0.5f, _halfH = ${font.h} * 0.5f;`)
         ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
         if (dynamic) {
           needsT.v = true
@@ -1186,8 +1211,20 @@ export function generateCpp(
         } else {
           ln(`    int _off = 0;`)
         }
-        ln(`    for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - (int)${sx} + _off; if (_ci < 0 || _ci >= _tn_${id}) continue; uint8_t _col = _txt_${id}[_ci];`)
-        ln(`      for (int _r = 0; _r < ${font.h}; _r++) if (_col & (1 << _r)) { int _yy = (int)${sy} + _r; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
+        if (p.wrap) {
+          ln(`    int _sx = (int)floorf((WIDTH * 0.5f - WIDTH) + (${f('x', 'x', 0.5)}) * (WIDTH * 2.0f) - _halfW);`)
+          ln(`    int _sy = (int)floorf((HEIGHT * 0.5f - HEIGHT) + (${f('y', 'y', 0.5)}) * (HEIGHT * 2.0f) - _halfH);`)
+          ln(`    int _wrapX[3] = {-WIDTH, 0, WIDTH};`)
+          ln(`    int _wrapY[3] = {-HEIGHT, 0, HEIGHT};`)
+          ln(`    for (int _wy = 0; _wy < 3; _wy++) for (int _wx = 0; _wx < 3; _wx++) {`)
+          emitTextPass('_sx + _wrapX[_wx]', '_sy + _wrapY[_wy]', '      ')
+          ln(`    }`)
+        } else {
+          ln(`    float _mx = _halfW + 1.0f, _my = _halfH + 1.0f;`)
+          ln(`    int _sx = (int)floorf((0.5f - _mx) + (${f('x', 'x', 0.5)}) * ((WIDTH - 1.0f) + 2.0f * _mx) - _halfW);`)
+          ln(`    int _sy = (int)floorf((0.5f - _my) + (${f('y', 'y', 0.5)}) * ((HEIGHT - 1.0f) + 2.0f * _my) - _halfH);`)
+          emitTextPass('_sx', '_sy', '    ')
+        }
         ln(`  }`)
         break
       }

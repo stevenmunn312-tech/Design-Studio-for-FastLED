@@ -369,7 +369,7 @@ describe('evaluateGraph', () => {
     const run = (transform: string, rate: number, angle: number, tick: number) => {
       // A crisp blue top row: a Shape rect covering exactly row 0 across the width.
       const sp = node('sp', 'Shape', 'pattern', {
-        shape: 'rect', cx: 8, cy: 0.5, size: 0.5, aspect: 16,
+        shape: 'rect', cx: 0.5, cy: 0.25, size: 0.5, aspect: 16,
         rotation: 0, thickness: 0, filled: true, fill: '#0000ff', edge: '#0000ff',
       })
       const tr = node('tr', 'Transform', 'composite', { transform, rate, angle })
@@ -707,7 +707,7 @@ describe('evaluateGraph', () => {
   it('Shape draws a filled polygon over the centre and leaves corners dark', () => {
     // A filled pentagon centred on an 8×8 grid: centre lit, corners dark.
     const shape = node('sh', 'Shape', 'pattern', {
-      shape: 'polygon', cx: 4, cy: 4, size: 3, sides: 5, rotation: 0,
+      shape: 'polygon', cx: 0.5, cy: 0.5, size: 3, sides: 5, rotation: 0,
       thickness: 1, filled: true, fill: '#00ff00', edge: '#00ff00',
     })
     const { nodes, edges } = withOutput(shape)
@@ -721,7 +721,7 @@ describe('evaluateGraph', () => {
   it('Shape paints over a base frame, preserving the rest', () => {
     const bg = node('bg', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })  // red fill
     const shape = node('sh', 'Shape', 'pattern', {
-      shape: 'rect', cx: 1.5, cy: 1.5, size: 1, aspect: 1, rotation: 0,
+      shape: 'rect', cx: 0.273, cy: 0.273, size: 1, aspect: 1, rotation: 0,
       thickness: 0, filled: true, fill: '#0000ff', edge: '#0000ff',
     })
     const out = node('out', 'MatrixOutput', 'output', {})
@@ -732,6 +732,27 @@ describe('evaluateGraph', () => {
     const frame = evaluateGraph([bg, shape, out], edges, 0, 8, 8)!
     expect(frame[7][7]).toEqual({ r: 255, g: 0, b: 0 })   // base shows through far from the shape
     expect(frame[1][1].b).toBeGreaterThan(0)              // shape painted blue near its centre
+  })
+
+  it('Shape normalization includes its extent so cx=0 moves it fully offscreen', () => {
+    const shape = node('sh', 'Shape', 'pattern', {
+      shape: 'rect', cx: 0, cy: 0.5, size: 1, aspect: 1, rotation: 0,
+      thickness: 0, filled: true, fill: '#0000ff', edge: '#0000ff',
+    })
+    const { nodes, edges } = withOutput(shape)
+    const frame = evaluateGraph(nodes, edges, 0, 16, 16)!
+    expect(frame[8][0]).toEqual({ r: 0, g: 0, b: 0 })
+  })
+
+  it('Shape wrap mirrors it onto the opposite edge', () => {
+    const shape = node('sh', 'Shape', 'pattern', {
+      shape: 'rect', cx: 0.25, cy: 0.5, size: 2, aspect: 1, rotation: 0,
+      thickness: 0, filled: true, wrap: true, fill: '#0000ff', edge: '#0000ff',
+    })
+    const { nodes, edges } = withOutput(shape)
+    const frame = evaluateGraph(nodes, edges, 0, 16, 16)!
+    expect(frame[8][0].b).toBeGreaterThan(0)
+    expect(frame[8][15].b).toBeGreaterThan(0)
   })
 
   it('Circle (filled) uses normalized center coordinates and its fill color', () => {
@@ -833,33 +854,41 @@ describe('evaluateGraph', () => {
   })
 
   it('Text renders glyph pixels in the chosen color', () => {
-    // "I" at x=1,y=1: the 3×5 'I' has a full top row (### = cols all lit at r=0).
-    const txt = node('t', 'Text', 'pattern', { text: 'I', x: 1, y: 1, scroll: 0, r: 0, g: 255, b: 0 })
+    // With normalised X/Y at 0.5, the glyph is centred on the 8×8 matrix.
+    const txt = node('t', 'Text', 'pattern', { text: 'I', x: 0.5, y: 0.5, scroll: 0, r: 0, g: 255, b: 0 })
     const out = node('out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([txt, out], [edge('e', 't', 'frame', 'out', 'frame')], 0, 8, 8)
-    // top row of 'I' spans x=1..3 at y=1, lit green; background stays black.
-    expect(frame![1][1]).toEqual({ r: 0, g: 255, b: 0 })
+    // top row of 'I' spans x=2..4 at y=1, lit green; background stays black.
     expect(frame![1][2]).toEqual({ r: 0, g: 255, b: 0 })
+    expect(frame![1][3]).toEqual({ r: 0, g: 255, b: 0 })
     expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
   })
 
   it('Text uses a custom font from props.font', () => {
     const font = { w: 1, h: 1, glyphs: { X: [1] } }   // a single lit pixel
-    const txt = node('t', 'Text', 'pattern', { text: 'X', x: 2, y: 3, scroll: 0, r: 255, g: 0, b: 0, font })
+    const txt = node('t', 'Text', 'pattern', { text: 'X', x: 0.5, y: 0.5, scroll: 0, r: 255, g: 0, b: 0, font })
     const out = node('out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([txt, out], [edge('e', 't', 'frame', 'out', 'frame')], 0, 8, 8)
-    expect(frame![3][2]).toEqual({ r: 255, g: 0, b: 0 })   // the glyph pixel
-    expect(frame![3][3]).toEqual({ r: 0, g: 0, b: 0 })     // trailing spacing column
+    expect(frame![3][3]).toEqual({ r: 255, g: 0, b: 0 })   // the glyph pixel
+    expect(frame![3][4]).toEqual({ r: 0, g: 0, b: 0 })     // trailing spacing column
   })
 
   it('Text scrolling shifts the rendered columns over time', () => {
     const mk = (tick: number) => {
-      const txt = node('t', 'Text', 'pattern', { text: 'AB', x: 0, y: 1, scroll: 4, r: 255, g: 255, b: 255 })
+      const txt = node('t', 'Text', 'pattern', { text: 'AB', x: 0.5, y: 0.5, scroll: 4, r: 255, g: 255, b: 255 })
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph([txt, out], [edge('e', 't', 'frame', 'out', 'frame')], tick, 8, 8)
     }
     // Different times → different horizontal offset → different frames.
     expect(mk(0)).not.toEqual(mk(60))
+  })
+
+  it('Text wrap mirrors it onto the opposite edge', () => {
+    const txt = node('t', 'Text', 'pattern', { text: 'I', x: 0.25, y: 0.5, wrap: true, scroll: 0, r: 255, g: 255, b: 255 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph([txt, out], [edge('e', 't', 'frame', 'out', 'frame')], 0, 8, 8)!
+    expect(frame[1][0].r).toBeGreaterThan(0)
+    expect(frame[1][7].r).toBeGreaterThan(0)
   })
 
   it('Mask scales a frame by the mask luminance', () => {
