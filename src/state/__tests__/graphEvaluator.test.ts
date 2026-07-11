@@ -22,6 +22,7 @@ vi.mock('../audioStore', () => ({
 }))
 
 import { evaluateGraph, evaluateGraphFull, evaluateScalar, getCodeError, pruneEvaluatorState, renderParticleBurst, PARTICLE_LIFE_MS } from '../graphEvaluator'
+import type { Frame } from '../graphEvaluator'
 import { waveSample, combineWaves } from '../wave'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import type { StudioNode, StudioEdge } from '../graphStore'
@@ -906,6 +907,74 @@ describe('evaluateGraph', () => {
     let frame = at(0)
     for (let i = 1; i <= 6; i++) frame = at(i)
     expect(frame.flat().some((px) => px.r + px.g + px.b > 0)).toBe(true)  // stars visible
+  })
+
+  describe('Boids', () => {
+    // Deterministic LCG so the whole flocking sim is reproducible run-to-run
+    // (evalBoids only draws random numbers when seeding at tick 0).
+    function seedRandom(seed: number) {
+      let s = seed >>> 0
+      return vi.spyOn(Math, 'random').mockImplementation(() => {
+        s = (s * 1664525 + 1013904223) >>> 0
+        return s / 4294967296
+      })
+    }
+    const run = (id: string, props: Record<string, unknown>, ticks: number, w = 16, h = 16) => {
+      const b = node(id, 'Boids', 'pattern', props)
+      const out = node('out', 'MatrixOutput', 'output', {})
+      const e = [edge('e', id, 'frame', 'out', 'frame')]
+      let frame = evaluateGraph([b, out], e, 0, w, h)!
+      for (let t = 1; t <= ticks; t++) frame = evaluateGraph([b, out], e, t, w, h)!
+      return frame
+    }
+    const litPixels = (frame: Frame) => frame.flat().filter((px) => px.r + px.g + px.b > 0)
+
+    it('lights pixels, and never renders more than head+tail per boid', () => {
+      const lit = litPixels(run('b1', { count: 20 }, 6, 12, 12))
+      expect(lit.length).toBeGreaterThan(0)
+      // Frame is W×H by construction (no out-of-bounds); each boid contributes at
+      // most a head and a tail pixel, so lit ≤ 2×count.
+      expect(lit.length).toBeLessThanOrEqual(20 * 2)
+    })
+
+    it('animates over time', () => {
+      const at = (tick: number) => {
+        const b = node('ba', 'Boids', 'pattern', { count: 16, speed: 0.6 })
+        const out = node('out', 'MatrixOutput', 'output', {})
+        return evaluateGraph([b, out], [edge('e', 'ba', 'frame', 'out', 'frame')], tick, 16, 16)!
+      }
+      const f0 = at(0)
+      let f = f0
+      for (let i = 1; i <= 8; i++) f = at(i)
+      expect(JSON.stringify(f)).not.toEqual(JSON.stringify(f0))
+    })
+
+    it('renders head pixels in the chosen colour', () => {
+      const frame = run('bc', { count: 12, r: 255, g: 0, b: 0 }, 4, 12, 12)
+      // A full-intensity (255,0,0) pixel can only be a head — tails are dimmed ×¼.
+      expect(frame.flat().some((px) => px.r === 255 && px.g === 0 && px.b === 0)).toBe(true)
+    })
+
+    it('clamps the boid count to 80', () => {
+      // 200 requested on a 256-pixel matrix (no saturation): capped at 80 ⇒ ≤160 lit.
+      expect(litPixels(run('bx', { count: 200 }, 3, 16, 16)).length).toBeLessThanOrEqual(80 * 2)
+    })
+
+    it('spreads the flock wider under separation than under cohesion', () => {
+      const spread = (frame: Frame) => {
+        const xs: number[] = [], ys: number[] = []
+        frame.forEach((row, y) => row.forEach((px, x) => { if (px.r + px.g + px.b > 0) { xs.push(x); ys.push(y) } }))
+        return (Math.max(...xs) - Math.min(...xs)) + (Math.max(...ys) - Math.min(...ys))
+      }
+      // Same initial placement (same seed) → the only difference is the weights.
+      const sep = seedRandom(12345)
+      const sepFrame = run('bs', { count: 14, separation: 1, alignment: 0, cohesion: 0, visualRange: 8 }, 40)
+      sep.mockRestore()
+      const coh = seedRandom(12345)
+      const cohFrame = run('bh', { count: 14, separation: 0, alignment: 0, cohesion: 1, visualRange: 8 }, 40)
+      coh.mockRestore()
+      expect(spread(sepFrame)).toBeGreaterThan(spread(cohFrame))
+    })
   })
 
   it('PlasmaFractal produces a varied frame that animates', () => {

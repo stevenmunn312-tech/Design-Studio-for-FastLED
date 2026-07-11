@@ -188,6 +188,17 @@ describe('generateCpp', () => {
     expect(cpp).toContain('* 2.000f)')
   })
 
+  it('emits a Boids flocking block with count-sized state and the wired colour', () => {
+    const boids = node('bd', 'Boids', 'pattern', { count: 200, speed: 1, r: 10, g: 20, b: 30 })
+    const cpp = generateCpp([boids, outputNode], [edge('e1', 'bd', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('// Boids (Reynolds flocking)')
+    // count clamped to 80 ⇒ state arrays sized [80]; speed slider max ⇒ 0.700 rate.
+    expect(cpp).toContain('_bx_bd[80]')
+    expect(cpp).toContain('* 0.700f)')
+    // Unwired colour falls back to the r/g/b props.
+    expect(cpp).toContain('CRGB(10, 20, 30)')
+  })
+
   it('scales Noise speed per noiseType variant', () => {
     const worley = node('w', 'Noise', 'pattern', { noiseType: 'worley', speed: 1, scale: 1 })
     const simplex = node('s', 'Noise', 'pattern', { noiseType: 'simplex', speed: 1, scale: 1 })
