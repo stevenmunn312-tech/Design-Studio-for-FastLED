@@ -68,6 +68,7 @@ interface UiState {
   helpOpen: boolean
   recoverOpen: boolean
   templatesOpen: boolean
+  projectsOpen: boolean
   setStatus: (text: string, level?: StatusLevel) => void
   clearStatus: () => void
   toggleSidebar: () => void
@@ -98,6 +99,8 @@ interface UiState {
   closeRecover: () => void
   openTemplates: () => void
   closeTemplates: () => void
+  openProjects: () => void
+  closeProjects: () => void
 }
 
 const THEMES: AppTheme[] = ['dark', 'solarized', 'light']
@@ -130,6 +133,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   helpOpen: false,
   recoverOpen: false,
   templatesOpen: false,
+  projectsOpen: false,
 
   setStatus: (text, level = 'info') => {
     if (statusTimer) clearTimeout(statusTimer)
@@ -221,4 +225,6 @@ export const useUiStore = create<UiState>((set, get) => ({
   closeRecover: () => set({ recoverOpen: false }),
   openTemplates: () => set({ templatesOpen: true }),
   closeTemplates: () => set({ templatesOpen: false }),
+  openProjects: () => set({ projectsOpen: true }),
+  closeProjects: () => set({ projectsOpen: false }),
 }))

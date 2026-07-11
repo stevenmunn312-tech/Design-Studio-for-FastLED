@@ -1,20 +1,10 @@
-import type { StudioNode, StudioEdge, WorkspaceExtras } from './graphStore'
-
-/** The workspace shape captured in a rolling snapshot — mirrors what
- *  autosave/save-as-JSON persist. */
-export interface SnapshotWorkspace {
-  nodes: StudioNode[]
-  edges: StudioEdge[]
-  graphData?: WorkspaceExtras['graphData']
-  graphs?: WorkspaceExtras['graphs']
-  activeGraphId?: string
-}
+import type { PersistedWorkspace } from './workspacePersistence'
 
 export interface Snapshot {
   id: string
   timestamp: number
   nodeCount: number
-  workspace: SnapshotWorkspace
+  workspace: PersistedWorkspace
 }
 
 const SNAPSHOT_KEY = 'fastled-studio-snapshots'
@@ -34,7 +24,7 @@ export function loadSnapshots(): Snapshot[] {
 /** Prepend a new snapshot, capped to MAX_SNAPSHOTS. If the full write doesn't
  *  fit in the shared localStorage budget, drop older snapshots until it does
  *  (a rolling safety net degrading gracefully beats throwing it away). */
-export function pushSnapshot(workspace: SnapshotWorkspace): Snapshot[] {
+export function pushSnapshot(workspace: PersistedWorkspace): Snapshot[] {
   const existing = loadSnapshots()
   const snapshot: Snapshot = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,

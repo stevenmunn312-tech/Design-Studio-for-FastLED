@@ -4,7 +4,6 @@ import { useGraphStore } from './state/graphStore'
 import { useAudioStore } from './state/audioStore'
 import { useShowPlayback } from './state/showPlayback'
 import { AudioEngine } from './audio/audioEngine'
-import type { StudioNode, StudioEdge, WorkspaceExtras } from './state/graphStore'
 import MenuBar from './components/MenuBar/MenuBar'
 import Sidebar from './components/Sidebar/Sidebar'
 import NodeGraphCanvas from './components/Canvas/NodeGraphCanvas'
@@ -12,8 +11,10 @@ import LEDPreview from './components/Preview/LEDPreview'
 import StatusBar from './components/StatusBar/StatusBar'
 import { useUploadStore } from './state/uploadStore'
 import { usePatternLibrary } from './state/patternLibrary'
+import { useProjectStore } from './state/projectStore'
 import { readSharedWorkspace, clearShareHash } from './utils/shareGraph'
 import { pushSnapshot } from './state/snapshotHistory'
+import { captureWorkspace } from './state/workspacePersistence'
 import styles from './App.module.css'
 
 const BoardPopup = lazy(() => import('./components/Upload/BoardPopup'))
@@ -22,36 +23,10 @@ const OutputConsole = lazy(() => import('./components/Upload/OutputConsole'))
 const HelpModal = lazy(() => import('./components/HelpModal/HelpModal'))
 const RecoverPopup = lazy(() => import('./components/Recover/RecoverPopup'))
 const TemplatesPopup = lazy(() => import('./components/Templates/TemplatesPopup'))
-
-const AUTOSAVE_KEY = 'fastled-studio-graph'
+const ProjectsPopup = lazy(() => import('./components/Projects/ProjectsPopup'))
 const AUTOSAVE_INTERVAL = 10_000
 const AUTOSAVE_IDLE_TIMEOUT = 2_000
 const SNAPSHOT_INTERVAL = 120_000
-
-// Persist the whole multi-graph workspace, not just the active graph — the
-// `graphData`/`graphs` hold every pattern-group subgraph, without which groups
-// lose their preview (and codegen) on reload.
-let warnedQuota = false
-function saveToLocalStorage(s: ReturnType<typeof useGraphStore.getState>) {
-  const { nodes, edges, graphData, graphs, activeGraphId } = s
-  try {
-    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ nodes, edges, graphData, graphs, activeGraphId }))
-    return
-  } catch {
-    // The full workspace didn't fit (localStorage is a shared ~5 MB budget).
-    // Fall back to persisting at least the active graph so newly added nodes
-    // still survive a reload — group subgraphs may drop until there's room.
-  }
-  try {
-    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ nodes, edges, activeGraphId }))
-    if (!warnedQuota) {
-      warnedQuota = true
-      useUiStore.getState().setStatus('Storage is full — saved the main graph, but some saved patterns may not persist', 'error')
-    }
-  } catch {
-    // Nothing fits at all — give up rather than throw out of the autosave.
-  }
-}
 
 export default function App() {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen)
@@ -66,6 +41,7 @@ export default function App() {
   const helpOpen = useUiStore((s) => s.helpOpen)
   const recoverOpen = useUiStore((s) => s.recoverOpen)
   const templatesOpen = useUiStore((s) => s.templatesOpen)
+  const projectsOpen = useUiStore((s) => s.projectsOpen)
   const toggleSidebar = useUiStore((s) => s.toggleSidebar)
   const togglePreviewPanel = useUiStore((s) => s.togglePreviewPanel)
   const startAudio = useAudioStore((s) => s.startAudio)
@@ -105,28 +81,32 @@ export default function App() {
   // is an explicit act (someone sent you a link), so it wins over whatever
   // was left in this browser from before.
   useEffect(() => {
-    const shared = readSharedWorkspace()
-    if (shared) {
-      useGraphStore.getState().loadGraph(shared.nodes, shared.edges, {
-        graphData: shared.graphData,
-        graphs: shared.graphs,
-        activeGraphId: shared.activeGraphId,
-      })
-      useGraphStore.temporal.getState().clear()
-      clearShareHash()
-      useUiStore.getState().setStatus('Graph loaded from share link', 'success')
-      return
-    }
-    const saved = localStorage.getItem(AUTOSAVE_KEY)
-    if (!saved) return
-    try {
-      const { nodes, edges, graphData, graphs, activeGraphId } = JSON.parse(saved) as
-        { nodes: StudioNode[]; edges: StudioEdge[] } & WorkspaceExtras
+    let cancelled = false
+    const init = async () => {
+      const shared = readSharedWorkspace()
+      if (shared) {
+        useGraphStore.getState().loadGraph(shared.nodes, shared.edges, {
+          graphData: shared.graphData,
+          graphs: shared.graphs,
+          activeGraphId: shared.activeGraphId,
+        })
+        useProjectStore.getState().saveCurrentWorkspace(shared)
+        useGraphStore.temporal.getState().clear()
+        clearShareHash()
+        useUiStore.getState().setStatus('Graph loaded from share link', 'success')
+        return
+      }
+      await useProjectStore.getState().refreshFromDisk()
+      if (cancelled) return
+      const state = useProjectStore.getState()
+      const current = state.projects.find((project) => project.id === state.currentProjectId) ?? state.projects[0]
+      if (!current) return
+      const { nodes, edges, graphData, graphs, activeGraphId } = current.workspace
       useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId })
       useGraphStore.temporal.getState().clear()
-    } catch {
-      // corrupt data — ignore
     }
+    void init()
+    return () => { cancelled = true }
   }, [])
 
   // Repopulate "My Patterns" from the on-disk folder (via the upload helper),
@@ -151,7 +131,7 @@ export default function App() {
       const run = () => {
         autosaveIdle.current = null
         const state = latestAutosaveState.current
-        if (state) saveToLocalStorage(state)
+        if (state) useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(state))
       }
       if (typeof window.requestIdleCallback === 'function') {
         autosaveIdle.current = window.requestIdleCallback(run, { timeout: AUTOSAVE_IDLE_TIMEOUT })
@@ -193,7 +173,7 @@ export default function App() {
   // Flush the autosave immediately when the page is hidden/closed, so a reload
   // right after an edit doesn't lose work waiting on the debounce.
   useEffect(() => {
-    const flush = () => saveToLocalStorage(useGraphStore.getState())
+    const flush = () => useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
     const onVisibility = () => { if (document.visibilityState === 'hidden') flush() }
     window.addEventListener('pagehide', flush)
     document.addEventListener('visibilitychange', onVisibility)
@@ -290,8 +270,8 @@ export default function App() {
       }
       if (e.key === 's') {
         e.preventDefault()
-        saveToLocalStorage(useGraphStore.getState())
-        setStatus('Graph saved', 'success')
+        useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
+        setStatus('Project saved', 'success')
       }
       if (e.key === 'a') {
         e.preventDefault()
@@ -385,6 +365,7 @@ export default function App() {
         {helpOpen && <HelpModal />}
         {recoverOpen && <RecoverPopup />}
         {templatesOpen && <TemplatesPopup />}
+        {projectsOpen && <ProjectsPopup />}
       </Suspense>
     </div>
   )

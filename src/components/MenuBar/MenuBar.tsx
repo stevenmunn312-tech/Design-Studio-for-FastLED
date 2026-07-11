@@ -3,6 +3,7 @@ import { useUiStore } from '../../state/uiStore'
 import { useGraphStore, useTemporalStore } from '../../state/graphStore'
 import { useAudioStore } from '../../state/audioStore'
 import { useShowPlayback } from '../../state/showPlayback'
+import { useProjectStore } from '../../state/projectStore'
 import type { StudioNode, StudioEdge, WorkspaceExtras } from '../../state/graphStore'
 import { runTidy } from '../../utils/tidyGraph'
 import { buildShareUrl } from '../../utils/shareGraph'
@@ -36,6 +37,7 @@ export default function MenuBar() {
     openHelp,
     openRecover,
     openTemplates,
+    openProjects,
   } = useUiStore()
 
   const THEME_ICON: Record<string, string> = { dark: '☾', solarized: '✦', light: '☀' }
@@ -50,11 +52,19 @@ export default function MenuBar() {
   const showPlaying = useShowPlayback((s) => s.playing)
 
   const { undo, redo, pastStates, futureStates } = useTemporalStore((s) => s)
+  const { currentProjectId, projects } = useProjectStore((s) => ({
+    currentProjectId: s.currentProjectId,
+    projects: s.projects,
+  }))
+  const currentProject = projects.find((project) => project.id === currentProjectId) ?? projects[0]
   const canUndo = pastStates.length > 0
   const canRedo = futureStates.length > 0
   const effectiveReducedMotion = reducedMotion || !uiEffectsEnabled
   const effectivePreview3d = uiEffectsEnabled && preview3d
   const effectivePreviewStyle = uiEffectsEnabled ? previewStyle : 'standard'
+  const projectLabel = currentProject?.name && currentProject.name.length > 18
+    ? `${currentProject.name.slice(0, 18)}…`
+    : (currentProject?.name ?? 'Projects')
 
   const toggleMic = () => {
     if (!micActive && showPlaying) {
@@ -163,6 +173,9 @@ export default function MenuBar() {
         </button>
         <button className={styles.btn} onClick={handleLoadJSON} aria-label="Import graph from JSON" title="Import graph from JSON">
           ↑ Load
+        </button>
+        <button className={styles.btn} onClick={openProjects} aria-label="Switch or manage projects" title={currentProject ? `Current project: ${currentProject.name}` : 'Switch or manage projects'}>
+          ▤ {projectLabel}
         </button>
         <button className={styles.btn} onClick={openTemplates} aria-label="Load a starter template" title="Load a starter template">
           ✦ Templates

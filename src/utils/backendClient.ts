@@ -5,6 +5,7 @@
 // "offline" and fall back to the copy-paste arduino-cli commands.
 
 import type { SavedPattern } from '../state/patternLibrary'
+import type { SavedProject } from '../state/projectStore'
 
 const ENV_URL = (import.meta.env as Record<string, string | undefined>).VITE_BACKEND_URL
 export const BACKEND_URL = (ENV_URL ?? 'http://localhost:8008').replace(/\/$/, '')
@@ -213,6 +214,46 @@ export async function deletePatternFromDisk(id: string): Promise<boolean> {
 export async function revealPatternsFolder(): Promise<boolean> {
   try {
     const res = await fetch(`${BACKEND_URL}/api/patterns/reveal`, { method: 'POST' })
+    const data = await res.json()
+    return !!data.ok
+  } catch {
+    return false
+  }
+}
+
+// ── Saved projects ───────────────────────────────────────────────────────────
+
+/** All saved projects on disk, or `null` if the helper is unreachable. */
+export async function listProjects(): Promise<SavedProject[] | null> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/projects`)
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.ok ? (data.projects as SavedProject[]) : null
+  } catch {
+    return null
+  }
+}
+
+/** Write one project to its own file. Returns false when the helper is absent. */
+export async function saveProjectToDisk(project: SavedProject): Promise<boolean> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/projects`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(project),
+    })
+    const data = await res.json()
+    return !!data.ok
+  } catch {
+    return false
+  }
+}
+
+/** Delete a project's file by id. Returns false when the helper is absent. */
+export async function deleteProjectFromDisk(id: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/projects/${encodeURIComponent(id)}`, { method: 'DELETE' })
     const data = await res.json()
     return !!data.ok
   } catch {

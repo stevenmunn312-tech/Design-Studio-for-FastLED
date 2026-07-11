@@ -58,6 +58,7 @@ _BIN_DIR = _HELPER_DIR / "bin"  # where a self-installed arduino-cli lands
 # file. The browser can't write arbitrary folders, so it round-trips through the
 # /api/patterns endpoints below. Override the location with FLS_PATTERNS_DIR.
 _PATTERNS_DIR = Path(os.environ.get("FLS_PATTERNS_DIR") or (_HELPER_DIR.parent / "My Patterns"))
+_PROJECTS_DIR = Path(os.environ.get("FLS_PROJECTS_DIR") or (_HELPER_DIR.parent / "Projects"))
 
 # Board-manager URLs for the third-party cores we can install, so `core install`
 # works against a fresh CLI that has never seen them.
@@ -1043,9 +1044,21 @@ def _patterns_dir() -> Path:
     return _PATTERNS_DIR
 
 
+def _projects_dir() -> Path:
+    _PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
+    return _PROJECTS_DIR
+
+
 def _iter_pattern_files():
     try:
         return sorted(_patterns_dir().glob("*.json"))
+    except Exception:
+        return []
+
+
+def _iter_project_files():
+    try:
+        return sorted(_projects_dir().glob("*.json"))
     except Exception:
         return []
 
@@ -1056,6 +1069,15 @@ def _remove_files_for_id(pattern_id: str) -> None:
     for f in _iter_pattern_files():
         try:
             if json.loads(f.read_text(encoding="utf-8")).get("id") == pattern_id:
+                f.unlink(missing_ok=True)
+        except Exception:
+            continue
+
+
+def _remove_project_files_for_id(project_id: str) -> None:
+    for f in _iter_project_files():
+        try:
+            if json.loads(f.read_text(encoding="utf-8")).get("id") == project_id:
                 f.unlink(missing_ok=True)
         except Exception:
             continue
@@ -1072,6 +1094,18 @@ def _unique_path(base: str, pattern_id: str) -> Path:
                 candidate = d / f"{base}-{pattern_id}.json"
         except Exception:
             candidate = d / f"{base}-{pattern_id}.json"
+    return candidate
+
+
+def _unique_project_path(base: str, project_id: str) -> Path:
+    d = _projects_dir()
+    candidate = d / f"{base}.json"
+    if candidate.exists():
+        try:
+            if json.loads(candidate.read_text(encoding="utf-8")).get("id") != project_id:
+                candidate = d / f"{base}-{project_id}.json"
+        except Exception:
+            candidate = d / f"{base}-{project_id}.json"
     return candidate
 
 
@@ -1241,4 +1275,49 @@ def reveal_patterns_folder():
             subprocess.run(["xdg-open", str(path)], check=True)
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    return {"ok": True}
+
+
+@app.get("/api/projects")
+def list_projects():
+    """Every saved project on disk, newest first."""
+    out = []
+    for f in _iter_project_files():
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+            workspace = data.get("workspace")
+            if (isinstance(data, dict) and data.get("id") and data.get("name")
+                    and isinstance(workspace, dict) and isinstance(workspace.get("nodes"), list)
+                    and isinstance(workspace.get("edges"), list)):
+                out.append(data)
+        except Exception:
+            continue
+    out.sort(key=lambda project: project.get("updatedAt", project.get("createdAt", 0)), reverse=True)
+    return {"ok": True, "dir": str(_PROJECTS_DIR), "projects": out}
+
+
+@app.post("/api/projects")
+def save_project(project: dict = Body(...)):
+    """Write one project to its own file. Overwrites by stable id."""
+    pid = str(project.get("id") or "").strip()
+    name = str(project.get("name") or "").strip()
+    workspace = project.get("workspace")
+    if (not pid or not name or not isinstance(workspace, dict)
+            or not isinstance(workspace.get("nodes"), list) or not isinstance(workspace.get("edges"), list)):
+        return JSONResponse({"ok": False, "error": "project needs id, name and workspace"}, status_code=400)
+    _remove_project_files_for_id(pid)
+    path = _unique_project_path(_sanitize_filename(name), pid)
+    if _projects_dir().resolve() not in path.resolve().parents:
+        return JSONResponse({"ok": False, "error": "invalid project name"}, status_code=400)
+    try:
+        path.write_text(json.dumps(project, indent=2), encoding="utf-8")
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    return {"ok": True, "file": path.name}
+
+
+@app.delete("/api/projects/{project_id}")
+def delete_project(project_id: str):
+    """Delete the file(s) holding this project id."""
+    _remove_project_files_for_id(project_id)
     return {"ok": True}

@@ -98,6 +98,8 @@ It is a **multi-graph workspace** (ADR 0001): the *active* graph stays in the to
 
 **`src/state/audioStore.ts`** is a thin Zustand bridge over `AudioEngine.instance`. It calls `engine.subscribe()` at store-creation time so FFT data flows into Zustand state on every animation frame.
 
+**`src/state/projectStore.ts`** owns the named-project switcher: each project is a full persisted workspace (`nodes`/`edges` plus `graphData`/`graphs`/`activeGraphId`) with `createdAt`/`updatedAt` metadata, cached in localStorage under `fastled-studio.projects.v1` and write-through synced to helper-backed JSON files in the repo-root `Projects/` folder when the backend is available. `App.tsx` now autosaves into the **current project** rather than a single global slot, migrating the old `fastled-studio-graph` autosave key into the default `Main` project on first load; MenuBar's **▤ Projects** popup is the UI for creating, duplicating, switching, renaming, and deleting projects.
+
 **`src/state/nodeLibrary.ts`** is the static registry (`NODE_LIBRARY: NodeDefinition[]`). Adding a new node type = add one entry here. No other registration required — the Sidebar reads this array directly.
 
 ### Node Rendering
