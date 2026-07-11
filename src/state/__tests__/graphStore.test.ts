@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { useGraphStore, getGroupRegistry, ROOT_GRAPH_ID } from '../graphStore'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { evaluateGraph } from '../graphEvaluator'
@@ -751,5 +751,43 @@ describe('graphStore — group input roles', () => {
     useGraphStore.getState().setGroupInputRole('gi', '')
     expect(useGraphStore.getState().nodes[0].data.properties.paramId).toBe('param0')
     expect(outType('gi')).toBe('float')
+  })
+})
+
+describe('graphStore — undo coalescing', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    reset([node('sc', 'SolidColor', { r: 0 })])
+    // reset() itself flows through the debounced handleSet — flush that
+    // pending call before starting the burst under test, else its stale
+    // pre-reset pastState leaks into the burst's snapshot.
+    vi.advanceTimersByTime(400)
+    useGraphStore.temporal.getState().clear()
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('collapses a burst of updateNodeProperty calls (a slider drag) into one undo step', () => {
+    // Simulate a slider firing onChange on every tick of a drag.
+    for (let r = 1; r <= 10; r++) {
+      useGraphStore.getState().updateNodeProperty('sc', 'r', r)
+      vi.advanceTimersByTime(100) // well under the 400ms debounce window
+    }
+    vi.advanceTimersByTime(400) // let the trailing debounce fire
+
+    expect(useGraphStore.getState().nodes[0].data.properties.r).toBe(10)
+    expect(useGraphStore.temporal.getState().pastStates).toHaveLength(1)
+
+    useGraphStore.temporal.getState().undo()
+    // Undo restores the value from *before the whole burst*, not just the last tick.
+    expect(useGraphStore.getState().nodes[0].data.properties.r).toBe(0)
+  })
+
+  it('records separate undo steps for edits separated by a pause', () => {
+    useGraphStore.getState().updateNodeProperty('sc', 'r', 1)
+    vi.advanceTimersByTime(400)
+    useGraphStore.getState().updateNodeProperty('sc', 'r', 2)
+    vi.advanceTimersByTime(400)
+
+    expect(useGraphStore.temporal.getState().pastStates).toHaveLength(2)
   })
 })

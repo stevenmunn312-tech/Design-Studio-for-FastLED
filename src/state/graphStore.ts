@@ -277,6 +277,30 @@ function uniqueId(base: string, used: Set<string>): string {
   return candidate
 }
 
+// A burst of rapid edits (dragging a slider, typing in a text field) calls
+// zundo's handleSet once per tick/keystroke. Debouncing it naively would keep
+// only the *last* call's pastState — undoing the burst would then revert just
+// the final tiny increment instead of the whole gesture. So pin the pastState
+// from the first call in a burst, and only push a snapshot once the burst has
+// gone quiet, using the most recent currentState/deltaState by then.
+function debounceHandleSet<Fn extends (pastState: never, replace: never, currentState: never, deltaState?: never) => void>(
+  fn: Fn,
+  ms: number
+): Fn {
+  type Args = Parameters<Fn>
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let burstStart: Args[0] | undefined
+  return ((...args: Args) => {
+    const [pastState, replace, currentState, deltaState] = args
+    if (timer === undefined) burstStart = pastState
+    if (timer !== undefined) clearTimeout(timer)
+    timer = setTimeout(() => {
+      timer = undefined
+      fn(burstStart as Args[0], replace, currentState, deltaState)
+    }, ms)
+  }) as Fn
+}
+
 export const useGraphStore = create<GraphState>()(
   temporal(
     (set) => ({
@@ -1066,6 +1090,10 @@ export const useGraphStore = create<GraphState>()(
         if (current.nodes.some((n) => n.dragging)) return true
         return past.nodes === current.nodes && past.edges === current.edges
       },
+      // A slider drag or a fast typed edit fires updateNodeProperty once per
+      // tick/keystroke; debouncing the history-push collapses a whole burst
+      // (e.g. one drag gesture) into a single undo step instead of dozens.
+      handleSet: (handleSet) => debounceHandleSet(handleSet, 400),
     }
   )
 )
