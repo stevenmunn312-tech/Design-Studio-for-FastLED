@@ -975,6 +975,21 @@ describe('evaluateGraph', () => {
       coh.mockRestore()
       expect(spread(sepFrame)).toBeGreaterThan(spread(cohFrame))
     })
+
+    it('colours the flock by colorMode (spectrum varies hue per boid)', () => {
+      const distinct = (frame: Frame) =>
+        new Set(frame.flat().filter((px) => px.r + px.g + px.b > 0).map((px) => `${px.r},${px.g},${px.b}`)).size
+      // Same seed ⇒ identical motion; only the colouring differs.
+      const s1 = seedRandom(999)
+      const solid = run('cm_s', { count: 16, colorMode: 'solid', r: 255, g: 0, b: 0 }, 5)
+      s1.mockRestore()
+      const s2 = seedRandom(999)
+      const spectrum = run('cm_p', { count: 16, colorMode: 'spectrum' }, 5)
+      s2.mockRestore()
+      // Solid: one head colour (+ its dim tail). Spectrum: a hue per boid ⇒ many.
+      expect(distinct(solid)).toBeLessThanOrEqual(2)
+      expect(distinct(spectrum)).toBeGreaterThan(distinct(solid))
+    })
   })
 
   it('PlasmaFractal produces a varied frame that animates', () => {

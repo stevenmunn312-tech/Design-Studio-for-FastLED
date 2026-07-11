@@ -2912,6 +2912,7 @@ export function generateCpp(
         const count = Math.max(2, Math.min(80, Math.floor(Number(p.count ?? 24))))
         const sep = Number(p.separation ?? 0.6), ali = Number(p.alignment ?? 0.5)
         const coh = Number(p.cohesion ?? 0.4), range = Number(p.visualRange ?? 4)
+        const colorMode = String(p.colorMode ?? 'solid')
         const colorE = incoming.get(`${node.id}:color`)
           ? colorExpr(node.id, 'color')
           : `CRGB(${Number(p.r ?? 120)}, ${Number(p.g ?? 200)}, ${Number(p.b ?? 255)})`
@@ -2931,11 +2932,16 @@ export function generateCpp(
         ln(`      if(_sc>0){ _stx+=_sx*${sep.toFixed(3)}f*0.05f; _sty+=_sy*${sep.toFixed(3)}f*0.05f; }`)
         ln(`      ${nvx}[_i]=${bvx}[_i]+_stx; ${nvy}[_i]=${bvy}[_i]+_sty; }`)
         ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
-        ln(`    CRGB _bc=${colorE}; CRGB _bt=_bc; _bt.nscale8(64);`)
+        if (colorMode === 'solid') ln(`    CRGB _bc0=${colorE};`)
         ln(`    for(int _i=0;_i<${count};_i++){`)
         ln(`      float _sp=sqrtf(${nvx}[_i]*${nvx}[_i]+${nvy}[_i]*${nvy}[_i]); if(_sp<=0)_sp=1; float _dirx=${nvx}[_i]/_sp,_diry=${nvy}[_i]/_sp;`)
         ln(`      ${bvx}[_i]=_dirx*_ms; ${bvy}[_i]=_diry*_ms;`)
         ln(`      ${bx}[_i]=fmodf(${bx}[_i]+${bvx}[_i]+WIDTH,WIDTH); ${by}[_i]=fmodf(${by}[_i]+${bvy}[_i]+HEIGHT,HEIGHT);`)
+        ln(colorMode === 'heading'
+          ? `      CRGB _bc=CHSV((uint8_t)((atan2f(_diry,_dirx)/6.2831853f+0.5f)*255.0f),255,255); CRGB _bt=_bc; _bt.nscale8(64);`
+          : colorMode === 'spectrum'
+          ? `      CRGB _bc=CHSV((uint8_t)(_i/(float)${count}*255.0f),255,255); CRGB _bt=_bc; _bt.nscale8(64);`
+          : `      CRGB _bc=_bc0; CRGB _bt=_bc; _bt.nscale8(64);`)
         ln(`      int _px=(int)${bx}[_i],_py=(int)${by}[_i]; if(_px>=0&&_px<WIDTH&&_py>=0&&_py<HEIGHT) ${ob}[_py*WIDTH+_px]=_bc;`)
         ln(`      int _tx=(int)fmodf(${bx}[_i]-_dirx+WIDTH,WIDTH),_ty=(int)fmodf(${by}[_i]-_diry+HEIGHT,HEIGHT);`)
         ln(`      if(_tx>=0&&_tx<WIDTH&&_ty>=0&&_ty<HEIGHT){ int _ti=_ty*WIDTH+_tx; ${ob}[_ti].r=max(${ob}[_ti].r,_bt.r); ${ob}[_ti].g=max(${ob}[_ti].g,_bt.g); ${ob}[_ti].b=max(${ob}[_ti].b,_bt.b); } } }`)

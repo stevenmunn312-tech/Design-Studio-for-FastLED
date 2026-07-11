@@ -2076,8 +2076,10 @@ function evalStarfield(nodeId: string, speed: number, count: number, color: RGB,
 // Velocities update simultaneously (read old, write new), then are renormalised
 // to a constant speed so the swarm stays bounded; positions wrap toroidally.
 // Rendered as a bright head pixel plus a dim one-pixel tail along the heading.
+// `colorMode` tints each boid: 'solid' (the wired/prop colour), 'heading' (hue
+// from movement direction), or 'spectrum' (a fixed per-boid hue across the wheel).
 // Kept a faithful mirror of the C++ emitter in cppGenerator.ts.
-function evalBoids(nodeId: string, speed: number, count: number, sep: number, ali: number, coh: number, range: number, color: RGB, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalBoids(nodeId: string, speed: number, count: number, sep: number, ali: number, coh: number, range: number, color: RGB, colorMode: string, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const n = Math.max(2, Math.min(80, Math.floor(count)))
   let s = boidState.get(nodeId)
   if (!s || s.w !== W || s.h !== H || s.x.length !== n) {
@@ -2115,18 +2117,21 @@ function evalBoids(nodeId: string, speed: number, count: number, sep: number, al
     nvx[i] = vx[i] + stx; nvy[i] = vy[i] + sty
   }
   const frame = blankFrame(W, H)
-  const tail = { r: color.r >> 2, g: color.g >> 2, b: color.b >> 2 }
   for (let i = 0; i < n; i++) {
     const sp = Math.hypot(nvx[i], nvy[i]) || 1
     const dirx = nvx[i] / sp, diry = nvy[i] / sp
     vx[i] = dirx * maxSpeed; vy[i] = diry * maxSpeed
     x[i] = (x[i] + vx[i] + W) % W; y[i] = (y[i] + vy[i] + H) % H
+    const bc = colorMode === 'heading' ? hsv((Math.atan2(diry, dirx) / (Math.PI * 2) + 0.5) * 360, 1, 1)
+      : colorMode === 'spectrum' ? hsv((i / n) * 360, 1, 1)
+      : color
+    const tr = bc.r >> 2, tg = bc.g >> 2, tb = bc.b >> 2
     const px = Math.floor(x[i]), py = Math.floor(y[i])
-    if (px >= 0 && px < W && py >= 0 && py < H) frame[py][px] = color
+    if (px >= 0 && px < W && py >= 0 && py < H) frame[py][px] = bc
     const tx = Math.floor((x[i] - dirx + W) % W), ty = Math.floor((y[i] - diry + H) % H)
     if (tx >= 0 && tx < W && ty >= 0 && ty < H) {
       const c = frame[ty][tx]
-      frame[ty][tx] = { r: Math.max(c.r, tail.r), g: Math.max(c.g, tail.g), b: Math.max(c.b, tail.b) }
+      frame[ty][tx] = { r: Math.max(c.r, tr), g: Math.max(c.g, tg), b: Math.max(c.b, tb) }
     }
   }
   return frame
@@ -4529,13 +4534,14 @@ function createEvalNode(
         const ali = Number(props.alignment ?? 0.5)
         const coh = Number(props.cohesion ?? 0.4)
         const range = Number(props.visualRange ?? 4)
+        const colorMode = String(props.colorMode ?? 'solid')
         const colorIn = input(id, 'color', null) as RGB | null
         const color = colorIn ?? {
           r: byte(Number(props.r ?? 120) / 255),
           g: byte(Number(props.g ?? 200) / 255),
           b: byte(Number(props.b ?? 255) / 255),
         }
-        out = { frame: evalBoids(stateKey(id), speed, count, sep, ali, coh, range, color, W, H) }
+        out = { frame: evalBoids(stateKey(id), speed, count, sep, ali, coh, range, color, colorMode, W, H) }
         break
       }
 

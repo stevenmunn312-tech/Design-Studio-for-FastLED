@@ -1459,7 +1459,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.5, count: 24, separation: 0.6, alignment: 0.5, cohesion: 0.4, visualRange: 4, r: 120, g: 200, b: 255 },
+    defaultProperties: { speed: 0.5, count: 24, separation: 0.6, alignment: 0.5, cohesion: 0.4, visualRange: 4, colorMode: 'solid', r: 120, g: 200, b: 255 },
   },
   {
     // Audio-reactive flowing noise field (bass/mids/treble drive it).
@@ -2397,6 +2397,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     alignment:   { control: 'slider', min: 0, max: 1, step: 0.01 },
     cohesion:    { control: 'slider', min: 0, max: 1, step: 0.01 },
     visualRange: { control: 'slider', min: 1, max: 8, step: 0.5 },
+    colorMode:   { control: 'select', options: ['solid', 'heading', 'spectrum'] },
   },
   PaletteGradient: { speed: N01 },
   Noise2D:         { speed: N01, scale: N01 },

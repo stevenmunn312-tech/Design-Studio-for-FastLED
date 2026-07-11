@@ -199,6 +199,16 @@ describe('generateCpp', () => {
     expect(cpp).toContain('CRGB(10, 20, 30)')
   })
 
+  it('emits CHSV per-boid colouring for the heading and spectrum colour modes', () => {
+    const mk = (colorMode: string) =>
+      generateCpp([node('bd', 'Boids', 'pattern', { colorMode, count: 10 }), outputNode], [edge('e1', 'bd', 'out', 'frame', 'frame')])
+    expect(mk('heading')).toContain('atan2f(_diry,_dirx)')
+    expect(mk('spectrum')).toContain('_i/(float)10*255.0f')
+    // Solid keeps the single base-colour path (no per-boid hue maths).
+    expect(mk('solid')).toContain('_bc=_bc0')
+    expect(mk('solid')).not.toContain('atan2f')
+  })
+
   it('scales Noise speed per noiseType variant', () => {
     const worley = node('w', 'Noise', 'pattern', { noiseType: 'worley', speed: 1, scale: 1 })
     const simplex = node('s', 'Noise', 'pattern', { noiseType: 'simplex', speed: 1, scale: 1 })
