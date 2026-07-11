@@ -140,6 +140,10 @@
   display: none;
 }
 
+.signalReadout {
+  pointer-events: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .core,
   .spliceTarget {

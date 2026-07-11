@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import { getBezierPath, useReactFlow } from '@xyflow/react'
 import type { EdgeProps } from '@xyflow/react'
 import { CATEGORY_COLOR } from '../../state/nodeLibrary'
@@ -6,6 +6,16 @@ import { useGraphStore } from '../../state/graphStore'
 import { usePreviewStore } from '../../state/previewStore'
 import { useUiStore } from '../../state/uiStore'
 import styles from './GlowEdge.module.css'
+
+function formatSignalValue(value: unknown): string | null {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return null
+    const rounded = Math.round(value * 1000) / 1000
+    return String(rounded)
+  }
+  if (typeof value === 'boolean') return value ? 'true' : 'false'
+  return null
+}
 
 // Packet budget by graph size: every packet is a continuously-animating element,
 // so on busy graphs each noodle drops to a single packet, and past the upper
@@ -98,6 +108,12 @@ function GlowEdge({
   const signal = usePreviewStore((state) =>
     sourceHandleId ? state.signals.get(`${source}:${sourceHandleId}`) : undefined
   )
+  const [hovered, setHovered] = useState(false)
+  const showsValueReadout = sourceType === 'float' || sourceType === 'bool'
+  const rawValue = usePreviewStore((state) =>
+    showsValueReadout && sourceHandleId ? state.outputs.get(source)?.[sourceHandleId] : undefined
+  )
+  const readout = hovered && showsValueReadout ? formatSignalValue(rawValue) : null
   const uiEffectsEnabled = useUiStore((state) => state.uiEffectsEnabled)
   const packetCap = useGraphStore((s) =>
     s.edges.length > PACKET_OFF_EDGE_COUNT ? 0
@@ -121,7 +137,7 @@ function GlowEdge({
     family === 'color' ? styles.familyColor :
     styles.familyControl
 
-  const [edgePath] = getBezierPath({
+  const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,
     sourcePosition,
@@ -130,9 +146,29 @@ function GlowEdge({
     targetPosition,
   })
 
+  const hoverHitPath = showsValueReadout && (
+    <path
+      d={edgePath}
+      fill="none"
+      stroke="transparent"
+      strokeWidth={SPLICE_HIT_WIDTH}
+      pointerEvents="stroke"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    />
+  )
+
+  const valueReadout = readout != null && (
+    <g className={styles.signalReadout} transform={`translate(${labelX}, ${labelY})`}>
+      <rect x={-1} y={-9} width={readout.length * 6.4 + 10} height={16} rx={4} fill="rgba(10, 12, 16, 0.88)" stroke={color} strokeWidth={1} />
+      <text x={4} y={3} fill={color} fontSize={11} fontFamily="monospace">{readout}</text>
+    </g>
+  )
+
   if (!uiEffectsEnabled) {
     return (
       <g className={focusState === 'dim' ? styles.focusDim : focusState === 'active' ? styles.focusActive : ''}>
+        {hoverHitPath}
         {spliceArmed && (
           <path
             data-splice-edge-id={id}
@@ -163,12 +199,14 @@ function GlowEdge({
           strokeOpacity={0.76 + idleVisibility * 0.12}
         />
         <circle cx={targetX} cy={targetY} r={3.2} fill={color} opacity={0.82} />
+        {valueReadout}
       </g>
     )
   }
 
   return (
     <g className={`${familyClass} ${focusState === 'dim' ? styles.focusDim : focusState === 'active' ? styles.focusActive : ''}`}>
+      {hoverHitPath}
       {/* During a sidebar drag this transparent stroke makes the real curved
           noodle—not a straight-line approximation—the splice hit target. */}
       {spliceArmed && (
@@ -270,6 +308,7 @@ function GlowEdge({
       ))}
       {/* Bright dot at the target port */}
       <circle cx={targetX} cy={targetY} r={4} fill={color} opacity={0.85} />
+      {valueReadout}
     </g>
   )
 }
