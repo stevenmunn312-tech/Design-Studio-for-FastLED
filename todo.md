@@ -231,5 +231,5 @@ show pipeline). Ordered by expected impact within each tier.
 - [ ] **Keyboard-first node add** — press Tab / double-click *empty canvas* → search picker (double-click is taken by group entry on nodes, but the pane is free); power users in Blender-style editors live on this
 - [ ] **"Save selection to library" in one step** — today it's select → group → node menu → Save to Library; a context-menu item on any multi-selection that groups + saves in one action
 - [ ] **Check undo granularity on slider drags** — if every `updateNodeProperty` during a drag lands in zundo history, one drag eats dozens of undo steps; coalesce history entries per drag gesture (unverified — may already be handled)
-- [ ] **Import safety** — loading a JSON file or dropping one on the sidebar replaces the workspace instantly; confirm when the current graph is non-trivial, or auto-snapshot before replace
+- [x] **Import safety** — loading a JSON file via MenuBar's Load button now confirms before replacing a non-empty workspace (`window.confirm` in `handleFileChange`); the Sidebar's drag-drop `.json` import is unaffected since it adds to the pattern library rather than replacing the graph
 - [ ] **Upload ergonomics** — remember board+port per *project* (currently global) and add a "re-upload last sketch" one-click shortcut (both matter less for tweaking if live streaming lands)

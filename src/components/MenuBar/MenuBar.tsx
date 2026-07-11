@@ -82,6 +82,15 @@ export default function MenuBar() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    if (useGraphStore.getState().nodes.length > 0) {
+      const ok = window.confirm(
+        'Loading a graph replaces your current workspace. Any unsaved work will be lost. Continue?'
+      )
+      if (!ok) {
+        e.target.value = ''
+        return
+      }
+    }
     const reader = new FileReader()
     reader.onload = (ev) => {
       try {
