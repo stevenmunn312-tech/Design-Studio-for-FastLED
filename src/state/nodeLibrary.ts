@@ -776,18 +776,6 @@ export const NODE_LIBRARY: NodeDefinition[] = [
 
   // ── More pattern nodes ─────────────────────────────────────────────────
   {
-    type: 'Noise2D',
-    label: 'Noise 2D',
-    category: 'pattern',
-    subcategory: 'Generative',
-    inputs: [
-      { id: 'speed', label: 'Speed', dataType: 'float' },
-      { id: 'scale', label: 'Scale', dataType: 'float' },
-    ],
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.4, scale: 0.4 },
-  },
-  {
     type: 'RadialBurst',
     label: 'Radial Burst',
     category: 'pattern',
@@ -1985,7 +1973,6 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   GravityWell: 'Gravitational-lensing rings that bunch up as they near the drifting well.',
   RainRipples: 'A pool of expanding, fading ripples — one born on each trigger pulse.',
   PrismStorm: 'Oriented shard noise that snaps to a new angle on every hi-hat hit.',
-  Noise2D: 'Layered 2D sine noise.',
   RadialBurst: 'Rings bursting from the center.',
   Spiral: 'Rotating spiral arms.',
   Kaleidoscope: 'Mirrors a frame into kaleidoscope symmetry.',
@@ -2188,7 +2175,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   transform:  { control: 'select', options: ['rotate', 'scale', 'translate'] },
   // Bundled-node selectors — each picks a variant; keep in sync with the
   // matching case in graphEvaluator.ts and cppGenerator.ts.
-  noiseType:      { control: 'select', options: ['field', 'simplex', 'noise3d', 'noise4d', 'worley', 'plasma'] },
+  noiseType:      { control: 'select', options: ['field', 'simplex', 'noise3d', 'noise4d', 'worley', 'plasma', 'sine'] },
   mathOp:         { control: 'select', options: ['add', 'subtract', 'multiply', 'divide', 'min', 'max'] },
   transitionType: { control: 'select', options: [
     'crossfade', 'wipe', 'dissolve', 'iris', 'clockwipe', 'push', 'checkerboard',
@@ -2403,7 +2390,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     colorMode:   { control: 'select', options: ['solid', 'heading', 'spectrum', 'density', 'position', 'cycle', 'radial'] },
   },
   PaletteGradient: { speed: N01 },
-  Noise2D:         { speed: N01, scale: N01 },
   FractalNoise:    { speed: N01, scale: N01 },
   GaborNoise:      { speed: N01, scale: N01 },
   Blobs:           { speed: N01, scale: N01 },
@@ -2501,7 +2487,7 @@ export function hasClampableInputs(nodeType: string, inputs: { id: string; dataT
 const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, string> }> = {
   Noise: {
     prop: 'noiseType',
-    labels: { field: 'Noise Field', simplex: 'Simplex', noise3d: 'Noise 3D', noise4d: 'Noise 4D', worley: 'Worley', plasma: 'Plasma Fractal' },
+    labels: { field: 'Noise Field', simplex: 'Simplex', noise3d: 'Noise 3D', noise4d: 'Noise 4D', worley: 'Worley', plasma: 'Plasma Fractal', sine: 'Sine 2D' },
   },
   Path: {
     prop: 'pathShape',

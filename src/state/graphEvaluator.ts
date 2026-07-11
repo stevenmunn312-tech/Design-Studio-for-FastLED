@@ -1523,15 +1523,19 @@ function evalPrismStorm(
   })
 }
 
-function evalNoise2D(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return buildFrame(W, H, (x, y) => {
+function evalSineField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+  const out = allocField(W * H)
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
       let v = 0, amp = 1, freq = scale
       for (let oct = 0; oct < 3; oct++) {
         v += amp * Math.sin(x * freq + t * speed + oct * 1.7) * Math.cos(y * freq * 1.3 + t * speed * 0.8 + oct * 2.3)
         amp *= 0.5; freq *= 2.1
       }
-      return hsv((v * 0.5 + 0.5) * 360, 1, 0.85)
-    })
+      out[y * W + x] = wrap01(v * 0.5 + 0.5)
+    }
+  }
+  return out
 }
 
 function evalRadialBurst(speed: number, color: RGB, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
@@ -1823,6 +1827,7 @@ function evalNoiseFieldByType(noiseType: string, speed: number, scale: number, t
     case 'noise4d': return evalNoise4DField(speed, scale, t, W, H)
     case 'worley':  return evalWorleyField(speed, scale, t, W, H)
     case 'plasma':  return evalPlasmaFractalField(speed, scale, t, W, H)
+    case 'sine':    return evalSineField(speed, scale, t, W, H)
     case 'field':
     default:        return evalNoiseFieldRaw(speed, scale, t, W, H)
   }
@@ -4239,13 +4244,6 @@ function createEvalNode(
       }
 
       // ── New pattern nodes ──────────────────────────────────────────────
-      case 'Noise2D': {
-        const speed = denormRate(num(id, 'speed', props, 'speed', 0.4), SPEED_MAX.Noise2D)
-        const scale = denormRate(num(id, 'scale', props, 'scale', 0.4), SCALE_MAX.Noise2D)
-        out = { frame: evalNoise2D(speed, scale, t, W, H) }
-        break
-      }
-
       case 'RadialBurst': {
         const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.RadialBurst)
         const colorIn = input(id, 'color', null) as RGB | null

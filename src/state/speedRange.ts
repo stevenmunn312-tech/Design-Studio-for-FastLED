@@ -15,7 +15,7 @@ export const SPEED_MAX: Record<string, number> = {
   Plasma: 2, RadialBurst: 2, Spiral: 2, FlowField: 1.5, Starfield: 3,
   // Boids — constant flock speed in px/tick (floored at 0.1 in the evaluator).
   Boids: 0.7,
-  Blobs: 2, GaborNoise: 1.5, Noise2D: 1, FractalNoise: 1.2, FieldNoise: 1.2, PaletteGradient: 2,
+  Blobs: 2, GaborNoise: 1.5, FractalNoise: 1.2, FieldNoise: 1.2, PaletteGradient: 2,
   // Rainbow — startHue units (0–255) per second; ~one sweep every couple seconds.
   Rainbow: 120,
   Pride2015: 1.2, Pacifica: 1,
@@ -31,18 +31,18 @@ export const SPEED_MAX: Record<string, number> = {
 
 /** scale `1.0` (slider max) maps to this internal scale, per node type. */
 export const SCALE_MAX: Record<string, number> = {
-  FlowField: 1, Blobs: 0.5, GaborNoise: 0.5, Noise2D: 1, FractalNoise: 0.5, FieldNoise: 0.5,
+  FlowField: 1, Blobs: 0.5, GaborNoise: 0.5, FractalNoise: 0.5, FieldNoise: 0.5,
   Pride2015: 1.5, Pacifica: 1,
 }
 
 /** Bundled Noise node — speed `1.0` per `noiseType` variant. */
 export const NOISE_SPEED_MAX: Record<string, number> = {
-  field: 5, simplex: 3, noise3d: 5, noise4d: 2, worley: 5, plasma: 5,
+  field: 5, simplex: 3, noise3d: 5, noise4d: 2, worley: 5, plasma: 5, sine: 1,
 }
 
 /** Bundled Noise node — scale `1.0` per `noiseType` variant. */
 export const NOISE_SCALE_MAX: Record<string, number> = {
-  field: 2, simplex: 0.5, noise3d: 0.5, noise4d: 0.5, worley: 0.3, plasma: 0.2,
+  field: 2, simplex: 0.5, noise3d: 0.5, noise4d: 0.5, worley: 0.3, plasma: 0.2, sine: 1,
 }
 
 /** Map a 0–1 UI value onto the internal `[0, max]` rate (evaluator side). */

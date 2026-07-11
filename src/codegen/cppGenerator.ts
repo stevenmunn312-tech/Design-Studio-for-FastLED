@@ -1235,6 +1235,15 @@ export function generateCpp(
             ln(`      _v+=_fn*5; float _nf=fmodf(_v*0.15f,1.0f); if(_nf<0)_nf+=1.0f;`)
             ln(`      ${of}[_y*WIDTH+_x]=_nf;}}`)
             break
+          case 'sine':
+            ln(`  { // Sine 2D — layered sine/cosine interference`)
+            ln(`    float _spd=${speed},_sc=${scale};`)
+            ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+            ln(`      float _v=0,_amp=1,_fr=_sc;`)
+            ln(`      for(int _o=0;_o<3;_o++){ _v+=_amp*sin(_x*_fr+t*_spd+_o*1.7f)*cos(_y*_fr*1.3f+t*_spd*0.8f+_o*2.3f); _amp*=0.5f; _fr*=2.1f; }`)
+            ln(`      float _nf=fmodf(_v*0.5f+0.5f,1.0f); if(_nf<0)_nf+=1.0f;`)
+            ln(`      ${of}[_y*WIDTH+_x]=_nf;}}`)
+            break
           case 'field':
           default:
             ln(`  {`)
@@ -2203,16 +2212,6 @@ export function generateCpp(
           ln(`        float _r=${expr[mode] ?? '_bv'};`)
           ln(`        ${ob}[_i][_c]=(uint8_t)((_av*(1.0f-_op)+_r*_op)*255.0f); } } }`)
         }
-        break
-      }
-
-      case 'Noise2D': {
-        needsT.v = true
-        const ob = ownBuf()
-        const speed = rateCpp(f('speed', 'speed', 0.4), SPEED_MAX.Noise2D), scale = rateCpp(f('scale', 'scale', 0.4), SCALE_MAX.Noise2D)
-        ln(`  { float _spd=${speed},_sc=${scale}; for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`    float _v=sin(_x*_sc+t*_spd+1.7f)*cos(_y*_sc*1.3f+t*_spd*0.8f+2.3f)+0.5f*sin(_x*_sc*2.1f+t*_spd*2.0f)*cos(_y*_sc*2.7f+t*_spd*1.6f);`)
-        ln(`    ${ob}[_y*WIDTH+_x]=CHSV((uint8_t)((_v*0.5f+0.5f)*255),255,220);}}`)
         break
       }
 
