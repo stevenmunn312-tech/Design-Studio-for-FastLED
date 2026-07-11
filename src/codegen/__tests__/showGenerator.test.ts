@@ -107,8 +107,8 @@ describe('showGenerator', () => {
             edges: [edge('e', 'bl', 'frame', 'go', 'frame')] },
     }
     const cpp = generateShowSketch(nodes, edges, blurGroups)
-    expect(cpp).toContain('blur2d(p0_buf_bl, WIDTH, HEIGHT, 128, _xyMap)')
-    expect(cpp).toContain('blur2d(p1_buf_bl, WIDTH, HEIGHT, 64, _xyMap)')
+    expect(cpp).toContain('blur2d(p0_buf_bl, WIDTH, HEIGHT, (uint8_t)(constrain(0.5,0.0f,1.0f)*255.0f), _xyMap)')
+    expect(cpp).toContain('blur2d(p1_buf_bl, WIDTH, HEIGHT, (uint8_t)(constrain(0.25,0.0f,1.0f)*255.0f), _xyMap)')
     // Declared once at file scope, not per pattern.
     expect(cpp.match(/fl::XYMap _xyMap =/g)).toHaveLength(1)
   })

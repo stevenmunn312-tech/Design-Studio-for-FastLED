@@ -57,7 +57,7 @@ function noise(id: string, noiseType: string, props: Record<string, unknown> = {
 // Rect node in Array/Transform tests).
 function dot(id: string, hex: string): StudioNode {
   return node(id, 'Shape', 'pattern', {
-    shape: 'rect', cx: 0.5, cy: 0.5, size: 0.5, aspect: 1,
+    shape: 'rect', cx: 0.15, cy: 0.15, size: 0.5, aspect: 1,
     rotation: 0, thickness: 0, filled: true, fill: hex, edge: hex,
   })
 }
