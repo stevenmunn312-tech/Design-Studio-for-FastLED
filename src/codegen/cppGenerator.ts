@@ -1021,18 +1021,45 @@ export function generateCpp(
 
       case 'Circle': {
         const ob = ownBuf()
+        const hexCrgb = (hex: unknown, def: number) => {
+          const m = /^#([0-9a-f]{6})$/i.exec(String(hex))
+          const n = m ? parseInt(m[1], 16) : def
+          return `CRGB(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
+        }
         const colorE = incoming.get(`${node.id}:color`)
           ? colorExpr(node.id, 'color')
           : `CRGB(${Number(p.r ?? 255)}, ${Number(p.g ?? 0)}, ${Number(p.b ?? 128)})`
-        const cx = f('cx', 'cx', 8), cy = f('cy', 'cy', 8), rad = f('radius', 'radius', 4)
+        const fillE = incoming.get(`${node.id}:fill`) ? colorExpr(node.id, 'fill') : hexCrgb(p.fill, 0xff0080)
+        const cx = f('cx', 'cx', 0.5), cy = f('cy', 'cy', 0.5), rad = f('radius', 'radius', 4)
+        const emitCirclePass = (cxExpr: string, cyExpr: string, indent: string) => {
+          ln(`${indent}int _x0 = max(0, (int)floorf(${cxExpr} - ${rad} - 1.5f)), _x1 = min(WIDTH - 1, (int)ceilf(${cxExpr} + ${rad} + 1.5f));`)
+          ln(`${indent}int _y0 = max(0, (int)floorf(${cyExpr} - ${rad} - 1.5f)), _y1 = min(HEIGHT - 1, (int)ceilf(${cyExpr} + ${rad} + 1.5f));`)
+          ln(`${indent}for (int _y = _y0; _y <= _y1; _y++) for (int _x = _x0; _x <= _x1; _x++) {`)
+          ln(`${indent}  float _dx = (_x + 0.5f) - ${cxExpr}, _dy = (_y + 0.5f) - ${cyExpr}, _d = sqrtf(_dx * _dx + _dy * _dy);`)
+          if (p.filled) {
+            ln(`${indent}  float _fillCov = constrain(${rad} + 0.5f - _d, 0.0f, 1.0f);`)
+            ln(`${indent}  if (_fillCov > 0.0f) { CRGB _fillAdd = ${fillE}; _fillAdd.nscale8((uint8_t)(_fillCov * 255.0f)); ${ob}[_y * WIDTH + _x] += _fillAdd; }`)
+            ln(`${indent}  float _edgeCov = constrain(0.5f - fabsf(_d - ${rad}), 0.0f, 1.0f);`)
+            ln(`${indent}  if (_edgeCov <= 0.0f) continue; CRGB _edgeAdd = ${colorE}; _edgeAdd.nscale8((uint8_t)(_edgeCov * 255.0f)); ${ob}[_y * WIDTH + _x] += _edgeAdd; }`)
+          } else {
+            ln(`${indent}  float _cov = constrain(0.5f - fabsf(_d - ${rad}), 0.0f, 1.0f);`)
+            ln(`${indent}  if (_cov <= 0.0f) continue; CRGB _add = ${colorE}; _add.nscale8((uint8_t)(_cov * 255.0f)); ${ob}[_y * WIDTH + _x] += _add; }`)
+          }
+        }
         ln(`  { ${seedFrom('base')}`)
-        ln(`    int _x0 = max(0, (int)floorf(${cx} - ${rad} - 1.5f)), _x1 = min(WIDTH - 1, (int)ceilf(${cx} + ${rad} + 1.5f));`)
-        ln(`    int _y0 = max(0, (int)floorf(${cy} - ${rad} - 1.5f)), _y1 = min(HEIGHT - 1, (int)ceilf(${cy} + ${rad} + 1.5f));`)
-        ln(`    for (int _y = _y0; _y <= _y1; _y++) for (int _x = _x0; _x <= _x1; _x++) {`)
-        ln(`      float _dx = (_x + 0.5f) - ${cx}, _dy = (_y + 0.5f) - ${cy}, _d = sqrtf(_dx * _dx + _dy * _dy);`)
-        if (p.filled) ln(`      float _cov = constrain(${rad} + 0.5f - _d, 0.0f, 1.0f);`)
-        else ln(`      float _cov = constrain(0.5f - fabsf(_d - ${rad}), 0.0f, 1.0f);`)
-        ln(`      if (_cov <= 0.0f) continue; CRGB _add = ${colorE}; _add.nscale8((uint8_t)(_cov * 255.0f)); ${ob}[_y * WIDTH + _x] += _add; } }`)
+        if (p.wrap) {
+          ln(`    float _cx = (WIDTH * 0.5f - WIDTH) + (${cx}) * (WIDTH * 2.0f), _cy = (HEIGHT * 0.5f - HEIGHT) + (${cy}) * (HEIGHT * 2.0f);`)
+          ln(`    float _wrapX[3] = {-(float)WIDTH, 0.0f, (float)WIDTH};`)
+          ln(`    float _wrapY[3] = {-(float)HEIGHT, 0.0f, (float)HEIGHT};`)
+          ln(`    for (int _wy = 0; _wy < 3; _wy++) for (int _wx = 0; _wx < 3; _wx++) {`)
+          ln(`      float _wcx = _cx + _wrapX[_wx], _wcy = _cy + _wrapY[_wy];`)
+          emitCirclePass('_wcx', '_wcy', '      ')
+          ln(`    }`)
+        } else {
+          ln(`    float _margin = (${rad}) + 1.0f;`)
+          ln(`    float _cx = (0.5f - _margin) + (${cx}) * ((WIDTH - 1.0f) + 2.0f * _margin), _cy = (0.5f - _margin) + (${cy}) * ((HEIGHT - 1.0f) + 2.0f * _margin);`)
+          emitCirclePass('_cx', '_cy', '    ')
+        }
         break
       }
 

@@ -54,6 +54,9 @@ function hexToRgb(hex: string) {
   const n = parseInt(hex.slice(1), 16)
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
 }
+function isHexColor(v: unknown): v is string {
+  return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)
+}
 
 type RGB = { r: number; g: number; b: number }
 function isRGB(v: unknown): v is RGB {
@@ -374,6 +377,14 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 disabled={disabled}
                 checked={typeof live === 'boolean' ? live : val}
                 onChange={(e) => updateNodeProperty(nodeId, key, e.target.checked)}
+              />
+            ) : isHexColor(val) ? (
+              <input
+                className={`nodrag ${styles.colorInput}`}
+                type="color"
+                disabled={disabled}
+                value={isHexColor(live) ? live : val}
+                onChange={(e) => updateNodeProperty(nodeId, key, e.target.value)}
               />
             ) : typeof val === 'number' && !forceTextNumber ? (
               <input

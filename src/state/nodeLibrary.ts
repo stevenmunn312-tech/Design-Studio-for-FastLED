@@ -114,6 +114,8 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   },
   {
     // Draws a circle (ring, or filled disc) over an optional base frame.
+    // The ring uses `color`; a filled disc uses `fill` when present, else the
+    // same color as the ring.
     type: 'Circle',
     label: 'Circle',
     category: 'pattern',
@@ -121,12 +123,13 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     inputs: [
       { id: 'base',  label: 'Base',  dataType: 'frame' },
       { id: 'color', label: 'Color', dataType: 'color' },
+      { id: 'fill',  label: 'Fill',  dataType: 'color' },
       { id: 'cx',    label: 'Center X', dataType: 'float' },
       { id: 'cy',    label: 'Center Y', dataType: 'float' },
       { id: 'radius', label: 'Radius', dataType: 'float' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { cx: 8, cy: 8, radius: 6, filled: false, r: 255, g: 0, b: 128 },
+    defaultProperties: { cx: 0.5, cy: 0.5, radius: 6, filled: false, wrap: false, r: 255, g: 0, b: 128, fill: '#ff0080' },
   },
   {
     // Draws a line between two points over an optional base frame.
@@ -2034,7 +2037,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   PaletteBlend: 'Interpolates between two palettes.',
   // pattern
   SolidColor: 'Fills the matrix with one color.',
-  Circle: 'Draws a circle — ring or filled disc.',
+  Circle: 'Draws a circle — ring or filled disc, with an optional separate fill color.',
   Line: 'Draws a line between two points.',
   Shape: 'Rect, ellipse or morphing N-gon with a fill and outline colour.',
   Path: 'Traces a parametric curve point with subpixel splatting.',
@@ -2386,6 +2389,10 @@ const N01: PropertyControl = { control: 'slider', min: 0, max: 1, step: 0.01 }
 // via speedRange.ts); the simulation patterns use a steps-per-second rate, and
 // `rate` is a 0–1 emission rate for Particles but a degrees/sec spin for Transform.
 export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyControl>> = {
+  Circle: {
+    cx: N01,
+    cy: N01,
+  },
   FFTAnalyzer:       {
     bands:     { control: 'slider', min: 8, max: 32, step: 1 },
     gain:      { control: 'slider', min: 0.25, max: 4, step: 0.05 },

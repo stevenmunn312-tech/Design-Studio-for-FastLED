@@ -734,20 +734,37 @@ describe('evaluateGraph', () => {
     expect(frame[1][1].b).toBeGreaterThan(0)              // shape painted blue near its centre
   })
 
-  it('Circle (filled) lights the center and clears the corners', () => {
-    const c = node('c', 'Circle', 'pattern', { cx: 4, cy: 4, radius: 3, filled: true, r: 255, g: 0, b: 0 })
+  it('Circle (filled) uses normalized center coordinates and its fill color', () => {
+    const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, filled: true, r: 255, g: 0, b: 0, fill: '#00ff00' })
     const out = node('out', 'MatrixOutput', 'output', {})
-    const frame = evaluateGraph([c, out], [edge('e', 'c', 'frame', 'out', 'frame')], 0, 9, 9)
-    expect(frame![4][4]).toEqual({ r: 255, g: 0, b: 0 })   // center lit
-    expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })     // far corner dark
+    const frame = evaluateGraph([c, out], [edge('e', 'c', 'frame', 'out', 'frame')], 0, 32, 32)
+    expect(frame![16][16]).toEqual({ r: 0, g: 255, b: 0 }) // 0.5 lands at the matrix centre and uses fill
+    expect(frame![8][8]).toEqual({ r: 0, g: 0, b: 0 })     // quarter-panel old pixel-space position stays dark
+    expect(frame![16][13].r).toBeGreaterThan(0)            // edge color stays visible on the outline
   })
 
-  it('Circle ring leaves the center dark', () => {
-    const c = node('c', 'Circle', 'pattern', { cx: 4, cy: 4, radius: 3, filled: false, r: 255, g: 0, b: 0 })
+  it('Circle ring leaves the normalized center dark', () => {
+    const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, filled: false, r: 255, g: 0, b: 0 })
     const out = node('out', 'MatrixOutput', 'output', {})
-    const frame = evaluateGraph([c, out], [edge('e', 'c', 'frame', 'out', 'frame')], 0, 9, 9)
-    expect(frame![4][4]).toEqual({ r: 0, g: 0, b: 0 })     // hollow center
-    expect(frame![4][1].r).toBeGreaterThan(0)              // soft ring coverage
+    const frame = evaluateGraph([c, out], [edge('e', 'c', 'frame', 'out', 'frame')], 0, 32, 32)
+    expect(frame![16][16]).toEqual({ r: 0, g: 0, b: 0 })   // hollow center after normalization
+    expect(frame![16][13].r).toBeGreaterThan(0)            // soft ring coverage near the normalized radius
+  })
+
+  it('Circle normalization uses radius + 1 so cx=0 moves the circle fully offscreen', () => {
+    const c = node('c', 'Circle', 'pattern', { cx: 0, cy: 0.5, radius: 3, filled: false, r: 255, g: 0, b: 0 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph([c, out], [edge('e', 'c', 'frame', 'out', 'frame')], 0, 32, 32)
+    expect(frame![16][0]).toEqual({ r: 0, g: 0, b: 0 })   // left edge no longer catches it at cx=0
+    expect(frame![16][31]).toEqual({ r: 0, g: 0, b: 0 })  // without wrap it does not appear on the far side
+  })
+
+  it('Circle wrap mirrors the circle onto the opposite edge', () => {
+    const c = node('c', 'Circle', 'pattern', { cx: 0.25, cy: 0.5, radius: 3, filled: true, wrap: true, r: 255, g: 0, b: 0, fill: '#00ff00' })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph([c, out], [edge('e', 'c', 'frame', 'out', 'frame')], 0, 32, 32)
+    expect(frame![16][0].g).toBeGreaterThan(0)
+    expect(frame![16][31].g).toBeGreaterThan(0)            // wrapped copy appears on the far edge
   })
 
   it('Line draws a diagonal between its endpoints', () => {

@@ -22,6 +22,18 @@ export type Field = Float32Array
 const DEFAULT_W = 16
 const DEFAULT_H = 16
 
+function normalizedCircleX(x: number, W: number, radius: number, wrap: boolean): number {
+  if (wrap) return W * 0.5 - W + x * (W * 2)
+  const margin = radius + 1
+  return 0.5 - margin + x * (Math.max(0, W - 1) + 2 * margin)
+}
+
+function normalizedCircleY(y: number, H: number, radius: number, wrap: boolean): number {
+  if (wrap) return H * 0.5 - H + y * (H * 2)
+  const margin = radius + 1
+  return 0.5 - margin + y * (Math.max(0, H - 1) + 2 * margin)
+}
+
 // ── Persistent state for stateful pattern nodes ───────────────────────────────
 const fireHeat    = new Map<string, number[][]>()
 const flashLevel  = new Map<string, number>()
@@ -3624,11 +3636,26 @@ function createEvalNode(
           g: byte(Number(props.g ?? 0)   / 255),
           b: byte(Number(props.b ?? 128) / 255),
         }
-        const cx = num(id, 'cx', props, 'cx', W / 2), cy = num(id, 'cy', props, 'cy', H / 2)
+        const fill = (input(id, 'fill', null) as RGB | null) ?? hexToRgb(String(props.fill ?? '#ff0080'))
         const rad = num(id, 'radius', props, 'radius', 4)
         const filled = Boolean(props.filled)
-        if (filled) splatDisc(frame, cx, cy, rad, color)
-        else splatRing(frame, cx, cy, rad, color)
+        const wrap = Boolean(props.wrap)
+        const cx = normalizedCircleX(num(id, 'cx', props, 'cx', 0.5), W, rad, wrap)
+        const cy = normalizedCircleY(num(id, 'cy', props, 'cy', 0.5), H, rad, wrap)
+        const xOffsets = wrap ? [-W, 0, W] : [0]
+        const yOffsets = wrap ? [-H, 0, H] : [0]
+        for (const ox of xOffsets) {
+          for (const oy of yOffsets) {
+            const drawX = cx + ox
+            const drawY = cy + oy
+            if (filled) {
+              splatDisc(frame, drawX, drawY, rad, fill)
+              splatRing(frame, drawX, drawY, rad, color)
+            } else {
+              splatRing(frame, drawX, drawY, rad, color)
+            }
+          }
+        }
         out = { frame }
         break
       }
