@@ -265,9 +265,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     label: 'Plasma',
     category: 'pattern',
     subcategory: 'Generative',
-    inputs: [{ id: 'speed', label: 'Speed', dataType: 'float' }],
+    inputs: [
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.5 },
+    defaultProperties: { speed: 0.5, palette: 'rainbow' },
   },
   {
     // FastLED fill_rainbow — a scrolling hue sweep; `deltaHue` sets the spread per LED.
@@ -1955,7 +1958,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Noise: 'Bundled noise variants with frame and raw field outputs.',
   Fire: 'Classic rising fire effect.',
   Fire2012: 'FastLED Fire2012 heat simulation.',
-  Plasma: 'Animated plasma interference pattern.',
+  Plasma: 'Animated plasma interference pattern through a palette.',
   Rainbow: 'FastLED fill_rainbow — a scrolling hue sweep across the matrix.',
   Pride2015: 'Shifting rainbow with a breathing brightness wave.',
   Pacifica: 'Layered ocean waves through a palette, with whitecap sparkle.',

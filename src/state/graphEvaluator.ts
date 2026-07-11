@@ -675,13 +675,17 @@ function renderText(text: string, color: RGB, startX: number, startY: number, sc
 }
 
 // ── Pattern evaluators ────────────────────────────────────────────────────────
-function evalPlasma(speed: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalPlasma(speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   return buildFrame(W, H, (x, y) => {
       const v = Math.sin(x / 3 + t * speed)
               + Math.sin(y / 3 + t * speed * 0.8)
               + Math.sin((x + y) / 5 + t * speed * 0.6)
               + Math.sin(Math.hypot(x - W / 2, y - H / 2) / 3 + t * speed * 0.5)
-      return hsv(v * 45 + t * 20, 1, 0.9)
+      // Same shifting phase the old hue sweep used (v*45 + t*20), now mapped
+      // through the palette — /256 so it wraps the same way ColorFromPalette's
+      // uint8_t index does in codegen. The default 'rainbow' palette keeps the
+      // classic full-spectrum look.
+      return samplePalette(palette, (v * 45 + t * 20) / 256)
     })
 }
 
@@ -3703,7 +3707,8 @@ function createEvalNode(
 
       case 'Plasma': {
         const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.Plasma)
-        out = { frame: evalPlasma(speed, t, W, H) }
+        const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
+        out = { frame: evalPlasma(speed, t, palette, W, H) }
         break
       }
 
