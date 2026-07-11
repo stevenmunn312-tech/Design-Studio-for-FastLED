@@ -12,6 +12,7 @@ import LEDPreview from './components/Preview/LEDPreview'
 import StatusBar from './components/StatusBar/StatusBar'
 import { useUploadStore } from './state/uploadStore'
 import { usePatternLibrary } from './state/patternLibrary'
+import { readSharedWorkspace, clearShareHash } from './utils/shareGraph'
 import styles from './App.module.css'
 
 const BoardPopup = lazy(() => import('./components/Upload/BoardPopup'))
@@ -94,8 +95,22 @@ export default function App() {
   const autosaveIdle = useRef<number | null>(null)
   const latestAutosaveState = useRef<ReturnType<typeof useGraphStore.getState> | null>(null)
 
-  // Restore autosaved graph on first mount
+  // A share link takes priority over the autosaved workspace — loading one
+  // is an explicit act (someone sent you a link), so it wins over whatever
+  // was left in this browser from before.
   useEffect(() => {
+    const shared = readSharedWorkspace()
+    if (shared) {
+      useGraphStore.getState().loadGraph(shared.nodes, shared.edges, {
+        graphData: shared.graphData,
+        graphs: shared.graphs,
+        activeGraphId: shared.activeGraphId,
+      })
+      useGraphStore.temporal.getState().clear()
+      clearShareHash()
+      useUiStore.getState().setStatus('Graph loaded from share link', 'success')
+      return
+    }
     const saved = localStorage.getItem(AUTOSAVE_KEY)
     if (!saved) return
     try {

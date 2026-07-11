@@ -5,6 +5,7 @@ import { useAudioStore } from '../../state/audioStore'
 import { useShowPlayback } from '../../state/showPlayback'
 import type { StudioNode, StudioEdge, WorkspaceExtras } from '../../state/graphStore'
 import { runTidy } from '../../utils/tidyGraph'
+import { buildShareUrl } from '../../utils/shareGraph'
 import { DevPerformanceHudToggle } from '../Preview/DevPerformanceHud'
 import { isDiffusedStyle, previewStyleLabel } from '../Preview/previewStyles'
 import styles from './MenuBar.module.css'
@@ -75,6 +76,17 @@ export default function MenuBar() {
     a.click()
     URL.revokeObjectURL(url)
     setStatus('Graph exported', 'success')
+  }
+
+  const handleShare = async () => {
+    const { nodes, edges, graphData, graphs, activeGraphId } = useGraphStore.getState()
+    const url = buildShareUrl({ nodes, edges, graphData, graphs, activeGraphId })
+    try {
+      await navigator.clipboard.writeText(url)
+      setStatus('Share link copied to clipboard', 'success')
+    } catch {
+      window.prompt('Copy this share link:', url)
+    }
   }
 
   const handleLoadJSON = () => fileInputRef.current?.click()
@@ -149,6 +161,9 @@ export default function MenuBar() {
         </button>
         <button className={styles.btn} onClick={handleLoadJSON} aria-label="Import graph from JSON" title="Import graph from JSON">
           ↑ Load
+        </button>
+        <button className={styles.btn} onClick={handleShare} aria-label="Copy share link" title="Copy a shareable link that reproduces this graph">
+          ⇗ Share
         </button>
         <input
           ref={fileInputRef}

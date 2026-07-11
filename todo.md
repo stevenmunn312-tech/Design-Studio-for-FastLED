@@ -224,7 +224,7 @@ show pipeline). Ordered by expected impact within each tier.
 - [x] **View generated C++** — a "View Code" button next to Export .ino on MatrixOutput opens a read-only modal (`CodeViewPopup.tsx`) showing the exact sketch string that would be exported/uploaded (reuses `MatrixOutputUpload`'s existing `code` memo, no separate codegen call), with line count + Copy-to-clipboard
 - [x] **Float signal visibility** — hovering a `float`/`bool` noodle shows a small readout of its current value at the edge midpoint, reading the live per-port value already published to `previewStore` by the render loop (`GlowEdge.tsx`)
 - [x] **Web MIDI input** — a `MidiInput` node (note velocity/gate + CC → float/bool) via the Web MIDI API (`src/midi/midiEngine.ts` singleton + `midiStore.ts` bridge, mirroring `AudioEngine`/`useAudioStore`), no deps. `note`/`cc` properties pick which MIDI numbers to listen to; on-node status readout shows connection + live values. Preview-only — no embedded equivalent, so firmware sees the idle default
-- [ ] **Share via URL** — compress graph JSON into a URL fragment (`lz-string`) for one-click pattern sharing without file juggling; pairs with the template gallery later becoming community-fed
+- [x] **Share via URL** — `src/utils/shareGraph.ts` compresses the whole workspace (nodes/edges/graphData/graphs) into a `#share=` URL fragment via `lz-string`; MenuBar's **⇗ Share** button copies the link to the clipboard (falls back to a prompt if clipboard access is denied). On load, `App.tsx` checks for a share hash *before* the autosave restore — a share link wins over whatever's already in this browser, since opening one is an explicit act — then clears the hash so a reload doesn't re-import it
 
 ### Workflow improvements
 
