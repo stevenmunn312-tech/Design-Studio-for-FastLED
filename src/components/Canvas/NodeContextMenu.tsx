@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useGraphStore } from '../../state/graphStore'
 import { saveGroupToLibrary, usePatternLibrary } from '../../state/patternLibrary'
 import { useUiStore } from '../../state/uiStore'
+import CreateGroupDialog, { type CreateGroupResult } from './CreateGroupDialog'
 import styles from './NodeContextMenu.module.css'
 
 interface Props {
@@ -12,7 +13,7 @@ interface Props {
 }
 
 export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
-  const { duplicateNode, deleteNode, disconnectNode, copyNode, ungroupNode } = useGraphStore()
+  const { duplicateNode, deleteNode, disconnectNode, copyNode, ungroupNode, createGroup } = useGraphStore()
   const setStatus = useUiStore((s) => s.setStatus)
   const patterns = usePatternLibrary((s) => s.patterns)
   const isGroup = useGraphStore(
@@ -21,6 +22,9 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
   const groupLabel = useGraphStore(
     (s) => s.nodes.find((n) => n.id === nodeId)?.data.label,
   )
+  const selectedIds = useGraphStore((s) => s.nodes.filter((n) => n.selected).map((n) => n.id))
+  const isMultiSelected = selectedIds.length > 1 && selectedIds.includes(nodeId)
+  const [showGroupDialog, setShowGroupDialog] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   const handleSaveToLibrary = () => {
@@ -44,6 +48,34 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
     setStatus(`Ungrouped “${String(groupLabel ?? 'Group')}”`, 'success')
   }
 
+  // Mirrors GroupControls' "⊞ Group" dialog flow so grouping + saving to the
+  // library can happen in one action from a multi-selection's right-click menu,
+  // instead of select → group → reopen the node menu → Save to Library.
+  const handleCreateGroup = (name: string, { saveToLibrary, exposePaletteNodeIds }: CreateGroupResult) => {
+    const groupId = createGroup(name, selectedIds, { saveToLibrary, exposePaletteNodeIds })
+    let savedToLibrary = false
+    let replacedLibraryPattern = false
+    if (saveToLibrary) {
+      const trimmedName = name.trim()
+      const replacing = patterns.some((pattern) => pattern.name.trim().toLocaleLowerCase() === trimmedName.toLocaleLowerCase())
+      if (!replacing || window.confirm(`A library pattern named “${trimmedName}” already exists. Replace it?`)) {
+        const result = saveGroupToLibrary(`groupnode-${groupId}`, { replaceByName: replacing })
+        savedToLibrary = !!result
+        replacedLibraryPattern = !!result?.replaced
+      }
+    }
+    setStatus(
+      `Grouped ${selectedIds.length} node(s) into “${name}”${
+        savedToLibrary
+          ? replacedLibraryPattern ? ' and replaced its library copy' : ' and saved to library'
+          : ''
+      }`,
+      'success',
+    )
+    setShowGroupDialog(false)
+    onClose()
+  }
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose()
@@ -58,6 +90,16 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
   }, [onClose])
 
   const act = (fn: () => void) => { fn(); onClose() }
+
+  if (showGroupDialog) {
+    return (
+      <CreateGroupDialog
+        selectedIds={selectedIds}
+        onClose={() => { setShowGroupDialog(false); onClose() }}
+        onCreate={handleCreateGroup}
+      />
+    )
+  }
 
   return (
     <div
@@ -74,6 +116,11 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
       <button className={styles.item} onClick={() => act(() => disconnectNode(nodeId))}>
         Disconnect All
       </button>
+      {isMultiSelected && (
+        <button className={styles.item} onClick={() => setShowGroupDialog(true)}>
+          Group {selectedIds.length} Nodes…
+        </button>
+      )}
       {isGroup && (
         <button className={styles.item} onClick={() => act(handleSaveToLibrary)}>
           Save to Library

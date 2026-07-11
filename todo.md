@@ -229,7 +229,7 @@ show pipeline). Ordered by expected impact within each tier.
 ### Workflow improvements
 
 - [ ] **Keyboard-first node add** — press Tab / double-click *empty canvas* → search picker (double-click is taken by group entry on nodes, but the pane is free); power users in Blender-style editors live on this
-- [ ] **"Save selection to library" in one step** — today it's select → group → node menu → Save to Library; a context-menu item on any multi-selection that groups + saves in one action
+- [x] **"Save selection to library" in one step** — right-clicking a node that's part of a 2+ multi-selection now shows "Group N Nodes…" in `NodeContextMenu`, opening the same `CreateGroupDialog` (name + Save to library checkbox) the toolbar's ⊞ Group button uses
 - [x] **Check undo granularity on slider drags** — confirmed each `updateNodeProperty` tick was landing as its own zundo snapshot; fixed via zundo's `handleSet` option with a burst-aware debounce (`debounceHandleSet` in `graphStore.ts`) that pins the pre-burst state and only pushes one history entry per ~400ms-quiet gesture (slider drag, fast typing)
 - [x] **Import safety** — loading a JSON file via MenuBar's Load button now confirms before replacing a non-empty workspace (`window.confirm` in `handleFileChange`); the Sidebar's drag-drop `.json` import is unaffected since it adds to the pattern library rather than replacing the graph
 - [ ] **Upload ergonomics** — remember board+port per *project* (currently global) and add a "re-upload last sketch" one-click shortcut (both matter less for tweaking if live streaming lands)
