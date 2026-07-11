@@ -1929,6 +1929,22 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     defaultProperties: { pinA: 32, pinB: 33, pinSW: 25, pullup: true },
   },
+  {
+    // Web MIDI input — no embedded-hardware equivalent, so this is
+    // preview-only (VJ-style control while designing). `note`/`cc` are the
+    // MIDI numbers this node listens for; `note` output is note-on velocity
+    // (0 once released), `gate` is held state, `cc` is the last CC value.
+    type: 'MidiInput',
+    label: 'MIDI',
+    category: 'input',
+    inputs: [],
+    outputs: [
+      { id: 'note', label: 'Velocity', dataType: 'float' },
+      { id: 'gate', label: 'Gate', dataType: 'bool' },
+      { id: 'cc', label: 'CC', dataType: 'float' },
+    ],
+    defaultProperties: { note: 60, cc: 1 },
+  },
 
   // ── Music-sync pipeline (the Music Library source lives in Show) ───────
   {
@@ -2010,6 +2026,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   ButtonInput: 'Reads a hardware button as a boolean.',
   PotInput: 'Reads a potentiometer as a 0–1 value.',
   EncoderInput: 'Reads a rotary encoder — running position plus its push-button.',
+  MidiInput: 'Web MIDI note velocity/gate + CC value from a controller. Preview-only.',
   MusicLibrary: 'Music source — double-click to drop tracks, analyse and export.',
   PerformanceGenerator: 'Converts analysed music into timed LED show files.',
   SDCard: 'SD + audio pins; connect to Matrix Output to load music/show files on upload.',

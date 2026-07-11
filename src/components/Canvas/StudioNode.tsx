@@ -13,6 +13,7 @@ import MatrixSizePopup from './MatrixSizePopup'
 import BeatDetectBody from './BeatDetectBody'
 import FFTAnalyzerBody from './FFTAnalyzerBody'
 import HardwareInputBody from './HardwareInputBody'
+import MidiInputBody from './MidiInputBody'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
 import { usePerformanceBakeStore } from '../../state/performanceBakeStore'
@@ -512,6 +513,10 @@ const PREVIEW_NOTES: Record<string, { text: string; title: string }> = {
     text: 'frame output is black — shows play via SD export',
     title: 'The frame port is a black placeholder that lets this node terminate MatrixOutput (in preview and firmware). Generated shows play through the SD-card player export; watch one in the player above.',
   },
+  MidiInput: {
+    text: 'preview-only — no embedded MIDI equivalent',
+    title: 'Reads a connected MIDI controller via the Web MIDI API for live preview control. There is no hardware analogue, so the generated firmware always sees the idle default (velocity 0, gate off, cc 0).',
+  },
 }
 
 type StudioNodeProps = NodeProps<Node<StudioNodeData>>
@@ -764,6 +769,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {showLiveNodeVisuals && isBeatDetect && <BeatDetectBody nodeId={id} />}
         {showLiveNodeVisuals && isFFTAnalyzer && <FFTAnalyzerBody nodeId={id} bands={Number(props.bands ?? 24)} />}
         {showLiveNodeVisuals && isHardwareInput && <HardwareInputBody nodeId={id} nodeType={d.nodeType} />}
+        {showLiveNodeVisuals && d.nodeType === 'MidiInput' && <MidiInputBody note={Math.round(Number(props.note ?? 60))} cc={Math.round(Number(props.cc ?? 1))} />}
         {showLiveNodeVisuals && previewKind && outPort && (
           previewHidden ? (
             <button

@@ -1033,6 +1033,12 @@ export function generateCpp(
         break
       }
 
+      // Web MIDI has no embedded-hardware equivalent — preview-only, so
+      // firmware just sees the idle default.
+      case 'MidiInput':
+        ln(`  float ${v('note')} = 0.0f; bool ${v('gate')} = false; float ${v('cc')} = 0.0f;`)
+        break
+
       case 'SolidColor': {
         const ob = ownBuf()
         const r = Number(p.r ?? 255), g = Number(p.g ?? 0), b = Number(p.b ?? 128)

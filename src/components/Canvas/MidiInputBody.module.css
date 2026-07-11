@@ -1,0 +1,37 @@
+.body {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fs-caption);
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-secondary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.status span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status[data-active='true'] {
+  color: var(--accent-input);
+}
+
+.status[data-active='true'] span {
+  box-shadow: 0 0 6px var(--accent-input);
+}
+
+.readout {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-secondary);
+}

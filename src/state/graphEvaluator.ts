@@ -1,6 +1,7 @@
 import type { StudioNode, StudioEdge } from './graphStore'
 import { useAudioStore } from './audioStore'
 import { useHardwareInputStore } from './hardwareInputStore'
+import { useMidiStore } from './midiStore'
 import { useUiStore } from './uiStore'
 import { asFont, textColumns, type BitmapFont, DEFAULT_FONT } from './font'
 import { animatedImageFrame, asAnimatedImage, asImage, sampleImageToFrame, type ImageData } from './image'
@@ -5032,6 +5033,15 @@ function createEvalNode(
       case 'EncoderInput': {
         const enc = useHardwareInputStore.getState().encoder.get(id)
         out = { position: enc?.position ?? 0, pressed: enc?.pressed ?? false }
+        break
+      }
+
+      case 'MidiInput': {
+        const midi = useMidiStore.getState()
+        const noteNum = Math.round(Number(props.note ?? 60))
+        const ccNum = Math.round(Number(props.cc ?? 1))
+        const vel = midi.noteVelocity.get(noteNum) ?? 0
+        out = { note: vel, gate: vel > 0, cc: midi.ccValues.get(ccNum) ?? 0 }
         break
       }
 
