@@ -120,6 +120,7 @@ interface UploadState {
   boardPopupOpen: boolean
   cliPopupOpen: boolean
   consoleOpen: boolean
+  codeViewOpen: boolean
 
   // helper / hardware
   refreshHelper: () => Promise<void>
@@ -137,6 +138,8 @@ interface UploadState {
   closeCliPopup: () => void
   openConsole: () => void
   closeConsole: () => void
+  openCodeView: () => void
+  closeCodeView: () => void
   // logging
   appendLog: (chunk: string) => void
   clearLog: () => void
@@ -178,6 +181,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   boardPopupOpen: false,
   cliPopupOpen: false,
   consoleOpen: false,
+  codeViewOpen: false,
 
   refreshHelper: async () => {
     const h = await checkBackend()
@@ -216,6 +220,8 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   closeCliPopup: () => set({ cliPopupOpen: false }),
   openConsole: () => set({ consoleOpen: true }),
   closeConsole: () => { get().stopSerial(); set({ consoleOpen: false }) },
+  openCodeView: () => set({ codeViewOpen: true }),
+  closeCodeView: () => set({ codeViewOpen: false }),
 
   appendLog: (chunk) => set((s) => ({ log: (s.log + chunk).slice(-60000) })),
   clearLog: () => set({ log: '' }),

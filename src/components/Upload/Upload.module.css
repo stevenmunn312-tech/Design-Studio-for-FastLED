@@ -257,6 +257,45 @@
   margin-top: 6px;
 }
 
+/* ── View Code popup ──────────────────────────────────────────────────────── */
+.codePopup {
+  composes: popup;
+  width: min(920px, 94vw);
+  height: min(80vh, 760px);
+  max-height: 80vh;
+}
+
+.codeHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.codeLineCount {
+  margin-left: 8px;
+  color: var(--text-secondary);
+  font-weight: 400;
+  font-size: 11px;
+  font-family: var(--font-code);
+}
+
+.codeBody {
+  flex: 1;
+  margin: 0;
+  padding: var(--space-2);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.012), rgba(255, 255, 255, 0)),
+    #0b0f14;
+  color: #c9d1d9;
+  font-family: var(--font-code);
+  font-size: 11px;
+  line-height: 1.5;
+  overflow: auto;
+  white-space: pre;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
 .note {
   font-size: var(--fs-caption);
   color: var(--text-secondary);

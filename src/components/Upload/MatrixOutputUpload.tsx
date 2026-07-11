@@ -5,6 +5,7 @@ import { useMusicStore } from '../../state/musicStore'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { sdCardConnected, readySongCount, buildShowPayload } from '../../utils/showUpload'
+import CodeViewPopup from './CodeViewPopup'
 import styles from './Upload.module.css'
 
 // Compact upload controls rendered in the MatrixOutput node body: Board picker,
@@ -15,8 +16,8 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
   const { nodes, edges, updateNodeProperty } = useGraphStore()
   const entries = useMusicStore((s) => s.entries)
   const {
-    selectedFqbn, selectedPort, ports, busy, status,
-    openBoardPopup, openConsole, runUpload, runShowUpload, exportIno,
+    selectedFqbn, selectedPort, ports, busy, status, codeViewOpen,
+    openBoardPopup, openConsole, openCodeView, runUpload, runShowUpload, exportIno,
   } = useUploadStore()
 
   const board = boardByFqbn(selectedFqbn)
@@ -122,6 +123,17 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
       >
         ↓ Export .ino
       </button>
+
+      <button
+        className={styles.exportBtn}
+        disabled={!enabled}
+        onClick={openCodeView}
+        title="View the generated .ino sketch"
+      >
+        {'</>'} View Code
+      </button>
+
+      {codeViewOpen && <CodeViewPopup code={code} />}
 
       {sdConnected && (
         <button
