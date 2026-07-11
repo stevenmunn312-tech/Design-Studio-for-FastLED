@@ -4,6 +4,7 @@ import {
   monitorSerial,
   type BackendHealth, type SerialPort, type ShowUploadFile,
 } from '../utils/backendClient'
+import { useProjectStore } from './projectStore'
 
 // ── Board catalogue ───────────────────────────────────────────────────────────
 // Each board maps to an arduino-cli FQBN and the core that provides it. ESP32,
@@ -86,6 +87,7 @@ export function parseStatus(log: string): UploadStatus {
 // ── Persistence ───────────────────────────────────────────────────────────────
 const KEY = 'fastled-studio-upload'
 interface Persisted { myBoards: string[]; selectedFqbn: string; selectedPort: string }
+interface CachedSketchUpload { code: string; fqbnOpt?: string }
 
 function load(): Persisted {
   const fallback: Persisted = { myBoards: BOARDS.map((b) => b.fqbn), selectedFqbn: BOARDS[0].fqbn, selectedPort: '' }
@@ -98,6 +100,20 @@ function load(): Persisted {
   }
 }
 
+function projectSelection(fallback: Persisted): Pick<UploadState, 'selectedFqbn' | 'selectedPort'> {
+  const { currentProjectId, projects } = useProjectStore.getState()
+  const current = projects.find((project) => project.id === currentProjectId)
+  return {
+    selectedFqbn: current?.uploadTarget?.selectedFqbn || fallback.selectedFqbn,
+    selectedPort: current?.uploadTarget?.selectedPort || fallback.selectedPort,
+  }
+}
+
+function persistFallback(s: Pick<UploadState, 'myBoards' | 'selectedFqbn' | 'selectedPort'>) {
+  persistedPrefs = { myBoards: s.myBoards, selectedFqbn: s.selectedFqbn, selectedPort: s.selectedPort }
+  try { localStorage.setItem(KEY, JSON.stringify({ myBoards: s.myBoards, selectedFqbn: s.selectedFqbn, selectedPort: s.selectedPort })) } catch { /* quota */ }
+}
+
 // ── Store ─────────────────────────────────────────────────────────────────────
 interface UploadState {
   // helper / hardware
@@ -108,6 +124,7 @@ interface UploadState {
   myBoards: string[]
   selectedFqbn: string
   selectedPort: string
+  lastSketchByProject: Record<string, CachedSketchUpload>
   // run state
   busy: boolean
   status: UploadStatus
@@ -151,6 +168,7 @@ interface UploadState {
   // `fqbnOpt` is an optional FQBN board option appended at upload time (e.g.
   // 'PSRAM=opi' when the MatrixOutput "Use PSRAM" toggle is on).
   runUpload: (code: string, fqbnOpt?: string) => Promise<void>
+  runLastUpload: () => Promise<void>
   runShowUpload: (payload: { provisioner: string; player: string; files: ShowUploadFile[] }) => Promise<void>
   exportIno: (code: string, filename?: string) => void
   locate: (path: string) => Promise<{ ok: boolean; error?: string }>
@@ -158,19 +176,22 @@ interface UploadState {
   installCore: (core: string) => Promise<void>
 }
 
-const persisted = load()
+let persistedPrefs = load()
+const initialSelection = projectSelection(persistedPrefs)
 let serialController: AbortController | null = null
-function persist(s: Pick<UploadState, 'myBoards' | 'selectedFqbn' | 'selectedPort'>) {
-  try { localStorage.setItem(KEY, JSON.stringify({ myBoards: s.myBoards, selectedFqbn: s.selectedFqbn, selectedPort: s.selectedPort })) } catch { /* quota */ }
+
+function saveProjectSelection(selectedFqbn: string, selectedPort: string) {
+  useProjectStore.getState().setProjectUploadTarget({ selectedFqbn, selectedPort })
 }
 
 export const useUploadStore = create<UploadState>((set, get) => ({
   helper: undefined,
   ports: [],
   installedCores: [],
-  myBoards: persisted.myBoards,
-  selectedFqbn: persisted.selectedFqbn,
-  selectedPort: persisted.selectedPort,
+  myBoards: persistedPrefs.myBoards,
+  selectedFqbn: initialSelection.selectedFqbn,
+  selectedPort: initialSelection.selectedPort,
+  lastSketchByProject: {},
   busy: false,
   status: IDLE,
   log: '',
@@ -200,19 +221,30 @@ export const useUploadStore = create<UploadState>((set, get) => ({
 
   refreshCores: async () => set({ installedCores: await listCores() }),
 
-  setMyBoards: (fqbns) => { set({ myBoards: fqbns }); persist({ ...get(), myBoards: fqbns }) },
+  setMyBoards: (fqbns) => { set({ myBoards: fqbns }); persistFallback({ ...get(), myBoards: fqbns }) },
   toggleBoard: (fqbn) => {
     const has = get().myBoards.includes(fqbn)
     const myBoards = has ? get().myBoards.filter((f) => f !== fqbn) : [...get().myBoards, fqbn]
-    set({ myBoards })
     // Keep the active selection valid.
     let selectedFqbn = get().selectedFqbn
     if (!myBoards.includes(selectedFqbn)) selectedFqbn = myBoards[0] ?? ''
-    set({ selectedFqbn })
-    persist({ ...get(), myBoards, selectedFqbn })
+    const selectedPort = get().selectedPort
+    set({ myBoards, selectedFqbn })
+    persistFallback({ ...get(), myBoards, selectedFqbn, selectedPort })
+    saveProjectSelection(selectedFqbn, selectedPort)
   },
-  setSelectedFqbn: (fqbn) => { set({ selectedFqbn: fqbn }); persist({ ...get(), selectedFqbn: fqbn }) },
-  setSelectedPort: (port) => { set({ selectedPort: port }); persist({ ...get(), selectedPort: port }) },
+  setSelectedFqbn: (fqbn) => {
+    const selectedPort = get().selectedPort
+    set({ selectedFqbn: fqbn })
+    persistFallback({ ...get(), selectedFqbn: fqbn, selectedPort })
+    saveProjectSelection(fqbn, selectedPort)
+  },
+  setSelectedPort: (port) => {
+    const selectedFqbn = get().selectedFqbn
+    set({ selectedPort: port })
+    persistFallback({ ...get(), selectedFqbn, selectedPort: port })
+    saveProjectSelection(selectedFqbn, port)
+  },
 
   openBoardPopup: () => { set({ boardPopupOpen: true }); get().refreshPorts(); get().refreshCores() },
   closeBoardPopup: () => set({ boardPopupOpen: false }),
@@ -259,6 +291,15 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     if (busy) return
     if (!engineReady(helper)) { set({ cliPopupOpen: true }); return }
     if (!selectedPort) { set({ boardPopupOpen: true }); return }
+    const currentProjectId = useProjectStore.getState().currentProjectId
+    if (currentProjectId) {
+      set((s) => ({
+        lastSketchByProject: {
+          ...s.lastSketchByProject,
+          [currentProjectId]: { code, fqbnOpt },
+        },
+      }))
+    }
     get().stopSerial()
     const fqbn = fqbnOpt ? `${selectedFqbn}:${fqbnOpt}` : selectedFqbn
     set({ busy: true, log: `Uploading to ${selectedPort} (${fqbn})…\n`, status: { phase: 'working', message: 'Starting…' } })
@@ -279,6 +320,13 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     } finally {
       set({ busy: false })
     }
+  },
+
+  runLastUpload: async () => {
+    const currentProjectId = useProjectStore.getState().currentProjectId
+    const cached = currentProjectId ? get().lastSketchByProject[currentProjectId] : undefined
+    if (!cached) return
+    await get().runUpload(cached.code, cached.fqbnOpt)
   },
 
   runShowUpload: async (payload) => {
@@ -353,3 +401,10 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     }
   },
 }))
+
+useProjectStore.subscribe(() => {
+  const next = projectSelection(persistedPrefs)
+  const current = useUploadStore.getState()
+  if (current.selectedFqbn === next.selectedFqbn && current.selectedPort === next.selectedPort) return
+  useUploadStore.setState({ selectedFqbn: next.selectedFqbn, selectedPort: next.selectedPort })
+})

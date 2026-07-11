@@ -73,4 +73,40 @@ describe('projectStore', () => {
     expect(useProjectStore.getState().projects).toHaveLength(1)
     expect(useProjectStore.getState().currentProjectId).toBe(nextActive.id)
   })
+
+  it('persists upload targets per project', async () => {
+    const { useProjectStore } = await freshStore()
+    const mainId = useProjectStore.getState().currentProjectId
+
+    useProjectStore.getState().setProjectUploadTarget({
+      selectedFqbn: 'esp32:esp32:esp32s3',
+      selectedPort: 'COM7',
+    })
+
+    const showA = useProjectStore.getState().createProject('Show A', workspace(['a']), {
+      uploadTarget: {
+        selectedFqbn: 'rp2040:rp2040:rpipico',
+        selectedPort: 'COM9',
+      },
+    })
+
+    expect(showA.uploadTarget).toEqual({
+      selectedFqbn: 'rp2040:rp2040:rpipico',
+      selectedPort: 'COM9',
+    })
+
+    useProjectStore.getState().switchProject(mainId)
+    expect(useProjectStore.getState().projects.find((project) => project.id === mainId)?.uploadTarget).toEqual({
+      selectedFqbn: 'esp32:esp32:esp32s3',
+      selectedPort: 'COM7',
+    })
+
+    const raw = JSON.parse(localStorage.getItem('fastled-studio.projects.v1') ?? '{}') as {
+      projects?: Array<{ id: string; uploadTarget?: { selectedFqbn: string; selectedPort: string } }>
+    }
+    expect(raw.projects?.find((project) => project.id === showA.id)?.uploadTarget).toEqual({
+      selectedFqbn: 'rp2040:rp2040:rpipico',
+      selectedPort: 'COM9',
+    })
+  })
 })

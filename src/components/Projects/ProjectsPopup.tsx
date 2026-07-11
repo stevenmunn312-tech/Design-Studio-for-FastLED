@@ -69,7 +69,7 @@ export default function ProjectsPopup() {
     if (name === null) return
     const workspace = structuredClone(captureWorkspace(useGraphStore.getState()))
     useProjectStore.getState().saveCurrentWorkspace(workspace)
-    const project = createProject(name, workspace)
+    const project = createProject(name, workspace, { uploadTarget: currentProject.uploadTarget })
     useGraphStore.getState().loadGraph(
       project.workspace.nodes,
       project.workspace.edges,

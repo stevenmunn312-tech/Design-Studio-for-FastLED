@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
 import { useUploadStore, boardByFqbn } from '../../state/uploadStore'
 import { useMusicStore } from '../../state/musicStore'
+import { useProjectStore } from '../../state/projectStore'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { sdCardConnected, readySongCount, buildShowPayload } from '../../utils/showUpload'
@@ -15,10 +16,12 @@ import styles from './Upload.module.css'
 export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string; enabled: boolean }) {
   const { nodes, edges, updateNodeProperty } = useGraphStore()
   const entries = useMusicStore((s) => s.entries)
+  const currentProjectId = useProjectStore((s) => s.currentProjectId)
   const {
     selectedFqbn, selectedPort, ports, busy, status, codeViewOpen,
-    openBoardPopup, openConsole, openCodeView, runUpload, runShowUpload, exportIno,
+    openBoardPopup, openConsole, openCodeView, runUpload, runLastUpload, runShowUpload, exportIno,
   } = useUploadStore()
+  const hasLastSketch = useUploadStore((s) => !!(currentProjectId && s.lastSketchByProject[currentProjectId]))
 
   const board = boardByFqbn(selectedFqbn)
 
@@ -113,6 +116,15 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
         title={busy ? status.message : enabled ? 'Compile & upload to the board' : 'Connect a frame to enable upload'}
       >
         <span className={busy ? styles.busyText : undefined}>{uploadLabel}</span>
+      </button>
+
+      <button
+        className={styles.exportBtn}
+        disabled={busy || !hasLastSketch}
+        onClick={runLastUpload}
+        title={hasLastSketch ? 'Re-send the most recently uploaded sketch for this project without regenerating it' : 'Upload once to cache a quick re-upload target for this project'}
+      >
+        ↻ Re-upload last sketch
       </button>
 
       <button

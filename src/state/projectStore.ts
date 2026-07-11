@@ -3,12 +3,18 @@ import { listProjects, saveProjectToDisk, deleteProjectFromDisk } from '../utils
 import type { PersistedWorkspace } from './workspacePersistence'
 import { blankWorkspace } from './workspacePersistence'
 
+export interface ProjectUploadTarget {
+  selectedFqbn: string
+  selectedPort: string
+}
+
 export interface SavedProject {
   id: string
   name: string
   createdAt: number
   updatedAt: number
   workspace: PersistedWorkspace
+  uploadTarget?: ProjectUploadTarget
 }
 
 interface PersistedState {
@@ -19,11 +25,12 @@ interface PersistedState {
 interface ProjectState {
   projects: SavedProject[]
   currentProjectId: string
-  createProject: (name: string, workspace?: PersistedWorkspace) => SavedProject
+  createProject: (name: string, workspace?: PersistedWorkspace, options?: { uploadTarget?: ProjectUploadTarget }) => SavedProject
   renameProject: (id: string, name: string) => void
   deleteProject: (id: string) => SavedProject
   switchProject: (id: string) => SavedProject | null
   saveCurrentWorkspace: (workspace: PersistedWorkspace) => void
+  setProjectUploadTarget: (uploadTarget: ProjectUploadTarget, id?: string) => void
   refreshFromDisk: () => Promise<void>
 }
 
@@ -51,7 +58,24 @@ function uniqueProjectName(existing: SavedProject[], preferred: string): string 
   }
 }
 
-function makeProject(name: string, workspace: PersistedWorkspace = blankWorkspace()): SavedProject {
+function normalizeUploadTarget(value: unknown): ProjectUploadTarget | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const maybe = value as Partial<ProjectUploadTarget>
+  return typeof maybe.selectedFqbn === 'string' && typeof maybe.selectedPort === 'string'
+    ? { selectedFqbn: maybe.selectedFqbn, selectedPort: maybe.selectedPort }
+    : undefined
+}
+
+function sameUploadTarget(a: ProjectUploadTarget | undefined, b: ProjectUploadTarget | undefined): boolean {
+  return (a?.selectedFqbn ?? '') === (b?.selectedFqbn ?? '')
+    && (a?.selectedPort ?? '') === (b?.selectedPort ?? '')
+}
+
+function makeProject(
+  name: string,
+  workspace: PersistedWorkspace = blankWorkspace(),
+  uploadTarget?: ProjectUploadTarget,
+): SavedProject {
   const now = Date.now()
   return {
     id: `proj-${now}-${Math.random().toString(36).slice(2, 8)}`,
@@ -59,6 +83,7 @@ function makeProject(name: string, workspace: PersistedWorkspace = blankWorkspac
     createdAt: now,
     updatedAt: now,
     workspace,
+    uploadTarget: normalizeUploadTarget(uploadTarget),
   }
 }
 
@@ -93,6 +118,7 @@ function normalizeState(parsed: Partial<PersistedState> | null | undefined): Per
     .map((project) => ({
       ...project,
       name: trimName(project.name) || 'Untitled Project',
+      uploadTarget: normalizeUploadTarget(project.uploadTarget),
     }))
   if (projects.length === 0) return fallback
   const sorted = sortProjects(projects)
@@ -129,9 +155,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   projects: initial.projects,
   currentProjectId: initial.currentProjectId,
 
-  createProject: (name, workspace = blankWorkspace()) => {
+  createProject: (name, workspace = blankWorkspace(), options) => {
     const state = get()
-    const project = makeProject(uniqueProjectName(state.projects, name), workspace)
+    const project = makeProject(uniqueProjectName(state.projects, name), workspace, options?.uploadTarget)
     const projects = sortProjects([project, ...state.projects])
     const next = { currentProjectId: project.id, projects }
     persist(next)
@@ -192,6 +218,22 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     set({ projects: next.projects })
     const current = next.projects.find((project) => project.id === next.currentProjectId)
     if (DISK_SYNC && current) void saveProjectToDisk(current)
+  },
+
+  setProjectUploadTarget: (uploadTarget, id) => {
+    const state = get()
+    const projectId = id ?? state.currentProjectId
+    const current = state.projects.find((project) => project.id === projectId)
+    const normalized = normalizeUploadTarget(uploadTarget)
+    if (!current || sameUploadTarget(current.uploadTarget, normalized)) return
+    const now = Date.now()
+    const projects = state.projects.map((project) =>
+      project.id === projectId ? { ...project, uploadTarget: normalized, updatedAt: now } : project)
+    const next = { currentProjectId: state.currentProjectId, projects: sortProjects(projects) }
+    persist(next)
+    set({ projects: next.projects })
+    const updated = next.projects.find((project) => project.id === projectId)
+    if (DISK_SYNC && updated) void saveProjectToDisk(updated)
   },
 
   refreshFromDisk: async () => {
