@@ -121,7 +121,7 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
       canAddNodeType(nodes, n.type)
   )
 
-  const canPaste = !!clipboard && canAddNodeType(nodes, clipboard.data.nodeType)
+  const canPaste = !!clipboard && clipboard.nodes.some((n) => canAddNodeType(nodes, n.data.nodeType))
 
   const act = (fn: () => void) => { fn(); onClose() }
 
@@ -174,7 +174,7 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
         className={`${styles.item} ${!canPaste ? styles.disabled : ''}`}
         onClick={() => { if (canPaste) act(() => pasteNode(flowPosition)) }}
       >
-        Paste
+        {clipboard && clipboard.nodes.length > 1 ? `Paste ${clipboard.nodes.length} Nodes` : 'Paste'}
       </button>
     </div>
   )

@@ -119,6 +119,43 @@ describe('graphStore — grouping', () => {
     expect(useGraphStore.getState().nodes.filter((n) => n.data.nodeType === nodeType)).toHaveLength(1)
   })
 
+  it('copySelection + pasteNode duplicates a multi-node selection with its internal wiring', () => {
+    reset(
+      [
+        { ...node('sc', 'SolidColor'), position: { x: 0, y: 0 }, selected: true },
+        { ...node('bm', 'BrightnessMod'), position: { x: 200, y: 0 }, selected: true },
+        { ...node('out', 'MatrixOutput'), position: { x: 400, y: 0 }, selected: false },
+      ],
+      [
+        edge('e1', 'sc', 'frame', 'bm', 'frame'),
+        edge('e2', 'bm', 'frame', 'out', 'frame'),
+      ],
+    )
+    useGraphStore.getState().copySelection()
+    expect(useGraphStore.getState().clipboard!.nodes).toHaveLength(2)
+    expect(useGraphStore.getState().clipboard!.edges).toHaveLength(1)
+
+    useGraphStore.getState().pasteNode({ x: 1000, y: 1000 })
+    const s = useGraphStore.getState()
+
+    // Originals are untouched; two new nodes were added.
+    expect(s.nodes).toHaveLength(5)
+    const pastedSc = s.nodes.find((n) => n.data.nodeType === 'SolidColor' && n.id !== 'sc')!
+    const pastedBm = s.nodes.find((n) => n.data.nodeType === 'BrightnessMod' && n.id !== 'bm')!
+    expect(pastedSc).toBeTruthy()
+    expect(pastedBm).toBeTruthy()
+
+    // The internal edge was recreated between the new node ids, not the old ones.
+    const pastedEdge = s.edges.find((e) => e.source === pastedSc.id && e.target === pastedBm.id)
+    expect(pastedEdge).toBeTruthy()
+    // The boundary edge to MatrixOutput was not copied.
+    expect(s.edges.some((e) => e.source === pastedBm.id)).toBe(false)
+
+    // The pasted copies are selected and the originals were deselected.
+    expect(pastedSc.selected).toBe(true)
+    expect(s.nodes.find((n) => n.id === 'sc')!.selected).toBe(false)
+  })
+
   it('still allows multiple ordinary nodes', () => {
     reset([node('first', 'SolidColor')])
     useGraphStore.getState().addNode(node('second', 'SolidColor'))

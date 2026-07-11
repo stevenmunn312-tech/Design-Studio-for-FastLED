@@ -54,7 +54,10 @@ interface GraphState {
   nodes: StudioNode[]
   edges: StudioEdge[]
   selectedNodeId: string | null
-  clipboard: StudioNode | null
+  /** Holds one or more copied nodes plus the edges wiring them together
+   *  (internal edges only — boundary edges to nodes outside the copy aren't
+   *  carried along). */
+  clipboard: { nodes: StudioNode[]; edges: StudioEdge[] } | null
 
   // ── Multi-graph workspace (ADR 0001, Phase 1) ──────────────────────────
   activeGraphId: string
@@ -91,6 +94,9 @@ interface GraphState {
   loadGraph: (nodes: StudioNode[], edges: StudioEdge[], workspace?: WorkspaceExtras) => void
   duplicateNode: (id: string) => void
   copyNode: (id: string) => void
+  /** Copy every currently multi-selected node (`node.selected`) plus the edges
+   *  wiring them together, so a selection with internal wiring pastes intact. */
+  copySelection: () => void
   pasteNode: (position: { x: number; y: number }) => void
   deleteNode: (id: string) => void
   disconnectNode: (id: string) => void
@@ -409,20 +415,59 @@ export const useGraphStore = create<GraphState>()(
         })),
 
       copyNode: (id) =>
-        set((s) => ({ clipboard: s.nodes.find((n) => n.id === id) ?? s.clipboard })),
+        set((s) => {
+          const node = s.nodes.find((n) => n.id === id)
+          return node ? { clipboard: { nodes: [node], edges: [] } } : s
+        }),
+
+      copySelection: () =>
+        set((s) => {
+          const selected = s.nodes.filter((n) => n.selected)
+          if (selected.length === 0) return s
+          const idSet = new Set(selected.map((n) => n.id))
+          const internal = s.edges.filter((e) => idSet.has(e.source!) && idSet.has(e.target!))
+          return { clipboard: { nodes: selected, edges: internal } }
+        }),
 
       pasteNode: (position) =>
         set((s) => {
-          if (!s.clipboard) return s
-          const node = s.clipboard
-          if (!canAddNodeType(s.nodes, node.data.nodeType)) return s
+          if (!s.clipboard || s.clipboard.nodes.length === 0) return s
+          const { nodes: copied, edges: copiedEdges } = s.clipboard
+          const pastable = copied.filter((n) => canAddNodeType(s.nodes, n.data.nodeType))
+          if (pastable.length === 0) return s
+          const pastableIds = new Set(pastable.map((n) => n.id))
+
+          // Anchor the paste on the centroid of the copied nodes so a
+          // multi-node selection lands together, centred on `position`.
+          const cx = pastable.reduce((sum, n) => sum + n.position.x, 0) / pastable.length
+          const cy = pastable.reduce((sum, n) => sum + n.position.y, 0) / pastable.length
+          const dx = position.x - cx
+          const dy = position.y - cy
+
+          const used = new Set(s.nodes.map((n) => n.id))
+          const idMap = new Map<string, string>()
+          const newNodes = pastable.map((n) => {
+            const newId = uniqueId(`${n.data.nodeType}-${Date.now()}`, used)
+            idMap.set(n.id, newId)
+            return {
+              ...n,
+              id: newId,
+              position: { x: n.position.x + dx, y: n.position.y + dy },
+              selected: true,
+            }
+          })
+          const newEdges = copiedEdges
+            .filter((e) => pastableIds.has(e.source!) && pastableIds.has(e.target!))
+            .map((e) => ({
+              ...e,
+              id: `e-${idMap.get(e.source!)}-${idMap.get(e.target!)}-${e.sourceHandle}-${e.targetHandle}`,
+              source: idMap.get(e.source!)!,
+              target: idMap.get(e.target!)!,
+            }))
+
           return {
-            nodes: [...s.nodes, {
-              ...node,
-              id: `${node.data.nodeType}-${Date.now()}`,
-              position,
-              selected: false,
-            }],
+            nodes: [...s.nodes.map((n) => (n.selected ? { ...n, selected: false } : n)), ...newNodes],
+            edges: [...s.edges, ...newEdges],
           }
         }),
 

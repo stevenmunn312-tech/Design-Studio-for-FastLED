@@ -261,9 +261,13 @@ export default function App() {
         useGraphStore.getState().selectAllNodes()
       }
       if (e.key === 'c') {
-        const id = useGraphStore.getState().selectedNodeId
-        if (id) {
-          useGraphStore.getState().copyNode(id)
+        const store = useGraphStore.getState()
+        const selectedCount = store.nodes.filter((n) => n.selected).length
+        if (selectedCount > 1) {
+          store.copySelection()
+          setStatus(`${selectedCount} nodes copied`, 'info')
+        } else if (store.selectedNodeId) {
+          store.copyNode(store.selectedNodeId)
           setStatus('Node copied', 'info')
         }
       }
