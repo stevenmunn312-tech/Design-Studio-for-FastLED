@@ -990,6 +990,21 @@ describe('evaluateGraph', () => {
       expect(distinct(solid)).toBeLessThanOrEqual(2)
       expect(distinct(spectrum)).toBeGreaterThan(distinct(solid))
     })
+
+    it('density and position modes render a multi-hue flock', () => {
+      const distinct = (frame: Frame) =>
+        new Set(frame.flat().filter((px) => px.r + px.g + px.b > 0).map((px) => `${px.r},${px.g},${px.b}`)).size
+      const d = seedRandom(2024)
+      const density = run('cm_d', { count: 18, colorMode: 'density', visualRange: 6 }, 6)
+      d.mockRestore()
+      const p = seedRandom(2024)
+      const position = run('cm_x', { count: 18, colorMode: 'position' }, 6)
+      p.mockRestore()
+      // Position varies hue continuously across the matrix ⇒ many colours.
+      expect(distinct(position)).toBeGreaterThan(2)
+      // Density colours by neighbour count ⇒ at least renders more than nothing.
+      expect(distinct(density)).toBeGreaterThan(0)
+    })
   })
 
   it('PlasmaFractal produces a varied frame that animates', () => {

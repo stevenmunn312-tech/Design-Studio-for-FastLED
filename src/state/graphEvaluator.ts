@@ -2077,7 +2077,9 @@ function evalStarfield(nodeId: string, speed: number, count: number, color: RGB,
 // to a constant speed so the swarm stays bounded; positions wrap toroidally.
 // Rendered as a bright head pixel plus a dim one-pixel tail along the heading.
 // `colorMode` tints each boid: 'solid' (the wired/prop colour), 'heading' (hue
-// from movement direction), or 'spectrum' (a fixed per-boid hue across the wheel).
+// from movement direction), 'spectrum' (a fixed per-boid hue across the wheel),
+// 'density' (hue by local neighbour count — warm where the flock clusters), or
+// 'position' (a spatial hue gradient the flock moves through).
 // Kept a faithful mirror of the C++ emitter in cppGenerator.ts.
 function evalBoids(nodeId: string, speed: number, count: number, sep: number, ali: number, coh: number, range: number, color: RGB, colorMode: string, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const n = Math.max(2, Math.min(80, Math.floor(count)))
@@ -2094,7 +2096,7 @@ function evalBoids(nodeId: string, speed: number, count: number, sep: number, al
   const maxSpeed = Math.max(0.1, speed)
   const range2 = range * range
   const sepR2 = (range * 0.5) * (range * 0.5)
-  const nvx = new Float32Array(n), nvy = new Float32Array(n)
+  const nvx = new Float32Array(n), nvy = new Float32Array(n), nn = new Int32Array(n)
   for (let i = 0; i < n; i++) {
     let sx = 0, sy = 0, avx = 0, avy = 0, cx = 0, cy = 0, near = 0, sc = 0
     for (let j = 0; j < n; j++) {
@@ -2106,6 +2108,7 @@ function evalBoids(nodeId: string, speed: number, count: number, sep: number, al
         if (d2 < sepR2 && d2 > 0) { sx -= dx; sy -= dy; sc++ }
       }
     }
+    nn[i] = near
     let stx = 0, sty = 0
     if (near > 0) {
       stx += (avx / near - vx[i]) * ali * 0.08
@@ -2124,6 +2127,8 @@ function evalBoids(nodeId: string, speed: number, count: number, sep: number, al
     x[i] = (x[i] + vx[i] + W) % W; y[i] = (y[i] + vy[i] + H) % H
     const bc = colorMode === 'heading' ? hsv((Math.atan2(diry, dirx) / (Math.PI * 2) + 0.5) * 360, 1, 1)
       : colorMode === 'spectrum' ? hsv((i / n) * 360, 1, 1)
+      : colorMode === 'density' ? hsv((1 - Math.min(1, nn[i] / 8)) * 0.7 * 360, 1, 1)
+      : colorMode === 'position' ? hsv((x[i] / W + y[i] / H) * 0.5 * 360, 1, 1)
       : color
     const tr = bc.r >> 2, tg = bc.g >> 2, tb = bc.b >> 2
     const px = Math.floor(x[i]), py = Math.floor(y[i])

@@ -2917,12 +2917,13 @@ export function generateCpp(
           ? colorExpr(node.id, 'color')
           : `CRGB(${Number(p.r ?? 120)}, ${Number(p.g ?? 200)}, ${Number(p.b ?? 255)})`
         const bx = `_bx_${id}`, by = `_by_${id}`, bvx = `_bvx_${id}`, bvy = `_bvy_${id}`
-        const nvx = `_bnx_${id}`, nvy = `_bny_${id}`
+        const nvx = `_bnx_${id}`, nvy = `_bny_${id}`, nn = `_bnn_${id}`
+        const needNN = colorMode === 'density'  // per-boid neighbour count (density colouring only)
         const rng2 = (range * range).toFixed(3), sepR2 = (range * 0.5 * range * 0.5).toFixed(3)
         ln(`  { // Boids (Reynolds flocking)`)
         ln(`    static float ${bx}[${count}], ${by}[${count}], ${bvx}[${count}], ${bvy}[${count}]; static bool _bi_${id}=false;`)
         ln(`    if(!_bi_${id}){ for(int _i=0;_i<${count};_i++){ ${bx}[_i]=(random8()/255.0f)*WIDTH; ${by}[_i]=(random8()/255.0f)*HEIGHT; float _a=(random8()/255.0f)*6.2831f; ${bvx}[_i]=cosf(_a); ${bvy}[_i]=sinf(_a); } _bi_${id}=true; }`)
-        ln(`    float _ms=${speed}; if(_ms<0.1f)_ms=0.1f; float ${nvx}[${count}], ${nvy}[${count}];`)
+        ln(`    float _ms=${speed}; if(_ms<0.1f)_ms=0.1f; float ${nvx}[${count}], ${nvy}[${count}];${needNN ? ` int ${nn}[${count}];` : ''}`)
         ln(`    for(int _i=0;_i<${count};_i++){`)
         ln(`      float _sx=0,_sy=0,_avx=0,_avy=0,_cx=0,_cy=0; int _near=0,_sc=0;`)
         ln(`      for(int _j=0;_j<${count};_j++){ if(_j==_i)continue; float _dx=${bx}[_j]-${bx}[_i],_dy=${by}[_j]-${by}[_i]; float _d2=_dx*_dx+_dy*_dy;`)
@@ -2930,18 +2931,20 @@ export function generateCpp(
         ln(`      float _stx=0,_sty=0;`)
         ln(`      if(_near>0){ _stx+=(_avx/_near-${bvx}[_i])*${ali.toFixed(3)}f*0.08f; _sty+=(_avy/_near-${bvy}[_i])*${ali.toFixed(3)}f*0.08f; _stx+=(_cx/_near-${bx}[_i])*${coh.toFixed(3)}f*0.005f; _sty+=(_cy/_near-${by}[_i])*${coh.toFixed(3)}f*0.005f; }`)
         ln(`      if(_sc>0){ _stx+=_sx*${sep.toFixed(3)}f*0.05f; _sty+=_sy*${sep.toFixed(3)}f*0.05f; }`)
-        ln(`      ${nvx}[_i]=${bvx}[_i]+_stx; ${nvy}[_i]=${bvy}[_i]+_sty; }`)
+        ln(`      ${nvx}[_i]=${bvx}[_i]+_stx; ${nvy}[_i]=${bvy}[_i]+_sty;${needNN ? ` ${nn}[_i]=_near;` : ''} }`)
         ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
         if (colorMode === 'solid') ln(`    CRGB _bc0=${colorE};`)
+        const boidColor =
+          colorMode === 'heading' ? `CRGB _bc=CHSV((uint8_t)((atan2f(_diry,_dirx)/6.2831853f+0.5f)*255.0f),255,255);`
+          : colorMode === 'spectrum' ? `CRGB _bc=CHSV((uint8_t)(_i/(float)${count}*255.0f),255,255);`
+          : colorMode === 'density' ? `CRGB _bc=CHSV((uint8_t)((1.0f-min(1.0f,${nn}[_i]/8.0f))*0.7f*255.0f),255,255);`
+          : colorMode === 'position' ? `CRGB _bc=CHSV((uint8_t)((${bx}[_i]/WIDTH+${by}[_i]/HEIGHT)*0.5f*255.0f),255,255);`
+          : `CRGB _bc=_bc0;`
         ln(`    for(int _i=0;_i<${count};_i++){`)
         ln(`      float _sp=sqrtf(${nvx}[_i]*${nvx}[_i]+${nvy}[_i]*${nvy}[_i]); if(_sp<=0)_sp=1; float _dirx=${nvx}[_i]/_sp,_diry=${nvy}[_i]/_sp;`)
         ln(`      ${bvx}[_i]=_dirx*_ms; ${bvy}[_i]=_diry*_ms;`)
         ln(`      ${bx}[_i]=fmodf(${bx}[_i]+${bvx}[_i]+WIDTH,WIDTH); ${by}[_i]=fmodf(${by}[_i]+${bvy}[_i]+HEIGHT,HEIGHT);`)
-        ln(colorMode === 'heading'
-          ? `      CRGB _bc=CHSV((uint8_t)((atan2f(_diry,_dirx)/6.2831853f+0.5f)*255.0f),255,255); CRGB _bt=_bc; _bt.nscale8(64);`
-          : colorMode === 'spectrum'
-          ? `      CRGB _bc=CHSV((uint8_t)(_i/(float)${count}*255.0f),255,255); CRGB _bt=_bc; _bt.nscale8(64);`
-          : `      CRGB _bc=_bc0; CRGB _bt=_bc; _bt.nscale8(64);`)
+        ln(`      ${boidColor} CRGB _bt=_bc; _bt.nscale8(64);`)
         ln(`      int _px=(int)${bx}[_i],_py=(int)${by}[_i]; if(_px>=0&&_px<WIDTH&&_py>=0&&_py<HEIGHT) ${ob}[_py*WIDTH+_px]=_bc;`)
         ln(`      int _tx=(int)fmodf(${bx}[_i]-_dirx+WIDTH,WIDTH),_ty=(int)fmodf(${by}[_i]-_diry+HEIGHT,HEIGHT);`)
         ln(`      if(_tx>=0&&_tx<WIDTH&&_ty>=0&&_ty<HEIGHT){ int _ti=_ty*WIDTH+_tx; ${ob}[_ti].r=max(${ob}[_ti].r,_bt.r); ${ob}[_ti].g=max(${ob}[_ti].g,_bt.g); ${ob}[_ti].b=max(${ob}[_ti].b,_bt.b); } } }`)

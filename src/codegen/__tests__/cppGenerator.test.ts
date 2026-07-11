@@ -204,6 +204,12 @@ describe('generateCpp', () => {
       generateCpp([node('bd', 'Boids', 'pattern', { colorMode, count: 10 }), outputNode], [edge('e1', 'bd', 'out', 'frame', 'frame')])
     expect(mk('heading')).toContain('atan2f(_diry,_dirx)')
     expect(mk('spectrum')).toContain('_i/(float)10*255.0f')
+    // Density colours by neighbour count — only this mode allocates the _nn array.
+    expect(mk('density')).toContain('_bnn_bd[_i]/8.0f')
+    expect(mk('density')).toContain('int _bnn_bd[10];')
+    expect(mk('spectrum')).not.toContain('_bnn_bd[10]')
+    // Position colours by matrix coordinate.
+    expect(mk('position')).toContain('_bx_bd[_i]/WIDTH+_by_bd[_i]/HEIGHT')
     // Solid keeps the single base-colour path (no per-boid hue maths).
     expect(mk('solid')).toContain('_bc=_bc0')
     expect(mk('solid')).not.toContain('atan2f')
