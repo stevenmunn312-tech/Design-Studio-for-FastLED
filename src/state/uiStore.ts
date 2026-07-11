@@ -66,6 +66,7 @@ interface UiState {
   reducedMotion: boolean
   highContrast: boolean
   helpOpen: boolean
+  recoverOpen: boolean
   setStatus: (text: string, level?: StatusLevel) => void
   clearStatus: () => void
   toggleSidebar: () => void
@@ -92,6 +93,8 @@ interface UiState {
   toggleHighContrast: () => void
   openHelp: () => void
   closeHelp: () => void
+  openRecover: () => void
+  closeRecover: () => void
 }
 
 const THEMES: AppTheme[] = ['dark', 'solarized', 'light']
@@ -122,6 +125,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   reducedMotion: load<boolean>(MOTION_KEY, false),
   highContrast: load<boolean>(CONTRAST_KEY, false),
   helpOpen: false,
+  recoverOpen: false,
 
   setStatus: (text, level = 'info') => {
     if (statusTimer) clearTimeout(statusTimer)
@@ -209,4 +213,6 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   openHelp: () => set({ helpOpen: true }),
   closeHelp: () => set({ helpOpen: false }),
+  openRecover: () => set({ recoverOpen: true }),
+  closeRecover: () => set({ recoverOpen: false }),
 }))

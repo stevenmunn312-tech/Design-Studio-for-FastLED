@@ -34,6 +34,7 @@ export default function MenuBar() {
     previewStyle,
     cyclePreviewStyle,
     openHelp,
+    openRecover,
   } = useUiStore()
 
   const THEME_ICON: Record<string, string> = { dark: '☾', solarized: '✦', light: '☀' }
@@ -164,6 +165,9 @@ export default function MenuBar() {
         </button>
         <button className={styles.btn} onClick={handleShare} aria-label="Copy share link" title="Copy a shareable link that reproduces this graph">
           ⇗ Share
+        </button>
+        <button className={styles.btn} onClick={openRecover} aria-label="Recover a previous workspace" title="Recover a previous workspace from a rolling snapshot">
+          ⟲ Recover
         </button>
         <input
           ref={fileInputRef}

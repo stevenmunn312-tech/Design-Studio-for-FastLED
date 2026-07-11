@@ -13,16 +13,19 @@ import StatusBar from './components/StatusBar/StatusBar'
 import { useUploadStore } from './state/uploadStore'
 import { usePatternLibrary } from './state/patternLibrary'
 import { readSharedWorkspace, clearShareHash } from './utils/shareGraph'
+import { pushSnapshot } from './state/snapshotHistory'
 import styles from './App.module.css'
 
 const BoardPopup = lazy(() => import('./components/Upload/BoardPopup'))
 const ArduinoCliPopup = lazy(() => import('./components/Upload/ArduinoCliPopup'))
 const OutputConsole = lazy(() => import('./components/Upload/OutputConsole'))
 const HelpModal = lazy(() => import('./components/HelpModal/HelpModal'))
+const RecoverPopup = lazy(() => import('./components/Recover/RecoverPopup'))
 
 const AUTOSAVE_KEY = 'fastled-studio-graph'
 const AUTOSAVE_INTERVAL = 10_000
 const AUTOSAVE_IDLE_TIMEOUT = 2_000
+const SNAPSHOT_INTERVAL = 120_000
 
 // Persist the whole multi-graph workspace, not just the active graph — the
 // `graphData`/`graphs` hold every pattern-group subgraph, without which groups
@@ -60,6 +63,7 @@ export default function App() {
   const reducedMotion = useUiStore((s) => s.reducedMotion)
   const highContrast = useUiStore((s) => s.highContrast)
   const helpOpen = useUiStore((s) => s.helpOpen)
+  const recoverOpen = useUiStore((s) => s.recoverOpen)
   const toggleSidebar = useUiStore((s) => s.toggleSidebar)
   const togglePreviewPanel = useUiStore((s) => s.togglePreviewPanel)
   const startAudio = useAudioStore((s) => s.startAudio)
@@ -166,6 +170,22 @@ export default function App() {
       unsub()
       cancelQueuedAutosave()
     }
+  }, [])
+
+  // Rolling snapshots: a safety net alongside undo, which is cleared on every
+  // load/reload. Skips the tick when nothing changed since the last snapshot
+  // so a quiet canvas doesn't pile up identical entries.
+  const lastSnapshotRef = useRef<string>('')
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const { nodes, edges, graphData, graphs, activeGraphId } = useGraphStore.getState()
+      if (nodes.length === 0) return
+      const serialized = JSON.stringify({ nodes, edges, graphData, graphs, activeGraphId })
+      if (serialized === lastSnapshotRef.current) return
+      lastSnapshotRef.current = serialized
+      pushSnapshot({ nodes, edges, graphData, graphs, activeGraphId })
+    }, SNAPSHOT_INTERVAL)
+    return () => clearInterval(timer)
   }, [])
 
   // Flush the autosave immediately when the page is hidden/closed, so a reload
@@ -361,6 +381,7 @@ export default function App() {
         {cliPopupOpen && <ArduinoCliPopup />}
         {consoleOpen && <OutputConsole />}
         {helpOpen && <HelpModal />}
+        {recoverOpen && <RecoverPopup />}
       </Suspense>
     </div>
   )
