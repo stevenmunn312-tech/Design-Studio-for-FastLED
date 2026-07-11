@@ -886,17 +886,17 @@ function evalJuggle(
   return frame
 }
 
-function evalFire(nodeId: string, intensity: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalFire(nodeId: string, intensity: number, cooling: number, sparking: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const stored = fireHeat.get(nodeId)
   if (!stored || stored.length !== H || stored[0].length !== W) {
     fireHeat.set(nodeId, Array.from({ length: H }, () => Array(W).fill(0)))
   }
   const heat = fireHeat.get(nodeId)!
-  const cooling = 0.05
+  const cool = Math.max(0, Math.min(255, cooling)) / 255 * 0.18
 
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++)
-      heat[y][x] = Math.max(0, heat[y][x] - cooling - Math.random() * cooling)
+      heat[y][x] = Math.max(0, heat[y][x] - cool - Math.random() * cool)
 
   for (let y = 0; y < H - 1; y++)
     for (let x = 0; x < W; x++)
@@ -907,17 +907,13 @@ function evalFire(nodeId: string, intensity: number, W = DEFAULT_W, H = DEFAULT_
         heat[y + 1][Math.min(W - 1, x + 1)]
       ) / 4
 
-  const sparking = 0.4 + intensity * 0.55
+  const sparkChance = Math.max(0, Math.min(1, (Math.max(0, Math.min(255, sparking)) / 255) * (0.35 + Math.max(0, Math.min(1, intensity)) * 0.65)))
   for (let x = 0; x < W; x++)
-    if (Math.random() < sparking)
+    if (Math.random() < sparkChance)
       heat[H - 1][x] = Math.min(1, 0.75 + Math.random() * 0.25)
 
   return heat.map(row =>
-    row.map(h => {
-      if (h < 0.33) return { r: byte(h * 3),       g: 0,               b: 0 }
-      if (h < 0.66) return { r: 255,                g: byte((h - 0.33) * 3), b: 0 }
-                    return { r: 255,                g: 255,             b: byte((h - 0.66) * 3) }
-    })
+    row.map(h => samplePalette(palette, h))
   )
 }
 
@@ -989,13 +985,15 @@ function evalSpectrumBars(
   return frame
 }
 
-function evalBassPulse(bass: number, color: RGB, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  const v = Math.pow(bass, 0.5)
-  const lit: RGB = { r: Math.round(color.r * v), g: Math.round(color.g * v), b: Math.round(color.b * v) }
+function evalBassPulse(bass: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const level = clamp01(bass)
+  const v = Math.pow(level, 0.5)
+  // Bass level sweeps across the palette; brightness rises with it too.
+  const lit = scaleRgb(samplePalette(palette, level), v)
   return solidFrame(lit, W, H)
 }
 
-function evalBassRings(bass: number, intensity: number, speed: number, color: RGB, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalBassRings(bass: number, intensity: number, speed: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const level = Math.max(0, Math.min(1, bass))
   const strength = Math.max(0, Math.min(1, intensity))
   const cx = W / 2
@@ -1011,11 +1009,8 @@ function evalBassRings(bass: number, intensity: number, speed: number, color: RG
       const wave = Math.sin(dist * ringCount * Math.PI * 2 - phase)
       const crisp = Math.pow(Math.max(0, wave * 0.5 + 0.5), 2.4)
       const v = Math.min(1, floor + crisp * gain)
-      return {
-        r: Math.round(color.r * v),
-        g: Math.round(color.g * v),
-        b: Math.round(color.b * v),
-      }
+      // Concentric palette rings by distance from centre, brightness by the wave.
+      return scaleRgb(samplePalette(palette, dist), v)
     })
 }
 
@@ -1064,7 +1059,7 @@ function evalMidrangeBloom(mids: number, intensity: number, speed: number, t: nu
     })
 }
 
-function evalTrebleSparks(nodeId: string, treble: number, density: number, color: RGB, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalTrebleSparks(nodeId: string, treble: number, density: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const level = Math.max(0, Math.min(1, treble))
   const amount = Math.max(0, Math.min(1, density))
   let state = sparkState.get(nodeId)
@@ -1084,7 +1079,6 @@ function evalTrebleSparks(nodeId: string, treble: number, density: number, color
     }
   }
 
-  const whiteHot = mixRgb(color, { r: 255, g: 255, b: 255 }, 0.35 + level * 0.35)
   const spawnChance = 0.2 + level * 0.8
   let spawnCount = Math.round(W * H * amount * (0.03 + level * 0.12))
   if (spawnCount < 1 && amount * level > 0.05) spawnCount = 1
@@ -1101,6 +1095,8 @@ function evalTrebleSparks(nodeId: string, treble: number, density: number, color
     const x = Math.floor(Math.random() * W)
     const y = Math.floor(Math.random() * H)
     const flash = 0.55 + Math.random() * 0.45
+    // Each spark draws a random point of the palette, then flashes toward white.
+    const whiteHot = mixRgb(samplePalette(palette, Math.random()), { r: 255, g: 255, b: 255 }, 0.35 + level * 0.35)
     const spark = scaleRgb(whiteHot, (0.7 + level * 0.6) * flash)
     addSpark(x, y, spark, 1)
     addSpark(x - 1, y, spark, 0.42)
@@ -1118,7 +1114,7 @@ function evalTrebleSparks(nodeId: string, treble: number, density: number, color
   return frame
 }
 
-function evalTreblePrism(treble: number, intensity: number, speed: number, color: RGB, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalTreblePrism(treble: number, intensity: number, speed: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const level = Math.max(0, Math.min(1, treble))
   const strength = Math.max(0, Math.min(1, intensity))
   const motion = Math.max(0, speed) * (1.2 + level * 3.2 * strength)
@@ -1131,11 +1127,9 @@ function evalTreblePrism(treble: number, intensity: number, speed: number, color
       const shard = Math.pow(prism, 3.6)
       const flash = Math.pow(Math.max(0, Math.sin((x + y) * 2.4 - t * motion * 9) * 0.5 + 0.5), 10)
       const v = Math.min(1, shard * (0.3 + level * 0.7 * strength) + flash * level * 0.9 * strength)
-      return {
-        r: Math.round(color.r * v),
-        g: Math.round(color.g * v),
-        b: Math.round(color.b * v),
-      }
+      // Diagonal position spreads the palette across the shards, like a prism.
+      const pt = (x + y) / (W + H)
+      return scaleRgb(samplePalette(palette, pt), v)
     })
 }
 
@@ -1538,16 +1532,17 @@ function evalSineField(speed: number, scale: number, t: number, W = DEFAULT_W, H
   return out
 }
 
-function evalRadialBurst(speed: number, color: RGB, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalRadialBurst(speed: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const cx = W / 2, cy = H / 2, maxD = Math.hypot(cx, cy)
   return buildFrame(W, H, (x, y) => {
       const dist = Math.hypot(x - cx, y - cy) / maxD
       const wave = (Math.sin((dist * 8 - t * speed * 3) * Math.PI) + 1) / 2
-      return { r: Math.round(color.r * wave), g: Math.round(color.g * wave), b: Math.round(color.b * wave) }
+      // Palette across the radius, ring brightness from the burst wave.
+      return scaleRgb(samplePalette(palette, dist), wave)
     })
 }
 
-function evalSpiral(speed: number, arms: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalSpiral(speed: number, arms: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const cx = W / 2, cy = H / 2, maxD = Math.hypot(cx, cy)
   return buildFrame(W, H, (x, y) => {
       const dx = x - cx, dy = y - cy
@@ -1555,7 +1550,7 @@ function evalSpiral(speed: number, arms: number, t: number, W = DEFAULT_W, H = D
       const angle = Math.atan2(dy, dx)
       const spiral = (angle + dist * Math.PI * 4 - t * speed * Math.PI) * arms
       const v = (Math.sin(spiral) + 1) / 2
-      return hsv(dist * 360 + t * 30, 1, v * 0.9)
+      return scaleRgb(samplePalette(palette, dist + t * 0.083), v * 0.9)
     })
 }
 
@@ -1580,10 +1575,14 @@ const MAX_PARTICLES = 600
 // advances the persistent particle pool, then a shared pass renders every live
 // particle additively at its `life` brightness. Keep the modes in sync with
 // PROPERTY_META.particleType and cppGenerator's `Particles` case.
-function evalParticles(nodeId: string, mode: string, rate: number, color: RGB, decay: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalParticles(nodeId: string, mode: string, rate: number, palette: Palette, decay: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   if (!particleState.has(nodeId)) particleState.set(nodeId, [])
   let particles = particleState.get(nodeId)!
   const rnd = Math.random
+  // Spawn colour is a representative palette sample kept only so the pool objects
+  // stay well-formed; every particle is actually rendered by its life (age)
+  // through the palette below, so a palette change applies to live particles too.
+  const color = samplePalette(palette, 0.8)
 
   switch (mode) {
     case 'gravity': {
@@ -1787,10 +1786,6 @@ function evalParticles(nodeId: string, mode: string, rate: number, color: RGB, d
   if (particles.length > MAX_PARTICLES) particles = particles.slice(particles.length - MAX_PARTICLES)
   particleState.set(nodeId, particles)
 
-  // fireworks gives each burst its own random hue, so it renders the stored
-  // per-particle colour; every other mode shares the node colour, so it renders
-  // the *live* colour — letting a colour change apply to existing particles too.
-  const perParticle = mode === 'fireworks'
   const frame = blankFrame(W, H)
   // Particles render as a soft circular blob whose radius scales with matrix
   // size (see particleScale.ts) so a spark reads at roughly the same visual
@@ -1799,8 +1794,9 @@ function evalParticles(nodeId: string, mode: string, rate: number, color: RGB, d
   const radius = Math.max(0.5, particleRadius(W, H))
   for (const p of particles) {
     const k = Math.min(1, p.life)
-    const cr = perParticle ? p.r : color.r, cg = perParticle ? p.g : color.g, cb = perParticle ? p.b : color.b
-    splatDisc(frame, p.x, p.y, radius, scaleRgb({ r: cr, g: cg, b: cb }, k))
+    // Colour each particle by its life through the palette — young/bright
+    // particles land at the palette's hot end and cool toward its start as they fade.
+    splatDisc(frame, p.x, p.y, radius, scaleRgb(samplePalette(palette, k), k))
   }
   return frame
 }
@@ -2057,7 +2053,7 @@ function evalFlowField(nodeId: string, speed: number, scale: number, count: numb
 }
 
 // Warp starfield: stars fly outward from the centre; nearer stars are brighter.
-function evalStarfield(nodeId: string, speed: number, count: number, color: RGB, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalStarfield(nodeId: string, speed: number, count: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const pc = Math.max(8, Math.min(300, Math.floor(count)))
   let s = starState.get(nodeId)
   if (!s || s.w !== W || s.h !== H || s.x.length !== pc) {
@@ -2073,7 +2069,8 @@ function evalStarfield(nodeId: string, speed: number, count: number, color: RGB,
     const px = Math.round(W / 2 + (x[i] / z[i]) * W * 0.35), py = Math.round(H / 2 + (y[i] / z[i]) * H * 0.35)
     if (px >= 0 && px < W && py >= 0 && py < H) {
       const b = Math.min(1, 1 - z[i])
-      frame[py][px] = { r: Math.round(color.r * b), g: Math.round(color.g * b), b: Math.round(color.b * b) }
+      // Depth (near = 1) picks the palette colour and the brightness.
+      frame[py][px] = scaleRgb(samplePalette(palette, b), b)
     }
   }
   return frame
@@ -2085,14 +2082,15 @@ function evalStarfield(nodeId: string, speed: number, count: number, color: RGB,
 // Velocities update simultaneously (read old, write new), then are renormalised
 // to a constant speed so the swarm stays bounded; positions wrap toroidally.
 // Rendered as a bright head pixel plus a dim one-pixel tail along the heading.
-// `colorMode` tints each boid: 'solid' (the wired/prop colour), 'heading' (hue
-// from movement direction), 'spectrum' (a fixed per-boid hue across the wheel),
+// `colorMode` tints each boid: 'solid' (the wired/prop colour), 'palette' (a
+// fixed per-boid position across the wired palette), 'heading' (hue from
+// movement direction), 'spectrum' (a fixed per-boid hue across the wheel),
 // 'density' (hue by local neighbour count — warm where the flock clusters),
 // 'position' (a spatial hue gradient the flock moves through), 'cycle' (the whole
 // flock breathing through the wheel over time), or 'radial' (hue by distance from
 // the matrix centre — concentric rings the flock crosses).
 // Kept a faithful mirror of the C++ emitter in cppGenerator.ts.
-function evalBoids(nodeId: string, speed: number, count: number, sep: number, ali: number, coh: number, range: number, color: RGB, colorMode: string, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalBoids(nodeId: string, speed: number, count: number, sep: number, ali: number, coh: number, range: number, color: RGB, palette: Palette, colorMode: string, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const n = Math.max(2, Math.min(80, Math.floor(count)))
   let s = boidState.get(nodeId)
   if (!s || s.w !== W || s.h !== H || s.x.length !== n) {
@@ -2136,7 +2134,8 @@ function evalBoids(nodeId: string, speed: number, count: number, sep: number, al
     const dirx = nvx[i] / sp, diry = nvy[i] / sp
     vx[i] = dirx * maxSpeed; vy[i] = diry * maxSpeed
     x[i] = (x[i] + vx[i] + W) % W; y[i] = (y[i] + vy[i] + H) % H
-    const bc = colorMode === 'heading' ? hsv((Math.atan2(diry, dirx) / (Math.PI * 2) + 0.5) * 360, 1, 1)
+    const bc = colorMode === 'palette' ? samplePalette(palette, i / n)
+      : colorMode === 'heading' ? hsv((Math.atan2(diry, dirx) / (Math.PI * 2) + 0.5) * 360, 1, 1)
       : colorMode === 'spectrum' ? hsv((i / n) * 360, 1, 1)
       : colorMode === 'density' ? hsv((1 - Math.min(1, nn[i] / 8)) * 0.7 * 360, 1, 1)
       : colorMode === 'position' ? hsv((x[i] / W + y[i] / H) * 0.5 * 360, 1, 1)
@@ -2223,9 +2222,10 @@ function evalReactionDiffusion(nodeId: string, feed: number, kill: number, iters
   return buildFrame(W, H, (x, y) => samplePalette(palette, v[y * W + x]))
 }
 
-// Conway's Game of Life on a toroidal grid. Live cells glow in `color`; dead
-// cells fade out (trails). Steps at `speed`/sec and reseeds when it stagnates.
-function evalGameOfLife(nodeId: string, color: RGB, speed: number, fade: number, tick: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+// Conway's Game of Life on a toroidal grid. Live cells glow at the palette's hot
+// end; dead cells fade out (trails), cooling toward the palette start. Steps at
+// `speed`/sec and reseeds when it stagnates.
+function evalGameOfLife(nodeId: string, palette: Palette, speed: number, fade: number, tick: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const N = W * H
   const seed = (cells: Uint8Array) => { for (let i = 0; i < N; i++) cells[i] = Math.random() < 0.3 ? 1 : 0 }
   let s = golState.get(nodeId)
@@ -2258,7 +2258,7 @@ function evalGameOfLife(nodeId: string, color: RGB, speed: number, fade: number,
   for (let i = 0; i < N; i++) bright[i] = cells[i] ? 1 : bright[i] * f
   return buildFrame(W, H, (x, y) => {
       const b = bright[y * W + x]
-      return { r: Math.round(color.r * b), g: Math.round(color.g * b), b: Math.round(color.b * b) }
+      return scaleRgb(samplePalette(palette, b), b)
     })
 }
 
@@ -2272,7 +2272,7 @@ function heatColor(temperature: number): RGB {
 
 const fire2012Heat = new Map<string, Uint8Array[]>()
 
-function evalFire2012(nodeId: string, cooling: number, sparking: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalFire2012(nodeId: string, cooling: number, sparking: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const stored = fire2012Heat.get(nodeId)
   let heat: Uint8Array[]
   if (!stored || stored.length !== H || stored[0].length !== W) {
@@ -2294,7 +2294,9 @@ function evalFire2012(nodeId: string, cooling: number, sparking: number, W = DEF
   for (let x = 0; x < W; x++)
     if (Math.random() * 255 < sparking)
       heat[H-1][x] = Math.min(255, heat[H-1][x] + Math.floor(Math.random() * 95) + 160)
-  return heat.map(row => Array.from(row).map(h => heatColor(h)))
+  // Heat (0–255) indexes the palette; the default 'heat' palette reproduces the
+  // classic FastLED HeatColors fire ramp.
+  return heat.map(row => Array.from(row).map(h => samplePalette(palette, h / 255)))
 }
 
 function evalBlur2D(src: Frame, amount: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
@@ -3606,8 +3608,8 @@ function createEvalNode(
           g: byte(Number(props.g ?? 255) / 255),
           b: byte(Number(props.b ?? 255) / 255),
         }
-        const sx = Math.floor(Number(props.x ?? 0))
-        const sy = Math.floor(Number(props.y ?? 0))
+        const sx = Math.floor(num(id, 'x', props, 'x', 0))
+        const sy = Math.floor(num(id, 'y', props, 'y', 0))
         const scroll = num(id, 'scroll', props, 'scroll', 0)
         out = { frame: renderText(text, color, sx, sy, scroll, t, asFont(props.font), W, H) }
         break
@@ -3622,8 +3624,8 @@ function createEvalNode(
           g: byte(Number(props.g ?? 0)   / 255),
           b: byte(Number(props.b ?? 128) / 255),
         }
-        const cx = Number(props.cx ?? W / 2), cy = Number(props.cy ?? H / 2)
-        const rad = Number(props.radius ?? 4)
+        const cx = num(id, 'cx', props, 'cx', W / 2), cy = num(id, 'cy', props, 'cy', H / 2)
+        const rad = num(id, 'radius', props, 'radius', 4)
         const filled = Boolean(props.filled)
         if (filled) splatDisc(frame, cx, cy, rad, color)
         else splatRing(frame, cx, cy, rad, color)
@@ -3640,8 +3642,8 @@ function createEvalNode(
           g: byte(Number(props.g ?? 200) / 255),
           b: byte(Number(props.b ?? 255) / 255),
         }
-        const x0 = Number(props.x1 ?? 0), y0 = Number(props.y1 ?? 0)
-        const x1 = Number(props.x2 ?? 0), y1 = Number(props.y2 ?? 0)
+        const x0 = num(id, 'x1', props, 'x1', 0), y0 = num(id, 'y1', props, 'y1', 0)
+        const x1 = num(id, 'x2', props, 'x2', 0), y1 = num(id, 'y2', props, 'y2', 0)
         const len = Math.hypot(x1 - x0, y1 - y0)
         const steps = Math.max(1, Math.ceil(len * 2))
         for (let i = 0; i <= steps; i++) {
@@ -3660,12 +3662,12 @@ function createEvalNode(
         evalShape(
           frame,
           String(props.shape ?? 'polygon'),
-          Number(props.cx ?? W / 2), Number(props.cy ?? H / 2),
-          Math.max(0.5, Number(props.size ?? 6)),
-          Math.max(0.01, Number(props.aspect ?? 1)),
+          num(id, 'cx', props, 'cx', W / 2), num(id, 'cy', props, 'cy', H / 2),
+          Math.max(0.5, num(id, 'size', props, 'size', 6)),
+          Math.max(0.01, num(id, 'aspect', props, 'aspect', 1)),
           num(id, 'sides', props, 'sides', 5),
-          Number(props.rotation ?? 0),
-          Math.max(0, Number(props.thickness ?? 1.5)),
+          num(id, 'rotation', props, 'rotation', 0),
+          Math.max(0, num(id, 'thickness', props, 'thickness', 1.5)),
           Boolean(props.filled ?? true),
           fill, edge, W, H,
         )
@@ -3683,8 +3685,8 @@ function createEvalNode(
           b: byte(Number(props.b ?? 80)  / 255),
         }
         const tt = clamp01(num(id, 't', props, 't', 0))
-        const scale = Math.max(0, Number(props.scale ?? 0.8))
-        const thickness = Math.max(0.5, Number(props.thickness ?? 1.25))
+        const scale = Math.max(0, num(id, 'scale', props, 'scale', 0.8))
+        const thickness = Math.max(0.5, num(id, 'thickness', props, 'thickness', 1.25))
         const shape = String(props.pathShape ?? 'circle')
         const p = pathPoint(shape, tt)
         const cx = (W - 1) / 2, cy = (H - 1) / 2
@@ -3777,7 +3779,10 @@ function createEvalNode(
 
       case 'Fire': {
         const intensity = num(id, 'intensity', props, 'intensity', 0.7)
-        out = { frame: evalFire(stateKey(id), intensity, W, H) }
+        const cooling = num(id, 'cooling', props, 'cooling', 55)
+        const sparking = num(id, 'sparking', props, 'sparking', 120)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'fire')
+        out = { frame: evalFire(stateKey(id), intensity, cooling, sparking, palette, W, H) }
         break
       }
 
@@ -3847,7 +3852,7 @@ function createEvalNode(
         if (!src) { out = { frame: null }; break }
         const mode = String(props.transform ?? 'rotate')
         const rate = num(id, 'rate', props, 'rate', 90)
-        const angle = Number(props.angle ?? 0)
+        const angle = num(id, 'angle', props, 'angle', 0)
         out = { frame: evalTransform(src, mode, rate, angle, t, W, H) }
         break
       }
@@ -3858,11 +3863,11 @@ function createEvalNode(
         out = { frame: evalArray(
           src,
           num(id, 'count', props, 'count', 5),
-          Number(props.offsetX ?? 3),
-          Number(props.offsetY ?? 0),
+          num(id, 'offsetX', props, 'offsetX', 3),
+          num(id, 'offsetY', props, 'offsetY', 0),
           num(id, 'angle', props, 'angle', 0),
-          Number(props.scale ?? 1),
-          Number(props.falloff ?? 0.7),
+          num(id, 'scale', props, 'scale', 1),
+          num(id, 'falloff', props, 'falloff', 0.7),
           String(props.blendMode ?? 'add'),
           W, H,
         ) }
@@ -3887,7 +3892,7 @@ function createEvalNode(
       case 'Trails': {
         const src = input(id, 'frame', null) as Frame | null
         if (!src) { out = { frame: null }; break }
-        const decay = Math.max(0, Math.min(1, Number(props.decay ?? 0.15)))
+        const decay = Math.max(0, Math.min(1, num(id, 'decay', props, 'decay', 0.15)))
         const key = stateKey(id)
         const prev = trailState.get(key)
         // Persistent buffer, faded + re-lightened in place each pass — never
@@ -3999,7 +4004,7 @@ function createEvalNode(
 
       case 'Gamma': {
         const src = input(id, 'frame', null) as Frame | null
-        const g = Math.max(0.1, Number(props.gamma ?? 2.2))
+        const g = Math.max(0.1, num(id, 'gamma', props, 'gamma', 2.2))
         if (!src) { out = { frame: null }; break }
         const corr = (c: number) => Math.round(255 * Math.pow(c / 255, g))
         out = { frame: buildFrame(W, H, (x, y) => { const px = src[y][x]; return { r: corr(px.r), g: corr(px.g), b: corr(px.b) } }) }
@@ -4008,9 +4013,8 @@ function createEvalNode(
 
       case 'BassPulse': {
         const bass = num(id, 'bass', props, 'bass', 0)
-        const colorIn = input(id, 'color', null) as RGB | null
-        const color = colorIn ?? { r: Number(props.r ?? 255), g: Number(props.g ?? 0), b: Number(props.b ?? 80) }
-        out = { frame: evalBassPulse(bass, color, W, H) }
+        const palette = pal(id, 'paletteIn', props, 'palette', 'lava')
+        out = { frame: evalBassPulse(bass, palette, W, H) }
         break
       }
 
@@ -4018,9 +4022,8 @@ function createEvalNode(
         const bass = num(id, 'bass', props, 'bass', 0.5)
         const energy = num(id, 'energy', props, 'energy', 0.7)
         const speed = num(id, 'speed', props, 'speed', 1)
-        const colorIn = input(id, 'color', null) as RGB | null
-        const color = colorIn ?? { r: Number(props.r ?? 255), g: Number(props.g ?? 120), b: Number(props.b ?? 32) }
-        out = { frame: evalBassRings(bass, energy, speed, color, t, W, H) }
+        const palette = pal(id, 'paletteIn', props, 'palette', 'lava')
+        out = { frame: evalBassRings(bass, energy, speed, palette, t, W, H) }
         break
       }
 
@@ -4045,13 +4048,8 @@ function createEvalNode(
       case 'TrebleSparks': {
         const treble = num(id, 'treble', props, 'treble', 0.5)
         const density = num(id, 'density', props, 'density', 0.5)
-        const colorIn = input(id, 'color', null) as RGB | null
-        const color = colorIn ?? {
-          r: Number(props.r ?? 180),
-          g: Number(props.g ?? 220),
-          b: Number(props.b ?? 255),
-        }
-        out = { frame: evalTrebleSparks(stateKey(id), treble, density, color, W, H) }
+        const palette = pal(id, 'paletteIn', props, 'palette', 'ice')
+        out = { frame: evalTrebleSparks(stateKey(id), treble, density, palette, W, H) }
         break
       }
 
@@ -4059,9 +4057,8 @@ function createEvalNode(
         const treble = num(id, 'treble', props, 'treble', 0.5)
         const energy = num(id, 'energy', props, 'energy', 0.7)
         const speed = num(id, 'speed', props, 'speed', 1)
-        const colorIn = input(id, 'color', null) as RGB | null
-        const color = colorIn ?? { r: Number(props.r ?? 200), g: Number(props.g ?? 120), b: Number(props.b ?? 255) }
-        out = { frame: evalTreblePrism(treble, energy, speed, color, t, W, H) }
+        const palette = pal(id, 'paletteIn', props, 'palette', 'amethyst')
+        out = { frame: evalTreblePrism(treble, energy, speed, palette, t, W, H) }
         break
       }
 
@@ -4246,16 +4243,16 @@ function createEvalNode(
       // ── New pattern nodes ──────────────────────────────────────────────
       case 'RadialBurst': {
         const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.RadialBurst)
-        const colorIn = input(id, 'color', null) as RGB | null
-        const color = colorIn ?? { r: Number(props.r ?? 0), g: Number(props.g ?? 200), b: Number(props.b ?? 255) }
-        out = { frame: evalRadialBurst(speed, color, t, W, H) }
+        const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
+        out = { frame: evalRadialBurst(speed, palette, t, W, H) }
         break
       }
 
       case 'Spiral': {
         const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.Spiral)
-        const arms = Number(props.arms ?? 2)
-        out = { frame: evalSpiral(speed, arms, t, W, H) }
+        const arms = num(id, 'arms', props, 'arms', 2)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
+        out = { frame: evalSpiral(speed, arms, palette, t, W, H) }
         break
       }
 
@@ -4270,10 +4267,9 @@ function createEvalNode(
       case 'Particles': {
         const mode = String(props.particleType ?? 'fountain')
         const rate = num(id, 'rate', props, 'rate', 0.3)
-        const decay = Number(props.decay ?? 0.92)
-        const colorIn = input(id, 'color', null) as RGB | null
-        const color = colorIn ?? { r: Number(props.r ?? 100), g: Number(props.g ?? 200), b: Number(props.b ?? 255) }
-        out = { frame: evalParticles(stateKey(id), mode, rate, color, decay, t, W, H) }
+        const decay = num(id, 'decay', props, 'decay', 0.92)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'party')
+        out = { frame: evalParticles(stateKey(id), mode, rate, palette, decay, t, W, H) }
         break
       }
 
@@ -4293,7 +4289,7 @@ function createEvalNode(
         // the discarded partner, tinted per-channel by the `color` input (white =
         // neutral). 0 = clean mirror, 1 = full add. Both coords are symmetric under
         // the reflection. Kept in lockstep with cppGenerator.
-        const glowAmt = Math.max(0, Math.min(1, Number(props.glowAmount ?? 0.35)))
+        const glowAmt = Math.max(0, Math.min(1, num(id, 'glowAmount', props, 'glowAmount', 0.35)))
         const tint = (input(id, 'color', null) as RGB | null)
           ?? { r: Number(props.r ?? 255), g: Number(props.g ?? 255), b: Number(props.b ?? 255) }
         const gCh = (base: number, add: number, tintCh: number) => Math.min(255, base + add * (tintCh / 255) * glowAmt)
@@ -4319,7 +4315,7 @@ function createEvalNode(
       case 'GradientFrame': {
         const cA = (input(id, 'colorA', null) as RGB | null) ?? { r: Number(props.rA ?? 0), g: Number(props.gA ?? 200), b: Number(props.bA ?? 255) }
         const cB = (input(id, 'colorB', null) as RGB | null) ?? { r: Number(props.rB ?? 255), g: Number(props.gB ?? 0), b: Number(props.bB ?? 255) }
-        out = { frame: evalGradientFrame(cA, cB, Boolean(props.vertical), W, H) }
+        out = { frame: evalGradientFrame(cA, cB, Boolean(input(id, 'vertical', Boolean(props.vertical))), W, H) }
         break
       }
 
@@ -4456,15 +4452,15 @@ function createEvalNode(
         const speed       = denormRate(num(id, 'speed', props, 'speed', 0.33), SPEED_MAX.GaborNoise)
         const scale       = denormRate(num(id, 'scale', props, 'scale', 0.7), SCALE_MAX.GaborNoise)
         const frequency   = num(id, 'frequency', props, 'frequency', 1.2)
-        const orientation = Number(props.orientation ?? 45)
+        const orientation = num(id, 'orientation', props, 'orientation', 45)
         const palette     = pal(id, 'paletteIn', props, 'palette', 'ocean')
         out = { frame: evalGaborNoise(speed, scale, frequency, orientation, t, palette, W, H) }
         break
       }
 
       case 'PaletteGradient': {
-        const angle   = Number(props.angle ?? 45)
-        const repeat  = Number(props.repeat ?? 1)
+        const angle   = num(id, 'angle', props, 'angle', 45)
+        const repeat  = num(id, 'repeat', props, 'repeat', 1)
         const speed   = denormRate(num(id, 'speed', props, 'speed', 0), SPEED_MAX.PaletteGradient)
         const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
         out = { frame: evalPaletteGradient(angle, repeat, speed, t, palette, W, H) }
@@ -4477,7 +4473,7 @@ function createEvalNode(
         const animation = asAnimatedImage(props.animation)
         let img: ImageData | null
         if (animation) {
-          const rawRate = Number(props.playbackRate ?? 1)
+          const rawRate = num(id, 'playbackRate', props, 'playbackRate', 1)
           const rate = Number.isFinite(rawRate) ? Math.max(0.25, Math.min(4, rawRate)) : 1
           img = animatedImageFrame(animation, t * 1000 * rate, Boolean(props.loop ?? true))
         } else {
@@ -4485,22 +4481,22 @@ function createEvalNode(
         }
         out = { frame: img ? sampleImageToFrame(img, W, H, {
           fit: props.fit as 'stretch' | 'contain' | 'cover' | 'original',
-          positionX: Number(props.positionX ?? 0.5),
-          positionY: Number(props.positionY ?? 0.5),
-          rotation: props.rotation as number | string,
+          positionX: num(id, 'positionX', props, 'positionX', 0.5),
+          positionY: num(id, 'positionY', props, 'positionY', 0.5),
+          rotation: num(id, 'rotation', props, 'rotation', Number(props.rotation ?? 0)),
           flipX: Boolean(props.flipX),
           flipY: Boolean(props.flipY),
           sampling: props.sampling === 'smooth' ? 'smooth' : 'nearest',
-          brightness: Number(props.brightness ?? 1),
+          brightness: num(id, 'brightness', props, 'brightness', 1),
           background: hexToRgb(String(props.background ?? '#000000')),
-          zoom: Number(props.zoom ?? 1),
-          cropX: Number(props.cropX ?? 0.5),
-          cropY: Number(props.cropY ?? 0.5),
-          saturation: Number(props.saturation ?? 1),
-          contrast: Number(props.contrast ?? 1),
-          hueShift: Number(props.hueShift ?? 0),
+          zoom: num(id, 'zoom', props, 'zoom', 1),
+          cropX: num(id, 'cropX', props, 'cropX', 0.5),
+          cropY: num(id, 'cropY', props, 'cropY', 0.5),
+          saturation: num(id, 'saturation', props, 'saturation', 1),
+          contrast: num(id, 'contrast', props, 'contrast', 1),
+          hueShift: num(id, 'hueShift', props, 'hueShift', 0),
           monochrome: Boolean(props.monochrome),
-          gamma: Number(props.gamma ?? 1),
+          gamma: num(id, 'gamma', props, 'gamma', 1),
           paletteLevels: props.paletteLevels as number | string,
           dithering: props.dithering === 'ordered2x2' || props.dithering === 'ordered4x4' ? props.dithering : 'none',
         }) : blankFrame(W, H) }
@@ -4510,7 +4506,7 @@ function createEvalNode(
       case 'Blobs': {
         const speed = denormRate(num(id, 'speed', props, 'speed', 0.3), SPEED_MAX.Blobs)
         const scale = denormRate(num(id, 'scale', props, 'scale', 0.44), SCALE_MAX.Blobs)
-        const count = Number(props.count ?? 3)
+        const count = num(id, 'count', props, 'count', 3)
         const palette = pal(id, 'paletteIn', props, 'palette', 'lava')
         out = { frame: evalBlobs(speed, scale, count, t, palette, W, H) }
         break
@@ -4519,8 +4515,8 @@ function createEvalNode(
       case 'FlowField': {
         const speed = denormRate(num(id, 'speed', props, 'speed', 0.67), SPEED_MAX.FlowField)
         const scale = denormRate(num(id, 'scale', props, 'scale', 0.08), SCALE_MAX.FlowField)
-        const count = Number(props.count ?? 80)
-        const fade = Number(props.fade ?? 0.9)
+        const count = num(id, 'count', props, 'count', 80)
+        const fade = num(id, 'fade', props, 'fade', 0.9)
         const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
         out = { frame: evalFlowField(stateKey(id), speed, scale, count, fade, t, palette, W, H) }
         break
@@ -4528,24 +4524,19 @@ function createEvalNode(
 
       case 'Starfield': {
         const speed = denormRate(num(id, 'speed', props, 'speed', 0.33), SPEED_MAX.Starfield)
-        const count = Number(props.count ?? 60)
-        const colorIn = input(id, 'color', null) as RGB | null
-        const color = colorIn ?? {
-          r: byte(Number(props.r ?? 255) / 255),
-          g: byte(Number(props.g ?? 255) / 255),
-          b: byte(Number(props.b ?? 255) / 255),
-        }
-        out = { frame: evalStarfield(stateKey(id), speed, count, color, W, H) }
+        const count = num(id, 'count', props, 'count', 60)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'ice')
+        out = { frame: evalStarfield(stateKey(id), speed, count, palette, W, H) }
         break
       }
 
       case 'Boids': {
         const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.Boids)
-        const count = Number(props.count ?? 24)
-        const sep = Number(props.separation ?? 0.6)
-        const ali = Number(props.alignment ?? 0.5)
-        const coh = Number(props.cohesion ?? 0.4)
-        const range = Number(props.visualRange ?? 4)
+        const count = num(id, 'count', props, 'count', 24)
+        const sep = num(id, 'separation', props, 'separation', 0.6)
+        const ali = num(id, 'alignment', props, 'alignment', 0.5)
+        const coh = num(id, 'cohesion', props, 'cohesion', 0.4)
+        const range = num(id, 'visualRange', props, 'visualRange', 4)
         const colorMode = String(props.colorMode ?? 'solid')
         const colorIn = input(id, 'color', null) as RGB | null
         const color = colorIn ?? {
@@ -4553,7 +4544,8 @@ function createEvalNode(
           g: byte(Number(props.g ?? 200) / 255),
           b: byte(Number(props.b ?? 255) / 255),
         }
-        out = { frame: evalBoids(stateKey(id), speed, count, sep, ali, coh, range, color, colorMode, t, W, H) }
+        const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
+        out = { frame: evalBoids(stateKey(id), speed, count, sep, ali, coh, range, color, palette, colorMode, t, W, H) }
         break
       }
 
@@ -4571,22 +4563,17 @@ function createEvalNode(
       case 'ReactionDiffusion': {
         const feed  = num(id, 'feed', props, 'feed', 0.055)
         const kill  = num(id, 'kill', props, 'kill', 0.062)
-        const iters = Math.max(1, Math.min(20, Math.floor(Number(props.speed ?? 8))))
+        const iters = Math.max(1, Math.min(20, Math.floor(num(id, 'speed', props, 'speed', 8))))
         const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
         out = { frame: evalReactionDiffusion(stateKey(id), feed, kill, iters, palette, W, H) }
         break
       }
 
       case 'GameOfLife': {
-        const colorIn = input(id, 'color', null) as RGB | null
-        const color = colorIn ?? {
-          r: byte(Number(props.r ?? 0)   / 255),
-          g: byte(Number(props.g ?? 255) / 255),
-          b: byte(Number(props.b ?? 70)  / 255),
-        }
+        const palette = pal(id, 'paletteIn', props, 'palette', 'mojito')
         const speed = num(id, 'speed', props, 'speed', 8)
-        const fade = Number(props.fade ?? 0.75)
-        out = { frame: evalGameOfLife(stateKey(id), color, speed, fade, tick, W, H) }
+        const fade = num(id, 'fade', props, 'fade', 0.75)
+        out = { frame: evalGameOfLife(stateKey(id), palette, speed, fade, tick, W, H) }
         break
       }
 
@@ -4649,15 +4636,15 @@ function createEvalNode(
         const wiredPool = input(id, 'transitions', null) as string[] | null
         const pool = wiredPool && wiredPool.length ? wiredPool : ['crossfade']
         const o = {
-          minTime: Number(props.minTime ?? 4),
-          maxTime: Number(props.maxTime ?? 12),
-          transSec: Number(props.transitionSec ?? 1),
+          minTime: num(id, 'minTime', props, 'minTime', 4),
+          maxTime: num(id, 'maxTime', props, 'maxTime', 12),
+          transSec: num(id, 'transitionSec', props, 'transitionSec', 1),
           pool,
           beatEnabled: incoming.has(`${id}:beat`),
-          particles: !!props.particles,
+          particles: Boolean(input(id, 'particles', Boolean(props.particles))),
           particleStyle: Number(props.particleStyle ?? 0),
-          particleHue: Number(props.particleHue ?? 0),
-          particleIntensity: Number(props.particleIntensity ?? 1),
+          particleHue: num(id, 'particleHue', props, 'particleHue', 0),
+          particleIntensity: num(id, 'particleIntensity', props, 'particleIntensity', 1),
         }
         out = { frame: evalPatternShow(stateKey(id), ids, render, beat, o, t, W, H) }
         break
@@ -4706,9 +4693,9 @@ function createEvalNode(
 
       case 'WaveSim': {
         const trigger = Boolean(input(id, 'trigger', false))
-        const speed = Number(props.speed ?? 4)
-        const damping = Number(props.damping ?? 0.985)
-        const impulse = Number(props.impulse ?? 1)
+        const speed = num(id, 'speed', props, 'speed', 4)
+        const damping = num(id, 'damping', props, 'damping', 0.985)
+        const impulse = num(id, 'impulse', props, 'impulse', 1)
         out = { field: evalWaveSim(stateKey(id), trigger, speed, damping, impulse, W, H) }
         break
       }
@@ -4778,7 +4765,7 @@ function createEvalNode(
         const fv = input(id, 'field', null)
         const field = fv instanceof Float32Array ? fv : null
         // angle (degrees) plus an optional continuous spin (degrees/sec).
-        const deg = num(id, 'angle', props, 'angle', 0) + t * Number(props.spin ?? 0)
+        const deg = num(id, 'angle', props, 'angle', 0) + t * num(id, 'spin', props, 'spin', 0)
         out = { field: evalFieldRotate(field, (deg * Math.PI) / 180, W, H) }
         break
       }
@@ -4905,9 +4892,10 @@ function createEvalNode(
       }
 
       case 'Fire2012': {
-        const cooling  = Number(props.cooling  ?? 55)
-        const sparking = Number(props.sparking ?? 120)
-        out = { frame: evalFire2012(id, cooling, sparking, W, H) }
+        const cooling  = num(id, 'cooling', props, 'cooling', 55)
+        const sparking = num(id, 'sparking', props, 'sparking', 120)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'heat')
+        out = { frame: evalFire2012(id, cooling, sparking, palette, W, H) }
         break
       }
 

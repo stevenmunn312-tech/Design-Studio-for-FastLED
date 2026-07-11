@@ -525,16 +525,17 @@ describe('evaluateGraph', () => {
     expect(frame![0][0]).toEqual({ r: 255, g: 255, b: 255 })
   })
 
-  it('TrebleSparks uses its wired color input for the spark tint', () => {
+  it('TrebleSparks tints its sparks from the wired palette input', () => {
     const spy = vi.spyOn(Math, 'random').mockReturnValue(0)
     try {
-      const color = node('c', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })
+      // A warm palette (sampled at 0 → deep red) should make the spark red-dominant.
+      const palette = node('c', 'PaletteSelector', 'color', { palette: 'lava' })
       const sparks = node('ts', 'TrebleSparks', 'pattern', { treble: 1, density: 0.1 })
       const out = node('out', 'MatrixOutput', 'output', {})
       const frame = evaluateGraph(
-        [color, sparks, out],
+        [palette, sparks, out],
         [
-          edge('e1', 'c', 'rgb', 'ts', 'color'),
+          edge('e1', 'c', 'palette', 'ts', 'paletteIn'),
           edge('e2', 'ts', 'frame', 'out', 'frame'),
         ],
         0, W, H,
@@ -1336,16 +1337,17 @@ describe('evaluateGraph', () => {
   })
 
   it('GameOfLife produces a frame and steps without throwing', () => {
-    const gol = node('g', 'GameOfLife', 'pattern', { speed: 60, fade: 0, r: 0, g: 255, b: 0 })
+    const gol = node('g', 'GameOfLife', 'pattern', { speed: 60, fade: 0, palette: 'mojito' })
     const out = node('out', 'MatrixOutput', 'output', {})
     const edges = [edge('e', 'g', 'frame', 'out', 'frame')]
-    // fade=0 → live cells are green, dead are pure black; advance several steps.
+    // fade=0 → live cells all share the palette's hot colour, dead are pure black.
     let frame = evaluateGraph([gol, out], edges, 0, 12, 12)!
     expect(frame.length).toBe(12)
     for (let i = 1; i <= 10; i++) frame = evaluateGraph([gol, out], edges, i, 12, 12)!
-    // every pixel is either off or the live color (fade 0, no trails)
-    const ok = frame.every((row) => row.every((px) =>
-      (px.r === 0 && px.g === 0 && px.b === 0) || (px.g === 255 && px.r === 0 && px.b === 0)))
+    const lit = frame.flat().filter((px) => px.r !== 0 || px.g !== 0 || px.b !== 0)
+    // every lit pixel is the same non-black live colour (fade 0, no trails)
+    const first = lit[0]
+    const ok = lit.every((px) => px.r === first.r && px.g === first.g && px.b === first.b)
     expect(ok).toBe(true)
   })
 

@@ -124,10 +124,10 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('SpectrumBars', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
-  it('BassRings exposes bass, energy, normalized speed, and tintable color inputs', () => {
+  it('BassRings exposes bass, energy, normalized speed, and palette inputs', () => {
     const br = NODE_LIBRARY.find((n) => n.type === 'BassRings')
-    expect(br?.inputs.map((p) => p.id)).toEqual(['bass', 'energy', 'speed', 'color'])
-    expect(br?.defaultProperties).toMatchObject({ energy: 0.7, speed: 1, r: 255, g: 120, b: 32 })
+    expect(br?.inputs.map((p) => p.id)).toEqual(['bass', 'energy', 'speed', 'paletteIn'])
+    expect(br?.defaultProperties).toMatchObject({ energy: 0.7, speed: 1, palette: 'lava' })
     expect(propertyMeta('BassRings', 'energy')).toMatchObject({ control: 'slider', min: 0, max: 1 })
     expect(propertyMeta('BassRings', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
@@ -140,16 +140,16 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('MidrangeBloom', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
-  it('TrebleSparks exposes a color input with a cool-tinted fallback', () => {
+  it('TrebleSparks exposes a palette input with a cool default', () => {
     const ts = NODE_LIBRARY.find((n) => n.type === 'TrebleSparks')
-    expect(ts?.inputs.map((p) => p.id)).toEqual(['treble', 'density', 'color'])
-    expect(ts?.defaultProperties).toMatchObject({ density: 0.5, r: 180, g: 220, b: 255 })
+    expect(ts?.inputs.map((p) => p.id)).toEqual(['treble', 'density', 'paletteIn'])
+    expect(ts?.defaultProperties).toMatchObject({ density: 0.5, palette: 'ice' })
   })
 
-  it('TreblePrism exposes energy, normalized speed, and a tintable color input', () => {
+  it('TreblePrism exposes energy, normalized speed, and a palette input', () => {
     const tp = NODE_LIBRARY.find((n) => n.type === 'TreblePrism')
-    expect(tp?.inputs.map((p) => p.id)).toEqual(['treble', 'energy', 'speed', 'color'])
-    expect(tp?.defaultProperties).toMatchObject({ energy: 0.7, speed: 1, r: 200, g: 120, b: 255 })
+    expect(tp?.inputs.map((p) => p.id)).toEqual(['treble', 'energy', 'speed', 'paletteIn'])
+    expect(tp?.defaultProperties).toMatchObject({ energy: 0.7, speed: 1, palette: 'amethyst' })
     expect(propertyMeta('TreblePrism', 'energy')).toMatchObject({ control: 'slider', min: 0, max: 1 })
     expect(propertyMeta('TreblePrism', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
@@ -171,7 +171,7 @@ describe('nodeLibrary', () => {
 
   it('Path exposes base/color/t inputs with selectable curve presets', () => {
     const path = NODE_LIBRARY.find((n) => n.type === 'Path')
-    expect(path?.inputs.map((p) => p.id)).toEqual(['base', 'color', 't'])
+    expect(path?.inputs.map((p) => p.id)).toEqual(['base', 'color', 't', 'scale', 'thickness'])
     expect(path?.defaultProperties).toMatchObject({ pathShape: 'circle', t: 0, scale: 0.8, thickness: 1.25 })
     expect(propertyMeta('Path', 'pathShape')).toMatchObject({ control: 'select' })
     expect((propertyMeta('Path', 'pathShape') as { options?: string[] }).options).toEqual(['circle', 'heart', 'lissajous', 'rose'])

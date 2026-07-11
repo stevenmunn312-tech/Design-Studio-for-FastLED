@@ -1024,7 +1024,7 @@ export function generateCpp(
         const colorE = incoming.get(`${node.id}:color`)
           ? colorExpr(node.id, 'color')
           : `CRGB(${Number(p.r ?? 255)}, ${Number(p.g ?? 0)}, ${Number(p.b ?? 128)})`
-        const cx = Number(p.cx ?? 8), cy = Number(p.cy ?? 8), rad = Number(p.radius ?? 4)
+        const cx = f('cx', 'cx', 8), cy = f('cy', 'cy', 8), rad = f('radius', 'radius', 4)
         ln(`  { ${seedFrom('base')}`)
         ln(`    int _x0 = max(0, (int)floorf(${cx} - ${rad} - 1.5f)), _x1 = min(WIDTH - 1, (int)ceilf(${cx} + ${rad} + 1.5f));`)
         ln(`    int _y0 = max(0, (int)floorf(${cy} - ${rad} - 1.5f)), _y1 = min(HEIGHT - 1, (int)ceilf(${cy} + ${rad} + 1.5f));`)
@@ -1041,8 +1041,8 @@ export function generateCpp(
         const colorE = incoming.get(`${node.id}:color`)
           ? colorExpr(node.id, 'color')
           : `CRGB(${Number(p.r ?? 0)}, ${Number(p.g ?? 200)}, ${Number(p.b ?? 255)})`
-        const x1 = Number(p.x1 ?? 0), y1 = Number(p.y1 ?? 0)
-        const x2 = Number(p.x2 ?? 0), y2 = Number(p.y2 ?? 0)
+        const x1 = f('x1', 'x1', 0), y1 = f('y1', 'y1', 0)
+        const x2 = f('x2', 'x2', 0), y2 = f('y2', 'y2', 0)
         ln(`  { ${seedFrom('base')}`)
         ln(`    float _x0 = ${x1}, _y0 = ${y1}, _x1 = ${x2}, _y1 = ${y2};`)
         ln(`    float _len = sqrtf((_x1 - _x0) * (_x1 - _x0) + (_y1 - _y0) * (_y1 - _y0));`)
@@ -1065,7 +1065,6 @@ export function generateCpp(
       // Keep in sync with evalShape() in graphEvaluator.ts.
       case 'Shape': {
         const ob = ownBuf()
-        const fl = (value: number) => `${Number.isInteger(value) ? value.toFixed(1) : value}f`
         const hexCrgb = (hex: unknown, def: number) => {
           const m = /^#([0-9a-f]{6})$/i.exec(String(hex))
           const n = m ? parseInt(m[1], 16) : def
@@ -1078,31 +1077,29 @@ export function generateCpp(
         const rot = Number(p.rotation ?? 0)
         const thick = Math.max(0, Number(p.thickness ?? 1.5))
         const filled = (p.filled ?? true) !== false
-        const ax = size * aspect, ay = size
-        const reach = Math.sqrt(ax * ax + ay * ay) + thick / 2 + 1
-        const bx0 = Math.max(0, Math.floor(cx - reach)), bx1 = Math.min(width - 1, Math.ceil(cx + reach))
-        const by0 = Math.max(0, Math.floor(cy - reach)), by1 = Math.min(height - 1, Math.ceil(cy + reach))
         const fillE = incoming.get(`${node.id}:fill`) ? colorExpr(node.id, 'fill') : hexCrgb(p.fill, 0xff3080)
         const edgeE = incoming.get(`${node.id}:edge`) ? colorExpr(node.id, 'edge') : hexCrgb(p.edge, 0x00e0ff)
         ln(`  { ${seedFrom('base')}`)
-        ln(`    float _cx=${fl(cx)},_cy=${fl(cy)},_ra=${fl(-rot)}*0.01745329f,_cr=cosf(_ra),_sr=sinf(_ra);`)
+        ln(`    float _cx=${f('cx', 'cx', cx)},_cy=${f('cy', 'cy', cy)},_size=max(0.5f,${f('size', 'size', size)}),_aspect=max(0.01f,${f('aspect', 'aspect', aspect)}),_ra=-(${f('rotation', 'rotation', rot)})*0.01745329f,_cr=cosf(_ra),_sr=sinf(_ra);`)
         ln(`    CRGB _fill=${fillE},_edge=${edgeE};`)
         if (shape === 'polygon') ln(`    float _n=max(3.0f,(float)(${f('sides', 'sides', 5)})); int _nlo=(int)floorf(_n); float _fr=_n-_nlo;`)
-        ln(`    for(int _y=${by0};_y<=${by1};_y++) for(int _x=${bx0};_x<=${bx1};_x++){`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float _dx=(_x+0.5f)-_cx,_dy=(_y+0.5f)-_cy,_lx=_dx*_cr-_dy*_sr,_ly=_dx*_sr+_dy*_cr,_sd;`)
         if (shape === 'rect') {
-          ln(`      float _qx=fabsf(_lx)-${fl(ax)},_qy=fabsf(_ly)-${fl(ay)},_mx=max(_qx,0.0f),_my=max(_qy,0.0f);`)
+          ln(`      float _ax=_size*_aspect,_ay=_size;`)
+          ln(`      float _qx=fabsf(_lx)-_ax,_qy=fabsf(_ly)-_ay,_mx=max(_qx,0.0f),_my=max(_qy,0.0f);`)
           ln(`      _sd=sqrtf(_mx*_mx+_my*_my)+min(max(_qx,_qy),0.0f);`)
         } else if (shape === 'ellipse') {
-          ln(`      float _ex=_lx/${fl(ax)},_ey=_ly/${fl(ay)}; _sd=(sqrtf(_ex*_ex+_ey*_ey)-1.0f)*${fl(Math.min(ax, ay))};`)
+          ln(`      float _ax=_size*_aspect,_ay=_size,_ex=_lx/_ax,_ey=_ly/_ay; _sd=(sqrtf(_ex*_ex+_ey*_ey)-1.0f)*min(_ax,_ay);`)
         } else {
           ln(`      float _r=sqrtf(_lx*_lx+_ly*_ly),_pa=atan2f(_ly,_lx);`)
-          ln(`      float _s0=6.2831853f/_nlo,_a0=fmodf(fmodf(_pa,_s0)+_s0,_s0)-_s0*0.5f,_sdl=_r-${fl(size)}*cosf(3.14159265f/_nlo)/cosf(_a0),_sd2=_sdl;`)
-          ln(`      if(_fr>0.0f){ float _s1=6.2831853f/(_nlo+1),_a1=fmodf(fmodf(_pa,_s1)+_s1,_s1)-_s1*0.5f; _sd2=_r-${fl(size)}*cosf(3.14159265f/(_nlo+1))/cosf(_a1); }`)
+          ln(`      float _s0=6.2831853f/_nlo,_a0=fmodf(fmodf(_pa,_s0)+_s0,_s0)-_s0*0.5f,_sdl=_r-_size*cosf(3.14159265f/_nlo)/cosf(_a0),_sd2=_sdl;`)
+          ln(`      if(_fr>0.0f){ float _s1=6.2831853f/(_nlo+1),_a1=fmodf(fmodf(_pa,_s1)+_s1,_s1)-_s1*0.5f; _sd2=_r-_size*cosf(3.14159265f/(_nlo+1))/cosf(_a1); }`)
           ln(`      _sd=_sdl*(1.0f-_fr)+_sd2*_fr;`)
         }
         ln(`      float _fc=${filled ? 'constrain(0.5f-_sd,0.0f,1.0f)' : '0.0f'};`)
-        ln(`      float _ec=${thick > 0 ? `constrain(${fl(thick * 0.5)}+0.5f-fabsf(_sd),0.0f,1.0f)` : '0.0f'};`)
+        ln(`      float _th=max(0.0f,${f('thickness', 'thickness', thick)});`)
+        ln(`      float _ec=constrain(_th*0.5f+0.5f-fabsf(_sd),0.0f,1.0f);`)
         ln(`      float _al=max(_fc,_ec); if(_al<=0.0f) continue;`)
         ln(`      CRGB _col=_fill; nblend(_col,_edge,(uint8_t)(_ec*255.0f)); nblend(${ob}[_y*WIDTH+_x],_col,(uint8_t)(_al*255.0f)); } }`)
         break
@@ -1117,7 +1114,6 @@ export function generateCpp(
         const scale = Number(p.scale ?? 0.8)
         const thickness = Number(p.thickness ?? 1.25)
         const tExpr = f('t', 't', 0)
-        const fl = (value: number) => `${Number.isInteger(value) ? value.toFixed(1) : value}f`
         let pathExpr = `float _px = cosf(_ang), _py = sinf(_ang);`
         if (shape === 'heart') {
           pathExpr = `float _px = 16.0f * powf(sinf(_ang), 3.0f) / 18.0f; float _py = (13.0f*cosf(_ang)-5.0f*cosf(_ang*2.0f)-2.0f*cosf(_ang*3.0f)-cosf(_ang*4.0f)) / 18.0f;`
@@ -1130,8 +1126,8 @@ export function generateCpp(
         ln(`    float _tt = constrain(${tExpr}, 0.0f, 1.0f);`)
         ln(`    float _ang = _tt * 6.2831853f;`)
         ln(`    ${pathExpr}`)
-        ln(`    float _rad = max(0.25f, ${fl(thickness)} * 0.5f);`)
-        ln(`    float _ext = max(0.0f, min((float)WIDTH, (float)HEIGHT) * 0.5f * ${fl(scale)} - _rad);`)
+        ln(`    float _rad = max(0.25f, ${f('thickness', 'thickness', thickness)} * 0.5f);`)
+        ln(`    float _ext = max(0.0f, min((float)WIDTH, (float)HEIGHT) * 0.5f * ${f('scale', 'scale', scale)} - _rad);`)
         ln(`    float _sx = (WIDTH - 1) * 0.5f + _px * _ext;`)
         ln(`    float _sy = (HEIGHT - 1) * 0.5f - _py * _ext;`)
         ln(`    int _x0 = max(0, (int)floorf(_sx - _rad - 1.0f)), _x1 = min(WIDTH - 1, (int)ceilf(_sx + _rad + 1.0f));`)
@@ -1148,7 +1144,7 @@ export function generateCpp(
         const text = String(p.text ?? 'HELLO')
         const font = asFont(p.font)
         const cols = textColumns(text, font)
-        const sx = Math.floor(Number(p.x ?? 0)), sy = Math.floor(Number(p.y ?? 0))
+        const sx = `floorf(${f('x', 'x', 0)})`, sy = `floorf(${f('y', 'y', 0)})`
         const dynamic = !!incoming.get(`${node.id}:scroll`) || Number(p.scroll ?? 0) !== 0
         const colorE = incoming.get(`${node.id}:color`)
           ? colorExpr(node.id, 'color')
@@ -1163,8 +1159,8 @@ export function generateCpp(
         } else {
           ln(`    int _off = 0;`)
         }
-        ln(`    for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - ${sx} + _off; if (_ci < 0 || _ci >= _tn_${id}) continue; uint8_t _col = _txt_${id}[_ci];`)
-        ln(`      for (int _r = 0; _r < ${font.h}; _r++) if (_col & (1 << _r)) { int _yy = ${sy} + _r; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
+        ln(`    for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - (int)${sx} + _off; if (_ci < 0 || _ci >= _tn_${id}) continue; uint8_t _col = _txt_${id}[_ci];`)
+        ln(`      for (int _r = 0; _r < ${font.h}; _r++) if (_col & (1 << _r)) { int _yy = (int)${sy} + _r; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
         ln(`  }`)
         break
       }
@@ -1423,18 +1419,22 @@ export function generateCpp(
 
       case 'Fire': {
         const ob = ownBuf()
+        const intensity = f('intensity', 'intensity', 0.7)
+        const cooling = f('cooling', 'cooling', 55)
+        const sparking = f('sparking', 'sparking', 120)
+        const pal = paletteExpr(node.id, 'paletteIn', p)
         ln(`  { // Fire pattern`)
         ln(`    static uint8_t heat_${id}[HEIGHT][WIDTH];`)
+        ln(`    float _cool=max(0.0f,min(255.0f,${cooling}))*(55.0f/255.0f);`)
+        ln(`    float _spark=min(1.0f,max(0.0f,(max(0.0f,min(255.0f,${sparking}))/255.0f)*(0.35f+min(1.0f,max(0.0f,${intensity}))*0.65f)));`)
         ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++)`)
-        ln(`      heat_${id}[_y][_x] = qsub8(heat_${id}[_y][_x], random8(0, 55));`)
+        ln(`      heat_${id}[_y][_x] = qsub8(heat_${id}[_y][_x], random8(0, (uint8_t)_cool));`)
         ln(`    for (int _y = 0; _y < HEIGHT - 1; _y++) for (int _x = 0; _x < WIDTH; _x++)`)
         ln(`      heat_${id}[_y][_x] = (heat_${id}[_y][_x] + heat_${id}[_y+1][max(0,_x-1)] + heat_${id}[_y+1][_x] + heat_${id}[_y+1][min(WIDTH-1,_x+1)]) / 4;`)
         ln(`    for (int _x = 0; _x < WIDTH; _x++)`)
-        ln(`      if (random8() < 120) heat_${id}[HEIGHT-1][_x] = random8(200, 255);`)
-        ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
-        ln(`      uint8_t h = heat_${id}[_y][_x];`)
-        ln(`      ${ob}[_y * WIDTH + _x] = h < 85 ? CRGB(h * 3, 0, 0) : h < 170 ? CRGB(255, (h-85)*3, 0) : CRGB(255, 255, (h-170)*3);`)
-        ln(`    }`)
+        ln(`      if (random8()/255.0f < _spark) heat_${id}[HEIGHT-1][_x] = random8(200, 255);`)
+        ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++)`)
+          ln(`      ${ob}[_y * WIDTH + _x] = ColorFromPalette(${pal}, heat_${id}[_y][_x]);`)
         ln(`  }`)
         break
       }
@@ -1494,9 +1494,11 @@ export function generateCpp(
 
       case 'BassPulse': {
         const ob = ownBuf()
-        const r = Number(p.r ?? 255), g = Number(p.g ?? 0), b = Number(p.b ?? 80)
+        const pal = paletteExpr(node.id, 'paletteIn', p)
         const bass = f('bass', 'bass', 0.5)
-        ln(`  { float _b = ${bass}; fill_solid(${ob}, NUM_LEDS, CRGB((uint8_t)(${r} * _b), (uint8_t)(${g} * _b), (uint8_t)(${b} * _b))); }`)
+        ln(`  { float _lv = constrain(${bass}, 0.0f, 1.0f); float _v = sqrtf(_lv);`)
+        ln(`    CRGB _c = ColorFromPalette(${pal}, (uint8_t)(_lv * 255)); _c.nscale8((uint8_t)(_v * 255));`)
+        ln(`    fill_solid(${ob}, NUM_LEDS, _c); }`)
         break
       }
 
@@ -1506,9 +1508,7 @@ export function generateCpp(
         const bass = f('bass', 'bass', 0.5)
         const energy = f('energy', 'energy', 0.7)
         const speed = f('speed', 'speed', 1)
-        const colorE = incoming.get(`${node.id}:color`)
-          ? colorExpr(node.id, 'color')
-          : `CRGB(${Number(p.r ?? 255)}, ${Number(p.g ?? 120)}, ${Number(p.b ?? 32)})`
+        const pal = paletteExpr(node.id, 'paletteIn', p)
         ln(`  {`)
         ln(`    float _b = min(1.0f, max(0.0f, ${bass}));`)
         ln(`    float _strength = min(1.0f, max(0.0f, ${energy}));`)
@@ -1519,7 +1519,6 @@ export function generateCpp(
         ln(`    float _rings = 4.0f + _b * 8.0f * _strength;`)
         ln(`    float _floor = 0.04f + _b * 0.1f * _strength;`)
         ln(`    float _gain = 0.16f + _b * 0.84f * _strength;`)
-        ln(`    CRGB _base = ${colorE};`)
         ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
         ln(`      float _dx = _x - _cx, _dy = _y - _cy;`)
         ln(`      float _dist = sqrtf(_dx * _dx + _dy * _dy) / max(0.0001f, _maxD);`)
@@ -1527,7 +1526,7 @@ export function generateCpp(
         ln(`      float _crisp = powf(max(0.0f, _wave * 0.5f + 0.5f), 2.4f);`)
         ln(`      float _v = min(1.0f, _floor + _crisp * _gain);`)
         ln(`      int _i = _y * WIDTH + _x;`)
-        ln(`      ${ob}[_i] = _base;`)
+        ln(`      ${ob}[_i] = ColorFromPalette(${pal}, (uint8_t)(_dist * 255));`)
         ln(`      ${ob}[_i].nscale8((uint8_t)(_v * 255));`)
         ln(`    }`)
         ln(`  }`)
@@ -1592,9 +1591,7 @@ export function generateCpp(
         const ob = ownBuf()
         const treble = f('treble', 'treble', 0.5)
         const density = f('density', 'density', 0.5)
-        const colorE = incoming.get(`${node.id}:color`)
-          ? colorExpr(node.id, 'color')
-          : `CRGB(${Number(p.r ?? 180)}, ${Number(p.g ?? 220)}, ${Number(p.b ?? 255)})`
+        const pal = paletteExpr(node.id, 'paletteIn', p)
         ln(`  {`)
         ln(`    float _t = ${treble}, _d = ${density};`)
         ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)(110 + (1.0f - constrain(_t, 0.0f, 1.0f)) * 40));`)
@@ -1603,7 +1600,7 @@ export function generateCpp(
         ln(`    uint8_t _spawnChance = (uint8_t)(51 + constrain(_t, 0.0f, 1.0f) * 204);`)
         ln(`    for (int _s = 0; _s < _spawns; _s++) if (random8() <= _spawnChance) {`)
         ln(`      int _x = random16(WIDTH), _y = random16(HEIGHT), _i = _y * WIDTH + _x;`)
-        ln(`      CRGB _spark = blend(${colorE}, CRGB::White, (uint8_t)(89 + constrain(_t, 0.0f, 1.0f) * 89));`)
+        ln(`      CRGB _spark = blend(ColorFromPalette(${pal}, random8()), CRGB::White, (uint8_t)(89 + constrain(_t, 0.0f, 1.0f) * 89));`)
         ln(`      _spark.nscale8((uint8_t)(min(255.0f, (0.7f + constrain(_t, 0.0f, 1.0f) * 0.6f) * (140 + random8(116)))));`)
         ln(`      ${ob}[_i] += _spark;`)
         ln(`      CRGB _edge = _spark; _edge.nscale8((uint8_t)(107));`)
@@ -1625,15 +1622,12 @@ export function generateCpp(
         const treble = f('treble', 'treble', 0.5)
         const energy = f('energy', 'energy', 0.7)
         const speed = f('speed', 'speed', 1)
-        const colorE = incoming.get(`${node.id}:color`)
-          ? colorExpr(node.id, 'color')
-          : `CRGB(${Number(p.r ?? 200)}, ${Number(p.g ?? 120)}, ${Number(p.b ?? 255)})`
+        const pal = paletteExpr(node.id, 'paletteIn', p)
         ln(`  {`)
         ln(`    float _t = min(1.0f, max(0.0f, ${treble}));`)
         ln(`    float _strength = min(1.0f, max(0.0f, ${energy}));`)
         ln(`    float _spd = min(1.0f, max(0.0f, ${speed}));`)
         ln(`    float _motion = _spd * (1.2f + _t * 3.2f * _strength);`)
-        ln(`    CRGB _base = ${colorE};`)
         ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
         ln(`      float _diagA = _x * 1.7f + _y * 1.15f, _diagB = _x * -1.1f + _y * 1.9f;`)
         ln(`      float _waveA = sinf(_diagA + t * _motion * 7.5f);`)
@@ -1642,8 +1636,9 @@ export function generateCpp(
         ln(`      float _shard = powf(_prism, 3.6f);`)
         ln(`      float _flash = powf(max(0.0f, sinf((_x + _y) * 2.4f - t * _motion * 9.0f) * 0.5f + 0.5f), 10.0f);`)
         ln(`      float _v = min(1.0f, _shard * (0.3f + _t * 0.7f * _strength) + _flash * _t * 0.9f * _strength);`)
+        ln(`      float _pt = (_x + _y) / (float)(WIDTH + HEIGHT);`)
         ln(`      int _i = _y * WIDTH + _x;`)
-        ln(`      ${ob}[_i] = _base;`)
+        ln(`      ${ob}[_i] = ColorFromPalette(${pal}, (uint8_t)(_pt * 255));`)
         ln(`      ${ob}[_i].nscale8((uint8_t)(_v * 255));`)
         ln(`    }`)
         ln(`  }`)
@@ -2053,10 +2048,9 @@ export function generateCpp(
         const ob = ownBuf()
         const src = srcBuf('frame')
         if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black);`); break }
-        const decay = Math.max(0, Math.min(1, Number(p.decay ?? 0.15)))
-        const amt = Math.round(decay * 255)
-        ln(`  { // Trails: fadeToBlackBy(${amt}) then re-lighten from the input (per-channel max)`)
-        ln(`    fadeToBlackBy(${ob}, NUM_LEDS, ${amt});`)
+        const decay = f('decay', 'decay', 0.15)
+        ln(`  { // Trails: fadeToBlackBy(decay) then re-lighten from the input (per-channel max)`)
+        ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)(constrain(${decay},0.0f,1.0f)*255.0f));`)
         ln(`    for(int _i=0;_i<NUM_LEDS;_i++){`)
         ln(`      if(${src}[_i].r>${ob}[_i].r)${ob}[_i].r=${src}[_i].r;`)
         ln(`      if(${src}[_i].g>${ob}[_i].g)${ob}[_i].g=${src}[_i].g;`)
@@ -2106,8 +2100,8 @@ export function generateCpp(
 
       case 'Gamma': {
         const ob = ownBuf()
-        const g = Math.max(0.1, Number(p.gamma ?? 2.2))
-        ln(`  { ${seedFrom('frame')} napplyGamma_video(${ob}, NUM_LEDS, ${g.toFixed(3)}f); }`)
+        const g = f('gamma', 'gamma', 2.2)
+        ln(`  { ${seedFrom('frame')} napplyGamma_video(${ob}, NUM_LEDS, max(0.1f, ${g})); }`)
         break
       }
 
@@ -2118,7 +2112,7 @@ export function generateCpp(
         if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // Transform: no input`); break }
         const mode = String(p.transform ?? 'rotate')
         const rate = f('rate', 'rate', 90)
-        const angle = Number(p.angle ?? 0)
+        const angle = f('angle', 'angle', 0)
         ln(`  { float _cx=(WIDTH-1)/2.0f,_cy=(HEIGHT-1)/2.0f,_rate=${rate};`)
         if (mode === 'translate') {
           ln(`    float _a=${angle}*0.01745329f,_dx=cos(_a)*_rate*t,_dy=sin(_a)*_rate*t;`)
@@ -2147,16 +2141,11 @@ export function generateCpp(
         const ob = ownBuf()
         const src = srcBuf('frame')
         if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // Array: no input`); break }
-        const flt = (val: unknown, def: number) => {
-          const n = Number(val ?? def)
-          const v = Number.isFinite(n) ? n : def
-          return Number.isInteger(v) ? `${v}.0f` : `${v}f`
-        }
-        const offX = flt(p.offsetX, 3), offY = flt(p.offsetY, 0)
+        const offX = f('offsetX', 'offsetX', 3), offY = f('offsetY', 'offsetY', 0)
         // `angle` and `count` are wire-able (see nodeLibrary inputs) so an
         // animated signal can spin/grow the array; unwired they bake the slider.
         const ang = f('angle', 'angle', 0)
-        const scl = flt(Math.max(0.05, Number(p.scale ?? 1)), 1), fo = flt(p.falloff, 0.7)
+        const scl = `max(0.05f, ${f('scale', 'scale', 1)})`, fo = f('falloff', 'falloff', 0.7)
         const mode = ['lighten', 'over'].includes(String(p.blendMode)) ? String(p.blendMode) : 'add'
         const countWired = incoming.has(`${node.id}:count`)
         const countLit = Math.max(1, Math.min(32, Math.round(Number(p.count ?? 5))))
@@ -2219,22 +2208,23 @@ export function generateCpp(
         needsT.v = true
         const ob = ownBuf()
         const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.RadialBurst)
-        const r = Number(p.r ?? 0), g = Number(p.g ?? 200), b = Number(p.b ?? 255)
+        const pal = paletteExpr(node.id, 'paletteIn', p)
         ln(`  { float _spd=${speed}; for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`    float _d=sqrt((_x-WIDTH/2.0f)*(_x-WIDTH/2.0f)+(_y-HEIGHT/2.0f)*(_y-HEIGHT/2.0f))/sqrt(WIDTH*WIDTH/4.0f+HEIGHT*HEIGHT/4.0f);`)
         ln(`    float _w=(sin((_d*8-t*_spd*3)*3.14159f)+1)/2.0f;`)
-        ln(`    ${ob}[_y*WIDTH+_x]=CRGB((uint8_t)(${r}*_w),(uint8_t)(${g}*_w),(uint8_t)(${b}*_w));}}`)
+        ln(`    ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(_d*255)); ${ob}[_y*WIDTH+_x].nscale8((uint8_t)(_w*255));}}`)
         break
       }
 
       case 'Spiral': {
         needsT.v = true
         const ob = ownBuf()
-        const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.Spiral), arms = Number(p.arms ?? 2)
+        const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.Spiral), arms = f('arms', 'arms', 2)
+        const pal = paletteExpr(node.id, 'paletteIn', p)
         ln(`  { float _spd=${speed}; for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`    float _d=sqrt((_x-WIDTH/2.0f)*(_x-WIDTH/2.0f)+(_y-HEIGHT/2.0f)*(_y-HEIGHT/2.0f))/sqrt(WIDTH*WIDTH/4.0f+HEIGHT*HEIGHT/4.0f);`)
         ln(`    float _a=atan2(_y-HEIGHT/2.0f,_x-WIDTH/2.0f);float _s=(_a+_d*12.57f-t*_spd*3.14159f)*${arms};`)
-        ln(`    ${ob}[_y*WIDTH+_x]=CHSV((uint8_t)(_d*255+t*30),255,(uint8_t)((sin(_s)+1)/2.0f*230));}}`)
+        ln(`    ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_d+t*0.083f)*255)); ${ob}[_y*WIDTH+_x].nscale8((uint8_t)((sin(_s)+1)/2.0f*230));}}`)
         break
       }
 
@@ -2249,11 +2239,8 @@ export function generateCpp(
         const mode = String(p.particleType ?? 'fountain')
         if (['comet', 'snow', 'embers', 'bubbles', 'fireflies', 'meteor', 'tornado', 'attractor'].includes(mode)) needsT.v = true
         const rate = f('rate', 'rate', 0.3)
-        const decay = Number(p.decay ?? 0.92)
-        const decayL = (Number.isInteger(decay) ? `${decay}.0` : `${decay}`) + 'f'
-        const colorE = incoming.get(`${node.id}:color`)
-          ? colorExpr(node.id, 'color')
-          : `CRGB(${Number(p.r ?? 100)}, ${Number(p.g ?? 200)}, ${Number(p.b ?? 255)})`
+        const decayL = f('decay', 'decay', 0.92)
+        const pal = paletteExpr(node.id, 'paletteIn', p)
         // Fixed-size pool (SoA): l[i] <= 0.04 marks a free slot. swarm keeps every
         // slot live (boids), so it uses a smaller pool for the O(N^2) step.
         const cap = mode === 'swarm' ? 40 : 120
@@ -2261,7 +2248,9 @@ export function generateCpp(
         ln(`  { // Particles: ${mode}`)
         ln(`    const int _PN=${cap};`)
         ln(`    static float ${A}x[_PN], ${A}y[_PN], ${A}vx[_PN], ${A}vy[_PN], ${A}l[_PN], ${A}s[_PN]; static uint8_t ${A}r[_PN], ${A}g[_PN], ${A}b[_PN]; static bool ${A}init=false;`)
-        ln(`    float _rate=${rate}; CRGB _pc=${colorE};`)
+        // Spawn colour is a fixed palette sample kept only so the (unused-at-render)
+        // per-particle colour slots stay well-formed; render colours by life below.
+        ln(`    float _rate=${rate}; CRGB _pc=ColorFromPalette(${pal},180);`)
 
         if (mode === 'swarm') {
           ln(`    if(!${A}init){ for(int i=0;i<_PN;i++){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}vx[i]=(random8()/255.0f-0.5f)*0.6f; ${A}vy[i]=(random8()/255.0f-0.5f)*0.6f; ${A}l[i]=1; ${A}r[i]=_pc.r; ${A}g[i]=_pc.g; ${A}b[i]=_pc.b; } ${A}init=true; }`)
@@ -2359,12 +2348,9 @@ export function generateCpp(
             ln(`      ${A}vy[i]+=0.025f; ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; if(${A}y[i]>=HEIGHT-1){ ${A}y[i]=HEIGHT-1; ${A}vy[i]*=-0.3f; ${A}vx[i]+=(random8()/255.0f-0.5f)*0.35f; ${A}l[i]*=0.7f; } ${A}l[i]*=${decayL}*0.995f; }`)
         }
 
-        // ── render (shared) ── fireworks keeps per-particle (random-hue) colour;
-        // every other mode renders the live node colour so a colour change applies
-        // to existing particles too.
-        const cr = mode === 'fireworks' ? `${A}r[i]` : '_pc.r'
-        const cg = mode === 'fireworks' ? `${A}g[i]` : '_pc.g'
-        const cb = mode === 'fireworks' ? `${A}b[i]` : '_pc.b'
+        // ── render (shared) ── every particle is coloured by its life through the
+        // palette, so young/bright particles land at the palette's hot end and cool
+        // toward its start as they fade (mirrors evalParticles).
         // Blob radius baked from the panel's configured WIDTH/HEIGHT — mirrors
         // the evaluator's particleScale.ts so firmware matches preview.
         const R = Math.max(0.5, particleRadius(width, height))
@@ -2373,9 +2359,10 @@ export function generateCpp(
         ln(`    for(int i=0;i<_PN;i++){ if(${A}l[i]<=0.04f) continue; float _k=min(1.0f,${A}l[i]), _sx=${A}x[i], _sy=${A}y[i];`)
         ln(`      int _x0=max(0,(int)floorf(_sx-${Rf}f-1.0f)), _x1=min(WIDTH-1,(int)ceilf(_sx+${Rf}f+1.0f));`)
         ln(`      int _y0=max(0,(int)floorf(_sy-${Rf}f-1.0f)), _y1=min(HEIGHT-1,(int)ceilf(_sy+${Rf}f+1.0f));`)
+        ln(`      CRGB _pcol=ColorFromPalette(${pal},(uint8_t)(_k*255)); _pcol.nscale8((uint8_t)(_k*255));`)
         ln(`      for(int _y=_y0;_y<=_y1;_y++) for(int _x=_x0;_x<=_x1;_x++){`)
         ln(`        float _dx=(_x+0.5f)-_sx,_dy=(_y+0.5f)-_sy; float _cov=constrain(${Rf}f+0.5f-sqrtf(_dx*_dx+_dy*_dy),0.0f,1.0f);`)
-        ln(`        if(_cov<=0.0f) continue; CRGB _add=CRGB((uint8_t)(${cr}*_k),(uint8_t)(${cg}*_k),(uint8_t)(${cb}*_k)); _add.nscale8((uint8_t)(_cov*255.0f)); ${ob}[_y*WIDTH+_x]+=_add; } } }`)
+        ln(`        if(_cov<=0.0f) continue; CRGB _add=_pcol; _add.nscale8((uint8_t)(_cov*255.0f)); ${ob}[_y*WIDTH+_x]+=_add; } } }`)
         break
       }
 
@@ -2400,7 +2387,7 @@ export function generateCpp(
         if (glow) {
           // additive bloom: base + glowAmount× the discarded partner, tinted
           // per-channel by the `color` input (white neutral). scale8 chain = g/255.
-          const g = Math.round(Math.max(0, Math.min(1, Number(p.glowAmount ?? 0.35))) * 255)
+          const g = f('glowAmount', 'glowAmount', 0.35)
           const tintE = incoming.get(`${node.id}:color`)
             ? colorExpr(node.id, 'color')
             : `CRGB(${Number(p.r ?? 255)}, ${Number(p.g ?? 255)}, ${Number(p.b ?? 255)})`
@@ -2409,7 +2396,7 @@ export function generateCpp(
           if (mode === 'vertical' || mode === 'quad') ln(`    _ay=max(_y,HEIGHT-1-_y);`)
           if (mode === 'diagonal') ln(`    _ax=min(max(_x,_y),WIDTH-1);_ay=min(min(_x,_y),HEIGHT-1);`)
           ln(`    CRGB _b=${src}[_sy*WIDTH+_sx], _a=${src}[_ay*WIDTH+_ax], _t=${tintE};`)
-          ln(`    ${ob}[_y*WIDTH+_x]=CRGB(qadd8(_b.r,scale8(scale8(_a.r,_t.r),${g})),qadd8(_b.g,scale8(scale8(_a.g,_t.g),${g})),qadd8(_b.b,scale8(scale8(_a.b,_t.b),${g})));}}`)
+          ln(`    ${ob}[_y*WIDTH+_x]=CRGB(qadd8(_b.r,scale8(scale8(_a.r,_t.r),(uint8_t)(constrain(${g},0.0f,1.0f)*255.0f))),qadd8(_b.g,scale8(scale8(_a.g,_t.g),(uint8_t)(constrain(${g},0.0f,1.0f)*255.0f))),qadd8(_b.b,scale8(scale8(_a.b,_t.b),(uint8_t)(constrain(${g},0.0f,1.0f)*255.0f))));}}`)
           break
         }
         ln(`    ${ob}[_y*WIDTH+_x]=${src}[_sy*WIDTH+_sx];}}`)
@@ -2420,9 +2407,9 @@ export function generateCpp(
         const ob = ownBuf()
         const rA = Number(p.rA ?? 0), gA = Number(p.gA ?? 200), bA = Number(p.bA ?? 255)
         const rB = Number(p.rB ?? 255), gB = Number(p.gB ?? 0), bB = Number(p.bB ?? 255)
-        const vert = Boolean(p.vertical)
+        const vert = incoming.get(`${node.id}:vertical`) ? null : Boolean(p.vertical)
         ln(`  { for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`    float _t=${vert ? '_y/(HEIGHT-1.0f)' : '_x/(WIDTH-1.0f)'};`)
+        ln(`    float _t=${vert === null ? `((${boolExpr(node.id, 'vertical')}) ? _y/(HEIGHT-1.0f) : _x/(WIDTH-1.0f))` : vert ? '_y/(HEIGHT-1.0f)' : '_x/(WIDTH-1.0f)'};`)
         ln(`    ${ob}[_y*WIDTH+_x]=CRGB((uint8_t)(${rA}*(1-_t)+${rB}*_t),(uint8_t)(${gA}*(1-_t)+${gB}*_t),(uint8_t)(${bA}*(1-_t)+${bB}*_t));}}`)
         break
       }
@@ -2688,7 +2675,7 @@ export function generateCpp(
         const ob = ownBuf()
         const speed = rateCpp(f('speed', 'speed', 0.33), SPEED_MAX.GaborNoise), scale = rateCpp(f('scale', 'scale', 0.7), SCALE_MAX.GaborNoise)
         const freq = f('frequency', 'frequency', 1.2)
-        const orientation = Number(p.orientation ?? 45)
+        const orientation = f('orientation', 'orientation', 45)
         const pal = paletteExpr(node.id, 'paletteIn', p)
         ln(`  { // Gabor noise`)
         ln(`    float _spd=${speed},_sc=${scale},_fr=${freq},_om=${orientation}*0.01745329f,_co=cos(_om),_si=sin(_om);`)
@@ -2706,12 +2693,11 @@ export function generateCpp(
 
       case 'PaletteGradient': {
         const ob = ownBuf()
-        const angle = Number(p.angle ?? 45), repeat = Number(p.repeat ?? 1)
-        const speed = Math.max(0, Math.min(1, Number(p.speed ?? 0))) * SPEED_MAX.PaletteGradient
+        const angle = f('angle', 'angle', 45), repeat = f('repeat', 'repeat', 1)
+        const speed = rateCpp(f('speed', 'speed', 0), SPEED_MAX.PaletteGradient)
         const pal = paletteExpr(node.id, 'paletteIn', p)
-        const fl = (value: number) => `${Number.isInteger(value) ? value.toFixed(1) : value}f`
-        const scroll = speed !== 0 ? `+t*${fl(speed)}` : ''
-        if (speed !== 0) needsT.v = true
+        const scroll = `+t*${speed}`
+        needsT.v = true
         ln(`  { // Palette gradient`)
         ln(`    float _a=${angle}*0.01745329f,_co=cos(_a),_si=sin(_a);`)
         ln(`    float _pmin=(_co<0?(WIDTH-1)*_co:0)+(_si<0?(HEIGHT-1)*_si:0);`)
@@ -2719,7 +2705,7 @@ export function generateCpp(
         ln(`    float _rng=max(1e-6f,_pmax-_pmin);`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float _tn=(_x*_co+_y*_si-_pmin)/_rng;`)
-        ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_tn*${fl(repeat)}${scroll})*255));}}`)
+        ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_tn*${repeat}${scroll})*255));}}`)
         break
       }
 
@@ -2739,22 +2725,6 @@ export function generateCpp(
           ? (frames ?? [img]).flatMap((frame) => frame.alpha ?? Array(frame.w * frame.h).fill(255))
           : null
         const fit = ['contain', 'cover', 'original'].includes(String(p.fit)) ? String(p.fit) : 'stretch'
-        const rawRotation = ((Number(p.rotation ?? 0) % 360) + 360) % 360
-        const rotation = [90, 180, 270].includes(rawRotation) ? rawRotation : 0
-        const rw = rotation === 90 || rotation === 270 ? img.h : img.w
-        const rh = rotation === 90 || rotation === 270 ? img.w : img.h
-        const position = (value: unknown) => {
-          const n = Number(value ?? 0.5)
-          return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0.5
-        }
-        const positionX = position(p.positionX)
-        const positionY = position(p.positionY)
-        const cropX = position(p.cropX)
-        const cropY = position(p.cropY)
-        const rawZoom = Number(p.zoom ?? 1)
-        const zoom = Number.isFinite(rawZoom) ? Math.max(1, Math.min(8, rawZoom)) : 1
-        const rawBrightness = Number(p.brightness ?? 1)
-        const brightness = Number.isFinite(rawBrightness) ? Math.max(0, Math.min(1, rawBrightness)) : 1
         const background = hexToRgb(String(p.background ?? '#000000'))
         const finite = (value: unknown, fallback: number, min: number, max: number) => {
           const n = Number(value ?? fallback)
@@ -2762,28 +2732,21 @@ export function generateCpp(
         }
         const saturation = p.monochrome ? 0 : finite(p.saturation, 1, 0, 2)
         const contrast = finite(p.contrast, 1, 0, 2)
-        const hue = finite(p.hueShift, 0, -180, 180) * Math.PI / 180
         const gamma = finite(p.gamma, 1, 1, 3.5)
         const rawLevels = Number(p.paletteLevels)
         const paletteLevels = Number.isFinite(rawLevels) && rawLevels >= 2 ? Math.min(32, Math.round(rawLevels)) : 0
         const dithering = p.dithering === 'ordered2x2' || p.dithering === 'ordered4x4' ? p.dithering : 'none'
-        const hc = Math.cos(hue), hs = Math.sin(hue)
-        const hm = [
-          .213 + .787 * hc - .213 * hs, .715 - .715 * hc - .715 * hs, .072 - .072 * hc + .928 * hs,
-          .213 - .213 * hc + .143 * hs, .715 + .285 * hc + .140 * hs, .072 - .072 * hc - .283 * hs,
-          .213 - .213 * hc - .787 * hs, .715 - .715 * hc + .715 * hs, .072 + .928 * hc + .072 * hs,
-        ]
         const sampling = p.sampling === 'smooth' ? 'smooth' : 'nearest'
         const fl = (value: number) => `${Number.isInteger(value) ? value.toFixed(1) : value}f`
         ln(`  { // ${node.data.nodeType} ${img.w}x${img.h}`)
         ln(`    static const uint8_t _img_${id}[] PROGMEM = {${storedPixels.join(',')}};`)
         if (storedAlpha) ln(`    static const uint8_t _imga_${id}[] PROGMEM = {${storedAlpha.join(',')}};`)
         if (animation) ln(`    static const uint32_t _imgd_${id}[] PROGMEM = {${animation.durations.map((duration) => Math.round(duration)).join(',')}};`)
-        ln(`    const int _iw=${img.w}, _ih=${img.h}, _rw=${rw}, _rh=${rh};`)
+        ln(`    const int _iw=${img.w}, _ih=${img.h};`)
+        ln(`    int _rot=(((int)roundf(${f('rotation', 'rotation', Number(p.rotation ?? 0))}/90.0f))%4+4)%4, _rw=(_rot&1)?_ih:_iw, _rh=(_rot&1)?_iw:_ih;`)
         if (animation) {
           const total = Math.max(1, Math.round(animation.durations.reduce((sum, duration) => sum + duration, 0)))
-          const playbackRate = finite(p.playbackRate, 1, 0.25, 4)
-          ln(`    uint32_t _it=(uint32_t)(millis()*${fl(playbackRate)});`)
+          ln(`    uint32_t _it=(uint32_t)(millis()*max(0.25f,min(4.0f,${f('playbackRate', 'playbackRate', 1)})));`)
           if (p.loop !== false) ln(`    _it%=${total}UL;`)
           else ln(`    _it=min(_it,${total - 1}UL);`)
           ln(`    int _ifr=0; uint32_t _iacc=0; for(int _i=0;_i<${animation.frames.length};_i++){ _iacc+=pgm_read_dword(&_imgd_${id}[_i]); if(_it<_iacc){_ifr=_i;break;} }`)
@@ -2799,28 +2762,28 @@ export function generateCpp(
         } else {
           ln(`    float _dw=(float)WIDTH, _dh=(float)HEIGHT;`)
         }
-        ln(`    float _iox=(WIDTH-_dw)*${fl(positionX)}, _ioy=(HEIGHT-_dh)*${fl(positionY)};`)
-        ln(`    const float _ibr=${fl(brightness)}, _izv=${fl(1 / zoom)};`)
+        ln(`    float _iox=(WIDTH-_dw)*constrain(${f('positionX', 'positionX', 0.5)},0.0f,1.0f), _ioy=(HEIGHT-_dh)*constrain(${f('positionY', 'positionY', 0.5)},0.0f,1.0f);`)
+        ln(`    const float _ibr=max(0.0f,min(1.0f,${f('brightness', 'brightness', 1)})), _izv=1.0f/max(1.0f,min(8.0f,${f('zoom', 'zoom', 1)}));`)
         if (dithering === 'ordered2x2') ln(`    static const uint8_t _idither[] PROGMEM={0,2,3,1};`)
         else if (dithering === 'ordered4x4') ln(`    static const uint8_t _idither[] PROGMEM={0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5};`)
         ln(`    struct _ImgPx { float r,g,b,a; };`)
         ln(`    auto _imgpx=[&](int _px,int _py)->_ImgPx{`)
         if (p.flipX) ln(`      _px=_rw-1-_px;`)
         if (p.flipY) ln(`      _py=_rh-1-_py;`)
-        if (rotation === 90) ln(`      int _sx=_py, _sy=_ih-1-_px;`)
-        else if (rotation === 180) ln(`      int _sx=_iw-1-_px, _sy=_ih-1-_py;`)
-        else if (rotation === 270) ln(`      int _sx=_iw-1-_py, _sy=_px;`)
-        else ln(`      int _sx=_px, _sy=_py;`)
+        ln(`      int _sx=_px,_sy=_py; if(_rot==1){ _sx=_py; _sy=_ih-1-_px; } else if(_rot==2){ _sx=_iw-1-_px; _sy=_ih-1-_py; } else if(_rot==3){ _sx=_iw-1-_py; _sy=_px; }`)
         ln(`      int _ai=_ibase+_sy*_iw+_sx, _pi=_ai*3;`)
         if (storedAlpha) ln(`      float _a=pgm_read_byte(&_imga_${id}[_ai])/255.0f;`)
         else ln(`      float _a=1.0f;`)
         ln(`      return {(float)pgm_read_byte(&_img_${id}[_pi])*_a,(float)pgm_read_byte(&_img_${id}[_pi+1])*_a,(float)pgm_read_byte(&_img_${id}[_pi+2])*_a,_a};};`)
         ln(`    auto _imgcolor=[&](_ImgPx _p,int _x,int _y)->CRGB{`)
         ln(`      float _r=(_p.r+${fl(background.r)}*(1-_p.a))*_ibr, _g=(_p.g+${fl(background.g)}*(1-_p.a))*_ibr, _b=(_p.b+${fl(background.b)}*(1-_p.a))*_ibr;`)
-        ln(`      float _hr=_r*${fl(hm[0])}+_g*${fl(hm[1])}+_b*${fl(hm[2])}, _hg=_r*${fl(hm[3])}+_g*${fl(hm[4])}+_b*${fl(hm[5])}, _hb=_r*${fl(hm[6])}+_g*${fl(hm[7])}+_b*${fl(hm[8])};`)
-        ln(`      float _lum=_hr*0.2126f+_hg*0.7152f+_hb*0.0722f; _r=(_lum+(_hr-_lum)*${fl(saturation)}-127.5f)*${fl(contrast)}+127.5f; _g=(_lum+(_hg-_lum)*${fl(saturation)}-127.5f)*${fl(contrast)}+127.5f; _b=(_lum+(_hb-_lum)*${fl(saturation)}-127.5f)*${fl(contrast)}+127.5f;`)
-        if (gamma !== 1) ln(`      _r=powf(constrain(_r,0.0f,255.0f)/255.0f,${fl(gamma)})*255.0f; _g=powf(constrain(_g,0.0f,255.0f)/255.0f,${fl(gamma)})*255.0f; _b=powf(constrain(_b,0.0f,255.0f)/255.0f,${fl(gamma)})*255.0f;`)
-        else ln(`      _r=constrain(_r,0.0f,255.0f); _g=constrain(_g,0.0f,255.0f); _b=constrain(_b,0.0f,255.0f);`)
+        ln(`      float _h=max(-180.0f,min(180.0f,${f('hueShift', 'hueShift', 0)}))*0.01745329f,_hc=cosf(_h),_hs=sinf(_h);`)
+        ln(`      float _hr=_r*(.213f+.787f*_hc-.213f*_hs)+_g*(.715f-.715f*_hc-.715f*_hs)+_b*(.072f-.072f*_hc+.928f*_hs);`)
+        ln(`      float _hg=_r*(.213f-.213f*_hc+.143f*_hs)+_g*(.715f+.285f*_hc+.140f*_hs)+_b*(.072f-.072f*_hc-.283f*_hs);`)
+        ln(`      float _hb=_r*(.213f-.213f*_hc-.787f*_hs)+_g*(.715f-.715f*_hc+.715f*_hs)+_b*(.072f+.928f*_hc+.072f*_hs);`)
+        ln(`      float _sat=${p.monochrome ? '0.0f' : `max(0.0f,min(2.0f,${f('saturation', 'saturation', saturation)}))`}, _con=max(0.0f,min(2.0f,${f('contrast', 'contrast', contrast)}));`)
+        ln(`      float _lum=_hr*0.2126f+_hg*0.7152f+_hb*0.0722f; _r=(_lum+(_hr-_lum)*_sat-127.5f)*_con+127.5f; _g=(_lum+(_hg-_lum)*_sat-127.5f)*_con+127.5f; _b=(_lum+(_hb-_lum)*_sat-127.5f)*_con+127.5f;`)
+        ln(`      float _gamma=max(1.0f,min(3.5f,${f('gamma', 'gamma', gamma)})); if(fabsf(_gamma-1.0f)>0.0001f){ _r=powf(constrain(_r,0.0f,255.0f)/255.0f,_gamma)*255.0f; _g=powf(constrain(_g,0.0f,255.0f)/255.0f,_gamma)*255.0f; _b=powf(constrain(_b,0.0f,255.0f)/255.0f,_gamma)*255.0f; } else { _r=constrain(_r,0.0f,255.0f); _g=constrain(_g,0.0f,255.0f); _b=constrain(_b,0.0f,255.0f); }`)
         if (paletteLevels) {
           if (dithering === 'ordered2x2') ln(`      float _dt=(pgm_read_byte(&_idither[(_y&1)*2+(_x&1)])+0.5f)/4.0f;`)
           else if (dithering === 'ordered4x4') ln(`      float _dt=(pgm_read_byte(&_idither[(_y&3)*4+(_x&3)])+0.5f)/16.0f;`)
@@ -2832,7 +2795,7 @@ export function generateCpp(
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float _u=(_x+0.5f-_iox)/_dw, _v=(_y+0.5f-_ioy)/_dh;`)
         ln(`      if(_u<0||_u>=1||_v<0||_v>=1){ ${ob}[_y*WIDTH+_x]=_imgcolor({${fl(background.r)},${fl(background.g)},${fl(background.b)},1.0f},_x,_y); continue; }`)
-        ln(`      _u=(1-_izv)*${fl(cropX)}+_u*_izv; _v=(1-_izv)*${fl(cropY)}+_v*_izv;`)
+        ln(`      _u=(1-_izv)*constrain(${f('cropX', 'cropX', 0.5)},0.0f,1.0f)+_u*_izv; _v=(1-_izv)*constrain(${f('cropY', 'cropY', 0.5)},0.0f,1.0f)+_v*_izv;`)
         if (sampling === 'smooth') {
           ln(`      float _fx=_u*_rw-0.5f, _fy=_v*_rh-0.5f; int _x0=(int)floorf(_fx), _y0=(int)floorf(_fy);`)
           ln(`      float _tx=_fx-_x0, _ty=_fy-_y0; int _x1=_x0+1, _y1=_y0+1;`)
@@ -2853,14 +2816,13 @@ export function generateCpp(
         needsT.v = true
         const ob = ownBuf()
         const speed = rateCpp(f('speed', 'speed', 0.3), SPEED_MAX.Blobs), scale = rateCpp(f('scale', 'scale', 0.44), SCALE_MAX.Blobs)
-        const count = Math.max(1, Math.min(6, Math.floor(Number(p.count ?? 3))))
         const pal = paletteExpr(node.id, 'paletteIn', p)
         ln(`  { // Blobs (metaballs)`)
         ln(`    float _spd=${speed}, _r=${scale}*min(WIDTH,HEIGHT), _r2=_r*_r;`)
-        ln(`    float _bx[${count}], _by[${count}];`)
-        ln(`    for(int _i=0;_i<${count};_i++){ _bx[_i]=WIDTH*(0.5f+0.4f*sin(t*_spd*(0.7f+_i*0.13f)+_i*1.7f)); _by[_i]=HEIGHT*(0.5f+0.4f*cos(t*_spd*(0.6f+_i*0.17f)+_i*2.3f)); }`)
+        ln(`    int _count=max(1,min(6,(int)floorf(${f('count', 'count', 3)}))); float _bx[6], _by[6];`)
+        ln(`    for(int _i=0;_i<_count;_i++){ _bx[_i]=WIDTH*(0.5f+0.4f*sin(t*_spd*(0.7f+_i*0.13f)+_i*1.7f)); _by[_i]=HEIGHT*(0.5f+0.4f*cos(t*_spd*(0.6f+_i*0.17f)+_i*2.3f)); }`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){ float _f=0;`)
-        ln(`      for(int _i=0;_i<${count};_i++){ float _dx=_x-_bx[_i],_dy=_y-_by[_i]; _f+=_r2/(_dx*_dx+_dy*_dy+1.0f); }`)
+        ln(`      for(int _i=0;_i<_count;_i++){ float _dx=_x-_bx[_i],_dy=_y-_by[_i]; _f+=_r2/(_dx*_dx+_dy*_dy+1.0f); }`)
         ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_f/(_f+1.0f))*255)); }}`)
         break
       }
@@ -2869,17 +2831,15 @@ export function generateCpp(
         needsT.v = true
         const ob = ownBuf()
         const speed = rateCpp(f('speed', 'speed', 0.67), SPEED_MAX.FlowField), scale = rateCpp(f('scale', 'scale', 0.08), SCALE_MAX.FlowField)
-        const count = Math.max(8, Math.min(400, Math.floor(Number(p.count ?? 80))))
-        const fade = Number(p.fade ?? 0.9)
-        const fadeL = (Number.isInteger(fade) ? `${fade}.0` : `${fade}`) + 'f'
+        const fadeL = f('fade', 'fade', 0.9)
         const pal = paletteExpr(node.id, 'paletteIn', p)
         const px = `_fpx_${id}`, py = `_fpy_${id}`, tr = `_ftr_${id}`
         ln(`  { // Flow field`)
-        ln(`    static float ${px}[${count}], ${py}[${count}], ${tr}[NUM_LEDS]; static bool _fi_${id}=false;`)
-        ln(`    if(!_fi_${id}){ for(int _i=0;_i<${count};_i++){ ${px}[_i]=(random8()/255.0f)*WIDTH; ${py}[_i]=(random8()/255.0f)*HEIGHT; } for(int _i=0;_i<NUM_LEDS;_i++)${tr}[_i]=0; _fi_${id}=true; }`)
+        ln(`    const int _count=max(8,min(400,(int)floorf(${f('count', 'count', 80)}))); static float ${px}[400], ${py}[400], ${tr}[NUM_LEDS]; static bool _fi_${id}=false;`)
+        ln(`    if(!_fi_${id}){ for(int _i=0;_i<400;_i++){ ${px}[_i]=(random8()/255.0f)*WIDTH; ${py}[_i]=(random8()/255.0f)*HEIGHT; } for(int _i=0;_i<NUM_LEDS;_i++)${tr}[_i]=0; _fi_${id}=true; }`)
         ln(`    float _spd=${speed},_sc=${scale}; uint16_t _z=(uint16_t)(t*100);`)
         ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${tr}[_i]*=${fadeL};`)
-        ln(`    for(int _i=0;_i<${count};_i++){`)
+        ln(`    for(int _i=0;_i<_count;_i++){`)
         ln(`      float _a=(inoise8((uint16_t)(${px}[_i]*_sc*256),(uint16_t)(${py}[_i]*_sc*256),_z)/255.0f)*6.2831f*2;`)
         ln(`      ${px}[_i]=fmodf(${px}[_i]+cos(_a)*_spd*0.6f+WIDTH,WIDTH); ${py}[_i]=fmodf(${py}[_i]+sin(_a)*_spd*0.6f+HEIGHT,HEIGHT);`)
         ln(`      int _xi=(int)${px}[_i],_yi=(int)${py}[_i]; if(_xi>=0&&_xi<WIDTH&&_yi>=0&&_yi<HEIGHT){ int _id=_yi*WIDTH+_xi; ${tr}[_id]=min(1.0f,${tr}[_id]+0.5f); } }`)
@@ -2890,61 +2850,59 @@ export function generateCpp(
       case 'Starfield': {
         const ob = ownBuf()
         const speed = rateCpp(f('speed', 'speed', 0.33), SPEED_MAX.Starfield)
-        const count = Math.max(8, Math.min(300, Math.floor(Number(p.count ?? 60))))
-        const colorE = incoming.get(`${node.id}:color`)
-          ? colorExpr(node.id, 'color')
-          : `CRGB(${Number(p.r ?? 255)}, ${Number(p.g ?? 255)}, ${Number(p.b ?? 255)})`
+        const pal = paletteExpr(node.id, 'paletteIn', p)
         const sx = `_sfx_${id}`, sy = `_sfy_${id}`, sz = `_sfz_${id}`
         ln(`  { // Starfield`)
-        ln(`    static float ${sx}[${count}], ${sy}[${count}], ${sz}[${count}]; static bool _sfi_${id}=false;`)
-        ln(`    if(!_sfi_${id}){ for(int _i=0;_i<${count};_i++){ ${sx}[_i]=random8()/127.5f-1; ${sy}[_i]=random8()/127.5f-1; ${sz}[_i]=random8()/255.0f*0.9f+0.1f; } _sfi_${id}=true; }`)
+        ln(`    const int _count=max(8,min(300,(int)floorf(${f('count', 'count', 60)}))); static float ${sx}[300], ${sy}[300], ${sz}[300]; static bool _sfi_${id}=false;`)
+        ln(`    if(!_sfi_${id}){ for(int _i=0;_i<300;_i++){ ${sx}[_i]=random8()/127.5f-1; ${sy}[_i]=random8()/127.5f-1; ${sz}[_i]=random8()/255.0f*0.9f+0.1f; } _sfi_${id}=true; }`)
         ln(`    float _spd=${speed}; fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
-        ln(`    for(int _i=0;_i<${count};_i++){ ${sz}[_i]-=_spd*0.015f;`)
+        ln(`    for(int _i=0;_i<_count;_i++){ ${sz}[_i]-=_spd*0.015f;`)
         ln(`      if(${sz}[_i]<=0.02f){ ${sx}[_i]=random8()/127.5f-1; ${sy}[_i]=random8()/127.5f-1; ${sz}[_i]=1; }`)
         ln(`      int _px=(int)(WIDTH/2.0f+(${sx}[_i]/${sz}[_i])*WIDTH*0.35f), _py=(int)(HEIGHT/2.0f+(${sy}[_i]/${sz}[_i])*HEIGHT*0.35f);`)
-        ln(`      if(_px>=0&&_px<WIDTH&&_py>=0&&_py<HEIGHT){ ${ob}[_py*WIDTH+_px]=${colorE}; ${ob}[_py*WIDTH+_px].nscale8((uint8_t)(min(1.0f,1-${sz}[_i])*255)); } } }`)
+        ln(`      if(_px>=0&&_px<WIDTH&&_py>=0&&_py<HEIGHT){ float _db=min(1.0f,1-${sz}[_i]); ${ob}[_py*WIDTH+_px]=ColorFromPalette(${pal},(uint8_t)(_db*255)); ${ob}[_py*WIDTH+_px].nscale8((uint8_t)(_db*255)); } } }`)
         break
       }
 
       case 'Boids': {
         const ob = ownBuf()
         const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.Boids)
-        const count = Math.max(2, Math.min(80, Math.floor(Number(p.count ?? 24))))
-        const sep = Number(p.separation ?? 0.6), ali = Number(p.alignment ?? 0.5)
-        const coh = Number(p.cohesion ?? 0.4), range = Number(p.visualRange ?? 4)
+        const sep = f('separation', 'separation', 0.6), ali = f('alignment', 'alignment', 0.5)
+        const coh = f('cohesion', 'cohesion', 0.4), range = f('visualRange', 'visualRange', 4)
         const colorMode = String(p.colorMode ?? 'solid')
         if (colorMode === 'cycle') needsT.v = true  // time-cycling hue needs `t`
         const colorE = incoming.get(`${node.id}:color`)
           ? colorExpr(node.id, 'color')
           : `CRGB(${Number(p.r ?? 120)}, ${Number(p.g ?? 200)}, ${Number(p.b ?? 255)})`
+        const pal = paletteExpr(node.id, 'paletteIn', p)
         const bx = `_bx_${id}`, by = `_by_${id}`, bvx = `_bvx_${id}`, bvy = `_bvy_${id}`
         const nvx = `_bnx_${id}`, nvy = `_bny_${id}`, nn = `_bnn_${id}`
         const needNN = colorMode === 'density'  // per-boid neighbour count (density colouring only)
-        const rng2 = (range * range).toFixed(3), sepR2 = (range * 0.5 * range * 0.5).toFixed(3)
+        const rng2 = `(${range})*(${range})`, sepR2 = `((${range})*0.5f)*((${range})*0.5f)`
         ln(`  { // Boids (Reynolds flocking)`)
-        ln(`    static float ${bx}[${count}], ${by}[${count}], ${bvx}[${count}], ${bvy}[${count}]; static bool _bi_${id}=false;`)
-        ln(`    if(!_bi_${id}){ for(int _i=0;_i<${count};_i++){ ${bx}[_i]=(random8()/255.0f)*WIDTH; ${by}[_i]=(random8()/255.0f)*HEIGHT; float _a=(random8()/255.0f)*6.2831f; ${bvx}[_i]=cosf(_a); ${bvy}[_i]=sinf(_a); } _bi_${id}=true; }`)
-        ln(`    float _ms=${speed}; if(_ms<0.1f)_ms=0.1f; float ${nvx}[${count}], ${nvy}[${count}];${needNN ? ` int ${nn}[${count}];` : ''}`)
-        ln(`    for(int _i=0;_i<${count};_i++){`)
+        ln(`    const int _count=max(2,min(80,(int)floorf(${f('count', 'count', 24)}))); static float ${bx}[80], ${by}[80], ${bvx}[80], ${bvy}[80]; static bool _bi_${id}=false;`)
+        ln(`    if(!_bi_${id}){ for(int _i=0;_i<80;_i++){ ${bx}[_i]=(random8()/255.0f)*WIDTH; ${by}[_i]=(random8()/255.0f)*HEIGHT; float _a=(random8()/255.0f)*6.2831f; ${bvx}[_i]=cosf(_a); ${bvy}[_i]=sinf(_a); } _bi_${id}=true; }`)
+        ln(`    float _ms=${speed}; if(_ms<0.1f)_ms=0.1f; float ${nvx}[80], ${nvy}[80];${needNN ? ` int ${nn}[80];` : ''}`)
+        ln(`    for(int _i=0;_i<_count;_i++){`)
         ln(`      float _sx=0,_sy=0,_avx=0,_avy=0,_cx=0,_cy=0; int _near=0,_sc=0;`)
-        ln(`      for(int _j=0;_j<${count};_j++){ if(_j==_i)continue; float _dx=${bx}[_j]-${bx}[_i],_dy=${by}[_j]-${by}[_i]; float _d2=_dx*_dx+_dy*_dy;`)
+        ln(`      for(int _j=0;_j<_count;_j++){ if(_j==_i)continue; float _dx=${bx}[_j]-${bx}[_i],_dy=${by}[_j]-${by}[_i]; float _d2=_dx*_dx+_dy*_dy;`)
         ln(`        if(_d2<${rng2}f){ _avx+=${bvx}[_j];_avy+=${bvy}[_j];_cx+=${bx}[_j];_cy+=${by}[_j];_near++; if(_d2<${sepR2}f&&_d2>0){_sx-=_dx;_sy-=_dy;_sc++;} } }`)
         ln(`      float _stx=0,_sty=0;`)
-        ln(`      if(_near>0){ _stx+=(_avx/_near-${bvx}[_i])*${ali.toFixed(3)}f*0.08f; _sty+=(_avy/_near-${bvy}[_i])*${ali.toFixed(3)}f*0.08f; _stx+=(_cx/_near-${bx}[_i])*${coh.toFixed(3)}f*0.005f; _sty+=(_cy/_near-${by}[_i])*${coh.toFixed(3)}f*0.005f; }`)
-        ln(`      if(_sc>0){ _stx+=_sx*${sep.toFixed(3)}f*0.05f; _sty+=_sy*${sep.toFixed(3)}f*0.05f; }`)
+        ln(`      if(_near>0){ _stx+=(_avx/_near-${bvx}[_i])*(${ali})*0.08f; _sty+=(_avy/_near-${bvy}[_i])*(${ali})*0.08f; _stx+=(_cx/_near-${bx}[_i])*(${coh})*0.005f; _sty+=(_cy/_near-${by}[_i])*(${coh})*0.005f; }`)
+        ln(`      if(_sc>0){ _stx+=_sx*(${sep})*0.05f; _sty+=_sy*(${sep})*0.05f; }`)
         ln(`      ${nvx}[_i]=${bvx}[_i]+_stx; ${nvy}[_i]=${bvy}[_i]+_sty;${needNN ? ` ${nn}[_i]=_near;` : ''} }`)
         ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
         if (colorMode === 'solid') ln(`    CRGB _bc0=${colorE};`)
         else if (colorMode === 'radial') ln(`    float _bcx=WIDTH/2.0f,_bcy=HEIGHT/2.0f,_bmr=sqrtf(_bcx*_bcx+_bcy*_bcy); if(_bmr<=0)_bmr=1;`)
         const boidColor =
-          colorMode === 'heading' ? `CRGB _bc=CHSV((uint8_t)((atan2f(_diry,_dirx)/6.2831853f+0.5f)*255.0f),255,255);`
-          : colorMode === 'spectrum' ? `CRGB _bc=CHSV((uint8_t)(_i/(float)${count}*255.0f),255,255);`
+          colorMode === 'palette' ? `CRGB _bc=ColorFromPalette(${pal},(uint8_t)(_i/(float)_count*255.0f));`
+          : colorMode === 'heading' ? `CRGB _bc=CHSV((uint8_t)((atan2f(_diry,_dirx)/6.2831853f+0.5f)*255.0f),255,255);`
+          : colorMode === 'spectrum' ? `CRGB _bc=CHSV((uint8_t)(_i/(float)_count*255.0f),255,255);`
           : colorMode === 'density' ? `CRGB _bc=CHSV((uint8_t)((1.0f-min(1.0f,${nn}[_i]/8.0f))*0.7f*255.0f),255,255);`
           : colorMode === 'position' ? `CRGB _bc=CHSV((uint8_t)((${bx}[_i]/WIDTH+${by}[_i]/HEIGHT)*0.5f*255.0f),255,255);`
           : colorMode === 'cycle' ? `CRGB _bc=CHSV((uint8_t)(t*0.1f*255.0f),255,255);`
           : colorMode === 'radial' ? `CRGB _bc=CHSV((uint8_t)(sqrtf((${bx}[_i]-_bcx)*(${bx}[_i]-_bcx)+(${by}[_i]-_bcy)*(${by}[_i]-_bcy))/_bmr*255.0f),255,255);`
           : `CRGB _bc=_bc0;`
-        ln(`    for(int _i=0;_i<${count};_i++){`)
+        ln(`    for(int _i=0;_i<_count;_i++){`)
         ln(`      float _sp=sqrtf(${nvx}[_i]*${nvx}[_i]+${nvy}[_i]*${nvy}[_i]); if(_sp<=0)_sp=1; float _dirx=${nvx}[_i]/_sp,_diry=${nvy}[_i]/_sp;`)
         ln(`      ${bvx}[_i]=_dirx*_ms; ${bvy}[_i]=_diry*_ms;`)
         ln(`      ${bx}[_i]=fmodf(${bx}[_i]+${bvx}[_i]+WIDTH,WIDTH); ${by}[_i]=fmodf(${by}[_i]+${bvy}[_i]+HEIGHT,HEIGHT);`)
@@ -2975,7 +2933,6 @@ export function generateCpp(
       case 'ReactionDiffusion': {
         const ob = ownBuf()
         const feed = f('feed', 'feed', 0.055), kill = f('kill', 'kill', 0.062)
-        const iters = Math.max(1, Math.min(20, Math.floor(Number(p.speed ?? 8))))
         const pal = paletteExpr(node.id, 'paletteIn', p)
         const u = `_u_${id}`, v = `_v_${id}`, un = `_un_${id}`, vn = `_vn_${id}`
         ln(`  { // ReactionDiffusion (Gray-Scott)`)
@@ -2984,7 +2941,7 @@ export function generateCpp(
         ln(`      for (int _y = HEIGHT/2-2; _y <= HEIGHT/2+1; _y++) for (int _x = WIDTH/2-2; _x <= WIDTH/2+1; _x++)`)
         ln(`        if (_x>=0&&_x<WIDTH&&_y>=0&&_y<HEIGHT) { ${u}[_y*WIDTH+_x]=0.5f; ${v}[_y*WIDTH+_x]=0.5f; } _rd_${id}=true; }`)
         ln(`    float _f=${feed}, _k=${kill};`)
-        ln(`    for (int _it=0; _it<${iters}; _it++) {`)
+        ln(`    for (int _it=0, _iters=max(1,min(20,(int)floorf(${f('speed', 'speed', 8)}))); _it<_iters; _it++) {`)
         ln(`      for (int _y=0; _y<HEIGHT; _y++) { int _ym=((_y-1+HEIGHT)%HEIGHT)*WIDTH,_yp=((_y+1)%HEIGHT)*WIDTH,_yr=_y*WIDTH;`)
         ln(`        for (int _x=0; _x<WIDTH; _x++) { int _xm=(_x-1+WIDTH)%WIDTH,_xp=(_x+1)%WIDTH,_i=_yr+_x;`)
         ln(`          float _lu=(${u}[_ym+_x]+${u}[_yp+_x]+${u}[_yr+_xm]+${u}[_yr+_xp])*0.2f+(${u}[_ym+_xm]+${u}[_ym+_xp]+${u}[_yp+_xm]+${u}[_yp+_xp])*0.05f-${u}[_i];`)
@@ -2999,12 +2956,9 @@ export function generateCpp(
 
       case 'GameOfLife': {
         const ob = ownBuf()
-        const colorE = incoming.get(`${node.id}:color`)
-          ? colorExpr(node.id, 'color')
-          : `CRGB(${Number(p.r ?? 0)}, ${Number(p.g ?? 255)}, ${Number(p.b ?? 70)})`
+        const pal = paletteExpr(node.id, 'paletteIn', p)
         const speed = f('speed', 'speed', 8)
-        const fade = Number(p.fade ?? 0.75)
-        const fadeL = (Number.isInteger(fade) ? `${fade}.0` : `${fade}`) + 'f'
+        const fadeL = f('fade', 'fade', 0.75)
         const c = `_gc_${id}`, nx = `_gn_${id}`, br = `_gb_${id}`
         ln(`  { // Game of Life`)
         ln(`    static uint8_t ${c}[NUM_LEDS], ${nx}[NUM_LEDS]; static float ${br}[NUM_LEDS]; static bool _gi_${id}=false; static uint32_t _gt_${id}=0;`)
@@ -3018,7 +2972,7 @@ export function generateCpp(
         ln(`      ::memcpy(${c},${nx},sizeof(${c}));`)
         ln(`      if (_pop==0) { for (int _i=0;_i<NUM_LEDS;_i++) ${c}[_i]=random8()<77?1:0; }`)
         ln(`      _gt_${id}=millis(); }`)
-        ln(`    for (int _i=0;_i<NUM_LEDS;_i++){ ${br}[_i]=${c}[_i]?1.0f:${br}[_i]*${fadeL}; ${ob}[_i]=${colorE}; ${ob}[_i].nscale8((uint8_t)(${br}[_i]*255)); } }`)
+        ln(`    for (int _i=0;_i<NUM_LEDS;_i++){ ${br}[_i]=${c}[_i]?1.0f:${br}[_i]*${fadeL}; ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${br}[_i]*255)); ${ob}[_i].nscale8((uint8_t)(${br}[_i]*255)); } }`)
         break
       }
 
@@ -3123,11 +3077,9 @@ export function generateCpp(
       case 'WaveSim': {
         const of = ownField()
         const trig = boolExpr(node.id, 'trigger')
-        const speed = Math.max(1, Math.min(12, Math.floor(Number(p.speed ?? 4))))
-        const damping = Math.max(0.8, Math.min(0.999, Number(p.damping ?? 0.985)))
-        const impulse = Math.max(0.1, Math.min(1, Number(p.impulse ?? 1)))
-        const dampL = (Number.isInteger(damping) ? damping.toFixed(1) : String(damping)) + 'f'
-        const impulseL = (Number.isInteger(impulse) ? impulse.toFixed(1) : String(impulse)) + 'f'
+        const speed = `max(1,min(12,(int)floorf(${f('speed', 'speed', 4)})))`
+        const dampL = `max(0.8f,min(0.999f,${f('damping', 'damping', 0.985)}))`
+        const impulseL = `max(0.1f,min(1.0f,${f('impulse', 'impulse', 1)}))`
         const A = `_ws_${id}`
         ln(`  { // WaveSim`)
         ln(`    static float ${A}p[NUM_LEDS], ${A}c[NUM_LEDS], ${A}n[NUM_LEDS]; static bool ${A}prev=false, ${A}init=false; static uint8_t ${A}pulse=1;`)
@@ -3229,7 +3181,7 @@ export function generateCpp(
       case 'FieldRotate': {
         needsT.v = true
         const of = ownField()
-        const angle = f('angle', 'angle', 0), spin = Number(p.spin ?? 0)
+        const angle = f('angle', 'angle', 0), spin = f('spin', 'spin', 0)
         const src = srcField('field')
         ln(`  { /* FieldRotate */ float _ang=((${angle})+t*${spin})*0.01745329f;`)
         ln(`    float _ca=cosf(-_ang),_sa=sinf(-_ang),_cx=(WIDTH-1)/2.0f,_cy=(HEIGHT-1)/2.0f;`)
@@ -3243,12 +3195,12 @@ export function generateCpp(
 
       case 'FieldTile': {
         const of = ownField()
-        const tx = Math.max(1, Math.round(Number(p.tilesX ?? 2)))
-        const ty = Math.max(1, Math.round(Number(p.tilesY ?? 2)))
+        const tx = f('tilesX', 'tilesX', 2)
+        const ty = f('tilesY', 'tilesY', 2)
         const src = srcField('field')
         ln(`  { /* FieldTile */`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`      int _sx=(_x*${tx})%WIDTH,_sy=(_y*${ty})%HEIGHT;`)
+        ln(`      int _tx=max(1,(int)roundf(${tx})),_ty=max(1,(int)roundf(${ty})); int _sx=(_x*_tx)%WIDTH,_sy=(_y*_ty)%HEIGHT;`)
         ln(`      ${of}[_y*WIDTH+_x]=${src ? `${src}[_sy*WIDTH+_sx]` : '0.0f'};}}`)
         break
       }
@@ -3332,15 +3284,16 @@ export function generateCpp(
 
       case 'Fire2012': {
         const ob = ownBuf()
-        const cooling = Number(p.cooling ?? 55), sparking = Number(p.sparking ?? 120)
-        ln(`  { // Fire2012 (cooling=${cooling}, sparking=${sparking})`)
+        const cooling = f('cooling', 'cooling', 55), sparking = f('sparking', 'sparking', 120)
+        const pal = paletteExpr(node.id, 'paletteIn', p)
+        ln(`  { // Fire2012`)
         ln(`    static uint8_t _heat_${id}[HEIGHT][WIDTH] = {};`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++)`)
         ln(`      _heat_${id}[_y][_x]=qsub8(_heat_${id}[_y][_x],random8(0,((${cooling}*10/HEIGHT)+2)));`)
         ln(`    for(int _y=0;_y<HEIGHT-2;_y++) for(int _x=0;_x<WIDTH;_x++)`)
         ln(`      _heat_${id}[_y][_x]=(_heat_${id}[_y+1][_x]+_heat_${id}[_y+2][max(0,_x-1)]+_heat_${id}[_y+2][_x]+_heat_${id}[_y+2][min(WIDTH-1,_x+1)])/4;`)
         ln(`    for(int _x=0;_x<WIDTH;_x++) if(random8()<${sparking}) _heat_${id}[HEIGHT-1][_x]=qadd8(_heat_${id}[HEIGHT-1][_x],random8(160,255));`)
-        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++) ${ob}[_y*WIDTH+_x]=HeatColor(_heat_${id}[_y][_x]);`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++) ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},_heat_${id}[_y][_x]);`)
         ln(`  }`)
         break
       }
@@ -3353,8 +3306,8 @@ export function generateCpp(
         // buffers are always row-major (serpentine remaps only at
         // MatrixOutput), so a rectangular grid map is correct here.
         needsXyMap.v = true
-        const amount = Math.max(0, Math.min(1, Number(p.amount ?? 0.15)))
-        ln(`  ${seedFrom('frame')} blur2d(${ob}, WIDTH, HEIGHT, ${Math.round(amount * 255)}, _xyMap);`)
+        const amount = f('amount', 'amount', 0.15)
+        ln(`  ${seedFrom('frame')} blur2d(${ob}, WIDTH, HEIGHT, (uint8_t)(constrain(${amount},0.0f,1.0f)*255.0f), _xyMap);`)
         break
       }
 

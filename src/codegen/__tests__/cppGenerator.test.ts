@@ -161,17 +161,17 @@ describe('generateCpp', () => {
     expect(cpp).toContain('::memmove(leds, buf_pg, sizeof(CRGB) * NUM_LEDS)')
   })
 
-  it('TrebleSparks uses its connected color input in generated C++', () => {
-    const color = node('c', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })
+  it('TrebleSparks colours its sparks from the connected palette input', () => {
+    const pal = node('c', 'PaletteSelector', 'color', { palette: 'ocean' })
     const sparks = node('ts', 'TrebleSparks', 'pattern', { treble: 1, density: 1 })
     const cpp = generateCpp(
-      [color, sparks, outputNode],
+      [pal, sparks, outputNode],
       [
-        edge('e1', 'c', 'ts', 'rgb', 'color'),
+        edge('e1', 'c', 'ts', 'palette', 'paletteIn'),
         edge('e2', 'ts', 'out', 'frame', 'frame'),
       ],
     )
-    expect(cpp).toContain('CRGB _spark = blend(n_c_rgb, CRGB::White')
+    expect(cpp).toContain('CRGB _spark = blend(ColorFromPalette(OceanColors_p, random8()), CRGB::White')
     expect(cpp).toContain('fadeToBlackBy(buf_ts, NUM_LEDS')
   })
 
@@ -203,11 +203,11 @@ describe('generateCpp', () => {
     const mk = (colorMode: string) =>
       generateCpp([node('bd', 'Boids', 'pattern', { colorMode, count: 10 }), outputNode], [edge('e1', 'bd', 'out', 'frame', 'frame')])
     expect(mk('heading')).toContain('atan2f(_diry,_dirx)')
-    expect(mk('spectrum')).toContain('_i/(float)10*255.0f')
+    expect(mk('spectrum')).toContain('_i/(float)_count*255.0f')
     // Density colours by neighbour count — only this mode allocates the _nn array.
     expect(mk('density')).toContain('_bnn_bd[_i]/8.0f')
-    expect(mk('density')).toContain('int _bnn_bd[10];')
-    expect(mk('spectrum')).not.toContain('_bnn_bd[10]')
+    expect(mk('density')).toContain('int _bnn_bd[80];')
+    expect(mk('spectrum')).not.toContain('_bnn_bd[80]')
     // Position colours by matrix coordinate.
     expect(mk('position')).toContain('_bx_bd[_i]/WIDTH+_by_bd[_i]/HEIGHT')
     // Cycle is time-driven, so it pulls in the `t` clock; radial builds a
@@ -324,7 +324,7 @@ describe('generateCpp', () => {
   it('emits blur2d with an XYMap (required since FastLED 3.10)', () => {
     const blur = node('bl', 'Blur2D', 'pattern', { amount: 0.5 })
     const cpp = generateCpp([blur, outputNode], [])
-    expect(cpp).toContain('blur2d(buf_bl, WIDTH, HEIGHT, 128, _xyMap)')   // 0.5 × 255
+    expect(cpp).toContain('blur2d(buf_bl, WIDTH, HEIGHT, (uint8_t)(constrain(0.5,0.0f,1.0f)*255.0f), _xyMap)')
     expect(cpp).toContain('fl::XYMap _xyMap = fl::XYMap::constructRectangularGrid(WIDTH, HEIGHT);')
   })
 
@@ -409,8 +409,8 @@ describe('generateCpp', () => {
     const add = mk({ count: 4, offsetX: 3, offsetY: 0, angle: 30, scale: 0.9, falloff: 0.7, blendMode: 'add' })
     expect(add).toContain('// Array x4')
     expect(add).toContain('for(int _i=3;_i>=0;_i--)')       // high→low paint order
-    expect(add).toContain('powf(0.9f,_i)')                   // per-copy scale accumulation
-    expect(add).toContain('_dim=powf(0.7f,_i)')              // per-copy falloff
+    expect(add).toContain('_inv=1.0f/powf(max(0.05f, 0.9),_i)') // per-copy scale accumulation
+    expect(add).toContain('_dim=powf(0.7,_i)')                  // per-copy falloff
     expect(add).toContain('buf_sc[_sy*WIDTH+_sx]')           // samples the source buffer
     expect(add).toContain('qadd8(_o.r,_r)')                  // add = saturating add
     expect(mk({ blendMode: 'lighten' })).toContain('max(_o.r,_r)')
@@ -491,11 +491,12 @@ describe('generateCpp', () => {
     expect(cpp).toContain('CRGB leds[NUM_LEDS];')
   })
 
-  it('emits Fire2012 heat simulation', () => {
-    const fire = node('f', 'Fire2012', 'pattern', { cooling: 55, sparking: 120 })
+  it('emits Fire2012 heat simulation coloured through its palette', () => {
+    const fire = node('f', 'Fire2012', 'pattern', { cooling: 55, sparking: 120, palette: 'heat' })
     const cpp = generateCpp([fire, outputNode], [])
     expect(cpp).toContain('Fire2012')
-    expect(cpp).toContain('HeatColor')
+    // Default 'heat' palette reproduces the classic HeatColors fire ramp.
+    expect(cpp).toContain('ColorFromPalette(HeatColors_p,_heat_f')
   })
 
   it('emits a Shape polygon with a fractional-sides morph blend and AA composite', () => {
@@ -514,7 +515,8 @@ describe('generateCpp', () => {
   it('emits a Shape rect/ellipse without the polygon branch', () => {
     const rectShape = node('sh', 'Shape', 'pattern', { shape: 'rect', cx: 8, cy: 8, size: 4, aspect: 2, filled: true, thickness: 0 })
     const rectCpp = generateCpp([rectShape, outputNode], [edge('e1', 'sh', 'out', 'frame', 'frame')])
-    expect(rectCpp).toContain('fabsf(_lx)-8.0f')     // rect half-width = size*aspect = 8
+    expect(rectCpp).toContain('float _ax=_size*_aspect,_ay=_size;')
+    expect(rectCpp).toContain('fabsf(_lx)-_ax')
     expect(rectCpp).not.toContain('atan2f')          // no polygon math
     const ell = node('sh', 'Shape', 'pattern', { shape: 'ellipse', cx: 8, cy: 8, size: 4, aspect: 1 })
     const ellCpp = generateCpp([ell, outputNode], [edge('e1', 'sh', 'out', 'frame', 'frame')])
@@ -693,12 +695,12 @@ describe('generateCpp', () => {
   })
 
   it('emits a Game of Life simulation with millis-based stepping', () => {
-    const gol = node('g', 'GameOfLife', 'pattern', { speed: 8, fade: 0.75, r: 0, g: 255, b: 70 })
+    const gol = node('g', 'GameOfLife', 'pattern', { speed: 8, fade: 0.75, palette: 'mojito' })
     const cpp = generateCpp([gol, outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])
     expect(cpp).toContain('static uint8_t _gc_g[NUM_LEDS], _gn_g[NUM_LEDS]')
     expect(cpp).toContain('millis() - _gt_g')
-    expect(cpp).toContain('CRGB(0, 255, 70)')
-    expect(cpp).toContain('*0.75f')
+    expect(cpp).toContain('ColorFromPalette(paldef_mojito,(uint8_t)(_gb_g[_i]*255))')
+    expect(cpp).toContain('_gb_g[_i]=_gc_g[_i]?1.0f:_gb_g[_i]*0.75')
   })
 
   it('emits a Gray-Scott reaction-diffusion simulation', () => {
@@ -712,7 +714,8 @@ describe('generateCpp', () => {
   it('emits a Blobs metaball field', () => {
     const b = node('b', 'Blobs', 'pattern', { speed: 0.6, scale: 0.22, count: 3, palette: 'lava' })
     const cpp = generateCpp([b, outputNode], [edge('e', 'b', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('float _bx[3], _by[3]')
+    expect(cpp).toContain('int _count=max(1,min(6,(int)floorf(3)))')
+    expect(cpp).toContain('float _bx[6], _by[6]')
     expect(cpp).toContain('_f/(_f+1.0f)')
     expect(cpp).toContain('ColorFromPalette(LavaColors_p')
   })
@@ -720,16 +723,18 @@ describe('generateCpp', () => {
   it('emits a stateful FlowField with particle buffers', () => {
     const ff = node('ff', 'FlowField', 'pattern', { speed: 1, scale: 0.08, count: 50, fade: 0.9, palette: 'ocean' })
     const cpp = generateCpp([ff, outputNode], [edge('e', 'ff', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('static float _fpx_ff[50], _fpy_ff[50], _ftr_ff[NUM_LEDS]')
+    expect(cpp).toContain('const int _count=max(8,min(400,(int)floorf(50)))')
+    expect(cpp).toContain('static float _fpx_ff[400], _fpy_ff[400], _ftr_ff[NUM_LEDS]')
     expect(cpp).toContain('inoise8(')
-    expect(cpp).toContain('*=0.9f')
+    expect(cpp).toContain('_ftr_ff[_i]*=0.9')
     expect(cpp).toContain('ColorFromPalette(OceanColors_p')
   })
 
   it('emits a stateful Starfield with star buffers and projection', () => {
     const sf = node('sf', 'Starfield', 'pattern', { speed: 2, count: 80, r: 255, g: 255, b: 255 })
     const cpp = generateCpp([sf, outputNode], [edge('e', 'sf', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('static float _sfx_sf[80], _sfy_sf[80], _sfz_sf[80]')
+    expect(cpp).toContain('const int _count=max(8,min(300,(int)floorf(80)))')
+    expect(cpp).toContain('static float _sfx_sf[300], _sfy_sf[300], _sfz_sf[300]')
     expect(cpp).toContain('fill_solid(buf_sf, NUM_LEDS, CRGB::Black)')
     expect(cpp).toContain('.nscale8(')
   })
@@ -765,7 +770,7 @@ describe('generateCpp', () => {
   })
 
   it('emits BassRings as a radial sine pattern with bass-scaled density and brightness', () => {
-    const br = node('br', 'BassRings', 'pattern', { bass: 0.6, energy: 0.75, speed: 1.25, r: 255, g: 120, b: 32 })
+    const br = node('br', 'BassRings', 'pattern', { bass: 0.6, energy: 0.75, speed: 1.25, palette: 'lava' })
     const cpp = generateCpp([br, outputNode], [edge('e', 'br', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _strength = min(1.0f, max(0.0f,')
     expect(cpp).toContain('float _spd = min(1.0f, max(0.0f,')
@@ -773,7 +778,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float _rings = 4.0f + _b * 8.0f * _strength;')
     expect(cpp).toContain('sinf(_dist * _rings * 6.2831853f - _phase)')
     expect(cpp).toContain('powf(max(0.0f, _wave * 0.5f + 0.5f), 2.4f)')
-    expect(cpp).toContain('CRGB(255, 120, 32)')
+    expect(cpp).toContain('ColorFromPalette(LavaColors_p, (uint8_t)(_dist * 255))')
   })
 
   it('emits MidrangeBloom through a palette with radial bloom modulation', () => {
@@ -787,13 +792,13 @@ describe('generateCpp', () => {
   })
 
   it('emits TreblePrism as sharp diagonal treble-reactive shards', () => {
-    const tp = node('tp', 'TreblePrism', 'pattern', { treble: 0.85, energy: 0.9, speed: 0.7, r: 200, g: 120, b: 255 })
+    const tp = node('tp', 'TreblePrism', 'pattern', { treble: 0.85, energy: 0.9, speed: 0.7, palette: 'amethyst' })
     const cpp = generateCpp([tp, outputNode], [edge('e', 'tp', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _motion = _spd * (1.2f + _t * 3.2f * _strength);')
     expect(cpp).toContain('float _prism = max(0.0f, _waveA * 0.55f + _waveB * 0.45f);')
     expect(cpp).toContain('powf(_prism, 3.6f)')
     expect(cpp).toContain('powf(max(0.0f, sinf((_x + _y) * 2.4f - t * _motion * 9.0f) * 0.5f + 0.5f), 10.0f)')
-    expect(cpp).toContain('CRGB(200, 120, 255)')
+    expect(cpp).toContain('ColorFromPalette(paldef_amethyst, (uint8_t)(_pt * 255))')
   })
 
   it('emits AudioCascade as a full-spectrum palette pattern with ribbons and shimmer', () => {
@@ -821,8 +826,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('45*0.01745329f')
     expect(cpp).toContain('_pmax-_pmin')
     expect(cpp).toContain('ColorFromPalette(RainbowColors_p')
-    expect(cpp).toContain('_tn*2.0f')
-    expect(cpp).not.toContain('_tn*2f')
+    expect(cpp).toContain('_tn*2+t*')
   })
 
   it('declares CustomFormula A/B inputs before using them', () => {
@@ -853,13 +857,13 @@ describe('generateCpp', () => {
       image, fit: 'contain', positionX: 0.25, positionY: 1, rotation: '90', flipX: true, flipY: true,
     })
     const cpp = generateCpp([img, outputNode], [edge('e', 'img', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('_rw=1, _rh=2')
+    expect(cpp).toContain('_rw=(_rot&1)?_ih:_iw, _rh=(_rot&1)?_iw:_ih;')
     expect(cpp).toContain('fminf((float)WIDTH/_rw,(float)HEIGHT/_rh)')
-    expect(cpp).toContain('(WIDTH-_dw)*0.25f')
-    expect(cpp).toContain('(HEIGHT-_dh)*1.0f')
+    expect(cpp).toContain('(WIDTH-_dw)*constrain(0.25,0.0f,1.0f)')
+    expect(cpp).toContain('(HEIGHT-_dh)*constrain(1,0.0f,1.0f)')
     expect(cpp).toContain('_px=_rw-1-_px')
     expect(cpp).toContain('_py=_rh-1-_py')
-    expect(cpp).toContain('int _sx=_py, _sy=_ih-1-_px')
+    expect(cpp).toContain('if(_rot==1){ _sx=_py; _sy=_ih-1-_px; }')
   })
 
   it('emits Image smooth sampling, brightness, and background colour', () => {
@@ -868,7 +872,7 @@ describe('generateCpp', () => {
       image, fit: 'contain', sampling: 'smooth', brightness: 0.5, background: '#102030',
     })
     const cpp = generateCpp([img, outputNode], [edge('e', 'img', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('const float _ibr=0.5f')
+    expect(cpp).toContain('const float _ibr=max(0.0f,min(1.0f,0.5))')
     expect(cpp).toContain('_imgcolor({16.0f,32.0f,48.0f,1.0f},_x,_y); continue;')
     expect(cpp).toContain('floorf(_fx)')
     expect(cpp).toContain('_ImgPx _c00=_imgpx(')
@@ -882,9 +886,9 @@ describe('generateCpp', () => {
     })
     const cpp = generateCpp([img, outputNode], [edge('e', 'img', 'out', 'frame', 'frame')])
     expect(cpp).toContain('PROGMEM = {0,128}')
-    expect(cpp).toContain('_izv=0.5f')
-    expect(cpp).toContain('_u=(1-_izv)*0.25f+_u*_izv')
-    expect(cpp).toContain('_v=(1-_izv)*0.75f+_v*_izv')
+    expect(cpp).toContain('_izv=1.0f/max(1.0f,min(8.0f,2))')
+    expect(cpp).toContain('_u=(1-_izv)*constrain(0.25,0.0f,1.0f)+_u*_izv')
+    expect(cpp).toContain('_v=(1-_izv)*constrain(0.75,0.0f,1.0f)+_v*_izv')
     expect(cpp).toContain('pgm_read_byte(&_imga_img[_ai])/255.0f')
     expect(cpp).toContain('_p.r+16.0f*(1-_p.a)')
   })
@@ -915,7 +919,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('_img_anim[] PROGMEM = {255,0,0,0,0,255}')
     expect(cpp).toContain('_imga_anim[] PROGMEM = {255,128}')
     expect(cpp).toContain('_imgd_anim[] PROGMEM = {100,200}')
-    expect(cpp).toContain('millis()*2.0f')
+    expect(cpp).toContain('millis()*max(0.25f,min(4.0f,2))')
     expect(cpp).toContain('_it%=300UL')
     expect(cpp).toContain('_ibase=_ifr*_iw*_ih')
   })
@@ -1279,7 +1283,7 @@ describe('Float Field — Phase 3 codegen', () => {
       ...t.edges,
     ])
     expect(cpp).toContain('/* FieldTile */')
-    expect(cpp).toContain('int _sx=(_x*3)%WIDTH,_sy=(_y*2)%HEIGHT;')
+    expect(cpp).toContain('int _tx=max(1,(int)roundf(3)),_ty=max(1,(int)roundf(2)); int _sx=(_x*_tx)%WIDTH,_sy=(_y*_ty)%HEIGHT;')
   })
 })
 
@@ -1644,7 +1648,7 @@ describe('Trails (feedback/persistence)', () => {
       edge('e2', 'tr', 'out', 'frame', 'frame'),
     ])
     expect(cpp).toContain('CRGB buf_tr[NUM_LEDS];')
-    expect(cpp).toContain('fadeToBlackBy(buf_tr, NUM_LEDS, 102);')
+    expect(cpp).toContain('fadeToBlackBy(buf_tr, NUM_LEDS, (uint8_t)(constrain(0.4,0.0f,1.0f)*255.0f));')
     expect(cpp).toContain('if(buf_sc[_i].r>buf_tr[_i].r)buf_tr[_i].r=buf_sc[_i].r;')
     // No memmove/fill_solid seeding buf_tr from buf_sc — it must persist across frames.
     expect(cpp).not.toContain('::memmove(buf_tr')
