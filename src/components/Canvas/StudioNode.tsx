@@ -4,7 +4,7 @@ import type { NodeProps, Node } from '@xyflow/react'
 import { matrixDims, useGraphStore } from '../../state/graphStore'
 import type { StudioEdge, StudioNodeData } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { NODE_LIBRARY, CATEGORY_ACCENT_VAR, portColor, propertyMeta, hasClampableInputs, nodeDisplayLabel, isPropertyEnabled, libraryDefaults } from '../../state/nodeLibrary'
+import { NODE_LIBRARY, CATEGORY_ACCENT_VAR, portColor, propertyMeta, hasClampableInputs, bypassPort, nodeDisplayLabel, isPropertyEnabled, libraryDefaults } from '../../state/nodeLibrary'
 import { waveNodeSamples } from '../../state/wave'
 import WaveScope from './WaveScope'
 import ComplexWaveScope from './ComplexWaveScope'
@@ -199,6 +199,7 @@ interface LivePropertyControlsProps {
   hasRGB: boolean
   isGroupInput: boolean
   showClamp: boolean
+  showBypass: boolean
   showSetDefault: boolean
   isCustomDefault: boolean
   updateNodeProperty: (id: string, key: string, value: unknown) => void
@@ -219,6 +220,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
   hasRGB,
   isGroupInput,
   showClamp,
+  showBypass,
   showSetDefault,
   isCustomDefault,
   updateNodeProperty,
@@ -255,7 +257,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
   const isMatrixOutput = nodeType === 'MatrixOutput'
   const [sizePopupOpen, setSizePopupOpen] = useState(false)
 
-  if (!(hasRGB || editable.length > 0 || showClamp || isGroupInput || showSetDefault || isMatrixOutput)) return null
+  if (!(hasRGB || editable.length > 0 || showClamp || showBypass || isGroupInput || showSetDefault || isMatrixOutput)) return null
 
   return (
     <div className={styles.props}>
@@ -442,6 +444,21 @@ const LivePropertyControls = memo(function LivePropertyControls({
             disabled={locked}
             checked={Boolean(props.clampInputs)}
             onChange={(e) => updateNodeProperty(nodeId, 'clampInputs', e.target.checked)}
+          />
+        </div>
+      )}
+      {showBypass && (
+        <div
+          className={styles.propRow}
+          title="Bypass this node — pass its input straight through unchanged, skipping its own effect"
+        >
+          <span className={styles.propKey}>bypass</span>
+          <input
+            className="nodrag"
+            type="checkbox"
+            disabled={locked}
+            checked={Boolean(props.bypassed)}
+            onChange={(e) => updateNodeProperty(nodeId, 'bypassed', e.target.checked)}
           />
         </div>
       )}
@@ -639,7 +656,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // convention) instead of the fixed category accent every other node uses.
   const accent = isComment && isHexColor(props.color) ? props.color : categoryAccent
   const editable = Object.entries(props).filter(
-    ([k]) => k !== 'font' && k !== 'image' && k !== 'animation' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions' && k !== 'previewHidden'
+    ([k]) => k !== 'font' && k !== 'image' && k !== 'animation' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions' && k !== 'previewHidden' && k !== 'bypassed'
       // Comment's `text` gets its own multi-line editor in the body, not the
       // generic single-line field list.
       && !(isComment && k === 'text')
@@ -655,6 +672,9 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // The "clamp inputs" toggle is rendered specially (it has no entry in the
   // node's default properties); show it only where it would do something.
   const showClamp = hasClampableInputs(d.nodeType, inputs)
+  // "Bypass" — mute this node's own effect and pass its matching frame/field
+  // input straight through; only offered where that's possible.
+  const showBypass = bypassPort(outputs, inputs) != null
 
   // "Set Default" — pins this node's current properties as the starting point
   // for future nodes of the same type (persisted; see nodeDefaults.ts). Only
@@ -859,6 +879,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           hasRGB={showRGB}
           isGroupInput={isGroupInput}
           showClamp={showClamp}
+          showBypass={showBypass}
           showSetDefault={showSetDefault}
           isCustomDefault={isCustomDefault}
           updateNodeProperty={updateNodeProperty}

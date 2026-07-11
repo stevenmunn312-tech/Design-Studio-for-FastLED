@@ -7,7 +7,7 @@ import { customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCat
 import { audioFlowExpr } from '../state/audioFlowRange'
 import { SPEED_MAX, SCALE_MAX, NOISE_SPEED_MAX, NOISE_SCALE_MAX, rateCpp } from '../state/speedRange'
 import { denormalizeBeatParam } from '../audio/beatDetection'
-import { inputClampRange, CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, CORRECTION_OPTIONS, SPI_CHIPSETS } from '../state/nodeLibrary'
+import { inputClampRange, bypassPort, CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, CORRECTION_OPTIONS, SPI_CHIPSETS } from '../state/nodeLibrary'
 import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledShims'
 import { particleRadius } from '../state/particleScale'
 
@@ -702,6 +702,27 @@ export function generateCpp(
       if (!up) return null
       fieldBufs.add(safeId(up.srcId))
       return `field_${safeId(up.srcId)}`
+    }
+
+    // Bypassed effect-chain nodes just copy their matching frame/field input
+    // into their own buffer, skipping their own render entirely — mirrors the
+    // evaluator's bypass so firmware matches the live A/B preview.
+    if (p.bypassed) {
+      const nodeOutputs = node.data.outputs as { id: string; dataType?: string }[]
+      const nodeInputs = node.data.inputs as { id: string; dataType?: string }[]
+      const bp = bypassPort(nodeOutputs, nodeInputs)
+      const bpType = bp ? nodeOutputs.find((o) => o.id === bp.outPort)?.dataType : undefined
+      if (bp && bpType === 'frame') {
+        ownBuf()
+        ln(`  ${seedFrom(bp.inPort)}`)
+        return
+      }
+      if (bp && bpType === 'field') {
+        const src = srcField(bp.inPort)
+        const buf = ownField()
+        ln(src ? `  memcpy(${buf}, ${src}, sizeof(float) * NUM_LEDS);` : `  memset(${buf}, 0, sizeof(float) * NUM_LEDS);`)
+        return
+      }
     }
 
     switch (type) {

@@ -153,6 +153,23 @@ describe('evaluateGraph', () => {
     expect(new Set(vals).size).toBeGreaterThan(1)
   })
 
+  it('bypassed node passes its matching frame input straight through unchanged', () => {
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 10, g: 20, b: 30 })
+    const bm = node('bm', 'BrightnessMod', 'composite', { brightness: 0, bypassed: true })
+    const { nodes, edges } = withOutput(bm, [sc], [edge('e1', 'sc', 'frame', 'bm', 'frame')])
+    const frame = evaluateGraph(nodes, edges, 0, W, H)!
+    // brightness: 0 would normally black out the frame — bypass skips that.
+    expect(frame[0][0]).toEqual({ r: 10, g: 20, b: 30 })
+  })
+
+  it('un-bypassing a node resumes its own effect', () => {
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 10, g: 20, b: 30 })
+    const bm = node('bm', 'BrightnessMod', 'composite', { brightness: 0, bypassed: false })
+    const { nodes, edges } = withOutput(bm, [sc], [edge('e1', 'sc', 'frame', 'bm', 'frame')])
+    const frame = evaluateGraph(nodes, edges, 0, W, H)!
+    expect(frame[0][0]).toEqual({ r: 0, g: 0, b: 0 })
+  })
+
   it('BeatDetect uses its configured detector instead of the engine beat', () => {
     mockAudio.active = true
     const mic = node('mic', 'MicInput', 'input', {})

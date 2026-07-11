@@ -1843,3 +1843,45 @@ describe('EncoderInput (codegen)', () => {
     expect(cpp).toContain('bool n_enc_pressed = digitalRead(25) == LOW;')
   })
 })
+
+describe('bypassed nodes (codegen)', () => {
+  // The generic `node()` helper leaves inputs/outputs empty; bypass needs the
+  // real frame/field port lists to find a matching pass-through pair.
+  const withPorts = (n: StudioNode, inputs: { id: string; dataType: string }[], outputs: { id: string; dataType: string }[]) => {
+    ;(n.data as unknown as { inputs: unknown; outputs: unknown }).inputs = inputs
+    ;(n.data as unknown as { inputs: unknown; outputs: unknown }).outputs = outputs
+    return n
+  }
+
+  it('a bypassed frame node copies its input buffer instead of rendering its own effect', () => {
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const bm = withPorts(
+      node('bm', 'BrightnessMod', 'composite', { brightness: 0, bypassed: true }),
+      [{ id: 'frame', dataType: 'frame' }, { id: 'brightness', dataType: 'float' }],
+      [{ id: 'frame', dataType: 'frame' }],
+    )
+    const cpp = generateCpp([sc, bm, outputNode], [
+      edge('e1', 'sc', 'bm', 'frame', 'frame'),
+      edge('e2', 'bm', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('::memmove(buf_bm, buf_sc, sizeof(CRGB) * NUM_LEDS);')
+    // The node's own brightness-scaling logic must not run.
+    expect(cpp).not.toContain('nscale8')
+  })
+
+  it('a bypassed field node memcpys its input field buffer', () => {
+    const fn = node('fn', 'FieldNoise', 'pattern', { speed: 0.4, scale: 0.3, octaves: 3 })
+    const fw = withPorts(
+      node('fw', 'FieldRotate', 'composite', { spin: 10, bypassed: true }),
+      [{ id: 'field', dataType: 'field' }, { id: 'angle', dataType: 'float' }],
+      [{ id: 'field', dataType: 'field' }],
+    )
+    const f2f = node('f2f', 'FieldToFrame', 'pattern', { palette: 'ocean' })
+    const cpp = generateCpp([fn, fw, f2f, outputNode], [
+      edge('e1', 'fn', 'fw', 'field', 'field'),
+      edge('e2', 'fw', 'f2f', 'field', 'field'),
+      edge('e3', 'f2f', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('memcpy(field_fw, field_fn, sizeof(float) * NUM_LEDS);')
+  })
+})

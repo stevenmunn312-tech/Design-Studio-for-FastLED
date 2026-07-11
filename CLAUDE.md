@@ -136,6 +136,8 @@ Changing any of those CSS values without updating the constants will silently mi
 
 **Per-input clamping:** any node with a bounded float input shows a `clamp inputs` checkbox (`props.clampInputs`, rendered specially in `StudioNode` via `hasClampableInputs()`). When on, a *wired* float input is clamped to its slider's `[min, max]` (`inputClampRange()`) — the inline alternative to wiring a `Clamp` node onto every connection (an unwired value already comes from a bounded slider, so only wired signals are clamped). Both the evaluator (`num()`) and the C++ generator (`floatExpr` → `constrain(...)`) honour it, so firmware matches the preview.
 
+**Node bypass:** any node whose primary output is `frame` or `field` and has a matching-type input (effect-chain nodes like `Blend`/`Blur2D`/`FieldRotate`/…) shows a `bypass` checkbox (`props.bypassed`, gated by `bypassPort()` in `nodeLibrary.ts`, which picks the pass-through port pair). When on, the node's own logic is skipped entirely: the evaluator (`evalNode`) returns the matching input value as the output with no side effects, and the C++ generator (`emit`) copies the source buffer into the node's own (`memmove` for `frame`, `memcpy` for `field`) instead of emitting its render — a quick A/B mute for an effect in a chain, faster than unwiring/rewiring.
+
 ### Edge Rendering
 
 `GlowEdge` (`src/components/Canvas/GlowEdge.tsx`) renders three stacked SVG `<path>` elements (wide halo → mid bloom → thin animated core) plus a dot at the target. Color is resolved at render time from `useReactFlow().getNode(source)?.data.category`. The MiniMap picks up edge colors from `style.stroke` set at connect time in `graphStore.onConnect`.

@@ -2608,6 +2608,20 @@ export function hasClampableInputs(nodeType: string, inputs: { id: string; dataT
 }
 
 /**
+ * Whether a node's primary output can be bypassed — i.e. it produces a `frame`
+ * or `field` and has an input of that same type to pass through unchanged.
+ * `Comment` and other port-less nodes are naturally excluded (no outputs).
+ */
+export function bypassPort(outputs: { id: string; dataType?: string }[], inputs: { id: string; dataType?: string }[]): { outPort: string; inPort: string } | null {
+  for (const o of outputs) {
+    if (o.dataType !== 'frame' && o.dataType !== 'field') continue
+    const match = inputs.find((i) => i.dataType === o.dataType)
+    if (match) return { outPort: o.id, inPort: match.id }
+  }
+  return null
+}
+
+/**
  * Bundled nodes (Noise / Math / Transition) collapse several former node types
  * behind one entry, selected by a variant property. This maps each to that
  * property plus the human-readable header shown per variant, so the node title

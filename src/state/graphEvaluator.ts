@@ -5,7 +5,7 @@ import { asFont, textColumns, type BitmapFont, DEFAULT_FONT } from './font'
 import { animatedImageFrame, asAnimatedImage, asImage, sampleImageToFrame, type ImageData } from './image'
 import { waveSample, combineWaves } from './wave'
 import { polinePalette, hexToRgb } from './polinePalette'
-import { inputClampRange } from './nodeLibrary'
+import { inputClampRange, bypassPort } from './nodeLibrary'
 import { makeShims, SHIM_NAMES } from './fastledShims'
 import { sampleNamedPalette } from './paletteCatalog'
 import { createBeatDetectorState, denormalizeBeatParam, updateBeatDetectorFromSpectrum } from '../audio/beatDetection'
@@ -3375,6 +3375,21 @@ function createEvalNode(
     const props = node.data.properties as Record<string, unknown>
     const type  = node.data.nodeType as string
     let out: Record<string, PortValue> = {}
+
+    // Bypassed effect-chain nodes pass their matching frame/field input
+    // straight to the output, skipping their own logic (and any stateful
+    // side effects) entirely — the live A/B toggle for a node in a chain.
+    if (props.bypassed) {
+      const nodeOutputs = node.data.outputs as { id: string; dataType?: string }[]
+      const nodeInputs = node.data.inputs as { id: string; dataType?: string }[]
+      const bp = bypassPort(nodeOutputs, nodeInputs)
+      if (bp) {
+        out = { [bp.outPort]: input(id, bp.inPort, null) }
+        memo.set(id, out)
+        inProgress.delete(id)
+        return out
+      }
+    }
 
     switch (type) {
       // ── Math ───────────────────────────────────────────────────────────
