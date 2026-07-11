@@ -610,6 +610,10 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     }
   }, [d.nodeType, rawProps])
   const hasRGB = ['r', 'g', 'b'].every((k) => typeof props[k] === 'number')
+  // Mirror's r/g/b is only the glow tint, so hide its swatch until glow is on.
+  // (The editable filter below still uses hasRGB, so r/g/b never leak into the
+  // generic field list while the swatch is hidden.)
+  const showRGB = hasRGB && (d.nodeType !== 'Mirror' || props.glow === true)
   // A GroupInput's `paramId` is edited via a dedicated role dropdown (below), not
   // the generic text field. `patternSections` is an object rendered by the
   // PatternCollection body's section chips.
@@ -820,7 +824,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           uiEffectsEnabled={uiEffectsEnabled}
           locked={bakeLocked}
           editable={editable}
-          hasRGB={hasRGB}
+          hasRGB={showRGB}
           isGroupInput={isGroupInput}
           showClamp={showClamp}
           showSetDefault={showSetDefault}
