@@ -121,4 +121,25 @@ describe('projectStore', () => {
       selectedPort: 'COM9',
     })
   })
+
+  it('restores the current project from the small hint key when the full project blob stops persisting', async () => {
+    const first = await freshStore()
+    const store = first.useProjectStore
+    const mainId = store.getState().currentProjectId
+    const showA = store.getState().createProject('Show A', workspace(['a']))
+
+    const realSetItem = Storage.prototype.setItem
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (key: string, value: string) {
+      if (key === 'fastled-studio.projects.v1') throw new Error('quota')
+      return realSetItem.call(this, key, value)
+    })
+
+    store.getState().switchProject(mainId)
+
+    setItemSpy.mockRestore()
+
+    const second = await freshStore()
+    expect(second.useProjectStore.getState().currentProjectId).toBe(mainId)
+    expect(second.useProjectStore.getState().projects.some((project) => project.id === showA.id)).toBe(true)
+  })
 })

@@ -35,6 +35,7 @@ interface ProjectState {
 }
 
 const KEY = 'fastled-studio.projects.v1'
+const CURRENT_PROJECT_KEY = 'fastled-studio.current-project.v1'
 const LEGACY_AUTOSAVE_KEY = 'fastled-studio-graph'
 const DISK_SYNC = !import.meta.env.VITEST
 
@@ -64,6 +65,23 @@ function normalizeUploadTarget(value: unknown): ProjectUploadTarget | undefined 
   return typeof maybe.selectedFqbn === 'string' && typeof maybe.selectedPort === 'string'
     ? { selectedFqbn: maybe.selectedFqbn, selectedPort: maybe.selectedPort }
     : undefined
+}
+
+function loadCurrentProjectHint(): string | null {
+  try {
+    const raw = localStorage.getItem(CURRENT_PROJECT_KEY)
+    return raw ? String(JSON.parse(raw)) : null
+  } catch {
+    return null
+  }
+}
+
+function persistCurrentProjectHint(projectId: string): void {
+  try {
+    localStorage.setItem(CURRENT_PROJECT_KEY, JSON.stringify(projectId))
+  } catch {
+    // Keep running when storage is unavailable or full.
+  }
 }
 
 function sameUploadTarget(a: ProjectUploadTarget | undefined, b: ProjectUploadTarget | undefined): boolean {
@@ -122,23 +140,32 @@ function normalizeState(parsed: Partial<PersistedState> | null | undefined): Per
     }))
   if (projects.length === 0) return fallback
   const sorted = sortProjects(projects)
-  const currentProjectId = sorted.some((project) => project.id === parsed?.currentProjectId)
-    ? String(parsed?.currentProjectId)
+  const preferredProjectId = loadCurrentProjectHint() ?? (typeof parsed?.currentProjectId === 'string' ? parsed.currentProjectId : null)
+  const currentProjectId = sorted.some((project) => project.id === preferredProjectId)
+    ? String(preferredProjectId)
     : sorted[0].id
+  persistCurrentProjectHint(currentProjectId)
   return { currentProjectId, projects: sorted }
 }
 
 function load(): PersistedState {
   try {
     const raw = localStorage.getItem(KEY)
-    if (!raw) return migrateLegacyAutosave()
+    if (!raw) {
+      const migrated = migrateLegacyAutosave()
+      persistCurrentProjectHint(migrated.currentProjectId)
+      return migrated
+    }
     return normalizeState(JSON.parse(raw) as Partial<PersistedState>)
   } catch {
-    return migrateLegacyAutosave()
+    const migrated = migrateLegacyAutosave()
+    persistCurrentProjectHint(migrated.currentProjectId)
+    return migrated
   }
 }
 
 function persist(state: PersistedState) {
+  persistCurrentProjectHint(state.currentProjectId)
   try {
     localStorage.setItem(KEY, JSON.stringify({
       currentProjectId: state.currentProjectId,
@@ -258,8 +285,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
     const projects = sortProjects([...merged.values()])
     const fallback = projects[0] ?? makeProject('Main')
-    const currentProjectId = projects.some((project) => project.id === state.currentProjectId)
-      ? state.currentProjectId
+    const preferredProjectId = loadCurrentProjectHint() ?? state.currentProjectId
+    const currentProjectId = projects.some((project) => project.id === preferredProjectId)
+      ? preferredProjectId
       : fallback.id
     const next = { currentProjectId, projects: projects.length ? projects : [fallback] }
     persist(next)
