@@ -61,7 +61,9 @@ export default function MenuBar() {
   const importInputRef = useRef<HTMLInputElement>(null)
   const projectInputRef = useRef<HTMLInputElement>(null)
   const fileMenuRef = useRef<HTMLDivElement>(null)
+  const viewMenuRef = useRef<HTMLDivElement>(null)
   const [fileMenuOpen, setFileMenuOpen] = useState(false)
+  const [viewMenuOpen, setViewMenuOpen] = useState(false)
   const hasMicNode = useGraphStore((s) =>
     s.nodes.some((n) => (n.data as { nodeType?: string }).nodeType === 'MicInput')
   )
@@ -86,17 +88,21 @@ export default function MenuBar() {
   const startTitle = lastStartChoice === 'blank'
     ? 'Open the start gallery — blank canvas was your last choice'
     : 'Open the start gallery with starter patches and blank canvas'
+  const closeMenus = () => {
+    setFileMenuOpen(false)
+    setViewMenuOpen(false)
+  }
 
   useEffect(() => {
-    if (!fileMenuOpen) return
+    if (!fileMenuOpen && !viewMenuOpen) return
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setFileMenuOpen(false)
+      if (e.key === 'Escape') closeMenus()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => {
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [fileMenuOpen])
+  }, [fileMenuOpen, viewMenuOpen])
 
   const toggleMic = () => {
     if (!micActive && showPlaying) {
@@ -250,7 +256,7 @@ export default function MenuBar() {
   }
 
   const handleNewProject = () => {
-    setFileMenuOpen(false)
+    closeMenus()
     void (async () => {
       const decision = currentProject
         ? await requestNewProjectDecision(currentProject.name, 'creating a new project', 'a new blank project')
@@ -261,7 +267,7 @@ export default function MenuBar() {
   }
 
   const handleSaveAs = () => {
-    setFileMenuOpen(false)
+    closeMenus()
     const workspace = captureWorkspace(useGraphStore.getState())
     if (currentProject) useProjectStore.getState().saveCurrentWorkspace(workspace)
     const draft = buildProjectSnapshot(workspace, {
@@ -291,7 +297,7 @@ export default function MenuBar() {
   }
 
   const handleOpenProject = () => {
-    setFileMenuOpen(false)
+    closeMenus()
     void (async () => {
       try {
         const picked = await openProjectWithNativePicker()
@@ -331,7 +337,7 @@ export default function MenuBar() {
   }
 
   const handleOpenRecentProject = (projectId: string) => {
-    setFileMenuOpen(false)
+    closeMenus()
     void (async () => {
       if (projectId === currentProjectId) return
       const projectName = projects.find((project) => project.id === projectId)?.name ?? 'selected project'
@@ -406,7 +412,10 @@ export default function MenuBar() {
       <div className={styles.menuWrap} ref={fileMenuRef}>
         <button
           className={`${styles.btn} ${fileMenuOpen ? styles.btnActive : ''}`}
-          onClick={() => setFileMenuOpen((open) => !open)}
+          onClick={() => {
+            setViewMenuOpen(false)
+            setFileMenuOpen((open) => !open)
+          }}
           aria-haspopup="menu"
           aria-expanded={fileMenuOpen}
           aria-label="File menu"
@@ -420,7 +429,7 @@ export default function MenuBar() {
               type="button"
               className={styles.menuBackdrop}
               aria-label="Close file menu"
-              onClick={() => setFileMenuOpen(false)}
+              onClick={closeMenus}
             />
             <div className={styles.menu} role="menu" aria-label="File">
               <button className={styles.menuItem} role="menuitem" onClick={handleNewProject}>
@@ -429,7 +438,7 @@ export default function MenuBar() {
               <button className={styles.menuItem} role="menuitem" onClick={handleOpenProject}>
                 Open Project File…
               </button>
-              <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); saveIntoCurrentProject() }} disabled={!currentProject}>
+              <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); saveIntoCurrentProject() }} disabled={!currentProject}>
                 Save Project
               </button>
               <button className={styles.menuItem} role="menuitem" onClick={handleSaveAs}>
@@ -451,19 +460,19 @@ export default function MenuBar() {
                 <div className={styles.menuEmpty}>No recent projects yet</div>
               )}
               <div className={styles.menuDivider} />
-              <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); handleLoadJSON() }}>
+              <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); handleLoadJSON() }}>
                 Import Graph JSON…
               </button>
-              <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); handleSaveJSON() }}>
+              <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); handleSaveJSON() }}>
                 Export Graph JSON…
               </button>
-              <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); openTemplates() }}>
+              <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); openTemplates() }}>
                 Starter Templates…
               </button>
-              <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); handleShare() }}>
+              <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); handleShare() }}>
                 Copy Share Link
               </button>
-              <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); openRecover() }}>
+              <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); openRecover() }}>
                 Recover Snapshot…
               </button>
             </div>
@@ -519,34 +528,82 @@ export default function MenuBar() {
           style={{ display: 'none' }}
           onChange={handleFileChange}
         />
+        <div className={styles.menuWrap} ref={viewMenuRef}>
+          <button
+            className={`${styles.btn} ${viewMenuOpen ? styles.btnActive : ''}`}
+            onClick={() => {
+              setFileMenuOpen(false)
+              setViewMenuOpen((open) => !open)
+            }}
+            aria-haspopup="menu"
+            aria-expanded={viewMenuOpen}
+            aria-label="View menu"
+            title="View and preferences"
+          >
+            View
+          </button>
+          {viewMenuOpen && (
+            <>
+              <button
+                type="button"
+                className={styles.menuBackdrop}
+                aria-label="Close view menu"
+                onClick={closeMenus}
+              />
+              <div className={styles.menu} role="menu" aria-label="View">
+                <div className={styles.menuLabel}>Appearance</div>
+                <button
+                  className={styles.menuItem}
+                  role="menuitem"
+                  onClick={() => { closeMenus(); cycleTheme() }}
+                  title="Cycle theme"
+                >
+                  {THEME_ICON[theme]} Theme: {THEME_LABEL[theme]}
+                </button>
+                <button
+                  className={styles.menuItem}
+                  role="menuitemcheckbox"
+                  aria-checked={effectiveReducedMotion}
+                  onClick={() => { closeMenus(); toggleReducedMotion() }}
+                  title={uiEffectsEnabled ? 'Toggle reduced motion' : 'Forced on while UI FX are off'}
+                  disabled={!uiEffectsEnabled}
+                >
+                  {effectiveReducedMotion ? '✓' : '○'} Motion: {effectiveReducedMotion ? 'Reduced' : 'Full'}
+                </button>
+                <button
+                  className={styles.menuItem}
+                  role="menuitemcheckbox"
+                  aria-checked={highContrast}
+                  onClick={() => { closeMenus(); toggleHighContrast() }}
+                  title="Toggle high contrast"
+                >
+                  {highContrast ? '✓' : '○'} Contrast: {highContrast ? 'High' : 'Standard'}
+                </button>
+                <div className={styles.menuDivider} />
+                <div className={styles.menuLabel}>Signal Path</div>
+                <button
+                  className={styles.menuItem}
+                  role="menuitemcheckbox"
+                  aria-checked={uiEffectsEnabled}
+                  onClick={() => { closeMenus(); toggleUiEffects() }}
+                  title={uiEffectsEnabled ? 'Disable extra UI effects' : 'Enable extra UI effects'}
+                >
+                  {uiEffectsEnabled ? '✓' : '○'} UI FX: {uiEffectsEnabled ? 'On' : 'Off'}
+                </button>
+                <button
+                  className={styles.menuItem}
+                  role="menuitemcheckbox"
+                  aria-checked={signalPathDimEnabled}
+                  onClick={() => { closeMenus(); toggleSignalPathDim() }}
+                  title={signalPathDimEnabled ? 'Disable dimming unrelated nodes on selection' : 'Enable dimming unrelated nodes on selection'}
+                >
+                  {signalPathDimEnabled ? '✓' : '○'} Signal dimming: {signalPathDimEnabled ? 'On' : 'Off'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
         <div className={styles.sep} />
-        <button
-          className={styles.btn}
-          onClick={cycleTheme}
-          aria-label={`Theme: ${THEME_LABEL[theme]}. Click to cycle theme`}
-          title={`Theme: ${THEME_LABEL[theme]} (click to cycle)`}
-        >
-          {THEME_ICON[theme]} {THEME_LABEL[theme]}
-        </button>
-        <button
-          className={`${styles.btn} ${effectiveReducedMotion ? styles.btnActive : ''}`}
-          onClick={toggleReducedMotion}
-          aria-label="Toggle reduced motion"
-          aria-pressed={effectiveReducedMotion}
-          title={uiEffectsEnabled ? 'Toggle reduced motion' : 'Forced on while UI FX are off'}
-          disabled={!uiEffectsEnabled}
-        >
-          {effectiveReducedMotion ? '⏸' : '▶'} Motion
-        </button>
-        <button
-          className={`${styles.btn} ${highContrast ? styles.btnActive : ''}`}
-          onClick={toggleHighContrast}
-          aria-label="Toggle high contrast"
-          aria-pressed={highContrast}
-          title="Toggle high contrast"
-        >
-          ◑ Contrast
-        </button>
         <button
           className={`${styles.btn} ${performanceMode ? styles.btnActive : ''}`}
           onClick={togglePerformanceMode}
@@ -555,24 +612,6 @@ export default function MenuBar() {
           title="Performance mode: hush chrome and emphasize live signal flow"
         >
           {performanceMode ? '◆' : '◇'} Perform
-        </button>
-        <button
-          className={`${styles.btn} ${!uiEffectsEnabled ? styles.btnActive : ''}`}
-          onClick={toggleUiEffects}
-          aria-label="Toggle extra UI effects"
-          aria-pressed={!uiEffectsEnabled}
-          title={uiEffectsEnabled ? 'Disable extra UI effects' : 'Enable extra UI effects'}
-        >
-          {uiEffectsEnabled ? 'FX On' : 'FX Off'}
-        </button>
-        <button
-          className={`${styles.btn} ${!signalPathDimEnabled ? styles.btnActive : ''}`}
-          onClick={toggleSignalPathDim}
-          aria-label="Toggle signal path dimming"
-          aria-pressed={!signalPathDimEnabled}
-          title={signalPathDimEnabled ? 'Disable dimming unrelated nodes on selection' : 'Enable dimming unrelated nodes on selection'}
-        >
-          {signalPathDimEnabled ? 'Dim On' : 'Dim Off'}
         </button>
         <div className={styles.sep} />
         <button

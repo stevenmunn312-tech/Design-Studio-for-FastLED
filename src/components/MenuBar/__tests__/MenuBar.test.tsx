@@ -98,6 +98,32 @@ describe('MenuBar file menu', () => {
     expect(useUiStore.getState().templatesOpen).toBe(true)
   })
 
+  it('moves appearance toggles into a compact View menu', () => {
+    const { getByRole, getByText, queryByRole } = render(<MenuBar />)
+
+    expect(queryByRole('button', { name: 'Toggle high contrast' })).toBeNull()
+    expect(queryByRole('button', { name: 'Toggle reduced motion' })).toBeNull()
+
+    fireEvent.click(getByRole('button', { name: 'View menu' }))
+
+    expect(getByRole('menu', { name: 'View' })).toBeTruthy()
+    expect(getByText('☾ Theme: Dark')).toBeTruthy()
+    expect(getByText('○ Motion: Full')).toBeTruthy()
+    expect(getByText('○ Contrast: Standard')).toBeTruthy()
+    expect(getByText('✓ UI FX: On')).toBeTruthy()
+    expect(getByText('✓ Signal dimming: On')).toBeTruthy()
+  })
+
+  it('still toggles view preferences from the View menu', () => {
+    const { getByRole } = render(<MenuBar />)
+
+    fireEvent.click(getByRole('button', { name: 'View menu' }))
+    fireEvent.click(getByRole('menuitemcheckbox', { name: '○ Contrast: Standard' }))
+
+    expect(useUiStore.getState().highContrast).toBe(true)
+    expect(getByRole('button', { name: 'View menu' }).getAttribute('aria-expanded')).toBe('false')
+  })
+
   it('opens a recent project directly from the File menu', async () => {
     const alpha = project('alpha', 'alpha', 'alpha-node', 200)
     const pg = project('pg', 'pg', 'pg-node', 100)
