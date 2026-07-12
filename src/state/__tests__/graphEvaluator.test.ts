@@ -2829,3 +2829,64 @@ describe('frame pool pruning', () => {
     expect(f6).not.toBe(f2)
   })
 })
+
+describe('BeatFlash', () => {
+  const boolSrc = (id: string, on: number) => node(id, 'Compare', 'math', { a: on, b: 0.5 })
+  const px = (frame: Frame) => frame[0][0]
+
+  it('defaults to an instant white flash decaying over subsequent ticks (backward-compatible)', () => {
+    const base = node('base', 'SolidColor', 'pattern', { r: 0, g: 0, b: 0 })
+    const { nodes, edges } = withOutput(node('bf', 'BeatFlash', 'pattern', {}), [base, boolSrc('beaton', 1)], [
+      edge('e1', 'beaton', 'result', 'bf', 'beat'),
+      edge('e2', 'base', 'frame', 'bf', 'frame'),
+    ])
+    const lit = evaluateGraph(nodes, edges, 0, W, H)!
+    expect(px(lit)).toEqual({ r: 255, g: 255, b: 255 })
+
+    const { nodes: nodesOff, edges: edgesOff } = withOutput(node('bf', 'BeatFlash', 'pattern', {}), [base, boolSrc('beaton', 0)], [
+      edge('e1', 'beaton', 'result', 'bf', 'beat'),
+      edge('e2', 'base', 'frame', 'bf', 'frame'),
+    ])
+    const decayed = evaluateGraph(nodesOff, edgesOff, 1, W, H)!
+    // decay = 0.85 by default, so the second tick should be dimmer than full white.
+    expect(px(decayed).r).toBeLessThan(255)
+    expect(px(decayed).r).toBeGreaterThan(0)
+  })
+
+  it('ramps up over `attack` instead of snapping to full brightness', () => {
+    const base = node('base2', 'SolidColor', 'pattern', { r: 0, g: 0, b: 0 })
+    const { nodes, edges } = withOutput(node('bf2', 'BeatFlash', 'pattern', { attack: 1 }), [base, boolSrc('beaton2', 1)], [
+      edge('e1', 'beaton2', 'result', 'bf2', 'beat'),
+      edge('e2', 'base2', 'frame', 'bf2', 'frame'),
+    ])
+    const firstTick = evaluateGraph(nodes, edges, 0, W, H)!
+    // attack = 1 (normalized) ramps over BEAT_FLASH_ATTACK_MAX_SEC (1.5s) — one
+    // tick in, it should be lit but nowhere near full white yet.
+    expect(px(firstTick).r).toBeGreaterThan(0)
+    expect(px(firstTick).r).toBeLessThan(255)
+  })
+
+  it('preserveBase=false replaces pixels with the pure flash color instead of blending', () => {
+    const base = node('base3', 'SolidColor', 'pattern', { r: 40, g: 60, b: 80 })
+    const { nodes, edges } = withOutput(
+      node('bf3', 'BeatFlash', 'pattern', { preserveBase: false, r: 0, g: 255, b: 0 }),
+      [base, boolSrc('beaton3', 1)],
+      [edge('e1', 'beaton3', 'result', 'bf3', 'beat'), edge('e2', 'base3', 'frame', 'bf3', 'frame')],
+    )
+    const lit = evaluateGraph(nodes, edges, 0, W, H)!
+    expect(px(lit)).toEqual({ r: 0, g: 255, b: 0 })
+  })
+
+  it('an unwired palette other than "none" overrides the r/g/b color', () => {
+    const base = node('base4', 'SolidColor', 'pattern', { r: 0, g: 0, b: 0 })
+    const { nodes, edges } = withOutput(
+      node('bf4', 'BeatFlash', 'pattern', { palette: 'ocean', r: 255, g: 255, b: 255 }),
+      [base, boolSrc('beaton4', 1)],
+      [edge('e1', 'beaton4', 'result', 'bf4', 'beat'), edge('e2', 'base4', 'frame', 'bf4', 'frame')],
+    )
+    const lit = evaluateGraph(nodes, edges, 0, W, H)!
+    // The ocean palette has no pure white stop, so the flash color diverges
+    // from the r/g/b fallback once a palette is selected.
+    expect(px(lit)).not.toEqual({ r: 255, g: 255, b: 255 })
+  })
+})

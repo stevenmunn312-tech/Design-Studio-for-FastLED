@@ -651,10 +651,23 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     inputs: [
       { id: 'beat', label: 'Beat', dataType: 'bool' },
       { id: 'frame', label: 'Base', dataType: 'frame' },
+      { id: 'attack', label: 'Attack', dataType: 'float' },
       { id: 'decay', label: 'Decay', dataType: 'float' },
+      { id: 'intensity', label: 'Intensity', dataType: 'float' },
+      // Wire a palette to sweep the flash through it as it decays; leave
+      // `palette` at 'none' (default) to use the solid r/g/b color instead.
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { decay: 0.85 },
+    defaultProperties: {
+      decay: 0.85,
+      attack: 0,
+      intensity: 1,
+      blendMode: 'screen',
+      preserveBase: true,
+      palette: 'none',
+      r: 255, g: 255, b: 255,
+    },
   },
   {
     // Expanding shockwave rings spawned by kick/snare, textured with hihat grain.
@@ -2114,7 +2127,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   TrebleSparks: 'Glittering treble sparks coloured from a palette.',
   TreblePrism: 'Sharp diagonal prisms that shimmer with treble energy.',
   AudioCascade: 'Full-spectrum ribbons with bass glow, mids flow, and treble shimmer.',
-  BeatFlash: 'Flashes the frame white on each beat.',
+  BeatFlash: 'Flashes toward a color/palette on each beat — attack, decay, intensity, blend.',
   KickShock: 'Expanding shockwave rings triggered by kick and snare, with hi-hat grain.',
   VocalAurora: 'Vertical aurora curtains shaped by vocals; dims to black on silence.',
   BeatKaleidoscope: 'Wedge-mirrored plasma that snaps wider and spins on every beat.',
@@ -2422,6 +2435,8 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   energy:     { control: 'slider', min: 0, max: 1, step: 0.01 },
   brightness: { control: 'slider', min: 0, max: 1, step: 0.01 },
   boost:      { control: 'slider', min: 0, max: 1, step: 0.01 },
+  // Beat Flash overdrive — 1 = the pre-existing flash brightness, up to 2x hotter.
+  intensity:  { control: 'slider', min: 0, max: 2, step: 0.05 },
   // Show Engine beat-triggered particle overlay (style 0–10, hue 0–255).
   particleStyle:     { control: 'slider', min: 0, max: 10, step: 1 },
   particleHue:       { control: 'slider', min: 0, max: 255, step: 1 },
@@ -2455,6 +2470,12 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Text: {
     x: N01,
     y: N01,
+  },
+  BeatFlash: {
+    // 'none' (default) uses the r/g/b color below; any other preset sweeps
+    // the flash through that palette as it decays.
+    palette:   { control: 'select', options: ['none', ...PALETTES] },
+    blendMode: { control: 'select', options: ['screen', 'add'] },
   },
   FFTAnalyzer:       {
     bands:     { control: 'slider', min: 8, max: 32, step: 1 },

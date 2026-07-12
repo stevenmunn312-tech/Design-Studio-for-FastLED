@@ -1,5 +1,6 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
+import { BEAT_FLASH_ATTACK_MAX_SEC } from '../state/graphEvaluator'
 import { asFont, textColumns } from '../state/font'
 import { asAnimatedImage, asImage } from '../state/image'
 import { polineStops16, hexToRgb } from '../state/polinePalette'
@@ -1770,15 +1771,41 @@ export function generateCpp(
       case 'BeatFlash': {
         const ob = ownBuf()
         const beat = boolExpr(node.id, 'beat')
+        const attack = f('attack', 'attack', 0)
         const decay = f('decay', 'decay', 0.85)
+        const intensity = f('intensity', 'intensity', 1)
+        const blendMode = String(p.blendMode ?? 'screen') === 'add' ? 'add' : 'screen'
+        const preserveBase = p.preserveBase !== false
+        const paletteWired = incoming.has(`${node.id}:paletteIn`)
+        const usePalette = paletteWired || String(p.palette ?? 'none') !== 'none'
+        const flashPal = usePalette ? paletteExpr(node.id, 'paletteIn', p) : null
+        const cr = intProp(p.r, 255, 0, 255)
+        const cg = intProp(p.g, 255, 0, 255)
+        const cb = intProp(p.b, 255, 0, 255)
         ln(`  {`)
         ln(`    ${seedFrom('frame')}`)
-        ln(`    static float _flash_${id} = 0;`)
-        ln(`    if (${beat}) _flash_${id} = 1.0f; else _flash_${id} *= ${decay};`)
-        ln(`    for (int _i = 0; _i < NUM_LEDS; _i++) {`)
-        ln(`      ${ob}[_i].r = qadd8(${ob}[_i].r, (uint8_t)((255 - ${ob}[_i].r) * _flash_${id}));`)
-        ln(`      ${ob}[_i].g = qadd8(${ob}[_i].g, (uint8_t)((255 - ${ob}[_i].g) * _flash_${id}));`)
-        ln(`      ${ob}[_i].b = qadd8(${ob}[_i].b, (uint8_t)((255 - ${ob}[_i].b) * _flash_${id}));`)
+        ln(`    static float _flash_${id} = 0; static bool _flashRise_${id} = false;`)
+        ln(`    float _fAtkSec_${id} = max(0.0f, ${attack}) * ${BEAT_FLASH_ATTACK_MAX_SEC}f;`)
+        ln(`    float _fAtkStep_${id} = _fAtkSec_${id} > 0 ? min(1.0f, 1.0f / (_fAtkSec_${id} * 60.0f)) : 1.0f;`)
+        ln(`    if (${beat}) _flashRise_${id} = true;`)
+        ln(`    if (_flashRise_${id}) { _flash_${id} = min(1.0f, _flash_${id} + _fAtkStep_${id}); if (_flash_${id} >= 1.0f) _flashRise_${id} = false; }`)
+        ln(`    else _flash_${id} *= ${decay};`)
+        ln(`    if (_flash_${id} >= 0.003f) {`)
+        ln(`      float _feff_${id} = max(0.0f, _flash_${id} * ${intensity});`)
+        ln(`      CRGB _fc_${id} = ${flashPal ? `ColorFromPalette(${flashPal}, (uint8_t)((1.0f - _flash_${id}) * 255))` : `CRGB(${cr}, ${cg}, ${cb})`};`)
+        ln(`      for (int _i = 0; _i < NUM_LEDS; _i++) {`)
+        if (!preserveBase) {
+          ln(`        ${ob}[_i] = CRGB((uint8_t)min(255.0f, _fc_${id}.r * _feff_${id}), (uint8_t)min(255.0f, _fc_${id}.g * _feff_${id}), (uint8_t)min(255.0f, _fc_${id}.b * _feff_${id}));`)
+        } else if (blendMode === 'add') {
+          ln(`        ${ob}[_i].r = qadd8(${ob}[_i].r, (uint8_t)min(255.0f, _fc_${id}.r * _feff_${id}));`)
+          ln(`        ${ob}[_i].g = qadd8(${ob}[_i].g, (uint8_t)min(255.0f, _fc_${id}.g * _feff_${id}));`)
+          ln(`        ${ob}[_i].b = qadd8(${ob}[_i].b, (uint8_t)min(255.0f, _fc_${id}.b * _feff_${id}));`)
+        } else {
+          ln(`        ${ob}[_i].r = qadd8(${ob}[_i].r, (uint8_t)max(0.0f, ((float)_fc_${id}.r - ${ob}[_i].r) * _feff_${id}));`)
+          ln(`        ${ob}[_i].g = qadd8(${ob}[_i].g, (uint8_t)max(0.0f, ((float)_fc_${id}.g - ${ob}[_i].g) * _feff_${id}));`)
+          ln(`        ${ob}[_i].b = qadd8(${ob}[_i].b, (uint8_t)max(0.0f, ((float)_fc_${id}.b - ${ob}[_i].b) * _feff_${id}));`)
+        }
+        ln(`      }`)
         ln(`    }`)
         ln(`  }`)
         break

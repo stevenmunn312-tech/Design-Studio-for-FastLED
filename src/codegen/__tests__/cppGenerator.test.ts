@@ -1907,3 +1907,50 @@ describe('bypassed nodes (codegen)', () => {
     expect(cpp).toContain('memcpy(field_fw, field_fn, sizeof(float) * NUM_LEDS);')
   })
 })
+
+describe('generateCpp — BeatFlash', () => {
+  const beat = node('beat', 'ButtonInput', 'input', {})
+  const base = node('base', 'SolidColor', 'pattern', { r: 10, g: 20, b: 30 })
+
+  it('defaults to a solid CRGB flash color, screen-blended, with an attack ramp', () => {
+    const bf = node('bf', 'BeatFlash', 'pattern', {})
+    const cpp = generateCpp([beat, base, bf, outputNode], [
+      edge('e1', 'beat', 'bf', 'pressed', 'beat'),
+      edge('e2', 'base', 'bf', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('CRGB(255, 255, 255)')
+    expect(cpp).toContain('_fAtkStep_bf')
+    expect(cpp).not.toContain('ColorFromPalette(RainbowColors_p')
+    // Screen blend subtracts the base pixel from the flash color.
+    expect(cpp).toMatch(/_fc_bf\.r - .*\[_i\]\.r/)
+  })
+
+  it('samples a palette instead of the solid color when one is selected', () => {
+    const bf = node('bf2', 'BeatFlash', 'pattern', { palette: 'ocean' })
+    const cpp = generateCpp([beat, base, bf, outputNode], [
+      edge('e1', 'beat', 'bf2', 'pressed', 'beat'),
+      edge('e2', 'base', 'bf2', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('ColorFromPalette(OceanColors_p')
+    expect(cpp).not.toContain('CRGB(255, 255, 255)')
+  })
+
+  it('preserveBase=false overwrites the pixel outright instead of blending', () => {
+    const bf = node('bf3', 'BeatFlash', 'pattern', { preserveBase: false, r: 0, g: 255, b: 0 })
+    const cpp = generateCpp([beat, base, bf, outputNode], [
+      edge('e1', 'beat', 'bf3', 'pressed', 'beat'),
+      edge('e2', 'base', 'bf3', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('CRGB(0, 255, 0)')
+    expect(cpp).toMatch(/buf_bf3\[_i\] = CRGB\(/)
+  })
+
+  it('blendMode "add" adds the flash color without subtracting the base', () => {
+    const bf = node('bf4', 'BeatFlash', 'pattern', { blendMode: 'add' })
+    const cpp = generateCpp([beat, base, bf, outputNode], [
+      edge('e1', 'beat', 'bf4', 'pressed', 'beat'),
+      edge('e2', 'base', 'bf4', 'frame', 'frame'),
+    ])
+    expect(cpp).toMatch(/qadd8\(buf_bf4\[_i\]\.r, \(uint8_t\)min\(255\.0f, _fc_bf4\.r \* _feff_bf4\)\)/)
+  })
+})

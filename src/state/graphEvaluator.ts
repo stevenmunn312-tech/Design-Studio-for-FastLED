@@ -32,7 +32,7 @@ function normalizedCenterAxis(value: number, size: number, extent: number, wrap:
 
 // ── Persistent state for stateful pattern nodes ───────────────────────────────
 const fireHeat    = new Map<string, number[][]>()
-const flashLevel  = new Map<string, number>()
+const flashLevel  = new Map<string, { level: number; rising: boolean }>()
 const counterVals = new Map<string, number>()
 // Interval (metronome) node — last fire time in seconds, keyed by state id.
 const intervalLast = new Map<string, number>()
@@ -1253,21 +1253,60 @@ function evalAudioCascade(bass: number, mids: number, treble: number, intensity:
     })
 }
 
-function evalBeatFlash(nodeId: string, beat: boolean, base: Frame | null, decay: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  let level = flashLevel.get(nodeId) ?? 0
-  if (beat) level = 1
-  else level = level * decay
-  flashLevel.set(nodeId, level)
+// Attack ramps the flash level to 1 over `attack` seconds instead of snapping
+// immediately (attack = 0, the default, reproduces the original instant-flash
+// behaviour); once at peak, decay multiplies the level down each tick as before.
+export const BEAT_FLASH_ATTACK_MAX_SEC = 1.5
 
+function updateBeatFlashLevel(key: string, beat: boolean, attack: number, decay: number): number {
+  const state = flashLevel.get(key) ?? { level: 0, rising: false }
+  const attackSec = Math.max(0, attack) * BEAT_FLASH_ATTACK_MAX_SEC
+  const attackStep = attackSec > 0 ? Math.min(1, 1 / (attackSec * 60)) : 1
+  if (beat) state.rising = true
+  if (state.rising) {
+    state.level = Math.min(1, state.level + attackStep)
+    if (state.level >= 1) state.rising = false
+  } else {
+    state.level *= decay
+  }
+  flashLevel.set(key, state)
+  return state.level
+}
+
+// Blend a beat-triggered flash of `color` onto `base` at `level` (0–1).
+// `preserveBase` toggles whether the underlying frame shows through the flash
+// (screen/add toward color) or is fully replaced by the flash color while lit.
+function blendBeatFlash(
+  base: Frame | null, level: number, color: RGB, intensity: number,
+  blendMode: 'screen' | 'add', preserveBase: boolean, W = DEFAULT_W, H = DEFAULT_H,
+): Frame {
   const src = base ?? blankFrame(W, H)
-  if (level < 0.01) return src
+  if (level < 0.003) return src
 
+  const effective = Math.max(0, level * intensity)
+  const { r: cr, g: cg, b: cb } = color
   return src.map(row =>
-    row.map(px => ({
-      r: Math.min(255, Math.round(px.r + (255 - px.r) * level)),
-      g: Math.min(255, Math.round(px.g + (255 - px.g) * level)),
-      b: Math.min(255, Math.round(px.b + (255 - px.b) * level)),
-    }))
+    row.map(px => {
+      if (!preserveBase) {
+        return {
+          r: Math.max(0, Math.min(255, Math.round(cr * effective))),
+          g: Math.max(0, Math.min(255, Math.round(cg * effective))),
+          b: Math.max(0, Math.min(255, Math.round(cb * effective))),
+        }
+      }
+      if (blendMode === 'add') {
+        return {
+          r: Math.min(255, Math.round(px.r + cr * effective)),
+          g: Math.min(255, Math.round(px.g + cg * effective)),
+          b: Math.min(255, Math.round(px.b + cb * effective)),
+        }
+      }
+      return {
+        r: Math.max(0, Math.min(255, Math.round(px.r + (cr - px.r) * effective))),
+        g: Math.max(0, Math.min(255, Math.round(px.g + (cg - px.g) * effective))),
+        b: Math.max(0, Math.min(255, Math.round(px.b + (cb - px.b) * effective))),
+      }
+    })
   )
 }
 
@@ -4206,7 +4245,16 @@ function createEvalNode(
         const beatVal = input(id, 'beat', false) as boolean
         const baseFrame = input(id, 'frame', null) as Frame | null
         const decay = num(id, 'decay', props, 'decay', 0.85)
-        out = { frame: evalBeatFlash(stateKey(id), beatVal, baseFrame, decay, W, H) }
+        const attack = num(id, 'attack', props, 'attack', 0)
+        const intensity = num(id, 'intensity', props, 'intensity', 1)
+        const blendMode = String(props.blendMode ?? 'screen') === 'add' ? 'add' : 'screen'
+        const preserveBase = props.preserveBase !== false
+        const level = updateBeatFlashLevel(stateKey(id), beatVal, attack, decay)
+        const paletteWired = incoming.has(`${id}:paletteIn`)
+        const color = (paletteWired || String(props.palette ?? 'none') !== 'none')
+          ? samplePalette(pal(id, 'paletteIn', props, 'palette', 'rainbow'), 1 - level)
+          : { r: num(id, 'r', props, 'r', 255), g: num(id, 'g', props, 'g', 255), b: num(id, 'b', props, 'b', 255) }
+        out = { frame: blendBeatFlash(baseFrame, level, color, intensity, blendMode, preserveBase, W, H) }
         break
       }
 
