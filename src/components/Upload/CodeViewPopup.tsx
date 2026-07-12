@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useUploadStore } from '../../state/uploadStore'
 import styles from './Upload.module.css'
 
@@ -28,7 +29,7 @@ export default function CodeViewPopup({ code }: { code: string }) {
   const copyLabel = copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy'
   const lineCount = code ? code.split('\n').length : 0
 
-  return (
+  return createPortal(
     <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) closeCodeView() }}>
       <div className={styles.codePopup} role="dialog" aria-label="Generated code">
         <div className={styles.popupHeader}>
@@ -42,6 +43,7 @@ export default function CodeViewPopup({ code }: { code: string }) {
         </div>
         <pre className={styles.codeBody}>{code || '// nothing to generate yet'}</pre>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
