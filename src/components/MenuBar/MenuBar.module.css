@@ -1,4 +1,5 @@
 .menubar {
+  position: relative;
   height: var(--menubar-height);
   background:
     linear-gradient(180deg, rgba(18, 22, 27, 0.98), rgba(11, 14, 18, 0.98));
@@ -8,7 +9,7 @@
   padding: 0 var(--space-2);
   gap: var(--space-2);
   flex-shrink: 0;
-  z-index: 10;
+  z-index: 20;
   box-shadow: inset 0 -1px rgba(255, 255, 255, 0.02);
 }
 
@@ -73,6 +74,18 @@
 .menuWrap {
   position: relative;
   flex-shrink: 0;
+  z-index: 1;
+}
+
+.menuBackdrop {
+  position: fixed;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  cursor: default;
+  z-index: 29;
 }
 
 .menu {

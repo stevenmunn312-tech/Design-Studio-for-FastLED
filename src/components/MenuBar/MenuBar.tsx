@@ -71,16 +71,11 @@ export default function MenuBar() {
 
   useEffect(() => {
     if (!fileMenuOpen) return
-    const onPointerDown = (e: MouseEvent) => {
-      if (!fileMenuRef.current?.contains(e.target as Node)) setFileMenuOpen(false)
-    }
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setFileMenuOpen(false)
     }
-    window.addEventListener('mousedown', onPointerDown)
     window.addEventListener('keydown', onKeyDown)
     return () => {
-      window.removeEventListener('mousedown', onPointerDown)
       window.removeEventListener('keydown', onKeyDown)
     }
   }, [fileMenuOpen])
@@ -234,51 +229,59 @@ export default function MenuBar() {
           File
         </button>
         {fileMenuOpen && (
-          <div className={styles.menu} role="menu" aria-label="File">
-            <button className={styles.menuItem} role="menuitem" onClick={handleNewProject}>
-              New Project
-            </button>
-            <button className={styles.menuItem} role="menuitem" onClick={handleOpenProjects}>
-              Open Project…
-            </button>
-            <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); saveIntoCurrentProject() }} disabled={!currentProject}>
-              Save
-            </button>
-            <button className={styles.menuItem} role="menuitem" onClick={handleSaveAs}>
-              Save As…
-            </button>
-            <div className={styles.menuDivider} />
-            <div className={styles.menuLabel}>Recent Projects</div>
-            {recentProjects.length > 0 ? recentProjects.map((project) => (
-              <button
-                key={project.id}
-                className={styles.menuItem}
-                role="menuitem"
-                onClick={() => handleOpenRecentProject(project.id)}
-                title={`Open ${project.name}`}
-              >
-                {project.name}
+          <>
+            <button
+              type="button"
+              className={styles.menuBackdrop}
+              aria-label="Close file menu"
+              onClick={() => setFileMenuOpen(false)}
+            />
+            <div className={styles.menu} role="menu" aria-label="File">
+              <button className={styles.menuItem} role="menuitem" onClick={handleNewProject}>
+                New Project
               </button>
-            )) : (
-              <div className={styles.menuEmpty}>No recent projects yet</div>
-            )}
-            <div className={styles.menuDivider} />
-            <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); handleLoadJSON() }}>
-              Import JSON…
-            </button>
-            <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); handleSaveJSON() }}>
-              Export JSON…
-            </button>
-            <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); openTemplates() }}>
-              Starter Templates…
-            </button>
-            <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); handleShare() }}>
-              Copy Share Link
-            </button>
-            <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); openRecover() }}>
-              Recover Workspace…
-            </button>
-          </div>
+              <button className={styles.menuItem} role="menuitem" onClick={handleOpenProjects}>
+                Open Project…
+              </button>
+              <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); saveIntoCurrentProject() }} disabled={!currentProject}>
+                Save
+              </button>
+              <button className={styles.menuItem} role="menuitem" onClick={handleSaveAs}>
+                Save As…
+              </button>
+              <div className={styles.menuDivider} />
+              <div className={styles.menuLabel}>Recent Projects</div>
+              {recentProjects.length > 0 ? recentProjects.map((project) => (
+                <button
+                  key={project.id}
+                  className={styles.menuItem}
+                  role="menuitem"
+                  onClick={() => handleOpenRecentProject(project.id)}
+                  title={`Open ${project.name}`}
+                >
+                  {project.name}
+                </button>
+              )) : (
+                <div className={styles.menuEmpty}>No recent projects yet</div>
+              )}
+              <div className={styles.menuDivider} />
+              <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); handleLoadJSON() }}>
+                Import JSON…
+              </button>
+              <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); handleSaveJSON() }}>
+                Export JSON…
+              </button>
+              <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); openTemplates() }}>
+                Starter Templates…
+              </button>
+              <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); handleShare() }}>
+                Copy Share Link
+              </button>
+              <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); openRecover() }}>
+                Recover Workspace…
+              </button>
+            </div>
+          </>
         )}
       </div>
       <nav className={styles.nav}>
