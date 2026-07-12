@@ -34,6 +34,8 @@ import CanvasContextMenu from './CanvasContextMenu'
 import GroupControls from './GroupControls'
 import { anchorPosition } from '../../utils/anchorNode'
 import { signalPathFor } from '../../utils/signalPath'
+import { STARTER_TEMPLATES } from '../../state/starterTemplates'
+import { startBlankCanvas, startTemplateById } from '../../utils/startFlow'
 import { usePreviewStore } from '../../state/previewStore'
 import { playNoodleConnectSfx, playNoodleDisconnectSfx } from '../../audio/interactionSfx'
 import styles from './NodeGraphCanvas.module.css'
@@ -138,6 +140,8 @@ function NodeGraphCanvasInner() {
     reducedMotion,
     fitViewRequest,
     uiEffectsEnabled,
+    openTemplates,
+    lastStartChoice,
   } = useUiStore()
   const wrapperRef = useRef<HTMLDivElement>(null)
   const leftInset = panelInsetPx('--sidebar-width', DEFAULT_SIDEBAR_W, sidebarOpen)
@@ -195,6 +199,11 @@ function NodeGraphCanvasInner() {
   }), [nodes])
   const hasShowGraph = useMemo(() => nodes.some((node) => (node.data as { category?: string }).category === 'show'), [nodes])
   const hasPatternGraph = useMemo(() => nodes.some((node) => (node.data as { category?: string }).category === 'pattern'), [nodes])
+  const lastStartLabel = useMemo(() => (
+    lastStartChoice === 'blank'
+      ? 'Blank canvas'
+      : STARTER_TEMPLATES.find((template) => template.id === lastStartChoice)?.name ?? null
+  ), [lastStartChoice])
 
   useEffect(() => {
     if (!uiEffectsEnabled) return
@@ -586,6 +595,22 @@ function NodeGraphCanvasInner() {
     })
   }, [getZoom, setCenter])
 
+  const handleStartRainbow = useCallback(() => {
+    startTemplateById('rainbow')
+  }, [])
+
+  const handleStartAudioDemo = useCallback(() => {
+    startTemplateById('audio-spectrum')
+  }, [])
+
+  const handleBrowseStarters = useCallback(() => {
+    openTemplates()
+  }, [openTemplates])
+
+  const handleStartBlank = useCallback(() => {
+    startBlankCanvas()
+  }, [])
+
   const findSpliceTarget = useCallback((
     position: Pt,
     def: (typeof NODE_LIBRARY)[number],
@@ -853,13 +878,32 @@ function NodeGraphCanvasInner() {
         </div>
       )}
       {nodes.length === 0 && (
-        <div className={styles.emptyField} role="status">
+        <div className={styles.emptyField} role="region" aria-label="Start screen">
           {uiEffectsEnabled && <div className={styles.emptyFieldFrame} aria-hidden="true" />}
-          <span className={styles.emptyEyebrow}>Signal lab idle</span>
-          {uiEffectsEnabled && <div className={styles.dormantSignal} aria-hidden="true"><span /></div>}
-          {uiEffectsEnabled && <div className={styles.emptyBeacon} aria-hidden="true"><span /></div>}
-          <strong>Patch the first light path</strong>
-          <span>Drag a generator onto the field, route it to Matrix Output, and the studio wakes up like an instrument.</span>
+          <div className={styles.emptyPanel}>
+            <span className={styles.emptyEyebrow}>Signal lab idle</span>
+            {uiEffectsEnabled && <div className={styles.dormantSignal} aria-hidden="true"><span /></div>}
+            {uiEffectsEnabled && <div className={styles.emptyBeacon} aria-hidden="true"><span /></div>}
+            <strong>Wake the studio with a first patch</strong>
+            <span className={styles.emptySummary}>
+              Load something animated in one click, browse the full starter gallery, or stay blank and build from scratch.
+            </span>
+            <div className={styles.emptyActions}>
+              <button type="button" className={`${styles.startAction} ${styles.startActionPrimary}`} onClick={handleStartRainbow}>
+                Start with Rainbow
+              </button>
+              <button type="button" className={`${styles.startAction} ${styles.startActionPrimary}`} onClick={handleStartAudioDemo}>
+                Audio-reactive demo
+              </button>
+              <button type="button" className={styles.startAction} onClick={handleBrowseStarters}>
+                Browse starter patches
+              </button>
+              <button type="button" className={styles.startAction} onClick={handleStartBlank}>
+                Blank canvas
+              </button>
+            </div>
+            {lastStartLabel && <div className={styles.emptyMeta}>Last start: {lastStartLabel}</div>}
+          </div>
         </div>
       )}
       {nodes.length > 0 && !hasTerminalFrame && (

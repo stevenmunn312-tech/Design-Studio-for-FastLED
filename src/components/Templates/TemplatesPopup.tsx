@@ -3,6 +3,7 @@ import { CATEGORY_COLOR } from '../../state/nodeLibrary'
 import { STARTER_TEMPLATES, type StarterTemplate } from '../../state/starterTemplates'
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
+import { startBlankCanvas, startTemplate } from '../../utils/startFlow'
 import styles from './TemplatesPopup.module.css'
 
 function TemplatePreview({ template }: { template: StarterTemplate }) {
@@ -75,9 +76,7 @@ function BlankPreview() {
 export default function TemplatesPopup() {
   const closeTemplates = useUiStore((s) => s.closeTemplates)
   const requestConfirm = useUiStore((s) => s.requestConfirm)
-  const setStatus = useUiStore((s) => s.setStatus)
   const lastStartChoice = useUiStore((s) => s.lastStartChoice)
-  const setLastStartChoice = useUiStore((s) => s.setLastStartChoice)
 
   const lastStartLabel =
     lastStartChoice === 'blank'
@@ -98,22 +97,13 @@ export default function TemplatesPopup() {
   const loadTemplate = async (template: StarterTemplate) => {
     const ok = await confirmReplace('Load starter')
     if (!ok) return
-    const { nodes, edges } = template.build()
-    useGraphStore.getState().loadGraph(nodes, edges)
-    useGraphStore.temporal.getState().clear()
-    setLastStartChoice(template.id)
-    setStatus(`Loaded "${template.name}" starter`, 'success')
-    closeTemplates()
+    startTemplate(template, { closeTemplates: true })
   }
 
   const loadBlank = async () => {
     const ok = await confirmReplace('Start blank')
     if (!ok) return
-    useGraphStore.getState().loadGraph([], [])
-    useGraphStore.temporal.getState().clear()
-    setLastStartChoice('blank')
-    setStatus('Started with a blank canvas', 'success')
-    closeTemplates()
+    startBlankCanvas({ closeTemplates: true })
   }
 
   return (
