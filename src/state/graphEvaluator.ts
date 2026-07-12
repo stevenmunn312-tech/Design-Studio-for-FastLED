@@ -3738,7 +3738,7 @@ function createEvalNode(
         const edge = (input(id, 'edge', null) as RGB | null) ?? hexToRgb(String(props.edge ?? '#ff0080'))
         const rad = Math.max(0.5, num(id, 'radius', props, 'radius', 6))
         const thickness = Math.max(0, num(id, 'thickness', props, 'thickness', 1.5))
-        const filled = Boolean(props.filled)
+        const filled = Boolean(props.filled ?? true)
         const wrap = Boolean(props.wrap)
         const extent = rad + thickness * 0.5
         evalWrappedShape(

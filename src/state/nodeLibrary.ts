@@ -132,7 +132,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'thickness', label: 'Thickness', dataType: 'float' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { cx: 0.5, cy: 0.5, radius: 6, thickness: 1.5, filled: false, wrap: false, fill: '#ff3080', edge: '#ff0080' },
+    defaultProperties: { cx: 0.5, cy: 0.5, radius: 6, thickness: 1.5, filled: true, wrap: false, fill: '#ff3080', edge: '#ff0080' },
   },
   {
     // Draws a line between two points over an optional base frame.

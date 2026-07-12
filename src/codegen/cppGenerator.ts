@@ -1061,7 +1061,7 @@ export function generateCpp(
         }
         const fillE = incoming.get(`${node.id}:fill`) ? colorExpr(node.id, 'fill') : hexCrgb(p.fill, 0xff3080)
         const edgeE = incoming.get(`${node.id}:edge`) ? colorExpr(node.id, 'edge') : hexCrgb(p.edge, 0xff0080)
-        const filled = p.filled === true
+        const filled = (p.filled ?? true) !== false
         const emitCirclePass = (cxExpr: string, cyExpr: string, indent: string) => {
           ln(`${indent}for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
           ln(`${indent}  float _dx=(_x+0.5f)-${cxExpr},_dy=(_y+0.5f)-${cyExpr},_sd=sqrtf(_dx*_dx+_dy*_dy)-_rad;`)
