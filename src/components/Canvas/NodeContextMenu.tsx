@@ -14,6 +14,7 @@ interface Props {
 
 export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
   const { duplicateNode, deleteNode, disconnectNode, copyNode, ungroupNode, createGroup } = useGraphStore()
+  const requestConfirm = useUiStore((s) => s.requestConfirm)
   const setStatus = useUiStore((s) => s.setStatus)
   const patterns = usePatternLibrary((s) => s.patterns)
   const isGroup = useGraphStore(
@@ -27,10 +28,19 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
   const [showGroupDialog, setShowGroupDialog] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  const handleSaveToLibrary = () => {
+  const handleSaveToLibrary = async () => {
     const name = String(groupLabel ?? 'Pattern').trim()
     const replacing = patterns.some((pattern) => pattern.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase())
-    if (replacing && !window.confirm(`A library pattern named “${name}” already exists. Replace it?`)) return
+    if (replacing) {
+      const ok = await requestConfirm({
+        title: 'Replace library pattern?',
+        message: `A library pattern named “${name}” already exists. Replace it?`,
+        confirmLabel: 'Replace',
+        cancelLabel: 'Cancel',
+        tone: 'danger',
+      })
+      if (!ok) return
+    }
     const result = saveGroupToLibrary(nodeId, { replaceByName: replacing })
     if (result) {
       setStatus(
@@ -51,14 +61,21 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
   // Mirrors GroupControls' "⊞ Group" dialog flow so grouping + saving to the
   // library can happen in one action from a multi-selection's right-click menu,
   // instead of select → group → reopen the node menu → Save to Library.
-  const handleCreateGroup = (name: string, { saveToLibrary, exposePaletteNodeIds }: CreateGroupResult) => {
+  const handleCreateGroup = async (name: string, { saveToLibrary, exposePaletteNodeIds }: CreateGroupResult) => {
     const groupId = createGroup(name, selectedIds, { saveToLibrary, exposePaletteNodeIds })
     let savedToLibrary = false
     let replacedLibraryPattern = false
     if (saveToLibrary) {
       const trimmedName = name.trim()
       const replacing = patterns.some((pattern) => pattern.name.trim().toLocaleLowerCase() === trimmedName.toLocaleLowerCase())
-      if (!replacing || window.confirm(`A library pattern named “${trimmedName}” already exists. Replace it?`)) {
+      const ok = !replacing || await requestConfirm({
+        title: 'Replace library pattern?',
+        message: `A library pattern named “${trimmedName}” already exists. Replace it?`,
+        confirmLabel: 'Replace',
+        cancelLabel: 'Cancel',
+        tone: 'danger',
+      })
+      if (ok) {
         const result = saveGroupToLibrary(`groupnode-${groupId}`, { replaceByName: replacing })
         savedToLibrary = !!result
         replacedLibraryPattern = !!result?.replaced
@@ -122,7 +139,7 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
         </button>
       )}
       {isGroup && (
-        <button className={styles.item} onClick={() => act(handleSaveToLibrary)}>
+        <button className={styles.item} onClick={() => { onClose(); void handleSaveToLibrary() }}>
           Save to Library
         </button>
       )}

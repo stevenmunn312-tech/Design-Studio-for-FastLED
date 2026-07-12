@@ -49,7 +49,10 @@ export default function MenuBar() {
     openHelp,
     openRecover,
     openTemplates,
+    requestAlert,
+    requestConfirm,
     requestNewProjectDecision,
+    requestPrompt,
   } = useUiStore()
 
   const THEME_ICON: Record<string, string> = { dark: '☾', solarized: '✦', light: '☀' }
@@ -93,7 +96,10 @@ export default function MenuBar() {
 
   const toggleMic = () => {
     if (!micActive && showPlaying) {
-      window.alert(MIC_BLOCKED_MESSAGE)
+      void requestAlert({
+        title: 'Microphone unavailable',
+        message: MIC_BLOCKED_MESSAGE,
+      })
       setStatus(MIC_BLOCKED_MESSAGE, 'info')
       return
     }
@@ -122,7 +128,17 @@ export default function MenuBar() {
       await navigator.clipboard.writeText(url)
       setStatus('Share link copied to clipboard', 'success')
     } catch {
-      window.prompt('Copy this share link:', url)
+      await requestPrompt({
+        title: 'Share link',
+        message: 'Copy this share link:',
+        inputLabel: 'Share URL',
+        initialValue: url,
+        readOnly: true,
+        selectText: true,
+        monospace: true,
+        confirmLabel: 'Close',
+        cancelLabel: null,
+      })
     }
   }
 
@@ -139,10 +155,16 @@ export default function MenuBar() {
     return true
   }
 
-  const confirmReplaceUnsavedWorkspace = (message: string) => {
+  const confirmReplaceUnsavedWorkspace = async (message: string) => {
     if (currentProject) return true
     if (useGraphStore.getState().nodes.length === 0) return true
-    return window.confirm(message)
+    return requestConfirm({
+      title: 'Replace current graph?',
+      message,
+      confirmLabel: 'Replace graph',
+      cancelLabel: 'Cancel',
+      tone: 'danger',
+    })
   }
 
   const loadProjectWorkspace = (projectId: string, saveCurrentFirst = false) => {
@@ -201,7 +223,7 @@ export default function MenuBar() {
     options?: { saveCurrentFirst?: boolean },
   ) => {
     const project = parseProjectFile(projectText, fallbackName)
-    if (!currentProject && !confirmReplaceUnsavedWorkspace('Open a project file? The current unsaved graph will be replaced.')) {
+    if (!currentProject && !await confirmReplaceUnsavedWorkspace('Open a project file? The current unsaved graph will be replaced.')) {
       return false
     }
     if (options?.saveCurrentFirst && currentProject) {
@@ -293,7 +315,7 @@ export default function MenuBar() {
     setFileMenuOpen(false)
     void (async () => {
       if (projectId === currentProjectId) return
-      if (!currentProject && !confirmReplaceUnsavedWorkspace('Open a saved project? The current unsaved graph will be replaced.')) return
+      if (!currentProject && !await confirmReplaceUnsavedWorkspace('Open a saved project? The current unsaved graph will be replaced.')) return
       const decision = currentProject
         ? await requestNewProjectDecision(currentProject.name, 'opening another project')
         : 'no'
@@ -319,29 +341,35 @@ export default function MenuBar() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (useGraphStore.getState().nodes.length > 0) {
-      const ok = window.confirm(
-        'Loading a graph replaces your current workspace. Any unsaved work will be lost. Continue?'
-      )
-      if (!ok) {
-        e.target.value = ''
-        return
+    void (async () => {
+      if (useGraphStore.getState().nodes.length > 0) {
+        const ok = await requestConfirm({
+          title: 'Replace current graph?',
+          message: 'Loading a graph replaces your current workspace. Any unsaved work will be lost. Continue?',
+          confirmLabel: 'Load graph',
+          cancelLabel: 'Cancel',
+          tone: 'danger',
+        })
+        if (!ok) {
+          e.target.value = ''
+          return
+        }
       }
-    }
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      try {
-        const { nodes, edges, graphData, graphs, activeGraphId } = JSON.parse(ev.target?.result as string) as
-          { nodes: StudioNode[]; edges: StudioEdge[] } & WorkspaceExtras
-        useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId })
-        useGraphStore.temporal.getState().clear()
-        setStatus('Graph loaded', 'success')
-      } catch {
-        setStatus('Failed to load graph — invalid file', 'error')
+      const reader = new FileReader()
+      reader.onload = (ev) => {
+        try {
+          const { nodes, edges, graphData, graphs, activeGraphId } = JSON.parse(ev.target?.result as string) as
+            { nodes: StudioNode[]; edges: StudioEdge[] } & WorkspaceExtras
+          useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId })
+          useGraphStore.temporal.getState().clear()
+          setStatus('Graph loaded', 'success')
+        } catch {
+          setStatus('Failed to load graph — invalid file', 'error')
+        }
       }
-    }
-    reader.readAsText(file)
-    e.target.value = ''
+      reader.readAsText(file)
+      e.target.value = ''
+    })()
   }
 
   return (

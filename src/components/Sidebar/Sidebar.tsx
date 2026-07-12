@@ -59,6 +59,7 @@ function Sidebar() {
   const patterns = usePatternLibrary((s) => s.patterns)
   const renamePattern = usePatternLibrary((s) => s.renamePattern)
   const deletePattern = usePatternLibrary((s) => s.deletePattern)
+  const requestConfirm = useUiStore((s) => s.requestConfirm)
   const viewCenter = useUiStore((s) => s.viewCenter)
   const setStatus = useUiStore((s) => s.setStatus)
   const setDraggingNodeType = useUiStore((s) => s.setDraggingNodeType)
@@ -464,7 +465,16 @@ function Sidebar() {
                               title="Delete from library"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                if (window.confirm(`Delete “${p.name}” from the library?`)) deletePattern(p.id)
+                                void (async () => {
+                                  const ok = await requestConfirm({
+                                    title: 'Delete library pattern?',
+                                    message: `Delete “${p.name}” from the library?`,
+                                    confirmLabel: 'Delete',
+                                    cancelLabel: 'Cancel',
+                                    tone: 'danger',
+                                  })
+                                  if (ok) deletePattern(p.id)
+                                })()
                               }}
                             >
                               ✕

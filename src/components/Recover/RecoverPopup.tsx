@@ -21,15 +21,20 @@ function relativeTime(timestamp: number): string {
 // bad import that undo can no longer reach.
 export default function RecoverPopup() {
   const closeRecover = useUiStore((s) => s.closeRecover)
+  const requestConfirm = useUiStore((s) => s.requestConfirm)
   const setStatus = useUiStore((s) => s.setStatus)
   const [snapshots] = useState(() => loadSnapshots())
 
-  const restore = (id: string) => {
+  const restore = async (id: string) => {
     const snap = snapshots.find((s) => s.id === id)
     if (!snap) return
-    const ok = window.confirm(
-      `Restore the workspace from ${relativeTime(snap.timestamp)}? Your current workspace will be replaced (this can be undone with Ctrl+Z).`
-    )
+    const ok = await requestConfirm({
+      title: 'Restore workspace?',
+      message: `Restore the workspace from ${relativeTime(snap.timestamp)}? Your current workspace will be replaced (this can be undone with Ctrl+Z).`,
+      confirmLabel: 'Restore',
+      cancelLabel: 'Cancel',
+      tone: 'danger',
+    })
     if (!ok) return
     const { nodes, edges, graphData, graphs, activeGraphId } = snap.workspace
     useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId })
@@ -58,7 +63,7 @@ export default function RecoverPopup() {
                   <span className={styles.rowTime}>{relativeTime(snap.timestamp)}</span>
                   <span className={styles.rowMeta}>{snap.nodeCount} node{snap.nodeCount === 1 ? '' : 's'}</span>
                 </div>
-                <button className={styles.restoreBtn} onClick={() => restore(snap.id)}>Restore</button>
+                <button className={styles.restoreBtn} onClick={() => { void restore(snap.id) }}>Restore</button>
               </div>
             ))}
           </div>

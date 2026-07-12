@@ -21,6 +21,7 @@ import styles from './App.module.css'
 const BoardPopup = lazy(() => import('./components/Upload/BoardPopup'))
 const ArduinoCliPopup = lazy(() => import('./components/Upload/ArduinoCliPopup'))
 const OutputConsole = lazy(() => import('./components/Upload/OutputConsole'))
+const AppDialogHost = lazy(() => import('./components/AppDialog/AppDialogHost'))
 const HelpModal = lazy(() => import('./components/HelpModal/HelpModal'))
 const NewProjectPrompt = lazy(() => import('./components/NewProjectPrompt/NewProjectPrompt'))
 const RecoverPopup = lazy(() => import('./components/Recover/RecoverPopup'))
@@ -372,6 +373,7 @@ export default function App() {
       </div>
       <div className={styles.statusShell}><StatusBar /></div>
       <Suspense fallback={null}>
+        <AppDialogHost />
         {boardPopupOpen && <BoardPopup />}
         {cliPopupOpen && <ArduinoCliPopup />}
         {consoleOpen && <OutputConsole />}

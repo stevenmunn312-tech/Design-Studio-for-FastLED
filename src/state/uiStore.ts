@@ -11,7 +11,7 @@ interface AppDialogBase {
   title: string
   message: string
   confirmLabel?: string
-  cancelLabel?: string
+  cancelLabel?: string | null
   tone?: AppDialogTone
 }
 

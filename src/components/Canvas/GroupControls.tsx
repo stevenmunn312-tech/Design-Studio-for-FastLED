@@ -16,6 +16,7 @@ export default function GroupControls() {
   const enterGraph = useGraphStore((s) => s.enterGraph)
   const createGroup = useGraphStore((s) => s.createGroup)
   const addGroupInput = useGraphStore((s) => s.addGroupInput)
+  const requestConfirm = useUiStore((s) => s.requestConfirm)
   const setStatus = useUiStore((s) => s.setStatus)
   const patterns = usePatternLibrary((s) => s.patterns)
   const [showDialog, setShowDialog] = useState(false)
@@ -40,14 +41,21 @@ export default function GroupControls() {
     return () => window.removeEventListener('keydown', handler)
   }, [selectedIds])
 
-  const handleCreate = (name: string, { saveToLibrary, exposePaletteNodeIds }: CreateGroupResult) => {
+  const handleCreate = async (name: string, { saveToLibrary, exposePaletteNodeIds }: CreateGroupResult) => {
     const groupId = createGroup(name, selectedIds, { saveToLibrary, exposePaletteNodeIds })
     let savedToLibrary = false
     let replacedLibraryPattern = false
     if (saveToLibrary) {
       const trimmedName = name.trim()
       const replacing = patterns.some((pattern) => pattern.name.trim().toLocaleLowerCase() === trimmedName.toLocaleLowerCase())
-      if (!replacing || window.confirm(`A library pattern named “${trimmedName}” already exists. Replace it?`)) {
+      const ok = !replacing || await requestConfirm({
+        title: 'Replace library pattern?',
+        message: `A library pattern named “${trimmedName}” already exists. Replace it?`,
+        confirmLabel: 'Replace',
+        cancelLabel: 'Cancel',
+        tone: 'danger',
+      })
+      if (ok) {
         const result = saveGroupToLibrary(`groupnode-${groupId}`, { replaceByName: replacing })
         savedToLibrary = !!result
         replacedLibraryPattern = !!result?.replaced

@@ -7,15 +7,20 @@ import styles from './TemplatesPopup.module.css'
 // face an empty graph and ~90 node types with no sense of how they compose.
 export default function TemplatesPopup() {
   const closeTemplates = useUiStore((s) => s.closeTemplates)
+  const requestConfirm = useUiStore((s) => s.requestConfirm)
   const setStatus = useUiStore((s) => s.setStatus)
 
-  const load = (id: string) => {
+  const load = async (id: string) => {
     const template = STARTER_TEMPLATES.find((t) => t.id === id)
     if (!template) return
     if (useGraphStore.getState().nodes.length > 0) {
-      const ok = window.confirm(
-        'Loading a template replaces your current workspace. Any unsaved work will be lost. Continue?'
-      )
+      const ok = await requestConfirm({
+        title: 'Replace current graph?',
+        message: 'Loading a template replaces your current workspace. Any unsaved work will be lost. Continue?',
+        confirmLabel: 'Load template',
+        cancelLabel: 'Cancel',
+        tone: 'danger',
+      })
       if (!ok) return
     }
     const { nodes, edges } = template.build()
@@ -42,7 +47,7 @@ export default function TemplatesPopup() {
                 <span className={styles.rowName}>{t.name}</span>
                 <span className={styles.rowDesc}>{t.description}</span>
               </div>
-              <button className={styles.loadBtn} onClick={() => load(t.id)}>Load</button>
+              <button className={styles.loadBtn} onClick={() => { void load(t.id) }}>Load</button>
             </div>
           ))}
         </div>

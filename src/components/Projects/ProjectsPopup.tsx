@@ -27,7 +27,9 @@ function relativeTime(timestamp: number): string {
 export default function ProjectsPopup() {
   const closeProjects = useUiStore((s) => s.closeProjects)
   const setStatus = useUiStore((s) => s.setStatus)
+  const requestConfirm = useUiStore((s) => s.requestConfirm)
   const requestNewProjectDecision = useUiStore((s) => s.requestNewProjectDecision)
+  const requestPrompt = useUiStore((s) => s.requestPrompt)
   const projects = useProjectStore((s) => s.projects)
   const currentProjectId = useProjectStore((s) => s.currentProjectId)
   const createProject = useProjectStore((s) => s.createProject)
@@ -103,10 +105,16 @@ export default function ProjectsPopup() {
     })()
   }
 
-  const duplicateCurrent = () => {
+  const duplicateCurrent = async () => {
     if (!currentProject) return
     const suggested = `${currentProject.name} Copy`
-    const name = window.prompt('Name for the duplicated project:', suggested)
+    const name = await requestPrompt({
+      title: 'Duplicate project',
+      message: 'Name for the duplicated project:',
+      inputLabel: 'Project name',
+      initialValue: suggested,
+      confirmLabel: 'Duplicate',
+    })
     if (name === null) return
     const workspace = structuredClone(captureWorkspace(useGraphStore.getState()))
     useProjectStore.getState().saveCurrentWorkspace(workspace)
@@ -125,15 +133,27 @@ export default function ProjectsPopup() {
     closeProjects()
   }
 
-  const rename = (id: string, currentName: string) => {
-    const next = window.prompt('Rename project:', currentName)
+  const rename = async (id: string, currentName: string) => {
+    const next = await requestPrompt({
+      title: 'Rename project',
+      message: 'Rename project:',
+      inputLabel: 'Project name',
+      initialValue: currentName,
+      confirmLabel: 'Rename',
+    })
     if (next === null || !next.trim()) return
     renameProject(id, next)
     setStatus('Project renamed', 'success')
   }
 
-  const remove = (id: string, name: string) => {
-    const ok = window.confirm(`Delete project "${name}"? Its saved workspace will be removed from the switcher.`)
+  const remove = async (id: string, name: string) => {
+    const ok = await requestConfirm({
+      title: 'Delete project?',
+      message: `Delete project "${name}"? Its saved workspace will be removed from the switcher.`,
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      tone: 'danger',
+    })
     if (!ok) return
     const nextActive = deleteProject(id)
     if (id === currentProjectId) {
@@ -160,7 +180,7 @@ export default function ProjectsPopup() {
         </div>
         <div className={styles.actions}>
           <button className={styles.primaryBtn} onClick={createBlank}>New Project</button>
-          <button className={styles.secondaryBtn} onClick={duplicateCurrent} disabled={!currentProject}>Duplicate Current</button>
+          <button className={styles.secondaryBtn} onClick={() => { void duplicateCurrent() }} disabled={!currentProject}>Duplicate Current</button>
         </div>
         <div className={styles.list}>
           {sortedProjects.map((project) => {
@@ -179,8 +199,8 @@ export default function ProjectsPopup() {
                 </div>
                 <div className={styles.rowActions}>
                   <button className={styles.actionBtn} onClick={() => loadProject(project.id)} disabled={active}>Open</button>
-                  <button className={styles.actionBtn} onClick={() => rename(project.id, project.name)}>Rename</button>
-                  <button className={styles.deleteBtn} onClick={() => remove(project.id, project.name)}>Delete</button>
+                  <button className={styles.actionBtn} onClick={() => { void rename(project.id, project.name) }}>Rename</button>
+                  <button className={styles.deleteBtn} onClick={() => { void remove(project.id, project.name) }}>Delete</button>
                 </div>
               </div>
             )

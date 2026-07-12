@@ -1,0 +1,138 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.62);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 160;
+  animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal {
+  width: min(480px, calc(100vw - 24px));
+  background: var(--bg-panel);
+  border: 1px solid var(--border-glow);
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 18px 16px;
+  animation: slideUp 0.18s ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(14px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--fs-body);
+  font-weight: 700;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.message {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  color: var(--text-secondary);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.input {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border-glow);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.inputMono {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.primaryBtn,
+.secondaryBtn,
+.dangerBtn {
+  min-width: 88px;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font: inherit;
+  cursor: pointer;
+  transition: transform var(--anim-hover), border-color var(--anim-hover), background var(--anim-hover), color var(--anim-hover);
+}
+
+.primaryBtn {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: var(--accent-audio);
+  color: #111;
+  font-weight: 700;
+}
+
+.secondaryBtn {
+  border: 1px solid var(--border-glow);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+}
+
+.dangerBtn {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: color-mix(in srgb, var(--status-error, #ff5f56) 88%, white 12%);
+  color: #160708;
+  font-weight: 700;
+}
+
+.primaryBtn:hover,
+.secondaryBtn:hover,
+.dangerBtn:hover {
+  transform: translateY(-1px);
+}
+
+.primaryBtn:disabled,
+.secondaryBtn:disabled,
+.dangerBtn:disabled {
+  opacity: 0.55;
+  cursor: default;
+  transform: none;
+}

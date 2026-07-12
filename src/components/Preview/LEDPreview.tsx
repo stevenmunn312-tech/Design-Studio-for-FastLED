@@ -661,6 +661,7 @@ export default function LEDPreview() {
   const uiEffectsEnabled = useUiStore((s) => s.uiEffectsEnabled)
   const setStageMode = useUiStore((s) => s.setStageMode)
   const setStatus = useUiStore((s) => s.setStatus)
+  const requestAlert = useUiStore((s) => s.requestAlert)
   const fps = useUiStore((s) => s.fps)
   const memoryMb = useUiStore((s) => s.memoryMb)
   const availableCanvasW = Math.max(0, canvasWrapSize.width - canvasWrapSize.padX)
@@ -1060,7 +1061,10 @@ export default function LEDPreview() {
 
   const toggleMic = () => {
     if (!micActive && showPlaying) {
-      window.alert(MIC_BLOCKED_MESSAGE)
+      void requestAlert({
+        title: 'Microphone unavailable',
+        message: MIC_BLOCKED_MESSAGE,
+      })
       setStatus(MIC_BLOCKED_MESSAGE, 'info')
       return
     }
