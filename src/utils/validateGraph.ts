@@ -1,8 +1,71 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
+import { SPI_CHIPSETS } from '../state/nodeLibrary'
 
 export interface ValidationResult {
   errors:   string[]
   warnings: string[]
+}
+
+interface PinUse { label: string; pin: number }
+
+// Every GPIO-typed property across the hardware-input/output nodes, tagged
+// with a human label for the error message. MatrixOutput's clockPin only
+// counts for SPI chipsets (it's unused, and its editor disabled, otherwise).
+// There is no shared-bus concept in the generated firmware today — each of
+// these pins drives exactly one peripheral — so any reuse of a GPIO number
+// across two of these roles (even on the same node) is a real conflict.
+function collectPinUses(nodes: StudioNode[]): PinUse[] {
+  const uses: PinUse[] = []
+  const push = (label: string, value: unknown) => {
+    if (typeof value === 'number' && Number.isFinite(value)) uses.push({ label, pin: value })
+  }
+  for (const n of nodes) {
+    const props = n.data.properties as Record<string, unknown>
+    const label = String(n.data.label ?? n.data.nodeType)
+    switch (n.data.nodeType) {
+      case 'MicInput':
+        push(`${label} I2S WS`, props.i2sWs)
+        push(`${label} I2S SCK`, props.i2sSck)
+        push(`${label} I2S SD`, props.i2sSd)
+        break
+      case 'MatrixOutput':
+        push(`${label} data pin`, props.dataPin)
+        if (SPI_CHIPSETS.has(String(props.chipset ?? 'WS2812B'))) push(`${label} clock pin`, props.clockPin)
+        break
+      case 'ButtonInput':
+        push(`${label} pin`, props.pin)
+        break
+      case 'PotInput':
+        push(`${label} pin`, props.pin)
+        break
+      case 'EncoderInput':
+        push(`${label} pin A`, props.pinA)
+        push(`${label} pin B`, props.pinB)
+        push(`${label} switch pin`, props.pinSW)
+        break
+      case 'SDCard':
+        push(`${label} CS pin`, props.sdCsPin)
+        push(`${label} I2S BCLK`, props.i2sBclk)
+        push(`${label} I2S LRC`, props.i2sLrc)
+        push(`${label} I2S DOUT`, props.i2sDout)
+        break
+    }
+  }
+  return uses
+}
+
+export function findPinConflicts(nodes: StudioNode[]): string[] {
+  const byPin = new Map<number, string[]>()
+  for (const { label, pin } of collectPinUses(nodes)) {
+    const labels = byPin.get(pin) ?? []
+    labels.push(label)
+    byPin.set(pin, labels)
+  }
+  const conflicts: string[] = []
+  for (const [pin, labels] of byPin) {
+    if (labels.length > 1) conflicts.push(`GPIO ${pin} is assigned to more than one pin: ${labels.join(', ')}`)
+  }
+  return conflicts.sort()
 }
 
 export function validateGraph(nodes: StudioNode[], edges: StudioEdge[]): ValidationResult {
@@ -17,6 +80,8 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[]): Validat
     const out = nodes.find(n => n.data.nodeType === 'MatrixOutput')!
     if (!incoming.has(`${out.id}:frame`)) errors.push('MatrixOutput has no Frame input connected')
   }
+
+  errors.push(...findPinConflicts(nodes))
 
   const master = nodes.find(n => n.data.nodeType === 'PatternMaster')
   if (master && !incoming.has(`${master.id}:patternset`)) {

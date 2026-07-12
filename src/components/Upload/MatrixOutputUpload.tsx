@@ -8,6 +8,7 @@ import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph } from '../../codegen/streamReceiverGenerator'
 import { sdCardConnected, readySongCount, buildShowPayload } from '../../utils/showUpload'
+import { findPinConflicts } from '../../utils/validateGraph'
 import CodeViewPopup from './CodeViewPopup'
 import styles from './Upload.module.css'
 
@@ -50,6 +51,12 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
   }, [nodes, edges, psramOptions])
   const portLabel = ports.find((p) => p.address === selectedPort)?.label ?? selectedPort
   const target = `${board?.label ?? 'No board'} · ${portLabel || 'no port'}`
+
+  // Duplicate GPIO assignments across LED data/clock, mic/SD I2S, and the
+  // hardware-input nodes would silently misbehave or fail to boot on real
+  // hardware — block compile/upload/export until they're resolved.
+  const pinConflicts = useMemo(() => findPinConflicts(nodes), [nodes])
+  const canBuild = enabled && pinConflicts.length === 0
 
   // Live streaming: push already-computed preview frames to a once-flashed
   // generic Adalight receiver instead of a compile+flash cycle per tweak.
@@ -126,13 +133,23 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
 
       <button
         className={`${styles.uploadBtn} ${phaseClass}`}
-        disabled={!enabled || busy}
+        disabled={!canBuild || busy}
         aria-busy={busy}
         onClick={() => runUpload(code, usePsram ? psramChoice?.opt : undefined)}
-        title={busy ? status.message : enabled ? 'Compile & upload to the board' : 'Connect a frame to enable upload'}
+        title={
+          busy ? status.message
+          : !enabled ? 'Connect a frame to enable upload'
+          : pinConflicts.length > 0 ? pinConflicts.join('\n')
+          : 'Compile & upload to the board'
+        }
       >
         <span className={busy ? styles.busyText : undefined}>{uploadLabel}</span>
       </button>
+      {pinConflicts.length > 0 && (
+        <div className={styles.streamError}>
+          {pinConflicts.map((c) => <div key={c}>{c}</div>)}
+        </div>
+      )}
 
       <button
         className={styles.exportBtn}
@@ -165,7 +182,7 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
 
       <button
         className={styles.exportBtn}
-        disabled={!enabled || busy || streaming}
+        disabled={!canBuild || busy || streaming}
         onClick={handleFlashReceiver}
         title="Flash a tiny generic receiver sketch once — after that, Live Stream pushes preview frames straight to the board without recompiling"
       >
@@ -174,7 +191,7 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
 
       <button
         className={`${styles.exportBtn} ${streaming ? styles.streamBtnActive : ''}`}
-        disabled={!enabled || busy || !selectedPort}
+        disabled={!canBuild || busy || !selectedPort}
         onClick={handleToggleStream}
         title={streaming ? 'Stop pushing live preview frames to the board' : 'Push live preview frames to a board already running the Stream Receiver sketch'}
       >
@@ -185,7 +202,7 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
       {sdConnected && (
         <button
           className={styles.exportBtn}
-          disabled={busy || readySongs === 0}
+          disabled={!canBuild || busy || readySongs === 0}
           onClick={handleShowUpload}
           title={readySongs === 0 ? 'Analyse music in the Music Library node first' : 'Flash the provisioner, write music/show files to SD, then flash the player'}
         >

@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph } from '../validateGraph'
+import { validateGraph, findPinConflicts } from '../validateGraph'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
-function node(id: string, nodeType: string): StudioNode {
+function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   return {
     id,
     type: 'studioNode',
     position: { x: 0, y: 0 },
-    data: { label: nodeType, nodeType, category: 'pattern', properties: {}, inputs: [], outputs: [] },
+    data: { label: nodeType, nodeType, category: 'pattern', properties, inputs: [], outputs: [] },
   } as unknown as StudioNode
 }
 
@@ -102,5 +102,63 @@ describe('validateGraph', () => {
     const edges = [edge('e1', 'sc', 'out', 'frame')]
     const { warnings } = validateGraph(nodes, edges)
     expect(warnings.some(w => w.includes('not connected'))).toBe(false)
+  })
+
+  describe('findPinConflicts', () => {
+    it('finds no conflicts with distinct pins', () => {
+      const nodes = [
+        node('out', 'MatrixOutput', { dataPin: 5, chipset: 'WS2812B' }),
+        node('sd', 'SDCard', { sdCsPin: 10, i2sBclk: 26, i2sLrc: 25, i2sDout: 22 }),
+      ]
+      expect(findPinConflicts(nodes)).toHaveLength(0)
+    })
+
+    it('flags MatrixOutput data pin colliding with SDCard CS pin', () => {
+      const nodes = [
+        node('out', 'MatrixOutput', { dataPin: 5 }),
+        node('sd', 'SDCard', { sdCsPin: 5 }),
+      ]
+      const conflicts = findPinConflicts(nodes)
+      expect(conflicts).toHaveLength(1)
+      expect(conflicts[0]).toContain('GPIO 5')
+      expect(conflicts[0]).toContain('data pin')
+      expect(conflicts[0]).toContain('CS pin')
+    })
+
+    it('flags a node reusing the same pin for two of its own roles', () => {
+      const nodes = [node('enc', 'EncoderInput', { pinA: 32, pinB: 32, pinSW: 25 })]
+      const conflicts = findPinConflicts(nodes)
+      expect(conflicts).toHaveLength(1)
+      expect(conflicts[0]).toContain('GPIO 32')
+    })
+
+    it('ignores MatrixOutput clock pin for clockless chipsets', () => {
+      const nodes = [
+        node('out', 'MatrixOutput', { dataPin: 5, clockPin: 34, chipset: 'WS2812B' }),
+        node('pot', 'PotInput', { pin: 34 }),
+      ]
+      expect(findPinConflicts(nodes)).toHaveLength(0)
+    })
+
+    it('flags MatrixOutput clock pin colliding for SPI chipsets', () => {
+      const nodes = [
+        node('out', 'MatrixOutput', { dataPin: 5, clockPin: 34, chipset: 'APA102' }),
+        node('pot', 'PotInput', { pin: 34 }),
+      ]
+      const conflicts = findPinConflicts(nodes)
+      expect(conflicts).toHaveLength(1)
+      expect(conflicts[0]).toContain('GPIO 34')
+    })
+
+    it('surfaces pin conflicts as errors from validateGraph', () => {
+      const nodes = [
+        node('sc', 'SolidColor'),
+        node('out', 'MatrixOutput', { dataPin: 5 }),
+        node('btn', 'ButtonInput', { pin: 5 }),
+      ]
+      const edges = [edge('e1', 'sc', 'out', 'frame')]
+      const { errors } = validateGraph(nodes, edges)
+      expect(errors.some(e => e.includes('GPIO 5'))).toBe(true)
+    })
   })
 })
