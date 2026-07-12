@@ -830,6 +830,7 @@ async def stream_frame(request: Request):
     built client-side by `src/utils/adalight.ts`) — this endpoint is deliberately
     just a thin pipe so per-frame overhead stays minimal.
     """
+    global _stream_serial
     body = await request.body()
     with _stream_lock:
         if _stream_serial is None:
