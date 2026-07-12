@@ -1262,7 +1262,7 @@ def _show_windows_open_dialog(initial_dir: Path) -> str | None:
         "Add-Type -AssemblyName System.Windows.Forms; "
         "$dialog = New-Object System.Windows.Forms.OpenFileDialog; "
         "$dialog.InitialDirectory = $env:FLS_DIALOG_INITIAL_DIR; "
-        "$dialog.Filter = 'FastLED Studio Project (*.fastled-project.json;*.json)|*.fastled-project.json;*.json|All Files (*.*)|*.*'; "
+        "$dialog.Filter = 'FastLED Studio Project (*.json)|*.json|All Files (*.*)|*.*'; "
         "$dialog.Multiselect = $false; "
         "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.Write($dialog.FileName) }"
     )
@@ -1316,7 +1316,7 @@ def _show_tk_open_dialog(initial_dir: Path) -> str | None:
             title="Open Project",
             initialdir=str(initial_dir),
             filetypes=[
-                ("FastLED Studio Project", "*.fastled-project.json"),
+                ("FastLED Studio Project", "*.json"),
                 ("JSON", "*.json"),
                 ("All Files", "*.*"),
             ],
