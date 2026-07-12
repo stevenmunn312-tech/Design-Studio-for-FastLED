@@ -278,7 +278,10 @@ describe('StudioNode', () => {
     const props = { id: solid.id, data: solid.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
     const { container } = render(<StudioNode {...props} />)
     // height = bodyContentWidth(224) × gridH/gridW = 224 × 8/16 = 112px
-    expect((container.querySelector('canvas') as HTMLCanvasElement).style.height).toBe('112px')
+    // The frame preview canvases fill their wrapper div via CSS (100% height);
+    // the explicit pixel height is set inline on that wrapper, not the canvas.
+    const wrapper = container.querySelector('canvas')!.parentElement as HTMLElement
+    expect(wrapper.style.height).toBe('112px')
   })
 
   it('renders a dropdown for palette with the preset options', () => {

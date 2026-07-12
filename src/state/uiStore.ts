@@ -5,6 +5,37 @@ import { nextPreviewStyle } from '../components/Preview/previewStyles'
 
 export type AppTheme = 'dark' | 'solarized' | 'light'
 export type NewProjectDecision = 'yes' | 'no' | 'cancel'
+export type AppDialogTone = 'default' | 'danger'
+
+interface AppDialogBase {
+  title: string
+  message: string
+  confirmLabel?: string
+  cancelLabel?: string
+  tone?: AppDialogTone
+}
+
+export interface AppAlertOptions extends AppDialogBase {
+  confirmLabel?: string
+}
+
+export interface AppConfirmOptions extends AppDialogBase {
+  cancelLabel?: string
+}
+
+export interface AppPromptOptions extends AppDialogBase {
+  initialValue?: string
+  inputLabel?: string
+  placeholder?: string
+  readOnly?: boolean
+  selectText?: boolean
+  monospace?: boolean
+}
+
+export type AppDialogState =
+  | ({ kind: 'alert'; nonce: number } & Required<Pick<AppAlertOptions, 'title' | 'message'>> & Omit<AppAlertOptions, 'title' | 'message'>)
+  | ({ kind: 'confirm'; nonce: number } & Required<Pick<AppConfirmOptions, 'title' | 'message'>> & Omit<AppConfirmOptions, 'title' | 'message'>)
+  | ({ kind: 'prompt'; nonce: number } & Required<Pick<AppPromptOptions, 'title' | 'message'>> & Omit<AppPromptOptions, 'title' | 'message'>)
 
 const THEME_KEY  = 'fastled-studio-theme'
 const MOTION_KEY = 'fastled-studio-reduced-motion'
@@ -71,6 +102,7 @@ interface UiState {
   templatesOpen: boolean
   projectsOpen: boolean
   newProjectPrompt: { open: boolean; projectName: string; actionLabel: string }
+  appDialog: AppDialogState | null
   setStatus: (text: string, level?: StatusLevel) => void
   clearStatus: () => void
   toggleSidebar: () => void
@@ -103,6 +135,10 @@ interface UiState {
   closeTemplates: () => void
   openProjects: () => void
   closeProjects: () => void
+  requestAlert: (options: AppAlertOptions) => Promise<void>
+  requestConfirm: (options: AppConfirmOptions) => Promise<boolean>
+  requestPrompt: (options: AppPromptOptions) => Promise<string | null>
+  resolveAppDialog: (value?: boolean | string | null) => void
   requestNewProjectDecision: (projectName: string, actionLabel?: string) => Promise<NewProjectDecision>
   resolveNewProjectDecision: (decision: NewProjectDecision) => void
 }
@@ -113,6 +149,8 @@ const THEMES: AppTheme[] = ['dark', 'solarized', 'light']
 // timer instead of being wiped when a stale one fires.
 let statusTimer: ReturnType<typeof setTimeout> | undefined
 let newProjectDecisionResolver: ((decision: NewProjectDecision) => void) | null = null
+let appDialogResolver: ((value: boolean | string | null | undefined) => void) | null = null
+let appDialogNonce = 0
 
 export const useUiStore = create<UiState>((set, get) => ({
   statusText: 'Ready',
@@ -140,6 +178,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   templatesOpen: false,
   projectsOpen: false,
   newProjectPrompt: { open: false, projectName: '', actionLabel: 'creating a new project' },
+  appDialog: null,
 
   setStatus: (text, level = 'info') => {
     if (statusTimer) clearTimeout(statusTimer)
@@ -233,6 +272,62 @@ export const useUiStore = create<UiState>((set, get) => ({
   closeTemplates: () => set({ templatesOpen: false }),
   openProjects: () => set({ projectsOpen: true }),
   closeProjects: () => set({ projectsOpen: false }),
+  requestAlert: ({ confirmLabel = 'OK', tone = 'default', ...options }) => {
+    appDialogResolver?.(undefined)
+    appDialogResolver = null
+    set({
+      appDialog: { kind: 'alert', nonce: ++appDialogNonce, confirmLabel, tone, ...options },
+    })
+    return new Promise<void>((resolve) => {
+      appDialogResolver = () => resolve()
+    })
+  },
+  requestConfirm: ({ confirmLabel = 'Continue', cancelLabel = 'Cancel', tone = 'default', ...options }) => {
+    appDialogResolver?.(false)
+    appDialogResolver = null
+    set({
+      appDialog: { kind: 'confirm', nonce: ++appDialogNonce, confirmLabel, cancelLabel, tone, ...options },
+    })
+    return new Promise<boolean>((resolve) => {
+      appDialogResolver = (value) => resolve(Boolean(value))
+    })
+  },
+  requestPrompt: ({
+    confirmLabel = 'Save',
+    cancelLabel = 'Cancel',
+    tone = 'default',
+    initialValue = '',
+    readOnly = false,
+    selectText = false,
+    monospace = false,
+    ...options
+  }) => {
+    appDialogResolver?.(null)
+    appDialogResolver = null
+    set({
+      appDialog: {
+        kind: 'prompt',
+        nonce: ++appDialogNonce,
+        confirmLabel,
+        cancelLabel,
+        tone,
+        initialValue,
+        readOnly,
+        selectText,
+        monospace,
+        ...options,
+      },
+    })
+    return new Promise<string | null>((resolve) => {
+      appDialogResolver = (value) => resolve(typeof value === 'string' ? value : null)
+    })
+  },
+  resolveAppDialog: (value) => {
+    set({ appDialog: null })
+    const resolver = appDialogResolver
+    appDialogResolver = null
+    resolver?.(value)
+  },
   requestNewProjectDecision: (projectName, actionLabel = 'creating a new project') => {
     if (newProjectDecisionResolver) {
       newProjectDecisionResolver('cancel')
