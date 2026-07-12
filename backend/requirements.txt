@@ -1,6 +1,6 @@
-fastapi>=0.110
-uvicorn[standard]>=0.29
-python-multipart>=0.0.9
-pyserial>=3.5
-fbuild>=2.4.0
-esptool>=5.0  # fbuild's ESP32 image conversion (firmware.elf -> firmware.bin) shells out to this
+fastapi==0.139.0
+uvicorn[standard]==0.51.0
+python-multipart==0.0.32
+pyserial==3.5
+fbuild==2.5.0
+esptool==5.3.1  # fbuild's ESP32 image conversion (firmware.elf -> firmware.bin) shells out to this

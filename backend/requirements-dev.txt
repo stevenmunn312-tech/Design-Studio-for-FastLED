@@ -2,8 +2,8 @@
 # requirements.txt's fbuild/esptool — those are large, network-fetched build
 # toolchains that no test here needs (the tests mock every subprocess/serial
 # call, per "without requiring attached hardware").
-fastapi>=0.110
-pyserial>=3.5
-python-multipart>=0.0.9
-pytest>=8.0
-httpx>=0.27
+fastapi==0.139.0
+pyserial==3.5
+python-multipart==0.0.32
+pytest==9.1.1
+httpx==0.28.1
