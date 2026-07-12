@@ -34,9 +34,13 @@ interface NativeFilePickerWindow extends Window {
 }
 
 const PROJECT_FILE_SUFFIX = '.fastled-project.json'
-const PROJECT_FILE_TYPES: FilePickerAcceptType[] = [{
+const PROJECT_OPEN_FILE_TYPES: FilePickerAcceptType[] = [{
   description: 'FastLED Studio Project',
   accept: { 'application/json': ['.json', PROJECT_FILE_SUFFIX] },
+}]
+const PROJECT_SAVE_FILE_TYPES: FilePickerAcceptType[] = [{
+  description: 'FastLED Studio Project',
+  accept: { 'application/json': [PROJECT_FILE_SUFFIX] },
 }]
 
 function trimProjectName(name: string): string {
@@ -152,7 +156,7 @@ export async function openProjectWithNativePicker(): Promise<{ file: File; fallb
   const [handle] = await pickerWindow.showOpenFilePicker({
     multiple: false,
     excludeAcceptAllOption: false,
-    types: PROJECT_FILE_TYPES,
+    types: PROJECT_OPEN_FILE_TYPES,
   })
   const file = await handle.getFile()
   return {
@@ -167,7 +171,7 @@ export async function saveProjectWithNativePicker(project: SavedProject): Promis
   const handle = await pickerWindow.showSaveFilePicker({
     suggestedName: suggestProjectFileName(project.name),
     excludeAcceptAllOption: false,
-    types: PROJECT_FILE_TYPES,
+    types: PROJECT_SAVE_FILE_TYPES,
   })
   const normalized = {
     ...project,

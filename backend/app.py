@@ -1227,6 +1227,15 @@ def _project_name_from_filename(name: str) -> str:
     return base.strip() or "Untitled Project"
 
 
+def _ensure_project_file_path(path: Path) -> Path:
+    text = str(path)
+    if text.lower().endswith(_PROJECT_FILE_SUFFIX.lower()):
+        return path
+    if text.lower().endswith(".json"):
+        text = text[:-5]
+    return Path(f"{text}{_PROJECT_FILE_SUFFIX}")
+
+
 def _show_windows_save_dialog(initial_dir: Path, initial_file: str) -> str | None:
     env = {
         **os.environ,
@@ -1238,7 +1247,7 @@ def _show_windows_save_dialog(initial_dir: Path, initial_file: str) -> str | Non
         "$dialog = New-Object System.Windows.Forms.SaveFileDialog; "
         "$dialog.InitialDirectory = $env:FLS_DIALOG_INITIAL_DIR; "
         "$dialog.FileName = $env:FLS_DIALOG_FILE_NAME; "
-        "$dialog.Filter = 'FastLED Studio Project (*.fastled-project.json)|*.fastled-project.json|JSON (*.json)|*.json|All Files (*.*)|*.*'; "
+        "$dialog.Filter = 'FastLED Studio Project (*.fastled-project.json)|*.fastled-project.json|All Files (*.*)|*.*'; "
         "$dialog.AddExtension = $true; "
         "$dialog.DefaultExt = 'fastled-project.json'; "
         "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.Write($dialog.FileName) }"
@@ -1293,7 +1302,6 @@ def _show_tk_save_dialog(initial_dir: Path, initial_file: str) -> str | None:
             defaultextension=".fastled-project.json",
             filetypes=[
                 ("FastLED Studio Project", "*.fastled-project.json"),
-                ("JSON", "*.json"),
                 ("All Files", "*.*"),
             ],
         )
@@ -1590,6 +1598,7 @@ def save_project_dialog(project: dict = Body(...)):
     path = _show_project_save_dialog(initial_file)
     if not path:
         return {"ok": False, "canceled": True}
+    path = _ensure_project_file_path(path)
 
     saved_project = {
         **project,

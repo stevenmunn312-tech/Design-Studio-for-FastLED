@@ -272,6 +272,13 @@ describe('MenuBar file menu', () => {
   it('saves a copy through the native save dialog', async () => {
     const alpha = project('alpha', 'alpha', 'alpha-node', 200)
     let written = ''
+    const showSaveFilePicker = vi.fn().mockResolvedValue({
+      name: 'pg-copy.fastled-project.json',
+      createWritable: async () => ({
+        write: async (data: string) => { written = data },
+        close: async () => {},
+      }),
+    })
     useProjectStore.setState({ projects: [alpha], currentProjectId: alpha.id })
     useGraphStore.setState({
       nodes: [{
@@ -286,13 +293,7 @@ describe('MenuBar file menu', () => {
       activeGraphId: 'root',
     })
 
-    ;(window as Window & { showSaveFilePicker?: () => Promise<{ name: string; createWritable: () => Promise<{ write: (data: string) => Promise<void>; close: () => Promise<void> }> }> }).showSaveFilePicker = vi.fn().mockResolvedValue({
-      name: 'pg-copy.fastled-project.json',
-      createWritable: async () => ({
-        write: async (data: string) => { written = data },
-        close: async () => {},
-      }),
-    })
+    ;(window as Window & { showSaveFilePicker?: typeof showSaveFilePicker }).showSaveFilePicker = showSaveFilePicker
 
     const { getByRole, getByText } = render(<MenuBar />)
     fireEvent.click(getByRole('button', { name: 'File menu' }))
@@ -306,6 +307,13 @@ describe('MenuBar file menu', () => {
     expect(current?.name).toBe('pg-copy')
     expect(current?.workspace.nodes.map((node) => node.id)).toEqual(['scratch'])
     expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['scratch'])
+    expect(showSaveFilePicker).toHaveBeenCalledWith(expect.objectContaining({
+      suggestedName: 'alpha Copy.fastled-project.json',
+      types: [{
+        description: 'FastLED Studio Project',
+        accept: { 'application/json': ['.fastled-project.json'] },
+      }],
+    }))
     expect(JSON.parse(written)).toMatchObject({
       name: 'pg-copy',
       workspace: {
