@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
-import { useUploadStore, boardByFqbn } from '../../state/uploadStore'
+import { useUploadStore, boardByFqbn, engineReady } from '../../state/uploadStore'
 import { useStreamStore } from '../../state/streamStore'
 import { useMusicStore } from '../../state/musicStore'
 import { useProjectStore } from '../../state/projectStore'
@@ -16,6 +16,9 @@ import styles from './Upload.module.css'
 // the selected board·port label, a "Use PSRAM" toggle (only when the selected
 // board can have PSRAM), an Upload button with inline status, an Export .ino
 // button, and a small button that opens the detailed output console.
+
+type ReadinessState = 'ready' | 'checking' | 'missing'
+
 export default function MatrixOutputUpload({
   nodeId,
   hasFrameInput,
@@ -29,13 +32,16 @@ export default function MatrixOutputUpload({
   const entries = useMusicStore((s) => s.entries)
   const currentProjectId = useProjectStore((s) => s.currentProjectId)
   const {
-    selectedFqbn, selectedPort, ports, busy, status, codeViewOpen,
-    openBoardPopup, openConsole, openCodeView, runUpload, runLastUpload, runShowUpload, exportIno,
+    helper, installedCores, selectedFqbn, selectedPort, ports, busy, status, codeViewOpen,
+    refreshHelper, refreshPorts, installCore,
+    openBoardPopup, openCliPopup, openConsole, openCodeView, runUpload, runLastUpload, runShowUpload, exportIno,
   } = useUploadStore()
   const hasLastSketch = useUploadStore((s) => !!(currentProjectId && s.lastSketchByProject[currentProjectId]))
   const { streaming, fps: streamFps, error: streamError, start: startStreaming, stop: stopStreaming } = useStreamStore()
 
   const board = boardByFqbn(selectedFqbn)
+  const usingFbuild = helper?.engine === 'fbuild'
+  const activeEngineReady = engineReady(helper)
 
   // PSRAM: the board catalogue says whether this MCU *can* have external PSRAM
   // (it can't be probed from the host before flashing — the firmware checks
@@ -59,6 +65,11 @@ export default function MatrixOutputUpload({
   }, [nodes, edges, psramOptions])
   const portLabel = ports.find((p) => p.address === selectedPort)?.label ?? selectedPort
   const target = `${board?.label ?? 'No board'} · ${portLabel || 'no port'}`
+  const portDetected = !!selectedPort && ports.some((p) => p.address === selectedPort)
+  const helperReady = !!helper
+  const coreReady = !!board && (usingFbuild || installedCores.includes(board.core))
+  const permissionReady = helperReady && portDetected
+  const uploadReady = helperReady && activeEngineReady && coreReady && portDetected && permissionReady
 
   // Duplicate GPIO assignments across LED data/clock, mic/SD I2S, and the
   // hardware-input nodes would silently misbehave or fail to boot on real
@@ -70,6 +81,207 @@ export default function MatrixOutputUpload({
   const canShowUpload = hasSdCardInput && blockingErrors.length === 0
   const power = useMemo(() => estimatePowerLoad(nodes), [nodes])
   const ram = useMemo(() => estimateFirmwareRam(nodes, edges), [nodes, edges])
+  const readiness = useMemo(() => {
+    const helperRow = helper === undefined
+      ? {
+          label: 'Helper',
+          state: 'checking' as ReadinessState,
+          detail: 'Checking for the local upload helper…',
+        }
+      : !helper
+        ? {
+            label: 'Helper',
+            state: 'missing' as ReadinessState,
+            detail: 'Browser uploads need the local helper running on this machine.',
+            actionLabel: 'Retry helper',
+            action: () => { void refreshHelper() },
+          }
+        : {
+            label: 'Helper',
+            state: 'ready' as ReadinessState,
+            detail: `Online${helper.engine ? ` · ${helper.engine}` : ''}`,
+          }
+
+    const engineRow = helper === undefined
+      ? {
+          label: 'Engine',
+          state: 'checking' as ReadinessState,
+          detail: 'Waiting for helper status…',
+        }
+      : !helper
+        ? {
+            label: 'Engine',
+            state: 'missing' as ReadinessState,
+            detail: 'Start the helper first so Studio can discover a usable build engine.',
+            actionLabel: 'Retry helper',
+            action: () => { void refreshHelper() },
+          }
+        : !activeEngineReady
+          ? {
+              label: 'Engine',
+              state: 'missing' as ReadinessState,
+              detail: 'No usable build engine is configured yet.',
+              actionLabel: 'Fix engine',
+              action: openCliPopup,
+            }
+          : usingFbuild
+            ? {
+                label: 'Engine',
+                state: 'ready' as ReadinessState,
+                detail: `Using fbuild${helper.fbuildVersion ? ` ${helper.fbuildVersion}` : ''}`,
+              }
+            : {
+                label: 'Engine',
+                state: 'ready' as ReadinessState,
+                detail: `Using arduino-cli${helper.version ? ` ${helper.version}` : ''}`,
+              }
+
+    const coreRow = helper === undefined
+      ? {
+          label: 'Toolchain',
+          state: 'checking' as ReadinessState,
+          detail: 'Checking board toolchain…',
+        }
+      : !helper
+        ? {
+            label: 'Toolchain',
+            state: 'missing' as ReadinessState,
+            detail: 'The helper must be online before Studio can verify board toolchains.',
+            actionLabel: 'Retry helper',
+            action: () => { void refreshHelper() },
+          }
+        : !activeEngineReady
+          ? {
+              label: 'Toolchain',
+              state: 'missing' as ReadinessState,
+              detail: 'Choose a working engine before toolchain checks can pass.',
+              actionLabel: 'Fix engine',
+              action: openCliPopup,
+            }
+          : usingFbuild
+            ? {
+                label: 'Toolchain',
+                state: 'ready' as ReadinessState,
+                detail: `${board?.label ?? 'Selected board'} toolchain downloads on first fbuild compile.`,
+              }
+            : !board
+              ? {
+                  label: 'Toolchain',
+                  state: 'missing' as ReadinessState,
+                  detail: 'Choose a board first.',
+                  actionLabel: 'Choose board',
+                  action: openBoardPopup,
+                }
+              : !coreReady
+                ? {
+                    label: 'Toolchain',
+                    state: 'missing' as ReadinessState,
+                    detail: `${board.label} needs the ${board.core} core installed.`,
+                    actionLabel: 'Install core',
+                    action: () => { void installCore(board.core) },
+                  }
+                : {
+                    label: 'Toolchain',
+                    state: 'ready' as ReadinessState,
+                    detail: `${board.label} core is installed.`,
+                  }
+
+    const portRow = helper === undefined
+      ? {
+          label: 'Port',
+          state: 'checking' as ReadinessState,
+          detail: 'Scanning for serial ports…',
+        }
+      : !helper
+        ? {
+            label: 'Port',
+            state: 'missing' as ReadinessState,
+            detail: 'Start the helper before Studio can list ports.',
+            actionLabel: 'Retry helper',
+            action: () => { void refreshHelper() },
+          }
+        : !selectedPort
+          ? {
+              label: 'Port',
+              state: 'missing' as ReadinessState,
+              detail: 'Pick the board’s USB/serial port.',
+              actionLabel: 'Choose port',
+              action: openBoardPopup,
+            }
+          : !portDetected
+            ? {
+                label: 'Port',
+                state: 'missing' as ReadinessState,
+                detail: `${selectedPort} is not currently detected.`,
+                actionLabel: 'Refresh ports',
+                action: () => { void refreshPorts() },
+              }
+            : {
+                label: 'Port',
+                state: 'ready' as ReadinessState,
+                detail: `${portLabel || selectedPort} ready`,
+              }
+
+    const permissionsRow = helper === undefined
+      ? {
+          label: 'Permissions',
+          state: 'checking' as ReadinessState,
+          detail: 'Checking local upload access…',
+        }
+      : !helper
+        ? {
+            label: 'Permissions',
+            state: 'missing' as ReadinessState,
+            detail: 'The browser needs the helper to reach local serial ports and build tools.',
+            actionLabel: 'Retry helper',
+            action: () => { void refreshHelper() },
+          }
+        : !selectedPort
+          ? {
+              label: 'Permissions',
+              state: 'missing' as ReadinessState,
+              detail: 'Choose a port before the helper can claim upload access.',
+              actionLabel: 'Choose port',
+              action: openBoardPopup,
+            }
+          : !portDetected
+            ? {
+                label: 'Permissions',
+                state: 'missing' as ReadinessState,
+                detail: 'Reconnect the board or refresh ports so the helper can open it.',
+                actionLabel: 'Refresh ports',
+                action: () => { void refreshPorts() },
+              }
+            : streaming
+              ? {
+                  label: 'Permissions',
+                  state: 'ready' as ReadinessState,
+                  detail: 'Live Stream owns the port now; Upload will stop it automatically first.',
+                }
+              : {
+                  label: 'Permissions',
+                  state: 'ready' as ReadinessState,
+                  detail: 'Local upload access is ready.',
+                }
+
+    return [helperRow, engineRow, coreRow, portRow, permissionsRow]
+  }, [
+    helper,
+    activeEngineReady,
+    usingFbuild,
+    board,
+    coreReady,
+    selectedPort,
+    portDetected,
+    portLabel,
+    streaming,
+    refreshHelper,
+    openCliPopup,
+    installCore,
+    openBoardPopup,
+    refreshPorts,
+  ])
+  const readinessIssues = readiness.filter((row) => row.state !== 'ready').map((row) => `${row.label}: ${row.detail}`)
 
   // Live streaming: push already-computed preview frames to a once-flashed
   // generic Adalight receiver instead of a compile+flash cycle per tweak.
@@ -118,6 +330,44 @@ export default function MatrixOutputUpload({
         ⚙ Board
       </button>
       <div className={styles.targetLabel} title={target}>{target}</div>
+      <div className={styles.readinessPanel} aria-label="Upload readiness">
+        <div className={styles.readinessHeader}>
+          <span className={styles.readinessTitle}>Upload readiness</span>
+          <span className={`${styles.readinessSummary} ${uploadReady ? styles.readyBadge : styles.missingBadge}`}>
+            {uploadReady ? 'Ready to upload' : 'Action needed'}
+          </span>
+        </div>
+        {readiness.map((row) => (
+          <div key={row.label} className={styles.readinessRow}>
+            <div className={styles.readinessText}>
+              <div className={styles.readinessLabelRow}>
+                <span className={styles.readinessLabel}>{row.label}</span>
+                <span
+                  className={
+                    row.state === 'ready' ? `${styles.readinessBadge} ${styles.readyBadge}`
+                    : row.state === 'checking' ? `${styles.readinessBadge} ${styles.checkingBadge}`
+                    : `${styles.readinessBadge} ${styles.missingBadge}`
+                  }
+                >
+                  {row.state === 'ready' ? 'Ready' : row.state === 'checking' ? 'Checking' : 'Fix'}
+                </span>
+              </div>
+              <div className={styles.readinessDetail}>{row.detail}</div>
+            </div>
+            {row.state === 'missing' && row.actionLabel && row.action && (
+              <button
+                className={styles.readinessAction}
+                aria-label={`${row.actionLabel}: ${row.label}`}
+                onClick={row.action}
+                disabled={busy}
+                title={`${row.actionLabel}: ${row.label}`}
+              >
+                {row.actionLabel}
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
 
       {power && power.ledCount > 0 && (
         <div
@@ -168,13 +418,14 @@ export default function MatrixOutputUpload({
 
       <button
         className={`${styles.uploadBtn} ${phaseClass}`}
-        disabled={!canBuild || busy}
+        disabled={!canBuild || !uploadReady || busy}
         aria-busy={busy}
         onClick={() => runUpload(code, usePsram ? psramChoice?.opt : undefined)}
         title={
           busy ? status.message
           : !hasFrameInput ? 'Connect a frame to enable upload'
           : blockingErrors.length > 0 ? blockingErrors.join('\n')
+          : readinessIssues.length > 0 ? readinessIssues.join('\n')
           : 'Compile & upload to the board'
         }
       >
@@ -217,18 +468,26 @@ export default function MatrixOutputUpload({
 
       <button
         className={styles.exportBtn}
-        disabled={!canBuild || busy || streaming}
+        disabled={!canBuild || !uploadReady || busy || streaming}
         onClick={handleFlashReceiver}
-        title="Flash a tiny generic receiver sketch once — after that, Live Stream pushes preview frames straight to the board without recompiling"
+        title={readinessIssues.length > 0 ? readinessIssues.join('\n') : 'Flash a tiny generic receiver sketch once — after that, Live Stream pushes preview frames straight to the board without recompiling'}
       >
         ⚡ Flash Stream Receiver
       </button>
 
       <button
         className={`${styles.exportBtn} ${streaming ? styles.streamBtnActive : ''}`}
-        disabled={!canBuild || busy || !selectedPort}
+        disabled={!canBuild || busy || !helperReady || !portDetected}
         onClick={handleToggleStream}
-        title={streaming ? 'Stop pushing live preview frames to the board' : 'Push live preview frames to a board already running the Stream Receiver sketch'}
+        title={
+          streaming
+            ? 'Stop pushing live preview frames to the board'
+            : !helperReady
+              ? 'Start the local helper to enable live streaming'
+              : !portDetected
+                ? 'Choose a detected board port to enable live streaming'
+                : 'Push live preview frames to a board already running the Stream Receiver sketch'
+        }
       >
         {streaming ? `⏹ Streaming — ${streamFps} fps` : '📡 Live Stream'}
       </button>
@@ -237,11 +496,13 @@ export default function MatrixOutputUpload({
       {sdConnected && (
         <button
           className={styles.exportBtn}
-          disabled={!canShowUpload || busy || readySongs === 0}
+          disabled={!canShowUpload || !uploadReady || busy || readySongs === 0}
           onClick={handleShowUpload}
           title={
             !hasSdCardInput
               ? 'Connect an SD Card node to Matrix Output to enable SD-show upload'
+              : readinessIssues.length > 0
+                ? readinessIssues.join('\n')
               : readySongs === 0
                 ? 'Analyse music in the Music Library node first'
                 : 'Flash the provisioner, write music/show files to SD, then flash the player'
