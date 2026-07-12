@@ -618,6 +618,46 @@ describe('evaluateGraph', () => {
         spy.mockRestore()
       }
     })
+
+    // Deterministic LCG (same technique as the Boids tests above) so a larger
+    // `count` is guaranteed to place strictly more particles, not just
+    // colocate identical mocked draws.
+    function seedRandom(seed: number) {
+      let s = seed >>> 0
+      return vi.spyOn(Math, 'random').mockImplementation(() => {
+        s = (s * 1664525 + 1013904223) >>> 0
+        return s / 4294967296
+      })
+    }
+    const litPixelCount = (frame: Frame) => frame.flat().filter((px) => px.r + px.g + px.b > 0).length
+
+    it('count sizes the fixed-population pool independent of rate (swarm)', () => {
+      const runWithCount = (id: string, count: number) => {
+        const spy = seedRandom(1)
+        try {
+          const { nodes, edges } = withOutput(node(id, 'Particles', 'pattern', { particleType: 'swarm', rate: 1, count }))
+          return litPixelCount(evaluateGraph(nodes, edges, 0, 32, 32)!)
+        } finally {
+          spy.mockRestore()
+        }
+      }
+      expect(runWithCount('ppFew', 3)).toBeLessThan(runWithCount('ppMany', 40))
+    })
+
+    it('spread=0 collapses a width-spawning mode onto the centre point (fountain)', () => {
+      // Check only the very first tick, where exactly one particle exists (just
+      // spawned this call) — its y position is otherwise randomised by vy/gravity
+      // over subsequent frames, but the spawn x/y themselves are deterministic
+      // once spread=0 removes the x jitter (W=8,H=8 puts the spawn exactly on a
+      // pixel-corner, so it lights a symmetric 2x2 block, not a single pixel).
+      const { nodes, edges } = withOutput(node('ppSpread0', 'Particles', 'pattern', { particleType: 'fountain', rate: 1, spread: 0 }))
+      const frame = evaluateGraph(nodes, edges, 0, 8, 8)!
+      const litCols = new Set<number>()
+      const litRows = new Set<number>()
+      frame.forEach((row, y) => row.forEach((px, x) => { if (px.r + px.g + px.b > 0) { litCols.add(x); litRows.add(y) } }))
+      expect([...litCols].sort()).toEqual([3, 4]) // W/2 = 4 for W=8, straddling the pixel boundary
+      expect([...litRows].sort()).toEqual([6, 7]) // H-1 = 7 for H=8, straddling the pixel boundary
+    })
   })
 
   it('Invert flips pixel values', () => {

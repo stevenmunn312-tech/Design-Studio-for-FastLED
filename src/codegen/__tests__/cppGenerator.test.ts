@@ -1433,10 +1433,11 @@ describe('generateCpp — Particles modes', () => {
     expect(cpp).toContain('float _dx=(_x+0.5f)-_sx,_dy=(_y+0.5f)-_sy;')
   })
 
-  it('swarm uses a smaller pool and a flocking (boids) step', () => {
+  it('swarm sizes its pool directly from count and uses a flocking (boids) step', () => {
     const cpp = gen('swarm')
-    expect(cpp).toContain('_PN=40')
+    expect(cpp).toContain('_PN=24') // default count
     expect(cpp).toContain('sqrtf(')
+    expect(gen('swarm', { count: 40 })).toContain('_PN=40')
   })
 
   it('fireworks bursts with a random hue', () => {
@@ -1453,6 +1454,37 @@ describe('generateCpp — Particles modes', () => {
     for (const mode of ['embers', 'bubbles', 'fireflies', 'meteor', 'tornado', 'attractor']) {
       expect(gen(mode)).toContain('float t = millis()')
     }
+  })
+
+  it('count sets the fixed-population pool size for orbit/fireflies/bounce too', () => {
+    expect(gen('orbit', { count: 10 })).toContain('_target=10')
+    expect(gen('fireflies', { count: 15 })).toContain('_target=15')
+    expect(gen('bounce', { count: 7 })).toContain('_target=7')
+  })
+
+  it("spread widens/narrows a width-spawning mode's spawn area", () => {
+    expect(gen('fountain', { spread: 0.5 })).toContain('WIDTH*0.5f+(random8()/255.0f-0.5f)*WIDTH*0.5f')
+    expect(gen('waterfall', { spread: 2 })).toContain('(random8()/255.0f-0.5f)*0.3f*WIDTH*2f')
+  })
+
+  it("gravity and bounce scale a mode's built-in accel/restitution constants", () => {
+    const cpp = gen('gravity', { gravity: 2, bounce: 0.5 })
+    expect(cpp).toContain('0.045f*2f')
+    expect(cpp).toContain('-0.55f*0.5f')
+  })
+
+  it('size scales the rendered particle radius (visible on a larger matrix)', () => {
+    const out32 = node('out', 'MatrixOutput', 'output', { width: 32, height: 32 })
+    const cppSmall = generateCpp(
+      [node('pp', 'Particles', 'pattern', { particleType: 'fountain', size: 1 }), out32],
+      [edge('e', 'pp', 'out', 'frame', 'frame')],
+    )
+    const cppBig = generateCpp(
+      [node('pp', 'Particles', 'pattern', { particleType: 'fountain', size: 2 }), out32],
+      [edge('e', 'pp', 'out', 'frame', 'frame')],
+    )
+    expect(cppSmall).toContain('floorf(_sx-1.0f-1.0f)')
+    expect(cppBig).toContain('floorf(_sx-2.0f-1.0f)')
   })
 })
 

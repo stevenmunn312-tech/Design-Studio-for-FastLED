@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { NODE_LIBRARY, NODE_DESCRIPTIONS, portColor, propertyMeta } from '../nodeLibrary'
+import { NODE_LIBRARY, NODE_DESCRIPTIONS, portColor, propertyMeta, isPropertyEnabled } from '../nodeLibrary'
 
 describe('nodeLibrary', () => {
   it('gives Image nodes placement and transform defaults', () => {
@@ -209,6 +209,29 @@ describe('nodeLibrary', () => {
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'shows', label: 'Shows', dataType: 'shows' },
     ])
+  })
+
+  it('Particles gates its extra variant-specific controls by particleType', () => {
+    const p = NODE_LIBRARY.find((n) => n.type === 'Particles')
+    expect(p?.defaultProperties).toMatchObject({ size: 1, count: 24, spread: 1, gravity: 1, bounce: 1 })
+    expect(propertyMeta('Particles', 'size')).toMatchObject({ control: 'slider', min: 0.25, max: 3 })
+
+    // `size` applies to every mode; the rest are gated to the modes that read them.
+    expect(isPropertyEnabled('Particles', 'size', { particleType: 'fountain' })).toBe(true)
+    expect(isPropertyEnabled('Particles', 'size', { particleType: 'swarm' })).toBe(true)
+
+    expect(isPropertyEnabled('Particles', 'count', { particleType: 'swarm' })).toBe(true)
+    expect(isPropertyEnabled('Particles', 'count', { particleType: 'orbit' })).toBe(true)
+    expect(isPropertyEnabled('Particles', 'count', { particleType: 'fountain' })).toBe(false)
+
+    expect(isPropertyEnabled('Particles', 'spread', { particleType: 'fountain' })).toBe(true)
+    expect(isPropertyEnabled('Particles', 'spread', { particleType: 'comet' })).toBe(false)
+
+    expect(isPropertyEnabled('Particles', 'gravity', { particleType: 'gravity' })).toBe(true)
+    expect(isPropertyEnabled('Particles', 'gravity', { particleType: 'snow' })).toBe(false)
+
+    expect(isPropertyEnabled('Particles', 'bounce', { particleType: 'gravity' })).toBe(true)
+    expect(isPropertyEnabled('Particles', 'bounce', { particleType: 'fountain' })).toBe(false)
   })
 
   it('Comment has no ports and a text + color default', () => {

@@ -888,6 +888,13 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // variants share the (rate, palette, decay)→frame signature; the evaluator and
     // codegen dispatch on the variant. Each particle is coloured by its life
     // (age) through the palette. See PROPERTY_META.particleType.
+    // Five extra controls are gated to the variants they actually affect (see
+    // isPropertyEnabled): `count` sets the pool size directly for the
+    // fixed-population modes (swarm/orbit/bounce/fireflies, decoupled from
+    // `rate`); `spread` widens/narrows the spawn area for width-spawning modes;
+    // `gravity`/`bounce` scale the built-in accel/restitution constants for
+    // modes with a falling or floor-bouncing motion. `size` scales the
+    // rendered particle radius and applies to every mode.
     type: 'Particles',
     label: 'Particles',
     category: 'pattern',
@@ -898,7 +905,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { particleType: 'fountain', rate: 0.3, decay: 0.92, palette: 'party' },
+    defaultProperties: {
+      particleType: 'fountain', rate: 0.3, decay: 0.92, palette: 'party',
+      size: 1, count: 24, spread: 1, gravity: 1, bounce: 1,
+    },
   },
   {
     type: 'Invert',
@@ -2715,7 +2725,14 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     speed: N01,
     count: { control: 'slider', min: 1, max: 8, step: 1 },
   },
-  Particles:         { rate:  { control: 'slider', min: 0, max: 1,   step: 0.01 } },
+  Particles: {
+    rate:    { control: 'slider', min: 0, max: 1, step: 0.01 },
+    size:    { control: 'slider', min: 0.25, max: 3, step: 0.05 },
+    count:   { control: 'slider', min: 2, max: 80, step: 1 },
+    spread:  { control: 'slider', min: 0, max: 2, step: 0.05 },
+    gravity: { control: 'slider', min: 0, max: 3, step: 0.05 },
+    bounce:  { control: 'slider', min: 0, max: 1.5, step: 0.05 },
+  },
   Transform:         { rate:  { control: 'slider', min: 0, max: 360, step: 1 } },
   Array: {
     count:     { control: 'slider', min: 1, max: 24,  step: 1 },
@@ -2961,6 +2978,15 @@ export function nodeDisplayLabel(nodeType: string, properties: Record<string, un
   return cfg.labels[String(properties[cfg.prop] ?? '')] ?? fallback
 }
 
+// Particles variant groups for the extra size/count/spread/gravity/bounce
+// controls (isPropertyEnabled below) — keep in sync with the matching mode
+// bodies in graphEvaluator.ts's evalParticles and cppGenerator.ts's `Particles`
+// case, which are the ones that actually read each property.
+const PARTICLE_COUNT_MODES = new Set(['swarm', 'orbit', 'bounce', 'fireflies'])
+const PARTICLE_SPREAD_MODES = new Set(['fountain', 'gravity', 'sparkle', 'rain', 'confetti', 'snow', 'waterfall'])
+const PARTICLE_GRAVITY_MODES = new Set(['fountain', 'gravity', 'fireworks', 'waterfall'])
+const PARTICLE_BOUNCE_MODES = new Set(['gravity', 'waterfall'])
+
 /** Whether a node's inline property editor should be enabled. A property may be
  *  inapplicable to the current variant (e.g. Transition `direction` only applies
  *  to a wipe), in which case the editor is shown disabled but keeps its value. */
@@ -3014,6 +3040,20 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
       case 'tileSize':  return tt === 'checkerboard'
       case 'count':     return tt === 'blinds'
       case 'turns':     return tt === 'spiral'
+    }
+  }
+  if (nodeType === 'Particles') {
+    const pt = String(properties.particleType ?? 'fountain')
+    switch (key) {
+      // Fixed-population modes size their pool directly from `count`,
+      // decoupled from spawn `rate`.
+      case 'count':   return PARTICLE_COUNT_MODES.has(pt)
+      // Modes that spawn across (part of) the matrix width.
+      case 'spread':  return PARTICLE_SPREAD_MODES.has(pt)
+      // Modes with a built-in vertical acceleration constant.
+      case 'gravity': return PARTICLE_GRAVITY_MODES.has(pt)
+      // Modes with a floor-bounce restitution constant.
+      case 'bounce':  return PARTICLE_BOUNCE_MODES.has(pt)
     }
   }
   return true
