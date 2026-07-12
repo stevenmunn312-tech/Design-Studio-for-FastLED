@@ -1220,6 +1220,141 @@ def _unique_project_path(base: str, project_id: str) -> Path:
     return candidate
 
 
+def _project_name_from_filename(name: str) -> str:
+    base = re.sub(r"\.fastled-project\.json$", "", name, flags=re.I)
+    base = re.sub(r"\.json$", "", base, flags=re.I)
+    return base.strip() or "Untitled Project"
+
+
+def _show_windows_save_dialog(initial_dir: Path, initial_file: str) -> str | None:
+    env = {
+        **os.environ,
+        "FLS_DIALOG_INITIAL_DIR": str(initial_dir),
+        "FLS_DIALOG_FILE_NAME": initial_file,
+    }
+    script = (
+        "Add-Type -AssemblyName System.Windows.Forms; "
+        "$dialog = New-Object System.Windows.Forms.SaveFileDialog; "
+        "$dialog.InitialDirectory = $env:FLS_DIALOG_INITIAL_DIR; "
+        "$dialog.FileName = $env:FLS_DIALOG_FILE_NAME; "
+        "$dialog.Filter = 'FastLED Studio Project (*.fastled-project.json)|*.fastled-project.json|JSON (*.json)|*.json|All Files (*.*)|*.*'; "
+        "$dialog.AddExtension = $true; "
+        "$dialog.DefaultExt = 'fastled-project.json'; "
+        "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.Write($dialog.FileName) }"
+    )
+    res = subprocess.run(
+        ["powershell", "-NoProfile", "-STA", "-Command", script],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    return (res.stdout or "").strip() or None
+
+
+def _show_windows_open_dialog(initial_dir: Path) -> str | None:
+    env = {
+        **os.environ,
+        "FLS_DIALOG_INITIAL_DIR": str(initial_dir),
+    }
+    script = (
+        "Add-Type -AssemblyName System.Windows.Forms; "
+        "$dialog = New-Object System.Windows.Forms.OpenFileDialog; "
+        "$dialog.InitialDirectory = $env:FLS_DIALOG_INITIAL_DIR; "
+        "$dialog.Filter = 'FastLED Studio Project (*.fastled-project.json;*.json)|*.fastled-project.json;*.json|All Files (*.*)|*.*'; "
+        "$dialog.Multiselect = $false; "
+        "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.Write($dialog.FileName) }"
+    )
+    res = subprocess.run(
+        ["powershell", "-NoProfile", "-STA", "-Command", script],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    return (res.stdout or "").strip() or None
+
+
+def _show_tk_save_dialog(initial_dir: Path, initial_file: str) -> str | None:
+    import tkinter as tk
+    from tkinter import filedialog
+
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+    root.update()
+    try:
+        path = filedialog.asksaveasfilename(
+            parent=root,
+            title="Save Project",
+            initialdir=str(initial_dir),
+            initialfile=initial_file,
+            defaultextension=".fastled-project.json",
+            filetypes=[
+                ("FastLED Studio Project", "*.fastled-project.json"),
+                ("JSON", "*.json"),
+                ("All Files", "*.*"),
+            ],
+        )
+        return path or None
+    finally:
+        root.destroy()
+
+
+def _show_tk_open_dialog(initial_dir: Path) -> str | None:
+    import tkinter as tk
+    from tkinter import filedialog
+
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+    root.update()
+    try:
+        path = filedialog.askopenfilename(
+            parent=root,
+            title="Open Project",
+            initialdir=str(initial_dir),
+            filetypes=[
+                ("FastLED Studio Project", "*.fastled-project.json"),
+                ("JSON", "*.json"),
+                ("All Files", "*.*"),
+            ],
+        )
+        return path or None
+    finally:
+        root.destroy()
+
+
+def _show_project_save_dialog(initial_file: str) -> Path | None:
+    initial_dir = _projects_dir()
+    try:
+        if platform.system() == "Windows":
+            chosen = _show_windows_save_dialog(initial_dir, initial_file)
+        else:
+            chosen = _show_tk_save_dialog(initial_dir, initial_file)
+    except Exception:
+        try:
+            chosen = _show_tk_save_dialog(initial_dir, initial_file)
+        except Exception:
+            return None
+    return Path(chosen) if chosen else None
+
+
+def _show_project_open_dialog() -> Path | None:
+    initial_dir = _projects_dir()
+    try:
+        if platform.system() == "Windows":
+            chosen = _show_windows_open_dialog(initial_dir)
+        else:
+            chosen = _show_tk_open_dialog(initial_dir)
+    except Exception:
+        try:
+            chosen = _show_tk_open_dialog(initial_dir)
+        except Exception:
+            return None
+    return Path(chosen) if chosen else None
+
+
 @app.get("/api/patterns")
 def list_patterns():
     """Every saved pattern on disk, newest first. `[]` when the folder is empty."""
@@ -1425,6 +1560,45 @@ def save_project(project: dict = Body(...)):
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
     return {"ok": True, "file": path.name}
+
+
+@app.post("/api/projects/dialog/open")
+def open_project_dialog():
+    """Open a native OS file dialog and return the chosen project's raw JSON."""
+    path = _show_project_open_dialog()
+    if not path:
+        return {"ok": False, "canceled": True}
+    try:
+        text = path.read_text(encoding="utf-8")
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    return {"ok": True, "canceled": False, "text": text, "name": path.name}
+
+
+@app.post("/api/projects/dialog/save")
+def save_project_dialog(project: dict = Body(...)):
+    """Open a native OS save dialog, write the chosen project file, and return the saved payload."""
+    pid = str(project.get("id") or "").strip()
+    name = str(project.get("name") or "").strip()
+    workspace = project.get("workspace")
+    if (not pid or not name or not isinstance(workspace, dict)
+            or not isinstance(workspace.get("nodes"), list) or not isinstance(workspace.get("edges"), list)):
+        return JSONResponse({"ok": False, "error": "project needs id, name and workspace"}, status_code=400)
+
+    initial_file = f"{_sanitize_filename(name)}.fastled-project.json"
+    path = _show_project_save_dialog(initial_file)
+    if not path:
+        return {"ok": False, "canceled": True}
+
+    saved_project = {
+        **project,
+        "name": _project_name_from_filename(path.name),
+    }
+    try:
+        path.write_text(json.dumps(saved_project, indent=2), encoding="utf-8")
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    return {"ok": True, "canceled": False, "project": saved_project, "path": str(path)}
 
 
 @app.delete("/api/projects/{project_id}")

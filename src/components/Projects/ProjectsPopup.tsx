@@ -10,6 +10,7 @@ import {
   serializeProject,
   suggestProjectFileName,
 } from '../../utils/projectFileIO'
+import { saveProjectWithDialog } from '../../utils/backendClient'
 import styles from './ProjectsPopup.module.css'
 
 function relativeTime(timestamp: number): string {
@@ -60,7 +61,7 @@ export default function ProjectsPopup() {
     const defaultName = nextDefaultProjectName(projects.map((project) => project.name))
     const draft = buildProjectSnapshot(blankWorkspace(), { name: defaultName })
     try {
-      const saved = await saveProjectWithNativePicker(draft)
+      const saved = await saveProjectWithDialog(draft) ?? await saveProjectWithNativePicker(draft)
       if (!saved) throw new Error('Native picker unavailable')
       if (saveCurrentFirst && currentProject) {
         useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))

@@ -305,3 +305,31 @@ export async function deleteProjectFromDisk(id: string): Promise<boolean> {
     return false
   }
 }
+
+/** Open a native OS project picker through the helper. Returns the raw file text, or null if unavailable/canceled. */
+export async function openProjectDialog(): Promise<{ text: string; name: string } | null> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/projects/dialog/open`, { method: 'POST' })
+    const data = await res.json() as { ok?: boolean; canceled?: boolean; text?: string; name?: string }
+    return data.ok && typeof data.text === 'string' && typeof data.name === 'string'
+      ? { text: data.text, name: data.name }
+      : null
+  } catch {
+    return null
+  }
+}
+
+/** Save a project through a native OS save dialog. Returns the saved project, or null if unavailable/canceled. */
+export async function saveProjectWithDialog(project: SavedProject): Promise<SavedProject | null> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/projects/dialog/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(project),
+    })
+    const data = await res.json() as { ok?: boolean; canceled?: boolean; project?: SavedProject }
+    return data.ok && data.project ? data.project : null
+  } catch {
+    return null
+  }
+}
