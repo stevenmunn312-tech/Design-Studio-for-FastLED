@@ -1,6 +1,7 @@
 import { useGraphStore } from '../state/graphStore'
 import { STARTER_TEMPLATES, type StarterTemplate } from '../state/starterTemplates'
 import { useUiStore } from '../state/uiStore'
+import { runTidy } from './tidyGraph'
 
 interface StartFlowOptions {
   closeTemplates?: boolean
@@ -18,6 +19,7 @@ function finishStartFlow(choice: string | 'blank', statusText: string, nodeIds?:
 export function startTemplate(template: StarterTemplate, options?: StartFlowOptions) {
   const { nodes, edges } = template.build()
   useGraphStore.getState().loadGraph(nodes, edges)
+  runTidy()
   finishStartFlow(template.id, `Loaded "${template.name}" starter`, nodes.map((node) => node.id), options)
 }
 
