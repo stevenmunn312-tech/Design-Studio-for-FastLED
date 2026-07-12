@@ -25,24 +25,24 @@ describe('projectStore', () => {
     localStorage.clear()
   })
 
-  it('starts with a default Main project when storage is empty', async () => {
+  it('starts with no projects when storage is empty', async () => {
     const { useProjectStore } = await freshStore()
     const state = useProjectStore.getState()
-    expect(state.projects).toHaveLength(1)
-    expect(state.projects[0].name).toBe('Main')
-    expect(state.currentProjectId).toBe(state.projects[0].id)
+    expect(state.projects).toHaveLength(0)
+    expect(state.currentProjectId).toBe('')
   })
 
-  it('migrates the legacy single-workspace autosave slot into the default project', async () => {
+  it('never mints a project from the legacy single-workspace autosave slot, and clears it', async () => {
     localStorage.setItem('fastled-studio-graph', JSON.stringify(workspace(['a', 'b'])))
     const { useProjectStore } = await freshStore()
-    const current = useProjectStore.getState().projects[0]
-    expect(current.workspace.nodes).toHaveLength(2)
-    expect(current.workspace.nodes.map((entry) => entry.id)).toEqual(['a', 'b'])
+    expect(useProjectStore.getState().projects).toHaveLength(0)
+    expect(useProjectStore.getState().currentProjectId).toBe('')
+    expect(localStorage.getItem('fastled-studio-graph')).toBeNull()
   })
 
   it('saves the current workspace and persists it', async () => {
     const { useProjectStore } = await freshStore()
+    useProjectStore.getState().createProject('Main', workspace(['seed']))
     useProjectStore.getState().saveCurrentWorkspace(workspace(['frame']))
 
     const current = useProjectStore.getState().projects.find((project) => project.id === useProjectStore.getState().currentProjectId)
@@ -52,8 +52,16 @@ describe('projectStore', () => {
     expect(raw.projects?.[0].workspace?.nodes).toHaveLength(1)
   })
 
+  it('saving with no current project is a no-op instead of minting one', async () => {
+    const { useProjectStore } = await freshStore()
+    useProjectStore.getState().saveCurrentWorkspace(workspace(['frame']))
+    expect(useProjectStore.getState().projects).toHaveLength(0)
+    expect(useProjectStore.getState().currentProjectId).toBe('')
+  })
+
   it('clones saved workspaces so later mutations do not rewrite the project snapshot', async () => {
     const { useProjectStore } = await freshStore()
+    useProjectStore.getState().createProject('Main', workspace(['seed']))
     const draft = workspace(['frame'])
 
     useProjectStore.getState().saveCurrentWorkspace(draft)
@@ -64,9 +72,9 @@ describe('projectStore', () => {
     expect(current?.workspace.nodes.map((entry) => entry.id)).toEqual(['frame'])
   })
 
-  it('creates, renames, switches, and deletes projects while always keeping one active', async () => {
+  it('creates, renames, switches, and deletes projects', async () => {
     const { useProjectStore } = await freshStore()
-    useProjectStore.getState().saveCurrentWorkspace(workspace(['main']))
+    const main = useProjectStore.getState().createProject('Main', workspace(['main']))
 
     const showA = useProjectStore.getState().createProject('Show A', workspace(['a']))
     expect(useProjectStore.getState().currentProjectId).toBe(showA.id)
@@ -75,20 +83,34 @@ describe('projectStore', () => {
     useProjectStore.getState().renameProject(showA.id, 'Show Alpha')
     expect(useProjectStore.getState().projects.find((project) => project.id === showA.id)?.name).toBe('Show Alpha')
 
-    const main = useProjectStore.getState().projects.find((project) => project.workspace.nodes.some((entry) => entry.id === 'main'))
-    expect(main).toBeTruthy()
-    const switched = useProjectStore.getState().switchProject(main!.id)
-    expect(switched?.id).toBe(main!.id)
-    expect(useProjectStore.getState().currentProjectId).toBe(main!.id)
+    const switched = useProjectStore.getState().switchProject(main.id)
+    expect(switched?.id).toBe(main.id)
+    expect(useProjectStore.getState().currentProjectId).toBe(main.id)
 
-    const nextActive = useProjectStore.getState().deleteProject(main!.id)
+    const nextActive = useProjectStore.getState().deleteProject(main.id)
     expect(useProjectStore.getState().projects).toHaveLength(1)
-    expect(useProjectStore.getState().currentProjectId).toBe(nextActive.id)
+    expect(nextActive?.id).toBe(showA.id)
+    expect(useProjectStore.getState().currentProjectId).toBe(showA.id)
+  })
+
+  it('deleting the last project leaves the workspace empty instead of minting a replacement', async () => {
+    const { useProjectStore } = await freshStore()
+    const only = useProjectStore.getState().createProject('Only', workspace(['x']))
+
+    const nextActive = useProjectStore.getState().deleteProject(only.id)
+    expect(nextActive).toBeNull()
+    expect(useProjectStore.getState().projects).toHaveLength(0)
+    expect(useProjectStore.getState().currentProjectId).toBe('')
+
+    // A reload must not resurrect it from the current-workspace snapshot either.
+    const reloaded = await freshStore()
+    expect(reloaded.useProjectStore.getState().projects).toHaveLength(0)
+    expect(reloaded.useProjectStore.getState().currentProjectId).toBe('')
   })
 
   it('persists upload targets per project', async () => {
     const { useProjectStore } = await freshStore()
-    const mainId = useProjectStore.getState().currentProjectId
+    const mainId = useProjectStore.getState().createProject('Main', workspace(['main'])).id
 
     useProjectStore.getState().setProjectUploadTarget({
       selectedFqbn: 'esp32:esp32:esp32s3',
@@ -125,11 +147,11 @@ describe('projectStore', () => {
   it('restores the current project from the small hint key when the full project blob stops persisting', async () => {
     const first = await freshStore()
     const store = first.useProjectStore
-    const mainId = store.getState().currentProjectId
+    const mainId = store.getState().createProject('Main', workspace(['main'])).id
     const showA = store.getState().createProject('Show A', workspace(['a']))
 
     const realSetItem = Storage.prototype.setItem
-    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (key: string, value: string) {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
       if (key === 'fastled-studio.projects.v1') throw new Error('quota')
       return realSetItem.call(this, key, value)
     })
@@ -145,10 +167,11 @@ describe('projectStore', () => {
 
   it('restores the latest current-project workspace from the dedicated snapshot when the full project blob is stale', async () => {
     const { useProjectStore } = await freshStore()
+    useProjectStore.getState().createProject('Main', workspace(['seed']))
     useProjectStore.getState().saveCurrentWorkspace(workspace(['old']))
 
     const realSetItem = Storage.prototype.setItem
-    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (key: string, value: string) {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
       if (key === 'fastled-studio.projects.v1') throw new Error('quota')
       return realSetItem.call(this, key, value)
     })
@@ -164,12 +187,12 @@ describe('projectStore', () => {
     expect(current?.workspace.nodes.map((entry) => entry.id)).toEqual(['new'])
   })
 
-  it('reconstructs the current project from the dedicated snapshot when the stale project blob only has Main', async () => {
+  it('reconstructs the current project from the dedicated snapshot when it never reached the project blob', async () => {
     const initial = await freshStore()
     const store = initial.useProjectStore
 
     const realSetItem = Storage.prototype.setItem
-    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (key: string, value: string) {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
       if (key === 'fastled-studio.projects.v1') throw new Error('quota')
       return realSetItem.call(this, key, value)
     })
@@ -185,5 +208,15 @@ describe('projectStore', () => {
       (project) => project.id === reloaded.useProjectStore.getState().currentProjectId,
     )
     expect(current?.workspace.nodes.map((entry) => entry.id)).toEqual(['pg'])
+  })
+
+  it('never resurrects a project named Main under any load-failure combination', async () => {
+    // Legacy key present + empty blob + no snapshot: the exact refresh state
+    // that used to mint a fresh "Main" project on every reload.
+    localStorage.setItem('fastled-studio-graph', JSON.stringify(workspace(['ancient'])))
+    localStorage.setItem('fastled-studio.projects.v1', 'not json')
+    const { useProjectStore } = await freshStore()
+    expect(useProjectStore.getState().projects).toHaveLength(0)
+    expect(useProjectStore.getState().currentProjectId).toBe('')
   })
 })

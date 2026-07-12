@@ -270,8 +270,14 @@ export default function App() {
       }
       if (e.key === 's') {
         e.preventDefault()
-        useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
-        setStatus('Project saved', 'success')
+        const { projects, currentProjectId } = useProjectStore.getState()
+        if (projects.some((project) => project.id === currentProjectId)) {
+          useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
+          setStatus('Project saved', 'success')
+        } else {
+          useUiStore.getState().openProjects()
+          setStatus('No project open — create one to save into', 'info')
+        }
       }
       if (e.key === 'a') {
         e.preventDefault()

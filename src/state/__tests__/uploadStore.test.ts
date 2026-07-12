@@ -68,7 +68,7 @@ describe('uploadStore', () => {
 
   it('tracks board and port per project when switching', async () => {
     const { useProjectStore, useUploadStore } = await freshStores()
-    const mainId = useProjectStore.getState().currentProjectId
+    const mainId = useProjectStore.getState().createProject('Main', workspace(['main'])).id
 
     useUploadStore.getState().setSelectedFqbn('esp32:esp32:esp32s3')
     useUploadStore.getState().setSelectedPort('COM7')
@@ -94,6 +94,7 @@ describe('uploadStore', () => {
 
   it('re-uploads the last cached sketch for the current project', async () => {
     const { useProjectStore, useUploadStore } = await freshStores()
+    useProjectStore.getState().createProject('Main', workspace(['main']))
     useUploadStore.setState({
       helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false },
       selectedFqbn: 'esp32:esp32:esp32s3',

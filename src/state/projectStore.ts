@@ -36,7 +36,7 @@ interface ProjectState {
   currentProjectId: string
   createProject: (name: string, workspace?: PersistedWorkspace, options?: { uploadTarget?: ProjectUploadTarget }) => SavedProject
   renameProject: (id: string, name: string) => void
-  deleteProject: (id: string) => SavedProject
+  deleteProject: (id: string) => SavedProject | null
   switchProject: (id: string) => SavedProject | null
   saveCurrentWorkspace: (workspace: PersistedWorkspace) => void
   setProjectUploadTarget: (uploadTarget: ProjectUploadTarget, id?: string) => void
@@ -48,7 +48,6 @@ const CURRENT_PROJECT_KEY = 'fastled-studio.current-project.v1'
 const CURRENT_WORKSPACE_KEY = 'fastled-studio.current-workspace.v1'
 const LEGACY_AUTOSAVE_KEY = 'fastled-studio-graph'
 const DISK_SYNC = !import.meta.env.VITEST
-const IMPLICIT_PROJECTS = !DISK_SYNC
 
 function trimName(name: string): string {
   return name.trim().slice(0, 80)
@@ -117,7 +116,16 @@ function loadCurrentWorkspaceSnapshot(): SavedProject | null {
 }
 
 function persistCurrentWorkspaceSnapshot(project: SavedProject | undefined): void {
-  if (!project) return
+  if (!project) {
+    // No current project: drop the snapshot too, so a deleted project can't
+    // resurrect from it on the next load.
+    try {
+      localStorage.removeItem(CURRENT_WORKSPACE_KEY)
+    } catch {
+      // Keep running when storage is unavailable.
+    }
+    return
+  }
   try {
     localStorage.setItem(CURRENT_WORKSPACE_KEY, JSON.stringify({
       projectId: project.id,
@@ -153,34 +161,7 @@ function makeProject(
   }
 }
 
-function migrateLegacyAutosave(): PersistedState {
-  if (!IMPLICIT_PROJECTS) {
-    try {
-      const raw = localStorage.getItem(LEGACY_AUTOSAVE_KEY)
-      if (!raw) return { currentProjectId: '', projects: [] }
-      const parsed = JSON.parse(raw) as PersistedWorkspace
-      const migrated = makeProject('Main', parsed)
-      return { currentProjectId: migrated.id, projects: [migrated] }
-    } catch {
-      return { currentProjectId: '', projects: [] }
-    }
-  }
-  const fallback = makeProject('Main')
-  try {
-    const raw = localStorage.getItem(LEGACY_AUTOSAVE_KEY)
-    if (!raw) return { currentProjectId: fallback.id, projects: [fallback] }
-    const parsed = JSON.parse(raw) as PersistedWorkspace
-    return {
-      currentProjectId: fallback.id,
-      projects: [{ ...fallback, workspace: parsed }],
-    }
-  } catch {
-    return { currentProjectId: fallback.id, projects: [fallback] }
-  }
-}
-
 function normalizeState(parsed: Partial<PersistedState> | null | undefined): PersistedState {
-  const fallback = migrateLegacyAutosave()
   const currentWorkspace = loadCurrentWorkspaceSnapshot()
   const rawProjects = Array.isArray(parsed?.projects) ? parsed.projects : []
   const projects = rawProjects
@@ -213,9 +194,10 @@ function normalizeState(parsed: Partial<PersistedState> | null | undefined): Per
             ? currentWorkspace
             : project))
       })()
-    : (sorted.length ? sorted : (currentWorkspace ? [currentWorkspace] : fallback.projects))
+    : sorted
   if (projectsWithSnapshot.length === 0) {
     persistCurrentProjectHint('')
+    persistCurrentWorkspaceSnapshot(undefined)
     return { currentProjectId: '', projects: [] }
   }
   const currentProjectId = projectsWithSnapshot.some((project) => project.id === preferredProjectId)
@@ -227,6 +209,16 @@ function normalizeState(parsed: Partial<PersistedState> | null | undefined): Per
 }
 
 function load(): PersistedState {
+  try {
+    // The pre-projects single-slot autosave is dead weight: it was only ever
+    // read to mint an implicit "Main" project, which kept resurrecting an
+    // ancient graph whenever the project blob failed to load. Projects are
+    // only ever created by the user now, so drop the stale payload (and
+    // reclaim its localStorage quota) permanently.
+    localStorage.removeItem(LEGACY_AUTOSAVE_KEY)
+  } catch {
+    // Keep running when storage is unavailable.
+  }
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return normalizeState(undefined)
@@ -281,22 +273,15 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   deleteProject: (id) => {
     const state = get()
-    const remaining = state.projects.filter((project) => project.id !== id)
-    let projects = remaining
-    let currentProjectId = state.currentProjectId
-    if (projects.length === 0) {
-      const replacement = makeProject('Main')
-      projects = [replacement]
-      currentProjectId = replacement.id
-      if (DISK_SYNC) void saveProjectToDisk(replacement)
-    } else if (currentProjectId === id) {
-      currentProjectId = sortProjects(projects)[0].id
-    }
-    const next = { currentProjectId, projects: sortProjects(projects) }
+    const projects = sortProjects(state.projects.filter((project) => project.id !== id))
+    const currentProjectId = state.currentProjectId === id
+      ? (projects[0]?.id ?? '')
+      : state.currentProjectId
+    const next = { currentProjectId, projects }
     persist(next)
     set(next)
     if (DISK_SYNC) void deleteProjectFromDisk(id)
-    return next.projects.find((project) => project.id === next.currentProjectId) ?? next.projects[0]
+    return next.projects.find((project) => project.id === next.currentProjectId) ?? null
   },
 
   switchProject: (id) => {

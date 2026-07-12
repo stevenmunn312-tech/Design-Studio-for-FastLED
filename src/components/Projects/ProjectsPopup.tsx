@@ -94,8 +94,12 @@ export default function ProjectsPopup() {
     if (!ok) return
     const nextActive = deleteProject(id)
     if (id === currentProjectId) {
-      const { nodes, edges, graphData, graphs, activeGraphId } = nextActive.workspace
-      useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId })
+      if (nextActive) {
+        const { nodes, edges, graphData, graphs, activeGraphId } = nextActive.workspace
+        useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId })
+      } else {
+        useGraphStore.getState().loadGraph([], [])
+      }
       useGraphStore.temporal.getState().clear()
     }
     setStatus(`Deleted project "${name}"`, 'success')
