@@ -103,6 +103,15 @@ export const usePreviewStore = create<PreviewState>((set) => ({
         )
       }
     }
+    // Forget the copy buffers of nodes that no longer publish (deleted, or
+    // gone with a graph switch) — otherwise frameCopies retains two full
+    // frame buffers per abandoned node-port for the rest of the session.
+    // Hot-only publishes carry the previous outputs forward, so every live
+    // node is present in `outputs` on every call.
+    for (const key of frameCopies.keys()) {
+      const nodeId = key.slice(0, key.lastIndexOf(':'))
+      if (!outputs.has(nodeId)) frameCopies.delete(key)
+    }
     return { outputs: stableOutputs, signals }
   }),
 }))

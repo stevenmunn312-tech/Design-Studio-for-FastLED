@@ -21,7 +21,7 @@ vi.mock('../audioStore', () => ({
   },
 }))
 
-import { evaluateGraph, evaluateGraphFull, evaluateScalar, getCodeError, pruneEvaluatorState, renderParticleBurst, PARTICLE_LIFE_MS } from '../graphEvaluator'
+import { evaluateGraph, evaluateGraphFull, evaluateScalar, getCodeError, pruneEvaluatorState, prunePoolBuffers, renderParticleBurst, PARTICLE_LIFE_MS } from '../graphEvaluator'
 import type { Frame } from '../graphEvaluator'
 import { waveSample, combineWaves } from '../wave'
 import { NODE_LIBRARY } from '../nodeLibrary'
@@ -2800,5 +2800,32 @@ describe('evaluateGraphFull hot set', () => {
     const wires = [edge('e1', 'sc', 'frame', 'mo', 'frame')]
     const { outputs } = evaluateGraphFull([sc, aux, out], wires, 0, W, H)
     expect(outputs.has('aux')).toBe(true)
+  })
+})
+
+describe('frame pool pruning', () => {
+  const solidGraph = () => ({
+    nodes: [node('sc', 'SolidColor', 'pattern', { r: 10, g: 20, b: 30 }), node('mo', 'MatrixOutput', 'output', {})],
+    wires: [edge('e1', 'sc', 'frame', 'mo', 'frame')],
+  })
+
+  it('recycles a pass buffer two passes later, and releases it after a prune', () => {
+    const { nodes, wires } = solidGraph()
+    const f1 = evaluateGraphFull(nodes, wires, 0, 8, 8).frame!
+    const f2 = evaluateGraphFull(nodes, wires, 1, 8, 8).frame!
+    const f3 = evaluateGraphFull(nodes, wires, 2, 8, 8).frame!
+    // Two-generation recycling: pass 3's allocation reuses pass 1's buffer.
+    expect(f3).toBe(f1)
+    expect(f2).not.toBe(f1)
+
+    // Two empty passes cycle both in-flight generations into the free lists,
+    // then a sweep whose "now" is far past the idle TTL evicts everything.
+    evaluateGraphFull([], [], 3, 8, 8)
+    evaluateGraphFull([], [], 4, 8, 8)
+    prunePoolBuffers(0, performance.now() + 60_000)
+
+    const f6 = evaluateGraphFull(nodes, wires, 5, 8, 8).frame!
+    expect(f6).not.toBe(f1)
+    expect(f6).not.toBe(f2)
   })
 })

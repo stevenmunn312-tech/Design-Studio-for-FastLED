@@ -100,6 +100,10 @@ interface GraphState {
   pasteNode: (position: { x: number; y: number }) => void
   deleteNode: (id: string) => void
   disconnectNode: (id: string) => void
+  /** Drop `graphData`/`graphs` entries no longer reachable from any Group
+   *  node, PatternCollection, clipboard entry, or undo/redo snapshot.
+   *  Scheduled automatically after node removals; safe to call any time. */
+  pruneOrphanGraphs: () => void
   /** Remove a single edge (a "noodle"), e.g. when unplugged onto empty space. */
   removeEdge: (id: string) => void
   /** Re-route an edge to a new connection when its end is dragged to a port. */
@@ -277,6 +281,79 @@ function uniqueId(base: string, used: Set<string>): string {
   return candidate
 }
 
+// ── Orphaned-subgraph cleanup ────────────────────────────────────────────────
+// Deleting a Group node removes the node but not its stashed subgraph, so
+// `graphData` would otherwise accumulate unreachable pattern groups for the
+// whole session — and persist them into the project autosave. A subgraph is
+// alive while a Group node or PatternCollection references it from the active
+// graph, a stashed subgraph, the clipboard, or an undo/redo snapshot (so an
+// undoable Group deletion keeps its subgraph restorable).
+
+function collectGraphRefs(nodes: StudioNode[], into: string[]): void {
+  for (const node of nodes) {
+    const props = node.data?.properties as { groupId?: unknown; patternIds?: unknown } | undefined
+    if (typeof props?.groupId === 'string') into.push(props.groupId)
+    if (Array.isArray(props?.patternIds)) {
+      for (const id of props.patternIds) if (typeof id === 'string') into.push(id)
+    }
+  }
+}
+
+/** Compute the pruned `graphData`/`graphs`, or null when nothing is orphaned.
+ *  `extraNodeLists` supplies node arrays outside the workspace itself (undo
+ *  snapshots, clipboard) whose references must also be treated as live. */
+function pruneOrphanGraphData(
+  s: Pick<GraphState, 'nodes' | 'graphData' | 'graphs' | 'activeGraphId'>,
+  extraNodeLists: StudioNode[][],
+): Pick<GraphState, 'graphData' | 'graphs'> | null {
+  const queue: string[] = [ROOT_GRAPH_ID, s.activeGraphId]
+  collectGraphRefs(s.nodes, queue)
+  for (const nodes of extraNodeLists) collectGraphRefs(nodes, queue)
+  const reachable = new Set<string>()
+  while (queue.length) {
+    const id = queue.pop()!
+    if (reachable.has(id)) continue
+    reachable.add(id)
+    const content = s.graphData[id]
+    if (content) collectGraphRefs(content.nodes, queue)
+  }
+  const orphans = Object.keys(s.graphData).filter((id) => !reachable.has(id))
+  if (orphans.length === 0) return null
+  const graphData = { ...s.graphData }
+  const graphs = { ...s.graphs }
+  for (const id of orphans) {
+    delete graphData[id]
+    delete graphs[id]
+  }
+  return { graphData, graphs }
+}
+
+// The sweep must not run until zundo has pushed the pre-delete snapshot, and
+// that push is itself debounced (400 ms after the *last* set in a burst). So
+// the prune fires only after the store has been quiet for a full second: any
+// state change while it is pending pushes it back (see the subscription below
+// the store), which guarantees the snapshot is in `pastStates` first.
+/** Every node array held by the undo/redo history. Annotated (not inferred)
+ *  so the store creator can call it without a circular type dependency on the
+ *  store's own inferred type. */
+function historyNodeLists(): StudioNode[][] {
+  const history = useGraphStore.temporal.getState()
+  return [
+    ...history.pastStates.map((snapshot) => snapshot.nodes ?? []),
+    ...history.futureStates.map((snapshot) => snapshot.nodes ?? []),
+  ]
+}
+
+const ORPHAN_PRUNE_DELAY_MS = 1_000
+let orphanPruneTimer: ReturnType<typeof setTimeout> | undefined
+function scheduleOrphanGraphPrune(): void {
+  if (orphanPruneTimer) clearTimeout(orphanPruneTimer)
+  orphanPruneTimer = setTimeout(() => {
+    orphanPruneTimer = undefined
+    useGraphStore.getState().pruneOrphanGraphs()
+  }, ORPHAN_PRUNE_DELAY_MS)
+}
+
 // A burst of rapid edits (dragging a slider, typing in a text field) calls
 // zundo's handleSet once per tick/keystroke. Debouncing it naively would keep
 // only the *last* call's pastState — undoing the burst would then revert just
@@ -313,7 +390,8 @@ export const useGraphStore = create<GraphState>()(
       graphs: { [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' } },
       graphData: {},
 
-      onNodesChange: (changes) =>
+      onNodesChange: (changes) => {
+        if (changes.some((change) => change.type === 'remove')) scheduleOrphanGraphPrune()
         set((s) => {
           let nodes = applyNodeChanges(changes, s.nodes) as StudioNode[]
           // Once a click-to-add node has been measured, lift it by half its
@@ -331,7 +409,8 @@ export const useGraphStore = create<GraphState>()(
             ? s.selectedNodeId
             : null
           return { nodes, selectedNodeId }
-        }),
+        })
+      },
 
       onEdgesChange: (changes) =>
         set((s) => ({ edges: applyEdgeChanges(changes, s.edges) })),
@@ -525,11 +604,19 @@ export const useGraphStore = create<GraphState>()(
             [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' },
             ...(workspace?.graphs ?? {}),
           }
+          const activeGraphId = workspace?.activeGraphId ?? ROOT_GRAPH_ID
+          // Sweep out subgraphs a previous session orphaned — undo history
+          // doesn't survive a load, so reachability from the loaded content
+          // alone decides what stays.
+          const pruned = pruneOrphanGraphData(
+            { nodes: active.nodes, graphData, graphs, activeGraphId },
+            [],
+          )
           return {
             ...active,
-            graphData,
-            graphs,
-            activeGraphId: workspace?.activeGraphId ?? ROOT_GRAPH_ID,
+            graphData: pruned?.graphData ?? graphData,
+            graphs: pruned?.graphs ?? graphs,
+            activeGraphId,
             selectedNodeId: null,
           }
         }),
@@ -548,12 +635,21 @@ export const useGraphStore = create<GraphState>()(
           }
         }),
 
-      deleteNode: (id) =>
+      deleteNode: (id) => {
+        scheduleOrphanGraphPrune()
         set((s) => ({
           nodes: s.nodes.filter((n) => n.id !== id),
           edges: s.edges.filter((e) => e.source !== id && e.target !== id),
           selectedNodeId: s.selectedNodeId === id ? null : s.selectedNodeId,
-        })),
+        }))
+      },
+
+      pruneOrphanGraphs: () =>
+        set((s) => {
+          const extraNodeLists = historyNodeLists()
+          if (s.clipboard) extraNodeLists.push(s.clipboard.nodes)
+          return pruneOrphanGraphData(s, extraNodeLists) ?? s
+        }),
 
       disconnectNode: (id) =>
         set((s) => ({
@@ -574,6 +670,8 @@ export const useGraphStore = create<GraphState>()(
             temporalApi.clear()
             temporalApi.resume()
             useUiStore.getState().requestFitView()
+            // History is gone, so any subgraph it was keeping alive can go too.
+            useGraphStore.getState().pruneOrphanGraphs()
           })
           return {
             graphData: nextData,
@@ -1097,6 +1195,16 @@ export const useGraphStore = create<GraphState>()(
     }
   )
 )
+
+// Any store change while an orphan prune is pending pushes it back: zundo's
+// debounced history push lands 400 ms after the *last* set, so a prune that
+// only fires after a full second of quiet always sees the pre-delete snapshot
+// in `pastStates`. The prune's own set is a no-op notify when nothing was
+// orphaned, and its orphan-removing set fires before the timer is re-armed
+// (the timer is cleared before the action runs), so this cannot self-loop.
+useGraphStore.subscribe(() => {
+  if (orphanPruneTimer) scheduleOrphanGraphPrune()
+})
 
 // Dev-only: expose the store on window so external tooling (e.g. a browser
 // automation session building a demo graph) can call actions like `loadGraph`

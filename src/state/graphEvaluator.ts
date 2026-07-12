@@ -154,22 +154,84 @@ let poolPrev: { frames: Frame[]; fields: Field[] } = { frames: [], fields: [] }
 let poolCurr: { frames: Frame[]; fields: Field[] } = { frames: [], fields: [] }
 const POOL_FREE_CAP = 256
 
+const stateClock = () => typeof performance !== 'undefined' ? performance.now() : Date.now()
+
+// The free lists would otherwise retain the high-water mark of buffers a pass
+// ever needed: after a big graph shrinks, or the matrix is resized away from a
+// size, the old peak (and every abandoned size key) stays allocated for the
+// session. Track per-size usage so a periodic sweep can evict idle sizes
+// outright and trim active free lists back toward recent per-pass demand.
+const POOL_SWEEP_INTERVAL_MS = 5_000
+const POOL_IDLE_TTL_MS = 30_000
+let lastPoolSweep = 0
+const framePoolLastUsed = new Map<string, number>()
+const fieldPoolLastUsed = new Map<number, number>()
+const framePassPeak = new Map<string, number>()
+const fieldPassPeak = new Map<number, number>()
+
 /** Advance the pool generation — called once per top-level preview pass
  *  (evaluateGraphFull). Buffers from two passes ago become reusable. */
 function advanceFramePool(): void {
+  const now = stateClock()
+  const frameCounts = new Map<string, number>()
   for (const frame of poolPrev.frames) {
     const key = `${frame[0]?.length ?? 0}x${frame.length}`
     let free = framePoolFree.get(key)
     if (!free) framePoolFree.set(key, (free = []))
     if (free.length < POOL_FREE_CAP) free.push(frame)
+    frameCounts.set(key, (frameCounts.get(key) ?? 0) + 1)
   }
+  for (const [key, count] of frameCounts) {
+    framePoolLastUsed.set(key, now)
+    if (count > (framePassPeak.get(key) ?? 0)) framePassPeak.set(key, count)
+  }
+  const fieldCounts = new Map<number, number>()
   for (const field of poolPrev.fields) {
     let free = fieldPoolFree.get(field.length)
     if (!free) fieldPoolFree.set(field.length, (free = []))
     if (free.length < POOL_FREE_CAP) free.push(field)
+    fieldCounts.set(field.length, (fieldCounts.get(field.length) ?? 0) + 1)
+  }
+  for (const [len, count] of fieldCounts) {
+    fieldPoolLastUsed.set(len, now)
+    if (count > (fieldPassPeak.get(len) ?? 0)) fieldPassPeak.set(len, count)
   }
   poolPrev = poolCurr
   poolCurr = { frames: [], fields: [] }
+  if (now - lastPoolSweep >= POOL_SWEEP_INTERVAL_MS) {
+    lastPoolSweep = now
+    prunePoolBuffers(POOL_IDLE_TTL_MS, now)
+  }
+}
+
+/** Evict pooled buffers: drop the free list of any size that hasn't been used
+ * for `maxIdleMs`, and trim surviving lists to a small margin over the peak
+ * per-pass demand seen since the previous sweep. Exported so tests can force a
+ * sweep; advanceFramePool runs one automatically every few seconds. */
+export function prunePoolBuffers(maxIdleMs = POOL_IDLE_TTL_MS, now = stateClock()): void {
+  const cutoff = now - Math.max(0, maxIdleMs)
+  for (const [key, free] of framePoolFree) {
+    if ((framePoolLastUsed.get(key) ?? 0) < cutoff) {
+      framePoolFree.delete(key)
+      framePoolLastUsed.delete(key)
+      framePassPeak.delete(key)
+      continue
+    }
+    const cap = (framePassPeak.get(key) ?? 0) + 4
+    if (free.length > cap) free.length = cap
+    framePassPeak.delete(key)  // restart the peak window each sweep
+  }
+  for (const [len, free] of fieldPoolFree) {
+    if ((fieldPoolLastUsed.get(len) ?? 0) < cutoff) {
+      fieldPoolFree.delete(len)
+      fieldPoolLastUsed.delete(len)
+      fieldPassPeak.delete(len)
+      continue
+    }
+    const cap = (fieldPassPeak.get(len) ?? 0) + 4
+    if (free.length > cap) free.length = cap
+    fieldPassPeak.delete(len)
+  }
 }
 
 // Pixel contents are NOT cleared — every caller overwrites all W×H pixels.
@@ -215,8 +277,6 @@ const stateLastUsed = new Map<string, number>()
 const STATE_IDLE_TTL_MS = 30_000
 const STATE_PRUNE_INTERVAL_MS = 5_000
 let lastStatePrune = 0
-
-const stateClock = () => typeof performance !== 'undefined' ? performance.now() : Date.now()
 
 function markStateUsed(key: string): string {
   stateLastUsed.set(key, stateClock())

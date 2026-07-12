@@ -557,7 +557,7 @@ describe('graphStore — loadGraph normalization', () => {
       edges: [edge('ie', 'inner', 'frame', 'go', 'frame')],
     }
     useGraphStore.getState().loadGraph(
-      [node('grp', 'Group'), node('out', 'MatrixOutput')],
+      [node('grp', 'Group', { groupId: 'grp-1' }), node('out', 'MatrixOutput')],
       [edge('e', 'grp', 'frame', 'out', 'frame')],
       {
         graphData: { 'grp-1': sub },
@@ -804,5 +804,86 @@ describe('matrixTileLayout', () => {
     expect(matrixTileLayout(nodes)).toEqual({ tilesX: 2, tilesY: 3 })
     expect(matrixTileLayout([node('out', 'MatrixOutput', { layout: 'panels', tilesX: 99, tilesY: 0 })]))
       .toEqual({ tilesX: 16, tilesY: 1 })
+  })
+})
+
+describe('graphStore — orphaned subgraph pruning', () => {
+  beforeEach(() => {
+    reset()
+    useGraphStore.temporal.getState().clear()
+  })
+
+  function makeGroup(): { gid: string; groupNodeId: string } {
+    reset([node('sc', 'SolidColor', { r: 255, g: 0, b: 0 })])
+    const gid = useGraphStore.getState().createGroup('P', ['sc'])
+    const groupNode = useGraphStore.getState().nodes.find((n) => n.data.nodeType === 'Group')!
+    return { gid, groupNodeId: groupNode.id }
+  }
+
+  it('drops a deleted Group node\'s subgraph once nothing references it', () => {
+    const { gid, groupNodeId } = makeGroup()
+    useGraphStore.getState().deleteNode(groupNodeId)
+    useGraphStore.temporal.getState().clear()   // the deletion has aged out of undo
+    useGraphStore.getState().pruneOrphanGraphs()
+    const s = useGraphStore.getState()
+    expect(s.graphData[gid]).toBeUndefined()
+    expect(s.graphs[gid]).toBeUndefined()
+  })
+
+  it('keeps a deleted Group\'s subgraph while an undo snapshot references it', () => {
+    const { gid, groupNodeId } = makeGroup()
+    const preDelete = useGraphStore.getState().nodes
+    useGraphStore.getState().deleteNode(groupNodeId)
+    useGraphStore.temporal.setState({ pastStates: [{ nodes: preDelete, edges: [] }], futureStates: [] })
+    useGraphStore.getState().pruneOrphanGraphs()
+    expect(useGraphStore.getState().graphData[gid]).toBeTruthy()
+  })
+
+  it('keeps a subgraph referenced only from the clipboard', () => {
+    const { gid, groupNodeId } = makeGroup()
+    useGraphStore.getState().copyNode(groupNodeId)
+    useGraphStore.getState().deleteNode(groupNodeId)
+    useGraphStore.temporal.getState().clear()
+    useGraphStore.getState().pruneOrphanGraphs()
+    expect(useGraphStore.getState().graphData[gid]).toBeTruthy()
+  })
+
+  it('keeps collection patterns and nested group references, drops the rest', () => {
+    reset([node('coll', 'PatternCollection', { patternIds: ['g1'] })])
+    useGraphStore.setState((s) => ({
+      graphData: {
+        // g1 is collected; its subgraph nests a Group referencing g2.
+        g1: { nodes: [node('inner', 'Group', { groupId: 'g2' })], edges: [] },
+        g2: { nodes: [], edges: [] },
+        zombie: { nodes: [], edges: [] },
+      },
+      graphs: {
+        ...s.graphs,
+        g1: { id: 'g1', name: 'A' },
+        g2: { id: 'g2', name: 'B' },
+        zombie: { id: 'zombie', name: 'Z' },
+      },
+    }))
+    useGraphStore.getState().pruneOrphanGraphs()
+    const s = useGraphStore.getState()
+    expect(s.graphData.g1).toBeTruthy()
+    expect(s.graphData.g2).toBeTruthy()
+    expect(s.graphData.zombie).toBeUndefined()
+    expect(s.graphs.zombie).toBeUndefined()
+  })
+
+  it('loadGraph sweeps subgraphs nothing in the loaded workspace references', () => {
+    useGraphStore.getState().loadGraph(
+      [node('out', 'MatrixOutput')],
+      [],
+      {
+        graphData: { zombie: { nodes: [], edges: [] } },
+        graphs: { zombie: { id: 'zombie', name: 'Z' } },
+        activeGraphId: ROOT_GRAPH_ID,
+      },
+    )
+    const s = useGraphStore.getState()
+    expect(s.graphData.zombie).toBeUndefined()
+    expect(s.graphs.zombie).toBeUndefined()
   })
 })

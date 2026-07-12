@@ -8,6 +8,37 @@ const MAX_RHYTHM_CONFIDENCE = 5.32
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x))
 
 let essentiaPromise: Promise<EssentiaApi> | null = null
+let analysesInFlight = 0
+let idleReleaseTimer: ReturnType<typeof setTimeout> | null = null
+const IDLE_RELEASE_MS = 5_000
+
+// Essentia's Emscripten heap grows to the analysis high-water mark and can
+// never shrink, so a cached instance pins hundreds of megabytes after analysis
+// finishes. The worker path frees it by terminating the whole worker; this
+// mirror handles the main-thread fallback path: once no analysis has run for a
+// short grace period (long enough for "Analyse All" to reuse the instance
+// between consecutive songs), drop every reference so the WASM heap can be
+// garbage-collected. In the worker context this is redundant but harmless.
+function releaseEssentia(): void {
+  const released = essentiaPromise
+  essentiaPromise = null
+  released?.then((instance) => {
+    try {
+      (instance as { shutdown?: () => void }).shutdown?.()
+      instance.delete()
+    } catch {
+      // Best-effort teardown — dropping the references is what frees the heap.
+    }
+  }).catch(() => { /* failed init: nothing to release */ })
+}
+
+function scheduleIdleRelease(): void {
+  if (idleReleaseTimer) clearTimeout(idleReleaseTimer)
+  idleReleaseTimer = setTimeout(() => {
+    idleReleaseTimer = null
+    if (analysesInFlight === 0) releaseEssentia()
+  }, IDLE_RELEASE_MS)
+}
 
 function unwrapCtor(mod: unknown): new (wasm: unknown) => EssentiaApi {
   let cur: unknown = mod
@@ -34,6 +65,10 @@ async function resolveBackend(mod: Record<string, unknown>): Promise<unknown> {
 }
 
 export async function getEssentia(): Promise<EssentiaApi> {
+  if (idleReleaseTimer) {
+    clearTimeout(idleReleaseTimer)
+    idleReleaseTimer = null
+  }
   if (!essentiaPromise) {
     essentiaPromise = (async () => {
       const [coreMod, wasmMod] = await Promise.all([
@@ -128,6 +163,21 @@ function estimateMood(energy: EnergyPoint[], key: string, scale: string, danceab
 }
 
 export async function analyzeDecodedSong(
+  mono: Float32Array,
+  sampleRate: number,
+  durationMs: number,
+  title: string,
+): Promise<SongAnalysis> {
+  analysesInFlight++
+  try {
+    return await runAnalysis(mono, sampleRate, durationMs, title)
+  } finally {
+    analysesInFlight--
+    scheduleIdleRelease()
+  }
+}
+
+async function runAnalysis(
   mono: Float32Array,
   sampleRate: number,
   durationMs: number,
