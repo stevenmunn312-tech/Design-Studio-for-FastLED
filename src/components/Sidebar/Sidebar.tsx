@@ -64,7 +64,7 @@ interface RecipeCard {
   kicker: string
   description: string
   actionLabel: string
-  nodes: Array<{ key: string; type: string; dx: number; dy: number }>
+  nodes: Array<{ key: string; type: string; dx: number; dy: number; props?: Record<string, unknown> }>
   edges: Array<{ source: string; sourceHandle: string; target: string; targetHandle: string }>
 }
 
@@ -117,15 +117,19 @@ const RECIPE_CARDS: RecipeCard[] = [
     id: 'add-trails',
     title: 'Add trails',
     kicker: 'Motion enhancer',
-    description: 'Wrap a moving Noise pattern in Trails so the motion leaves a fading wake.',
+    description: 'A small dot orbits on BeatSin oscillators; Trails leaves a fading comet wake behind it.',
     actionLabel: 'Drop recipe',
     nodes: [
-      { key: 'noise', type: 'Noise', dx: -220, dy: 0 },
-      { key: 'trails', type: 'Trails', dx: 10, dy: 0 },
-      { key: 'out', type: 'MatrixOutput', dx: 250, dy: 0 },
+      { key: 'sinx', type: 'BeatSin', dx: -380, dy: -70, props: { bpm: 18, low: 0.15, high: 0.85 } },
+      { key: 'siny', type: 'BeatSin', dx: -380, dy: 70, props: { bpm: 13, low: 0.15, high: 0.85 } },
+      { key: 'circle', type: 'Circle', dx: -140, dy: 0, props: { radius: 2, thickness: 1 } },
+      { key: 'trails', type: 'Trails', dx: 80, dy: 0 },
+      { key: 'out', type: 'MatrixOutput', dx: 300, dy: 0 },
     ],
     edges: [
-      { source: 'noise', sourceHandle: 'frame', target: 'trails', targetHandle: 'frame' },
+      { source: 'sinx', sourceHandle: 'value', target: 'circle', targetHandle: 'cx' },
+      { source: 'siny', sourceHandle: 'value', target: 'circle', targetHandle: 'cy' },
+      { source: 'circle', sourceHandle: 'frame', target: 'trails', targetHandle: 'frame' },
       { source: 'trails', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
     ],
   },
@@ -442,7 +446,7 @@ function Sidebar() {
           label: def.label,
           nodeType: def.type,
           category: def.category,
-          properties: resolveDefaultProperties(def.type, def.defaultProperties),
+          properties: resolveDefaultProperties(def.type, { ...def.defaultProperties, ...spec.props }),
           inputs: def.inputs,
           outputs: def.outputs,
         },

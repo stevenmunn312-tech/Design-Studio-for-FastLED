@@ -68,8 +68,8 @@ describe('Sidebar equipment rack', () => {
     fireEvent.click(getByText('Add trails'))
 
     expect(useGraphStore.getState().nodes.map((node) => node.data.nodeType)).toEqual(
-      expect.arrayContaining(['Noise', 'Trails', 'MatrixOutput'])
+      expect.arrayContaining(['BeatSin', 'Circle', 'Trails', 'MatrixOutput'])
     )
-    expect(useGraphStore.getState().edges).toHaveLength(2)
+    expect(useGraphStore.getState().edges).toHaveLength(4)
   })
 })
