@@ -230,6 +230,15 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { noiseType: 'field', speed: 0.5, scale: 0.5, palette: 'rainbow' },
   },
   {
+    // `direction` rotates which edge sparks (the flame base) and which way heat
+    // rises; `turbulence` widens the sideways diffusion kernel (1 = the
+    // original 3-wide average); `paletteMix` blends the palette colour with
+    // plain heat-brightness grayscale (1 = full colour, 0 = grayscale);
+    // `mirror` folds the flame symmetric across its width; `seed` (0 = free-
+    // running) switches cooling/sparking to a deterministic per-instance PRNG
+    // so the same seed reproduces the same flame. See PROPERTY_META overrides
+    // and the `Fire`/`Fire2012` cases in graphEvaluator/cppGenerator, which
+    // share this exact set of controls but keep their own heat algorithms.
     type: 'Fire',
     label: 'Fire',
     category: 'pattern',
@@ -241,7 +250,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { cooling: 55, sparking: 120, palette: 'fire' },
+    defaultProperties: {
+      cooling: 55, sparking: 120, palette: 'fire',
+      direction: 'up', turbulence: 1, paletteMix: 1, mirror: false, seed: 0,
+    },
   },
   {
     type: 'Fire2012',
@@ -254,7 +266,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { cooling: 55, sparking: 120, palette: 'heat' },
+    defaultProperties: {
+      cooling: 55, sparking: 120, palette: 'heat',
+      direction: 'up', turbulence: 1, paletteMix: 1, mirror: false, seed: 0,
+    },
   },
   {
     type: 'Blur2D',
@@ -2785,6 +2800,18 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     bpm:         { control: 'slider', min: 40, max: 220, step: 1 },
     beatsPerBar: { control: 'slider', min: 1, max: 16, step: 1 },
     subdivision: { control: 'slider', min: 1, max: 8, step: 1 },
+  },
+  Fire: {
+    direction:   { control: 'select', options: ['up', 'down', 'left', 'right'] },
+    turbulence:  { control: 'slider', min: 0, max: 2, step: 0.1 },
+    paletteMix:  { control: 'slider', min: 0, max: 1, step: 0.01 },
+    seed:        { control: 'slider', min: 0, max: 9999, step: 1 },
+  },
+  Fire2012: {
+    direction:   { control: 'select', options: ['up', 'down', 'left', 'right'] },
+    turbulence:  { control: 'slider', min: 0, max: 2, step: 0.1 },
+    paletteMix:  { control: 'slider', min: 0, max: 1, step: 0.01 },
+    seed:        { control: 'slider', min: 0, max: 9999, step: 1 },
   },
   Zones: {
     aX: N01, aY: N01, aW: N01, aH: N01,

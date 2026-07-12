@@ -234,6 +234,20 @@ describe('nodeLibrary', () => {
     expect(isPropertyEnabled('Particles', 'bounce', { particleType: 'fountain' })).toBe(false)
   })
 
+  it('Fire and Fire2012 share the direction/turbulence/paletteMix/mirror/seed controls', () => {
+    for (const type of ['Fire', 'Fire2012']) {
+      const n = NODE_LIBRARY.find((nd) => nd.type === type)
+      expect(n?.defaultProperties, type).toMatchObject({
+        direction: 'up', turbulence: 1, paletteMix: 1, mirror: false, seed: 0,
+      })
+      expect(propertyMeta(type, 'direction'), type).toMatchObject({ control: 'select' })
+      expect((propertyMeta(type, 'direction') as { options?: string[] }).options, type)
+        .toEqual(['up', 'down', 'left', 'right'])
+      expect(propertyMeta(type, 'turbulence'), type).toMatchObject({ control: 'slider', min: 0, max: 2 })
+      expect(propertyMeta(type, 'paletteMix'), type).toMatchObject({ control: 'slider', min: 0, max: 1 })
+    }
+  })
+
   it('Comment has no ports and a text + color default', () => {
     const c = NODE_LIBRARY.find((n) => n.type === 'Comment')
     expect(c?.category).toBe('note')

@@ -19,6 +19,29 @@ function safeId(id: string): string {
   return id.replace(/[^a-zA-Z0-9_]/g, '_')
 }
 
+// Fire/Fire2012 share these direction/turbulence/paletteMix/mirror/seed
+// controls — mirrors graphEvaluator.ts's firePrimaryLen/fireSecondaryLen/
+// fireToXY. The heat simulation always runs in a canonical [P][S] grid (P =
+// distance from the flame base where sparks land, S = position across the
+// flame's width). P/S are emitted as the `WIDTH`/`HEIGHT` *macro names*
+// (never baked JS numbers) so the heat array's size tracks whatever those
+// macros actually expand to — including the supersampled render resolution,
+// which the raw `width`/`height` JS constants don't reflect. The mapping back
+// to real (x, y) only happens once, in the final palette-sampling loop.
+function fireGrid(direction: string): { P: string; S: string } {
+  const vertical = direction !== 'left' && direction !== 'right'
+  return { P: vertical ? 'HEIGHT' : 'WIDTH', S: vertical ? 'WIDTH' : 'HEIGHT' }
+}
+function fireXYExpr(direction: string, pExpr: string, sExpr: string): { x: string; y: string } {
+  switch (direction) {
+    case 'down':  return { x: sExpr, y: pExpr }
+    case 'left':  return { x: `(WIDTH-1-(${pExpr}))`, y: sExpr }
+    case 'right': return { x: pExpr, y: sExpr }
+    case 'up':
+    default:      return { x: sExpr, y: `(HEIGHT-1-(${pExpr}))` }
+  }
+}
+
 /**
  * Expand every `Group` node into the graph in place: the group's subgraph nodes
  * are inlined (their ids prefixed with the group-instance path so repeated or
@@ -1556,18 +1579,50 @@ export function generateCpp(
         const cooling = f('cooling', 'cooling', 55)
         const sparking = f('sparking', 'sparking', 120)
         const pal = paletteExpr(node.id, 'paletteIn', p)
+        const direction = String(p.direction ?? 'up')
+        const spread = Math.max(0, Math.round(Number(p.turbulence ?? 1)))
+        const paletteMixP = Math.max(0, Math.min(1, Number(p.paletteMix ?? 1)))
+        const mirrorP = Boolean(p.mirror)
+        const seedP = Math.max(0, Math.round(Number(p.seed ?? 0)))
+        const { P, S } = fireGrid(direction)
+        const HB = `_fireHeat_${id}`
+        const useLcg = seedP > 0
+        const rnd01 = useLcg
+          ? `((_fireLcg_${id}=_fireLcg_${id}*1664525u+1013904223u)/4294967296.0f)`
+          : `(random8()/255.0f)`
         ln(`  { // Fire pattern`)
-        ln(`    static uint8_t heat_${id}[HEIGHT][WIDTH];`)
+        ln(`    static uint8_t ${HB}[${P}][${S}];`)
+        if (useLcg) ln(`    static uint32_t _fireLcg_${id} = ${seedP}u;`)
         ln(`    float _cool=max(0.0f,min(255.0f,${cooling}))*(55.0f/255.0f);`)
         ln(`    float _spark=min(1.0f,max(0.0f,(max(0.0f,min(255.0f,${sparking}))/255.0f)*(0.35f+min(1.0f,max(0.0f,${intensity}))*0.65f)));`)
-        ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++)`)
-        ln(`      heat_${id}[_y][_x] = qsub8(heat_${id}[_y][_x], random8(0, (uint8_t)_cool));`)
-        ln(`    for (int _y = 0; _y < HEIGHT - 1; _y++) for (int _x = 0; _x < WIDTH; _x++)`)
-        ln(`      heat_${id}[_y][_x] = (heat_${id}[_y][_x] + heat_${id}[_y+1][max(0,_x-1)] + heat_${id}[_y+1][_x] + heat_${id}[_y+1][min(WIDTH-1,_x+1)]) / 4;`)
-        ln(`    for (int _x = 0; _x < WIDTH; _x++)`)
-        ln(`      if (random8()/255.0f < _spark) heat_${id}[HEIGHT-1][_x] = random8(200, 255);`)
-        ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++)`)
-          ln(`      ${ob}[_y * WIDTH + _x] = ColorFromPalette(${pal}, heat_${id}[_y][_x]);`)
+        ln(`    for (int _p = 0; _p < ${P}; _p++) for (int _s = 0; _s < ${S}; _s++)`)
+        ln(`      ${HB}[_p][_s] = qsub8(${HB}[_p][_s], (uint8_t)(${rnd01}*_cool));`)
+        // Propagate from _p-1 (closer to the flame base) into _p, averaging a
+        // turbulence-wide window (spread=1 reproduces the original fixed
+        // 3-wide/4-sample kernel exactly). Mirrors evalFire in graphEvaluator.ts.
+        ln(`    for (int _p = (${P})-1; _p >= 1; _p--) for (int _s = 0; _s < ${S}; _s++) {`)
+        ln(`      int _sum=0; for (int _ds=-${spread}; _ds<=${spread}; _ds++) _sum += ${HB}[_p-1][max(0,min((${S})-1,_s+_ds))];`)
+        ln(`      ${HB}[_p][_s] = (${HB}[_p][_s] + _sum) / ${spread * 2 + 2}; }`)
+        ln(`    for (int _s = 0; _s < ${S}; _s++)`)
+        ln(`      if (${rnd01} < _spark) ${HB}[0][_s] = (uint8_t)(200 + ${rnd01}*55);`)
+        ln(`    for (int _p = 0; _p < ${P}; _p++) for (int _s = 0; _s < ${S}; _s++) {`)
+        const { x: fx, y: fy } = fireXYExpr(direction, '_p', '_s')
+        ln(`      uint8_t _h=${HB}[_p][_s]; CRGB _c=ColorFromPalette(${pal}, _h);`)
+        if (paletteMixP >= 1) {
+          ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = _c;`)
+        } else {
+          const keep = (1 - paletteMixP).toFixed(4)
+          ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = CRGB((uint8_t)(_h*${keep}f+_c.r*${paletteMixP.toFixed(4)}f),(uint8_t)(_h*${keep}f+_c.g*${paletteMixP.toFixed(4)}f),(uint8_t)(_h*${keep}f+_c.b*${paletteMixP.toFixed(4)}f));`)
+        }
+        ln(`    }`)
+        if (mirrorP) {
+          // Fold the rendered buffer symmetric across the flame's width —
+          // up/down mirror columns, left/right mirror rows. Mirrors fireMirror.
+          if (direction === 'left' || direction === 'right')
+            ln(`    for (int _y=0;_y<HEIGHT/2;_y++) for (int _x=0;_x<WIDTH;_x++) ${ob}[(HEIGHT-1-_y)*WIDTH+_x] = ${ob}[_y*WIDTH+_x];`)
+          else
+            ln(`    for (int _y=0;_y<HEIGHT;_y++) for (int _x=0;_x<WIDTH/2;_x++) ${ob}[_y*WIDTH+(WIDTH-1-_x)] = ${ob}[_y*WIDTH+_x];`)
+        }
         ln(`  }`)
         break
       }
@@ -3587,14 +3642,45 @@ export function generateCpp(
         const ob = ownBuf()
         const cooling = f('cooling', 'cooling', 55), sparking = f('sparking', 'sparking', 120)
         const pal = paletteExpr(node.id, 'paletteIn', p)
+        const direction = String(p.direction ?? 'up')
+        const spread = Math.max(0, Math.round(Number(p.turbulence ?? 1)))
+        const paletteMixP = Math.max(0, Math.min(1, Number(p.paletteMix ?? 1)))
+        const mirrorP = Boolean(p.mirror)
+        const seedP = Math.max(0, Math.round(Number(p.seed ?? 0)))
+        const { P, S } = fireGrid(direction)
+        const HB = `_heat_${id}`
+        const useLcg = seedP > 0
+        const rnd01 = useLcg
+          ? `((_fireLcg_${id}=_fireLcg_${id}*1664525u+1013904223u)/4294967296.0f)`
+          : `(random8()/255.0f)`
         ln(`  { // Fire2012`)
-        ln(`    static uint8_t _heat_${id}[HEIGHT][WIDTH] = {};`)
-        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++)`)
-        ln(`      _heat_${id}[_y][_x]=qsub8(_heat_${id}[_y][_x],random8(0,((${cooling}*10/HEIGHT)+2)));`)
-        ln(`    for(int _y=0;_y<HEIGHT-2;_y++) for(int _x=0;_x<WIDTH;_x++)`)
-        ln(`      _heat_${id}[_y][_x]=(_heat_${id}[_y+1][_x]+_heat_${id}[_y+2][max(0,_x-1)]+_heat_${id}[_y+2][_x]+_heat_${id}[_y+2][min(WIDTH-1,_x+1)])/4;`)
-        ln(`    for(int _x=0;_x<WIDTH;_x++) if(random8()<${sparking}) _heat_${id}[HEIGHT-1][_x]=qadd8(_heat_${id}[HEIGHT-1][_x],random8(160,255));`)
-        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++) ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},_heat_${id}[_y][_x]);`)
+        ln(`    static uint8_t ${HB}[${P}][${S}] = {};`)
+        if (useLcg) ln(`    static uint32_t _fireLcg_${id} = ${seedP}u;`)
+        ln(`    for(int _p=0;_p<${P};_p++) for(int _s=0;_s<${S};_s++)`)
+        ln(`      ${HB}[_p][_s]=qsub8(${HB}[_p][_s],(uint8_t)(${rnd01}*((${cooling}*10/(${P}))+2)));`)
+        // Classic two-row lookahead: row _p from the single row _p-1 (closer to
+        // the base) plus a turbulence-wide sideways window at _p-2 (spread=1
+        // reproduces the original fixed 4-sample kernel). Mirrors evalFire2012.
+        ln(`    for(int _p=(${P})-1;_p>=2;_p--) for(int _s=0;_s<${S};_s++) {`)
+        ln(`      int _sum=${HB}[_p-1][_s]; for (int _ds=-${spread}; _ds<=${spread}; _ds++) _sum += ${HB}[_p-2][max(0,min((${S})-1,_s+_ds))];`)
+        ln(`      ${HB}[_p][_s]=_sum/${spread * 2 + 2}; }`)
+        ln(`    for(int _s=0;_s<${S};_s++) if(${rnd01}*255 < ${sparking}) ${HB}[0][_s]=qadd8(${HB}[0][_s],(uint8_t)(${rnd01}*95+160));`)
+        ln(`    for (int _p = 0; _p < ${P}; _p++) for (int _s = 0; _s < ${S}; _s++) {`)
+        const { x: fx, y: fy } = fireXYExpr(direction, '_p', '_s')
+        ln(`      uint8_t _h=${HB}[_p][_s]; CRGB _c=ColorFromPalette(${pal}, _h);`)
+        if (paletteMixP >= 1) {
+          ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = _c;`)
+        } else {
+          const keep = (1 - paletteMixP).toFixed(4)
+          ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = CRGB((uint8_t)(_h*${keep}f+_c.r*${paletteMixP.toFixed(4)}f),(uint8_t)(_h*${keep}f+_c.g*${paletteMixP.toFixed(4)}f),(uint8_t)(_h*${keep}f+_c.b*${paletteMixP.toFixed(4)}f));`)
+        }
+        ln(`    }`)
+        if (mirrorP) {
+          if (direction === 'left' || direction === 'right')
+            ln(`    for (int _y=0;_y<HEIGHT/2;_y++) for (int _x=0;_x<WIDTH;_x++) ${ob}[(HEIGHT-1-_y)*WIDTH+_x] = ${ob}[_y*WIDTH+_x];`)
+          else
+            ln(`    for (int _y=0;_y<HEIGHT;_y++) for (int _x=0;_x<WIDTH/2;_x++) ${ob}[_y*WIDTH+(WIDTH-1-_x)] = ${ob}[_y*WIDTH+_x];`)
+        }
         ln(`  }`)
         break
       }

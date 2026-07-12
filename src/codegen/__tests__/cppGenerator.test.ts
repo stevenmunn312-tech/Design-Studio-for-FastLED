@@ -539,7 +539,44 @@ describe('generateCpp', () => {
     const cpp = generateCpp([fire, outputNode], [])
     expect(cpp).toContain('Fire2012')
     // Default 'heat' palette reproduces the classic HeatColors fire ramp.
-    expect(cpp).toContain('ColorFromPalette(HeatColors_p,_heat_f')
+    expect(cpp).toContain('ColorFromPalette(HeatColors_p, _h)')
+  })
+
+  describe.each(['Fire', 'Fire2012'] as const)('%s extra controls', (type) => {
+    it('direction picks which macro is the primary (flame-base) axis', () => {
+      const up = generateCpp([node('f', type, 'pattern', { direction: 'up' }), outputNode], [])
+      expect(up).toContain('[HEIGHT][WIDTH]')
+      const left = generateCpp([node('f', type, 'pattern', { direction: 'left' }), outputNode], [])
+      expect(left).toContain('[WIDTH][HEIGHT]')
+      // 'left' bases at the right edge, mapping x = WIDTH-1-p.
+      expect(left).toContain('WIDTH-1-(_p)')
+    })
+
+    it('turbulence widens the sideways diffusion window', () => {
+      const narrow = generateCpp([node('f', type, 'pattern', { turbulence: 0 }), outputNode], [])
+      const wide = generateCpp([node('f', type, 'pattern', { turbulence: 2 }), outputNode], [])
+      expect(narrow).toContain('_ds=-0; _ds<=0')
+      expect(wide).toContain('_ds=-2; _ds<=2')
+    })
+
+    it('paletteMix<1 blends the palette colour with heat-brightness grayscale', () => {
+      const cpp = generateCpp([node('f', type, 'pattern', { paletteMix: 0.25 }), outputNode], [])
+      expect(cpp).toContain('_h*0.7500f+_c.r*0.2500f')
+    })
+
+    it('mirror folds the rendered buffer symmetric across its width', () => {
+      const cpp = generateCpp([node('f', type, 'pattern', { mirror: true }), outputNode], [])
+      expect(cpp).toContain('WIDTH-1-_x')
+    })
+
+    it('a nonzero seed emits a per-instance LCG instead of random8()', () => {
+      const seeded = generateCpp([node('f', type, 'pattern', { seed: 7 }), outputNode], [])
+      expect(seeded).toContain('_fireLcg_f = 7u')
+      expect(seeded).not.toContain('random8()/255.0f')
+      const unseeded = generateCpp([node('f', type, 'pattern', {}), outputNode], [])
+      expect(unseeded).not.toContain('_fireLcg_f')
+      expect(unseeded).toContain('random8()/255.0f')
+    })
   })
 
   it('emits a Shape polygon with a fractional-sides morph blend and AA composite', () => {

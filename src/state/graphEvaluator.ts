@@ -32,6 +32,10 @@ function normalizedCenterAxis(value: number, size: number, extent: number, wrap:
 
 // ── Persistent state for stateful pattern nodes ───────────────────────────────
 const fireHeat    = new Map<string, number[][]>()
+// Fire/Fire2012 deterministic-reseed PRNG — an LCG per instance, only used
+// when the node's `seed` property is nonzero (0 = free-running Math.random,
+// unchanged from before this control existed).
+const fireRngState = new Map<string, { seed: number; lcg: number }>()
 const flashLevel  = new Map<string, { level: number; rising: boolean }>()
 const counterVals = new Map<string, number>()
 // Interval (metronome) node — last fire time in seconds, keyed by state id.
@@ -325,7 +329,7 @@ export function pruneEvaluatorState(maxIdleMs = STATE_IDLE_TTL_MS, now = stateCl
 
   const maps: Array<{ delete: (key: string) => boolean }> = [
     fireHeat, flashLevel, counterVals, intervalLast, smoothState, holdState,
-    envState, trailState, fftLevels, beatLevels, clockState,
+    envState, trailState, fftLevels, beatLevels, clockState, fireRngState,
     percussionLevels, audioFeatureLevels, particleState, patternShowState,
     rdState, golState, waveSimState, flowState, starState, boidState, sparkState, fire2012Heat,
     codeLeds, codeError,
@@ -1042,35 +1046,105 @@ function evalJuggle(
   return frame
 }
 
-function evalFire(nodeId: string, intensity: number, cooling: number, sparking: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+// ── Shared Fire/Fire2012 controls (direction, turbulence, paletteMix, mirror,
+// seed) — both nodes keep their own heat algorithm but share this exact set
+// of extra controls. Keep these helpers in sync with cppGenerator's Fire/
+// Fire2012 cases.
+export type FireDirection = 'up' | 'down' | 'left' | 'right'
+
+// The heat simulation always runs in a canonical [P][S] grid — P (primary) is
+// the distance from the flame base (index 0 = the base, where sparks land)
+// and S (secondary) is the position across the flame's width — so the same
+// cool/propagate/spark code works for every direction. `firePrimary`/
+// `fireSecondary` give P/S's *lengths*; the mapping back to real (x, y) only
+// happens once, in `fireToXY`, when sampling the palette for the output frame.
+function firePrimaryLen(direction: FireDirection, W: number, H: number): number {
+  return direction === 'left' || direction === 'right' ? W : H
+}
+function fireSecondaryLen(direction: FireDirection, W: number, H: number): number {
+  return direction === 'left' || direction === 'right' ? H : W
+}
+function fireToXY(direction: FireDirection, p: number, s: number, W: number, H: number): [number, number] {
+  switch (direction) {
+    case 'down':  return [s, p]
+    case 'left':  return [W - 1 - p, s]
+    case 'right': return [p, s]
+    case 'up':
+    default:      return [s, H - 1 - p]
+  }
+}
+
+// 0–1 random draw. `seed === 0` (the default) is unseeded — plain
+// Math.random, unchanged from before this control existed. A nonzero seed
+// switches to a per-instance LCG so the whole simulation is reproducible from
+// a fresh start (reseeds automatically whenever `seed` itself changes).
+function fireRandom(nodeId: string, seed: number): number {
+  if (!seed) return Math.random()
+  let st = fireRngState.get(nodeId)
+  if (!st || st.seed !== seed) { st = { seed, lcg: seed >>> 0 }; fireRngState.set(nodeId, st) }
+  st.lcg = (st.lcg * 1664525 + 1013904223) >>> 0
+  return st.lcg / 4294967296
+}
+
+// Folds the frame symmetric across its width (the axis perpendicular to the
+// flame's rise): up/down mirror columns, left/right mirror rows.
+function fireMirror(frame: Frame, direction: FireDirection, W: number, H: number): Frame {
+  const vertical = direction === 'up' || direction === 'down'
+  return buildFrame(W, H, (x, y) => vertical ? frame[y][Math.min(x, W - 1 - x)] : frame[Math.min(y, H - 1 - y)][x])
+}
+
+function evalFire(
+  nodeId: string, intensity: number, cooling: number, sparking: number, palette: Palette,
+  W = DEFAULT_W, H = DEFAULT_H,
+  direction: FireDirection = 'up', turbulence = 1, paletteMix = 1, mirror = false, seed = 0,
+): Frame {
+  const P = firePrimaryLen(direction, W, H), S = fireSecondaryLen(direction, W, H)
   const stored = fireHeat.get(nodeId)
-  if (!stored || stored.length !== H || stored[0].length !== W) {
-    fireHeat.set(nodeId, Array.from({ length: H }, () => Array(W).fill(0)))
+  if (!stored || stored.length !== P || stored[0].length !== S) {
+    fireHeat.set(nodeId, Array.from({ length: P }, () => Array(S).fill(0)))
   }
   const heat = fireHeat.get(nodeId)!
   const cool = Math.max(0, Math.min(255, cooling)) / 255 * 0.18
+  const spread = Math.max(0, Math.round(turbulence))
 
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++)
-      heat[y][x] = Math.max(0, heat[y][x] - cool - Math.random() * cool)
+  for (let p = 0; p < P; p++)
+    for (let s = 0; s < S; s++)
+      heat[p][s] = Math.max(0, heat[p][s] - cool - fireRandom(nodeId, seed) * cool)
 
-  for (let y = 0; y < H - 1; y++)
-    for (let x = 0; x < W; x++)
-      heat[y][x] = (
-        heat[y][x] +
-        heat[y + 1][Math.max(0, x - 1)] +
-        heat[y + 1][x] +
-        heat[y + 1][Math.min(W - 1, x + 1)]
-      ) / 4
+  // Propagate from p-1 (closer to the base) into p, averaging a
+  // `turbulence`-wide window across the secondary axis (spread=1 reproduces
+  // the original fixed 3-wide/4-sample kernel exactly).
+  for (let p = P - 1; p >= 1; p--) {
+    for (let s = 0; s < S; s++) {
+      let sum = 0
+      for (let ds = -spread; ds <= spread; ds++) sum += heat[p - 1][Math.max(0, Math.min(S - 1, s + ds))]
+      heat[p][s] = (heat[p][s] + sum) / (spread * 2 + 2)
+    }
+  }
 
   const sparkChance = Math.max(0, Math.min(1, (Math.max(0, Math.min(255, sparking)) / 255) * (0.35 + Math.max(0, Math.min(1, intensity)) * 0.65)))
-  for (let x = 0; x < W; x++)
-    if (Math.random() < sparkChance)
-      heat[H - 1][x] = Math.min(1, 0.75 + Math.random() * 0.25)
+  for (let s = 0; s < S; s++)
+    if (fireRandom(nodeId, seed) < sparkChance)
+      heat[0][s] = Math.min(1, 0.75 + fireRandom(nodeId, seed) * 0.25)
 
-  return heat.map(row =>
-    row.map(h => samplePalette(palette, h))
-  )
+  const mix = Math.max(0, Math.min(1, paletteMix))
+  const frame = allocFrame(W, H)
+  for (let p = 0; p < P; p++) {
+    for (let s = 0; s < S; s++) {
+      const [x, y] = fireToXY(direction, p, s, W, H)
+      const h = heat[p][s]
+      const c = samplePalette(palette, h)
+      const px = frame[y][x]
+      if (mix >= 1) { px.r = c.r; px.g = c.g; px.b = c.b }
+      else {
+        const gray = h * 255
+        px.r = Math.round(gray * (1 - mix) + c.r * mix)
+        px.g = Math.round(gray * (1 - mix) + c.g * mix)
+        px.b = Math.round(gray * (1 - mix) + c.b * mix)
+      }
+    }
+  }
+  return mirror ? fireMirror(frame, direction, W, H) : frame
 }
 
 function evalSpectrumBars(
@@ -2530,31 +2604,61 @@ function heatColor(temperature: number): RGB {
 
 const fire2012Heat = new Map<string, Uint8Array[]>()
 
-function evalFire2012(nodeId: string, cooling: number, sparking: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalFire2012(
+  nodeId: string, cooling: number, sparking: number, palette: Palette,
+  W = DEFAULT_W, H = DEFAULT_H,
+  direction: FireDirection = 'up', turbulence = 1, paletteMix = 1, mirror = false, seed = 0,
+): Frame {
+  const P = firePrimaryLen(direction, W, H), S = fireSecondaryLen(direction, W, H)
   const stored = fire2012Heat.get(nodeId)
   let heat: Uint8Array[]
-  if (!stored || stored.length !== H || stored[0].length !== W) {
-    heat = Array.from({ length: H }, () => new Uint8Array(W))
+  if (!stored || stored.length !== P || stored[0].length !== S) {
+    heat = Array.from({ length: P }, () => new Uint8Array(S))
     fire2012Heat.set(nodeId, heat)
   } else {
     heat = stored
   }
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
-      const cool = Math.floor(Math.random() * ((cooling * 10 / H) + 2))
-      heat[y][x] = Math.max(0, heat[y][x] - cool)
+  const spread = Math.max(0, Math.round(turbulence))
+
+  for (let p = 0; p < P; p++)
+    for (let s = 0; s < S; s++) {
+      const cool = Math.floor(fireRandom(nodeId, seed) * ((cooling * 10 / P) + 2))
+      heat[p][s] = Math.max(0, heat[p][s] - cool)
     }
-  for (let y = 0; y < H - 2; y++)
-    for (let x = 0; x < W; x++)
-      heat[y][x] = Math.floor(
-        (heat[y+1][x] + heat[y+2][Math.max(0,x-1)] + heat[y+2][x] + heat[y+2][Math.min(W-1,x+1)]) / 4
-      )
-  for (let x = 0; x < W; x++)
-    if (Math.random() * 255 < sparking)
-      heat[H-1][x] = Math.min(255, heat[H-1][x] + Math.floor(Math.random() * 95) + 160)
+  // Classic two-row lookahead: row p comes from the single row p-1 (closer to
+  // the base) plus a `turbulence`-wide sideways window at p-2 (spread=1
+  // reproduces the original fixed 4-sample kernel exactly).
+  for (let p = P - 1; p >= 2; p--) {
+    for (let s = 0; s < S; s++) {
+      let sum = heat[p - 1][s]
+      for (let ds = -spread; ds <= spread; ds++) sum += heat[p - 2][Math.max(0, Math.min(S - 1, s + ds))]
+      heat[p][s] = Math.floor(sum / (spread * 2 + 2))
+    }
+  }
+  for (let s = 0; s < S; s++)
+    if (fireRandom(nodeId, seed) * 255 < sparking)
+      heat[0][s] = Math.min(255, heat[0][s] + Math.floor(fireRandom(nodeId, seed) * 95) + 160)
+
   // Heat (0–255) indexes the palette; the default 'heat' palette reproduces the
-  // classic FastLED HeatColors fire ramp.
-  return heat.map(row => Array.from(row).map(h => samplePalette(palette, h / 255)))
+  // classic FastLED HeatColors fire ramp. `paletteMix` blends toward plain
+  // heat-brightness grayscale, same convention as Fire above.
+  const mix = Math.max(0, Math.min(1, paletteMix))
+  const frame = allocFrame(W, H)
+  for (let p = 0; p < P; p++) {
+    for (let s = 0; s < S; s++) {
+      const [x, y] = fireToXY(direction, p, s, W, H)
+      const h = heat[p][s]
+      const c = samplePalette(palette, h / 255)
+      const px = frame[y][x]
+      if (mix >= 1) { px.r = c.r; px.g = c.g; px.b = c.b }
+      else {
+        px.r = Math.round(h * (1 - mix) + c.r * mix)
+        px.g = Math.round(h * (1 - mix) + c.g * mix)
+        px.b = Math.round(h * (1 - mix) + c.b * mix)
+      }
+    }
+  }
+  return mirror ? fireMirror(frame, direction, W, H) : frame
 }
 
 function evalBlur2D(src: Frame, amount: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
@@ -4079,7 +4183,12 @@ function createEvalNode(
         const cooling = num(id, 'cooling', props, 'cooling', 55)
         const sparking = num(id, 'sparking', props, 'sparking', 120)
         const palette = pal(id, 'paletteIn', props, 'palette', 'fire')
-        out = { frame: evalFire(stateKey(id), intensity, cooling, sparking, palette, W, H) }
+        const direction = (String(props.direction ?? 'up')) as FireDirection
+        const turbulence = Math.max(0, Number(props.turbulence ?? 1))
+        const paletteMix = Number(props.paletteMix ?? 1)
+        const mirror = Boolean(props.mirror)
+        const seed = Math.max(0, Math.round(Number(props.seed ?? 0)))
+        out = { frame: evalFire(stateKey(id), intensity, cooling, sparking, palette, W, H, direction, turbulence, paletteMix, mirror, seed) }
         break
       }
 
@@ -5383,7 +5492,12 @@ function createEvalNode(
         const cooling  = num(id, 'cooling', props, 'cooling', 55)
         const sparking = num(id, 'sparking', props, 'sparking', 120)
         const palette = pal(id, 'paletteIn', props, 'palette', 'heat')
-        out = { frame: evalFire2012(id, cooling, sparking, palette, W, H) }
+        const direction = (String(props.direction ?? 'up')) as FireDirection
+        const turbulence = Math.max(0, Number(props.turbulence ?? 1))
+        const paletteMix = Number(props.paletteMix ?? 1)
+        const mirror = Boolean(props.mirror)
+        const seed = Math.max(0, Math.round(Number(props.seed ?? 0)))
+        out = { frame: evalFire2012(stateKey(id), cooling, sparking, palette, W, H, direction, turbulence, paletteMix, mirror, seed) }
         break
       }
 

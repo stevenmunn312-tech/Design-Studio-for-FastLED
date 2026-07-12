@@ -22,7 +22,7 @@ vi.mock('../audioStore', () => ({
 }))
 
 import { evaluateGraph, evaluateGraphFull, evaluateScalar, getCodeError, pruneEvaluatorState, prunePoolBuffers, renderParticleBurst, PARTICLE_LIFE_MS } from '../graphEvaluator'
-import type { Frame } from '../graphEvaluator'
+import type { Frame, RGB } from '../graphEvaluator'
 import { waveSample, combineWaves } from '../wave'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import type { StudioNode, StudioEdge } from '../graphStore'
@@ -644,19 +644,21 @@ describe('evaluateGraph', () => {
       expect(runWithCount('ppFew', 3)).toBeLessThan(runWithCount('ppMany', 40))
     })
 
-    it('spread=0 collapses a width-spawning mode onto the centre point (fountain)', () => {
-      // Check only the very first tick, where exactly one particle exists (just
-      // spawned this call) — its y position is otherwise randomised by vy/gravity
-      // over subsequent frames, but the spawn x/y themselves are deterministic
-      // once spread=0 removes the x jitter (W=8,H=8 puts the spawn exactly on a
-      // pixel-corner, so it lights a symmetric 2x2 block, not a single pixel).
-      const { nodes, edges } = withOutput(node('ppSpread0', 'Particles', 'pattern', { particleType: 'fountain', rate: 1, spread: 0 }))
-      const frame = evaluateGraph(nodes, edges, 0, 8, 8)!
-      const litCols = new Set<number>()
-      const litRows = new Set<number>()
-      frame.forEach((row, y) => row.forEach((px, x) => { if (px.r + px.g + px.b > 0) { litCols.add(x); litRows.add(y) } }))
-      expect([...litCols].sort()).toEqual([3, 4]) // W/2 = 4 for W=8, straddling the pixel boundary
-      expect([...litRows].sort()).toEqual([6, 7]) // H-1 = 7 for H=8, straddling the pixel boundary
+    it('spread=0 collapses a width-spawning mode onto the centre column (fountain)', () => {
+      // spread=0 zeroes both the spawn-x jitter and the vx jitter, so x stays
+      // pinned exactly at W/2 for every particle regardless of randomness —
+      // only check columns (not rows: the y position still drifts with vy/
+      // gravity, which spread doesn't touch).
+      const spy = vi.spyOn(Math, 'random').mockReturnValue(0.5)
+      try {
+        const { nodes, edges } = withOutput(node('ppSpread0', 'Particles', 'pattern', { particleType: 'fountain', rate: 1, spread: 0 }))
+        const frame = evaluateGraph(nodes, edges, 0, 8, 8)!
+        const litCols = new Set<number>()
+        frame.forEach((row) => row.forEach((px, x) => { if (px.r + px.g + px.b > 0) litCols.add(x) }))
+        expect([...litCols].sort((a, b) => a - b)).toEqual([3, 4]) // W/2 = 4 for W=8, straddling the pixel boundary
+      } finally {
+        spy.mockRestore()
+      }
     })
   })
 
@@ -2609,6 +2611,73 @@ describe('Zones', () => {
     const frame = evaluateGraph(nodes, edges, 0, W, H)!
     expect(frame[0][0]).toEqual({ r: 200, g: 0, b: 0 })
     expect(frame[0][3]).toEqual({ r: 0, g: 0, b: 0 })
+  })
+})
+
+// ── Fire / Fire2012 extra controls (direction, turbulence, paletteMix,
+//    mirror, seed) ────────────────────────────────────────────────────────────
+
+describe.each(['Fire', 'Fire2012'] as const)('%s extra controls', (type) => {
+  // Force sparks to fire on (almost) every column/tick so direction is easy
+  // to observe without waiting out real randomness.
+  const hotProps = { cooling: 55, sparking: 200, intensity: 1 }
+
+  it('sparks from the base row (up, default) vs. the opposite edge (down)', () => {
+    // Compare total row brightness rather than an exact-zero pixel: some
+    // palettes (e.g. 'fire') don't start exactly at black, so an unsparked
+    // cell can still render a faint glow.
+    const rowBrightness = (row: RGB[]) => row.reduce((sum, px) => sum + px.r + px.g + px.b, 0)
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0.01)
+    try {
+      const up = withOutput(node('fUp', type, 'pattern', { ...hotProps, direction: 'up' }))
+      const frameUp = evaluateGraph(up.nodes, up.edges, 0, 8, 8)!
+      expect(rowBrightness(frameUp[7])).toBeGreaterThan(rowBrightness(frameUp[0])) // base = bottom
+
+      const down = withOutput(node('fDown', type, 'pattern', { ...hotProps, direction: 'down' }))
+      const frameDown = evaluateGraph(down.nodes, down.edges, 0, 8, 8)!
+      expect(rowBrightness(frameDown[0])).toBeGreaterThan(rowBrightness(frameDown[7])) // base = top
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('mirror folds the frame symmetric across its width', () => {
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0.01)
+    try {
+      const { nodes, edges } = withOutput(node('fMirror', type, 'pattern', { ...hotProps, mirror: true }))
+      let frame = evaluateGraph(nodes, edges, 0, 8, 8)!
+      for (let t = 1; t <= 3; t++) frame = evaluateGraph(nodes, edges, t, 8, 8)!
+      for (let y = 0; y < 8; y++)
+        for (let x = 0; x < 4; x++)
+          expect(frame[y][7 - x]).toEqual(frame[y][x])
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('paletteMix=0 desaturates to grayscale heat brightness (equal r/g/b)', () => {
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0.01)
+    try {
+      const { nodes, edges } = withOutput(node('fGray', type, 'pattern', { ...hotProps, paletteMix: 0, palette: 'fire' }))
+      let frame = evaluateGraph(nodes, edges, 0, 8, 8)!
+      for (let t = 1; t <= 3; t++) frame = evaluateGraph(nodes, edges, t, 8, 8)!
+      const lit = frame.flat().filter((px) => px.r + px.g + px.b > 0)
+      expect(lit.length).toBeGreaterThan(0)
+      expect(lit.every((px) => px.r === px.g && px.g === px.b)).toBe(true)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('a nonzero seed makes the whole simulation reproducible from a fresh start', () => {
+    // No Math.random mocking here — seed replaces it entirely once nonzero.
+    const run = (id: string) => {
+      const { nodes, edges } = withOutput(node(id, type, 'pattern', { ...hotProps, seed: 42 }))
+      let frame = evaluateGraph(nodes, edges, 0, 8, 8)!
+      for (let t = 1; t <= 5; t++) frame = evaluateGraph(nodes, edges, t, 8, 8)!
+      return frame
+    }
+    expect(run('fSeedA')).toEqual(run('fSeedB'))
   })
 })
 
