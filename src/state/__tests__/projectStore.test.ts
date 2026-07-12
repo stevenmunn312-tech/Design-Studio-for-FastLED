@@ -142,4 +142,25 @@ describe('projectStore', () => {
     expect(second.useProjectStore.getState().currentProjectId).toBe(mainId)
     expect(second.useProjectStore.getState().projects.some((project) => project.id === showA.id)).toBe(true)
   })
+
+  it('restores the latest current-project workspace from the dedicated snapshot when the full project blob is stale', async () => {
+    const { useProjectStore } = await freshStore()
+    useProjectStore.getState().saveCurrentWorkspace(workspace(['old']))
+
+    const realSetItem = Storage.prototype.setItem
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (key: string, value: string) {
+      if (key === 'fastled-studio.projects.v1') throw new Error('quota')
+      return realSetItem.call(this, key, value)
+    })
+
+    useProjectStore.getState().saveCurrentWorkspace(workspace(['new']))
+
+    setItemSpy.mockRestore()
+
+    const reloaded = await freshStore()
+    const current = reloaded.useProjectStore.getState().projects.find(
+      (project) => project.id === reloaded.useProjectStore.getState().currentProjectId,
+    )
+    expect(current?.workspace.nodes.map((entry) => entry.id)).toEqual(['new'])
+  })
 })

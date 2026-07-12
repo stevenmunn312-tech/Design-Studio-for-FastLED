@@ -22,6 +22,12 @@ interface PersistedState {
   projects: SavedProject[]
 }
 
+interface PersistedCurrentWorkspace {
+  projectId: string
+  updatedAt: number
+  workspace: PersistedWorkspace
+}
+
 interface ProjectState {
   projects: SavedProject[]
   currentProjectId: string
@@ -36,6 +42,7 @@ interface ProjectState {
 
 const KEY = 'fastled-studio.projects.v1'
 const CURRENT_PROJECT_KEY = 'fastled-studio.current-project.v1'
+const CURRENT_WORKSPACE_KEY = 'fastled-studio.current-workspace.v1'
 const LEGACY_AUTOSAVE_KEY = 'fastled-studio-graph'
 const DISK_SYNC = !import.meta.env.VITEST
 
@@ -79,6 +86,37 @@ function loadCurrentProjectHint(): string | null {
 function persistCurrentProjectHint(projectId: string): void {
   try {
     localStorage.setItem(CURRENT_PROJECT_KEY, JSON.stringify(projectId))
+  } catch {
+    // Keep running when storage is unavailable or full.
+  }
+}
+
+function loadCurrentWorkspaceSnapshot(): PersistedCurrentWorkspace | null {
+  try {
+    const raw = localStorage.getItem(CURRENT_WORKSPACE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<PersistedCurrentWorkspace>
+    if (typeof parsed?.projectId !== 'string' || typeof parsed?.updatedAt !== 'number') return null
+    const workspace = parsed.workspace
+    if (!workspace || !Array.isArray(workspace.nodes) || !Array.isArray(workspace.edges)) return null
+    return {
+      projectId: parsed.projectId,
+      updatedAt: parsed.updatedAt,
+      workspace: cloneWorkspace(workspace),
+    }
+  } catch {
+    return null
+  }
+}
+
+function persistCurrentWorkspaceSnapshot(project: SavedProject | undefined): void {
+  if (!project) return
+  try {
+    localStorage.setItem(CURRENT_WORKSPACE_KEY, JSON.stringify({
+      projectId: project.id,
+      updatedAt: project.updatedAt,
+      workspace: project.workspace,
+    }))
   } catch {
     // Keep running when storage is unavailable or full.
   }
@@ -144,8 +182,15 @@ function normalizeState(parsed: Partial<PersistedState> | null | undefined): Per
   const currentProjectId = sorted.some((project) => project.id === preferredProjectId)
     ? String(preferredProjectId)
     : sorted[0].id
+  const currentWorkspace = loadCurrentWorkspaceSnapshot()
+  const projectsWithSnapshot = currentWorkspace
+    ? sorted.map((project) =>
+        project.id === currentWorkspace.projectId && currentWorkspace.updatedAt >= project.updatedAt
+          ? { ...project, updatedAt: currentWorkspace.updatedAt, workspace: currentWorkspace.workspace }
+          : project)
+    : sorted
   persistCurrentProjectHint(currentProjectId)
-  return { currentProjectId, projects: sorted }
+  return { currentProjectId, projects: sortProjects(projectsWithSnapshot) }
 }
 
 function load(): PersistedState {
@@ -166,6 +211,7 @@ function load(): PersistedState {
 
 function persist(state: PersistedState) {
   persistCurrentProjectHint(state.currentProjectId)
+  persistCurrentWorkspaceSnapshot(state.projects.find((project) => project.id === state.currentProjectId))
   try {
     localStorage.setItem(KEY, JSON.stringify({
       currentProjectId: state.currentProjectId,
