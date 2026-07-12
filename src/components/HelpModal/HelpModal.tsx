@@ -80,6 +80,12 @@ function QuickStartTab() {
               <strong>Project vocabulary</strong> — a <strong>Project</strong> is your everyday autosaved workspace; <strong>Open Project File</strong> / <strong>Save Project File As</strong> moves that full workspace between machines; <strong>Import Graph JSON</strong> / <strong>Export Graph JSON</strong> is raw graph interchange; <strong>Copy Share Link</strong> makes a URL copy of the workspace; and <strong>Recover Snapshot</strong> restores one of the recent rolling recovery snapshots for this browser.
             </div>
           </div>
+          <div className={styles.tip}>
+            <div className={styles.tipIcon}>⬡</div>
+            <div className={styles.tipText}>
+              <strong>Offline vs hardware</strong> — after the first successful load, Studio can be installed and reopened offline for authoring and preview. Upload, live stream, board discovery, and project-file dialogs still require the local helper running on this machine.
+            </div>
+          </div>
         </div>
       </div>
 

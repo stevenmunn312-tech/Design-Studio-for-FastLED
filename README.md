@@ -10,6 +10,7 @@ Node‑Based Visual Designer for FastLED LED Matrix Systems
 - **Named projects + recovery** — autosaved projects, portable project files, recent-project switching, rolling recovery snapshots, Graph JSON import/export, and share links
 - **C++ code generation** — export a ready-to-flash FastLED `.ino` sketch from any graph
 - **Upload, stream, and show provisioning** — the local helper compiles and flashes over USB via `arduino-cli` or FastLED's own `fbuild`, can flash a standalone wiring test, flash the serial stream receiver, push live frames, and provision music-sync SD shows
+- **Installable offline workspace** — the PWA caches the core Studio app, icons, and branding assets so authoring and preview reopen offline after the first successful load
 - **Three theme variants** — Dark, Solarized Dark, Studio Light
 - **Undo/redo** (100 steps), per-project autosave, Graph JSON interchange, and read-only code viewing
 
@@ -30,6 +31,12 @@ The first launch installs everything and takes a few minutes; after that it star
 seconds. Your browser opens the studio automatically — keep the launcher window open
 while you use the app. Python is optional: without it the designer runs fine, only
 board upload stays disabled.
+
+Once the app has loaded successfully once, you can also install it to your desktop/home
+screen and reopen the cached Studio offline for node authoring, preview, and local
+project work. Hardware features still need the local helper on the same machine:
+upload, live stream, board discovery, and project-file dialogs do not work from the
+offline cache alone.
 
 When the studio opens, start from the empty-canvas launcher:
 
