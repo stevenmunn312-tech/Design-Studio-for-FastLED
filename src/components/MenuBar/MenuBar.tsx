@@ -122,7 +122,7 @@ export default function MenuBar() {
     a.download = `fastled-studio-${Date.now()}.json`
     a.click()
     URL.revokeObjectURL(url)
-    setStatus('Graph exported', 'success')
+    setStatus('Graph JSON exported', 'success')
   }
 
   const handleShare = async () => {
@@ -151,7 +151,7 @@ export default function MenuBar() {
 
   const saveIntoCurrentProject = () => {
     if (!currentProject) {
-      setStatus('No project open — use New Project or Save As first', 'info')
+      setStatus('No project open — use New Project or Save Project File As first', 'info')
       return false
     }
     useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
@@ -163,9 +163,9 @@ export default function MenuBar() {
     if (currentProject) return true
     if (useGraphStore.getState().nodes.length === 0) return true
     return requestConfirm({
-      title: 'Replace current graph?',
+      title: 'Replace current workspace?',
       message,
-      confirmLabel: 'Replace graph',
+      confirmLabel: 'Replace workspace',
       cancelLabel: 'Cancel',
       tone: 'danger',
     })
@@ -304,7 +304,7 @@ export default function MenuBar() {
               confirmedReplace: true,
             })
           } catch {
-            setStatus('Failed to open project — invalid file', 'error')
+            setStatus('Failed to open project file — invalid file', 'error')
           }
           return
         }
@@ -318,7 +318,7 @@ export default function MenuBar() {
               confirmedReplace: true,
             })
           } catch {
-            setStatus('Failed to open project — invalid file', 'error')
+            setStatus('Failed to open project file — invalid file', 'error')
           }
           return
         }
@@ -353,7 +353,7 @@ export default function MenuBar() {
           confirmedReplace: true,
         })
       } catch {
-        setStatus('Failed to open project — invalid file', 'error')
+        setStatus('Failed to open project file — invalid file', 'error')
       } finally {
         e.target.value = ''
       }
@@ -366,9 +366,9 @@ export default function MenuBar() {
     void (async () => {
       if (useGraphStore.getState().nodes.length > 0) {
         const ok = await requestConfirm({
-          title: 'Replace current graph?',
-          message: 'Loading a graph replaces your current workspace. Any unsaved work will be lost. Continue?',
-          confirmLabel: 'Load graph',
+          title: 'Replace current workspace?',
+          message: 'Importing Graph JSON replaces your current project workspace. Any unsaved work will be lost. Continue?',
+          confirmLabel: 'Import Graph JSON',
           cancelLabel: 'Cancel',
           tone: 'danger',
         })
@@ -384,9 +384,9 @@ export default function MenuBar() {
             { nodes: StudioNode[]; edges: StudioEdge[] } & WorkspaceExtras
           useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId })
           useGraphStore.temporal.getState().clear()
-          setStatus('Graph loaded', 'success')
+          setStatus('Graph JSON imported', 'success')
         } catch {
-          setStatus('Failed to load graph — invalid file', 'error')
+          setStatus('Failed to import Graph JSON — invalid file', 'error')
         }
       }
       reader.readAsText(file)
@@ -427,13 +427,13 @@ export default function MenuBar() {
                 New Project
               </button>
               <button className={styles.menuItem} role="menuitem" onClick={handleOpenProject}>
-                Open Project…
+                Open Project File…
               </button>
               <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); saveIntoCurrentProject() }} disabled={!currentProject}>
-                Save
+                Save Project
               </button>
               <button className={styles.menuItem} role="menuitem" onClick={handleSaveAs}>
-                Save As…
+                Save Project File As…
               </button>
               <div className={styles.menuDivider} />
               <div className={styles.menuLabel}>Recent Projects</div>
@@ -452,10 +452,10 @@ export default function MenuBar() {
               )}
               <div className={styles.menuDivider} />
               <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); handleLoadJSON() }}>
-                Import JSON…
+                Import Graph JSON…
               </button>
               <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); handleSaveJSON() }}>
-                Export JSON…
+                Export Graph JSON…
               </button>
               <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); openTemplates() }}>
                 Starter Templates…
@@ -464,7 +464,7 @@ export default function MenuBar() {
                 Copy Share Link
               </button>
               <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); openRecover() }}>
-                Recover Workspace…
+                Recover Snapshot…
               </button>
             </div>
           </>

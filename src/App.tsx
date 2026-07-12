@@ -96,7 +96,7 @@ export default function App() {
         useProjectStore.getState().saveCurrentWorkspace(shared)
         useGraphStore.temporal.getState().clear()
         clearShareHash()
-        useUiStore.getState().setStatus('Graph loaded from share link', 'success')
+        useUiStore.getState().setStatus('Share link opened', 'success')
         return
       }
       await useProjectStore.getState().refreshFromDisk()
@@ -281,7 +281,8 @@ export default function App() {
         const { projects, currentProjectId } = useProjectStore.getState()
         if (projects.some((project) => project.id === currentProjectId)) {
           useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
-          setStatus('Project saved', 'success')
+          const current = projects.find((project) => project.id === currentProjectId)
+          setStatus(current ? `Saved project "${current.name}"` : 'Saved project', 'success')
         } else {
           useUiStore.getState().openProjects()
           setStatus('No project open — create one to save into', 'info')

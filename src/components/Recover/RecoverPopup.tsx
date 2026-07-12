@@ -29,32 +29,32 @@ export default function RecoverPopup() {
     const snap = snapshots.find((s) => s.id === id)
     if (!snap) return
     const ok = await requestConfirm({
-      title: 'Restore workspace?',
-      message: `Restore the workspace from ${relativeTime(snap.timestamp)}? Your current workspace will be replaced (this can be undone with Ctrl+Z).`,
-      confirmLabel: 'Restore',
+      title: 'Restore recovery snapshot?',
+      message: `Restore the recovery snapshot from ${relativeTime(snap.timestamp)}? Your current project workspace will be replaced (this can be undone with Ctrl+Z).`,
+      confirmLabel: 'Restore snapshot',
       cancelLabel: 'Cancel',
       tone: 'danger',
     })
     if (!ok) return
     const { nodes, edges, graphData, graphs, activeGraphId } = snap.workspace
     useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId })
-    setStatus(`Restored workspace from ${relativeTime(snap.timestamp)}`, 'success')
+    setStatus(`Restored recovery snapshot from ${relativeTime(snap.timestamp)}`, 'success')
     closeRecover()
   }
 
   return (
     <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) closeRecover() }}>
-      <div className={styles.popup} role="dialog" aria-label="Recover a previous workspace">
+      <div className={styles.popup} role="dialog" aria-label="Recovery snapshots">
         <div className={styles.header}>
-          <span>Recover Workspace</span>
+          <span>Recovery Snapshots</span>
           <button className={styles.closeBtn} onClick={closeRecover} title="Close">×</button>
         </div>
         <div className={styles.hint}>
-          Rolling snapshots taken periodically while you work — a fallback for when undo history
-          has already been cleared (e.g. after a reload or a bad import).
+          Rolling recovery snapshots taken periodically while you work — a fallback for when undo
+          history has already been cleared (for example after a reload or a bad Graph JSON import).
         </div>
         {snapshots.length === 0 ? (
-          <div className={styles.empty}>No snapshots yet — they're taken automatically every couple of minutes while you have nodes on the canvas.</div>
+          <div className={styles.empty}>No recovery snapshots yet — they&apos;re taken automatically every couple of minutes while you have nodes on the canvas.</div>
         ) : (
           <div className={styles.list}>
             {snapshots.map((snap) => (

@@ -7,11 +7,11 @@ Node‑Based Visual Designer for FastLED LED Matrix Systems
 - **Starter-first onboarding** — launch from the empty-canvas start screen or the persistent **✦ Start** gallery with Rainbow, Audio Spectrum, Field Warp, Generative Show, Music-synced SD Show, and more
 - **Live LED preview** — WebGL renderer with per-LED glow at 60 fps; falls back to Canvas 2D
 - **Audio-reactive** — microphone FFT via Web Audio API drives bass/mids/treble/beat outputs in real time
-- **Named projects + recovery** — autosaved projects, recent-project switching, rolling recovery snapshots, JSON import/export, and share links
+- **Named projects + recovery** — autosaved projects, portable project files, recent-project switching, rolling recovery snapshots, Graph JSON import/export, and share links
 - **C++ code generation** — export a ready-to-flash FastLED `.ino` sketch from any graph
 - **Upload, stream, and show provisioning** — the local helper compiles and flashes over USB via `arduino-cli` or FastLED's own `fbuild`, can flash the serial stream receiver, push live frames, and provision music-sync SD shows
 - **Three theme variants** — Dark, Solarized Dark, Studio Light
-- **Undo/redo** (100 steps), per-project autosave, portable JSON interchange, and read-only code viewing
+- **Undo/redo** (100 steps), per-project autosave, Graph JSON interchange, and read-only code viewing
 
 ## Quick Start (no experience needed)
 
@@ -67,7 +67,7 @@ See the Design Tokens section of `CLAUDE.md` for the full category → accent-co
 
 1. **Start fast** — use the empty-canvas launcher or **✦ Start** to load Rainbow, Audio Spectrum, Field Warp, or one of the show starters already wired and framed in view.
 2. **Build the patch** — connect pattern/composite/audio nodes into **Matrix Output**. The main LED preview and node previews animate live from the same graph evaluation.
-3. **Choose the right save format** — named **Projects** are your working home and autosave in place; **Export JSON** is portable graph interchange; **Copy Share Link** packages the workspace into a URL; **Recover Workspace** restores recent autosave snapshots.
+3. **Choose the right save format** — named **Projects** are your working home and autosave in place; **Save Project File As** writes a portable full-workspace file; **Export Graph JSON** is raw graph interchange; **Copy Share Link** packages the workspace into a URL; **Recover Snapshot** restores a recent recovery snapshot for this browser.
 4. **Upload or inspect code** — in **Matrix Output**, use **Upload**, **Flash Stream Receiver**, **Live Stream**, **Upload show to SD**, **View Code**, or **Export .ino** depending on whether you want a normal sketch, live serial streaming, or an SD-backed music-sync player.
 
 ## Starter Walkthroughs
@@ -88,12 +88,13 @@ Use the **Music-synced SD Show** starter when you want offline playback from an 
 2. Feed the generated `shows` output into **SD Card**, then into **Matrix Output.sdcard**.
 3. Use **Upload show to SD** from **Matrix Output** to provision the card and flash the player.
 
-## Project vs JSON vs Share
+## Project Vocabulary
 
-- **Projects** are the everyday workspace model. They autosave in place, remember upload targets, and appear in **File** and **▤ Projects**.
-- **Export JSON / Import JSON** is portable graph interchange. Use it to move a graph between machines or keep a raw graph snapshot outside the project system.
-- **Share links** are URL fragments containing the full workspace. Opening one imports that workspace into the current browser session.
-- **Recover Workspace** restores one of the recent rolling autosave snapshots for the current browser.
+- **Project** means the everyday working workspace inside Studio. It autosaves in place, remembers upload targets, and appears in **File** and **▤ Projects**.
+- **Project File** means a portable full-workspace file opened with **Open Project File** or written with **Save Project File As**.
+- **Graph JSON** means raw graph interchange from **Export Graph JSON** / **Import Graph JSON**. Use it for graph-only exchange outside the project system.
+- **Share Link** means a URL fragment containing the full workspace. Opening one imports that workspace into the current browser session.
+- **Recovery Snapshot** means one of the recent browser-local restore points opened from **Recover Snapshot**.
 
 ## Build
 

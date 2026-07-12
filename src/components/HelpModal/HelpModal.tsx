@@ -77,7 +77,7 @@ function QuickStartTab() {
           <div className={styles.tip}>
             <div className={styles.tipIcon}>⬡</div>
             <div className={styles.tipText}>
-              <strong>Projects vs JSON vs Share</strong> — the current <strong>Project</strong> autosaves every 10 seconds and on page hide; <strong>Save</strong> (Ctrl+S) saves that current project explicitly. Use <strong>Export JSON</strong> / <strong>Import JSON</strong> for portable graph files, <strong>Copy Share Link</strong> for URL-based sharing, and <strong>Recover Workspace</strong> for rolling autosave snapshots.
+              <strong>Project vocabulary</strong> — a <strong>Project</strong> is your everyday autosaved workspace; <strong>Open Project File</strong> / <strong>Save Project File As</strong> moves that full workspace between machines; <strong>Import Graph JSON</strong> / <strong>Export Graph JSON</strong> is raw graph interchange; <strong>Copy Share Link</strong> makes a URL copy of the workspace; and <strong>Recover Snapshot</strong> restores one of the recent rolling recovery snapshots for this browser.
             </div>
           </div>
         </div>

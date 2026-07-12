@@ -86,8 +86,8 @@ describe('MenuBar file menu', () => {
 
     expect(getByRole('menu', { name: 'File' })).toBeTruthy()
     expect(getByText('New Project')).toBeTruthy()
-    expect(getByText('Open Project…')).toBeTruthy()
-    expect(getByText('Save As…')).toBeTruthy()
+    expect(getByText('Open Project File…')).toBeTruthy()
+    expect(getByText('Save Project File As…')).toBeTruthy()
     expect(getByText('Recent Projects')).toBeTruthy()
     expect(getByText('No recent projects yet')).toBeTruthy()
   })
@@ -273,7 +273,7 @@ describe('MenuBar file menu', () => {
 
     const { getByRole, getByText } = render(<MenuBar />)
     fireEvent.click(getByRole('button', { name: 'File menu' }))
-    fireEvent.click(getByText('Open Project…'))
+    fireEvent.click(getByText('Open Project File…'))
 
     await waitFor(() => {
       expect(useProjectStore.getState().currentProjectId).toBe(pg.id)
@@ -339,7 +339,7 @@ describe('MenuBar file menu', () => {
 
     const { getByRole, getByText } = render(<MenuBar />)
     fireEvent.click(getByRole('button', { name: 'File menu' }))
-    fireEvent.click(getByText('Save As…'))
+    fireEvent.click(getByText('Save Project File As…'))
 
     await waitFor(() => {
       expect(useProjectStore.getState().currentProjectId).not.toBe(alpha.id)
