@@ -1,0 +1,39 @@
+.banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-2);
+  background: linear-gradient(180deg, rgba(255, 51, 102, 0.16), rgba(255, 51, 102, 0.08));
+  border-bottom: 1px solid rgba(255, 51, 102, 0.35);
+  font-size: var(--fs-caption);
+  flex-shrink: 0;
+}
+
+.icon {
+  color: var(--error);
+  flex-shrink: 0;
+}
+
+.message {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--text-primary);
+}
+
+.trustButton {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--error);
+  background: transparent;
+  color: var(--error);
+  font-size: var(--fs-caption);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.trustButton:hover {
+  background: var(--error);
+  color: #12070a;
+}

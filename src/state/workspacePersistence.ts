@@ -8,6 +8,11 @@ export interface PersistedWorkspace {
   graphData?: WorkspaceExtras['graphData']
   graphs?: WorkspaceExtras['graphs']
   activeGraphId?: string
+  /** Whether this workspace's CustomFormula/FieldFormula/Code nodes are
+   *  allowed to evaluate their preview logic (see todo.md's P0 trust-boundary
+   *  item). Missing/undefined is treated as trusted by `graphStore.loadGraph`
+   *  — content that predates this field is the user's own prior local work. */
+  trusted?: boolean
 }
 
 export function blankWorkspace(): PersistedWorkspace {
@@ -19,7 +24,7 @@ export function cloneWorkspace(workspace: PersistedWorkspace): PersistedWorkspac
 }
 
 export function captureWorkspace(
-  state: Pick<PersistedWorkspace, 'nodes' | 'edges' | 'graphData' | 'graphs' | 'activeGraphId'>
+  state: Pick<PersistedWorkspace, 'nodes' | 'edges' | 'graphData' | 'graphs' | 'activeGraphId' | 'trusted'>
 ): PersistedWorkspace {
   return cloneWorkspace({
     nodes: state.nodes,
@@ -27,5 +32,6 @@ export function captureWorkspace(
     graphData: state.graphData,
     graphs: state.graphs,
     activeGraphId: state.activeGraphId,
+    trusted: state.trusted,
   })
 }

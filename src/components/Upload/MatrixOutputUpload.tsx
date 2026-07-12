@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
+import { useUiStore } from '../../state/uiStore'
 import { useUploadStore, boardByFqbn, engineReady } from '../../state/uploadStore'
 import { useStreamStore } from '../../state/streamStore'
 import { useMusicStore } from '../../state/musicStore'
@@ -305,8 +306,40 @@ export default function MatrixOutputUpload({
   const sdConnected = useMemo(() => sdCardConnected(nodes, edges), [nodes, edges])
   const readySongs = readySongCount(entries)
   function handleShowUpload() {
-    const payload = buildShowPayload(nodes, entries, getGroupRegistry())
-    if (payload) runShowUpload(payload)
+    void (async () => {
+      if (!(await confirmUploadIfUntrusted())) return
+      const payload = buildShowPayload(nodes, entries, getGroupRegistry())
+      if (payload) runShowUpload(payload)
+    })()
+  }
+
+  // Uploading/exporting the graph's own generated sketch embeds any
+  // CustomFormula/Code node source verbatim — if this project isn't trusted
+  // yet (content from outside this browser), warn before sending it to real
+  // hardware. Lighter than the render-blocking trust gate: it's a one-off
+  // confirm, not a grant of trust, since export/upload is already an
+  // explicit, reviewable user action (todo.md's P0 trust item).
+  function confirmUploadIfUntrusted(): Promise<boolean> {
+    if (useGraphStore.getState().trusted) return Promise.resolve(true)
+    return useUiStore.getState().requestConfirm({
+      title: 'Upload code from an untrusted source?',
+      message: 'This project isn’t trusted yet — it may contain Formula/Code node source from outside this browser. Consider reviewing it (‹/› View Code) before flashing it to real hardware.',
+      confirmLabel: 'Upload anyway',
+      cancelLabel: 'Cancel',
+      tone: 'danger',
+    })
+  }
+  function handleUpload() {
+    void (async () => {
+      if (!(await confirmUploadIfUntrusted())) return
+      runUpload(code, usePsram ? psramChoice?.opt : undefined)
+    })()
+  }
+  function handleExportIno() {
+    void (async () => {
+      if (!(await confirmUploadIfUntrusted())) return
+      exportIno(code)
+    })()
   }
 
   const phaseClass =
@@ -425,7 +458,7 @@ export default function MatrixOutputUpload({
         className={`${styles.uploadBtn} ${phaseClass}`}
         disabled={!canBuild || !uploadReady || busy}
         aria-busy={busy}
-        onClick={() => runUpload(code, usePsram ? psramChoice?.opt : undefined)}
+        onClick={handleUpload}
         title={
           busy ? status.message
           : !hasFrameInput ? 'Connect a frame to enable upload'
@@ -454,7 +487,7 @@ export default function MatrixOutputUpload({
       <button
         className={styles.exportBtn}
         disabled={!hasFrameInput || blockingErrors.length > 0}
-        onClick={() => exportIno(code)}
+        onClick={handleExportIno}
         title={!hasFrameInput ? 'Connect a frame to enable export' : blockingErrors.length > 0 ? blockingErrors.join('\n') : 'Download the generated .ino sketch'}
       >
         ↓ Export .ino

@@ -47,6 +47,8 @@ export interface WorkspaceExtras {
   graphData?: Record<string, GraphContent>
   graphs?: Record<string, GraphMeta>
   activeGraphId?: string
+  /** See `PersistedWorkspace.trusted` (workspacePersistence.ts). */
+  trusted?: boolean
 }
 
 interface GraphState {
@@ -67,6 +69,17 @@ interface GraphState {
   /** Stored content for every graph EXCEPT the active one (which lives in
    *  `nodes`/`edges` above). */
   graphData: Record<string, GraphContent>
+
+  // ── Trust boundary (todo.md P0) ─────────────────────────────────────────
+  /** Whether the active workspace's CustomFormula/FieldFormula/Code nodes may
+   *  evaluate their preview logic. `loadGraph` sets this from whatever load
+   *  path is calling it; content pulled from outside this browser (share
+   *  link, JSON import, project file, pattern drop) is forced `false`
+   *  regardless of what it claims about itself — see the callers of
+   *  `loadGraph`/`instantiatePattern`/`createCollectionFromPatterns`. */
+  trusted: boolean
+  /** Explicitly trust the active workspace (the "Trust and run" action). */
+  setTrusted: (trusted: boolean) => void
 
   onNodesChange: (changes: NodeChange[]) => void
   onEdgesChange: (changes: EdgeChange[]) => void
@@ -391,6 +404,9 @@ export const useGraphStore = create<GraphState>()(
       graphs: { [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' } },
       graphData: {},
 
+      trusted: true,
+      setTrusted: (trusted) => set({ trusted }),
+
       onNodesChange: (changes) => {
         if (changes.some((change) => change.type === 'remove')) scheduleOrphanGraphPrune()
         set((s) => {
@@ -619,6 +635,9 @@ export const useGraphStore = create<GraphState>()(
             graphs: pruned?.graphs ?? graphs,
             activeGraphId,
             selectedNodeId: null,
+            // Missing/undefined = trusted: this predates the trust field, so
+            // it's the user's own prior local work, not imported content.
+            trusted: workspace?.trusted ?? true,
           }
         }),
 
@@ -1014,6 +1033,11 @@ export const useGraphStore = create<GraphState>()(
             },
             graphData: { ...s.graphData, [groupId]: { nodes: sub.nodes, edges: sub.edges } },
             nodes: [...s.nodes, groupNode],
+            // A dropped pattern could itself have been imported from a file —
+            // no per-pattern trust tracking in v1, so any drop forces the
+            // whole workspace untrusted (safe default; see trustPrompt.ts's
+            // doc comment for why this doesn't also pop a confirm modal).
+            trusted: false,
           }
         }),
 
@@ -1059,6 +1083,7 @@ export const useGraphStore = create<GraphState>()(
             graphs,
             graphData,
             nodes: [...s.nodes, collectionNode],
+            trusted: false,   // see instantiatePattern's comment above
           }
         }),
 
@@ -1097,6 +1122,7 @@ export const useGraphStore = create<GraphState>()(
             nodes,
             graphs: { ...s.graphs, [groupId]: { id: groupId, name: saved.name, sourcePatternId: saved.id } },
             graphData: { ...s.graphData, [groupId]: { nodes: sub.nodes, edges: sub.edges } },
+            trusted: false,   // see instantiatePattern's comment above
           }
         }),
 

@@ -456,6 +456,37 @@ describe('evaluateGraph', () => {
   // the async decoupled-cadence contract, timeout/respawn, and fail-closed
   // behavior at that integration point instead.
 
+  // todo.md's P0 trust-boundary item: an untrusted graph's CustomFormula/
+  // FieldFormula/Code nodes must not run their preview logic. `evaluateGraph`/
+  // `evaluateGraphFull` take `trusted` as their final parameter (default
+  // `true`, so every other test above — none of which pass it — is
+  // unaffected); these three cover the `trusted=false` fallback explicitly.
+  it('CustomFormula renders black when the graph is untrusted, instead of running the formula', () => {
+    const cf = node('cf', 'CustomFormula', 'pattern', { formula: 'sin(x*6+t)*0.5+0.5' })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [edge('e1', 'cf', 'frame', 'out', 'frame')]
+    const trustedFrame = evaluateGraph([cf, out], edges, 0, W, H, {}, '', new Set(), {}, null, true)
+    expect(trustedFrame![0].some((p) => p.r + p.g + p.b > 0)).toBe(true)
+    const untrustedFrame = evaluateGraph([cf, out], edges, 0, W, H, {}, '', new Set(), {}, null, false)
+    expect(untrustedFrame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
+  })
+
+  it('FieldFormula outputs an all-zero field when the graph is untrusted', () => {
+    const ff = node('ff', 'FieldFormula', 'pattern', { formula: '0.9' })
+    const { outputs: trustedOut } = evaluateGraphFull([ff], [], 0, W, H, {}, true, true)
+    expect((trustedOut.get('ff')!.field as Float32Array)[0]).toBeCloseTo(0.9)
+    const { outputs: untrustedOut } = evaluateGraphFull([ff], [], 0, W, H, {}, true, false)
+    expect((untrustedOut.get('ff')!.field as Float32Array).every((v) => v === 0)).toBe(true)
+  })
+
+  it('Code renders black when the graph is untrusted, instead of running the pasted code', () => {
+    const cd = node('cd', 'Code', 'pattern', { code: 'leds[0] = CRGB(255, 255, 255);' })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [edge('e1', 'cd', 'frame', 'out', 'frame')]
+    const untrustedFrame = evaluateGraph([cd, out], edges, 0, W, H, {}, '', new Set(), {}, null, false)
+    expect(untrustedFrame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
+  })
+
   it('TrebleSparks tints its sparks from the wired palette input', () => {
     const spy = vi.spyOn(Math, 'random').mockReturnValue(0)
     try {

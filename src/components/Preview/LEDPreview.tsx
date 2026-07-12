@@ -869,7 +869,7 @@ export default function LEDPreview() {
         // Read the graph straight from the store each frame — the loop runs at
         // 60 fps anyway, and this keeps the React component free of a full
         // nodes/edges subscription (which would re-render it on every drag).
-        const { nodes: graphNodes, edges: graphEdges } = useGraphStore.getState()
+        const { nodes: graphNodes, edges: graphEdges, trusted } = useGraphStore.getState()
         const groups = getGroupRegistry()
         // One evaluation pass feeds both the main matrix and every node preview.
         // Nodes disconnected from the output only feed previews published at
@@ -882,7 +882,7 @@ export default function LEDPreview() {
         // the terminal frame is averaged back to gW×gH below (node previews ride
         // along at the higher res, which only sharpens their thumbnails).
         const ss = matrixSupersampleFactor(graphNodes)
-        const { frame: rendered, outputs } = evaluateGraphFull(graphNodes, graphEdges, tick, gW * ss, gH * ss, groups, fullPass)
+        const { frame: rendered, outputs } = evaluateGraphFull(graphNodes, graphEdges, tick, gW * ss, gH * ss, groups, fullPass, trusted)
         const evalMs = PERF_TELEMETRY ? performance.now() - evalStart : 0
         let frame = applyMasterBrightness(rendered, graphNodes)
         if (frame) { if (ss > 1) frame = downscaleFrame(frame, ss) }

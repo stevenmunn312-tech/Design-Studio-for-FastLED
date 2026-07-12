@@ -3387,6 +3387,10 @@ function createEvalNode(
   // Prebuilt lookup maps for callers that create many evaluators over the same
   // graph (e.g. sampling a scope across a tick series) — see buildEvalMaps.
   shared: EvalMaps | null = null,
+  // Whether CustomFormula/FieldFormula/Code nodes may evaluate their preview
+  // logic (todo.md's P0 trust-boundary item) — appended last so every existing
+  // positional call site keeps working unchanged, defaulting to trusted.
+  trusted = true,
 ) {
   const t = tick / 60   // seconds at assumed 60 fps
 
@@ -4959,7 +4963,9 @@ function createEvalNode(
         const b = num(id, 'b', props, 'b', 0)
         const formula = String(props.formula ?? 'sin(x*6+t)*0.5+0.5')
         const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-        out = { frame: evalCustomFormula(formula, a, b, palette, t, W, H) }
+        // Untrusted content doesn't get to run its formula — same blank-frame
+        // fallback a compile failure already uses (todo.md's P0 trust item).
+        out = { frame: trusted ? evalCustomFormula(formula, a, b, palette, t, W, H) : blankFrame(W, H) }
         break
       }
 
@@ -4970,7 +4976,7 @@ function createEvalNode(
         const fin = input(id, 'fieldIn', null)
         const fieldIn = fin instanceof Float32Array ? fin : null
         const formula = String(props.formula ?? 'sin8(r*200 + t*60)/255')
-        out = { field: evalFieldFormula(formula, a, b, fieldIn, t, W, H) }
+        out = { field: trusted ? evalFieldFormula(formula, a, b, fieldIn, t, W, H) : allocField(W * H) }
         break
       }
 
@@ -5074,7 +5080,9 @@ function createEvalNode(
         const seed = input(id, 'frame', null) as Frame | null
         const code = String(props.code ?? '')
         const globalCode = String(props.globalCode ?? '')
-        out = { frame: evalCodeAsync(stateKey(id), globalCode, code, seed, t, W, H) }
+        // Untrusted content doesn't get to run its code — same blank-frame
+        // fallback a compile failure already uses (todo.md's P0 trust item).
+        out = { frame: trusted ? evalCodeAsync(stateKey(id), globalCode, code, seed, t, W, H) : blankFrame(W, H) }
         break
       }
 
@@ -5402,10 +5410,14 @@ export function evaluateGraph(
   groupStack: ReadonlySet<string> = new Set(),
   groupInputs: Record<string, PortValue> = {},
   audioOverride: AudioOverride | null = null,
+  // Whether CustomFormula/FieldFormula/Code nodes may evaluate their preview
+  // logic — appended last so existing positional callers keep working
+  // unchanged, defaulting to trusted (todo.md's P0 trust-boundary item).
+  trusted = true,
 ): Frame | null {
   maybePruneEvaluatorState()
   if (nodes.length === 0) return null
-  const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, groups, instancePrefix, groupStack, groupInputs, audioOverride)
+  const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, groups, instancePrefix, groupStack, groupInputs, audioOverride, null, trusted)
   // Render only what reaches an explicit terminal: a GroupOutput inside a group
   // subgraph, or a MatrixOutput at the root, each passing through its `frame`
   // input. A graph with no terminal previews nothing — the canvas falls back to
@@ -5528,12 +5540,16 @@ export function evaluateGraphFull(
   gridH = DEFAULT_H,
   groups: GroupRegistry = {},
   auxNodes = true,
+  // Whether CustomFormula/FieldFormula/Code nodes may evaluate their preview
+  // logic — appended last so existing positional callers keep working
+  // unchanged, defaulting to trusted (todo.md's P0 trust-boundary item).
+  trusted = true,
 ): { frame: Frame | null; outputs: Map<string, Record<string, unknown>> } {
   maybePruneEvaluatorState()
   advanceFramePool()
   const outputs = new Map<string, Record<string, unknown>>()
   if (nodes.length === 0) return { frame: null, outputs }
-  const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, groups, '', new Set(), {})
+  const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, groups, '', new Set(), {}, null, null, trusted)
   const hot = auxNodes ? null : hotNodeIds(nodes, edges)
   for (const n of nodes) {
     if (hot && !hot.has(n.id)) continue
