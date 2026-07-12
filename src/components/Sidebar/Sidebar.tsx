@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useState } from 'react'
-import { SINGLETON_NODE_TYPES, useGraphStore } from '../../state/graphStore'
+import { canAddNodeType, SINGLETON_NODE_TYPES, useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { usePatternLibrary, importPatternFile, type SavedPattern } from '../../state/patternLibrary'
 import { NODE_LIBRARY, CATEGORIES, CATEGORY_ACCENT_VAR, NODE_DESCRIPTIONS, categoryNodes } from '../../state/nodeLibrary'
@@ -9,6 +9,123 @@ import type { NodeDefinition } from '../../types'
 import styles from './Sidebar.module.css'
 
 const EXPANDED_KEY = 'fastled-studio-sidebar-expanded'
+const FAVOURITES_KEY = 'fastled-studio-sidebar-favourites'
+const RECENT_KEY = 'fastled-studio-sidebar-recent'
+const VIEW_KEY = 'fastled-studio-sidebar-view'
+const RECENT_LIMIT = 8
+
+const BEGINNER_NODE_TYPES = new Set([
+  'MicInput', 'FFTAnalyzer', 'BeatDetect',
+  'Wave', 'Counter', 'Random', 'SampleHold',
+  'HSVToRGB', 'PaletteSelector',
+  'SolidColor', 'Text', 'GradientFrame', 'Noise', 'Rainbow', 'Fire2012', 'SpectrumBars',
+  'Brightness', 'Fade', 'HueShift', 'Trails', 'Blend', 'Transition',
+  'PatternCollection', 'PatternMaster', 'PerformanceGenerator', 'SDCard',
+  'MatrixOutput',
+])
+
+const INTENT_TAGS: Record<string, string[]> = {
+  MicInput: ['audio', 'hardware'],
+  FFTAnalyzer: ['audio', 'reactive'],
+  BeatDetect: ['audio', 'trigger'],
+  AudioFeatures: ['audio', 'analysis'],
+  Wave: ['motion', 'signal'],
+  Counter: ['motion', 'timing'],
+  Random: ['variation', 'signal'],
+  SampleHold: ['trigger', 'variation'],
+  PaletteSelector: ['color', 'palette'],
+  SolidColor: ['color', 'base'],
+  Text: ['text', 'display'],
+  GradientFrame: ['color', 'base'],
+  Noise: ['texture', 'motion'],
+  Rainbow: ['color', 'starter'],
+  Fire2012: ['classic', 'starter'],
+  SpectrumBars: ['audio', 'visualizer'],
+  Brightness: ['utility', 'dimmer'],
+  Fade: ['utility', 'motion'],
+  HueShift: ['color', 'motion'],
+  Trails: ['motion', 'feedback'],
+  Blend: ['composite', 'layer'],
+  Transition: ['composite', 'scene'],
+  PatternCollection: ['show', 'playlist'],
+  PatternMaster: ['show', 'performance'],
+  PerformanceGenerator: ['show', 'music-sync'],
+  SDCard: ['show', 'offline'],
+  MatrixOutput: ['hardware', 'terminal'],
+}
+
+interface RecipeCard {
+  id: string
+  title: string
+  kicker: string
+  description: string
+  actionLabel: string
+  nodes: Array<{ key: string; type: string; dx: number; dy: number }>
+  edges: Array<{ source: string; sourceHandle: string; target: string; targetHandle: string }>
+}
+
+const RECIPE_CARDS: RecipeCard[] = [
+  {
+    id: 'audio-to-brightness',
+    title: 'Audio to brightness',
+    kicker: 'Reactive chain',
+    description: 'Bass from the microphone drives a Brightness node over a live Noise pattern.',
+    actionLabel: 'Drop recipe',
+    nodes: [
+      { key: 'mic', type: 'MicInput', dx: -320, dy: -120 },
+      { key: 'fft', type: 'FFTAnalyzer', dx: -120, dy: -120 },
+      { key: 'noise', type: 'Noise', dx: -320, dy: 40 },
+      { key: 'bright', type: 'Brightness', dx: -80, dy: 40 },
+      { key: 'out', type: 'MatrixOutput', dx: 180, dy: 40 },
+    ],
+    edges: [
+      { source: 'mic', sourceHandle: 'audio', target: 'fft', targetHandle: 'audio' },
+      { source: 'fft', sourceHandle: 'bass', target: 'bright', targetHandle: 'brightness' },
+      { source: 'noise', sourceHandle: 'frame', target: 'bright', targetHandle: 'frame' },
+      { source: 'bright', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+    ],
+  },
+  {
+    id: 'beat-triggered-random',
+    title: 'Beat-triggered random',
+    kicker: 'Reactive modulation',
+    description: 'Each beat samples a fresh random value and uses it to shift the hue of a moving pattern.',
+    actionLabel: 'Drop recipe',
+    nodes: [
+      { key: 'mic', type: 'MicInput', dx: -380, dy: -150 },
+      { key: 'beat', type: 'BeatDetect', dx: -170, dy: -150 },
+      { key: 'rand', type: 'Random', dx: -380, dy: 10 },
+      { key: 'hold', type: 'SampleHold', dx: -170, dy: 10 },
+      { key: 'noise', type: 'Noise', dx: -380, dy: 170 },
+      { key: 'hue', type: 'HueShift', dx: -130, dy: 170 },
+      { key: 'out', type: 'MatrixOutput', dx: 140, dy: 170 },
+    ],
+    edges: [
+      { source: 'mic', sourceHandle: 'audio', target: 'beat', targetHandle: 'audio' },
+      { source: 'rand', sourceHandle: 'value', target: 'hold', targetHandle: 'value' },
+      { source: 'beat', sourceHandle: 'beat', target: 'hold', targetHandle: 'trigger' },
+      { source: 'noise', sourceHandle: 'frame', target: 'hue', targetHandle: 'frame' },
+      { source: 'hold', sourceHandle: 'result', target: 'hue', targetHandle: 'shift' },
+      { source: 'hue', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+    ],
+  },
+  {
+    id: 'add-trails',
+    title: 'Add trails',
+    kicker: 'Motion enhancer',
+    description: 'Wrap a moving Noise pattern in Trails so the motion leaves a fading wake.',
+    actionLabel: 'Drop recipe',
+    nodes: [
+      { key: 'noise', type: 'Noise', dx: -220, dy: 0 },
+      { key: 'trails', type: 'Trails', dx: 10, dy: 0 },
+      { key: 'out', type: 'MatrixOutput', dx: 250, dy: 0 },
+    ],
+    edges: [
+      { source: 'noise', sourceHandle: 'frame', target: 'trails', targetHandle: 'frame' },
+      { source: 'trails', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+    ],
+  },
+]
 
 const TYPE_GLYPH: Record<string, string> = {
   frame: '▦', palette: '≋', color: '●', audio: '⌁', float: '∿', bool: '◆',
@@ -43,8 +160,26 @@ function loadExpanded(): string | null {
   }
 }
 
+function loadStringArray(key: string): string[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) ?? '[]') as unknown
+    return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+function loadView(): 'beginner' | 'all' {
+  try {
+    return JSON.parse(localStorage.getItem(VIEW_KEY) ?? '"beginner"') === 'all' ? 'all' : 'beginner'
+  } catch {
+    return 'beginner'
+  }
+}
+
 function Sidebar() {
   const addNode = useGraphStore((s) => s.addNode)
+  const onConnect = useGraphStore((s) => s.onConnect)
   // Availability only changes when one of the singleton node types is added or
   // removed. Subscribing to the full node array made every drag position update
   // re-render the entire library rack.
@@ -66,6 +201,9 @@ function Sidebar() {
   // One-bank-at-a-time accordion. We still persist the last opened section,
   // but unlike the old multi-open drawer this keeps the library scan tight.
   const [expandedId, setExpandedId] = useState<string | null>(() => loadExpanded() ?? CATEGORIES[0]?.id ?? null)
+  const [viewMode, setViewMode] = useState<'beginner' | 'all'>(() => loadView())
+  const [favourites, setFavourites] = useState<string[]>(() => loadStringArray(FAVOURITES_KEY))
+  const [recent, setRecent] = useState<string[]>(() => loadStringArray(RECENT_KEY))
 
   // Persist on every change so the layout survives reloads.
   useEffect(() => {
@@ -75,16 +213,55 @@ function Sidebar() {
       // storage full/unavailable — non-critical, skip
     }
   }, [expandedId])
+  useEffect(() => {
+    try { localStorage.setItem(VIEW_KEY, JSON.stringify(viewMode)) } catch { /* ignore */ }
+  }, [viewMode])
+  useEffect(() => {
+    try { localStorage.setItem(FAVOURITES_KEY, JSON.stringify(favourites)) } catch { /* ignore */ }
+  }, [favourites])
+  useEffect(() => {
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(recent)) } catch { /* ignore */ }
+  }, [recent])
   const [search, setSearch] = useState('')
   // Inline rename: the pattern id currently being edited + its draft name.
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [draftName, setDraftName] = useState('')
   const query = search.trim().toLowerCase()
-  const visibleNodeCount = CATEGORIES.reduce((count, category) => (
-    count + categoryNodes(category.id).filter((n) => query === '' || n.label.toLowerCase().includes(query)).length
-  ), 0)
+
+  const isVisibleInView = (def: NodeDefinition) => viewMode === 'all' || BEGINNER_NODE_TYPES.has(def.type)
+  const nodeMatchesQuery = (def: NodeDefinition) => {
+    if (query === '') return true
+    const haystack = [
+      def.label,
+      def.type,
+      NODE_DESCRIPTIONS[def.type] ?? '',
+      ...(INTENT_TAGS[def.type] ?? []),
+      def.subcategory ?? '',
+    ].join(' ').toLowerCase()
+    return haystack.includes(query)
+  }
+  const filteredByView = (defs: NodeDefinition[]) => defs.filter((def) => isVisibleInView(def) && nodeMatchesQuery(def))
+  const favouriteDefs = favourites
+    .map((type) => NODE_LIBRARY.find((def) => def.type === type))
+    .filter((def): def is NodeDefinition => !!def)
+    .filter((def) => nodeMatchesQuery(def))
+  const recentDefs = recent
+    .map((type) => NODE_LIBRARY.find((def) => def.type === type))
+    .filter((def): def is NodeDefinition => !!def)
+    .filter((def) => nodeMatchesQuery(def))
+  const visibleRecipes = RECIPE_CARDS.filter((recipe) => (
+    query === '' || `${recipe.title} ${recipe.kicker} ${recipe.description}`.toLowerCase().includes(query)
+  ))
 
   const toggle = (id: string) => setExpandedId((prev) => (prev === id ? null : id))
+
+  const rememberRecent = (type: string) => {
+    setRecent((prev) => [type, ...prev.filter((entry) => entry !== type)].slice(0, RECENT_LIMIT))
+  }
+
+  const toggleFavourite = (type: string) => {
+    setFavourites((prev) => prev.includes(type) ? prev.filter((entry) => entry !== type) : [type, ...prev])
+  }
 
   const handleDragStart = (e: React.DragEvent, type: string) => {
     e.dataTransfer.setData('application/studio-node', type)
@@ -197,11 +374,13 @@ function Sidebar() {
     (p) => query === '' || p.name.toLowerCase().includes(query)
   )
   const visibleSectionIds = useMemo(() => [
+    ...(favouriteDefs.length > 0 ? ['favourites'] : []),
+    ...(recentDefs.length > 0 ? ['recent'] : []),
     ...CATEGORIES
-      .filter(({ id }) => categoryNodes(id).some((n) => query === '' || n.label.toLowerCase().includes(query)))
+      .filter(({ id }) => filteredByView(categoryNodes(id)).length > 0)
       .map(({ id }) => id),
     ...(visiblePatterns.length > 0 || query === '' ? ['library'] : []),
-  ], [query, visiblePatterns.length])
+  ], [favouriteDefs.length, filteredByView, recentDefs.length, query, visiblePatterns.length])
 
   useEffect(() => {
     if (query === '') return
@@ -210,8 +389,8 @@ function Sidebar() {
   }, [expandedId, query, visibleSectionIds])
 
   const searchStatus = query === ''
-    ? `${NODE_LIBRARY.length} modules`
-    : `${visibleNodeCount + visiblePatterns.length} matches`
+    ? `${viewMode === 'all' ? NODE_LIBRARY.length : BEGINNER_NODE_TYPES.size} modules`
+    : `${CATEGORIES.reduce((count, category) => count + filteredByView(categoryNodes(category.id)).length, 0) + visiblePatterns.length + visibleRecipes.length} matches`
 
   const handleAddNode = (type: string) => {
     const def = NODE_LIBRARY.find((n) => n.type === type)
@@ -232,6 +411,58 @@ function Sidebar() {
         outputs: def.outputs,
       },
     }, true)
+    rememberRecent(type)
+  }
+
+  const handleRecipeDrop = (recipe: RecipeCard) => {
+    const existing = useGraphStore.getState().nodes
+    const singletonByType = new Map(existing.map((node) => [String(node.data.nodeType), node]))
+    const omittedSingletons = new Set<string>()
+    const nodeIdByKey = new Map<string, string>()
+    for (const spec of recipe.nodes) {
+      if (SINGLETON_NODE_TYPES.has(spec.type) && singletonByType.has(spec.type)) {
+        const existingNode = singletonByType.get(spec.type)
+        if (existingNode) nodeIdByKey.set(spec.key, existingNode.id)
+        if (spec.type === 'MatrixOutput') omittedSingletons.add(spec.type)
+        continue
+      }
+      const def = NODE_LIBRARY.find((entry) => entry.type === spec.type)
+      if (!def || !canAddNodeType(useGraphStore.getState().nodes, spec.type)) continue
+      const id = `${spec.type}-${Date.now()}-${spec.key}`
+      nodeIdByKey.set(spec.key, id)
+      addNode({
+        id,
+        type: 'studioNode',
+        position: { x: viewCenter.x + spec.dx, y: viewCenter.y + spec.dy },
+        data: {
+          label: def.label,
+          nodeType: def.type,
+          category: def.category,
+          properties: resolveDefaultProperties(def.type, def.defaultProperties),
+          inputs: def.inputs,
+          outputs: def.outputs,
+        },
+      })
+      rememberRecent(spec.type)
+    }
+    for (const edge of recipe.edges) {
+      const source = nodeIdByKey.get(edge.source)
+      const target = nodeIdByKey.get(edge.target)
+      if (!source || !target) continue
+      if (omittedSingletons.has('MatrixOutput') && edge.target === 'out') continue
+      onConnect({
+        source,
+        sourceHandle: edge.sourceHandle,
+        target,
+        targetHandle: edge.targetHandle,
+      })
+    }
+    setStatus(
+      omittedSingletons.has('MatrixOutput')
+        ? `${recipe.title} recipe added — wire it into your existing Matrix Output when ready`
+        : `${recipe.title} recipe added`,
+      'success',
+    )
   }
 
   const renderModule = (n: NodeDefinition) => {
@@ -239,6 +470,8 @@ function Sidebar() {
     const accent = CATEGORY_ACCENT_VAR[n.category]
     const outputType = moduleType(n)
     const description = NODE_DESCRIPTIONS[n.type] ?? n.label
+    const tags = (INTENT_TAGS[n.type] ?? []).slice(0, 2)
+    const favourite = favourites.includes(n.type)
     return (
       <li
         key={n.type}
@@ -272,9 +505,70 @@ function Sidebar() {
             {outputType} {n.subcategory ? `· ${n.subcategory}` : ''}
           </span>
           <span className={styles.moduleDesc}>{description}</span>
+          {tags.length > 0 && (
+            <span className={styles.moduleTags}>
+              {tags.map((tag) => <span key={tag} className={styles.moduleTag}>{tag}</span>)}
+            </span>
+          )}
         </span>
-        <span className={styles.moduleGrip} aria-hidden="true">⠿</span>
+        <span className={styles.moduleActions}>
+          <button
+            type="button"
+            className={`${styles.favouriteBtn} ${favourite ? styles.favouriteBtnActive : ''}`}
+            aria-label={favourite ? `Remove ${n.label} from favourites` : `Add ${n.label} to favourites`}
+            title={favourite ? 'Remove from favourites' : 'Add to favourites'}
+            onClick={(e) => {
+              e.stopPropagation()
+              toggleFavourite(n.type)
+            }}
+          >
+            ★
+          </button>
+          <span className={styles.moduleGrip} aria-hidden="true">⠿</span>
+        </span>
       </li>
+    )
+  }
+
+  const renderSection = (id: string, label: string, accent: string, defs: NodeDefinition[], count?: number) => {
+    if (defs.length === 0) return null
+    const open = expandedId === id
+    return (
+      <div key={id} className={styles.category}>
+        <button
+          className={styles.categoryHeader}
+          style={{ '--accent': accent } as React.CSSProperties}
+          onClick={() => toggle(id)}
+        >
+          <span className={styles.drawerLabel}>
+            <span className={styles.drawerLight} aria-hidden="true" />
+            {label}
+            <span className={styles.drawerCount}>{count ?? defs.length}</span>
+          </span>
+          <span
+            className={styles.chevron}
+            style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+          >
+            ▾
+          </span>
+        </button>
+        {open && (
+          <ul className={styles.nodeList}>
+            {defs.flatMap((def, index) => {
+              const items = []
+              if (def.subcategory && def.subcategory !== defs[index - 1]?.subcategory) {
+                items.push(
+                  <li key={`sub-${id}-${def.subcategory}`} className={styles.subHeader} aria-hidden="true">
+                    {def.subcategory}
+                  </li>
+                )
+              }
+              items.push(renderModule(def))
+              return items
+            })}
+          </ul>
+        )}
+      </div>
     )
   }
 
@@ -293,6 +587,26 @@ function Sidebar() {
       </div>
       <div className={styles.searchWrap}>
         <div className={styles.searchLabel}>Find module</div>
+        <div className={styles.viewToggle} role="tablist" aria-label="Library scope">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewMode === 'beginner'}
+            className={`${styles.scopeBtn} ${viewMode === 'beginner' ? styles.scopeBtnActive : ''}`}
+            onClick={() => setViewMode('beginner')}
+          >
+            Beginner
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewMode === 'all'}
+            className={`${styles.scopeBtn} ${viewMode === 'all' ? styles.scopeBtnActive : ''}`}
+            onClick={() => setViewMode('all')}
+          >
+            All
+          </button>
+        </div>
         <input
           className={styles.searchInput}
           type="search"
@@ -302,53 +616,37 @@ function Sidebar() {
         />
       </div>
       <div className={styles.scroll}>
-        {CATEGORIES.map(({ id, label }) => {
-          const nodes = categoryNodes(id).filter(
-            (n) => query === '' || n.label.toLowerCase().includes(query)
-          )
-          if (nodes.length === 0) return null
-          const accent = CATEGORY_ACCENT_VAR[id]
-          const open = expandedId === id
-
-          return (
-            <div key={id} className={styles.category}>
-              <button
-                className={styles.categoryHeader}
-                style={{ '--accent': accent } as React.CSSProperties}
-                onClick={() => toggle(id)}
-            >
-              <span className={styles.drawerLabel}>
-                  <span className={styles.drawerLight} aria-hidden="true" />
-                  {label}
-                  <span className={styles.drawerCount}>{nodes.length}</span>
-                </span>
-                <span
-                  className={styles.chevron}
-                  style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
-                >
-                  ▾
-                </span>
-              </button>
-              {open && (
-                <ul className={styles.nodeList}>
-                  {nodes.flatMap((n, i) => {
-                    const items = []
-                    // Sub-heading row whenever the subcategory changes (nodes
-                    // arrive grouped from categoryNodes).
-                    if (n.subcategory && n.subcategory !== nodes[i - 1]?.subcategory) {
-                      items.push(
-                        <li key={`sub-${id}-${n.subcategory}`} className={styles.subHeader} aria-hidden="true">
-                          {n.subcategory}
-                        </li>
-                      )
-                    }
-                    items.push(renderModule(n))
-                    return items
-                  })}
-                </ul>
-              )}
+        {query === '' && visibleRecipes.length > 0 && (
+          <div className={styles.recipeShelf}>
+            <div className={styles.recipeHeader}>
+              <span>Quick recipes</span>
+              <span className={styles.recipeMeta}>Prewired drops</span>
             </div>
-          )
+            <div className={styles.recipeCards}>
+              {visibleRecipes.map((recipe) => (
+                <button
+                  key={recipe.id}
+                  type="button"
+                  className={styles.recipeCard}
+                  onClick={() => handleRecipeDrop(recipe)}
+                >
+                  <span className={styles.recipeKicker}>{recipe.kicker}</span>
+                  <span className={styles.recipeTitle}>{recipe.title}</span>
+                  <span className={styles.recipeDesc}>{recipe.description}</span>
+                  <span className={styles.recipeAction}>{recipe.actionLabel}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {renderSection('favourites', 'Favourites', 'var(--accent-pattern)', favouriteDefs)}
+        {renderSection('recent', 'Recent rack', 'var(--accent-output)', recentDefs)}
+
+        {CATEGORIES.map(({ id, label }) => {
+          const nodes = filteredByView(categoryNodes(id))
+          if (nodes.length === 0) return null
+          return renderSection(id, label, CATEGORY_ACCENT_VAR[id], nodes)
         })}
 
         {/* My Patterns — the persistent library of saved pattern groups. Always

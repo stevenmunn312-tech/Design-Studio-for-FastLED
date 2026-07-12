@@ -8,6 +8,9 @@ import { useUiStore } from '../../../state/uiStore'
 describe('Sidebar equipment rack', () => {
   beforeEach(() => {
     localStorage.setItem('fastled-studio-sidebar-expanded', JSON.stringify('audio'))
+    localStorage.setItem('fastled-studio-sidebar-view', JSON.stringify('beginner'))
+    localStorage.removeItem('fastled-studio-sidebar-favourites')
+    localStorage.removeItem('fastled-studio-sidebar-recent')
     useGraphStore.setState({ nodes: [], edges: [], selectedNodeId: null })
     usePatternLibrary.setState({ patterns: [] })
     useUiStore.setState({ viewCenter: { x: 200, y: 180 }, draggingNodeType: null })
@@ -20,20 +23,52 @@ describe('Sidebar equipment rack', () => {
     expect(fft.textContent).toContain('float')
   })
 
-  it('adds clicked modules to the graph without rendering a recent rack', () => {
-    const { getByLabelText, queryByText } = render(<Sidebar />)
+  it('adds clicked modules to the graph and surfaces them in the recent rack', () => {
+    const { getByLabelText, getByText } = render(<Sidebar />)
     fireEvent.click(getByLabelText('Add FFT Analyzer'))
 
-    expect(queryByText('Recent rack')).toBeNull()
+    expect(getByText('Recent rack')).toBeTruthy()
     expect(useGraphStore.getState().nodes[0].data.nodeType).toBe('FFTAnalyzer')
   })
 
   it('keeps only one category open at a time', () => {
     const { getByRole, getByLabelText, queryByLabelText } = render(<Sidebar />)
 
-    fireEvent.click(getByRole('button', { name: /Math & Logic/i }))
+    fireEvent.click(getByRole('button', { name: /Signals/i }))
 
     expect(queryByLabelText('Add FFT Analyzer')).toBeNull()
-    expect(getByLabelText('Add Math')).toBeTruthy()
+    expect(getByLabelText('Add Counter')).toBeTruthy()
+  })
+
+  it('supports beginner vs all views', () => {
+    const { getByRole, getByPlaceholderText, queryByLabelText, getByLabelText } = render(<Sidebar />)
+
+    fireEvent.change(getByPlaceholderText('Search nodes…'), { target: { value: 'midi' } })
+
+    expect(queryByLabelText('Add MIDI')).toBeNull()
+
+    fireEvent.click(getByRole('tab', { name: 'All' }))
+
+    expect(getByLabelText('Add MIDI')).toBeTruthy()
+  })
+
+  it('can favourite a module and keep it in the favourites rack', () => {
+    const { getByLabelText, getByText } = render(<Sidebar />)
+
+    fireEvent.click(getByLabelText('Add FFT Analyzer to favourites'))
+    fireEvent.click(getByText('Favourites'))
+
+    expect(getByLabelText('Add FFT Analyzer')).toBeTruthy()
+  })
+
+  it('drops a curated recipe onto the canvas', () => {
+    const { getByText } = render(<Sidebar />)
+
+    fireEvent.click(getByText('Add trails'))
+
+    expect(useGraphStore.getState().nodes.map((node) => node.data.nodeType)).toEqual(
+      expect.arrayContaining(['Noise', 'Trails', 'MatrixOutput'])
+    )
+    expect(useGraphStore.getState().edges).toHaveLength(2)
   })
 })

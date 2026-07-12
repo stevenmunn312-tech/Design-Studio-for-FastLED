@@ -106,6 +106,8 @@ It is a **multi-graph workspace** (ADR 0001): the *active* graph stays in the to
 
 **`src/state/nodeLibrary.ts`** is the static registry (`NODE_LIBRARY: NodeDefinition[]`). Adding a new node type = add one entry here. No other registration required — the Sidebar reads this array directly.
 
+**Sidebar progressive disclosure.** `src/components/Sidebar/Sidebar.tsx` now treats the node library as a guided rack rather than a flat dump: it defaults to a curated **Beginner** subset with an **All** toggle, remembers the chosen scope plus per-user `favorites` and `recent` nodes in `localStorage`, adds small intent tags to cards for search/discovery, and surfaces a `Quick recipes` shelf that drops prewired starter chains like `Audio to brightness`, `Beat-triggered random`, and `Add trails` straight onto the canvas. Recipe drops reuse scene singletons (`MicInput`, `MatrixOutput`) when present and skip only the conflicting terminal wire when they need the user to finish connecting into an existing output path.
+
 ### Node Rendering
 
 `StudioNode` (`src/components/Canvas/StudioNode.tsx`) is the single custom node type (`{ studioNode: StudioNode }`). **Critical invariant:** React Flow requires `Handle` components to be `position: absolute`. Handle `top` offsets are calculated from constants that must stay in sync with the CSS:
