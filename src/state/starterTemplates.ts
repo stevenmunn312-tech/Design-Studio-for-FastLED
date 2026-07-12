@@ -9,7 +9,7 @@ export interface StarterTemplate {
   completionSteps?: string[]
   preview: {
     nodes: Array<{ id: string; label: string; category: string; col: number; row: number }>
-    edges: Array<{ source: string; target: string; color: string }>
+    edges: Array<{ source: string; sourceHandle: string; target: string; targetHandle: string; color: string }>
   }
   build: () => { nodes: StudioNode[]; edges: StudioEdge[] }
 }
@@ -65,7 +65,9 @@ function template(
         const srcPort = srcDef?.outputs.find((port) => port.id === spec.sourceHandle)
         return {
           source: spec.source,
+          sourceHandle: spec.sourceHandle,
           target: spec.target,
+          targetHandle: spec.targetHandle,
           color: portColor(srcPort?.dataType ?? 'float'),
         }
       }),

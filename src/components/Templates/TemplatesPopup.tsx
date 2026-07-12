@@ -33,7 +33,7 @@ function TemplatePreview({ template }: { template: StarterTemplate }) {
           const y2 = target.row * cellH + 24
           return (
             <path
-              key={`${edge.source}-${edge.target}`}
+              key={`${edge.source}-${edge.sourceHandle}-${edge.target}-${edge.targetHandle}`}
               d={`M ${x1} ${y1} C ${x1 + 16} ${y1}, ${x2 - 16} ${y2}, ${x2} ${y2}`}
               stroke={edge.color}
               strokeWidth="3"
