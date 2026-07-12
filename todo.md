@@ -1,5 +1,89 @@
 # TODO
 
+## Release readiness — public beta
+
+### P0 — release blockers
+
+- [ ] **Make imported and shared graphs untrusted by default.** A graph received through a share link, JSON import, project file, or pattern file must not execute `CustomFormula`, `FieldFormula`, or `Code` preview source until the user explicitly trusts it. Show a clear trust banner, preserve the decision with the project, and never auto-trust merely because the graph was autosaved after import.
+- [ ] **Replace unrestricted formula evaluation.** Remove `new Function` from `CustomFormula` and `FieldFormula`; parse and evaluate a documented expression grammar with only the supported variables, operators, `Math` functions, and FastLED shims. Add adversarial tests covering `globalThis`, constructors, property access, assignment, network calls, storage access, and infinite/expensive expressions.
+- [ ] **Sandbox Code-node preview execution.** Run the C++→JS preview shim outside the app's main window with no DOM, storage, cookie, navigation, or network access; enforce execution time/work limits and terminate a runaway preview. Keep raw C++ export/upload explicitly user-authored and display a trust warning before uploading code received from another person.
+- [ ] **Fix the Show Pipeline GPIO collision.** Matrix Output's default LED data pin and SD Card's default chip-select pin are both GPIO 5. Give the template safe non-overlapping defaults for the primary supported ESP32-S3 target and document the wiring used.
+- [ ] **Validate hardware pin assignments before export/upload.** Detect duplicate use across LED data/clock, SD CS, microphone I2S, audio-output I2S, buttons, pots, and encoders; distinguish illegal conflicts from intentional shared buses; surface errors on the affected nodes and in `validateGraph`.
+- [ ] **Restore a green test baseline.** Update the StudioNode matrix-aspect-ratio test to assert the current preview wrapper layout, confirm the rendered behavior has not regressed, and require all lint/test/build CI jobs to pass before tagging a release.
+
+### P1 — hardware confidence and release engineering
+
+- [ ] **Define the beta support matrix.** Publish the exact tested combinations of OS, browser, board, chipset, matrix size/layout, build engine, and upload method. Label other catalogue entries experimental until validated.
+- [ ] **Run a repeatable hardware smoke suite.** For each supported combination, verify compile, upload, color order, matrix orientation, brightness, power cap, microphone input where applicable, live stream, reconnect/re-upload, and a representative generated pattern. Record firmware size, RAM use, and observed result.
+- [ ] **Validate advanced ESP32-S3 paths on hardware.** Cover PSRAM modes, panel tiling/rotation, custom XY maps, non-crossfade show transitions, beat-triggered show advance, particle overlays, baked song envelopes, group-input modulation, and serial live streaming.
+- [ ] **Add upload-helper tests and CI.** Test Python request validation, engine selection, FQBN translation, project/pattern path safety, streaming port ownership, show-upload failure phases, and generated fbuild configuration without requiring attached hardware.
+- [ ] **Pin Python dependencies reproducibly.** Replace broad `>=` requirements with tested versions or a lock/constraints file, add an update procedure, and verify fresh Windows/macOS/Linux installs in CI or release smoke testing.
+- [ ] **Add release metadata.** Choose and add a project license, third-party notices, changelog, supported-platform policy, security-reporting instructions, and version/tagging procedure. Confirm Essentia.js, fonts, icons, FastLED, and bundled/generated assets meet their attribution and redistribution requirements.
+- [ ] **Provide a consumer-friendly distribution.** Evaluate signed Windows/macOS/Linux desktop packages or a bundled launcher/runtime so beta users do not need to manage Node and Python manually. Keep the source launcher as the developer path.
+
+### P1 — first-run UX and workflow
+
+- [ ] **Turn the empty canvas into an interactive start screen.** Offer `Start with Rainbow`, `Audio-reactive demo`, `Browse starter patches`, and `Blank canvas`; load the chosen graph in one action and frame it in view. The default experience should immediately animate both node previews and the main LED preview.
+- [ ] **Promote starters outside the File menu.** Add a persistent New/Start entry point and thumbnail previews for starter graphs. Remember that an experienced user chose blank canvas without hiding starters permanently.
+- [ ] **Split the current Show Pipeline template.** Provide separate `Generative Show` and `Music-synced SD Show` templates with only the nodes for that workflow, short completion steps, valid hardware defaults, and no disconnected or misleading paths.
+- [ ] **Add progressive disclosure to the 132-module library.** Provide Beginner/All views, favorites, recent modules, intent tags, and curated recipe/subgraph cards such as `Audio to brightness`, `Beat-triggered random`, and `Add trails`.
+- [ ] **Improve compatible-node discovery.** Extend drag-to-create with ranked suggestions, brief “why this fits” descriptions, and a way to insert a complete adapter/utility chain when no direct compatible input exists.
+- [ ] **Unify the project mental model.** Clearly distinguish autosaved projects, portable project files, JSON graph interchange, firmware export, snapshots/recovery, and share links. Use the same nouns in File actions, dialogs, status messages, README, and Help.
+- [ ] **Replace ambiguous save prompts.** Use explicit actions such as `Save and continue`, `Continue without saving`, and `Cancel`; show the current project name and destination and preserve keyboard behavior.
+
+### P1 — guided hardware workflow
+
+- [ ] **Build a Matrix Output setup wizard.** Guide users through board, chipset, dimensions/layout, pins, color order, power, build engine, and connection test while keeping expert controls available on the node.
+- [ ] **Add a wiring diagnostic/test pattern.** Generate numbered pixels/panels plus RGB/color-order, origin, serpentine, rotation, and brightness tests; support flashing it before the user's full graph.
+- [ ] **Validate layout inputs inline.** Invalid panel divisibility, rotations, or custom XY maps must explain the exact problem and block export/upload instead of silently falling back to row-major wiring.
+- [ ] **Estimate electrical load.** Show LED count, worst-case current, configured PSU capacity, and recommended FastLED power cap; warn prominently when the graph could exceed the configured supply.
+- [ ] **Estimate firmware resources before upload.** Present expected frame-buffer RAM, PSRAM use, and major stateful-node costs; retain the post-compile flash/RAM report and suggest concrete remedies when a build will not fit.
+- [ ] **Clarify helper/engine readiness.** Show whether the local helper, selected engine, board core/toolchain, port, and permissions are ready before the user presses Upload, with a single action for each missing prerequisite.
+
+### P2 — UI, visual system, and accessibility
+
+- [ ] **Reduce menu-bar competition.** Keep File, undo/redo, Tidy, performance/stage, preview style, and Mic readily available; move Theme, Motion, Contrast, UI FX, and signal-path dimming into a compact View/Preferences menu without weakening keyboard access.
+- [ ] **Define the signature visual hierarchy.** Make the living LED preview and active patch signal the brightest elements; reduce persistent glow on static borders and inactive controls so selection, beats, errors, and live hardware state carry more visual weight.
+- [ ] **Give display typography a distinctive instrument voice.** Trial and locally bundle a characterful display face for the brand, rack-bank labels, stage readouts, and key status text while retaining a highly legible body/control face. Validate all three themes and avoid making dense node controls decorative.
+- [ ] **Standardize dialogs.** Replace remaining `window.alert`/`prompt`/`confirm` uses with app dialogs that have explicit actions, `aria-modal`, initial focus, focus trap, Escape handling, and focus restoration.
+- [ ] **Complete keyboard and screen-reader behavior.** Add roving focus/arrow-key behavior for menus, announce transient status through an `aria-live` region, ensure hidden panels are inert, and test node creation, connection, configuration, save/load, and upload without a mouse.
+- [ ] **Document the desktop viewport contract.** Define a supported minimum size and graceful narrow/short-window behavior. Verify menus, preview, node controls, dialogs, and status information do not become unreachable.
+- [ ] **Complete PWA polish.** Fix the missing favicon path, provide appropriate 192/512 and maskable icons, precache required PNG branding assets, verify first-install/offline behavior, and communicate that hardware upload still needs the local helper.
+- [ ] **Update public documentation.** Remove obsolete WebSerial and upload-panel claims, replace old node names, document current microphone controls and upload behavior, add starter/show walkthroughs, and ensure README, Help, `CLAUDE.md`, and `todo.md` agree.
+
+### P2 — existing node improvements
+
+- [ ] **Add node presets and variation tools.** Support `Save preset`, `Load preset`, `Randomize look`, `Mutate`, and `Reset` for suitable nodes. Randomization must respect property metadata, avoid hardware pins/settings, and be undoable as one action.
+- [ ] **Add deterministic seeds to generative nodes.** Expose an optional seed on noise, particles, simulations, and stochastic patterns so a look can be reproduced in preview, generated firmware, groups, and shows.
+- [ ] **Expand Beat Flash controls.** Add flash color/palette, intensity, blend mode, attack, decay, and optional base-frame preservation with preview/codegen parity.
+- [ ] **Expose variant-specific Particles controls.** Add emission position/shape, count, size, spread, lifetime, gravity/wind, bounce, and trails where relevant; gate controls by `particleType` rather than presenting irrelevant options.
+- [ ] **Expand fire controls.** Add direction/orientation, turbulence or spread, heat/palette mix, mirroring, and deterministic reseeding while keeping Fire and Fire 2012 clearly differentiated.
+- [ ] **Expand percussion/ripple controls.** Give Percussion Blobs, Rain Ripples, Kick Shock, and similar nodes useful count, size/thickness, lifetime/decay, spawn distribution, and blend controls.
+- [ ] **Improve Text authoring.** Add horizontal/vertical alignment, scroll direction, letter spacing, preview-safe multiline behavior, and a clearer custom-font manager with validation feedback.
+- [ ] **Add transition thumbnails and scrubbing.** Show a small visual sample for each Transition/Transition Set choice and let users scrub progress without wiring a temporary control signal.
+- [ ] **Build a direct palette editor.** Give Custom Palette and Poline draggable color stops/anchors, stop positions, add/remove/reorder actions, and reusable palette presets while preserving port-driven colors.
+- [ ] **Handle preview-only nodes explicitly.** Put MIDI and any other browser-only nodes in a visible `Preview-only` state/category, warn during firmware validation, and never silently substitute idle firmware values without acknowledgement.
+- [ ] **Resolve Performance Generator's frame semantics.** Either make its frame output render the selected/generated show consistently in preview and firmware, or remove the misleading frame terminal and route show preview through an explicitly preview-only monitor path.
+
+### P3 — high-value node additions
+
+- [ ] **Clock / Transport node.** Output BPM, continuous phase, beat, bar, and selectable subdivisions; support tap tempo, free-run/external sync, reset, preview/codegen parity, and show/MIDI integration where available.
+- [ ] **Trigger utility nodes.** Add Debounce, Toggle/Flip-Flop, One Shot, Pulse Divider, and Trigger Delay with predictable edge semantics and millis-based firmware implementations.
+- [ ] **Frame Feedback / Delay node.** Provide a bounded previous-frame buffer with delay, fade, transform, and blend controls so recursive video-synth effects are possible without permitting graph cycles; document RAM cost and PSRAM behavior.
+- [ ] **Segments / Zones node.** Define named rectangular, indexed, or mask-driven regions and route/composite frames into them for installations with multiple logical areas.
+- [ ] **Multi-output controller support.** Allow multiple independently configured LED controllers/strips, pins, color orders, and layouts, including validation of shared resources and an explicit composition/routing model.
+- [ ] **Hardware Test Pattern node or mode.** Expose reusable color-order, index chase, panel number, current-limit, and dead-pixel diagnostics without requiring users to construct a normal creative graph.
+
+### Release exit criteria
+
+- [ ] All lint, unit, component, build, upload-helper, and security tests pass from a clean checkout.
+- [ ] No imported/shared content can execute preview code before explicit trust, and the trust boundary has adversarial test coverage.
+- [ ] Every advertised beta hardware combination has a dated smoke-test record; experimental combinations are labelled in the UI and documentation.
+- [ ] A first-time user can launch, load a starter, see an animated result, configure supported hardware, and export or upload it without consulting source-code documentation.
+- [ ] Pin, layout, power, board/toolchain, and graph validation prevent known unsafe or non-functional uploads with actionable messages.
+- [ ] Keyboard-only and screen-reader smoke tests cover the core authoring and upload workflow.
+- [ ] Offline/PWA behavior, icons, documentation, licensing, versioning, and release artifacts have been verified from a fresh machine/account.
+
 ## Core Graph
 
 - [x] Port type validation — reject connections between incompatible data types (e.g. `audio` → `float`)
