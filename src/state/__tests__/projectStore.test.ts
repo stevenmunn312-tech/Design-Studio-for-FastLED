@@ -284,4 +284,48 @@ describe('projectStore', () => {
     useProjectStore.getState().switchProject(alpha.id)
     expect(useProjectStore.getState().recentProjectIds).toEqual([beta.id, pg.id])
   })
+
+  it('does not resurrect projects deleted from disk during refresh reconciliation', async () => {
+    const { reconcileProjectsFromDisk } = await freshStore()
+    const alpha = {
+      id: 'alpha',
+      name: 'Alpha',
+      createdAt: 100,
+      updatedAt: 300,
+      workspace: workspace(['alpha']),
+    }
+    const pg = {
+      id: 'pg',
+      name: 'pg',
+      createdAt: 200,
+      updatedAt: 400,
+      workspace: workspace(['pg']),
+    }
+
+    const { projects, projectsToSave } = reconcileProjectsFromDisk([alpha], [alpha, pg])
+
+    expect(projects.map((project) => project.id)).toEqual(['alpha'])
+    expect(projectsToSave).toEqual([])
+  })
+
+  it('keeps newer in-memory versions only for projects that still exist on disk', async () => {
+    const { reconcileProjectsFromDisk } = await freshStore()
+    const diskAlpha = {
+      id: 'alpha',
+      name: 'Alpha',
+      createdAt: 100,
+      updatedAt: 200,
+      workspace: workspace(['old']),
+    }
+    const stateAlpha = {
+      ...diskAlpha,
+      updatedAt: 500,
+      workspace: workspace(['new']),
+    }
+
+    const { projects, projectsToSave } = reconcileProjectsFromDisk([diskAlpha], [stateAlpha])
+
+    expect(projects).toEqual([stateAlpha])
+    expect(projectsToSave).toEqual([stateAlpha])
+  })
 })

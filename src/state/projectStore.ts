@@ -232,6 +232,28 @@ function buildState(
   }
 }
 
+export function reconcileProjectsFromDisk(
+  diskProjects: SavedProject[],
+  stateProjects: SavedProject[],
+): { projects: SavedProject[]; projectsToSave: SavedProject[] } {
+  const merged = new Map<string, SavedProject>()
+  const projectsToSave: SavedProject[] = []
+  for (const project of diskProjects) merged.set(project.id, project)
+  for (const project of stateProjects) {
+    const existing = merged.get(project.id)
+    if (!existing) {
+      // If the file is gone from disk, treat that as an intentional delete
+      // instead of silently recreating it from stale in-memory state.
+      continue
+    }
+    if (project.updatedAt >= existing.updatedAt) {
+      merged.set(project.id, project)
+      if (project.updatedAt > existing.updatedAt) projectsToSave.push(project)
+    }
+  }
+  return { projects: sortProjects([...merged.values()]), projectsToSave }
+}
+
 function normalizeState(parsed: Partial<PersistedState> | null | undefined): PersistedState {
   const currentWorkspace = loadCurrentWorkspaceSnapshot()
   const rawProjects = Array.isArray(parsed?.projects) ? parsed.projects : []
@@ -430,21 +452,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const disk = await listProjects()
     if (!disk) return
     const state = get()
-    const merged = new Map<string, SavedProject>()
-    for (const project of disk) merged.set(project.id, project)
-    for (const project of state.projects) {
-      const existing = merged.get(project.id)
-      if (!existing) {
-        merged.set(project.id, project)
-        void saveProjectToDisk(project)
-        continue
-      }
-      if (project.updatedAt >= existing.updatedAt) {
-        merged.set(project.id, project)
-        if (project.updatedAt > existing.updatedAt) void saveProjectToDisk(project)
-      }
-    }
-    const projects = sortProjects([...merged.values()])
+    const { projects, projectsToSave } = reconcileProjectsFromDisk(disk, state.projects)
     const preferredProjectId = loadCurrentProjectHint() ?? state.currentProjectId
     const currentProjectId = projects.some((project) => project.id === preferredProjectId)
       ? preferredProjectId
@@ -452,5 +460,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const next = buildState(projects, currentProjectId, state.recentProjectIds)
     persist(next)
     set(next)
+    for (const project of projectsToSave) void saveProjectToDisk(project)
   },
 }))
