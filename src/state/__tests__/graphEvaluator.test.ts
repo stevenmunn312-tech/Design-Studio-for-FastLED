@@ -2480,7 +2480,9 @@ describe('Trails', () => {
     build(255)                       // seed the persistent buffer at tick 0
     const dark = build(0)
     const after = pixel(dark.nodes, dark.edges, 1)
-    expect(after.r).toBe(Math.round(255 * (1 - 0.5)))
+    // decay is cubed internally (0.5 slider → 0.125 effective fade) so the
+    // per-tick fall-off ramps up gently instead of front-loading the slider.
+    expect(after.r).toBe(Math.round(255 * (1 - 0.125)))
   })
 
   it('keeps re-lightening from a steady bright input rather than fading it away', () => {

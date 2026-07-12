@@ -4074,7 +4074,11 @@ function createEvalNode(
       case 'Trails': {
         const src = input(id, 'frame', null) as Frame | null
         if (!src) { out = { frame: null }; break }
-        const decay = Math.max(0, Math.min(1, num(id, 'decay', props, 'decay', 0.15)))
+        const decaySlider = Math.max(0, Math.min(1, num(id, 'decay', props, 'decay', 0.15)))
+        // Cubed so the fade-per-tick ramps up gently — applied linearly, almost
+        // the whole visible range collapses into roughly the bottom 5% of the
+        // slider (0.3 already reads as "gone"). Mirrored in cppGenerator.ts.
+        const decay = decaySlider * decaySlider * decaySlider
         const key = stateKey(id)
         const prev = trailState.get(key)
         // Persistent buffer, faded + re-lightened in place each pass — never

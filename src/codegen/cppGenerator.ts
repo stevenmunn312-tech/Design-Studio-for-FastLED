@@ -2168,8 +2168,9 @@ export function generateCpp(
         const src = srcBuf('frame')
         if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black);`); break }
         const decay = f('decay', 'decay', 0.15)
-        ln(`  { // Trails: fadeToBlackBy(decay) then re-lighten from the input (per-channel max)`)
-        ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)(constrain(${decay},0.0f,1.0f)*255.0f));`)
+        ln(`  { // Trails: fadeToBlackBy(decay^3) then re-lighten from the input (per-channel max)`)
+        ln(`    float _decay = constrain(${decay},0.0f,1.0f); _decay = _decay*_decay*_decay;`)
+        ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)(_decay*255.0f));`)
         ln(`    for(int _i=0;_i<NUM_LEDS;_i++){`)
         ln(`      if(${src}[_i].r>${ob}[_i].r)${ob}[_i].r=${src}[_i].r;`)
         ln(`      if(${src}[_i].g>${ob}[_i].g)${ob}[_i].g=${src}[_i].g;`)

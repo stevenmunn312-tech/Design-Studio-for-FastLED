@@ -1739,7 +1739,8 @@ describe('Trails (feedback/persistence)', () => {
       edge('e2', 'tr', 'out', 'frame', 'frame'),
     ])
     expect(cpp).toContain('CRGB buf_tr[NUM_LEDS];')
-    expect(cpp).toContain('fadeToBlackBy(buf_tr, NUM_LEDS, (uint8_t)(constrain(0.4,0.0f,1.0f)*255.0f));')
+    expect(cpp).toContain('float _decay = constrain(0.4,0.0f,1.0f); _decay = _decay*_decay*_decay;')
+    expect(cpp).toContain('fadeToBlackBy(buf_tr, NUM_LEDS, (uint8_t)(_decay*255.0f));')
     expect(cpp).toContain('if(buf_sc[_i].r>buf_tr[_i].r)buf_tr[_i].r=buf_sc[_i].r;')
     // No memmove/fill_solid seeding buf_tr from buf_sc — it must persist across frames.
     expect(cpp).not.toContain('::memmove(buf_tr')
