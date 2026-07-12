@@ -4,6 +4,7 @@ import type { PreviewStyle } from '../components/Preview/previewStyles'
 import { nextPreviewStyle } from '../components/Preview/previewStyles'
 
 export type AppTheme = 'dark' | 'solarized' | 'light'
+export type NewProjectDecision = 'yes' | 'no' | 'cancel'
 
 const THEME_KEY  = 'fastled-studio-theme'
 const MOTION_KEY = 'fastled-studio-reduced-motion'
@@ -69,6 +70,7 @@ interface UiState {
   recoverOpen: boolean
   templatesOpen: boolean
   projectsOpen: boolean
+  newProjectPrompt: { open: boolean; projectName: string }
   setStatus: (text: string, level?: StatusLevel) => void
   clearStatus: () => void
   toggleSidebar: () => void
@@ -101,6 +103,8 @@ interface UiState {
   closeTemplates: () => void
   openProjects: () => void
   closeProjects: () => void
+  requestNewProjectDecision: (projectName: string) => Promise<NewProjectDecision>
+  resolveNewProjectDecision: (decision: NewProjectDecision) => void
 }
 
 const THEMES: AppTheme[] = ['dark', 'solarized', 'light']
@@ -108,6 +112,7 @@ const THEMES: AppTheme[] = ['dark', 'solarized', 'light']
 // Tracks the pending status auto-clear so a newer message cancels the older
 // timer instead of being wiped when a stale one fires.
 let statusTimer: ReturnType<typeof setTimeout> | undefined
+let newProjectDecisionResolver: ((decision: NewProjectDecision) => void) | null = null
 
 export const useUiStore = create<UiState>((set, get) => ({
   statusText: 'Ready',
@@ -134,6 +139,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   recoverOpen: false,
   templatesOpen: false,
   projectsOpen: false,
+  newProjectPrompt: { open: false, projectName: '' },
 
   setStatus: (text, level = 'info') => {
     if (statusTimer) clearTimeout(statusTimer)
@@ -227,4 +233,20 @@ export const useUiStore = create<UiState>((set, get) => ({
   closeTemplates: () => set({ templatesOpen: false }),
   openProjects: () => set({ projectsOpen: true }),
   closeProjects: () => set({ projectsOpen: false }),
+  requestNewProjectDecision: (projectName) => {
+    if (newProjectDecisionResolver) {
+      newProjectDecisionResolver('cancel')
+      newProjectDecisionResolver = null
+    }
+    set({ newProjectPrompt: { open: true, projectName } })
+    return new Promise<NewProjectDecision>((resolve) => {
+      newProjectDecisionResolver = resolve
+    })
+  },
+  resolveNewProjectDecision: (decision) => {
+    set({ newProjectPrompt: { open: false, projectName: '' } })
+    const resolver = newProjectDecisionResolver
+    newProjectDecisionResolver = null
+    resolver?.(decision)
+  },
 }))

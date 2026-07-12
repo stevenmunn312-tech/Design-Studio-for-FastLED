@@ -26,6 +26,7 @@ function relativeTime(timestamp: number): string {
 export default function ProjectsPopup() {
   const closeProjects = useUiStore((s) => s.closeProjects)
   const setStatus = useUiStore((s) => s.setStatus)
+  const requestNewProjectDecision = useUiStore((s) => s.requestNewProjectDecision)
   const projects = useProjectStore((s) => s.projects)
   const currentProjectId = useProjectStore((s) => s.currentProjectId)
   const createProject = useProjectStore((s) => s.createProject)
@@ -53,18 +54,6 @@ export default function ProjectsPopup() {
     useGraphStore.temporal.getState().clear()
     setStatus(`Opened project "${next.name}"`, 'success')
     closeProjects()
-  }
-
-  const promptForNewProjectDecision = (): 'yes' | 'no' | 'cancel' => {
-    if (!currentProject) return 'no'
-    const saveFirst = window.confirm(
-      `Save current project "${currentProject.name}" before creating a new project?`
-    )
-    if (saveFirst) return 'yes'
-    const continueWithoutSaving = window.confirm(
-      `Create a new project without saving "${currentProject.name}"?\n\nPress OK to continue without saving, or Cancel to abort.`
-    )
-    return continueWithoutSaving ? 'no' : 'cancel'
   }
 
   const createBlankProjectWithFileDialog = async (saveCurrentFirst: boolean) => {
@@ -103,13 +92,11 @@ export default function ProjectsPopup() {
   }
 
   const createBlank = () => {
-    if (!currentProject && useGraphStore.getState().nodes.length > 0) {
-      const ok = window.confirm('Create a new blank project? The current unsaved graph will be replaced.')
-      if (!ok) return
-    }
-    const decision = promptForNewProjectDecision()
-    if (decision === 'cancel') return
-    void createBlankProjectWithFileDialog(decision === 'yes')
+    void (async () => {
+      const decision = currentProject ? await requestNewProjectDecision(currentProject.name) : 'no'
+      if (decision === 'cancel') return
+      await createBlankProjectWithFileDialog(decision === 'yes')
+    })()
   }
 
   const duplicateCurrent = () => {

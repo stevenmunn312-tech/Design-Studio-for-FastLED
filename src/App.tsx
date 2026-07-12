@@ -22,6 +22,7 @@ const BoardPopup = lazy(() => import('./components/Upload/BoardPopup'))
 const ArduinoCliPopup = lazy(() => import('./components/Upload/ArduinoCliPopup'))
 const OutputConsole = lazy(() => import('./components/Upload/OutputConsole'))
 const HelpModal = lazy(() => import('./components/HelpModal/HelpModal'))
+const NewProjectPrompt = lazy(() => import('./components/NewProjectPrompt/NewProjectPrompt'))
 const RecoverPopup = lazy(() => import('./components/Recover/RecoverPopup'))
 const TemplatesPopup = lazy(() => import('./components/Templates/TemplatesPopup'))
 const ProjectsPopup = lazy(() => import('./components/Projects/ProjectsPopup'))
@@ -375,6 +376,7 @@ export default function App() {
         {cliPopupOpen && <ArduinoCliPopup />}
         {consoleOpen && <OutputConsole />}
         {helpOpen && <HelpModal />}
+        <NewProjectPrompt />
         {recoverOpen && <RecoverPopup />}
         {templatesOpen && <TemplatesPopup />}
         {projectsOpen && <ProjectsPopup />}

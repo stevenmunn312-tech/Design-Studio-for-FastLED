@@ -48,6 +48,7 @@ export default function MenuBar() {
     openHelp,
     openRecover,
     openTemplates,
+    requestNewProjectDecision,
   } = useUiStore()
 
   const THEME_ICON: Record<string, string> = { dark: '☾', solarized: '✦', light: '☀' }
@@ -154,18 +155,6 @@ export default function MenuBar() {
     return true
   }
 
-  const promptForNewProjectDecision = (): 'yes' | 'no' | 'cancel' => {
-    if (!currentProject) return 'no'
-    const saveFirst = window.confirm(
-      `Save current project "${currentProject.name}" before creating a new project?`
-    )
-    if (saveFirst) return 'yes'
-    const continueWithoutSaving = window.confirm(
-      `Create a new project without saving "${currentProject.name}"?\n\nPress OK to continue without saving, or Cancel to abort.`
-    )
-    return continueWithoutSaving ? 'no' : 'cancel'
-  }
-
   const createNewProjectWithFileDialog = async (saveCurrentFirst: boolean) => {
     const defaultName = nextDefaultProjectName(projects.map((project) => project.name))
     const draft = buildProjectSnapshot(blankWorkspace(), { name: defaultName })
@@ -216,10 +205,11 @@ export default function MenuBar() {
 
   const handleNewProject = () => {
     setFileMenuOpen(false)
-    if (!currentProject && !confirmReplaceUnsavedWorkspace('Create a new blank project? The current unsaved graph will be replaced.')) return
-    const decision = promptForNewProjectDecision()
-    if (decision === 'cancel') return
-    void createNewProjectWithFileDialog(decision === 'yes')
+    void (async () => {
+      const decision = currentProject ? await requestNewProjectDecision(currentProject.name) : 'no'
+      if (decision === 'cancel') return
+      await createNewProjectWithFileDialog(decision === 'yes')
+    })()
   }
 
   const handleSaveAs = () => {

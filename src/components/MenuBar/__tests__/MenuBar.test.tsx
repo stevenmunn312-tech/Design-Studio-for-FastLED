@@ -8,6 +8,9 @@ import { useAudioStore } from '../../../state/audioStore'
 import { useShowPlayback } from '../../../state/showPlayback'
 import type { SavedProject } from '../../../state/projectStore'
 
+const defaultRequestNewProjectDecision = useUiStore.getState().requestNewProjectDecision
+const defaultResolveNewProjectDecision = useUiStore.getState().resolveNewProjectDecision
+
 function project(id: string, name: string, nodeId: string, updatedAt: number): SavedProject {
   return {
     id,
@@ -59,6 +62,9 @@ describe('MenuBar file menu', () => {
       reducedMotion: false,
       highContrast: false,
       theme: 'dark',
+      newProjectPrompt: { open: false, projectName: '' },
+      requestNewProjectDecision: defaultRequestNewProjectDecision,
+      resolveNewProjectDecision: defaultResolveNewProjectDecision,
     })
     useAudioStore.setState({ micActive: false, active: false })
     useShowPlayback.setState({ playing: false, nodeId: null, show: null, posMs: 0, useGroupInputs: false })
@@ -134,7 +140,8 @@ describe('MenuBar file menu', () => {
 
   it('supports the yes path before creating a new project', async () => {
     const alpha = project('alpha', 'alpha', 'alpha-node', 200)
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const requestNewProjectDecision = vi.fn().mockResolvedValue('yes')
+    useUiStore.setState({ requestNewProjectDecision })
     useProjectStore.setState({ projects: [alpha], currentProjectId: alpha.id })
     useGraphStore.setState({
       nodes: [{
@@ -157,7 +164,7 @@ describe('MenuBar file menu', () => {
     await waitFor(() => {
       expect(useProjectStore.getState().currentProjectId).not.toBe(alpha.id)
     })
-    expect(confirmSpy).toHaveBeenCalledWith('Save current project "alpha" before creating a new project?')
+    expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha')
     const current = useProjectStore.getState().projects.find((entry) => entry.id === useProjectStore.getState().currentProjectId)
     expect(current?.name).toBe('New Project')
     expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['scratch'])
@@ -166,9 +173,8 @@ describe('MenuBar file menu', () => {
 
   it('supports the no path before creating a new project', async () => {
     const alpha = project('alpha', 'alpha', 'alpha-node', 200)
-    const confirmSpy = vi.spyOn(window, 'confirm')
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce(true)
+    const requestNewProjectDecision = vi.fn().mockResolvedValue('no')
+    useUiStore.setState({ requestNewProjectDecision })
     useProjectStore.setState({ projects: [alpha], currentProjectId: alpha.id })
     useGraphStore.setState({
       nodes: [{
@@ -191,11 +197,7 @@ describe('MenuBar file menu', () => {
     await waitFor(() => {
       expect(useProjectStore.getState().currentProjectId).not.toBe(alpha.id)
     })
-    expect(confirmSpy).toHaveBeenNthCalledWith(1, 'Save current project "alpha" before creating a new project?')
-    expect(confirmSpy).toHaveBeenNthCalledWith(
-      2,
-      'Create a new project without saving "alpha"?\n\nPress OK to continue without saving, or Cancel to abort.'
-    )
+    expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha')
     const current = useProjectStore.getState().projects.find((entry) => entry.id === useProjectStore.getState().currentProjectId)
     expect(current?.name).toBe('New Project(1)')
     expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['alpha-node'])
@@ -204,9 +206,8 @@ describe('MenuBar file menu', () => {
 
   it('supports the cancel path before creating a new project', () => {
     const alpha = project('alpha', 'alpha', 'alpha-node', 200)
-    const confirmSpy = vi.spyOn(window, 'confirm')
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce(false)
+    const requestNewProjectDecision = vi.fn().mockResolvedValue('cancel')
+    useUiStore.setState({ requestNewProjectDecision })
     useProjectStore.setState({ projects: [alpha], currentProjectId: alpha.id })
     useGraphStore.setState({
       nodes: [{
@@ -225,11 +226,7 @@ describe('MenuBar file menu', () => {
     fireEvent.click(getByRole('button', { name: 'File menu' }))
     fireEvent.click(getByText('New Project'))
 
-    expect(confirmSpy).toHaveBeenNthCalledWith(1, 'Save current project "alpha" before creating a new project?')
-    expect(confirmSpy).toHaveBeenNthCalledWith(
-      2,
-      'Create a new project without saving "alpha"?\n\nPress OK to continue without saving, or Cancel to abort.'
-    )
+    expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha')
     expect(useProjectStore.getState().currentProjectId).toBe(alpha.id)
     expect(useGraphStore.getState().nodes.map((node) => node.id)).toEqual(['scratch'])
     expect((window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker).toBeUndefined()
