@@ -1,7 +1,7 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import { BEAT_FLASH_ATTACK_MAX_SEC } from '../state/graphEvaluator'
-import { asFont, textColumns } from '../state/font'
+import { asFont, textColumns, textAlignMode } from '../state/font'
 import { asAnimatedImage, asImage } from '../state/image'
 import { polineStops16, hexToRgb } from '../state/polinePalette'
 import { customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCatalog'
@@ -518,6 +518,28 @@ export function audioEngineForGraph(nodes: StudioNode[]): { include: string; cod
       p.serialDebug === true,
     ),
   }
+}
+
+// Mirrors graphEvaluator's textAlignedStart/normalizedCenterAxis for the Text
+// node's C++ codegen: 'center' keeps the existing centred formula (an object
+// of half-extent `lengthExpr/2` sliding so its centre tracks `valueExpr`);
+// 'start'/'end' instead anchor a zero-extent edge to `valueExpr`, matching
+// the JS float-then-floor order exactly — floor happens before subtracting
+// the (integer) length for 'end', not inside it, since hAlign/vAlign/wrap are
+// static node properties (never wired), so the branch is resolved here at
+// generation time rather than emitted as C++ conditionals.
+function textAxisStartExpr(valueExpr: string, sizeVar: string, lengthExpr: string, align: 'start' | 'center' | 'end', wrap: boolean): string {
+  if (align === 'center') {
+    const half = `(${lengthExpr}) * 0.5f`
+    if (wrap) {
+      return `floorf((${sizeVar} * 0.5f - ${sizeVar}) + (${valueExpr}) * (${sizeVar} * 2.0f) - (${half}))`
+    }
+    return `floorf((0.5f - ((${half}) + 1.0f)) + (${valueExpr}) * ((${sizeVar} - 1.0f) + 2.0f * ((${half}) + 1.0f)) - (${half}))`
+  }
+  const edge = wrap
+    ? `floorf((${sizeVar} * 0.5f - ${sizeVar}) + (${valueExpr}) * (${sizeVar} * 2.0f))`
+    : `floorf((0.5f - 1.0f) + (${valueExpr}) * ((${sizeVar} - 1.0f) + 2.0f))`
+  return align === 'end' ? `(${edge}) - (${lengthExpr})` : edge
 }
 
 export function generateCpp(
@@ -1220,10 +1242,15 @@ export function generateCpp(
         const ob = ownBuf()
         const text = String(p.text ?? 'HELLO')
         const font = asFont(p.font)
-        const cols = textColumns(text, font)
+        const letterSpacing = Math.max(0, Math.round(Number(p.letterSpacing ?? 1)))
+        const cols = textColumns(text, font, letterSpacing)
+        const hAlign = textAlignMode(p.hAlign ?? 'center', 'left', 'right')
+        const vAlign = textAlignMode(p.vAlign ?? 'middle', 'top', 'bottom')
+        const scrollAxis: 'horizontal' | 'vertical' = p.scrollAxis === 'vertical' ? 'vertical' : 'horizontal'
+        const wrap = Boolean(p.wrap)
         const emitTextPass = (sxExpr: string, syExpr: string, indent: string) => {
-          ln(`${indent}for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - (int)${sxExpr} + _off; if (_ci < 0 || _ci >= _tn_${id}) continue; uint8_t _col = _txt_${id}[_ci];`)
-          ln(`${indent}  for (int _r = 0; _r < ${font.h}; _r++) if (_col & (1 << _r)) { int _yy = (int)${syExpr} + _r; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
+          ln(`${indent}for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - (int)${sxExpr} + _offX; if (_ci < 0 || _ci >= _tn_${id}) continue; uint8_t _col = _txt_${id}[_ci];`)
+          ln(`${indent}  for (int _r = 0; _r < ${font.h}; _r++) if (_col & (1 << _r)) { int _yy = (int)${syExpr} + _r - _offY; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
         }
         const dynamic = !!incoming.get(`${node.id}:scroll`) || Number(p.scroll ?? 0) !== 0
         const colorE = incoming.get(`${node.id}:color`)
@@ -1232,26 +1259,28 @@ export function generateCpp(
         ln(`  { // Text "${text.replace(/[^ -~]/g, '?')}"`)
         ln(`    static const uint8_t _txt_${id}[] = {${cols.join(',')}};`)
         ln(`    const int _tn_${id} = ${cols.length};`)
-        ln(`    float _halfW = _tn_${id} * 0.5f, _halfH = ${font.h} * 0.5f;`)
         ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
         if (dynamic) {
           needsT.v = true
-          ln(`    int _tot = _tn_${id} + WIDTH, _off = (((int)(t * (${f('scroll', 'scroll', 0)})) % _tot) + _tot) % _tot;`)
+          if (scrollAxis === 'vertical') {
+            ln(`    int _totY = ${font.h} + HEIGHT, _offY = (((int)(t * (${f('scroll', 'scroll', 0)})) % _totY) + _totY) % _totY, _offX = 0;`)
+          } else {
+            ln(`    int _totX = _tn_${id} + WIDTH, _offX = (((int)(t * (${f('scroll', 'scroll', 0)})) % _totX) + _totX) % _totX, _offY = 0;`)
+          }
         } else {
-          ln(`    int _off = 0;`)
+          ln(`    int _offX = 0, _offY = 0;`)
         }
-        if (p.wrap) {
-          ln(`    int _sx = (int)floorf((WIDTH * 0.5f - WIDTH) + (${f('x', 'x', 0.5)}) * (WIDTH * 2.0f) - _halfW);`)
-          ln(`    int _sy = (int)floorf((HEIGHT * 0.5f - HEIGHT) + (${f('y', 'y', 0.5)}) * (HEIGHT * 2.0f) - _halfH);`)
+        const sxExpr = textAxisStartExpr(f('x', 'x', 0.5), 'WIDTH', `_tn_${id}`, hAlign, wrap)
+        const syExpr = textAxisStartExpr(f('y', 'y', 0.5), 'HEIGHT', `${font.h}`, vAlign, wrap)
+        ln(`    int _sx = (int)${sxExpr};`)
+        ln(`    int _sy = (int)${syExpr};`)
+        if (wrap) {
           ln(`    int _wrapX[3] = {-WIDTH, 0, WIDTH};`)
           ln(`    int _wrapY[3] = {-HEIGHT, 0, HEIGHT};`)
           ln(`    for (int _wy = 0; _wy < 3; _wy++) for (int _wx = 0; _wx < 3; _wx++) {`)
           emitTextPass('_sx + _wrapX[_wx]', '_sy + _wrapY[_wy]', '      ')
           ln(`    }`)
         } else {
-          ln(`    float _mx = _halfW + 1.0f, _my = _halfH + 1.0f;`)
-          ln(`    int _sx = (int)floorf((0.5f - _mx) + (${f('x', 'x', 0.5)}) * ((WIDTH - 1.0f) + 2.0f * _mx) - _halfW);`)
-          ln(`    int _sy = (int)floorf((0.5f - _my) + (${f('y', 'y', 0.5)}) * ((HEIGHT - 1.0f) + 2.0f * _my) - _halfH);`)
           emitTextPass('_sx', '_sy', '    ')
         }
         ln(`  }`)

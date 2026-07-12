@@ -3,7 +3,7 @@ import { useAudioStore } from './audioStore'
 import { useHardwareInputStore } from './hardwareInputStore'
 import { useMidiStore } from './midiStore'
 import { useUiStore } from './uiStore'
-import { asFont, textColumns, type BitmapFont, DEFAULT_FONT } from './font'
+import { asFont, textColumns, textAlignMode, type BitmapFont, DEFAULT_FONT } from './font'
 import { animatedImageFrame, asAnimatedImage, asImage, sampleImageToFrame, type ImageData } from './image'
 import { waveSample, combineWaves } from './wave'
 import { polinePalette, hexToRgb } from './polinePalette'
@@ -747,18 +747,25 @@ function renderTextInto(frame: Frame, cols: number[], color: RGB, startX: number
 }
 
 // Render `text` onto a blank frame at (startX, startY), optionally scrolling
-// left over time (scroll = columns/second). Shares textColumns() with codegen.
-function renderText(text: string, color: RGB, startX: number, startY: number, scroll: number, t: number, font: BitmapFont = DEFAULT_FONT, W = DEFAULT_W, H = DEFAULT_H, wrap = false): Frame {
+// over time (scroll = cells/second) along either axis. Shares textColumns()
+// with codegen.
+function renderText(
+  text: string, color: RGB, startX: number, startY: number, scroll: number, scrollAxis: 'horizontal' | 'vertical',
+  t: number, font: BitmapFont = DEFAULT_FONT, W = DEFAULT_W, H = DEFAULT_H, wrap = false, letterSpacing = 1,
+): Frame {
   const frame = blankFrame(W, H)
-  const cols = textColumns(text, font)
+  const cols = textColumns(text, font, letterSpacing)
   if (cols.length === 0) return frame
-  const total = cols.length + W
-  const offset = scroll !== 0 ? Math.floor((((t * scroll) % total) + total) % total) : 0
+  const vertical = scrollAxis === 'vertical'
+  const totalX = cols.length + W
+  const totalY = font.h + H
+  const offsetX = !vertical && scroll !== 0 ? Math.floor((((t * scroll) % totalX) + totalX) % totalX) : 0
+  const offsetY = vertical && scroll !== 0 ? Math.floor((((t * scroll) % totalY) + totalY) % totalY) : 0
   const xOffsets = wrap ? [-W, 0, W] : [0]
   const yOffsets = wrap ? [-H, 0, H] : [0]
   for (const ox of xOffsets) {
     for (const oy of yOffsets) {
-      renderTextInto(frame, cols, color, startX + ox, startY + oy, font, W, H, offset)
+      renderTextInto(frame, cols, color, startX + ox, startY + oy - offsetY, font, W, H, offsetX)
     }
   }
   return frame
@@ -782,6 +789,16 @@ function shapeExtents(shape: string, size: number, aspect: number, rotation: num
 
 function textStartPosition(value: number, size: number, extent: number, wrap: boolean): number {
   return Math.floor(normalizedCenterAxis(value, size, extent, wrap) - extent)
+}
+
+// Alignment-aware version: 'center' keeps the text centred on `value` (the
+// original behavior); 'start'/'end' anchor the text's leading/trailing edge
+// to `value` instead, reusing normalizedCenterAxis at zero extent (a point)
+// so the same off-screen travel range applies.
+function textAlignedStart(value: number, size: number, lengthPx: number, align: 'start' | 'center' | 'end', wrap: boolean): number {
+  if (align === 'center') return textStartPosition(value, size, lengthPx * 0.5, wrap)
+  const edge = Math.floor(normalizedCenterAxis(value, size, 0, wrap))
+  return align === 'end' ? edge - lengthPx : edge
 }
 
 // ── Pattern evaluators ────────────────────────────────────────────────────────
@@ -3767,18 +3784,22 @@ function createEvalNode(
       case 'Text': {
         const text = String(props.text ?? 'HELLO')
         const font = asFont(props.font)
-        const cols = textColumns(text, font)
+        const letterSpacing = Math.max(0, Math.round(Number(props.letterSpacing ?? 1)))
+        const cols = textColumns(text, font, letterSpacing)
         const wrap = Boolean(props.wrap)
+        const hAlign = textAlignMode(props.hAlign ?? 'center', 'left', 'right')
+        const vAlign = textAlignMode(props.vAlign ?? 'middle', 'top', 'bottom')
+        const scrollAxis: 'horizontal' | 'vertical' = props.scrollAxis === 'vertical' ? 'vertical' : 'horizontal'
         const colorIn = input(id, 'color', null) as RGB | null
         const color = colorIn ?? {
           r: byte(Number(props.r ?? 0)   / 255),
           g: byte(Number(props.g ?? 255) / 255),
           b: byte(Number(props.b ?? 255) / 255),
         }
-        const sx = textStartPosition(num(id, 'x', props, 'x', 0.5), W, cols.length * 0.5, wrap)
-        const sy = textStartPosition(num(id, 'y', props, 'y', 0.5), H, font.h * 0.5, wrap)
+        const sx = textAlignedStart(num(id, 'x', props, 'x', 0.5), W, cols.length, hAlign, wrap)
+        const sy = textAlignedStart(num(id, 'y', props, 'y', 0.5), H, font.h, vAlign, wrap)
         const scroll = num(id, 'scroll', props, 'scroll', 0)
-        out = { frame: renderText(text, color, sx, sy, scroll, t, font, W, H, wrap) }
+        out = { frame: renderText(text, color, sx, sy, scroll, scrollAxis, t, font, W, H, wrap, letterSpacing) }
         break
       }
 

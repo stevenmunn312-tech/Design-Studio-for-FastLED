@@ -112,7 +112,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'scroll', label: 'Scroll', dataType: 'float' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { text: 'HELLO', x: 0.5, y: 0.5, scroll: 0, wrap: false, r: 0, g: 255, b: 255 },
+    defaultProperties: {
+      text: 'HELLO', x: 0.5, y: 0.5, scroll: 0, wrap: false, r: 0, g: 255, b: 255,
+      hAlign: 'center', vAlign: 'middle', scrollAxis: 'horizontal', letterSpacing: 1,
+    },
   },
   {
     // Draws a circle (ring, or filled disc) over an optional base frame.
@@ -2356,6 +2359,11 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   paletteB:   { control: 'select', options: PALETTES },
   direction:  { control: 'select', options: ['right', 'left', 'up', 'down'] },
   axis:       { control: 'select', options: ['horizontal', 'vertical'] },
+  // Text node authoring controls.
+  hAlign:        { control: 'select', options: ['left', 'center', 'right'] },
+  vAlign:        { control: 'select', options: ['top', 'middle', 'bottom'] },
+  scrollAxis:    { control: 'select', options: ['horizontal', 'vertical'] },
+  letterSpacing: { control: 'slider', min: 0, max: 4, step: 1 },
   tileSize:   { control: 'slider', min: 1, max: 16, step: 1 },
   turns:      { control: 'slider', min: 1, max: 6, step: 1 },
   mode:       { control: 'select', options: ['cycle', 'beat'] },

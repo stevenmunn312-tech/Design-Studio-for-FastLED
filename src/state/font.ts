@@ -36,6 +36,17 @@ export const FONT: Record<string, number[]> = {
 /** The built-in 3×5 font as a BitmapFont. */
 export const DEFAULT_FONT: BitmapFont = { w: FONT_W, h: FONT_H, glyphs: FONT }
 
+/**
+ * Maps a Text node's user-facing alignment property ('left'/'right' on the
+ * x axis, 'top'/'bottom' on y) to the generic start/center/end axis mode
+ * shared by the evaluator and the C++ generator's positioning math.
+ */
+export function textAlignMode(value: unknown, startLabel: string, endLabel: string): 'start' | 'center' | 'end' {
+  if (value === startLabel) return 'start'
+  if (value === endLabel) return 'end'
+  return 'center'
+}
+
 /** A value is a usable custom font if it has positive dims and a glyph map. */
 export function asFont(value: unknown): BitmapFont {
   const f = value as Partial<BitmapFont> | undefined
@@ -47,12 +58,12 @@ export function asFont(value: unknown): BitmapFont {
 }
 
 /**
- * Convert a string into a flat list of vertical column bitmaps (one trailing
- * blank column per glyph as spacing). Each column's bit `r` (0 = top) is set
- * when that pixel is lit. Shared by the evaluator and the C++ generator so
- * scrolling/positioning math matches exactly.
+ * Convert a string into a flat list of vertical column bitmaps (`letterSpacing`
+ * trailing blank columns per glyph, default 1). Each column's bit `r` (0 = top)
+ * is set when that pixel is lit. Shared by the evaluator and the C++ generator
+ * so scrolling/positioning math matches exactly.
  */
-export function textColumns(text: string, font: BitmapFont = DEFAULT_FONT): number[] {
+export function textColumns(text: string, font: BitmapFont = DEFAULT_FONT, letterSpacing = 1): number[] {
   const { w, h, glyphs } = font
   const blank = glyphs[' '] ?? new Array(h).fill(0)
   const cols: number[] = []
@@ -65,7 +76,7 @@ export function textColumns(text: string, font: BitmapFont = DEFAULT_FONT): numb
       }
       cols.push(col)
     }
-    cols.push(0) // 1px spacing between glyphs
+    for (let s = 0; s < letterSpacing; s++) cols.push(0)
   }
   return cols
 }

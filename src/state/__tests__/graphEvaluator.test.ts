@@ -908,6 +908,45 @@ describe('evaluateGraph', () => {
     expect(frame[1][7].r).toBeGreaterThan(0)
   })
 
+  it('Text hAlign="left" anchors the glyph to x instead of centring on it', () => {
+    const centered = node('t', 'Text', 'pattern', { text: 'I', x: 0, y: 0.5, scroll: 0, r: 255, g: 255, b: 255 })
+    const left = node('t', 'Text', 'pattern', { text: 'I', x: 0, y: 0.5, scroll: 0, hAlign: 'left', r: 255, g: 255, b: 255 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const centeredFrame = evaluateGraph([centered, out], [edge('e', 't', 'frame', 'out', 'frame')], 0, 16, 8)!
+    const leftFrame = evaluateGraph([left, out], [edge('e', 't', 'frame', 'out', 'frame')], 0, 16, 8)!
+    // At x=0 the default centred glyph straddles the left edge (partially
+    // clipped); left-aligned instead starts flush at (or past) the edge, so
+    // the two renders differ.
+    expect(leftFrame).not.toEqual(centeredFrame)
+  })
+
+  it('Text vAlign="bottom" moves the glyph down relative to "middle"', () => {
+    const middle = node('t', 'Text', 'pattern', { text: 'I', x: 0.5, y: 0.5, scroll: 0, r: 255, g: 255, b: 255 })
+    const bottom = node('t', 'Text', 'pattern', { text: 'I', x: 0.5, y: 0.5, scroll: 0, vAlign: 'bottom', r: 255, g: 255, b: 255 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const middleFrame = evaluateGraph([middle, out], [edge('e', 't', 'frame', 'out', 'frame')], 0, 8, 16)!
+    const bottomFrame = evaluateGraph([bottom, out], [edge('e', 't', 'frame', 'out', 'frame')], 0, 8, 16)!
+    expect(bottomFrame).not.toEqual(middleFrame)
+  })
+
+  it('Text scrollAxis="vertical" animates the row instead of the column', () => {
+    const mk = (tick: number) => {
+      const txt = node('t', 'Text', 'pattern', { text: 'AB', x: 0.5, y: 0.5, scroll: 4, scrollAxis: 'vertical', r: 255, g: 255, b: 255 })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      return evaluateGraph([txt, out], [edge('e', 't', 'frame', 'out', 'frame')], tick, 8, 8)
+    }
+    expect(mk(0)).not.toEqual(mk(60))
+  })
+
+  it('Text letterSpacing widens the gap between glyphs', () => {
+    const tight = node('t', 'Text', 'pattern', { text: 'II', x: 0.5, y: 0.5, scroll: 0, letterSpacing: 0, r: 255, g: 255, b: 255 })
+    const wide = node('t', 'Text', 'pattern', { text: 'II', x: 0.5, y: 0.5, scroll: 0, letterSpacing: 3, r: 255, g: 255, b: 255 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const tightFrame = evaluateGraph([tight, out], [edge('e', 't', 'frame', 'out', 'frame')], 0, 16, 8)!
+    const wideFrame = evaluateGraph([wide, out], [edge('e', 't', 'frame', 'out', 'frame')], 0, 16, 8)!
+    expect(wideFrame).not.toEqual(tightFrame)
+  })
+
   it('Mask scales a frame by the mask luminance', () => {
     const content = node('w', 'SolidColor', 'pattern', { r: 200, g: 200, b: 200 })
     const mask    = node('m', 'SolidColor', 'pattern', { r: 128, g: 128, b: 128 })  // ~50% luma

@@ -1077,15 +1077,44 @@ describe('generateCpp', () => {
     const txt = node('t', 'Text', 'pattern', { text: 'GO', x: 0.5, y: 0.5, scroll: 4 })
     const cpp = generateCpp([txt, outputNode], [edge('e', 't', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float t = millis()')
-    expect(cpp).toContain('_off =')
+    expect(cpp).toContain('_offX =')
   })
 
   it('emits wrapped Text copies when wrap is enabled', () => {
     const txt = node('t', 'Text', 'pattern', { text: 'I', x: 0.25, y: 0.5, wrap: true, scroll: 0 })
     const cpp = generateCpp([txt, outputNode], [edge('e', 't', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('int _sx = (int)floorf((WIDTH * 0.5f - WIDTH) + (0.25) * (WIDTH * 2.0f) - _halfW);')
+    expect(cpp).toContain('int _sx = (int)floorf((WIDTH * 0.5f - WIDTH) + (0.25) * (WIDTH * 2.0f) - ((_tn_t) * 0.5f));')
     expect(cpp).toContain('int _wrapX[3] = {-WIDTH, 0, WIDTH};')
     expect(cpp).toContain('_sx + _wrapX[_wx]')
+  })
+
+  it('emits vertically scrolling Text with a distinct offset axis', () => {
+    const txt = node('t', 'Text', 'pattern', { text: 'GO', x: 0.5, y: 0.5, scroll: 2, scrollAxis: 'vertical' })
+    const cpp = generateCpp([txt, outputNode], [edge('e', 't', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('_totY =')
+    expect(cpp).toContain('_offX = 0;')
+    expect(cpp).not.toContain('_totX =')
+  })
+
+  it('Text codegen honours left/right and top/bottom alignment', () => {
+    const left = node('t', 'Text', 'pattern', { text: 'HI', x: 0, y: 0.5, hAlign: 'left' })
+    const leftCpp = generateCpp([left, outputNode], [edge('e', 't', 'out', 'frame', 'frame')])
+    // 'start' align drops the centring `- (halfWidth)` term entirely.
+    expect(leftCpp).not.toContain('_tn_t) * 0.5f')
+
+    const bottom = node('t2', 'Text', 'pattern', { text: 'HI', x: 0.5, y: 1, vAlign: 'bottom' })
+    const bottomCpp = generateCpp([bottom, outputNode], [edge('e', 't2', 'out', 'frame', 'frame')])
+    expect(bottomCpp).toContain('- (5)')   // 'end' align subtracts the font height after the floor
+  })
+
+  it('Text codegen honours letterSpacing', () => {
+    const tight = node('t', 'Text', 'pattern', { text: 'HI', letterSpacing: 0 })
+    const wide = node('t2', 'Text', 'pattern', { text: 'HI', letterSpacing: 3 })
+    const tightCpp = generateCpp([tight, outputNode], [edge('e', 't', 'out', 'frame', 'frame')])
+    const wideCpp = generateCpp([wide, outputNode], [edge('e', 't2', 'out', 'frame', 'frame')])
+    const tightN = Number(tightCpp.match(/const int _tn_t = (\d+);/)?.[1])
+    const wideN = Number(wideCpp.match(/const int _tn_t2 = (\d+);/)?.[1])
+    expect(wideN - tightN).toBe(2 * 3)   // 2 glyphs × 3 extra spacing columns
   })
 
   it('emits a luminance Mask that scales the frame buffer', () => {
