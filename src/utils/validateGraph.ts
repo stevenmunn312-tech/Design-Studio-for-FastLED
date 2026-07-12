@@ -54,6 +54,22 @@ function collectPinUses(nodes: StudioNode[]): PinUse[] {
   return uses
 }
 
+// Nodes whose live preview reads a browser-only API with no embedded-hardware
+// equivalent (mirrors the PREVIEW_NOTES on-node caption in StudioNode.tsx).
+// The generated firmware always sees these nodes' idle default — a used one
+// is worth flagging explicitly rather than letting the substitution pass
+// silently.
+const PREVIEW_ONLY_NODE_TYPES: ReadonlySet<string> = new Set(['MidiInput'])
+
+export function findPreviewOnlyWarnings(nodes: StudioNode[], edges: StudioEdge[]): string[] {
+  const used = nodes.filter(n =>
+    PREVIEW_ONLY_NODE_TYPES.has(n.data.nodeType) && edges.some(e => e.source === n.id)
+  )
+  if (used.length === 0) return []
+  const names = used.map(n => String(n.data.label ?? n.data.nodeType)).join(', ')
+  return [`${names} ${used.length > 1 ? 'are' : 'is'} preview-only — the generated firmware will see the idle default instead of live input`]
+}
+
 export function findPinConflicts(nodes: StudioNode[]): string[] {
   const byPin = new Map<number, string[]>()
   for (const { label, pin } of collectPinUses(nodes)) {
@@ -82,6 +98,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[]): Validat
   }
 
   errors.push(...findPinConflicts(nodes))
+  warnings.push(...findPreviewOnlyWarnings(nodes, edges))
 
   const master = nodes.find(n => n.data.nodeType === 'PatternMaster')
   if (master && !incoming.has(`${master.id}:patternset`)) {

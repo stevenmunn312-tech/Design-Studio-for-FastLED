@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, findPinConflicts } from '../validateGraph'
+import { validateGraph, findPinConflicts, findPreviewOnlyWarnings } from '../validateGraph'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -159,6 +159,34 @@ describe('validateGraph', () => {
       const edges = [edge('e1', 'sc', 'out', 'frame')]
       const { errors } = validateGraph(nodes, edges)
       expect(errors.some(e => e.includes('GPIO 5'))).toBe(true)
+    })
+  })
+
+  describe('findPreviewOnlyWarnings', () => {
+    it('warns when a MidiInput node is wired to something', () => {
+      const nodes = [node('midi', 'MidiInput'), node('math', 'Math')]
+      const edges = [edge('e1', 'midi', 'math', 'a')]
+      const warnings = findPreviewOnlyWarnings(nodes, edges)
+      expect(warnings).toHaveLength(1)
+      expect(warnings[0]).toContain('preview-only')
+    })
+
+    it('does not warn about an unwired MidiInput node (already flagged as isolated)', () => {
+      const nodes = [node('midi', 'MidiInput')]
+      expect(findPreviewOnlyWarnings(nodes, [])).toHaveLength(0)
+    })
+
+    it('does not warn about other input nodes with real firmware equivalents', () => {
+      const nodes = [node('btn', 'ButtonInput'), node('math', 'Math')]
+      const edges = [edge('e1', 'btn', 'math', 'a')]
+      expect(findPreviewOnlyWarnings(nodes, edges)).toHaveLength(0)
+    })
+
+    it('surfaces the preview-only warning from validateGraph', () => {
+      const nodes = [node('midi', 'MidiInput'), node('math', 'Math'), node('out', 'MatrixOutput')]
+      const edges = [edge('e1', 'midi', 'math', 'a'), edge('e2', 'math', 'out', 'frame')]
+      const { warnings } = validateGraph(nodes, edges)
+      expect(warnings.some(w => w.includes('preview-only'))).toBe(true)
     })
   })
 })
