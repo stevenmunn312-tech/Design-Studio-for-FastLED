@@ -30,7 +30,7 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
   const setPatternSections = useGraphStore((s) => s.setPatternSections)
 
   return (
-    <div className={`nodrag nowheel ${styles.wrap}`}>
+    <div className={`nodrag ${styles.wrap}`}>
       {patternIds.length === 0 ? (
         <div className={styles.empty}>Connect a Group node to add a pattern</div>
       ) : (

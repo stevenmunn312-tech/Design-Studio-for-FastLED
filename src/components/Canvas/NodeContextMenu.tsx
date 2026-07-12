@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useGraphStore } from '../../state/graphStore'
 import { saveGroupToLibrary, usePatternLibrary } from '../../state/patternLibrary'
 import { useUiStore } from '../../state/uiStore'
@@ -17,13 +17,11 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
   const requestConfirm = useUiStore((s) => s.requestConfirm)
   const setStatus = useUiStore((s) => s.setStatus)
   const patterns = usePatternLibrary((s) => s.patterns)
-  const isGroup = useGraphStore(
-    (s) => s.nodes.find((n) => n.id === nodeId)?.data.nodeType === 'Group',
-  )
-  const groupLabel = useGraphStore(
-    (s) => s.nodes.find((n) => n.id === nodeId)?.data.label,
-  )
-  const selectedIds = useGraphStore((s) => s.nodes.filter((n) => n.selected).map((n) => n.id))
+  const nodes = useGraphStore((s) => s.nodes)
+  const node = useMemo(() => nodes.find((n) => n.id === nodeId), [nodeId, nodes])
+  const isGroup = node?.data.nodeType === 'Group'
+  const groupLabel = node?.data.label
+  const selectedIds = useMemo(() => nodes.filter((n) => n.selected).map((n) => n.id), [nodes])
   const isMultiSelected = selectedIds.length > 1 && selectedIds.includes(nodeId)
   const [showGroupDialog, setShowGroupDialog] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)

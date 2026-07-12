@@ -25,7 +25,7 @@ export default function TransitionSetBody({ nodeId }: { nodeId: string }) {
   const toggleAll = () => updateNodeProperty(nodeId, 'transitions', allOn ? [] : [...ALL_TRANSITIONS])
 
   return (
-    <div className={`nodrag nowheel ${styles.wrap}`}>
+    <div className={`nodrag ${styles.wrap}`}>
       <div className={styles.label}>Extra transitions ({pool.length})</div>
       <div className={styles.grid}>
         <button
