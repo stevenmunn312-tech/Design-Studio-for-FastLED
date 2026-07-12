@@ -9,7 +9,7 @@ Node‑Based Visual Designer for FastLED LED Matrix Systems
 - **Audio-reactive** — microphone FFT via Web Audio API drives bass/mids/treble/beat outputs in real time
 - **Named projects + recovery** — autosaved projects, portable project files, recent-project switching, rolling recovery snapshots, Graph JSON import/export, and share links
 - **C++ code generation** — export a ready-to-flash FastLED `.ino` sketch from any graph
-- **Upload, stream, and show provisioning** — the local helper compiles and flashes over USB via `arduino-cli` or FastLED's own `fbuild`, can flash the serial stream receiver, push live frames, and provision music-sync SD shows
+- **Upload, stream, and show provisioning** — the local helper compiles and flashes over USB via `arduino-cli` or FastLED's own `fbuild`, can flash a standalone wiring test, flash the serial stream receiver, push live frames, and provision music-sync SD shows
 - **Three theme variants** — Dark, Solarized Dark, Studio Light
 - **Undo/redo** (100 steps), per-project autosave, Graph JSON interchange, and read-only code viewing
 
@@ -70,7 +70,7 @@ See the Design Tokens section of `CLAUDE.md` for the full category → accent-co
 1. **Start fast** — use the empty-canvas launcher or **✦ Start** to load Rainbow, Audio Spectrum, Field Warp, or one of the show starters already wired and framed in view.
 2. **Build the patch** — connect pattern/composite/audio nodes into **Matrix Output**. The main LED preview and node previews animate live from the same graph evaluation.
 3. **Choose the right save format** — named **Projects** are your working home and autosave in place; **Save Project File As** writes a portable full-workspace file; **Export Graph JSON** is raw graph interchange; **Copy Share Link** packages the workspace into a URL; **Recover Snapshot** restores a recent recovery snapshot for this browser.
-4. **Upload or inspect code** — in **Matrix Output**, use **Upload**, **Flash Stream Receiver**, **Live Stream**, **Upload show to SD**, **View Code**, or **Export .ino** depending on whether you want a normal sketch, live serial streaming, or an SD-backed music-sync player.
+4. **Upload or inspect code** — in **Matrix Output**, use **Upload** for your normal sketch, **Flash Wiring Test** to verify color order/layout/brightness before wiring a creative graph, **Flash Stream Receiver** + **Live Stream** for rapid serial preview, **Upload show to SD** for an SD-backed music-sync player, or **View Code** / **Export .ino** if you want the generated sketch first.
 
 ## Starter Walkthroughs
 

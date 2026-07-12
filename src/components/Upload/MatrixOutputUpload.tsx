@@ -7,6 +7,7 @@ import { useProjectStore } from '../../state/projectStore'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph } from '../../codegen/streamReceiverGenerator'
+import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
 import { sdCardConnected, readySongCount, buildShowPayload } from '../../utils/showUpload'
 import { findPinConflicts, findMatrixLayoutErrors, estimatePowerLoad, estimateFirmwareRam } from '../../utils/validateGraph'
 import CodeViewPopup from './CodeViewPopup'
@@ -290,6 +291,10 @@ export default function MatrixOutputUpload({
     const sketch = generateStreamReceiverSketch(nodes)
     if (sketch) runUpload(sketch, usePsram ? psramChoice?.opt : undefined, { cache: false })
   }
+  function handleFlashWiringTest() {
+    const sketch = generateWiringDiagnosticSketch(nodes)
+    if (sketch) runUpload(sketch, undefined, { cache: false })
+  }
   function handleToggleStream() {
     if (streaming) { stopStreaming(); return }
     if (!selectedPort || !streamLayout) return
@@ -465,6 +470,21 @@ export default function MatrixOutputUpload({
       </button>
 
       {codeViewOpen && <CodeViewPopup code={code} />}
+
+      <button
+        className={styles.exportBtn}
+        disabled={!uploadReady || blockingErrors.length > 0 || busy}
+        onClick={handleFlashWiringTest}
+        title={
+          blockingErrors.length > 0
+            ? blockingErrors.join('\n')
+            : readinessIssues.length > 0
+              ? readinessIssues.join('\n')
+              : 'Flash a standalone wiring diagnostic sketch using the current Matrix Output board, pins, color order, brightness, power cap, and layout settings'
+        }
+      >
+        🧪 Flash Wiring Test
+      </button>
 
       <button
         className={styles.exportBtn}

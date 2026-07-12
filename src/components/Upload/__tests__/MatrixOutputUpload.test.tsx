@@ -21,6 +21,10 @@ vi.mock('../../../codegen/streamReceiverGenerator', () => ({
   streamLayoutForGraph: vi.fn(() => ({ width: 16, height: 16, map: [0] })),
 }))
 
+vi.mock('../../../codegen/wiringDiagnosticGenerator', () => ({
+  generateWiringDiagnosticSketch: vi.fn(() => '// wiring diagnostic'),
+}))
+
 vi.mock('../../../utils/showUpload', () => ({
   sdCardConnected: vi.fn(() => false),
   readySongCount: vi.fn(() => 0),
@@ -145,5 +149,29 @@ describe('MatrixOutputUpload readiness', () => {
     expect(getByText('Ready to upload')).toBeTruthy()
     expect((getByRole('button', { name: '↑ Upload' }) as HTMLButtonElement).disabled).toBe(false)
     expect((getByRole('button', { name: '📡 Live Stream' }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('can flash the wiring test without a frame input and without caching it as the last sketch', () => {
+    const runUpload = vi.fn()
+    useUploadStore.setState({
+      helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' },
+      installedCores: [],
+      selectedPort: 'COM7',
+      ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [{ name: 'ESP32-S3' }] }],
+      runUpload,
+    })
+
+    const { getByRole } = render(
+      <MatrixOutputUpload nodeId="matrix" hasFrameInput={false} hasSdCardInput={false} />,
+    )
+
+    const uploadButton = getByRole('button', { name: '↑ Upload' }) as HTMLButtonElement
+    const wiringButton = getByRole('button', { name: '🧪 Flash Wiring Test' }) as HTMLButtonElement
+
+    expect(uploadButton.disabled).toBe(true)
+    expect(wiringButton.disabled).toBe(false)
+
+    fireEvent.click(wiringButton)
+    expect(runUpload).toHaveBeenCalledWith('// wiring diagnostic', undefined, { cache: false })
   })
 })

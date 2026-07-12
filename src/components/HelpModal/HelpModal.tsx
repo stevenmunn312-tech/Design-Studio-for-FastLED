@@ -45,7 +45,7 @@ function QuickStartTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>5</div>
             <div className={styles.stepText}>
-              <strong>Choose the output path.</strong> In <strong>Matrix Output</strong>, use <strong>Upload</strong> for a normal sketch, <strong>Flash Stream Receiver</strong> + <strong>Live Stream</strong> for rapid serial preview on hardware, <strong>Upload show to SD</strong> for music-sync offline playback, or <strong>View Code</strong> / <strong>Export .ino</strong> if you want the generated sketch first.
+              <strong>Choose the output path.</strong> In <strong>Matrix Output</strong>, use <strong>Upload</strong> for a normal sketch, <strong>Flash Wiring Test</strong> to verify color order/layout/brightness before building a full patch, <strong>Flash Stream Receiver</strong> + <strong>Live Stream</strong> for rapid serial preview on hardware, <strong>Upload show to SD</strong> for music-sync offline playback, or <strong>View Code</strong> / <strong>Export .ino</strong> if you want the generated sketch first.
             </div>
           </div>
         </div>
@@ -235,11 +235,17 @@ function UploadTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>3</div>
             <div className={styles.stepText}>
-              For rapid hardware preview, flash <strong>⚡ Stream Receiver</strong> once, then use <strong>📡 Live Stream</strong> to push the current preview frames straight to the board without recompiling.
+              If the hardware is new or freshly rewired, click <strong>🧪 Flash Wiring Test</strong> first. It cycles through RGB solids, brightness bars, orientation markers, panel labels, and logical/physical pixel chases using the current Matrix Output settings.
             </div>
           </div>
           <div className={styles.step}>
             <div className={styles.stepNum}>4</div>
+            <div className={styles.stepText}>
+              For rapid hardware preview, flash <strong>⚡ Stream Receiver</strong> once, then use <strong>📡 Live Stream</strong> to push the current preview frames straight to the board without recompiling.
+            </div>
+          </div>
+          <div className={styles.step}>
+            <div className={styles.stepNum}>5</div>
             <div className={styles.stepText}>
               For a <strong>music-sync show</strong>, wire an SD Card node to Matrix Output's <code>sdcard</code> input, then click <strong>♪ Upload show to SD</strong> to provision the card and flash the player.
             </div>
