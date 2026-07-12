@@ -890,6 +890,15 @@ describe('evaluateGraph', () => {
     expect(frame![3][4]).toEqual({ r: 0, g: 0, b: 0 })     // trailing spacing column
   })
 
+  it('Text renders multiline blocks with vertical spacing', () => {
+    const txt = node('t', 'Text', 'pattern', { text: 'I\nI', x: 0.5, y: 0.5, scroll: 0, r: 255, g: 255, b: 255 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph([txt, out], [edge('e', 't', 'frame', 'out', 'frame')], 0, 8, 16)!
+    expect(frame[2][2]).toEqual({ r: 255, g: 255, b: 255 })
+    expect(frame[8][2]).toEqual({ r: 255, g: 255, b: 255 })
+    expect(frame[7][2]).toEqual({ r: 0, g: 0, b: 0 })
+  })
+
   it('Text scrolling shifts the rendered columns over time', () => {
     const mk = (tick: number) => {
       const txt = node('t', 'Text', 'pattern', { text: 'AB', x: 0.5, y: 0.5, scroll: 4, r: 255, g: 255, b: 255 })

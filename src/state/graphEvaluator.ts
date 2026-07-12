@@ -3,7 +3,7 @@ import { useAudioStore } from './audioStore'
 import { useHardwareInputStore } from './hardwareInputStore'
 import { useMidiStore } from './midiStore'
 import { useUiStore } from './uiStore'
-import { asFont, textColumns, textAlignMode, type BitmapFont, DEFAULT_FONT } from './font'
+import { asFont, textBlockLayout, textAlignMode, TEXT_LINE_GAP, type BitmapFont, DEFAULT_FONT } from './font'
 import { animatedImageFrame, asAnimatedImage, asImage, sampleImageToFrame, type ImageData } from './image'
 import { waveSample, combineWaves } from './wave'
 import { polinePalette, hexToRgb } from './polinePalette'
@@ -750,22 +750,36 @@ function renderTextInto(frame: Frame, cols: number[], color: RGB, startX: number
 // over time (scroll = cells/second) along either axis. Shares textColumns()
 // with codegen.
 function renderText(
-  text: string, color: RGB, startX: number, startY: number, scroll: number, scrollAxis: 'horizontal' | 'vertical',
-  t: number, font: BitmapFont = DEFAULT_FONT, W = DEFAULT_W, H = DEFAULT_H, wrap = false, letterSpacing = 1,
+  text: string,
+  color: RGB,
+  startX: number[],
+  startY: number,
+  scroll: number,
+  scrollAxis: 'horizontal' | 'vertical',
+  t: number,
+  font: BitmapFont = DEFAULT_FONT,
+  W = DEFAULT_W,
+  H = DEFAULT_H,
+  wrap = false,
+  letterSpacing = 1,
 ): Frame {
   const frame = blankFrame(W, H)
-  const cols = textColumns(text, font, letterSpacing)
-  if (cols.length === 0) return frame
+  const layout = textBlockLayout(text, font, letterSpacing)
+  if (layout.lines.length === 0) return frame
   const vertical = scrollAxis === 'vertical'
-  const totalX = cols.length + W
-  const totalY = font.h + H
+  const totalX = layout.width + W
+  const totalY = layout.height + H
   const offsetX = !vertical && scroll !== 0 ? Math.floor((((t * scroll) % totalX) + totalX) % totalX) : 0
   const offsetY = vertical && scroll !== 0 ? Math.floor((((t * scroll) % totalY) + totalY) % totalY) : 0
   const xOffsets = wrap ? [-W, 0, W] : [0]
   const yOffsets = wrap ? [-H, 0, H] : [0]
   for (const ox of xOffsets) {
     for (const oy of yOffsets) {
-      renderTextInto(frame, cols, color, startX + ox, startY + oy - offsetY, font, W, H, offsetX)
+      for (let i = 0; i < layout.lines.length; i++) {
+        const line = layout.lines[i]
+        const lineY = startY + i * (font.h + TEXT_LINE_GAP) + oy - offsetY
+        renderTextInto(frame, line.cols, color, startX[i] + ox, lineY, font, W, H, offsetX)
+      }
     }
   }
   return frame
@@ -3838,7 +3852,7 @@ function createEvalNode(
         const text = String(props.text ?? 'HELLO')
         const font = asFont(props.font)
         const letterSpacing = Math.max(0, Math.round(Number(props.letterSpacing ?? 1)))
-        const cols = textColumns(text, font, letterSpacing)
+        const layout = textBlockLayout(text, font, letterSpacing)
         const wrap = Boolean(props.wrap)
         const hAlign = textAlignMode(props.hAlign ?? 'center', 'left', 'right')
         const vAlign = textAlignMode(props.vAlign ?? 'middle', 'top', 'bottom')
@@ -3849,8 +3863,10 @@ function createEvalNode(
           g: byte(Number(props.g ?? 255) / 255),
           b: byte(Number(props.b ?? 255) / 255),
         }
-        const sx = textAlignedStart(num(id, 'x', props, 'x', 0.5), W, cols.length, hAlign, wrap)
-        const sy = textAlignedStart(num(id, 'y', props, 'y', 0.5), H, font.h, vAlign, wrap)
+        const x = num(id, 'x', props, 'x', 0.5)
+        const y = num(id, 'y', props, 'y', 0.5)
+        const sx = layout.lines.map((line) => textAlignedStart(x, W, line.cols.length, hAlign, wrap))
+        const sy = textAlignedStart(y, H, layout.height, vAlign, wrap)
         const scroll = num(id, 'scroll', props, 'scroll', 0)
         out = { frame: renderText(text, color, sx, sy, scroll, scrollAxis, t, font, W, H, wrap, letterSpacing) }
         break

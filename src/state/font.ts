@@ -9,12 +9,24 @@
 
 export const FONT_W = 3
 export const FONT_H = 5
+export const TEXT_LINE_GAP = 1
 
 /** A bitmap font: glyphs are `h` rows of `w`-bit pixels (see FONT comment). */
 export interface BitmapFont {
   w: number
   h: number
   glyphs: Record<string, number[]>
+}
+
+export interface TextLineLayout {
+  text: string
+  cols: number[]
+}
+
+export interface TextBlockLayout {
+  lines: TextLineLayout[]
+  width: number
+  height: number
 }
 
 export const FONT: Record<string, number[]> = {
@@ -79,4 +91,25 @@ export function textColumns(text: string, font: BitmapFont = DEFAULT_FONT, lette
     for (let s = 0; s < letterSpacing; s++) cols.push(0)
   }
   return cols
+}
+
+/** Split a Text node string into logical lines, normalising CRLF/CR to LF. */
+export function textLines(text: string): string[] {
+  return String(text).replace(/\r\n?/g, '\n').split('\n')
+}
+
+/**
+ * Shared multiline text layout: precompute each line's bitmap columns plus the
+ * block width/height so the preview and firmware place the same text block.
+ */
+export function textBlockLayout(
+  text: string,
+  font: BitmapFont = DEFAULT_FONT,
+  letterSpacing = 1,
+  lineGap = TEXT_LINE_GAP,
+): TextBlockLayout {
+  const lines = textLines(text).map((line) => ({ text: line, cols: textColumns(line, font, letterSpacing) }))
+  const width = lines.reduce((max, line) => Math.max(max, line.cols.length), 0)
+  const height = lines.length > 0 ? font.h + (lines.length - 1) * (font.h + Math.max(0, lineGap)) : 0
+  return { lines, width, height }
 }

@@ -97,6 +97,8 @@ export default function Inspector() {
   }
 
   const props = node.data.properties as Record<string, unknown>
+  const customFont = node.data.nodeType === 'Text' ? asFont(props.font) : null
+  const hasCustomFont = node.data.nodeType === 'Text' && props.font != null && customFont !== DEFAULT_FONT
   const propertyEntries = Object.entries(props).filter(([key]) => key !== 'font' && key !== 'image' && key !== 'animation')
   const propertyCount = propertyEntries.length + (node.data.nodeType === 'Text' ? 1 : 0) + (node.data.nodeType === 'Image' ? 1 : 0)
   const hasRGB =
@@ -169,6 +171,19 @@ export default function Inspector() {
                 onChange={(e) => updateNodeProperty(node.id, key, e.target.value)}
               />
             </div>
+          ) : key === 'text' && node.data.nodeType === 'Text' ? (
+            <div key={key} className={styles.formulaRow}>
+              <label className={styles.fieldLabel} htmlFor={`prop-${key}`}>{key}</label>
+              <textarea
+                id={`prop-${key}`}
+                className={styles.formulaTextarea}
+                value={String(val)}
+                rows={4}
+                spellCheck={false}
+                disabled={bakeLocked}
+                onChange={(e) => updateNodeProperty(node.id, key, e.target.value)}
+              />
+            </div>
           ) : (
             <div key={key} className={styles.fieldRow}>
               <label className={styles.fieldLabel} htmlFor={`prop-${key}`}>
@@ -193,13 +208,22 @@ export default function Inspector() {
           <div className={styles.empty}>No properties</div>
         )}
         {node.data.nodeType === 'Text' && (
-          <div className={styles.fieldRow}>
-            <label className={styles.fieldLabel} htmlFor="prop-font">font</label>
-            <span className={styles.fieldValue}>
-              {props.font ? `custom ${asFont(props.font).w}×${asFont(props.font).h}` : 'built-in 3×5'}
-              {' · '}
+          <div className={styles.assetCard}>
+            <div className={styles.assetHeader}>
+              <label className={styles.fieldLabel} htmlFor="prop-font">font</label>
+              <span className={styles.assetBadge}>{hasCustomFont ? 'custom' : 'built-in'}</span>
+            </div>
+            <div className={styles.assetMetaGrid}>
+              <span className={styles.assetMetaLabel}>size</span>
+              <span className={styles.fieldValue}>{customFont?.w ?? DEFAULT_FONT.w}×{customFont?.h ?? DEFAULT_FONT.h}</span>
+              <span className={styles.assetMetaLabel}>glyphs</span>
+              <span className={styles.fieldValue}>{Object.keys((customFont ?? DEFAULT_FONT).glyphs).length}</span>
+              <span className={styles.assetMetaLabel}>multiline</span>
+              <span className={styles.fieldValue}>newline-aware preview + firmware</span>
+            </div>
+            <div className={styles.assetActions}>
               <label className={styles.fontLink}>
-                upload
+                {hasCustomFont ? 'Replace font' : 'Upload font'}
                 <input
                   id="prop-font"
                   type="file"
@@ -208,15 +232,13 @@ export default function Inspector() {
                   onChange={(e) => onFontUpload(e, node.id)}
                 />
               </label>
-              {props.font ? (
-                <>
-                  {' · '}
-                  <button className={styles.fontLink} onClick={() => updateNodeProperty(node.id, 'font', undefined)}>
-                    reset
-                  </button>
-                </>
+              {hasCustomFont ? (
+                <button className={styles.fontLink} type="button" onClick={() => updateNodeProperty(node.id, 'font', undefined)}>
+                  Reset to built-in
+                </button>
               ) : null}
-            </span>
+            </div>
+            <div className={styles.assetHint}>Custom font JSON uses the shared bitmap shape: {`{ w, h, glyphs }`}.</div>
           </div>
         )}
         {node.data.nodeType === 'Image' && (() => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { FONT, FONT_W, FONT_H, textColumns, textAlignMode } from '../font'
+import { FONT, FONT_W, FONT_H, TEXT_LINE_GAP, textBlockLayout, textColumns, textAlignMode, textLines } from '../font'
 
 describe('font', () => {
   it('every glyph has exactly FONT_H rows within 3 bits', () => {
@@ -27,6 +27,17 @@ describe('font', () => {
     expect(textColumns('A', undefined, 0)).toHaveLength(FONT_W)
     expect(textColumns('A', undefined, 3)).toHaveLength(FONT_W + 3)
     expect(textColumns('AB', undefined, 2)).toHaveLength((FONT_W + 2) * 2)
+  })
+
+  it('normalizes CRLF text into logical lines', () => {
+    expect(textLines('A\r\nB\rC')).toEqual(['A', 'B', 'C'])
+  })
+
+  it('computes multiline block width and height', () => {
+    const layout = textBlockLayout('A\nBC')
+    expect(layout.lines).toHaveLength(2)
+    expect(layout.width).toBe((FONT_W + 1) * 2)
+    expect(layout.height).toBe(FONT_H * 2 + TEXT_LINE_GAP)
   })
 
   describe('textAlignMode', () => {

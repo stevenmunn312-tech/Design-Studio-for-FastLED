@@ -19,6 +19,11 @@
   text-decoration: underline;
 }
 
+.fontLink:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .header {
   padding: var(--space-2);
   display: flex;
@@ -155,6 +160,62 @@
   font-size: var(--fs-caption);
   color: var(--text-secondary);
   font-family: var(--font-code);
+}
+
+.assetCard {
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--bg-primary) 82%, black);
+}
+
+.assetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.assetBadge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.assetMetaGrid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  margin-bottom: 8px;
+}
+
+.assetMetaLabel {
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.assetActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.assetHint {
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 10px;
+  line-height: 1.5;
 }
 
 .colorPicker {

@@ -1061,7 +1061,7 @@ describe('generateCpp', () => {
   it('emits a Text node with embedded font columns', () => {
     const txt = node('t', 'Text', 'pattern', { text: 'HI', x: 0.5, y: 0.5, scroll: 0, r: 0, g: 255, b: 0 })
     const cpp = generateCpp([txt, outputNode], [edge('e', 't', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('static const uint8_t _txt_t[] = {')
+    expect(cpp).toContain('static const uint8_t _txt_t_0[] = {')
     expect(cpp).toContain('CRGB(0, 255, 0)')
     expect(cpp).not.toContain('millis()')   // static text → no time variable
   })
@@ -1071,6 +1071,14 @@ describe('generateCpp', () => {
     const txt = node('t', 'Text', 'pattern', { text: 'A', x: 0.5, y: 0.5, scroll: 0, font })
     const cpp = generateCpp([txt, outputNode], [edge('e', 't', 'out', 'frame', 'frame')])
     expect(cpp).toContain('_r < 7;')
+  })
+
+  it('emits one bitmap array per multiline Text row', () => {
+    const txt = node('t', 'Text', 'pattern', { text: 'A\nBC', x: 0.5, y: 0.5, scroll: 0 })
+    const cpp = generateCpp([txt, outputNode], [edge('e', 't', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('static const uint8_t _txt_t_0[] = {')
+    expect(cpp).toContain('static const uint8_t _txt_t_1[] = {')
+    expect(cpp).toContain('int _yy = (_sy + 6) + _r - _offY;')
   })
 
   it('emits a scrolling Text node that uses millis()', () => {
@@ -1083,9 +1091,9 @@ describe('generateCpp', () => {
   it('emits wrapped Text copies when wrap is enabled', () => {
     const txt = node('t', 'Text', 'pattern', { text: 'I', x: 0.25, y: 0.5, wrap: true, scroll: 0 })
     const cpp = generateCpp([txt, outputNode], [edge('e', 't', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('int _sx = (int)floorf((WIDTH * 0.5f - WIDTH) + (0.25) * (WIDTH * 2.0f) - ((_tn_t) * 0.5f));')
+    expect(cpp).toContain('int _sx_0 = (int)floorf((WIDTH * 0.5f - WIDTH) + (0.25) * (WIDTH * 2.0f) - ((_tn_t_0) * 0.5f));')
     expect(cpp).toContain('int _wrapX[3] = {-WIDTH, 0, WIDTH};')
-    expect(cpp).toContain('_sx + _wrapX[_wx]')
+    expect(cpp).toContain('_sx_0 + _wrapX[_wx]')
   })
 
   it('emits vertically scrolling Text with a distinct offset axis', () => {
@@ -1112,8 +1120,8 @@ describe('generateCpp', () => {
     const wide = node('t2', 'Text', 'pattern', { text: 'HI', letterSpacing: 3 })
     const tightCpp = generateCpp([tight, outputNode], [edge('e', 't', 'out', 'frame', 'frame')])
     const wideCpp = generateCpp([wide, outputNode], [edge('e', 't2', 'out', 'frame', 'frame')])
-    const tightN = Number(tightCpp.match(/const int _tn_t = (\d+);/)?.[1])
-    const wideN = Number(wideCpp.match(/const int _tn_t2 = (\d+);/)?.[1])
+    const tightN = Number(tightCpp.match(/const int _tn_t_0 = (\d+);/)?.[1])
+    const wideN = Number(wideCpp.match(/const int _tn_t2_0 = (\d+);/)?.[1])
     expect(wideN - tightN).toBe(2 * 3)   // 2 glyphs × 3 extra spacing columns
   })
 

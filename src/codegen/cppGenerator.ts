@@ -1,7 +1,7 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import { BEAT_FLASH_ATTACK_MAX_SEC } from '../state/graphEvaluator'
-import { asFont, textColumns, textAlignMode } from '../state/font'
+import { asFont, textBlockLayout, textAlignMode, TEXT_LINE_GAP } from '../state/font'
 import { asAnimatedImage, asImage } from '../state/image'
 import { polineStops16, hexToRgb } from '../state/polinePalette'
 import { customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCatalog'
@@ -1243,45 +1243,56 @@ export function generateCpp(
         const text = String(p.text ?? 'HELLO')
         const font = asFont(p.font)
         const letterSpacing = Math.max(0, Math.round(Number(p.letterSpacing ?? 1)))
-        const cols = textColumns(text, font, letterSpacing)
+        const layout = textBlockLayout(text, font, letterSpacing)
         const hAlign = textAlignMode(p.hAlign ?? 'center', 'left', 'right')
         const vAlign = textAlignMode(p.vAlign ?? 'middle', 'top', 'bottom')
         const scrollAxis: 'horizontal' | 'vertical' = p.scrollAxis === 'vertical' ? 'vertical' : 'horizontal'
         const wrap = Boolean(p.wrap)
-        const emitTextPass = (sxExpr: string, syExpr: string, indent: string) => {
-          ln(`${indent}for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - (int)${sxExpr} + _offX; if (_ci < 0 || _ci >= _tn_${id}) continue; uint8_t _col = _txt_${id}[_ci];`)
-          ln(`${indent}  for (int _r = 0; _r < ${font.h}; _r++) if (_col & (1 << _r)) { int _yy = (int)${syExpr} + _r - _offY; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
-        }
+        const renderableLines = layout.lines
+          .map((line, index) => ({ ...line, index }))
+          .filter((line) => line.cols.length > 0)
         const dynamic = !!incoming.get(`${node.id}:scroll`) || Number(p.scroll ?? 0) !== 0
         const colorE = incoming.get(`${node.id}:color`)
           ? colorExpr(node.id, 'color')
           : `CRGB(${Number(p.r ?? 0)}, ${Number(p.g ?? 255)}, ${Number(p.b ?? 255)})`
         ln(`  { // Text "${text.replace(/[^ -~]/g, '?')}"`)
-        ln(`    static const uint8_t _txt_${id}[] = {${cols.join(',')}};`)
-        ln(`    const int _tn_${id} = ${cols.length};`)
+        for (const line of renderableLines) {
+          ln(`    static const uint8_t _txt_${id}_${line.index}[] = {${line.cols.join(',')}};`)
+          ln(`    const int _tn_${id}_${line.index} = ${line.cols.length};`)
+        }
         ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
         if (dynamic) {
           needsT.v = true
           if (scrollAxis === 'vertical') {
-            ln(`    int _totY = ${font.h} + HEIGHT, _offY = (((int)(t * (${f('scroll', 'scroll', 0)})) % _totY) + _totY) % _totY, _offX = 0;`)
+            ln(`    int _totY = ${layout.height} + HEIGHT, _offY = (((int)(t * (${f('scroll', 'scroll', 0)})) % _totY) + _totY) % _totY, _offX = 0;`)
           } else {
-            ln(`    int _totX = _tn_${id} + WIDTH, _offX = (((int)(t * (${f('scroll', 'scroll', 0)})) % _totX) + _totX) % _totX, _offY = 0;`)
+            ln(`    int _totX = ${layout.width} + WIDTH, _offX = (((int)(t * (${f('scroll', 'scroll', 0)})) % _totX) + _totX) % _totX, _offY = 0;`)
           }
         } else {
           ln(`    int _offX = 0, _offY = 0;`)
         }
-        const sxExpr = textAxisStartExpr(f('x', 'x', 0.5), 'WIDTH', `_tn_${id}`, hAlign, wrap)
-        const syExpr = textAxisStartExpr(f('y', 'y', 0.5), 'HEIGHT', `${font.h}`, vAlign, wrap)
-        ln(`    int _sx = (int)${sxExpr};`)
+        const syExpr = textAxisStartExpr(f('y', 'y', 0.5), 'HEIGHT', `${layout.height}`, vAlign, wrap)
         ln(`    int _sy = (int)${syExpr};`)
+        for (const line of renderableLines) {
+          const sxExpr = textAxisStartExpr(f('x', 'x', 0.5), 'WIDTH', `_tn_${id}_${line.index}`, hAlign, wrap)
+          ln(`    int _sx_${line.index} = (int)${sxExpr};`)
+        }
         if (wrap) {
           ln(`    int _wrapX[3] = {-WIDTH, 0, WIDTH};`)
           ln(`    int _wrapY[3] = {-HEIGHT, 0, HEIGHT};`)
           ln(`    for (int _wy = 0; _wy < 3; _wy++) for (int _wx = 0; _wx < 3; _wx++) {`)
-          emitTextPass('_sx + _wrapX[_wx]', '_sy + _wrapY[_wy]', '      ')
+          for (const line of renderableLines) {
+            const lineOffset = line.index * (font.h + TEXT_LINE_GAP)
+            ln(`      for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - (_sx_${line.index} + _wrapX[_wx]) + _offX; if (_ci < 0 || _ci >= _tn_${id}_${line.index}) continue; uint8_t _col = _txt_${id}_${line.index}[_ci];`)
+            ln(`        for (int _r = 0; _r < ${font.h}; _r++) if (_col & (1 << _r)) { int _yy = (_sy + _wrapY[_wy] + ${lineOffset}) + _r - _offY; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
+          }
           ln(`    }`)
         } else {
-          emitTextPass('_sx', '_sy', '    ')
+          for (const line of renderableLines) {
+            const lineOffset = line.index * (font.h + TEXT_LINE_GAP)
+            ln(`    for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - _sx_${line.index} + _offX; if (_ci < 0 || _ci >= _tn_${id}_${line.index}) continue; uint8_t _col = _txt_${id}_${line.index}[_ci];`)
+            ln(`      for (int _r = 0; _r < ${font.h}; _r++) if (_col & (1 << _r)) { int _yy = (_sy + ${lineOffset}) + _r - _offY; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
+          }
         }
         ln(`  }`)
         break
