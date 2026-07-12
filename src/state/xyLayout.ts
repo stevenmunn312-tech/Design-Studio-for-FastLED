@@ -30,6 +30,11 @@ function clampInt(v: unknown, def: number, min: number, max: number): number {
   return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : def
 }
 
+function normalizedLayout(props: TileLayoutProps): MatrixLayout {
+  const layout = props.layout
+  return layout === 'strip' || layout === 'panels' || layout === 'custom' ? layout : 'matrix'
+}
+
 /** The rotation (degrees, clockwise) applied to the tile at row-major grid
  *  position `tileIndex` (ty * tilesX + tx), read from the comma-separated
  *  `tileRotations` property (e.g. "0,90,0,180"). Missing/invalid entries
@@ -40,23 +45,76 @@ export function tileRotationAt(props: TileLayoutProps, tileIndex: number): TileR
   return n === 90 || n === 180 || n === 270 ? (n as TileRotation) : 0
 }
 
+function validateTileRotations(props: TileLayoutProps, tileCount: number): string[] {
+  const raw = String(props.tileRotations ?? '').trim()
+  if (!raw) return []
+  const parts = raw.split(',')
+  const errors: string[] = []
+  for (let i = 0; i < parts.length; i++) {
+    const token = parts[i].trim()
+    if (!token) continue
+    if (i >= tileCount) {
+      errors.push(`Tile rotations lists ${parts.length} entries, but the current panel grid only has ${tileCount} tile${tileCount === 1 ? '' : 's'}`)
+      break
+    }
+    const n = Math.round(Number(token))
+    if (n !== 0 && n !== 90 && n !== 180 && n !== 270) {
+      errors.push(`Tile rotation ${i + 1} is "${token}" — use 0, 90, 180, or 270`)
+    }
+  }
+  return errors
+}
+
+function customXYMapError(json: unknown, n: number): string | null {
+  const str = String(json ?? '').trim()
+  if (!str) return `Custom XY map is empty — provide a JSON array with ${n} LED index${n === 1 ? '' : 'es'}`
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(str)
+  } catch {
+    return 'Custom XY map is not valid JSON'
+  }
+  if (!Array.isArray(parsed)) return `Custom XY map must be a JSON array with ${n} LED indices`
+  if (parsed.length !== n) return `Custom XY map has ${parsed.length} entries, but the matrix needs ${n}`
+
+  const seen = new Uint8Array(n)
+  for (let i = 0; i < parsed.length; i++) {
+    const value = parsed[i]
+    if (!Number.isInteger(value) || value < 0 || value >= n) {
+      return `Custom XY map entry ${i + 1} must be an integer from 0 to ${n - 1}`
+    }
+    if (seen[value]) return `Custom XY map repeats LED index ${value}`
+    seen[value] = 1
+  }
+  return null
+}
+
+export function validateMatrixLayout(width: number, height: number, props: TileLayoutProps): string[] {
+  const layout = normalizedLayout(props)
+  if (layout === 'panels') {
+    const tilesX = clampInt(props.tilesX, 1, 1, 16)
+    const tilesY = clampInt(props.tilesY, 1, 1, 16)
+    const errors = validateTileRotations(props, tilesX * tilesY)
+    if (width % tilesX !== 0 || height % tilesY !== 0) {
+      errors.unshift(`Panel layout ${width}×${height} can't be divided into ${tilesX}×${tilesY} equal tiles`)
+    }
+    return errors
+  }
+  if (layout === 'custom') {
+    const error = customXYMapError(props.customXYMap, width * height)
+    return error ? [error] : []
+  }
+  return []
+}
+
 /** Parses `customXYMap` as a JSON array of exactly `n` integers forming a
  *  permutation of 0..n-1. Returns null when the property is blank, isn't
  *  valid JSON, has the wrong length, or isn't a permutation — callers should
  *  fall back to the default matrix layout in that case rather than emit a
  *  broken wiring table. */
 export function parseCustomXYMap(json: unknown, n: number): number[] | null {
-  const str = String(json ?? '').trim()
-  if (!str) return null
-  let parsed: unknown
-  try { parsed = JSON.parse(str) } catch { return null }
-  if (!Array.isArray(parsed) || parsed.length !== n) return null
-  const seen = new Uint8Array(n)
-  for (const v of parsed) {
-    if (!Number.isInteger(v) || v < 0 || v >= n || seen[v]) return null
-    seen[v] = 1
-  }
-  return parsed as number[]
+  if (customXYMapError(json, n)) return null
+  return JSON.parse(String(json).trim()) as number[]
 }
 
 function serpentineTable(width: number, height: number): number[] {
@@ -86,7 +144,7 @@ function rotatePoint(lx: number, ly: number, w: number, h: number, deg: TileRota
  *  row-major matrix/strip with pixel serpentine off — the caller's
  *  existing memmove fast path already does the right thing). */
 export function buildXYTable(width: number, height: number, props: TileLayoutProps): number[] | null {
-  const layout = (props.layout as MatrixLayout) ?? 'matrix'
+  const layout = normalizedLayout(props)
   const pixelSerpentine = props.serpentine === true
 
   if (layout === 'custom') {

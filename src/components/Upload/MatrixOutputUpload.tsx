@@ -8,7 +8,7 @@ import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph } from '../../codegen/streamReceiverGenerator'
 import { sdCardConnected, readySongCount, buildShowPayload } from '../../utils/showUpload'
-import { findPinConflicts, estimatePowerLoad, estimateFirmwareRam } from '../../utils/validateGraph'
+import { findPinConflicts, findMatrixLayoutErrors, estimatePowerLoad, estimateFirmwareRam } from '../../utils/validateGraph'
 import CodeViewPopup from './CodeViewPopup'
 import styles from './Upload.module.css'
 
@@ -56,7 +56,9 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
   // hardware-input nodes would silently misbehave or fail to boot on real
   // hardware — block compile/upload/export until they're resolved.
   const pinConflicts = useMemo(() => findPinConflicts(nodes), [nodes])
-  const canBuild = enabled && pinConflicts.length === 0
+  const layoutErrors = useMemo(() => findMatrixLayoutErrors(nodes), [nodes])
+  const blockingErrors = [...pinConflicts, ...layoutErrors]
+  const canBuild = enabled && blockingErrors.length === 0
   const power = useMemo(() => estimatePowerLoad(nodes), [nodes])
   const ram = useMemo(() => estimateFirmwareRam(nodes, edges), [nodes, edges])
 
@@ -163,15 +165,15 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
         title={
           busy ? status.message
           : !enabled ? 'Connect a frame to enable upload'
-          : pinConflicts.length > 0 ? pinConflicts.join('\n')
+          : blockingErrors.length > 0 ? blockingErrors.join('\n')
           : 'Compile & upload to the board'
         }
       >
         <span className={busy ? styles.busyText : undefined}>{uploadLabel}</span>
       </button>
-      {pinConflicts.length > 0 && (
+      {blockingErrors.length > 0 && (
         <div className={styles.streamError}>
-          {pinConflicts.map((c) => <div key={c}>{c}</div>)}
+          {blockingErrors.map((c) => <div key={c}>{c}</div>)}
         </div>
       )}
 
@@ -186,9 +188,9 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
 
       <button
         className={styles.exportBtn}
-        disabled={!enabled}
+        disabled={!enabled || blockingErrors.length > 0}
         onClick={() => exportIno(code)}
-        title="Download the generated .ino sketch"
+        title={!enabled ? 'Connect a frame to enable export' : blockingErrors.length > 0 ? blockingErrors.join('\n') : 'Download the generated .ino sketch'}
       >
         ↓ Export .ino
       </button>

@@ -1,5 +1,6 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { SPI_CHIPSETS, NODE_LIBRARY } from '../state/nodeLibrary'
+import { validateMatrixLayout } from '../state/xyLayout'
 
 export interface ValidationResult {
   errors:   string[]
@@ -223,6 +224,16 @@ export function findPinConflicts(nodes: StudioNode[]): string[] {
   return conflicts.sort()
 }
 
+export function findMatrixLayoutErrors(nodes: StudioNode[]): string[] {
+  const output = nodes.find((n) => n.data.nodeType === 'MatrixOutput')
+  if (!output) return []
+  const props = output.data.properties as Record<string, unknown>
+  const width = Math.max(0, Math.round(Number(props.width ?? 0)))
+  const height = Math.max(0, Math.round(Number(props.height ?? 0)))
+  const label = String(output.data.label ?? output.data.nodeType)
+  return validateMatrixLayout(width, height, props).map((message) => `${label}: ${message}`)
+}
+
 export function validateGraph(nodes: StudioNode[], edges: StudioEdge[]): ValidationResult {
   const errors: string[] = [], warnings: string[] = []
   if (nodes.length === 0) { errors.push('No nodes in graph'); return { errors, warnings } }
@@ -237,6 +248,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[]): Validat
   }
 
   errors.push(...findPinConflicts(nodes))
+  errors.push(...findMatrixLayoutErrors(nodes))
   warnings.push(...findPreviewOnlyWarnings(nodes, edges))
 
   const power = estimatePowerLoad(nodes)

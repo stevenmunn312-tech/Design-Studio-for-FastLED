@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, findPinConflicts, findPreviewOnlyWarnings, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
+import { validateGraph, findPinConflicts, findMatrixLayoutErrors, findPreviewOnlyWarnings, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -159,6 +159,30 @@ describe('validateGraph', () => {
       const edges = [edge('e1', 'sc', 'out', 'frame')]
       const { errors } = validateGraph(nodes, edges)
       expect(errors.some(e => e.includes('GPIO 5'))).toBe(true)
+    })
+  })
+
+  describe('findMatrixLayoutErrors', () => {
+    it('finds no errors for a valid panel layout', () => {
+      const nodes = [node('out', 'MatrixOutput', { width: 8, height: 8, layout: 'panels', tilesX: 2, tilesY: 2, tileRotations: '0,90,180,270' })]
+      expect(findMatrixLayoutErrors(nodes)).toEqual([])
+    })
+
+    it('flags invalid panel divisibility with the MatrixOutput label', () => {
+      const nodes = [node('out', 'MatrixOutput', { width: 5, height: 5, layout: 'panels', tilesX: 2, tilesY: 2 })]
+      expect(findMatrixLayoutErrors(nodes)).toEqual([
+        "MatrixOutput: Panel layout 5×5 can't be divided into 2×2 equal tiles",
+      ])
+    })
+
+    it('surfaces layout problems as validateGraph errors', () => {
+      const nodes = [
+        node('sc', 'SolidColor'),
+        node('out', 'MatrixOutput', { width: 2, height: 2, layout: 'custom', customXYMap: '[0,0,1,2]' }),
+      ]
+      const edges = [edge('e1', 'sc', 'out', 'frame')]
+      const { errors } = validateGraph(nodes, edges)
+      expect(errors).toContain('MatrixOutput: Custom XY map repeats LED index 0')
     })
   })
 

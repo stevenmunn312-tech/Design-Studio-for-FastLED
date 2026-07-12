@@ -17,6 +17,7 @@ import { NODE_LIBRARY, portColor } from './nodeLibrary'
 import type { GroupRegistry } from './graphEvaluator'
 import type { SavedPattern } from './patternLibrary'
 import { useUiStore } from './uiStore'
+import { validateMatrixLayout } from './xyLayout'
 
 export interface StudioNodeData extends Record<string, unknown> {
   label: string
@@ -1254,9 +1255,12 @@ export function matrixTileLayout(nodes: StudioNode[]): { tilesX: number; tilesY:
     const output = nodes.find((n) => (n.data as { nodeType?: string }).nodeType === 'MatrixOutput')
     const p = output?.data.properties as Record<string, unknown> | undefined
     if (p?.layout === 'panels') {
+      const width = Math.max(0, Math.round(Number(p.width ?? 0)))
+      const height = Math.max(0, Math.round(Number(p.height ?? 0)))
       const tilesX = Math.max(1, Math.min(16, Math.round(Number(p.tilesX ?? 1)) || 1))
       const tilesY = Math.max(1, Math.min(16, Math.round(Number(p.tilesY ?? 1)) || 1))
-      matrixTileLayoutCache = (tilesX > 1 || tilesY > 1) ? { tilesX, tilesY } : null
+      const valid = validateMatrixLayout(width, height, p).length === 0
+      matrixTileLayoutCache = valid && (tilesX > 1 || tilesY > 1) ? { tilesX, tilesY } : null
     } else {
       matrixTileLayoutCache = null
     }

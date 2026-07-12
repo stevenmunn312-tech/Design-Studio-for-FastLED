@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildXYTable, parseCustomXYMap, tileRotationAt } from '../xyLayout'
+import { buildXYTable, parseCustomXYMap, tileRotationAt, validateMatrixLayout } from '../xyLayout'
 
 describe('buildXYTable', () => {
   it('returns null for a plain progressive matrix', () => {
@@ -70,5 +70,33 @@ describe('tileRotationAt', () => {
     expect(tileRotationAt(props, 3)).toBe(270)
     expect(tileRotationAt(props, 4)).toBe(0)
     expect(tileRotationAt({ tileRotations: '45' }, 0)).toBe(0) // unrecognised value
+  })
+})
+
+describe('validateMatrixLayout', () => {
+  it('accepts a valid panel layout', () => {
+    expect(validateMatrixLayout(8, 8, { layout: 'panels', tilesX: 2, tilesY: 2, tileRotations: '0,90,180,270' })).toEqual([])
+  })
+
+  it('reports exact panel divisibility problems', () => {
+    expect(validateMatrixLayout(5, 5, { layout: 'panels', tilesX: 2, tilesY: 2 })).toEqual([
+      "Panel layout 5×5 can't be divided into 2×2 equal tiles",
+    ])
+  })
+
+  it('reports invalid tile rotation values and extra entries', () => {
+    expect(validateMatrixLayout(4, 4, { layout: 'panels', tilesX: 2, tilesY: 1, tileRotations: '0,45,180' })).toEqual([
+      'Tile rotation 2 is "45" — use 0, 90, 180, or 270',
+      'Tile rotations lists 3 entries, but the current panel grid only has 2 tiles',
+    ])
+  })
+
+  it('reports exact custom-map errors', () => {
+    expect(validateMatrixLayout(2, 2, { layout: 'custom', customXYMap: '' })).toEqual([
+      'Custom XY map is empty — provide a JSON array with 4 LED indexes',
+    ])
+    expect(validateMatrixLayout(2, 2, { layout: 'custom', customXYMap: '[0,0,1,2]' })).toEqual([
+      'Custom XY map repeats LED index 0',
+    ])
   })
 })
