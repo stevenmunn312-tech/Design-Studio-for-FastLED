@@ -244,7 +244,9 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[]): Validat
   const incoming = new Set(edges.filter(e => e.target && e.targetHandle).map(e => `${e.target}:${e.targetHandle}`))
   if (hasOutput) {
     const out = nodes.find(n => n.data.nodeType === 'MatrixOutput')!
-    if (!incoming.has(`${out.id}:frame`)) errors.push('MatrixOutput has no Frame input connected')
+    const hasFrameInput = incoming.has(`${out.id}:frame`)
+    const hasSdCardInput = incoming.has(`${out.id}:sdcard`)
+    if (!hasFrameInput && !hasSdCardInput) errors.push('MatrixOutput has no Frame or SD Card input connected')
   }
 
   errors.push(...findPinConflicts(nodes))

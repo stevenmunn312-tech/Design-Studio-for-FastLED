@@ -907,7 +907,13 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}
           {d.nodeType === 'TransitionSet' && <TransitionSetBody nodeId={id} />}
 
-          {d.nodeType === 'MatrixOutput' && <MatrixOutputUpload nodeId={id} enabled={sourceMap.has('frame')} />}
+          {d.nodeType === 'MatrixOutput' && (
+            <MatrixOutputUpload
+              nodeId={id}
+              hasFrameInput={sourceMap.has('frame')}
+              hasSdCardInput={sourceMap.has('sdcard')}
+            />
+          )}
         </Suspense>
 
         {isCode && (

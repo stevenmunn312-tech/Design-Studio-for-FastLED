@@ -6,6 +6,7 @@ export interface StarterTemplate {
   id: string
   name: string
   description: string
+  completionSteps?: string[]
   build: () => { nodes: StudioNode[]; edges: StudioEdge[] }
 }
 
@@ -162,23 +163,46 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     ),
   },
   {
-    id: 'show-pipeline',
-    name: 'Show Pipeline',
-    description: 'A pre-wired skeleton for both show workflows: Library → Collection → Show Engine for the live preview, and Library → Performance → SD Card for a music-synced export.',
+    id: 'generative-show',
+    name: 'Generative Show',
+    description: 'A focused live-show skeleton: Pattern Collection feeds the Show Engine, which performs straight into Matrix Output.',
+    completionSteps: [
+      'Group a finished pattern, then connect the Group frame output to Pattern Collection to absorb it.',
+      'Tune Show Engine dwell and transition timing, then optionally wire a Transition Set.',
+      'Upload the controller sketch from Matrix Output once the collection has patterns.',
+    ],
     build: () => buildGraph(
       [
-        { id: 'lib', type: 'MusicLibrary', col: 0, row: 0 },
-        { id: 'collection', type: 'PatternCollection', col: 1, row: 0 },
-        { id: 'master', type: 'PatternMaster', col: 2, row: 0 },
-        { id: 'out', type: 'MatrixOutput', col: 3, row: 0 },
-        { id: 'perf', type: 'PerformanceGenerator', col: 1, row: 1 },
-        { id: 'sd', type: 'SDCard', col: 2, row: 1 },
+        { id: 'collection', type: 'PatternCollection', col: 0, row: 0 },
+        { id: 'master', type: 'PatternMaster', col: 1, row: 0 },
+        { id: 'out', type: 'MatrixOutput', col: 2, row: 0 },
       ],
       [
         { source: 'collection', sourceHandle: 'patternset', target: 'master', targetHandle: 'patternset' },
         { source: 'master', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+      ],
+    ),
+  },
+  {
+    id: 'music-sync-sd-show',
+    name: 'Music-synced SD Show',
+    description: 'A dedicated offline-show path: Music Library bakes timed show files through Performance Generator, then SD Card hands them to Matrix Output for provisioning.',
+    completionSteps: [
+      'Drop songs into Music Library and run analysis so Performance Generator has show files to export.',
+      'Wire an optional Transition Set into Performance Generator if you want more transition variety.',
+      'Use Upload show to SD from Matrix Output after choosing the board and port.',
+    ],
+    build: () => buildGraph(
+      [
+        { id: 'lib', type: 'MusicLibrary', col: 0, row: 0 },
+        { id: 'perf', type: 'PerformanceGenerator', col: 1, row: 0 },
+        { id: 'sd', type: 'SDCard', col: 2, row: 0 },
+        { id: 'out', type: 'MatrixOutput', col: 3, row: 0 },
+      ],
+      [
         { source: 'lib', sourceHandle: 'music', target: 'perf', targetHandle: 'music' },
         { source: 'perf', sourceHandle: 'shows', target: 'sd', targetHandle: 'shows' },
+        { source: 'sd', sourceHandle: 'sdcard', target: 'out', targetHandle: 'sdcard' },
       ],
     ),
   },

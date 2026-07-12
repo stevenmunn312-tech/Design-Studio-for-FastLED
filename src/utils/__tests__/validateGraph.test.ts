@@ -26,9 +26,25 @@ describe('validateGraph', () => {
     expect(errors).toContain('Missing MatrixOutput node')
   })
 
-  it('errors when MatrixOutput frame input is not connected', () => {
+  it('errors when MatrixOutput has neither a frame nor an SD Card input connected', () => {
     const { errors } = validateGraph([node('out', 'MatrixOutput')], [])
-    expect(errors).toContain('MatrixOutput has no Frame input connected')
+    expect(errors).toContain('MatrixOutput has no Frame or SD Card input connected')
+  })
+
+  it('accepts an SD-show wiring path without a frame input', () => {
+    const nodes = [
+      node('lib', 'MusicLibrary'),
+      node('pg', 'PerformanceGenerator'),
+      node('sd', 'SDCard'),
+      node('out', 'MatrixOutput'),
+    ]
+    const edges = [
+      { id: 'e1', source: 'lib', target: 'pg', sourceHandle: 'music', targetHandle: 'music' } as unknown as StudioEdge,
+      { id: 'e2', source: 'pg', target: 'sd', sourceHandle: 'shows', targetHandle: 'shows' } as unknown as StudioEdge,
+      { id: 'e3', source: 'sd', target: 'out', sourceHandle: 'sdcard', targetHandle: 'sdcard' } as unknown as StudioEdge,
+    ]
+    const { errors } = validateGraph(nodes, edges)
+    expect(errors).toHaveLength(0)
   })
 
   it('passes a valid minimal graph', () => {

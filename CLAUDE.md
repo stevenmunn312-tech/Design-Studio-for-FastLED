@@ -100,6 +100,8 @@ It is a **multi-graph workspace** (ADR 0001): the *active* graph stays in the to
 
 **`src/state/projectStore.ts`** owns the named-project switcher: each project is a full persisted workspace (`nodes`/`edges` plus `graphData`/`graphs`/`activeGraphId`) with `createdAt`/`updatedAt` metadata, plus an optional per-project upload target (`uploadTarget`: remembered `selectedFqbn` + `selectedPort`). Projects are cached in localStorage under `fastled-studio.projects.v1` and write-through synced to helper-backed JSON files in the repo-root `Projects/` folder when the backend is available. `App.tsx` now autosaves into the **current project** rather than a single global slot, migrating the old `fastled-studio-graph` autosave key into the default `Main` project on first load; MenuBar's **▤ Projects** popup is the UI for creating, duplicating, switching, renaming, and deleting projects.
 
+**Starter templates** live in `src/state/starterTemplates.ts` and are loaded through `TemplatesPopup`: Rainbow Sweep, Fire, Scrolling Text, Audio Spectrum, Field Warp Demo, plus two separate show starters — **Generative Show** (`Pattern Collection → Show Engine → Matrix Output`) and **Music-synced SD Show** (`Music Library → Performance Generator → SD Card → Matrix Output.sdcard`). Each template now carries short completion steps shown in the popup so the show starters teach the intended workflow without disconnected side paths.
+
 **`src/state/nodeLibrary.ts`** is the static registry (`NODE_LIBRARY: NodeDefinition[]`). Adding a new node type = add one entry here. No other registration required — the Sidebar reads this array directly.
 
 ### Node Rendering

@@ -46,6 +46,11 @@ export default function TemplatesPopup() {
               <div className={styles.rowInfo}>
                 <span className={styles.rowName}>{t.name}</span>
                 <span className={styles.rowDesc}>{t.description}</span>
+                {t.completionSteps && t.completionSteps.length > 0 && (
+                  <ol className={styles.steps}>
+                    {t.completionSteps.map((step) => <li key={step}>{step}</li>)}
+                  </ol>
+                )}
               </div>
               <button className={styles.loadBtn} onClick={() => { void load(t.id) }}>Load</button>
             </div>

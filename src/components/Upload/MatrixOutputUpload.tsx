@@ -16,7 +16,15 @@ import styles from './Upload.module.css'
 // the selected board·port label, a "Use PSRAM" toggle (only when the selected
 // board can have PSRAM), an Upload button with inline status, an Export .ino
 // button, and a small button that opens the detailed output console.
-export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string; enabled: boolean }) {
+export default function MatrixOutputUpload({
+  nodeId,
+  hasFrameInput,
+  hasSdCardInput,
+}: {
+  nodeId: string
+  hasFrameInput: boolean
+  hasSdCardInput: boolean
+}) {
   const { nodes, edges, updateNodeProperty } = useGraphStore()
   const entries = useMusicStore((s) => s.entries)
   const currentProjectId = useProjectStore((s) => s.currentProjectId)
@@ -58,7 +66,8 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
   const pinConflicts = useMemo(() => findPinConflicts(nodes), [nodes])
   const layoutErrors = useMemo(() => findMatrixLayoutErrors(nodes), [nodes])
   const blockingErrors = [...pinConflicts, ...layoutErrors]
-  const canBuild = enabled && blockingErrors.length === 0
+  const canBuild = hasFrameInput && blockingErrors.length === 0
+  const canShowUpload = hasSdCardInput && blockingErrors.length === 0
   const power = useMemo(() => estimatePowerLoad(nodes), [nodes])
   const ram = useMemo(() => estimateFirmwareRam(nodes, edges), [nodes, edges])
 
@@ -164,7 +173,7 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
         onClick={() => runUpload(code, usePsram ? psramChoice?.opt : undefined)}
         title={
           busy ? status.message
-          : !enabled ? 'Connect a frame to enable upload'
+          : !hasFrameInput ? 'Connect a frame to enable upload'
           : blockingErrors.length > 0 ? blockingErrors.join('\n')
           : 'Compile & upload to the board'
         }
@@ -188,18 +197,18 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
 
       <button
         className={styles.exportBtn}
-        disabled={!enabled || blockingErrors.length > 0}
+        disabled={!hasFrameInput || blockingErrors.length > 0}
         onClick={() => exportIno(code)}
-        title={!enabled ? 'Connect a frame to enable export' : blockingErrors.length > 0 ? blockingErrors.join('\n') : 'Download the generated .ino sketch'}
+        title={!hasFrameInput ? 'Connect a frame to enable export' : blockingErrors.length > 0 ? blockingErrors.join('\n') : 'Download the generated .ino sketch'}
       >
         ↓ Export .ino
       </button>
 
       <button
         className={styles.exportBtn}
-        disabled={!enabled}
+        disabled={!hasFrameInput}
         onClick={openCodeView}
-        title="View the generated .ino sketch"
+        title={hasFrameInput ? 'View the generated .ino sketch' : 'Connect a frame to view the generated .ino sketch'}
       >
         {'</>'} View Code
       </button>
@@ -228,9 +237,15 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
       {sdConnected && (
         <button
           className={styles.exportBtn}
-          disabled={!canBuild || busy || readySongs === 0}
+          disabled={!canShowUpload || busy || readySongs === 0}
           onClick={handleShowUpload}
-          title={readySongs === 0 ? 'Analyse music in the Music Library node first' : 'Flash the provisioner, write music/show files to SD, then flash the player'}
+          title={
+            !hasSdCardInput
+              ? 'Connect an SD Card node to Matrix Output to enable SD-show upload'
+              : readySongs === 0
+                ? 'Analyse music in the Music Library node first'
+                : 'Flash the provisioner, write music/show files to SD, then flash the player'
+          }
         >
           ♪ Upload show to SD ({readySongs})
         </button>

@@ -108,6 +108,18 @@
   line-height: 1.4;
 }
 
+.steps {
+  margin: 4px 0 0;
+  padding-left: 16px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.steps li + li {
+  margin-top: 2px;
+}
+
 .loadBtn {
   background: none;
   border: 1px solid rgba(0, 191, 255, 0.3);
