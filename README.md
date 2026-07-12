@@ -143,6 +143,15 @@ preview to take priority. The full contract lives in
 Offline music analysis in the Music Library pipeline uses Essentia.js / Essentia.
 Please acknowledge its origin as [http://essentia.upf.edu](http://essentia.upf.edu).
 
+## Release Metadata
+
+- License: [`LICENSE`](LICENSE)
+- Changelog: [`CHANGELOG.md`](CHANGELOG.md)
+- Third-party notices: [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)
+- Security reporting: [`SECURITY.md`](SECURITY.md)
+- Supported-platform policy: [`docs/release/supported-platform-policy.md`](docs/release/supported-platform-policy.md)
+- Versioning & tags: [`docs/release/versioning-and-releases.md`](docs/release/versioning-and-releases.md)
+
 ## Project Structure
 
 ```

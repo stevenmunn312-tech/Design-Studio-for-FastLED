@@ -85,9 +85,12 @@ The repo-wrapped npm scripts invoke Node with `--disable-warning=DEP0040` to sup
 ## Release docs
 
 `docs/release/beta-support-matrix.md` is the source of truth for what the
-public beta currently treats as supported vs. experimental. Do not promote a
-new board, browser, chipset, layout, engine, or upload path in user-facing docs
-without recording the exact validated combo there.
+public beta currently treats as supported vs. experimental. The rest of the
+release scaffold lives beside it or at the repo root: platform policy,
+versioning/tagging, `LICENSE`, `CHANGELOG.md`, `THIRD_PARTY_NOTICES.md`, and
+`SECURITY.md`. Do not promote a new board, browser, chipset, layout, engine, or
+upload path in user-facing docs without recording the exact validated combo
+there and updating the release docs if the support promise changed.
 
 ## Architecture
 

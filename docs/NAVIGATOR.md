@@ -42,6 +42,11 @@ build/architecture overview aimed at contributors.
 - [Beta support matrix](release/beta-support-matrix.md)
   — the only combinations currently promoted from experimental to public-beta
     supported, plus the CI-only coverage and the validation gaps still to fill.
+- [Supported platform policy](release/supported-platform-policy.md)
+  — how support tiers map onto the beta matrix, desktop-only expectations, and
+    how supported vs. experimental paths are triaged.
+- [Versioning and releases](release/versioning-and-releases.md)
+  — the pre-1.0 semantic-versioning rules, tag format, and release checklist.
 
 ## Design intent (original specs)
 

@@ -2,6 +2,7 @@
   "name": "fastled-studio",
   "private": true,
   "version": "0.1.0",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "node --disable-warning=DEP0040 ./node_modules/vite/bin/vite.js --host 127.0.0.1",
