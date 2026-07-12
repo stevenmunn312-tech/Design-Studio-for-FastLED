@@ -8,7 +8,7 @@ import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph } from '../../codegen/streamReceiverGenerator'
 import { sdCardConnected, readySongCount, buildShowPayload } from '../../utils/showUpload'
-import { findPinConflicts, estimatePowerLoad } from '../../utils/validateGraph'
+import { findPinConflicts, estimatePowerLoad, estimateFirmwareRam } from '../../utils/validateGraph'
 import CodeViewPopup from './CodeViewPopup'
 import styles from './Upload.module.css'
 
@@ -58,6 +58,7 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
   const pinConflicts = useMemo(() => findPinConflicts(nodes), [nodes])
   const canBuild = enabled && pinConflicts.length === 0
   const power = useMemo(() => estimatePowerLoad(nodes), [nodes])
+  const ram = useMemo(() => estimateFirmwareRam(nodes, edges), [nodes, edges])
 
   // Live streaming: push already-computed preview frames to a once-flashed
   // generic Adalight receiver instead of a compile+flash cycle per tweak.
@@ -116,6 +117,16 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
           {power.configuredMa != null
             ? ` · cap ${(power.configuredMa / 1000).toFixed(1)} A${power.exceedsConfigured ? ' ⚠ may exceed cap' : ''}`
             : ` · recommended PSU ≥ ${(power.recommendedMa / 1000).toFixed(1)} A`}
+        </div>
+      )}
+
+      {ram && ram.ledCount > 0 && (
+        <div
+          className={styles.powerRow}
+          title="Internal RAM = the physical LED array plus any render buffers not offloaded to PSRAM, plus fixed simulation-node state (heat maps, particle pools, etc.) which always stays internal. Rough estimate — actual usage also depends on the rest of the sketch."
+        >
+          ~{(ram.internalBytes / 1024).toFixed(1)} KB internal
+          {ram.psramBytes > 0 ? ` · ~${(ram.psramBytes / 1024).toFixed(1)} KB PSRAM` : ''}
         </div>
       )}
 

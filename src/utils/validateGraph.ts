@@ -1,5 +1,5 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
-import { SPI_CHIPSETS } from '../state/nodeLibrary'
+import { SPI_CHIPSETS, NODE_LIBRARY } from '../state/nodeLibrary'
 
 export interface ValidationResult {
   errors:   string[]
@@ -107,6 +107,108 @@ export function estimatePowerLoad(nodes: StudioNode[]): PowerEstimate | null {
   }
 }
 
+export interface FirmwareRamEstimate {
+  ledCount: number
+  /** The physical `leds` CRGB array — always internal RAM, never PSRAM. */
+  ledsArrayBytes: number
+  /** Per-node `buf_<id>` CRGB render buffers reachable from MatrixOutput. */
+  frameBufferBytes: number
+  /** Per-node `field_<id>` float buffers reachable from MatrixOutput. */
+  fieldBufferBytes: number
+  /** Known simulation-node state beyond their own render buffer (heat maps,
+   *  Game of Life cell grids, Reaction-Diffusion's u/v grids, particle pools,
+   *  …) — these stay in internal RAM even when PSRAM is enabled (a noted
+   *  follow-up in CLAUDE.md), so they're tracked separately from the buffers. */
+  statefulBytes: number
+  /** Whether MatrixOutput's `usePsram` is on (frame/field buffers move to PSRAM). */
+  usesPsram: boolean
+  /** RAM that must fit in the MCU's internal SRAM regardless of PSRAM. */
+  internalBytes: number
+  /** RAM offloaded to external PSRAM (0 when `usePsram` is off). */
+  psramBytes: number
+}
+
+const OUTPUT_DATATYPES_BY_NODE_TYPE = new Map(
+  NODE_LIBRARY.map((def) => [def.type, new Set(def.outputs.map((o) => o.dataType))])
+)
+
+// Extra `static` state a handful of simulation nodes allocate beyond their own
+// frame/field render buffer — mirrors the arrays cppGenerator.ts emits for
+// each (see the matching `case`). Not tracked for every node, just the ones
+// with materially large fixed per-LED overhead.
+const STATEFUL_EXTRA_BYTES_PER_LED: Record<string, number> = {
+  Fire2012: 1,            // uint8 heat[HEIGHT][WIDTH]
+  GameOfLife: 6,          // uint8 cells + uint8 next + float bright
+  ReactionDiffusion: 16,  // 4 float arrays (u, v, un, vn)
+  WaveSim: 12,            // 3 float arrays (p, c, n) beyond its own field buffer
+}
+// Particles uses a fixed-size pool independent of matrix size (see the
+// `Particles` case in cppGenerator.ts): 6 floats + 3 uint8 per slot.
+const PARTICLE_BYTES_PER_SLOT = 27
+const PARTICLE_POOL_SIZE = (mode: string) => (mode === 'swarm' ? 40 : 120)
+
+/**
+ * Rough RAM budget for the generated sketch: the physical `leds` array plus
+ * every frame/field render buffer reachable from MatrixOutput (unreached
+ * nodes get no buffer in codegen, so isolated nodes don't inflate this), plus
+ * known-heavy simulation-node state. Operates on the graph passed in (like
+ * the rest of this module) — it does not recurse into group subgraphs.
+ */
+export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[]): FirmwareRamEstimate | null {
+  const out = nodes.find((n) => n.data.nodeType === 'MatrixOutput')
+  if (!out) return null
+  const outProps = out.data.properties as Record<string, unknown>
+  const w = Math.max(0, Math.round(Number(outProps.width ?? 0)))
+  const h = Math.max(0, Math.round(Number(outProps.height ?? 0)))
+  const ledCount = w * h
+
+  // Only nodes that actually feed the terminal frame get a buffer in the
+  // generated sketch — walk backward from MatrixOutput to find them.
+  const incomingByTarget = new Map<string, StudioEdge[]>()
+  for (const e of edges) {
+    const list = incomingByTarget.get(e.target) ?? []
+    list.push(e)
+    incomingByTarget.set(e.target, list)
+  }
+  const byId = new Map(nodes.map((n) => [n.id, n]))
+  const reachable = new Set<string>()
+  const stack = [out.id]
+  while (stack.length) {
+    const id = stack.pop()!
+    if (reachable.has(id)) continue
+    reachable.add(id)
+    for (const e of incomingByTarget.get(id) ?? []) stack.push(e.source)
+  }
+
+  let frameBufferBytes = 0, fieldBufferBytes = 0, statefulBytes = 0
+  for (const id of reachable) {
+    const n = byId.get(id)
+    if (!n) continue
+    const outputTypes = OUTPUT_DATATYPES_BY_NODE_TYPE.get(n.data.nodeType)
+    if (outputTypes?.has('frame')) frameBufferBytes += ledCount * 3
+    if (outputTypes?.has('field')) fieldBufferBytes += ledCount * 4
+
+    const extraPerLed = STATEFUL_EXTRA_BYTES_PER_LED[n.data.nodeType]
+    if (extraPerLed) statefulBytes += ledCount * extraPerLed
+    if (n.data.nodeType === 'Particles') {
+      const mode = String((n.data.properties as Record<string, unknown>)?.particleType ?? 'fountain')
+      statefulBytes += PARTICLE_POOL_SIZE(mode) * PARTICLE_BYTES_PER_SLOT
+    }
+  }
+
+  const ledsArrayBytes = ledCount * 3
+  const usesPsram = outProps.usePsram === true
+  const psramBytes = usesPsram ? frameBufferBytes + fieldBufferBytes : 0
+  const internalBytes = ledsArrayBytes + statefulBytes + (usesPsram ? 0 : frameBufferBytes + fieldBufferBytes)
+
+  return { ledCount, ledsArrayBytes, frameBufferBytes, fieldBufferBytes, statefulBytes, usesPsram, internalBytes, psramBytes }
+}
+
+// A conservative "worth a heads-up" threshold for classic ESP32-class internal
+// SRAM (WiFi/BT stacks and the rest of the app already claim a large share of
+// the ~300–500 KB total) — not a hard board-specific limit.
+const INTERNAL_RAM_WARN_BYTES = 40_000
+
 export function findPinConflicts(nodes: StudioNode[]): string[] {
   const byPin = new Map<number, string[]>()
   for (const { label, pin } of collectPinUses(nodes)) {
@@ -141,6 +243,13 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[]): Validat
   if (power?.exceedsConfigured) {
     warnings.push(
       `Worst-case draw (~${power.worstCaseMa} mA for ${power.ledCount} LEDs) exceeds the configured power cap (${power.configuredMa} mA) — FastLED will auto-dim to stay under it`
+    )
+  }
+
+  const ram = estimateFirmwareRam(nodes, edges)
+  if (ram && !ram.usesPsram && ram.internalBytes > INTERNAL_RAM_WARN_BYTES) {
+    warnings.push(
+      `Estimated internal RAM for render buffers (~${Math.round(ram.internalBytes / 1024)} KB) is large for many boards — consider enabling MatrixOutput's "Use PSRAM" toggle if the selected board supports it`
     )
   }
 

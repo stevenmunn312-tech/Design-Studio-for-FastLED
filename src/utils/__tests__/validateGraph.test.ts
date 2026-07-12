@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, findPinConflicts, findPreviewOnlyWarnings, estimatePowerLoad } from '../validateGraph'
+import { validateGraph, findPinConflicts, findPreviewOnlyWarnings, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -198,6 +198,75 @@ describe('validateGraph', () => {
       const edges = [edge('e1', 'sc', 'out', 'frame')]
       const { warnings } = validateGraph(nodes, edges)
       expect(warnings.some(w => w.includes('exceeds the configured power cap'))).toBe(true)
+    })
+  })
+
+  describe('estimateFirmwareRam', () => {
+    it('returns null with no MatrixOutput', () => {
+      expect(estimateFirmwareRam([node('sc', 'SolidColor')], [])).toBeNull()
+    })
+
+    it('counts the leds array plus one frame buffer for a simple chain', () => {
+      const nodes = [node('sc', 'SolidColor'), node('out', 'MatrixOutput', { width: 4, height: 4 })]
+      const edges = [edge('e1', 'sc', 'out', 'frame')]
+      const ram = estimateFirmwareRam(nodes, edges)!
+      expect(ram.ledCount).toBe(16)
+      expect(ram.ledsArrayBytes).toBe(48)      // 16 * 3
+      expect(ram.frameBufferBytes).toBe(48)    // one frame-producing node * 16 * 3
+      expect(ram.fieldBufferBytes).toBe(0)
+      expect(ram.statefulBytes).toBe(0)
+      expect(ram.internalBytes).toBe(96)
+      expect(ram.psramBytes).toBe(0)
+    })
+
+    it('ignores nodes not reachable from MatrixOutput', () => {
+      const nodes = [
+        node('sc', 'SolidColor'),
+        node('out', 'MatrixOutput', { width: 4, height: 4 }),
+        node('fire', 'Fire2012'), // isolated — never wired in
+      ]
+      const edges = [edge('e1', 'sc', 'out', 'frame')]
+      const ram = estimateFirmwareRam(nodes, edges)!
+      expect(ram.statefulBytes).toBe(0)
+      expect(ram.frameBufferBytes).toBe(48) // only SolidColor's buffer, not Fire2012's
+    })
+
+    it('adds a stateful node\'s known per-LED overhead when reachable', () => {
+      const nodes = [node('fire', 'Fire2012'), node('out', 'MatrixOutput', { width: 4, height: 4 })]
+      const edges = [edge('e1', 'fire', 'out', 'frame')]
+      const ram = estimateFirmwareRam(nodes, edges)!
+      expect(ram.frameBufferBytes).toBe(48)  // Fire2012's own frame buffer
+      expect(ram.statefulBytes).toBe(16)     // 16 LEDs * 1 byte/LED heat map
+    })
+
+    it('adds a fixed particle-pool size regardless of matrix dimensions', () => {
+      const nodes = [node('p', 'Particles', { particleType: 'fountain' }), node('out', 'MatrixOutput', { width: 4, height: 4 })]
+      const edges = [edge('e1', 'p', 'out', 'frame')]
+      const ram = estimateFirmwareRam(nodes, edges)!
+      expect(ram.statefulBytes).toBe(120 * 27)
+    })
+
+    it('offloads frame/field buffers to PSRAM when usePsram is on', () => {
+      const nodes = [node('sc', 'SolidColor'), node('out', 'MatrixOutput', { width: 4, height: 4, usePsram: true })]
+      const edges = [edge('e1', 'sc', 'out', 'frame')]
+      const ram = estimateFirmwareRam(nodes, edges)!
+      expect(ram.usesPsram).toBe(true)
+      expect(ram.psramBytes).toBe(48)
+      expect(ram.internalBytes).toBe(48) // just the leds array
+    })
+
+    it('surfaces a large internal-RAM estimate as a validateGraph warning', () => {
+      const nodes = [node('sc', 'SolidColor'), node('out', 'MatrixOutput', { width: 100, height: 100 })]
+      const edges = [edge('e1', 'sc', 'out', 'frame')]
+      const { warnings } = validateGraph(nodes, edges)
+      expect(warnings.some(w => w.includes('internal RAM'))).toBe(true)
+    })
+
+    it('does not warn about internal RAM for a small graph', () => {
+      const nodes = [node('sc', 'SolidColor'), node('out', 'MatrixOutput', { width: 8, height: 8 })]
+      const edges = [edge('e1', 'sc', 'out', 'frame')]
+      const { warnings } = validateGraph(nodes, edges)
+      expect(warnings.some(w => w.includes('internal RAM'))).toBe(false)
     })
   })
 
