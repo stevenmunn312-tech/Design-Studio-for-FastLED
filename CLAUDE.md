@@ -234,20 +234,27 @@ These nodes have no `frame`/`palette`/`color` output, so they don't participate 
 
 All colors, spacing, and typography are CSS variables in `src/themes/tokens.css`. Each node category maps to an accent color. Category metadata (display order, label, accent CSS var, and literal hex for canvas/SVG) lives in one place — the `CATEGORIES` table in `src/state/nodeLibrary.ts`, which also exports `CATEGORY_COLOR` (hex) and `CATEGORY_ACCENT_VAR` (CSS var). Do not re-inline these maps in components.
 
-Accent hues sweep the wheel in sidebar order — 36° per category starting at red, all `hsl(h, 100%, 60%)` — so the category list reads as a rainbow ramp:
+Accent hues sweep the wheel across all 15 sidebar section headers — Quick recipes, Favourites, Recent rack, the 11 `CATEGORIES` entries below (Notes included), then My Patterns — top to bottom, at 360/15 = 24° per header, all `hsl(h, 100%, 60%)`. Favourites and Recent rack always render (with an empty-state message when they have nothing to show) so their slot in the wheel is never actually skipped:
 
-| Category id | Label | Hue | Hex | CSS var |
-|-------------|-------|-----|-----|---------|
-| input | Inputs | 0° | `#ff3333` | `--accent-input` |
-| audio | Audio | 36° | `#ff9933` | `--accent-audio` |
-| signal | Signals | 72° | `#ccff33` | `--accent-signal` |
-| math | Math & Logic | 108° | `#66ff33` | `--accent-math` |
-| color | Color | 144° | `#33ff99` | `--accent-color` |
-| pattern | Patterns | 180° | `#33ffff` | `--accent-pattern` |
-| field | Fields | 216° | `#3385ff` | `--accent-field` |
-| composite | Effects | 252° | `#5c33ff` | `--accent-composite` |
-| show | Show | 288° | `#d633ff` | `--accent-show` |
-| output | Output | 324° | `#ff33ad` | `--accent-output` |
+| Sidebar position | Category id | Label | Hue | Hex | CSS var |
+|-------------------|-------------|-------|-----|-----|---------|
+| 1 | — | Quick recipes | 0° | `#ff3333` | `--accent-recipes` |
+| 2 | — | Favourites | 24° | `#ff8533` | `--accent-favourites` |
+| 3 | — | Recent rack | 48° | `#ffd633` | `--accent-recent` |
+| 4 | input | Inputs | 72° | `#d6ff33` | `--accent-input` |
+| 5 | audio | Audio | 96° | `#85ff33` | `--accent-audio` |
+| 6 | signal | Signals | 120° | `#33ff33` | `--accent-signal` |
+| 7 | math | Math & Logic | 144° | `#33ff85` | `--accent-math` |
+| 8 | color | Color | 168° | `#33ffd6` | `--accent-color` |
+| 9 | pattern | Patterns | 192° | `#33d6ff` | `--accent-pattern` |
+| 10 | field | Fields | 216° | `#3385ff` | `--accent-field` |
+| 11 | composite | Effects | 240° | `#3333ff` | `--accent-composite` |
+| 12 | show | Show | 264° | `#8533ff` | `--accent-show` |
+| 13 | output | Output | 288° | `#d633ff` | `--accent-output` |
+| 14 | note | Notes | 312° | `#ff33d6` | `--accent-note` |
+| 15 | — | My Patterns | 336° | `#ff3385` | `--accent-library` |
+
+Category metadata for the 11 `CATEGORIES` entries (including Notes) lives in the `CATEGORIES` table in `src/state/nodeLibrary.ts` (also exporting `CATEGORY_COLOR`/`CATEGORY_ACCENT_VAR`); the 4 non-category headers' vars live only in `tokens.css` since they have no node-library entry.
 
 (The song-section chips in `MusicLibraryNodeBody.module.css` keep their own fixed literal colours — they are a section legend, not category accents.)
 

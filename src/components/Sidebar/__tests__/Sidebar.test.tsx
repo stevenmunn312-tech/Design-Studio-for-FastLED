@@ -7,7 +7,7 @@ import { useUiStore } from '../../../state/uiStore'
 
 describe('Sidebar equipment rack', () => {
   beforeEach(() => {
-    localStorage.setItem('fastled-studio-sidebar-expanded', JSON.stringify('audio'))
+    localStorage.setItem('fastled-studio-sidebar-expanded-v2', JSON.stringify('audio'))
     localStorage.setItem('fastled-studio-sidebar-view', JSON.stringify('beginner'))
     localStorage.removeItem('fastled-studio-sidebar-favourites')
     localStorage.removeItem('fastled-studio-sidebar-recent')
@@ -64,6 +64,7 @@ describe('Sidebar equipment rack', () => {
   it('drops a curated recipe onto the canvas', () => {
     const { getByText } = render(<Sidebar />)
 
+    fireEvent.click(getByText('Quick recipes'))
     fireEvent.click(getByText('Add trails'))
 
     expect(useGraphStore.getState().nodes.map((node) => node.data.nodeType)).toEqual(

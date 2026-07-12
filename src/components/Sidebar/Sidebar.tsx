@@ -5,10 +5,14 @@ import { usePatternLibrary, importPatternFile, type SavedPattern } from '../../s
 import { NODE_LIBRARY, CATEGORIES, CATEGORY_ACCENT_VAR, NODE_DESCRIPTIONS, categoryNodes } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { revealPatternsFolder } from '../../utils/backendClient'
+import { runTidy } from '../../utils/tidyGraph'
 import type { NodeDefinition } from '../../types'
 import styles from './Sidebar.module.css'
 
-const EXPANDED_KEY = 'fastled-studio-sidebar-expanded'
+// Bumped to v2 so existing sessions (whose stored value predates Quick
+// recipes becoming collapsible) fall through to the new 'recipes' default
+// once, instead of staying stuck on whatever category they had open before.
+const EXPANDED_KEY = 'fastled-studio-sidebar-expanded-v2'
 const FAVOURITES_KEY = 'fastled-studio-sidebar-favourites'
 const RECENT_KEY = 'fastled-studio-sidebar-recent'
 const VIEW_KEY = 'fastled-studio-sidebar-view'
@@ -75,7 +79,7 @@ const RECIPE_CARDS: RecipeCard[] = [
       { key: 'mic', type: 'MicInput', dx: -320, dy: -120 },
       { key: 'fft', type: 'FFTAnalyzer', dx: -120, dy: -120 },
       { key: 'noise', type: 'Noise', dx: -320, dy: 40 },
-      { key: 'bright', type: 'Brightness', dx: -80, dy: 40 },
+      { key: 'bright', type: 'BrightnessMod', dx: -80, dy: 40 },
       { key: 'out', type: 'MatrixOutput', dx: 180, dy: 40 },
     ],
     edges: [
@@ -200,7 +204,7 @@ function Sidebar() {
   const setDraggingNodeType = useUiStore((s) => s.setDraggingNodeType)
   // One-bank-at-a-time accordion. We still persist the last opened section,
   // but unlike the old multi-open drawer this keeps the library scan tight.
-  const [expandedId, setExpandedId] = useState<string | null>(() => loadExpanded() ?? CATEGORIES[0]?.id ?? null)
+  const [expandedId, setExpandedId] = useState<string | null>(() => loadExpanded() ?? 'recipes')
   const [viewMode, setViewMode] = useState<'beginner' | 'all'>(() => loadView())
   const [favourites, setFavourites] = useState<string[]>(() => loadStringArray(FAVOURITES_KEY))
   const [recent, setRecent] = useState<string[]>(() => loadStringArray(RECENT_KEY))
@@ -457,6 +461,7 @@ function Sidebar() {
         targetHandle: edge.targetHandle,
       })
     }
+    runTidy()
     setStatus(
       omittedSingletons.has('MatrixOutput')
         ? `${recipe.title} recipe added — wire it into your existing Matrix Output when ready`
@@ -530,8 +535,14 @@ function Sidebar() {
     )
   }
 
-  const renderSection = (id: string, label: string, accent: string, defs: NodeDefinition[], count?: number) => {
-    if (defs.length === 0) return null
+  const renderSection = (
+    id: string,
+    label: string,
+    accent: string,
+    defs: NodeDefinition[],
+    opts?: { emptyMessage?: string },
+  ) => {
+    if (defs.length === 0 && !opts?.emptyMessage) return null
     const open = expandedId === id
     return (
       <div key={id} className={styles.category}>
@@ -543,7 +554,7 @@ function Sidebar() {
           <span className={styles.drawerLabel}>
             <span className={styles.drawerLight} aria-hidden="true" />
             {label}
-            <span className={styles.drawerCount}>{count ?? defs.length}</span>
+            <span className={styles.drawerCount}>{defs.length}</span>
           </span>
           <span
             className={styles.chevron}
@@ -553,20 +564,24 @@ function Sidebar() {
           </span>
         </button>
         {open && (
-          <ul className={styles.nodeList}>
-            {defs.flatMap((def, index) => {
-              const items = []
-              if (def.subcategory && def.subcategory !== defs[index - 1]?.subcategory) {
-                items.push(
-                  <li key={`sub-${id}-${def.subcategory}`} className={styles.subHeader} aria-hidden="true">
-                    {def.subcategory}
-                  </li>
-                )
-              }
-              items.push(renderModule(def))
-              return items
-            })}
-          </ul>
+          defs.length === 0 ? (
+            <div className={styles.patternDropHint}>{opts?.emptyMessage}</div>
+          ) : (
+            <ul className={styles.nodeList}>
+              {defs.flatMap((def, index) => {
+                const items = []
+                if (def.subcategory && def.subcategory !== defs[index - 1]?.subcategory) {
+                  items.push(
+                    <li key={`sub-${id}-${def.subcategory}`} className={styles.subHeader} aria-hidden="true">
+                      {def.subcategory}
+                    </li>
+                  )
+                }
+                items.push(renderModule(def))
+                return items
+              })}
+            </ul>
+          )
         )}
       </div>
     )
@@ -617,31 +632,50 @@ function Sidebar() {
       </div>
       <div className={styles.scroll}>
         {query === '' && visibleRecipes.length > 0 && (
-          <div className={styles.recipeShelf}>
-            <div className={styles.recipeHeader}>
-              <span>Quick recipes</span>
-              <span className={styles.recipeMeta}>Prewired drops</span>
-            </div>
-            <div className={styles.recipeCards}>
-              {visibleRecipes.map((recipe) => (
-                <button
-                  key={recipe.id}
-                  type="button"
-                  className={styles.recipeCard}
-                  onClick={() => handleRecipeDrop(recipe)}
-                >
-                  <span className={styles.recipeKicker}>{recipe.kicker}</span>
-                  <span className={styles.recipeTitle}>{recipe.title}</span>
-                  <span className={styles.recipeDesc}>{recipe.description}</span>
-                  <span className={styles.recipeAction}>{recipe.actionLabel}</span>
-                </button>
-              ))}
-            </div>
+          <div className={styles.category}>
+            <button
+              className={styles.categoryHeader}
+              style={{ '--accent': 'var(--accent-recipes)' } as React.CSSProperties}
+              onClick={() => toggle('recipes')}
+            >
+              <span className={styles.drawerLabel}>
+                <span className={styles.drawerLight} aria-hidden="true" />
+                Quick recipes
+                <span className={styles.drawerCount}>{visibleRecipes.length}</span>
+              </span>
+              <span
+                className={styles.chevron}
+                style={{ transform: expandedId === 'recipes' ? 'rotate(180deg)' : 'rotate(0deg)' }}
+              >
+                ▾
+              </span>
+            </button>
+            {expandedId === 'recipes' && (
+              <div className={styles.recipeCards}>
+                {visibleRecipes.map((recipe) => (
+                  <button
+                    key={recipe.id}
+                    type="button"
+                    className={styles.recipeCard}
+                    onClick={() => handleRecipeDrop(recipe)}
+                  >
+                    <span className={styles.recipeKicker}>{recipe.kicker}</span>
+                    <span className={styles.recipeTitle}>{recipe.title}</span>
+                    <span className={styles.recipeDesc}>{recipe.description}</span>
+                    <span className={styles.recipeAction}>{recipe.actionLabel}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        {renderSection('favourites', 'Favourites', 'var(--accent-pattern)', favouriteDefs)}
-        {renderSection('recent', 'Recent rack', 'var(--accent-output)', recentDefs)}
+        {renderSection('favourites', 'Favourites', 'var(--accent-favourites)', favouriteDefs, query === '' ? {
+          emptyMessage: 'No favourites yet — click the ★ on a module to pin it here.',
+        } : undefined)}
+        {renderSection('recent', 'Recent rack', 'var(--accent-recent)', recentDefs, query === '' ? {
+          emptyMessage: 'No recently used modules yet.',
+        } : undefined)}
 
         {CATEGORIES.map(({ id, label }) => {
           const nodes = filteredByView(categoryNodes(id))
@@ -660,7 +694,7 @@ function Sidebar() {
         >
           <div
             className={styles.categoryHeader}
-            style={{ '--accent': 'var(--accent-composite)' } as React.CSSProperties}
+            style={{ '--accent': 'var(--accent-library)' } as React.CSSProperties}
           >
             <button
               className={styles.categoryHeaderBtn}
@@ -722,7 +756,7 @@ function Sidebar() {
                     <li
                       key={p.id}
                       className={`${styles.nodeItem} ${styles.patternItem}`}
-                      style={{ '--accent': 'var(--accent-composite)' } as React.CSSProperties}
+                      style={{ '--accent': 'var(--accent-library)' } as React.CSSProperties}
                       draggable={!renaming}
                       onDragStart={(e) => handlePatternDragStart(e, p.id)}
                       onClick={() => { if (!renaming) handleAddPattern(p) }}

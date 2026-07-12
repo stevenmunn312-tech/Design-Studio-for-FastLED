@@ -2219,22 +2219,23 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
 // pipeline: live inputs → audio analysis → control signals → value transforms
 // → color → frame generators → fields → frame effects → the show pipeline →
 // output. (`composite` keeps its historical id but displays as "Effects".)
-// Accent hues sweep the wheel in display order — 36° per category starting at
-// red, all hsl(h, 100%, 60%) — so the sidebar reads as a rainbow ramp.
+// Accent hues sweep the wheel across all 15 sidebar section headers — Quick
+// recipes, Favourites, Recent rack, these 11 CATEGORIES entries (Notes
+// included), then My Patterns — at 360/15 = 24° per header, all
+// hsl(h, 100%, 60%). The 4 non-category headers (see tokens.css) own the
+// wheel's first three slots and the last one; `note` is last of these 11.
 export const CATEGORIES = [
-  { id: 'input',     label: 'Inputs',       accentVar: '--accent-input',     color: '#ff3333' },
-  { id: 'audio',     label: 'Audio',        accentVar: '--accent-audio',     color: '#ff9933' },
-  { id: 'signal',    label: 'Signals',      accentVar: '--accent-signal',    color: '#ccff33' },
-  { id: 'math',      label: 'Math & Logic', accentVar: '--accent-math',      color: '#66ff33' },
-  { id: 'color',     label: 'Color',        accentVar: '--accent-color',     color: '#33ff99' },
-  { id: 'pattern',   label: 'Patterns',     accentVar: '--accent-pattern',   color: '#33ffff' },
+  { id: 'input',     label: 'Inputs',       accentVar: '--accent-input',     color: '#d6ff33' },
+  { id: 'audio',     label: 'Audio',        accentVar: '--accent-audio',     color: '#85ff33' },
+  { id: 'signal',    label: 'Signals',      accentVar: '--accent-signal',    color: '#33ff33' },
+  { id: 'math',      label: 'Math & Logic', accentVar: '--accent-math',      color: '#33ff85' },
+  { id: 'color',     label: 'Color',        accentVar: '--accent-color',     color: '#33ffd6' },
+  { id: 'pattern',   label: 'Patterns',     accentVar: '--accent-pattern',   color: '#33d6ff' },
   { id: 'field',     label: 'Fields',       accentVar: '--accent-field',     color: '#3385ff' },
-  { id: 'composite', label: 'Effects',      accentVar: '--accent-composite', color: '#5c33ff' },
-  { id: 'show',      label: 'Show',         accentVar: '--accent-show',      color: '#d633ff' },
-  { id: 'output',    label: 'Output',       accentVar: '--accent-output',    color: '#ff33ad' },
-  // Outside the hue sweep — comments carry no ports/data, so they're not
-  // part of the pipeline the rainbow ramp represents.
-  { id: 'note',      label: 'Notes',        accentVar: '--accent-note',      color: '#ffd24a' },
+  { id: 'composite', label: 'Effects',      accentVar: '--accent-composite', color: '#3333ff' },
+  { id: 'show',      label: 'Show',         accentVar: '--accent-show',      color: '#8533ff' },
+  { id: 'output',    label: 'Output',       accentVar: '--accent-output',    color: '#d633ff' },
+  { id: 'note',      label: 'Notes',        accentVar: '--accent-note',      color: '#ff33d6' },
 ] as const
 
 // Ordered sub-headings shown inside a category's sidebar section. A category

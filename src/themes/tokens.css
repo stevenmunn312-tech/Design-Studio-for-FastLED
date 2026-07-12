@@ -5,23 +5,29 @@
   --bg-node: #1f242b;
   --bg-node-hover: #252a31;
 
-  /* Accent colors per node category — keep in sync with CATEGORIES in
-     src/state/nodeLibrary.ts (which carries the literal hex for canvas/SVG).
-     Hues sweep the wheel in sidebar order: 36° per category from red,
-     all at hsl(h, 100%, 60%) so every accent reads equally on the dark UI. */
-  --accent-input: #ff3333;
-  --accent-audio: #ff9933;
-  --accent-signal: #ccff33;
-  --accent-math: #66ff33;
-  --accent-color: #33ff99;
-  --accent-pattern: #33ffff;
+  /* Accent colors for every sidebar section header — keep in sync with
+     CATEGORIES in src/state/nodeLibrary.ts (which carries the literal hex
+     for canvas/SVG). The hue wheel sweeps evenly across all 15 headers in
+     sidebar top-to-bottom order — Quick recipes, Favourites, Recent rack,
+     the 11 CATEGORIES entries (including Notes), then My Patterns — at
+     360/15 = 24° per header, all hsl(h, 100%, 60%) so every accent reads
+     equally on the dark UI. Favourites/Recent rack always render (with an
+     empty-state message) so their slot is never actually skipped. */
+  --accent-recipes: #ff3333;
+  --accent-favourites: #ff8533;
+  --accent-recent: #ffd633;
+  --accent-input: #d6ff33;
+  --accent-audio: #85ff33;
+  --accent-signal: #33ff33;
+  --accent-math: #33ff85;
+  --accent-color: #33ffd6;
+  --accent-pattern: #33d6ff;
   --accent-field: #3385ff;
-  --accent-composite: #5c33ff;
-  --accent-show: #d633ff;
-  --accent-output: #ff33ad;
-  /* Comment/annotation nodes — a neutral sticky-note yellow, outside the
-     dataflow-category hue sweep since they carry no ports. */
-  --accent-note: #ffd24a;
+  --accent-composite: #3333ff;
+  --accent-show: #8533ff;
+  --accent-output: #d633ff;
+  --accent-note: #ff33d6;
+  --accent-library: #ff3385;
 
   /* Text */
   --text-primary: #e0e0e0;
