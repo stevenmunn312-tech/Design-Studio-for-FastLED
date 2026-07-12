@@ -35,6 +35,7 @@ interface ProjectState {
   projects: SavedProject[]
   currentProjectId: string
   createProject: (name: string, workspace?: PersistedWorkspace, options?: { uploadTarget?: ProjectUploadTarget }) => SavedProject
+  upsertProject: (project: SavedProject) => SavedProject
   renameProject: (id: string, name: string) => void
   deleteProject: (id: string) => SavedProject | null
   switchProject: (id: string) => SavedProject | null
@@ -161,6 +162,17 @@ function makeProject(
   }
 }
 
+function normalizeProject(project: SavedProject): SavedProject {
+  return {
+    id: project.id,
+    name: trimName(project.name) || 'Untitled Project',
+    createdAt: project.createdAt,
+    updatedAt: project.updatedAt,
+    workspace: cloneWorkspace(project.workspace),
+    uploadTarget: normalizeUploadTarget(project.uploadTarget),
+  }
+}
+
 function normalizeState(parsed: Partial<PersistedState> | null | undefined): PersistedState {
   const currentWorkspace = loadCurrentWorkspaceSnapshot()
   const rawProjects = Array.isArray(parsed?.projects) ? parsed.projects : []
@@ -256,6 +268,20 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     set(next)
     if (DISK_SYNC) void saveProjectToDisk(project)
     return project
+  },
+
+  upsertProject: (project) => {
+    const state = get()
+    const normalized = normalizeProject(project)
+    const projects = sortProjects([
+      normalized,
+      ...state.projects.filter((entry) => entry.id !== normalized.id),
+    ])
+    const next = { currentProjectId: normalized.id, projects }
+    persist(next)
+    set(next)
+    if (DISK_SYNC) void saveProjectToDisk(normalized)
+    return normalized
   },
 
   renameProject: (id, name) => {

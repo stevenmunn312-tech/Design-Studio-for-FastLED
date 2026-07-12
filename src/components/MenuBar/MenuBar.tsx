@@ -6,6 +6,15 @@ import { useShowPlayback } from '../../state/showPlayback'
 import { useProjectStore } from '../../state/projectStore'
 import type { StudioNode, StudioEdge, WorkspaceExtras } from '../../state/graphStore'
 import { captureWorkspace, blankWorkspace } from '../../state/workspacePersistence'
+import {
+  buildProjectSnapshot,
+  openProjectWithNativePicker,
+  parseProjectFile,
+  projectFileBaseName,
+  saveProjectWithNativePicker,
+  serializeProject,
+  suggestProjectFileName,
+} from '../../utils/projectFileIO'
 import { runTidy } from '../../utils/tidyGraph'
 import { buildShareUrl } from '../../utils/shareGraph'
 import { DevPerformanceHudToggle } from '../Preview/DevPerformanceHud'
@@ -38,12 +47,12 @@ export default function MenuBar() {
     openHelp,
     openRecover,
     openTemplates,
-    openProjects,
   } = useUiStore()
 
   const THEME_ICON: Record<string, string> = { dark: '☾', solarized: '✦', light: '☀' }
   const THEME_LABEL: Record<string, string> = { dark: 'Dark', solarized: 'Solarized', light: 'Light' }
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const importInputRef = useRef<HTMLInputElement>(null)
+  const projectInputRef = useRef<HTMLInputElement>(null)
   const fileMenuRef = useRef<HTMLDivElement>(null)
   const [fileMenuOpen, setFileMenuOpen] = useState(false)
   const hasMicNode = useGraphStore((s) =>
@@ -115,7 +124,8 @@ export default function MenuBar() {
     }
   }
 
-  const handleLoadJSON = () => fileInputRef.current?.click()
+  const handleLoadJSON = () => importInputRef.current?.click()
+  const handleOpenProjectFallback = () => projectInputRef.current?.click()
 
   const saveIntoCurrentProject = () => {
     if (!currentProject) {
@@ -143,6 +153,20 @@ export default function MenuBar() {
     return true
   }
 
+  const openParsedProject = async (projectText: string, fallbackName: string) => {
+    const project = parseProjectFile(projectText, fallbackName)
+    if (!currentProject && !confirmReplaceUnsavedWorkspace('Open a project file? The current unsaved graph will be replaced.')) {
+      return false
+    }
+    if (currentProject) useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
+    const opened = useProjectStore.getState().upsertProject(project)
+    const { nodes, edges, graphData, graphs, activeGraphId } = opened.workspace
+    useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId })
+    useGraphStore.temporal.getState().clear()
+    setStatus(`Opened project "${opened.name}"`, 'success')
+    return true
+  }
+
   const handleNewProject = () => {
     setFileMenuOpen(false)
     const suggested = `Project ${projects.length + 1}`
@@ -158,18 +182,53 @@ export default function MenuBar() {
 
   const handleSaveAs = () => {
     setFileMenuOpen(false)
-    const suggested = currentProject ? `${currentProject.name} Copy` : `Project ${projects.length + 1}`
-    const name = window.prompt('Save current graph as project:', suggested)
-    if (name === null) return
     const workspace = captureWorkspace(useGraphStore.getState())
     if (currentProject) useProjectStore.getState().saveCurrentWorkspace(workspace)
-    const project = useProjectStore.getState().createProject(name, workspace, { uploadTarget: currentProject?.uploadTarget })
-    setStatus(`Saved as "${project.name}"`, 'success')
+    const draft = buildProjectSnapshot(workspace, {
+      sourceProject: currentProject,
+      name: currentProject ? `${currentProject.name} Copy` : `Project ${projects.length + 1}`,
+      duplicate: true,
+    })
+    void (async () => {
+      try {
+        const saved = await saveProjectWithNativePicker(draft)
+        if (!saved) throw new Error('Native picker unavailable')
+        const project = useProjectStore.getState().upsertProject(saved)
+        setStatus(`Saved as "${project.name}"`, 'success')
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        const blob = new Blob([serializeProject(draft)], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = suggestProjectFileName(draft.name)
+        a.click()
+        URL.revokeObjectURL(url)
+        const project = useProjectStore.getState().upsertProject(draft)
+        setStatus(`Saved as "${project.name}"`, 'success')
+      }
+    })()
   }
 
-  const handleOpenProjects = () => {
+  const handleOpenProject = () => {
     setFileMenuOpen(false)
-    openProjects()
+    void (async () => {
+      try {
+        const picked = await openProjectWithNativePicker()
+        if (!picked) {
+          handleOpenProjectFallback()
+          return
+        }
+        try {
+          await openParsedProject(await picked.file.text(), picked.fallbackName)
+        } catch {
+          setStatus('Failed to open project — invalid file', 'error')
+        }
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        handleOpenProjectFallback()
+      }
+    })()
   }
 
   const handleOpenRecentProject = (projectId: string) => {
@@ -178,6 +237,20 @@ export default function MenuBar() {
     if (!currentProject && !confirmReplaceUnsavedWorkspace('Open a saved project? The current unsaved graph will be replaced.')) return
     if (currentProject) useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
     loadProjectWorkspace(projectId)
+  }
+
+  const handleProjectFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    void (async () => {
+      try {
+        await openParsedProject(await file.text(), projectFileBaseName(file.name))
+      } catch {
+        setStatus('Failed to open project — invalid file', 'error')
+      } finally {
+        e.target.value = ''
+      }
+    })()
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -240,7 +313,7 @@ export default function MenuBar() {
               <button className={styles.menuItem} role="menuitem" onClick={handleNewProject}>
                 New Project
               </button>
-              <button className={styles.menuItem} role="menuitem" onClick={handleOpenProjects}>
+              <button className={styles.menuItem} role="menuitem" onClick={handleOpenProject}>
                 Open Project…
               </button>
               <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); saveIntoCurrentProject() }} disabled={!currentProject}>
@@ -312,7 +385,14 @@ export default function MenuBar() {
           ▦ Tidy
         </button>
         <input
-          ref={fileInputRef}
+          ref={projectInputRef}
+          type="file"
+          accept=".json,.fastled-project.json"
+          style={{ display: 'none' }}
+          onChange={handleProjectFileChange}
+        />
+        <input
+          ref={importInputRef}
           type="file"
           accept=".json"
           style={{ display: 'none' }}

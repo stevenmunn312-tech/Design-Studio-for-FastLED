@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { fireEvent, render } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, waitFor } from '@testing-library/react'
 import MenuBar from '../MenuBar'
 import { useGraphStore } from '../../../state/graphStore'
 import { useProjectStore } from '../../../state/projectStore'
@@ -47,6 +47,8 @@ describe('MenuBar file menu', () => {
     })
     useAudioStore.setState({ micActive: false, active: false })
     useShowPlayback.setState({ playing: false, nodeId: null, show: null, posMs: 0, useGroupInputs: false })
+    delete (window as Window & { showOpenFilePicker?: unknown }).showOpenFilePicker
+    delete (window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker
   })
 
   it('shows a File dropdown with project actions and recents', () => {
@@ -89,5 +91,83 @@ describe('MenuBar file menu', () => {
     expect(useProjectStore.getState().currentProjectId).toBe(pg.id)
     expect(useGraphStore.getState().nodes.map((node) => node.id)).toEqual(['pg-node'])
     expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['scratch'])
+  })
+
+  it('opens a project file through the native picker', async () => {
+    const alpha = project('alpha', 'alpha', 'alpha-node', 200)
+    const pg = project('pg', 'pg', 'pg-node', 100)
+    useProjectStore.setState({ projects: [alpha], currentProjectId: alpha.id })
+    useGraphStore.setState({
+      nodes: [{
+        id: 'scratch',
+        type: 'studioNode',
+        position: { x: 10, y: 10 },
+        data: { label: 'Noise', nodeType: 'Noise', category: 'pattern', properties: {}, inputs: [], outputs: [] },
+      }] as never[],
+      edges: [],
+      graphData: {},
+      graphs: { root: { id: 'root', name: 'Main' } },
+      activeGraphId: 'root',
+    })
+
+    ;(window as Window & { showOpenFilePicker?: () => Promise<Array<{ name: string; getFile: () => Promise<File> }>> }).showOpenFilePicker = vi.fn().mockResolvedValue([{
+      name: 'pg.fastled-project.json',
+      getFile: async () => new File([JSON.stringify(pg)], 'pg.fastled-project.json', { type: 'application/json' }),
+    }])
+
+    const { getByRole, getByText } = render(<MenuBar />)
+    fireEvent.click(getByRole('button', { name: 'File menu' }))
+    fireEvent.click(getByText('Open Project…'))
+
+    await waitFor(() => {
+      expect(useProjectStore.getState().currentProjectId).toBe(pg.id)
+    })
+    expect(useGraphStore.getState().nodes.map((node) => node.id)).toEqual(['pg-node'])
+    expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['scratch'])
+  })
+
+  it('saves a copy through the native save dialog', async () => {
+    const alpha = project('alpha', 'alpha', 'alpha-node', 200)
+    let written = ''
+    useProjectStore.setState({ projects: [alpha], currentProjectId: alpha.id })
+    useGraphStore.setState({
+      nodes: [{
+        id: 'scratch',
+        type: 'studioNode',
+        position: { x: 10, y: 10 },
+        data: { label: 'Noise', nodeType: 'Noise', category: 'pattern', properties: {}, inputs: [], outputs: [] },
+      }] as never[],
+      edges: [],
+      graphData: {},
+      graphs: { root: { id: 'root', name: 'Main' } },
+      activeGraphId: 'root',
+    })
+
+    ;(window as Window & { showSaveFilePicker?: () => Promise<{ name: string; createWritable: () => Promise<{ write: (data: string) => Promise<void>; close: () => Promise<void> }> }> }).showSaveFilePicker = vi.fn().mockResolvedValue({
+      name: 'pg-copy.fastled-project.json',
+      createWritable: async () => ({
+        write: async (data: string) => { written = data },
+        close: async () => {},
+      }),
+    })
+
+    const { getByRole, getByText } = render(<MenuBar />)
+    fireEvent.click(getByRole('button', { name: 'File menu' }))
+    fireEvent.click(getByText('Save As…'))
+
+    await waitFor(() => {
+      expect(useProjectStore.getState().currentProjectId).not.toBe(alpha.id)
+    })
+
+    const current = useProjectStore.getState().projects.find((entry) => entry.id === useProjectStore.getState().currentProjectId)
+    expect(current?.name).toBe('pg-copy')
+    expect(current?.workspace.nodes.map((node) => node.id)).toEqual(['scratch'])
+    expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['scratch'])
+    expect(JSON.parse(written)).toMatchObject({
+      name: 'pg-copy',
+      workspace: {
+        nodes: [{ id: 'scratch' }],
+      },
+    })
   })
 })

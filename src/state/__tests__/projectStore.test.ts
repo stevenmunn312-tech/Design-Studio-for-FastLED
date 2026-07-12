@@ -93,6 +93,26 @@ describe('projectStore', () => {
     expect(useProjectStore.getState().currentProjectId).toBe(showA.id)
   })
 
+  it('upserts an explicitly opened project by id and makes it current', async () => {
+    const { useProjectStore } = await freshStore()
+    const alpha = useProjectStore.getState().createProject('Alpha', workspace(['old']))
+
+    const imported = {
+      ...alpha,
+      name: 'pg',
+      updatedAt: alpha.updatedAt + 5000,
+      workspace: workspace(['pg']),
+    }
+
+    const opened = useProjectStore.getState().upsertProject(imported)
+
+    expect(opened.id).toBe(alpha.id)
+    expect(useProjectStore.getState().projects.filter((project) => project.id === alpha.id)).toHaveLength(1)
+    expect(useProjectStore.getState().currentProjectId).toBe(alpha.id)
+    expect(useProjectStore.getState().projects.find((project) => project.id === alpha.id)?.name).toBe('pg')
+    expect(useProjectStore.getState().projects.find((project) => project.id === alpha.id)?.workspace.nodes.map((entry) => entry.id)).toEqual(['pg'])
+  })
+
   it('deleting the last project leaves the workspace empty instead of minting a replacement', async () => {
     const { useProjectStore } = await freshStore()
     const only = useProjectStore.getState().createProject('Only', workspace(['x']))
