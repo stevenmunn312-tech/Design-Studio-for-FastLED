@@ -423,6 +423,7 @@ describe('StudioNode', () => {
       paletteMode: 'mood', fixedPalette: 'rainbow',
     }))
     expect(perf.getByText(/frame output is black/)).toBeTruthy()
+    perf.unmount()
     // An ordinary node carries no fallback note. (Scoped to this render's own
     // container — getByText/queryByText search the whole shared document.)
     const solid = renderNode(makeNode('SolidColor', { r: 1, g: 2, b: 3 }))
