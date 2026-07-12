@@ -9,6 +9,7 @@ import {
 } from '../../codegen/performanceGenerator'
 import type { ShowCommand, ShowEvent, ShowFile } from '../../types/showFile'
 import { useGraphStore } from '../../state/graphStore'
+import { stopWheelWhileFocused } from './wheelBehavior'
 import styles from './ShowTimeline.module.css'
 
 // Hand-tweak editor for a generated .show. Renders the event stream as a
@@ -271,6 +272,7 @@ export default function ShowTimeline({ show, posMs, selected, onSelect, onSeek, 
             <select
               className="nodrag"
               value={sel.cmd}
+              onWheelCapture={stopWheelWhileFocused}
               onChange={(e) => {
                 const cmd = e.target.value as ShowCommand
                 commit(selected, (x) => ({ ...x, cmd, params: defaultParams(cmd) }))
@@ -343,7 +345,7 @@ function ParamSelect({ label, options, value, onChange }: {
   return (
     <label className={styles.field}>
       <span>{label}</span>
-      <select className="nodrag" value={value} onChange={(e) => onChange(e.target.value)}>
+      <select className="nodrag" value={value} onWheelCapture={stopWheelWhileFocused} onChange={(e) => onChange(e.target.value)}>
         {options.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
     </label>
@@ -358,7 +360,7 @@ function IndexSelect({ label, options, value, onChange }: {
   return (
     <label className={styles.field}>
       <span>{label}</span>
-      <select className="nodrag" value={value} onChange={(e) => onChange(Number(e.target.value))}>
+      <select className="nodrag" value={value} onWheelCapture={stopWheelWhileFocused} onChange={(e) => onChange(Number(e.target.value))}>
         {options.map((o, i) => <option key={i} value={i}>{o}</option>)}
       </select>
     </label>

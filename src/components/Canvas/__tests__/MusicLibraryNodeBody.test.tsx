@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { shouldConsumeWheel } from '../wheelBehavior'
+import { shouldConsumeFocusedWheel, shouldConsumeWheel } from '../wheelBehavior'
 
 describe('MusicLibraryNodeBody wheel behavior', () => {
   it('lets the canvas zoom when the song list does not overflow', () => {
@@ -20,5 +20,12 @@ describe('MusicLibraryNodeBody wheel behavior', () => {
 
   it('lets the canvas zoom when already at the top of the list', () => {
     expect(shouldConsumeWheel({ scrollTop: 0, clientHeight: 180, scrollHeight: 360 }, -40)).toBe(false)
+  })
+
+  it('consumes wheel input for a focused editor only while it is active', () => {
+    const target = {} as Element
+    expect(shouldConsumeFocusedWheel(target, target)).toBe(true)
+    expect(shouldConsumeFocusedWheel(target, null)).toBe(false)
+    expect(shouldConsumeFocusedWheel(target, {} as Element)).toBe(false)
   })
 })

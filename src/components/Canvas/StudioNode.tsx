@@ -20,6 +20,7 @@ import { usePerformanceBakeStore } from '../../state/performanceBakeStore'
 import { getCodeError } from '../../state/graphEvaluator'
 import { useMusicStore } from '../../state/musicStore'
 import { signalPathFor } from '../../utils/signalPath'
+import { stopWheelWhileFocused } from './wheelBehavior'
 import styles from './StudioNode.module.css'
 
 const MusicLibraryNodeBody = lazy(() => import('./MusicLibraryNodeBody'))
@@ -142,13 +143,14 @@ function SliderProperty({
       <span className={styles.sliderWrap}>
         <input
           ref={inputRef}
-          className={`nodrag nowheel ${styles.sliderInput}${invalid ? ` ${styles.invalid}` : ''}`}
+          className={`nodrag ${styles.sliderInput}${invalid ? ` ${styles.invalid}` : ''}`}
           type="text"
           inputMode="decimal"
           aria-label={`${label} value`}
           aria-invalid={invalid}
           title={invalid ? `Enter a value from ${min} to ${max} in steps of ${step}` : undefined}
           value={draft}
+          onWheelCapture={stopWheelWhileFocused}
           onChange={(e) => {
             setDraft(e.target.value)
             setInvalid(false)
@@ -300,6 +302,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
               className={`nodrag ${styles.propSelect}`}
               disabled={locked}
               value={preset}
+              onWheelCapture={stopWheelWhileFocused}
               onChange={(e) => {
                 const v = e.target.value
                 if (v === 'custom') setSizePopupOpen(true)
@@ -336,6 +339,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
               className={`nodrag ${styles.propSelect}`}
               disabled={locked}
               value={role}
+              onWheelCapture={stopWheelWhileFocused}
               onChange={(e) => setGroupInputRole(nodeId, e.target.value)}
             >
               <option value="">— input —</option>
@@ -385,6 +389,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 className={`nodrag ${styles.propSelect}`}
                 disabled={disabled}
                 value={typeof live === 'string' && meta.options.includes(live) ? live : String(val)}
+                onWheelCapture={stopWheelWhileFocused}
                 onChange={(e) => updateNodeProperty(nodeId, key, e.target.value)}
               >
                 {meta.options.map((opt) => (
@@ -419,11 +424,12 @@ const LivePropertyControls = memo(function LivePropertyControls({
               />
             ) : typeof val === 'number' && !forceTextNumber ? (
               <input
-                className={`nodrag nowheel ${styles.propInput}`}
+                className={`nodrag ${styles.propInput}`}
                 type="number"
                 step="any"
                 disabled={disabled}
                 value={typeof live === 'number' ? showNum(live) : val}
+                onWheelCapture={stopWheelWhileFocused}
                 onChange={(e) => {
                   const n = Number(e.target.value)
                   updateNodeProperty(nodeId, key, e.target.value === '' || !Number.isFinite(n) ? 0 : n)
@@ -436,6 +442,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 inputMode="decimal"
                 disabled={disabled}
                 value={typeof live === 'number' ? showNum(live) : val}
+                onWheelCapture={stopWheelWhileFocused}
                 onChange={(e) => {
                   const n = Number(e.target.value)
                   updateNodeProperty(nodeId, key, e.target.value === '' || !Number.isFinite(n) ? 0 : n)
@@ -455,6 +462,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 type="text"
                 disabled={disabled}
                 value={wired && live !== undefined ? String(live) : String(val)}
+                onWheelCapture={stopWheelWhileFocused}
                 onChange={(e) => updateNodeProperty(nodeId, key, e.target.value)}
               />
             )}
@@ -817,10 +825,11 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       <div className={styles.body}>
         {isComment && (
           <textarea
-            className={`nodrag nowheel ${styles.commentEditor}`}
+            className={`nodrag ${styles.commentEditor}`}
             spellCheck={false}
             value={String(props.text ?? '')}
             placeholder="Note…"
+            onWheelCapture={stopWheelWhileFocused}
             onChange={(e) => updateNodeProperty(id, 'text', e.target.value)}
           />
         )}
@@ -905,19 +914,21 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           <>
             <div className={styles.codeLabel}>Global</div>
             <textarea
-              className={`nodrag nowheel ${styles.codeEditor}`}
+              className={`nodrag ${styles.codeEditor}`}
               style={{ minHeight: 56 }}
               spellCheck={false}
               value={String(props.globalCode ?? '')}
               placeholder="// file scope: helpers, palettes, persistent vars"
+              onWheelCapture={stopWheelWhileFocused}
               onChange={(e) => updateNodeProperty(id, 'globalCode', e.target.value)}
             />
             <div className={styles.codeLabel}>Loop</div>
             <textarea
-              className={`nodrag nowheel ${styles.codeEditor}`}
+              className={`nodrag ${styles.codeEditor}`}
               spellCheck={false}
               value={String(props.code ?? '')}
               placeholder="// loop body — runs each frame, writes into leds[]"
+              onWheelCapture={stopWheelWhileFocused}
               onChange={(e) => updateNodeProperty(id, 'code', e.target.value)}
             />
             <CodeError nodeId={id} />

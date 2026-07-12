@@ -1,5 +1,6 @@
 import { useGraphStore } from '../../state/graphStore'
 import { SECTION_TYPES } from '../../codegen/performanceGenerator'
+import { shouldConsumeWheel } from './wheelBehavior'
 import styles from './PatternCollectionBody.module.css'
 
 // Body of the PatternCollection node: the list of absorbed pattern groups (by
@@ -29,12 +30,16 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
   const togglePatternSection = useGraphStore((s) => s.togglePatternSection)
   const setPatternSections = useGraphStore((s) => s.setPatternSections)
 
+  function handleListWheel(e: React.WheelEvent<HTMLUListElement>) {
+    if (shouldConsumeWheel(e.currentTarget, e.deltaY)) e.stopPropagation()
+  }
+
   return (
     <div className={`nodrag ${styles.wrap}`}>
       {patternIds.length === 0 ? (
         <div className={styles.empty}>Connect a Group node to add a pattern</div>
       ) : (
-        <ul className={styles.list}>
+        <ul className={styles.list} onWheelCapture={handleListWheel}>
           {patternIds.map((id) => {
             const tags = patternSections[id] ?? EMPTY
             return (
