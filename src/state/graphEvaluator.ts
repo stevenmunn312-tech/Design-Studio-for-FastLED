@@ -4172,6 +4172,40 @@ function createEvalNode(
         break
       }
 
+      // Named rectangular zones — each of A–D routes its own wired frame into
+      // a normalized 0–1 rectangle of the matrix, later zones painting over
+      // earlier ones where they overlap. An unwired or disabled zone is
+      // skipped entirely, leaving whatever `base`/an earlier zone already put
+      // there (non-destructive partial wiring).
+      case 'Zones': {
+        const base = input(id, 'base', null) as Frame | null
+        const result = base ? cloneFrame(base) : blankFrame(W, H)
+        for (const key of ['a', 'b', 'c', 'd'] as const) {
+          if (props[`${key}Enabled`] === false) continue
+          const src = input(id, key, null) as Frame | null
+          if (!src) continue
+          const zx = Math.max(0, Math.min(1, Number(props[`${key}X`] ?? 0)))
+          const zy = Math.max(0, Math.min(1, Number(props[`${key}Y`] ?? 0)))
+          const zw = Math.max(0, Math.min(1, Number(props[`${key}W`] ?? 1)))
+          const zh = Math.max(0, Math.min(1, Number(props[`${key}H`] ?? 1)))
+          const x0 = Math.round(zx * W), x1 = Math.min(W, Math.round((zx + zw) * W))
+          const y0 = Math.round(zy * H), y1 = Math.min(H, Math.round((zy + zh) * H))
+          for (let y = y0; y < y1; y++) {
+            const srcRow = src[y]
+            const dstRow = result[y]
+            if (!srcRow || !dstRow) continue
+            for (let x = x0; x < x1; x++) {
+              const s = srcRow[x]
+              if (!s) continue
+              const d = dstRow[x]
+              d.r = s.r; d.g = s.g; d.b = s.b
+            }
+          }
+        }
+        out = { frame: result }
+        break
+      }
+
       // Feedback/trails buffer — the persistent accumulator fades by `decay`
       // each tick, then re-lightens per-channel wherever the incoming frame is
       // brighter (fadeToBlackBy()-and-accumulate, generalised to any upstream

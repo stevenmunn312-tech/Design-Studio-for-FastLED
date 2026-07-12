@@ -959,6 +959,31 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: {},
   },
   {
+    // Named rectangular regions ("zones") for installations with multiple
+    // logical display areas — each zone routes its own wired frame into its
+    // rectangle of the matrix (normalized 0–1 x/y/w/h), later zones painting
+    // over earlier ones where they overlap. An unwired or disabled zone
+    // leaves its rectangle showing whatever `base` (or an earlier zone)
+    // already put there, so partially wiring the node is non-destructive.
+    type: 'Zones',
+    label: 'Zones',
+    category: 'composite',
+    inputs: [
+      { id: 'base', label: 'Base', dataType: 'frame' },
+      { id: 'a', label: 'Zone A', dataType: 'frame' },
+      { id: 'b', label: 'Zone B', dataType: 'frame' },
+      { id: 'c', label: 'Zone C', dataType: 'frame' },
+      { id: 'd', label: 'Zone D', dataType: 'frame' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: {
+      aName: 'Zone A', aEnabled: true, aX: 0,   aY: 0,   aW: 0.5, aH: 0.5,
+      bName: 'Zone B', bEnabled: true, bX: 0.5, bY: 0,   bW: 0.5, bH: 0.5,
+      cName: 'Zone C', cEnabled: true, cX: 0,   cY: 0.5, cW: 0.5, cH: 0.5,
+      dName: 'Zone D', dEnabled: true, dX: 0.5, dY: 0.5, dW: 0.5, dH: 0.5,
+    },
+  },
+  {
     type: 'GradientFrame',
     label: 'Gradient Frame',
     category: 'pattern',
@@ -2237,6 +2262,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Saturation: 'Scales color saturation (0 = greyscale, 1 = unchanged).',
   ColorBoost: 'Boosts saturation while approximately preserving luminance.',
   FrameSwitch: 'Shows frame A or B, selected by a boolean.',
+  Zones: 'Routes up to four wired frames into their own named rectangle of the matrix.',
   Trails: 'Fades the previous frame and re-lightens where the input is brighter.',
   Transition: 'Transitions A→B — 16 styles: wipe, iris, push, blinds, spiral, zoom + more.',
   Sequencer: 'Crossfades through its inputs on a timer.',
@@ -2743,6 +2769,12 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     beatsPerBar: { control: 'slider', min: 1, max: 16, step: 1 },
     subdivision: { control: 'slider', min: 1, max: 8, step: 1 },
   },
+  Zones: {
+    aX: N01, aY: N01, aW: N01, aH: N01,
+    bX: N01, bY: N01, bW: N01, bH: N01,
+    cX: N01, cY: N01, cW: N01, cH: N01,
+    dX: N01, dY: N01, dW: N01, dH: N01,
+  },
 }
 
 /** Inline-editor control hint for a node's property, honouring per-node overrides. */
@@ -2813,6 +2845,12 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   GradientFrame: [
     { key: 'colorA', label: 'Color A', keys: ['rA', 'gA', 'bA'] },
     { key: 'colorB', label: 'Color B', keys: ['rB', 'gB', 'bB'] },
+  ],
+  Zones: [
+    { key: 'zoneA', label: 'Zone A', keys: ['aName', 'aEnabled', 'aX', 'aY', 'aW', 'aH'] },
+    { key: 'zoneB', label: 'Zone B', keys: ['bName', 'bEnabled', 'bX', 'bY', 'bW', 'bH'] },
+    { key: 'zoneC', label: 'Zone C', keys: ['cName', 'cEnabled', 'cX', 'cY', 'cW', 'cH'] },
+    { key: 'zoneD', label: 'Zone D', keys: ['dName', 'dEnabled', 'dX', 'dY', 'dW', 'dH'] },
   ],
 }
 

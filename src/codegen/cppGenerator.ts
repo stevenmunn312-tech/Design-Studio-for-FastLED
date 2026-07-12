@@ -2230,6 +2230,28 @@ export function generateCpp(
         break
       }
 
+      // Named rectangular zones — mirrors the evaluator's Zones case: seed
+      // from base (or black), then for each enabled+wired zone, copy its own
+      // buffer into this node's buffer only within that zone's rectangle.
+      case 'Zones': {
+        const ob = ownBuf()
+        const base = srcBuf('base')
+        ln(base ? `  ::memmove(${ob}, ${base}, sizeof(CRGB) * NUM_LEDS);` : `  fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
+        for (const key of ['a', 'b', 'c', 'd'] as const) {
+          if (p[`${key}Enabled`] === false) continue
+          const zbuf = srcBuf(key)
+          if (!zbuf) continue
+          const zx = Math.max(0, Math.min(1, Number(p[`${key}X`] ?? 0)))
+          const zy = Math.max(0, Math.min(1, Number(p[`${key}Y`] ?? 0)))
+          const zw = Math.max(0, Math.min(1, Number(p[`${key}W`] ?? 1)))
+          const zh = Math.max(0, Math.min(1, Number(p[`${key}H`] ?? 1)))
+          ln(`  for (int _y=(int)(${zy}f*HEIGHT); _y<(int)(${zy + zh}f*HEIGHT) && _y<HEIGHT; _y++)`)
+          ln(`    for (int _x=(int)(${zx}f*WIDTH); _x<(int)(${zx + zw}f*WIDTH) && _x<WIDTH; _x++)`)
+          ln(`      ${ob}[_y*WIDTH+_x] = ${zbuf}[_y*WIDTH+_x];`)
+        }
+        break
+      }
+
       // Feedback/trails buffer — the persistent buf_ own buffer is deliberately
       // not seeded from the input each frame (see the Code node comment above);
       // it fades in place, then re-lightens per-channel wherever the input is

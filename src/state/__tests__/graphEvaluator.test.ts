@@ -2506,6 +2506,72 @@ describe('signal utility nodes', () => {
   })
 })
 
+// ── Zones (named rectangular regions) ────────────────────────────────────────
+
+describe('Zones', () => {
+  it('routes a wired zone frame into its rectangle, leaving base outside it', () => {
+    const base = node('zbase', 'SolidColor', 'pattern', { r: 10, g: 10, b: 10 })
+    const a = node('za', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const zones = node('zn1', 'Zones', 'composite', { aX: 0, aY: 0, aW: 0.5, aH: 1 })
+    const { nodes, edges } = withOutput(zones, [base, a], [
+      edge('e1', 'zbase', 'frame', 'zn1', 'base'),
+      edge('e2', 'za', 'frame', 'zn1', 'a'),
+    ])
+    const frame = evaluateGraph(nodes, edges, 0, W, H)!
+    expect(frame[0][0]).toEqual({ r: 255, g: 0, b: 0 })   // inside zone A (left half, x<2 of 4)
+    expect(frame[0][3]).toEqual({ r: 10, g: 10, b: 10 })  // outside zone A → base shows through
+  })
+
+  it('later zones paint over earlier ones where rectangles overlap', () => {
+    const a = node('za2', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const b = node('zb2', 'SolidColor', 'pattern', { r: 0, g: 255, b: 0 })
+    const zones = node('zn2', 'Zones', 'composite', {
+      aX: 0, aY: 0, aW: 1,   aH: 1,
+      bX: 0, bY: 0, bW: 0.5, bH: 1,
+    })
+    const { nodes, edges } = withOutput(zones, [a, b], [
+      edge('e1', 'za2', 'frame', 'zn2', 'a'),
+      edge('e2', 'zb2', 'frame', 'zn2', 'b'),
+    ])
+    const frame = evaluateGraph(nodes, edges, 0, W, H)!
+    expect(frame[0][0]).toEqual({ r: 0, g: 255, b: 0 })   // B overlaps A here → B (later) wins
+    expect(frame[0][3]).toEqual({ r: 255, g: 0, b: 0 })   // outside B's rect → A shows
+  })
+
+  it('a disabled zone is skipped even when wired', () => {
+    const base = node('zbase3', 'SolidColor', 'pattern', { r: 1, g: 2, b: 3 })
+    const a = node('za3', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })
+    const zones = node('zn3', 'Zones', 'composite', { aEnabled: false, aX: 0, aY: 0, aW: 1, aH: 1 })
+    const { nodes, edges } = withOutput(zones, [base, a], [
+      edge('e1', 'zbase3', 'frame', 'zn3', 'base'),
+      edge('e2', 'za3', 'frame', 'zn3', 'a'),
+    ])
+    const frame = evaluateGraph(nodes, edges, 0, W, H)!
+    expect(frame[0][0]).toEqual({ r: 1, g: 2, b: 3 })
+  })
+
+  it('an unwired zone leaves base showing through instead of a black hole', () => {
+    const base = node('zbase4', 'SolidColor', 'pattern', { r: 7, g: 8, b: 9 })
+    const zones = node('zn4', 'Zones', 'composite', { aX: 0, aY: 0, aW: 1, aH: 1 })
+    const { nodes, edges } = withOutput(zones, [base], [
+      edge('e1', 'zbase4', 'frame', 'zn4', 'base'),
+    ])
+    const frame = evaluateGraph(nodes, edges, 0, W, H)!
+    expect(frame[0][0]).toEqual({ r: 7, g: 8, b: 9 })
+  })
+
+  it('defaults to black where neither base nor any zone covers a pixel', () => {
+    const a = node('za5', 'SolidColor', 'pattern', { r: 200, g: 0, b: 0 })
+    const zones = node('zn5', 'Zones', 'composite', { aX: 0, aY: 0, aW: 0.5, aH: 1 })
+    const { nodes, edges } = withOutput(zones, [a], [
+      edge('e1', 'za5', 'frame', 'zn5', 'a'),
+    ])
+    const frame = evaluateGraph(nodes, edges, 0, W, H)!
+    expect(frame[0][0]).toEqual({ r: 200, g: 0, b: 0 })
+    expect(frame[0][3]).toEqual({ r: 0, g: 0, b: 0 })
+  })
+})
+
 // ── Trails (feedback/persistence) ────────────────────────────────────────────
 
 describe('Trails', () => {

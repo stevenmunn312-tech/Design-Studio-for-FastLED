@@ -1789,6 +1789,34 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
   })
 })
 
+describe('Zones', () => {
+  it('seeds from base then copies each enabled+wired zone into its own rectangle', () => {
+    const base = node('zbase', 'SolidColor', 'pattern', { r: 1, g: 2, b: 3 })
+    const a = node('za', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const zones = node('zn', 'Zones', 'composite', { aX: 0, aY: 0, aW: 0.5, aH: 1 })
+    const cpp = generateCpp([base, a, zones, outputNode], [
+      edge('e1', 'zbase', 'zn', 'frame', 'base'),
+      edge('e2', 'za', 'zn', 'frame', 'a'),
+      edge('e3', 'zn', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('::memmove(buf_zn, buf_zbase, sizeof(CRGB) * NUM_LEDS);')
+    expect(cpp).toContain('for (int _y=(int)(0f*HEIGHT); _y<(int)(1f*HEIGHT) && _y<HEIGHT; _y++)')
+    expect(cpp).toContain('for (int _x=(int)(0f*WIDTH); _x<(int)(0.5f*WIDTH) && _x<WIDTH; _x++)')
+    expect(cpp).toContain('buf_zn[_y*WIDTH+_x] = buf_za[_y*WIDTH+_x];')
+  })
+
+  it('seeds black when base is unwired, and skips a disabled zone', () => {
+    const a = node('za2', 'SolidColor', 'pattern', { r: 9, g: 9, b: 9 })
+    const zones = node('zn2', 'Zones', 'composite', { aEnabled: false })
+    const cpp = generateCpp([a, zones, outputNode], [
+      edge('e1', 'za2', 'zn2', 'frame', 'a'),
+      edge('e2', 'zn2', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('fill_solid(buf_zn2, NUM_LEDS, CRGB::Black);')
+    expect(cpp).not.toContain('buf_zn2[_y*WIDTH+_x] = buf_za2[_y*WIDTH+_x];')
+  })
+})
+
 describe('Trails (feedback/persistence)', () => {
   it('fades the persistent buffer in place and re-lightens from the input (no reset)', () => {
     const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
