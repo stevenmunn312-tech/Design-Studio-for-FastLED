@@ -92,6 +92,12 @@ describe('MenuBar file menu', () => {
     expect(getByText('No recent projects yet')).toBeTruthy()
   })
 
+  it('offers a persistent Start button outside the File menu', () => {
+    const { getByRole } = render(<MenuBar />)
+    fireEvent.click(getByRole('button', { name: 'Open start gallery' }))
+    expect(useUiStore.getState().templatesOpen).toBe(true)
+  })
+
   it('opens a recent project directly from the File menu', async () => {
     const alpha = project('alpha', 'alpha', 'alpha-node', 200)
     const pg = project('pg', 'pg', 'pg-node', 100)

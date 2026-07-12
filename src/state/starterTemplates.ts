@@ -7,6 +7,10 @@ export interface StarterTemplate {
   name: string
   description: string
   completionSteps?: string[]
+  preview: {
+    nodes: Array<{ id: string; label: string; category: string; col: number; row: number }>
+    edges: Array<{ source: string; target: string; color: string }>
+  }
   build: () => { nodes: StudioNode[]; edges: StudioEdge[] }
 }
 
@@ -31,6 +35,43 @@ interface EdgeSpec {
   sourceHandle: string
   target: string
   targetHandle: string
+}
+
+function template(
+  options: Pick<StarterTemplate, 'id' | 'name' | 'description' | 'completionSteps'> & {
+    nodeSpecs: NodeSpec[]
+    edgeSpecs: EdgeSpec[]
+  },
+): StarterTemplate {
+  return {
+    id: options.id,
+    name: options.name,
+    description: options.description,
+    completionSteps: options.completionSteps,
+    preview: {
+      nodes: options.nodeSpecs.map((spec) => {
+        const def = LIBRARY_DEF.get(spec.type)
+        if (!def) throw new Error(`Unknown template node type: ${spec.type}`)
+        return {
+          id: spec.id,
+          label: def.label,
+          category: def.category,
+          col: spec.col,
+          row: spec.row ?? 0,
+        }
+      }),
+      edges: options.edgeSpecs.map((spec) => {
+        const srcDef = LIBRARY_DEF.get(options.nodeSpecs.find((node) => node.id === spec.source)?.type ?? '')
+        const srcPort = srcDef?.outputs.find((port) => port.id === spec.sourceHandle)
+        return {
+          source: spec.source,
+          target: spec.target,
+          color: portColor(srcPort?.dataType ?? 'float'),
+        }
+      }),
+    },
+    build: () => buildGraph(options.nodeSpecs, options.edgeSpecs),
+  }
 }
 
 function buildGraph(nodeSpecs: NodeSpec[], edgeSpecs: EdgeSpec[]): { nodes: StudioNode[]; edges: StudioEdge[] } {
@@ -78,91 +119,81 @@ function buildGraph(nodeSpecs: NodeSpec[], edgeSpecs: EdgeSpec[]): { nodes: Stud
 }
 
 export const STARTER_TEMPLATES: StarterTemplate[] = [
-  {
+  template({
     id: 'rainbow',
     name: 'Rainbow Sweep',
     description: 'A scrolling rainbow straight to the matrix — the simplest possible graph.',
-    build: () => buildGraph(
-      [
-        { id: 'rainbow', type: 'Rainbow', col: 0 },
-        { id: 'out', type: 'MatrixOutput', col: 1 },
-      ],
-      [
-        { source: 'rainbow', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
-      ],
-    ),
-  },
-  {
+    nodeSpecs: [
+      { id: 'rainbow', type: 'Rainbow', col: 0 },
+      { id: 'out', type: 'MatrixOutput', col: 1 },
+    ],
+    edgeSpecs: [
+      { source: 'rainbow', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+    ],
+  }),
+  template({
     id: 'fire',
     name: 'Fire',
     description: 'The classic Fire2012 simulation feeding the matrix.',
-    build: () => buildGraph(
-      [
-        { id: 'fire', type: 'Fire2012', col: 0 },
-        { id: 'out', type: 'MatrixOutput', col: 1 },
-      ],
-      [
-        { source: 'fire', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
-      ],
-    ),
-  },
-  {
+    nodeSpecs: [
+      { id: 'fire', type: 'Fire2012', col: 0 },
+      { id: 'out', type: 'MatrixOutput', col: 1 },
+    ],
+    edgeSpecs: [
+      { source: 'fire', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+    ],
+  }),
+  template({
     id: 'scrolling-text',
     name: 'Scrolling Text',
     description: 'A Text node with a scrolling marquee, ready to rename.',
-    build: () => buildGraph(
-      [
-        { id: 'text', type: 'Text', col: 0, properties: { text: 'HELLO', scroll: 0.3, wrap: true } },
-        { id: 'out', type: 'MatrixOutput', col: 1 },
-      ],
-      [
-        { source: 'text', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
-      ],
-    ),
-  },
-  {
+    nodeSpecs: [
+      { id: 'text', type: 'Text', col: 0, properties: { text: 'HELLO', scroll: 0.3, wrap: true } },
+      { id: 'out', type: 'MatrixOutput', col: 1 },
+    ],
+    edgeSpecs: [
+      { source: 'text', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+    ],
+  }),
+  template({
     id: 'audio-spectrum',
     name: 'Audio Spectrum',
     description: 'Microphone → FFT → Spectrum Bars — the standard audio-reactive starting point.',
-    build: () => buildGraph(
-      [
-        { id: 'mic', type: 'MicInput', col: 0 },
-        { id: 'fft', type: 'FFTAnalyzer', col: 1 },
-        { id: 'bars', type: 'SpectrumBars', col: 2 },
-        { id: 'out', type: 'MatrixOutput', col: 3 },
-      ],
-      [
-        { source: 'mic', sourceHandle: 'audio', target: 'fft', targetHandle: 'audio' },
-        { source: 'fft', sourceHandle: 'bass', target: 'bars', targetHandle: 'bass' },
-        { source: 'fft', sourceHandle: 'mids', target: 'bars', targetHandle: 'mids' },
-        { source: 'fft', sourceHandle: 'treble', target: 'bars', targetHandle: 'treble' },
-        { source: 'bars', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
-      ],
-    ),
-  },
-  {
+    nodeSpecs: [
+      { id: 'mic', type: 'MicInput', col: 0 },
+      { id: 'fft', type: 'FFTAnalyzer', col: 1 },
+      { id: 'bars', type: 'SpectrumBars', col: 2 },
+      { id: 'out', type: 'MatrixOutput', col: 3 },
+    ],
+    edgeSpecs: [
+      { source: 'mic', sourceHandle: 'audio', target: 'fft', targetHandle: 'audio' },
+      { source: 'fft', sourceHandle: 'bass', target: 'bars', targetHandle: 'bass' },
+      { source: 'fft', sourceHandle: 'mids', target: 'bars', targetHandle: 'mids' },
+      { source: 'fft', sourceHandle: 'treble', target: 'bars', targetHandle: 'treble' },
+      { source: 'bars', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+    ],
+  }),
+  template({
     id: 'field-warp',
     name: 'Field Warp Demo',
     description: 'Two noise fields push a third field around before it hits the matrix — the field pipeline in miniature.',
-    build: () => buildGraph(
-      [
-        { id: 'base', type: 'FieldNoise', col: 0, row: 0, properties: { speed: 0.15, scale: 0.4 } },
-        { id: 'dx', type: 'FieldNoise', col: 0, row: 1, properties: { speed: 0.2, scale: 0.8 } },
-        { id: 'dy', type: 'FieldNoise', col: 0, row: 2, properties: { speed: 0.22, scale: 0.8 } },
-        { id: 'warp', type: 'FieldWarp', col: 1, row: 1, properties: { strength: 1.5 } },
-        { id: 'tofr', type: 'FieldToFrame', col: 2, row: 1 },
-        { id: 'out', type: 'MatrixOutput', col: 3, row: 1 },
-      ],
-      [
-        { source: 'base', sourceHandle: 'field', target: 'warp', targetHandle: 'field' },
-        { source: 'dx', sourceHandle: 'field', target: 'warp', targetHandle: 'dx' },
-        { source: 'dy', sourceHandle: 'field', target: 'warp', targetHandle: 'dy' },
-        { source: 'warp', sourceHandle: 'field', target: 'tofr', targetHandle: 'field' },
-        { source: 'tofr', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
-      ],
-    ),
-  },
-  {
+    nodeSpecs: [
+      { id: 'base', type: 'FieldNoise', col: 0, row: 0, properties: { speed: 0.15, scale: 0.4 } },
+      { id: 'dx', type: 'FieldNoise', col: 0, row: 1, properties: { speed: 0.2, scale: 0.8 } },
+      { id: 'dy', type: 'FieldNoise', col: 0, row: 2, properties: { speed: 0.22, scale: 0.8 } },
+      { id: 'warp', type: 'FieldWarp', col: 1, row: 1, properties: { strength: 1.5 } },
+      { id: 'tofr', type: 'FieldToFrame', col: 2, row: 1 },
+      { id: 'out', type: 'MatrixOutput', col: 3, row: 1 },
+    ],
+    edgeSpecs: [
+      { source: 'base', sourceHandle: 'field', target: 'warp', targetHandle: 'field' },
+      { source: 'dx', sourceHandle: 'field', target: 'warp', targetHandle: 'dx' },
+      { source: 'dy', sourceHandle: 'field', target: 'warp', targetHandle: 'dy' },
+      { source: 'warp', sourceHandle: 'field', target: 'tofr', targetHandle: 'field' },
+      { source: 'tofr', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+    ],
+  }),
+  template({
     id: 'generative-show',
     name: 'Generative Show',
     description: 'A focused live-show skeleton: Pattern Collection feeds the Show Engine, which performs straight into Matrix Output.',
@@ -171,19 +202,17 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       'Tune Show Engine dwell and transition timing, then optionally wire a Transition Set.',
       'Upload the controller sketch from Matrix Output once the collection has patterns.',
     ],
-    build: () => buildGraph(
-      [
-        { id: 'collection', type: 'PatternCollection', col: 0, row: 0 },
-        { id: 'master', type: 'PatternMaster', col: 1, row: 0 },
-        { id: 'out', type: 'MatrixOutput', col: 2, row: 0 },
-      ],
-      [
-        { source: 'collection', sourceHandle: 'patternset', target: 'master', targetHandle: 'patternset' },
-        { source: 'master', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
-      ],
-    ),
-  },
-  {
+    nodeSpecs: [
+      { id: 'collection', type: 'PatternCollection', col: 0, row: 0 },
+      { id: 'master', type: 'PatternMaster', col: 1, row: 0 },
+      { id: 'out', type: 'MatrixOutput', col: 2, row: 0 },
+    ],
+    edgeSpecs: [
+      { source: 'collection', sourceHandle: 'patternset', target: 'master', targetHandle: 'patternset' },
+      { source: 'master', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+    ],
+  }),
+  template({
     id: 'music-sync-sd-show',
     name: 'Music-synced SD Show',
     description: 'A dedicated offline-show path: Music Library bakes timed show files through Performance Generator, then SD Card hands them to Matrix Output for provisioning.',
@@ -192,18 +221,16 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       'Wire an optional Transition Set into Performance Generator if you want more transition variety.',
       'Use Upload show to SD from Matrix Output after choosing the board and port.',
     ],
-    build: () => buildGraph(
-      [
-        { id: 'lib', type: 'MusicLibrary', col: 0, row: 0 },
-        { id: 'perf', type: 'PerformanceGenerator', col: 1, row: 0 },
-        { id: 'sd', type: 'SDCard', col: 2, row: 0 },
-        { id: 'out', type: 'MatrixOutput', col: 3, row: 0 },
-      ],
-      [
-        { source: 'lib', sourceHandle: 'music', target: 'perf', targetHandle: 'music' },
-        { source: 'perf', sourceHandle: 'shows', target: 'sd', targetHandle: 'shows' },
-        { source: 'sd', sourceHandle: 'sdcard', target: 'out', targetHandle: 'sdcard' },
-      ],
-    ),
-  },
+    nodeSpecs: [
+      { id: 'lib', type: 'MusicLibrary', col: 0, row: 0 },
+      { id: 'perf', type: 'PerformanceGenerator', col: 1, row: 0 },
+      { id: 'sd', type: 'SDCard', col: 2, row: 0 },
+      { id: 'out', type: 'MatrixOutput', col: 3, row: 0 },
+    ],
+    edgeSpecs: [
+      { source: 'lib', sourceHandle: 'music', target: 'perf', targetHandle: 'music' },
+      { source: 'perf', sourceHandle: 'shows', target: 'sd', targetHandle: 'shows' },
+      { source: 'sd', sourceHandle: 'sdcard', target: 'out', targetHandle: 'sdcard' },
+    ],
+  }),
 ]

@@ -63,6 +63,16 @@ describe('uiStore.setStatus auto-clear', () => {
     expect(localStorage.getItem('fastled-studio-preview-style')).toBe('"dreamy"')
   })
 
+  it('persists the last start choice', () => {
+    useUiStore.getState().setLastStartChoice('blank')
+    expect(useUiStore.getState().lastStartChoice).toBe('blank')
+    expect(localStorage.getItem('fastled-studio-last-start-choice')).toBe('"blank"')
+
+    useUiStore.getState().setLastStartChoice('audio-spectrum')
+    expect(useUiStore.getState().lastStartChoice).toBe('audio-spectrum')
+    expect(localStorage.getItem('fastled-studio-last-start-choice')).toBe('"audio-spectrum"')
+  })
+
   it('enters and exits stage mode without persisting it across sessions', () => {
     useUiStore.getState().setStageMode(false)
     useUiStore.getState().toggleStageMode()

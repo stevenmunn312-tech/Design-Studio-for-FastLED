@@ -6,6 +6,7 @@ import { nextPreviewStyle } from '../components/Preview/previewStyles'
 export type AppTheme = 'dark' | 'solarized' | 'light'
 export type NewProjectDecision = 'yes' | 'no' | 'cancel'
 export type AppDialogTone = 'default' | 'danger'
+export type StartChoice = string | 'blank' | null
 
 interface AppDialogBase {
   title: string
@@ -46,6 +47,7 @@ const TEST_SIGNAL_KEY = 'fastled-studio-test-signal'
 const PERFORMANCE_MODE_KEY = 'fastled-studio-performance-mode'
 const UI_EFFECTS_KEY = 'fastled-studio-ui-effects-enabled'
 const SIGNAL_PATH_DIM_KEY = 'fastled-studio-signal-path-dim-enabled'
+const START_CHOICE_KEY = 'fastled-studio-last-start-choice'
 
 function load<T>(key: string, fallback: T): T {
   try { const v = localStorage.getItem(key); return v !== null ? JSON.parse(v) : fallback } catch { return fallback }
@@ -102,6 +104,7 @@ interface UiState {
   templatesOpen: boolean
   projectsOpen: boolean
   newProjectPrompt: { open: boolean; projectName: string; actionLabel: string }
+  lastStartChoice: StartChoice
   appDialog: AppDialogState | null
   setStatus: (text: string, level?: StatusLevel) => void
   clearStatus: () => void
@@ -135,6 +138,7 @@ interface UiState {
   closeTemplates: () => void
   openProjects: () => void
   closeProjects: () => void
+  setLastStartChoice: (choice: StartChoice) => void
   requestAlert: (options: AppAlertOptions) => Promise<void>
   requestConfirm: (options: AppConfirmOptions) => Promise<boolean>
   requestPrompt: (options: AppPromptOptions) => Promise<string | null>
@@ -178,6 +182,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   templatesOpen: false,
   projectsOpen: false,
   newProjectPrompt: { open: false, projectName: '', actionLabel: 'creating a new project' },
+  lastStartChoice: load<StartChoice>(START_CHOICE_KEY, null),
   appDialog: null,
 
   setStatus: (text, level = 'info') => {
@@ -272,6 +277,10 @@ export const useUiStore = create<UiState>((set, get) => ({
   closeTemplates: () => set({ templatesOpen: false }),
   openProjects: () => set({ projectsOpen: true }),
   closeProjects: () => set({ projectsOpen: false }),
+  setLastStartChoice: (lastStartChoice) => {
+    localStorage.setItem(START_CHOICE_KEY, JSON.stringify(lastStartChoice))
+    set({ lastStartChoice })
+  },
   requestAlert: ({ confirmLabel = 'OK', tone = 'default', ...options }) => {
     appDialogResolver?.(undefined)
     appDialogResolver = null

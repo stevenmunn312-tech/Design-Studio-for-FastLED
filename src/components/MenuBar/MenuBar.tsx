@@ -54,6 +54,7 @@ export default function MenuBar() {
     requestNewProjectDecision,
     requestPrompt,
   } = useUiStore()
+  const lastStartChoice = useUiStore((s) => s.lastStartChoice)
 
   const THEME_ICON: Record<string, string> = { dark: '☾', solarized: '✦', light: '☀' }
   const THEME_LABEL: Record<string, string> = { dark: 'Dark', solarized: 'Solarized', light: 'Light' }
@@ -82,6 +83,9 @@ export default function MenuBar() {
   const effectiveReducedMotion = reducedMotion || !uiEffectsEnabled
   const effectivePreview3d = uiEffectsEnabled && preview3d
   const effectivePreviewStyle = uiEffectsEnabled ? previewStyle : 'standard'
+  const startTitle = lastStartChoice === 'blank'
+    ? 'Open the start gallery — blank canvas was your last choice'
+    : 'Open the start gallery with starter patches and blank canvas'
 
   useEffect(() => {
     if (!fileMenuOpen) return
@@ -474,6 +478,14 @@ export default function MenuBar() {
           title="Auto-arrange nodes into tidy columns (select 2+ nodes to tidy just those)"
         >
           ▦ Tidy
+        </button>
+        <button
+          className={styles.btn}
+          onClick={openTemplates}
+          aria-label="Open start gallery"
+          title={startTitle}
+        >
+          ✦ Start
         </button>
         <input
           ref={projectInputRef}
