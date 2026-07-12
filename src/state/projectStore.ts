@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { listProjects, saveProjectToDisk, deleteProjectFromDisk } from '../utils/backendClient'
 import type { PersistedWorkspace } from './workspacePersistence'
-import { blankWorkspace } from './workspacePersistence'
+import { blankWorkspace, cloneWorkspace } from './workspacePersistence'
 
 export interface ProjectUploadTarget {
   selectedFqbn: string
@@ -82,7 +82,7 @@ function makeProject(
     name: trimName(name) || 'Untitled Project',
     createdAt: now,
     updatedAt: now,
-    workspace,
+    workspace: cloneWorkspace(workspace),
     uploadTarget: normalizeUploadTarget(uploadTarget),
   }
 }
@@ -211,8 +211,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   saveCurrentWorkspace: (workspace) => {
     const state = get()
     const now = Date.now()
+    const snapshot = cloneWorkspace(workspace)
     const projects = state.projects.map((project) =>
-      project.id === state.currentProjectId ? { ...project, workspace, updatedAt: now } : project)
+      project.id === state.currentProjectId ? { ...project, workspace: snapshot, updatedAt: now } : project)
     const next = { currentProjectId: state.currentProjectId, projects: sortProjects(projects) }
     persist(next)
     set({ projects: next.projects })

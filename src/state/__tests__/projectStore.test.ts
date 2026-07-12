@@ -52,6 +52,18 @@ describe('projectStore', () => {
     expect(raw.projects?.[0].workspace?.nodes).toHaveLength(1)
   })
 
+  it('clones saved workspaces so later mutations do not rewrite the project snapshot', async () => {
+    const { useProjectStore } = await freshStore()
+    const draft = workspace(['frame'])
+
+    useProjectStore.getState().saveCurrentWorkspace(draft)
+    draft.nodes[0].id = 'mutated'
+    draft.nodes.push(node('extra'))
+
+    const current = useProjectStore.getState().projects.find((project) => project.id === useProjectStore.getState().currentProjectId)
+    expect(current?.workspace.nodes.map((entry) => entry.id)).toEqual(['frame'])
+  })
+
   it('creates, renames, switches, and deletes projects while always keeping one active', async () => {
     const { useProjectStore } = await freshStore()
     useProjectStore.getState().saveCurrentWorkspace(workspace(['main']))
