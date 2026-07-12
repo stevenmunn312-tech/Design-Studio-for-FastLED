@@ -116,8 +116,8 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   },
   {
     // Draws a circle (ring, or filled disc) over an optional base frame.
-    // `fill`/`edge` colours mirror the Shape node: the outline uses `edge`;
-    // a filled disc uses `fill` for the interior.
+    // `fill`/`edge`/`thickness` mirror the Shape node — same SDF renderer
+    // (a circle is Shape's ellipse at aspect 1), so drawing matches exactly.
     type: 'Circle',
     label: 'Circle',
     category: 'pattern',
@@ -129,9 +129,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'cx',    label: 'Center X', dataType: 'float' },
       { id: 'cy',    label: 'Center Y', dataType: 'float' },
       { id: 'radius', label: 'Radius', dataType: 'float' },
+      { id: 'thickness', label: 'Thickness', dataType: 'float' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { cx: 0.5, cy: 0.5, radius: 6, filled: false, wrap: false, fill: '#ff3080', edge: '#ff0080' },
+    defaultProperties: { cx: 0.5, cy: 0.5, radius: 6, thickness: 1.5, filled: false, wrap: false, fill: '#ff3080', edge: '#ff0080' },
   },
   {
     // Draws a line between two points over an optional base frame.
@@ -2447,6 +2448,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Circle: {
     cx: N01,
     cy: N01,
+    thickness: { control: 'slider', min: 0, max: 6, step: 0.1 },
   },
   Text: {
     x: N01,

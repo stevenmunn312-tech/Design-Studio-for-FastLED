@@ -999,33 +999,34 @@ describe('generateCpp', () => {
     expect(cpp).toContain('n_t_color = kelvinToRGB(3000)')
   })
 
-  it('emits a Circle subpixel coverage loop', () => {
-    const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, filled: false, edge: '#ff0000' })
+  it('emits a Circle SDF coverage loop with thickness (Shape-style)', () => {
+    const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, thickness: 2, filled: false, edge: '#ff0000' })
     const cpp = generateCpp([c, outputNode], [edge('e', 'c', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('float _margin = (3) + 1.0f;')
-    expect(cpp).toContain('float _cx = (0.5f - _margin) + (0.5) * ((WIDTH - 1.0f) + 2.0f * _margin), _cy = (0.5f - _margin) + (0.5) * ((HEIGHT - 1.0f) + 2.0f * _margin);')
-    expect(cpp).toContain('float _dx = (_x + 0.5f) - _cx')
-    expect(cpp).toContain('constrain(0.5f - fabsf(_d - 3), 0.0f, 1.0f)')
-    expect(cpp).toContain('_add.nscale8((uint8_t)(_cov * 255.0f));')
+    expect(cpp).toContain('float _rad=max(0.5f,3);')
+    expect(cpp).toContain('float _th=max(0.0f,2);')
+    expect(cpp).toContain('float _cx=(0.5f-_m)+(0.5)*((WIDTH-1.0f)+2.0f*_m),_cy=(0.5f-_m)+(0.5)*((HEIGHT-1.0f)+2.0f*_m);')
+    expect(cpp).toContain('_sd=sqrtf(_dx*_dx+_dy*_dy)-_rad;')
+    expect(cpp).toContain('float _fc=0.0f;')                                        // unfilled: no fill coverage
+    expect(cpp).toContain('float _ec=constrain(_th*0.5f+0.5f-fabsf(_sd),0.0f,1.0f);')
+    expect(cpp).toContain('CRGB _col=_fill; nblend(_col,_edge,(uint8_t)(_ec*255.0f));')
     expect(cpp).toContain('CRGB(255, 0, 0)')
   })
 
   it('emits a Circle fill color for filled discs', () => {
     const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, filled: true, edge: '#ff0000', fill: '#00ff00' })
     const cpp = generateCpp([c, outputNode], [edge('e', 'c', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('float _fillCov = constrain(3 + 0.5f - _d, 0.0f, 1.0f);')
-    expect(cpp).toContain('CRGB _fillAdd = CRGB(0, 255, 0);')
-    expect(cpp).toContain('float _edgeCov = constrain(0.5f - fabsf(_d - 3), 0.0f, 1.0f);')
-    expect(cpp).toContain('CRGB _edgeAdd = CRGB(255, 0, 0);')
+    expect(cpp).toContain('CRGB _fill=CRGB(0, 255, 0),_edge=CRGB(255, 0, 0);')
+    expect(cpp).toContain('float _fc=constrain(0.5f-_sd,0.0f,1.0f);')
+    expect(cpp).toContain('float _al=max(_fc,_ec); if(_al<=0.0f) continue;')
   })
 
   it('emits wrapped Circle copies when wrap is enabled', () => {
     const c = node('c', 'Circle', 'pattern', { cx: 0, cy: 0.5, radius: 3, wrap: true, edge: '#ff0000' })
     const cpp = generateCpp([c, outputNode], [edge('e', 'c', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('float _cx = (WIDTH * 0.5f - WIDTH) + (0) * (WIDTH * 2.0f), _cy = (HEIGHT * 0.5f - HEIGHT) + (0.5) * (HEIGHT * 2.0f);')
-    expect(cpp).toContain('float _wrapX[3] = {-(float)WIDTH, 0.0f, (float)WIDTH};')
-    expect(cpp).toContain('float _wrapY[3] = {-(float)HEIGHT, 0.0f, (float)HEIGHT};')
-    expect(cpp).toContain('float _wcx = _cx + _wrapX[_wx], _wcy = _cy + _wrapY[_wy];')
+    expect(cpp).toContain('float _cx=(WIDTH*0.5f-WIDTH)+(0)*(WIDTH*2.0f),_cy=(HEIGHT*0.5f-HEIGHT)+(0.5)*(HEIGHT*2.0f);')
+    expect(cpp).toContain('float _wrapX[3]={-(float)WIDTH,0.0f,(float)WIDTH};')
+    expect(cpp).toContain('float _wrapY[3]={-(float)HEIGHT,0.0f,(float)HEIGHT};')
+    expect(cpp).toContain('float _wcx=_cx+_wrapX[_wx],_wcy=_cy+_wrapY[_wy];')
   })
 
   it('emits a sampled subpixel loop for a Line', () => {

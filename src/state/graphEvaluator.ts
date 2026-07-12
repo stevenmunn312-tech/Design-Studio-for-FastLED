@@ -564,22 +564,6 @@ function splatDisc(frame: Frame, x: number, y: number, radius: number, color: RG
   }
 }
 
-function splatRing(frame: Frame, x: number, y: number, radius: number, color: RGB): void {
-  const H = frame.length, W = frame[0]?.length ?? 0
-  const x0 = Math.max(0, Math.floor(x - radius - 1.5))
-  const x1 = Math.min(W - 1, Math.ceil(x + radius + 1.5))
-  const y0 = Math.max(0, Math.floor(y - radius - 1.5))
-  const y1 = Math.min(H - 1, Math.ceil(y + radius + 1.5))
-  for (let py = y0; py <= y1; py++) {
-    for (let px = x0; px <= x1; px++) {
-      const dist = Math.hypot((px + 0.5) - x, (py + 0.5) - y)
-      const coverage = clamp01(0.5 - Math.abs(dist - radius))
-      if (coverage <= 0) continue
-      frame[py][px] = addRgb(frame[py][px], scaleRgb(color, coverage))
-    }
-  }
-}
-
 // Signed distance (negative inside) from a point to a regular polygon of
 // `sides` sides and circumradius `size`, in the shape's local frame. Radial
 // approximation (exact along apothems, softer near vertices) — good enough for
@@ -3746,25 +3730,26 @@ function createEvalNode(
       }
 
       case 'Circle': {
+        // A circle is Shape's ellipse at aspect 1 — reuse the same SDF renderer
+        // so fill/edge/thickness drawing is identical to the Shape node.
         const baseIn = input(id, 'base', null) as Frame | null
         const frame  = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
         const fill = (input(id, 'fill', null) as RGB | null) ?? hexToRgb(String(props.fill ?? '#ff3080'))
         const edge = (input(id, 'edge', null) as RGB | null) ?? hexToRgb(String(props.edge ?? '#ff0080'))
-        const rad = num(id, 'radius', props, 'radius', 4)
+        const rad = Math.max(0.5, num(id, 'radius', props, 'radius', 6))
+        const thickness = Math.max(0, num(id, 'thickness', props, 'thickness', 1.5))
         const filled = Boolean(props.filled)
         const wrap = Boolean(props.wrap)
-        const cx = normalizedCenterAxis(num(id, 'cx', props, 'cx', 0.5), W, rad, wrap)
-        const cy = normalizedCenterAxis(num(id, 'cy', props, 'cy', 0.5), H, rad, wrap)
-        const xOffsets = wrap ? [-W, 0, W] : [0]
-        const yOffsets = wrap ? [-H, 0, H] : [0]
-        for (const ox of xOffsets) {
-          for (const oy of yOffsets) {
-            const drawX = cx + ox
-            const drawY = cy + oy
-            if (filled) splatDisc(frame, drawX, drawY, rad, fill)
-            splatRing(frame, drawX, drawY, rad, edge)
-          }
-        }
+        const extent = rad + thickness * 0.5
+        evalWrappedShape(
+          frame,
+          'ellipse',
+          normalizedCenterAxis(num(id, 'cx', props, 'cx', 0.5), W, extent, wrap),
+          normalizedCenterAxis(num(id, 'cy', props, 'cy', 0.5), H, extent, wrap),
+          rad, 1, 5, 0, thickness, filled,
+          fill, edge, W, H,
+          wrap,
+        )
         out = { frame }
         break
       }

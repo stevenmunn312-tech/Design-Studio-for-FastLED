@@ -1051,6 +1051,8 @@ export function generateCpp(
       }
 
       case 'Circle': {
+        // A circle is Shape's ellipse at aspect 1 — same SDF coverage and
+        // nblend compositing as the Shape case, so drawing matches exactly.
         const ob = ownBuf()
         const hexCrgb = (hex: unknown, def: number) => {
           const m = /^#([0-9a-f]{6})$/i.exec(String(hex))
@@ -1059,34 +1061,31 @@ export function generateCpp(
         }
         const fillE = incoming.get(`${node.id}:fill`) ? colorExpr(node.id, 'fill') : hexCrgb(p.fill, 0xff3080)
         const edgeE = incoming.get(`${node.id}:edge`) ? colorExpr(node.id, 'edge') : hexCrgb(p.edge, 0xff0080)
-        const cx = f('cx', 'cx', 0.5), cy = f('cy', 'cy', 0.5), rad = f('radius', 'radius', 4)
+        const filled = p.filled === true
         const emitCirclePass = (cxExpr: string, cyExpr: string, indent: string) => {
-          ln(`${indent}int _x0 = max(0, (int)floorf(${cxExpr} - ${rad} - 1.5f)), _x1 = min(WIDTH - 1, (int)ceilf(${cxExpr} + ${rad} + 1.5f));`)
-          ln(`${indent}int _y0 = max(0, (int)floorf(${cyExpr} - ${rad} - 1.5f)), _y1 = min(HEIGHT - 1, (int)ceilf(${cyExpr} + ${rad} + 1.5f));`)
-          ln(`${indent}for (int _y = _y0; _y <= _y1; _y++) for (int _x = _x0; _x <= _x1; _x++) {`)
-          ln(`${indent}  float _dx = (_x + 0.5f) - ${cxExpr}, _dy = (_y + 0.5f) - ${cyExpr}, _d = sqrtf(_dx * _dx + _dy * _dy);`)
-          if (p.filled) {
-            ln(`${indent}  float _fillCov = constrain(${rad} + 0.5f - _d, 0.0f, 1.0f);`)
-            ln(`${indent}  if (_fillCov > 0.0f) { CRGB _fillAdd = ${fillE}; _fillAdd.nscale8((uint8_t)(_fillCov * 255.0f)); ${ob}[_y * WIDTH + _x] += _fillAdd; }`)
-            ln(`${indent}  float _edgeCov = constrain(0.5f - fabsf(_d - ${rad}), 0.0f, 1.0f);`)
-            ln(`${indent}  if (_edgeCov <= 0.0f) continue; CRGB _edgeAdd = ${edgeE}; _edgeAdd.nscale8((uint8_t)(_edgeCov * 255.0f)); ${ob}[_y * WIDTH + _x] += _edgeAdd; }`)
-          } else {
-            ln(`${indent}  float _cov = constrain(0.5f - fabsf(_d - ${rad}), 0.0f, 1.0f);`)
-            ln(`${indent}  if (_cov <= 0.0f) continue; CRGB _add = ${edgeE}; _add.nscale8((uint8_t)(_cov * 255.0f)); ${ob}[_y * WIDTH + _x] += _add; }`)
-          }
+          ln(`${indent}for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+          ln(`${indent}  float _dx=(_x+0.5f)-${cxExpr},_dy=(_y+0.5f)-${cyExpr},_sd=sqrtf(_dx*_dx+_dy*_dy)-_rad;`)
+          ln(`${indent}  float _fc=${filled ? 'constrain(0.5f-_sd,0.0f,1.0f)' : '0.0f'};`)
+          ln(`${indent}  float _ec=constrain(_th*0.5f+0.5f-fabsf(_sd),0.0f,1.0f);`)
+          ln(`${indent}  float _al=max(_fc,_ec); if(_al<=0.0f) continue;`)
+          ln(`${indent}  CRGB _col=_fill; nblend(_col,_edge,(uint8_t)(_ec*255.0f)); nblend(${ob}[_y*WIDTH+_x],_col,(uint8_t)(_al*255.0f)); }`)
         }
         ln(`  { ${seedFrom('base')}`)
+        ln(`    float _rad=max(0.5f,${f('radius', 'radius', 6)});`)
+        ln(`    CRGB _fill=${fillE},_edge=${edgeE};`)
+        ln(`    float _th=max(0.0f,${f('thickness', 'thickness', 1.5)});`)
+        ln(`    float _extent=_rad+_th*0.5f;`)
         if (p.wrap) {
-          ln(`    float _cx = (WIDTH * 0.5f - WIDTH) + (${cx}) * (WIDTH * 2.0f), _cy = (HEIGHT * 0.5f - HEIGHT) + (${cy}) * (HEIGHT * 2.0f);`)
-          ln(`    float _wrapX[3] = {-(float)WIDTH, 0.0f, (float)WIDTH};`)
-          ln(`    float _wrapY[3] = {-(float)HEIGHT, 0.0f, (float)HEIGHT};`)
-          ln(`    for (int _wy = 0; _wy < 3; _wy++) for (int _wx = 0; _wx < 3; _wx++) {`)
-          ln(`      float _wcx = _cx + _wrapX[_wx], _wcy = _cy + _wrapY[_wy];`)
+          ln(`    float _cx=(WIDTH*0.5f-WIDTH)+(${f('cx', 'cx', 0.5)})*(WIDTH*2.0f),_cy=(HEIGHT*0.5f-HEIGHT)+(${f('cy', 'cy', 0.5)})*(HEIGHT*2.0f);`)
+          ln(`    float _wrapX[3]={-(float)WIDTH,0.0f,(float)WIDTH};`)
+          ln(`    float _wrapY[3]={-(float)HEIGHT,0.0f,(float)HEIGHT};`)
+          ln(`    for(int _wy=0;_wy<3;_wy++) for(int _wx=0;_wx<3;_wx++){`)
+          ln(`      float _wcx=_cx+_wrapX[_wx],_wcy=_cy+_wrapY[_wy];`)
           emitCirclePass('_wcx', '_wcy', '      ')
           ln(`    }`)
         } else {
-          ln(`    float _margin = (${rad}) + 1.0f;`)
-          ln(`    float _cx = (0.5f - _margin) + (${cx}) * ((WIDTH - 1.0f) + 2.0f * _margin), _cy = (0.5f - _margin) + (${cy}) * ((HEIGHT - 1.0f) + 2.0f * _margin);`)
+          ln(`    float _m=_extent+1.0f;`)
+          ln(`    float _cx=(0.5f-_m)+(${f('cx', 'cx', 0.5)})*((WIDTH-1.0f)+2.0f*_m),_cy=(0.5f-_m)+(${f('cy', 'cy', 0.5)})*((HEIGHT-1.0f)+2.0f*_m);`)
           emitCirclePass('_cx', '_cy', '    ')
         }
         break
