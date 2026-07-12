@@ -30,6 +30,18 @@ function seedFftSourceNode() {
   })
 }
 
+function seedMicSourceNode() {
+  const def = NODE_LIBRARY.find((n) => n.type === 'MicInput')!
+  useGraphStore.setState({
+    nodes: [{
+      id: 'mic', type: 'studioNode', position: { x: 0, y: 0 },
+      data: { label: def.label, nodeType: 'MicInput', category: def.category, properties: {}, inputs: def.inputs, outputs: def.outputs },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any],
+    edges: [],
+  })
+}
+
 describe('CanvasContextMenu — drag-to-empty picker', () => {
   beforeEach(() => seedSourceNode())
 
@@ -42,14 +54,16 @@ describe('CanvasContextMenu — drag-to-empty picker', () => {
         onClose={() => {}}
       />
     )
-    const labels = Array.from(container.querySelectorAll('button')).map((b) => b.textContent)
+    const labels = Array.from(container.querySelectorAll('[data-suggestion-type="direct"]'))
+      .map((button) => button.getAttribute('data-node-type'))
+      .filter((value): value is string => !!value)
     expect(labels.length).toBeGreaterThan(0)
-    for (const label of labels) {
-      const def = NODE_LIBRARY.find((n) => n.label === label)!
+    for (const type of labels) {
+      const def = NODE_LIBRARY.find((n) => n.type === type)!
       expect(def.inputs.some((p) => p.dataType === 'frame')).toBe(true)
     }
     // A pure source like Time (no frame input) must be excluded.
-    expect(labels).not.toContain('Time')
+    expect(labels).not.toContain('TimeNode')
   })
 
   it('placing a node from the picker auto-wires it to the dragged output', () => {
@@ -69,6 +83,18 @@ describe('CanvasContextMenu — drag-to-empty picker', () => {
     expect(wired).toBeTruthy()
     const firstFrameInput = target.inputs.find((p) => p.dataType === 'frame')!
     expect(wired!.targetHandle).toBe(firstFrameInput.id)
+  })
+
+  it('shows brief why-this-fits guidance for ranked matches', () => {
+    const { getAllByText } = render(
+      <CanvasContextMenu
+        x={0} y={0} flowPosition={{ x: 100, y: 100 }}
+        connectFrom={{ nodeId: 'src', handleId: 'frame', dataType: 'frame' }}
+        onClose={() => {}}
+      />
+    )
+
+    expect(getAllByText('Connects straight into its Frame input.').length).toBeGreaterThan(0)
   })
 
   it('fans out FFT bass, mids, and treble together for Audio Flow', () => {
@@ -132,5 +158,30 @@ describe('CanvasContextMenu — drag-to-empty picker', () => {
       sourceHandle: 'bass',
       targetHandle: 'bass',
     }))
+  })
+
+  it('can drop a bridge chain that converts audio into color', () => {
+    seedMicSourceNode()
+    const { getByText } = render(
+      <CanvasContextMenu
+        x={0} y={0} flowPosition={{ x: 100, y: 100 }}
+        connectFrom={{ nodeId: 'mic', handleId: 'audio', dataType: 'audio' }}
+        onClose={() => {}}
+      />
+    )
+
+    fireEvent.click(getByText('Audio → color'))
+
+    const { nodes, edges } = useGraphStore.getState()
+    expect(nodes.map((node) => node.data.nodeType)).toEqual(
+      expect.arrayContaining(['MicInput', 'FFTAnalyzer', 'AudioHue', 'HSVToRGB'])
+    )
+    expect(edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: 'mic', sourceHandle: 'audio', targetHandle: 'audio' }),
+      expect.objectContaining({ sourceHandle: 'bass', targetHandle: 'bass' }),
+      expect.objectContaining({ sourceHandle: 'mids', targetHandle: 'mids' }),
+      expect.objectContaining({ sourceHandle: 'treble', targetHandle: 'treble' }),
+      expect.objectContaining({ sourceHandle: 'hue', targetHandle: 'h' }),
+    ]))
   })
 })
