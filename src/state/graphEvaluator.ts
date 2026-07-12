@@ -9,6 +9,7 @@ import { waveSample, combineWaves } from './wave'
 import { polinePalette, hexToRgb } from './polinePalette'
 import { inputClampRange, bypassPort } from './nodeLibrary'
 import { makeShims, SHIM_NAMES } from './fastledShims'
+import { compileFormulaSource, type FormulaFn } from './formulaLang'
 import { sampleNamedPalette } from './paletteCatalog'
 import { createBeatDetectorState, denormalizeBeatParam, updateBeatDetectorFromSpectrum } from '../audio/beatDetection'
 import { denormalizeAudioFlowParam } from './audioFlowRange'
@@ -138,23 +139,17 @@ const prismOrientation = new Map<string, { v: number; prev: boolean }>()
 
 // Per-pixel formula closure. Args are positional and shared by CustomFormula and
 // FieldFormula: x, y, cx, cy, r, angle, t, W, H, a, b, fieldIn, then the FastLED
-// shims (sin8, cos8, …) in SHIM_NAMES order.
-type FormulaFn = (...args: unknown[]) => number
-const FORMULA_ARG_NAMES = ['x', 'y', 'cx', 'cy', 'r', 'angle', 't', 'W', 'H', 'a', 'b', 'fieldIn', ...SHIM_NAMES]
+// shims (sin8, cos8, …) in SHIM_NAMES order. Compiled by the sandboxed parser in
+// `formulaLang.ts` — not `new Function` — so untrusted formula content can't
+// reach globalThis/window/fetch/localStorage/etc; see that module for why.
+const FORMULA_VARIABLES = ['x', 'y', 'cx', 'cy', 'r', 'angle', 't', 'W', 'H', 'a', 'b', 'fieldIn'] as const
 const formulaCache = new Map<string, FormulaFn | null>()
 const fieldFormulaCache = new Map<string, FormulaFn | null>()
 
 function compileFormula(formula: string, cache: Map<string, FormulaFn | null>): FormulaFn | null {
   if (!cache.has(formula)) {
     if (cache.size > 50) cache.clear()
-    try {
-      const fn = new Function(...FORMULA_ARG_NAMES,
-        `"use strict"; const {sin,cos,abs,sqrt,pow,floor,ceil,round,min,max,PI,tan,atan2,log,exp,hypot}=Math; return (${formula});`
-      ) as FormulaFn
-      cache.set(formula, fn)
-    } catch {
-      cache.set(formula, null)
-    }
+    cache.set(formula, compileFormulaSource(formula, { variables: FORMULA_VARIABLES, callableVariables: SHIM_NAMES }))
   }
   return cache.get(formula) ?? null
 }
