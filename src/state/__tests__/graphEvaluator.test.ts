@@ -21,7 +21,7 @@ vi.mock('../audioStore', () => ({
   },
 }))
 
-import { evaluateGraph, evaluateGraphFull, evaluateScalar, getCodeError, pruneEvaluatorState, prunePoolBuffers, renderParticleBurst, PARTICLE_LIFE_MS } from '../graphEvaluator'
+import { evaluateGraph, evaluateGraphFull, evaluateScalar, pruneEvaluatorState, prunePoolBuffers, renderParticleBurst, PARTICLE_LIFE_MS } from '../graphEvaluator'
 import type { Frame, RGB } from '../graphEvaluator'
 import { waveSample, combineWaves } from '../wave'
 import { NODE_LIBRARY } from '../nodeLibrary'
@@ -447,100 +447,14 @@ describe('evaluateGraph', () => {
     expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
   })
 
-  it('Code setLed writes a pixel (CHSV)', () => {
-    // CHSV(0,255,255) is red; `leds[0] = ...` rewrites to setLed.
-    const { nodes, edges } = withOutput(node('cd1', 'Code', 'pattern', { code: 'leds[0] = CHSV(0, 255, 255);' }))
-    const frame = evaluateGraph(nodes, edges, 0, W, H)
-    expect(frame![0][0]).toEqual({ r: 255, g: 0, b: 0 })
-  })
-
-  it('Code supports XY() indexing and additive |= blend', () => {
-    // XY(2,1) → row 1, col 2; |= rewrites to an additive blend onto black.
-    const { nodes, edges } = withOutput(node('cd2', 'Code', 'pattern', { code: 'leds[XY(2, 1)] |= CRGB(0, 0, 255);' }))
-    const frame = evaluateGraph(nodes, edges, 0, W, H)
-    expect(frame![1][2]).toEqual({ r: 0, g: 0, b: 255 })
-    expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
-  })
-
-  it('Code persists leds[] across frames so fadeToBlackBy leaves trails', () => {
-    // Frame 1 lights pixel 5 white; frame 2 (same node id) only fades — the
-    // persisted value must survive into the second evaluation.
-    const lit = withOutput(node('cdP', 'Code', 'pattern', { code: 'leds[5] = CRGB(255, 255, 255);' }))
-    evaluateGraph(lit.nodes, lit.edges, 0, W, H)
-    const faded = withOutput(node('cdP', 'Code', 'pattern', { code: 'fadeToBlackBy(leds, NUM_LEDS, 128);' }))
-    const frame = evaluateGraph(faded.nodes, faded.edges, 1, W, H)
-    const px = frame![1][1] // index 5 = row 1, col 1
-    expect(px.r).toBeGreaterThan(118)
-    expect(px.r).toBeLessThan(136)
-  })
-
-  it('Code runs a global helper function from the loop body', () => {
-    // A C++ helper defined in the global section must be in scope for the loop.
-    const { nodes, edges } = withOutput(node('cdG', 'Code', 'pattern', {
-      globalCode: 'uint8_t pick() { return 5; }',
-      code: 'leds[pick()] = CRGB(10, 20, 30);',
-    }))
-    const frame = evaluateGraph(nodes, edges, 0, W, H)
-    expect(frame![1][1]).toEqual({ r: 10, g: 20, b: 30 }) // index 5 = row 1, col 1
-  })
-
-  it('Code with invalid source renders black instead of throwing', () => {
-    const { nodes, edges } = withOutput(node('cdBad', 'Code', 'pattern', { code: '@@@ this is not valid;' }))
-    const frame = evaluateGraph(nodes, edges, 0, W, H)
-    expect(frame).not.toBeNull()
-    expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
-  })
-
-  it('Code surfaces a runtime error via getCodeError, then recovers', () => {
-    const bad = withOutput(node('cdErr', 'Code', 'pattern', { code: 'someUndefinedFn();' }))
-    evaluateGraph(bad.nodes, bad.edges, 0, W, H)
-    expect(getCodeError('cdErr')).toBeTruthy()
-    // Fixing the code clears the error on the next clean evaluation (the loop
-    // never stopped — it kept evaluating each frame).
-    const good = withOutput(node('cdErr', 'Code', 'pattern', { code: 'leds[0] = CRGB::Red;' }))
-    const frame = evaluateGraph(good.nodes, good.edges, 1, W, H)
-    expect(getCodeError('cdErr')).toBeNull()
-    expect(frame![0][0]).toEqual({ r: 255, g: 0, b: 0 }) // CRGB::Red constant
-  })
-
-  it('Code supports fill_solid with CRGB colour constants', () => {
-    const { nodes, edges } = withOutput(node('cdFill', 'Code', 'pattern', { code: 'fill_solid(leds, NUM_LEDS, CRGB::Blue);' }))
-    const frame = evaluateGraph(nodes, edges, 0, W, H)
-    expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 255 })
-    expect(frame![H - 1][W - 1]).toEqual({ r: 0, g: 0, b: 255 })
-  })
-
-  it('Code resolves ColorFromPalette with a FastLED preset', () => {
-    // RainbowColors_p at index 0 is red; brightness 255 leaves it full.
-    const { nodes, edges } = withOutput(node('cdPal', 'Code', 'pattern', {
-      code: 'leds[0] = ColorFromPalette(RainbowColors_p, 0, 255);',
-    }))
-    const frame = evaluateGraph(nodes, edges, 0, W, H)
-    expect(frame![0][0]).toEqual({ r: 255, g: 0, b: 0 })
-    expect(getCodeError('cdPal')).toBeNull()
-  })
-
-  it('Code supports a CRGBPalette16 global from a preset with fill_palette', () => {
-    const { nodes, edges } = withOutput(node('cdPal2', 'Code', 'pattern', {
-      globalCode: 'CRGBPalette16 gPal = OceanColors_p;',
-      code: 'fill_palette(leds, NUM_LEDS, 0, 0, gPal, 255);',
-    }))
-    const frame = evaluateGraph(nodes, edges, 0, W, H)
-    expect(getCodeError('cdPal2')).toBeNull()
-    // Uniform fill (indexInc 0) and non-black.
-    expect(frame![0][0]).toEqual(frame![H - 1][W - 1])
-    expect(frame![0][0]).not.toEqual({ r: 0, g: 0, b: 0 })
-  })
-
-  it('Code exposes the new FastLED wave/scale builtins', () => {
-    // triwave8(128) peaks at 255 → setLed paints pixel 0 white via CHSV value.
-    const { nodes, edges } = withOutput(node('cdWave', 'Code', 'pattern', {
-      code: 'leds[0] = CHSV(0, 0, triwave8(128));',
-    }))
-    const frame = evaluateGraph(nodes, edges, 0, W, H)
-    expect(getCodeError('cdWave')).toBeNull()
-    expect(frame![0][0]).toEqual({ r: 255, g: 255, b: 255 })
-  })
+  // Code-node compile/execute/persistence/error-recovery coverage now lives in
+  // src/state/__tests__/codeSandbox.worker.test.ts, against handleRunRequest
+  // directly — the Code node's preview execution moved into a sandboxed Web
+  // Worker (codeSandbox.worker.ts) for security (see todo.md's P0 sandboxing
+  // item), so evaluateGraph's per-tick result for a Code node is no longer
+  // synchronous with the compile/run itself; codeSandboxRuntime.test.ts covers
+  // the async decoupled-cadence contract, timeout/respawn, and fail-closed
+  // behavior at that integration point instead.
 
   it('TrebleSparks tints its sparks from the wired palette input', () => {
     const spy = vi.spyOn(Math, 'random').mockReturnValue(0)

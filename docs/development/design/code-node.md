@@ -6,7 +6,8 @@ A **Code node** lets a user paste raw FastLED/Arduino C++ — a loop body that
 writes directly into `leds[]` — and have it both (a) compile into the generated
 sketch verbatim and (b) approximate in the live LED preview. It is the
 imperative, frame-filling sibling of the existing `CustomFormula` node (which
-compiles a single JS *expression* per pixel via `new Function`).
+compiles a single expression per pixel via the sandboxed parser in
+`src/state/formulaLang.ts`).
 
 Motivating example (a standard FastLED demo idiom the node must accept as-is):
 
@@ -81,14 +82,40 @@ resolve and the node composes like any other frame source. Buffers are global
 arrays, so an unwired buffer persists across `loop()` — `fadeToBlackBy` trails
 accumulate on-device exactly as the preview shows.
 
-### Preview (C++→JS shim)
+### Preview (C++→JS shim, sandboxed)
 
-Mirror `formulaCache`: cache the transpiled function keyed by `globalCode + code`,
-clear when the cache grows past a cap, run inside `try/catch` so a malformed
+**Security note (2026-07-13):** the compiled shim now runs inside a dedicated
+Web Worker (`src/state/codeSandbox.worker.ts`), not the main thread. A graph
+(and therefore a Code node's pasted text) can arrive from a share link, a
+JSON import, or someone else's project file — `new Function` on the main
+thread would let that content reach `window`/`fetch`/`localStorage`/etc.
+Workers have no DOM/storage/cookies/parent-navigation by construction, and the
+worker bootstrap additionally closes `fetch`/`XMLHttpRequest`/`WebSocket`/
+`EventSource`/`importScripts`/`indexedDB`/`caches`/`BroadcastChannel`/spawning
+sub-workers before any pasted code can run. `new Function` inside that closed
+realm is fine — there's nothing dangerous left to reach. The main-thread
+controller (`src/state/codeSandboxRuntime.ts`) sends one `run` message per
+tick and enforces a ~100ms timeout: a request that doesn't answer in time gets
+`worker.terminate()`'d and a fresh worker spawns on the next call (the
+persisted `leds[]` state is lost when that happens — an accepted trade-off for
+"a runaway paste can't hang the tab"). Preview evaluation is therefore no
+longer synchronous with the graph's own render tick: `evalCodeAsync` always
+returns immediately with the most recently *completed* frame (blank on the
+very first call for a new instance) rather than blocking on the worker
+round-trip — the same decoupled-cadence pattern already used elsewhere for
+per-node live previews, so a Code node's displayed frame can lag the true
+render tick by roughly one round trip. See `todo.md`'s P0 sandboxing item for
+the sibling `CustomFormula`/`FieldFormula` fix (a parsed expression grammar
+instead of `new Function`, since those don't need general-purpose execution).
+
+Mirror `formulaCache`: cache the transpiled function keyed by `globalCode + code`
+(now cached per-worker-instance, one worker per Code-node instance, rather than
+one shared cache keyed by source string), run inside `try/catch` so a malformed
 paste falls back to black. The global section is transpiled and prepended to the
 loop section in one compiled function (so global helpers/constants are in scope
-for the loop). The transpile is a handful of regex rewrites applied before
-`new Function`:
+for the loop). The transpile itself is unchanged and still runs on the main
+thread (only the *compiled result* crosses into the worker) — a handful of regex
+rewrites applied before `new Function`:
 
 - **Drop storage qualifiers** (`static uint8_t x` → `x`).
 - **C++ function definition → JS function**: `<retType> name(<typed args>) {` →
@@ -123,12 +150,15 @@ for the loop). The transpile is a handful of regex rewrites applied before
 ### Error handling
 
 Errors never silently freeze the node. The compiled function runs in `try/catch`
-each frame; a **compile** error (e.g. unbalanced braces) or a **runtime** error
-(e.g. an unsupported function) is recorded per node-instance and surfaced as a
+inside the worker each tick; a **compile** error (e.g. unbalanced braces), a
+**runtime** error (e.g. an unsupported function), or a **timeout** (an infinite
+loop, terminated after ~100ms) is recorded per node-instance and surfaced as a
 red `⚠ <message>` banner under the editors (a `CodeError` component subscribes to
 `previewStore` so it refreshes ~each eval tick). The last good frame stays on
 screen, the render loop keeps evaluating, and the banner clears automatically the
-moment the code runs cleanly again. `getCodeError(stateKey)` is the accessor.
+moment the code runs cleanly again (a timeout instead respawns a fresh worker
+with empty state, since the one holding the persisted `leds[]` was terminated).
+`getCodeError(stateKey)` is the accessor.
 
 ## First-slice scope
 
@@ -158,11 +188,24 @@ and unit tests (transpile/eval cases + codegen snapshots).
 ## Touch points
 
 - `src/state/nodeLibrary.ts` — node entry (`globalCode` + `code`) + `NODE_DESCRIPTIONS`.
-- `src/state/graphEvaluator.ts` — `Code` case + `codeCache`/`codeLeds`,
-  `transpileCode` (storage/function-def/type/`::`/leds rewrites), `makeCodeShim`,
-  `evalCode` (global + loop, persistent `leds[]`), and `codeError`/`getCodeError`.
+- `src/state/graphEvaluator.ts` — `Code` case, calling `evalCodeAsync` (below);
+  no longer owns the compile/execute pipeline itself.
+- `src/state/codeSandboxRuntime.ts` — main-thread controller: `transpileCode`
+  (storage/function-def/type/`::`/leds rewrites, unchanged), per-instance
+  worker pool, the run-timeout/respawn logic, `evalCodeAsync`, and
+  `codeError`/`getCodeError`/`disposeCodeSandbox`.
+- `src/state/codeSandbox.worker.ts` — the sandboxed worker: bootstrap that
+  closes network/storage/messaging APIs, `makeCodeShim`, and `handleRunRequest`
+  (compile + run + pack one tick against the persistent `leds[]`).
+- `src/state/ledColor.ts` — `RGB`/`Palette`/`hsv`/`samplePalette`/`palAt`/the
+  FastLED preset-palette tables, shared by the worker and the main-thread
+  evaluator (re-exported from `graphEvaluator.ts` for existing importers).
 - `src/codegen/cppGenerator.ts` — `Code` case + `globalLines` (file scope) and
-  the loop block (buffer alias + verbatim body).
+  the loop block (buffer alias + verbatim body) — unchanged, still pass-through.
 - `src/components/Canvas/StudioNode.tsx` — the Global + Loop `<textarea>` editors
   and the `CodeError` banner.
-- Tests under `src/state/__tests__/` and `src/codegen/__tests__/`.
+- Tests: `src/state/__tests__/codeSandbox.worker.test.ts` (compile/execute/
+  persistence/error cases against `handleRunRequest` directly),
+  `src/state/__tests__/codeSandboxRuntime.test.ts` (message protocol, timeout/
+  respawn, fail-closed, against a mocked `Worker`), and `src/codegen/__tests__/`
+  for codegen (unchanged).
