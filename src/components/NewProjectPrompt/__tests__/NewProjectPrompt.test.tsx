@@ -6,13 +6,13 @@ import { useUiStore } from '../../../state/uiStore'
 describe('NewProjectPrompt', () => {
   beforeEach(() => {
     useUiStore.setState({
-      newProjectPrompt: { open: false, projectName: '' },
+      newProjectPrompt: { open: false, projectName: '', actionLabel: 'creating a new project' },
     })
   })
 
   it('renders yes, no, and cancel actions', () => {
     useUiStore.setState({
-      newProjectPrompt: { open: true, projectName: 'alpha' },
+      newProjectPrompt: { open: true, projectName: 'alpha', actionLabel: 'creating a new project' },
     })
 
     const { getByRole, getByText } = render(<NewProjectPrompt />)
@@ -25,12 +25,22 @@ describe('NewProjectPrompt', () => {
 
   it('closes when cancel is clicked', () => {
     useUiStore.setState({
-      newProjectPrompt: { open: true, projectName: 'alpha' },
+      newProjectPrompt: { open: true, projectName: 'alpha', actionLabel: 'opening another project' },
     })
 
     const { getByText } = render(<NewProjectPrompt />)
     fireEvent.click(getByText('Cancel'))
 
     expect(useUiStore.getState().newProjectPrompt.open).toBe(false)
+  })
+
+  it('renders the requested action text', () => {
+    useUiStore.setState({
+      newProjectPrompt: { open: true, projectName: 'alpha', actionLabel: 'opening another project' },
+    })
+
+    const { getByText } = render(<NewProjectPrompt />)
+
+    expect(getByText('Save current project "alpha" before opening another project?')).toBeTruthy()
   })
 })

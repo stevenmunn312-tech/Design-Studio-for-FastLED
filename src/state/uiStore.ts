@@ -70,7 +70,7 @@ interface UiState {
   recoverOpen: boolean
   templatesOpen: boolean
   projectsOpen: boolean
-  newProjectPrompt: { open: boolean; projectName: string }
+  newProjectPrompt: { open: boolean; projectName: string; actionLabel: string }
   setStatus: (text: string, level?: StatusLevel) => void
   clearStatus: () => void
   toggleSidebar: () => void
@@ -103,7 +103,7 @@ interface UiState {
   closeTemplates: () => void
   openProjects: () => void
   closeProjects: () => void
-  requestNewProjectDecision: (projectName: string) => Promise<NewProjectDecision>
+  requestNewProjectDecision: (projectName: string, actionLabel?: string) => Promise<NewProjectDecision>
   resolveNewProjectDecision: (decision: NewProjectDecision) => void
 }
 
@@ -139,7 +139,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   recoverOpen: false,
   templatesOpen: false,
   projectsOpen: false,
-  newProjectPrompt: { open: false, projectName: '' },
+  newProjectPrompt: { open: false, projectName: '', actionLabel: 'creating a new project' },
 
   setStatus: (text, level = 'info') => {
     if (statusTimer) clearTimeout(statusTimer)
@@ -233,18 +233,18 @@ export const useUiStore = create<UiState>((set, get) => ({
   closeTemplates: () => set({ templatesOpen: false }),
   openProjects: () => set({ projectsOpen: true }),
   closeProjects: () => set({ projectsOpen: false }),
-  requestNewProjectDecision: (projectName) => {
+  requestNewProjectDecision: (projectName, actionLabel = 'creating a new project') => {
     if (newProjectDecisionResolver) {
       newProjectDecisionResolver('cancel')
       newProjectDecisionResolver = null
     }
-    set({ newProjectPrompt: { open: true, projectName } })
+    set({ newProjectPrompt: { open: true, projectName, actionLabel } })
     return new Promise<NewProjectDecision>((resolve) => {
       newProjectDecisionResolver = resolve
     })
   },
   resolveNewProjectDecision: (decision) => {
-    set({ newProjectPrompt: { open: false, projectName: '' } })
+    set({ newProjectPrompt: { open: false, projectName: '', actionLabel: 'creating a new project' } })
     const resolver = newProjectDecisionResolver
     newProjectDecisionResolver = null
     resolver?.(decision)

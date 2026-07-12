@@ -30,7 +30,7 @@ export default function NewProjectPrompt() {
         </div>
         <div className={styles.body}>
           <p className={styles.text}>
-            Save current project "{prompt.projectName}" before creating a new project?
+            Save current project "{prompt.projectName}" before {prompt.actionLabel}?
           </p>
         </div>
         <div className={styles.actions}>

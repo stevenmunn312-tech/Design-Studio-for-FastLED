@@ -65,7 +65,7 @@ describe('MenuBar file menu', () => {
       reducedMotion: false,
       highContrast: false,
       theme: 'dark',
-      newProjectPrompt: { open: false, projectName: '' },
+      newProjectPrompt: { open: false, projectName: '', actionLabel: 'creating a new project' },
       requestNewProjectDecision: defaultRequestNewProjectDecision,
       resolveNewProjectDecision: defaultResolveNewProjectDecision,
     })
@@ -92,9 +92,11 @@ describe('MenuBar file menu', () => {
     expect(getByText('No recent projects yet')).toBeTruthy()
   })
 
-  it('opens a recent project directly from the File menu', () => {
+  it('opens a recent project directly from the File menu', async () => {
     const alpha = project('alpha', 'alpha', 'alpha-node', 200)
     const pg = project('pg', 'pg', 'pg-node', 100)
+    const requestNewProjectDecision = vi.fn().mockResolvedValue('yes')
+    useUiStore.setState({ requestNewProjectDecision })
     useProjectStore.setState({ projects: [alpha, pg], currentProjectId: alpha.id, recentProjectIds: [pg.id] })
     useGraphStore.setState({
       nodes: [{
@@ -113,10 +115,13 @@ describe('MenuBar file menu', () => {
     fireEvent.click(getByRole('button', { name: 'File menu' }))
     fireEvent.click(getByText('pg'))
 
-    expect(useProjectStore.getState().currentProjectId).toBe(pg.id)
+    await waitFor(() => {
+      expect(useProjectStore.getState().currentProjectId).toBe(pg.id)
+    })
     expect(useGraphStore.getState().nodes.map((node) => node.id)).toEqual(['pg-node'])
     expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['scratch'])
     expect(useProjectStore.getState().recentProjectIds).toEqual([alpha.id])
+    expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha', 'opening another project')
   })
 
   it('creates a default New Project through the save dialog when no project is open', async () => {
@@ -239,6 +244,8 @@ describe('MenuBar file menu', () => {
   it('opens a project file through the native picker', async () => {
     const alpha = project('alpha', 'alpha', 'alpha-node', 200)
     const pg = project('pg', 'pg', 'pg-node', 100)
+    const requestNewProjectDecision = vi.fn().mockResolvedValue('yes')
+    useUiStore.setState({ requestNewProjectDecision })
     useProjectStore.setState({ projects: [alpha], currentProjectId: alpha.id })
     useGraphStore.setState({
       nodes: [{
@@ -265,8 +272,37 @@ describe('MenuBar file menu', () => {
     await waitFor(() => {
       expect(useProjectStore.getState().currentProjectId).toBe(pg.id)
     })
+    expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha', 'opening another project')
     expect(useGraphStore.getState().nodes.map((node) => node.id)).toEqual(['pg-node'])
     expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['scratch'])
+  })
+
+  it('supports cancel before opening a recent project', () => {
+    const alpha = project('alpha', 'alpha', 'alpha-node', 200)
+    const pg = project('pg', 'pg', 'pg-node', 100)
+    const requestNewProjectDecision = vi.fn().mockResolvedValue('cancel')
+    useUiStore.setState({ requestNewProjectDecision })
+    useProjectStore.setState({ projects: [alpha, pg], currentProjectId: alpha.id, recentProjectIds: [pg.id] })
+    useGraphStore.setState({
+      nodes: [{
+        id: 'scratch',
+        type: 'studioNode',
+        position: { x: 10, y: 10 },
+        data: { label: 'Noise', nodeType: 'Noise', category: 'pattern', properties: {}, inputs: [], outputs: [] },
+      }] as never[],
+      edges: [],
+      graphData: {},
+      graphs: { root: { id: 'root', name: 'Main' } },
+      activeGraphId: 'root',
+    })
+
+    const { getByRole, getByText } = render(<MenuBar />)
+    fireEvent.click(getByRole('button', { name: 'File menu' }))
+    fireEvent.click(getByText('pg'))
+
+    expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha', 'opening another project')
+    expect(useProjectStore.getState().currentProjectId).toBe(alpha.id)
+    expect(useGraphStore.getState().nodes.map((node) => node.id)).toEqual(['scratch'])
   })
 
   it('saves a copy through the native save dialog', async () => {
