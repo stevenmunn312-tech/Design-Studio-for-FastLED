@@ -56,6 +56,21 @@ interface TriggerState {
   scheduled: number | null
 }
 const triggerState = new Map<string, TriggerState>()
+// Clock/Transport node — free-runs from `resetOffset`; a `tap`/`sync` rising
+// edge re-zeros the offset and (from the second pulse on) derives a live BPM
+// from the pulse interval via an EMA, mirroring the millis()-based codegen.
+interface ClockState {
+  t: number
+  resetOffset: number
+  lastPulseT: number | null
+  tappedBpm: number | null
+  prevTap: boolean
+  prevSync: boolean
+  prevReset: boolean
+  lastBeatCount: number
+  lastSubCount: number
+}
+const clockState = new Map<string, ClockState>()
 // Trails node — the persisted, fading accumulator frame.
 const trailState = new Map<string, Frame>()
 const fftLevels   = new Map<string, { bass: number; mids: number; treble: number }>()
@@ -310,7 +325,7 @@ export function pruneEvaluatorState(maxIdleMs = STATE_IDLE_TTL_MS, now = stateCl
 
   const maps: Array<{ delete: (key: string) => boolean }> = [
     fireHeat, flashLevel, counterVals, intervalLast, smoothState, holdState,
-    envState, trailState, fftLevels, beatLevels,
+    envState, trailState, fftLevels, beatLevels, clockState,
     percussionLevels, audioFeatureLevels, particleState, patternShowState,
     rdState, golState, waveSimState, flowState, starState, boidState, sparkState, fire2012Heat,
     codeLeds, codeError,
@@ -5219,6 +5234,72 @@ function createEvalNode(
         const hi  = Number(props.high ?? 255)
         const phase = (t * bpm / 60) % 1
         out = { value: lo + ((Math.sin(phase * Math.PI * 2) + 1) / 2) * (hi - lo) }
+        break
+      }
+
+      // Free-running BPM clock/transport — see ClockState above and the
+      // matching `Clock` case in cppGenerator.ts (millis()-based, same edge
+      // semantics so preview and firmware timing match).
+      case 'Clock': {
+        const key = stateKey(id)
+        const prevSt = clockState.get(key)
+        // Clock reset (t jumped backward) — start clean, same convention as
+        // Interval/Trigger above.
+        const didReset = prevSt !== undefined && t < prevSt.t
+        const st: ClockState = (!prevSt || didReset)
+          ? { t, resetOffset: t, lastPulseT: null, tappedBpm: null, prevTap: false, prevSync: false, prevReset: false, lastBeatCount: 0, lastSubCount: 0 }
+          : { ...prevSt, t }
+
+        const tapIn = Boolean(input(id, 'tap', false))
+        const syncIn = Boolean(input(id, 'sync', false))
+        const resetIn = Boolean(input(id, 'reset', false))
+        const beatsPerBar = Math.max(1, Math.round(Number(props.beatsPerBar ?? 4)))
+        const subdivision = Math.max(1, Math.round(Number(props.subdivision ?? 2)))
+        const baseBpm = Math.max(1, Number(props.bpm ?? 120))
+
+        // A tap/sync rising edge re-zeros phase and, from the second pulse on,
+        // blends a live BPM estimate from the pulse interval (an out-of-range
+        // gap — too fast/slow to be a real tempo — drops the running estimate
+        // instead of corrupting it with a bogus sample).
+        const registerPulse = () => {
+          if (st.lastPulseT !== null) {
+            const interval = t - st.lastPulseT
+            if (interval > 0.2 && interval < 3) {
+              const sample = 60 / interval
+              st.tappedBpm = st.tappedBpm !== null ? st.tappedBpm * 0.5 + sample * 0.5 : sample
+            } else {
+              st.tappedBpm = null
+            }
+          }
+          st.lastPulseT = t
+          st.resetOffset = t
+        }
+        if (tapIn && !st.prevTap) registerPulse()
+        if (syncIn && !st.prevSync) registerPulse()
+        if (resetIn && !st.prevReset) {
+          st.resetOffset = t
+          st.lastPulseT = null
+          st.tappedBpm = null
+          st.lastBeatCount = 0
+          st.lastSubCount = 0
+        }
+        st.prevTap = tapIn
+        st.prevSync = syncIn
+        st.prevReset = resetIn
+
+        const bpm = st.tappedBpm ?? baseBpm
+        const elapsedBeats = Math.max(0, (t - st.resetOffset) * bpm / 60)
+        const phase = elapsedBeats - Math.floor(elapsedBeats)
+        const beatCount = Math.floor(elapsedBeats)
+        const beat = beatCount > st.lastBeatCount
+        const bar = beat && beatCount % beatsPerBar === 0
+        const subCount = Math.floor(elapsedBeats * subdivision)
+        const sub = subCount > st.lastSubCount
+        st.lastBeatCount = beatCount
+        st.lastSubCount = subCount
+        clockState.set(key, st)
+
+        out = { bpm, phase, beat, bar, sub }
         break
       }
 

@@ -297,7 +297,7 @@ Nodes are grouped into categories. Adding a new node type requires:
 Current nodes by category (see `nodeLibrary.ts` for the authoritative list):
 - **input** (live device IO): MicInput, ButtonInput, PotInput, EncoderInput
 - **audio** (analysis): FFTAnalyzer, BeatDetect, PercussionDetect, AudioFeatures, AudioHue
-- **signal** (time-varying control sources): TimeNode, Interval, Counter, Random, Envelope, Sin, Cos, Wave, ComplexWave, BeatSin
+- **signal** (time-varying control sources): TimeNode, Interval, Counter, Random, Envelope, Sin, Cos, Wave, ComplexWave, BeatSin, Clock
 - **math** (value transforms, label "Math & Logic"): Math, Clamp, MapRange, Lerp, Ease, Abs, Mod, Compare, Not, Gate, Smooth, SampleHold (label "Sample & Hold"), Switch, XYMapper, Trigger
 - **color** (subcategories *Colors* / *Palettes*): HSVToRGB, RGBToHSV, CHSV, Temperature, HeatColor, BlendColors / GradientSampler, PaletteSampler, PaletteSelector, CustomPalette, Poline, PaletteBlend
 - **pattern** (frame generators, five subcategories): *Shapes & Text*: SolidColor, Circle, Line, Shape, Text, Image, GradientFrame, PaletteGradient · *Generative*: Noise, FractalNoise, GaborNoise, Plasma, Rainbow, Pride2015 (label "Pride 2015"), Pacifica, TwinkleFox, Blobs, RadialBurst, Spiral, Kaleidoscope · *Simulations*: Fire, Fire2012, Particles, FlowField, Starfield, ReactionDiffusion, GameOfLife · *Audio-Reactive*: SpectrumBars, BassPulse, BassRings, MidrangeWaves, MidrangeBloom, TrebleSparks, TreblePrism, AudioCascade, BeatFlash, AudioFlow · *Code*: CustomFormula, Code

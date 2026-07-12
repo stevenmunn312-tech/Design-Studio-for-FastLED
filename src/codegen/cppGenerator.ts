@@ -3509,6 +3509,44 @@ export function generateCpp(
         break
       }
 
+      // Free-running BPM clock/transport — millis()-based, mirroring the
+      // stateful `Clock` case in graphEvaluator.ts (same tap/sync EMA and
+      // beat/bar/subdivision edge semantics) so preview and firmware timing
+      // match.
+      case 'Clock': {
+        const bpmProp = Math.max(1, Number(p.bpm ?? 120))
+        const beatsPerBar = Math.max(1, Math.round(Number(p.beatsPerBar ?? 4)))
+        const subdivision = Math.max(1, Math.round(Number(p.subdivision ?? 2)))
+        const tap = boolExpr(node.id, 'tap')
+        const sync = boolExpr(node.id, 'sync')
+        const reset = boolExpr(node.id, 'reset')
+        ln(`  static uint32_t _clkOrigin_${id} = 0; static bool _clkInit_${id} = false;`)
+        ln(`  static uint32_t _clkLastPulse_${id} = 0; static bool _clkHasPulse_${id} = false;`)
+        ln(`  static float _clkTapBpm_${id} = 0; static bool _clkHasTap_${id} = false;`)
+        ln(`  static bool _clkPTap_${id} = false, _clkPSync_${id} = false, _clkPReset_${id} = false;`)
+        ln(`  static uint32_t _clkLastBeat_${id} = 0, _clkLastSub_${id} = 0;`)
+        ln(`  { if (!_clkInit_${id}) { _clkOrigin_${id} = millis(); _clkInit_${id} = true; }`)
+        ln(`    bool _tapNow = (${tap}); bool _syncNow = (${sync}); bool _resetNow = (${reset});`)
+        ln(`    bool _pulseNow = (_tapNow && !_clkPTap_${id}) || (_syncNow && !_clkPSync_${id});`)
+        ln(`    if (_pulseNow) { uint32_t _now = millis();`)
+        ln(`      if (_clkHasPulse_${id}) { uint32_t _iv = _now - _clkLastPulse_${id};`)
+        ln(`        if (_iv > 200 && _iv < 3000) { float _sample = 60000.0f / _iv; _clkTapBpm_${id} = _clkHasTap_${id} ? (_clkTapBpm_${id} * 0.5f + _sample * 0.5f) : _sample; _clkHasTap_${id} = true; }`)
+        ln(`        else { _clkHasTap_${id} = false; } }`)
+        ln(`      _clkLastPulse_${id} = _now; _clkHasPulse_${id} = true; _clkOrigin_${id} = _now; }`)
+        ln(`    if (_resetNow && !_clkPReset_${id}) { _clkOrigin_${id} = millis(); _clkHasPulse_${id} = false; _clkHasTap_${id} = false; _clkLastBeat_${id} = 0; _clkLastSub_${id} = 0; }`)
+        ln(`    _clkPTap_${id} = _tapNow; _clkPSync_${id} = _syncNow; _clkPReset_${id} = _resetNow; }`)
+        ln(`  float ${v('bpm')} = _clkHasTap_${id} ? _clkTapBpm_${id} : ${bpmProp}f;`)
+        ln(`  float _clkElapsed_${id} = ((millis() - _clkOrigin_${id}) / 60000.0f) * ${v('bpm')};`)
+        ln(`  float ${v('phase')} = _clkElapsed_${id} - (uint32_t)_clkElapsed_${id};`)
+        ln(`  uint32_t _clkBeatCount_${id} = (uint32_t)_clkElapsed_${id};`)
+        ln(`  bool ${v('beat')} = _clkBeatCount_${id} > _clkLastBeat_${id};`)
+        ln(`  bool ${v('bar')} = ${v('beat')} && (_clkBeatCount_${id} % ${beatsPerBar}u == 0u);`)
+        ln(`  uint32_t _clkSubCount_${id} = (uint32_t)(_clkElapsed_${id} * ${subdivision}.0f);`)
+        ln(`  bool ${v('sub')} = _clkSubCount_${id} > _clkLastSub_${id};`)
+        ln(`  _clkLastBeat_${id} = _clkBeatCount_${id}; _clkLastSub_${id} = _clkSubCount_${id};`)
+        break
+      }
+
       case 'Fire2012': {
         const ob = ownBuf()
         const cooling = f('cooling', 'cooling', 55), sparking = f('sparking', 'sparking', 120)

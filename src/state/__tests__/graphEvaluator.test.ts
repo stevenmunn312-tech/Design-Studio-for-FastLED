@@ -2938,6 +2938,78 @@ describe('frame pool pruning', () => {
   })
 })
 
+describe('Clock / Transport', () => {
+  const boolSrc = (id: string, on: number) => node(id, 'Compare', 'math', { a: on, b: 0.5 })
+
+  it('free-runs phase/beat/bar from the bpm property', () => {
+    const clk = () => [node('clk1', 'Clock', 'signal', { bpm: 120, beatsPerBar: 4, subdivision: 2 })]
+    const at = (tick: number, port: string) => evaluateScalar(clk(), [], 'clk1', port, tick)
+    // 120 BPM = 2 beats/sec = a beat every 30 ticks (@60 ticks/sec).
+    expect(at(0, 'phase')).toBe(0)
+    expect(at(0, 'beat')).toBe(0)
+    expect(at(15, 'phase')).toBeCloseTo(0.5, 6)   // halfway through beat 1
+    expect(at(29, 'beat')).toBe(0)                // not there yet
+    expect(at(30, 'beat')).toBe(1)                // beat boundary — pulses once
+    expect(at(31, 'beat')).toBe(0)                // no new edge next tick
+    // beatsPerBar = 4 → the 4th beat (tick 120) is also a bar downbeat.
+    expect(at(90, 'bar')).toBe(0)                  // 3rd beat, not a downbeat
+    expect(at(120, 'bar')).toBe(1)
+  })
+
+  it('bpm output reflects the free-run property when untapped', () => {
+    expect(evaluateScalar(
+      [node('clk2', 'Clock', 'signal', { bpm: 96 })], [], 'clk2', 'bpm', 0,
+    )).toBe(96)
+  })
+
+  it('subdivision pulses at the configured rate', () => {
+    const clk = () => [node('clk3', 'Clock', 'signal', { bpm: 120, subdivision: 2 })]
+    const at = (tick: number) => evaluateScalar(clk(), [], 'clk3', 'sub', tick)
+    expect(at(0)).toBe(0)
+    expect(at(15)).toBe(1)  // half a beat in, subdivision 2 → first subdivision boundary
+    expect(at(16)).toBe(0)
+  })
+
+  it('tap tempo derives bpm from the interval between two taps and re-zeros phase', () => {
+    const graph = (on: number) => [
+      boolSrc('tapsrc', on),
+      node('clk4', 'Clock', 'signal', { bpm: 90 }),
+    ]
+    const edges = [edge('e', 'tapsrc', 'result', 'clk4', 'tap')]
+    const at = (tick: number, on: number, port: string) => evaluateScalar(graph(on), edges, 'clk4', port, tick)
+    expect(at(0, 0, 'bpm')).toBe(90)     // untapped — the free-run property
+    expect(at(30, 1, 'phase')).toBe(0)   // first tap (t=0.5s) — no prior pulse to interval against, just re-zeros
+    expect(at(31, 0, 'bpm')).toBe(90)    // still untapped bpm — one tap alone can't derive a tempo
+    expect(at(60, 1, 'bpm')).toBe(120)   // second tap 0.5s later → 60 / 0.5 = 120 bpm
+    expect(at(60, 1, 'phase')).toBe(0)   // re-zeroed again on the second tap
+  })
+
+  it('sync pulses re-zero phase the same way tap does', () => {
+    const graph = (on: number) => [
+      boolSrc('syncsrc', on),
+      node('clk5', 'Clock', 'signal', { bpm: 60 }),
+    ]
+    const edges = [edge('e', 'syncsrc', 'result', 'clk5', 'sync')]
+    const at = (tick: number, on: number) => evaluateScalar(graph(on), edges, 'clk5', 'phase', tick)
+    expect(at(0, 0)).toBe(0)               // establishes the t=0 baseline
+    expect(at(30, 0)).toBeCloseTo(0.5, 6)  // free-running at 60 bpm, half a beat elapsed
+    expect(at(31, 1)).toBe(0)              // sync rising edge — phase snaps to 0
+  })
+
+  it('reset re-zeros phase and beat/bar counters', () => {
+    const graph = (on: number) => [
+      boolSrc('rstsrc', on),
+      node('clk6', 'Clock', 'signal', { bpm: 120, beatsPerBar: 4 }),
+    ]
+    const edges = [edge('e', 'rstsrc', 'result', 'clk6', 'reset')]
+    const at = (tick: number, on: number, port: string) => evaluateScalar(graph(on), edges, 'clk6', port, tick)
+    expect(at(0, 0, 'phase')).toBe(0)                // establishes the t=0 baseline
+    expect(at(45, 0, 'phase')).toBeCloseTo(0.5, 6)  // 1.5 beats elapsed
+    expect(at(46, 1, 'phase')).toBe(0)              // reset rising edge — back to 0
+    expect(at(77, 0, 'beat')).toBe(1)                // just past one full beat after the reset point
+  })
+})
+
 describe('BeatFlash', () => {
   const boolSrc = (id: string, on: number) => node(id, 'Compare', 'math', { a: on, b: 0.5 })
   const px = (frame: Frame) => frame[0][0]

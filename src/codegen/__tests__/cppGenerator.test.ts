@@ -281,6 +281,28 @@ describe('generateCpp', () => {
     expect(cpp).toContain('beatsin8(120, 0, 255)')
   })
 
+  it('emits a millis()-based Clock with bpm/beatsPerBar/subdivision baked in', () => {
+    const clk = node('clk', 'Clock', 'signal', { bpm: 128, beatsPerBar: 4, subdivision: 2 })
+    const cpp = generateCpp([clk, outputNode], [])
+    expect(cpp).toContain('_clkOrigin_clk')
+    expect(cpp).toContain('128f')
+    expect(cpp).toContain('% 4u == 0u')
+    expect(cpp).toContain('float n_clk_bpm')
+    expect(cpp).toContain('float n_clk_phase')
+    expect(cpp).toContain('bool n_clk_beat')
+    expect(cpp).toContain('bool n_clk_bar')
+    expect(cpp).toContain('bool n_clk_sub')
+  })
+
+  it('Clock reads tap/sync/reset from wired bool sources', () => {
+    const tap = node('tapsrc', 'Compare', 'math', {})
+    const clk = node('clk2', 'Clock', 'signal', { bpm: 100 })
+    const cpp = generateCpp([tap, clk, outputNode], [
+      edge('e1', 'tapsrc', 'clk2', 'result', 'tap'),
+    ])
+    expect(cpp).toContain('n_tapsrc_result')
+  })
+
   it('emits a sine Wave oscillator', () => {
     const w = node('w', 'Wave', 'math', { amplitude: 2, frequency: 0.5, phase: 0.25, waveform: 'sine' })
     const cpp = generateCpp([w, outputNode], [])

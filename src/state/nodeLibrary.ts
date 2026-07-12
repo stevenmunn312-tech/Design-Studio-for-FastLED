@@ -1406,6 +1406,29 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { bpm: 60, low: 0, high: 255 },
   },
   {
+    // Free-running BPM clock / transport — the show-timing counterpart to
+    // BeatSin's single oscillator. Free-runs from the `bpm` property; wiring a
+    // pulse (e.g. a BeatDetect.beat) into `sync` locks phase + derives a live
+    // BPM from the pulse interval — the same mechanism `tap` uses for manual
+    // tap-tempo. `reset` re-zeros phase/bar/subdivision counters.
+    type: 'Clock',
+    label: 'Clock',
+    category: 'signal',
+    inputs: [
+      { id: 'tap', label: 'Tap Tempo', dataType: 'bool' },
+      { id: 'sync', label: 'Sync', dataType: 'bool' },
+      { id: 'reset', label: 'Reset', dataType: 'bool' },
+    ],
+    outputs: [
+      { id: 'bpm', label: 'BPM', dataType: 'float' },
+      { id: 'phase', label: 'Phase (0–1)', dataType: 'float' },
+      { id: 'beat', label: 'Beat', dataType: 'bool' },
+      { id: 'bar', label: 'Bar', dataType: 'bool' },
+      { id: 'sub', label: 'Subdivision', dataType: 'bool' },
+    ],
+    defaultProperties: { bpm: 120, beatsPerBar: 4, subdivision: 2 },
+  },
+  {
     type: 'XYMapper',
     label: 'XY → Index',
     category: 'math',
@@ -2118,6 +2141,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Compare: 'True when a > b.',
   Trigger: 'Debounce, Toggle, One Shot, Pulse Divider, or Trigger Delay on a bool.',
   BeatSin: 'FastLED beatsin8 — oscillates low↔high at a BPM.',
+  Clock: 'BPM clock — phase/beat/bar/subdivision pulses; tap tempo, sync, and reset.',
   XYMapper: 'Converts (x, y) to a strip index.',
   // color
   GradientSampler: 'Samples a two-color gradient at t.',
@@ -2262,7 +2286,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // matters more than the library's declaration order (fields compose toward
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
-  signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin'],
+  signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin', 'Clock'],
   field:  ['FieldFormula', 'FieldNoise', 'WaveSim', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'PatternMaster', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
@@ -2714,6 +2738,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   // DistanceField stretches the distance ramp 1×–4× (the shared `scale` is 0–2).
   DistanceField:     { scale: { control: 'slider', min: 1, max: 4,   step: 0.1 } },
+  Clock: {
+    bpm:         { control: 'slider', min: 40, max: 220, step: 1 },
+    beatsPerBar: { control: 'slider', min: 1, max: 16, step: 1 },
+    subdivision: { control: 'slider', min: 1, max: 8, step: 1 },
+  },
 }
 
 /** Inline-editor control hint for a node's property, honouring per-node overrides. */
