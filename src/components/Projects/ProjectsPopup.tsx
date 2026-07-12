@@ -48,12 +48,22 @@ export default function ProjectsPopup() {
     closeProjects()
   }
 
+  const confirmSaveBeforeNewProject = () => {
+    if (!currentProject) return true
+    const shouldSave = window.confirm(
+      `Save current project "${currentProject.name}" before creating a new project?\n\nPress OK to save first, or Cancel to continue without saving.`
+    )
+    if (shouldSave) useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
+    return true
+  }
+
   const createBlank = () => {
-    const suggested = `Project ${projects.length + 1}`
-    const name = window.prompt('Name for the new blank project:', suggested)
-    if (name === null) return
-    useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
-    const project = createProject(name, blankWorkspace())
+    if (!currentProject && useGraphStore.getState().nodes.length > 0) {
+      const ok = window.confirm('Create a new blank project? The current unsaved graph will be replaced.')
+      if (!ok) return
+    }
+    if (!confirmSaveBeforeNewProject()) return
+    const project = createProject('New Project', blankWorkspace())
     useGraphStore.getState().loadGraph([], [])
     useGraphStore.temporal.getState().clear()
     setStatus(`Created project "${project.name}"`, 'success')
@@ -116,7 +126,7 @@ export default function ProjectsPopup() {
           Named workspaces backed by the same save format as JSON export. The current project autosaves in place, and this list is ordered by most recent activity.
         </div>
         <div className={styles.actions}>
-          <button className={styles.primaryBtn} onClick={createBlank}>New Blank</button>
+          <button className={styles.primaryBtn} onClick={createBlank}>New Project</button>
           <button className={styles.secondaryBtn} onClick={duplicateCurrent} disabled={!currentProject}>Duplicate Current</button>
         </div>
         <div className={styles.list}>

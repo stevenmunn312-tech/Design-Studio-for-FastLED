@@ -49,6 +49,7 @@ describe('MenuBar file menu', () => {
     useShowPlayback.setState({ playing: false, nodeId: null, show: null, posMs: 0, useGroupInputs: false })
     delete (window as Window & { showOpenFilePicker?: unknown }).showOpenFilePicker
     delete (window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker
+    vi.restoreAllMocks()
   })
 
   it('shows a File dropdown with project actions and recents', () => {
@@ -91,6 +92,55 @@ describe('MenuBar file menu', () => {
     expect(useProjectStore.getState().currentProjectId).toBe(pg.id)
     expect(useGraphStore.getState().nodes.map((node) => node.id)).toEqual(['pg-node'])
     expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['scratch'])
+  })
+
+  it('creates a default New Project when no project is open', () => {
+    useProjectStore.setState({ projects: [], currentProjectId: '' })
+    useGraphStore.setState({
+      nodes: [],
+      edges: [],
+      graphData: {},
+      graphs: { root: { id: 'root', name: 'Main' } },
+      activeGraphId: 'root',
+    })
+
+    const { getByRole, getByText } = render(<MenuBar />)
+    fireEvent.click(getByRole('button', { name: 'File menu' }))
+    fireEvent.click(getByText('New Project'))
+
+    const current = useProjectStore.getState().projects.find((entry) => entry.id === useProjectStore.getState().currentProjectId)
+    expect(current?.name).toBe('New Project')
+    expect(useGraphStore.getState().nodes).toEqual([])
+  })
+
+  it('asks to save before creating a new project when one is open', () => {
+    const alpha = project('alpha', 'alpha', 'alpha-node', 200)
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    useProjectStore.setState({ projects: [alpha], currentProjectId: alpha.id })
+    useGraphStore.setState({
+      nodes: [{
+        id: 'scratch',
+        type: 'studioNode',
+        position: { x: 10, y: 10 },
+        data: { label: 'Noise', nodeType: 'Noise', category: 'pattern', properties: {}, inputs: [], outputs: [] },
+      }] as never[],
+      edges: [],
+      graphData: {},
+      graphs: { root: { id: 'root', name: 'Main' } },
+      activeGraphId: 'root',
+    })
+
+    const { getByRole, getByText } = render(<MenuBar />)
+    fireEvent.click(getByRole('button', { name: 'File menu' }))
+    fireEvent.click(getByText('New Project'))
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'Save current project "alpha" before creating a new project?\n\nPress OK to save first, or Cancel to continue without saving.'
+    )
+    const current = useProjectStore.getState().projects.find((entry) => entry.id === useProjectStore.getState().currentProjectId)
+    expect(current?.name).toBe('New Project')
+    expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['scratch'])
+    expect(useGraphStore.getState().nodes).toEqual([])
   })
 
   it('opens a project file through the native picker', async () => {

@@ -153,6 +153,15 @@ export default function MenuBar() {
     return true
   }
 
+  const confirmSaveBeforeNewProject = () => {
+    if (!currentProject) return true
+    const shouldSave = window.confirm(
+      `Save current project "${currentProject.name}" before creating a new project?\n\nPress OK to save first, or Cancel to continue without saving.`
+    )
+    if (shouldSave) saveIntoCurrentProject()
+    return true
+  }
+
   const openParsedProject = async (projectText: string, fallbackName: string) => {
     const project = parseProjectFile(projectText, fallbackName)
     if (!currentProject && !confirmReplaceUnsavedWorkspace('Open a project file? The current unsaved graph will be replaced.')) {
@@ -169,12 +178,9 @@ export default function MenuBar() {
 
   const handleNewProject = () => {
     setFileMenuOpen(false)
-    const suggested = `Project ${projects.length + 1}`
-    const name = window.prompt('Name for the new blank project:', suggested)
-    if (name === null) return
     if (!currentProject && !confirmReplaceUnsavedWorkspace('Create a new blank project? The current unsaved graph will be replaced.')) return
-    if (currentProject) useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
-    const project = useProjectStore.getState().createProject(name, blankWorkspace())
+    if (!confirmSaveBeforeNewProject()) return
+    const project = useProjectStore.getState().createProject('New Project', blankWorkspace())
     useGraphStore.getState().loadGraph([], [])
     useGraphStore.temporal.getState().clear()
     setStatus(`Created project "${project.name}"`, 'success')
