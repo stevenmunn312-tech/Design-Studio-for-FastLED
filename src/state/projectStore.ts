@@ -48,6 +48,7 @@ const CURRENT_PROJECT_KEY = 'fastled-studio.current-project.v1'
 const CURRENT_WORKSPACE_KEY = 'fastled-studio.current-workspace.v1'
 const LEGACY_AUTOSAVE_KEY = 'fastled-studio-graph'
 const DISK_SYNC = !import.meta.env.VITEST
+const IMPLICIT_PROJECTS = !DISK_SYNC
 
 function trimName(name: string): string {
   return name.trim().slice(0, 80)
@@ -153,6 +154,17 @@ function makeProject(
 }
 
 function migrateLegacyAutosave(): PersistedState {
+  if (!IMPLICIT_PROJECTS) {
+    try {
+      const raw = localStorage.getItem(LEGACY_AUTOSAVE_KEY)
+      if (!raw) return { currentProjectId: '', projects: [] }
+      const parsed = JSON.parse(raw) as PersistedWorkspace
+      const migrated = makeProject('Main', parsed)
+      return { currentProjectId: migrated.id, projects: [migrated] }
+    } catch {
+      return { currentProjectId: '', projects: [] }
+    }
+  }
   const fallback = makeProject('Main')
   try {
     const raw = localStorage.getItem(LEGACY_AUTOSAVE_KEY)
@@ -202,6 +214,10 @@ function normalizeState(parsed: Partial<PersistedState> | null | undefined): Per
             : project))
       })()
     : (sorted.length ? sorted : (currentWorkspace ? [currentWorkspace] : fallback.projects))
+  if (projectsWithSnapshot.length === 0) {
+    persistCurrentProjectHint('')
+    return { currentProjectId: '', projects: [] }
+  }
   const currentProjectId = projectsWithSnapshot.some((project) => project.id === preferredProjectId)
     ? String(preferredProjectId)
     : projectsWithSnapshot[0].id
@@ -341,12 +357,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       }
     }
     const projects = sortProjects([...merged.values()])
-    const fallback = projects[0] ?? makeProject('Main')
     const preferredProjectId = loadCurrentProjectHint() ?? state.currentProjectId
     const currentProjectId = projects.some((project) => project.id === preferredProjectId)
       ? preferredProjectId
-      : fallback.id
-    const next = { currentProjectId, projects: projects.length ? projects : [fallback] }
+      : (projects[0]?.id ?? '')
+    const next = { currentProjectId, projects }
     persist(next)
     set(next)
   },
