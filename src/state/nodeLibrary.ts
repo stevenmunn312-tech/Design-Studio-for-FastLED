@@ -2082,6 +2082,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
 
   // ── Music-sync pipeline (the Music Library source lives in Show) ───────
   {
+    // No `frame` output — the generated show only ever plays back through the
+    // SD-card export (`shows` → SDCard) or the in-browser preview (this node's
+    // own body, optionally mirrored into the main LED preview via the
+    // `showInMainPreview` toggle). A firmware-facing frame port would be
+    // structurally misleading: a normal (non-SD-show) sketch has no audio
+    // transport to drive it, so it could only ever render black.
     type: 'PerformanceGenerator',
     label: 'Performance Generator',
     category: 'show',
@@ -2091,7 +2097,6 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
     ],
     outputs: [
-      { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'shows', label: 'Shows', dataType: 'shows' },
     ],
     defaultProperties: {
@@ -2102,6 +2107,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       paletteMode:        'mood',
       fixedPalette:       'rainbow',
       useGroupInputs:     false,
+      showInMainPreview:  false,
     },
   },
   {

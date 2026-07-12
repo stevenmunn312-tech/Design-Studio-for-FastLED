@@ -157,6 +157,21 @@
   border: 1px solid var(--divider);
 }
 
+.mainPreviewToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  font-size: var(--fs-caption);
+  font-family: var(--font-body);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.mainPreviewToggle input {
+  cursor: pointer;
+}
+
 .mainNote {
   padding: 10px 8px;
   text-align: center;

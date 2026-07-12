@@ -102,11 +102,11 @@ describe('evaluateGraph', () => {
     expect(evaluateGraph([node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })], [], 0, W, H)).toBeNull()
   })
 
-  it('lets PerformanceGenerator terminate at MatrixOutput with a safe frame', () => {
-    const { nodes, edges } = withOutput(node('pg', 'PerformanceGenerator', 'hardware'))
-    const frame = evaluateGraph(nodes, edges, 0, W, H)
-    expect(frame).not.toBeNull()
-    expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
+  it('PerformanceGenerator has no frame port — its shows output is the only thing it exposes', () => {
+    const pg = node('pg', 'PerformanceGenerator', 'show')
+    const out = node('zzout', 'MatrixOutput', 'output', {})
+    const { outputs } = evaluateGraphFull([pg, out], [], 0, W, H)
+    expect(outputs.get('pg')).toEqual({ shows: null })
   })
 
   it('Math computes each bundled operation on a and b', () => {

@@ -462,16 +462,17 @@ function buildSpecialRecipe(node: NodeDefinition): ExampleRecipe | null {
         columns: [
           [makeNode('music', 'Music Library', 'show'), makeNode('patterns', 'Pattern Collection', 'show'), makeNode('transitions', 'Transitions', 'show')],
           [makeNode('target', node.label, node.category, true)],
-          [makeNode('sd', 'SD Card', 'show'), makeNode('preview', 'Matrix Output', 'output')],
+          [makeNode('sd', 'SD Card', 'show')],
+          [makeNode('preview', 'Matrix Output', 'output')],
         ],
         edges: [
           { from: 'music', to: 'target' },
           { from: 'patterns', to: 'target' },
           { from: 'transitions', to: 'target' },
           { from: 'target', to: 'sd' },
-          { from: 'target', to: 'preview' },
+          { from: 'sd', to: 'preview' },
         ],
-        explanation: `${node.label} turns a direct music input plus a selected Pattern Collection into timed show files, while also previewing the result as a frame.`,
+        explanation: `${node.label} turns a direct music input plus a selected Pattern Collection into timed show files for SD export; watch the generated show in this node's own player before exporting.`,
         result: 'A full offline music-show build stage for SD export.',
       }
     case 'PatternCollection':

@@ -351,7 +351,7 @@ describe('StudioNode', () => {
     expect(selects[1].disabled).toBe(true)
   })
 
-  it('renders the library frame handle for a stale Performance Generator snapshot', () => {
+  it('drops the frame handle for a stale Performance Generator snapshot saved before the port was removed', () => {
     const node = makeNode('PerformanceGenerator', {
       beatIntensity: 0.8,
       energySensitivity: 0.7,
@@ -363,13 +363,18 @@ describe('StudioNode', () => {
       { id: 'music', label: 'Music', dataType: 'music' },
       { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
     ]
+    // Simulate an old save that still declares the now-removed `frame` output
+    // (a firmware-facing one would be structurally misleading — see
+    // nodeLibrary.ts). The live library definition should win over it.
     node.data.outputs = [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'shows', label: 'Shows', dataType: 'shows' },
     ]
 
     const { container } = renderNode(node)
 
-    expect(container.querySelector('[data-handle="source:frame"]')).toBeTruthy()
+    expect(container.querySelector('[data-handle="source:frame"]')).toBeNull()
+    expect(container.querySelector('[data-handle="source:shows"]')).toBeTruthy()
     expect(container.querySelector('[data-handle="target:transitions"]')).toBeTruthy()
   })
 
@@ -417,17 +422,14 @@ describe('StudioNode', () => {
       .getByText('0')).toBeTruthy()
   })
 
-  it('flags the black frame placeholder on the Performance Generator, and only there', () => {
-    const perf = renderNode(makeNode('PerformanceGenerator', {
-      beatIntensity: 0.8, energySensitivity: 0.7, transitionDuration: 0.5,
-      paletteMode: 'mood', fixedPalette: 'rainbow',
-    }))
-    expect(perf.getByText(/frame output is black/)).toBeTruthy()
-    perf.unmount()
+  it('flags the preview-only fallback on MidiInput, and only there', () => {
+    const midi = renderNode(makeNode('MidiInput', { note: 60, cc: 1 }))
+    expect(midi.getByText(/preview-only/)).toBeTruthy()
+    midi.unmount()
     // An ordinary node carries no fallback note. (Scoped to this render's own
     // container — getByText/queryByText search the whole shared document.)
     const solid = renderNode(makeNode('SolidColor', { r: 1, g: 2, b: 3 }))
-    expect(solid.container.textContent).not.toMatch(/preview stub|frame output is black/)
+    expect(solid.container.textContent).not.toMatch(/preview stub|preview-only/)
   })
 
   it('a bundled node header reflects the selected variant', () => {

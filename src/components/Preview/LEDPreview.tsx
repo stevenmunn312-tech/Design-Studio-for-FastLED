@@ -888,16 +888,7 @@ export default function LEDPreview() {
         if (frame) { if (ss > 1) frame = downscaleFrame(frame, ss) }
         else frame = idleFrame(tick, gW, gH)
         const showStart = PERF_TELEMETRY ? performance.now() : 0
-        frame = applyShowPlaybackSignal(
-          frame,
-          outputs,
-          graphNodes,
-          graphEdges,
-          useShowPlayback.getState(),
-          gW,
-          gH,
-          groups,
-        )
+        frame = applyShowPlaybackSignal(frame, useShowPlayback.getState(), gW, gH, groups)
         const showMs = PERF_TELEMETRY ? performance.now() - showStart : 0
 
         // Feed the live-stream send-loop the exact matrix frame the preview

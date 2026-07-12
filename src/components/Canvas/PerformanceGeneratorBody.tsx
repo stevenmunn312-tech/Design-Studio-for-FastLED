@@ -58,22 +58,11 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
     return Math.max(1, Math.min(64, Number(o?.data.properties.height ?? 16)))
   })
 
-  // When this generator's `frame` output feeds a MatrixOutput, the show plays in
-  // the big LED preview instead of on the node (see showPlayback.ts).
-  const wiredToMatrix = useGraphStore((s) => {
-    const matrixIds = new Set(
-      s.nodes
-        .filter((n) => (n.data as { nodeType?: string }).nodeType === 'MatrixOutput')
-        .map((n) => n.id),
-    )
-    return s.edges.some(
-      (e) =>
-        e.source === nodeId &&
-        e.sourceHandle === 'frame' &&
-        e.targetHandle === 'frame' &&
-        matrixIds.has(e.target),
-    )
-  })
+  // Explicit opt-in (a node property, not a graph wire — PerformanceGenerator
+  // has no `frame` port; see nodeLibrary.ts) for mirroring this generator's
+  // playing show into the big LED preview instead of just the node's own
+  // canvas (see showPlayback.ts).
+  const showInMainPreview = !!properties.showInMainPreview
 
   const [previewId, setPreviewId] = useState<string | null>(null)
   const [playing, setPlaying] = useState(false)
@@ -145,9 +134,9 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
   const audioUrl = useMemo(() => (entry ? URL.createObjectURL(entry.file) : null), [entry])
   useEffect(() => () => { if (audioUrl) URL.revokeObjectURL(audioUrl) }, [audioUrl])
 
-  // Render loop: drive the canvas from the audio clock while playing. When
-  // wired to MatrixOutput the frame goes to the main preview instead — we just
-  // publish the position to the shared playback store and let LEDPreview draw.
+  // Render loop: drive the canvas from the audio clock while playing. With
+  // "show in main preview" on, the frame goes to the main preview instead — we
+  // just publish the position to the shared playback store and let LEDPreview draw.
   useEffect(() => {
     if (!playing || !show) return
     let lastStateUpdate = 0
@@ -155,7 +144,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
       const audio = audioRef.current
       if (audio) {
         const ms = Math.min(show.durationMs, audio.currentTime * 1000)
-        if (wiredToMatrix) {
+        if (showInMainPreview) {
           useShowPlayback.getState().setPlayback({ nodeId, show, posMs: ms, useGroupInputs, playing: true })
         } else if (canvasRef.current) {
           const baked = bakedPreviewActive ? bakedFrameAt(nodeId, ms) : null
@@ -172,12 +161,12 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
     }
     rafRef.current = requestAnimationFrame(tick)
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
-  }, [bakedPreviewActive, playing, show, gridW, gridH, useGroupInputs, wiredToMatrix, nodeId])
+  }, [bakedPreviewActive, playing, show, gridW, gridH, useGroupInputs, showInMainPreview, nodeId])
 
   // Draw a static frame at the current position when paused/seeking.
   useEffect(() => {
     if (playing || !show) return
-    if (wiredToMatrix) {
+    if (showInMainPreview) {
       useShowPlayback.getState().setPlayback({ nodeId, show, posMs, useGroupInputs, playing: false })
     } else if (canvasRef.current) {
       const baked = bakedPreviewActive ? bakedFrameAt(nodeId, posMs) : null
@@ -188,14 +177,14 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
         gridH,
       )
     }
-  }, [bakedPreviewActive, playing, show, posMs, gridW, gridH, useGroupInputs, wiredToMatrix, nodeId])
+  }, [bakedPreviewActive, playing, show, posMs, gridW, gridH, useGroupInputs, showInMainPreview, nodeId])
 
   // Release the main preview when this node is no longer wired / has no show,
   // and on unmount, so a stale show doesn't linger in the big canvas.
   useEffect(() => {
-    if (!wiredToMatrix || !show) useShowPlayback.getState().clearPlayback(nodeId)
+    if (!showInMainPreview || !show) useShowPlayback.getState().clearPlayback(nodeId)
     return () => useShowPlayback.getState().clearPlayback(nodeId)
-  }, [wiredToMatrix, show, nodeId])
+  }, [showInMainPreview, show, nodeId])
 
   function startPreview(id: string) {
     if (bakeLocked) return
@@ -396,7 +385,15 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
 
       {entry && show && (
         <div className={styles.player}>
-          {wiredToMatrix ? (
+          <label className={`nodrag ${styles.mainPreviewToggle}`}>
+            <input
+              type="checkbox"
+              checked={showInMainPreview}
+              onChange={() => useGraphStore.getState().updateNodeProperty(nodeId, 'showInMainPreview', !showInMainPreview)}
+            />
+            Show in main LED preview
+          </label>
+          {showInMainPreview ? (
             <div className={styles.mainNote}>▶ Playing in the main LED preview</div>
           ) : (
             <canvas

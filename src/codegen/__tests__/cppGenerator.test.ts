@@ -154,11 +154,13 @@ describe('generateCpp', () => {
     expect(cpp).toContain('fill_solid(buf_sc, NUM_LEDS, CRGB(255, 0, 0))')
   })
 
-  it('emits a safe frame buffer for a wired PerformanceGenerator', () => {
-    const generator = node('pg', 'PerformanceGenerator', 'hardware')
-    const cpp = generateCpp([generator, outputNode], [edge('e1', 'pg', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('fill_solid(buf_pg, NUM_LEDS, CRGB::Black)')
-    expect(cpp).toContain('::memmove(leds, buf_pg, sizeof(CRGB) * NUM_LEDS)')
+  it('PerformanceGenerator has no frame port to wire into MatrixOutput', () => {
+    // Music-sync shows only ever play back through the SD-card export
+    // (`shows` → SDCard) or the in-browser preview — never a normal sketch's
+    // frame path (see nodeLibrary.ts).
+    const generator = node('pg', 'PerformanceGenerator', 'show')
+    const cpp = generateCpp([generator, outputNode], [])
+    expect(cpp).toContain('not yet supported in code gen')
   })
 
   it('TrebleSparks colours its sparks from the connected palette input', () => {

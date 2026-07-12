@@ -3710,12 +3710,6 @@ export function generateCpp(
         break
       }
 
-      case 'PerformanceGenerator':
-        // Music-sync shows are rendered by the dedicated SD-card player. Keep
-        // the ordinary frame path deterministic when wired to MatrixOutput.
-        ln(`  fill_solid(${ownBuf()}, NUM_LEDS, CRGB::Black);`)
-        break
-
       case 'MatrixOutput': {
         const src = srcBuf('frame')
         if (!src) {

@@ -204,11 +204,16 @@ describe('nodeLibrary', () => {
     expect(NODE_LIBRARY.find((n) => n.type === 'MusicLibrary')?.category).toBe('show')
   })
 
-  it('PerformanceGenerator exposes shows and a MatrixOutput-compatible frame', () => {
+  it('PerformanceGenerator exposes only shows — no misleading frame port', () => {
+    // A firmware-facing frame port would be structurally misleading (a normal
+    // sketch has no audio transport to drive it); the live show preview is
+    // opt-in via the `showInMainPreview` property instead (showPlayback.ts).
     expect(NODE_LIBRARY.find((n) => n.type === 'PerformanceGenerator')?.outputs).toEqual([
-      { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'shows', label: 'Shows', dataType: 'shows' },
     ])
+    expect(NODE_LIBRARY.find((n) => n.type === 'PerformanceGenerator')?.defaultProperties).toMatchObject({
+      showInMainPreview: false,
+    })
   })
 
   it('Particles gates its extra variant-specific controls by particleType', () => {

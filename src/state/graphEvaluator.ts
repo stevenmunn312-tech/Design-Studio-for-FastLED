@@ -5595,10 +5595,11 @@ function createEvalNode(
         break
 
       case 'PerformanceGenerator':
-        // The timed-show player lives in the node body. Its graph output is a
-        // safe black frame when that player is not actively supplying pixels,
-        // allowing the generator to terminate the main MatrixOutput graph.
-        out = { shows: null, frame: blankFrame(W, H) }
+        // The timed-show player lives in the node body (PerformanceGeneratorBody)
+        // and, opt-in via `showInMainPreview`, mirrors into the main LED preview
+        // through showPlayback.ts — not a graph-wired `frame` port (see the node
+        // definition comment for why a firmware-facing one would be misleading).
+        out = { shows: null }
         break
 
       case 'SDCard':

@@ -575,10 +575,6 @@ const GROUP_INPUT_ROLES = ['energy', 'speed', 'palette']
 // BeatDetectBody's LIVE / PREVIEW badge); ButtonInput/PotInput/EncoderInput
 // get a live widget (HardwareInputBody) instead of a note.
 const PREVIEW_NOTES: Record<string, { text: string; title: string }> = {
-  PerformanceGenerator: {
-    text: 'frame output is black — shows play via SD export',
-    title: 'The frame port is a black placeholder that lets this node terminate MatrixOutput (in preview and firmware). Generated shows play through the SD-card player export; watch one in the player above.',
-  },
   MidiInput: {
     text: 'preview-only — no embedded MIDI equivalent',
     title: 'Reads a connected MIDI controller via the Web MIDI API for live preview control. There is no hardware analogue, so the generated firmware always sees the idle default (velocity 0, gate off, cc 0).',
@@ -719,7 +715,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // convention) instead of the fixed category accent every other node uses.
   const accent = isComment && isHexColor(props.color) ? props.color : categoryAccent
   const editable = Object.entries(props).filter(
-    ([k]) => k !== 'font' && k !== 'image' && k !== 'animation' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions' && k !== 'previewHidden' && k !== 'bypassed'
+    ([k]) => k !== 'font' && k !== 'image' && k !== 'animation' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions' && k !== 'previewHidden' && k !== 'bypassed' && k !== 'showInMainPreview'
       // Comment's `text` gets its own multi-line editor in the body, not the
       // generic single-line field list.
       && !(isComment && k === 'text')
