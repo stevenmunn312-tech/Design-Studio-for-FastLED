@@ -31,6 +31,18 @@ const MatrixOutputUpload = lazy(() => import('../Upload/MatrixOutputUpload'))
 
 type PortDef = { id: string; label: string; dataType: string }
 
+// MatrixOutput accumulates a lot of hardware-config properties; group them
+// under collapsible headers so the node body doesn't dwarf the graph. Any
+// property not listed here (e.g. one added later) still renders, ungrouped,
+// after these sections.
+const MATRIX_OUTPUT_PROP_GROUPS: { key: string; label: string; keys: string[] }[] = [
+  { key: 'wiring', label: 'Wiring', keys: ['chipset', 'colorOrder', 'dataPin', 'clockPin', 'serpentine'] },
+  { key: 'layout', label: 'Layout', keys: ['layout', 'tilesX', 'tilesY', 'tileSerpentine', 'tileRotations', 'customXYMap'] },
+  { key: 'rendering', label: 'Rendering', keys: ['supersample', 'brightness', 'correction', 'dither', 'overclock'] },
+  { key: 'power', label: 'Power', keys: ['powerLimit', 'volts', 'milliamps'] },
+]
+const MATRIX_OUTPUT_GROUPS_STORAGE_KEY = 'fastled-studio.matrixOutputPropGroupsOpen'
+
 // Shows the latest compile/runtime error from a Code node's preview evaluation.
 function CodeError({ nodeId }: { nodeId: string }) {
   const [err, setErr] = useState(() => getCodeError(nodeId))
@@ -258,6 +270,29 @@ const LivePropertyControls = memo(function LivePropertyControls({
 
   const isMatrixOutput = nodeType === 'MatrixOutput'
   const [sizePopupOpen, setSizePopupOpen] = useState(false)
+  // Which MatrixOutput property groups are expanded. Shared across all
+  // MatrixOutput nodes (there's usually just one board) and persisted so the
+  // choice survives a reload; starts fully collapsed to keep the node short.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
+    if (!isMatrixOutput) return {}
+    try {
+      const saved = localStorage.getItem(MATRIX_OUTPUT_GROUPS_STORAGE_KEY)
+      return saved ? JSON.parse(saved) : {}
+    } catch {
+      return {}
+    }
+  })
+  const toggleGroup = (key: string) => {
+    setOpenGroups((prev) => {
+      const next = { ...prev, [key]: !prev[key] }
+      try {
+        localStorage.setItem(MATRIX_OUTPUT_GROUPS_STORAGE_KEY, JSON.stringify(next))
+      } catch {
+        // localStorage unavailable — the toggle still works for this session
+      }
+      return next
+    })
+  }
 
   if (!(hasRGB || editable.length > 0 || showClamp || showBypass || isGroupInput || showSetDefault || isMatrixOutput)) return null
 
@@ -337,7 +372,8 @@ const LivePropertyControls = memo(function LivePropertyControls({
           </div>
         )
       })()}
-      {editable.map(([key, val]) => {
+      {(() => {
+        const renderPropRow = ([key, val]: [string, unknown]) => {
         const meta = propertyMeta(nodeType, key)
         const wired = drivenBy(key)
         // A property may be inapplicable to the current variant (e.g. a
@@ -433,7 +469,38 @@ const LivePropertyControls = memo(function LivePropertyControls({
             )}
           </div>
         )
-      })}
+        }
+
+        if (!isMatrixOutput) return editable.map(([key, val]) => renderPropRow([key, val]))
+
+        const grouped = new Set<string>()
+        for (const g of MATRIX_OUTPUT_PROP_GROUPS) for (const k of g.keys) grouped.add(k)
+        const ungrouped = editable.filter(([key]) => !grouped.has(key))
+        return (
+          <>
+            {MATRIX_OUTPUT_PROP_GROUPS.map((group) => {
+              const rows = editable.filter(([key]) => group.keys.includes(key))
+              if (rows.length === 0) return null
+              const open = Boolean(openGroups[group.key])
+              return (
+                <div key={group.key} className={styles.propGroup}>
+                  <button
+                    type="button"
+                    className={`nodrag ${styles.propGroupHeader}`}
+                    onClick={() => toggleGroup(group.key)}
+                    aria-expanded={open}
+                  >
+                    <span className={`${styles.propGroupCaret}${open ? ` ${styles.propGroupCaretOpen}` : ''}`}>▸</span>
+                    {group.label}
+                  </button>
+                  {open && <div className={styles.propGroupRows}>{rows.map((row) => renderPropRow(row))}</div>}
+                </div>
+              )
+            })}
+            {ungrouped.map((row) => renderPropRow(row))}
+          </>
+        )
+      })()}
       {showClamp && (
         <div
           className={styles.propRow}
