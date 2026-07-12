@@ -24,8 +24,11 @@ interface PersistedState {
 
 interface PersistedCurrentWorkspace {
   projectId: string
+  name?: string
+  createdAt?: number
   updatedAt: number
   workspace: PersistedWorkspace
+  uploadTarget?: ProjectUploadTarget
 }
 
 interface ProjectState {
@@ -91,7 +94,7 @@ function persistCurrentProjectHint(projectId: string): void {
   }
 }
 
-function loadCurrentWorkspaceSnapshot(): PersistedCurrentWorkspace | null {
+function loadCurrentWorkspaceSnapshot(): SavedProject | null {
   try {
     const raw = localStorage.getItem(CURRENT_WORKSPACE_KEY)
     if (!raw) return null
@@ -100,9 +103,12 @@ function loadCurrentWorkspaceSnapshot(): PersistedCurrentWorkspace | null {
     const workspace = parsed.workspace
     if (!workspace || !Array.isArray(workspace.nodes) || !Array.isArray(workspace.edges)) return null
     return {
-      projectId: parsed.projectId,
+      id: parsed.projectId,
+      name: typeof parsed.name === 'string' ? (trimName(parsed.name) || 'Recovered Project') : 'Recovered Project',
+      createdAt: typeof parsed.createdAt === 'number' ? parsed.createdAt : parsed.updatedAt,
       updatedAt: parsed.updatedAt,
       workspace: cloneWorkspace(workspace),
+      uploadTarget: normalizeUploadTarget(parsed.uploadTarget),
     }
   } catch {
     return null
@@ -114,8 +120,11 @@ function persistCurrentWorkspaceSnapshot(project: SavedProject | undefined): voi
   try {
     localStorage.setItem(CURRENT_WORKSPACE_KEY, JSON.stringify({
       projectId: project.id,
+      name: project.name,
+      createdAt: project.createdAt,
       updatedAt: project.updatedAt,
       workspace: project.workspace,
+      uploadTarget: project.uploadTarget,
     }))
   } catch {
     // Keep running when storage is unavailable or full.
@@ -160,6 +169,7 @@ function migrateLegacyAutosave(): PersistedState {
 
 function normalizeState(parsed: Partial<PersistedState> | null | undefined): PersistedState {
   const fallback = migrateLegacyAutosave()
+  const currentWorkspace = loadCurrentWorkspaceSnapshot()
   const rawProjects = Array.isArray(parsed?.projects) ? parsed.projects : []
   const projects = rawProjects
     .filter((project): project is SavedProject =>
@@ -176,36 +186,37 @@ function normalizeState(parsed: Partial<PersistedState> | null | undefined): Per
       name: trimName(project.name) || 'Untitled Project',
       uploadTarget: normalizeUploadTarget(project.uploadTarget),
     }))
-  if (projects.length === 0) return fallback
   const sorted = sortProjects(projects)
-  const preferredProjectId = loadCurrentProjectHint() ?? (typeof parsed?.currentProjectId === 'string' ? parsed.currentProjectId : null)
-  const currentProjectId = sorted.some((project) => project.id === preferredProjectId)
-    ? String(preferredProjectId)
-    : sorted[0].id
-  const currentWorkspace = loadCurrentWorkspaceSnapshot()
+  const preferredProjectId =
+    loadCurrentProjectHint()
+    ?? (typeof parsed?.currentProjectId === 'string' ? parsed.currentProjectId : null)
+    ?? currentWorkspace?.id
+    ?? null
   const projectsWithSnapshot = currentWorkspace
-    ? sorted.map((project) =>
-        project.id === currentWorkspace.projectId && currentWorkspace.updatedAt >= project.updatedAt
-          ? { ...project, updatedAt: currentWorkspace.updatedAt, workspace: currentWorkspace.workspace }
-          : project)
-    : sorted
+    ? (() => {
+        const existing = sorted.find((project) => project.id === currentWorkspace.id)
+        if (!existing) return sortProjects([currentWorkspace, ...sorted])
+        return sortProjects(sorted.map((project) =>
+          project.id === currentWorkspace.id && currentWorkspace.updatedAt >= project.updatedAt
+            ? currentWorkspace
+            : project))
+      })()
+    : (sorted.length ? sorted : (currentWorkspace ? [currentWorkspace] : fallback.projects))
+  const currentProjectId = projectsWithSnapshot.some((project) => project.id === preferredProjectId)
+    ? String(preferredProjectId)
+    : projectsWithSnapshot[0].id
   persistCurrentProjectHint(currentProjectId)
-  return { currentProjectId, projects: sortProjects(projectsWithSnapshot) }
+  persistCurrentWorkspaceSnapshot(projectsWithSnapshot.find((project) => project.id === currentProjectId))
+  return { currentProjectId, projects: projectsWithSnapshot }
 }
 
 function load(): PersistedState {
   try {
     const raw = localStorage.getItem(KEY)
-    if (!raw) {
-      const migrated = migrateLegacyAutosave()
-      persistCurrentProjectHint(migrated.currentProjectId)
-      return migrated
-    }
+    if (!raw) return normalizeState(undefined)
     return normalizeState(JSON.parse(raw) as Partial<PersistedState>)
   } catch {
-    const migrated = migrateLegacyAutosave()
-    persistCurrentProjectHint(migrated.currentProjectId)
-    return migrated
+    return normalizeState(undefined)
   }
 }
 

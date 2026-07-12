@@ -163,4 +163,27 @@ describe('projectStore', () => {
     )
     expect(current?.workspace.nodes.map((entry) => entry.id)).toEqual(['new'])
   })
+
+  it('reconstructs the current project from the dedicated snapshot when the stale project blob only has Main', async () => {
+    const initial = await freshStore()
+    const store = initial.useProjectStore
+
+    const realSetItem = Storage.prototype.setItem
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (key: string, value: string) {
+      if (key === 'fastled-studio.projects.v1') throw new Error('quota')
+      return realSetItem.call(this, key, value)
+    })
+
+    const pg = store.getState().createProject('pg', workspace(['pg']))
+
+    setItemSpy.mockRestore()
+
+    const reloaded = await freshStore()
+    expect(reloaded.useProjectStore.getState().currentProjectId).toBe(pg.id)
+    expect(reloaded.useProjectStore.getState().projects.some((project) => project.id === pg.id && project.name === 'pg')).toBe(true)
+    const current = reloaded.useProjectStore.getState().projects.find(
+      (project) => project.id === reloaded.useProjectStore.getState().currentProjectId,
+    )
+    expect(current?.workspace.nodes.map((entry) => entry.id)).toEqual(['pg'])
+  })
 })
