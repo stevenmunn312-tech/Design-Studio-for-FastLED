@@ -837,25 +837,34 @@ function NodeGraphCanvasInner() {
   const focusedNodes = useMemo(() => signalPathFor(edges, selectedNodeId), [edges, selectedNodeId])
   const displayEdges = useMemo(() => {
     if (!draggingNodeType && !canvasDragNodeId && !spliceEdgeId && !selectedNodeId && !connectionPulse) return edges
-    return edges.map((edge) => ({
-      ...edge,
-      data: {
-        ...edge.data,
-        spliceArmed: Boolean(draggingNodeType || canvasDragNodeId),
-        splicePreview: edge.id === spliceEdgeId,
-        focusState: selectedNodeId
-          ? focusedNodes.has(edge.source) && focusedNodes.has(edge.target) ? 'active' : 'dim'
-          : undefined,
-        connectionPulse:
-          connectionPulse
-          && edge.source === connectionPulse.source
-          && edge.target === connectionPulse.target
-          && edge.sourceHandle === connectionPulse.sourceHandle
-          && edge.targetHandle === connectionPulse.targetHandle
-            ? connectionPulse.key
-            : undefined,
-      },
-    }))
+    return edges.map((edge) => {
+      const focusState = selectedNodeId
+        ? focusedNodes.has(edge.source) && focusedNodes.has(edge.target) ? 'active' : 'dim'
+        : undefined
+      return {
+        ...edge,
+        // The selected node's glow (.nodeSelected/.nodePath) reads as "front" even
+        // when React Flow's own elevateEdgesOnSelect hasn't kicked in (e.g. a
+        // freshly-added node is never RF-`.selected`, only tracked via our own
+        // `selectedNodeId`) — without this, its noodle stays at the default
+        // z-index and dips behind unrelated nodes it happens to cross.
+        zIndex: focusState === 'active' ? 1000 : undefined,
+        data: {
+          ...edge.data,
+          spliceArmed: Boolean(draggingNodeType || canvasDragNodeId),
+          splicePreview: edge.id === spliceEdgeId,
+          focusState,
+          connectionPulse:
+            connectionPulse
+            && edge.source === connectionPulse.source
+            && edge.target === connectionPulse.target
+            && edge.sourceHandle === connectionPulse.sourceHandle
+            && edge.targetHandle === connectionPulse.targetHandle
+              ? connectionPulse.key
+              : undefined,
+        },
+      }
+    })
   }, [canvasDragNodeId, connectionPulse, draggingNodeType, edges, focusedNodes, selectedNodeId, spliceEdgeId])
 
   return (
