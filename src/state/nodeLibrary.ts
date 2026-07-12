@@ -1868,6 +1868,23 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // Ignored (editor disabled) for clockless chipsets.
       clockPin: 6,
       serpentine: false,
+      // Physical wiring layout (src/state/xyLayout.ts): 'matrix'/'strip' keep
+      // the plain row-major (or pixel-serpentine) behaviour above; 'panels'
+      // splits the grid into tilesX×tilesY equal panels, each independently
+      // rotatable and chained in row or serpentine panel order; 'custom' takes
+      // an explicit JSON permutation via customXYMap for anything else.
+      layout: 'matrix',
+      tilesX: 1,
+      tilesY: 1,
+      // Panel-chain wiring direction (distinct from the pixel-level
+      // `serpentine` above, which still governs the zig-zag *within* a panel).
+      tileSerpentine: false,
+      // Comma-separated degrees (0/90/180/270), one per panel, in row-major
+      // panel-grid order — e.g. "0,90,0,180" for a 2×2 grid.
+      tileRotations: '',
+      // JSON array of WIDTH*HEIGHT ints (a permutation of 0..N-1): grid index
+      // (row-major) -> physical LED index. Only used when layout is 'custom'.
+      customXYMap: '',
       // Render the graph at 2× the matrix resolution and average each 2×2 block
       // down to one physical LED (FastLED-style downscale) — antialiases moving
       // shapes on small panels at ~4× the render cost. Preview + normal sketch.
@@ -2457,6 +2474,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   // shared `brightness` meta is a 0–1 frame-level scale).
   MatrixOutput: {
     brightness: { control: 'slider', min: 0, max: 255, step: 1 },
+    layout: { control: 'select', options: ['matrix', 'strip', 'panels', 'custom'] },
+    tilesX: { control: 'slider', min: 1, max: 8, step: 1 },
+    tilesY: { control: 'slider', min: 1, max: 8, step: 1 },
   },
   // Saturation's amount is 0–2 (1 = unchanged), not the shared 0–1 opacity.
   Saturation: {
@@ -2729,6 +2749,9 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     // to clockless ones.
     if (key === 'clockPin') return spi
     if (key === 'overclock') return !spi
+    if (key === 'tilesX' || key === 'tilesY' || key === 'tileSerpentine' || key === 'tileRotations')
+      return properties.layout === 'panels'
+    if (key === 'customXYMap') return properties.layout === 'custom'
   }
   if (nodeType === 'Mirror' && key === 'glowAmount') {
     return properties.glow === true

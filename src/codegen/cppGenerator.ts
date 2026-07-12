@@ -10,6 +10,7 @@ import { denormalizeBeatParam } from '../audio/beatDetection'
 import { inputClampRange, bypassPort, CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, CORRECTION_OPTIONS, SPI_CHIPSETS } from '../state/nodeLibrary'
 import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledShims'
 import { particleRadius } from '../state/particleScale'
+import { buildXYTable } from '../state/xyLayout'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -564,8 +565,11 @@ export function generateCpp(
   // — sanitised centrally (shared with the show/player generators).
   const hw = ledHardwareFromProps(outputNode ? props(outputNode) : {})
   // Serpentine (zig-zag) matrices wire alternate rows in reverse; buffers stay
-  // row-major and MatrixOutput remaps grid → physical index via XY().
-  const serpentine = (outputNode ? props(outputNode).serpentine : false) === true
+  // row-major and MatrixOutput remaps grid → physical index via XY(). Panel/
+  // custom layouts (src/state/xyLayout.ts) fold into the same XY() remap, so
+  // there's one physical-wiring code path regardless of which combination of
+  // pixel serpentine, multi-panel tiling, or a custom map is in play.
+  const xyTable = buildXYTable(width, height, outputNode ? props(outputNode) : {})
   // Supersample: render every buffer at SS× the panel resolution (so WIDTH/
   // HEIGHT/NUM_LEDS become the render size) and average each SS×SS block down
   // into the physical `leds` (PANEL_LEDS) at MatrixOutput. 1 = off (unchanged
@@ -3426,7 +3430,7 @@ export function generateCpp(
           ln(`  fill_solid(leds, ${physLeds}, CRGB::Black);`)
         } else if (ss) {
           // Average each SS×SS block of the render buffer into one physical LED.
-          const dst = serpentine ? 'XY(_x, _y)' : `_y * PANEL_W + _x`
+          const dst = xyTable ? 'XY(_x, _y)' : `_y * PANEL_W + _x`
           ln(`  for (int _y = 0; _y < PANEL_H; _y++) for (int _x = 0; _x < PANEL_W; _x++) {`)
           ln(`    uint16_t _r = 0, _g = 0, _b = 0;`)
           ln(`    for (int _sy = 0; _sy < SS; _sy++) for (int _sx = 0; _sx < SS; _sx++) {`)
@@ -3435,7 +3439,7 @@ export function generateCpp(
           ln(`    }`)
           ln(`    leds[${dst}] = CRGB(_r / (SS * SS), _g / (SS * SS), _b / (SS * SS));`)
           ln(`  }`)
-        } else if (serpentine) {
+        } else if (xyTable) {
           ln(`  for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) leds[XY(_x, _y)] = ${src}[_y * WIDTH + _x];`)
         } else {
           ln(`  ::memmove(leds, ${src}, sizeof(CRGB) * NUM_LEDS);`)
@@ -3542,11 +3546,11 @@ export function generateCpp(
     lines.push(``)
   }
 
-  if (serpentine) {
-    lines.push(`// Serpentine (zig-zag) layout: every other row runs right-to-left.`)
-    lines.push(`uint16_t XY(uint8_t x, uint8_t y) {`)
-    lines.push(`  return (y & 0x01) ? (uint16_t)y * ${panelW} + (${panelW} - 1 - x) : (uint16_t)y * ${panelW} + x;`)
-    lines.push(`}`)
+  if (xyTable) {
+    lines.push(`// Physical wiring map (grid index -> physical LED index), baked from`)
+    lines.push(`// MatrixOutput's layout/serpentine/tile settings.`)
+    lines.push(`const uint16_t _xytable[${width * height}] PROGMEM = { ${xyTable.join(',')} };`)
+    lines.push(`uint16_t XY(uint8_t x, uint8_t y) { return pgm_read_word(&_xytable[(uint16_t)y * ${panelW} + x]); }`)
     lines.push(``)
   }
 

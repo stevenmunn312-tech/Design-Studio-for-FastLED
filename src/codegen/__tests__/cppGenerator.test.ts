@@ -478,8 +478,29 @@ describe('generateCpp', () => {
     const out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, supersample: true, serpentine: true })
     const sc = node('sc', 'SolidColor', 'pattern', { r: 1, g: 2, b: 3 })
     const cpp = generateCpp([sc, out], [edge('e', 'sc', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('return (y & 0x01) ? (uint16_t)y * PANEL_W + (PANEL_W - 1 - x) : (uint16_t)y * PANEL_W + x;')
+    expect(cpp).toContain('const uint16_t _xytable[64] PROGMEM')
+    expect(cpp).toContain('uint16_t XY(uint8_t x, uint8_t y) { return pgm_read_word(&_xytable[(uint16_t)y * PANEL_W + x]); }')
     expect(cpp).toContain('leds[XY(_x, _y)] = CRGB(_r / (SS * SS), _g / (SS * SS), _b / (SS * SS));')
+  })
+
+  it('bakes a wiring table for a 2x2 panel layout', () => {
+    const out = node('out', 'MatrixOutput', 'output', {
+      width: 4, height: 4, layout: 'panels', tilesX: 2, tilesY: 2,
+    })
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 1, g: 2, b: 3 })
+    const cpp = generateCpp([sc, out], [edge('e', 'sc', 'out', 'frame', 'frame')])
+    // Each 2x2 tile is 4 LEDs; tile (0,0) covers rows 0-1 cols 0-1 -> indices 0-3
+    // row-major within the tile, tile (1,0) is the next chain slot (indices 4-7).
+    expect(cpp).toContain('const uint16_t _xytable[16] PROGMEM = { 0,1,4,5,2,3,6,7,8,9,12,13,10,11,14,15 };')
+    expect(cpp).toContain('leds[XY(_x, _y)] = buf_sc[_y * WIDTH + _x]')
+  })
+
+  it('falls back to plain matrix wiring for an invalid custom XY map', () => {
+    const out = node('out', 'MatrixOutput', 'output', { width: 4, height: 4, layout: 'custom', customXYMap: 'not json' })
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 1, g: 2, b: 3 })
+    const cpp = generateCpp([sc, out], [edge('e', 'sc', 'out', 'frame', 'frame')])
+    expect(cpp).not.toContain('XY(')
+    expect(cpp).toContain('::memmove(leds, buf_sc, sizeof(CRGB) * NUM_LEDS)')
   })
 
   it('leaves output unchanged when supersample is off', () => {
