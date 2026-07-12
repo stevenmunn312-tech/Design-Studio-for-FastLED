@@ -7,21 +7,28 @@ type RGB = { r: number; g: number; b: number }
 export type PreviewKind = 'frame' | 'palette' | 'color'
 
 // Live thumbnail of a frame: draws the pixels 1:1 to a canvas, CSS-scaled to
-// the node width at the matrix aspect ratio (`height` from the caller).
+// the node width at the matrix aspect ratio (`height` from the caller). A second,
+// blurred copy sits behind it (CSS `filter: blur()`, GPU-composited) to approximate
+// the main preview's LED glow without a per-pixel shader pass.
 function FrameThumb({ frame, height }: { frame?: Frame; height?: number }) {
   const ref = useRef<HTMLCanvasElement>(null)
+  const glowRef = useRef<HTMLCanvasElement>(null)
   const imageRef = useRef<ImageData | null>(null)
   useEffect(() => {
     const cv = ref.current
-    if (!cv) return
+    const glowCv = glowRef.current
+    if (!cv || !glowCv) return
     const h = frame?.length ?? 0
     const w = frame?.[0]?.length ?? 0
     if (!w || !h) return // nothing to draw yet
     const ctx = cv.getContext('2d')
-    if (!ctx) return
+    const glowCtx = glowCv.getContext('2d')
+    if (!ctx || !glowCtx) return
     if (cv.width !== w || cv.height !== h) {
       cv.width = w
       cv.height = h
+      glowCv.width = w
+      glowCv.height = h
       imageRef.current = null
     }
     if (!imageRef.current || imageRef.current.width !== w || imageRef.current.height !== h) {
@@ -36,8 +43,14 @@ function FrameThumb({ frame, height }: { frame?: Frame; height?: number }) {
       }
     }
     ctx.putImageData(img, 0, 0)
+    glowCtx.putImageData(img, 0, 0)
   }, [frame])
-  return <canvas ref={ref} className={styles.frame} style={height ? { height } : undefined} aria-hidden="true" />
+  return (
+    <div className={styles.frameWrap} style={height ? { height } : undefined}>
+      <canvas ref={glowRef} className={styles.glow} aria-hidden="true" />
+      <canvas ref={ref} className={styles.frame} aria-hidden="true" />
+    </div>
+  )
 }
 
 function PaletteStrip({ palette }: { palette: string | RGB[] }) {

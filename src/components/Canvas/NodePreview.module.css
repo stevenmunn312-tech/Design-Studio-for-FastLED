@@ -1,13 +1,34 @@
-.frame {
+.frameWrap {
+  position: relative;
   width: 100%;
   height: 40px;
   box-sizing: border-box;
-  display: block;
   background: var(--bg-primary);
   border: 1px solid var(--border-glow);
   border-radius: 4px;
+  overflow: hidden;
+}
+
+.frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: block;
   image-rendering: pixelated;
   object-fit: contain;
+}
+
+.glow {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  filter: blur(4px) saturate(1.4) brightness(1.3);
+  opacity: 0.85;
+  mix-blend-mode: screen;
+  pointer-events: none;
 }
 
 .bar {
