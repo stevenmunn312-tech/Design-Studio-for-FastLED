@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties } from 'react'
-import { useGraphStore, getGroupRegistry, matrixDims, type GraphMeta, type StudioEdge, type StudioNode } from '../../state/graphStore'
+import { useGraphStore, getGroupRegistry, matrixDims, matrixTileLayout, type GraphMeta, type StudioEdge, type StudioNode } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audioStore'
 import { evaluateGraphFull, getPatternShowSelection, type Frame, type RGB } from '../../state/graphEvaluator'
@@ -634,6 +634,10 @@ export default function LEDPreview() {
   // Grid dimensions from the MatrixOutput node, via the shared single-scan memo.
   const gridW = useGraphStore((s) => Math.max(2, Math.min(64, matrixDims(s.nodes).w)))
   const gridH = useGraphStore((s) => Math.max(2, Math.min(64, matrixDims(s.nodes).h)))
+  // Panel-tile grid (MatrixOutput layout==='panels') — null when there's
+  // nothing to draw gridlines for. Physical wiring order doesn't change the
+  // rendered content, so this is purely a cosmetic overlay (see xyLayout.ts).
+  const tileLayout = useGraphStore((s) => matrixTileLayout(s.nodes))
   const stageMode = useUiStore((s) => s.stageMode)
   const previewPanelOpen = useUiStore((s) => s.previewPanelOpen)
   // Stage-mode pattern name, derived inside a selector that returns a plain
@@ -675,6 +679,36 @@ export default function LEDPreview() {
     gridWRef.current = gridW; gridHRef.current = gridH; pixelRef.current = pixel
     canvasBufWRef.current = canvasBufW; canvasBufHRef.current = canvasBufH
   }, [gridW, gridH, pixel, canvasBufW, canvasBufH])
+
+  // Panel-boundary gridlines: a thin static overlay redrawn only when the
+  // tile grid or canvas size changes (not on every animation frame like the
+  // main matrix canvas), so it costs nothing during normal playback.
+  const tileGridCanvasRef = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    const canvas = tileGridCanvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    if (!tileLayout) return
+    const { tilesX, tilesY } = tileLayout
+    const tileW = canvasBufW / tilesX
+    const tileH = canvasBufH / tilesY
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)'
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    for (let tx = 1; tx < tilesX; tx++) {
+      const x = Math.round(tx * tileW) + 0.5
+      ctx.moveTo(x, 0)
+      ctx.lineTo(x, canvasBufH)
+    }
+    for (let ty = 1; ty < tilesY; ty++) {
+      const y = Math.round(ty * tileH) + 0.5
+      ctx.moveTo(0, y)
+      ctx.lineTo(canvasBufW, y)
+    }
+    ctx.stroke()
+  }, [tileLayout, canvasBufW, canvasBufH])
 
   const preview3d = useUiStore((s) => s.preview3d)
   const previewStyle = useUiStore((s) => s.previewStyle)
@@ -1258,17 +1292,30 @@ export default function LEDPreview() {
                 {performanceMode && <span className={styles.canvasHudChip}>Performance</span>}
               </div>
             </div>
-            <canvas
-              ref={canvasRef}
-              width={canvasBufW}
-              height={canvasBufH}
-              className={`${styles.canvas} ${effectivePreviewStyle === 'standard' ? styles.canvasStandard : ''} ${isDiffusedStyle(effectivePreviewStyle) ? styles.canvasDiffusion : ''} ${isDiffusedStyle(effectivePreviewStyle) && effectivePreview3d ? styles.canvasDiffusion3d : ''} ${effectivePreviewStyle === 'crt' ? styles.canvasCrt : ''}`}
+            <div
+              className={styles.canvasStack}
               style={effectivePreview3d ? { transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg)`, cursor: drag.current ? 'grabbing' : 'grab' } : undefined}
-              onPointerDown={onRotateDown}
-              onPointerMove={onRotateMove}
-              onPointerUp={onRotateUp}
-              onPointerCancel={onRotateUp}
-            />
+            >
+              <canvas
+                ref={canvasRef}
+                width={canvasBufW}
+                height={canvasBufH}
+                className={`${styles.canvas} ${effectivePreviewStyle === 'standard' ? styles.canvasStandard : ''} ${isDiffusedStyle(effectivePreviewStyle) ? styles.canvasDiffusion : ''} ${isDiffusedStyle(effectivePreviewStyle) && effectivePreview3d ? styles.canvasDiffusion3d : ''} ${effectivePreviewStyle === 'crt' ? styles.canvasCrt : ''}`}
+                onPointerDown={onRotateDown}
+                onPointerMove={onRotateMove}
+                onPointerUp={onRotateUp}
+                onPointerCancel={onRotateUp}
+              />
+              {tileLayout && (
+                <canvas
+                  ref={tileGridCanvasRef}
+                  width={canvasBufW}
+                  height={canvasBufH}
+                  className={styles.tileGridOverlay}
+                  aria-hidden="true"
+                />
+              )}
+            </div>
           </div>
         </div>
         {!hasFrameSignal && (

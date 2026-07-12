@@ -387,6 +387,13 @@
   overflow: hidden;
 }
 
+.canvasStack {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  transition: transform 0.05s linear;
+}
+
 .canvas {
   position: relative;
   z-index: 1;
@@ -394,7 +401,21 @@
   background: #020405;
   border-radius: 4px;
   image-rendering: pixelated;
-  transition: transform 0.05s linear;
+}
+
+/* Panel-boundary gridlines for MatrixOutput's `panels` layout — a static,
+   pointer-inert overlay that mirrors the tilesX/tilesY grid used for the
+   physical wiring remap (src/state/xyLayout.ts). Purely cosmetic: it never
+   affects what's rendered, only how the tile boundaries read on screen. */
+.tileGridOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  image-rendering: pixelated;
 }
 
 .canvasStandard {

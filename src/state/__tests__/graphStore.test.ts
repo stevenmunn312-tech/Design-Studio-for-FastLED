@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { useGraphStore, getGroupRegistry, ROOT_GRAPH_ID } from '../graphStore'
+import { useGraphStore, getGroupRegistry, matrixTileLayout, ROOT_GRAPH_ID } from '../graphStore'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { evaluateGraph } from '../graphEvaluator'
 import type { StudioNode, StudioEdge } from '../graphStore'
@@ -789,5 +789,20 @@ describe('graphStore — undo coalescing', () => {
     vi.advanceTimersByTime(400)
 
     expect(useGraphStore.temporal.getState().pastStates).toHaveLength(2)
+  })
+})
+
+describe('matrixTileLayout', () => {
+  it('is null when there is no MatrixOutput, or layout is not panels, or there is only one tile', () => {
+    expect(matrixTileLayout([])).toBeNull()
+    expect(matrixTileLayout([node('out', 'MatrixOutput', { layout: 'matrix', tilesX: 4, tilesY: 4 })])).toBeNull()
+    expect(matrixTileLayout([node('out', 'MatrixOutput', { layout: 'panels', tilesX: 1, tilesY: 1 })])).toBeNull()
+  })
+
+  it('returns the clamped tile grid for a panels layout', () => {
+    const nodes = [node('out', 'MatrixOutput', { layout: 'panels', tilesX: 2, tilesY: 3 })]
+    expect(matrixTileLayout(nodes)).toEqual({ tilesX: 2, tilesY: 3 })
+    expect(matrixTileLayout([node('out', 'MatrixOutput', { layout: 'panels', tilesX: 99, tilesY: 0 })]))
+      .toEqual({ tilesX: 16, tilesY: 1 })
   })
 })

@@ -1131,6 +1131,31 @@ export function matrixDims(nodes: StudioNode[]): { w: number; h: number } {
   return matrixDimsCache
 }
 
+let matrixTileLayoutNodes: StudioNode[] | null = null
+let matrixTileLayoutCache: { tilesX: number; tilesY: number } | null = null
+
+/** The panel-tile grid from MatrixOutput's `layout`/`tilesX`/`tilesY` props —
+ *  null unless `layout === 'panels'` and there's more than one tile, so the
+ *  live preview can skip drawing panel-boundary gridlines otherwise. Memoised
+ *  like `matrixDims`. Physical wiring order (tile rotation/chain direction,
+ *  a custom XY map) has no effect on the rendered content, so it's not
+ *  reflected here — see src/state/xyLayout.ts. */
+export function matrixTileLayout(nodes: StudioNode[]): { tilesX: number; tilesY: number } | null {
+  if (nodes !== matrixTileLayoutNodes) {
+    matrixTileLayoutNodes = nodes
+    const output = nodes.find((n) => (n.data as { nodeType?: string }).nodeType === 'MatrixOutput')
+    const p = output?.data.properties as Record<string, unknown> | undefined
+    if (p?.layout === 'panels') {
+      const tilesX = Math.max(1, Math.min(16, Math.round(Number(p.tilesX ?? 1)) || 1))
+      const tilesY = Math.max(1, Math.min(16, Math.round(Number(p.tilesY ?? 1)) || 1))
+      matrixTileLayoutCache = (tilesX > 1 || tilesY > 1) ? { tilesX, tilesY } : null
+    } else {
+      matrixTileLayoutCache = null
+    }
+  }
+  return matrixTileLayoutCache
+}
+
 /**
  * Assemble the group registry the evaluator needs: every non-root graph keyed
  * by id. The active graph lives in `nodes`/`edges`, the rest in `graphData`.
