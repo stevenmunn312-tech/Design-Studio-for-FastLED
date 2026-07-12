@@ -187,6 +187,16 @@
   line-height: 1.4;
 }
 
+.powerRow {
+  font-size: 9px;
+  color: var(--text-secondary);
+  text-align: center;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  font-family: var(--font-code);
+}
+.powerRow.powerWarn { color: #ffcc00; }
+
 .outputBtn {
   background: none;
   color: var(--text-secondary);

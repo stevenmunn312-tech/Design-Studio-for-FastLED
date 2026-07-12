@@ -2628,6 +2628,42 @@ export function generateCpp(
         break
       }
 
+      // Bundled trigger/edge utility — `triggerOp` picks the variant. Every
+      // branch is a millis()-based static, mirroring the stateful `Trigger`
+      // case in graphEvaluator.ts so preview and firmware timing match.
+      case 'Trigger': {
+        const op = String(p.triggerOp ?? 'debounce')
+        const trig = boolExpr(node.id, 'trigger')
+        const outVar = v('out')
+        if (op === 'toggle') {
+          ln(`  static bool ${outVar} = false; static bool _trP_${id} = false;`)
+          ln(`  { bool _t = (${trig}); if (_t && !_trP_${id}) ${outVar} = !${outVar}; _trP_${id} = _t; }`)
+        } else if (op === 'oneShot') {
+          const ms = Math.max(20, Math.round(Number(p.holdTime ?? 0.1) * 1000))
+          ln(`  static uint32_t _trT_${id} = 0xFFFFFFFFu; static bool _trP_${id} = false;`)
+          ln(`  { bool _t = (${trig}); if (_t && !_trP_${id}) _trT_${id} = millis(); _trP_${id} = _t; }`)
+          ln(`  bool ${outVar} = (millis() - _trT_${id}) < ${ms}u;`)
+        } else if (op === 'pulseDivider') {
+          const n = Math.max(2, Math.round(Number(p.divideBy ?? 2)))
+          ln(`  static uint8_t _trC_${id} = 0; static bool _trP_${id} = false; bool ${outVar} = false;`)
+          ln(`  { bool _t = (${trig}); if (_t && !_trP_${id}) { _trC_${id}++; if (_trC_${id} >= ${n}) { _trC_${id} = 0; ${outVar} = true; } } _trP_${id} = _t; }`)
+        } else if (op === 'delay') {
+          const ms = Math.max(10, Math.round(Number(p.delayTime ?? 0.5) * 1000))
+          ln(`  static uint32_t _trS_${id} = 0; static bool _trA_${id} = false, _trP_${id} = false; bool ${outVar} = false;`)
+          ln(`  { bool _t = (${trig}); if (_t && !_trP_${id}) { _trS_${id} = millis() + ${ms}u; _trA_${id} = true; } _trP_${id} = _t; }`)
+          ln(`  if (_trA_${id} && millis() >= _trS_${id}) { ${outVar} = true; _trA_${id} = false; }`)
+        } else { // debounce
+          const ms = Math.max(5, Math.round(Number(p.stableTime ?? 0.05) * 1000))
+          ln(`  static bool _trC_${id} = false, _trCommit_${id} = false, _trInit_${id} = false; static uint32_t _trSince_${id} = 0;`)
+          ln(`  { bool _t = (${trig});`)
+          ln(`    if (!_trInit_${id}) { _trC_${id} = _t; _trCommit_${id} = _t; _trSince_${id} = millis(); _trInit_${id} = true; }`)
+          ln(`    else { if (_t != _trC_${id}) { _trC_${id} = _t; _trSince_${id} = millis(); }`)
+          ln(`      if (_t == _trC_${id} && (millis() - _trSince_${id}) >= ${ms}u) _trCommit_${id} = _t; } }`)
+          ln(`  bool ${outVar} = _trCommit_${id};`)
+        }
+        break
+      }
+
       // Bundled transitions — `transitionType` picks one of 16 A→B effects.
       // Every variant works on the per-node frame buffers (seed `ob` from A,
       // then composite B in) so the generated firmware actually renders the

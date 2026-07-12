@@ -42,6 +42,20 @@ const smoothState = new Map<string, { v: number; t: number }>()
 const holdState = new Map<string, { v: number; prev: boolean }>()
 // Envelope node — trigger fire time (seconds) + previous trigger level.
 const envState = new Map<string, { fire: number; prev: boolean }>()
+// Trigger node (bundled Debounce/Toggle/One Shot/Pulse Divider/Trigger Delay) —
+// one combined state bag; only the fields the active variant needs are touched.
+interface TriggerState {
+  t: number
+  prevTrig: boolean
+  candidate: boolean
+  candidateSince: number
+  committed: boolean
+  toggleOut: boolean
+  firedAt: number
+  count: number
+  scheduled: number | null
+}
+const triggerState = new Map<string, TriggerState>()
 // Trails node — the persisted, fading accumulator frame.
 const trailState = new Map<string, Frame>()
 const fftLevels   = new Map<string, { bass: number; mids: number; treble: number }>()
@@ -4599,6 +4613,62 @@ function createEvalNode(
         if (trig && !prev?.prev) fire = t
         envState.set(key, { fire, prev: trig })
         out = { result: Math.max(0, Math.min(1, 1 - (t - fire) / decay)) }
+        break
+      }
+
+      // Bundled trigger/edge utilities — `triggerOp` selects the variant. All
+      // share the same bool-in/bool-out signature. See PROPERTY_META.triggerOp
+      // and the matching `Trigger` case in cppGenerator.
+      case 'Trigger': {
+        const opType = String(props.triggerOp ?? 'debounce')
+        const trig = Boolean(input(id, 'trigger', false))
+        const key = stateKey(id)
+        const prevSt = triggerState.get(key)
+        // Clock reset (t jumped backward) — start clean, same convention as
+        // Interval/Envelope above.
+        const reset = prevSt !== undefined && t < prevSt.t
+        const st: TriggerState = (!prevSt || reset)
+          ? { t, prevTrig: trig, candidate: trig, candidateSince: t, committed: trig, toggleOut: false, firedAt: -Infinity, count: 0, scheduled: null }
+          : { ...prevSt, t }
+
+        let result = false
+        switch (opType) {
+          case 'debounce': {
+            const stableTime = Math.max(0.005, Number(props.stableTime ?? 0.05))
+            if (trig !== st.candidate) { st.candidate = trig; st.candidateSince = t }
+            if (trig === st.candidate && t - st.candidateSince >= stableTime) st.committed = trig
+            result = st.committed
+            break
+          }
+          case 'toggle': {
+            if (trig && !st.prevTrig) st.toggleOut = !st.toggleOut
+            result = st.toggleOut
+            break
+          }
+          case 'oneShot': {
+            const holdTime = Math.max(0.01, Number(props.holdTime ?? 0.1))
+            if (trig && !st.prevTrig) st.firedAt = t
+            result = t - st.firedAt < holdTime
+            break
+          }
+          case 'pulseDivider': {
+            const divideBy = Math.max(2, Math.round(Number(props.divideBy ?? 2)))
+            if (trig && !st.prevTrig) {
+              st.count += 1
+              if (st.count >= divideBy) { st.count = 0; result = true }
+            }
+            break
+          }
+          case 'delay': {
+            const delayTime = Math.max(0.01, Number(props.delayTime ?? 0.5))
+            if (trig && !st.prevTrig) st.scheduled = t + delayTime
+            if (st.scheduled != null && t >= st.scheduled) { result = true; st.scheduled = null }
+            break
+          }
+        }
+        st.prevTrig = trig
+        triggerState.set(key, st)
+        out = { out: result }
         break
       }
 

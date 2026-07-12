@@ -70,6 +70,43 @@ export function findPreviewOnlyWarnings(nodes: StudioNode[], edges: StudioEdge[]
   return [`${names} ${used.length > 1 ? 'are' : 'is'} preview-only — the generated firmware will see the idle default instead of live input`]
 }
 
+export interface PowerEstimate {
+  ledCount: number
+  /** Worst-case draw if every LED shows full-white at once, in mA. */
+  worstCaseMa: number
+  /** `volts`/`milliamps` × configured cap, or null when `powerLimit` is off. */
+  configuredMa: number | null
+  /** Worst-case draw rounded up to a sane PSU-shopping figure. */
+  recommendedMa: number
+  /** True once a configured cap exists and worst case would exceed it. */
+  exceedsConfigured: boolean
+}
+
+// Typical full-white draw for a WS2812-class LED at 5V (the number FastLED's
+// own examples and most guides use). Real draw varies by chipset/voltage, but
+// this is the right order of magnitude for a "will my PSU cope" estimate —
+// exact chipset current draw isn't published widely enough to model per-part.
+const MA_PER_LED_WORST_CASE = 60
+
+export function estimatePowerLoad(nodes: StudioNode[]): PowerEstimate | null {
+  const out = nodes.find(n => n.data.nodeType === 'MatrixOutput')
+  if (!out) return null
+  const props = out.data.properties as Record<string, unknown>
+  const w = Math.max(0, Math.round(Number(props.width ?? 0)))
+  const h = Math.max(0, Math.round(Number(props.height ?? 0)))
+  const ledCount = w * h
+  const worstCaseMa = ledCount * MA_PER_LED_WORST_CASE
+  const configuredMa = props.powerLimit === true ? Number(props.milliamps ?? 0) : null
+  const recommendedMa = Math.ceil(worstCaseMa / 100) * 100
+  return {
+    ledCount,
+    worstCaseMa,
+    configuredMa,
+    recommendedMa,
+    exceedsConfigured: configuredMa != null && worstCaseMa > configuredMa,
+  }
+}
+
 export function findPinConflicts(nodes: StudioNode[]): string[] {
   const byPin = new Map<number, string[]>()
   for (const { label, pin } of collectPinUses(nodes)) {
@@ -99,6 +136,13 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[]): Validat
 
   errors.push(...findPinConflicts(nodes))
   warnings.push(...findPreviewOnlyWarnings(nodes, edges))
+
+  const power = estimatePowerLoad(nodes)
+  if (power?.exceedsConfigured) {
+    warnings.push(
+      `Worst-case draw (~${power.worstCaseMa} mA for ${power.ledCount} LEDs) exceeds the configured power cap (${power.configuredMa} mA) — FastLED will auto-dim to stay under it`
+    )
+  }
 
   const master = nodes.find(n => n.data.nodeType === 'PatternMaster')
   if (master && !incoming.has(`${master.id}:patternset`)) {

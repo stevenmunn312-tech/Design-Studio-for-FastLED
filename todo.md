@@ -36,7 +36,7 @@
 - [ ] **Build a Matrix Output setup wizard.** Guide users through board, chipset, dimensions/layout, pins, color order, power, build engine, and connection test while keeping expert controls available on the node.
 - [ ] **Add a wiring diagnostic/test pattern.** Generate numbered pixels/panels plus RGB/color-order, origin, serpentine, rotation, and brightness tests; support flashing it before the user's full graph.
 - [ ] **Validate layout inputs inline.** Invalid panel divisibility, rotations, or custom XY maps must explain the exact problem and block export/upload instead of silently falling back to row-major wiring.
-- [ ] **Estimate electrical load.** Show LED count, worst-case current, configured PSU capacity, and recommended FastLED power cap; warn prominently when the graph could exceed the configured supply.
+- [x] **Estimate electrical load.** `estimatePowerLoad()` (`src/utils/validateGraph.ts`) computes LED count from MatrixOutput's grid dims and a worst-case full-white draw (~60 mA/LED, the typical WS2812-class figure), against the configured `powerLimit` cap when set. `MatrixOutputUpload` shows a compact readout (LED count, worst-case amps, configured cap or a recommended PSU size when no cap is set), and `validateGraph` warns when worst-case draw would exceed the configured cap.
 - [ ] **Estimate firmware resources before upload.** Present expected frame-buffer RAM, PSRAM use, and major stateful-node costs; retain the post-compile flash/RAM report and suggest concrete remedies when a build will not fit.
 - [ ] **Clarify helper/engine readiness.** Show whether the local helper, selected engine, board core/toolchain, port, and permissions are ready before the user presses Upload, with a single action for each missing prerequisite.
 
@@ -68,7 +68,7 @@
 ### P3 — high-value node additions
 
 - [ ] **Clock / Transport node.** Output BPM, continuous phase, beat, bar, and selectable subdivisions; support tap tempo, free-run/external sync, reset, preview/codegen parity, and show/MIDI integration where available.
-- [ ] **Trigger utility nodes.** Add Debounce, Toggle/Flip-Flop, One Shot, Pulse Divider, and Trigger Delay with predictable edge semantics and millis-based firmware implementations.
+- [x] **Trigger utility nodes.** A bundled `Trigger` node (math, like `Math`/`Ease`) with a `triggerOp` variant: Debounce (commits a change only once stable for `stableTime`), Toggle/Flip-Flop, One Shot (holds true for `holdTime` after a rising edge, ignoring retriggers while already high), Pulse Divider (fires every `divideBy`th rising edge), and Trigger Delay (fires once, `delayTime` after the edge). Evaluator + millis()-based codegen share the same edge semantics; 10 new tests.
 - [ ] **Frame Feedback / Delay node.** Provide a bounded previous-frame buffer with delay, fade, transform, and blend controls so recursive video-synth effects are possible without permitting graph cycles; document RAM cost and PSRAM behavior.
 - [ ] **Segments / Zones node.** Define named rectangular, indexed, or mask-driven regions and route/composite frames into them for installations with multiple logical areas.
 - [ ] **Multi-output controller support.** Allow multiple independently configured LED controllers/strips, pins, color orders, and layouts, including validation of shared resources and an explicit composition/routing model.

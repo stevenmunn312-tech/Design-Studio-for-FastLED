@@ -8,7 +8,7 @@ import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph } from '../../codegen/streamReceiverGenerator'
 import { sdCardConnected, readySongCount, buildShowPayload } from '../../utils/showUpload'
-import { findPinConflicts } from '../../utils/validateGraph'
+import { findPinConflicts, estimatePowerLoad } from '../../utils/validateGraph'
 import CodeViewPopup from './CodeViewPopup'
 import styles from './Upload.module.css'
 
@@ -57,6 +57,7 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
   // hardware — block compile/upload/export until they're resolved.
   const pinConflicts = useMemo(() => findPinConflicts(nodes), [nodes])
   const canBuild = enabled && pinConflicts.length === 0
+  const power = useMemo(() => estimatePowerLoad(nodes), [nodes])
 
   // Live streaming: push already-computed preview frames to a once-flashed
   // generic Adalight receiver instead of a compile+flash cycle per tweak.
@@ -105,6 +106,18 @@ export default function MatrixOutputUpload({ nodeId, enabled }: { nodeId: string
         ⚙ Board
       </button>
       <div className={styles.targetLabel} title={target}>{target}</div>
+
+      {power && power.ledCount > 0 && (
+        <div
+          className={`${styles.powerRow} ${power.exceedsConfigured ? styles.powerWarn : ''}`}
+          title="Worst-case draw assumes every LED at full white (~60 mA/LED, the typical WS2812-class figure) — real draw is usually well under this."
+        >
+          {power.ledCount} LEDs · worst case ~{(power.worstCaseMa / 1000).toFixed(1)} A
+          {power.configuredMa != null
+            ? ` · cap ${(power.configuredMa / 1000).toFixed(1)} A${power.exceedsConfigured ? ' ⚠ may exceed cap' : ''}`
+            : ` · recommended PSU ≥ ${(power.recommendedMa / 1000).toFixed(1)} A`}
+        </div>
+      )}
 
       {psramOptions && (
         <div className={styles.psramRow}>

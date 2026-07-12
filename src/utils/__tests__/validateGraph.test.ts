@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, findPinConflicts, findPreviewOnlyWarnings } from '../validateGraph'
+import { validateGraph, findPinConflicts, findPreviewOnlyWarnings, estimatePowerLoad } from '../validateGraph'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -159,6 +159,45 @@ describe('validateGraph', () => {
       const edges = [edge('e1', 'sc', 'out', 'frame')]
       const { errors } = validateGraph(nodes, edges)
       expect(errors.some(e => e.includes('GPIO 5'))).toBe(true)
+    })
+  })
+
+  describe('estimatePowerLoad', () => {
+    it('returns null with no MatrixOutput', () => {
+      expect(estimatePowerLoad([node('sc', 'SolidColor')])).toBeNull()
+    })
+
+    it('computes worst-case draw from grid dimensions', () => {
+      const nodes = [node('out', 'MatrixOutput', { width: 16, height: 16 })]
+      const power = estimatePowerLoad(nodes)!
+      expect(power.ledCount).toBe(256)
+      expect(power.worstCaseMa).toBe(256 * 60)
+      expect(power.configuredMa).toBeNull()
+      expect(power.exceedsConfigured).toBe(false)
+    })
+
+    it('flags when worst-case draw exceeds the configured power cap', () => {
+      const nodes = [node('out', 'MatrixOutput', { width: 16, height: 16, powerLimit: true, milliamps: 2000 })]
+      const power = estimatePowerLoad(nodes)!
+      expect(power.configuredMa).toBe(2000)
+      expect(power.worstCaseMa).toBe(15360)
+      expect(power.exceedsConfigured).toBe(true)
+    })
+
+    it('does not flag when the configured cap covers worst-case draw', () => {
+      const nodes = [node('out', 'MatrixOutput', { width: 8, height: 8, powerLimit: true, milliamps: 5000 })]
+      const power = estimatePowerLoad(nodes)!
+      expect(power.exceedsConfigured).toBe(false)
+    })
+
+    it('surfaces an exceeded power cap as a validateGraph warning', () => {
+      const nodes = [
+        node('sc', 'SolidColor'),
+        node('out', 'MatrixOutput', { width: 16, height: 16, powerLimit: true, milliamps: 2000 }),
+      ]
+      const edges = [edge('e1', 'sc', 'out', 'frame')]
+      const { warnings } = validateGraph(nodes, edges)
+      expect(warnings.some(w => w.includes('exceeds the configured power cap'))).toBe(true)
     })
   })
 

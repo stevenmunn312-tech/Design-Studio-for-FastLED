@@ -2352,6 +2352,64 @@ describe('signal utility nodes', () => {
     expect(evaluateScalar(graph(1), edges, 'env1', 'result', 120)).toBe(0)
   })
 
+  it('Trigger toggle flips output on each rising edge', () => {
+    const graph = (on: number) => [boolSrc('trt', on), node('trg1', 'Trigger', 'math', { triggerOp: 'toggle' })]
+    const edges = [edge('e', 'trt', 'result', 'trg1', 'trigger')]
+    const b = (tick: number, on: number) => evaluateScalar(graph(on), edges, 'trg1', 'out', tick) === 1
+    expect(b(0, 0)).toBe(false)
+    expect(b(1, 1)).toBe(true)   // rising edge → toggled on
+    expect(b(2, 1)).toBe(true)   // held high, no new edge → unchanged
+    expect(b(3, 0)).toBe(true)   // falling → unchanged
+    expect(b(4, 1)).toBe(false)  // rising edge again → toggled back off
+  })
+
+  it('Trigger oneShot holds true for holdTime after a rising edge, ignoring retriggers while high', () => {
+    const graph = (on: number) => [boolSrc('tro', on), node('tro1', 'Trigger', 'math', { triggerOp: 'oneShot', holdTime: 0.5 })]
+    const edges = [edge('e', 'tro', 'result', 'tro1', 'trigger')]
+    const b = (tick: number, on: number) => evaluateScalar(graph(on), edges, 'tro1', 'out', tick) === 1
+    expect(b(0, 0)).toBe(false)
+    expect(b(60, 1)).toBe(true)       // rising edge at t=1s
+    expect(b(75, 1)).toBe(true)       // t=1.25s, 0.25s in — still within holdTime, trigger still high
+    expect(b(100, 1)).toBe(false)     // t=1.667s — holdTime elapsed, no new edge to retrigger
+  })
+
+  it('Trigger pulseDivider only fires on every Nth rising edge', () => {
+    const graph = (on: number) => [boolSrc('trd', on), node('trd1', 'Trigger', 'math', { triggerOp: 'pulseDivider', divideBy: 3 })]
+    const edges = [edge('e', 'trd', 'result', 'trd1', 'trigger')]
+    const b = (tick: number, on: number) => evaluateScalar(graph(on), edges, 'trd1', 'out', tick) === 1
+    // Rising edges at ticks 1, 3, 5, 7 — only the 3rd (tick 5) should pulse.
+    expect(b(0, 0)).toBe(false)
+    expect(b(1, 1)).toBe(false) // edge 1
+    expect(b(2, 0)).toBe(false)
+    expect(b(3, 1)).toBe(false) // edge 2
+    expect(b(4, 0)).toBe(false)
+    expect(b(5, 1)).toBe(true)  // edge 3 → pulse
+    expect(b(6, 0)).toBe(false)
+    expect(b(7, 1)).toBe(false) // edge 4 (new cycle)
+  })
+
+  it('Trigger delay pulses true once, delayTime after the rising edge', () => {
+    const graph = (on: number) => [boolSrc('trl', on), node('trl1', 'Trigger', 'math', { triggerOp: 'delay', delayTime: 0.5 })]
+    const edges = [edge('e', 'trl', 'result', 'trl1', 'trigger')]
+    const b = (tick: number, on: number) => evaluateScalar(graph(on), edges, 'trl1', 'out', tick) === 1
+    expect(b(0, 0)).toBe(false)
+    expect(b(1, 1)).toBe(false)   // rising edge — scheduled for +0.5s, not fired yet
+    expect(b(15, 1)).toBe(false)  // t≈0.25s later — still pending
+    expect(b(31, 1)).toBe(true)   // t≈0.5s later — fires once
+    expect(b(32, 1)).toBe(false)  // already consumed, no retrigger without a new edge
+  })
+
+  it('Trigger debounce only commits a change once the input is stable for stableTime', () => {
+    const graph = (on: number) => [boolSrc('trb', on), node('trb1', 'Trigger', 'math', { triggerOp: 'debounce', stableTime: 0.2 })]
+    const edges = [edge('e', 'trb', 'result', 'trb1', 'trigger')]
+    const b = (tick: number, on: number) => evaluateScalar(graph(on), edges, 'trb1', 'out', tick) === 1
+    expect(b(0, 0)).toBe(false)   // seeded false
+    expect(b(1, 1)).toBe(false)   // bounced high briefly...
+    expect(b(2, 0)).toBe(false)   // ...bounced back low — never stable, no commit
+    expect(b(3, 1)).toBe(false)   // rises again, candidate restarts timing here (t≈0.05s)
+    expect(b(15, 1)).toBe(true)   // stable for ≥0.2s → commits to true
+  })
+
   it('Smooth eases toward the input over the response time constant', () => {
     const probe = (value: number, tick: number) =>
       evaluateScalar([node('sm1', 'Smooth', 'math', { value, response: 0.5 })], [], 'sm1', 'result', tick)

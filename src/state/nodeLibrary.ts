@@ -1226,6 +1226,24 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [{ id: 'result', label: 'A > B', dataType: 'bool' }],
     defaultProperties: { b: 0.5 },
   },
+  {
+    // Bundled trigger/edge utility — `triggerOp` selects Debounce, Toggle/Flip-
+    // Flop, One Shot, Pulse Divider, or Trigger Delay. All five share the same
+    // bool-in/bool-out signature; the variant-specific timing/count property is
+    // gated by isPropertyEnabled. See PROPERTY_META.triggerOp.
+    type: 'Trigger',
+    label: 'Trigger',
+    category: 'math',
+    inputs: [{ id: 'trigger', label: 'Trigger', dataType: 'bool' }],
+    outputs: [{ id: 'out', label: 'Out', dataType: 'bool' }],
+    defaultProperties: {
+      triggerOp: 'debounce',
+      stableTime: 0.05,
+      holdTime: 0.1,
+      divideBy: 2,
+      delayTime: 0.5,
+    },
+  },
 
   // ── Audio extras ──────────────────────────────────────────────────────
   {
@@ -2086,6 +2104,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Envelope: 'Jumps to 1 on a trigger, then decays to 0 over the decay time.',
   Not: 'Logical NOT of a boolean.',
   Compare: 'True when a > b.',
+  Trigger: 'Debounce, Toggle, One Shot, Pulse Divider, or Trigger Delay on a bool.',
   BeatSin: 'FastLED beatsin8 — oscillates low↔high at a BPM.',
   XYMapper: 'Converts (x, y) to a strip index.',
   // color
@@ -2356,6 +2375,11 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   mirrorMode:     { control: 'select', options: ['horizontal', 'vertical', 'quad', 'diagonal'] },
   glowAmount:     { control: 'slider', min: 0, max: 1, step: 0.01 },
   easeType:       { control: 'select', options: ['inOutCubic', 'inOutQuad', 'triwave', 'quadwave', 'cubicwave'] },
+  triggerOp:      { control: 'select', options: ['debounce', 'toggle', 'oneShot', 'pulseDivider', 'delay'] },
+  stableTime:     { control: 'slider', min: 0.01, max: 1, step: 0.01 },
+  holdTime:       { control: 'slider', min: 0.02, max: 3, step: 0.02 },
+  divideBy:       { control: 'slider', min: 2, max: 16, step: 1 },
+  delayTime:      { control: 'slider', min: 0.05, max: 5, step: 0.05 },
   fieldOp:        { control: 'select', options: ['add', 'subtract', 'multiply', 'mix', 'min', 'max', 'difference'] },
   particleType:   { control: 'select', options: [
     'fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow', 'swarm',
@@ -2811,6 +2835,10 @@ const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, stri
     prop: 'easeType',
     labels: { inOutCubic: 'Ease · Cubic', inOutQuad: 'Ease · Quad', triwave: 'Triangle Wave', quadwave: 'Quad Wave', cubicwave: 'Cubic Wave' },
   },
+  Trigger: {
+    prop: 'triggerOp',
+    labels: { debounce: 'Debounce', toggle: 'Toggle', oneShot: 'One Shot', pulseDivider: 'Pulse Divider', delay: 'Trigger Delay' },
+  },
 }
 
 /** Header label for a node — for bundled nodes this reflects the selected
@@ -2856,6 +2884,15 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
   }
   if (nodeType === 'Mirror' && key === 'glowAmount') {
     return properties.glow === true
+  }
+  if (nodeType === 'Trigger') {
+    const op = String(properties.triggerOp ?? 'debounce')
+    switch (key) {
+      case 'stableTime': return op === 'debounce'
+      case 'holdTime':   return op === 'oneShot'
+      case 'divideBy':   return op === 'pulseDivider'
+      case 'delayTime':  return op === 'delay'
+    }
   }
   if (nodeType === 'Transition') {
     const tt = String(properties.transitionType ?? 'crossfade')

@@ -1674,6 +1674,39 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
     expect(cpp).toContain('constrain(1.0f - (millis() - _envT_env) / 500.0f, 0.0f, 1.0f)')
   })
 
+  it('Trigger debounce emits a millis()-based stability window', () => {
+    const t = tail('trb', 'out')
+    const cpp = generateCpp([node('trb', 'Trigger', 'math', { triggerOp: 'debounce', stableTime: 0.2 }), ...t.nodes], t.edges)
+    expect(cpp).toContain('_trSince_trb')
+    expect(cpp).toContain('200u')
+  })
+
+  it('Trigger toggle flips a static bool on each rising edge', () => {
+    const t = tail('trt', 'out')
+    const cpp = generateCpp([node('trt', 'Trigger', 'math', { triggerOp: 'toggle' }), ...t.nodes], t.edges)
+    expect(cpp).toContain('static bool n_trt_out = false;')
+    expect(cpp).toContain('n_trt_out = !n_trt_out;')
+  })
+
+  it('Trigger oneShot holds true for holdTime after a rising edge', () => {
+    const t = tail('tro', 'out')
+    const cpp = generateCpp([node('tro', 'Trigger', 'math', { triggerOp: 'oneShot', holdTime: 0.3 }), ...t.nodes], t.edges)
+    expect(cpp).toContain('_trT_tro')
+    expect(cpp).toContain('300u')
+  })
+
+  it('Trigger pulseDivider counts rising edges up to divideBy', () => {
+    const t = tail('trd', 'out')
+    const cpp = generateCpp([node('trd', 'Trigger', 'math', { triggerOp: 'pulseDivider', divideBy: 4 }), ...t.nodes], t.edges)
+    expect(cpp).toContain('_trC_trd >= 4')
+  })
+
+  it('Trigger delay schedules a millis() fire time after the rising edge', () => {
+    const t = tail('trl', 'out')
+    const cpp = generateCpp([node('trl', 'Trigger', 'math', { triggerOp: 'delay', delayTime: 0.4 }), ...t.nodes], t.edges)
+    expect(cpp).toContain('_trS_trl = millis() + 400u;')
+  })
+
   it('FrameSwitch copies the selected source buffer', () => {
     const a = node('fa', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
     const b = node('fb', 'SolidColor', 'pattern', { r: 0, g: 0, b: 255 })
