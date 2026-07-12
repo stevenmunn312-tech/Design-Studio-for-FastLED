@@ -159,7 +159,7 @@ export default function MenuBar() {
     const defaultName = nextDefaultProjectName(projects.map((project) => project.name))
     const draft = buildProjectSnapshot(blankWorkspace(), { name: defaultName })
     try {
-      const saved = await saveProjectWithDialog(draft) ?? await saveProjectWithNativePicker(draft)
+      const saved = await saveProjectWithNativePicker(draft) ?? await saveProjectWithDialog(draft)
       if (!saved) throw new Error('Native picker unavailable')
       if (saveCurrentFirst && currentProject) {
         useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
@@ -223,7 +223,7 @@ export default function MenuBar() {
     })
     void (async () => {
       try {
-        const saved = await saveProjectWithDialog(draft) ?? await saveProjectWithNativePicker(draft)
+        const saved = await saveProjectWithNativePicker(draft) ?? await saveProjectWithDialog(draft)
         if (!saved) throw new Error('Native picker unavailable')
         const project = useProjectStore.getState().upsertProject(saved)
         setStatus(`Saved as "${project.name}"`, 'success')
@@ -246,6 +246,15 @@ export default function MenuBar() {
     setFileMenuOpen(false)
     void (async () => {
       try {
+        const picked = await openProjectWithNativePicker()
+        if (picked) {
+          try {
+            await openParsedProject(await picked.file.text(), picked.fallbackName)
+          } catch {
+            setStatus('Failed to open project — invalid file', 'error')
+          }
+          return
+        }
         const backendPicked = await openProjectDialog()
         if (backendPicked) {
           try {
@@ -255,16 +264,7 @@ export default function MenuBar() {
           }
           return
         }
-        const picked = await openProjectWithNativePicker()
-        if (!picked) {
-          handleOpenProjectFallback()
-          return
-        }
-        try {
-          await openParsedProject(await picked.file.text(), picked.fallbackName)
-        } catch {
-          setStatus('Failed to open project — invalid file', 'error')
-        }
+        handleOpenProjectFallback()
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return
         handleOpenProjectFallback()
