@@ -74,6 +74,7 @@ function makeProjectId(): string {
 
 export function suggestProjectFileName(name: string): string {
   const safe = trimProjectName(name)
+    // eslint-disable-next-line no-control-regex -- control chars are invalid in filenames; stripping them is the point
     .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-')
     .replace(/\s+/g, ' ')
     .trim()
