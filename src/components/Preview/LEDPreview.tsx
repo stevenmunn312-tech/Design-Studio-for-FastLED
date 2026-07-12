@@ -634,10 +634,19 @@ export default function LEDPreview() {
   // Grid dimensions from the MatrixOutput node, via the shared single-scan memo.
   const gridW = useGraphStore((s) => Math.max(2, Math.min(64, matrixDims(s.nodes).w)))
   const gridH = useGraphStore((s) => Math.max(2, Math.min(64, matrixDims(s.nodes).h)))
-  // Panel-tile grid (MatrixOutput layout==='panels') — null when there's
-  // nothing to draw gridlines for. Physical wiring order doesn't change the
-  // rendered content, so this is purely a cosmetic overlay (see xyLayout.ts).
-  const tileLayout = useGraphStore((s) => matrixTileLayout(s.nodes))
+  // Panel-tile grid (MatrixOutput layout==='panels') — 0 when there's nothing
+  // to draw gridlines for. Select primitives, not the memoised object itself
+  // (matching gridW/gridH's use of matrixDims below): a store selector must
+  // return a referentially-stable result for an unchanged snapshot, and an
+  // object literal breaks that even when its contents are equal, which
+  // spins useSyncExternalStore into an infinite re-render loop. Physical
+  // wiring order doesn't change the rendered content, so this is purely a
+  // cosmetic overlay (see xyLayout.ts).
+  const tileLayoutTilesX = useGraphStore((s) => matrixTileLayout(s.nodes)?.tilesX ?? 0)
+  const tileLayoutTilesY = useGraphStore((s) => matrixTileLayout(s.nodes)?.tilesY ?? 0)
+  const tileLayout = tileLayoutTilesX > 0 && tileLayoutTilesY > 0
+    ? { tilesX: tileLayoutTilesX, tilesY: tileLayoutTilesY }
+    : null
   const stageMode = useUiStore((s) => s.stageMode)
   const previewPanelOpen = useUiStore((s) => s.previewPanelOpen)
   // Stage-mode pattern name, derived inside a selector that returns a plain
@@ -690,8 +699,8 @@ export default function LEDPreview() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    if (!tileLayout) return
-    const { tilesX, tilesY } = tileLayout
+    if (tileLayoutTilesX <= 0 || tileLayoutTilesY <= 0) return
+    const tilesX = tileLayoutTilesX, tilesY = tileLayoutTilesY
     const tileW = canvasBufW / tilesX
     const tileH = canvasBufH / tilesY
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)'
@@ -708,7 +717,7 @@ export default function LEDPreview() {
       ctx.lineTo(canvasBufW, y)
     }
     ctx.stroke()
-  }, [tileLayout, canvasBufW, canvasBufH])
+  }, [tileLayoutTilesX, tileLayoutTilesY, canvasBufW, canvasBufH])
 
   const preview3d = useUiStore((s) => s.preview3d)
   const previewStyle = useUiStore((s) => s.previewStyle)
