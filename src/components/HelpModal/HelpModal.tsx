@@ -21,31 +21,31 @@ function QuickStartTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>1</div>
             <div className={styles.stepText}>
-              <strong>Add a Matrix Output node.</strong> Set your LED grid width, height, chipset, and data pin in its properties. This is the terminal that drives codegen.
+              <strong>Start from the launcher.</strong> On an empty canvas, use <strong>Start with Rainbow</strong>, <strong>Audio-reactive demo</strong>, <strong>Browse starter patches</strong>, or <strong>Blank canvas</strong>. The top-bar <strong>✦ Start</strong> button reopens the full gallery any time.
             </div>
           </div>
           <div className={styles.step}>
             <div className={styles.stepNum}>2</div>
             <div className={styles.stepText}>
-              <strong>Drag a pattern node</strong> from the sidebar (e.g. Fire 2012, Plasma, Noise) and wire its <code>frame</code> output to the Matrix Output <code>frame</code> input. The preview updates live.
+              <strong>Build toward Matrix Output.</strong> Add a <strong>Matrix Output</strong> node or start from a template that already has one, then set grid width, height, chipset, and pins. This is the terminal that drives codegen, upload, live stream, and SD-show provisioning.
             </div>
           </div>
           <div className={styles.step}>
             <div className={styles.stepNum}>3</div>
             <div className={styles.stepText}>
-              <strong>Layer composite effects</strong> between pattern and output — Blend, Blur 2D, Brightness, Hue Shift, Transition, and more. Each composite node takes one or two frames and outputs a modified frame.
+              <strong>Patch the animation path.</strong> Drag a pattern node (for example Rainbow, Fire 2012, Plasma, Noise, or Spectrum Bars) and wire its <code>frame</code> output to Matrix Output's <code>frame</code> input. The main LED preview and node previews update live from the same graph evaluation.
             </div>
           </div>
           <div className={styles.step}>
             <div className={styles.stepNum}>4</div>
             <div className={styles.stepText}>
-              <strong>Add audio reactivity.</strong> Drop a Microphone node from <strong>Inputs</strong>, wire it into FFT Analyzer, Beat Detect, or the newer audio feature nodes, then connect those values to any audio-reactive pattern or math input.
+              <strong>Layer effects or audio.</strong> Composite nodes such as Blur 2D, Brightness, Hue Shift, Transition, and Trails sit between the generator and Matrix Output. For audio reactivity, drop <strong>Mic Input</strong> into FFT Analyzer or Beat Detect and wire those values into pattern or math inputs.
             </div>
           </div>
           <div className={styles.step}>
             <div className={styles.stepNum}>5</div>
             <div className={styles.stepText}>
-              <strong>Flash to your board.</strong> Click <strong>⚙ Board</strong> in the Matrix Output node to pick your board and port, then hit <strong>Upload</strong>. Or click <strong>Export .ino</strong> to download the sketch and compile manually.
+              <strong>Choose the output path.</strong> In <strong>Matrix Output</strong>, use <strong>Upload</strong> for a normal sketch, <strong>Flash Stream Receiver</strong> + <strong>Live Stream</strong> for rapid serial preview on hardware, <strong>Upload show to SD</strong> for music-sync offline playback, or <strong>View Code</strong> / <strong>Export .ino</strong> if you want the generated sketch first.
             </div>
           </div>
         </div>
@@ -77,7 +77,27 @@ function QuickStartTab() {
           <div className={styles.tip}>
             <div className={styles.tipIcon}>⬡</div>
             <div className={styles.tipText}>
-              <strong>Autosave</strong> — the workspace is saved to browser storage every 10 seconds and on page hide. Use <strong>↓ Save</strong> (Ctrl+S) to export a portable JSON file.
+              <strong>Projects vs JSON vs Share</strong> — the current <strong>Project</strong> autosaves every 10 seconds and on page hide; <strong>Save</strong> (Ctrl+S) saves that current project explicitly. Use <strong>Export JSON</strong> / <strong>Import JSON</strong> for portable graph files, <strong>Copy Share Link</strong> for URL-based sharing, and <strong>Recover Workspace</strong> for rolling autosave snapshots.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>Show starters</div>
+        <div className={styles.tipList}>
+          <div className={styles.tip}>
+            <div className={styles.tipIcon}>♫</div>
+            <div className={styles.tipText}>
+              <strong>Generative Show</strong> — collect grouped patterns into <strong>Pattern Collection</strong>, feed them into <strong>Show Engine</strong>, then wire that frame output to <strong>Matrix Output</strong> for a self-running live show.
+            </div>
+          </div>
+          <div className={styles.tip}>
+            <div className={styles.tipIcon}>♪</div>
+            <div className={styles.tipText}>
+              <strong>Music-synced SD Show</strong> — analyse songs in <strong>Music Library</strong>, generate timed show files in <strong>Performance Generator</strong>, pass them through <strong>SD Card</strong>, then use <strong>Upload show to SD</strong> from <strong>Matrix Output</strong>.
             </div>
           </div>
         </div>
@@ -99,7 +119,7 @@ function ShortcutsTab() {
           <div className={styles.kbd}><span className={styles.key}>Ctrl</span><span className={styles.key}>Shift</span><span className={styles.key}>Z</span></div>
           <div className={styles.shortcutDesc}>Redo (alternative)</div>
           <div className={styles.kbd}><span className={styles.key}>Ctrl</span><span className={styles.key}>S</span></div>
-          <div className={styles.shortcutDesc}>Save graph to browser storage</div>
+          <div className={styles.shortcutDesc}>Save the current project (or open Projects if none is active)</div>
           <div className={styles.kbd}><span className={styles.key}>Ctrl</span><span className={styles.key}>A</span></div>
           <div className={styles.shortcutDesc}>Select all nodes</div>
           <div className={styles.kbd}><span className={styles.key}>Ctrl</span><span className={styles.key}>C</span></div>
@@ -189,7 +209,7 @@ function UploadTab() {
           <div className={styles.tip}>
             <div className={styles.tipIcon}>4</div>
             <div className={styles.tipText}>
-              The upload <strong>helper service</strong> is auto-started by the dev server. If it's not running, execute <code>npm run helper</code> in a terminal and reload.
+              The upload <strong>helper service</strong> is started by the platform launch scripts and can also be started manually with <code>npm run helper</code>. Upload, live stream, board discovery, and project-file dialogs all rely on it.
             </div>
           </div>
         </div>
@@ -209,11 +229,17 @@ function UploadTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>2</div>
             <div className={styles.stepText}>
-              Click <strong>Upload</strong>. The button shows live status — <em>Compiling…</em> → <em>Uploading NN%</em> → <em>✓ Done</em>. Click <strong>⌗ Output</strong> to see the full build log.
+              Click <strong>Upload</strong> for a normal sketch. The button shows live status — <em>Compiling…</em> → <em>Uploading NN%</em> → <em>✓ Done</em>. Click <strong>⌗ Output</strong> to see the full build log.
             </div>
           </div>
           <div className={styles.step}>
             <div className={styles.stepNum}>3</div>
+            <div className={styles.stepText}>
+              For rapid hardware preview, flash <strong>⚡ Stream Receiver</strong> once, then use <strong>📡 Live Stream</strong> to push the current preview frames straight to the board without recompiling.
+            </div>
+          </div>
+          <div className={styles.step}>
+            <div className={styles.stepNum}>4</div>
             <div className={styles.stepText}>
               For a <strong>music-sync show</strong>, wire an SD Card node to Matrix Output's <code>sdcard</code> input, then click <strong>♪ Upload show to SD</strong> to provision the card and flash the player.
             </div>
@@ -226,7 +252,7 @@ function UploadTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Export without uploading</div>
         <div className={styles.text}>
-          Click <strong>Export .ino</strong> in the Matrix Output node to download the generated FastLED sketch. Open it in the Arduino IDE or compile with <code>arduino-cli compile --fqbn &lt;board&gt; sketch.ino</code>.
+          Click <strong>View Code</strong> in the Matrix Output node to inspect the exact sketch that would be uploaded, or <strong>Export .ino</strong> to download it. Open it in the Arduino IDE or compile with <code>arduino-cli compile --fqbn &lt;board&gt; sketch.ino</code>.
         </div>
         <div className={styles.text}>
           The generated sketch targets FastLED and is compatible with any board and chipset combination — it does not depend on the Studio app or helper at runtime.

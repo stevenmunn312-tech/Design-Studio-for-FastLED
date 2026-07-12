@@ -4,12 +4,14 @@ Node‑Based Visual Designer for FastLED LED Matrix Systems
 ## Features
 
 - **Visual node graph** — drag, drop, and wire 100+ node types across audio, hardware, math, color, pattern, composite, and output categories
+- **Starter-first onboarding** — launch from the empty-canvas start screen or the persistent **✦ Start** gallery with Rainbow, Audio Spectrum, Field Warp, Generative Show, Music-synced SD Show, and more
 - **Live LED preview** — WebGL renderer with per-LED glow at 60 fps; falls back to Canvas 2D
 - **Audio-reactive** — microphone FFT via Web Audio API drives bass/mids/treble/beat outputs in real time
+- **Named projects + recovery** — autosaved projects, recent-project switching, rolling recovery snapshots, JSON import/export, and share links
 - **C++ code generation** — export a ready-to-flash FastLED `.ino` sketch from any graph
-- **One-click upload** — a small local helper compiles and flashes to your board over USB via `arduino-cli` or FastLED's own `fbuild` tool; falls back to copy-paste CLI commands if the helper isn't running
+- **Upload, stream, and show provisioning** — the local helper compiles and flashes over USB via `arduino-cli` or FastLED's own `fbuild`, can flash the serial stream receiver, push live frames, and provision music-sync SD shows
 - **Three theme variants** — Dark, Solarized Dark, Studio Light
-- **Undo/redo** (100 steps), autosave to localStorage, save/load graph as JSON
+- **Undo/redo** (100 steps), per-project autosave, portable JSON interchange, and read-only code viewing
 
 ## Quick Start (no experience needed)
 
@@ -29,6 +31,12 @@ seconds. Your browser opens the studio automatically — keep the launcher windo
 while you use the app. Python is optional: without it the designer runs fine, only
 board upload stays disabled.
 
+When the studio opens, start from the empty-canvas launcher:
+
+1. Click **Start with Rainbow** for the quickest animated result, or **Audio-reactive demo** if you want the microphone pipeline prewired.
+2. Click **Browse starter patches** or the top-bar **✦ Start** button to open the full starter gallery.
+3. Choose **Blank Canvas** if you want an empty workspace but still want the starter gallery one click away.
+
 ## Getting Started (developers)
 
 ```bash
@@ -36,19 +44,19 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
-Requires Node 18+. For WebSerial upload, use Chrome or Edge 89+.
+Requires Node 18+. For upload/stream/provisioning features, also run the local helper (`npm run helper`) or use one of the platform launch scripts so it starts automatically.
 
 ## Node Categories
 
 | Category | Examples |
 |----------|---------|
-| Input | Mic Input, Button, Potentiometer, Encoder |
+| Input | Mic Input, Button Input, Pot Input, Encoder Input |
 | Audio | FFT Analyzer, Beat Detect, Percussion Detect, Audio Features, Audio → Hue |
 | Signals | Time, Counter, Random, Wave, ComplexWave, BeatSin |
 | Math & Logic | Math, Clamp, Lerp, Compare, Switch, XY Mapper |
 | Color | HSV→RGB, CHSV, Palette Selector, Poline, Custom Palette |
-| Patterns | Fire 2012, Plasma, Noise, Kaleidoscope, Particles (7 types), Starfield, Blobs, Code |
-| Fields | Field Formula, Distance Field, Field Warp, Field Rotate/Tile |
+| Patterns | Fire 2012, Plasma, Noise, Rainbow, Kaleidoscope, Particles (7 types), Starfield, Blobs, Code |
+| Fields | Field Formula, Field Noise, Distance Field, Field Warp, Field Rotate/Tile |
 | Effects | Blend (6 modes), Transition (16 variants), Blur 2D, Fade, Mask, Trails |
 | Show | Music Library, Pattern Collection, Show Engine, Performance Generator, SD Card |
 | Output | Matrix Output |
@@ -57,11 +65,35 @@ See the Design Tokens section of `CLAUDE.md` for the full category → accent-co
 
 ## Workflow
 
-1. **Set up output** — drag a **Matrix Output** node and set your grid width/height/chipset/pin
-2. **Add a pattern** — drag any pattern node (e.g. Plasma, Fire 2012, Noise Field) and connect its `Frame` output to Matrix Output's `Frame` input
-3. **Layer effects** — add Blur 2D, Brightness, Hue Shift, or transition nodes between pattern and output
-4. **Add audio** — drag a Microphone node → FFT Analyzer, then wire bass/mids/treble to audio-reactive pattern nodes; click the microphone button in the preview panel to start
-5. **Generate firmware** — use the **Upload** controls built into the **Matrix Output** node: pick a board and port (⚙ Board), hit **Upload** to compile and flash via `arduino-cli`, or click **Export .ino** to download the sketch
+1. **Start fast** — use the empty-canvas launcher or **✦ Start** to load Rainbow, Audio Spectrum, Field Warp, or one of the show starters already wired and framed in view.
+2. **Build the patch** — connect pattern/composite/audio nodes into **Matrix Output**. The main LED preview and node previews animate live from the same graph evaluation.
+3. **Choose the right save format** — named **Projects** are your working home and autosave in place; **Export JSON** is portable graph interchange; **Copy Share Link** packages the workspace into a URL; **Recover Workspace** restores recent autosave snapshots.
+4. **Upload or inspect code** — in **Matrix Output**, use **Upload**, **Flash Stream Receiver**, **Live Stream**, **Upload show to SD**, **View Code**, or **Export .ino** depending on whether you want a normal sketch, live serial streaming, or an SD-backed music-sync player.
+
+## Starter Walkthroughs
+
+### Generative show
+
+Use the **Generative Show** starter when you want the board to perform a rotating set of reusable patterns:
+
+1. Save one or more grouped patterns into a **Pattern Collection**.
+2. Feed that collection into **Show Engine**.
+3. Wire **Show Engine** into **Matrix Output** and upload the generated controller sketch.
+
+### Music-synced SD show
+
+Use the **Music-synced SD Show** starter when you want offline playback from an SD card:
+
+1. Drop songs into **Music Library** and let the analysis/generation pass finish.
+2. Feed the generated `shows` output into **SD Card**, then into **Matrix Output.sdcard**.
+3. Use **Upload show to SD** from **Matrix Output** to provision the card and flash the player.
+
+## Project vs JSON vs Share
+
+- **Projects** are the everyday workspace model. They autosave in place, remember upload targets, and appear in **File** and **▤ Projects**.
+- **Export JSON / Import JSON** is portable graph interchange. Use it to move a graph between machines or keep a raw graph snapshot outside the project system.
+- **Share links** are URL fragments containing the full workspace. Opening one imports that workspace into the current browser session.
+- **Recover Workspace** restores one of the recent rolling autosave snapshots for the current browser.
 
 ## Build
 
@@ -77,7 +109,7 @@ npm run preview    # serve dist/ locally
 |---------|---------|
 | WebGL preview | Any modern browser |
 | Microphone (FFT) | Any modern browser |
-| Board upload | Local upload helper running (Python 3 + `arduino-cli` or `fbuild`) — any browser |
+| Upload / Live Stream / SD provisioning | Local upload helper running (Python 3 + `arduino-cli` or `fbuild`) — any modern browser |
 
 ## Credits
 

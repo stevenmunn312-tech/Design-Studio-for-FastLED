@@ -49,7 +49,7 @@
 - [ ] **Complete keyboard and screen-reader behavior.** Add roving focus/arrow-key behavior for menus, announce transient status through an `aria-live` region, ensure hidden panels are inert, and test node creation, connection, configuration, save/load, and upload without a mouse.
 - [ ] **Document the desktop viewport contract.** Define a supported minimum size and graceful narrow/short-window behavior. Verify menus, preview, node controls, dialogs, and status information do not become unreachable.
 - [ ] **Complete PWA polish.** Fix the missing favicon path ([x] done — `index.html`'s `<link rel="icon">` pointed at a nonexistent `/favicon.svg`; now points at `/icon.svg`, the file the manifest already uses), provide appropriate 192/512 and maskable icons, precache required PNG branding assets, verify first-install/offline behavior, and communicate that hardware upload still needs the local helper.
-- [ ] **Update public documentation.** Remove obsolete WebSerial and upload-panel claims, replace old node names, document current microphone controls and upload behavior, add starter/show walkthroughs, and ensure README, Help, `CLAUDE.md`, and `todo.md` agree.
+- [x] **Update public documentation.** `README.md` and `HelpModal` now match the current app: no obsolete WebSerial claim, current starter onboarding (`✦ Start` / empty-canvas launcher), current project-vs-JSON-vs-share terminology, current microphone node naming (`Mic Input`), and the modern Matrix Output actions (`Upload`, `Flash Stream Receiver`, `Live Stream`, `Upload show to SD`, `View Code`, `Export .ino`). The docs also add generative-show and music-sync SD-show walkthroughs so README, Help, `CLAUDE.md`, and `todo.md` are back in step.
 
 ### P2 — existing node improvements
 
