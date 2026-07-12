@@ -1974,8 +1974,8 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
     ],
     outputs: [
-      { id: 'shows', label: 'Shows', dataType: 'shows' },
       { id: 'frame', label: 'Frame', dataType: 'frame' },
+      { id: 'shows', label: 'Shows', dataType: 'shows' },
     ],
     defaultProperties: {
       beatIntensity:      0.8,

@@ -206,8 +206,8 @@ describe('nodeLibrary', () => {
 
   it('PerformanceGenerator exposes shows and a MatrixOutput-compatible frame', () => {
     expect(NODE_LIBRARY.find((n) => n.type === 'PerformanceGenerator')?.outputs).toEqual([
-      { id: 'shows', label: 'Shows', dataType: 'shows' },
       { id: 'frame', label: 'Frame', dataType: 'frame' },
+      { id: 'shows', label: 'Shows', dataType: 'shows' },
     ])
   })
 
