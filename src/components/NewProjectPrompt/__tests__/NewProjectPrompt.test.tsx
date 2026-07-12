@@ -6,26 +6,36 @@ import { useUiStore } from '../../../state/uiStore'
 describe('NewProjectPrompt', () => {
   beforeEach(() => {
     useUiStore.setState({
-      newProjectPrompt: { open: false, projectName: '', actionLabel: 'creating a new project' },
+      newProjectPrompt: { open: false, projectName: '', actionLabel: 'creating a new project', destinationLabel: 'a new blank project' },
     })
   })
 
-  it('renders yes, no, and cancel actions', () => {
+  it('renders explicit save, continue-without-saving, and cancel actions', () => {
     useUiStore.setState({
-      newProjectPrompt: { open: true, projectName: 'alpha', actionLabel: 'creating a new project' },
+      newProjectPrompt: {
+        open: true,
+        projectName: 'alpha',
+        actionLabel: 'creating a new project',
+        destinationLabel: 'a new blank project',
+      },
     })
 
     const { getByRole, getByText } = render(<NewProjectPrompt />)
 
-    expect(getByRole('dialog', { name: 'Save current project first' })).toBeTruthy()
-    expect(getByText('Yes')).toBeTruthy()
-    expect(getByText('No')).toBeTruthy()
+    expect(getByRole('dialog', { name: 'Save current project before continuing' })).toBeTruthy()
+    expect(getByText('Save and continue')).toBeTruthy()
+    expect(getByText('Continue without saving')).toBeTruthy()
     expect(getByText('Cancel')).toBeTruthy()
   })
 
   it('closes when cancel is clicked', () => {
     useUiStore.setState({
-      newProjectPrompt: { open: true, projectName: 'alpha', actionLabel: 'opening another project' },
+      newProjectPrompt: {
+        open: true,
+        projectName: 'alpha',
+        actionLabel: 'opening another project',
+        destinationLabel: 'project "beta"',
+      },
     })
 
     const { getByText } = render(<NewProjectPrompt />)
@@ -36,11 +46,18 @@ describe('NewProjectPrompt', () => {
 
   it('renders the requested action text', () => {
     useUiStore.setState({
-      newProjectPrompt: { open: true, projectName: 'alpha', actionLabel: 'opening another project' },
+      newProjectPrompt: {
+        open: true,
+        projectName: 'alpha',
+        actionLabel: 'opening another project',
+        destinationLabel: 'project "beta"',
+      },
     })
 
     const { getByText } = render(<NewProjectPrompt />)
 
-    expect(getByText('Save current project "alpha" before opening another project?')).toBeTruthy()
+    expect(getByText(/Current project/)).toBeTruthy()
+    expect(getByText(/Destination:/)).toBeTruthy()
+    expect(getByText('project "beta"')).toBeTruthy()
   })
 })

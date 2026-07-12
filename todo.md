@@ -29,7 +29,7 @@
 - [ ] **Add progressive disclosure to the 132-module library.** Provide Beginner/All views, favorites, recent modules, intent tags, and curated recipe/subgraph cards such as `Audio to brightness`, `Beat-triggered random`, and `Add trails`.
 - [ ] **Improve compatible-node discovery.** Extend drag-to-create with ranked suggestions, brief “why this fits” descriptions, and a way to insert a complete adapter/utility chain when no direct compatible input exists.
 - [ ] **Unify the project mental model.** Clearly distinguish autosaved projects, portable project files, JSON graph interchange, firmware export, snapshots/recovery, and share links. Use the same nouns in File actions, dialogs, status messages, README, and Help.
-- [ ] **Replace ambiguous save prompts.** Use explicit actions such as `Save and continue`, `Continue without saving`, and `Cancel`; show the current project name and destination and preserve keyboard behavior.
+- [x] **Replace ambiguous save prompts.** `NewProjectPrompt` now uses explicit actions — `Save and continue`, `Continue without saving`, and `Cancel` — instead of `Yes` / `No`. The dialog shows the current project name plus the destination (`project "Name"` or `a new blank project`), focuses the primary action on open, keeps Escape-to-cancel behavior, and `MenuBar` now waits until the target project/file is known before prompting so the destination text is concrete instead of generic.
 
 ### P1 — guided hardware workflow
 

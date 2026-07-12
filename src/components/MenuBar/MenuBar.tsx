@@ -171,6 +171,14 @@ export default function MenuBar() {
     })
   }
 
+  const confirmProjectChange = async (destinationLabel: string) => {
+    if (currentProject) {
+      return requestNewProjectDecision(currentProject.name, 'continuing', destinationLabel)
+    }
+    const ok = await confirmReplaceUnsavedWorkspace(`Open ${destinationLabel}? The current unsaved graph will be replaced.`)
+    return ok ? 'no' : 'cancel'
+  }
+
   const loadProjectWorkspace = (projectId: string, saveCurrentFirst = false) => {
     if (saveCurrentFirst && currentProject) {
       useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
@@ -224,10 +232,10 @@ export default function MenuBar() {
   const openParsedProject = async (
     projectText: string,
     fallbackName: string,
-    options?: { saveCurrentFirst?: boolean },
+    options?: { saveCurrentFirst?: boolean; confirmedReplace?: boolean },
   ) => {
     const project = parseProjectFile(projectText, fallbackName)
-    if (!currentProject && !await confirmReplaceUnsavedWorkspace('Open a project file? The current unsaved graph will be replaced.')) {
+    if (!options?.confirmedReplace && !currentProject && !await confirmReplaceUnsavedWorkspace('Open a project file? The current unsaved graph will be replaced.')) {
       return false
     }
     if (options?.saveCurrentFirst && currentProject) {
@@ -244,7 +252,9 @@ export default function MenuBar() {
   const handleNewProject = () => {
     setFileMenuOpen(false)
     void (async () => {
-      const decision = currentProject ? await requestNewProjectDecision(currentProject.name) : 'no'
+      const decision = currentProject
+        ? await requestNewProjectDecision(currentProject.name, 'creating a new project', 'a new blank project')
+        : 'no'
       if (decision === 'cancel') return
       await createNewProjectWithFileDialog(decision === 'yes')
     })()
@@ -284,15 +294,15 @@ export default function MenuBar() {
     setFileMenuOpen(false)
     void (async () => {
       try {
-        const decision = currentProject
-          ? await requestNewProjectDecision(currentProject.name, 'opening another project')
-          : 'no'
-        if (decision === 'cancel') return
-        const saveCurrentFirst = decision === 'yes'
         const picked = await openProjectWithNativePicker()
         if (picked) {
+          const decision = await confirmProjectChange(`project "${picked.fallbackName}"`)
+          if (decision === 'cancel') return
           try {
-            await openParsedProject(await picked.file.text(), picked.fallbackName, { saveCurrentFirst })
+            await openParsedProject(await picked.file.text(), picked.fallbackName, {
+              saveCurrentFirst: decision === 'yes',
+              confirmedReplace: true,
+            })
           } catch {
             setStatus('Failed to open project — invalid file', 'error')
           }
@@ -300,8 +310,13 @@ export default function MenuBar() {
         }
         const backendPicked = await openProjectDialog()
         if (backendPicked) {
+          const decision = await confirmProjectChange(`project "${projectFileBaseName(backendPicked.name)}"`)
+          if (decision === 'cancel') return
           try {
-            await openParsedProject(backendPicked.text, projectFileBaseName(backendPicked.name), { saveCurrentFirst })
+            await openParsedProject(backendPicked.text, projectFileBaseName(backendPicked.name), {
+              saveCurrentFirst: decision === 'yes',
+              confirmedReplace: true,
+            })
           } catch {
             setStatus('Failed to open project — invalid file', 'error')
           }
@@ -319,10 +334,8 @@ export default function MenuBar() {
     setFileMenuOpen(false)
     void (async () => {
       if (projectId === currentProjectId) return
-      if (!currentProject && !await confirmReplaceUnsavedWorkspace('Open a saved project? The current unsaved graph will be replaced.')) return
-      const decision = currentProject
-        ? await requestNewProjectDecision(currentProject.name, 'opening another project')
-        : 'no'
+      const projectName = projects.find((project) => project.id === projectId)?.name ?? 'selected project'
+      const decision = await confirmProjectChange(`project "${projectName}"`)
       if (decision === 'cancel') return
       loadProjectWorkspace(projectId, decision === 'yes')
     })()
@@ -333,7 +346,12 @@ export default function MenuBar() {
     if (!file) return
     void (async () => {
       try {
-        await openParsedProject(await file.text(), projectFileBaseName(file.name))
+        const decision = await confirmProjectChange(`project "${projectFileBaseName(file.name)}"`)
+        if (decision === 'cancel') return
+        await openParsedProject(await file.text(), projectFileBaseName(file.name), {
+          saveCurrentFirst: decision === 'yes',
+          confirmedReplace: true,
+        })
       } catch {
         setStatus('Failed to open project — invalid file', 'error')
       } finally {

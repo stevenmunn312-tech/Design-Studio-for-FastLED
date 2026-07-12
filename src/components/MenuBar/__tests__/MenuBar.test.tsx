@@ -65,7 +65,7 @@ describe('MenuBar file menu', () => {
       reducedMotion: false,
       highContrast: false,
       theme: 'dark',
-      newProjectPrompt: { open: false, projectName: '', actionLabel: 'creating a new project' },
+      newProjectPrompt: { open: false, projectName: '', actionLabel: 'creating a new project', destinationLabel: 'a new blank project' },
       requestNewProjectDecision: defaultRequestNewProjectDecision,
       resolveNewProjectDecision: defaultResolveNewProjectDecision,
     })
@@ -127,7 +127,7 @@ describe('MenuBar file menu', () => {
     expect(useGraphStore.getState().nodes.map((node) => node.id)).toEqual(['pg-node'])
     expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['scratch'])
     expect(useProjectStore.getState().recentProjectIds).toEqual([alpha.id])
-    expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha', 'opening another project')
+    expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha', 'continuing', 'project "pg"')
   })
 
   it('creates a default New Project through the save dialog when no project is open', async () => {
@@ -179,7 +179,7 @@ describe('MenuBar file menu', () => {
     await waitFor(() => {
       expect(useProjectStore.getState().currentProjectId).not.toBe(alpha.id)
     })
-    expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha')
+    expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha', 'creating a new project', 'a new blank project')
     const current = useProjectStore.getState().projects.find((entry) => entry.id === useProjectStore.getState().currentProjectId)
     expect(current?.name).toBe('New Project')
     expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['scratch'])
@@ -212,7 +212,7 @@ describe('MenuBar file menu', () => {
     await waitFor(() => {
       expect(useProjectStore.getState().currentProjectId).not.toBe(alpha.id)
     })
-    expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha')
+    expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha', 'creating a new project', 'a new blank project')
     const current = useProjectStore.getState().projects.find((entry) => entry.id === useProjectStore.getState().currentProjectId)
     expect(current?.name).toBe('New Project(1)')
     expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['alpha-node'])
@@ -241,7 +241,7 @@ describe('MenuBar file menu', () => {
     fireEvent.click(getByRole('button', { name: 'File menu' }))
     fireEvent.click(getByText('New Project'))
 
-    expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha')
+    expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha', 'creating a new project', 'a new blank project')
     expect(useProjectStore.getState().currentProjectId).toBe(alpha.id)
     expect(useGraphStore.getState().nodes.map((node) => node.id)).toEqual(['scratch'])
     expect((window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker).toBeUndefined()
@@ -278,7 +278,7 @@ describe('MenuBar file menu', () => {
     await waitFor(() => {
       expect(useProjectStore.getState().currentProjectId).toBe(pg.id)
     })
-    expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha', 'opening another project')
+    expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha', 'continuing', 'project "pg"')
     expect(useGraphStore.getState().nodes.map((node) => node.id)).toEqual(['pg-node'])
     expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['scratch'])
   })
@@ -306,7 +306,7 @@ describe('MenuBar file menu', () => {
     fireEvent.click(getByRole('button', { name: 'File menu' }))
     fireEvent.click(getByText('pg'))
 
-    expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha', 'opening another project')
+    expect(requestNewProjectDecision).toHaveBeenCalledWith('alpha', 'continuing', 'project "pg"')
     expect(useProjectStore.getState().currentProjectId).toBe(alpha.id)
     expect(useGraphStore.getState().nodes.map((node) => node.id)).toEqual(['scratch'])
   })

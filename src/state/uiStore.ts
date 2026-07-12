@@ -7,6 +7,12 @@ export type AppTheme = 'dark' | 'solarized' | 'light'
 export type NewProjectDecision = 'yes' | 'no' | 'cancel'
 export type AppDialogTone = 'default' | 'danger'
 export type StartChoice = string | 'blank' | null
+export interface NewProjectPromptState {
+  open: boolean
+  projectName: string
+  actionLabel: string
+  destinationLabel: string
+}
 
 interface AppDialogBase {
   title: string
@@ -103,7 +109,7 @@ interface UiState {
   recoverOpen: boolean
   templatesOpen: boolean
   projectsOpen: boolean
-  newProjectPrompt: { open: boolean; projectName: string; actionLabel: string }
+  newProjectPrompt: NewProjectPromptState
   lastStartChoice: StartChoice
   appDialog: AppDialogState | null
   setStatus: (text: string, level?: StatusLevel) => void
@@ -143,7 +149,7 @@ interface UiState {
   requestConfirm: (options: AppConfirmOptions) => Promise<boolean>
   requestPrompt: (options: AppPromptOptions) => Promise<string | null>
   resolveAppDialog: (value?: boolean | string | null) => void
-  requestNewProjectDecision: (projectName: string, actionLabel?: string) => Promise<NewProjectDecision>
+  requestNewProjectDecision: (projectName: string, actionLabel?: string, destinationLabel?: string) => Promise<NewProjectDecision>
   resolveNewProjectDecision: (decision: NewProjectDecision) => void
 }
 
@@ -181,7 +187,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   recoverOpen: false,
   templatesOpen: false,
   projectsOpen: false,
-  newProjectPrompt: { open: false, projectName: '', actionLabel: 'creating a new project' },
+  newProjectPrompt: { open: false, projectName: '', actionLabel: 'creating a new project', destinationLabel: 'a new blank project' },
   lastStartChoice: load<StartChoice>(START_CHOICE_KEY, null),
   appDialog: null,
 
@@ -337,18 +343,18 @@ export const useUiStore = create<UiState>((set, get) => ({
     appDialogResolver = null
     resolver?.(value)
   },
-  requestNewProjectDecision: (projectName, actionLabel = 'creating a new project') => {
+  requestNewProjectDecision: (projectName, actionLabel = 'creating a new project', destinationLabel = 'a new blank project') => {
     if (newProjectDecisionResolver) {
       newProjectDecisionResolver('cancel')
       newProjectDecisionResolver = null
     }
-    set({ newProjectPrompt: { open: true, projectName, actionLabel } })
+    set({ newProjectPrompt: { open: true, projectName, actionLabel, destinationLabel } })
     return new Promise<NewProjectDecision>((resolve) => {
       newProjectDecisionResolver = resolve
     })
   },
   resolveNewProjectDecision: (decision) => {
-    set({ newProjectPrompt: { open: false, projectName: '', actionLabel: 'creating a new project' } })
+    set({ newProjectPrompt: { open: false, projectName: '', actionLabel: 'creating a new project', destinationLabel: 'a new blank project' } })
     const resolver = newProjectDecisionResolver
     newProjectDecisionResolver = null
     resolver?.(decision)

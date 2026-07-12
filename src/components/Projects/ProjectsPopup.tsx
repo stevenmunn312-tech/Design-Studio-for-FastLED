@@ -99,7 +99,9 @@ export default function ProjectsPopup() {
 
   const createBlank = () => {
     void (async () => {
-      const decision = currentProject ? await requestNewProjectDecision(currentProject.name) : 'no'
+      const decision = currentProject
+        ? await requestNewProjectDecision(currentProject.name, 'creating a new project', 'a new blank project')
+        : 'no'
       if (decision === 'cancel') return
       await createBlankProjectWithFileDialog(decision === 'yes')
     })()
