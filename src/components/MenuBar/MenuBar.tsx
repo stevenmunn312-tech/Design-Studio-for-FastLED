@@ -159,7 +159,10 @@ export default function MenuBar() {
     const defaultName = nextDefaultProjectName(projects.map((project) => project.name))
     const draft = buildProjectSnapshot(blankWorkspace(), { name: defaultName })
     try {
-      const saved = await saveProjectWithNativePicker(draft) ?? await saveProjectWithDialog(draft)
+      // After the yes/no/cancel prompt resolves, browsers may drop the user
+      // activation needed for showSaveFilePicker(). The helper-backed dialog
+      // does not have that limitation, so prefer it for new-project creation.
+      const saved = await saveProjectWithDialog(draft) ?? await saveProjectWithNativePicker(draft)
       if (!saved) throw new Error('Native picker unavailable')
       if (saveCurrentFirst && currentProject) {
         useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
