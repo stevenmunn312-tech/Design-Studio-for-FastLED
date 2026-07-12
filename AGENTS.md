@@ -54,3 +54,5 @@ Run a single test file or test by name:
 npx vitest run src/state/__tests__/graphEvaluator.test.ts   # one file
 npx vitest run -t "cycle"                                   # tests matching a name
 ```
+
+The npm scripts route tools through `node --disable-warning=DEP0040` so normal project commands stay quiet around an upstream transitive `punycode` deprecation. Direct `npx vite` / `npx vitest` runs may still emit it.

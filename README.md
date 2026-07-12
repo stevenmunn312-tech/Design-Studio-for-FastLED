@@ -46,6 +46,8 @@ npm run dev        # http://localhost:5173
 
 Requires Node 18+. For upload/stream/provisioning features, also run the local helper (`npm run helper`) or use one of the platform launch scripts so it starts automatically.
 
+The repo's npm scripts also pass `--disable-warning=DEP0040` to Node so the standard developer commands stay quiet around an upstream transitive `punycode` deprecation in current tooling. Direct `npx vite` / `npx vitest` invocations can still print that warning.
+
 ## Node Categories
 
 | Category | Examples |

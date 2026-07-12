@@ -70,6 +70,8 @@ npx vitest run -t "cycle"                                   # tests matching a n
 
 Tests use vitest with `globals: true` and the `jsdom` environment (configured in `vite.config.ts`, not a separate vitest config). The same three gates — `lint`, `test`, `build` — run in CI on every PR via `.github/workflows/ci.yml`.
 
+The repo-wrapped npm scripts invoke Node with `--disable-warning=DEP0040` to suppress an upstream transitive `punycode` deprecation from current tooling. If you run `npx vite` / `npx vitest` directly instead of the package scripts, you may still see that warning.
+
 ## Stack
 
 - **React 19 + TypeScript** via Vite; CSS Modules for all component styles

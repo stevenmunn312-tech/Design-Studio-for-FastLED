@@ -4,13 +4,13 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview --host 127.0.0.1",
-    "lint": "eslint .",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
+    "dev": "node --disable-warning=DEP0040 ./node_modules/vite/bin/vite.js --host 127.0.0.1",
+    "build": "node --disable-warning=DEP0040 ./node_modules/typescript/bin/tsc -b && node --disable-warning=DEP0040 ./node_modules/vite/bin/vite.js build",
+    "preview": "node --disable-warning=DEP0040 ./node_modules/vite/bin/vite.js preview --host 127.0.0.1",
+    "lint": "node --disable-warning=DEP0040 ./node_modules/eslint/bin/eslint.js .",
+    "test": "node --disable-warning=DEP0040 ./node_modules/vitest/vitest.mjs run",
+    "test:watch": "node --disable-warning=DEP0040 ./node_modules/vitest/vitest.mjs",
+    "test:coverage": "node --disable-warning=DEP0040 ./node_modules/vitest/vitest.mjs run --coverage",
     "helper": "python -m uvicorn app:app --reload --port 8008 --app-dir backend"
   },
   "dependencies": {
