@@ -1,10 +1,11 @@
-import { useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import { useGraphStore, useTemporalStore } from '../../state/graphStore'
 import { useAudioStore } from '../../state/audioStore'
 import { useShowPlayback } from '../../state/showPlayback'
 import { useProjectStore } from '../../state/projectStore'
 import type { StudioNode, StudioEdge, WorkspaceExtras } from '../../state/graphStore'
+import { captureWorkspace, blankWorkspace } from '../../state/workspacePersistence'
 import { runTidy } from '../../utils/tidyGraph'
 import { buildShareUrl } from '../../utils/shareGraph'
 import { DevPerformanceHudToggle } from '../Preview/DevPerformanceHud'
@@ -43,6 +44,8 @@ export default function MenuBar() {
   const THEME_ICON: Record<string, string> = { dark: '☾', solarized: '✦', light: '☀' }
   const THEME_LABEL: Record<string, string> = { dark: 'Dark', solarized: 'Solarized', light: 'Light' }
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const fileMenuRef = useRef<HTMLDivElement>(null)
+  const [fileMenuOpen, setFileMenuOpen] = useState(false)
   const hasMicNode = useGraphStore((s) =>
     s.nodes.some((n) => (n.data as { nodeType?: string }).nodeType === 'MicInput')
   )
@@ -55,14 +58,32 @@ export default function MenuBar() {
   const currentProjectId = useProjectStore((s) => s.currentProjectId)
   const projects = useProjectStore((s) => s.projects)
   const currentProject = projects.find((project) => project.id === currentProjectId) ?? projects[0]
+  const sortedProjects = useMemo(
+    () => [...projects].sort((a, b) => b.updatedAt - a.updatedAt || b.createdAt - a.createdAt),
+    [projects],
+  )
+  const recentProjects = sortedProjects.filter((project) => project.id !== currentProjectId).slice(0, 6)
   const canUndo = pastStates.length > 0
   const canRedo = futureStates.length > 0
   const effectiveReducedMotion = reducedMotion || !uiEffectsEnabled
   const effectivePreview3d = uiEffectsEnabled && preview3d
   const effectivePreviewStyle = uiEffectsEnabled ? previewStyle : 'standard'
-  const projectLabel = currentProject?.name && currentProject.name.length > 18
-    ? `${currentProject.name.slice(0, 18)}…`
-    : (currentProject?.name ?? 'Projects')
+
+  useEffect(() => {
+    if (!fileMenuOpen) return
+    const onPointerDown = (e: MouseEvent) => {
+      if (!fileMenuRef.current?.contains(e.target as Node)) setFileMenuOpen(false)
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFileMenuOpen(false)
+    }
+    window.addEventListener('mousedown', onPointerDown)
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('mousedown', onPointerDown)
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [fileMenuOpen])
 
   const toggleMic = () => {
     if (!micActive && showPlaying) {
@@ -100,6 +121,69 @@ export default function MenuBar() {
   }
 
   const handleLoadJSON = () => fileInputRef.current?.click()
+
+  const saveIntoCurrentProject = () => {
+    if (!currentProject) {
+      setStatus('No project open — use New Project or Save As first', 'info')
+      return false
+    }
+    useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
+    setStatus(`Saved project "${currentProject.name}"`, 'success')
+    return true
+  }
+
+  const confirmReplaceUnsavedWorkspace = (message: string) => {
+    if (currentProject) return true
+    if (useGraphStore.getState().nodes.length === 0) return true
+    return window.confirm(message)
+  }
+
+  const loadProjectWorkspace = (projectId: string) => {
+    const next = useProjectStore.getState().switchProject(projectId)
+    if (!next) return false
+    const { nodes, edges, graphData, graphs, activeGraphId } = next.workspace
+    useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId })
+    useGraphStore.temporal.getState().clear()
+    setStatus(`Opened project "${next.name}"`, 'success')
+    return true
+  }
+
+  const handleNewProject = () => {
+    setFileMenuOpen(false)
+    const suggested = `Project ${projects.length + 1}`
+    const name = window.prompt('Name for the new blank project:', suggested)
+    if (name === null) return
+    if (!currentProject && !confirmReplaceUnsavedWorkspace('Create a new blank project? The current unsaved graph will be replaced.')) return
+    if (currentProject) useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
+    const project = useProjectStore.getState().createProject(name, blankWorkspace())
+    useGraphStore.getState().loadGraph([], [])
+    useGraphStore.temporal.getState().clear()
+    setStatus(`Created project "${project.name}"`, 'success')
+  }
+
+  const handleSaveAs = () => {
+    setFileMenuOpen(false)
+    const suggested = currentProject ? `${currentProject.name} Copy` : `Project ${projects.length + 1}`
+    const name = window.prompt('Save current graph as project:', suggested)
+    if (name === null) return
+    const workspace = captureWorkspace(useGraphStore.getState())
+    if (currentProject) useProjectStore.getState().saveCurrentWorkspace(workspace)
+    const project = useProjectStore.getState().createProject(name, workspace, { uploadTarget: currentProject?.uploadTarget })
+    setStatus(`Saved as "${project.name}"`, 'success')
+  }
+
+  const handleOpenProjects = () => {
+    setFileMenuOpen(false)
+    openProjects()
+  }
+
+  const handleOpenRecentProject = (projectId: string) => {
+    setFileMenuOpen(false)
+    if (projectId === currentProjectId) return
+    if (!currentProject && !confirmReplaceUnsavedWorkspace('Open a saved project? The current unsaved graph will be replaced.')) return
+    if (currentProject) useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
+    loadProjectWorkspace(projectId)
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -139,6 +223,65 @@ export default function MenuBar() {
         </div>
       </div>
       <nav className={styles.nav}>
+        <div className={styles.menuWrap} ref={fileMenuRef}>
+          <button
+            className={`${styles.btn} ${fileMenuOpen ? styles.btnActive : ''}`}
+            onClick={() => setFileMenuOpen((open) => !open)}
+            aria-haspopup="menu"
+            aria-expanded={fileMenuOpen}
+            aria-label="File menu"
+            title="File menu"
+          >
+            File
+          </button>
+          {fileMenuOpen && (
+            <div className={styles.menu} role="menu" aria-label="File">
+              <button className={styles.menuItem} role="menuitem" onClick={handleNewProject}>
+                New Project
+              </button>
+              <button className={styles.menuItem} role="menuitem" onClick={handleOpenProjects}>
+                Open Project…
+              </button>
+              <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); saveIntoCurrentProject() }} disabled={!currentProject}>
+                Save
+              </button>
+              <button className={styles.menuItem} role="menuitem" onClick={handleSaveAs}>
+                Save As…
+              </button>
+              <div className={styles.menuDivider} />
+              <div className={styles.menuLabel}>Recent Projects</div>
+              {recentProjects.length > 0 ? recentProjects.map((project) => (
+                <button
+                  key={project.id}
+                  className={styles.menuItem}
+                  role="menuitem"
+                  onClick={() => handleOpenRecentProject(project.id)}
+                  title={`Open ${project.name}`}
+                >
+                  {project.name}
+                </button>
+              )) : (
+                <div className={styles.menuEmpty}>No recent projects yet</div>
+              )}
+              <div className={styles.menuDivider} />
+              <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); handleLoadJSON() }}>
+                Import JSON…
+              </button>
+              <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); handleSaveJSON() }}>
+                Export JSON…
+              </button>
+              <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); openTemplates() }}>
+                Starter Templates…
+              </button>
+              <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); handleShare() }}>
+                Copy Share Link
+              </button>
+              <button className={styles.menuItem} role="menuitem" onClick={() => { setFileMenuOpen(false); openRecover() }}>
+                Recover Workspace…
+              </button>
+            </div>
+          )}
+        </div>
         <button
           className={styles.btn}
           onClick={() => undo()}
@@ -164,25 +307,6 @@ export default function MenuBar() {
           title="Auto-arrange nodes into tidy columns (select 2+ nodes to tidy just those)"
         >
           ▦ Tidy
-        </button>
-        <div className={styles.sep} />
-        <button className={styles.btn} onClick={handleSaveJSON} aria-label="Export graph as JSON" title="Export graph as JSON (Ctrl+S)">
-          ↓ Save
-        </button>
-        <button className={styles.btn} onClick={handleLoadJSON} aria-label="Import graph from JSON" title="Import graph from JSON">
-          ↑ Load
-        </button>
-        <button className={styles.btn} onClick={openProjects} aria-label="Switch or manage projects" title={currentProject ? `Current project: ${currentProject.name}` : 'Switch or manage projects'}>
-          ▤ {projectLabel}
-        </button>
-        <button className={styles.btn} onClick={openTemplates} aria-label="Load a starter template" title="Load a starter template">
-          ✦ Templates
-        </button>
-        <button className={styles.btn} onClick={handleShare} aria-label="Copy share link" title="Copy a shareable link that reproduces this graph">
-          ⇗ Share
-        </button>
-        <button className={styles.btn} onClick={openRecover} aria-label="Recover a previous workspace" title="Recover a previous workspace from a rolling snapshot">
-          ⟲ Recover
         </button>
         <input
           ref={fileInputRef}

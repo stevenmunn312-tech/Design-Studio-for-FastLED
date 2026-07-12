@@ -70,6 +70,79 @@
   display: none;
 }
 
+.menuWrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 240px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(180deg, rgba(20, 24, 30, 0.98), rgba(10, 13, 17, 0.98)),
+    var(--bg-panel);
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 0 32px rgba(0, 191, 255, 0.08);
+  z-index: 30;
+}
+
+.menuItem {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-code);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menuItem:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.menuItem:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.menuDivider {
+  height: 1px;
+  margin: 6px 4px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.menuLabel {
+  padding: 4px 12px 2px;
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.menuEmpty {
+  padding: 8px 12px;
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
 .btn {
   height: 30px;
   padding: 0 var(--space-1);
