@@ -3748,13 +3748,8 @@ function createEvalNode(
       case 'Circle': {
         const baseIn = input(id, 'base', null) as Frame | null
         const frame  = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
-        const colorIn = input(id, 'color', null) as RGB | null
-        const color = colorIn ?? {
-          r: byte(Number(props.r ?? 255) / 255),
-          g: byte(Number(props.g ?? 0)   / 255),
-          b: byte(Number(props.b ?? 128) / 255),
-        }
-        const fill = (input(id, 'fill', null) as RGB | null) ?? hexToRgb(String(props.fill ?? '#ff0080'))
+        const fill = (input(id, 'fill', null) as RGB | null) ?? hexToRgb(String(props.fill ?? '#ff3080'))
+        const edge = (input(id, 'edge', null) as RGB | null) ?? hexToRgb(String(props.edge ?? '#ff0080'))
         const rad = num(id, 'radius', props, 'radius', 4)
         const filled = Boolean(props.filled)
         const wrap = Boolean(props.wrap)
@@ -3766,12 +3761,8 @@ function createEvalNode(
           for (const oy of yOffsets) {
             const drawX = cx + ox
             const drawY = cy + oy
-            if (filled) {
-              splatDisc(frame, drawX, drawY, rad, fill)
-              splatRing(frame, drawX, drawY, rad, color)
-            } else {
-              splatRing(frame, drawX, drawY, rad, color)
-            }
+            if (filled) splatDisc(frame, drawX, drawY, rad, fill)
+            splatRing(frame, drawX, drawY, rad, edge)
           }
         }
         out = { frame }

@@ -992,7 +992,7 @@ describe('generateCpp', () => {
     const t = node('t', 'Temperature', 'color', { kelvin: 3000 })
     const sp = node('sp', 'Circle', 'pattern', { cx: 2, cy: 2, radius: 2 })
     const cpp = generateCpp([t, sp, outputNode], [
-      edge('e1', 't', 'sp', 'color', 'color'),
+      edge('e1', 't', 'sp', 'color', 'edge'),
       edge('e2', 'sp', 'out', 'frame', 'frame'),
     ])
     expect(cpp).toContain('CRGB kelvinToRGB(float kelvin)')
@@ -1000,7 +1000,7 @@ describe('generateCpp', () => {
   })
 
   it('emits a Circle subpixel coverage loop', () => {
-    const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, filled: false, r: 255, g: 0, b: 0 })
+    const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, filled: false, edge: '#ff0000' })
     const cpp = generateCpp([c, outputNode], [edge('e', 'c', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _margin = (3) + 1.0f;')
     expect(cpp).toContain('float _cx = (0.5f - _margin) + (0.5) * ((WIDTH - 1.0f) + 2.0f * _margin), _cy = (0.5f - _margin) + (0.5) * ((HEIGHT - 1.0f) + 2.0f * _margin);')
@@ -1011,7 +1011,7 @@ describe('generateCpp', () => {
   })
 
   it('emits a Circle fill color for filled discs', () => {
-    const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, filled: true, r: 255, g: 0, b: 0, fill: '#00ff00' })
+    const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, filled: true, edge: '#ff0000', fill: '#00ff00' })
     const cpp = generateCpp([c, outputNode], [edge('e', 'c', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _fillCov = constrain(3 + 0.5f - _d, 0.0f, 1.0f);')
     expect(cpp).toContain('CRGB _fillAdd = CRGB(0, 255, 0);')
@@ -1020,7 +1020,7 @@ describe('generateCpp', () => {
   })
 
   it('emits wrapped Circle copies when wrap is enabled', () => {
-    const c = node('c', 'Circle', 'pattern', { cx: 0, cy: 0.5, radius: 3, wrap: true, r: 255, g: 0, b: 0 })
+    const c = node('c', 'Circle', 'pattern', { cx: 0, cy: 0.5, radius: 3, wrap: true, edge: '#ff0000' })
     const cpp = generateCpp([c, outputNode], [edge('e', 'c', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _cx = (WIDTH * 0.5f - WIDTH) + (0) * (WIDTH * 2.0f), _cy = (HEIGHT * 0.5f - HEIGHT) + (0.5) * (HEIGHT * 2.0f);')
     expect(cpp).toContain('float _wrapX[3] = {-(float)WIDTH, 0.0f, (float)WIDTH};')

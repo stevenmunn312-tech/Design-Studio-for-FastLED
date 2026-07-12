@@ -58,19 +58,20 @@ describe('StudioNode', () => {
 
   it('editing a plain number field updates the node property in the store', () => {
     // Circle's `cx`/`cy` are sliders, but `radius` still stays a number input.
-    const { container } = renderNode(makeNode('Circle', { cx: 0.5, cy: 0.5, radius: 3, filled: false, r: 255, g: 0, b: 0 }))
+    const { container } = renderNode(makeNode('Circle', { cx: 0.5, cy: 0.5, radius: 3, filled: false, edge: '#ff0000' }))
     const num = container.querySelector('input[type="number"]') as HTMLInputElement
     expect(num).toBeTruthy()
     fireEvent.change(num, { target: { value: '5' } })
     expect(useGraphStore.getState().nodes[0].data.properties.radius).toBe(5)
   })
 
-  it('shows a colour swatch for Circle fill and updates the hex property', () => {
-    const { container } = renderNode(makeNode('Circle', { cx: 0.5, cy: 0.5, radius: 3, filled: true, r: 255, g: 0, b: 0, fill: '#00ff00' }))
+  it('shows colour swatches for Circle fill/edge and updates the hex property', () => {
+    const { container } = renderNode(makeNode('Circle', { cx: 0.5, cy: 0.5, radius: 3, filled: true, fill: '#00ff00', edge: '#ff0000' }))
     const colors = Array.from(container.querySelectorAll('input[type="color"]')) as HTMLInputElement[]
     expect(colors).toHaveLength(2)
-    expect(colors[1].value).toBe('#00ff00')
-    fireEvent.change(colors[1], { target: { value: '#112233' } })
+    expect(colors[0].value).toBe('#00ff00')
+    expect(colors[1].value).toBe('#ff0000')
+    fireEvent.change(colors[0], { target: { value: '#112233' } })
     expect(useGraphStore.getState().nodes[0].data.properties.fill).toBe('#112233')
   })
 
@@ -291,7 +292,7 @@ describe('StudioNode', () => {
   })
 
   it('toggling a boolean property renders a checkbox and updates the store', () => {
-    const { container } = renderNode(makeNode('Circle', { cx: 4, cy: 4, radius: 3, filled: false, r: 255, g: 0, b: 0 }))
+    const { container } = renderNode(makeNode('Circle', { cx: 4, cy: 4, radius: 3, filled: false, edge: '#ff0000' }))
     const check = container.querySelector('input[type="checkbox"]') as HTMLInputElement
     expect(check).toBeTruthy()
     expect(check.checked).toBe(false)

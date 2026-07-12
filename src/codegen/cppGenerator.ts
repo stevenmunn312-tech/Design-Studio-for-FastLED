@@ -1057,10 +1057,8 @@ export function generateCpp(
           const n = m ? parseInt(m[1], 16) : def
           return `CRGB(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
         }
-        const colorE = incoming.get(`${node.id}:color`)
-          ? colorExpr(node.id, 'color')
-          : `CRGB(${Number(p.r ?? 255)}, ${Number(p.g ?? 0)}, ${Number(p.b ?? 128)})`
-        const fillE = incoming.get(`${node.id}:fill`) ? colorExpr(node.id, 'fill') : hexCrgb(p.fill, 0xff0080)
+        const fillE = incoming.get(`${node.id}:fill`) ? colorExpr(node.id, 'fill') : hexCrgb(p.fill, 0xff3080)
+        const edgeE = incoming.get(`${node.id}:edge`) ? colorExpr(node.id, 'edge') : hexCrgb(p.edge, 0xff0080)
         const cx = f('cx', 'cx', 0.5), cy = f('cy', 'cy', 0.5), rad = f('radius', 'radius', 4)
         const emitCirclePass = (cxExpr: string, cyExpr: string, indent: string) => {
           ln(`${indent}int _x0 = max(0, (int)floorf(${cxExpr} - ${rad} - 1.5f)), _x1 = min(WIDTH - 1, (int)ceilf(${cxExpr} + ${rad} + 1.5f));`)
@@ -1071,10 +1069,10 @@ export function generateCpp(
             ln(`${indent}  float _fillCov = constrain(${rad} + 0.5f - _d, 0.0f, 1.0f);`)
             ln(`${indent}  if (_fillCov > 0.0f) { CRGB _fillAdd = ${fillE}; _fillAdd.nscale8((uint8_t)(_fillCov * 255.0f)); ${ob}[_y * WIDTH + _x] += _fillAdd; }`)
             ln(`${indent}  float _edgeCov = constrain(0.5f - fabsf(_d - ${rad}), 0.0f, 1.0f);`)
-            ln(`${indent}  if (_edgeCov <= 0.0f) continue; CRGB _edgeAdd = ${colorE}; _edgeAdd.nscale8((uint8_t)(_edgeCov * 255.0f)); ${ob}[_y * WIDTH + _x] += _edgeAdd; }`)
+            ln(`${indent}  if (_edgeCov <= 0.0f) continue; CRGB _edgeAdd = ${edgeE}; _edgeAdd.nscale8((uint8_t)(_edgeCov * 255.0f)); ${ob}[_y * WIDTH + _x] += _edgeAdd; }`)
           } else {
             ln(`${indent}  float _cov = constrain(0.5f - fabsf(_d - ${rad}), 0.0f, 1.0f);`)
-            ln(`${indent}  if (_cov <= 0.0f) continue; CRGB _add = ${colorE}; _add.nscale8((uint8_t)(_cov * 255.0f)); ${ob}[_y * WIDTH + _x] += _add; }`)
+            ln(`${indent}  if (_cov <= 0.0f) continue; CRGB _add = ${edgeE}; _add.nscale8((uint8_t)(_cov * 255.0f)); ${ob}[_y * WIDTH + _x] += _add; }`)
           }
         }
         ln(`  { ${seedFrom('base')}`)

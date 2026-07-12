@@ -773,7 +773,7 @@ describe('evaluateGraph', () => {
   })
 
   it('Circle (filled) uses normalized center coordinates and its fill color', () => {
-    const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, filled: true, r: 255, g: 0, b: 0, fill: '#00ff00' })
+    const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, filled: true, edge: '#ff0000', fill: '#00ff00' })
     const out = node('out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([c, out], [edge('e', 'c', 'frame', 'out', 'frame')], 0, 32, 32)
     expect(frame![16][16]).toEqual({ r: 0, g: 255, b: 0 }) // 0.5 lands at the matrix centre and uses fill
@@ -782,7 +782,7 @@ describe('evaluateGraph', () => {
   })
 
   it('Circle ring leaves the normalized center dark', () => {
-    const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, filled: false, r: 255, g: 0, b: 0 })
+    const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, filled: false, edge: '#ff0000' })
     const out = node('out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([c, out], [edge('e', 'c', 'frame', 'out', 'frame')], 0, 32, 32)
     expect(frame![16][16]).toEqual({ r: 0, g: 0, b: 0 })   // hollow center after normalization
@@ -790,7 +790,7 @@ describe('evaluateGraph', () => {
   })
 
   it('Circle normalization uses radius + 1 so cx=0 moves the circle fully offscreen', () => {
-    const c = node('c', 'Circle', 'pattern', { cx: 0, cy: 0.5, radius: 3, filled: false, r: 255, g: 0, b: 0 })
+    const c = node('c', 'Circle', 'pattern', { cx: 0, cy: 0.5, radius: 3, filled: false, edge: '#ff0000' })
     const out = node('out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([c, out], [edge('e', 'c', 'frame', 'out', 'frame')], 0, 32, 32)
     expect(frame![16][0]).toEqual({ r: 0, g: 0, b: 0 })   // left edge no longer catches it at cx=0
@@ -798,7 +798,7 @@ describe('evaluateGraph', () => {
   })
 
   it('Circle wrap mirrors the circle onto the opposite edge', () => {
-    const c = node('c', 'Circle', 'pattern', { cx: 0.25, cy: 0.5, radius: 3, filled: true, wrap: true, r: 255, g: 0, b: 0, fill: '#00ff00' })
+    const c = node('c', 'Circle', 'pattern', { cx: 0.25, cy: 0.5, radius: 3, filled: true, wrap: true, edge: '#ff0000', fill: '#00ff00' })
     const out = node('out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([c, out], [edge('e', 'c', 'frame', 'out', 'frame')], 0, 32, 32)
     expect(frame![16][0].g).toBeGreaterThan(0)

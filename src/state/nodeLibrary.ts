@@ -116,22 +116,22 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   },
   {
     // Draws a circle (ring, or filled disc) over an optional base frame.
-    // The ring uses `color`; a filled disc uses `fill` when present, else the
-    // same color as the ring.
+    // `fill`/`edge` colours mirror the Shape node: the outline uses `edge`;
+    // a filled disc uses `fill` for the interior.
     type: 'Circle',
     label: 'Circle',
     category: 'pattern',
     subcategory: 'Shapes & Text',
     inputs: [
       { id: 'base',  label: 'Base',  dataType: 'frame' },
-      { id: 'color', label: 'Color', dataType: 'color' },
       { id: 'fill',  label: 'Fill',  dataType: 'color' },
+      { id: 'edge',  label: 'Edge',  dataType: 'color' },
       { id: 'cx',    label: 'Center X', dataType: 'float' },
       { id: 'cy',    label: 'Center Y', dataType: 'float' },
       { id: 'radius', label: 'Radius', dataType: 'float' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { cx: 0.5, cy: 0.5, radius: 6, filled: false, wrap: false, r: 255, g: 0, b: 128, fill: '#ff0080' },
+    defaultProperties: { cx: 0.5, cy: 0.5, radius: 6, filled: false, wrap: false, fill: '#ff3080', edge: '#ff0080' },
   },
   {
     // Draws a line between two points over an optional base frame.
@@ -2087,7 +2087,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   PaletteBlend: 'Interpolates between two palettes.',
   // pattern
   SolidColor: 'Fills the matrix with one color.',
-  Circle: 'Draws a circle — ring or filled disc, with an optional separate fill color.',
+  Circle: 'Draws a circle — ring or filled disc, with a fill and outline colour.',
   Line: 'Draws a line between two points.',
   Shape: 'Rect, ellipse or morphing N-gon with a fill and outline colour.',
   Path: 'Traces a parametric curve point with subpixel splatting.',
@@ -2741,6 +2741,10 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     if (key === 'aspect') return shape === 'rect' || shape === 'ellipse'
     // Fill colour is unused when only the outline is drawn.
     if (key === 'fill')   return properties.filled === true
+  }
+  if (nodeType === 'Circle' && key === 'fill') {
+    // Same as Shape: fill colour is unused when only the ring is drawn.
+    return properties.filled === true
   }
   if (nodeType === 'MatrixOutput') {
     if (key === 'volts' || key === 'milliamps') return properties.powerLimit === true
