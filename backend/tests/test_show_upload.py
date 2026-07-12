@@ -36,7 +36,9 @@ def _compile_sequence(results: dict):
     return fake
 
 
-def test_upload_show_reports_when_no_port_given(client):
+def test_upload_show_reports_when_no_port_given(client, monkeypatch):
+    monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
+    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
     r = client.post(
         "/api/upload-show",
         data={"meta": "{}", "provisioner": "prov-ino", "player": "player-ino"},
