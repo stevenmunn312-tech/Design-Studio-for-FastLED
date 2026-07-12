@@ -2629,6 +2629,78 @@ export function propertyMeta(nodeType: string, key: string): PropertyControl | u
   return PROPERTY_META_OVERRIDES[nodeType]?.[key] ?? PROPERTY_META[key]
 }
 
+/** A named, collapsible section of a node's inline property editors (StudioNode). */
+export interface PropertyGroup {
+  key: string
+  label: string
+  keys: string[]
+}
+
+/**
+ * Collapsible-section layout for nodes whose property list is long enough to
+ * dwarf the node otherwise. Only the handful of nodes with enough properties
+ * to bother are listed here; everything else falls back to a flat list
+ * (`propertyGroupsFor` returns `null`). A property not covered by any group
+ * still renders, ungrouped, after the listed sections — so adding a new
+ * property to one of these nodes degrades gracefully instead of disappearing.
+ */
+export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
+  MatrixOutput: [
+    { key: 'wiring', label: 'Wiring', keys: ['chipset', 'colorOrder', 'dataPin', 'clockPin', 'serpentine'] },
+    { key: 'layout', label: 'Layout', keys: ['layout', 'tilesX', 'tilesY', 'tileSerpentine', 'tileRotations', 'customXYMap'] },
+    { key: 'rendering', label: 'Rendering', keys: ['supersample', 'brightness', 'correction', 'dither', 'overclock'] },
+    { key: 'power', label: 'Power', keys: ['powerLimit', 'volts', 'milliamps'] },
+  ],
+  Image: [
+    { key: 'transform', label: 'Transform', keys: ['fit', 'positionX', 'positionY', 'rotation', 'flipX', 'flipY', 'zoom', 'cropX', 'cropY'] },
+    { key: 'color', label: 'Color', keys: ['brightness', 'saturation', 'contrast', 'hueShift', 'gamma', 'monochrome', 'paletteLevels', 'dithering'] },
+    { key: 'playback', label: 'Playback', keys: ['sampling', 'loop', 'playbackRate'] },
+  ],
+  Shape: [
+    { key: 'position', label: 'Position', keys: ['cx', 'cy', 'size', 'aspect', 'rotation'] },
+    { key: 'geometry', label: 'Geometry', keys: ['shape', 'sides', 'thickness', 'filled', 'wrap'] },
+    { key: 'color', label: 'Color', keys: ['fill', 'edge'] },
+  ],
+  MicInput: [
+    { key: 'levels', label: 'Levels', keys: ['gain', 'agc', 'threshold', 'attack', 'decay'] },
+    { key: 'i2s', label: 'I2S Pins', keys: ['i2sWs', 'i2sSck', 'i2sSd', 'channel', 'sampleRate'] },
+    { key: 'debug', label: 'Debug', keys: ['serialDebug'] },
+  ],
+  Boids: [
+    { key: 'flock', label: 'Flock', keys: ['speed', 'count', 'separation', 'alignment', 'cohesion', 'visualRange'] },
+    { key: 'color', label: 'Color', keys: ['colorMode', 'palette'] },
+  ],
+  Transition: [
+    { key: 'timing', label: 'Timing', keys: ['t'] },
+    { key: 'direction', label: 'Direction', keys: ['direction', 'axis'] },
+    { key: 'shape', label: 'Shape', keys: ['tileSize', 'count', 'turns'] },
+  ],
+  PerformanceGenerator: [
+    { key: 'response', label: 'Response', keys: ['beatIntensity', 'energySensitivity'] },
+    { key: 'timing', label: 'Timing', keys: ['transitionDuration', 'patternHold'] },
+    { key: 'palette', label: 'Palette', keys: ['paletteMode', 'fixedPalette'] },
+    { key: 'inputs', label: 'Inputs', keys: ['useGroupInputs'] },
+  ],
+  PatternMaster: [
+    { key: 'timing', label: 'Timing', keys: ['minTime', 'maxTime', 'transitionSec'] },
+    { key: 'particles', label: 'Particles', keys: ['particleStyle', 'particleHue', 'particleIntensity'] },
+  ],
+  Array: [
+    { key: 'position', label: 'Position', keys: ['offsetX', 'offsetY', 'angle', 'scale'] },
+    { key: 'repeat', label: 'Repeat', keys: ['count', 'falloff', 'blendMode'] },
+  ],
+  GradientFrame: [
+    { key: 'colorA', label: 'Color A', keys: ['rA', 'gA', 'bA'] },
+    { key: 'colorB', label: 'Color B', keys: ['rB', 'gB', 'bB'] },
+  ],
+}
+
+/** Collapsible property-group layout for a node type, or `null` if it should
+ *  render as a flat list (the default for most node types). */
+export function propertyGroupsFor(nodeType: string): PropertyGroup[] | null {
+  return PROPERTY_GROUPS[nodeType] ?? null
+}
+
 /**
  * The [min, max] a wired float input is clamped to when a node's `clampInputs`
  * toggle is on — taken from the property's slider bounds (per-node aware).

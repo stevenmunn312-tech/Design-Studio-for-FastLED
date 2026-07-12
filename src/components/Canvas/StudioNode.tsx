@@ -4,7 +4,7 @@ import type { NodeProps, Node } from '@xyflow/react'
 import { matrixDims, useGraphStore } from '../../state/graphStore'
 import type { StudioEdge, StudioNodeData } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { NODE_LIBRARY, CATEGORY_ACCENT_VAR, portColor, propertyMeta, hasClampableInputs, bypassPort, nodeDisplayLabel, isPropertyEnabled, libraryDefaults } from '../../state/nodeLibrary'
+import { NODE_LIBRARY, CATEGORY_ACCENT_VAR, portColor, propertyMeta, hasClampableInputs, bypassPort, nodeDisplayLabel, isPropertyEnabled, libraryDefaults, propertyGroupsFor } from '../../state/nodeLibrary'
 import { waveNodeSamples } from '../../state/wave'
 import WaveScope from './WaveScope'
 import ComplexWaveScope from './ComplexWaveScope'
@@ -31,17 +31,7 @@ const MatrixOutputUpload = lazy(() => import('../Upload/MatrixOutputUpload'))
 
 type PortDef = { id: string; label: string; dataType: string }
 
-// MatrixOutput accumulates a lot of hardware-config properties; group them
-// under collapsible headers so the node body doesn't dwarf the graph. Any
-// property not listed here (e.g. one added later) still renders, ungrouped,
-// after these sections.
-const MATRIX_OUTPUT_PROP_GROUPS: { key: string; label: string; keys: string[] }[] = [
-  { key: 'wiring', label: 'Wiring', keys: ['chipset', 'colorOrder', 'dataPin', 'clockPin', 'serpentine'] },
-  { key: 'layout', label: 'Layout', keys: ['layout', 'tilesX', 'tilesY', 'tileSerpentine', 'tileRotations', 'customXYMap'] },
-  { key: 'rendering', label: 'Rendering', keys: ['supersample', 'brightness', 'correction', 'dither', 'overclock'] },
-  { key: 'power', label: 'Power', keys: ['powerLimit', 'volts', 'milliamps'] },
-]
-const MATRIX_OUTPUT_GROUPS_STORAGE_KEY = 'fastled-studio.matrixOutputPropGroupsOpen'
+const PROP_GROUPS_STORAGE_PREFIX = 'fastled-studio.propGroupsOpen.'
 
 // Shows the latest compile/runtime error from a Code node's preview evaluation.
 function CodeError({ nodeId }: { nodeId: string }) {
@@ -270,13 +260,14 @@ const LivePropertyControls = memo(function LivePropertyControls({
 
   const isMatrixOutput = nodeType === 'MatrixOutput'
   const [sizePopupOpen, setSizePopupOpen] = useState(false)
-  // Which MatrixOutput property groups are expanded. Shared across all
-  // MatrixOutput nodes (there's usually just one board) and persisted so the
-  // choice survives a reload; starts fully collapsed to keep the node short.
+  const propGroups = propertyGroupsFor(nodeType)
+  // Which of this node type's property groups are expanded. Shared across all
+  // instances of the same node type and persisted so the choice survives a
+  // reload; starts fully collapsed to keep the node short.
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
-    if (!isMatrixOutput) return {}
+    if (!propGroups) return {}
     try {
-      const saved = localStorage.getItem(MATRIX_OUTPUT_GROUPS_STORAGE_KEY)
+      const saved = localStorage.getItem(PROP_GROUPS_STORAGE_PREFIX + nodeType)
       return saved ? JSON.parse(saved) : {}
     } catch {
       return {}
@@ -286,7 +277,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
     setOpenGroups((prev) => {
       const next = { ...prev, [key]: !prev[key] }
       try {
-        localStorage.setItem(MATRIX_OUTPUT_GROUPS_STORAGE_KEY, JSON.stringify(next))
+        localStorage.setItem(PROP_GROUPS_STORAGE_PREFIX + nodeType, JSON.stringify(next))
       } catch {
         // localStorage unavailable — the toggle still works for this session
       }
@@ -471,14 +462,14 @@ const LivePropertyControls = memo(function LivePropertyControls({
         )
         }
 
-        if (!isMatrixOutput) return editable.map(([key, val]) => renderPropRow([key, val]))
+        if (!propGroups) return editable.map(([key, val]) => renderPropRow([key, val]))
 
         const grouped = new Set<string>()
-        for (const g of MATRIX_OUTPUT_PROP_GROUPS) for (const k of g.keys) grouped.add(k)
+        for (const g of propGroups) for (const k of g.keys) grouped.add(k)
         const ungrouped = editable.filter(([key]) => !grouped.has(key))
         return (
           <>
-            {MATRIX_OUTPUT_PROP_GROUPS.map((group) => {
+            {propGroups.map((group) => {
               const rows = editable.filter(([key]) => group.keys.includes(key))
               if (rows.length === 0) return null
               const open = Boolean(openGroups[group.key])

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, fireEvent } from '@testing-library/react'
+import { render, fireEvent, within } from '@testing-library/react'
 import type { NodeProps, Node } from '@xyflow/react'
 import StudioNode from '../StudioNode'
 import { useGraphStore } from '../../../state/graphStore'
@@ -41,6 +41,10 @@ describe('StudioNode', () => {
     useMusicStore.setState({ entries: [] })
     usePreviewStore.setState({ outputs: new Map() })
     useAudioStore.setState({ active: false, bass: 0, mids: 0, treble: 0, beat: false, bpm: 120, spectrum: Array(16).fill(0) })
+    // Collapsible property-group open/closed state is persisted per node type
+    // across a whole browser session; reset it so tests don't leak into each
+    // other (a group opened in one test would start already-open in the next).
+    localStorage.clear()
   })
 
   it('renders the node label and port labels', () => {
@@ -135,6 +139,8 @@ describe('StudioNode', () => {
       i2sSd: 41,
       channel: 'Left',
     }))
+    // `agc` lives in the collapsible "Levels" group.
+    fireEvent.click(within(container).getByText('Levels'))
     const check = container.querySelector('input[type="checkbox"]') as HTMLInputElement
     expect(check).toBeTruthy()
     expect(check.checked).toBe(false)
@@ -331,6 +337,8 @@ describe('StudioNode', () => {
     const { container, findByText } = renderNode(node)
     expect(await findByText('Analyse music in a Music Library node, then preview the timed show here.')).toBeTruthy()
     expect((container.firstElementChild as HTMLElement).style.width).toBe('300px')
+    // paletteMode/fixedPalette live in the collapsible "Palette" group.
+    fireEvent.click(within(container).getByText('Palette'))
     const selects = Array.from(container.querySelectorAll('select')) as HTMLSelectElement[]
     expect(selects.map((select) => select.value)).toEqual(['mood', 'rainbow'])
     expect(selects[1].disabled).toBe(true)
@@ -426,9 +434,15 @@ describe('StudioNode', () => {
       Array.from(s.options).some((o) => o.value === 'right')) as HTMLSelectElement | undefined
 
   it('disables Transition direction unless the type is wipe', () => {
+    // `direction`/`axis` live in the collapsible "Direction" group. Both nodes
+    // share the same (localStorage-persisted) open/closed state per node type,
+    // so clear it between renders instead of assuming a fresh collapsed start.
     const off = renderNode(makeNode('Transition', { transitionType: 'crossfade', t: 0.5, direction: 'right' }))
+    fireEvent.click(within(off.container).getByText('Direction'))
     expect(directionSelect(off.container)!.disabled).toBe(true)
+    localStorage.clear()
     const on = renderNode(makeNode('Transition', { transitionType: 'wipe', t: 0.5, direction: 'right' }))
+    fireEvent.click(within(on.container).getByText('Direction'))
     expect(directionSelect(on.container)!.disabled).toBe(false)
   })
 
