@@ -60,6 +60,7 @@ _BIN_DIR = _HELPER_DIR / "bin"  # where a self-installed arduino-cli lands
 # file. The browser can't write arbitrary folders, so it round-trips through the
 # /api/patterns endpoints below. Override the location with FLS_PATTERNS_DIR.
 _PATTERNS_DIR = Path(os.environ.get("FLS_PATTERNS_DIR") or (_HELPER_DIR.parent / "My Patterns"))
+_PROJECT_FILE_SUFFIX = ".fastled-project.json"
 _PROJECTS_DIR = Path(os.environ.get("FLS_PROJECTS_DIR") or (_HELPER_DIR.parent / "Projects"))
 
 # Board-manager URLs for the third-party cores we can install, so `core install`
@@ -1210,13 +1211,13 @@ def _unique_path(base: str, pattern_id: str) -> Path:
 
 def _unique_project_path(base: str, project_id: str) -> Path:
     d = _projects_dir()
-    candidate = d / f"{base}.json"
+    candidate = d / f"{base}{_PROJECT_FILE_SUFFIX}"
     if candidate.exists():
         try:
             if json.loads(candidate.read_text(encoding="utf-8")).get("id") != project_id:
-                candidate = d / f"{base}-{project_id}.json"
+                candidate = d / f"{base}-{project_id}{_PROJECT_FILE_SUFFIX}"
         except Exception:
-            candidate = d / f"{base}-{project_id}.json"
+            candidate = d / f"{base}-{project_id}{_PROJECT_FILE_SUFFIX}"
     return candidate
 
 
@@ -1585,7 +1586,7 @@ def save_project_dialog(project: dict = Body(...)):
             or not isinstance(workspace.get("nodes"), list) or not isinstance(workspace.get("edges"), list)):
         return JSONResponse({"ok": False, "error": "project needs id, name and workspace"}, status_code=400)
 
-    initial_file = f"{_sanitize_filename(name)}.fastled-project.json"
+    initial_file = f"{_sanitize_filename(name)}{_PROJECT_FILE_SUFFIX}"
     path = _show_project_save_dialog(initial_file)
     if not path:
         return {"ok": False, "canceled": True}
