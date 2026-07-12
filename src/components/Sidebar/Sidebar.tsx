@@ -197,6 +197,7 @@ function Sidebar() {
       .join('|')
   )
   const presentSingletons = useMemo(() => new Set(singletonSignature.split('|').filter(Boolean)), [singletonSignature])
+  const isEmptyGraph = useGraphStore((s) => s.nodes.length === 0)
   const instantiatePattern = useGraphStore((s) => s.instantiatePattern)
   const createCollectionFromPatterns = useGraphStore((s) => s.createCollectionFromPatterns)
   const patterns = usePatternLibrary((s) => s.patterns)
@@ -395,6 +396,13 @@ function Sidebar() {
     if (expandedId && visibleSectionIds.includes(expandedId)) return
     setExpandedId(visibleSectionIds[0] ?? null)
   }, [expandedId, query, visibleSectionIds])
+
+  // Landing on an empty graph (fresh load, cleared canvas, new project) is
+  // exactly when a new/returning user most needs a starting point — steer
+  // them to Quick recipes regardless of whatever section they last had open.
+  useEffect(() => {
+    if (isEmptyGraph) setExpandedId('recipes')
+  }, [isEmptyGraph])
 
   const searchStatus = query === ''
     ? `${viewMode === 'all' ? NODE_LIBRARY.length : BEGINNER_NODE_TYPES.size} modules`
