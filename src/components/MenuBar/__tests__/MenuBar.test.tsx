@@ -26,6 +26,21 @@ function project(id: string, name: string, nodeId: string, updatedAt: number): S
   }
 }
 
+function mockSavePicker(filename: string, onWrite?: (data: string) => void) {
+  ;(window as Window & {
+    showSaveFilePicker?: () => Promise<{
+      name: string
+      createWritable: () => Promise<{ write: (data: string) => Promise<void>; close: () => Promise<void> }>
+    }>
+  }).showSaveFilePicker = vi.fn().mockResolvedValue({
+    name: filename,
+    createWritable: async () => ({
+      write: async (data: string) => { onWrite?.(data) },
+      close: async () => {},
+    }),
+  })
+}
+
 describe('MenuBar file menu', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -94,7 +109,7 @@ describe('MenuBar file menu', () => {
     expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['scratch'])
   })
 
-  it('creates a default New Project when no project is open', () => {
+  it('creates a default New Project through the save dialog when no project is open', async () => {
     useProjectStore.setState({ projects: [], currentProjectId: '' })
     useGraphStore.setState({
       nodes: [],
@@ -103,19 +118,95 @@ describe('MenuBar file menu', () => {
       graphs: { root: { id: 'root', name: 'Main' } },
       activeGraphId: 'root',
     })
+    mockSavePicker('New Project.fastled-project.json')
 
     const { getByRole, getByText } = render(<MenuBar />)
     fireEvent.click(getByRole('button', { name: 'File menu' }))
     fireEvent.click(getByText('New Project'))
 
+    await waitFor(() => {
+      expect(useProjectStore.getState().currentProjectId).not.toBe('')
+    })
     const current = useProjectStore.getState().projects.find((entry) => entry.id === useProjectStore.getState().currentProjectId)
     expect(current?.name).toBe('New Project')
     expect(useGraphStore.getState().nodes).toEqual([])
   })
 
-  it('asks to save before creating a new project when one is open', () => {
+  it('supports the yes path before creating a new project', async () => {
     const alpha = project('alpha', 'alpha', 'alpha-node', 200)
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    useProjectStore.setState({ projects: [alpha], currentProjectId: alpha.id })
+    useGraphStore.setState({
+      nodes: [{
+        id: 'scratch',
+        type: 'studioNode',
+        position: { x: 10, y: 10 },
+        data: { label: 'Noise', nodeType: 'Noise', category: 'pattern', properties: {}, inputs: [], outputs: [] },
+      }] as never[],
+      edges: [],
+      graphData: {},
+      graphs: { root: { id: 'root', name: 'Main' } },
+      activeGraphId: 'root',
+    })
+    mockSavePicker('New Project.fastled-project.json')
+
+    const { getByRole, getByText } = render(<MenuBar />)
+    fireEvent.click(getByRole('button', { name: 'File menu' }))
+    fireEvent.click(getByText('New Project'))
+
+    await waitFor(() => {
+      expect(useProjectStore.getState().currentProjectId).not.toBe(alpha.id)
+    })
+    expect(confirmSpy).toHaveBeenCalledWith('Save current project "alpha" before creating a new project?')
+    const current = useProjectStore.getState().projects.find((entry) => entry.id === useProjectStore.getState().currentProjectId)
+    expect(current?.name).toBe('New Project')
+    expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['scratch'])
+    expect(useGraphStore.getState().nodes).toEqual([])
+  })
+
+  it('supports the no path before creating a new project', async () => {
+    const alpha = project('alpha', 'alpha', 'alpha-node', 200)
+    const confirmSpy = vi.spyOn(window, 'confirm')
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true)
+    useProjectStore.setState({ projects: [alpha], currentProjectId: alpha.id })
+    useGraphStore.setState({
+      nodes: [{
+        id: 'scratch',
+        type: 'studioNode',
+        position: { x: 10, y: 10 },
+        data: { label: 'Noise', nodeType: 'Noise', category: 'pattern', properties: {}, inputs: [], outputs: [] },
+      }] as never[],
+      edges: [],
+      graphData: {},
+      graphs: { root: { id: 'root', name: 'Main' } },
+      activeGraphId: 'root',
+    })
+    mockSavePicker('New Project(1).fastled-project.json')
+
+    const { getByRole, getByText } = render(<MenuBar />)
+    fireEvent.click(getByRole('button', { name: 'File menu' }))
+    fireEvent.click(getByText('New Project'))
+
+    await waitFor(() => {
+      expect(useProjectStore.getState().currentProjectId).not.toBe(alpha.id)
+    })
+    expect(confirmSpy).toHaveBeenNthCalledWith(1, 'Save current project "alpha" before creating a new project?')
+    expect(confirmSpy).toHaveBeenNthCalledWith(
+      2,
+      'Create a new project without saving "alpha"?\n\nPress OK to continue without saving, or Cancel to abort.'
+    )
+    const current = useProjectStore.getState().projects.find((entry) => entry.id === useProjectStore.getState().currentProjectId)
+    expect(current?.name).toBe('New Project(1)')
+    expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['alpha-node'])
+    expect(useGraphStore.getState().nodes).toEqual([])
+  })
+
+  it('supports the cancel path before creating a new project', () => {
+    const alpha = project('alpha', 'alpha', 'alpha-node', 200)
+    const confirmSpy = vi.spyOn(window, 'confirm')
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(false)
     useProjectStore.setState({ projects: [alpha], currentProjectId: alpha.id })
     useGraphStore.setState({
       nodes: [{
@@ -134,13 +225,14 @@ describe('MenuBar file menu', () => {
     fireEvent.click(getByRole('button', { name: 'File menu' }))
     fireEvent.click(getByText('New Project'))
 
-    expect(confirmSpy).toHaveBeenCalledWith(
-      'Save current project "alpha" before creating a new project?\n\nPress OK to save first, or Cancel to continue without saving.'
+    expect(confirmSpy).toHaveBeenNthCalledWith(1, 'Save current project "alpha" before creating a new project?')
+    expect(confirmSpy).toHaveBeenNthCalledWith(
+      2,
+      'Create a new project without saving "alpha"?\n\nPress OK to continue without saving, or Cancel to abort.'
     )
-    const current = useProjectStore.getState().projects.find((entry) => entry.id === useProjectStore.getState().currentProjectId)
-    expect(current?.name).toBe('New Project')
-    expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['scratch'])
-    expect(useGraphStore.getState().nodes).toEqual([])
+    expect(useProjectStore.getState().currentProjectId).toBe(alpha.id)
+    expect(useGraphStore.getState().nodes.map((node) => node.id)).toEqual(['scratch'])
+    expect((window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker).toBeUndefined()
   })
 
   it('opens a project file through the native picker', async () => {

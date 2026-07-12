@@ -76,6 +76,17 @@ export function suggestProjectFileName(name: string): string {
   return `${safe || 'Untitled Project'}${PROJECT_FILE_SUFFIX}`
 }
 
+export function nextDefaultProjectName(existingNames: string[]): string {
+  const used = new Set(existingNames.map((name) => name.trim().toLocaleLowerCase()))
+  if (!used.has('new project')) return 'New Project'
+  let suffix = 1
+  for (;;) {
+    const candidate = `New Project(${suffix})`
+    if (!used.has(candidate.toLocaleLowerCase())) return candidate
+    suffix += 1
+  }
+}
+
 export function buildProjectSnapshot(
   workspace: PersistedWorkspace,
   options?: {

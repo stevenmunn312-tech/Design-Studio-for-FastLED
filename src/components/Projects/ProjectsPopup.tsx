@@ -3,6 +3,13 @@ import { useUiStore } from '../../state/uiStore'
 import { useGraphStore } from '../../state/graphStore'
 import { useProjectStore } from '../../state/projectStore'
 import { captureWorkspace, blankWorkspace } from '../../state/workspacePersistence'
+import {
+  buildProjectSnapshot,
+  nextDefaultProjectName,
+  saveProjectWithNativePicker,
+  serializeProject,
+  suggestProjectFileName,
+} from '../../utils/projectFileIO'
 import styles from './ProjectsPopup.module.css'
 
 function relativeTime(timestamp: number): string {
@@ -48,13 +55,51 @@ export default function ProjectsPopup() {
     closeProjects()
   }
 
-  const confirmSaveBeforeNewProject = () => {
-    if (!currentProject) return true
-    const shouldSave = window.confirm(
-      `Save current project "${currentProject.name}" before creating a new project?\n\nPress OK to save first, or Cancel to continue without saving.`
+  const promptForNewProjectDecision = (): 'yes' | 'no' | 'cancel' => {
+    if (!currentProject) return 'no'
+    const saveFirst = window.confirm(
+      `Save current project "${currentProject.name}" before creating a new project?`
     )
-    if (shouldSave) useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
-    return true
+    if (saveFirst) return 'yes'
+    const continueWithoutSaving = window.confirm(
+      `Create a new project without saving "${currentProject.name}"?\n\nPress OK to continue without saving, or Cancel to abort.`
+    )
+    return continueWithoutSaving ? 'no' : 'cancel'
+  }
+
+  const createBlankProjectWithFileDialog = async (saveCurrentFirst: boolean) => {
+    const defaultName = nextDefaultProjectName(projects.map((project) => project.name))
+    const draft = buildProjectSnapshot(blankWorkspace(), { name: defaultName })
+    try {
+      const saved = await saveProjectWithNativePicker(draft)
+      if (!saved) throw new Error('Native picker unavailable')
+      if (saveCurrentFirst && currentProject) {
+        useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
+      }
+      const project = useProjectStore.getState().upsertProject(saved)
+      useGraphStore.getState().loadGraph([], [])
+      useGraphStore.temporal.getState().clear()
+      setStatus(`Created project "${project.name}"`, 'success')
+      closeProjects()
+      return
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      const blob = new Blob([serializeProject(draft)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = suggestProjectFileName(draft.name)
+      a.click()
+      URL.revokeObjectURL(url)
+      if (saveCurrentFirst && currentProject) {
+        useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
+      }
+      const project = useProjectStore.getState().upsertProject(draft)
+      useGraphStore.getState().loadGraph([], [])
+      useGraphStore.temporal.getState().clear()
+      setStatus(`Created project "${project.name}"`, 'success')
+      closeProjects()
+    }
   }
 
   const createBlank = () => {
@@ -62,12 +107,9 @@ export default function ProjectsPopup() {
       const ok = window.confirm('Create a new blank project? The current unsaved graph will be replaced.')
       if (!ok) return
     }
-    if (!confirmSaveBeforeNewProject()) return
-    const project = createProject('New Project', blankWorkspace())
-    useGraphStore.getState().loadGraph([], [])
-    useGraphStore.temporal.getState().clear()
-    setStatus(`Created project "${project.name}"`, 'success')
-    closeProjects()
+    const decision = promptForNewProjectDecision()
+    if (decision === 'cancel') return
+    void createBlankProjectWithFileDialog(decision === 'yes')
   }
 
   const duplicateCurrent = () => {

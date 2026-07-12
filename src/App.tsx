@@ -14,7 +14,8 @@ import { usePatternLibrary } from './state/patternLibrary'
 import { useProjectStore } from './state/projectStore'
 import { readSharedWorkspace, clearShareHash } from './utils/shareGraph'
 import { pushSnapshot } from './state/snapshotHistory'
-import { captureWorkspace } from './state/workspacePersistence'
+import { blankWorkspace, captureWorkspace } from './state/workspacePersistence'
+import { nextDefaultProjectName } from './utils/projectFileIO'
 import styles from './App.module.css'
 
 const BoardPopup = lazy(() => import('./components/Upload/BoardPopup'))
@@ -99,7 +100,12 @@ export default function App() {
       await useProjectStore.getState().refreshFromDisk()
       if (cancelled) return
       const state = useProjectStore.getState()
-      const current = state.projects.find((project) => project.id === state.currentProjectId) ?? state.projects[0]
+      const current = state.projects.find((project) => project.id === state.currentProjectId)
+        ?? state.projects[0]
+        ?? useProjectStore.getState().createProject(
+          nextDefaultProjectName(state.projects.map((project) => project.name)),
+          blankWorkspace(),
+        )
       if (!current) return
       const { nodes, edges, graphData, graphs, activeGraphId } = current.workspace
       useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId })
