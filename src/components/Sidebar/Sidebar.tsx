@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { canAddNodeType, SINGLETON_NODE_TYPES, useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { usePatternLibrary, importPatternFile, type SavedPattern } from '../../state/patternLibrary'
@@ -237,8 +237,11 @@ function Sidebar() {
   const [draftName, setDraftName] = useState('')
   const query = search.trim().toLowerCase()
 
-  const isVisibleInView = (def: NodeDefinition) => viewMode === 'all' || BEGINNER_NODE_TYPES.has(def.type)
-  const nodeMatchesQuery = (def: NodeDefinition) => {
+  const isVisibleInView = useCallback(
+    (def: NodeDefinition) => viewMode === 'all' || BEGINNER_NODE_TYPES.has(def.type),
+    [viewMode],
+  )
+  const nodeMatchesQuery = useCallback((def: NodeDefinition) => {
     if (query === '') return true
     const haystack = [
       def.label,
@@ -248,8 +251,11 @@ function Sidebar() {
       def.subcategory ?? '',
     ].join(' ').toLowerCase()
     return haystack.includes(query)
-  }
-  const filteredByView = (defs: NodeDefinition[]) => defs.filter((def) => isVisibleInView(def) && nodeMatchesQuery(def))
+  }, [query])
+  const filteredByView = useCallback(
+    (defs: NodeDefinition[]) => defs.filter((def) => isVisibleInView(def) && nodeMatchesQuery(def)),
+    [isVisibleInView, nodeMatchesQuery],
+  )
   const favouriteDefs = favourites
     .map((type) => NODE_LIBRARY.find((def) => def.type === type))
     .filter((def): def is NodeDefinition => !!def)
