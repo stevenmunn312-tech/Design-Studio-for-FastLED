@@ -99,7 +99,7 @@ const sparkState = new Map<string, SparkState>()
 
 // ── New audio-reactive pattern state ──────────────────────────────────────
 // KickShock — pool of expanding shockwave rings, spawned on kick/snare edges.
-interface ShockRing { born: number; kind: 0 | 1 }
+interface ShockRing { born: number; kind: 0 | 1; x: number; y: number }
 interface KickShockState { rings: (ShockRing | null)[]; next: number; prevKick: boolean; prevSnare: boolean }
 const kickShockState = new Map<string, KickShockState>()
 // BeatKaleidoscope — a decaying "punch" level, same shape as BeatFlash's flashLevel.
@@ -1370,25 +1370,43 @@ function samplePalette(palette: Palette, t: number): RGB {
 function evalKickShock(
   key: string, kick: number, snare: number, hihat: number, energy: number, speed: number,
   t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H,
+  count = 8, decay = 1, thickness = 1, spawnSpread = 0, blendMode: 'add' | 'max' = 'add',
 ): Frame {
-  const CAP = 8
+  const CAP = Math.max(1, Math.round(count))
   let state = kickShockState.get(key)
-  if (!state) { state = { rings: new Array(CAP).fill(null), next: 0, prevKick: false, prevSnare: false }; kickShockState.set(key, state) }
+  if (!state || state.rings.length !== CAP) {
+    state = { rings: new Array(CAP).fill(null), next: 0, prevKick: false, prevSnare: false }
+    kickShockState.set(key, state)
+  }
+  const cx = (W - 1) / 2, cy = (H - 1) / 2
+  const spread = clamp01(spawnSpread)
+  // spread=0 (the default) always spawns at the shared centre — identical to
+  // the old fixed-origin shockwave; spread=1 spawns anywhere on the matrix.
+  const spawnAt = () => ({ x: cx + (Math.random() * W - cx) * spread, y: cy + (Math.random() * H - cy) * spread })
   const kickHit = kick > 0.5, snareHit = snare > 0.5
-  if (kickHit && !state.prevKick) { state.rings[state.next] = { born: t, kind: 0 }; state.next = (state.next + 1) % CAP }
-  if (snareHit && !state.prevSnare) { state.rings[state.next] = { born: t, kind: 1 }; state.next = (state.next + 1) % CAP }
+  if (kickHit && !state.prevKick) { const o = spawnAt(); state.rings[state.next] = { born: t, kind: 0, ...o }; state.next = (state.next + 1) % CAP }
+  if (snareHit && !state.prevSnare) { const o = spawnAt(); state.rings[state.next] = { born: t, kind: 1, ...o }; state.next = (state.next + 1) % CAP }
   state.prevKick = kickHit; state.prevSnare = snareHit
 
   const strength = clamp01(energy)
   const spd = Math.max(0.2, speed)
-  const speedK = (0.35 + strength * 0.5) * spd, speedS = speedK * 1.8
-  const lifeK = 1.9, lifeS = 1.0, bandK = 0.10, bandS = 0.055
-  const cx = (W - 1) / 2, cy = (H - 1) / 2
+  const lifeMult = Math.max(0.05, decay), bandMult = Math.max(0.05, thickness)
+  // Divide speed by lifeMult (and multiply life by it) so the ring's total
+  // travel distance (speed*life) stays constant regardless of decay — decay
+  // then reads as "lingers longer" rather than merely "the age>life cutoff
+  // fires later," which alone wouldn't matter since the front would have
+  // already expanded past the visible matrix either way.
+  const speedK = (0.35 + strength * 0.5) * spd / lifeMult, speedS = speedK * 1.8
+  const lifeK = 1.9 * lifeMult, lifeS = 1.0 * lifeMult, bandK = 0.10 * bandMult, bandS = 0.055 * bandMult
   const maxD = Math.max(1e-6, Math.hypot(cx, cy))
   const hihatAmt = clamp01(hihat)
+  const additive = blendMode !== 'max'
 
   return buildFrame(W, H, (x, y) => {
-    const dist = Math.hypot(x - cx, y - cy) / maxD
+    // Kept centre-relative regardless of spawnSpread — the jitter/palette
+    // texture is a cosmetic sweep from the matrix middle, not tied to any
+    // one ring's origin.
+    const distC = Math.hypot(x - cx, y - cy) / maxD
     let wave = 0
     for (const ring of state.rings) {
       if (!ring) continue
@@ -1396,13 +1414,15 @@ function evalKickShock(
       const isKick = ring.kind === 0
       const spdR = isKick ? speedK : speedS, life = isKick ? lifeK : lifeS, band = isKick ? bandK : bandS
       if (age < 0 || age > life) continue
+      const dist = Math.hypot(x - ring.x, y - ring.y) / maxD
       const front = Math.exp(-((dist - age * spdR) ** 2) / (2 * band * band))
-      wave += front * (1 - age / life)
+      const contribution = front * (1 - age / life)
+      wave = additive ? wave + contribution : Math.max(wave, contribution)
     }
     wave = Math.min(1, wave)
-    const jitter = hihatAmt * 0.18 * (Math.sin(dist * 50 - t * speed * 22) * 0.5 + 0.5)
+    const jitter = hihatAmt * 0.18 * (Math.sin(distC * 50 - t * speed * 22) * 0.5 + 0.5)
     const v = Math.min(1, wave * (0.5 + strength * 0.5) + jitter * wave + 0.03 * strength)
-    const c = samplePalette(palette, dist * 0.5 + t * speed * 0.03)
+    const c = samplePalette(palette, distC * 0.5 + t * speed * 0.03)
     return { r: Math.round(c.r * v), g: Math.round(c.g * v), b: Math.round(c.b * v) }
   })
 }
@@ -1488,13 +1508,25 @@ function evalSpectraMosaic(
 function evalPercussionBlobs(
   key: string, kick: number, snare: number, hihat: number, t: number,
   palette: Palette, W = DEFAULT_W, H = DEFAULT_H,
+  count = 12, size = 1, decay = 1, spawnSpread = 1, blendMode: 'add' | 'max' = 'add',
 ): Frame {
-  const CAP = 12
+  const CAP = Math.max(1, Math.round(count))
   let state = percussionBlobsState.get(key)
-  if (!state) { state = { blobs: new Array(CAP).fill(null), next: 0, prevKick: false, prevSnare: false, prevHihat: false }; percussionBlobsState.set(key, state) }
+  if (!state || state.blobs.length !== CAP) {
+    state = { blobs: new Array(CAP).fill(null), next: 0, prevKick: false, prevSnare: false, prevHihat: false }
+    percussionBlobsState.set(key, state)
+  }
   const kickHit = kick > 0.5, snareHit = snare > 0.5, hihatHit = hihat > 0.55
+  const cx = W / 2, cy = H / 2
+  const spread = clamp01(spawnSpread)
+  // spread=1 (the default) reproduces the old fully-random spawn exactly
+  // (cx + (rand*W - cx)*1 === rand*W); lower values pull spawns toward centre.
   const spawn = (kind: 0 | 1 | 2) => {
-    state.blobs[state.next] = { x: Math.random() * W, y: Math.random() * H, born: t, kind }
+    state.blobs[state.next] = {
+      x: cx + (Math.random() * W - cx) * spread,
+      y: cy + (Math.random() * H - cy) * spread,
+      born: t, kind,
+    }
     state.next = (state.next + 1) % CAP
   }
   if (kickHit && !state.prevKick) spawn(0)
@@ -1502,8 +1534,14 @@ function evalPercussionBlobs(
   if (hihatHit && !state.prevHihat) spawn(2)
   state.prevKick = kickHit; state.prevSnare = snareHit; state.prevHihat = hihatHit
 
-  const PARAMS = { 0: { r: 0.34, life: 1.4 }, 1: { r: 0.20, life: 0.7 }, 2: { r: 0.10, life: 0.35 } } as const
+  const sizeMult = Math.max(0.1, size), lifeMult = Math.max(0.05, decay)
+  const PARAMS = {
+    0: { r: 0.34 * sizeMult, life: 1.4 * lifeMult },
+    1: { r: 0.20 * sizeMult, life: 0.7 * lifeMult },
+    2: { r: 0.10 * sizeMult, life: 0.35 * lifeMult },
+  } as const
   const minDim = Math.min(W, H)
+  const additive = blendMode !== 'max'
 
   return buildFrame(W, H, (x, y) => {
     let field = 0
@@ -1514,9 +1552,10 @@ function evalPercussionBlobs(
       if (age < 0 || age > p.life) continue
       const lifeT = age / p.life
       const radius = p.r * minDim * (0.4 + 0.6 * Math.min(1, lifeT * 2))
-      const decay = 1 - lifeT
+      const decayF = 1 - lifeT
       const dx = x - blob.x, dy = y - blob.y
-      field += decay * (radius * radius) / (dx * dx + dy * dy + radius * radius * 0.15)
+      const contribution = decayF * (radius * radius) / (dx * dx + dy * dy + radius * radius * 0.15)
+      field = additive ? field + contribution : Math.max(field, contribution)
     }
     const v = Math.min(1, field / (field + 1.1))
     const c = samplePalette(palette, Math.min(1, field * 0.4))
@@ -1607,21 +1646,34 @@ function evalGravityWell(
 function evalRainRipples(
   key: string, trigger: boolean, energy: number, speed: number, t: number,
   palette: Palette, W = DEFAULT_W, H = DEFAULT_H,
+  count = 8, decay = 1, thickness = 1, spawnSpread = 1, blendMode: 'add' | 'max' = 'max',
 ): Frame {
-  const CAP = 8
+  const CAP = Math.max(1, Math.round(count))
   let state = rainRipplesState.get(key)
-  if (!state) { state = { ripples: new Array(CAP).fill(null), next: 0, prevTrig: false }; rainRipplesState.set(key, state) }
+  if (!state || state.ripples.length !== CAP) {
+    state = { ripples: new Array(CAP).fill(null), next: 0, prevTrig: false }
+    rainRipplesState.set(key, state)
+  }
+  const cx = W / 2, cy = H / 2
+  const spread = clamp01(spawnSpread)
   if (trigger && !state.prevTrig) {
-    state.ripples[state.next] = { x: Math.random() * W, y: Math.random() * H, born: t }
+    // spread=1 (the default) reproduces the old fully-random spawn exactly.
+    state.ripples[state.next] = {
+      x: cx + (Math.random() * W - cx) * spread,
+      y: cy + (Math.random() * H - cy) * spread,
+      born: t,
+    }
     state.next = (state.next + 1) % CAP
   }
   state.prevTrig = trigger
 
   const strength = clamp01(energy)
   const spd = Math.max(0.2, speed)
-  const life = 1.6 / spd
+  const lifeMult = Math.max(0.05, decay), bandMult = Math.max(0.05, thickness)
+  const life = (1.6 / spd) * lifeMult
   const speedPx = Math.max(W, H) * 0.9 / life
-  const band = 0.9 + (1 - strength) * 0.6
+  const band = (0.9 + (1 - strength) * 0.6) * bandMult
+  const additive = blendMode === 'add'
 
   return buildFrame(W, H, (x, y) => {
     let v = 0
@@ -1631,7 +1683,8 @@ function evalRainRipples(
       if (age < 0 || age > life) continue
       const dist = Math.hypot(x - ripple.x, y - ripple.y)
       const ring = Math.exp(-((dist - age * speedPx) ** 2) / (2 * band * band))
-      v = Math.max(v, ring * (1 - age / life))
+      const contribution = ring * (1 - age / life)
+      v = additive ? v + contribution : Math.max(v, contribution)
     }
     v = Math.min(1, v * (0.6 + strength * 0.6))
     const c = samplePalette(palette, v * 0.5 + t * speed * 0.02)
@@ -4304,7 +4357,12 @@ function createEvalNode(
         const energy = num(id, 'energy', props, 'energy', 0.7)
         const speed = num(id, 'speed', props, 'speed', 1)
         const palette = pal(id, 'paletteIn', props, 'palette', 'volcano')
-        out = { frame: evalKickShock(stateKey(id), kick, snare, hihat, energy, speed, t, palette, W, H) }
+        const count = Math.max(1, Math.round(Number(props.count ?? 8)))
+        const decay = Number(props.decay ?? 1)
+        const thickness = Number(props.thickness ?? 1)
+        const spawnSpread = Number(props.spawnSpread ?? 0)
+        const blendMode = String(props.blendMode ?? 'add') === 'max' ? 'max' : 'add'
+        out = { frame: evalKickShock(stateKey(id), kick, snare, hihat, energy, speed, t, palette, W, H, count, decay, thickness, spawnSpread, blendMode) }
         break
       }
 
@@ -4345,7 +4403,12 @@ function createEvalNode(
         const snare = num(id, 'snare', props, 'snare', 0)
         const hihat = num(id, 'hihat', props, 'hihat', 0)
         const palette = pal(id, 'paletteIn', props, 'palette', 'party')
-        out = { frame: evalPercussionBlobs(stateKey(id), kick, snare, hihat, t, palette, W, H) }
+        const count = Math.max(1, Math.round(Number(props.count ?? 12)))
+        const size = Number(props.size ?? 1)
+        const decay = Number(props.decay ?? 1)
+        const spawnSpread = Number(props.spawnSpread ?? 1)
+        const blendMode = String(props.blendMode ?? 'add') === 'max' ? 'max' : 'add'
+        out = { frame: evalPercussionBlobs(stateKey(id), kick, snare, hihat, t, palette, W, H, count, size, decay, spawnSpread, blendMode) }
         break
       }
 
@@ -4386,7 +4449,12 @@ function createEvalNode(
         const energy = num(id, 'energy', props, 'energy', 0.7)
         const speed = num(id, 'speed', props, 'speed', 1)
         const palette = pal(id, 'paletteIn', props, 'palette', 'laguna')
-        out = { frame: evalRainRipples(stateKey(id), trigger, energy, speed, t, palette, W, H) }
+        const count = Math.max(1, Math.round(Number(props.count ?? 8)))
+        const decay = Number(props.decay ?? 1)
+        const thickness = Number(props.thickness ?? 1)
+        const spawnSpread = Number(props.spawnSpread ?? 1)
+        const blendMode = String(props.blendMode ?? 'max') === 'add' ? 'add' : 'max'
+        out = { frame: evalRainRipples(stateKey(id), trigger, energy, speed, t, palette, W, H, count, decay, thickness, spawnSpread, blendMode) }
         break
       }
 

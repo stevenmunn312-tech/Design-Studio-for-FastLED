@@ -2989,3 +2989,314 @@ describe('BeatFlash', () => {
     expect(px(lit)).not.toEqual({ r: 255, g: 255, b: 255 })
   })
 })
+
+// Shared helpers for the KickShock / PercussionBlobs / RainRipples pool-spawner tests below.
+// evaluateGraph's tick param is frames at an assumed 60fps (t = tick/60 inside
+// the evaluator, per graphEvaluator.ts), not seconds — SEC converts.
+const SEC = (seconds: number) => seconds * 60
+const totalBrightness = (frame: Frame) => frame.flat().reduce((s, p) => s + p.r + p.g + p.b, 0)
+const boolConst = (id: string, on: number) => node(id, 'Compare', 'math', { a: on, b: 0.5 })
+
+describe('KickShock', () => {
+  it('a kick spawns an expanding ring at the matrix centre by default (spawnSpread=0)', () => {
+    const hit = withOutput(node('ks1', 'KickShock', 'pattern', {}), [boolConst('kh1', 1)], [
+      edge('e1', 'kh1', 'result', 'ks1', 'kick'),
+    ])
+    evaluateGraph(hit.nodes, hit.edges, 0, W, H) // spawn the ring at t=0
+
+    const still = withOutput(node('ks1', 'KickShock', 'pattern', {}), [boolConst('kh1', 0)], [
+      edge('e1', 'kh1', 'result', 'ks1', 'kick'),
+    ])
+    const lit = evaluateGraph(still.nodes, still.edges, SEC(0.3), W, H)!
+
+    const never = withOutput(node('ks2', 'KickShock', 'pattern', {}), [boolConst('kh2', 0)], [
+      edge('e1', 'kh2', 'result', 'ks2', 'kick'),
+    ])
+    const unlit = evaluateGraph(never.nodes, never.edges, SEC(0.3), W, H)!
+    expect(totalBrightness(lit)).toBeGreaterThan(totalBrightness(unlit))
+  })
+
+  it('decay > 1 keeps the ring alive past the default lifetime', () => {
+    const spawnDefault = withOutput(node('ks3', 'KickShock', 'pattern', {}), [boolConst('kh3', 1)], [
+      edge('e1', 'kh3', 'result', 'ks3', 'kick'),
+    ])
+    evaluateGraph(spawnDefault.nodes, spawnDefault.edges, 0, W, H)
+    const pastDefaultLife = withOutput(node('ks3', 'KickShock', 'pattern', {}), [boolConst('kh3', 0)], [
+      edge('e1', 'kh3', 'result', 'ks3', 'kick'),
+    ])
+    // The default kick ring life is 1.9s — by t=2.2s it has fully faded, so the
+    // frame matches a KickShock that never fired at all (both still carry the
+    // small ambient `0.03*energy` shimmer term, hence not a plain black check).
+    const faded = evaluateGraph(pastDefaultLife.nodes, pastDefaultLife.edges, SEC(2.2), W, H)!
+    const never = withOutput(node('ks3b', 'KickShock', 'pattern', {}), [boolConst('kh3b', 0)], [
+      edge('e1', 'kh3b', 'result', 'ks3b', 'kick'),
+    ])
+    const neverFired = evaluateGraph(never.nodes, never.edges, SEC(2.2), W, H)!
+    expect(faded).toEqual(neverFired)
+
+    const spawnLong = withOutput(node('ks4', 'KickShock', 'pattern', { decay: 3 }), [boolConst('kh4', 1)], [
+      edge('e1', 'kh4', 'result', 'ks4', 'kick'),
+    ])
+    evaluateGraph(spawnLong.nodes, spawnLong.edges, 0, W, H)
+    const stillAliveAt = withOutput(node('ks4', 'KickShock', 'pattern', { decay: 3 }), [boolConst('kh4', 0)], [
+      edge('e1', 'kh4', 'result', 'ks4', 'kick'),
+    ])
+    // decay=3 stretches life to 5.7s, so it's still going strong at 2.2s —
+    // brighter than the ambient-shimmer-only baseline above.
+    const stillLit = evaluateGraph(stillAliveAt.nodes, stillAliveAt.edges, SEC(2.2), W, H)!
+    expect(totalBrightness(stillLit)).toBeGreaterThan(totalBrightness(neverFired))
+  })
+
+  it('thickness changes the rendered ring band', () => {
+    const thinSpawn = withOutput(node('ks5', 'KickShock', 'pattern', { thickness: 0.3 }), [boolConst('kh5', 1)], [
+      edge('e1', 'kh5', 'result', 'ks5', 'kick'),
+    ])
+    evaluateGraph(thinSpawn.nodes, thinSpawn.edges, 0, W, H)
+    const thinQuery = withOutput(node('ks5', 'KickShock', 'pattern', { thickness: 0.3 }), [boolConst('kh5', 0)], [
+      edge('e1', 'kh5', 'result', 'ks5', 'kick'),
+    ])
+    const thinFrame = evaluateGraph(thinQuery.nodes, thinQuery.edges, SEC(0.4), W, H)!
+
+    const wideSpawn = withOutput(node('ks6', 'KickShock', 'pattern', { thickness: 3 }), [boolConst('kh6', 1)], [
+      edge('e1', 'kh6', 'result', 'ks6', 'kick'),
+    ])
+    evaluateGraph(wideSpawn.nodes, wideSpawn.edges, 0, W, H)
+    const wideQuery = withOutput(node('ks6', 'KickShock', 'pattern', { thickness: 3 }), [boolConst('kh6', 0)], [
+      edge('e1', 'kh6', 'result', 'ks6', 'kick'),
+    ])
+    const wideFrame = evaluateGraph(wideQuery.nodes, wideQuery.edges, SEC(0.4), W, H)!
+    expect(thinFrame).not.toEqual(wideFrame)
+  })
+
+  it('spawnSpread jitters the ring origin away from the matrix centre', () => {
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.95)
+    try {
+      const centred = withOutput(node('ks7', 'KickShock', 'pattern', { spawnSpread: 0 }), [boolConst('kh7', 1)], [
+        edge('e1', 'kh7', 'result', 'ks7', 'kick'),
+      ])
+      const centredFrame = evaluateGraph(centred.nodes, centred.edges, 0, W, H)!
+
+      const spread = withOutput(node('ks8', 'KickShock', 'pattern', { spawnSpread: 1 }), [boolConst('kh8', 1)], [
+        edge('e1', 'kh8', 'result', 'ks8', 'kick'),
+      ])
+      const spreadFrame = evaluateGraph(spread.nodes, spread.edges, 0, W, H)!
+      expect(spreadFrame).not.toEqual(centredFrame)
+    } finally {
+      randomSpy.mockRestore()
+    }
+  })
+
+  it('blendMode="max" combines overlapping rings differently than the additive default', () => {
+    const additive = withOutput(
+      node('ks9', 'KickShock', 'pattern', {}),
+      [boolConst('kh9k', 1), boolConst('kh9s', 1)],
+      [edge('e1', 'kh9k', 'result', 'ks9', 'kick'), edge('e2', 'kh9s', 'result', 'ks9', 'snare')],
+    )
+    const additiveFrame = evaluateGraph(additive.nodes, additive.edges, 0, W, H)!
+
+    const maxed = withOutput(
+      node('ks10', 'KickShock', 'pattern', { blendMode: 'max' }),
+      [boolConst('kh10k', 1), boolConst('kh10s', 1)],
+      [edge('e1', 'kh10k', 'result', 'ks10', 'kick'), edge('e2', 'kh10s', 'result', 'ks10', 'snare')],
+    )
+    const maxedFrame = evaluateGraph(maxed.nodes, maxed.edges, 0, W, H)!
+    expect(totalBrightness(additiveFrame)).toBeGreaterThanOrEqual(totalBrightness(maxedFrame))
+  })
+
+  it('count resizes the ring pool without throwing', () => {
+    const small = withOutput(node('ks11', 'KickShock', 'pattern', { count: 2 }), [boolConst('kh11', 1)], [
+      edge('e1', 'kh11', 'result', 'ks11', 'kick'),
+    ])
+    expect(() => evaluateGraph(small.nodes, small.edges, 0, W, H)).not.toThrow()
+  })
+})
+
+describe('PercussionBlobs', () => {
+  it('decay > 1 keeps a blob alive past the default lifetime', () => {
+    const spawnDefault = withOutput(node('pb1', 'PercussionBlobs', 'pattern', {}), [boolConst('pk1', 1)], [
+      edge('e1', 'pk1', 'result', 'pb1', 'kick'),
+    ])
+    evaluateGraph(spawnDefault.nodes, spawnDefault.edges, 0, W, H)
+    const pastDefaultLife = withOutput(node('pb1', 'PercussionBlobs', 'pattern', {}), [boolConst('pk1', 0)], [
+      edge('e1', 'pk1', 'result', 'pb1', 'kick'),
+    ])
+    // The default kick-blob life is 1.4s — by t=1.6s it has fully faded.
+    const faded = evaluateGraph(pastDefaultLife.nodes, pastDefaultLife.edges, SEC(1.6), W, H)!
+    expect(totalBrightness(faded)).toBe(0)
+
+    const spawnLong = withOutput(node('pb2', 'PercussionBlobs', 'pattern', { decay: 3 }), [boolConst('pk2', 1)], [
+      edge('e1', 'pk2', 'result', 'pb2', 'kick'),
+    ])
+    evaluateGraph(spawnLong.nodes, spawnLong.edges, 0, W, H)
+    const stillAliveAt = withOutput(node('pb2', 'PercussionBlobs', 'pattern', { decay: 3 }), [boolConst('pk2', 0)], [
+      edge('e1', 'pk2', 'result', 'pb2', 'kick'),
+    ])
+    // decay=3 stretches life to 4.2s, so it's still going strong at 1.6s.
+    const stillLit = evaluateGraph(stillAliveAt.nodes, stillAliveAt.edges, SEC(1.6), W, H)!
+    expect(totalBrightness(stillLit)).toBeGreaterThan(0)
+  })
+
+  it('size scales the blob radius, changing the rendered field', () => {
+    const smallSpawn = withOutput(node('pb3', 'PercussionBlobs', 'pattern', { size: 0.3 }), [boolConst('pk3', 1)], [
+      edge('e1', 'pk3', 'result', 'pb3', 'kick'),
+    ])
+    evaluateGraph(smallSpawn.nodes, smallSpawn.edges, 0, W, H)
+    const smallQuery = withOutput(node('pb3', 'PercussionBlobs', 'pattern', { size: 0.3 }), [boolConst('pk3', 0)], [
+      edge('e1', 'pk3', 'result', 'pb3', 'kick'),
+    ])
+    const smallFrame = evaluateGraph(smallQuery.nodes, smallQuery.edges, SEC(0.1), W, H)!
+
+    const bigSpawn = withOutput(node('pb4', 'PercussionBlobs', 'pattern', { size: 3 }), [boolConst('pk4', 1)], [
+      edge('e1', 'pk4', 'result', 'pb4', 'kick'),
+    ])
+    evaluateGraph(bigSpawn.nodes, bigSpawn.edges, 0, W, H)
+    const bigQuery = withOutput(node('pb4', 'PercussionBlobs', 'pattern', { size: 3 }), [boolConst('pk4', 0)], [
+      edge('e1', 'pk4', 'result', 'pb4', 'kick'),
+    ])
+    const bigFrame = evaluateGraph(bigQuery.nodes, bigQuery.edges, SEC(0.1), W, H)!
+    expect(totalBrightness(bigFrame)).toBeGreaterThan(totalBrightness(smallFrame))
+  })
+
+  it('spawnSpread=0 collapses every blob onto the matrix centre', () => {
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.95)
+    try {
+      const collapsed = withOutput(node('pb5', 'PercussionBlobs', 'pattern', { spawnSpread: 0 }), [boolConst('pk5', 1)], [
+        edge('e1', 'pk5', 'result', 'pb5', 'kick'),
+      ])
+      const collapsedFrame = evaluateGraph(collapsed.nodes, collapsed.edges, 0, W, H)!
+
+      const scattered = withOutput(node('pb6', 'PercussionBlobs', 'pattern', { spawnSpread: 1 }), [boolConst('pk6', 1)], [
+        edge('e1', 'pk6', 'result', 'pb6', 'kick'),
+      ])
+      const scatteredFrame = evaluateGraph(scattered.nodes, scattered.edges, 0, W, H)!
+      expect(scatteredFrame).not.toEqual(collapsedFrame)
+    } finally {
+      randomSpy.mockRestore()
+    }
+  })
+
+  it('blendMode="max" never exceeds the additive default at an overlap', () => {
+    const additive = withOutput(
+      node('pb7', 'PercussionBlobs', 'pattern', { spawnSpread: 0 }),
+      [boolConst('pk7k', 1), boolConst('pk7s', 1)],
+      [edge('e1', 'pk7k', 'result', 'pb7', 'kick'), edge('e2', 'pk7s', 'result', 'pb7', 'snare')],
+    )
+    const additiveFrame = evaluateGraph(additive.nodes, additive.edges, 0, W, H)!
+
+    const maxed = withOutput(
+      node('pb8', 'PercussionBlobs', 'pattern', { spawnSpread: 0, blendMode: 'max' }),
+      [boolConst('pk8k', 1), boolConst('pk8s', 1)],
+      [edge('e1', 'pk8k', 'result', 'pb8', 'kick'), edge('e2', 'pk8s', 'result', 'pb8', 'snare')],
+    )
+    const maxedFrame = evaluateGraph(maxed.nodes, maxed.edges, 0, W, H)!
+    expect(totalBrightness(additiveFrame)).toBeGreaterThanOrEqual(totalBrightness(maxedFrame))
+  })
+
+  it('count resizes the blob pool without throwing', () => {
+    const small = withOutput(node('pb9', 'PercussionBlobs', 'pattern', { count: 4 }), [boolConst('pk9', 1)], [
+      edge('e1', 'pk9', 'result', 'pb9', 'kick'),
+    ])
+    expect(() => evaluateGraph(small.nodes, small.edges, 0, W, H)).not.toThrow()
+  })
+})
+
+describe('RainRipples', () => {
+  const trig = (id: string, on: number) => node(id, 'Compare', 'math', { a: on, b: 0.5 })
+
+  it('decay > 1 keeps a ripple alive past the default lifetime', () => {
+    const spawnDefault = withOutput(node('rr1', 'RainRipples', 'pattern', { speed: 1 }), [trig('rt1', 1)], [
+      edge('e1', 'rt1', 'result', 'rr1', 'trigger'),
+    ])
+    evaluateGraph(spawnDefault.nodes, spawnDefault.edges, 0, W, H)
+    const pastDefaultLife = withOutput(node('rr1', 'RainRipples', 'pattern', { speed: 1 }), [trig('rt1', 0)], [
+      edge('e1', 'rt1', 'result', 'rr1', 'trigger'),
+    ])
+    // The default ripple life at speed=1 is 1.6s — by t=1.8s it has fully faded.
+    const faded = evaluateGraph(pastDefaultLife.nodes, pastDefaultLife.edges, SEC(1.8), W, H)!
+    expect(totalBrightness(faded)).toBe(0)
+
+    const spawnLong = withOutput(node('rr2', 'RainRipples', 'pattern', { speed: 1, decay: 3 }), [trig('rt2', 1)], [
+      edge('e1', 'rt2', 'result', 'rr2', 'trigger'),
+    ])
+    evaluateGraph(spawnLong.nodes, spawnLong.edges, 0, W, H)
+    const stillAliveAt = withOutput(node('rr2', 'RainRipples', 'pattern', { speed: 1, decay: 3 }), [trig('rt2', 0)], [
+      edge('e1', 'rt2', 'result', 'rr2', 'trigger'),
+    ])
+    // decay=3 stretches life to 4.8s, so it's still going strong at 1.8s.
+    const stillLit = evaluateGraph(stillAliveAt.nodes, stillAliveAt.edges, SEC(1.8), W, H)!
+    expect(totalBrightness(stillLit)).toBeGreaterThan(0)
+  })
+
+  it('thickness changes the rendered ripple band', () => {
+    const thinSpawn = withOutput(node('rr3', 'RainRipples', 'pattern', { thickness: 0.3 }), [trig('rt3', 1)], [
+      edge('e1', 'rt3', 'result', 'rr3', 'trigger'),
+    ])
+    evaluateGraph(thinSpawn.nodes, thinSpawn.edges, 0, W, H)
+    const thinQuery = withOutput(node('rr3', 'RainRipples', 'pattern', { thickness: 0.3 }), [trig('rt3', 0)], [
+      edge('e1', 'rt3', 'result', 'rr3', 'trigger'),
+    ])
+    const thinFrame = evaluateGraph(thinQuery.nodes, thinQuery.edges, SEC(0.3), W, H)!
+
+    const wideSpawn = withOutput(node('rr4', 'RainRipples', 'pattern', { thickness: 3 }), [trig('rt4', 1)], [
+      edge('e1', 'rt4', 'result', 'rr4', 'trigger'),
+    ])
+    evaluateGraph(wideSpawn.nodes, wideSpawn.edges, 0, W, H)
+    const wideQuery = withOutput(node('rr4', 'RainRipples', 'pattern', { thickness: 3 }), [trig('rt4', 0)], [
+      edge('e1', 'rt4', 'result', 'rr4', 'trigger'),
+    ])
+    const wideFrame = evaluateGraph(wideQuery.nodes, wideQuery.edges, SEC(0.3), W, H)!
+    expect(thinFrame).not.toEqual(wideFrame)
+  })
+
+  it('spawnSpread=0 collapses every ripple onto the matrix centre', () => {
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.95)
+    try {
+      const collapsed = withOutput(node('rr5', 'RainRipples', 'pattern', { spawnSpread: 0 }), [trig('rt5', 1)], [
+        edge('e1', 'rt5', 'result', 'rr5', 'trigger'),
+      ])
+      const collapsedFrame = evaluateGraph(collapsed.nodes, collapsed.edges, 0, W, H)!
+
+      const scattered = withOutput(node('rr6', 'RainRipples', 'pattern', { spawnSpread: 1 }), [trig('rt6', 1)], [
+        edge('e1', 'rt6', 'result', 'rr6', 'trigger'),
+      ])
+      const scatteredFrame = evaluateGraph(scattered.nodes, scattered.edges, 0, W, H)!
+      expect(scatteredFrame).not.toEqual(collapsedFrame)
+    } finally {
+      randomSpy.mockRestore()
+    }
+  })
+
+  it('defaults to blendMode="max"; "add" never renders dimmer at an overlap', () => {
+    // Fire the trigger twice in quick succession (with spawnSpread=0, both
+    // ripples share the same origin) so two ripples overlap heavily when
+    // queried right after the second spawn.
+    const fireTwice = (props: Record<string, unknown>, idPrefix: string) => {
+      const spawn1 = withOutput(node(`${idPrefix}n`, 'RainRipples', 'pattern', { ...props, spawnSpread: 0 }), [trig(`${idPrefix}t`, 1)], [
+        edge('e1', `${idPrefix}t`, 'result', `${idPrefix}n`, 'trigger'),
+      ])
+      evaluateGraph(spawn1.nodes, spawn1.edges, 0, W, H)
+      const low = withOutput(node(`${idPrefix}n`, 'RainRipples', 'pattern', { ...props, spawnSpread: 0 }), [trig(`${idPrefix}t`, 0)], [
+        edge('e1', `${idPrefix}t`, 'result', `${idPrefix}n`, 'trigger'),
+      ])
+      evaluateGraph(low.nodes, low.edges, SEC(0.02), W, H)
+      const spawn2 = withOutput(node(`${idPrefix}n`, 'RainRipples', 'pattern', { ...props, spawnSpread: 0 }), [trig(`${idPrefix}t`, 1)], [
+        edge('e1', `${idPrefix}t`, 'result', `${idPrefix}n`, 'trigger'),
+      ])
+      evaluateGraph(spawn2.nodes, spawn2.edges, SEC(0.05), W, H)
+      const query = withOutput(node(`${idPrefix}n`, 'RainRipples', 'pattern', { ...props, spawnSpread: 0 }), [trig(`${idPrefix}t`, 0)], [
+        edge('e1', `${idPrefix}t`, 'result', `${idPrefix}n`, 'trigger'),
+      ])
+      return evaluateGraph(query.nodes, query.edges, SEC(0.1), W, H)!
+    }
+    const maxedFrame = fireTwice({}, 'rr7')
+    const addedFrame = fireTwice({ blendMode: 'add' }, 'rr8')
+    expect(totalBrightness(addedFrame)).toBeGreaterThanOrEqual(totalBrightness(maxedFrame))
+  })
+
+  it('count resizes the ripple pool without throwing', () => {
+    const small = withOutput(node('rr9', 'RainRipples', 'pattern', { count: 2 }), [trig('rt9', 1)], [
+      edge('e1', 'rt9', 'result', 'rr9', 'trigger'),
+    ])
+    expect(() => evaluateGraph(small.nodes, small.edges, 0, W, H)).not.toThrow()
+  })
+})

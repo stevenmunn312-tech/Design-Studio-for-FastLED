@@ -2017,3 +2017,71 @@ describe('generateCpp — BeatFlash', () => {
     expect(cpp).toMatch(/qadd8\(buf_bf4\[_i\]\.r, \(uint8_t\)min\(255\.0f, _fc_bf4\.r \* _feff_bf4\)\)/)
   })
 })
+
+describe('KickShock / PercussionBlobs / RainRipples pool-spawner codegen', () => {
+  it('KickShock bakes count into the static array size and combine mode', () => {
+    const ks = node('ks', 'KickShock', 'pattern', { count: 5, blendMode: 'max' })
+    const cpp = generateCpp([ks, outputNode], [edge('e', 'ks', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('_ksBorn_ks[5]')
+    expect(cpp).toContain('_ksX_ks[5]')
+    expect(cpp).toContain('%5)')
+    expect(cpp).toContain('_wave=max(_wave,_front*(1.0f-_age/_life));')
+    expect(cpp).not.toContain('_wave+=_front')
+  })
+
+  it('KickShock defaults to additive combine and count=8', () => {
+    const ks = node('ks2', 'KickShock', 'pattern', {})
+    const cpp = generateCpp([ks, outputNode], [edge('e', 'ks2', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('_ksBorn_ks2[8]')
+    expect(cpp).toContain('_wave+=_front*(1.0f-_age/_life);')
+  })
+
+  it('KickShock divides speed by decay so total ring travel stays constant', () => {
+    const ks = node('ks3', 'KickShock', 'pattern', { decay: 2 })
+    const cpp = generateCpp([ks, outputNode], [edge('e', 'ks3', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('/2.0000f, _spdS=_spdK*1.8f;')
+    expect(cpp).toContain('_lifeK=3.8000f')
+  })
+
+  it('KickShock spawnSpread=0 keeps every ring spawn at the shared centre', () => {
+    const ks = node('ks4', 'KickShock', 'pattern', {})
+    const cpp = generateCpp([ks, outputNode], [edge('e', 'ks4', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('-_ksCx)*0f')
+  })
+
+  it('PercussionBlobs bakes count/size/decay/blendMode', () => {
+    const pb = node('pb', 'PercussionBlobs', 'pattern', { count: 6, size: 2, decay: 0.5, blendMode: 'max' })
+    const cpp = generateCpp([pb, outputNode], [edge('e', 'pb', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('_pbx_pb[6]')
+    expect(cpp).toContain('_pr[3]={0.6800f,0.4000f,0.2000f}')
+    expect(cpp).toContain('_pl[3]={0.7000f,0.3500f,0.1750f}')
+    expect(cpp).toContain('_field=max(_field,')
+  })
+
+  it('PercussionBlobs defaults to additive combine', () => {
+    const pb = node('pb2', 'PercussionBlobs', 'pattern', {})
+    const cpp = generateCpp([pb, outputNode], [edge('e', 'pb2', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('_field+=_decay*(_radius*_radius)')
+  })
+
+  it('RainRipples bakes count/thickness/decay and defaults to max combine', () => {
+    const rr = node('rr', 'RainRipples', 'pattern', { count: 4, thickness: 2, decay: 0.5 })
+    const cpp = generateCpp([rr, outputNode], [edge('e', 'rr', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('_rrx_rr[4]')
+    expect(cpp).toContain('_life=(1.6f/_spd)*0.5000f')
+    expect(cpp).toContain('_band=(0.9f+(1.0f-_strength)*0.6f)*2.0000f')
+    expect(cpp).toContain('_v=max(_v,_ring*(1.0f-_age/_life));')
+  })
+
+  it('RainRipples blendMode="add" switches to additive combine', () => {
+    const rr = node('rr2', 'RainRipples', 'pattern', { blendMode: 'add' })
+    const cpp = generateCpp([rr, outputNode], [edge('e', 'rr2', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('_v+=_ring*(1.0f-_age/_life);')
+  })
+
+  it('RainRipples spawnSpread defaults to 1 (fully random)', () => {
+    const rr = node('rr3', 'RainRipples', 'pattern', {})
+    const cpp = generateCpp([rr, outputNode], [edge('e', 'rr3', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('-_rrCx)*1f')
+  })
+})

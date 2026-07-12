@@ -688,7 +688,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { energy: 0.7, speed: 1.0, palette: 'volcano' },
+    defaultProperties: {
+      energy: 0.7, speed: 1.0, palette: 'volcano',
+      count: 8, decay: 1, thickness: 1, spawnSpread: 0, blendMode: 'add',
+    },
   },
   {
     // Vertical aurora-borealis curtains shaped by vocal presence; dims on silence.
@@ -752,7 +755,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { palette: 'party' },
+    defaultProperties: {
+      palette: 'party',
+      count: 12, size: 1, decay: 1, spawnSpread: 1, blendMode: 'add',
+    },
   },
   {
     // Bottom-up column fire (HeatColor ramp) — bass/mids/treble shape the columns.
@@ -816,7 +822,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { energy: 0.7, speed: 1.0, palette: 'laguna' },
+    defaultProperties: {
+      energy: 0.7, speed: 1.0, palette: 'laguna',
+      count: 8, decay: 1, thickness: 1, spawnSpread: 1, blendMode: 'max',
+    },
   },
   {
     // Oriented Gabor-noise shards that snap to a new angle on each hihat hit.
@@ -2484,6 +2493,9 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   hue:        { control: 'slider', min: 0, max: 255, step: 1 },
   sat:        { control: 'slider', min: 0, max: 255, step: 1 },
   val:        { control: 'slider', min: 0, max: 255, step: 1 },
+  // Spawn-origin jitter (0 = a shared fixed point, 1 = fully random across the
+  // matrix) shared by KickShock/PercussionBlobs/RainRipples's pool spawners.
+  spawnSpread: { control: 'slider', min: 0, max: 1, step: 0.01 },
 }
 
 // A normalised 0–1 slider, the standard for `speed`/`scale` and most reactive
@@ -2579,13 +2591,35 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   AudioCascade: {
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
-  KickShock:        { speed: N01 },
+  // count/thickness/decay are pool-spawner tuning knobs (KickShock/RainRipples
+  // share the "ring" shape; PercussionBlobs uses `size` in place of `thickness`
+  // since a metaball has no ring band). All are multipliers on the node's
+  // built-in base values (1 = unchanged), not the generic 0–1/px meanings
+  // those names have elsewhere.
+  KickShock: {
+    speed: N01,
+    count:     { control: 'slider', min: 2, max: 16, step: 1 },
+    thickness: { control: 'slider', min: 0.25, max: 3, step: 0.05 },
+    decay:     { control: 'slider', min: 0.3, max: 3, step: 0.05 },
+    blendMode: { control: 'select', options: ['add', 'max'] },
+  },
   VocalAurora:      { speed: N01 },
-  PercussionBlobs:  {},
+  PercussionBlobs: {
+    count:     { control: 'slider', min: 4, max: 24, step: 1 },
+    size:      { control: 'slider', min: 0.25, max: 3, step: 0.05 },
+    decay:     { control: 'slider', min: 0.3, max: 3, step: 0.05 },
+    blendMode: { control: 'select', options: ['add', 'max'] },
+  },
   EmberPulse:       { speed: N01 },
   TurbulentBloom:   { speed: N01 },
   GravityWell:      { speed: N01 },
-  RainRipples:      { speed: N01 },
+  RainRipples: {
+    speed: N01,
+    count:     { control: 'slider', min: 2, max: 16, step: 1 },
+    thickness: { control: 'slider', min: 0.25, max: 3, step: 0.05 },
+    decay:     { control: 'slider', min: 0.3, max: 3, step: 0.05 },
+    blendMode: { control: 'select', options: ['add', 'max'] },
+  },
   PrismStorm:       { speed: N01 },
   // BeatKaleidoscope's hue comes from AudioHue (0-360°), not the generic
   // CHSV-style hue (0-255).
