@@ -4119,7 +4119,7 @@ function createEvalNode(
 
       case 'HueShift': {
         const src = input(id, 'frame', null) as Frame | null
-        const shift = num(id, 'shift', props, 'shift', 0)
+        const shift = num(id, 'shift', props, 'shift', 0) * 360
         if (!src) { out = { frame: null }; break }
         out = {
           frame: src.map(row =>

@@ -132,7 +132,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'thickness', label: 'Thickness', dataType: 'float' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { cx: 0.5, cy: 0.5, radius: 6, thickness: 1.5, filled: true, wrap: false, fill: '#ff3080', edge: '#ff0080' },
+    defaultProperties: { cx: 0.5, cy: 0.5, radius: 6, thickness: 1.5, wrap: false, filled: true, fill: '#ff3080', edge: '#ff0080' },
   },
   {
     // Draws a line between two points over an optional base frame.
@@ -183,8 +183,8 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       sides: 5,
       rotation: 0,
       thickness: 1.5,
-      filled: true,
       wrap: false,
+      filled: true,
       fill: '#ff3080',
       edge: '#00e0ff',
     },
@@ -455,7 +455,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'composite',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
-      { id: 'shift', label: 'Shift°', dataType: 'float' },
+      { id: 'shift', label: 'Shift', dataType: 'float' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { shift: 0 },
@@ -2468,6 +2468,8 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   particleIntensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
   s:          { control: 'slider', min: 0, max: 1, step: 0.01 },
   v:          { control: 'slider', min: 0, max: 1, step: 0.01 },
+  // Hue Shift's rotation amount, normalised 0–1 across the full 360° hue wheel.
+  shift:      { control: 'slider', min: 0, max: 1, step: 0.01 },
   // 0–255 byte ranges (FastLED heat sim + CHSV channels).
   cooling:    { control: 'slider', min: 0, max: 255, step: 1 },
   sparking:   { control: 'slider', min: 0, max: 255, step: 1 },
@@ -2706,7 +2708,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   Shape: [
     { key: 'position', label: 'Position', keys: ['cx', 'cy', 'size', 'aspect', 'rotation'] },
-    { key: 'geometry', label: 'Geometry', keys: ['shape', 'sides', 'thickness', 'filled', 'wrap'] },
+    { key: 'geometry', label: 'Geometry', keys: ['shape', 'sides', 'thickness', 'wrap', 'filled'] },
     { key: 'color', label: 'Color', keys: ['fill', 'edge'] },
   ],
   MicInput: [
