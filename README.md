@@ -121,6 +121,14 @@ npm run preview    # serve dist/ locally
 | Microphone (FFT) | Any modern browser |
 | Upload / Live Stream / SD provisioning | Local upload helper running (Python 3 + `arduino-cli` or `fbuild`) — any modern browser |
 
+## Beta Support Matrix
+
+The repo's current public-beta support promise is intentionally narrower than
+the full feature catalogue. The exact supported vs. experimental combinations
+of board, chipset, matrix layout, build engine, upload path, and recorded host
+coverage live in
+[`docs/release/beta-support-matrix.md`](docs/release/beta-support-matrix.md).
+
 ## Desktop Viewport
 
 FastLED Studio is tuned for desktop windows, with a supported minimum viewport of

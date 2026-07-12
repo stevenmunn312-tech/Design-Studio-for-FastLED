@@ -37,6 +37,12 @@ build/architecture overview aimed at contributors.
     — how to replay the divergent `feature/thmi-touchscreen-ui` branch (FFT
     audio, 13 transitions, T-HMI firmware) onto current `main` as PRs.
 
+## Release
+
+- [Beta support matrix](release/beta-support-matrix.md)
+  — the only combinations currently promoted from experimental to public-beta
+    supported, plus the CI-only coverage and the validation gaps still to fill.
+
 ## Design intent (original specs)
 
 Located in `.docs/` at the repo root:

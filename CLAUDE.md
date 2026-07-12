@@ -82,6 +82,13 @@ The repo-wrapped npm scripts invoke Node with `--disable-warning=DEP0040` to sup
 - No Tailwind; styling is pure CSS variables defined in `src/themes/tokens.css`
 - **Vitest** (jsdom) for unit tests, with **@testing-library/react** for component tests (e.g. `StudioNode` — stub `<Handle>` since it needs flow context); **vite-plugin-pwa** generates an auto-updating service worker so the app is installable/offline-capable, with concrete 192/512 + maskable PNG icons from `public/` and PNG branding assets precached for offline relaunches
 
+## Release docs
+
+`docs/release/beta-support-matrix.md` is the source of truth for what the
+public beta currently treats as supported vs. experimental. Do not promote a
+new board, browser, chipset, layout, engine, or upload path in user-facing docs
+without recording the exact validated combo there.
+
 ## Architecture
 
 ### Viewport contract
