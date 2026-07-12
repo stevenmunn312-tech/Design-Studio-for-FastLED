@@ -122,13 +122,16 @@ export function parseProjectFile(text: string, fallbackName: string): SavedProje
   const derivedName = trimProjectName(fallbackName) || 'Imported Project'
   const now = Date.now()
 
+  // Never trust a project file's own `trusted` claim — force it false
+  // regardless of what the file says, so imported content can't self-declare
+  // its way past the trust gate (see todo.md's P0 trust item).
   if (isWorkspace(parsed)) {
     return {
       id: makeProjectId(),
       name: derivedName,
       createdAt: now,
       updatedAt: now,
-      workspace: cloneWorkspace(parsed),
+      workspace: { ...cloneWorkspace(parsed), trusted: false },
     }
   }
 
@@ -146,7 +149,7 @@ export function parseProjectFile(text: string, fallbackName: string): SavedProje
     name: trimProjectName(typeof candidate.name === 'string' ? candidate.name : derivedName) || derivedName,
     createdAt: typeof candidate.createdAt === 'number' ? candidate.createdAt : now,
     updatedAt: typeof candidate.updatedAt === 'number' ? candidate.updatedAt : now,
-    workspace: cloneWorkspace(candidate.workspace),
+    workspace: { ...cloneWorkspace(candidate.workspace), trusted: false },
     uploadTarget: normalizeUploadTarget(candidate.uploadTarget),
   }
 }

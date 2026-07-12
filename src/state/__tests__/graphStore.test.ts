@@ -30,6 +30,7 @@ function reset(nodes: StudioNode[] = [], edges: StudioEdge[] = []) {
     activeGraphId: ROOT_GRAPH_ID,
     graphs: { [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' } },
     graphData: {},
+    trusted: true,
   })
   useUiStore.setState({ fitViewRequest: { nonce: 0 } })
 }
@@ -570,6 +571,67 @@ describe('graphStore — loadGraph normalization', () => {
     expect(s.graphs['grp-1'].name).toBe('My Pattern')
     // The registry the preview/evaluator reads now includes the group again.
     expect(getGroupRegistry()['grp-1']).toBeDefined()
+  })
+})
+
+// todo.md's P0 trust-boundary item: imported/shared/pattern-dropped content
+// must not run CustomFormula/FieldFormula/Code preview logic until the user
+// explicitly trusts it. `loadGraph` itself just honours whatever `trusted`
+// value its caller passes (the load paths in App.tsx/MenuBar.tsx are the ones
+// responsible for forcing `false` on untrusted content) — these tests cover
+// loadGraph's own defaulting plus the pattern-drop actions that must always
+// force the workspace untrusted regardless of the current state.
+describe('graphStore — trust boundary', () => {
+  beforeEach(() => reset())
+
+  it('loadGraph defaults to trusted when the workspace omits the field (legacy/local data)', () => {
+    useGraphStore.getState().loadGraph([node('sc', 'SolidColor')], [])
+    expect(useGraphStore.getState().trusted).toBe(true)
+  })
+
+  it('loadGraph honours an explicit trusted:false from its caller', () => {
+    useGraphStore.getState().loadGraph([node('sc', 'SolidColor')], [], { trusted: false })
+    expect(useGraphStore.getState().trusted).toBe(false)
+  })
+
+  it('loadGraph honours an explicit trusted:true from its caller', () => {
+    useGraphStore.setState({ trusted: false })
+    useGraphStore.getState().loadGraph([node('sc', 'SolidColor')], [], { trusted: true })
+    expect(useGraphStore.getState().trusted).toBe(true)
+  })
+
+  it('instantiatePattern forces the workspace untrusted even if it was already trusted', () => {
+    expect(useGraphStore.getState().trusted).toBe(true)
+    const saved = {
+      id: 'p1', name: 'MyPattern', createdAt: 0,
+      inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+      subgraph: { nodes: [], edges: [] },
+    } as unknown as import('../patternLibrary').SavedPattern
+    useGraphStore.getState().instantiatePattern(saved, { x: 0, y: 0 })
+    expect(useGraphStore.getState().trusted).toBe(false)
+  })
+
+  it('createCollectionFromPatterns forces the workspace untrusted', () => {
+    expect(useGraphStore.getState().trusted).toBe(true)
+    const saved = [{
+      id: 'p1', name: 'Aurora', createdAt: 1,
+      inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+      subgraph: { nodes: [node('a', 'SolidColor'), node('out-a', 'GroupOutput')], edges: [] },
+    }] as import('../patternLibrary').SavedPattern[]
+    useGraphStore.getState().createCollectionFromPatterns(saved, { x: 0, y: 0 })
+    expect(useGraphStore.getState().trusted).toBe(false)
+  })
+
+  it('addPatternToCollection forces the workspace untrusted', () => {
+    reset([node('coll', 'PatternCollection', { patternIds: [] })], [])
+    const saved = {
+      id: 'p1', name: 'Aurora', createdAt: 1,
+      inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+      subgraph: { nodes: [node('a', 'SolidColor'), node('out-a', 'GroupOutput')], edges: [] },
+    } as unknown as import('../patternLibrary').SavedPattern
+    expect(useGraphStore.getState().trusted).toBe(true)
+    useGraphStore.getState().addPatternToCollection('coll', saved)
+    expect(useGraphStore.getState().trusted).toBe(false)
   })
 })
 

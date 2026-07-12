@@ -16,6 +16,8 @@ import { readSharedWorkspace, clearShareHash } from './utils/shareGraph'
 import { pushSnapshot } from './state/snapshotHistory'
 import { blankWorkspace, captureWorkspace } from './state/workspacePersistence'
 import { nextDefaultProjectName } from './utils/projectFileIO'
+import { promptTrustIfNeeded } from './utils/trustPrompt'
+import TrustBanner from './components/TrustBanner/TrustBanner'
 import styles from './App.module.css'
 
 const BoardPopup = lazy(() => import('./components/Upload/BoardPopup'))
@@ -88,15 +90,19 @@ export default function App() {
     const init = async () => {
       const shared = readSharedWorkspace()
       if (shared) {
+        // Never trust a share link's own `trusted` claim — force it false
+        // regardless of what the payload says (see todo.md's P0 trust item).
         useGraphStore.getState().loadGraph(shared.nodes, shared.edges, {
           graphData: shared.graphData,
           graphs: shared.graphs,
           activeGraphId: shared.activeGraphId,
+          trusted: false,
         })
-        useProjectStore.getState().saveCurrentWorkspace(shared)
+        useProjectStore.getState().saveCurrentWorkspace({ ...shared, trusted: false })
         useGraphStore.temporal.getState().clear()
         clearShareHash()
         useUiStore.getState().setStatus('Share link opened', 'success')
+        void promptTrustIfNeeded()
         return
       }
       await useProjectStore.getState().refreshFromDisk()
@@ -109,8 +115,8 @@ export default function App() {
           blankWorkspace(),
         )
       if (!current) return
-      const { nodes, edges, graphData, graphs, activeGraphId } = current.workspace
-      useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId })
+      const { nodes, edges, graphData, graphs, activeGraphId, trusted } = current.workspace
+      useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, trusted })
       useGraphStore.temporal.getState().clear()
     }
     void init()
@@ -326,6 +332,7 @@ export default function App() {
   return (
     <div className={`${styles.app} ${stageMode ? styles.appStage : ''} ${performanceMode ? styles.appPerformance : ''}`}>
       <div className={styles.menuShell}><MenuBar /></div>
+      {!stageMode && <TrustBanner />}
       <div className={`${styles.workspace} ${stageMode ? styles.workspaceStage : ''}`}>
         <div className={styles.mainRegion}>
           <div className={`${styles.sidebarDock} ${sidebarOpen ? '' : styles.sidebarDockClosed}`}>

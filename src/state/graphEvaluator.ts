@@ -9,14 +9,17 @@ import { waveSample, combineWaves } from './wave'
 import { polinePalette, hexToRgb } from './polinePalette'
 import { inputClampRange, bypassPort } from './nodeLibrary'
 import { makeShims, SHIM_NAMES } from './fastledShims'
-import { sampleNamedPalette } from './paletteCatalog'
+import { compileFormulaSource, type FormulaFn } from './formulaLang'
 import { createBeatDetectorState, denormalizeBeatParam, updateBeatDetectorFromSpectrum } from '../audio/beatDetection'
 import { denormalizeAudioFlowParam } from './audioFlowRange'
 import { SPEED_MAX, SCALE_MAX, NOISE_SPEED_MAX, NOISE_SCALE_MAX, denormRate } from './speedRange'
 import { particleRadius } from './particleScale'
+import { hsv, samplePalette } from './ledColor'
+import type { RGB, Palette, Frame } from './ledColor'
+import { evalCodeAsync, getCodeError as getCodeErrorFromSandbox, disposeCodeSandbox } from './codeSandboxRuntime'
 
-export interface RGB { r: number; g: number; b: number }
-export type Frame = RGB[][]   // row-major [y][x]
+export type { RGB, Palette, Frame }
+export { getCodeErrorFromSandbox as getCodeError }
 /** A per-pixel scalar grid, length W×H (row-major, index y*W+x), values 0–1. */
 export type Field = Float32Array
 
@@ -138,38 +141,20 @@ const prismOrientation = new Map<string, { v: number; prev: boolean }>()
 
 // Per-pixel formula closure. Args are positional and shared by CustomFormula and
 // FieldFormula: x, y, cx, cy, r, angle, t, W, H, a, b, fieldIn, then the FastLED
-// shims (sin8, cos8, …) in SHIM_NAMES order.
-type FormulaFn = (...args: unknown[]) => number
-const FORMULA_ARG_NAMES = ['x', 'y', 'cx', 'cy', 'r', 'angle', 't', 'W', 'H', 'a', 'b', 'fieldIn', ...SHIM_NAMES]
+// shims (sin8, cos8, …) in SHIM_NAMES order. Compiled by the sandboxed parser in
+// `formulaLang.ts` — not `new Function` — so untrusted formula content can't
+// reach globalThis/window/fetch/localStorage/etc; see that module for why.
+const FORMULA_VARIABLES = ['x', 'y', 'cx', 'cy', 'r', 'angle', 't', 'W', 'H', 'a', 'b', 'fieldIn'] as const
 const formulaCache = new Map<string, FormulaFn | null>()
 const fieldFormulaCache = new Map<string, FormulaFn | null>()
 
 function compileFormula(formula: string, cache: Map<string, FormulaFn | null>): FormulaFn | null {
   if (!cache.has(formula)) {
     if (cache.size > 50) cache.clear()
-    try {
-      const fn = new Function(...FORMULA_ARG_NAMES,
-        `"use strict"; const {sin,cos,abs,sqrt,pow,floor,ceil,round,min,max,PI,tan,atan2,log,exp,hypot}=Math; return (${formula});`
-      ) as FormulaFn
-      cache.set(formula, fn)
-    } catch {
-      cache.set(formula, null)
-    }
+    cache.set(formula, compileFormulaSource(formula, { variables: FORMULA_VARIABLES, callableVariables: SHIM_NAMES }))
   }
   return cache.get(formula) ?? null
 }
-
-// Code node: compiled JS bodies (transpiled from pasted C++) keyed by source,
-// plus a persistent flat leds[] per node-instance so fade-trails accumulate
-// across frames the way FastLED's global leds[] does.
-type CodeFn = (leds: RGB[], NUM_LEDS: number, WIDTH: number, HEIGHT: number, t: number, shim: Record<string, unknown>) => void
-const codeCache = new Map<string, CodeFn | null>()
-const codeLeds = new Map<string, RGB[]>()
-// Compile error per source (cacheKey) and the latest error per node-instance
-// (compile or runtime), surfaced on the node so a failing paste isn't a silent
-// freeze. Cleared the moment a frame runs cleanly.
-const codeCompileError = new Map<string, string>()
-const codeError = new Map<string, string>()
 
 // ── Frame / field buffer pool ─────────────────────────────────────────────────
 // Per-pass frame and field outputs are drawn from a recycling pool instead of
@@ -180,7 +165,7 @@ const codeError = new Map<string, string>()
 // frame within its own pass — or compares consecutive passes — never sees a
 // recycled buffer. The only cross-pass retainer is previewStore, which copies
 // frames into its own buffers at publish time. Persistent per-node state
-// (trailState, sparkState, codeLeds, …) must NOT store pooled buffers.
+// (trailState, sparkState, …) must NOT store pooled buffers.
 const framePoolFree = new Map<string, Frame[]>()
 const fieldPoolFree = new Map<number, Field[]>()
 let poolPrev: { frames: Frame[]; fields: Field[] } = { frames: [], fields: [] }
@@ -332,12 +317,12 @@ export function pruneEvaluatorState(maxIdleMs = STATE_IDLE_TTL_MS, now = stateCl
     envState, trailState, fftLevels, beatLevels, clockState, fireRngState,
     percussionLevels, audioFeatureLevels, particleState, patternShowState,
     rdState, golState, waveSimState, flowState, starState, boidState, sparkState, fire2012Heat,
-    codeLeds, codeError,
     kickShockState, kaleidoPunch, percussionBlobsState, emberBurst,
     rainRipplesState, prismOrientation,
   ]
   for (const key of stale) {
     for (const map of maps) map.delete(key)
+    disposeCodeSandbox(key)   // Code-node worker (if any) lives outside these Maps
     stateLastUsed.delete(key)
   }
   return stale.length
@@ -350,12 +335,8 @@ function maybePruneEvaluatorState(): void {
   lastStatePrune = now
 }
 
-/** Latest Code-node error (compile or runtime) for a node, or null if clean. */
-export function getCodeError(stateKey: string): string | null {
-  return codeError.get(stateKey) ?? null
-}
-
-const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e))
+// getCodeError is re-exported above from ./codeSandboxRuntime, which now owns
+// the Code-node error state (it's the module writing to it).
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value))
@@ -410,21 +391,8 @@ function _snoise2(x: number, y: number): number {
 }
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
-function hsv(h: number, s: number, v: number): RGB {
-  h = ((h % 360) + 360) % 360
-  const c = v * s
-  const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
-  const m = v - c
-  let r = 0, g = 0, b = 0
-  if      (h < 60)  { r = c; g = x }
-  else if (h < 120) { r = x; g = c }
-  else if (h < 180) { g = c; b = x }
-  else if (h < 240) { g = x; b = c }
-  else if (h < 300) { r = x; b = c }
-  else              { r = c; b = x }
-  return { r: byte(r + m), g: byte(g + m), b: byte(b + m) }
-}
-
+// hsv/samplePalette/palAt/CRGB_CONSTANTS/CODE_PALETTES/CLOUD_STOPS live in
+// `./ledColor` (imported above) — shared with the Code-node sandbox worker.
 function byte(v: number): number { return Math.max(0, Math.min(255, Math.round(v * 255))) }
 
 // Approximate black-body white point for a colour temperature in Kelvin
@@ -1442,28 +1410,6 @@ function blendBeatFlash(
       }
     })
   )
-}
-
-/** A palette is either a named preset or an ordered list of custom colors. */
-export type Palette = string | RGB[]
-
-function samplePalette(palette: Palette, t: number): RGB {
-  const h = ((t % 1) + 1) % 1
-  if (Array.isArray(palette)) {
-    const stops = palette
-    if (stops.length === 0) return { r: 0, g: 0, b: 0 }
-    if (stops.length === 1) return { ...stops[0] }
-    const scaled = h * (stops.length - 1)
-    const i = Math.floor(scaled)
-    const f = scaled - i
-    const a = stops[i], b = stops[Math.min(stops.length - 1, i + 1)]
-    return {
-      r: Math.round(a.r * (1 - f) + b.r * f),
-      g: Math.round(a.g * (1 - f) + b.g * f),
-      b: Math.round(a.b * (1 - f) + b.b * f),
-    }
-  }
-  return sampleNamedPalette(palette, h) ?? hsv(h * 360, 1, 1)
 }
 
 // ── New audio-reactive patterns ───────────────────────────────────────────
@@ -3268,197 +3214,11 @@ function evalFieldToFrame(field: Field | null, palette: Palette, brightness: num
 }
 
 // ── Code node ─────────────────────────────────────────────────────────────────
-// Lightweight, best-effort C++→JS transpile so pasted FastLED loop bodies can be
-// approximated in the live preview. Strips C++ type keywords from declarations
-// and rewrites leds[] writes to shim calls (JS can't overload |=). The pasted
-// text is still emitted verbatim into the firmware. See
-// docs/development/design/code-node.md for the rules and known divergences.
-const FN_RET_TYPES = 'void|uint8_t|uint16_t|uint32_t|int8_t|int16_t|int|long|float|double|bool|byte|CRGB|CHSV|fract8|fract16|accum88'
-
-// `fract8 chance, uint8_t x` → `chance, x` (keep the last token of each arg).
-function stripArgTypes(args: string): string {
-  return args.split(',').map((a) => a.trim()).filter(Boolean)
-    .map((a) => (a.split(/\s+/).pop() ?? a).replace(/[*&]/g, ''))
-    .join(', ')
-}
-
-function transpileCode(code: string): string {
-  return code
-    // Drop C++ storage qualifiers JS doesn't have (`static uint8_t x` → `x`).
-    .replace(/\bstatic\s+/g, '')
-    // C++ function definition → JS function (strip return type and arg types).
-    // Runs before the declaration rule so `CRGB foo(...) {` isn't mangled.
-    .replace(new RegExp(`\\b(?:${FN_RET_TYPES})\\s+(\\w+)\\s*\\(([^)]*)\\)\\s*\\{`, 'g'),
-      (_m, name, args) => `function ${name}(${stripArgTypes(args)}) {`)
-    // A C++ type keyword introducing a local (declaration position only —
-    // followed by an identifier). Casts like `(uint8_t)x` have `)` after the
-    // keyword, so they're left untouched.
-    .replace(/\b(?:uint8_t|uint16_t|uint32_t|int8_t|int16_t|int|long|float|double|bool|byte|CRGBPalette16|CRGBPalette256|TBlendType)\s+(?=[A-Za-z_])/g, 'let ')
-    // Named colour constants: `CRGB::Red` (invalid JS `::`) → crgbConst('Red').
-    .replace(/\b(?:CRGB|CHSV)::(\w+)/g, "crgbConst('$1')")
-    // leds[i] |= rgb  → additive blend; leds[i] = rgb → overwrite. |= first.
-    .replace(/leds\s*\[([^\]]*)\]\s*\|=\s*([^;]+);/g, 'addLed($1, $2);')
-    .replace(/leds\s*\[([^\]]*)\]\s*=\s*([^;]+);/g, 'setLed($1, $2);')
-}
-
-// FastLED vocabulary the transpiled body runs against. Closures capture this
-// frame's leds[] and t, so the compiled function (cached) stays stateless.
-function makeCodeShim(leds: RGB[], t: number, W: number, H: number) {
-  const N = leds.length
-  const c8 = (v: number) => Math.max(0, Math.min(255, Math.round(v)))
-  const inRange = (i: number) => i >= 0 && i < N
-  return {
-    // Shared FastLED fixed-point shims (sin8/cos8/sin16/beatsin8/beatsin16/
-    // scale8/qadd8/qsub8) — the same module the ANIMartRIX field nodes use, so
-    // the Code node and field formulas behave identically.
-    ...makeShims(t),
-    CHSV: (h: number, s = 255, v = 255) => hsv((h / 255) * 360, s / 255, v / 255),
-    CRGB: (r: number, g: number, b: number) => ({ r: c8(r), g: c8(g), b: c8(b) }),
-    // beat8/beat16 (sawtooth ramps) aren't in the shared shim set; keep local.
-    beat8: (bpm: number) => Math.floor((t * bpm / 60) * 256) % 256,
-    beat16: (bpm: number) => Math.floor((t * bpm / 60) * 65536) % 65536,
-    random8: (lim?: number) => Math.floor(Math.random() * (lim ?? 256)),
-    random16: (lim?: number) => Math.floor(Math.random() * (lim ?? 65536)),
-    millis: () => t * 1000,
-    XY: (x: number, y: number) =>
-      Math.max(0, Math.min(H - 1, y | 0)) * W + Math.max(0, Math.min(W - 1, x | 0)),
-    addLed: (i: number, c: RGB) => {
-      i |= 0
-      if (inRange(i) && c) leds[i] = { r: Math.min(255, leds[i].r + c.r), g: Math.min(255, leds[i].g + c.g), b: Math.min(255, leds[i].b + c.b) }
-    },
-    setLed: (i: number, c: RGB) => { i |= 0; if (inRange(i) && c) leds[i] = { r: c8(c.r), g: c8(c.g), b: c8(c.b) } },
-    fadeToBlackBy: (arr: RGB[], n: number, amount: number) => {
-      const k = (255 - c8(amount)) / 255
-      const m = Math.min(n | 0, arr.length)
-      for (let i = 0; i < m; i++) arr[i] = { r: arr[i].r * k, g: arr[i].g * k, b: arr[i].b * k }
-    },
-    // Named CRGB colour constants (CRGB::Red etc., rewritten from `::` by the
-    // transpile). A small common subset; unknown names fall back to black.
-    crgbConst: (name: string): RGB => CRGB_CONSTANTS[name] ?? { r: 0, g: 0, b: 0 },
-    fill_solid: (arr: RGB[], n: number, c: RGB) => {
-      const m = Math.min(n | 0, arr.length)
-      for (let i = 0; i < m; i++) arr[i] = c ? { r: c8(c.r), g: c8(c.g), b: c8(c.b) } : { r: 0, g: 0, b: 0 }
-    },
-    fill_rainbow: (arr: RGB[], n: number, hue: number, dHue = 5) => {
-      const m = Math.min(n | 0, arr.length)
-      for (let i = 0; i < m; i++) arr[i] = hsv((((hue + i * dHue) % 256 + 256) % 256) / 255 * 360, 1, 1)
-    },
-    nblend: (a: RGB, b: RGB, amount: number) => {
-      if (!a || !b) return a
-      const k = c8(amount) / 255
-      a.r = Math.round(a.r + (b.r - a.r) * k)
-      a.g = Math.round(a.g + (b.g - a.g) * k)
-      a.b = Math.round(a.b + (b.b - a.b) * k)
-      return a
-    },
-    // ── Palettes ──────────────────────────────────────────────────────────
-    // FastLED preset palette constants → the evaluator's own palette model.
-    ...CODE_PALETTES,
-    // Blend-type enum values (ignored, but must be defined so they don't throw).
-    NOBLEND: 0, LINEARBLEND: 1, LINEARBLEND_NOWRAP: 2,
-    // CRGBPalette16(c0, c1, …) builds a stop list; from a preset token it passes
-    // it through. The declaration form (`CRGBPalette16 p = …`) is type-stripped.
-    CRGBPalette16: (...cols: unknown[]): Palette => {
-      const stops = cols.filter((c): c is RGB => !!c && typeof c === 'object' && 'r' in (c as RGB))
-      if (stops.length) return stops.map((c) => ({ r: c8(c.r), g: c8(c.g), b: c8(c.b) }))
-      if (cols.length === 1 && (typeof cols[0] === 'string' || Array.isArray(cols[0]))) return cols[0] as Palette
-      return 'rainbow'
-    },
-    // ColorFromPalette(pal, index0-255, brightness0-255) — blendType ignored.
-    ColorFromPalette: (pal: Palette, index: number, bright = 255): RGB =>
-      palAt(pal, index, bright),
-    // fill_palette(arr, n, startIndex, indexInc, pal, brightness) — blendType ignored.
-    fill_palette: (arr: RGB[], n: number, startIndex: number, indexInc: number, pal: Palette, bright = 255): void => {
-      const m = Math.min(n | 0, arr.length)
-      for (let i = 0; i < m; i++) arr[i] = palAt(pal, startIndex + i * indexInc, bright)
-    },
-  }
-}
-
-// Sample a palette at a 0–255 index, scaled by 0–255 brightness (FastLED's
-// ColorFromPalette semantics) — shared by ColorFromPalette and fill_palette.
-function palAt(pal: Palette, index: number, bright: number): RGB {
-  const c8 = (v: number) => Math.max(0, Math.min(255, Math.round(v)))
-  const c = samplePalette(pal ?? 'rainbow', ((((index | 0) % 256) + 256) % 256) / 255)
-  const k = c8(bright) / 255
-  return { r: Math.round(c.r * k), g: Math.round(c.g * k), b: Math.round(c.b * k) }
-}
-
-// Common FastLED named colours for `CRGB::<Name>` (extend as needed).
-const CRGB_CONSTANTS: Record<string, RGB> = {
-  Black: { r: 0, g: 0, b: 0 }, White: { r: 255, g: 255, b: 255 },
-  Red: { r: 255, g: 0, b: 0 }, Green: { r: 0, g: 255, b: 0 }, Blue: { r: 0, g: 0, b: 255 },
-  Yellow: { r: 255, g: 255, b: 0 }, Cyan: { r: 0, g: 255, b: 255 }, Magenta: { r: 255, g: 0, b: 255 },
-  Orange: { r: 255, g: 165, b: 0 }, Purple: { r: 128, g: 0, b: 128 }, Pink: { r: 255, g: 192, b: 203 },
-  Gold: { r: 255, g: 215, b: 0 }, Aqua: { r: 0, g: 255, b: 255 }, Lime: { r: 0, g: 255, b: 0 },
-}
-
-// FastLED preset palette constants mapped onto the evaluator's palette model
-// (named presets where samplePalette has them, RGB stops otherwise).
-const CLOUD_STOPS: RGB[] = [
-  { r: 0, g: 0, b: 255 }, { r: 0, g: 0, b: 139 }, { r: 135, g: 206, b: 235 }, { r: 255, g: 255, b: 255 },
-]
-const CODE_PALETTES: Record<string, Palette> = {
-  RainbowColors_p: 'rainbow', RainbowStripeColors_p: 'rainbow',
-  OceanColors_p: 'ocean', LavaColors_p: 'lava', ForestColors_p: 'forest',
-  PartyColors_p: 'party', HeatColors_p: 'heat', CloudColors_p: CLOUD_STOPS,
-}
-
-function evalCode(key: string, globalCode: string, code: string, seed: Frame | null, t: number, W: number, H: number): Frame {
-  // Global section runs each frame above the loop body, so helper functions and
-  // constants are in scope. (Mutable global state re-inits per frame in the
-  // preview — it persists on-device; see docs/development/design/code-node.md.)
-  const cacheKey = globalCode + ' ' + code
-  if (!codeCache.has(cacheKey)) {
-    if (codeCache.size > 50) {
-      codeCache.clear()
-      codeCompileError.clear()
-    }
-    try {
-      const body = transpileCode(globalCode) + '\n' + transpileCode(code)
-      const fn = new Function('leds', 'NUM_LEDS', 'WIDTH', 'HEIGHT', 't', 'shim',
-        '"use strict"; const { CHSV,CRGB,beatsin16,beatsin8,beat8,beat16,sin8,cos8,sin16,qadd8,qsub8,scale8,triwave8,quadwave8,cubicwave8,ease8InOutQuad,ease8InOutCubic,blend8,lerp8by8,lerp16by16,sqrt16,nscale8,random8,random16,millis,XY,addLed,setLed,fadeToBlackBy,crgbConst,fill_solid,fill_rainbow,nblend,ColorFromPalette,fill_palette,CRGBPalette16,NOBLEND,LINEARBLEND,LINEARBLEND_NOWRAP,RainbowColors_p,RainbowStripeColors_p,OceanColors_p,LavaColors_p,ForestColors_p,PartyColors_p,HeatColors_p,CloudColors_p } = shim; ' + body
-      ) as CodeFn
-      codeCache.set(cacheKey, fn)
-      codeCompileError.delete(cacheKey)
-    } catch (e) {
-      codeCache.set(cacheKey, null)
-      codeCompileError.set(cacheKey, errMsg(e))
-    }
-  }
-  const fn = codeCache.get(cacheKey)
-  const N = W * H
-
-  // Persistent leds[] per node-instance (fade-trails accumulate across frames).
-  // A wired frame input overwrites it each frame; unwired, it persists.
-  let leds = codeLeds.get(key)
-  if (!leds || leds.length !== N) {
-    leds = Array.from({ length: N }, () => ({ r: 0, g: 0, b: 0 }))
-    codeLeds.set(key, leds)
-  }
-  if (seed) {
-    for (let i = 0; i < N; i++) {
-      const px = seed[Math.floor(i / W)]?.[i % W]
-      leds[i] = px ? { ...px } : { r: 0, g: 0, b: 0 }
-    }
-  }
-  if (fn) {
-    try {
-      fn(leds, N, W, H, t, makeCodeShim(leds, t, W, H))
-      codeError.delete(key)   // ran cleanly — clear any prior error
-    } catch (e) {
-      // Keep the last good leds and surface the error; the loop keeps running so
-      // it recovers automatically once the code (or its state) stops throwing.
-      codeError.set(key, errMsg(e))
-    }
-  } else {
-    codeError.set(key, codeCompileError.get(cacheKey) ?? 'compile error')
-  }
-  return buildFrame(W, H, (x, y) => {
-      const px = leds![y * W + x]
-      return { r: Math.max(0, Math.min(255, Math.round(px.r))), g: Math.max(0, Math.min(255, Math.round(px.g))), b: Math.max(0, Math.min(255, Math.round(px.b))) }
-    })
-}
+// The Code node's transpile + compile + execute pipeline now lives in
+// `codeSandboxRuntime.ts` (main-thread controller) and `codeSandbox.worker.ts`
+// (the sandboxed Worker that actually runs the transpiled body) — see those
+// files, and docs/development/design/code-node.md for the transpile rules.
+// `evalCodeAsync`/`getCodeError`/`disposeCodeSandbox` are imported above.
 
 // Distance from each pixel to a movable point (px,py in normalised 0–1 space).
 // Output is 0 at the point, rising to 1; `scale` (≥1) stretches the ramp so it
@@ -3627,6 +3387,10 @@ function createEvalNode(
   // Prebuilt lookup maps for callers that create many evaluators over the same
   // graph (e.g. sampling a scope across a tick series) — see buildEvalMaps.
   shared: EvalMaps | null = null,
+  // Whether CustomFormula/FieldFormula/Code nodes may evaluate their preview
+  // logic (todo.md's P0 trust-boundary item) — appended last so every existing
+  // positional call site keeps working unchanged, defaulting to trusted.
+  trusted = true,
 ) {
   const t = tick / 60   // seconds at assumed 60 fps
 
@@ -5199,7 +4963,9 @@ function createEvalNode(
         const b = num(id, 'b', props, 'b', 0)
         const formula = String(props.formula ?? 'sin(x*6+t)*0.5+0.5')
         const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-        out = { frame: evalCustomFormula(formula, a, b, palette, t, W, H) }
+        // Untrusted content doesn't get to run its formula — same blank-frame
+        // fallback a compile failure already uses (todo.md's P0 trust item).
+        out = { frame: trusted ? evalCustomFormula(formula, a, b, palette, t, W, H) : blankFrame(W, H) }
         break
       }
 
@@ -5210,7 +4976,7 @@ function createEvalNode(
         const fin = input(id, 'fieldIn', null)
         const fieldIn = fin instanceof Float32Array ? fin : null
         const formula = String(props.formula ?? 'sin8(r*200 + t*60)/255')
-        out = { field: evalFieldFormula(formula, a, b, fieldIn, t, W, H) }
+        out = { field: trusted ? evalFieldFormula(formula, a, b, fieldIn, t, W, H) : allocField(W * H) }
         break
       }
 
@@ -5314,7 +5080,9 @@ function createEvalNode(
         const seed = input(id, 'frame', null) as Frame | null
         const code = String(props.code ?? '')
         const globalCode = String(props.globalCode ?? '')
-        out = { frame: evalCode(stateKey(id), globalCode, code, seed, t, W, H) }
+        // Untrusted content doesn't get to run its code — same blank-frame
+        // fallback a compile failure already uses (todo.md's P0 trust item).
+        out = { frame: trusted ? evalCodeAsync(stateKey(id), globalCode, code, seed, t, W, H) : blankFrame(W, H) }
         break
       }
 
@@ -5642,10 +5410,14 @@ export function evaluateGraph(
   groupStack: ReadonlySet<string> = new Set(),
   groupInputs: Record<string, PortValue> = {},
   audioOverride: AudioOverride | null = null,
+  // Whether CustomFormula/FieldFormula/Code nodes may evaluate their preview
+  // logic — appended last so existing positional callers keep working
+  // unchanged, defaulting to trusted (todo.md's P0 trust-boundary item).
+  trusted = true,
 ): Frame | null {
   maybePruneEvaluatorState()
   if (nodes.length === 0) return null
-  const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, groups, instancePrefix, groupStack, groupInputs, audioOverride)
+  const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, groups, instancePrefix, groupStack, groupInputs, audioOverride, null, trusted)
   // Render only what reaches an explicit terminal: a GroupOutput inside a group
   // subgraph, or a MatrixOutput at the root, each passing through its `frame`
   // input. A graph with no terminal previews nothing — the canvas falls back to
@@ -5768,12 +5540,16 @@ export function evaluateGraphFull(
   gridH = DEFAULT_H,
   groups: GroupRegistry = {},
   auxNodes = true,
+  // Whether CustomFormula/FieldFormula/Code nodes may evaluate their preview
+  // logic — appended last so existing positional callers keep working
+  // unchanged, defaulting to trusted (todo.md's P0 trust-boundary item).
+  trusted = true,
 ): { frame: Frame | null; outputs: Map<string, Record<string, unknown>> } {
   maybePruneEvaluatorState()
   advanceFramePool()
   const outputs = new Map<string, Record<string, unknown>>()
   if (nodes.length === 0) return { frame: null, outputs }
-  const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, groups, '', new Set(), {})
+  const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, groups, '', new Set(), {}, null, null, trusted)
   const hot = auxNodes ? null : hotNodeIds(nodes, edges)
   for (const n of nodes) {
     if (hot && !hot.has(n.id)) continue

@@ -19,6 +19,7 @@ import {
 import { openProjectDialog, saveProjectWithDialog } from '../../utils/backendClient'
 import { runTidy } from '../../utils/tidyGraph'
 import { buildShareUrl } from '../../utils/shareGraph'
+import { promptTrustIfNeeded } from '../../utils/trustPrompt'
 import { DevPerformanceHudToggle } from '../Preview/DevPerformanceHud'
 import { isDiffusedStyle, previewStyleLabel } from '../Preview/previewStyles'
 import styles from './MenuBar.module.css'
@@ -191,8 +192,8 @@ export default function MenuBar() {
     }
     const next = useProjectStore.getState().switchProject(projectId)
     if (!next) return false
-    const { nodes, edges, graphData, graphs, activeGraphId } = next.workspace
-    useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId })
+    const { nodes, edges, graphData, graphs, activeGraphId, trusted } = next.workspace
+    useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, trusted })
     useGraphStore.temporal.getState().clear()
     setStatus(`Opened project "${next.name}"`, 'success')
     return true
@@ -248,10 +249,11 @@ export default function MenuBar() {
       useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
     }
     const opened = useProjectStore.getState().upsertProject(project)
-    const { nodes, edges, graphData, graphs, activeGraphId } = opened.workspace
-    useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId })
+    const { nodes, edges, graphData, graphs, activeGraphId, trusted } = opened.workspace
+    useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, trusted })
     useGraphStore.temporal.getState().clear()
     setStatus(`Opened project "${opened.name}"`, 'success')
+    void promptTrustIfNeeded()
     return true
   }
 
@@ -388,9 +390,12 @@ export default function MenuBar() {
         try {
           const { nodes, edges, graphData, graphs, activeGraphId } = JSON.parse(ev.target?.result as string) as
             { nodes: StudioNode[]; edges: StudioEdge[] } & WorkspaceExtras
-          useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId })
+          // Never trust an imported file's own `trusted` claim — force it
+          // false regardless of what the JSON says (todo.md's P0 trust item).
+          useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, trusted: false })
           useGraphStore.temporal.getState().clear()
           setStatus('Graph JSON imported', 'success')
+          void promptTrustIfNeeded()
         } catch {
           setStatus('Failed to import Graph JSON — invalid file', 'error')
         }
