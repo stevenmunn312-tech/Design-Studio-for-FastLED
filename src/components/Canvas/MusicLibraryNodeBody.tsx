@@ -2,12 +2,14 @@ import { useRef } from 'react'
 import { useMusicStore } from '../../state/musicStore'
 import { useGraphStore } from '../../state/graphStore'
 import { performanceOptionsFromProperties } from '../../codegen/performanceGenerator'
+import { shouldConsumeWheel } from './wheelBehavior'
 import styles from './MusicLibraryNodeBody.module.css'
 
 // The full Music Library UI, embedded directly in the MusicLibrary canvas node
 // (drop MP3s → analyse → export). Interactive controls carry `nodrag` so React
-// Flow doesn't pan/drag the node while you use them, and the scrollable song
-// list carries `nowheel` so wheeling it doesn't zoom the canvas.
+// Flow doesn't pan/drag the node while you use them. The song list keeps wheel
+// input for itself only while it can actually scroll; otherwise the canvas can
+// still zoom under the pointer.
 
 const STATUS_LABEL: Record<string, string> = {
   pending:   'Pending',
@@ -45,6 +47,10 @@ export default function MusicLibraryNodeBody({ nodeId }: { nodeId: string }) {
     handleFiles(e.dataTransfer.files)
   }
 
+  function handleSongListWheel(e: React.WheelEvent<HTMLDivElement>) {
+    if (shouldConsumeWheel(e.currentTarget, e.deltaY)) e.stopPropagation()
+  }
+
   return (
     <div className={`nodrag ${styles.wrap}`}>
       {/* Drop zone */}
@@ -68,7 +74,7 @@ export default function MusicLibraryNodeBody({ nodeId }: { nodeId: string }) {
 
       {/* Song list */}
       {entries.length > 0 && (
-        <div className={`nowheel ${styles.songList}`}>
+        <div className={styles.songList} onWheelCapture={handleSongListWheel}>
           {entries.map(entry => (
             <div key={entry.id} className={styles.songRow}>
               <div className={styles.songInfo}>
