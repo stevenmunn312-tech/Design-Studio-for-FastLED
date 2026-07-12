@@ -20,6 +20,7 @@ export interface SavedProject {
 interface PersistedState {
   currentProjectId: string
   projects: SavedProject[]
+  recentProjectIds: string[]
 }
 
 interface PersistedCurrentWorkspace {
@@ -34,6 +35,7 @@ interface PersistedCurrentWorkspace {
 interface ProjectState {
   projects: SavedProject[]
   currentProjectId: string
+  recentProjectIds: string[]
   createProject: (name: string, workspace?: PersistedWorkspace, options?: { uploadTarget?: ProjectUploadTarget }) => SavedProject
   upsertProject: (project: SavedProject) => SavedProject
   renameProject: (id: string, name: string) => void
@@ -49,6 +51,7 @@ const CURRENT_PROJECT_KEY = 'fastled-studio.current-project.v1'
 const CURRENT_WORKSPACE_KEY = 'fastled-studio.current-workspace.v1'
 const LEGACY_AUTOSAVE_KEY = 'fastled-studio-graph'
 const DISK_SYNC = !import.meta.env.VITEST
+const RECENT_PROJECT_LIMIT = 6
 
 function trimName(name: string): string {
   return name.trim().slice(0, 80)
@@ -173,6 +176,62 @@ function normalizeProject(project: SavedProject): SavedProject {
   }
 }
 
+function sanitizeRecentProjectIds(
+  recentProjectIds: readonly string[],
+  validIds: Set<string>,
+  currentProjectId: string | null,
+): string[] {
+  const recent: string[] = []
+  for (const entry of recentProjectIds) {
+    if (entry === currentProjectId) continue
+    if (!validIds.has(entry)) continue
+    if (recent.includes(entry)) continue
+    recent.push(entry)
+    if (recent.length >= RECENT_PROJECT_LIMIT) break
+  }
+  return recent
+}
+
+function normalizeRecentProjectIds(
+  value: unknown,
+  projects: SavedProject[],
+  currentProjectId: string | null,
+): string[] {
+  if (!Array.isArray(value)) return []
+  return sanitizeRecentProjectIds(
+    value.filter((entry): entry is string => typeof entry === 'string'),
+    new Set(projects.map((project) => project.id)),
+    currentProjectId,
+  )
+}
+
+function rememberRecentProject(
+  recentProjectIds: string[],
+  projectId: string,
+  validIds: Set<string>,
+  currentProjectId?: string,
+): string[] {
+  if (!projectId || !validIds.has(projectId)) {
+    return sanitizeRecentProjectIds(recentProjectIds, validIds, currentProjectId ?? null)
+  }
+  const next = sanitizeRecentProjectIds(recentProjectIds, validIds, currentProjectId ?? null)
+    .filter((entry) => entry !== projectId)
+  return [projectId, ...next].slice(0, RECENT_PROJECT_LIMIT)
+}
+
+function buildState(
+  projects: SavedProject[],
+  currentProjectId: string,
+  recentProjectIds: string[],
+): PersistedState {
+  const validIds = new Set(projects.map((project) => project.id))
+  return {
+    currentProjectId,
+    projects,
+    recentProjectIds: sanitizeRecentProjectIds(recentProjectIds, validIds, currentProjectId),
+  }
+}
+
 function normalizeState(parsed: Partial<PersistedState> | null | undefined): PersistedState {
   const currentWorkspace = loadCurrentWorkspaceSnapshot()
   const rawProjects = Array.isArray(parsed?.projects) ? parsed.projects : []
@@ -210,14 +269,15 @@ function normalizeState(parsed: Partial<PersistedState> | null | undefined): Per
   if (projectsWithSnapshot.length === 0) {
     persistCurrentProjectHint('')
     persistCurrentWorkspaceSnapshot(undefined)
-    return { currentProjectId: '', projects: [] }
+    return { currentProjectId: '', projects: [], recentProjectIds: [] }
   }
   const currentProjectId = projectsWithSnapshot.some((project) => project.id === preferredProjectId)
     ? String(preferredProjectId)
     : projectsWithSnapshot[0].id
+  const recentProjectIds = normalizeRecentProjectIds(parsed?.recentProjectIds, projectsWithSnapshot, currentProjectId)
   persistCurrentProjectHint(currentProjectId)
   persistCurrentWorkspaceSnapshot(projectsWithSnapshot.find((project) => project.id === currentProjectId))
-  return { currentProjectId, projects: projectsWithSnapshot }
+  return { currentProjectId, projects: projectsWithSnapshot, recentProjectIds }
 }
 
 function load(): PersistedState {
@@ -247,6 +307,7 @@ function persist(state: PersistedState) {
     localStorage.setItem(KEY, JSON.stringify({
       currentProjectId: state.currentProjectId,
       projects: state.projects,
+      recentProjectIds: state.recentProjectIds,
     }))
   } catch {
     // Keep the in-memory copy when storage is unavailable or full.
@@ -258,12 +319,19 @@ const initial = load()
 export const useProjectStore = create<ProjectState>((set, get) => ({
   projects: initial.projects,
   currentProjectId: initial.currentProjectId,
+  recentProjectIds: initial.recentProjectIds,
 
   createProject: (name, workspace = blankWorkspace(), options) => {
     const state = get()
     const project = makeProject(uniqueProjectName(state.projects, name), workspace, options?.uploadTarget)
     const projects = sortProjects([project, ...state.projects])
-    const next = { currentProjectId: project.id, projects }
+    const next = buildState(
+      projects,
+      project.id,
+      state.currentProjectId
+        ? rememberRecentProject(state.recentProjectIds, state.currentProjectId, new Set(projects.map((entry) => entry.id)), project.id)
+        : state.recentProjectIds,
+    )
     persist(next)
     set(next)
     if (DISK_SYNC) void saveProjectToDisk(project)
@@ -277,7 +345,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       normalized,
       ...state.projects.filter((entry) => entry.id !== normalized.id),
     ])
-    const next = { currentProjectId: normalized.id, projects }
+    const validIds = new Set(projects.map((entry) => entry.id))
+    const recentProjectIds = state.currentProjectId && state.currentProjectId !== normalized.id
+      ? rememberRecentProject(state.recentProjectIds, state.currentProjectId, validIds, normalized.id)
+      : normalizeRecentProjectIds(state.recentProjectIds, projects, normalized.id)
+    const next = buildState(projects, normalized.id, recentProjectIds)
     persist(next)
     set(next)
     if (DISK_SYNC) void saveProjectToDisk(normalized)
@@ -290,7 +362,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const state = get()
     const projects = state.projects.map((project) =>
       project.id === id ? { ...project, name: nextName, updatedAt: Date.now() } : project)
-    const next = { currentProjectId: state.currentProjectId, projects: sortProjects(projects) }
+    const next = buildState(sortProjects(projects), state.currentProjectId, state.recentProjectIds)
     persist(next)
     set(next)
     const renamed = next.projects.find((project) => project.id === id)
@@ -303,7 +375,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const currentProjectId = state.currentProjectId === id
       ? (projects[0]?.id ?? '')
       : state.currentProjectId
-    const next = { currentProjectId, projects }
+    const next = buildState(projects, currentProjectId, state.recentProjectIds.filter((entry) => entry !== id))
     persist(next)
     set(next)
     if (DISK_SYNC) void deleteProjectFromDisk(id)
@@ -311,11 +383,16 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   switchProject: (id) => {
-    const project = get().projects.find((entry) => entry.id === id) ?? null
+    const state = get()
+    const project = state.projects.find((entry) => entry.id === id) ?? null
     if (!project) return null
-    const next = { currentProjectId: id, projects: get().projects }
+    const validIds = new Set(state.projects.map((entry) => entry.id))
+    const recentProjectIds = state.currentProjectId && state.currentProjectId !== id
+      ? rememberRecentProject(state.recentProjectIds, state.currentProjectId, validIds, id)
+      : normalizeRecentProjectIds(state.recentProjectIds, state.projects, id)
+    const next = buildState(state.projects, id, recentProjectIds)
     persist(next)
-    set({ currentProjectId: id })
+    set({ currentProjectId: id, recentProjectIds: next.recentProjectIds })
     return project
   },
 
@@ -325,7 +402,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const snapshot = cloneWorkspace(workspace)
     const projects = state.projects.map((project) =>
       project.id === state.currentProjectId ? { ...project, workspace: snapshot, updatedAt: now } : project)
-    const next = { currentProjectId: state.currentProjectId, projects: sortProjects(projects) }
+    const next = buildState(sortProjects(projects), state.currentProjectId, state.recentProjectIds)
     persist(next)
     set({ projects: next.projects })
     const current = next.projects.find((project) => project.id === next.currentProjectId)
@@ -341,7 +418,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const now = Date.now()
     const projects = state.projects.map((project) =>
       project.id === projectId ? { ...project, uploadTarget: normalized, updatedAt: now } : project)
-    const next = { currentProjectId: state.currentProjectId, projects: sortProjects(projects) }
+    const next = buildState(sortProjects(projects), state.currentProjectId, state.recentProjectIds)
     persist(next)
     set({ projects: next.projects })
     const updated = next.projects.find((project) => project.id === projectId)
@@ -372,7 +449,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const currentProjectId = projects.some((project) => project.id === preferredProjectId)
       ? preferredProjectId
       : (projects[0]?.id ?? '')
-    const next = { currentProjectId, projects }
+    const next = buildState(projects, currentProjectId, state.recentProjectIds)
     persist(next)
     set(next)
   },

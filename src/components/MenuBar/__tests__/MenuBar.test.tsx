@@ -46,8 +46,11 @@ function mockSavePicker(filename: string, onWrite?: (data: string) => void) {
 
 describe('MenuBar file menu', () => {
   beforeEach(() => {
+    vi.restoreAllMocks()
     localStorage.clear()
+    useProjectStore.setState({ projects: [], currentProjectId: '', recentProjectIds: [] })
     useGraphStore.setState({ nodes: [], edges: [], selectedNodeId: null, graphData: {}, graphs: { root: { id: 'root', name: 'Main' } }, activeGraphId: 'root' })
+    useGraphStore.temporal.getState().clear()
     useUiStore.setState({
       helpOpen: false,
       recoverOpen: false,
@@ -68,15 +71,15 @@ describe('MenuBar file menu', () => {
     })
     useAudioStore.setState({ micActive: false, active: false })
     useShowPlayback.setState({ playing: false, nodeId: null, show: null, posMs: 0, useGroupInputs: false })
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
     delete (window as Window & { showOpenFilePicker?: unknown }).showOpenFilePicker
     delete (window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker
-    vi.restoreAllMocks()
   })
 
   it('shows a File dropdown with project actions and recents', () => {
     const alpha = project('alpha', 'alpha', 'alpha-node', 200)
     const pg = project('pg', 'pg', 'pg-node', 100)
-    useProjectStore.setState({ projects: [alpha, pg], currentProjectId: alpha.id })
+    useProjectStore.setState({ projects: [alpha, pg], currentProjectId: alpha.id, recentProjectIds: [] })
 
     const { getByRole, getByText } = render(<MenuBar />)
     fireEvent.click(getByRole('button', { name: 'File menu' }))
@@ -86,13 +89,13 @@ describe('MenuBar file menu', () => {
     expect(getByText('Open Project…')).toBeTruthy()
     expect(getByText('Save As…')).toBeTruthy()
     expect(getByText('Recent Projects')).toBeTruthy()
-    expect(getByText('pg')).toBeTruthy()
+    expect(getByText('No recent projects yet')).toBeTruthy()
   })
 
   it('opens a recent project directly from the File menu', () => {
     const alpha = project('alpha', 'alpha', 'alpha-node', 200)
     const pg = project('pg', 'pg', 'pg-node', 100)
-    useProjectStore.setState({ projects: [alpha, pg], currentProjectId: alpha.id })
+    useProjectStore.setState({ projects: [alpha, pg], currentProjectId: alpha.id, recentProjectIds: [pg.id] })
     useGraphStore.setState({
       nodes: [{
         id: 'scratch',
@@ -113,6 +116,7 @@ describe('MenuBar file menu', () => {
     expect(useProjectStore.getState().currentProjectId).toBe(pg.id)
     expect(useGraphStore.getState().nodes.map((node) => node.id)).toEqual(['pg-node'])
     expect(useProjectStore.getState().projects.find((entry) => entry.id === alpha.id)?.workspace.nodes.map((node) => node.id)).toEqual(['scratch'])
+    expect(useProjectStore.getState().recentProjectIds).toEqual([alpha.id])
   })
 
   it('creates a default New Project through the save dialog when no project is open', async () => {

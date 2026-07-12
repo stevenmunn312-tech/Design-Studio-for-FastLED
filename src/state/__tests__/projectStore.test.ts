@@ -30,6 +30,7 @@ describe('projectStore', () => {
     const state = useProjectStore.getState()
     expect(state.projects).toHaveLength(0)
     expect(state.currentProjectId).toBe('')
+    expect(state.recentProjectIds).toEqual([])
   })
 
   it('never mints a project from the legacy single-workspace autosave slot, and clears it', async () => {
@@ -75,10 +76,12 @@ describe('projectStore', () => {
   it('creates, renames, switches, and deletes projects', async () => {
     const { useProjectStore } = await freshStore()
     const main = useProjectStore.getState().createProject('Main', workspace(['main']))
+    expect(useProjectStore.getState().recentProjectIds).toEqual([])
 
     const showA = useProjectStore.getState().createProject('Show A', workspace(['a']))
     expect(useProjectStore.getState().currentProjectId).toBe(showA.id)
     expect(useProjectStore.getState().projects.some((project) => project.id === showA.id)).toBe(true)
+    expect(useProjectStore.getState().recentProjectIds).toEqual([main.id])
 
     useProjectStore.getState().renameProject(showA.id, 'Show Alpha')
     expect(useProjectStore.getState().projects.find((project) => project.id === showA.id)?.name).toBe('Show Alpha')
@@ -86,11 +89,13 @@ describe('projectStore', () => {
     const switched = useProjectStore.getState().switchProject(main.id)
     expect(switched?.id).toBe(main.id)
     expect(useProjectStore.getState().currentProjectId).toBe(main.id)
+    expect(useProjectStore.getState().recentProjectIds).toEqual([showA.id])
 
     const nextActive = useProjectStore.getState().deleteProject(main.id)
     expect(useProjectStore.getState().projects).toHaveLength(1)
     expect(nextActive?.id).toBe(showA.id)
     expect(useProjectStore.getState().currentProjectId).toBe(showA.id)
+    expect(useProjectStore.getState().recentProjectIds).toEqual([])
   })
 
   it('upserts an explicitly opened project by id and makes it current', async () => {
@@ -111,6 +116,7 @@ describe('projectStore', () => {
     expect(useProjectStore.getState().currentProjectId).toBe(alpha.id)
     expect(useProjectStore.getState().projects.find((project) => project.id === alpha.id)?.name).toBe('pg')
     expect(useProjectStore.getState().projects.find((project) => project.id === alpha.id)?.workspace.nodes.map((entry) => entry.id)).toEqual(['pg'])
+    expect(useProjectStore.getState().recentProjectIds).toEqual([])
   })
 
   it('deleting the last project leaves the workspace empty instead of minting a replacement', async () => {
@@ -121,6 +127,7 @@ describe('projectStore', () => {
     expect(nextActive).toBeNull()
     expect(useProjectStore.getState().projects).toHaveLength(0)
     expect(useProjectStore.getState().currentProjectId).toBe('')
+    expect(useProjectStore.getState().recentProjectIds).toEqual([])
 
     // A reload must not resurrect it from the current-workspace snapshot either.
     const reloaded = await freshStore()
@@ -238,5 +245,43 @@ describe('projectStore', () => {
     const { useProjectStore } = await freshStore()
     expect(useProjectStore.getState().projects).toHaveLength(0)
     expect(useProjectStore.getState().currentProjectId).toBe('')
+  })
+
+  it('clears legacy derived recents by starting the dedicated history empty', async () => {
+    const alpha = {
+      id: 'alpha',
+      name: 'Alpha',
+      createdAt: 100,
+      updatedAt: 200,
+      workspace: workspace(['alpha']),
+    }
+    const pg = {
+      id: 'pg',
+      name: 'pg',
+      createdAt: 300,
+      updatedAt: 400,
+      workspace: workspace(['pg']),
+    }
+
+    localStorage.setItem('fastled-studio.projects.v1', JSON.stringify({
+      currentProjectId: alpha.id,
+      projects: [alpha, pg],
+    }))
+
+    const { useProjectStore } = await freshStore()
+    expect(useProjectStore.getState().currentProjectId).toBe(alpha.id)
+    expect(useProjectStore.getState().recentProjectIds).toEqual([])
+  })
+
+  it('tracks recent history separately from the saved project list', async () => {
+    const { useProjectStore } = await freshStore()
+    const alpha = useProjectStore.getState().createProject('Alpha', workspace(['alpha']))
+    const pg = useProjectStore.getState().createProject('pg', workspace(['pg']))
+    const beta = useProjectStore.getState().createProject('Beta', workspace(['beta']))
+
+    expect(useProjectStore.getState().recentProjectIds).toEqual([pg.id, alpha.id])
+
+    useProjectStore.getState().switchProject(alpha.id)
+    expect(useProjectStore.getState().recentProjectIds).toEqual([beta.id, pg.id])
   })
 })

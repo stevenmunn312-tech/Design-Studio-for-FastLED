@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import { useGraphStore, useTemporalStore } from '../../state/graphStore'
 import { useAudioStore } from '../../state/audioStore'
@@ -69,12 +69,11 @@ export default function MenuBar() {
   const { undo, redo, pastStates, futureStates } = useTemporalStore((s) => s)
   const currentProjectId = useProjectStore((s) => s.currentProjectId)
   const projects = useProjectStore((s) => s.projects)
+  const recentProjectIds = useProjectStore((s) => s.recentProjectIds)
   const currentProject = projects.find((project) => project.id === currentProjectId) ?? projects[0]
-  const sortedProjects = useMemo(
-    () => [...projects].sort((a, b) => b.updatedAt - a.updatedAt || b.createdAt - a.createdAt),
-    [projects],
-  )
-  const recentProjects = sortedProjects.filter((project) => project.id !== currentProjectId).slice(0, 6)
+  const recentProjects = recentProjectIds
+    .map((projectId) => projects.find((project) => project.id === projectId))
+    .filter((project): project is NonNullable<typeof project> => !!project)
   const canUndo = pastStates.length > 0
   const canRedo = futureStates.length > 0
   const effectiveReducedMotion = reducedMotion || !uiEffectsEnabled
