@@ -12,7 +12,7 @@ describe('generateProvisionerSketch', () => {
 
   it('implements the PUT/END control protocol', () => {
     const ino = generateProvisionerSketch()
-    expect(ino).toContain('#define SD_CS  5')              // default pin
+    expect(ino).toContain('#define SD_CS  10')             // default pin
     expect(ino).toContain('Serial.println("READY")')        // boot handshake
     expect(ino).toContain('line == "PING"')                 // re-probe handshake
     expect(ino).toContain('line.startsWith("PUT ")')        // file command
@@ -42,7 +42,7 @@ describe('playerConfigFromGraph', () => {
     const cfg = playerConfigFromGraph([])
     expect(cfg.ledWidth).toBe(16)
     expect(cfg.chipset).toBe('WS2812B')
-    expect(cfg.sdCsPin).toBe(5)
+    expect(cfg.sdCsPin).toBe(10)
     expect(cfg.maxVolume).toBe(18)
   })
 })

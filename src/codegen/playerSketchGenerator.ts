@@ -35,7 +35,8 @@ const DEFAULTS: PlayerConfig = {
   ledWidth: 16, ledHeight: 16, ledDataPin: 18, ledClockPin: 6,
   chipset: 'WS2812B', colorOrder: 'GRB',
   correction: 'none', dither: true, overclock: 1,
-  sdCsPin: 5,
+  // GPIO10 avoids colliding with MatrixOutput's default LED data pin (GPIO5).
+  sdCsPin: 10,
   i2sBclk: 26, i2sLrc: 25, i2sDout: 22,
   maxVolume: 18,
 }

@@ -47,7 +47,7 @@ export function buildShowPayload(
   if (done.length === 0) return null
 
   const sd = (nodes.find((n) => nodeType(n) === 'SDCard')?.data as StudioNodeData | undefined)?.properties ?? {}
-  const provisioner = generateProvisionerSketch({ sdCsPin: Number(sd.sdCsPin ?? 5) })
+  const provisioner = generateProvisionerSketch({ sdCsPin: Number(sd.sdCsPin ?? 10) })
 
   // A collection (version 2) show carries its pattern group ids in patternSet;
   // compile those subgraphs into render_pN() so the player draws the user's own

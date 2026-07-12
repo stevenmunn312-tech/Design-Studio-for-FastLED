@@ -24,7 +24,8 @@ export interface ProvisionerConfig {
   sdCsPin: number
 }
 
-const DEFAULTS: ProvisionerConfig = { sdCsPin: 5 }
+// GPIO10 avoids colliding with MatrixOutput's default LED data pin (GPIO5).
+const DEFAULTS: ProvisionerConfig = { sdCsPin: 10 }
 
 /** Transfer block size, in bytes — must match the host sender in the backend. */
 export const PROVISION_CHUNK = 1024

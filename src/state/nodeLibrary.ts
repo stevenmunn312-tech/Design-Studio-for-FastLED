@@ -1999,7 +1999,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     inputs: [{ id: 'shows', label: 'Shows', dataType: 'shows' }],
     outputs: [{ id: 'sdcard', label: 'SD Card', dataType: 'sdcard' }],
     defaultProperties: {
-      sdCsPin:     5,
+      // GPIO10 avoids colliding with MatrixOutput's default LED data pin
+      // (GPIO5) on the primary supported ESP32-S3 target.
+      sdCsPin:     10,
       i2sBclk:     26,
       i2sLrc:      25,
       i2sDout:     22,
