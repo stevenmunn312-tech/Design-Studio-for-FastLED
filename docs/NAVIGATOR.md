@@ -5,6 +5,10 @@ build/architecture overview aimed at contributors.
 
 ## Architecture
 
+- [Desktop viewport contract](architecture/desktop-viewport-contract.md)
+  — the supported desktop minimum, the expected graceful-degradation behavior,
+    and the “must stay reachable” checklist for chrome, panels, dialogs, and
+    status information.
 - [Decisions (ADRs)](architecture/decisions/)
   - [0001 — Pattern node-group architecture (two-tier dataflow)](architecture/decisions/0001-pattern-node-group-architecture.md)
     — the paradigm (dataflow), the encapsulation model (pattern groups become

@@ -84,6 +84,10 @@ The repo-wrapped npm scripts invoke Node with `--disable-warning=DEP0040` to sup
 
 ## Architecture
 
+### Viewport contract
+
+The supported desktop minimum is now documented in `docs/architecture/desktop-viewport-contract.md`: target `1440×900`, supported minimum `1280×720`, best-effort below that. Keep the graceful-degradation rules in sync with the code: the top nav scrolls horizontally when narrow, menus cap height and scroll when short, the status-chip rail scrolls horizontally instead of overflowing, panel interiors remain scrollable, and Stage mode stays the preview-first escape hatch.
+
 ### State Layer
 
 **`src/state/graphStore.ts`** owns the React Flow node/edge arrays and wraps `applyNodeChanges`, `applyEdgeChanges`, `addEdge`. Also tracks `selectedNodeId` and exposes `updateNodeProperty`. The `onConnect` action embeds `style: { stroke: color }` on new edges so the MiniMap can pick up per-category edge colors.

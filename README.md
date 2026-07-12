@@ -121,6 +121,15 @@ npm run preview    # serve dist/ locally
 | Microphone (FFT) | Any modern browser |
 | Upload / Live Stream / SD provisioning | Local upload helper running (Python 3 + `arduino-cli` or `fbuild`) — any modern browser |
 
+## Desktop Viewport
+
+FastLED Studio is tuned for desktop windows, with a supported minimum viewport of
+`1280 × 720`. Below that, the app degrades gracefully by letting the top bar and
+status chips scroll horizontally, capping menu height with internal scrolling,
+and relying on collapsible side panels or **Stage mode** when you need the
+preview to take priority. The full contract lives in
+[`docs/architecture/desktop-viewport-contract.md`](docs/architecture/desktop-viewport-contract.md).
+
 ## Credits
 
 Offline music analysis in the Music Library pipeline uses Essentia.js / Essentia.
