@@ -301,8 +301,12 @@ describe('StudioNode', () => {
   })
 
   it('toggling a boolean property renders a checkbox and updates the store', () => {
-    const { container } = renderNode(makeNode('Circle', { cx: 4, cy: 4, radius: 3, filled: false, edge: '#ff0000' }))
-    const check = container.querySelector('input[type="checkbox"]') as HTMLInputElement
+    // Circle now renders more than one checkbox (wrap + filled), so target
+    // the "filled" property row specifically rather than the first checkbox
+    // in the node.
+    const { getByText } = renderNode(makeNode('Circle', { cx: 4, cy: 4, radius: 3, filled: false, edge: '#ff0000' }))
+    const row = getByText('filled').closest('div') as HTMLElement
+    const check = row.querySelector('input[type="checkbox"]') as HTMLInputElement
     expect(check).toBeTruthy()
     expect(check.checked).toBe(false)
     fireEvent.click(check)

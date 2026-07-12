@@ -17,14 +17,20 @@ describe('Sidebar equipment rack', () => {
   })
 
   it('labels modules with their primary output type', () => {
-    const { getByLabelText } = render(<Sidebar />)
+    const { getByRole, getByLabelText } = render(<Sidebar />)
+    // The graph is empty in this test, which now steers the sidebar to open
+    // "Quick recipes" by default (see the "open Quick recipes when the graph
+    // is empty" behavior) — open Audio explicitly rather than relying on it
+    // already being expanded.
+    fireEvent.click(getByRole('button', { name: /^Audio\d/ }))
     const fft = getByLabelText('Add FFT Analyzer')
     expect(fft.querySelector('[data-output-type="float"]')).toBeTruthy()
     expect(fft.textContent).toContain('float')
   })
 
   it('adds clicked modules to the graph and surfaces them in the recent rack', () => {
-    const { getByLabelText, getByText } = render(<Sidebar />)
+    const { getByRole, getByLabelText, getByText } = render(<Sidebar />)
+    fireEvent.click(getByRole('button', { name: /^Audio\d/ }))
     fireEvent.click(getByLabelText('Add FFT Analyzer'))
 
     expect(getByText('Recent rack')).toBeTruthy()
@@ -53,8 +59,9 @@ describe('Sidebar equipment rack', () => {
   })
 
   it('can favourite a module and keep it in the favourites rack', () => {
-    const { getByLabelText, getByText } = render(<Sidebar />)
+    const { getByRole, getByLabelText, getByText } = render(<Sidebar />)
 
+    fireEvent.click(getByRole('button', { name: /^Audio\d/ }))
     fireEvent.click(getByLabelText('Add FFT Analyzer to favourites'))
     fireEvent.click(getByText('Favourites'))
 
@@ -64,7 +71,9 @@ describe('Sidebar equipment rack', () => {
   it('drops a curated recipe onto the canvas', () => {
     const { getByText } = render(<Sidebar />)
 
-    fireEvent.click(getByText('Quick recipes'))
+    // The graph is empty, so "Quick recipes" is already open by default
+    // (see the "open Quick recipes when the graph is empty" behavior) —
+    // clicking its header here would only toggle it closed.
     fireEvent.click(getByText('Add trails'))
 
     expect(useGraphStore.getState().nodes.map((node) => node.data.nodeType)).toEqual(
