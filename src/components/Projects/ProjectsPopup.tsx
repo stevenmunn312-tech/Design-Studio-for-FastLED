@@ -19,15 +19,13 @@ function relativeTime(timestamp: number): string {
 export default function ProjectsPopup() {
   const closeProjects = useUiStore((s) => s.closeProjects)
   const setStatus = useUiStore((s) => s.setStatus)
-  const { projects, currentProjectId, createProject, renameProject, deleteProject, switchProject, refreshFromDisk } = useProjectStore((s) => ({
-    projects: s.projects,
-    currentProjectId: s.currentProjectId,
-    createProject: s.createProject,
-    renameProject: s.renameProject,
-    deleteProject: s.deleteProject,
-    switchProject: s.switchProject,
-    refreshFromDisk: s.refreshFromDisk,
-  }))
+  const projects = useProjectStore((s) => s.projects)
+  const currentProjectId = useProjectStore((s) => s.currentProjectId)
+  const createProject = useProjectStore((s) => s.createProject)
+  const renameProject = useProjectStore((s) => s.renameProject)
+  const deleteProject = useProjectStore((s) => s.deleteProject)
+  const switchProject = useProjectStore((s) => s.switchProject)
+  const refreshFromDisk = useProjectStore((s) => s.refreshFromDisk)
   const currentProject = projects.find((project) => project.id === currentProjectId) ?? projects[0]
   const sortedProjects = useMemo(
     () => [...projects].sort((a, b) => b.updatedAt - a.updatedAt || b.createdAt - a.createdAt),

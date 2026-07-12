@@ -52,10 +52,8 @@ export default function MenuBar() {
   const showPlaying = useShowPlayback((s) => s.playing)
 
   const { undo, redo, pastStates, futureStates } = useTemporalStore((s) => s)
-  const { currentProjectId, projects } = useProjectStore((s) => ({
-    currentProjectId: s.currentProjectId,
-    projects: s.projects,
-  }))
+  const currentProjectId = useProjectStore((s) => s.currentProjectId)
+  const projects = useProjectStore((s) => s.projects)
   const currentProject = projects.find((project) => project.id === currentProjectId) ?? projects[0]
   const canUndo = pastStates.length > 0
   const canRedo = futureStates.length > 0
