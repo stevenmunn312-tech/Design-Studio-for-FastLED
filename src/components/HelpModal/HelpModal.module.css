@@ -92,6 +92,7 @@
 
 .bodyNodeReference {
   overflow: hidden;
+  padding: 0;
 }
 
 /* ── Typography ───────────────────────────────────────────────────────────── */

@@ -668,43 +668,45 @@ function GraphScreenshot({ recipe }: { recipe: ExampleRecipe }) {
         <div className={styles.graphTitle}>Example graph</div>
         <div className={styles.graphResult}>{recipe.result}</div>
       </div>
-      <div className={styles.graphCanvas} style={{ minHeight: height }}>
-        <svg className={styles.graphEdges} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
-          {recipe.edges.map((edge) => {
-            const from = positions.get(edge.from)
-            const to = positions.get(edge.to)
-            if (!from || !to) return null
-            const startX = from.x + nodeWidth
-            const startY = from.y + (nodeHeight / 2)
-            const endX = to.x
-            const endY = to.y + (nodeHeight / 2)
-            const controlX = (startX + endX) / 2
+      <div className={styles.graphCanvas}>
+        <div className={styles.graphCanvasInner} style={{ width, minHeight: height }}>
+          <svg className={styles.graphEdges} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
+            {recipe.edges.map((edge) => {
+              const from = positions.get(edge.from)
+              const to = positions.get(edge.to)
+              if (!from || !to) return null
+              const startX = from.x + nodeWidth
+              const startY = from.y + (nodeHeight / 2)
+              const endX = to.x
+              const endY = to.y + (nodeHeight / 2)
+              const controlX = (startX + endX) / 2
+              return (
+                <path
+                  key={`${edge.from}-${edge.to}`}
+                  d={`M ${startX} ${startY} C ${controlX} ${startY}, ${controlX} ${endY}, ${endX} ${endY}`}
+                  className={styles.graphEdge}
+                />
+              )
+            })}
+          </svg>
+
+          {recipe.columns.flat().map((node) => {
+            const position = positions.get(node.id)
+            if (!position) return null
+            const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
             return (
-              <path
-                key={`${edge.from}-${edge.to}`}
-                d={`M ${startX} ${startY} C ${controlX} ${startY}, ${controlX} ${endY}, ${endX} ${endY}`}
-                className={styles.graphEdge}
-              />
+              <div
+                key={node.id}
+                className={`${styles.graphNode} ${node.highlight ? styles.graphNodeHighlight : ''}`}
+                style={{ left: position.x, top: position.y, borderColor: `${accent}66`, boxShadow: node.highlight ? `0 0 0 1px ${accent}, 0 0 22px ${accent}33` : undefined }}
+              >
+                <div className={styles.graphNodeBar} style={{ background: accent }} />
+                <div className={styles.graphNodeLabel}>{node.label}</div>
+                <div className={styles.graphNodeType}>{categoryLabel(node.category)}</div>
+              </div>
             )
           })}
-        </svg>
-
-        {recipe.columns.flat().map((node) => {
-          const position = positions.get(node.id)
-          if (!position) return null
-          const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
-          return (
-            <div
-              key={node.id}
-              className={`${styles.graphNode} ${node.highlight ? styles.graphNodeHighlight : ''}`}
-              style={{ left: position.x, top: position.y, borderColor: `${accent}66`, boxShadow: node.highlight ? `0 0 0 1px ${accent}, 0 0 22px ${accent}33` : undefined }}
-            >
-              <div className={styles.graphNodeBar} style={{ background: accent }} />
-              <div className={styles.graphNodeLabel}>{node.label}</div>
-              <div className={styles.graphNodeType}>{categoryLabel(node.category)}</div>
-            </div>
-          )
-        })}
+        </div>
       </div>
       <div className={styles.graphExplanation}>{recipe.explanation}</div>
     </div>
