@@ -7,7 +7,7 @@ const crossOriginIsolationHeaders = {
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Cross-Origin-Embedder-Policy': 'credentialless',
 }
-const namedLocalHosts = ['fastled-studio.localtest.me']
+const namedLocalHosts = ['fastled-studio.localhost', 'fastled-studio.localtest.me']
 
 export default defineConfig(() => {
   const isTest = process.env.VITEST === 'true'
