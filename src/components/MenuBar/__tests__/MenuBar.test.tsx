@@ -98,6 +98,16 @@ describe('MenuBar file menu', () => {
     expect(useUiStore.getState().templatesOpen).toBe(true)
   })
 
+  it('keeps preview controls mounted while stage mode is active', () => {
+    useUiStore.setState({ stageMode: true })
+
+    const { getByRole } = render(<MenuBar />)
+
+    expect(getByRole('button', { name: 'Toggle stage mode' }).getAttribute('aria-pressed')).toBe('true')
+    expect(getByRole('button', { name: 'Toggle 3D preview' })).toBeTruthy()
+    expect(getByRole('button', { name: 'Toggle microphone preview input' })).toBeTruthy()
+  })
+
   it('moves appearance toggles into a compact View menu', () => {
     const { getByRole, getByText, queryByRole } = render(<MenuBar />)
 

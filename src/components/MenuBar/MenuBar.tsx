@@ -698,58 +698,56 @@ export default function MenuBar() {
           ? Help
         </button>
       </nav>
-      {!stageMode && (
-        <div className={styles.previewControls}>
-          {import.meta.env.DEV && <DevPerformanceHudToggle />}
-          <button
-            className={`${styles.btn} ${styles.stageBtn} ${stageMode ? styles.btnStageActive : ''}`}
-            onClick={() => setStageMode(!stageMode)}
-            aria-label="Toggle stage mode"
-            aria-pressed={stageMode}
-            title={stageMode ? 'Exit Stage Mode (Esc or F10)' : 'Enter Stage Mode (F10)'}
-          >
-            Stage
-          </button>
-          <button
-            className={`${styles.btn} ${styles.previewBtn} ${effectivePreview3d ? styles.btnPreviewActive : ''}`}
-            onClick={togglePreview3d}
-            aria-label="Toggle 3D preview"
-            aria-pressed={effectivePreview3d}
-            title={
-              !uiEffectsEnabled
-                ? 'Disabled while UI FX are off'
-                : effectivePreview3d ? 'Switch to 2D view' : 'Switch to 3D view (drag to orbit)'
-            }
-            disabled={!uiEffectsEnabled}
-          >
-            {effectivePreview3d ? '3D On' : '3D Off'}
-          </button>
-          <button
-            className={`${styles.btn} ${styles.styleBtn} ${isDiffusedStyle(effectivePreviewStyle) ? styles.btnStyleActive : ''}`}
-            onClick={cyclePreviewStyle}
-            title={uiEffectsEnabled ? 'Cycle preview style' : 'Forced to Standard while UI FX are off'}
-            disabled={!uiEffectsEnabled}
-          >
-            {previewStyleLabel(effectivePreviewStyle)}
-          </button>
-          <button
-            className={`${styles.btn} ${styles.micBtn} ${micActive ? styles.btnMicActive : ''}`}
-            onClick={toggleMic}
-            disabled={!hasMicNode}
-            aria-label="Toggle microphone preview input"
-            aria-pressed={micActive}
-            title={
-              !hasMicNode
-                ? 'Add a MicInput node to enable the microphone'
-                : !micActive && showPlaying
-                  ? 'Microphone is disabled while a performance is playing music'
-                  : micActive ? 'Stop microphone' : 'Start microphone'
-            }
-          >
-            {micActive ? 'Mic On' : 'Mic Off'}
-          </button>
-        </div>
-      )}
+      <div className={styles.previewControls}>
+        {import.meta.env.DEV && <DevPerformanceHudToggle />}
+        <button
+          className={`${styles.btn} ${styles.stageBtn} ${stageMode ? styles.btnStageActive : ''}`}
+          onClick={() => setStageMode(!stageMode)}
+          aria-label="Toggle stage mode"
+          aria-pressed={stageMode}
+          title={stageMode ? 'Exit Stage Mode (Esc or F10)' : 'Enter Stage Mode (F10)'}
+        >
+          Stage
+        </button>
+        <button
+          className={`${styles.btn} ${styles.previewBtn} ${effectivePreview3d ? styles.btnPreviewActive : ''}`}
+          onClick={togglePreview3d}
+          aria-label="Toggle 3D preview"
+          aria-pressed={effectivePreview3d}
+          title={
+            !uiEffectsEnabled
+              ? 'Disabled while UI FX are off'
+              : effectivePreview3d ? 'Switch to 2D view' : 'Switch to 3D view (drag to orbit)'
+          }
+          disabled={!uiEffectsEnabled}
+        >
+          {effectivePreview3d ? '3D On' : '3D Off'}
+        </button>
+        <button
+          className={`${styles.btn} ${styles.styleBtn} ${isDiffusedStyle(effectivePreviewStyle) ? styles.btnStyleActive : ''}`}
+          onClick={cyclePreviewStyle}
+          title={uiEffectsEnabled ? 'Cycle preview style' : 'Forced to Standard while UI FX are off'}
+          disabled={!uiEffectsEnabled}
+        >
+          {previewStyleLabel(effectivePreviewStyle)}
+        </button>
+        <button
+          className={`${styles.btn} ${styles.micBtn} ${micActive ? styles.btnMicActive : ''}`}
+          onClick={toggleMic}
+          disabled={!hasMicNode}
+          aria-label="Toggle microphone preview input"
+          aria-pressed={micActive}
+          title={
+            !hasMicNode
+              ? 'Add a MicInput node to enable the microphone'
+              : !micActive && showPlaying
+                ? 'Microphone is disabled while a performance is playing music'
+                : micActive ? 'Stop microphone' : 'Start microphone'
+          }
+        >
+          {micActive ? 'Mic On' : 'Mic Off'}
+        </button>
+      </div>
     </header>
   )
 }

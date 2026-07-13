@@ -15,7 +15,7 @@ import { applyShowPlaybackSignal } from './showPlaybackSignal'
 import { isDiffusedStyle, previewStyleLabel, type PreviewStyle } from './previewStyles'
 import { graphConsumesAudio } from './previewAudioUsage'
 import PreviewSpectrum from './PreviewSpectrum'
-import DevPerformanceHud, { DevPerformanceHudToggle } from './DevPerformanceHud'
+import DevPerformanceHud from './DevPerformanceHud'
 import { recordPerfFrame } from '../../dev/perfMonitor'
 import {
   IconAdd,
@@ -41,7 +41,6 @@ const STAGE_CANVAS_PX = 840
 const BYTES_PER_MIB = 1024 * 1024
 const MEMORY_SAMPLE_INTERVAL_MS = 30_000
 const PREVIEW_PUBLISH_INTERVAL_MS = 125
-const MIC_BLOCKED_MESSAGE = 'Microphone is disabled while a performance is playing music. Stop the player to enable the microphone.'
 
 interface PerformanceWithMemory extends Performance {
   memory?: { usedJSHeapSize: number }
@@ -613,15 +612,6 @@ export default function LEDPreview() {
   const playbackShow = useShowPlayback((s) => s.show)
   const playbackPosMs = useShowPlayback((s) => s.posMs)
 
-  // The mic toggle only makes sense when a MicInput node is on the active
-  // canvas — the same condition App.tsx uses to auto-start/stop the mic. We
-  // deliberately DON'T scan graphData: a MicInput stranded in a group subgraph
-  // (which "select all → delete" on the canvas can't reach) would otherwise
-  // keep the button lit even on an empty canvas.
-  const hasMicNode = useGraphStore((s) =>
-    s.nodes.some((n) => (n.data as { nodeType?: string }).nodeType === 'MicInput')
-  )
-
   const hasFrameSignal = useGraphStore((s) => {
     const terminalIds = new Set(s.nodes
       .filter((node) => ['MatrixOutput', 'GroupOutput'].includes(String(node.data.nodeType)))
@@ -659,9 +649,6 @@ export default function LEDPreview() {
   })
   const performanceMode = useUiStore((s) => s.performanceMode)
   const uiEffectsEnabled = useUiStore((s) => s.uiEffectsEnabled)
-  const setStageMode = useUiStore((s) => s.setStageMode)
-  const setStatus = useUiStore((s) => s.setStatus)
-  const requestAlert = useUiStore((s) => s.requestAlert)
   const fps = useUiStore((s) => s.fps)
   const memoryMb = useUiStore((s) => s.memoryMb)
   const availableCanvasW = Math.max(0, canvasWrapSize.width - canvasWrapSize.padX)
@@ -722,12 +709,8 @@ export default function LEDPreview() {
 
   const preview3d = useUiStore((s) => s.preview3d)
   const previewStyle = useUiStore((s) => s.previewStyle)
-  const togglePreview3d = useUiStore((s) => s.togglePreview3d)
-  const cyclePreviewStyle = useUiStore((s) => s.cyclePreviewStyle)
   const micActive = useAudioStore((s) => s.micActive)
-  const startAudio = useAudioStore((s) => s.startAudio)
   const attachAudioElement = useAudioStore((s) => s.attachAudioElement)
-  const stopAudio = useAudioStore((s) => s.stopAudio)
   const analyzingMusic = useMusicStore((s) => s.entries.some((entry) => entry.status === 'analyzing'))
   const effectivePreview3d = uiEffectsEnabled && preview3d
   const effectivePreviewStyle: PreviewStyle = uiEffectsEnabled ? previewStyle : 'standard'
@@ -1050,19 +1033,6 @@ export default function LEDPreview() {
     if (playerRef.current) playerRef.current.volume = volume
   }, [volume, currentTrack])
 
-  const toggleMic = () => {
-    if (!micActive && showPlaying) {
-      void requestAlert({
-        title: 'Microphone unavailable',
-        message: MIC_BLOCKED_MESSAGE,
-      })
-      setStatus(MIC_BLOCKED_MESSAGE, 'info')
-      return
-    }
-    if (micActive) stopAudio()
-    else startAudio().catch(() => {})
-  }
-
   const openFilePicker = () => fileInputRef.current?.click()
 
   const clearMusic = () => {
@@ -1225,55 +1195,6 @@ export default function LEDPreview() {
           <div className={styles.previewIdentity}>
             <span className={styles.previewTitle}>LED Preview</span>
             <span className={styles.previewMeta}>Output bay</span>
-          </div>
-        )}
-        {stageMode && (
-          <div className={styles.headerRight}>
-            {import.meta.env.DEV && <DevPerformanceHudToggle />}
-            <button
-              className={`${styles.toggleBtn} ${styles.stageToggle} ${stageMode ? styles.toggleActive : ''}`}
-              onClick={() => setStageMode(!stageMode)}
-              title={stageMode ? 'Exit Stage Mode (Esc or F10)' : 'Enter Stage Mode (F10)'}
-              aria-pressed={stageMode}
-            >
-              Stage
-            </button>
-            <button
-              className={`${styles.toggleBtn} ${styles.previewToggle} ${effectivePreview3d ? styles.toggleActive : ''}`}
-              onClick={togglePreview3d}
-              title={
-                !uiEffectsEnabled
-                  ? 'Disabled while UI FX are off'
-                  : effectivePreview3d ? 'Switch to 2D view' : 'Switch to 3D view (drag to orbit)'
-              }
-              aria-pressed={effectivePreview3d}
-              disabled={!uiEffectsEnabled}
-            >
-              {effectivePreview3d ? '3D On' : '3D Off'}
-            </button>
-            <button
-              className={`${styles.toggleBtn} ${styles.styleBtn} ${isDiffusedStyle(effectivePreviewStyle) ? styles.toggleActive : ''}`}
-              onClick={cyclePreviewStyle}
-              title={uiEffectsEnabled ? 'Cycle preview style' : 'Forced to Standard while UI FX are off'}
-              disabled={!uiEffectsEnabled}
-            >
-              {previewStyleLabel(effectivePreviewStyle)}
-            </button>
-            <button
-              className={`${styles.toggleBtn} ${styles.micToggle} ${micActive ? styles.toggleActive : ''}`}
-              onClick={toggleMic}
-              disabled={!hasMicNode}
-              title={
-                !hasMicNode
-                  ? 'Add a MicInput node to enable the microphone'
-                  : !micActive && showPlaying
-                    ? 'Microphone is disabled while a performance is playing music'
-                    : micActive ? 'Stop microphone' : 'Start microphone'
-              }
-              aria-pressed={micActive}
-            >
-              {micActive ? 'Mic On' : 'Mic Off'}
-            </button>
           </div>
         )}
       </div>
