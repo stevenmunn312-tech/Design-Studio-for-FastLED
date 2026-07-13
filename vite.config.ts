@@ -7,6 +7,7 @@ const crossOriginIsolationHeaders = {
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Cross-Origin-Embedder-Policy': 'credentialless',
 }
+const namedLocalHosts = ['fastled-studio.localtest.me']
 
 export default defineConfig(() => {
   const isTest = process.env.VITEST === 'true'
@@ -14,8 +15,8 @@ export default defineConfig(() => {
   return {
     // Chromium's page-wide memory estimate requires a cross-origin-isolated
     // context. These headers cover both the local authoring server and preview.
-    server: { headers: crossOriginIsolationHeaders },
-    preview: { headers: crossOriginIsolationHeaders },
+    server: { headers: crossOriginIsolationHeaders, allowedHosts: namedLocalHosts },
+    preview: { headers: crossOriginIsolationHeaders, allowedHosts: namedLocalHosts },
     // The Essentia analysis worker lazily `import()`s its WASM, so it needs the ES
     // worker format — the default 'iife' can't code-split a worker.
     worker: { format: 'es' },

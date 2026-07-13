@@ -6,8 +6,10 @@
   "type": "module",
   "scripts": {
     "dev": "node --disable-warning=DEP0040 ./node_modules/vite/bin/vite.js --host 127.0.0.1",
+    "dev:named": "node --disable-warning=DEP0040 ./node_modules/vite/bin/vite.js --host 127.0.0.1 --open http://fastled-studio.localtest.me:5173",
     "build": "node --disable-warning=DEP0040 ./node_modules/typescript/bin/tsc -b && node --disable-warning=DEP0040 ./node_modules/vite/bin/vite.js build",
     "preview": "node --disable-warning=DEP0040 ./node_modules/vite/bin/vite.js preview --host 127.0.0.1",
+    "preview:named": "node --disable-warning=DEP0040 ./node_modules/vite/bin/vite.js preview --host 127.0.0.1 --open http://fastled-studio.localtest.me:4173",
     "lint": "node --disable-warning=DEP0040 ./node_modules/eslint/bin/eslint.js .",
     "test": "node --disable-warning=DEP0040 ./node_modules/vitest/vitest.mjs run",
     "test:watch": "node --disable-warning=DEP0040 ./node_modules/vitest/vitest.mjs",
