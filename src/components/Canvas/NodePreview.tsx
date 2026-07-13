@@ -58,7 +58,7 @@ function PaletteStrip({ palette }: { palette: string | RGB[] }) {
   const gradient = `linear-gradient(to right, ${stops
     .map((c, i) => `rgb(${c.r},${c.g},${c.b}) ${((i / (stops.length - 1)) * 100).toFixed(1)}%`)
     .join(', ')})`
-  return <div className={styles.bar} style={{ background: gradient }} aria-hidden="true" />
+  return <div className={styles.bar} style={{ background: gradient }} data-testid="palette-preview-strip" aria-hidden="true" />
 }
 
 function ColorSwatch({ color }: { color: RGB }) {
@@ -66,9 +66,21 @@ function ColorSwatch({ color }: { color: RGB }) {
 }
 
 /** Top-of-node preview driven by the live evaluation in previewStore. */
-export default function NodePreview({ nodeId, kind, port, height }: { nodeId: string; kind: PreviewKind; port: string; height?: number }) {
+export default function NodePreview({
+  nodeId,
+  kind,
+  port,
+  height,
+  valueOverride,
+}: {
+  nodeId: string
+  kind: PreviewKind
+  port: string
+  height?: number
+  valueOverride?: unknown
+}) {
   const value = usePreviewStore((s) => s.outputs.get(nodeId)?.[port])
   if (kind === 'frame') return <FrameThumb frame={value as Frame | undefined} height={height} />
-  if (kind === 'palette') return <PaletteStrip palette={(value as string | RGB[] | undefined) ?? 'rainbow'} />
+  if (kind === 'palette') return <PaletteStrip palette={(valueOverride as string | RGB[] | undefined) ?? (value as string | RGB[] | undefined) ?? 'rainbow'} />
   return <ColorSwatch color={(value as RGB | undefined) ?? { r: 0, g: 0, b: 0 }} />
 }

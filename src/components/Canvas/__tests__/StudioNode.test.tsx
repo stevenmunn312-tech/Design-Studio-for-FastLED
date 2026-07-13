@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, fireEvent, within } from '@testing-library/react'
+import { render, fireEvent, within, waitFor } from '@testing-library/react'
 import type { NodeProps, Node } from '@xyflow/react'
 import StudioNode from '../StudioNode'
 import { useGraphStore } from '../../../state/graphStore'
@@ -454,6 +454,22 @@ describe('StudioNode', () => {
     const on = renderNode(makeNode('Transition', { transitionType: 'wipe', t: 0.5, direction: 'right' }))
     fireEvent.click(within(on.container).getByText('Direction'))
     expect(directionSelect(on.container)!.disabled).toBe(false)
+  })
+
+  it('updates a Custom Palette top preview immediately from direct stop edits', async () => {
+    const node = makeNode('CustomPalette', {
+      colors: ['#000000', '#ffffff'],
+      positions: [0, 1],
+    })
+    const { findByLabelText, getByTestId } = renderNode(node)
+    const before = getByTestId('palette-preview-strip').style.background
+
+    fireEvent.change(await findByLabelText('Stop 1 color'), { target: { value: '#ff0000' } })
+
+    await waitFor(() => {
+      expect(getByTestId('palette-preview-strip').style.background).not.toBe(before)
+    })
+    expect(getByTestId('palette-preview-strip').style.background).toContain('rgb(255, 0, 0)')
   })
 
   // GroupInput is minted programmatically (no NODE_LIBRARY entry), so build it

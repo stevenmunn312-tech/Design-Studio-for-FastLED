@@ -21,6 +21,9 @@ import { getCodeError } from '../../state/graphEvaluator'
 import { useMusicStore } from '../../state/musicStore'
 import { signalPathFor } from '../../utils/signalPath'
 import { stopWheelWhileFocused } from './wheelBehavior'
+import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette, rgbToHex } from '../../state/customPalette'
+import { polinePalette, hexToRgb as polineHexToRgb } from '../../state/polinePalette'
+import type { Palette } from '../../state/ledColor'
 import styles from './StudioNode.module.css'
 
 const MusicLibraryNodeBody = lazy(() => import('./MusicLibraryNodeBody'))
@@ -694,6 +697,24 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     }
     return m
   }, [incomingKey])
+  const paletteEditorLiveJson = usePreviewStore((s) => {
+    if (d.nodeType !== 'CustomPalette' && d.nodeType !== 'Poline') return ''
+    const ports = d.nodeType === 'CustomPalette'
+      ? ['color0', 'color1', 'color2', 'color3']
+      : ['colorA', 'colorB', 'colorC']
+    const values: Record<string, RGB> = {}
+    for (const port of ports) {
+      const src = sourceMap.get(port)
+      if (!src) continue
+      const value = s.outputs.get(src.srcId)?.[src.srcPort]
+      if (isRGB(value)) values[port] = value
+    }
+    return JSON.stringify(values)
+  })
+  const paletteEditorLive = useMemo<Record<string, RGB>>(
+    () => (paletteEditorLiveJson ? JSON.parse(paletteEditorLiveJson) : {}),
+    [paletteEditorLiveJson],
+  )
 
   // Inline property editors (Blender-style). A node with `r/g/b` shows one
   // colour swatch; `font` (an object) is left to the Inspector.
@@ -712,6 +733,36 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       ...merged,
     }
   }, [d.nodeType, rawProps])
+  const palettePreviewPropsJson = useGraphStore((s) => {
+    if (d.nodeType !== 'CustomPalette' && d.nodeType !== 'Poline') return ''
+    const node = s.nodes.find((n) => n.id === id)
+    const p = (node?.data.properties ?? rawProps) as Record<string, unknown>
+    return d.nodeType === 'CustomPalette'
+      ? JSON.stringify({ colors: p.colors, positions: p.positions })
+      : JSON.stringify({ anchorA: p.anchorA, anchorB: p.anchorB, anchorC: p.anchorC, points: p.points, position: p.position })
+  })
+  const palettePreviewProps = useMemo<Record<string, unknown>>(
+    () => (palettePreviewPropsJson ? { ...props, ...JSON.parse(palettePreviewPropsJson) } : props),
+    [palettePreviewPropsJson, props],
+  )
+  const palettePreviewOverride = useMemo<Palette | undefined>(() => {
+    if (d.nodeType === 'CustomPalette') {
+      const local = normalizeCustomPalette(palettePreviewProps.colors, palettePreviewProps.positions)
+      const colors = local.colors.map((color, i) => paletteEditorLive[`color${i}`] ?? customHexToRgb(color))
+      return customPaletteStops16(colors, local.positions)
+    }
+    if (d.nodeType === 'Poline') {
+      const a = paletteEditorLive.colorA ? rgbToHex(paletteEditorLive.colorA) : String(palettePreviewProps.anchorA ?? '#1020ff')
+      const b = paletteEditorLive.colorB ? rgbToHex(paletteEditorLive.colorB) : String(palettePreviewProps.anchorB ?? '#ff20a0')
+      const c = paletteEditorLive.colorC ? rgbToHex(paletteEditorLive.colorC) : String(palettePreviewProps.anchorC ?? '#20ffd0')
+      return polinePalette(
+        [polineHexToRgb(a), polineHexToRgb(b), polineHexToRgb(c)],
+        Number(palettePreviewProps.points ?? 4),
+        String(palettePreviewProps.position ?? 'sinusoidal'),
+      )
+    }
+    return undefined
+  }, [d.nodeType, paletteEditorLive, palettePreviewProps])
   const hasRGB = ['r', 'g', 'b'].every((k) => typeof props[k] === 'number')
   // Mirror's r/g/b is only the glow tint, so hide its swatch until glow is on;
   // Boids only uses its r/g/b in the 'solid' colour mode; BeatFlash's solid
@@ -866,7 +917,13 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
             </button>
           ) : (
             <div className={styles.previewWrap}>
-              <NodePreview nodeId={id} kind={previewKind} port={outPort.id} height={previewKind === 'frame' ? framePreviewH : undefined} />
+              <NodePreview
+                nodeId={id}
+                kind={previewKind}
+                port={outPort.id}
+                height={previewKind === 'frame' ? framePreviewH : undefined}
+                valueOverride={palettePreviewOverride}
+              />
               <button
                 type="button"
                 className={`nodrag ${styles.previewToggle}`}
