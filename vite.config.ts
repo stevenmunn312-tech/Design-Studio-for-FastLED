@@ -15,7 +15,17 @@ export default defineConfig(() => {
   return {
     // Chromium's page-wide memory estimate requires a cross-origin-isolated
     // context. These headers cover both the local authoring server and preview.
-    server: { headers: crossOriginIsolationHeaders, allowedHosts: namedLocalHosts },
+    server: {
+      headers: crossOriginIsolationHeaders,
+      allowedHosts: namedLocalHosts,
+      watch: {
+        ignored: [
+          '**/backend/.fbuild-project/**',
+          '**/backend/__pycache__/**',
+          '**/backend/.pytest_cache/**',
+        ],
+      },
+    },
     preview: { headers: crossOriginIsolationHeaders, allowedHosts: namedLocalHosts },
     // The Essentia analysis worker lazily `import()`s its WASM, so it needs the ES
     // worker format — the default 'iife' can't code-split a worker.
