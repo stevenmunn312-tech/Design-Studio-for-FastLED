@@ -25,6 +25,14 @@ function seedProp(p: Record<string, unknown>): number {
   return Number.isFinite(n) ? Math.max(0, n) >>> 0 : 0
 }
 
+function floatLit(value: number, digits = 4): string {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return '0.0f'
+  if (Object.is(n, -0)) return '0.0f'
+  if (Number.isInteger(n)) return `${n.toFixed(1)}f`
+  return `${n.toFixed(digits).replace(/0+$/, '').replace(/\.$/, '.0')}f`
+}
+
 // Fire/Fire2012 share these direction/turbulence/paletteMix/mirror/seed
 // controls — mirrors graphEvaluator.ts's firePrimaryLen/fireSecondaryLen/
 // fireToXY. The heat simulation always runs in a canonical [P][S] grid (P =
@@ -1632,8 +1640,9 @@ export function generateCpp(
         if (paletteMixP >= 1) {
           ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = _c;`)
         } else {
-          const keep = (1 - paletteMixP).toFixed(4)
-          ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = CRGB((uint8_t)(_h*${keep}f+_c.r*${paletteMixP.toFixed(4)}f),(uint8_t)(_h*${keep}f+_c.g*${paletteMixP.toFixed(4)}f),(uint8_t)(_h*${keep}f+_c.b*${paletteMixP.toFixed(4)}f));`)
+          const keep = floatLit(1 - paletteMixP)
+          const mix = floatLit(paletteMixP)
+          ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = CRGB((uint8_t)(_h*${keep}+_c.r*${mix}),(uint8_t)(_h*${keep}+_c.g*${mix}),(uint8_t)(_h*${keep}+_c.b*${mix}));`)
         }
         ln(`    }`)
         if (mirrorP) {
@@ -1940,6 +1949,7 @@ export function generateCpp(
         const lifeMult = Math.max(0.05, Number(p.decay ?? 1))
         const bandMult = Math.max(0.05, Number(p.thickness ?? 1))
         const spread = Math.max(0, Math.min(1, Number(p.spawnSpread ?? 0)))
+        const spreadF = floatLit(spread)
         const additive = String(p.blendMode ?? 'add') !== 'max'
         const lifeK = (1.9 * lifeMult).toFixed(4), lifeS = (1.0 * lifeMult).toFixed(4)
         const bandK = (0.10 * bandMult).toFixed(4), bandS = (0.055 * bandMult).toFixed(4)
@@ -1949,8 +1959,8 @@ export function generateCpp(
         ln(`    float _spd=${speed},_strength=min(1.0f,max(0.0f,${energy})),_hihatAmt=min(1.0f,max(0.0f,${hihat}));`)
         ln(`    bool _kickHit=(${kick})>0.5f, _snareHit=(${snare})>0.5f;`)
         ln(`    float _ksCx=(WIDTH-1)/2.0f,_ksCy=(HEIGHT-1)/2.0f;`)
-        ln(`    if(_kickHit && !_ksPrevKick_${id}){ _ksX_${id}[_ksNext_${id}]=_ksCx+(random8()/255.0f*WIDTH-_ksCx)*${spread}f; _ksY_${id}[_ksNext_${id}]=_ksCy+(random8()/255.0f*HEIGHT-_ksCy)*${spread}f; _ksBorn_${id}[_ksNext_${id}]=t; _ksKind_${id}[_ksNext_${id}]=0; _ksAlive_${id}[_ksNext_${id}]=true; _ksNext_${id}=(uint8_t)((_ksNext_${id}+1)%${CAP}); }`)
-        ln(`    if(_snareHit && !_ksPrevSnare_${id}){ _ksX_${id}[_ksNext_${id}]=_ksCx+(random8()/255.0f*WIDTH-_ksCx)*${spread}f; _ksY_${id}[_ksNext_${id}]=_ksCy+(random8()/255.0f*HEIGHT-_ksCy)*${spread}f; _ksBorn_${id}[_ksNext_${id}]=t; _ksKind_${id}[_ksNext_${id}]=1; _ksAlive_${id}[_ksNext_${id}]=true; _ksNext_${id}=(uint8_t)((_ksNext_${id}+1)%${CAP}); }`)
+        ln(`    if(_kickHit && !_ksPrevKick_${id}){ _ksX_${id}[_ksNext_${id}]=_ksCx+(random8()/255.0f*WIDTH-_ksCx)*${spreadF}; _ksY_${id}[_ksNext_${id}]=_ksCy+(random8()/255.0f*HEIGHT-_ksCy)*${spreadF}; _ksBorn_${id}[_ksNext_${id}]=t; _ksKind_${id}[_ksNext_${id}]=0; _ksAlive_${id}[_ksNext_${id}]=true; _ksNext_${id}=(uint8_t)((_ksNext_${id}+1)%${CAP}); }`)
+        ln(`    if(_snareHit && !_ksPrevSnare_${id}){ _ksX_${id}[_ksNext_${id}]=_ksCx+(random8()/255.0f*WIDTH-_ksCx)*${spreadF}; _ksY_${id}[_ksNext_${id}]=_ksCy+(random8()/255.0f*HEIGHT-_ksCy)*${spreadF}; _ksBorn_${id}[_ksNext_${id}]=t; _ksKind_${id}[_ksNext_${id}]=1; _ksAlive_${id}[_ksNext_${id}]=true; _ksNext_${id}=(uint8_t)((_ksNext_${id}+1)%${CAP}); }`)
         ln(`    _ksPrevKick_${id}=_kickHit; _ksPrevSnare_${id}=_snareHit;`)
         // Divide by lifeMult so total travel (speed*life) stays constant
         // regardless of decay — mirrors the evaluator (see evalKickShock).
@@ -2077,6 +2087,7 @@ export function generateCpp(
         const sizeMult = Math.max(0.1, Number(p.size ?? 1))
         const lifeMult = Math.max(0.05, Number(p.decay ?? 1))
         const spread = Math.max(0, Math.min(1, Number(p.spawnSpread ?? 1)))
+        const spreadF = floatLit(spread)
         const additive = String(p.blendMode ?? 'add') !== 'max'
         const pr = [0.34, 0.20, 0.10].map((v) => (v * sizeMult).toFixed(4))
         const pl = [1.4, 0.7, 0.35].map((v) => (v * lifeMult).toFixed(4))
@@ -2085,9 +2096,9 @@ export function generateCpp(
         ln(`    if(!_pbInit_${id}){ for(int _i=0;_i<${CAP};_i++) _pbAlive_${id}[_i]=false; _pbInit_${id}=true; }`)
         ln(`    bool _kickHit=(${kick})>0.5f, _snareHit=(${snare})>0.5f, _hihatHit=(${hihat})>0.55f;`)
         ln(`    float _pbCx=WIDTH/2.0f,_pbCy=HEIGHT/2.0f;`)
-        ln(`    if(_kickHit && !_pbPrevKick_${id}){ _pbx_${id}[_pbNext_${id}]=_pbCx+(random8()/255.0f*WIDTH-_pbCx)*${spread}f; _pby_${id}[_pbNext_${id}]=_pbCy+(random8()/255.0f*HEIGHT-_pbCy)*${spread}f; _pbt_${id}[_pbNext_${id}]=t; _pbk_${id}[_pbNext_${id}]=0; _pbAlive_${id}[_pbNext_${id}]=true; _pbNext_${id}=(uint8_t)((_pbNext_${id}+1)%${CAP}); }`)
-        ln(`    if(_snareHit && !_pbPrevSnare_${id}){ _pbx_${id}[_pbNext_${id}]=_pbCx+(random8()/255.0f*WIDTH-_pbCx)*${spread}f; _pby_${id}[_pbNext_${id}]=_pbCy+(random8()/255.0f*HEIGHT-_pbCy)*${spread}f; _pbt_${id}[_pbNext_${id}]=t; _pbk_${id}[_pbNext_${id}]=1; _pbAlive_${id}[_pbNext_${id}]=true; _pbNext_${id}=(uint8_t)((_pbNext_${id}+1)%${CAP}); }`)
-        ln(`    if(_hihatHit && !_pbPrevHihat_${id}){ _pbx_${id}[_pbNext_${id}]=_pbCx+(random8()/255.0f*WIDTH-_pbCx)*${spread}f; _pby_${id}[_pbNext_${id}]=_pbCy+(random8()/255.0f*HEIGHT-_pbCy)*${spread}f; _pbt_${id}[_pbNext_${id}]=t; _pbk_${id}[_pbNext_${id}]=2; _pbAlive_${id}[_pbNext_${id}]=true; _pbNext_${id}=(uint8_t)((_pbNext_${id}+1)%${CAP}); }`)
+        ln(`    if(_kickHit && !_pbPrevKick_${id}){ _pbx_${id}[_pbNext_${id}]=_pbCx+(random8()/255.0f*WIDTH-_pbCx)*${spreadF}; _pby_${id}[_pbNext_${id}]=_pbCy+(random8()/255.0f*HEIGHT-_pbCy)*${spreadF}; _pbt_${id}[_pbNext_${id}]=t; _pbk_${id}[_pbNext_${id}]=0; _pbAlive_${id}[_pbNext_${id}]=true; _pbNext_${id}=(uint8_t)((_pbNext_${id}+1)%${CAP}); }`)
+        ln(`    if(_snareHit && !_pbPrevSnare_${id}){ _pbx_${id}[_pbNext_${id}]=_pbCx+(random8()/255.0f*WIDTH-_pbCx)*${spreadF}; _pby_${id}[_pbNext_${id}]=_pbCy+(random8()/255.0f*HEIGHT-_pbCy)*${spreadF}; _pbt_${id}[_pbNext_${id}]=t; _pbk_${id}[_pbNext_${id}]=1; _pbAlive_${id}[_pbNext_${id}]=true; _pbNext_${id}=(uint8_t)((_pbNext_${id}+1)%${CAP}); }`)
+        ln(`    if(_hihatHit && !_pbPrevHihat_${id}){ _pbx_${id}[_pbNext_${id}]=_pbCx+(random8()/255.0f*WIDTH-_pbCx)*${spreadF}; _pby_${id}[_pbNext_${id}]=_pbCy+(random8()/255.0f*HEIGHT-_pbCy)*${spreadF}; _pbt_${id}[_pbNext_${id}]=t; _pbk_${id}[_pbNext_${id}]=2; _pbAlive_${id}[_pbNext_${id}]=true; _pbNext_${id}=(uint8_t)((_pbNext_${id}+1)%${CAP}); }`)
         ln(`    _pbPrevKick_${id}=_kickHit; _pbPrevSnare_${id}=_snareHit; _pbPrevHihat_${id}=_hihatHit;`)
         ln(`    const float _pr[3]={${pr[0]}f,${pr[1]}f,${pr[2]}f}, _pl[3]={${pl[0]}f,${pl[1]}f,${pl[2]}f};`)
         ln(`    float _minDim=min((float)WIDTH,(float)HEIGHT);`)
@@ -2216,13 +2227,14 @@ export function generateCpp(
         const lifeMult = Math.max(0.05, Number(p.decay ?? 1))
         const bandMult = Math.max(0.05, Number(p.thickness ?? 1))
         const spread = Math.max(0, Math.min(1, Number(p.spawnSpread ?? 1)))
+        const spreadF = floatLit(spread)
         const additive = String(p.blendMode ?? 'max') === 'add'
         ln(`  { // RainRipples`)
         ln(`    static float _rrx_${id}[${CAP}],_rry_${id}[${CAP}],_rrt_${id}[${CAP}]; static bool _rrAlive_${id}[${CAP}]; static bool _rrInit_${id}=false; static uint8_t _rrNext_${id}=0; static bool _rrPrevTrig_${id}=false;`)
         ln(`    if(!_rrInit_${id}){ for(int _i=0;_i<${CAP};_i++) _rrAlive_${id}[_i]=false; _rrInit_${id}=true; }`)
         ln(`    bool _trig=(${trigger});`)
         ln(`    float _rrCx=WIDTH/2.0f,_rrCy=HEIGHT/2.0f;`)
-        ln(`    if(_trig && !_rrPrevTrig_${id}){ _rrx_${id}[_rrNext_${id}]=_rrCx+(random8()/255.0f*WIDTH-_rrCx)*${spread}f; _rry_${id}[_rrNext_${id}]=_rrCy+(random8()/255.0f*HEIGHT-_rrCy)*${spread}f; _rrt_${id}[_rrNext_${id}]=t; _rrAlive_${id}[_rrNext_${id}]=true; _rrNext_${id}=(uint8_t)((_rrNext_${id}+1)%${CAP}); }`)
+        ln(`    if(_trig && !_rrPrevTrig_${id}){ _rrx_${id}[_rrNext_${id}]=_rrCx+(random8()/255.0f*WIDTH-_rrCx)*${spreadF}; _rry_${id}[_rrNext_${id}]=_rrCy+(random8()/255.0f*HEIGHT-_rrCy)*${spreadF}; _rrt_${id}[_rrNext_${id}]=t; _rrAlive_${id}[_rrNext_${id}]=true; _rrNext_${id}=(uint8_t)((_rrNext_${id}+1)%${CAP}); }`)
         ln(`    _rrPrevTrig_${id}=_trig;`)
         ln(`    float _strength=min(1.0f,max(0.0f,${energy})); float _spd=max(0.2f,${speed});`)
         ln(`    float _life=(1.6f/_spd)*${lifeMult.toFixed(4)}f; float _speedPx=max((float)WIDTH,(float)HEIGHT)*0.9f/_life;`)
@@ -2321,8 +2333,8 @@ export function generateCpp(
           const zy = Math.max(0, Math.min(1, Number(p[`${key}Y`] ?? 0)))
           const zw = Math.max(0, Math.min(1, Number(p[`${key}W`] ?? 1)))
           const zh = Math.max(0, Math.min(1, Number(p[`${key}H`] ?? 1)))
-          ln(`  for (int _y=(int)(${zy}f*HEIGHT); _y<(int)(${zy + zh}f*HEIGHT) && _y<HEIGHT; _y++)`)
-          ln(`    for (int _x=(int)(${zx}f*WIDTH); _x<(int)(${zx + zw}f*WIDTH) && _x<WIDTH; _x++)`)
+          ln(`  for (int _y=(int)(${floatLit(zy)}*HEIGHT); _y<(int)(${floatLit(zy + zh)}*HEIGHT) && _y<HEIGHT; _y++)`)
+          ln(`    for (int _x=(int)(${floatLit(zx)}*WIDTH); _x<(int)(${floatLit(zx + zw)}*WIDTH) && _x<WIDTH; _x++)`)
           ln(`      ${ob}[_y*WIDTH+_x] = ${zbuf}[_y*WIDTH+_x];`)
         }
         break
@@ -2636,11 +2648,14 @@ export function generateCpp(
           // Width-spawning modes centre their random x on WIDTH/2 and scale the
           // deviation by `spreadP` (spreadP=1 reproduces the old full-width
           // random8()/255.0f*WIDTH distribution exactly).
-          const spawnX = `(WIDTH*0.5f+(random8()/255.0f-0.5f)*WIDTH*${spreadP}f)`
+          const spreadF = floatLit(spreadP)
+          const gravityF = floatLit(gravityP)
+          const bounceF = floatLit(bounceP)
+          const spawnX = `(WIDTH*0.5f+(random8()/255.0f-0.5f)*WIDTH*${spreadF})`
           if (mode === 'fountain')
-            ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=HEIGHT-1; ${A}vx[i]=(random8()/255.0f-0.5f)*0.6f*${spreadP}f; ${A}vy[i]=-(random8()/255.0f*0.5f+0.1f); ${A}l[i]=1; ${A}r[i]=_pc.r; ${A}g[i]=_pc.g; ${A}b[i]=_pc.b; break; } }`)
+            ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=HEIGHT-1; ${A}vx[i]=(random8()/255.0f-0.5f)*0.6f*${spreadF}; ${A}vy[i]=-(random8()/255.0f*0.5f+0.1f); ${A}l[i]=1; ${A}r[i]=_pc.r; ${A}g[i]=_pc.g; ${A}b[i]=_pc.b; break; } }`)
           else if (mode === 'gravity')
-            ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=0; ${A}vx[i]=(random8()/255.0f-0.5f)*0.4f*${spreadP}f; ${A}vy[i]=random8()/255.0f*0.2f; ${A}l[i]=1; ${A}r[i]=_pc.r; ${A}g[i]=_pc.g; ${A}b[i]=_pc.b; break; } }`)
+            ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=0; ${A}vx[i]=(random8()/255.0f-0.5f)*0.4f*${spreadF}; ${A}vy[i]=random8()/255.0f*0.2f; ${A}l[i]=1; ${A}r[i]=_pc.r; ${A}g[i]=_pc.g; ${A}b[i]=_pc.b; break; } }`)
           else if (mode === 'fireworks') {
             ln(`    if(random8()<(uint8_t)(_rate*0.12f*255)){ uint8_t _hue=random8(); int _n=14+random8()/32; float _cx=random8()/255.0f*WIDTH, _cy=random8()/255.0f*HEIGHT*0.5f+HEIGHT*0.1f;`)
             ln(`      for(int k=0;k<_n;k++) for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ float _a=(k/(float)_n)*6.2831f+random8()/255.0f*0.3f, _sp=random8()/255.0f*0.5f+0.35f; ${A}x[i]=_cx; ${A}y[i]=_cy; ${A}vx[i]=cos(_a)*_sp; ${A}vy[i]=sin(_a)*_sp; ${A}l[i]=1; CRGB _fc=CHSV(_hue+(random8()%30)-15,255,255); ${A}r[i]=_fc.r; ${A}g[i]=_fc.g; ${A}b[i]=_fc.b; break; } }`)
@@ -2675,16 +2690,16 @@ export function generateCpp(
           else if (mode === 'attractor')
             ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}vx[i]=(random8()/255.0f-0.5f)*0.1f; ${A}vy[i]=(random8()/255.0f-0.5f)*0.1f; ${A}l[i]=1; break; } }`)
           else if (mode === 'waterfall')
-            ln(`    { int _sp=max(1,(int)(_rate*3)); for(int k=0;k<_sp;k++) if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=WIDTH*0.5f+(random8()/255.0f-0.5f)*0.3f*WIDTH*${spreadP}f; ${A}y[i]=0; ${A}vx[i]=(random8()/255.0f-0.5f)*0.08f; ${A}vy[i]=random8()/255.0f*0.2f+0.12f; ${A}l[i]=1; break; } } }`)
+            ln(`    { int _sp=max(1,(int)(_rate*3)); for(int k=0;k<_sp;k++) if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=WIDTH*0.5f+(random8()/255.0f-0.5f)*0.3f*WIDTH*${spreadF}; ${A}y[i]=0; ${A}vx[i]=(random8()/255.0f-0.5f)*0.08f; ${A}vy[i]=random8()/255.0f*0.2f+0.12f; ${A}l[i]=1; break; } } }`)
 
           // ── update ──
           ln(`    for(int i=0;i<_PN;i++){ if(${A}l[i]<=0.04f) continue;`)
           if (mode === 'fountain')
-            ln(`      ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; ${A}vy[i]+=0.02f*${gravityP}f; ${A}l[i]*=${decayL}; if(${A}y[i]<0) ${A}l[i]=0; }`)
+            ln(`      ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; ${A}vy[i]+=0.02f*${gravityF}; ${A}l[i]*=${decayL}; if(${A}y[i]<0) ${A}l[i]=0; }`)
           else if (mode === 'gravity')
-            ln(`      ${A}vy[i]+=0.045f*${gravityP}f; ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; if(${A}y[i]>=HEIGHT-1){ ${A}y[i]=HEIGHT-1; ${A}vy[i]*=-0.55f*${bounceP}f; ${A}vx[i]*=0.8f; ${A}l[i]*=0.9f; } ${A}l[i]*=${decayL}; }`)
+            ln(`      ${A}vy[i]+=0.045f*${gravityF}; ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; if(${A}y[i]>=HEIGHT-1){ ${A}y[i]=HEIGHT-1; ${A}vy[i]*=-0.55f*${bounceF}; ${A}vx[i]*=0.8f; ${A}l[i]*=0.9f; } ${A}l[i]*=${decayL}; }`)
           else if (mode === 'fireworks')
-            ln(`      ${A}vy[i]=(${A}vy[i]+0.022f*${gravityP}f)*0.965f; ${A}vx[i]*=0.965f; ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; ${A}l[i]*=${decayL}*0.985f; }`)
+            ln(`      ${A}vy[i]=(${A}vy[i]+0.022f*${gravityF})*0.965f; ${A}vx[i]*=0.965f; ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; ${A}l[i]*=${decayL}*0.985f; }`)
           else if (mode === 'sparkle')
             ln(`      ${A}y[i]+=${A}vy[i]; ${A}l[i]*=${decayL}*0.9f; if(${A}y[i]>=HEIGHT) ${A}l[i]=0; }`)
           else if (mode === 'comet')
@@ -2716,7 +2731,7 @@ export function generateCpp(
           else if (mode === 'attractor')
             ln(`      { float ax=(WIDTH-1)*(0.5f+0.35f*sin(t*0.7f)),ay=(HEIGHT-1)*(0.5f+0.35f*cos(t*0.9f)),dx=ax-${A}x[i],dy=ay-${A}y[i],d=max(1.0f,sqrtf(dx*dx+dy*dy)); ${A}vx[i]=${A}vx[i]*0.97f+dx/d*0.025f; ${A}vy[i]=${A}vy[i]*0.97f+dy/d*0.025f; ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; ${A}l[i]*=${decayL}*0.998f; } }`)
           else if (mode === 'waterfall')
-            ln(`      ${A}vy[i]+=0.025f*${gravityP}f; ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; if(${A}y[i]>=HEIGHT-1){ ${A}y[i]=HEIGHT-1; ${A}vy[i]*=-0.3f*${bounceP}f; ${A}vx[i]+=(random8()/255.0f-0.5f)*0.35f; ${A}l[i]*=0.7f; } ${A}l[i]*=${decayL}*0.995f; }`)
+            ln(`      ${A}vy[i]+=0.025f*${gravityF}; ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; if(${A}y[i]>=HEIGHT-1){ ${A}y[i]=HEIGHT-1; ${A}vy[i]*=-0.3f*${bounceF}; ${A}vx[i]+=(random8()/255.0f-0.5f)*0.35f; ${A}l[i]*=0.7f; } ${A}l[i]*=${decayL}*0.995f; }`)
         }
 
         // ── render (shared) ── every particle is coloured by its life through the
@@ -3149,7 +3164,7 @@ export function generateCpp(
         const paletteLevels = Number.isFinite(rawLevels) && rawLevels >= 2 ? Math.min(32, Math.round(rawLevels)) : 0
         const dithering = p.dithering === 'ordered2x2' || p.dithering === 'ordered4x4' ? p.dithering : 'none'
         const sampling = p.sampling === 'smooth' ? 'smooth' : 'nearest'
-        const fl = (value: number) => `${Number.isInteger(value) ? value.toFixed(1) : value}f`
+        const fl = (value: number) => floatLit(value)
         ln(`  { // ${node.data.nodeType} ${img.w}x${img.h}`)
         ln(`    static const uint8_t _img_${id}[] PROGMEM = {${storedPixels.join(',')}};`)
         if (storedAlpha) ln(`    static const uint8_t _imga_${id}[] PROGMEM = {${storedAlpha.join(',')}};`)
@@ -3303,7 +3318,7 @@ export function generateCpp(
         ln(`    for(int _i=0;_i<_count;_i++){`)
         ln(`      float _sx=0,_sy=0,_avx=0,_avy=0,_cx=0,_cy=0; int _near=0,_sc=0;`)
         ln(`      for(int _j=0;_j<_count;_j++){ if(_j==_i)continue; float _dx=${bx}[_j]-${bx}[_i],_dy=${by}[_j]-${by}[_i]; float _d2=_dx*_dx+_dy*_dy;`)
-        ln(`        if(_d2<${rng2}f){ _avx+=${bvx}[_j];_avy+=${bvy}[_j];_cx+=${bx}[_j];_cy+=${by}[_j];_near++; if(_d2<${sepR2}f&&_d2>0){_sx-=_dx;_sy-=_dy;_sc++;} } }`)
+        ln(`        if(_d2<(${rng2})){ _avx+=${bvx}[_j];_avy+=${bvy}[_j];_cx+=${bx}[_j];_cy+=${by}[_j];_near++; if(_d2<(${sepR2})&&_d2>0){_sx-=_dx;_sy-=_dy;_sc++;} } }`)
         ln(`      float _stx=0,_sty=0;`)
         ln(`      if(_near>0){ _stx+=(_avx/_near-${bvx}[_i])*(${ali})*0.08f; _sty+=(_avy/_near-${bvy}[_i])*(${ali})*0.08f; _stx+=(_cx/_near-${bx}[_i])*(${coh})*0.005f; _sty+=(_cy/_near-${by}[_i])*(${coh})*0.005f; }`)
         ln(`      if(_sc>0){ _stx+=_sx*(${sep})*0.05f; _sty+=_sy*(${sep})*0.05f; }`)
@@ -3754,7 +3769,7 @@ export function generateCpp(
         ln(`      _clkLastPulse_${id} = _now; _clkHasPulse_${id} = true; _clkOrigin_${id} = _now; }`)
         ln(`    if (_resetNow && !_clkPReset_${id}) { _clkOrigin_${id} = millis(); _clkHasPulse_${id} = false; _clkHasTap_${id} = false; _clkLastBeat_${id} = 0; _clkLastSub_${id} = 0; }`)
         ln(`    _clkPTap_${id} = _tapNow; _clkPSync_${id} = _syncNow; _clkPReset_${id} = _resetNow; }`)
-        ln(`  float ${v('bpm')} = _clkHasTap_${id} ? _clkTapBpm_${id} : ${bpmProp}f;`)
+        ln(`  float ${v('bpm')} = _clkHasTap_${id} ? _clkTapBpm_${id} : ${floatLit(bpmProp)};`)
         ln(`  float _clkElapsed_${id} = ((millis() - _clkOrigin_${id}) / 60000.0f) * ${v('bpm')};`)
         ln(`  float ${v('phase')} = _clkElapsed_${id} - (uint32_t)_clkElapsed_${id};`)
         ln(`  uint32_t _clkBeatCount_${id} = (uint32_t)_clkElapsed_${id};`)
@@ -3799,8 +3814,9 @@ export function generateCpp(
         if (paletteMixP >= 1) {
           ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = _c;`)
         } else {
-          const keep = (1 - paletteMixP).toFixed(4)
-          ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = CRGB((uint8_t)(_h*${keep}f+_c.r*${paletteMixP.toFixed(4)}f),(uint8_t)(_h*${keep}f+_c.g*${paletteMixP.toFixed(4)}f),(uint8_t)(_h*${keep}f+_c.b*${paletteMixP.toFixed(4)}f));`)
+          const keep = floatLit(1 - paletteMixP)
+          const mix = floatLit(paletteMixP)
+          ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = CRGB((uint8_t)(_h*${keep}+_c.r*${mix}),(uint8_t)(_h*${keep}+_c.g*${mix}),(uint8_t)(_h*${keep}+_c.b*${mix}));`)
         }
         ln(`    }`)
         if (mirrorP) {

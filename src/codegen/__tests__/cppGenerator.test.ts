@@ -287,7 +287,7 @@ describe('generateCpp', () => {
     const clk = node('clk', 'Clock', 'signal', { bpm: 128, beatsPerBar: 4, subdivision: 2 })
     const cpp = generateCpp([clk, outputNode], [])
     expect(cpp).toContain('_clkOrigin_clk')
-    expect(cpp).toContain('128f')
+    expect(cpp).toContain('128.0f')
     expect(cpp).toContain('% 4u == 0u')
     expect(cpp).toContain('float n_clk_bpm')
     expect(cpp).toContain('float n_clk_phase')
@@ -563,7 +563,7 @@ describe('generateCpp', () => {
 
     it('paletteMix<1 blends the palette colour with heat-brightness grayscale', () => {
       const cpp = generateCpp([node('f', type, 'pattern', { paletteMix: 0.25 }), outputNode], [])
-      expect(cpp).toContain('_h*0.7500f+_c.r*0.2500f')
+      expect(cpp).toContain('_h*0.75f+_c.r*0.25f')
     })
 
     it('mirror folds the rendered buffer symmetric across its width', () => {
@@ -1550,12 +1550,12 @@ describe('generateCpp — Particles modes', () => {
 
   it("spread widens/narrows a width-spawning mode's spawn area", () => {
     expect(gen('fountain', { spread: 0.5 })).toContain('WIDTH*0.5f+(random8()/255.0f-0.5f)*WIDTH*0.5f')
-    expect(gen('waterfall', { spread: 2 })).toContain('(random8()/255.0f-0.5f)*0.3f*WIDTH*2f')
+    expect(gen('waterfall', { spread: 2 })).toContain('(random8()/255.0f-0.5f)*0.3f*WIDTH*2.0f')
   })
 
   it("gravity and bounce scale a mode's built-in accel/restitution constants", () => {
     const cpp = gen('gravity', { gravity: 2, bounce: 0.5 })
-    expect(cpp).toContain('0.045f*2f')
+    expect(cpp).toContain('0.045f*2.0f')
     expect(cpp).toContain('-0.55f*0.5f')
   })
 
@@ -1918,8 +1918,8 @@ describe('Zones', () => {
       edge('e3', 'zn', 'out', 'frame', 'frame'),
     ])
     expect(cpp).toContain('::memmove(buf_zn, buf_zbase, sizeof(CRGB) * NUM_LEDS);')
-    expect(cpp).toContain('for (int _y=(int)(0f*HEIGHT); _y<(int)(1f*HEIGHT) && _y<HEIGHT; _y++)')
-    expect(cpp).toContain('for (int _x=(int)(0f*WIDTH); _x<(int)(0.5f*WIDTH) && _x<WIDTH; _x++)')
+    expect(cpp).toContain('for (int _y=(int)(0.0f*HEIGHT); _y<(int)(1.0f*HEIGHT) && _y<HEIGHT; _y++)')
+    expect(cpp).toContain('for (int _x=(int)(0.0f*WIDTH); _x<(int)(0.5f*WIDTH) && _x<WIDTH; _x++)')
     expect(cpp).toContain('buf_zn[_y*WIDTH+_x] = buf_za[_y*WIDTH+_x];')
   })
 
@@ -2248,7 +2248,7 @@ describe('KickShock / PercussionBlobs / RainRipples pool-spawner codegen', () =>
   it('KickShock spawnSpread=0 keeps every ring spawn at the shared centre', () => {
     const ks = node('ks4', 'KickShock', 'pattern', {})
     const cpp = generateCpp([ks, outputNode], [edge('e', 'ks4', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('-_ksCx)*0f')
+    expect(cpp).toContain('-_ksCx)*0.0f')
   })
 
   it('PercussionBlobs bakes count/size/decay/blendMode', () => {
@@ -2284,6 +2284,6 @@ describe('KickShock / PercussionBlobs / RainRipples pool-spawner codegen', () =>
   it('RainRipples spawnSpread defaults to 1 (fully random)', () => {
     const rr = node('rr3', 'RainRipples', 'pattern', {})
     const cpp = generateCpp([rr, outputNode], [edge('e', 'rr3', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('-_rrCx)*1f')
+    expect(cpp).toContain('-_rrCx)*1.0f')
   })
 })
