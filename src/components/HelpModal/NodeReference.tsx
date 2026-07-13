@@ -339,6 +339,209 @@ const AUDIO_ARTICLES: Record<string, AudioArticleContent> = {
   },
 }
 
+interface LiveSourceCandidate {
+  type: string
+  properties?: Record<string, unknown>
+}
+
+interface PlannedLiveNode {
+  key: string
+  type: string
+  dx: number
+  dy: number
+  properties?: Record<string, unknown>
+}
+
+const REFERENCE_ARTICLE_CATEGORIES = new Set<NodeCategory>([
+  'signal',
+  'math',
+  'color',
+  'pattern',
+  'field',
+  'composite',
+  'show',
+  'output',
+  'note',
+])
+
+const SOURCE_CANDIDATES_BY_TYPE: Record<string, LiveSourceCandidate[]> = {
+  audio: [{ type: 'MicInput' }],
+  bool: [{ type: 'Interval' }, { type: 'Compare' }, { type: 'ButtonInput' }],
+  color: [{ type: 'CHSV' }, { type: 'BlendColors' }, { type: 'Temperature' }],
+  field: [{ type: 'FieldNoise' }, { type: 'DistanceField' }, { type: 'FieldFormula' }],
+  float: [{ type: 'Counter' }, { type: 'Wave' }, { type: 'Random' }],
+  frame: [{ type: 'Noise', properties: { noiseType: 'field' } }, { type: 'GradientFrame' }, { type: 'SolidColor' }],
+  music: [{ type: 'MusicLibrary' }],
+  palette: [{ type: 'PaletteSelector' }, { type: 'CustomPalette' }],
+  patternset: [{ type: 'PatternCollection' }],
+  sdcard: [{ type: 'SDCard' }],
+  shows: [{ type: 'PerformanceGenerator' }],
+  transitionset: [{ type: 'TransitionSet' }],
+}
+
+function nodeDefinition(type: string): NodeDefinition | undefined {
+  return NODE_LIBRARY.find((entry) => entry.type === type)
+}
+
+function firstOutputHandle(type: string, dataType?: string): string | null {
+  const definition = nodeDefinition(type)
+  const output = dataType
+    ? definition?.outputs.find((port) => port.dataType === dataType)
+    : definition?.outputs[0]
+  return output?.id ?? null
+}
+
+function firstInputHandle(type: string, dataType: string): string | null {
+  const definition = nodeDefinition(type)
+  return definition?.inputs.find((port) => port.dataType === dataType)?.id ?? null
+}
+
+function sourceCandidateFor(dataType: string, targetType: string): LiveSourceCandidate | null {
+  const candidates = SOURCE_CANDIDATES_BY_TYPE[dataType] ?? []
+  return candidates.find((candidate) => candidate.type !== targetType && firstOutputHandle(candidate.type, dataType)) ?? null
+}
+
+function buildGenericLiveExample(node: NodeDefinition): LiveExampleSpec {
+  const nodes: PlannedLiveNode[] = []
+  const edges: LiveExampleSpec['edges'] = []
+  const usedKeys = new Set<string>()
+
+  const addNode = (planned: PlannedLiveNode) => {
+    if (usedKeys.has(planned.key)) return
+    usedKeys.add(planned.key)
+    nodes.push(planned)
+  }
+
+  const addEdge = (source: string, sourceHandle: string | null, target: string, targetHandle: string | null) => {
+    if (!sourceHandle || !targetHandle) return
+    edges.push({ source, sourceHandle, target, targetHandle })
+  }
+
+  addNode({ key: 'target', type: node.type, dx: -240, dy: -140 })
+
+  node.inputs.forEach((input, index) => {
+    const candidate = sourceCandidateFor(input.dataType, node.type)
+    if (!candidate) return
+    const key = `source-${index}`
+    addNode({
+      key,
+      type: candidate.type,
+      dx: -620,
+      dy: -250 + index * 135,
+      properties: candidate.properties,
+    })
+    addEdge(key, firstOutputHandle(candidate.type, input.dataType), 'target', input.id)
+  })
+
+  const primaryOutput = node.outputs[0]
+  if (!primaryOutput) {
+    if (node.type === 'MatrixOutput') {
+      addNode({ key: 'source-frame', type: 'Noise', dx: -620, dy: -180, properties: { noiseType: 'field' } })
+      addEdge('source-frame', firstOutputHandle('Noise', 'frame'), 'target', firstInputHandle('MatrixOutput', 'frame'))
+    }
+    return { title: `${node.label} reference patch`, nodes, edges }
+  }
+
+  const routeToMatrix = (sourceKey: string, sourceHandle: string | null) => {
+    addNode({ key: 'out', type: 'MatrixOutput', dx: 430, dy: -220 })
+    addEdge(sourceKey, sourceHandle, 'out', firstInputHandle('MatrixOutput', 'frame'))
+  }
+
+  switch (primaryOutput.dataType) {
+    case 'audio': {
+      addNode({ key: 'fft', type: 'FFTAnalyzer', dx: 40, dy: -160 })
+      addNode({ key: 'bars', type: 'SpectrumBars', dx: 315, dy: -150 })
+      addNode({ key: 'out', type: 'MatrixOutput', dx: 675, dy: -220 })
+      addEdge('target', primaryOutput.id, 'fft', firstInputHandle('FFTAnalyzer', 'audio'))
+      addEdge('fft', firstOutputHandle('FFTAnalyzer', 'float'), 'bars', 'bass')
+      addEdge('fft', 'mids', 'bars', 'mids')
+      addEdge('fft', 'treble', 'bars', 'treble')
+      addEdge('bars', firstOutputHandle('SpectrumBars', 'frame'), 'out', firstInputHandle('MatrixOutput', 'frame'))
+      break
+    }
+    case 'bool': {
+      addNode({ key: 'base-frame', type: 'Noise', dx: 35, dy: 75, properties: { noiseType: 'field' } })
+      addNode({ key: 'flash', type: 'BeatFlash', dx: 105, dy: -135 })
+      addEdge('target', primaryOutput.id, 'flash', firstInputHandle('BeatFlash', 'bool'))
+      addEdge('base-frame', firstOutputHandle('Noise', 'frame'), 'flash', firstInputHandle('BeatFlash', 'frame'))
+      routeToMatrix('flash', firstOutputHandle('BeatFlash', 'frame'))
+      break
+    }
+    case 'color': {
+      addNode({ key: 'solid', type: 'SolidColor', dx: 80, dy: -135 })
+      addEdge('target', primaryOutput.id, 'solid', firstInputHandle('SolidColor', 'color'))
+      routeToMatrix('solid', firstOutputHandle('SolidColor', 'frame'))
+      break
+    }
+    case 'field': {
+      addNode({ key: 'field-frame', type: 'FieldToFrame', dx: 80, dy: -135 })
+      addEdge('target', primaryOutput.id, 'field-frame', firstInputHandle('FieldToFrame', 'field'))
+      routeToMatrix('field-frame', firstOutputHandle('FieldToFrame', 'frame'))
+      break
+    }
+    case 'float': {
+      addNode({ key: 'base-frame', type: 'Noise', dx: 35, dy: 75, properties: { noiseType: 'field' } })
+      addNode({ key: 'brightness', type: 'BrightnessMod', dx: 105, dy: -135 })
+      addEdge('target', primaryOutput.id, 'brightness', firstInputHandle('BrightnessMod', 'float'))
+      addEdge('base-frame', firstOutputHandle('Noise', 'frame'), 'brightness', firstInputHandle('BrightnessMod', 'frame'))
+      routeToMatrix('brightness', firstOutputHandle('BrightnessMod', 'frame'))
+      break
+    }
+    case 'frame':
+      routeToMatrix('target', primaryOutput.id)
+      break
+    case 'music': {
+      addNode({ key: 'performance', type: 'PerformanceGenerator', dx: 80, dy: -145 })
+      addNode({ key: 'sd', type: 'SDCard', dx: 370, dy: -140 })
+      addNode({ key: 'out', type: 'MatrixOutput', dx: 690, dy: -220 })
+      addNode({ key: 'base-frame', type: 'Noise', dx: 370, dy: 105, properties: { noiseType: 'field' } })
+      addEdge('target', primaryOutput.id, 'performance', firstInputHandle('PerformanceGenerator', 'music'))
+      addEdge('performance', firstOutputHandle('PerformanceGenerator', 'shows'), 'sd', firstInputHandle('SDCard', 'shows'))
+      addEdge('sd', firstOutputHandle('SDCard', 'sdcard'), 'out', firstInputHandle('MatrixOutput', 'sdcard'))
+      addEdge('base-frame', firstOutputHandle('Noise', 'frame'), 'out', firstInputHandle('MatrixOutput', 'frame'))
+      break
+    }
+    case 'palette': {
+      addNode({ key: 'pattern', type: 'Noise', dx: 80, dy: -135, properties: { noiseType: 'field' } })
+      addEdge('target', primaryOutput.id, 'pattern', firstInputHandle('Noise', 'palette'))
+      routeToMatrix('pattern', firstOutputHandle('Noise', 'frame'))
+      break
+    }
+    case 'patternset': {
+      addNode({ key: 'show', type: 'PatternMaster', dx: 95, dy: -140 })
+      addEdge('target', primaryOutput.id, 'show', firstInputHandle('PatternMaster', 'patternset'))
+      routeToMatrix('show', firstOutputHandle('PatternMaster', 'frame'))
+      break
+    }
+    case 'sdcard': {
+      addNode({ key: 'out', type: 'MatrixOutput', dx: 140, dy: -220 })
+      addNode({ key: 'base-frame', type: 'Noise', dx: -130, dy: 105, properties: { noiseType: 'field' } })
+      addEdge('target', primaryOutput.id, 'out', firstInputHandle('MatrixOutput', 'sdcard'))
+      addEdge('base-frame', firstOutputHandle('Noise', 'frame'), 'out', firstInputHandle('MatrixOutput', 'frame'))
+      break
+    }
+    case 'shows': {
+      addNode({ key: 'sd', type: 'SDCard', dx: 80, dy: -140 })
+      addNode({ key: 'out', type: 'MatrixOutput', dx: 400, dy: -220 })
+      addNode({ key: 'base-frame', type: 'Noise', dx: 80, dy: 105, properties: { noiseType: 'field' } })
+      addEdge('target', primaryOutput.id, 'sd', firstInputHandle('SDCard', 'shows'))
+      addEdge('sd', firstOutputHandle('SDCard', 'sdcard'), 'out', firstInputHandle('MatrixOutput', 'sdcard'))
+      addEdge('base-frame', firstOutputHandle('Noise', 'frame'), 'out', firstInputHandle('MatrixOutput', 'frame'))
+      break
+    }
+    case 'transitionset': {
+      addNode({ key: 'patterns', type: 'PatternCollection', dx: -20, dy: 85 })
+      addNode({ key: 'show', type: 'PatternMaster', dx: 125, dy: -140 })
+      addEdge('target', primaryOutput.id, 'show', firstInputHandle('PatternMaster', 'transitionset'))
+      addEdge('patterns', firstOutputHandle('PatternCollection', 'patternset'), 'show', firstInputHandle('PatternMaster', 'patternset'))
+      routeToMatrix('show', firstOutputHandle('PatternMaster', 'frame'))
+      break
+    }
+  }
+
+  return { title: `${node.label} reference patch`, nodes, edges }
+}
+
 const PROPERTY_LABELS: Record<string, string> = {
   agc: 'AGC',
   bpm: 'BPM',
@@ -1267,7 +1470,9 @@ function openLiveExample(
   window.setTimeout(() => {
     useUiStore.getState().requestFitView(result.nodeIds)
   }, 80)
-  const matrixInputOccupied = result.skippedConnections.some((edge) => edge.target === 'out' && edge.targetHandle === 'frame')
+  const matrixInputOccupied = result.skippedConnections.some((edge) =>
+    (edge.target === 'out' || edge.target === 'target')
+    && (edge.targetHandle === 'frame' || edge.targetHandle === 'sdcard'))
   ui.setStatus(matrixInputOccupied ? options.skippedMessage : options.successMessage, 'success')
 }
 
@@ -1767,6 +1972,172 @@ function MidiArticle({ node }: { node: NodeDefinition }) {
   )
 }
 
+function examplePathFromRecipe(recipe: ExampleRecipe): string {
+  return recipe.columns
+    .map((column) => column.map((item) => item.label).join(' + '))
+    .join(' -> ')
+}
+
+function exampleTitleForNode(node: NodeDefinition): string {
+  const primaryOutput = node.outputs[0]?.dataType
+  if (node.type === 'MatrixOutput') return 'Send a finished frame to the LEDs'
+  if (node.type === 'Comment') return 'Annotate the patch without changing it'
+  switch (primaryOutput) {
+    case 'bool': return `Use ${node.label} as a trigger`
+    case 'color': return `Paint with ${node.label}`
+    case 'field': return `Turn ${node.label} into pixels`
+    case 'float': return `Drive brightness with ${node.label}`
+    case 'frame': return `Send ${node.label} to the matrix`
+    case 'music': return `Feed ${node.label} into show generation`
+    case 'palette': return `Colour a pattern with ${node.label}`
+    case 'patternset': return `Perform a show from ${node.label}`
+    case 'sdcard': return `Attach ${node.label} to the upload path`
+    case 'shows': return `Export shows from ${node.label}`
+    case 'transitionset': return `Give the show more transitions`
+    default: return `Use ${node.label} in a patch`
+  }
+}
+
+function previewDescriptionForNode(node: NodeDefinition): string {
+  const primaryOutput = node.outputs[0]?.dataType
+  if (node.type === 'MatrixOutput') {
+    return 'The preview should show the incoming frame using this node’s matrix size, layout, colour order, brightness, and rendering settings.'
+  }
+  if (node.type === 'Comment') {
+    return 'Nothing in the LED preview changes. The Comment node exists only to label intent, TODOs, wiring notes, or setup reminders on the canvas.'
+  }
+  switch (primaryOutput) {
+    case 'bool':
+      return 'The downstream frame should react whenever the boolean output goes high, usually as a flash, gate, switch, or sampled event.'
+    case 'color':
+      return 'The downstream frame should take on the generated colour, making it easy to verify hue, saturation, temperature, or blend settings.'
+    case 'field':
+      return 'The scalar field should become visible after Field to Frame maps it through a palette; changes upstream should appear as spatial texture or motion.'
+    case 'float':
+      return 'The downstream frame should brighten, dim, speed up, move, or otherwise change as the generated control value changes.'
+    case 'frame':
+      return 'The node’s frame output should appear directly in the matrix preview, with any wired controls changing the rendered pixels live.'
+    case 'music':
+      return 'The music stream should feed show generation rather than direct pixels; use the generated show preview/export path to verify timing.'
+    case 'palette':
+      return 'The downstream pattern should recolour through this palette while retaining its motion and structure.'
+    case 'patternset':
+      return 'The show engine should treat the selected patterns as a pool, switching between them according to its timing and transition settings.'
+    case 'sdcard':
+      return 'The matrix still renders from its frame input, while the SD Card connection enables the upload flow to include music and show files.'
+    case 'shows':
+      return 'The generated show package should pass through SD Card toward Matrix Output so it can be written before firmware upload.'
+    case 'transitionset':
+      return 'The show engine should have more transition choices available when it moves between patterns.'
+    default:
+      return 'The example patch should show where this node fits and which downstream node makes its output visible or useful.'
+  }
+}
+
+function propertyNoteForNode(node: NodeDefinition): string {
+  const properties = propertyEntries(node)
+  if (properties.length === 0) {
+    return 'This node is shaped entirely by its sockets and downstream context.'
+  }
+  if (node.category === 'output') {
+    return 'These settings define the physical LED layout, rendering options, power limits, and upload target assumptions.'
+  }
+  if (node.category === 'show') {
+    return 'These settings shape show timing, export behavior, selected assets, or playback support.'
+  }
+  if (node.category === 'note') {
+    return 'Text and colour affect only the canvas annotation; they do not participate in preview or generated firmware.'
+  }
+  return 'Defaults shown here are the values new nodes start with. Wire a matching input when you want another node to control a property live.'
+}
+
+function ReferenceArticle({ node }: { node: NodeDefinition }) {
+  const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
+  const properties = propertyEntries(node)
+  const useCases = buildUseCases(node)
+  const recipe = buildExampleRecipe(node)
+  const liveExample = buildGenericLiveExample(node)
+  const hasMatrixOutput = liveExample.nodes.some((entry) => entry.type === 'MatrixOutput')
+  const tryLive = () => {
+    openLiveExample(liveExample, {
+      successMessage: `${node.label} example added${liveExample.nodes.some((entry) => entry.type === 'MicInput') ? ' — test signal on' : ''}`,
+      skippedMessage: `${node.label} example added — Matrix Output is already in use; connect the final output when ready`,
+      enableTestSignal: liveExample.nodes.some((entry) => entry.type === 'MicInput'),
+    })
+  }
+  return (
+    <article className={styles.article} style={{ '--node-accent': accent } as React.CSSProperties}>
+      <div className={styles.breadcrumb}>{categoryLabel(node.category)} nodes <span>/</span> {node.label}</div>
+      <header className={styles.articleHeader}>
+        <div>
+          <div className={styles.eyebrow}><i style={{ background: accent }} />{node.subcategory ?? categoryLabel(node.category)}</div>
+          <h1>{node.label}</h1>
+          <p>{NODE_DESCRIPTIONS[node.type]}</p>
+        </div>
+        <div className={styles.articleMeta}>{node.inputs.length} inputs · {node.outputs.length} outputs · {properties.length} properties</div>
+      </header>
+
+      <div className={styles.introGrid}>
+        <figure className={styles.nodeCapture}>
+          <div className={styles.nodeCaptureFrame}>
+            <ImagePlaceholder label="Node image placeholder" detail={`${node.label} node capture`} compact />
+          </div>
+        </figure>
+        <section className={styles.overviewPanel}>
+          <div className={styles.sectionKicker}>What it does</div>
+          <h2>Overview</h2>
+          {useCases.map((useCase) => <p key={useCase}>{useCase}</p>)}
+        </section>
+      </div>
+
+      <div className={styles.ioGrid}>
+        <PortPanel title="Inputs" ports={node.inputs} direction="input" />
+        <PropertyPanel
+          node={node}
+          emptyText="This node has no inline properties. Configure it with its sockets or node-specific controls."
+          note={propertyNoteForNode(node)}
+        />
+        <PortPanel title="Outputs" ports={node.outputs} direction="output" />
+      </div>
+
+      <section className={styles.exampleSection}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <h2>{exampleTitleForNode(node)}</h2>
+          </div>
+          <div className={styles.exampleHeadingActions}>
+            <span>{examplePathFromRecipe(recipe)}</span>
+            <button className={styles.tryLiveButton} type="button" onClick={tryLive}>
+              <span aria-hidden="true">▶</span> Try it live
+            </button>
+          </div>
+        </div>
+        <PlaceholderFigure
+          label="Example graph placeholder"
+          detail={`${node.label} example graph`}
+          alt={`Placeholder for a tidy graph showing ${examplePathFromRecipe(recipe)}`}
+          wide
+        />
+        <div className={styles.exampleExplanation}>
+          <b>How it works</b>
+          <p>{recipe.explanation}</p>
+        </div>
+      </section>
+
+      <section className={styles.previewSection}>
+        <div className={styles.previewCopy}>
+          <div className={styles.sectionKicker}>Main preview</div>
+          <h2>{hasMatrixOutput ? 'What you should see' : 'What changes'}</h2>
+          <p>{previewDescriptionForNode(node)}</p>
+        </div>
+        <figure className={styles.previewCapture}>
+          <ImagePlaceholder label="Preview image placeholder" detail={`${node.label} preview capture`} />
+        </figure>
+      </section>
+    </article>
+  )
+}
+
 function NodeArticle({ node }: { node: NodeDefinition }) {
   if (node.type === 'MicInput') return <MicrophoneArticle node={node} />
   if (AUDIO_ARTICLES[node.type]) return <AudioArticle node={node} content={AUDIO_ARTICLES[node.type]} />
@@ -1774,6 +2145,7 @@ function NodeArticle({ node }: { node: NodeDefinition }) {
   if (node.type === 'PotInput') return <PotentiometerArticle node={node} />
   if (node.type === 'EncoderInput') return <EncoderArticle node={node} />
   if (node.type === 'MidiInput') return <MidiArticle node={node} />
+  if (REFERENCE_ARTICLE_CATEGORIES.has(node.category)) return <ReferenceArticle node={node} />
   const properties = propertyEntries(node)
   const useCases = buildUseCases(node)
   const recipe = buildExampleRecipe(node)
