@@ -1,5 +1,6 @@
 import type { NodeDefinition } from '../types'
 import { STUDIO_PALETTES } from './paletteCatalog'
+import { DEFAULT_CUSTOM_COLORS, DEFAULT_CUSTOM_POSITIONS } from './customPalette'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   // ── Inputs ─────────────────────────────────────────────────────────────
@@ -37,7 +38,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'show',
     inputs: [],
     outputs: [{ id: 'music', label: 'Music', dataType: 'music' }],
-    defaultProperties: {},
+    defaultProperties: { colors: [...DEFAULT_CUSTOM_COLORS], positions: [...DEFAULT_CUSTOM_POSITIONS] },
   },
   {
     type: 'FFTAnalyzer',

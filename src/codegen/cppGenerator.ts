@@ -12,6 +12,7 @@ import { inputClampRange, bypassPort, CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, CORR
 import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledShims'
 import { particleRadius } from '../state/particleScale'
 import { buildXYTable } from '../state/xyLayout'
+import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette } from '../state/customPalette'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -3590,13 +3591,35 @@ export function generateCpp(
         break
 
       case 'CustomPalette': {
-        // Build a CRGBPalette16 from connected colors (CRGBPalette16 has 1–4 and
-        // 16 colour constructors); consumers reference pal_<id> via paletteExpr.
-        const cols = ['color0', 'color1', 'color2', 'color3']
-          .filter((port) => incoming.get(`${node.id}:${port}`))
-          .map((port) => colorExpr(node.id, port))
-        if (cols.length === 0) ln(`  CRGBPalette16 pal_${id} = RainbowColors_p;`)
-        else ln(`  CRGBPalette16 pal_${id}(${cols.join(', ')});`)
+        // Positioned custom stops bake to a full CRGBPalette16. Wired color
+        // inputs override their matching local stop for the first four slots.
+        const local = normalizeCustomPalette(p.colors, p.positions)
+        const localStops = customPaletteStops16(local.colors.map(customHexToRgb), local.positions)
+        const colorStopExpr = (source: number) => {
+          const port = `color${source}`
+          if (source < 4 && incoming.get(`${node.id}:${port}`)) return colorExpr(node.id, port)
+          const c = customHexToRgb(local.colors[source])
+          return `CRGB(${c.r},${c.g},${c.b})`
+        }
+        const stopExpr = (idx: number) => {
+          const position = idx / 15
+          let right = 1
+          while (right < local.positions.length - 1 && position > local.positions[right]) right++
+          const left = Math.max(0, right - 1)
+          const leftPos = local.positions[left] ?? 0
+          const rightPos = local.positions[right] ?? 1
+          const amount = Math.max(0, Math.min(255, Math.round(((position - leftPos) / Math.max(1e-6, rightPos - leftPos)) * 255)))
+          if (amount <= 0) return colorStopExpr(left)
+          if (amount >= 255) return colorStopExpr(right)
+          const leftExpr = colorStopExpr(left)
+          const rightExpr = colorStopExpr(right)
+          if (!leftExpr.includes('n_') && !rightExpr.includes('n_')) {
+            const c = localStops[idx]
+            return `CRGB(${c.r},${c.g},${c.b})`
+          }
+          return `blend(${leftExpr}, ${rightExpr}, ${amount})`
+        }
+        ln(`  CRGBPalette16 pal_${id}(${Array.from({ length: 16 }, (_, i) => stopExpr(i)).join(', ')});`)
         break
       }
 

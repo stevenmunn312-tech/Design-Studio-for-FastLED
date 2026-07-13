@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import { useGraphStore } from '../../../state/graphStore'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
@@ -19,6 +19,11 @@ function nodeData(type: string, properties: Record<string, unknown>) {
 
 describe('node body wheel behavior', () => {
   beforeEach(() => {
+    vi.restoreAllMocks()
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      createImageData: (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }),
+      putImageData: vi.fn(),
+    } as unknown as CanvasRenderingContext2D)
     useGraphStore.setState({
       nodes: [
         {

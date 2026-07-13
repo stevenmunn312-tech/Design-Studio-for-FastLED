@@ -780,8 +780,25 @@ describe('generateCpp', () => {
       edge('e3', 'cp', 'sx', 'palette', 'paletteIn'),
       edge('e4', 'sx', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('CRGBPalette16 pal_cp(n_c1_rgb, n_c2_rgb)')
+    expect(cpp).toMatch(/CRGBPalette16 pal_cp\((?:[^;]*, ){15}[^;]*\);/)
+    expect(cpp).toContain('blend(n_c1_rgb, n_c2_rgb')
     expect(cpp).toContain('ColorFromPalette(pal_cp,')
+  })
+
+  it('bakes positioned CustomPalette stops into the generated palette', () => {
+    const cp = node('cp', 'CustomPalette', 'color', {
+      colors: ['#000000', '#ffffff', '#ff0000'],
+      positions: [0, 0.25, 1],
+    })
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex', palette: 'rainbow' })
+    const cpp = generateCpp([cp, sx, outputNode], [
+      edge('e1', 'cp', 'sx', 'palette', 'paletteIn'),
+      edge('e2', 'sx', 'out', 'frame', 'frame'),
+    ])
+
+    expect(cpp).toContain('CRGBPalette16 pal_cp(CRGB(0,0,0)')
+    expect(cpp).toContain('CRGB(68,68,68)')
+    expect(cpp).toContain('CRGB(255,0,0))')
   })
 
   it('bakes a poline palette into a CRGBPalette16 used downstream', () => {

@@ -1,0 +1,99 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--divider);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: var(--fs-caption);
+}
+
+.readout {
+  color: var(--accent-composite);
+}
+
+.allBtn {
+  border: 1px solid var(--border-glow);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font: inherit;
+  line-height: 1.3;
+  padding: 0 5px;
+  cursor: pointer;
+}
+
+.allBtn:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-composite);
+}
+
+.scrub {
+  width: 100%;
+  accent-color: var(--accent-composite);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.card {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--border-glow);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--bg-primary) 86%, transparent);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: var(--font-code);
+  font-size: 9px;
+  line-height: 1.1;
+  padding: 3px;
+  text-align: left;
+}
+
+.card:hover {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--accent-composite) 54%, var(--border-glow));
+}
+
+.card span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.on {
+  color: var(--text-primary);
+  border-color: var(--accent-composite);
+  background: color-mix(in srgb, var(--accent-composite) 18%, var(--bg-primary));
+}
+
+.thumb {
+  width: 34px;
+  height: 18px;
+  display: block;
+  image-rendering: pixelated;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+}
+
+.thumbOn {
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.22),
+    0 0 10px color-mix(in srgb, var(--accent-composite) 42%, transparent);
+}

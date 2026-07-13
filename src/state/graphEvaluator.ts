@@ -7,6 +7,7 @@ import { asFont, textBlockLayout, textAlignMode, TEXT_LINE_GAP, type BitmapFont,
 import { animatedImageFrame, asAnimatedImage, asImage, sampleImageToFrame, type ImageData } from './image'
 import { waveSample, combineWaves } from './wave'
 import { polinePalette, hexToRgb } from './polinePalette'
+import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette } from './customPalette'
 import { inputClampRange, bypassPort } from './nodeLibrary'
 import { makeShims, SHIM_NAMES } from './fastledShims'
 import { compileFormulaSource, type FormulaFn } from './formulaLang'
@@ -28,6 +29,7 @@ const DEFAULT_W = 16
 const DEFAULT_H = 16
 
 function normalizedCenterAxis(value: number, size: number, extent: number, wrap: boolean): number {
+  if (value > 1) return value
   if (wrap) return size * 0.5 - size + value * (size * 2)
   const margin = extent + 1
   return 0.5 - margin + value * (Math.max(0, size - 1) + 2 * margin)
@@ -5171,14 +5173,13 @@ function createEvalNode(
         break
 
       case 'CustomPalette': {
-        // Build a palette from connected color inputs (in order); unconnected
-        // slots are skipped. Falls back to rainbow when nothing is wired.
-        const colors: RGB[] = []
-        for (const port of ['color0', 'color1', 'color2', 'color3']) {
-          const c = input(id, port, null) as RGB | null
-          if (c) colors.push(c)
-        }
-        out = { palette: colors.length > 0 ? colors : 'rainbow' }
+        // Build a positioned local palette; wired color inputs override their
+        // matching stop without removing the other local stops.
+        const local = normalizeCustomPalette(props.colors, props.positions)
+        const colors = local.colors.map((color, i) =>
+          (input(id, `color${i}`, null) as RGB | null) ?? customHexToRgb(color)
+        )
+        out = { palette: customPaletteStops16(colors, local.positions) }
         break
       }
 
