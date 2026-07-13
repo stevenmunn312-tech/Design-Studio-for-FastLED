@@ -1,5 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useRef, useState } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import { useGraphStore, useTemporalStore } from '../../state/graphStore'
 import { useAudioStore } from '../../state/audioStore'
@@ -66,19 +65,6 @@ export default function MenuBar() {
   const viewMenuRef = useRef<HTMLDivElement>(null)
   const [fileMenuOpen, setFileMenuOpen] = useState(false)
   const [viewMenuOpen, setViewMenuOpen] = useState(false)
-  const [viewMenuPos, setViewMenuPos] = useState({ top: 0, left: 0 })
-
-  // The View menu button lives inside `.nav`, which needs `overflow-x: auto`
-  // so the toolbar can scroll on narrow windows. Per the CSS overflow spec,
-  // setting only one axis to `auto` forces the other axis to `auto` too — so
-  // `.nav` silently clips anything (including position:fixed descendants)
-  // that renders past its own height, which swallowed the dropdown entirely.
-  // Portal it to <body> and position it from the button's own rect instead.
-  useLayoutEffect(() => {
-    if (!viewMenuOpen) return
-    const rect = viewMenuRef.current?.getBoundingClientRect()
-    if (rect) setViewMenuPos({ top: rect.bottom + 8, left: rect.left })
-  }, [viewMenuOpen])
   const hasMicNode = useGraphStore((s) =>
     s.nodes.some((n) => (n.data as { nodeType?: string }).nodeType === 'MicInput')
   )
@@ -498,6 +484,84 @@ export default function MenuBar() {
           </>
         )}
       </div>
+      <div className={styles.menuWrap} ref={viewMenuRef}>
+        <button
+          className={`${styles.btn} ${viewMenuOpen ? styles.btnActive : ''}`}
+          onClick={() => {
+            setFileMenuOpen(false)
+            setViewMenuOpen((open) => !open)
+          }}
+          aria-haspopup="menu"
+          aria-expanded={viewMenuOpen}
+          aria-label="View menu"
+          title="View and preferences"
+        >
+          View
+        </button>
+        {viewMenuOpen && (
+          <>
+            <button
+              type="button"
+              className={styles.menuBackdrop}
+              aria-label="Close view menu"
+              onClick={closeMenus}
+            />
+            {/* onMouseLeave is intentionally not wired to close this menu —
+                the panel should stay open while the pointer is over it so the
+                user can flip through several settings in one visit. */}
+            <div className={styles.menu} role="menu" aria-label="View">
+              <div className={styles.menuLabel}>Appearance</div>
+              <button
+                className={styles.menuItem}
+                role="menuitem"
+                onClick={() => { closeMenus(); cycleTheme() }}
+                title="Cycle theme"
+              >
+                {THEME_ICON[theme]} Theme: {THEME_LABEL[theme]}
+              </button>
+              <button
+                className={styles.menuItem}
+                role="menuitemcheckbox"
+                aria-checked={effectiveReducedMotion}
+                onClick={() => { closeMenus(); toggleReducedMotion() }}
+                title={uiEffectsEnabled ? 'Toggle reduced motion' : 'Forced on while UI FX are off'}
+                disabled={!uiEffectsEnabled}
+              >
+                {effectiveReducedMotion ? '✓' : '○'} Motion: {effectiveReducedMotion ? 'Reduced' : 'Full'}
+              </button>
+              <button
+                className={styles.menuItem}
+                role="menuitemcheckbox"
+                aria-checked={highContrast}
+                onClick={() => { closeMenus(); toggleHighContrast() }}
+                title="Toggle high contrast"
+              >
+                {highContrast ? '✓' : '○'} Contrast: {highContrast ? 'High' : 'Standard'}
+              </button>
+              <div className={styles.menuDivider} />
+              <div className={styles.menuLabel}>Signal Path</div>
+              <button
+                className={styles.menuItem}
+                role="menuitemcheckbox"
+                aria-checked={uiEffectsEnabled}
+                onClick={() => { closeMenus(); toggleUiEffects() }}
+                title={uiEffectsEnabled ? 'Disable extra UI effects' : 'Enable extra UI effects'}
+              >
+                {uiEffectsEnabled ? '✓' : '○'} UI FX: {uiEffectsEnabled ? 'On' : 'Off'}
+              </button>
+              <button
+                className={styles.menuItem}
+                role="menuitemcheckbox"
+                aria-checked={signalPathDimEnabled}
+                onClick={() => { closeMenus(); toggleSignalPathDim() }}
+                title={signalPathDimEnabled ? 'Disable dimming unrelated nodes on selection' : 'Enable dimming unrelated nodes on selection'}
+              >
+                {signalPathDimEnabled ? '✓' : '○'} Signal dimming: {signalPathDimEnabled ? 'On' : 'Off'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
       <nav className={styles.nav}>
         <button
           className={styles.btn}
@@ -547,87 +611,6 @@ export default function MenuBar() {
           style={{ display: 'none' }}
           onChange={handleFileChange}
         />
-        <div className={styles.menuWrap} ref={viewMenuRef}>
-          <button
-            className={`${styles.btn} ${viewMenuOpen ? styles.btnActive : ''}`}
-            onClick={() => {
-              setFileMenuOpen(false)
-              setViewMenuOpen((open) => !open)
-            }}
-            aria-haspopup="menu"
-            aria-expanded={viewMenuOpen}
-            aria-label="View menu"
-            title="View and preferences"
-          >
-            View
-          </button>
-          {viewMenuOpen && createPortal(
-            <>
-              <button
-                type="button"
-                className={styles.menuBackdrop}
-                aria-label="Close view menu"
-                onClick={closeMenus}
-              />
-              <div
-                className={styles.menu}
-                style={{ position: 'fixed', top: viewMenuPos.top, left: viewMenuPos.left }}
-                role="menu"
-                aria-label="View"
-              >
-                <div className={styles.menuLabel}>Appearance</div>
-                <button
-                  className={styles.menuItem}
-                  role="menuitem"
-                  onClick={() => { closeMenus(); cycleTheme() }}
-                  title="Cycle theme"
-                >
-                  {THEME_ICON[theme]} Theme: {THEME_LABEL[theme]}
-                </button>
-                <button
-                  className={styles.menuItem}
-                  role="menuitemcheckbox"
-                  aria-checked={effectiveReducedMotion}
-                  onClick={() => { closeMenus(); toggleReducedMotion() }}
-                  title={uiEffectsEnabled ? 'Toggle reduced motion' : 'Forced on while UI FX are off'}
-                  disabled={!uiEffectsEnabled}
-                >
-                  {effectiveReducedMotion ? '✓' : '○'} Motion: {effectiveReducedMotion ? 'Reduced' : 'Full'}
-                </button>
-                <button
-                  className={styles.menuItem}
-                  role="menuitemcheckbox"
-                  aria-checked={highContrast}
-                  onClick={() => { closeMenus(); toggleHighContrast() }}
-                  title="Toggle high contrast"
-                >
-                  {highContrast ? '✓' : '○'} Contrast: {highContrast ? 'High' : 'Standard'}
-                </button>
-                <div className={styles.menuDivider} />
-                <div className={styles.menuLabel}>Signal Path</div>
-                <button
-                  className={styles.menuItem}
-                  role="menuitemcheckbox"
-                  aria-checked={uiEffectsEnabled}
-                  onClick={() => { closeMenus(); toggleUiEffects() }}
-                  title={uiEffectsEnabled ? 'Disable extra UI effects' : 'Enable extra UI effects'}
-                >
-                  {uiEffectsEnabled ? '✓' : '○'} UI FX: {uiEffectsEnabled ? 'On' : 'Off'}
-                </button>
-                <button
-                  className={styles.menuItem}
-                  role="menuitemcheckbox"
-                  aria-checked={signalPathDimEnabled}
-                  onClick={() => { closeMenus(); toggleSignalPathDim() }}
-                  title={signalPathDimEnabled ? 'Disable dimming unrelated nodes on selection' : 'Enable dimming unrelated nodes on selection'}
-                >
-                  {signalPathDimEnabled ? '✓' : '○'} Signal dimming: {signalPathDimEnabled ? 'On' : 'Off'}
-                </button>
-              </div>
-            </>,
-            document.body
-          )}
-        </div>
         <div className={styles.sep} />
         <button
           className={`${styles.btn} ${performanceMode ? styles.btnActive : ''}`}
