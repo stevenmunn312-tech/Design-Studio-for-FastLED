@@ -21,6 +21,8 @@ import TrustBanner from './components/TrustBanner/TrustBanner'
 import styles from './App.module.css'
 
 const BoardPopup = lazy(() => import('./components/Upload/BoardPopup'))
+const MatrixOutputSetupWizard = lazy(() => import('./components/Upload/MatrixOutputSetupWizard'))
+const MatrixOutputDeployPopup = lazy(() => import('./components/Upload/MatrixOutputDeployPopup'))
 const ArduinoCliPopup = lazy(() => import('./components/Upload/ArduinoCliPopup'))
 const OutputConsole = lazy(() => import('./components/Upload/OutputConsole'))
 const AppDialogHost = lazy(() => import('./components/AppDialog/AppDialogHost'))
@@ -58,6 +60,8 @@ export default function App() {
   const hasMicNode = micNodeProps !== null
   const showPreviewPlaying = useShowPlayback((s) => s.playing)
   const boardPopupOpen = useUploadStore((s) => s.boardPopupOpen)
+  const setupWizardOpen = useUploadStore((s) => s.setupWizardOpen)
+  const deployPopupOpen = useUploadStore((s) => s.deployPopupOpen)
   const cliPopupOpen = useUploadStore((s) => s.cliPopupOpen)
   const consoleOpen = useUploadStore((s) => s.consoleOpen)
   const refreshHelper = useUploadStore((s) => s.refreshHelper)
@@ -382,6 +386,8 @@ export default function App() {
       <div className={styles.statusShell}><StatusBar /></div>
       <Suspense fallback={null}>
         <AppDialogHost />
+        {setupWizardOpen && <MatrixOutputSetupWizard />}
+        {deployPopupOpen && <MatrixOutputDeployPopup />}
         {boardPopupOpen && <BoardPopup />}
         {cliPopupOpen && <ArduinoCliPopup />}
         {consoleOpen && <OutputConsole />}

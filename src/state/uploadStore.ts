@@ -136,6 +136,8 @@ interface UploadState {
   serialBaud: number
   // overlays
   boardPopupOpen: boolean
+  setupWizardOpen: boolean
+  deployPopupOpen: boolean
   cliPopupOpen: boolean
   consoleOpen: boolean
   codeViewOpen: boolean
@@ -152,6 +154,10 @@ interface UploadState {
   // overlays
   openBoardPopup: () => void
   closeBoardPopup: () => void
+  openSetupWizard: () => void
+  closeSetupWizard: () => void
+  openDeployPopup: () => void
+  closeDeployPopup: () => void
   openCliPopup: () => void
   closeCliPopup: () => void
   openConsole: () => void
@@ -204,6 +210,8 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   serialError: '',
   serialBaud: 115200,
   boardPopupOpen: false,
+  setupWizardOpen: false,
+  deployPopupOpen: false,
   cliPopupOpen: false,
   consoleOpen: false,
   codeViewOpen: false,
@@ -252,6 +260,10 @@ export const useUploadStore = create<UploadState>((set, get) => ({
 
   openBoardPopup: () => { set({ boardPopupOpen: true }); get().refreshPorts(); get().refreshCores() },
   closeBoardPopup: () => set({ boardPopupOpen: false }),
+  openSetupWizard: () => { set({ setupWizardOpen: true }); get().refreshPorts(); get().refreshCores() },
+  closeSetupWizard: () => set({ setupWizardOpen: false }),
+  openDeployPopup: () => { set({ deployPopupOpen: true }); get().refreshPorts(); get().refreshCores() },
+  closeDeployPopup: () => set({ deployPopupOpen: false }),
   openCliPopup: () => set({ cliPopupOpen: true, boardPopupOpen: false }),
   closeCliPopup: () => set({ cliPopupOpen: false }),
   openConsole: () => set({ consoleOpen: true }),

@@ -1,4 +1,7 @@
+import { useMemo } from 'react'
+import { useGraphStore } from '../../state/graphStore'
 import { BOARDS, boardByFqbn, engineReady, useUploadStore } from '../../state/uploadStore'
+import { estimateFirmwareRam } from '../../utils/validateGraph'
 import styles from './Upload.module.css'
 
 // Popup launched from the MatrixOutput "Board" button. Top: a board manager to
@@ -11,6 +14,7 @@ export default function BoardPopup() {
     toggleBoard, setSelectedFqbn, setSelectedPort, refreshPorts,
     installCore, closeBoardPopup, openCliPopup,
   } = useUploadStore()
+  const { nodes, edges, updateNodeProperty } = useGraphStore()
 
   const usingFbuild = helper?.engine === 'fbuild'
   const ready = engineReady(helper)
@@ -18,6 +22,12 @@ export default function BoardPopup() {
   const board = boardByFqbn(selectedFqbn)
   const portLabel = ports.find((p) => p.address === selectedPort)?.label ?? selectedPort
   const target = `${board?.label ?? 'No board'} · ${portLabel || 'no port'}`
+  const outputNode = nodes.find((n) => n.data.nodeType === 'MatrixOutput')
+  const ownProps = (outputNode?.data.properties ?? {}) as Record<string, unknown>
+  const psramOptions = board?.psram
+  const usePsram = !!psramOptions && ownProps.usePsram === true
+  const psramChoice = psramOptions?.find((option) => option.id === ownProps.psramMode) ?? psramOptions?.[0]
+  const ram = useMemo(() => estimateFirmwareRam(nodes, edges), [nodes, edges])
 
   return (
     <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) closeBoardPopup() }}>
@@ -101,6 +111,47 @@ export default function BoardPopup() {
         </div>
 
         <div className={styles.targetBig}>{target}</div>
+
+        {ram && ram.ledCount > 0 && (
+          <>
+            <div className={styles.sectionTitle}>Memory</div>
+            <div
+              className={styles.note}
+              title="Internal RAM = the physical LED array plus any render buffers not offloaded to PSRAM, plus fixed simulation-node state (heat maps, particle pools, etc.) which always stays internal. Rough estimate — actual usage also depends on the rest of the sketch."
+            >
+              ~{(ram.internalBytes / 1024).toFixed(1)} KB internal
+              {ram.psramBytes > 0 ? ` · ~${(ram.psramBytes / 1024).toFixed(1)} KB PSRAM` : ''}
+            </div>
+          </>
+        )}
+
+        {psramOptions && outputNode && (
+          <>
+            <div className={styles.sectionTitle}>PSRAM</div>
+            <div className={styles.psramRow}>
+              <label className={styles.psramCheck} title="Put the render buffers in external PSRAM — frees internal RAM for designs too big to link. Needs a module with PSRAM (falls back to internal heap without one).">
+                <input
+                  type="checkbox"
+                  checked={usePsram}
+                  onChange={(e) => updateNodeProperty(outputNode.id, 'usePsram', e.target.checked)}
+                />
+                Use PSRAM
+              </label>
+              {usePsram && psramOptions.length > 1 && (
+                <select
+                  className={`nodrag ${styles.psramSelect}`}
+                  value={psramChoice?.id}
+                  onChange={(e) => updateNodeProperty(outputNode.id, 'psramMode', e.target.value)}
+                  title="PSRAM interface — set by the module package (picking the wrong one makes the board boot-loop)"
+                >
+                  {psramOptions.map((option) => (
+                    <option key={option.id} value={option.id}>{option.label}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

@@ -17,6 +17,15 @@
     linear-gradient(180deg, rgba(7, 11, 17, 0.94), rgba(2, 3, 6, 0.99));
 }
 
+:global(.react-flow__node) {
+  z-index: 1;
+}
+
+:global(.react-flow__node.selected),
+:global(.react-flow__node.dragging) {
+  z-index: 4;
+}
+
 .canvasFocused {}
 
 .canvasIdle {}

@@ -57,6 +57,7 @@
   --signal-emissive: rgb(0 0 0);
   --signal-energy: 0;
   position: relative;
+  isolation: isolate;
   width: var(--node-width);
   min-height: var(--node-height);
   background: var(--bg-node);
@@ -65,7 +66,7 @@
     inset 0 0 0 1px var(--border-glow),
     0 0 15px var(--signal-glow, transparent),
     0 0 38px var(--signal-soft-glow, transparent);
-  transition: background var(--anim-hover), box-shadow 240ms linear, opacity 180ms ease-out, filter 180ms ease-out;
+  transition: box-shadow 240ms linear, opacity 180ms ease-out, filter 180ms ease-out;
   cursor: default;
   user-select: none;
   animation: nodePopin 0.2s ease-out;
@@ -149,8 +150,8 @@
   backdrop-filter: blur(10px);
 }
 
-.node:hover {
-  background: var(--bg-node-hover);
+.node:hover::after {
+  background: color-mix(in srgb, var(--bg-node-hover) 32%, transparent);
 }
 
 .header {

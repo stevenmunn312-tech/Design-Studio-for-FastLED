@@ -291,40 +291,6 @@ const LivePropertyControls = memo(function LivePropertyControls({
 
   return (
     <div className={styles.props}>
-      {isMatrixOutput && (() => {
-        const w = Number(props.width ?? 16)
-        const h = Number(props.height ?? 16)
-        const preset = w === h && MATRIX_SIZE_PRESETS.includes(w) ? String(w) : 'custom'
-        return (
-          <div className={styles.propRow} title="LED matrix dimensions">
-            <span className={styles.propKey}>size</span>
-            <select
-              className={`nodrag ${styles.propSelect}`}
-              disabled={locked}
-              value={preset}
-              onWheelCapture={stopWheelWhileFocused}
-              onChange={(e) => {
-                const v = e.target.value
-                if (v === 'custom') setSizePopupOpen(true)
-                else updateNodeProperties(nodeId, { width: Number(v), height: Number(v) })
-              }}
-            >
-              <option value="16">16 × 16</option>
-              <option value="32">32 × 32</option>
-              <option value="64">64 × 64</option>
-              <option value="custom">Custom…</option>
-            </select>
-            {sizePopupOpen && (
-              <MatrixSizePopup
-                width={w}
-                height={h}
-                onApply={(nw, nh) => updateNodeProperties(nodeId, { width: nw, height: nh })}
-                onClose={() => setSizePopupOpen(false)}
-              />
-            )}
-          </div>
-        )
-      })()}
       {isGroupInput && (() => {
         // Group-input role: tag this input so a Performance Generator show
         // drives it (energy/speed/palette). Sets `paramId` to the role name
@@ -481,6 +447,41 @@ const LivePropertyControls = memo(function LivePropertyControls({
               const rows = editable.filter(([key]) => group.keys.includes(key))
               if (rows.length === 0) return null
               const open = Boolean(openGroups[group.key])
+              const matrixSizeRow = isMatrixOutput && group.key === 'layout' ? (() => {
+                const w = Number(props.width ?? 16)
+                const h = Number(props.height ?? 16)
+                const preset = w === h && MATRIX_SIZE_PRESETS.includes(w) ? String(w) : 'custom'
+                return (
+                  <div className={styles.propRow} title="LED matrix dimensions">
+                    <span className={styles.propKey}>size</span>
+                    <select
+                      className={`nodrag ${styles.propSelect}`}
+                      disabled={locked}
+                      value={preset}
+                      onWheelCapture={stopWheelWhileFocused}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        if (v === 'custom') setSizePopupOpen(true)
+                        else updateNodeProperties(nodeId, { width: Number(v), height: Number(v) })
+                      }}
+                    >
+                      <option value="16">16 × 16</option>
+                      <option value="32">32 × 32</option>
+                      <option value="64">64 × 64</option>
+                      <option value="custom">Custom…</option>
+                    </select>
+                    {sizePopupOpen && (
+                      <MatrixSizePopup
+                        width={w}
+                        height={h}
+                        onApply={(nw, nh) => updateNodeProperties(nodeId, { width: nw, height: nh })}
+                        onClose={() => setSizePopupOpen(false)}
+                      />
+                    )}
+                  </div>
+                )
+              })() : null
+              const renderedRows = rows.map((row) => renderPropRow(row))
               return (
                 <div key={group.key} className={styles.propGroup}>
                   <button
@@ -492,7 +493,19 @@ const LivePropertyControls = memo(function LivePropertyControls({
                     <span className={`${styles.propGroupCaret}${open ? ` ${styles.propGroupCaretOpen}` : ''}`}>▸</span>
                     {group.label}
                   </button>
-                  {open && <div className={styles.propGroupRows}>{rows.map((row) => renderPropRow(row))}</div>}
+                  {open && (
+                    <div className={styles.propGroupRows}>
+                      {group.key === 'layout'
+                        ? (
+                            <>
+                              {renderedRows[0]}
+                              {matrixSizeRow}
+                              {renderedRows.slice(1)}
+                            </>
+                          )
+                        : renderedRows}
+                    </div>
+                  )}
                 </div>
               )
             })}

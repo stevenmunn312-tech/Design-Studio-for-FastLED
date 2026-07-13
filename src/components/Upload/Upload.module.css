@@ -56,6 +56,12 @@
   gap: 6px;
 }
 
+.nodeActionRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 6px;
+}
+
 .nodeBox button {
   width: 100%;
   min-height: 30px;
@@ -70,6 +76,29 @@
   transition: background var(--anim-hover), color var(--anim-hover), border-color var(--anim-hover), box-shadow var(--anim-hover);
 }
 .nodeBox button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.setupBtn {
+  background:
+    linear-gradient(135deg, rgba(255, 170, 71, 0.2), rgba(255, 255, 255, 0.04)),
+    var(--bg-node-hover);
+  color: var(--text-primary);
+  border-color: rgba(255, 170, 71, 0.28) !important;
+}
+.setupBtn:hover {
+  border-color: rgba(255, 204, 102, 0.48) !important;
+  box-shadow: 0 0 16px rgba(255, 170, 71, 0.16);
+}
+
+.uploadOpenBtn {
+  background: linear-gradient(135deg, var(--accent-output), color-mix(in srgb, var(--accent-output) 56%, white));
+  color: var(--bg-primary);
+  border-color: var(--accent-output) !important;
+  font-weight: 700;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent-output) 24%, transparent);
+}
+.uploadOpenBtn:hover {
+  filter: brightness(1.08);
+}
 
 .boardBtn {
   background:
@@ -386,6 +415,274 @@
   text-transform: uppercase;
   letter-spacing: 0.16em;
   margin-top: 6px;
+}
+
+.wizardPopup {
+  width: min(680px, 94vw);
+}
+
+.deployPopup {
+  width: min(540px, 94vw);
+}
+
+.wizardButtonBase {
+  min-height: 32px;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background var(--anim-hover), color var(--anim-hover), border-color var(--anim-hover), box-shadow var(--anim-hover);
+  font-family: var(--font-code);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.wizardButtonBase:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.wizardKicker,
+.wizardTitle,
+.wizardChecklistLabel,
+.fieldLabel,
+.rangeValue,
+.wizardStepText,
+.wizardStepIndex,
+.wizardSummary {
+  font-family: var(--font-code);
+}
+
+.wizardKicker {
+  color: #9ce8ff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.wizardTitle {
+  margin-top: 2px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.04em;
+}
+
+.wizardSteps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.wizardStep {
+  width: auto !important;
+  min-height: 42px !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-start;
+  padding: 7px 10px !important;
+  border-radius: 12px !important;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text-secondary);
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+.wizardStepActive {
+  border-color: rgba(0, 191, 255, 0.28) !important;
+  background:
+    linear-gradient(180deg, rgba(0, 191, 255, 0.12), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.025);
+  color: var(--text-primary);
+  box-shadow: 0 0 16px rgba(0, 191, 255, 0.12);
+}
+
+.wizardStepIndex {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.wizardStepText {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.wizardIntro {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.readinessToggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text-primary);
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+.wizardSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.deployActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wizardChecklist {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.wizardChecklistRow,
+.wizardSummaryRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.wizardChecklistLabel {
+  color: var(--text-primary);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fieldBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.fieldLabel {
+  color: var(--text-secondary);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dualFieldRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.presetGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  gap: 8px;
+}
+
+.presetBtn {
+  min-height: 38px !important;
+  border-radius: 12px !important;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text-secondary);
+}
+
+.presetBtnActive {
+  border-color: rgba(0, 191, 255, 0.28) !important;
+  color: var(--text-primary);
+  background: rgba(0, 191, 255, 0.1);
+}
+
+.textArea {
+  width: 100%;
+  min-height: 88px;
+  background: color-mix(in srgb, var(--bg-primary) 88%, black);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-size: var(--fs-caption);
+  padding: 10px;
+  resize: vertical;
+  outline: none;
+  font-family: var(--font-code);
+}
+
+.checkField {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: var(--fs-caption);
+  cursor: pointer;
+}
+
+.checkField input {
+  cursor: pointer;
+}
+
+.rangeInput {
+  width: 100%;
+  accent-color: var(--accent-output);
+}
+
+.rangeValue {
+  color: var(--text-secondary);
+  font-size: 10px;
+  text-align: right;
+}
+
+.wizardSummary {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.012)),
+    rgba(255, 255, 255, 0.02);
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.wizardSummary strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.wizardFooter {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+@media (max-width: 720px) {
+  .wizardSteps,
+  .dualFieldRow {
+    grid-template-columns: 1fr;
+  }
+
+  .nodeActionRow {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ── View Code popup ──────────────────────────────────────────────────────── */
