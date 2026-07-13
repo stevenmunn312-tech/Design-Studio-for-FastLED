@@ -13,25 +13,27 @@ function TemplatePreview({ template }: { template: StarterTemplate }) {
   const cellH = 58
   const nodeX = 10
   const nodeY = 10
-  const nodeW = 50
-  const nodePortY = 23
-  const nodeOutX = nodeX + nodeW + 4
+  const nodeW = 54
+  const nodeH = 30
+  const nodePortY = nodeH / 2
+  const nodeOutX = nodeX + nodeW
   const nodeInX = nodeX
   const viewW = cols * cellW
   const viewH = rows * cellH
-  const pct = (value: number, total: number) => `${(value / total) * 100}%`
   const nodeById = new Map(template.preview.nodes.map((node) => [node.id, node]))
+  const labelLines = (label: string) => {
+    const words = label.split(/\s+/)
+    if (words.length <= 1) return words
+    if (words.length === 2) return words
+    return [words.slice(0, -1).join(' '), words[words.length - 1]]
+  }
 
   return (
     <div
       className={styles.preview}
-      style={{
-        '--preview-cols': cols,
-        '--preview-rows': rows,
-      } as CSSProperties}
       aria-hidden="true"
     >
-      <svg className={styles.previewLines} viewBox={`0 0 ${viewW} ${viewH}`} preserveAspectRatio="none">
+      <svg className={styles.previewMap} viewBox={`0 0 ${viewW} ${viewH}`} preserveAspectRatio="xMidYMid meet">
         {template.preview.edges.map((edge) => {
           const source = nodeById.get(edge.source)
           const target = nodeById.get(edge.target)
@@ -52,21 +54,32 @@ function TemplatePreview({ template }: { template: StarterTemplate }) {
             />
           )
         })}
+        {template.preview.nodes.map((node) => {
+          const x = node.col * cellW + nodeX
+          const y = node.row * cellH + nodeY
+          const lines = labelLines(node.label)
+          return (
+            <g
+              key={node.id}
+              className={styles.previewNode}
+              style={{ '--preview-accent': CATEGORY_COLOR[node.category] ?? '#5ad1ff' } as CSSProperties}
+            >
+              <rect x={x} y={y} width={nodeW} height={nodeH} rx="8" />
+              <text x={x + nodeW / 2} y={y + nodeH / 2} dominantBaseline="middle" textAnchor="middle">
+                {lines.map((line, i) => (
+                  <tspan
+                    key={line}
+                    x={x + nodeW / 2}
+                    dy={lines.length === 1 ? 0 : i === 0 ? -4.5 : 9}
+                  >
+                    {line}
+                  </tspan>
+                ))}
+              </text>
+            </g>
+          )
+        })}
       </svg>
-      {template.preview.nodes.map((node) => (
-        <div
-          key={node.id}
-          className={styles.previewNode}
-          style={{
-            left: pct(node.col * cellW + nodeX, viewW),
-            top: pct(node.row * cellH + nodeY, viewH),
-            width: pct(nodeW, viewW),
-            '--preview-accent': CATEGORY_COLOR[node.category] ?? '#5ad1ff',
-          } as CSSProperties}
-        >
-          {node.label}
-        </div>
-      ))}
     </div>
   )
 }

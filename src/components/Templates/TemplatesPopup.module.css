@@ -180,7 +180,7 @@
   overflow: hidden;
 }
 
-.previewLines {
+.previewMap {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -188,23 +188,20 @@
   opacity: 0.84;
 }
 
-.previewNode {
-  position: absolute;
-  min-height: 26px;
-  box-sizing: border-box;
-  padding: 5px 4px;
-  border: 1px solid color-mix(in srgb, var(--preview-accent) 36%, rgba(255, 255, 255, 0.08));
-  border-radius: 9px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--preview-accent) 12%, rgba(18, 24, 31, 0.98)), rgba(10, 13, 17, 0.94));
-  color: #f3f8fb;
+.previewNode rect {
+  fill: color-mix(in srgb, var(--preview-accent) 12%, rgba(18, 24, 31, 0.98));
+  stroke: color-mix(in srgb, var(--preview-accent) 38%, rgba(255, 255, 255, 0.08));
+  stroke-width: 1;
+  filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.32));
+}
+
+.previewNode text {
+  fill: #f3f8fb;
   font-size: 8px;
   font-weight: 700;
-  line-height: 1.15;
-  overflow-wrap: anywhere;
-  box-shadow:
-    0 8px 18px rgba(0, 0, 0, 0.28),
-    0 0 0 1px rgba(255, 255, 255, 0.03);
+  paint-order: stroke;
+  stroke: rgba(4, 7, 10, 0.7);
+  stroke-width: 1.5px;
 }
 
 .previewBlank {
