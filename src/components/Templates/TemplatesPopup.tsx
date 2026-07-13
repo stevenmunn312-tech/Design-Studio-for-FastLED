@@ -11,6 +11,15 @@ function TemplatePreview({ template }: { template: StarterTemplate }) {
   const rows = Math.max(...template.preview.nodes.map((node) => node.row), 0) + 1
   const cellW = 92
   const cellH = 58
+  const nodeX = 10
+  const nodeY = 10
+  const nodeW = 50
+  const nodePortY = 23
+  const nodeOutX = nodeX + nodeW + 4
+  const nodeInX = nodeX
+  const viewW = cols * cellW
+  const viewH = rows * cellH
+  const pct = (value: number, total: number) => `${(value / total) * 100}%`
   const nodeById = new Map(template.preview.nodes.map((node) => [node.id, node]))
 
   return (
@@ -22,15 +31,15 @@ function TemplatePreview({ template }: { template: StarterTemplate }) {
       } as CSSProperties}
       aria-hidden="true"
     >
-      <svg className={styles.previewLines} viewBox={`0 0 ${cols * cellW} ${rows * cellH}`} preserveAspectRatio="none">
+      <svg className={styles.previewLines} viewBox={`0 0 ${viewW} ${viewH}`} preserveAspectRatio="none">
         {template.preview.edges.map((edge) => {
           const source = nodeById.get(edge.source)
           const target = nodeById.get(edge.target)
           if (!source || !target) return null
-          const x1 = source.col * cellW + 58
-          const y1 = source.row * cellH + 24
-          const x2 = target.col * cellW + 14
-          const y2 = target.row * cellH + 24
+          const x1 = source.col * cellW + nodeOutX
+          const y1 = source.row * cellH + nodeY + nodePortY
+          const x2 = target.col * cellW + nodeInX
+          const y2 = target.row * cellH + nodeY + nodePortY
           return (
             <path
               key={`${edge.source}-${edge.sourceHandle}-${edge.target}-${edge.targetHandle}`}
@@ -49,8 +58,9 @@ function TemplatePreview({ template }: { template: StarterTemplate }) {
           key={node.id}
           className={styles.previewNode}
           style={{
-            left: `calc(${node.col} * (100% / var(--preview-cols)) + 10px)`,
-            top: `calc(${node.row} * (100% / var(--preview-rows)) + 10px)`,
+            left: pct(node.col * cellW + nodeX, viewW),
+            top: pct(node.row * cellH + nodeY, viewH),
+            width: pct(nodeW, viewW),
             '--preview-accent': CATEGORY_COLOR[node.category] ?? '#5ad1ff',
           } as CSSProperties}
         >

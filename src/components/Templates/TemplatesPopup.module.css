@@ -190,9 +190,9 @@
 
 .previewNode {
   position: absolute;
-  width: 50px;
   min-height: 26px;
-  padding: 5px 6px;
+  box-sizing: border-box;
+  padding: 5px 4px;
   border: 1px solid color-mix(in srgb, var(--preview-accent) 36%, rgba(255, 255, 255, 0.08));
   border-radius: 9px;
   background:
@@ -200,7 +200,8 @@
   color: #f3f8fb;
   font-size: 8px;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
   box-shadow:
     0 8px 18px rgba(0, 0, 0, 0.28),
     0 0 0 1px rgba(255, 255, 255, 0.03);
