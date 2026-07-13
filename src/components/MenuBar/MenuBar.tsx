@@ -466,7 +466,14 @@ export default function MenuBar() {
   return (
     <header className={styles.menubar}>
       <div className={styles.brand}>
-        <span className={styles.logo}>⬡</span>
+        <img
+          className={styles.logo}
+          src="/icon-192.png"
+          width="24"
+          height="24"
+          alt=""
+          aria-hidden="true"
+        />
         <div className={styles.brandCopy}>
           <span className={styles.title}>FastLED Studio</span>
           <span className={styles.subtitle}>Lighting console</span>

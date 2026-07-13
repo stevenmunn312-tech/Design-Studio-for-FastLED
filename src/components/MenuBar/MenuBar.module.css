@@ -34,9 +34,12 @@
 }
 
 .logo {
-  font-size: 22px;
-  color: var(--accent-audio);
-  filter: drop-shadow(0 0 6px var(--accent-audio));
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  display: block;
+  border-radius: 6px;
+  filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.36));
 }
 
 .title {
