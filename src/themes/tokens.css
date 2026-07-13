@@ -36,6 +36,9 @@
   /* Borders & dividers */
   --border-glow: rgba(255, 255, 255, 0.1);
   --divider: rgba(255, 255, 255, 0.05);
+  --chrome-border: rgba(255, 255, 255, 0.07);
+  --chrome-shadow: rgba(0, 0, 0, 0.24);
+  --active-shadow: rgba(0, 0, 0, 0.34);
 
   /* Status */
   --success: #00ff99;
@@ -83,6 +86,9 @@
   --text-secondary: #93a1a1;
   --border-glow: rgba(131, 148, 150, 0.3);
   --divider: rgba(131, 148, 150, 0.1);
+  --chrome-border: rgba(131, 148, 150, 0.16);
+  --chrome-shadow: rgba(0, 20, 26, 0.26);
+  --active-shadow: rgba(0, 20, 26, 0.38);
 }
 
 /* ── Studio Light ──────────────────────────────────────────────────────────── */
@@ -95,6 +101,9 @@
   --text-secondary: #5a5c72;
   --border-glow: rgba(0, 0, 0, 0.12);
   --divider: rgba(0, 0, 0, 0.06);
+  --chrome-border: rgba(0, 0, 0, 0.08);
+  --chrome-shadow: rgba(30, 36, 52, 0.14);
+  --active-shadow: rgba(30, 36, 52, 0.22);
   --success: #00aa66;
   --error: #cc2244;
 }

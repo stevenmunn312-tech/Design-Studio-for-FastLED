@@ -13,8 +13,8 @@
 
 .carrier {
   filter:
-    drop-shadow(0 0 1px rgb(255 255 255 / 0.5))
-    drop-shadow(0 0 4px rgb(255 255 255 / 0.22));
+    drop-shadow(0 0 1px rgb(255 255 255 / 0.28))
+    drop-shadow(0 0 3px rgb(255 255 255 / 0.12));
   pointer-events: none;
 }
 
@@ -39,7 +39,7 @@
 }
 
 .familyFrame .core {
-  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--edge-color) 38%, transparent));
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--edge-color) 28%, transparent));
 }
 
 .familyFrame .packet {
@@ -49,7 +49,7 @@
 }
 
 .familyAudio .core {
-  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--edge-color) 32%, transparent));
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--edge-color) 24%, transparent));
 }
 
 .familyAudio .packet {
@@ -59,7 +59,7 @@
 }
 
 .familyColor .core {
-  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--edge-color) 42%, transparent));
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--edge-color) 28%, transparent));
 }
 
 .familyControl .packet {
@@ -83,7 +83,7 @@
 
 .focusActive .core {
   stroke-width: 3.2;
-  filter: drop-shadow(0 0 3px var(--edge-color)) drop-shadow(0 0 10px color-mix(in srgb, var(--edge-color) 22%, transparent));
+  filter: drop-shadow(0 0 4px var(--edge-color)) drop-shadow(0 0 14px color-mix(in srgb, var(--edge-color) 30%, transparent));
 }
 
 @keyframes connectionFlash {

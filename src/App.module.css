@@ -125,8 +125,8 @@
     radial-gradient(circle at 32% 50%, rgba(255, 255, 255, 0.08), transparent 56%),
     color-mix(in srgb, var(--bg-panel) 90%, transparent);
   color: var(--text-primary);
-  opacity: 0.58;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
+  opacity: 0.44;
+  box-shadow: 0 6px 14px var(--chrome-shadow);
   backdrop-filter: blur(6px);
   cursor: pointer;
   transition:
@@ -212,8 +212,8 @@
     radial-gradient(circle at 68% 50%, rgba(255, 255, 255, 0.08), transparent 56%),
     color-mix(in srgb, var(--bg-panel) 90%, transparent);
   color: var(--text-primary);
-  opacity: 0.58;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
+  opacity: 0.44;
+  box-shadow: 0 6px 14px var(--chrome-shadow);
   backdrop-filter: blur(6px);
   cursor: pointer;
   transition:

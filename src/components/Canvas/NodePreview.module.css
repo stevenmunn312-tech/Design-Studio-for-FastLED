@@ -26,7 +26,7 @@
   display: block;
   object-fit: contain;
   filter: blur(4px) saturate(1.4) brightness(1.3);
-  opacity: 0.85;
+  opacity: 0.48;
   mix-blend-mode: screen;
   pointer-events: none;
 }

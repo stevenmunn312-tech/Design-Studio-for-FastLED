@@ -37,9 +37,9 @@ function familyMotion(family: SignalFamily) {
     case 'frame':
       return {
         outerWidth: 16,
-        outerOpacity: 0.08,
+        outerOpacity: 0.045,
         midWidth: 8,
-        midOpacity: 0.18,
+        midOpacity: 0.12,
         coreWidth: 2.8,
         dash: '24 18',
         duration: 3.2,
@@ -49,9 +49,9 @@ function familyMotion(family: SignalFamily) {
     case 'audio':
       return {
         outerWidth: 15,
-        outerOpacity: 0.09,
+        outerOpacity: 0.05,
         midWidth: 7,
-        midOpacity: 0.22,
+        midOpacity: 0.14,
         coreWidth: 2.8,
         dash: '5 10',
         duration: 0.72,
@@ -61,9 +61,9 @@ function familyMotion(family: SignalFamily) {
     case 'color':
       return {
         outerWidth: 14,
-        outerOpacity: 0.07,
+        outerOpacity: 0.04,
         midWidth: 7,
-        midOpacity: 0.2,
+        midOpacity: 0.13,
         coreWidth: 2.6,
         dash: '2 14',
         duration: 1.55,
@@ -73,9 +73,9 @@ function familyMotion(family: SignalFamily) {
     default:
       return {
         outerWidth: 13,
-        outerOpacity: 0.06,
+        outerOpacity: 0.035,
         midWidth: 6,
-        midOpacity: 0.16,
+        midOpacity: 0.1,
         coreWidth: 2.3,
         dash: '11 8',
         duration: 1.18,
@@ -120,6 +120,7 @@ function GlowEdge({
     : s.edges.length > PACKET_LEAN_EDGE_COUNT ? 1
     : Number.POSITIVE_INFINITY)
   const signalEnergy = signal?.energy ?? 0
+  const activity = Math.min(1, signalEnergy)
   const idleVisibility = 1 - Math.min(1, signalEnergy * 1.35)
   const color = signal?.emissive || (typeof style?.stroke === 'string' && style.stroke) || CATEGORY_COLOR[category] || '#00bfff'
   const edgeData = data as {
@@ -196,7 +197,7 @@ function GlowEdge({
           stroke={color}
           strokeWidth={2.4}
           strokeLinecap="round"
-          strokeOpacity={0.76 + idleVisibility * 0.12}
+          strokeOpacity={0.58 + activity * 0.28}
         />
         <circle cx={targetX} cy={targetY} r={3.2} fill={color} opacity={0.82} />
         {valueReadout}
@@ -233,9 +234,9 @@ function GlowEdge({
         />
       )}
       {/* Outer halo — wide and very soft */}
-      <path d={edgePath} fill="none" stroke={color} strokeWidth={motion.outerWidth} strokeOpacity={motion.outerOpacity} />
+      <path d={edgePath} fill="none" stroke={color} strokeWidth={motion.outerWidth} strokeOpacity={motion.outerOpacity + activity * 0.055} />
       {/* Mid bloom */}
-      <path d={edgePath} fill="none" stroke={color} strokeWidth={motion.midWidth} strokeOpacity={motion.midOpacity} />
+      <path d={edgePath} fill="none" stroke={color} strokeWidth={motion.midWidth} strokeOpacity={motion.midOpacity + activity * 0.08} />
       {/* Neutral carrier keeps dark noodles legible against the field even when
           the sampled signal is resting near black. It fades back as activity
           increases so the live color still owns the motion cue. */}
@@ -246,7 +247,7 @@ function GlowEdge({
         stroke="rgba(255 255 255 / 0.78)"
         strokeWidth={motion.coreWidth + 2}
         strokeLinecap="round"
-        strokeOpacity={0.12 + idleVisibility * 0.2}
+        strokeOpacity={0.08 + idleVisibility * 0.12}
       />
       {/* Core — animated dash */}
       <path
@@ -258,7 +259,7 @@ function GlowEdge({
         strokeWidth={motion.coreWidth}
         strokeLinecap="round"
         strokeDasharray={motion.dash}
-        strokeOpacity={0.74 + idleVisibility * 0.16}
+        strokeOpacity={0.62 + activity * 0.24}
         style={{
           '--edge-color': color,
           '--edge-flow-duration': `${motion.duration}s`,
@@ -297,7 +298,7 @@ function GlowEdge({
           className={styles.packet}
           r={radius}
           fill={color}
-          opacity={Math.min(0.95, 0.36 + Math.max(signalEnergy, 0.18) * 0.5)}
+          opacity={Math.min(0.95, 0.24 + Math.max(signalEnergy, 0.12) * 0.56)}
           style={{
             '--edge-color': color,
             '--packet-duration': `${motion.packetDuration}s`,
