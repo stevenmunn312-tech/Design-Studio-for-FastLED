@@ -40,10 +40,11 @@
 }
 
 .title {
-  font-size: var(--fs-body);
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 400;
   color: var(--text-primary);
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
 }
 
 .subtitle {

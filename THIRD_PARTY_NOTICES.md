@@ -42,11 +42,17 @@ set. Refresh this file when the lockfile changes in a release-significant way.
 
 ## Fonts
 
-- `src/themes/tokens.css` names `Inter` for display/body text and
-  `JetBrains Mono` for code text.
-- The repo does **not** currently bundle either font file and does not define
-  any `@font-face` blocks, so the release artifacts rely on the user's locally
-  available fonts or the generic fallback families.
+- `src/themes/tokens.css` bundles `Audiowide` for the restrained display role
+  via `public/fonts/Audiowide-Regular.ttf`.
+- Audiowide is Copyright (c) 2012, Brian J. Bonislawsky DBA Astigmatic
+  (AOETI), with Reserved Font Names "Audiowide", and is licensed under the SIL
+  Open Font License 1.1. The license text is included at
+  `public/fonts/Audiowide-OFL.txt`.
+- `src/themes/tokens.css` still names `Inter` for body text and `JetBrains
+  Mono` for code text.
+- The repo does **not** currently bundle Inter or JetBrains Mono font files, so
+  those roles rely on the user's locally available fonts or the generic
+  fallback families.
 - If a future release embeds Inter or JetBrains Mono font files, add their SIL
   Open Font License 1.1 notices to the distributed artifact set at that time.
 

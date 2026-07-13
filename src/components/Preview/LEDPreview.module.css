@@ -73,7 +73,10 @@
 
 .previewTitle {
   color: var(--text-primary);
-  letter-spacing: 0.04em;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
 }
 
 .previewMeta {
@@ -116,10 +119,10 @@
 
 .stageTitle {
   color: var(--text-primary);
-  font-family: var(--font-code);
-  font-size: 12px;
-  font-weight: 750;
-  letter-spacing: 0.14em;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -560,10 +563,10 @@
 
 .visualizerKicker {
   color: #9ce8ff;
-  font-family: var(--font-code);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -908,9 +911,10 @@
 .stagePatternName {
   max-width: min(92%, 320px);
   color: var(--text-primary);
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0;
   text-wrap: balance;
 }
 
