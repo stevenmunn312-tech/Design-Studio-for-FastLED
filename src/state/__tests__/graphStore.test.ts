@@ -97,6 +97,43 @@ describe('graphStore — grouping', () => {
     expect(useGraphStore.getState().nodes.find((x) => x.id === 'bd')!.position.y).toBe(200)
   })
 
+  it('addNode selects the new node so dim mode focuses it', () => {
+    reset([{ ...node('old', 'Noise'), selected: true }])
+    useGraphStore.getState().selectNode('old')
+
+    useGraphStore.getState().addNode(node('added', 'SolidColor'))
+
+    const s = useGraphStore.getState()
+    expect(s.selectedNodeId).toBe('added')
+    expect(s.nodes.find((n) => n.id === 'added')!.selected).toBe(true)
+    expect(s.nodes.find((n) => n.id === 'old')!.selected).toBe(false)
+  })
+
+  it('duplicateNode selects the duplicate so it stays visible above dimmed nodes', () => {
+    reset([{ ...node('first', 'SolidColor'), selected: true }])
+    useGraphStore.getState().selectNode('first')
+
+    useGraphStore.getState().duplicateNode('first')
+
+    const s = useGraphStore.getState()
+    const duplicate = s.nodes.find((n) => n.id !== 'first')!
+    expect(s.selectedNodeId).toBe(duplicate.id)
+    expect(duplicate.selected).toBe(true)
+    expect(s.nodes.find((n) => n.id === 'first')!.selected).toBe(false)
+  })
+
+  it('pasteNode focuses the pasted copy for signal-path dimming', () => {
+    reset([{ ...node('source', 'SolidColor'), selected: true }])
+    useGraphStore.getState().selectNode('source')
+    useGraphStore.getState().copyNode('source')
+    useGraphStore.getState().pasteNode({ x: 100, y: 100 })
+
+    const s = useGraphStore.getState()
+    const pasted = s.nodes.find((n) => n.id !== 'source')!
+    expect(s.selectedNodeId).toBe(pasted.id)
+    expect(pasted.selected).toBe(true)
+  })
+
   it('clears a stale selectedNodeId when React Flow removes the selected node', () => {
     reset([node('a', 'SolidColor'), node('b', 'Noise')])
     useGraphStore.getState().selectNode('a')

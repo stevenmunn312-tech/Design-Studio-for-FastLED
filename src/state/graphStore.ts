@@ -465,7 +465,13 @@ export const useGraphStore = create<GraphState>()(
         set((s) => {
           if (!canAddNodeType(s.nodes, node.data.nodeType)) return s
           if (centreOnDrop) pendingCentreY.set(node.id, node.position.y)
-          return { nodes: [...s.nodes, node] }
+          return {
+            nodes: [
+              ...s.nodes.map((n) => (n.selected ? { ...n, selected: false } : n)),
+              { ...node, selected: true },
+            ],
+            selectedNodeId: node.id,
+          }
         })
       },
 
@@ -489,9 +495,12 @@ export const useGraphStore = create<GraphState>()(
             target: old.target!, targetHandle: old.targetHandle,
             type: 'glowEdge', reconnectable: 'target', style: { stroke: newColor },
           } as StudioEdge
-          const nodes = [...s.nodes, node]
+          const nodes = [
+            ...s.nodes.map((n) => (n.selected ? { ...n, selected: false } : n)),
+            { ...node, selected: true },
+          ]
           const edges = [...s.edges.filter((e) => e.id !== edgeId), e1, e2]
-          return { nodes: spreadNodesByEdges(nodes, edges), edges }
+          return { nodes: spreadNodesByEdges(nodes, edges), edges, selectedNodeId: node.id }
         }),
 
       spliceNodeOnEdge: (nodeId, edgeId, inHandle, outHandle) =>
@@ -588,6 +597,7 @@ export const useGraphStore = create<GraphState>()(
           return {
             nodes: [...s.nodes.map((n) => (n.selected ? { ...n, selected: false } : n)), ...newNodes],
             edges: [...s.edges, ...newEdges],
+            selectedNodeId: newNodes[0].id,
           }
         }),
 
@@ -649,13 +659,18 @@ export const useGraphStore = create<GraphState>()(
         set((s) => {
           const node = s.nodes.find((n) => n.id === id)
           if (!node || !canAddNodeType(s.nodes, node.data.nodeType)) return s
+          const newId = `${node.data.nodeType}-${Date.now()}`
           return {
-            nodes: [...s.nodes, {
-              ...node,
-              id: `${node.data.nodeType}-${Date.now()}`,
-              position: { x: node.position.x + 20, y: node.position.y + 20 },
-              selected: false,
-            }],
+            nodes: [
+              ...s.nodes.map((n) => (n.selected ? { ...n, selected: false } : n)),
+              {
+                ...node,
+                id: newId,
+                position: { x: node.position.x + 20, y: node.position.y + 20 },
+                selected: true,
+              },
+            ],
+            selectedNodeId: newId,
           }
         }),
 
