@@ -90,11 +90,11 @@
 }
 
 .uploadOpenBtn {
-  background: linear-gradient(135deg, var(--accent-output), color-mix(in srgb, var(--accent-output) 56%, white));
+  background: linear-gradient(135deg, var(--success), color-mix(in srgb, var(--success) 58%, white));
   color: var(--bg-primary);
-  border-color: var(--accent-output) !important;
+  border-color: var(--success) !important;
   font-weight: 700;
-  box-shadow: 0 0 18px color-mix(in srgb, var(--accent-output) 24%, transparent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--success) 24%, transparent);
 }
 .uploadOpenBtn:hover {
   filter: brightness(1.08);
@@ -269,11 +269,11 @@
 }
 
 .uploadBtn {
-  background: linear-gradient(135deg, var(--accent-output), color-mix(in srgb, var(--accent-output) 56%, white));
+  background: linear-gradient(135deg, var(--success), color-mix(in srgb, var(--success) 58%, white));
   color: var(--bg-primary);
-  border-color: var(--accent-output) !important;
+  border-color: var(--success) !important;
   font-weight: 700;
-  box-shadow: 0 0 18px color-mix(in srgb, var(--accent-output) 24%, transparent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--success) 24%, transparent);
 }
 .uploadBtn:hover:not(:disabled) { filter: brightness(1.1); }
 .uploadBtn.stBusy  {
