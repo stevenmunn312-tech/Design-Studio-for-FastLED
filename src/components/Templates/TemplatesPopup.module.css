@@ -1,14 +1,17 @@
 .overlay {
   position: fixed;
   inset: 0;
+  box-sizing: border-box;
   background:
     radial-gradient(circle at 50% 14%, rgba(0, 191, 255, 0.1), transparent 24%),
     rgba(0, 0, 0, 0.72);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
+  padding: calc(var(--menubar-height) + 24px) 14px 24px;
   z-index: 120;
   animation: fadeIn 0.15s ease-out;
+  overflow: hidden;
 }
 
 @keyframes fadeIn {
@@ -17,23 +20,42 @@
 }
 
 .popup {
-  width: min(1120px, calc(100vw - 28px));
-  max-height: 84vh;
+  width: min(1180px, 100%);
+  max-height: calc(100dvh - var(--menubar-height) - 48px);
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(156, 232, 255, 0.42) rgba(255, 255, 255, 0.04);
+  scrollbar-width: thin;
   background:
     linear-gradient(180deg, rgba(18, 22, 27, 0.98), rgba(9, 12, 16, 0.98)),
     var(--bg-panel);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 18px;
-  padding: 22px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   box-shadow:
     0 24px 64px rgba(0, 0, 0, 0.5),
     0 0 0 1px rgba(255, 255, 255, 0.03),
     0 0 40px rgba(0, 191, 255, 0.08);
   animation: slideUp 0.18s ease-out;
+}
+
+.popup::-webkit-scrollbar {
+  width: 10px;
+}
+
+.popup::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
+}
+
+.popup::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(156, 232, 255, 0.42);
+  background-clip: content-box;
 }
 
 @keyframes slideUp {
@@ -104,8 +126,8 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .card {
@@ -150,7 +172,7 @@
 
 .preview {
   position: relative;
-  height: 164px;
+  height: 126px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   background:
     radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.06), transparent 44%),
@@ -168,15 +190,15 @@
 
 .previewNode {
   position: absolute;
-  width: 54px;
-  min-height: 28px;
-  padding: 6px 7px;
+  width: 50px;
+  min-height: 26px;
+  padding: 5px 6px;
   border: 1px solid color-mix(in srgb, var(--preview-accent) 36%, rgba(255, 255, 255, 0.08));
-  border-radius: 10px;
+  border-radius: 9px;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--preview-accent) 12%, rgba(18, 24, 31, 0.98)), rgba(10, 13, 17, 0.94));
   color: #f3f8fb;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 700;
   line-height: 1.2;
   box-shadow:
@@ -211,8 +233,8 @@
   position: absolute;
   left: 22px;
   right: 22px;
-  bottom: 22px;
-  padding: 10px 12px;
+  bottom: 18px;
+  padding: 9px 12px;
   border: 1px dashed rgba(255, 255, 255, 0.18);
   border-radius: 12px;
   color: var(--text-secondary);
@@ -226,8 +248,8 @@
 .cardBody {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 14px 14px 12px;
+  gap: 7px;
+  padding: 12px 14px 10px;
 }
 
 .cardHeader {
@@ -239,7 +261,7 @@
 
 .cardName {
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -257,15 +279,15 @@
 .cardDesc {
   color: var(--text-secondary);
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1.42;
 }
 
 .steps {
   margin: 0;
   padding-left: 16px;
   color: var(--text-secondary);
-  font-size: 11px;
-  line-height: 1.45;
+  font-size: 10px;
+  line-height: 1.32;
 }
 
 .steps li + li {
@@ -273,7 +295,8 @@
 }
 
 .cardAction {
-  padding: 0 14px 14px;
+  margin-top: auto;
+  padding: 0 14px 12px;
   color: #9ce8ff;
   font-family: var(--font-code);
   font-size: 11px;
@@ -282,10 +305,20 @@
   text-transform: uppercase;
 }
 
+@media (max-width: 1120px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 720px) {
+  .overlay {
+    padding: 12px 8px;
+  }
+
   .popup {
-    width: calc(100vw - 16px);
-    max-height: 88vh;
+    width: 100%;
+    max-height: calc(100dvh - 24px);
     padding: 16px;
   }
 
