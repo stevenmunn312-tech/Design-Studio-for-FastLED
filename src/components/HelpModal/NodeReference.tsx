@@ -1,6 +1,6 @@
 import { useDeferredValue, useState } from 'react'
 import type { NodeCategory, NodeDefinition } from '../../types'
-import { CATEGORIES, CATEGORY_COLOR, NODE_DESCRIPTIONS, NODE_LIBRARY, propertyMeta, portColor } from '../../state/nodeLibrary'
+import { CATEGORIES, CATEGORY_COLOR, NODE_DESCRIPTIONS, NODE_LIBRARY, propertyGroupsFor, propertyMeta, portColor } from '../../state/nodeLibrary'
 import { useUiStore } from '../../state/uiStore'
 import { insertLiveExample } from '../../utils/insertLiveExample'
 import type { LiveExampleSpec } from '../../utils/insertLiveExample'
@@ -46,6 +46,297 @@ const MICROPHONE_LIVE_EXAMPLE: LiveExampleSpec = {
     { source: 'fft', sourceHandle: 'treble', target: 'bars', targetHandle: 'treble' },
     { source: 'bars', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
   ],
+}
+
+const BUTTON_LIVE_EXAMPLE: LiveExampleSpec = {
+  title: 'Button beat flash',
+  nodes: [
+    { key: 'button', type: 'ButtonInput', dx: -650, dy: -120 },
+    { key: 'noise', type: 'Noise', dx: -355, dy: 110, properties: { noiseType: 'field' } },
+    { key: 'flash', type: 'BeatFlash', dx: -35, dy: -55 },
+    { key: 'out', type: 'MatrixOutput', dx: 340, dy: -215 },
+  ],
+  edges: [
+    { source: 'button', sourceHandle: 'pressed', target: 'flash', targetHandle: 'beat' },
+    { source: 'noise', sourceHandle: 'frame', target: 'flash', targetHandle: 'frame' },
+    { source: 'flash', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+  ],
+}
+
+const POTENTIOMETER_LIVE_EXAMPLE: LiveExampleSpec = {
+  title: 'Potentiometer brightness',
+  nodes: [
+    { key: 'pot', type: 'PotInput', dx: -650, dy: -120 },
+    { key: 'noise', type: 'Noise', dx: -355, dy: 110, properties: { noiseType: 'field' } },
+    { key: 'brightness', type: 'BrightnessMod', dx: -35, dy: -55 },
+    { key: 'out', type: 'MatrixOutput', dx: 340, dy: -215 },
+  ],
+  edges: [
+    { source: 'pot', sourceHandle: 'value', target: 'brightness', targetHandle: 'brightness' },
+    { source: 'noise', sourceHandle: 'frame', target: 'brightness', targetHandle: 'frame' },
+    { source: 'brightness', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+  ],
+}
+
+const ENCODER_LIVE_EXAMPLE: LiveExampleSpec = {
+  title: 'Encoder hue flash',
+  nodes: [
+    { key: 'encoder', type: 'EncoderInput', dx: -700, dy: -135 },
+    { key: 'noise', type: 'Noise', dx: -405, dy: 115, properties: { noiseType: 'field' } },
+    { key: 'hue', type: 'HueShift', dx: -115, dy: 60 },
+    { key: 'flash', type: 'BeatFlash', dx: 195, dy: -45 },
+    { key: 'out', type: 'MatrixOutput', dx: 540, dy: -225 },
+  ],
+  edges: [
+    { source: 'encoder', sourceHandle: 'position', target: 'hue', targetHandle: 'shift' },
+    { source: 'noise', sourceHandle: 'frame', target: 'hue', targetHandle: 'frame' },
+    { source: 'hue', sourceHandle: 'frame', target: 'flash', targetHandle: 'frame' },
+    { source: 'encoder', sourceHandle: 'pressed', target: 'flash', targetHandle: 'beat' },
+    { source: 'flash', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+  ],
+}
+
+const MIDI_LIVE_EXAMPLE: LiveExampleSpec = {
+  title: 'MIDI color switch',
+  nodes: [
+    { key: 'midi', type: 'MidiInput', dx: -760, dy: -165, properties: { note: 60, cc: 1 } },
+    { key: 'noise', type: 'Noise', dx: -470, dy: 110, properties: { noiseType: 'field' } },
+    { key: 'hue', type: 'HueShift', dx: -190, dy: 60 },
+    { key: 'switch', type: 'FrameSwitch', dx: 115, dy: -20 },
+    { key: 'brightness', type: 'BrightnessMod', dx: 420, dy: 30 },
+    { key: 'out', type: 'MatrixOutput', dx: 760, dy: -225 },
+  ],
+  edges: [
+    { source: 'noise', sourceHandle: 'frame', target: 'hue', targetHandle: 'frame' },
+    { source: 'midi', sourceHandle: 'cc', target: 'hue', targetHandle: 'shift' },
+    { source: 'noise', sourceHandle: 'frame', target: 'switch', targetHandle: 'a' },
+    { source: 'hue', sourceHandle: 'frame', target: 'switch', targetHandle: 'b' },
+    { source: 'midi', sourceHandle: 'gate', target: 'switch', targetHandle: 'sel' },
+    { source: 'switch', sourceHandle: 'frame', target: 'brightness', targetHandle: 'frame' },
+    { source: 'midi', sourceHandle: 'note', target: 'brightness', targetHandle: 'brightness' },
+    { source: 'brightness', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+  ],
+}
+
+const FFT_ANALYZER_LIVE_EXAMPLE: LiveExampleSpec = {
+  title: 'FFT spectrum bars',
+  nodes: [
+    { key: 'mic', type: 'MicInput', dx: -650, dy: -220 },
+    { key: 'fft', type: 'FFTAnalyzer', dx: -350, dy: -155 },
+    { key: 'bars', type: 'SpectrumBars', dx: -35, dy: -145 },
+    { key: 'out', type: 'MatrixOutput', dx: 330, dy: -220 },
+  ],
+  edges: [
+    { source: 'mic', sourceHandle: 'audio', target: 'fft', targetHandle: 'audio' },
+    { source: 'fft', sourceHandle: 'bass', target: 'bars', targetHandle: 'bass' },
+    { source: 'fft', sourceHandle: 'mids', target: 'bars', targetHandle: 'mids' },
+    { source: 'fft', sourceHandle: 'treble', target: 'bars', targetHandle: 'treble' },
+    { source: 'bars', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+  ],
+}
+
+const BEAT_DETECT_LIVE_EXAMPLE: LiveExampleSpec = {
+  title: 'Beat flash',
+  nodes: [
+    { key: 'mic', type: 'MicInput', dx: -700, dy: -220 },
+    { key: 'beat', type: 'BeatDetect', dx: -410, dy: -155 },
+    { key: 'noise', type: 'Noise', dx: -410, dy: 120, properties: { noiseType: 'field' } },
+    { key: 'flash', type: 'BeatFlash', dx: -80, dy: -35 },
+    { key: 'out', type: 'MatrixOutput', dx: 275, dy: -220 },
+  ],
+  edges: [
+    { source: 'mic', sourceHandle: 'audio', target: 'beat', targetHandle: 'audio' },
+    { source: 'beat', sourceHandle: 'beat', target: 'flash', targetHandle: 'beat' },
+    { source: 'noise', sourceHandle: 'frame', target: 'flash', targetHandle: 'frame' },
+    { source: 'flash', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+  ],
+}
+
+const PERCUSSION_DETECT_LIVE_EXAMPLE: LiveExampleSpec = {
+  title: 'Percussion blobs',
+  nodes: [
+    { key: 'mic', type: 'MicInput', dx: -700, dy: -220 },
+    { key: 'percussion', type: 'PercussionDetect', dx: -395, dy: -145 },
+    { key: 'blobs', type: 'PercussionBlobs', dx: -40, dy: -120 },
+    { key: 'out', type: 'MatrixOutput', dx: 335, dy: -220 },
+  ],
+  edges: [
+    { source: 'mic', sourceHandle: 'audio', target: 'percussion', targetHandle: 'audio' },
+    { source: 'percussion', sourceHandle: 'kick', target: 'blobs', targetHandle: 'kick' },
+    { source: 'percussion', sourceHandle: 'snare', target: 'blobs', targetHandle: 'snare' },
+    { source: 'percussion', sourceHandle: 'hihat', target: 'blobs', targetHandle: 'hihat' },
+    { source: 'blobs', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+  ],
+}
+
+const AUDIO_FEATURES_LIVE_EXAMPLE: LiveExampleSpec = {
+  title: 'Vocal aurora',
+  nodes: [
+    { key: 'mic', type: 'MicInput', dx: -700, dy: -220 },
+    { key: 'features', type: 'AudioFeatures', dx: -395, dy: -145 },
+    { key: 'aurora', type: 'VocalAurora', dx: -40, dy: -120 },
+    { key: 'out', type: 'MatrixOutput', dx: 335, dy: -220 },
+  ],
+  edges: [
+    { source: 'mic', sourceHandle: 'audio', target: 'features', targetHandle: 'audio' },
+    { source: 'features', sourceHandle: 'vocals', target: 'aurora', targetHandle: 'vocals' },
+    { source: 'features', sourceHandle: 'energy', target: 'aurora', targetHandle: 'energy' },
+    { source: 'features', sourceHandle: 'silence', target: 'aurora', targetHandle: 'silence' },
+    { source: 'aurora', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+  ],
+}
+
+const AUDIO_HUE_LIVE_EXAMPLE: LiveExampleSpec = {
+  title: 'Audio hue wash',
+  nodes: [
+    { key: 'mic', type: 'MicInput', dx: -800, dy: -230 },
+    { key: 'fft', type: 'FFTAnalyzer', dx: -515, dy: -165 },
+    { key: 'hue', type: 'AudioHue', dx: -205, dy: -120 },
+    { key: 'hsv', type: 'HSVToRGB', dx: 90, dy: -120 },
+    { key: 'solid', type: 'SolidColor', dx: 385, dy: -125 },
+    { key: 'out', type: 'MatrixOutput', dx: 710, dy: -230 },
+  ],
+  edges: [
+    { source: 'mic', sourceHandle: 'audio', target: 'fft', targetHandle: 'audio' },
+    { source: 'fft', sourceHandle: 'bass', target: 'hue', targetHandle: 'bass' },
+    { source: 'fft', sourceHandle: 'mids', target: 'hue', targetHandle: 'mids' },
+    { source: 'fft', sourceHandle: 'treble', target: 'hue', targetHandle: 'treble' },
+    { source: 'hue', sourceHandle: 'hue', target: 'hsv', targetHandle: 'h' },
+    { source: 'hsv', sourceHandle: 'color', target: 'solid', targetHandle: 'color' },
+    { source: 'solid', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+  ],
+}
+
+interface AudioArticleContent {
+  type: string
+  eyebrow: string
+  purpose: string
+  overview: string[]
+  propertyNote: string
+  exampleTitle: string
+  examplePath: string
+  exampleAlt: string
+  exampleExplanation: string
+  previewTitle: string
+  previewDescription: string
+  previewAlt: string
+  liveExample: LiveExampleSpec
+  successMessage: string
+  skippedMessage: string
+  enableTestSignal?: boolean
+}
+
+const AUDIO_ARTICLES: Record<string, AudioArticleContent> = {
+  FFTAnalyzer: {
+    type: 'FFTAnalyzer',
+    eyebrow: 'Frequency bands',
+    purpose: 'Split a live audio stream into bass, mids, and treble control signals for audio-reactive patches.',
+    overview: [
+      'FFT Analyzer turns the Microphone audio stream into three normalized band levels: bass, mids, and treble. It is the usual first processing node after Microphone when a patch needs frequency-aware motion.',
+      'Use the band outputs to drive pattern height, brightness, hue, particle intensity, or any other float input. Bass often works well for large movement, mids for body, and treble for sparkle or edge detail.',
+      'Bands controls analysis resolution, Gain scales the response, Smoothing steadies jitter, and Tilt compensates for quieter high frequencies so treble can stay visible without overdriving the low end.',
+    ],
+    propertyNote: 'Bands sets FFT resolution. Gain, Smoothing, and Tilt shape the visual response of the three band outputs.',
+    exampleTitle: 'Separate the song into spectrum bars',
+    examplePath: 'Microphone.audio -> FFT Analyzer.audio -> Spectrum Bars.bass/mids/treble -> Matrix Output',
+    exampleAlt: 'Placeholder for a tidy graph using Microphone, FFT Analyzer, Spectrum Bars, and Matrix Output',
+    exampleExplanation: 'Microphone supplies the audio stream. FFT Analyzer extracts bass, mids, and treble levels; Spectrum Bars maps those three values into columns of colour and sends the rendered frame to Matrix Output.',
+    previewTitle: 'What you should see',
+    previewDescription: 'Bass-heavy moments should lift the low-band bars, midrange content should fill the centre response, and bright transients should flick the treble side. With test signal enabled, the bars move even without microphone permission.',
+    previewAlt: 'Placeholder for the LED preview showing FFT-driven spectrum bars',
+    liveExample: FFT_ANALYZER_LIVE_EXAMPLE,
+    successMessage: 'FFT Analyzer example added — test signal on',
+    skippedMessage: 'FFT Analyzer example added — Matrix Output is already in use; connect Spectrum Bars when ready',
+    enableTestSignal: true,
+  },
+  BeatDetect: {
+    type: 'BeatDetect',
+    eyebrow: 'Beat trigger',
+    purpose: 'Emit a boolean beat pulse and BPM estimate from live audio so patches can hit on musical onsets.',
+    overview: [
+      'Beat Detect listens to the Microphone audio stream and looks for rhythmic onsets. Its Beat output is a short boolean pulse, while BPM estimates the current tempo for nodes that can follow timing.',
+      'Use Beat for flashes, sample-and-hold steps, trigger utilities, pattern switches, or any patch event that should happen on impact instead of drifting continuously.',
+      'Threshold sets how strong an onset must be, Attack controls how quickly beats are accepted, and Decay controls how quickly the detector relaxes before the next hit.',
+    ],
+    propertyNote: 'Threshold, Attack, and Decay are normalized detector controls. Tune them against the source track before relying on the BPM output.',
+    exampleTitle: 'Flash the frame on each beat',
+    examplePath: 'Microphone.audio -> Beat Detect.beat + Noise Field.frame -> Beat Flash -> Matrix Output',
+    exampleAlt: 'Placeholder for a tidy graph using Microphone, Beat Detect, Noise Field, Beat Flash, and Matrix Output',
+    exampleExplanation: 'Microphone feeds Beat Detect. Each Beat pulse triggers Beat Flash, while Noise Field provides the underlying frame that gets flashed before it reaches Matrix Output.',
+    previewTitle: 'What you should see',
+    previewDescription: 'The base pattern should keep moving quietly, then punch brighter on detected beats. Raise Threshold if it fires too often, or lower it if the patch misses obvious hits.',
+    previewAlt: 'Placeholder for the LED preview showing Beat Detect driving Beat Flash',
+    liveExample: BEAT_DETECT_LIVE_EXAMPLE,
+    successMessage: 'Beat Detect example added — test signal on',
+    skippedMessage: 'Beat Detect example added — Matrix Output is already in use; connect Beat Flash when ready',
+    enableTestSignal: true,
+  },
+  PercussionDetect: {
+    type: 'PercussionDetect',
+    eyebrow: 'Drum envelopes',
+    purpose: 'Extract separate kick, snare, and hi-hat envelopes from audio for percussion-shaped visuals.',
+    overview: [
+      'Percussion Detect turns one audio stream into three drum-like envelopes. Kick reacts to low-frequency thumps, Snare follows midrange impacts, and Hi-Hat responds to fast high-frequency texture.',
+      'Use the outputs when one beat trigger is too blunt. Kick can drive size or shockwaves, snare can add bursts, and hi-hat can scatter small accents across the frame.',
+      'Sensitivity scales how eager the detector is, Decay controls how long each envelope rings out, and Separation controls how strongly the three percussion lanes are kept apart.',
+    ],
+    propertyNote: 'Sensitivity affects all three lanes. Decay lengthens the envelope tails, while Separation reduces bleed between kick, snare, and hi-hat.',
+    exampleTitle: 'Split drums into layered blobs',
+    examplePath: 'Microphone.audio -> Percussion Detect.kick/snare/hihat -> Percussion Blobs -> Matrix Output',
+    exampleAlt: 'Placeholder for a tidy graph using Microphone, Percussion Detect, Percussion Blobs, and Matrix Output',
+    exampleExplanation: 'Microphone feeds Percussion Detect. Its kick, snare, and hi-hat envelopes each drive the matching Percussion Blobs input, giving every drum family a distinct visual layer before the frame goes to Matrix Output.',
+    previewTitle: 'What you should see',
+    previewDescription: 'Low hits should create heavier blobs, snares should add mid-sized accents, and hi-hats should sprinkle faster detail. If everything moves together, increase Separation or lower Sensitivity.',
+    previewAlt: 'Placeholder for the LED preview showing Percussion Detect driving Percussion Blobs',
+    liveExample: PERCUSSION_DETECT_LIVE_EXAMPLE,
+    successMessage: 'Percussion Detect example added — test signal on',
+    skippedMessage: 'Percussion Detect example added — Matrix Output is already in use; connect Percussion Blobs when ready',
+    enableTestSignal: true,
+  },
+  AudioFeatures: {
+    type: 'AudioFeatures',
+    eyebrow: 'Audio features',
+    purpose: 'Derive vocal presence, total energy, and a silence gate from live audio for smarter reactive patches.',
+    overview: [
+      'Audio Features gives you higher-level control signals than raw frequency bands. Vocals estimates voice-like midrange presence, Energy tracks overall loudness, and Silence goes high when the signal falls below the gate.',
+      'Use Vocals to bring in melodic or lyric-focused layers, Energy for global intensity, and Silence to dim, pause, or switch a patch when the room or track goes quiet.',
+      'Sensitivity scales feature response, Gate decides when audio counts as silence, and Smoothing keeps the outputs from twitching between frames.',
+    ],
+    propertyNote: 'Sensitivity and Gate define how easily features wake up. Smoothing trades responsiveness for steadier motion.',
+    exampleTitle: 'Let vocals open an aurora',
+    examplePath: 'Microphone.audio -> Audio Features.vocals/energy/silence -> Vocal Aurora -> Matrix Output',
+    exampleAlt: 'Placeholder for a tidy graph using Microphone, Audio Features, Vocal Aurora, and Matrix Output',
+    exampleExplanation: 'Microphone feeds Audio Features. Vocals shapes the aurora curtains, Energy controls their brightness and movement, and Silence tells Vocal Aurora when to dim the result before Matrix Output.',
+    previewTitle: 'What you should see',
+    previewDescription: 'Voice-like passages should lift the aurora into brighter curtains, energetic sections should intensify it, and quiet sections should settle back instead of staying fully lit.',
+    previewAlt: 'Placeholder for the LED preview showing Audio Features driving Vocal Aurora',
+    liveExample: AUDIO_FEATURES_LIVE_EXAMPLE,
+    successMessage: 'Audio Features example added — test signal on',
+    skippedMessage: 'Audio Features example added — Matrix Output is already in use; connect Vocal Aurora when ready',
+    enableTestSignal: true,
+  },
+  AudioHue: {
+    type: 'AudioHue',
+    eyebrow: 'Band-to-hue mapper',
+    purpose: 'Map bass, mids, and treble levels into a 0-360 hue control that can colour downstream nodes.',
+    overview: [
+      'Audio to Hue is a small utility that blends bass, mids, and treble into a single hue value. Bass has the strongest weight, mids fill in the body, and treble adds brighter movement.',
+      'Use it when a patch already has FFT bands and you want the colour to follow the mix without hand-building math nodes. The output is a float in degrees, so it connects cleanly to HSV to RGB.',
+      'The node has no inline properties. Shape its behaviour by changing the upstream FFT Analyzer response or by processing the Hue output with math nodes before it reaches a colour converter.',
+    ],
+    propertyNote: 'Audio to Hue has no inline properties. Tune its result upstream with FFT Analyzer or downstream with math/color nodes.',
+    exampleTitle: 'Turn spectrum balance into colour',
+    examplePath: 'Microphone -> FFT Analyzer -> Audio to Hue -> HSV to RGB -> Solid Color -> Matrix Output',
+    exampleAlt: 'Placeholder for a tidy graph using Microphone, FFT Analyzer, Audio to Hue, HSV to RGB, Solid Color, and Matrix Output',
+    exampleExplanation: 'Microphone feeds FFT Analyzer, which produces bass, mids, and treble values. Audio to Hue converts those bands into hue degrees, HSV to RGB turns hue into a colour, and Solid Color paints that colour into the frame sent to Matrix Output.',
+    previewTitle: 'What you should see',
+    previewDescription: 'The matrix should wash through different colours as the balance between bass, mids, and treble changes. Strong bass leans the hue one way, while brighter treble nudges it toward another part of the wheel.',
+    previewAlt: 'Placeholder for the LED preview showing Audio to Hue driving a solid colour wash',
+    liveExample: AUDIO_HUE_LIVE_EXAMPLE,
+    successMessage: 'Audio to Hue example added — test signal on',
+    skippedMessage: 'Audio to Hue example added — Matrix Output is already in use; connect Solid Color when ready',
+    enableTestSignal: true,
+  },
 }
 
 const PROPERTY_LABELS: Record<string, string> = {
@@ -184,6 +475,23 @@ function describeControl(node: NodeDefinition, key: string): string {
 function propertyEntries(node: NodeDefinition): Array<[string, unknown]> {
   return Object.entries(node.defaultProperties ?? {})
     .filter(([key]) => !HIDDEN_PROPERTIES.has(key))
+}
+
+function groupedPropertyEntries(node: NodeDefinition): Array<{ label: string; entries: Array<[string, unknown]> }> {
+  const entries = propertyEntries(node)
+  const valueByKey = new Map(entries)
+  const groups = propertyGroupsFor(node.type)
+  if (groups && groups.length > 0) {
+    return groups
+      .map((group) => ({
+        label: group.label,
+        entries: group.keys
+          .map((key) => [key, valueByKey.get(key)] as [string, unknown])
+          .filter((entry) => valueByKey.has(entry[0])),
+      }))
+      .filter((group) => group.entries.length > 0)
+  }
+  return entries.length > 0 ? [{ label: 'Settings', entries }] : []
 }
 
 function categoryLabel(category: NodeCategory): string {
@@ -828,6 +1136,44 @@ function ScreenshotFigure({
   )
 }
 
+function ImagePlaceholder({
+  label,
+  detail,
+  compact = false,
+}: {
+  label: string
+  detail: string
+  compact?: boolean
+}) {
+  return (
+    <div className={`${styles.imagePlaceholder} ${compact ? styles.imagePlaceholderCompact : ''}`} role="img" aria-label={`${label}: ${detail}`}>
+      <span>{label}</span>
+      <b>{detail}</b>
+    </div>
+  )
+}
+
+function PlaceholderFigure({
+  label,
+  detail,
+  alt,
+  wide = false,
+}: {
+  label: string
+  detail: string
+  alt: string
+  wide?: boolean
+}) {
+  return (
+    <figure className={`${styles.captureFigure} ${wide ? styles.captureFigureWide : ''}`}>
+      <div className={styles.captureFrame}>
+        <ImagePlaceholder label={label} detail={detail} />
+      </div>
+      <figcaption>{alt}</figcaption>
+    </figure>
+  )
+}
+
 function PortSection({ title, ports, direction }: { title: string; ports: NodeDefinition['inputs']; direction: 'input' | 'output' }) {
   return (
     <section className={styles.manualSection}>
@@ -868,31 +1214,143 @@ function PortPanel({ title, ports, direction }: { title: string; ports: NodeDefi
   )
 }
 
-function MicrophoneProperties({ node }: { node: NodeDefinition }) {
-  const properties = Object.fromEntries(propertyEntries(node))
-  const groups = [
-    { label: 'Levels', keys: ['gain', 'agc', 'threshold', 'attack', 'decay'] },
-    { label: 'I2S hardware', keys: ['sampleRate', 'i2sWs', 'i2sSck', 'i2sSd', 'channel'] },
-    { label: 'Debug', keys: ['serialDebug'] },
-  ]
+function PropertyPanel({
+  node,
+  emptyText,
+  note,
+}: {
+  node: NodeDefinition
+  emptyText?: string
+  note?: string
+}) {
+  const groups = groupedPropertyEntries(node)
   return (
-    <section className={`${styles.referencePanel} ${styles.propertiesPanel}`}>
+    <section className={styles.referencePanel}>
       <div className={styles.panelLabel}>Properties</div>
-      <div className={styles.propertyGroups}>
-        {groups.map((group) => (
-          <div className={styles.propertyGroup} key={group.label}>
-            <h3>{group.label}</h3>
-            {group.keys.map((key) => (
-              <div className={styles.propertyRow} key={key}>
-                <span>{humanizePropertyKey(key)}</span>
-                <b>{formatPropertyValue(properties[key])}</b>
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-      <p className={styles.panelNote}>Level controls shape the browser preview. I2S pins and channel configure the INMP441 in generated ESP32 firmware.</p>
+      {groups.length === 0 ? (
+        <p className={styles.panelEmpty}>{emptyText ?? 'This node has no inline properties.'}</p>
+      ) : (
+        <div className={styles.propertyGroups}>
+          {groups.map((group) => (
+            <div className={styles.propertyGroup} key={group.label}>
+              <h3>{group.label}</h3>
+              {group.entries.map(([key, value]) => (
+                <div className={styles.propertyRow} key={key}>
+                  <span>{humanizePropertyKey(key)}</span>
+                  <b>{formatPropertyValue(value)}</b>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+      {note && <p className={styles.panelNote}>{note}</p>}
     </section>
+  )
+}
+
+function openLiveExample(
+  example: LiveExampleSpec,
+  options: {
+    successMessage: string
+    skippedMessage: string
+    enableTestSignal?: boolean
+  },
+) {
+  const ui = useUiStore.getState()
+  const result = insertLiveExample(example, ui.viewCenter)
+  useUiStore.setState({
+    helpOpen: false,
+    previewPanelOpen: true,
+    ...(options.enableTestSignal ? { testSignal: true } : {}),
+  })
+  window.setTimeout(() => {
+    useUiStore.getState().requestFitView(result.nodeIds)
+  }, 80)
+  const matrixInputOccupied = result.skippedConnections.some((edge) => edge.target === 'out' && edge.targetHandle === 'frame')
+  ui.setStatus(matrixInputOccupied ? options.skippedMessage : options.successMessage, 'success')
+}
+
+function AudioArticle({ node, content }: { node: NodeDefinition; content: AudioArticleContent }) {
+  const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
+  const properties = propertyEntries(node)
+  const tryLive = () => {
+    openLiveExample(content.liveExample, {
+      successMessage: content.successMessage,
+      skippedMessage: content.skippedMessage,
+      enableTestSignal: content.enableTestSignal,
+    })
+  }
+  return (
+    <article className={styles.article} style={{ '--node-accent': accent } as React.CSSProperties}>
+      <div className={styles.breadcrumb}>Audio nodes <span>/</span> {node.label}</div>
+      <header className={styles.articleHeader}>
+        <div>
+          <div className={styles.eyebrow}><i style={{ background: accent }} />{content.eyebrow}</div>
+          <h1>{node.label}</h1>
+          <p>{content.purpose}</p>
+        </div>
+        <div className={styles.articleMeta}>{node.inputs.length} inputs · {node.outputs.length} outputs · {properties.length} properties</div>
+      </header>
+
+      <div className={styles.introGrid}>
+        <figure className={styles.nodeCapture}>
+          <div className={styles.nodeCaptureFrame}>
+            <ImagePlaceholder label="Node image placeholder" detail={`${node.label} node capture`} compact />
+          </div>
+        </figure>
+        <section className={styles.overviewPanel}>
+          <div className={styles.sectionKicker}>What it does</div>
+          <h2>Overview</h2>
+          {content.overview.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+        </section>
+      </div>
+
+      <div className={styles.ioGrid}>
+        <PortPanel title="Inputs" ports={node.inputs} direction="input" />
+        <PropertyPanel
+          node={node}
+          emptyText="This node has no inline properties. Shape it with upstream or downstream nodes."
+          note={content.propertyNote}
+        />
+        <PortPanel title="Outputs" ports={node.outputs} direction="output" />
+      </div>
+
+      <section className={styles.exampleSection}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <h2>{content.exampleTitle}</h2>
+          </div>
+          <div className={styles.exampleHeadingActions}>
+            <span>{content.examplePath}</span>
+            <button className={styles.tryLiveButton} type="button" onClick={tryLive}>
+              <span aria-hidden="true">▶</span> Try it live
+            </button>
+          </div>
+        </div>
+        <PlaceholderFigure
+          label="Example graph placeholder"
+          detail={`${node.label} example graph`}
+          alt={content.exampleAlt}
+          wide
+        />
+        <div className={styles.exampleExplanation}>
+          <b>How it works</b>
+          <p>{content.exampleExplanation}</p>
+        </div>
+      </section>
+
+      <section className={styles.previewSection}>
+        <div className={styles.previewCopy}>
+          <div className={styles.sectionKicker}>Main preview</div>
+          <h2>{content.previewTitle}</h2>
+          <p>{content.previewDescription}</p>
+        </div>
+        <figure className={styles.previewCapture}>
+          <ImagePlaceholder label="Preview image placeholder" detail={content.previewAlt} />
+        </figure>
+      </section>
+    </article>
   )
 }
 
@@ -900,19 +1358,11 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
   const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
   const assets = NODE_REFERENCE_ASSETS.nodes.MicInput
   const tryLive = () => {
-    const ui = useUiStore.getState()
-    const result = insertLiveExample(MICROPHONE_LIVE_EXAMPLE, ui.viewCenter)
-    const matrixInputOccupied = result.skippedConnections.some((edge) => edge.target === 'out' && edge.targetHandle === 'frame')
-    useUiStore.setState({ helpOpen: false, previewPanelOpen: true, testSignal: true })
-    window.setTimeout(() => {
-      useUiStore.getState().requestFitView(result.nodeIds)
-    }, 80)
-    ui.setStatus(
-      matrixInputOccupied
-        ? 'Microphone example added — Matrix Output is already in use; connect Spectrum Bars when ready'
-        : 'Microphone example added — test signal on',
-      'success',
-    )
+    openLiveExample(MICROPHONE_LIVE_EXAMPLE, {
+      successMessage: 'Microphone example added — test signal on',
+      skippedMessage: 'Microphone example added — Matrix Output is already in use; connect Spectrum Bars when ready',
+      enableTestSignal: true,
+    })
   }
   return (
     <article className={styles.article} style={{ '--node-accent': accent } as React.CSSProperties}>
@@ -945,7 +1395,10 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
 
       <div className={styles.ioGrid}>
         <PortPanel title="Inputs" ports={node.inputs} direction="input" />
-        <MicrophoneProperties node={node} />
+        <PropertyPanel
+          node={node}
+          note="Level controls shape the browser preview. I2S pins and channel configure the INMP441 in generated ESP32 firmware."
+        />
         <PortPanel title="Outputs" ports={node.outputs} direction="output" />
       </div>
 
@@ -986,8 +1439,341 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
   )
 }
 
+function ButtonArticle({ node }: { node: NodeDefinition }) {
+  const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
+  const assets = NODE_REFERENCE_ASSETS.nodes.ButtonInput
+  const tryLive = () => {
+    openLiveExample(BUTTON_LIVE_EXAMPLE, {
+      successMessage: 'Button example added — press the Button node to trigger Beat Flash',
+      skippedMessage: 'Button example added — Matrix Output is already in use; connect Beat Flash when ready',
+    })
+  }
+  return (
+    <article className={styles.article} style={{ '--node-accent': accent } as React.CSSProperties}>
+      <div className={styles.breadcrumb}>Inputs <span>/</span> Button</div>
+      <header className={styles.articleHeader}>
+        <div>
+          <div className={styles.eyebrow}><i style={{ background: accent }} />Hardware trigger</div>
+          <h1>Button</h1>
+          <p>Read a momentary hardware button as a boolean trigger in preview and generated firmware.</p>
+        </div>
+        <div className={styles.articleMeta}>0 inputs · 1 output · 2 properties</div>
+      </header>
+
+      <div className={styles.introGrid}>
+        <figure className={styles.nodeCapture}>
+          <div className={styles.nodeCaptureFrame}>
+            <img className={`${styles.nodeCaptureImage} ${styles.nodeCaptureImageNarrow}`} src={assets.node} alt="Button node on the FastLED Studio canvas" />
+          </div>
+        </figure>
+        <section className={styles.overviewPanel}>
+          <div className={styles.sectionKicker}>What it does</div>
+          <h2>Overview</h2>
+          <p>The Button node outputs a single <b>Pressed</b> gate. In preview, the on-node <b>press</b> control lets you tap that gate directly so you can test trigger-driven graphs without external hardware.</p>
+          <p>Use it anywhere a downstream node expects a boolean event: Beat Flash, Trigger, Sample Hold, Switch, envelopes, or any other patch that should react to a press instead of a continuous signal.</p>
+          <p>In generated firmware, the node configures the selected GPIO as <code>INPUT_PULLUP</code> by default and treats a LOW read as pressed. Turn <b>Pull-Up</b> off only when your wiring already provides the resistor externally.</p>
+        </section>
+      </div>
+
+      <div className={styles.ioGrid}>
+        <PortPanel title="Inputs" ports={node.inputs} direction="input" />
+        <PropertyPanel
+          node={node}
+          note="The preview widget drives the Pressed output in the browser. Pin and Pull-Up affect the generated digital input wiring on-device."
+        />
+        <PortPanel title="Outputs" ports={node.outputs} direction="output" />
+      </div>
+
+      <section className={styles.exampleSection}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <h2>Tap to flash the matrix</h2>
+          </div>
+          <div className={styles.exampleHeadingActions}>
+            <span>Button.pressed → Beat Flash.beat + Noise Field.frame → Matrix Output</span>
+            <button className={styles.tryLiveButton} type="button" onClick={tryLive}>
+              <span aria-hidden="true">▶</span> Try it live
+            </button>
+          </div>
+        </div>
+        <ScreenshotFigure
+          src={assets.graph}
+          alt="Tidy trigger graph using Button, Noise Field, Beat Flash, and Matrix Output"
+          wide
+        />
+        <div className={styles.exampleExplanation}>
+          <b>How it works</b>
+          <p>Noise Field provides the moving base frame. Button sends a boolean pulse into Beat Flash, which overlays a bright flash on each press before sending the combined frame to Matrix Output.</p>
+        </div>
+      </section>
+
+      <section className={styles.previewSection}>
+        <div className={styles.previewCopy}>
+          <div className={styles.sectionKicker}>Main preview</div>
+          <h2>What you should see</h2>
+          <p>With the button held or tapped, Beat Flash can drive the frame into a hard white burst over the underlying pattern. The important part is the immediate, unmistakable trigger response when Pressed goes high.</p>
+        </div>
+        <figure className={styles.previewCapture}>
+          <img src={assets.preview} alt="LED preview showing the bright Button-triggered Beat Flash result" />
+        </figure>
+      </section>
+    </article>
+  )
+}
+
+function PotentiometerArticle({ node }: { node: NodeDefinition }) {
+  const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
+  const assets = NODE_REFERENCE_ASSETS.nodes.PotInput
+  const tryLive = () => {
+    openLiveExample(POTENTIOMETER_LIVE_EXAMPLE, {
+      successMessage: 'Potentiometer example added — drag the Potentiometer slider to dim the pattern',
+      skippedMessage: 'Potentiometer example added — Matrix Output is already in use; connect Brightness when ready',
+    })
+  }
+  return (
+    <article className={styles.article} style={{ '--node-accent': accent } as React.CSSProperties}>
+      <div className={styles.breadcrumb}>Inputs <span>/</span> Potentiometer</div>
+      <header className={styles.articleHeader}>
+        <div>
+          <div className={styles.eyebrow}><i style={{ background: accent }} />Analog control</div>
+          <h1>Potentiometer</h1>
+          <p>Read a hardware potentiometer as a normalized 0-1 control signal in preview and generated firmware.</p>
+        </div>
+        <div className={styles.articleMeta}>0 inputs · 1 output · 1 property</div>
+      </header>
+
+      <div className={styles.introGrid}>
+        <figure className={styles.nodeCapture}>
+          <div className={styles.nodeCaptureFrame}>
+            <img className={`${styles.nodeCaptureImage} ${styles.nodeCaptureImageNarrow}`} src={assets.node} alt="Potentiometer node on the FastLED Studio canvas" />
+          </div>
+        </figure>
+        <section className={styles.overviewPanel}>
+          <div className={styles.sectionKicker}>What it does</div>
+          <h2>Overview</h2>
+          <p>The Potentiometer node outputs a continuous <b>Value</b> signal from 0 to 1. In preview, the slider embedded in the node lets you drag that value live so you can tune control-driven patches without external hardware.</p>
+          <p>Use it anywhere a downstream node expects a float control: brightness, speed, amount, scale, fade, threshold, or any other parameter you want to perform by hand instead of automating.</p>
+          <p>In generated firmware, the node reads <code>analogRead(pin) / 4095.0</code> from the selected ADC pin. That gives downstream nodes the same normalized control shape they see in preview.</p>
+        </section>
+      </div>
+
+      <div className={styles.ioGrid}>
+        <PortPanel title="Inputs" ports={node.inputs} direction="input" />
+        <PropertyPanel
+          node={node}
+          note="The preview slider drives the Value output in the browser. Pin selects which analog input the generated firmware reads on-device."
+        />
+        <PortPanel title="Outputs" ports={node.outputs} direction="output" />
+      </div>
+
+      <section className={styles.exampleSection}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <h2>Turn the knob to dim the pattern</h2>
+          </div>
+          <div className={styles.exampleHeadingActions}>
+            <span>Noise Field.frame → Brightness.frame + Potentiometer.value → Matrix Output</span>
+            <button className={styles.tryLiveButton} type="button" onClick={tryLive}>
+              <span aria-hidden="true">▶</span> Try it live
+            </button>
+          </div>
+        </div>
+        <ScreenshotFigure
+          src={assets.graph}
+          alt="Tidy control graph using Potentiometer, Noise Field, Brightness, and Matrix Output"
+          wide
+        />
+        <div className={styles.exampleExplanation}>
+          <b>How it works</b>
+          <p>Noise Field provides the moving frame. Potentiometer feeds a live 0-1 control into Brightness, which scales that frame before sending the result to Matrix Output.</p>
+        </div>
+      </section>
+
+      <section className={styles.previewSection}>
+        <div className={styles.previewCopy}>
+          <div className={styles.sectionKicker}>Main preview</div>
+          <h2>What you should see</h2>
+          <p>As you drag the Potentiometer slider down, the pattern fades toward black; dragging it up restores the full image. It is the simplest way to sanity-check any float-controlled modulation path.</p>
+        </div>
+        <figure className={styles.previewCapture}>
+          <img src={assets.preview} alt="LED preview showing the Potentiometer-controlled brightness result" />
+        </figure>
+      </section>
+    </article>
+  )
+}
+
+function EncoderArticle({ node }: { node: NodeDefinition }) {
+  const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
+  const assets = NODE_REFERENCE_ASSETS.nodes.EncoderInput
+  const tryLive = () => {
+    openLiveExample(ENCODER_LIVE_EXAMPLE, {
+      successMessage: 'Encoder example added — drag the dial to shift colour and click it to flash',
+      skippedMessage: 'Encoder example added — Matrix Output is already in use; connect Beat Flash when ready',
+    })
+  }
+  return (
+    <article className={styles.article} style={{ '--node-accent': accent } as React.CSSProperties}>
+      <div className={styles.breadcrumb}>Inputs <span>/</span> Encoder</div>
+      <header className={styles.articleHeader}>
+        <div>
+          <div className={styles.eyebrow}><i style={{ background: accent }} />Rotary control</div>
+          <h1>Encoder</h1>
+          <p>Read a rotary encoder as a running position plus a push-button trigger in preview and generated firmware.</p>
+        </div>
+        <div className={styles.articleMeta}>0 inputs · 2 outputs · 4 properties</div>
+      </header>
+
+      <div className={styles.introGrid}>
+        <figure className={styles.nodeCapture}>
+          <div className={styles.nodeCaptureFrame}>
+            <img className={`${styles.nodeCaptureImage} ${styles.nodeCaptureImageNarrow}`} src={assets.node} alt="Encoder node on the FastLED Studio canvas" />
+          </div>
+        </figure>
+        <section className={styles.overviewPanel}>
+          <div className={styles.sectionKicker}>What it does</div>
+          <h2>Overview</h2>
+          <p>The Encoder node outputs a continuous <b>Position</b> value and a momentary <b>Pressed</b> gate. In preview, drag the dial vertically to turn it and click it to fire the push-button so you can test both controls without external hardware.</p>
+          <p>Use <b>Position</b> for parameters that benefit from endless relative control: hue shift, menu index, scroll amount, threshold, or any value you want to nudge up and down instead of pinning to a fixed 0-1 range.</p>
+          <p>Use <b>Pressed</b> anywhere a downstream node expects a boolean event. In generated firmware, the node polls the quadrature A/B pins for rotation and reads the switch pin as a normal button, using <code>INPUT_PULLUP</code> by default when <b>Pull-Up</b> is enabled.</p>
+        </section>
+      </div>
+
+      <div className={styles.ioGrid}>
+        <PortPanel title="Inputs" ports={node.inputs} direction="input" />
+        <PropertyPanel
+          node={node}
+          note="The preview dial drives both Position and Pressed in the browser. Pin A, Pin B, Pin SW, and Pull-Up define the generated encoder wiring on-device."
+        />
+        <PortPanel title="Outputs" ports={node.outputs} direction="output" />
+      </div>
+
+      <section className={styles.exampleSection}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <h2>Turn for colour, click for impact</h2>
+          </div>
+          <div className={styles.exampleHeadingActions}>
+            <span>Noise Field.frame → Hue Shift → Beat Flash → Matrix Output, with Encoder.position + Encoder.pressed</span>
+            <button className={styles.tryLiveButton} type="button" onClick={tryLive}>
+              <span aria-hidden="true">▶</span> Try it live
+            </button>
+          </div>
+        </div>
+        <ScreenshotFigure
+          src={assets.graph}
+          alt="Tidy control graph using Encoder, Noise Field, Hue Shift, Beat Flash, and Matrix Output"
+          wide
+        />
+        <div className={styles.exampleExplanation}>
+          <b>How it works</b>
+          <p>Noise Field supplies the moving base frame. Encoder Position rotates that frame through Hue Shift, and Encoder Pressed triggers Beat Flash so each click punches a bright burst over the current colours before the result goes to Matrix Output.</p>
+        </div>
+      </section>
+
+      <section className={styles.previewSection}>
+        <div className={styles.previewCopy}>
+          <div className={styles.sectionKicker}>Main preview</div>
+          <h2>What you should see</h2>
+          <p>Dragging the encoder should walk the palette around the hue wheel while leaving the underlying pattern intact. Clicking the dial should add a brief flash on top, making it easy to verify both the continuous rotation control and the momentary button output.</p>
+        </div>
+        <figure className={styles.previewCapture}>
+          <img src={assets.preview} alt="LED preview showing Encoder-driven hue rotation with a flash accent" />
+        </figure>
+      </section>
+    </article>
+  )
+}
+
+function MidiArticle({ node }: { node: NodeDefinition }) {
+  const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
+  const assets = NODE_REFERENCE_ASSETS.nodes.MidiInput
+  const tryLive = () => {
+    openLiveExample(MIDI_LIVE_EXAMPLE, {
+      successMessage: 'MIDI example added — note velocity, gate, and CC now drive the preview patch',
+      skippedMessage: 'MIDI example added — Matrix Output is already in use; connect Brightness when ready',
+    })
+  }
+  return (
+    <article className={styles.article} style={{ '--node-accent': accent } as React.CSSProperties}>
+      <div className={styles.breadcrumb}>Inputs <span>/</span> MIDI</div>
+      <header className={styles.articleHeader}>
+        <div>
+          <div className={styles.eyebrow}><i style={{ background: accent }} />Preview control</div>
+          <h1>MIDI</h1>
+          <p>Read Web MIDI note velocity, held gate, and CC values from a connected controller while designing in preview.</p>
+        </div>
+        <div className={styles.articleMeta}>0 inputs · 3 outputs · 2 properties</div>
+      </header>
+
+      <div className={styles.introGrid}>
+        <figure className={styles.nodeCapture}>
+          <div className={styles.nodeCaptureFrame}>
+            <img className={`${styles.nodeCaptureImage} ${styles.nodeCaptureImageNarrow}`} src={assets.node} alt="MIDI node on the FastLED Studio canvas" />
+          </div>
+        </figure>
+        <section className={styles.overviewPanel}>
+          <div className={styles.sectionKicker}>What it does</div>
+          <h2>Overview</h2>
+          <p>The MIDI node listens to one note number and one CC number from the browser’s Web MIDI API. It outputs <b>Velocity</b> for note-on intensity, <b>Gate</b> while that note is held, and <b>CC</b> as the latest controller value.</p>
+          <p>Use it when you want hands-on live control while designing: velocity can drive brightness or amount, gate can trigger flashes or envelopes, and CC can steer hue, speed, threshold, or any other float input.</p>
+          <p>This node is <b>preview-only</b>. There is no embedded MIDI equivalent in generated firmware, so exported sketches always see the idle fallback values: note 0, gate off, and CC 0.</p>
+        </section>
+      </div>
+
+      <div className={styles.ioGrid}>
+        <PortPanel title="Inputs" ports={node.inputs} direction="input" />
+        <PropertyPanel
+          node={node}
+          note="Note and CC choose which MIDI messages the browser listens for. The live values come from Web MIDI during preview only; they are not emitted by generated firmware."
+        />
+        <PortPanel title="Outputs" ports={node.outputs} direction="output" />
+      </div>
+
+      <section className={styles.exampleSection}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <h2>Play the controller to steer the frame</h2>
+          </div>
+          <div className={styles.exampleHeadingActions}>
+            <span>CC → Hue Shift, Gate → Frame Switch, Velocity → Brightness over Noise Field → Matrix Output</span>
+            <button className={styles.tryLiveButton} type="button" onClick={tryLive}>
+              <span aria-hidden="true">▶</span> Try it live
+            </button>
+          </div>
+        </div>
+        <ScreenshotFigure
+          src={assets.graph}
+          alt="Tidy MIDI control graph using MIDI, Noise Field, Hue Shift, Frame Switch, Brightness, and Matrix Output"
+          wide
+        />
+        <div className={styles.exampleExplanation}>
+          <b>How it works</b>
+          <p>Noise Field supplies the moving base frame. MIDI CC rotates that frame through Hue Shift, MIDI Gate chooses between the unshifted and shifted versions in Frame Switch, and MIDI Velocity scales the final brightness before the result reaches Matrix Output.</p>
+        </div>
+      </section>
+
+      <section className={styles.previewSection}>
+        <div className={styles.previewCopy}>
+          <div className={styles.sectionKicker}>Main preview</div>
+          <h2>What you should see</h2>
+          <p>Moving the chosen CC should rotate the colours, while holding the configured note should flip the frame over to the hue-shifted version and scale it with note velocity. Releasing the note should drop Gate and return the preview to the unshifted base pattern.</p>
+        </div>
+        <figure className={styles.previewCapture}>
+          <img src={assets.preview} alt="LED preview showing MIDI-controlled hue switching and brightness" />
+        </figure>
+      </section>
+    </article>
+  )
+}
+
 function NodeArticle({ node }: { node: NodeDefinition }) {
   if (node.type === 'MicInput') return <MicrophoneArticle node={node} />
+  if (AUDIO_ARTICLES[node.type]) return <AudioArticle node={node} content={AUDIO_ARTICLES[node.type]} />
+  if (node.type === 'ButtonInput') return <ButtonArticle node={node} />
+  if (node.type === 'PotInput') return <PotentiometerArticle node={node} />
+  if (node.type === 'EncoderInput') return <EncoderArticle node={node} />
+  if (node.type === 'MidiInput') return <MidiArticle node={node} />
   const properties = propertyEntries(node)
   const useCases = buildUseCases(node)
   const recipe = buildExampleRecipe(node)

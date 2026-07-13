@@ -203,6 +203,8 @@
 .introGrid { display: grid; grid-template-columns: minmax(220px, .72fr) minmax(0, 1.28fr); gap: 30px; align-items: stretch; padding: 28px 0 30px; }
 .nodeCapture { margin: 0; display: flex; flex-direction: column; }
 .nodeCaptureFrame { flex: 1; min-height: 360px; display: grid; place-items: center; overflow: hidden; border: 1px solid rgba(255,255,255,.065); border-radius: 8px; background: linear-gradient(145deg, color-mix(in srgb, var(--node-accent) 5%, transparent), transparent 56%), rgba(255,255,255,.012); }
+.nodeCaptureImage { display: block; max-width: min(100%, 300px); height: auto; filter: drop-shadow(0 16px 24px rgba(0,0,0,.38)); }
+.nodeCaptureImageNarrow { width: 180px; max-width: min(100%, 180px); }
 .nodeOnlyCrop { position: relative; width: 180px; height: 292px; overflow: hidden; filter: drop-shadow(0 16px 24px rgba(0,0,0,.38)); }
 .nodeOnlyCrop img { position: absolute; top: -258px; left: -8px; display: block; width: 857px; max-width: none; height: 811px; }
 .overviewPanel { padding: 25px 27px; border: 1px solid rgba(255,255,255,.065); border-radius: 8px; background: linear-gradient(145deg, color-mix(in srgb, var(--node-accent) 5%, transparent), transparent 56%), rgba(255,255,255,.012); }
@@ -264,6 +266,38 @@
   display: block;
   width: 100%;
   height: auto;
+}
+.imagePlaceholder {
+  min-height: 260px;
+  display: grid;
+  place-content: center;
+  gap: 9px;
+  padding: 28px;
+  border: 1px dashed color-mix(in srgb, var(--node-accent) 42%, rgba(255,255,255,.12));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--node-accent) 7%, transparent), transparent 58%),
+    repeating-linear-gradient(45deg, rgba(255,255,255,.025) 0 1px, transparent 1px 14px),
+    rgba(0,0,0,.15);
+  color: var(--text-secondary);
+  text-align: center;
+}
+.imagePlaceholder span {
+  color: color-mix(in srgb, var(--node-accent) 72%, white);
+  font: 700 9px var(--font-code);
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+.imagePlaceholder b {
+  max-width: 360px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.imagePlaceholderCompact {
+  width: min(100%, 240px);
+  min-height: 240px;
+  border-radius: 6px;
 }
 .captureFigure figcaption {
   margin-top: 8px;
