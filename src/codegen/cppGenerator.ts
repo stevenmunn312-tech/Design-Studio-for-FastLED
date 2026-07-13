@@ -1127,8 +1127,9 @@ export function generateCpp(
         ln(`    CRGB _fill=${fillE},_edge=${edgeE};`)
         ln(`    float _th=max(0.0f,${f('thickness', 'thickness', 1.5)});`)
         ln(`    float _extent=_rad+_th*0.5f;`)
+        ln(`    float _cxv=${f('cx', 'cx', 0.5)},_cyv=${f('cy', 'cy', 0.5)};`)
         if (p.wrap) {
-          ln(`    float _cx=(WIDTH*0.5f-WIDTH)+(${f('cx', 'cx', 0.5)})*(WIDTH*2.0f),_cy=(HEIGHT*0.5f-HEIGHT)+(${f('cy', 'cy', 0.5)})*(HEIGHT*2.0f);`)
+          ln(`    float _cx=_cxv>1.0f?_cxv:(WIDTH*0.5f-WIDTH)+_cxv*(WIDTH*2.0f),_cy=_cyv>1.0f?_cyv:(HEIGHT*0.5f-HEIGHT)+_cyv*(HEIGHT*2.0f);`)
           ln(`    float _wrapX[3]={-(float)WIDTH,0.0f,(float)WIDTH};`)
           ln(`    float _wrapY[3]={-(float)HEIGHT,0.0f,(float)HEIGHT};`)
           ln(`    for(int _wy=0;_wy<3;_wy++) for(int _wx=0;_wx<3;_wx++){`)
@@ -1137,7 +1138,7 @@ export function generateCpp(
           ln(`    }`)
         } else {
           ln(`    float _m=_extent+1.0f;`)
-          ln(`    float _cx=(0.5f-_m)+(${f('cx', 'cx', 0.5)})*((WIDTH-1.0f)+2.0f*_m),_cy=(0.5f-_m)+(${f('cy', 'cy', 0.5)})*((HEIGHT-1.0f)+2.0f*_m);`)
+          ln(`    float _cx=_cxv>1.0f?_cxv:(0.5f-_m)+_cxv*((WIDTH-1.0f)+2.0f*_m),_cy=_cyv>1.0f?_cyv:(0.5f-_m)+_cyv*((HEIGHT-1.0f)+2.0f*_m);`)
           emitCirclePass('_cx', '_cy', '    ')
         }
         break
@@ -1217,8 +1218,9 @@ export function generateCpp(
           ln(`    float _extentX=_ax*fabsf(_cr)+_ay*fabsf(_sr)+_th*0.5f,_extentY=_ax*fabsf(_sr)+_ay*fabsf(_cr)+_th*0.5f;`)
         }
         if (shape === 'polygon') ln(`    float _n=max(3.0f,(float)(${f('sides', 'sides', 5)})); int _nlo=(int)floorf(_n); float _fr=_n-_nlo;`)
+        ln(`    float _cxv=${f('cx', 'cx', cx)},_cyv=${f('cy', 'cy', cy)};`)
         if (p.wrap) {
-          ln(`    float _cx=(WIDTH*0.5f-WIDTH)+(${f('cx', 'cx', cx)})*(WIDTH*2.0f),_cy=(HEIGHT*0.5f-HEIGHT)+(${f('cy', 'cy', cy)})*(HEIGHT*2.0f);`)
+          ln(`    float _cx=_cxv>1.0f?_cxv:(WIDTH*0.5f-WIDTH)+_cxv*(WIDTH*2.0f),_cy=_cyv>1.0f?_cyv:(HEIGHT*0.5f-HEIGHT)+_cyv*(HEIGHT*2.0f);`)
           ln(`    float _wrapX[3]={-(float)WIDTH,0.0f,(float)WIDTH};`)
           ln(`    float _wrapY[3]={-(float)HEIGHT,0.0f,(float)HEIGHT};`)
           ln(`    for(int _wy=0;_wy<3;_wy++) for(int _wx=0;_wx<3;_wx++){`)
@@ -1227,7 +1229,7 @@ export function generateCpp(
           ln(`    }`)
         } else {
           ln(`    float _mx=_extentX+1.0f,_my=_extentY+1.0f;`)
-          ln(`    float _cx=(0.5f-_mx)+(${f('cx', 'cx', cx)})*((WIDTH-1.0f)+2.0f*_mx),_cy=(0.5f-_my)+(${f('cy', 'cy', cy)})*((HEIGHT-1.0f)+2.0f*_my);`)
+          ln(`    float _cx=_cxv>1.0f?_cxv:(0.5f-_mx)+_cxv*((WIDTH-1.0f)+2.0f*_mx),_cy=_cyv>1.0f?_cyv:(0.5f-_my)+_cyv*((HEIGHT-1.0f)+2.0f*_my);`)
           emitShapePass('_cx', '_cy', '    ')
         }
         break

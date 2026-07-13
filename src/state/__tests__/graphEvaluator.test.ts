@@ -738,6 +738,16 @@ describe('evaluateGraph', () => {
     expect(frame[1][1].b).toBeGreaterThan(0)              // shape painted blue near its centre
   })
 
+  it('Shape still accepts legacy pixel-space center coordinates', () => {
+    const shape = node('sh', 'Shape', 'pattern', {
+      shape: 'rect', cx: 4, cy: 4, size: 1, aspect: 1, rotation: 0,
+      thickness: 0, filled: true, fill: '#0000ff', edge: '#0000ff',
+    })
+    const { nodes, edges } = withOutput(shape)
+    const frame = evaluateGraph(nodes, edges, 0, 8, 8)!
+    expect(frame[4][4].b).toBeGreaterThan(0)
+  })
+
   it('Shape normalization includes its extent so cx=0 moves it fully offscreen', () => {
     const shape = node('sh', 'Shape', 'pattern', {
       shape: 'rect', cx: 0, cy: 0.5, size: 1, aspect: 1, rotation: 0,
@@ -764,8 +774,16 @@ describe('evaluateGraph', () => {
     const out = node('out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([c, out], [edge('e', 'c', 'frame', 'out', 'frame')], 0, 32, 32)
     expect(frame![16][16]).toEqual({ r: 0, g: 255, b: 0 }) // 0.5 lands at the matrix centre and uses fill
-    expect(frame![8][8]).toEqual({ r: 0, g: 0, b: 0 })     // quarter-panel old pixel-space position stays dark
+    expect(frame![8][8]).toEqual({ r: 0, g: 0, b: 0 })     // quarter-panel pixel-space position stays dark
     expect(frame![16][13].r).toBeGreaterThan(0)            // edge color stays visible on the outline
+  })
+
+  it('Circle still accepts legacy pixel-space center coordinates', () => {
+    const c = node('c', 'Circle', 'pattern', { cx: 8, cy: 8, radius: 3, filled: true, edge: '#ff0000', fill: '#00ff00' })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph([c, out], [edge('e', 'c', 'frame', 'out', 'frame')], 0, 32, 32)
+    expect(frame![8][8].g).toBeGreaterThan(0)
+    expect(frame![16][16]).toEqual({ r: 0, g: 0, b: 0 })
   })
 
   it('Circle ring leaves the normalized center dark', () => {

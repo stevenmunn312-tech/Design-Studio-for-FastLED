@@ -621,9 +621,17 @@ describe('generateCpp', () => {
   it('emits wrapped Shape copies when wrap is enabled', () => {
     const shape = node('sh', 'Shape', 'pattern', { shape: 'rect', cx: 0.25, cy: 0.5, size: 2, aspect: 1, wrap: true, filled: true })
     const cpp = generateCpp([shape, outputNode], [edge('e1', 'sh', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('float _cx=(WIDTH*0.5f-WIDTH)+(0.25)*(WIDTH*2.0f),_cy=(HEIGHT*0.5f-HEIGHT)+(0.5)*(HEIGHT*2.0f);')
+    expect(cpp).toContain('float _cxv=0.25,_cyv=0.5;')
+    expect(cpp).toContain('float _cx=_cxv>1.0f?_cxv:(WIDTH*0.5f-WIDTH)+_cxv*(WIDTH*2.0f),_cy=_cyv>1.0f?_cyv:(HEIGHT*0.5f-HEIGHT)+_cyv*(HEIGHT*2.0f);')
     expect(cpp).toContain('float _wrapX[3]={-(float)WIDTH,0.0f,(float)WIDTH};')
     expect(cpp).toContain('float _wcx=_cx+_wrapX[_wx],_wcy=_cy+_wrapY[_wy];')
+  })
+
+  it('emits Shape pixel-space center compatibility', () => {
+    const shape = node('sh', 'Shape', 'pattern', { shape: 'rect', cx: 4, cy: 4, size: 2, aspect: 1 })
+    const cpp = generateCpp([shape, outputNode], [edge('e1', 'sh', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('float _cxv=4,_cyv=4;')
+    expect(cpp).toContain('float _cx=_cxv>1.0f?_cxv:(0.5f-_mx)+_cxv*((WIDTH-1.0f)+2.0f*_mx),_cy=_cyv>1.0f?_cyv:(0.5f-_my)+_cyv*((HEIGHT-1.0f)+2.0f*_my);')
   })
 
   it('Shape count/sides can be driven by a wired signal', () => {
@@ -1095,7 +1103,8 @@ describe('generateCpp', () => {
     const cpp = generateCpp([c, outputNode], [edge('e', 'c', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _rad=max(0.5f,3);')
     expect(cpp).toContain('float _th=max(0.0f,2);')
-    expect(cpp).toContain('float _cx=(0.5f-_m)+(0.5)*((WIDTH-1.0f)+2.0f*_m),_cy=(0.5f-_m)+(0.5)*((HEIGHT-1.0f)+2.0f*_m);')
+    expect(cpp).toContain('float _cxv=0.5,_cyv=0.5;')
+    expect(cpp).toContain('float _cx=_cxv>1.0f?_cxv:(0.5f-_m)+_cxv*((WIDTH-1.0f)+2.0f*_m),_cy=_cyv>1.0f?_cyv:(0.5f-_m)+_cyv*((HEIGHT-1.0f)+2.0f*_m);')
     expect(cpp).toContain('_sd=sqrtf(_dx*_dx+_dy*_dy)-_rad;')
     expect(cpp).toContain('float _fc=0.0f;')                                        // unfilled: no fill coverage
     expect(cpp).toContain('float _ec=constrain(_th*0.5f+0.5f-fabsf(_sd),0.0f,1.0f);')
@@ -1114,10 +1123,18 @@ describe('generateCpp', () => {
   it('emits wrapped Circle copies when wrap is enabled', () => {
     const c = node('c', 'Circle', 'pattern', { cx: 0, cy: 0.5, radius: 3, wrap: true, edge: '#ff0000' })
     const cpp = generateCpp([c, outputNode], [edge('e', 'c', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('float _cx=(WIDTH*0.5f-WIDTH)+(0)*(WIDTH*2.0f),_cy=(HEIGHT*0.5f-HEIGHT)+(0.5)*(HEIGHT*2.0f);')
+    expect(cpp).toContain('float _cxv=0,_cyv=0.5;')
+    expect(cpp).toContain('float _cx=_cxv>1.0f?_cxv:(WIDTH*0.5f-WIDTH)+_cxv*(WIDTH*2.0f),_cy=_cyv>1.0f?_cyv:(HEIGHT*0.5f-HEIGHT)+_cyv*(HEIGHT*2.0f);')
     expect(cpp).toContain('float _wrapX[3]={-(float)WIDTH,0.0f,(float)WIDTH};')
     expect(cpp).toContain('float _wrapY[3]={-(float)HEIGHT,0.0f,(float)HEIGHT};')
     expect(cpp).toContain('float _wcx=_cx+_wrapX[_wx],_wcy=_cy+_wrapY[_wy];')
+  })
+
+  it('emits Circle pixel-space center compatibility', () => {
+    const c = node('c', 'Circle', 'pattern', { cx: 8, cy: 8, radius: 3 })
+    const cpp = generateCpp([c, outputNode], [edge('e', 'c', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('float _cxv=8,_cyv=8;')
+    expect(cpp).toContain('float _cx=_cxv>1.0f?_cxv:(0.5f-_m)+_cxv*((WIDTH-1.0f)+2.0f*_m),_cy=_cyv>1.0f?_cyv:(0.5f-_m)+_cyv*((HEIGHT-1.0f)+2.0f*_m);')
   })
 
   it('emits a sampled subpixel loop for a Line', () => {
