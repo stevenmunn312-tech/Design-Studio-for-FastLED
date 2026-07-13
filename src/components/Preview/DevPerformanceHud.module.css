@@ -1,5 +1,7 @@
 .toggleBtn {
-  min-width: 58px;
+  box-sizing: border-box;
+  width: var(--preview-control-width, 112px);
+  min-width: 0;
   height: 30px;
   padding: 0 10px;
   background: rgba(255, 255, 255, 0.03);

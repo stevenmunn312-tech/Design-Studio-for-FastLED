@@ -14,6 +14,7 @@
 }
 
 .previewControls {
+  --preview-control-width: 112px;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -22,7 +23,9 @@
 
 .previewControls > * {
   box-sizing: border-box;
-  flex: 0 0 auto;
+  flex: 0 0 var(--preview-control-width);
+  width: var(--preview-control-width);
+  min-width: 0;
 }
 
 .brand {
@@ -223,7 +226,6 @@
 }
 
 .previewBtn {
-  width: 76px;
   border-color: color-mix(in srgb, var(--accent-output) 38%, var(--border-glow));
 }
 
@@ -235,7 +237,6 @@
 }
 
 .micBtn {
-  width: 78px;
   border-color: color-mix(in srgb, var(--accent-audio) 38%, var(--border-glow));
 }
 
@@ -247,7 +248,6 @@
 }
 
 .styleBtn {
-  width: 112px;
   border-color: color-mix(in srgb, #ff5e9d 38%, var(--border-glow));
 }
 
@@ -259,7 +259,6 @@
 }
 
 .stageBtn {
-  width: 72px;
   border-color: color-mix(in srgb, #ff5e9d 38%, var(--border-glow));
 }
 
