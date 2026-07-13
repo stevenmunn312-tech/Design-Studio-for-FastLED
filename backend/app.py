@@ -468,9 +468,17 @@ def _fbuild_size_report(lines):
     text = "".join(lines)
     flash = _FBUILD_FLASH_RE.search(text)
     ram = _FBUILD_RAM_RE.search(text)
+    ram_pct = int(float(ram.group(1))) if ram else None
+    # fbuild's ESP32 RAM line can include sections that are not the board's
+    # usable internal SRAM. We have seen successful ESP32-S3 builds report
+    # "RAM: 1.28MB / 320.00KB (409.2%)", so treating that as upload headroom is
+    # misleading. A real over-capacity build is still caught by the compile exit
+    # code and overflow markers above.
+    if ram_pct is not None and ram_pct > 100:
+        ram_pct = None
     return {
         "flash": int(float(flash.group(1))) if flash else None,
-        "ram": int(float(ram.group(1))) if ram else None,
+        "ram": ram_pct,
     }
 
 

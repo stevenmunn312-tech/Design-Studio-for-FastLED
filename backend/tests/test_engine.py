@@ -90,3 +90,22 @@ def test_write_fbuild_ini_emits_a_section_per_board_and_psram_variant(tmp_path, 
     assert "-DCORE_DEBUG_LEVEL=0" in text
     uno_section = text.split("[env:arduino_avr_uno]")[1].split("[env:")[0]
     assert "CORE_DEBUG_LEVEL" not in uno_section
+
+
+def test_fbuild_size_report_keeps_sane_ram_percentage():
+    report = app._fbuild_size_report([
+        "Flash: 4.45KB / 31.50KB (14.1%)\n",
+        "RAM:   367 bytes / 2.00KB (17.9%)\n",
+    ])
+
+    assert report == {"flash": 14, "ram": 17}
+
+
+def test_fbuild_size_report_ignores_impossible_successful_esp32_ram_percentage():
+    report = app._fbuild_size_report([
+        "Flash: 665.41KB / 8.00MB (8.1%)\n",
+        "RAM:   1.28MB / 320.00KB (409.2%)\n",
+        "build succeeded in 150.2s (flash: 681375 bytes, ram: 1340869 bytes)\n",
+    ])
+
+    assert report == {"flash": 8, "ram": None}
