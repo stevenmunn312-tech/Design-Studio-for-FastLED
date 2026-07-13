@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import { useGraphStore, useTemporalStore } from '../../state/graphStore'
 import { useAudioStore } from '../../state/audioStore'
@@ -25,6 +26,26 @@ import { isDiffusedStyle, previewStyleLabel } from '../Preview/previewStyles'
 import styles from './MenuBar.module.css'
 
 const MIC_BLOCKED_MESSAGE = 'Microphone is disabled while a performance is playing music. Stop the player to enable the microphone.'
+const MENU_ITEM_SELECTOR = '[role="menuitem"], [role="menuitemcheckbox"]'
+
+const menuItems = (menu: HTMLElement) =>
+  Array.from(menu.querySelectorAll<HTMLElement>(MENU_ITEM_SELECTOR))
+    .filter((item) => !item.hasAttribute('disabled') && item.getAttribute('aria-disabled') !== 'true')
+
+const focusMenuItem = (menu: HTMLElement, direction: 'first' | 'last' | 'next' | 'previous') => {
+  const items = menuItems(menu)
+  if (items.length === 0) return
+  const activeIndex = items.findIndex((item) => item === document.activeElement)
+  if (direction === 'first') {
+    items[0].focus()
+  } else if (direction === 'last') {
+    items[items.length - 1].focus()
+  } else {
+    const offset = direction === 'next' ? 1 : -1
+    const currentIndex = activeIndex >= 0 ? activeIndex : direction === 'next' ? -1 : 0
+    items[(currentIndex + offset + items.length) % items.length].focus()
+  }
+}
 
 export default function MenuBar() {
   const {
@@ -63,6 +84,8 @@ export default function MenuBar() {
   const projectInputRef = useRef<HTMLInputElement>(null)
   const fileMenuRef = useRef<HTMLDivElement>(null)
   const viewMenuRef = useRef<HTMLDivElement>(null)
+  const fileButtonRef = useRef<HTMLButtonElement>(null)
+  const viewButtonRef = useRef<HTMLButtonElement>(null)
   const [fileMenuOpen, setFileMenuOpen] = useState(false)
   const [viewMenuOpen, setViewMenuOpen] = useState(false)
   const hasMicNode = useGraphStore((s) =>
@@ -93,6 +116,41 @@ export default function MenuBar() {
     setFileMenuOpen(false)
     setViewMenuOpen(false)
   }
+
+  const handleMenuKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>, trigger: RefObject<HTMLButtonElement | null>) => {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End', 'Escape', 'Tab'].includes(e.key)) return
+    if (e.key === 'Tab') {
+      closeMenus()
+      return
+    }
+    e.preventDefault()
+    if (e.key === 'Escape') {
+      closeMenus()
+      trigger.current?.focus()
+      return
+    }
+    if (e.key === 'Home') focusMenuItem(e.currentTarget, 'first')
+    else if (e.key === 'End') focusMenuItem(e.currentTarget, 'last')
+    else focusMenuItem(e.currentTarget, e.key === 'ArrowDown' ? 'next' : 'previous')
+  }
+
+  useEffect(() => {
+    if (fileMenuOpen) {
+      requestAnimationFrame(() => {
+        const menu = fileMenuRef.current?.querySelector<HTMLElement>('[role="menu"]')
+        if (menu) focusMenuItem(menu, 'first')
+      })
+    }
+  }, [fileMenuOpen])
+
+  useEffect(() => {
+    if (viewMenuOpen) {
+      requestAnimationFrame(() => {
+        const menu = viewMenuRef.current?.querySelector<HTMLElement>('[role="menu"]')
+        if (menu) focusMenuItem(menu, 'first')
+      })
+    }
+  }, [viewMenuOpen])
 
   useEffect(() => {
     if (!fileMenuOpen && !viewMenuOpen) return
@@ -416,6 +474,7 @@ export default function MenuBar() {
       </div>
       <div className={styles.menuWrap} ref={fileMenuRef}>
         <button
+          ref={fileButtonRef}
           className={`${styles.btn} ${fileMenuOpen ? styles.btnActive : ''}`}
           onClick={() => {
             setViewMenuOpen(false)
@@ -436,7 +495,7 @@ export default function MenuBar() {
               aria-label="Close file menu"
               onClick={closeMenus}
             />
-            <div className={styles.menu} role="menu" aria-label="File">
+            <div className={styles.menu} role="menu" aria-label="File" onKeyDown={(e) => handleMenuKeyDown(e, fileButtonRef)}>
               <button className={styles.menuItem} role="menuitem" onClick={handleNewProject}>
                 New Project
               </button>
@@ -486,6 +545,7 @@ export default function MenuBar() {
       </div>
       <div className={styles.menuWrap} ref={viewMenuRef}>
         <button
+          ref={viewButtonRef}
           className={`${styles.btn} ${viewMenuOpen ? styles.btnActive : ''}`}
           onClick={() => {
             setFileMenuOpen(false)
@@ -509,7 +569,7 @@ export default function MenuBar() {
             {/* onMouseLeave is intentionally not wired to close this menu —
                 the panel should stay open while the pointer is over it so the
                 user can flip through several settings in one visit. */}
-            <div className={styles.menu} role="menu" aria-label="View">
+            <div className={styles.menu} role="menu" aria-label="View" onKeyDown={(e) => handleMenuKeyDown(e, viewButtonRef)}>
               <div className={styles.menuLabel}>Appearance</div>
               <button
                 className={styles.menuItem}

@@ -49,7 +49,15 @@ export default function StatusBar() {
           style={{ background: LEVEL_COLOR[statusLevel], color: LEVEL_COLOR[statusLevel] }}
         />
         <span className={styles.modeTag}>Console</span>
-        <span className={styles.message} style={{ color: LEVEL_COLOR[statusLevel] }}>{statusText}</span>
+        <span
+          className={styles.message}
+          style={{ color: LEVEL_COLOR[statusLevel] }}
+          role={statusLevel === 'error' ? 'alert' : 'status'}
+          aria-live={statusLevel === 'error' ? 'assertive' : 'polite'}
+          aria-atomic="true"
+        >
+          {statusText}
+        </span>
       </div>
 
       <div className={styles.right}>

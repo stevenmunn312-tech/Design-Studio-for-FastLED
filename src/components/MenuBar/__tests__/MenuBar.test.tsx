@@ -124,6 +124,31 @@ describe('MenuBar file menu', () => {
     expect(getByRole('button', { name: 'View menu' }).getAttribute('aria-expanded')).toBe('false')
   })
 
+  it('supports roving keyboard focus inside menus', async () => {
+    const { getByRole } = render(<MenuBar />)
+    const fileButton = getByRole('button', { name: 'File menu' })
+
+    fireEvent.click(fileButton)
+    const menu = getByRole('menu', { name: 'File' })
+
+    await waitFor(() => {
+      expect(document.activeElement?.textContent).toBe('New Project')
+    })
+
+    fireEvent.keyDown(menu, { key: 'ArrowDown' })
+    expect(document.activeElement?.textContent).toBe('Open Project File…')
+
+    fireEvent.keyDown(menu, { key: 'ArrowUp' })
+    expect(document.activeElement?.textContent).toBe('New Project')
+
+    fireEvent.keyDown(menu, { key: 'End' })
+    expect(document.activeElement?.textContent).toBe('Recover Snapshot…')
+
+    fireEvent.keyDown(menu, { key: 'Escape' })
+    expect(fileButton.getAttribute('aria-expanded')).toBe('false')
+    expect(document.activeElement).toBe(fileButton)
+  })
+
   it('opens a recent project directly from the File menu', async () => {
     const alpha = project('alpha', 'alpha', 'alpha-node', 200)
     const pg = project('pg', 'pg', 'pg-node', 100)
