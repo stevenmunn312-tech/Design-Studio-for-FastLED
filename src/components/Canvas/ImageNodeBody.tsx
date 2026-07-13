@@ -171,16 +171,18 @@ export default function ImageNodeBody({ nodeId }: { nodeId: string }) {
   const [loading, setLoading] = useState(false)
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
   const setStatus = useUiStore((s) => s.setStatus)
-  // Select the *raw* stored values (stable references until they actually
-  // change) — validating inside the selector would return a fresh object every
-  // render and spin useSyncExternalStore into an infinite loop.
-  const raw = useGraphStore((s) => {
+  const rawImage = useGraphStore((s) => {
     const node = s.nodes.find((n) => n.id === nodeId)
     const props = node?.data.properties as Record<string, unknown> | undefined
-    return { image: props?.image, animation: props?.animation }
+    return props?.image
   })
-  const imgData = useMemo(() => asImage(raw.image), [raw.image])
-  const animation = useMemo(() => asAnimatedImage(raw.animation), [raw.animation])
+  const rawAnimation = useGraphStore((s) => {
+    const node = s.nodes.find((n) => n.id === nodeId)
+    const props = node?.data.properties as Record<string, unknown> | undefined
+    return props?.animation
+  })
+  const imgData = useMemo(() => asImage(rawImage), [rawImage])
+  const animation = useMemo(() => asAnimatedImage(rawAnimation), [rawAnimation])
 
   async function handleFile(file: File) {
     if (!file.type.startsWith('image/') && !/\.(gif|png|apng|webp|jpe?g|bmp)$/i.test(file.name)) return
