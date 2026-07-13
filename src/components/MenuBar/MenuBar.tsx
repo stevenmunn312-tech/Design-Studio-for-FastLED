@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useUiStore } from '../../state/uiStore'
 import { useGraphStore, useTemporalStore } from '../../state/graphStore'
 import { useAudioStore } from '../../state/audioStore'
@@ -65,6 +66,19 @@ export default function MenuBar() {
   const viewMenuRef = useRef<HTMLDivElement>(null)
   const [fileMenuOpen, setFileMenuOpen] = useState(false)
   const [viewMenuOpen, setViewMenuOpen] = useState(false)
+  const [viewMenuPos, setViewMenuPos] = useState({ top: 0, left: 0 })
+
+  // The View menu button lives inside `.nav`, which needs `overflow-x: auto`
+  // so the toolbar can scroll on narrow windows. Per the CSS overflow spec,
+  // setting only one axis to `auto` forces the other axis to `auto` too — so
+  // `.nav` silently clips anything (including position:fixed descendants)
+  // that renders past its own height, which swallowed the dropdown entirely.
+  // Portal it to <body> and position it from the button's own rect instead.
+  useLayoutEffect(() => {
+    if (!viewMenuOpen) return
+    const rect = viewMenuRef.current?.getBoundingClientRect()
+    if (rect) setViewMenuPos({ top: rect.bottom + 8, left: rect.left })
+  }, [viewMenuOpen])
   const hasMicNode = useGraphStore((s) =>
     s.nodes.some((n) => (n.data as { nodeType?: string }).nodeType === 'MicInput')
   )
@@ -547,7 +561,7 @@ export default function MenuBar() {
           >
             View
           </button>
-          {viewMenuOpen && (
+          {viewMenuOpen && createPortal(
             <>
               <button
                 type="button"
@@ -555,7 +569,12 @@ export default function MenuBar() {
                 aria-label="Close view menu"
                 onClick={closeMenus}
               />
-              <div className={styles.menu} role="menu" aria-label="View">
+              <div
+                className={styles.menu}
+                style={{ position: 'fixed', top: viewMenuPos.top, left: viewMenuPos.left }}
+                role="menu"
+                aria-label="View"
+              >
                 <div className={styles.menuLabel}>Appearance</div>
                 <button
                   className={styles.menuItem}
@@ -605,7 +624,8 @@ export default function MenuBar() {
                   {signalPathDimEnabled ? '✓' : '○'} Signal dimming: {signalPathDimEnabled ? 'On' : 'Off'}
                 </button>
               </div>
-            </>
+            </>,
+            document.body
           )}
         </div>
         <div className={styles.sep} />
