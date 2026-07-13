@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useGraphStore } from '../../state/graphStore'
+import {
+  defaultPropertiesForNodeType,
+  presettableProperties,
+  presetsForNodeType,
+  useNodePresets,
+  variationProperties,
+} from '../../state/nodePresets'
 import { saveGroupToLibrary, usePatternLibrary } from '../../state/patternLibrary'
 import { useUiStore } from '../../state/uiStore'
 import CreateGroupDialog, { type CreateGroupResult } from './CreateGroupDialog'
@@ -13,14 +20,23 @@ interface Props {
 }
 
 export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
-  const { duplicateNode, deleteNode, disconnectNode, copyNode, ungroupNode, createGroup } = useGraphStore()
+  const { duplicateNode, deleteNode, disconnectNode, copyNode, ungroupNode, createGroup, updateNodeProperties } = useGraphStore()
   const requestConfirm = useUiStore((s) => s.requestConfirm)
+  const requestPrompt = useUiStore((s) => s.requestPrompt)
   const setStatus = useUiStore((s) => s.setStatus)
   const patterns = usePatternLibrary((s) => s.patterns)
+  const nodePresets = useNodePresets((s) => s.presets)
+  const savePreset = useNodePresets((s) => s.savePreset)
   const nodes = useGraphStore((s) => s.nodes)
   const node = useMemo(() => nodes.find((n) => n.id === nodeId), [nodeId, nodes])
   const isGroup = node?.data.nodeType === 'Group'
   const groupLabel = node?.data.label
+  const nodeType = String(node?.data.nodeType ?? '')
+  const presettable = useMemo(
+    () => node ? Object.keys(presettableProperties(nodeType, node.data.properties)).length !== 0 : false,
+    [node, nodeType],
+  )
+  const presets = useMemo(() => presetsForNodeType(nodeType, nodePresets), [nodeType, nodePresets])
   const selectedIds = useMemo(() => nodes.filter((n) => n.selected).map((n) => n.id), [nodes])
   const isMultiSelected = selectedIds.length > 1 && selectedIds.includes(nodeId)
   const [showGroupDialog, setShowGroupDialog] = useState(false)
@@ -54,6 +70,53 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
       return
     }
     setStatus(`Ungrouped “${String(groupLabel ?? 'Group')}”`, 'success')
+  }
+
+  const handleSavePreset = async () => {
+    if (!node) return
+    const name = await requestPrompt({
+      title: 'Save node preset',
+      message: `Save the current ${String(node.data.label)} settings as a reusable preset:`,
+      inputLabel: 'Preset name',
+      initialValue: String(node.data.label ?? nodeType),
+      confirmLabel: 'Save preset',
+      selectText: true,
+    })
+    if (!name?.trim()) return
+    const saved = savePreset(nodeType, name, node.data.properties)
+    if (!saved) {
+      setStatus('That node has no preset-friendly settings to save', 'error')
+      return
+    }
+    setStatus(`Saved preset “${saved.name}”`, 'success')
+  }
+
+  const handleLoadPreset = (presetId: string) => {
+    const preset = presets.find((p) => p.id === presetId)
+    if (!preset) return
+    updateNodeProperties(nodeId, preset.properties)
+    setStatus(`Loaded preset “${preset.name}”`, 'success')
+  }
+
+  const handleVariation = (mode: 'randomize' | 'mutate') => {
+    if (!node) return
+    const updates = variationProperties(nodeType, node.data.properties, mode)
+    if (Object.keys(updates).length === 0) {
+      setStatus('That node has no safe look settings to vary', 'error')
+      return
+    }
+    updateNodeProperties(nodeId, updates)
+    setStatus(mode === 'randomize' ? 'Randomized node look' : 'Mutated node look', 'success')
+  }
+
+  const handleReset = () => {
+    if (!node) return
+    const safe = presettableProperties(nodeType, node.data.properties)
+    const defaults = defaultPropertiesForNodeType(nodeType)
+    const updates: Record<string, unknown> = {}
+    for (const key of Object.keys(safe)) updates[key] = key in defaults ? defaults[key] : undefined
+    updateNodeProperties(nodeId, updates)
+    setStatus('Reset node settings', 'success')
   }
 
   // Mirrors GroupControls' "⊞ Group" dialog flow so grouping + saving to the
@@ -145,6 +208,33 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
         <button className={styles.item} onClick={() => act(handleUngroup)}>
           Ungroup
         </button>
+      )}
+      {presettable && (
+        <>
+          <div className={styles.divider} />
+          <button className={styles.item} onClick={() => { onClose(); void handleSavePreset() }}>
+            Save Preset…
+          </button>
+          {presets.length > 0 && (
+            <div className={styles.section}>
+              <div className={styles.sectionLabel}>Load preset</div>
+              {presets.map((preset) => (
+                <button key={preset.id} className={styles.item} onClick={() => act(() => handleLoadPreset(preset.id))}>
+                  {preset.name}
+                </button>
+              ))}
+            </div>
+          )}
+          <button className={styles.item} onClick={() => act(() => handleVariation('randomize'))}>
+            Randomize Look
+          </button>
+          <button className={styles.item} onClick={() => act(() => handleVariation('mutate'))}>
+            Mutate
+          </button>
+          <button className={styles.item} onClick={() => act(handleReset)}>
+            Reset
+          </button>
+        </>
       )}
       <div className={styles.divider} />
       <button className={`${styles.item} ${styles.danger}`} onClick={() => act(() => deleteNode(nodeId))}>

@@ -43,3 +43,16 @@
   background: var(--border-glow);
   margin: 4px 0;
 }
+
+.section {
+  margin: 2px 0;
+}
+
+.sectionLabel {
+  padding: 5px 12px 3px;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}

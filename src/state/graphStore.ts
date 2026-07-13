@@ -602,11 +602,15 @@ export const useGraphStore = create<GraphState>()(
 
       updateNodeProperties: (id, updates) =>
         set((s) => ({
-          nodes: s.nodes.map((n) =>
-            n.id === id
-              ? { ...n, data: { ...n.data, properties: { ...n.data.properties, ...updates } } }
-              : n
-          ),
+          nodes: s.nodes.map((n) => {
+            if (n.id !== id) return n
+            const properties = { ...n.data.properties }
+            for (const [key, value] of Object.entries(updates)) {
+              if (value === undefined) delete properties[key]
+              else properties[key] = value
+            }
+            return { ...n, data: { ...n.data, properties } }
+          }),
         })),
 
       loadGraph: (nodes, edges, workspace) =>

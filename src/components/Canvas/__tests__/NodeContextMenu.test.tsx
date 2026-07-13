@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { render } from '@testing-library/react'
+import { fireEvent, render } from '@testing-library/react'
 import NodeContextMenu from '../NodeContextMenu'
 import { useGraphStore } from '../../../state/graphStore'
+import { useNodePresets } from '../../../state/nodePresets'
 import { usePatternLibrary } from '../../../state/patternLibrary'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 
@@ -46,6 +47,8 @@ function seedSelectedNodes() {
 
 describe('NodeContextMenu', () => {
   beforeEach(() => {
+    localStorage.clear()
+    useNodePresets.setState({ presets: [] })
     usePatternLibrary.setState({ patterns: [] })
     seedSelectedNodes()
   })
@@ -65,5 +68,25 @@ describe('NodeContextMenu', () => {
     expect(getByText('Disconnect All')).toBeTruthy()
     expect(getByText('Group 2 Nodes…')).toBeTruthy()
     expect(getByText('Delete')).toBeTruthy()
+  })
+
+  it('loads a saved node preset from the menu', () => {
+    useNodePresets.getState().savePreset('SolidColor', 'Hot pink', { r: 255, g: 0, b: 180 })
+    const { getByText } = render(
+      <NodeContextMenu
+        nodeId="solid"
+        x={120}
+        y={140}
+        onClose={() => {}}
+      />
+    )
+
+    expect(getByText('Save Preset…')).toBeTruthy()
+    expect(getByText('Randomize Look')).toBeTruthy()
+    expect(getByText('Mutate')).toBeTruthy()
+    expect(getByText('Reset')).toBeTruthy()
+    fireEvent.click(getByText('Hot pink'))
+
+    expect(useGraphStore.getState().nodes[0].data.properties).toEqual({ r: 255, g: 0, b: 180 })
   })
 })
