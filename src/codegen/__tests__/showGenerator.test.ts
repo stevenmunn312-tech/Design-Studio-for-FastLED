@@ -50,6 +50,17 @@ describe('showGenerator', () => {
     expect(cpp).toMatch(/render_p0[\s\S]*CRGB\(0, 0, 255\)[\s\S]*?\n\}/)
   })
 
+  it('emits a fixed controller seed when the Show Engine seed is nonzero', () => {
+    const seeded = [
+      node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
+      node('pm', 'PatternMaster', { minTime: 4, maxTime: 12, transitionSec: 1, seed: 77 }),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' }),
+    ]
+    const cpp = generateShowSketch(seeded, edges, groups)
+    expect(cpp).toContain('random16_set_seed(77u);')
+    expect(cpp).not.toContain('randomSeed(analogRead(A0));')
+  })
+
   it('applies the MatrixOutput hardware settings to the controller sketch', () => {
     const out = node('out', 'MatrixOutput', {
       width: 8, height: 8, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB',

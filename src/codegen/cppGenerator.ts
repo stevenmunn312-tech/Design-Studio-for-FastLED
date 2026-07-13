@@ -19,6 +19,11 @@ function safeId(id: string): string {
   return id.replace(/[^a-zA-Z0-9_]/g, '_')
 }
 
+function seedProp(p: Record<string, unknown>): number {
+  const n = Math.round(Number(p.seed ?? 0))
+  return Number.isFinite(n) ? Math.max(0, n) >>> 0 : 0
+}
+
 // Fire/Fire2012 share these direction/turbulence/paletteMix/mirror/seed
 // controls — mirrors graphEvaluator.ts's firePrimaryLen/fireSecondaryLen/
 // fireToXY. The heat simulation always runs in a canonical [P][S] grid (P =
@@ -1332,28 +1337,30 @@ export function generateCpp(
         const noiseType = String(p.noiseType ?? 'field')
         const speed = rateCpp(f('speed', 'speed', 0.5), NOISE_SPEED_MAX[noiseType] ?? 1)
         const scale = rateCpp(f('scale', 'scale', 0.5), NOISE_SCALE_MAX[noiseType] ?? 1)
+        const seed = seedProp(p)
+        const timeExpr = seed ? `(t+${(seed * 0.013).toFixed(3)}f)` : 't'
         const pal = paletteExpr(node.id, 'paletteIn', p)
         switch (noiseType) {
           case 'simplex':
             ln(`  { // Simplex2D`)
-            ln(`    float _spd=${speed},_sc=${scale};`)
+            ln(`    float _spd=${speed},_sc=${scale},_t=${timeExpr};`)
             ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-            ln(`      float _n=sin(_x*_sc+sin(_y*_sc*0.8f+t*_spd*0.5f)+t*_spd)`)
-            ln(`            +0.5f*sin(_x*_sc*2+t*_spd*1.9f)+0.25f*sin(_x*_sc*4+t*_spd*4.1f);`)
+            ln(`      float _n=sin(_x*_sc+sin(_y*_sc*0.8f+_t*_spd*0.5f)+_t*_spd)`)
+            ln(`            +0.5f*sin(_x*_sc*2+_t*_spd*1.9f)+0.25f*sin(_x*_sc*4+_t*_spd*4.1f);`)
             ln(`      ${of}[_y*WIDTH+_x]=constrain(_n*0.25f+0.5f,0.0f,1.0f);}}`)
             break
           case 'noise3d':
             ln(`  { // Noise3D`)
-            ln(`    float _spd=${speed},_sc=${scale};`)
+            ln(`    float _spd=${speed},_sc=${scale},_t=${timeExpr};`)
             ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-            ln(`      float _n=(sin(_x*_sc+t*_spd)+cos(_y*_sc+t*_spd*0.7f))*0.5f`)
-            ln(`            +(sin(_x*_sc*1.7f+t*_spd*1.3f+_y*_sc*0.9f)*0.33f)`)
-            ln(`            +(cos(_x*_sc*2.9f+t*_spd*2.1f)*0.17f);`)
+            ln(`      float _n=(sin(_x*_sc+_t*_spd)+cos(_y*_sc+_t*_spd*0.7f))*0.5f`)
+            ln(`            +(sin(_x*_sc*1.7f+_t*_spd*1.3f+_y*_sc*0.9f)*0.33f)`)
+            ln(`            +(cos(_x*_sc*2.9f+_t*_spd*2.1f)*0.17f);`)
             ln(`      ${of}[_y*WIDTH+_x]=constrain(_n*0.3f+0.5f,0.0f,1.0f);}}`)
             break
           case 'noise4d':
             ln(`  { // Noise4D (looping inoise16 x,y,z,t path)`)
-            ln(`    float _spd=${speed},_sc=${scale},_ang=t*_spd*6.2831853f;`)
+            ln(`    float _spd=${speed},_sc=${scale},_t=${timeExpr},_ang=_t*_spd*6.2831853f;`)
             ln(`    uint32_t _z=(uint32_t)((cosf(_ang)*0.5f+0.5f)*65535.0f);`)
             ln(`    uint32_t _w=(uint32_t)((sinf(_ang)*0.5f+0.5f)*65535.0f);`)
             ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
@@ -1369,39 +1376,39 @@ export function generateCpp(
           case 'worley':
             needsWorley.v = true
             ln(`  { // Worley noise`)
-            ln(`    float _spd=${speed},_sc=${scale};`)
+            ln(`    float _spd=${speed},_sc=${scale},_t=${timeExpr};`)
             ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
             ln(`      float _px=_x*_sc,_py=_y*_sc; int _xi=(int)floorf(_px),_yi=(int)floorf(_py); float _f1=1e9f;`)
             ln(`      for(int _dj=-1;_dj<=1;_dj++) for(int _di=-1;_di<=1;_di++){`)
             ln(`        int _cx=_xi+_di,_cy=_yi+_dj; float _h=_worleyHash(_cx,_cy);`)
-            ln(`        float _fx=_cx+0.5f+0.45f*sin(t*_spd+_h*6.2831f);`)
-            ln(`        float _fy=_cy+0.5f+0.45f*cos(t*_spd*1.1f+_h*6.2831f);`)
+            ln(`        float _fx=_cx+0.5f+0.45f*sin(_t*_spd+_h*6.2831f);`)
+            ln(`        float _fy=_cy+0.5f+0.45f*cos(_t*_spd*1.1f+_h*6.2831f);`)
             ln(`        float _d=sqrtf((_px-_fx)*(_px-_fx)+(_py-_fy)*(_py-_fy)); if(_d<_f1)_f1=_d; }`)
             ln(`      ${of}[_y*WIDTH+_x]=min(1.0f,_f1);}}`)
             break
           case 'plasma':
-            ln(`  { float _spd=${speed},_sc=${scale}; uint16_t _z=(uint16_t)(t*_spd*10);`)
+            ln(`  { float _spd=${speed},_sc=${scale},_t=${timeExpr}; uint16_t _z=(uint16_t)(_t*_spd*10);`)
             ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-            ln(`      float _v=sin(_x*0.2f+t*_spd)+sin(_y*0.25f+t*_spd*0.8f)+sin((_x+_y)*0.15f+t*_spd*0.6f);`)
+            ln(`      float _v=sin(_x*0.2f+_t*_spd)+sin(_y*0.25f+_t*_spd*0.8f)+sin((_x+_y)*0.15f+_t*_spd*0.6f);`)
             ln(`      float _amp=1,_fr=_sc*96,_fn=0; for(int _o=0;_o<3;_o++){ _fn+=_amp*(inoise8((uint16_t)(_x*_fr),(uint16_t)(_y*_fr),_z)/255.0f-0.5f); _amp*=0.5f; _fr*=2; }`)
             ln(`      _v+=_fn*5; float _nf=fmodf(_v*0.15f,1.0f); if(_nf<0)_nf+=1.0f;`)
             ln(`      ${of}[_y*WIDTH+_x]=_nf;}}`)
             break
           case 'sine':
             ln(`  { // Sine 2D — layered sine/cosine interference`)
-            ln(`    float _spd=${speed},_sc=${scale};`)
+            ln(`    float _spd=${speed},_sc=${scale},_t=${timeExpr};`)
             ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
             ln(`      float _v=0,_amp=1,_fr=_sc;`)
-            ln(`      for(int _o=0;_o<3;_o++){ _v+=_amp*sin(_x*_fr+t*_spd+_o*1.7f)*cos(_y*_fr*1.3f+t*_spd*0.8f+_o*2.3f); _amp*=0.5f; _fr*=2.1f; }`)
+            ln(`      for(int _o=0;_o<3;_o++){ _v+=_amp*sin(_x*_fr+_t*_spd+_o*1.7f)*cos(_y*_fr*1.3f+_t*_spd*0.8f+_o*2.3f); _amp*=0.5f; _fr*=2.1f; }`)
             ln(`      float _nf=fmodf(_v*0.5f+0.5f,1.0f); if(_nf<0)_nf+=1.0f;`)
             ln(`      ${of}[_y*WIDTH+_x]=_nf;}}`)
             break
           case 'field':
           default:
             ln(`  {`)
-            ln(`    float _spd = ${speed}, _scl = ${scale};`)
+            ln(`    float _spd = ${speed}, _scl = ${scale}, _t=${timeExpr};`)
             ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
-            ln(`      float _v = (sin(_x * _scl * 0.5f + t * _spd) + cos(_y * _scl * 0.5f + t * _spd * 0.7f)) / 2.0f;`)
+            ln(`      float _v = (sin(_x * _scl * 0.5f + _t * _spd) + cos(_y * _scl * 0.5f + _t * _spd * 0.7f)) / 2.0f;`)
             ln(`      ${of}[_y * WIDTH + _x] = constrain((_v + 1) * 0.5f, 0.0f, 1.0f);`)
             ln(`    }`)
             ln(`  }`)
@@ -1485,12 +1492,14 @@ export function generateCpp(
         const ob = ownBuf()
         const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.TwinkleFox)
         const density = `constrain((${f('density', 'density', 0.5)}),0.0f,1.0f)`
+        const seed = seedProp(p)
         const pal = paletteExpr(node.id, 'paletteIn', p)
         ln(`  { float _spd=${speed}; float _exp=6.0f-5.0f*${density}; int _i=0;`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`      float _ph=sinf(_i*12.9898f)*43758.5453f; _ph=_ph-floorf(_ph);`)
-        ln(`      float _rt=sinf((_i+11)*12.9898f)*43758.5453f; _rt=0.5f+(_rt-floorf(_rt));`)
-        ln(`      float _ci=sinf((_i+23)*12.9898f)*43758.5453f; _ci=_ci-floorf(_ci);`)
+        ln(`      int _si=_i+${seed * 131};`)
+        ln(`      float _ph=sinf(_si*12.9898f)*43758.5453f; _ph=_ph-floorf(_ph);`)
+        ln(`      float _rt=sinf((_si+11)*12.9898f)*43758.5453f; _rt=0.5f+(_rt-floorf(_rt));`)
+        ln(`      float _ci=sinf((_si+23)*12.9898f)*43758.5453f; _ci=_ci-floorf(_ci);`)
         ln(`      float _cy=fmodf(t*_spd*_rt+_ph,1.0f);`)
         ln(`      float _tri=1.0f-fabsf(2.0f*_cy-1.0f);`)
         ln(`      float _bri=powf(_tri,_exp);`)
@@ -1530,16 +1539,20 @@ export function generateCpp(
         const speed = rateCpp(f('speed', 'speed', 0.45), SPEED_MAX.Confetti)
         const density = `constrain((${f('density', 'density', 0.45)}),0.0f,1.0f)`
         const fade = `constrain((${f('fade', 'fade', 0.28)}),0.0f,1.0f)`
+        const seed = seedProp(p)
+        const rnd8 = seed ? `_rnd8_${id}()` : 'random8()'
+        const rnd16 = seed ? `(((uint16_t)_rnd8_${id}()<<8)|_rnd8_${id}())` : 'random16()'
         const pal = paletteExpr(node.id, 'paletteIn', p)
         ln(`  {`)
+        if (seed) ln(`    static uint32_t _rng_${id}=${seed}u; auto _rnd8_${id}=[&](){ _rng_${id}=_rng_${id}*1664525u+1013904223u; return (uint8_t)(_rng_${id}>>24); };`)
         ln(`    float _spd=${speed}, _den=${density}, _fd=${fade};`)
         ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)(_fd * 255.0f));`)
         ln(`    int _spawns=(int)(_den * (0.08f + _spd * 0.2142857f) * sqrtf((float)NUM_LEDS));`)
         ln(`    if(_spawns<1 && _den * _spd > 0.08f) _spawns=1;`)
         ln(`    uint8_t _drift=(uint8_t)(t * _spd * 14.5714f);`)
         ln(`    for(int _s=0; _s<_spawns; _s++){`)
-        ln(`      int _i=random16(NUM_LEDS);`)
-        ln(`      ${ob}[_i] += ColorFromPalette(${pal}, random8() + _drift);`)
+        ln(`      int _i=${rnd16}%NUM_LEDS;`)
+        ln(`      ${ob}[_i] += ColorFromPalette(${pal}, ${rnd8} + _drift);`)
         ln(`    }`)
         ln(`  }`)
         break
@@ -1551,16 +1564,18 @@ export function generateCpp(
         const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.Juggle)
         const dots = Math.max(1, Math.round(Number(p.count ?? 4)))
         const fade = `constrain((${f('fade', 'fade', 0.22)}),0.0f,1.0f)`
+        const seed = seedProp(p)
         const pal = paletteExpr(node.id, 'paletteIn', p)
         ln(`  {`)
         ln(`    float _spd=${speed}, _fd=${fade};`)
         ln(`    const int _dots=${dots};`)
         ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)(_fd * 255.0f));`)
         ln(`    for(int _d=0; _d<_dots; _d++){`)
-        ln(`      float _travel=sinf(t*_spd*(2.5f+_d*0.35f)+_d*0.9f)*0.5f+0.5f;`)
+        ln(`      float _phase=${seed ? `${(seed * 0.013).toFixed(3)}f+_d*0.17f` : '0.0f'};`)
+        ln(`      float _travel=sinf(t*_spd*(2.5f+_d*0.35f)+_d*0.9f+_phase)*0.5f+0.5f;`)
         ln(`      int _x=(int)roundf(_travel*(WIDTH-1));`)
         ln(`      int _y=_dots<=1 ? (int)roundf((HEIGHT-1)*0.5f) : (int)roundf(((_d+0.5f)*HEIGHT)/(float)_dots-0.5f);`)
-        ln(`      float _pulse=0.75f+0.25f*sinf(t*_spd*3.0f+_d);`)
+        ln(`      float _pulse=0.75f+0.25f*sinf(t*_spd*3.0f+_d+_phase);`)
         ln(`      CRGB _dot=ColorFromPalette(${pal}, (uint8_t)fmodf((_travel*0.35f+_d/(float)_dots)*255.0f, 255.0f));`)
         ln(`      _dot.nscale8_video((uint8_t)(_pulse*255.0f));`)
         ln(`      int _i=_y*WIDTH+_x; ${ob}[_i]+=_dot;`)
@@ -2517,6 +2532,7 @@ export function generateCpp(
         const spreadP = Number(p.spread ?? 1)
         const gravityP = Number(p.gravity ?? 1)
         const bounceP = Number(p.bounce ?? 1)
+        const seed = seedProp(p)
         // Fixed-size pool (SoA): l[i] <= 0.04 marks a free slot. swarm keeps every
         // slot live (boids), so its pool is sized directly from `count` (capped
         // for the O(N^2) step) instead of a fixed 40.
@@ -2525,6 +2541,7 @@ export function generateCpp(
         ln(`  { // Particles: ${mode}`)
         ln(`    const int _PN=${cap};`)
         ln(`    static float ${A}x[_PN], ${A}y[_PN], ${A}vx[_PN], ${A}vy[_PN], ${A}l[_PN], ${A}s[_PN]; static uint8_t ${A}r[_PN], ${A}g[_PN], ${A}b[_PN]; static bool ${A}init=false;`)
+        if (seed) ln(`    static bool ${A}seeded=false; if(!${A}seeded){ random16_set_seed(${seed}u); ${A}seeded=true; }`)
         // Spawn colour is a fixed palette sample kept only so the (unused-at-render)
         // per-particle colour slots stay well-formed; render colours by life below.
         ln(`    float _rate=${rate}; CRGB _pc=ColorFromPalette(${pal},180);`)
@@ -2976,8 +2993,10 @@ export function generateCpp(
         const speed = rateCpp(f('speed', 'speed', 0.25), SPEED_MAX.FractalNoise), scale = rateCpp(f('scale', 'scale', 0.3), SCALE_MAX.FractalNoise)
         const octaves = Math.max(1, Math.min(6, Math.floor(Number(p.octaves ?? 4))))
         const pal = paletteExpr(node.id, 'paletteIn', p)
+        const seed = seedProp(p)
+        const timeExpr = seed ? `(t+${(seed * 0.013).toFixed(3)}f)` : 't'
         ln(`  { // Fractal noise (fBm via inoise8)`)
-        ln(`    float _spd=${speed},_sc=${scale}; uint16_t _z=(uint16_t)(t*_spd*40);`)
+        ln(`    float _spd=${speed},_sc=${scale},_t=${timeExpr}; uint16_t _z=(uint16_t)(_t*_spd*40);`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float _v=0,_amp=0.5f,_norm=0,_freq=_sc*96;`)
         ln(`      for(int _o=0;_o<${octaves};_o++){`)
@@ -2995,6 +3014,8 @@ export function generateCpp(
         const freq = f('frequency', 'frequency', 1.2)
         const orientation = f('orientation', 'orientation', 45)
         const pal = paletteExpr(node.id, 'paletteIn', p)
+        const seed = seedProp(p)
+        const timeExpr = seed ? `(t+${(seed * 0.013).toFixed(3)}f)` : 't'
         ln(`  { // Gabor noise`)
         ln(`    float _spd=${speed},_sc=${scale},_fr=${freq},_om=${orientation}*0.01745329f,_co=cos(_om),_si=sin(_om);`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
@@ -3004,7 +3025,7 @@ export function generateCpp(
         ln(`        float _fx=_cx+0.5f+(_h-0.5f),_fy=_cy+0.5f+(_h2-0.5f);`)
         ln(`        float _dx=_px-_fx,_dy=_py-_fy,_g=expf(-2.5f*(_dx*_dx+_dy*_dy));`)
         ln(`        float _proj=_dx*_co+_dy*_si,_w=_h2<0.5f?1.0f:-1.0f;`)
-        ln(`        _v+=_w*_g*cosf(6.2831853f*_fr*_proj+t*_spd+_h*6.2831853f); }`)
+        ln(`        _v+=_w*_g*cosf(6.2831853f*_fr*_proj+${timeExpr}*_spd+_h*6.2831853f); }`)
         ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_v*0.5f+0.5f)*255));}}`)
         break
       }
@@ -3151,9 +3172,11 @@ export function generateCpp(
         const speed = rateCpp(f('speed', 'speed', 0.67), SPEED_MAX.FlowField), scale = rateCpp(f('scale', 'scale', 0.08), SCALE_MAX.FlowField)
         const fadeL = f('fade', 'fade', 0.9)
         const pal = paletteExpr(node.id, 'paletteIn', p)
+        const seed = seedProp(p)
         const px = `_fpx_${id}`, py = `_fpy_${id}`, tr = `_ftr_${id}`
         ln(`  { // Flow field`)
         ln(`    const int _count=max(8,min(400,(int)floorf(${f('count', 'count', 80)}))); static float ${px}[400], ${py}[400], ${tr}[NUM_LEDS]; static bool _fi_${id}=false;`)
+        if (seed) ln(`    static bool _fs_${id}=false; if(!_fs_${id}){ random16_set_seed(${seed}u); _fs_${id}=true; }`)
         ln(`    if(!_fi_${id}){ for(int _i=0;_i<400;_i++){ ${px}[_i]=(random8()/255.0f)*WIDTH; ${py}[_i]=(random8()/255.0f)*HEIGHT; } for(int _i=0;_i<NUM_LEDS;_i++)${tr}[_i]=0; _fi_${id}=true; }`)
         ln(`    float _spd=${speed},_sc=${scale}; uint16_t _z=(uint16_t)(t*100);`)
         ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${tr}[_i]*=${fadeL};`)
@@ -3169,9 +3192,11 @@ export function generateCpp(
         const ob = ownBuf()
         const speed = rateCpp(f('speed', 'speed', 0.33), SPEED_MAX.Starfield)
         const pal = paletteExpr(node.id, 'paletteIn', p)
+        const seed = seedProp(p)
         const sx = `_sfx_${id}`, sy = `_sfy_${id}`, sz = `_sfz_${id}`
         ln(`  { // Starfield`)
         ln(`    const int _count=max(8,min(300,(int)floorf(${f('count', 'count', 60)}))); static float ${sx}[300], ${sy}[300], ${sz}[300]; static bool _sfi_${id}=false;`)
+        if (seed) ln(`    static bool _sfs_${id}=false; if(!_sfs_${id}){ random16_set_seed(${seed}u); _sfs_${id}=true; }`)
         ln(`    if(!_sfi_${id}){ for(int _i=0;_i<300;_i++){ ${sx}[_i]=random8()/127.5f-1; ${sy}[_i]=random8()/127.5f-1; ${sz}[_i]=random8()/255.0f*0.9f+0.1f; } _sfi_${id}=true; }`)
         ln(`    float _spd=${speed}; fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
         ln(`    for(int _i=0;_i<_count;_i++){ ${sz}[_i]-=_spd*0.015f;`)
@@ -3192,12 +3217,14 @@ export function generateCpp(
           ? colorExpr(node.id, 'color')
           : `CRGB(${Number(p.r ?? 120)}, ${Number(p.g ?? 200)}, ${Number(p.b ?? 255)})`
         const pal = paletteExpr(node.id, 'paletteIn', p)
+        const seed = seedProp(p)
         const bx = `_bx_${id}`, by = `_by_${id}`, bvx = `_bvx_${id}`, bvy = `_bvy_${id}`
         const nvx = `_bnx_${id}`, nvy = `_bny_${id}`, nn = `_bnn_${id}`
         const needNN = colorMode === 'density'  // per-boid neighbour count (density colouring only)
         const rng2 = `(${range})*(${range})`, sepR2 = `((${range})*0.5f)*((${range})*0.5f)`
         ln(`  { // Boids (Reynolds flocking)`)
         ln(`    const int _count=max(2,min(80,(int)floorf(${f('count', 'count', 24)}))); static float ${bx}[80], ${by}[80], ${bvx}[80], ${bvy}[80]; static bool _bi_${id}=false;`)
+        if (seed) ln(`    static bool _bs_${id}=false; if(!_bs_${id}){ random16_set_seed(${seed}u); _bs_${id}=true; }`)
         ln(`    if(!_bi_${id}){ for(int _i=0;_i<80;_i++){ ${bx}[_i]=(random8()/255.0f)*WIDTH; ${by}[_i]=(random8()/255.0f)*HEIGHT; float _a=(random8()/255.0f)*6.2831f; ${bvx}[_i]=cosf(_a); ${bvy}[_i]=sinf(_a); } _bi_${id}=true; }`)
         ln(`    float _ms=${speed}; if(_ms<0.1f)_ms=0.1f; float ${nvx}[80], ${nvy}[80];${needNN ? ` int ${nn}[80];` : ''}`)
         ln(`    for(int _i=0;_i<_count;_i++){`)
@@ -3252,12 +3279,14 @@ export function generateCpp(
         const ob = ownBuf()
         const feed = f('feed', 'feed', 0.055), kill = f('kill', 'kill', 0.062)
         const pal = paletteExpr(node.id, 'paletteIn', p)
+        const seed = seedProp(p)
+        if (seed) needsWorley.v = true
         const u = `_u_${id}`, v = `_v_${id}`, un = `_un_${id}`, vn = `_vn_${id}`
         ln(`  { // ReactionDiffusion (Gray-Scott)`)
         ln(`    static float ${u}[NUM_LEDS], ${v}[NUM_LEDS], ${un}[NUM_LEDS], ${vn}[NUM_LEDS]; static bool _rd_${id} = false;`)
         ln(`    if (!_rd_${id}) { for (int _i = 0; _i < NUM_LEDS; _i++) { ${u}[_i] = 1; ${v}[_i] = 0; }`)
         ln(`      for (int _y = HEIGHT/2-2; _y <= HEIGHT/2+1; _y++) for (int _x = WIDTH/2-2; _x <= WIDTH/2+1; _x++)`)
-        ln(`        if (_x>=0&&_x<WIDTH&&_y>=0&&_y<HEIGHT) { ${u}[_y*WIDTH+_x]=0.5f; ${v}[_y*WIDTH+_x]=0.5f; } _rd_${id}=true; }`)
+        ln(`        if (_x>=0&&_x<WIDTH&&_y>=0&&_y<HEIGHT) { ${u}[_y*WIDTH+_x]=0.5f; ${v}[_y*WIDTH+_x]=${seed ? `0.25f+_worleyHash(_x+${seed},_y-${seed})*0.5f` : '0.5f'}; } _rd_${id}=true; }`)
         ln(`    float _f=${feed}, _k=${kill};`)
         ln(`    for (int _it=0, _iters=max(1,min(20,(int)floorf(${f('speed', 'speed', 8)}))); _it<_iters; _it++) {`)
         ln(`      for (int _y=0; _y<HEIGHT; _y++) { int _ym=((_y-1+HEIGHT)%HEIGHT)*WIDTH,_yp=((_y+1)%HEIGHT)*WIDTH,_yr=_y*WIDTH;`)
@@ -3277,9 +3306,11 @@ export function generateCpp(
         const pal = paletteExpr(node.id, 'paletteIn', p)
         const speed = f('speed', 'speed', 8)
         const fadeL = f('fade', 'fade', 0.75)
+        const seed = seedProp(p)
         const c = `_gc_${id}`, nx = `_gn_${id}`, br = `_gb_${id}`
         ln(`  { // Game of Life`)
         ln(`    static uint8_t ${c}[NUM_LEDS], ${nx}[NUM_LEDS]; static float ${br}[NUM_LEDS]; static bool _gi_${id}=false; static uint32_t _gt_${id}=0;`)
+        if (seed) ln(`    static bool _gs_${id}=false; if(!_gs_${id}){ random16_set_seed(${seed}u); _gs_${id}=true; }`)
         ln(`    if (!_gi_${id}) { for (int _i=0;_i<NUM_LEDS;_i++){${c}[_i]=random8()<77?1:0;${br}[_i]=0;} _gi_${id}=true; }`)
         ln(`    if (millis() - _gt_${id} >= (uint32_t)(1000.0f / max(1.0f, (float)(${speed})))) {`)
         ln(`      int _pop=0;`)
@@ -3381,8 +3412,10 @@ export function generateCpp(
         const speed = rateCpp(f('speed', 'speed', 0.25), SPEED_MAX.FieldNoise)
         const scale = rateCpp(f('scale', 'scale', 0.3), SCALE_MAX.FieldNoise)
         const octaves = Math.max(1, Math.min(6, Math.floor(Number(p.octaves ?? 4))))
+        const seed = seedProp(p)
+        const timeExpr = seed ? `(t+${(seed * 0.013).toFixed(3)}f)` : 't'
         ln(`  { // Field noise (fBm via inoise8)`)
-        ln(`    float _spd=${speed},_sc=${scale}; uint16_t _z=(uint16_t)(t*_spd*40);`)
+        ln(`    float _spd=${speed},_sc=${scale},_t=${timeExpr}; uint16_t _z=(uint16_t)(_t*_spd*40);`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float _v=0,_amp=0.5f,_norm=0,_freq=_sc*96;`)
         ln(`      for(int _o=0;_o<${octaves};_o++){`)

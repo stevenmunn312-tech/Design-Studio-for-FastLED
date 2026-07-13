@@ -227,7 +227,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'field', label: 'Field', dataType: 'field' },
     ],
-    defaultProperties: { noiseType: 'field', speed: 0.5, scale: 0.5, palette: 'rainbow' },
+    defaultProperties: { noiseType: 'field', speed: 0.5, scale: 0.5, palette: 'rainbow', seed: 0 },
   },
   {
     // `direction` rotates which edge sparks (the flame base) and which way heat
@@ -382,7 +382,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.5, density: 0.5, palette: 'party' },
+    defaultProperties: { speed: 0.5, density: 0.5, palette: 'party', seed: 0 },
   },
   {
     // Palette-driven Larson scanner / Cylon eye — a bar that sweeps back and
@@ -410,7 +410,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.45, density: 0.45, fade: 0.28, palette: 'party' },
+    defaultProperties: { speed: 0.45, density: 0.45, fade: 0.28, palette: 'party', seed: 0 },
   },
   {
     // DemoReel-style juggling dots — multiple sine-driven palette dots on a
@@ -424,7 +424,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.5, count: 4, fade: 0.22, palette: 'rainbow' },
+    defaultProperties: { speed: 0.5, count: 4, fade: 0.22, palette: 'rainbow', seed: 0 },
   },
   {
     type: 'SpectrumBars',
@@ -922,7 +922,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       particleType: 'fountain', rate: 0.3, decay: 0.92, palette: 'party',
-      size: 1, count: 24, spread: 1, gravity: 1, bounce: 1,
+      size: 1, count: 24, spread: 1, gravity: 1, bounce: 1, seed: 0,
     },
   },
   {
@@ -1504,7 +1504,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.25, scale: 0.3, octaves: 4, palette: 'forest' },
+    defaultProperties: { speed: 0.25, scale: 0.3, octaves: 4, palette: 'forest', seed: 0 },
   },
   {
     // Gabor noise — sparse-convolution oriented bands through a palette.
@@ -1520,7 +1520,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.33, scale: 0.7, frequency: 1.2, orientation: 45, palette: 'ocean' },
+    defaultProperties: { speed: 0.33, scale: 0.7, frequency: 1.2, orientation: 45, palette: 'ocean', seed: 0 },
   },
   {
     // Angled palette gradient across the matrix.
@@ -1615,7 +1615,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.67, scale: 0.08, count: 80, fade: 0.9, palette: 'ocean' },
+    defaultProperties: { speed: 0.67, scale: 0.08, count: 80, fade: 0.9, palette: 'ocean', seed: 0 },
   },
   {
     // Warp starfield — stars streak outward from the centre.
@@ -1629,7 +1629,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'count', label: 'Count', dataType: 'float' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.33, count: 60, palette: 'ice' },
+    defaultProperties: { speed: 0.33, count: 60, palette: 'ice', seed: 0 },
   },
   {
     // Boids — Reynolds flocking swarm (separation / alignment / cohesion).
@@ -1648,7 +1648,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'visualRange', label: 'Range', dataType: 'float' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.5, count: 24, separation: 0.6, alignment: 0.5, cohesion: 0.4, visualRange: 4, colorMode: 'solid', r: 120, g: 200, b: 255, palette: 'rainbow' },
+    defaultProperties: { speed: 0.5, count: 24, separation: 0.6, alignment: 0.5, cohesion: 0.4, visualRange: 4, colorMode: 'solid', r: 120, g: 200, b: 255, palette: 'rainbow', seed: 0 },
   },
   {
     // Audio-reactive flowing noise field (bass/mids/treble drive it).
@@ -1680,7 +1680,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { feed: 0.055, kill: 0.062, speed: 8, palette: 'ocean' },
+    defaultProperties: { feed: 0.055, kill: 0.062, speed: 8, palette: 'ocean', seed: 0 },
   },
   {
     // Conway's Game of Life with fading trails; reseeds when it stagnates.
@@ -1694,7 +1694,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'fade', label: 'Fade', dataType: 'float' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 8, fade: 0.75, palette: 'mojito' },
+    defaultProperties: { speed: 8, fade: 0.75, palette: 'mojito', seed: 0 },
   },
 
   // ── Transition nodes ──────────────────────────────────────────────────
@@ -1745,7 +1745,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       minTime: 4, maxTime: 12, transitionSec: 1,
       // Transition styles come from a wired TransitionSet; unwired ⇒ crossfade.
       // Beat-triggered particle overlay (needs a wired beat). Off by default.
-      particles: false, particleStyle: 0, particleHue: 24, particleIntensity: 0.8,
+      particles: false, particleStyle: 0, particleHue: 24, particleIntensity: 0.8, seed: 0,
     },
   },
   {
@@ -1860,7 +1860,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'scale', label: 'Scale', dataType: 'float' },
     ],
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
-    defaultProperties: { speed: 0.25, scale: 0.3, octaves: 4 },
+    defaultProperties: { speed: 0.25, scale: 0.3, octaves: 4, seed: 0 },
   },
   {
     // Damped ripple simulation on a scalar field. A rising-edge trigger injects
@@ -2714,14 +2714,15 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     tiles: { control: 'slider', min: 2, max: 8, step: 1 },
   },
   // Normalised speed/scale pattern nodes (internal range in speedRange.ts).
-  Noise:           { speed: N01, scale: N01 },
+  Noise:           { speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   Plasma:          { speed: N01 },
   Rainbow:         { speed: N01 },
   RadialBurst:     { speed: N01 },
   Spiral:          { speed: N01 },
-  Starfield:       { speed: N01 },
+  Starfield:       { speed: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   Boids:           {
     speed: N01,
+    seed:        { control: 'slider', min: 0, max: 9999, step: 1 },
     count:       { control: 'slider', min: 2, max: 80, step: 1 },
     separation:  { control: 'slider', min: 0, max: 1, step: 0.01 },
     alignment:   { control: 'slider', min: 0, max: 1, step: 0.01 },
@@ -2730,24 +2731,26 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     colorMode:   { control: 'select', options: ['solid', 'palette', 'heading', 'spectrum', 'density', 'position', 'cycle', 'radial'] },
   },
   PaletteGradient: { speed: N01 },
-  FractalNoise:    { speed: N01, scale: N01 },
-  GaborNoise:      { speed: N01, scale: N01 },
+  FractalNoise:    { speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
+  GaborNoise:      { speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   Blobs:           { speed: N01, scale: N01 },
-  FlowField:       { speed: N01, scale: N01 },
+  FlowField:       { speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   Pride2015:       { speed: N01, scale: N01 },
   Pacifica:        { speed: N01, scale: N01 },
-  TwinkleFox:      { speed: N01 },
+  TwinkleFox:      { speed: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   Scanner:         {
     speed: N01,
     width: { control: 'slider', min: 1, max: 16, step: 1 },
   },
-  Confetti:        { speed: N01 },
+  Confetti:        { speed: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   Juggle:          {
     speed: N01,
+    seed: { control: 'slider', min: 0, max: 9999, step: 1 },
     count: { control: 'slider', min: 1, max: 8, step: 1 },
   },
   Particles: {
     rate:    { control: 'slider', min: 0, max: 1, step: 0.01 },
+    seed:    { control: 'slider', min: 0, max: 9999, step: 1 },
     size:    { control: 'slider', min: 0.25, max: 3, step: 0.05 },
     count:   { control: 'slider', min: 2, max: 80, step: 1 },
     spread:  { control: 'slider', min: 0, max: 2, step: 0.05 },
@@ -2775,12 +2778,18 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     thickness: { control: 'slider', min: 0, max: 6, step: 0.1 },
   },
   Counter:           { rate:  { control: 'slider', min: 0, max: 5,   step: 0.1 } },
-  GameOfLife:        { speed: { control: 'slider', min: 1, max: 30,  step: 1 } },
-  ReactionDiffusion: { speed: { control: 'slider', min: 1, max: 30,  step: 1 } },
+  GameOfLife:        { speed: { control: 'slider', min: 1, max: 30,  step: 1 }, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
+  ReactionDiffusion: { speed: { control: 'slider', min: 1, max: 30,  step: 1 }, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
+  PatternMaster:     { seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   WaveSim: {
     speed:   { control: 'slider', min: 1, max: 12,    step: 1 },
     damping: { control: 'slider', min: 0.8, max: 0.999, step: 0.001 },
     impulse: { control: 'slider', min: 0.1, max: 1,   step: 0.01 },
+  },
+  FieldNoise: {
+    speed: N01,
+    scale: N01,
+    seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
   Image: {
     fit:       { control: 'select', options: ['stretch', 'contain', 'cover', 'original'] },
@@ -2886,6 +2895,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   PatternMaster: [
     { key: 'timing', label: 'Timing', keys: ['minTime', 'maxTime', 'transitionSec'] },
+    { key: 'randomness', label: 'Randomness', keys: ['seed'] },
     { key: 'particles', label: 'Particles', keys: ['particleStyle', 'particleHue', 'particleIntensity'] },
   ],
   Array: [

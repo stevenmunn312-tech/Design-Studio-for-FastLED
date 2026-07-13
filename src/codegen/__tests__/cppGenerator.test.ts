@@ -581,6 +581,19 @@ describe('generateCpp', () => {
     })
   })
 
+  it('emits deterministic seed hooks for seeded stochastic nodes', () => {
+    const particles = generateCpp([node('p', 'Particles', 'pattern', { seed: 321 }), outputNode], [])
+    expect(particles).toContain('random16_set_seed(321u)')
+
+    const noiseCpp = generateCpp([node('n', 'Noise', 'pattern', { noiseType: 'simplex', seed: 9 }), outputNode], [])
+    expect(noiseCpp).toContain('float _spd=')
+    expect(noiseCpp).toContain('(t+0.117f)')
+
+    const confetti = generateCpp([node('c', 'Confetti', 'pattern', { seed: 17 }), outputNode], [])
+    expect(confetti).toContain('static uint32_t _rng_c=17u')
+    expect(confetti).not.toContain('random16(NUM_LEDS)')
+  })
+
   it('emits a Shape polygon with a fractional-sides morph blend and AA composite', () => {
     const shape = node('sh', 'Shape', 'pattern', {
       shape: 'polygon', cx: 0.5, cy: 0.5, size: 6, sides: 5, rotation: 30,
@@ -1035,7 +1048,7 @@ describe('generateCpp', () => {
     const cpp = generateCpp([n4, outputNode], [edge('e', 'n4', 'out', 'frame', 'frame')])
     expect(cpp).toContain('inoise16((uint32_t)(_x*_fr),(uint32_t)(_y*_fr),_z+(uint32_t)(_o*8192),_w+(uint32_t)(_o*12288))')
     expect(cpp).toContain('float _spd=')
-    expect(cpp).toContain('_ang=t*_spd*6.2831853f;')
+    expect(cpp).toContain('_ang=_t*_spd*6.2831853f;')
     expect(cpp).toContain('ColorFromPalette(OceanColors_p')
   })
 
@@ -1972,7 +1985,8 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     const tf = node('tf', 'TwinkleFox', 'pattern', { speed: 0.5, density: 0.5, palette: 'party' })
     const cpp = generateCpp([tf, outputNode], [edge('e1', 'tf', 'out', 'frame', 'frame')])
     expect(cpp).toContain('CRGB buf_tf[NUM_LEDS];')
-    expect(cpp).toContain('_ph=sinf(_i*12.9898f)*43758.5453f')
+    expect(cpp).toContain('int _si=_i+0;')
+    expect(cpp).toContain('_ph=sinf(_si*12.9898f)*43758.5453f')
     expect(cpp).toContain('float _tri=1.0f-fabsf(2.0f*_cy-1.0f);')
     expect(cpp).toContain('ColorFromPalette(PartyColors_p,(uint8_t)(_ci*255.0f))')
     expect(cpp).toContain('_px.nscale8_video((uint8_t)(_bri*255.0f))')
@@ -2003,7 +2017,8 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     expect(cpp).toContain('CRGB buf_jg[NUM_LEDS];')
     expect(cpp).toContain('const int _dots=1;')
     expect(cpp).toContain('fadeToBlackBy(buf_jg, NUM_LEDS, (uint8_t)(_fd * 255.0f));')
-    expect(cpp).toContain('float _travel=sinf(t*_spd*(2.5f+_d*0.35f)+_d*0.9f)*0.5f+0.5f;')
+    expect(cpp).toContain('float _phase=0.0f;')
+    expect(cpp).toContain('float _travel=sinf(t*_spd*(2.5f+_d*0.35f)+_d*0.9f+_phase)*0.5f+0.5f;')
     expect(cpp).toContain('ColorFromPalette(RainbowColors_p, (uint8_t)fmodf((_travel*0.35f+_d/(float)_dots)*255.0f, 255.0f));')
   })
 })

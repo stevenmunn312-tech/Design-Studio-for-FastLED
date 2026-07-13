@@ -39,6 +39,7 @@ const fireHeat    = new Map<string, number[][]>()
 // when the node's `seed` property is nonzero (0 = free-running Math.random,
 // unchanged from before this control existed).
 const fireRngState = new Map<string, { seed: number; lcg: number }>()
+const seededRngState = new Map<string, { seed: number; lcg: number }>()
 const flashLevel  = new Map<string, { level: number; rising: boolean }>()
 const counterVals = new Map<string, number>()
 // Interval (metronome) node — last fire time in seconds, keyed by state id.
@@ -96,24 +97,25 @@ const audioFeatureLevels = new Map<string, AudioFeatureState>()
 
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; r: number; g: number; b: number; seed?: number }
 const particleState = new Map<string, Particle[]>()
+const particleSeedState = new Map<string, string>()
 const patternShowState = new Map<string, ShowState>()
 
-interface RDState { u: Float32Array; v: Float32Array; un: Float32Array; vn: Float32Array; w: number; h: number }
+interface RDState { u: Float32Array; v: Float32Array; un: Float32Array; vn: Float32Array; w: number; h: number; seed: number }
 const rdState = new Map<string, RDState>()
 
-interface GolState { cells: Uint8Array; next: Uint8Array; bright: Float32Array; w: number; h: number; lastStep: number; stale: number }
+interface GolState { cells: Uint8Array; next: Uint8Array; bright: Float32Array; w: number; h: number; seed: number; lastStep: number; stale: number }
 const golState = new Map<string, GolState>()
 
 interface WaveSimState { prev: Float32Array; cur: Float32Array; next: Float32Array; w: number; h: number; prevTrigger: boolean; pulse: number }
 const waveSimState = new Map<string, WaveSimState>()
 
-interface FlowState { px: Float32Array; py: Float32Array; trail: Float32Array; w: number; h: number }
+interface FlowState { px: Float32Array; py: Float32Array; trail: Float32Array; w: number; h: number; seed: number }
 const flowState = new Map<string, FlowState>()
 
-interface StarState { x: Float32Array; y: Float32Array; z: Float32Array; w: number; h: number }
+interface StarState { x: Float32Array; y: Float32Array; z: Float32Array; w: number; h: number; seed: number }
 const starState = new Map<string, StarState>()
 
-interface BoidState { x: Float32Array; y: Float32Array; vx: Float32Array; vy: Float32Array; w: number; h: number }
+interface BoidState { x: Float32Array; y: Float32Array; vx: Float32Array; vy: Float32Array; w: number; h: number; seed: number }
 const boidState = new Map<string, BoidState>()
 
 interface SparkState { frame: Frame; w: number; h: number }
@@ -874,16 +876,17 @@ function twinkleHash(n: number): number {
 // approach as Pride2015/Pacifica (identical maths on both sides), not a literal
 // port of the original's PRNG16 walk. `density` blends from sparse, sharp
 // sparkles (low) to most pixels lit (high) by softening the brightness curve.
-function evalTwinkleFox(speed: number, density: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalTwinkleFox(speed: number, density: number, t: number, palette: Palette, seed = 0, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const exponent = 6 - 5 * Math.max(0, Math.min(1, density))
   const out: Frame = []
   let i = 0
   for (let y = 0; y < H; y++) {
     const row: RGB[] = []
     for (let x = 0; x < W; x++) {
-      const phase = twinkleHash(i)
-      const rate = 0.5 + twinkleHash(i + 11)
-      const colorIdx = twinkleHash(i + 23)
+      const si = i + seed * 131
+      const phase = twinkleHash(si)
+      const rate = 0.5 + twinkleHash(si + 11)
+      const colorIdx = twinkleHash(si + 23)
       const cycle = (t * speed * rate + phase) % 1
       const tri = 1 - Math.abs(2 * cycle - 1)   // 0 → 1 → 0 across the cycle
       const bri = Math.pow(tri, exponent)
@@ -928,7 +931,7 @@ function evalScanner(
 }
 
 function evalConfetti(
-  nodeId: string, speed: number, density: number, fade: number, t: number, palette: Palette,
+  nodeId: string, speed: number, density: number, fade: number, t: number, palette: Palette, seed = 0,
   W = DEFAULT_W, H = DEFAULT_H,
 ): Frame {
   let state = sparkState.get(nodeId)
@@ -954,10 +957,11 @@ function evalConfetti(
   if (spawnCount < 1 && amount * motion > 0.08) spawnCount = 1
   const hueDrift = t * motion * 0.08
 
+  const rnd = () => seededRandom(`${nodeId}:confetti`, seed)
   for (let i = 0; i < spawnCount; i++) {
-    const x = Math.floor(Math.random() * W)
-    const y = Math.floor(Math.random() * H)
-    const v = ((Math.random() + hueDrift) % 1 + 1) % 1
+    const x = Math.floor(rnd() * W)
+    const y = Math.floor(rnd() * H)
+    const v = ((rnd() + hueDrift) % 1 + 1) % 1
     const spark = samplePalette(palette, v)
     const px = frame[y][x]
     const sum = addRgb(px, spark)
@@ -968,7 +972,7 @@ function evalConfetti(
 }
 
 function evalJuggle(
-  nodeId: string, speed: number, count: number, fade: number, t: number, palette: Palette,
+  nodeId: string, speed: number, count: number, fade: number, t: number, palette: Palette, seed = 0,
   W = DEFAULT_W, H = DEFAULT_H,
 ): Frame {
   let state = sparkState.get(nodeId)
@@ -998,10 +1002,11 @@ function evalJuggle(
   }
 
   for (let i = 0; i < dots; i++) {
-    const travel = Math.sin(t * speed * (2.5 + i * 0.35) + i * 0.9) * 0.5 + 0.5
+    const phase = seed ? seedOffset(seed, i) : 0
+    const travel = Math.sin(t * speed * (2.5 + i * 0.35) + i * 0.9 + phase) * 0.5 + 0.5
     const x = Math.round(travel * (W - 1))
     const y = laneY(i)
-    const pulse = 0.75 + 0.25 * Math.sin(t * speed * 3 + i)
+    const pulse = 0.75 + 0.25 * Math.sin(t * speed * 3 + i + phase)
     const base = samplePalette(palette, (travel * 0.35 + i / dots) % 1)
     const dot = scaleRgb(base, pulse)
     addDot(x, y, dot, 1)
@@ -1052,6 +1057,37 @@ function fireRandom(nodeId: string, seed: number): number {
   if (!st || st.seed !== seed) { st = { seed, lcg: seed >>> 0 }; fireRngState.set(nodeId, st) }
   st.lcg = (st.lcg * 1664525 + 1013904223) >>> 0
   return st.lcg / 4294967296
+}
+
+function normalizedSeed(value: unknown): number {
+  const n = Math.round(Number(value ?? 0))
+  return Number.isFinite(n) ? Math.max(0, n) >>> 0 : 0
+}
+
+function seededRandom(key: string, seed: number): number {
+  if (!seed) return Math.random()
+  let st = seededRngState.get(key)
+  if (!st || st.seed !== seed) {
+    st = { seed, lcg: seed >>> 0 }
+    seededRngState.set(key, st)
+  }
+  st.lcg = (st.lcg * 1664525 + 1013904223) >>> 0
+  return st.lcg / 4294967296
+}
+
+function seededHash(seed: number, ...parts: number[]): number {
+  let h = (seed >>> 0) || 2166136261
+  for (const part of parts) {
+    h ^= Math.round(part * 1000) >>> 0
+    h = Math.imul(h, 16777619) >>> 0
+    h ^= h >>> 13
+    h = Math.imul(h, 1274126177) >>> 0
+  }
+  return (h >>> 0) / 4294967296
+}
+
+function seedOffset(seed: number, channel = 0): number {
+  return seed ? seededHash(seed, channel) * 1024 : 0
 }
 
 // Folds the frame symmetric across its width (the axis perpendicular to the
@@ -1852,10 +1888,16 @@ const DEFAULT_PARTICLE_OPTS: ParticleOpts = { size: 1, count: 24, spread: 1, gra
 // advances the persistent particle pool, then a shared pass renders every live
 // particle additively at its `life` brightness. Keep the modes in sync with
 // PROPERTY_META.particleType and cppGenerator's `Particles` case.
-function evalParticles(nodeId: string, mode: string, rate: number, palette: Palette, decay: number, t: number, W = DEFAULT_W, H = DEFAULT_H, opts: ParticleOpts = DEFAULT_PARTICLE_OPTS): Frame {
+function evalParticles(nodeId: string, mode: string, rate: number, palette: Palette, decay: number, t: number, W = DEFAULT_W, H = DEFAULT_H, opts: ParticleOpts = DEFAULT_PARTICLE_OPTS, seed = 0): Frame {
+  const seedKey = `${mode}:${seed}`
+  if (particleSeedState.get(nodeId) !== seedKey) {
+    particleState.set(nodeId, [])
+    particleSeedState.set(nodeId, seedKey)
+    seededRngState.delete(`${nodeId}:particles`)
+  }
   if (!particleState.has(nodeId)) particleState.set(nodeId, [])
   let particles = particleState.get(nodeId)!
-  const rnd = Math.random
+  const rnd = () => seededRandom(`${nodeId}:particles`, seed)
   const { size, count, spread, gravity, bounce } = opts
   // Spawn colour is a representative palette sample kept only so the pool objects
   // stay well-formed; every particle is actually rendered by its life (age)
@@ -2094,16 +2136,17 @@ function wrap01(v: number): number {
 // All variants share the (speed, scale)→field signature, then the node maps
 // that field through a palette for its normal `frame` output. Keep the cases
 // in sync with PROPERTY_META.noiseType and cppGenerator's `Noise` case.
-function evalNoiseFieldByType(noiseType: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+function evalNoiseFieldByType(noiseType: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Field {
+  const ts = t + seedOffset(seed, 0)
   switch (noiseType) {
-    case 'simplex': return evalSimplex2DField(speed, scale, t, W, H)
-    case 'noise3d': return evalNoise3DField(speed, scale, t, W, H)
-    case 'noise4d': return evalNoise4DField(speed, scale, t, W, H)
-    case 'worley':  return evalWorleyField(speed, scale, t, W, H)
-    case 'plasma':  return evalPlasmaFractalField(speed, scale, t, W, H)
-    case 'sine':    return evalSineField(speed, scale, t, W, H)
+    case 'simplex': return evalSimplex2DField(speed, scale, ts, W, H)
+    case 'noise3d': return evalNoise3DField(speed, scale, ts, W, H)
+    case 'noise4d': return evalNoise4DField(speed, scale, ts, W, H)
+    case 'worley':  return evalWorleyField(speed, scale, ts, W, H)
+    case 'plasma':  return evalPlasmaFractalField(speed, scale, ts, W, H)
+    case 'sine':    return evalSineField(speed, scale, ts, W, H)
     case 'field':
-    default:        return evalNoiseFieldRaw(speed, scale, t, W, H)
+    default:        return evalNoiseFieldRaw(speed, scale, ts, W, H)
   }
 }
 
@@ -2211,7 +2254,7 @@ function evalWorleyField(speed: number, scale: number, t: number, W = DEFAULT_W,
 // (Gabor) kernel per grid cell. `orientation` fixes the band direction (the
 // anisotropic variant) and `frequency` the band spacing; phase animates over
 // time. Coloured through a palette.
-function evalGaborNoise(speed: number, scale: number, frequency: number, orientation: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalGaborNoise(speed: number, scale: number, frequency: number, orientation: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
   const omega = (orientation * Math.PI) / 180
   const cosO = Math.cos(omega), sinO = Math.sin(omega)
   const TAU = Math.PI * 2
@@ -2222,8 +2265,8 @@ function evalGaborNoise(speed: number, scale: number, frequency: number, orienta
       for (let dj = -1; dj <= 1; dj++)
         for (let di = -1; di <= 1; di++) {
           const cx = xi + di, cy = yi + dj
-          const h = worleyHash(cx, cy)
-          const h2 = worleyHash(cx + 31, cy - 17)
+          const h = seed ? seededHash(seed, cx, cy) : worleyHash(cx, cy)
+          const h2 = seed ? seededHash(seed, cx + 31, cy - 17) : worleyHash(cx + 31, cy - 17)
           const fx = cx + 0.5 + (h - 0.5)
           const fy = cy + 0.5 + (h2 - 0.5)
           const dx = px - fx, dy = py - fy
@@ -2253,8 +2296,8 @@ function evalPaletteGradient(angle: number, repeat: number, speed: number, t: nu
 
 // Fractal (fBm) noise: sum simplex octaves at doubling frequency / halving
 // amplitude for a detailed, cloud-like field, coloured through a palette.
-function evalFractalNoise(speed: number, scale: number, octaves: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  const z = t * speed * 0.15
+function evalFractalNoise(speed: number, scale: number, octaves: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
+  const z = (t + seedOffset(seed, 0)) * speed * 0.15
   const oct = Math.max(1, Math.min(6, Math.floor(octaves)))
   return buildFrame(W, H, (x, y) => {
       let v = 0, amp = 0.5, freq = scale, norm = 0
@@ -2270,8 +2313,8 @@ function evalFractalNoise(speed: number, scale: number, octaves: number, t: numb
 // Same fBm construction as evalFractalNoise, but returns the raw 0–1 scalar
 // field instead of sampling it through a palette — the noise-driven Field
 // source, alongside FieldFormula's hand-written expressions.
-function evalFieldNoise(speed: number, scale: number, octaves: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
-  const z = t * speed * 0.15
+function evalFieldNoise(speed: number, scale: number, octaves: number, t: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Field {
+  const z = (t + seedOffset(seed, 0)) * speed * 0.15
   const oct = Math.max(1, Math.min(6, Math.floor(octaves)))
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) {
@@ -2306,14 +2349,16 @@ function evalBlobs(speed: number, scale: number, count: number, t: number, palet
 
 // Flow field: particles drift along a simplex-noise direction field, depositing
 // fading trails that are coloured through a palette. Stateful.
-function evalFlowField(nodeId: string, speed: number, scale: number, count: number, fade: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalFlowField(nodeId: string, speed: number, scale: number, count: number, fade: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
   const N = W * H
   const pc = Math.max(8, Math.min(400, Math.floor(count)))
   let s = flowState.get(nodeId)
-  if (!s || s.w !== W || s.h !== H || s.px.length !== pc) {
+  if (!s || s.w !== W || s.h !== H || s.px.length !== pc || s.seed !== seed) {
+    seededRngState.delete(`${nodeId}:flow`)
+    const rnd = () => seededRandom(`${nodeId}:flow`, seed)
     const px = new Float32Array(pc), py = new Float32Array(pc)
-    for (let i = 0; i < pc; i++) { px[i] = Math.random() * W; py[i] = Math.random() * H }
-    s = { px, py, trail: new Float32Array(N), w: W, h: H }
+    for (let i = 0; i < pc; i++) { px[i] = rnd() * W; py[i] = rnd() * H }
+    s = { px, py, trail: new Float32Array(N), w: W, h: H, seed }
     flowState.set(nodeId, s)
   }
   const { px, py, trail } = s
@@ -2331,19 +2376,21 @@ function evalFlowField(nodeId: string, speed: number, scale: number, count: numb
 }
 
 // Warp starfield: stars fly outward from the centre; nearer stars are brighter.
-function evalStarfield(nodeId: string, speed: number, count: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalStarfield(nodeId: string, speed: number, count: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
   const pc = Math.max(8, Math.min(300, Math.floor(count)))
   let s = starState.get(nodeId)
-  if (!s || s.w !== W || s.h !== H || s.x.length !== pc) {
+  const rnd = () => seededRandom(`${nodeId}:star`, seed)
+  if (!s || s.w !== W || s.h !== H || s.x.length !== pc || s.seed !== seed) {
+    seededRngState.delete(`${nodeId}:star`)
     const x = new Float32Array(pc), y = new Float32Array(pc), z = new Float32Array(pc)
-    for (let i = 0; i < pc; i++) { x[i] = Math.random() * 2 - 1; y[i] = Math.random() * 2 - 1; z[i] = Math.random() * 0.9 + 0.1 }
-    s = { x, y, z, w: W, h: H }; starState.set(nodeId, s)
+    for (let i = 0; i < pc; i++) { x[i] = rnd() * 2 - 1; y[i] = rnd() * 2 - 1; z[i] = rnd() * 0.9 + 0.1 }
+    s = { x, y, z, w: W, h: H, seed }; starState.set(nodeId, s)
   }
   const { x, y, z } = s
   const frame = blankFrame(W, H)
   for (let i = 0; i < pc; i++) {
     z[i] -= speed * 0.015
-    if (z[i] <= 0.02) { x[i] = Math.random() * 2 - 1; y[i] = Math.random() * 2 - 1; z[i] = 1 }
+    if (z[i] <= 0.02) { x[i] = rnd() * 2 - 1; y[i] = rnd() * 2 - 1; z[i] = 1 }
     const px = Math.round(W / 2 + (x[i] / z[i]) * W * 0.35), py = Math.round(H / 2 + (y[i] / z[i]) * H * 0.35)
     if (px >= 0 && px < W && py >= 0 && py < H) {
       const b = Math.min(1, 1 - z[i])
@@ -2368,16 +2415,18 @@ function evalStarfield(nodeId: string, speed: number, count: number, palette: Pa
 // flock breathing through the wheel over time), or 'radial' (hue by distance from
 // the matrix centre — concentric rings the flock crosses).
 // Kept a faithful mirror of the C++ emitter in cppGenerator.ts.
-function evalBoids(nodeId: string, speed: number, count: number, sep: number, ali: number, coh: number, range: number, color: RGB, palette: Palette, colorMode: string, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalBoids(nodeId: string, speed: number, count: number, sep: number, ali: number, coh: number, range: number, color: RGB, palette: Palette, colorMode: string, t: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
   const n = Math.max(2, Math.min(80, Math.floor(count)))
   let s = boidState.get(nodeId)
-  if (!s || s.w !== W || s.h !== H || s.x.length !== n) {
+  if (!s || s.w !== W || s.h !== H || s.x.length !== n || s.seed !== seed) {
+    seededRngState.delete(`${nodeId}:boids`)
+    const rnd = () => seededRandom(`${nodeId}:boids`, seed)
     const x = new Float32Array(n), y = new Float32Array(n), vx = new Float32Array(n), vy = new Float32Array(n)
     for (let i = 0; i < n; i++) {
-      x[i] = Math.random() * W; y[i] = Math.random() * H
-      const a = Math.random() * Math.PI * 2; vx[i] = Math.cos(a); vy[i] = Math.sin(a)
+      x[i] = rnd() * W; y[i] = rnd() * H
+      const a = rnd() * Math.PI * 2; vx[i] = Math.cos(a); vy[i] = Math.sin(a)
     }
-    s = { x, y, vx, vy, w: W, h: H }; boidState.set(nodeId, s)
+    s = { x, y, vx, vy, w: W, h: H, seed }; boidState.set(nodeId, s)
   }
   const { x, y, vx, vy } = s
   const maxSpeed = Math.max(0.1, speed)
@@ -2466,16 +2515,16 @@ function evalAudioFlow(bass: number, mids: number, treble: number, speed: number
 
 // Gray-Scott reaction-diffusion. Two chemicals U, V diffuse on a toroidal grid
 // and react; V is coloured through a palette. Stateful — steps each frame.
-function evalReactionDiffusion(nodeId: string, feed: number, kill: number, iters: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalReactionDiffusion(nodeId: string, feed: number, kill: number, iters: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
   const N = W * H
   let s = rdState.get(nodeId)
-  if (!s || s.w !== W || s.h !== H) {
+  if (!s || s.w !== W || s.h !== H || s.seed !== seed) {
     const u = new Float32Array(N).fill(1), v = new Float32Array(N)
     // Seed a small central patch of V to kick off the reaction.
     for (let y = (H >> 1) - 2; y <= (H >> 1) + 1; y++)
       for (let x = (W >> 1) - 2; x <= (W >> 1) + 1; x++)
-        if (x >= 0 && x < W && y >= 0 && y < H) { u[y * W + x] = 0.5; v[y * W + x] = 0.25 + worleyHash(x, y) * 0.5 }
-    s = { u, v, un: new Float32Array(N), vn: new Float32Array(N), w: W, h: H }
+        if (x >= 0 && x < W && y >= 0 && y < H) { u[y * W + x] = 0.5; v[y * W + x] = 0.25 + (seed ? seededHash(seed, x, y) : worleyHash(x, y)) * 0.5 }
+    s = { u, v, un: new Float32Array(N), vn: new Float32Array(N), w: W, h: H, seed }
     rdState.set(nodeId, s)
   }
   const Du = 0.16, Dv = 0.08
@@ -2503,13 +2552,16 @@ function evalReactionDiffusion(nodeId: string, feed: number, kill: number, iters
 // Conway's Game of Life on a toroidal grid. Live cells glow at the palette's hot
 // end; dead cells fade out (trails), cooling toward the palette start. Steps at
 // `speed`/sec and reseeds when it stagnates.
-function evalGameOfLife(nodeId: string, palette: Palette, speed: number, fade: number, tick: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalGameOfLife(nodeId: string, palette: Palette, speed: number, fade: number, tick: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
   const N = W * H
-  const seed = (cells: Uint8Array) => { for (let i = 0; i < N; i++) cells[i] = Math.random() < 0.3 ? 1 : 0 }
+  const reseed = (cells: Uint8Array) => {
+    for (let i = 0; i < N; i++) cells[i] = seededRandom(`${nodeId}:gol`, seed) < 0.3 ? 1 : 0
+  }
   let s = golState.get(nodeId)
-  if (!s || s.w !== W || s.h !== H) {
-    const cells = new Uint8Array(N); seed(cells)
-    s = { cells, next: new Uint8Array(N), bright: new Float32Array(N), w: W, h: H, lastStep: -1e9, stale: 0 }
+  if (!s || s.w !== W || s.h !== H || s.seed !== seed) {
+    seededRngState.delete(`${nodeId}:gol`)
+    const cells = new Uint8Array(N); reseed(cells)
+    s = { cells, next: new Uint8Array(N), bright: new Float32Array(N), w: W, h: H, seed, lastStep: -1e9, stale: 0 }
     golState.set(nodeId, s)
   }
   const interval = Math.max(1, Math.round(60 / Math.max(1, Math.min(60, speed))))
@@ -2528,7 +2580,7 @@ function evalGameOfLife(nodeId: string, palette: Palette, speed: number, fade: n
     }
     s.cells = next; s.next = cells   // swap
     s.stale = (pop === 0 || !changed) ? s.stale + 1 : 0
-    if (s.stale > 3) { seed(s.cells); s.stale = 0 }
+    if (s.stale > 3) { reseed(s.cells); s.stale = 0 }
     s.lastStep = tick
   }
   const { cells, bright } = s
@@ -2811,6 +2863,7 @@ export function compositeTransition(
 interface ShowState {
   cur: number; nxt: number; phase: 'hold' | 'trans'
   start: number; dwell: number; trans: string; lastBeat: boolean; n: number
+  seed: number
   /** ms of the most recent beat-triggered particle burst, if any. */
   burstT?: number
 }
@@ -2822,6 +2875,7 @@ export interface PatternShowSelection {
 interface ShowOpts {
   minTime: number; maxTime: number; transSec: number; pool: string[]; beatEnabled: boolean
   particles: boolean; particleStyle: number; particleHue: number; particleIntensity: number
+  seed: number
 }
 
 /** Read the current selection of a live PatternMaster by its evaluator state key.
@@ -2989,12 +3043,14 @@ function evalPatternShow(
 ): Frame {
   const n = ids.length
   if (n === 0) return blankFrame(W, H)
-  const pickDwell = () => o.minTime + Math.random() * Math.max(0, o.maxTime - o.minTime)
+  const rnd = () => seededRandom(`${key}:show`, o.seed)
+  const pickDwell = () => o.minTime + rnd() * Math.max(0, o.maxTime - o.minTime)
 
   let st = patternShowState.get(key)
-  if (!st || st.n !== n) {
-    st = { cur: Math.min(st?.cur ?? Math.floor(Math.random() * n), n - 1), nxt: 0,
-           phase: 'hold', start: t, dwell: pickDwell(), trans: 'crossfade', lastBeat: beat, n }
+  if (!st || st.n !== n || st.seed !== o.seed) {
+    seededRngState.delete(`${key}:show`)
+    st = { cur: Math.min(st?.cur ?? Math.floor(rnd() * n), n - 1), nxt: 0,
+           phase: 'hold', start: t, dwell: pickDwell(), trans: 'crossfade', lastBeat: beat, n, seed: o.seed }
   }
 
   const beatEdge = o.beatEnabled && beat && !st.lastBeat
@@ -3007,8 +3063,8 @@ function evalPatternShow(
     const timeUp = t >= st.start + st.dwell
     const beatTrig = beatEdge && t >= st.start + o.minTime
     if (timeUp || beatTrig) {
-      st.nxt = (st.cur + 1 + Math.floor(Math.random() * (n - 1))) % n   // uniform, ≠ cur
-      st.trans = o.pool.length ? o.pool[Math.floor(Math.random() * o.pool.length)] : 'crossfade'
+      st.nxt = (st.cur + 1 + Math.floor(rnd() * (n - 1))) % n   // uniform, ≠ cur
+      st.trans = o.pool.length ? o.pool[Math.floor(rnd() * o.pool.length)] : 'crossfade'
       st.phase = 'trans'
       st.start = t
     }
@@ -3872,7 +3928,7 @@ function createEvalNode(
         const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), NOISE_SPEED_MAX[noiseType] ?? 1)
         const scale = denormRate(num(id, 'scale', props, 'scale', 0.5), NOISE_SCALE_MAX[noiseType] ?? 1)
         const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-        const field = evalNoiseFieldByType(noiseType, speed, scale, t, W, H)
+        const field = evalNoiseFieldByType(noiseType, speed, scale, t, W, H, normalizedSeed(props.seed))
         out = { field, frame: evalFieldToFrame(field, palette, 1, W, H) }
         break
       }
@@ -3910,7 +3966,7 @@ function createEvalNode(
         const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.TwinkleFox)
         const density = num(id, 'density', props, 'density', 0.5)
         const palette = pal(id, 'paletteIn', props, 'palette', 'party')
-        out = { frame: evalTwinkleFox(speed, density, t, palette, W, H) }
+        out = { frame: evalTwinkleFox(speed, density, t, palette, normalizedSeed(props.seed), W, H) }
         break
       }
 
@@ -3929,7 +3985,7 @@ function createEvalNode(
         const density = num(id, 'density', props, 'density', 0.45)
         const fade = num(id, 'fade', props, 'fade', 0.28)
         const palette = pal(id, 'paletteIn', props, 'palette', 'party')
-        out = { frame: evalConfetti(stateKey(id), speed, density, fade, t, palette, W, H) }
+        out = { frame: evalConfetti(stateKey(id), speed, density, fade, t, palette, normalizedSeed(props.seed), W, H) }
         break
       }
 
@@ -3938,7 +3994,7 @@ function createEvalNode(
         const count = Number(props.count ?? 4)
         const fade = num(id, 'fade', props, 'fade', 0.22)
         const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-        out = { frame: evalJuggle(stateKey(id), speed, count, fade, t, palette, W, H) }
+        out = { frame: evalJuggle(stateKey(id), speed, count, fade, t, palette, normalizedSeed(props.seed), W, H) }
         break
       }
 
@@ -4508,7 +4564,7 @@ function createEvalNode(
           gravity: Math.max(0, Number(props.gravity ?? 1)),
           bounce: Math.max(0, Number(props.bounce ?? 1)),
         }
-        out = { frame: evalParticles(stateKey(id), mode, rate, palette, decay, t, W, H, opts) }
+        out = { frame: evalParticles(stateKey(id), mode, rate, palette, decay, t, W, H, opts, normalizedSeed(props.seed)) }
         break
       }
 
@@ -4739,7 +4795,7 @@ function createEvalNode(
         const scale   = denormRate(num(id, 'scale', props, 'scale', 0.3), SCALE_MAX.FractalNoise)
         const octaves = Number(props.octaves ?? 4)
         const palette = pal(id, 'paletteIn', props, 'palette', 'forest')
-        out = { frame: evalFractalNoise(speed, scale, octaves, t, palette, W, H) }
+        out = { frame: evalFractalNoise(speed, scale, octaves, t, palette, W, H, normalizedSeed(props.seed)) }
         break
       }
 
@@ -4749,7 +4805,7 @@ function createEvalNode(
         const frequency   = num(id, 'frequency', props, 'frequency', 1.2)
         const orientation = num(id, 'orientation', props, 'orientation', 45)
         const palette     = pal(id, 'paletteIn', props, 'palette', 'ocean')
-        out = { frame: evalGaborNoise(speed, scale, frequency, orientation, t, palette, W, H) }
+        out = { frame: evalGaborNoise(speed, scale, frequency, orientation, t, palette, W, H, normalizedSeed(props.seed)) }
         break
       }
 
@@ -4813,7 +4869,7 @@ function createEvalNode(
         const count = num(id, 'count', props, 'count', 80)
         const fade = num(id, 'fade', props, 'fade', 0.9)
         const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
-        out = { frame: evalFlowField(stateKey(id), speed, scale, count, fade, t, palette, W, H) }
+        out = { frame: evalFlowField(stateKey(id), speed, scale, count, fade, t, palette, W, H, normalizedSeed(props.seed)) }
         break
       }
 
@@ -4821,7 +4877,7 @@ function createEvalNode(
         const speed = denormRate(num(id, 'speed', props, 'speed', 0.33), SPEED_MAX.Starfield)
         const count = num(id, 'count', props, 'count', 60)
         const palette = pal(id, 'paletteIn', props, 'palette', 'ice')
-        out = { frame: evalStarfield(stateKey(id), speed, count, palette, W, H) }
+        out = { frame: evalStarfield(stateKey(id), speed, count, palette, W, H, normalizedSeed(props.seed)) }
         break
       }
 
@@ -4840,7 +4896,7 @@ function createEvalNode(
           b: byte(Number(props.b ?? 255) / 255),
         }
         const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-        out = { frame: evalBoids(stateKey(id), speed, count, sep, ali, coh, range, color, palette, colorMode, t, W, H) }
+        out = { frame: evalBoids(stateKey(id), speed, count, sep, ali, coh, range, color, palette, colorMode, t, W, H, normalizedSeed(props.seed)) }
         break
       }
 
@@ -4860,7 +4916,7 @@ function createEvalNode(
         const kill  = num(id, 'kill', props, 'kill', 0.062)
         const iters = Math.max(1, Math.min(20, Math.floor(num(id, 'speed', props, 'speed', 8))))
         const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
-        out = { frame: evalReactionDiffusion(stateKey(id), feed, kill, iters, palette, W, H) }
+        out = { frame: evalReactionDiffusion(stateKey(id), feed, kill, iters, palette, W, H, normalizedSeed(props.seed)) }
         break
       }
 
@@ -4868,7 +4924,7 @@ function createEvalNode(
         const palette = pal(id, 'paletteIn', props, 'palette', 'mojito')
         const speed = num(id, 'speed', props, 'speed', 8)
         const fade = num(id, 'fade', props, 'fade', 0.75)
-        out = { frame: evalGameOfLife(stateKey(id), palette, speed, fade, tick, W, H) }
+        out = { frame: evalGameOfLife(stateKey(id), palette, speed, fade, tick, W, H, normalizedSeed(props.seed)) }
         break
       }
 
@@ -4940,6 +4996,7 @@ function createEvalNode(
           particleStyle: Number(props.particleStyle ?? 0),
           particleHue: num(id, 'particleHue', props, 'particleHue', 0),
           particleIntensity: num(id, 'particleIntensity', props, 'particleIntensity', 1),
+          seed: normalizedSeed(props.seed),
         }
         out = { frame: evalPatternShow(stateKey(id), ids, render, beat, o, t, W, H) }
         break
@@ -4984,7 +5041,7 @@ function createEvalNode(
         const speed   = denormRate(num(id, 'speed', props, 'speed', 0.25), SPEED_MAX.FieldNoise)
         const scale   = denormRate(num(id, 'scale', props, 'scale', 0.3), SCALE_MAX.FieldNoise)
         const octaves = Number(props.octaves ?? 4)
-        out = { field: evalFieldNoise(speed, scale, octaves, t, W, H) }
+        out = { field: evalFieldNoise(speed, scale, octaves, t, W, H, normalizedSeed(props.seed)) }
         break
       }
 

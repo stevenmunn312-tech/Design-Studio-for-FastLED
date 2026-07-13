@@ -53,6 +53,7 @@ interface ShowInfo {
   particleStyle: number
   particleHue: number
   particleIntensity: number
+  seed: number
 }
 
 // The transition pool comes from a wired TransitionSet (names → style ids via
@@ -88,6 +89,7 @@ function showInfo(nodes: StudioNode[], edges: StudioEdge[]): ShowInfo | null {
     particleStyle: Number(p.particleStyle ?? 0),
     particleHue: Number(p.particleHue ?? 0),
     particleIntensity: Number(p.particleIntensity ?? 0.8),
+    seed: Math.max(0, Math.round(Number(p.seed ?? 0))) >>> 0,
   }
 }
 
@@ -343,7 +345,7 @@ export function generateShowSketch(
   L.push('void setup() {')
   for (const a of psramAllocs) L.push(a)
   for (const s of fastledSetupCpp(hw)) L.push(s)
-  L.push('  randomSeed(analogRead(A0));')
+  L.push(info.seed ? `  random16_set_seed(${info.seed}u);` : '  randomSeed(analogRead(A0));')
   if (audio) L.push('  setupAudio();')
   L.push('}')
   L.push('')

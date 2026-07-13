@@ -2626,6 +2626,27 @@ describe.each(['Fire', 'Fire2012'] as const)('%s extra controls', (type) => {
   })
 })
 
+describe('deterministic seeds', () => {
+  it('seeded Particles reproduce from a fresh instance without Math.random mocking', () => {
+    const run = (id: string) => {
+      const { nodes, edges } = withOutput(node(id, 'Particles', 'pattern', { particleType: 'fountain', rate: 1, seed: 123 }))
+      let frame = evaluateGraph(nodes, edges, 0, 8, 8)!
+      for (let t = 1; t <= 4; t++) frame = evaluateGraph(nodes, edges, t, 8, 8)!
+      return frame
+    }
+    expect(run('seedParticlesA')).toEqual(run('seedParticlesB'))
+  })
+
+  it('Noise seeds choose different deterministic phase offsets', () => {
+    const run = (id: string, seed: number) => {
+      const { nodes, edges } = withOutput(noise(id, 'simplex', { seed, palette: 'rainbow' }))
+      return evaluateGraph(nodes, edges, 3, 8, 8)
+    }
+    expect(run('seedNoiseA', 7)).toEqual(run('seedNoiseB', 7))
+    expect(run('seedNoiseA', 7)).not.toEqual(run('seedNoiseC', 8))
+  })
+})
+
 // ── Trails (feedback/persistence) ────────────────────────────────────────────
 
 describe('Trails', () => {
