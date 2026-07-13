@@ -360,3 +360,7 @@ export const useUiStore = create<UiState>((set, get) => ({
     resolver?.(decision)
   },
 }))
+
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  ;(window as unknown as { useUiStore?: typeof useUiStore }).useUiStore = useUiStore
+}

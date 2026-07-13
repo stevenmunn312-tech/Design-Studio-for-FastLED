@@ -36,3 +36,7 @@ export const useShowPlayback = create<ShowPlaybackState>()((set) => ({
         : s,
     ),
 }))
+
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  ;(window as unknown as { useShowPlayback?: typeof useShowPlayback }).useShowPlayback = useShowPlayback
+}

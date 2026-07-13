@@ -163,3 +163,7 @@ export const useMusicStore = create<MusicState>((set, get) => ({
     }))
   },
 }))
+
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  ;(window as unknown as { useMusicStore?: typeof useMusicStore }).useMusicStore = useMusicStore
+}

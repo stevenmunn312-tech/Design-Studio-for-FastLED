@@ -1,6 +1,10 @@
 import { useDeferredValue, useState } from 'react'
 import type { NodeCategory, NodeDefinition } from '../../types'
 import { CATEGORIES, CATEGORY_COLOR, NODE_DESCRIPTIONS, NODE_LIBRARY, propertyMeta, portColor } from '../../state/nodeLibrary'
+import { useUiStore } from '../../state/uiStore'
+import { insertLiveExample } from '../../utils/insertLiveExample'
+import type { LiveExampleSpec } from '../../utils/insertLiveExample'
+import { NODE_REFERENCE_ASSETS } from './nodeReferenceAssets.generated'
 import styles from './NodeReference.module.css'
 
 type FilterCategory = 'all' | NodeCategory
@@ -23,9 +27,26 @@ const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
   CATEGORIES.map((category) => [category.id, category.label]),
 )
 
-const CATEGORY_ORDER: NodeCategory[] = ['input', 'audio', 'signal', 'math', 'color', 'pattern', 'field', 'composite', 'show', 'output']
+const CATEGORY_ORDER: NodeCategory[] = ['input', 'audio', 'signal', 'math', 'color', 'pattern', 'field', 'composite', 'show', 'output', 'note']
 
 const HIDDEN_PROPERTIES = new Set(['patternIds', 'patternSections'])
+
+const MICROPHONE_LIVE_EXAMPLE: LiveExampleSpec = {
+  title: 'Microphone spectrum',
+  nodes: [
+    { key: 'mic', type: 'MicInput', dx: -650, dy: -220 },
+    { key: 'fft', type: 'FFTAnalyzer', dx: -350, dy: -155 },
+    { key: 'bars', type: 'SpectrumBars', dx: -35, dy: -145 },
+    { key: 'out', type: 'MatrixOutput', dx: 330, dy: -220 },
+  ],
+  edges: [
+    { source: 'mic', sourceHandle: 'audio', target: 'fft', targetHandle: 'audio' },
+    { source: 'fft', sourceHandle: 'bass', target: 'bars', targetHandle: 'bass' },
+    { source: 'fft', sourceHandle: 'mids', target: 'bars', targetHandle: 'mids' },
+    { source: 'fft', sourceHandle: 'treble', target: 'bars', targetHandle: 'treble' },
+    { source: 'bars', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+  ],
+}
 
 const PROPERTY_LABELS: Record<string, string> = {
   agc: 'AGC',
@@ -167,6 +188,28 @@ function propertyEntries(node: NodeDefinition): Array<[string, unknown]> {
 
 function categoryLabel(category: NodeCategory): string {
   return CATEGORY_LABELS[category] ?? humanizePropertyKey(category)
+}
+
+const TYPE_GLYPH: Record<string, string> = {
+  frame: '▦', palette: '≋', color: '●', audio: '⌁', float: '∿', bool: '◆',
+  field: '⌖', music: '♫', shows: '▶', sdcard: '▣', patternset: '◫', transitionset: '⇄',
+}
+
+function nodeDataType(node: NodeDefinition): string {
+  return node.outputs[0]?.dataType ?? node.inputs[0]?.dataType ?? 'control'
+}
+
+function nodeGlyph(node: NodeDefinition): string {
+  return TYPE_GLYPH[nodeDataType(node)] ?? '·'
+}
+
+function nodeCode(node: NodeDefinition): string {
+  return node.type
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .split(/[^a-z0-9]+/i)
+    .filter(Boolean)
+    .map((part) => part.slice(0, 3).toUpperCase())
+    .join('-')
 }
 
 function makeNode(id: string, label: string, category: NodeCategory, highlight = false): ExampleNode {
@@ -542,6 +585,7 @@ function buildUseCases(node: NodeDefinition): string[] {
     composite: 'Drop it between a frame generator and Matrix Output when you want to refine, mix, or transition the result.',
     show: 'Use it in the show pipeline — collecting patterns, scheduling them to music, and exporting to hardware.',
     output: 'Use it as the terminal stage that turns the graph into preview pixels, firmware, and uploads.',
+    note: 'Use it to annotate a patch directly on the canvas without affecting evaluation, preview, or code generation.',
   }
   const outputUseCases: Record<string, string> = {
     audio: 'It usually sits near the start of the graph and feeds analyzers, beat detectors, or audio-reactive patterns.',
@@ -763,6 +807,27 @@ function NodeScreenshot({ node }: { node: NodeDefinition }) {
   )
 }
 
+function ScreenshotFigure({
+  src,
+  alt,
+  caption,
+  wide = false,
+}: {
+  src: string
+  alt: string
+  caption?: string
+  wide?: boolean
+}) {
+  return (
+    <figure className={`${styles.captureFigure} ${wide ? styles.captureFigureWide : ''}`}>
+      <div className={styles.captureFrame}>
+        <img className={styles.captureImage} src={src} alt={alt} loading="lazy" />
+      </div>
+      {caption && <figcaption>{caption}</figcaption>}
+    </figure>
+  )
+}
+
 function PortSection({ title, ports, direction }: { title: string; ports: NodeDefinition['inputs']; direction: 'input' | 'output' }) {
   return (
     <section className={styles.manualSection}>
@@ -783,7 +848,146 @@ function PortSection({ title, ports, direction }: { title: string; ports: NodeDe
   )
 }
 
+function PortPanel({ title, ports, direction }: { title: string; ports: NodeDefinition['inputs']; direction: 'input' | 'output' }) {
+  return (
+    <section className={styles.referencePanel}>
+      <div className={styles.panelLabel}>{title}</div>
+      {ports.length === 0 ? (
+        <p className={styles.panelEmpty}>None — this node starts the signal chain.</p>
+      ) : ports.map((port) => (
+        <div className={styles.portCard} key={port.id}>
+          <div className={styles.portTitle}>
+            <i style={{ background: portColor(port.dataType) }} />
+            <b>{port.label}</b>
+            <code>{port.dataType}</code>
+          </div>
+          <p>{describePort(port.dataType, direction)}</p>
+        </div>
+      ))}
+    </section>
+  )
+}
+
+function MicrophoneProperties({ node }: { node: NodeDefinition }) {
+  const properties = Object.fromEntries(propertyEntries(node))
+  const groups = [
+    { label: 'Levels', keys: ['gain', 'agc', 'threshold', 'attack', 'decay'] },
+    { label: 'I2S hardware', keys: ['sampleRate', 'i2sWs', 'i2sSck', 'i2sSd', 'channel'] },
+    { label: 'Debug', keys: ['serialDebug'] },
+  ]
+  return (
+    <section className={`${styles.referencePanel} ${styles.propertiesPanel}`}>
+      <div className={styles.panelLabel}>Properties</div>
+      <div className={styles.propertyGroups}>
+        {groups.map((group) => (
+          <div className={styles.propertyGroup} key={group.label}>
+            <h3>{group.label}</h3>
+            {group.keys.map((key) => (
+              <div className={styles.propertyRow} key={key}>
+                <span>{humanizePropertyKey(key)}</span>
+                <b>{formatPropertyValue(properties[key])}</b>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      <p className={styles.panelNote}>Level controls shape the browser preview. I2S pins and channel configure the INMP441 in generated ESP32 firmware.</p>
+    </section>
+  )
+}
+
+function MicrophoneArticle({ node }: { node: NodeDefinition }) {
+  const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
+  const assets = NODE_REFERENCE_ASSETS.nodes.MicInput
+  const tryLive = () => {
+    const ui = useUiStore.getState()
+    const result = insertLiveExample(MICROPHONE_LIVE_EXAMPLE, ui.viewCenter)
+    const matrixInputOccupied = result.skippedConnections.some((edge) => edge.target === 'out' && edge.targetHandle === 'frame')
+    useUiStore.setState({ helpOpen: false, previewPanelOpen: true, testSignal: true })
+    window.setTimeout(() => {
+      useUiStore.getState().requestFitView(result.nodeIds)
+    }, 80)
+    ui.setStatus(
+      matrixInputOccupied
+        ? 'Microphone example added — Matrix Output is already in use; connect Spectrum Bars when ready'
+        : 'Microphone example added — test signal on',
+      'success',
+    )
+  }
+  return (
+    <article className={styles.article} style={{ '--node-accent': accent } as React.CSSProperties}>
+      <div className={styles.breadcrumb}>Inputs <span>/</span> Microphone</div>
+      <header className={styles.articleHeader}>
+        <div>
+          <div className={styles.eyebrow}><i style={{ background: accent }} />Audio source</div>
+          <h1>Microphone</h1>
+          <p>Capture live audio in the browser and configure an INMP441 I2S microphone for the generated ESP32 firmware.</p>
+        </div>
+        <div className={styles.articleMeta}>0 inputs · 1 output · 11 properties</div>
+      </header>
+
+      <div className={styles.introGrid}>
+        <figure className={styles.nodeCapture}>
+          <div className={styles.nodeCaptureFrame}>
+            <div className={styles.nodeOnlyCrop}>
+              <img src={assets.graph} alt="Microphone node on the FastLED Studio canvas" />
+            </div>
+          </div>
+        </figure>
+        <section className={styles.overviewPanel}>
+          <div className={styles.sectionKicker}>What it does</div>
+          <h2>Overview</h2>
+          <p>The Microphone node is the starting point for audio-reactive patches. During editing it captures browser microphone audio; in generated firmware it reads an INMP441 over I2S.</p>
+          <p>Its single <b>Audio</b> output carries the live signal to FFT Analyzer, Beat Detect, Percussion Detect, or any other audio-processing node.</p>
+          <p>Gain, AGC, threshold, attack, and decay tune the preview response. The I2S settings define the sample rate, pins, and left/right channel used on the ESP32.</p>
+        </section>
+      </div>
+
+      <div className={styles.ioGrid}>
+        <PortPanel title="Inputs" ports={node.inputs} direction="input" />
+        <MicrophoneProperties node={node} />
+        <PortPanel title="Outputs" ports={node.outputs} direction="output" />
+      </div>
+
+      <section className={styles.exampleSection}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <h2>From sound to pixels</h2>
+          </div>
+          <div className={styles.exampleHeadingActions}>
+            <span>Microphone → FFT Analyzer → Spectrum Bars → Matrix Output</span>
+            <button className={styles.tryLiveButton} type="button" onClick={tryLive}>
+              <span aria-hidden="true">▶</span> Try it live
+            </button>
+          </div>
+        </div>
+        <ScreenshotFigure
+          src={assets.graph}
+          alt="Tidy audio spectrum graph using Microphone, FFT Analyzer, Spectrum Bars, and Matrix Output"
+          wide
+        />
+        <div className={styles.exampleExplanation}>
+          <b>How it works</b>
+          <p>Microphone feeds captured audio to FFT Analyzer. FFT separates the signal into bass, mids, and treble levels; those values drive Spectrum Bars, which renders the coloured frame sent to Matrix Output.</p>
+        </div>
+      </section>
+
+      <section className={styles.previewSection}>
+        <div className={styles.previewCopy}>
+          <div className={styles.sectionKicker}>Main preview</div>
+          <h2>What you should see</h2>
+          <p>With test audio or microphone capture active, louder frequency bands rise higher while the palette colours the spectrum. This is the same frame passed to Matrix Output for preview and firmware generation.</p>
+        </div>
+        <figure className={styles.previewCapture}>
+          <img src={assets.preview} alt="LED matrix preview showing rainbow spectrum bars" />
+        </figure>
+      </section>
+    </article>
+  )
+}
+
 function NodeArticle({ node }: { node: NodeDefinition }) {
+  if (node.type === 'MicInput') return <MicrophoneArticle node={node} />
   const properties = propertyEntries(node)
   const useCases = buildUseCases(node)
   const recipe = buildExampleRecipe(node)
@@ -839,10 +1043,10 @@ function NodeArticle({ node }: { node: NodeDefinition }) {
 
 export default function NodeReference() {
   const [search, setSearch] = useState('')
-  const [category, setCategory] = useState<FilterCategory>('all')
+  const [expandedCategory, setExpandedCategory] = useState<NodeCategory | null>('input')
   const [selectedType, setSelectedType] = useState(NODE_LIBRARY[0]?.type ?? '')
   const deferredSearch = useDeferredValue(search.trim().toLowerCase())
-  const visibleNodes = NODE_LIBRARY.filter((node) => matchesNode(node, deferredSearch, category))
+  const visibleNodes = NODE_LIBRARY.filter((node) => matchesNode(node, deferredSearch, 'all'))
   const orderedVisibleNodes = deferredSearch
     ? [...visibleNodes].sort((a, b) => searchRank(a, deferredSearch) - searchRank(b, deferredSearch) || a.label.localeCompare(b.label))
     : CATEGORY_ORDER.flatMap((group) => visibleNodes.filter((node) => node.category === group))
@@ -856,51 +1060,66 @@ export default function NodeReference() {
     <div className={styles.reference}>
       <aside className={styles.directory} aria-label="Node reference index">
         <div className={styles.directoryHeader}>
-          <div className={styles.referenceTitle}>Node reference</div>
-          <div className={styles.referenceText}>Choose a node to read its manual page.</div>
+          <div>
+            <div className={styles.referenceTitle}>Node reference</div>
+            <div className={styles.referenceText}>Patch manual</div>
+          </div>
+          <div className={styles.directoryStats}>
+            <span>{NODE_LIBRARY.length} modules</span>
+            <span>{CATEGORY_ORDER.length} banks</span>
+          </div>
         </div>
-        <input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          className={styles.search}
-          placeholder="Search nodes, ports, properties, or descriptions..."
-          aria-label="Search node reference"
-        />
-        <div className={styles.filterRow} aria-label="Filter by category">
-          <button
-            className={`${styles.filterChip} ${category === 'all' ? styles.filterChipActive : ''}`}
-            onClick={() => setCategory('all')}
-            type="button"
-          >
-            All ({NODE_LIBRARY.length})
-          </button>
-          {CATEGORY_ORDER
-            .filter((group) => categoryCounts[group] > 0)
-            .map((group) => (
-              <button
-                key={group}
-                className={`${styles.filterChip} ${category === group ? styles.filterChipActive : ''}`}
-                onClick={() => setCategory(group)}
-                type="button"
-              >
-                {categoryLabel(group)} ({categoryCounts[group]})
-              </button>
-            ))}
+        <div className={styles.searchWrap}>
+          <label htmlFor="node-reference-search">Find module</label>
+          <input
+            id="node-reference-search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className={styles.search}
+            placeholder="Search nodes…"
+            type="search"
+          />
         </div>
-        <div className={styles.resultsLine}>{orderedVisibleNodes.length} nodes</div>
         <nav className={styles.nodeIndex}>
-          {orderedVisibleNodes.map((node) => {
-            const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
+          {CATEGORY_ORDER.map((group) => {
+            const nodes = orderedVisibleNodes.filter((node) => node.category === group)
+            if (deferredSearch && nodes.length === 0) return null
+            const open = deferredSearch ? nodes.length > 0 : expandedCategory === group
             return (
-              <button
-                key={node.type}
-                type="button"
-                className={`${styles.indexItem} ${selectedNode?.type === node.type ? styles.indexItemActive : ''}`}
-                onClick={() => setSelectedType(node.type)}
-              >
-                <i style={{ background: accent }} />
-                <span><b>{node.label}</b><small>{categoryLabel(node.category)}</small></span>
-              </button>
+              <section className={styles.indexCategory} style={{ '--category-accent': CATEGORY_COLOR[group] ?? '#9aa0a6' } as React.CSSProperties} key={group}>
+                <button
+                  className={styles.indexCategoryHeader}
+                  type="button"
+                  aria-expanded={open}
+                  onClick={() => setExpandedCategory(open ? null : group)}
+                >
+                  <span><i />{categoryLabel(group)} <b>{categoryCounts[group]}</b></span>
+                  <span className={styles.indexChevron}>{open ? '▴' : '▾'}</span>
+                </button>
+                {open && (
+                  <div className={styles.indexModules}>
+                    {nodes.map((node) => (
+                      <button
+                        key={node.type}
+                        type="button"
+                        className={`${styles.indexItem} ${selectedNode?.type === node.type ? styles.indexItemActive : ''}`}
+                        onClick={() => {
+                          setSelectedType(node.type)
+                          setExpandedCategory(node.category)
+                        }}
+                      >
+                        <span className={styles.indexGlyph}>{nodeGlyph(node)}</span>
+                        <span className={styles.indexCopy}>
+                          <span className={styles.indexTopline}><b>{node.label}</b><code>{nodeCode(node)}</code></span>
+                          <small>{nodeDataType(node)}{node.subcategory ? ` · ${node.subcategory}` : ''}</small>
+                          <em>{NODE_DESCRIPTIONS[node.type] ?? node.label}</em>
+                        </span>
+                        <span className={styles.indexGrip}>⠿</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
             )
           })}
           {orderedVisibleNodes.length === 0 && <div className={styles.noResults}>No nodes match “{search}”.</div>}
