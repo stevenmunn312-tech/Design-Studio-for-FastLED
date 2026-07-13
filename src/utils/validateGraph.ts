@@ -195,6 +195,13 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[]): F
       const mode = String((n.data.properties as Record<string, unknown>)?.particleType ?? 'fountain')
       statefulBytes += PARTICLE_POOL_SIZE(mode) * PARTICLE_BYTES_PER_SLOT
     }
+    if (n.data.nodeType === 'FrameFeedback') {
+      const delay = Math.max(1, Math.min(32, Math.round(Number((n.data.properties as Record<string, unknown>)?.delayFrames ?? 2))))
+      // Ring buffer stores `delay` previous outputs plus the slot currently
+      // being written, and stays internal even when ordinary render buffers
+      // are moved to PSRAM.
+      statefulBytes += ledCount * 3 * (delay + 1)
+    }
   }
 
   const ledsArrayBytes = ledCount * 3

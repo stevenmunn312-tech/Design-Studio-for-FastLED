@@ -970,6 +970,35 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { decay: 0.15 },
   },
   {
+    // Bounded recursive frame feedback without graph cycles: composites a
+    // delayed copy of this node's own prior output over the live input. The
+    // history buffer is fixed by `delayFrames` so RAM cost is predictable.
+    type: 'FrameFeedback',
+    label: 'Frame Feedback',
+    category: 'composite',
+    inputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      { id: 'amount', label: 'Amount', dataType: 'float' },
+      { id: 'fade', label: 'Fade', dataType: 'float' },
+      { id: 'offsetX', label: 'Offset X', dataType: 'float' },
+      { id: 'offsetY', label: 'Offset Y', dataType: 'float' },
+      { id: 'angle', label: 'Angle', dataType: 'float' },
+      { id: 'scale', label: 'Scale', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: {
+      delayFrames: 2,
+      fade: 0.08,
+      amount: 0.5,
+      blendMode: 'screen',
+      feedbackTransform: 'none',
+      offsetX: 0,
+      offsetY: 0,
+      angle: 0,
+      scale: 1,
+    },
+  },
+  {
     // Manual A/B frame selector — shows A when `sel` is false, B when true
     // (the bool-driven counterpart of the time-based Sequencer). Falls back to
     // whichever side is wired when the other is empty.
@@ -2296,6 +2325,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   FrameSwitch: 'Shows frame A or B, selected by a boolean.',
   Zones: 'Routes up to four wired frames into their own named rectangle of the matrix.',
   Trails: 'Fades the previous frame and re-lightens where the input is brighter.',
+  FrameFeedback: 'Recursive delay — blend a faded prior output over the live input.',
   Transition: 'Transitions A→B — 16 styles: wipe, iris, push, blinds, spiral, zoom + more.',
   Sequencer: 'Crossfades through its inputs on a timer.',
   PatternCollection: 'Absorbs pattern groups into a set for the Show Engine.',
@@ -2476,6 +2506,8 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   glowAmount:     { control: 'slider', min: 0, max: 1, step: 0.01 },
   easeType:       { control: 'select', options: ['inOutCubic', 'inOutQuad', 'triwave', 'quadwave', 'cubicwave'] },
   triggerOp:      { control: 'select', options: ['debounce', 'toggle', 'oneShot', 'pulseDivider', 'delay'] },
+  feedbackTransform: { control: 'select', options: ['none', 'translate', 'rotate', 'scale'] },
+  delayFrames:    { control: 'slider', min: 1, max: 32, step: 1 },
   stableTime:     { control: 'slider', min: 0.01, max: 1, step: 0.01 },
   holdTime:       { control: 'slider', min: 0.02, max: 3, step: 0.02 },
   divideBy:       { control: 'slider', min: 2, max: 16, step: 1 },
@@ -2768,6 +2800,12 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     falloff:   { control: 'slider', min: 0, max: 1, step: 0.01 },
     blendMode: { control: 'select', options: ['add', 'lighten', 'over'] },
   },
+  FrameFeedback: {
+    blendMode: { control: 'select', options: ['normal', 'screen', 'add', 'multiply', 'difference', 'lighten'] },
+    offsetX:   { control: 'slider', min: -16, max: 16, step: 0.5 },
+    offsetY:   { control: 'slider', min: -16, max: 16, step: 0.5 },
+    scale:     { control: 'slider', min: 0.25, max: 4, step: 0.05 },
+  },
   Shape: {
     cx:        N01,
     cy:        N01,
@@ -2902,6 +2940,11 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   Array: [
     { key: 'position', label: 'Position', keys: ['offsetX', 'offsetY', 'angle', 'scale'] },
     { key: 'repeat', label: 'Repeat', keys: ['count', 'falloff', 'blendMode'] },
+  ],
+  FrameFeedback: [
+    { key: 'delay', label: 'Delay', keys: ['delayFrames', 'fade'] },
+    { key: 'blend', label: 'Blend', keys: ['blendMode', 'amount'] },
+    { key: 'transform', label: 'Transform', keys: ['feedbackTransform', 'offsetX', 'offsetY', 'angle', 'scale'] },
   ],
   GradientFrame: [
     { key: 'colorA', label: 'Color A', keys: ['rA', 'gA', 'bA'] },
@@ -3084,6 +3127,18 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
       case 'tileSize':  return tt === 'checkerboard'
       case 'count':     return tt === 'blinds'
       case 'turns':     return tt === 'spiral'
+    }
+  }
+  if (nodeType === 'FrameFeedback') {
+    const mode = String(properties.feedbackTransform ?? 'none')
+    switch (key) {
+      case 'offsetX':
+      case 'offsetY':
+        return mode === 'translate'
+      case 'angle':
+        return mode === 'rotate'
+      case 'scale':
+        return mode === 'scale'
     }
   }
   if (nodeType === 'Particles') {

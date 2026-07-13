@@ -83,6 +83,8 @@ interface ClockState {
 const clockState = new Map<string, ClockState>()
 // Trails node — the persisted, fading accumulator frame.
 const trailState = new Map<string, Frame>()
+interface FrameFeedbackState { frames: Frame[]; index: number; w: number; h: number; capacity: number }
+const frameFeedbackState = new Map<string, FrameFeedbackState>()
 const fftLevels   = new Map<string, { bass: number; mids: number; treble: number }>()
 const beatLevels  = new Map<string, ReturnType<typeof createBeatDetectorState>>()
 type AudioFeatureState = {
@@ -318,7 +320,7 @@ export function pruneEvaluatorState(maxIdleMs = STATE_IDLE_TTL_MS, now = stateCl
 
   const maps: Array<{ delete: (key: string) => boolean }> = [
     fireHeat, flashLevel, counterVals, intervalLast, smoothState, holdState,
-    envState, trailState, fftLevels, beatLevels, clockState, fireRngState,
+    envState, trailState, frameFeedbackState, fftLevels, beatLevels, clockState, fireRngState,
     percussionLevels, audioFeatureLevels, particleState, patternShowState,
     rdState, golState, waveSimState, flowState, starState, boidState, sparkState, fire2012Heat,
     kickShockState, kaleidoPunch, percussionBlobsState, emberBurst,
@@ -488,6 +490,7 @@ function blendChannel(mode: string, a: number, b: number): number {
     case 'overlay':    r = an < 0.5 ? 2 * an * bn : 1 - 2 * (1 - an) * (1 - bn); break
     case 'add':        r = Math.min(1, an + bn); break
     case 'difference': r = Math.abs(an - bn); break
+    case 'lighten':    r = Math.max(an, bn); break
     case 'normal':
     default:           r = bn; break
   }
@@ -671,6 +674,84 @@ function evalTransform(src: Frame, mode: string, rate: number, angle: number, t:
       const rx = x - cx, ry = y - cy
       return sample(cx + rx * cosA + ry * sinA, cy - rx * sinA + ry * cosA)
     })
+}
+
+function sampleFeedbackFrame(
+  src: Frame, transformMode: string, offsetX: number, offsetY: number,
+  angle: number, scale: number, W = DEFAULT_W, H = DEFAULT_H,
+): Frame {
+  const cx = (W - 1) / 2, cy = (H - 1) / 2
+  const sample = (sx: number, sy: number): RGB => {
+    const xi = Math.round(sx), yi = Math.round(sy)
+    if (xi < 0 || xi >= W || yi < 0 || yi >= H) return { r: 0, g: 0, b: 0 }
+    return { ...src[yi][xi] }
+  }
+  if (transformMode === 'translate') {
+    return buildFrame(W, H, (x, y) => {
+      const sx = ((Math.round(x - offsetX) % W) + W) % W
+      const sy = ((Math.round(y - offsetY) % H) + H) % H
+      return { ...src[sy][sx] }
+    })
+  }
+  if (transformMode === 'scale') {
+    const s = Math.max(0.05, Math.min(4, scale))
+    return buildFrame(W, H, (x, y) => sample(cx + (x - cx) / s, cy + (y - cy) / s))
+  }
+  if (transformMode === 'rotate') {
+    const a = (angle * Math.PI) / 180
+    const cosA = Math.cos(a), sinA = Math.sin(a)
+    return buildFrame(W, H, (x, y) => {
+      const rx = x - cx, ry = y - cy
+      return sample(cx + rx * cosA + ry * sinA, cy - rx * sinA + ry * cosA)
+    })
+  }
+  return cloneFrame(src)
+}
+
+function evalFrameFeedback(
+  key: string, src: Frame, delayFrames: number, fade: number, amount: number,
+  blendMode: string, transformMode: string, offsetX: number, offsetY: number,
+  angle: number, scale: number, W = DEFAULT_W, H = DEFAULT_H,
+): Frame {
+  const delay = Math.max(1, Math.min(32, Math.round(delayFrames)))
+  const capacity = delay + 1
+  let state = frameFeedbackState.get(key)
+  if (!state || state.w !== W || state.h !== H || state.capacity !== capacity) {
+    state = {
+      frames: Array.from({ length: capacity }, () => rawBlankFrame(W, H)),
+      index: 0,
+      w: W,
+      h: H,
+      capacity,
+    }
+    frameFeedbackState.set(key, state)
+  }
+
+  const delayed = state.frames[(state.index - delay + capacity) % capacity]
+  const faded = sampleFeedbackFrame(
+    delayed,
+    transformMode,
+    offsetX,
+    offsetY,
+    angle,
+    scale,
+    W,
+    H,
+  )
+  const retain = 1 - clamp01(fade)
+  const opacity = clamp01(amount)
+  const out = state.frames[state.index]
+  for (let y = 0; y < H; y++) {
+    const outRow = out[y], srcRow = src[y], delayedRow = faded[y]
+    for (let x = 0; x < W; x++) {
+      const fb = scaleRgb(delayedRow[x], retain)
+      const px = blendPixel(blendMode, srcRow[x], fb, opacity)
+      const dst = outRow[x]
+      dst.r = px.r; dst.g = px.g; dst.b = px.b
+    }
+  }
+  state.index = (state.index + 1) % capacity
+  return out
 }
 
 // Hard cap on Array copies (guards a garbage `count` from allocating a huge loop).
@@ -4178,6 +4259,31 @@ function createEvalNode(
         }
         trailState.set(key, buf)
         out = { frame: buf }
+        break
+      }
+
+      // Bounded recursive frame feedback. The node stores its own output in a
+      // ring buffer, then composites a delayed, faded/transformed copy over the
+      // current input on the next ticks. That gives video-synth feedback without
+      // permitting graph cycles.
+      case 'FrameFeedback': {
+        const src = input(id, 'frame', null) as Frame | null
+        if (!src) { out = { frame: null }; break }
+        out = { frame: evalFrameFeedback(
+          stateKey(id),
+          src,
+          Number(props.delayFrames ?? 2),
+          num(id, 'fade', props, 'fade', 0.08),
+          num(id, 'amount', props, 'amount', 0.5),
+          String(props.blendMode ?? 'screen'),
+          String(props.feedbackTransform ?? 'none'),
+          num(id, 'offsetX', props, 'offsetX', 0),
+          num(id, 'offsetY', props, 'offsetY', 0),
+          num(id, 'angle', props, 'angle', 0),
+          num(id, 'scale', props, 'scale', 1),
+          W,
+          H,
+        ) }
         break
       }
 

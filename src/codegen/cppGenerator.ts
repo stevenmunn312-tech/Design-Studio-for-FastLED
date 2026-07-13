@@ -724,6 +724,9 @@ export function generateCpp(
   const frameBufs = new Set<string>()
   // Field-producing nodes (FieldFormula …) render into a parallel float buffer.
   const fieldBufs = new Set<string>()
+  // Stateful feedback history buffers stay as static internal RAM even when
+  // MatrixOutput moves ordinary render buffers into PSRAM.
+  const feedbackHistoryBufs = new Map<string, number>()
 
   function emit(node: StudioNode): void {
     const id = safeId(node.id)
@@ -2345,6 +2348,73 @@ export function generateCpp(
         break
       }
 
+      case 'FrameFeedback': {
+        const ob = ownBuf()
+        const src = srcBuf('frame')
+        if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black);`); break }
+        const delay = Math.max(1, Math.min(32, Math.round(Number(p.delayFrames ?? 2))))
+        const capacity = delay + 1
+        feedbackHistoryBufs.set(id, capacity)
+        const hist = `_fb_${id}`
+        const fade = f('fade', 'fade', 0.08)
+        const amount = f('amount', 'amount', 0.5)
+        const offX = f('offsetX', 'offsetX', 0)
+        const offY = f('offsetY', 'offsetY', 0)
+        const angle = f('angle', 'angle', 0)
+        const scale = f('scale', 'scale', 1)
+        const mode = String(p.blendMode ?? 'screen')
+        const transformMode = String(p.feedbackTransform ?? 'none')
+        ln(`  { // FrameFeedback: ${delay}-frame recursive ring buffer`)
+        ln(`    static uint8_t _fb_idx_${id}=0;`)
+        ln(`    const uint8_t _fb_cap_${id}=${capacity};`)
+        ln(`    uint8_t _fb_read_${id}=(_fb_idx_${id}+_fb_cap_${id}-${delay})%_fb_cap_${id};`)
+        ln(`    float _fb_fade_${id}=1.0f-constrain(${fade},0.0f,1.0f);`)
+        ln(`    float _fb_amt_${id}=constrain(${amount},0.0f,1.0f);`)
+        ln(`    float _fb_cx_${id}=(WIDTH-1)/2.0f,_fb_cy_${id}=(HEIGHT-1)/2.0f;`)
+        if (transformMode === 'translate') {
+          ln(`    float _fb_dx_${id}=${offX},_fb_dy_${id}=${offY};`)
+        } else if (transformMode === 'rotate') {
+          ln(`    float _fb_a_${id}=${angle}*0.01745329f,_fb_co_${id}=cos(_fb_a_${id}),_fb_si_${id}=sin(_fb_a_${id});`)
+        } else if (transformMode === 'scale') {
+          ln(`    float _fb_s_${id}=constrain(${scale},0.05f,4.0f);`)
+        }
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        if (transformMode === 'translate') {
+          ln(`      int _sx=(((int)floorf(_x-_fb_dx_${id}+0.5f))%WIDTH+WIDTH)%WIDTH,_sy=(((int)floorf(_y-_fb_dy_${id}+0.5f))%HEIGHT+HEIGHT)%HEIGHT;`)
+          ln(`      CRGB _fb=${hist}[_fb_read_${id}][_sy*WIDTH+_sx];`)
+        } else if (transformMode === 'rotate') {
+          ln(`      float _rx=_x-_fb_cx_${id},_ry=_y-_fb_cy_${id}; int _sx=(int)floorf(_fb_cx_${id}+_rx*_fb_co_${id}+_ry*_fb_si_${id}+0.5f),_sy=(int)floorf(_fb_cy_${id}-_rx*_fb_si_${id}+_ry*_fb_co_${id}+0.5f);`)
+          ln(`      CRGB _fb=(_sx>=0&&_sx<WIDTH&&_sy>=0&&_sy<HEIGHT)?${hist}[_fb_read_${id}][_sy*WIDTH+_sx]:CRGB::Black;`)
+        } else if (transformMode === 'scale') {
+          ln(`      int _sx=(int)floorf(_fb_cx_${id}+(_x-_fb_cx_${id})/_fb_s_${id}+0.5f),_sy=(int)floorf(_fb_cy_${id}+(_y-_fb_cy_${id})/_fb_s_${id}+0.5f);`)
+          ln(`      CRGB _fb=(_sx>=0&&_sx<WIDTH&&_sy>=0&&_sy<HEIGHT)?${hist}[_fb_read_${id}][_sy*WIDTH+_sx]:CRGB::Black;`)
+        } else {
+          ln(`      CRGB _fb=${hist}[_fb_read_${id}][_y*WIDTH+_x];`)
+        }
+        ln(`      _fb.nscale8((uint8_t)(_fb_fade_${id}*255.0f));`)
+        ln(`      CRGB _a=${src}[_y*WIDTH+_x];`)
+        if (mode === 'normal') {
+          ln(`      CRGB _r=_a; nblend(_r,_fb,(uint8_t)(_fb_amt_${id}*255.0f)); ${ob}[_y*WIDTH+_x]=_r;`)
+        } else if (mode === 'lighten') {
+          ln(`      ${ob}[_y*WIDTH+_x]=CRGB((uint8_t)(_a.r*(1.0f-_fb_amt_${id})+max(_a.r,_fb.r)*_fb_amt_${id}),(uint8_t)(_a.g*(1.0f-_fb_amt_${id})+max(_a.g,_fb.g)*_fb_amt_${id}),(uint8_t)(_a.b*(1.0f-_fb_amt_${id})+max(_a.b,_fb.b)*_fb_amt_${id}));`)
+        } else {
+          const expr: Record<string, string> = {
+            multiply:   '_av*_bv',
+            screen:     '1.0f-(1.0f-_av)*(1.0f-_bv)',
+            add:        'min(1.0f,_av+_bv)',
+            difference: 'fabsf(_av-_bv)',
+          }
+          ln(`      for(int _c=0;_c<3;_c++){ float _av=_a[_c]/255.0f,_bv=_fb[_c]/255.0f;`)
+          ln(`        float _m=${expr[mode] ?? '1.0f-(1.0f-_av)*(1.0f-_bv)'};`)
+          ln(`        ${ob}[_y*WIDTH+_x][_c]=(uint8_t)((_av*(1.0f-_fb_amt_${id})+_m*_fb_amt_${id})*255.0f); }`)
+        }
+        ln(`    }`)
+        ln(`    ::memmove(${hist}[_fb_idx_${id}], ${ob}, sizeof(CRGB) * NUM_LEDS);`)
+        ln(`    _fb_idx_${id}=(_fb_idx_${id}+1)%_fb_cap_${id};`)
+        ln(`  }`)
+        break
+      }
+
       case 'Mask': {
         const ob = ownBuf()
         const mask = srcBuf('mask')
@@ -3841,6 +3911,9 @@ export function generateCpp(
     const ps = usePsram ? psramBufferDecl(d) : null
     if (ps) { lines.push(ps.decl); psramAllocs.push(ps.alloc) }
     else lines.push(d)
+  }
+  for (const [id, capacity] of feedbackHistoryBufs) {
+    lines.push(`CRGB _fb_${id}[${capacity}][NUM_LEDS];`)
   }
   lines.push(``)
   if (usePsram) {

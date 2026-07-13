@@ -2705,6 +2705,68 @@ describe('Trails', () => {
   })
 })
 
+// ── Frame Feedback / Delay ──────────────────────────────────────────────────
+
+describe('FrameFeedback', () => {
+  const pixel = (nodes: StudioNode[], edges: StudioEdge[], tick: number, x = 0, y = 0) => {
+    const frame = evaluateGraph(nodes, edges, tick, W, H)
+    return frame![y][x]
+  }
+  const buildSolid = (id: string, r: number, props: Record<string, unknown> = {}) => {
+    const sc = node(`${id}src`, 'SolidColor', 'pattern', { r, g: 0, b: 0 })
+    const fb = node(id, 'FrameFeedback', 'composite', {
+      delayFrames: 1,
+      fade: 0,
+      amount: 1,
+      blendMode: 'screen',
+      feedbackTransform: 'none',
+      ...props,
+    })
+    return withOutput(fb, [sc], [edge(`${id}e1`, `${id}src`, 'frame', id, 'frame')])
+  }
+
+  it('feeds back this node output after the configured delay', () => {
+    const seed = buildSolid('fbDelay', 255, { delayFrames: 2 })
+    expect(pixel(seed.nodes, seed.edges, 0)).toEqual({ r: 255, g: 0, b: 0 })
+
+    const dark = buildSolid('fbDelay', 0, { delayFrames: 2 })
+    expect(pixel(dark.nodes, dark.edges, 1)).toEqual({ r: 0, g: 0, b: 0 })
+    expect(pixel(dark.nodes, dark.edges, 2)).toEqual({ r: 255, g: 0, b: 0 })
+  })
+
+  it('fades the delayed frame before blending it back in', () => {
+    const seed = buildSolid('fbFade', 200)
+    pixel(seed.nodes, seed.edges, 0)
+    const dark = buildSolid('fbFade', 0, { fade: 0.25 })
+    expect(pixel(dark.nodes, dark.edges, 1)).toEqual({ r: 150, g: 0, b: 0 })
+  })
+
+  it('can translate the delayed frame before blending', () => {
+    const dotSrc = dot('fbDotsrc', '#ff0000')
+    const fb = node('fbDot', 'FrameFeedback', 'composite', {
+      delayFrames: 1,
+      fade: 0,
+      amount: 1,
+      blendMode: 'screen',
+      feedbackTransform: 'translate',
+      offsetX: 1,
+      offsetY: 0,
+    })
+    const seeded = withOutput(fb, [dotSrc], [edge('fbDote1', 'fbDotsrc', 'frame', 'fbDot', 'frame')])
+    evaluateGraph(seeded.nodes, seeded.edges, 0, W, H)
+
+    const black = node('fbBlacksrc', 'SolidColor', 'pattern', { r: 0, g: 0, b: 0 })
+    const shifted = withOutput(fb, [black], [edge('fbDote2', 'fbBlacksrc', 'frame', 'fbDot', 'frame')])
+    expect(pixel(shifted.nodes, shifted.edges, 1, 1, 0).r).toBeGreaterThan(0)
+  })
+
+  it('outputs null when unwired', () => {
+    const fb = node('fbunwired', 'FrameFeedback', 'composite', {})
+    const { outputs } = evaluateGraphFull([fb], [], 0, W, H)
+    expect(outputs.get('fbunwired')!.frame).toBeNull()
+  })
+})
+
 // ── Field Noise / Frame → Field ──────────────────────────────────────────────
 
 describe('FieldNoise and FrameToField', () => {

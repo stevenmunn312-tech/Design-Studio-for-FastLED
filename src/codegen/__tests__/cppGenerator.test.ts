@@ -1958,6 +1958,30 @@ describe('Trails (feedback/persistence)', () => {
   })
 })
 
+describe('FrameFeedback (bounded delay feedback)', () => {
+  it('emits a fixed recursive ring buffer and stores the produced output', () => {
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    const fb = node('fb', 'FrameFeedback', 'composite', {
+      delayFrames: 2,
+      fade: 0.1,
+      amount: 0.6,
+      blendMode: 'screen',
+      feedbackTransform: 'translate',
+      offsetX: 1,
+      offsetY: 0,
+    })
+    const cpp = generateCpp([sc, fb, outputNode], [
+      edge('e1', 'sc', 'fb', 'frame', 'frame'),
+      edge('e2', 'fb', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('CRGB _fb_fb[3][NUM_LEDS];')
+    expect(cpp).toContain('uint8_t _fb_read_fb=(_fb_idx_fb+_fb_cap_fb-2)%_fb_cap_fb;')
+    expect(cpp).toContain('float _fb_fade_fb=1.0f-constrain(0.1,0.0f,1.0f);')
+    expect(cpp).toContain('CRGB _fb=_fb_fb[_fb_read_fb][_sy*WIDTH+_sx];')
+    expect(cpp).toContain('::memmove(_fb_fb[_fb_idx_fb], buf_fb, sizeof(CRGB) * NUM_LEDS);')
+  })
+})
+
 describe('FieldNoise / FrameToField', () => {
   it('FieldNoise declares a field buffer and writes an inoise8-based fBm', () => {
     const fn = node('fn', 'FieldNoise', 'pattern', { speed: 0.4, scale: 0.3, octaves: 3 })

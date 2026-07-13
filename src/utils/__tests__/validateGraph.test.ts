@@ -286,6 +286,21 @@ describe('validateGraph', () => {
       expect(ram.statefulBytes).toBe(120 * 27)
     })
 
+    it('counts FrameFeedback history as internal state even with a normal frame buffer', () => {
+      const nodes = [
+        node('sc', 'SolidColor'),
+        node('fb', 'FrameFeedback', { delayFrames: 3 }),
+        node('out', 'MatrixOutput', { width: 4, height: 4 }),
+      ]
+      const edges = [
+        edge('e1', 'sc', 'fb', 'frame'),
+        edge('e2', 'fb', 'out', 'frame'),
+      ]
+      const ram = estimateFirmwareRam(nodes, edges)!
+      expect(ram.frameBufferBytes).toBe(96) // SolidColor + FrameFeedback
+      expect(ram.statefulBytes).toBe(16 * 3 * 4) // (delay + current slot) * CRGB pixels
+    })
+
     it('offloads frame/field buffers to PSRAM when usePsram is on', () => {
       const nodes = [node('sc', 'SolidColor'), node('out', 'MatrixOutput', { width: 4, height: 4, usePsram: true })]
       const edges = [edge('e1', 'sc', 'out', 'frame')]
