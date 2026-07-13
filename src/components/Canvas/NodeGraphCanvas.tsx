@@ -120,6 +120,10 @@ function NodeGraphCanvasInner() {
   // being reconnected. Keep those gestures out of the output drag-to-create
   // path, otherwise unplugging an input can open the add-node picker.
   const reconnecting = useRef(false)
+  // Grabbing the input dot itself is easier than hitting React Flow's tiny
+  // reconnect anchor. Track that direct-detach gesture so the old edge can be
+  // removed up front and the trailing connect-end can report an unplug.
+  const detaching = useRef<{ edgeId: string } | null>(null)
   // Origin of an in-progress connection dragged from an output port; used to
   // offer a type-filtered "add node" picker when the noodle is dropped on
   // empty space, then auto-wire the new node to this output.
@@ -418,6 +422,7 @@ function NodeGraphCanvasInner() {
   const onConnectStart: OnConnectStart = useCallback(
     (_e, params) => {
       connectFrom.current = null
+      detaching.current = null
       // Dragging out of an output port: remember its type so an empty-space
       // drop can offer a compatible-node picker.
       if (params.handleType === 'source' && params.nodeId) {
@@ -427,15 +432,32 @@ function NodeGraphCanvasInner() {
         if (out) connectFrom.current = { nodeId: params.nodeId, handleId: out.id, dataType: out.dataType }
         return
       }
+      // Dragging from a connected input handle is an unplug/reroute gesture.
+      // Remove the old noodle immediately so dropping on empty leaves the input
+      // cleanly disconnected; a valid drop on an output will create a new edge.
+      if (params.handleType === 'target' && params.nodeId && params.handleId) {
+        const edge = edges.find((entry) => entry.target === params.nodeId && entry.targetHandle === params.handleId)
+        if (edge) {
+          detaching.current = { edgeId: edge.id }
+          removeEdge(edge.id)
+        }
+      }
     },
-    [getNode]
+    [edges, getNode, removeEdge]
   )
 
   const onConnectEnd: OnConnectEnd = useCallback(
     (event, state) => {
       const origin = connectFrom.current
+      const detached = detaching.current
       connectFrom.current = null
+      detaching.current = null
       if (reconnecting.current) return
+      if (detached && !state?.toHandle) {
+        playNoodleDisconnectSfx()
+        setStatus('Noodle unplugged', 'info')
+        return
+      }
       // Dropped a noodle from an output onto empty canvas (no end handle):
       // offer a picker of nodes that have a compatible input, then auto-wire.
       if (origin && !state?.toHandle) {
