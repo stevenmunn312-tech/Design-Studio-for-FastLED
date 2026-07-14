@@ -1,4 +1,0 @@
-.fbuild/build/esp32_esp32_esp32s3/release/core/firmware_msc_fat_0f77.c.o: \
- C:/Users/User/.fbuild/prod/cache/platforms/framework-arduinoespressif32/9ef436ac06b7bf7f/3.3.9/esp32-core-3.3.9/cores/esp32/firmware_msc_fat.c \
- C:/Users/User/.fbuild/prod/cache/platforms/framework-arduinoespressif32/9ef436ac06b7bf7f/3.3.9/esp32-core-3.3.9/cores/esp32/firmware_msc_fat.h \
- C:/Users/User/.fbuild/prod/cache/platforms/framework-arduinoespressif32/9ef436ac06b7bf7f/3.3.9/esp32-core-3.3.9/tools/esp32-arduino-libs/esp32s3/include/newlib/platform_include/stdio.h

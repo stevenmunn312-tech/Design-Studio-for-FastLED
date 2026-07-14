@@ -9,9 +9,7 @@ backend/.venv/
 backend/__pycache__/
 backend/.helper-config.json   # persisted arduino-cli path
 backend/bin/                  # self-installed arduino-cli binary
-backend/.fbuild-project/      # fbuild build workspace + vendored FastLED lib
-backend/.fbuild-project/lib/FastLED/
-backend/.fbuild-project/lib/ESP32-audioI2S/
+backend/.fbuild-project/      # fbuild build workspace + vendored FastLED/audio libs
 __pycache__/
 *.pyc
 
