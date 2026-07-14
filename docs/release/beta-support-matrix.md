@@ -18,7 +18,7 @@ the exact environment and path that were exercised. Everything else stays
 
 | Status | Host OS | Browser | Board | Chipset | Matrix | Layout | Build engine | Upload method | Scope | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Supported | Not recorded in the validation note | Not recorded in the validation note | ESP32-S3 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | USB flash via `esptool` through the helper's normal Upload path | Generate a live-graph sketch, compile, flash, and run it on hardware | `backend/README.md` and `CLAUDE.md` build-engine note (`2026-06-26`) |
+| Supported | Windows 11 | Chrome 150.0.7871.101 | ESP32-S3 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | USB flash via `esptool` through the helper's normal Upload path | Generate a live-graph sketch, compile, flash, and run it on hardware | `backend/README.md` and `CLAUDE.md` build-engine note (`2026-06-26`) |
 
 This is the only fully recorded public-beta support row today.
 
@@ -29,8 +29,8 @@ not capture every field needed for a full matrix row.
 
 | Validation | Host OS | Browser | Board | Chipset | Matrix | Layout | Build engine | Upload method | Recorded result |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Generative show controller sketch | Not recorded | Not recorded | ESP32-S3 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | Not recorded | Two-pattern collection compiled and ran with smooth crossfades and ~5 s dwell matching preview (`2026-06-26`) |
-| On-device mic FFT path | Not recorded | Not recorded | ESP32-S3 + INMP441 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | Not recorded | Compiled, uploaded, and reacted to live audio on hardware (`2026-06-28`) |
+| Generative show controller sketch | Windows 11 | Chrome 150.0.7871.101 | ESP32-S3 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | Not recorded | Two-pattern collection compiled and ran with smooth crossfades and ~5 s dwell matching preview (`2026-06-26`) |
+| On-device mic FFT path | Windows 11 | Chrome 150.0.7871.101 | ESP32-S3 + INMP441 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | Not recorded | Compiled, uploaded, and reacted to live audio on hardware (`2026-06-28`) |
 | Flash Wiring Test diagnostic sketch | Windows 11 | Chrome 150.0.7871.101 | ESP32-S3 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | 🧪 Flash Wiring Test | LEDs displayed correctly across the diagnostic checks (`2026-07-15`) |
 | Live Stream via Flash Stream Receiver | Windows 11 | Chrome 150.0.7871.101 | ESP32-S3 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | ⚡ Flash Stream Receiver + 📡 Live Stream | Flashed the Adalight receiver, then streamed live-preview frames over serial successfully (`2026-07-15`) |
 
@@ -52,10 +52,10 @@ board validation:
 
 Unless a future row says otherwise, treat the following as experimental:
 
-- All host browsers, because no named browser/version has a recorded manual
-  validation pass yet.
-- All host OS + browser combinations, because the current hardware validation
-  notes did not record them.
+- All browsers except Chrome 150.0.7871.101, the only browser with a recorded
+  manual validation pass.
+- All host OS + browser combinations except Windows 11 + Chrome
+  150.0.7871.101, the recorded combo above.
 - All boards except ESP32-S3.
 - All LED chipsets except the recorded WS2812B row above.
 - All matrix sizes except the recorded 16x16 row above.
