@@ -3718,7 +3718,7 @@ function createEvalNode(
                 treble: (Math.sin(t * 5.3 + 2.0) + 1) / 2,
               }
             : { bass: 0, mids: 0, treble: 0 }
-        const gain = Math.max(0.25, Math.min(4, Number(props.gain ?? 1)))
+        const gain = Math.max(0.25, Math.min(20, Number(props.gain ?? 1)))
         // Early builds stored smoothing as an integer (default 3) but never
         // used it. Interpret that legacy value as quarters so saved graphs get
         // the intended 0.75 response instead of becoming almost frozen.
