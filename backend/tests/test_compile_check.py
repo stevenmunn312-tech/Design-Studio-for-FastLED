@@ -76,6 +76,33 @@ def test_compile_check_400_when_engine_missing(client, monkeypatch):
     assert r.json()["ok"] is False
 
 
+def test_compile_check_falls_back_to_the_size_cache_on_a_no_op_incremental_build(client, monkeypatch, tmp_path):
+    # Regression test: fbuild skips reprinting "Flash:"/"RAM:" when an
+    # incremental build decides nothing changed, so a repeat capacity check
+    # on an unchanged sketch used to come back with no numbers at all.
+    monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
+    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
+    monkeypatch.setattr(app, "_FBUILD_PROJECT_DIR", tmp_path)
+    cache_dir = tmp_path / ".fbuild" / "build" / "esp32_esp32_esp32s3" / "release"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / ".firmware_size_cache.json").write_text(
+        '{"size_info": {"total_flash": 688819, "max_flash": 8388608, '
+        '"total_ram": 30000, "max_ram": 327680}}'
+    )
+
+    def fake_compile_upload_fbuild(label, ino, fqbn, port):
+        yield "build is up to date, nothing to do\n"  # no Flash:/RAM: line at all
+        return 0, "compile"
+
+    monkeypatch.setattr(app, "_compile_upload_fbuild", fake_compile_upload_fbuild)
+
+    r = client.post("/api/compile-check", json={"ino": "void setup(){}", "fqbn": "esp32:esp32:esp32s3"})
+    data = r.json()
+    assert data["ok"] is True
+    assert data["flash"]["percent"] == 8
+    assert data["ram"]["percent"] == 9
+
+
 def test_compile_check_400_when_ino_blank(client, monkeypatch):
     monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
     monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")

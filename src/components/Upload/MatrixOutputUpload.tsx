@@ -70,7 +70,14 @@ export default function MatrixOutputUpload({
       </div>
       <div className={styles.targetLabel} title={target}>{target}</div>
       {capacity && (
-        <div className={`${styles.capacityLine} ${styles[CAPACITY_LEVEL_CLASS[capacity.level]]}`} title="Live controller-capacity check — compiled against the selected board, no port needed">
+        <div
+          className={`${styles.capacityLine} ${styles[CAPACITY_LEVEL_CLASS[capacity.level]]}`}
+          title={
+            capacityResult && !capacityResult.ok && capacityResult.log
+              ? `Live controller-capacity check failed:\n${capacityResult.log.slice(-1500)}`
+              : 'Live controller-capacity check — compiled against the selected board, no port needed'
+          }
+        >
           {capacity.text}
         </div>
       )}

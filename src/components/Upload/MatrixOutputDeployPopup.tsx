@@ -292,7 +292,11 @@ export default function MatrixOutputDeployPopup() {
         {hasFrameInput && (
           <div
             className={`${styles.capacityLine} ${styles[CAPACITY_LEVEL_CLASS[capacitySummary.level]]}`}
-            title="Live controller-capacity check, compiled against the selected board with no port needed"
+            title={
+              capacityResult && !capacityResult.ok && capacityResult.log
+                ? `Live controller-capacity check failed:\n${capacityResult.log.slice(-1500)}`
+                : 'Live controller-capacity check, compiled against the selected board with no port needed'
+            }
           >
             {capacitySummary.text}
           </div>

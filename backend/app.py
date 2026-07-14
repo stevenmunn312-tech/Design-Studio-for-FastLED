@@ -206,6 +206,17 @@ _FQBN_PSRAM_VALUES = {"opi": "opi", "enabled": "qspi"}
 
 _fbuild_project_ready = False
 
+# fbuild's project scaffold is a single shared directory (see above) — only one
+# `main.cpp` at a time, so two overlapping builds (e.g. a real Upload racing
+# the live capacity meter's compile-only check, or two rapid-fire capacity
+# checks while a user is still editing) can interleave a write with a build
+# and corrupt each other's output. Observed in practice as a compile that
+# reports success but produces no parseable size line, or an unrelated build
+# failure that a caller could easily misread as a real capacity overflow.
+# Every `_compile_upload_fbuild` run holds this for its whole duration so
+# fbuild compiles are always serialized project-wide.
+_fbuild_build_lock = threading.Lock()
+
 
 def _env_id(base_fqbn: str, psram_id: str | None = None) -> str:
     slug = re.sub(r"[^A-Za-z0-9_]", "_", base_fqbn)
@@ -543,6 +554,43 @@ def _fbuild_size_bytes_report(lines):
     return result
 
 
+def _fbuild_cached_size(env: str) -> dict | None:
+    """Read fbuild's own persisted size-cache file for `env`, as a fallback
+    when a completed build's stdout had no parseable size line.
+
+    fbuild only reprints "Flash:"/"RAM:" when it actually reruns the linker —
+    an incremental build that decides nothing changed since the last run
+    reuses the prior binary and skips that line entirely, even though the
+    artifact (and this cache, which fbuild keeps next to it) is still
+    perfectly current. Without this fallback, a repeat capacity check on an
+    unchanged sketch silently comes back with no numbers at all."""
+    path = _FBUILD_PROJECT_DIR / ".fbuild" / "build" / env / "release" / ".firmware_size_cache.json"
+    try:
+        info = json.loads(path.read_text()).get("size_info")
+    except Exception:
+        return None
+    if not isinstance(info, dict):
+        return None
+
+    def metric(used_key: str, max_key: str, allow_over_100: bool) -> dict | None:
+        used, limit = info.get(used_key), info.get(max_key)
+        if not isinstance(used, int) or not isinstance(limit, int) or limit <= 0:
+            return None
+        pct = used / limit * 100
+        # Same "impossible ESP32 RAM" guard as `_fbuild_size_report`: some
+        # successful builds report `total_ram` including sections that are
+        # not the board's usable internal SRAM (e.g. >100%), which would be a
+        # misleading headroom figure.
+        if not allow_over_100 and pct > 100:
+            return None
+        return {"usedBytes": used, "limitBytes": limit, "percent": round(pct)}
+
+    return {
+        "flash": metric("total_flash", "max_flash", allow_over_100=False),
+        "ram": metric("total_ram", "max_ram", allow_over_100=False),
+    }
+
+
 def _drain_compile(gen):
     """Run a `_compile_upload`/`_compile_upload_fbuild` generator to completion,
     collecting its yielded log lines and returning `(lines, (rc, phase))` — used
@@ -558,51 +606,58 @@ def _drain_compile(gen):
 
 def _compile_upload_fbuild(label, ino, fqbn, port):
     """fbuild-engine counterpart to `_compile_upload` — same (rc, phase)
-    contract, so callers don't need to know which engine ran."""
-    yield from _ensure_fbuild_project()
-    env = _fbuild_env_for_fqbn(fqbn)
-    if env is None:
-        yield f"\n=== ✗ {label}: no fbuild board mapping for {fqbn} ===\n"
-        return -1, "compile"
-    _write_fbuild_main(ino)
+    contract, so callers don't need to know which engine ran.
 
-    compile_lines = []
-    rc = yield from _run_phase(
-        f"{label} · compile", [_FBUILD_BIN, "build", "-e", env, "-v", "--no-timestamp"],
-        sink=compile_lines, cwd=_FBUILD_PROJECT_DIR,
-    )
-    if rc != 0:
-        if _looks_like_overflow(compile_lines):
-            yield (
-                f"\n=== ✗ Too big for {fqbn} ===\n"
-                "  This design is larger than the board can hold. Try fewer\n"
-                "  patterns in the collection, a smaller matrix, or fewer heavy\n"
-                "  nodes (Image / audio / field) — or pick a board (or ESP32\n"
-                "  partition scheme) with more space.\n"
-                "  [size-error] won't fit on this board\n"
-            )
-        return rc, "compile"
+    Holds `_fbuild_build_lock` for the whole run: fbuild's project scaffold is
+    one shared directory (see above), so a second build starting before this
+    one finishes would overwrite `main.cpp` and interleave `fbuild build`
+    output — serializing here is what makes that impossible rather than just
+    unlikely."""
+    with _fbuild_build_lock:
+        yield from _ensure_fbuild_project()
+        env = _fbuild_env_for_fqbn(fqbn)
+        if env is None:
+            yield f"\n=== ✗ {label}: no fbuild board mapping for {fqbn} ===\n"
+            return -1, "compile"
+        _write_fbuild_main(ino)
 
-    report = _fbuild_size_report(compile_lines)
-    if report["flash"] is not None:
-        ram = f" · ram {report['ram']}%" if report["ram"] is not None else ""
-        yield f"  [size] flash {report['flash']}%{ram}\n"
-        tight = [
-            f"{kind} {report[kind]}%"
-            for kind in ("flash", "ram")
-            if report[kind] is not None and report[kind] >= _SIZE_WARN_PCT
-        ]
-        if tight:
-            yield f"  [size-warning] little headroom left ({', '.join(tight)})\n"
+        compile_lines = []
+        rc = yield from _run_phase(
+            f"{label} · compile", [_FBUILD_BIN, "build", "-e", env, "-v", "--no-timestamp"],
+            sink=compile_lines, cwd=_FBUILD_PROJECT_DIR,
+        )
+        if rc != 0:
+            if _looks_like_overflow(compile_lines):
+                yield (
+                    f"\n=== ✗ Too big for {fqbn} ===\n"
+                    "  This design is larger than the board can hold. Try fewer\n"
+                    "  patterns in the collection, a smaller matrix, or fewer heavy\n"
+                    "  nodes (Image / audio / field) — or pick a board (or ESP32\n"
+                    "  partition scheme) with more space.\n"
+                    "  [size-error] won't fit on this board\n"
+                )
+            return rc, "compile"
 
-    if not port:
-        yield "  (no port selected — compiled only)\n"
-        return 0, "compile"
-    rc = yield from _run_phase(
-        f"{label} · upload", [_FBUILD_BIN, "deploy", "-e", env, "-p", port, "--skip-build", "--no-timestamp"],
-        cwd=_FBUILD_PROJECT_DIR,
-    )
-    return rc, "upload"
+        report = _fbuild_size_report(compile_lines)
+        if report["flash"] is not None:
+            ram = f" · ram {report['ram']}%" if report["ram"] is not None else ""
+            yield f"  [size] flash {report['flash']}%{ram}\n"
+            tight = [
+                f"{kind} {report[kind]}%"
+                for kind in ("flash", "ram")
+                if report[kind] is not None and report[kind] >= _SIZE_WARN_PCT
+            ]
+            if tight:
+                yield f"  [size-warning] little headroom left ({', '.join(tight)})\n"
+
+        if not port:
+            yield "  (no port selected — compiled only)\n"
+            return 0, "compile"
+        rc = yield from _run_phase(
+            f"{label} · upload", [_FBUILD_BIN, "deploy", "-e", env, "-p", port, "--skip-build", "--no-timestamp"],
+            cwd=_FBUILD_PROJECT_DIR,
+        )
+        return rc, "upload"
 
 
 def _upload_result_lines(rc, phase, port):
@@ -1165,6 +1220,15 @@ def compile_check(payload: dict = Body(...)):
     if engine == "fbuild":
         lines, (rc, _phase) = _drain_compile(_compile_upload_fbuild("Capacity check", ino, fqbn, ""))
         sizes = _fbuild_size_bytes_report(lines)
+        # A no-op incremental build (nothing changed since the last compile)
+        # skips fbuild's own "Flash:"/"RAM:" line entirely — fall back to its
+        # persisted size-cache file rather than reporting an empty result for
+        # a build that actually succeeded.
+        if rc == 0 and sizes.get("flash") is None:
+            env = _fbuild_env_for_fqbn(fqbn)
+            cached = _fbuild_cached_size(env) if env else None
+            if cached:
+                sizes = cached
     else:
         work, sketch_dir = _make_sketch(SKETCH, ino)
         try:

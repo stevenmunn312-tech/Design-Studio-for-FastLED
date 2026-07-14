@@ -1,5 +1,8 @@
 """Build-engine selection and FQBN <-> fbuild-environment translation — pure
 logic, no subprocess/hardware involved."""
+import threading
+import time
+
 import app
 
 
@@ -144,6 +147,85 @@ def test_fbuild_size_bytes_report_drops_impossible_ram_percentage():
 
     assert report["flash"]["percent"] == 8
     assert report["ram"] is None
+
+
+def test_fbuild_cached_size_reads_the_persisted_size_cache_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "_FBUILD_PROJECT_DIR", tmp_path)
+    cache_dir = tmp_path / ".fbuild" / "build" / "esp32_esp32_esp32s3" / "release"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / ".firmware_size_cache.json").write_text(
+        '{"size_info": {"total_flash": 688819, "max_flash": 8388608, '
+        '"total_ram": 30000, "max_ram": 327680}}'
+    )
+
+    result = app._fbuild_cached_size("esp32_esp32_esp32s3")
+
+    assert result == {
+        "flash": {"usedBytes": 688819, "limitBytes": 8388608, "percent": 8},
+        "ram": {"usedBytes": 30000, "limitBytes": 327680, "percent": 9},
+    }
+
+
+def test_fbuild_cached_size_drops_impossible_ram_percentage(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "_FBUILD_PROJECT_DIR", tmp_path)
+    cache_dir = tmp_path / ".fbuild" / "build" / "esp32_esp32_esp32s3" / "release"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / ".firmware_size_cache.json").write_text(
+        '{"size_info": {"total_flash": 665410, "max_flash": 8388608, '
+        '"total_ram": 1340869, "max_ram": 327680}}'
+    )
+
+    result = app._fbuild_cached_size("esp32_esp32_esp32s3")
+
+    assert result["flash"]["percent"] == 8
+    assert result["ram"] is None
+
+
+def test_fbuild_cached_size_returns_none_when_file_is_missing(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "_FBUILD_PROJECT_DIR", tmp_path)
+    assert app._fbuild_cached_size("esp32_esp32_esp32s3") is None
+
+
+def test_compile_upload_fbuild_serializes_concurrent_builds(monkeypatch):
+    # Regression test: fbuild's project scaffold is one shared directory (a
+    # single main.cpp + one build output), so two overlapping builds used to
+    # interleave and corrupt each other's output — observed as a compile that
+    # reports success with no parseable size line, or a spurious failure a
+    # caller could misread as a capacity overflow. `_fbuild_build_lock` must
+    # keep every real build fully serialized.
+    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn: "esp32_esp32_esp32s3")
+    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
+
+    active = 0
+    max_active = 0
+    guard = threading.Lock()
+
+    def fake_run_phase(label, args, sink=None, cwd=None):
+        nonlocal active, max_active
+        with guard:
+            active += 1
+            max_active = max(max_active, active)
+        time.sleep(0.05)  # long enough that a race would overlap reliably
+        if sink is not None:
+            sink.append("Flash: 1.00KB / 10.00KB (10.0%)\n")
+        with guard:
+            active -= 1
+        yield "ok\n"
+        return 0
+
+    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+
+    def run():
+        list(app._compile_upload_fbuild("Test", "void setup(){}", "esp32:esp32:esp32s3", ""))
+
+    threads = [threading.Thread(target=run) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert max_active == 1
 
 
 def test_drain_compile_collects_lines_and_return_value():
