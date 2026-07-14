@@ -66,8 +66,8 @@ Unless a future row says otherwise, treat the following as experimental:
 - PSRAM modes.
 - Non-crossfade show transitions, beat-triggered show advance, and particle
   overlay in generative shows.
-- Baked song envelopes, collection-driven modulation, and serial live
-  streaming in the music-show pipeline.
+- Baked song envelopes and collection-driven modulation in the music-show
+  pipeline.
 
 ## How to graduate a new supported row
 
