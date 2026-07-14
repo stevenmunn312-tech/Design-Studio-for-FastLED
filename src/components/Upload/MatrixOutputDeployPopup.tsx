@@ -5,16 +5,22 @@ import { useUploadStore, boardByFqbn, engineReady } from '../../state/uploadStor
 import { useStreamStore } from '../../state/streamStore'
 import { useMusicStore } from '../../state/musicStore'
 import { useProjectStore } from '../../state/projectStore'
+import { useCapacityStore } from '../../state/capacityStore'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph } from '../../codegen/streamReceiverGenerator'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
 import { sdCardConnected, readySongCount, buildShowPayload } from '../../utils/showUpload'
 import { findPinConflicts, findMatrixLayoutErrors } from '../../utils/validateGraph'
+import { summarizeCapacity } from '../../utils/capacityFormat'
 import CodeViewPopup from './CodeViewPopup'
 import styles from './Upload.module.css'
 
 type ReadinessState = 'ready' | 'checking' | 'missing'
+
+const CAPACITY_LEVEL_CLASS = {
+  ok: 'capacityOk', warn: 'capacityWarn', error: 'capacityError', pending: 'capacityPending',
+} as const
 
 export default function MatrixOutputDeployPopup() {
   const [readinessOpen, setReadinessOpen] = useState(false)
@@ -59,7 +65,21 @@ export default function MatrixOutputDeployPopup() {
 
   const pinConflicts = useMemo(() => findPinConflicts(nodes), [nodes])
   const layoutErrors = useMemo(() => findMatrixLayoutErrors(nodes), [nodes])
-  const blockingErrors = [...pinConflicts, ...layoutErrors]
+
+  // Live controller-capacity meter (see MatrixOutputUpload.tsx, which drives
+  // the actual debounced compile-check) — the measured result is the
+  // authority here: only a *confirmed* overflow blocks Upload, so editing is
+  // never blocked just because a check hasn't completed yet.
+  const { status: capacityStatus, result: capacityResult } = useCapacityStore()
+  const capacitySummary = useMemo(() => summarizeCapacity(board, capacityStatus, capacityResult), [board, capacityStatus, capacityResult])
+  const capacityOverflow = capacityResult?.target === (usePsram && psramChoice ? `${selectedFqbn}:${psramChoice.opt}` : selectedFqbn)
+    && !capacityResult.ok && capacityResult.overflow
+
+  const blockingErrors = [
+    ...pinConflicts,
+    ...layoutErrors,
+    ...(capacityOverflow ? [`${board?.label ?? 'This board'}: design is too large to fit (live capacity check)`] : []),
+  ]
   const canBuild = hasFrameInput && blockingErrors.length === 0
   const canShowUpload = hasSdCardInput && blockingErrors.length === 0
 
@@ -269,6 +289,14 @@ export default function MatrixOutputDeployPopup() {
         </div>
 
         <div className={styles.targetBig}>{target}</div>
+        {hasFrameInput && (
+          <div
+            className={`${styles.capacityLine} ${styles[CAPACITY_LEVEL_CLASS[capacitySummary.level]]}`}
+            title="Live controller-capacity check, compiled against the selected board with no port needed"
+          >
+            {capacitySummary.text}
+          </div>
+        )}
 
         <button
           className={`${styles.wizardButtonBase} ${styles.readinessToggle}`}

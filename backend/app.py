@@ -482,6 +482,80 @@ def _fbuild_size_report(lines):
     }
 
 
+# ── Compile-only capacity check ───────────────────────────────────────────────
+# The live controller-capacity meter (frontend) wants the real used/limit byte
+# counts, not just the percentage `_size_report`/`_fbuild_size_report` return —
+# those two stay untouched (existing tests pin their exact shape) and these
+# byte-level counterparts are used only by `/api/compile-check` below.
+
+# Same sentence as `_FLASH_RE`/`_RAM_RE` above, widened to also capture the
+# trailing "Maximum is N bytes" clause arduino-cli prints on the same line.
+_FLASH_BYTES_RE = re.compile(
+    r"Sketch uses (\d+) bytes \((\d+)%\) of program storage[^.]*\.\s*Maximum is (\d+) bytes", re.I
+)
+_RAM_BYTES_RE = re.compile(
+    r"Global variables use (\d+) bytes \((\d+)%\) of dynamic memory[^.]*\.\s*Maximum is (\d+) bytes", re.I
+)
+
+
+def _size_bytes_report(lines):
+    """arduino-cli counterpart to `_fbuild_size_bytes_report` — returns
+    {"flash": {"usedBytes", "limitBytes", "percent"} | None, "ram": ... | None}."""
+    text = "".join(lines)
+    result: dict = {"flash": None, "ram": None}
+    fm = _FLASH_BYTES_RE.search(text)
+    if fm:
+        result["flash"] = {"usedBytes": int(fm.group(1)), "percent": int(fm.group(2)), "limitBytes": int(fm.group(3))}
+    rm = _RAM_BYTES_RE.search(text)
+    if rm:
+        result["ram"] = {"usedBytes": int(rm.group(1)), "percent": int(rm.group(2)), "limitBytes": int(rm.group(3))}
+    return result
+
+
+# fbuild prints e.g. "Flash: 4.45KB / 31.50KB (14.1%)" — used/total share one
+# line per metric, but the unit (bytes/KB/MB) can differ between the two sides.
+_FBUILD_BYTES_RE = re.compile(
+    r"(Flash|RAM):\s*([\d.]+)\s*(\w*)\s*/\s*([\d.]+)\s*(\w*)\s*\((\d+(?:\.\d+)?)%\)", re.I
+)
+_SIZE_UNIT_MULT = {"": 1, "B": 1, "BYTES": 1, "KB": 1024, "MB": 1024 * 1024}
+
+
+def _size_unit_to_bytes(value: float, unit: str) -> int:
+    return round(value * _SIZE_UNIT_MULT.get(unit.strip().upper(), 1))
+
+
+def _fbuild_size_bytes_report(lines):
+    """Byte-level counterpart to `_fbuild_size_report` — returns
+    {"flash": {"usedBytes", "limitBytes", "percent"} | None, "ram": ... | None}.
+    Applies the same impossible-RAM-percentage guard as `_fbuild_size_report`."""
+    text = "".join(lines)
+    result: dict = {"flash": None, "ram": None}
+    for m in _FBUILD_BYTES_RE.finditer(text):
+        kind = m.group(1).lower()
+        pct = float(m.group(6))
+        if kind == "ram" and pct > 100:
+            continue
+        result[kind] = {
+            "usedBytes": _size_unit_to_bytes(float(m.group(2)), m.group(3)),
+            "limitBytes": _size_unit_to_bytes(float(m.group(4)), m.group(5)),
+            "percent": round(pct),
+        }
+    return result
+
+
+def _drain_compile(gen):
+    """Run a `_compile_upload`/`_compile_upload_fbuild` generator to completion,
+    collecting its yielded log lines and returning `(lines, (rc, phase))` — used
+    by the compile-only capacity check, which wants one final JSON result
+    instead of a streamed log."""
+    lines = []
+    try:
+        while True:
+            lines.append(next(gen))
+    except StopIteration as stop:
+        return lines, stop.value
+
+
 def _compile_upload_fbuild(label, ino, fqbn, port):
     """fbuild-engine counterpart to `_compile_upload` — same (rc, phase)
     contract, so callers don't need to know which engine ran."""
@@ -1066,6 +1140,53 @@ def upload(payload: dict = Body(...)):
             shutil.rmtree(work, ignore_errors=True)
 
     return StreamingResponse(stream(), media_type="text/plain")
+
+
+@app.post("/api/compile-check")
+def compile_check(payload: dict = Body(...)):
+    """Compile-only capacity check for the live controller-capacity meter: runs
+    the same compile a real Upload would (no port, so nothing is flashed) and
+    returns one JSON result with the toolchain's real flash/RAM size report,
+    instead of a streamed log.
+
+    Body: {"ino": "<sketch source>", "fqbn": "esp32:esp32:esp32s3[:PSRAM=opi]"}.
+    """
+    engine = _active_engine()
+    if engine == "fbuild" and not _FBUILD_BIN:
+        return JSONResponse({"ok": False, "error": "fbuild not found"}, status_code=400)
+    if engine == "arduino-cli" and not _ARDUINO_CLI:
+        return JSONResponse({"ok": False, "error": "arduino-cli not found"}, status_code=400)
+
+    ino = (payload.get("ino") or "").strip()
+    fqbn = (payload.get("fqbn") or _DEFAULT_FQBN).strip()
+    if not ino:
+        return JSONResponse({"ok": False, "error": "no sketch to compile"}, status_code=400)
+
+    if engine == "fbuild":
+        lines, (rc, _phase) = _drain_compile(_compile_upload_fbuild("Capacity check", ino, fqbn, ""))
+        sizes = _fbuild_size_bytes_report(lines)
+    else:
+        work, sketch_dir = _make_sketch(SKETCH, ino)
+        try:
+            lines, (rc, _phase) = _drain_compile(_compile_upload("Capacity check", sketch_dir, fqbn, ""))
+            sizes = _size_bytes_report(lines)
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
+
+    ok = rc == 0
+    overflow = not ok and _looks_like_overflow(lines)
+    return JSONResponse({
+        "ok": ok,
+        "overflow": overflow,
+        "engine": engine,
+        "target": fqbn,
+        "flash": sizes.get("flash"),
+        "ram": sizes.get("ram"),
+        "error": None if ok else ("Design is too large for this board" if overflow else "Compile failed — see helper log"),
+        # Tail of the log only on failure, so the frontend can surface *why*
+        # without the endpoint always shipping the full compile transcript.
+        "log": None if ok else "".join(lines)[-4000:],
+    })
 
 
 @app.post("/api/upload-show")

@@ -109,3 +109,50 @@ def test_fbuild_size_report_ignores_impossible_successful_esp32_ram_percentage()
     ])
 
     assert report == {"flash": 8, "ram": None}
+
+
+def test_size_bytes_report_extracts_used_limit_and_percent():
+    report = app._size_bytes_report([
+        "Sketch uses 25972 bytes (10%) of program storage space. Maximum is 253952 bytes.\n",
+        "Global variables use 1568 bytes (19%) of dynamic memory, leaving 6624 bytes for "
+        "local variables. Maximum is 8192 bytes.\n",
+    ])
+
+    assert report["flash"] == {"usedBytes": 25972, "percent": 10, "limitBytes": 253952}
+    assert report["ram"] == {"usedBytes": 1568, "percent": 19, "limitBytes": 8192}
+
+
+def test_size_bytes_report_returns_none_for_missing_lines():
+    assert app._size_bytes_report(["Compiling sketch...\n"]) == {"flash": None, "ram": None}
+
+
+def test_fbuild_size_bytes_report_converts_units_to_bytes():
+    report = app._fbuild_size_bytes_report([
+        "Flash: 4.45KB / 31.50KB (14.1%)\n",
+        "RAM:   367 bytes / 2.00KB (17.9%)\n",
+    ])
+
+    assert report["flash"] == {"usedBytes": round(4.45 * 1024), "percent": 14, "limitBytes": round(31.50 * 1024)}
+    assert report["ram"] == {"usedBytes": 367, "percent": 18, "limitBytes": round(2.00 * 1024)}
+
+
+def test_fbuild_size_bytes_report_drops_impossible_ram_percentage():
+    report = app._fbuild_size_bytes_report([
+        "Flash: 665.41KB / 8.00MB (8.1%)\n",
+        "RAM:   1.28MB / 320.00KB (409.2%)\n",
+    ])
+
+    assert report["flash"]["percent"] == 8
+    assert report["ram"] is None
+
+
+def test_drain_compile_collects_lines_and_return_value():
+    def gen():
+        yield "a\n"
+        yield "b\n"
+        return 0, "compile"
+
+    lines, result = app._drain_compile(gen())
+
+    assert lines == ["a\n", "b\n"]
+    assert result == (0, "compile")

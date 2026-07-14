@@ -186,6 +186,36 @@ export async function uploadSketch(
   await pipeStream(res, onLog)
 }
 
+export interface CompileCheckSize { usedBytes: number; limitBytes: number; percent: number }
+
+export interface CompileCheckResult {
+  ok: boolean
+  overflow: boolean
+  engine?: 'fbuild' | 'arduino-cli'
+  target: string
+  flash: CompileCheckSize | null
+  ram: CompileCheckSize | null
+  error: string | null
+  log?: string | null
+}
+
+/**
+ * Compile-only capacity check: builds `ino` for `fqbn` with no port (nothing
+ * is flashed) and returns the toolchain's real flash/RAM size report as one
+ * JSON result — the live controller-capacity meter's data source. Throws on
+ * a network-level failure so the caller can distinguish "helper offline" from
+ * a genuine compile failure (which resolves normally with `ok: false`).
+ */
+export async function compileCheck(ino: string, fqbn: string, signal?: AbortSignal): Promise<CompileCheckResult> {
+  const res = await fetch(`${BACKEND_URL}/api/compile-check`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ino, fqbn }),
+    signal,
+  })
+  return (await res.json()) as CompileCheckResult
+}
+
 export interface ShowUploadFile {
   /** SD destination path, e.g. `/music/song.mp3` or `/shows/song.show`. */
   path: string

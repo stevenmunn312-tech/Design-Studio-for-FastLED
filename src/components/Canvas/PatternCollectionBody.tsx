@@ -1,5 +1,7 @@
 import { useGraphStore } from '../../state/graphStore'
 import { SECTION_TYPES } from '../../codegen/performanceGenerator'
+import { useCapacityStore } from '../../state/capacityStore'
+import { capacityDelta, formatCapacityDelta } from '../../utils/capacityFormat'
 import { shouldConsumeWheel } from './wheelBehavior'
 import styles from './PatternCollectionBody.module.css'
 
@@ -29,6 +31,14 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
   const removeFromCollection = useGraphStore((s) => s.removeFromCollection)
   const togglePatternSection = useGraphStore((s) => s.togglePatternSection)
   const setPatternSections = useGraphStore((s) => s.setPatternSections)
+
+  // Last live-capacity-meter delta (see MatrixOutputUpload.tsx), so adding or
+  // removing a pattern here shows what it cost without opening the upload panel.
+  const { result: capacityResult, previousResult: capacityPrevious } = useCapacityStore()
+  const deltaText = (() => {
+    const delta = capacityDelta(capacityPrevious, capacityResult)
+    return delta ? formatCapacityDelta(delta) : null
+  })()
 
   function handleListWheel(e: React.WheelEvent<HTMLUListElement>) {
     if (shouldConsumeWheel(e.currentTarget, e.deltaY)) e.stopPropagation()
@@ -79,6 +89,11 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
         </ul>
       )}
       <div className={styles.count}>{patternIds.length} pattern{patternIds.length === 1 ? '' : 's'}</div>
+      {deltaText && (
+        <div className={styles.delta} title="Change in measured controller capacity since the last live check on this board">
+          since last check: {deltaText}
+        </div>
+      )}
     </div>
   )
 }

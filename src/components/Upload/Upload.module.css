@@ -133,6 +133,22 @@
   letter-spacing: 0.04em;
 }
 
+/* Live controller-capacity meter — compact flash/SRAM readout on the node body. */
+.capacityLine {
+  font-family: var(--font-code);
+  font-size: 9px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-bottom: 2px;
+  letter-spacing: 0.03em;
+}
+.capacityOk { color: var(--text-secondary); }
+.capacityWarn { color: #ffcc66; }
+.capacityError { color: var(--error); }
+.capacityPending { color: var(--text-secondary); opacity: 0.6; }
+
 .readinessPanel {
   display: flex;
   flex-direction: column;

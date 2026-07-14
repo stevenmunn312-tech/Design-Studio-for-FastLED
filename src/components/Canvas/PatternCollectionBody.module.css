@@ -91,3 +91,10 @@
   color: var(--text-secondary);
   text-align: right;
 }
+
+.delta {
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  text-align: right;
+  opacity: 0.75;
+}
