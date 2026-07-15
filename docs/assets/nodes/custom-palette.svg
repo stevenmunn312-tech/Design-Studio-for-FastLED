@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 296 242" width="296" height="242" role="img" aria-label="Custom Palette node">
-<rect width="296" height="242" fill="#0d0f12"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 296 286" width="296" height="286" role="img" aria-label="Custom Palette node">
+<rect width="296" height="286" fill="#0d0f12"/>
 <circle cx="10" cy="10" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="30" cy="10" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="50" cy="10" r="1" fill="rgba(255,255,255,0.04)"/>
@@ -180,32 +180,64 @@
 <circle cx="250" cy="230" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="270" cy="230" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="290" cy="230" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="10" cy="250" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="30" cy="250" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="50" cy="250" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="70" cy="250" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="90" cy="250" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="110" cy="250" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="130" cy="250" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="150" cy="250" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="170" cy="250" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="190" cy="250" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="210" cy="250" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="230" cy="250" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="250" cy="250" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="270" cy="250" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="290" cy="250" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="10" cy="270" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="30" cy="270" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="50" cy="270" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="70" cy="270" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="90" cy="270" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="110" cy="270" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="130" cy="270" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="150" cy="270" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="170" cy="270" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="190" cy="270" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="210" cy="270" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="230" cy="270" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="250" cy="270" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="270" cy="270" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="290" cy="270" r="1" fill="rgba(255,255,255,0.04)"/>
 <defs><filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#000" flood-opacity="0.45"/></filter></defs>
 <g transform="translate(28,24)">
-<rect x="0" y="0" width="240" height="184" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
-<rect x="0" y="0" width="240" height="184" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
+<rect x="0" y="0" width="240" height="228" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
+<rect x="0" y="0" width="240" height="228" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#33ffd6"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Custom Palette</text>
 <rect x="154" y="10" width="25" height="12" rx="6" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
 <text x="166.5" y="19" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="8" letter-spacing="0.08em" fill="#000">CLR</text>
 <rect x="185" y="10" width="47" height="12" rx="6" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
 <text x="208.5" y="19" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="8" letter-spacing="0.08em" fill="#000">CUS-710</text>
-<circle cx="-2" cy="52" r="9" fill="#ffd24a" opacity="0.25"/>
-<circle cx="-2" cy="52" r="6" fill="#ffd24a" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="10" y="56" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Color 1</text>
-<circle cx="242" cy="52" r="9" fill="#ff5cf0" opacity="0.25"/>
-<circle cx="242" cy="52" r="6" fill="#ff5cf0" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="56" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Palette</text>
-<circle cx="-2" cy="80" r="9" fill="#ffd24a" opacity="0.25"/>
-<circle cx="-2" cy="80" r="6" fill="#ffd24a" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="10" y="84" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Color 2</text>
-<circle cx="-2" cy="108" r="9" fill="#ffd24a" opacity="0.25"/>
-<circle cx="-2" cy="108" r="6" fill="#ffd24a" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="10" y="112" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Color 3</text>
-<circle cx="-2" cy="136" r="9" fill="#ffd24a" opacity="0.25"/>
-<circle cx="-2" cy="136" r="6" fill="#ffd24a" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="10" y="140" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Color 4</text>
-<rect x="8" y="152" width="224" height="24" rx="4" fill="none" stroke="rgba(255,255,255,0.12)" stroke-dasharray="4 3"/>
-<text x="120" y="168" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="10" font-style="italic" fill="#a0a0a0">palette editor</text>
+<defs><linearGradient id="pal2" x1="0" y1="0" x2="1" y2="0"><stop offset="0.0%" stop-color="rgb(255,59,138)"/><stop offset="6.7%" stop-color="rgb(255,86,125)"/><stop offset="13.3%" stop-color="rgb(255,113,111)"/><stop offset="20.0%" stop-color="rgb(255,140,98)"/><stop offset="26.7%" stop-color="rgb(255,167,84)"/><stop offset="33.3%" stop-color="rgb(255,194,71)"/><stop offset="40.0%" stop-color="rgb(214,204,108)"/><stop offset="46.7%" stop-color="rgb(173,213,145)"/><stop offset="53.3%" stop-color="rgb(132,223,181)"/><stop offset="60.0%" stop-color="rgb(91,232,218)"/><stop offset="66.7%" stop-color="rgb(50,242,255)"/><stop offset="73.3%" stop-color="rgb(65,212,255)"/><stop offset="80.0%" stop-color="rgb(79,182,255)"/><stop offset="86.7%" stop-color="rgb(94,152,255)"/><stop offset="93.3%" stop-color="rgb(108,122,255)"/><stop offset="100.0%" stop-color="rgb(255,59,138)"/></linearGradient></defs>
+<rect x="8" y="40" width="224" height="40" rx="4" fill="url(#pal2)" stroke="rgba(255,255,255,0.12)"/>
+<circle cx="-2" cy="96" r="9" fill="#ffd24a" opacity="0.25"/>
+<circle cx="-2" cy="96" r="6" fill="#ffd24a" stroke="#0d0f12" stroke-width="1.5"/>
+<text x="10" y="100" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Color 1</text>
+<circle cx="242" cy="96" r="9" fill="#ff5cf0" opacity="0.25"/>
+<circle cx="242" cy="96" r="6" fill="#ff5cf0" stroke="#0d0f12" stroke-width="1.5"/>
+<text x="230" y="100" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Palette</text>
+<circle cx="-2" cy="124" r="9" fill="#ffd24a" opacity="0.25"/>
+<circle cx="-2" cy="124" r="6" fill="#ffd24a" stroke="#0d0f12" stroke-width="1.5"/>
+<text x="10" y="128" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Color 2</text>
+<circle cx="-2" cy="152" r="9" fill="#ffd24a" opacity="0.25"/>
+<circle cx="-2" cy="152" r="6" fill="#ffd24a" stroke="#0d0f12" stroke-width="1.5"/>
+<text x="10" y="156" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Color 3</text>
+<circle cx="-2" cy="180" r="9" fill="#ffd24a" opacity="0.25"/>
+<circle cx="-2" cy="180" r="6" fill="#ffd24a" stroke="#0d0f12" stroke-width="1.5"/>
+<text x="10" y="184" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Color 4</text>
+<rect x="8" y="196" width="224" height="24" rx="4" fill="none" stroke="rgba(255,255,255,0.12)" stroke-dasharray="4 3"/>
+<text x="120" y="212" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="10" font-style="italic" fill="#a0a0a0">palette editor</text>
 </g>
 </svg>

@@ -16,9 +16,25 @@ import { join } from 'node:path'
 import {
   NODE_LIBRARY, CATEGORIES, CATEGORY_COLOR, categoryNodes, portColor,
   propertyMeta, isPropertyEnabled, propertyGroupsFor, hasClampableInputs,
-  bypassPort, nodeDisplayLabel,
+  bypassPort, nodeDisplayLabel, libraryDefaults,
 } from '../src/state/nodeLibrary'
+import { evaluateGraphFull } from '../src/state/graphEvaluator'
+import { useUiStore } from '../src/state/uiStore'
+import { samplePalette, type RGB, type Palette, type Frame } from '../src/state/ledColor'
+import type { StudioNode, StudioEdge } from '../src/state/graphStore'
 import type { NodeDefinition } from '../src/types'
+
+// Synthetic audio for the audio-reactive nodes' previews (same as the app's
+// Test Signal toggle), so they don't render dark for lack of a microphone.
+useUiStore.setState({ testSignal: true })
+
+// Deterministic Math.random so regenerating without library changes yields
+// byte-identical SVGs (no git churn from the stochastic simulation nodes).
+let _seed = 0x2f6e2b1
+Math.random = () => {
+  _seed = (_seed * 1103515245 + 12345) & 0x7fffffff
+  return _seed / 0x7fffffff
+}
 
 // Run from the repo root (the npm script does).
 const ROOT = process.cwd()
@@ -189,6 +205,107 @@ function buildPropRows(def: NodeDefinition): PropRow[] {
   return rows
 }
 
+// ── Live preview thumbnails (frame / palette / color primary outputs) ──
+// Mirrors NodePreview: evaluate the node with the real graph evaluator at a
+// fixed tick and bake the result into the card. Frame/field inputs get a stock
+// source wired in (like a user would) so effect nodes show their effect
+// instead of black.
+const PREVIEW_GRID = 16
+const PREVIEW_W = NODE_W - BODY_PAD * 2   // BODY_CONTENT_W
+const PREVIEW_FRAME_H = PREVIEW_W          // 16×16 matrix aspect
+const PREVIEW_STRIP_H = 40                 // palette / colour swatch height
+const WARMUP_TICKS = 240                   // ~4 s so stateful sims settle
+
+const isRGB = (v: unknown): v is RGB =>
+  typeof v === 'object' && v !== null && 'r' in v && 'g' in v && 'b' in v
+
+function mkNode(id: string, type: string): StudioNode {
+  const def = NODE_LIBRARY.find((d) => d.type === type)!
+  return {
+    id,
+    type: 'studioNode',
+    position: { x: 0, y: 0 },
+    data: {
+      label: def.label,
+      nodeType: def.type,
+      category: def.category,
+      properties: libraryDefaults(def.type),
+    },
+  } as StudioNode
+}
+
+type PreviewData =
+  | { kind: 'frame'; frame: Frame }
+  | { kind: 'palette'; stops: RGB[] }
+  | { kind: 'color'; rgb: RGB }
+
+function buildPreview(def: NodeDefinition): PreviewData | null {
+  if (def.type === 'Wave' || def.type === 'ComplexWave') return null
+  const out = def.outputs[0]
+  if (!out || !['frame', 'palette', 'color'].includes(out.dataType)) return null
+
+  const nodes: StudioNode[] = [mkNode('n1', def.type)]
+  const edges: StudioEdge[] = []
+  let n = 0
+  for (const inp of def.inputs) {
+    const src = inp.dataType === 'frame' ? 'Plasma' : inp.dataType === 'field' ? 'FieldNoise' : null
+    if (!src) continue
+    const id = `s${++n}`
+    nodes.push(mkNode(id, src))
+    const srcOut = NODE_LIBRARY.find((d) => d.type === src)!.outputs[0].id
+    edges.push({ id: `e${n}`, source: id, sourceHandle: srcOut, target: 'n1', targetHandle: inp.id })
+  }
+
+  try {
+    let value: unknown
+    for (let tick = 0; tick <= WARMUP_TICKS; tick++) {
+      const res = evaluateGraphFull(nodes, edges, tick, PREVIEW_GRID, PREVIEW_GRID)
+      value = res.outputs.get('n1')?.[out.id]
+    }
+    if (out.dataType === 'frame') {
+      if (!Array.isArray(value) || !Array.isArray(value[0])) return null
+      return { kind: 'frame', frame: value as Frame }
+    }
+    if (out.dataType === 'palette') {
+      const stops: RGB[] = []
+      for (let i = 0; i < 16; i++) stops.push(samplePalette(value as Palette, i / 15))
+      return { kind: 'palette', stops }
+    }
+    return isRGB(value) ? { kind: 'color', rgb: value } : null
+  } catch {
+    return null // sandboxed/worker-backed nodes (Code) can't evaluate here
+  }
+}
+
+let paletteGradientId = 0
+const px = ({ r, g, b }: RGB) =>
+  `rgb(${Math.round(Math.max(0, Math.min(255, r)))},${Math.round(Math.max(0, Math.min(255, g)))},${Math.round(Math.max(0, Math.min(255, b)))})`
+
+function previewSvg(p: PreviewData, y: number): string {
+  if (p.kind === 'frame') {
+    const cell = PREVIEW_W / PREVIEW_GRID
+    const parts = [`<rect x="${BODY_PAD}" y="${y}" width="${PREVIEW_W}" height="${PREVIEW_FRAME_H}" rx="4" fill="#05070a"/>`]
+    for (let ry = 0; ry < PREVIEW_GRID; ry++) {
+      for (let rx = 0; rx < PREVIEW_GRID; rx++) {
+        const c = p.frame[ry]?.[rx] ?? { r: 0, g: 0, b: 0 }
+        const bright = Math.max(c.r, c.g, c.b) > 16
+        const cx = BODY_PAD + rx * cell + cell / 2
+        const cy = y + ry * cell + cell / 2
+        if (bright) parts.push(`<circle cx="${cx}" cy="${cy}" r="${cell / 2}" fill="${px(c)}" opacity="0.35"/>`)
+        parts.push(`<circle cx="${cx}" cy="${cy}" r="${(cell / 2 - 2).toFixed(1)}" fill="${bright ? px(c) : '#14171c'}"/>`)
+      }
+    }
+    return parts.join('\n')
+  }
+  if (p.kind === 'palette') {
+    const id = `pal${++paletteGradientId}`
+    const stops = p.stops.map((c, i) => `<stop offset="${(i / (p.stops.length - 1) * 100).toFixed(1)}%" stop-color="${px(c)}"/>`).join('')
+    return `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="0">${stops}</linearGradient></defs>
+<rect x="${BODY_PAD}" y="${y}" width="${PREVIEW_W}" height="${PREVIEW_STRIP_H}" rx="4" fill="url(#${id})" stroke="${C.border}"/>`
+  }
+  return `<rect x="${BODY_PAD}" y="${y}" width="${PREVIEW_W}" height="${PREVIEW_STRIP_H}" rx="4" fill="${px(p.rgb)}" stroke="${C.border}"/>`
+}
+
 // ── SVG fragments ──
 function headerSvg(def: NodeDefinition, accent: string): string {
   const title = nodeDisplayLabel(def.type, def.defaultProperties ?? {}, def.label)
@@ -340,8 +457,16 @@ function nodeCardSvg(def: NodeDefinition): string {
   const strip = EMBEDDED_UI[def.type]
   const propRows = isComment ? [] : buildPropRows(def)
 
-  // Body children in StudioNode order: scope, port rows, embedded body, props.
+  // Body children in StudioNode order: preview, scope, port rows, embedded
+  // body, props.
   const children: Array<{ h: number; render: (y: number) => string }> = []
+  const preview = buildPreview(def)
+  if (preview) {
+    children.push({
+      h: preview.kind === 'frame' ? PREVIEW_FRAME_H : PREVIEW_STRIP_H,
+      render: (y) => previewSvg(preview, y),
+    })
+  }
   if (hasScope) children.push({ h: SCOPE_H, render: (y) => scopeSvg(y, accent) })
   for (let i = 0; i < rowCount; i++) {
     children.push({ h: ROW_H, render: (y) => portRowSvg(def, i, y) })

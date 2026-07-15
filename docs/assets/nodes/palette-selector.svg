@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 296 163" width="296" height="163" role="img" aria-label="Palette Selector node">
-<rect width="296" height="163" fill="#0d0f12"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 296 207" width="296" height="207" role="img" aria-label="Palette Selector node">
+<rect width="296" height="207" fill="#0d0f12"/>
 <circle cx="10" cy="10" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="30" cy="10" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="50" cy="10" r="1" fill="rgba(255,255,255,0.04)"/>
@@ -120,25 +120,57 @@
 <circle cx="250" cy="150" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="270" cy="150" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="290" cy="150" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="10" cy="170" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="30" cy="170" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="50" cy="170" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="70" cy="170" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="90" cy="170" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="110" cy="170" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="130" cy="170" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="150" cy="170" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="170" cy="170" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="190" cy="170" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="210" cy="170" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="230" cy="170" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="250" cy="170" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="270" cy="170" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="290" cy="170" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="10" cy="190" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="30" cy="190" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="50" cy="190" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="70" cy="190" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="90" cy="190" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="110" cy="190" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="130" cy="190" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="150" cy="190" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="170" cy="190" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="190" cy="190" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="210" cy="190" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="230" cy="190" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="250" cy="190" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="270" cy="190" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="290" cy="190" r="1" fill="rgba(255,255,255,0.04)"/>
 <defs><filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#000" flood-opacity="0.45"/></filter></defs>
 <g transform="translate(28,24)">
-<rect x="0" y="0" width="240" height="105" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
-<rect x="0" y="0" width="240" height="105" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
+<rect x="0" y="0" width="240" height="149" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
+<rect x="0" y="0" width="240" height="149" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#33ffd6"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Palette Selec…</text>
 <rect x="154" y="10" width="25" height="12" rx="6" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
 <text x="166.5" y="19" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="8" letter-spacing="0.08em" fill="#000">CLR</text>
 <rect x="185" y="10" width="47" height="12" rx="6" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
 <text x="208.5" y="19" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="8" letter-spacing="0.08em" fill="#000">PAL-610</text>
-<circle cx="242" cy="52" r="9" fill="#ff5cf0" opacity="0.25"/>
-<circle cx="242" cy="52" r="6" fill="#ff5cf0" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="56" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Palette</text>
-<line x1="8" y1="72" x2="232" y2="72" stroke="rgba(255,255,255,0.08)"/>
-<text x="8" y="92" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">palette</text>
+<defs><linearGradient id="pal1" x1="0" y1="0" x2="1" y2="0"><stop offset="0.0%" stop-color="rgb(255,0,0)"/><stop offset="6.7%" stop-color="rgb(255,49,0)"/><stop offset="13.3%" stop-color="rgb(255,98,0)"/><stop offset="20.0%" stop-color="rgb(255,140,0)"/><stop offset="26.7%" stop-color="rgb(255,177,0)"/><stop offset="33.3%" stop-color="rgb(255,213,0)"/><stop offset="40.0%" stop-color="rgb(153,208,33)"/><stop offset="46.7%" stop-color="rgb(51,203,66)"/><stop offset="53.3%" stop-color="rgb(0,195,117)"/><stop offset="60.0%" stop-color="rgb(0,186,186)"/><stop offset="66.7%" stop-color="rgb(0,176,255)"/><stop offset="73.3%" stop-color="rgb(19,137,255)"/><stop offset="80.0%" stop-color="rgb(38,98,254)"/><stop offset="86.7%" stop-color="rgb(81,63,253)"/><stop offset="93.3%" stop-color="rgb(147,32,251)"/><stop offset="100.0%" stop-color="rgb(255,0,0)"/></linearGradient></defs>
+<rect x="8" y="40" width="224" height="40" rx="4" fill="url(#pal1)" stroke="rgba(255,255,255,0.12)"/>
+<circle cx="242" cy="96" r="9" fill="#ff5cf0" opacity="0.25"/>
+<circle cx="242" cy="96" r="6" fill="#ff5cf0" stroke="#0d0f12" stroke-width="1.5"/>
+<text x="230" y="100" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Palette</text>
+<line x1="8" y1="116" x2="232" y2="116" stroke="rgba(255,255,255,0.08)"/>
+<text x="8" y="136" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">palette</text>
 <g>
-<rect x="148" y="80" width="84" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="152" y="92" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">rainbow</text>
-<text x="228" y="92" text-anchor="end" font-size="8" fill="#a0a0a0">▾</text>
+<rect x="148" y="124" width="84" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
+<text x="152" y="136" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">rainbow</text>
+<text x="228" y="136" text-anchor="end" font-size="8" fill="#a0a0a0">▾</text>
 </g>
 </g>
 </svg>
