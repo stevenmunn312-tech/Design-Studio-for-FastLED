@@ -47,6 +47,49 @@ def test_compile_check_flags_overflow_on_arduino_cli(client, monkeypatch):
     assert data["ok"] is False
     assert data["overflow"] is True
     assert "too large" in data["error"].lower()
+
+
+def test_compile_check_surfaces_the_over_100_percent_usage_on_overflow(client, monkeypatch):
+    # The toolchain often still prints its usage line before the linker
+    # rejects an over-capacity build — surfacing that percentage (even over
+    # 100%) is what lets the frontend show "flash 122%" instead of a bare
+    # "won't fit", so the size-report regexes must not be gated on success.
+    monkeypatch.setattr(app, "_active_engine", lambda: "arduino-cli")
+    monkeypatch.setattr(app, "_ARDUINO_CLI", "/fake/arduino-cli")
+    monkeypatch.setattr(app, "_make_sketch", lambda name, ino: ("/tmp/fake_work", "/tmp/fake_work/sketch"))
+    monkeypatch.setattr(app.shutil, "rmtree", lambda *a, **k: None)
+
+    def fake_compile_upload(label, sketch_dir, fqbn, port):
+        assert port == ""
+        yield "Sketch uses 39308 bytes (122%) of program storage space. Maximum is 32256 bytes.\n"
+        yield "region `.text' overflowed by 7052 bytes\n"
+        return 1, "compile"
+
+    monkeypatch.setattr(app, "_compile_upload", fake_compile_upload)
+
+    r = client.post("/api/compile-check", json={"ino": "void setup(){}", "fqbn": "arduino:avr:uno"})
+    data = r.json()
+    assert data["ok"] is False
+    assert data["overflow"] is True
+    assert data["flash"] == {"usedBytes": 39308, "percent": 122, "limitBytes": 32256}
+
+
+def test_compile_check_surfaces_over_100_percent_usage_on_fbuild_overflow(client, monkeypatch):
+    monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
+    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
+
+    def fake_compile_upload_fbuild(label, ino, fqbn, port):
+        yield "Flash: 38.39KB / 31.50KB (121.9%)\n"
+        yield "region `.text' overflowed by 7052 bytes\n"
+        return 1, "compile"
+
+    monkeypatch.setattr(app, "_compile_upload_fbuild", fake_compile_upload_fbuild)
+
+    r = client.post("/api/compile-check", json={"ino": "void setup(){}", "fqbn": "arduino:avr:uno"})
+    data = r.json()
+    assert data["ok"] is False
+    assert data["overflow"] is True
+    assert data["flash"]["percent"] == 122
     assert data["log"] is not None
 
 

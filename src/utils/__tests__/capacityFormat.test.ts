@@ -38,11 +38,23 @@ describe('summarizeCapacity', () => {
     expect(s.level).toBe('warn')
   })
 
-  it("reports won't fit on overflow", () => {
+  it("falls back to plain won't fit text when the toolchain gave no usage figure", () => {
     const result: CompileCheckResult = { ok: false, overflow: true, target: board.fqbn, flash: null, ram: null, error: 'Design is too large for this board' }
     const s = summarizeCapacity(board, 'measured', result)
     expect(s.level).toBe('error')
     expect(s.text).toContain("won't fit")
+  })
+
+  it('shows the actual over-100% usage instead of a bare "won\'t fit" when the toolchain reported one', () => {
+    const result: CompileCheckResult = {
+      ok: false, overflow: true, target: board.fqbn,
+      flash: { usedBytes: 39308, limitBytes: 32256, percent: 122 },
+      ram: null, error: 'Design is too large for this board',
+    }
+    const s = summarizeCapacity(board, 'measured', result)
+    expect(s.level).toBe('error')
+    expect(s.text).toBe('Arduino Uno · flash 122%')
+    expect(s.text).not.toContain("won't fit")
   })
 
   it('reports a generic compile error distinctly from overflow', () => {

@@ -27,9 +27,19 @@ export function summarizeCapacity(
   const stale = status === 'stale' ? ' (rechecking…)' : ''
 
   if (!result.ok) {
-    return result.overflow
-      ? { text: `${label} · won't fit${stale}`, level: 'error' }
-      : { text: `${label} · ${result.error ?? 'capacity check failed'}${stale}`, level: 'error' }
+    if (result.overflow) {
+      // The toolchain often still prints a usage line before the linker
+      // rejects an over-capacity build (e.g. "Sketch uses ... (122%) ...");
+      // showing that number is far more actionable than a bare "won't fit" —
+      // it says *how far* over, not just that it doesn't fit. Fall back to
+      // the plain label only when no such figure was available.
+      const parts: string[] = []
+      if (result.flash) parts.push(`flash ${result.flash.percent}%`)
+      if (result.ram) parts.push(`SRAM ${result.ram.percent}%`)
+      const text = parts.length ? `${label} · ${parts.join(' · ')}${stale}` : `${label} · won't fit${stale}`
+      return { text, level: 'error' }
+    }
+    return { text: `${label} · ${result.error ?? 'capacity check failed'}${stale}`, level: 'error' }
   }
 
   const parts: string[] = []
