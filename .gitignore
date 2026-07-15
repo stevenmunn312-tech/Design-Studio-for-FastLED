@@ -7,11 +7,17 @@ dist/
 # Python upload helper (backend/) local state
 backend/.venv/
 backend/__pycache__/
-backend/.helper-config.json   # persisted arduino-cli path
-backend/bin/                  # self-installed arduino-cli binary
-backend/.fbuild-project/      # fbuild build workspace + vendored FastLED/audio libs
+# persisted arduino-cli path
+backend/.helper-config.json
+# self-installed arduino-cli binary
+backend/bin/
+# fbuild build workspace + vendored FastLED/audio libs
+backend/.fbuild-project/
 __pycache__/
 *.pyc
+
+# Local dev-server log dumps (vite stdout/stderr from the upload helper wrapper)
+.codex-tmp/
 
 # Local Claude Code agent/editor state (settings.local.json, launch.json) —
 # but project skills are part of the repo's tooling and travel with it.
