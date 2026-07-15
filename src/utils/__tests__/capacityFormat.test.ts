@@ -74,6 +74,22 @@ describe('summarizeCapacity', () => {
     const s = summarizeCapacity(undefined, 'toolchain-missing', null)
     expect(s.text).toContain('No board')
   })
+
+  it('marks RAM as not measurable instead of silently omitting it on a successful build', () => {
+    // Regression: a design flipping from "SRAM 101% (fails to link)" to
+    // "flash 10% (just barely compiles)" used to silently drop RAM entirely —
+    // ESP32's self-reported RAM on success is routinely discarded upstream as
+    // unreliable — reading as "the RAM problem is fixed" when it's really just
+    // no longer being measured.
+    const result: CompileCheckResult = {
+      ok: true, overflow: false, target: board.fqbn,
+      flash: { usedBytes: 1000, limitBytes: 10000, percent: 10 },
+      ram: null, error: null,
+    }
+    const s = summarizeCapacity(board, 'measured', result)
+    expect(s.text).toBe('Arduino Uno · flash 10% · SRAM n/a')
+    expect(s.level).toBe('ok')
+  })
 })
 
 describe('capacityDelta', () => {

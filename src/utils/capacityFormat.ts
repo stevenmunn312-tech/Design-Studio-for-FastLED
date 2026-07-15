@@ -42,9 +42,21 @@ export function summarizeCapacity(
     return { text: `${label} · ${result.error ?? 'capacity check failed'}${stale}`, level: 'error' }
   }
 
-  const parts: string[] = []
-  if (result.flash) parts.push(`flash ${result.flash.percent}%`)
-  if (result.ram) parts.push(`SRAM ${result.ram.percent}%`)
+  // On a *successful* build, some boards (ESP32/ESP32-S3 via fbuild) routinely
+  // self-report a RAM figure that's known-unreliable — often over 100% even on
+  // a build that compiles and runs fine, because it counts flash-mapped
+  // sections that aren't real usable SRAM — so it's discarded upstream rather
+  // than shown as a false overflow (`_fbuild_cached_size` in backend/app.py).
+  // But a *failed* build's overflow percentage (below) has no such guard, since
+  // that one comes straight from the linker's hard failure and is trustworthy
+  // at any magnitude. Silently going from "SRAM 101%" (failing) to just
+  // "flash 10%" (succeeding) reads as "the RAM problem is fixed" when really
+  // the meter just stopped being able to measure RAM at all — so whenever
+  // flash is known, always pair it with an explicit RAM reading, using "n/a"
+  // rather than omitting it, so that gap is never mistaken for good news.
+  const flashPart = result.flash ? `flash ${result.flash.percent}%` : null
+  const ramPart = result.ram ? `SRAM ${result.ram.percent}%` : (flashPart ? 'SRAM n/a' : null)
+  const parts = [flashPart, ramPart].filter((p): p is string => p !== null)
   if (parts.length === 0) return { text: `${label} · measured${stale}`, level: 'ok' }
 
   const tight = (result.flash?.percent ?? 0) >= SIZE_WARN_PCT || (result.ram?.percent ?? 0) >= SIZE_WARN_PCT
