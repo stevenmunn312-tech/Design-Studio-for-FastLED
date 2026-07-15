@@ -4,7 +4,6 @@ import { CATEGORIES, CATEGORY_COLOR, NODE_DESCRIPTIONS, NODE_LIBRARY, propertyGr
 import { useUiStore } from '../../state/uiStore'
 import { insertLiveExample } from '../../utils/insertLiveExample'
 import type { LiveExampleSpec } from '../../utils/insertLiveExample'
-import { NODE_REFERENCE_ASSETS } from './nodeReferenceAssets.generated'
 import styles from './NodeReference.module.css'
 
 type FilterCategory = 'all' | NodeCategory
@@ -1318,27 +1317,6 @@ function NodeScreenshot({ node }: { node: NodeDefinition }) {
   )
 }
 
-function ScreenshotFigure({
-  src,
-  alt,
-  caption,
-  wide = false,
-}: {
-  src: string
-  alt: string
-  caption?: string
-  wide?: boolean
-}) {
-  return (
-    <figure className={`${styles.captureFigure} ${wide ? styles.captureFigureWide : ''}`}>
-      <div className={styles.captureFrame}>
-        <img className={styles.captureImage} src={src} alt={alt} loading="lazy" />
-      </div>
-      {caption && <figcaption>{caption}</figcaption>}
-    </figure>
-  )
-}
-
 function ImagePlaceholder({
   label,
   detail,
@@ -1561,7 +1539,6 @@ function AudioArticle({ node, content }: { node: NodeDefinition; content: AudioA
 
 function MicrophoneArticle({ node }: { node: NodeDefinition }) {
   const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
-  const assets = NODE_REFERENCE_ASSETS.nodes.MicInput
   const tryLive = () => {
     openLiveExample(MICROPHONE_LIVE_EXAMPLE, {
       successMessage: 'Microphone example added — test signal on',
@@ -1584,9 +1561,7 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
       <div className={styles.introGrid}>
         <figure className={styles.nodeCapture}>
           <div className={styles.nodeCaptureFrame}>
-            <div className={styles.nodeOnlyCrop}>
-              <img src={assets.graph} alt="Microphone node on the FastLED Studio canvas" />
-            </div>
+            <ImagePlaceholder label="Node image placeholder" detail="Microphone node capture" compact />
           </div>
         </figure>
         <section className={styles.overviewPanel}>
@@ -1619,8 +1594,9 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
             </button>
           </div>
         </div>
-        <ScreenshotFigure
-          src={assets.graph}
+        <PlaceholderFigure
+          label="Example graph placeholder"
+          detail="Microphone example graph"
           alt="Tidy audio spectrum graph using Microphone, FFT Analyzer, Spectrum Bars, and Matrix Output"
           wide
         />
@@ -1637,7 +1613,7 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
           <p>With test audio or microphone capture active, louder frequency bands rise higher while the palette colours the spectrum. This is the same frame passed to Matrix Output for preview and firmware generation.</p>
         </div>
         <figure className={styles.previewCapture}>
-          <img src={assets.preview} alt="LED matrix preview showing rainbow spectrum bars" />
+          <ImagePlaceholder label="Preview image placeholder" detail="LED matrix preview showing rainbow spectrum bars" />
         </figure>
       </section>
     </article>
@@ -1646,7 +1622,6 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
 
 function ButtonArticle({ node }: { node: NodeDefinition }) {
   const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
-  const assets = NODE_REFERENCE_ASSETS.nodes.ButtonInput
   const tryLive = () => {
     openLiveExample(BUTTON_LIVE_EXAMPLE, {
       successMessage: 'Button example added — press the Button node to trigger Beat Flash',
@@ -1668,7 +1643,7 @@ function ButtonArticle({ node }: { node: NodeDefinition }) {
       <div className={styles.introGrid}>
         <figure className={styles.nodeCapture}>
           <div className={styles.nodeCaptureFrame}>
-            <img className={`${styles.nodeCaptureImage} ${styles.nodeCaptureImageNarrow}`} src={assets.node} alt="Button node on the FastLED Studio canvas" />
+            <ImagePlaceholder label="Node image placeholder" detail="Button node capture" compact />
           </div>
         </figure>
         <section className={styles.overviewPanel}>
@@ -1701,8 +1676,9 @@ function ButtonArticle({ node }: { node: NodeDefinition }) {
             </button>
           </div>
         </div>
-        <ScreenshotFigure
-          src={assets.graph}
+        <PlaceholderFigure
+          label="Example graph placeholder"
+          detail="Button example graph"
           alt="Tidy trigger graph using Button, Noise Field, Beat Flash, and Matrix Output"
           wide
         />
@@ -1719,7 +1695,7 @@ function ButtonArticle({ node }: { node: NodeDefinition }) {
           <p>With the button held or tapped, Beat Flash can drive the frame into a hard white burst over the underlying pattern. The important part is the immediate, unmistakable trigger response when Pressed goes high.</p>
         </div>
         <figure className={styles.previewCapture}>
-          <img src={assets.preview} alt="LED preview showing the bright Button-triggered Beat Flash result" />
+          <ImagePlaceholder label="Preview image placeholder" detail="LED preview showing the bright Button-triggered Beat Flash result" />
         </figure>
       </section>
     </article>
@@ -1728,7 +1704,6 @@ function ButtonArticle({ node }: { node: NodeDefinition }) {
 
 function PotentiometerArticle({ node }: { node: NodeDefinition }) {
   const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
-  const assets = NODE_REFERENCE_ASSETS.nodes.PotInput
   const tryLive = () => {
     openLiveExample(POTENTIOMETER_LIVE_EXAMPLE, {
       successMessage: 'Potentiometer example added — drag the Potentiometer slider to dim the pattern',
@@ -1750,7 +1725,7 @@ function PotentiometerArticle({ node }: { node: NodeDefinition }) {
       <div className={styles.introGrid}>
         <figure className={styles.nodeCapture}>
           <div className={styles.nodeCaptureFrame}>
-            <img className={`${styles.nodeCaptureImage} ${styles.nodeCaptureImageNarrow}`} src={assets.node} alt="Potentiometer node on the FastLED Studio canvas" />
+            <ImagePlaceholder label="Node image placeholder" detail="Potentiometer node capture" compact />
           </div>
         </figure>
         <section className={styles.overviewPanel}>
@@ -1783,8 +1758,9 @@ function PotentiometerArticle({ node }: { node: NodeDefinition }) {
             </button>
           </div>
         </div>
-        <ScreenshotFigure
-          src={assets.graph}
+        <PlaceholderFigure
+          label="Example graph placeholder"
+          detail="Potentiometer example graph"
           alt="Tidy control graph using Potentiometer, Noise Field, Brightness, and Matrix Output"
           wide
         />
@@ -1801,7 +1777,7 @@ function PotentiometerArticle({ node }: { node: NodeDefinition }) {
           <p>As you drag the Potentiometer slider down, the pattern fades toward black; dragging it up restores the full image. It is the simplest way to sanity-check any float-controlled modulation path.</p>
         </div>
         <figure className={styles.previewCapture}>
-          <img src={assets.preview} alt="LED preview showing the Potentiometer-controlled brightness result" />
+          <ImagePlaceholder label="Preview image placeholder" detail="LED preview showing the Potentiometer-controlled brightness result" />
         </figure>
       </section>
     </article>
@@ -1810,7 +1786,6 @@ function PotentiometerArticle({ node }: { node: NodeDefinition }) {
 
 function EncoderArticle({ node }: { node: NodeDefinition }) {
   const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
-  const assets = NODE_REFERENCE_ASSETS.nodes.EncoderInput
   const tryLive = () => {
     openLiveExample(ENCODER_LIVE_EXAMPLE, {
       successMessage: 'Encoder example added — drag the dial to shift colour and click it to flash',
@@ -1832,7 +1807,7 @@ function EncoderArticle({ node }: { node: NodeDefinition }) {
       <div className={styles.introGrid}>
         <figure className={styles.nodeCapture}>
           <div className={styles.nodeCaptureFrame}>
-            <img className={`${styles.nodeCaptureImage} ${styles.nodeCaptureImageNarrow}`} src={assets.node} alt="Encoder node on the FastLED Studio canvas" />
+            <ImagePlaceholder label="Node image placeholder" detail="Encoder node capture" compact />
           </div>
         </figure>
         <section className={styles.overviewPanel}>
@@ -1865,8 +1840,9 @@ function EncoderArticle({ node }: { node: NodeDefinition }) {
             </button>
           </div>
         </div>
-        <ScreenshotFigure
-          src={assets.graph}
+        <PlaceholderFigure
+          label="Example graph placeholder"
+          detail="Encoder example graph"
           alt="Tidy control graph using Encoder, Noise Field, Hue Shift, Beat Flash, and Matrix Output"
           wide
         />
@@ -1883,7 +1859,7 @@ function EncoderArticle({ node }: { node: NodeDefinition }) {
           <p>Dragging the encoder should walk the palette around the hue wheel while leaving the underlying pattern intact. Clicking the dial should add a brief flash on top, making it easy to verify both the continuous rotation control and the momentary button output.</p>
         </div>
         <figure className={styles.previewCapture}>
-          <img src={assets.preview} alt="LED preview showing Encoder-driven hue rotation with a flash accent" />
+          <ImagePlaceholder label="Preview image placeholder" detail="LED preview showing Encoder-driven hue rotation with a flash accent" />
         </figure>
       </section>
     </article>
@@ -1892,7 +1868,6 @@ function EncoderArticle({ node }: { node: NodeDefinition }) {
 
 function MidiArticle({ node }: { node: NodeDefinition }) {
   const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
-  const assets = NODE_REFERENCE_ASSETS.nodes.MidiInput
   const tryLive = () => {
     openLiveExample(MIDI_LIVE_EXAMPLE, {
       successMessage: 'MIDI example added — note velocity, gate, and CC now drive the preview patch',
@@ -1914,7 +1889,7 @@ function MidiArticle({ node }: { node: NodeDefinition }) {
       <div className={styles.introGrid}>
         <figure className={styles.nodeCapture}>
           <div className={styles.nodeCaptureFrame}>
-            <img className={`${styles.nodeCaptureImage} ${styles.nodeCaptureImageNarrow}`} src={assets.node} alt="MIDI node on the FastLED Studio canvas" />
+            <ImagePlaceholder label="Node image placeholder" detail="MIDI node capture" compact />
           </div>
         </figure>
         <section className={styles.overviewPanel}>
@@ -1947,8 +1922,9 @@ function MidiArticle({ node }: { node: NodeDefinition }) {
             </button>
           </div>
         </div>
-        <ScreenshotFigure
-          src={assets.graph}
+        <PlaceholderFigure
+          label="Example graph placeholder"
+          detail="MIDI example graph"
           alt="Tidy MIDI control graph using MIDI, Noise Field, Hue Shift, Frame Switch, Brightness, and Matrix Output"
           wide
         />
@@ -1965,7 +1941,7 @@ function MidiArticle({ node }: { node: NodeDefinition }) {
           <p>Moving the chosen CC should rotate the colours, while holding the configured note should flip the frame over to the hue-shifted version and scale it with note velocity. Releasing the note should drop Gate and return the preview to the unshifted base pattern.</p>
         </div>
         <figure className={styles.previewCapture}>
-          <img src={assets.preview} alt="LED preview showing MIDI-controlled hue switching and brightness" />
+          <ImagePlaceholder label="Preview image placeholder" detail="LED preview showing MIDI-controlled hue switching and brightness" />
         </figure>
       </section>
     </article>
