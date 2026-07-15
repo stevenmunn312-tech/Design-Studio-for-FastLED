@@ -26,6 +26,8 @@ import {
 import { evaluateGraphFull } from '../src/state/graphEvaluator'
 import { useUiStore } from '../src/state/uiStore'
 import { samplePalette, type RGB, type Palette, type Frame } from '../src/state/ledColor'
+import { liveExampleForNode } from '../src/components/HelpModal/liveExamples'
+import type { LiveExampleSpec } from '../src/utils/insertLiveExample'
 import type { StudioNode, StudioEdge } from '../src/state/graphStore'
 import type { NodeDefinition } from '../src/types'
 
@@ -140,8 +142,7 @@ const EXCLUDED_KEYS = new Set([
   'showInMainPreview', 'usePsram', 'psramMode', 'width', 'height', 'paramId',
 ])
 
-function editableEntries(def: NodeDefinition): Array<[string, unknown]> {
-  const props = def.defaultProperties ?? {}
+function editableEntries(def: NodeDefinition, props: Record<string, unknown>): Array<[string, unknown]> {
   const hasRGB = 'r' in props && 'g' in props && 'b' in props
   return Object.entries(props).filter(([k]) =>
     !EXCLUDED_KEYS.has(k)
@@ -152,8 +153,7 @@ function editableEntries(def: NodeDefinition): Array<[string, unknown]> {
 }
 
 /** Whether the r/g/b colour swatch row is shown (StudioNode's showRGB gates). */
-function showsRGBSwatch(def: NodeDefinition): boolean {
-  const props = def.defaultProperties ?? {}
+function showsRGBSwatch(def: NodeDefinition, props: Record<string, unknown>): boolean {
   if (!('r' in props && 'g' in props && 'b' in props)) return false
   if (def.type === 'Mirror' && props.glow !== true) return false
   if (def.type === 'Boids' && props.colorMode !== 'solid') return false
@@ -170,13 +170,12 @@ type PropRow =
   | { kind: 'checkbox'; key: string; value: boolean; disabled: boolean }
   | { kind: 'input'; key: string; value: string; disabled: boolean }
 
-function buildPropRows(def: NodeDefinition): PropRow[] {
-  const props = def.defaultProperties ?? {}
+function buildPropRows(def: NodeDefinition, props: Record<string, unknown>): PropRow[] {
   const rows: PropRow[] = []
-  if (showsRGBSwatch(def)) {
+  if (showsRGBSwatch(def, props)) {
     rows.push({ kind: 'swatch', rgb: [Number(props.r), Number(props.g), Number(props.b)] })
   }
-  const entries = editableEntries(def)
+  const entries = editableEntries(def, props)
   const entryRow = ([key, val]: [string, unknown]): PropRow => {
     const disabled = !isPropertyEnabled(def.type, key, props)
     const meta = propertyMeta(def.type, key)
@@ -228,7 +227,7 @@ const BARE_PREVIEW_TYPES = new Set(['Circle', 'Shape', 'Line', 'Path'])
 const isRGB = (v: unknown): v is RGB =>
   typeof v === 'object' && v !== null && 'r' in v && 'g' in v && 'b' in v
 
-function mkNode(id: string, type: string): StudioNode {
+function mkNode(id: string, type: string, overrides?: Record<string, unknown>): StudioNode {
   const def = NODE_LIBRARY.find((d) => d.type === type)!
   return {
     id,
@@ -238,7 +237,7 @@ function mkNode(id: string, type: string): StudioNode {
       label: def.label,
       nodeType: def.type,
       category: def.category,
-      properties: libraryDefaults(def.type),
+      properties: { ...libraryDefaults(def.type), ...overrides },
     },
   } as StudioNode
 }
@@ -248,12 +247,12 @@ type PreviewData =
   | { kind: 'palette'; stops: RGB[] }
   | { kind: 'color'; rgb: RGB }
 
-function buildPreview(def: NodeDefinition): PreviewData | null {
+function buildPreview(def: NodeDefinition, overrides?: Record<string, unknown>): PreviewData | null {
   if (def.type === 'Wave' || def.type === 'ComplexWave') return null
   const out = def.outputs[0]
   if (!out || !['frame', 'palette', 'color'].includes(out.dataType)) return null
 
-  const nodes: StudioNode[] = [mkNode('n1', def.type)]
+  const nodes: StudioNode[] = [mkNode('n1', def.type, overrides)]
   const edges: StudioEdge[] = []
   let n = 0
   // The bare-preview shape nodes draw over their (optional) base input — leave
@@ -324,8 +323,8 @@ function previewSvg(p: PreviewData, y: number, bare = false): string {
 }
 
 // ── SVG fragments ──
-function headerSvg(def: NodeDefinition, accent: string): string {
-  const title = nodeDisplayLabel(def.type, def.defaultProperties ?? {}, def.label)
+function headerSvg(def: NodeDefinition, accent: string, props: Record<string, unknown>): string {
+  const title = nodeDisplayLabel(def.type, props, def.label)
   const tag = CATEGORY_TAG[def.category] ?? 'MOD'
   const code = `${moduleCode(def.type)}-${hash3(def.type)}`
   const badgeChar = 5.5 // 8px mono + 0.08em letter-spacing
@@ -460,24 +459,43 @@ function noteSvg(text: string, y: number): string {
   ].join('\n')
 }
 
-// ── Card assembly ──
-function nodeCardSvg(def: NodeDefinition): string {
+// ── Node assembly ──
+// The preview evaluation dominates generation time and graphs repeat the same
+// stock nodes, so cache by type + overrides.
+const previewCache = new Map<string, PreviewData | null>()
+function buildPreviewCached(def: NodeDefinition, overrides?: Record<string, unknown>): PreviewData | null {
+  const key = `${def.type}|${JSON.stringify(overrides ?? {})}`
+  if (!previewCache.has(key)) previewCache.set(key, buildPreview(def, overrides))
+  return previewCache.get(key)!
+}
+
+interface NodeInner {
+  h: number
+  svg: string
+  /** Port id → y of the handle centre, relative to the node's own origin. */
+  portY: Map<string, number>
+}
+
+/** Render one node box at origin (0,0): header, ports, controls, preview.
+ *  Shared by the single-node cards and the example-graph images. */
+function nodeInner(def: NodeDefinition, overrides?: Record<string, unknown>): NodeInner {
+  const props = { ...libraryDefaults(def.type), ...overrides }
   const isComment = def.type === 'Comment'
   // A Comment tints itself with its own colour property (sticky-note
   // convention) instead of the category accent — mirror StudioNode.
-  const commentColor = String(def.defaultProperties?.color ?? '')
+  const commentColor = String(props.color ?? '')
   const accent = isComment && /^#[0-9a-f]{6}$/i.test(commentColor)
     ? commentColor
     : CATEGORY_COLOR[def.category] ?? '#9aa0a6'
   const rowCount = Math.max(def.inputs.length, def.outputs.length)
   const hasScope = def.type === 'Wave' || def.type === 'ComplexWave'
   const strip = EMBEDDED_UI[def.type]
-  const propRows = isComment ? [] : buildPropRows(def)
+  const propRows = isComment ? [] : buildPropRows(def, props)
 
   // Body children in StudioNode order: preview, scope, port rows, embedded
   // body, props.
-  const children: Array<{ h: number; render: (y: number) => string }> = []
-  const preview = buildPreview(def)
+  const children: Array<{ h: number; portRow?: number; render: (y: number) => string }> = []
+  const preview = buildPreviewCached(def, overrides)
   if (preview) {
     const bare = BARE_PREVIEW_TYPES.has(def.type)
     children.push({
@@ -487,10 +505,10 @@ function nodeCardSvg(def: NodeDefinition): string {
   }
   if (hasScope) children.push({ h: SCOPE_H, render: (y) => scopeSvg(y, accent) })
   for (let i = 0; i < rowCount; i++) {
-    children.push({ h: ROW_H, render: (y) => portRowSvg(def, i, y) })
+    children.push({ h: ROW_H, portRow: i, render: (y) => portRowSvg(def, i, y) })
   }
   if (strip) children.push({ h: STRIP_H, render: (y) => stripSvg(strip, y) })
-  if (isComment) children.push({ h: NOTE_H, render: (y) => noteSvg(String(def.defaultProperties?.text ?? 'Note'), y) })
+  if (isComment) children.push({ h: NOTE_H, render: (y) => noteSvg(String(props.text ?? 'Note'), y) })
   if (propRows.length > 0) {
     const h = 4 + 1 + 6 + propRows.length * PROP_ROW_H + (propRows.length - 1) * PROP_GAP
     children.push({
@@ -512,34 +530,115 @@ function nodeCardSvg(def: NodeDefinition): string {
     + Math.max(0, children.length - 1) * GAP
   const nodeH = Math.max(MIN_NODE_H, HEADER_H + bodyH)
 
+  const portY = new Map<string, number>()
   const body: string[] = []
   let y = HEADER_H + BODY_PAD
   for (const c of children) {
     body.push(c.render(y))
+    if (c.portRow != null) {
+      const cy = y + ROW_H / 2
+      const input = def.inputs[c.portRow]
+      const output = def.outputs[c.portRow]
+      if (input) portY.set(input.id, cy)
+      if (output) portY.set(output.id, cy)
+    }
     y += c.h + GAP
   }
 
-  const W = NODE_W + PAD_X * 2
-  const H = nodeH + PAD_TOP + PAD_BOT
+  const svg = [
+    `<rect x="0" y="0" width="${NODE_W}" height="${nodeH}" rx="${RADIUS}" fill="${C.node}" stroke="${C.border}" filter="url(#shadow)"/>`,
+    `<rect x="0" y="0" width="${NODE_W}" height="${nodeH}" rx="${RADIUS}" fill="${C.node}" stroke="${C.border}"/>`,
+    headerSvg(def, accent, props),
+    ...body,
+  ].join('\n')
+  return { h: nodeH, svg, portY }
+}
+
+/** Wrap rendered content in the canvas backdrop (dot grid + shadow filter). */
+function canvasWrap(W: number, H: number, content: string, label: string): string {
   const dots: string[] = []
   for (let dy = 10; dy < H; dy += 20) {
     for (let dx = 10; dx < W; dx += 20) {
       dots.push(`<circle cx="${dx}" cy="${dy}" r="1" fill="rgba(255,255,255,0.04)"/>`)
     }
   }
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(def.label)} node">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(label)}">
 <rect width="${W}" height="${H}" fill="${C.canvas}"/>
 ${dots.join('\n')}
 <defs><filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#000" flood-opacity="0.45"/></filter></defs>
-<g transform="translate(${PAD_X},${PAD_TOP})">
-<rect x="0" y="0" width="${NODE_W}" height="${nodeH}" rx="${RADIUS}" fill="${C.node}" stroke="${C.border}" filter="url(#shadow)"/>
-<rect x="0" y="0" width="${NODE_W}" height="${nodeH}" rx="${RADIUS}" fill="${C.node}" stroke="${C.border}"/>
-${headerSvg(def, accent)}
-${body.join('\n')}
-</g>
+${content}
 </svg>
 `
+}
+
+function nodeCardSvg(def: NodeDefinition): string {
+  const inner = nodeInner(def)
+  const W = NODE_W + PAD_X * 2
+  const H = inner.h + PAD_TOP + PAD_BOT
+  return canvasWrap(W, H, `<g transform="translate(${PAD_X},${PAD_TOP})">\n${inner.svg}\n</g>`, `${def.label} node`)
+}
+
+// ── Example graph assembly ──
+// Renders a LiveExampleSpec — the same data the article's "Try it live"
+// button inserts — at the spec's own canvas positions, with GlowEdge-style
+// noodles (colour from the source node's category, like the canvas).
+function exampleGraphSvg(spec: LiveExampleSpec): string {
+  const raw = spec.nodes.flatMap((n) => {
+    const def = NODE_LIBRARY.find((d) => d.type === n.type)
+    return def ? [{ key: n.key, def, x: n.dx, y: n.dy, inner: nodeInner(def, n.properties) }] : []
+  })
+  // The spec's spacing was tuned for the on-canvas insert; with preview
+  // thumbnails nodes can be taller than the gaps assume, so nudge an
+  // overlapping node down until the column reads cleanly.
+  const items: typeof raw = []
+  for (const it of [...raw].sort((a, b) => a.y - b.y || a.x - b.x)) {
+    let y = it.y
+    let moved = true
+    while (moved) {
+      moved = false
+      for (const p of items) {
+        const xOverlap = it.x < p.x + NODE_W + 24 && p.x < it.x + NODE_W + 24
+        if (xOverlap && y < p.y + p.inner.h + 28 && y + it.inner.h > p.y) {
+          y = p.y + p.inner.h + 28
+          moved = true
+        }
+      }
+    }
+    items.push({ ...it, y })
+  }
+  const PAD = 44
+  const minX = Math.min(...items.map((i) => i.x)) - PAD
+  const minY = Math.min(...items.map((i) => i.y)) - PAD
+  const W = Math.max(...items.map((i) => i.x + NODE_W)) + PAD - minX
+  const H = Math.max(...items.map((i) => i.y + i.inner.h)) + PAD - minY
+
+  const byKey = new Map(items.map((i) => [i.key, i]))
+  const edges: string[] = []
+  for (const e of spec.edges) {
+    const s = byKey.get(e.source)
+    const t = byKey.get(e.target)
+    if (!s || !t) continue
+    const sy = s.inner.portY.get(e.sourceHandle)
+    const ty = t.inner.portY.get(e.targetHandle)
+    if (sy == null || ty == null) continue
+    const sx = s.x - minX + NODE_W + 2
+    const syy = s.y - minY + sy
+    const tx = t.x - minX - 2
+    const tyy = t.y - minY + ty
+    const color = CATEGORY_COLOR[s.def.category] ?? '#9aa0a6'
+    const k = Math.max(40, Math.abs(tx - sx) * 0.45)
+    const d = `M${sx},${syy} C${sx + k},${syy} ${tx - k},${tyy} ${tx},${tyy}`
+    edges.push(
+      `<path d="${d}" fill="none" stroke="${color}" stroke-width="6" opacity="0.14" stroke-linecap="round"/>`,
+      `<path d="${d}" fill="none" stroke="${color}" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>`,
+      `<path d="${d}" fill="none" stroke="${color}" stroke-width="1.2" stroke-linecap="round"/>`,
+      `<circle cx="${tx}" cy="${tyy}" r="3" fill="${color}"/>`,
+    )
+  }
+
+  const nodes = items.map((i) =>
+    `<g transform="translate(${i.x - minX},${i.y - minY})">\n${i.inner.svg}\n</g>`)
+  return canvasWrap(W, H, [...edges, ...nodes].join('\n'), spec.title)
 }
 
 // ── Gallery doc ──
@@ -557,8 +656,12 @@ function galleryMd(): string {
     if (nodes.length === 0) continue
     lines.push(`## ${cat.label}`, '')
     for (const def of nodes) {
-      const file = `../../public/node-cards/${kebab(def.type)}.svg`
-      lines.push(`### ${def.label}`, '', `![${def.label} node](${file})`, '')
+      const k = kebab(def.type)
+      lines.push(
+        `### ${def.label}`, '',
+        `![${def.label} node](../../public/node-cards/${k}.svg)`, '',
+        `![${def.label} example graph](../../public/node-cards/graphs/${k}.svg)`, '',
+      )
     }
   }
   return lines.join('\n')
@@ -566,12 +669,13 @@ function galleryMd(): string {
 
 // ── Main ──
 rmSync(OUT_DIR, { recursive: true, force: true })
-mkdirSync(OUT_DIR, { recursive: true })
+mkdirSync(join(OUT_DIR, 'graphs'), { recursive: true })
 mkdirSync(join(ROOT, 'docs', 'reference'), { recursive: true })
 let count = 0
 for (const def of NODE_LIBRARY) {
   writeFileSync(join(OUT_DIR, `${kebab(def.type)}.svg`), nodeCardSvg(def))
+  writeFileSync(join(OUT_DIR, 'graphs', `${kebab(def.type)}.svg`), exampleGraphSvg(liveExampleForNode(def)))
   count++
 }
 writeFileSync(GALLERY, galleryMd())
-console.log(`wrote ${count} node cards to public/node-cards/ + docs/reference/node-cards.md`)
+console.log(`wrote ${count} node cards + example graphs to public/node-cards/ + docs/reference/node-cards.md`)

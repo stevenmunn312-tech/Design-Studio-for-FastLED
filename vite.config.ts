@@ -83,7 +83,7 @@ export default defineConfig(() => {
               options: { cacheName: 'essentia-wasm', expiration: { maxEntries: 2 } },
             },
             {
-              urlPattern: /\/node-cards\/[^/]+\.svg$/,
+              urlPattern: /\/node-cards\/.+\.svg$/,
               handler: 'CacheFirst',
               options: { cacheName: 'node-cards', expiration: { maxEntries: 200 } },
             },
