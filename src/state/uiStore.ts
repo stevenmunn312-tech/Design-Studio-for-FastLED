@@ -79,6 +79,8 @@ interface UiState {
   statusLevel: StatusLevel
   sidebarOpen: boolean
   previewPanelOpen: boolean
+  /** Whether the live graph evaluator advances and publishes preview frames. */
+  evaluationRunning: boolean
   /** Show-ready layout that gives the live matrix and transport the viewport. */
   stageMode: boolean
   /** Canvas-focused presentation mode that hushes chrome and emphasizes signal flow. */
@@ -116,6 +118,7 @@ interface UiState {
   clearStatus: () => void
   toggleSidebar: () => void
   togglePreviewPanel: () => void
+  toggleEvaluation: () => void
   toggleStageMode: () => void
   setStageMode: (active: boolean) => void
   togglePerformanceMode: () => void
@@ -167,6 +170,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   statusLevel: 'idle',
   sidebarOpen: true,
   previewPanelOpen: true,
+  evaluationRunning: true,
   stageMode: false,
   performanceMode: load<boolean>(PERFORMANCE_MODE_KEY, false),
   uiEffectsEnabled: load<boolean>(UI_EFFECTS_KEY, true),
@@ -206,6 +210,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   },
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   togglePreviewPanel: () => set((s) => ({ previewPanelOpen: !s.previewPanelOpen })),
+  toggleEvaluation: () => set((s) => ({ evaluationRunning: !s.evaluationRunning })),
   toggleStageMode: () => set((s) => ({ stageMode: !s.stageMode })),
   setStageMode: (stageMode) => set({ stageMode }),
   togglePerformanceMode: () => {

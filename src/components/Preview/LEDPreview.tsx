@@ -606,6 +606,7 @@ export default function LEDPreview() {
   const lastPreviewPublish = useRef(0)
   const reportedPreviewErrors = useRef(new Set<string>())
   const lastFrameNow = useRef(0)
+  const pauseStartedAt = useRef(0)
   const clearedPreviewStore = useRef(false)
 
   const libraryPatterns = usePatternLibrary((s) => s.patterns)
@@ -639,6 +640,7 @@ export default function LEDPreview() {
     : null
   const stageMode = useUiStore((s) => s.stageMode)
   const previewPanelOpen = useUiStore((s) => s.previewPanelOpen)
+  const evaluationRunning = useUiStore((s) => s.evaluationRunning)
   // Stage-mode pattern name, derived inside a selector that returns a plain
   // string — graph edits (including every drag pointermove) only re-render this
   // panel when the displayed name actually changes. Off stage, skip the walk.
@@ -723,7 +725,9 @@ export default function LEDPreview() {
   // while its dock is closed (the render loop keeps feeding node previews),
   // and stage mode shows it regardless of the dock.
   const previewVisibleRef = useRef(previewPanelOpen || stageMode)
+  const evaluationRunningRef = useRef(evaluationRunning)
   useEffect(() => { previewVisibleRef.current = previewPanelOpen || stageMode }, [previewPanelOpen, stageMode])
+  useEffect(() => { evaluationRunningRef.current = evaluationRunning }, [evaluationRunning])
   const preview3dRef = useRef(effectivePreview3d)
   const micActiveRef = useRef(micActive)
   const analyzingMusicRef = useRef(analyzingMusic)
@@ -830,6 +834,22 @@ export default function LEDPreview() {
       try {
         const now = performance.now()
         const frameStart = now
+        // Keep the last rendered matrix and node previews frozen while paused.
+        // The rAF remains alive only to notice a resume; no graph evaluation,
+        // rendering, store publication, or stream-frame publication occurs.
+        if (!evaluationRunningRef.current) {
+          if (pauseStartedAt.current === 0) pauseStartedAt.current = now
+          animRef.current = requestAnimationFrame(loop)
+          return
+        }
+        if (pauseStartedAt.current !== 0) {
+          // Remove the paused wall-clock interval from animation time so
+          // stateful effects continue from the exact frame where they stopped.
+          if (startTime.current !== 0) startTime.current += now - pauseStartedAt.current
+          pauseStartedAt.current = 0
+          lastStep.current = now
+          lastFrameNow.current = now
+        }
         if (startTime.current === 0) { startTime.current = now; lastStep.current = now }
         // Gate to ~60fps off the wall clock: on high-refresh displays this skips
         // the extra rAF callbacks instead of advancing time faster than real.

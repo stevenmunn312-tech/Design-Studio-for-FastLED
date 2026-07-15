@@ -57,6 +57,7 @@ describe('MenuBar file menu', () => {
       templatesOpen: false,
       projectsOpen: false,
       performanceMode: false,
+      evaluationRunning: true,
       stageMode: false,
       uiEffectsEnabled: true,
       signalPathDimEnabled: true,
@@ -96,6 +97,17 @@ describe('MenuBar file menu', () => {
     const { getByRole } = render(<MenuBar />)
     fireEvent.click(getByRole('button', { name: 'Open start gallery' }))
     expect(useUiStore.getState().templatesOpen).toBe(true)
+  })
+
+  it('pauses and resumes graph evaluation from the main workflow controls', () => {
+    const { getByRole } = render(<MenuBar />)
+
+    fireEvent.click(getByRole('button', { name: 'Pause graph evaluation' }))
+    expect(useUiStore.getState().evaluationRunning).toBe(false)
+    expect(getByRole('button', { name: 'Resume graph evaluation' }).getAttribute('aria-pressed')).toBe('true')
+
+    fireEvent.click(getByRole('button', { name: 'Resume graph evaluation' }))
+    expect(useUiStore.getState().evaluationRunning).toBe(true)
   })
 
   it('keeps preview controls mounted while stage mode is active', () => {

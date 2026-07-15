@@ -22,6 +22,7 @@ import { runTidy } from '../../utils/tidyGraph'
 import { buildShareUrl } from '../../utils/shareGraph'
 import { promptTrustIfNeeded } from '../../utils/trustPrompt'
 import { DevPerformanceHudToggle } from '../Preview/DevPerformanceHud'
+import { IconPause, IconPlay } from '../Preview/PlayerIcons'
 import { isDiffusedStyle, previewStyleLabel } from '../Preview/previewStyles'
 import styles from './MenuBar.module.css'
 
@@ -58,6 +59,8 @@ export default function MenuBar() {
     toggleHighContrast,
     performanceMode,
     togglePerformanceMode,
+    evaluationRunning,
+    toggleEvaluation,
     uiEffectsEnabled,
     toggleUiEffects,
     signalPathDimEnabled,
@@ -663,6 +666,19 @@ export default function MenuBar() {
           title={startTitle}
         >
           ✦ Start
+        </button>
+        <button
+          className={`${styles.btn} ${styles.evaluationBtn} ${evaluationRunning ? styles.evaluationRunning : styles.evaluationPaused}`}
+          onClick={() => {
+            toggleEvaluation()
+            setStatus(evaluationRunning ? 'Graph evaluation paused' : 'Graph evaluation resumed')
+          }}
+          aria-label={evaluationRunning ? 'Pause graph evaluation' : 'Resume graph evaluation'}
+          aria-pressed={!evaluationRunning}
+          title={evaluationRunning ? 'Pause graph evaluation and freeze previews' : 'Resume graph evaluation'}
+        >
+          {evaluationRunning ? <IconPause size={12} /> : <IconPlay size={12} />}
+          {evaluationRunning ? 'Pause Eval' : 'Play Eval'}
         </button>
         <input
           ref={projectInputRef}
