@@ -1,0 +1,434 @@
+/**
+ * Generate a reference card image (SVG) for every node in NODE_LIBRARY, in the
+ * visual style of the on-canvas StudioNode: category-accent header with badges,
+ * typed port dots, and the node's inline property controls at their defaults.
+ *
+ * Run: npm run gen:node-cards
+ * Output: docs/assets/nodes/<kebab-type>.svg + docs/reference/node-cards.md
+ *
+ * The layout constants mirror StudioNode.tsx / StudioNode.module.css /
+ * tokens.css. Data (ports, properties, colours, control kinds, variant gating)
+ * comes from src/state/nodeLibrary.ts, so a regenerated card always matches
+ * the current library.
+ */
+import { mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
+import {
+  NODE_LIBRARY, CATEGORIES, CATEGORY_COLOR, categoryNodes, portColor,
+  propertyMeta, isPropertyEnabled, propertyGroupsFor, hasClampableInputs,
+  bypassPort, nodeDisplayLabel,
+} from '../src/state/nodeLibrary'
+import type { NodeDefinition } from '../src/types'
+
+// Run from the repo root (the npm script does).
+const ROOT = process.cwd()
+const OUT_DIR = join(ROOT, 'docs', 'assets', 'nodes')
+const GALLERY = join(ROOT, 'docs', 'reference', 'node-cards.md')
+
+// ── Layout constants (keep in sync with StudioNode.module.css / tokens.css) ──
+const NODE_W = 240        // --node-width
+const HEADER_H = 32       // .header height
+const BODY_PAD = 8        // .body padding (--space-1)
+const ROW_H = 24          // .portRow height
+const GAP = 4             // .body flex gap
+const RADIUS = 8          // --node-radius
+const SCOPE_H = 40        // WaveScope height (Wave / ComplexWave)
+const PROP_ROW_H = 18     // inline property editor row
+const PROP_GAP = 3        // .props flex gap
+const STRIP_H = 24        // embedded-UI placeholder strip
+const NOTE_H = 72         // Comment sticky-note area
+const MIN_NODE_H = 80     // --node-height
+
+const PAD_X = 28          // canvas margin (port dots + glow)
+const PAD_TOP = 24
+const PAD_BOT = 34        // room for the drop shadow
+
+// ── Palette (tokens.css, dark theme) ──
+const C = {
+  canvas: '#0d0f12',        // --bg-primary
+  node: '#1f242b',          // --bg-node
+  border: 'rgba(255,255,255,0.12)',   // --border-glow
+  divider: 'rgba(255,255,255,0.08)',  // --divider (nudged for SVG legibility)
+  text: '#e0e0e0',          // --text-primary
+  dim: '#a0a0a0',           // --text-secondary
+  slider: '#d633ff',        // --accent-output (propRange accent-color)
+  track: '#cfd2d6',
+  field: '#0d0f12',         // .propInput/.propSelect background
+}
+const MONO = "'JetBrains Mono','Cascadia Mono','Consolas',monospace"
+const DISPLAY = "'Audiowide','Trebuchet MS','Arial Black',sans-serif"
+
+// CATEGORY_TAG in StudioNode.tsx (not exported there)
+const CATEGORY_TAG: Record<string, string> = {
+  input: 'IN', audio: 'AUD', signal: 'SIG', math: 'MTH', color: 'CLR',
+  pattern: 'PAT', field: 'FLD', composite: 'CMP', show: 'SHW',
+  output: 'OUT', note: 'NOTE',
+}
+
+// Nodes whose body embeds a bespoke UI in the app — represented on the card by
+// a dashed placeholder strip so the card doesn't pretend the node is ports-only.
+const EMBEDDED_UI: Record<string, string> = {
+  MusicLibrary: 'music library · drop MP3s · analyse',
+  PerformanceGenerator: 'show preview player',
+  Image: 'image drop zone',
+  PatternCollection: 'collected patterns list',
+  Transition: 'transition picker',
+  TransitionSet: 'transition pool',
+  CustomPalette: 'palette editor',
+  Poline: 'poline palette editor',
+  MatrixOutput: 'board · port · upload',
+  Code: 'Global / Loop C++ editors',
+}
+
+// ── Small helpers ──
+const esc = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
+/** moduleCode + a deterministic 3-digit tag, matching the header badge style. */
+const moduleCode = (t: string) => t.replace(/[^A-Z0-9]/gi, '').slice(0, 3).toUpperCase().padEnd(3, '·')
+const hash3 = (t: string) => {
+  let h = 0
+  for (const ch of t) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  return String(100 + (h % 900))
+}
+
+const kebab = (t: string) =>
+  t.replace(/([a-z0-9])([A-Z])/g, '$1-$2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2').toLowerCase()
+
+const fmtNum = (v: number) => {
+  if (Number.isInteger(v)) return String(v)
+  return String(Number(v.toFixed(2)))
+}
+const fmtVal = (v: unknown): string => {
+  if (typeof v === 'number') return fmtNum(v)
+  if (Array.isArray(v)) return v.map((x) => (typeof x === 'number' ? fmtNum(x) : String(x))).join(',')
+  if (typeof v === 'object' && v !== null) return '{…}'
+  return String(v)
+}
+
+const truncate = (s: string, maxPx: number, pxPerChar: number) => {
+  const max = Math.max(1, Math.floor(maxPx / pxPerChar))
+  return s.length <= max ? s : s.slice(0, max - 1) + '…'
+}
+
+// StudioNode's generic-property exclusions (edited via dedicated UI, or not
+// user-facing) — keep in sync with the `editable` filter in StudioNode.tsx.
+const EXCLUDED_KEYS = new Set([
+  'font', 'image', 'animation', 'code', 'globalCode', 'clampInputs',
+  'patternIds', 'patternSections', 'transitions', 'previewHidden', 'bypassed',
+  'showInMainPreview', 'usePsram', 'psramMode', 'width', 'height', 'paramId',
+])
+
+function editableEntries(def: NodeDefinition): Array<[string, unknown]> {
+  const props = def.defaultProperties ?? {}
+  const hasRGB = 'r' in props && 'g' in props && 'b' in props
+  return Object.entries(props).filter(([k]) =>
+    !EXCLUDED_KEYS.has(k)
+    && !(def.type === 'CustomPalette' && (k === 'colors' || k === 'positions'))
+    && !(def.type === 'Poline' && (k === 'anchorA' || k === 'anchorB' || k === 'anchorC'))
+    && !(def.type === 'Comment' && k === 'text')
+    && !(hasRGB && (k === 'r' || k === 'g' || k === 'b')))
+}
+
+/** Whether the r/g/b colour swatch row is shown (StudioNode's showRGB gates). */
+function showsRGBSwatch(def: NodeDefinition): boolean {
+  const props = def.defaultProperties ?? {}
+  if (!('r' in props && 'g' in props && 'b' in props)) return false
+  if (def.type === 'Mirror' && props.glow !== true) return false
+  if (def.type === 'Boids' && props.colorMode !== 'solid') return false
+  if (def.type === 'BeatFlash' && String(props.palette ?? 'none') !== 'none') return false
+  return true
+}
+
+// One renderable row in the .props section.
+type PropRow =
+  | { kind: 'swatch'; rgb: [number, number, number] }
+  | { kind: 'group'; label: string }
+  | { kind: 'slider'; key: string; value: number; min: number; max: number; disabled: boolean }
+  | { kind: 'select'; key: string; value: string; disabled: boolean }
+  | { kind: 'checkbox'; key: string; value: boolean; disabled: boolean }
+  | { kind: 'input'; key: string; value: string; disabled: boolean }
+
+function buildPropRows(def: NodeDefinition): PropRow[] {
+  const props = def.defaultProperties ?? {}
+  const rows: PropRow[] = []
+  if (showsRGBSwatch(def)) {
+    rows.push({ kind: 'swatch', rgb: [Number(props.r), Number(props.g), Number(props.b)] })
+  }
+  const entries = editableEntries(def)
+  const entryRow = ([key, val]: [string, unknown]): PropRow => {
+    const disabled = !isPropertyEnabled(def.type, key, props)
+    const meta = propertyMeta(def.type, key)
+    if (meta?.control === 'slider' && typeof val === 'number') {
+      return { kind: 'slider', key, value: val, min: meta.min, max: meta.max, disabled }
+    }
+    if (meta?.control === 'select') return { kind: 'select', key, value: String(val), disabled }
+    if (typeof val === 'boolean') return { kind: 'checkbox', key, value: val, disabled }
+    return { kind: 'input', key, value: fmtVal(val), disabled }
+  }
+  const groups = propertyGroupsFor(def.type)
+  if (groups) {
+    // Groups start collapsed in the app — render just the section headers.
+    const grouped = new Set(groups.flatMap((g) => g.keys))
+    for (const g of groups) {
+      if (entries.some(([k]) => g.keys.includes(k))) rows.push({ kind: 'group', label: g.label })
+    }
+    for (const e of entries) if (!grouped.has(e[0])) rows.push(entryRow(e))
+  } else {
+    for (const e of entries) rows.push(entryRow(e))
+  }
+  if (hasClampableInputs(def.type, def.inputs)) {
+    rows.push({ kind: 'checkbox', key: 'clamp inputs', value: false, disabled: false })
+  }
+  if (bypassPort(def.outputs, def.inputs) != null) {
+    rows.push({ kind: 'checkbox', key: 'bypass', value: false, disabled: false })
+  }
+  if (def.type === 'MicInput' || def.type === 'MatrixOutput') {
+    rows.push({ kind: 'checkbox', key: 'set default', value: false, disabled: false })
+  }
+  return rows
+}
+
+// ── SVG fragments ──
+function headerSvg(def: NodeDefinition, accent: string): string {
+  const title = nodeDisplayLabel(def.type, def.defaultProperties ?? {}, def.label)
+  const tag = CATEGORY_TAG[def.category] ?? 'MOD'
+  const code = `${moduleCode(def.type)}-${hash3(def.type)}`
+  const badgeChar = 5.5 // 8px mono + 0.08em letter-spacing
+  const codeW = Math.round(code.length * badgeChar) + 8
+  const tagW = Math.round(tag.length * badgeChar) + 8
+  const codeX = NODE_W - 8 - codeW
+  const tagX = codeX - 6 - tagW
+  const titleMax = tagX - 8 - 6
+  const parts: string[] = []
+  parts.push(`<path d="M0,${HEADER_H} L0,${RADIUS} Q0,0 ${RADIUS},0 L${NODE_W - RADIUS},0 Q${NODE_W},0 ${NODE_W},${RADIUS} L${NODE_W},${HEADER_H} Z" fill="${accent}"/>`)
+  parts.push(`<text x="8" y="21" font-family=${JSON.stringify(DISPLAY)} font-size="14" font-weight="600" fill="#000">${esc(truncate(title, titleMax, 9.5))}</text>`)
+  for (const [x, w, label] of [[tagX, tagW, tag], [codeX, codeW, code]] as const) {
+    parts.push(`<rect x="${x}" y="10" width="${w}" height="12" rx="6" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>`)
+    parts.push(`<text x="${x + w / 2}" y="19" text-anchor="middle" font-family=${JSON.stringify(MONO)} font-size="8" letter-spacing="0.08em" fill="#000">${esc(label)}</text>`)
+  }
+  return parts.join('\n')
+}
+
+function scopeSvg(y: number, accent: string): string {
+  const w = NODE_W - BODY_PAD * 2
+  const pts: string[] = []
+  for (let i = 0; i <= 56; i++) {
+    const x = BODY_PAD + (i / 56) * w
+    const yy = y + SCOPE_H / 2 - Math.sin((i / 56) * Math.PI * 4) * (SCOPE_H / 2 - 6)
+    pts.push(`${x.toFixed(1)},${yy.toFixed(1)}`)
+  }
+  return [
+    `<rect x="${BODY_PAD}" y="${y}" width="${w}" height="${SCOPE_H}" rx="4" fill="${C.field}" stroke="${C.border}"/>`,
+    `<line x1="${BODY_PAD}" y1="${y + SCOPE_H / 2}" x2="${BODY_PAD + w}" y2="${y + SCOPE_H / 2}" stroke="rgba(255,255,255,0.06)"/>`,
+    `<polyline points="${pts.join(' ')}" fill="none" stroke="${accent}" stroke-width="1.5" stroke-linejoin="round"/>`,
+  ].join('\n')
+}
+
+function portRowSvg(def: NodeDefinition, i: number, y: number): string {
+  const input = def.inputs[i]
+  const output = def.outputs[i]
+  const cy = y + ROW_H / 2
+  const parts: string[] = []
+  if (input) {
+    const col = portColor(input.dataType)
+    parts.push(`<circle cx="-2" cy="${cy}" r="9" fill="${col}" opacity="0.25"/>`)
+    parts.push(`<circle cx="-2" cy="${cy}" r="6" fill="${col}" stroke="${C.canvas}" stroke-width="1.5"/>`)
+    parts.push(`<text x="10" y="${cy + 4}" font-family=${JSON.stringify(MONO)} font-size="12" fill="${C.dim}">${esc(input.label)}</text>`)
+  }
+  if (output) {
+    const col = portColor(output.dataType)
+    parts.push(`<circle cx="${NODE_W + 2}" cy="${cy}" r="9" fill="${col}" opacity="0.25"/>`)
+    parts.push(`<circle cx="${NODE_W + 2}" cy="${cy}" r="6" fill="${col}" stroke="${C.canvas}" stroke-width="1.5"/>`)
+    parts.push(`<text x="${NODE_W - 10}" y="${cy + 4}" text-anchor="end" font-family=${JSON.stringify(MONO)} font-size="12" fill="${C.dim}">${esc(output.label)}</text>`)
+  }
+  return parts.join('\n')
+}
+
+function propRowSvg(row: PropRow, y: number): string {
+  const cy = y + PROP_ROW_H / 2
+  const right = NODE_W - BODY_PAD
+  const parts: string[] = []
+  const dim = 'disabled' in row && row.disabled ? ' opacity="0.45"' : ''
+  const key = (label: string, maxPx: number) =>
+    `<text x="${BODY_PAD}" y="${cy + 4}" font-family=${JSON.stringify(MONO)} font-size="12" fill="${C.dim}"${dim}>${esc(truncate(label, maxPx, 7.2))}</text>`
+
+  switch (row.kind) {
+    case 'group':
+      return `<text x="${BODY_PAD}" y="${cy + 4}" font-family=${JSON.stringify(MONO)} font-size="12" letter-spacing="0.03em" fill="${C.dim}">▸ ${esc(row.label.toUpperCase())}</text>`
+    case 'swatch': {
+      const [r, g, b] = row.rgb
+      parts.push(key('color', 160))
+      parts.push(`<rect x="${right - 28}" y="${cy - 9}" width="28" height="18" rx="4" fill="rgb(${r},${g},${b})" stroke="${C.border}"/>`)
+      return parts.join('\n')
+    }
+    case 'slider': {
+      const trackW = 72, valW = 34
+      const trackX = right - valW - 6 - trackW
+      const frac = Math.max(0, Math.min(1, (row.value - row.min) / (row.max - row.min || 1)))
+      parts.push(key(row.key, trackX - BODY_PAD - 6))
+      parts.push(`<g${dim}>`)
+      parts.push(`<rect x="${trackX}" y="${cy - 2}" width="${trackW}" height="4" rx="2" fill="${C.track}" opacity="0.85"/>`)
+      parts.push(`<rect x="${trackX}" y="${cy - 2}" width="${(trackW * frac).toFixed(1)}" height="4" rx="2" fill="${C.slider}"/>`)
+      parts.push(`<circle cx="${(trackX + trackW * frac).toFixed(1)}" cy="${cy}" r="5" fill="${C.slider}"/>`)
+      parts.push(`<text x="${right}" y="${cy + 4}" text-anchor="end" font-family=${JSON.stringify(MONO)} font-size="12" fill="${C.text}">${esc(fmtNum(row.value))}</text>`)
+      parts.push('</g>')
+      return parts.join('\n')
+    }
+    case 'select': {
+      const w = 84, x = right - w
+      parts.push(key(row.key, x - BODY_PAD - 6))
+      parts.push(`<g${dim}>`)
+      parts.push(`<rect x="${x}" y="${cy - 8}" width="${w}" height="16" rx="4" fill="${C.field}" stroke="${C.border}"/>`)
+      parts.push(`<text x="${x + 4}" y="${cy + 4}" font-family=${JSON.stringify(MONO)} font-size="11" fill="${C.text}">${esc(truncate(row.value, w - 18, 6.6))}</text>`)
+      parts.push(`<text x="${x + w - 4}" y="${cy + 4}" text-anchor="end" font-size="8" fill="${C.dim}">▾</text>`)
+      parts.push('</g>')
+      return parts.join('\n')
+    }
+    case 'checkbox': {
+      const s = 12, x = right - s
+      parts.push(key(row.key, x - BODY_PAD - 6))
+      parts.push(`<g${dim}>`)
+      if (row.value) {
+        parts.push(`<rect x="${x}" y="${cy - s / 2}" width="${s}" height="${s}" rx="3" fill="${C.slider}"/>`)
+        parts.push(`<path d="M${x + 2.5},${cy} l3,3 l4.5,-5.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>`)
+      } else {
+        parts.push(`<rect x="${x}" y="${cy - s / 2}" width="${s}" height="${s}" rx="3" fill="${C.field}" stroke="${C.border}"/>`)
+      }
+      parts.push('</g>')
+      return parts.join('\n')
+    }
+    case 'input': {
+      const w = 72, x = right - w
+      parts.push(key(row.key, x - BODY_PAD - 6))
+      parts.push(`<g${dim}>`)
+      parts.push(`<rect x="${x}" y="${cy - 8}" width="${w}" height="16" rx="4" fill="${C.field}" stroke="${C.border}"/>`)
+      parts.push(`<text x="${x + 4}" y="${cy + 4}" font-family=${JSON.stringify(MONO)} font-size="11" fill="${C.text}">${esc(truncate(row.value, w - 8, 6.6))}</text>`)
+      parts.push('</g>')
+      return parts.join('\n')
+    }
+  }
+}
+
+function stripSvg(label: string, y: number): string {
+  const w = NODE_W - BODY_PAD * 2
+  return [
+    `<rect x="${BODY_PAD}" y="${y}" width="${w}" height="${STRIP_H}" rx="4" fill="none" stroke="${C.border}" stroke-dasharray="4 3"/>`,
+    `<text x="${NODE_W / 2}" y="${y + STRIP_H / 2 + 4}" text-anchor="middle" font-family=${JSON.stringify(MONO)} font-size="10" font-style="italic" fill="${C.dim}">${esc(label)}</text>`,
+  ].join('\n')
+}
+
+function noteSvg(text: string, y: number): string {
+  const w = NODE_W - BODY_PAD * 2
+  return [
+    `<rect x="${BODY_PAD}" y="${y}" width="${w}" height="${NOTE_H}" rx="4" fill="none" stroke="${C.border}" stroke-dasharray="4 3"/>`,
+    `<text x="${BODY_PAD + 8}" y="${y + 18}" font-family="'Inter','Segoe UI',sans-serif" font-size="14" fill="${C.text}">${esc(text)}</text>`,
+  ].join('\n')
+}
+
+// ── Card assembly ──
+function nodeCardSvg(def: NodeDefinition): string {
+  const isComment = def.type === 'Comment'
+  // A Comment tints itself with its own colour property (sticky-note
+  // convention) instead of the category accent — mirror StudioNode.
+  const commentColor = String(def.defaultProperties?.color ?? '')
+  const accent = isComment && /^#[0-9a-f]{6}$/i.test(commentColor)
+    ? commentColor
+    : CATEGORY_COLOR[def.category] ?? '#9aa0a6'
+  const rowCount = Math.max(def.inputs.length, def.outputs.length)
+  const hasScope = def.type === 'Wave' || def.type === 'ComplexWave'
+  const strip = EMBEDDED_UI[def.type]
+  const propRows = isComment ? [] : buildPropRows(def)
+
+  // Body children in StudioNode order: scope, port rows, embedded body, props.
+  const children: Array<{ h: number; render: (y: number) => string }> = []
+  if (hasScope) children.push({ h: SCOPE_H, render: (y) => scopeSvg(y, accent) })
+  for (let i = 0; i < rowCount; i++) {
+    children.push({ h: ROW_H, render: (y) => portRowSvg(def, i, y) })
+  }
+  if (strip) children.push({ h: STRIP_H, render: (y) => stripSvg(strip, y) })
+  if (isComment) children.push({ h: NOTE_H, render: (y) => noteSvg(String(def.defaultProperties?.text ?? 'Note'), y) })
+  if (propRows.length > 0) {
+    const h = 4 + 1 + 6 + propRows.length * PROP_ROW_H + (propRows.length - 1) * PROP_GAP
+    children.push({
+      h,
+      render: (y) => {
+        const parts = [`<line x1="${BODY_PAD}" y1="${y + 4}" x2="${NODE_W - BODY_PAD}" y2="${y + 4}" stroke="${C.divider}"/>`]
+        let ry = y + 4 + 1 + 6
+        for (const row of propRows) {
+          parts.push(propRowSvg(row, ry))
+          ry += PROP_ROW_H + PROP_GAP
+        }
+        return parts.join('\n')
+      },
+    })
+  }
+
+  const bodyH = BODY_PAD * 2
+    + children.reduce((s, c) => s + c.h, 0)
+    + Math.max(0, children.length - 1) * GAP
+  const nodeH = Math.max(MIN_NODE_H, HEADER_H + bodyH)
+
+  const body: string[] = []
+  let y = HEADER_H + BODY_PAD
+  for (const c of children) {
+    body.push(c.render(y))
+    y += c.h + GAP
+  }
+
+  const W = NODE_W + PAD_X * 2
+  const H = nodeH + PAD_TOP + PAD_BOT
+  const dots: string[] = []
+  for (let dy = 10; dy < H; dy += 20) {
+    for (let dx = 10; dx < W; dx += 20) {
+      dots.push(`<circle cx="${dx}" cy="${dy}" r="1" fill="rgba(255,255,255,0.04)"/>`)
+    }
+  }
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(def.label)} node">
+<rect width="${W}" height="${H}" fill="${C.canvas}"/>
+${dots.join('\n')}
+<defs><filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#000" flood-opacity="0.45"/></filter></defs>
+<g transform="translate(${PAD_X},${PAD_TOP})">
+<rect x="0" y="0" width="${NODE_W}" height="${nodeH}" rx="${RADIUS}" fill="${C.node}" stroke="${C.border}" filter="url(#shadow)"/>
+<rect x="0" y="0" width="${NODE_W}" height="${nodeH}" rx="${RADIUS}" fill="${C.node}" stroke="${C.border}"/>
+${headerSvg(def, accent)}
+${body.join('\n')}
+</g>
+</svg>
+`
+}
+
+// ── Gallery doc ──
+function galleryMd(): string {
+  const lines: string[] = [
+    '# Node cards',
+    '',
+    'One reference card per node in the library, generated from `NODE_LIBRARY`',
+    'by `scripts/generate-node-card-svgs.ts` (`npm run gen:node-cards`).',
+    'Regenerate after adding or changing a node — do not edit the SVGs by hand.',
+    '',
+  ]
+  for (const cat of CATEGORIES) {
+    const nodes = categoryNodes(cat.id)
+    if (nodes.length === 0) continue
+    lines.push(`## ${cat.label}`, '')
+    for (const def of nodes) {
+      const file = `../assets/nodes/${kebab(def.type)}.svg`
+      lines.push(`### ${def.label}`, '', `![${def.label} node](${file})`, '')
+    }
+  }
+  return lines.join('\n')
+}
+
+// ── Main ──
+rmSync(OUT_DIR, { recursive: true, force: true })
+mkdirSync(OUT_DIR, { recursive: true })
+mkdirSync(join(ROOT, 'docs', 'reference'), { recursive: true })
+let count = 0
+for (const def of NODE_LIBRARY) {
+  writeFileSync(join(OUT_DIR, `${kebab(def.type)}.svg`), nodeCardSvg(def))
+  count++
+}
+writeFileSync(GALLERY, galleryMd())
+console.log(`wrote ${count} node cards to docs/assets/nodes/ + docs/reference/node-cards.md`)

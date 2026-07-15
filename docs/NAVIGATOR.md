@@ -37,6 +37,14 @@ build/architecture overview aimed at contributors.
     — how to replay the divergent `feature/thmi-touchscreen-ui` branch (FFT
     audio, 13 transitions, T-HMI firmware) onto current `main` as PRs.
 
+## Reference
+
+- [Node cards](reference/node-cards.md)
+  — a generated reference card image for every node in the library (ports,
+    typed port colours, inline controls at their defaults). Regenerate with
+    `npm run gen:node-cards` after changing `nodeLibrary.ts`; images live in
+    `docs/assets/nodes/`.
+
 ## Release
 
 - [Beta support matrix](release/beta-support-matrix.md)
