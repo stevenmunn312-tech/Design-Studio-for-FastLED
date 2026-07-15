@@ -216,6 +216,10 @@ const PREVIEW_FRAME_H = PREVIEW_W          // 16×16 matrix aspect
 const PREVIEW_STRIP_H = 40                 // palette / colour swatch height
 const WARMUP_TICKS = 240                   // ~4 s so stateful sims settle
 
+// Sparse shape-drawing nodes whose preview reads better without the dark
+// panel background and unlit discs behind it.
+const BARE_PREVIEW_TYPES = new Set(['Circle', 'Shape', 'Line', 'Path'])
+
 const isRGB = (v: unknown): v is RGB =>
   typeof v === 'object' && v !== null && 'r' in v && 'g' in v && 'b' in v
 
@@ -247,8 +251,12 @@ function buildPreview(def: NodeDefinition): PreviewData | null {
   const nodes: StudioNode[] = [mkNode('n1', def.type)]
   const edges: StudioEdge[] = []
   let n = 0
+  // The bare-preview shape nodes draw over their (optional) base input — leave
+  // it unwired so the card shows just the shape, not a composite over Plasma.
+  const wireFrames = !BARE_PREVIEW_TYPES.has(def.type)
   for (const inp of def.inputs) {
-    const src = inp.dataType === 'frame' ? 'Plasma' : inp.dataType === 'field' ? 'FieldNoise' : null
+    const src = inp.dataType === 'frame' && wireFrames ? 'Plasma'
+      : inp.dataType === 'field' ? 'FieldNoise' : null
     if (!src) continue
     const id = `s${++n}`
     nodes.push(mkNode(id, src))
@@ -281,14 +289,18 @@ let paletteGradientId = 0
 const px = ({ r, g, b }: RGB) =>
   `rgb(${Math.round(Math.max(0, Math.min(255, r)))},${Math.round(Math.max(0, Math.min(255, g)))},${Math.round(Math.max(0, Math.min(255, b)))})`
 
-function previewSvg(p: PreviewData, y: number): string {
+function previewSvg(p: PreviewData, y: number, bare = false): string {
   if (p.kind === 'frame') {
     const cell = PREVIEW_W / PREVIEW_GRID
-    const parts = [`<rect x="${BODY_PAD}" y="${y}" width="${PREVIEW_W}" height="${PREVIEW_FRAME_H}" rx="4" fill="#05070a"/>`]
+    const parts: string[] = []
+    // `bare` drops the panel background and the unlit discs, so a sparse
+    // shape floats on the node body instead of sitting in a dark box.
+    if (!bare) parts.push(`<rect x="${BODY_PAD}" y="${y}" width="${PREVIEW_W}" height="${PREVIEW_FRAME_H}" rx="4" fill="#05070a"/>`)
     for (let ry = 0; ry < PREVIEW_GRID; ry++) {
       for (let rx = 0; rx < PREVIEW_GRID; rx++) {
         const c = p.frame[ry]?.[rx] ?? { r: 0, g: 0, b: 0 }
         const bright = Math.max(c.r, c.g, c.b) > 16
+        if (bare && !bright) continue
         const cx = BODY_PAD + rx * cell + cell / 2
         const cy = y + ry * cell + cell / 2
         if (bright) parts.push(`<circle cx="${cx}" cy="${cy}" r="${cell / 2}" fill="${px(c)}" opacity="0.35"/>`)
@@ -462,9 +474,10 @@ function nodeCardSvg(def: NodeDefinition): string {
   const children: Array<{ h: number; render: (y: number) => string }> = []
   const preview = buildPreview(def)
   if (preview) {
+    const bare = BARE_PREVIEW_TYPES.has(def.type)
     children.push({
       h: preview.kind === 'frame' ? PREVIEW_FRAME_H : PREVIEW_STRIP_H,
-      render: (y) => previewSvg(preview, y),
+      render: (y) => previewSvg(preview, y, bare),
     })
   }
   if (hasScope) children.push({ h: SCOPE_H, render: (y) => scopeSvg(y, accent) })
