@@ -184,16 +184,46 @@ _FBUILD_AUDIO_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "ESP32-audioI2S"
 
 # arduino-cli FQBN -> PlatformIO platform/board, mirroring `BOARDS` in
 # `src/state/uploadStore.ts`. `psram_memory_type` maps this repo's PSRAM option
-# id (`opi`/`qspi`, from `PsramOption.id`) to the `board_build.arduino.memory_type`
-# PlatformIO expects — not yet hardware-validated (see CLAUDE.md PSRAM section).
+# id (`opi`/`qspi`, from `PsramOption.id`) to the PlatformIO board_build/upload
+# overrides a real PSRAM module needs. The stock `board` ids below (e.g.
+# `esp32-s3-devkitc-1`) are themselves the *no-PSRAM* variant's manifest — its
+# `board_upload.flash_size`/`board_build.partitions` default to that module's
+# 8MB/no-PSRAM layout, so `board_build.arduino.memory_type` alone (the
+# previous, hardware-tested-false approach) silently kept building against an
+# 8MB, no-PSRAM profile even once "opi" was selected. `flash_size`/`partitions`
+# here override those to match the flash size the PSRAM option's label
+# actually implies (see `PsramOption.label` in `uploadStore.ts`, e.g. "OPI
+# (R8 modules, e.g. N16R8)" -> 16MB flash). Hardware-tested (2026-07-15) on a
+# real ESP32-S3 N16R8 module against fbuild/PlatformIO's espressif32 platform:
+# this flash_size/partitions fix is confirmed correct (the board now reports
+# ESP.getFlashChipSize() == 16MB instead of silently building against 8MB).
+#
+# Deliberately NOT also forcing `board_build.flash_mode = qio` here even
+# though `board_build.arduino.memory_type` alone leaves the image header at
+# the base board's default `mode:DIO` (and the ROM boot log does report a
+# clean, non-fatal "wrong PSRAM line mode" — `psramFound()` just stays
+# false): hardware-tested forcing `flash_mode = qio` (at both 80MHz and
+# 40MHz `f_flash`, and with no explicit `f_flash` at all) instead sent this
+# module into a `TG0WDT_SYS_RST`/`RTCWDT_RTC_RST` boot loop before `setup()`
+# ever ran — worse than the clean DIO-mode failure. Actually enabling octal
+# PSRAM likely needs a board profile matching this module's real GPIO
+# wiring (the stock `esp32-s3-devkitc-1` id is the *reference* Espressif
+# layout, which a third-party N16R8 board need not match) rather than a
+# flash_mode/frequency override — unresolved, needs the module's exact
+# datasheet/pin map to progress further.
 _PIO_BOARDS: dict[str, dict] = {
     "esp32:esp32:esp32s3": {
         "platform": "espressif32", "board": "esp32-s3-devkitc-1",
-        "psram_memory_type": {"opi": "qio_opi", "qspi": "qio_qspi"},
+        "psram_memory_type": {
+            "opi":  {"memory_type": "qio_opi",  "flash_size": "16MB", "partitions": "default_16MB.csv"},
+            "qspi": {"memory_type": "qio_qspi", "flash_size": "8MB",  "partitions": "default_8MB.csv"},
+        },
     },
     "esp32:esp32:esp32": {
         "platform": "espressif32", "board": "esp32dev",
-        "psram_memory_type": {"qspi": "qio_qspi"},
+        "psram_memory_type": {
+            "qspi": {"memory_type": "qio_qspi", "flash_size": "4MB", "partitions": "default.csv"},
+        },
     },
     "arduino:avr:uno": {"platform": "atmelavr", "board": "uno"},
     "arduino:avr:nano": {"platform": "atmelavr", "board": "nanoatmega328new"},
@@ -255,12 +285,14 @@ def _write_fbuild_ini() -> None:
             f"[env:{_env_id(base_fqbn)}]", f"platform = {meta['platform']}", f"board = {meta['board']}", "framework = arduino",
             *([f"build_flags = {' '.join(base_flags)}"] if base_flags else []), "",
         ]
-        for psram_id, mem_type in meta.get("psram_memory_type", {}).items():
+        for psram_id, psram_meta in meta.get("psram_memory_type", {}).items():
             lines += [
                 f"[env:{_env_id(base_fqbn, psram_id)}]",
                 f"platform = {meta['platform']}", f"board = {meta['board']}", "framework = arduino",
                 f"build_flags = {' '.join([*base_flags, '-DBOARD_HAS_PSRAM'])}",
-                f"board_build.arduino.memory_type = {mem_type}", "",
+                f"board_build.arduino.memory_type = {psram_meta['memory_type']}",
+                f"board_upload.flash_size = {psram_meta['flash_size']}",
+                f"board_build.partitions = {psram_meta['partitions']}", "",
             ]
     _FBUILD_INI_PATH.write_text("\n".join(lines), encoding="utf-8")
 
