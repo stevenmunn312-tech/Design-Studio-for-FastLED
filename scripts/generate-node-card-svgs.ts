@@ -297,14 +297,13 @@ function previewSvg(p: PreviewData, y: number, bare = false): string {
   if (p.kind === 'frame') {
     const cell = PREVIEW_W / PREVIEW_GRID
     const parts: string[] = []
-    // `bare` drops the panel background and the unlit discs, so a sparse
-    // shape floats on the node body instead of sitting in a dark box.
+    // `bare` drops the panel background, so the LED grid (lit shape plus the
+    // off discs) sits directly on the node body instead of in a dark box.
     if (!bare) parts.push(`<rect x="${BODY_PAD}" y="${y}" width="${PREVIEW_W}" height="${PREVIEW_FRAME_H}" rx="4" fill="#05070a"/>`)
     for (let ry = 0; ry < PREVIEW_GRID; ry++) {
       for (let rx = 0; rx < PREVIEW_GRID; rx++) {
         const c = p.frame[ry]?.[rx] ?? { r: 0, g: 0, b: 0 }
         const bright = Math.max(c.r, c.g, c.b) > 16
-        if (bare && !bright) continue
         const cx = BODY_PAD + rx * cell + cell / 2
         const cy = y + ry * cell + cell / 2
         if (bright) parts.push(`<circle cx="${cx}" cy="${cy}" r="${cell / 2}" fill="${px(c)}" opacity="0.35"/>`)
