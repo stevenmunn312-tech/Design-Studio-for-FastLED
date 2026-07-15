@@ -66,9 +66,11 @@ export default defineConfig(() => {
         workbox: {
           globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
           // The Essentia.js WASM chunk (~2.5 MB) is loaded on demand only when the
-          // user analyses a song with that engine — keep it out of the precache so
-          // the base install stays small; runtime-cache it after first use instead.
-          globIgnores: ['**/essentia-wasm*.js'],
+          // user analyses a song with that engine, and the generated node-card
+          // images (~140 SVGs) only when a Help node-reference page is opened —
+          // keep both out of the precache so the base install stays small;
+          // runtime-cache them after first use instead.
+          globIgnores: ['**/essentia-wasm*.js', 'node-cards/**'],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\./,
@@ -79,6 +81,11 @@ export default defineConfig(() => {
               urlPattern: /essentia-wasm.*\.js$/,
               handler: 'CacheFirst',
               options: { cacheName: 'essentia-wasm', expiration: { maxEntries: 2 } },
+            },
+            {
+              urlPattern: /\/node-cards\/[^/]+\.svg$/,
+              handler: 'CacheFirst',
+              options: { cacheName: 'node-cards', expiration: { maxEntries: 200 } },
             },
           ],
         },

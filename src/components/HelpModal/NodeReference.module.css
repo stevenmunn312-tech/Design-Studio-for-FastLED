@@ -204,6 +204,10 @@
 .nodeCapture { margin: 0; display: flex; flex-direction: column; }
 .nodeCaptureFrame { flex: 1; min-height: 360px; display: grid; place-items: center; overflow: hidden; border: 1px solid rgba(255,255,255,.065); border-radius: 8px; background: linear-gradient(145deg, color-mix(in srgb, var(--node-accent) 5%, transparent), transparent 56%), rgba(255,255,255,.012); }
 .nodeCaptureImage { display: block; max-width: min(100%, 300px); height: auto; filter: drop-shadow(0 16px 24px rgba(0,0,0,.38)); }
+/* Generated node-card SVG (public/node-cards/, `npm run gen:node-cards`). The
+   card carries its own canvas backdrop, so it just needs rounding + a lift. */
+.nodeCardImage { display: block; width: min(100%, 296px); height: auto; border-radius: 10px; filter: drop-shadow(0 14px 22px rgba(0,0,0,.35)); }
+.nodeCardImageNarrow { width: min(100%, 250px); }
 .nodeCaptureImageNarrow { width: 180px; max-width: min(100%, 180px); }
 .nodeOnlyCrop { position: relative; width: 180px; height: 292px; overflow: hidden; filter: drop-shadow(0 16px 24px rgba(0,0,0,.38)); }
 .nodeOnlyCrop img { position: absolute; top: -258px; left: -8px; display: block; width: 857px; max-width: none; height: 811px; }

@@ -4,7 +4,12 @@
  * typed port dots, and the node's inline property controls at their defaults.
  *
  * Run: npm run gen:node-cards
- * Output: docs/assets/nodes/<kebab-type>.svg + docs/reference/node-cards.md
+ * Output: public/node-cards/<kebab-type>.svg + docs/reference/node-cards.md
+ *
+ * The cards live under public/ because the Help modal's node-reference pages
+ * serve them at /node-cards/<kebab-type>.svg (see nodeCardSrc in
+ * NodeReference.tsx); the docs gallery references the same files. They are
+ * excluded from the PWA precache and runtime-cached instead (vite.config.ts).
  *
  * The layout constants mirror StudioNode.tsx / StudioNode.module.css /
  * tokens.css. Data (ports, properties, colours, control kinds, variant gating)
@@ -38,7 +43,7 @@ Math.random = () => {
 
 // Run from the repo root (the npm script does).
 const ROOT = process.cwd()
-const OUT_DIR = join(ROOT, 'docs', 'assets', 'nodes')
+const OUT_DIR = join(ROOT, 'public', 'node-cards')
 const GALLERY = join(ROOT, 'docs', 'reference', 'node-cards.md')
 
 // ── Layout constants (keep in sync with StudioNode.module.css / tokens.css) ──
@@ -552,7 +557,7 @@ function galleryMd(): string {
     if (nodes.length === 0) continue
     lines.push(`## ${cat.label}`, '')
     for (const def of nodes) {
-      const file = `../assets/nodes/${kebab(def.type)}.svg`
+      const file = `../../public/node-cards/${kebab(def.type)}.svg`
       lines.push(`### ${def.label}`, '', `![${def.label} node](${file})`, '')
     }
   }
@@ -569,4 +574,4 @@ for (const def of NODE_LIBRARY) {
   count++
 }
 writeFileSync(GALLERY, galleryMd())
-console.log(`wrote ${count} node cards to docs/assets/nodes/ + docs/reference/node-cards.md`)
+console.log(`wrote ${count} node cards to public/node-cards/ + docs/reference/node-cards.md`)

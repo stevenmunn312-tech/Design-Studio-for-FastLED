@@ -596,21 +596,6 @@ const PROPERTY_LABELS: Record<string, string> = {
   y2: 'End Y',
 }
 
-const PREVIEW_CLASS_BY_TYPE: Record<string, string> = {
-  audio: styles.previewAudio,
-  bool: styles.previewSignal,
-  color: styles.previewColor,
-  field: styles.previewField,
-  float: styles.previewSignal,
-  frame: styles.previewFrame,
-  palette: styles.previewPalette,
-  patternset: styles.previewControl,
-  sdcard: styles.previewControl,
-  shows: styles.previewControl,
-  music: styles.previewControl,
-  transitionset: styles.previewControl,
-}
-
 function uniqueSentences(items: string[]): string[] {
   const seen = new Set<string>()
   const out: string[] = []
@@ -1146,19 +1131,6 @@ function searchRank(node: NodeDefinition, search: string): number {
   return 3
 }
 
-function colorSwatch(node: NodeDefinition): string | null {
-  const props = node.defaultProperties ?? {}
-  const red = typeof props.r === 'number' ? props.r : null
-  const green = typeof props.g === 'number' ? props.g : null
-  const blue = typeof props.b === 'number' ? props.b : null
-  if (red == null || green == null || blue == null) return null
-  return `rgb(${red}, ${green}, ${blue})`
-}
-
-function previewClass(node: NodeDefinition): string {
-  return PREVIEW_CLASS_BY_TYPE[node.outputs[0]?.dataType ?? 'frame'] ?? styles.previewControl
-}
-
 function describePort(dataType: string, direction: 'input' | 'output'): string {
   const descriptions: Record<string, string> = {
     audio: 'a live microphone or analysed audio stream',
@@ -1267,50 +1239,32 @@ function GraphScreenshot({ recipe }: { recipe: ExampleRecipe }) {
   )
 }
 
+/** URL of a node type's generated reference card (public/node-cards/, built by
+ *  `npm run gen:node-cards` — see scripts/generate-node-card-svgs.ts). */
+function nodeCardSrc(nodeType: string): string {
+  const kebab = nodeType
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
+    .toLowerCase()
+  return `/node-cards/${kebab}.svg`
+}
+
+function NodeCardImage({ node, narrow = false }: { node: NodeDefinition; narrow?: boolean }) {
+  return (
+    <img
+      className={`${styles.nodeCardImage} ${narrow ? styles.nodeCardImageNarrow : ''}`}
+      src={nodeCardSrc(node.type)}
+      alt={`${node.label} node as it appears on the canvas`}
+      loading="lazy"
+    />
+  )
+}
+
 function NodeScreenshot({ node }: { node: NodeDefinition }) {
-  const swatch = colorSwatch(node)
-  const properties = propertyEntries(node)
-  const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
-  const previewStyle = swatch ? { background: swatch } : undefined
   return (
     <figure className={styles.nodeFigure}>
       <div className={styles.nodeStage}>
-        <div className={styles.nodeMock}>
-          <div className={styles.nodeMockHeader} style={{ background: accent }}>
-            {node.label}
-            <span>{categoryLabel(node.category)}</span>
-          </div>
-          <div className={styles.nodeMockBody}>
-            {node.outputs.length > 0 && <div className={`${styles.nodePreview} ${previewClass(node)}`} style={previewStyle} />}
-            <div className={styles.socketRows}>
-              {Array.from({ length: Math.max(node.inputs.length, node.outputs.length, 1) }, (_, index) => {
-                const input = node.inputs[index]
-                const output = node.outputs[index]
-                return (
-                  <div className={styles.socketRow} key={`${input?.id ?? 'none'}-${output?.id ?? 'none'}-${index}`}>
-                    <span className={styles.socketSide}>
-                      {input && <><i style={{ background: portColor(input.dataType) }} />{input.label}</>}
-                    </span>
-                    <span className={`${styles.socketSide} ${styles.socketSideOutput}`}>
-                      {output && <>{output.label}<i style={{ background: portColor(output.dataType) }} /></>}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-            {properties.length > 0 && (
-              <div className={styles.nodeMockProperties}>
-                {properties.slice(0, 5).map(([key, value]) => (
-                  <div className={styles.nodeMockProperty} key={key}>
-                    <span>{humanizePropertyKey(key)}</span>
-                    <b>{formatPropertyValue(value)}</b>
-                  </div>
-                ))}
-                {properties.length > 5 && <div className={styles.moreProperties}>+ {properties.length - 5} more properties</div>}
-              </div>
-            )}
-          </div>
-        </div>
+        <NodeCardImage node={node} />
       </div>
       <figcaption>The {node.label} node as it appears on the canvas. Socket colours indicate compatible data types.</figcaption>
     </figure>
@@ -1479,7 +1433,7 @@ function AudioArticle({ node, content }: { node: NodeDefinition; content: AudioA
       <div className={styles.introGrid}>
         <figure className={styles.nodeCapture}>
           <div className={styles.nodeCaptureFrame}>
-            <ImagePlaceholder label="Node image placeholder" detail={`${node.label} node capture`} compact />
+            <NodeCardImage node={node} narrow />
           </div>
         </figure>
         <section className={styles.overviewPanel}>
@@ -1561,7 +1515,7 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
       <div className={styles.introGrid}>
         <figure className={styles.nodeCapture}>
           <div className={styles.nodeCaptureFrame}>
-            <ImagePlaceholder label="Node image placeholder" detail="Microphone node capture" compact />
+            <NodeCardImage node={node} narrow />
           </div>
         </figure>
         <section className={styles.overviewPanel}>
@@ -1643,7 +1597,7 @@ function ButtonArticle({ node }: { node: NodeDefinition }) {
       <div className={styles.introGrid}>
         <figure className={styles.nodeCapture}>
           <div className={styles.nodeCaptureFrame}>
-            <ImagePlaceholder label="Node image placeholder" detail="Button node capture" compact />
+            <NodeCardImage node={node} narrow />
           </div>
         </figure>
         <section className={styles.overviewPanel}>
@@ -1725,7 +1679,7 @@ function PotentiometerArticle({ node }: { node: NodeDefinition }) {
       <div className={styles.introGrid}>
         <figure className={styles.nodeCapture}>
           <div className={styles.nodeCaptureFrame}>
-            <ImagePlaceholder label="Node image placeholder" detail="Potentiometer node capture" compact />
+            <NodeCardImage node={node} narrow />
           </div>
         </figure>
         <section className={styles.overviewPanel}>
@@ -1807,7 +1761,7 @@ function EncoderArticle({ node }: { node: NodeDefinition }) {
       <div className={styles.introGrid}>
         <figure className={styles.nodeCapture}>
           <div className={styles.nodeCaptureFrame}>
-            <ImagePlaceholder label="Node image placeholder" detail="Encoder node capture" compact />
+            <NodeCardImage node={node} narrow />
           </div>
         </figure>
         <section className={styles.overviewPanel}>
@@ -1889,7 +1843,7 @@ function MidiArticle({ node }: { node: NodeDefinition }) {
       <div className={styles.introGrid}>
         <figure className={styles.nodeCapture}>
           <div className={styles.nodeCaptureFrame}>
-            <ImagePlaceholder label="Node image placeholder" detail="MIDI node capture" compact />
+            <NodeCardImage node={node} narrow />
           </div>
         </figure>
         <section className={styles.overviewPanel}>
@@ -2056,7 +2010,7 @@ function ReferenceArticle({ node }: { node: NodeDefinition }) {
       <div className={styles.introGrid}>
         <figure className={styles.nodeCapture}>
           <div className={styles.nodeCaptureFrame}>
-            <ImagePlaceholder label="Node image placeholder" detail={`${node.label} node capture`} compact />
+            <NodeCardImage node={node} narrow />
           </div>
         </figure>
         <section className={styles.overviewPanel}>

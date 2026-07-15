@@ -41,9 +41,10 @@ build/architecture overview aimed at contributors.
 
 - [Node cards](reference/node-cards.md)
   — a generated reference card image for every node in the library (ports,
-    typed port colours, inline controls at their defaults). Regenerate with
-    `npm run gen:node-cards` after changing `nodeLibrary.ts`; images live in
-    `docs/assets/nodes/`.
+    typed port colours, inline controls at their defaults, evaluated preview
+    thumbnails). Regenerate with `npm run gen:node-cards` after changing
+    `nodeLibrary.ts`; images live in `public/node-cards/` and are also shown
+    in the Help modal's node-reference pages.
 
 ## Release
 
