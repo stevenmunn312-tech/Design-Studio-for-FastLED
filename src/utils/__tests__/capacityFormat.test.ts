@@ -38,14 +38,14 @@ describe('summarizeCapacity', () => {
     expect(s.level).toBe('warn')
   })
 
-  it("falls back to plain won't fit text when the toolchain gave no usage figure", () => {
+  it('shows both metrics as n/a on overflow when the toolchain gave no usage figure for either', () => {
     const result: CompileCheckResult = { ok: false, overflow: true, target: board.fqbn, flash: null, ram: null, error: 'Design is too large for this board' }
     const s = summarizeCapacity(board, 'measured', result)
     expect(s.level).toBe('error')
-    expect(s.text).toContain("won't fit")
+    expect(s.text).toBe('Arduino Uno · flash n/a · SRAM n/a')
   })
 
-  it('shows the actual over-100% usage instead of a bare "won\'t fit" when the toolchain reported one', () => {
+  it('shows the actual over-100% usage on overflow, pairing it with SRAM n/a', () => {
     const result: CompileCheckResult = {
       ok: false, overflow: true, target: board.fqbn,
       flash: { usedBytes: 39308, limitBytes: 32256, percent: 122 },
@@ -53,8 +53,7 @@ describe('summarizeCapacity', () => {
     }
     const s = summarizeCapacity(board, 'measured', result)
     expect(s.level).toBe('error')
-    expect(s.text).toBe('Arduino Uno · flash 122%')
-    expect(s.text).not.toContain("won't fit")
+    expect(s.text).toBe('Arduino Uno · flash 122% · SRAM n/a')
   })
 
   it('reports a generic compile error distinctly from overflow', () => {
@@ -89,6 +88,17 @@ describe('summarizeCapacity', () => {
     const s = summarizeCapacity(board, 'measured', result)
     expect(s.text).toBe('Arduino Uno · flash 10% · SRAM n/a')
     expect(s.level).toBe('ok')
+  })
+
+  it('marks flash as not measurable when only a RAM overflow was reported', () => {
+    const result: CompileCheckResult = {
+      ok: false, overflow: true, target: board.fqbn,
+      flash: null, ram: { usedBytes: 331000, limitBytes: 327680, percent: 101 },
+      error: 'Design is too large for this board',
+    }
+    const s = summarizeCapacity(board, 'measured', result)
+    expect(s.text).toBe('Arduino Uno · flash n/a · SRAM 101%')
+    expect(s.level).toBe('error')
   })
 })
 
