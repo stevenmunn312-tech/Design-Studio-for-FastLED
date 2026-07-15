@@ -4,6 +4,7 @@ import { NODE_LIBRARY } from '../nodeLibrary'
 import { evaluateGraph } from '../graphEvaluator'
 import type { StudioNode, StudioEdge } from '../graphStore'
 import { useUiStore } from '../uiStore'
+import { clearPatternContentTrustForTests } from '../patternTrust'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -619,7 +620,10 @@ describe('graphStore — loadGraph normalization', () => {
 // loadGraph's own defaulting plus the pattern-drop actions that must always
 // force the workspace untrusted regardless of the current state.
 describe('graphStore — trust boundary', () => {
-  beforeEach(() => reset())
+  beforeEach(() => {
+    reset()
+    clearPatternContentTrustForTests()
+  })
 
   it('loadGraph defaults to trusted when the workspace omits the field (legacy/local data)', () => {
     useGraphStore.getState().loadGraph([node('sc', 'SolidColor')], [])
@@ -668,6 +672,44 @@ describe('graphStore — trust boundary', () => {
     } as unknown as import('../patternLibrary').SavedPattern
     expect(useGraphStore.getState().trusted).toBe(true)
     useGraphStore.getState().addPatternToCollection('coll', saved)
+    expect(useGraphStore.getState().trusted).toBe(false)
+  })
+
+  it('remembers an explicitly-trusted pattern so dropping it again does not re-force untrusted', () => {
+    const saved = {
+      id: 'p1', name: 'MyPattern', createdAt: 0,
+      inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+      subgraph: { nodes: [node('a', 'SolidColor')], edges: [] },
+    } as unknown as import('../patternLibrary').SavedPattern
+
+    useGraphStore.getState().instantiatePattern(saved, { x: 0, y: 0 })
+    expect(useGraphStore.getState().trusted).toBe(false)
+
+    // "Trust and run": approves the workspace and remembers this pattern's content.
+    useGraphStore.getState().setTrusted(true)
+    expect(useGraphStore.getState().trusted).toBe(true)
+
+    // Dropping the exact same saved pattern again should no longer re-untrust.
+    useGraphStore.getState().instantiatePattern(saved, { x: 100, y: 0 })
+    expect(useGraphStore.getState().trusted).toBe(true)
+  })
+
+  it('still forces untrusted for a pattern whose content differs from any previously-trusted one', () => {
+    const savedA = {
+      id: 'p1', name: 'MyPattern', createdAt: 0,
+      inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+      subgraph: { nodes: [node('a', 'SolidColor')], edges: [] },
+    } as unknown as import('../patternLibrary').SavedPattern
+    const savedB = {
+      id: 'p2', name: 'OtherPattern', createdAt: 0,
+      inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+      subgraph: { nodes: [node('b', 'Rainbow')], edges: [] },
+    } as unknown as import('../patternLibrary').SavedPattern
+
+    useGraphStore.getState().instantiatePattern(savedA, { x: 0, y: 0 })
+    useGraphStore.getState().setTrusted(true)
+
+    useGraphStore.getState().instantiatePattern(savedB, { x: 100, y: 0 })
     expect(useGraphStore.getState().trusted).toBe(false)
   })
 })

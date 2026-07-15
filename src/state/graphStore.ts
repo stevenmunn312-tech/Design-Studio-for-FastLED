@@ -16,6 +16,7 @@ import type { NodeCategory } from '../types'
 import { NODE_LIBRARY, portColor } from './nodeLibrary'
 import type { GroupRegistry } from './graphEvaluator'
 import type { SavedPattern } from './patternLibrary'
+import { isPatternContentTrusted, trustPatternContent } from './patternTrust'
 import { useUiStore } from './uiStore'
 import { validateMatrixLayout } from './xyLayout'
 
@@ -405,7 +406,20 @@ export const useGraphStore = create<GraphState>()(
       graphData: {},
 
       trusted: true,
-      setTrusted: (trusted) => set({ trusted }),
+      setTrusted: (trusted) =>
+        set((s) => {
+          if (trusted) {
+            // Explicit trust ("Trust and run") also remembers the exact content of
+            // any library-sourced patterns currently on the workspace, so dropping
+            // the same pattern again later doesn't force this prompt a second time.
+            for (const [graphId, meta] of Object.entries(s.graphs)) {
+              if (!meta.sourcePatternId) continue
+              const sub = s.graphData[graphId]
+              if (sub) trustPatternContent(sub)
+            }
+          }
+          return { trusted }
+        }),
 
       onNodesChange: (changes) => {
         if (changes.some((change) => change.type === 'remove')) scheduleOrphanGraphPrune()
@@ -1052,11 +1066,13 @@ export const useGraphStore = create<GraphState>()(
             },
             graphData: { ...s.graphData, [groupId]: { nodes: sub.nodes, edges: sub.edges } },
             nodes: [...s.nodes, groupNode],
-            // A dropped pattern could itself have been imported from a file —
-            // no per-pattern trust tracking in v1, so any drop forces the
-            // whole workspace untrusted (safe default; see trustPrompt.ts's
-            // doc comment for why this doesn't also pop a confirm modal).
-            trusted: false,
+            // A dropped pattern could itself have been imported/shared from
+            // outside this browser, so it forces the whole workspace untrusted
+            // unless the user has already explicitly trusted this exact pattern
+            // content before (see patternTrust.ts; safe default otherwise — see
+            // trustPrompt.ts's doc comment for why this doesn't also pop a
+            // confirm modal).
+            trusted: isPatternContentTrusted(saved.subgraph) ? s.trusted : false,
           }
         }),
 
@@ -1102,7 +1118,9 @@ export const useGraphStore = create<GraphState>()(
             graphs,
             graphData,
             nodes: [...s.nodes, collectionNode],
-            trusted: false,   // see instantiatePattern's comment above
+            // See instantiatePattern's comment above — untrusted unless every
+            // collected pattern's exact content is already explicitly trusted.
+            trusted: savedPatterns.every((p) => isPatternContentTrusted(p.subgraph)) ? s.trusted : false,
           }
         }),
 
@@ -1141,7 +1159,8 @@ export const useGraphStore = create<GraphState>()(
             nodes,
             graphs: { ...s.graphs, [groupId]: { id: groupId, name: saved.name, sourcePatternId: saved.id } },
             graphData: { ...s.graphData, [groupId]: { nodes: sub.nodes, edges: sub.edges } },
-            trusted: false,   // see instantiatePattern's comment above
+            // See instantiatePattern's comment above.
+            trusted: isPatternContentTrusted(saved.subgraph) ? s.trusted : false,
           }
         }),
 
