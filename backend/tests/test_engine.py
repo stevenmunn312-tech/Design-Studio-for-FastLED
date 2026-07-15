@@ -186,6 +186,62 @@ def test_fbuild_cached_size_returns_none_when_file_is_missing(tmp_path, monkeypa
     assert app._fbuild_cached_size("esp32_esp32_esp32s3") is None
 
 
+# Captured verbatim from a real hard DRAM overflow on ESP32-S3 (fbuild 2.5.1,
+# xtensa-esp-elf-gcc 14.2.0) — the linker fails before fbuild ever gets to
+# print its own "Flash:"/"RAM:" summary line, so `_fbuild_overflow_estimate`
+# is the only source of a percentage in this case.
+_REAL_DRAM_OVERFLOW_LOG = [
+    "Board: Espressif ESP32-S3-DevKitC-1-N8 (8 MB QD, No PSRAM) / ESP32S3 @ 240MHz\n",
+    "Memory: 8.00MB Flash, 320.00KB RAM\n",
+    "build error: build failed: ESP32 link failed:\n",
+    "ld.exe: firmware.elf section `.dram0.bss' will not fit in region `dram0_0_seg'\n",
+    "ld.exe: region `dram0_0_seg' overflowed by 8734704 bytes\n",
+    "collect2.exe: error: ld returned 1 exit status\n",
+]
+
+
+def test_fbuild_overflow_estimate_computes_percentage_from_real_ld_output():
+    result = app._fbuild_overflow_estimate(_REAL_DRAM_OVERFLOW_LOG)
+
+    ram_max = 320 * 1024
+    assert result["ram"] == {
+        "usedBytes": ram_max + 8734704,
+        "limitBytes": ram_max,
+        "percent": round((ram_max + 8734704) / ram_max * 100),
+    }
+    assert result["flash"] is None
+
+
+def test_fbuild_overflow_estimate_attributes_a_text_region_to_flash():
+    result = app._fbuild_overflow_estimate([
+        "Memory: 31.50KB Flash, 2.00KB RAM\n",
+        "ld.exe: region `text' overflowed by 7052 bytes\n",
+    ])
+
+    flash_max = round(31.50 * 1024)
+    assert result["flash"] == {
+        "usedBytes": flash_max + 7052,
+        "limitBytes": flash_max,
+        "percent": round((flash_max + 7052) / flash_max * 100),
+    }
+    assert result["ram"] is None
+
+
+def test_fbuild_overflow_estimate_returns_none_without_a_memory_line():
+    result = app._fbuild_overflow_estimate(["region `dram0_0_seg' overflowed by 100 bytes\n"])
+    assert result == {"flash": None, "ram": None}
+
+
+def test_fbuild_overflow_estimate_keeps_the_larger_repeated_overflow():
+    result = app._fbuild_overflow_estimate([
+        "Memory: 8.00MB Flash, 320.00KB RAM\n",
+        "region `dram0_0_seg' overflowed by 100 bytes\n",
+        "region `dram0_0_seg' overflowed by 500 bytes\n",
+    ])
+    ram_max = 320 * 1024
+    assert result["ram"]["usedBytes"] == ram_max + 500
+
+
 def test_compile_upload_fbuild_serializes_concurrent_builds(monkeypatch):
     # Regression test: fbuild's project scaffold is one shared directory (a
     # single main.cpp + one build output), so two overlapping builds used to

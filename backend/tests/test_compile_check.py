@@ -93,6 +93,31 @@ def test_compile_check_surfaces_over_100_percent_usage_on_fbuild_overflow(client
     assert data["log"] is not None
 
 
+def test_compile_check_estimates_percentage_on_a_hard_linker_overflow(client, monkeypatch):
+    # The realistic case: a genuine ESP32 RAM/flash overflow is a hard ld
+    # failure with no "Flash:"/"RAM:" summary at all (ld never gets that far).
+    # The endpoint should still derive a percentage from the linker's own
+    # "overflowed by N bytes" message rather than falling back to a bare
+    # "won't fit".
+    monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
+    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
+
+    def fake_compile_upload_fbuild(label, ino, fqbn, port):
+        yield "Memory: 8.00MB Flash, 320.00KB RAM\n"
+        yield "ld.exe: region `dram0_0_seg' overflowed by 8734704 bytes\n"
+        return 1, "compile"
+
+    monkeypatch.setattr(app, "_compile_upload_fbuild", fake_compile_upload_fbuild)
+
+    r = client.post("/api/compile-check", json={"ino": "void setup(){}", "fqbn": "esp32:esp32:esp32s3"})
+    data = r.json()
+    assert data["ok"] is False
+    assert data["overflow"] is True
+    ram_max = 320 * 1024
+    assert data["ram"]["percent"] == round((ram_max + 8734704) / ram_max * 100)
+    assert data["flash"] is None
+
+
 def test_compile_check_reports_generic_error_when_not_overflow(client, monkeypatch):
     monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
     monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")

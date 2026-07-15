@@ -591,6 +591,47 @@ def _fbuild_cached_size(env: str) -> dict | None:
     }
 
 
+# A genuine flash/RAM overflow is usually a *hard linker failure* — ld refuses
+# to produce an .elf at all, so fbuild never reaches the step that prints its
+# own "Flash:"/"RAM:" summary. There's still real data in that failure,
+# though: ld reports exactly how many bytes a region overflowed by, and
+# fbuild always prints the board's memory budget up front (win or lose), so
+# the two together are enough to compute a genuine over-100% percentage
+# instead of a bare "won't fit".
+_LD_OVERFLOW_RE = re.compile(r"region [`']([\w.]+)' overflowed by (\d+) bytes", re.I)
+_FBUILD_MEMORY_RE = re.compile(r"Memory:\s*([\d.]+)\s*(\w+)\s*Flash,\s*([\d.]+)\s*(\w+)\s*RAM", re.I)
+
+
+def _fbuild_overflow_estimate(lines):
+    """Derive {"flash": {...} | None, "ram": {...} | None} from a hard linker
+    overflow — same shape as `_fbuild_size_bytes_report`/`_fbuild_cached_size`
+    so callers can treat all three interchangeably. `None` for a side that
+    wasn't mentioned (or whose region name doesn't look flash/RAM-shaped)."""
+    text = "".join(lines)
+    mem = _FBUILD_MEMORY_RE.search(text)
+    if not mem:
+        return {"flash": None, "ram": None}
+    flash_max = _size_unit_to_bytes(float(mem.group(1)), mem.group(2))
+    ram_max = _size_unit_to_bytes(float(mem.group(3)), mem.group(4))
+
+    result: dict = {"flash": None, "ram": None}
+    for region, amount in _LD_OVERFLOW_RE.findall(text):
+        is_ram = "ram" in region.lower()
+        limit = ram_max if is_ram else flash_max
+        if limit <= 0:
+            continue
+        used = limit + int(amount)
+        metric = {"usedBytes": used, "limitBytes": limit, "percent": round(used / limit * 100)}
+        key = "ram" if is_ram else "flash"
+        # ld sometimes repeats the same region's error more than once — keep
+        # the largest reported overflow for that region. Compared on the raw
+        # byte count, not the rounded percent, since two overflows can easily
+        # round to the same percentage on a large region.
+        if result[key] is None or metric["usedBytes"] > result[key]["usedBytes"]:
+            result[key] = metric
+    return result
+
+
 def _drain_compile(gen):
     """Run a `_compile_upload`/`_compile_upload_fbuild` generator to completion,
     collecting its yielded log lines and returning `(lines, (rc, phase))` — used
@@ -1229,6 +1270,14 @@ def compile_check(payload: dict = Body(...)):
             cached = _fbuild_cached_size(env) if env else None
             if cached:
                 sizes = cached
+        # A genuine overflow is usually a hard linker failure with no size
+        # summary at all (see `_fbuild_overflow_estimate`) — derive the actual
+        # over-100% percentage from the linker's own error instead of leaving
+        # the frontend with nothing but "won't fit".
+        elif rc != 0 and sizes.get("flash") is None and sizes.get("ram") is None:
+            estimate = _fbuild_overflow_estimate(lines)
+            if estimate.get("flash") or estimate.get("ram"):
+                sizes = estimate
     else:
         work, sketch_dir = _make_sketch(SKETCH, ino)
         try:
