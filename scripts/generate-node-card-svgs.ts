@@ -554,17 +554,21 @@ function nodeInner(def: NodeDefinition, overrides?: Record<string, unknown>): No
   return { h: nodeH, svg, portY }
 }
 
-/** Wrap rendered content in the canvas backdrop (dot grid + shadow filter). */
-function canvasWrap(W: number, H: number, content: string, label: string): string {
-  const dots: string[] = []
-  for (let dy = 10; dy < H; dy += 20) {
-    for (let dx = 10; dx < W; dx += 20) {
-      dots.push(`<circle cx="${dx}" cy="${dy}" r="1" fill="rgba(255,255,255,0.04)"/>`)
+/** Wrap rendered content in an SVG shell. `backdrop` adds the canvas ground
+ *  (solid fill + dot grid) — the example graphs use it; the single-node cards
+ *  stay transparent so just the node shows. */
+function canvasWrap(W: number, H: number, content: string, label: string, backdrop = true): string {
+  const ground: string[] = []
+  if (backdrop) {
+    ground.push(`<rect width="${W}" height="${H}" fill="${C.canvas}"/>`)
+    for (let dy = 10; dy < H; dy += 20) {
+      for (let dx = 10; dx < W; dx += 20) {
+        ground.push(`<circle cx="${dx}" cy="${dy}" r="1" fill="rgba(255,255,255,0.04)"/>`)
+      }
     }
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(label)}">
-<rect width="${W}" height="${H}" fill="${C.canvas}"/>
-${dots.join('\n')}
+${ground.join('\n')}
 <defs><filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#000" flood-opacity="0.45"/></filter></defs>
 ${content}
 </svg>
@@ -575,7 +579,63 @@ function nodeCardSvg(def: NodeDefinition): string {
   const inner = nodeInner(def)
   const W = NODE_W + PAD_X * 2
   const H = inner.h + PAD_TOP + PAD_BOT
-  return canvasWrap(W, H, `<g transform="translate(${PAD_X},${PAD_TOP})">\n${inner.svg}\n</g>`, `${def.label} node`)
+  return canvasWrap(W, H, `<g transform="translate(${PAD_X},${PAD_TOP})">\n${inner.svg}\n</g>`, `${def.label} node`, false)
+}
+
+// ── Main-preview assembly ──
+// Evaluate the example graph end-to-end (same warm-up as the thumbnails) and
+// render its terminal frame — what the article's "What you should see"
+// section describes — as a large LED panel.
+function evalSpecFrame(spec: LiveExampleSpec, slug: string): Frame | null {
+  const nodes: StudioNode[] = []
+  const keep = new Set<string>()
+  for (const n of spec.nodes) {
+    if (!NODE_LIBRARY.some((d) => d.type === n.type)) continue
+    // Prefix ids with the graph's slug so stateful nodes don't share
+    // module-level state across the different example graphs.
+    nodes.push(mkNode(`${slug}-${n.key}`, n.type, n.properties))
+    keep.add(n.key)
+  }
+  const edges: StudioEdge[] = spec.edges
+    .filter((e) => keep.has(e.source) && keep.has(e.target))
+    .map((e, i) => ({
+      id: `${slug}-e${i}`,
+      source: `${slug}-${e.source}`,
+      sourceHandle: e.sourceHandle,
+      target: `${slug}-${e.target}`,
+      targetHandle: e.targetHandle,
+    }))
+  try {
+    let frame: Frame | null = null
+    for (let tick = 0; tick <= WARMUP_TICKS; tick++) {
+      frame = evaluateGraphFull(nodes, edges, tick, PREVIEW_GRID, PREVIEW_GRID).frame
+    }
+    return frame
+  } catch {
+    return null
+  }
+}
+
+function mainPreviewSvg(frame: Frame | null, label: string): string {
+  const cell = 24
+  const pad = 12
+  const size = PREVIEW_GRID * cell + pad * 2
+  const parts = [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img" aria-label="${esc(label)}">`,
+    `<rect width="${size}" height="${size}" rx="10" fill="#05070a"/>`,
+  ]
+  for (let ry = 0; ry < PREVIEW_GRID; ry++) {
+    for (let rx = 0; rx < PREVIEW_GRID; rx++) {
+      const c = frame?.[ry]?.[rx] ?? { r: 0, g: 0, b: 0 }
+      const bright = Math.max(c.r, c.g, c.b) > 16
+      const cx = pad + rx * cell + cell / 2
+      const cy = pad + ry * cell + cell / 2
+      if (bright) parts.push(`<circle cx="${cx}" cy="${cy}" r="${cell / 2}" fill="${px(c)}" opacity="0.35"/>`)
+      parts.push(`<circle cx="${cx}" cy="${cy}" r="${cell / 2 - 3}" fill="${bright ? px(c) : '#14171c'}"/>`)
+    }
+  }
+  parts.push('</svg>', '')
+  return parts.join('\n')
 }
 
 // ── Example graph assembly ──
@@ -670,12 +730,19 @@ function galleryMd(): string {
 // ── Main ──
 rmSync(OUT_DIR, { recursive: true, force: true })
 mkdirSync(join(OUT_DIR, 'graphs'), { recursive: true })
+mkdirSync(join(OUT_DIR, 'previews'), { recursive: true })
 mkdirSync(join(ROOT, 'docs', 'reference'), { recursive: true })
 let count = 0
 for (const def of NODE_LIBRARY) {
-  writeFileSync(join(OUT_DIR, `${kebab(def.type)}.svg`), nodeCardSvg(def))
-  writeFileSync(join(OUT_DIR, 'graphs', `${kebab(def.type)}.svg`), exampleGraphSvg(liveExampleForNode(def)))
+  const k = kebab(def.type)
+  const spec = liveExampleForNode(def)
+  writeFileSync(join(OUT_DIR, `${k}.svg`), nodeCardSvg(def))
+  writeFileSync(join(OUT_DIR, 'graphs', `${k}.svg`), exampleGraphSvg(spec))
+  writeFileSync(
+    join(OUT_DIR, 'previews', `${k}.svg`),
+    mainPreviewSvg(evalSpecFrame(spec, k), `LED preview of the ${def.label} example graph`),
+  )
   count++
 }
 writeFileSync(GALLERY, galleryMd())
-console.log(`wrote ${count} node cards + example graphs to public/node-cards/ + docs/reference/node-cards.md`)
+console.log(`wrote ${count} node cards + example graphs + main previews to public/node-cards/ + docs/reference/node-cards.md`)

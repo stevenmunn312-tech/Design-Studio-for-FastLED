@@ -895,6 +895,16 @@ function exampleGraphSrc(nodeType: string): string {
   return nodeCardSrc(nodeType).replace('/node-cards/', '/node-cards/graphs/')
 }
 
+/** URL of the generated LED-panel image showing the example graph's evaluated
+ *  terminal frame — the "what you should see" result. */
+function mainPreviewSrc(nodeType: string): string {
+  return nodeCardSrc(nodeType).replace('/node-cards/', '/node-cards/previews/')
+}
+
+function MainPreviewImage({ node, alt }: { node: NodeDefinition; alt: string }) {
+  return <img src={mainPreviewSrc(node.type)} alt={alt} loading="lazy" />
+}
+
 function ExampleGraphFigure({ node, alt }: { node: NodeDefinition; alt: string }) {
   return (
     <figure className={`${styles.captureFigure} ${styles.captureFigureWide}`}>
@@ -924,23 +934,6 @@ function NodeScreenshot({ node }: { node: NodeDefinition }) {
       </div>
       <figcaption>The {node.label} node as it appears on the canvas. Socket colours indicate compatible data types.</figcaption>
     </figure>
-  )
-}
-
-function ImagePlaceholder({
-  label,
-  detail,
-  compact = false,
-}: {
-  label: string
-  detail: string
-  compact?: boolean
-}) {
-  return (
-    <div className={`${styles.imagePlaceholder} ${compact ? styles.imagePlaceholderCompact : ''}`} role="img" aria-label={`${label}: ${detail}`}>
-      <span>{label}</span>
-      <b>{detail}</b>
-    </div>
   )
 }
 
@@ -1114,7 +1107,7 @@ function AudioArticle({ node, content }: { node: NodeDefinition; content: AudioA
           <p>{content.previewDescription}</p>
         </div>
         <figure className={styles.previewCapture}>
-          <ImagePlaceholder label="Preview image placeholder" detail={content.previewAlt} />
+          <MainPreviewImage node={node} alt={content.previewAlt} />
         </figure>
       </section>
     </article>
@@ -1192,7 +1185,7 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
           <p>With test audio or microphone capture active, louder frequency bands rise higher while the palette colours the spectrum. This is the same frame passed to Matrix Output for preview and firmware generation.</p>
         </div>
         <figure className={styles.previewCapture}>
-          <ImagePlaceholder label="Preview image placeholder" detail="LED matrix preview showing rainbow spectrum bars" />
+          <MainPreviewImage node={node} alt="LED matrix preview showing rainbow spectrum bars" />
         </figure>
       </section>
     </article>
@@ -1269,7 +1262,7 @@ function ButtonArticle({ node }: { node: NodeDefinition }) {
           <p>With the button held or tapped, Beat Flash can drive the frame into a hard white burst over the underlying pattern. The important part is the immediate, unmistakable trigger response when Pressed goes high.</p>
         </div>
         <figure className={styles.previewCapture}>
-          <ImagePlaceholder label="Preview image placeholder" detail="LED preview showing the bright Button-triggered Beat Flash result" />
+          <MainPreviewImage node={node} alt="LED preview showing the bright Button-triggered Beat Flash result" />
         </figure>
       </section>
     </article>
@@ -1346,7 +1339,7 @@ function PotentiometerArticle({ node }: { node: NodeDefinition }) {
           <p>As you drag the Potentiometer slider down, the pattern fades toward black; dragging it up restores the full image. It is the simplest way to sanity-check any float-controlled modulation path.</p>
         </div>
         <figure className={styles.previewCapture}>
-          <ImagePlaceholder label="Preview image placeholder" detail="LED preview showing the Potentiometer-controlled brightness result" />
+          <MainPreviewImage node={node} alt="LED preview showing the Potentiometer-controlled brightness result" />
         </figure>
       </section>
     </article>
@@ -1423,7 +1416,7 @@ function EncoderArticle({ node }: { node: NodeDefinition }) {
           <p>Dragging the encoder should walk the palette around the hue wheel while leaving the underlying pattern intact. Clicking the dial should add a brief flash on top, making it easy to verify both the continuous rotation control and the momentary button output.</p>
         </div>
         <figure className={styles.previewCapture}>
-          <ImagePlaceholder label="Preview image placeholder" detail="LED preview showing Encoder-driven hue rotation with a flash accent" />
+          <MainPreviewImage node={node} alt="LED preview showing Encoder-driven hue rotation with a flash accent" />
         </figure>
       </section>
     </article>
@@ -1500,7 +1493,7 @@ function MidiArticle({ node }: { node: NodeDefinition }) {
           <p>Moving the chosen CC should rotate the colours, while holding the configured note should flip the frame over to the hue-shifted version and scale it with note velocity. Releasing the note should drop Gate and return the preview to the unshifted base pattern.</p>
         </div>
         <figure className={styles.previewCapture}>
-          <ImagePlaceholder label="Preview image placeholder" detail="LED preview showing MIDI-controlled hue switching and brightness" />
+          <MainPreviewImage node={node} alt="LED preview showing MIDI-controlled hue switching and brightness" />
         </figure>
       </section>
     </article>
@@ -1661,7 +1654,7 @@ function ReferenceArticle({ node }: { node: NodeDefinition }) {
           <p>{previewDescriptionForNode(node)}</p>
         </div>
         <figure className={styles.previewCapture}>
-          <ImagePlaceholder label="Preview image placeholder" detail={`${node.label} preview capture`} />
+          <MainPreviewImage node={node} alt={`LED preview of the ${node.label} example graph`} />
         </figure>
       </section>
     </article>
