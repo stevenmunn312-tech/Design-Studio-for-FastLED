@@ -117,6 +117,64 @@ describe('audioEngine FFT helpers', () => {
       expect(countBeats(silence, 10)).toBe(0)
     })
 
+    // Regression for over-firing: offbeat hi-hats used to fire the detector
+    // too (doubling the event rate and dragging the BPM readout to ~2× the
+    // track tempo). dB-domain spectra like getByteFrequencyData produces —
+    // that compression is what made the hats loud enough to fire.
+    describe('offbeat rejection and tempo lock on a full mix', () => {
+      const toDbNorm = (linear: number) => {
+        const db = 20 * Math.log10(Math.max(1e-8, linear))
+        return Math.max(0, Math.min(1, (db - -100) / (-30 - -100)))
+      }
+
+      function runFullMix(bpm: number, seconds = 30) {
+        const period = 60000 / bpm
+        const prnd = makePrnd(31337)
+        let state = createBeatDetectorState()
+        const linSmooth = new Array<number>(BANDS).fill(0)
+        let fired = 0
+        let offBeat = 0
+        for (let f = 0; f < FPS * seconds; f++) {
+          const ms = (f * 1000) / FPS
+          const phase = ms % period
+          const kick = phase < 70 ? 1 - phase / 70 : 0
+          const hatPhase = (ms + period / 2) % (period / 2)
+          const hat = hatPhase < 35 ? 1 - hatPhase / 35 : 0
+          const snarePhase = (ms + period) % (period * 2)
+          const snare = snarePhase < 55 ? 1 - snarePhase / 55 : 0
+          for (let i = 0; i < BANDS; i++) {
+            let a = 0.0003 + prnd() * 0.0002
+            if (i < 6) a += kick * 0.03
+            if (i >= 8 && i < 18) a += snare * 0.018
+            if (i >= 20) a += hat * 0.0135
+            linSmooth[i] = linSmooth[i] * 0.75 + a * 0.25
+          }
+          const spectrum = linSmooth.map(toDbNorm)
+          const r = updateBeatDetectorFromSpectrum(spectrum, ms, state, cfg)
+          state = r.state
+          if (r.beat) {
+            fired++
+            if (phase >= 60 && phase <= period - 20) offBeat++
+          }
+        }
+        return { fired, offBeat, kicks: Math.floor((seconds * 1000) / period), bpm: state.bpm }
+      }
+
+      it('fires once per kick and locks 145 BPM', () => {
+        const r = runFullMix(145)
+        expect(Math.abs(r.fired - r.kicks)).toBeLessThanOrEqual(1)
+        expect(r.offBeat).toBe(0)
+        expect(Math.abs(r.bpm - 145)).toBeLessThan(8)
+      })
+
+      it('fires once per kick and locks 100 BPM', () => {
+        const r = runFullMix(100)
+        expect(Math.abs(r.fired - r.kicks)).toBeLessThanOrEqual(1)
+        expect(r.offBeat).toBe(0)
+        expect(Math.abs(r.bpm - 100)).toBeLessThan(8)
+      })
+    })
+
     // With the preview panel closed the loop drops to a 125 ms cadence (8 fps);
     // the attack/decay envelopes must scale to the elapsed interval or the
     // slow baseline stops collapsing between kicks and beats die out entirely.

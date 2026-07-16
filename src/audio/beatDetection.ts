@@ -100,7 +100,10 @@ function weightedFlux(current: readonly number[], previous: readonly number[]): 
     const cur = clamp01(current[i] ?? 0)
     const prev = clamp01(previous[i] ?? 0)
     const diff = Math.max(0, cur - prev)
-    const weight = i < 6 ? 2.0 : i < 12 ? 1.35 : i < 20 ? 0.85 : 0.45
+    // Strongly bass-weighted: kicks live in the low bands, while hi-hats and
+    // cymbals (top bands) are the classic false-positive source — they used to
+    // double the fire rate and drag the BPM estimate to ~2× the track tempo.
+    const weight = i < 6 ? 3.0 : i < 12 ? 1.6 : i < 20 ? 0.5 : 0.06
     sum += diff * weight
     weightSum += weight
   }
@@ -182,7 +185,12 @@ export function updateBeatDetectorFromSpectrum(
     if (lastBeatBase >= 0) {
       const interval = nowMs - lastBeatBase
       if (interval >= 220 && interval <= 1800) {
-        const instant = 60000 / interval
+        let instant = 60000 / interval
+        // Octave folding: an offbeat slipping through reads as ~2× the track
+        // tempo (and a missed beat as ~½). Fold the instant estimate toward
+        // the current one so stray events can't double the BPM readout.
+        if (instant > prevBpm * 1.6 && instant / 2 >= 50) instant /= 2
+        else if (instant < prevBpm * 0.55) instant *= 2
         bpm = bpm * 0.65 + instant * 0.35
       }
     }

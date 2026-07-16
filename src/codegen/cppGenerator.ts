@@ -373,7 +373,7 @@ function audioEngineCpp(ws: number, sck: number, sd: number, channel: 'Left' | '
     '    for (int i = 0; i < 32; i++) {',
     '      float diff = _audioSpectrum[i] - _audioPrevSpectrum[i];',
     '      if (diff < 0.0f) diff = 0.0f;',
-    '      float weight = i < 6 ? 2.0f : (i < 12 ? 1.35f : (i < 20 ? 0.85f : 0.45f));',
+    '      float weight = i < 6 ? 3.0f : (i < 12 ? 1.6f : (i < 20 ? 0.5f : 0.06f));',
     '      flux += diff * weight;',
     '      weightSum += weight;',
     '    }',
@@ -405,6 +405,9 @@ function audioEngineCpp(ws: number, sck: number, sd: number, channel: 'Left' | '
     '        float interval = now - _audioBeatLast;',
     '        if (interval >= 220.0f && interval <= 1800.0f) {',
     '          float instant = 60000.0f / interval;',
+    '          // Octave folding — stray offbeats must not double the BPM estimate.',
+    '          if (instant > _audioBpm * 1.6f && instant * 0.5f >= 50.0f) instant *= 0.5f;',
+    '          else if (instant < _audioBpm * 0.55f) instant *= 2.0f;',
     '          _audioBpm = _audioBpm * 0.65f + instant * 0.35f;',
     '        }',
     '      }',
@@ -1011,7 +1014,7 @@ export function generateCpp(
           ln(`    float _flux = 0.0f, _weightSum = 0.0f;`)
           ln(`    for (int _i = 0; _i < 32; _i++) {`)
           ln(`      float _diff = _audioSpectrum[_i] - ${prefix}_prevSpectrum[_i]; if (_diff < 0.0f) _diff = 0.0f;`)
-          ln(`      float _weight = _i < 6 ? 2.0f : (_i < 12 ? 1.35f : (_i < 20 ? 0.85f : 0.45f)); _flux += _diff * _weight; _weightSum += _weight;`)
+          ln(`      float _weight = _i < 6 ? 3.0f : (_i < 12 ? 1.6f : (_i < 20 ? 0.5f : 0.06f)); _flux += _diff * _weight; _weightSum += _weight;`)
           ln(`    }`)
           ln(`    _flux = _weightSum > 0.0f ? constrain((_flux / _weightSum) * ${FLUX_GAIN.toFixed(1)}f, 0.0f, 1.0f) : 0.0f;`)
           ln(`    uint32_t _now = millis();`)
@@ -1025,7 +1028,12 @@ export function generateCpp(
           ln(`    float _gap = constrain(60000.0f / ${v('bpm')} * 0.42f, 150.0f, 600.0f);`)
           ln(`    bool _rising = _flux > ${prefix}_prevFlux;`)
           ln(`    ${v('beat')} = _flux > ${threshold.toFixed(4)}f && _rising && _onset > ${(threshold * 0.45).toFixed(4)}f && _onset / _baseline > 1.1f && (${prefix}_lastBeat == 0 || _now - ${prefix}_lastBeat >= (uint32_t)_gap);`)
-          ln(`    if (${v('beat')}) { if (${prefix}_lastBeat != 0) { float _interval = _now - ${prefix}_lastBeat; if (_interval >= 220.0f && _interval <= 1800.0f) ${v('bpm')} = ${v('bpm')} * 0.65f + (60000.0f / _interval) * 0.35f; } ${prefix}_lastBeat = _now; }`)
+          ln(`    if (${v('beat')}) { if (${prefix}_lastBeat != 0) { float _interval = _now - ${prefix}_lastBeat; if (_interval >= 220.0f && _interval <= 1800.0f) {`)
+          ln(`      float _instant = 60000.0f / _interval;`)
+          ln(`      // Octave folding — stray offbeats must not double the BPM estimate.`)
+          ln(`      if (_instant > ${v('bpm')} * 1.6f && _instant * 0.5f >= 50.0f) _instant *= 0.5f; else if (_instant < ${v('bpm')} * 0.55f) _instant *= 2.0f;`)
+          ln(`      ${v('bpm')} = ${v('bpm')} * 0.65f + _instant * 0.35f;`)
+          ln(`    } } ${prefix}_lastBeat = _now; }`)
           ln(`    ${prefix}_prevFlux = _flux;`)
           ln(`  }`)
           ln(`  for (int _i = 0; _i < 32; _i++) ${prefix}_prevSpectrum[_i] = _audioSpectrum[_i]; ${prefix}_ready = true;`)

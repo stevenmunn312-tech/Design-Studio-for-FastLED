@@ -207,10 +207,11 @@ describe('evaluateGraph', () => {
     const { outputs } = evaluateGraphFull([mic, beatNode], [edge('ea3', 'mic', 'audio', 'bd', 'audio')], 45, W, H)
     const beat = outputs.get('bd')!
     expect(beat.beat).toBe(true)
-    // BPM comes from the node's own inter-beat intervals (each step above is
-    // 250 ms apart → estimates pull toward 240), not the engine's mocked 124.
+    // BPM comes from the node's own inter-beat intervals, not the engine's
+    // mocked 124: the 250 ms steps read as 240 BPM, which octave folding maps
+    // back onto the current 120 estimate — so it stays exactly 120.
     expect(beat.bpm).not.toBe(124)
-    expect(beat.bpm).toBeGreaterThan(120)
+    expect(beat.bpm).toBe(120)
     expect(beat).toHaveProperty('flux')
     expect(beat).toHaveProperty('threshold')
     mockAudio.active = false
