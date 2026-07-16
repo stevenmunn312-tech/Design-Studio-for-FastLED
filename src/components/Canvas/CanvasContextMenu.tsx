@@ -389,6 +389,7 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
       canAddNodeType(nodes, n.type)
   )
 
+  const isEmptyGraph = nodes.length === 0
   const canPaste = !!clipboard && clipboard.nodes.some((n) => canAddNodeType(nodes, n.data.nodeType))
   const hasSelection = nodes.some((n) => n.selected)
 
@@ -487,17 +488,25 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
         Add Node ▶
       </button>
       <div className={styles.divider} />
-      <button className={styles.item} onClick={() => act(selectAllNodes)}>
+      <button
+        className={`${styles.item} ${isEmptyGraph ? styles.disabled : ''}`}
+        disabled={isEmptyGraph}
+        onClick={() => { if (!isEmptyGraph) act(selectAllNodes) }}
+      >
         Select All
       </button>
       <button
-        className={`${styles.item} ${!hasSelection ? styles.disabled : ''}`}
-        disabled={!hasSelection}
-        onClick={() => { if (hasSelection) act(deleteSelection) }}
+        className={`${styles.item} ${(!hasSelection || isEmptyGraph) ? styles.disabled : ''}`}
+        disabled={!hasSelection || isEmptyGraph}
+        onClick={() => { if (hasSelection && !isEmptyGraph) act(deleteSelection) }}
       >
         Delete Selected
       </button>
-      <button className={styles.item} onClick={() => act(() => { runTidy() })}>
+      <button
+        className={`${styles.item} ${isEmptyGraph ? styles.disabled : ''}`}
+        disabled={isEmptyGraph}
+        onClick={() => { if (!isEmptyGraph) act(() => { runTidy() }) }}
+      >
         Tidy Graph
       </button>
       <button

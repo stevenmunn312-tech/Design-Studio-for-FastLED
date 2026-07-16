@@ -64,6 +64,25 @@ function seedSelectedNodes() {
   })
 }
 
+function seedEmptyGraphWithClipboard() {
+  const def = NODE_LIBRARY.find((n) => n.type === 'SolidColor')!
+  useGraphStore.setState({
+    nodes: [],
+    edges: [],
+    clipboard: {
+      nodes: [{
+        id: 'clip-solid',
+        type: 'studioNode',
+        position: { x: 0, y: 0 },
+        data: { label: def.label, nodeType: def.type, category: def.category, properties: {}, inputs: def.inputs, outputs: def.outputs },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any],
+      edges: [],
+      bounds: { x: 0, y: 0, width: 10, height: 10 },
+    },
+  })
+}
+
 describe('CanvasContextMenu — drag-to-empty picker', () => {
   beforeEach(() => seedSourceNode())
 
@@ -232,5 +251,21 @@ describe('CanvasContextMenu — drag-to-empty picker', () => {
 
     expect(useGraphStore.getState().nodes).toHaveLength(0)
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it('keeps Paste enabled on an empty graph when the clipboard has nodes', () => {
+    seedEmptyGraphWithClipboard()
+    const { getByRole } = render(
+      <CanvasContextMenu
+        x={0} y={0} flowPosition={{ x: 100, y: 100 }}
+        onClose={() => {}}
+      />
+    )
+
+    expect(getByRole('button', { name: 'Add Node ▶' }).hasAttribute('disabled')).toBe(false)
+    expect(getByRole('button', { name: 'Select All' }).hasAttribute('disabled')).toBe(true)
+    expect(getByRole('button', { name: 'Delete Selected' }).hasAttribute('disabled')).toBe(true)
+    expect(getByRole('button', { name: 'Tidy Graph' }).hasAttribute('disabled')).toBe(true)
+    expect(getByRole('button', { name: 'Paste' }).hasAttribute('disabled')).toBe(false)
   })
 })
