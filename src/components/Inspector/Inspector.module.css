@@ -156,6 +156,10 @@
   box-shadow: 0 0 6px var(--accent-pattern);
 }
 
+.fieldInput[aria-invalid='true'] {
+  border-color: var(--danger, #ff5a6f);
+}
+
 .fieldValue {
   font-size: var(--fs-caption);
   color: var(--text-secondary);

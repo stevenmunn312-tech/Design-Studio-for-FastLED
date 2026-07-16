@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, findPinConflicts, findMatrixLayoutErrors, findPreviewOnlyWarnings, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
+import { validateGraph, findPinConflicts, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -53,6 +53,13 @@ describe('validateGraph', () => {
     const { errors, warnings } = validateGraph(nodes, edges)
     expect(errors).toHaveLength(0)
     expect(warnings).toHaveLength(0)
+  })
+
+  it('accepts valid numeric expressions and reports invalid ones', () => {
+    const out = node('out', 'MatrixOutput', { width: 12, height: 8 })
+    expect(findScalarExpressionErrors([node('r', 'Random', { min: 0, max: 'w / 2' }), out])).toEqual([])
+    expect(findScalarExpressionErrors([node('r', 'Random', { min: 0, max: 'unknown + 1' }), out]))
+      .toEqual(['Random max has an invalid numeric expression: unknown + 1'])
   })
 
   it('warns about isolated nodes', () => {

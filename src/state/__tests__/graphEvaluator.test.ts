@@ -163,6 +163,16 @@ describe('evaluateGraph', () => {
     expect(run(0, { low: 0.2, high: 0.8 })).toBeCloseTo(0.5, 5)
   })
 
+  it('resolves matrix expressions in BeatSin and Random properties', () => {
+    const beatSin = node('bs-expr', 'BeatSin', 'signal', { bpm: 60, low: 'h - 2', high: 'w / 2' })
+    expect(evaluateScalar([beatSin], [], beatSin.id, 'value', 0, 12, 4)).toBeCloseTo(4, 5)
+
+    const random = node('random-expr', 'Random', 'signal', { min: 'max_y', max: 'center_x' })
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0.5)
+    expect(evaluateScalar([random], [], random.id, 'value', 0, 12, 4)).toBeCloseTo(4.25, 5)
+    spy.mockRestore()
+  })
+
   it('bypassed node passes its matching frame input straight through unchanged', () => {
     const sc = node('sc', 'SolidColor', 'pattern', { r: 10, g: 20, b: 30 })
     const bm = node('bm', 'BrightnessMod', 'composite', { brightness: 0, bypassed: true })

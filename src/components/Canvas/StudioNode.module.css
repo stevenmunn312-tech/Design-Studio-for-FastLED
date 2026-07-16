@@ -407,6 +407,10 @@
   border-color: var(--accent-output);
 }
 
+.propInput[aria-invalid='true'] {
+  border-color: var(--danger, #ff5a6f);
+}
+
 /* Muted caption flagging an intentional preview fallback (hardware-input
    stubs, export-only outputs) — see PREVIEW_NOTES in StudioNode.tsx. */
 .previewNote {

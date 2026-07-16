@@ -61,12 +61,30 @@ describe('StudioNode', () => {
   })
 
   it('editing a plain number field updates the node property in the store', () => {
-    // Circle's `cx`/`cy` are sliders, but `radius` still stays a number input.
+    // Circle's `cx`/`cy` are sliders, while `radius` is a free numeric/expression input.
     const { container } = renderNode(makeNode('Circle', { cx: 0.5, cy: 0.5, radius: 3, filled: false, edge: '#ff0000' }))
-    const num = container.querySelector('input[type="number"]') as HTMLInputElement
+    const num = container.querySelector('input[aria-label="radius value or expression"]') as HTMLInputElement
     expect(num).toBeTruthy()
     fireEvent.change(num, { target: { value: '5' } })
     expect(useGraphStore.getState().nodes[0].data.properties.radius).toBe(5)
+  })
+
+  it('stores dimension expressions and marks invalid source without erasing it', () => {
+    const initial = renderNode(makeNode('Random', { min: 0, max: 1 }))
+    const max = initial.getByLabelText('max value or expression') as HTMLInputElement
+
+    fireEvent.change(max, { target: { value: 'h - 2' } })
+    expect(useGraphStore.getState().nodes[0].data.properties.max).toBe('h - 2')
+    initial.unmount()
+
+    const valid = renderNode(makeNode('Random', { min: 0, max: 'h - 2' }))
+    const validMax = valid.getByLabelText('max value or expression') as HTMLInputElement
+    expect(validMax.getAttribute('aria-invalid')).toBeNull()
+    expect(validMax.closest('[title]')?.getAttribute('title')).toContain('h - 2 = 14')
+    valid.unmount()
+
+    const invalid = renderNode(makeNode('Random', { min: 0, max: 'h +' }))
+    expect((invalid.getByLabelText('max value or expression') as HTMLInputElement).getAttribute('aria-invalid')).toBe('true')
   })
 
   it('shows colour swatches for Circle fill/edge and updates the hex property', () => {

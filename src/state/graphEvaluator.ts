@@ -8,7 +8,7 @@ import { animatedImageFrame, asAnimatedImage, asImage, sampleImageToFrame, type 
 import { waveSample, combineWaves } from './wave'
 import { polinePalette, hexToRgb } from './polinePalette'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette } from './customPalette'
-import { inputClampRange, bypassPort } from './nodeLibrary'
+import { inputClampRange, bypassPort, resolveNodeScalarExpressions } from './nodeLibrary'
 import { makeShims, SHIM_NAMES } from './fastledShims'
 import { compileFormulaSource, type FormulaFn } from './formulaLang'
 import { createBeatDetectorState, denormalizeBeatParam, updateBeatDetectorFromSpectrum } from '../audio/beatDetection'
@@ -3594,8 +3594,13 @@ function createEvalNode(
     if (!node) return {}
     inProgress.add(id)
 
-    const props = node.data.properties as Record<string, unknown>
     const type  = node.data.nodeType as string
+    const props = resolveNodeScalarExpressions(
+      type,
+      node.data.properties as Record<string, unknown>,
+      W,
+      H,
+    )
     let out: Record<string, PortValue> = {}
 
     // Bypassed effect-chain nodes pass their matching frame/field input

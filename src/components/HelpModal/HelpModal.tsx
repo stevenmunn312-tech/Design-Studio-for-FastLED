@@ -53,6 +53,21 @@ function QuickStartTab() {
       <div className={styles.divider} />
 
       <div className={styles.section}>
+        <div className={styles.sectionTitle}>Dimension-aware numeric expressions</div>
+        <div className={styles.text}>
+          Free-entry numeric fields on creative nodes can contain a number or a safe expression. For example, set BeatSin <code>high</code> to <code>h - 2</code>, or Random <code>max</code> to <code>w / 2</code>. The preview and generated firmware resolve the expression against the active render grid, so the patch adapts when the Matrix Output size changes.
+        </div>
+        <div className={styles.text}>
+          Available values: <code>w</code>, <code>h</code>, <code>num_leds</code>, <code>max_x</code>, <code>max_y</code>, <code>center_x</code>, <code>center_y</code>, <code>min_dim</code>, <code>max_dim</code>, <code>aspect</code>, <code>pi</code>, and <code>tau</code>. Use ordinary arithmetic, parentheses, and helpers such as <code>min()</code>, <code>max()</code>, <code>floor()</code>, <code>ceil()</code>, and <code>round()</code>. Invalid expressions are outlined and block export/upload validation until corrected.
+        </div>
+        <div className={styles.text}>
+          <code>w</code> and <code>h</code> are pixel counts; the final valid coordinates are <code>max_x</code> (<code>w - 1</code>) and <code>max_y</code> (<code>h - 1</code>). Bounded sliders and hardware/setup fields remain literal values.
+        </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
         <div className={styles.sectionTitle}>Key concepts</div>
         <div className={styles.tipList}>
           <div className={styles.tip}>

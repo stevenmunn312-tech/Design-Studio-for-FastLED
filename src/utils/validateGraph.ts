@@ -1,5 +1,6 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
-import { SPI_CHIPSETS, NODE_LIBRARY } from '../state/nodeLibrary'
+import { SPI_CHIPSETS, NODE_LIBRARY, supportsScalarExpression } from '../state/nodeLibrary'
+import { evaluateScalarExpression } from '../state/scalarExpression'
 import { validateMatrixLayout } from '../state/xyLayout'
 
 export interface ValidationResult {
@@ -241,6 +242,29 @@ export function findMatrixLayoutErrors(nodes: StudioNode[]): string[] {
   return validateMatrixLayout(width, height, props).map((message) => `${label}: ${message}`)
 }
 
+export function findScalarExpressionErrors(nodes: StudioNode[]): string[] {
+  const output = nodes.find((n) => n.data.nodeType === 'MatrixOutput')
+  const outputProps = output?.data.properties as Record<string, unknown> | undefined
+  const scale = outputProps?.supersample === true ? 2 : 1
+  const width = Math.max(1, Number(outputProps?.width ?? 16)) * scale
+  const height = Math.max(1, Number(outputProps?.height ?? 16)) * scale
+  const errors: string[] = []
+
+  for (const node of nodes) {
+    const props = node.data.properties as Record<string, unknown>
+    for (const [key, value] of Object.entries(props)) {
+      if (
+        typeof value === 'string' &&
+        supportsScalarExpression(node.data.nodeType, key) &&
+        evaluateScalarExpression(value, width, height) == null
+      ) {
+        errors.push(`${node.data.label} ${key} has an invalid numeric expression: ${value || '(empty)'}`)
+      }
+    }
+  }
+  return errors
+}
+
 export function validateGraph(nodes: StudioNode[], edges: StudioEdge[]): ValidationResult {
   const errors: string[] = [], warnings: string[] = []
   if (nodes.length === 0) { errors.push('No nodes in graph'); return { errors, warnings } }
@@ -258,6 +282,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[]): Validat
 
   errors.push(...findPinConflicts(nodes))
   errors.push(...findMatrixLayoutErrors(nodes))
+  errors.push(...findScalarExpressionErrors(nodes))
   warnings.push(...findPreviewOnlyWarnings(nodes, edges))
 
   const power = estimatePowerLoad(nodes)

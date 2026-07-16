@@ -283,6 +283,16 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float n_b_value = 0.000f + ((sinf(((millis() / 1000.0f) * 120.000f / 60.0f) * 6.2831853f) + 1.0f) * 0.5f) * (1.000f - 0.000f);')
   })
 
+  it('resolves matrix expressions before emitting scalar properties', () => {
+    const bs = node('bx', 'BeatSin', 'math', { bpm: 'max_dim * 10', low: 'center_y', high: 'num_leds / 8' })
+    const random = node('rx', 'Random', 'signal', { min: 'max_x', max: 'w + h' })
+    const cpp = generateCpp([bs, random, outputNode], [])
+    expect(cpp).toContain('* 80.000f / 60.0f')
+    expect(cpp).toContain('3.500f')
+    expect(cpp).toContain('(8.000f - 3.500f)')
+    expect(cpp).toContain('float n_rx_value = 7 + random8() / 255.0f * 9;')
+  })
+
   it('emits a millis()-based Clock with bpm/beatsPerBar/subdivision baked in', () => {
     const clk = node('clk', 'Clock', 'signal', { bpm: 128, beatsPerBar: 4, subdivision: 2 })
     const cpp = generateCpp([clk, outputNode], [])

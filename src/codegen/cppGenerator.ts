@@ -8,7 +8,7 @@ import { customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCat
 import { audioFlowExpr } from '../state/audioFlowRange'
 import { SPEED_MAX, SCALE_MAX, NOISE_SPEED_MAX, NOISE_SCALE_MAX, rateCpp } from '../state/speedRange'
 import { denormalizeBeatParam } from '../audio/beatDetection'
-import { inputClampRange, bypassPort, CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, CORRECTION_OPTIONS, SPI_CHIPSETS } from '../state/nodeLibrary'
+import { inputClampRange, bypassPort, CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, CORRECTION_OPTIONS, SPI_CHIPSETS, resolveNodeScalarExpressions } from '../state/nodeLibrary'
 import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledShims'
 import { particleRadius } from '../state/particleScale'
 import { buildXYTable } from '../state/xyLayout'
@@ -616,7 +616,7 @@ export function generateCpp(
   const nodeMap = new Map(nodes.map((n) => [n.id, n]))
 
   const outputNode = nodes.find((n) => n.data.nodeType === 'MatrixOutput')
-  const props = (n: StudioNode) => n.data.properties as Record<string, unknown>
+  const rawProps = (n: StudioNode) => n.data.properties as Record<string, unknown>
 
   // Sanitise numeric properties so a stray/garbage value (e.g. a hex string
   // pasted into the width field) can't emit `#define WIDTH NaN` and break the
@@ -629,8 +629,15 @@ export function generateCpp(
     const n = Number(val)
     return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : def
   }
-  const width      = intProp(outputNode ? props(outputNode).width   : undefined, 16, 1, 64)
-  const height     = intProp(outputNode ? props(outputNode).height  : undefined, 16, 1, 64)
+  const width      = intProp(outputNode ? rawProps(outputNode).width   : undefined, 16, 1, 64)
+  const height     = intProp(outputNode ? rawProps(outputNode).height  : undefined, 16, 1, 64)
+  const expressionScale = outputNode && rawProps(outputNode).supersample === true ? 2 : 1
+  const props = (n: StudioNode) => resolveNodeScalarExpressions(
+    n.data.nodeType as string,
+    rawProps(n),
+    width * expressionScale,
+    height * expressionScale,
+  )
   const dataPin    = intProp(outputNode ? props(outputNode).dataPin : undefined, 5, 0, 48)
   // Chipset, colour order, master brightness, correction, dithering, overclock
   // — sanitised centrally (shared with the show/player generators).

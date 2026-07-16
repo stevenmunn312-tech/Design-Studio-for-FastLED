@@ -1,6 +1,7 @@
 import type { NodeDefinition } from '../types'
 import { STUDIO_PALETTES } from './paletteCatalog'
 import { DEFAULT_CUSTOM_COLORS, DEFAULT_CUSTOM_POSITIONS } from './customPalette'
+import { evaluateScalarExpression } from './scalarExpression'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   // ── Inputs ─────────────────────────────────────────────────────────────
@@ -2878,6 +2879,41 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
 /** Inline-editor control hint for a node's property, honouring per-node overrides. */
 export function propertyMeta(nodeType: string, key: string): PropertyControl | undefined {
   return PROPERTY_META_OVERRIDES[nodeType]?.[key] ?? PROPERTY_META[key]
+}
+
+// Hardware/setup values should remain literal and MatrixOutput width/height
+// cannot sensibly refer to the dimensions they are defining. Creative scalar
+// properties use expressions when their ordinary editor is a free-entry number;
+// bounded sliders stay deliberately simple and predictable.
+const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
+  'MatrixOutput', 'MicInput', 'ButtonInput', 'PotInput', 'EncoderInput',
+  'MidiInput', 'SDCard',
+])
+
+export function supportsScalarExpression(nodeType: string, key: string): boolean {
+  if (SCALAR_EXPRESSION_BLOCKED_TYPES.has(nodeType)) return false
+  if (typeof libraryDefaults(nodeType)[key] !== 'number') return false
+  return propertyMeta(nodeType, key)?.control !== 'slider'
+}
+
+/** Replace valid expression strings with their current matrix-relative values.
+ * Invalid source falls back to that property's library default; validation and
+ * the editors retain and report the original string rather than discarding it. */
+export function resolveNodeScalarExpressions(
+  nodeType: string,
+  properties: Record<string, unknown>,
+  width: number,
+  height: number,
+): Record<string, unknown> {
+  let resolved: Record<string, unknown> | null = null
+  const defaults = libraryDefaults(nodeType)
+  for (const [key, value] of Object.entries(properties)) {
+    if (typeof value !== 'string' || !supportsScalarExpression(nodeType, key)) continue
+    const result = evaluateScalarExpression(value, width, height)
+    resolved ??= { ...properties }
+    resolved[key] = result ?? defaults[key]
+  }
+  return resolved ?? properties
 }
 
 /** A named, collapsible section of a node's inline property editors (StudioNode). */

@@ -1,5 +1,7 @@
-import { useGraphStore } from '../../state/graphStore'
+import { matrixDims, useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
+import { supportsScalarExpression } from '../../state/nodeLibrary'
+import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../../state/scalarExpression'
 import { asFont, DEFAULT_FONT } from '../../state/font'
 import { asImage, IMAGE_MAX_DIM } from '../../state/image'
 import { usePerformanceBakeStore } from '../../state/performanceBakeStore'
@@ -104,6 +106,11 @@ export default function Inspector() {
   const hasRGB =
     'r' in props && 'g' in props && 'b' in props &&
     typeof props.r === 'number' && typeof props.g === 'number' && typeof props.b === 'number'
+  const dims = matrixDims(nodes)
+  const matrixOutput = nodes.find((n) => n.data.nodeType === 'MatrixOutput')
+  const expressionScale = matrixOutput?.data.properties.supersample === true ? 2 : 1
+  const expressionW = dims.w * expressionScale
+  const expressionH = dims.h * expressionScale
 
   return (
     <aside className={styles.inspector}>
@@ -194,10 +201,25 @@ export default function Inspector() {
                 className={styles.fieldInput}
                 disabled={bakeLocked}
                 value={String(val)}
+                aria-invalid={
+                  supportsScalarExpression(node.data.nodeType, key) &&
+                  typeof val === 'string' &&
+                  evaluateScalarExpression(val, expressionW, expressionH) == null
+                    ? 'true'
+                    : undefined
+                }
+                title={supportsScalarExpression(node.data.nodeType, key) ? `Number or expression. ${SCALAR_EXPRESSION_HELP}` : undefined}
                 onChange={(e) => {
                   const raw = e.target.value
                   const num = Number(raw)
-                  updateNodeProperty(node.id, key, isNaN(num) ? raw : num)
+                  const expressionCapable = supportsScalarExpression(node.data.nodeType, key)
+                  updateNodeProperty(
+                    node.id,
+                    key,
+                    expressionCapable
+                      ? raw.trim() !== '' && Number.isFinite(num) ? num : raw
+                      : isNaN(num) ? raw : num,
+                  )
                 }}
               />
             </div>

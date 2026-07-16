@@ -4,7 +4,8 @@ import type { NodeProps, Node } from '@xyflow/react'
 import { matrixDims, useGraphStore } from '../../state/graphStore'
 import type { StudioEdge, StudioNodeData } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { NODE_LIBRARY, CATEGORY_ACCENT_VAR, portColor, propertyMeta, hasClampableInputs, bypassPort, nodeDisplayLabel, isPropertyEnabled, libraryDefaults, propertyGroupsFor } from '../../state/nodeLibrary'
+import { NODE_LIBRARY, CATEGORY_ACCENT_VAR, portColor, propertyMeta, hasClampableInputs, bypassPort, nodeDisplayLabel, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression } from '../../state/nodeLibrary'
+import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../../state/scalarExpression'
 import { waveNodeSamples } from '../../state/wave'
 import WaveScope from './WaveScope'
 import ComplexWaveScope from './ComplexWaveScope'
@@ -265,6 +266,13 @@ const LivePropertyControls = memo(function LivePropertyControls({
     [liveJson]
   )
   const liveFor = (propKey: string): unknown => liveValues[portFor(propKey)]
+  const expressionDimsKey = useGraphStore((s) => {
+    const { w, h } = matrixDims(s.nodes)
+    const output = s.nodes.find((n) => n.data.nodeType === 'MatrixOutput')
+    const scale = output?.data.properties.supersample === true ? 2 : 1
+    return `${w * scale}:${h * scale}`
+  })
+  const [expressionW, expressionH] = expressionDimsKey.split(':').map(Number)
 
   const isMatrixOutput = nodeType === 'MatrixOutput'
   const [sizePopupOpen, setSizePopupOpen] = useState(false)
@@ -349,11 +357,27 @@ const LivePropertyControls = memo(function LivePropertyControls({
         const disabled = wired || gated || locked
         const live = wired ? liveFor(key) : undefined
         const forceTextNumber = nodeType === 'Math' && (key === 'a' || key === 'b')
+        const expressionCapable = supportsScalarExpression(nodeType, key)
+        const expressionResult = expressionCapable
+          ? evaluateScalarExpression(val, expressionW, expressionH)
+          : null
+        const expressionInvalid = expressionCapable && typeof val === 'string' && expressionResult == null
+        const rowTitle = wired
+          ? 'Driven by connection'
+          : gated
+            ? 'Not used by this mode'
+            : expressionCapable
+              ? expressionInvalid
+                ? `Invalid expression. ${SCALAR_EXPRESSION_HELP}`
+                : typeof val === 'string'
+                  ? `${val} = ${showNum(expressionResult!)}`
+                  : `Number or expression. ${SCALAR_EXPRESSION_HELP}`
+              : undefined
         return (
           <div
             key={key}
             className={`${styles.propRow}${disabled ? ` ${styles.wired}` : ''}`}
-            title={wired ? 'Driven by connection' : gated ? 'Not used by this mode' : undefined}
+            title={rowTitle}
           >
             <span className={styles.propKey} title={key}>{key}</span>
             {meta?.control === 'select' ? (
@@ -393,6 +417,22 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 disabled={disabled}
                 value={isHexColor(live) ? live : val}
                 onChange={(e) => updateNodeProperty(nodeId, key, e.target.value)}
+              />
+            ) : expressionCapable ? (
+              <input
+                className={`nodrag ${styles.propInput}`}
+                type="text"
+                inputMode="decimal"
+                aria-label={`${key} value or expression`}
+                aria-invalid={expressionInvalid ? 'true' : undefined}
+                disabled={disabled}
+                value={wired && live !== undefined ? String(live) : String(val)}
+                onWheelCapture={stopWheelWhileFocused}
+                onChange={(e) => {
+                  const raw = e.target.value
+                  const n = Number(raw)
+                  updateNodeProperty(nodeId, key, raw.trim() !== '' && Number.isFinite(n) ? n : raw)
+                }}
               />
             ) : typeof val === 'number' && !forceTextNumber ? (
               <input

@@ -79,6 +79,8 @@ See the Design Tokens section of `CLAUDE.md` for the full category → accent-co
 3. **Choose the right save format** — named **Projects** are your working home and autosave in place; **Save Project File As** writes a portable full-workspace file; **Export Graph JSON** is raw graph interchange; **Copy Share Link** packages the workspace into a URL; **Recover Snapshot** restores a recent recovery snapshot for this browser.
 4. **Upload or inspect code** — in **Matrix Output**, use **Upload** for your normal sketch, **Flash Wiring Test** to verify color order/layout/brightness before wiring a creative graph, **Flash Stream Receiver** + **Live Stream** for rapid serial preview, **Upload show to SD** for an SD-backed music-sync player, or **View Code** / **Export .ino** if you want the generated sketch first.
 
+Free-entry numeric fields on creative nodes also accept safe matrix-aware expressions. For example, BeatSin `high` can be `h - 2` and Random `max` can be `w / 2`. Available geometry values are `w`, `h`, `num_leds`, `max_x`, `max_y`, `center_x`, `center_y`, `min_dim`, `max_dim`, and `aspect`, with `pi` and `tau` for angle math. The live preview and generated firmware resolve them consistently when the Matrix Output size changes.
+
 ## Starter Walkthroughs
 
 ### Generative show
