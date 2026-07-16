@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import styles from './HelpModal.module.css'
 import NodeReference from './NodeReference'
+import type { HelpTab } from '../../state/uiStore'
 
-type Tab = 'quickstart' | 'shortcuts' | 'nodes' | 'upload'
-
-const TABS: { id: Tab; label: string }[] = [
+const TABS: { id: HelpTab; label: string }[] = [
   { id: 'quickstart', label: 'Quick Start' },
   { id: 'shortcuts', label: 'Shortcuts' },
   { id: 'nodes', label: 'Node Reference' },
@@ -284,8 +283,7 @@ function UploadTab() {
 }
 
 export default function HelpModal() {
-  const { closeHelp } = useUiStore()
-  const [tab, setTab] = useState<Tab>('quickstart')
+  const { closeHelp, helpTab, setHelpTab } = useUiStore()
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') closeHelp() }
@@ -306,20 +304,20 @@ export default function HelpModal() {
             <button
               key={t.id}
               role="tab"
-              aria-selected={tab === t.id}
-              className={`${styles.tab} ${tab === t.id ? styles.tabActive : ''}`}
-              onClick={() => setTab(t.id)}
+              aria-selected={helpTab === t.id}
+              className={`${styles.tab} ${helpTab === t.id ? styles.tabActive : ''}`}
+              onClick={() => setHelpTab(t.id)}
             >
               {t.label}
             </button>
           ))}
         </div>
 
-        <div className={`${styles.body} ${tab === 'nodes' ? styles.bodyNodeReference : ''}`}>
-          {tab === 'quickstart' && <QuickStartTab />}
-          {tab === 'shortcuts' && <ShortcutsTab />}
-          {tab === 'nodes' && <NodeReference />}
-          {tab === 'upload' && <UploadTab />}
+        <div className={`${styles.body} ${helpTab === 'nodes' ? styles.bodyNodeReference : ''}`}>
+          {helpTab === 'quickstart' && <QuickStartTab />}
+          {helpTab === 'shortcuts' && <ShortcutsTab />}
+          {helpTab === 'nodes' && <NodeReference />}
+          {helpTab === 'upload' && <UploadTab />}
         </div>
       </div>
     </div>

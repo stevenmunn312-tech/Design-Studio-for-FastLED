@@ -153,6 +153,16 @@ describe('evaluateGraph', () => {
     expect(new Set(vals).size).toBeGreaterThan(1)
   })
 
+  it('BeatSin outputs a normalized low-to-high range', () => {
+    const run = (tick: number, props: Record<string, unknown> = {}) =>
+      evaluateScalar([node('bs', 'BeatSin', 'signal', { bpm: 60, low: 0, high: 1, ...props })], [], 'bs', 'value', tick)
+
+    expect(run(0)).toBeCloseTo(0.5, 5)
+    expect(run(15)).toBeCloseTo(1, 5)
+    expect(run(45)).toBeCloseTo(0, 5)
+    expect(run(0, { low: 0.2, high: 0.8 })).toBeCloseTo(0.5, 5)
+  })
+
   it('bypassed node passes its matching frame input straight through unchanged', () => {
     const sc = node('sc', 'SolidColor', 'pattern', { r: 10, g: 20, b: 30 })
     const bm = node('bm', 'BrightnessMod', 'composite', { brightness: 0, bypassed: true })

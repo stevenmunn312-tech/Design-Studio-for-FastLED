@@ -1,4 +1,4 @@
-import { useDeferredValue, useState } from 'react'
+import { useDeferredValue } from 'react'
 import type { NodeCategory, NodeDefinition } from '../../types'
 import { CATEGORIES, CATEGORY_COLOR, NODE_DESCRIPTIONS, NODE_LIBRARY, propertyGroupsFor, propertyMeta, portColor } from '../../state/nodeLibrary'
 import { useUiStore } from '../../state/uiStore'
@@ -1723,9 +1723,11 @@ function NodeArticle({ node }: { node: NodeDefinition }) {
 }
 
 export default function NodeReference() {
-  const [search, setSearch] = useState('')
-  const [expandedCategory, setExpandedCategory] = useState<NodeCategory | null>('input')
-  const [selectedType, setSelectedType] = useState(NODE_LIBRARY[0]?.type ?? '')
+  const helpNodeReference = useUiStore((state) => state.helpNodeReference)
+  const setHelpNodeReference = useUiStore((state) => state.setHelpNodeReference)
+  const selectedType = helpNodeReference.selectedType || (NODE_LIBRARY[0]?.type ?? '')
+  const search = helpNodeReference.search
+  const expandedCategory = helpNodeReference.expandedCategory
   const deferredSearch = useDeferredValue(search.trim().toLowerCase())
   const visibleNodes = NODE_LIBRARY.filter((node) => matchesNode(node, deferredSearch, 'all'))
   const orderedVisibleNodes = deferredSearch
@@ -1755,7 +1757,7 @@ export default function NodeReference() {
           <input
             id="node-reference-search"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => setHelpNodeReference({ search: event.target.value })}
             className={styles.search}
             placeholder="Search nodes…"
             type="search"
@@ -1772,7 +1774,7 @@ export default function NodeReference() {
                   className={styles.indexCategoryHeader}
                   type="button"
                   aria-expanded={open}
-                  onClick={() => setExpandedCategory(open ? null : group)}
+                  onClick={() => setHelpNodeReference({ expandedCategory: open ? null : group })}
                 >
                   <span><i />{categoryLabel(group)} <b>{categoryCounts[group]}</b></span>
                   <span className={styles.indexChevron}>{open ? '▴' : '▾'}</span>
@@ -1785,8 +1787,10 @@ export default function NodeReference() {
                         type="button"
                         className={`${styles.indexItem} ${selectedNode?.type === node.type ? styles.indexItemActive : ''}`}
                         onClick={() => {
-                          setSelectedType(node.type)
-                          setExpandedCategory(node.category)
+                          setHelpNodeReference({
+                            selectedType: node.type,
+                            expandedCategory: node.category,
+                          })
                         }}
                       >
                         <span className={styles.indexGlyph}>{nodeGlyph(node)}</span>

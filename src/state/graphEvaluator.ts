@@ -5323,7 +5323,7 @@ function createEvalNode(
       case 'BeatSin': {
         const bpm = Number(props.bpm ?? 60)
         const lo  = Number(props.low  ?? 0)
-        const hi  = Number(props.high ?? 255)
+        const hi  = Number(props.high ?? 1)
         const phase = (t * bpm / 60) % 1
         out = { value: lo + ((Math.sin(phase * Math.PI * 2) + 1) / 2) * (hi - lo) }
         break

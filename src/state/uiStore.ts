@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { StatusLevel } from '../types'
+import type { NodeCategory } from '../types'
 import type { PreviewStyle } from '../components/Preview/previewStyles'
 import { nextPreviewStyle } from '../components/Preview/previewStyles'
 
@@ -7,6 +8,13 @@ export type AppTheme = 'dark' | 'solarized' | 'light'
 export type NewProjectDecision = 'yes' | 'no' | 'cancel'
 export type AppDialogTone = 'default' | 'danger'
 export type StartChoice = string | 'blank' | null
+export type HelpTab = 'quickstart' | 'shortcuts' | 'nodes' | 'upload'
+
+export interface HelpNodeReferenceState {
+  search: string
+  expandedCategory: NodeCategory | null
+  selectedType: string
+}
 export interface NewProjectPromptState {
   open: boolean
   projectName: string
@@ -108,6 +116,8 @@ interface UiState {
   reducedMotion: boolean
   highContrast: boolean
   helpOpen: boolean
+  helpTab: HelpTab
+  helpNodeReference: HelpNodeReferenceState
   recoverOpen: boolean
   templatesOpen: boolean
   projectsOpen: boolean
@@ -139,6 +149,8 @@ interface UiState {
   cycleTheme: () => void
   toggleReducedMotion: () => void
   toggleHighContrast: () => void
+  setHelpTab: (tab: HelpTab) => void
+  setHelpNodeReference: (state: Partial<HelpNodeReferenceState>) => void
   openHelp: () => void
   closeHelp: () => void
   openRecover: () => void
@@ -188,6 +200,12 @@ export const useUiStore = create<UiState>((set, get) => ({
   reducedMotion: load<boolean>(MOTION_KEY, false),
   highContrast: load<boolean>(CONTRAST_KEY, false),
   helpOpen: false,
+  helpTab: 'quickstart',
+  helpNodeReference: {
+    search: '',
+    expandedCategory: 'input',
+    selectedType: '',
+  },
   recoverOpen: false,
   templatesOpen: false,
   projectsOpen: false,
@@ -280,6 +298,10 @@ export const useUiStore = create<UiState>((set, get) => ({
     set({ highContrast: next })
   },
 
+  setHelpTab: (helpTab) => set({ helpTab }),
+  setHelpNodeReference: (state) => set((current) => ({
+    helpNodeReference: { ...current.helpNodeReference, ...state },
+  })),
   openHelp: () => set({ helpOpen: true }),
   closeHelp: () => set({ helpOpen: false }),
   openRecover: () => set({ recoverOpen: true }),

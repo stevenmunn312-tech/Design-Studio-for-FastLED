@@ -278,9 +278,9 @@ describe('generateCpp', () => {
   })
 
   it('emits BeatSin node with bpm/low/high', () => {
-    const bs = node('b', 'BeatSin', 'math', { bpm: 120, low: 0, high: 255 })
+    const bs = node('b', 'BeatSin', 'math', { bpm: 120, low: 0, high: 1 })
     const cpp = generateCpp([bs, outputNode], [])
-    expect(cpp).toContain('beatsin8(120, 0, 255)')
+    expect(cpp).toContain('float n_b_value = 0.000f + ((sinf(((millis() / 1000.0f) * 120.000f / 60.0f) * 6.2831853f) + 1.0f) * 0.5f) * (1.000f - 0.000f);')
   })
 
   it('emits a millis()-based Clock with bpm/beatsPerBar/subdivision baked in', () => {

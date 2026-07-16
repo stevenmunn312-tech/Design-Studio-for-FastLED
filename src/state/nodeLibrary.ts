@@ -1482,8 +1482,8 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     label: 'BeatSin',
     category: 'signal',
     inputs: [],
-    outputs: [{ id: 'value', label: 'Value (0–255)', dataType: 'float' }],
-    defaultProperties: { bpm: 60, low: 0, high: 255 },
+    outputs: [{ id: 'value', label: 'Value (0–1)', dataType: 'float' }],
+    defaultProperties: { bpm: 60, low: 0, high: 1 },
   },
   {
     // Free-running BPM clock / transport — the show-timing counterpart to
@@ -2226,7 +2226,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Not: 'Logical NOT of a boolean.',
   Compare: 'True when a > b.',
   Trigger: 'Debounce, Toggle, One Shot, Pulse Divider, or Trigger Delay on a bool.',
-  BeatSin: 'FastLED beatsin8 — oscillates low↔high at a BPM.',
+  BeatSin: 'Beat-synced sine oscillator — outputs a normalized low↔high value at a BPM.',
   Clock: 'BPM clock — phase/beat/bar/subdivision pulses; tap tempo, sync, and reset.',
   XYMapper: 'Converts (x, y) to a strip index.',
   // color
