@@ -1,17 +1,20 @@
 import { describe, expect, it, vi } from 'vitest'
-import { AudioEngine, averageFrequencyBand, logarithmicSpectrum, applyNoiseGate, MIC_CAPTURE_CONSTRAINTS } from '../audioEngine'
+import { AudioEngine, MIC_CAPTURE_CONSTRAINTS } from '../audioEngine'
 import {
   createBeatDetectorState,
   denormalizeBeatParam,
   updateBeatDetectorFromSpectrum,
 } from '../beatDetection'
 import {
-  MIC_DEFAULTS,
   MIC_SAMPLE_RATE,
-  MIC_SPECTRUM_MAX_HZ,
-  dbToNormalized,
-  fillNormalizedFft,
+  fftInPlace,
 } from '../micAnalysis'
+import {
+  FastLedAudioAnalyzer,
+  aggregateLogBins,
+  conditionSamples,
+  createConditionerState,
+} from '../fastledReactive'
 
 describe('audioEngine FFT helpers', () => {
   it('requests a raw microphone signal without browser conferencing DSP', () => {
@@ -46,58 +49,52 @@ describe('audioEngine FFT helpers', () => {
     }
   })
 
-  it('selects bands using the actual sample rate', () => {
-    const data = new Uint8Array(256)
-    // 48 kHz / 512 = 93.75 Hz per bin; bin 2 is 187.5 Hz (bass).
-    data[2] = 255
-    expect(averageFrequencyBand(data, 48_000, 512, 30, 250)).toBeGreaterThan(0)
-    expect(averageFrequencyBand(data, 48_000, 512, 250, 2_000)).toBe(0)
+  it('uses FastLED INMP441 default sample rate', () => {
+    expect(MIC_SAMPLE_RATE).toBe(44_100)
   })
 
-  it('uses the same fixed dB window and sample rate as firmware', () => {
-    expect(MIC_SAMPLE_RATE).toBe(16_000)
-    expect(MIC_SPECTRUM_MAX_HZ).toBe(8_000)
-    expect(dbToNormalized(-100)).toBe(0)
-    expect(dbToNormalized(-65)).toBeCloseTo(0.5)
-    expect(dbToNormalized(-30)).toBe(1)
-  })
-
-  it('normalizes a Hann-windowed time-domain tone like firmware', () => {
+  it('finds a tone with the browser FFT used by the FastLED port', () => {
     const n = 512
-    const samples = Float32Array.from({ length: n }, (_, i) => 0.01 * Math.sin((2 * Math.PI * 8 * i) / n))
-    const re = new Float32Array(n), im = new Float32Array(n), spectrum = new Float32Array(n / 2)
-    fillNormalizedFft(samples, re, im, spectrum)
-    const peakBin = spectrum.indexOf(Math.max(...spectrum))
+    const re = Float32Array.from({ length: n }, (_, i) => Math.sin((2 * Math.PI * 8 * i) / n))
+    const im = new Float32Array(n)
+    fftInPlace(re, im)
+    const mags = Array.from({ length: n / 2 }, (_, i) => Math.hypot(re[i], im[i]))
+    const peakBin = mags.indexOf(Math.max(...mags))
     expect(peakBin).toBe(8)
-    expect(spectrum[peakBin]).toBeCloseTo(dbToNormalized(-40), 2)
   })
 
-  it('builds a low-to-high logarithmic spectrum at the requested resolution', () => {
-    const data = new Uint8Array(256)
-    data[1] = 255
-    const spectrum = logarithmicSpectrum(data, 48_000, 512, 24)
-    expect(spectrum).toHaveLength(24)
-    expect(Math.max(...spectrum.slice(0, 8))).toBeGreaterThan(0)
-    expect(Math.max(...spectrum.slice(16))).toBe(0)
+  it('folds linear FFT magnitudes into low-to-high FastLED-style log bins', () => {
+    const mags = new Float32Array(256)
+    mags[2] = 100
+    const out = new Float32Array(16)
+    aggregateLogBins(mags, 44_100, 512, 16, 30, 8_000, out)
+    expect(Math.max(...out.slice(0, 5))).toBeGreaterThan(0)
+    expect(Math.max(...out.slice(10))).toBe(0)
   })
 
-  it('suppresses values at or below the ambient floor', () => {
-    const quiet = applyNoiseGate(0.05, { floor: 0.04, level: 0 }, { threshold: 0.08, attack: 0.2, decay: 0.05 })
-    const loud = applyNoiseGate(0.5, { floor: 0.04, level: 0.4 }, { threshold: 0.08, attack: 0.2, decay: 0.05 })
-    expect(quiet.level).toBe(0)
-    expect(loud.level).toBeGreaterThan(0.4)
+  it('ports FastLED DC removal and hysteresis noise gating', () => {
+    const quiet = new Float32Array([120, 130, 110, 125])
+    conditionSamples(quiet, createConditionerState())
+    expect([...quiet]).toEqual([0, 0, 0, 0])
+
+    const loud = new Float32Array([1_000, -1_000, 900, -900])
+    conditionSamples(loud, createConditionerState())
+    expect(Math.max(...loud.map(Math.abs))).toBeGreaterThanOrEqual(900)
   })
 
-  it('keeps gate timing stable across different update rates', () => {
-    const run = (fps: number) => {
-      let state = { floor: 0.02, level: 0 }
-      for (let i = 0; i < fps; i++) {
-        state = applyNoiseGate(0.5, state, MIC_DEFAULTS, 1000 / fps)
-      }
-      return state
-    }
-    expect(run(30).level).toBeCloseTo(run(60).level, 2)
-    expect(run(30).floor).toBeCloseTo(run(60).floor, 2)
+  it('produces normalized FastLED bass levels from a low-frequency tone', () => {
+    const n = 512
+    const samples = Float32Array.from(
+      { length: n },
+      (_, i) => 0.2 * Math.sin((2 * Math.PI * 172.265625 * i) / MIC_SAMPLE_RATE),
+    )
+    const analyzer = new FastLedAudioAnalyzer(n)
+    const spectrum = new Array<number>(32)
+    const result = analyzer.process(samples, MIC_SAMPLE_RATE, 1_000, 1, spectrum)
+    expect(result.bass).toBeGreaterThan(0.5)
+    expect(result.mids).toBeGreaterThanOrEqual(0)
+    expect(result.treble).toBeGreaterThanOrEqual(0)
+    expect(spectrum).toHaveLength(32)
   })
 
   it('detects a beat from a rising spectral-flux peak and smooths BPM', () => {

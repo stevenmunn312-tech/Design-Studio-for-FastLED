@@ -202,16 +202,12 @@ export default function App() {
     }
   }, [])
 
-  // Keep the engine's noise gate and AGC settings in sync with the MicInput node.
+  // Keep FastLED's processor gain in sync with the MicInput node.
   useEffect(() => {
     const engine = AudioEngine.instance
     if (!micNodeProps) return
     engine.configureMic({
       gain: Number(micNodeProps.gain ?? MIC_DEFAULTS.gain),
-      agc: Boolean(micNodeProps.agc ?? MIC_DEFAULTS.agc),
-      threshold: Number(micNodeProps.threshold ?? MIC_DEFAULTS.threshold),
-      attack: Number(micNodeProps.attack ?? MIC_DEFAULTS.attack),
-      decay: Number(micNodeProps.decay ?? MIC_DEFAULTS.decay),
     })
   }, [micNodeProps])
 

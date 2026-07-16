@@ -12,16 +12,16 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'input',
     inputs: [],
     outputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
-    // gain/agc/threshold/attack/decay drive the same adaptive gate in the live
-    // preview and generated firmware; i2s* pins + channel configure the
-    // firmware's INMP441 reader (ESP32). Defaults match common ESP32-S3 wiring.
+    // Gain maps to FastLED Processor::setGain in preview and firmware; i2s*
+    // pins + channel configure FastLED's INMP441 input (ESP32). Defaults match
+    // common ESP32-S3 wiring.
     defaultProperties: {
       ...MIC_DEFAULTS,
       i2sWs: 39,
       i2sSck: 40,
       i2sSd: 41,
       channel: 'Left',
-      // Firmware-only: print _audioBass/_audioMids/_audioTreble (+beat/bpm) to
+      // Firmware-only: print FastLED processor levels and conditioner stats to
       // the serial monitor ~10×/sec, for checking the mic wiring on-device.
       serialDebug: false,
     },
@@ -2204,7 +2204,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   BeatDetect: 'Emits a beat pulse and estimated BPM from audio.',
   PercussionDetect: 'Heuristic kick, snare, and hi-hat envelopes from audio.',
   AudioFeatures: 'Heuristic vocals, energy, and silence features from audio.',
-  MicInput: 'Microphone — optional AGC, preview gate, and INMP441 I2S firmware.',
+  MicInput: 'Microphone — FastLED audio processing with configurable INMP441 I2S firmware.',
   AudioHue: 'Maps bass/mids/treble to a hue value.',
   // hardware
   ButtonInput: 'Reads a hardware button as a boolean.',
@@ -2967,7 +2967,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'color', label: 'Color', keys: ['fill', 'edge'] },
   ],
   MicInput: [
-    { key: 'levels', label: 'Levels', keys: ['gain', 'agc', 'threshold', 'attack', 'decay'] },
+    { key: 'levels', label: 'Levels', keys: ['gain'] },
     { key: 'i2s', label: 'I2S Pins', keys: ['i2sWs', 'i2sSck', 'i2sSd', 'channel'] },
     { key: 'debug', label: 'Debug', keys: ['serialDebug'] },
   ],

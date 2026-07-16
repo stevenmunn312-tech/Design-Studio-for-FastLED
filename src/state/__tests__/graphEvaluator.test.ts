@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 
 const mockAudio = vi.hoisted(() => ({
   active: false,
+  nativeFastLed: false,
   micActive: false,
   bass: 0,
   mids: 0,
@@ -190,7 +191,7 @@ describe('evaluateGraph', () => {
     expect(frame[0][0]).toEqual({ r: 0, g: 0, b: 0 })
   })
 
-  it('BeatDetect uses its configured detector instead of the engine beat', () => {
+  it('BeatDetect keeps its configured detector for non-FastLED audio sources', () => {
     mockAudio.active = true
     const mic = node('mic', 'MicInput', 'input', {})
     const beatNode = node('bd', 'BeatDetect', 'audio', { threshold: 0.14, attack: 0.68, decay: 0.22 })
@@ -216,6 +217,29 @@ describe('evaluateGraph', () => {
     expect(beat).toHaveProperty('threshold')
     mockAudio.active = false
     mockAudio.beat = false
+  })
+
+  it('BeatDetect passes through FastLED beat and BPM for the live microphone', () => {
+    mockAudio.active = true
+    mockAudio.nativeFastLed = true
+    mockAudio.beat = true
+    mockAudio.bpm = 137
+    const mic = node('mic-fastled', 'MicInput', 'input', {})
+    const beatNode = node('bd-fastled', 'BeatDetect', 'audio', { threshold: 1, attack: 0, decay: 1 })
+    const outputs = evaluateGraphFull(
+      [mic, beatNode],
+      [edge('fastled-beat', 'mic-fastled', 'audio', 'bd-fastled', 'audio')],
+      0,
+      W,
+      H,
+    ).outputs.get('bd-fastled')!
+    expect(outputs.beat).toBe(true)
+    expect(outputs.bpm).toBe(137)
+    expect(outputs.flux).toBe(0)
+    mockAudio.active = false
+    mockAudio.nativeFastLed = false
+    mockAudio.beat = false
+    mockAudio.bpm = 120
   })
 
   it('PercussionDetect emits separate kick, snare, and hi-hat envelopes', () => {

@@ -220,9 +220,9 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     const category: NodeCategory = def?.category ?? data.category
     const label = def?.label ?? data.label
     const properties = { ...data.properties }
-    // MicInput analysis used to expose a 44.1 kHz field even though generated
-    // firmware was fixed at 16 kHz. Preview and firmware now deliberately share
-    // that fixed rate, so strip the misleading legacy property on load.
+    // MicInput analysis used to expose a sample-rate field even though neither
+    // preview nor firmware honored it. FastLED's INMP441 pipeline owns the
+    // 44.1 kHz rate now, so strip the misleading legacy property on load.
     if (nodeType === 'MicInput') delete properties.sampleRate
     const inputs = def?.inputs ?? (Array.isArray(data.inputs) ? data.inputs : [])
     const outputs = def?.outputs ?? (Array.isArray(data.outputs) ? data.outputs : [])

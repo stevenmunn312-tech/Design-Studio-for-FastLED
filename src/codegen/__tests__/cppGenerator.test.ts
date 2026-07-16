@@ -1615,61 +1615,37 @@ describe('generateCpp — INMP441 audio engine', () => {
     ])
   }
 
-  it('emits the I2S driver, a self-contained FFT, and per-frame update', () => {
+  it('uses FastLED audio instead of emitting a second I2S driver and FFT', () => {
     const cpp = micGraph()
-    // Both driver paths behind the IDF-version gate: the new channel driver on
-    // IDF 5+ (FastLED 3.10 links it, and IDF 5 aborts if the legacy one is
-    // also compiled in), the legacy driver on older cores.
-    expect(cpp).toContain('#include <esp_idf_version.h>')
-    expect(cpp).toContain('#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)')
-    expect(cpp).toContain('#include <driver/i2s_std.h>')
-    expect(cpp).toContain('#include <driver/i2s.h>')
-    expect(cpp).toContain('i2s_channel_init_std_mode(_micChan, &cfg);')
-    expect(cpp).toContain('i2s_channel_read(_micChan')
-    expect(cpp).toContain('cfg.slot_cfg.slot_mask = I2S_STD_SLOT_LEFT;')
-    expect(cpp).toContain('#define MIC_WS   39')
-    expect(cpp).toContain('#define MIC_SCK  40')
-    expect(cpp).toContain('#define MIC_SD   41')
+    expect(cpp).not.toContain('#include <driver/i2s_std.h>')
+    expect(cpp).not.toContain('#include <driver/i2s.h>')
+    expect(cpp).not.toContain('void _audioFFT(')
+    expect(cpp).toContain('#define MIC_WS    39')
+    expect(cpp).toContain('#define MIC_SCK   40')
+    expect(cpp).toContain('#define MIC_SD    41')
     expect(cpp).toContain('#define MIC_GAIN')
-    expect(cpp).toContain('#define MIC_AGC   0')
-    expect(cpp).toContain('#define MIC_NOISE_THRESHOLD')
-    expect(cpp).toContain('#define MIC_NOISE_THRESHOLD 0.100f')
-    expect(cpp).toContain('#define MIC_THRESHOLD_RANGE  0.250f')
-    expect(cpp).toContain('#define AUDIO_SR  16000')
-    expect(cpp).toContain('#define AUDIO_MIN_DB -100.0f')
-    expect(cpp).toContain('#define AUDIO_MAX_DB -30.0f')
-    expect(cpp).toContain('mag * (4.0f / AUDIO_N)')
-    expect(cpp).toContain('powf(8000.0f / 30.0f, t0)')
-    expect(cpp).not.toContain('powf(12000.0f / 30.0f')
-    expect(cpp).toContain('float _audioNoiseGate(')
-    expect(cpp).toContain('void _audioFFT(')
+    expect(cpp).toContain('fl::audio::Config::CreateInmp441(MIC_WS, MIC_SD, MIC_SCK, fl::audio::AudioChannel::Left)')
+    expect(cpp).toContain('_audioProcessor = FastLED.add(config);')
+    expect(cpp).toContain('_audioProcessor->setGain(MIC_GAIN);')
+    expect(cpp).toContain('_audioProcessor->getBassLevel()')
+    expect(cpp).toContain('_audioProcessor->getEqBin(i >> 1)')
     expect(cpp).toContain('void setupAudio()')
     expect(cpp).toContain('void updateAudio()')
-    expect(cpp).toContain('i2s_driver_install(I2S_NUM_0')
     // wired into the lifecycle
     expect(cpp).toContain('setupAudio();')
     expect(cpp).toContain('updateAudio();')
   })
 
-  it('prints band levels and the raw peak to serial only when Serial Debug is on', () => {
+  it('prints FastLED processor levels and conditioner stats when Serial Debug is on', () => {
     const dbgMic = node('mic', 'MicInput', 'hardware', { serialDebug: true })
     const fft = node('fft', 'FFTAnalyzer', 'audio', {})
     const on = generateCpp([dbgMic, fft, out], [edge('e1', 'mic', 'fft', 'audio', 'audio')])
     expect(on).toContain('#define MIC_DEBUG 1')
     expect(on).toContain('Serial.begin(115200);')
-    expect(on).toContain('int32_t _pk = 0;')
-    expect(on).toContain('Serial.printf("audio bass=%.2f mids=%.2f treble=%.2f beat=%d bpm=%.0f raw=%d pk=%ld\\n"')
+    expect(on).toContain('getSignalConditionerStats()')
+    expect(on).toContain('Serial.printf("fastled audio bass=%.2f mids=%.2f treble=%.2f beat=%d bpm=%.0f gate=%d dc=%ld spikes=%lu\\n"')
     // Off by default — the print block is still emitted but compiled out.
     expect(micGraph()).toContain('#define MIC_DEBUG 0')
-  })
-
-  it('enables on-device AGC when the MicInput checkbox is set', () => {
-    const mic = node('mic', 'MicInput', 'hardware', { agc: true })
-    const fft = node('fft', 'FFTAnalyzer', 'audio', {})
-    const cpp = generateCpp([mic, fft, out], [edge('e1', 'mic', 'fft', 'audio', 'audio')])
-    expect(cpp).toContain('#define MIC_AGC   1')
-    expect(cpp).toContain('if (MIC_AGC) {')
-    expect(cpp).toContain('float agcGain = MIC_GAIN * (MIC_AGC ? (1.0f / mx) : 1.0f);')
   })
 
   it('FFTAnalyzer resolves to the live band globals when a mic is present', () => {
@@ -1708,16 +1684,22 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).not.toContain('// SpectrumBars')
   })
 
-  it('emits a per-node BeatDetect envelope and BPM estimate', () => {
+  it('uses FastLED native beat and BPM for a live MicInput graph', () => {
     const mic = node('mic', 'MicInput', 'hardware', {})
     const beat = node('bd', 'BeatDetect', 'audio', { threshold: 0.08, attack: 0.3, decay: 0.05 })
     const cpp = generateCpp([mic, beat, out], [
       edge('e1', 'mic', 'bd', 'audio', 'audio'),
       edge('e2', 'bd', 'out', 'frame', 'frame'),
     ])
+    expect(cpp).toContain('bool n_bd_beat = _audioBeat; float n_bd_bpm = _audioBpm;')
+    expect(cpp).not.toContain('n_bd_detector_fast')
+  })
+
+  it('keeps the tunable BeatDetect envelope for external baked SD audio', () => {
+    const beat = node('bd', 'BeatDetect', 'audio', { threshold: 0.08, attack: 0.3, decay: 0.05 })
+    const cpp = generateCpp([beat, out], [], {}, { externalAudio: true })
     expect(cpp).toContain('bool n_bd_beat = false;')
-    expect(cpp).toContain('n_bd_detector_fast += (_flux - n_bd_detector_fast) * (1.0f - powf(1.0f - 0.2540f, _dtF));')
-    expect(cpp).toContain('_flux > 0.0200f')
+    expect(cpp).toContain('n_bd_detector_fast += (_flux - n_bd_detector_fast)')
     expect(cpp).toContain('_audioSpectrum[_i] - n_bd_detector_prevSpectrum[_i]')
   })
 
@@ -1782,8 +1764,8 @@ describe('generateCpp — INMP441 audio engine', () => {
   })
 
   it('honours the selected I2S channel', () => {
-    expect(micGraph('Left')).toContain('I2S_CHANNEL_FMT_ONLY_LEFT')
-    expect(micGraph('Right')).toContain('I2S_CHANNEL_FMT_ONLY_RIGHT')
+    expect(micGraph('Left')).toContain('fl::audio::AudioChannel::Left')
+    expect(micGraph('Right')).toContain('fl::audio::AudioChannel::Right')
   })
 
   it('falls back to silence with no mic node', () => {
@@ -1821,17 +1803,16 @@ describe('audioEngineForGraph', () => {
     expect(audioEngineForGraph([node('fft', 'FFTAnalyzer', 'audio', {})])).toBeNull()
   })
 
-  it('returns the I2S include and engine code when a MicInput is present', () => {
+  it('returns FastLED processor setup when a MicInput is present', () => {
     const mic = node('mic', 'MicInput', 'hardware', { i2sWs: 39, i2sSck: 40, i2sSd: 41, channel: 'Right' })
     const eng = audioEngineForGraph([mic])!
-    expect(eng.include).toContain('driver/i2s_std.h')        // new driver (IDF 5+)
-    expect(eng.include).toContain('driver/i2s.h')            // legacy fallback
+    expect(eng.include).toContain('FastLED 3.10.3+')
     const joined = eng.code.join('\n')
     expect(joined).toContain('void setupAudio()')
     expect(joined).toContain('void updateAudio()')
-    // channel honoured on both driver paths
-    expect(joined).toContain('I2S_CHANNEL_FMT_ONLY_RIGHT')
-    expect(joined).toContain('cfg.slot_cfg.slot_mask = I2S_STD_SLOT_RIGHT;')
+    expect(joined).toContain('fl::audio::AudioChannel::Right')
+    expect(joined).toContain('FastLED.add(config)')
+    expect(joined).not.toContain('i2s_driver_install')
   })
 })
 

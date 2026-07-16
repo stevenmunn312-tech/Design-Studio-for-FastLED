@@ -127,7 +127,7 @@ const AUDIO_GROUP_INPUTS: Record<string, string> = {
 
 function buildPattern(
   groupId: string, groups: GroupRegistry, index: number, roleParams: string[] = [],
-  externalAudio = false, audioExprOverrides: Record<string, string> = {},
+  externalAudio = false, audioExprOverrides: Record<string, string> = {}, nativeFastLedAudio = false,
 ): PatternUnit {
   const fnName = `render_p${index}`
   // Signature: render_pN(uint32_t ms[, float energy, …][, const CRGBPalette16& palette])
@@ -162,7 +162,7 @@ function buildPattern(
 
   // `externalAudio` lets the pattern's FFTAnalyzer/BeatDetect reference the
   // controller-hosted mic globals (the controller emits the engine once).
-  const sketch = generateCpp(nodes, retainedEdges, groups, { externalAudio, groupInputExprs })
+  const sketch = generateCpp(nodes, retainedEdges, groups, { externalAudio, nativeFastLedAudio, groupInputExprs })
   const lines = sketch.split('\n')
   const pfx = (s: string) => s.replace(/\b(?:buf|field)_[A-Za-z0-9_]+\b/g, (m) => `p${index}_${m}`)
 
@@ -230,9 +230,9 @@ export interface PatternRenderers {
 
 export function buildPatternRenderers(
   patternIds: string[], groups: GroupRegistry, roleParams: string[] = [],
-  externalAudio = false, audioExprOverrides: Record<string, string> = {},
+  externalAudio = false, audioExprOverrides: Record<string, string> = {}, nativeFastLedAudio = false,
 ): PatternRenderers {
-  const units = patternIds.map((id, i) => buildPattern(id, groups, i, roleParams, externalAudio, audioExprOverrides))
+  const units = patternIds.map((id, i) => buildPattern(id, groups, i, roleParams, externalAudio, audioExprOverrides, nativeFastLedAudio))
   const helpers = new Map<string, string>()
   for (const u of units) for (const [k, v] of u.helpers) helpers.set(k, v)
   return {
@@ -269,11 +269,11 @@ export function generateShowSketch(
   const usePsram = opts.psramAllowed !== false && op.usePsram === true
 
   // A MicInput on the canvas turns the controller into an audio host: it runs
-  // the INMP441 I2S + FFT engine and the collected patterns' FFTAnalyzer/
+  // FastLED's INMP441 audio processor and the collected patterns' FFTAnalyzer/
   // BeatDetect read the live band globals (externalAudio), so a mic-reactive
   // pattern reacts on-device the same way it does in the live preview.
   const audio = audioEngineForGraph(nodes)
-  const renderers = buildPatternRenderers(info.patternIds, groups, [], !!audio, audio ? { beat: '_audioBeat' } : {})
+  const renderers = buildPatternRenderers(info.patternIds, groups, [], !!audio, audio ? { beat: '_audioBeat' } : {}, !!audio)
   // A beat trigger needs a source on-device; the mic engine supplies _audioBeat.
   const beatTrigger = info.beatWired && !!audio
   // Particle overlay also rides the mic beat, so it needs the same source.

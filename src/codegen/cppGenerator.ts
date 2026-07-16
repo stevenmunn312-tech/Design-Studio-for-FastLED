@@ -14,15 +14,7 @@ import { SPEED_MAX, SCALE_MAX, NOISE_SPEED_MAX, NOISE_SCALE_MAX, rateCpp } from 
 import { denormalizeBeatParam, FLUX_GAIN } from '../audio/beatDetection'
 import {
   MIC_DEFAULTS,
-  MIC_FFT_SIZE,
-  MIC_MAX_DB,
   MIC_MAX_GAIN,
-  MIC_MIN_DB,
-  MIC_SAMPLE_RATE,
-  MIC_SPECTRUM_MAX_HZ,
-  MIC_SPECTRUM_MIN_HZ,
-  MIC_SPECTRUM_SMOOTHING,
-  MIC_THRESHOLD_RANGE,
 } from '../audio/micAnalysis'
 import { inputClampRange, bypassPort, CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, CORRECTION_OPTIONS, SPI_CHIPSETS, resolveNodeScalarExpressions } from '../state/nodeLibrary'
 import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledShims'
@@ -191,285 +183,84 @@ function topoSort(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
   return result
 }
 
-// On-device audio engine for an INMP441 MEMS mic on ESP32: an I2S reader + a
-// self-contained radix-2 FFT (no external library) that updates global
-// _audioBass/_audioMids/_audioTreble (0–1, smoothed, optional AGC, and an
-// adaptive noise gate) and a _audioBeat flag once per frame.
+// FastLED 3.10.3+ owns the live INMP441 pipeline: capture, signal
+// conditioning, shared FFT, adaptive frequency-band normalization, equalizer,
+// and beat detection. Studio keeps the small _audio* global interface used by
+// generated nodes and controller sketches, but no longer emits a second I2S
+// driver or a parallel FFT implementation.
 //
-// The I2S code is emitted twice behind an ESP_IDF_VERSION gate: the new
-// channel-based driver (driver/i2s_std.h) on IDF 5+ (Arduino core 3.x) and the
-// legacy driver (driver/i2s.h) on older cores. This is not just politeness —
-// FastLED 3.10's bundled audio framework links the *new* driver into every
-// ESP32 binary, and IDF 5 aborts at boot ("i2s(legacy): CONFLICT!") if the
-// legacy driver is linked alongside it, so on modern cores the legacy path
-// must not even be compiled.
-// NOTE: ESP32-only.
-function audioEngineCpp(ws: number, sck: number, sd: number, channel: 'Left' | 'Right', gain: number, agc: boolean, threshold: number, attack: number, decay: number, serialDebug = false): string[] {
-  const legacyFmt = channel === 'Right' ? 'I2S_CHANNEL_FMT_ONLY_RIGHT' : 'I2S_CHANNEL_FMT_ONLY_LEFT'
-  const stdSlot = channel === 'Right' ? 'I2S_STD_SLOT_RIGHT' : 'I2S_STD_SLOT_LEFT'
+// The SD-card player intentionally does not use this block: it supplies the
+// same globals from its baked song envelope.
+function audioEngineCpp(
+  ws: number,
+  sck: number,
+  sd: number,
+  channel: 'Left' | 'Right',
+  gain: number,
+  serialDebug = false,
+): string[] {
+  const audioChannel = channel === 'Right'
+    ? 'fl::audio::AudioChannel::Right'
+    : 'fl::audio::AudioChannel::Left'
   return [
-    '// ── INMP441 I2S microphone + FFT (on-device audio reactivity) ───────────────',
-    `#define MIC_WS   ${ws}`,
-    `#define MIC_SCK  ${sck}`,
-    `#define MIC_SD   ${sd}`,
+    '// ── FastLED INMP441 audio reactivity ───────────────────────────────────────',
+    `#define MIC_WS    ${ws}`,
+    `#define MIC_SCK   ${sck}`,
+    `#define MIC_SD    ${sd}`,
     `#define MIC_GAIN  ${gain.toFixed(3)}f`,
-    `#define MIC_AGC   ${agc ? 1 : 0}`,
-    `#define MIC_NOISE_THRESHOLD ${threshold.toFixed(3)}f`,
-    `#define MIC_NOISE_ATTACK     ${attack.toFixed(3)}f`,
-    `#define MIC_NOISE_DECAY      ${decay.toFixed(3)}f`,
-    `#define MIC_THRESHOLD_RANGE  ${MIC_THRESHOLD_RANGE.toFixed(3)}f`,
-    `#define MIC_DEBUG ${serialDebug ? 1 : 0}   // print band levels to serial (~10×/sec)`,
-    `#define AUDIO_N   ${MIC_FFT_SIZE}        // FFT size (power of two)`,
-    `#define AUDIO_SR  ${MIC_SAMPLE_RATE}      // fixed preview/firmware sample rate (Hz)`,
-    `#define AUDIO_MIN_DB ${MIC_MIN_DB.toFixed(1)}f`,
-    `#define AUDIO_MAX_DB ${MIC_MAX_DB.toFixed(1)}f`,
-    `#define AUDIO_SPECTRUM_SMOOTHING ${MIC_SPECTRUM_SMOOTHING.toFixed(3)}f`,
+    `#define MIC_DEBUG ${serialDebug ? 1 : 0}   // print FastLED processor levels (~10×/sec)`,
     'float _audioBass = 0, _audioMids = 0, _audioTreble = 0, _audioBpm = 120;',
     'bool  _audioBeat = false;',
-    'static float _audioBeatFast = 0, _audioBeatSlow = 0, _audioBeatPrevFlux = 0;',
-    'static uint32_t _audioBeatLastMs = 0;',
-    'static float _audioPrevSpectrum[32];',
     'static float _audioSpectrum[32];',
-    'static bool _audioHavePrevSpectrum = false;',
-    'static uint32_t _audioBeatLast = 0;',
-    'static float _bassFloor = 0.02f, _midsFloor = 0.02f, _trebleFloor = 0.02f;',
-    'static float _bassSmooth = 0, _midsSmooth = 0, _trebleSmooth = 0;',
-    'static float _aRe[AUDIO_N], _aIm[AUDIO_N];',
-    'static float _audioBinSmooth[AUDIO_N / 2];',
-    'static uint32_t _audioLastUpdateMs = 0;',
+    'static fl::shared_ptr<fl::audio::Processor> _audioProcessor;',
+    'static volatile uint32_t _audioBeatCount = 0;',
+    'static uint32_t _audioBeatSeen = 0;',
     '',
-    '// In-place iterative radix-2 FFT (Cooley–Tukey).',
-    'void _audioFFT(float* re, float* im, int n) {',
-    '  for (int i = 1, j = 0; i < n; i++) {',
-    '    int bit = n >> 1;',
-    '    for (; j & bit; bit >>= 1) j ^= bit;',
-    '    j ^= bit;',
-    '    if (i < j) { float tr = re[i]; re[i] = re[j]; re[j] = tr; float ti = im[i]; im[i] = im[j]; im[j] = ti; }',
-    '  }',
-    '  for (int len = 2; len <= n; len <<= 1) {',
-    '    float ang = -2.0f * PI / len, wr = cos(ang), wi = sin(ang);',
-    '    for (int i = 0; i < n; i += len) {',
-    '      float cr = 1, ci = 0;',
-    '      for (int k = 0; k < len / 2; k++) {',
-    '        int a = i + k, b = i + k + len / 2;',
-    '        float vr = re[b] * cr - im[b] * ci, vi = re[b] * ci + im[b] * cr;',
-    '        re[b] = re[a] - vr; im[b] = im[a] - vi;',
-    '        re[a] += vr;        im[a] += vi;',
-    '        float ncr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = ncr;',
-    '      }',
-    '    }',
-    '  }',
-    '}',
-    '',
-    'float _audioElapsedAlpha(float coefficient, float dtFrames) {',
-    '  coefficient = constrain(coefficient, 0.0f, 1.0f);',
-    '  return 1.0f - powf(1.0f - coefficient, dtFrames);',
-    '}',
-    '',
-    'float _audioNoiseGate(float raw, float& floor, float& smooth, float dtFrames) {',
-    '  float floorFollow = _audioElapsedAlpha(raw > floor ? 0.0025f : 0.03f, dtFrames);',
-    '  floor = floor + (raw - floor) * floorFollow;',
-    '  floor = constrain(floor, 0.0f, 1.0f);',
-    '  float gate = constrain(floor + MIC_NOISE_THRESHOLD * MIC_THRESHOLD_RANGE, 0.0f, 1.0f);',
-    '  float span = 1.0f - gate; if (span < 0.0001f) span = 0.0001f;',
-    '  float target = raw > gate ? constrain((raw - gate) / span, 0.0f, 1.0f) : 0.0f;',
-    '  float follow = _audioElapsedAlpha(target > smooth ? MIC_NOISE_ATTACK : MIC_NOISE_DECAY, dtFrames);',
-    '  smooth = constrain(smooth + (target - smooth) * follow, 0.0f, 1.0f);',
-    '  return smooth;',
-    '}',
-    '',
-    '#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)',
-    '// New channel-based I2S driver (IDF 5 / Arduino core 3.x). The legacy',
-    '// driver cannot coexist with FastLED 3.10\'s audio framework on IDF 5.',
-    'static i2s_chan_handle_t _micChan = NULL;',
     'void setupAudio() {',
     '#if MIC_DEBUG',
     '  Serial.begin(115200);',
     '#endif',
-    '  i2s_chan_config_t chanCfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_AUTO, I2S_ROLE_MASTER);',
-    '  i2s_new_channel(&chanCfg, NULL, &_micChan);',
-    '  i2s_std_config_t cfg = {',
-    '    .clk_cfg  = I2S_STD_CLK_DEFAULT_CONFIG(AUDIO_SR),',
-    '    .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_32BIT, I2S_SLOT_MODE_MONO),',
-    '    .gpio_cfg = {',
-    '      .mclk = I2S_GPIO_UNUSED,',
-    '      .bclk = (gpio_num_t)MIC_SCK,',
-    '      .ws   = (gpio_num_t)MIC_WS,',
-    '      .dout = I2S_GPIO_UNUSED,',
-    '      .din  = (gpio_num_t)MIC_SD,',
-    '      .invert_flags = { .mclk_inv = false, .bclk_inv = false, .ws_inv = false },',
-    '    },',
-    '  };',
-    `  cfg.slot_cfg.slot_mask = ${stdSlot};   // INMP441 outputs on the slot its L/R pin selects`,
-    '  i2s_channel_init_std_mode(_micChan, &cfg);',
-    '  i2s_channel_enable(_micChan);',
-    '  // INMP441 modules pop with a loud, low-frequency-heavy DC-offset transient',
-    '  // for about a second as the mic settles — read and discard blocks here so',
-    "  // that burst never reaches the FFT and poisons the AGC/noise-gate's running",
-    '  // trackers (bass is hit hardest since the pop skews low-frequency, and a',
-    '  // poisoned floor otherwise stays suppressed for ~10s+ after boot).',
-    '  { static int32_t _warm[AUDIO_N]; size_t _wn;',
-    '    for (int i = 0; i < 30; i++) i2s_channel_read(_micChan, _warm, sizeof(_warm), &_wn, 50); }',
+    `  auto config = fl::audio::Config::CreateInmp441(MIC_WS, MIC_SD, MIC_SCK, ${audioChannel});`,
+    '  _audioProcessor = FastLED.add(config);',
+    '  if (!_audioProcessor) return;',
+    '  _audioProcessor->setGain(MIC_GAIN);',
+    '  _audioProcessor->onBeat([] { _audioBeatCount = _audioBeatCount + 1; });',
+    '  // Processor detectors are lazy. Register every detector whose values the',
+    '  // generated graph polls before the auto-pumped input processes its first block.',
+    '  (void)_audioProcessor->getBassLevel();',
+    '  (void)_audioProcessor->getMidLevel();',
+    '  (void)_audioProcessor->getTrebleLevel();',
+    '  (void)_audioProcessor->getBPM();',
+    '  (void)_audioProcessor->getEqBin(0);',
     '}',
-    '#else',
-    '// Legacy I2S driver (IDF 4 / Arduino core 2.x).',
-    'void setupAudio() {',
-    '#if MIC_DEBUG',
-    '  Serial.begin(115200);',
-    '#endif',
-    '  i2s_config_t cfg = {',
-    '    .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX),',
-    '    .sample_rate = AUDIO_SR,',
-    '    .bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT,',
-    `    .channel_format = ${legacyFmt},`,
-    '    .communication_format = I2S_COMM_FORMAT_STAND_I2S,',
-    '    .intr_alloc_flags = 0,',
-    '    .dma_buf_count = 4,',
-    '    .dma_buf_len = 256,',
-    '    .use_apll = false,',
-    '    .tx_desc_auto_clear = false,',
-    '    .fixed_mclk = 0',
-    '  };',
-    '  i2s_pin_config_t pins = { .bck_io_num = MIC_SCK, .ws_io_num = MIC_WS, .data_out_num = I2S_PIN_NO_CHANGE, .data_in_num = MIC_SD };',
-    '  i2s_driver_install(I2S_NUM_0, &cfg, 0, NULL);',
-    '  i2s_set_pin(I2S_NUM_0, &pins);',
-    '  // See the new-driver warm-up comment above: discard the mic\'s power-on',
-    '  // transient before it can poison the AGC/noise-gate trackers.',
-    '  { static int32_t _warm[AUDIO_N]; size_t _wn;',
-    '    for (int i = 0; i < 30; i++) i2s_read(I2S_NUM_0, _warm, sizeof(_warm), &_wn, 50 / portTICK_PERIOD_MS); }',
-    '}',
-    '#endif',
     '',
-    '// Read one block from the mic and map its FFT to the same normalized dB',
-    '// spectrum used by the browser preview.',
     'void updateAudio() {',
-    '  static int32_t raw[AUDIO_N];',
-    '  size_t bytesRead = 0;',
-    '#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)',
-    '  i2s_channel_read(_micChan, raw, sizeof(raw), &bytesRead, 20);   // timeout in ms',
-    '#else',
-    '  i2s_read(I2S_NUM_0, raw, sizeof(raw), &bytesRead, 20 / portTICK_PERIOD_MS);',
-    '#endif',
-    '  uint32_t audioNow = millis();',
-    '  float dtFrames = _audioLastUpdateMs > 0 ? constrain((float)(audioNow - _audioLastUpdateMs), 1.0f, 500.0f) / 16.667f : 1.0f;',
-    '  _audioLastUpdateMs = audioNow;',
-    '  int got = bytesRead / sizeof(int32_t);',
-    '  for (int i = 0; i < AUDIO_N; i++) {',
-    '    float s = (i < got) ? (float)(raw[i] >> 8) / 8388608.0f : 0.0f;   // 24-bit sample',
-    '    float w = 0.5f - 0.5f * cos(2.0f * PI * i / (AUDIO_N - 1));        // Hann window',
-    '    _aRe[i] = s * w; _aIm[i] = 0;',
+    '  if (!_audioProcessor) {',
+    '    _audioBass = _audioMids = _audioTreble = 0.0f;',
+    '    _audioBeat = false;',
+    '    for (int i = 0; i < 32; ++i) _audioSpectrum[i] = 0.0f;',
+    '    return;',
     '  }',
-    '  _audioFFT(_aRe, _aIm, AUDIO_N);',
-    '  float binHz = (float)AUDIO_SR / AUDIO_N;',
-    '  float spectrumFollow = 1.0f - powf(AUDIO_SPECTRUM_SMOOTHING, dtFrames);',
-    '  for (int i = 1; i < AUDIO_N / 2; i++) {',
-    '    float mag = sqrtf(_aRe[i] * _aRe[i] + _aIm[i] * _aIm[i]);',
-    '    // Hann coherent gain is 0.5; 4/N converts a one-sided FFT bin back',
-    '    // to full-scale amplitude before applying the browser\'s dB window.',
-    '    float amplitude = max(0.00001f, mag * (4.0f / AUDIO_N));',
-    '    float db = 20.0f * log10f(amplitude);',
-    '    float level = constrain((db - AUDIO_MIN_DB) / (AUDIO_MAX_DB - AUDIO_MIN_DB), 0.0f, 1.0f);',
-    '    _audioBinSmooth[i] += (level - _audioBinSmooth[i]) * spectrumFollow;',
-    '  }',
-    '  float bass = 0, mids = 0, treble = 0; int nb = 0, nm = 0, nt = 0;',
-    '  for (int i = 1; i < AUDIO_N / 2; i++) {',
-    '    float hz = i * binHz;',
-    '    if (hz < 250)       { bass   += _audioBinSmooth[i]; nb++; }',
-    '    else if (hz < 2000) { mids   += _audioBinSmooth[i]; nm++; }',
-    '    else                { treble += _audioBinSmooth[i]; nt++; }',
-    '  }',
-    '  if (nb) bass /= nb; if (nm) mids /= nm; if (nt) treble /= nt;',
-    '  float spectrumRaw[32];',
-    '  for (int band = 0; band < 32; band++) {',
-    '    float t0 = (float)band / 32.0f;',
-    '    float t1 = (float)(band + 1) / 32.0f;',
-    `    float hz0 = ${MIC_SPECTRUM_MIN_HZ.toFixed(1)}f * powf(${MIC_SPECTRUM_MAX_HZ.toFixed(1)}f / ${MIC_SPECTRUM_MIN_HZ.toFixed(1)}f, t0);`,
-    `    float hz1 = ${MIC_SPECTRUM_MIN_HZ.toFixed(1)}f * powf(${MIC_SPECTRUM_MAX_HZ.toFixed(1)}f / ${MIC_SPECTRUM_MIN_HZ.toFixed(1)}f, t1);`,
-    '    int startBin = max(1, (int)ceilf(hz0 / binHz));',
-    '    int endBin = min(AUDIO_N / 2 - 1, max(startBin, (int)ceilf(hz1 / binHz) - 1));',
-    '    float acc = 0.0f;',
-    '    int count = 0;',
-    '    for (int i = startBin; i <= endBin; i++) {',
-    '      acc += _audioBinSmooth[i];',
-    '      count++;',
-    '    }',
-    '    spectrumRaw[band] = count > 0 ? constrain(acc / count, 0.0f, 1.0f) : 0.0f;',
-    '  }',
-    '  static float mx = 0.0001f;                  // slow auto-gain (running peak)',
-    '  float peak = max(bass, max(mids, treble));',
-    '  for (int band = 0; band < 32; band++) peak = max(peak, spectrumRaw[band]);',
-    '  if (MIC_AGC) {',
-    '    mx = max(peak, mx * powf(0.999f, dtFrames));',
-    '    if (mx < 0.0001f) mx = 0.0001f;',
-    '  } else {',
-    '    mx = 0.0001f;',
-    '  }',
-    '  float agcGain = MIC_GAIN * (MIC_AGC ? (1.0f / mx) : 1.0f);',
-    '  _audioBass   = _audioNoiseGate(constrain(bass   * agcGain, 0.0f, 1.0f), _bassFloor, _bassSmooth, dtFrames);',
-    '  _audioMids   = _audioNoiseGate(constrain(mids   * agcGain, 0.0f, 1.0f), _midsFloor, _midsSmooth, dtFrames);',
-    '  _audioTreble = _audioNoiseGate(constrain(treble * agcGain, 0.0f, 1.0f), _trebleFloor, _trebleSmooth, dtFrames);',
-    '  for (int band = 0; band < 32; band++) _audioSpectrum[band] = constrain(spectrumRaw[band] * agcGain, 0.0f, 1.0f);',
-    '  _audioBeat = false;',
-    '  if (_audioHavePrevSpectrum) {',
-    '    float flux = 0.0f;',
-    '    float weightSum = 0.0f;',
-    '    for (int i = 0; i < 32; i++) {',
-    '      float diff = _audioSpectrum[i] - _audioPrevSpectrum[i];',
-    '      if (diff < 0.0f) diff = 0.0f;',
-    '      float weight = i < 6 ? 3.0f : (i < 12 ? 1.6f : (i < 20 ? 0.5f : 0.06f));',
-    '      flux += diff * weight;',
-    '      weightSum += weight;',
-    '    }',
-    `    flux = weightSum > 0.0f ? constrain((flux / weightSum) * ${FLUX_GAIN.toFixed(1)}f, 0.0f, 1.0f) : 0.0f;`,
-    '    uint32_t now = millis();',
-    '    // attack/decay are per-frame coefficients calibrated at 60 fps; scale',
-    '    // them to the actual loop interval so envelope behaviour matches the',
-    '    // browser preview regardless of loop rate (see beatDetection.ts).',
-    '    float dtF = _audioBeatLastMs > 0 ? constrain((float)(now - _audioBeatLastMs), 1.0f, 500.0f) / 16.667f : 1.0f;',
-    '    _audioBeatLastMs = now;',
-    '    float attackA = 1.0f - powf(1.0f - 0.45f, dtF);',
-    '    float decayA = 1.0f - powf(1.0f - 0.13f, dtF);',
-    '    // Compare against the pre-sample slow baseline so a single sample',
-    '    // carrying the whole onset cannot mask itself at coarse loop rates.',
-    '    float prevSlow = _audioBeatSlow;',
-    '    _audioBeatFast += (flux - _audioBeatFast) * attackA;',
-    '    _audioBeatSlow += (flux - _audioBeatSlow) * decayA;',
-    '    float onset = _audioBeatFast - prevSlow;',
-    '    float baseline = prevSlow > 0.02f ? prevSlow : 0.02f;',
-    '    float contrast = onset / baseline;',
-    '    float gap = _audioBpm > 0.0f ? 60000.0f / _audioBpm * 0.42f : 160.0f;',
-    '    if (gap < 160.0f) gap = 160.0f; else if (gap > 600.0f) gap = 600.0f;',
-    '    // Rising edge, not a local-peak test — see beatDetection.ts (noise jitter',
-    '    // in the quiet frames before a kick fails a two-frame peak check randomly).',
-    '    bool isRising = flux > _audioBeatPrevFlux;',
-    '    _audioBeat = (flux > 0.05f && isRising && onset > 0.05f * 0.45f && contrast > 1.1f && (_audioBeatLast == 0 || now - _audioBeatLast >= (uint32_t)gap));',
-    '    if (_audioBeat) {',
-    '      if (_audioBeatLast != 0) {',
-    '        float interval = now - _audioBeatLast;',
-    '        if (interval >= 220.0f && interval <= 1800.0f) {',
-    '          float instant = 60000.0f / interval;',
-    '          // Octave folding — stray offbeats must not double the BPM estimate.',
-    '          if (instant > _audioBpm * 1.6f && instant * 0.5f >= 50.0f) instant *= 0.5f;',
-    '          else if (instant < _audioBpm * 0.55f) instant *= 2.0f;',
-    '          _audioBpm = _audioBpm * 0.65f + instant * 0.35f;',
-    '        }',
-    '      }',
-    '      _audioBeatLast = now;',
-    '    }',
-    '    _audioBeatPrevFlux = flux;',
-    '  }',
-    '  for (int i = 0; i < 32; i++) _audioPrevSpectrum[i] = _audioSpectrum[i];',
-    '  _audioHavePrevSpectrum = true;',
+    '  _audioBass = _audioProcessor->getBassLevel();',
+    '  _audioMids = _audioProcessor->getMidLevel();',
+    '  _audioTreble = _audioProcessor->getTrebleLevel();',
+    '  _audioBpm = _audioProcessor->getBPM();',
+    '  uint32_t beatCount = _audioBeatCount;',
+    '  _audioBeat = beatCount != _audioBeatSeen;',
+    '  _audioBeatSeen = beatCount;',
+    '  // FastLED Equalizer exposes 16 normalized bins. Duplicate each into the',
+    '  // established 32-slot Studio spectrum so existing generated nodes retain',
+    '  // their low/mid/high index ranges without maintaining a second FFT.',
+    '  for (int i = 0; i < 32; ++i) _audioSpectrum[i] = _audioProcessor->getEqBin(i >> 1);',
     '#if MIC_DEBUG',
-    '  { static uint32_t _dbgLast = 0;',
-    '    if (millis() - _dbgLast >= 100) { _dbgLast = millis();',
-    '      // pk = largest raw 24-bit sample this block (pre-gate, pre-gain):',
-    '      // ~0 means the I2S slot is silent (wiring/L-R); big-but-bands-0.00',
-    '      // means the mic works and the noise gate/gain needs tuning.',
-    '      int32_t _pk = 0;',
-    '      for (int i = 0; i < got; i++) { int32_t v = raw[i] >> 8; if (v < 0) v = -v; if (v > _pk) _pk = v; }',
-    '      Serial.printf("audio bass=%.2f mids=%.2f treble=%.2f beat=%d bpm=%.0f raw=%d pk=%ld\\n",',
-    '                    _audioBass, _audioMids, _audioTreble, (int)_audioBeat, _audioBpm, got, (long)_pk); } }',
+    '  static uint32_t _dbgLast = 0;',
+    '  if (millis() - _dbgLast >= 100) {',
+    '    _dbgLast = millis();',
+    '    const auto& stats = _audioProcessor->getSignalConditionerStats();',
+    '    Serial.printf("fastled audio bass=%.2f mids=%.2f treble=%.2f beat=%d bpm=%.0f gate=%d dc=%ld spikes=%lu\\n",',
+    '                  _audioBass, _audioMids, _audioTreble, (int)_audioBeat, _audioBpm,',
+    '                  (int)stats.noiseGateOpen, (long)stats.dcOffset, (unsigned long)stats.spikesRejected);',
+    '  }',
     '#endif',
     '}',
   ]
@@ -589,7 +380,7 @@ export function fastledSetupCpp(
 }
 
 /**
- * The on-device audio engine (INMP441 I2S reader + FFT) for a graph that
+ * The on-device FastLED audio processor for a graph that
  * contains a MicInput, so a *controller* sketch (e.g. the generative pattern
  * show) can host the engine once while the render functions it compiles from
  * subgraphs reference the `_audioBass`/`_audioMids`/`_audioTreble`/`_audioBeat`
@@ -609,19 +400,11 @@ export function audioEngineForGraph(nodes: StudioNode[]): { include: string; cod
   const channel: 'Left' | 'Right' = String(p.channel ?? 'Left') === 'Right' ? 'Right' : 'Left'
   return {
     include: [
-      `// INMP441 I2S microphone (ESP32) — new driver on IDF 5+ (the legacy one`,
-      `// conflicts with FastLED 3.10's audio framework there), legacy before.`,
-      `#include <esp_idf_version.h>`,
-      `#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)`,
-      `#include <driver/i2s_std.h>`,
-      `#else`,
-      `#include <driver/i2s.h>`,
-      `#endif`,
+      `// Live microphone capture and analysis are supplied by FastLED 3.10.3+.`,
     ].join('\n'),
     code: audioEngineCpp(
       ic(p.i2sWs, 39, 0, 48), ic(p.i2sSck, 40, 0, 48), ic(p.i2sSd, 41, 0, 48), channel,
-      fc(p.gain, MIC_DEFAULTS.gain, 0, MIC_MAX_GAIN), Boolean(p.agc ?? MIC_DEFAULTS.agc),
-      fc(p.threshold, MIC_DEFAULTS.threshold, 0, 1), fc(p.attack, MIC_DEFAULTS.attack, 0, 1), fc(p.decay, MIC_DEFAULTS.decay, 0, 1),
+      fc(p.gain, MIC_DEFAULTS.gain, 0, MIC_MAX_GAIN),
       p.serialDebug === true,
     ),
   }
@@ -657,7 +440,7 @@ export function generateCpp(
   // `psramAllowed`: gate for the MatrixOutput `usePsram` property — the upload
   // UI passes false when the selected board has no PSRAM support, so a stale
   // toggle can't emit ESP32-only allocation calls into an AVR/RP2040 sketch.
-  opts: { externalAudio?: boolean; groupInputExprs?: Record<string, string>; psramAllowed?: boolean } = {},
+  opts: { externalAudio?: boolean; nativeFastLedAudio?: boolean; groupInputExprs?: Record<string, string>; psramAllowed?: boolean } = {},
 ): string {
   if (nodes.length === 0) return '// No nodes in graph\n'
 
@@ -725,14 +508,15 @@ export function generateCpp(
   // Per-node render buffers in external PSRAM (ESP32 family; see PSRAM_ALLOC_CPP).
   const usePsram = opts.psramAllowed !== false && (outputNode ? props(outputNode).usePsram : false) === true
 
-  // A MicInput node turns on the on-device audio engine (INMP441 over I2S + FFT);
-  // its pins/channel configure the generated I2S reader. `emitEngine` means this
-  // sketch hosts the engine itself; `useAudioGlobals` means FFTAnalyzer/BeatDetect
+  // A MicInput node turns on FastLED's on-device INMP441 audio processor; its
+  // pins/channel configure FastLED's input. `emitEngine` means this sketch hosts
+  // the processor; `useAudioGlobals` means FFTAnalyzer/BeatDetect
   // resolve to the live band levels (either because we host the engine, or a
   // controller does — `externalAudio`) instead of placeholder constants.
   const audio = audioEngineForGraph(nodes)
   const emitEngine = !!audio
   const useAudioGlobals = emitEngine || !!opts.externalAudio
+  const nativeFastLedAudio = emitEngine || !!opts.nativeFastLedAudio
 
   const sorted = topoSort(nodes, edges)
 
@@ -1046,7 +830,9 @@ export function generateCpp(
       }
 
       case 'BeatDetect': {
-        if (useAudioGlobals) {
+        if (nativeFastLedAudio) {
+          ln(`  bool ${v('beat')} = _audioBeat; float ${v('bpm')} = _audioBpm;`)
+        } else if (useAudioGlobals) {
           const threshold = denormalizeBeatParam('threshold', floatProp(p.threshold, 0.2, 0, 1))
           const attack = denormalizeBeatParam('attack', floatProp(p.attack, 0.55, 0, 1))
           const decay = denormalizeBeatParam('decay', floatProp(p.decay, 0.25, 0, 1))
@@ -1166,8 +952,8 @@ export function generateCpp(
       }
 
       case 'MicInput':
-        ln(`  // MicInput — INMP441 I2S audio is read once per frame by updateAudio()`)
-        ln(`  // The source gain, AGC toggle, and adaptive noise gate come from the MicInput sliders.`)
+        ln(`  // MicInput — FastLED auto-pumps the INMP441 processor; updateAudio() polls its outputs.`)
+        ln(`  // Source gain is applied through fl::audio::Processor::setGain().`)
         break
 
       case 'ButtonInput': {

@@ -38,7 +38,7 @@ const fbuild = { ok: true, engine: 'fbuild' as const, fbuild: true, arduinoCli: 
 
 describe('hardware validation profiles', () => {
   it('reports the fixed microphone analysis rate instead of an ignored node property', () => {
-    const mic = node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41, channel: 'Left', sampleRate: 44100 })
+    const mic = node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41, channel: 'Left', sampleRate: 16000 })
     const profile = buildHardwareValidationProfile({
       nodes: [baselineMatrix, mic],
       edges: [],
@@ -46,8 +46,8 @@ describe('hardware validation profiles', () => {
       helper: fbuild,
       runtime: RECORDED_RUNTIME,
     })
-    expect(profile.peripherals.microphone).toContain('16000 Hz')
-    expect(profile.peripherals.microphone).not.toContain('44100 Hz')
+    expect(profile.peripherals.microphone).toContain('44100 Hz')
+    expect(profile.peripherals.microphone).not.toContain('16000 Hz')
   })
 
   it('recognises the exact recorded normal-upload target', () => {

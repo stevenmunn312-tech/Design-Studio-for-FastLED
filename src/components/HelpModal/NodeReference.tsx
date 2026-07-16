@@ -180,7 +180,6 @@ const REFERENCE_ARTICLE_CATEGORIES = new Set<NodeCategory>([
 ])
 
 const PROPERTY_LABELS: Record<string, string> = {
-  agc: 'AGC',
   bpm: 'BPM',
   clampInputs: 'Clamp Inputs',
   code: 'Frame Code',
@@ -1135,7 +1134,7 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
           <h1>Microphone</h1>
           <p>Capture live audio in the browser and configure an INMP441 I2S microphone for the generated ESP32 firmware.</p>
         </div>
-        <div className={styles.articleMeta}>0 inputs · 1 output · 11 properties</div>
+        <div className={styles.articleMeta}>0 inputs · 1 output · 6 properties</div>
       </header>
 
       <div className={styles.introGrid}>
@@ -1147,9 +1146,9 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
         <section className={styles.overviewPanel}>
           <div className={styles.sectionKicker}>What it does</div>
           <h2>Overview</h2>
-          <p>The Microphone node is the starting point for audio-reactive patches. During editing it captures browser microphone audio; in generated firmware it reads an INMP441 over I2S.</p>
+          <p>The Microphone node is the starting point for audio-reactive patches. During editing it runs a browser port of FastLED's audio analysis over microphone samples; generated firmware uses FastLED's native INMP441 processor.</p>
           <p>Its single <b>Audio</b> output carries the live signal to FFT Analyzer, Beat Detect, Percussion Detect, or any other audio-processing node.</p>
-          <p>Gain, AGC, threshold, attack, and decay tune both preview and firmware response. Preview and firmware use the same fixed 16 kHz analysis rate; the I2S settings define the pins and left/right channel used on the ESP32.</p>
+          <p>Gain maps to <b>FastLED Processor::setGain</b> in both preview and firmware. FastLED owns signal conditioning, adaptive band normalization, equalizer bins, and beat detection at its native 44.1 kHz rate; the I2S settings define the pins and left/right channel used on the ESP32.</p>
         </section>
       </div>
 
@@ -1157,7 +1156,7 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
         <PortPanel title="Inputs" ports={node.inputs} direction="input" />
         <PropertyPanel
           node={node}
-          note="Level controls shape the browser preview. I2S pins and channel configure the INMP441 in generated ESP32 firmware."
+          note="Gain shapes both FastLED analysis paths. I2S pins and channel configure FastLED's INMP441 input in generated ESP32 firmware."
         />
         <PortPanel title="Outputs" ports={node.outputs} direction="output" />
       </div>

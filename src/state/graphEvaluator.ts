@@ -3498,6 +3498,9 @@ export type GroupRegistry = Record<string, GroupDef>
 export interface AudioOverride {
   active: boolean
   micActive: boolean
+  nativeFastLed?: boolean
+  beat?: boolean
+  bpm?: number
   bass?: number
   mids?: number
   treble?: number
@@ -3793,7 +3796,21 @@ function createEvalNode(
         const key = stateKey(id)
         const audio = audioOverride ?? useAudioStore.getState()
         const audioConnected = audioOverride !== null || input(id, 'audio', null) !== null
-        if (audioConnected && audio.active) {
+        if (audioConnected && audio.active && audio.nativeFastLed === true) {
+          // Live microphone audio has already passed through FastLED's native
+          // Beat detector. Preserve the baked/SD override path below, which
+          // intentionally keeps Studio's per-node tunable detector.
+          beatLevels.delete(key)
+          out = {
+            beat: Boolean(audio.beat),
+            bpm: Number(audio.bpm ?? 120),
+            flux: 0,
+            onset: 0,
+            contrast: 0,
+            threshold: 0,
+            cooldownMs: 0,
+          }
+        } else if (audioConnected && audio.active) {
           const threshold = denormalizeBeatParam('threshold', normProp(props.threshold, 0.2))
           const attack = denormalizeBeatParam('attack', normProp(props.attack, 0.55))
           const decay = denormalizeBeatParam('decay', normProp(props.decay, 0.25))

@@ -11,10 +11,9 @@ const KEY = 'fastled-studio.node-defaults.v1'
 
 function sanitizeProperties(nodeType: string, properties: Record<string, unknown>): Record<string, unknown> {
   const sanitized = { ...properties }
-  // Mic capture is fixed at the same 16 kHz used by generated firmware. Older
-  // Studio versions exposed a sample-rate field which never controlled either
-  // path, so do not let a saved personal default bring that misleading field
-  // back on newly created nodes.
+  // FastLED's audio pipeline owns the 44.1 kHz analysis rate. Older Studio
+  // versions exposed a sample-rate field which never controlled either path,
+  // so do not let a saved personal default bring it back on new nodes.
   if (nodeType === 'MicInput') delete sanitized.sampleRate
   return sanitized
 }

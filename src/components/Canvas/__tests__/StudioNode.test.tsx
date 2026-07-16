@@ -144,25 +144,19 @@ describe('StudioNode', () => {
     }
   })
 
-  it('renders a checkbox for MicInput AGC and updates the property', () => {
+  it('renders FastLED MicInput gain without the retired custom conditioner controls', () => {
     const { container } = renderNode(makeNode('MicInput', {
       gain: 1,
-      agc: false,
-      threshold: 0.10,
-      attack: 0.30,
-      decay: 0.08,
       i2sWs: 39,
       i2sSck: 40,
       i2sSd: 41,
       channel: 'Left',
+      serialDebug: false,
     }))
-    // `agc` lives in the collapsible "Levels" group.
     fireEvent.click(within(container).getByText('Levels'))
-    const check = container.querySelector('input[type="checkbox"]') as HTMLInputElement
-    expect(check).toBeTruthy()
-    expect(check.checked).toBe(false)
-    fireEvent.click(check)
-    expect(useGraphStore.getState().nodes[0].data.properties.agc).toBe(true)
+    expect(container.querySelectorAll('input[type="range"]')).toHaveLength(1)
+    expect(container.textContent).not.toContain('AGC')
+    expect(useGraphStore.getState().nodes[0].data.properties).not.toHaveProperty('agc')
   })
 
   it('anchors connection handles to their port rows', () => {

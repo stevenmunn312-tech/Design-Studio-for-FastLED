@@ -313,7 +313,9 @@ describe('showGenerator', () => {
 
     it('hosts the audio engine and makes patterns read the live mic when a MicInput is present', () => {
       const cpp = generateShowSketch(showNodes(true), showEdges, audioGroups)
-      expect(cpp).toContain('#include <driver/i2s.h>')
+      expect(cpp).toContain('fl::audio::Config::CreateInmp441')
+      expect(cpp).toContain('_audioProcessor = FastLED.add(config);')
+      expect(cpp).not.toContain('#include <driver/i2s.h>')
       expect(cpp).toContain('void setupAudio()')
       expect(cpp).toContain('void updateAudio()')
       expect(cpp).toContain('setupAudio();')              // in setup()

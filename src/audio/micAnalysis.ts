@@ -1,52 +1,24 @@
 export const MIC_DEFAULTS = {
   gain: 1,
-  agc: false,
-  threshold: 0.10,
-  attack: 0.30,
-  decay: 0.08,
 } as const
 
 export const MIC_MAX_GAIN = 20
-export const MIC_SAMPLE_RATE = 16_000
+// Matches fl::audio::Config::CreateInmp441's default I2S rate, so the browser
+// capture and the on-device FastLED audio pipeline analyse the same bandwidth.
+export const MIC_SAMPLE_RATE = 44_100
 export const MIC_FFT_SIZE = 512
 export const MIC_SPECTRUM_BARS = 32
-export const MIC_SPECTRUM_MIN_HZ = 30
-export const MIC_SPECTRUM_MAX_HZ = 8_000
-export const MIC_MIN_DB = -100
-export const MIC_MAX_DB = -30
-export const MIC_SPECTRUM_SMOOTHING = 0.75
-export const MIC_THRESHOLD_RANGE = 0.25
-export const MIC_REFERENCE_FRAME_MS = 1000 / 60
-
-export function clamp01(value: number): number {
-  return Math.max(0, Math.min(1, value))
-}
-
-export function dbToNormalized(db: number): number {
-  if (!Number.isFinite(db)) return 0
-  return clamp01((db - MIC_MIN_DB) / (MIC_MAX_DB - MIC_MIN_DB))
-}
 
 /**
- * The browser-side equivalent of the generated firmware's Hann-windowed,
- * in-place radix-2 FFT. Keeping this small implementation shared by tests and
- * preview avoids depending on AnalyserNode's browser-specific FFT window and
- * magnitude scaling.
+ * In-place iterative radix-2 FFT (Cooley–Tukey) — the browser-side equivalent
+ * of the FFT inside FastLED's audio pipeline. `re`/`im` must share the same
+ * power-of-two length. Callers own windowing and magnitude scaling
+ * (see fastledReactive.ts).
  */
-export function fillNormalizedFft(
-  samples: Float32Array,
-  re: Float32Array,
-  im: Float32Array,
-  out: Float32Array,
-): void {
-  const n = samples.length
-  if (n < 2 || (n & (n - 1)) !== 0 || re.length < n || im.length < n || out.length < n / 2) {
-    throw new Error('FFT buffers must fit the same power-of-two sample length')
-  }
-  for (let i = 0; i < n; i++) {
-    const window = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (n - 1))
-    re[i] = samples[i] * window
-    im[i] = 0
+export function fftInPlace(re: Float32Array, im: Float32Array): void {
+  const n = re.length
+  if (n < 2 || (n & (n - 1)) !== 0 || im.length < n) {
+    throw new Error('FFT buffers must share the same power-of-two length')
   }
   for (let i = 1, j = 0; i < n; i++) {
     let bit = n >> 1
@@ -74,24 +46,4 @@ export function fillNormalizedFft(
       }
     }
   }
-  out.fill(0)
-  for (let i = 1; i < n / 2; i++) {
-    const magnitude = Math.hypot(re[i], im[i])
-    const amplitude = Math.max(0.00001, magnitude * (4 / n))
-    out[i] = dbToNormalized(20 * Math.log10(amplitude))
-  }
-}
-
-/** Convert a 60 fps coefficient into an elapsed-time-independent alpha. */
-export function elapsedAlpha(coefficient: number, elapsedMs = MIC_REFERENCE_FRAME_MS): number {
-  const base = clamp01(coefficient)
-  const frames = Math.max(0.001, Math.min(30, elapsedMs / MIC_REFERENCE_FRAME_MS))
-  return 1 - Math.pow(1 - base, frames)
-}
-
-/** Convert a 60 fps "retain previous" smoothing value into a follow alpha. */
-export function smoothingAlpha(retain: number, elapsedMs = MIC_REFERENCE_FRAME_MS): number {
-  const base = clamp01(retain)
-  const frames = Math.max(0.001, Math.min(30, elapsedMs / MIC_REFERENCE_FRAME_MS))
-  return 1 - Math.pow(base, frames)
 }

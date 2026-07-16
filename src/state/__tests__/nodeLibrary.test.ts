@@ -97,16 +97,16 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('AudioFeatures', 'smoothing')).toMatchObject({ control: 'slider', min: 0, max: 0.95 })
   })
 
-  it('MicInput defaults keep AGC off until the user opts in', () => {
+  it('MicInput exposes FastLED processor gain without obsolete custom gate controls', () => {
     const mic = NODE_LIBRARY.find((n) => n.type === 'MicInput')
     expect(mic?.category).toBe('input')
     expect(mic?.defaultProperties).toMatchObject({
       gain: 1,
-      agc: false,
-      threshold: 0.10,
-      attack: 0.30,
-      decay: 0.08,
     })
+    expect(mic?.defaultProperties).not.toHaveProperty('agc')
+    expect(mic?.defaultProperties).not.toHaveProperty('threshold')
+    expect(mic?.defaultProperties).not.toHaveProperty('attack')
+    expect(mic?.defaultProperties).not.toHaveProperty('decay')
     expect(mic?.defaultProperties).not.toHaveProperty('sampleRate')
     expect(propertyMeta('MicInput', 'gain')).toMatchObject({ control: 'slider', min: 0, max: 20 })
   })

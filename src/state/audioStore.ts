@@ -3,6 +3,7 @@ import { AudioEngine, NUM_SPECTRUM_BARS } from '../audio/audioEngine'
 
 interface AudioState {
   active: boolean
+  nativeFastLed: boolean
   bass: number
   mids: number
   treble: number
@@ -27,6 +28,7 @@ export const useAudioStore = create<AudioState>()((set) => {
   engine.subscribe((data) => {
     set({
       active: data.active,
+      nativeFastLed: data.nativeFastLed,
       bass: data.bass,
       mids: data.mids,
       treble: data.treble,
@@ -46,6 +48,7 @@ export const useAudioStore = create<AudioState>()((set) => {
 
   return {
     active: false,
+    nativeFastLed: false,
     bass: 0,
     mids: 0,
     treble: 0,
@@ -73,6 +76,7 @@ export const useAudioStore = create<AudioState>()((set) => {
       engine.stop()
       set({
         active: false,
+        nativeFastLed: false,
         bass: 0,
         mids: 0,
         treble: 0,
