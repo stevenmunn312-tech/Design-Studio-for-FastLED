@@ -709,7 +709,7 @@ export default function MenuBar() {
           title={evaluationRunning ? 'Pause graph evaluation and freeze previews' : 'Resume graph evaluation'}
         >
           {evaluationRunning ? <IconPause size={12} /> : <IconPlay size={12} />}
-          {evaluationRunning ? 'Pause Eval' : 'Play Eval'}
+          <span className={styles.evaluationLabel}>{evaluationRunning ? 'Pause Eval' : 'Play Eval'}</span>
         </button>
         <input
           ref={projectInputRef}

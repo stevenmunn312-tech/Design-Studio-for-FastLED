@@ -230,6 +230,25 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
+  width: 108px;
+  min-width: 108px;
+  /* This is a transport indicator, not an animated signal. Keep its thin
+     border and glyph on a stable paint surface while the graph is active. */
+  isolation: isolate;
+  contain: paint;
+  transition: none;
+}
+
+.evaluationBtn svg {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.evaluationLabel {
+  display: block;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  text-rendering: geometricPrecision;
 }
 
 .evaluationRunning {
