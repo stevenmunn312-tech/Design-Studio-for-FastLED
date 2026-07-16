@@ -268,6 +268,57 @@ const DEFAULT_OPTIONS: PerformanceOptions = {
 // at the same numeric intensity. Keep flashes punchy without washing the whole
 // matrix to white; Beat Intensity still scales both accent types normally.
 const WHITE_FLASH_INTENSITY_SCALE = 0.55
+const SHOW_BOUNDARY_FADE_MS = 5000
+const SHOW_BOUNDARY_FADE_STEP_MS = 100
+
+/** Apply a black envelope over the first and last five seconds of the show.
+ * Existing brightness automation is preserved underneath the envelope, so a
+ * section change or silence fade near either boundary cannot punch through it. */
+function applyShowBoundaryFades(events: ShowEvent[], durationMs: number): void {
+  if (durationMs <= 0) return
+
+  const brightnessEvents = events
+    .filter((event) => event.cmd === 'SET_BRIGHTNESS')
+    .map((event, order) => ({ event, order, baseValue: Number(event.params.value) }))
+    .sort((a, b) => a.event.t - b.event.t || a.order - b.order)
+
+  const brightnessAt = (timeMs: number): number => {
+    let value = 255
+    for (const { event, baseValue } of brightnessEvents) {
+      if (event.t > timeMs) break
+      value = baseValue
+    }
+    return value
+  }
+  const envelopeAt = (timeMs: number): number => Math.max(0, Math.min(
+    1,
+    timeMs / SHOW_BOUNDARY_FADE_MS,
+    (durationMs - timeMs) / SHOW_BOUNDARY_FADE_MS,
+  ))
+
+  // Scale brightness changes that already land inside a boundary fade; this
+  // prevents a section/buildup/silence event between ramp steps flashing bright.
+  for (const { event, baseValue } of brightnessEvents) {
+    const envelope = envelopeAt(event.t)
+    if (envelope < 1) event.params.value = Math.round(baseValue * envelope)
+  }
+
+  const rampTimes = new Set<number>()
+  const addRamp = (start: number, end: number) => {
+    for (let t = start; t < end; t += SHOW_BOUNDARY_FADE_STEP_MS) rampTimes.add(t)
+    rampTimes.add(end)
+  }
+  addRamp(0, Math.min(SHOW_BOUNDARY_FADE_MS, durationMs))
+  addRamp(Math.max(0, durationMs - SHOW_BOUNDARY_FADE_MS), durationMs)
+
+  for (const t of [...rampTimes].sort((a, b) => a - b)) {
+    events.push({
+      t,
+      cmd: 'SET_BRIGHTNESS',
+      params: { value: Math.round(brightnessAt(t) * envelopeAt(t)) },
+    })
+  }
+}
 
 export function generateShow(
   analysis: SongAnalysis,
@@ -449,6 +500,10 @@ export function generateShow(
       })
     }
   }
+
+  // Every performance begins and ends in darkness. This runs after all other
+  // brightness automation so the boundary envelope remains authoritative.
+  applyShowBoundaryFades(events, analysis.durationMs)
 
   // Bake the per-frame audio envelope so a pattern's FFTAnalyzer reacts to the
   // song on-device (only when the analysis actually carries an energy envelope).

@@ -321,12 +321,36 @@ describe('generateShow — fade to black on silence', () => {
     expect(br.some((e) => Number(e.params.value) > 0 && e.t >= 2500)).toBe(true)                    // restored
   })
 
-  it('leaves brightness alone when the song never goes silent', () => {
+  it('does not add an interior blackout when the song never goes silent', () => {
     const energy = []
     for (let t = 0; t <= 4000; t += 100) energy.push({ t, bass: 0.5, mids: 0.5, treble: 0.5, overall: 0.5 })
     const loud: SongAnalysis = { ...analysis, energy }
     const zeros = generateShow(loud).events.filter((e) => e.cmd === 'SET_BRIGHTNESS' && Number(e.params.value) === 0)
-    expect(zeros).toHaveLength(0)
+    expect(zeros.every((e) => e.t === 0 || e.t === loud.durationMs)).toBe(true)
+  })
+})
+
+describe('generateShow — boundary fades', () => {
+  const longShow: SongAnalysis = {
+    ...analysis,
+    durationMs: 20000,
+    beats: { ...analysis.beats, timestamps: [] },
+    sections: [{ startMs: 0, endMs: 20000, type: 'verse', energy: 0.5 }],
+  }
+
+  it('fades in from black for five seconds and out to black over the final five seconds', () => {
+    const brightness = generateShow(longShow).events.filter((e) => e.cmd === 'SET_BRIGHTNESS')
+    const at = (t: number) => {
+      const matches = brightness.filter((e) => e.t === t)
+      return Number(matches[matches.length - 1]?.params.value)
+    }
+
+    expect(at(0)).toBe(0)
+    expect(at(2500)).toBe(104)
+    expect(at(5000)).toBe(208)
+    expect(at(15000)).toBe(208)
+    expect(at(17500)).toBe(104)
+    expect(at(20000)).toBe(0)
   })
 })
 
