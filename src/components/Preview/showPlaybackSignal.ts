@@ -23,9 +23,13 @@ export function applyShowPlaybackSignal(
   W: number,
   H: number,
   groups: GroupRegistry,
+  trusted = true,
 ): ReturnType<typeof renderShowFrame> {
   if (!playback.show || !playback.nodeId) return frame
 
-  return bakedFrameAt(playback.nodeId, playback.posMs)
-    ?? renderShowFrame(playback.show, playback.posMs, W, H, groups, playback.useGroupInputs)
+  const baked = trusted || !playback.show.patternSet?.length
+    ? bakedFrameAt(playback.nodeId, playback.posMs)
+    : null
+  return baked
+    ?? renderShowFrame(playback.show, playback.posMs, W, H, groups, playback.useGroupInputs, trusted)
 }

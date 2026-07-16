@@ -100,6 +100,34 @@ describe('renderShowFrame', () => {
     expect(blankFrame.flat().every((px) => px.r + px.g + px.b === 0)).toBe(true)
   })
 
+  it('keeps Formula nodes disabled in an untrusted collection preview', () => {
+    const mk = (id: string, nodeType: string, properties: Record<string, unknown>, inputs: unknown[] = [], outputs: unknown[] = []) =>
+      ({ id, type: 'studioNode', position: { x: 0, y: 0 }, data: { label: nodeType, nodeType, category: 'pattern', properties, inputs, outputs } })
+    const groups = {
+      formulaGroup: {
+        nodes: [
+          mk('formula', 'CustomFormula', { formula: '1', palette: 'rainbow' }, [], [{ id: 'frame', dataType: 'frame' }]),
+          mk('go', 'GroupOutput', {}, [{ id: 'frame', dataType: 'frame' }], []),
+        ],
+        edges: [{ id: 'ie', source: 'formula', sourceHandle: 'frame', target: 'go', targetHandle: 'frame' }],
+      },
+    } as unknown as Parameters<typeof renderShowFrame>[4]
+    const collectionShow: ShowFile = {
+      version: 2, songTitle: 'Untrusted formula', durationMs: 1000, bpm: 120,
+      patternSet: ['formulaGroup'],
+      events: [
+        { t: 0, cmd: 'SET_PATTERN', params: { index: 0 } },
+        { t: 0, cmd: 'SET_BRIGHTNESS', params: { value: 255 } },
+      ],
+    }
+
+    const trusted = renderShowFrame(collectionShow, 0, 4, 4, groups, false, true)
+    const untrusted = renderShowFrame(collectionShow, 0, 4, 4, groups, false, false)
+
+    expect(trusted.flat().some((px) => px.r + px.g + px.b > 0)).toBe(true)
+    expect(untrusted.flat().every((px) => px.r + px.g + px.b === 0)).toBe(true)
+  })
+
   it('feeds section energy to the energy group-input role only when enabled', () => {
     const mk = (id: string, nodeType: string, properties: Record<string, unknown>, inputs: unknown[] = [], outputs: unknown[] = []) =>
       ({ id, type: 'studioNode', position: { x: 0, y: 0 }, data: { label: nodeType, nodeType, category: 'pattern', properties, inputs, outputs } })

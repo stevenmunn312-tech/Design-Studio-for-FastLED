@@ -47,6 +47,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
   const options = useMemo(() => performanceOptionsFromProperties(properties), [properties])
   const optionsKey = JSON.stringify(options)
   const useGroupInputs = !!properties.useGroupInputs
+  const trusted = useGraphStore((s) => s.trusted)
 
   const gridW = useGraphStore((s) => {
     const o = s.nodes.find((n) => (n.data as { nodeType?: string }).nodeType === 'MatrixOutput')
@@ -146,10 +147,12 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
         if (showInMainPreview) {
           useShowPlayback.getState().setPlayback({ nodeId, show, posMs: ms, useGroupInputs, playing: true })
         } else if (canvasRef.current) {
-          const baked = bakedPreviewActive ? bakedFrameAt(nodeId, ms) : null
+          const baked = bakedPreviewActive && (trusted || !show.patternSet?.length)
+            ? bakedFrameAt(nodeId, ms)
+            : null
           draw(
             canvasRef.current,
-            baked ?? renderShowFrame(show, ms, gridW, gridH, getGroupRegistry(), useGroupInputs),
+            baked ?? renderShowFrame(show, ms, gridW, gridH, getGroupRegistry(), useGroupInputs, trusted),
             gridW,
             gridH,
           )
@@ -160,7 +163,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
     }
     rafRef.current = requestAnimationFrame(tick)
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
-  }, [bakedPreviewActive, playing, show, gridW, gridH, useGroupInputs, showInMainPreview, nodeId])
+  }, [bakedPreviewActive, playing, show, gridW, gridH, useGroupInputs, showInMainPreview, nodeId, trusted])
 
   // Draw a static frame at the current position when paused/seeking.
   useEffect(() => {
@@ -168,15 +171,17 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
     if (showInMainPreview) {
       useShowPlayback.getState().setPlayback({ nodeId, show, posMs, useGroupInputs, playing: false })
     } else if (canvasRef.current) {
-      const baked = bakedPreviewActive ? bakedFrameAt(nodeId, posMs) : null
+      const baked = bakedPreviewActive && (trusted || !show.patternSet?.length)
+        ? bakedFrameAt(nodeId, posMs)
+        : null
       draw(
         canvasRef.current,
-        baked ?? renderShowFrame(show, posMs, gridW, gridH, getGroupRegistry(), useGroupInputs),
+        baked ?? renderShowFrame(show, posMs, gridW, gridH, getGroupRegistry(), useGroupInputs, trusted),
         gridW,
         gridH,
       )
     }
-  }, [bakedPreviewActive, playing, show, posMs, gridW, gridH, useGroupInputs, showInMainPreview, nodeId])
+  }, [bakedPreviewActive, playing, show, posMs, gridW, gridH, useGroupInputs, showInMainPreview, nodeId, trusted])
 
   // Release the main preview when this node is no longer wired / has no show,
   // and on unmount, so a stale show doesn't linger in the big canvas.
@@ -218,7 +223,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
     const frames: Uint8Array[] = []
     for (let i = 0; i < frameCount; i++) {
       const ms = Math.min(show.durationMs, (i / fps) * 1000)
-      frames.push(packFrame(renderShowFrame(show, ms, gridW, gridH, groups, useGroupInputs)))
+      frames.push(packFrame(renderShowFrame(show, ms, gridW, gridH, groups, useGroupInputs, trusted)))
       if (i % 8 === 0 || i === frameCount - 1) {
         bakeStore.setProgress(nodeId, (i + 1) / frameCount)
         await waitForPaint()

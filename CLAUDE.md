@@ -184,9 +184,11 @@ export interface RGB { r: number; g: number; b: number }
 export type Frame = RGB[][]   // row-major [y][x]
 ```
 
-Stateful nodes (`Fire`, `Fire2012`, `BeatFlash`, `Counter`, `Particles`, `PatternMaster`, `ReactionDiffusion`, `GameOfLife`, `FlowField`, `Starfield`) persist state in module-level `Map` objects keyed by `stateKey(id)` — the node id prefixed with the group-instance path, so two instances of the same group don't share state. `formulaCache` compiles `CustomFormula` expressions once via `new Function(...)`.
+Stateful nodes (`Fire`, `Fire2012`, `BeatFlash`, `Counter`, `Particles`, `PatternMaster`, `ReactionDiffusion`, `GameOfLife`, `FlowField`, `Starfield`) persist state in module-level `Map` objects keyed by `stateKey(id)` — the node id prefixed with the group-instance path, so two instances of the same group don't share state. `formulaCache` parses `CustomFormula` expressions once through the closed expression language in `formulaLang.ts`; do not reintroduce `new Function` or other ambient-JavaScript evaluation.
 
 `evalNode()` guards against graph cycles with an `inProgress` set: re-entering a node still on the evaluation stack returns `{}`, so the upstream input falls back to its default instead of recursing into a stack overflow. Keep this guard in place when editing the evaluator.
+
+**Preview trust boundary.** Imported/share-linked/project-file content and newly dropped library patterns are untrusted until the user explicitly chooses **Trust and run**. The active workspace's `trusted` flag must reach every evaluator entry point: the main `LEDPreview` pass and music-sync collection playback (`renderShowFrame`, including node-local playback, preview baking, and the main-preview override). While untrusted, `CustomFormula`/`FieldFormula` return blank data and `Code` returns a black frame; baked collection frames are not reused. Formula parsing stays inside `formulaLang.ts`'s fixed identifier/function set, and Code preview execution stays inside the terminate-on-timeout worker in `codeSandboxRuntime.ts`/`codeSandbox.worker.ts`.
 
 **Groups (ADR 0001):** `evaluateGraph(nodes, edges, tick, W, H, groups)` takes an optional group registry. A `Group` node recurses into `groups[groupId]` (a subgraph) and returns the frame from that subgraph's `GroupOutput` terminal; a `groupStack` breaks group-level recursion. The `instancePrefix`/`groupStack` params are internal recursion bookkeeping — callers leave them defaulted.
 

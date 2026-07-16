@@ -58,6 +58,59 @@ describe('applyShowPlaybackSignal', () => {
     expect(rendered.r + rendered.g + rendered.b).toBeGreaterThan(0)
   })
 
+  it('ignores baked collection frames and keeps Formula nodes disabled while untrusted', () => {
+    const collectionShow: ShowFile = {
+      version: 2,
+      songTitle: 'Untrusted collection',
+      durationMs: 1000,
+      bpm: 120,
+      patternSet: ['formulaGroup'],
+      events: [
+        { t: 0, cmd: 'SET_PATTERN', params: { index: 0 } },
+        { t: 0, cmd: 'SET_BRIGHTNESS', params: { value: 255 } },
+      ],
+    }
+    const groups = {
+      formulaGroup: {
+        nodes: [
+          {
+            id: 'formula', type: 'studioNode', position: { x: 0, y: 0 },
+            data: {
+              label: 'Custom Formula', nodeType: 'CustomFormula', category: 'pattern',
+              properties: { formula: '1', palette: 'rainbow' }, inputs: [],
+              outputs: [{ id: 'frame', dataType: 'frame' }],
+            },
+          },
+          {
+            id: 'go', type: 'studioNode', position: { x: 0, y: 0 },
+            data: {
+              label: 'Group Output', nodeType: 'GroupOutput', category: 'pattern',
+              properties: {}, inputs: [{ id: 'frame', dataType: 'frame' }], outputs: [],
+            },
+          },
+        ],
+        edges: [{ id: 'ie', source: 'formula', sourceHandle: 'frame', target: 'go', targetHandle: 'frame' }],
+      },
+    } as unknown as Parameters<typeof applyShowPlaybackSignal>[4]
+
+    usePerformanceBakeStore.getState().startBake('pg-untrusted', {
+      entryId: 'track-2', durationMs: 1000, width: 1, height: 1, fps: 1,
+    })
+    usePerformanceBakeStore.getState().finishBake('pg-untrusted', [new Uint8Array([255, 0, 0])])
+
+    const frame = applyShowPlaybackSignal(
+      [[{ r: 1, g: 2, b: 3 }]],
+      { nodeId: 'pg-untrusted', show: collectionShow, posMs: 0, useGroupInputs: false },
+      1,
+      1,
+      groups,
+      false,
+    )
+
+    expect(frame[0][0]).toEqual({ r: 0, g: 0, b: 0 })
+    usePerformanceBakeStore.getState().clearBake('pg-untrusted')
+  })
+
   it('leaves the original frame untouched when no generator is playing', () => {
     const original = [[{ r: 1, g: 2, b: 3 }]]
 

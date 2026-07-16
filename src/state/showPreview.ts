@@ -173,13 +173,14 @@ function renderEnumFrame(st: ShowState, timeMs: number, W: number, H: number): F
 function renderGroupFrame(
   groupId: string, timeMs: number, W: number, H: number,
   groups: GroupRegistry, groupInputs: Record<string, PortValue>,
-  audioOverride: AudioOverride | null,
+  audioOverride: AudioOverride | null, trusted: boolean,
 ): Frame {
   const def = groups[groupId]
   if (!def) return blank(W, H)
   return evaluateGraph(
     def.nodes, def.edges, timeMs * 0.06, W, H, groups,
     `__show_${groupId}/`, new Set([groupId]), groupInputs, audioOverride,
+    trusted,
   ) ?? blank(W, H)
 }
 
@@ -188,6 +189,7 @@ function renderGroupFrame(
 function renderStateFrame(
   show: ShowFile, st: ShowState, timeMs: number, W: number, H: number,
   groups: GroupRegistry, useGroupInputs: boolean, audioOverride: AudioOverride | null,
+  trusted: boolean,
 ): Frame {
   const groupId = show.patternSet && st.patternIndex >= 0 ? show.patternSet[st.patternIndex] : undefined
   const palette = isStudioPalette(st.palette) ? st.palette : 'rainbow'
@@ -218,7 +220,7 @@ function renderStateFrame(
     ...(useGroupInputs ? { energy: st.energy, speed: Math.min(1, st.speed / 2), palette } : {}),
   }
   return groupId
-    ? renderGroupFrame(groupId, timeMs, W, H, groups, groupInputs, audioOverride)
+    ? renderGroupFrame(groupId, timeMs, W, H, groups, groupInputs, audioOverride, trusted)
     : renderEnumFrame(st, timeMs, W, H)
 }
 
@@ -261,10 +263,12 @@ function particleOverlayAt(show: ShowFile, timeMs: number, W: number, H: number)
 /** Render the show's LED frame at a playback position (ms). `groups` is the live
  *  group registry (collection shows). When `useGroupInputs` is on, the section
  *  energy, (normalised) speed, and palette are fed to the patterns'
- *  `energy`/`speed`/`palette` group-input roles. */
+ *  `energy`/`speed`/`palette` group-input roles. `trusted` mirrors the active
+ *  workspace trust boundary: untrusted collection patterns may render ordinary
+ *  nodes, but their Formula and Code preview logic remains disabled. */
 export function renderShowFrame(
   show: ShowFile, timeMs: number, W: number, H: number,
-  groups: GroupRegistry = {}, useGroupInputs = false,
+  groups: GroupRegistry = {}, useGroupInputs = false, trusted = true,
 ): Frame {
   const st = showStateAt(show, timeMs)
 
@@ -280,11 +284,11 @@ export function renderShowFrame(
   if (tr) {
     const fromState = showStateAt(show, tr.startMs - 1)
     const toState = showStateAt(show, tr.startMs)
-    const fromFrame = renderStateFrame(show, fromState, timeMs, W, H, groups, useGroupInputs, audioOverride)
-    const toFrame = renderStateFrame(show, toState, timeMs, W, H, groups, useGroupInputs, audioOverride)
+    const fromFrame = renderStateFrame(show, fromState, timeMs, W, H, groups, useGroupInputs, audioOverride, trusted)
+    const toFrame = renderStateFrame(show, toState, timeMs, W, H, groups, useGroupInputs, audioOverride, trusted)
     result = compositeTransition(tr.type, fromFrame, toFrame, tr.progress, W, H)
   } else {
-    result = renderStateFrame(show, st, timeMs, W, H, groups, useGroupInputs, audioOverride)
+    result = renderStateFrame(show, st, timeMs, W, H, groups, useGroupInputs, audioOverride, trusted)
   }
 
   const b = Math.max(0, Math.min(1, st.brightness / 255))
