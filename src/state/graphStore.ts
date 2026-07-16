@@ -114,6 +114,7 @@ interface GraphState {
   copySelection: () => void
   pasteNode: (position: { x: number; y: number }) => void
   deleteNode: (id: string) => void
+  deleteSelection: () => void
   disconnectNode: (id: string) => void
   /** Drop `graphData`/`graphs` entries no longer reachable from any Group
    *  node, PatternCollection, clipboard entry, or undo/redo snapshot.
@@ -695,6 +696,19 @@ export const useGraphStore = create<GraphState>()(
           edges: s.edges.filter((e) => e.source !== id && e.target !== id),
           selectedNodeId: s.selectedNodeId === id ? null : s.selectedNodeId,
         }))
+      },
+
+      deleteSelection: () => {
+        scheduleOrphanGraphPrune()
+        set((s) => {
+          const selectedIds = new Set(s.nodes.filter((n) => n.selected).map((n) => n.id))
+          if (selectedIds.size === 0) return s
+          return {
+            nodes: s.nodes.filter((n) => !selectedIds.has(n.id)),
+            edges: s.edges.filter((e) => !selectedIds.has(e.source ?? '') && !selectedIds.has(e.target ?? '')),
+            selectedNodeId: s.selectedNodeId && selectedIds.has(s.selectedNodeId) ? null : s.selectedNodeId,
+          }
+        })
       },
 
       pruneOrphanGraphs: () =>

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, fireEvent } from '@testing-library/react'
 import CanvasContextMenu from '../CanvasContextMenu'
 import { useGraphStore } from '../../../state/graphStore'
@@ -38,6 +38,28 @@ function seedMicSourceNode() {
       data: { label: def.label, nodeType: 'MicInput', category: def.category, properties: {}, inputs: def.inputs, outputs: def.outputs },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any],
+    edges: [],
+  })
+}
+
+function seedSelectedNodes() {
+  const solid = NODE_LIBRARY.find((n) => n.type === 'SolidColor')!
+  const output = NODE_LIBRARY.find((n) => n.type === 'MatrixOutput')!
+  useGraphStore.setState({
+    nodes: [
+      {
+        id: 'solid', type: 'studioNode', position: { x: 0, y: 0 },
+        data: { label: solid.label, nodeType: solid.type, category: solid.category, properties: {}, inputs: solid.inputs, outputs: solid.outputs },
+        selected: true,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any,
+      {
+        id: 'output', type: 'studioNode', position: { x: 240, y: 0 },
+        data: { label: output.label, nodeType: output.type, category: output.category, properties: {}, inputs: output.inputs, outputs: output.outputs },
+        selected: true,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any,
+    ],
     edges: [],
   })
 }
@@ -183,5 +205,32 @@ describe('CanvasContextMenu — drag-to-empty picker', () => {
       expect.objectContaining({ sourceHandle: 'treble', targetHandle: 'treble' }),
       expect.objectContaining({ sourceHandle: 'hue', targetHandle: 'h' }),
     ]))
+  })
+
+  it('disables Delete Selected when nothing is selected', () => {
+    const { getByRole } = render(
+      <CanvasContextMenu
+        x={0} y={0} flowPosition={{ x: 100, y: 100 }}
+        onClose={() => {}}
+      />
+    )
+
+    expect(getByRole('button', { name: 'Delete Selected' }).hasAttribute('disabled')).toBe(true)
+  })
+
+  it('deletes the current selection from the canvas menu', () => {
+    seedSelectedNodes()
+    const onClose = vi.fn()
+    const { getByRole } = render(
+      <CanvasContextMenu
+        x={0} y={0} flowPosition={{ x: 100, y: 100 }}
+        onClose={onClose}
+      />
+    )
+
+    fireEvent.click(getByRole('button', { name: 'Delete Selected' }))
+
+    expect(useGraphStore.getState().nodes).toHaveLength(0)
+    expect(onClose).toHaveBeenCalled()
   })
 })

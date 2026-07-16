@@ -222,7 +222,7 @@ interface Props {
 }
 
 export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onPlaced, startInPicker, onClose }: Props) {
-  const { addNode, onConnect, clipboard, pasteNode, selectAllNodes, nodes } = useGraphStore()
+  const { addNode, onConnect, clipboard, pasteNode, selectAllNodes, deleteSelection, nodes } = useGraphStore()
   const menuRef = useRef<HTMLDivElement>(null)
   const [mode, setMode] = useState<'main' | 'picker'>(connectFrom || startInPicker ? 'picker' : 'main')
   const [query, setQuery] = useState('')
@@ -390,6 +390,7 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
   )
 
   const canPaste = !!clipboard && clipboard.nodes.some((n) => canAddNodeType(nodes, n.data.nodeType))
+  const hasSelection = nodes.some((n) => n.selected)
 
   const act = (fn: () => void) => { fn(); onClose() }
 
@@ -489,11 +490,19 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
       <button className={styles.item} onClick={() => act(selectAllNodes)}>
         Select All
       </button>
+      <button
+        className={`${styles.item} ${!hasSelection ? styles.disabled : ''}`}
+        disabled={!hasSelection}
+        onClick={() => { if (hasSelection) act(deleteSelection) }}
+      >
+        Delete Selected
+      </button>
       <button className={styles.item} onClick={() => act(() => { runTidy() })}>
         Tidy Graph
       </button>
       <button
         className={`${styles.item} ${!canPaste ? styles.disabled : ''}`}
+        disabled={!canPaste}
         onClick={() => { if (canPaste) act(() => pasteNode(flowPosition)) }}
       >
         {clipboard && clipboard.nodes.length > 1 ? `Paste ${clipboard.nodes.length} Nodes` : 'Paste'}
