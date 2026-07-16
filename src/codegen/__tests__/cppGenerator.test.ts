@@ -922,6 +922,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('inoise8(')
     expect(cpp).toContain('ColorFromPalette(PartyColors_p')
     expect(cpp).toContain('.nscale8(_bright)')
+    expect(cpp).toContain('sqrtf(constrain(_b,0.0f,1.0f))*0.75f')
     expect(cpp).toContain('constrain((')
     expect(cpp).toContain('* 0.200f')
   })
@@ -1753,6 +1754,34 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('ColorFromPalette(OceanColors_p')
     expect(cpp).toContain('WIDTH - 1 - _x')
     expect(cpp).not.toContain('// SpectrumBars')
+  })
+
+  it('keeps unwired audio-only patterns silent in firmware like the preview', () => {
+    const bars = node('silentBars', 'SpectrumBars', 'pattern', {})
+    const pulse = node('silentPulse', 'BassPulse', 'pattern', {})
+    const barsCpp = generateCpp([bars, out], [edge('bars-out', 'silentBars', 'out', 'frame', 'frame')])
+    const pulseCpp = generateCpp([pulse, out], [edge('pulse-out', 'silentPulse', 'out', 'frame', 'frame')])
+
+    expect(barsCpp).toContain('float _b = min(1.0f, max(0.0f, 0))')
+    expect(barsCpp).toContain('_m = min(1.0f, max(0.0f, 0))')
+    expect(barsCpp).toContain('_t = min(1.0f, max(0.0f, 0))')
+    expect(pulseCpp).toContain('float _lv = constrain(0, 0.0f, 1.0f)')
+  })
+
+  it('emits Audio to Hue in the documented 0-360 degree range', () => {
+    const audioHue = node('ah', 'AudioHue', 'audio', { bass: 1, mids: 0.5, treble: 0.25 })
+    const cpp = generateCpp([audioHue, out], [])
+
+    expect(cpp).toContain('float n_ah_hue = ((1)*0.5f+(0.5)*0.3f+(0.25)*0.2f)*360.0f;')
+    expect(cpp).not.toContain('uint8_t n_ah_hue')
+  })
+
+  it('keeps Turbulent Bloom responsive across FastLED\'s upper bass range', () => {
+    const bloom = node('tb', 'TurbulentBloom', 'pattern', { bass: 0.8, mids: 0.5, treble: 0.5 })
+    const cpp = generateCpp([bloom, out], [edge('tb-out', 'tb', 'out', 'frame', 'frame')])
+
+    expect(cpp).toContain('_bassPulse=0.5f+sqrtf(constrain(_b,0.0f,1.0f))*0.5f')
+    expect(cpp).not.toContain('_bassPulse=min(1.0f,0.5f+_b*0.9f)')
   })
 
   it('emits SpectrumVisualizer from the shared 32-bin spectrum with held gravity peaks', () => {

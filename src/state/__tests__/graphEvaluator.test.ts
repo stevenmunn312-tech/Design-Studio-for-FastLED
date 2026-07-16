@@ -1302,6 +1302,25 @@ describe('evaluateGraph', () => {
     expect(brightnessAt(1)).toBeGreaterThan(brightnessAt(0))  // louder bass → brighter
   })
 
+  it('Audio to Hue returns degrees with bass weighted most strongly', () => {
+    const audioHue = node('ah', 'AudioHue', 'audio', { bass: 1, mids: 0.5, treble: 0.25 })
+    const result = evaluateScalar([audioHue], [], 'ah', 'hue', 0)
+    expect(result).toBeCloseTo((1 * 0.5 + 0.5 * 0.3 + 0.25 * 0.2) * 360)
+  })
+
+  it('Turbulent Bloom retains brightness response in FastLED\'s upper bass range', () => {
+    const brightnessAt = (bass: number) => {
+      const bloom = node('tb-upper-bass', 'TurbulentBloom', 'pattern', {
+        bass, mids: 0.5, treble: 0.5, energy: 0.7, speed: 0.5, palette: 'deepsea',
+      })
+      const { nodes, edges } = withOutput(bloom)
+      const frame = evaluateGraph(nodes, edges, 60, 8, 8)!
+      return frame.flat().reduce((sum, px) => sum + px.r + px.g + px.b, 0)
+    }
+
+    expect(brightnessAt(0.95)).toBeGreaterThan(brightnessAt(0.65))
+  })
+
   it('SpectrumBars responds to energy, palette, and motion controls', () => {
     const render = (props: Record<string, unknown>, tick: number) => {
       const sb = node('sb', 'SpectrumBars', 'pattern', {

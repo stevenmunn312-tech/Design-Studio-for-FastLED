@@ -1544,9 +1544,10 @@ export function generateCpp(
       case 'SpectrumBars': {
         needsT.v = true
         const ob = ownBuf()
-        const bass = f('bass', 'bass', 0.5)
-        const mids = f('mids', 'mids', 0.5)
-        const treble = f('treble', 'treble', 0.5)
+        // Test Signal is preview-only; an unwired firmware pattern rests at 0.
+        const bass = f('bass', 'bass', 0)
+        const mids = f('mids', 'mids', 0)
+        const treble = f('treble', 'treble', 0)
         const energy = f('energy', 'energy', 0.7)
         const speed = f('speed', 'speed', 0.6)
         const pal = paletteExpr(node.id, 'paletteIn', p)
@@ -1648,7 +1649,7 @@ export function generateCpp(
       case 'BassPulse': {
         const ob = ownBuf()
         const pal = paletteExpr(node.id, 'paletteIn', p)
-        const bass = f('bass', 'bass', 0.5)
+        const bass = f('bass', 'bass', 0)
         ln(`  { float _lv = constrain(${bass}, 0.0f, 1.0f); float _v = sqrtf(_lv);`)
         ln(`    CRGB _c = ColorFromPalette(${pal}, (uint8_t)(_lv * 255)); _c.nscale8((uint8_t)(_v * 255));`)
         ln(`    fill_solid(${ob}, NUM_LEDS, _c); }`)
@@ -2118,7 +2119,7 @@ export function generateCpp(
         const wrap = (expr: string) => `fmodf(fmodf((${expr}),240.0f)+240.0f,240.0f)`
         ln(`  { // TurbulentBloom`)
         ln(`    float _b=${bass},_m=${mids},_tr=${treble},_strength=min(1.0f,max(0.0f,${energy}));`)
-        ln(`    float _trebleAmp=0.15f+_tr*0.6f,_midsAmp=0.3f+_m*0.9f,_bassPulse=min(1.0f,0.5f+_b*0.9f);`)
+        ln(`    float _trebleAmp=0.15f+_tr*0.6f,_midsAmp=0.3f+_m*0.9f,_bassPulse=0.5f+sqrtf(constrain(_b,0.0f,1.0f))*0.5f;`)
         // Two integrated warp phases — mirrors evalTurbulentBloom (see BeatKaleidoscope).
         ln(`    static float _tbFast_${id}=0.0f,_tbSlow_${id}=0.0f,_tbLast_${id}=-1.0f;`)
         ln(`    float _tbDt_${id}=(_tbLast_${id}<0.0f)?0.0f:min(0.25f,max(0.0f,t-_tbLast_${id})); _tbLast_${id}=t;`)
@@ -3336,7 +3337,7 @@ export function generateCpp(
         ln(`    static float _afPhase_${id}=0.0f,_afLast_${id}=-1.0f;`)
         ln(`    float _afDt_${id}=(_afLast_${id}<0.0f)?0.0f:min(0.25f,max(0.0f,t-_afLast_${id})); _afLast_${id}=t;`)
         ln(`    _afPhase_${id}+=_afDt_${id}*_spd*(0.2f+_m*1.5f);`)
-        ln(`    float _flow=_afPhase_${id}; uint8_t _bright=(uint8_t)(min(1.0f,0.3f+_b)*255);`)
+        ln(`    float _flow=_afPhase_${id}; uint8_t _bright=(uint8_t)((0.25f+sqrtf(constrain(_b,0.0f,1.0f))*0.75f)*255);`)
         ln(`    float _vamp=0.2f+_tr*0.7f+_b*0.3f;`)
         ln(`    float _vflow=((float)inoise8((uint16_t)((t*_spd*4.0f+50)*256),4429)/128.0f-1.0f)*_vamp;`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
@@ -3922,7 +3923,10 @@ export function generateCpp(
 
       case 'AudioHue': {
         const bass = f('bass','bass',0.5), mids = f('mids','mids',0.5), treble = f('treble','treble',0.5)
-        ln(`  uint8_t ${v('hue')} = (uint8_t)(((${bass})*0.5f+(${mids})*0.3f+(${treble})*0.2f)*255);`)
+        // The port contract is degrees (0..360), matching the evaluator and
+        // HSVToRGB.  Keeping this as a byte silently compressed firmware hues
+        // into 0..255 degrees and made the same patch change colour on-device.
+        ln(`  float ${v('hue')} = ((${bass})*0.5f+(${mids})*0.3f+(${treble})*0.2f)*360.0f;`)
         break
       }
 

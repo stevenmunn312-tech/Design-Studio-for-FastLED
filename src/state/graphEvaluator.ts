@@ -2011,7 +2011,10 @@ function evalTurbulentBloom(
 ): Frame {
   const strength = clamp01(energy)
   const trebleAmp = 0.15 + treble * 0.6, midsAmp = 0.3 + mids * 0.9
-  const bassPulse = Math.min(1, 0.5 + bass * 0.9)
+  // FastLED's per-band normalization spends a lot of time in the upper half
+  // of the 0..1 range.  Keep that useful headroom instead of clipping every
+  // bass value above ~0.56 to the same brightness.
+  const bassPulse = 0.5 + Math.sqrt(clamp01(bass)) * 0.5
   const phases = advanceDrift(key, t, speed * (1.5 + treble * 2), speed * (0.3 + mids * 0.6))
   const tFast = phases.a, tSlow = phases.b
 
@@ -3050,7 +3053,9 @@ function evalAudioFlow(key: string, bass: number, mids: number, treble: number, 
   // music while `flow` scrolls it horizontally.
   const vAmp = 0.2 + treble * 0.7 + bass * 0.3
   const vflow = _snoise2(t * speed * 4 + 50, 17.3) * vAmp
-  const bright = Math.min(1, 0.3 + bass)
+  // Preserve the old useful low-level lift, but do not flatten FastLED's
+  // normalized bass range above 0.7 into one constant brightness.
+  const bright = 0.25 + Math.sqrt(clamp01(bass)) * 0.75
   return buildFrame(W, H, (x, y) => {
       const v = _snoise2(x * scale + flow, y * scale * 0.6 + vflow) * 0.5 + 0.5
       const c = samplePalette(palette, (((v + treble * 0.3) % 1) + 1) % 1)
