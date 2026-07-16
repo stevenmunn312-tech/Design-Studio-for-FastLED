@@ -1088,14 +1088,14 @@ describe('generateCpp', () => {
   })
 
   it('emits a Color Temperature node with the kelvinToRGB helper', () => {
-    const t = node('t', 'Temperature', 'color', { kelvin: 3000 })
+    const t = node('t', 'Temperature', 'color', { kelvin: (3000 - 1000) / 11000 })
     const sp = node('sp', 'Circle', 'pattern', { cx: 2, cy: 2, radius: 2 })
     const cpp = generateCpp([t, sp, outputNode], [
       edge('e1', 't', 'sp', 'color', 'edge'),
       edge('e2', 'sp', 'out', 'frame', 'frame'),
     ])
     expect(cpp).toContain('CRGB kelvinToRGB(float kelvin)')
-    expect(cpp).toContain('n_t_color = kelvinToRGB(3000)')
+    expect(cpp).toContain('n_t_color = kelvinToRGB(mapFloat(constrain(0.18181818181818182, 0.0f, 1.0f), 0.0f, 1.0f, 1000.0f, 12000.0f))')
   })
 
   it('emits a Circle SDF coverage loop with thickness (Shape-style)', () => {

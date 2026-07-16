@@ -935,7 +935,8 @@ export function generateCpp(
 
       case 'Temperature':
         needsKelvin.v = true
-        ln(`  CRGB ${v('color')} = kelvinToRGB(${f('kelvin', 'kelvin', 4000)});`)
+        needsMapFloat[0] = true
+        ln(`  CRGB ${v('color')} = kelvinToRGB(mapFloat(constrain(${f('kelvin', 'kelvin', 0.27)}, 0.0f, 1.0f), 0.0f, 1.0f, 1000.0f, 12000.0f));`)
         break
 
       case 'HeatColor':

@@ -1381,14 +1381,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: {},
   },
   {
-    // Black-body white point from a colour temperature in Kelvin.
+    // Black-body white point from a normalized warm→cool temperature control.
     type: 'Temperature',
     label: 'Color Temperature',
     category: 'color',
     subcategory: 'Colors',
-    inputs: [{ id: 'kelvin', label: 'Kelvin', dataType: 'float' }],
+    inputs: [{ id: 'kelvin', label: 'Temp (0-1)', dataType: 'float' }],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
-    defaultProperties: { kelvin: 4000 },
+    defaultProperties: { kelvin: 0.27 },
   },
   {
     // FastLED HeatColor — a 0–1 heat value → black-body ramp (black→red→yellow→white).
@@ -2236,7 +2236,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   RGBToHSV: 'Converts an RGB color to hue/sat/val.',
   BlendColors: 'Blends two colors by an amount.',
   CHSV: 'FastLED CHSV color (0–255 hue/sat/val).',
-  Temperature: 'White point from a colour temperature in Kelvin (warm→cool).',
+  Temperature: 'White point from a normalized 0-1 warm-to-cool temperature control.',
   HeatColor: 'FastLED HeatColor — a 0–1 heat value to a fire-ramp colour.',
   PaletteSelector: 'Outputs a named preset palette.',
   CustomPalette: 'Builds a palette from up to four colors.',
@@ -2563,7 +2563,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   interval: { control: 'slider', min: 0.1, max: 20, step: 0.1 },
   // Smooth's time constant (seconds to ~63% of a step; 0 = passthrough).
   response: { control: 'slider', min: 0, max: 2, step: 0.01 },
-  kelvin:   { control: 'slider', min: 1000, max: 12000, step: 100 },
+  kelvin:   { control: 'slider', min: 0, max: 1, step: 0.01 },
   // HeatColor input, Rainbow spread, Gamma exponent, and MatrixOutput power cap.
   heat:     { control: 'slider', min: 0, max: 1, step: 0.01 },
   deltaHue: { control: 'slider', min: 0, max: 32, step: 1 },

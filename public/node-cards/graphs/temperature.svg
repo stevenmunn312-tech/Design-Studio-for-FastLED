@@ -1943,17 +1943,17 @@
 <rect x="8" y="40" width="224" height="40" rx="4" fill="rgb(255,206,166)" stroke="rgba(255,255,255,0.12)"/>
 <circle cx="-2" cy="96" r="9" fill="#9aa0a6" opacity="0.25"/>
 <circle cx="-2" cy="96" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="10" y="100" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Kelvin</text>
+<text x="10" y="100" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Temp (0-1)</text>
 <circle cx="242" cy="96" r="9" fill="#ffd24a" opacity="0.25"/>
 <circle cx="242" cy="96" r="6" fill="#ffd24a" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="230" y="100" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Color</text>
 <line x1="8" y1="116" x2="232" y2="116" stroke="rgba(255,255,255,0.08)"/>
-<text x="8" y="136" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">kelvin</text>
+<text x="8" y="136" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">temp</text>
 <g>
 <rect x="120" y="130" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
 <rect x="120" y="130" width="19.6" height="4" rx="2" fill="#d633ff"/>
 <circle cx="139.6" cy="132" r="5" fill="#d633ff"/>
-<text x="232" y="136" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">4000</text>
+<text x="232" y="136" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0.27</text>
 </g>
 <text x="8" y="157" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">clamp inputs</text>
 <g>

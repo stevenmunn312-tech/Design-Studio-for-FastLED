@@ -400,6 +400,13 @@ function _snoise2(x: number, y: number): number {
 // hsv/samplePalette/palAt/CRGB_CONSTANTS/CODE_PALETTES/CLOUD_STOPS live in
 // `./ledColor` (imported above) — shared with the Code-node sandbox worker.
 function byte(v: number): number { return Math.max(0, Math.min(255, Math.round(v * 255))) }
+const TEMPERATURE_MIN_K = 1000
+const TEMPERATURE_MAX_K = 12000
+
+function normalizedTemperatureToKelvin(value: number): number {
+  const t = Math.max(0, Math.min(1, value))
+  return TEMPERATURE_MIN_K + t * (TEMPERATURE_MAX_K - TEMPERATURE_MIN_K)
+}
 
 // Approximate black-body white point for a colour temperature in Kelvin
 // (Tanner Helland's approximation): ~1900K candle → ~6500K daylight → blue.
@@ -4608,7 +4615,7 @@ function createEvalNode(
       }
 
       case 'Temperature': {
-        out = { color: kelvinToRgb(num(id, 'kelvin', props, 'kelvin', 4000)) }
+        out = { color: kelvinToRgb(normalizedTemperatureToKelvin(num(id, 'kelvin', props, 'kelvin', 0.27))) }
         break
       }
 
