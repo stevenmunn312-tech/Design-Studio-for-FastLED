@@ -45,6 +45,79 @@ describe('audioEngine FFT helpers', () => {
     expect(hit.bpm).toBeGreaterThan(100)
   })
 
+  // Regression for the "BeatDetect never fires" bug: simulate the actual
+  // runtime conditions — 32 log bands, 60 fps frames, AnalyserNode
+  // smoothingTimeConstant 0.75, per-band mic magnitudes well under 1 — and
+  // require the detector to catch essentially every kick at the BeatDetect
+  // node's DEFAULT slider values. Before the fix (flux diluted across all 32
+  // bands + a jitter-sensitive two-frame peak test) this fired 0 beats.
+  describe('realistic 60fps mic simulation at default sliders', () => {
+    const BANDS = 32
+    const FPS = 60
+    const cfg = {
+      threshold: denormalizeBeatParam('threshold', 0.2),
+      attack: denormalizeBeatParam('attack', 0.55),
+      decay: denormalizeBeatParam('decay', 0.25),
+    }
+
+    // Deterministic LCG so the noise floor is reproducible.
+    function makePrnd(seed: number) {
+      let s = seed
+      return () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff)
+    }
+
+    function countBeats(signal: (ms: number, prnd: () => number) => number[], seconds: number): number {
+      const prnd = makePrnd(12345)
+      let state = createBeatDetectorState()
+      const smoothed = new Array<number>(BANDS).fill(0)
+      let beats = 0
+      for (let f = 0; f < FPS * seconds; f++) {
+        const ms = (f * 1000) / FPS
+        const inst = signal(ms, prnd)
+        // AnalyserNode time smoothing (smoothingTimeConstant = 0.75).
+        for (let i = 0; i < BANDS; i++) smoothed[i] = smoothed[i] * 0.75 + inst[i] * 0.25
+        const r = updateBeatDetectorFromSpectrum(smoothed, ms, state, cfg)
+        state = r.state
+        if (r.beat) beats++
+      }
+      return beats
+    }
+
+    function kickSignal(periodMs: number, bassPeak: number) {
+      return (ms: number, prnd: () => number) => {
+        const since = ms % periodMs
+        const kick = since < 80 ? 1 - since / 80 : 0
+        const out = new Array<number>(BANDS)
+        for (let i = 0; i < BANDS; i++) {
+          let v = 0.05 + prnd() * 0.02
+          if (i < 6) v += kick * bassPeak
+          else if (i < 12) v += kick * 0.15
+          out[i] = v
+        }
+        return out
+      }
+    }
+
+    it('catches every strong kick at 120 BPM', () => {
+      expect(countBeats(kickSignal(500, 0.45), 10)).toBe(20)
+    })
+
+    it('catches every soft kick at 120 BPM', () => {
+      expect(countBeats(kickSignal(500, 0.2), 10)).toBe(20)
+    })
+
+    it('stays quiet on a steady noise floor', () => {
+      const noise = (_ms: number, prnd: () => number) =>
+        Array.from({ length: BANDS }, () => 0.08 + prnd() * 0.04)
+      expect(countBeats(noise, 10)).toBeLessThanOrEqual(1)
+    })
+
+    it('stays quiet in silence', () => {
+      const silence = () => new Array<number>(BANDS).fill(0)
+      expect(countBeats(silence, 10)).toBe(0)
+    })
+  })
+
   it('maps the BeatDetect sliders from 0..1 into their tuned ranges', () => {
     expect(denormalizeBeatParam('threshold', 0)).toBe(0)
     expect(denormalizeBeatParam('threshold', 1)).toBeCloseTo(0.25)

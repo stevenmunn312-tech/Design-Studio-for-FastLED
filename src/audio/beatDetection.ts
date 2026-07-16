@@ -17,7 +17,6 @@ export interface BeatDetectorState {
   fast: number
   slow: number
   prevFlux: number
-  prevPrevFlux: number
   lastBeatMs: number
   bpm: number
   prevSpectrum: number[]
@@ -46,7 +45,6 @@ export function createBeatDetectorState(): BeatDetectorState {
     fast: 0,
     slow: 0,
     prevFlux: 0,
-    prevPrevFlux: 0,
     lastBeatMs: -1,
     bpm: 120,
     prevSpectrum: [],
@@ -81,6 +79,16 @@ export function updateBeatDetector(
   return updateBeatDetectorFromSpectrum([bass], nowMs, prev, config)
 }
 
+// A transient only moves a handful of bands, and the AnalyserNode's time
+// smoothing (0.75) spreads its rise over several frames — so a plain weighted
+// *average* across all 32 bands dilutes even a hard kick to ~0.05, right at
+// the threshold floor. FLUX_GAIN rescales the average so realistic onsets land
+// well inside the threshold slider's 0–0.25 range (calibrated by simulation:
+// a strong kick reads ~0.3, a very soft one ~0.12, steady noise ~0.1 — noise
+// is then rejected by the onset-contrast gate, which is scale-aware). The C++
+// mirrors in cppGenerator.ts interpolate this same constant.
+export const FLUX_GAIN = 6
+
 function weightedFlux(current: readonly number[], previous: readonly number[]): number {
   const len = Math.max(current.length, previous.length)
   if (len === 0) return 0
@@ -94,7 +102,7 @@ function weightedFlux(current: readonly number[], previous: readonly number[]): 
     sum += diff * weight
     weightSum += weight
   }
-  return sum / Math.max(1e-6, weightSum)
+  return clamp01((sum / Math.max(1e-6, weightSum)) * FLUX_GAIN)
 }
 
 export function updateBeatDetectorFromSpectrum(
@@ -135,8 +143,13 @@ export function updateBeatDetectorFromSpectrum(
   const dynamicCooldown = Math.max(150, Math.min(600, 60000 / prevBpm * 0.42))
   const gap = Math.max(cooldownMs, dynamicCooldown)
   const elapsed = prev.lastBeatMs >= 0 ? nowMs - prev.lastBeatMs : Number.POSITIVE_INFINITY
-  const isPeak = flux > prev.prevFlux && prev.prevFlux >= prev.prevPrevFlux
-  const beat = flux > threshold && isPeak && onset > threshold * 0.45 && contrast > 1.1 && elapsed >= gap
+  // A rising edge, not a local-peak test: requiring the two *previous* frames
+  // to be non-decreasing (`prevFlux >= prevPrevFlux`) randomly rejected ~half
+  // of all onsets, because noise-floor jitter in the quiet frames before a
+  // kick fails that check on a coin flip. The cooldown + contrast gates
+  // already stop one onset from firing twice.
+  const isRising = flux > prev.prevFlux
+  const beat = flux > threshold && isRising && onset > threshold * 0.45 && contrast > 1.1 && elapsed >= gap
 
   let bpm = prevBpm
   let lastBeatMs = prev.lastBeatMs
@@ -159,7 +172,6 @@ export function updateBeatDetectorFromSpectrum(
       fast,
       slow,
       prevFlux: flux,
-      prevPrevFlux: prev.prevFlux,
       lastBeatMs,
       bpm,
       prevSpectrum: current,

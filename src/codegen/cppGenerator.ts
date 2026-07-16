@@ -7,7 +7,7 @@ import { polineStops16, hexToRgb } from '../state/polinePalette'
 import { customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCatalog'
 import { audioFlowExpr } from '../state/audioFlowRange'
 import { SPEED_MAX, SCALE_MAX, NOISE_SPEED_MAX, NOISE_SCALE_MAX, rateCpp } from '../state/speedRange'
-import { denormalizeBeatParam } from '../audio/beatDetection'
+import { denormalizeBeatParam, FLUX_GAIN } from '../audio/beatDetection'
 import { inputClampRange, bypassPort, CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, CORRECTION_OPTIONS, SPI_CHIPSETS, resolveNodeScalarExpressions } from '../state/nodeLibrary'
 import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledShims'
 import { particleRadius } from '../state/particleScale'
@@ -206,7 +206,7 @@ function audioEngineCpp(ws: number, sck: number, sd: number, channel: 'Left' | '
     '#define AUDIO_SR  16000      // I2S sample rate (Hz)',
     'float _audioBass = 0, _audioMids = 0, _audioTreble = 0, _audioBpm = 120;',
     'bool  _audioBeat = false;',
-    'static float _audioBeatFast = 0, _audioBeatSlow = 0, _audioBeatPrevFlux = 0, _audioBeatPrevPrevFlux = 0;',
+    'static float _audioBeatFast = 0, _audioBeatSlow = 0, _audioBeatPrevFlux = 0;',
     'static float _audioPrevSpectrum[32];',
     'static float _audioSpectrum[32];',
     'static bool _audioHavePrevSpectrum = false;',
@@ -376,7 +376,7 @@ function audioEngineCpp(ws: number, sck: number, sd: number, channel: 'Left' | '
     '      flux += diff * weight;',
     '      weightSum += weight;',
     '    }',
-    '    flux = weightSum > 0.0f ? flux / weightSum : 0.0f;',
+    `    flux = weightSum > 0.0f ? constrain((flux / weightSum) * ${FLUX_GAIN.toFixed(1)}f, 0.0f, 1.0f) : 0.0f;`,
     '    _audioBeatFast += (flux - _audioBeatFast) * 0.45f;',
     '    _audioBeatSlow += (flux - _audioBeatSlow) * 0.13f;',
     '    float onset = _audioBeatFast - _audioBeatSlow;',
@@ -385,8 +385,10 @@ function audioEngineCpp(ws: number, sck: number, sd: number, channel: 'Left' | '
     '    uint32_t now = millis();',
     '    float gap = _audioBpm > 0.0f ? 60000.0f / _audioBpm * 0.42f : 160.0f;',
     '    if (gap < 160.0f) gap = 160.0f; else if (gap > 600.0f) gap = 600.0f;',
-    '    bool isPeak = flux > _audioBeatPrevFlux && _audioBeatPrevFlux >= _audioBeatPrevPrevFlux;',
-    '    _audioBeat = (flux > 0.07f && isPeak && onset > 0.07f * 0.45f && contrast > 1.1f && (_audioBeatLast == 0 || now - _audioBeatLast >= (uint32_t)gap));',
+    '    // Rising edge, not a local-peak test — see beatDetection.ts (noise jitter',
+    '    // in the quiet frames before a kick fails a two-frame peak check randomly).',
+    '    bool isRising = flux > _audioBeatPrevFlux;',
+    '    _audioBeat = (flux > 0.05f && isRising && onset > 0.05f * 0.45f && contrast > 1.1f && (_audioBeatLast == 0 || now - _audioBeatLast >= (uint32_t)gap));',
     '    if (_audioBeat) {',
     '      if (_audioBeatLast != 0) {',
     '        float interval = now - _audioBeatLast;',
@@ -397,7 +399,6 @@ function audioEngineCpp(ws: number, sck: number, sd: number, channel: 'Left' | '
     '      }',
     '      _audioBeatLast = now;',
     '    }',
-    '    _audioBeatPrevPrevFlux = _audioBeatPrevFlux;',
     '    _audioBeatPrevFlux = flux;',
     '  }',
     '  for (int i = 0; i < 32; i++) _audioPrevSpectrum[i] = _audioSpectrum[i];',
@@ -993,7 +994,7 @@ export function generateCpp(
           const decay = denormalizeBeatParam('decay', floatProp(p.decay, 0.25, 0, 1))
           const prefix = v('detector')
           ln(`  bool ${v('beat')} = false;`)
-          ln(`  static float ${v('bpm')} = 120.0f, ${prefix}_fast = 0.0f, ${prefix}_slow = 0.0f, ${prefix}_prevFlux = 0.0f, ${prefix}_prevPrevFlux = 0.0f;`)
+          ln(`  static float ${v('bpm')} = 120.0f, ${prefix}_fast = 0.0f, ${prefix}_slow = 0.0f, ${prefix}_prevFlux = 0.0f;`)
           ln(`  static float ${prefix}_prevSpectrum[32]; static bool ${prefix}_ready = false; static uint32_t ${prefix}_lastBeat = 0;`)
           ln(`  if (${prefix}_ready) {`)
           ln(`    float _flux = 0.0f, _weightSum = 0.0f;`)
@@ -1001,15 +1002,15 @@ export function generateCpp(
           ln(`      float _diff = _audioSpectrum[_i] - ${prefix}_prevSpectrum[_i]; if (_diff < 0.0f) _diff = 0.0f;`)
           ln(`      float _weight = _i < 6 ? 2.0f : (_i < 12 ? 1.35f : (_i < 20 ? 0.85f : 0.45f)); _flux += _diff * _weight; _weightSum += _weight;`)
           ln(`    }`)
-          ln(`    _flux = _weightSum > 0.0f ? _flux / _weightSum : 0.0f;`)
+          ln(`    _flux = _weightSum > 0.0f ? constrain((_flux / _weightSum) * ${FLUX_GAIN.toFixed(1)}f, 0.0f, 1.0f) : 0.0f;`)
           ln(`    ${prefix}_fast += (_flux - ${prefix}_fast) * ${attack.toFixed(4)}f;`)
           ln(`    ${prefix}_slow += (_flux - ${prefix}_slow) * ${decay.toFixed(4)}f;`)
           ln(`    float _onset = ${prefix}_fast - ${prefix}_slow, _baseline = ${prefix}_slow > 0.02f ? ${prefix}_slow : 0.02f;`)
           ln(`    float _gap = constrain(60000.0f / ${v('bpm')} * 0.42f, 150.0f, 600.0f); uint32_t _now = millis();`)
-          ln(`    bool _peak = _flux > ${prefix}_prevFlux && ${prefix}_prevFlux >= ${prefix}_prevPrevFlux;`)
-          ln(`    ${v('beat')} = _flux > ${threshold.toFixed(4)}f && _peak && _onset > ${(threshold * 0.45).toFixed(4)}f && _onset / _baseline > 1.1f && (${prefix}_lastBeat == 0 || _now - ${prefix}_lastBeat >= (uint32_t)_gap);`)
+          ln(`    bool _rising = _flux > ${prefix}_prevFlux;`)
+          ln(`    ${v('beat')} = _flux > ${threshold.toFixed(4)}f && _rising && _onset > ${(threshold * 0.45).toFixed(4)}f && _onset / _baseline > 1.1f && (${prefix}_lastBeat == 0 || _now - ${prefix}_lastBeat >= (uint32_t)_gap);`)
           ln(`    if (${v('beat')}) { if (${prefix}_lastBeat != 0) { float _interval = _now - ${prefix}_lastBeat; if (_interval >= 220.0f && _interval <= 1800.0f) ${v('bpm')} = ${v('bpm')} * 0.65f + (60000.0f / _interval) * 0.35f; } ${prefix}_lastBeat = _now; }`)
-          ln(`    ${prefix}_prevPrevFlux = ${prefix}_prevFlux; ${prefix}_prevFlux = _flux;`)
+          ln(`    ${prefix}_prevFlux = _flux;`)
           ln(`  }`)
           ln(`  for (int _i = 0; _i < 32; _i++) ${prefix}_prevSpectrum[_i] = _audioSpectrum[_i]; ${prefix}_ready = true;`)
         } else {
