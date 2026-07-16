@@ -59,6 +59,15 @@ describe('nodeLibrary', () => {
     expect(portColor('mystery')).toBe(portColor('float'))  // unknown → default
   })
 
+  it('HueCycle exposes a bounded cycles-per-second color source', () => {
+    const hueCycle = NODE_LIBRARY.find((n) => n.type === 'HueCycle')
+    expect(hueCycle?.category).toBe('color')
+    expect(hueCycle?.inputs.map((port) => port.id)).toEqual(['rate', 's', 'v'])
+    expect(hueCycle?.outputs).toEqual([{ id: 'color', label: 'Color', dataType: 'color' }])
+    expect(hueCycle?.defaultProperties).toEqual({ rate: 0.1, s: 1, v: 1 })
+    expect(propertyMeta('HueCycle', 'rate')).toMatchObject({ control: 'slider', min: 0, max: 4, step: 0.01 })
+  })
+
   it('BeatDetect sliders use a narrow, beat-friendly range', () => {
     expect(NODE_LIBRARY.find((n) => n.type === 'BeatDetect')?.defaultProperties).toMatchObject({
       threshold: 0.2,

@@ -3076,6 +3076,17 @@ describe('Saturation and RGBToHSV', () => {
     expect(outputs.get('cbu')!.frame).toBeNull()
   })
 
+  it('HueCycle traverses the hue wheel at the requested cycles-per-second rate', () => {
+    const cycle = node('hc', 'HueCycle', 'color', { rate: 0.25, s: 1, v: 1 })
+    const atStart = evaluateGraphFull([cycle], [], 0, W, H).outputs.get('hc')!.color
+    const atOneSecond = evaluateGraphFull([cycle], [], 60, W, H).outputs.get('hc')!.color
+    const afterFullCycle = evaluateGraphFull([cycle], [], 240, W, H).outputs.get('hc')!.color
+
+    expect(atStart).toEqual({ r: 255, g: 0, b: 0 })
+    expect(atOneSecond).toEqual({ r: 128, g: 255, b: 0 })
+    expect(afterFullCycle).toEqual(atStart)
+  })
+
   it('RGBToHSV extracts hue/sat/val from a connected color', () => {
     const c = node('rgbsrc', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })   // pure red
     const rh = node('rh', 'RGBToHSV', 'color', {})

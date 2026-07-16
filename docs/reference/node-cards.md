@@ -230,6 +230,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ## Color
 
+### Hue Cycle
+
+![Hue Cycle node](../../public/node-cards/hue-cycle.svg)
+
+![Hue Cycle example graph](../../public/node-cards/graphs/hue-cycle.svg)
+
 ### HSV → RGB
 
 ![HSV → RGB node](../../public/node-cards/hsv-to-rgb.svg)

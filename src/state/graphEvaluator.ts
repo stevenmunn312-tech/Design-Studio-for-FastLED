@@ -4594,6 +4594,14 @@ function createEvalNode(
       }
 
       // ── Color math ─────────────────────────────────────────────────────
+      case 'HueCycle': {
+        const rate = num(id, 'rate', props, 'rate', 0.1)
+        const s = num(id, 's', props, 's', 1)
+        const v = num(id, 'v', props, 'v', 1)
+        out = { color: hsv(t * rate * 360, s, v) }
+        break
+      }
+
       case 'HSVToRGB': {
         const h = num(id, 'h', props, 'h', 0)
         const s = num(id, 's', props, 's', 1)

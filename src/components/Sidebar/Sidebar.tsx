@@ -21,7 +21,7 @@ const RECENT_LIMIT = 8
 const BEGINNER_NODE_TYPES = new Set([
   'MicInput', 'FFTAnalyzer', 'BeatDetect',
   'Wave', 'Counter', 'Random', 'SampleHold',
-  'HSVToRGB', 'PaletteSelector',
+  'HueCycle', 'HSVToRGB', 'PaletteSelector',
   'SolidColor', 'Text', 'GradientFrame', 'Noise', 'Rainbow', 'Fire2012', 'SpectrumBars',
   'Brightness', 'Fade', 'HueShift', 'Trails', 'Blend', 'Transition',
   'PatternCollection', 'PatternMaster', 'PerformanceGenerator', 'SDCard',
@@ -37,6 +37,7 @@ const INTENT_TAGS: Record<string, string[]> = {
   Counter: ['motion', 'timing'],
   Random: ['variation', 'signal'],
   SampleHold: ['trigger', 'variation'],
+  HueCycle: ['color', 'motion'],
   PaletteSelector: ['color', 'palette'],
   SolidColor: ['color', 'base'],
   Text: ['text', 'display'],

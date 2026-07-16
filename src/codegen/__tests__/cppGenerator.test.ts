@@ -277,6 +277,24 @@ describe('generateCpp', () => {
     expect(cpp).toContain('200')
   })
 
+  it('emits a time-based HueCycle color in cycles per second', () => {
+    const hueCycle = node('hc', 'HueCycle', 'color', { rate: 0.25, s: 0.8, v: 0.7 })
+    const solid = node('sc', 'SolidColor', 'pattern')
+    const cpp = generateCpp(
+      [hueCycle, solid, outputNode],
+      [
+        edge('e1', 'hc', 'sc', 'color', 'color'),
+        edge('e2', 'sc', 'out', 'frame', 'frame'),
+      ],
+    )
+    expect(cpp).toContain('float t = millis() / 1000.0f;')
+    expect(cpp).toContain('fmodf(fmodf(t * (0.25), 1.0f) + 1.0f, 1.0f)')
+    expect(cpp).toContain('n_hc_color = CHSV((uint8_t)(_huePhase * 256.0f)')
+    expect(cpp).toContain('(0.8) * 255.0f')
+    expect(cpp).toContain('(0.7) * 255.0f')
+    expect(cpp).toContain('fill_solid(buf_sc, NUM_LEDS, n_hc_color);')
+  })
+
   it('emits BeatSin node with bpm/low/high', () => {
     const bs = node('b', 'BeatSin', 'math', { bpm: 120, low: 0, high: 1 })
     const cpp = generateCpp([bs, outputNode], [])

@@ -926,6 +926,14 @@ export function generateCpp(
         break
       }
 
+      case 'HueCycle': {
+        needsT.v = true
+        const rate = f('rate', 'rate', 0.1), s = f('s', 's', 1), val = f('v', 'v', 1)
+        ln(`  CRGB ${v('color')};`)
+        ln(`  { float _huePhase = fmodf(fmodf(t * (${rate}), 1.0f) + 1.0f, 1.0f); ${v('color')} = CHSV((uint8_t)(_huePhase * 256.0f), (uint8_t)((${s}) * 255.0f), (uint8_t)((${val}) * 255.0f)); }`)
+        break
+      }
+
       case 'HSVToRGB':
         ln(`  CRGB ${v('color')} = CHSV((uint8_t)((${f('h', 'h', 0)}) / 360.0f * 255), (uint8_t)((${f('s', 's', 1)}) * 255), (uint8_t)((${f('v', 'v', 1)}) * 255));`)
         break
@@ -1128,7 +1136,8 @@ export function generateCpp(
       case 'SolidColor': {
         const ob = ownBuf()
         const r = Number(p.r ?? 255), g = Number(p.g ?? 0), b = Number(p.b ?? 128)
-        ln(`  fill_solid(${ob}, NUM_LEDS, CRGB(${r}, ${g}, ${b}));`)
+        const color = incoming.has(`${node.id}:color`) ? colorExpr(node.id, 'color') : `CRGB(${r}, ${g}, ${b})`
+        ln(`  fill_solid(${ob}, NUM_LEDS, ${color});`)
         break
       }
 

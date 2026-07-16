@@ -1354,6 +1354,21 @@ export const NODE_LIBRARY: NodeDefinition[] = [
 
   // ── Color ──────────────────────────────────────────────────────────────
   {
+    // Free-running hue-wheel source. `rate` is full hue cycles per second;
+    // saturation/value stay available as animatable inputs for live shaping.
+    type: 'HueCycle',
+    label: 'Hue Cycle',
+    category: 'color',
+    subcategory: 'Colors',
+    inputs: [
+      { id: 'rate', label: 'Rate (cycles/s)', dataType: 'float' },
+      { id: 's', label: 'Saturation', dataType: 'float' },
+      { id: 'v', label: 'Value', dataType: 'float' },
+    ],
+    outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
+    defaultProperties: { rate: 0.1, s: 1, v: 1 },
+  },
+  {
     type: 'HSVToRGB',
     label: 'HSV → RGB',
     category: 'color',
@@ -2231,6 +2246,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Clock: 'BPM clock — phase/beat/bar/subdivision pulses; tap tempo, sync, and reset.',
   XYMapper: 'Converts (x, y) to a strip index.',
   // color
+  HueCycle: 'Cycles around the hue wheel at a rate measured in cycles per second.',
   GradientSampler: 'Samples a two-color gradient at t.',
   PaletteSampler: 'Samples a palette at t to a color.',
   HSVToRGB: 'Converts hue/sat/val to an RGB color.',
@@ -2624,6 +2640,9 @@ const N01: PropertyControl = { control: 'slider', min: 0, max: 1, step: 0.01 }
 // via speedRange.ts); the simulation patterns use a steps-per-second rate, and
 // `rate` is a 0–1 emission rate for Particles but a degrees/sec spin for Transform.
 export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyControl>> = {
+  HueCycle: {
+    rate: { control: 'slider', min: 0, max: 4, step: 0.01 },
+  },
   Circle: {
     cx: N01,
     cy: N01,

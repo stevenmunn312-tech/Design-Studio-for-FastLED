@@ -384,6 +384,7 @@ function selectedInputs(node: NodeDefinition): NodePort[] {
     FieldToFrame: ['field', 'paletteIn'],
     GradientSampler: ['t', 'colorA', 'colorB'],
     PaletteSampler: ['paletteIn', 't'],
+    HueCycle: [],
     HSVToRGB: ['h'],
     CHSV: ['hue'],
     Temperature: ['kelvin'],
