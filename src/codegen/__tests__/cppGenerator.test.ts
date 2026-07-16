@@ -1757,6 +1757,28 @@ describe('generateCpp — INMP441 audio engine', () => {
 
     expect(cpp).toContain('float _rawLevel=')
     expect(cpp).toContain('_rawLevel*(0.5f+_rawLevel*0.2f)')
+    // Drift is an integrated phase accumulator, not absolute t scaled by the
+    // level-dependent rate (which would jump on every vocals change).
+    expect(cpp).toContain('_vaPhase_aurora+=_vaDt_aurora')
+    expect(cpp).toContain('float _drift=_vaPhase_aurora;')
+    expect(cpp).not.toContain('float _drift=t*')
+  })
+
+  it('integrates audio-modulated drift phases in generated firmware', () => {
+    // Same accumulator pattern as VocalAurora for every node whose animation
+    // rate depends on a live audio level (see the matching evaluator test).
+    const cases: Array<[string, string[]]> = [
+      ['BeatKaleidoscope', ['_bkPhase_n1+=_bkDt_n1', 'float _rot=_bkPhase_n1']],
+      ['SpectraMosaic', ['_smPhase_n1+=_smDt_n1', 'float _phase=_cx*0.6f+_cy*0.9f+_smPhase_n1;']],
+      ['TurbulentBloom', ['_tbFast_n1+=_tbDt_n1', 'float _tFast=_tbFast_n1,_tSlow=_tbSlow_n1;']],
+      ['PrismStorm', ['_psPhase_n1+=_psDt_n1', 'float _drift=_psPhase_n1;']],
+      ['AudioFlow', ['_afPhase_n1+=_afDt_n1', 'float _flow=_afPhase_n1;']],
+    ]
+    for (const [type, expected] of cases) {
+      const gen = node('n1', type, 'pattern')
+      const cpp = generateCpp([gen, out], [edge('e1', 'n1', 'out', 'frame', 'frame')])
+      for (const snippet of expected) expect(cpp, type).toContain(snippet)
+    }
   })
 
   it('honours the selected I2S channel', () => {

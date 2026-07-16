@@ -150,6 +150,24 @@ interface RainRipplesState { ripples: (Ripple | null)[]; next: number; prevTrig:
 const rainRipplesState = new Map<string, RainRipplesState>()
 // PrismStorm — held shard orientation (degrees), snapped on a hihat rising edge.
 const prismOrientation = new Map<string, { v: number; prev: boolean }>()
+// Integrated audio-modulated drift phases (VocalAurora, BeatKaleidoscope,
+// SpectraMosaic, TurbulentBloom, PrismStorm, AudioFlow). These nodes animate
+// by a rate that depends on a live audio level, so the phase must be
+// integrated frame by frame: multiplying absolute t by the rate would
+// re-scale all accumulated time on every level fluctuation, jumping the
+// phase by t·Δrate (worse the longer the app runs). Terms that multiply t by
+// constants/props alone don't jump and stay un-integrated.
+interface DriftPhase { a: number; b: number; lastT: number }
+const driftPhase = new Map<string, DriftPhase>()
+function advanceDrift(key: string, t: number, rateA: number, rateB = 0): DriftPhase {
+  const state = driftPhase.get(key) ?? { a: 0, b: 0, lastT: t }
+  const dt = Math.min(0.25, Math.max(0, t - state.lastT))
+  state.a += dt * rateA
+  state.b += dt * rateB
+  state.lastT = t
+  driftPhase.set(key, state)
+  return state
+}
 
 // Per-pixel formula closure. Args are positional and shared by CustomFormula and
 // FieldFormula: x, y, cx, cy, r, angle, t, W, H, a, b, fieldIn, then the FastLED
@@ -330,7 +348,7 @@ export function pruneEvaluatorState(maxIdleMs = STATE_IDLE_TTL_MS, now = stateCl
     percussionLevels, audioFeatureLevels, particleState, patternShowState,
     rdState, golState, waveSimState, flowState, starState, boidState, sparkState, fire2012Heat,
     kickShockState, kaleidoPunch, percussionBlobsState, emberBurst,
-    rainRipplesState, prismOrientation,
+    rainRipplesState, prismOrientation, driftPhase,
   ]
   for (const key of stale) {
     for (const map of maps) map.delete(key)
@@ -1611,7 +1629,7 @@ function evalKickShock(
 // Vertical aurora-borealis curtains shaped by vocal presence; dims toward black
 // on silence.
 function evalVocalAurora(
-  vocals: number, energy: number, silence: boolean, speed: number, t: number,
+  key: string, vocals: number, energy: number, silence: boolean, speed: number, t: number,
   palette: Palette, W = DEFAULT_W, H = DEFAULT_H,
 ): Frame {
   const rawLevel = clamp01(vocals)
@@ -1621,7 +1639,7 @@ function evalVocalAurora(
   )
   const strength = clamp01(energy)
   const gate = silence ? 0 : 1
-  const drift = t * speed * (0.15 + level * 0.35)
+  const drift = advanceDrift(key, t, speed * (0.15 + level * 0.35)).a
   return buildFrame(W, H, (x, y) => {
     const ny = H > 1 ? y / (H - 1) : 0
     let curtain = 0
@@ -1651,7 +1669,7 @@ function evalBeatKaleidoscope(
 
   const strength = clamp01(energy)
   const wedges = 6 + Math.round(punch * 6)
-  const rot = t * speed * (0.15 + strength * 0.35) + punch * 0.8
+  const rot = advanceDrift(key, t, speed * (0.15 + strength * 0.35)).a + punch * 0.8
   const wedgeAngle = (Math.PI * 2) / wedges
   const cx = (W - 1) / 2, cy = (H - 1) / 2
   const maxD = Math.max(1e-6, Math.hypot(cx, cy))
@@ -1671,17 +1689,18 @@ function evalBeatKaleidoscope(
 
 // Tiled mosaic grid — bass/mids/treble sweep diagonally across the cells.
 function evalSpectraMosaic(
-  bass: number, mids: number, treble: number, energy: number, speed: number, tiles: number,
+  key: string, bass: number, mids: number, treble: number, energy: number, speed: number, tiles: number,
   t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H,
 ): Frame {
   const n = Math.max(2, Math.min(8, Math.round(tiles)))
   const strength = clamp01(energy)
   const cellW = W / n, cellH = H / n
+  const sweep = advanceDrift(key, t, speed * (0.4 + strength * 0.8)).a
   return buildFrame(W, H, (x, y) => {
     const cx = Math.floor(x / cellW), cy = Math.floor(y / cellH)
     const diag = (cx + cy) / (2 * Math.max(1, n - 1))
     const mix = bass * (1 - diag) + mids * 0.5 + treble * diag
-    const phase = cx * 0.6 + cy * 0.9 + t * speed * (0.4 + strength * 0.8)
+    const phase = cx * 0.6 + cy * 0.9 + sweep
     const shimmer = Math.sin(phase) * 0.5 + 0.5
     const v = Math.min(1, 0.15 + mix * 0.6 * strength + shimmer * 0.25)
     const c = samplePalette(palette, diag * 0.6 + mix * 0.3 + t * speed * 0.04)
@@ -1780,13 +1799,14 @@ function evalEmberPulse(
 // before evaluating the bloom — treble drives fine/fast jitter, mids the
 // slow/large-scale drift.
 function evalTurbulentBloom(
-  bass: number, mids: number, treble: number, energy: number, speed: number, t: number,
+  key: string, bass: number, mids: number, treble: number, energy: number, speed: number, t: number,
   palette: Palette, W = DEFAULT_W, H = DEFAULT_H,
 ): Frame {
   const strength = clamp01(energy)
   const trebleAmp = 0.15 + treble * 0.6, midsAmp = 0.3 + mids * 0.9
   const bassPulse = Math.min(1, 0.5 + bass * 0.9)
-  const tFast = t * speed * (1.5 + treble * 2), tSlow = t * speed * (0.3 + mids * 0.6)
+  const phases = advanceDrift(key, t, speed * (1.5 + treble * 2), speed * (0.3 + mids * 0.6))
+  const tFast = phases.a, tSlow = phases.b
 
   return buildFrame(W, H, (x, y) => {
     const cx = (x - (W - 1) / 2) / Math.max(1, W / 2)
@@ -1891,7 +1911,7 @@ function evalPrismStorm(
   held.prev = above
 
   const strength = clamp01(energy)
-  const drift = t * speed * (4 + mids * 8)
+  const drift = advanceDrift(key, t, speed * (4 + mids * 8)).a
   const omega = ((held.v + drift) * Math.PI) / 180
   const cosO = Math.cos(omega), sinO = Math.sin(omega)
   const freq = 0.8 + treble * 2.5
@@ -2599,8 +2619,8 @@ function evalPlasmaFractalField(speed: number, scale: number, t: number, W = DEF
 
 // Audio-reactive flow: a simplex band field scrolling at a speed set by mids,
 // brightness pulsed by bass, hue nudged by treble.
-function evalAudioFlow(bass: number, mids: number, treble: number, speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  const flow = t * speed * (0.2 + mids * 1.5)
+function evalAudioFlow(key: string, bass: number, mids: number, treble: number, speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const flow = advanceDrift(key, t, speed * (0.2 + mids * 1.5)).a
   // Random vertical drift: a slow noise wander (random up/down direction) whose
   // reach grows with treble/bass, so the field bobs vertically in time with the
   // music while `flow` scrolls it horizontally.
@@ -4507,7 +4527,7 @@ function createEvalNode(
         const silence = input(id, 'silence', false) as boolean
         const speed = num(id, 'speed', props, 'speed', 1)
         const palette = pal(id, 'paletteIn', props, 'palette', 'aurora')
-        out = { frame: evalVocalAurora(vocals, energy, silence, speed, t, palette, W, H) }
+        out = { frame: evalVocalAurora(stateKey(id), vocals, energy, silence, speed, t, palette, W, H) }
         break
       }
 
@@ -4529,7 +4549,7 @@ function createEvalNode(
         const speed = num(id, 'speed', props, 'speed', 1)
         const tiles = num(id, 'tiles', props, 'tiles', 4)
         const palette = pal(id, 'paletteIn', props, 'palette', 'peacock')
-        out = { frame: evalSpectraMosaic(bass, mids, treble, energy, speed, tiles, t, palette, W, H) }
+        out = { frame: evalSpectraMosaic(stateKey(id), bass, mids, treble, energy, speed, tiles, t, palette, W, H) }
         break
       }
 
@@ -4565,7 +4585,7 @@ function createEvalNode(
         const energy = num(id, 'energy', props, 'energy', 0.7)
         const speed = num(id, 'speed', props, 'speed', 1)
         const palette = pal(id, 'paletteIn', props, 'palette', 'deepsea')
-        out = { frame: evalTurbulentBloom(bass, mids, treble, energy, speed, t, palette, W, H) }
+        out = { frame: evalTurbulentBloom(stateKey(id), bass, mids, treble, energy, speed, t, palette, W, H) }
         break
       }
 
@@ -5046,7 +5066,7 @@ function createEvalNode(
         const speed = denormalizeAudioFlowParam('speed', num(id, 'speed', props, 'speed', 0.5))
         const scale = denormalizeAudioFlowParam('scale', num(id, 'scale', props, 'scale', 0.5))
         const palette = pal(id, 'paletteIn', props, 'palette', 'party')
-        out = { frame: evalAudioFlow(bass, mids, treble, speed, scale, t, palette, W, H) }
+        out = { frame: evalAudioFlow(stateKey(id), bass, mids, treble, speed, scale, t, palette, W, H) }
         break
       }
 

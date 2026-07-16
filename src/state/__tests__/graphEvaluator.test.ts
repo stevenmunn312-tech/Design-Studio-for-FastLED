@@ -282,6 +282,76 @@ describe('evaluateGraph', () => {
     expect(loud).toBeLessThan(220)
   })
 
+  it('VocalAurora integrates its drift phase instead of scaling absolute time', () => {
+    const graph = (id: string, vocals: number) => withOutput(node(id, 'VocalAurora', 'pattern', {
+      vocals, energy: 0.7, speed: 1, palette: 'aurora',
+    }))
+    // A fresh instance renders the same frame no matter how old the app clock
+    // is — with t-scaled drift, an hour-old clock would place the curtains
+    // wildly differently (and every vocals wiggle would jump them by t·Δrate).
+    const g1 = graph('aurEarly', 0.6)
+    const g2 = graph('aurLate', 0.6)
+    const early = evaluateGraph(g1.nodes, g1.edges, 0, W, H)!
+    const late = evaluateGraph(g2.nodes, g2.edges, 216000, W, H)!
+    expect(JSON.stringify(late)).toEqual(JSON.stringify(early))
+    // …while the phase still advances with elapsed time on a live instance.
+    for (let i = 1; i <= 40; i++) {
+      const g = graph('aurLate', 0.6)
+      evaluateGraph(g.nodes, g.edges, 216000 + i * 6, W, H)
+    }
+    const g3 = graph('aurLate', 0.6)
+    const advanced = evaluateGraph(g3.nodes, g3.edges, 216000 + 41 * 6, W, H)!
+    expect(JSON.stringify(advanced)).not.toEqual(JSON.stringify(late))
+  })
+
+  it('audio-modulated drift phases integrate instead of scaling absolute time', () => {
+    // Each node animates by a rate that depends on a live audio level. A tiny
+    // level wiggle between two consecutive frames must nudge the pattern, not
+    // teleport it — with t-scaled drift, the phase would jump by t·Δrate,
+    // which after 100 minutes on the app clock decorrelates the whole frame.
+    const W16 = 16, H16 = 16
+    const T0 = 360000 // ticks ≈ 100 minutes of app clock
+    const cases: Array<{ type: string; prop: string; base: number; step: number; props: Record<string, unknown> }> = [
+      { type: 'BeatKaleidoscope', prop: 'energy', base: 0.5, step: 0.05, props: { hue: 0, speed: 1 } },
+      { type: 'SpectraMosaic', prop: 'energy', base: 0.5, step: 0.05, props: { bass: 0.5, mids: 0.5, treble: 0.5, speed: 1, tiles: 4 } },
+      // TurbulentBloom's warp is steep, so run it slow with a tiny step — the
+      // t-scaled bug would still shift its noise phase by hundreds of units.
+      { type: 'TurbulentBloom', prop: 'treble', base: 0.5, step: 0.01, props: { bass: 0.5, mids: 0.5, energy: 0.7, speed: 0.1 } },
+      // PrismStorm's mids also zooms its shard field, so keep the spatial
+      // frequency low (treble 0) and the step tiny — the t-scaled bug would
+      // still spin the held orientation by ~96° on this step.
+      { type: 'PrismStorm', prop: 'mids', base: 0.5, step: 0.002, props: { treble: 0, hihat: 0, energy: 0.7, speed: 1 } },
+      { type: 'AudioFlow', prop: 'mids', base: 0.5, step: 0.02, props: { bass: 0.5, treble: 0.3, speed: 0.5, scale: 0.5 } },
+    ]
+    // PrismStorm seeds its held shard orientation from Math.random; pin it so
+    // the measured frame delta (palette-wrap pixels included) is deterministic.
+    const rnd = vi.spyOn(Math, 'random').mockReturnValue(0.42)
+    try {
+      for (const c of cases) {
+        const graph = (level: number) => withOutput(node(`drift-${c.type}`, c.type, 'pattern', { ...c.props, [c.prop]: level }))
+        const g1 = graph(c.base)
+        const before = evaluateGraph(g1.nodes, g1.edges, T0, W16, H16)!
+        const g2 = graph(c.base + c.step)
+        const after = evaluateGraph(g2.nodes, g2.edges, T0 + 1, W16, H16)!
+        // Mean absolute channel delta: an isolated pixel may sit on a palette
+        // wrap or pow() knife edge and legitimately flip, but the t-scaled bug
+        // decorrelates the whole frame, which no averaging can hide.
+        let sum = 0
+        for (let y = 0; y < H16; y++) {
+          for (let x = 0; x < W16; x++) {
+            sum += Math.abs(after[y][x].r - before[y][x].r)
+              + Math.abs(after[y][x].g - before[y][x].g)
+              + Math.abs(after[y][x].b - before[y][x].b)
+          }
+        }
+        const meanDelta = sum / (W16 * H16 * 3)
+        expect(meanDelta, `${c.type} jumped on a small ${c.prop} change`).toBeLessThan(8)
+      }
+    } finally {
+      rnd.mockRestore()
+    }
+  })
+
   it('renderParticleBurst spawns fading sparks within the burst lifetime', () => {
     const W = 8, H = 8
     const lit = (f: ReturnType<typeof renderParticleBurst>) =>
