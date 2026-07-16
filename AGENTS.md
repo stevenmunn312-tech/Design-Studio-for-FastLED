@@ -36,13 +36,6 @@ cortex / strict-git rules for this repository.**
 - Normal loop: code → `git commit -am "..."` → `git push`. If GitHub has new
   changes, `git pull` first.
 
-## Verifying UI changes — no preview tools
-
-**Do not use the preview/browser tools** to verify UI or visual changes in this
-repo. After making a change that would need visual verification, just tell the
-user what to check and ask them to verify it themselves in their own running
-dev server — do not launch or drive a preview session.
-
 ## Commands
 
 ```bash

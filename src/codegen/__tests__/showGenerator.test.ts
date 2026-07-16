@@ -322,11 +322,11 @@ describe('showGenerator', () => {
       expect(cpp).not.toContain('constrain(0.5f')         // not the placeholder
     })
 
-    it('keeps the placeholder (no engine) when there is no MicInput', () => {
+    it('keeps audio silent when there is no MicInput', () => {
       const cpp = generateShowSketch(showNodes(false), showEdges, audioGroups)
       expect(cpp).not.toContain('driver/i2s.h')
       expect(cpp).not.toContain('updateAudio()')
-      expect(cpp).toContain('constrain(0.5f')             // frozen placeholder
+      expect(cpp).toContain('constrain(0.0f')             // no invented hardware signal
     })
 
     it('binds exposed audio GroupInputs to host audio bands', () => {

@@ -1,9 +1,13 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render } from '@testing-library/react'
 import Sidebar from '../Sidebar'
 import { useGraphStore } from '../../../state/graphStore'
 import { usePatternLibrary } from '../../../state/patternLibrary'
 import { useUiStore } from '../../../state/uiStore'
+import { useAudioStore } from '../../../state/audioStore'
+
+const realStartAudio = useAudioStore.getState().startAudio
+const startAudio = vi.fn(async () => {})
 
 describe('Sidebar equipment rack', () => {
   beforeEach(() => {
@@ -13,8 +17,12 @@ describe('Sidebar equipment rack', () => {
     localStorage.removeItem('fastled-studio-sidebar-recent')
     useGraphStore.setState({ nodes: [], edges: [], selectedNodeId: null })
     usePatternLibrary.setState({ patterns: [] })
-    useUiStore.setState({ viewCenter: { x: 200, y: 180 }, draggingNodeType: null })
+    useUiStore.setState({ viewCenter: { x: 200, y: 180 }, draggingNodeType: null, testSignal: false })
+    startAudio.mockClear()
+    useAudioStore.setState({ startAudio })
   })
+
+  afterEach(() => useAudioStore.setState({ startAudio: realStartAudio }))
 
   it('labels modules with their primary output type', () => {
     const { getByRole, getByLabelText } = render(<Sidebar />)
@@ -68,17 +76,24 @@ describe('Sidebar equipment rack', () => {
     expect(getByLabelText('Add FFT Analyzer')).toBeTruthy()
   })
 
-  it('drops a curated recipe onto the canvas', () => {
+  it.each([
+    ['Live spectrum', ['MicInput', 'FFTAnalyzer', 'SpectrumBars', 'Trails', 'MatrixOutput']],
+    ['Beat colour jump', ['MicInput', 'BeatDetect', 'Random', 'SampleHold', 'PaletteSampler', 'SolidColor', 'MatrixOutput']],
+    ['Percussion trails', ['MicInput', 'PercussionDetect', 'KickShock', 'Trails', 'MatrixOutput']],
+  ])('drops the %s real-audio recipe onto the canvas', (title, expectedTypes) => {
+    useUiStore.setState({ testSignal: true })
     const { getByText } = render(<Sidebar />)
 
     // The graph is empty, so "Quick recipes" is already open by default
     // (see the "open Quick recipes when the graph is empty" behavior) —
     // clicking its header here would only toggle it closed.
-    fireEvent.click(getByText('Add trails'))
+    fireEvent.click(getByText(title))
 
     expect(useGraphStore.getState().nodes.map((node) => node.data.nodeType)).toEqual(
-      expect.arrayContaining(['BeatSin', 'Circle', 'Trails', 'MatrixOutput'])
+      expect.arrayContaining(expectedTypes)
     )
-    expect(useGraphStore.getState().edges).toHaveLength(4)
+    expect(useGraphStore.getState().edges).toHaveLength(6)
+    expect(useUiStore.getState().testSignal).toBe(false)
+    expect(startAudio).toHaveBeenCalledOnce()
   })
 })

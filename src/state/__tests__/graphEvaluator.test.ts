@@ -259,6 +259,29 @@ describe('evaluateGraph', () => {
     mockAudio.active = false
   })
 
+  it('VocalAurora softens the vocal envelope before driving the effect', () => {
+    const render = (vocals: number) => {
+      const { nodes, edges } = withOutput(node('aurora', 'VocalAurora', 'pattern', {
+        vocals,
+        energy: 0,
+        speed: 0,
+        palette: 'aurora',
+      }))
+      return evaluateGraph(nodes, edges, 0, W, H)!
+    }
+    const peak = (frame: Frame) => Math.max(...frame.flatMap((row) => row.map((pixel) => (
+      Math.max(pixel.r, pixel.g, pixel.b)
+    ))))
+
+    const quiet = peak(render(0))
+    const medium = peak(render(0.5))
+    const loud = peak(render(1))
+
+    expect(medium).toBeGreaterThan(quiet)
+    expect(loud).toBeGreaterThan(medium)
+    expect(loud).toBeLessThan(220)
+  })
+
   it('renderParticleBurst spawns fading sparks within the burst lifetime', () => {
     const W = 8, H = 8
     const lit = (f: ReturnType<typeof renderParticleBurst>) =>

@@ -64,7 +64,7 @@ export default function PreviewSpectrum({
     paintRef.current = paint
     paint()
 
-    // Live mic/media data arrives via the audio store; an active show override
+    // Live microphone data arrives via the audio store; an active show override
     // is painted by the prop effect below instead.
     let lastSpectrum: number[] | null = null
     return useAudioStore.subscribe((state) => {

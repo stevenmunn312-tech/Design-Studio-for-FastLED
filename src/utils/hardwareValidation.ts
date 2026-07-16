@@ -1,6 +1,7 @@
 import type { StudioEdge, StudioNode } from '../state/graphStore'
 import type { BackendHealth, CompileCheckResult } from './backendClient'
 import { boardByFqbn } from '../state/uploadStore'
+import { MIC_SAMPLE_RATE } from '../audio/micAnalysis'
 
 export type HardwareValidationAction =
   | 'normal-upload'
@@ -382,7 +383,7 @@ export function buildHardwareValidationProfile(options: {
     },
     peripherals: {
       microphone: mic
-        ? `WS ${Math.round(n(micProps.i2sWs, 39))} · SCK ${Math.round(n(micProps.i2sSck, 40))} · SD ${Math.round(n(micProps.i2sSd, 41))} · ${Math.round(n(micProps.sampleRate, 44100))} Hz · ${String(micProps.channel ?? 'Left')} channel`
+        ? `WS ${Math.round(n(micProps.i2sWs, 39))} · SCK ${Math.round(n(micProps.i2sSck, 40))} · SD ${Math.round(n(micProps.i2sSd, 41))} · ${MIC_SAMPLE_RATE} Hz · ${String(micProps.channel ?? 'Left')} channel`
         : null,
       sdCard: sd
         ? `CS ${Math.round(n(sdProps.sdCsPin, 10))} · I2S BCLK ${Math.round(n(sdProps.i2sBclk, 26))} · LRC ${Math.round(n(sdProps.i2sLrc, 25))} · DOUT ${Math.round(n(sdProps.i2sDout, 22))} · max volume ${Math.round(n(sdProps.maxVolume, 18))}`

@@ -1,6 +1,10 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
-import { BEAT_FLASH_ATTACK_MAX_SEC } from '../state/graphEvaluator'
+import {
+  BEAT_FLASH_ATTACK_MAX_SEC,
+  VOCAL_AURORA_MAX_INPUT_GAIN,
+  VOCAL_AURORA_MIN_INPUT_GAIN,
+} from '../state/graphEvaluator'
 import { asFont, textBlockLayout, textAlignMode, TEXT_LINE_GAP } from '../state/font'
 import { asAnimatedImage, asImage } from '../state/image'
 import { polineStops16, hexToRgb } from '../state/polinePalette'
@@ -8,6 +12,18 @@ import { customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCat
 import { audioFlowExpr } from '../state/audioFlowRange'
 import { SPEED_MAX, SCALE_MAX, NOISE_SPEED_MAX, NOISE_SCALE_MAX, rateCpp } from '../state/speedRange'
 import { denormalizeBeatParam, FLUX_GAIN } from '../audio/beatDetection'
+import {
+  MIC_DEFAULTS,
+  MIC_FFT_SIZE,
+  MIC_MAX_DB,
+  MIC_MAX_GAIN,
+  MIC_MIN_DB,
+  MIC_SAMPLE_RATE,
+  MIC_SPECTRUM_MAX_HZ,
+  MIC_SPECTRUM_MIN_HZ,
+  MIC_SPECTRUM_SMOOTHING,
+  MIC_THRESHOLD_RANGE,
+} from '../audio/micAnalysis'
 import { inputClampRange, bypassPort, CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, CORRECTION_OPTIONS, SPI_CHIPSETS, resolveNodeScalarExpressions } from '../state/nodeLibrary'
 import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledShims'
 import { particleRadius } from '../state/particleScale'
@@ -201,9 +217,13 @@ function audioEngineCpp(ws: number, sck: number, sd: number, channel: 'Left' | '
     `#define MIC_NOISE_THRESHOLD ${threshold.toFixed(3)}f`,
     `#define MIC_NOISE_ATTACK     ${attack.toFixed(3)}f`,
     `#define MIC_NOISE_DECAY      ${decay.toFixed(3)}f`,
+    `#define MIC_THRESHOLD_RANGE  ${MIC_THRESHOLD_RANGE.toFixed(3)}f`,
     `#define MIC_DEBUG ${serialDebug ? 1 : 0}   // print band levels to serial (~10×/sec)`,
-    '#define AUDIO_N   512        // FFT size (power of two)',
-    '#define AUDIO_SR  16000      // I2S sample rate (Hz)',
+    `#define AUDIO_N   ${MIC_FFT_SIZE}        // FFT size (power of two)`,
+    `#define AUDIO_SR  ${MIC_SAMPLE_RATE}      // fixed preview/firmware sample rate (Hz)`,
+    `#define AUDIO_MIN_DB ${MIC_MIN_DB.toFixed(1)}f`,
+    `#define AUDIO_MAX_DB ${MIC_MAX_DB.toFixed(1)}f`,
+    `#define AUDIO_SPECTRUM_SMOOTHING ${MIC_SPECTRUM_SMOOTHING.toFixed(3)}f`,
     'float _audioBass = 0, _audioMids = 0, _audioTreble = 0, _audioBpm = 120;',
     'bool  _audioBeat = false;',
     'static float _audioBeatFast = 0, _audioBeatSlow = 0, _audioBeatPrevFlux = 0;',
@@ -215,6 +235,8 @@ function audioEngineCpp(ws: number, sck: number, sd: number, channel: 'Left' | '
     'static float _bassFloor = 0.02f, _midsFloor = 0.02f, _trebleFloor = 0.02f;',
     'static float _bassSmooth = 0, _midsSmooth = 0, _trebleSmooth = 0;',
     'static float _aRe[AUDIO_N], _aIm[AUDIO_N];',
+    'static float _audioBinSmooth[AUDIO_N / 2];',
+    'static uint32_t _audioLastUpdateMs = 0;',
     '',
     '// In-place iterative radix-2 FFT (Cooley–Tukey).',
     'void _audioFFT(float* re, float* im, int n) {',
@@ -239,13 +261,19 @@ function audioEngineCpp(ws: number, sck: number, sd: number, channel: 'Left' | '
     '  }',
     '}',
     '',
-    'float _audioNoiseGate(float raw, float& floor, float& smooth) {',
-    '  floor = floor + (raw - floor) * (raw > floor ? 0.0025f : 0.03f);',
+    'float _audioElapsedAlpha(float coefficient, float dtFrames) {',
+    '  coefficient = constrain(coefficient, 0.0f, 1.0f);',
+    '  return 1.0f - powf(1.0f - coefficient, dtFrames);',
+    '}',
+    '',
+    'float _audioNoiseGate(float raw, float& floor, float& smooth, float dtFrames) {',
+    '  float floorFollow = _audioElapsedAlpha(raw > floor ? 0.0025f : 0.03f, dtFrames);',
+    '  floor = floor + (raw - floor) * floorFollow;',
     '  floor = constrain(floor, 0.0f, 1.0f);',
-    '  float gate = constrain(floor + MIC_NOISE_THRESHOLD, 0.0f, 1.0f);',
+    '  float gate = constrain(floor + MIC_NOISE_THRESHOLD * MIC_THRESHOLD_RANGE, 0.0f, 1.0f);',
     '  float span = 1.0f - gate; if (span < 0.0001f) span = 0.0001f;',
     '  float target = raw > gate ? constrain((raw - gate) / span, 0.0f, 1.0f) : 0.0f;',
-    '  float follow = target > smooth ? MIC_NOISE_ATTACK : MIC_NOISE_DECAY;',
+    '  float follow = _audioElapsedAlpha(target > smooth ? MIC_NOISE_ATTACK : MIC_NOISE_DECAY, dtFrames);',
     '  smooth = constrain(smooth + (target - smooth) * follow, 0.0f, 1.0f);',
     '  return smooth;',
     '}',
@@ -312,7 +340,8 @@ function audioEngineCpp(ws: number, sck: number, sd: number, channel: 'Left' | '
     '}',
     '#endif',
     '',
-    '// Read one block from the mic, FFT it, split into bass/mid/treble bands.',
+    '// Read one block from the mic and map its FFT to the same normalized dB',
+    '// spectrum used by the browser preview.',
     'void updateAudio() {',
     '  static int32_t raw[AUDIO_N];',
     '  size_t bytesRead = 0;',
@@ -321,6 +350,9 @@ function audioEngineCpp(ws: number, sck: number, sd: number, channel: 'Left' | '
     '#else',
     '  i2s_read(I2S_NUM_0, raw, sizeof(raw), &bytesRead, 20 / portTICK_PERIOD_MS);',
     '#endif',
+    '  uint32_t audioNow = millis();',
+    '  float dtFrames = _audioLastUpdateMs > 0 ? constrain((float)(audioNow - _audioLastUpdateMs), 1.0f, 500.0f) / 16.667f : 1.0f;',
+    '  _audioLastUpdateMs = audioNow;',
     '  int got = bytesRead / sizeof(int32_t);',
     '  for (int i = 0; i < AUDIO_N; i++) {',
     '    float s = (i < got) ? (float)(raw[i] >> 8) / 8388608.0f : 0.0f;   // 24-bit sample',
@@ -329,43 +361,54 @@ function audioEngineCpp(ws: number, sck: number, sd: number, channel: 'Left' | '
     '  }',
     '  _audioFFT(_aRe, _aIm, AUDIO_N);',
     '  float binHz = (float)AUDIO_SR / AUDIO_N;',
-    '  float bass = 0, mids = 0, treble = 0; int nb = 0, nm = 0, nt = 0;',
+    '  float spectrumFollow = 1.0f - powf(AUDIO_SPECTRUM_SMOOTHING, dtFrames);',
     '  for (int i = 1; i < AUDIO_N / 2; i++) {',
     '    float mag = sqrtf(_aRe[i] * _aRe[i] + _aIm[i] * _aIm[i]);',
+    '    // Hann coherent gain is 0.5; 4/N converts a one-sided FFT bin back',
+    '    // to full-scale amplitude before applying the browser\'s dB window.',
+    '    float amplitude = max(0.00001f, mag * (4.0f / AUDIO_N));',
+    '    float db = 20.0f * log10f(amplitude);',
+    '    float level = constrain((db - AUDIO_MIN_DB) / (AUDIO_MAX_DB - AUDIO_MIN_DB), 0.0f, 1.0f);',
+    '    _audioBinSmooth[i] += (level - _audioBinSmooth[i]) * spectrumFollow;',
+    '  }',
+    '  float bass = 0, mids = 0, treble = 0; int nb = 0, nm = 0, nt = 0;',
+    '  for (int i = 1; i < AUDIO_N / 2; i++) {',
     '    float hz = i * binHz;',
-    '    if (hz < 250)       { bass   += mag; nb++; }',
-    '    else if (hz < 2000) { mids   += mag; nm++; }',
-    '    else                { treble += mag; nt++; }',
+    '    if (hz < 250)       { bass   += _audioBinSmooth[i]; nb++; }',
+    '    else if (hz < 2000) { mids   += _audioBinSmooth[i]; nm++; }',
+    '    else                { treble += _audioBinSmooth[i]; nt++; }',
     '  }',
     '  if (nb) bass /= nb; if (nm) mids /= nm; if (nt) treble /= nt;',
-    '  static float mx = 0.0001f;                  // slow auto-gain (running peak)',
-    '  float peak = max(bass, max(mids, treble));',
-    '  if (MIC_AGC) {',
-    '    mx = (peak > mx) ? peak : (mx * 0.999f + peak * 0.001f);',
-    '    if (mx < 0.0001f) mx = 0.0001f;',
-    '  } else {',
-    '    mx = 1.0f;',
-    '  }',
-    '  float agcGain = MIC_GAIN * (MIC_AGC ? (1.0f / mx) : 1.0f);',
-    '  _audioBass   = _audioNoiseGate(constrain(bass   * agcGain, 0.0f, 1.0f), _bassFloor, _bassSmooth);',
-    '  _audioMids   = _audioNoiseGate(constrain(mids   * agcGain, 0.0f, 1.0f), _midsFloor, _midsSmooth);',
-    '  _audioTreble = _audioNoiseGate(constrain(treble * agcGain, 0.0f, 1.0f), _trebleFloor, _trebleSmooth);',
+    '  float spectrumRaw[32];',
     '  for (int band = 0; band < 32; band++) {',
     '    float t0 = (float)band / 32.0f;',
     '    float t1 = (float)(band + 1) / 32.0f;',
-    '    float hz0 = 30.0f * powf(12000.0f / 30.0f, t0);',
-    '    float hz1 = 30.0f * powf(12000.0f / 30.0f, t1);',
-    '    int startBin = max(1, (int)floorf(hz0 / binHz));',
-    '    int endBin = min(AUDIO_N / 2 - 1, max(startBin, (int)ceilf(hz1 / binHz)));',
+    `    float hz0 = ${MIC_SPECTRUM_MIN_HZ.toFixed(1)}f * powf(${MIC_SPECTRUM_MAX_HZ.toFixed(1)}f / ${MIC_SPECTRUM_MIN_HZ.toFixed(1)}f, t0);`,
+    `    float hz1 = ${MIC_SPECTRUM_MIN_HZ.toFixed(1)}f * powf(${MIC_SPECTRUM_MAX_HZ.toFixed(1)}f / ${MIC_SPECTRUM_MIN_HZ.toFixed(1)}f, t1);`,
+    '    int startBin = max(1, (int)ceilf(hz0 / binHz));',
+    '    int endBin = min(AUDIO_N / 2 - 1, max(startBin, (int)ceilf(hz1 / binHz) - 1));',
     '    float acc = 0.0f;',
     '    int count = 0;',
     '    for (int i = startBin; i <= endBin; i++) {',
-    '      float mag = sqrtf(_aRe[i] * _aRe[i] + _aIm[i] * _aIm[i]);',
-      '      acc += constrain(mag * agcGain, 0.0f, 1.0f);',
+    '      acc += _audioBinSmooth[i];',
     '      count++;',
     '    }',
-    '    _audioSpectrum[band] = count > 0 ? constrain(acc / count, 0.0f, 1.0f) : 0.0f;',
+    '    spectrumRaw[band] = count > 0 ? constrain(acc / count, 0.0f, 1.0f) : 0.0f;',
     '  }',
+    '  static float mx = 0.0001f;                  // slow auto-gain (running peak)',
+    '  float peak = max(bass, max(mids, treble));',
+    '  for (int band = 0; band < 32; band++) peak = max(peak, spectrumRaw[band]);',
+    '  if (MIC_AGC) {',
+    '    mx = max(peak, mx * powf(0.999f, dtFrames));',
+    '    if (mx < 0.0001f) mx = 0.0001f;',
+    '  } else {',
+    '    mx = 0.0001f;',
+    '  }',
+    '  float agcGain = MIC_GAIN * (MIC_AGC ? (1.0f / mx) : 1.0f);',
+    '  _audioBass   = _audioNoiseGate(constrain(bass   * agcGain, 0.0f, 1.0f), _bassFloor, _bassSmooth, dtFrames);',
+    '  _audioMids   = _audioNoiseGate(constrain(mids   * agcGain, 0.0f, 1.0f), _midsFloor, _midsSmooth, dtFrames);',
+    '  _audioTreble = _audioNoiseGate(constrain(treble * agcGain, 0.0f, 1.0f), _trebleFloor, _trebleSmooth, dtFrames);',
+    '  for (int band = 0; band < 32; band++) _audioSpectrum[band] = constrain(spectrumRaw[band] * agcGain, 0.0f, 1.0f);',
     '  _audioBeat = false;',
     '  if (_audioHavePrevSpectrum) {',
     '    float flux = 0.0f;',
@@ -577,7 +620,8 @@ export function audioEngineForGraph(nodes: StudioNode[]): { include: string; cod
     ].join('\n'),
     code: audioEngineCpp(
       ic(p.i2sWs, 39, 0, 48), ic(p.i2sSck, 40, 0, 48), ic(p.i2sSd, 41, 0, 48), channel,
-      fc(p.gain, 1, 0, 20), Boolean(p.agc), fc(p.threshold, 0.08, 0, 1), fc(p.attack, 0.2, 0, 1), fc(p.decay, 0.05, 0, 1),
+      fc(p.gain, MIC_DEFAULTS.gain, 0, MIC_MAX_GAIN), Boolean(p.agc ?? MIC_DEFAULTS.agc),
+      fc(p.threshold, MIC_DEFAULTS.threshold, 0, 1), fc(p.attack, MIC_DEFAULTS.attack, 0, 1), fc(p.decay, MIC_DEFAULTS.decay, 0, 1),
       p.serialDebug === true,
     ),
   }
@@ -988,9 +1032,9 @@ export function generateCpp(
         const tilt = Math.max(0, Math.min(1, Number(p.tilt ?? 0)))
         const midsGain = gain * (1 + tilt * 0.6)
         const trebleGain = gain * (1 + tilt * 1.8)
-        const bass = useAudioGlobals ? '_audioBass' : '0.5f'
-        const mids = useAudioGlobals ? '_audioMids' : '0.5f'
-        const treble = useAudioGlobals ? '_audioTreble' : '0.5f'
+        const bass = useAudioGlobals ? '_audioBass' : '0.0f'
+        const mids = useAudioGlobals ? '_audioMids' : '0.0f'
+        const treble = useAudioGlobals ? '_audioTreble' : '0.0f'
         if (!useAudioGlobals) ln(`  // FFTAnalyzer — add a Microphone node to drive these from the INMP441`)
         ln(`  float ${v('bass')}_target = constrain(${bass} * ${gain.toFixed(3)}f, 0.0f, 1.0f), ${v('mids')}_target = constrain(${mids} * ${midsGain.toFixed(3)}f, 0.0f, 1.0f), ${v('treble')}_target = constrain(${treble} * ${trebleGain.toFixed(3)}f, 0.0f, 1.0f);`)
         ln(`  static float ${v('bass')}_smooth = -1, ${v('mids')}_smooth = -1, ${v('treble')}_smooth = -1;`)
@@ -2051,7 +2095,8 @@ export function generateCpp(
         const speed = f('speed', 'speed', 1)
         const pal = paletteExpr(node.id, 'paletteIn', p)
         ln(`  { // VocalAurora`)
-        ln(`    float _level=min(1.0f,max(0.0f,${vocals})),_strength=min(1.0f,max(0.0f,${energy}));`)
+        ln(`    float _rawLevel=min(1.0f,max(0.0f,${vocals}));`)
+        ln(`    float _level=_rawLevel*(${VOCAL_AURORA_MIN_INPUT_GAIN.toFixed(1)}f+_rawLevel*${(VOCAL_AURORA_MAX_INPUT_GAIN - VOCAL_AURORA_MIN_INPUT_GAIN).toFixed(1)}f),_strength=min(1.0f,max(0.0f,${energy}));`)
         ln(`    float _gate=(${silence})?0.0f:1.0f;`)
         ln(`    float _drift=t*${speed}*(0.15f+_level*0.35f);`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)

@@ -1,18 +1,75 @@
-import { describe, expect, it } from 'vitest'
-import { averageFrequencyBand, logarithmicSpectrum, applyNoiseGate } from '../audioEngine'
+import { describe, expect, it, vi } from 'vitest'
+import { AudioEngine, averageFrequencyBand, logarithmicSpectrum, applyNoiseGate, MIC_CAPTURE_CONSTRAINTS } from '../audioEngine'
 import {
   createBeatDetectorState,
   denormalizeBeatParam,
   updateBeatDetectorFromSpectrum,
 } from '../beatDetection'
+import {
+  MIC_DEFAULTS,
+  MIC_SAMPLE_RATE,
+  MIC_SPECTRUM_MAX_HZ,
+  dbToNormalized,
+  fillNormalizedFft,
+} from '../micAnalysis'
 
 describe('audioEngine FFT helpers', () => {
+  it('requests a raw microphone signal without browser conferencing DSP', () => {
+    expect(MIC_CAPTURE_CONSTRAINTS).toEqual({
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+    })
+  })
+
+  it('discards a permission request that resolves after the microphone was stopped', async () => {
+    const original = navigator.mediaDevices
+    let resolveStream!: (stream: MediaStream) => void
+    const pending = new Promise<MediaStream>((resolve) => { resolveStream = resolve })
+    const stopTrack = vi.fn()
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia: vi.fn(() => pending) },
+    })
+    const engine = AudioEngine.instance
+    engine.stop()
+    try {
+      const starting = engine.start()
+      engine.stop()
+      resolveStream({ getTracks: () => [{ stop: stopTrack }] } as unknown as MediaStream)
+      await starting
+      expect(stopTrack).toHaveBeenCalledOnce()
+      expect(engine.active).toBe(false)
+    } finally {
+      engine.stop()
+      Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: original })
+    }
+  })
+
   it('selects bands using the actual sample rate', () => {
     const data = new Uint8Array(256)
     // 48 kHz / 512 = 93.75 Hz per bin; bin 2 is 187.5 Hz (bass).
     data[2] = 255
     expect(averageFrequencyBand(data, 48_000, 512, 30, 250)).toBeGreaterThan(0)
     expect(averageFrequencyBand(data, 48_000, 512, 250, 2_000)).toBe(0)
+  })
+
+  it('uses the same fixed dB window and sample rate as firmware', () => {
+    expect(MIC_SAMPLE_RATE).toBe(16_000)
+    expect(MIC_SPECTRUM_MAX_HZ).toBe(8_000)
+    expect(dbToNormalized(-100)).toBe(0)
+    expect(dbToNormalized(-65)).toBeCloseTo(0.5)
+    expect(dbToNormalized(-30)).toBe(1)
+  })
+
+  it('normalizes a Hann-windowed time-domain tone like firmware', () => {
+    const n = 512
+    const samples = Float32Array.from({ length: n }, (_, i) => 0.01 * Math.sin((2 * Math.PI * 8 * i) / n))
+    const re = new Float32Array(n), im = new Float32Array(n), spectrum = new Float32Array(n / 2)
+    fillNormalizedFft(samples, re, im, spectrum)
+    const peakBin = spectrum.indexOf(Math.max(...spectrum))
+    expect(peakBin).toBe(8)
+    expect(spectrum[peakBin]).toBeCloseTo(dbToNormalized(-40), 2)
   })
 
   it('builds a low-to-high logarithmic spectrum at the requested resolution', () => {
@@ -31,6 +88,18 @@ describe('audioEngine FFT helpers', () => {
     expect(loud.level).toBeGreaterThan(0.4)
   })
 
+  it('keeps gate timing stable across different update rates', () => {
+    const run = (fps: number) => {
+      let state = { floor: 0.02, level: 0 }
+      for (let i = 0; i < fps; i++) {
+        state = applyNoiseGate(0.5, state, MIC_DEFAULTS, 1000 / fps)
+      }
+      return state
+    }
+    expect(run(30).level).toBeCloseTo(run(60).level, 2)
+    expect(run(30).floor).toBeCloseTo(run(60).floor, 2)
+  })
+
   it('detects a beat from a rising spectral-flux peak and smooths BPM', () => {
     let state = createBeatDetectorState()
     state = updateBeatDetectorFromSpectrum([0.02, 0.01, 0, 0], 0, state).state
@@ -46,8 +115,8 @@ describe('audioEngine FFT helpers', () => {
   })
 
   // Regression for the "BeatDetect never fires" bug: simulate the actual
-  // runtime conditions — 32 log bands, 60 fps frames, AnalyserNode
-  // smoothingTimeConstant 0.75, per-band mic magnitudes well under 1 — and
+  // runtime conditions — 32 log bands, 60 fps frames, shared 0.75 spectrum
+  // smoothing, per-band mic magnitudes well under 1 — and
   // require the detector to catch essentially every kick at the BeatDetect
   // node's DEFAULT slider values. Before the fix (flux diluted across all 32
   // bands + a jitter-sensitive two-frame peak test) this fired 0 beats.
@@ -74,7 +143,7 @@ describe('audioEngine FFT helpers', () => {
       for (let f = 0; f < FPS * seconds; f++) {
         const ms = (f * 1000) / FPS
         const inst = signal(ms, prnd)
-        // AnalyserNode time smoothing (smoothingTimeConstant = 0.75).
+        // Shared preview/firmware spectrum smoothing (retain = 0.75).
         for (let i = 0; i < BANDS; i++) smoothed[i] = smoothed[i] * 0.75 + inst[i] * 0.25
         const r = updateBeatDetectorFromSpectrum(smoothed, ms, state, cfg)
         state = r.state

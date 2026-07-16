@@ -207,7 +207,9 @@ export default function MenuBar() {
       return
     }
     if (micActive) stopAudio()
-    else startAudio().catch(() => {})
+    else startAudio().catch(() => {
+      setStatus('Microphone could not start. Check browser permission and the selected audio input.', 'error')
+    })
   }
 
   const handleSaveJSON = () => {

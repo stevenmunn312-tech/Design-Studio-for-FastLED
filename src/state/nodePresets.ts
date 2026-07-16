@@ -54,6 +54,7 @@ const BLOCKED_KEYS = new Set([
   'previewHidden',
   'psramMode',
   'pullup',
+  // Legacy MicInput field; analysis is fixed at 16 kHz in preview + firmware.
   'sampleRate',
   'sdCsPin',
   'serialDebug',

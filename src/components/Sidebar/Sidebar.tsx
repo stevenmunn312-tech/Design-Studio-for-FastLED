@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { canAddNodeType, SINGLETON_NODE_TYPES, useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
+import { useAudioStore } from '../../state/audioStore'
 import { usePatternLibrary, importPatternFile, type SavedPattern } from '../../state/patternLibrary'
 import { NODE_LIBRARY, CATEGORIES, CATEGORY_ACCENT_VAR, NODE_DESCRIPTIONS, categoryNodes } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
@@ -71,66 +72,70 @@ interface RecipeCard {
 
 const RECIPE_CARDS: RecipeCard[] = [
   {
-    id: 'audio-to-brightness',
-    title: 'Audio to brightness',
-    kicker: 'Reactive chain',
-    description: 'Bass from the microphone drives a Brightness node over a live Noise pattern.',
+    id: 'live-spectrum',
+    title: 'Live spectrum',
+    kicker: 'Continuous response',
+    description: 'Real microphone bass, mids, and treble become mirrored spectrum bars with a readable trail.',
     actionLabel: 'Drop recipe',
     nodes: [
-      { key: 'mic', type: 'MicInput', dx: -320, dy: -120 },
-      { key: 'fft', type: 'FFTAnalyzer', dx: -120, dy: -120 },
-      { key: 'noise', type: 'Noise', dx: -320, dy: 40 },
-      { key: 'bright', type: 'BrightnessMod', dx: -80, dy: 40 },
-      { key: 'out', type: 'MatrixOutput', dx: 180, dy: 40 },
+      { key: 'mic', type: 'MicInput', dx: -400, dy: -80 },
+      { key: 'fft', type: 'FFTAnalyzer', dx: -180, dy: -80, props: { gain: 1.25, smoothing: 0.62, tilt: 0.25 } },
+      { key: 'bars', type: 'SpectrumBars', dx: 60, dy: -20, props: { energy: 0.85, speed: 0.65, palette: 'rainbow', mirror: true } },
+      { key: 'trails', type: 'Trails', dx: 300, dy: -20, props: { decay: 0.32 } },
+      { key: 'out', type: 'MatrixOutput', dx: 520, dy: -20 },
     ],
     edges: [
       { source: 'mic', sourceHandle: 'audio', target: 'fft', targetHandle: 'audio' },
-      { source: 'fft', sourceHandle: 'bass', target: 'bright', targetHandle: 'brightness' },
-      { source: 'noise', sourceHandle: 'frame', target: 'bright', targetHandle: 'frame' },
-      { source: 'bright', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+      { source: 'fft', sourceHandle: 'bass', target: 'bars', targetHandle: 'bass' },
+      { source: 'fft', sourceHandle: 'mids', target: 'bars', targetHandle: 'mids' },
+      { source: 'fft', sourceHandle: 'treble', target: 'bars', targetHandle: 'treble' },
+      { source: 'bars', sourceHandle: 'frame', target: 'trails', targetHandle: 'frame' },
+      { source: 'trails', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
     ],
   },
   {
-    id: 'beat-triggered-random',
-    title: 'Beat-triggered random',
-    kicker: 'Reactive modulation',
-    description: 'Each beat samples a fresh random value and uses it to shift the hue of a moving pattern.',
+    id: 'beat-colour-jump',
+    title: 'Beat colour jump',
+    kicker: 'Discrete events',
+    description: 'Each detected beat captures one random Party-palette colour and holds it until the next beat.',
     actionLabel: 'Drop recipe',
     nodes: [
-      { key: 'mic', type: 'MicInput', dx: -380, dy: -150 },
-      { key: 'beat', type: 'BeatDetect', dx: -170, dy: -150 },
-      { key: 'rand', type: 'Random', dx: -380, dy: 10 },
-      { key: 'hold', type: 'SampleHold', dx: -170, dy: 10 },
-      { key: 'noise', type: 'Noise', dx: -380, dy: 170 },
-      { key: 'hue', type: 'HueShift', dx: -130, dy: 170 },
-      { key: 'out', type: 'MatrixOutput', dx: 140, dy: 170 },
+      { key: 'mic', type: 'MicInput', dx: -440, dy: -140 },
+      { key: 'beat', type: 'BeatDetect', dx: -220, dy: -140 },
+      { key: 'rand', type: 'Random', dx: -440, dy: 40, props: { min: 0, max: 1 } },
+      { key: 'hold', type: 'SampleHold', dx: -220, dy: 40 },
+      { key: 'sample', type: 'PaletteSampler', dx: 20, dy: 40, props: { palette: 'party' } },
+      { key: 'solid', type: 'SolidColor', dx: 260, dy: 40 },
+      { key: 'out', type: 'MatrixOutput', dx: 500, dy: 40 },
     ],
     edges: [
       { source: 'mic', sourceHandle: 'audio', target: 'beat', targetHandle: 'audio' },
       { source: 'rand', sourceHandle: 'value', target: 'hold', targetHandle: 'value' },
       { source: 'beat', sourceHandle: 'beat', target: 'hold', targetHandle: 'trigger' },
-      { source: 'noise', sourceHandle: 'frame', target: 'hue', targetHandle: 'frame' },
-      { source: 'hold', sourceHandle: 'result', target: 'hue', targetHandle: 'shift' },
-      { source: 'hue', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+      { source: 'hold', sourceHandle: 'result', target: 'sample', targetHandle: 't' },
+      { source: 'sample', sourceHandle: 'color', target: 'solid', targetHandle: 'color' },
+      { source: 'solid', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
     ],
   },
   {
-    id: 'add-trails',
-    title: 'Add trails',
-    kicker: 'Motion enhancer',
-    description: 'A small dot orbits on BeatSin oscillators; Trails leaves a fading comet wake behind it.',
+    id: 'percussion-trails',
+    title: 'Percussion trails',
+    kicker: 'Separated transients',
+    description: 'Real kick, snare, and hi-hat energy launch distinct shockwaves that linger briefly as trails.',
     actionLabel: 'Drop recipe',
     nodes: [
-      { key: 'sinx', type: 'BeatSin', dx: -380, dy: -70, props: { bpm: 18, low: 0.15, high: 0.85 } },
-      { key: 'siny', type: 'BeatSin', dx: -380, dy: 70, props: { bpm: 13, low: 0.15, high: 0.85 } },
-      { key: 'circle', type: 'Circle', dx: -140, dy: 0, props: { radius: 2, thickness: 1 } },
-      { key: 'trails', type: 'Trails', dx: 80, dy: 0 },
-      { key: 'out', type: 'MatrixOutput', dx: 300, dy: 0 },
+      { key: 'mic', type: 'MicInput', dx: -420, dy: -80 },
+      { key: 'percussion', type: 'PercussionDetect', dx: -200, dy: -80, props: { sensitivity: 0.62, decay: 0.55, separation: 0.7 } },
+      { key: 'shock', type: 'KickShock', dx: 60, dy: -20, props: { palette: 'volcano', energy: 0.85, thickness: 1.25, spawnSpread: 0.25 } },
+      { key: 'trails', type: 'Trails', dx: 300, dy: -20, props: { decay: 0.36 } },
+      { key: 'out', type: 'MatrixOutput', dx: 520, dy: -20 },
     ],
     edges: [
-      { source: 'sinx', sourceHandle: 'value', target: 'circle', targetHandle: 'cx' },
-      { source: 'siny', sourceHandle: 'value', target: 'circle', targetHandle: 'cy' },
-      { source: 'circle', sourceHandle: 'frame', target: 'trails', targetHandle: 'frame' },
+      { source: 'mic', sourceHandle: 'audio', target: 'percussion', targetHandle: 'audio' },
+      { source: 'percussion', sourceHandle: 'kick', target: 'shock', targetHandle: 'kick' },
+      { source: 'percussion', sourceHandle: 'snare', target: 'shock', targetHandle: 'snare' },
+      { source: 'percussion', sourceHandle: 'hihat', target: 'shock', targetHandle: 'hihat' },
+      { source: 'shock', sourceHandle: 'frame', target: 'trails', targetHandle: 'frame' },
       { source: 'trails', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
     ],
   },
@@ -438,6 +443,8 @@ function Sidebar() {
   }
 
   const handleRecipeDrop = (recipe: RecipeCard) => {
+    const usesMicrophone = recipe.nodes.some((node) => node.type === 'MicInput')
+    if (usesMicrophone) useUiStore.setState({ testSignal: false })
     const existing = useGraphStore.getState().nodes
     const singletonByType = new Map(existing.map((node) => [String(node.data.nodeType), node]))
     const omittedSingletons = new Set<string>()
@@ -481,6 +488,11 @@ function Sidebar() {
       })
     }
     runTidy()
+    if (usesMicrophone) {
+      void useAudioStore.getState().startAudio().catch(() => {
+        setStatus('Microphone could not start. Check browser permission and the selected audio input.', 'error')
+      })
+    }
     setStatus(
       omittedSingletons.has('MatrixOutput')
         ? `${recipe.title} recipe added — wire it into your existing Matrix Output when ready`

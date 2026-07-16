@@ -712,7 +712,6 @@ export default function LEDPreview() {
   const preview3d = useUiStore((s) => s.preview3d)
   const previewStyle = useUiStore((s) => s.previewStyle)
   const micActive = useAudioStore((s) => s.micActive)
-  const attachAudioElement = useAudioStore((s) => s.attachAudioElement)
   const analyzingMusic = useMusicStore((s) => s.entries.some((entry) => entry.status === 'analyzing'))
   const effectivePreview3d = uiEffectsEnabled && preview3d
   const effectivePreviewStyle: PreviewStyle = uiEffectsEnabled ? previewStyle : 'standard'
@@ -1107,17 +1106,12 @@ export default function LEDPreview() {
     setMusicError(null)
   }
 
-  const onLoadedMetadata = async () => {
+  const onLoadedMetadata = () => {
     const player = playerRef.current
     if (!player) return
     player.volume = usePlayerTransport.getState().volume
     setMusicDuration(Number.isFinite(player.duration) ? player.duration : 0)
     setMusicReady(true)
-    try {
-      await attachAudioElement(player)
-    } catch {
-      setMusicError('This audio file could not be prepared for playback.')
-    }
     if (pendingPlayRef.current) {
       pendingPlayRef.current = false
       player.play().catch(() => setMusicError('This audio file could not be played in the browser.'))
@@ -1132,9 +1126,7 @@ export default function LEDPreview() {
       return
     }
     setMusicError(null)
-    attachAudioElement(player)
-      .then(() => player.play())
-      .catch(() => setMusicError('This audio file could not be played in the browser.'))
+    player.play().catch(() => setMusicError('This audio file could not be played in the browser.'))
   }
 
   // Prev restarts the current track when it's more than a moment in (or is the
@@ -1185,6 +1177,13 @@ export default function LEDPreview() {
       ? `${currentTrack.name}${tracks.length > 1 ? ` · ${trackIndex + 1}/${tracks.length}` : ''}`
       : 'Add local tracks, or preview a generated show'
   const progressPct = durationMs > 0 ? Math.max(0, Math.min(100, (positionMs / durationMs) * 100)) : 0
+
+  // The shared transport's `playing` flag also gates interaction sound effects.
+  // Publish local-player activity without turning the track into an analysis
+  // source: live graph audio continues to come exclusively from the microphone.
+  useEffect(() => {
+    if (!transport) usePlayerTransport.getState().setPos(musicCurrentTime * 1000, musicPlaying)
+  }, [transport, musicCurrentTime, musicPlaying])
 
   const onTogglePlay = () => (showMode ? transport.toggle() : toggleMusicPlayback())
   const onPrev = () => (showMode ? transport.prev() : prevTrack())

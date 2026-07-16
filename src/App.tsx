@@ -4,6 +4,7 @@ import { useGraphStore } from './state/graphStore'
 import { useAudioStore } from './state/audioStore'
 import { useShowPlayback } from './state/showPlayback'
 import { AudioEngine } from './audio/audioEngine'
+import { MIC_DEFAULTS } from './audio/micAnalysis'
 import MenuBar from './components/MenuBar/MenuBar'
 import Sidebar from './components/Sidebar/Sidebar'
 import NodeGraphCanvas from './components/Canvas/NodeGraphCanvas'
@@ -206,11 +207,11 @@ export default function App() {
     const engine = AudioEngine.instance
     if (!micNodeProps) return
     engine.configureMic({
-      gain: Number(micNodeProps.gain ?? 1),
-      agc: Boolean(micNodeProps.agc ?? false),
-      threshold: Number(micNodeProps.threshold ?? 0.08),
-      attack: Number(micNodeProps.attack ?? 0.2),
-      decay: Number(micNodeProps.decay ?? 0.05),
+      gain: Number(micNodeProps.gain ?? MIC_DEFAULTS.gain),
+      agc: Boolean(micNodeProps.agc ?? MIC_DEFAULTS.agc),
+      threshold: Number(micNodeProps.threshold ?? MIC_DEFAULTS.threshold),
+      attack: Number(micNodeProps.attack ?? MIC_DEFAULTS.attack),
+      decay: Number(micNodeProps.decay ?? MIC_DEFAULTS.decay),
     })
   }, [micNodeProps])
 
@@ -223,14 +224,16 @@ export default function App() {
     }
     if (hasMicNode) {
       hadMicNode.current = true
-      startAudio().catch(() => {})
+      startAudio().catch(() => {
+        setStatus('Microphone could not start. Check browser permission and the selected audio input.', 'error')
+      })
       return
     }
     if (hadMicNode.current) {
       hadMicNode.current = false
       stopAudio()
     }
-  }, [hasMicNode, showPreviewPlaying, startAudio, stopAudio])
+  }, [hasMicNode, showPreviewPlaying, startAudio, stopAudio, setStatus])
 
   useEffect(() => () => {
     if (hadMicNode.current) stopAudio()

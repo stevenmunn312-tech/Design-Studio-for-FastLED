@@ -25,7 +25,6 @@ function resample(values: number[], count: number): number[] {
 
 export default function FFTAnalyzerBody({ nodeId, bands }: Props) {
   const active = useAudioStore((s) => s.active)
-  const mode = useAudioStore((s) => s.mode)
   const wired = useGraphStore((s) => s.edges.some((e) => e.target === nodeId && e.targetHandle === 'audio'))
   const testSignal = useUiStore((s) => s.testSignal)
   const toggleTestSignal = useUiStore((s) => s.toggleTestSignal)
@@ -116,7 +115,7 @@ export default function FFTAnalyzerBody({ nodeId, bands }: Props) {
           Test {testSignal ? 'On' : 'Off'}
         </button>
         <div className={styles.status} data-active={nodeLive}>
-          <span />{nodeLive ? (mode === 'media' ? 'MEDIA LIVE' : 'MIC LIVE') : testSignal ? 'TEST SIGNAL' : 'SILENT'}
+          <span />{nodeLive ? 'MIC LIVE' : testSignal ? 'TEST SIGNAL' : 'SILENT'}
         </div>
       </div>
     </div>

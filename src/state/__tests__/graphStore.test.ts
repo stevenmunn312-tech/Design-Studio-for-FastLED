@@ -560,6 +560,13 @@ describe('graphStore — loadGraph normalization', () => {
     expect(dataOf('lib').category).toBe('show')
   })
 
+  it('removes the obsolete MicInput sample-rate property on load', () => {
+    const mic = node('mic', 'MicInput', { sampleRate: 44100, gain: 1 })
+    useGraphStore.getState().loadGraph([mic], [])
+    expect(dataOf('mic').properties).not.toHaveProperty('sampleRate')
+    expect(dataOf('mic').properties.gain).toBe(1)
+  })
+
   it('refreshes saved ports from the node library on load', () => {
     const perf = node('pg', 'PerformanceGenerator')
     perf.data.inputs = [

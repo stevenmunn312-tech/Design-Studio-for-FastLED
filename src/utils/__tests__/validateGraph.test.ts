@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, findPinConflicts, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
+import { validateGraph, findPinConflicts, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -16,6 +16,15 @@ function edge(id: string, source: string, target: string, th: string): StudioEdg
 }
 
 describe('validateGraph', () => {
+  it('blocks MicInput firmware on non-ESP32 boards', () => {
+    const nodes = [node('mic', 'MicInput')]
+    expect(findBoardCompatibilityErrors(nodes, 'arduino:avr:uno')).toEqual([
+      expect.stringMatching(/requires an ESP32-family board/),
+    ])
+    expect(findBoardCompatibilityErrors(nodes, 'esp32:esp32:esp32s3')).toEqual([])
+    expect(findBoardCompatibilityErrors([], 'arduino:avr:uno')).toEqual([])
+  })
+
   it('errors on empty graph', () => {
     const { errors } = validateGraph([], [])
     expect(errors).toContain('No nodes in graph')

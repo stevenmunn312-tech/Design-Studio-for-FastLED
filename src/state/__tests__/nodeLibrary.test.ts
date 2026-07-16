@@ -107,6 +107,8 @@ describe('nodeLibrary', () => {
       attack: 0.30,
       decay: 0.08,
     })
+    expect(mic?.defaultProperties).not.toHaveProperty('sampleRate')
+    expect(propertyMeta('MicInput', 'gain')).toMatchObject({ control: 'slider', min: 0, max: 20 })
   })
 
   it('AudioFlow exposes speed/scale as normalized animatable inputs', () => {

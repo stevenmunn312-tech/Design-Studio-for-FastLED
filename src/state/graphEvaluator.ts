@@ -28,6 +28,12 @@ export type Field = Float32Array
 const DEFAULT_W = 16
 const DEFAULT_H = 16
 
+// Vocal Aurora intentionally compresses its vocal envelope before that signal
+// drives brightness, motion, curtain width, and palette travel. Without this
+// soft curve, one input effectively gets amplified by four visual responses.
+export const VOCAL_AURORA_MIN_INPUT_GAIN = 0.5
+export const VOCAL_AURORA_MAX_INPUT_GAIN = 0.7
+
 function normalizedCenterAxis(value: number, size: number, extent: number, wrap: boolean): number {
   if (value > 1) return value
   if (wrap) return size * 0.5 - size + value * (size * 2)
@@ -1608,7 +1614,12 @@ function evalVocalAurora(
   vocals: number, energy: number, silence: boolean, speed: number, t: number,
   palette: Palette, W = DEFAULT_W, H = DEFAULT_H,
 ): Frame {
-  const level = clamp01(vocals), strength = clamp01(energy)
+  const rawLevel = clamp01(vocals)
+  const level = rawLevel * (
+    VOCAL_AURORA_MIN_INPUT_GAIN
+    + rawLevel * (VOCAL_AURORA_MAX_INPUT_GAIN - VOCAL_AURORA_MIN_INPUT_GAIN)
+  )
+  const strength = clamp01(energy)
   const gate = silence ? 0 : 1
   const drift = t * speed * (0.15 + level * 0.35)
   return buildFrame(W, H, (x, y) => {
@@ -3730,7 +3741,7 @@ function createEvalNode(
                 treble: (Math.sin(t * 5.3 + 2.0) + 1) / 2,
               }
             : { bass: 0, mids: 0, treble: 0 }
-        const gain = Math.max(0.25, Math.min(20, Number(props.gain ?? 1)))
+        const gain = Math.max(0.25, Math.min(4, Number(props.gain ?? 1)))
         // Early builds stored smoothing as an integer (default 3) but never
         // used it. Interpret that legacy value as quarters so saved graphs get
         // the intended 0.75 response instead of becoming almost frozen.

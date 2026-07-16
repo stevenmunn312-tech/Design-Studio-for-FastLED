@@ -1,10 +1,16 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, waitFor } from '@testing-library/react'
 import HelpModal from '../HelpModal'
 import { useUiStore } from '../../../state/uiStore'
+import { useGraphStore } from '../../../state/graphStore'
+import { useAudioStore } from '../../../state/audioStore'
+
+const realStartAudio = useAudioStore.getState().startAudio
+const startAudio = vi.fn(async () => {})
 
 describe('HelpModal session state', () => {
   beforeEach(() => {
+    useGraphStore.getState().loadGraph([], [])
     useUiStore.setState({
       helpOpen: true,
       helpTab: 'quickstart',
@@ -13,8 +19,13 @@ describe('HelpModal session state', () => {
         expandedCategory: 'input',
         selectedType: '',
       },
+      testSignal: false,
     })
+    startAudio.mockClear()
+    useAudioStore.setState({ startAudio })
   })
+
+  afterEach(() => useAudioStore.setState({ startAudio: realStartAudio }))
 
   it('reopens on the last selected top-level tab', () => {
     const first = render(<HelpModal />)
@@ -64,5 +75,24 @@ describe('HelpModal session state', () => {
     expect(view.getByRole('heading', { name: 'Add or spawn nodes' })).toBeTruthy()
     expect(view.getByRole('heading', { name: 'Copy, paste, duplicate, and delete' })).toBeTruthy()
     expect(view.getByRole('button', { name: /Using Nodes/ })).toBeTruthy()
+  })
+
+  it.each(['BeatDetect', 'SpectrumBars'])('forces real audio for the %s live example', (selectedType) => {
+    useUiStore.setState({
+      helpTab: 'nodes',
+      helpNodeReference: {
+        search: '',
+        expandedCategory: 'audio',
+        selectedType,
+      },
+      testSignal: true,
+    })
+    const view = render(<HelpModal />)
+
+    fireEvent.click(view.getByRole('button', { name: /Try it live/ }))
+
+    expect(useUiStore.getState().testSignal).toBe(false)
+    expect(useUiStore.getState().statusText).toMatch(/microphone starting/i)
+    expect(startAudio).toHaveBeenCalledOnce()
   })
 })

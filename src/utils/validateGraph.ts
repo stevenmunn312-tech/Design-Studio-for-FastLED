@@ -242,6 +242,12 @@ export function findMatrixLayoutErrors(nodes: StudioNode[]): string[] {
   return validateMatrixLayout(width, height, props).map((message) => `${label}: ${message}`)
 }
 
+export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: string): string[] {
+  if (!selectedFqbn || !nodes.some((node) => node.data.nodeType === 'MicInput')) return []
+  if (selectedFqbn.startsWith('esp32:')) return []
+  return ['Microphone firmware requires an ESP32-family board because INMP441 capture uses the ESP-IDF I2S driver']
+}
+
 export function findScalarExpressionErrors(nodes: StudioNode[]): string[] {
   const output = nodes.find((n) => n.data.nodeType === 'MatrixOutput')
   const outputProps = output?.data.properties as Record<string, unknown> | undefined

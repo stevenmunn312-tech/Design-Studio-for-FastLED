@@ -9,11 +9,29 @@ import { create } from 'zustand'
 
 const KEY = 'fastled-studio.node-defaults.v1'
 
+function sanitizeProperties(nodeType: string, properties: Record<string, unknown>): Record<string, unknown> {
+  const sanitized = { ...properties }
+  // Mic capture is fixed at the same 16 kHz used by generated firmware. Older
+  // Studio versions exposed a sample-rate field which never controlled either
+  // path, so do not let a saved personal default bring that misleading field
+  // back on newly created nodes.
+  if (nodeType === 'MicInput') delete sanitized.sampleRate
+  return sanitized
+}
+
 function load(): Record<string, Record<string, unknown>> {
   try {
     const raw = localStorage.getItem(KEY)
     const parsed = raw ? JSON.parse(raw) : {}
-    return parsed && typeof parsed === 'object' ? parsed : {}
+    if (!parsed || typeof parsed !== 'object') return {}
+    return Object.fromEntries(
+      Object.entries(parsed).map(([nodeType, properties]) => [
+        nodeType,
+        properties && typeof properties === 'object'
+          ? sanitizeProperties(nodeType, properties as Record<string, unknown>)
+          : {},
+      ])
+    )
   } catch {
     return {}
   }
@@ -38,7 +56,7 @@ export const useNodeDefaults = create<NodeDefaultsState>((set) => ({
 
   setDefault: (nodeType, properties) =>
     set((s) => {
-      const overrides = { ...s.overrides, [nodeType]: { ...properties } }
+      const overrides = { ...s.overrides, [nodeType]: sanitizeProperties(nodeType, properties) }
       persist(overrides)
       return { overrides }
     }),
@@ -63,5 +81,5 @@ export function resolveDefaultProperties(
   libraryDefault: Record<string, unknown> | undefined
 ): Record<string, unknown> {
   const override = useNodeDefaults.getState().overrides[nodeType]
-  return { ...(libraryDefault ?? {}), ...(override ?? {}) }
+  return sanitizeProperties(nodeType, { ...(libraryDefault ?? {}), ...(override ?? {}) })
 }

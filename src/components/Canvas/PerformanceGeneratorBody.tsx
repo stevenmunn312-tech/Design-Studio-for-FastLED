@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMusicStore } from '../../state/musicStore'
 import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
-import { useAudioStore } from '../../state/audioStore'
 import { useShowPlayback } from '../../state/showPlayback'
 import { usePlayerTransport } from '../../state/playerTransport'
 import { renderShowFrame, showStateAt, sectionAt } from '../../state/showPreview'
@@ -240,9 +239,6 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
     audio.play()
       .then(() => {
         setPlaying(true)
-        // Route the song through the AudioEngine so the main preview's
-        // spectrum analyzer reacts to it while the show plays.
-        useAudioStore.getState().attachAudioElement(audio).catch(() => {})
       })
       .catch(() => setPlaybackError('This audio file could not be played in the browser.'))
   }

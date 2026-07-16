@@ -523,7 +523,7 @@ function audioPatternExample(node: NodeDefinition): ReferenceLiveExample {
   return builder.finish(
     `Turn live audio into ${node.label}`,
     `Microphone fans out through ${analyzers.join(' and ') || 'the matching audio analyzer'}, whose distinct lanes feed ${node.label}. ${NODE_DESCRIPTIONS[node.type]}`,
-    `With Test Signal enabled, ${node.label} should already move. Live music will separate the motion by frequency, percussion, beat, or vocal energy according to the connected analyzer lanes.`,
+    `Allow microphone access and play audio nearby. ${node.label} should separate the motion by frequency, percussion, beat, or vocal energy according to the connected analyzer lanes.`,
   )
 }
 
@@ -899,7 +899,7 @@ export const MICROPHONE_LIVE_EXAMPLE = namedExample(
     { source: 'trails', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
   ],
   'Microphone feeds FFT Analyzer once; its three frequency lanes shape Spectrum Bars independently. Trails gives fast treble hits a readable tail before Matrix Output.',
-  'Test Signal should produce colourful moving bars immediately. Live audio will make bass feel broad, mids structured, and treble quick and bright.',
+  'Allow microphone access and play audio nearby. Live audio should make bass feel broad, mids structured, and treble quick and bright.',
 )
 
 export const BUTTON_LIVE_EXAMPLE = namedExample(
@@ -1014,7 +1014,7 @@ export const BEAT_DETECT_LIVE_EXAMPLE = namedExample(
     { source: 'solid', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
   ],
   'Beat Detect does not merely flash a stock frame: each beat tells Sample & Hold to capture one new Random value, which selects a stable Party-palette colour until the next hit.',
-  'With Test Signal on, the entire panel should jump to a new colour on each detected beat and hold that colour between beats.',
+  'With live audio playing nearby, the entire panel should jump to a new colour on each detected beat and hold that colour between beats.',
 )
 
 export const PERCUSSION_DETECT_LIVE_EXAMPLE = namedExample(

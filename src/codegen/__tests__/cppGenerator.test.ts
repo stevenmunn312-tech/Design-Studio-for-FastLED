@@ -1633,6 +1633,14 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('#define MIC_GAIN')
     expect(cpp).toContain('#define MIC_AGC   0')
     expect(cpp).toContain('#define MIC_NOISE_THRESHOLD')
+    expect(cpp).toContain('#define MIC_NOISE_THRESHOLD 0.100f')
+    expect(cpp).toContain('#define MIC_THRESHOLD_RANGE  0.250f')
+    expect(cpp).toContain('#define AUDIO_SR  16000')
+    expect(cpp).toContain('#define AUDIO_MIN_DB -100.0f')
+    expect(cpp).toContain('#define AUDIO_MAX_DB -30.0f')
+    expect(cpp).toContain('mag * (4.0f / AUDIO_N)')
+    expect(cpp).toContain('powf(8000.0f / 30.0f, t0)')
+    expect(cpp).not.toContain('powf(12000.0f / 30.0f')
     expect(cpp).toContain('float _audioNoiseGate(')
     expect(cpp).toContain('void _audioFFT(')
     expect(cpp).toContain('void setupAudio()')
@@ -1741,12 +1749,22 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('_energyTarget')
   })
 
+  it('softens VocalAurora input in generated firmware', () => {
+    const aurora = node('aurora', 'VocalAurora', 'pattern', { vocals: 1, energy: 0.7 })
+    const cpp = generateCpp([aurora, out], [
+      edge('e1', 'aurora', 'out', 'frame', 'frame'),
+    ])
+
+    expect(cpp).toContain('float _rawLevel=')
+    expect(cpp).toContain('_rawLevel*(0.5f+_rawLevel*0.2f)')
+  })
+
   it('honours the selected I2S channel', () => {
     expect(micGraph('Left')).toContain('I2S_CHANNEL_FMT_ONLY_LEFT')
     expect(micGraph('Right')).toContain('I2S_CHANNEL_FMT_ONLY_RIGHT')
   })
 
-  it('falls back to placeholder constants with no mic node', () => {
+  it('falls back to silence with no mic node', () => {
     const fft = node('fft', 'FFTAnalyzer', 'audio', {})
     const bp = node('bp', 'BassPulse', 'pattern', {})
     const cpp = generateCpp([fft, bp, out], [
@@ -1755,7 +1773,7 @@ describe('generateCpp — INMP441 audio engine', () => {
     ])
     expect(cpp).not.toContain('driver/i2s.h')
     expect(cpp).not.toContain('updateAudio()')
-    expect(cpp).toContain('constrain(0.5f * 1.000f')
+    expect(cpp).toContain('constrain(0.0f * 1.000f')
     expect(cpp).toContain('float n_fft_bass = n_fft_bass_smooth')
   })
 
@@ -1769,7 +1787,7 @@ describe('generateCpp — INMP441 audio engine', () => {
       edge('e3', 'bp', 'out', 'frame', 'frame'),
     ], {}, { externalAudio: true })
     expect(cpp).toContain('constrain(_audioBass * 1.000f')   // live global, not 0.5f
-    expect(cpp).not.toContain('constrain(0.5f * 1.000f')
+    expect(cpp).not.toContain('constrain(0.0f * 1.000f')
     expect(cpp).not.toContain('void updateAudio()')          // engine is the host's job
     expect(cpp).not.toContain('driver/i2s.h')
     expect(cpp).not.toContain('setupAudio();')

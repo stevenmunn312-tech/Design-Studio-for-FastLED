@@ -2,6 +2,7 @@ import { useDeferredValue } from 'react'
 import type { NodeCategory, NodeDefinition } from '../../types'
 import { CATEGORIES, CATEGORY_COLOR, NODE_DESCRIPTIONS, NODE_LIBRARY, propertyGroupsFor, propertyMeta, portColor } from '../../state/nodeLibrary'
 import { useUiStore } from '../../state/uiStore'
+import { useAudioStore } from '../../state/audioStore'
 import { insertLiveExample } from '../../utils/insertLiveExample'
 import type { LiveExampleSpec } from '../../utils/insertLiveExample'
 import {
@@ -56,7 +57,6 @@ interface AudioArticleContent {
   liveExample: ReferenceLiveExample
   successMessage: string
   skippedMessage: string
-  enableTestSignal?: boolean
 }
 
 const AUDIO_ARTICLES: Record<string, AudioArticleContent> = {
@@ -75,12 +75,11 @@ const AUDIO_ARTICLES: Record<string, AudioArticleContent> = {
     exampleAlt: 'Placeholder for a tidy graph using Microphone, FFT Analyzer, Spectrum Bars, and Matrix Output',
     exampleExplanation: 'Microphone supplies the audio stream. FFT Analyzer extracts bass, mids, and treble levels; Spectrum Bars maps those three values into columns of colour and sends the rendered frame to Matrix Output.',
     previewTitle: 'What you should see',
-    previewDescription: 'Bass-heavy moments should lift the low-band bars, midrange content should fill the centre response, and bright transients should flick the treble side. With test signal enabled, the bars move even without microphone permission.',
+    previewDescription: 'Bass-heavy moments should lift the low-band bars, midrange content should fill the centre response, and bright transients should flick the treble side. Allow microphone access so the bars follow the real audio input.',
     previewAlt: 'Placeholder for the LED preview showing FFT-driven spectrum bars',
     liveExample: FFT_ANALYZER_LIVE_EXAMPLE,
-    successMessage: 'FFT Analyzer example added — test signal on',
+    successMessage: 'FFT Analyzer example added — microphone starting',
     skippedMessage: 'FFT Analyzer example added — Matrix Output is already in use; connect Spectrum Bars when ready',
-    enableTestSignal: true,
   },
   BeatDetect: {
     type: 'BeatDetect',
@@ -100,9 +99,8 @@ const AUDIO_ARTICLES: Record<string, AudioArticleContent> = {
     previewDescription: 'The base pattern should keep moving quietly, then punch brighter on detected beats. Raise Threshold if it fires too often, or lower it if the patch misses obvious hits.',
     previewAlt: 'Placeholder for the LED preview showing Beat Detect driving Beat Flash',
     liveExample: BEAT_DETECT_LIVE_EXAMPLE,
-    successMessage: 'Beat Detect example added — test signal on',
+    successMessage: 'Beat Detect example added — microphone starting',
     skippedMessage: 'Beat Detect example added — Matrix Output is already in use; connect Beat Flash when ready',
-    enableTestSignal: true,
   },
   PercussionDetect: {
     type: 'PercussionDetect',
@@ -122,9 +120,8 @@ const AUDIO_ARTICLES: Record<string, AudioArticleContent> = {
     previewDescription: 'Low hits should create heavier blobs, snares should add mid-sized accents, and hi-hats should sprinkle faster detail. If everything moves together, increase Separation or lower Sensitivity.',
     previewAlt: 'Placeholder for the LED preview showing Percussion Detect driving Percussion Blobs',
     liveExample: PERCUSSION_DETECT_LIVE_EXAMPLE,
-    successMessage: 'Percussion Detect example added — test signal on',
+    successMessage: 'Percussion Detect example added — microphone starting',
     skippedMessage: 'Percussion Detect example added — Matrix Output is already in use; connect Percussion Blobs when ready',
-    enableTestSignal: true,
   },
   AudioFeatures: {
     type: 'AudioFeatures',
@@ -144,9 +141,8 @@ const AUDIO_ARTICLES: Record<string, AudioArticleContent> = {
     previewDescription: 'Voice-like passages should lift the aurora into brighter curtains, energetic sections should intensify it, and quiet sections should settle back instead of staying fully lit.',
     previewAlt: 'Placeholder for the LED preview showing Audio Features driving Vocal Aurora',
     liveExample: AUDIO_FEATURES_LIVE_EXAMPLE,
-    successMessage: 'Audio Features example added — test signal on',
+    successMessage: 'Audio Features example added — microphone starting',
     skippedMessage: 'Audio Features example added — Matrix Output is already in use; connect Vocal Aurora when ready',
-    enableTestSignal: true,
   },
   AudioHue: {
     type: 'AudioHue',
@@ -166,9 +162,8 @@ const AUDIO_ARTICLES: Record<string, AudioArticleContent> = {
     previewDescription: 'The matrix should wash through different colours as the balance between bass, mids, and treble changes. Strong bass leans the hue one way, while brighter treble nudges it toward another part of the wheel.',
     previewAlt: 'Placeholder for the LED preview showing Audio to Hue driving a solid colour wash',
     liveExample: AUDIO_HUE_LIVE_EXAMPLE,
-    successMessage: 'Audio to Hue example added — test signal on',
+    successMessage: 'Audio to Hue example added — microphone starting',
     skippedMessage: 'Audio to Hue example added — Matrix Output is already in use; connect Solid Color when ready',
-    enableTestSignal: true,
   },
 }
 
@@ -1020,15 +1015,17 @@ function openLiveExample(
   options: {
     successMessage: string
     skippedMessage: string
-    enableTestSignal?: boolean
   },
 ) {
   const ui = useUiStore.getState()
+  const usesMicrophone = exampleUsesMicrophone(example)
   const result = insertLiveExample(example, ui.viewCenter)
   useUiStore.setState({
     helpOpen: false,
     previewPanelOpen: true,
-    ...(options.enableTestSignal ? { testSignal: true } : {}),
+    // Microphone examples must demonstrate the real input path, even if the
+    // user previously left the global FFT demo signal enabled.
+    ...(usesMicrophone ? { testSignal: false } : {}),
   })
   window.setTimeout(() => {
     useUiStore.getState().requestFitView(result.nodeIds)
@@ -1037,6 +1034,11 @@ function openLiveExample(
     (edge.target === 'out' || edge.target === 'target')
     && (edge.targetHandle === 'frame' || edge.targetHandle === 'sdcard'))
   ui.setStatus(matrixInputOccupied ? options.skippedMessage : options.successMessage, 'success')
+  if (usesMicrophone) {
+    void useAudioStore.getState().startAudio().catch(() => {
+      ui.setStatus('Microphone could not start. Check browser permission and the selected audio input.', 'error')
+    })
+  }
 }
 
 function AudioArticle({ node, content }: { node: NodeDefinition; content: AudioArticleContent }) {
@@ -1046,7 +1048,6 @@ function AudioArticle({ node, content }: { node: NodeDefinition; content: AudioA
     openLiveExample(content.liveExample, {
       successMessage: content.successMessage,
       skippedMessage: content.skippedMessage,
-      enableTestSignal: content.enableTestSignal,
     })
   }
   return (
@@ -1121,9 +1122,8 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
   const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
   const tryLive = () => {
     openLiveExample(MICROPHONE_LIVE_EXAMPLE, {
-      successMessage: 'Microphone example added — test signal on',
+      successMessage: 'Microphone example added — microphone starting',
       skippedMessage: 'Microphone example added — Matrix Output is already in use; connect Spectrum Bars when ready',
-      enableTestSignal: true,
     })
   }
   return (
@@ -1149,7 +1149,7 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
           <h2>Overview</h2>
           <p>The Microphone node is the starting point for audio-reactive patches. During editing it captures browser microphone audio; in generated firmware it reads an INMP441 over I2S.</p>
           <p>Its single <b>Audio</b> output carries the live signal to FFT Analyzer, Beat Detect, Percussion Detect, or any other audio-processing node.</p>
-          <p>Gain, AGC, threshold, attack, and decay tune the preview response. The I2S settings define the sample rate, pins, and left/right channel used on the ESP32.</p>
+          <p>Gain, AGC, threshold, attack, and decay tune both preview and firmware response. Preview and firmware use the same fixed 16 kHz analysis rate; the I2S settings define the pins and left/right channel used on the ESP32.</p>
         </section>
       </div>
 
@@ -1529,9 +1529,8 @@ function ReferenceArticle({ node }: { node: NodeDefinition }) {
   const usesMicrophone = exampleUsesMicrophone(liveExample)
   const tryLive = () => {
     openLiveExample(liveExample, {
-      successMessage: `${node.label} example added${usesMicrophone ? ' — test signal on' : ''}`,
+      successMessage: `${node.label} example added${usesMicrophone ? ' — microphone starting' : ''}`,
       skippedMessage: `${node.label} example added — Matrix Output is already in use; connect the final output when ready`,
-      enableTestSignal: usesMicrophone,
     })
   }
   return (

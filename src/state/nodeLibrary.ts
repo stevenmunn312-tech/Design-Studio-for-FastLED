@@ -2,6 +2,7 @@ import type { NodeDefinition } from '../types'
 import { STUDIO_PALETTES } from './paletteCatalog'
 import { DEFAULT_CUSTOM_COLORS, DEFAULT_CUSTOM_POSITIONS } from './customPalette'
 import { evaluateScalarExpression } from './scalarExpression'
+import { MIC_DEFAULTS, MIC_MAX_GAIN } from '../audio/micAnalysis'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   // ── Inputs ─────────────────────────────────────────────────────────────
@@ -11,16 +12,11 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'input',
     inputs: [],
     outputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
-    // gain/agc/threshold/attack/decay drive the browser preview's adaptive
-    // noise gate; the i2s* pins + channel drive the generated firmware's
-    // INMP441 I2S reader (ESP32). Defaults match a common ESP32-S3 wiring.
+    // gain/agc/threshold/attack/decay drive the same adaptive gate in the live
+    // preview and generated firmware; i2s* pins + channel configure the
+    // firmware's INMP441 reader (ESP32). Defaults match common ESP32-S3 wiring.
     defaultProperties: {
-      gain: 1.0,
-      agc: false,
-      threshold: 0.10,
-      attack: 0.30,
-      decay: 0.08,
-      sampleRate: 44100,
+      ...MIC_DEFAULTS,
       i2sWs: 39,
       i2sSck: 40,
       i2sSd: 41,
@@ -2820,6 +2816,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     falloff:   { control: 'slider', min: 0, max: 1, step: 0.01 },
     blendMode: { control: 'select', options: ['add', 'lighten', 'over'] },
   },
+  MicInput: {
+    gain:      { control: 'slider', min: 0, max: MIC_MAX_GAIN, step: 0.05 },
+  },
   FrameFeedback: {
     blendMode: { control: 'select', options: ['normal', 'screen', 'add', 'multiply', 'difference', 'lighten'] },
     offsetX:   { control: 'slider', min: -16, max: 16, step: 0.5 },
@@ -2969,7 +2968,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   MicInput: [
     { key: 'levels', label: 'Levels', keys: ['gain', 'agc', 'threshold', 'attack', 'decay'] },
-    { key: 'i2s', label: 'I2S Pins', keys: ['i2sWs', 'i2sSck', 'i2sSd', 'channel', 'sampleRate'] },
+    { key: 'i2s', label: 'I2S Pins', keys: ['i2sWs', 'i2sSck', 'i2sSd', 'channel'] },
     { key: 'debug', label: 'Debug', keys: ['serialDebug'] },
   ],
   Boids: [

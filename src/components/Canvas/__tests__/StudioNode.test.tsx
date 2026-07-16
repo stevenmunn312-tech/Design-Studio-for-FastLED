@@ -148,10 +148,9 @@ describe('StudioNode', () => {
     const { container } = renderNode(makeNode('MicInput', {
       gain: 1,
       agc: false,
-      threshold: 0.08,
-      attack: 0.2,
-      decay: 0.05,
-      sampleRate: 44100,
+      threshold: 0.10,
+      attack: 0.30,
+      decay: 0.08,
       i2sWs: 39,
       i2sSck: 40,
       i2sSd: 41,
@@ -267,7 +266,6 @@ describe('StudioNode', () => {
   it('keeps an unwired FFT Analyzer visually silent even when the mic is active', () => {
     useAudioStore.setState({
       active: true,
-      mode: 'mic',
       bass: 0.6,
       mids: 0.3,
       treble: 0.1,

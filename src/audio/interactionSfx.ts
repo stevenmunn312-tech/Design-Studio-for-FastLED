@@ -1,4 +1,3 @@
-import { useAudioStore } from '../state/audioStore'
 import { usePlayerTransport } from '../state/playerTransport'
 
 type AudioContextCtor = typeof AudioContext
@@ -36,8 +35,7 @@ function audioContextCtor(): AudioContextCtor | null {
 }
 
 function activeMediaPlayback(): boolean {
-  const audio = useAudioStore.getState()
-  return (audio.active && audio.mode === 'media') || usePlayerTransport.getState().playing
+  return usePlayerTransport.getState().playing
 }
 
 function masterLevel(): number {
