@@ -91,14 +91,14 @@ function validSliderValue(value: string, min: number, max: number, step: number)
 }
 
 function applyNodeSignal(
-  node: HTMLDivElement | null,
-  signal: { glow: string; softGlow: string; emissive: string; energy: number } | undefined
+  aura: HTMLSpanElement | null,
+  meter: HTMLSpanElement | null,
+  signal: { emissive: string; energy: number } | undefined
 ) {
-  if (!node) return
-  node.style.setProperty('--signal-glow', signal?.glow ?? 'transparent')
-  node.style.setProperty('--signal-soft-glow', signal?.softGlow ?? 'transparent')
-  node.style.setProperty('--signal-emissive', signal?.emissive ?? 'rgb(0 0 0)')
-  node.style.setProperty('--signal-energy', String(signal?.energy ?? 0))
+  const energy = String(signal?.energy ?? 0)
+  aura?.style.setProperty('--signal-emissive', signal?.emissive ?? 'rgb(0 0 0)')
+  aura?.style.setProperty('--signal-energy', energy)
+  meter?.style.setProperty('--signal-energy', energy)
 }
 
 function SliderProperty({
@@ -698,6 +698,8 @@ function incomingKeyFor(edges: StudioEdge[], nodeId: string): string {
 function StudioNode({ id, data, selected }: StudioNodeProps) {
   const d = data as StudioNodeData
   const nodeRef = useRef<HTMLDivElement>(null)
+  const signalAuraRef = useRef<HTMLSpanElement>(null)
+  const signalMeterRef = useRef<HTMLSpanElement>(null)
   const def = useMemo(() => NODE_LIBRARY.find((entry) => entry.type === d.nodeType), [d.nodeType])
   const sparkPortId = useUiStore((s) =>
     s.sparkPort?.nodeId === id ? (s.sparkPort?.portId ?? null) : null
@@ -895,12 +897,12 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
 
   useEffect(() => {
     if (!showLiveNodeVisuals || !signalKey) {
-      applyNodeSignal(nodeRef.current, undefined)
+      applyNodeSignal(signalAuraRef.current, signalMeterRef.current, undefined)
       return
     }
-    applyNodeSignal(nodeRef.current, usePreviewStore.getState().signals.get(signalKey))
+    applyNodeSignal(signalAuraRef.current, signalMeterRef.current, usePreviewStore.getState().signals.get(signalKey))
     return usePreviewStore.subscribe((state) => {
-      applyNodeSignal(nodeRef.current, state.signals.get(signalKey))
+      applyNodeSignal(signalAuraRef.current, signalMeterRef.current, state.signals.get(signalKey))
     })
   }, [showLiveNodeVisuals, signalKey])
 
@@ -913,13 +915,14 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         '--node-accent': accent,
       } as React.CSSProperties}
     >
+      <span ref={signalAuraRef} className={styles.signalAura} aria-hidden="true" />
       <div className={styles.header} style={{ background: accent }}>
         <span className={styles.headerTitle}>{nodeDisplayLabel(d.nodeType, props, d.label)}</span>
         <span className={styles.headerMeta}>
           <span className={styles.headerTag}>{categoryTag}</span>
           <span className={styles.headerCode}>{headerCode}-{nodeTag}</span>
           {showLiveNodeVisuals && (
-            <span className={styles.headerMeter} aria-hidden="true">
+            <span ref={signalMeterRef} className={styles.headerMeter} aria-hidden="true">
               <span style={{ opacity: 'clamp(0.2, calc(var(--signal-energy) * 1.5), 1)' }} />
               <span style={{ opacity: 'clamp(0.12, calc((var(--signal-energy) - 0.18) * 1.8), 1)' }} />
               <span style={{ opacity: 'clamp(0.08, calc((var(--signal-energy) - 0.42) * 2.1), 1)' }} />
