@@ -3,17 +3,26 @@ import {
   SPECTRUM_VISUALIZER_OPTIONS,
   SPECTRUM_VISUALIZER_STYLES,
   isSpectrumVisualizerMode,
+  nextSpectrumVisualizerMode,
   resampleSpectrum,
   spectrumVisualizerLabel,
 } from '../spectrumVisualizerModes'
 
 describe('spectrum visualizer modes', () => {
-  it('offers Auto plus five named visualizer styles', () => {
-    expect(SPECTRUM_VISUALIZER_STYLES).toEqual(['bars', 'mirror', 'ribbon', 'orbit', 'waterfall'])
+  it('offers Auto plus seven named visualizer styles', () => {
+    expect(SPECTRUM_VISUALIZER_STYLES).toEqual([
+      'bars', 'mirror', 'ribbon', 'orbit', 'waterfall', 'stacks', 'constellation',
+    ])
     expect(SPECTRUM_VISUALIZER_OPTIONS.map((option) => option.value)).toEqual([
-      'auto', 'bars', 'mirror', 'ribbon', 'orbit', 'waterfall',
+      'auto', 'bars', 'mirror', 'ribbon', 'orbit', 'waterfall', 'stacks', 'constellation',
     ])
     expect(spectrumVisualizerLabel('mirror')).toBe('Centre mirror')
+  })
+
+  it('cycles the Stage button through every option', () => {
+    expect(nextSpectrumVisualizerMode('bars')).toBe('mirror')
+    expect(nextSpectrumVisualizerMode('constellation')).toBe('auto')
+    expect(nextSpectrumVisualizerMode('auto')).toBe('bars')
   })
 
   it('validates persisted modes and rejects stale values', () => {

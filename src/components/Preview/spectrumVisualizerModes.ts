@@ -4,6 +4,8 @@ export const SPECTRUM_VISUALIZER_STYLES = [
   'ribbon',
   'orbit',
   'waterfall',
+  'stacks',
+  'constellation',
 ] as const
 
 export type SpectrumVisualizerStyle = (typeof SPECTRUM_VISUALIZER_STYLES)[number]
@@ -33,6 +35,8 @@ export const SPECTRUM_VISUALIZER_OPTIONS: ReadonlyArray<{
   { value: 'ribbon', label: 'Spectrum ribbon' },
   { value: 'orbit', label: 'Orbit' },
   { value: 'waterfall', label: 'Waterfall' },
+  { value: 'stacks', label: 'LED stacks' },
+  { value: 'constellation', label: 'Constellation' },
 ]
 
 export function isSpectrumVisualizerMode(value: unknown): value is SpectrumVisualizerMode {
@@ -41,4 +45,9 @@ export function isSpectrumVisualizerMode(value: unknown): value is SpectrumVisua
 
 export function spectrumVisualizerLabel(mode: SpectrumVisualizerMode): string {
   return SPECTRUM_VISUALIZER_OPTIONS.find((option) => option.value === mode)?.label ?? 'Classic bars'
+}
+
+export function nextSpectrumVisualizerMode(mode: SpectrumVisualizerMode): SpectrumVisualizerMode {
+  const index = SPECTRUM_VISUALIZER_OPTIONS.findIndex((option) => option.value === mode)
+  return SPECTRUM_VISUALIZER_OPTIONS[(index + 1) % SPECTRUM_VISUALIZER_OPTIONS.length].value
 }

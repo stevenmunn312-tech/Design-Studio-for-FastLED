@@ -2775,6 +2775,24 @@ export function generateCpp(
         break
       }
 
+      case 'PaletteSweep': {
+        needsT.v = true
+        const rate = f('rate', 'rate', 0.1)
+        const pal = paletteExpr(node.id, 'paletteIn', p)
+        const easing = String(p.easing ?? 'sine')
+        ln(`  float _psPhase_${id} = fmodf(fmodf(t * fmaxf(0.0f, (${rate})), 1.0f) + 1.0f, 1.0f);`)
+        ln(`  float _psPos_${id} = _psPhase_${id} < 0.5f ? _psPhase_${id} * 2.0f : (1.0f - _psPhase_${id}) * 2.0f;`)
+        if (easing === 'quad') {
+          ln(`  _psPos_${id} = _psPos_${id} < 0.5f ? 2.0f * _psPos_${id} * _psPos_${id} : 1.0f - powf(-2.0f * _psPos_${id} + 2.0f, 2.0f) / 2.0f;`)
+        } else if (easing === 'cubic') {
+          ln(`  _psPos_${id} = _psPos_${id} < 0.5f ? 4.0f * _psPos_${id} * _psPos_${id} * _psPos_${id} : 1.0f - powf(-2.0f * _psPos_${id} + 2.0f, 3.0f) / 2.0f;`)
+        } else if (easing !== 'linear') {
+          ln(`  _psPos_${id} = (1.0f - cosf(3.14159265f * _psPos_${id})) * 0.5f;`)
+        }
+        ln(`  CRGB ${v('color')} = ColorFromPalette(${pal}, (uint8_t)(_psPos_${id} * 255.0f));`)
+        break
+      }
+
       case 'Abs':
         ln(`  float ${v('result')} = fabs(${f('x', 'x', 0)});`)
         break

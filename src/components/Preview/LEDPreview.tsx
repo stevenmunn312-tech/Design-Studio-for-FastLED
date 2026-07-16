@@ -15,7 +15,10 @@ import { applyShowPlaybackSignal } from './showPlaybackSignal'
 import { isDiffusedStyle, previewStyleLabel, type PreviewStyle } from './previewStyles'
 import { graphConsumesAudio } from './previewAudioUsage'
 import PreviewSpectrum from './PreviewSpectrum'
-import { SPECTRUM_VISUALIZER_OPTIONS } from './spectrumVisualizerModes'
+import {
+  nextSpectrumVisualizerMode,
+  spectrumVisualizerLabel,
+} from './spectrumVisualizerModes'
 import DevPerformanceHud from './DevPerformanceHud'
 import { recordPerfFrame } from '../../dev/perfMonitor'
 import {
@@ -1281,23 +1284,24 @@ export default function LEDPreview() {
               <span className={styles.visualizerMeta}>
                 {audioVisualizerLive ? 'Live analysis bus' : showMode ? 'Show playback feed' : 'Idle transport'}
               </span>
-              <select
-                className={styles.visualizerSelect}
-                value={spectrumVisualizerMode}
-                onChange={(event) => setSpectrumVisualizerMode(event.target.value as typeof spectrumVisualizerMode)}
-                aria-label="Spectrum visualizer"
-                title="Choose the browser and Stage spectrum presentation"
-              >
-                {SPECTRUM_VISUALIZER_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
+              {stageMode && (
+                <button
+                  type="button"
+                  className={styles.visualizerToggle}
+                  onClick={() => setSpectrumVisualizerMode(nextSpectrumVisualizerMode(spectrumVisualizerMode))}
+                  aria-label={`Change spectrum visualizer. Current: ${spectrumVisualizerLabel(spectrumVisualizerMode)}`}
+                  title="Show the next Stage spectrum visualizer"
+                >
+                  <span>{spectrumVisualizerLabel(spectrumVisualizerMode)}</span>
+                  <i aria-hidden="true">↻</i>
+                </button>
+              )}
             </div>
           </div>
           <PreviewSpectrum
             audioVisualizerLive={audioVisualizerLive}
             spectrumOverride={playbackSpectrum}
-            mode={spectrumVisualizerMode}
+            mode={stageMode ? spectrumVisualizerMode : 'bars'}
           />
           <div className={styles.musicControls}>
             <div className={styles.transportHeader}>

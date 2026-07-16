@@ -11,6 +11,7 @@ import styles from './LEDPreview.module.css'
 
 const NUM_BANDS = 32
 const AUTO_CHANGE_MS = 14_000
+const STYLE_FADE_MS = 560
 const HISTORY_INTERVAL_MS = 70
 const HISTORY_DEPTH = 34
 
@@ -240,6 +241,117 @@ function drawWaterfall(
   ctx.shadowBlur = 0
 }
 
+function drawStacks(
+  ctx: CanvasRenderingContext2D,
+  values: readonly number[],
+  peaks: readonly number[],
+  width: number,
+  height: number,
+) {
+  const columns = Math.min(24, values.length)
+  const sampled = resampleSpectrum(values, columns)
+  const sampledPeaks = resampleSpectrum(peaks, columns)
+  const segments = 12
+  const cellW = width / columns
+  const gapX = Math.max(1.5, cellW * 0.18)
+  const segmentGap = Math.max(1.5, height * 0.012)
+  const segmentH = Math.max(2, (height - segmentGap * (segments + 1)) / segments)
+  for (let column = 0; column < columns; column++) {
+    const hue = bandHue(column, columns)
+    const active = Math.round(sampled[column] * segments)
+    const peak = Math.min(segments - 1, Math.round(sampledPeaks[column] * (segments - 1)))
+    for (let segment = 0; segment < segments; segment++) {
+      const x = column * cellW + gapX / 2
+      const y = height - segmentGap - (segment + 1) * (segmentH + segmentGap)
+      const lit = segment < active
+      const isPeak = segment === peak && sampledPeaks[column] > 0.02
+      ctx.fillStyle = lit || isPeak
+        ? `hsl(${hue + segment * 2.4} 100% ${isPeak ? 86 : 58}% / ${isPeak ? 1 : 0.88})`
+        : `hsl(${hue} 80% 36% / .075)`
+      ctx.shadowColor = `hsl(${hue} 100% 58% / ${lit || isPeak ? 0.55 : 0})`
+      ctx.shadowBlur = lit || isPeak ? 5 : 0
+      ctx.beginPath()
+      ctx.roundRect(x, y, Math.max(2, cellW - gapX), segmentH, 1.5)
+      ctx.fill()
+    }
+  }
+  ctx.shadowBlur = 0
+}
+
+function drawConstellation(
+  ctx: CanvasRenderingContext2D,
+  values: readonly number[],
+  peaks: readonly number[],
+  history: readonly number[][],
+  width: number,
+  height: number,
+) {
+  const floor = height - 5
+  const usable = Math.max(1, height - 14)
+  const xAt = (index: number) => (index / Math.max(1, values.length - 1)) * width
+  history.slice(1, 10).forEach((layer, ageIndex) => {
+    const alpha = 0.18 * (1 - ageIndex / 10)
+    layer.forEach((value, i) => {
+      ctx.fillStyle = `hsl(${bandHue(i, layer.length)} 100% 68% / ${alpha})`
+      ctx.beginPath()
+      ctx.arc(xAt(i), floor - value * usable + ageIndex * 1.4, 1, 0, Math.PI * 2)
+      ctx.fill()
+    })
+  })
+
+  ctx.beginPath()
+  values.forEach((value, i) => {
+    const x = xAt(i)
+    const y = floor - value * usable
+    if (i === 0) ctx.moveTo(x, y)
+    else ctx.lineTo(x, y)
+  })
+  const line = ctx.createLinearGradient(0, 0, width, 0)
+  line.addColorStop(0, 'rgba(78, 222, 255, .42)')
+  line.addColorStop(0.52, 'rgba(151, 105, 255, .5)')
+  line.addColorStop(1, 'rgba(255, 88, 190, .46)')
+  ctx.strokeStyle = line
+  ctx.lineWidth = 1
+  ctx.stroke()
+
+  values.forEach((value, i) => {
+    const hue = bandHue(i, values.length)
+    const x = xAt(i)
+    const y = floor - value * usable
+    drawPeakDot(ctx, x, y, 1.5 + value * 1.6, hue)
+    if (peaks[i] - value > 0.035) {
+      ctx.strokeStyle = `hsl(${hue} 100% 72% / .24)`
+      ctx.setLineDash([1, 3])
+      ctx.beginPath()
+      ctx.moveTo(x, y)
+      ctx.lineTo(x, floor - peaks[i] * usable)
+      ctx.stroke()
+      ctx.setLineDash([])
+      drawPeakDot(ctx, x, floor - peaks[i] * usable, 1.25, hue)
+    }
+  })
+}
+
+function drawStyle(
+  style: SpectrumVisualizerStyle,
+  ctx: CanvasRenderingContext2D,
+  values: readonly number[],
+  peaks: readonly number[],
+  history: readonly number[][],
+  width: number,
+  height: number,
+) {
+  switch (style) {
+    case 'mirror': drawMirror(ctx, values, peaks, width, height); break
+    case 'ribbon': drawRibbon(ctx, values, width, height); break
+    case 'orbit': drawOrbit(ctx, values, peaks, width, height); break
+    case 'waterfall': drawWaterfall(ctx, history, width, height); break
+    case 'stacks': drawStacks(ctx, values, peaks, width, height); break
+    case 'constellation': drawConstellation(ctx, values, peaks, history, width, height); break
+    default: drawBars(ctx, values, peaks, width, height)
+  }
+}
+
 /**
  * Browser/Stage spectrum display. It consumes the already-conditioned preview
  * spectrum and paints directly to canvas so microphone-rate updates do not
@@ -269,6 +381,13 @@ export default function PreviewSpectrum({
   const lastHistoryRef = useRef(0)
   const lastPaintRef = useRef(performance.now())
   const paintRef = useRef<() => void>(() => {})
+  const previousStyleRef = useRef(effectiveStyle)
+  const transitionRef = useRef<{
+    from: SpectrumVisualizerStyle
+    to: SpectrumVisualizerStyle
+    startedAt: number
+  } | null>(null)
+  const animationFrameRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (mode !== 'auto') return
@@ -325,12 +444,28 @@ export default function PreviewSpectrum({
       lastHistoryRef.current = now
     }
 
-    switch (styleRef.current) {
-      case 'mirror': drawMirror(ctx, values, peaks, width, height); break
-      case 'ribbon': drawRibbon(ctx, values, width, height); break
-      case 'orbit': drawOrbit(ctx, values, peaks, width, height); break
-      case 'waterfall': drawWaterfall(ctx, historyRef.current, width, height); break
-      default: drawBars(ctx, values, peaks, width, height)
+    const transition = transitionRef.current
+    if (transition) {
+      const progress = clamp01((now - transition.startedAt) / STYLE_FADE_MS)
+      const eased = progress * progress * (3 - 2 * progress)
+      ctx.save()
+      ctx.globalAlpha = 1 - eased
+      drawStyle(transition.from, ctx, values, peaks, historyRef.current, width, height)
+      ctx.restore()
+      ctx.save()
+      ctx.globalAlpha = eased
+      drawStyle(transition.to, ctx, values, peaks, historyRef.current, width, height)
+      ctx.restore()
+      if (progress < 1 && animationFrameRef.current === null) {
+        animationFrameRef.current = window.requestAnimationFrame(() => {
+          animationFrameRef.current = null
+          paintRef.current()
+        })
+      } else if (progress >= 1) {
+        transitionRef.current = null
+      }
+    } else {
+      drawStyle(styleRef.current, ctx, values, peaks, historyRef.current, width, height)
     }
   }, [])
   paintRef.current = paint
@@ -351,10 +486,19 @@ export default function PreviewSpectrum({
     return () => {
       observer.disconnect()
       unsubscribe()
+      if (animationFrameRef.current !== null) window.cancelAnimationFrame(animationFrameRef.current)
     }
   }, [])
 
   useEffect(() => {
+    if (previousStyleRef.current !== effectiveStyle) {
+      transitionRef.current = {
+        from: previousStyleRef.current,
+        to: effectiveStyle,
+        startedAt: performance.now(),
+      }
+      previousStyleRef.current = effectiveStyle
+    }
     paintRef.current()
   }, [audioVisualizerLive, spectrumOverride, effectiveStyle])
 

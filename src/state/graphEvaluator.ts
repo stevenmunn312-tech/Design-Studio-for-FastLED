@@ -499,6 +499,22 @@ function applyEase(type: string, x: number): number {
   }
 }
 
+/** Shape one 0→1 leg of a PaletteSweep. The ping-pong timing itself is
+ * handled by the node so every easing retains the requested round-trip rate. */
+function applySweepEase(type: string, x: number): number {
+  const t = Math.max(0, Math.min(1, x))
+  switch (type) {
+    case 'linear': return t
+    case 'quad':
+      return t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) ** 2) / 2
+    case 'cubic':
+      return t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2
+    case 'sine':
+    default:
+      return (1 - Math.cos(Math.PI * t)) / 2
+  }
+}
+
 // FastLED fill_rainbow: a scrolling hue sweep across the strip (hue in 0–255
 // units, +deltaHue per LED, animated by `start`). Index order matches the
 // buffer's [y*W+x] layout so the preview lines up with the firmware.
@@ -5237,6 +5253,16 @@ function createEvalNode(
         const tt = num(id, 't', props, 't', 0)
         const palName = pal(id, 'paletteIn', props, 'palette', 'rainbow')
         out = { color: samplePalette(palName, tt) }
+        break
+      }
+
+      case 'PaletteSweep': {
+        const rate = Math.max(0, num(id, 'rate', props, 'rate', 0.1))
+        const phase = ((t * rate) % 1 + 1) % 1
+        const pingPong = phase < 0.5 ? phase * 2 : (1 - phase) * 2
+        const position = applySweepEase(String(props.easing ?? 'sine'), pingPong)
+        const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
+        out = { color: samplePalette(palette, position) }
         break
       }
 

@@ -68,6 +68,18 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('HueCycle', 'rate')).toMatchObject({ control: 'slider', min: 0, max: 4, step: 0.01 })
   })
 
+  it('PaletteSweep bundles palette sampling, round-trip rate, and easing', () => {
+    const sweep = NODE_LIBRARY.find((n) => n.type === 'PaletteSweep')
+    expect(sweep?.category).toBe('color')
+    expect(sweep?.inputs.map((port) => port.id)).toEqual(['paletteIn', 'rate'])
+    expect(sweep?.outputs).toEqual([{ id: 'color', label: 'Color', dataType: 'color' }])
+    expect(sweep?.defaultProperties).toEqual({ palette: 'rainbow', rate: 0.1, easing: 'sine' })
+    expect(propertyMeta('PaletteSweep', 'rate')).toMatchObject({ control: 'slider', min: 0, max: 4, step: 0.01 })
+    expect(propertyMeta('PaletteSweep', 'easing')).toEqual({
+      control: 'select', options: ['linear', 'sine', 'quad', 'cubic'],
+    })
+  })
+
   it('BeatDetect sliders use a narrow, beat-friendly range', () => {
     expect(NODE_LIBRARY.find((n) => n.type === 'BeatDetect')?.defaultProperties).toMatchObject({
       threshold: 0.2,

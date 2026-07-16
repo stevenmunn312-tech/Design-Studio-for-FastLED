@@ -3340,6 +3340,32 @@ describe('Saturation and RGBToHSV', () => {
     expect(afterFullCycle).toEqual(atStart)
   })
 
+  it('PaletteSweep travels to the palette end and back at the requested rate', () => {
+    const sweep = node('palette-sweep', 'PaletteSweep', 'color', {
+      palette: 'heat', rate: 1, easing: 'linear',
+    })
+    const colorAt = (tick: number) => evaluateGraphFull([sweep], [], tick, W, H)
+      .outputs.get('palette-sweep')?.color as RGB
+
+    expect(colorAt(0)).toEqual(colorAt(60))
+    expect(colorAt(15)).toEqual(colorAt(45))
+    expect(colorAt(15)).not.toEqual(colorAt(0))
+    expect(colorAt(30)).toEqual(colorAt(0))
+  })
+
+  it('PaletteSweep easing shapes each leg while preserving its endpoints', () => {
+    const colorAt = (easing: string, tick: number) => {
+      const sweep = node(`palette-sweep-${easing}`, 'PaletteSweep', 'color', {
+        palette: 'heat', rate: 1, easing,
+      })
+      return evaluateGraphFull([sweep], [], tick, W, H).outputs.get(sweep.id)?.color as RGB
+    }
+
+    expect(colorAt('quad', 0)).toEqual(colorAt('linear', 0))
+    expect(colorAt('quad', 15)).toEqual(colorAt('linear', 15))
+    expect(colorAt('quad', 3.75)).not.toEqual(colorAt('linear', 3.75))
+  })
+
   it('RGBToHSV extracts hue/sat/val from a connected color', () => {
     const c = node('rgbsrc', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })   // pure red
     const rh = node('rh', 'RGBToHSV', 'color', {})

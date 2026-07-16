@@ -1092,6 +1092,20 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
     defaultProperties: { palette: 'rainbow', t: 0 },
   },
+  {
+    // Self-contained palette oscillator. `rate` is a complete start→end→start
+    // round trip per second; easing shapes each half without changing its period.
+    type: 'PaletteSweep',
+    label: 'Palette Sweep',
+    category: 'color',
+    subcategory: 'Palettes',
+    inputs: [
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'rate', label: 'Rate (cycles/s)', dataType: 'float' },
+    ],
+    outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
+    defaultProperties: { palette: 'rainbow', rate: 0.1, easing: 'sine' },
+  },
 
   // ── Math ───────────────────────────────────────────────────────────────
   {
@@ -2309,6 +2323,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   HueCycle: 'Cycles around the hue wheel at a rate measured in cycles per second.',
   GradientSampler: 'Samples a two-color gradient at t.',
   PaletteSampler: 'Samples a palette at t to a color.',
+  PaletteSweep: 'Sweeps back and forth through a palette at a set rate and easing.',
   HSVToRGB: 'Converts hue/sat/val to an RGB color.',
   RGBToHSV: 'Converts an RGB color to hue/sat/val.',
   BlendColors: 'Blends two colors by an amount.',
@@ -2585,6 +2600,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   mirrorMode:     { control: 'select', options: ['horizontal', 'vertical', 'quad', 'diagonal'] },
   glowAmount:     { control: 'slider', min: 0, max: 1, step: 0.01 },
   easeType:       { control: 'select', options: ['inOutCubic', 'inOutQuad', 'triwave', 'quadwave', 'cubicwave'] },
+  easing:         { control: 'select', options: ['linear', 'sine', 'quad', 'cubic'] },
   triggerOp:      { control: 'select', options: ['debounce', 'toggle', 'oneShot', 'pulseDivider', 'delay'] },
   feedbackTransform: { control: 'select', options: ['none', 'translate', 'rotate', 'scale'] },
   delayFrames:    { control: 'slider', min: 1, max: 32, step: 1 },
@@ -2704,6 +2720,9 @@ const N01: PropertyControl = { control: 'slider', min: 0, max: 1, step: 0.01 }
 // `rate` is a 0–1 emission rate for Particles but a degrees/sec spin for Transform.
 export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyControl>> = {
   HueCycle: {
+    rate: { control: 'slider', min: 0, max: 4, step: 0.01 },
+  },
+  PaletteSweep: {
     rate: { control: 'slider', min: 0, max: 4, step: 0.01 },
   },
   Circle: {

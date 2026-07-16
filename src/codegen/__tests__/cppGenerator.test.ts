@@ -704,6 +704,19 @@ describe('generateCpp', () => {
     expect(cpp).toContain('ColorFromPalette(ForestColors_p')
   })
 
+  it('generates a self-contained eased palette sweep', () => {
+    const sweep = node('ps', 'PaletteSweep', 'color', { palette: 'ocean', rate: 0.5, easing: 'cubic' })
+    const solid = node('solid', 'SolidColor', 'pattern')
+    const cpp = generateCpp([sweep, solid, outputNode], [
+      edge('e1', 'ps', 'solid', 'color', 'color'),
+      edge('e2', 'solid', 'out', 'frame', 'frame'),
+    ])
+
+    expect(cpp).toContain('fmodf(t * fmaxf(0.0f, (0.5')
+    expect(cpp).toContain('powf(-2.0f * _psPos_ps + 2.0f, 3.0f)')
+    expect(cpp).toContain('ColorFromPalette(OceanColors_p')
+  })
+
   it('inlines a group’s pattern code into the sketch', () => {
     const groups = {
       blue: {
