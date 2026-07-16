@@ -36,6 +36,8 @@ const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
 
 const CATEGORY_ORDER: NodeCategory[] = ['input', 'audio', 'signal', 'math', 'color', 'pattern', 'field', 'composite', 'show', 'output', 'note']
 
+const NODE_INTRO_TYPE = '__using_nodes__'
+
 const HIDDEN_PROPERTIES = new Set(['patternIds', 'patternSections'])
 
 interface AudioArticleContent {
@@ -1669,10 +1671,153 @@ function NodeArticle({ node }: { node: NodeDefinition }) {
   )
 }
 
+function Key({ children }: { children: React.ReactNode }) {
+  return <kbd className={styles.guideKey}>{children}</kbd>
+}
+
+function UsingNodesArticle() {
+  return (
+    <article className={`${styles.article} ${styles.usingNodesArticle}`} style={{ '--node-accent': '#5ad1ff' } as React.CSSProperties}>
+      <div className={styles.breadcrumb}>Node reference <span>/</span> Introduction</div>
+      <header className={styles.articleHeader}>
+        <div>
+          <div className={styles.eyebrow}><i style={{ background: '#5ad1ff' }} />Getting started</div>
+          <h1>Using Nodes</h1>
+          <p>Learn the everyday canvas moves: add and connect nodes, work with a multi-selection, copy or remove a patch, and keep larger graphs organised.</p>
+        </div>
+        <div className={styles.articleMeta}>Add · connect · edit · organise</div>
+      </header>
+
+      <section className={styles.nodeBasicsFlow} aria-label="Basic node flow">
+        <div className={styles.flowCard}>
+          <span className={styles.flowNumber}>1</span>
+          <b>Source</b>
+          <small>Make a signal, colour, palette, field, or frame.</small>
+        </div>
+        <span className={styles.flowArrow} aria-hidden="true">→</span>
+        <div className={styles.flowCard}>
+          <span className={styles.flowNumber}>2</span>
+          <b>Shape it</b>
+          <small>Wire values into patterns, math nodes, and effects.</small>
+        </div>
+        <span className={styles.flowArrow} aria-hidden="true">→</span>
+        <div className={styles.flowCard}>
+          <span className={styles.flowNumber}>3</span>
+          <b>Matrix Output</b>
+          <small>Send the final frame to preview, export, or hardware.</small>
+        </div>
+      </section>
+
+      <section className={styles.manualSection}>
+        <h2>Read a node</h2>
+        <div className={styles.guideGrid}>
+          <div className={styles.guideCard}>
+            <h3><span>●</span> Inputs and outputs</h3>
+            <p>Inputs are on the left and outputs are on the right. The port colour identifies its data type, so matching colours are a quick connection guide. Drag from an output to a compatible input to make a noodle.</p>
+          </div>
+          <div className={styles.guideCard}>
+            <h3><span>◫</span> Controls and preview</h3>
+            <p>Edit sliders, switches, and menus directly in the node. A wired input takes priority over its local value, so that editor becomes unavailable while connected. Frame, colour, and palette previews can be collapsed with their preview toggle.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.manualSection}>
+        <h2>Add or spawn nodes</h2>
+        <ol className={styles.guideSteps}>
+          <li><b>From the sidebar:</b> click a node card to add it near the centre of the current view, or drag the card onto the exact canvas position you want.</li>
+          <li><b>From the canvas:</b> press <Key>Tab</Key> to open search at the view centre, double-click empty canvas to search at the pointer, or right-click and choose <b>Add Node</b>.</li>
+          <li><b>From a connection:</b> drag an output noodle onto empty canvas. The picker shows compatible next nodes and auto-connects your choice. It can also offer a small bridge chain when the data types need converting.</li>
+          <li><b>Into an existing chain:</b> drop a compatible sidebar node—or drag a loose, unconnected node—onto a noodle to splice it between the two connected nodes.</li>
+          <li><b>For a head start:</b> use Quick recipes in the sidebar or <b>✦ Start</b> for a complete starter patch.</li>
+        </ol>
+      </section>
+
+      <section className={styles.manualSection}>
+        <h2>Select and move</h2>
+        <div className={styles.guideGrid}>
+          <div className={styles.guideCard}>
+            <h3>Single and multi-select</h3>
+            <p>Click a node to select it. Hold <Key>Shift</Key> while clicking to add or remove nodes from the selection, or hold <Key>Shift</Key> and drag on empty canvas to draw a selection box. <Key>Ctrl/Cmd</Key> + <Key>A</Key> selects every node; <Key>Esc</Key> clears the selection.</p>
+          </div>
+          <div className={styles.guideCard}>
+            <h3>Move and navigate</h3>
+            <p>Drag a selected node to move it; a multi-selection moves together. Drag empty background to pan and scroll or pinch to zoom. The MiniMap can jump the view to another part of a large graph.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.manualSection}>
+        <h2>Copy, paste, duplicate, and delete</h2>
+        <dl className={styles.actionList}>
+          <div>
+            <dt><Key>Ctrl/Cmd</Key> + <Key>C</Key></dt>
+            <dd>Copies the selected node or multi-selection. Connections whose two ends are both selected are copied with it.</dd>
+          </div>
+          <div>
+            <dt><Key>Ctrl/Cmd</Key> + <Key>V</Key></dt>
+            <dd>Pastes the copied patch near the centre of the current view and keeps its internal wiring intact.</dd>
+          </div>
+          <div>
+            <dt><Key>Ctrl/Cmd</Key> + <Key>D</Key></dt>
+            <dd>Quickly duplicates the focused node with a small offset. Use copy and paste when you want to duplicate a whole selection.</dd>
+          </div>
+          <div>
+            <dt><Key>Delete</Key> / <Key>Backspace</Key></dt>
+            <dd>Deletes every selected node and its attached noodles. You can also use <b>Delete</b> in a node menu or <b>Delete Selected</b> in the canvas menu.</dd>
+          </div>
+        </dl>
+        <p className={styles.guideCallout}><b>Mistake?</b> Use <Key>Ctrl/Cmd</Key> + <Key>Z</Key> to undo and <Key>Ctrl/Cmd</Key> + <Key>Y</Key> (or <Key>Ctrl/Cmd</Key> + <Key>Shift</Key> + <Key>Z</Key>) to redo.</p>
+      </section>
+
+      <section className={styles.manualSection}>
+        <h2>Wire and rewire</h2>
+        <div className={styles.guideGrid}>
+          <div className={styles.guideCard}>
+            <h3>Connect with typed ports</h3>
+            <p>Start at an output and release on a compatible input. Each input accepts one noodle; making a new connection to an occupied input replaces the old one. Hover a port to see its label and data type.</p>
+          </div>
+          <div className={styles.guideCard}>
+            <h3>Unplug or reroute</h3>
+            <p>Grab a connected input port and drag. Release on empty canvas to unplug it, or release on a compatible output to reroute it. Right-click a node and choose <b>Disconnect All</b> to remove every noodle attached to that node.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.manualSection}>
+        <h2>Organise and reuse</h2>
+        <div className={styles.guideGrid}>
+          <div className={styles.guideCard}>
+            <h3>Tidy the graph</h3>
+            <p>Use <b>▦ Tidy</b> in the top bar or <b>Tidy Graph</b> in the canvas menu. When two or more nodes are selected, only that selection is arranged; otherwise the whole graph is tidied.</p>
+          </div>
+          <div className={styles.guideCard}>
+            <h3>Make a reusable group</h3>
+            <p>Select a patch and press <Key>Ctrl/Cmd</Key> + <Key>G</Key>, use the floating <b>Group</b> button, or open a selected node's context menu. Double-click the finished Group to enter it and use <b>← Main</b> to return. Groups can be saved to <b>My Patterns</b>.</p>
+          </div>
+          <div className={styles.guideCard}>
+            <h3>Use the node menu</h3>
+            <p>Right-click a node for context actions such as Copy, Duplicate, Disconnect All, Group, presets, Randomize Look, Mutate, Reset, and Delete. The available actions depend on the node and selection.</p>
+          </div>
+          <div className={styles.guideCard}>
+            <h3>Test an effect safely</h3>
+            <p>Compatible frame and field effects expose <b>bypass</b> for quick A/B testing. Nodes with bounded float inputs may expose <b>clamp inputs</b> to keep wired signals in a safe range.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.manualSection}>
+        <h2>A reliable first patch</h2>
+        <p className={styles.guideCallout}>Add <b>Rainbow</b> and <b>Matrix Output</b>, then wire <b>Rainbow.frame → Matrix Output.frame</b>. Adjust Rainbow on the node, insert an effect by dropping it on the noodle, and use Tidy when the chain grows. This tiny patch exercises the same editing workflow as a full show.</p>
+      </section>
+    </article>
+  )
+}
+
 export default function NodeReference() {
   const helpNodeReference = useUiStore((state) => state.helpNodeReference)
   const setHelpNodeReference = useUiStore((state) => state.setHelpNodeReference)
-  const selectedType = helpNodeReference.selectedType || (NODE_LIBRARY[0]?.type ?? '')
+  const selectedType = helpNodeReference.selectedType
   const search = helpNodeReference.search
   const expandedCategory = helpNodeReference.expandedCategory
   const deferredSearch = useDeferredValue(search.trim().toLowerCase())
@@ -1680,7 +1825,10 @@ export default function NodeReference() {
   const orderedVisibleNodes = deferredSearch
     ? [...visibleNodes].sort((a, b) => searchRank(a, deferredSearch) - searchRank(b, deferredSearch) || a.label.localeCompare(b.label))
     : CATEGORY_ORDER.flatMap((group) => visibleNodes.filter((node) => node.category === group))
-  const selectedNode = orderedVisibleNodes.find((node) => node.type === selectedType) ?? orderedVisibleNodes[0]
+  const showingIntroduction = selectedType === '' || selectedType === NODE_INTRO_TYPE
+  const selectedNode = showingIntroduction
+    ? undefined
+    : orderedVisibleNodes.find((node) => node.type === selectedType) ?? orderedVisibleNodes[0]
   const categoryCounts = CATEGORY_ORDER.reduce<Record<string, number>>((acc, group) => {
     acc[group] = NODE_LIBRARY.filter((node) => node.category === group).length
     return acc
@@ -1711,6 +1859,18 @@ export default function NodeReference() {
           />
         </div>
         <nav className={styles.nodeIndex}>
+          <button
+            type="button"
+            className={`${styles.introIndexItem} ${showingIntroduction ? styles.introIndexItemActive : ''}`}
+            onClick={() => setHelpNodeReference({ selectedType: NODE_INTRO_TYPE })}
+          >
+            <span className={styles.introIndexGlyph}>◎</span>
+            <span className={styles.indexCopy}>
+              <span className={styles.indexTopline}><b>Using Nodes</b><code>START</code></span>
+              <small>Introduction</small>
+              <em>Add, select, wire, copy, group, and organise nodes.</em>
+            </span>
+          </button>
           {CATEGORY_ORDER.map((group) => {
             const nodes = orderedVisibleNodes.filter((node) => node.category === group)
             if (deferredSearch && nodes.length === 0) return null
@@ -1759,6 +1919,7 @@ export default function NodeReference() {
       </aside>
 
       <div className={styles.reader}>
+        {showingIntroduction && <UsingNodesArticle />}
         {selectedNode && <NodeArticle key={selectedNode.type} node={selectedNode} />}
       </div>
     </div>

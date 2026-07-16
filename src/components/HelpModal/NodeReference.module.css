@@ -74,6 +74,26 @@
   scrollbar-color: rgba(255,255,255,.28) rgba(255,255,255,.035);
   padding: 2px 8px 9px;
 }
+.introIndexItem {
+  --category-accent: #5ad1ff;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+  min-height: 64px;
+  margin: 0 0 9px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--category-accent) 20%, rgba(255,255,255,.045));
+  border-radius: 7px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--category-accent) 7%, transparent), transparent 70%);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+.introIndexItem:hover { border-color: color-mix(in srgb, var(--category-accent) 38%, transparent); background: color-mix(in srgb, var(--category-accent) 8%, rgba(255,255,255,.018)); }
+.introIndexItemActive { border-color: color-mix(in srgb, var(--category-accent) 50%, transparent); background: color-mix(in srgb, var(--category-accent) 12%, rgba(255,255,255,.025)); box-shadow: inset 2px 0 var(--category-accent); }
+.introIndexGlyph { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--category-accent) 42%, transparent); border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--category-accent) 18%, transparent), transparent 70%); color: var(--category-accent); font: 17px var(--font-code); }
 .indexItem {
   width: 100%;
   display: grid;
@@ -199,6 +219,49 @@
 .article h1 { margin: 7px 0 6px; font-family: var(--font-display); font-size: clamp(26px, 4vw, 36px); line-height: 1.05; letter-spacing: -.025em; }
 .articleHeader p { max-width: 570px; margin: 0; color: var(--text-secondary); font-size: 13px; line-height: 1.65; }
 .articleMeta { flex: 0 0 auto; color: var(--text-secondary); font: 10px var(--font-code); white-space: nowrap; }
+
+.usingNodesArticle { padding-bottom: 64px; }
+.nodeBasicsFlow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 28px 0 30px;
+}
+.flowCard {
+  position: relative;
+  min-height: 126px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  padding: 21px 18px 18px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--node-accent) 20%, rgba(255,255,255,.055));
+  border-radius: 8px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--node-accent) 8%, transparent), transparent 64%), rgba(255,255,255,.012);
+}
+.flowNumber { position: absolute; top: 10px; right: 12px; color: color-mix(in srgb, var(--node-accent) 42%, transparent); font: 700 25px var(--font-code); }
+.flowCard b { color: var(--text-primary); font-family: var(--font-display); font-size: 16px; }
+.flowCard small { color: var(--text-secondary); font-size: 11px; line-height: 1.55; }
+.flowArrow { color: var(--node-accent); font: 20px var(--font-code); opacity: .7; }
+
+.guideGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.guideCard { min-width: 0; padding: 16px 17px; border: 1px solid rgba(255,255,255,.065); border-radius: 7px; background: rgba(255,255,255,.012); }
+.guideCard h3 { margin: 0 0 8px; color: var(--text-primary); font-family: var(--font-display); font-size: 14px; }
+.guideCard h3 span { margin-right: 6px; color: var(--node-accent); }
+.guideCard p { margin: 0; color: var(--text-secondary); font-size: 11px; line-height: 1.7; }
+.guideSteps { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; counter-reset: guide-step; }
+.guideSteps li { position: relative; min-height: 38px; padding: 9px 12px 9px 45px; border-left: 2px solid color-mix(in srgb, var(--node-accent) 52%, transparent); background: color-mix(in srgb, var(--node-accent) 4%, rgba(255,255,255,.008)); color: var(--text-secondary); font-size: 11px; line-height: 1.65; counter-increment: guide-step; }
+.guideSteps li::before { content: counter(guide-step); position: absolute; left: 13px; top: 10px; width: 20px; height: 20px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--node-accent) 42%, transparent); border-radius: 50%; color: var(--node-accent); font: 700 8px var(--font-code); }
+.guideSteps b, .guideCallout b, .guideCard b { color: var(--text-primary); }
+.guideKey { display: inline-block; min-width: 22px; margin: 0 1px; padding: 2px 5px; border: 1px solid rgba(255,255,255,.16); border-bottom-color: rgba(255,255,255,.28); border-radius: 4px; background: rgba(255,255,255,.055); box-shadow: 0 1px 0 rgba(255,255,255,.08); color: var(--text-primary); font: 8px var(--font-code); text-align: center; white-space: nowrap; }
+.actionList { margin: 0; }
+.actionList > div { display: grid; grid-template-columns: minmax(160px, .55fr) minmax(0, 1.45fr); gap: 18px; align-items: baseline; padding: 11px 0; border-top: 1px solid rgba(255,255,255,.055); }
+.actionList > div:first-child { border-top: 0; }
+.actionList dt { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; color: var(--text-primary); font-weight: 700; }
+.actionList dd { margin: 0; color: var(--text-secondary); font-size: 11px; line-height: 1.65; }
+.guideCallout { margin: 14px 0 0; padding: 13px 15px; border: 1px solid color-mix(in srgb, var(--node-accent) 18%, rgba(255,255,255,.05)); border-left: 3px solid var(--node-accent); border-radius: 0 6px 6px 0; background: color-mix(in srgb, var(--node-accent) 5%, rgba(255,255,255,.01)); color: var(--text-secondary); font-size: 11px; line-height: 1.7; }
 
 .introGrid { display: grid; grid-template-columns: minmax(220px, .72fr) minmax(0, 1.28fr); gap: 30px; align-items: stretch; padding: 28px 0 30px; }
 .nodeCapture { margin: 0; display: flex; flex-direction: column; }
@@ -420,6 +483,8 @@
   .ioGrid { grid-template-columns: 1fr; }
   .propertyGroups { grid-template-columns: repeat(3, 1fr); }
   .previewSection { grid-template-columns: 1fr; }
+  .nodeBasicsFlow { grid-template-columns: 1fr; }
+  .flowArrow { justify-self: center; transform: rotate(90deg); }
 }
 
 @media (max-width: 620px) {
@@ -430,6 +495,8 @@
   .article { padding: 22px 18px 40px; }
   .directoryStats { display: none; }
   .propertyGroups { grid-template-columns: 1fr; }
+  .guideGrid { grid-template-columns: 1fr; }
+  .actionList > div { grid-template-columns: 1fr; gap: 7px; }
   .sectionHeading, .exampleExplanation { display: block; }
   .exampleHeadingActions { align-items: flex-start; flex-direction: column; margin-top: 8px; }
   .exampleHeadingActions > span { text-align: left; }

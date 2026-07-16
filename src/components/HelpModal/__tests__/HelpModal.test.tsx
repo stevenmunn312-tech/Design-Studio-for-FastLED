@@ -54,4 +54,15 @@ describe('HelpModal session state', () => {
     expect((second.getByLabelText('Find module') as HTMLInputElement).value).toBe('matrix output')
     expect(second.getByRole('heading', { name: 'Matrix Output' })).toBeTruthy()
   })
+
+  it('opens the node reference on a general node introduction', () => {
+    const view = render(<HelpModal />)
+
+    fireEvent.click(view.getByRole('tab', { name: 'Node Reference' }))
+
+    expect(view.getByRole('heading', { name: 'Using Nodes' })).toBeTruthy()
+    expect(view.getByRole('heading', { name: 'Add or spawn nodes' })).toBeTruthy()
+    expect(view.getByRole('heading', { name: 'Copy, paste, duplicate, and delete' })).toBeTruthy()
+    expect(view.getByRole('button', { name: /Using Nodes/ })).toBeTruthy()
+  })
 })
