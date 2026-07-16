@@ -76,3 +76,15 @@ PR before promoting it here:
 4. LED chipset, matrix size, and physical layout mode.
 5. Upload method used.
 6. What was actually verified on hardware.
+
+## Community beta reports
+
+The Matrix Output **Upload...** panel includes an opt-in **Beta hardware
+coverage** report. It compares the current target and graph features with the
+recorded rows above, requests explicit Pass/Fail/Not tested observations, shows
+the complete payload, and only then offers Copy, JSON download, or a pre-filled
+GitHub report. Nothing is submitted automatically, and the report excludes
+ports, project content, code, media, Wi-Fi details, and device identifiers.
+
+See [`beta-hardware-validation.md`](beta-hardware-validation.md) for the tester
+flow, maintainer triage rules, and the planned SD-show validation checklist.

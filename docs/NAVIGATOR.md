@@ -51,6 +51,9 @@ build/architecture overview aimed at contributors.
 - [Beta support matrix](release/beta-support-matrix.md)
   — the only combinations currently promoted from experimental to public-beta
     supported, plus the CI-only coverage and the validation gaps still to fill.
+- [Beta hardware validation](release/beta-hardware-validation.md)
+  — opt-in community evidence reports, privacy boundaries, maintainer triage,
+    and the SD-show hardware checklist.
 - [Supported platform policy](release/supported-platform-policy.md)
   — how support tiers map onto the beta matrix, desktop-only expectations, and
     how supported vs. experimental paths are triaged.

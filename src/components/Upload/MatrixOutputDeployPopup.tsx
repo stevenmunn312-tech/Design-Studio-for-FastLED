@@ -13,7 +13,13 @@ import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGe
 import { sdCardConnected, readySongCount, buildShowPayload } from '../../utils/showUpload'
 import { findPinConflicts, findMatrixLayoutErrors } from '../../utils/validateGraph'
 import { summarizeCapacity } from '../../utils/capacityFormat'
+import {
+  buildHardwareValidationProfile,
+  suggestedValidationAction,
+  type HardwareValidationAction,
+} from '../../utils/hardwareValidation'
 import CodeViewPopup from './CodeViewPopup'
+import HardwareValidationPopup from './HardwareValidationPopup'
 import styles from './Upload.module.css'
 
 type ReadinessState = 'ready' | 'checking' | 'missing'
@@ -24,6 +30,7 @@ const CAPACITY_LEVEL_CLASS = {
 
 export default function MatrixOutputDeployPopup() {
   const [readinessOpen, setReadinessOpen] = useState(false)
+  const [validationAction, setValidationAction] = useState<HardwareValidationAction | null>(null)
   const { nodes, edges } = useGraphStore()
   const entries = useMusicStore((s) => s.entries)
   const currentProjectId = useProjectStore((s) => s.currentProjectId)
@@ -82,6 +89,15 @@ export default function MatrixOutputDeployPopup() {
   ]
   const canBuild = hasFrameInput && blockingErrors.length === 0
   const canShowUpload = hasSdCardInput && blockingErrors.length === 0
+  const suggestedAction = useMemo(() => suggestedValidationAction(nodes, edges), [nodes, edges])
+  const validationProfile = useMemo(() => buildHardwareValidationProfile({
+    nodes,
+    edges,
+    selectedFqbn,
+    helper,
+    capacityResult,
+    action: suggestedAction,
+  }), [nodes, edges, selectedFqbn, helper, capacityResult, suggestedAction])
 
   const readiness = useMemo(() => {
     const helperRow = helper === undefined
@@ -216,18 +232,35 @@ export default function MatrixOutputDeployPopup() {
   const hasReadinessIssues = readinessIssues.length > 0
 
   const streamLayout = useMemo(() => streamLayoutForGraph(nodes), [nodes])
+  async function offerValidationAfter(action: HardwareValidationAction, operation: Promise<void> | void) {
+    await operation
+    if (useUploadStore.getState().status.phase !== 'done') return
+    const profile = buildHardwareValidationProfile({
+      nodes,
+      edges,
+      selectedFqbn,
+      helper,
+      capacityResult,
+      action,
+    })
+    if (profile.gaps.length > 0) setValidationAction(action)
+  }
+
   function handleFlashReceiver() {
     const sketch = generateStreamReceiverSketch(nodes)
     if (sketch) runUpload(sketch, usePsram ? psramChoice?.opt : undefined, { cache: false })
   }
   function handleFlashWiringTest() {
     const sketch = generateWiringDiagnosticSketch(nodes)
-    if (sketch) runUpload(sketch, undefined, { cache: false })
+    if (sketch) void offerValidationAfter('wiring-test', runUpload(sketch, undefined, { cache: false }))
   }
   function handleToggleStream() {
     if (streaming) { stopStreaming(); return }
     if (!selectedPort || !streamLayout) return
-    void startStreaming(selectedPort, streamLayout)
+    void (async () => {
+      await startStreaming(selectedPort, streamLayout)
+      if (useStreamStore.getState().streaming) setValidationAction('live-stream')
+    })()
   }
 
   const sdConnected = useMemo(() => sdCardConnected(nodes, edges), [nodes, edges])
@@ -236,7 +269,7 @@ export default function MatrixOutputDeployPopup() {
     void (async () => {
       if (!(await confirmUploadIfUntrusted())) return
       const payload = buildShowPayload(nodes, entries, getGroupRegistry())
-      if (payload) runShowUpload(payload)
+      if (payload) await offerValidationAfter('sd-show', runShowUpload(payload))
     })()
   }
 
@@ -253,8 +286,12 @@ export default function MatrixOutputDeployPopup() {
   function handleUpload() {
     void (async () => {
       if (!(await confirmUploadIfUntrusted())) return
-      runUpload(code, usePsram ? psramChoice?.opt : undefined)
+      await offerValidationAfter(suggestedAction, runUpload(code, usePsram ? psramChoice?.opt : undefined))
     })()
+  }
+
+  function handleLastUpload() {
+    void offerValidationAfter(suggestedAction, runLastUpload())
   }
   function handleExportIno() {
     void (async () => {
@@ -370,11 +407,25 @@ export default function MatrixOutputDeployPopup() {
           </div>
         )}
 
+        <div className={styles.validationCard}>
+          <div className={styles.validationCardText}>
+            <strong>Beta hardware coverage</strong>
+            <span>
+              {validationProfile.gaps.length > 0
+                ? `${validationProfile.gaps.length} missing test area${validationProfile.gaps.length === 1 ? '' : 's'} detected for this setup.`
+                : 'This setup matches a recorded path; repeat tests are still useful.'}
+            </span>
+          </div>
+          <button className={styles.validationCardButton} onClick={() => setValidationAction(suggestedAction)}>
+            Review tests…
+          </button>
+        </div>
+
         <div className={styles.deployActions}>
           <button
             className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
             disabled={busy || !hasLastSketch}
-            onClick={runLastUpload}
+            onClick={handleLastUpload}
             title={hasLastSketch ? 'Re-send the most recently uploaded sketch for this project without regenerating it' : 'Upload once to cache a quick re-upload target for this project'}
           >
             ↻ Re-upload last sketch
@@ -465,6 +516,17 @@ export default function MatrixOutputDeployPopup() {
 
         {streamError && <div className={styles.streamError}>{streamError}</div>}
         {codeViewOpen && <CodeViewPopup code={code} />}
+        {validationAction && (
+          <HardwareValidationPopup
+            nodes={nodes}
+            edges={edges}
+            selectedFqbn={selectedFqbn}
+            helper={helper}
+            capacityResult={capacityResult}
+            initialAction={validationAction}
+            onClose={() => setValidationAction(null)}
+          />
+        )}
       </div>
     </div>
   )

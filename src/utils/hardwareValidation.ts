@@ -62,8 +62,20 @@ export interface HardwareValidationProfile {
     tilesY: number | null
     tileSerpentine: boolean | null
     tileRotations: string | null
+    customMap: string | null
     psram: string | null
     supersample: boolean
+  }
+  peripherals: {
+    microphone: string | null
+    sdCard: string | null
+  }
+  show: {
+    patternCount: number
+    transitions: string[]
+    beatTrigger: boolean
+    particleOverlay: boolean
+    groupInputModulation: boolean
   }
   features: string[]
   capacity: {
@@ -122,6 +134,18 @@ function percent(result: CompileCheckResult | null | undefined, key: 'flash' | '
   return size ? `${size.percent}% (${size.usedBytes}/${size.limitBytes} bytes)` : 'not measured'
 }
 
+function customMapSummary(value: unknown): string {
+  const source = String(value ?? '').trim()
+  if (!source) return 'empty'
+  try {
+    const parsed = JSON.parse(source) as unknown
+    if (!Array.isArray(parsed)) return `non-array · map-${hashString(source)}`
+    return `${parsed.length} entries · map-${hashString(JSON.stringify(parsed))}`
+  } catch {
+    return `invalid JSON · map-${hashString(source)}`
+  }
+}
+
 export function validationActionLabel(action: HardwareValidationAction): string {
   return ACTION_LABELS[action]
 }
@@ -138,10 +162,11 @@ export function detectValidationRuntime(userAgent = typeof navigator === 'undefi
     : userAgent.includes('Firefox/') ? `Mozilla Firefox ${browserMatch[1]}`
     : `Safari ${browserMatch[1]}`
 
+  const macMatch = userAgent.match(/Mac OS X ([\d_]+)/)
   const hostOs = /Windows NT/.test(userAgent)
     ? 'Windows — please add edition and build'
-    : /Mac OS X ([\d_]+)/.test(userAgent)
-      ? `macOS ${RegExp.$1.replaceAll('_', '.')}`
+    : macMatch
+      ? `macOS ${macMatch[1].replace(/_/g, '.')}`
       : /Linux/.test(userAgent)
         ? 'Linux — please add distribution and version'
         : 'Unknown — please enter OS and version'
@@ -255,7 +280,7 @@ function findGaps(profile: Omit<HardwareValidationProfile, 'gaps' | 'checks'>): 
       continue
     }
     const reason = advanced.get(feature)
-    if (reason) gaps.push({ id: `feature-${feature.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-')}`, label: feature, reason })
+    if (reason) gaps.push({ id: `feature-${feature.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, label: feature, reason })
   }
   return gaps.filter((gap, index, all) => all.findIndex((candidate) => candidate.id === gap.id) === index)
 }
@@ -305,6 +330,20 @@ export function buildHardwareValidationProfile(options: {
   const action = options.action ?? defaultAction(nodes, edges)
   const runtime = options.runtime ?? detectValidationRuntime()
   const features = featureList(nodes, edges, p)
+  const mic = nodes.find((node) => nodeType(node) === 'MicInput')
+  const micProps = props(mic)
+  const sd = nodes.find((node) => nodeType(node) === 'SDCard')
+  const sdProps = props(sd)
+  const master = nodes.find((node) => nodeType(node) === 'PatternMaster')
+  const masterProps = props(master)
+  const performance = nodes.find((node) => nodeType(node) === 'PerformanceGenerator')
+  const collection = nodes.find((node) => nodeType(node) === 'PatternCollection')
+  const transitionEdge = master && edges.find((edge) => edge.target === master.id && edge.targetHandle === 'transitions')
+  const transitionNode = transitionEdge && nodes.find((node) => node.id === transitionEdge.source)
+  const transitions = ((props(transitionNode).transitions as string[] | undefined) ?? []).map(String)
+  const capacityForTarget = capacityResult?.target === selectedFqbn || capacityResult?.target.startsWith(`${selectedFqbn}:`)
+    ? capacityResult
+    : null
   const base = {
     schemaVersion: 1 as const,
     appVersion: __APP_VERSION__,
@@ -337,22 +376,45 @@ export function buildHardwareValidationProfile(options: {
       tilesY: layout === 'panels' ? Math.round(n(p.tilesY, 1)) : null,
       tileSerpentine: layout === 'panels' ? p.tileSerpentine === true : null,
       tileRotations: layout === 'panels' ? String(p.tileRotations ?? '') : null,
+      customMap: layout === 'custom' ? customMapSummary(p.customXYMap) : null,
       psram: p.usePsram === true ? String(p.psramMode ?? 'default') : null,
       supersample: p.supersample === true,
     },
+    peripherals: {
+      microphone: mic
+        ? `WS ${Math.round(n(micProps.i2sWs, 39))} · SCK ${Math.round(n(micProps.i2sSck, 40))} · SD ${Math.round(n(micProps.i2sSd, 41))} · ${Math.round(n(micProps.sampleRate, 44100))} Hz · ${String(micProps.channel ?? 'Left')} channel`
+        : null,
+      sdCard: sd
+        ? `CS ${Math.round(n(sdProps.sdCsPin, 10))} · I2S BCLK ${Math.round(n(sdProps.i2sBclk, 26))} · LRC ${Math.round(n(sdProps.i2sLrc, 25))} · DOUT ${Math.round(n(sdProps.i2sDout, 22))} · max volume ${Math.round(n(sdProps.maxVolume, 18))}`
+        : null,
+    },
+    show: {
+      patternCount: Array.isArray(props(collection).patternIds) ? (props(collection).patternIds as unknown[]).length : 0,
+      transitions,
+      beatTrigger: !!master && edges.some((edge) => edge.target === master.id && edge.targetHandle === 'beat'),
+      particleOverlay: masterProps.particles === true,
+      groupInputModulation: props(performance).useGroupInputs === true,
+    },
     features,
     capacity: {
-      flash: percent(capacityResult, 'flash'),
-      ram: percent(capacityResult, 'ram'),
+      flash: percent(capacityForTarget, 'flash'),
+      ram: percent(capacityForTarget, 'ram'),
     },
   }
-  const fingerprintSource = JSON.stringify({ controller: base.controller, matrix: base.matrix, action, features })
+  const fingerprintSource = JSON.stringify({
+    controller: base.controller,
+    matrix: base.matrix,
+    peripherals: base.peripherals,
+    show: base.show,
+    action,
+    features,
+  })
   base.configurationKey = `hw-${hashString(fingerprintSource)}`
   return { ...base, gaps: findGaps(base), checks: makeChecks(base) }
 }
 
 function md(value: unknown): string {
-  return String(value ?? '').replaceAll('|', '\\|').replaceAll('\n', ' ')
+  return String(value ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ')
 }
 
 function resultLabel(result: ValidationResult | undefined): string {
@@ -379,8 +441,12 @@ export function formatHardwareValidationReport(submission: HardwareValidationSub
     ['Output settings', `brightness ${m.brightness} · correction ${m.correction} · dither ${m.dither ? 'on' : 'off'} · overclock ${m.overclock}×`],
     ['Power cap', m.powerLimit ? `${m.volts} V / ${m.milliamps} mA` : 'disabled'],
     ['Panels', m.tilesX == null ? 'n/a' : `${m.tilesX}×${m.tilesY} · chain serpentine ${m.tileSerpentine ? 'yes' : 'no'} · rotations ${m.tileRotations || 'all 0'}`],
+    ['Custom XY map', m.customMap ?? 'n/a'],
     ['PSRAM', m.psram ?? 'disabled'],
     ['Supersampling', m.supersample ? 'enabled' : 'disabled'],
+    ['Microphone wiring', profile.peripherals.microphone ?? 'not present'],
+    ['SD/audio wiring', profile.peripherals.sdCard ?? 'not present'],
+    ['Show details', `${profile.show.patternCount} patterns · transitions ${profile.show.transitions.join(', ') || 'crossfade only'} · beat ${profile.show.beatTrigger ? 'wired' : 'unwired'} · particles ${profile.show.particleOverlay ? 'on' : 'off'} · group modulation ${profile.show.groupInputModulation ? 'on' : 'off'}`],
     ['Measured flash', profile.capacity.flash],
     ['Measured RAM', profile.capacity.ram],
     ['Features', profile.features.join(', ') || 'standard graph'],

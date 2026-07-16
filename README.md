@@ -130,6 +130,9 @@ the full feature catalogue. The exact supported vs. experimental combinations
 of board, chipset, matrix layout, build engine, upload path, and recorded host
 coverage live in
 [`docs/release/beta-support-matrix.md`](docs/release/beta-support-matrix.md).
+Community testers can use the opt-in Matrix Output hardware report; its privacy
+boundary and evidence workflow are documented in
+[`docs/release/beta-hardware-validation.md`](docs/release/beta-hardware-validation.md).
 
 ## Desktop Viewport
 

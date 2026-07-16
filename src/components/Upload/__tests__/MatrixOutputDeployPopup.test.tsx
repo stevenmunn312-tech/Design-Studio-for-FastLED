@@ -143,4 +143,22 @@ describe('MatrixOutputDeployPopup', () => {
     fireEvent.click(wiringButton)
     expect(runUpload).toHaveBeenCalledWith('// wiring diagnostic', undefined, { cache: false })
   })
+
+  it('requests an explicit validation report after a successful unrecorded hardware action', async () => {
+    const runUpload = vi.fn(async () => {
+      useUploadStore.setState({ status: { phase: 'done', message: 'Done' } })
+    })
+    useUploadStore.setState({
+      helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' },
+      installedCores: [],
+      selectedPort: 'COM7',
+      ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [{ name: 'ESP32-S3' }] }],
+      runUpload,
+    })
+
+    const { getByRole, findByRole } = render(<MatrixOutputDeployPopup />)
+    fireEvent.click(getByRole('button', { name: '🧪 Flash Wiring Test' }))
+
+    expect(await findByRole('dialog', { name: 'Hardware validation report' })).toBeTruthy()
+  })
 })
