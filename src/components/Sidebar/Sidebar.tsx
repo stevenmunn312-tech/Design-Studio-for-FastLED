@@ -835,7 +835,7 @@ function Sidebar() {
                                     cancelLabel: 'Cancel',
                                     tone: 'danger',
                                   })
-                                  if (ok) deletePattern(p.id)
+                                  if (ok) await deletePattern(p.id)
                                 })()
                               }}
                             >

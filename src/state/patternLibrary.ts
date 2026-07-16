@@ -33,6 +33,7 @@ export interface SavedPattern {
 }
 
 const KEY = 'fastled-studio.pattern-library.v1'
+const SYNC_KEY = 'fastled-studio.pattern-library-sync.v1'
 
 // Under Vitest the upload helper may actually be running, so skip the disk
 // round-trip in tests — they assert against the in-memory + localStorage state,
@@ -109,11 +110,10 @@ interface LibraryState {
   savePattern: (p: Omit<SavedPattern, 'id' | 'createdAt'>, options?: SavePatternOptions) => void
   putPattern: (p: SavedPattern) => void
   renamePattern: (id: string, name: string) => void
-  deletePattern: (id: string) => void
-  /** Reconcile the in-memory library with the on-disk "My Patterns" folder:
-   *  disk is authoritative, but any localStorage-only patterns are migrated up
-   *  to disk so nothing is lost on the transition. No-op when the helper is
-   *  offline (the localStorage copy stays in charge). */
+  deletePattern: (id: string) => Promise<boolean>
+  /** Reconcile the in-memory library with the on-disk "My Patterns" folder.
+   *  Disk is authoritative; a local journal retries only writes/deletes that
+   *  the helper has not acknowledged. No-op while the helper is offline. */
   refreshFromDisk: () => Promise<void>
 }
 
@@ -143,10 +143,10 @@ export const usePatternLibrary = create<LibraryState>((set, get) => ({
           .map((pattern) => pattern.id),
       ])
       persist(patterns)
-      if (DISK_SYNC) void savePatternToDisk(item)  // write-through; harmless if the helper is offline
+      queuePatternUpsert(item)
       if (DISK_SYNC) {
         for (const id of deletedIds) {
-          if (!keptIds.has(id)) void deletePatternFromDisk(id)
+          if (!keptIds.has(id)) void queuePatternDelete(id)
         }
       }
       return { patterns }
@@ -159,10 +159,10 @@ export const usePatternLibrary = create<LibraryState>((set, get) => ({
         item,
       ])
       persist(patterns)
-      if (DISK_SYNC) void savePatternToDisk(item)
+      queuePatternUpsert(item)
       if (DISK_SYNC) {
         for (const id of removedIds) {
-          if (!keptIds.has(id)) void deletePatternFromDisk(id)
+          if (!keptIds.has(id)) void queuePatternDelete(id)
         }
       }
       return { patterns }
@@ -174,37 +174,62 @@ export const usePatternLibrary = create<LibraryState>((set, get) => ({
       const { patterns, removedIds, keptIds } = dedupePatterns(renamedPatterns)
       persist(patterns)
       const renamed = patterns.find((x) => x.id === id)
-      if (DISK_SYNC && renamed) void savePatternToDisk(renamed)  // rewrites the file (dedup by id drops the old name)
+      if (renamed) queuePatternUpsert(renamed)  // rewrites the file (dedup by id drops the old name)
       if (DISK_SYNC) {
         for (const duplicateId of removedIds) {
-          if (!keptIds.has(duplicateId)) void deletePatternFromDisk(duplicateId)
+          if (!keptIds.has(duplicateId)) void queuePatternDelete(duplicateId)
         }
       }
       return { patterns }
     }),
 
-  deletePattern: (id) =>
+  deletePattern: async (id) => {
     set((s) => {
       const patterns = s.patterns.filter((x) => x.id !== id)
       persist(patterns)
-      if (DISK_SYNC) void deletePatternFromDisk(id)
       return { patterns }
-    }),
+    })
+    return queuePatternDelete(id)
+  },
 
   refreshFromDisk: async () => {
     if (!DISK_SYNC) return
     const disk = await listPatterns()
     if (!disk) return  // helper offline — keep the localStorage copy as-is
-    const diskIds = new Set(disk.map((p) => p.id))
-    const localOnly = get().patterns.filter((p) => !diskIds.has(p.id))
-    // One-time migration: push any patterns that only existed in localStorage up
-    // to disk so they become shareable files too.
-    for (const p of localOnly) void savePatternToDisk(p)
-    const { patterns, removedIds, keptIds } = dedupePatterns([...localOnly, ...disk])
-    persist(patterns)
-    for (const id of removedIds) {
-      if (!keptIds.has(id)) void deletePatternFromDisk(id)
+
+    const local = get().patterns
+    const initialJournal = loadSyncJournal()
+    const deleteIds = new Set(initialJournal.pendingDeletes)
+
+    // Replay deletions first and filter the already-fetched snapshot regardless
+    // of request success, so a slow/offline retry never resurrects the row.
+    for (const id of deleteIds) {
+      if (await deletePatternFromDisk(id)) clearPendingDelete(id)
     }
+    let nextDisk = disk.filter((pattern) => !deleteIds.has(pattern.id))
+
+    // Retry only explicit local writes. Plain browser-only entries are stale
+    // cache when the corresponding disk file was removed by the user.
+    for (const id of loadSyncJournal().pendingUpserts) {
+      const pattern = local.find((entry) => entry.id === id)
+      if (!pattern) {
+        clearPendingUpsert(id)
+        continue
+      }
+      if (await savePatternToDisk(pattern)) {
+        clearPendingUpsert(id)
+        nextDisk = [...nextDisk.filter((entry) => entry.id !== id), pattern]
+      }
+    }
+
+    const journal = loadSyncJournal()
+    const patterns = reconcilePatternsFromDisk(
+      nextDisk,
+      local,
+      journal.pendingUpserts,
+      journal.pendingDeletes,
+    )
+    persist(patterns)
     set({ patterns })
   },
 }))
@@ -233,6 +258,105 @@ export function saveGroupToLibrary(
     subgraph: { nodes: sub.nodes, edges: sub.edges },
   }, options)
   return { name, replaced: !!replaced }
+}
+
+interface PatternSyncJournal {
+  pendingUpserts: string[]
+  pendingDeletes: string[]
+}
+
+function loadSyncJournal(): PatternSyncJournal {
+  try {
+    const raw = localStorage.getItem(SYNC_KEY)
+    const parsed = raw ? JSON.parse(raw) as Partial<PatternSyncJournal> : {}
+    return {
+      pendingUpserts: Array.isArray(parsed.pendingUpserts)
+        ? [...new Set(parsed.pendingUpserts.filter((id): id is string => typeof id === 'string' && !!id))]
+        : [],
+      pendingDeletes: Array.isArray(parsed.pendingDeletes)
+        ? [...new Set(parsed.pendingDeletes.filter((id): id is string => typeof id === 'string' && !!id))]
+        : [],
+    }
+  } catch {
+    return { pendingUpserts: [], pendingDeletes: [] }
+  }
+}
+
+function persistSyncJournal(journal: PatternSyncJournal) {
+  try {
+    if (journal.pendingUpserts.length === 0 && journal.pendingDeletes.length === 0) {
+      localStorage.removeItem(SYNC_KEY)
+    } else {
+      localStorage.setItem(SYNC_KEY, JSON.stringify(journal))
+    }
+  } catch {
+    // The in-memory library still works when storage is unavailable.
+  }
+}
+
+function updateSyncJournal(update: (journal: PatternSyncJournal) => PatternSyncJournal) {
+  persistSyncJournal(update(loadSyncJournal()))
+}
+
+function markPendingUpsert(id: string) {
+  updateSyncJournal((journal) => ({
+    pendingUpserts: [...new Set([...journal.pendingUpserts, id])],
+    pendingDeletes: journal.pendingDeletes.filter((entry) => entry !== id),
+  }))
+}
+
+function clearPendingUpsert(id: string) {
+  updateSyncJournal((journal) => ({
+    ...journal,
+    pendingUpserts: journal.pendingUpserts.filter((entry) => entry !== id),
+  }))
+}
+
+function markPendingDelete(id: string) {
+  updateSyncJournal((journal) => ({
+    pendingUpserts: journal.pendingUpserts.filter((entry) => entry !== id),
+    pendingDeletes: [...new Set([...journal.pendingDeletes, id])],
+  }))
+}
+
+function clearPendingDelete(id: string) {
+  updateSyncJournal((journal) => ({
+    ...journal,
+    pendingDeletes: journal.pendingDeletes.filter((entry) => entry !== id),
+  }))
+}
+
+function queuePatternUpsert(pattern: SavedPattern) {
+  if (!DISK_SYNC) return
+  markPendingUpsert(pattern.id)
+  void savePatternToDisk(pattern).then((saved) => {
+    if (saved) clearPendingUpsert(pattern.id)
+  })
+}
+
+function queuePatternDelete(id: string): Promise<boolean> {
+  if (!DISK_SYNC) return Promise.resolve(true)
+  markPendingDelete(id)
+  return deletePatternFromDisk(id).then((deleted) => {
+    if (deleted) clearPendingDelete(id)
+    return deleted
+  })
+}
+
+/** Disk is authoritative for established patterns: an entry missing from the
+ *  folder is a deletion, not a reason to recreate the file from browser cache.
+ *  Only explicitly journalled, unsynced local writes supplement the snapshot. */
+export function reconcilePatternsFromDisk(
+  disk: SavedPattern[],
+  local: SavedPattern[],
+  pendingUpserts: Iterable<string> = [],
+  pendingDeletes: Iterable<string> = [],
+): SavedPattern[] {
+  const upsertIds = new Set(pendingUpserts)
+  const deletedIds = new Set(pendingDeletes)
+  const diskPatterns = disk.filter((pattern) => !deletedIds.has(pattern.id))
+  const pendingPatterns = local.filter((pattern) => upsertIds.has(pattern.id) && !deletedIds.has(pattern.id))
+  return dedupePatterns([...diskPatterns, ...pendingPatterns]).patterns
 }
 
 /** Import a pattern from a dropped/uploaded `.json` file's parsed contents

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { importPatternFile, usePatternLibrary } from '../patternLibrary'
+import { importPatternFile, reconcilePatternsFromDisk, usePatternLibrary } from '../patternLibrary'
 import { useGraphStore, ROOT_GRAPH_ID } from '../graphStore'
 import type { StudioNode, StudioEdge } from '../graphStore'
 
@@ -103,6 +103,38 @@ describe('patternLibrary', () => {
     const saved = usePatternLibrary.getState().patterns
     expect(saved).toHaveLength(1)
     expect(saved[0].id).toBe('pat-import')
+  })
+
+  it('treats a pattern missing from the disk snapshot as deleted', () => {
+    const diskPattern = {
+      id: 'pat-disk', name: 'On disk', createdAt: 1,
+      inputs: [], outputs: [], subgraph: { nodes: [], edges: [] },
+    }
+    const staleBrowserPattern = {
+      id: 'pat-stale', name: 'Deleted in folder', createdAt: 2,
+      inputs: [], outputs: [], subgraph: { nodes: [], edges: [] },
+    }
+
+    expect(reconcilePatternsFromDisk([diskPattern], [diskPattern, staleBrowserPattern]))
+      .toEqual([diskPattern])
+  })
+
+  it('retains only explicitly pending local writes and honours delete tombstones', () => {
+    const diskPattern = {
+      id: 'pat-disk', name: 'Delete pending', createdAt: 1,
+      inputs: [], outputs: [], subgraph: { nodes: [], edges: [] },
+    }
+    const pendingPattern = {
+      id: 'pat-pending', name: 'Offline save', createdAt: 2,
+      inputs: [], outputs: [], subgraph: { nodes: [], edges: [] },
+    }
+
+    expect(reconcilePatternsFromDisk(
+      [diskPattern],
+      [diskPattern, pendingPattern],
+      [pendingPattern.id],
+      [diskPattern.id],
+    )).toEqual([pendingPattern])
   })
 
   it('addToCollection absorbs a Group node and removes it from the canvas', () => {
