@@ -18,6 +18,7 @@ import { particleRadius } from './particleScale'
 import { hsv, samplePalette } from './ledColor'
 import type { RGB, Palette, Frame } from './ledColor'
 import { evalCodeAsync, getCodeError as getCodeErrorFromSandbox, disposeCodeSandbox } from './codeSandboxRuntime'
+import { evalAnimartrix, disposeAnimartrixState } from '../animartrix/preview'
 
 export type { RGB, Palette, Frame }
 export { getCodeErrorFromSandbox as getCodeError }
@@ -121,6 +122,31 @@ const waveSimState = new Map<string, WaveSimState>()
 
 interface FlowState { px: Float32Array; py: Float32Array; trail: Float32Array; w: number; h: number; seed: number }
 const flowState = new Map<string, FlowState>()
+
+interface ColorTrailsState {
+  frame: Frame
+  tmp: Frame
+  w: number
+  h: number
+  seed: number
+  lastT: number
+  beatPulse: number
+}
+const colorTrailsState = new Map<string, ColorTrailsState>()
+
+interface SpectrumVisualizerState {
+  levels: Float32Array
+  peaks: Float32Array
+  peakVelocity: Float32Array
+  holdUntil: Float32Array
+  waterfall: Frame
+  w: number
+  h: number
+  style: string
+  lastT: number
+  lastWaterfallT: number
+}
+const spectrumVisualizerState = new Map<string, SpectrumVisualizerState>()
 
 interface StarState { x: Float32Array; y: Float32Array; z: Float32Array; w: number; h: number; seed: number }
 const starState = new Map<string, StarState>()
@@ -346,12 +372,13 @@ export function pruneEvaluatorState(maxIdleMs = STATE_IDLE_TTL_MS, now = stateCl
     fireHeat, flashLevel, counterVals, intervalLast, smoothState, holdState,
     envState, trailState, frameFeedbackState, fftLevels, beatLevels, clockState, fireRngState,
     percussionLevels, audioFeatureLevels, particleState, patternShowState,
-    rdState, golState, waveSimState, flowState, starState, boidState, sparkState, fire2012Heat,
+    rdState, golState, waveSimState, flowState, colorTrailsState, spectrumVisualizerState, starState, boidState, sparkState, fire2012Heat,
     kickShockState, kaleidoPunch, percussionBlobsState, emberBurst,
     rainRipplesState, prismOrientation, driftPhase,
   ]
   for (const key of stale) {
     for (const map of maps) map.delete(key)
+    disposeAnimartrixState(key)
     disposeCodeSandbox(key)   // Code-node worker (if any) lives outside these Maps
     stateLastUsed.delete(key)
   }
@@ -1330,6 +1357,170 @@ function evalSpectrumBars(
     }
   }
 
+  return frame
+}
+
+interface SpectrumVisualizerParams {
+  style: string
+  bands: number
+  gain: number
+  smoothing: number
+  tilt: number
+  peakHold: number
+  peakGravity: number
+  waterfallSpeed: number
+}
+
+function resampleSpectrumBins(source: readonly number[], count: number): number[] {
+  if (!source.length) return Array(count).fill(0)
+  return Array.from({ length: count }, (_, i) => {
+    const start = Math.floor(i * source.length / count)
+    const end = Math.max(start + 1, Math.ceil((i + 1) * source.length / count))
+    let sum = 0
+    for (let j = start; j < end; j++) sum += clamp01(source[j])
+    return clamp01(sum / (end - start))
+  })
+}
+
+function evalSpectrumVisualizer(
+  key: string,
+  source: readonly number[],
+  params: SpectrumVisualizerParams,
+  t: number,
+  palette: Palette,
+  W = DEFAULT_W,
+  H = DEFAULT_H,
+): Frame {
+  let state = spectrumVisualizerState.get(key)
+  if (!state || state.w !== W || state.h !== H || state.style !== params.style) {
+    state = {
+      levels: new Float32Array(W),
+      peaks: new Float32Array(W),
+      peakVelocity: new Float32Array(W),
+      holdUntil: new Float32Array(W),
+      waterfall: rawBlankFrame(W, H),
+      w: W,
+      h: H,
+      style: params.style,
+      lastT: -1,
+      lastWaterfallT: t,
+    }
+    spectrumVisualizerState.set(key, state)
+  }
+
+  const dt = state.lastT < 0 ? 1 / 60 : Math.max(0, Math.min(0.1, t - state.lastT))
+  state.lastT = t
+  const bands = Math.max(4, Math.min(32, Math.round(params.bands)))
+  const sampled = resampleSpectrumBins(source, bands)
+  const retain = Math.pow(Math.max(0, Math.min(0.95, params.smoothing)), dt * 60)
+
+  for (let x = 0; x < W; x++) {
+    const position = W <= 1 ? 0 : x / (W - 1) * (bands - 1)
+    const left = Math.floor(position)
+    const right = Math.min(bands - 1, left + 1)
+    const mix = position - left
+    const frequency = bands <= 1 ? 0 : position / (bands - 1)
+    const raw = sampled[left] * (1 - mix) + sampled[right] * mix
+    const target = clamp01(raw * params.gain * (1 + frequency * params.tilt * 1.8))
+    state.levels[x] = state.levels[x] * retain + target * (1 - retain)
+
+    if (state.levels[x] >= state.peaks[x]) {
+      state.peaks[x] = state.levels[x]
+      state.peakVelocity[x] = 0
+      state.holdUntil[x] = t + Math.max(0, params.peakHold)
+    } else if (t >= state.holdUntil[x]) {
+      state.peakVelocity[x] += Math.max(0.2, params.peakGravity) * dt
+      state.peaks[x] = Math.max(state.levels[x], state.peaks[x] - state.peakVelocity[x] * dt)
+    }
+  }
+
+  if (params.style === 'Waterfall') {
+    const speed = Math.max(1, Math.min(30, params.waterfallSpeed))
+    const steps = Math.min(H, Math.floor((t - state.lastWaterfallT) * speed))
+    if (steps > 0) {
+      state.lastWaterfallT += steps / speed
+      for (let step = 0; step < steps; step++) {
+        for (let y = 0; y < H - 1; y++) for (let x = 0; x < W; x++) {
+          const src = state.waterfall[y + 1][x]
+          const dst = state.waterfall[y][x]
+          dst.r = src.r; dst.g = src.g; dst.b = src.b
+        }
+        for (let x = 0; x < W; x++) {
+          const level = clamp01(state.levels[x])
+          const color = scaleRgb(samplePalette(palette, 0.14 + level * 0.82), level < 0.02 ? 0 : 0.25 + level * 0.75)
+          const dst = state.waterfall[H - 1][x]
+          dst.r = color.r; dst.g = color.g; dst.b = color.b
+        }
+      }
+    }
+    return state.waterfall
+  }
+
+  const frame = blankFrame(W, H)
+  const paintPeak = (x: number, y: number, value: number) => {
+    if (value < 0.015 || x < 0 || x >= W || y < 0 || y >= H) return
+    frame[y][x] = scaleRgb(samplePalette(palette, 0.14 + value * 0.82), 1.15)
+  }
+
+  if (params.style === 'Orbit') {
+    const cx = (W - 1) * 0.5
+    const cy = (H - 1) * 0.5
+    const minDim = Math.max(2, Math.min(W, H))
+    const inner = 0.15
+    const extent = 0.32
+    const pixelRadius = 0.72 / minDim
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const dx = (x - cx) / minDim
+      const dy = (y - cy) / minDim
+      const radius = Math.hypot(dx, dy)
+      const angle = (Math.atan2(dy, dx) + Math.PI * 2.5) % (Math.PI * 2) / (Math.PI * 2)
+      const column = Math.min(W - 1, Math.floor(angle * W))
+      const level = state.levels[column]
+      const outer = inner + level * extent
+      const peakRadius = inner + state.peaks[column] * extent
+      if (Math.abs(radius - peakRadius) <= pixelRadius && state.peaks[column] > 0.015) {
+        frame[y][x] = scaleRgb(samplePalette(palette, angle), 1.15)
+      } else if (radius >= inner && radius <= outer) {
+        frame[y][x] = scaleRgb(samplePalette(palette, angle), 0.34 + level * 0.66)
+      }
+    }
+    return frame
+  }
+
+  if (params.style === 'Centre Mirror') {
+    const upperCentre = Math.floor((H - 1) / 2)
+    const lowerCentre = Math.ceil((H - 1) / 2)
+    const reach = Math.max(1, Math.floor(H / 2))
+    for (let x = 0; x < W; x++) {
+      const level = state.levels[x]
+      const length = Math.round(level * reach)
+      for (let row = 0; row < length; row++) {
+        const amount = reach <= 1 ? 1 : row / (reach - 1)
+        const color = scaleRgb(samplePalette(palette, 0.14 + amount * 0.82), 0.4 + amount * 0.6)
+        if (upperCentre - row >= 0) frame[upperCentre - row][x] = color
+        if (lowerCentre + row < H) frame[lowerCentre + row][x] = { ...color }
+      }
+      const peakOffset = Math.round(state.peaks[x] * reach)
+      paintPeak(x, upperCentre - peakOffset, state.peaks[x])
+      paintPeak(x, lowerCentre + peakOffset, state.peaks[x])
+    }
+    return frame
+  }
+
+  for (let x = 0; x < W; x++) {
+    const level = state.levels[x]
+    const barHeight = Math.round(level * H)
+    for (let row = 0; row < barHeight; row++) {
+      const y = H - 1 - row
+      const amount = H <= 1 ? 1 : row / (H - 1)
+      const brightness = params.style === 'Ribbon'
+        ? (row === barHeight - 1 ? 1 : 0.18 + amount * 0.42)
+        : 0.34 + amount * 0.66
+      frame[y][x] = scaleRgb(samplePalette(palette, 0.14 + amount * 0.82), brightness)
+    }
+    const peakY = H - 1 - Math.round(state.peaks[x] * (H - 1))
+    paintPeak(x, peakY, state.peaks[x])
+  }
   return frame
 }
 
@@ -2615,6 +2806,223 @@ function evalPlasmaFractalField(speed: number, scale: number, t: number, W = DEF
     }
   }
   return out
+}
+
+// Color Trails is adapted from prototype work by Stefan Petrick, creator of
+// AnimARTrix: https://github.com/StefanPetrick/animartrix
+interface ColorTrailsParams {
+  injectionMode: string
+  flowMode: string
+  xSpeed: number
+  xAmplitude: number
+  xFrequency: number
+  ySpeed: number
+  yAmplitude: number
+  yFrequency: number
+  displacement: number
+  endpointSpeed: number
+  colorSpeed: number
+  persistence: number
+  bass: number
+  mids: number
+  treble: number
+  beat: boolean
+  seed: number
+}
+
+// Seedable 1D gradient noise with Perlin's C² smootherstep. The integer hash
+// replaces a per-instance 512-byte permutation table while keeping the same
+// two-gradient/one-lerp construction; cppGenerator emits this exact hash.
+function colorTrailsNoise1(x: number, seed: number): number {
+  const hash = (lattice: number) => {
+    let h = ((lattice >>> 0) ^ (seed >>> 0)) >>> 0
+    h = Math.imul(h ^ (h >>> 16), 0x7feb352d) >>> 0
+    h = Math.imul(h ^ (h >>> 15), 0x846ca68b) >>> 0
+    return (h ^ (h >>> 16)) >>> 0
+  }
+  const xi = Math.floor(x)
+  const xf = x - xi
+  const u = xf * xf * xf * (xf * (xf * 6 - 15) + 10)
+  const a = (hash(xi) & 1) === 0 ? xf : -xf
+  const d = xf - 1
+  const b = (hash(xi + 1) & 1) === 0 ? d : -d
+  return a + (b - a) * u
+}
+
+// Hash-based 2D Perlin variant used by the source's morphing flow mode. Keeping
+// time on its own axis makes each profile evolve rather than merely translate.
+function colorTrailsNoise2(x: number, y: number, seed: number): number {
+  const hash = (latticeX: number, latticeY: number) => {
+    const q = (Math.imul(latticeX, 0x8da6b343) ^ Math.imul(latticeY, 0xd8163841)) >>> 0
+    let h = (q ^ (seed >>> 0)) >>> 0
+    h = Math.imul(h ^ (h >>> 16), 0x7feb352d) >>> 0
+    h = Math.imul(h ^ (h >>> 15), 0x846ca68b) >>> 0
+    return (h ^ (h >>> 16)) >>> 0
+  }
+  const grad = (h: number, dx: number, dy: number) => {
+    switch (h & 7) {
+      case 0: return dx + dy
+      case 1: return -dx + dy
+      case 2: return dx - dy
+      case 3: return -dx - dy
+      case 4: return dx
+      case 5: return -dx
+      case 6: return dy
+      default: return -dy
+    }
+  }
+  const xi = Math.floor(x), yi = Math.floor(y)
+  const xf = x - xi, yf = y - yi
+  const u = xf * xf * xf * (xf * (xf * 6 - 15) + 10)
+  const v = yf * yf * yf * (yf * (yf * 6 - 15) + 10)
+  const x0 = grad(hash(xi, yi), xf, yf) + (grad(hash(xi + 1, yi), xf - 1, yf) - grad(hash(xi, yi), xf, yf)) * u
+  const x1 = grad(hash(xi, yi + 1), xf, yf - 1) + (grad(hash(xi + 1, yi + 1), xf - 1, yf - 1) - grad(hash(xi, yi + 1), xf, yf - 1)) * u
+  return x0 + (x1 - x0) * v
+}
+
+function evalColorTrails(
+  key: string,
+  p: ColorTrailsParams,
+  t: number,
+  palette: Palette,
+  W = DEFAULT_W,
+  H = DEFAULT_H,
+): Frame {
+  let s = colorTrailsState.get(key)
+  if (!s || s.w !== W || s.h !== H || s.seed !== p.seed) {
+    s = {
+      frame: rawBlankFrame(W, H),
+      tmp: rawBlankFrame(W, H),
+      w: W,
+      h: H,
+      seed: p.seed,
+      lastT: -1,
+      beatPulse: 0,
+    }
+    colorTrailsState.set(key, s)
+  }
+
+  // The source prototype is calibrated at 60 fps. Scale feedback, injection,
+  // and displacement by elapsed frame-equivalents so firmware loop rate and a
+  // temporarily slow browser preview do not change the character of the flow.
+  // Each final advection shift is still capped to one pixel per rendered frame:
+  // larger jumps break the continuous, buttery trail blend this effect relies on.
+  const dtFrames = s.lastT < 0 ? 1 : Math.max(0, Math.min(4, (t - s.lastT) * 60))
+  s.lastT = t
+  if (dtFrames <= 0 || W <= 0 || H <= 0) return s.frame
+
+  const bass = clamp01(p.bass)
+  const mids = clamp01(p.mids)
+  const treble = clamp01(p.treble)
+  s.beatPulse = p.beat ? 1 : s.beatPulse * Math.pow(0.78, dtFrames)
+  const beatPulse = s.beatPulse
+  const endpointSpeed = p.endpointSpeed * (1 + mids * 1.5)
+  const colorSpeed = p.colorSpeed * (1 + treble * 2)
+  const displacement = Math.max(0, p.displacement) * (1 + bass * 1.5) * dtFrames
+  const weightForDt = (weight: number) => {
+    const w = clamp01(weight * (1 + beatPulse * 0.65))
+    return 1 - Math.pow(1 - w, dtFrames)
+  }
+  const blend = (px: number, py: number, color: RGB, weight: number) => {
+    if (px < 0 || px >= W || py < 0 || py >= H) return
+    const w = weightForDt(weight)
+    if (w <= 0) return
+    const dst = s!.frame[py][px]
+    dst.r = Math.round(dst.r * (1 - w) + color.r * w)
+    dst.g = Math.round(dst.g * (1 - w) + color.g * w)
+    dst.b = Math.round(dst.b * (1 - w) + color.b * w)
+  }
+  const phaseColor = (u: number) => samplePalette(palette, t * colorSpeed + u)
+
+  const injectLine = p.injectionMode !== 'Rainbow Border'
+  const injectBorder = p.injectionMode !== 'Moving Line'
+
+  // Inject the moving, palette-swept Lissajous segment using the same 3×
+  // oversampled bilinear splat and soft endpoint discs as the Pygame source.
+  const cx = (W - 1) * 0.5, cy = (H - 1) * 0.5
+  const x1 = cx + (W - 1) * (11.5 / 31) * Math.sin(t * endpointSpeed * 1.13 + 0.20)
+  const y1 = cy + (H - 1) * (10.5 / 31) * Math.sin(t * endpointSpeed * 1.71 + 1.30)
+  const x2 = cx + (W - 1) * (12.0 / 31) * Math.sin(t * endpointSpeed * 1.89 + 2.20)
+  const y2 = cy + (H - 1) * (11.0 / 31) * Math.sin(t * endpointSpeed * 1.37 + 0.70)
+  if (injectLine) {
+    const dx = x2 - x1, dy = y2 - y1
+    const steps = Math.max(1, Math.floor(Math.max(Math.abs(dx), Math.abs(dy)) * 3))
+    for (let i = 0; i <= steps; i++) {
+      const u = i / steps, x = x1 + dx * u, y = y1 + dy * u
+      const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi
+      const color = phaseColor(u)
+      blend(xi, yi, color, (1 - fx) * (1 - fy))
+      blend(xi + 1, yi, color, fx * (1 - fy))
+      blend(xi, yi + 1, color, (1 - fx) * fy)
+      blend(xi + 1, yi + 1, color, fx * fy)
+    }
+    const endpointRadius = 0.85 + beatPulse * 0.9
+    const drawEndpoint = (ex: number, ey: number, color: RGB) => {
+      const minX = Math.max(0, Math.floor(ex - endpointRadius - 1))
+      const maxX = Math.min(W - 1, Math.ceil(ex + endpointRadius + 1))
+      const minY = Math.max(0, Math.floor(ey - endpointRadius - 1))
+      const maxY = Math.min(H - 1, Math.ceil(ey + endpointRadius + 1))
+      for (let py = minY; py <= maxY; py++) for (let px = minX; px <= maxX; px++) {
+        const dist = Math.hypot(px + 0.5 - ex, py + 0.5 - ey)
+        blend(px, py, color, clamp01(endpointRadius + 0.5 - dist))
+      }
+    }
+    drawEndpoint(x1, y1, phaseColor(0))
+    drawEndpoint(x2, y2, phaseColor(1))
+  }
+
+  // Liquid-frame variant: continuously seed a palette around the perimeter,
+  // then let the same capped subpixel advection pull it through the matrix.
+  if (injectBorder) {
+    const perimeter: Array<[number, number]> = []
+    for (let x = 0; x < W; x++) perimeter.push([x, 0])
+    for (let y = 1; y < H; y++) perimeter.push([W - 1, y])
+    if (H > 1) for (let x = W - 2; x >= 0; x--) perimeter.push([x, H - 1])
+    if (W > 1) for (let y = H - 2; y > 0; y--) perimeter.push([0, y])
+    const count = Math.max(1, perimeter.length)
+    perimeter.forEach(([x, y], i) => blend(x, y, phaseColor(i / count), 1))
+  }
+
+  const wrap = (v: number, size: number) => ((v % size) + size) % size
+  const seedX = p.seed >>> 0
+  const seedY = (p.seed + 1295) >>> 0 // default 42 → the source's second seed 1337
+
+  // Pass 1: horizontal subpixel shift per row from the Y profile.
+  for (let y = 0; y < H; y++) {
+    const spatial = y * 0.23 * p.yFrequency
+    const noise = p.flowMode === 'Morphing 2D'
+      ? colorTrailsNoise2(spatial, t * p.ySpeed, seedY)
+      : colorTrailsNoise1(spatial + t * p.ySpeed, seedY)
+    const profile = noise * p.yAmplitude
+    const shift = Math.max(-1, Math.min(1, profile * displacement))
+    for (let x = 0; x < W; x++) {
+      const sx = wrap(x - shift, W), x0 = Math.floor(sx), xNext = (x0 + 1) % W, f = sx - x0
+      const a = s.frame[y][x0], b = s.frame[y][xNext], dst = s.tmp[y][x]
+      dst.r = Math.round(a.r * (1 - f) + b.r * f)
+      dst.g = Math.round(a.g * (1 - f) + b.g * f)
+      dst.b = Math.round(a.b * (1 - f) + b.b * f)
+    }
+  }
+
+  // Pass 2: vertical subpixel shift per column from the reversed X profile,
+  // then apply the long feedback fade.
+  const fade = Math.pow(Math.max(0, Math.min(0.99999, p.persistence)), dtFrames)
+  for (let x = 0; x < W; x++) {
+    const spatial = (W - 1 - x) * 0.23 * p.xFrequency
+    const noise = p.flowMode === 'Morphing 2D'
+      ? colorTrailsNoise2(spatial, t * p.xSpeed, seedX)
+      : colorTrailsNoise1(spatial + t * p.xSpeed, seedX)
+    const profile = noise * p.xAmplitude
+    const shift = Math.max(-1, Math.min(1, profile * displacement))
+    for (let y = 0; y < H; y++) {
+      const sy = wrap(y - shift, H), y0 = Math.floor(sy), yNext = (y0 + 1) % H, f = sy - y0
+      const a = s.tmp[y0][x], b = s.tmp[yNext][x], dst = s.frame[y][x]
+      dst.r = Math.round((a.r * (1 - f) + b.r * f) * fade)
+      dst.g = Math.round((a.g * (1 - f) + b.g * f) * fade)
+      dst.b = Math.round((a.b * (1 - f) + b.b * f) * fade)
+    }
+  }
+  return s.frame
 }
 
 // Audio-reactive flow: a simplex band field scrolling at a speed set by mids,
@@ -4169,6 +4577,33 @@ function createEvalNode(
         break
       }
 
+      case 'SpectrumVisualizer': {
+        const audio = audioOverride ?? useAudioStore.getState()
+        const audioConnected = audioOverride !== null || input(id, 'audio', null) !== null
+        const hasLiveAudio = audioConnected && Boolean(audio.active || audio.micActive)
+        const previewAudio = audio as AudioOverride & { previewSpectrum?: number[] }
+        const spectrum = hasLiveAudio
+          ? (previewAudio.previewSpectrum?.length ? previewAudio.previewSpectrum : audio.spectrum)
+          : useUiStore.getState().testSignal
+            ? Array.from({ length: 32 }, (_, i) => {
+                const lowBias = 1 - i / 48
+                return clamp01((Math.sin(t * (2.1 + i * 0.065) + i * 0.72) * 0.5 + 0.5) * lowBias)
+              })
+            : []
+        const palette = pal(id, 'paletteIn', props, 'palette', 'citrus')
+        out = { frame: evalSpectrumVisualizer(stateKey(id), spectrum, {
+          style: String(props.style ?? 'Bars'),
+          bands: Number(props.bands ?? 16),
+          gain: Number(props.gain ?? 1.25),
+          smoothing: Number(props.smoothing ?? 0.58),
+          tilt: Number(props.tilt ?? 0.2),
+          peakHold: Number(props.peakHold ?? 0.42),
+          peakGravity: Number(props.peakGravity ?? 1.8),
+          waterfallSpeed: Number(props.waterfallSpeed ?? 10),
+        }, t, palette, W, H) }
+        break
+      }
+
       // Frame blend with real blend modes — composites B over A per `blendMode`,
       // mixed by `amount` (opacity, 0–255). Keep in sync with cppGenerator's `Blend`.
       case 'Blend': {
@@ -5084,6 +5519,46 @@ function createEvalNode(
         const scale = denormalizeAudioFlowParam('scale', num(id, 'scale', props, 'scale', 0.5))
         const palette = pal(id, 'paletteIn', props, 'palette', 'party')
         out = { frame: evalAudioFlow(stateKey(id), bass, mids, treble, speed, scale, t, palette, W, H) }
+        break
+      }
+
+      case 'ColorTrails': {
+        const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
+        out = { frame: evalColorTrails(stateKey(id), {
+          injectionMode: String(props.injectionMode ?? 'Moving Line'),
+          flowMode: String(props.flowMode ?? 'Scrolling'),
+          bass: num(id, 'bass', props, 'bass', 0),
+          mids: num(id, 'mids', props, 'mids', 0),
+          treble: num(id, 'treble', props, 'treble', 0),
+          beat: Boolean(input(id, 'beat', false)),
+          xSpeed: num(id, 'xSpeed', props, 'xSpeed', 0.1),
+          xAmplitude: num(id, 'xAmplitude', props, 'xAmplitude', 1),
+          xFrequency: num(id, 'xFrequency', props, 'xFrequency', 0.33),
+          ySpeed: num(id, 'ySpeed', props, 'ySpeed', 0.1),
+          yAmplitude: num(id, 'yAmplitude', props, 'yAmplitude', 1),
+          yFrequency: num(id, 'yFrequency', props, 'yFrequency', 0.32),
+          displacement: num(id, 'displacement', props, 'displacement', 1.8),
+          endpointSpeed: num(id, 'endpointSpeed', props, 'endpointSpeed', 0.35),
+          colorSpeed: num(id, 'colorSpeed', props, 'colorSpeed', 0.1),
+          persistence: num(id, 'persistence', props, 'persistence', 0.99922),
+          seed: normalizedSeed(props.seed ?? 42),
+        }, t, palette, W, H) }
+        break
+      }
+
+      case 'Animartrix': {
+        out = { frame: evalAnimartrix(stateKey(id), {
+          effect: String(props.effect ?? 'Water'),
+          speed: num(id, 'speed', props, 'speed', 0.65),
+          audioAmount: num(id, 'audioAmount', props, 'audioAmount', 1),
+          bass: num(id, 'bass', props, 'bass', 0),
+          mids: num(id, 'mids', props, 'mids', 0),
+          treble: num(id, 'treble', props, 'treble', 0),
+          kick: num(id, 'kick', props, 'kick', 0),
+          snare: num(id, 'snare', props, 'snare', 0),
+          hihat: num(id, 'hihat', props, 'hihat', 0),
+          beat: Boolean(input(id, 'beat', false)),
+        }, t, W, H) }
         break
       }
 

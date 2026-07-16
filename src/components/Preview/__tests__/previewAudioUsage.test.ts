@@ -56,6 +56,16 @@ describe('graphConsumesAudio', () => {
     )).toBe(false)
   })
 
+  it('returns true when a Spectrum Visualizer consumes wired audio', () => {
+    expect(graphConsumesAudio(
+      [node('mic', 'MicInput'), node('spectrum', 'SpectrumVisualizer'), node('out', 'MatrixOutput')],
+      [
+        edge('e1', 'mic', 'audio', 'spectrum', 'audio'),
+        edge('e2', 'spectrum', 'frame', 'out', 'frame'),
+      ],
+    )).toBe(true)
+  })
+
   it('returns true for a contributing group with a wired audio input', () => {
     const group = node('grp', 'Group', { groupId: 'g' })
     ;(group.data as unknown as { inputs: Array<{ id: string; dataType: string }> }).inputs = [

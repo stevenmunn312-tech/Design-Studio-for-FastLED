@@ -3,6 +3,10 @@ import type { StatusLevel } from '../types'
 import type { NodeCategory } from '../types'
 import type { PreviewStyle } from '../components/Preview/previewStyles'
 import { nextPreviewStyle } from '../components/Preview/previewStyles'
+import {
+  isSpectrumVisualizerMode,
+  type SpectrumVisualizerMode,
+} from '../components/Preview/spectrumVisualizerModes'
 
 export type AppTheme = 'dark' | 'solarized' | 'light'
 export type NewProjectDecision = 'yes' | 'no' | 'cancel'
@@ -56,6 +60,7 @@ const THEME_KEY  = 'fastled-studio-theme'
 const MOTION_KEY = 'fastled-studio-reduced-motion'
 const CONTRAST_KEY = 'fastled-studio-high-contrast'
 const PREVIEW_STYLE_KEY = 'fastled-studio-preview-style'
+const SPECTRUM_VISUALIZER_KEY = 'fastled-studio-spectrum-visualizer'
 const LEGACY_DIFFUSION_KEY = 'fastled-studio-preview-diffusion'
 const TEST_SIGNAL_KEY = 'fastled-studio-test-signal'
 const PERFORMANCE_MODE_KEY = 'fastled-studio-performance-mode'
@@ -82,6 +87,11 @@ function loadPreviewStyle(): PreviewStyle {
   return 'standard'
 }
 
+function loadSpectrumVisualizerMode(): SpectrumVisualizerMode {
+  const mode = load<unknown>(SPECTRUM_VISUALIZER_KEY, 'bars')
+  return isSpectrumVisualizerMode(mode) ? mode : 'bars'
+}
+
 interface UiState {
   statusText: string
   statusLevel: StatusLevel
@@ -98,6 +108,8 @@ interface UiState {
   signalPathDimEnabled: boolean
   preview3d: boolean
   previewStyle: PreviewStyle
+  /** Presentation used by the browser-only spectrum below the LED preview. */
+  spectrumVisualizerMode: SpectrumVisualizerMode
   /** When on, audio-reactive nodes with no live mic run off a synthetic demo
    *  oscillation so their motion can be previewed without a microphone. */
   testSignal: boolean
@@ -139,6 +151,7 @@ interface UiState {
   toggleTestSignal: () => void
   setPreviewStyle: (style: PreviewStyle) => void
   cyclePreviewStyle: () => void
+  setSpectrumVisualizerMode: (mode: SpectrumVisualizerMode) => void
   setFps: (fps: number) => void
   setMemoryMb: (memoryMb: number | null) => void
   setSparkPort: (port: { nodeId: string; portId: string } | null) => void
@@ -189,6 +202,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   signalPathDimEnabled: load<boolean>(SIGNAL_PATH_DIM_KEY, true),
   preview3d: false,
   previewStyle: loadPreviewStyle(),
+  spectrumVisualizerMode: loadSpectrumVisualizerMode(),
   testSignal: load<boolean>(TEST_SIGNAL_KEY, false),
   fps: 0,
   memoryMb: null,
@@ -264,6 +278,10 @@ export const useUiStore = create<UiState>((set, get) => ({
     const next = nextPreviewStyle(get().previewStyle)
     localStorage.setItem(PREVIEW_STYLE_KEY, JSON.stringify(next))
     set({ previewStyle: next })
+  },
+  setSpectrumVisualizerMode: (spectrumVisualizerMode) => {
+    localStorage.setItem(SPECTRUM_VISUALIZER_KEY, JSON.stringify(spectrumVisualizerMode))
+    set({ spectrumVisualizerMode })
   },
   setFps: (fps) => set({ fps }),
   setMemoryMb: (memoryMb) => set({ memoryMb }),

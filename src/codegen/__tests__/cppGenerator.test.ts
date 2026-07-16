@@ -913,6 +913,64 @@ describe('generateCpp', () => {
     expect(cpp).toContain('* 0.200f')
   })
 
+  it('emits ColorTrails as persistent two-pass subpixel advection with beat bloom', () => {
+    const beat = node('ctbeat', 'Compare', 'math', { a: 1, b: 0.5 })
+    const ct = node('ct', 'ColorTrails', 'pattern', {
+      bass: 0.4, mids: 0.3, treble: 0.2,
+      xSpeed: 0.1, xAmplitude: 1, xFrequency: 0.33,
+      ySpeed: 0.1, yAmplitude: 1, yFrequency: 0.32,
+      displacement: 1.8, endpointSpeed: 0.35, colorSpeed: 0.1,
+      persistence: 0.99922, palette: 'rainbow', seed: 42,
+    })
+    const cpp = generateCpp([beat, ct, outputNode], [
+      edge('ct-eb', 'ctbeat', 'ct', 'result', 'beat'),
+      edge('ct-eo', 'ct', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('CRGB buf_cttmp_ct[NUM_LEDS];')
+    expect(cpp).toContain('ColorTrails: Moving Line injection + two-pass subpixel feedback advection')
+    expect(cpp).toContain('Adapted from prototype work by Stefan Petrick, creator of AnimARTrix')
+    expect(cpp).toContain('https://github.com/StefanPetrick/animartrix')
+    expect(cpp).toContain('0x7feb352dU')
+    expect(cpp).toContain('_xf*_xf*_xf*(_xf*(_xf*6.0f-15.0f)+10.0f)')
+    expect(cpp).toContain('ColorFromPalette(RainbowColors_p')
+    expect(cpp).toContain('_ctBeatPulse_ct=(n_ctbeat_result)?1.0f')
+    expect(cpp.match(/float _shift=constrain\(_profile\*_ctDisp,-1\.0f,1\.0f\)/g)).toHaveLength(2)
+    expect(cpp).toContain('fmodf(_x-_shift,(float)WIDTH)')
+    expect(cpp).toContain('fmodf(_y-_shift,(float)HEIGHT)')
+    expect(cpp).toContain('powf(constrain((float)(0.99922),0.0f,0.99999f),_ctDtf)')
+  })
+
+  it('emits the ColorTrails liquid frame with morphing 2D Perlin flow', () => {
+    const ct = node('liquid', 'ColorTrails', 'pattern', {
+      injectionMode: 'Rainbow Border', flowMode: 'Morphing 2D',
+      xSpeed: 0.1, xAmplitude: 1, xFrequency: 0.33,
+      ySpeed: 0.1, yAmplitude: 1, yFrequency: 0.32,
+      displacement: 1.8, persistence: 0.99922, palette: 'rainbow', seed: 42,
+    })
+    const cpp = generateCpp([ct, outputNode], [edge('liquid-out', 'liquid', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('ColorTrails: Rainbow Border injection')
+    expect(cpp).toContain('auto _ctNoise2=')
+    expect(cpp).toContain('_ctNoise2(_y*0.23f*')
+    expect(cpp).toContain('2*WIDTH+2*HEIGHT-4')
+    expect(cpp).toContain('_ctBlend(_x,0,_ctColor(')
+    expect(cpp).not.toContain('float _x1=_cx')
+    expect(cpp.match(/float _shift=constrain\(_profile\*_ctDisp,-1\.0f,1\.0f\)/g)).toHaveLength(2)
+  })
+
+  it('emits a credited audio-reactive AnimARTrix renderer with structural percussion', () => {
+    const ax = node('ax', 'Animartrix', 'pattern', {
+      effect: 'Complex Kaleido', speed: 0.72, audioAmount: 1.25,
+      bass: 0.3, mids: 0.4, treble: 0.5, kick: 0.6, snare: 0.7, hihat: 0.8,
+    })
+    const cpp = generateCpp([ax, outputNode], [edge('ax-out', 'ax', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('AnimARTrix Complex Kaleido — Stefan Petrick')
+    expect(cpp).toContain('CC BY-NC-SA 4.0')
+    expect(cpp).toContain('https://github.com/StefanPetrick/animartrix')
+    expect(cpp).toContain('_ax_axSnare')
+    expect(cpp).toContain('acosf(cosf(_th*_sym))')
+    expect(cpp).toContain('CRGB buf_ax[NUM_LEDS];')
+  })
+
   it('emits MidrangeWaves through a FastLED palette with energy-controlled reactivity', () => {
     const mw = node('mw', 'MidrangeWaves', 'pattern', { energy: 1.4, speed: 1, palette: 'ocean', mids: 0.5 })
     const cpp = generateCpp([mw, outputNode], [edge('e', 'mw', 'out', 'frame', 'frame')])
@@ -1682,6 +1740,35 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('ColorFromPalette(OceanColors_p')
     expect(cpp).toContain('WIDTH - 1 - _x')
     expect(cpp).not.toContain('// SpectrumBars')
+  })
+
+  it('emits SpectrumVisualizer from the shared 32-bin spectrum with held gravity peaks', () => {
+    const mic = node('svmic', 'MicInput', 'input', {})
+    const visualizer = node('sv', 'SpectrumVisualizer', 'pattern', {
+      style: 'Bars', bands: 16, gain: 1.25, smoothing: 0.58, tilt: 0.2,
+      peakHold: 0.42, peakGravity: 1.8, waterfallSpeed: 10, palette: 'citrus',
+    })
+    const cpp = generateCpp([mic, visualizer, out], [
+      edge('sv-audio', 'svmic', 'sv', 'audio', 'audio'),
+      edge('sv-frame', 'sv', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('SpectrumVisualizer · Bars')
+    expect(cpp).toContain('float _svBands[16]')
+    expect(cpp).toContain('_sum+=_audioSpectrum[_i]')
+    expect(cpp).toContain('_svHold_sv[_x]=_svNow+420U')
+    expect(cpp).toContain('_svVelocity_sv[_x]+=1.8000f*_svDt')
+    expect(cpp).toContain('ColorFromPalette(paldef_citrus')
+  })
+
+  it('emits SpectrumVisualizer waterfall history and stays silent without wired audio', () => {
+    const visualizer = node('svw', 'SpectrumVisualizer', 'pattern', {
+      style: 'Waterfall', bands: 12, waterfallSpeed: 14, palette: 'ocean',
+    })
+    const cpp = generateCpp([visualizer, out], [edge('svw-frame', 'svw', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('SpectrumVisualizer · Waterfall')
+    expect(cpp).toContain('memmove(buf_svw,buf_svw+WIDTH')
+    expect(cpp).toContain('Connect a Microphone to the Audio input')
+    expect(cpp).not.toContain('_sum+=_audioSpectrum[_i]')
   })
 
   it('uses FastLED native beat and BPM for a live MicInput graph', () => {

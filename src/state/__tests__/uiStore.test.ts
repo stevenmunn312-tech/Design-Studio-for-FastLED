@@ -63,6 +63,16 @@ describe('uiStore.setStatus auto-clear', () => {
     expect(localStorage.getItem('fastled-studio-preview-style')).toBe('"dreamy"')
   })
 
+  it('sets the spectrum visualizer and persists the preference', () => {
+    useUiStore.getState().setSpectrumVisualizerMode('orbit')
+    expect(useUiStore.getState().spectrumVisualizerMode).toBe('orbit')
+    expect(localStorage.getItem('fastled-studio-spectrum-visualizer')).toBe('"orbit"')
+
+    useUiStore.getState().setSpectrumVisualizerMode('auto')
+    expect(useUiStore.getState().spectrumVisualizerMode).toBe('auto')
+    expect(localStorage.getItem('fastled-studio-spectrum-visualizer')).toBe('"auto"')
+  })
+
   it('persists the last start choice', () => {
     useUiStore.getState().setLastStartChoice('blank')
     expect(useUiStore.getState().lastStartChoice).toBe('blank')

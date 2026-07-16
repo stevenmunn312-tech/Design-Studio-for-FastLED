@@ -1674,7 +1674,7 @@ describe('evaluateGraph', () => {
       { type: 'Noise', extra: { noiseType: 'plasma' } },
       { type: 'FractalNoise' }, { type: 'GaborNoise' },
       { type: 'PaletteGradient' }, { type: 'Blobs' }, { type: 'FlowField' },
-      { type: 'AudioFlow' }, { type: 'MidrangeWaves' }, { type: 'MidrangeBloom' }, { type: 'AudioCascade' }, { type: 'ReactionDiffusion' }, { type: 'CustomFormula' },
+      { type: 'AudioFlow' }, { type: 'ColorTrails' }, { type: 'MidrangeWaves' }, { type: 'MidrangeBloom' }, { type: 'AudioCascade' }, { type: 'ReactionDiffusion' }, { type: 'CustomFormula' },
     ]
     for (const { type, extra } of patterns) {
       const label = type + (extra?.noiseType ? `-${extra.noiseType}` : '')
@@ -1711,6 +1711,138 @@ describe('evaluateGraph', () => {
       30, 8, 8,
     )
     expect(JSON.stringify(wired)).not.toEqual(JSON.stringify(base))
+  })
+
+  it('renders five distinct AnimARTrix patterns and changes their geometry with audio', () => {
+    const effects = ['Water', 'Polar Waves', 'RGB Blobs', 'Spiralus', 'Complex Kaleido']
+    const render = (id: string, effect: string, audio = false) => {
+      const ax = node(id, 'Animartrix', 'pattern', {
+        effect, speed: 0.7, audioAmount: 1.2,
+        bass: audio ? 0.9 : 0, mids: audio ? 0.65 : 0, treble: audio ? 0.8 : 0,
+        kick: audio ? 1 : 0, snare: audio ? 0.7 : 0, hihat: audio ? 0.85 : 0,
+      })
+      const out = node(`${id}-out`, 'MatrixOutput', 'output', {})
+      const edges = [edge(`${id}-edge`, id, 'frame', out.id, 'frame')]
+      evaluateGraph([ax, out], edges, 0, 12, 12)
+      return evaluateGraph([ax, out], edges, 0.1, 12, 12)
+    }
+    const autonomous = effects.map((effect, i) => render(`ax-${i}`, effect))
+    expect(new Set(autonomous.map((frame) => JSON.stringify(frame))).size).toBe(effects.length)
+    expect(JSON.stringify(render('ax-water-audio', 'Water', true))).not.toBe(JSON.stringify(render('ax-water-dry', 'Water')))
+  })
+
+  it('SpectrumVisualizer renders all five full-spectrum display styles', () => {
+    mockAudio.active = true
+    mockAudio.micActive = true
+    mockAudio.spectrum = Array.from({ length: 32 }, (_, i) => (i % 7) / 6)
+    const rendered = ['Bars', 'Centre Mirror', 'Ribbon', 'Orbit', 'Waterfall'].map((style, index) => {
+      const mic = node(`sv-mic-${index}`, 'MicInput', 'input')
+      const visualizer = node(`sv-${index}`, 'SpectrumVisualizer', 'pattern', {
+        style, bands: 16, gain: 1, smoothing: 0, tilt: 0,
+        peakHold: 0.42, peakGravity: 1.8, waterfallSpeed: 30, palette: 'citrus',
+      })
+      const out = node(`sv-out-${index}`, 'MatrixOutput', 'output')
+      const edges = [
+        edge(`sv-audio-${index}`, mic.id, 'audio', visualizer.id, 'audio'),
+        edge(`sv-frame-${index}`, visualizer.id, 'frame', out.id, 'frame'),
+      ]
+      evaluateGraph([mic, visualizer, out], edges, 0, 12, 12)
+      return evaluateGraph([mic, visualizer, out], edges, 4, 12, 12)!
+    })
+    for (const frame of rendered) {
+      expect(frame.flat().some((px) => px.r + px.g + px.b > 0)).toBe(true)
+    }
+    expect(new Set(rendered.map((frame) => JSON.stringify(frame))).size).toBe(rendered.length)
+    mockAudio.active = false
+    mockAudio.micActive = false
+    mockAudio.spectrum = Array(32).fill(0)
+  })
+
+  it('SpectrumVisualizer peak dots hold, then accelerate downward under gravity', () => {
+    mockAudio.active = true
+    mockAudio.micActive = true
+    mockAudio.spectrum = Array(32).fill(1)
+    const mic = node('sv-gravity-mic', 'MicInput', 'input')
+    const visualizer = node('sv-gravity', 'SpectrumVisualizer', 'pattern', {
+      style: 'Bars', bands: 8, gain: 1, smoothing: 0, tilt: 0,
+      peakHold: 0.42, peakGravity: 1.8, palette: 'citrus',
+    })
+    const out = node('sv-gravity-out', 'MatrixOutput', 'output')
+    const edges = [
+      edge('sv-gravity-audio', mic.id, 'audio', visualizer.id, 'audio'),
+      edge('sv-gravity-frame', visualizer.id, 'frame', out.id, 'frame'),
+    ]
+    evaluateGraph([mic, visualizer, out], edges, 0, 8, 8)
+    mockAudio.spectrum = Array(32).fill(0)
+    let held = evaluateGraph([mic, visualizer, out], edges, 20, 8, 8)!
+    expect(held[0][0].r + held[0][0].g + held[0][0].b).toBeGreaterThan(0)
+    for (let tick = 21; tick <= 60; tick++) held = evaluateGraph([mic, visualizer, out], edges, tick, 8, 8)!
+    expect(held[0][0]).toEqual({ r: 0, g: 0, b: 0 })
+    expect(held.slice(1).some((row) => row[0].r + row[0].g + row[0].b > 0)).toBe(true)
+    mockAudio.active = false
+    mockAudio.micActive = false
+  })
+
+  it('ColorTrails injects a moving line into a persistent advected RGB buffer', () => {
+    const trails = node('ct-fluid', 'ColorTrails', 'pattern', {
+      xSpeed: 0.1, xAmplitude: 1, xFrequency: 0.33,
+      ySpeed: 0.1, yAmplitude: 1, yFrequency: 0.32,
+      displacement: 1.8, endpointSpeed: 0.35, colorSpeed: 0.1,
+      persistence: 0.99922, palette: 'rainbow', seed: 42,
+    })
+    const { nodes, edges } = withOutput(trails)
+    const first = evaluateGraph(nodes, edges, 0, 16, 16)!
+    const firstSnapshot = JSON.stringify(first)
+    expect(first.flat().some((px) => px.r + px.g + px.b > 0)).toBe(true)
+    const later = evaluateGraph(nodes, edges, 12, 16, 16)!
+    expect(JSON.stringify(later)).not.toEqual(firstSnapshot)
+    for (const px of later.flat()) {
+      expect(px.r).toBeGreaterThanOrEqual(0); expect(px.r).toBeLessThanOrEqual(255)
+      expect(px.g).toBeGreaterThanOrEqual(0); expect(px.g).toBeLessThanOrEqual(255)
+      expect(px.b).toBeGreaterThanOrEqual(0); expect(px.b).toBeLessThanOrEqual(255)
+    }
+  })
+
+  it('ColorTrails blooms its injection points on a beat', () => {
+    const render = (suffix: string, on: number) => {
+      const beat = node(`ct-beat-${suffix}`, 'Compare', 'math', { a: on, b: 0.5 })
+      const trails = node(`ct-${suffix}`, 'ColorTrails', 'pattern', { palette: 'rainbow', seed: 42 })
+      const out = node(`ct-out-${suffix}`, 'MatrixOutput', 'output', {})
+      return evaluateGraph([beat, trails, out], [
+        edge(`ct-eb-${suffix}`, beat.id, 'result', trails.id, 'beat'),
+        edge(`ct-eo-${suffix}`, trails.id, 'frame', out.id, 'frame'),
+      ], 0, 16, 16)!
+    }
+    const energy = (frame: Frame) => frame.flat().reduce((sum, px) => sum + px.r + px.g + px.b, 0)
+    expect(energy(render('on', 1))).toBeGreaterThan(energy(render('off', 0)))
+  })
+
+  it('ColorTrails can inject a rainbow liquid frame without filling its centre', () => {
+    const trails = node('ct-border', 'ColorTrails', 'pattern', {
+      injectionMode: 'Rainbow Border', flowMode: 'Morphing 2D',
+      displacement: 0, persistence: 0.9999, palette: 'rainbow', seed: 42,
+    })
+    const { nodes, edges } = withOutput(trails)
+    const frame = evaluateGraph(nodes, edges, 0, 8, 8)!
+    const lit = (x: number, y: number) => frame[y][x].r + frame[y][x].g + frame[y][x].b > 0
+    for (let i = 0; i < 8; i++) {
+      expect(lit(i, 0)).toBe(true); expect(lit(i, 7)).toBe(true)
+      expect(lit(0, i)).toBe(true); expect(lit(7, i)).toBe(true)
+    }
+    expect(lit(3, 3)).toBe(false)
+  })
+
+  it('ColorTrails morphing 2D flow differs from its scrolling profile', () => {
+    const render = (id: string, flowMode: string) => {
+      const trails = node(id, 'ColorTrails', 'pattern', {
+        injectionMode: 'Rainbow Border', flowMode, displacement: 1,
+        persistence: 0.9999, palette: 'rainbow', seed: 42,
+      })
+      const { nodes, edges } = withOutput(trails)
+      return evaluateGraph(nodes, edges, 6, 12, 12)
+    }
+    expect(JSON.stringify(render('ct-scroll', 'Scrolling')))
+      .not.toEqual(JSON.stringify(render('ct-morph', 'Morphing 2D')))
   })
 
   it('Noise4D loops seamlessly over its cycle while still animating within it', () => {

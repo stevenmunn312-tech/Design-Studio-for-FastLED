@@ -77,10 +77,10 @@ describe('Sidebar equipment rack', () => {
   })
 
   it.each([
-    ['Live spectrum', ['MicInput', 'FFTAnalyzer', 'SpectrumBars', 'Trails', 'MatrixOutput']],
-    ['Beat colour jump', ['MicInput', 'BeatDetect', 'Random', 'SampleHold', 'PaletteSampler', 'SolidColor', 'MatrixOutput']],
-    ['Percussion trails', ['MicInput', 'PercussionDetect', 'KickShock', 'Trails', 'MatrixOutput']],
-  ])('drops the %s real-audio recipe onto the canvas', (title, expectedTypes) => {
+    ['Live spectrum', ['MicInput', 'SpectrumVisualizer', 'Trails', 'MatrixOutput'], 3],
+    ['Beat colour jump', ['MicInput', 'BeatDetect', 'Random', 'SampleHold', 'PaletteSampler', 'SolidColor', 'MatrixOutput'], 6],
+    ['Percussion trails', ['MicInput', 'PercussionDetect', 'KickShock', 'Trails', 'MatrixOutput'], 6],
+  ])('drops the %s real-audio recipe onto the canvas', (title, expectedTypes, expectedEdges) => {
     useUiStore.setState({ testSignal: true })
     const { getByText } = render(<Sidebar />)
 
@@ -92,7 +92,7 @@ describe('Sidebar equipment rack', () => {
     expect(useGraphStore.getState().nodes.map((node) => node.data.nodeType)).toEqual(
       expect.arrayContaining(expectedTypes)
     )
-    expect(useGraphStore.getState().edges).toHaveLength(6)
+    expect(useGraphStore.getState().edges).toHaveLength(expectedEdges)
     expect(useUiStore.getState().testSignal).toBe(false)
     expect(startAudio).toHaveBeenCalledOnce()
   })

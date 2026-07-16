@@ -160,19 +160,15 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   template({
     id: 'audio-spectrum',
     name: 'Audio Spectrum',
-    description: 'Microphone → FFT → Spectrum Bars — the standard audio-reactive starting point.',
+    description: 'Microphone → Spectrum Visualizer — full-band bars with held, falling peak dots.',
     nodeSpecs: [
       { id: 'mic', type: 'MicInput', col: 0 },
-      { id: 'fft', type: 'FFTAnalyzer', col: 1 },
-      { id: 'bars', type: 'SpectrumBars', col: 2 },
-      { id: 'out', type: 'MatrixOutput', col: 3 },
+      { id: 'spectrum', type: 'SpectrumVisualizer', col: 1 },
+      { id: 'out', type: 'MatrixOutput', col: 2 },
     ],
     edgeSpecs: [
-      { source: 'mic', sourceHandle: 'audio', target: 'fft', targetHandle: 'audio' },
-      { source: 'fft', sourceHandle: 'bass', target: 'bars', targetHandle: 'bass' },
-      { source: 'fft', sourceHandle: 'mids', target: 'bars', targetHandle: 'mids' },
-      { source: 'fft', sourceHandle: 'treble', target: 'bars', targetHandle: 'treble' },
-      { source: 'bars', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+      { source: 'mic', sourceHandle: 'audio', target: 'spectrum', targetHandle: 'audio' },
+      { source: 'spectrum', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
     ],
   }),
   template({

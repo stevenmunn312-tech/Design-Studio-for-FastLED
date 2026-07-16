@@ -189,6 +189,15 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[]): F
     const outputTypes = OUTPUT_DATATYPES_BY_NODE_TYPE.get(n.data.nodeType)
     if (outputTypes?.has('frame')) frameBufferBytes += ledCount * 3
     if (outputTypes?.has('field')) fieldBufferBytes += ledCount * 4
+    // ColorTrails' separable subpixel advection needs one intermediate CRGB
+    // frame in addition to its persistent output buffer. Codegen declares it
+    // as a normal render buffer, so PSRAM moves it together with the others.
+    if (n.data.nodeType === 'ColorTrails') frameBufferBytes += ledCount * 3
+    if (n.data.nodeType === 'SpectrumVisualizer') {
+      // levels, peaks, peak velocity (float) + peak hold deadline (uint32)
+      // are one value per rendered column; the waterfall reuses its frame buffer.
+      statefulBytes += w * 16
+    }
 
     const extraPerLed = STATEFUL_EXTRA_BYTES_PER_LED[n.data.nodeType]
     if (extraPerLed) statefulBytes += ledCount * extraPerLed

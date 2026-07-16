@@ -15,6 +15,7 @@ import { applyShowPlaybackSignal } from './showPlaybackSignal'
 import { isDiffusedStyle, previewStyleLabel, type PreviewStyle } from './previewStyles'
 import { graphConsumesAudio } from './previewAudioUsage'
 import PreviewSpectrum from './PreviewSpectrum'
+import { SPECTRUM_VISUALIZER_OPTIONS } from './spectrumVisualizerModes'
 import DevPerformanceHud from './DevPerformanceHud'
 import { recordPerfFrame } from '../../dev/perfMonitor'
 import {
@@ -711,6 +712,8 @@ export default function LEDPreview() {
 
   const preview3d = useUiStore((s) => s.preview3d)
   const previewStyle = useUiStore((s) => s.previewStyle)
+  const spectrumVisualizerMode = useUiStore((s) => s.spectrumVisualizerMode)
+  const setSpectrumVisualizerMode = useUiStore((s) => s.setSpectrumVisualizerMode)
   const micActive = useAudioStore((s) => s.micActive)
   const analyzingMusic = useMusicStore((s) => s.entries.some((entry) => entry.status === 'analyzing'))
   const effectivePreview3d = uiEffectsEnabled && preview3d
@@ -1274,11 +1277,28 @@ export default function LEDPreview() {
           {uiEffectsEnabled && <div className={styles.visualizerGrid} />}
           <div className={styles.visualizerSection}>
             <span className={styles.visualizerKicker}>Spectrum</span>
-            <span className={styles.visualizerMeta}>
-              {audioVisualizerLive ? 'Live analysis bus' : showMode ? 'Show playback feed' : 'Idle transport'}
-            </span>
+            <div className={styles.visualizerSettings}>
+              <span className={styles.visualizerMeta}>
+                {audioVisualizerLive ? 'Live analysis bus' : showMode ? 'Show playback feed' : 'Idle transport'}
+              </span>
+              <select
+                className={styles.visualizerSelect}
+                value={spectrumVisualizerMode}
+                onChange={(event) => setSpectrumVisualizerMode(event.target.value as typeof spectrumVisualizerMode)}
+                aria-label="Spectrum visualizer"
+                title="Choose the browser and Stage spectrum presentation"
+              >
+                {SPECTRUM_VISUALIZER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
-          <PreviewSpectrum audioVisualizerLive={audioVisualizerLive} spectrumOverride={playbackSpectrum} />
+          <PreviewSpectrum
+            audioVisualizerLive={audioVisualizerLive}
+            spectrumOverride={playbackSpectrum}
+            mode={spectrumVisualizerMode}
+          />
           <div className={styles.musicControls}>
             <div className={styles.transportHeader}>
               <span className={styles.visualizerKicker}>Transport</span>

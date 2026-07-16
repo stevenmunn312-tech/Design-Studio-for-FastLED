@@ -78,6 +78,21 @@ set. Refresh this file when the lockfile changes in a release-significant way.
 - If a packaged release ships that vendored copy or another bundled FastLED
   checkout, include FastLED's copyright and license text in the artifact.
 
+## Stefan Petrick / AnimARTrix
+
+- The Color Trails node is adapted from prototype code and visual work by
+  Stefan Petrick, creator of [AnimARTrix](https://github.com/StefanPetrick/animartrix).
+  That attribution is preserved in the node-library description, README, source,
+  and generated firmware comments.
+- The Color Trails implementation does not copy AnimARTrix source files. It adds
+  Studio-specific preview/codegen parity, audio mappings, selectable line/border
+  injection, selectable scrolling/morphing flow, and capped subpixel advection.
+- AnimARTrix itself is published under CC BY-NC-SA 4.0 and asks commercial users
+  to contact Stefan. Future direct ports or derivatives must retain attribution,
+  comply with that license (including its non-commercial/share-alike terms), or
+  be covered by separate permission; they must not be treated as MIT merely
+  because they live in this repository.
+
 ## Generated and packaged artifacts
 
 - Generated `.ino` sketches are project/user output and do not embed FastLED's

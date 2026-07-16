@@ -21,6 +21,7 @@ import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledSh
 import { particleRadius } from '../state/particleScale'
 import { buildXYTable } from '../state/xyLayout'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette } from '../state/customPalette'
+import { animartrixCppLines } from '../animartrix/codegen'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -1589,6 +1590,57 @@ export function generateCpp(
         if (mirror) ln(`        ${ob}[_peakY * WIDTH + (WIDTH - 1 - _x)] = _peak;`)
         ln(`      }`)
         ln(`    }`)
+        ln(`  }`)
+        break
+      }
+
+      case 'SpectrumVisualizer': {
+        const ob = ownBuf()
+        const style = String(p.style ?? 'Bars')
+        const bands = Math.max(4, Math.min(32, Math.round(Number(p.bands ?? 16))))
+        const gain = Math.max(0.25, Math.min(4, Number(p.gain ?? 1.25)))
+        const smoothing = Math.max(0, Math.min(0.95, Number(p.smoothing ?? 0.58)))
+        const tilt = Math.max(0, Math.min(1, Number(p.tilt ?? 0.2)))
+        const peakHoldMs = Math.max(0, Math.min(2000, Number(p.peakHold ?? 0.42) * 1000))
+        const peakGravity = Math.max(0.2, Math.min(6, Number(p.peakGravity ?? 1.8)))
+        const waterfallSpeed = Math.max(1, Math.min(30, Number(p.waterfallSpeed ?? 10)))
+        const pal = paletteExpr(node.id, 'paletteIn', p)
+        const audioConnected = incoming.has(`${node.id}:audio`) && useAudioGlobals
+        ln(`  { // SpectrumVisualizer · ${style}`)
+        ln(`    static float _svLevel_${id}[WIDTH]={0},_svPeak_${id}[WIDTH]={0},_svVelocity_${id}[WIDTH]={0};`)
+        ln(`    static uint32_t _svHold_${id}[WIDTH]={0},_svLast_${id}=0;`)
+        ln(`    uint32_t _svNow=millis(); float _svDt=_svLast_${id} ? constrain((_svNow-_svLast_${id})/1000.0f,0.0f,0.1f) : (1.0f/60.0f); _svLast_${id}=_svNow;`)
+        ln(`    float _svBands[${bands}]={0};`)
+        ln(`    for(int _b=0;_b<${bands};_b++){ int _lo=(_b*32)/${bands},_hi=max(_lo+1,((_b+1)*32)/${bands}); float _sum=0.0f; for(int _i=_lo;_i<_hi;_i++) _sum+=${audioConnected ? '_audioSpectrum[_i]' : '0.0f'}; _svBands[_b]=_sum/(_hi-_lo); }`)
+        ln(`    float _svRetain=powf(${smoothing.toFixed(4)}f,_svDt*60.0f);`)
+        ln(`    for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float _pos=WIDTH<=1?0.0f:_x/(float)(WIDTH-1)*${bands - 1}.0f; int _left=(int)floorf(_pos),_right=min(${bands - 1},_left+1); float _mix=_pos-_left;`)
+        ln(`      float _freq=${bands <= 1 ? '0.0f' : `_pos/${bands - 1}.0f`}; float _raw=_svBands[_left]*(1.0f-_mix)+_svBands[_right]*_mix; float _target=constrain(_raw*${gain.toFixed(4)}f*(1.0f+_freq*${(tilt * 1.8).toFixed(4)}f),0.0f,1.0f);`)
+        ln(`      _svLevel_${id}[_x]=_svLevel_${id}[_x]*_svRetain+_target*(1.0f-_svRetain);`)
+        ln(`      if(_svLevel_${id}[_x]>=_svPeak_${id}[_x]){ _svPeak_${id}[_x]=_svLevel_${id}[_x]; _svVelocity_${id}[_x]=0.0f; _svHold_${id}[_x]=_svNow+${Math.round(peakHoldMs)}U; }`)
+        ln(`      else if((int32_t)(_svNow-_svHold_${id}[_x])>=0){ _svVelocity_${id}[_x]+=${peakGravity.toFixed(4)}f*_svDt; _svPeak_${id}[_x]=max(_svLevel_${id}[_x],_svPeak_${id}[_x]-_svVelocity_${id}[_x]*_svDt); }`)
+        ln(`    }`)
+        ln(`    auto _svColor=[&](float _amount,float _brightness)->CRGB{ return ColorFromPalette(${pal},(uint8_t)(constrain(0.14f+_amount*0.82f,0.0f,1.0f)*255.0f),(uint8_t)(constrain(_brightness,0.0f,1.0f)*255.0f),LINEARBLEND); };`)
+
+        if (style === 'Waterfall') {
+          ln(`    static uint32_t _svWaterfall_${id}=0; if(!_svWaterfall_${id})_svWaterfall_${id}=_svNow;`)
+          ln(`    int _steps=min(HEIGHT,(int)((_svNow-_svWaterfall_${id})*${waterfallSpeed.toFixed(3)}f/1000.0f));`)
+          ln(`    if(_steps>0){ _svWaterfall_${id}+=(uint32_t)(_steps*(1000.0f/${waterfallSpeed.toFixed(3)}f)); for(int _step=0;_step<_steps;_step++){`)
+          ln(`      if(HEIGHT>1)memmove(${ob},${ob}+WIDTH,sizeof(CRGB)*WIDTH*(HEIGHT-1));`)
+          ln(`      for(int _x=0;_x<WIDTH;_x++){ float _lv=constrain(_svLevel_${id}[_x],0.0f,1.0f); ${ob}[(HEIGHT-1)*WIDTH+_x]=_lv<0.02f?CRGB::Black:_svColor(_lv,0.25f+_lv*0.75f); }`)
+          ln(`    } }`)
+        } else if (style === 'Orbit') {
+          ln(`    fill_solid(${ob},NUM_LEDS,CRGB::Black); float _cx=(WIDTH-1)*0.5f,_cy=(HEIGHT-1)*0.5f,_minDim=max(2,min(WIDTH,HEIGHT)); float _pixelRadius=0.72f/_minDim;`)
+          ln(`    for(int _y=0;_y<HEIGHT;_y++)for(int _x=0;_x<WIDTH;_x++){ float _dx=(_x-_cx)/_minDim,_dy=(_y-_cy)/_minDim,_radius=hypotf(_dx,_dy); float _angle=fmodf(atan2f(_dy,_dx)+TWO_PI*1.25f,TWO_PI)/TWO_PI; int _col=min(WIDTH-1,(int)(_angle*WIDTH)); float _lv=_svLevel_${id}[_col],_peak=_svPeak_${id}[_col]; float _outer=0.15f+_lv*0.32f,_peakRadius=0.15f+_peak*0.32f; if(_peak>0.015f&&fabsf(_radius-_peakRadius)<=_pixelRadius)${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(_angle*255.0f),255,LINEARBLEND); else if(_radius>=0.15f&&_radius<=_outer)${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(_angle*255.0f),(uint8_t)((0.34f+_lv*0.66f)*255.0f),LINEARBLEND); }`)
+        } else if (style === 'Centre Mirror') {
+          ln(`    fill_solid(${ob},NUM_LEDS,CRGB::Black); int _upper=(HEIGHT-1)/2,_lower=HEIGHT/2,_reach=max(1,HEIGHT/2);`)
+          ln(`    for(int _x=0;_x<WIDTH;_x++){ int _len=(int)roundf(_svLevel_${id}[_x]*_reach); for(int _row=0;_row<_len;_row++){ float _amount=_reach<=1?1.0f:_row/(float)(_reach-1); CRGB _c=_svColor(_amount,0.4f+_amount*0.6f); if(_upper-_row>=0)${ob}[(_upper-_row)*WIDTH+_x]=_c; if(_lower+_row<HEIGHT)${ob}[(_lower+_row)*WIDTH+_x]=_c; } int _po=(int)roundf(_svPeak_${id}[_x]*_reach); if(_svPeak_${id}[_x]>0.015f){ CRGB _p=_svColor(_svPeak_${id}[_x],1.0f); if(_upper-_po>=0)${ob}[(_upper-_po)*WIDTH+_x]=_p; if(_lower+_po<HEIGHT)${ob}[(_lower+_po)*WIDTH+_x]=_p; } }`)
+        } else {
+          const ribbon = style === 'Ribbon'
+          ln(`    fill_solid(${ob},NUM_LEDS,CRGB::Black);`)
+          ln(`    for(int _x=0;_x<WIDTH;_x++){ int _barH=(int)roundf(_svLevel_${id}[_x]*HEIGHT); for(int _row=0;_row<_barH;_row++){ int _y=HEIGHT-1-_row; float _amount=HEIGHT<=1?1.0f:_row/(float)(HEIGHT-1); float _brightness=${ribbon ? '(_row==_barH-1?1.0f:0.18f+_amount*0.42f)' : '0.34f+_amount*0.66f'}; ${ob}[_y*WIDTH+_x]=_svColor(_amount,_brightness); } int _py=HEIGHT-1-(int)roundf(_svPeak_${id}[_x]*(HEIGHT-1)); if(_svPeak_${id}[_x]>0.015f&&_py>=0&&_py<HEIGHT)${ob}[_py*WIDTH+_x]=_svColor(_svPeak_${id}[_x],1.0f); }`)
+        }
+        if (!audioConnected) ln(`    // Connect a Microphone to the Audio input to populate the spectrum on-device.`)
         ln(`  }`)
         break
       }
@@ -3272,6 +3324,96 @@ export function generateCpp(
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      uint8_t _v=inoise8((uint16_t)((_x*_sc+_flow)*256),(uint16_t)((_y*_sc*0.6f+_vflow+8.0f)*256));`)
         ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(_v+_tr*80)); ${ob}[_y*WIDTH+_x].nscale8(_bright);}}`)
+        break
+      }
+
+      case 'ColorTrails': {
+        needsT.v = true
+        const ob = ownBuf()
+        const tmpId = `cttmp_${id}`
+        frameBufs.add(tmpId)
+        const tmp = `buf_${tmpId}`
+        const bass = f('bass', 'bass', 0), mids = f('mids', 'mids', 0), treble = f('treble', 'treble', 0)
+        const beat = boolExpr(node.id, 'beat')
+        const pal = paletteExpr(node.id, 'paletteIn', p)
+        const xSpeed = f('xSpeed', 'xSpeed', 0.1), xAmp = f('xAmplitude', 'xAmplitude', 1), xFreq = f('xFrequency', 'xFrequency', 0.33)
+        const ySpeed = f('ySpeed', 'ySpeed', 0.1), yAmp = f('yAmplitude', 'yAmplitude', 1), yFreq = f('yFrequency', 'yFrequency', 0.32)
+        const displacement = f('displacement', 'displacement', 1.8)
+        const endpointSpeed = f('endpointSpeed', 'endpointSpeed', 0.35)
+        const colorSpeed = f('colorSpeed', 'colorSpeed', 0.1)
+        const persistence = f('persistence', 'persistence', 0.99922)
+        const seed = seedProp({ seed: p.seed ?? 42 })
+        const injectionMode = String(p.injectionMode ?? 'Moving Line')
+        const injectLine = injectionMode !== 'Rainbow Border'
+        const injectBorder = injectionMode !== 'Moving Line'
+        const morphFlow = String(p.flowMode ?? 'Scrolling') === 'Morphing 2D'
+        ln(`  { // ColorTrails: ${injectionMode} injection + two-pass subpixel feedback advection`)
+        ln(`    // Adapted from prototype work by Stefan Petrick, creator of AnimARTrix:`)
+        ln(`    // https://github.com/StefanPetrick/animartrix`)
+        ln(`    static float _ctLast_${id}=-1.0f,_ctBeatPulse_${id}=0.0f;`)
+        ln(`    float _ctDtf=_ctLast_${id}<0.0f?1.0f:constrain((t-_ctLast_${id})*60.0f,0.0f,4.0f); _ctLast_${id}=t;`)
+        ln(`    if(_ctDtf>0.0f){`)
+        ln(`      float _ctBass=constrain(${bass},0.0f,1.0f),_ctMids=constrain(${mids},0.0f,1.0f),_ctTreble=constrain(${treble},0.0f,1.0f);`)
+        ln(`      _ctBeatPulse_${id}=(${beat})?1.0f:_ctBeatPulse_${id}*powf(0.78f,_ctDtf);`)
+        ln(`      float _ctEpSpeed=(${endpointSpeed})*(1.0f+_ctMids*1.5f);`)
+        ln(`      float _ctColorSpeed=(${colorSpeed})*(1.0f+_ctTreble*2.0f);`)
+        ln(`      float _ctDisp=max(0.0f,(float)(${displacement}))*(1.0f+_ctBass*1.5f)*_ctDtf;`)
+        ln(`      auto _ctHash=[](int32_t _q,uint32_t _seed)->uint32_t{ uint32_t _h=((uint32_t)_q)^_seed; _h=(_h^(_h>>16))*0x7feb352dU; _h=(_h^(_h>>15))*0x846ca68bU; return _h^(_h>>16); };`)
+        ln(`      auto _ctNoise=[&](float _x,uint32_t _seed)->float{ int32_t _xi=(int32_t)floorf(_x); float _xf=_x-_xi; float _u=_xf*_xf*_xf*(_xf*(_xf*6.0f-15.0f)+10.0f); float _a=(_ctHash(_xi,_seed)&1U)?-_xf:_xf; float _d=_xf-1.0f; float _b=(_ctHash(_xi+1,_seed)&1U)?-_d:_d; return _a+(_b-_a)*_u; };`)
+        if (morphFlow) {
+          ln(`      auto _ctHash2=[&](int32_t _x,int32_t _y,uint32_t _seed)->uint32_t{ uint32_t _q=((uint32_t)_x*0x8da6b343U)^((uint32_t)_y*0xd8163841U); return _ctHash((int32_t)_q,_seed); };`)
+          ln(`      auto _ctGrad=[](uint32_t _h,float _x,float _y)->float{ switch(_h&7U){ case 0:return _x+_y; case 1:return -_x+_y; case 2:return _x-_y; case 3:return -_x-_y; case 4:return _x; case 5:return -_x; case 6:return _y; default:return -_y; } };`)
+          ln(`      auto _ctNoise2=[&](float _x,float _y,uint32_t _seed)->float{ int32_t _xi=(int32_t)floorf(_x),_yi=(int32_t)floorf(_y); float _xf=_x-_xi,_yf=_y-_yi; float _u=_xf*_xf*_xf*(_xf*(_xf*6.0f-15.0f)+10.0f),_v=_yf*_yf*_yf*(_yf*(_yf*6.0f-15.0f)+10.0f); float _aa=_ctGrad(_ctHash2(_xi,_yi,_seed),_xf,_yf),_ba=_ctGrad(_ctHash2(_xi+1,_yi,_seed),_xf-1.0f,_yf); float _ab=_ctGrad(_ctHash2(_xi,_yi+1,_seed),_xf,_yf-1.0f),_bb=_ctGrad(_ctHash2(_xi+1,_yi+1,_seed),_xf-1.0f,_yf-1.0f); float _x0=_aa+(_ba-_aa)*_u,_x1=_ab+(_bb-_ab)*_u; return _x0+(_x1-_x0)*_v; };`)
+        }
+        ln(`      auto _ctColor=[&](float _u)->CRGB{ float _h=fmodf(t*_ctColorSpeed+_u,1.0f); if(_h<0.0f)_h+=1.0f; return ColorFromPalette(${pal},(uint8_t)(_h*255.0f),255,LINEARBLEND); };`)
+        ln(`      auto _ctBlend=[&](int _x,int _y,const CRGB& _c,float _weight){ if(_x<0||_x>=WIDTH||_y<0||_y>=HEIGHT)return; float _w=constrain(_weight*(1.0f+_ctBeatPulse_${id}*0.65f),0.0f,1.0f); _w=1.0f-powf(1.0f-_w,_ctDtf); CRGB& _d=${ob}[_y*WIDTH+_x]; _d.r=(uint8_t)(_d.r*(1.0f-_w)+_c.r*_w+0.5f); _d.g=(uint8_t)(_d.g*(1.0f-_w)+_c.g*_w+0.5f); _d.b=(uint8_t)(_d.b*(1.0f-_w)+_c.b*_w+0.5f); };`)
+        if (injectLine) {
+          ln(`      float _cx=(WIDTH-1)*0.5f,_cy=(HEIGHT-1)*0.5f;`)
+          ln(`      float _x1=_cx+(WIDTH-1)*(11.5f/31.0f)*sinf(t*_ctEpSpeed*1.13f+0.20f);`)
+          ln(`      float _y1=_cy+(HEIGHT-1)*(10.5f/31.0f)*sinf(t*_ctEpSpeed*1.71f+1.30f);`)
+          ln(`      float _x2=_cx+(WIDTH-1)*(12.0f/31.0f)*sinf(t*_ctEpSpeed*1.89f+2.20f);`)
+          ln(`      float _y2=_cy+(HEIGHT-1)*(11.0f/31.0f)*sinf(t*_ctEpSpeed*1.37f+0.70f);`)
+          ln(`      float _dx=_x2-_x1,_dy=_y2-_y1; int _steps=max(1,(int)(max(fabsf(_dx),fabsf(_dy))*3.0f));`)
+          ln(`      for(int _i=0;_i<=_steps;_i++){ float _u=_i/(float)_steps,_x=_x1+_dx*_u,_y=_y1+_dy*_u; int _xi=(int)floorf(_x),_yi=(int)floorf(_y); float _fx=_x-_xi,_fy=_y-_yi; CRGB _c=_ctColor(_u); _ctBlend(_xi,_yi,_c,(1.0f-_fx)*(1.0f-_fy)); _ctBlend(_xi+1,_yi,_c,_fx*(1.0f-_fy)); _ctBlend(_xi,_yi+1,_c,(1.0f-_fx)*_fy); _ctBlend(_xi+1,_yi+1,_c,_fx*_fy); }`)
+          ln(`      float _radius=0.85f+_ctBeatPulse_${id}*0.9f;`)
+          ln(`      auto _ctDisc=[&](float _ex,float _ey,const CRGB& _c){ int _minX=max(0,(int)floorf(_ex-_radius-1.0f)),_maxX=min(WIDTH-1,(int)ceilf(_ex+_radius+1.0f)); int _minY=max(0,(int)floorf(_ey-_radius-1.0f)),_maxY=min(HEIGHT-1,(int)ceilf(_ey+_radius+1.0f)); for(int _py=_minY;_py<=_maxY;_py++)for(int _px=_minX;_px<=_maxX;_px++){ float _dd=hypotf(_px+0.5f-_ex,_py+0.5f-_ey); _ctBlend(_px,_py,_c,constrain(_radius+0.5f-_dd,0.0f,1.0f)); } };`)
+          ln(`      _ctDisc(_x1,_y1,_ctColor(0.0f)); _ctDisc(_x2,_y2,_ctColor(1.0f));`)
+        }
+        if (injectBorder) {
+          ln(`      int _ctPi=0,_ctPn=max(1,2*WIDTH+2*HEIGHT-4);`)
+          ln(`      for(int _x=0;_x<WIDTH;_x++)_ctBlend(_x,0,_ctColor(_ctPi++/(float)_ctPn),1.0f);`)
+          ln(`      for(int _y=1;_y<HEIGHT;_y++)_ctBlend(WIDTH-1,_y,_ctColor(_ctPi++/(float)_ctPn),1.0f);`)
+          ln(`      if(HEIGHT>1)for(int _x=WIDTH-2;_x>=0;_x--)_ctBlend(_x,HEIGHT-1,_ctColor(_ctPi++/(float)_ctPn),1.0f);`)
+          ln(`      if(WIDTH>1)for(int _y=HEIGHT-2;_y>0;_y--)_ctBlend(0,_y,_ctColor(_ctPi++/(float)_ctPn),1.0f);`)
+        }
+        ln(`      const uint32_t _seedX=${seed}U,_seedY=${(seed + 1295) >>> 0}U;`)
+        const yNoise = morphFlow ? `_ctNoise2(_y*0.23f*(${yFreq}),t*(${ySpeed}),_seedY)` : `_ctNoise(_y*0.23f*(${yFreq})+t*(${ySpeed}),_seedY)`
+        const xNoise = morphFlow ? `_ctNoise2((WIDTH-1-_x)*0.23f*(${xFreq}),t*(${xSpeed}),_seedX)` : `_ctNoise((WIDTH-1-_x)*0.23f*(${xFreq})+t*(${xSpeed}),_seedX)`
+        ln(`      for(int _y=0;_y<HEIGHT;_y++){ float _profile=${yNoise}*(${yAmp}); float _shift=constrain(_profile*_ctDisp,-1.0f,1.0f); for(int _x=0;_x<WIDTH;_x++){ float _sx=fmodf(_x-_shift,(float)WIDTH); if(_sx<0)_sx+=WIDTH; int _x0=(int)floorf(_sx),_xN=(_x0+1)%WIDTH; float _f=_sx-_x0; CRGB _a=${ob}[_y*WIDTH+_x0],_b=${ob}[_y*WIDTH+_xN]; ${tmp}[_y*WIDTH+_x]=CRGB((uint8_t)(_a.r*(1.0f-_f)+_b.r*_f+0.5f),(uint8_t)(_a.g*(1.0f-_f)+_b.g*_f+0.5f),(uint8_t)(_a.b*(1.0f-_f)+_b.b*_f+0.5f)); } }`)
+        ln(`      float _fade=powf(constrain((float)(${persistence}),0.0f,0.99999f),_ctDtf);`)
+        ln(`      for(int _x=0;_x<WIDTH;_x++){ float _profile=${xNoise}*(${xAmp}); float _shift=constrain(_profile*_ctDisp,-1.0f,1.0f); for(int _y=0;_y<HEIGHT;_y++){ float _sy=fmodf(_y-_shift,(float)HEIGHT); if(_sy<0)_sy+=HEIGHT; int _y0=(int)floorf(_sy),_yN=(_y0+1)%HEIGHT; float _f=_sy-_y0; CRGB _a=${tmp}[_y0*WIDTH+_x],_b=${tmp}[_yN*WIDTH+_x]; ${ob}[_y*WIDTH+_x]=CRGB((uint8_t)((_a.r*(1.0f-_f)+_b.r*_f)*_fade+0.5f),(uint8_t)((_a.g*(1.0f-_f)+_b.g*_f)*_fade+0.5f),(uint8_t)((_a.b*(1.0f-_f)+_b.b*_f)*_fade+0.5f)); } }`)
+        ln(`    }`)
+        ln(`  }`)
+        break
+      }
+
+      case 'Animartrix': {
+        needsT.v = true
+        const ob = ownBuf()
+        loopLines.push(...animartrixCppLines({
+          id,
+          output: ob,
+          effect: p.effect,
+          speed: f('speed', 'speed', 0.65),
+          audioAmount: f('audioAmount', 'audioAmount', 1),
+          bass: f('bass', 'bass', 0),
+          mids: f('mids', 'mids', 0),
+          treble: f('treble', 'treble', 0),
+          kick: f('kick', 'kick', 0),
+          snare: f('snare', 'snare', 0),
+          hihat: f('hihat', 'hihat', 0),
+          beat: boolExpr(node.id, 'beat'),
+        }))
         break
       }
 

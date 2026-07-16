@@ -47,7 +47,7 @@
   padding: clamp(18px, 2.4vw, 36px);
 }
 
-.panelStage .spectrum {
+.panelStage .spectrumCanvas {
   min-height: 150px;
   margin-bottom: 24px;
 }
@@ -579,17 +579,48 @@
   opacity: 0.72;
 }
 
-.spectrum {
+.visualizerSettings {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.visualizerSelect {
+  min-width: 116px;
+  height: 28px;
+  padding: 0 26px 0 9px;
+  border: 1px solid color-mix(in srgb, var(--accent-output) 28%, var(--border-glow));
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
+  color: var(--text-primary);
+  font-family: var(--font-code);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.visualizerSelect:hover {
+  border-color: color-mix(in srgb, var(--accent-output) 58%, var(--border-glow));
+}
+
+.visualizerSelect:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent-output) 74%, white);
+  outline-offset: 2px;
+}
+
+.spectrumCanvas {
   position: relative;
   z-index: 1;
   /* Shares the visualizer's spare height with the branding below — the wordmark
-     gets the larger share so it reads as a footer, while the bars keep a
-     moderate floor. */
+     gets the larger share so it reads as a footer, while the instrument keeps
+     a moderate floor. */
   flex: 1.35 1 0;
+  width: 100%;
+  height: 100%;
   min-height: 80px;
-  display: flex;
-  align-items: flex-end;
-  gap: 4px;
+  display: block;
   margin-bottom: 12px;
 }
 
@@ -1042,47 +1073,6 @@
   display: none;
 }
 
-.barWrap {
-  position: relative;
-  flex: 1 1 0;
-  height: 100%;
-  min-width: 4px;
-}
-
-.bar,
-.peak {
-  --bar-hue: 200;
-}
-
-.bar {
-  position: absolute;
-  inset: auto 0 0;
-  border-radius: 999px 999px 2px 2px;
-  min-height: 8px;
-  background:
-    linear-gradient(180deg,
-      hsl(var(--bar-hue) 100% 88%) 0%,
-      hsl(calc(var(--bar-hue) + 18) 100% 68%) 35%,
-      hsl(calc(var(--bar-hue) + 42) 100% 56%) 100%);
-  box-shadow:
-    0 0 10px hsl(var(--bar-hue) 100% 58% / 0.35),
-    0 0 22px hsl(calc(var(--bar-hue) + 20) 100% 55% / 0.22);
-  transition: height 70ms linear;
-}
-
-.peak {
-  position: absolute;
-  left: 10%;
-  right: 10%;
-  height: 3px;
-  border-radius: 999px;
-  background: hsl(calc(var(--bar-hue) + 12) 100% 92%);
-  box-shadow:
-    0 0 8px hsl(calc(var(--bar-hue) + 8) 100% 70% / 0.9),
-    0 0 14px hsl(calc(var(--bar-hue) + 24) 100% 60% / 0.35);
-  transition: bottom 110ms linear;
-}
-
 @keyframes visualizerScan {
   0% {
     transform: translateY(0) scaleY(0.92);
@@ -1182,9 +1172,13 @@
     padding: 12px 18px;
   }
 
-  .panelStage .spectrum {
+  .panelStage .spectrumCanvas {
     min-height: 52px;
     margin-bottom: 8px;
+  }
+
+  .panelStage .visualizerMeta {
+    display: none;
   }
 
   .panelStage .brandWrap {
@@ -1215,7 +1209,7 @@
     padding-bottom: 8px;
   }
 
-  .spectrum {
+  .spectrumCanvas {
     min-height: 48px;
     margin-bottom: 8px;
   }

@@ -338,6 +338,7 @@ const TARGET_PROPERTIES: Record<string, Record<string, unknown>> = {
   Particles: { particleType: 'fireflies', rate: 0.36, count: 28, decay: 0.93, palette: 'party', size: 1.3 },
   Text: { text: 'FASTLED', scroll: 0.18, r: 0, g: 235, b: 255 },
   Transition: { transitionType: 'spiral', turns: 2.5 },
+  Animartrix: { effect: 'Complex Kaleido', speed: 0.72, audioAmount: 1.25 },
   Zones: {
     aEnabled: true, aX: 0, aY: 0, aW: 0.5, aH: 1,
     bEnabled: true, bX: 0.5, bY: 0, bW: 0.5, bH: 1,
@@ -346,10 +347,10 @@ const TARGET_PROPERTIES: Record<string, Record<string, unknown>> = {
 
 const SPARSE_FRAME_TYPES = new Set(['Circle', 'Line', 'Shape', 'Path', 'Text', 'Image'])
 const AUDIO_PATTERN_TYPES = new Set([
-  'SpectrumBars', 'BassPulse', 'BassRings', 'MidrangeWaves', 'MidrangeBloom',
+  'SpectrumBars', 'SpectrumVisualizer', 'BassPulse', 'BassRings', 'MidrangeWaves', 'MidrangeBloom',
   'TrebleSparks', 'TreblePrism', 'AudioCascade', 'BeatFlash', 'KickShock',
   'VocalAurora', 'BeatKaleidoscope', 'SpectraMosaic', 'PercussionBlobs',
-  'EmberPulse', 'TurbulentBloom', 'GravityWell', 'RainRipples', 'PrismStorm', 'AudioFlow',
+  'EmberPulse', 'TurbulentBloom', 'GravityWell', 'RainRipples', 'PrismStorm', 'AudioFlow', 'Animartrix',
 ])
 
 function selectedInputs(node: NodeDefinition): NodePort[] {
@@ -489,6 +490,7 @@ function audioPatternExample(node: NodeDefinition): ReferenceLiveExample {
   const featureHandles = ['vocals', 'energy', 'silence'].filter((id) => ids.has(id))
   const beatHandle = ids.has('beat') ? 'beat' : ids.has('trigger') ? 'trigger' : null
 
+  if (ids.has('audio')) builder.wire('mic', 'audio', 'target', 'audio')
   if (fftHandles.length) {
     builder.add('fft', 'FFTAnalyzer', { smoothing: 0.7, gain: 1.15 })
     builder.wire('mic', 'audio', 'fft', 'audio')

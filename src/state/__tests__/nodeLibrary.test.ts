@@ -119,6 +119,41 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('AudioFlow', 'scale')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
+  it('ColorTrails exposes autonomous flow controls plus optional audio modulation', () => {
+    const trails = NODE_LIBRARY.find((n) => n.type === 'ColorTrails')
+    expect(trails?.subcategory).toBe('Audio-Reactive')
+    expect(NODE_DESCRIPTIONS.ColorTrails).toContain('Stefan Petrick')
+    expect(trails?.inputs.map((p) => p.id)).toEqual(['bass', 'mids', 'treble', 'beat', 'paletteIn'])
+    expect(trails?.defaultProperties).toMatchObject({
+      injectionMode: 'Moving Line', flowMode: 'Scrolling',
+      xSpeed: 0.1, xAmplitude: 1, xFrequency: 0.33,
+      ySpeed: 0.1, yAmplitude: 1, yFrequency: 0.32,
+      displacement: 1.8, endpointSpeed: 0.35, colorSpeed: 0.1,
+      persistence: 0.99922, palette: 'rainbow', seed: 42,
+    })
+    expect(propertyMeta('ColorTrails', 'xSpeed')).toMatchObject({ control: 'slider', min: -2, max: 2 })
+    expect(propertyMeta('ColorTrails', 'injectionMode')).toMatchObject({ control: 'select', options: ['Moving Line', 'Rainbow Border', 'Both'] })
+    expect(propertyMeta('ColorTrails', 'flowMode')).toMatchObject({ control: 'select', options: ['Scrolling', 'Morphing 2D'] })
+    expect(propertyMeta('ColorTrails', 'displacement')).toMatchObject({ control: 'slider', min: 0, max: 4 })
+    expect(propertyMeta('ColorTrails', 'persistence')).toMatchObject({ control: 'slider', min: 0.9, max: 0.9999 })
+  })
+
+  it('AnimARTrix exposes the credited five-effect audio-reactive instrument', () => {
+    const animartrix = NODE_LIBRARY.find((n) => n.type === 'Animartrix')
+    expect(animartrix?.label).toBe('AnimARTrix')
+    expect(animartrix?.subcategory).toBe('Audio-Reactive')
+    expect(NODE_DESCRIPTIONS.Animartrix).toContain('Stefan Petrick')
+    expect(animartrix?.inputs.map((p) => p.id)).toEqual([
+      'bass', 'mids', 'treble', 'kick', 'snare', 'hihat', 'beat', 'speed',
+    ])
+    expect(animartrix?.defaultProperties).toEqual({ effect: 'Water', speed: 0.65, audioAmount: 1 })
+    expect(propertyMeta('Animartrix', 'effect')).toMatchObject({
+      control: 'select',
+      options: ['Water', 'Polar Waves', 'RGB Blobs', 'Spiralus', 'Complex Kaleido'],
+    })
+    expect(propertyMeta('Animartrix', 'audioAmount')).toMatchObject({ control: 'slider', min: 0, max: 2 })
+  })
+
   it('MidrangeWaves exposes energy, normalized speed, and palette inputs', () => {
     const mw = NODE_LIBRARY.find((n) => n.type === 'MidrangeWaves')
     expect(mw?.inputs.map((p) => p.id)).toEqual(['mids', 'energy', 'speed', 'paletteIn'])
@@ -133,6 +168,24 @@ describe('nodeLibrary', () => {
     expect(sb?.defaultProperties).toMatchObject({ energy: 0.7, speed: 0.6, palette: 'rainbow', mirror: true })
     expect(propertyMeta('SpectrumBars', 'energy')).toMatchObject({ control: 'slider', min: 0, max: 1 })
     expect(propertyMeta('SpectrumBars', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+  })
+
+  it('SpectrumVisualizer exposes full-spectrum display and falling-peak controls', () => {
+    const visualizer = NODE_LIBRARY.find((n) => n.type === 'SpectrumVisualizer')
+    expect(visualizer?.subcategory).toBe('Audio-Reactive')
+    expect(visualizer?.inputs.map((p) => p.id)).toEqual(['audio', 'paletteIn'])
+    expect(visualizer?.defaultProperties).toMatchObject({
+      style: 'Bars', bands: 16, gain: 1.25, smoothing: 0.58, tilt: 0.2,
+      peakHold: 0.42, peakGravity: 1.8, waterfallSpeed: 10, palette: 'citrus',
+    })
+    expect(propertyMeta('SpectrumVisualizer', 'style')).toMatchObject({
+      control: 'select', options: ['Bars', 'Centre Mirror', 'Ribbon', 'Orbit', 'Waterfall'],
+    })
+    expect(propertyMeta('SpectrumVisualizer', 'bands')).toMatchObject({ control: 'slider', min: 4, max: 32 })
+    expect(propertyMeta('SpectrumVisualizer', 'peakHold')).toMatchObject({ control: 'slider', min: 0, max: 2 })
+    expect(isPropertyEnabled('SpectrumVisualizer', 'peakGravity', { style: 'Bars' })).toBe(true)
+    expect(isPropertyEnabled('SpectrumVisualizer', 'peakGravity', { style: 'Waterfall' })).toBe(false)
+    expect(isPropertyEnabled('SpectrumVisualizer', 'waterfallSpeed', { style: 'Waterfall' })).toBe(true)
   })
 
   it('BassRings exposes bass, energy, normalized speed, and palette inputs', () => {

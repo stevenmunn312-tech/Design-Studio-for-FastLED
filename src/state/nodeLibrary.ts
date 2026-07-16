@@ -3,6 +3,7 @@ import { STUDIO_PALETTES } from './paletteCatalog'
 import { DEFAULT_CUSTOM_COLORS, DEFAULT_CUSTOM_POSITIONS } from './customPalette'
 import { evaluateScalarExpression } from './scalarExpression'
 import { MIC_DEFAULTS, MIC_MAX_GAIN } from '../audio/micAnalysis'
+import { ANIMARTRIX_EFFECTS } from '../animartrix/catalog'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   // ── Inputs ─────────────────────────────────────────────────────────────
@@ -439,6 +440,24 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { energy: 0.7, speed: 0.6, palette: 'rainbow', mirror: true },
+  },
+  {
+    // Full equalizer display driven directly from the shared microphone
+    // spectrum. Unlike SpectrumBars' deliberately stylised three-band motion,
+    // this preserves the individual frequency bins in preview and firmware.
+    type: 'SpectrumVisualizer',
+    label: 'Spectrum Visualizer',
+    category: 'pattern',
+    subcategory: 'Audio-Reactive',
+    inputs: [
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: {
+      style: 'Bars', bands: 16, gain: 1.25, smoothing: 0.58, tilt: 0.2,
+      peakHold: 0.42, peakGravity: 1.8, waterfallSpeed: 10, palette: 'citrus',
+    },
   },
 
   // ── Compositing ────────────────────────────────────────────────────────
@@ -1710,6 +1729,51 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { speed: 0.5, scale: 0.5, palette: 'rainbow' },
   },
   {
+    // Persistent palette advection: a moving Lissajous segment, a rainbow
+    // perimeter, or both are painted into an RGB feedback buffer, then smooth
+    // noise profiles shift every row and column with subpixel interpolation.
+    // Audio modulation remains optional, so autonomous motion works unwired.
+    type: 'ColorTrails',
+    label: 'Color Trails',
+    category: 'pattern',
+    subcategory: 'Audio-Reactive',
+    inputs: [
+      { id: 'bass', label: 'Bass', dataType: 'float' },
+      { id: 'mids', label: 'Mids', dataType: 'float' },
+      { id: 'treble', label: 'Treble', dataType: 'float' },
+      { id: 'beat', label: 'Beat', dataType: 'bool' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: {
+      injectionMode: 'Moving Line', flowMode: 'Scrolling',
+      xSpeed: 0.1, xAmplitude: 1, xFrequency: 0.33,
+      ySpeed: 0.1, yAmplitude: 1, yFrequency: 0.32,
+      displacement: 1.8, endpointSpeed: 0.35, colorSpeed: 0.1,
+      persistence: 0.99922, palette: 'rainbow', seed: 42,
+    },
+  },
+  {
+    // A separately licensed, removable AnimARTrix integration. The six audio
+    // bands/percussion signals alter geometry, not merely master brightness.
+    type: 'Animartrix',
+    label: 'AnimARTrix',
+    category: 'pattern',
+    subcategory: 'Audio-Reactive',
+    inputs: [
+      { id: 'bass', label: 'Bass', dataType: 'float' },
+      { id: 'mids', label: 'Mids', dataType: 'float' },
+      { id: 'treble', label: 'Treble', dataType: 'float' },
+      { id: 'kick', label: 'Kick', dataType: 'float' },
+      { id: 'snare', label: 'Snare', dataType: 'float' },
+      { id: 'hihat', label: 'Hi-Hat', dataType: 'float' },
+      { id: 'beat', label: 'Beat', dataType: 'bool' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { effect: 'Water', speed: 0.65, audioAmount: 1 },
+  },
+  {
     // Gray-Scott reaction-diffusion — organic spots/stripes that evolve.
     type: 'ReactionDiffusion',
     label: 'Reaction Diffusion',
@@ -2274,6 +2338,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Confetti: 'Random fading palette speckles on a persistent frame buffer.',
   Juggle: 'N sine-driven dots with trails; count 1 gives the Sinelon case.',
   SpectrumBars: 'Palette-driven equalizer bars with audio-reactive motion.',
+  SpectrumVisualizer: 'Full-spectrum bars, ribbon, orbit, mirror, or waterfall display.',
   BassPulse: 'Pulses a palette colour with bass energy.',
   BassRings: 'Concentric rings that swell and brighten with bass.',
   MidrangeWaves: 'Waves driven by midrange audio.',
@@ -2306,6 +2371,8 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Starfield: 'Warp starfield — stars streak outward from the centre.',
   Boids: 'Flocking swarm — agents steer by separation, alignment and cohesion.',
   AudioFlow: 'Audio-reactive flowing noise field.',
+  ColorTrails: 'Fluid palette trails adapted from a Stefan Petrick prototype.',
+  Animartrix: 'AnimARTrix by Stefan Petrick, rebuilt for deep musical control.',
   ReactionDiffusion: 'Gray-Scott reaction-diffusion — organic spots & stripes.',
   GameOfLife: 'Conway’s Game of Life with fading trails.',
   PatternMaster: 'Random pattern/transition show from a Pattern Collection.',
@@ -2703,11 +2770,40 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
     scale: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
+  ColorTrails: {
+    injectionMode:{ control: 'select', options: ['Moving Line', 'Rainbow Border', 'Both'] },
+    flowMode:     { control: 'select', options: ['Scrolling', 'Morphing 2D'] },
+    xSpeed:       { control: 'slider', min: -2, max: 2, step: 0.01 },
+    xAmplitude:   { control: 'slider', min: 0.1, max: 1, step: 0.01 },
+    xFrequency:   { control: 'slider', min: 0.1, max: 4, step: 0.01 },
+    ySpeed:       { control: 'slider', min: -2, max: 2, step: 0.01 },
+    yAmplitude:   { control: 'slider', min: 0.1, max: 1, step: 0.01 },
+    yFrequency:   { control: 'slider', min: 0.1, max: 4, step: 0.01 },
+    displacement: { control: 'slider', min: 0, max: 4, step: 0.05 },
+    endpointSpeed:{ control: 'slider', min: 0, max: 2, step: 0.01 },
+    colorSpeed:   { control: 'slider', min: 0, max: 1, step: 0.01 },
+    persistence:  { control: 'slider', min: 0.9, max: 0.9999, step: 0.0001 },
+  },
+  Animartrix: {
+    effect:      { control: 'select', options: ANIMARTRIX_EFFECTS },
+    speed:       { control: 'slider', min: 0, max: 2, step: 0.01 },
+    audioAmount: { control: 'slider', min: 0, max: 2, step: 0.01 },
+  },
   MidrangeWaves: {
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   SpectrumBars: {
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
+  },
+  SpectrumVisualizer: {
+    style:          { control: 'select', options: ['Bars', 'Centre Mirror', 'Ribbon', 'Orbit', 'Waterfall'] },
+    bands:          { control: 'slider', min: 4, max: 32, step: 1 },
+    gain:           { control: 'slider', min: 0.25, max: 4, step: 0.05 },
+    smoothing:      { control: 'slider', min: 0, max: 0.95, step: 0.01 },
+    tilt:           { control: 'slider', min: 0, max: 1, step: 0.01 },
+    peakHold:       { control: 'slider', min: 0, max: 2, step: 0.05 },
+    peakGravity:    { control: 'slider', min: 0.2, max: 6, step: 0.1 },
+    waterfallSpeed: { control: 'slider', min: 1, max: 30, step: 1 },
   },
   MidrangeBloom: {
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
@@ -2971,6 +3067,25 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'i2s', label: 'I2S Pins', keys: ['i2sWs', 'i2sSck', 'i2sSd', 'channel'] },
     { key: 'debug', label: 'Debug', keys: ['serialDebug'] },
   ],
+  SpectrumVisualizer: [
+    { key: 'display', label: 'Display', keys: ['style', 'bands', 'palette'] },
+    { key: 'response', label: 'Response', keys: ['gain', 'smoothing', 'tilt'] },
+    { key: 'peaks', label: 'Peak Dots', keys: ['peakHold', 'peakGravity'] },
+    { key: 'waterfall', label: 'Waterfall', keys: ['waterfallSpeed'] },
+  ],
+  ColorTrails: [
+    { key: 'style', label: 'Style', keys: ['injectionMode', 'flowMode'] },
+    { key: 'xFlow', label: 'Column Flow', keys: ['xSpeed', 'xAmplitude', 'xFrequency'] },
+    { key: 'yFlow', label: 'Row Flow', keys: ['ySpeed', 'yAmplitude', 'yFrequency'] },
+    { key: 'motion', label: 'Motion', keys: ['displacement', 'endpointSpeed'] },
+    { key: 'color', label: 'Color & Trails', keys: ['colorSpeed', 'persistence', 'palette'] },
+    { key: 'randomness', label: 'Randomness', keys: ['seed'] },
+  ],
+  Animartrix: [
+    { key: 'pattern', label: 'AnimARTrix Pattern', keys: ['effect'] },
+    { key: 'motion', label: 'Motion', keys: ['speed'] },
+    { key: 'audio', label: 'Audio Reactivity', keys: ['audioAmount'] },
+  ],
   Boids: [
     { key: 'flock', label: 'Flock', keys: ['speed', 'count', 'separation', 'alignment', 'cohesion', 'visualRange'] },
     { key: 'color', label: 'Color', keys: ['colorMode', 'palette'] },
@@ -3079,6 +3194,16 @@ const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, stri
       scanlines: 'Scan Lines', zoom: 'Zoom',
     },
   },
+  SpectrumVisualizer: {
+    prop: 'style',
+    labels: {
+      Bars: 'Spectrum · Bars',
+      'Centre Mirror': 'Spectrum · Mirror',
+      Ribbon: 'Spectrum · Ribbon',
+      Orbit: 'Spectrum · Orbit',
+      Waterfall: 'Spectrum · Waterfall',
+    },
+  },
   Blend: {
     prop: 'blendMode',
     labels: { normal: 'Blend', multiply: 'Multiply', screen: 'Screen', overlay: 'Overlay', add: 'Add', difference: 'Difference' },
@@ -3182,6 +3307,11 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
       case 'count':     return tt === 'blinds'
       case 'turns':     return tt === 'spiral'
     }
+  }
+  if (nodeType === 'SpectrumVisualizer') {
+    const style = String(properties.style ?? 'Bars')
+    if (key === 'waterfallSpeed') return style === 'Waterfall'
+    if (key === 'peakHold' || key === 'peakGravity') return style !== 'Waterfall'
   }
   if (nodeType === 'FrameFeedback') {
     const mode = String(properties.feedbackTransform ?? 'none')

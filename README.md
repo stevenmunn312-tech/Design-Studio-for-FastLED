@@ -148,6 +148,13 @@ preview to take priority. The full contract lives in
 Offline music analysis in the Music Library pipeline uses Essentia.js / Essentia.
 Please acknowledge its origin as [http://essentia.upf.edu](http://essentia.upf.edu).
 
+The **Color Trails** node is adapted from prototype work by
+[Stefan Petrick](https://github.com/StefanPetrick), creator of
+[AnimARTrix](https://github.com/StefanPetrick/animartrix). Its fluid-advection
+technique and visual direction are credited to Stefan; FastLED Studio adds the
+node workflow, browser/firmware parity, selectable injection and flow modes,
+audio modulation, and the one-pixel-per-frame continuity guard.
+
 ## Release Metadata
 
 - License: [`LICENSE`](LICENSE)

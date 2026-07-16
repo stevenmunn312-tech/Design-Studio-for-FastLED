@@ -317,6 +317,15 @@ describe('validateGraph', () => {
       expect(ram.statefulBytes).toBe(16 * 3 * 4) // (delay + current slot) * CRGB pixels
     })
 
+    it('counts ColorTrails output plus its intermediate advection buffer', () => {
+      const nodes = [node('ct', 'ColorTrails'), node('out', 'MatrixOutput', { width: 4, height: 4 })]
+      const edges = [edge('e1', 'ct', 'out', 'frame')]
+      const ram = estimateFirmwareRam(nodes, edges)!
+      expect(ram.frameBufferBytes).toBe(96) // persistent output + one CRGB intermediate
+      expect(ram.statefulBytes).toBe(0)
+      expect(ram.internalBytes).toBe(144) // two buffers + physical leds
+    })
+
     it('offloads frame/field buffers to PSRAM when usePsram is on', () => {
       const nodes = [node('sc', 'SolidColor'), node('out', 'MatrixOutput', { width: 4, height: 4, usePsram: true })]
       const edges = [edge('e1', 'sc', 'out', 'frame')]
