@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useUiStore } from '../../state/uiStore'
 import { useGraphStore, useTemporalStore } from '../../state/graphStore'
 import { useAudioStore } from '../../state/audioStore'
@@ -78,8 +79,38 @@ export default function MenuBar() {
     requestConfirm,
     requestNewProjectDecision,
     requestPrompt,
-  } = useUiStore()
-  const lastStartChoice = useUiStore((s) => s.lastStartChoice)
+    lastStartChoice,
+  } = useUiStore(useShallow((s) => ({
+    setStatus: s.setStatus,
+    theme: s.theme,
+    cycleTheme: s.cycleTheme,
+    reducedMotion: s.reducedMotion,
+    toggleReducedMotion: s.toggleReducedMotion,
+    highContrast: s.highContrast,
+    toggleHighContrast: s.toggleHighContrast,
+    performanceMode: s.performanceMode,
+    togglePerformanceMode: s.togglePerformanceMode,
+    evaluationRunning: s.evaluationRunning,
+    toggleEvaluation: s.toggleEvaluation,
+    uiEffectsEnabled: s.uiEffectsEnabled,
+    toggleUiEffects: s.toggleUiEffects,
+    signalPathDimEnabled: s.signalPathDimEnabled,
+    toggleSignalPathDim: s.toggleSignalPathDim,
+    stageMode: s.stageMode,
+    setStageMode: s.setStageMode,
+    preview3d: s.preview3d,
+    togglePreview3d: s.togglePreview3d,
+    previewStyle: s.previewStyle,
+    cyclePreviewStyle: s.cyclePreviewStyle,
+    openHelp: s.openHelp,
+    openRecover: s.openRecover,
+    openTemplates: s.openTemplates,
+    requestAlert: s.requestAlert,
+    requestConfirm: s.requestConfirm,
+    requestNewProjectDecision: s.requestNewProjectDecision,
+    requestPrompt: s.requestPrompt,
+    lastStartChoice: s.lastStartChoice,
+  })))
 
   const THEME_ICON: Record<string, string> = { dark: '☾', solarized: '✦', light: '☀' }
   const THEME_LABEL: Record<string, string> = { dark: 'Dark', solarized: 'Solarized', light: 'Light' }
