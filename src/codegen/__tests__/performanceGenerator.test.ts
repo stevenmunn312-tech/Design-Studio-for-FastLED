@@ -254,6 +254,21 @@ describe('generateShow — beat accents (flash vs particles)', () => {
     } finally { spy.mockRestore() }
   })
 
+  it('softens full-frame white flashes without reducing particle intensity', () => {
+    const spy = vi.spyOn(Math, 'random')
+    try {
+      spy.mockReturnValue(0.99)
+      const flashes = generateShow(analysis, { beatIntensity: 1 }).events
+        .filter((e) => e.cmd === 'BEAT_FLASH')
+      expect(Math.max(...flashes.map((e) => Number(e.params.intensity)))).toBe(140)
+
+      spy.mockReturnValue(0)
+      const bursts = generateShow(analysis, { beatIntensity: 1 }).events
+        .filter((e) => e.cmd === 'PARTICLE_BURST')
+      expect(Math.max(...bursts.map((e) => Number(e.params.intensity)))).toBe(255)
+    } finally { spy.mockRestore() }
+  })
+
   it('keeps white flashes occasional by favouring particles in energetic sections', () => {
     // 0.7 is above the verse particle threshold (so it flashes), but below the
     // energetic-section threshold (so the drop uses a particle instead).

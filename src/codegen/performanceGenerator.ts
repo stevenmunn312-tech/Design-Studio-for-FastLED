@@ -264,6 +264,11 @@ const DEFAULT_OPTIONS: PerformanceOptions = {
   patternHold:        10,
 }
 
+// A full-frame white blend reads much brighter than a coloured particle accent
+// at the same numeric intensity. Keep flashes punchy without washing the whole
+// matrix to white; Beat Intensity still scales both accent types normally.
+const WHITE_FLASH_INTENSITY_SCALE = 0.55
+
 export function generateShow(
   analysis: SongAnalysis,
   options: Partial<PerformanceOptions> = {},
@@ -401,7 +406,7 @@ export function generateShow(
       })
     } else {
       push(t, 'BEAT_FLASH', {
-        intensity: Math.round(intensity * 255),
+        intensity: Math.round(intensity * WHITE_FLASH_INTENSITY_SCALE * 255),
         decay: Math.round(decayValue * 255),
       })
     }
