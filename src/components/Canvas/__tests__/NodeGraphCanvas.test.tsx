@@ -95,20 +95,20 @@ describe('NodeGraphCanvas start screen', () => {
     await waitFor(() => {
       expect(fitViewMock).toHaveBeenCalledWith(expect.objectContaining({
         padding: {
-          top: 32,
-          right: 528,
-          bottom: 32,
-          left: 312,
+          top: '32px',
+          right: '528px',
+          bottom: '32px',
+          left: '312px',
         },
       }))
     })
 
     expect(reactFlowProps.fitViewOptions).toEqual(expect.objectContaining({
       padding: {
-        top: 32,
-        right: 528,
-        bottom: 32,
-        left: 312,
+        top: '32px',
+        right: '528px',
+        bottom: '32px',
+        left: '312px',
       },
     }))
   })

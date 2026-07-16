@@ -156,10 +156,10 @@ function NodeGraphCanvasInner() {
   const rightInset = panelInsetPx('--right-panel-width', DEFAULT_PREVIEW_W, previewPanelOpen)
   const fitViewOptions = useMemo<FitViewOptions>(() => ({
     padding: {
-      top: FIT_VIEW_GUTTER,
-      right: rightInset + FIT_VIEW_GUTTER,
-      bottom: FIT_VIEW_GUTTER,
-      left: leftInset + FIT_VIEW_GUTTER,
+      top: `${FIT_VIEW_GUTTER}px`,
+      right: `${rightInset + FIT_VIEW_GUTTER}px`,
+      bottom: `${FIT_VIEW_GUTTER}px`,
+      left: `${leftInset + FIT_VIEW_GUTTER}px`,
     },
     duration: reducedMotion ? 0 : 260,
     ease: fitViewEase,
