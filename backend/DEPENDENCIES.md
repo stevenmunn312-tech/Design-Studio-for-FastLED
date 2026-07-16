@@ -20,13 +20,28 @@ pip install -r backend/requirements-dev.txt -c backend/constraints.txt
 pytest backend/tests
 ```
 
+Desktop distribution builder:
+
+```bash
+pip install -r backend/requirements-packaging.txt -c backend/constraints.txt
+npm run package:desktop
+```
+
+PyInstaller must run separately on Windows, macOS, and Linux; each build
+contains that host's Python runtime and native fbuild tools. The build script
+produces a portable one-folder bundle plus a ZIP (`.tar.gz` on Unix), then
+launches it against an isolated temporary data directory as a smoke test.
+CI's existing cross-platform dependency matrix installs this packaging set and
+imports PyInstaller on all three hosts; artifact builds remain a release step
+until signing credentials and publication policy are in place.
+
 ## Update Procedure
 
 1. Edit the direct dependency pins in `requirements.txt` and/or `requirements-dev.txt`.
 2. Re-resolve the full graph from a clean interpreter:
 
 ```bash
-python -m pip install --ignore-installed --dry-run --report backend/deps-report.json -r backend/requirements.txt -r backend/requirements-dev.txt
+python -m pip install --ignore-installed --dry-run --report backend/deps-report.json -r backend/requirements.txt -r backend/requirements-dev.txt -r backend/requirements-packaging.txt
 ```
 
 3. Copy the resolved versions from that report into `backend/constraints.txt`.
@@ -34,7 +49,7 @@ python -m pip install --ignore-installed --dry-run --report backend/deps-report.
 
 ```bash
 python -m venv .venv-backend-check
-.venv-backend-check/bin/pip install -r backend/requirements.txt -r backend/requirements-dev.txt -c backend/constraints.txt
+.venv-backend-check/bin/pip install -r backend/requirements.txt -r backend/requirements-dev.txt -r backend/requirements-packaging.txt -c backend/constraints.txt
 .venv-backend-check/bin/pytest backend/tests
 ```
 

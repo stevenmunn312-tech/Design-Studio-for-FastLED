@@ -52,16 +52,22 @@ _ARDUINO_CFG = Path(os.environ.get("LOCALAPPDATA", "")) / "Arduino15" / "arduino
 SKETCH = "fastled_pattern"
 
 _HELPER_DIR = Path(__file__).parent
-_CONFIG_PATH = _HELPER_DIR / ".helper-config.json"
-_BIN_DIR = _HELPER_DIR / "bin"  # where a self-installed arduino-cli lands
+# A frozen desktop bundle is normally installed in a read-only/application
+# directory, so all mutable helper state can be redirected to a per-user data
+# root. Source checkouts keep the historical backend-local paths when the env
+# var is absent.
+_DATA_DIR = Path(os.environ.get("FLS_DATA_DIR") or _HELPER_DIR)
+_CONTENT_DIR = _DATA_DIR if os.environ.get("FLS_DATA_DIR") else _HELPER_DIR.parent
+_CONFIG_PATH = _DATA_DIR / ".helper-config.json"
+_BIN_DIR = _DATA_DIR / "bin"  # where a self-installed arduino-cli lands
 
 # Saved node-graph patterns ("My Patterns") live as one JSON file each in this
 # folder at the repo root, so users can share a pattern by simply sending the
 # file. The browser can't write arbitrary folders, so it round-trips through the
 # /api/patterns endpoints below. Override the location with FLS_PATTERNS_DIR.
-_PATTERNS_DIR = Path(os.environ.get("FLS_PATTERNS_DIR") or (_HELPER_DIR.parent / "My Patterns"))
+_PATTERNS_DIR = Path(os.environ.get("FLS_PATTERNS_DIR") or (_CONTENT_DIR / "My Patterns"))
 _PROJECT_FILE_SUFFIX = ".fastled-project.json"
-_PROJECTS_DIR = Path(os.environ.get("FLS_PROJECTS_DIR") or (_HELPER_DIR.parent / "Projects"))
+_PROJECTS_DIR = Path(os.environ.get("FLS_PROJECTS_DIR") or (_CONTENT_DIR / "Projects"))
 
 # Board-manager URLs for the third-party cores we can install, so `core install`
 # works against a fresh CLI that has never seen them.
@@ -81,6 +87,7 @@ def _load_config() -> dict:
 
 def _save_config(cfg: dict) -> None:
     try:
+        _CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
         _CONFIG_PATH.write_text(json.dumps(cfg, indent=2))
     except Exception:
         pass
@@ -173,7 +180,7 @@ def _active_engine() -> str:
 # fresh temp directory — everything shares this one stable project. Only
 # `src/main.cpp` is rewritten per request; the `[env:*]` sections (one per
 # `BOARDS` entry, plus PSRAM variants) are static.
-_FBUILD_PROJECT_DIR = _HELPER_DIR / ".fbuild-project"
+_FBUILD_PROJECT_DIR = _DATA_DIR / ".fbuild-project"
 _FBUILD_SRC_DIR = _FBUILD_PROJECT_DIR / "src"
 _FBUILD_INI_PATH = _FBUILD_PROJECT_DIR / "platformio.ini"
 _FBUILD_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "FastLED"
@@ -371,6 +378,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def _desktop_security_headers(request: Request, call_next):
+    """Keep bundled static pages cross-origin isolated like Vite dev/preview.
+
+    These headers are harmless on API-only helper responses and ensure the
+    desktop launcher's same-process static site retains the browser capabilities
+    used by the normal production preview.
+    """
+    response = await call_next(request)
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Cross-Origin-Embedder-Policy"] = "credentialless"
+    return response
 
 
 # ── Compile / upload / serial helpers ─────────────────────────────────────────

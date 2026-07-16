@@ -16,21 +16,34 @@ Node‑Based Visual Designer for FastLED LED Matrix Systems
 
 ## Quick Start (no experience needed)
 
-1. Install [Node.js](https://nodejs.org) (the LTS installer, default options). To also
-   upload patterns to a board, install [Python 3](https://python.org) too — on Windows,
-   tick **"Add python.exe to PATH"** in its installer.
-2. Download this project (green **Code** button → **Download ZIP**) and unzip it,
-   or `git clone` it.
+### Portable desktop bundle
+
+When a release archive is available for your operating system, extract it and
+launch **FastLED Studio** (`FastLED Studio.exe` on Windows). It includes the
+Studio frontend, Python upload helper, fbuild, and esptool; Node.js and Python
+do not need to be installed. Your normal browser opens automatically. Keep the
+launcher window open while using the Studio.
+
+The portable packaging architecture, build instructions, current validation,
+and unsigned-beta caveat are documented in
+[`docs/release/desktop-distribution.md`](docs/release/desktop-distribution.md).
+
+### Source launcher
+
+The source checkout remains the developer/fallback path:
+
+1. Install [Node.js](https://nodejs.org) (the LTS installer, default options).
+   To upload patterns to a board, install [Python 3](https://python.org) too.
+2. Download this project or `git clone` it.
 3. Launch it:
    - **Windows** — double-click **`Start FastLED Studio.bat`**
    - **macOS** — double-click **`Start FastLED Studio.command`** (first time only:
      right-click it, choose **Open**, then confirm)
    - **Linux** — run **`./start.sh`**
 
-The first launch installs everything and takes a few minutes; after that it starts in
-seconds. Your browser opens the studio automatically — keep the launcher window open
-while you use the app. Python is optional: without it the designer runs fine, only
-board upload stays disabled.
+The source launcher's first run installs dependencies and takes a few minutes;
+after that it starts in seconds. Python is optional for source use: without it
+the designer runs fine, while board upload stays disabled.
 
 Once the app has loaded successfully once, you can also install it to your desktop/home
 screen and reopen the cached Studio offline for node authoring, preview, and local

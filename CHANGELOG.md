@@ -21,6 +21,9 @@ versioning (`0.y.z`) until the first stable release.
   Linux.
 - A documented desktop viewport contract covering the supported minimum window
   size and the expected degrade path below it.
+- A self-contained desktop distribution path: PyInstaller freezes the existing
+  frontend/upload helper, bundles fbuild and esptool, isolates mutable user data,
+  launch-smokes the result, and emits a portable platform archive.
 
 ### Changed
 

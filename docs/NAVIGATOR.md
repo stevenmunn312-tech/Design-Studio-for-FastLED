@@ -59,6 +59,9 @@ build/architecture overview aimed at contributors.
     how supported vs. experimental paths are triaged.
 - [Versioning and releases](release/versioning-and-releases.md)
   — the pre-1.0 semantic-versioning rules, tag format, and release checklist.
+- [Desktop distribution](release/desktop-distribution.md)
+  — the bundled launcher architecture, per-platform build procedure, mutable
+    data locations, local validation evidence, and remaining signing work.
 
 ## Design intent (original specs)
 

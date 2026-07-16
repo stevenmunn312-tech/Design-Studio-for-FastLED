@@ -91,6 +91,18 @@ versioning/tagging, `LICENSE`, `CHANGELOG.md`, `THIRD_PARTY_NOTICES.md`, and
 upload path in user-facing docs without recording the exact validated combo
 there and updating the release docs if the support promise changed.
 
+**Desktop distribution.** `desktop/launcher.py` is the bundled-runtime entry
+point: it serves `dist/` and the existing FastAPI helper from one localhost
+process, opens the default browser, and redirects mutable helper/project state
+through `FLS_DATA_DIR` into the native per-user application-data folder.
+`desktop/build.py` is the host-specific PyInstaller pipeline (`npm run
+package:desktop`): it freezes the launcher, bundles fbuild/fbuild-daemon plus a
+frozen esptool, copies dependency notices, launch-smokes the result, and emits a
+portable archive under ignored `release/desktop/`. Build separately on Windows,
+macOS, and Linux; signing/notarization and clean-machine evidence are required
+before promoting an artifact in the support matrix. See
+`docs/release/desktop-distribution.md`.
+
 ## Architecture
 
 ### Viewport contract

@@ -30,9 +30,13 @@ still move quickly.
 4. Review `THIRD_PARTY_NOTICES.md` for new bundled assets or dependency
    changes.
 5. Run the normal verification gates appropriate to the release scope.
-6. Commit the version bump and changelog update.
-7. Create an annotated tag using the `vX.Y.Z` format.
-8. Push the commit and tag together.
+6. Build each advertised desktop archive on its target OS with
+   `npm run package:desktop`; record checksums and repeat the launch smoke on a
+   clean account/machine.
+7. Sign/notarize platform executables before describing them as supported.
+8. Commit the version bump and changelog update.
+9. Create an annotated tag using the `vX.Y.Z` format.
+10. Push the commit and tag together.
 
 ## First public beta guidance
 

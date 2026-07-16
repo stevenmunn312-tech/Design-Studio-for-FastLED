@@ -54,7 +54,9 @@ jobs:
 
       - run: pip install -r backend/requirements-dev.txt -c backend/constraints.txt
 
+      - run: pip install -r backend/requirements-packaging.txt -c backend/constraints.txt
+
       - run: pip check
 
-      - run: python -c "import esptool, fastapi, httpx, multipart, pytest, serial, uvicorn; print('backend deps ok')"
+      - run: python -c "import esptool, fastapi, httpx, multipart, pytest, serial, uvicorn, PyInstaller; print('backend + packaging deps ok')"
 

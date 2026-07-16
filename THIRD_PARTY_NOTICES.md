@@ -115,11 +115,20 @@ set. Refresh this file when the lockfile changes in a release-significant way.
 ## Helper-side dependencies
 
 - The helper's direct Python dependencies are pinned in
-  `backend/requirements.txt` and `backend/requirements-dev.txt`.
+  `backend/requirements.txt`, `backend/requirements-dev.txt`, and
+  `backend/requirements-packaging.txt`.
 - The helper's transitive dependency graph is locked in
   `backend/constraints.txt`.
 - Review those files when preparing a release that redistributes the helper as
   a prebuilt package rather than as source.
+- Portable desktop bundles include the Python runtime plus FastAPI (MIT),
+  Uvicorn (BSD-3-Clause), python-multipart (Apache-2.0), pyserial
+  (BSD-3-Clause), fbuild (BSD-3-Clause), and esptool (GPL-2.0-or-later).
+  The packager copies available upstream license files into
+  `third-party-licenses/` and emits a version/license/source manifest there.
+- PyInstaller is the build tool. Its GPLv2-or-later bootloader exception permits
+  distributing generated bundles under the application's license; the build
+  also includes PyInstaller's supplied license file for transparency.
 
 ## Note
 

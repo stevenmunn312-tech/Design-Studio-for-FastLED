@@ -14,6 +14,7 @@
     "test": "node --disable-warning=DEP0040 ./node_modules/vitest/vitest.mjs run",
     "test:watch": "node --disable-warning=DEP0040 ./node_modules/vitest/vitest.mjs",
     "test:coverage": "node --disable-warning=DEP0040 ./node_modules/vitest/vitest.mjs run --coverage",
+    "package:desktop": "python desktop/build.py",
     "gen:node-cards": "esbuild scripts/generate-node-card-svgs.ts --bundle --platform=node --format=esm --define:import.meta.env.DEV=false --define:import.meta.env.VITEST=false --define:import.meta.env={} --outfile=node_modules/.cache/gen-node-cards.mjs --log-level=warning && node node_modules/.cache/gen-node-cards.mjs",
     "helper": "python -m uvicorn app:app --reload --port 8008 --app-dir backend"
   },

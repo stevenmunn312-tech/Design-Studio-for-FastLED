@@ -31,6 +31,10 @@ the UI exposes it or codegen exists for it.
   same machine.
 - The helper is a local-machine tool. Remote/shared helper hosting is outside
   the supported model for this beta.
+- Portable desktop bundles keep the helper and frontend on localhost and store
+  mutable build/project data in the native per-user application-data folder.
+  A platform bundle remains experimental until its signed artifact has a
+  clean-machine smoke record; see `desktop-distribution.md`.
 
 ## Hardware/upload policy
 
