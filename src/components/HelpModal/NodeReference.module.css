@@ -252,6 +252,10 @@
 .previewSection { display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, .78fr); gap: 28px; align-items: center; padding: 28px 0 2px; border-top: 1px solid var(--border-glow); }
 .previewCapture { margin: 0; overflow: hidden; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; background: #030408; box-shadow: 0 15px 34px rgba(0,0,0,.28); }
 .previewCapture img { display: block; width: 100%; height: auto; }
+.workflowOutcome { min-height: 250px; display: grid; place-content: center; gap: 9px; padding: 30px; background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--node-accent) 16%, transparent), transparent 55%), linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px); background-size: 100% 100%, 20px 20px, 20px 20px; text-align: center; }
+.workflowOutcome span { color: color-mix(in srgb, var(--node-accent) 80%, white); font: 700 9px var(--font-code); letter-spacing: .14em; text-transform: uppercase; }
+.workflowOutcome b { color: var(--text-primary); font: 16px var(--font-display); }
+.workflowOutcome p { max-width: 320px; margin: 0; color: var(--text-secondary); font-size: 11px; line-height: 1.6; }
 
 .nodeFigure { margin: 26px 0 31px; }
 .captureFigure {

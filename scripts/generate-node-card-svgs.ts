@@ -27,6 +27,7 @@ import { evaluateGraphFull } from '../src/state/graphEvaluator'
 import { useUiStore } from '../src/state/uiStore'
 import { samplePalette, type RGB, type Palette, type Frame } from '../src/state/ledColor'
 import { liveExampleForNode } from '../src/components/HelpModal/liveExamples'
+import { tidyLayout } from '../src/utils/tidyLayout'
 import type { LiveExampleSpec } from '../src/utils/insertLiveExample'
 import type { StudioNode, StudioEdge } from '../src/state/graphStore'
 import type { NodeDefinition } from '../src/types'
@@ -37,10 +38,27 @@ useUiStore.setState({ testSignal: true })
 
 // Deterministic Math.random so regenerating without library changes yields
 // byte-identical SVGs (no git churn from the stochastic simulation nodes).
-let _seed = 0x2f6e2b1
+const BASE_SEED = 0x2f6e2b1
+let _seed = BASE_SEED
 Math.random = () => {
   _seed = (_seed * 1103515245 + 12345) & 0x7fffffff
   return _seed / 0x7fffffff
+}
+
+function stableSeed(key: string): number {
+  let seed = BASE_SEED
+  for (const char of key) seed = Math.imul(seed ^ char.charCodeAt(0), 16777619) >>> 0
+  return seed & 0x7fffffff
+}
+
+function withRandomSeed<T>(key: string, run: () => T): T {
+  const previous = _seed
+  _seed = stableSeed(key)
+  try {
+    return run()
+  } finally {
+    _seed = previous
+  }
 }
 
 // Run from the repo root (the npm script does).
@@ -223,12 +241,25 @@ const WARMUP_TICKS = 240                   // ~4 s so stateful sims settle
 // Sparse shape-drawing nodes whose preview reads better without the dark
 // panel background and unlit discs behind it.
 const BARE_PREVIEW_TYPES = new Set(['Circle', 'Shape', 'Line', 'Path'])
+const STOCHASTIC_PREVIEW_TYPES = new Set([
+  'Noise', 'Fire', 'Fire2012', 'TwinkleFox', 'Confetti', 'Juggle', 'Particles',
+  'FractalNoise', 'GaborNoise', 'FlowField', 'Starfield', 'Boids',
+  'ReactionDiffusion', 'GameOfLife', 'FieldNoise', 'WaveSim',
+])
 
 const isRGB = (v: unknown): v is RGB =>
   typeof v === 'object' && v !== null && 'r' in v && 'g' in v && 'b' in v
 
 function mkNode(id: string, type: string, overrides?: Record<string, unknown>): StudioNode {
   const def = NODE_LIBRARY.find((d) => d.type === type)!
+  const properties = { ...libraryDefaults(def.type), ...overrides }
+  // A user-facing seed of 0 means free-running randomness. For documentation
+  // captures only, give those nodes a stable hidden evaluation seed so two
+  // generator runs produce byte-identical assets while the rendered control
+  // still correctly displays the real default value (0).
+  if (STOCHASTIC_PREVIEW_TYPES.has(type) && Number(properties.seed ?? 0) === 0) {
+    properties.seed = (stableSeed(`${type}:${id}`) % 0x7ffffffe) + 1
+  }
   return {
     id,
     type: 'studioNode',
@@ -237,7 +268,7 @@ function mkNode(id: string, type: string, overrides?: Record<string, unknown>): 
       label: def.label,
       nodeType: def.type,
       category: def.category,
-      properties: { ...libraryDefaults(def.type), ...overrides },
+      properties,
     },
   } as StudioNode
 }
@@ -252,7 +283,11 @@ function buildPreview(def: NodeDefinition, overrides?: Record<string, unknown>):
   const out = def.outputs[0]
   if (!out || !['frame', 'palette', 'color'].includes(out.dataType)) return null
 
-  const nodes: StudioNode[] = [mkNode('n1', def.type, overrides)]
+  // Preview variants of the same stateful node need distinct evaluator ids;
+  // otherwise rendering an overridden Starfield/Particles card first advances
+  // the default card's state and makes generator output depend on call order.
+  const targetId = `preview-${def.type}-${stableSeed(JSON.stringify(overrides ?? {}))}`
+  const nodes: StudioNode[] = [mkNode(targetId, def.type, overrides)]
   const edges: StudioEdge[] = []
   let n = 0
   // The bare-preview shape nodes draw over their (optional) base input — leave
@@ -265,14 +300,14 @@ function buildPreview(def: NodeDefinition, overrides?: Record<string, unknown>):
     const id = `s${++n}`
     nodes.push(mkNode(id, src))
     const srcOut = NODE_LIBRARY.find((d) => d.type === src)!.outputs[0].id
-    edges.push({ id: `e${n}`, source: id, sourceHandle: srcOut, target: 'n1', targetHandle: inp.id })
+    edges.push({ id: `e${n}`, source: id, sourceHandle: srcOut, target: targetId, targetHandle: inp.id })
   }
 
   try {
     let value: unknown
     for (let tick = 0; tick <= WARMUP_TICKS; tick++) {
       const res = evaluateGraphFull(nodes, edges, tick, PREVIEW_GRID, PREVIEW_GRID)
-      value = res.outputs.get('n1')?.[out.id]
+      value = res.outputs.get(targetId)?.[out.id]
     }
     if (out.dataType === 'frame') {
       if (!Array.isArray(value) || !Array.isArray(value[0])) return null
@@ -464,7 +499,7 @@ function noteSvg(text: string, y: number): string {
 const previewCache = new Map<string, PreviewData | null>()
 function buildPreviewCached(def: NodeDefinition, overrides?: Record<string, unknown>): PreviewData | null {
   const key = `${def.type}|${JSON.stringify(overrides ?? {})}`
-  if (!previewCache.has(key)) previewCache.set(key, buildPreview(def, overrides))
+  if (!previewCache.has(key)) previewCache.set(key, withRandomSeed(`node-preview:${key}`, () => buildPreview(def, overrides)))
   return previewCache.get(key)!
 }
 
@@ -605,11 +640,13 @@ function evalSpecFrame(spec: LiveExampleSpec, slug: string): Frame | null {
       targetHandle: e.targetHandle,
     }))
   try {
-    let frame: Frame | null = null
-    for (let tick = 0; tick <= WARMUP_TICKS; tick++) {
-      frame = evaluateGraphFull(nodes, edges, tick, PREVIEW_GRID, PREVIEW_GRID).frame
-    }
-    return frame
+    return withRandomSeed(`example-preview:${slug}`, () => {
+      let frame: Frame | null = null
+      for (let tick = 0; tick <= WARMUP_TICKS; tick++) {
+        frame = evaluateGraphFull(nodes, edges, tick, PREVIEW_GRID, PREVIEW_GRID).frame
+      }
+      return frame
+    })
   } catch {
     return null
   }
@@ -646,25 +683,21 @@ function exampleGraphSvg(spec: LiveExampleSpec): string {
     const def = NODE_LIBRARY.find((d) => d.type === n.type)
     return def ? [{ key: n.key, def, x: n.dx, y: n.dy, inner: nodeInner(def, n.properties) }] : []
   })
-  // The spec's spacing was tuned for the on-canvas insert; with preview
-  // thumbnails nodes can be taller than the gaps assume, so nudge an
-  // overlapping node down until the column reads cleanly.
-  const items: typeof raw = []
-  for (const it of [...raw].sort((a, b) => a.y - b.y || a.x - b.x)) {
-    let y = it.y
-    let moved = true
-    while (moved) {
-      moved = false
-      for (const p of items) {
-        const xOverlap = it.x < p.x + NODE_W + 24 && p.x < it.x + NODE_W + 24
-        if (xOverlap && y < p.y + p.inner.h + 28 && y + it.inner.h > p.y) {
-          y = p.y + p.inner.h + 28
-          moved = true
-        }
-      }
-    }
-    items.push({ ...it, y })
-  }
+  // Run the exact Tidy Graph algorithm with the SVG node measurements. The
+  // live spec was already tidied with estimated canvas sizes; this second pass
+  // is the render-time equivalent of React Flow reporting its measured boxes.
+  const tidy = tidyLayout(
+    raw.map((item) => ({
+      id: item.key,
+      x: item.x,
+      y: item.y,
+      width: NODE_W,
+      height: item.inner.h,
+    })),
+    spec.edges.map((edge) => ({ source: edge.source, target: edge.target })),
+    { gapX: 100, gapY: 60, grid: 20 },
+  )
+  const items = raw.map((item) => ({ ...item, ...(tidy.get(item.key) ?? {}) }))
   const PAD = 44
   const minX = Math.min(...items.map((i) => i.x)) - PAD
   const minY = Math.min(...items.map((i) => i.y)) - PAD

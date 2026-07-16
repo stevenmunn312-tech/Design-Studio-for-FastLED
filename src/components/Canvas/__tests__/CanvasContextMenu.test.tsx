@@ -78,7 +78,6 @@ function seedEmptyGraphWithClipboard() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any],
       edges: [],
-      bounds: { x: 0, y: 0, width: 10, height: 10 },
     },
   })
 }

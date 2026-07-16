@@ -5,12 +5,13 @@ import { useUiStore } from '../../state/uiStore'
 import { insertLiveExample } from '../../utils/insertLiveExample'
 import type { LiveExampleSpec } from '../../utils/insertLiveExample'
 import {
-  buildGenericLiveExample,
+  exampleUsesMicrophone, liveExampleForNode,
   MICROPHONE_LIVE_EXAMPLE, BUTTON_LIVE_EXAMPLE, POTENTIOMETER_LIVE_EXAMPLE,
   ENCODER_LIVE_EXAMPLE, MIDI_LIVE_EXAMPLE,
   FFT_ANALYZER_LIVE_EXAMPLE, BEAT_DETECT_LIVE_EXAMPLE, PERCUSSION_DETECT_LIVE_EXAMPLE,
   AUDIO_FEATURES_LIVE_EXAMPLE, AUDIO_HUE_LIVE_EXAMPLE,
 } from './liveExamples'
+import type { ReferenceLiveExample } from './liveExamples'
 import styles from './NodeReference.module.css'
 
 type FilterCategory = 'all' | NodeCategory
@@ -50,7 +51,7 @@ interface AudioArticleContent {
   previewTitle: string
   previewDescription: string
   previewAlt: string
-  liveExample: LiveExampleSpec
+  liveExample: ReferenceLiveExample
   successMessage: string
   skippedMessage: string
   enableTestSignal?: boolean
@@ -1084,10 +1085,10 @@ function AudioArticle({ node, content }: { node: NodeDefinition; content: AudioA
       <section className={styles.exampleSection}>
         <div className={styles.sectionHeading}>
           <div>
-            <h2>{content.exampleTitle}</h2>
+            <h2>{content.liveExample.title}</h2>
           </div>
           <div className={styles.exampleHeadingActions}>
-            <span>{content.examplePath}</span>
+            <span>{content.liveExample.path}</span>
             <button className={styles.tryLiveButton} type="button" onClick={tryLive}>
               <span aria-hidden="true">▶</span> Try it live
             </button>
@@ -1096,7 +1097,7 @@ function AudioArticle({ node, content }: { node: NodeDefinition; content: AudioA
         <ExampleGraphFigure node={node} alt={content.exampleAlt} />
         <div className={styles.exampleExplanation}>
           <b>How it works</b>
-          <p>{content.exampleExplanation}</p>
+          <p>{content.liveExample.explanation}</p>
         </div>
       </section>
 
@@ -1104,7 +1105,7 @@ function AudioArticle({ node, content }: { node: NodeDefinition; content: AudioA
         <div className={styles.previewCopy}>
           <div className={styles.sectionKicker}>Main preview</div>
           <h2>{content.previewTitle}</h2>
-          <p>{content.previewDescription}</p>
+          <p>{content.liveExample.previewDescription}</p>
         </div>
         <figure className={styles.previewCapture}>
           <MainPreviewImage node={node} alt={content.previewAlt} />
@@ -1162,10 +1163,10 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
       <section className={styles.exampleSection}>
         <div className={styles.sectionHeading}>
           <div>
-            <h2>From sound to pixels</h2>
+            <h2>{MICROPHONE_LIVE_EXAMPLE.title}</h2>
           </div>
           <div className={styles.exampleHeadingActions}>
-            <span>Microphone → FFT Analyzer → Spectrum Bars → Matrix Output</span>
+            <span>{MICROPHONE_LIVE_EXAMPLE.path}</span>
             <button className={styles.tryLiveButton} type="button" onClick={tryLive}>
               <span aria-hidden="true">▶</span> Try it live
             </button>
@@ -1174,7 +1175,7 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
         <ExampleGraphFigure node={node} alt="Tidy audio spectrum graph using Microphone, FFT Analyzer, Spectrum Bars, and Matrix Output" />
         <div className={styles.exampleExplanation}>
           <b>How it works</b>
-          <p>Microphone feeds captured audio to FFT Analyzer. FFT separates the signal into bass, mids, and treble levels; those values drive Spectrum Bars, which renders the coloured frame sent to Matrix Output.</p>
+          <p>{MICROPHONE_LIVE_EXAMPLE.explanation}</p>
         </div>
       </section>
 
@@ -1182,7 +1183,7 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
         <div className={styles.previewCopy}>
           <div className={styles.sectionKicker}>Main preview</div>
           <h2>What you should see</h2>
-          <p>With test audio or microphone capture active, louder frequency bands rise higher while the palette colours the spectrum. This is the same frame passed to Matrix Output for preview and firmware generation.</p>
+          <p>{MICROPHONE_LIVE_EXAMPLE.previewDescription}</p>
         </div>
         <figure className={styles.previewCapture}>
           <MainPreviewImage node={node} alt="LED matrix preview showing rainbow spectrum bars" />
@@ -1239,10 +1240,10 @@ function ButtonArticle({ node }: { node: NodeDefinition }) {
       <section className={styles.exampleSection}>
         <div className={styles.sectionHeading}>
           <div>
-            <h2>Tap to flash the matrix</h2>
+            <h2>{BUTTON_LIVE_EXAMPLE.title}</h2>
           </div>
           <div className={styles.exampleHeadingActions}>
-            <span>Button.pressed → Beat Flash.beat + Noise Field.frame → Matrix Output</span>
+            <span>{BUTTON_LIVE_EXAMPLE.path}</span>
             <button className={styles.tryLiveButton} type="button" onClick={tryLive}>
               <span aria-hidden="true">▶</span> Try it live
             </button>
@@ -1251,7 +1252,7 @@ function ButtonArticle({ node }: { node: NodeDefinition }) {
         <ExampleGraphFigure node={node} alt="Tidy trigger graph using Button, Noise Field, Beat Flash, and Matrix Output" />
         <div className={styles.exampleExplanation}>
           <b>How it works</b>
-          <p>Noise Field provides the moving base frame. Button sends a boolean pulse into Beat Flash, which overlays a bright flash on each press before sending the combined frame to Matrix Output.</p>
+          <p>{BUTTON_LIVE_EXAMPLE.explanation}</p>
         </div>
       </section>
 
@@ -1259,7 +1260,7 @@ function ButtonArticle({ node }: { node: NodeDefinition }) {
         <div className={styles.previewCopy}>
           <div className={styles.sectionKicker}>Main preview</div>
           <h2>What you should see</h2>
-          <p>With the button held or tapped, Beat Flash can drive the frame into a hard white burst over the underlying pattern. The important part is the immediate, unmistakable trigger response when Pressed goes high.</p>
+          <p>{BUTTON_LIVE_EXAMPLE.previewDescription}</p>
         </div>
         <figure className={styles.previewCapture}>
           <MainPreviewImage node={node} alt="LED preview showing the bright Button-triggered Beat Flash result" />
@@ -1273,8 +1274,8 @@ function PotentiometerArticle({ node }: { node: NodeDefinition }) {
   const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
   const tryLive = () => {
     openLiveExample(POTENTIOMETER_LIVE_EXAMPLE, {
-      successMessage: 'Potentiometer example added — drag the Potentiometer slider to dim the pattern',
-      skippedMessage: 'Potentiometer example added — Matrix Output is already in use; connect Brightness when ready',
+      successMessage: 'Potentiometer example added — drag the slider to sweep the colour wheel',
+      skippedMessage: 'Potentiometer example added — Matrix Output is already in use; connect Hue Shift when ready',
     })
   }
   return (
@@ -1316,10 +1317,10 @@ function PotentiometerArticle({ node }: { node: NodeDefinition }) {
       <section className={styles.exampleSection}>
         <div className={styles.sectionHeading}>
           <div>
-            <h2>Turn the knob to dim the pattern</h2>
+            <h2>{POTENTIOMETER_LIVE_EXAMPLE.title}</h2>
           </div>
           <div className={styles.exampleHeadingActions}>
-            <span>Noise Field.frame → Brightness.frame + Potentiometer.value → Matrix Output</span>
+            <span>{POTENTIOMETER_LIVE_EXAMPLE.path}</span>
             <button className={styles.tryLiveButton} type="button" onClick={tryLive}>
               <span aria-hidden="true">▶</span> Try it live
             </button>
@@ -1328,7 +1329,7 @@ function PotentiometerArticle({ node }: { node: NodeDefinition }) {
         <ExampleGraphFigure node={node} alt="Tidy control graph using Potentiometer, Noise Field, Brightness, and Matrix Output" />
         <div className={styles.exampleExplanation}>
           <b>How it works</b>
-          <p>Noise Field provides the moving frame. Potentiometer feeds a live 0-1 control into Brightness, which scales that frame before sending the result to Matrix Output.</p>
+          <p>{POTENTIOMETER_LIVE_EXAMPLE.explanation}</p>
         </div>
       </section>
 
@@ -1336,7 +1337,7 @@ function PotentiometerArticle({ node }: { node: NodeDefinition }) {
         <div className={styles.previewCopy}>
           <div className={styles.sectionKicker}>Main preview</div>
           <h2>What you should see</h2>
-          <p>As you drag the Potentiometer slider down, the pattern fades toward black; dragging it up restores the full image. It is the simplest way to sanity-check any float-controlled modulation path.</p>
+          <p>{POTENTIOMETER_LIVE_EXAMPLE.previewDescription}</p>
         </div>
         <figure className={styles.previewCapture}>
           <MainPreviewImage node={node} alt="LED preview showing the Potentiometer-controlled brightness result" />
@@ -1350,7 +1351,7 @@ function EncoderArticle({ node }: { node: NodeDefinition }) {
   const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
   const tryLive = () => {
     openLiveExample(ENCODER_LIVE_EXAMPLE, {
-      successMessage: 'Encoder example added — drag the dial to shift colour and click it to flash',
+      successMessage: 'Encoder example added — turn the star and click to flash it',
       skippedMessage: 'Encoder example added — Matrix Output is already in use; connect Beat Flash when ready',
     })
   }
@@ -1393,10 +1394,10 @@ function EncoderArticle({ node }: { node: NodeDefinition }) {
       <section className={styles.exampleSection}>
         <div className={styles.sectionHeading}>
           <div>
-            <h2>Turn for colour, click for impact</h2>
+            <h2>{ENCODER_LIVE_EXAMPLE.title}</h2>
           </div>
           <div className={styles.exampleHeadingActions}>
-            <span>Noise Field.frame → Hue Shift → Beat Flash → Matrix Output, with Encoder.position + Encoder.pressed</span>
+            <span>{ENCODER_LIVE_EXAMPLE.path}</span>
             <button className={styles.tryLiveButton} type="button" onClick={tryLive}>
               <span aria-hidden="true">▶</span> Try it live
             </button>
@@ -1405,7 +1406,7 @@ function EncoderArticle({ node }: { node: NodeDefinition }) {
         <ExampleGraphFigure node={node} alt="Tidy control graph using Encoder, Noise Field, Hue Shift, Beat Flash, and Matrix Output" />
         <div className={styles.exampleExplanation}>
           <b>How it works</b>
-          <p>Noise Field supplies the moving base frame. Encoder Position rotates that frame through Hue Shift, and Encoder Pressed triggers Beat Flash so each click punches a bright burst over the current colours before the result goes to Matrix Output.</p>
+          <p>{ENCODER_LIVE_EXAMPLE.explanation}</p>
         </div>
       </section>
 
@@ -1413,7 +1414,7 @@ function EncoderArticle({ node }: { node: NodeDefinition }) {
         <div className={styles.previewCopy}>
           <div className={styles.sectionKicker}>Main preview</div>
           <h2>What you should see</h2>
-          <p>Dragging the encoder should walk the palette around the hue wheel while leaving the underlying pattern intact. Clicking the dial should add a brief flash on top, making it easy to verify both the continuous rotation control and the momentary button output.</p>
+          <p>{ENCODER_LIVE_EXAMPLE.previewDescription}</p>
         </div>
         <figure className={styles.previewCapture}>
           <MainPreviewImage node={node} alt="LED preview showing Encoder-driven hue rotation with a flash accent" />
@@ -1470,10 +1471,10 @@ function MidiArticle({ node }: { node: NodeDefinition }) {
       <section className={styles.exampleSection}>
         <div className={styles.sectionHeading}>
           <div>
-            <h2>Play the controller to steer the frame</h2>
+            <h2>{MIDI_LIVE_EXAMPLE.title}</h2>
           </div>
           <div className={styles.exampleHeadingActions}>
-            <span>CC → Hue Shift, Gate → Frame Switch, Velocity → Brightness over Noise Field → Matrix Output</span>
+            <span>{MIDI_LIVE_EXAMPLE.path}</span>
             <button className={styles.tryLiveButton} type="button" onClick={tryLive}>
               <span aria-hidden="true">▶</span> Try it live
             </button>
@@ -1482,7 +1483,7 @@ function MidiArticle({ node }: { node: NodeDefinition }) {
         <ExampleGraphFigure node={node} alt="Tidy MIDI control graph using MIDI, Noise Field, Hue Shift, Frame Switch, Brightness, and Matrix Output" />
         <div className={styles.exampleExplanation}>
           <b>How it works</b>
-          <p>Noise Field supplies the moving base frame. MIDI CC rotates that frame through Hue Shift, MIDI Gate chooses between the unshifted and shifted versions in Frame Switch, and MIDI Velocity scales the final brightness before the result reaches Matrix Output.</p>
+          <p>{MIDI_LIVE_EXAMPLE.explanation}</p>
         </div>
       </section>
 
@@ -1490,7 +1491,7 @@ function MidiArticle({ node }: { node: NodeDefinition }) {
         <div className={styles.previewCopy}>
           <div className={styles.sectionKicker}>Main preview</div>
           <h2>What you should see</h2>
-          <p>Moving the chosen CC should rotate the colours, while holding the configured note should flip the frame over to the hue-shifted version and scale it with note velocity. Releasing the note should drop Gate and return the preview to the unshifted base pattern.</p>
+          <p>{MIDI_LIVE_EXAMPLE.previewDescription}</p>
         </div>
         <figure className={styles.previewCapture}>
           <MainPreviewImage node={node} alt="LED preview showing MIDI-controlled hue switching and brightness" />
@@ -1498,68 +1499,6 @@ function MidiArticle({ node }: { node: NodeDefinition }) {
       </section>
     </article>
   )
-}
-
-function examplePathFromRecipe(recipe: ExampleRecipe): string {
-  return recipe.columns
-    .map((column) => column.map((item) => item.label).join(' + '))
-    .join(' -> ')
-}
-
-function exampleTitleForNode(node: NodeDefinition): string {
-  const primaryOutput = node.outputs[0]?.dataType
-  if (node.type === 'MatrixOutput') return 'Send a finished frame to the LEDs'
-  if (node.type === 'Comment') return 'Annotate the patch without changing it'
-  switch (primaryOutput) {
-    case 'bool': return `Use ${node.label} as a trigger`
-    case 'color': return `Paint with ${node.label}`
-    case 'field': return `Turn ${node.label} into pixels`
-    case 'float': return `Drive brightness with ${node.label}`
-    case 'frame': return `Send ${node.label} to the matrix`
-    case 'music': return `Feed ${node.label} into show generation`
-    case 'palette': return `Colour a pattern with ${node.label}`
-    case 'patternset': return `Perform a show from ${node.label}`
-    case 'sdcard': return `Attach ${node.label} to the upload path`
-    case 'shows': return `Export shows from ${node.label}`
-    case 'transitionset': return `Give the show more transitions`
-    default: return `Use ${node.label} in a patch`
-  }
-}
-
-function previewDescriptionForNode(node: NodeDefinition): string {
-  const primaryOutput = node.outputs[0]?.dataType
-  if (node.type === 'MatrixOutput') {
-    return 'The preview should show the incoming frame using this node’s matrix size, layout, colour order, brightness, and rendering settings.'
-  }
-  if (node.type === 'Comment') {
-    return 'Nothing in the LED preview changes. The Comment node exists only to label intent, TODOs, wiring notes, or setup reminders on the canvas.'
-  }
-  switch (primaryOutput) {
-    case 'bool':
-      return 'The downstream frame should react whenever the boolean output goes high, usually as a flash, gate, switch, or sampled event.'
-    case 'color':
-      return 'The downstream frame should take on the generated colour, making it easy to verify hue, saturation, temperature, or blend settings.'
-    case 'field':
-      return 'The scalar field should become visible after Field to Frame maps it through a palette; changes upstream should appear as spatial texture or motion.'
-    case 'float':
-      return 'The downstream frame should brighten, dim, speed up, move, or otherwise change as the generated control value changes.'
-    case 'frame':
-      return 'The node’s frame output should appear directly in the matrix preview, with any wired controls changing the rendered pixels live.'
-    case 'music':
-      return 'The music stream should feed show generation rather than direct pixels; use the generated show preview/export path to verify timing.'
-    case 'palette':
-      return 'The downstream pattern should recolour through this palette while retaining its motion and structure.'
-    case 'patternset':
-      return 'The show engine should treat the selected patterns as a pool, switching between them according to its timing and transition settings.'
-    case 'sdcard':
-      return 'The matrix still renders from its frame input, while the SD Card connection enables the upload flow to include music and show files.'
-    case 'shows':
-      return 'The generated show package should pass through SD Card toward Matrix Output so it can be written before firmware upload.'
-    case 'transitionset':
-      return 'The show engine should have more transition choices available when it moves between patterns.'
-    default:
-      return 'The example patch should show where this node fits and which downstream node makes its output visible or useful.'
-  }
 }
 
 function propertyNoteForNode(node: NodeDefinition): string {
@@ -1583,14 +1522,14 @@ function ReferenceArticle({ node }: { node: NodeDefinition }) {
   const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
   const properties = propertyEntries(node)
   const useCases = buildUseCases(node)
-  const recipe = buildExampleRecipe(node)
-  const liveExample = buildGenericLiveExample(node)
+  const liveExample = liveExampleForNode(node)
   const hasMatrixOutput = liveExample.nodes.some((entry) => entry.type === 'MatrixOutput')
+  const usesMicrophone = exampleUsesMicrophone(liveExample)
   const tryLive = () => {
     openLiveExample(liveExample, {
-      successMessage: `${node.label} example added${liveExample.nodes.some((entry) => entry.type === 'MicInput') ? ' — test signal on' : ''}`,
+      successMessage: `${node.label} example added${usesMicrophone ? ' — test signal on' : ''}`,
       skippedMessage: `${node.label} example added — Matrix Output is already in use; connect the final output when ready`,
-      enableTestSignal: liveExample.nodes.some((entry) => entry.type === 'MicInput'),
+      enableTestSignal: usesMicrophone,
     })
   }
   return (
@@ -1631,30 +1570,38 @@ function ReferenceArticle({ node }: { node: NodeDefinition }) {
       <section className={styles.exampleSection}>
         <div className={styles.sectionHeading}>
           <div>
-            <h2>{exampleTitleForNode(node)}</h2>
+            <h2>{liveExample.title}</h2>
           </div>
           <div className={styles.exampleHeadingActions}>
-            <span>{examplePathFromRecipe(recipe)}</span>
+            <span>{liveExample.path}</span>
             <button className={styles.tryLiveButton} type="button" onClick={tryLive}>
               <span aria-hidden="true">▶</span> Try it live
             </button>
           </div>
         </div>
-        <ExampleGraphFigure node={node} alt={`A tidy graph showing ${examplePathFromRecipe(recipe)}`} />
+        <ExampleGraphFigure node={node} alt={`A tidy graph showing ${liveExample.path}`} />
         <div className={styles.exampleExplanation}>
           <b>How it works</b>
-          <p>{recipe.explanation}</p>
+          <p>{liveExample.explanation}</p>
         </div>
       </section>
 
       <section className={styles.previewSection}>
         <div className={styles.previewCopy}>
           <div className={styles.sectionKicker}>Main preview</div>
-          <h2>{hasMatrixOutput ? 'What you should see' : 'What changes'}</h2>
-          <p>{previewDescriptionForNode(node)}</p>
+          <h2>{liveExample.previewMode === 'workflow' ? 'What to complete' : hasMatrixOutput ? 'What you should see' : 'What changes'}</h2>
+          <p>{liveExample.previewDescription}</p>
         </div>
         <figure className={styles.previewCapture}>
-          <MainPreviewImage node={node} alt={`LED preview of the ${node.label} example graph`} />
+          {liveExample.previewMode === 'workflow' ? (
+            <div className={styles.workflowOutcome}>
+              <span>Workflow result</span>
+              <b>{node.label}</b>
+              <p>Add the required patterns or analysed songs in the node body, then use the show preview or export controls.</p>
+            </div>
+          ) : (
+            <MainPreviewImage node={node} alt={`LED preview of the ${node.label} example graph`} />
+          )}
         </figure>
       </section>
     </article>
