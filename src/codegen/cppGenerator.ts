@@ -207,6 +207,7 @@ function audioEngineCpp(ws: number, sck: number, sd: number, channel: 'Left' | '
     'float _audioBass = 0, _audioMids = 0, _audioTreble = 0, _audioBpm = 120;',
     'bool  _audioBeat = false;',
     'static float _audioBeatFast = 0, _audioBeatSlow = 0, _audioBeatPrevFlux = 0;',
+    'static uint32_t _audioBeatLastMs = 0;',
     'static float _audioPrevSpectrum[32];',
     'static float _audioSpectrum[32];',
     'static bool _audioHavePrevSpectrum = false;',
@@ -377,12 +378,22 @@ function audioEngineCpp(ws: number, sck: number, sd: number, channel: 'Left' | '
     '      weightSum += weight;',
     '    }',
     `    flux = weightSum > 0.0f ? constrain((flux / weightSum) * ${FLUX_GAIN.toFixed(1)}f, 0.0f, 1.0f) : 0.0f;`,
-    '    _audioBeatFast += (flux - _audioBeatFast) * 0.45f;',
-    '    _audioBeatSlow += (flux - _audioBeatSlow) * 0.13f;',
-    '    float onset = _audioBeatFast - _audioBeatSlow;',
-    '    float baseline = _audioBeatSlow > 0.02f ? _audioBeatSlow : 0.02f;',
-    '    float contrast = onset / baseline;',
     '    uint32_t now = millis();',
+    '    // attack/decay are per-frame coefficients calibrated at 60 fps; scale',
+    '    // them to the actual loop interval so envelope behaviour matches the',
+    '    // browser preview regardless of loop rate (see beatDetection.ts).',
+    '    float dtF = _audioBeatLastMs > 0 ? constrain((float)(now - _audioBeatLastMs), 1.0f, 500.0f) / 16.667f : 1.0f;',
+    '    _audioBeatLastMs = now;',
+    '    float attackA = 1.0f - powf(1.0f - 0.45f, dtF);',
+    '    float decayA = 1.0f - powf(1.0f - 0.13f, dtF);',
+    '    // Compare against the pre-sample slow baseline so a single sample',
+    '    // carrying the whole onset cannot mask itself at coarse loop rates.',
+    '    float prevSlow = _audioBeatSlow;',
+    '    _audioBeatFast += (flux - _audioBeatFast) * attackA;',
+    '    _audioBeatSlow += (flux - _audioBeatSlow) * decayA;',
+    '    float onset = _audioBeatFast - prevSlow;',
+    '    float baseline = prevSlow > 0.02f ? prevSlow : 0.02f;',
+    '    float contrast = onset / baseline;',
     '    float gap = _audioBpm > 0.0f ? 60000.0f / _audioBpm * 0.42f : 160.0f;',
     '    if (gap < 160.0f) gap = 160.0f; else if (gap > 600.0f) gap = 600.0f;',
     '    // Rising edge, not a local-peak test — see beatDetection.ts (noise jitter',
@@ -995,7 +1006,7 @@ export function generateCpp(
           const prefix = v('detector')
           ln(`  bool ${v('beat')} = false;`)
           ln(`  static float ${v('bpm')} = 120.0f, ${prefix}_fast = 0.0f, ${prefix}_slow = 0.0f, ${prefix}_prevFlux = 0.0f;`)
-          ln(`  static float ${prefix}_prevSpectrum[32]; static bool ${prefix}_ready = false; static uint32_t ${prefix}_lastBeat = 0;`)
+          ln(`  static float ${prefix}_prevSpectrum[32]; static bool ${prefix}_ready = false; static uint32_t ${prefix}_lastBeat = 0, ${prefix}_lastMs = 0;`)
           ln(`  if (${prefix}_ready) {`)
           ln(`    float _flux = 0.0f, _weightSum = 0.0f;`)
           ln(`    for (int _i = 0; _i < 32; _i++) {`)
@@ -1003,10 +1014,15 @@ export function generateCpp(
           ln(`      float _weight = _i < 6 ? 2.0f : (_i < 12 ? 1.35f : (_i < 20 ? 0.85f : 0.45f)); _flux += _diff * _weight; _weightSum += _weight;`)
           ln(`    }`)
           ln(`    _flux = _weightSum > 0.0f ? constrain((_flux / _weightSum) * ${FLUX_GAIN.toFixed(1)}f, 0.0f, 1.0f) : 0.0f;`)
-          ln(`    ${prefix}_fast += (_flux - ${prefix}_fast) * ${attack.toFixed(4)}f;`)
-          ln(`    ${prefix}_slow += (_flux - ${prefix}_slow) * ${decay.toFixed(4)}f;`)
-          ln(`    float _onset = ${prefix}_fast - ${prefix}_slow, _baseline = ${prefix}_slow > 0.02f ? ${prefix}_slow : 0.02f;`)
-          ln(`    float _gap = constrain(60000.0f / ${v('bpm')} * 0.42f, 150.0f, 600.0f); uint32_t _now = millis();`)
+          ln(`    uint32_t _now = millis();`)
+          ln(`    // Per-frame attack/decay scaled to the actual loop interval (60 fps calibration; see beatDetection.ts).`)
+          ln(`    float _dtF = ${prefix}_lastMs > 0 ? constrain((float)(_now - ${prefix}_lastMs), 1.0f, 500.0f) / 16.667f : 1.0f;`)
+          ln(`    ${prefix}_lastMs = _now;`)
+          ln(`    float _prevSlow = ${prefix}_slow;`)
+          ln(`    ${prefix}_fast += (_flux - ${prefix}_fast) * (1.0f - powf(1.0f - ${attack.toFixed(4)}f, _dtF));`)
+          ln(`    ${prefix}_slow += (_flux - ${prefix}_slow) * (1.0f - powf(1.0f - ${decay.toFixed(4)}f, _dtF));`)
+          ln(`    float _onset = ${prefix}_fast - _prevSlow, _baseline = _prevSlow > 0.02f ? _prevSlow : 0.02f;`)
+          ln(`    float _gap = constrain(60000.0f / ${v('bpm')} * 0.42f, 150.0f, 600.0f);`)
           ln(`    bool _rising = _flux > ${prefix}_prevFlux;`)
           ln(`    ${v('beat')} = _flux > ${threshold.toFixed(4)}f && _rising && _onset > ${(threshold * 0.45).toFixed(4)}f && _onset / _baseline > 1.1f && (${prefix}_lastBeat == 0 || _now - ${prefix}_lastBeat >= (uint32_t)_gap);`)
           ln(`    if (${v('beat')}) { if (${prefix}_lastBeat != 0) { float _interval = _now - ${prefix}_lastBeat; if (_interval >= 220.0f && _interval <= 1800.0f) ${v('bpm')} = ${v('bpm')} * 0.65f + (60000.0f / _interval) * 0.35f; } ${prefix}_lastBeat = _now; }`)

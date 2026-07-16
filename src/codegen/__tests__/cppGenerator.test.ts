@@ -1708,7 +1708,7 @@ describe('generateCpp — INMP441 audio engine', () => {
       edge('e2', 'bd', 'out', 'frame', 'frame'),
     ])
     expect(cpp).toContain('bool n_bd_beat = false;')
-    expect(cpp).toContain('n_bd_detector_fast += (_flux - n_bd_detector_fast) * 0.2540f;')
+    expect(cpp).toContain('n_bd_detector_fast += (_flux - n_bd_detector_fast) * (1.0f - powf(1.0f - 0.2540f, _dtF));')
     expect(cpp).toContain('_flux > 0.0200f')
     expect(cpp).toContain('_audioSpectrum[_i] - n_bd_detector_prevSpectrum[_i]')
   })

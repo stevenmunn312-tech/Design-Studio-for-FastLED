@@ -116,6 +116,54 @@ describe('audioEngine FFT helpers', () => {
       const silence = () => new Array<number>(BANDS).fill(0)
       expect(countBeats(silence, 10)).toBe(0)
     })
+
+    // With the preview panel closed the loop drops to a 125 ms cadence (8 fps);
+    // the attack/decay envelopes must scale to the elapsed interval or the
+    // slow baseline stops collapsing between kicks and beats die out entirely.
+    it('still catches every kick when sampled at 8 fps', () => {
+      const prnd = makePrnd(12345)
+      let state = createBeatDetectorState()
+      const smoothed = new Array<number>(BANDS).fill(0)
+      const signal = kickSignal(500, 0.45)
+      let beats = 0
+      for (let f = 0; f < FPS * 10; f++) {
+        const ms = (f * 1000) / FPS
+        const inst = signal(ms, prnd)
+        // analyser smoothing still runs at 60 fps; the evaluator samples every 8th frame
+        for (let i = 0; i < BANDS; i++) smoothed[i] = smoothed[i] * 0.75 + inst[i] * 0.25
+        if (f % 8 !== 0) continue
+        const r = updateBeatDetectorFromSpectrum(smoothed, ms, state, cfg)
+        state = r.state
+        if (r.beat) beats++
+      }
+      expect(beats).toBe(20)
+    })
+
+    // The preview loop's animation clock restarts at zero when LEDPreview
+    // remounts, while detector state lives in a module-level map. A stale
+    // lastBeatMs from the previous epoch must not hold the cooldown gate shut.
+    it('recovers immediately when the clock restarts from zero', () => {
+      const signal = kickSignal(500, 0.45)
+      const runFrom = (state: ReturnType<typeof createBeatDetectorState>, startMs: number, seconds: number) => {
+        const prnd = makePrnd(777)
+        const smoothed = new Array<number>(BANDS).fill(0)
+        let beats = 0
+        for (let f = 0; f < FPS * seconds; f++) {
+          const ms = startMs + (f * 1000) / FPS
+          const inst = signal(ms - startMs, prnd)
+          for (let i = 0; i < BANDS; i++) smoothed[i] = smoothed[i] * 0.75 + inst[i] * 0.25
+          const r = updateBeatDetectorFromSpectrum(smoothed, ms, state, cfg)
+          state = r.state
+          if (r.beat) beats++
+        }
+        return { state, beats }
+      }
+      // Run 10 minutes into the old clock epoch, then restart the clock at 0.
+      const warm = runFrom(createBeatDetectorState(), 600_000, 10)
+      expect(warm.beats).toBe(20)
+      const restarted = runFrom(warm.state, 0, 10)
+      expect(restarted.beats).toBe(20)
+    })
   })
 
   it('maps the BeatDetect sliders from 0..1 into their tuned ranges', () => {

@@ -18,6 +18,7 @@ export interface BeatDetectorState {
   slow: number
   prevFlux: number
   lastBeatMs: number
+  lastMs: number
   bpm: number
   prevSpectrum: number[]
   lastFlux: number
@@ -46,6 +47,7 @@ export function createBeatDetectorState(): BeatDetectorState {
     slow: 0,
     prevFlux: 0,
     lastBeatMs: -1,
+    lastMs: -1,
     bpm: 120,
     prevSpectrum: [],
     lastFlux: 0,
@@ -124,6 +126,7 @@ export function updateBeatDetectorFromSpectrum(
       state: {
         ...prev,
         prevSpectrum: current,
+        lastMs: nowMs,
         lastFlux: 0,
         lastOnset: 0,
         lastContrast: 0,
@@ -133,16 +136,37 @@ export function updateBeatDetectorFromSpectrum(
     }
   }
 
+  // The caller's clock went backward (the preview loop's animation clock
+  // restarts at zero on remount while this state lives in a module-level
+  // map): drop the timing memory so a huge stale lastBeatMs can't hold the
+  // cooldown gate shut for minutes.
+  const clockReset = prev.lastMs >= 0 && nowMs < prev.lastMs
+  const lastBeatBase = clockReset ? -1 : prev.lastBeatMs
+
+  // attack/decay are calibrated as per-frame coefficients at 60 fps, but the
+  // detector is not always stepped at 60 fps (the preview loop drops to 8 fps
+  // with the panel closed; firmware loops run much faster). Convert them to
+  // the elapsed interval so envelope behaviour is framerate-independent —
+  // without this, the slow baseline stops collapsing between kicks at low
+  // rates and the contrast gate silences every beat.
+  const dtMs = clockReset || prev.lastMs < 0 ? 1000 / 60 : Math.max(1, Math.min(500, nowMs - prev.lastMs))
+  const dtFrames = dtMs / (1000 / 60)
+  const attackAlpha = 1 - Math.pow(1 - attack, dtFrames)
+  const decayAlpha = 1 - Math.pow(1 - decay, dtFrames)
+
   const flux = weightedFlux(current, prev.prevSpectrum)
-  const fast = prev.fast + (flux - prev.fast) * attack
-  const slow = prev.slow + (flux - prev.slow) * decay
-  const onset = fast - slow
-  const baseline = Math.max(0.02, slow)
+  const fast = prev.fast + (flux - prev.fast) * attackAlpha
+  const slow = prev.slow + (flux - prev.slow) * decayAlpha
+  // Compare against the *pre-sample* slow baseline: at coarse evaluation rates
+  // (large dt) a single sample carries the whole onset, and folding it into
+  // `slow` before the comparison would let the kick mask itself.
+  const onset = fast - prev.slow
+  const baseline = Math.max(0.02, prev.slow)
   const contrast = onset / baseline
   const prevBpm = prev.bpm > 0 ? prev.bpm : 120
   const dynamicCooldown = Math.max(150, Math.min(600, 60000 / prevBpm * 0.42))
   const gap = Math.max(cooldownMs, dynamicCooldown)
-  const elapsed = prev.lastBeatMs >= 0 ? nowMs - prev.lastBeatMs : Number.POSITIVE_INFINITY
+  const elapsed = lastBeatBase >= 0 ? nowMs - lastBeatBase : Number.POSITIVE_INFINITY
   // A rising edge, not a local-peak test: requiring the two *previous* frames
   // to be non-decreasing (`prevFlux >= prevPrevFlux`) randomly rejected ~half
   // of all onsets, because noise-floor jitter in the quiet frames before a
@@ -152,11 +176,11 @@ export function updateBeatDetectorFromSpectrum(
   const beat = flux > threshold && isRising && onset > threshold * 0.45 && contrast > 1.1 && elapsed >= gap
 
   let bpm = prevBpm
-  let lastBeatMs = prev.lastBeatMs
+  let lastBeatMs = lastBeatBase
 
   if (beat) {
-    if (prev.lastBeatMs >= 0) {
-      const interval = nowMs - prev.lastBeatMs
+    if (lastBeatBase >= 0) {
+      const interval = nowMs - lastBeatBase
       if (interval >= 220 && interval <= 1800) {
         const instant = 60000 / interval
         bpm = bpm * 0.65 + instant * 0.35
@@ -173,6 +197,7 @@ export function updateBeatDetectorFromSpectrum(
       slow,
       prevFlux: flux,
       lastBeatMs,
+      lastMs: nowMs,
       bpm,
       prevSpectrum: current,
       lastFlux: flux,
