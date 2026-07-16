@@ -92,6 +92,12 @@ set. Refresh this file when the lockfile changes in a release-significant way.
   comply with that license (including its non-commercial/share-alike terms), or
   be covered by separate permission; they must not be treated as MIT merely
   because they live in this repository.
+- FastLED Studio's AnimARTrix node is kept in the isolated `src/animartrix/`
+  module under CC BY-NC-SA 4.0. Its initial effect set is Water, Polar Waves,
+  RGB Blobs, Spiralus, and Complex Kaleido. The adaptation adds normalized
+  matrix coordinates, paired TypeScript/C++ renderers, smoothing, and structural
+  bass/mids/treble/kick/snare/hi-hat/beat mappings. Generated firmware carries
+  Stefan's name, the upstream URL, and the license identifier.
 
 ## Generated and packaged artifacts
 

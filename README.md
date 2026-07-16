@@ -155,6 +155,12 @@ technique and visual direction are credited to Stefan; FastLED Studio adds the
 node workflow, browser/firmware parity, selectable injection and flow modes,
 audio modulation, and the one-pixel-per-frame continuity guard.
 
+The separately licensed **AnimARTrix** node begins with Water, Polar Waves,
+RGB Blobs, Spiralus, and Complex Kaleido. It preserves Stefan Petrick's credit
+and CC BY-NC-SA 4.0 terms inside `src/animartrix/`, while adding matched browser
+and firmware renderers plus Studio-specific musical mappings for bass, mids,
+treble, kick, snare, hi-hat, and beat. See `src/animartrix/LICENSE.md`.
+
 ## Release Metadata
 
 - License: [`LICENSE`](LICENSE)
