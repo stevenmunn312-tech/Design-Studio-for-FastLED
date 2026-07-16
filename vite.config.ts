@@ -13,6 +13,12 @@ export default defineConfig(() => {
   const isTest = process.env.VITEST === 'true'
 
   return {
+    define: {
+      // Keep beta validation reports tied to the exact package release that
+      // generated them. npm exposes this from package.json for every script;
+      // the fallback keeps direct Vite/Vitest invocations deterministic.
+      __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '0.1.0'),
+    },
     // Chromium's page-wide memory estimate requires a cross-origin-isolated
     // context. These headers cover both the local authoring server and preview.
     server: {
