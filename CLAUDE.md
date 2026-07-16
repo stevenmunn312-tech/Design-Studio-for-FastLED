@@ -22,6 +22,13 @@ the project ships and real users have saved work, revisit this note.
 
 ## Git workflow (this repo) — keep it simple
 
+### Active GitHub hold
+
+Do not push commits or make any other GitHub-side changes (including pull
+requests, issues, releases, or repository settings) until the user explicitly
+says this hold is lifted. Local commits are still allowed when requested. This
+temporary hold overrides the routine push permission below.
+
 This is a solo, single-branch project. **These instructions override the global
 cortex / strict-git rules for this repository.**
 

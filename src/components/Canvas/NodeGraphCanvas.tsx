@@ -18,6 +18,7 @@ import {
   type OnReconnect,
   type OnMove,
   type Viewport,
+  type FitViewOptions,
   type Edge,
   type Node,
 } from '@xyflow/react'
@@ -67,6 +68,9 @@ const FALLBACK_W = 240
 const FALLBACK_H = 70
 const DEFAULT_SIDEBAR_W = 280
 const DEFAULT_PREVIEW_W = 496
+const FIT_VIEW_GUTTER = 32
+
+const fitViewEase = (t: number) => 1 - Math.pow(1 - t, 3)
 
 type Pt = { x: number; y: number }
 
@@ -150,6 +154,16 @@ function NodeGraphCanvasInner() {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const leftInset = panelInsetPx('--sidebar-width', DEFAULT_SIDEBAR_W, sidebarOpen)
   const rightInset = panelInsetPx('--right-panel-width', DEFAULT_PREVIEW_W, previewPanelOpen)
+  const fitViewOptions = useMemo<FitViewOptions>(() => ({
+    padding: {
+      top: FIT_VIEW_GUTTER,
+      right: rightInset + FIT_VIEW_GUTTER,
+      bottom: FIT_VIEW_GUTTER,
+      left: leftInset + FIT_VIEW_GUTTER,
+    },
+    duration: reducedMotion ? 0 : 260,
+    ease: fitViewEase,
+  }), [leftInset, reducedMotion, rightInset])
   const [spliceCue, setSpliceCue] = useState<{
     edgeId: string
     x: number
@@ -350,12 +364,10 @@ function NodeGraphCanvasInner() {
     if (fitViewRequest.nonce === 0 || fitViewRequest.nonce === lastFitViewNonce.current) return
     lastFitViewNonce.current = fitViewRequest.nonce
     void fitView({
-      padding: 0.16,
-      duration: reducedMotion ? 0 : 260,
-      ease: (t) => 1 - Math.pow(1 - t, 3),
+      ...fitViewOptions,
       nodes: fitViewRequest.nodeIds?.map((id) => ({ id })),
     })
-  }, [fitView, fitViewRequest, reducedMotion])
+  }, [fitView, fitViewOptions, fitViewRequest])
 
   // On pan/zoom: remember the viewport (so a reload restores it) and refresh
   // the click-to-add centre.
@@ -1037,6 +1049,7 @@ function NodeGraphCanvasInner() {
         maxZoom={2}
         defaultViewport={initialViewport ?? undefined}
         fitView={!initialViewport}
+        fitViewOptions={fitViewOptions}
         deleteKeyCode={['Delete', 'Backspace']}
         multiSelectionKeyCode="Shift"
         selectionKeyCode="Shift"
@@ -1063,6 +1076,7 @@ function NodeGraphCanvasInner() {
         <Controls
           className={styles.controls}
           style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-glow)' }}
+          fitViewOptions={fitViewOptions}
         />
         <MiniMap
           nodeColor={minimapNodeColor}

@@ -83,6 +83,36 @@ describe('NodeGraphCanvas start screen', () => {
     })
   })
 
+  it('fits nodes inside both open side panels', async () => {
+    render(<NodeGraphCanvas />)
+
+    useUiStore.setState({
+      sidebarOpen: true,
+      previewPanelOpen: true,
+      fitViewRequest: { nonce: 1 },
+    })
+
+    await waitFor(() => {
+      expect(fitViewMock).toHaveBeenCalledWith(expect.objectContaining({
+        padding: {
+          top: 32,
+          right: 528,
+          bottom: 32,
+          left: 312,
+        },
+      }))
+    })
+
+    expect(reactFlowProps.fitViewOptions).toEqual(expect.objectContaining({
+      padding: {
+        top: 32,
+        right: 528,
+        bottom: 32,
+        left: 312,
+      },
+    }))
+  })
+
   it('opens the starter gallery and remembers blank-canvas preference', async () => {
     const { getByRole } = render(<NodeGraphCanvas />)
 
