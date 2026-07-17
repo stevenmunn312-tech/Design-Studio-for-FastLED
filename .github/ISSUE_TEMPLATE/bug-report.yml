@@ -1,0 +1,55 @@
+name: Bug report
+description: Something is broken or behaves unexpectedly
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! Please never include Wi-Fi credentials, private
+        project data, sensitive serial numbers, or unrelated log contents.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Steps to reproduce, what you expected, and what actually happened.
+      placeholder: |
+        1. …
+        2. …
+        Expected: …
+        Actual: …
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: FastLED Studio version
+      placeholder: e.g. 0.2.0 (shown in the app / release name)
+    validations:
+      required: true
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: How are you running it?
+      options:
+        - Portable desktop package
+        - From source (npm run dev / start script)
+        - Other (explain below)
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: OS and browser
+      placeholder: e.g. Windows 11 Home 26200 · Chrome 150.0.7871.101
+    validations:
+      required: true
+  - type: textarea
+    id: hardware
+    attributes:
+      label: Hardware (if relevant)
+      description: Board, LED chipset, matrix/strip dimensions, color order, pins, layout type, build engine (fbuild or arduino-cli), power arrangement.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log tail / console output (if relevant)
+      render: text

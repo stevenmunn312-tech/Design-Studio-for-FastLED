@@ -1,0 +1,7 @@
+# Blank issues must stay enabled: the in-app hardware-report flow opens a
+# pre-filled issue via URL (title + body), which requires the blank form.
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/stevenmunn312-tech/FastLED-Studio/blob/main/SECURITY.md
+    about: Please do not open a public issue for vulnerabilities — follow the security policy instead.

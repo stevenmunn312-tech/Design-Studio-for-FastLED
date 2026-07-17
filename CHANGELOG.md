@@ -28,6 +28,8 @@ First public beta.
 - A self-contained desktop distribution path: PyInstaller freezes the existing
   frontend/upload helper, bundles fbuild and esptool, isolates mutable user data,
   launch-smokes the result, and emits a portable platform archive.
+- Contribution scaffolding for the beta: `CONTRIBUTING.md` plus GitHub issue
+  forms for bug reports, hardware validation reports, and feature requests.
 
 ### Changed
 

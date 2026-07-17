@@ -1,0 +1,22 @@
+name: Feature request
+description: Suggest a node, workflow improvement, or new capability
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The goal or workflow, not just the mechanism — there may be an existing path.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like to see? For node ideas, mention inputs/outputs and how it should map to FastLED firmware.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Workarounds you've tried

@@ -1,0 +1,72 @@
+name: Hardware validation report
+description: Report a tested board/LED/workflow combination (pass or fail)
+labels: [hardware-report]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Preferred path:** use the in-app flow — after an upload or wiring
+        test, Matrix Output's deploy panel offers an opt-in report that
+        pre-fills an issue with your exact configuration. Use this form when
+        that flow isn't available. See the
+        [hardware validation guide](https://github.com/stevenmunn312-tech/FastLED-Studio/blob/main/docs/release/beta-hardware-validation.md).
+  - type: input
+    id: environment
+    attributes:
+      label: OS, browser, and FastLED Studio version
+      placeholder: e.g. Windows 11 Home 26200 · Chrome 150 · 0.2.0
+    validations:
+      required: true
+  - type: input
+    id: board
+    attributes:
+      label: Board
+      placeholder: e.g. ESP32-S3 DevKitC-1 (with PSRAM variant if relevant)
+    validations:
+      required: true
+  - type: input
+    id: leds
+    attributes:
+      label: LED chipset, dimensions, and color order
+      placeholder: e.g. WS2812B · 16×16 · GRB
+    validations:
+      required: true
+  - type: dropdown
+    id: layout
+    attributes:
+      label: Physical layout
+      options:
+        - Single rectangular matrix (serpentine)
+        - Single rectangular matrix (row-major)
+        - Strip
+        - Tiled panels
+        - Custom XY map
+    validations:
+      required: true
+  - type: dropdown
+    id: engine
+    attributes:
+      label: Build engine
+      options:
+        - fbuild
+        - arduino-cli
+    validations:
+      required: true
+  - type: textarea
+    id: results
+    attributes:
+      label: What did you test, and what was the result?
+      description: "Per action — compile, wiring test, upload, live stream, mic audio, SD show playback: pass / fail / not tested. Note whether the physical LEDs matched the preview."
+      placeholder: |
+        Compile: pass
+        Wiring test: pass
+        Upload: pass — colors and orientation correct
+        Live stream: not tested
+        Mic audio: fail — details below
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and notes
+      description: Log tail, photos, or a short video link. Pins and power arrangement if unusual.
