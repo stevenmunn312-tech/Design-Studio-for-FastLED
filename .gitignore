@@ -6,6 +6,12 @@ dist/
 .DS_Store
 *.local
 
+# Scratch screenshots and session captures — never commit these
+/artifacts/
+/.tmp-live-*
+/live-screen.png
+/node-crop*.png
+
 # Python upload helper (backend/) local state
 backend/.venv/
 backend/__pycache__/
