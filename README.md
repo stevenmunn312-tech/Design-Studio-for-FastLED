@@ -16,6 +16,14 @@ FastLED Studio is a visual authoring environment for LED strips, matrices, and t
 |---|---|
 | ![A patch driving the live LED preview](docs/images/readme/fastled-studio-patch.png) | ![Pattern Library with included audio-reactive patterns](docs/images/readme/fastled-studio-pattern-library.png) |
 
+### Perform in Stage Mode
+
+Press **Stage** or **F10** to turn the workspace into a focused performance view. The live matrix fills most of the screen while the spectrum analyzer, show transport, pattern status, frame rate, and memory telemetry stay visible. Select the spectrum name to cycle through the available visualizers; press **Esc** or **F10** to return to the editor.
+
+The shot below is a generated show playing a lava-coloured pattern while its analyzed audio track drives the spectrum display.
+
+![Stage Mode playing a generated show with the live spectrum analyzer](docs/images/readme/fastled-studio-stage.png)
+
 ## Your first five minutes
 
 1. **Start with something alive.** On the empty canvas choose **Start with Rainbow**, **Audio-reactive demo**, or **Browse starter patches**. The **✦ Start** button reopens the gallery at any time.

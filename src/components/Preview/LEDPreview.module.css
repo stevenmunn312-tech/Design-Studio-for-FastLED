@@ -90,7 +90,10 @@
 .headerRight {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
 }
 
 .headerStage {
@@ -246,20 +249,11 @@
   top: -28px;
   display: flex;
   align-items: center;
-  gap: 6px;
   pointer-events: none;
 }
 
-.canvasHud {
-  margin-left: auto;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 6px;
-}
-
 .canvasHudChip {
-  padding: 4px 8px;
+  padding: 3px 7px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
   background: rgba(4, 8, 14, 0.72);
@@ -1236,7 +1230,6 @@
     gap: 6px;
   }
 
-  .canvasHud,
   .transportChips {
     gap: 4px;
   }

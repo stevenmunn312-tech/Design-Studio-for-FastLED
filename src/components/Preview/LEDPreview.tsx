@@ -617,12 +617,17 @@ export default function LEDPreview() {
   const playbackShow = useShowPlayback((s) => s.show)
   const playbackPosMs = useShowPlayback((s) => s.posMs)
 
-  const hasFrameSignal = useGraphStore((s) => {
+  const graphHasFrameSignal = useGraphStore((s) => {
     const terminalIds = new Set(s.nodes
       .filter((node) => ['MatrixOutput', 'GroupOutput'].includes(String(node.data.nodeType)))
       .map((node) => node.id))
     return s.edges.some((edge) => terminalIds.has(edge.target) && edge.targetHandle === 'frame')
   })
+  // A Performance Generator preview reaches the output bay through the show
+  // playback bus rather than a Matrix Output frame cable. Treat that live show
+  // as a real frame signal so Stage does not contradict its lit matrix with a
+  // "Signal idle" / standby overlay.
+  const hasFrameSignal = graphHasFrameSignal || playbackShow !== null
   const graphAudioVisualizerLive = useGraphStore((s) => graphConsumesAudio(s.nodes, s.edges))
   const playbackSpectrum = playbackShow ? showAudioSpectrum(playbackShow.audio, playbackPosMs) : null
   const audioVisualizerLive = graphAudioVisualizerLive || !!playbackSpectrum
@@ -1222,6 +1227,14 @@ export default function LEDPreview() {
             <span className={styles.previewMeta}>Output bay</span>
           </div>
         )}
+        <div className={styles.headerRight} aria-label="Preview telemetry">
+          <span className={styles.canvasHudChip}>{previewStyleLabel(effectivePreviewStyle)}</span>
+          <span className={styles.canvasHudChip}>{hasFrameSignal ? 'Signal live' : 'Signal idle'}</span>
+          <span className={styles.canvasHudChip}>
+            {showMode ? 'Show sync' : audioVisualizerLive ? 'Audio reactive' : 'Workbench'}
+          </span>
+          {performanceMode && <span className={styles.canvasHudChip}>Performance</span>}
+        </div>
       </div>
       <div
         ref={canvasWrapRef}
@@ -1231,16 +1244,8 @@ export default function LEDPreview() {
         {uiEffectsEnabled && <div className={styles.ambilight} aria-hidden="true" />}
         <div className={styles.canvasBay}>
           <div className={styles.canvasFrame}>
-            <div className={styles.canvasFrameHeader} aria-label="Preview telemetry">
+            <div className={styles.canvasFrameHeader}>
               <span className={`${styles.visualizerKicker} ${styles.canvasFrameTag}`}>Output matrix</span>
-              <div className={styles.canvasHud}>
-                <span className={styles.canvasHudChip}>{previewStyleLabel(effectivePreviewStyle)}</span>
-                <span className={styles.canvasHudChip}>{hasFrameSignal ? 'Signal live' : 'Signal idle'}</span>
-                <span className={styles.canvasHudChip}>
-                  {showMode ? 'Show sync' : audioVisualizerLive ? 'Audio reactive' : 'Workbench'}
-                </span>
-                {performanceMode && <span className={styles.canvasHudChip}>Performance</span>}
-              </div>
             </div>
             <div
               className={styles.canvasStack}
