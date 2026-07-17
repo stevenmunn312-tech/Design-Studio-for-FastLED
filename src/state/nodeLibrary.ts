@@ -2440,7 +2440,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
 // output. (`composite` keeps its historical id but displays as "Effects".)
 // Accent hues sweep the wheel across all 15 sidebar section headers — Quick
 // recipes, Favourites, Recent rack, these 11 CATEGORIES entries (Notes
-// included), then My Patterns — at 360/15 = 24° per header, all
+// included), then Pattern Library — at 360/15 = 24° per header, all
 // hsl(h, 100%, 60%). The 4 non-category headers (see tokens.css) own the
 // wheel's first three slots and the last one; `note` is last of these 11.
 export const CATEGORIES = [

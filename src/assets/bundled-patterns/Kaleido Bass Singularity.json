@@ -1,0 +1,627 @@
+{
+  "id": "pat-audio-reactive-04",
+  "name": "Kaleido Bass Singularity",
+  "createdAt": 1784289780000,
+  "inputs": [
+    {
+      "id": "audio",
+      "label": "Audio",
+      "dataType": "audio"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "frame",
+      "label": "Frame",
+      "dataType": "frame"
+    }
+  ],
+  "subgraph": {
+    "nodes": [
+      {
+        "id": "audio-in",
+        "type": "studioNode",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "data": {
+          "label": "Audio",
+          "nodeType": "GroupInput",
+          "category": "composite",
+          "properties": {
+            "paramId": "audio"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "out",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ]
+        }
+      },
+      {
+        "id": "fft",
+        "type": "studioNode",
+        "position": {
+          "x": 300,
+          "y": -350
+        },
+        "data": {
+          "label": "FFT Analyzer",
+          "nodeType": "FFTAnalyzer",
+          "category": "audio",
+          "properties": {
+            "bands": 24,
+            "gain": 1.4,
+            "smoothing": 0.6,
+            "tilt": 0.38
+          },
+          "inputs": [
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "bass",
+              "label": "Bass",
+              "dataType": "float"
+            },
+            {
+              "id": "mids",
+              "label": "Mids",
+              "dataType": "float"
+            },
+            {
+              "id": "treble",
+              "label": "Treble",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "drums",
+        "type": "studioNode",
+        "position": {
+          "x": 300,
+          "y": -80
+        },
+        "data": {
+          "label": "Percussion Detect",
+          "nodeType": "PercussionDetect",
+          "category": "audio",
+          "properties": {
+            "sensitivity": 0.6,
+            "decay": 0.74,
+            "separation": 0.48
+          },
+          "inputs": [
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "kick",
+              "label": "Kick",
+              "dataType": "float"
+            },
+            {
+              "id": "snare",
+              "label": "Snare",
+              "dataType": "float"
+            },
+            {
+              "id": "hihat",
+              "label": "Hi-Hat",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "beat",
+        "type": "studioNode",
+        "position": {
+          "x": 300,
+          "y": 190
+        },
+        "data": {
+          "label": "Beat Detect",
+          "nodeType": "BeatDetect",
+          "category": "audio",
+          "properties": {
+            "threshold": 0.2,
+            "attack": 0.58,
+            "decay": 0.27
+          },
+          "inputs": [
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "beat",
+              "label": "Beat",
+              "dataType": "bool"
+            },
+            {
+              "id": "bpm",
+              "label": "BPM",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "anim",
+        "type": "studioNode",
+        "position": {
+          "x": 660,
+          "y": -310
+        },
+        "data": {
+          "label": "AnimARTrix",
+          "nodeType": "Animartrix",
+          "category": "pattern",
+          "properties": {
+            "effect": "Complex Kaleido",
+            "speed": 0.62,
+            "audioAmount": 1.35
+          },
+          "inputs": [
+            {
+              "id": "bass",
+              "label": "Bass",
+              "dataType": "float"
+            },
+            {
+              "id": "mids",
+              "label": "Mids",
+              "dataType": "float"
+            },
+            {
+              "id": "treble",
+              "label": "Treble",
+              "dataType": "float"
+            },
+            {
+              "id": "kick",
+              "label": "Kick",
+              "dataType": "float"
+            },
+            {
+              "id": "snare",
+              "label": "Snare",
+              "dataType": "float"
+            },
+            {
+              "id": "hihat",
+              "label": "Hi-Hat",
+              "dataType": "float"
+            },
+            {
+              "id": "beat",
+              "label": "Beat",
+              "dataType": "bool"
+            },
+            {
+              "id": "speed",
+              "label": "Speed",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "trail-palette",
+        "type": "studioNode",
+        "position": {
+          "x": 300,
+          "y": 440
+        },
+        "data": {
+          "label": "Palette Selector",
+          "nodeType": "PaletteSelector",
+          "category": "color",
+          "properties": {
+            "palette": "amethyst"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ]
+        }
+      },
+      {
+        "id": "trails",
+        "type": "studioNode",
+        "position": {
+          "x": 660,
+          "y": 160
+        },
+        "data": {
+          "label": "Color Trails",
+          "nodeType": "ColorTrails",
+          "category": "pattern",
+          "properties": {
+            "injectionMode": "Both",
+            "flowMode": "Morphing 2D",
+            "xSpeed": 0.13,
+            "xAmplitude": 0.88,
+            "xFrequency": 0.41,
+            "ySpeed": -0.11,
+            "yAmplitude": 0.82,
+            "yFrequency": 0.37,
+            "displacement": 2.35,
+            "endpointSpeed": 0.48,
+            "colorSpeed": 0.12,
+            "persistence": 0.9988,
+            "palette": "amethyst",
+            "seed": 731
+          },
+          "inputs": [
+            {
+              "id": "bass",
+              "label": "Bass",
+              "dataType": "float"
+            },
+            {
+              "id": "mids",
+              "label": "Mids",
+              "dataType": "float"
+            },
+            {
+              "id": "treble",
+              "label": "Treble",
+              "dataType": "float"
+            },
+            {
+              "id": "beat",
+              "label": "Beat",
+              "dataType": "bool"
+            },
+            {
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "blend",
+        "type": "studioNode",
+        "position": {
+          "x": 1040,
+          "y": -70
+        },
+        "data": {
+          "label": "Blend",
+          "nodeType": "Blend",
+          "category": "composite",
+          "properties": {
+            "blendMode": "difference",
+            "amount": 0.58
+          },
+          "inputs": [
+            {
+              "id": "a",
+              "label": "A",
+              "dataType": "frame"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "frame"
+            },
+            {
+              "id": "amount",
+              "label": "Opacity",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "feedback",
+        "type": "studioNode",
+        "position": {
+          "x": 1360,
+          "y": -20
+        },
+        "data": {
+          "label": "Frame Feedback",
+          "nodeType": "FrameFeedback",
+          "category": "composite",
+          "properties": {
+            "delayFrames": 3,
+            "fade": 0.11,
+            "amount": 0.38,
+            "blendMode": "screen",
+            "feedbackTransform": "scale",
+            "offsetX": 0,
+            "offsetY": 0,
+            "angle": 0,
+            "scale": 1.045
+          },
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            },
+            {
+              "id": "amount",
+              "label": "Amount",
+              "dataType": "float"
+            },
+            {
+              "id": "fade",
+              "label": "Fade",
+              "dataType": "float"
+            },
+            {
+              "id": "offsetX",
+              "label": "Offset X",
+              "dataType": "float"
+            },
+            {
+              "id": "offsetY",
+              "label": "Offset Y",
+              "dataType": "float"
+            },
+            {
+              "id": "angle",
+              "label": "Angle",
+              "dataType": "float"
+            },
+            {
+              "id": "scale",
+              "label": "Scale",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "group-output",
+        "type": "studioNode",
+        "position": {
+          "x": 1700,
+          "y": 0
+        },
+        "data": {
+          "label": "Group Output",
+          "nodeType": "GroupOutput",
+          "category": "output",
+          "properties": {},
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ],
+          "outputs": []
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge-0-audio-in-fft",
+        "source": "audio-in",
+        "sourceHandle": "out",
+        "target": "fft",
+        "targetHandle": "audio",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-1-audio-in-drums",
+        "source": "audio-in",
+        "sourceHandle": "out",
+        "target": "drums",
+        "targetHandle": "audio",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-2-audio-in-beat",
+        "source": "audio-in",
+        "sourceHandle": "out",
+        "target": "beat",
+        "targetHandle": "audio",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-3-fft-anim",
+        "source": "fft",
+        "sourceHandle": "bass",
+        "target": "anim",
+        "targetHandle": "bass",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-4-fft-anim",
+        "source": "fft",
+        "sourceHandle": "mids",
+        "target": "anim",
+        "targetHandle": "mids",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-5-fft-anim",
+        "source": "fft",
+        "sourceHandle": "treble",
+        "target": "anim",
+        "targetHandle": "treble",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-6-drums-anim",
+        "source": "drums",
+        "sourceHandle": "kick",
+        "target": "anim",
+        "targetHandle": "kick",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-7-drums-anim",
+        "source": "drums",
+        "sourceHandle": "snare",
+        "target": "anim",
+        "targetHandle": "snare",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-8-drums-anim",
+        "source": "drums",
+        "sourceHandle": "hihat",
+        "target": "anim",
+        "targetHandle": "hihat",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-9-beat-anim",
+        "source": "beat",
+        "sourceHandle": "beat",
+        "target": "anim",
+        "targetHandle": "beat",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-10-fft-trails",
+        "source": "fft",
+        "sourceHandle": "bass",
+        "target": "trails",
+        "targetHandle": "bass",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-11-fft-trails",
+        "source": "fft",
+        "sourceHandle": "mids",
+        "target": "trails",
+        "targetHandle": "mids",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-12-fft-trails",
+        "source": "fft",
+        "sourceHandle": "treble",
+        "target": "trails",
+        "targetHandle": "treble",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-13-beat-trails",
+        "source": "beat",
+        "sourceHandle": "beat",
+        "target": "trails",
+        "targetHandle": "beat",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-14-trail-palette-trails",
+        "source": "trail-palette",
+        "sourceHandle": "palette",
+        "target": "trails",
+        "targetHandle": "paletteIn",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-15-anim-blend",
+        "source": "anim",
+        "sourceHandle": "frame",
+        "target": "blend",
+        "targetHandle": "a",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-16-trails-blend",
+        "source": "trails",
+        "sourceHandle": "frame",
+        "target": "blend",
+        "targetHandle": "b",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-17-blend-feedback",
+        "source": "blend",
+        "sourceHandle": "frame",
+        "target": "feedback",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-18-feedback-group-output",
+        "source": "feedback",
+        "sourceHandle": "frame",
+        "target": "group-output",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      }
+    ]
+  }
+}

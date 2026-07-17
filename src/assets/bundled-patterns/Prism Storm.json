@@ -1,0 +1,525 @@
+{
+  "name": "Prism Storm",
+  "inputs": [
+    {
+      "id": "param0",
+      "label": "Audio",
+      "dataType": "audio"
+    },
+    {
+      "id": "param1",
+      "label": "Audio",
+      "dataType": "audio"
+    },
+    {
+      "id": "param2",
+      "label": "Audio",
+      "dataType": "audio"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "frame",
+      "label": "Frame",
+      "dataType": "frame"
+    }
+  ],
+  "subgraph": {
+    "nodes": [
+      {
+        "id": "help-1784222066107-target",
+        "type": "studioNode",
+        "position": {
+          "x": -500,
+          "y": 460
+        },
+        "data": {
+          "label": "Prism Storm",
+          "nodeType": "PrismStorm",
+          "category": "pattern",
+          "properties": {
+            "energy": 0.7,
+            "speed": 1,
+            "palette": "amethyst"
+          },
+          "inputs": [
+            {
+              "id": "treble",
+              "label": "Treble",
+              "dataType": "float"
+            },
+            {
+              "id": "mids",
+              "label": "Mids",
+              "dataType": "float"
+            },
+            {
+              "id": "hihat",
+              "label": "Hi-Hat",
+              "dataType": "float"
+            },
+            {
+              "id": "energy",
+              "label": "Energy",
+              "dataType": "float"
+            },
+            {
+              "id": "speed",
+              "label": "Speed",
+              "dataType": "float"
+            },
+            {
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        },
+        "measured": {
+          "width": 240,
+          "height": 534
+        },
+        "selected": false
+      },
+      {
+        "id": "help-1784222066107-fft",
+        "type": "studioNode",
+        "position": {
+          "x": -820,
+          "y": 220
+        },
+        "data": {
+          "label": "FFT Analyzer",
+          "nodeType": "FFTAnalyzer",
+          "category": "audio",
+          "properties": {
+            "bands": 24,
+            "gain": 1.15,
+            "smoothing": 0.7,
+            "tilt": 0
+          },
+          "inputs": [
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "bass",
+              "label": "Bass",
+              "dataType": "float"
+            },
+            {
+              "id": "mids",
+              "label": "Mids",
+              "dataType": "float"
+            },
+            {
+              "id": "treble",
+              "label": "Treble",
+              "dataType": "float"
+            }
+          ]
+        },
+        "measured": {
+          "width": 240,
+          "height": 348
+        },
+        "selected": false
+      },
+      {
+        "id": "help-1784222066107-percussion",
+        "type": "studioNode",
+        "position": {
+          "x": -820,
+          "y": 600
+        },
+        "data": {
+          "label": "Percussion Detect",
+          "nodeType": "PercussionDetect",
+          "category": "audio",
+          "properties": {
+            "sensitivity": 0.62,
+            "decay": 0.55,
+            "separation": 0.7
+          },
+          "inputs": [
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "kick",
+              "label": "Kick",
+              "dataType": "float"
+            },
+            {
+              "id": "snare",
+              "label": "Snare",
+              "dataType": "float"
+            },
+            {
+              "id": "hihat",
+              "label": "Hi-Hat",
+              "dataType": "float"
+            }
+          ]
+        },
+        "measured": {
+          "width": 240,
+          "height": 197
+        },
+        "selected": false
+      },
+      {
+        "id": "help-1784222066107-features",
+        "type": "studioNode",
+        "position": {
+          "x": -820,
+          "y": 840
+        },
+        "data": {
+          "label": "Audio Features",
+          "nodeType": "AudioFeatures",
+          "category": "audio",
+          "properties": {
+            "sensitivity": 0.65,
+            "gate": 0.12,
+            "smoothing": 0.62
+          },
+          "inputs": [
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "vocals",
+              "label": "Vocals",
+              "dataType": "float"
+            },
+            {
+              "id": "energy",
+              "label": "Energy",
+              "dataType": "float"
+            },
+            {
+              "id": "silence",
+              "label": "Silence",
+              "dataType": "bool"
+            }
+          ]
+        },
+        "measured": {
+          "width": 240,
+          "height": 197
+        },
+        "selected": false
+      },
+      {
+        "id": "help-1784222066107-palette-paletteIn-1",
+        "type": "studioNode",
+        "position": {
+          "x": -820,
+          "y": 1080
+        },
+        "data": {
+          "label": "Palette Selector",
+          "nodeType": "PaletteSelector",
+          "category": "color",
+          "properties": {
+            "palette": "cloud"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ]
+        },
+        "measured": {
+          "width": 240,
+          "height": 153
+        },
+        "selected": false
+      },
+      {
+        "id": "groupin-group-1784222136323-0",
+        "type": "studioNode",
+        "position": {
+          "x": 40,
+          "y": 80
+        },
+        "data": {
+          "label": "Audio",
+          "nodeType": "GroupInput",
+          "category": "composite",
+          "properties": {
+            "paramId": "param0"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "out",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ]
+        }
+      },
+      {
+        "id": "groupin-group-1784222136323-1",
+        "type": "studioNode",
+        "position": {
+          "x": 40,
+          "y": 160
+        },
+        "data": {
+          "label": "Audio",
+          "nodeType": "GroupInput",
+          "category": "composite",
+          "properties": {
+            "paramId": "param1"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "out",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ]
+        }
+      },
+      {
+        "id": "groupin-group-1784222136323-2",
+        "type": "studioNode",
+        "position": {
+          "x": 40,
+          "y": 240
+        },
+        "data": {
+          "label": "Audio",
+          "nodeType": "GroupInput",
+          "category": "composite",
+          "properties": {
+            "paramId": "param2"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "out",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ]
+        }
+      },
+      {
+        "id": "groupin-group-1784222136323-speed",
+        "type": "studioNode",
+        "position": {
+          "x": -180,
+          "y": 40
+        },
+        "data": {
+          "label": "Speed",
+          "nodeType": "GroupInput",
+          "category": "composite",
+          "properties": {
+            "paramId": "speed"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "out",
+              "label": "speed",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "groupmul-group-1784222136323-speed-0",
+        "type": "studioNode",
+        "position": {
+          "x": -60,
+          "y": 460
+        },
+        "data": {
+          "label": "Speed \u00d7",
+          "nodeType": "Math",
+          "category": "math",
+          "properties": {
+            "mathOp": "multiply",
+            "a": 1,
+            "b": 1
+          },
+          "inputs": [
+            {
+              "id": "a",
+              "label": "A",
+              "dataType": "float"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "groupout-group-1784222136323",
+        "type": "studioNode",
+        "position": {
+          "x": 360,
+          "y": 160
+        },
+        "data": {
+          "label": "Group Output",
+          "nodeType": "GroupOutput",
+          "category": "output",
+          "properties": {},
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ],
+          "outputs": []
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e-help-1784222066107-1",
+        "source": "help-1784222066107-fft",
+        "sourceHandle": "mids",
+        "target": "help-1784222066107-target",
+        "targetHandle": "mids",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "e-help-1784222066107-2",
+        "source": "help-1784222066107-fft",
+        "sourceHandle": "treble",
+        "target": "help-1784222066107-target",
+        "targetHandle": "treble",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "e-help-1784222066107-4",
+        "source": "help-1784222066107-percussion",
+        "sourceHandle": "hihat",
+        "target": "help-1784222066107-target",
+        "targetHandle": "hihat",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "e-help-1784222066107-6",
+        "source": "help-1784222066107-features",
+        "sourceHandle": "energy",
+        "target": "help-1784222066107-target",
+        "targetHandle": "energy",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "e-help-1784222066107-7",
+        "source": "help-1784222066107-palette-paletteIn-1",
+        "sourceHandle": "palette",
+        "target": "help-1784222066107-target",
+        "targetHandle": "paletteIn",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#ff5cf0"
+        }
+      },
+      {
+        "id": "e-group-1784222136323-in0",
+        "source": "groupin-group-1784222136323-0",
+        "sourceHandle": "out",
+        "target": "help-1784222066107-fft",
+        "targetHandle": "audio"
+      },
+      {
+        "id": "e-group-1784222136323-in1",
+        "source": "groupin-group-1784222136323-1",
+        "sourceHandle": "out",
+        "target": "help-1784222066107-percussion",
+        "targetHandle": "audio"
+      },
+      {
+        "id": "e-group-1784222136323-in2",
+        "source": "groupin-group-1784222136323-2",
+        "sourceHandle": "out",
+        "target": "help-1784222066107-features",
+        "targetHandle": "audio"
+      },
+      {
+        "id": "e-groupmul-group-1784222136323-speed-0-b",
+        "source": "groupin-group-1784222136323-speed",
+        "sourceHandle": "out",
+        "target": "groupmul-group-1784222136323-speed-0",
+        "targetHandle": "b"
+      },
+      {
+        "id": "e-groupmul-group-1784222136323-speed-0-out",
+        "source": "groupmul-group-1784222136323-speed-0",
+        "sourceHandle": "result",
+        "target": "help-1784222066107-target",
+        "targetHandle": "speed"
+      },
+      {
+        "id": "e-group-1784222136323-out",
+        "source": "help-1784222066107-target",
+        "sourceHandle": "frame",
+        "target": "groupout-group-1784222136323",
+        "targetHandle": "frame"
+      }
+    ]
+  },
+  "id": "pat-1784222136326",
+  "createdAt": 1784222136326
+}

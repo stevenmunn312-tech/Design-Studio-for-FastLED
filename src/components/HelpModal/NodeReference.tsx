@@ -1791,7 +1791,7 @@ function UsingNodesArticle() {
           </div>
           <div className={styles.guideCard}>
             <h3>Make a reusable group</h3>
-            <p>Select a patch and press <Key>Ctrl/Cmd</Key> + <Key>G</Key>, use the floating <b>Group</b> button, or open a selected node's context menu. Double-click the finished Group to enter it and use <b>← Main</b> to return. Groups can be saved to <b>My Patterns</b>.</p>
+            <p>Select a patch and press <Key>Ctrl/Cmd</Key> + <Key>G</Key>, use the floating <b>Group</b> button, or open a selected node's context menu. Double-click the finished Group to enter it and use <b>← Main</b> to return. Groups can be saved to the <b>Pattern Library</b>.</p>
           </div>
           <div className={styles.guideCard}>
             <h3>Use the node menu</h3>

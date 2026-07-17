@@ -1,0 +1,697 @@
+{
+  "id": "pat-1783299000006",
+  "name": "Tidal Glass Meditation",
+  "createdAt": 1783299000006,
+  "inputs": [
+    {
+      "id": "param0",
+      "label": "Audio",
+      "dataType": "audio"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "frame",
+      "label": "Frame",
+      "dataType": "frame"
+    }
+  ],
+  "subgraph": {
+    "nodes": [
+      {
+        "id": "f-in",
+        "type": "studioNode",
+        "position": {
+          "x": -940,
+          "y": 160
+        },
+        "data": {
+          "label": "Audio",
+          "nodeType": "GroupInput",
+          "category": "composite",
+          "properties": {
+            "paramId": "param0"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "out",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ]
+        }
+      },
+      {
+        "id": "f-fft",
+        "type": "studioNode",
+        "position": {
+          "x": -700,
+          "y": 80
+        },
+        "data": {
+          "label": "FFTAnalyzer",
+          "nodeType": "FFTAnalyzer",
+          "category": "audio",
+          "properties": {
+            "bands": 24,
+            "gain": 1.18,
+            "smoothing": 0.76
+          },
+          "inputs": [
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "bass",
+              "label": "Bass",
+              "dataType": "float"
+            },
+            {
+              "id": "mids",
+              "label": "Mids",
+              "dataType": "float"
+            },
+            {
+              "id": "treble",
+              "label": "Treble",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "f-beat",
+        "type": "studioNode",
+        "position": {
+          "x": -700,
+          "y": 360
+        },
+        "data": {
+          "label": "BeatDetect",
+          "nodeType": "BeatDetect",
+          "category": "audio",
+          "properties": {
+            "threshold": 0.2,
+            "attack": 0.55,
+            "decay": 0.26
+          },
+          "inputs": [
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "beat",
+              "label": "Beat",
+              "dataType": "bool"
+            },
+            {
+              "id": "bpm",
+              "label": "BPM",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "f-poline",
+        "type": "studioNode",
+        "position": {
+          "x": -700,
+          "y": -220
+        },
+        "data": {
+          "label": "Poline Palette",
+          "nodeType": "Poline",
+          "category": "color",
+          "properties": {
+            "anchorA": "#08203a",
+            "anchorB": "#58d7ff",
+            "anchorC": "#f2f5ff",
+            "points": 6,
+            "position": "sinusoidal"
+          },
+          "inputs": [
+            {
+              "id": "colorA",
+              "label": "Anchor A",
+              "dataType": "color"
+            },
+            {
+              "id": "colorB",
+              "label": "Anchor B",
+              "dataType": "color"
+            },
+            {
+              "id": "colorC",
+              "label": "Anchor C",
+              "dataType": "color"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ]
+        }
+      },
+      {
+        "id": "f-audioFlow",
+        "type": "studioNode",
+        "position": {
+          "x": -160,
+          "y": -60
+        },
+        "data": {
+          "label": "Audio Flow",
+          "nodeType": "AudioFlow",
+          "category": "pattern",
+          "properties": {
+            "speed": 0.32,
+            "scale": 0.5,
+            "palette": "rainbow"
+          },
+          "inputs": [
+            {
+              "id": "bass",
+              "label": "Bass",
+              "dataType": "float"
+            },
+            {
+              "id": "mids",
+              "label": "Mids",
+              "dataType": "float"
+            },
+            {
+              "id": "treble",
+              "label": "Treble",
+              "dataType": "float"
+            },
+            {
+              "id": "speed",
+              "label": "Speed",
+              "dataType": "float"
+            },
+            {
+              "id": "scale",
+              "label": "Scale",
+              "dataType": "float"
+            },
+            {
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "f-sparks",
+        "type": "studioNode",
+        "position": {
+          "x": -160,
+          "y": 260
+        },
+        "data": {
+          "label": "Treble Sparks",
+          "nodeType": "TrebleSparks",
+          "category": "pattern",
+          "properties": {
+            "density": 0.46,
+            "r": 180,
+            "g": 220,
+            "b": 255
+          },
+          "inputs": [
+            {
+              "id": "treble",
+              "label": "Treble",
+              "dataType": "float"
+            },
+            {
+              "id": "density",
+              "label": "Density",
+              "dataType": "float"
+            },
+            {
+              "id": "color",
+              "label": "Color",
+              "dataType": "color"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "f-sample",
+        "type": "studioNode",
+        "position": {
+          "x": -420,
+          "y": 260
+        },
+        "data": {
+          "label": "Palette Sampler",
+          "nodeType": "PaletteSampler",
+          "category": "color",
+          "properties": {
+            "palette": "rainbow",
+            "t": 0.5
+          },
+          "inputs": [
+            {
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            },
+            {
+              "id": "t",
+              "label": "T",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "color",
+              "label": "Color",
+              "dataType": "color"
+            }
+          ]
+        }
+      },
+      {
+        "id": "f-blend",
+        "type": "studioNode",
+        "position": {
+          "x": 180,
+          "y": 100
+        },
+        "data": {
+          "label": "Blend",
+          "nodeType": "Blend",
+          "category": "composite",
+          "properties": {
+            "blendMode": "screen",
+            "amount": 0.18
+          },
+          "inputs": [
+            {
+              "id": "a",
+              "label": "A",
+              "dataType": "frame"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "frame"
+            },
+            {
+              "id": "amount",
+              "label": "Opacity",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "f-flash",
+        "type": "studioNode",
+        "position": {
+          "x": 480,
+          "y": 100
+        },
+        "data": {
+          "label": "Beat Flash",
+          "nodeType": "BeatFlash",
+          "category": "pattern",
+          "properties": {
+            "decay": 0.86
+          },
+          "inputs": [
+            {
+              "id": "beat",
+              "label": "Beat",
+              "dataType": "bool"
+            },
+            {
+              "id": "frame",
+              "label": "Base",
+              "dataType": "frame"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "f-out",
+        "type": "studioNode",
+        "position": {
+          "x": 1020,
+          "y": 100
+        },
+        "data": {
+          "label": "Group Output",
+          "nodeType": "GroupOutput",
+          "category": "output",
+          "properties": {},
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ],
+          "outputs": []
+        }
+      },
+      {
+        "id": "smooth-f-fft-bass",
+        "type": "studioNode",
+        "position": {
+          "x": -560,
+          "y": 60
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "response": 0.25
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        },
+        "selected": false
+      },
+      {
+        "id": "smooth-f-fft-mids",
+        "type": "studioNode",
+        "position": {
+          "x": -420,
+          "y": 60
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "response": 0.25
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        },
+        "selected": false
+      },
+      {
+        "id": "smooth-f-fft-treble",
+        "type": "studioNode",
+        "position": {
+          "x": -420,
+          "y": 100
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "response": 0.25
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        },
+        "selected": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "f-e1",
+        "source": "f-in",
+        "sourceHandle": "out",
+        "target": "f-fft",
+        "targetHandle": "audio",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "f-e2",
+        "source": "f-in",
+        "sourceHandle": "out",
+        "target": "f-beat",
+        "targetHandle": "audio",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "f-e3",
+        "source": "smooth-f-fft-bass",
+        "sourceHandle": "result",
+        "target": "f-audioFlow",
+        "targetHandle": "bass",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "f-e4",
+        "source": "smooth-f-fft-mids",
+        "sourceHandle": "result",
+        "target": "f-audioFlow",
+        "targetHandle": "mids",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "f-e5",
+        "source": "smooth-f-fft-treble",
+        "sourceHandle": "result",
+        "target": "f-audioFlow",
+        "targetHandle": "treble",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "f-e6",
+        "source": "smooth-f-fft-mids",
+        "sourceHandle": "result",
+        "target": "f-audioFlow",
+        "targetHandle": "speed",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "f-e7",
+        "source": "smooth-f-fft-bass",
+        "sourceHandle": "result",
+        "target": "f-audioFlow",
+        "targetHandle": "scale",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "f-e8",
+        "source": "f-poline",
+        "sourceHandle": "palette",
+        "target": "f-audioFlow",
+        "targetHandle": "paletteIn",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "f-e9",
+        "source": "f-poline",
+        "sourceHandle": "palette",
+        "target": "f-sample",
+        "targetHandle": "paletteIn",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "f-e10",
+        "source": "smooth-f-fft-bass",
+        "sourceHandle": "result",
+        "target": "f-sample",
+        "targetHandle": "t",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "f-e11",
+        "source": "smooth-f-fft-treble",
+        "sourceHandle": "result",
+        "target": "f-sparks",
+        "targetHandle": "treble",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "f-e12",
+        "source": "smooth-f-fft-mids",
+        "sourceHandle": "result",
+        "target": "f-sparks",
+        "targetHandle": "density",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "f-e13",
+        "source": "f-sample",
+        "sourceHandle": "color",
+        "target": "f-sparks",
+        "targetHandle": "color",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "f-e14",
+        "source": "f-audioFlow",
+        "sourceHandle": "frame",
+        "target": "f-blend",
+        "targetHandle": "a",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "f-e15",
+        "source": "f-sparks",
+        "sourceHandle": "frame",
+        "target": "f-blend",
+        "targetHandle": "b",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "f-e16",
+        "source": "f-blend",
+        "sourceHandle": "frame",
+        "target": "f-flash",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "f-e17",
+        "source": "f-beat",
+        "sourceHandle": "beat",
+        "target": "f-flash",
+        "targetHandle": "beat",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-smooth-f-fft-bass-in",
+        "source": "f-fft",
+        "sourceHandle": "bass",
+        "target": "smooth-f-fft-bass",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "edge-smooth-f-fft-mids-in",
+        "source": "f-fft",
+        "sourceHandle": "mids",
+        "target": "smooth-f-fft-mids",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "edge-smooth-f-fft-treble-in",
+        "source": "f-fft",
+        "sourceHandle": "treble",
+        "target": "smooth-f-fft-treble",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "f-gamma-spliced",
+        "source": "f-flash",
+        "sourceHandle": "frame",
+        "target": "f-out",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      }
+    ]
+  }
+}

@@ -1,0 +1,524 @@
+{
+  "id": "pat-1783576252404-280781",
+  "name": "Percussion Symphony",
+  "createdAt": 1783576252404,
+  "inputs": [
+    {
+      "id": "audio",
+      "label": "Audio",
+      "dataType": "audio"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "frame",
+      "label": "Frame",
+      "dataType": "frame"
+    }
+  ],
+  "subgraph": {
+    "nodes": [
+      {
+        "id": "n0",
+        "type": "studioNode",
+        "position": {
+          "x": -300,
+          "y": 200
+        },
+        "data": {
+          "label": "Audio",
+          "nodeType": "GroupInput",
+          "category": "composite",
+          "properties": {
+            "paramId": "audio"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "out",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ]
+        }
+      },
+      {
+        "id": "n1",
+        "type": "studioNode",
+        "position": {
+          "x": 900,
+          "y": 200
+        },
+        "data": {
+          "label": "Group Output",
+          "nodeType": "GroupOutput",
+          "category": "output",
+          "properties": {},
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ],
+          "outputs": []
+        }
+      },
+      {
+        "id": "n2",
+        "type": "studioNode",
+        "position": {
+          "x": -100,
+          "y": 0
+        },
+        "data": {
+          "label": "PercussionDetect",
+          "nodeType": "PercussionDetect",
+          "category": "audio",
+          "properties": {
+            "sensitivity": 0.6,
+            "decay": 0.7,
+            "separation": 0.45
+          },
+          "inputs": [
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "kick",
+              "label": "Kick",
+              "dataType": "float"
+            },
+            {
+              "id": "snare",
+              "label": "Snare",
+              "dataType": "float"
+            },
+            {
+              "id": "hihat",
+              "label": "Hi-Hat",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "n3",
+        "type": "studioNode",
+        "position": {
+          "x": -100,
+          "y": 500
+        },
+        "data": {
+          "label": "BeatDetect",
+          "nodeType": "BeatDetect",
+          "category": "audio",
+          "properties": {
+            "threshold": 0.2,
+            "attack": 0.55,
+            "decay": 0.25
+          },
+          "inputs": [
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "beat",
+              "label": "Beat",
+              "dataType": "bool"
+            },
+            {
+              "id": "bpm",
+              "label": "BPM",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "n4",
+        "type": "studioNode",
+        "position": {
+          "x": 150,
+          "y": -100
+        },
+        "data": {
+          "label": "KickShock",
+          "nodeType": "KickShock",
+          "category": "pattern",
+          "properties": {
+            "energy": 0.75,
+            "speed": 1,
+            "palette": "volcano"
+          },
+          "inputs": [
+            {
+              "id": "kick",
+              "label": "Kick",
+              "dataType": "float"
+            },
+            {
+              "id": "snare",
+              "label": "Snare",
+              "dataType": "float"
+            },
+            {
+              "id": "hihat",
+              "label": "Hi-Hat",
+              "dataType": "float"
+            },
+            {
+              "id": "energy",
+              "label": "Energy",
+              "dataType": "float"
+            },
+            {
+              "id": "speed",
+              "label": "Speed",
+              "dataType": "float"
+            },
+            {
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "n5",
+        "type": "studioNode",
+        "position": {
+          "x": 150,
+          "y": 150
+        },
+        "data": {
+          "label": "PercussionBlobs",
+          "nodeType": "PercussionBlobs",
+          "category": "pattern",
+          "properties": {
+            "palette": "party"
+          },
+          "inputs": [
+            {
+              "id": "kick",
+              "label": "Kick",
+              "dataType": "float"
+            },
+            {
+              "id": "snare",
+              "label": "Snare",
+              "dataType": "float"
+            },
+            {
+              "id": "hihat",
+              "label": "Hi-Hat",
+              "dataType": "float"
+            },
+            {
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "n6",
+        "type": "studioNode",
+        "position": {
+          "x": 150,
+          "y": 400
+        },
+        "data": {
+          "label": "TrebleSparks",
+          "nodeType": "TrebleSparks",
+          "category": "pattern",
+          "properties": {
+            "density": 0.5,
+            "r": 255,
+            "g": 255,
+            "b": 255
+          },
+          "inputs": [
+            {
+              "id": "treble",
+              "label": "Treble",
+              "dataType": "float"
+            },
+            {
+              "id": "density",
+              "label": "Density",
+              "dataType": "float"
+            },
+            {
+              "id": "color",
+              "label": "Color",
+              "dataType": "color"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "n7",
+        "type": "studioNode",
+        "position": {
+          "x": 400,
+          "y": 0
+        },
+        "data": {
+          "label": "Blend",
+          "nodeType": "Blend",
+          "category": "composite",
+          "properties": {
+            "blendMode": "add",
+            "amount": 0.4
+          },
+          "inputs": [
+            {
+              "id": "a",
+              "label": "A",
+              "dataType": "frame"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "frame"
+            },
+            {
+              "id": "amount",
+              "label": "Opacity",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "n8",
+        "type": "studioNode",
+        "position": {
+          "x": 600,
+          "y": 100
+        },
+        "data": {
+          "label": "Blend",
+          "nodeType": "Blend",
+          "category": "composite",
+          "properties": {
+            "blendMode": "screen",
+            "amount": 0.3
+          },
+          "inputs": [
+            {
+              "id": "a",
+              "label": "A",
+              "dataType": "frame"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "frame"
+            },
+            {
+              "id": "amount",
+              "label": "Opacity",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "n9",
+        "type": "studioNode",
+        "position": {
+          "x": 800,
+          "y": 100
+        },
+        "data": {
+          "label": "BeatFlash",
+          "nodeType": "BeatFlash",
+          "category": "pattern",
+          "properties": {
+            "decay": 0.8
+          },
+          "inputs": [
+            {
+              "id": "beat",
+              "label": "Beat",
+              "dataType": "bool"
+            },
+            {
+              "id": "frame",
+              "label": "Base",
+              "dataType": "frame"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e0",
+        "source": "n0",
+        "sourceHandle": "out",
+        "target": "n2",
+        "targetHandle": "audio"
+      },
+      {
+        "id": "e1",
+        "source": "n0",
+        "sourceHandle": "out",
+        "target": "n3",
+        "targetHandle": "audio"
+      },
+      {
+        "id": "e2",
+        "source": "n2",
+        "sourceHandle": "kick",
+        "target": "n4",
+        "targetHandle": "kick"
+      },
+      {
+        "id": "e3",
+        "source": "n2",
+        "sourceHandle": "snare",
+        "target": "n4",
+        "targetHandle": "snare"
+      },
+      {
+        "id": "e4",
+        "source": "n2",
+        "sourceHandle": "hihat",
+        "target": "n4",
+        "targetHandle": "hihat"
+      },
+      {
+        "id": "e5",
+        "source": "n2",
+        "sourceHandle": "kick",
+        "target": "n5",
+        "targetHandle": "kick"
+      },
+      {
+        "id": "e6",
+        "source": "n2",
+        "sourceHandle": "snare",
+        "target": "n5",
+        "targetHandle": "snare"
+      },
+      {
+        "id": "e7",
+        "source": "n2",
+        "sourceHandle": "hihat",
+        "target": "n5",
+        "targetHandle": "hihat"
+      },
+      {
+        "id": "e8",
+        "source": "n2",
+        "sourceHandle": "hihat",
+        "target": "n6",
+        "targetHandle": "treble"
+      },
+      {
+        "id": "e9",
+        "source": "n4",
+        "sourceHandle": "frame",
+        "target": "n7",
+        "targetHandle": "a"
+      },
+      {
+        "id": "e10",
+        "source": "n5",
+        "sourceHandle": "frame",
+        "target": "n7",
+        "targetHandle": "b"
+      },
+      {
+        "id": "e11",
+        "source": "n7",
+        "sourceHandle": "frame",
+        "target": "n8",
+        "targetHandle": "a"
+      },
+      {
+        "id": "e12",
+        "source": "n6",
+        "sourceHandle": "frame",
+        "target": "n8",
+        "targetHandle": "b"
+      },
+      {
+        "id": "e13",
+        "source": "n3",
+        "sourceHandle": "beat",
+        "target": "n9",
+        "targetHandle": "beat"
+      },
+      {
+        "id": "e14",
+        "source": "n8",
+        "sourceHandle": "frame",
+        "target": "n9",
+        "targetHandle": "frame"
+      },
+      {
+        "id": "e17",
+        "source": "n9",
+        "sourceHandle": "frame",
+        "target": "n1",
+        "targetHandle": "frame"
+      }
+    ]
+  }
+}

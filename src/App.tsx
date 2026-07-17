@@ -128,7 +128,7 @@ export default function App() {
     return () => { cancelled = true }
   }, [])
 
-  // Repopulate "My Patterns" from the on-disk folder (via the upload helper),
+  // Repopulate the Pattern Library from its on-disk folder (via the upload helper),
   // migrating any localStorage-only patterns up to disk. No-op when offline.
   useEffect(() => {
     void usePatternLibrary.getState().refreshFromDisk()

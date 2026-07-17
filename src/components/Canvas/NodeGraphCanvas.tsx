@@ -171,7 +171,7 @@ function NodeGraphCanvasInner() {
     label: string
     color: string
   } | null>(null)
-  // Hovering a dragged "My Patterns" card over a PatternCollection node —
+  // Hovering a dragged Pattern Library card over a PatternCollection node —
   // dropping there absorbs the pattern directly instead of spawning a Group.
   const [collectionDropCue, setCollectionDropCue] = useState<{ nodeId: string; x: number; y: number } | null>(null)
   const [canvasDragNodeId, setCanvasDragNodeId] = useState<string | null>(null)
@@ -748,7 +748,7 @@ function NodeGraphCanvasInner() {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'copy'
 
-    // A "My Patterns" card being dragged: only look for a PatternCollection
+    // A Pattern Library card being dragged: only look for a PatternCollection
     // node to hover over (no splicing — pattern drags don't touch edges).
     // `getData` isn't readable during dragover, only `types`, so the cue can't
     // show the pattern's name yet — that's filled in at drop time.

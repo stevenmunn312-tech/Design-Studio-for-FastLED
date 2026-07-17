@@ -1,5 +1,15 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { importPatternFile, reconcilePatternsFromDisk, usePatternLibrary } from '../patternLibrary'
+import {
+  BUILT_IN_PATTERN_CATEGORIES,
+  importPatternFile,
+  reconcilePatternsFromDisk,
+  usePatternLibrary,
+} from '../patternLibrary'
+import {
+  AUDIO_REACTIVE_CATEGORY_ID,
+  BUNDLED_PATTERNS,
+  STANDARD_CATEGORY_ID,
+} from '../bundledPatterns'
 import { useGraphStore, ROOT_GRAPH_ID } from '../graphStore'
 import type { StudioNode, StudioEdge } from '../graphStore'
 
@@ -22,7 +32,7 @@ function resetGraph() {
 describe('patternLibrary', () => {
   beforeEach(() => {
     localStorage.clear()
-    usePatternLibrary.setState({ patterns: [] })
+    usePatternLibrary.setState({ patterns: [], categories: [...BUILT_IN_PATTERN_CATEGORIES] })
     resetGraph()
   })
 
@@ -135,6 +145,42 @@ describe('patternLibrary', () => {
       [pendingPattern.id],
       [diskPattern.id],
     )).toEqual([pendingPattern])
+  })
+
+  it('ships 20 immutable audio-reactive beta patterns and fixed starter shelves', async () => {
+    expect(BUNDLED_PATTERNS).toHaveLength(20)
+    expect(BUNDLED_PATTERNS.every((pattern) => (
+      pattern.bundled && pattern.categoryId === AUDIO_REACTIVE_CATEGORY_ID
+    ))).toBe(true)
+    expect(BUILT_IN_PATTERN_CATEGORIES.map((category) => category.id)).toEqual([
+      STANDARD_CATEGORY_ID,
+      AUDIO_REACTIVE_CATEGORY_ID,
+    ])
+
+    usePatternLibrary.setState({ patterns: [...BUNDLED_PATTERNS] })
+    const bundled = BUNDLED_PATTERNS[0]
+    usePatternLibrary.getState().renamePattern(bundled.id, 'Changed')
+    expect(await usePatternLibrary.getState().deletePattern(bundled.id)).toBe(false)
+    expect(usePatternLibrary.getState().patterns[0].name).toBe(bundled.name)
+  })
+
+  it('creates custom shelves, files patterns by drag target, and safely unfiles on removal', () => {
+    usePatternLibrary.getState().savePattern({
+      name: 'Glow',
+      inputs: [],
+      outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+      subgraph: { nodes: [node('sc', 'SolidColor')], edges: [] },
+    })
+    const patternId = usePatternLibrary.getState().patterns[0].id
+    const categoryId = usePatternLibrary.getState().createCategory('Festival')
+    expect(categoryId).toBeTruthy()
+
+    usePatternLibrary.getState().movePattern(patternId, categoryId)
+    expect(usePatternLibrary.getState().patterns[0].categoryId).toBe(categoryId)
+
+    usePatternLibrary.getState().deleteCategory(categoryId!)
+    expect(usePatternLibrary.getState().categories.some((category) => category.id === categoryId)).toBe(false)
+    expect(usePatternLibrary.getState().patterns[0].categoryId).toBeUndefined()
   })
 
   it('addToCollection absorbs a Group node and removes it from the canvas', () => {

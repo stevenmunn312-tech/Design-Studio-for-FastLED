@@ -1,0 +1,508 @@
+{
+  "id": "pat-audio-reactive-02",
+  "name": "Chromatic Orbit Reactor",
+  "createdAt": 1784289660000,
+  "inputs": [
+    {
+      "id": "audio",
+      "label": "Audio",
+      "dataType": "audio"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "frame",
+      "label": "Frame",
+      "dataType": "frame"
+    }
+  ],
+  "subgraph": {
+    "nodes": [
+      {
+        "id": "audio-in",
+        "type": "studioNode",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "data": {
+          "label": "Audio",
+          "nodeType": "GroupInput",
+          "category": "composite",
+          "properties": {
+            "paramId": "audio"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "out",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ]
+        }
+      },
+      {
+        "id": "fft",
+        "type": "studioNode",
+        "position": {
+          "x": 300,
+          "y": -230
+        },
+        "data": {
+          "label": "FFT Analyzer",
+          "nodeType": "FFTAnalyzer",
+          "category": "audio",
+          "properties": {
+            "bands": 24,
+            "gain": 1.35,
+            "smoothing": 0.62,
+            "tilt": 0.35
+          },
+          "inputs": [
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "bass",
+              "label": "Bass",
+              "dataType": "float"
+            },
+            {
+              "id": "mids",
+              "label": "Mids",
+              "dataType": "float"
+            },
+            {
+              "id": "treble",
+              "label": "Treble",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "spectrum",
+        "type": "studioNode",
+        "position": {
+          "x": 620,
+          "y": -360
+        },
+        "data": {
+          "label": "Spectrum Visualizer",
+          "nodeType": "SpectrumVisualizer",
+          "category": "pattern",
+          "properties": {
+            "style": "Orbit",
+            "bands": 20,
+            "gain": 1.4,
+            "smoothing": 0.54,
+            "tilt": 0.35,
+            "peakHold": 0.5,
+            "peakGravity": 1.5,
+            "waterfallSpeed": 10,
+            "palette": "lava"
+          },
+          "inputs": [
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
+            },
+            {
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "orbit-palette",
+        "type": "studioNode",
+        "position": {
+          "x": 300,
+          "y": -40
+        },
+        "data": {
+          "label": "Palette Selector",
+          "nodeType": "PaletteSelector",
+          "category": "color",
+          "properties": {
+            "palette": "lava"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ]
+        }
+      },
+      {
+        "id": "sweep-palette",
+        "type": "studioNode",
+        "position": {
+          "x": 300,
+          "y": 170
+        },
+        "data": {
+          "label": "Palette Selector",
+          "nodeType": "PaletteSelector",
+          "category": "color",
+          "properties": {
+            "palette": "peacock"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ]
+        }
+      },
+      {
+        "id": "sweep",
+        "type": "studioNode",
+        "position": {
+          "x": 620,
+          "y": 170
+        },
+        "data": {
+          "label": "Palette Sweep",
+          "nodeType": "PaletteSweep",
+          "category": "color",
+          "properties": {
+            "palette": "peacock",
+            "rate": 0.085,
+            "easing": "cubic"
+          },
+          "inputs": [
+            {
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            },
+            {
+              "id": "rate",
+              "label": "Rate (cycles/s)",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "color",
+              "label": "Color",
+              "dataType": "color"
+            }
+          ]
+        }
+      },
+      {
+        "id": "well",
+        "type": "studioNode",
+        "position": {
+          "x": 940,
+          "y": 110
+        },
+        "data": {
+          "label": "Gravity Well",
+          "nodeType": "GravityWell",
+          "category": "pattern",
+          "properties": {
+            "energy": 0.82,
+            "speed": 0.72,
+            "r": 40,
+            "g": 180,
+            "b": 255
+          },
+          "inputs": [
+            {
+              "id": "bass",
+              "label": "Bass",
+              "dataType": "float"
+            },
+            {
+              "id": "energy",
+              "label": "Energy",
+              "dataType": "float"
+            },
+            {
+              "id": "speed",
+              "label": "Speed",
+              "dataType": "float"
+            },
+            {
+              "id": "color",
+              "label": "Color",
+              "dataType": "color"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "blend",
+        "type": "studioNode",
+        "position": {
+          "x": 1260,
+          "y": -160
+        },
+        "data": {
+          "label": "Blend",
+          "nodeType": "Blend",
+          "category": "composite",
+          "properties": {
+            "blendMode": "screen",
+            "amount": 0.72
+          },
+          "inputs": [
+            {
+              "id": "a",
+              "label": "A",
+              "dataType": "frame"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "frame"
+            },
+            {
+              "id": "amount",
+              "label": "Opacity",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "feedback",
+        "type": "studioNode",
+        "position": {
+          "x": 1580,
+          "y": -110
+        },
+        "data": {
+          "label": "Frame Feedback",
+          "nodeType": "FrameFeedback",
+          "category": "composite",
+          "properties": {
+            "delayFrames": 3,
+            "fade": 0.12,
+            "amount": 0.44,
+            "blendMode": "lighten",
+            "feedbackTransform": "scale",
+            "offsetX": 0,
+            "offsetY": 0,
+            "angle": 0,
+            "scale": 1.035
+          },
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            },
+            {
+              "id": "amount",
+              "label": "Amount",
+              "dataType": "float"
+            },
+            {
+              "id": "fade",
+              "label": "Fade",
+              "dataType": "float"
+            },
+            {
+              "id": "offsetX",
+              "label": "Offset X",
+              "dataType": "float"
+            },
+            {
+              "id": "offsetY",
+              "label": "Offset Y",
+              "dataType": "float"
+            },
+            {
+              "id": "angle",
+              "label": "Angle",
+              "dataType": "float"
+            },
+            {
+              "id": "scale",
+              "label": "Scale",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "group-output",
+        "type": "studioNode",
+        "position": {
+          "x": 1920,
+          "y": 0
+        },
+        "data": {
+          "label": "Group Output",
+          "nodeType": "GroupOutput",
+          "category": "output",
+          "properties": {},
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ],
+          "outputs": []
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge-0-audio-in-fft",
+        "source": "audio-in",
+        "sourceHandle": "out",
+        "target": "fft",
+        "targetHandle": "audio",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-1-audio-in-spectrum",
+        "source": "audio-in",
+        "sourceHandle": "out",
+        "target": "spectrum",
+        "targetHandle": "audio",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-2-orbit-palette-spectrum",
+        "source": "orbit-palette",
+        "sourceHandle": "palette",
+        "target": "spectrum",
+        "targetHandle": "paletteIn",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-3-sweep-palette-sweep",
+        "source": "sweep-palette",
+        "sourceHandle": "palette",
+        "target": "sweep",
+        "targetHandle": "paletteIn",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-4-sweep-well",
+        "source": "sweep",
+        "sourceHandle": "color",
+        "target": "well",
+        "targetHandle": "color",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-5-fft-well",
+        "source": "fft",
+        "sourceHandle": "bass",
+        "target": "well",
+        "targetHandle": "bass",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-6-fft-well",
+        "source": "fft",
+        "sourceHandle": "mids",
+        "target": "well",
+        "targetHandle": "energy",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-7-fft-well",
+        "source": "fft",
+        "sourceHandle": "treble",
+        "target": "well",
+        "targetHandle": "speed",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-8-spectrum-blend",
+        "source": "spectrum",
+        "sourceHandle": "frame",
+        "target": "blend",
+        "targetHandle": "a",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-9-well-blend",
+        "source": "well",
+        "sourceHandle": "frame",
+        "target": "blend",
+        "targetHandle": "b",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-10-blend-feedback",
+        "source": "blend",
+        "sourceHandle": "frame",
+        "target": "feedback",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-11-feedback-group-output",
+        "source": "feedback",
+        "sourceHandle": "frame",
+        "target": "group-output",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      }
+    ]
+  }
+}

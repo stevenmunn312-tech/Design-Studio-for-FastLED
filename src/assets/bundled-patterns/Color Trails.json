@@ -1,0 +1,366 @@
+{
+  "name": "Color Trails",
+  "inputs": [
+    {
+      "id": "param0",
+      "label": "Audio",
+      "dataType": "audio"
+    },
+    {
+      "id": "param1",
+      "label": "Audio",
+      "dataType": "audio"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "frame",
+      "label": "Frame",
+      "dataType": "frame"
+    }
+  ],
+  "subgraph": {
+    "nodes": [
+      {
+        "id": "help-1784221379370-target",
+        "type": "studioNode",
+        "position": {
+          "x": -1180,
+          "y": 560
+        },
+        "data": {
+          "label": "Color Trails",
+          "nodeType": "ColorTrails",
+          "category": "pattern",
+          "properties": {
+            "xSpeed": 0.1,
+            "xAmplitude": 0.6,
+            "xFrequency": 0.33,
+            "ySpeed": 0.1,
+            "yAmplitude": 0.52,
+            "yFrequency": 0.32,
+            "displacement": 1.8,
+            "endpointSpeed": 0.35,
+            "colorSpeed": 0.1,
+            "persistence": 0.99922,
+            "palette": "rainbow",
+            "seed": 668
+          },
+          "inputs": [
+            {
+              "id": "bass",
+              "label": "Bass",
+              "dataType": "float"
+            },
+            {
+              "id": "mids",
+              "label": "Mids",
+              "dataType": "float"
+            },
+            {
+              "id": "treble",
+              "label": "Treble",
+              "dataType": "float"
+            },
+            {
+              "id": "beat",
+              "label": "Beat",
+              "dataType": "bool"
+            },
+            {
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        },
+        "measured": {
+          "width": 240,
+          "height": 796
+        },
+        "selected": false
+      },
+      {
+        "id": "help-1784221379370-fft-auto",
+        "type": "studioNode",
+        "position": {
+          "x": -1500,
+          "y": 480
+        },
+        "data": {
+          "label": "FFT Analyzer",
+          "nodeType": "FFTAnalyzer",
+          "category": "audio",
+          "properties": {
+            "bands": 24,
+            "gain": 1.2,
+            "smoothing": 0.72,
+            "tilt": 0
+          },
+          "inputs": [
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "bass",
+              "label": "Bass",
+              "dataType": "float"
+            },
+            {
+              "id": "mids",
+              "label": "Mids",
+              "dataType": "float"
+            },
+            {
+              "id": "treble",
+              "label": "Treble",
+              "dataType": "float"
+            }
+          ]
+        },
+        "measured": {
+          "width": 240,
+          "height": 348
+        },
+        "selected": false
+      },
+      {
+        "id": "help-1784221379370-palette-paletteIn-1",
+        "type": "studioNode",
+        "position": {
+          "x": -1500,
+          "y": 1140
+        },
+        "data": {
+          "label": "Palette Selector",
+          "nodeType": "PaletteSelector",
+          "category": "color",
+          "properties": {
+            "palette": "cloud"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ]
+        },
+        "measured": {
+          "width": 240,
+          "height": 153
+        },
+        "selected": false
+      },
+      {
+        "id": "BeatDetect-1784221478119",
+        "type": "studioNode",
+        "position": {
+          "x": -1500,
+          "y": 860
+        },
+        "data": {
+          "label": "Beat Detect",
+          "nodeType": "BeatDetect",
+          "category": "audio",
+          "properties": {
+            "threshold": 0.2,
+            "attack": 0.55,
+            "decay": 0.25
+          },
+          "inputs": [
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "beat",
+              "label": "Beat",
+              "dataType": "bool"
+            },
+            {
+              "id": "bpm",
+              "label": "BPM",
+              "dataType": "float"
+            }
+          ]
+        },
+        "selected": false,
+        "measured": {
+          "width": 240,
+          "height": 233
+        }
+      },
+      {
+        "id": "groupin-group-1784221793995-0",
+        "type": "studioNode",
+        "position": {
+          "x": 40,
+          "y": 80
+        },
+        "data": {
+          "label": "Audio",
+          "nodeType": "GroupInput",
+          "category": "composite",
+          "properties": {
+            "paramId": "param0"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "out",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ]
+        }
+      },
+      {
+        "id": "groupin-group-1784221793995-1",
+        "type": "studioNode",
+        "position": {
+          "x": 40,
+          "y": 160
+        },
+        "data": {
+          "label": "Audio",
+          "nodeType": "GroupInput",
+          "category": "composite",
+          "properties": {
+            "paramId": "param1"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "out",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ]
+        }
+      },
+      {
+        "id": "groupout-group-1784221793995",
+        "type": "studioNode",
+        "position": {
+          "x": 360,
+          "y": 160
+        },
+        "data": {
+          "label": "Group Output",
+          "nodeType": "GroupOutput",
+          "category": "output",
+          "properties": {},
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ],
+          "outputs": []
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e-help-1784221379370-1",
+        "source": "help-1784221379370-fft-auto",
+        "sourceHandle": "bass",
+        "target": "help-1784221379370-target",
+        "targetHandle": "bass",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "e-help-1784221379370-2",
+        "source": "help-1784221379370-palette-paletteIn-1",
+        "sourceHandle": "palette",
+        "target": "help-1784221379370-target",
+        "targetHandle": "paletteIn",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#ff5cf0"
+        }
+      },
+      {
+        "type": "glowEdge",
+        "source": "help-1784221379370-fft-auto",
+        "sourceHandle": "mids",
+        "target": "help-1784221379370-target",
+        "targetHandle": "mids",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        },
+        "id": "xy-edge__help-1784221379370-fft-automids-help-1784221379370-targetmids"
+      },
+      {
+        "type": "glowEdge",
+        "source": "help-1784221379370-fft-auto",
+        "sourceHandle": "treble",
+        "target": "help-1784221379370-target",
+        "targetHandle": "treble",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        },
+        "id": "xy-edge__help-1784221379370-fft-autotreble-help-1784221379370-targettreble"
+      },
+      {
+        "type": "glowEdge",
+        "source": "BeatDetect-1784221478119",
+        "sourceHandle": "beat",
+        "target": "help-1784221379370-target",
+        "targetHandle": "beat",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        },
+        "id": "xy-edge__BeatDetect-1784221478119beat-help-1784221379370-targetbeat"
+      },
+      {
+        "id": "e-group-1784221793995-in0",
+        "source": "groupin-group-1784221793995-0",
+        "sourceHandle": "out",
+        "target": "help-1784221379370-fft-auto",
+        "targetHandle": "audio"
+      },
+      {
+        "id": "e-group-1784221793995-in1",
+        "source": "groupin-group-1784221793995-1",
+        "sourceHandle": "out",
+        "target": "BeatDetect-1784221478119",
+        "targetHandle": "audio"
+      },
+      {
+        "id": "e-group-1784221793995-out",
+        "source": "help-1784221379370-target",
+        "sourceHandle": "frame",
+        "target": "groupout-group-1784221793995",
+        "targetHandle": "frame"
+      }
+    ]
+  },
+  "id": "pat-1784221793996",
+  "createdAt": 1784221793996
+}

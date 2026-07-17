@@ -1,0 +1,936 @@
+{
+  "id": "pat-1783298000010",
+  "name": "Mainstage Confetti Singularity",
+  "createdAt": 1783298000010,
+  "inputs": [
+    {
+      "id": "param0",
+      "label": "Audio",
+      "dataType": "audio"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "frame",
+      "label": "Frame",
+      "dataType": "frame"
+    }
+  ],
+  "subgraph": {
+    "nodes": [
+      {
+        "id": "p10-in",
+        "type": "studioNode",
+        "position": {
+          "x": -940,
+          "y": 160
+        },
+        "data": {
+          "label": "Audio",
+          "nodeType": "GroupInput",
+          "category": "composite",
+          "properties": {
+            "paramId": "param0"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "out",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p10-fft",
+        "type": "studioNode",
+        "position": {
+          "x": -700,
+          "y": 80
+        },
+        "data": {
+          "label": "FFTAnalyzer",
+          "nodeType": "FFTAnalyzer",
+          "category": "audio",
+          "properties": {
+            "bands": 24,
+            "gain": 1.24,
+            "smoothing": 0.72
+          },
+          "inputs": [
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "bass",
+              "label": "Bass",
+              "dataType": "float"
+            },
+            {
+              "id": "mids",
+              "label": "Mids",
+              "dataType": "float"
+            },
+            {
+              "id": "treble",
+              "label": "Treble",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p10-beat",
+        "type": "studioNode",
+        "position": {
+          "x": -700,
+          "y": 360
+        },
+        "data": {
+          "label": "BeatDetect",
+          "nodeType": "BeatDetect",
+          "category": "audio",
+          "properties": {
+            "threshold": 0.22,
+            "attack": 0.58,
+            "decay": 0.24
+          },
+          "inputs": [
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "beat",
+              "label": "Beat",
+              "dataType": "bool"
+            },
+            {
+              "id": "bpm",
+              "label": "BPM",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p10-hue",
+        "type": "studioNode",
+        "position": {
+          "x": -460,
+          "y": 500
+        },
+        "data": {
+          "label": "Audio Hue",
+          "nodeType": "AudioHue",
+          "category": "audio",
+          "properties": {},
+          "inputs": [
+            {
+              "id": "bass",
+              "label": "Bass",
+              "dataType": "float"
+            },
+            {
+              "id": "mids",
+              "label": "Mids",
+              "dataType": "float"
+            },
+            {
+              "id": "treble",
+              "label": "Treble",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "hue",
+              "label": "Hue",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p10-hsv",
+        "type": "studioNode",
+        "position": {
+          "x": -180,
+          "y": 500
+        },
+        "data": {
+          "label": "HSV to RGB",
+          "nodeType": "HSVToRGB",
+          "category": "color",
+          "properties": {
+            "h": 0,
+            "s": 0.82,
+            "v": 1
+          },
+          "inputs": [
+            {
+              "id": "h",
+              "label": "H",
+              "dataType": "float"
+            },
+            {
+              "id": "s",
+              "label": "S",
+              "dataType": "float"
+            },
+            {
+              "id": "v",
+              "label": "V",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "color",
+              "label": "Color",
+              "dataType": "color"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p10-palA",
+        "type": "studioNode",
+        "position": {
+          "x": -700,
+          "y": -240
+        },
+        "data": {
+          "label": "Palette Selector",
+          "nodeType": "PaletteSelector",
+          "category": "color",
+          "properties": {
+            "palette": "party"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p10-palB",
+        "type": "studioNode",
+        "position": {
+          "x": -700,
+          "y": -80
+        },
+        "data": {
+          "label": "Palette Selector",
+          "nodeType": "PaletteSelector",
+          "category": "color",
+          "properties": {
+            "palette": "rainbow"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p10-palMix",
+        "type": "studioNode",
+        "position": {
+          "x": -440,
+          "y": -160
+        },
+        "data": {
+          "label": "Blend Palettes",
+          "nodeType": "PaletteBlend",
+          "category": "color",
+          "properties": {
+            "paletteA": "rainbow",
+            "paletteB": "ocean",
+            "amount": 0.5
+          },
+          "inputs": [
+            {
+              "id": "paletteA",
+              "label": "Palette A",
+              "dataType": "palette"
+            },
+            {
+              "id": "paletteB",
+              "label": "Palette B",
+              "dataType": "palette"
+            },
+            {
+              "id": "amount",
+              "label": "Amount",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p10-cascade",
+        "type": "studioNode",
+        "position": {
+          "x": -120,
+          "y": -60
+        },
+        "data": {
+          "label": "Audio Cascade",
+          "nodeType": "AudioCascade",
+          "category": "pattern",
+          "properties": {
+            "energy": 0.92,
+            "speed": 0.88,
+            "palette": "rainbow"
+          },
+          "inputs": [
+            {
+              "id": "bass",
+              "label": "Bass",
+              "dataType": "float"
+            },
+            {
+              "id": "mids",
+              "label": "Mids",
+              "dataType": "float"
+            },
+            {
+              "id": "treble",
+              "label": "Treble",
+              "dataType": "float"
+            },
+            {
+              "id": "energy",
+              "label": "Energy",
+              "dataType": "float"
+            },
+            {
+              "id": "speed",
+              "label": "Speed",
+              "dataType": "float"
+            },
+            {
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p10-particles",
+        "type": "studioNode",
+        "position": {
+          "x": -120,
+          "y": 260
+        },
+        "data": {
+          "label": "Particles",
+          "nodeType": "Particles",
+          "category": "pattern",
+          "properties": {
+            "particleType": "fireworks",
+            "rate": 0.34,
+            "decay": 0.88,
+            "r": 100,
+            "g": 200,
+            "b": 255
+          },
+          "inputs": [
+            {
+              "id": "rate",
+              "label": "Rate",
+              "dataType": "float"
+            },
+            {
+              "id": "color",
+              "label": "Color",
+              "dataType": "color"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p10-stars",
+        "type": "studioNode",
+        "position": {
+          "x": -120,
+          "y": 500
+        },
+        "data": {
+          "label": "Starfield",
+          "nodeType": "Starfield",
+          "category": "pattern",
+          "properties": {
+            "speed": 0.22,
+            "count": 58,
+            "r": 255,
+            "g": 255,
+            "b": 255
+          },
+          "inputs": [
+            {
+              "id": "color",
+              "label": "Color",
+              "dataType": "color"
+            },
+            {
+              "id": "speed",
+              "label": "Speed",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p10-blendA",
+        "type": "studioNode",
+        "position": {
+          "x": 220,
+          "y": 80
+        },
+        "data": {
+          "label": "Blend",
+          "nodeType": "Blend",
+          "category": "composite",
+          "properties": {
+            "blendMode": "add",
+            "amount": 0.54
+          },
+          "inputs": [
+            {
+              "id": "a",
+              "label": "A",
+              "dataType": "frame"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "frame"
+            },
+            {
+              "id": "amount",
+              "label": "Opacity",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p10-blendB",
+        "type": "studioNode",
+        "position": {
+          "x": 520,
+          "y": 160
+        },
+        "data": {
+          "label": "Blend",
+          "nodeType": "Blend",
+          "category": "composite",
+          "properties": {
+            "blendMode": "screen",
+            "amount": 0.28
+          },
+          "inputs": [
+            {
+              "id": "a",
+              "label": "A",
+              "dataType": "frame"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "frame"
+            },
+            {
+              "id": "amount",
+              "label": "Opacity",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p10-flash",
+        "type": "studioNode",
+        "position": {
+          "x": 820,
+          "y": 160
+        },
+        "data": {
+          "label": "Beat Flash",
+          "nodeType": "BeatFlash",
+          "category": "pattern",
+          "properties": {
+            "decay": 0.62
+          },
+          "inputs": [
+            {
+              "id": "beat",
+              "label": "Beat",
+              "dataType": "bool"
+            },
+            {
+              "id": "frame",
+              "label": "Base",
+              "dataType": "frame"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p10-out",
+        "type": "studioNode",
+        "position": {
+          "x": 1360,
+          "y": 160
+        },
+        "data": {
+          "label": "Group Output",
+          "nodeType": "GroupOutput",
+          "category": "output",
+          "properties": {},
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ],
+          "outputs": []
+        }
+      },
+      {
+        "id": "smooth-p10-fft-bass",
+        "type": "studioNode",
+        "position": {
+          "x": -580,
+          "y": 160
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "response": 0.25
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        },
+        "selected": false
+      },
+      {
+        "id": "smooth-p10-fft-mids",
+        "type": "studioNode",
+        "position": {
+          "x": -580,
+          "y": 160
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "response": 0.25
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        },
+        "selected": false
+      },
+      {
+        "id": "smooth-p10-fft-treble",
+        "type": "studioNode",
+        "position": {
+          "x": -580,
+          "y": 60
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "response": 0.25
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        },
+        "selected": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "p10-e1",
+        "source": "p10-in",
+        "sourceHandle": "out",
+        "target": "p10-fft",
+        "targetHandle": "audio",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e2",
+        "source": "p10-in",
+        "sourceHandle": "out",
+        "target": "p10-beat",
+        "targetHandle": "audio",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e3",
+        "source": "smooth-p10-fft-bass",
+        "sourceHandle": "result",
+        "target": "p10-hue",
+        "targetHandle": "bass",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e4",
+        "source": "smooth-p10-fft-mids",
+        "sourceHandle": "result",
+        "target": "p10-hue",
+        "targetHandle": "mids",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e5",
+        "source": "smooth-p10-fft-treble",
+        "sourceHandle": "result",
+        "target": "p10-hue",
+        "targetHandle": "treble",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e6",
+        "source": "p10-hue",
+        "sourceHandle": "hue",
+        "target": "p10-hsv",
+        "targetHandle": "h",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e7",
+        "source": "p10-palA",
+        "sourceHandle": "palette",
+        "target": "p10-palMix",
+        "targetHandle": "paletteA",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e8",
+        "source": "p10-palB",
+        "sourceHandle": "palette",
+        "target": "p10-palMix",
+        "targetHandle": "paletteB",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e9",
+        "source": "smooth-p10-fft-treble",
+        "sourceHandle": "result",
+        "target": "p10-palMix",
+        "targetHandle": "amount",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e10",
+        "source": "smooth-p10-fft-bass",
+        "sourceHandle": "result",
+        "target": "p10-cascade",
+        "targetHandle": "bass",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e11",
+        "source": "smooth-p10-fft-mids",
+        "sourceHandle": "result",
+        "target": "p10-cascade",
+        "targetHandle": "mids",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e12",
+        "source": "smooth-p10-fft-treble",
+        "sourceHandle": "result",
+        "target": "p10-cascade",
+        "targetHandle": "treble",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e13",
+        "source": "smooth-p10-fft-bass",
+        "sourceHandle": "result",
+        "target": "p10-cascade",
+        "targetHandle": "energy",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e14",
+        "source": "smooth-p10-fft-treble",
+        "sourceHandle": "result",
+        "target": "p10-cascade",
+        "targetHandle": "speed",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e15",
+        "source": "p10-palMix",
+        "sourceHandle": "palette",
+        "target": "p10-cascade",
+        "targetHandle": "paletteIn",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e16",
+        "source": "smooth-p10-fft-mids",
+        "sourceHandle": "result",
+        "target": "p10-particles",
+        "targetHandle": "rate",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e17",
+        "source": "p10-hsv",
+        "sourceHandle": "color",
+        "target": "p10-particles",
+        "targetHandle": "color",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e18",
+        "source": "p10-hsv",
+        "sourceHandle": "color",
+        "target": "p10-stars",
+        "targetHandle": "color",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e19",
+        "source": "smooth-p10-fft-bass",
+        "sourceHandle": "result",
+        "target": "p10-stars",
+        "targetHandle": "speed",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e20",
+        "source": "p10-cascade",
+        "sourceHandle": "frame",
+        "target": "p10-blendA",
+        "targetHandle": "a",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e21",
+        "source": "p10-particles",
+        "sourceHandle": "frame",
+        "target": "p10-blendA",
+        "targetHandle": "b",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e22",
+        "source": "p10-blendA",
+        "sourceHandle": "frame",
+        "target": "p10-blendB",
+        "targetHandle": "a",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e23",
+        "source": "p10-stars",
+        "sourceHandle": "frame",
+        "target": "p10-blendB",
+        "targetHandle": "b",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e24",
+        "source": "p10-blendB",
+        "sourceHandle": "frame",
+        "target": "p10-flash",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p10-e25",
+        "source": "p10-beat",
+        "sourceHandle": "beat",
+        "target": "p10-flash",
+        "targetHandle": "beat",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-smooth-p10-fft-bass-in",
+        "source": "p10-fft",
+        "sourceHandle": "bass",
+        "target": "smooth-p10-fft-bass",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "edge-smooth-p10-fft-mids-in",
+        "source": "p10-fft",
+        "sourceHandle": "mids",
+        "target": "smooth-p10-fft-mids",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "edge-smooth-p10-fft-treble-in",
+        "source": "p10-fft",
+        "sourceHandle": "treble",
+        "target": "smooth-p10-fft-treble",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "p10-gamma-spliced",
+        "source": "p10-flash",
+        "sourceHandle": "frame",
+        "target": "p10-out",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      }
+    ]
+  }
+}

@@ -36,7 +36,7 @@ export const ROOT_GRAPH_ID = 'root'
 export interface GraphMeta {
   id: string
   name: string
-  /** Present when this group came from a saved "My Patterns" library entry. */
+  /** Present when this group came from a saved Pattern Library entry. */
   sourcePatternId?: string
 }
 export interface GraphContent { nodes: StudioNode[]; edges: StudioEdge[] }

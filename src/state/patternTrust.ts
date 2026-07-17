@@ -1,4 +1,4 @@
-// Content-addressed trust memory for saved "My Patterns" subgraphs (todo.md's
+// Content-addressed trust memory for saved Pattern Library subgraphs (todo.md's
 // P0 trust-boundary item). Dropping a pattern the user has never approved
 // still forces the workspace untrusted (see graphStore.ts's instantiatePattern/
 // createCollectionFromPatterns/addPatternToCollection) — but once the user

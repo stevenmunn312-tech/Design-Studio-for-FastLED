@@ -9,6 +9,11 @@ import { create } from 'zustand'
 import { useGraphStore } from './graphStore'
 import type { StudioNode, StudioEdge } from './graphStore'
 import { listPatterns, savePatternToDisk, deletePatternFromDisk } from '../utils/backendClient'
+import {
+  AUDIO_REACTIVE_CATEGORY_ID,
+  BUNDLED_PATTERNS,
+  STANDARD_CATEGORY_ID,
+} from './bundledPatterns'
 
 interface Port { id: string; label: string; dataType: string }
 
@@ -30,10 +35,26 @@ export interface SavedPattern {
   outputs: Port[]
   /** The encapsulated subgraph (the group's contents). */
   subgraph: { nodes: StudioNode[]; edges: StudioEdge[] }
+  /** Optional user shelf. Missing means the pattern appears in New & Unsorted. */
+  categoryId?: string
+  /** Curated release example: visible in the library but never disk-synced or edited. */
+  bundled?: boolean
 }
+
+export interface PatternCategory {
+  id: string
+  name: string
+  builtIn?: boolean
+}
+
+export const BUILT_IN_PATTERN_CATEGORIES: PatternCategory[] = [
+  { id: STANDARD_CATEGORY_ID, name: 'Standard', builtIn: true },
+  { id: AUDIO_REACTIVE_CATEGORY_ID, name: 'Audio Reactive', builtIn: true },
+]
 
 const KEY = 'fastled-studio.pattern-library.v1'
 const SYNC_KEY = 'fastled-studio.pattern-library-sync.v1'
+const CATEGORIES_KEY = 'fastled-studio.pattern-library-categories.v1'
 
 // Under Vitest the upload helper may actually be running, so skip the disk
 // round-trip in tests — they assert against the in-memory + localStorage state,
@@ -91,26 +112,65 @@ function load(): SavedPattern[] {
     if (!Array.isArray(parsed)) return []
     const { patterns } = dedupePatterns(parsed)
     if (patterns.length !== parsed.length) localStorage.setItem(KEY, JSON.stringify(patterns))
-    return patterns
+    return withBundledPatterns(patterns)
   } catch {
-    return []
+    return [...BUNDLED_PATTERNS]
   }
 }
 
 function persist(patterns: SavedPattern[]) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(patterns))
+    localStorage.setItem(KEY, JSON.stringify(patterns.filter((pattern) => !pattern.bundled)))
   } catch {
     // Quota exceeded or private-mode storage disabled — keep the in-memory copy.
   }
 }
 
+function withBundledPatterns(patterns: SavedPattern[]): SavedPattern[] {
+  return dedupePatterns([...patterns.filter((pattern) => !pattern.bundled), ...BUNDLED_PATTERNS]).patterns
+}
+
+function loadCategories(): PatternCategory[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(CATEGORIES_KEY) ?? '[]') as unknown
+    const custom = Array.isArray(raw)
+      ? raw.filter((entry): entry is PatternCategory => {
+          if (!entry || typeof entry !== 'object') return false
+          const category = entry as Partial<PatternCategory>
+          return typeof category.id === 'string'
+            && typeof category.name === 'string'
+            && !!category.id.trim()
+            && !!category.name.trim()
+            && !BUILT_IN_PATTERN_CATEGORIES.some((builtIn) => builtIn.id === category.id)
+        }).map((category) => ({ id: category.id, name: category.name.trim() }))
+      : []
+    return [...BUILT_IN_PATTERN_CATEGORIES, ...custom]
+  } catch {
+    return [...BUILT_IN_PATTERN_CATEGORIES]
+  }
+}
+
+function persistCategories(categories: PatternCategory[]) {
+  try {
+    localStorage.setItem(
+      CATEGORIES_KEY,
+      JSON.stringify(categories.filter((category) => !category.builtIn)),
+    )
+  } catch {
+    // Organization remains available for this session when storage is unavailable.
+  }
+}
+
 interface LibraryState {
   patterns: SavedPattern[]
+  categories: PatternCategory[]
   savePattern: (p: Omit<SavedPattern, 'id' | 'createdAt'>, options?: SavePatternOptions) => void
   putPattern: (p: SavedPattern) => void
   renamePattern: (id: string, name: string) => void
   deletePattern: (id: string) => Promise<boolean>
+  createCategory: (name: string) => string | null
+  deleteCategory: (id: string) => void
+  movePattern: (patternId: string, categoryId: string | null) => void
   /** Reconcile the in-memory library with the on-disk "My Patterns" folder.
    *  Disk is authoritative; a local journal retries only writes/deletes that
    *  the helper has not acknowledged. No-op while the helper is offline. */
@@ -119,12 +179,13 @@ interface LibraryState {
 
 export const usePatternLibrary = create<LibraryState>((set, get) => ({
   patterns: load(),
+  categories: loadCategories(),
 
   savePattern: (p, options) =>
     set((s) => {
       const now = Date.now()
       const sameName = options?.replaceByName
-        ? s.patterns.filter((pattern) => normalizedPatternName(pattern.name) === normalizedPatternName(p.name))
+        ? s.patterns.filter((pattern) => !pattern.bundled && normalizedPatternName(pattern.name) === normalizedPatternName(p.name))
         : []
       const retained = sameName[sameName.length - 1]
       const item: SavedPattern = {
@@ -170,6 +231,7 @@ export const usePatternLibrary = create<LibraryState>((set, get) => ({
 
   renamePattern: (id, name) =>
     set((s) => {
+      if (s.patterns.find((pattern) => pattern.id === id)?.bundled) return s
       const renamedPatterns = s.patterns.map((x) => (x.id === id ? { ...x, name } : x))
       const { patterns, removedIds, keptIds } = dedupePatterns(renamedPatterns)
       persist(patterns)
@@ -184,6 +246,7 @@ export const usePatternLibrary = create<LibraryState>((set, get) => ({
     }),
 
   deletePattern: async (id) => {
+    if (get().patterns.find((pattern) => pattern.id === id)?.bundled) return false
     set((s) => {
       const patterns = s.patterns.filter((x) => x.id !== id)
       persist(patterns)
@@ -192,12 +255,59 @@ export const usePatternLibrary = create<LibraryState>((set, get) => ({
     return queuePatternDelete(id)
   },
 
+  createCategory: (name) => {
+    const trimmed = name.trim()
+    if (!trimmed) return null
+    const state = get()
+    if (state.categories.some((category) => category.name.toLocaleLowerCase() === trimmed.toLocaleLowerCase())) {
+      return null
+    }
+    const id = `category-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+    const categories = [...state.categories, { id, name: trimmed }]
+    persistCategories(categories)
+    set({ categories })
+    return id
+  },
+
+  deleteCategory: (id) => {
+    if (BUILT_IN_PATTERN_CATEGORIES.some((category) => category.id === id)) return
+    set((state) => {
+      if (!state.categories.some((category) => category.id === id)) return state
+      const categories = state.categories.filter((category) => category.id !== id)
+      const moved = state.patterns.map((pattern) => (
+        pattern.categoryId === id ? { ...pattern, categoryId: undefined } : pattern
+      ))
+      persistCategories(categories)
+      persist(moved)
+      for (const pattern of moved) {
+        if (!pattern.bundled && state.patterns.find((entry) => entry.id === pattern.id)?.categoryId === id) {
+          queuePatternUpsert(pattern)
+        }
+      }
+      return { categories, patterns: moved }
+    })
+  },
+
+  movePattern: (patternId, categoryId) => {
+    const state = get()
+    const pattern = state.patterns.find((entry) => entry.id === patternId)
+    if (!pattern || pattern.bundled) return
+    if (categoryId && !state.categories.some((category) => category.id === categoryId)) return
+    const patterns = state.patterns.map((entry) => (
+      entry.id === patternId ? { ...entry, categoryId: categoryId ?? undefined } : entry
+    ))
+    persist(patterns)
+    set({ patterns })
+    const moved = patterns.find((entry) => entry.id === patternId)
+    if (moved) queuePatternUpsert(moved)
+  },
+
   refreshFromDisk: async () => {
     if (!DISK_SYNC) return
     const disk = await listPatterns()
     if (!disk) return  // helper offline — keep the localStorage copy as-is
 
-    const local = get().patterns
+    const local = get().patterns.filter((pattern) => !pattern.bundled)
     const initialJournal = loadSyncJournal()
     const deleteIds = new Set(initialJournal.pendingDeletes)
 
@@ -230,7 +340,7 @@ export const usePatternLibrary = create<LibraryState>((set, get) => ({
       journal.pendingDeletes,
     )
     persist(patterns)
-    set({ patterns })
+    set({ patterns: withBundledPatterns(patterns) })
   },
 }))
 

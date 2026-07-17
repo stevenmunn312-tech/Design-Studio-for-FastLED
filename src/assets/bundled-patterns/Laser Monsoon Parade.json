@@ -1,0 +1,787 @@
+{
+  "id": "pat-1783298000009",
+  "name": "Laser Monsoon Parade",
+  "createdAt": 1783298000009,
+  "inputs": [
+    {
+      "id": "param0",
+      "label": "Audio",
+      "dataType": "audio"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "frame",
+      "label": "Frame",
+      "dataType": "frame"
+    }
+  ],
+  "subgraph": {
+    "nodes": [
+      {
+        "id": "p9-in",
+        "type": "studioNode",
+        "position": {
+          "x": -940,
+          "y": 160
+        },
+        "data": {
+          "label": "Audio",
+          "nodeType": "GroupInput",
+          "category": "composite",
+          "properties": {
+            "paramId": "param0"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "out",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p9-fft",
+        "type": "studioNode",
+        "position": {
+          "x": -700,
+          "y": 80
+        },
+        "data": {
+          "label": "FFTAnalyzer",
+          "nodeType": "FFTAnalyzer",
+          "category": "audio",
+          "properties": {
+            "bands": 24,
+            "gain": 1.24,
+            "smoothing": 0.72
+          },
+          "inputs": [
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "bass",
+              "label": "Bass",
+              "dataType": "float"
+            },
+            {
+              "id": "mids",
+              "label": "Mids",
+              "dataType": "float"
+            },
+            {
+              "id": "treble",
+              "label": "Treble",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p9-beat",
+        "type": "studioNode",
+        "position": {
+          "x": -700,
+          "y": 360
+        },
+        "data": {
+          "label": "BeatDetect",
+          "nodeType": "BeatDetect",
+          "category": "audio",
+          "properties": {
+            "threshold": 0.22,
+            "attack": 0.58,
+            "decay": 0.24
+          },
+          "inputs": [
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "beat",
+              "label": "Beat",
+              "dataType": "bool"
+            },
+            {
+              "id": "bpm",
+              "label": "BPM",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p9-hue",
+        "type": "studioNode",
+        "position": {
+          "x": -460,
+          "y": 500
+        },
+        "data": {
+          "label": "Audio Hue",
+          "nodeType": "AudioHue",
+          "category": "audio",
+          "properties": {},
+          "inputs": [
+            {
+              "id": "bass",
+              "label": "Bass",
+              "dataType": "float"
+            },
+            {
+              "id": "mids",
+              "label": "Mids",
+              "dataType": "float"
+            },
+            {
+              "id": "treble",
+              "label": "Treble",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "hue",
+              "label": "Hue",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p9-hsv",
+        "type": "studioNode",
+        "position": {
+          "x": -180,
+          "y": 500
+        },
+        "data": {
+          "label": "HSV to RGB",
+          "nodeType": "HSVToRGB",
+          "category": "color",
+          "properties": {
+            "h": 0,
+            "s": 0.9,
+            "v": 1
+          },
+          "inputs": [
+            {
+              "id": "h",
+              "label": "H",
+              "dataType": "float"
+            },
+            {
+              "id": "s",
+              "label": "S",
+              "dataType": "float"
+            },
+            {
+              "id": "v",
+              "label": "V",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "color",
+              "label": "Color",
+              "dataType": "color"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p9-gradient",
+        "type": "studioNode",
+        "position": {
+          "x": -180,
+          "y": -80
+        },
+        "data": {
+          "label": "Palette Gradient",
+          "nodeType": "PaletteGradient",
+          "category": "pattern",
+          "properties": {
+            "angle": 12,
+            "repeat": 8,
+            "speed": 0.12,
+            "palette": "rainbow"
+          },
+          "inputs": [
+            {
+              "id": "speed",
+              "label": "Scroll",
+              "dataType": "float"
+            },
+            {
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p9-prism",
+        "type": "studioNode",
+        "position": {
+          "x": -180,
+          "y": 220
+        },
+        "data": {
+          "label": "Treble Prism",
+          "nodeType": "TreblePrism",
+          "category": "pattern",
+          "properties": {
+            "energy": 0.9,
+            "speed": 0.92,
+            "r": 200,
+            "g": 120,
+            "b": 255
+          },
+          "inputs": [
+            {
+              "id": "treble",
+              "label": "Treble",
+              "dataType": "float"
+            },
+            {
+              "id": "energy",
+              "label": "Energy",
+              "dataType": "float"
+            },
+            {
+              "id": "speed",
+              "label": "Speed",
+              "dataType": "float"
+            },
+            {
+              "id": "color",
+              "label": "Color",
+              "dataType": "color"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p9-tr",
+        "type": "studioNode",
+        "position": {
+          "x": 160,
+          "y": 80
+        },
+        "data": {
+          "label": "Transition",
+          "nodeType": "Transition",
+          "category": "composite",
+          "properties": {
+            "transitionType": "push",
+            "t": 0.5,
+            "direction": "up",
+            "axis": "horizontal",
+            "tileSize": 4,
+            "count": 4,
+            "turns": 2
+          },
+          "inputs": [
+            {
+              "id": "a",
+              "label": "From",
+              "dataType": "frame"
+            },
+            {
+              "id": "b",
+              "label": "To",
+              "dataType": "frame"
+            },
+            {
+              "id": "t",
+              "label": "T",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p9-rate",
+        "type": "studioNode",
+        "position": {
+          "x": 160,
+          "y": 360
+        },
+        "data": {
+          "label": "Map Range",
+          "nodeType": "MapRange",
+          "category": "math",
+          "properties": {
+            "inMin": 0,
+            "inMax": 1,
+            "outMin": 40,
+            "outMax": 180
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            },
+            {
+              "id": "inMin",
+              "label": "In Min",
+              "dataType": "float"
+            },
+            {
+              "id": "inMax",
+              "label": "In Max",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p9-transform",
+        "type": "studioNode",
+        "position": {
+          "x": 460,
+          "y": 80
+        },
+        "data": {
+          "label": "Transform",
+          "nodeType": "Transform",
+          "category": "composite",
+          "properties": {
+            "transform": "translate",
+            "rate": 90,
+            "angle": 0
+          },
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            },
+            {
+              "id": "rate",
+              "label": "Rate",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p9-flash",
+        "type": "studioNode",
+        "position": {
+          "x": 760,
+          "y": 80
+        },
+        "data": {
+          "label": "Beat Flash",
+          "nodeType": "BeatFlash",
+          "category": "pattern",
+          "properties": {
+            "decay": 0.64
+          },
+          "inputs": [
+            {
+              "id": "beat",
+              "label": "Beat",
+              "dataType": "bool"
+            },
+            {
+              "id": "frame",
+              "label": "Base",
+              "dataType": "frame"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "p9-out",
+        "type": "studioNode",
+        "position": {
+          "x": 1300,
+          "y": 80
+        },
+        "data": {
+          "label": "Group Output",
+          "nodeType": "GroupOutput",
+          "category": "output",
+          "properties": {},
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ],
+          "outputs": []
+        }
+      },
+      {
+        "id": "smooth-p9-fft-bass",
+        "type": "studioNode",
+        "position": {
+          "x": -580,
+          "y": 180
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "response": 0.25
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        },
+        "selected": false
+      },
+      {
+        "id": "smooth-p9-fft-mids",
+        "type": "studioNode",
+        "position": {
+          "x": -580,
+          "y": 220
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "response": 0.25
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        },
+        "selected": false
+      },
+      {
+        "id": "smooth-p9-fft-treble",
+        "type": "studioNode",
+        "position": {
+          "x": -580,
+          "y": 140
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "response": 0.25
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        },
+        "selected": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "p9-e1",
+        "source": "p9-in",
+        "sourceHandle": "out",
+        "target": "p9-fft",
+        "targetHandle": "audio",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p9-e2",
+        "source": "p9-in",
+        "sourceHandle": "out",
+        "target": "p9-beat",
+        "targetHandle": "audio",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p9-e3",
+        "source": "smooth-p9-fft-bass",
+        "sourceHandle": "result",
+        "target": "p9-hue",
+        "targetHandle": "bass",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p9-e4",
+        "source": "smooth-p9-fft-mids",
+        "sourceHandle": "result",
+        "target": "p9-hue",
+        "targetHandle": "mids",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p9-e5",
+        "source": "smooth-p9-fft-treble",
+        "sourceHandle": "result",
+        "target": "p9-hue",
+        "targetHandle": "treble",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p9-e6",
+        "source": "p9-hue",
+        "sourceHandle": "hue",
+        "target": "p9-hsv",
+        "targetHandle": "h",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p9-e7",
+        "source": "smooth-p9-fft-treble",
+        "sourceHandle": "result",
+        "target": "p9-gradient",
+        "targetHandle": "speed",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p9-e8",
+        "source": "smooth-p9-fft-treble",
+        "sourceHandle": "result",
+        "target": "p9-prism",
+        "targetHandle": "treble",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p9-e9",
+        "source": "smooth-p9-fft-bass",
+        "sourceHandle": "result",
+        "target": "p9-prism",
+        "targetHandle": "energy",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p9-e10",
+        "source": "smooth-p9-fft-mids",
+        "sourceHandle": "result",
+        "target": "p9-prism",
+        "targetHandle": "speed",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p9-e11",
+        "source": "p9-hsv",
+        "sourceHandle": "color",
+        "target": "p9-prism",
+        "targetHandle": "color",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p9-e12",
+        "source": "p9-gradient",
+        "sourceHandle": "frame",
+        "target": "p9-tr",
+        "targetHandle": "a",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p9-e13",
+        "source": "p9-prism",
+        "sourceHandle": "frame",
+        "target": "p9-tr",
+        "targetHandle": "b",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p9-e14",
+        "source": "smooth-p9-fft-bass",
+        "sourceHandle": "result",
+        "target": "p9-tr",
+        "targetHandle": "t",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p9-e15",
+        "source": "smooth-p9-fft-mids",
+        "sourceHandle": "result",
+        "target": "p9-rate",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p9-e16",
+        "source": "p9-tr",
+        "sourceHandle": "frame",
+        "target": "p9-transform",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p9-e17",
+        "source": "p9-rate",
+        "sourceHandle": "result",
+        "target": "p9-transform",
+        "targetHandle": "rate",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p9-e18",
+        "source": "p9-transform",
+        "sourceHandle": "frame",
+        "target": "p9-flash",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "p9-e19",
+        "source": "p9-beat",
+        "sourceHandle": "beat",
+        "target": "p9-flash",
+        "targetHandle": "beat",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-smooth-p9-fft-bass-in",
+        "source": "p9-fft",
+        "sourceHandle": "bass",
+        "target": "smooth-p9-fft-bass",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "edge-smooth-p9-fft-mids-in",
+        "source": "p9-fft",
+        "sourceHandle": "mids",
+        "target": "smooth-p9-fft-mids",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "edge-smooth-p9-fft-treble-in",
+        "source": "p9-fft",
+        "sourceHandle": "treble",
+        "target": "smooth-p9-fft-treble",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "p9-gamma-spliced",
+        "source": "p9-flash",
+        "sourceHandle": "frame",
+        "target": "p9-out",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      }
+    ]
+  }
+}

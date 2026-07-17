@@ -162,7 +162,7 @@
   color: var(--accent);
 }
 
-/* My Patterns header splits into a toggle button + a reveal-folder button. */
+/* Pattern Library header splits into toggle, shelf, collection, and folder controls. */
 .categoryHeaderBtn {
   flex: 1;
   display: flex;
@@ -693,5 +693,119 @@
   font-family: var(--font-code);
   font-size: 8px;
   letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Pattern Library shelves: compact patch drawers with the header itself as the
+   filing target. This keeps organization tactile without adding a modal. */
+.patternLibraryBody {
+  display: grid;
+  gap: 7px;
+  padding: 7px;
+}
+
+.newShelfRow {
+  display: flex;
+  gap: 6px;
+  padding: 2px;
+}
+
+.shelfConfirmBtn {
+  min-width: 42px;
+  border: 1px solid color-mix(in srgb, var(--accent-library) 40%, transparent);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--accent-library) 10%, var(--bg-primary));
+  color: var(--text-primary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.shelfConfirmBtn:hover {
+  border-color: var(--accent-library);
+}
+
+.patternShelf {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg-primary) 38%, transparent);
+}
+
+.patternShelfHeader {
+  min-height: 31px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  border-left: 2px solid color-mix(in srgb, var(--accent-library) 64%, transparent);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent-library) 8%, transparent), transparent 64%),
+    rgba(255, 255, 255, 0.015);
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-size: 10px;
+  transition: background var(--anim-hover), border-color var(--anim-hover), box-shadow var(--anim-hover);
+}
+
+.patternShelfHeader > button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.patternShelfDrop {
+  border-left-color: var(--accent-library);
+  background: color-mix(in srgb, var(--accent-library) 16%, var(--bg-primary));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-library) 32%, transparent);
+  color: var(--text-primary);
+}
+
+.shelfChevron {
+  width: 10px;
+  color: var(--accent-library);
+  font-family: var(--font-code);
+}
+
+.shelfMeta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.patternList {
+  padding: 4px;
+}
+
+.nodeItem.patternItem {
+  display: flex;
+  min-height: 35px;
+  padding: 5px 7px 5px 9px;
+  border-radius: 4px;
+}
+
+.patternItem:hover {
+  box-shadow: inset 2px 0 var(--accent-library);
+}
+
+.patternBadge {
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border: 1px solid color-mix(in srgb, var(--accent-audio) 30%, transparent);
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--accent-audio) 72%, white);
+  font-family: var(--font-code);
+  font-size: 7px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }

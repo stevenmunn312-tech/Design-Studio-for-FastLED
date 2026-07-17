@@ -3,6 +3,7 @@ import { canAddNodeType, SINGLETON_NODE_TYPES, useGraphStore } from '../../state
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audioStore'
 import { usePatternLibrary, importPatternFile, type SavedPattern } from '../../state/patternLibrary'
+import { AUDIO_REACTIVE_CATEGORY_ID, STANDARD_CATEGORY_ID } from '../../state/bundledPatterns'
 import { NODE_LIBRARY, CATEGORIES, CATEGORY_ACCENT_VAR, NODE_DESCRIPTIONS, categoryNodes } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { revealPatternsFolder } from '../../utils/backendClient'
@@ -206,8 +207,12 @@ function Sidebar() {
   const instantiatePattern = useGraphStore((s) => s.instantiatePattern)
   const createCollectionFromPatterns = useGraphStore((s) => s.createCollectionFromPatterns)
   const patterns = usePatternLibrary((s) => s.patterns)
+  const patternCategories = usePatternLibrary((s) => s.categories)
   const renamePattern = usePatternLibrary((s) => s.renamePattern)
   const deletePattern = usePatternLibrary((s) => s.deletePattern)
+  const createPatternCategory = usePatternLibrary((s) => s.createCategory)
+  const deletePatternCategory = usePatternLibrary((s) => s.deleteCategory)
+  const movePattern = usePatternLibrary((s) => s.movePattern)
   const requestConfirm = useUiStore((s) => s.requestConfirm)
   const viewCenter = useUiStore((s) => s.viewCenter)
   const setStatus = useUiStore((s) => s.setStatus)
@@ -218,6 +223,12 @@ function Sidebar() {
   const [viewMode, setViewMode] = useState<'beginner' | 'all'>(() => loadView())
   const [favourites, setFavourites] = useState<string[]>(() => loadStringArray(FAVOURITES_KEY))
   const [recent, setRecent] = useState<string[]>(() => loadStringArray(RECENT_KEY))
+  const [openPatternCategories, setOpenPatternCategories] = useState<Set<string>>(
+    () => new Set([STANDARD_CATEGORY_ID, AUDIO_REACTIVE_CATEGORY_ID]),
+  )
+  const [creatingPatternCategory, setCreatingPatternCategory] = useState(false)
+  const [patternCategoryDraft, setPatternCategoryDraft] = useState('')
+  const [patternShelfDrop, setPatternShelfDrop] = useState<string | null>(null)
 
   // Persist on every change so the layout survives reloads.
   useEffect(() => {
@@ -309,9 +320,9 @@ function Sidebar() {
     window.setTimeout(() => ghost.remove(), 0)
   }
 
-  const handlePatternDragStart = (e: React.DragEvent, id: string) => {
-    e.dataTransfer.setData('application/studio-pattern', id)
-    e.dataTransfer.effectAllowed = 'copy'
+  const handlePatternDragStart = (e: React.DragEvent, pattern: SavedPattern) => {
+    e.dataTransfer.setData('application/studio-pattern', pattern.id)
+    e.dataTransfer.effectAllowed = pattern.bundled ? 'copy' : 'copyMove'
   }
 
   // Importing pattern files dragged in from the OS (e.g. a `.json` shared by
@@ -347,7 +358,57 @@ function Sidebar() {
 
   const handleRevealFolder = async () => {
     const ok = await revealPatternsFolder()
-    if (!ok) setStatus('Upload helper offline — can’t open the patterns folder', 'error')
+    if (!ok) setStatus('Upload helper offline — can’t open the saved-pattern folder', 'error')
+  }
+
+  const togglePatternCategory = (id: string) => {
+    setOpenPatternCategories((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const commitPatternCategory = () => {
+    const name = patternCategoryDraft.trim()
+    if (!name) {
+      setCreatingPatternCategory(false)
+      setPatternCategoryDraft('')
+      return
+    }
+    const id = createPatternCategory(name)
+    if (!id) {
+      setStatus('Choose a unique shelf name', 'error')
+      return
+    }
+    setOpenPatternCategories((current) => new Set([...current, id]))
+    setCreatingPatternCategory(false)
+    setPatternCategoryDraft('')
+    setStatus(`Created “${name}” shelf`, 'success')
+  }
+
+  const handlePatternShelfDragOver = (event: React.DragEvent, categoryId: string) => {
+    if (!event.dataTransfer.types.includes('application/studio-pattern')) return
+    event.preventDefault()
+    event.stopPropagation()
+    event.dataTransfer.dropEffect = 'move'
+    setPatternShelfDrop(categoryId)
+  }
+
+  const handlePatternShelfDrop = (event: React.DragEvent, categoryId: string | null) => {
+    const patternId = event.dataTransfer.getData('application/studio-pattern')
+    if (!patternId) return
+    event.preventDefault()
+    event.stopPropagation()
+    setPatternShelfDrop(null)
+    const pattern = patterns.find((entry) => entry.id === patternId)
+    if (!pattern || pattern.bundled) return
+    movePattern(patternId, categoryId)
+    const shelf = categoryId
+      ? patternCategories.find((entry) => entry.id === categoryId)?.name ?? 'shelf'
+      : 'New & Unsorted'
+    setStatus(`Moved “${pattern.name}” to ${shelf}`, 'success')
   }
 
   // Drop click-added nodes at the centre of the visible canvas (with a little
@@ -360,7 +421,7 @@ function Sidebar() {
   const handleAddPattern = (p: SavedPattern) => instantiatePattern(p, dropPos(), true)
   const handleCreateCollection = () => {
     if (patterns.length === 0) {
-      setStatus('My Patterns is empty', 'error')
+      setStatus('Pattern Library is empty', 'error')
       return
     }
     const def = NODE_LIBRARY.find((n) => n.type === 'PatternCollection')
@@ -393,6 +454,13 @@ function Sidebar() {
   const visiblePatterns = patterns.filter(
     (p) => query === '' || p.name.toLowerCase().includes(query)
   )
+  const uncategorizedPatterns = visiblePatterns.filter((pattern) => !pattern.categoryId)
+  const patternsByCategory = useMemo(() => new Map(
+    patternCategories.map((category) => [
+      category.id,
+      visiblePatterns.filter((pattern) => pattern.categoryId === category.id),
+    ]),
+  ), [patternCategories, visiblePatterns])
   const visibleSectionIds = useMemo(() => [
     ...(favouriteDefs.length > 0 ? ['favourites'] : []),
     ...(recentDefs.length > 0 ? ['recent'] : []),
@@ -617,6 +685,88 @@ function Sidebar() {
     )
   }
 
+  const renderPatternRows = (entries: SavedPattern[], emptyMessage: string) => (
+    entries.length === 0 ? (
+      <div className={styles.patternDropHint}>{emptyMessage}</div>
+    ) : (
+      <ul className={`${styles.nodeList} ${styles.patternList}`}>
+        {entries.map((pattern) => {
+          const renaming = renamingId === pattern.id
+          return (
+            <li
+              key={pattern.id}
+              className={`${styles.nodeItem} ${styles.patternItem}`}
+              style={{ '--accent': 'var(--accent-library)' } as React.CSSProperties}
+              draggable={!renaming}
+              onDragStart={(event) => handlePatternDragStart(event, pattern)}
+              onClick={() => { if (!renaming) handleAddPattern(pattern) }}
+              title={renaming
+                ? undefined
+                : `${pattern.name}\n${pattern.bundled ? 'Included beta pattern · ' : ''}Click to add · drag to place`}
+            >
+              {renaming ? (
+                <input
+                  className={`${styles.renameInput} nodrag`}
+                  value={draftName}
+                  autoFocus
+                  aria-label="Rename pattern"
+                  onClick={(event) => event.stopPropagation()}
+                  onChange={(event) => setDraftName(event.target.value)}
+                  onBlur={commitRename}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') commitRename()
+                    else if (event.key === 'Escape') cancelRename()
+                  }}
+                />
+              ) : (
+                <>
+                  <span className={styles.patternName}>{pattern.name}</span>
+                  {pattern.bundled ? (
+                    <span className={styles.patternBadge} title="Included with the beta release">included</span>
+                  ) : (
+                    <span className={styles.patternActions}>
+                      <button
+                        className={styles.patternBtn}
+                        aria-label={`Rename ${pattern.name}`}
+                        title="Rename"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          startRename(pattern)
+                        }}
+                      >
+                        ✎
+                      </button>
+                      <button
+                        className={styles.patternBtn}
+                        aria-label={`Delete ${pattern.name} from library`}
+                        title="Delete from library"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          void (async () => {
+                            const ok = await requestConfirm({
+                              title: 'Delete library pattern?',
+                              message: `Delete “${pattern.name}” from the library?`,
+                              confirmLabel: 'Delete',
+                              cancelLabel: 'Cancel',
+                              tone: 'danger',
+                            })
+                            if (ok) await deletePattern(pattern.id)
+                          })()
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  )}
+                </>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    )
+  )
+
   return (
     <aside className={styles.sidebar} id="node-library">
       <div className={styles.header}>
@@ -713,7 +863,7 @@ function Sidebar() {
           return renderSection(id, label, CATEGORY_ACCENT_VAR[id], nodes)
         })}
 
-        {/* My Patterns — the persistent library of saved pattern groups. Always
+        {/* Pattern Library — bundled examples plus persistent saved pattern groups. Always
             rendered (even empty) so it doubles as a drop target for importing
             pattern files dragged in from the OS. */}
         <div
@@ -732,14 +882,23 @@ function Sidebar() {
             >
               <span className={styles.drawerLabel}>
                 <span className={styles.drawerLight} aria-hidden="true" />
-                My Patterns
+                Pattern Library
                 <span className={styles.drawerCount}>{patterns.length}</span>
               </span>
             </button>
             <button
+              className={styles.revealBtn}
+              type="button"
+              aria-label="Add Pattern Library shelf"
+              title="Add a shelf"
+              onClick={() => setCreatingPatternCategory(true)}
+            >
+              ＋
+            </button>
+            <button
               className={styles.collectionBtn}
               type="button"
-              aria-label="Create Pattern Collection from My Patterns"
+              aria-label="Create Pattern Collection from Pattern Library"
               title="Create a Pattern Collection containing all saved patterns"
               onClick={handleCreateCollection}
               disabled={patterns.length === 0}
@@ -754,8 +913,8 @@ function Sidebar() {
             </button>
             <button
               className={styles.revealBtn}
-              aria-label="Reveal My Patterns folder"
-              title="Reveal My Patterns folder on disk"
+              aria-label="Reveal saved-pattern folder"
+              title="Reveal saved-pattern folder on disk"
               onClick={handleRevealFolder}
             >
               <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round">
@@ -776,79 +935,99 @@ function Sidebar() {
             </button>
           </div>
           {expandedId === 'library' && (
-            visiblePatterns.length === 0 ? (
-              <div className={styles.patternDropHint}>Drag pattern .json files here to import</div>
-            ) : (
-              <ul className={styles.nodeList}>
-                {visiblePatterns.map((p) => {
-                  const renaming = renamingId === p.id
-                  return (
-                    <li
-                      key={p.id}
-                      className={`${styles.nodeItem} ${styles.patternItem}`}
-                      style={{ '--accent': 'var(--accent-library)' } as React.CSSProperties}
-                      draggable={!renaming}
-                      onDragStart={(e) => handlePatternDragStart(e, p.id)}
-                      onClick={() => { if (!renaming) handleAddPattern(p) }}
-                      title={renaming ? undefined : `${p.name}\nClick to add · drag to place`}
+            <div className={styles.patternLibraryBody}>
+              {creatingPatternCategory && (
+                <div className={styles.newShelfRow}>
+                  <input
+                    className={`${styles.renameInput} nodrag`}
+                    value={patternCategoryDraft}
+                    autoFocus
+                    aria-label="New shelf name"
+                    placeholder="Shelf name"
+                    onChange={(event) => setPatternCategoryDraft(event.target.value)}
+                    onBlur={() => { if (!patternCategoryDraft.trim()) setCreatingPatternCategory(false) }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') commitPatternCategory()
+                      else if (event.key === 'Escape') {
+                        setCreatingPatternCategory(false)
+                        setPatternCategoryDraft('')
+                      }
+                    }}
+                  />
+                  <button className={styles.shelfConfirmBtn} type="button" onClick={commitPatternCategory}>Add</button>
+                </div>
+              )}
+
+              <section className={styles.patternShelf}>
+                <div
+                  className={`${styles.patternShelfHeader} ${patternShelfDrop === '__unsorted__' ? styles.patternShelfDrop : ''}`}
+                  onDragOver={(event) => handlePatternShelfDragOver(event, '__unsorted__')}
+                  onDragLeave={() => setPatternShelfDrop(null)}
+                  onDrop={(event) => handlePatternShelfDrop(event, null)}
+                >
+                  <button type="button" onClick={() => togglePatternCategory('__unsorted__')}>
+                    <span className={styles.shelfChevron}>{openPatternCategories.has('__unsorted__') ? '▾' : '▸'}</span>
+                    New &amp; Unsorted
+                  </button>
+                  <span className={styles.drawerCount}>{uncategorizedPatterns.length}</span>
+                </div>
+                {openPatternCategories.has('__unsorted__')
+                  && renderPatternRows(uncategorizedPatterns, 'Newly saved patterns appear here')}
+              </section>
+
+              {patternCategories.map((category) => {
+                const categoryPatterns = patternsByCategory.get(category.id) ?? []
+                const open = openPatternCategories.has(category.id)
+                return (
+                  <section key={category.id} className={styles.patternShelf}>
+                    <div
+                      className={`${styles.patternShelfHeader} ${patternShelfDrop === category.id ? styles.patternShelfDrop : ''}`}
+                      onDragOver={(event) => handlePatternShelfDragOver(event, category.id)}
+                      onDragLeave={() => setPatternShelfDrop(null)}
+                      onDrop={(event) => handlePatternShelfDrop(event, category.id)}
                     >
-                      {renaming ? (
-                        <input
-                          className={`${styles.renameInput} nodrag`}
-                          value={draftName}
-                          autoFocus
-                          aria-label="Rename pattern"
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => setDraftName(e.target.value)}
-                          onBlur={commitRename}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') commitRename()
-                            else if (e.key === 'Escape') cancelRename()
-                          }}
-                        />
-                      ) : (
-                        <>
-                          <span className={styles.patternName}>{p.name}</span>
-                          <span className={styles.patternActions}>
-                            <button
-                              className={styles.patternBtn}
-                              aria-label={`Rename ${p.name}`}
-                              title="Rename"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                startRename(p)
-                              }}
-                            >
-                              ✎
-                            </button>
-                            <button
-                              className={styles.patternBtn}
-                              aria-label={`Delete ${p.name} from library`}
-                              title="Delete from library"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                void (async () => {
-                                  const ok = await requestConfirm({
-                                    title: 'Delete library pattern?',
-                                    message: `Delete “${p.name}” from the library?`,
-                                    confirmLabel: 'Delete',
-                                    cancelLabel: 'Cancel',
-                                    tone: 'danger',
-                                  })
-                                  if (ok) await deletePattern(p.id)
-                                })()
-                              }}
-                            >
-                              ✕
-                            </button>
-                          </span>
-                        </>
-                      )}
-                    </li>
-                  )
-                })}
-              </ul>
-            )
+                      <button type="button" onClick={() => togglePatternCategory(category.id)}>
+                        <span className={styles.shelfChevron}>{open ? '▾' : '▸'}</span>
+                        {category.name}
+                      </button>
+                      <span className={styles.shelfMeta}>
+                        <span className={styles.drawerCount}>{categoryPatterns.length}</span>
+                        {!category.builtIn && (
+                          <button
+                            type="button"
+                            className={styles.patternBtn}
+                            aria-label={`Remove ${category.name} shelf`}
+                            title="Remove shelf; patterns return to New & Unsorted"
+                            onClick={() => {
+                              void (async () => {
+                                const ok = await requestConfirm({
+                                  title: 'Remove Pattern Library shelf?',
+                                  message: `Remove “${category.name}”? Its patterns will move to New & Unsorted.`,
+                                  confirmLabel: 'Remove shelf',
+                                  cancelLabel: 'Cancel',
+                                  tone: 'danger',
+                                })
+                                if (ok) deletePatternCategory(category.id)
+                              })()
+                            }}
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </span>
+                    </div>
+                    {open && renderPatternRows(
+                      categoryPatterns,
+                      category.id === AUDIO_REACTIVE_CATEGORY_ID
+                        ? 'No audio-reactive patterns match this search'
+                        : 'Drag patterns onto this shelf',
+                    )}
+                  </section>
+                )
+              })}
+
+              <div className={styles.patternDropHint}>Drag pattern .json files here to import</div>
+            </div>
           )}
         </div>
       </div>
