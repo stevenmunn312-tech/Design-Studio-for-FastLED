@@ -171,6 +171,8 @@ Drop MP3s into **Music Library**, analyze them, generate or hand-edit the show t
 
 ## Help test the beta
 
+**This is a beta: expect breaking changes between releases.** Node types, project and pattern file formats, and share links are not final, and no migration path is promised before 1.0 — a project, pattern, or share link saved in one beta build may not open in a later one. Export anything you want to keep as a `.ino` sketch, and keep your original audio files for SD shows.
+
 The current support promise is deliberately narrower than the feature list. Before testing, read the [Beta support matrix](docs/release/beta-support-matrix.md) and [Hardware validation guide](docs/release/beta-hardware-validation.md).
 
 Useful reports include:

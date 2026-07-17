@@ -45,4 +45,7 @@ def test_configure_environment_keeps_mutable_state_outside_bundle(monkeypatch, t
 
 
 def test_app_version_reads_package_metadata():
-    assert launcher.app_version() == "0.1.0"
+    import json
+
+    expected = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
+    assert launcher.app_version() == expected

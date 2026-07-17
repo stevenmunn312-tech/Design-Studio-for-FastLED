@@ -7,6 +7,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-17
+
+First public beta.
+
 ### Added
 
 - Public-beta release docs: a beta support matrix, supported-platform policy,
@@ -31,6 +35,14 @@ versioning (`0.y.z`) until the first stable release.
   end-to-end validation rows are promoted from experimental status.
 - Release/readiness references in `README.md`, `CLAUDE.md`, `docs/NAVIGATOR.md`,
   and `todo.md` now point to the release docs as the source of truth.
+- `README.md` now states the beta stability scope explicitly: breaking changes
+  are expected between beta releases, file formats are not final, and saved
+  work should be exported before upgrading.
+
+### Removed
+
+- Untracked leftover working-session screenshots from the repository root and
+  `artifacts/`, and gitignored those paths.
 
 ## [0.1.0] - Initial pre-beta baseline
 

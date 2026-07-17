@@ -40,7 +40,7 @@ still move quickly.
 
 ## First public beta guidance
 
-- Treat `0.1.0` as the first public-beta tag unless a larger scope lands before
-  release.
+- `0.1.0` is the pre-beta baseline already recorded in `CHANGELOG.md`; the
+  first public-beta tag is `v0.2.0`, matching the `0.2.0` changelog entry.
 - Do not cut a public beta tag while the support matrix still depends on
   undocumented validation assumptions.
