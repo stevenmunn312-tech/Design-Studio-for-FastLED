@@ -284,6 +284,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Palette Sampler example graph](../../public/node-cards/graphs/palette-sampler.svg)
 
+### Palette Sweep
+
+![Palette Sweep node](../../public/node-cards/palette-sweep.svg)
+
+![Palette Sweep example graph](../../public/node-cards/graphs/palette-sweep.svg)
+
 ### Palette Selector
 
 ![Palette Selector node](../../public/node-cards/palette-selector.svg)
@@ -508,6 +514,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Spectrum Bars example graph](../../public/node-cards/graphs/spectrum-bars.svg)
 
+### Spectrum Visualizer
+
+![Spectrum Visualizer node](../../public/node-cards/spectrum-visualizer.svg)
+
+![Spectrum Visualizer example graph](../../public/node-cards/graphs/spectrum-visualizer.svg)
+
 ### Bass Pulse
 
 ![Bass Pulse node](../../public/node-cards/bass-pulse.svg)
@@ -621,6 +633,18 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Audio Flow node](../../public/node-cards/audio-flow.svg)
 
 ![Audio Flow example graph](../../public/node-cards/graphs/audio-flow.svg)
+
+### Color Trails
+
+![Color Trails node](../../public/node-cards/color-trails.svg)
+
+![Color Trails example graph](../../public/node-cards/graphs/color-trails.svg)
+
+### AnimARTrix
+
+![AnimARTrix node](../../public/node-cards/animartrix.svg)
+
+![AnimARTrix example graph](../../public/node-cards/graphs/animartrix.svg)
 
 ### Custom Formula
 
