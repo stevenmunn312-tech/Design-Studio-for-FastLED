@@ -9,7 +9,71 @@ const TABS: { id: HelpTab; label: string }[] = [
   { id: 'shortcuts', label: 'Shortcuts' },
   { id: 'nodes', label: 'Node Reference' },
   { id: 'upload', label: 'Upload & Export' },
+  { id: 'about', label: 'About' },
 ]
+
+const REPO_URL = 'https://github.com/stevenmunn312-tech/FastLED-Studio'
+
+function AboutTab() {
+  return (
+    <>
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>FastLED Studio</div>
+        <div className={styles.text}>
+          <strong>Version {__APP_VERSION__}</strong> · public beta
+        </div>
+        <div className={styles.text}>
+          A node-graph authoring environment for FastLED LED strips, matrices, and tiled panels — design patterns visually, preview them live, then generate and flash real firmware.
+        </div>
+        <div className={styles.text}>
+          Maintained by <strong>Steven Munn</strong>. The core is released under the{' '}
+          <a className={styles.link} href={`${REPO_URL}/blob/main/LICENSE`} target="_blank" rel="noopener noreferrer">MIT License</a>.
+          Source, issues, and beta hardware reports live on{' '}
+          <a className={styles.link} href={REPO_URL} target="_blank" rel="noopener noreferrer">GitHub</a>.
+        </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>Credits</div>
+        <div className={styles.tipList}>
+          <div className={styles.tip}>
+            <div className={styles.tipIcon}>✦</div>
+            <div className={styles.tipText}>
+              <strong>Stefan Petrick</strong> — creator of{' '}
+              <a className={styles.link} href="https://github.com/StefanPetrick/animartrix" target="_blank" rel="noopener noreferrer">AnimARTrix</a>.
+              The <strong>AnimARTrix</strong> node is an adaptation of his work, kept in a separately licensed module under <strong>CC BY-NC-SA 4.0</strong>; the <strong>Color Trails</strong> node is adapted from his prototype work. Generated firmware for these nodes carries his credit.
+            </div>
+          </div>
+          <div className={styles.tip}>
+            <div className={styles.tipIcon}>✦</div>
+            <div className={styles.tipText}>
+              <strong>FastLED</strong> — the{' '}
+              <a className={styles.link} href="https://github.com/FastLED/FastLED" target="_blank" rel="noopener noreferrer">FastLED library</a>{' '}
+              by Daniel Garcia, Mark Kriegsman, and the FastLED community powers all generated firmware. Fire 2012 implements Mark Kriegsman's classic algorithm; Pride 2015, Pacifica, and TwinkleFox are original homages named for his demos.
+            </div>
+          </div>
+          <div className={styles.tip}>
+            <div className={styles.tipIcon}>✦</div>
+            <div className={styles.tipText}>
+              <strong>Essentia</strong> — offline music analysis uses{' '}
+              <a className={styles.link} href="https://essentia.upf.edu" target="_blank" rel="noopener noreferrer">Essentia</a>{' '}
+              (Music Technology Group, Universitat Pompeu Fabra), bundled as <code>essentia.js</code> under AGPL-3.0.
+            </div>
+          </div>
+          <div className={styles.tip}>
+            <div className={styles.tipIcon}>✦</div>
+            <div className={styles.tipText}>
+              <strong>Open source</strong> — built with React, @xyflow/react, Zustand, zundo, Poline, gifuct-js, and lz-string. The Audiowide display font is by Astigmatic under the SIL Open Font License 1.1. Full details in the{' '}
+              <a className={styles.link} href={`${REPO_URL}/blob/main/THIRD_PARTY_NOTICES.md`} target="_blank" rel="noopener noreferrer">third-party notices</a>.
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
 
 function QuickStartTab() {
   return (
@@ -333,6 +397,7 @@ export default function HelpModal() {
           {helpTab === 'shortcuts' && <ShortcutsTab />}
           {helpTab === 'nodes' && <NodeReference />}
           {helpTab === 'upload' && <UploadTab />}
+          {helpTab === 'about' && <AboutTab />}
         </div>
       </div>
     </div>

@@ -123,6 +123,16 @@
   font-weight: 600;
 }
 
+.link {
+  color: var(--accent-audio);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link:hover {
+  color: var(--text-primary);
+}
+
 /* ── Steps ────────────────────────────────────────────────────────────────── */
 
 .steps {

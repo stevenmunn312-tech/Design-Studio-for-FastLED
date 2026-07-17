@@ -30,6 +30,9 @@ First public beta.
   launch-smokes the result, and emits a portable platform archive.
 - Contribution scaffolding for the beta: `CONTRIBUTING.md` plus GitHub issue
   forms for bug reports, hardware validation reports, and feature requests.
+- An in-app **About** tab in Help (also reachable from View → About) showing
+  the app version, maintainer, MIT license, and credits for Stefan Petrick /
+  AnimARTrix, FastLED, Essentia, and the bundled open-source dependencies.
 
 ### Changed
 

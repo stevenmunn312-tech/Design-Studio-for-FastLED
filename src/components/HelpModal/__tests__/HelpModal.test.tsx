@@ -41,6 +41,20 @@ describe('HelpModal session state', () => {
     expect(second.getByText('Prerequisites')).toBeTruthy()
   })
 
+  it('shows version, license, and credits on the About tab', () => {
+    const view = render(<HelpModal />)
+
+    fireEvent.click(view.getByRole('tab', { name: 'About' }))
+
+    expect(view.getByText(`Version ${__APP_VERSION__}`)).toBeTruthy()
+    expect(view.getByText('Steven Munn')).toBeTruthy()
+    expect(view.getByText('Stefan Petrick')).toBeTruthy()
+    expect(view.getByRole('link', { name: 'AnimARTrix' }).getAttribute('href')).toBe('https://github.com/StefanPetrick/animartrix')
+    expect(view.getByRole('link', { name: 'FastLED library' })).toBeTruthy()
+    expect(view.getByRole('link', { name: 'Essentia' })).toBeTruthy()
+    expect(view.getByRole('link', { name: 'third-party notices' })).toBeTruthy()
+  })
+
   it('reopens the node reference where the session left off', async () => {
     const first = render(<HelpModal />)
 

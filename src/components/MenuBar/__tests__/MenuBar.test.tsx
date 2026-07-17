@@ -136,6 +136,17 @@ describe('MenuBar file menu', () => {
     expect(getByText('✓ Signal dimming: On')).toBeTruthy()
   })
 
+  it('opens Help on the About tab from the View menu', () => {
+    const { getByRole } = render(<MenuBar />)
+
+    fireEvent.click(getByRole('button', { name: 'View menu' }))
+    fireEvent.click(getByRole('menuitem', { name: 'ℹ About FastLED Studio' }))
+
+    expect(useUiStore.getState().helpOpen).toBe(true)
+    expect(useUiStore.getState().helpTab).toBe('about')
+    expect(getByRole('button', { name: 'View menu' }).getAttribute('aria-expanded')).toBe('false')
+  })
+
   it('still toggles view preferences from the View menu', () => {
     const { getByRole } = render(<MenuBar />)
 

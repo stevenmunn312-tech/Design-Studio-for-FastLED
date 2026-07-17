@@ -12,7 +12,7 @@ export type AppTheme = 'dark' | 'solarized' | 'light'
 export type NewProjectDecision = 'yes' | 'no' | 'cancel'
 export type AppDialogTone = 'default' | 'danger'
 export type StartChoice = string | 'blank' | null
-export type HelpTab = 'quickstart' | 'shortcuts' | 'nodes' | 'upload'
+export type HelpTab = 'quickstart' | 'shortcuts' | 'nodes' | 'upload' | 'about'
 
 export interface HelpNodeReferenceState {
   search: string

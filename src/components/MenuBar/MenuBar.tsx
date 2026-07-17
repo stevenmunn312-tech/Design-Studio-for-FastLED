@@ -73,6 +73,7 @@ export default function MenuBar() {
     previewStyle,
     cyclePreviewStyle,
     openHelp,
+    setHelpTab,
     openRecover,
     openTemplates,
     requestAlert,
@@ -103,6 +104,7 @@ export default function MenuBar() {
     previewStyle: s.previewStyle,
     cyclePreviewStyle: s.cyclePreviewStyle,
     openHelp: s.openHelp,
+    setHelpTab: s.setHelpTab,
     openRecover: s.openRecover,
     openTemplates: s.openTemplates,
     requestAlert: s.requestAlert,
@@ -660,6 +662,15 @@ export default function MenuBar() {
                 title={signalPathDimEnabled ? 'Disable dimming unrelated nodes on selection' : 'Enable dimming unrelated nodes on selection'}
               >
                 {signalPathDimEnabled ? '✓' : '○'} Signal dimming: {signalPathDimEnabled ? 'On' : 'Off'}
+              </button>
+              <div className={styles.menuDivider} />
+              <button
+                className={styles.menuItem}
+                role="menuitem"
+                onClick={() => { closeMenus(); setHelpTab('about'); openHelp() }}
+                title="Version, license, and credits"
+              >
+                ℹ About FastLED Studio
               </button>
             </div>
           </>
