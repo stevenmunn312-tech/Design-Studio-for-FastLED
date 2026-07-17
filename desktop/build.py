@@ -26,6 +26,14 @@ def run(args: list[str], *, cwd: Path = ROOT) -> None:
     subprocess.run(args, cwd=cwd, check=True)
 
 
+def require_executable(name: str) -> str:
+    """Return an executable path that subprocess can launch on every host OS."""
+    executable = shutil.which(name)
+    if not executable:
+        raise SystemExit(f"{name} is missing from PATH")
+    return executable
+
+
 def require_packager() -> None:
     try:
         import PyInstaller  # noqa: F401
@@ -46,7 +54,9 @@ def pyinstaller_base() -> list[str]:
 
 def build_frontend(skip: bool) -> None:
     if not skip:
-        run(["npm", "run", "build"])
+        # CreateProcess does not apply PATHEXT when given a bare command, so
+        # resolve npm to npm.cmd explicitly on Windows before launching it.
+        run([require_executable("npm"), "run", "build"])
     if not (ROOT / "dist" / "index.html").is_file():
         raise SystemExit("dist/index.html is missing; run npm run build first")
 
