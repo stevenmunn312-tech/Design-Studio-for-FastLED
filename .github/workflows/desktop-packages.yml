@@ -28,7 +28,7 @@ jobs:
   package:
     name: Package ${{ matrix.label }}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -36,13 +36,17 @@ jobs:
           - id: windows-x86_64
             label: Windows
             runner: windows-latest
-          # fbuild 2.5.0's universal wheel is rejected by the macOS 26 ARM
-          # loader because its native binary links libobjc twice. Build the
-          # portable beta on the supported Intel runner until upstream ships a
-          # corrected ARM binary; Apple Silicon can launch it through Rosetta.
+          # fbuild 2.5.0's universal wheel contains unusable macOS executables:
+          # dyld rejects the ARM binary and the Intel host receives the wrong
+          # CPU slice. The tagged source build below replaces both wheel tools.
+          - id: macos-arm64
+            label: macOS (Apple Silicon)
+            runner: macos-15
+            source_fbuild: true
           - id: macos-x86_64
             label: macOS (Intel/Rosetta)
             runner: macos-15-intel
+            source_fbuild: true
           - id: linux-x86_64
             label: Linux
             runner: ubuntu-22.04
@@ -69,6 +73,27 @@ jobs:
 
       - name: Install desktop packaging dependencies
         run: python -m pip install -r backend/requirements-packaging.txt -c backend/constraints.txt
+
+      - name: Build working fbuild tools from tagged source
+        if: ${{ matrix.source_fbuild == true }}
+        shell: bash
+        env:
+          FBUILD_COMMIT: 66e2cb0b358cf06d30be88241d5cd4ca99ceda2f
+          MACOSX_DEPLOYMENT_TARGET: "12.0"
+        run: |
+          source_dir="$RUNNER_TEMP/fbuild-v2.5.0"
+          git clone --depth 1 --branch v2.5.0 https://github.com/FastLED/fbuild.git "$source_dir"
+          test "$(git -C "$source_dir" rev-parse HEAD)" = "$FBUILD_COMMIT"
+          cargo build \
+            --manifest-path "$source_dir/Cargo.toml" \
+            --release \
+            --locked \
+            --package fbuild-cli \
+            --package fbuild-daemon
+          for tool in fbuild fbuild-daemon; do
+            install -m 755 "$source_dir/target/release/$tool" "$(command -v "$tool")"
+            "$tool" --version
+          done
 
       - name: Build and launch-smoke desktop package
         run: npm run package:desktop
