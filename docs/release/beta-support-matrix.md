@@ -43,6 +43,7 @@ board validation:
 | CI-covered | Frontend lint/test/build | `ubuntu-latest`, Node 22, Vitest `jsdom`, Vite build | The web app compiles, tests pass, and the production bundle builds | Real browser behavior, USB upload, audio permissions, or hardware behavior |
 | CI-covered | Backend helper tests | `ubuntu-latest`, Python 3.11 | API logic and helper request handling pass under pytest | Real serial ports, board flashing, or toolchain installs |
 | CI-covered | Backend dependency install | `ubuntu-latest`, `macos-latest`, `windows-latest`, Python 3.11 | Pinned helper dependencies install cleanly and import successfully on all three desktop OS families | End-to-end helper launch, browser integration, or hardware upload |
+| CI-covered | Portable desktop packaging | `windows-latest`, `ubuntu-22.04`, `macos-15` ARM64, and `macos-15-intel`; Python 3.11, Node 22, PyInstaller | The native archive builds, bundled `fbuild`/`esptool` tools execute, and the frozen launcher serves its status, health, and app-shell endpoints | Code signing/notarization, clean-user installation, default-browser behavior, physical serial ports, or hardware upload |
 
 ## Experimental until validated
 

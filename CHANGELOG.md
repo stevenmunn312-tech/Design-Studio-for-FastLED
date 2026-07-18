@@ -7,11 +7,6 @@ versioning (`0.y.z`) until the first stable release.
 
 ## [Unreleased]
 
-### Fixed
-
-- Allow the desktop packaging dependency set to resolve on Intel macOS by
-  keeping `cryptography` below the upper bound required by `esptool 5.3.1`.
-
 ## [0.2.0] - 2026-07-17
 
 First public beta.
@@ -38,6 +33,10 @@ First public beta.
 - An in-app **About** tab in Help (also reachable from View → About) showing
   the app version, maintainer, MIT license, and credits for Stefan Petrick /
   AnimARTrix, FastLED, Essentia, and the bundled open-source dependencies.
+- A tagged/manual GitHub Actions workflow that builds, launch-smokes,
+  checksums, and uploads portable desktop archives for Windows, Linux, macOS
+  Apple Silicon, and macOS Intel/Rosetta, with optional draft pre-release
+  assembly after every platform passes.
 
 ### Changed
 
@@ -53,6 +52,14 @@ First public beta.
 
 - Untracked leftover working-session screenshots from the repository root and
   `artifacts/`, and gitignored those paths.
+
+### Fixed
+
+- Allow the desktop packaging dependency set to resolve on Intel macOS by
+  keeping `cryptography` below the upper bound required by `esptool 5.3.1`.
+- Replace the unusable macOS executables in the upstream `fbuild 2.5.0` wheel
+  with binaries compiled from its exact tagged source commit on each Mac
+  architecture before freezing the desktop bundle.
 
 ## [0.1.0] - Initial pre-beta baseline
 

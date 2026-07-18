@@ -86,8 +86,23 @@ needs:
 - macOS application layout, code signing, hardened runtime, and notarization;
 - checksums for every archive and an artifact provenance record;
 - a clean-machine launch/upload smoke per published platform; and
-- publication through the normal tagged-release process once the repository's
-  active GitHub hold is lifted.
+- publication through the normal tagged-release process.
 
 Do not describe an unsigned or unvalidated platform package as supported in the
 beta support matrix.
+
+## GitHub package workflow
+
+`.github/workflows/desktop-packages.yml` runs the host-specific packager on
+Windows, Linux, macOS Apple Silicon, and macOS Intel. It records a SHA-256 file
+beside each archive and retains the outputs as Actions artifacts. Manual runs
+default to artifact-only validation; tag runs, or an explicit manual opt-in,
+assemble the passing artifacts into a draft pre-release.
+
+The `fbuild 2.5.0` wheel currently carries unusable macOS executables (the ARM
+binary is rejected by `dyld`, while the Intel host receives the wrong CPU
+slice). The workflow therefore compiles `fbuild` and `fbuild-daemon` from the
+exact `v2.5.0` source commit on each Mac runner, verifies that commit before the
+build, and replaces only those two wheel-provided tools before packaging. The
+result remains the same pinned upstream version and is launch-smoked as part of
+the normal bundle test.
