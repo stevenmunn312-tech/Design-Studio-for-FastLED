@@ -12,6 +12,8 @@ FastLED Studio is a visual authoring environment for LED strips, matrices, and t
 
 ## See it in action
 
+**[Watch the demo video](https://youtu.be/Kjywc9C-aME)**
+
 | Build and preview a patch | Browse reusable patterns |
 |---|---|
 | ![A patch driving the live LED preview](docs/images/readme/fastled-studio-patch.png) | ![Pattern Library with included audio-reactive patterns](docs/images/readme/fastled-studio-pattern-library.png) |
