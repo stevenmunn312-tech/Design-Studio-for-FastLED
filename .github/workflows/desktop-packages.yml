@@ -13,6 +13,14 @@ on:
         required: true
         default: false
         type: boolean
+      package_scope:
+        description: Platforms to package (macOS-only is for release-pipeline diagnostics)
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - macos-only
   push:
     tags:
       - "v*"
@@ -53,13 +61,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        if: ${{ inputs.package_scope != 'macos-only' || matrix.source_fbuild == true }}
 
       - uses: actions/setup-node@v5
+        if: ${{ inputs.package_scope != 'macos-only' || matrix.source_fbuild == true }}
         with:
           node-version: 22
           cache: npm
 
       - uses: actions/setup-python@v5
+        if: ${{ inputs.package_scope != 'macos-only' || matrix.source_fbuild == true }}
         with:
           python-version: "3.11"
           cache: pip
@@ -69,21 +80,40 @@ jobs:
             backend/constraints.txt
 
       - name: Install frontend dependencies
+        if: ${{ inputs.package_scope != 'macos-only' || matrix.source_fbuild == true }}
         run: npm ci
 
       - name: Install desktop packaging dependencies
+        if: ${{ inputs.package_scope != 'macos-only' || matrix.source_fbuild == true }}
         run: python -m pip install -r backend/requirements-packaging.txt -c backend/constraints.txt
+
+      - name: Check out tagged fbuild source
+        if: ${{ matrix.source_fbuild == true }}
+        shell: bash
+        env:
+          FBUILD_COMMIT: 66e2cb0b358cf06d30be88241d5cd4ca99ceda2f
+        run: |
+          source_dir="$RUNNER_TEMP/fbuild-v2.5.0"
+          git clone --depth 1 --branch v2.5.0 https://github.com/FastLED/fbuild.git "$source_dir"
+          test "$(git -C "$source_dir" rev-parse HEAD)" = "$FBUILD_COMMIT"
+
+      - name: Cache macOS fbuild compilation
+        if: ${{ matrix.source_fbuild == true }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ${{ runner.temp }}/fbuild-v2.5.0/target
+          key: fbuild-v2.5.0-${{ matrix.id }}-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build working fbuild tools from tagged source
         if: ${{ matrix.source_fbuild == true }}
         shell: bash
         env:
-          FBUILD_COMMIT: 66e2cb0b358cf06d30be88241d5cd4ca99ceda2f
           MACOSX_DEPLOYMENT_TARGET: "12.0"
         run: |
           source_dir="$RUNNER_TEMP/fbuild-v2.5.0"
-          git clone --depth 1 --branch v2.5.0 https://github.com/FastLED/fbuild.git "$source_dir"
-          test "$(git -C "$source_dir" rev-parse HEAD)" = "$FBUILD_COMMIT"
           cargo build \
             --manifest-path "$source_dir/Cargo.toml" \
             --release \
@@ -92,13 +122,16 @@ jobs:
             --package fbuild-daemon
           for tool in fbuild fbuild-daemon; do
             install -m 755 "$source_dir/target/release/$tool" "$(command -v "$tool")"
-            "$tool" --version
+            file "$(command -v "$tool")"
           done
+          fbuild --version
 
       - name: Build and launch-smoke desktop package
+        if: ${{ inputs.package_scope != 'macos-only' || matrix.source_fbuild == true }}
         run: npm run package:desktop
 
       - name: Write archive checksum
+        if: ${{ inputs.package_scope != 'macos-only' || matrix.source_fbuild == true }}
         run: >-
           python -c "from pathlib import Path; import hashlib;
           files = [p for p in Path('release/desktop').glob('FastLED-Studio-*') if p.is_file() and not p.name.endswith('.sha256')];
@@ -107,6 +140,7 @@ jobs:
           p.with_name(p.name + '.sha256').write_text(f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n', encoding='utf-8')"
 
       - name: Upload desktop archive
+        if: ${{ inputs.package_scope != 'macos-only' || matrix.source_fbuild == true }}
         uses: actions/upload-artifact@v4
         with:
           name: fastled-studio-${{ matrix.id }}
