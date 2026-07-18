@@ -36,9 +36,13 @@ jobs:
           - id: windows-x86_64
             label: Windows
             runner: windows-latest
-          - id: macos-native
-            label: macOS
-            runner: macos-latest
+          # fbuild 2.5.0's universal wheel is rejected by the macOS 26 ARM
+          # loader because its native binary links libobjc twice. Build the
+          # portable beta on the supported Intel runner until upstream ships a
+          # corrected ARM binary; Apple Silicon can launch it through Rosetta.
+          - id: macos-x86_64
+            label: macOS (Intel/Rosetta)
+            runner: macos-15-intel
           - id: linux-x86_64
             label: Linux
             runner: ubuntu-22.04
