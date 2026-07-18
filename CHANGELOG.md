@@ -7,6 +7,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ## [Unreleased]
 
+### Fixed
+
+- Check out Git history in the desktop draft-release job before invoking the
+  GitHub CLI to create or update a release.
+
 ## [0.2.0] - 2026-07-17
 
 First public beta.
