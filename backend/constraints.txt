@@ -8,7 +8,7 @@ certifi==2026.6.17
 cffi==2.1.0
 click==8.4.2
 colorama==0.4.6
-cryptography==49.0.0
+cryptography==48.0.0
 esptool==5.3.1
 fastapi==0.139.0
 fbuild==2.5.0

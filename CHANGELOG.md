@@ -7,6 +7,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ## [Unreleased]
 
+### Fixed
+
+- Allow the desktop packaging dependency set to resolve on Intel macOS by
+  keeping `cryptography` below the upper bound required by `esptool 5.3.1`.
+
 ## [0.2.0] - 2026-07-17
 
 First public beta.
