@@ -186,7 +186,7 @@ Useful reports include:
 - the opt-in Matrix Output hardware report plus relevant log tail, photos, or a short video;
 - whether preview behavior matched the physical LEDs.
 
-Open a [GitHub issue](https://github.com/stevenmunn312-tech/FastLED-Studio/issues) for reproducible bugs and validation results. Never include Wi-Fi credentials, private project data, serial numbers you consider sensitive, or unrelated log contents.
+Open a [GitHub issue](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/issues) for reproducible bugs and validation results. Never include Wi-Fi credentials, private project data, serial numbers you consider sensitive, or unrelated log contents.
 
 > LED installations can draw substantial current. Use an appropriately rated supply, fuse and inject power where required, connect grounds correctly, and do not power a large LED load through a microcontroller's regulator or USB connector.
 

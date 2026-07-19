@@ -12,7 +12,7 @@ const TABS: { id: HelpTab; label: string }[] = [
   { id: 'about', label: 'About' },
 ]
 
-const REPO_URL = 'https://github.com/stevenmunn312-tech/FastLED-Studio'
+const REPO_URL = 'https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED'
 
 function AboutTab() {
   return (

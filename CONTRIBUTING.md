@@ -7,7 +7,7 @@ real hardware and filing precise reports.
 
 ## Reporting bugs
 
-Open a [bug report](https://github.com/stevenmunn312-tech/FastLED-Studio/issues/new/choose)
+Open a [bug report](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/issues/new/choose)
 and include:
 
 - your operating system and version, browser and version, and the FastLED

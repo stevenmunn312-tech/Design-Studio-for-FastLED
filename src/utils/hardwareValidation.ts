@@ -489,5 +489,5 @@ export function formatHardwareValidationReport(submission: HardwareValidationSub
 export function hardwareValidationIssueUrl(report: string, profile: HardwareValidationProfile): string {
   const title = `[Beta hardware] ${profile.controller.board} · ${ACTION_LABELS[profile.action]} · ${profile.configurationKey}`
   const query = new URLSearchParams({ title, body: report })
-  return `https://github.com/stevenmunn312-tech/FastLED-Studio/issues/new?${query}`
+  return `https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/issues/new?${query}`
 }
