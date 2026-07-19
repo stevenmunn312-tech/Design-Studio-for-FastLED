@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 420" role="img" aria-labelledby="title desc">
-  <title id="title">FastLED Studio branding</title>
-  <desc id="desc">Transparent FastLED Studio logo lockup with icon, wordmark, and tagline.</desc>
+  <title id="title">Design Studio for FastLED branding</title>
+  <desc id="desc">Transparent Design Studio for FastLED logo lockup with icon, wordmark, and tagline.</desc>
 
   <defs>
     <radialGradient id="led-r" cx="50%" cy="50%" r="50%">
@@ -129,7 +129,7 @@
       letter-spacing="2.5"
       filter="url(#wordmark-glow)"
     >
-      FastLED Studio
+      Design Studio
     </text>
 
     <text

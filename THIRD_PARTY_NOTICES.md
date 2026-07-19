@@ -1,7 +1,7 @@
 # Third-Party Notices
 
 This file tracks the third-party software and asset obligations that matter for
-shipping FastLED Studio's source tree, web bundle, and helper-backed release
+shipping Design Studio for FastLED's source tree, web bundle, and helper-backed release
 artifacts.
 
 The repository's own code and project-authored assets are licensed under
@@ -29,7 +29,7 @@ set. Refresh this file when the lockfile changes in a release-significant way.
 
 ## Essentia.js
 
-- FastLED Studio's Music Library pipeline bundles `essentia.js` for offline
+- Design Studio for FastLED's Music Library pipeline bundles `essentia.js` for offline
   music analysis.
 - The package metadata in `node_modules/essentia.js/package.json` marks it as
   `AGPL-3.0`.
@@ -61,8 +61,8 @@ set. Refresh this file when the lockfile changes in a release-significant way.
 - `public/icon.svg` is the source for the shipped PNG install icons:
   `icon-192.png`, `icon-512.png`, `icon-maskable-192.png`, and
   `icon-maskable-512.png`.
-- `public/fastled-studio-branding.svg`, `public/fastled-studio.svg`,
-  `public/fastled-s.svg`, and `public/fastled-studio-pixel-brand.png` are
+- `public/design-studio-branding.svg`, `public/design-studio-ui.svg`,
+  `public/design-studio-mark.svg`, and `public/design-studio-pixel-brand.png` are
   currently treated as project-authored repository assets with no separate
   third-party attribution file in-tree.
 - If any of those assets are replaced with external artwork, update this file
@@ -92,7 +92,7 @@ set. Refresh this file when the lockfile changes in a release-significant way.
   comply with that license (including its non-commercial/share-alike terms), or
   be covered by separate permission; they must not be treated as MIT merely
   because they live in this repository.
-- FastLED Studio's AnimARTrix node is kept in the isolated `src/animartrix/`
+- Design Studio for FastLED's AnimARTrix node is kept in the isolated `src/animartrix/`
   module under CC BY-NC-SA 4.0. Its initial effect set is Water, Polar Waves,
   RGB Blobs, Spiralus, and Complex Kaleido. The adaptation adds normalized
   matrix coordinates, paired TypeScript/C++ renderers, smoothing, and structural

@@ -7,7 +7,7 @@ const crossOriginIsolationHeaders = {
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Cross-Origin-Embedder-Policy': 'credentialless',
 }
-const namedLocalHosts = ['fastled-studio.localhost', 'fastled-studio.localtest.me']
+const namedLocalHosts = ['design-studio-for-fastled.localhost', 'design-studio-for-fastled.localtest.me']
 
 export default defineConfig(() => {
   const isTest = process.env.VITEST === 'true'
@@ -55,8 +55,8 @@ export default defineConfig(() => {
       !isTest && VitePWA({
         registerType: 'autoUpdate',
         manifest: {
-          name: 'FastLED Studio',
-          short_name: 'FastLED',
+          name: 'Design Studio for FastLED',
+          short_name: 'Design Studio',
           description: 'Node-graph LED effects designer for FastLED microcontrollers',
           theme_color: '#0d0f12',
           background_color: '#0d0f12',

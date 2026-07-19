@@ -16,10 +16,10 @@ def test_default_data_dir_uses_native_user_locations(monkeypatch, tmp_path):
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local"))
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
 
-    assert launcher.default_data_dir("Windows") == tmp_path / "local" / "FastLED Studio"
-    assert launcher.default_data_dir("Linux") == tmp_path / "xdg" / "fastled-studio"
+    assert launcher.default_data_dir("Windows") == tmp_path / "local" / "Design Studio for FastLED"
+    assert launcher.default_data_dir("Linux") == tmp_path / "xdg" / "design-studio-for-fastled"
     assert launcher.default_data_dir("Darwin").parts[-2:] == (
-        "Application Support", "FastLED Studio",
+        "Application Support", "Design Studio for FastLED",
     )
 
 

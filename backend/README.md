@@ -1,4 +1,4 @@
-# FastLED Studio — upload helper
+# Design Studio for FastLED — upload helper
 
 A small local FastAPI service that lets the browser app compile and upload
 sketches to a board over USB. A web page can't run a local program, so the

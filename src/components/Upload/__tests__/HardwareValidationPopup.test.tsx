@@ -48,7 +48,7 @@ describe('HardwareValidationPopup', () => {
 
     expect(submit.disabled).toBe(false)
     fireEvent.click(submit)
-    expect(open).toHaveBeenCalledWith(expect.stringContaining('github.com/stevenmunn312-tech/FastLED-Studio/issues/new'), '_blank', 'noopener,noreferrer')
+    expect(open).toHaveBeenCalledWith(expect.stringContaining('github.com/stevenmunn312-tech/Design-Studio-for-FastLED/issues/new'), '_blank', 'noopener,noreferrer')
     open.mockRestore()
   })
 })

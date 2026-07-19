@@ -11,7 +11,7 @@
 // already-trusted name/id.
 import type { GraphContent } from './graphStore'
 
-const KEY = 'fastled-studio.trusted-pattern-content.v1'
+const KEY = 'design-studio-for-fastled.trusted-pattern-content.v1'
 
 function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalize)

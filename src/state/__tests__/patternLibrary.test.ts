@@ -46,7 +46,7 @@ describe('patternLibrary', () => {
     const saved = usePatternLibrary.getState().patterns
     expect(saved).toHaveLength(1)
     expect(saved[0].name).toBe('Glow')
-    expect(JSON.parse(localStorage.getItem('fastled-studio.pattern-library.v1')!)).toHaveLength(1)
+    expect(JSON.parse(localStorage.getItem('design-studio-for-fastled.pattern-library.v1')!)).toHaveLength(1)
 
     const id = saved[0].id
     usePatternLibrary.getState().renamePattern(id, 'Glow 2')
@@ -54,7 +54,7 @@ describe('patternLibrary', () => {
 
     usePatternLibrary.getState().deletePattern(id)
     expect(usePatternLibrary.getState().patterns).toHaveLength(0)
-    expect(JSON.parse(localStorage.getItem('fastled-studio.pattern-library.v1')!)).toHaveLength(0)
+    expect(JSON.parse(localStorage.getItem('design-studio-for-fastled.pattern-library.v1')!)).toHaveLength(0)
   })
 
   it('can replace an existing pattern with the same name', () => {

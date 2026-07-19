@@ -140,7 +140,7 @@ describe('MenuBar file menu', () => {
     const { getByRole } = render(<MenuBar />)
 
     fireEvent.click(getByRole('button', { name: 'View menu' }))
-    fireEvent.click(getByRole('menuitem', { name: 'ℹ About FastLED Studio' }))
+    fireEvent.click(getByRole('menuitem', { name: 'ℹ About Design Studio for FastLED' }))
 
     expect(useUiStore.getState().helpOpen).toBe(true)
     expect(useUiStore.getState().helpTab).toBe('about')
@@ -436,7 +436,7 @@ describe('MenuBar file menu', () => {
     expect(showSaveFilePicker).toHaveBeenCalledWith(expect.objectContaining({
       suggestedName: 'alpha Copy.fastled-project.json',
       types: [{
-        description: 'FastLED Studio Project',
+        description: 'Design Studio for FastLED Project',
         accept: { 'application/json': ['.fastled-project.json'] },
       }],
     }))

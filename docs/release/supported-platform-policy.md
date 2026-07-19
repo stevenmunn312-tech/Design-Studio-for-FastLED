@@ -1,6 +1,6 @@
 # Supported Platform Policy
 
-This document explains what FastLED Studio's public beta is prepared to support
+This document explains what Design Studio for FastLED's public beta is prepared to support
 versus what is still best-effort or explicitly experimental.
 
 ## Support tiers

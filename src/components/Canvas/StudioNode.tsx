@@ -39,7 +39,7 @@ const MatrixOutputUpload = lazy(() => import('../Upload/MatrixOutputUpload'))
 
 type PortDef = { id: string; label: string; dataType: string }
 
-const PROP_GROUPS_STORAGE_PREFIX = 'fastled-studio.propGroupsOpen.'
+const PROP_GROUPS_STORAGE_PREFIX = 'design-studio-for-fastled.propGroupsOpen.'
 
 // Shows the latest compile/runtime error from a Code node's preview evaluation.
 function CodeError({ nodeId }: { nodeId: string }) {

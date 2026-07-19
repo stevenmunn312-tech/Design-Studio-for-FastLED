@@ -705,7 +705,7 @@ function buildExampleRecipe(node: NodeDefinition): ExampleRecipe {
 
 function buildUseCases(node: NodeDefinition): string[] {
   const primaryOutput = node.outputs[0]?.dataType
-  const primaryUse = NODE_DESCRIPTIONS[node.type] ?? `${node.label} is part of the FastLED Studio graph pipeline.`
+  const primaryUse = NODE_DESCRIPTIONS[node.type] ?? `${node.label} is part of the Design Studio for FastLED graph pipeline.`
   const categoryUseCases: Partial<Record<NodeCategory, string>> = {
     input: 'Use it when the graph needs real device IO — a microphone, button, or knob driving the pattern live.',
     audio: 'Pair it with reactive pattern or math nodes whenever you want sound to drive motion, timing, or colour.',

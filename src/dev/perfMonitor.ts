@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 
-const DEV_PERF_VISIBLE_KEY = 'fastled-studio-dev-perf-visible'
+const DEV_PERF_VISIBLE_KEY = 'design-studio-for-fastled-dev-perf-visible'
 const SAMPLE_WINDOW = 180
 const SNAPSHOT_INTERVAL_MS = 250
 export const FRAME_BUDGET_MS = 1000 / 60

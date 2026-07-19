@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 420" role="img" aria-labelledby="title desc">
-  <title id="title">FastLED Studio UI branding</title>
-  <desc id="desc">Transparent FastLED Studio branding lockup styled to match the app UI.</desc>
+  <title id="title">Design Studio for FastLED UI branding</title>
+  <desc id="desc">Transparent Design Studio for FastLED branding lockup styled to match the app UI.</desc>
 
   <defs>
     <linearGradient id="panel-border" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -81,7 +81,7 @@
         font-weight="800"
         letter-spacing="1.6"
       >
-        FastLED Studio
+        Design Studio
       </text>
 
       <g transform="translate(6 16)">
@@ -104,8 +104,19 @@
           stroke-dasharray="1 0"
         />
 
-
       </g>
+
+      <text
+        x="2"
+        y="80"
+        fill="url(#tagline)"
+        font-family="Inter, Segoe UI, Arial, sans-serif"
+        font-size="30"
+        font-weight="600"
+        letter-spacing="1.2"
+      >
+        for FastLED
+      </text>
     </g>
   </g>
 </svg>

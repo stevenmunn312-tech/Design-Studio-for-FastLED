@@ -222,7 +222,7 @@ export default function MenuBar() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `fastled-studio-${Date.now()}.json`
+    a.download = `design-studio-for-fastled-${Date.now()}.json`
     a.click()
     URL.revokeObjectURL(url)
     setStatus('Graph JSON exported', 'success')
@@ -513,7 +513,7 @@ export default function MenuBar() {
           aria-hidden="true"
         />
         <div className={styles.brandCopy}>
-          <span className={styles.title}>FastLED Studio</span>
+          <span className={styles.title}>Design Studio for FastLED</span>
           <span className={styles.subtitle}>Lighting console</span>
         </div>
       </div>
@@ -670,7 +670,7 @@ export default function MenuBar() {
                 onClick={() => { closeMenus(); setHelpTab('about'); openHelp() }}
                 title="Version, license, and credits"
               >
-                ℹ About FastLED Studio
+                ℹ About Design Studio for FastLED
               </button>
             </div>
           </>

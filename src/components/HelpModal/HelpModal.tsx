@@ -12,13 +12,13 @@ const TABS: { id: HelpTab; label: string }[] = [
   { id: 'about', label: 'About' },
 ]
 
-const REPO_URL = 'https://github.com/stevenmunn312-tech/FastLED-Studio'
+const REPO_URL = 'https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED'
 
 function AboutTab() {
   return (
     <>
       <div className={styles.section}>
-        <div className={styles.sectionTitle}>FastLED Studio</div>
+        <div className={styles.sectionTitle}>Design Studio for FastLED</div>
         <div className={styles.text}>
           <strong>Version {__APP_VERSION__}</strong> · public beta
         </div>
@@ -374,7 +374,7 @@ export default function HelpModal() {
     <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) closeHelp() }}>
       <div className={styles.modal} role="dialog" aria-label="Help" aria-modal="true">
         <div className={styles.header}>
-          <span className={styles.title}>FastLED Studio — Help</span>
+          <span className={styles.title}>Design Studio for FastLED — Help</span>
           <button className={styles.closeBtn} onClick={closeHelp} title="Close (Esc)">×</button>
         </div>
 

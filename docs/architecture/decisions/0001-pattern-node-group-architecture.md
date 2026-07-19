@@ -6,7 +6,7 @@
 
 ## Context
 
-FastLED Studio lets users wire nodes on a canvas to design an LED effect, see a
+Design Studio for FastLED lets users wire nodes on a canvas to design an LED effect, see a
 live preview, and generate FastLED C++ firmware. As the node set grows we need a
 clear answer to two questions that shape everything downstream:
 

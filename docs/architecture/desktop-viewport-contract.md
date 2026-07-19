@@ -1,6 +1,6 @@
 # Desktop Viewport Contract
 
-FastLED Studio is a desktop-first app. The supported viewport contract for the
+Design Studio for FastLED is a desktop-first app. The supported viewport contract for the
 public beta is:
 
 - **Target viewport:** `1440 × 900` or larger

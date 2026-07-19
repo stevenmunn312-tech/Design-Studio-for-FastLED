@@ -49,38 +49,38 @@ describe('uiStore.setStatus auto-clear', () => {
   it('sets preview style and persists the preference', () => {
     useUiStore.getState().setPreviewStyle('neon')
     expect(useUiStore.getState().previewStyle).toBe('neon')
-    expect(localStorage.getItem('fastled-studio-preview-style')).toBe('"neon"')
+    expect(localStorage.getItem('design-studio-for-fastled-preview-style')).toBe('"neon"')
 
     useUiStore.getState().setPreviewStyle('crt')
     expect(useUiStore.getState().previewStyle).toBe('crt')
-    expect(localStorage.getItem('fastled-studio-preview-style')).toBe('"crt"')
+    expect(localStorage.getItem('design-studio-for-fastled-preview-style')).toBe('"crt"')
   })
 
   it('cycles preview style and persists the next value', () => {
     useUiStore.getState().setPreviewStyle('soft')
     useUiStore.getState().cyclePreviewStyle()
     expect(useUiStore.getState().previewStyle).toBe('dreamy')
-    expect(localStorage.getItem('fastled-studio-preview-style')).toBe('"dreamy"')
+    expect(localStorage.getItem('design-studio-for-fastled-preview-style')).toBe('"dreamy"')
   })
 
   it('sets the spectrum visualizer and persists the preference', () => {
     useUiStore.getState().setSpectrumVisualizerMode('orbit')
     expect(useUiStore.getState().spectrumVisualizerMode).toBe('orbit')
-    expect(localStorage.getItem('fastled-studio-spectrum-visualizer')).toBe('"orbit"')
+    expect(localStorage.getItem('design-studio-for-fastled-spectrum-visualizer')).toBe('"orbit"')
 
     useUiStore.getState().setSpectrumVisualizerMode('auto')
     expect(useUiStore.getState().spectrumVisualizerMode).toBe('auto')
-    expect(localStorage.getItem('fastled-studio-spectrum-visualizer')).toBe('"auto"')
+    expect(localStorage.getItem('design-studio-for-fastled-spectrum-visualizer')).toBe('"auto"')
   })
 
   it('persists the last start choice', () => {
     useUiStore.getState().setLastStartChoice('blank')
     expect(useUiStore.getState().lastStartChoice).toBe('blank')
-    expect(localStorage.getItem('fastled-studio-last-start-choice')).toBe('"blank"')
+    expect(localStorage.getItem('design-studio-for-fastled-last-start-choice')).toBe('"blank"')
 
     useUiStore.getState().setLastStartChoice('audio-spectrum')
     expect(useUiStore.getState().lastStartChoice).toBe('audio-spectrum')
-    expect(localStorage.getItem('fastled-studio-last-start-choice')).toBe('"audio-spectrum"')
+    expect(localStorage.getItem('design-studio-for-fastled-last-start-choice')).toBe('"audio-spectrum"')
   })
 
   it('enters and exits stage mode without persisting it across sessions', () => {

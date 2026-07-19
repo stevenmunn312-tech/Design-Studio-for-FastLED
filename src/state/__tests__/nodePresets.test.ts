@@ -26,7 +26,7 @@ describe('nodePresets', () => {
     expect(saved?.properties).not.toHaveProperty('font')
     expect(saved?.properties).not.toHaveProperty('globalCode')
     expect(saved?.properties).not.toHaveProperty('image')
-    expect(JSON.parse(localStorage.getItem('fastled-studio.node-presets.v1') ?? '[]')).toHaveLength(1)
+    expect(JSON.parse(localStorage.getItem('design-studio-for-fastled.node-presets.v1') ?? '[]')).toHaveLength(1)
   })
 
   it('randomizes slider and select values inside their metadata bounds', () => {

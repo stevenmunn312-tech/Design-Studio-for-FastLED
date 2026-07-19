@@ -1,5 +1,5 @@
 /*
- * FastLED Studio AnimARTrix integration
+ * Design Studio for FastLED AnimARTrix integration
  * SPDX-License-Identifier: CC-BY-NC-SA-4.0
  *
  * Generated visual mathematics adapted from AnimARTrix by Stefan Petrick.

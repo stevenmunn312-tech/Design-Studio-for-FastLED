@@ -51,7 +51,7 @@ const minimapNodeColor = (n: Node) =>
 
 // Persist the canvas pan/zoom so a reload restores the same view instead of
 // re-fitting to the nodes (which reads as the view "jumping").
-const VIEWPORT_KEY = 'fastled-studio-viewport'
+const VIEWPORT_KEY = 'design-studio-for-fastled-viewport'
 function loadViewport(): Viewport | null {
   try { const v = localStorage.getItem(VIEWPORT_KEY); return v ? (JSON.parse(v) as Viewport) : null } catch { return null }
 }

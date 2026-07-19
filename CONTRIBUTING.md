@@ -1,13 +1,13 @@
-# Contributing to FastLED Studio
+# Contributing to Design Studio for FastLED
 
-Thanks for helping test FastLED Studio! The project is in **public beta**: the
+Thanks for helping test Design Studio for FastLED! The project is in **public beta**: the
 feature set is broad, but the support promise is deliberately narrow and the
 file formats are not final. The fastest way to help right now is testing on
 real hardware and filing precise reports.
 
 ## Reporting bugs
 
-Open a [bug report](https://github.com/stevenmunn312-tech/FastLED-Studio/issues/new/choose)
+Open a [bug report](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/issues/new/choose)
 and include:
 
 - your operating system and version, browser and version, and the FastLED

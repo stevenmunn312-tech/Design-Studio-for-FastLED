@@ -1,4 +1,4 @@
-"""Self-contained FastLED Studio desktop launcher.
+"""Self-contained Design Studio for FastLED desktop launcher.
 
 The frozen distribution serves the production Vite build and the existing
 FastAPI upload helper from one localhost process, then opens the user's default
@@ -43,11 +43,11 @@ def default_data_dir(system: str | None = None) -> Path:
     name = system or platform.system()
     if name == "Windows":
         base = Path(os.environ.get("LOCALAPPDATA") or (Path.home() / "AppData" / "Local"))
-        return base / "FastLED Studio"
+        return base / "Design Studio for FastLED"
     if name == "Darwin":
-        return Path.home() / "Library" / "Application Support" / "FastLED Studio"
+        return Path.home() / "Library" / "Application Support" / "Design Studio for FastLED"
     base = Path(os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local" / "share"))
-    return base / "fastled-studio"
+    return base / "design-studio-for-fastled"
 
 
 def configure_environment(data_dir: Path | None = None) -> Path:
@@ -145,15 +145,15 @@ def main() -> int:
             webbrowser.open(f"http://localhost:{port}/")
         return 0
     if not _port_available(port):
-        print(f"FastLED Studio cannot start because localhost port {port} is already in use.", file=sys.stderr)
-        print("Close the other upload-helper process and launch FastLED Studio again.", file=sys.stderr)
+        print(f"Design Studio for FastLED cannot start because localhost port {port} is already in use.", file=sys.stderr)
+        print("Close the other upload-helper process and launch Design Studio for FastLED again.", file=sys.stderr)
         return 2
 
     data = configure_environment()
     app = create_app()
     threading.Thread(target=_open_when_ready, args=(port,), daemon=True).start()
 
-    print("FastLED Studio is starting in your browser.")
+    print("Design Studio for FastLED is starting in your browser.")
     print(f"Local address: http://localhost:{port}/")
     print(f"User data:     {data}")
     print("Keep this window open while using the Studio; press Ctrl+C to stop it.")

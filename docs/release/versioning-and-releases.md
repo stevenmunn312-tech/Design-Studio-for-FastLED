@@ -1,6 +1,6 @@
 # Versioning and Releases
 
-FastLED Studio is pre-1.0 and uses semantic versioning with the usual
+Design Studio for FastLED is pre-1.0 and uses semantic versioning with the usual
 pre-release caution: while the project remains below `1.0.0`, compatibility can
 still move quickly.
 

@@ -1,12 +1,12 @@
-# FastLED Studio
+# Design Studio for FastLED
 
 Design LED animations as a live node graph, watch them move on a virtual matrix, then send the same patch to FastLED hardware.
 
 **Public beta · 144 nodes · 20 included audio-reactive patterns · Windows/macOS/Linux packaging · MIT core**
 
-![FastLED Studio overview](docs/images/readme/fastled-studio-overview.png)
+![Design Studio for FastLED overview](docs/images/readme/design-studio-overview.png)
 
-FastLED Studio is a visual authoring environment for LED strips, matrices, and tiled panels. Drag in generators, signals, palettes, effects, audio analysis, and hardware output; connect matching ports; and tune every control while the main preview and node previews run live.
+Design Studio for FastLED is a visual authoring environment for LED strips, matrices, and tiled panels. Drag in generators, signals, palettes, effects, audio analysis, and hardware output; connect matching ports; and tune every control while the main preview and node previews run live.
 
 > **Beta hardware testers wanted.** If you have an ESP32-family board, an Arduino, a Pico, an unusual LED chipset, tiled panels, or an audio setup, see [Help test the beta](#help-test-the-beta). Reports from real wiring are the fastest way to turn experimental combinations into supported ones.
 
@@ -16,7 +16,7 @@ FastLED Studio is a visual authoring environment for LED strips, matrices, and t
 
 | Build and preview a patch | Browse reusable patterns |
 |---|---|
-| ![A patch driving the live LED preview](docs/images/readme/fastled-studio-patch.png) | ![Pattern Library with included audio-reactive patterns](docs/images/readme/fastled-studio-pattern-library.png) |
+| ![A patch driving the live LED preview](docs/images/readme/design-studio-patch.png) | ![Pattern Library with included audio-reactive patterns](docs/images/readme/design-studio-pattern-library.png) |
 
 ### Perform in Stage Mode
 
@@ -24,7 +24,7 @@ Press **Stage** or **F10** to turn the workspace into a focused performance view
 
 The shot below is a generated show playing a lava-coloured pattern while its analyzed audio track drives the spectrum display.
 
-![Stage Mode playing a generated show with the live spectrum analyzer](docs/images/readme/fastled-studio-stage.png)
+![Stage Mode playing a generated show with the live spectrum analyzer](docs/images/readme/design-studio-stage.png)
 
 ## Your first five minutes
 
@@ -80,13 +80,13 @@ The old **My Patterns** rack is now the **Pattern Library**:
 - Click a pattern to place it near the center of the canvas, drag it to position it, or drag it directly onto a Pattern Collection.
 - The optional local helper mirrors user patterns as shareable JSON files in its per-user `My Patterns` data folder. Included beta patterns are bundled with the application and are not written over your files.
 
-![Pattern Library shelves](docs/images/readme/fastled-studio-pattern-library.png)
+![Pattern Library shelves](docs/images/readme/design-studio-pattern-library.png)
 
 ## Install and run
 
 ### Portable desktop beta
 
-When a release archive is available for your operating system, extract it and launch **FastLED Studio** (`FastLED Studio.exe` on Windows). The portable package includes the Studio, upload helper, fbuild, and esptool; users do not need to install Node.js or Python.
+When a release archive is available for your operating system, extract it and launch **Design Studio for FastLED** (`Design Studio for FastLED.exe` on Windows). The portable package includes the Studio, upload helper, fbuild, and esptool; users do not need to install Node.js or Python.
 
 The browser opens automatically. Keep the launcher window open while using hardware, project-file, and Pattern Library disk features. Packaging details are in [Desktop distribution](docs/release/desktop-distribution.md).
 
@@ -95,8 +95,8 @@ The browser opens automatically. Keep the launcher window open while using hardw
 1. Install [Node.js](https://nodejs.org) LTS. Install [Python 3](https://python.org) as well if you want local upload features.
 2. Clone or download this repository.
 3. Launch it:
-   - **Windows:** double-click `Start FastLED Studio.bat`
-   - **macOS:** double-click `Start FastLED Studio.command`; on first use, right-click it and choose **Open**
+   - **Windows:** double-click `Start Design Studio for FastLED.bat`
+   - **macOS:** double-click `Start Design Studio for FastLED.command`; on first use, right-click it and choose **Open**
    - **Linux:** run `./start.sh`
 
 For development:
@@ -110,7 +110,7 @@ The first source launch installs dependencies and can take a few minutes. Withou
 
 ## Security messages you may see
 
-FastLED Studio is in beta and the direct-download desktop packages are not yet code-signed or notarized.
+Design Studio for FastLED is in beta and the direct-download desktop packages are not yet code-signed or notarized.
 
 - **Windows SmartScreen:** Windows may show **Windows protected your PC** or **Unknown publisher**. Only continue with **More info → Run anyway** when the archive came from this repository's official release page and you expected to run it. Do not disable SmartScreen system-wide.
 - **macOS Gatekeeper:** macOS may say the application cannot be opened because the developer cannot be verified. For an official beta archive, right-click the application and choose **Open** to make the one-time exception. Do not remove Gatekeeper globally.
@@ -133,7 +133,7 @@ The empty-canvas launcher and **✦ Start** gallery include Rainbow Sweep, Fire,
 
 ## Complete node catalogue
 
-FastLED Studio currently ships **144 nodes**. The in-app **Help → Node Reference** is authoritative and explains each one in depth.
+Design Studio for FastLED currently ships **144 nodes**. The in-app **Help → Node Reference** is authoritative and explains each one in depth.
 
 <details>
 <summary><strong>Show all nodes by category</strong></summary>
@@ -179,14 +179,14 @@ The current support promise is deliberately narrower than the feature list. Befo
 
 Useful reports include:
 
-- operating system and FastLED Studio version;
+- operating system and Design Studio for FastLED version;
 - exact board, LED chipset, matrix/strip dimensions, color order, pins, and power arrangement;
 - layout type: strip, serpentine matrix, tiled panels, or custom XY map;
 - build engine (`fbuild` or `arduino-cli`) and whether compile, wiring test, upload, live stream, mic audio, and SD playback succeeded;
 - the opt-in Matrix Output hardware report plus relevant log tail, photos, or a short video;
 - whether preview behavior matched the physical LEDs.
 
-Open a [GitHub issue](https://github.com/stevenmunn312-tech/FastLED-Studio/issues) for reproducible bugs and validation results. Never include Wi-Fi credentials, private project data, serial numbers you consider sensitive, or unrelated log contents.
+Open a [GitHub issue](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/issues) for reproducible bugs and validation results. Never include Wi-Fi credentials, private project data, serial numbers you consider sensitive, or unrelated log contents.
 
 > LED installations can draw substantial current. Use an appropriately rated supply, fuse and inject power where required, connect grounds correctly, and do not power a large LED load through a microcontroller's regulator or USB connector.
 
@@ -209,10 +209,10 @@ npm run package:desktop
 
 ## Credits and licensing
 
-FastLED Studio's core is MIT licensed. See [LICENSE](LICENSE), [third-party notices](THIRD_PARTY_NOTICES.md), and the [changelog](CHANGELOG.md).
+Design Studio for FastLED's core is MIT licensed. See [LICENSE](LICENSE), [third-party notices](THIRD_PARTY_NOTICES.md), and the [changelog](CHANGELOG.md).
 
 Offline music analysis uses [Essentia](http://essentia.upf.edu). **Color Trails** is adapted from prototype work by [Stefan Petrick](https://github.com/StefanPetrick), creator of [AnimARTrix](https://github.com/StefanPetrick/animartrix). The separately licensed **AnimARTrix** integration preserves Stefan's credit and CC BY-NC-SA 4.0 terms in [its license](src/animartrix/LICENSE.md).
 
-FastLED Studio is an independent, community project. It generates code that targets the [FastLED](https://github.com/FastLED/FastLED) library but is not affiliated with, endorsed by, or sponsored by the FastLED project or its maintainers. "FastLED" is used here only to describe compatibility with that library.
+Design Studio for FastLED is an independent, community project. It generates code that targets the [FastLED](https://github.com/FastLED/FastLED) library but is not affiliated with, endorsed by, or sponsored by the FastLED project or its maintainers. "FastLED" is used here only to describe compatibility with that library.
 
 Release references: [supported-platform policy](docs/release/supported-platform-policy.md) · [versioning and releases](docs/release/versioning-and-releases.md) · [desktop distribution](docs/release/desktop-distribution.md)

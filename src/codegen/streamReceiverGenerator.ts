@@ -46,7 +46,7 @@ export function generateStreamReceiverSketch(nodes: StudioNode[]): string | null
   const hw = ledHardwareFromProps(p)
 
   const lines: string[] = []
-  lines.push('// FastLED Studio — generic live-stream receiver (Adalight protocol).')
+  lines.push('// Design Studio for FastLED — generic live-stream receiver (Adalight protocol).')
   lines.push('// Flash this once; the studio then pushes frames over serial at runtime')
   lines.push('// via the ✎ Live Stream control on the MatrixOutput node. Re-flash only if')
   lines.push('// the matrix size, chipset, pins, or serpentine wiring change.')

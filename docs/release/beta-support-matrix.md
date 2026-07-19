@@ -1,6 +1,6 @@
 # Beta Support Matrix
 
-FastLED Studio is still pre-release. For the public beta, a combination only
+Design Studio for FastLED is still pre-release. For the public beta, a combination only
 counts as **supported** when the repo contains a recorded validation note for
 the exact environment and path that were exercised. Everything else stays
 **experimental** until the record is expanded.

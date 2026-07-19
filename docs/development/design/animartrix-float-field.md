@@ -11,7 +11,7 @@ pipeline that the current node graph cannot express:
    math — trig, polar conversions, distance functions, warps.
 2. Feed that value through a **palette lookup** to get the final colour.
 
-FastLED Studio's current model goes **frame generators → frame → composites → output**.
+Design Studio for FastLED's current model goes **frame generators → frame → composites → output**.
 There is no intermediate scalar layer. A user who pastes a typical ANIMartRIX snippet
 into `CustomFormula` immediately hits two gaps:
 

@@ -154,7 +154,7 @@ export async function exportShowPackage(
   zipEntries.push({
     name: 'README.txt',
     data: enc.encode(
-      'FastLED Studio — Music-Sync SD Card Package\n' +
+      'Design Studio for FastLED — Music-Sync SD Card Package\n' +
       '=============================================\n\n' +
       '1. Copy the /music/ folder to your SD card root\n' +
       '   (rename each .mp3.PLACE_HERE → actual .mp3 file)\n' +

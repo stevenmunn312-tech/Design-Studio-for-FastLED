@@ -123,7 +123,7 @@ jobs:
       - name: Write archive checksum
         run: >-
           python -c "from pathlib import Path; import hashlib;
-          files = [p for p in Path('release/desktop').glob('FastLED-Studio-*') if p.is_file() and not p.name.endswith('.sha256')];
+          files = [p for p in Path('release/desktop').glob('DesignStudioForFastLED-*') if p.is_file() and not p.name.endswith('.sha256')];
           assert len(files) == 1, f'expected one archive, found: {files}';
           p = files[0];
           p.with_name(p.name + '.sha256').write_text(f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n', encoding='utf-8')"
@@ -131,9 +131,9 @@ jobs:
       - name: Upload desktop archive
         uses: actions/upload-artifact@v4
         with:
-          name: fastled-studio-${{ matrix.target }}
+          name: design-studio-for-fastled-${{ matrix.target }}
           path: |
-            release/desktop/FastLED-Studio-*
+            release/desktop/DesignStudioForFastLED-*
           if-no-files-found: error
           retention-days: 7
 
@@ -154,7 +154,7 @@ jobs:
 
       - uses: actions/download-artifact@v5
         with:
-          pattern: fastled-studio-*
+          pattern: design-studio-for-fastled-*
           path: release-assets
           merge-multiple: true
 
@@ -174,7 +174,7 @@ jobs:
           else
             gh release create "$RELEASE_TAG" "${assets[@]}" \
               --target "$GITHUB_SHA" \
-              --title "FastLED Studio ${RELEASE_TAG#v}" \
+              --title "Design Studio for FastLED ${RELEASE_TAG#v}" \
               --generate-notes \
               --draft \
               --prerelease
