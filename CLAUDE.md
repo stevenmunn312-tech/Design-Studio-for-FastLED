@@ -22,13 +22,6 @@ the project ships and real users have saved work, revisit this note.
 
 ## Git workflow (this repo) — keep it simple
 
-### Active GitHub hold
-
-Do not push commits or make any other GitHub-side changes (including pull
-requests, issues, releases, or repository settings) until the user explicitly
-says this hold is lifted. Local commits are still allowed when requested. This
-temporary hold overrides the routine push permission below.
-
 This is a solo, single-branch project. **These instructions override the global
 cortex / strict-git rules for this repository.**
 
@@ -69,7 +62,7 @@ npx vitest run -t "cycle"                                   # tests matching a n
 
 Tests use vitest with `globals: true` and the `jsdom` environment (configured in `vite.config.ts`, not a separate vitest config). The same three gates — `lint`, `test`, `build` — run in CI on every PR via `.github/workflows/ci.yml`.
 
-Backend helper Python deps are pinned: `backend/requirements.txt` / `backend/requirements-dev.txt` hold the direct versions, `backend/constraints.txt` locks the full transitive graph, and CI validates fresh installs on Windows/macOS/Linux before running `backend/tests`. See `backend/DEPENDENCIES.md` for the refresh procedure.
+Backend helper Python deps are pinned: `backend/requirements.txt` / `backend/requirements-dev.txt` hold the direct versions, and `backend/constraints.txt` locks the full transitive graph. Regular CI runs `backend/tests` on Linux; the separate `Backend Dependency Compatibility` workflow validates fresh installs on Windows/macOS/Linux when a requirements or constraints file changes, and it can also be dispatched manually. See `backend/DEPENDENCIES.md` for the refresh procedure.
 
 The repo-wrapped npm scripts invoke Node with `--disable-warning=DEP0040` to suppress an upstream transitive `punycode` deprecation from current tooling. If you run `npx vite` / `npx vitest` directly instead of the package scripts, you may still see that warning.
 

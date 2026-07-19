@@ -3,7 +3,23 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - ".docs/**"
+      - "docs/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - "LICENSE"
   pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - ".docs/**"
+      - "docs/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - "LICENSE"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -36,27 +52,3 @@ jobs:
       - run: pip install -r backend/requirements-dev.txt -c backend/constraints.txt
 
       - run: pytest backend/tests
-
-  backend-install:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - run: pip install -r backend/requirements.txt -c backend/constraints.txt
-
-      - run: pip install -r backend/requirements-dev.txt -c backend/constraints.txt
-
-      - run: pip install -r backend/requirements-packaging.txt -c backend/constraints.txt
-
-      - run: pip check
-
-      - run: python -c "import esptool, fastapi, httpx, multipart, pytest, serial, uvicorn, PyInstaller; print('backend + packaging deps ok')"
-

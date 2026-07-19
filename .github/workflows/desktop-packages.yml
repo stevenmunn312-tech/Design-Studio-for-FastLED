@@ -14,13 +14,17 @@ on:
         default: false
         type: boolean
       package_scope:
-        description: Platforms to package (macOS-only is for release-pipeline diagnostics)
+        description: Platforms to package
         required: true
-        default: all
+        default: windows-only
         type: choice
         options:
           - all
+          - windows-only
+          - macos-arm64-only
+          - macos-intel-only
           - macos-only
+          - linux-only
   push:
     tags:
       - "v*"
@@ -30,47 +34,27 @@ permissions:
 
 concurrency:
   group: desktop-packages-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'workflow_dispatch' }}
 
 jobs:
   package:
-    name: Package ${{ matrix.label }}
-    runs-on: ${{ matrix.runner }}
+    name: Package ${{ matrix.target }}
+    runs-on: ${{ matrix.target == 'windows-x86_64' && 'windows-latest' || matrix.target == 'macos-arm64' && 'macos-15' || matrix.target == 'macos-x86_64' && 'macos-15-intel' || 'ubuntu-22.04' }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - id: windows-x86_64
-            label: Windows
-            runner: windows-latest
-          # fbuild 2.5.0's universal wheel contains unusable macOS executables:
-          # dyld rejects the ARM binary and the Intel host receives the wrong
-          # CPU slice. The tagged source build below replaces both wheel tools.
-          - id: macos-arm64
-            label: macOS (Apple Silicon)
-            runner: macos-15
-            source_fbuild: true
-          - id: macos-x86_64
-            label: macOS (Intel/Rosetta)
-            runner: macos-15-intel
-            source_fbuild: true
-          - id: linux-x86_64
-            label: Linux
-            runner: ubuntu-22.04
+        target: ${{ fromJSON(inputs.package_scope == 'windows-only' && '["windows-x86_64"]' || inputs.package_scope == 'macos-arm64-only' && '["macos-arm64"]' || inputs.package_scope == 'macos-intel-only' && '["macos-x86_64"]' || inputs.package_scope == 'macos-only' && '["macos-arm64","macos-x86_64"]' || inputs.package_scope == 'linux-only' && '["linux-x86_64"]' || '["windows-x86_64","macos-arm64","macos-x86_64","linux-x86_64"]') }}
 
     steps:
       - uses: actions/checkout@v5
-        if: ${{ inputs.package_scope != 'macos-only' || matrix.source_fbuild == true }}
 
       - uses: actions/setup-node@v5
-        if: ${{ inputs.package_scope != 'macos-only' || matrix.source_fbuild == true }}
         with:
           node-version: 22
           cache: npm
 
       - uses: actions/setup-python@v5
-        if: ${{ inputs.package_scope != 'macos-only' || matrix.source_fbuild == true }}
         with:
           python-version: "3.11"
           cache: pip
@@ -80,15 +64,26 @@ jobs:
             backend/constraints.txt
 
       - name: Install frontend dependencies
-        if: ${{ inputs.package_scope != 'macos-only' || matrix.source_fbuild == true }}
         run: npm ci
 
       - name: Install desktop packaging dependencies
-        if: ${{ inputs.package_scope != 'macos-only' || matrix.source_fbuild == true }}
         run: python -m pip install -r backend/requirements-packaging.txt -c backend/constraints.txt
 
+      # fbuild 2.5.0's universal wheel contains unusable macOS executables:
+      # dyld rejects the ARM binary and the Intel host receives the wrong CPU
+      # slice. Cache the known-good source-built tools per architecture.
+      - name: Restore source-built macOS fbuild tools
+        id: fbuild-cache
+        if: ${{ startsWith(matrix.target, 'macos-') }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.temp }}/fbuild-v2.5.0/target/release/fbuild
+            ${{ runner.temp }}/fbuild-v2.5.0/target/release/fbuild-daemon
+          key: fbuild-v2.5.0-${{ matrix.target }}-66e2cb0b358cf06d30be88241d5cd4ca99ceda2f
+
       - name: Check out tagged fbuild source
-        if: ${{ matrix.source_fbuild == true }}
+        if: ${{ startsWith(matrix.target, 'macos-') && steps.fbuild-cache.outputs.cache-hit != 'true' }}
         shell: bash
         env:
           FBUILD_COMMIT: 66e2cb0b358cf06d30be88241d5cd4ca99ceda2f
@@ -97,18 +92,8 @@ jobs:
           git clone --depth 1 --branch v2.5.0 https://github.com/FastLED/fbuild.git "$source_dir"
           test "$(git -C "$source_dir" rev-parse HEAD)" = "$FBUILD_COMMIT"
 
-      - name: Cache macOS fbuild compilation
-        if: ${{ matrix.source_fbuild == true }}
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            ${{ runner.temp }}/fbuild-v2.5.0/target
-          key: fbuild-v2.5.0-${{ matrix.id }}-${{ hashFiles('**/Cargo.lock') }}
-
       - name: Build working fbuild tools from tagged source
-        if: ${{ matrix.source_fbuild == true }}
+        if: ${{ startsWith(matrix.target, 'macos-') && steps.fbuild-cache.outputs.cache-hit != 'true' }}
         shell: bash
         env:
           MACOSX_DEPLOYMENT_TARGET: "12.0"
@@ -120,6 +105,12 @@ jobs:
             --locked \
             --package fbuild-cli \
             --package fbuild-daemon
+
+      - name: Install source-built macOS fbuild tools
+        if: ${{ startsWith(matrix.target, 'macos-') }}
+        shell: bash
+        run: |
+          source_dir="$RUNNER_TEMP/fbuild-v2.5.0"
           for tool in fbuild fbuild-daemon; do
             install -m 755 "$source_dir/target/release/$tool" "$(command -v "$tool")"
             file "$(command -v "$tool")"
@@ -127,11 +118,9 @@ jobs:
           fbuild --version
 
       - name: Build and launch-smoke desktop package
-        if: ${{ inputs.package_scope != 'macos-only' || matrix.source_fbuild == true }}
         run: npm run package:desktop
 
       - name: Write archive checksum
-        if: ${{ inputs.package_scope != 'macos-only' || matrix.source_fbuild == true }}
         run: >-
           python -c "from pathlib import Path; import hashlib;
           files = [p for p in Path('release/desktop').glob('FastLED-Studio-*') if p.is_file() and not p.name.endswith('.sha256')];
@@ -140,14 +129,13 @@ jobs:
           p.with_name(p.name + '.sha256').write_text(f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n', encoding='utf-8')"
 
       - name: Upload desktop archive
-        if: ${{ inputs.package_scope != 'macos-only' || matrix.source_fbuild == true }}
         uses: actions/upload-artifact@v4
         with:
-          name: fastled-studio-${{ matrix.id }}
+          name: fastled-studio-${{ matrix.target }}
           path: |
             release/desktop/FastLED-Studio-*
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 7
 
   draft-release:
     name: Assemble draft pre-release
