@@ -1,12 +1,12 @@
 @echo off
-rem FastLED Studio launcher (Windows).
+rem Design Studio for FastLED launcher (Windows).
 rem
 rem Sets everything up on first run -- app dependencies, the Python upload
 rem helper, a production build -- then serves the app and opens your browser.
 rem Double-click it again any time; completed steps are skipped.
 setlocal
 cd /d "%~dp0"
-title FastLED Studio
+title Design Studio for FastLED
 
 rem ---- Node.js --------------------------------------------------------------
 where node >nul 2>nul
@@ -95,7 +95,7 @@ if not exist dist\index.html set "NEEDBUILD=1"
 if not "%WANT%"=="no-git" if not "%WANT%"=="%HAVE%" set "NEEDBUILD=1"
 if not defined NEEDBUILD goto :run
 echo.
-echo == Building FastLED Studio...
+echo == Building Design Studio for FastLED...
 call npm run build
 if errorlevel 1 goto :buildfail
 >dist\.build-stamp echo %WANT%
@@ -103,7 +103,7 @@ if errorlevel 1 goto :buildfail
 rem ---- Run --------------------------------------------------------------------
 :run
 echo.
-echo == Starting FastLED Studio - your browser will open in a moment.
+echo == Starting Design Studio for FastLED - your browser will open in a moment.
 echo    Keep this window open while you use the app; close it to quit.
 call npm run preview -- --open
 pause

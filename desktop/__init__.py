@@ -1,1 +1,1 @@
-"""Desktop distribution tooling for FastLED Studio."""
+"""Desktop distribution tooling for Design Studio for FastLED."""

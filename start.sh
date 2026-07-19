@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# FastLED Studio launcher (macOS / Linux).
+# Design Studio for FastLED launcher (macOS / Linux).
 #
 # Sets everything up on first run — app dependencies, the Python upload
 # helper, a production build — then serves the app and opens your browser.
 # Run it again any time; completed steps are skipped.
 #
-# macOS users: double-click "Start FastLED Studio.command" instead (it runs
+# macOS users: double-click "Start Design Studio for FastLED.command" instead (it runs
 # this script). Linux users: ./start.sh
 set -u
 
@@ -70,12 +70,12 @@ fi
 WANT=$(git rev-parse HEAD 2>/dev/null || echo no-git)
 HAVE=$(cat dist/.build-stamp 2>/dev/null || echo none)
 if [ ! -f dist/index.html ] || { [ "$WANT" != no-git ] && [ "$WANT" != "$HAVE" ]; }; then
-  say 'Building FastLED Studio...'
+  say 'Building Design Studio for FastLED...'
   npm run build || fail 'Build failed — check the log above.'
   printf '%s\n' "$WANT" > dist/.build-stamp
 fi
 
 # ---- Run -------------------------------------------------------------------
-say 'Starting FastLED Studio — your browser will open in a moment.'
+say 'Starting Design Studio for FastLED — your browser will open in a moment.'
 echo '   Keep this window open while you use the app; press Ctrl+C here to quit.'
 npm run preview -- --open

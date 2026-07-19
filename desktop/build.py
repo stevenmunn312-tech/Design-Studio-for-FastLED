@@ -1,4 +1,4 @@
-"""Build a portable, self-contained FastLED Studio desktop bundle."""
+"""Build a portable, self-contained Design Studio for FastLED desktop bundle."""
 from __future__ import annotations
 
 import argparse
@@ -18,7 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 BUILD_ROOT = ROOT / ".desktop-build"
 RELEASE_ROOT = ROOT / "release" / "desktop"
-APP_NAME = "FastLED Studio"
+APP_NAME = "Design Studio for FastLED"
 
 
 def run(args: list[str], *, cwd: Path = ROOT) -> None:
@@ -203,7 +203,7 @@ def smoke_test(app_dir: Path) -> None:
                     if (
                         status.get("desktop") is True
                         and status.get("version") == expected_version
-                        and "FastLED Studio" in page
+                        and "Design Studio for FastLED" in page
                         and coop == "same-origin"
                         and coep == "credentialless"
                         and health.get("fbuild") is True
@@ -225,7 +225,7 @@ def archive_bundle(app_dir: Path) -> Path:
     version = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
     system = {"Windows": "windows", "Darwin": "macos", "Linux": "linux"}.get(platform.system(), platform.system().lower())
     arch = platform.machine().lower().replace("amd64", "x86_64")
-    base = RELEASE_ROOT / f"FastLED-Studio-{version}-{system}-{arch}"
+    base = RELEASE_ROOT / f"DesignStudioForFastLED-{version}-{system}-{arch}"
     fmt = "zip" if os.name == "nt" else "gztar"
     archive = Path(shutil.make_archive(str(base), fmt, root_dir=RELEASE_ROOT, base_dir=app_dir.name))
     print(f"Created {archive}")

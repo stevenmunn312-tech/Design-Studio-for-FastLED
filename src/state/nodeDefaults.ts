@@ -7,7 +7,7 @@
 
 import { create } from 'zustand'
 
-const KEY = 'fastled-studio.node-defaults.v1'
+const KEY = 'design-studio-for-fastled.node-defaults.v1'
 
 function sanitizeProperties(nodeType: string, properties: Record<string, unknown>): Record<string, unknown> {
   const sanitized = { ...properties }

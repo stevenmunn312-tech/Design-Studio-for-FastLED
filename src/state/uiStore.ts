@@ -56,17 +56,17 @@ export type AppDialogState =
   | ({ kind: 'confirm'; nonce: number } & Required<Pick<AppConfirmOptions, 'title' | 'message'>> & Omit<AppConfirmOptions, 'title' | 'message'>)
   | ({ kind: 'prompt'; nonce: number } & Required<Pick<AppPromptOptions, 'title' | 'message'>> & Omit<AppPromptOptions, 'title' | 'message'>)
 
-const THEME_KEY  = 'fastled-studio-theme'
-const MOTION_KEY = 'fastled-studio-reduced-motion'
-const CONTRAST_KEY = 'fastled-studio-high-contrast'
-const PREVIEW_STYLE_KEY = 'fastled-studio-preview-style'
-const SPECTRUM_VISUALIZER_KEY = 'fastled-studio-spectrum-visualizer'
-const LEGACY_DIFFUSION_KEY = 'fastled-studio-preview-diffusion'
-const TEST_SIGNAL_KEY = 'fastled-studio-test-signal'
-const PERFORMANCE_MODE_KEY = 'fastled-studio-performance-mode'
-const UI_EFFECTS_KEY = 'fastled-studio-ui-effects-enabled'
-const SIGNAL_PATH_DIM_KEY = 'fastled-studio-signal-path-dim-enabled'
-const START_CHOICE_KEY = 'fastled-studio-last-start-choice'
+const THEME_KEY  = 'design-studio-for-fastled-theme'
+const MOTION_KEY = 'design-studio-for-fastled-reduced-motion'
+const CONTRAST_KEY = 'design-studio-for-fastled-high-contrast'
+const PREVIEW_STYLE_KEY = 'design-studio-for-fastled-preview-style'
+const SPECTRUM_VISUALIZER_KEY = 'design-studio-for-fastled-spectrum-visualizer'
+const LEGACY_DIFFUSION_KEY = 'design-studio-for-fastled-preview-diffusion'
+const TEST_SIGNAL_KEY = 'design-studio-for-fastled-test-signal'
+const PERFORMANCE_MODE_KEY = 'design-studio-for-fastled-performance-mode'
+const UI_EFFECTS_KEY = 'design-studio-for-fastled-ui-effects-enabled'
+const SIGNAL_PATH_DIM_KEY = 'design-studio-for-fastled-signal-path-dim-enabled'
+const START_CHOICE_KEY = 'design-studio-for-fastled-last-start-choice'
 
 function load<T>(key: string, fallback: T): T {
   try { const v = localStorage.getItem(key); return v !== null ? JSON.parse(v) : fallback } catch { return fallback }

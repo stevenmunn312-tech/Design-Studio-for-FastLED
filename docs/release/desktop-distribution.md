@@ -1,6 +1,6 @@
 # Desktop Distribution
 
-FastLED Studio can be shipped as a portable desktop bundle that requires no
+Design Studio for FastLED can be shipped as a portable desktop bundle that requires no
 separate Node.js or Python installation. The package deliberately keeps the
 tested browser UI: one native launcher contains the Python runtime and upload
 helper, serves the production Vite assets on localhost, and opens the user's
@@ -53,9 +53,9 @@ under the operating system's per-user data location:
 
 | Platform | Data root |
 | --- | --- |
-| Windows | `%LOCALAPPDATA%\\FastLED Studio` |
-| macOS | `~/Library/Application Support/FastLED Studio` |
-| Linux | `$XDG_DATA_HOME/fastled-studio` or `~/.local/share/fastled-studio` |
+| Windows | `%LOCALAPPDATA%\\Design Studio for FastLED` |
+| macOS | `~/Library/Application Support/Design Studio for FastLED` |
+| Linux | `$XDG_DATA_HOME/design-studio-for-fastled` or `~/.local/share/design-studio-for-fastled` |
 
 That root contains Projects, My Patterns, helper configuration, downloaded
 Arduino CLI binaries, fbuild's project/toolchain cache, and compile output.
@@ -68,7 +68,7 @@ unrelated process on that port produces an actionable startup error.
 
 On 2026-07-17, a Windows x86-64 bundle was built and launch-smoked locally:
 
-- packaged FastLED Studio shell returned HTTP 200;
+- packaged Design Studio for FastLED shell returned HTTP 200;
 - `/api/desktop/status` identified the frozen launcher;
 - bundled `fbuild 2.5.0` and `esptool 5.3.1` executed successfully;
 - output was a 61 MB ZIP / 168 MB unpacked one-folder bundle.

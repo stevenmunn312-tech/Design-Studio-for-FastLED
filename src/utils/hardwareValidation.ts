@@ -427,7 +427,7 @@ export function formatHardwareValidationReport(submission: HardwareValidationSub
   const m = profile.matrix
   const rows: Array<[string, unknown]> = [
     ['Schema', profile.schemaVersion],
-    ['FastLED Studio', profile.appVersion],
+    ['Design Studio for FastLED', profile.appVersion],
     ['Recorded at', submission.recordedAt],
     ['Configuration key', profile.configurationKey],
     ['Test path', ACTION_LABELS[profile.action]],
@@ -460,7 +460,7 @@ export function formatHardwareValidationReport(submission: HardwareValidationSub
     .join('\n')
 
   return [
-    '# FastLED Studio beta hardware validation',
+    '# Design Studio for FastLED beta hardware validation',
     '',
     '## Exact environment and configuration',
     '',

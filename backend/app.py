@@ -1,4 +1,4 @@
-"""FastLED Studio — local upload helper.
+"""Design Studio for FastLED — local upload helper.
 
 A tiny FastAPI service the browser app talks to so it can compile and upload
 sketches to a board over USB — the browser can't launch a local CLI itself.
@@ -368,7 +368,7 @@ def _write_fbuild_main(ino: str) -> None:
         old_ino.unlink()
 
 
-app = FastAPI(title="FastLED Studio Upload Helper")
+app = FastAPI(title="Design Studio for FastLED Upload Helper")
 
 # The studio is served from a different origin (the Vite dev server or the static
 # site), so allow cross-origin calls from any localhost port.
@@ -1543,7 +1543,7 @@ def _show_windows_save_dialog(initial_dir: Path, initial_file: str) -> str | Non
         "$dialog = New-Object System.Windows.Forms.SaveFileDialog; "
         "$dialog.InitialDirectory = $env:FLS_DIALOG_INITIAL_DIR; "
         "$dialog.FileName = $env:FLS_DIALOG_FILE_NAME; "
-        "$dialog.Filter = 'FastLED Studio Project (*.fastled-project.json)|*.fastled-project.json|All Files (*.*)|*.*'; "
+        "$dialog.Filter = 'Design Studio for FastLED Project (*.fastled-project.json)|*.fastled-project.json|All Files (*.*)|*.*'; "
         "$dialog.AddExtension = $true; "
         "$dialog.DefaultExt = 'fastled-project.json'; "
         "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.Write($dialog.FileName) }"
@@ -1567,7 +1567,7 @@ def _show_windows_open_dialog(initial_dir: Path) -> str | None:
         "Add-Type -AssemblyName System.Windows.Forms; "
         "$dialog = New-Object System.Windows.Forms.OpenFileDialog; "
         "$dialog.InitialDirectory = $env:FLS_DIALOG_INITIAL_DIR; "
-        "$dialog.Filter = 'FastLED Studio Project (*.json)|*.json|All Files (*.*)|*.*'; "
+        "$dialog.Filter = 'Design Studio for FastLED Project (*.json)|*.json|All Files (*.*)|*.*'; "
         "$dialog.Multiselect = $false; "
         "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.Write($dialog.FileName) }"
     )
@@ -1597,7 +1597,7 @@ def _show_tk_save_dialog(initial_dir: Path, initial_file: str) -> str | None:
             initialfile=initial_file,
             defaultextension=".fastled-project.json",
             filetypes=[
-                ("FastLED Studio Project", "*.fastled-project.json"),
+                ("Design Studio for FastLED Project", "*.fastled-project.json"),
                 ("All Files", "*.*"),
             ],
         )
@@ -1620,7 +1620,7 @@ def _show_tk_open_dialog(initial_dir: Path) -> str | None:
             title="Open Project",
             initialdir=str(initial_dir),
             filetypes=[
-                ("FastLED Studio Project", "*.json"),
+                ("Design Studio for FastLED Project", "*.json"),
                 ("JSON", "*.json"),
                 ("All Files", "*.*"),
             ],

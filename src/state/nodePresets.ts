@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { NodeDefinition } from '../types'
 import { NODE_LIBRARY, propertyMeta } from './nodeLibrary'
 
-const KEY = 'fastled-studio.node-presets.v1'
+const KEY = 'design-studio-for-fastled.node-presets.v1'
 
 export interface NodePreset {
   id: string

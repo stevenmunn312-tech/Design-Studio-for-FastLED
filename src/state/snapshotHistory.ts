@@ -7,7 +7,7 @@ export interface Snapshot {
   workspace: PersistedWorkspace
 }
 
-const SNAPSHOT_KEY = 'fastled-studio-snapshots'
+const SNAPSHOT_KEY = 'design-studio-for-fastled-snapshots'
 export const MAX_SNAPSHOTS = 5
 
 export function loadSnapshots(): Snapshot[] {

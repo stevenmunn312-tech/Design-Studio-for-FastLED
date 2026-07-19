@@ -86,7 +86,7 @@ export function parseStatus(log: string): UploadStatus {
 }
 
 // ── Persistence ───────────────────────────────────────────────────────────────
-const KEY = 'fastled-studio-upload'
+const KEY = 'design-studio-for-fastled-upload'
 interface Persisted { myBoards: string[]; selectedFqbn: string; selectedPort: string }
 interface CachedSketchUpload { code: string; fqbnOpt?: string }
 

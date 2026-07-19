@@ -22,7 +22,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: FastLED Studio version
+      label: Design Studio for FastLED version
       placeholder: e.g. 0.2.0 (shown in the app / release name)
     validations:
       required: true

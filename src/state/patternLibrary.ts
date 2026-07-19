@@ -52,9 +52,9 @@ export const BUILT_IN_PATTERN_CATEGORIES: PatternCategory[] = [
   { id: AUDIO_REACTIVE_CATEGORY_ID, name: 'Audio Reactive', builtIn: true },
 ]
 
-const KEY = 'fastled-studio.pattern-library.v1'
-const SYNC_KEY = 'fastled-studio.pattern-library-sync.v1'
-const CATEGORIES_KEY = 'fastled-studio.pattern-library-categories.v1'
+const KEY = 'design-studio-for-fastled.pattern-library.v1'
+const SYNC_KEY = 'design-studio-for-fastled.pattern-library-sync.v1'
+const CATEGORIES_KEY = 'design-studio-for-fastled.pattern-library-categories.v1'
 
 // Under Vitest the upload helper may actually be running, so skip the disk
 // round-trip in tests — they assert against the in-memory + localStorage state,

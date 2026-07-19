@@ -35,11 +35,11 @@ interface NativeFilePickerWindow extends Window {
 
 const PROJECT_FILE_SUFFIX = '.fastled-project.json'
 const PROJECT_OPEN_FILE_TYPES: FilePickerAcceptType[] = [{
-  description: 'FastLED Studio Project',
+  description: 'Design Studio for FastLED Project',
   accept: { 'application/json': ['.json', PROJECT_FILE_SUFFIX] },
 }]
 const PROJECT_SAVE_FILE_TYPES: FilePickerAcceptType[] = [{
-  description: 'FastLED Studio Project',
+  description: 'Design Studio for FastLED Project',
   accept: { 'application/json': [PROJECT_FILE_SUFFIX] },
 }]
 

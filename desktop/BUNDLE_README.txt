@@ -1,9 +1,10 @@
-FastLED Studio portable desktop bundle
-======================================
+Design Studio for FastLED portable desktop bundle
+==================================================
 
-Launch "FastLED Studio" ("FastLED Studio.exe" on Windows). Your normal web
-browser opens automatically. Keep the launcher window open while using the
-Studio; press Ctrl+C in it to stop the local application.
+Launch "Design Studio for FastLED" ("Design Studio for FastLED.exe" on
+Windows). Your normal web browser opens automatically. Keep the launcher
+window open while using the Studio; press Ctrl+C in it to stop the local
+application.
 
 Node.js and Python are included and do not need to be installed separately.
 The first firmware compile may still download board toolchains and can take

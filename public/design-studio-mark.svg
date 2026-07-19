@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 260" role="img" aria-labelledby="title desc">
-  <title id="title">FastLED Studio minimal header branding</title>
-  <desc id="desc">Transparent minimal header-style FastLED Studio logo lockup.</desc>
+  <title id="title">Design Studio for FastLED minimal header branding</title>
+  <desc id="desc">Transparent minimal header-style Design Studio for FastLED logo lockup.</desc>
 
   <defs>
     <linearGradient id="mark-stroke" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -56,7 +56,7 @@
         font-weight="750"
         letter-spacing="1.1"
       >
-        FastLED Studio
+        Design Studio
       </text>
 
       <text

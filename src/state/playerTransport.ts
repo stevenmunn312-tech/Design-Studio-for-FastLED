@@ -32,7 +32,7 @@ interface PlayerTransportState {
   setVolume: (v: number) => void
 }
 
-const VOLUME_KEY = 'fastled-studio-player-volume'
+const VOLUME_KEY = 'design-studio-for-fastled-player-volume'
 
 function savedVolume(): number {
   try {

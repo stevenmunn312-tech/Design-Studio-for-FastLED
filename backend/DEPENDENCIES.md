@@ -1,6 +1,6 @@
 # Backend Python Dependencies
 
-The FastLED Studio helper now has two layers of dependency control:
+The Design Studio for FastLED helper now has two layers of dependency control:
 
 - `requirements.txt` / `requirements-dev.txt`: the direct dependencies we intentionally use.
 - `constraints.txt`: the fully pinned transitive resolution verified in CI.

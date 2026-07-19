@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Project Is
 
-**FastLED Studio** is a browser-based node-graph editor for designing LED lighting effects. Users wire together nodes on a canvas, see a real-time LED matrix preview, then generate FastLED/Arduino C++ firmware for upload to microcontrollers like the ESP32-S3.
+**Design Studio for FastLED** is a browser-based node-graph editor for designing LED lighting effects. Users wire together nodes on a canvas, see a real-time LED matrix preview, then generate FastLED/Arduino C++ firmware for upload to microcontrollers like the ESP32-S3.
 
 Core user flow: drag nodes from sidebar → wire ports together → preview updates live → generate C++ → upload via the local build helper (`arduino-cli`/`fbuild`).
 
@@ -122,7 +122,7 @@ It is a **multi-graph workspace** (ADR 0001): the *active* graph stays in the to
 
 **`src/state/audioStore.ts`** is a thin Zustand bridge over `AudioEngine.instance`. It calls `engine.subscribe()` at store-creation time so FFT data flows into Zustand state on every animation frame.
 
-**`src/state/projectStore.ts`** owns the named-project switcher: each project is a full persisted workspace (`nodes`/`edges` plus `graphData`/`graphs`/`activeGraphId`) with `createdAt`/`updatedAt` metadata, plus an optional per-project upload target (`uploadTarget`: remembered `selectedFqbn` + `selectedPort`). Projects are cached in localStorage under `fastled-studio.projects.v1` and write-through synced to helper-backed JSON files in the repo-root `Projects/` folder when the backend is available. `App.tsx` now autosaves into the **current project** rather than a single global slot, migrating the old `fastled-studio-graph` autosave key into the default `Main` project on first load; MenuBar's **▤ Projects** popup is the UI for creating, duplicating, switching, renaming, and deleting projects.
+**`src/state/projectStore.ts`** owns the named-project switcher: each project is a full persisted workspace (`nodes`/`edges` plus `graphData`/`graphs`/`activeGraphId`) with `createdAt`/`updatedAt` metadata, plus an optional per-project upload target (`uploadTarget`: remembered `selectedFqbn` + `selectedPort`). Projects are cached in localStorage under `design-studio-for-fastled.projects.v1` and write-through synced to helper-backed JSON files in the repo-root `Projects/` folder when the backend is available. `App.tsx` now autosaves into the **current project** rather than a single global slot, migrating the old `design-studio-for-fastled-graph` autosave key into the default `Main` project on first load; MenuBar's **▤ Projects** popup is the UI for creating, duplicating, switching, renaming, and deleting projects.
 
 **Project-change prompts** run through `uiStore.requestNewProjectDecision(...)` and `NewProjectPrompt`: the user-facing actions are explicit (`Save and continue`, `Continue without saving`, `Cancel`), and the prompt state carries both the current project name and a destination label (for example `project "Show A"` or `a new blank project`). `MenuBar` defers the prompt for project-file opens until after the target file/project name is known, so the dialog can name the actual destination instead of a vague "another project".
 

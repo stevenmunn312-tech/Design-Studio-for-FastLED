@@ -34,11 +34,11 @@ describe('projectStore', () => {
   })
 
   it('never mints a project from the legacy single-workspace autosave slot, and clears it', async () => {
-    localStorage.setItem('fastled-studio-graph', JSON.stringify(workspace(['a', 'b'])))
+    localStorage.setItem('design-studio-for-fastled-graph', JSON.stringify(workspace(['a', 'b'])))
     const { useProjectStore } = await freshStore()
     expect(useProjectStore.getState().projects).toHaveLength(0)
     expect(useProjectStore.getState().currentProjectId).toBe('')
-    expect(localStorage.getItem('fastled-studio-graph')).toBeNull()
+    expect(localStorage.getItem('design-studio-for-fastled-graph')).toBeNull()
   })
 
   it('saves the current workspace and persists it', async () => {
@@ -49,7 +49,7 @@ describe('projectStore', () => {
     const current = useProjectStore.getState().projects.find((project) => project.id === useProjectStore.getState().currentProjectId)
     expect(current?.workspace.nodes.map((entry) => entry.id)).toEqual(['frame'])
 
-    const raw = JSON.parse(localStorage.getItem('fastled-studio.projects.v1') ?? '{}') as { projects?: Array<{ workspace?: PersistedWorkspace }> }
+    const raw = JSON.parse(localStorage.getItem('design-studio-for-fastled.projects.v1') ?? '{}') as { projects?: Array<{ workspace?: PersistedWorkspace }> }
     expect(raw.projects?.[0].workspace?.nodes).toHaveLength(1)
   })
 
@@ -162,7 +162,7 @@ describe('projectStore', () => {
       selectedPort: 'COM7',
     })
 
-    const raw = JSON.parse(localStorage.getItem('fastled-studio.projects.v1') ?? '{}') as {
+    const raw = JSON.parse(localStorage.getItem('design-studio-for-fastled.projects.v1') ?? '{}') as {
       projects?: Array<{ id: string; uploadTarget?: { selectedFqbn: string; selectedPort: string } }>
     }
     expect(raw.projects?.find((project) => project.id === showA.id)?.uploadTarget).toEqual({
@@ -179,7 +179,7 @@ describe('projectStore', () => {
 
     const realSetItem = Storage.prototype.setItem
     const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
-      if (key === 'fastled-studio.projects.v1') throw new Error('quota')
+      if (key === 'design-studio-for-fastled.projects.v1') throw new Error('quota')
       return realSetItem.call(this, key, value)
     })
 
@@ -199,7 +199,7 @@ describe('projectStore', () => {
 
     const realSetItem = Storage.prototype.setItem
     const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
-      if (key === 'fastled-studio.projects.v1') throw new Error('quota')
+      if (key === 'design-studio-for-fastled.projects.v1') throw new Error('quota')
       return realSetItem.call(this, key, value)
     })
 
@@ -220,7 +220,7 @@ describe('projectStore', () => {
 
     const realSetItem = Storage.prototype.setItem
     const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
-      if (key === 'fastled-studio.projects.v1') throw new Error('quota')
+      if (key === 'design-studio-for-fastled.projects.v1') throw new Error('quota')
       return realSetItem.call(this, key, value)
     })
 
@@ -240,8 +240,8 @@ describe('projectStore', () => {
   it('never resurrects a project named Main under any load-failure combination', async () => {
     // Legacy key present + empty blob + no snapshot: the exact refresh state
     // that used to mint a fresh "Main" project on every reload.
-    localStorage.setItem('fastled-studio-graph', JSON.stringify(workspace(['ancient'])))
-    localStorage.setItem('fastled-studio.projects.v1', 'not json')
+    localStorage.setItem('design-studio-for-fastled-graph', JSON.stringify(workspace(['ancient'])))
+    localStorage.setItem('design-studio-for-fastled.projects.v1', 'not json')
     const { useProjectStore } = await freshStore()
     expect(useProjectStore.getState().projects).toHaveLength(0)
     expect(useProjectStore.getState().currentProjectId).toBe('')
@@ -263,7 +263,7 @@ describe('projectStore', () => {
       workspace: workspace(['pg']),
     }
 
-    localStorage.setItem('fastled-studio.projects.v1', JSON.stringify({
+    localStorage.setItem('design-studio-for-fastled.projects.v1', JSON.stringify({
       currentProjectId: alpha.id,
       projects: [alpha, pg],
     }))

@@ -288,7 +288,7 @@ export function generateShowSketch(
   }
 
   const L: string[] = []
-  L.push('// FastLED Studio — generative pattern show (Phase 4, first slice)')
+  L.push('// Design Studio for FastLED — generative pattern show (Phase 4, first slice)')
   for (const d of overclockDefineCpp(hw)) L.push(d)
   L.push('#include <FastLED.h>')
   if (audio) L.push(audio.include)

@@ -1,5 +1,5 @@
 /*
- * FastLED Studio AnimARTrix integration
+ * Design Studio for FastLED AnimARTrix integration
  * SPDX-License-Identifier: CC-BY-NC-SA-4.0
  *
  * AnimARTrix was created by Stefan Petrick. This adaptation adds a shared,

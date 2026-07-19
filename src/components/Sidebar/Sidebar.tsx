@@ -14,10 +14,10 @@ import styles from './Sidebar.module.css'
 // Bumped to v2 so existing sessions (whose stored value predates Quick
 // recipes becoming collapsible) fall through to the new 'recipes' default
 // once, instead of staying stuck on whatever category they had open before.
-const EXPANDED_KEY = 'fastled-studio-sidebar-expanded-v2'
-const FAVOURITES_KEY = 'fastled-studio-sidebar-favourites'
-const RECENT_KEY = 'fastled-studio-sidebar-recent'
-const VIEW_KEY = 'fastled-studio-sidebar-view'
+const EXPANDED_KEY = 'design-studio-for-fastled-sidebar-expanded-v2'
+const FAVOURITES_KEY = 'design-studio-for-fastled-sidebar-favourites'
+const RECENT_KEY = 'design-studio-for-fastled-sidebar-recent'
+const VIEW_KEY = 'design-studio-for-fastled-sidebar-view'
 const RECENT_LIMIT = 8
 
 const BEGINNER_NODE_TYPES = new Set([

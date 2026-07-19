@@ -46,10 +46,10 @@ interface ProjectState {
   refreshFromDisk: () => Promise<void>
 }
 
-const KEY = 'fastled-studio.projects.v1'
-const CURRENT_PROJECT_KEY = 'fastled-studio.current-project.v1'
-const CURRENT_WORKSPACE_KEY = 'fastled-studio.current-workspace.v1'
-const LEGACY_AUTOSAVE_KEY = 'fastled-studio-graph'
+const KEY = 'design-studio-for-fastled.projects.v1'
+const CURRENT_PROJECT_KEY = 'design-studio-for-fastled.current-project.v1'
+const CURRENT_WORKSPACE_KEY = 'design-studio-for-fastled.current-workspace.v1'
+const LEGACY_AUTOSAVE_KEY = 'design-studio-for-fastled-graph'
 const DISK_SYNC = !import.meta.env.VITEST
 const RECENT_PROJECT_LIMIT = 6
 

@@ -42,7 +42,7 @@ export function generateWiringDiagnosticSketch(nodes: StudioNode[]): string | nu
   const chaseMs = 90
 
   const lines: string[] = []
-  lines.push('// FastLED Studio — Matrix Output wiring diagnostic.')
+  lines.push('// Design Studio for FastLED — Matrix Output wiring diagnostic.')
   lines.push('// Flash this when you want to verify hardware before loading a creative graph.')
   lines.push('// The sketch cycles through: RGB color-order solids, brightness/current-limit')
   lines.push('// bars, an orientation gradient, panel numbering, a logical XY chase, and a')

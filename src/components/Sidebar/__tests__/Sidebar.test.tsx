@@ -11,10 +11,10 @@ const startAudio = vi.fn(async () => {})
 
 describe('Sidebar equipment rack', () => {
   beforeEach(() => {
-    localStorage.setItem('fastled-studio-sidebar-expanded-v2', JSON.stringify('audio'))
-    localStorage.setItem('fastled-studio-sidebar-view', JSON.stringify('beginner'))
-    localStorage.removeItem('fastled-studio-sidebar-favourites')
-    localStorage.removeItem('fastled-studio-sidebar-recent')
+    localStorage.setItem('design-studio-for-fastled-sidebar-expanded-v2', JSON.stringify('audio'))
+    localStorage.setItem('design-studio-for-fastled-sidebar-view', JSON.stringify('beginner'))
+    localStorage.removeItem('design-studio-for-fastled-sidebar-favourites')
+    localStorage.removeItem('design-studio-for-fastled-sidebar-recent')
     useGraphStore.setState({ nodes: [], edges: [], selectedNodeId: null })
     usePatternLibrary.setState({ patterns: [] })
     useUiStore.setState({ viewCenter: { x: 200, y: 180 }, draggingNodeType: null, testSignal: false })

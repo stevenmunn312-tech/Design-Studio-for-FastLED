@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 
-$hostName = 'fastled-studio.localhost'
+$hostName = 'design-studio-for-fastled.localhost'
 $hostsPath = Join-Path $env:SystemRoot 'System32\drivers\etc\hosts'
 $entry = "127.0.0.1 $hostName"
 
@@ -15,7 +15,7 @@ if (-not $isAdmin) {
 
 $content = Get-Content -LiteralPath $hostsPath -ErrorAction Stop
 $alreadyPresent = $content | Where-Object {
-  $_ -match '(^|\s)fastled-studio\.localhost(\s|$)'
+  $_ -match '(^|\s)design-studio-for-fastled\.localhost(\s|$)'
 }
 
 if ($alreadyPresent) {
@@ -23,6 +23,6 @@ if ($alreadyPresent) {
   exit 0
 }
 
-Add-Content -LiteralPath $hostsPath -Value "`r`n# FastLED Studio local dev name`r`n$entry"
+Add-Content -LiteralPath $hostsPath -Value "`r`n# Design Studio for FastLED local dev name`r`n$entry"
 ipconfig /flushdns | Out-Null
 Write-Host "Configured http://$hostName:5173"

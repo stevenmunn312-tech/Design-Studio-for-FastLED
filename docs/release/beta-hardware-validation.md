@@ -1,6 +1,6 @@
 # Beta Hardware Validation
 
-FastLED Studio's public beta can use opt-in community reports to expand the
+Design Studio for FastLED's public beta can use opt-in community reports to expand the
 hardware support matrix without treating an unverified configuration as
 supported. The Matrix Output **Upload...** panel identifies the missing evidence
 for the current board, engine, LED target, layout, and graph features.

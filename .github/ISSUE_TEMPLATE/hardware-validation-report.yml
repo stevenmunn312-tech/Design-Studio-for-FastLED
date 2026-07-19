@@ -13,7 +13,7 @@ body:
   - type: input
     id: environment
     attributes:
-      label: OS, browser, and FastLED Studio version
+      label: OS, browser, and Design Studio for FastLED version
       placeholder: e.g. Windows 11 Home 26200 · Chrome 150 · 0.2.0
     validations:
       required: true
