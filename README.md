@@ -4,7 +4,7 @@ Design LED animations as a live node graph, watch them move on a virtual matrix,
 
 **Public beta · 144 nodes · 20 included audio-reactive patterns · Windows/macOS/Linux packaging · MIT core**
 
-![Design Studio for FastLED overview](docs/images/readme/fastled-studio-overview.png)
+![Design Studio for FastLED overview](docs/images/readme/design-studio-overview.png)
 
 Design Studio for FastLED is a visual authoring environment for LED strips, matrices, and tiled panels. Drag in generators, signals, palettes, effects, audio analysis, and hardware output; connect matching ports; and tune every control while the main preview and node previews run live.
 
@@ -16,7 +16,7 @@ Design Studio for FastLED is a visual authoring environment for LED strips, matr
 
 | Build and preview a patch | Browse reusable patterns |
 |---|---|
-| ![A patch driving the live LED preview](docs/images/readme/fastled-studio-patch.png) | ![Pattern Library with included audio-reactive patterns](docs/images/readme/fastled-studio-pattern-library.png) |
+| ![A patch driving the live LED preview](docs/images/readme/design-studio-patch.png) | ![Pattern Library with included audio-reactive patterns](docs/images/readme/design-studio-pattern-library.png) |
 
 ### Perform in Stage Mode
 
@@ -24,7 +24,7 @@ Press **Stage** or **F10** to turn the workspace into a focused performance view
 
 The shot below is a generated show playing a lava-coloured pattern while its analyzed audio track drives the spectrum display.
 
-![Stage Mode playing a generated show with the live spectrum analyzer](docs/images/readme/fastled-studio-stage.png)
+![Stage Mode playing a generated show with the live spectrum analyzer](docs/images/readme/design-studio-stage.png)
 
 ## Your first five minutes
 
@@ -80,7 +80,7 @@ The old **My Patterns** rack is now the **Pattern Library**:
 - Click a pattern to place it near the center of the canvas, drag it to position it, or drag it directly onto a Pattern Collection.
 - The optional local helper mirrors user patterns as shareable JSON files in its per-user `My Patterns` data folder. Included beta patterns are bundled with the application and are not written over your files.
 
-![Pattern Library shelves](docs/images/readme/fastled-studio-pattern-library.png)
+![Pattern Library shelves](docs/images/readme/design-studio-pattern-library.png)
 
 ## Install and run
 
