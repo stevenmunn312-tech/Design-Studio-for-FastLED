@@ -50,6 +50,14 @@ PRs are welcome during the beta with two caveats:
    on direction first avoids wasted work.
 2. **Keep PRs small and focused.** One fix or one feature per PR.
 
+All changes must come through a branch and pull request; do not commit directly
+to `main`. Start from the latest `main`, create a short-lived descriptive branch
+such as `fix/audio-meter`, `feature/new-pattern`, or `docs/upload-guide`, and
+push that branch to your fork or the main repository before opening the PR.
+Automated Codex work uses the `codex/` prefix. Open a draft PR if the change is
+not ready for review, and update the branch from `main` without force-pushing or
+rewriting shared history.
+
 Before submitting, all three gates must pass locally:
 
 ```bash
