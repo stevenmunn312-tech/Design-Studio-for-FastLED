@@ -386,7 +386,11 @@ export function buildHardwareValidationProfile(options: {
         ? `WS ${Math.round(n(micProps.i2sWs, 39))} · SCK ${Math.round(n(micProps.i2sSck, 40))} · SD ${Math.round(n(micProps.i2sSd, 41))} · ${MIC_SAMPLE_RATE} Hz · ${String(micProps.channel ?? 'Left')} channel`
         : null,
       sdCard: sd
-        ? `CS ${Math.round(n(sdProps.sdCsPin, 10))} · I2S BCLK ${Math.round(n(sdProps.i2sBclk, 26))} · LRC ${Math.round(n(sdProps.i2sLrc, 25))} · DOUT ${Math.round(n(sdProps.i2sDout, 22))} · max volume ${Math.round(n(sdProps.maxVolume, 18))}`
+        ? `CS ${Math.round(n(sdProps.sdCsPin, 10))} · ${
+            sdProps.audioOutput === 'internalDac'
+              ? 'internal DAC (GPIO25/26)'
+              : `I2S BCLK ${Math.round(n(sdProps.i2sBclk, 26))} · LRC ${Math.round(n(sdProps.i2sLrc, 25))} · DOUT ${Math.round(n(sdProps.i2sDout, 22))}`
+          } · max volume ${Math.round(n(sdProps.maxVolume, 18))}`
         : null,
     },
     show: {

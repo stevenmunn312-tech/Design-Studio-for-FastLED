@@ -44,6 +44,30 @@ describe('playerConfigFromGraph', () => {
     expect(cfg.chipset).toBe('WS2812B')
     expect(cfg.sdCsPin).toBe(10)
     expect(cfg.maxVolume).toBe(18)
+    expect(cfg.audioOutput).toBe('i2s')
+  })
+
+  it('pulls audioOutput from SDCard', () => {
+    const cfg = playerConfigFromGraph([node('SDCard', { audioOutput: 'internalDac' })])
+    expect(cfg.audioOutput).toBe('internalDac')
+  })
+})
+
+describe('generatePlayerSketch audio output', () => {
+  it('defaults to I2S: pinout call, pin defines, no internal-DAC call', () => {
+    const ino = generatePlayerSketch()
+    expect(ino).toContain('audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);')
+    expect(ino).toContain('#define I2S_BCLK      26')
+    expect(ino).not.toContain('setInternalDAC')
+  })
+
+  it('switches to the internal DAC and drops the I2S pin defines', () => {
+    const ino = generatePlayerSketch({ audioOutput: 'internalDac' })
+    expect(ino).toContain('audio.setInternalDAC(true);')
+    expect(ino).not.toContain('audio.setPinout(')
+    expect(ino).not.toContain('#define I2S_BCLK')
+    expect(ino).not.toContain('#define I2S_LRC')
+    expect(ino).not.toContain('#define I2S_DOUT')
   })
 })
 

@@ -75,6 +75,16 @@ describe('validateGraph', () => {
     expect(findBoardCompatibilityErrors([], 'arduino:avr:uno')).toEqual([])
   })
 
+  it('blocks SD Card internal-DAC audio on anything but the classic ESP32', () => {
+    const nodes = [node('sd', 'SDCard', { audioOutput: 'internalDac' })]
+    expect(findBoardCompatibilityErrors(nodes, 'esp32:esp32:esp32s3')).toEqual([
+      expect.stringMatching(/internal-DAC audio output requires the classic ESP32/),
+    ])
+    expect(findBoardCompatibilityErrors(nodes, 'esp32:esp32:esp32')).toEqual([])
+    // Default (I2S) output is unaffected by board choice.
+    expect(findBoardCompatibilityErrors([node('sd', 'SDCard')], 'esp32:esp32:esp32s3')).toEqual([])
+  })
+
   it('errors on empty graph', () => {
     const { errors } = validateGraph([], [])
     expect(errors).toContain('No nodes in graph')
@@ -235,8 +245,24 @@ describe('validateGraph', () => {
       const conflicts = findPinConflicts(nodes)
       expect(conflicts).toHaveLength(1)
       expect(conflicts[0]).toContain('GPIO 5')
+    })
+
+    it('checks the fixed GPIO25/26 internal-DAC pins instead of the I2S pins', () => {
+      const clean = [
+        node('out', 'MatrixOutput', { dataPin: 5, chipset: 'WS2812B' }),
+        node('sd', 'SDCard', { sdCsPin: 10, audioOutput: 'internalDac' }),
+      ]
+      expect(findPinConflicts(clean)).toHaveLength(0)
+
+      const conflicting = [
+        node('out', 'MatrixOutput', { dataPin: 25, chipset: 'WS2812B' }),
+        node('sd', 'SDCard', { sdCsPin: 10, audioOutput: 'internalDac' }),
+      ]
+      const conflicts = findPinConflicts(conflicting)
+      expect(conflicts).toHaveLength(1)
+      expect(conflicts[0]).toContain('GPIO 25')
       expect(conflicts[0]).toContain('data pin')
-      expect(conflicts[0]).toContain('CS pin')
+      expect(conflicts[0]).toContain('internal DAC (GPIO25)')
     })
 
     it('flags a node reusing the same pin for two of its own roles', () => {
