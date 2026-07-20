@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, findPinConflicts, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -16,6 +16,56 @@ function edge(id: string, source: string, target: string, th: string): StudioEdg
 }
 
 describe('validateGraph', () => {
+  it('returns node-attributed diagnostics with a concrete fix', () => {
+    const nodes = [
+      node('random', 'Random', { min: 0, max: 'not_valid(' }),
+      node('out', 'MatrixOutput', { width: 8, height: 8 }),
+    ]
+    const diagnostics = buildGraphDiagnostics(nodes, [edge('e1', 'random', 'out', 'frame')], {
+      selectedFqbn: 'esp32:esp32:esp32s3',
+    })
+
+    expect(diagnostics).toContainEqual(expect.objectContaining({
+      id: 'random-expression-max',
+      severity: 'error',
+      category: 'expression',
+      nodeIds: ['random'],
+      propertyKey: 'max',
+      fix: expect.stringMatching(/valid expression/),
+    }))
+  })
+
+  it('targets Group Output while editing a group subgraph', () => {
+    const nodes = [node('pattern', 'SolidColor'), node('group-out', 'GroupOutput')]
+    const diagnostics = buildGraphDiagnostics(nodes, [edge('e1', 'pattern', 'group-out', 'frame')], { target: 'group' })
+
+    expect(diagnostics.some((issue) => issue.id === 'missing-MatrixOutput')).toBe(false)
+    expect(diagnostics.some((issue) => issue.id === 'group-out-input')).toBe(false)
+  })
+
+  it('attributes pin and board conflicts to every affected node', () => {
+    const nodes = [
+      node('mic', 'MicInput', { i2sWs: 5, i2sSck: 40, i2sSd: 41 }),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ]
+    const diagnostics = buildGraphDiagnostics(nodes, [edge('e1', 'mic', 'out', 'frame')], {
+      selectedFqbn: 'arduino:avr:uno',
+    })
+
+    expect(diagnostics).toContainEqual(expect.objectContaining({ id: 'pin-5', nodeIds: ['mic', 'out'] }))
+    expect(diagnostics).toContainEqual(expect.objectContaining({
+      id: 'mic-board', nodeIds: ['mic'], action: 'choose-board',
+    }))
+  })
+
+  it('reports each disconnected node separately', () => {
+    const nodes = [node('a', 'Plasma'), node('b', 'Blur2D'), node('out', 'MatrixOutput')]
+    const diagnostics = buildGraphDiagnostics(nodes, [], { selectedFqbn: 'esp32:esp32:esp32s3' })
+
+    expect(diagnostics.filter((issue) => issue.id.endsWith('-disconnected')).map((issue) => issue.nodeIds[0]))
+      .toEqual(['a', 'b'])
+  })
+
   it('blocks MicInput firmware on non-ESP32 boards', () => {
     const nodes = [node('mic', 'MicInput')]
     expect(findBoardCompatibilityErrors(nodes, 'arduino:avr:uno')).toEqual([

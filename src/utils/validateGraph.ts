@@ -8,7 +8,7 @@ export interface ValidationResult {
   warnings: string[]
 }
 
-interface PinUse { label: string; pin: number }
+interface PinUse { label: string; nodeId: string; pin: number }
 
 // Every GPIO-typed property across the hardware-input/output nodes, tagged
 // with a human label for the error message. MatrixOutput's clockPin only
@@ -18,38 +18,38 @@ interface PinUse { label: string; pin: number }
 // across two of these roles (even on the same node) is a real conflict.
 function collectPinUses(nodes: StudioNode[]): PinUse[] {
   const uses: PinUse[] = []
-  const push = (label: string, value: unknown) => {
-    if (typeof value === 'number' && Number.isFinite(value)) uses.push({ label, pin: value })
+  const push = (nodeId: string, label: string, value: unknown) => {
+    if (typeof value === 'number' && Number.isFinite(value)) uses.push({ label, nodeId, pin: value })
   }
   for (const n of nodes) {
     const props = n.data.properties as Record<string, unknown>
     const label = String(n.data.label ?? n.data.nodeType)
     switch (n.data.nodeType) {
       case 'MicInput':
-        push(`${label} I2S WS`, props.i2sWs)
-        push(`${label} I2S SCK`, props.i2sSck)
-        push(`${label} I2S SD`, props.i2sSd)
+        push(n.id, `${label} I2S WS`, props.i2sWs)
+        push(n.id, `${label} I2S SCK`, props.i2sSck)
+        push(n.id, `${label} I2S SD`, props.i2sSd)
         break
       case 'MatrixOutput':
-        push(`${label} data pin`, props.dataPin)
-        if (SPI_CHIPSETS.has(String(props.chipset ?? 'WS2812B'))) push(`${label} clock pin`, props.clockPin)
+        push(n.id, `${label} data pin`, props.dataPin)
+        if (SPI_CHIPSETS.has(String(props.chipset ?? 'WS2812B'))) push(n.id, `${label} clock pin`, props.clockPin)
         break
       case 'ButtonInput':
-        push(`${label} pin`, props.pin)
+        push(n.id, `${label} pin`, props.pin)
         break
       case 'PotInput':
-        push(`${label} pin`, props.pin)
+        push(n.id, `${label} pin`, props.pin)
         break
       case 'EncoderInput':
-        push(`${label} pin A`, props.pinA)
-        push(`${label} pin B`, props.pinB)
-        push(`${label} switch pin`, props.pinSW)
+        push(n.id, `${label} pin A`, props.pinA)
+        push(n.id, `${label} pin B`, props.pinB)
+        push(n.id, `${label} switch pin`, props.pinSW)
         break
       case 'SDCard':
-        push(`${label} CS pin`, props.sdCsPin)
-        push(`${label} I2S BCLK`, props.i2sBclk)
-        push(`${label} I2S LRC`, props.i2sLrc)
-        push(`${label} I2S DOUT`, props.i2sDout)
+        push(n.id, `${label} CS pin`, props.sdCsPin)
+        push(n.id, `${label} I2S BCLK`, props.i2sBclk)
+        push(n.id, `${label} I2S LRC`, props.i2sLrc)
+        push(n.id, `${label} I2S DOUT`, props.i2sDout)
         break
     }
   }
@@ -280,7 +280,267 @@ export function findScalarExpressionErrors(nodes: StudioNode[]): string[] {
   return errors
 }
 
-export function validateGraph(nodes: StudioNode[], edges: StudioEdge[]): ValidationResult {
+export type GraphDiagnosticSeverity = 'error' | 'warning'
+export type GraphDiagnosticCategory =
+  | 'connection'
+  | 'expression'
+  | 'pins'
+  | 'layout'
+  | 'preview'
+  | 'power'
+  | 'memory'
+  | 'board'
+  | 'show'
+
+export type GraphDiagnosticAction = 'open-node-library' | 'choose-board'
+
+export interface GraphDiagnostic {
+  id: string
+  severity: GraphDiagnosticSeverity
+  category: GraphDiagnosticCategory
+  title: string
+  message: string
+  fix: string
+  /** Every visible node involved in the issue. The drawer frames the whole set
+   *  and selects the first node, so conflicts are as easy to trace as one-node
+   *  property errors. */
+  nodeIds: string[]
+  nodeLabel?: string
+  propertyKey?: string
+  action?: GraphDiagnosticAction
+}
+
+export interface GraphDiagnosticOptions {
+  selectedFqbn?: string
+  /** Group subgraphs terminate at GroupOutput rather than MatrixOutput. */
+  target?: 'matrix' | 'group'
+}
+
+const POWER_WARN_MA = 5_000
+
+function nodeLabel(node: StudioNode): string {
+  return String(node.data.label ?? node.data.nodeType)
+}
+
+/**
+ * Rich, continuously consumable validation for editor UI. `validateGraph`
+ * intentionally keeps its compact string result for deploy callers; this
+ * companion supplies stable ids, node attribution, and concrete remediation.
+ */
+export function buildGraphDiagnostics(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  options: GraphDiagnosticOptions = {},
+): GraphDiagnostic[] {
+  const diagnostics: GraphDiagnostic[] = []
+  const target = options.target ?? 'matrix'
+  const terminalType = target === 'group' ? 'GroupOutput' : 'MatrixOutput'
+  const terminalName = target === 'group' ? 'Group Output' : 'Matrix Output'
+  const terminal = nodes.find((node) => node.data.nodeType === terminalType)
+  const incoming = new Set(edges.filter((edge) => edge.target && edge.targetHandle).map((edge) => `${edge.target}:${edge.targetHandle}`))
+
+  if (nodes.length === 0) {
+    diagnostics.push({
+      id: 'graph-empty', severity: 'error', category: 'connection',
+      title: 'Canvas is empty',
+      message: 'There is no signal path to preview or deploy.',
+      fix: target === 'group' ? 'Return to the main graph and recreate this group.' : 'Add a starter patch or drag nodes from the node library.',
+      nodeIds: [], action: 'open-node-library',
+    })
+    return diagnostics
+  }
+
+  if (!terminal) {
+    diagnostics.push({
+      id: `missing-${terminalType}`, severity: 'error', category: 'connection',
+      title: `${terminalName} is missing`,
+      message: `This ${target === 'group' ? 'group' : 'graph'} has no terminal for its rendered frame.`,
+      fix: target === 'group' ? 'Recreate the group so it receives a Group Output terminal.' : 'Add one Matrix Output node from the Output section.',
+      nodeIds: [], action: target === 'matrix' ? 'open-node-library' : undefined,
+    })
+  } else {
+    const connected = target === 'group'
+      ? incoming.has(`${terminal.id}:frame`)
+      : incoming.has(`${terminal.id}:frame`) || incoming.has(`${terminal.id}:sdcard`)
+    if (!connected) {
+      diagnostics.push({
+        id: `${terminal.id}-input`, severity: 'error', category: 'connection',
+        title: `${terminalName} has no input`,
+        message: target === 'group'
+          ? 'Nothing is connected to the group frame terminal.'
+          : 'Neither a Frame nor an SD Card signal reaches the output.',
+        fix: target === 'group'
+          ? 'Connect the pattern’s final Frame output to Group Output.'
+          : 'Connect a Frame output, or wire an SD Card node to the SD Card input.',
+        nodeIds: [terminal.id], nodeLabel: nodeLabel(terminal),
+      })
+    }
+  }
+
+  const usesByPin = new Map<number, PinUse[]>()
+  for (const use of collectPinUses(nodes)) {
+    const uses = usesByPin.get(use.pin) ?? []
+    uses.push(use)
+    usesByPin.set(use.pin, uses)
+  }
+  for (const [pin, uses] of [...usesByPin].sort(([a], [b]) => a - b)) {
+    if (uses.length < 2) continue
+    diagnostics.push({
+      id: `pin-${pin}`, severity: 'error', category: 'pins',
+      title: `GPIO ${pin} is assigned twice`,
+      message: uses.map((use) => use.label).join(' · '),
+      fix: 'Assign a unique GPIO number to every listed hardware role.',
+      nodeIds: [...new Set(uses.map((use) => use.nodeId))],
+      nodeLabel: uses.length === 2 ? uses.map((use) => use.label).join(' / ') : `${uses.length} pin roles`,
+    })
+  }
+
+  const matrixOutput = nodes.find((node) => node.data.nodeType === 'MatrixOutput')
+  if (matrixOutput) {
+    const props = matrixOutput.data.properties as Record<string, unknown>
+    const width = Math.max(0, Math.round(Number(props.width ?? 0)))
+    const height = Math.max(0, Math.round(Number(props.height ?? 0)))
+    validateMatrixLayout(width, height, props).forEach((message, index) => {
+      diagnostics.push({
+        id: `${matrixOutput.id}-layout-${index}`, severity: 'error', category: 'layout',
+        title: 'Matrix layout is invalid', message,
+        fix: 'Correct the panel grid, rotations, or custom XY map in Matrix Output layout controls.',
+        nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput),
+      })
+    })
+  }
+
+  const outputProps = matrixOutput?.data.properties as Record<string, unknown> | undefined
+  const expressionScale = outputProps?.supersample === true ? 2 : 1
+  const expressionWidth = Math.max(1, Number(outputProps?.width ?? 16)) * expressionScale
+  const expressionHeight = Math.max(1, Number(outputProps?.height ?? 16)) * expressionScale
+  for (const node of nodes) {
+    const props = node.data.properties as Record<string, unknown>
+    for (const [key, value] of Object.entries(props)) {
+      if (
+        typeof value === 'string' &&
+        supportsScalarExpression(node.data.nodeType, key) &&
+        evaluateScalarExpression(value, expressionWidth, expressionHeight) == null
+      ) {
+        diagnostics.push({
+          id: `${node.id}-expression-${key}`, severity: 'error', category: 'expression',
+          title: `${nodeLabel(node)} has an invalid expression`,
+          message: `${key}: ${value || '(empty)'}`,
+          fix: `Replace “${key}” with a number or a valid expression using W, H, min, max, abs, floor, ceil, round, or clamp.`,
+          nodeIds: [node.id], nodeLabel: nodeLabel(node), propertyKey: key,
+        })
+      }
+    }
+  }
+
+  for (const node of nodes) {
+    if (!PREVIEW_ONLY_NODE_TYPES.has(node.data.nodeType) || !edges.some((edge) => edge.source === node.id)) continue
+    diagnostics.push({
+      id: `${node.id}-preview-only`, severity: 'warning', category: 'preview',
+      title: `${nodeLabel(node)} works only in preview`,
+      message: 'Generated firmware receives this node’s idle default instead of its live browser input.',
+      fix: 'Replace it with a hardware input node, or disconnect it before generating firmware.',
+      nodeIds: [node.id], nodeLabel: nodeLabel(node),
+    })
+  }
+
+  const power = estimatePowerLoad(nodes)
+  if (matrixOutput && power?.exceedsConfigured) {
+    diagnostics.push({
+      id: `${matrixOutput.id}-power-cap`, severity: 'warning', category: 'power',
+      title: 'Worst-case draw exceeds the power cap',
+      message: `About ${power.worstCaseMa} mA for ${power.ledCount} LEDs versus a ${power.configuredMa} mA cap; FastLED will auto-dim.`,
+      fix: 'Keep the cap and expect dimming, or reduce LED count/brightness before raising it to a supply-safe value.',
+      nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput),
+    })
+  } else if (matrixOutput && power && power.configuredMa == null && power.worstCaseMa >= POWER_WARN_MA) {
+    diagnostics.push({
+      id: `${matrixOutput.id}-power-unlimited`, severity: 'warning', category: 'power',
+      title: 'High-current output has no power cap',
+      message: `Worst-case full white is about ${power.worstCaseMa} mA for ${power.ledCount} LEDs.`,
+      fix: 'Enable Power limit on Matrix Output and enter the continuous current rating of the LED power supply.',
+      nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput),
+    })
+  }
+
+  const ram = estimateFirmwareRam(nodes, edges)
+  if (matrixOutput && ram && !ram.usesPsram && ram.internalBytes > INTERNAL_RAM_WARN_BYTES) {
+    diagnostics.push({
+      id: `${matrixOutput.id}-memory`, severity: 'warning', category: 'memory',
+      title: 'Internal RAM estimate is high',
+      message: `Render buffers need roughly ${Math.round(ram.internalBytes / 1024)} KB before framework and network overhead.`,
+      fix: 'Choose a PSRAM-capable ESP32 board and enable Use PSRAM, or reduce matrix size and buffer-heavy nodes.',
+      nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput),
+    })
+  }
+
+  if (options.selectedFqbn && !options.selectedFqbn.startsWith('esp32:')) {
+    for (const node of nodes.filter((entry) => entry.data.nodeType === 'MicInput')) {
+      diagnostics.push({
+        id: `${node.id}-board`, severity: 'error', category: 'board',
+        title: 'Microphone is incompatible with the selected board',
+        message: 'INMP441 capture uses the ESP-IDF I2S driver and cannot compile for this target.',
+        fix: 'Choose an ESP32-family board in Board & Port, or remove the Microphone node.',
+        nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
+      })
+    }
+  }
+
+  const master = nodes.find((node) => node.data.nodeType === 'PatternMaster')
+  if (master && !incoming.has(`${master.id}:patternset`)) {
+    diagnostics.push({
+      id: `${master.id}-patterns`, severity: 'warning', category: 'show',
+      title: 'Show Engine has no patterns',
+      message: 'No Pattern Collection is wired to the show engine.',
+      fix: 'Connect a Pattern Collection pattern-set output to the Show Engine.',
+      nodeIds: [master.id], nodeLabel: nodeLabel(master),
+    })
+  }
+
+  const perfGen = nodes.find((node) => node.data.nodeType === 'PerformanceGenerator')
+  if (perfGen && incoming.has(`${perfGen.id}:patternset`)) {
+    const link = edges.find((edge) => edge.target === perfGen.id && edge.targetHandle === 'patternset')
+    const collection = link && nodes.find((node) => node.id === link.source && node.data.nodeType === 'PatternCollection')
+    const patternIds = collection ? ((collection.data.properties as { patternIds?: string[] }).patternIds ?? []) : []
+    if (!incoming.has(`${perfGen.id}:music`)) {
+      diagnostics.push({
+        id: `${perfGen.id}-music`, severity: 'warning', category: 'show',
+        title: 'Performance Generator has no music source',
+        message: 'It has patterns, but no analysed music to drive the show.',
+        fix: 'Connect a Music Library output to the Performance Generator music input.',
+        nodeIds: [perfGen.id], nodeLabel: nodeLabel(perfGen),
+      })
+    }
+    if (collection && patternIds.length === 0) {
+      diagnostics.push({
+        id: `${collection.id}-empty`, severity: 'warning', category: 'show',
+        title: 'Pattern Collection is empty',
+        message: 'The connected collection cannot produce a show without patterns.',
+        fix: 'Add at least one saved pattern to this Pattern Collection.',
+        nodeIds: [collection.id], nodeLabel: nodeLabel(collection),
+      })
+    }
+  }
+
+  for (const node of nodes) {
+    if (
+      node.data.nodeType === terminalType ||
+      node.data.nodeType === 'Comment' ||
+      edges.some((edge) => edge.source === node.id || edge.target === node.id)
+    ) continue
+    diagnostics.push({
+      id: `${node.id}-disconnected`, severity: 'warning', category: 'connection',
+      title: `${nodeLabel(node)} is disconnected`,
+      message: 'This node does not send or receive any signal.',
+      fix: 'Connect one of its outputs to a compatible downstream input, or remove the unused node.',
+      nodeIds: [node.id], nodeLabel: nodeLabel(node),
+    })
+  }
+
+  return diagnostics
+}
+
+export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selectedFqbn = ''): ValidationResult {
   const errors: string[] = [], warnings: string[] = []
   if (nodes.length === 0) { errors.push('No nodes in graph'); return { errors, warnings } }
 
@@ -298,6 +558,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[]): Validat
   errors.push(...findPinConflicts(nodes))
   errors.push(...findMatrixLayoutErrors(nodes))
   errors.push(...findScalarExpressionErrors(nodes))
+  errors.push(...findBoardCompatibilityErrors(nodes, selectedFqbn))
   warnings.push(...findPreviewOnlyWarnings(nodes, edges))
 
   const power = estimatePowerLoad(nodes)

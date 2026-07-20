@@ -7,6 +7,14 @@ versioning (`0.y.z`) until the first stable release.
 
 ## [Unreleased]
 
+### Added
+
+- Added an always-available Graph Health drawer with continuously refreshed,
+  node-attributed diagnostics for wiring, expressions, pin conflicts,
+  preview-only behavior, output power, internal RAM, show structure, and board
+  compatibility. Each issue includes a specific repair and can locate the
+  affected node or open the relevant workspace control.
+
 ## [0.3.0] - 2026-07-20
 
 Renamed the project to **Design Studio for FastLED** following trademark
