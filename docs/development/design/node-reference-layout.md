@@ -63,11 +63,16 @@ The approved example is:
 
 Microphone feeds live audio to FFT Analyzer. FFT separates bass, mids, and treble; those values drive Spectrum Bars, whose frame is sent to Matrix Output. The Main Preview shows the resulting mirrored rainbow spectrum.
 
-## Remaining rollout
+## Rollout status — complete
 
-- Convert each remaining node from the legacy/fallback article to the approved Microphone structure.
-- Write a specific example recipe and explanation for every node; avoid generic copy.
-- Decide per node whether a Main Preview adds useful information.
-- Add a **Try it live** recipe and tests for each distinct recipe family.
-- Regenerate or replace captures that contain clipped nodes, sidebar content, the separate preview panel, or idle output.
-- Run `npm test`, `npm run lint`, and `npm run build` after the full conversion.
+The rollout is complete across all 144 nodes in the library:
+
+- [x] Every node uses the approved reference-article structure.
+- [x] Every node has an example recipe, explanation, and an appropriate preview or workflow outcome.
+- [x] Every node has a **Try it live** action backed by valid, compatible wiring.
+- [x] Generated node cards, example-graph illustrations, and evaluated preview images exist for the full library under `public/node-cards/`.
+- [x] Coverage tests verify every library node's live example, wiring, layout grid, and workflow outcome.
+
+When a node is added or changed, update its reference content and live example,
+regenerate the node-card assets with `npm run gen:node-cards`, then run the
+focused Help tests plus the normal test, lint, and build checks.
