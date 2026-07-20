@@ -115,6 +115,18 @@ describe('uiStore.setStatus auto-clear', () => {
     expect(localStorage.getItem('design-studio-for-fastled-signal-path-dim-enabled')).toBe('false')
   })
 
+  it('persists the graph health drawer state', () => {
+    localStorage.removeItem('design-studio-for-fastled-graph-health-open')
+    useUiStore.setState({ graphHealthOpen: true })
+
+    useUiStore.getState().toggleGraphHealth()
+    expect(useUiStore.getState().graphHealthOpen).toBe(false)
+    expect(localStorage.getItem('design-studio-for-fastled-graph-health-open')).toBe('false')
+
+    useUiStore.getState().toggleGraphHealth()
+    expect(useUiStore.getState().graphHealthOpen).toBe(true)
+  })
+
   it('queues fit-view requests with an incrementing nonce', () => {
     useUiStore.setState({ fitViewRequest: { nonce: 0 } })
 

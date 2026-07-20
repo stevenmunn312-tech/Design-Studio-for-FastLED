@@ -66,6 +66,7 @@ const TEST_SIGNAL_KEY = 'design-studio-for-fastled-test-signal'
 const UI_EFFECTS_KEY = 'design-studio-for-fastled-ui-effects-enabled'
 const SIGNAL_PATH_DIM_KEY = 'design-studio-for-fastled-signal-path-dim-enabled'
 const START_CHOICE_KEY = 'design-studio-for-fastled-last-start-choice'
+const GRAPH_HEALTH_KEY = 'design-studio-for-fastled-graph-health-open'
 
 function load<T>(key: string, fallback: T): T {
   try { const v = localStorage.getItem(key); return v !== null ? JSON.parse(v) : fallback } catch { return fallback }
@@ -96,6 +97,7 @@ interface UiState {
   statusLevel: StatusLevel
   sidebarOpen: boolean
   previewPanelOpen: boolean
+  graphHealthOpen: boolean
   /** Whether the live graph evaluator advances and publishes preview frames. */
   evaluationRunning: boolean
   /** Show-ready layout that gives the live matrix and transport the viewport. */
@@ -139,6 +141,7 @@ interface UiState {
   clearStatus: () => void
   toggleSidebar: () => void
   togglePreviewPanel: () => void
+  toggleGraphHealth: () => void
   toggleEvaluation: () => void
   toggleStageMode: () => void
   setStageMode: (active: boolean) => void
@@ -194,6 +197,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   statusLevel: 'idle',
   sidebarOpen: true,
   previewPanelOpen: true,
+  graphHealthOpen: load<boolean>(GRAPH_HEALTH_KEY, true),
   evaluationRunning: true,
   stageMode: false,
   // Perform is a presentation state for the current session, like Stage. A
@@ -244,6 +248,11 @@ export const useUiStore = create<UiState>((set, get) => ({
   },
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   togglePreviewPanel: () => set((s) => ({ previewPanelOpen: !s.previewPanelOpen })),
+  toggleGraphHealth: () => {
+    const next = !get().graphHealthOpen
+    localStorage.setItem(GRAPH_HEALTH_KEY, JSON.stringify(next))
+    set({ graphHealthOpen: next })
+  },
   toggleEvaluation: () => set((s) => ({ evaluationRunning: !s.evaluationRunning })),
   toggleStageMode: () => set((s) => ({ stageMode: !s.stageMode })),
   setStageMode: (stageMode) => set({ stageMode }),

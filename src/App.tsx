@@ -19,6 +19,7 @@ import { blankWorkspace, captureWorkspace } from './state/workspacePersistence'
 import { nextDefaultProjectName } from './utils/projectFileIO'
 import { promptTrustIfNeeded } from './utils/trustPrompt'
 import TrustBanner from './components/TrustBanner/TrustBanner'
+import GraphHealthDrawer from './components/GraphHealth/GraphHealthDrawer'
 import styles from './App.module.css'
 
 const BoardPopup = lazy(() => import('./components/Upload/BoardPopup'))
@@ -337,50 +338,53 @@ export default function App() {
       <div className={styles.menuShell}><MenuBar /></div>
       {!stageMode && <TrustBanner />}
       <div className={`${styles.workspace} ${stageMode ? styles.workspaceStage : ''}`}>
-        <div className={styles.mainRegion}>
-          <div className={`${styles.sidebarDock} ${sidebarOpen ? '' : styles.sidebarDockClosed}`}>
-            <div
-              className={`${styles.sidebarPanel} ${sidebarOpen ? '' : styles.sidebarPanelClosed}`}
-              aria-hidden={!sidebarOpen}
-              inert={!sidebarOpen}
+        <div className={styles.workspaceCanvas}>
+          <div className={styles.mainRegion}>
+            <div className={`${styles.sidebarDock} ${sidebarOpen ? '' : styles.sidebarDockClosed}`}>
+              <div
+                className={`${styles.sidebarPanel} ${sidebarOpen ? '' : styles.sidebarPanelClosed}`}
+                aria-hidden={!sidebarOpen}
+                inert={!sidebarOpen}
+              >
+                <Sidebar />
+              </div>
+            </div>
+            <button
+              className={`${styles.sidebarHandle} ${sidebarOpen ? styles.sidebarHandleOpen : styles.sidebarHandleClosed}`}
+              type="button"
+              onClick={toggleSidebar}
+              aria-label={sidebarOpen ? 'Hide node library' : 'Show node library'}
+              aria-expanded={sidebarOpen}
+              aria-controls="node-library"
+              title={sidebarOpen ? 'Hide node library' : 'Show node library'}
             >
-              <Sidebar />
+              <span className={styles.sidebarHandleArrow} aria-hidden="true">{sidebarOpen ? '‹' : '›'}</span>
+            </button>
+            <NodeGraphCanvas />
+          </div>
+          <div className={`${styles.previewDock} ${previewPanelOpen ? '' : styles.previewDockClosed}`}>
+            <div
+              className={`${styles.previewPanel} ${previewPanelOpen ? '' : styles.previewPanelClosed}`}
+              aria-hidden={!previewPanelOpen && !stageMode}
+              inert={!previewPanelOpen && !stageMode}
+              id="preview-panel"
+            >
+              <LEDPreview />
             </div>
           </div>
           <button
-            className={`${styles.sidebarHandle} ${sidebarOpen ? styles.sidebarHandleOpen : styles.sidebarHandleClosed}`}
+            className={`${styles.previewHandle} ${previewPanelOpen ? styles.previewHandleOpen : styles.previewHandleClosed}`}
             type="button"
-            onClick={toggleSidebar}
-            aria-label={sidebarOpen ? 'Hide node library' : 'Show node library'}
-            aria-expanded={sidebarOpen}
-            aria-controls="node-library"
-            title={sidebarOpen ? 'Hide node library' : 'Show node library'}
+            onClick={togglePreviewPanel}
+            aria-label={previewPanelOpen ? 'Hide LED preview' : 'Show LED preview'}
+            aria-expanded={previewPanelOpen}
+            aria-controls="preview-panel"
+            title={previewPanelOpen ? 'Hide LED preview' : 'Show LED preview'}
           >
-            <span className={styles.sidebarHandleArrow} aria-hidden="true">{sidebarOpen ? '‹' : '›'}</span>
+            <span className={styles.previewHandleArrow} aria-hidden="true">{previewPanelOpen ? '›' : '‹'}</span>
           </button>
-          <NodeGraphCanvas />
         </div>
-        <div className={`${styles.previewDock} ${previewPanelOpen ? '' : styles.previewDockClosed}`}>
-          <div
-            className={`${styles.previewPanel} ${previewPanelOpen ? '' : styles.previewPanelClosed}`}
-            aria-hidden={!previewPanelOpen && !stageMode}
-            inert={!previewPanelOpen && !stageMode}
-            id="preview-panel"
-          >
-            <LEDPreview />
-          </div>
-        </div>
-        <button
-          className={`${styles.previewHandle} ${previewPanelOpen ? styles.previewHandleOpen : styles.previewHandleClosed}`}
-          type="button"
-          onClick={togglePreviewPanel}
-          aria-label={previewPanelOpen ? 'Hide LED preview' : 'Show LED preview'}
-          aria-expanded={previewPanelOpen}
-          aria-controls="preview-panel"
-          title={previewPanelOpen ? 'Hide LED preview' : 'Show LED preview'}
-        >
-          <span className={styles.previewHandleArrow} aria-hidden="true">{previewPanelOpen ? '›' : '‹'}</span>
-        </button>
+        {!stageMode && <GraphHealthDrawer />}
       </div>
       <div className={styles.statusShell}><StatusBar /></div>
       <Suspense fallback={null}>
