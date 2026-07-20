@@ -37,7 +37,10 @@ function renderNode(n: StudioNodeT) {
 
 describe('StudioNode', () => {
   beforeEach(() => {
-    useGraphStore.setState({ nodes: [], edges: [] })
+    useGraphStore.setState({
+      nodes: [], edges: [],
+      performanceDeck: { pins: [], scenes: [], midiBindings: [], keyBindings: [] },
+    })
     useMusicStore.setState({ entries: [] })
     usePreviewStore.setState({ outputs: new Map() })
     useAudioStore.setState({ active: false, bass: 0, mids: 0, treble: 0, beat: false, bpm: 120, spectrum: Array(16).fill(0) })
@@ -58,6 +61,28 @@ describe('StudioNode', () => {
     const color = container.querySelector('input[type="color"]') as HTMLInputElement
     expect(color).toBeTruthy()
     expect(color.value).toBe('#ff0080')
+  })
+
+  it('pinning a property from its row adds it to the performance deck; clicking again unpins it', () => {
+    const { getByLabelText } = renderNode(makeNode('Circle', { cx: 0.5, cy: 0.5, radius: 3, filled: false, edge: '#ff0000' }))
+    const pinBtn = getByLabelText('Pin radius to Performance Deck')
+    fireEvent.click(pinBtn)
+    expect(useGraphStore.getState().performanceDeck.pins).toHaveLength(1)
+    expect(useGraphStore.getState().performanceDeck.pins[0]).toMatchObject({ nodeId: 'n1', propertyKey: 'radius' })
+
+    const unpinBtn = getByLabelText('Unpin radius from Performance Deck')
+    fireEvent.click(unpinBtn)
+    expect(useGraphStore.getState().performanceDeck.pins).toHaveLength(0)
+  })
+
+  it('does not show a pin affordance for a wired (connection-driven) property', () => {
+    useGraphStore.setState({
+      nodes: [makeNode('Circle', { cx: 0.5, cy: 0.5, radius: 3, filled: false, edge: '#ff0000' })],
+      edges: [{ id: 'e1', source: 'src', target: 'n1', sourceHandle: 'value', targetHandle: 'radius' } as never],
+    })
+    const props = { id: 'n1', data: useGraphStore.getState().nodes[0].data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
+    const { queryByLabelText } = render(<StudioNode {...props} />)
+    expect(queryByLabelText('Pin radius to Performance Deck')).toBeNull()
   })
 
   it('editing a plain number field updates the node property in the store', () => {

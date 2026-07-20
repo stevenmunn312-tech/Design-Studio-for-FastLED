@@ -20,7 +20,13 @@ import { nextDefaultProjectName } from './utils/projectFileIO'
 import { promptTrustIfNeeded } from './utils/trustPrompt'
 import TrustBanner from './components/TrustBanner/TrustBanner'
 import GraphHealthDrawer from './components/GraphHealth/GraphHealthDrawer'
+import PerformanceDeckMidiBridge from './components/PerformanceDeck/PerformanceDeckMidiBridge'
+import { usePerformanceDeckSession } from './state/performanceDeckSessionStore'
+import { serializeKeyCombo } from './state/performanceDeck'
+import { dispatchDeckAction } from './state/performanceDeckActions'
 import styles from './App.module.css'
+
+const PerformanceDeck = lazy(() => import('./components/PerformanceDeck/PerformanceDeck'))
 
 const BoardPopup = lazy(() => import('./components/Upload/BoardPopup'))
 const MatrixOutputSetupWizard = lazy(() => import('./components/Upload/MatrixOutputSetupWizard'))
@@ -42,6 +48,7 @@ export default function App() {
   const previewPanelOpen = useUiStore((s) => s.previewPanelOpen)
   const stageMode = useUiStore((s) => s.stageMode)
   const performanceMode = useUiStore((s) => s.performanceMode)
+  const deckOpen = usePerformanceDeckSession((s) => s.deckOpen)
   const uiEffectsEnabled = useUiStore((s) => s.uiEffectsEnabled)
   const setStatus = useUiStore((s) => s.setStatus)
   const theme = useUiStore((s) => s.theme)
@@ -103,6 +110,7 @@ export default function App() {
           graphs: shared.graphs,
           activeGraphId: shared.activeGraphId,
           trusted: false,
+          performanceDeck: shared.performanceDeck,
         })
         useProjectStore.getState().saveCurrentWorkspace({ ...shared, trusted: false })
         useGraphStore.temporal.getState().clear()
@@ -121,8 +129,8 @@ export default function App() {
           blankWorkspace(),
         )
       if (!current) return
-      const { nodes, edges, graphData, graphs, activeGraphId, trusted } = current.workspace
-      useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, trusted })
+      const { nodes, edges, graphData, graphs, activeGraphId, trusted, performanceDeck } = current.workspace
+      useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, trusted, performanceDeck })
       useGraphStore.temporal.getState().clear()
     }
     void init()
@@ -245,6 +253,14 @@ export default function App() {
       const isTyping = !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
 
       if (e.key === 'Escape' && !isTyping) {
+        // The deck hosts the panic button and MIDI-learn/key-learn capture —
+        // close it first so Escape can't leave a "listening…" state armed
+        // mid-performance, before falling through to the existing
+        // stage/perform/selection-clear priority chain.
+        if (usePerformanceDeckSession.getState().deckOpen) {
+          usePerformanceDeckSession.getState().setDeckOpen(false)
+          return
+        }
         if (useUiStore.getState().stageMode) {
           useUiStore.getState().setStageMode(false)
           return
@@ -269,10 +285,30 @@ export default function App() {
         return
       }
 
+      if (e.key === 'F8' && !isTyping) {
+        e.preventDefault()
+        usePerformanceDeckSession.getState().toggleDeck()
+        return
+      }
+
       if ((e.key === '?' || e.key === 'F1') && !isTyping) {
         e.preventDefault()
         useUiStore.getState().openHelp()
         return
+      }
+
+      // User-defined performance-deck key bindings — checked after every
+      // hardcoded global shortcut above (so they can never be shadowed) and
+      // before the Ctrl/Cmd-gated block below (so a plain unmodified key
+      // like "F7" isn't swallowed by the `!mod` early return).
+      if (!isTyping) {
+        const combo = serializeKeyCombo(e)
+        const bound = useGraphStore.getState().performanceDeck.keyBindings.find((b) => b.combo === combo)
+        if (bound) {
+          e.preventDefault()
+          dispatchDeckAction(bound.action)
+          return
+        }
       }
 
       const mod = e.ctrlKey || e.metaKey
@@ -383,10 +419,16 @@ export default function App() {
           >
             <span className={styles.previewHandleArrow} aria-hidden="true">{previewPanelOpen ? '›' : '‹'}</span>
           </button>
+          {deckOpen && (
+            <Suspense fallback={null}>
+              <PerformanceDeck />
+            </Suspense>
+          )}
         </div>
         {!stageMode && <GraphHealthDrawer />}
       </div>
       <div className={styles.statusShell}><StatusBar /></div>
+      <PerformanceDeckMidiBridge />
       <Suspense fallback={null}>
         <AppDialogHost />
         {setupWizardOpen && <MatrixOutputSetupWizard />}

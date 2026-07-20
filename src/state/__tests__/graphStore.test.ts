@@ -32,6 +32,9 @@ function reset(nodes: StudioNode[] = [], edges: StudioEdge[] = []) {
     graphs: { [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' } },
     graphData: {},
     trusted: true,
+    performanceDeck: { pins: [], scenes: [], midiBindings: [], keyBindings: [] },
+    panicActive: false,
+    panicRestoreValues: null,
   })
   useUiStore.setState({ fitViewRequest: { nonce: 0 } })
 }
@@ -1033,5 +1036,156 @@ describe('graphStore — orphaned subgraph pruning', () => {
     const s = useGraphStore.getState()
     expect(s.graphData.zombie).toBeUndefined()
     expect(s.graphs.zombie).toBeUndefined()
+  })
+})
+
+describe('graphStore — performance control deck', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    reset([
+      node('sc', 'SolidColor', { r: 10 }),
+      node('out', 'MatrixOutput', { brightness: 200 }),
+    ])
+    vi.advanceTimersByTime(400)
+    useGraphStore.temporal.getState().clear()
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('pinProperty adds a pin derived from the node\'s current value, unpinProperty removes it', () => {
+    useGraphStore.getState().pinProperty('sc', 'r')
+    let pins = useGraphStore.getState().performanceDeck.pins
+    expect(pins).toHaveLength(1)
+    expect(pins[0]).toMatchObject({ nodeId: 'sc', propertyKey: 'r' })
+
+    // Pinning the same node+property again is a no-op, not a duplicate.
+    useGraphStore.getState().pinProperty('sc', 'r')
+    expect(useGraphStore.getState().performanceDeck.pins).toHaveLength(1)
+
+    useGraphStore.getState().unpinProperty(pins[0].id)
+    pins = useGraphStore.getState().performanceDeck.pins
+    expect(pins).toHaveLength(0)
+  })
+
+  it('MatrixOutput.brightness is pinnable via pinProperty (regression: not blocked like nodePresets)', () => {
+    useGraphStore.getState().pinProperty('out', 'brightness')
+    const pins = useGraphStore.getState().performanceDeck.pins
+    expect(pins).toHaveLength(1)
+    expect(pins[0].propertyKey).toBe('brightness')
+  })
+
+  it('saveScene snapshots current pin values; recallScene restores them in one undo-free step', () => {
+    useGraphStore.getState().pinProperty('sc', 'r')
+    const pinId = useGraphStore.getState().performanceDeck.pins[0].id
+
+    const sceneId = useGraphStore.getState().saveScene('Scene A')
+    expect(useGraphStore.getState().performanceDeck.scenes[0].values[pinId]).toBe(10)
+
+    useGraphStore.getState().updateNodeProperty('sc', 'r', 99)
+    vi.advanceTimersByTime(400)
+    expect(useGraphStore.getState().nodes.find((n) => n.id === 'sc')!.data.properties.r).toBe(99)
+
+    const pastBefore = useGraphStore.temporal.getState().pastStates.length
+    useGraphStore.getState().recallScene(sceneId)
+    expect(useGraphStore.getState().nodes.find((n) => n.id === 'sc')!.data.properties.r).toBe(10)
+    // recallScene is excluded from undo entirely — no new history entry.
+    expect(useGraphStore.temporal.getState().pastStates.length).toBe(pastBefore)
+  })
+
+  it('updateScene overwrites an existing scene; deleteScene removes it', () => {
+    useGraphStore.getState().pinProperty('sc', 'r')
+    const sceneId = useGraphStore.getState().saveScene('Scene A')
+    useGraphStore.getState().updateNodeProperty('sc', 'r', 42)
+    vi.advanceTimersByTime(400)
+    useGraphStore.getState().updateScene(sceneId)
+    const pinId = useGraphStore.getState().performanceDeck.pins[0].id
+    expect(useGraphStore.getState().performanceDeck.scenes[0].values[pinId]).toBe(42)
+
+    useGraphStore.getState().deleteScene(sceneId)
+    expect(useGraphStore.getState().performanceDeck.scenes).toHaveLength(0)
+  })
+
+  it('deleting a pinned node drops its pin (deleteNode and deleteSelection)', () => {
+    useGraphStore.getState().pinProperty('sc', 'r')
+    expect(useGraphStore.getState().performanceDeck.pins).toHaveLength(1)
+    useGraphStore.getState().deleteNode('sc')
+    expect(useGraphStore.getState().performanceDeck.pins).toHaveLength(0)
+
+    reset([node('sc2', 'SolidColor', { r: 1 })])
+    useGraphStore.getState().pinProperty('sc2', 'r')
+    useGraphStore.setState((s) => ({ nodes: s.nodes.map((n) => ({ ...n, selected: true })) }))
+    useGraphStore.getState().deleteSelection()
+    expect(useGraphStore.getState().performanceDeck.pins).toHaveLength(0)
+  })
+
+  it('panic zeros pinned numeric/boolean properties plus MatrixOutput.brightness, restorePanic reverses it, both excluded from undo', () => {
+    useGraphStore.getState().pinProperty('sc', 'r')
+    const pastBefore = useGraphStore.temporal.getState().pastStates.length
+
+    useGraphStore.getState().panic()
+    let s = useGraphStore.getState()
+    expect(s.panicActive).toBe(true)
+    expect(s.nodes.find((n) => n.id === 'sc')!.data.properties.r).toBe(0)
+    // MatrixOutput.brightness always goes dark on panic, pinned or not.
+    expect(s.nodes.find((n) => n.id === 'out')!.data.properties.brightness).toBe(0)
+    expect(useGraphStore.temporal.getState().pastStates.length).toBe(pastBefore)
+
+    // Re-entrant: a second panic while already active is a no-op, not an
+    // overwrite of the restore snapshot.
+    useGraphStore.getState().panic()
+    expect(useGraphStore.getState().panicRestoreValues).toEqual(s.panicRestoreValues)
+
+    useGraphStore.getState().restorePanic()
+    s = useGraphStore.getState()
+    expect(s.panicActive).toBe(false)
+    expect(s.nodes.find((n) => n.id === 'sc')!.data.properties.r).toBe(10)
+    expect(s.nodes.find((n) => n.id === 'out')!.data.properties.brightness).toBe(200)
+    expect(useGraphStore.temporal.getState().pastStates.length).toBe(pastBefore)
+  })
+
+  it('addMidiBinding replaces any existing binding for the same target; removeMidiBinding deletes it', () => {
+    useGraphStore.getState().pinProperty('sc', 'r')
+    const pinId = useGraphStore.getState().performanceDeck.pins[0].id
+    useGraphStore.getState().addMidiBinding({ target: { kind: 'pin', pinId }, message: 'cc', channel: 0, number: 1 })
+    useGraphStore.getState().addMidiBinding({ target: { kind: 'pin', pinId }, message: 'cc', channel: 0, number: 74 })
+    const bindings = useGraphStore.getState().performanceDeck.midiBindings
+    expect(bindings).toHaveLength(1)
+    expect(bindings[0].number).toBe(74)
+
+    useGraphStore.getState().removeMidiBinding(bindings[0].id)
+    expect(useGraphStore.getState().performanceDeck.midiBindings).toHaveLength(0)
+  })
+
+  it('addKeyBinding replaces any existing binding for the same combo; removeKeyBinding deletes it', () => {
+    useGraphStore.getState().addKeyBinding({ combo: 'F7', action: { type: 'panic' } })
+    useGraphStore.getState().addKeyBinding({ combo: 'F7', action: { type: 'pinNudge', pinId: 'p1', delta: 1 } })
+    const bindings = useGraphStore.getState().performanceDeck.keyBindings
+    expect(bindings).toHaveLength(1)
+    expect(bindings[0].action).toEqual({ type: 'pinNudge', pinId: 'p1', delta: 1 })
+
+    useGraphStore.getState().removeKeyBinding(bindings[0].id)
+    expect(useGraphStore.getState().performanceDeck.keyBindings).toHaveLength(0)
+  })
+
+  it('loadGraph on a workspace with no performanceDeck key produces a blank deck without throwing (migration)', () => {
+    expect(() =>
+      useGraphStore.getState().loadGraph([node('out2', 'MatrixOutput')], [], {
+        activeGraphId: ROOT_GRAPH_ID,
+      })
+    ).not.toThrow()
+    const s = useGraphStore.getState()
+    expect(s.performanceDeck).toEqual({ pins: [], scenes: [], midiBindings: [], keyBindings: [] })
+  })
+
+  it('loadGraph passes through a well-formed performanceDeck from the workspace', () => {
+    useGraphStore.getState().loadGraph([node('sc3', 'SolidColor', { r: 5 })], [], {
+      activeGraphId: ROOT_GRAPH_ID,
+      performanceDeck: {
+        pins: [{ id: 'pin-x', nodeId: 'sc3', propertyKey: 'r', label: 'R', kind: 'knob', createdAt: 0 }],
+        scenes: [],
+        midiBindings: [],
+        keyBindings: [],
+      },
+    })
+    expect(useGraphStore.getState().performanceDeck.pins).toHaveLength(1)
   })
 })

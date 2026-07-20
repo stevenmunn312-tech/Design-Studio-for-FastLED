@@ -3,6 +3,7 @@ import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUiStore } from '../../state/uiStore'
 import { useGraphStore, useTemporalStore } from '../../state/graphStore'
+import { usePerformanceDeckSession } from '../../state/performanceDeckSessionStore'
 import { useAudioStore } from '../../state/audioStore'
 import { useShowPlayback } from '../../state/showPlayback'
 import { useProjectStore } from '../../state/projectStore'
@@ -131,6 +132,8 @@ export default function MenuBar() {
   const startAudio = useAudioStore((s) => s.startAudio)
   const stopAudio = useAudioStore((s) => s.stopAudio)
   const showPlaying = useShowPlayback((s) => s.playing)
+  const deckOpen = usePerformanceDeckSession((s) => s.deckOpen)
+  const toggleDeck = usePerformanceDeckSession((s) => s.toggleDeck)
 
   const { undo, redo, pastStates, futureStates } = useTemporalStore((s) => s)
   const currentProjectId = useProjectStore((s) => s.currentProjectId)
@@ -288,8 +291,8 @@ export default function MenuBar() {
     }
     const next = useProjectStore.getState().switchProject(projectId)
     if (!next) return false
-    const { nodes, edges, graphData, graphs, activeGraphId, trusted } = next.workspace
-    useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, trusted })
+    const { nodes, edges, graphData, graphs, activeGraphId, trusted, performanceDeck } = next.workspace
+    useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, trusted, performanceDeck })
     useGraphStore.temporal.getState().clear()
     setStatus(`Opened project "${next.name}"`, 'success')
     return true
@@ -345,8 +348,8 @@ export default function MenuBar() {
       useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
     }
     const opened = useProjectStore.getState().upsertProject(project)
-    const { nodes, edges, graphData, graphs, activeGraphId, trusted } = opened.workspace
-    useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, trusted })
+    const { nodes, edges, graphData, graphs, activeGraphId, trusted, performanceDeck } = opened.workspace
+    useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, trusted, performanceDeck })
     useGraphStore.temporal.getState().clear()
     setStatus(`Opened project "${opened.name}"`, 'success')
     void promptTrustIfNeeded()
@@ -484,11 +487,11 @@ export default function MenuBar() {
       const reader = new FileReader()
       reader.onload = (ev) => {
         try {
-          const { nodes, edges, graphData, graphs, activeGraphId } = JSON.parse(ev.target?.result as string) as
+          const { nodes, edges, graphData, graphs, activeGraphId, performanceDeck } = JSON.parse(ev.target?.result as string) as
             { nodes: StudioNode[]; edges: StudioEdge[] } & WorkspaceExtras
           // Never trust an imported file's own `trusted` claim — force it
           // false regardless of what the JSON says (todo.md's P0 trust item).
-          useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, trusted: false })
+          useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, trusted: false, performanceDeck })
           useGraphStore.temporal.getState().clear()
           setStatus('Graph JSON imported', 'success')
           void promptTrustIfNeeded()
@@ -747,6 +750,15 @@ export default function MenuBar() {
           title="Performance mode: hush chrome and emphasize live signal flow"
         >
           {performanceMode ? '◆' : '◇'} Perform
+        </button>
+        <button
+          className={`${styles.btn} ${deckOpen ? styles.btnActive : ''}`}
+          onClick={toggleDeck}
+          aria-label="Toggle performance control deck"
+          aria-pressed={deckOpen}
+          title="Performance control deck: pinned knobs/faders, scenes, MIDI/keyboard bindings, panic (F8)"
+        >
+          {deckOpen ? '◆' : '◇'} Deck
         </button>
         <div className={styles.sep} />
         <button

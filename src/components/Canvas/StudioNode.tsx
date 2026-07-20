@@ -5,6 +5,7 @@ import { matrixDims, useGraphStore } from '../../state/graphStore'
 import type { StudioEdge, StudioNodeData } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { NODE_LIBRARY, CATEGORY_ACCENT_VAR, portColor, propertyMeta, hasClampableInputs, bypassPort, nodeDisplayLabel, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression } from '../../state/nodeLibrary'
+import { isPinnableProperty } from '../../state/performanceDeck'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../../state/scalarExpression'
 import { waveNodeSamples } from '../../state/wave'
 import WaveScope from './WaveScope'
@@ -40,6 +41,10 @@ const MatrixOutputUpload = lazy(() => import('../Upload/MatrixOutputUpload'))
 type PortDef = { id: string; label: string; dataType: string }
 
 const PROP_GROUPS_STORAGE_PREFIX = 'design-studio-for-fastled.propGroupsOpen.'
+
+// Stable empty reference so the pinned-keys selector doesn't return a fresh
+// Map() (and force an extra re-render) for the common case of an unpinned node.
+const EMPTY_PIN_MAP = new Map<string, string>()
 
 // Shows the latest compile/runtime error from a Code node's preview evaluation.
 function CodeError({ nodeId }: { nodeId: string }) {
@@ -218,6 +223,11 @@ interface LivePropertyControlsProps {
   updateNodeProperty: (id: string, key: string, value: unknown) => void
   updateNodeProperties: (id: string, updates: Record<string, unknown>) => void
   setGroupInputRole: (nodeId: string, role: string) => void
+  /** propertyKey -> pin id, for properties of this node currently pinned to
+   *  the Performance Deck. */
+  pinnedKeys: Map<string, string>
+  pinProperty: (nodeId: string, propertyKey: string) => void
+  unpinProperty: (pinId: string) => void
 }
 
 const LivePropertyControls = memo(function LivePropertyControls({
@@ -239,6 +249,9 @@ const LivePropertyControls = memo(function LivePropertyControls({
   updateNodeProperty,
   updateNodeProperties,
   setGroupInputRole,
+  pinnedKeys,
+  pinProperty,
+  unpinProperty,
 }: LivePropertyControlsProps) {
   // Port id matching a property key drives that property (evaluator convention);
   // the `paletteIn` port drives the `palette` property, and the `color` port
@@ -478,6 +491,21 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 onChange={(e) => updateNodeProperty(nodeId, key, e.target.value)}
               />
             )}
+            {!wired && isPinnableProperty(nodeType, key, val) && (() => {
+              const pinId = pinnedKeys.get(key)
+              return (
+                <button
+                  type="button"
+                  className={`nodrag ${styles.pinBtn}${pinId ? ` ${styles.pinBtnActive}` : ''}`}
+                  title={pinId ? 'Unpin from Performance Deck' : 'Pin to Performance Deck'}
+                  aria-label={pinId ? `Unpin ${key} from Performance Deck` : `Pin ${key} to Performance Deck`}
+                  aria-pressed={Boolean(pinId)}
+                  onClick={() => (pinId ? unpinProperty(pinId) : pinProperty(nodeId, key))}
+                >
+                  📌
+                </button>
+              )
+            })()}
           </div>
         )
         }
@@ -717,6 +745,17 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
   const setGroupInputRole = useGraphStore((s) => s.setGroupInputRole)
+  const pinProperty = useGraphStore((s) => s.pinProperty)
+  const unpinProperty = useGraphStore((s) => s.unpinProperty)
+  // Select the stable `pins` array reference (only changes on an actual
+  // mutation) and derive the per-node lookup with useMemo — building the Map
+  // inside the selector itself would return a fresh object every call and
+  // spin useSyncExternalStore into an infinite re-render loop.
+  const allPins = useGraphStore((s) => s.performanceDeck.pins)
+  const pinnedKeys = useMemo(() => {
+    const forNode = allPins.filter((p) => p.nodeId === id)
+    return forNode.length === 0 ? EMPTY_PIN_MAP : new Map(forNode.map((p) => [p.propertyKey, p.id]))
+  }, [allPins, id])
   const bakeStatus = usePerformanceBakeStore((s) => s.byNode[id]?.status)
   const bakeLocked = (bakeStatus ?? usePerformanceBakeStore.getState().byNode[id]?.status ?? 'idle') !== 'idle'
   const categoryAccent = CATEGORY_ACCENT_VAR[d.category] ?? 'var(--accent-output)'
@@ -1077,6 +1116,9 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           updateNodeProperty={updateNodeProperty}
           updateNodeProperties={updateNodeProperties}
           setGroupInputRole={setGroupInputRole}
+          pinnedKeys={pinnedKeys}
+          pinProperty={pinProperty}
+          unpinProperty={unpinProperty}
         />
 
         {PREVIEW_NOTES[d.nodeType] && (
