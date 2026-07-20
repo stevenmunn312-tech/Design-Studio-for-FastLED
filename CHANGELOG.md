@@ -9,6 +9,13 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Added multiple Matrix Output routes in one project. Each route can select an
+  independent frame branch and configure its own pins, chipset/color order,
+  dimensions, physical layout, brightness, and fit/crop mapping. Preview can
+  switch between routes; generated firmware initializes all controllers and
+  updates them with one synchronized show call, with cross-output GPIO/layout,
+  aggregate power, and RAM validation.
+
 - Added preview recording and export: a **⏺ Record** button in the LED
   preview header opens a dialog that captures the matrix as a PNG snapshot,
   an animated GIF, or a WebM video, with duration, frame rate, scale

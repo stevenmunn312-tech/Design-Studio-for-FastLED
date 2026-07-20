@@ -54,10 +54,11 @@ export default function MatrixOutputSetupWizard() {
     openBoardPopup,
     openCliPopup,
     closeSetupWizard,
-    runUpload,
+    runUpload, activeOutputNodeId,
   } = useUploadStore()
 
-  const node = nodes.find((n) => n.data.nodeType === 'MatrixOutput')
+  const node = nodes.find((n) => n.id === activeOutputNodeId && n.data.nodeType === 'MatrixOutput')
+    ?? nodes.find((n) => n.data.nodeType === 'MatrixOutput')
   const nodeId = node?.id ?? null
   const props = ((node?.data.properties ?? {}) as Record<string, unknown>)
 
@@ -101,7 +102,7 @@ export default function MatrixOutputSetupWizard() {
   }
 
   function handleFlashWiringTest() {
-    const sketch = generateWiringDiagnosticSketch(nodes)
+    const sketch = generateWiringDiagnosticSketch(nodes, matrixNodeId)
     if (sketch) void runUpload(sketch, undefined, { cache: false })
   }
 

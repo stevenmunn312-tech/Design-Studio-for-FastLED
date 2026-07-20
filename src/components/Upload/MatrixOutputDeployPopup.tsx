@@ -11,7 +11,7 @@ import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph } from '../../codegen/streamReceiverGenerator'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
 import { sdCardConnected, readySongCount, buildShowPayload } from '../../utils/showUpload'
-import { findPinConflicts, findMatrixLayoutErrors, findBoardCompatibilityErrors } from '../../utils/validateGraph'
+import { findPinConflicts, findMatrixLayoutErrors, findBoardCompatibilityErrors, findOutputResourceErrors } from '../../utils/validateGraph'
 import { summarizeCapacity } from '../../utils/capacityFormat'
 import {
   buildHardwareValidationProfile,
@@ -36,13 +36,14 @@ export default function MatrixOutputDeployPopup() {
   const currentProjectId = useProjectStore((s) => s.currentProjectId)
   const {
     helper, installedCores, selectedFqbn, selectedPort, ports, busy, status, codeViewOpen,
-    refreshHelper, refreshPorts, installCore,
+    refreshHelper, refreshPorts, installCore, activeOutputNodeId,
     openBoardPopup, openCliPopup, openConsole, openCodeView, closeDeployPopup, runUpload, runLastUpload, runShowUpload, exportIno,
   } = useUploadStore()
   const hasLastSketch = useUploadStore((s) => !!(currentProjectId && s.lastSketchByProject[currentProjectId]))
   const { streaming, fps: streamFps, error: streamError, start: startStreaming, stop: stopStreaming } = useStreamStore()
 
-  const outputNode = nodes.find((n) => n.data.nodeType === 'MatrixOutput')
+  const outputNode = nodes.find((n) => n.id === activeOutputNodeId && n.data.nodeType === 'MatrixOutput')
+    ?? nodes.find((n) => n.data.nodeType === 'MatrixOutput')
   const ownProps = ((outputNode?.data.properties ?? {}) as Record<string, unknown>)
   const nodeId = outputNode?.id ?? ''
   const hasFrameInput = !!outputNode && edges.some((e) => e.target === nodeId && e.targetHandle === 'frame')
@@ -72,6 +73,7 @@ export default function MatrixOutputDeployPopup() {
 
   const pinConflicts = useMemo(() => findPinConflicts(nodes), [nodes])
   const layoutErrors = useMemo(() => findMatrixLayoutErrors(nodes), [nodes])
+  const outputResourceErrors = useMemo(() => findOutputResourceErrors(nodes), [nodes])
   const boardCompatibilityErrors = useMemo(
     () => findBoardCompatibilityErrors(nodes, selectedFqbn),
     [nodes, selectedFqbn],
@@ -89,6 +91,7 @@ export default function MatrixOutputDeployPopup() {
   const blockingErrors = [
     ...pinConflicts,
     ...layoutErrors,
+    ...outputResourceErrors,
     ...boardCompatibilityErrors,
     ...(capacityOverflow ? [`${board?.label ?? 'This board'}: design is too large to fit (live capacity check)`] : []),
   ]
@@ -256,7 +259,7 @@ export default function MatrixOutputDeployPopup() {
     if (sketch) runUpload(sketch, usePsram ? psramChoice?.opt : undefined, { cache: false })
   }
   function handleFlashWiringTest() {
-    const sketch = generateWiringDiagnosticSketch(nodes)
+    const sketch = generateWiringDiagnosticSketch(nodes, nodeId)
     if (sketch) void offerValidationAfter('wiring-test', runUpload(sketch, undefined, { cache: false }))
   }
   function handleToggleStream() {

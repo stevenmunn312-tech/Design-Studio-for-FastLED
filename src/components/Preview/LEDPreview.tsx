@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties } from 'react'
-import { useGraphStore, getGroupRegistry, matrixDims, matrixTileLayout, type GraphMeta, type StudioEdge, type StudioNode } from '../../state/graphStore'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties } from 'react'
+import { useGraphStore, getGroupRegistry, matrixTileLayout, type GraphMeta, type StudioEdge, type StudioNode } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audioStore'
-import { evaluateGraphFull, getPatternShowSelection, type Frame, type RGB } from '../../state/graphEvaluator'
+import { evaluateGraphFull, getPatternShowSelection, type Frame } from '../../state/graphEvaluator'
 import { usePreviewStore } from '../../state/previewStore'
 import { useShowPlayback } from '../../state/showPlayback'
 import { usePlayerTransport } from '../../state/playerTransport'
@@ -37,6 +37,7 @@ import styles from './LEDPreview.module.css'
 import { frameAmbient } from '../../utils/signalVisual'
 import { idleFrame } from './idleFrame'
 import { publishStreamFrame } from '../../state/streamStore'
+import { compositionDims, outputRoutes, routeFrame } from '../../state/outputRouting'
 
 // Statically replaced at build time, so the telemetry branches (phase timers +
 // the per-frame context object for the dev HUD) are dead-code-stripped in prod.
@@ -288,6 +289,7 @@ function activeStagePatternName(
   libraryNameCounts: Map<string, number>,
   playbackShow: ReturnType<typeof useShowPlayback.getState>['show'],
   playbackPosMs: number,
+  outputId = '',
 ): string | null {
   if (playbackShow?.patternSet?.length) {
     const live = showStateAt(playbackShow, playbackPosMs)
@@ -295,7 +297,8 @@ function activeStagePatternName(
     return libraryPatternNameForGroup(groupId, graphs, libraryPatternIds, libraryNameCounts)
   }
 
-  const output = nodes.find((node) => nodeTypeOf(node) === 'MatrixOutput')
+  const output = nodes.find((node) => node.id === outputId && nodeTypeOf(node) === 'MatrixOutput')
+    ?? nodes.find((node) => nodeTypeOf(node) === 'MatrixOutput')
   if (!output) return null
   const sourceEdge = edges.find((edge) => edge.target === output.id && edge.targetHandle === 'frame')
   const sourceNode = nodes.find((node) => node.id === sourceEdge?.source)
@@ -323,56 +326,14 @@ function activeStagePatternName(
 // the generated sketch) so the preview matches what the hardware shows. Only
 // the graph's own frame is dimmed — the idle shimmer isn't a real output, and
 // show playback drives brightness through its own SET_BRIGHTNESS events.
-function applyMasterBrightness(frame: Frame | null, nodes: StudioNode[]): Frame | null {
+function applyMasterBrightness(frame: Frame | null, output: StudioNode | undefined): Frame | null {
   if (!frame) return null
-  const output = nodes.find((node) => nodeTypeOf(node) === 'MatrixOutput')
   if (!output) return frame
   const raw = Number((output.data.properties as { brightness?: unknown }).brightness)
   const brightness = Number.isFinite(raw) ? Math.max(0, Math.min(255, raw)) : 200
   if (brightness >= 255) return frame
   const s = brightness / 255
   return frame.map((row) => row.map(({ r, g, b }) => ({ r: r * s, g: g * s, b: b * s })))
-}
-
-// MatrixOutput `supersample`: when on, the graph is evaluated at SUPERSAMPLE×
-// the matrix resolution and averaged back down (see downscaleFrame), matching
-// the FastLED-style downscale the generated sketch emits. 2× only for now.
-const SUPERSAMPLE = 2
-function matrixSupersampleFactor(nodes: StudioNode[]): number {
-  const output = nodes.find((node) => nodeTypeOf(node) === 'MatrixOutput')
-  return (output?.data.properties as { supersample?: unknown } | undefined)?.supersample === true
-    ? SUPERSAMPLE
-    : 1
-}
-
-// Average each factor×factor block of a super-sampled frame down to one pixel —
-// the antialiasing pass that makes float-coordinate motion read smoothly on a
-// small panel. Mirrors the C++ downscale loop in the MatrixOutput codegen.
-function downscaleFrame(frame: Frame, factor: number): Frame {
-  const srcH = frame.length
-  const srcW = frame[0]?.length ?? 0
-  const h = Math.floor(srcH / factor)
-  const w = Math.floor(srcW / factor)
-  const n = factor * factor
-  const out: Frame = new Array(h)
-  for (let y = 0; y < h; y++) {
-    const row: RGB[] = new Array(w)
-    const by = y * factor
-    for (let x = 0; x < w; x++) {
-      const bx = x * factor
-      let r = 0, g = 0, b = 0
-      for (let dy = 0; dy < factor; dy++) {
-        const frow = frame[by + dy]
-        for (let dx = 0; dx < factor; dx++) {
-          const px = frow[bx + dx]
-          r += px.r; g += px.g; b += px.b
-        }
-      }
-      row[x] = { r: r / n, g: g / n, b: b / n }
-    }
-    out[y] = row
-  }
-  return out
 }
 
 // The Canvas-2D fallback LED renderer (sprite cache + renderGridFrame) lives
@@ -543,9 +504,25 @@ export default function LEDPreview() {
   const graphAudioVisualizerLive = useGraphStore((s) => graphConsumesAudio(s.nodes, s.edges))
   const playbackSpectrum = playbackShow ? showAudioSpectrum(playbackShow.audio, playbackPosMs) : null
   const audioVisualizerLive = graphAudioVisualizerLive || !!playbackSpectrum
-  // Grid dimensions from the MatrixOutput node, via the shared single-scan memo.
-  const gridW = useGraphStore((s) => Math.max(2, Math.min(64, matrixDims(s.nodes).w)))
-  const gridH = useGraphStore((s) => Math.max(2, Math.min(64, matrixDims(s.nodes).h)))
+  // Every Matrix Output is an explicit Frame route. Keep the preview focused
+  // on one route at a time while the evaluator still computes all terminals.
+  const outputRouteKey = useGraphStore((s) => JSON.stringify(outputRoutes(s.nodes).map((route) => ({
+    id: route.id, label: route.label, width: route.width, height: route.height,
+  }))))
+  const previewRoutes = useMemo<Array<{ id: string; label: string; width: number; height: number }>>(
+    () => JSON.parse(outputRouteKey),
+    [outputRouteKey],
+  )
+  const previewOutputId = useUiStore((s) => s.previewOutputId)
+  const setPreviewOutputId = useUiStore((s) => s.setPreviewOutputId)
+  const selectedRouteSummary = previewRoutes.find((route) => route.id === previewOutputId) ?? previewRoutes[0]
+  const activeOutputId = selectedRouteSummary?.id ?? ''
+  useEffect(() => {
+    if (activeOutputId !== previewOutputId) setPreviewOutputId(activeOutputId)
+  }, [activeOutputId, previewOutputId, setPreviewOutputId])
+  const activeOutput = useGraphStore((s) => s.nodes.find((node) => node.id === activeOutputId && node.data.nodeType === 'MatrixOutput'))
+  const gridW = Math.max(2, Math.min(64, selectedRouteSummary?.width ?? 16))
+  const gridH = Math.max(2, Math.min(64, selectedRouteSummary?.height ?? 16))
   // Panel-tile grid (MatrixOutput layout==='panels') — 0 when there's nothing
   // to draw gridlines for. Select primitives, not the memoised object itself
   // (matching gridW/gridH's use of matrixDims below): a store selector must
@@ -554,8 +531,8 @@ export default function LEDPreview() {
   // spins useSyncExternalStore into an infinite re-render loop. Physical
   // wiring order doesn't change the rendered content, so this is purely a
   // cosmetic overlay (see xyLayout.ts).
-  const tileLayoutTilesX = useGraphStore((s) => matrixTileLayout(s.nodes)?.tilesX ?? 0)
-  const tileLayoutTilesY = useGraphStore((s) => matrixTileLayout(s.nodes)?.tilesY ?? 0)
+  const tileLayoutTilesX = activeOutput ? matrixTileLayout([activeOutput])?.tilesX ?? 0 : 0
+  const tileLayoutTilesY = activeOutput ? matrixTileLayout([activeOutput])?.tilesY ?? 0 : 0
   const tileLayout = tileLayoutTilesX > 0 && tileLayoutTilesY > 0
     ? { tilesX: tileLayoutTilesX, tilesY: tileLayoutTilesY }
     : null
@@ -568,7 +545,7 @@ export default function LEDPreview() {
   const stagePatternName = useGraphStore((s) => {
     if (!stageMode) return null
     const lib = libraryLookup(libraryPatterns)
-    return activeStagePatternName(s.nodes, s.edges, s.graphs, lib.ids, lib.nameCounts, playbackShow, playbackPosMs)
+    return activeStagePatternName(s.nodes, s.edges, s.graphs, lib.ids, lib.nameCounts, playbackShow, playbackPosMs, activeOutputId)
   })
   const performanceMode = useUiStore((s) => s.performanceMode)
   const uiEffectsEnabled = useUiStore((s) => s.uiEffectsEnabled)
@@ -592,13 +569,15 @@ export default function LEDPreview() {
   const canvasBufH = Math.max(1, Math.floor(gridH * pixel))
   const gridWRef = useRef(gridW)
   const gridHRef = useRef(gridH)
+  const activeOutputIdRef = useRef(activeOutputId)
   const pixelRef = useRef(pixel)
   const canvasBufWRef = useRef(canvasBufW)
   const canvasBufHRef = useRef(canvasBufH)
   useEffect(() => {
     gridWRef.current = gridW; gridHRef.current = gridH; pixelRef.current = pixel
+    activeOutputIdRef.current = activeOutputId
     canvasBufWRef.current = canvasBufW; canvasBufHRef.current = canvasBufH
-  }, [gridW, gridH, pixel, canvasBufW, canvasBufH])
+  }, [gridW, gridH, activeOutputId, pixel, canvasBufW, canvasBufH])
 
   // Panel-boundary gridlines: a thin static overlay redrawn only when the
   // tile grid or canvas size changes (not on every animation frame like the
@@ -804,15 +783,20 @@ export default function LEDPreview() {
         const previewsOn = uiEffectsEnabledRef.current && !analyzingMusicRef.current
         const fullPass = previewsOn && now - lastPreviewPublish.current >= PREVIEW_PUBLISH_INTERVAL_MS
         const evalStart = PERF_TELEMETRY ? performance.now() : 0
-        // Supersampling evaluates the whole graph at ss× the matrix resolution;
-        // the terminal frame is averaged back to gW×gH below (node previews ride
-        // along at the higher res, which only sharpens their thumbnails).
-        const ss = matrixSupersampleFactor(graphNodes)
-        const { frame: rendered, outputs } = evaluateGraphFull(graphNodes, graphEdges, tick, gW * ss, gH * ss, groups, fullPass, trusted)
+        // Firmware renders once on a shared logical composition canvas, then
+        // fits/crops each terminal's source frame into its physical route. Do
+        // the same here and pick the route selected in the preview header.
+        const composition = compositionDims(graphNodes)
+        const { outputs } = evaluateGraphFull(graphNodes, graphEdges, tick, composition.w, composition.h, groups, fullPass, trusted)
         const evalMs = PERF_TELEMETRY ? performance.now() - evalStart : 0
-        let frame = applyMasterBrightness(rendered, graphNodes)
-        if (frame) { if (ss > 1) frame = downscaleFrame(frame, ss) }
-        else frame = idleFrame(tick, gW, gH)
+        const routes = outputRoutes(graphNodes)
+        const selectedRoute = routes.find((route) => route.id === activeOutputIdRef.current) ?? routes[0]
+        const rendered = selectedRoute
+          ? (outputs.get(selectedRoute.id)?.frame as Frame | null | undefined) ?? null
+          : null
+        let frame = selectedRoute ? routeFrame(rendered, selectedRoute, composition.w, composition.h) : null
+        frame = applyMasterBrightness(frame, selectedRoute?.node)
+        if (!frame) frame = idleFrame(tick, gW, gH)
         const showStart = PERF_TELEMETRY ? performance.now() : 0
         frame = applyShowPlaybackSignal(frame, useShowPlayback.getState(), gW, gH, groups, trusted)
         const showMs = PERF_TELEMETRY ? performance.now() - showStart : 0
@@ -1141,6 +1125,22 @@ export default function LEDPreview() {
           </div>
         )}
         <div className={styles.headerRight} aria-label="Preview telemetry">
+          {previewRoutes.length > 1 && (
+            <label className={styles.outputRoutePicker}>
+              <span>Route</span>
+              <select
+                aria-label="Preview output route"
+                value={activeOutputId}
+                onChange={(event) => setPreviewOutputId(event.target.value)}
+              >
+                {previewRoutes.map((route, index) => (
+                  <option key={route.id} value={route.id}>
+                    {route.label} {index + 1} · {route.width}×{route.height}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <button
             type="button"
             className={styles.recordBtn}
@@ -1166,7 +1166,9 @@ export default function LEDPreview() {
         <div className={styles.canvasBay}>
           <div className={styles.canvasFrame}>
             <div className={styles.canvasFrameHeader}>
-              <span className={`${styles.visualizerKicker} ${styles.canvasFrameTag}`}>Output matrix</span>
+              <span className={`${styles.visualizerKicker} ${styles.canvasFrameTag}`}>
+                {previewRoutes.length > 1 ? `Output route ${previewRoutes.findIndex((route) => route.id === activeOutputId) + 1}` : 'Output matrix'}
+              </span>
             </div>
             <div
               className={styles.canvasStack}

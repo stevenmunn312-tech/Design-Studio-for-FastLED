@@ -8,8 +8,9 @@ function intProp(val: unknown, def: number, min: number, max: number): number {
   return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : def
 }
 
-function matrixOutputNode(nodes: StudioNode[]): StudioNode | undefined {
-  return nodes.find((n) => n.data.nodeType === 'MatrixOutput')
+function matrixOutputNode(nodes: StudioNode[], outputNodeId?: string): StudioNode | undefined {
+  return nodes.find((node) => node.id === outputNodeId && node.data.nodeType === 'MatrixOutput')
+    ?? nodes.find((n) => n.data.nodeType === 'MatrixOutput')
 }
 
 /** Generate a standalone hardware-wiring diagnostic sketch from the current
@@ -17,8 +18,8 @@ function matrixOutputNode(nodes: StudioNode[]): StudioNode | undefined {
  *  brightness/current-limit bars, an orientation gradient, panel numbering,
  *  a logical XY chase, and a direct physical-index chase, so it can be flashed
  *  before the user has built a normal creative graph. */
-export function generateWiringDiagnosticSketch(nodes: StudioNode[]): string | null {
-  const outputNode = matrixOutputNode(nodes)
+export function generateWiringDiagnosticSketch(nodes: StudioNode[], outputNodeId?: string): string | null {
+  const outputNode = matrixOutputNode(nodes, outputNodeId)
   if (!outputNode) return null
 
   const p = outputNode.data.properties as Record<string, unknown>

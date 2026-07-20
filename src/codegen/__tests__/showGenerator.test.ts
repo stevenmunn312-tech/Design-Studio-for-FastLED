@@ -73,6 +73,28 @@ describe('showGenerator', () => {
     expect(cpp.indexOf('#define FASTLED_OVERCLOCK 1.2')).toBeLessThan(cpp.indexOf('#include <FastLED.h>'))
   })
 
+  it('routes a show to multiple synchronized output controllers', () => {
+    const outA = node('out-a', 'MatrixOutput', { width: 8, height: 8, dataPin: 5, brightness: 80 })
+    const outB = node('out-b', 'MatrixOutput', {
+      width: 16, height: 4, dataPin: 12, clockPin: 13, chipset: 'APA102', colorOrder: 'BGR',
+      brightness: 160, routeMode: 'crop', routeX: 2,
+    })
+    const multiNodes = [nodes[0], nodes[1], outA, outB]
+    const multiEdges = [
+      edge('e1', 'pc', 'patternset', 'pm', 'patternset'),
+      edge('e2', 'pm', 'frame', 'out-a', 'frame'),
+      edge('e3', 'pm', 'frame', 'out-b', 'frame'),
+    ]
+    const cpp = generateShowSketch(multiNodes, multiEdges, groups)
+    expect(cpp).toContain('CRGB leds_out_a[64];')
+    expect(cpp).toContain('CRGB leds_out_b[64];')
+    expect(cpp).toContain('FastLED.addLeds<WS2812B, DATA_PIN_out_a, GRB>(leds_out_a, 64)')
+    expect(cpp).toContain('FastLED.addLeds<APA102, DATA_PIN_out_b, CLOCK_PIN_out_b, BGR>(leds_out_b, 64)')
+    expect(cpp).toContain('_c.nscale8_video(80)')
+    expect(cpp).toContain('_c.nscale8_video(160)')
+    expect(cpp.match(/FastLED\.show\(\);/g)).toHaveLength(1)
+  })
+
   it('declares FastLED-typed helpers explicitly so Arduino does not auto-prototype them above the include', () => {
     const tempGroups: GroupRegistry = {
       gt: {

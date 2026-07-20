@@ -2,6 +2,7 @@ import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { SPI_CHIPSETS, NODE_LIBRARY, supportsScalarExpression } from '../state/nodeLibrary'
 import { evaluateScalarExpression } from '../state/scalarExpression'
 import { validateMatrixLayout } from '../state/xyLayout'
+import { compositionDims } from '../state/outputRouting'
 
 export interface ValidationResult {
   errors:   string[]
@@ -18,12 +19,17 @@ interface PinUse { label: string; nodeId: string; pin: number }
 // across two of these roles (even on the same node) is a real conflict.
 function collectPinUses(nodes: StudioNode[]): PinUse[] {
   const uses: PinUse[] = []
+  const matrixOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
+  const matrixOrdinal = new Map(matrixOutputs.map((node, index) => [node.id, index + 1]))
   const push = (nodeId: string, label: string, value: unknown) => {
     if (typeof value === 'number' && Number.isFinite(value)) uses.push({ label, nodeId, pin: value })
   }
   for (const n of nodes) {
     const props = n.data.properties as Record<string, unknown>
-    const label = String(n.data.label ?? n.data.nodeType)
+    const baseLabel = String(n.data.label ?? n.data.nodeType)
+    const label = n.data.nodeType === 'MatrixOutput' && matrixOutputs.length > 1
+      ? `${baseLabel} ${matrixOrdinal.get(n.id)}`
+      : baseLabel
     switch (n.data.nodeType) {
       case 'MicInput':
         push(n.id, `${label} I2S WS`, props.i2sWs)
@@ -91,14 +97,17 @@ export interface PowerEstimate {
 const MA_PER_LED_WORST_CASE = 60
 
 export function estimatePowerLoad(nodes: StudioNode[]): PowerEstimate | null {
-  const out = nodes.find(n => n.data.nodeType === 'MatrixOutput')
-  if (!out) return null
-  const props = out.data.properties as Record<string, unknown>
-  const w = Math.max(0, Math.round(Number(props.width ?? 0)))
-  const h = Math.max(0, Math.round(Number(props.height ?? 0)))
-  const ledCount = w * h
+  const outputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
+  if (outputs.length === 0) return null
+  const ledCount = outputs.reduce((sum, output) => {
+    const props = output.data.properties as Record<string, unknown>
+    return sum + Math.max(0, Math.round(Number(props.width ?? 0))) * Math.max(0, Math.round(Number(props.height ?? 0)))
+  }, 0)
   const worstCaseMa = ledCount * MA_PER_LED_WORST_CASE
-  const configuredMa = props.powerLimit === true ? Number(props.milliamps ?? 0) : null
+  const capped = outputs.filter((output) => (output.data.properties as Record<string, unknown>).powerLimit === true)
+  const configuredMa = capped.length > 0
+    ? capped.reduce((sum, output) => sum + Number((output.data.properties as Record<string, unknown>).milliamps ?? 0), 0)
+    : null
   const recommendedMa = Math.ceil(worstCaseMa / 100) * 100
   return {
     ledCount,
@@ -157,12 +166,14 @@ const PARTICLE_POOL_SIZE = (mode: string) => (mode === 'swarm' ? 40 : 120)
  * the rest of this module) — it does not recurse into group subgraphs.
  */
 export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[]): FirmwareRamEstimate | null {
-  const out = nodes.find((n) => n.data.nodeType === 'MatrixOutput')
-  if (!out) return null
-  const outProps = out.data.properties as Record<string, unknown>
-  const w = Math.max(0, Math.round(Number(outProps.width ?? 0)))
-  const h = Math.max(0, Math.round(Number(outProps.height ?? 0)))
-  const ledCount = w * h
+  const outputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
+  if (outputs.length === 0) return null
+  const { w, h } = compositionDims(nodes)
+  const ledCount = outputs.reduce((sum, output) => {
+    const props = output.data.properties as Record<string, unknown>
+    return sum + Math.max(0, Math.round(Number(props.width ?? 0))) * Math.max(0, Math.round(Number(props.height ?? 0)))
+  }, 0)
+  const renderLedCount = w * h
 
   // Only nodes that actually feed the terminal frame get a buffer in the
   // generated sketch — walk backward from MatrixOutput to find them.
@@ -174,7 +185,7 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[]): F
   }
   const byId = new Map(nodes.map((n) => [n.id, n]))
   const reachable = new Set<string>()
-  const stack = [out.id]
+  const stack = outputs.map((output) => output.id)
   while (stack.length) {
     const id = stack.pop()!
     if (reachable.has(id)) continue
@@ -187,12 +198,12 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[]): F
     const n = byId.get(id)
     if (!n) continue
     const outputTypes = OUTPUT_DATATYPES_BY_NODE_TYPE.get(n.data.nodeType)
-    if (outputTypes?.has('frame')) frameBufferBytes += ledCount * 3
-    if (outputTypes?.has('field')) fieldBufferBytes += ledCount * 4
+    if (outputTypes?.has('frame')) frameBufferBytes += renderLedCount * 3
+    if (outputTypes?.has('field')) fieldBufferBytes += renderLedCount * 4
     // ColorTrails' separable subpixel advection needs one intermediate CRGB
     // frame in addition to its persistent output buffer. Codegen declares it
     // as a normal render buffer, so PSRAM moves it together with the others.
-    if (n.data.nodeType === 'ColorTrails') frameBufferBytes += ledCount * 3
+    if (n.data.nodeType === 'ColorTrails') frameBufferBytes += renderLedCount * 3
     if (n.data.nodeType === 'SpectrumVisualizer') {
       // levels, peaks, peak velocity (float) + peak hold deadline (uint32)
       // are one value per rendered column; the waterfall reuses its frame buffer.
@@ -200,7 +211,7 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[]): F
     }
 
     const extraPerLed = STATEFUL_EXTRA_BYTES_PER_LED[n.data.nodeType]
-    if (extraPerLed) statefulBytes += ledCount * extraPerLed
+    if (extraPerLed) statefulBytes += renderLedCount * extraPerLed
     if (n.data.nodeType === 'Particles') {
       const mode = String((n.data.properties as Record<string, unknown>)?.particleType ?? 'fountain')
       statefulBytes += PARTICLE_POOL_SIZE(mode) * PARTICLE_BYTES_PER_SLOT
@@ -210,12 +221,12 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[]): F
       // Ring buffer stores `delay` previous outputs plus the slot currently
       // being written, and stays internal even when ordinary render buffers
       // are moved to PSRAM.
-      statefulBytes += ledCount * 3 * (delay + 1)
+      statefulBytes += renderLedCount * 3 * (delay + 1)
     }
   }
 
   const ledsArrayBytes = ledCount * 3
-  const usesPsram = outProps.usePsram === true
+  const usesPsram = outputs.some((output) => (output.data.properties as Record<string, unknown>).usePsram === true)
   const psramBytes = usesPsram ? frameBufferBytes + fieldBufferBytes : 0
   const internalBytes = ledsArrayBytes + statefulBytes + (usesPsram ? 0 : frameBufferBytes + fieldBufferBytes)
 
@@ -242,13 +253,14 @@ export function findPinConflicts(nodes: StudioNode[]): string[] {
 }
 
 export function findMatrixLayoutErrors(nodes: StudioNode[]): string[] {
-  const output = nodes.find((n) => n.data.nodeType === 'MatrixOutput')
-  if (!output) return []
-  const props = output.data.properties as Record<string, unknown>
-  const width = Math.max(0, Math.round(Number(props.width ?? 0)))
-  const height = Math.max(0, Math.round(Number(props.height ?? 0)))
-  const label = String(output.data.label ?? output.data.nodeType)
-  return validateMatrixLayout(width, height, props).map((message) => `${label}: ${message}`)
+  return nodes.filter((node) => node.data.nodeType === 'MatrixOutput').flatMap((output, index) => {
+    const props = output.data.properties as Record<string, unknown>
+    const width = Math.max(0, Math.round(Number(props.width ?? 0)))
+    const height = Math.max(0, Math.round(Number(props.height ?? 0)))
+    const base = String(output.data.label ?? output.data.nodeType)
+    const label = nodes.filter((node) => node.data.nodeType === 'MatrixOutput').length > 1 ? `${base} ${index + 1}` : base
+    return validateMatrixLayout(width, height, props).map((message) => `${label}: ${message}`)
+  })
 }
 
 export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: string): string[] {
@@ -258,11 +270,7 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
 }
 
 export function findScalarExpressionErrors(nodes: StudioNode[]): string[] {
-  const output = nodes.find((n) => n.data.nodeType === 'MatrixOutput')
-  const outputProps = output?.data.properties as Record<string, unknown> | undefined
-  const scale = outputProps?.supersample === true ? 2 : 1
-  const width = Math.max(1, Number(outputProps?.width ?? 16)) * scale
-  const height = Math.max(1, Number(outputProps?.height ?? 16)) * scale
+  const { w: width, h: height } = compositionDims(nodes)
   const errors: string[] = []
 
   for (const node of nodes) {
@@ -278,6 +286,19 @@ export function findScalarExpressionErrors(nodes: StudioNode[]): string[] {
     }
   }
   return errors
+}
+
+/** FastLED's power limiter is global across all registered controllers, so
+ * independently capped routes must agree on supply voltage; their mA budgets
+ * are then summed into one controller-wide cap. */
+export function findOutputResourceErrors(nodes: StudioNode[]): string[] {
+  const capped = nodes.filter((node) =>
+    node.data.nodeType === 'MatrixOutput' && (node.data.properties as Record<string, unknown>).powerLimit === true
+  )
+  const volts = [...new Set(capped.map((node) => Number((node.data.properties as Record<string, unknown>).volts ?? 5)))]
+  return volts.length > 1
+    ? [`Matrix outputs with power limits must use one shared supply voltage (found ${volts.join(' V, ')} V)`]
+    : []
 }
 
 export type GraphDiagnosticSeverity = 'error' | 'warning'
@@ -336,7 +357,8 @@ export function buildGraphDiagnostics(
   const target = options.target ?? 'matrix'
   const terminalType = target === 'group' ? 'GroupOutput' : 'MatrixOutput'
   const terminalName = target === 'group' ? 'Group Output' : 'Matrix Output'
-  const terminal = nodes.find((node) => node.data.nodeType === terminalType)
+  const terminals = nodes.filter((node) => node.data.nodeType === terminalType)
+  const terminal = terminals[0]
   const incoming = new Set(edges.filter((edge) => edge.target && edge.targetHandle).map((edge) => `${edge.target}:${edge.targetHandle}`))
 
   if (nodes.length === 0) {
@@ -359,12 +381,13 @@ export function buildGraphDiagnostics(
       nodeIds: [], action: target === 'matrix' ? 'open-node-library' : undefined,
     })
   } else {
-    const connected = target === 'group'
-      ? incoming.has(`${terminal.id}:frame`)
-      : incoming.has(`${terminal.id}:frame`) || incoming.has(`${terminal.id}:sdcard`)
-    if (!connected) {
+    for (const candidate of terminals) {
+      const connected = target === 'group'
+        ? incoming.has(`${candidate.id}:frame`)
+        : incoming.has(`${candidate.id}:frame`) || incoming.has(`${candidate.id}:sdcard`)
+      if (connected) continue
       diagnostics.push({
-        id: `${terminal.id}-input`, severity: 'error', category: 'connection',
+        id: `${candidate.id}-input`, severity: 'error', category: 'connection',
         title: `${terminalName} has no input`,
         message: target === 'group'
           ? 'Nothing is connected to the group frame terminal.'
@@ -372,7 +395,7 @@ export function buildGraphDiagnostics(
         fix: target === 'group'
           ? 'Connect the pattern’s final Frame output to Group Output.'
           : 'Connect a Frame output, or wire an SD Card node to the SD Card input.',
-        nodeIds: [terminal.id], nodeLabel: nodeLabel(terminal),
+        nodeIds: [candidate.id], nodeLabel: nodeLabel(candidate),
       })
     }
   }
@@ -394,9 +417,22 @@ export function buildGraphDiagnostics(
       nodeLabel: uses.length === 2 ? uses.map((use) => use.label).join(' / ') : `${uses.length} pin roles`,
     })
   }
+  const cappedOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput' && (node.data.properties as Record<string, unknown>).powerLimit === true)
+  const outputResourceErrors = findOutputResourceErrors(nodes)
+  if (outputResourceErrors.length > 0) {
+    diagnostics.push({
+      id: 'outputs-power-voltage', severity: 'error', category: 'power',
+      title: 'Output power voltages disagree',
+      message: outputResourceErrors[0],
+      fix: 'Use the same supply voltage for every power-limited output; their current budgets are summed.',
+      nodeIds: cappedOutputs.map((node) => node.id),
+      nodeLabel: `${cappedOutputs.length} output routes`,
+    })
+  }
 
-  const matrixOutput = nodes.find((node) => node.data.nodeType === 'MatrixOutput')
-  if (matrixOutput) {
+  const matrixOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
+  const matrixOutput = matrixOutputs[0]
+  for (const matrixOutput of matrixOutputs) {
     const props = matrixOutput.data.properties as Record<string, unknown>
     const width = Math.max(0, Math.round(Number(props.width ?? 0)))
     const height = Math.max(0, Math.round(Number(props.height ?? 0)))
@@ -410,10 +446,7 @@ export function buildGraphDiagnostics(
     })
   }
 
-  const outputProps = matrixOutput?.data.properties as Record<string, unknown> | undefined
-  const expressionScale = outputProps?.supersample === true ? 2 : 1
-  const expressionWidth = Math.max(1, Number(outputProps?.width ?? 16)) * expressionScale
-  const expressionHeight = Math.max(1, Number(outputProps?.height ?? 16)) * expressionScale
+  const { w: expressionWidth, h: expressionHeight } = compositionDims(nodes)
   for (const node of nodes) {
     const props = node.data.properties as Record<string, unknown>
     for (const [key, value] of Object.entries(props)) {
@@ -549,13 +582,20 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
 
   const incoming = new Set(edges.filter(e => e.target && e.targetHandle).map(e => `${e.target}:${e.targetHandle}`))
   if (hasOutput) {
-    const out = nodes.find(n => n.data.nodeType === 'MatrixOutput')!
-    const hasFrameInput = incoming.has(`${out.id}:frame`)
-    const hasSdCardInput = incoming.has(`${out.id}:sdcard`)
-    if (!hasFrameInput && !hasSdCardInput) errors.push('MatrixOutput has no Frame or SD Card input connected')
+    const outputs = nodes.filter(n => n.data.nodeType === 'MatrixOutput')
+    for (const [index, out] of outputs.entries()) {
+      const hasFrameInput = incoming.has(`${out.id}:frame`)
+      const hasSdCardInput = incoming.has(`${out.id}:sdcard`)
+      if (!hasFrameInput && !hasSdCardInput) {
+        errors.push(outputs.length === 1
+          ? 'MatrixOutput has no Frame or SD Card input connected'
+          : `MatrixOutput ${index + 1} has no Frame or SD Card input connected`)
+      }
+    }
   }
 
   errors.push(...findPinConflicts(nodes))
+  errors.push(...findOutputResourceErrors(nodes))
   errors.push(...findMatrixLayoutErrors(nodes))
   errors.push(...findScalarExpressionErrors(nodes))
   errors.push(...findBoardCompatibilityErrors(nodes, selectedFqbn))

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findOutputResourceErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -112,6 +112,38 @@ describe('validateGraph', () => {
     const { errors, warnings } = validateGraph(nodes, edges)
     expect(errors).toHaveLength(0)
     expect(warnings).toHaveLength(0)
+  })
+
+  it('accepts multiple routed outputs and validates every route', () => {
+    const nodes = [
+      node('a', 'SolidColor'), node('b', 'Plasma'),
+      node('out-a', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+      node('out-b', 'MatrixOutput', { width: 16, height: 4, dataPin: 12 }),
+    ]
+    const edges = [edge('e1', 'a', 'out-a', 'frame'), edge('e2', 'b', 'out-b', 'frame')]
+    expect(validateGraph(nodes, edges).errors).toEqual([])
+    expect(estimatePowerLoad(nodes)?.ledCount).toBe(128)
+  })
+
+  it('reports an unconnected secondary output and cross-output GPIO conflicts', () => {
+    const nodes = [
+      node('a', 'SolidColor'),
+      node('out-a', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+      node('out-b', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ]
+    const { errors } = validateGraph(nodes, [edge('e1', 'a', 'out-a', 'frame')])
+    expect(errors).toContain('MatrixOutput 2 has no Frame or SD Card input connected')
+    expect(errors.some((message) => message.includes('GPIO 5'))).toBe(true)
+  })
+
+  it('rejects conflicting supply voltages across globally power-limited outputs', () => {
+    const nodes = [
+      node('out-a', 'MatrixOutput', { powerLimit: true, volts: 5 }),
+      node('out-b', 'MatrixOutput', { powerLimit: true, volts: 12 }),
+    ]
+    expect(findOutputResourceErrors(nodes)).toEqual([
+      expect.stringMatching(/one shared supply voltage/),
+    ])
   })
 
   it('accepts valid numeric expressions and reports invalid ones', () => {

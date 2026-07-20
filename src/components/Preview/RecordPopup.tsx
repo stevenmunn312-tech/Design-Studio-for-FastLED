@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useGraphStore, getGroupRegistry, matrixDims } from '../../state/graphStore'
+import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
+import { useUiStore } from '../../state/uiStore'
+import { outputRoutes } from '../../state/outputRouting'
 import { latestStreamFrameCopy } from '../../state/streamStore'
 import { GifEncoder } from '../../utils/gifEncoder'
 import { captureSequence, drawCapturedFrame, loopBlendFrames, yieldToUi, type RecordStyle } from './recordCapture'
@@ -41,8 +43,12 @@ function exportFilename(ext: string): string {
 }
 
 export default function RecordPopup({ onClose }: { onClose: () => void }) {
-  const gridW = useGraphStore((s) => Math.max(2, Math.min(64, matrixDims(s.nodes).w)))
-  const gridH = useGraphStore((s) => Math.max(2, Math.min(64, matrixDims(s.nodes).h)))
+  const previewOutputId = useUiStore((s) => s.previewOutputId)
+  const routeKey = useGraphStore((s) => JSON.stringify(outputRoutes(s.nodes).map((route) => ({ id: route.id, width: route.width, height: route.height }))))
+  const routes = JSON.parse(routeKey) as Array<{ id: string; width: number; height: number }>
+  const route = routes.find((candidate) => candidate.id === previewOutputId) ?? routes[0]
+  const gridW = Math.max(2, Math.min(64, route?.width ?? 16))
+  const gridH = Math.max(2, Math.min(64, route?.height ?? 16))
   const audioReactive = useGraphStore((s) => graphConsumesAudio(s.nodes, s.edges))
 
   const [format, setFormat] = useState<RecordFormat>('gif')
@@ -87,6 +93,7 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
       trusted,
       gridW,
       gridH,
+      outputId: route?.id,
       fps,
       durationSec,
       seamlessLoop: loop,
@@ -105,7 +112,7 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
       const { nodes, edges, trusted } = useGraphStore.getState()
       const frames = await captureSequence({
         nodes, edges, groups: getGroupRegistry(), trusted,
-        gridW, gridH, fps: 1, durationSec: 1, seamlessLoop: false,
+        gridW, gridH, outputId: route?.id, fps: 1, durationSec: 1, seamlessLoop: false,
         isCancelled: () => cancelRef.current,
       })
       if (!frames) return

@@ -141,6 +141,8 @@ interface UploadState {
   cliPopupOpen: boolean
   consoleOpen: boolean
   codeViewOpen: boolean
+  /** Matrix Output whose node-local Setup/Upload button opened the overlay. */
+  activeOutputNodeId: string | null
 
   // helper / hardware
   refreshHelper: () => Promise<void>
@@ -154,9 +156,9 @@ interface UploadState {
   // overlays
   openBoardPopup: () => void
   closeBoardPopup: () => void
-  openSetupWizard: () => void
+  openSetupWizard: (nodeId?: string) => void
   closeSetupWizard: () => void
-  openDeployPopup: () => void
+  openDeployPopup: (nodeId?: string) => void
   closeDeployPopup: () => void
   openCliPopup: () => void
   closeCliPopup: () => void
@@ -215,6 +217,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   cliPopupOpen: false,
   consoleOpen: false,
   codeViewOpen: false,
+  activeOutputNodeId: null,
 
   refreshHelper: async () => {
     const h = await checkBackend()
@@ -260,9 +263,9 @@ export const useUploadStore = create<UploadState>((set, get) => ({
 
   openBoardPopup: () => { set({ boardPopupOpen: true }); get().refreshPorts(); get().refreshCores() },
   closeBoardPopup: () => set({ boardPopupOpen: false }),
-  openSetupWizard: () => { set({ setupWizardOpen: true }); get().refreshPorts(); get().refreshCores() },
+  openSetupWizard: (nodeId) => { set({ setupWizardOpen: true, activeOutputNodeId: nodeId ?? null }); get().refreshPorts(); get().refreshCores() },
   closeSetupWizard: () => set({ setupWizardOpen: false }),
-  openDeployPopup: () => { set({ deployPopupOpen: true }); get().refreshPorts(); get().refreshCores() },
+  openDeployPopup: (nodeId) => { set({ deployPopupOpen: true, activeOutputNodeId: nodeId ?? null }); get().refreshPorts(); get().refreshCores() },
   closeDeployPopup: () => set({ deployPopupOpen: false }),
   openCliPopup: () => set({ cliPopupOpen: true, boardPopupOpen: false }),
   closeCliPopup: () => set({ cliPopupOpen: false }),
