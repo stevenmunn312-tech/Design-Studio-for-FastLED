@@ -79,13 +79,20 @@ const RECIPE_CARDS: RecipeCard[] = [
     id: 'live-spectrum',
     title: 'Live spectrum',
     kicker: 'Continuous response',
-    description: 'The full microphone spectrum becomes citrus bars with peak dots that hold, then fall under gravity.',
-    actionLabel: 'Drop recipe',
+    description: 'See how continuous microphone energy becomes pixels, then add memory with Trails.',
+    actionLabel: 'Add guided patch',
     nodes: [
       { key: 'mic', type: 'MicInput', dx: -340, dy: -80 },
       { key: 'spectrum', type: 'SpectrumVisualizer', dx: -100, dy: -40 },
       { key: 'trails', type: 'Trails', dx: 180, dy: -20, props: { decay: 0.32 } },
       { key: 'out', type: 'MatrixOutput', dx: 400, dy: -20 },
+      {
+        key: 'guide', type: 'Comment', dx: -340, dy: -280,
+        props: {
+          text: 'HOW IT WORKS\nMic sends Audio to the visualizer. Trails remembers recent frames.\nTry Spectrum Style, then Trails Decay.',
+          color: '#74d7ff',
+        },
+      },
     ],
     edges: [
       { source: 'mic', sourceHandle: 'audio', target: 'spectrum', targetHandle: 'audio' },
@@ -97,8 +104,8 @@ const RECIPE_CARDS: RecipeCard[] = [
     id: 'beat-colour-jump',
     title: 'Beat colour jump',
     kicker: 'Discrete events',
-    description: 'Each detected beat captures one random Party-palette colour and holds it until the next beat.',
-    actionLabel: 'Drop recipe',
+    description: 'Learn event-driven wiring: each detected beat captures and holds one new palette colour.',
+    actionLabel: 'Add guided patch',
     nodes: [
       { key: 'mic', type: 'MicInput', dx: -440, dy: -140 },
       { key: 'beat', type: 'BeatDetect', dx: -220, dy: -140 },
@@ -107,6 +114,13 @@ const RECIPE_CARDS: RecipeCard[] = [
       { key: 'sample', type: 'PaletteSampler', dx: 20, dy: 40, props: { palette: 'party' } },
       { key: 'solid', type: 'SolidColor', dx: 260, dy: 40 },
       { key: 'out', type: 'MatrixOutput', dx: 500, dy: 40 },
+      {
+        key: 'guide', type: 'Comment', dx: -440, dy: -320,
+        props: {
+          text: 'EVENT RECIPE\nBeat Detect sends a pulse. Sample & Hold grabs Random only on that pulse.\nTry another palette in Palette Sampler.',
+          color: '#ffd166',
+        },
+      },
     ],
     edges: [
       { source: 'mic', sourceHandle: 'audio', target: 'beat', targetHandle: 'audio' },
@@ -121,14 +135,21 @@ const RECIPE_CARDS: RecipeCard[] = [
     id: 'percussion-trails',
     title: 'Percussion trails',
     kicker: 'Separated transients',
-    description: 'Real kick, snare, and hi-hat energy launch distinct shockwaves that linger briefly as trails.',
-    actionLabel: 'Drop recipe',
+    description: 'Split kick, snare, and hi-hat into separate controls, then turn their shockwaves into trails.',
+    actionLabel: 'Add guided patch',
     nodes: [
       { key: 'mic', type: 'MicInput', dx: -420, dy: -80 },
       { key: 'percussion', type: 'PercussionDetect', dx: -200, dy: -80, props: { sensitivity: 0.62, decay: 0.55, separation: 0.7 } },
       { key: 'shock', type: 'KickShock', dx: 60, dy: -20, props: { palette: 'volcano', energy: 0.85, thickness: 1.25, spawnSpread: 0.25 } },
       { key: 'trails', type: 'Trails', dx: 300, dy: -20, props: { decay: 0.36 } },
       { key: 'out', type: 'MatrixOutput', dx: 520, dy: -20 },
+      {
+        key: 'guide', type: 'Comment', dx: -420, dy: -280,
+        props: {
+          text: 'THREE TRIGGERS\nKick, Snare and Hi-Hat are separate signals. Kick Shock gives each a visual role.\nTry Sensitivity, then Trails Decay.',
+          color: '#ff9f6e',
+        },
+      },
     ],
     edges: [
       { source: 'mic', sourceHandle: 'audio', target: 'percussion', targetHandle: 'audio' },
@@ -185,9 +206,9 @@ function loadStringArray(key: string): string[] {
 
 function loadView(): 'beginner' | 'all' {
   try {
-    return JSON.parse(localStorage.getItem(VIEW_KEY) ?? '"beginner"') === 'all' ? 'all' : 'beginner'
+    return JSON.parse(localStorage.getItem(VIEW_KEY) ?? '"all"') === 'beginner' ? 'beginner' : 'all'
   } catch {
-    return 'beginner'
+    return 'all'
   }
 }
 
@@ -511,7 +532,7 @@ function Sidebar() {
 
   const handleRecipeDrop = (recipe: RecipeCard) => {
     const usesMicrophone = recipe.nodes.some((node) => node.type === 'MicInput')
-    if (usesMicrophone) useUiStore.setState({ testSignal: false })
+    if (usesMicrophone && useUiStore.getState().testSignal) useUiStore.getState().toggleTestSignal()
     const existing = useGraphStore.getState().nodes
     const singletonByType = new Map(existing.map((node) => [String(node.data.nodeType), node]))
     const omittedSingletons = new Set<string>()

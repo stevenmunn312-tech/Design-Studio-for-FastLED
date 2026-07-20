@@ -7,6 +7,8 @@ export interface StarterTemplate {
   name: string
   description: string
   completionSteps?: string[]
+  /** Whether loading this starter should request the live microphone. */
+  activateMicrophone?: boolean
   preview: {
     nodes: Array<{ id: string; label: string; category: string; col: number; row: number }>
     edges: Array<{ source: string; sourceHandle: string; target: string; targetHandle: string; color: string }>
@@ -37,8 +39,21 @@ interface EdgeSpec {
   targetHandle: string
 }
 
+const GUIDE_COLOR = '#74d7ff'
+const TRY_COLOR = '#ffd166'
+
+function tutorialNote(
+  id: string,
+  col: number,
+  row: number,
+  text: string,
+  color = GUIDE_COLOR,
+): NodeSpec {
+  return { id, type: 'Comment', col, row, properties: { text, color } }
+}
+
 function template(
-  options: Pick<StarterTemplate, 'id' | 'name' | 'description' | 'completionSteps'> & {
+  options: Pick<StarterTemplate, 'id' | 'name' | 'description' | 'completionSteps' | 'activateMicrophone'> & {
     nodeSpecs: NodeSpec[]
     edgeSpecs: EdgeSpec[]
   },
@@ -48,8 +63,11 @@ function template(
     name: options.name,
     description: options.description,
     completionSteps: options.completionSteps,
+    activateMicrophone: options.activateMicrophone,
     preview: {
-      nodes: options.nodeSpecs.map((spec) => {
+      // Tutorial comments belong on the loaded canvas, but the gallery's tiny
+      // graph map should stay focused on the actual signal path.
+      nodes: options.nodeSpecs.filter((spec) => spec.type !== 'Comment').map((spec) => {
         const def = LIBRARY_DEF.get(spec.type)
         if (!def) throw new Error(`Unknown template node type: ${spec.type}`)
         return {
@@ -124,10 +142,19 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   template({
     id: 'rainbow',
     name: 'Rainbow Sweep',
-    description: 'A scrolling rainbow straight to the matrix — the simplest possible graph.',
+    description: 'Learn the basic patch: a pattern makes pixels, and Matrix Output sends them to the preview or LEDs.',
+    completionSteps: [
+      'Follow the blue Frame wire from Rainbow to Matrix Output and watch the preview.',
+      'Change Speed and Delta Hue on Rainbow to see how node controls alter the signal.',
+      'From Effects, drag Trails onto the blue wire. If the rainbow blooms toward white, raise Trails Decay to 0.4–0.6.',
+    ],
     nodeSpecs: [
       { id: 'rainbow', type: 'Rainbow', col: 0 },
       { id: 'out', type: 'MatrixOutput', col: 1 },
+      tutorialNote(
+        'guide', 0, -1,
+        'FIRST PATCH\nBlue wire carries pixels.\nEffects → Trails adds motion memory.\nToo bright? Raise Decay to 0.4–0.6.',
+      ),
     ],
     edgeSpecs: [
       { source: 'rainbow', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
@@ -136,10 +163,20 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   template({
     id: 'fire',
     name: 'Fire',
-    description: 'The classic Fire2012 simulation feeding the matrix.',
+    description: 'Shape a classic Fire2012 simulation, then match its direction to the way your matrix is mounted.',
+    completionSteps: [
+      'Raise Sparking for more embers; raise Cooling for shorter, faster-fading flames.',
+      'Try Direction and Mirror so the effect fits your physical matrix orientation.',
+      'Choose another built-in Palette, then compare the node and main previews.',
+    ],
     nodeSpecs: [
       { id: 'fire', type: 'Fire2012', col: 0 },
       { id: 'out', type: 'MatrixOutput', col: 1 },
+      tutorialNote(
+        'guide', 0, -1,
+        'TRY THIS\nCooling shapes flame height; Sparking creates embers.\nSet Direction to match your LEDs.',
+        TRY_COLOR,
+      ),
     ],
     edgeSpecs: [
       { source: 'fire', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
@@ -148,10 +185,19 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   template({
     id: 'scrolling-text',
     name: 'Scrolling Text',
-    description: 'A Text node with a scrolling marquee, ready to rename.',
+    description: 'Build an editable marquee and learn how text layout relates to the output matrix size.',
+    completionSteps: [
+      'Replace HELLO with your own message and adjust Scroll to set its speed and direction.',
+      'Try horizontal and vertical alignment, wrap, and letter spacing.',
+      'Set Matrix Output width and height to match the display you are designing for.',
+    ],
     nodeSpecs: [
       { id: 'text', type: 'Text', col: 0, properties: { text: 'HELLO', scroll: 0.3, wrap: true } },
       { id: 'out', type: 'MatrixOutput', col: 1 },
+      tutorialNote(
+        'guide', 0, -1,
+        'MAKE IT YOURS\nEdit the message, then try Scroll and alignment.\nMatrix size controls how much text fits.',
+      ),
     ],
     edgeSpecs: [
       { source: 'text', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
@@ -160,11 +206,21 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   template({
     id: 'audio-spectrum',
     name: 'Audio Spectrum',
-    description: 'Microphone → Spectrum Visualizer — full-band bars with held, falling peak dots.',
+    description: 'Turn live microphone frequencies into animated bars and learn the difference between Audio and Frame wires.',
+    activateMicrophone: true,
+    completionSteps: [
+      'Allow microphone access, then speak or play music and watch the frequency bands respond.',
+      'Try Bars, Waterfall, Spectrogram, Radial, and Mirror styles in Spectrum Visualizer.',
+      'Tune Gain and Smoothing, then swap the Palette to change the finished frame.',
+    ],
     nodeSpecs: [
       { id: 'mic', type: 'MicInput', col: 0 },
       { id: 'spectrum', type: 'SpectrumVisualizer', col: 1 },
       { id: 'out', type: 'MatrixOutput', col: 2 },
+      tutorialNote(
+        'guide', 0, -1,
+        'LIVE AUDIO\nTeal carries sound; blue carries pixels.\nAllow the mic, then try Style, Gain and Palette.',
+      ),
     ],
     edgeSpecs: [
       { source: 'mic', sourceHandle: 'audio', target: 'spectrum', targetHandle: 'audio' },
@@ -174,7 +230,12 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   template({
     id: 'field-warp',
     name: 'Field Warp Demo',
-    description: 'Two noise fields push a third field around before it hits the matrix — the field pipeline in miniature.',
+    description: 'Learn a field pipeline: one noise field becomes the image while two more bend its coordinates.',
+    completionSteps: [
+      'Follow the three Field wires: Base supplies brightness; dX and dY supply distortion.',
+      'Change Field Warp Strength first so the role of the displacement fields is obvious.',
+      'Tune each Field Noise Scale and Speed, then use Field → Frame to colorize the result.',
+    ],
     nodeSpecs: [
       { id: 'base', type: 'FieldNoise', col: 0, row: 0, properties: { speed: 0.15, scale: 0.4 } },
       { id: 'dx', type: 'FieldNoise', col: 0, row: 1, properties: { speed: 0.2, scale: 0.8 } },
@@ -182,6 +243,10 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { id: 'warp', type: 'FieldWarp', col: 1, row: 1, properties: { strength: 1.5 } },
       { id: 'tofr', type: 'FieldToFrame', col: 2, row: 1 },
       { id: 'out', type: 'MatrixOutput', col: 3, row: 1 },
+      tutorialNote(
+        'guide', 0, -1,
+        'FIELD PIPELINE\nFields are brightness maps. Base is the image; dX and dY bend it.\nTry Warp Strength, then Noise Scale.',
+      ),
     ],
     edgeSpecs: [
       { source: 'base', sourceHandle: 'field', target: 'warp', targetHandle: 'field' },
@@ -194,16 +259,22 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   template({
     id: 'generative-show',
     name: 'Generative Show',
-    description: 'A focused live-show skeleton: Pattern Collection feeds the Show Engine, which performs straight into Matrix Output.',
+    description: 'Build a live show from reusable pattern groups, then let Show Engine choose and transition between them.',
     completionSteps: [
-      'Group a finished pattern, then connect the Group frame output to Pattern Collection to absorb it.',
-      'Tune Show Engine dwell and transition timing, then optionally wire a Transition Set.',
+      'Build a pattern, select its nodes, create a Group, then connect that Group frame to Pattern Collection.',
+      'Add at least two pattern groups; tune Show Engine dwell and transition timing.',
+      'Optionally add Transitions or a microphone beat before testing the show in the preview.',
       'Upload the controller sketch from Matrix Output once the collection has patterns.',
     ],
     nodeSpecs: [
       { id: 'collection', type: 'PatternCollection', col: 0, row: 0 },
       { id: 'master', type: 'PatternMaster', col: 1, row: 0 },
       { id: 'out', type: 'MatrixOutput', col: 2, row: 0 },
+      tutorialNote(
+        'guide', 0, -1,
+        'BUILD A SHOW\nGroup a pattern, then connect its Frame to Pattern Collection.\nAdd 2+ patterns for Show Engine.',
+        TRY_COLOR,
+      ),
     ],
     edgeSpecs: [
       { source: 'collection', sourceHandle: 'patternset', target: 'master', targetHandle: 'patternset' },
@@ -213,17 +284,23 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   template({
     id: 'music-sync-sd-show',
     name: 'Music-synced SD Show',
-    description: 'A dedicated offline-show path: Music Library bakes timed show files through Performance Generator, then SD Card hands them to Matrix Output for provisioning.',
+    description: 'Analyze songs, preview a timed performance, and package the music and show files for SD-card playback.',
     completionSteps: [
-      'Drop songs into Music Library and run analysis so Performance Generator has show files to export.',
-      'Wire an optional Transition Set into Performance Generator if you want more transition variety.',
-      'Use Upload show to SD from Matrix Output after choosing the board and port.',
+      'Drop songs into Music Library and run analysis to create timed show files.',
+      'Preview a song in Performance Generator and adjust its energy, hold, palette, and transition settings.',
+      'Optionally wire a Pattern Collection or Transitions node into Performance Generator.',
+      'Choose the board and port, then use Upload show to SD from Matrix Output.',
     ],
     nodeSpecs: [
       { id: 'lib', type: 'MusicLibrary', col: 0, row: 0 },
       { id: 'perf', type: 'PerformanceGenerator', col: 1, row: 0 },
       { id: 'sd', type: 'SDCard', col: 2, row: 0 },
       { id: 'out', type: 'MatrixOutput', col: 3, row: 0 },
+      tutorialNote(
+        'guide', 0, -1,
+        'OFFLINE SHOW\nImport and analyse music, then preview the timeline.\nSD Card packages it; Matrix Output uploads it.',
+        TRY_COLOR,
+      ),
     ],
     edgeSpecs: [
       { source: 'lib', sourceHandle: 'music', target: 'perf', targetHandle: 'music' },

@@ -929,7 +929,7 @@ function NodeGraphCanvasInner() {
             {uiEffectsEnabled && <div className={styles.emptyBeacon} aria-hidden="true"><span /></div>}
             <strong>Wake the studio with a first patch</strong>
             <span className={styles.emptySummary}>
-              Load something animated in one click, browse the full starter gallery, or stay blank and build from scratch.
+              Load a guided patch with an editable tutorial note, browse the full starter gallery, or stay blank and build from scratch.
             </span>
             <div className={styles.emptyActions}>
               <button type="button" className={`${styles.startAction} ${styles.startActionPrimary}`} onClick={handleStartRainbow}>

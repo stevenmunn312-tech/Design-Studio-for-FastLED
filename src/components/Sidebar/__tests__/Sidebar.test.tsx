@@ -66,6 +66,14 @@ describe('Sidebar equipment rack', () => {
     expect(getByLabelText('Add MIDI')).toBeTruthy()
   })
 
+  it('defaults to the full node library when no scope preference is saved', () => {
+    localStorage.removeItem('design-studio-for-fastled-sidebar-view')
+    const { getByRole } = render(<Sidebar />)
+
+    expect(getByRole('tab', { name: 'All' }).getAttribute('aria-selected')).toBe('true')
+    expect(getByRole('tab', { name: 'Beginner' }).getAttribute('aria-selected')).toBe('false')
+  })
+
   it('can favourite a module and keep it in the favourites rack', () => {
     const { getByRole, getByLabelText, getByText } = render(<Sidebar />)
 
@@ -77,9 +85,9 @@ describe('Sidebar equipment rack', () => {
   })
 
   it.each([
-    ['Live spectrum', ['MicInput', 'SpectrumVisualizer', 'Trails', 'MatrixOutput'], 3],
-    ['Beat colour jump', ['MicInput', 'BeatDetect', 'Random', 'SampleHold', 'PaletteSampler', 'SolidColor', 'MatrixOutput'], 6],
-    ['Percussion trails', ['MicInput', 'PercussionDetect', 'KickShock', 'Trails', 'MatrixOutput'], 6],
+    ['Live spectrum', ['MicInput', 'SpectrumVisualizer', 'Trails', 'MatrixOutput', 'Comment'], 3],
+    ['Beat colour jump', ['MicInput', 'BeatDetect', 'Random', 'SampleHold', 'PaletteSampler', 'SolidColor', 'MatrixOutput', 'Comment'], 6],
+    ['Percussion trails', ['MicInput', 'PercussionDetect', 'KickShock', 'Trails', 'MatrixOutput', 'Comment'], 6],
   ])('drops the %s real-audio recipe onto the canvas', (title, expectedTypes, expectedEdges) => {
     useUiStore.setState({ testSignal: true })
     const { getByText } = render(<Sidebar />)
@@ -94,6 +102,8 @@ describe('Sidebar equipment rack', () => {
     )
     expect(useGraphStore.getState().edges).toHaveLength(expectedEdges)
     expect(useUiStore.getState().testSignal).toBe(false)
+    expect(localStorage.getItem('design-studio-for-fastled-test-signal')).toBe('false')
+    expect(String(useGraphStore.getState().nodes.find((node) => node.data.nodeType === 'Comment')?.data.properties.text)).toContain('\n')
     expect(startAudio).toHaveBeenCalledOnce()
   })
 })

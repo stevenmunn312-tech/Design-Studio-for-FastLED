@@ -12,6 +12,22 @@ describe('starterTemplates', () => {
     expect(new Set(ids).size).toBe(ids.length)
   })
 
+  it('gives every starter a tutorial note and concrete next steps', () => {
+    for (const template of STARTER_TEMPLATES) {
+      expect(template.completionSteps?.length, `${template.name} completion steps`).toBeGreaterThanOrEqual(3)
+      const { nodes } = template.build()
+      const comments = nodes.filter((node) => node.data.nodeType === 'Comment')
+      expect(comments, `${template.name} tutorial comments`).toHaveLength(1)
+      expect(String(comments[0].data.properties.text)).toContain('\n')
+      expect(template.preview.nodes.some((node) => node.category === 'note')).toBe(false)
+    }
+  })
+
+  it('marks only the live-audio starter to request microphone access', () => {
+    expect(STARTER_TEMPLATES.filter((template) => template.activateMicrophone).map((template) => template.id))
+      .toEqual(['audio-spectrum'])
+  })
+
   for (const template of STARTER_TEMPLATES) {
     it(`"${template.name}" builds a well-formed, type-compatible graph`, () => {
       const { nodes, edges } = template.build()

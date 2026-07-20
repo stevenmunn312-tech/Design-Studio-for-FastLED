@@ -28,13 +28,13 @@ The shot below is a generated show playing a lava-coloured pattern while its ana
 
 ## Your first five minutes
 
-1. **Start with something alive.** On the empty canvas choose **Start with Rainbow**, **Audio-reactive demo**, or **Browse starter patches**. The **✦ Start** button reopens the gallery at any time.
+1. **Start with something alive.** On the empty canvas choose **Start with Rainbow**, **Audio-reactive demo**, or **Browse starter patches**. Every starter opens with an editable Comment node that explains what to change next; the audio first patch also starts the microphone. The **✦ Start** button reopens the gallery at any time.
 2. **Read the graph left to right.** Source nodes create values or pixels; effects transform them; **Matrix Output** is the destination. Ports with the same color/type connect.
 3. **Try one edit.** Change a speed, palette, particle style, or effect amount. The LED preview updates immediately.
 4. **Add a module.** Click a card in the left Node Library or drag it onto the canvas. Drag a cable onto empty canvas to see only compatible next nodes.
 5. **Open Help.** Press **?** for the Quick Start, shortcuts, upload guide, illustrated examples, and searchable reference for every node.
 
-The fastest experiments are in **Quick recipes** in the sidebar: *Live spectrum*, *Beat colour jump*, and *Percussion trails* each place a complete working chain on the canvas.
+The fastest experiments are in **Quick recipes** in the sidebar: *Live spectrum*, *Beat colour jump*, and *Percussion trails* each place a complete working chain plus a short tutorial Comment on the canvas. The full node library is visible by default; switch to **Beginner** when you want a smaller curated rack.
 
 ## Two main workflows
 

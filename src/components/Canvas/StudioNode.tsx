@@ -911,7 +911,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       ref={nodeRef}
       className={`${styles.node} ${categoryClass} ${performanceMode ? styles.nodePerformance : ''} ${selected ? styles.nodeSelected : ''} ${focusState === 'dim' ? styles.nodeDim : focusState === 'active' ? styles.nodePath : ''} ${previewKind === 'frame' ? styles.nodeFrameSource : ''} ${isMusicLibrary && musicLibraryAnalyzing ? styles.nodeMusicAnalyzing : ''}`}
       style={{
-        width: isMusicLibrary ? 300 : isCode ? 320 : isPerfGen ? 300 : undefined,
+        width: isMusicLibrary ? 300 : isCode ? 320 : isPerfGen ? 300 : isComment ? 260 : undefined,
         '--node-accent': accent,
       } as React.CSSProperties}
     >

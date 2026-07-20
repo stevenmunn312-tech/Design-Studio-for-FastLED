@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import NodeGraphCanvas from '../NodeGraphCanvas'
 import { useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
+import { useAudioStore } from '../../../state/audioStore'
 
 const fitViewMock = vi.fn().mockResolvedValue(undefined)
 const screenToFlowPositionMock = ({ x, y }: { x: number; y: number }) => ({ x, y })
@@ -12,6 +13,7 @@ const getNodeMock = () => undefined
 const getInternalNodeMock = () => undefined
 const setCenterMock = vi.fn()
 const getZoomMock = () => 1
+const startAudioMock = vi.fn(async () => {})
 let reactFlowProps: Record<string, unknown> = {}
 
 vi.mock('@xyflow/react', async (orig) => {
@@ -65,7 +67,10 @@ describe('NodeGraphCanvas start screen', () => {
       fitViewRequest: { nonce: 0 },
       statusText: 'Ready',
       statusLevel: 'idle',
+      testSignal: false,
     })
+    startAudioMock.mockClear()
+    useAudioStore.setState({ startAudio: startAudioMock })
   })
 
   it('launches the rainbow starter from the empty-canvas start screen', async () => {
@@ -74,13 +79,29 @@ describe('NodeGraphCanvas start screen', () => {
     fireEvent.click(getByRole('button', { name: 'Start with Rainbow' }))
 
     await waitFor(() => {
-      expect(useGraphStore.getState().nodes).toHaveLength(2)
+      expect(useGraphStore.getState().nodes).toHaveLength(3)
     })
     expect(useUiStore.getState().lastStartChoice).toBe('rainbow')
-    expect(useUiStore.getState().fitViewRequest.nodeIds).toHaveLength(2)
+    expect(useUiStore.getState().fitViewRequest.nodeIds).toHaveLength(3)
+    expect(useGraphStore.getState().nodes.some((node) => node.data.nodeType === 'Comment')).toBe(true)
     await waitFor(() => {
       expect(fitViewMock).toHaveBeenCalled()
     })
+  })
+
+  it('launches the audio first patch with its tutorial and live microphone', async () => {
+    useUiStore.setState({ testSignal: true })
+    localStorage.setItem('design-studio-for-fastled-test-signal', 'true')
+    const { getByRole } = render(<NodeGraphCanvas />)
+
+    fireEvent.click(getByRole('button', { name: 'Audio-reactive demo' }))
+
+    await waitFor(() => expect(startAudioMock).toHaveBeenCalledOnce())
+    expect(useGraphStore.getState().nodes.map((node) => node.data.nodeType)).toEqual(
+      expect.arrayContaining(['MicInput', 'SpectrumVisualizer', 'MatrixOutput', 'Comment']),
+    )
+    expect(useUiStore.getState().testSignal).toBe(false)
+    expect(localStorage.getItem('design-studio-for-fastled-test-signal')).toBe('false')
   })
 
   it('fits nodes inside both open side panels', async () => {

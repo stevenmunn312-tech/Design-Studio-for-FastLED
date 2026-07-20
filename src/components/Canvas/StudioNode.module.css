@@ -453,7 +453,7 @@
 /* Comment node — a freeform sticky-note textarea filling the body. */
 .commentEditor {
   width: 100%;
-  min-height: 72px;
+  min-height: 92px;
   resize: vertical;
   background: transparent;
   border: 1px dashed var(--border-glow);

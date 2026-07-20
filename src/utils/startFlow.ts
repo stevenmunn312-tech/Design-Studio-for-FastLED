@@ -1,4 +1,5 @@
 import { useGraphStore } from '../state/graphStore'
+import { useAudioStore } from '../state/audioStore'
 import { STARTER_TEMPLATES, type StarterTemplate } from '../state/starterTemplates'
 import { useUiStore } from '../state/uiStore'
 import { runTidy } from './tidyGraph'
@@ -21,6 +22,13 @@ export function startTemplate(template: StarterTemplate, options?: StartFlowOpti
   useGraphStore.getState().loadGraph(nodes, edges)
   runTidy()
   finishStartFlow(template.id, `Loaded "${template.name}" starter`, nodes.map((node) => node.id), options)
+  if (template.activateMicrophone) {
+    const ui = useUiStore.getState()
+    if (ui.testSignal) ui.toggleTestSignal()
+    void useAudioStore.getState().startAudio().catch(() => {
+      ui.setStatus('Microphone could not start. Check browser permission and the selected audio input.', 'error')
+    })
+  }
 }
 
 export function startTemplateById(id: string, options?: StartFlowOptions) {

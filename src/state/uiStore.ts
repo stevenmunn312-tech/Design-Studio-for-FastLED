@@ -63,7 +63,6 @@ const PREVIEW_STYLE_KEY = 'design-studio-for-fastled-preview-style'
 const SPECTRUM_VISUALIZER_KEY = 'design-studio-for-fastled-spectrum-visualizer'
 const LEGACY_DIFFUSION_KEY = 'design-studio-for-fastled-preview-diffusion'
 const TEST_SIGNAL_KEY = 'design-studio-for-fastled-test-signal'
-const PERFORMANCE_MODE_KEY = 'design-studio-for-fastled-performance-mode'
 const UI_EFFECTS_KEY = 'design-studio-for-fastled-ui-effects-enabled'
 const SIGNAL_PATH_DIM_KEY = 'design-studio-for-fastled-signal-path-dim-enabled'
 const START_CHOICE_KEY = 'design-studio-for-fastled-last-start-choice'
@@ -197,7 +196,10 @@ export const useUiStore = create<UiState>((set, get) => ({
   previewPanelOpen: true,
   evaluationRunning: true,
   stageMode: false,
-  performanceMode: load<boolean>(PERFORMANCE_MODE_KEY, false),
+  // Perform is a presentation state for the current session, like Stage. A
+  // previous session must not reopen with the editing chrome unexpectedly
+  // hushed, so it always starts off and is intentionally not persisted.
+  performanceMode: false,
   uiEffectsEnabled: load<boolean>(UI_EFFECTS_KEY, true),
   signalPathDimEnabled: load<boolean>(SIGNAL_PATH_DIM_KEY, true),
   preview3d: false,
@@ -245,15 +247,8 @@ export const useUiStore = create<UiState>((set, get) => ({
   toggleEvaluation: () => set((s) => ({ evaluationRunning: !s.evaluationRunning })),
   toggleStageMode: () => set((s) => ({ stageMode: !s.stageMode })),
   setStageMode: (stageMode) => set({ stageMode }),
-  togglePerformanceMode: () => {
-    const next = !get().performanceMode
-    localStorage.setItem(PERFORMANCE_MODE_KEY, JSON.stringify(next))
-    set({ performanceMode: next })
-  },
-  setPerformanceMode: (performanceMode) => {
-    localStorage.setItem(PERFORMANCE_MODE_KEY, JSON.stringify(performanceMode))
-    set({ performanceMode })
-  },
+  togglePerformanceMode: () => set((s) => ({ performanceMode: !s.performanceMode })),
+  setPerformanceMode: (performanceMode) => set({ performanceMode }),
   toggleUiEffects: () => {
     const next = !get().uiEffectsEnabled
     localStorage.setItem(UI_EFFECTS_KEY, JSON.stringify(next))

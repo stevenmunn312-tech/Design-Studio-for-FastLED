@@ -91,6 +91,17 @@ describe('uiStore.setStatus auto-clear', () => {
     expect(useUiStore.getState().stageMode).toBe(false)
   })
 
+  it('treats Perform as session-only state and does not persist the toggle', () => {
+    localStorage.removeItem('design-studio-for-fastled-performance-mode')
+    useUiStore.getState().setPerformanceMode(false)
+    useUiStore.getState().togglePerformanceMode()
+
+    expect(useUiStore.getState().performanceMode).toBe(true)
+    expect(localStorage.getItem('design-studio-for-fastled-performance-mode')).toBeNull()
+
+    useUiStore.getState().setPerformanceMode(false)
+  })
+
   it('queues fit-view requests with an incrementing nonce', () => {
     useUiStore.setState({ fitViewRequest: { nonce: 0 } })
 
