@@ -1010,8 +1010,8 @@
 .brandTwinkles {
   position: absolute;
   inset: 0;
-  -webkit-mask-image: url('/design-studio-pixel-brand.png');
-  mask-image: url('/design-studio-pixel-brand.png');
+  -webkit-mask-image: url('/brand-concepts/concept-1-pixel.png');
+  mask-image: url('/brand-concepts/concept-1-pixel.png');
   -webkit-mask-size: 100% 100%;
   mask-size: 100% 100%;
 }
@@ -1048,8 +1048,8 @@
 .brandShine {
   position: absolute;
   inset: 0;
-  -webkit-mask-image: url('/design-studio-pixel-brand.png');
-  mask-image: url('/design-studio-pixel-brand.png');
+  -webkit-mask-image: url('/brand-concepts/concept-1-pixel.png');
+  mask-image: url('/brand-concepts/concept-1-pixel.png');
   -webkit-mask-size: 100% 100%;
   mask-size: 100% 100%;
   background:

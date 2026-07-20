@@ -1430,7 +1430,7 @@ export default function LEDPreview() {
               <div className={styles.brandLockup}>
                 <img
                   className={styles.brandLogo}
-                  src="/design-studio-pixel-brand.png"
+                  src="/brand-concepts/concept-1-pixel.png"
                   width="1535"
                   height="221"
                   fetchPriority="high"
