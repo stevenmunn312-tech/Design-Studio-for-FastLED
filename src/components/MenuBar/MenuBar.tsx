@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUiStore } from '../../state/uiStore'
+import type { LayoutPresetId } from '../../state/layoutPresets'
 import { useGraphStore, useTemporalStore } from '../../state/graphStore'
 import { useAudioStore } from '../../state/audioStore'
 import { useShowPlayback } from '../../state/showPlayback'
@@ -72,6 +73,8 @@ export default function MenuBar() {
     togglePreview3d,
     previewStyle,
     cyclePreviewStyle,
+    layoutPreset,
+    applyLayoutPreset,
     openHelp,
     setHelpTab,
     openRecover,
@@ -103,6 +106,8 @@ export default function MenuBar() {
     togglePreview3d: s.togglePreview3d,
     previewStyle: s.previewStyle,
     cyclePreviewStyle: s.cyclePreviewStyle,
+    layoutPreset: s.layoutPreset,
+    applyLayoutPreset: s.applyLayoutPreset,
     openHelp: s.openHelp,
     setHelpTab: s.setHelpTab,
     openRecover: s.openRecover,
@@ -116,6 +121,7 @@ export default function MenuBar() {
 
   const THEME_ICON: Record<string, string> = { dark: '☾', solarized: '✦', light: '☀' }
   const THEME_LABEL: Record<string, string> = { dark: 'Dark', solarized: 'Solarized', light: 'Light' }
+  const LAYOUT_PRESET_LABEL: Record<LayoutPresetId, string> = { build: 'Build', tune: 'Tune', preview: 'Preview' }
   const importInputRef = useRef<HTMLInputElement>(null)
   const projectInputRef = useRef<HTMLInputElement>(null)
   const fileMenuRef = useRef<HTMLDivElement>(null)
@@ -663,6 +669,20 @@ export default function MenuBar() {
               >
                 {signalPathDimEnabled ? '✓' : '○'} Signal dimming: {signalPathDimEnabled ? 'On' : 'Off'}
               </button>
+              <div className={styles.menuDivider} />
+              <div className={styles.menuLabel}>Layout</div>
+              {(['build', 'tune', 'preview'] as const).map((preset) => (
+                <button
+                  key={preset}
+                  className={styles.menuItem}
+                  role="menuitemradio"
+                  aria-checked={layoutPreset === preset}
+                  onClick={() => { closeMenus(); applyLayoutPreset(preset) }}
+                  title={`Switch to the ${LAYOUT_PRESET_LABEL[preset]} panel layout`}
+                >
+                  {layoutPreset === preset ? '✓' : '○'} {LAYOUT_PRESET_LABEL[preset]}
+                </button>
+              ))}
               <div className={styles.menuDivider} />
               <button
                 className={styles.menuItem}

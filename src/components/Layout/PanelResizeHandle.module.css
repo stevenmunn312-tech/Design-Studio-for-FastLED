@@ -1,0 +1,33 @@
+.sidebarResizeHandle,
+.previewResizeHandle {
+  position: absolute;
+  top: 0;
+  width: 6px;
+  height: 100%;
+  z-index: 11;
+  cursor: col-resize;
+  background: var(--accent-output);
+  opacity: 0;
+  transition: opacity var(--anim-hover);
+  touch-action: none;
+}
+
+.sidebarResizeHandle:hover,
+.sidebarResizeHandle:focus-visible,
+.previewResizeHandle:hover,
+.previewResizeHandle:focus-visible {
+  opacity: 0.5;
+}
+
+.sidebarResizeHandle:focus-visible,
+.previewResizeHandle:focus-visible {
+  outline: none;
+}
+
+.sidebarResizeHandle {
+  left: calc(var(--sidebar-width) - 3px);
+}
+
+.previewResizeHandle {
+  right: calc(var(--right-panel-width) - 3px);
+}
