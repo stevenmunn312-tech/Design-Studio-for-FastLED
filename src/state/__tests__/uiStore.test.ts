@@ -83,6 +83,51 @@ describe('uiStore.setStatus auto-clear', () => {
     expect(localStorage.getItem('design-studio-for-fastled-last-start-choice')).toBe('"audio-spectrum"')
   })
 
+  it('sets sidebar width, clamping and persisting, and marks the preset custom', () => {
+    useUiStore.getState().setSidebarWidth(300)
+    expect(useUiStore.getState().sidebarWidth).toBe(300)
+    expect(useUiStore.getState().layoutPreset).toBe('custom')
+    expect(localStorage.getItem('design-studio-for-fastled-sidebar-width')).toBe('300')
+    expect(localStorage.getItem('design-studio-for-fastled-layout-preset')).toBe('"custom"')
+
+    useUiStore.getState().setSidebarWidth(50)
+    expect(useUiStore.getState().sidebarWidth).toBe(220)
+
+    useUiStore.getState().setSidebarWidth(9999)
+    expect(useUiStore.getState().sidebarWidth).toBe(420)
+  })
+
+  it('sets preview width, clamping and persisting, and marks the preset custom', () => {
+    useUiStore.getState().setPreviewWidth(550)
+    expect(useUiStore.getState().previewWidth).toBe(550)
+    expect(useUiStore.getState().layoutPreset).toBe('custom')
+    expect(localStorage.getItem('design-studio-for-fastled-preview-width')).toBe('550')
+
+    useUiStore.getState().setPreviewWidth(50)
+    expect(useUiStore.getState().previewWidth).toBe(320)
+
+    useUiStore.getState().setPreviewWidth(9999)
+    expect(useUiStore.getState().previewWidth).toBe(720)
+  })
+
+  it('applies a named layout preset, updating widths and open state together', () => {
+    useUiStore.getState().applyLayoutPreset('preview')
+    const state = useUiStore.getState()
+    expect(state.layoutPreset).toBe('preview')
+    expect(state.sidebarWidth).toBe(220)
+    expect(state.previewWidth).toBe(640)
+    expect(state.sidebarOpen).toBe(false)
+    expect(state.previewPanelOpen).toBe(true)
+    expect(localStorage.getItem('design-studio-for-fastled-layout-preset')).toBe('"preview"')
+    expect(localStorage.getItem('design-studio-for-fastled-sidebar-width')).toBe('220')
+    expect(localStorage.getItem('design-studio-for-fastled-preview-width')).toBe('640')
+
+    useUiStore.getState().applyLayoutPreset('build')
+    expect(useUiStore.getState().sidebarWidth).toBe(280)
+    expect(useUiStore.getState().previewWidth).toBe(380)
+    expect(useUiStore.getState().sidebarOpen).toBe(true)
+  })
+
   it('enters and exits stage mode without persisting it across sessions', () => {
     useUiStore.getState().setStageMode(false)
     useUiStore.getState().toggleStageMode()
