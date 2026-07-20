@@ -9,6 +9,14 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Added preview recording and export: a **⏺ Record** button in the LED
+  preview header opens a dialog that captures the matrix as a PNG snapshot,
+  an animated GIF, or a WebM video, with duration, frame rate, scale
+  (pixels per LED), seamless-loop crossfade, and LED-look vs. flat-pixel
+  style options. Clips render offline and deterministically from the graph
+  (stateful nodes run in an isolated state namespace, so the live preview
+  is undisturbed), and the GIF encoder is built in with no new dependencies.
+
 - Added an always-available Graph Health drawer with continuously refreshed,
   node-attributed diagnostics for wiring, expressions, pin conflicts,
   preview-only behavior, output power, internal RAM, show structure, and board

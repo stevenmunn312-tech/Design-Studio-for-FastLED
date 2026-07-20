@@ -18,6 +18,26 @@ export function publishStreamFrame(frame: Frame, width: number, height: number) 
   latestH = height
 }
 
+/** The most recently rendered preview frame (post-brightness, post-show-
+ *  overlay) as a packed-RGB copy — the recorder's PNG snapshot source. Copied
+ *  because evaluator frames are pooled and recycled a couple of passes later;
+ *  callers must never hold the raw reference. */
+export function latestStreamFrameCopy(): { bytes: Uint8ClampedArray; width: number; height: number } | null {
+  if (!latestFrame || latestW <= 0 || latestH <= 0) return null
+  const bytes = new Uint8ClampedArray(latestW * latestH * 3)
+  let at = 0
+  for (let y = 0; y < latestH; y++) {
+    const row = latestFrame[y]
+    for (let x = 0; x < latestW; x++) {
+      const px = row?.[x]
+      bytes[at++] = px?.r ?? 0
+      bytes[at++] = px?.g ?? 0
+      bytes[at++] = px?.b ?? 0
+    }
+  }
+  return { bytes, width: latestW, height: latestH }
+}
+
 // Cap the wire rate independent of the 60fps preview loop — a serial link
 // (even at 921600 baud) has no headroom to also carry every preview tick, and
 // a receiving board only needs to look continuous, not literally match the

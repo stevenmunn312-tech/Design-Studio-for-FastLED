@@ -252,6 +252,37 @@
   pointer-events: none;
 }
 
+/* Record/export button — chip-shaped like the HUD readouts beside it, but
+   interactive, with a red "rec" dot so it reads as a capture control. */
+.recordBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border: 1px solid rgba(255, 92, 92, 0.34);
+  border-radius: 999px;
+  background: rgba(24, 6, 10, 0.72);
+  color: var(--text-primary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.recordBtn:hover {
+  border-color: rgba(255, 92, 92, 0.7);
+  background: rgba(44, 10, 16, 0.85);
+}
+.recordBtn i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ff5c5c;
+  box-shadow: 0 0 6px rgba(255, 92, 92, 0.8);
+}
+
 .canvasHudChip {
   padding: 3px 7px;
   border: 1px solid rgba(255, 255, 255, 0.08);
