@@ -1,7 +1,8 @@
 import { lazy, memo, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import type { NodeProps, Node } from '@xyflow/react'
-import { matrixDims, useGraphStore } from '../../state/graphStore'
+import { useGraphStore } from '../../state/graphStore'
+import { compositionDims } from '../../state/outputRouting'
 import type { StudioEdge, StudioNodeData } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { NODE_LIBRARY, CATEGORY_ACCENT_VAR, portColor, propertyMeta, hasClampableInputs, bypassPort, nodeDisplayLabel, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression } from '../../state/nodeLibrary'
@@ -280,10 +281,8 @@ const LivePropertyControls = memo(function LivePropertyControls({
   )
   const liveFor = (propKey: string): unknown => liveValues[portFor(propKey)]
   const expressionDimsKey = useGraphStore((s) => {
-    const { w, h } = matrixDims(s.nodes)
-    const output = s.nodes.find((n) => n.data.nodeType === 'MatrixOutput')
-    const scale = output?.data.properties.supersample === true ? 2 : 1
-    return `${w * scale}:${h * scale}`
+    const { w, h } = compositionDims(s.nodes)
+    return `${w}:${h}`
   })
   const [expressionW, expressionH] = expressionDimsKey.split(':').map(Number)
 
@@ -740,8 +739,8 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     return signalPathFor(s.edges, s.selectedNodeId).has(id) ? 'active' : 'dim'
   })
   // Matrix dimensions (from MatrixOutput) set the frame-preview aspect ratio.
-  const gridW = useGraphStore((s) => Math.max(1, Math.min(64, matrixDims(s.nodes).w)))
-  const gridH = useGraphStore((s) => Math.max(1, Math.min(64, matrixDims(s.nodes).h)))
+  const gridW = useGraphStore((s) => Math.max(1, Math.min(128, compositionDims(s.nodes).w)))
+  const gridH = useGraphStore((s) => Math.max(1, Math.min(128, compositionDims(s.nodes).h)))
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
   const setGroupInputRole = useGraphStore((s) => s.setGroupInputRole)

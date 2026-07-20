@@ -7,6 +7,17 @@ import {
   isSpectrumVisualizerMode,
   type SpectrumVisualizerMode,
 } from '../components/Preview/spectrumVisualizerModes'
+import {
+  clampPanelWidth,
+  DEFAULT_PREVIEW_WIDTH,
+  DEFAULT_SIDEBAR_WIDTH,
+  LAYOUT_PRESETS,
+  MAX_PREVIEW_WIDTH,
+  MAX_SIDEBAR_WIDTH,
+  MIN_PREVIEW_WIDTH,
+  MIN_SIDEBAR_WIDTH,
+  type LayoutPresetId,
+} from './layoutPresets'
 
 export type AppTheme = 'dark' | 'solarized' | 'light'
 export type NewProjectDecision = 'yes' | 'no' | 'cancel'
@@ -67,6 +78,9 @@ const UI_EFFECTS_KEY = 'design-studio-for-fastled-ui-effects-enabled'
 const SIGNAL_PATH_DIM_KEY = 'design-studio-for-fastled-signal-path-dim-enabled'
 const START_CHOICE_KEY = 'design-studio-for-fastled-last-start-choice'
 const GRAPH_HEALTH_KEY = 'design-studio-for-fastled-graph-health-open'
+const SIDEBAR_WIDTH_KEY = 'design-studio-for-fastled-sidebar-width'
+const PREVIEW_WIDTH_KEY = 'design-studio-for-fastled-preview-width'
+const LAYOUT_PRESET_KEY = 'design-studio-for-fastled-layout-preset'
 
 function load<T>(key: string, fallback: T): T {
   try { const v = localStorage.getItem(key); return v !== null ? JSON.parse(v) : fallback } catch { return fallback }
@@ -97,6 +111,10 @@ interface UiState {
   statusLevel: StatusLevel
   sidebarOpen: boolean
   previewPanelOpen: boolean
+  sidebarWidth: number
+  previewWidth: number
+  /** Which named panel-width preset is active, or 'custom' after a manual drag. */
+  layoutPreset: LayoutPresetId | 'custom'
   graphHealthOpen: boolean
   /** Whether the live graph evaluator advances and publishes preview frames. */
   evaluationRunning: boolean
@@ -108,6 +126,8 @@ interface UiState {
   /** When on, selecting a node dims everything outside its signal path. */
   signalPathDimEnabled: boolean
   preview3d: boolean
+  /** Session-only Matrix Output route displayed by the preview/recorder. */
+  previewOutputId: string
   previewStyle: PreviewStyle
   /** Presentation used by the browser-only spectrum below the LED preview. */
   spectrumVisualizerMode: SpectrumVisualizerMode
@@ -141,6 +161,9 @@ interface UiState {
   clearStatus: () => void
   toggleSidebar: () => void
   togglePreviewPanel: () => void
+  setSidebarWidth: (px: number) => void
+  setPreviewWidth: (px: number) => void
+  applyLayoutPreset: (preset: LayoutPresetId) => void
   toggleGraphHealth: () => void
   toggleEvaluation: () => void
   toggleStageMode: () => void
@@ -150,6 +173,7 @@ interface UiState {
   toggleUiEffects: () => void
   toggleSignalPathDim: () => void
   togglePreview3d: () => void
+  setPreviewOutputId: (nodeId: string) => void
   toggleTestSignal: () => void
   setPreviewStyle: (style: PreviewStyle) => void
   cyclePreviewStyle: () => void
@@ -197,6 +221,9 @@ export const useUiStore = create<UiState>((set, get) => ({
   statusLevel: 'idle',
   sidebarOpen: true,
   previewPanelOpen: true,
+  sidebarWidth: load<number>(SIDEBAR_WIDTH_KEY, DEFAULT_SIDEBAR_WIDTH),
+  previewWidth: load<number>(PREVIEW_WIDTH_KEY, DEFAULT_PREVIEW_WIDTH),
+  layoutPreset: load<LayoutPresetId | 'custom'>(LAYOUT_PRESET_KEY, 'custom'),
   graphHealthOpen: load<boolean>(GRAPH_HEALTH_KEY, true),
   evaluationRunning: true,
   stageMode: false,
@@ -207,6 +234,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   uiEffectsEnabled: load<boolean>(UI_EFFECTS_KEY, true),
   signalPathDimEnabled: load<boolean>(SIGNAL_PATH_DIM_KEY, false),
   preview3d: false,
+  previewOutputId: '',
   previewStyle: loadPreviewStyle(),
   spectrumVisualizerMode: loadSpectrumVisualizerMode(),
   testSignal: load<boolean>(TEST_SIGNAL_KEY, false),
@@ -248,6 +276,31 @@ export const useUiStore = create<UiState>((set, get) => ({
   },
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   togglePreviewPanel: () => set((s) => ({ previewPanelOpen: !s.previewPanelOpen })),
+  setSidebarWidth: (px) => {
+    const width = clampPanelWidth(px, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH)
+    localStorage.setItem(SIDEBAR_WIDTH_KEY, JSON.stringify(width))
+    localStorage.setItem(LAYOUT_PRESET_KEY, JSON.stringify('custom'))
+    set({ sidebarWidth: width, layoutPreset: 'custom' })
+  },
+  setPreviewWidth: (px) => {
+    const width = clampPanelWidth(px, MIN_PREVIEW_WIDTH, MAX_PREVIEW_WIDTH)
+    localStorage.setItem(PREVIEW_WIDTH_KEY, JSON.stringify(width))
+    localStorage.setItem(LAYOUT_PRESET_KEY, JSON.stringify('custom'))
+    set({ previewWidth: width, layoutPreset: 'custom' })
+  },
+  applyLayoutPreset: (preset) => {
+    const config = LAYOUT_PRESETS[preset]
+    localStorage.setItem(SIDEBAR_WIDTH_KEY, JSON.stringify(config.sidebarWidth))
+    localStorage.setItem(PREVIEW_WIDTH_KEY, JSON.stringify(config.previewWidth))
+    localStorage.setItem(LAYOUT_PRESET_KEY, JSON.stringify(preset))
+    set({
+      sidebarWidth: config.sidebarWidth,
+      previewWidth: config.previewWidth,
+      sidebarOpen: config.sidebarOpen,
+      previewPanelOpen: config.previewPanelOpen,
+      layoutPreset: preset,
+    })
+  },
   toggleGraphHealth: () => {
     const next = !get().graphHealthOpen
     localStorage.setItem(GRAPH_HEALTH_KEY, JSON.stringify(next))
@@ -269,6 +322,7 @@ export const useUiStore = create<UiState>((set, get) => ({
     set({ signalPathDimEnabled: next })
   },
   togglePreview3d: () => set((s) => ({ preview3d: !s.preview3d })),
+  setPreviewOutputId: (previewOutputId) => set({ previewOutputId }),
   toggleTestSignal: () => {
     const next = !get().testSignal
     localStorage.setItem(TEST_SIGNAL_KEY, JSON.stringify(next))

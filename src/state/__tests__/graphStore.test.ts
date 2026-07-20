@@ -151,7 +151,8 @@ describe('graphStore — grouping', () => {
     expect(s.selectedNodeId).toBeNull()
   })
 
-  it.each(['MatrixOutput', 'MicInput'])('allows only one %s node on the canvas', (nodeType) => {
+  it('allows only one MicInput node on the canvas', () => {
+    const nodeType = 'MicInput'
     reset([node('existing', nodeType)])
     useGraphStore.getState().addNode(node('added', nodeType))
     useGraphStore.getState().duplicateNode('existing')
@@ -159,6 +160,16 @@ describe('graphStore — grouping', () => {
     useGraphStore.getState().pasteNode({ x: 100, y: 100 })
 
     expect(useGraphStore.getState().nodes.filter((n) => n.data.nodeType === nodeType)).toHaveLength(1)
+  })
+
+  it('allows multiple MatrixOutput routes on the canvas', () => {
+    reset([node('existing', 'MatrixOutput')])
+    useGraphStore.getState().addNode(node('added', 'MatrixOutput'))
+    useGraphStore.getState().duplicateNode('existing')
+    useGraphStore.getState().copyNode('existing')
+    useGraphStore.getState().pasteNode({ x: 100, y: 100 })
+
+    expect(useGraphStore.getState().nodes.filter((n) => n.data.nodeType === 'MatrixOutput')).toHaveLength(4)
   })
 
   it('copySelection + pasteNode duplicates a multi-node selection with its internal wiring', () => {

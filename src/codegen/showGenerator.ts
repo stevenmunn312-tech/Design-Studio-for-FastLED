@@ -19,9 +19,12 @@ import { generateCpp, audioEngineForGraph, psramBufferDecl, PSRAM_ALLOC_CPP, led
 import { SPI_CHIPSETS } from '../state/nodeLibrary'
 import { SHOW_TRANSITIONS } from './performanceGenerator'
 import { TRANSITION_HELPER_CPP, PARTICLE_OVERLAY_CPP } from './transitionHelperCpp'
+import { buildXYTable } from '../state/xyLayout'
+import { compositionDims, outputRoutes } from '../state/outputRouting'
 
 const nodeType = (n: StudioNode) => (n.data as { nodeType?: string }).nodeType
 const props = (n: StudioNode) => n.data.properties as Record<string, unknown>
+const safeId = (id: string) => id.replace(/[^a-zA-Z0-9_]/g, '_')
 
 /** Whether the graph contains the connected collection → master → output
  * pipeline required by the generative-show exporter. A stray PatternMaster
@@ -40,6 +43,7 @@ export function isPatternShow(nodes: StudioNode[], edges: StudioEdge[]): boolean
 }
 
 interface ShowInfo {
+  masterId: string
   patternIds: string[]
   minTime: number
   maxTime: number
@@ -79,6 +83,7 @@ function showInfo(nodes: StudioNode[], edges: StudioEdge[]): ShowInfo | null {
   const patternIds = collection ? ((props(collection).patternIds as string[] | undefined) ?? []) : []
   const p = props(master)
   return {
+    masterId: master.id,
     patternIds,
     minTime: Number(p.minTime ?? 4),
     maxTime: Number(p.maxTime ?? 12),
@@ -256,17 +261,31 @@ export function generateShowSketch(
     return '// Pattern Master has no patterns — add patterns to its Pattern Collection.\n' + generateCpp(nodes, edges, groups, opts)
   }
 
-  const out = nodes.find((n) => nodeType(n) === 'MatrixOutput')
+  const routedOutputIds = new Set(edges.filter((edge) =>
+    edge.source === info.masterId && edge.sourceHandle === 'frame' && edge.targetHandle === 'frame'
+  ).map((edge) => edge.target))
+  const routedOutputs = nodes.filter((node) => nodeType(node) === 'MatrixOutput' && routedOutputIds.has(node.id))
+  const out = routedOutputs[0]
   const op = out ? props(out) : {}
-  const width = Number(op.width ?? 16), height = Number(op.height ?? 16)
+  const multiOutput = routedOutputs.length > 1
+  const dims = compositionDims(routedOutputs)
+  const width = multiOutput ? dims.w : Number(op.width ?? 16)
+  const height = multiOutput ? dims.h : Number(op.height ?? 16)
   const dataPin = Number(op.dataPin ?? 5)
   const hw = ledHardwareFromProps(op)
+  const routes = outputRoutes(routedOutputs).map((route) => ({
+    ...route,
+    safeId: safeId(route.id),
+    hardware: ledHardwareFromProps(props(route.node)),
+    dataPin: Math.max(0, Math.min(48, Math.round(Number(props(route.node).dataPin ?? 5)))),
+    xyTable: buildXYTable(route.width, route.height, props(route.node)),
+  }))
   // "Use PSRAM": every collected pattern contributes its own set of render
   // buffers, so a show is the heaviest static-RAM consumer — move those (and
   // the two transition compositing buffers) to external PSRAM. The sub-pattern
   // sketches always emit plain arrays (their synthetic MatrixOutput carries no
   // properties); the conversion happens here, at the show level.
-  const usePsram = opts.psramAllowed !== false && op.usePsram === true
+  const usePsram = opts.psramAllowed !== false && routedOutputs.some((node) => props(node).usePsram === true)
 
   // A MicInput on the canvas turns the controller into an audio host: it runs
   // FastLED's INMP441 audio processor and the collected patterns' FFTAnalyzer/
@@ -289,7 +308,11 @@ export function generateShowSketch(
 
   const L: string[] = []
   L.push('// Design Studio for FastLED — generative pattern show (Phase 4, first slice)')
-  for (const d of overclockDefineCpp(hw)) L.push(d)
+  const clockless = routes.filter((route) => !SPI_CHIPSETS.has(route.hardware.chipset))
+  const sharedHw = multiOutput && clockless.length
+    ? { ...clockless[0].hardware, overclock: Math.max(...clockless.map((route) => route.hardware.overclock)) }
+    : hw
+  for (const d of overclockDefineCpp(sharedHw)) L.push(d)
   L.push('#include <FastLED.h>')
   if (audio) L.push(audio.include)
   L.push('')
@@ -300,13 +323,21 @@ export function generateShowSketch(
   L.push(`#define WIDTH    ${width}`)
   L.push(`#define HEIGHT   ${height}`)
   L.push('#define NUM_LEDS (WIDTH * HEIGHT)')
-  L.push(`#define DATA_PIN ${dataPin}`)
-  if (SPI_CHIPSETS.has(hw.chipset)) L.push(`#define CLOCK_PIN ${hw.clockPin}`)
+  if (multiOutput) {
+    for (const route of routes) {
+      L.push(`#define DATA_PIN_${route.safeId} ${route.dataPin}`)
+      if (SPI_CHIPSETS.has(route.hardware.chipset)) L.push(`#define CLOCK_PIN_${route.safeId} ${route.hardware.clockPin}`)
+    }
+  } else {
+    L.push(`#define DATA_PIN ${dataPin}`)
+    if (SPI_CHIPSETS.has(hw.chipset)) L.push(`#define CLOCK_PIN ${hw.clockPin}`)
+  }
   L.push(`#define PATTERN_COUNT ${renderers.count}`)
   L.push('')
   // `leds` stays a static internal-RAM array even with PSRAM on (FastLED's
   // ESP32 drivers read it from ISR/DMA context); everything else moves.
   L.push('CRGB leds[NUM_LEDS];')
+  if (multiOutput) for (const route of routes) L.push(`CRGB leds_${route.safeId}[${route.width * route.height}];`)
   const showBufs = [
     'CRGB showA[NUM_LEDS];   // outgoing pattern during a transition',
     'CRGB showB[NUM_LEDS];   // incoming pattern during a transition',
@@ -332,6 +363,15 @@ export function generateShowSketch(
   if (particlesOn) { L.push(PARTICLE_OVERLAY_CPP); L.push('') }
   for (const h of renderers.helpers) { L.push(h); L.push('') }
 
+  if (multiOutput) {
+    for (const route of routes) {
+      if (!route.xyTable) continue
+      L.push(`const uint16_t _xytable_${route.safeId}[${route.width * route.height}] PROGMEM = { ${route.xyTable.join(',')} };`)
+      L.push(`uint16_t XY_${route.safeId}(uint8_t x, uint8_t y) { return pgm_read_word(&_xytable_${route.safeId}[(uint16_t)y * ${route.width} + x]); }`)
+      L.push('')
+    }
+  }
+
   for (const fn of renderers.functions) { L.push(fn); L.push('') }
 
   // Pattern dispatch table (renders pattern i into `leds`).
@@ -344,7 +384,21 @@ export function generateShowSketch(
 
   L.push('void setup() {')
   for (const a of psramAllocs) L.push(a)
-  for (const s of fastledSetupCpp(hw)) L.push(s)
+  if (multiOutput) {
+    for (const route of routes) {
+      for (const s of fastledSetupCpp(route.hardware, {
+        dataPinMacro: `DATA_PIN_${route.safeId}`,
+        clockPinMacro: `CLOCK_PIN_${route.safeId}`,
+        brightness: null,
+        ledCountMacro: String(route.width * route.height),
+        ledsName: `leds_${route.safeId}`,
+        controllerName: `controller_${route.safeId}`,
+      })) L.push(s)
+    }
+    L.push('  FastLED.setBrightness(255);  // per-output brightness is applied while routing pixels')
+  } else {
+    for (const s of fastledSetupCpp(hw)) L.push(s)
+  }
   L.push(info.seed ? `  random16_set_seed(${info.seed}u);` : '  randomSeed(analogRead(A0));')
   if (audio) L.push('  setupAudio();')
   L.push('}')
@@ -390,6 +444,27 @@ export function generateShowSketch(
   L.push('')
   if (particlesOn) {
     L.push(`  particleOverlay(burstStart, ${info.particleStyle}, ${info.particleHue}, ${info.particleIntensity}f, now);`)
+  }
+  if (multiOutput) {
+    for (const route of routes) {
+      const dest = `leds_${route.safeId}`
+      const index = route.xyTable ? `XY_${route.safeId}(_x, _y)` : `_y * ${route.width} + _x`
+      if (route.routeMode === 'crop') {
+        L.push(`  for (int _y = 0; _y < ${route.height}; _y++) for (int _x = 0; _x < ${route.width}; _x++) {`)
+        L.push(`    int _sx = (${route.routeX} + _x) % WIDTH, _sy = (${route.routeY} + _y) % HEIGHT;`)
+        L.push(`    CRGB _c = leds[_sy * WIDTH + _sx]; _c.nscale8_video(${route.hardware.brightness}); ${dest}[${index}] = _c;`)
+        L.push('  }')
+      } else {
+        L.push(`  for (int _y = 0; _y < ${route.height}; _y++) for (int _x = 0; _x < ${route.width}; _x++) {`)
+        L.push(`    int _x0 = _x * WIDTH / ${route.width}, _x1 = (_x + 1) * WIDTH / ${route.width};`)
+        L.push(`    int _y0 = _y * HEIGHT / ${route.height}, _y1 = (_y + 1) * HEIGHT / ${route.height};`)
+        L.push('    if (_x1 <= _x0) _x1 = _x0 + 1; if (_y1 <= _y0) _y1 = _y0 + 1;')
+        L.push('    uint32_t _r = 0, _g = 0, _b = 0, _n = 0;')
+        L.push('    for (int _sy = _y0; _sy < min(HEIGHT, _y1); _sy++) for (int _sx = _x0; _sx < min(WIDTH, _x1); _sx++) { CRGB _p = leds[_sy * WIDTH + _sx]; _r += _p.r; _g += _p.g; _b += _p.b; _n++; }')
+        L.push(`    CRGB _c = _n ? CRGB(_r / _n, _g / _n, _b / _n) : CRGB::Black; _c.nscale8_video(${route.hardware.brightness}); ${dest}[${index}] = _c;`)
+        L.push('  }')
+      }
+    }
   }
   L.push('  FastLED.show();')
   L.push('  FastLED.delay(16);')

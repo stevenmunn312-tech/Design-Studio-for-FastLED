@@ -2122,6 +2122,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // JSON array of WIDTH*HEIGHT ints (a permutation of 0..N-1): grid index
       // (row-major) -> physical LED index. Only used when layout is 'custom'.
       customXYMap: '',
+      // The Frame cable into each Matrix Output is an explicit hardware route.
+      // Fit scales the shared composition canvas to this output; crop takes a
+      // wrapped viewport beginning at routeX/routeY.
+      routeMode: 'fit',
+      routeX: 0,
+      routeY: 0,
       // Render the graph at 2× the matrix resolution and average each 2×2 block
       // down to one physical LED (FastLED-style downscale) — antialiases moving
       // shapes on small panels at ~4× the render cost. Preview + normal sketch.
@@ -2763,6 +2769,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   MatrixOutput: {
     brightness: { control: 'slider', min: 0, max: 255, step: 1 },
     layout: { control: 'select', options: ['matrix', 'strip', 'panels', 'custom'] },
+    routeMode: { control: 'select', options: ['fit', 'crop'] },
+    routeX: { control: 'slider', min: 0, max: 63, step: 1 },
+    routeY: { control: 'slider', min: 0, max: 63, step: 1 },
     tilesX: { control: 'slider', min: 1, max: 8, step: 1 },
     tilesY: { control: 'slider', min: 1, max: 8, step: 1 },
   },
@@ -3066,6 +3075,7 @@ export interface PropertyGroup {
  */
 export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   MatrixOutput: [
+    { key: 'routing', label: 'Frame Route', keys: ['routeMode', 'routeX', 'routeY'] },
     { key: 'wiring', label: 'Wiring', keys: ['chipset', 'colorOrder', 'dataPin', 'clockPin', 'serpentine'] },
     { key: 'layout', label: 'Layout', keys: ['layout', 'tilesX', 'tilesY', 'tileSerpentine', 'tileRotations', 'customXYMap'] },
     { key: 'rendering', label: 'Rendering', keys: ['supersample', 'brightness', 'correction', 'dither', 'overclock'] },
@@ -3295,6 +3305,7 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     return properties.filled === true
   }
   if (nodeType === 'MatrixOutput') {
+    if (key === 'routeX' || key === 'routeY') return properties.routeMode === 'crop'
     if (key === 'volts' || key === 'milliamps') return properties.powerLimit === true
     const spi = SPI_CHIPSETS.has(String(properties.chipset ?? 'WS2812B'))
     // The clock pin only exists on SPI chipsets; FASTLED_OVERCLOCK only applies

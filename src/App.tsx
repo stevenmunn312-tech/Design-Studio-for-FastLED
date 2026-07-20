@@ -24,6 +24,8 @@ import PerformanceDeckMidiBridge from './components/PerformanceDeck/PerformanceD
 import { usePerformanceDeckSession } from './state/performanceDeckSessionStore'
 import { serializeKeyCombo } from './state/performanceDeck'
 import { dispatchDeckAction } from './state/performanceDeckActions'
+import { PanelResizeHandle } from './components/Layout/PanelResizeHandle'
+import { DEFAULT_PREVIEW_WIDTH, DEFAULT_SIDEBAR_WIDTH, MAX_PREVIEW_WIDTH, MAX_SIDEBAR_WIDTH, MIN_PREVIEW_WIDTH, MIN_SIDEBAR_WIDTH } from './state/layoutPresets'
 import styles from './App.module.css'
 
 const PerformanceDeck = lazy(() => import('./components/PerformanceDeck/PerformanceDeck'))
@@ -60,6 +62,10 @@ export default function App() {
   const projectsOpen = useUiStore((s) => s.projectsOpen)
   const toggleSidebar = useUiStore((s) => s.toggleSidebar)
   const togglePreviewPanel = useUiStore((s) => s.togglePreviewPanel)
+  const sidebarWidth = useUiStore((s) => s.sidebarWidth)
+  const previewWidth = useUiStore((s) => s.previewWidth)
+  const setSidebarWidth = useUiStore((s) => s.setSidebarWidth)
+  const setPreviewWidth = useUiStore((s) => s.setPreviewWidth)
   const startAudio = useAudioStore((s) => s.startAudio)
   const stopAudio = useAudioStore((s) => s.stopAudio)
   const micNodeProps = useGraphStore((s) => {
@@ -91,6 +97,17 @@ export default function App() {
     if (!uiEffectsEnabled) root.dataset.uiEffects = 'off'
     else delete root.dataset.uiEffects
   }, [theme, reducedMotion, highContrast, uiEffectsEnabled])
+
+  // Mirror the persisted panel widths onto the CSS vars everything else reads
+  // (NodeGraphCanvas's fit-view padding, the panel/handle CSS). A resize drag
+  // writes these vars directly for a live feel and only calls the store
+  // setter on release, so this effect is what applies presets and reloads.
+  useEffect(() => {
+    document.documentElement.style.setProperty('--sidebar-width', `${sidebarWidth}px`)
+  }, [sidebarWidth])
+  useEffect(() => {
+    document.documentElement.style.setProperty('--right-panel-width', `${previewWidth}px`)
+  }, [previewWidth])
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autosaveIdle = useRef<number | null>(null)
   const latestAutosaveState = useRef<ReturnType<typeof useGraphStore.getState> | null>(null)
@@ -385,6 +402,18 @@ export default function App() {
                 <Sidebar />
               </div>
             </div>
+            {sidebarOpen && (
+              <PanelResizeHandle
+                side="sidebar"
+                width={sidebarWidth}
+                min={MIN_SIDEBAR_WIDTH}
+                max={MAX_SIDEBAR_WIDTH}
+                defaultWidth={DEFAULT_SIDEBAR_WIDTH}
+                otherPanelWidth={previewPanelOpen ? previewWidth : 0}
+                label="Resize node library panel"
+                onCommit={setSidebarWidth}
+              />
+            )}
             <button
               className={`${styles.sidebarHandle} ${sidebarOpen ? styles.sidebarHandleOpen : styles.sidebarHandleClosed}`}
               type="button"
@@ -408,6 +437,18 @@ export default function App() {
               <LEDPreview />
             </div>
           </div>
+          {previewPanelOpen && !stageMode && (
+            <PanelResizeHandle
+              side="preview"
+              width={previewWidth}
+              min={MIN_PREVIEW_WIDTH}
+              max={MAX_PREVIEW_WIDTH}
+              defaultWidth={DEFAULT_PREVIEW_WIDTH}
+              otherPanelWidth={sidebarOpen ? sidebarWidth : 0}
+              label="Resize LED preview panel"
+              onCommit={setPreviewWidth}
+            />
+          )}
           <button
             className={`${styles.previewHandle} ${previewPanelOpen ? styles.previewHandleOpen : styles.previewHandleClosed}`}
             type="button"

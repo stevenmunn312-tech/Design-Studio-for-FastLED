@@ -2,6 +2,7 @@ import { evaluateGraph, type Frame, type GroupRegistry } from '../../state/graph
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import { idleFrame } from './idleFrame'
 import { renderGridFrame } from './frameCanvas'
+import { compositionDims, outputRoutes, routeFrame } from '../../state/outputRouting'
 
 // Offline capture engine for the preview recorder: evaluates the graph
 // deterministically from t = 0 at the chosen capture fps — independent of the
@@ -20,6 +21,7 @@ export interface CaptureOptions {
   trusted: boolean
   gridW: number
   gridH: number
+  outputId?: string
   fps: number
   durationSec: number
   /** Crossfade the opening frames into the frames past the end so the
@@ -29,27 +31,11 @@ export interface CaptureOptions {
   isCancelled?: () => boolean
 }
 
-// Preview parity with LEDPreview.tsx: the master FastLED.setBrightness dim
-// (MatrixOutput `brightness`, default 200) and the optional 2× supersample.
-const SUPERSAMPLE = 2
-
-function matrixOutput(nodes: StudioNode[]): StudioNode | undefined {
-  return nodes.find((node) => String(node.data.nodeType) === 'MatrixOutput')
-}
-
-function masterBrightnessScale(nodes: StudioNode[]): number {
-  const output = matrixOutput(nodes)
+function masterBrightnessScale(output: StudioNode | undefined): number {
   if (!output) return 1
   const raw = Number((output.data.properties as { brightness?: unknown }).brightness)
   const brightness = Number.isFinite(raw) ? Math.max(0, Math.min(255, raw)) : 200
   return brightness >= 255 ? 1 : brightness / 255
-}
-
-function supersampleFactor(nodes: StudioNode[]): number {
-  const output = matrixOutput(nodes)
-  return (output?.data.properties as { supersample?: unknown } | undefined)?.supersample === true
-    ? SUPERSAMPLE
-    : 1
 }
 
 /** Fold a (possibly supersampled) frame down to packed RGB bytes, averaging
@@ -128,17 +114,25 @@ export async function captureSequence(opts: CaptureOptions): Promise<Uint8Clampe
   const total = Math.max(1, Math.round(durationSec * fps))
   const blend = seamlessLoop ? loopBlendFrames(total, fps) : 0
   const renderCount = total + blend
-  const brightness = masterBrightnessScale(nodes)
-  const ss = supersampleFactor(nodes)
+  const routes = outputRoutes(nodes)
+  const route = routes.find((candidate) => candidate.id === opts.outputId) ?? routes[0]
+  const composition = compositionDims(nodes)
+  const brightness = masterBrightnessScale(route?.node)
+  // evaluateGraph returns the first terminal, so reorder only the terminal
+  // list to make the chosen route first while preserving every dependency.
+  const evaluationNodes = route
+    ? [route.node, ...nodes.filter((node) => node.id !== route.id)]
+    : nodes
 
   const frames: Uint8ClampedArray[] = []
   for (let i = 0; i < renderCount; i++) {
     if (opts.isCancelled?.()) return null
     // tick/60 = seconds, so frame i of an fps-rate capture sits at i/fps sec.
     const tick = (i * 60) / fps
-    const rendered = evaluateGraph(nodes, edges, tick, gridW * ss, gridH * ss, groups, prefix, new Set(), {}, null, trusted)
-    frames.push(rendered
-      ? frameToBytes(rendered, ss, brightness, gridW, gridH)
+    const rendered = evaluateGraph(evaluationNodes, edges, tick, composition.w, composition.h, groups, prefix, new Set(), {}, null, trusted)
+    const routed = route ? routeFrame(rendered, route, composition.w, composition.h) : rendered
+    frames.push(routed
+      ? frameToBytes(routed, 1, brightness, gridW, gridH)
       // Same fallback as the live loop: no terminal frame shows the idle
       // shimmer (rendered at grid resolution, undimmed — it isn't real output).
       : frameToBytes(idleFrame(tick, gridW, gridH), 1, 1, gridW, gridH))

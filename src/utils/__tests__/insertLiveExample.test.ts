@@ -236,7 +236,7 @@ describe('insertLiveExample', () => {
     expect(state.edges.map((edge) => `${edge.sourceHandle}->${edge.targetHandle}`)).toContain('frame->frame')
   })
 
-  it('reuses an occupied Matrix Output without replacing its existing frame edge', () => {
+  it('adds a separate Matrix Output route without replacing an existing frame edge', () => {
     const noise = studioNode('Noise', 'noise')
     const output = studioNode('MatrixOutput', 'output')
     const existingEdge: StudioEdge = {
@@ -251,13 +251,11 @@ describe('insertLiveExample', () => {
     const result = insertLiveExample(example, { x: 1000, y: 500 })
     const state = useGraphStore.getState()
 
-    expect(state.nodes.filter((node) => node.data.nodeType === 'MatrixOutput')).toHaveLength(1)
+    expect(state.nodes.filter((node) => node.data.nodeType === 'MatrixOutput')).toHaveLength(2)
     expect(state.edges).toContain(existingEdge)
-    expect(state.edges).toHaveLength(5)
-    expect(result.reusedNodeTypes).toContain('MatrixOutput')
-    expect(result.skippedConnections).toEqual([
-      { source: 'bars', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
-    ])
+    expect(state.edges).toHaveLength(6)
+    expect(result.reusedNodeTypes).not.toContain('MatrixOutput')
+    expect(result.skippedConnections).toEqual([])
   })
 
   it('records the whole insertion as one undo step', () => {

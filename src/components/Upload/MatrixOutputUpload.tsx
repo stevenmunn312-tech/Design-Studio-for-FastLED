@@ -82,14 +82,14 @@ export default function MatrixOutputUpload({
         </div>
       )}
       <div className={styles.nodeActionRow}>
-        <button className={styles.setupBtn} onClick={openSetupWizard} title="Open the guided Matrix Output setup wizard">
+        <button className={styles.setupBtn} onClick={() => openSetupWizard(nodeId)} title="Open the guided Matrix Output setup wizard">
           ✦ Setup...
         </button>
         <button className={styles.boardBtn} onClick={openBoardPopup} title="Choose board & port, manage boards">
           ⚙ Board...
         </button>
       </div>
-      <button className={styles.uploadOpenBtn} onClick={openDeployPopup} title="Open upload, export, diagnostics, and streaming tools">
+      <button className={styles.uploadOpenBtn} onClick={() => openDeployPopup(nodeId)} title="Open upload, export, diagnostics, and streaming tools">
         ↑ Upload...
       </button>
     </div>

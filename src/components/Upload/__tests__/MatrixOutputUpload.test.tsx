@@ -58,7 +58,7 @@ describe('MatrixOutputUpload summary', () => {
     )
 
     fireEvent.click(getByRole('button', { name: '✦ Setup...' }))
-    expect(openSetupWizard).toHaveBeenCalledTimes(1)
+    expect(openSetupWizard).toHaveBeenCalledWith('matrix')
   })
 
   it('opens the upload popup from the slim upload button', () => {
@@ -70,7 +70,7 @@ describe('MatrixOutputUpload summary', () => {
     )
 
     fireEvent.click(getByRole('button', { name: '↑ Upload...' }))
-    expect(openDeployPopup).toHaveBeenCalledTimes(1)
+    expect(openDeployPopup).toHaveBeenCalledWith('matrix')
   })
 
   describe('live controller-capacity meter', () => {
