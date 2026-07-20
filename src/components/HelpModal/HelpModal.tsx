@@ -222,6 +222,8 @@ function ShortcutsTab() {
           <div className={styles.shortcutDesc}>Open this Help dialog</div>
           <div className={styles.kbd}><span className={styles.key}>Tab</span></div>
           <div className={styles.shortcutDesc}>Open the node search picker at the view centre</div>
+          <div className={styles.kbd}><span className={styles.key}>F8</span></div>
+          <div className={styles.shortcutDesc}>Toggle the Performance Deck (pinned knobs/faders, scenes, panic). MIDI and additional keyboard bindings are assigned from inside the deck panel itself, not listed here.</div>
         </div>
       </div>
 

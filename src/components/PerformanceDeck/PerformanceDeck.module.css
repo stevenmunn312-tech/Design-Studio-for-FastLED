@@ -1,0 +1,311 @@
+.deck {
+  position: relative;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  width: clamp(280px, 26vw, 400px);
+  height: 100%;
+  border-left: 1px solid var(--border-glow);
+  background: color-mix(in srgb, var(--bg-panel) 96%, black);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.header {
+  flex: 0 0 auto;
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--divider);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.headerTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-display);
+  font-size: var(--fs-body);
+  color: var(--text-primary);
+}
+
+.closeBtn {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+.closeBtn:hover { color: var(--text-primary); }
+
+.headerControls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.panicBtn {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid var(--error);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--error) 14%, transparent);
+  color: var(--error);
+  font-family: var(--font-display);
+  font-size: var(--fs-body);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.panicBtn:hover { background: color-mix(in srgb, var(--error) 24%, transparent); }
+.panicActive {
+  background: var(--error);
+  color: var(--bg-panel);
+}
+
+.brightnessRow {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+}
+.brightnessRow input[type='range'] { width: 100%; }
+.hint {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--space-2);
+}
+
+.empty {
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  grid-column: 1 / -1;
+}
+
+.knob {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--space-1);
+  border: 1px solid var(--border-glow);
+  border-radius: 8px;
+  background: var(--bg-node);
+}
+
+.knobHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.knobLabel {
+  font-size: var(--fs-caption);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knobUnpin {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 4px;
+}
+.knobUnpin:hover { color: var(--error); }
+
+.knobRange {
+  width: 100%;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  height: 96px;
+  align-self: center;
+}
+
+.knobValue {
+  text-align: center;
+  font-family: var(--font-code);
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+}
+
+.knobToggle, .knobSelect {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border-glow);
+  border-radius: 6px;
+  background: var(--bg-node-hover);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: var(--fs-caption);
+}
+.knobToggleOn {
+  background: var(--success);
+  color: var(--bg-panel);
+  border-color: var(--success);
+}
+
+.knobLearn {
+  width: 100%;
+  padding: 4px;
+  border: 1px solid var(--border-glow);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+}
+.knobLearnActive {
+  border-color: var(--accent-output);
+  color: var(--accent-output);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.knobMissing {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px;
+  border: 1px dashed var(--border-glow);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+}
+.knobMissing button {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.scenesSection, .morphSection, .panicBindSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.scenesSection h3, .morphSection h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.sceneSave {
+  display: flex;
+  gap: 6px;
+}
+.sceneSave input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border-glow);
+  border-radius: 6px;
+  background: var(--bg-node);
+  color: var(--text-primary);
+}
+.sceneSave button {
+  padding: 6px 10px;
+  border: 1px solid var(--border-glow);
+  border-radius: 6px;
+  background: var(--bg-node-hover);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.sceneSave button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.sceneList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sceneRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-glow);
+  border-radius: 6px;
+  background: var(--bg-node);
+  font-size: var(--fs-caption);
+  color: var(--text-primary);
+}
+
+.sceneActions {
+  display: flex;
+  gap: 4px;
+}
+.sceneActions button {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 4px;
+}
+.sceneActions button:hover { color: var(--text-primary); }
+
+.morphPickers {
+  display: flex;
+  gap: 6px;
+}
+.morphPickers select {
+  flex: 1;
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid var(--border-glow);
+  border-radius: 6px;
+  background: var(--bg-node);
+  color: var(--text-primary);
+}
+
+.panicBindSection {
+  flex-direction: row;
+  gap: 6px;
+}
+.panicBindSection button {
+  flex: 1;
+  padding: 6px;
+  border: 1px solid var(--border-glow);
+  border-radius: 6px;
+  background: var(--bg-node-hover);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

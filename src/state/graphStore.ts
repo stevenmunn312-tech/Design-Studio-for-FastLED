@@ -19,6 +19,16 @@ import type { SavedPattern } from './patternLibrary'
 import { isPatternContentTrusted, trustPatternContent } from './patternTrust'
 import { useUiStore } from './uiStore'
 import { validateMatrixLayout } from './xyLayout'
+import {
+  type PerformanceDeckConfig,
+  type PinnedControl,
+  type ParameterScene,
+  type MidiBinding,
+  type KeyBinding,
+  blankDeckConfig,
+  normalizeDeckConfig,
+  deriveControlShape,
+} from './performanceDeck'
 
 export interface StudioNodeData extends Record<string, unknown> {
   label: string
@@ -50,6 +60,8 @@ export interface WorkspaceExtras {
   activeGraphId?: string
   /** See `PersistedWorkspace.trusted` (workspacePersistence.ts). */
   trusted?: boolean
+  /** See `PersistedWorkspace.performanceDeck` (workspacePersistence.ts). */
+  performanceDeck?: PerformanceDeckConfig
 }
 
 interface GraphState {
@@ -81,6 +93,44 @@ interface GraphState {
   trusted: boolean
   /** Explicitly trust the active workspace (the "Trust and run" action). */
   setTrusted: (trusted: boolean) => void
+
+  // ── Performance Control Deck ─────────────────────────────────────────────
+  /** Pinned controls, parameter scenes, and MIDI/keyboard bindings for the
+   *  active project. Kept at the root-graph level only (not stashed per
+   *  subgraph in `enterGraph`) — pins reference nodeIds from whichever graph
+   *  they were pinned in, and a live performance surface isn't naturally
+   *  scoped to a pattern group's subgraph. */
+  performanceDeck: PerformanceDeckConfig
+  pinProperty: (nodeId: string, propertyKey: string) => void
+  unpinProperty: (pinId: string) => void
+  renamePin: (pinId: string, label: string) => void
+  /** Snapshot every pinned control's current value into a new named scene.
+   *  Returns the new scene's id. */
+  saveScene: (name: string) => string
+  /** Overwrite an existing scene's values with the pins' current values. */
+  updateScene: (sceneId: string) => void
+  deleteScene: (sceneId: string) => void
+  /** Apply every value in a saved scene to its pinned control's node
+   *  property, in one atomic, non-undoable step. */
+  recallScene: (sceneId: string) => void
+  /** Emergency blackout: zero MatrixOutput.brightness plus every pinned
+   *  numeric/boolean control, snapshotting prior values for `restorePanic`.
+   *  Excluded from undo history entirely (see `panic`'s implementation). */
+  panic: () => void
+  restorePanic: () => void
+  addMidiBinding: (binding: Omit<MidiBinding, 'id' | 'createdAt'>) => void
+  removeMidiBinding: (bindingId: string) => void
+  addKeyBinding: (binding: Omit<KeyBinding, 'id' | 'createdAt'>) => void
+  removeKeyBinding: (bindingId: string) => void
+  /** True while a panic blackout is in effect. Session-only — like
+   *  `panicRestoreValues` below, it's a plain top-level field rather than
+   *  part of `performanceDeck` so it's automatically excluded from both
+   *  `captureWorkspace` (persistence) and zundo's `partialize` (undo, which
+   *  only tracks `nodes`/`edges`) without any extra bookkeeping. */
+  panicActive: boolean
+  /** Values captured immediately before the last panic, so `restorePanic`
+   *  can put them back. Null when no panic is in effect. */
+  panicRestoreValues: { nodeId: string; propertyKey: string; value: unknown }[] | null
 
   onNodesChange: (changes: NodeChange[]) => void
   onEdgesChange: (changes: EdgeChange[]) => void
@@ -426,6 +476,199 @@ export const useGraphStore = create<GraphState>()(
           return { trusted }
         }),
 
+      performanceDeck: blankDeckConfig(),
+      panicActive: false,
+      panicRestoreValues: null,
+
+      pinProperty: (nodeId, propertyKey) =>
+        set((s) => {
+          if (s.performanceDeck.pins.some((p) => p.nodeId === nodeId && p.propertyKey === propertyKey)) return s
+          const node = s.nodes.find((n) => n.id === nodeId)
+          if (!node) return s
+          const value = node.data.properties[propertyKey]
+          const shape = deriveControlShape(node.data.nodeType, propertyKey, value)
+          const pin: PinnedControl = {
+            id: `pin-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            nodeId,
+            propertyKey,
+            label: `${node.data.label} · ${propertyKey}`,
+            createdAt: Date.now(),
+            ...shape,
+          }
+          return { performanceDeck: { ...s.performanceDeck, pins: [...s.performanceDeck.pins, pin] } }
+        }),
+
+      unpinProperty: (pinId) =>
+        set((s) => ({
+          performanceDeck: { ...s.performanceDeck, pins: s.performanceDeck.pins.filter((p) => p.id !== pinId) },
+        })),
+
+      renamePin: (pinId, label) =>
+        set((s) => ({
+          performanceDeck: {
+            ...s.performanceDeck,
+            pins: s.performanceDeck.pins.map((p) => (p.id === pinId ? { ...p, label } : p)),
+          },
+        })),
+
+      saveScene: (name) => {
+        const id = `scene-${Date.now()}`
+        set((s) => {
+          const now = Date.now()
+          const values: Record<string, unknown> = {}
+          for (const pin of s.performanceDeck.pins) {
+            const node = s.nodes.find((n) => n.id === pin.nodeId)
+            if (node) values[pin.id] = node.data.properties[pin.propertyKey]
+          }
+          const scene: ParameterScene = { id, name: name.trim() || 'Untitled scene', values, createdAt: now, updatedAt: now }
+          return { performanceDeck: { ...s.performanceDeck, scenes: [...s.performanceDeck.scenes, scene] } }
+        })
+        return id
+      },
+
+      updateScene: (sceneId) =>
+        set((s) => {
+          const now = Date.now()
+          const values: Record<string, unknown> = {}
+          for (const pin of s.performanceDeck.pins) {
+            const node = s.nodes.find((n) => n.id === pin.nodeId)
+            if (node) values[pin.id] = node.data.properties[pin.propertyKey]
+          }
+          return {
+            performanceDeck: {
+              ...s.performanceDeck,
+              scenes: s.performanceDeck.scenes.map((sc) => (sc.id === sceneId ? { ...sc, values, updatedAt: now } : sc)),
+            },
+          }
+        }),
+
+      deleteScene: (sceneId) =>
+        set((s) => ({
+          performanceDeck: { ...s.performanceDeck, scenes: s.performanceDeck.scenes.filter((sc) => sc.id !== sceneId) },
+        })),
+
+      recallScene: (sceneId) => {
+        // A scene jump is one atomic operation, not a gesture — exclude it
+        // from undo history entirely (mirrors enterGraph's navigation pause),
+        // rather than let it land as an ordinary (if coalesced) undo step.
+        const temporalApi = useGraphStore.temporal.getState()
+        temporalApi.pause()
+        set((s) => {
+          const scene = s.performanceDeck.scenes.find((sc) => sc.id === sceneId)
+          if (!scene) return s
+          const pinsById = new Map(s.performanceDeck.pins.map((p) => [p.id, p]))
+          const nodes = s.nodes.map((n) => {
+            let changed: Record<string, unknown> | null = null
+            for (const [pinId, value] of Object.entries(scene.values)) {
+              const pin = pinsById.get(pinId)
+              if (!pin || pin.nodeId !== n.id) continue
+              changed = changed ?? { ...n.data.properties }
+              changed[pin.propertyKey] = value
+            }
+            return changed ? { ...n, data: { ...n.data, properties: changed } } : n
+          })
+          return { nodes }
+        })
+        queueMicrotask(() => temporalApi.resume())
+      },
+
+      panic: () => {
+        const temporalApi = useGraphStore.temporal.getState()
+        temporalApi.pause()
+        set((s) => {
+          if (s.panicActive) return s
+          const restore: { nodeId: string; propertyKey: string; value: unknown }[] = []
+          const targets = new Map<string, Set<string>>() // nodeId -> propertyKeys to zero
+          const addTarget = (nodeId: string, propertyKey: string) => {
+            if (!targets.has(nodeId)) targets.set(nodeId, new Set())
+            targets.get(nodeId)!.add(propertyKey)
+          }
+          for (const pin of s.performanceDeck.pins) {
+            const node = s.nodes.find((n) => n.id === pin.nodeId)
+            if (!node) continue
+            const value = node.data.properties[pin.propertyKey]
+            if (typeof value !== 'number' && typeof value !== 'boolean') continue
+            addTarget(pin.nodeId, pin.propertyKey)
+          }
+          // Master brightness always goes dark on panic, whether or not the
+          // user pinned it — otherwise "blackout" could do nothing visible.
+          const output = s.nodes.find((n) => n.data.nodeType === 'MatrixOutput')
+          if (output) addTarget(output.id, 'brightness')
+
+          for (const [nodeId, keys] of targets) {
+            const node = s.nodes.find((n) => n.id === nodeId)
+            if (!node) continue
+            for (const key of keys) restore.push({ nodeId, propertyKey: key, value: node.data.properties[key] })
+          }
+
+          const nodes = s.nodes.map((n) => {
+            const keys = targets.get(n.id)
+            if (!keys) return n
+            const properties = { ...n.data.properties }
+            for (const key of keys) properties[key] = typeof properties[key] === 'boolean' ? false : 0
+            return { ...n, data: { ...n.data, properties } }
+          })
+          return { nodes, panicActive: true, panicRestoreValues: restore }
+        })
+        queueMicrotask(() => temporalApi.resume())
+      },
+
+      restorePanic: () => {
+        const temporalApi = useGraphStore.temporal.getState()
+        temporalApi.pause()
+        set((s) => {
+          if (!s.panicActive || !s.panicRestoreValues) return s
+          const byNode = new Map<string, { propertyKey: string; value: unknown }[]>()
+          for (const entry of s.panicRestoreValues) {
+            if (!byNode.has(entry.nodeId)) byNode.set(entry.nodeId, [])
+            byNode.get(entry.nodeId)!.push(entry)
+          }
+          const nodes = s.nodes.map((n) => {
+            const entries = byNode.get(n.id)
+            if (!entries) return n
+            const properties = { ...n.data.properties }
+            for (const e of entries) properties[e.propertyKey] = e.value
+            return { ...n, data: { ...n.data, properties } }
+          })
+          return { nodes, panicActive: false, panicRestoreValues: null }
+        })
+        queueMicrotask(() => temporalApi.resume())
+      },
+
+      addMidiBinding: (binding) =>
+        set((s) => {
+          // One binding per target — a fresh learn replaces any existing
+          // binding for the same pin/action/morph rather than stacking.
+          const filtered = s.performanceDeck.midiBindings.filter(
+            (b) => JSON.stringify(b.target) !== JSON.stringify(binding.target)
+          )
+          const next: MidiBinding = { ...binding, id: `midi-${Date.now()}`, createdAt: Date.now() }
+          return { performanceDeck: { ...s.performanceDeck, midiBindings: [...filtered, next] } }
+        }),
+
+      removeMidiBinding: (bindingId) =>
+        set((s) => ({
+          performanceDeck: {
+            ...s.performanceDeck,
+            midiBindings: s.performanceDeck.midiBindings.filter((b) => b.id !== bindingId),
+          },
+        })),
+
+      addKeyBinding: (binding) =>
+        set((s) => {
+          const filtered = s.performanceDeck.keyBindings.filter((b) => b.combo !== binding.combo)
+          const next: KeyBinding = { ...binding, id: `key-${Date.now()}`, createdAt: Date.now() }
+          return { performanceDeck: { ...s.performanceDeck, keyBindings: [...filtered, next] } }
+        }),
+
+      removeKeyBinding: (bindingId) =>
+        set((s) => ({
+          performanceDeck: {
+            ...s.performanceDeck,
+            keyBindings: s.performanceDeck.keyBindings.filter((b) => b.id !== bindingId),
+          },
+        })),
+
       onNodesChange: (changes) => {
         if (changes.some((change) => change.type === 'remove')) scheduleOrphanGraphPrune()
         set((s) => {
@@ -671,6 +914,12 @@ export const useGraphStore = create<GraphState>()(
             // Missing/undefined = trusted: this predates the trust field, so
             // it's the user's own prior local work, not imported content.
             trusted: workspace?.trusted ?? true,
+            // Missing/malformed = an empty deck — pre-existing saves, share
+            // links, and JSON imports created before this field all fall
+            // back safely rather than throwing.
+            performanceDeck: normalizeDeckConfig(workspace?.performanceDeck),
+            panicActive: false,
+            panicRestoreValues: null,
           }
         }),
 
@@ -699,6 +948,11 @@ export const useGraphStore = create<GraphState>()(
           nodes: s.nodes.filter((n) => n.id !== id),
           edges: s.edges.filter((e) => e.source !== id && e.target !== id),
           selectedNodeId: s.selectedNodeId === id ? null : s.selectedNodeId,
+          // A pin targeting a deleted node is useless; drop it. Scenes keep
+          // any now-stale pinId keys harmlessly (recall just skips pins that
+          // no longer resolve) — same lazy-cleanup philosophy as orphan
+          // subgraph pruning above.
+          performanceDeck: { ...s.performanceDeck, pins: s.performanceDeck.pins.filter((p) => p.nodeId !== id) },
         }))
       },
 
@@ -711,6 +965,10 @@ export const useGraphStore = create<GraphState>()(
             nodes: s.nodes.filter((n) => !selectedIds.has(n.id)),
             edges: s.edges.filter((e) => !selectedIds.has(e.source ?? '') && !selectedIds.has(e.target ?? '')),
             selectedNodeId: s.selectedNodeId && selectedIds.has(s.selectedNodeId) ? null : s.selectedNodeId,
+            performanceDeck: {
+              ...s.performanceDeck,
+              pins: s.performanceDeck.pins.filter((p) => !selectedIds.has(p.nodeId)),
+            },
           }
         })
       },

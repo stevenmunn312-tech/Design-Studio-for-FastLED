@@ -52,8 +52,8 @@ export default function ProjectsPopup() {
     useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
     const next = switchProject(id)
     if (!next) return
-    const { nodes, edges, graphData, graphs, activeGraphId } = next.workspace
-    useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId })
+    const { nodes, edges, graphData, graphs, activeGraphId, performanceDeck } = next.workspace
+    useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, performanceDeck })
     useGraphStore.temporal.getState().clear()
     setStatus(`Opened project "${next.name}"`, 'success')
     closeProjects()
@@ -128,6 +128,7 @@ export default function ProjectsPopup() {
         graphData: project.workspace.graphData,
         graphs: project.workspace.graphs,
         activeGraphId: project.workspace.activeGraphId,
+        performanceDeck: project.workspace.performanceDeck,
       }
     )
     useGraphStore.temporal.getState().clear()
@@ -160,8 +161,8 @@ export default function ProjectsPopup() {
     const nextActive = deleteProject(id)
     if (id === currentProjectId) {
       if (nextActive) {
-        const { nodes, edges, graphData, graphs, activeGraphId } = nextActive.workspace
-        useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId })
+        const { nodes, edges, graphData, graphs, activeGraphId, performanceDeck } = nextActive.workspace
+        useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, performanceDeck })
       } else {
         useGraphStore.getState().loadGraph([], [])
       }

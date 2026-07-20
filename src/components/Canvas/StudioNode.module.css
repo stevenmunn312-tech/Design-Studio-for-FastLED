@@ -386,6 +386,25 @@
   flex: 0 1 auto;
 }
 
+.pinBtn {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  padding: 0 2px;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+.pinBtn:hover {
+  opacity: 0.8;
+}
+.pinBtnActive {
+  opacity: 1;
+  filter: none;
+}
+
 .propInput {
   width: 72px;
   flex: 0 0 auto;
