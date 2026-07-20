@@ -7,6 +7,27 @@ versioning (`0.y.z`) until the first stable release.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-20
+
+Renamed the project to **Design Studio for FastLED** following trademark
+feedback that "FastLED ___" read as an official FastLED product rather than a
+compatible companion tool.
+
+### Changed
+
+- Renamed the app from "FastLED Studio" to "Design Studio for FastLED"
+  throughout: display text (README, docs, in-app UI, generated-firmware
+  comments), `package.json`/PWA manifest identifiers, localStorage key
+  prefixes, the desktop app's per-user data folder, release-artifact naming,
+  and the Windows/macOS launcher files.
+- Replaced the branding SVGs and the empty-canvas start-screen wordmark PNG
+  with versions reading "Design Studio" (paired with the existing "for
+  FastLED" tagline), and retook the README screenshots against the renamed
+  app.
+- Updated hardcoded repository links (Help modal, hardware-validation report
+  links, issue templates, README, CONTRIBUTING) to the renamed GitHub
+  repository, `stevenmunn312-tech/Design-Studio-for-FastLED`.
+
 ### Fixed
 
 - Check out Git history in the desktop draft-release job before invoking the
