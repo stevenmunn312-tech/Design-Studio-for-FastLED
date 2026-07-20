@@ -7,14 +7,9 @@
   }
 }
 
-.core {
-  animation: flow var(--edge-flow-duration, 1.4s) linear infinite;
-}
-
-.carrier {
-  filter:
-    drop-shadow(0 0 1px rgb(255 255 255 / 0.28))
-    drop-shadow(0 0 3px rgb(255 255 255 / 0.12));
+/* The solid cable body. Signal motion is carried by the travelling packets;
+   the body itself stays still like a real patch cable. */
+.cableBody {
   pointer-events: none;
 }
 
@@ -38,28 +33,16 @@
   animation-delay: var(--packet-delay, 0s);
 }
 
-.familyFrame .core {
-  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--edge-color) 28%, transparent));
-}
-
 .familyFrame .packet {
   filter:
     drop-shadow(0 0 4px var(--edge-color))
     drop-shadow(0 0 10px color-mix(in srgb, var(--edge-color) 42%, transparent));
 }
 
-.familyAudio .core {
-  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--edge-color) 24%, transparent));
-}
-
 .familyAudio .packet {
   filter:
     drop-shadow(0 0 4px white)
     drop-shadow(0 0 9px var(--edge-color));
-}
-
-.familyColor .core {
-  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--edge-color) 28%, transparent));
 }
 
 .familyControl .packet {
@@ -81,8 +64,7 @@
   transition: opacity 180ms ease-out;
 }
 
-.focusActive .core {
-  stroke-width: 3.2;
+.focusActive .cableBody {
   filter: drop-shadow(0 0 4px var(--edge-color)) drop-shadow(0 0 14px color-mix(in srgb, var(--edge-color) 30%, transparent));
 }
 
@@ -122,11 +104,11 @@
 .coreReady {
   stroke-width: 4;
   stroke-dasharray: 4 4;
-  animation-duration: 0.55s;
+  animation: flow 0.55s linear infinite;
   filter: drop-shadow(0 0 4px var(--edge-color));
 }
 
-:global([data-reduced-motion]) .core,
+:global([data-reduced-motion]) .coreReady,
 :global([data-reduced-motion]) .spliceTarget {
   animation: none;
 }
@@ -145,7 +127,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .core,
+  .coreReady,
   .spliceTarget {
     animation: none;
   }

@@ -1,5 +1,5 @@
 import { memo, useState } from 'react'
-import { getBezierPath, useReactFlow } from '@xyflow/react'
+import { useReactFlow } from '@xyflow/react'
 import type { EdgeProps } from '@xyflow/react'
 import { CATEGORY_COLOR } from '../../state/nodeLibrary'
 import { useGraphStore } from '../../state/graphStore'
@@ -32,56 +32,37 @@ function signalFamily(dataType?: string): SignalFamily {
   return 'control'
 }
 
+// Cable gauge per family: frame cables are the fattest trunk lines, control
+// wires the thinnest. Packets keep their per-family cadence.
 function familyMotion(family: SignalFamily) {
   switch (family) {
     case 'frame':
-      return {
-        outerWidth: 16,
-        outerOpacity: 0.045,
-        midWidth: 8,
-        midOpacity: 0.12,
-        coreWidth: 2.8,
-        dash: '24 18',
-        duration: 3.2,
-        packetDuration: 2.8,
-        packetRadii: [3.4, 2.5, 1.8],
-      }
+      return { cable: 6, packetDuration: 2.8, packetRadii: [3.2, 2.4, 1.8] }
     case 'audio':
-      return {
-        outerWidth: 15,
-        outerOpacity: 0.05,
-        midWidth: 7,
-        midOpacity: 0.14,
-        coreWidth: 2.8,
-        dash: '5 10',
-        duration: 0.72,
-        packetDuration: 0.88,
-        packetRadii: [3.5, 2.4],
-      }
+      return { cable: 5.4, packetDuration: 0.88, packetRadii: [3.2, 2.2] }
     case 'color':
-      return {
-        outerWidth: 14,
-        outerOpacity: 0.04,
-        midWidth: 7,
-        midOpacity: 0.13,
-        coreWidth: 2.6,
-        dash: '2 14',
-        duration: 1.55,
-        packetDuration: 1.7,
-        packetRadii: [3, 2.1],
-      }
+      return { cable: 5, packetDuration: 1.7, packetRadii: [2.8, 2] }
     default:
-      return {
-        outerWidth: 13,
-        outerOpacity: 0.035,
-        midWidth: 6,
-        midOpacity: 0.1,
-        coreWidth: 2.3,
-        dash: '11 8',
-        duration: 1.18,
-        packetDuration: 1.42,
-        packetRadii: [2.2],
-      }
+      return { cable: 4.4, packetDuration: 1.42, packetRadii: [2] }
+  }
+}
+
+// A physical patch cable exits its jack horizontally, then droops under its
+// own weight. Control points push out from each port and sag downward; longer
+// runs droop more. Returns the path plus its midpoint (for the value readout).
+function cablePath(sx: number, sy: number, tx: number, ty: number) {
+  const dx = tx - sx
+  const dist = Math.hypot(dx, ty - sy)
+  const sag = Math.min(80, 16 + dist * 0.14)
+  const spread = Math.max(36, Math.abs(dx) * 0.32)
+  const c1x = sx + spread
+  const c1y = sy + sag
+  const c2x = tx - spread
+  const c2y = ty + sag
+  return {
+    path: `M ${sx},${sy} C ${c1x},${c1y} ${c2x},${c2y} ${tx},${ty}`,
+    midX: (sx + 3 * c1x + 3 * c2x + tx) / 8,
+    midY: (sy + 3 * c1y + 3 * c2y + ty) / 8,
   }
 }
 
@@ -91,8 +72,6 @@ function GlowEdge({
   sourceY,
   targetX,
   targetY,
-  sourcePosition,
-  targetPosition,
   source,
   sourceHandleId,
   style,
@@ -121,8 +100,9 @@ function GlowEdge({
     : Number.POSITIVE_INFINITY)
   const signalEnergy = signal?.energy ?? 0
   const activity = Math.min(1, signalEnergy)
-  const idleVisibility = 1 - Math.min(1, signalEnergy * 1.35)
   const color = signal?.emissive || (typeof style?.stroke === 'string' && style.stroke) || CATEGORY_COLOR[category] || '#00bfff'
+  // Darkened jacket colour makes the round cable read as a solid object.
+  const jacket = `color-mix(in srgb, ${color} 55%, #000)`
   const edgeData = data as {
     spliceArmed?: boolean
     splicePreview?: boolean
@@ -138,14 +118,7 @@ function GlowEdge({
     family === 'color' ? styles.familyColor :
     styles.familyControl
 
-  const [edgePath, labelX, labelY] = getBezierPath({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-  })
+  const { path: edgePath, midX: labelX, midY: labelY } = cablePath(sourceX, sourceY, targetX, targetY)
 
   const hoverHitPath = showsValueReadout && (
     <path
@@ -194,12 +167,20 @@ function GlowEdge({
         <path
           d={edgePath}
           fill="none"
-          stroke={color}
-          strokeWidth={2.4}
+          stroke={jacket}
+          strokeWidth={motion.cable + 1.6}
           strokeLinecap="round"
-          strokeOpacity={0.58 + activity * 0.28}
         />
-        <circle cx={targetX} cy={targetY} r={3.2} fill={color} opacity={0.82} />
+        <path
+          d={edgePath}
+          fill="none"
+          stroke={color}
+          strokeWidth={motion.cable - 1}
+          strokeLinecap="round"
+          strokeOpacity={0.78 + activity * 0.2}
+        />
+        <circle cx={sourceX} cy={sourceY} r={motion.cable / 2 + 1.6} fill={jacket} />
+        <circle cx={targetX} cy={targetY} r={motion.cable / 2 + 1.6} fill={jacket} />
         {valueReadout}
       </g>
     )
@@ -233,37 +214,40 @@ function GlowEdge({
           style={{ '--edge-color': color } as React.CSSProperties}
         />
       )}
-      {/* Outer halo — wide and very soft */}
-      <path d={edgePath} fill="none" stroke={color} strokeWidth={motion.outerWidth} strokeOpacity={motion.outerOpacity + activity * 0.055} />
-      {/* Mid bloom */}
-      <path d={edgePath} fill="none" stroke={color} strokeWidth={motion.midWidth} strokeOpacity={motion.midOpacity + activity * 0.08} />
-      {/* Neutral carrier keeps dark noodles legible against the field even when
-          the sampled signal is resting near black. It fades back as activity
-          increases so the live color still owns the motion cue. */}
+      {/* Soft activity glow around the whole cable */}
+      <path d={edgePath} fill="none" stroke={color} strokeWidth={motion.cable + 8} strokeOpacity={0.03 + activity * 0.08} />
+      {/* Drop shadow lifts the cable off the panel */}
       <path
-        className={styles.carrier}
         d={edgePath}
+        transform="translate(1.5 3)"
         fill="none"
-        stroke="rgba(255 255 255 / 0.78)"
-        strokeWidth={motion.coreWidth + 2}
+        stroke="rgba(0, 0, 0, 0.4)"
+        strokeWidth={motion.cable + 1}
         strokeLinecap="round"
-        strokeOpacity={0.08 + idleVisibility * 0.12}
       />
-      {/* Core — animated dash */}
+      {/* Jacket outline — the darkened rim that makes the cable read round */}
+      <path d={edgePath} fill="none" stroke={jacket} strokeWidth={motion.cable + 2} strokeLinecap="round" />
+      {/* Cable body */}
       <path
         id={id}
-        className={`${styles.core} ${splicePreview ? styles.coreReady : ''}`}
+        className={splicePreview ? styles.coreReady : styles.cableBody}
         d={edgePath}
         fill="none"
         stroke={color}
-        strokeWidth={motion.coreWidth}
+        strokeWidth={motion.cable}
         strokeLinecap="round"
-        strokeDasharray={motion.dash}
-        strokeOpacity={0.62 + activity * 0.24}
-        style={{
-          '--edge-color': color,
-          '--edge-flow-duration': `${motion.duration}s`,
-        } as React.CSSProperties}
+        strokeOpacity={0.82 + activity * 0.18}
+        style={{ '--edge-color': color } as React.CSSProperties}
+      />
+      {/* Sheen — a thin top highlight running the cable's length */}
+      <path
+        d={edgePath}
+        transform="translate(0 -1)"
+        fill="none"
+        stroke="rgba(255, 255, 255, 0.3)"
+        strokeWidth={1.2}
+        strokeLinecap="round"
+        strokeOpacity={0.4 + activity * 0.2}
       />
       {edgeData?.connectionPulse && (
         <>
@@ -307,8 +291,11 @@ function GlowEdge({
           } as React.CSSProperties}
         />
       ))}
-      {/* Bright dot at the target port */}
-      <circle cx={targetX} cy={targetY} r={4} fill={color} opacity={0.85} />
+      {/* Plug boots where the cable enters each jack */}
+      <circle cx={sourceX} cy={sourceY} r={motion.cable / 2 + 2} fill={jacket} stroke="rgba(0, 0, 0, 0.6)" strokeWidth={1} />
+      <circle cx={sourceX} cy={sourceY} r={motion.cable / 2 - 0.5} fill={color} opacity={0.9} />
+      <circle cx={targetX} cy={targetY} r={motion.cable / 2 + 2} fill={jacket} stroke="rgba(0, 0, 0, 0.6)" strokeWidth={1} />
+      <circle cx={targetX} cy={targetY} r={motion.cable / 2 - 0.5} fill={color} opacity={0.9} />
       {valueReadout}
     </g>
   )

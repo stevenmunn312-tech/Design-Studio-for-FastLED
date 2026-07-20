@@ -79,6 +79,15 @@
   --node-height: 80px;
   --node-radius: 8px;
 
+  /* Hardware faceplate (rack-module node chrome) */
+  --metal-face-hi: #2c3036;
+  --metal-face-lo: #191c20;
+  --metal-edge: rgba(255, 255, 255, 0.14);
+  --metal-screw-hi: #868d96;
+  --metal-screw-lo: #22262b;
+  --lcd-bg: #0e100a;
+  --lcd-text: #ffb238;
+
   /* Animations */
   --anim-hover: 150ms ease-out;
   --anim-transition: 1200ms ease-in-out;

@@ -54,10 +54,15 @@
   isolation: isolate;
   width: var(--node-width);
   min-height: var(--node-height);
-  background: var(--bg-node);
+  /* Brushed-metal faceplate: fine vertical grain over a top-lit gradient. */
+  background:
+    repeating-linear-gradient(90deg, transparent 0 3px, rgba(255, 255, 255, 0.012) 3px 4px),
+    linear-gradient(180deg, color-mix(in srgb, var(--node-accent) 6%, var(--metal-face-hi)), var(--metal-face-lo) 80%);
   border-radius: var(--node-radius);
   box-shadow:
-    inset 0 0 0 1px var(--border-glow),
+    inset 0 0 0 1px var(--metal-edge),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.55),
     0 10px 22px var(--chrome-shadow);
   /* Live signal values arrive every 125 ms. Animating multi-layer shadows on
      that cadence keeps Chrome repainting the full node bounds continuously
@@ -95,6 +100,22 @@
   background: transparent;
   pointer-events: none;
   transition: background-color 180ms ease-out;
+}
+
+/* Corner screws on the faceplate. Painted as a separate overlay so they sit
+   above the header strip; pointer-events off keeps them purely cosmetic. */
+.node::before {
+  content: '';
+  position: absolute;
+  z-index: 21;
+  inset: 0;
+  border-radius: var(--node-radius);
+  pointer-events: none;
+  background:
+    radial-gradient(circle 3.5px at 9px 9px, var(--metal-screw-hi) 0 26%, var(--metal-screw-lo) 62%, transparent 74%),
+    radial-gradient(circle 3.5px at calc(100% - 9px) 9px, var(--metal-screw-hi) 0 26%, var(--metal-screw-lo) 62%, transparent 74%),
+    radial-gradient(circle 3.5px at 9px calc(100% - 9px), var(--metal-screw-hi) 0 26%, var(--metal-screw-lo) 62%, transparent 74%),
+    radial-gradient(circle 3.5px at calc(100% - 9px) calc(100% - 9px), var(--metal-screw-hi) 0 26%, var(--metal-screw-lo) 62%, transparent 74%);
 }
 
 .node > * {
@@ -151,17 +172,41 @@
   background: color-mix(in srgb, var(--bg-node-hover) 32%, transparent);
 }
 
+/* Engraved plate header: label etched into the metal, category accent carried
+   by the text tint, the underline groove, and a small power LED at the right.
+   Height must stay 32px — HEADER_H in StudioNode.tsx depends on it. */
 .header {
+  position: relative;
   height: 32px;
-  padding: 0 var(--space-1);
-  font-size: var(--fs-body);
+  padding: 0 24px 0 16px;
+  font-size: 11px;
   font-weight: 600;
-  color: #000;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--node-accent) 34%, var(--text-primary));
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.85), 0 1px 0 rgba(255, 255, 255, 0.05);
   display: flex;
   align-items: center;
   border-radius: var(--node-radius) var(--node-radius) 0 0;
   font-family: var(--font-display);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--node-accent) 18%, transparent);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.5);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.header::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 9px;
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.6), var(--node-accent) 48%, color-mix(in srgb, var(--node-accent) 50%, #000));
+  box-shadow:
+    0 0 6px var(--node-accent),
+    inset 0 0 1px rgba(0, 0, 0, 0.6);
 }
 
 .headerTitle {
@@ -184,10 +229,13 @@
 
 .headerTag,
 .headerCode {
-  padding: 2px 4px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.14);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 1px 2px rgba(0, 0, 0, 0.5);
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 
@@ -206,67 +254,28 @@
   box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
 }
 
-.categoryInput {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-node) 92%, var(--node-accent) 8%), var(--bg-node));
-}
-
-.categoryAudio {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-node) 88%, var(--node-accent) 12%), var(--bg-node)),
-    repeating-linear-gradient(90deg, transparent 0 10px, rgba(255, 255, 255, 0.02) 10px 11px);
-}
-
-.categorySignal {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-node) 90%, var(--node-accent) 10%), var(--bg-node)),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.016), transparent 22%, rgba(255, 255, 255, 0.016) 78%, transparent);
-}
-
-.categoryMath {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-node) 92%, var(--node-accent) 8%), var(--bg-node)),
-    repeating-linear-gradient(0deg, transparent 0 8px, rgba(255, 255, 255, 0.018) 8px 9px);
-}
-
-.categoryColor {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-node) 84%, var(--node-accent) 16%), var(--bg-node)),
-    radial-gradient(circle at 20% 12%, rgba(255, 255, 255, 0.08), transparent 26%);
-}
-
-.categoryPattern {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-node) 84%, var(--node-accent) 16%), var(--bg-node)),
-    radial-gradient(circle at 50% 120%, color-mix(in srgb, var(--node-accent) 14%, transparent), transparent 54%);
-}
-
-.categoryField {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-node) 86%, var(--node-accent) 14%), var(--bg-node)),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.018), transparent 34%, rgba(255, 255, 255, 0.012) 68%, transparent);
-}
-
-.categoryComposite {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-node) 88%, var(--node-accent) 12%), var(--bg-node)),
-    repeating-linear-gradient(135deg, transparent 0 8px, rgba(255, 255, 255, 0.018) 8px 10px);
-}
-
-.categoryShow {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-node) 82%, var(--node-accent) 18%), var(--bg-node)),
-    radial-gradient(circle at 82% 18%, rgba(255, 255, 255, 0.08), transparent 22%);
-}
-
+/* All categories share the one metal faceplate; the accent lives in the
+   --node-accent tint, engraved header text, and the power LED. The classes are
+   kept (StudioNode.tsx composes them) so a category can regain its own
+   treatment later without touching the TSX. */
+.categoryInput,
+.categoryAudio,
+.categorySignal,
+.categoryMath,
+.categoryColor,
+.categoryPattern,
+.categoryField,
+.categoryComposite,
+.categoryShow,
 .categoryOutput {
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-node) 86%, var(--node-accent) 14%), var(--bg-node)),
-    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.022) 50%, transparent);
+    repeating-linear-gradient(90deg, transparent 0 3px, rgba(255, 255, 255, 0.012) 3px 4px),
+    linear-gradient(180deg, color-mix(in srgb, var(--node-accent) 6%, var(--metal-face-hi)), var(--metal-face-lo) 80%);
 }
 
 .categoryNote {
-  background: color-mix(in srgb, var(--node-accent) 16%, var(--bg-node));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--node-accent) 14%, var(--metal-face-hi)), color-mix(in srgb, var(--node-accent) 6%, var(--metal-face-lo)));
 }
 
 .body {
@@ -332,16 +341,22 @@
 }
 
 .portLabel {
-  font-size: var(--fs-caption);
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
   color: var(--text-secondary);
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.7);
   font-family: var(--font-code);
   white-space: nowrap;
   padding-left: 10px;
 }
 
 .portLabelRight {
-  font-size: var(--fs-caption);
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
   color: var(--text-secondary);
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.7);
   font-family: var(--font-code);
   white-space: nowrap;
   padding-right: 10px;
@@ -354,7 +369,9 @@
   gap: 3px;
   margin-top: 4px;
   padding-top: 6px;
-  border-top: 1px solid var(--divider);
+  /* Machined groove instead of a flat divider line. */
+  border-top: 1px solid rgba(0, 0, 0, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   user-select: none;
 }
 
@@ -386,13 +403,17 @@
   flex: 0 1 auto;
 }
 
+/* Value fields read as small recessed LCD windows: dark well, amber digits. */
 .propInput {
   width: 72px;
   flex: 0 0 auto;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-glow);
-  border-radius: 4px;
-  color: var(--text-primary);
+  background: var(--lcd-bg);
+  border: 1px solid rgba(0, 0, 0, 0.65);
+  border-radius: 3px;
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.7),
+    0 1px 0 rgba(255, 255, 255, 0.05);
+  color: var(--lcd-text);
   font-size: var(--fs-caption);
   font-family: var(--font-code);
   padding: 1px 4px;
@@ -400,7 +421,7 @@
 
 .propInput:focus {
   outline: none;
-  border-color: var(--accent-output);
+  border-color: var(--node-accent);
 }
 
 .propInput[aria-invalid='true'] {
@@ -500,10 +521,13 @@
 .propSelect {
   width: 84px;
   flex: 0 0 auto;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-glow);
-  border-radius: 4px;
-  color: var(--text-primary);
+  background: var(--lcd-bg);
+  border: 1px solid rgba(0, 0, 0, 0.65);
+  border-radius: 3px;
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.7),
+    0 1px 0 rgba(255, 255, 255, 0.05);
+  color: var(--lcd-text);
   font-size: var(--fs-caption);
   font-family: var(--font-code);
   padding: 1px 2px;
@@ -512,7 +536,7 @@
 
 .propSelect:focus {
   outline: none;
-  border-color: var(--accent-output);
+  border-color: var(--node-accent);
 }
 
 /* Collapsible property-group section (e.g. MatrixOutput's Wiring/Layout/
@@ -570,7 +594,7 @@
 
 .propRange {
   width: 72px;
-  accent-color: var(--accent-output);
+  accent-color: var(--node-accent);
   cursor: pointer;
 }
 
@@ -579,17 +603,17 @@
   text-align: right;
   font-size: var(--fs-caption);
   font-family: var(--font-code);
-  color: var(--text-primary);
+  color: var(--lcd-text);
   white-space: nowrap;
 }
 
 .sliderInput {
   width: 106px;
   box-sizing: border-box;
-  border: 1px solid var(--accent-output);
-  border-radius: 4px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
+  border: 1px solid var(--node-accent);
+  border-radius: 3px;
+  background: var(--lcd-bg);
+  color: var(--lcd-text);
   font-size: var(--fs-caption);
   font-family: var(--font-code);
   padding: 2px 4px;
@@ -598,7 +622,7 @@
 
 .sliderInput:focus {
   outline: none;
-  box-shadow: 0 0 0 1px var(--accent-output);
+  box-shadow: 0 0 0 1px var(--node-accent);
 }
 
 .sliderInput.invalid {

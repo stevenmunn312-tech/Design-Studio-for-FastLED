@@ -615,12 +615,22 @@ const LivePropertyControls = memo(function LivePropertyControls({
 // Frame previews fill this width and keep the matrix aspect ratio.
 const BODY_CONTENT_W = 224
 
-const HANDLE_STYLE = {
-  width: 12,
-  height: 12,
+// Jack-socket handle: dark bore, dataType-coloured collar, outer metal nut —
+// all layered into one background so React Flow still measures a plain circle.
+// Center stays at ±2px past the node edge (was 12px at ±8, now 14px at ±9),
+// so noodle anchor points are unchanged.
+const JACK_SIZE = 14
+const jackStyle = (color: string): React.CSSProperties => ({
+  width: JACK_SIZE,
+  height: JACK_SIZE,
   borderRadius: '50%',
   border: 'none',
-}
+  background: [
+    'radial-gradient(circle at 36% 28%, rgba(255, 255, 255, 0.35), transparent 34%)',
+    `radial-gradient(circle, #05070a 0 26%, ${color} 34% 46%, #14171b 52% 60%, #454b52 64% 82%, #23272c 88%)`,
+  ].join(', '),
+  boxShadow: `0 0 6px color-mix(in srgb, ${color} 45%, transparent), 0 1px 2px rgba(0, 0, 0, 0.7)`,
+})
 
 // Group-input "roles" a Performance Generator show can drive (see the collection
 // -driven-performance design note). Setting a GroupInput's paramId to one of
@@ -916,7 +926,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       } as React.CSSProperties}
     >
       <span ref={signalAuraRef} className={styles.signalAura} aria-hidden="true" />
-      <div className={styles.header} style={{ background: accent }}>
+      <div className={styles.header}>
         <span className={styles.headerTitle}>{nodeDisplayLabel(d.nodeType, props, d.label)}</span>
         <span className={styles.headerMeta}>
           <span className={styles.headerTag}>{categoryTag}</span>
@@ -993,7 +1003,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                     position={Position.Left}
                     id={input.id}
                     title={`${input.label} · ${input.dataType}`}
-                    style={{ ...HANDLE_STYLE, top: '50%', left: -8, background: inputColor, boxShadow: `0 0 6px ${inputColor}` }}
+                    style={{ ...jackStyle(inputColor), top: '50%', left: -9 }}
                   />
                   {sparkPortId === input.id && <span className={styles.spark} />}
                 </>
@@ -1006,7 +1016,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                   position={Position.Right}
                   id={output.id}
                   title={`${output.label} · ${output.dataType}`}
-                  style={{ ...HANDLE_STYLE, top: '50%', right: -8, background: outputColor, boxShadow: `0 0 6px ${outputColor}` }}
+                  style={{ ...jackStyle(outputColor), top: '50%', right: -9 }}
                 />
               )}
             </div>

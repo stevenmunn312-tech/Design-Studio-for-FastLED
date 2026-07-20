@@ -173,8 +173,10 @@ describe('StudioNode', () => {
     expect(audio.style.top).toBe('50%')
     expect(bass.style.top).toBe('50%')
     expect(mids.style.top).toBe('50%')
-    expect(audio.style.left).toBe('-8px')
-    expect(bass.style.right).toBe('-8px')
+    // Jack sockets are 14px wide at ±9px, keeping the handle center at ±2px
+    // past the node edge (same anchor as the old 12px dots at ±8px).
+    expect(audio.style.left).toBe('-9px')
+    expect(bass.style.right).toBe('-9px')
   })
 
   it('disables wired AudioFlow sliders but keeps their live values visible', () => {
