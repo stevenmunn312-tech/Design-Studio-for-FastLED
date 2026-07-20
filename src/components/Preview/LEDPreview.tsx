@@ -1431,8 +1431,8 @@ export default function LEDPreview() {
                 <img
                   className={styles.brandLogo}
                   src="/brand-concepts/concept-1-pixel.png"
-                  width="1535"
-                  height="221"
+                  width="1400"
+                  height="243"
                   fetchPriority="high"
                   alt=""
                 />
