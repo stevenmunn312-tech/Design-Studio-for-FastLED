@@ -60,7 +60,7 @@ describe('MenuBar file menu', () => {
       evaluationRunning: true,
       stageMode: false,
       uiEffectsEnabled: true,
-      signalPathDimEnabled: true,
+      signalPathDimEnabled: false,
       preview3d: false,
       previewStyle: 'standard',
       reducedMotion: false,
@@ -133,7 +133,7 @@ describe('MenuBar file menu', () => {
     expect(getByText('○ Motion: Full')).toBeTruthy()
     expect(getByText('○ Contrast: Standard')).toBeTruthy()
     expect(getByText('✓ UI FX: On')).toBeTruthy()
-    expect(getByText('✓ Signal dimming: On')).toBeTruthy()
+    expect(getByText('○ Signal dimming: Off')).toBeTruthy()
   })
 
   it('opens Help on the About tab from the View menu', () => {

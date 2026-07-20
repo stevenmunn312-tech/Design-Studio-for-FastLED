@@ -102,6 +102,19 @@ describe('uiStore.setStatus auto-clear', () => {
     useUiStore.getState().setPerformanceMode(false)
   })
 
+  it('persists an explicit Signal dimming preference', () => {
+    localStorage.removeItem('design-studio-for-fastled-signal-path-dim-enabled')
+    useUiStore.setState({ signalPathDimEnabled: false })
+
+    useUiStore.getState().toggleSignalPathDim()
+    expect(useUiStore.getState().signalPathDimEnabled).toBe(true)
+    expect(localStorage.getItem('design-studio-for-fastled-signal-path-dim-enabled')).toBe('true')
+
+    useUiStore.getState().toggleSignalPathDim()
+    expect(useUiStore.getState().signalPathDimEnabled).toBe(false)
+    expect(localStorage.getItem('design-studio-for-fastled-signal-path-dim-enabled')).toBe('false')
+  })
+
   it('queues fit-view requests with an incrementing nonce', () => {
     useUiStore.setState({ fitViewRequest: { nonce: 0 } })
 

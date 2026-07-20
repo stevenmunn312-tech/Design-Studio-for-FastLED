@@ -201,7 +201,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   // hushed, so it always starts off and is intentionally not persisted.
   performanceMode: false,
   uiEffectsEnabled: load<boolean>(UI_EFFECTS_KEY, true),
-  signalPathDimEnabled: load<boolean>(SIGNAL_PATH_DIM_KEY, true),
+  signalPathDimEnabled: load<boolean>(SIGNAL_PATH_DIM_KEY, false),
   preview3d: false,
   previewStyle: loadPreviewStyle(),
   spectrumVisualizerMode: loadSpectrumVisualizerMode(),
