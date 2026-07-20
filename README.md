@@ -207,6 +207,10 @@ npm run preview        # serve dist/
 npm run package:desktop
 ```
 
+## Contributing
+
+The repository is public and `main` is kept releasable, so all changes land through a branch and pull request — never commit directly to `main`. Create a short-lived branch (`fix/…`, `feature/…`, `docs/…`), make sure `npm run lint`, `npm test`, and `npm run build` pass, and open a PR. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guidelines, including bug reporting and hardware validation.
+
 ## Credits and licensing
 
 Design Studio for FastLED's core is MIT licensed. See [LICENSE](LICENSE), [third-party notices](THIRD_PARTY_NOTICES.md), and the [changelog](CHANGELOG.md).
