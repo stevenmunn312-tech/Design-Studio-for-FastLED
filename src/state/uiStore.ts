@@ -126,6 +126,8 @@ interface UiState {
   /** When on, selecting a node dims everything outside its signal path. */
   signalPathDimEnabled: boolean
   preview3d: boolean
+  /** Session-only Matrix Output route displayed by the preview/recorder. */
+  previewOutputId: string
   previewStyle: PreviewStyle
   /** Presentation used by the browser-only spectrum below the LED preview. */
   spectrumVisualizerMode: SpectrumVisualizerMode
@@ -171,6 +173,7 @@ interface UiState {
   toggleUiEffects: () => void
   toggleSignalPathDim: () => void
   togglePreview3d: () => void
+  setPreviewOutputId: (nodeId: string) => void
   toggleTestSignal: () => void
   setPreviewStyle: (style: PreviewStyle) => void
   cyclePreviewStyle: () => void
@@ -231,6 +234,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   uiEffectsEnabled: load<boolean>(UI_EFFECTS_KEY, true),
   signalPathDimEnabled: load<boolean>(SIGNAL_PATH_DIM_KEY, false),
   preview3d: false,
+  previewOutputId: '',
   previewStyle: loadPreviewStyle(),
   spectrumVisualizerMode: loadSpectrumVisualizerMode(),
   testSignal: load<boolean>(TEST_SIGNAL_KEY, false),
@@ -318,6 +322,7 @@ export const useUiStore = create<UiState>((set, get) => ({
     set({ signalPathDimEnabled: next })
   },
   togglePreview3d: () => set((s) => ({ preview3d: !s.preview3d })),
+  setPreviewOutputId: (previewOutputId) => set({ previewOutputId }),
   toggleTestSignal: () => {
     const next = !get().testSignal
     localStorage.setItem(TEST_SIGNAL_KEY, JSON.stringify(next))

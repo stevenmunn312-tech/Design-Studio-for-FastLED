@@ -22,6 +22,7 @@ import { particleRadius } from '../state/particleScale'
 import { buildXYTable } from '../state/xyLayout'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette } from '../state/customPalette'
 import { animartrixCppLines } from '../animartrix/codegen'
+import { compositionDims, outputRoutes } from '../state/outputRouting'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -360,23 +361,26 @@ export function overclockDefineCpp(hw: LedHardware): string[] {
  *  player drives brightness from show events instead). */
 export function fastledSetupCpp(
   hw: LedHardware,
-  opts: { dataPinMacro?: string; clockPinMacro?: string; brightness?: number | null; ledCountMacro?: string } = {},
+  opts: { dataPinMacro?: string; clockPinMacro?: string; brightness?: number | null; ledCountMacro?: string; ledsName?: string; controllerName?: string } = {},
 ): string[] {
   const data = opts.dataPinMacro ?? 'DATA_PIN'
   const clock = opts.clockPinMacro ?? 'CLOCK_PIN'
   // Physical strip length — differs from the render buffer's NUM_LEDS when the
   // sketch supersamples (renders large, then downscales into `leds`).
   const count = opts.ledCountMacro ?? 'NUM_LEDS'
+  const ledsName = opts.ledsName ?? 'leds'
   const chip = hw.chipset === 'SK6812-RGBW' ? 'SK6812' : hw.chipset
   const rgbw = hw.chipset === 'SK6812-RGBW' ? '.setRgbw(RgbwDefault())' : ''
   const pins = SPI_CHIPSETS.has(hw.chipset) ? `${data}, ${clock}` : data
   // FastLED's NEOPIXEL alias hardcodes GRB and takes no order template arg.
   const args = chip === 'NEOPIXEL' ? `${pins}` : `${pins}, ${hw.colorOrder}`
-  const lines = [`  FastLED.addLeds<${chip}, ${args}>(leds, ${count})${rgbw};`]
+  const add = `FastLED.addLeds<${chip}, ${args}>(${ledsName}, ${count})${rgbw}`
+  const lines = [opts.controllerName ? `  CLEDController& ${opts.controllerName} = ${add};` : `  ${add};`]
   const brightness = opts.brightness === undefined ? hw.brightness : opts.brightness
   if (brightness !== null) lines.push(`  FastLED.setBrightness(${brightness});`)
-  if (hw.correction !== 'none') lines.push(`  FastLED.setCorrection(${hw.correction});`)
-  if (!hw.dither) lines.push(`  FastLED.setDither(DISABLE_DITHER);`)
+  const target = opts.controllerName ?? 'FastLED'
+  if (hw.correction !== 'none') lines.push(`  ${target}.setCorrection(${hw.correction});`)
+  if (!hw.dither) lines.push(`  ${target}.setDither(DISABLE_DITHER);`)
   return lines
 }
 
@@ -458,7 +462,9 @@ export function generateCpp(
 
   const nodeMap = new Map(nodes.map((n) => [n.id, n]))
 
-  const outputNode = nodes.find((n) => n.data.nodeType === 'MatrixOutput')
+  const outputNodes = nodes.filter((n) => n.data.nodeType === 'MatrixOutput')
+  const outputNode = outputNodes[0]
+  const multipleOutputs = outputNodes.length > 1
   const rawProps = (n: StudioNode) => n.data.properties as Record<string, unknown>
 
   // Sanitise numeric properties so a stray/garbage value (e.g. a hex string
@@ -472,9 +478,10 @@ export function generateCpp(
     const n = Number(val)
     return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : def
   }
-  const width      = intProp(outputNode ? rawProps(outputNode).width   : undefined, 16, 1, 64)
-  const height     = intProp(outputNode ? rawProps(outputNode).height  : undefined, 16, 1, 64)
-  const expressionScale = outputNode && rawProps(outputNode).supersample === true ? 2 : 1
+  const composition = compositionDims(nodes)
+  const width      = multipleOutputs ? composition.w : intProp(outputNode ? rawProps(outputNode).width : undefined, 16, 1, 64)
+  const height     = multipleOutputs ? composition.h : intProp(outputNode ? rawProps(outputNode).height : undefined, 16, 1, 64)
+  const expressionScale = !multipleOutputs && outputNode && rawProps(outputNode).supersample === true ? 2 : 1
   const props = (n: StudioNode) => resolveNodeScalarExpressions(
     n.data.nodeType as string,
     rawProps(n),
@@ -495,7 +502,7 @@ export function generateCpp(
   // HEIGHT/NUM_LEDS become the render size) and average each SS×SS block down
   // into the physical `leds` (PANEL_LEDS) at MatrixOutput. 1 = off (unchanged
   // output). 2× only for now, matching the preview.
-  const supersample = (outputNode ? props(outputNode).supersample : false) === true ? 2 : 1
+  const supersample = !multipleOutputs && (outputNode ? props(outputNode).supersample : false) === true ? 2 : 1
   const ss = supersample > 1
   // Physical strip length + panel width for the XY map (differ from the render
   // NUM_LEDS/WIDTH only when supersampling).
@@ -503,11 +510,25 @@ export function generateCpp(
   const panelW = ss ? 'PANEL_W' : 'WIDTH'
   // Optional power cap (FastLED.setMaxPowerInVoltsAndMilliamps) — dims globally
   // to keep the PSU draw under a limit so a big matrix can't brown out the board.
-  const powerLimit = (outputNode ? props(outputNode).powerLimit : false) === true
-  const volts      = intProp(outputNode ? props(outputNode).volts     : undefined, 5, 1, 60)
-  const milliamps  = intProp(outputNode ? props(outputNode).milliamps : undefined, 2000, 100, 100000)
+  const poweredOutputs = outputNodes.filter((node) => props(node).powerLimit === true)
+  const powerLimit = poweredOutputs.length > 0
+  const volts      = intProp(poweredOutputs[0] ? props(poweredOutputs[0]).volts : outputNode ? props(outputNode).volts : undefined, 5, 1, 60)
+  const milliamps  = poweredOutputs.length > 0
+    ? poweredOutputs.reduce((sum, node) => sum + intProp(props(node).milliamps, 2000, 100, 100000), 0)
+    : intProp(outputNode ? props(outputNode).milliamps : undefined, 2000, 100, 100000)
   // Per-node render buffers in external PSRAM (ESP32 family; see PSRAM_ALLOC_CPP).
-  const usePsram = opts.psramAllowed !== false && (outputNode ? props(outputNode).usePsram : false) === true
+  const usePsram = opts.psramAllowed !== false && outputNodes.some((node) => props(node).usePsram === true)
+
+  const outputConfigs = outputRoutes(nodes).map((route) => {
+    const p = props(route.node)
+    return {
+      ...route,
+      safeId: safeId(route.id),
+      dataPin: intProp(p.dataPin, 5, 0, 48),
+      hardware: ledHardwareFromProps(p),
+      xyTable: buildXYTable(route.width, route.height, p),
+    }
+  })
 
   // A MicInput node turns on FastLED's on-device INMP441 audio processor; its
   // pins/channel configure FastLED's input. `emitEngine` means this sketch hosts
@@ -3932,6 +3953,31 @@ export function generateCpp(
 
       case 'MatrixOutput': {
         const src = srcBuf('frame')
+        if (multipleOutputs) {
+          const route = outputConfigs.find((candidate) => candidate.id === node.id)!
+          const leds = `leds_${route.safeId}`
+          const xy = route.xyTable ? `XY_${route.safeId}(_x, _y)` : `_y * ${route.width} + _x`
+          if (!src) {
+            ln(`  fill_solid(${leds}, ${route.width * route.height}, CRGB::Black);`)
+          } else if (route.routeMode === 'crop') {
+            ln(`  for (int _y = 0; _y < ${route.height}; _y++) for (int _x = 0; _x < ${route.width}; _x++) {`)
+            ln(`    int _sx = (${route.routeX} + _x) % WIDTH, _sy = (${route.routeY} + _y) % HEIGHT;`)
+            ln(`    CRGB _c = ${src}[_sy * WIDTH + _sx]; _c.nscale8_video(${route.hardware.brightness});`)
+            ln(`    ${leds}[${xy}] = _c;`)
+            ln(`  }`)
+          } else {
+            ln(`  for (int _y = 0; _y < ${route.height}; _y++) for (int _x = 0; _x < ${route.width}; _x++) {`)
+            ln(`    int _x0 = _x * WIDTH / ${route.width}, _x1 = (_x + 1) * WIDTH / ${route.width};`)
+            ln(`    int _y0 = _y * HEIGHT / ${route.height}, _y1 = (_y + 1) * HEIGHT / ${route.height};`)
+            ln(`    if (_x1 <= _x0) _x1 = _x0 + 1; if (_y1 <= _y0) _y1 = _y0 + 1;`)
+            ln(`    uint32_t _r = 0, _g = 0, _b = 0, _n = 0;`)
+            ln(`    for (int _sy = _y0; _sy < min(HEIGHT, _y1); _sy++) for (int _sx = _x0; _sx < min(WIDTH, _x1); _sx++) { CRGB _p = ${src}[_sy * WIDTH + _sx]; _r += _p.r; _g += _p.g; _b += _p.b; _n++; }`)
+            ln(`    CRGB _c = _n ? CRGB(_r / _n, _g / _n, _b / _n) : CRGB::Black; _c.nscale8_video(${route.hardware.brightness});`)
+            ln(`    ${leds}[${xy}] = _c;`)
+            ln(`  }`)
+          }
+          break
+        }
         if (!src) {
           ln(`  fill_solid(leds, ${physLeds}, CRGB::Black);`)
         } else if (ss) {
@@ -3969,7 +4015,11 @@ export function generateCpp(
   const lines: string[] = []
 
   // Header (the overclock define must precede the FastLED include)
-  lines.push(...overclockDefineCpp(hw))
+  const clocklessRoutes = outputConfigs.filter((route) => !SPI_CHIPSETS.has(route.hardware.chipset))
+  const overclockHw = multipleOutputs && clocklessRoutes.length > 0
+    ? { ...clocklessRoutes[0].hardware, overclock: Math.max(...clocklessRoutes.map((route) => route.hardware.overclock)) }
+    : hw
+  lines.push(...overclockDefineCpp(overclockHw))
   lines.push(`#include <FastLED.h>`)
   if (audio) lines.push(audio.include)
   lines.push(``)
@@ -3986,10 +4036,21 @@ export function generateCpp(
     lines.push(`#define HEIGHT   ${height}`)
     lines.push(`#define NUM_LEDS (WIDTH * HEIGHT)`)
   }
-  lines.push(`#define DATA_PIN ${dataPin}`)
-  if (SPI_CHIPSETS.has(hw.chipset)) lines.push(`#define CLOCK_PIN ${hw.clockPin}`)
+  if (multipleOutputs) {
+    for (const route of outputConfigs) {
+      lines.push(`#define DATA_PIN_${route.safeId} ${route.dataPin}`)
+      if (SPI_CHIPSETS.has(route.hardware.chipset)) lines.push(`#define CLOCK_PIN_${route.safeId} ${route.hardware.clockPin}`)
+    }
+  } else {
+    lines.push(`#define DATA_PIN ${dataPin}`)
+    if (SPI_CHIPSETS.has(hw.chipset)) lines.push(`#define CLOCK_PIN ${hw.clockPin}`)
+  }
   lines.push(``)
-  lines.push(`CRGB leds[${physLeds}];`)
+  if (multipleOutputs) {
+    for (const route of outputConfigs) lines.push(`CRGB leds_${route.safeId}[${route.width * route.height}];`)
+  } else {
+    lines.push(`CRGB leds[${physLeds}];`)
+  }
   // One render buffer per frame-producing node so layers can be composited, and
   // one float buffer per field-producing node (FieldFormula …). With `usePsram`
   // these become pointers allocated in setup() (leds stays internal — see
@@ -4055,7 +4116,15 @@ export function generateCpp(
     lines.push(``)
   }
 
-  if (xyTable) {
+  if (multipleOutputs) {
+    for (const route of outputConfigs) {
+      if (!route.xyTable) continue
+      lines.push(`// Physical wiring map for ${route.label}.`)
+      lines.push(`const uint16_t _xytable_${route.safeId}[${route.width * route.height}] PROGMEM = { ${route.xyTable.join(',')} };`)
+      lines.push(`uint16_t XY_${route.safeId}(uint8_t x, uint8_t y) { return pgm_read_word(&_xytable_${route.safeId}[(uint16_t)y * ${route.width} + x]); }`)
+      lines.push(``)
+    }
+  } else if (xyTable) {
     lines.push(`// Physical wiring map (grid index -> physical LED index), baked from`)
     lines.push(`// MatrixOutput's layout/serpentine/tile settings.`)
     lines.push(`const uint16_t _xytable[${width * height}] PROGMEM = { ${xyTable.join(',')} };`)
@@ -4079,7 +4148,21 @@ export function generateCpp(
   lines.push(`void setup() {`)
   lines.push(...psramAllocs)
   lines.push(...pinSetupLines)
-  lines.push(...fastledSetupCpp(hw, ss ? { ledCountMacro: physLeds } : {}))
+  if (multipleOutputs) {
+    for (const route of outputConfigs) {
+      lines.push(...fastledSetupCpp(route.hardware, {
+        dataPinMacro: `DATA_PIN_${route.safeId}`,
+        clockPinMacro: `CLOCK_PIN_${route.safeId}`,
+        brightness: null,
+        ledCountMacro: String(route.width * route.height),
+        ledsName: `leds_${route.safeId}`,
+        controllerName: `controller_${route.safeId}`,
+      }))
+    }
+    lines.push(`  FastLED.setBrightness(255);  // per-output brightness is applied while routing pixels`)
+  } else {
+    lines.push(...fastledSetupCpp(hw, ss ? { ledCountMacro: physLeds } : {}))
+  }
   if (powerLimit) lines.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${volts}, ${milliamps});`)
   if (emitEngine) lines.push(`  setupAudio();`)
   lines.push(`}`)
@@ -4089,7 +4172,7 @@ export function generateCpp(
   if (emitEngine) lines.push(`  updateAudio();`)
   if (needsT.v) lines.push(`  float t = millis() / 1000.0f;`)
   lines.push(...loopLines)
-  if (!sorted.some((n) => n.data.nodeType === 'MatrixOutput')) {
+  if (multipleOutputs || !sorted.some((n) => n.data.nodeType === 'MatrixOutput')) {
     lines.push(`  FastLED.show();`)
   }
   lines.push(`  FastLED.delay(16);  // ~60 fps`)

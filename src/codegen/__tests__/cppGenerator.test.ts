@@ -43,6 +43,37 @@ describe('generateCpp', () => {
     expect(cpp).toContain('GRB')
   })
 
+  it('emits independently configured synchronized controllers for multiple outputs', () => {
+    const patternA = node('pattern-a', 'SolidColor', 'pattern')
+    const patternB = node('pattern-b', 'Plasma', 'pattern')
+    const outA = node('out-a', 'MatrixOutput', 'output', {
+      width: 8, height: 8, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB', brightness: 64,
+      layout: 'matrix', serpentine: true, routeMode: 'fit',
+    })
+    const outB = node('out-b', 'MatrixOutput', 'output', {
+      width: 16, height: 4, dataPin: 12, clockPin: 13, chipset: 'APA102', colorOrder: 'BGR', brightness: 180,
+      layout: 'strip', routeMode: 'crop', routeX: 2, routeY: 1,
+    })
+    const cpp = generateCpp(
+      [patternA, patternB, outA, outB],
+      [edge('ea', 'pattern-a', 'out-a', 'frame', 'frame'), edge('eb', 'pattern-b', 'out-b', 'frame', 'frame')],
+    )
+
+    expect(cpp).toContain('#define WIDTH    16')
+    expect(cpp).toContain('#define HEIGHT   8')
+    expect(cpp).toContain('#define DATA_PIN_out_a 5')
+    expect(cpp).toContain('#define DATA_PIN_out_b 12')
+    expect(cpp).toContain('#define CLOCK_PIN_out_b 13')
+    expect(cpp).toContain('CRGB leds_out_a[64];')
+    expect(cpp).toContain('CRGB leds_out_b[64];')
+    expect(cpp).toContain('FastLED.addLeds<WS2812B, DATA_PIN_out_a, GRB>(leds_out_a, 64)')
+    expect(cpp).toContain('FastLED.addLeds<APA102, DATA_PIN_out_b, CLOCK_PIN_out_b, BGR>(leds_out_b, 64)')
+    expect(cpp).toContain('_c.nscale8_video(64)')
+    expect(cpp).toContain('_c.nscale8_video(180)')
+    expect(cpp).toContain('int _sx = (2 + _x) % WIDTH, _sy = (1 + _y) % HEIGHT;')
+    expect(cpp.match(/FastLED\.show\(\);/g)).toHaveLength(1)
+  })
+
   it('emits the default hardware setup (brightness 200, no correction, dither untouched)', () => {
     const cpp = generateCpp([outputNode], [])
     expect(cpp).toContain('FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);')

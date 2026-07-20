@@ -177,15 +177,15 @@ type HistorySlice = Pick<GraphState, 'nodes' | 'edges'>
 // behaviour. Graphs exported before consolidation still reference the old
 // types; upgrade them on import so they keep working and gain the inline
 // variant dropdown.
-// Node types that are scene-level singletons (the matrix output) or signal
-// sources (mic / music library) — these are left behind in the parent graph
-// when encapsulating a selection into a group, not sealed inside it.
+// Scene-level outputs/sources are left behind in the parent graph when
+// encapsulating a selection into a group. MatrixOutput can have several root
+// routes; MicInput remains a singleton.
 const GROUP_EXCLUDED_TYPES = new Set(['MatrixOutput', 'MicInput', 'MusicLibrary'])
 
 /** Nodes that represent one scene-wide hardware resource. Creation actions use
  *  this set as a final guard, so every UI path (click, drop, paste, duplicate)
  *  preserves the one-per-canvas invariant. */
-export const SINGLETON_NODE_TYPES = new Set(['MatrixOutput', 'MicInput'])
+export const SINGLETON_NODE_TYPES = new Set(['MicInput'])
 
 export function canAddNodeType(nodes: StudioNode[], nodeType: string): boolean {
   return !SINGLETON_NODE_TYPES.has(nodeType) || !nodes.some((n) => n.data.nodeType === nodeType)
@@ -757,7 +757,7 @@ export const useGraphStore = create<GraphState>()(
         const groupId = `group-${Date.now()}`
         set((s) => {
           const idSet = new Set(nodeIds)
-          // Scene-level singletons stay in the parent graph rather than being
+          // Scene-level outputs/sources stay in the parent graph rather than being
           // sealed inside a reusable pattern. A surviving MatrixOutput is
           // auto-rewired to the new Group's frame output (it becomes an outgoing
           // boundary edge); a surviving MicInput/MusicLibrary feeding the

@@ -1,4 +1,5 @@
-import { matrixDims, useGraphStore } from '../../state/graphStore'
+import { useGraphStore } from '../../state/graphStore'
+import { compositionDims } from '../../state/outputRouting'
 import { useUiStore } from '../../state/uiStore'
 import { supportsScalarExpression } from '../../state/nodeLibrary'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../../state/scalarExpression'
@@ -106,11 +107,7 @@ export default function Inspector() {
   const hasRGB =
     'r' in props && 'g' in props && 'b' in props &&
     typeof props.r === 'number' && typeof props.g === 'number' && typeof props.b === 'number'
-  const dims = matrixDims(nodes)
-  const matrixOutput = nodes.find((n) => n.data.nodeType === 'MatrixOutput')
-  const expressionScale = matrixOutput?.data.properties.supersample === true ? 2 : 1
-  const expressionW = dims.w * expressionScale
-  const expressionH = dims.h * expressionScale
+  const { w: expressionW, h: expressionH } = compositionDims(nodes)
 
   return (
     <aside className={styles.inspector}>

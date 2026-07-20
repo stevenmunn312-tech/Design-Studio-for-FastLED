@@ -96,6 +96,29 @@
   min-width: 0;
 }
 
+.outputRoutePicker {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.outputRoutePicker select {
+  min-width: 118px;
+  max-width: 180px;
+  height: 26px;
+  border: 1px solid var(--chrome-border);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font: inherit;
+  text-transform: none;
+}
+
 .headerStage {
   height: 64px;
   padding: 0 clamp(18px, 2.4vw, 36px);
