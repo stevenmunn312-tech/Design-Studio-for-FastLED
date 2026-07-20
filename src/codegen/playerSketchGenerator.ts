@@ -25,9 +25,10 @@ export interface PlayerConfig {
   dither:      boolean  // false → setDither(DISABLE_DITHER)
   overclock:   number   // clockless-chipset FASTLED_OVERCLOCK multiplier
   sdCsPin:     number
-  i2sBclk:     number   // I2S bit clock pin
-  i2sLrc:      number   // I2S left/right clock (word select)
-  i2sDout:     number   // I2S data out to DAC
+  audioOutput: string   // 'i2s' (external DAC) or 'internalDac' (ESP32 built-in DAC, GPIO25/26)
+  i2sBclk:     number   // I2S bit clock pin (audioOutput === 'i2s' only)
+  i2sLrc:      number   // I2S left/right clock, word select (audioOutput === 'i2s' only)
+  i2sDout:     number   // I2S data out to DAC (audioOutput === 'i2s' only)
   maxVolume:   number   // 0-21 for MAX98357A
 }
 
@@ -37,6 +38,7 @@ const DEFAULTS: PlayerConfig = {
   correction: 'none', dither: true, overclock: 1,
   // GPIO10 avoids colliding with MatrixOutput's default LED data pin (GPIO5).
   sdCsPin: 10,
+  audioOutput: 'i2s',
   i2sBclk: 26, i2sLrc: 25, i2sDout: 22,
   maxVolume: 18,
 }
@@ -70,6 +72,7 @@ export function playerConfigFromGraph(nodes: ConfigNode[]): Partial<PlayerConfig
     dither:      mo.dither !== false,
     overclock:   num(mo.overclock, DEFAULTS.overclock),
     sdCsPin:    num(sd.sdCsPin, DEFAULTS.sdCsPin),
+    audioOutput: str(sd.audioOutput, DEFAULTS.audioOutput),
     i2sBclk:    num(sd.i2sBclk, DEFAULTS.i2sBclk),
     i2sLrc:     num(sd.i2sLrc, DEFAULTS.i2sLrc),
     i2sDout:    num(sd.i2sDout, DEFAULTS.i2sDout),
@@ -88,6 +91,7 @@ export function generatePlayerSketch(
   const numLeds = c.ledWidth * c.ledHeight
   const collection = !!(renderers && renderers.count > 0)
   const bakedAudio = !!opts.audioEnvelope
+  const internalDac = c.audioOutput === 'internalDac'
   // Strip init shared with the main/show generators. Brightness stays the
   // player's own fixed 180 — the show's SET_BRIGHTNESS events drive it live.
   const hw = ledHardwareFromProps({
@@ -364,7 +368,7 @@ float prnd(float n) { float s = sinf(n * 12.9898f) * 43758.5453f; return s - flo
 //   - ESP32-audioI2S  (schreibfaul1/ESP32-audioI2S on GitHub)
 //   - FastLED
 //   - SD (built-in Arduino)
-// Hardware: SD card on SPI, I2S DAC (MAX98357A or PCM5102) on pins below.
+// Hardware: SD card on SPI, audio out via ${internalDac ? "the ESP32's internal DAC (fixed GPIO25/26 — classic ESP32 only, no ESP32-S3/S2/C3 support)" : 'an I2S DAC (MAX98357A or PCM5102) on pins below'}.
 
 ${overclockDefines}#include <FastLED.h>
 #include <SD.h>
@@ -381,9 +385,7 @@ ${clockPinDefine}#define WIDTH         ${c.ledWidth}
 #define HEIGHT        ${c.ledHeight}
 #define NUM_LEDS      ${numLeds}
 #define SD_CS         ${c.sdCsPin}
-#define I2S_BCLK      ${c.i2sBclk}
-#define I2S_LRC       ${c.i2sLrc}
-#define I2S_DOUT      ${c.i2sDout}
+${internalDac ? '' : `#define I2S_BCLK      ${c.i2sBclk}\n#define I2S_LRC       ${c.i2sLrc}\n#define I2S_DOUT      ${c.i2sDout}\n`}
 
 // ── Show file binary format ───────────────────────────────────────────────────
 // Header: magic(4) + version(1) + bpm_x10(2) + duration_ms(4) + event_count(4)
@@ -563,7 +565,7 @@ ${ledSetupLines}
 
   if (!SD.begin(SD_CS)) { Serial.println("SD mount failed"); while(1); }
 
-  audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
+  ${internalDac ? 'audio.setInternalDAC(true);' : 'audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);'}
   audio.setVolume(${c.maxVolume});
 
   // Play the first .mp3 found in /music/

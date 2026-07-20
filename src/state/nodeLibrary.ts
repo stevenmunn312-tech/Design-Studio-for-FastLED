@@ -2250,6 +2250,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // GPIO10 avoids colliding with MatrixOutput's default LED data pin
       // (GPIO5) on the primary supported ESP32-S3 target.
       sdCsPin:     10,
+      // 'i2s' drives an external DAC/amp (MAX98357A, PCM5102, …) over the
+      // i2sBclk/i2sLrc/i2sDout pins below. 'internalDac' instead uses the
+      // classic ESP32's built-in 8-bit DAC, fixed to GPIO25/26 by the
+      // ESP32-audioI2S library — not available on ESP32-S3/S2/C3, which have
+      // no DAC peripheral (see findBoardCompatibilityErrors).
+      audioOutput: 'i2s',
       i2sBclk:     26,
       i2sLrc:      25,
       i2sDout:     22,
@@ -2621,6 +2627,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
     'meteor', 'tornado', 'pinwheel', 'bounce', 'attractor', 'waterfall',
   ] },
   channel:        { control: 'select', options: ['Left', 'Right'] },
+  audioOutput:    { control: 'select', options: ['i2s', 'internalDac'] },
   // Poline position functions — keep in sync with polinePalette.ts POSITION_FNS.
   position:   { control: 'select', options: ['linear', 'sinusoidal', 'quadratic', 'cubic', 'arc', 'smoothStep', 'exponential'] },
   points:     { control: 'slider', min: 1, max: 12, step: 1 },
@@ -3315,6 +3322,13 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     if (key === 'tilesX' || key === 'tilesY' || key === 'tileSerpentine' || key === 'tileRotations')
       return properties.layout === 'panels'
     if (key === 'customXYMap') return properties.layout === 'custom'
+  }
+  if (nodeType === 'SDCard') {
+    // The I2S pins only apply when driving an external DAC; the internal-DAC
+    // mode is fixed to GPIO25/26 by the ESP32-audioI2S library.
+    if (key === 'i2sBclk' || key === 'i2sLrc' || key === 'i2sDout') {
+      return String(properties.audioOutput ?? 'i2s') !== 'internalDac'
+    }
   }
   if (nodeType === 'Mirror' && key === 'glowAmount') {
     return properties.glow === true

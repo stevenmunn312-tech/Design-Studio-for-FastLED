@@ -53,9 +53,15 @@ function collectPinUses(nodes: StudioNode[]): PinUse[] {
         break
       case 'SDCard':
         push(n.id, `${label} CS pin`, props.sdCsPin)
-        push(n.id, `${label} I2S BCLK`, props.i2sBclk)
-        push(n.id, `${label} I2S LRC`, props.i2sLrc)
-        push(n.id, `${label} I2S DOUT`, props.i2sDout)
+        if (props.audioOutput === 'internalDac') {
+          // ESP32-audioI2S's internal-DAC mode is fixed to these two pins.
+          push(n.id, `${label} internal DAC (GPIO25)`, 25)
+          push(n.id, `${label} internal DAC (GPIO26)`, 26)
+        } else {
+          push(n.id, `${label} I2S BCLK`, props.i2sBclk)
+          push(n.id, `${label} I2S LRC`, props.i2sLrc)
+          push(n.id, `${label} I2S DOUT`, props.i2sDout)
+        }
         break
     }
   }
@@ -264,9 +270,19 @@ export function findMatrixLayoutErrors(nodes: StudioNode[]): string[] {
 }
 
 export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: string): string[] {
-  if (!selectedFqbn || !nodes.some((node) => node.data.nodeType === 'MicInput')) return []
-  if (selectedFqbn.startsWith('esp32:')) return []
-  return ['Microphone firmware requires an ESP32-family board because INMP441 capture uses the ESP-IDF I2S driver']
+  const errors: string[] = []
+  if (selectedFqbn && nodes.some((node) => node.data.nodeType === 'MicInput') && !selectedFqbn.startsWith('esp32:')) {
+    errors.push('Microphone firmware requires an ESP32-family board because INMP441 capture uses the ESP-IDF I2S driver')
+  }
+  const internalDacSd = nodes.find((node) =>
+    node.data.nodeType === 'SDCard' && (node.data.properties as Record<string, unknown>).audioOutput === 'internalDac'
+  )
+  // Only the classic ESP32 has the DAC peripheral ESP32-audioI2S's internal-DAC
+  // mode drives; S3/S2/C3 have no DAC hardware at all.
+  if (selectedFqbn && internalDacSd && selectedFqbn !== 'esp32:esp32:esp32') {
+    errors.push('SD Card internal-DAC audio output requires the classic ESP32 board — ESP32-S3/S2/C3 have no built-in DAC')
+  }
+  return errors
 }
 
 export function findScalarExpressionErrors(nodes: StudioNode[]): string[] {
@@ -514,6 +530,20 @@ export function buildGraphDiagnostics(
         title: 'Microphone is incompatible with the selected board',
         message: 'INMP441 capture uses the ESP-IDF I2S driver and cannot compile for this target.',
         fix: 'Choose an ESP32-family board in Board & Port, or remove the Microphone node.',
+        nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
+      })
+    }
+  }
+
+  if (options.selectedFqbn && options.selectedFqbn !== 'esp32:esp32:esp32') {
+    for (const node of nodes.filter((entry) =>
+      entry.data.nodeType === 'SDCard' && (entry.data.properties as Record<string, unknown>).audioOutput === 'internalDac'
+    )) {
+      diagnostics.push({
+        id: `${node.id}-board`, severity: 'error', category: 'board',
+        title: 'Internal-DAC audio output is incompatible with the selected board',
+        message: 'Only the classic ESP32 has the built-in DAC peripheral; ESP32-S3/S2/C3 have none.',
+        fix: 'Choose the classic ESP32 board in Board & Port, or switch the SD Card node to I2S output.',
         nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
       })
     }
