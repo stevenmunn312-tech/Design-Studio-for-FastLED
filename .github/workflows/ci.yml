@@ -16,6 +16,7 @@ on:
       - "docs/**"
       - ".github/ISSUE_TEMPLATE/**"
       - "LICENSE"
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
