@@ -1,0 +1,262 @@
+.showcase {
+  min-height: 100%;
+  overflow: auto;
+  background:
+    radial-gradient(circle at 20% 5%, rgba(80, 88, 88, .12), transparent 24%),
+    radial-gradient(circle at 82% 18%, rgba(244, 173, 34, .035), transparent 26%),
+    repeating-radial-gradient(circle at 1px 1px, rgba(255,255,255,.04) 0 1px, transparent 1.5px 20px),
+    #080a0b;
+  color: #c9c7be;
+  font-family: "Bahnschrift", Inter, sans-serif;
+}
+
+:global(html[data-ui-elements]) {
+  height: auto;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+:global(html[data-ui-elements] body),
+:global(html[data-ui-elements] #root) {
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+}
+
+.topRail,
+.statusRail {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: min-content;
+  border-color: #020303;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.013) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, #242727, #111414);
+  box-shadow: inset 0 1px rgba(255,255,255,.07), inset 0 -1px rgba(255,255,255,.04), 0 3px 8px rgba(0,0,0,.7);
+}
+
+.topRail {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  min-height: 64px;
+  padding: 8px 22px;
+  border-bottom: 2px solid #030404;
+}
+
+.brandCluster {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding-right: 18px;
+  border-right: 1px solid rgba(255,255,255,.08);
+}
+
+.version {
+  padding: 4px 6px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 3px;
+  color: #777a77;
+  font: 9px/1 "JetBrains Mono", monospace;
+}
+
+.commandBar,
+.modeBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modeBar {
+  margin-left: auto;
+}
+
+.intro {
+  display: grid;
+  grid-template-columns: minmax(360px, 1.2fr) minmax(320px, .8fr);
+  gap: 60px;
+  align-items: end;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 54px 38px 32px;
+}
+
+.kicker {
+  display: block;
+  margin-bottom: 7px;
+  color: #f4ad22;
+  font: 11px/1 "JetBrains Mono", monospace;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.intro h1 {
+  margin: 0;
+  color: #d9d7ce;
+  font: 400 clamp(36px, 5vw, 68px)/.96 "Bahnschrift Condensed", "Arial Narrow", sans-serif;
+  letter-spacing: -.025em;
+  text-shadow: 0 2px 2px #000;
+}
+
+.intro p {
+  max-width: 580px;
+  margin: 0 0 4px;
+  color: #878985;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.componentGrid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 18px;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 0 38px 36px;
+}
+
+.componentGrid > section:nth-child(1) { grid-column: span 4; }
+.componentGrid > section:nth-child(2) { grid-column: span 4; }
+.componentGrid > section:nth-child(3) { grid-column: span 4; }
+.componentGrid > section:nth-child(4) { grid-column: span 7; }
+.componentGrid > section:nth-child(5) { grid-column: span 5; }
+
+.controlStack,
+.switchStack,
+.faderStack {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+.largeKnobRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+
+.lampShelf,
+.buttonShelf,
+.jackRow,
+.matrixMeta {
+  display: flex;
+  align-items: center;
+  gap: 17px;
+}
+
+.lampShelf {
+  flex-wrap: wrap;
+  margin-top: 25px;
+  padding: 15px 0;
+  border-top: 1px solid rgba(255,255,255,.06);
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+
+.buttonShelf {
+  margin-top: 18px;
+}
+
+.jackRow {
+  justify-content: space-around;
+}
+
+.cableSample {
+  height: 100px;
+  margin: -3px 7px -2px;
+  pointer-events: none;
+}
+
+.microcopy {
+  margin: 0;
+  color: #777a77;
+  font: 9px/1.5 "JetBrains Mono", monospace;
+  text-align: center;
+}
+
+.matrixMeta {
+  justify-content: space-between;
+  margin-top: 16px;
+  color: #858781;
+  font: 10px/1 "JetBrains Mono", monospace;
+}
+
+.transportPanel {
+  align-self: stretch;
+}
+
+.transportTimes {
+  display: flex;
+  justify-content: space-between;
+  margin: 15px 3px 10px;
+  color: #8c8d88;
+  font: 11px/1 "JetBrains Mono", monospace;
+}
+
+.faderStack {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+
+.statusRail {
+  min-height: 52px;
+  padding: 8px 24px;
+  border-top: 2px solid #030404;
+}
+
+.statusChips {
+  display: flex;
+  gap: 7px;
+  margin-left: auto;
+}
+
+.statusChips span {
+  padding: 5px 11px;
+  border: 1px solid #040505;
+  border-radius: 3px;
+  background: rgba(0,0,0,.22);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.05);
+  color: #92948e;
+  font: 9px/1 "JetBrains Mono", monospace;
+  text-transform: uppercase;
+}
+
+.backLink {
+  padding: 7px 12px;
+  border-left: 1px solid rgba(255,255,255,.08);
+  color: #f4ad22;
+  font: 10px/1 "JetBrains Mono", monospace;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.backLink:hover { color: #ffcd65; }
+
+@media (max-width: 1100px) {
+  .topRail { overflow-x: auto; }
+  .componentGrid > section:nth-child(1),
+  .componentGrid > section:nth-child(2),
+  .componentGrid > section:nth-child(3) { grid-column: span 6; }
+  .componentGrid > section:nth-child(4),
+  .componentGrid > section:nth-child(5) { grid-column: span 12; }
+}
+
+@media (max-width: 720px) {
+  .intro {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: 38px 18px 24px;
+  }
+  .componentGrid {
+    display: flex;
+    flex-direction: column;
+    padding: 0 18px 24px;
+  }
+  .statusRail { overflow-x: auto; }
+}

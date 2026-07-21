@@ -1,0 +1,467 @@
+.panel,
+.rackButton,
+.numberReadout,
+.spectrum,
+.ledMatrix {
+  --metal-edge: rgba(255, 255, 255, 0.1);
+  --metal-shadow: rgba(0, 0, 0, 0.86);
+}
+
+.panel {
+  position: relative;
+  min-width: 0;
+  border: 1px solid #030405;
+  border-radius: 7px;
+  background:
+    linear-gradient(96deg, transparent 0 37%, rgba(255,255,255,.018) 38%, transparent 39% 67%, rgba(255,255,255,.012) 68%, transparent 69%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 4px),
+    linear-gradient(145deg, #292c2c 0%, #171a1a 42%, #101313 100%);
+  box-shadow:
+    inset 0 0 0 1px var(--metal-edge),
+    inset 0 14px 30px rgba(255, 255, 255, 0.025),
+    inset 0 -18px 32px rgba(0, 0, 0, 0.34),
+    0 4px 9px rgba(0, 0, 0, 0.72);
+  color: #c9c7be;
+}
+
+.panelHeader {
+  min-height: 48px;
+  padding: 11px 26px 8px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.8);
+  box-shadow: 0 1px rgba(255,255,255,.045);
+}
+
+.panelHeader h2,
+.eyebrow,
+.controlLabel,
+.jackLabel,
+.statusLamp,
+.rackButton {
+  font-family: "Bahnschrift Condensed", "Arial Narrow", sans-serif;
+  font-stretch: condensed;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.panelHeader h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.15;
+  text-shadow: 0 1px 1px #000;
+}
+
+.eyebrow {
+  display: block;
+  margin-bottom: 2px;
+  color: #817f78;
+  font-size: 9px;
+}
+
+.panelBody {
+  padding: 22px 26px 24px;
+}
+
+.screw {
+  position: absolute;
+  z-index: 3;
+  width: 16px;
+  height: 16px;
+  border: 1px solid #070909;
+  border-radius: 50%;
+  background:
+    linear-gradient(36deg, transparent 44%, #050606 45% 54%, transparent 55%),
+    radial-gradient(circle at 35% 28%, #696c69 0 6%, #343635 15%, #131515 48%, #050606 64%, #292b2a 78%, #090a0a 100%);
+  box-shadow: inset 0 0 2px #000, 0 1px 2px #000;
+}
+
+.screwTopLeft { top: 9px; left: 9px; }
+.screwTopRight { top: 9px; right: 9px; transform: rotate(70deg); }
+.screwBottomLeft { bottom: 9px; left: 9px; transform: rotate(22deg); }
+.screwBottomRight { right: 9px; bottom: 9px; transform: rotate(103deg); }
+
+.rackButton {
+  position: relative;
+  min-width: 78px;
+  height: 39px;
+  padding: 0 18px;
+  border: 1px solid #020303;
+  border-radius: 4px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.07), transparent 16%),
+    linear-gradient(180deg, #242727, #111313 55%, #171919);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.08),
+    inset 0 -8px 12px rgba(0,0,0,.22),
+    0 2px 3px #050606;
+  color: #c9c7be;
+  font-size: 13px;
+  line-height: 1;
+  text-shadow: 0 1px #000;
+  cursor: pointer;
+  transition: color 120ms ease-out, border-color 120ms ease-out, box-shadow 120ms ease-out, transform 80ms ease-out;
+}
+
+.rackButton:hover {
+  color: #efede4;
+  border-color: color-mix(in srgb, var(--control-accent) 45%, #050606);
+}
+
+.rackButton:active { transform: translateY(1px); }
+
+.rackButtonActive {
+  border-color: var(--control-accent);
+  color: var(--control-accent);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.08),
+    inset 0 0 14px color-mix(in srgb, var(--control-accent) 16%, transparent),
+    0 0 7px color-mix(in srgb, var(--control-accent) 34%, transparent),
+    0 2px 3px #050606;
+}
+
+.rackButtonCompact {
+  min-width: 62px;
+  width: 62px;
+  padding: 0 8px;
+  font-size: 18px;
+}
+
+.knobControl {
+  display: grid;
+  grid-template-columns: minmax(48px, 1fr) 46px 48px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.knobControlLarge {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  gap: 7px;
+}
+
+.controlLabel,
+.jackLabel {
+  color: #c9c7be;
+  font-size: 11px;
+  line-height: 1.1;
+}
+
+.knob {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background:
+    repeating-conic-gradient(from -135deg, rgba(209,209,199,.32) 0 1deg, transparent 1deg 15deg),
+    radial-gradient(circle, transparent 0 58%, #050606 60% 68%, transparent 70%);
+}
+
+.knobControlLarge .knob { width: 78px; height: 78px; }
+
+.knobCap {
+  position: absolute;
+  inset: 7px;
+  border: 1px solid #050606;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 37% 29%, rgba(255,255,255,.19) 0 4%, transparent 5%),
+    linear-gradient(var(--knob-angle), transparent 0 47%, #d9d8ce 48% 52%, transparent 53%) top center / 3px 44% no-repeat,
+    radial-gradient(circle at 43% 38%, #424544 0 8%, #272a29 32%, #0d0f0f 65%, #292b2a 78%, #070808 100%);
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.06), 0 2px 4px #000, 0 0 0 2px #111;
+  transform: rotate(var(--knob-angle));
+}
+
+.knobControlLarge .knobCap { inset: 10px; }
+
+.knobCap::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  width: 2px;
+  height: 25%;
+  border-radius: 2px;
+  background: #e4e2d6;
+  box-shadow: 0 0 3px var(--control-accent);
+  transform: translateX(-50%);
+}
+
+.knobInput {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: ns-resize;
+}
+
+.knob:has(.knobInput:focus-visible) {
+  outline: 2px solid var(--control-accent);
+  outline-offset: 3px;
+}
+
+.numberReadout {
+  min-width: 48px;
+  padding: 5px 6px 4px;
+  border: 1px solid #050606;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #080a0a, #111313);
+  box-shadow: inset 0 1px 4px #000, 0 1px rgba(255,255,255,.07);
+  color: #d3d0c6;
+  font: 11px/1 "JetBrains Mono", Consolas, monospace;
+  text-align: right;
+}
+
+.knobControlLarge .numberReadout { text-align: center; }
+
+.toggleControl {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #7e7d77;
+  cursor: pointer;
+}
+
+.toggleOff,
+.toggleOnLabel {
+  font: 9px/1 "Bahnschrift Condensed", "Arial Narrow", sans-serif;
+}
+
+.toggleOn .toggleOnLabel { color: var(--control-accent); text-shadow: 0 0 5px var(--control-accent); }
+
+.toggleTrack {
+  position: relative;
+  width: 34px;
+  height: 17px;
+  border: 1px solid #030404;
+  border-radius: 10px;
+  background: #080909;
+  box-shadow: inset 0 1px 4px #000, 0 1px rgba(255,255,255,.1);
+}
+
+.toggleThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border: 1px solid #080909;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #a4a49d, #454745 45%, #121313 78%);
+  box-shadow: 0 1px 2px #000;
+  transition: transform 140ms ease-out;
+}
+
+.toggleOn .toggleThumb {
+  transform: translateX(17px);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--control-accent) 70%, transparent), 0 1px 2px #000;
+}
+
+.jackControl {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  min-width: 54px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.jackSocket {
+  position: relative;
+  width: 31px;
+  height: 31px;
+  border: 1px solid #030404;
+  border-radius: 50%;
+  background: radial-gradient(circle, #050606 0 18%, #333533 20% 33%, #090a0a 37% 47%, #7a7a73 49% 53%, #1c1e1d 57% 70%, #050606 73% 100%);
+  box-shadow: 0 2px 4px #000, inset 0 0 3px #000;
+}
+
+.jackPlug {
+  position: absolute;
+  inset: 5px;
+  border: 1px solid #080909;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 28%, #efe0a5 0 7%, var(--control-accent) 10% 42%, #65410a 68%, #080909 72%);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--control-accent) 45%, transparent), 0 2px 3px #000;
+}
+
+.statusLamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #bcbab2;
+  font-size: 11px;
+}
+
+.lampDot {
+  width: 9px;
+  height: 9px;
+  border: 1px solid #030404;
+  border-radius: 50%;
+  background: #171818;
+  box-shadow: inset 0 1px 2px #000;
+}
+
+.lampDotActive {
+  background: var(--control-accent);
+  box-shadow: 0 0 8px var(--control-accent), inset 0 1px rgba(255,255,255,.55);
+}
+
+.faderControl {
+  display: grid;
+  grid-template-columns: auto minmax(90px, 1fr) 38px;
+  align-items: center;
+  gap: 12px;
+}
+
+.faderControl output {
+  color: #aeadab;
+  font: 10px/1 "JetBrains Mono", Consolas, monospace;
+  text-align: right;
+}
+
+.faderControl input {
+  width: 100%;
+  height: 20px;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.faderControl input::-webkit-slider-runnable-track {
+  height: 7px;
+  border: 1px solid #040505;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--control-accent), #43310e var(--fader-fill), #121414 var(--fader-fill));
+  box-shadow: inset 0 1px 3px #000, 0 1px rgba(255,255,255,.08);
+}
+
+.faderControl input::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  margin-top: -6px;
+  appearance: none;
+  border: 1px solid #090a0a;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 30%, #ededeb 0 10%, #aaa9a4 35%, #3a3b3a 75%, #101111);
+  box-shadow: 0 2px 4px #000;
+}
+
+.spectrum {
+  display: flex;
+  align-items: end;
+  gap: 2px;
+  height: 64px;
+  padding: 9px 12px 8px;
+  overflow: hidden;
+  border: 1px solid #030404;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #080a0a, #0d1010);
+  box-shadow: inset 0 2px 8px #000, 0 1px rgba(255,255,255,.06);
+}
+
+.spectrum span {
+  flex: 1 1 2px;
+  min-width: 2px;
+  max-width: 5px;
+  background: hsl(var(--bar-hue) 100% 55%);
+  box-shadow: 0 0 4px hsl(var(--bar-hue) 100% 55% / .6);
+}
+
+.ledMatrix {
+  display: grid;
+  grid-template-columns: repeat(var(--matrix-size), minmax(5px, 1fr));
+  gap: clamp(3px, .45vw, 7px);
+  aspect-ratio: 1;
+  padding: clamp(10px, 1.2vw, 18px);
+  border: 1px solid #020303;
+  border-radius: 5px;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(35,111,151,.12), transparent 64%),
+    #070909;
+  box-shadow: inset 0 0 0 5px #151818, inset 0 0 0 6px rgba(255,255,255,.08), inset 0 0 28px #000, 0 2px 3px #000;
+}
+
+.ledMatrix span {
+  min-width: 0;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #e9ffff 0 4%, var(--led-color) 18% 55%, color-mix(in srgb, var(--led-color) 40%, #020607) 72%);
+  box-shadow: 0 0 5px var(--led-color), 0 0 11px color-mix(in srgb, var(--led-color) 48%, transparent);
+  animation: ledBreathe 2.8s var(--led-delay) ease-in-out infinite alternate;
+}
+
+.transport {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  color: #d2d0c7;
+  font: 500 23px/1 "Bahnschrift Condensed", "Arial Narrow", sans-serif;
+  letter-spacing: .025em;
+  text-shadow: 0 1px #000;
+  white-space: nowrap;
+}
+
+.brandDots {
+  display: grid;
+  grid-template-columns: repeat(3, 6px);
+  gap: 3px;
+}
+
+.brandDots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  box-shadow: 0 0 4px currentColor;
+}
+
+.patchCable {
+  width: 100%;
+  height: 100px;
+  overflow: visible;
+}
+
+.patchCable path {
+  fill: none;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.patchCable .patchCableShadow {
+  stroke: rgba(0,0,0,.75);
+  stroke-width: 9;
+  transform: translate(1px, 3px);
+}
+
+@keyframes ledBreathe {
+  from { filter: brightness(.82); }
+  to { filter: brightness(1.13); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ledMatrix span { animation: none; }
+}
