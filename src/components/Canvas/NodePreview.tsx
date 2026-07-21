@@ -35,7 +35,14 @@ function FrameThumb({ frame, height }: { frame?: Frame; height?: number }) {
     const srcH = frame?.length ?? 0
     const srcW = frame?.[0]?.length ?? 0
     if (!srcW || !srcH) return // nothing to draw yet
-    const ctx = cv.getContext('2d')
+    // `willReadFrequently: true` forces a CPU-backed (software) 2D canvas. A
+    // heavy graph mounts dozens of these thumbnails, each redrawn via
+    // putImageData every frame; as *hardware-accelerated* canvases that leaks
+    // GPU/compositor memory unbounded in Chromium (many live GPU textures that
+    // are never reclaimed — multi-GB, invisible to the JS heap). Software
+    // canvases hold no persistent GPU texture, and putImageData into a tiny
+    // (<=96px) thumbnail is cheap on the CPU.
+    const ctx = cv.getContext('2d', { willReadFrequently: true })
     if (!ctx) return
     // Downsample only when the frame exceeds the thumbnail bound; small matrices
     // draw 1:1 as before (scale === 1).
