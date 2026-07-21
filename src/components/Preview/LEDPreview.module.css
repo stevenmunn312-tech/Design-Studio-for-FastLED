@@ -325,12 +325,15 @@
   inset: 5% 9%;
   border-radius: 22%;
   opacity: var(--ambient-opacity, 0);
+  /* Softness comes from the wide transparent gradient falloff, NOT a CSS
+     `filter: blur()`: the --ambient-* colours are rewritten ~10x/sec, and a
+     filter on a per-update element leaks GPU compositor memory unbounded (same
+     footgun as the node-preview glow / animated edges). */
   background:
-    radial-gradient(circle at 16% 18%, var(--ambient-nw, transparent), transparent 48%),
-    radial-gradient(circle at 84% 18%, var(--ambient-ne, transparent), transparent 48%),
-    radial-gradient(circle at 16% 82%, var(--ambient-sw, transparent), transparent 48%),
-    radial-gradient(circle at 84% 82%, var(--ambient-se, transparent), transparent 48%);
-  filter: blur(34px) saturate(1.35);
+    radial-gradient(circle at 16% 18%, var(--ambient-nw, transparent), transparent 66%),
+    radial-gradient(circle at 84% 18%, var(--ambient-ne, transparent), transparent 66%),
+    radial-gradient(circle at 16% 82%, var(--ambient-sw, transparent), transparent 66%),
+    radial-gradient(circle at 84% 82%, var(--ambient-se, transparent), transparent 66%);
   transform: scale(1.16);
   transition: opacity 180ms linear, background 180ms linear;
   pointer-events: none;

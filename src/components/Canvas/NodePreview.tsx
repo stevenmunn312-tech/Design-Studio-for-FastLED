@@ -9,31 +9,34 @@ export type PreviewKind = 'frame' | 'palette' | 'color'
 // Cap the thumbnail's backing-store resolution. Frames are evaluated at the
 // composition canvas size *including supersampling* (see outputRouting), so a
 // large or supersampled matrix yields a 128×128+ frame. The preview is only a
-// ~200px CSS-scaled canvas, so drawing it 1:1 — a full per-pixel loop plus a
-// same-size blurred glow canvas the compositor re-rasterises — costs far more
-// than it shows, enough to blow the frame budget on a big graph. Downsample to
-// this bound (nearest-neighbour) so a frame preview's cost is constant in the
-// matrix/supersample size; `image-rendering: pixelated` keeps the LED look.
+// ~200px CSS-scaled canvas, so drawing it 1:1 costs far more than it shows.
+// Downsample to this bound (nearest-neighbour) so a frame preview's cost is
+// constant in the matrix/supersample size; `image-rendering: pixelated` keeps
+// the LED look.
 const THUMB_MAX = 96
 
 // Live thumbnail of a frame: draws the pixels to a bounded canvas, CSS-scaled to
-// the node width at the matrix aspect ratio (`height` from the caller). A second,
-// blurred copy sits behind it (CSS `filter: blur()`, GPU-composited) to approximate
-// the main preview's LED glow without a per-pixel shader pass.
+// the node width at the matrix aspect ratio (`height` from the caller).
+//
+// There is deliberately NO blurred glow layer. A canvas whose pixels are
+// rewritten every frame (putImageData) cannot carry a CSS `filter` (e.g.
+// `blur()`): Chromium re-rasterises the filtered layer on every content change
+// and leaks the GPU filter buffer, growing GPU/compositor memory unbounded
+// until the tab crashes — with a heavy, audio-reactive graph the per-node glow
+// canvases were the dominant leak (multi-GB). This is the same footgun as a
+// CSS filter on an infinitely-animated element (see GlowEdge.module.css), just
+// driven by JS canvas writes instead of a keyframe animation.
 function FrameThumb({ frame, height }: { frame?: Frame; height?: number }) {
   const ref = useRef<HTMLCanvasElement>(null)
-  const glowRef = useRef<HTMLCanvasElement>(null)
   const imageRef = useRef<ImageData | null>(null)
   useEffect(() => {
     const cv = ref.current
-    const glowCv = glowRef.current
-    if (!cv || !glowCv) return
+    if (!cv) return
     const srcH = frame?.length ?? 0
     const srcW = frame?.[0]?.length ?? 0
     if (!srcW || !srcH) return // nothing to draw yet
     const ctx = cv.getContext('2d')
-    const glowCtx = glowCv.getContext('2d')
-    if (!ctx || !glowCtx) return
+    if (!ctx) return
     // Downsample only when the frame exceeds the thumbnail bound; small matrices
     // draw 1:1 as before (scale === 1).
     const scale = Math.min(1, THUMB_MAX / Math.max(srcW, srcH))
@@ -42,8 +45,6 @@ function FrameThumb({ frame, height }: { frame?: Frame; height?: number }) {
     if (cv.width !== w || cv.height !== h) {
       cv.width = w
       cv.height = h
-      glowCv.width = w
-      glowCv.height = h
       imageRef.current = null
     }
     if (!imageRef.current || imageRef.current.width !== w || imageRef.current.height !== h) {
@@ -59,11 +60,9 @@ function FrameThumb({ frame, height }: { frame?: Frame; height?: number }) {
       }
     }
     ctx.putImageData(img, 0, 0)
-    glowCtx.putImageData(img, 0, 0)
   }, [frame])
   return (
     <div className={styles.frameWrap} style={height ? { height } : undefined}>
-      <canvas ref={glowRef} className={styles.glow} aria-hidden="true" />
       <canvas ref={ref} className={styles.frame} aria-hidden="true" />
     </div>
   )
