@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePreviewStore } from '../../state/previewStore'
 import { paletteStops, type Frame } from '../../state/graphEvaluator'
 import styles from './NodePreview.module.css'
@@ -28,8 +28,28 @@ const THUMB_MAX = 96
 // driven by JS canvas writes instead of a keyframe animation.
 function FrameThumb({ frame, height }: { frame?: Frame; height?: number }) {
   const ref = useRef<HTMLCanvasElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
   const imageRef = useRef<ImageData | null>(null)
+  // Only keep a live preview canvas for on-screen nodes. A big graph mounts a
+  // canvas per frame node, but most are scrolled/panned out of view — and dozens
+  // of continuously-updating, composited canvas *layers* pile up the renderer's
+  // raster memory unbounded in Chromium (system RAM on an integrated GPU),
+  // regardless of GPU vs software rendering. When a node leaves the viewport we
+  // both skip its draw and drop the canvas from compositing (visibility:hidden),
+  // so only the handful of visible previews stay live.
+  const [onScreen, setOnScreen] = useState(true)
   useEffect(() => {
+    const wrap = wrapRef.current
+    if (!wrap || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver(
+      (entries) => setOnScreen(entries[entries.length - 1]?.isIntersecting ?? true),
+      { rootMargin: '150px' }, // resume a little before it scrolls into view
+    )
+    io.observe(wrap)
+    return () => io.disconnect()
+  }, [])
+  useEffect(() => {
+    if (!onScreen) return // off-screen: don't draw or composite this canvas
     const cv = ref.current
     if (!cv) return
     const srcH = frame?.length ?? 0
@@ -67,10 +87,15 @@ function FrameThumb({ frame, height }: { frame?: Frame; height?: number }) {
       }
     }
     ctx.putImageData(img, 0, 0)
-  }, [frame])
+  }, [frame, onScreen])
   return (
-    <div className={styles.frameWrap} style={height ? { height } : undefined}>
-      <canvas ref={ref} className={styles.frame} aria-hidden="true" />
+    <div ref={wrapRef} className={styles.frameWrap} style={height ? { height } : undefined}>
+      <canvas
+        ref={ref}
+        className={styles.frame}
+        aria-hidden="true"
+        style={onScreen ? undefined : { visibility: 'hidden' }}
+      />
     </div>
   )
 }
