@@ -8,36 +8,57 @@
 // (whole module is gated to DEV and tree-shaken out).
 
 export interface AnimationFilterLeak {
-  animation: string
+  source: string
   element: string
   filter: string
 }
 
-/** Every infinitely-animated element that also carries a CSS filter (the leak).
- *  Works even in a hidden tab — it reads declared animations + computed style,
- *  no rendering required. Exposed on `window.__scanAnimFilters()` in dev. */
+function elementLabel(el: Element): string {
+  const cls = typeof el.className === 'string' ? el.className : el.getAttribute('class') ?? ''
+  return `${el.tagName.toLowerCase()}.${cls.split(' ')[0]}`
+}
+
+function cssFilter(style: CSSStyleDeclaration): string {
+  return style.filter && style.filter !== 'none' ? style.filter
+    : style.backdropFilter && style.backdropFilter !== 'none' ? `backdrop-filter: ${style.backdropFilter}`
+    : ''
+}
+
+/** Elements that carry a CSS filter over content that changes every frame — the
+ *  Chromium GPU-memory leak. Two shapes: (1) an infinitely-animated element with
+ *  a filter, and (2) a <canvas> with a filter (canvases are redrawn via JS, so a
+ *  filter re-rasterises per frame just the same — this shape has no CSS animation
+ *  and is invisible to getAnimations). Reads computed style only, so it works in
+ *  a hidden tab. Exposed on `window.__scanAnimFilters()` in dev. */
 export function findAnimationFilterLeaks(): AnimationFilterLeak[] {
-  if (typeof document === 'undefined' || typeof document.getAnimations !== 'function') return []
+  if (typeof document === 'undefined') return []
   const seen = new Set<string>()
   const leaks: AnimationFilterLeak[] = []
-  for (const anim of document.getAnimations()) {
-    const effect = anim.effect
-    if (!(effect instanceof KeyframeEffect)) continue
-    const target = effect.target
-    if (!(target instanceof Element)) continue
-    if (effect.getTiming().iterations !== Infinity) continue
-    const style = getComputedStyle(target)
-    const filter =
-      style.filter && style.filter !== 'none' ? style.filter
-      : style.backdropFilter && style.backdropFilter !== 'none' ? `backdrop-filter: ${style.backdropFilter}`
-      : ''
+  // Shape 1: infinitely-animated element + filter.
+  if (typeof document.getAnimations === 'function') {
+    for (const anim of document.getAnimations()) {
+      const effect = anim.effect
+      if (!(effect instanceof KeyframeEffect)) continue
+      const target = effect.target
+      if (!(target instanceof Element)) continue
+      if (effect.getTiming().iterations !== Infinity) continue
+      const filter = cssFilter(getComputedStyle(target))
+      if (!filter) continue
+      const name = anim instanceof CSSAnimation ? anim.animationName : anim.id || '(unnamed)'
+      const key = `anim|${name}|${elementLabel(target)}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      leaks.push({ source: `animation:${name}`, element: elementLabel(target), filter: filter.slice(0, 80) })
+    }
+  }
+  // Shape 2: a <canvas> with a filter (redrawn every frame → same leak).
+  for (const canvas of document.querySelectorAll('canvas')) {
+    const filter = cssFilter(getComputedStyle(canvas))
     if (!filter) continue
-    const cls = typeof target.className === 'string' ? target.className : target.getAttribute('class') ?? ''
-    const name = anim instanceof CSSAnimation ? anim.animationName : anim.id || '(unnamed)'
-    const key = `${name}|${cls}`
+    const key = `canvas|${elementLabel(canvas)}`
     if (seen.has(key)) continue
     seen.add(key)
-    leaks.push({ animation: name, element: `${target.tagName.toLowerCase()}.${cls.split(' ')[0]}`, filter: filter.slice(0, 80) })
+    leaks.push({ source: 'canvas', element: elementLabel(canvas), filter: filter.slice(0, 80) })
   }
   return leaks
 }
