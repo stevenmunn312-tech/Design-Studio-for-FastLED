@@ -26,17 +26,14 @@ const THUMB_MAX = 96
 // canvases were the dominant leak (multi-GB). This is the same footgun as a
 // CSS filter on an infinitely-animated element (see GlowEdge.module.css), just
 // driven by JS canvas writes instead of a keyframe animation.
+// One shared, off-DOM scratch canvas used to rasterise every thumbnail. It is
+// never inserted into the document, so it is never a compositor layer.
+const scratch = typeof document !== 'undefined' ? document.createElement('canvas') : null
+
 function FrameThumb({ frame, height }: { frame?: Frame; height?: number }) {
-  const ref = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
-  const imageRef = useRef<ImageData | null>(null)
-  // Only keep a live preview canvas for on-screen nodes. A big graph mounts a
-  // canvas per frame node, but most are scrolled/panned out of view — and dozens
-  // of continuously-updating, composited canvas *layers* pile up the renderer's
-  // raster memory unbounded in Chromium (system RAM on an integrated GPU),
-  // regardless of GPU vs software rendering. When a node leaves the viewport we
-  // both skip its draw and drop the canvas from compositing (visibility:hidden),
-  // so only the handful of visible previews stay live.
+  const [src, setSrc] = useState<string | null>(null)
+  // Only update on-screen previews (a big graph pans most nodes out of view).
   const [onScreen, setOnScreen] = useState(true)
   useEffect(() => {
     const wrap = wrapRef.current
@@ -49,35 +46,18 @@ function FrameThumb({ frame, height }: { frame?: Frame; height?: number }) {
     return () => io.disconnect()
   }, [])
   useEffect(() => {
-    if (!onScreen) return // off-screen: don't draw or composite this canvas
-    const cv = ref.current
-    if (!cv) return
+    if (!onScreen || !scratch) return
     const srcH = frame?.length ?? 0
     const srcW = frame?.[0]?.length ?? 0
     if (!srcW || !srcH) return // nothing to draw yet
-    // `willReadFrequently: true` forces a CPU-backed (software) 2D canvas. A
-    // heavy graph mounts dozens of these thumbnails, each redrawn via
-    // putImageData every frame; as *hardware-accelerated* canvases that leaks
-    // GPU/compositor memory unbounded in Chromium (many live GPU textures that
-    // are never reclaimed — multi-GB, invisible to the JS heap). Software
-    // canvases hold no persistent GPU texture, and putImageData into a tiny
-    // (<=96px) thumbnail is cheap on the CPU.
-    const ctx = cv.getContext('2d', { willReadFrequently: true })
+    const ctx = scratch.getContext('2d', { willReadFrequently: true })
     if (!ctx) return
-    // Downsample only when the frame exceeds the thumbnail bound; small matrices
-    // draw 1:1 as before (scale === 1).
+    // Downsample only when the frame exceeds the thumbnail bound.
     const scale = Math.min(1, THUMB_MAX / Math.max(srcW, srcH))
     const w = Math.max(1, Math.round(srcW * scale))
     const h = Math.max(1, Math.round(srcH * scale))
-    if (cv.width !== w || cv.height !== h) {
-      cv.width = w
-      cv.height = h
-      imageRef.current = null
-    }
-    if (!imageRef.current || imageRef.current.width !== w || imageRef.current.height !== h) {
-      imageRef.current = ctx.createImageData(w, h)
-    }
-    const img = imageRef.current
+    if (scratch.width !== w || scratch.height !== h) { scratch.width = w; scratch.height = h }
+    const img = ctx.createImageData(w, h)
     for (let y = 0; y < h; y++) {
       const srow = frame![w === srcW ? y : Math.min(srcH - 1, (y * srcH / h) | 0)]
       for (let x = 0; x < w; x++) {
@@ -87,15 +67,18 @@ function FrameThumb({ frame, height }: { frame?: Frame; height?: number }) {
       }
     }
     ctx.putImageData(img, 0, 0)
+    // Publish as an <img>, NOT a live <canvas>. A visible canvas in the graph
+    // becomes its own compositor layer, and on some GPUs/drivers (notably AMD
+    // integrated) Chromium leaks renderer raster memory for each such layer,
+    // every compositor frame, unboundedly — even when the canvas is not redrawn,
+    // and invisible to the JS heap. An <img> is a normal painted element (like
+    // the palette/color previews, which never leaked), so it costs nothing to
+    // keep on screen. The rasterisation happens on the off-DOM scratch canvas.
+    setSrc(scratch.toDataURL())
   }, [frame, onScreen])
   return (
     <div ref={wrapRef} className={styles.frameWrap} style={height ? { height } : undefined}>
-      <canvas
-        ref={ref}
-        className={styles.frame}
-        aria-hidden="true"
-        style={onScreen ? undefined : { visibility: 'hidden' }}
-      />
+      {src && <img src={src} className={styles.frame} alt="" aria-hidden="true" draggable={false} />}
     </div>
   )
 }
