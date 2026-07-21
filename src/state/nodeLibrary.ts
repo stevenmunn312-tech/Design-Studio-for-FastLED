@@ -3030,6 +3030,55 @@ export function propertyMeta(nodeType: string, key: string): PropertyControl | u
   return PROPERTY_META_OVERRIDES[nodeType]?.[key] ?? PROPERTY_META[key]
 }
 
+/**
+ * Short hover-tooltip text for a property row, for names whose purpose or
+ * units aren't obvious from the label + control alone (an on/off toggle
+ * whose effect is invisible in preview, a 0/free-running special case, a
+ * value that only matters on certain hardware, etc.). Most properties are
+ * self-explanatory from their label, slider range, and live preview, so this
+ * is intentionally a short, curated list rather than exhaustive coverage.
+ */
+export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
+  seed: '0 runs free (Math.random each time); any other value reproduces the exact same result on every run.',
+  clampInputs: "Clamps a wired float input to this node's slider range, so an unbounded upstream signal can't exceed it.",
+  bypassed: "Skips this node's own effect entirely and passes the matching input straight through — a quick A/B mute without unwiring.",
+  audioOutput: "'i2s' drives an external DAC/amp over the I2S pins below. 'internalDac' uses the classic ESP32's built-in DAC, fixed to GPIO25/26 — not available on ESP32-S3/S2/C3.",
+  overclock: 'Clockless chipsets only — multiplies the FastLED output clock. 1 = stock timing.',
+  dither: 'FastLED temporal dithering for smoother low-brightness gradients. Off is steadier under a camera but can band on the LEDs themselves.',
+  correction: "Colour-temperature compensation for the physical LEDs (FastLED.setCorrection) — doesn't change the live preview.",
+  powerLimit: 'Caps current draw via FastLED.setMaxPowerInVoltsAndMilliamps, auto-dimming to stay under the volts/mA budget below. Preview-only — no visible effect here.',
+  usePsram: "Moves this board's render buffers into PSRAM instead of internal DRAM, for designs that overflow internal RAM. Only available on boards with PSRAM.",
+  psramMode: "Which PSRAM interface to target — must match the board module's physical package; it can't be probed from the host.",
+  layout: 'How the grid maps to physical LED wiring order — plain matrix, a single strip, tiled panels, or a custom index permutation.',
+  chipset: 'The LED chipset driving this output — must match the physical strip/panel.',
+  colorOrder: 'Wire colour byte order the chipset expects. The wrong order swaps colours (e.g. red renders as green).',
+  clockPin: 'SPI chipsets only — the clock line alongside the data pin.',
+}
+
+/** Per-node overrides for property names whose meaning collides across nodes. */
+export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, string>> = {
+  Fire: {
+    direction: 'Which way the flame rises.',
+    turbulence: 'Widens the sideways heat diffusion window; 1 reproduces the original fixed-width kernel.',
+    paletteMix: 'Blends the palette colour toward plain heat-brightness grayscale.',
+    mirror: 'Folds the rendered frame symmetric across its width (up/down) or height (left/right).',
+  },
+  Fire2012: {
+    direction: 'Which way the flame rises.',
+    turbulence: 'Widens the sideways heat diffusion window; 1 reproduces the original fixed-width kernel.',
+    paletteMix: 'Blends the palette colour toward plain heat-brightness grayscale.',
+    mirror: 'Folds the rendered frame symmetric across its width (up/down) or height (left/right).',
+  },
+  Transition: {
+    direction: 'Slide direction for the Wipe / Push styles.',
+  },
+}
+
+/** Hover-tooltip text for a node's property, honouring per-node overrides. */
+export function propertyDescription(nodeType: string, key: string): string | undefined {
+  return PROPERTY_DESCRIPTIONS_OVERRIDES[nodeType]?.[key] ?? PROPERTY_DESCRIPTIONS[key]
+}
+
 // Hardware/setup values should remain literal and MatrixOutput width/height
 // cannot sensibly refer to the dimensions they are defining. Creative scalar
 // properties use expressions when their ordinary editor is a free-entry number;

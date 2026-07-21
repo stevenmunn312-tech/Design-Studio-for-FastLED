@@ -217,13 +217,17 @@ function ShortcutsTab() {
           <div className={styles.kbd}><span className={styles.key}>Del</span><span className={styles.key}>Backspace</span></div>
           <div className={styles.shortcutDesc}>Delete selected node(s)</div>
           <div className={styles.kbd}><span className={styles.key}>Esc</span></div>
-          <div className={styles.shortcutDesc}>Close this dialog / menu, or deselect nodes on the canvas</div>
+          <div className={styles.shortcutDesc}>Close this dialog / menu, exit Stage/Performance mode, or deselect nodes on the canvas — in that priority order</div>
           <div className={styles.kbd}><span className={styles.key}>?</span></div>
-          <div className={styles.shortcutDesc}>Open this Help dialog</div>
+          <div className={styles.shortcutDesc}>Open this Help dialog (F1 also works)</div>
           <div className={styles.kbd}><span className={styles.key}>Tab</span></div>
           <div className={styles.shortcutDesc}>Open the node search picker at the view centre</div>
           <div className={styles.kbd}><span className={styles.key}>F8</span></div>
           <div className={styles.shortcutDesc}>Toggle the Performance Deck (pinned knobs/faders, scenes, panic). MIDI and additional keyboard bindings are assigned from inside the deck panel itself, not listed here.</div>
+          <div className={styles.kbd}><span className={styles.key}>F9</span></div>
+          <div className={styles.shortcutDesc}>Toggle Performance mode (hushes chrome, emphasizes live signal flow)</div>
+          <div className={styles.kbd}><span className={styles.key}>F10</span></div>
+          <div className={styles.shortcutDesc}>Toggle Stage mode (preview-first, distraction-free display)</div>
         </div>
       </div>
 
@@ -354,9 +358,9 @@ function UploadTab() {
       <div className={styles.divider} />
 
       <div className={styles.section}>
-        <div className={styles.sectionTitle}>Supported boards (out of the box)</div>
+        <div className={styles.sectionTitle}>Board catalogue (out of the box)</div>
         <div className={styles.text}>
-          ESP32-S3 · ESP32 · Arduino Uno · Arduino Mega · Arduino Nano · Arduino Nano 33 IoT · Raspberry Pi Pico / Pico W. Additional boards can be added via the Boards manager as long as their core is installable via <code>arduino-cli</code>.
+          ESP32-S3 · ESP32 · Arduino Uno · Arduino Nano · Arduino Mega <em>(experimental)</em> · Teensy 4.1 · RP2040 (Pico) · Arduino Nano 33 IoT <em>(experimental)</em>. These are present in the Boards manager by default; installing each one's core still requires a working internet connection the first time. Only the ESP32-S3 + WS2812B + 16×16 combo is currently hardware-validated for the public beta — see the <a className={styles.link} href={`${REPO_URL}/blob/main/docs/release/beta-support-matrix.md`} target="_blank" rel="noopener noreferrer">beta support matrix</a> for what's supported vs. experimental. The two marked <em>(experimental)</em> compile through the same generic FastLED codegen path as every other board here, but haven't been flashed to real hardware by this project yet.
         </div>
       </div>
     </>

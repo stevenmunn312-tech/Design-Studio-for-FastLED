@@ -767,7 +767,7 @@ export default function MenuBar() {
           onClick={togglePerformanceMode}
           aria-label="Toggle performance mode"
           aria-pressed={performanceMode}
-          title="Performance mode: hush chrome and emphasize live signal flow"
+          title="Performance mode: hush chrome and emphasize live signal flow (F9)"
         >
           {performanceMode ? '◆' : '◇'} Perform
         </button>
