@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { NODE_LIBRARY, NODE_DESCRIPTIONS, portColor, propertyMeta, isPropertyEnabled } from '../nodeLibrary'
+import { NODE_LIBRARY, NODE_DESCRIPTIONS, portColor, propertyMeta, propertyDescription, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, isPropertyEnabled } from '../nodeLibrary'
 
 describe('nodeLibrary', () => {
   it('gives Image nodes placement and transform defaults', () => {
@@ -50,6 +50,24 @@ describe('nodeLibrary', () => {
       expect(desc, type).not.toContain('\n')
       expect(desc.length, type).toBeLessThanOrEqual(80)
     }
+  })
+
+  it('property tooltip descriptions are single lines with no per-node override collisions', () => {
+    for (const [key, desc] of Object.entries(PROPERTY_DESCRIPTIONS)) {
+      expect(desc, key).not.toContain('\n')
+    }
+    for (const [nodeType, overrides] of Object.entries(PROPERTY_DESCRIPTIONS_OVERRIDES)) {
+      for (const [key, desc] of Object.entries(overrides)) {
+        expect(desc, `${nodeType}.${key}`).not.toContain('\n')
+      }
+    }
+  })
+
+  it('propertyDescription prefers a per-node override over the generic description', () => {
+    expect(propertyDescription('Fire', 'direction')).toBe('Which way the flame rises.')
+    expect(propertyDescription('Transition', 'direction')).toBe('Slide direction for the Wipe / Push styles.')
+    expect(propertyDescription('SDCard', 'audioOutput')).toBe(PROPERTY_DESCRIPTIONS.audioOutput)
+    expect(propertyDescription('Circle', 'nonexistentProp')).toBeUndefined()
   })
 
   it('port colours: float/bool share a colour; distinct types differ', () => {

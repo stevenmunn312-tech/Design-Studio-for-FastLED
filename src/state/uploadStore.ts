@@ -32,8 +32,16 @@ export const BOARDS: Board[] = [
     ] },
   { label: 'Arduino Uno',   fqbn: 'arduino:avr:uno',       core: 'arduino:avr' },
   { label: 'Arduino Nano',  fqbn: 'arduino:avr:nano',      core: 'arduino:avr' },
+  // Same arduino:avr core as Uno/Nano above (built-in board index, no
+  // board-manager URL to register) — just a bigger chip with more pins.
+  // Not yet hardware-validated by this project; see beta-support-matrix.md.
+  { label: 'Arduino Mega (experimental)', fqbn: 'arduino:avr:mega', core: 'arduino:avr' },
   { label: 'Teensy 4.1',    fqbn: 'teensy:avr:teensy41',   core: 'teensy:avr',    thirdParty: true },
   { label: 'RP2040 (Pico)', fqbn: 'rp2040:rp2040:rpipico', core: 'rp2040:rp2040', thirdParty: true },
+  // arduino:samd is also part of arduino-cli's built-in board index (Arduino's
+  // own SAMD core, unlike the ESP32/RP2040/Teensy third-party packages above).
+  // Not yet hardware-validated by this project; see beta-support-matrix.md.
+  { label: 'Arduino Nano 33 IoT (experimental)', fqbn: 'arduino:samd:nano_33_iot', core: 'arduino:samd' },
 ]
 
 export function boardByFqbn(fqbn: string): Board | undefined {

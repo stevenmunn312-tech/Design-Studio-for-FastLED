@@ -234,8 +234,10 @@ _PIO_BOARDS: dict[str, dict] = {
     },
     "arduino:avr:uno": {"platform": "atmelavr", "board": "uno"},
     "arduino:avr:nano": {"platform": "atmelavr", "board": "nanoatmega328new"},
+    "arduino:avr:mega": {"platform": "atmelavr", "board": "megaatmega2560"},
     "teensy:avr:teensy41": {"platform": "teensy", "board": "teensy41"},
     "rp2040:rp2040:rpipico": {"platform": "raspberrypi", "board": "pico"},
+    "arduino:samd:nano_33_iot": {"platform": "atmelsam", "board": "nano_33_iot"},
 }
 
 # arduino-cli's FQBN "menu option" suffix (e.g. `PSRAM=opi`) -> our PSRAM id.
