@@ -400,7 +400,10 @@ export default function PreviewSpectrum({
   const paint = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const ctx = canvas.getContext('2d')
+    // Software canvas (see NodePreview): the FFT spectrum repaints every frame
+    // while audio plays; as a hardware-accelerated 2D canvas that leaks GPU
+    // compositor memory unbounded in Chromium.
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
     if (!ctx) return
     const rect = canvas.getBoundingClientRect()
     const width = Math.max(1, rect.width)
