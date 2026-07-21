@@ -6,7 +6,17 @@ import styles from './NodePreview.module.css'
 type RGB = { r: number; g: number; b: number }
 export type PreviewKind = 'frame' | 'palette' | 'color'
 
-// Live thumbnail of a frame: draws the pixels 1:1 to a canvas, CSS-scaled to
+// Cap the thumbnail's backing-store resolution. Frames are evaluated at the
+// composition canvas size *including supersampling* (see outputRouting), so a
+// large or supersampled matrix yields a 128×128+ frame. The preview is only a
+// ~200px CSS-scaled canvas, so drawing it 1:1 — a full per-pixel loop plus a
+// same-size blurred glow canvas the compositor re-rasterises — costs far more
+// than it shows, enough to blow the frame budget on a big graph. Downsample to
+// this bound (nearest-neighbour) so a frame preview's cost is constant in the
+// matrix/supersample size; `image-rendering: pixelated` keeps the LED look.
+const THUMB_MAX = 96
+
+// Live thumbnail of a frame: draws the pixels to a bounded canvas, CSS-scaled to
 // the node width at the matrix aspect ratio (`height` from the caller). A second,
 // blurred copy sits behind it (CSS `filter: blur()`, GPU-composited) to approximate
 // the main preview's LED glow without a per-pixel shader pass.
@@ -18,12 +28,17 @@ function FrameThumb({ frame, height }: { frame?: Frame; height?: number }) {
     const cv = ref.current
     const glowCv = glowRef.current
     if (!cv || !glowCv) return
-    const h = frame?.length ?? 0
-    const w = frame?.[0]?.length ?? 0
-    if (!w || !h) return // nothing to draw yet
+    const srcH = frame?.length ?? 0
+    const srcW = frame?.[0]?.length ?? 0
+    if (!srcW || !srcH) return // nothing to draw yet
     const ctx = cv.getContext('2d')
     const glowCtx = glowCv.getContext('2d')
     if (!ctx || !glowCtx) return
+    // Downsample only when the frame exceeds the thumbnail bound; small matrices
+    // draw 1:1 as before (scale === 1).
+    const scale = Math.min(1, THUMB_MAX / Math.max(srcW, srcH))
+    const w = Math.max(1, Math.round(srcW * scale))
+    const h = Math.max(1, Math.round(srcH * scale))
     if (cv.width !== w || cv.height !== h) {
       cv.width = w
       cv.height = h
@@ -36,9 +51,10 @@ function FrameThumb({ frame, height }: { frame?: Frame; height?: number }) {
     }
     const img = imageRef.current
     for (let y = 0; y < h; y++) {
+      const srow = frame![w === srcW ? y : Math.min(srcH - 1, (y * srcH / h) | 0)]
       for (let x = 0; x < w; x++) {
+        const p = srow[w === srcW ? x : Math.min(srcW - 1, (x * srcW / w) | 0)]
         const i = (y * w + x) * 4
-        const p = frame![y][x]
         img.data[i] = p.r; img.data[i + 1] = p.g; img.data[i + 2] = p.b; img.data[i + 3] = 255
       }
     }
