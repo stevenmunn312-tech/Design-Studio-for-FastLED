@@ -37,6 +37,7 @@ import { anchorPosition } from '../../utils/anchorNode'
 import { signalPathFor } from '../../utils/signalPath'
 import { STARTER_TEMPLATES } from '../../state/starterTemplates'
 import { startBlankCanvas, startTemplateById } from '../../utils/startFlow'
+import { runTidy } from '../../utils/tidyGraph'
 import { usePreviewStore } from '../../state/previewStore'
 import { playNoodleConnectSfx, playNoodleDisconnectSfx } from '../../audio/interactionSfx'
 import styles from './NodeGraphCanvas.module.css'
@@ -737,6 +738,7 @@ function NodeGraphCanvasInner() {
     setSpliceCue(null)
     if (match) {
       spliceNodeOnEdge(node.id, match.target.edgeId, match.target.inHandle, match.target.outHandle)
+      runTidy()
       setStatus(`Spliced ${match.def.label} into the connection`, 'success')
       return
     }
@@ -856,15 +858,13 @@ function NodeGraphCanvasInner() {
 
       if (best) {
         insertNodeOnEdge(newNode, best.edgeId, best.inHandle, best.outHandle)
-        // Nudge the spliced node so its wired input handle sits on the drop
-        // point, matching the noodle-drop add flow.
-        anchorHandleToDrop(newNode.id, best.inHandle, position)
+        runTidy()
         setStatus(`Spliced ${def.label} into the connection`, 'success')
       } else {
         addNode(newNode)
       }
     },
-    [screenToFlowPosition, addNode, insertNodeOnEdge, instantiatePattern, addPatternToCollection, getNode, setStatus, anchorHandleToDrop, findSpliceTarget, setDraggingNodeType]
+    [screenToFlowPosition, addNode, insertNodeOnEdge, instantiatePattern, addPatternToCollection, getNode, setStatus, findSpliceTarget, setDraggingNodeType]
   )
 
   const spliceEdgeId = spliceCue?.edgeId ?? null
