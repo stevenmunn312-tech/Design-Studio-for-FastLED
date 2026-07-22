@@ -24,9 +24,11 @@ describe('NodePreview', () => {
     expect((container.firstChild as HTMLElement).style.background).toBe('rgb(10, 20, 30)')
   })
 
-  it('renders a canvas for a frame output', () => {
+  it('renders a frame output as a fixed SVG grid', () => {
     const { container } = render(<NodePreview nodeId="n" kind="frame" port="frame" />)
-    expect(container.querySelector('canvas')).toBeTruthy()
+    expect(container.querySelector('canvas')).toBeNull()
+    expect(container.querySelector('img')).toBeNull()
+    expect(container.querySelectorAll('svg rect')).toHaveLength(16 * 16)
   })
 
   it('falls back to a rainbow strip when the palette output is missing', () => {

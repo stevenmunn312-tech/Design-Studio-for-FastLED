@@ -333,7 +333,11 @@ function applyMasterBrightness(frame: Frame | null, output: StudioNode | undefin
   const brightness = Number.isFinite(raw) ? Math.max(0, Math.min(255, raw)) : 200
   if (brightness >= 255) return frame
   const s = brightness / 255
-  return frame.map((row) => row.map(({ r, g, b }) => ({ r: r * s, g: g * s, b: b * s })))
+  // Scale in place: `frame` here is the caller-owned route buffer (routeFrame
+  // reuse), a per-frame throwaway — mutating it avoids allocating a whole new
+  // Frame + one RGB object per pixel on every 60fps preview tick.
+  for (const row of frame) for (const px of row) { px.r *= s; px.g *= s; px.b *= s }
+  return frame
 }
 
 // The Canvas-2D fallback LED renderer (sprite cache + renderGridFrame) lives
@@ -465,6 +469,9 @@ function renderFrame(ctx: CanvasRenderingContext2D, frame: Frame, pixel: number,
 export default function LEDPreview() {
   const canvasWrapRef = useRef<HTMLDivElement>(null)
   const canvasRef   = useRef<HTMLCanvasElement>(null)
+  // Reused across frames by routeFrame so the routed/brightness-scaled frame
+  // isn't reallocated every 60fps tick (the main preview-pipeline GC churn).
+  const routeBufRef = useRef<Frame | null>(null)
   const glRef       = useRef<WebGLLEDRenderer | null>(null)
   const tickRef     = useRef(0)
   const animRef     = useRef<number>(0)
@@ -794,7 +801,8 @@ export default function LEDPreview() {
         const rendered = selectedRoute
           ? (outputs.get(selectedRoute.id)?.frame as Frame | null | undefined) ?? null
           : null
-        let frame = selectedRoute ? routeFrame(rendered, selectedRoute, composition.w, composition.h) : null
+        let frame = selectedRoute ? routeFrame(rendered, selectedRoute, composition.w, composition.h, routeBufRef.current) : null
+        if (frame) routeBufRef.current = frame
         frame = applyMasterBrightness(frame, selectedRoute?.node)
         if (!frame) frame = idleFrame(tick, gW, gH)
         const showStart = PERF_TELEMETRY ? performance.now() : 0

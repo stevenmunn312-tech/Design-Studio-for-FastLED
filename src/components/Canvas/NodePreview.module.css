@@ -14,21 +14,6 @@
   width: 100%;
   height: 100%;
   display: block;
-  image-rendering: pixelated;
-  object-fit: contain;
-}
-
-.glow {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: contain;
-  filter: blur(4px) saturate(1.4) brightness(1.3);
-  opacity: 0.48;
-  mix-blend-mode: screen;
-  pointer-events: none;
 }
 
 .bar {

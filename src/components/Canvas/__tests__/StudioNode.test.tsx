@@ -303,7 +303,7 @@ describe('StudioNode', () => {
   it('renders a frame thumbnail (not a wave scope) for a frame node', () => {
     const { container } = renderNode(makeNode('SolidColor', { r: 1, g: 2, b: 3 }))
     expect(container.querySelector('svg polyline')).toBeNull()  // not a wave scope
-    expect(container.querySelector('canvas')).toBeTruthy()      // frame preview canvas
+    expect(container.querySelectorAll('svg rect')).toHaveLength(16 * 16)
   })
 
   it('sizes the frame preview to the matrix aspect ratio', () => {
@@ -313,9 +313,9 @@ describe('StudioNode', () => {
     const props = { id: solid.id, data: solid.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
     const { container } = render(<StudioNode {...props} />)
     // height = bodyContentWidth(224) × gridH/gridW = 224 × 8/16 = 112px
-    // The frame preview canvases fill their wrapper div via CSS (100% height);
-    // the explicit pixel height is set inline on that wrapper, not the canvas.
-    const wrapper = container.querySelector('canvas')!.parentElement as HTMLElement
+    // The SVG grid fills its wrapper via CSS (100% height); the explicit pixel
+    // height is set inline on that wrapper, not on the SVG itself.
+    const wrapper = container.querySelector('svg')!.parentElement as HTMLElement
     expect(wrapper.style.height).toBe('112px')
   })
 

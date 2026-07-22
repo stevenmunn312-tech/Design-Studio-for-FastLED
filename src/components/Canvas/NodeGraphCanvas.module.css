@@ -138,7 +138,10 @@
   background:
     linear-gradient(180deg, transparent, color-mix(in srgb, var(--field-color) 18%, transparent), transparent),
     linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06) 50%, transparent);
-  filter: blur(12px);
+  /* No `filter: blur()` here: this element animates forever, and a CSS filter on
+     an infinitely-animated element leaks GPU compositor memory unbounded in
+     Chromium (see GlowEdge.module.css). The gradient is already soft, so the
+     blur is not needed. */
   animation: fieldScan 12s linear infinite;
 }
 

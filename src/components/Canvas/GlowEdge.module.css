@@ -30,41 +30,30 @@
   }
 }
 
+/* A CSS `filter` on an element running an *infinite* animation makes Chromium
+   allocate a fresh GPU filter buffer every frame and never reclaim it — an
+   unbounded compositor-memory leak (grows to multi-GB and crashes the tab,
+   invisible to JS heap/canvas metrics). The packets animate `offset-distance`
+   forever, so they must NOT carry a CSS filter. The edge glow still comes from
+   the static wide halo/mid-bloom strokes and the (non-animated) `.carrier`. */
 .packet {
-  filter: drop-shadow(0 0 3px var(--edge-color)) drop-shadow(0 0 7px var(--edge-color));
   pointer-events: none;
   offset-rotate: 0deg;
   animation: packetTravel var(--packet-duration, 1.5s) linear infinite;
   animation-delay: var(--packet-delay, 0s);
 }
 
-.familyFrame .core {
-  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--edge-color) 28%, transparent));
-}
-
-.familyFrame .packet {
-  filter:
-    drop-shadow(0 0 4px var(--edge-color))
-    drop-shadow(0 0 10px color-mix(in srgb, var(--edge-color) 42%, transparent));
-}
-
-.familyAudio .core {
-  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--edge-color) 24%, transparent));
-}
-
-.familyAudio .packet {
-  filter:
-    drop-shadow(0 0 4px white)
-    drop-shadow(0 0 9px var(--edge-color));
-}
-
-.familyColor .core {
-  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--edge-color) 28%, transparent));
-}
-
-.familyControl .packet {
-  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--edge-color) 55%, transparent));
-}
+/* The `.core` (flow) and `.packet` (offset-distance) elements animate forever,
+   so per the note above they must not carry a CSS filter. `filter: none` keeps
+   the family selectors present (they're referenced from GlowEdge.tsx) while
+   removing the leak; per-family identity still reads from the edge stroke/fill
+   colour and the static halo/bloom layers. */
+.familyFrame .core { filter: none; }
+.familyFrame .packet { filter: none; }
+.familyAudio .core { filter: none; }
+.familyAudio .packet { filter: none; }
+.familyColor .core { filter: none; }
+.familyControl .packet { filter: none; }
 
 .focusDim {
   opacity: 0.22;
@@ -82,8 +71,9 @@
 }
 
 .focusActive .core {
+  /* No filter: `.core` animates `flow` infinitely (see note above). The thicker
+     stroke conveys focus without a leaking animated filter layer. */
   stroke-width: 3.2;
-  filter: drop-shadow(0 0 4px var(--edge-color)) drop-shadow(0 0 14px color-mix(in srgb, var(--edge-color) 30%, transparent));
 }
 
 @keyframes connectionFlash {
@@ -115,7 +105,6 @@
 
 .spliceTarget {
   animation: splicePulse 0.85s ease-in-out infinite;
-  filter: drop-shadow(0 0 7px var(--edge-color));
   pointer-events: none;
 }
 
@@ -123,7 +112,6 @@
   stroke-width: 4;
   stroke-dasharray: 4 4;
   animation-duration: 0.55s;
-  filter: drop-shadow(0 0 4px var(--edge-color));
 }
 
 :global([data-reduced-motion]) .core,

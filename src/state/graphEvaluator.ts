@@ -371,7 +371,8 @@ export function pruneEvaluatorState(maxIdleMs = STATE_IDLE_TTL_MS, now = stateCl
   const maps: Array<{ delete: (key: string) => boolean }> = [
     fireHeat, flashLevel, counterVals, intervalLast, smoothState, holdState,
     envState, trailState, frameFeedbackState, fftLevels, beatLevels, clockState, fireRngState,
-    percussionLevels, audioFeatureLevels, particleState, patternShowState,
+    seededRngState, triggerState, particleState, particleSeedState, patternShowState,
+    percussionLevels, audioFeatureLevels,
     rdState, golState, waveSimState, flowState, colorTrailsState, spectrumVisualizerState, starState, boidState, sparkState, fire2012Heat,
     kickShockState, kaleidoPunch, percussionBlobsState, emberBurst,
     rainRipplesState, prismOrientation, driftPhase,
@@ -383,6 +384,50 @@ export function pruneEvaluatorState(maxIdleMs = STATE_IDLE_TTL_MS, now = stateCl
     stateLastUsed.delete(key)
   }
   return stale.length
+}
+
+/** Dev-only memory probe: the entry count of every retained evaluator
+ * collection, plus total buffered pixels/floats in the frame/field pools. Watch
+ * this while a suspect graph runs — a number that climbs without settling is the
+ * leaking collection. Exposed on `window.__FASTLED_MEM__()` in dev builds. */
+export function getEvaluatorMemoryStats(): {
+  stateMaps: Record<string, number>
+  trackedKeys: number
+  pool: { framePixels: number; fieldFloats: number; frameLists: number; fieldLists: number }
+  totalStateEntries: number
+} {
+  const stateMaps: Record<string, number> = {
+    fireHeat: fireHeat.size, fire2012Heat: fire2012Heat.size, fireRngState: fireRngState.size,
+    seededRngState: seededRngState.size, flashLevel: flashLevel.size, counterVals: counterVals.size,
+    intervalLast: intervalLast.size, smoothState: smoothState.size, holdState: holdState.size,
+    envState: envState.size, triggerState: triggerState.size, clockState: clockState.size,
+    trailState: trailState.size, frameFeedbackState: frameFeedbackState.size,
+    fftLevels: fftLevels.size, beatLevels: beatLevels.size, percussionLevels: percussionLevels.size,
+    audioFeatureLevels: audioFeatureLevels.size, particleState: particleState.size,
+    particleSeedState: particleSeedState.size, patternShowState: patternShowState.size,
+    rdState: rdState.size, golState: golState.size, waveSimState: waveSimState.size,
+    flowState: flowState.size, colorTrailsState: colorTrailsState.size,
+    spectrumVisualizerState: spectrumVisualizerState.size, starState: starState.size,
+    boidState: boidState.size, sparkState: sparkState.size, kickShockState: kickShockState.size,
+    kaleidoPunch: kaleidoPunch.size, percussionBlobsState: percussionBlobsState.size,
+    emberBurst: emberBurst.size, rainRipplesState: rainRipplesState.size,
+    prismOrientation: prismOrientation.size, driftPhase: driftPhase.size,
+    formulaCache: formulaCache.size, fieldFormulaCache: fieldFormulaCache.size,
+  }
+  let framePixels = 0, frameLists = 0
+  for (const [key, list] of framePoolFree) {
+    const [w, h] = key.split('x').map(Number)
+    framePixels += list.length * (w || 0) * (h || 0)
+    frameLists += list.length
+  }
+  let fieldFloats = 0, fieldLists = 0
+  for (const [len, list] of fieldPoolFree) { fieldFloats += list.length * len; fieldLists += list.length }
+  const totalStateEntries = Object.values(stateMaps).reduce((a, b) => a + b, 0)
+  return { stateMaps, trackedKeys: stateLastUsed.size, pool: { framePixels, fieldFloats, frameLists, fieldLists }, totalStateEntries }
+}
+
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  ;(window as unknown as { __FASTLED_MEM__?: typeof getEvaluatorMemoryStats }).__FASTLED_MEM__ = getEvaluatorMemoryStats
 }
 
 function maybePruneEvaluatorState(): void {

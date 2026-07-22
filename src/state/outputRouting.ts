@@ -53,16 +53,28 @@ export function compositionDims(nodes: StudioNode[]): { w: number; h: number } {
 }
 
 /** Map a logical composition frame into one output's local grid. `fit` scales
- * the whole composition; `crop` selects a wrapped output-sized viewport. */
-export function routeFrame(frame: Frame | null, route: OutputRoute, compositionW: number, compositionH: number): Frame | null {
+ * the whole composition; `crop` selects a wrapped output-sized viewport.
+ *
+ * Pass `reuse` (a buffer from a previous call) to route in place: the output is
+ * a per-call throwaway on the 60fps preview path, and a fresh Frame + one RGB
+ * object per pixel every frame is the dominant source of GC churn. The returned
+ * buffer always owns its pixels (crop mode copies values rather than aliasing
+ * the pooled source frame), so callers may safely mutate it downstream (e.g.
+ * master-brightness). Omit `reuse` for a fresh allocation. */
+export function routeFrame(frame: Frame | null, route: OutputRoute, compositionW: number, compositionH: number, reuse?: Frame | null): Frame | null {
   if (!frame) return null
-  const out: Frame = Array.from({ length: route.height }, () => Array.from({ length: route.width }))
+  const out: Frame = reuse && reuse.length === route.height && reuse[0]?.length === route.width
+    ? reuse
+    : Array.from({ length: route.height }, () => Array.from({ length: route.width }, () => ({ r: 0, g: 0, b: 0 })))
   for (let y = 0; y < route.height; y++) {
+    const orow = out[y]
     for (let x = 0; x < route.width; x++) {
+      const px = orow[x]
       if (route.routeMode === 'crop') {
         const sx = (route.routeX + x) % Math.max(1, compositionW)
         const sy = (route.routeY + y) % Math.max(1, compositionH)
-        out[y][x] = frame[sy]?.[sx] ?? { r: 0, g: 0, b: 0 }
+        const src = frame[sy]?.[sx]
+        px.r = src?.r ?? 0; px.g = src?.g ?? 0; px.b = src?.b ?? 0
         continue
       }
       const x0 = Math.floor(x * compositionW / route.width)
@@ -77,7 +89,8 @@ export function routeFrame(frame: Frame | null, route: OutputRoute, compositionW
           r += pixel.r; g += pixel.g; b += pixel.b; count++
         }
       }
-      out[y][x] = count ? { r: r / count, g: g / count, b: b / count } : { r: 0, g: 0, b: 0 }
+      if (count) { px.r = r / count; px.g = g / count; px.b = b / count }
+      else { px.r = 0; px.g = 0; px.b = 0 }
     }
   }
   return out

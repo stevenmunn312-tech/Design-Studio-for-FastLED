@@ -18,7 +18,10 @@ import styles from './PerformanceGeneratorBody.module.css'
 // main LED preview, wired through the shared playerTransport store.
 
 function draw(canvas: HTMLCanvasElement, frame: Frame, W: number, H: number) {
-  const ctx = canvas.getContext('2d')
+  // Software canvas (see NodePreview): this show preview repaints every frame
+  // during playback; a hardware-accelerated 2D canvas redrawn per frame leaks
+  // GPU compositor memory unbounded in Chromium.
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
   if (!ctx) return
   const cw = canvas.width, ch = canvas.height
   const cellW = cw / W, cellH = ch / H
