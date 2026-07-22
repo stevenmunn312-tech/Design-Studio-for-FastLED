@@ -4,8 +4,10 @@ import {
   ReactFlowProvider,
   Background,
   BackgroundVariant,
+  ControlButton,
   Controls,
   MiniMap,
+  getViewportForBounds,
   useReactFlow,
   type NodeTypes,
   type EdgeTypes,
@@ -70,6 +72,8 @@ const FALLBACK_H = 70
 const DEFAULT_SIDEBAR_W = 280
 const DEFAULT_PREVIEW_W = 496
 const FIT_VIEW_GUTTER = 32
+const MIN_ZOOM = 0.2
+const MAX_ZOOM = 2
 
 const fitViewEase = (t: number) => 1 - Math.pow(1 - t, 3)
 
@@ -105,13 +109,6 @@ function hoveredNodeId(eventTarget: EventTarget | null): string | undefined {
   return eventTarget.closest('.react-flow__node')?.getAttribute('data-id') ?? undefined
 }
 
-function panelInsetPx(cssVar: '--sidebar-width' | '--right-panel-width', fallback: number, open: boolean): number {
-  if (!open || typeof window === 'undefined') return 0
-  const raw = getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim()
-  const parsed = Number.parseFloat(raw)
-  return Number.isFinite(parsed) ? parsed : fallback
-}
-
 function NodeGraphCanvasInner() {
   const { nodes, edges, selectedNodeId, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, insertNodeOnEdge, spliceNodeOnEdge, spreadNodes, instantiatePattern, addToCollection, addPatternToCollection, enterGraph, removeEdge, reconnectNoodle } =
     useGraphStore()
@@ -136,7 +133,7 @@ function NodeGraphCanvasInner() {
   // Timestamp of the last drag-to-create picker open, so the trailing pane
   // click that React Flow emits right after the drop doesn't close it.
   const menuOpenedAt = useRef(0)
-  const { screenToFlowPosition, flowToScreenPosition, getNode, getInternalNode, setCenter, getZoom, fitView } = useReactFlow()
+  const { screenToFlowPosition, flowToScreenPosition, getNode, getInternalNode, getNodesBounds, setCenter, setViewport, getZoom, fitView } = useReactFlow()
   const {
     setStatus,
     setSparkPort,
@@ -144,7 +141,9 @@ function NodeGraphCanvasInner() {
     draggingNodeType,
     setDraggingNodeType,
     sidebarOpen,
+    sidebarWidth,
     previewPanelOpen,
+    previewWidth,
     performanceMode,
     reducedMotion,
     fitViewRequest,
@@ -153,8 +152,8 @@ function NodeGraphCanvasInner() {
     lastStartChoice,
   } = useUiStore()
   const wrapperRef = useRef<HTMLDivElement>(null)
-  const leftInset = panelInsetPx('--sidebar-width', DEFAULT_SIDEBAR_W, sidebarOpen)
-  const rightInset = panelInsetPx('--right-panel-width', DEFAULT_PREVIEW_W, previewPanelOpen)
+  const leftInset = sidebarOpen ? sidebarWidth ?? DEFAULT_SIDEBAR_W : 0
+  const rightInset = previewPanelOpen ? previewWidth ?? DEFAULT_PREVIEW_W : 0
   const fitViewOptions = useMemo<FitViewOptions>(() => ({
     padding: {
       top: `${FIT_VIEW_GUTTER}px`,
@@ -165,6 +164,37 @@ function NodeGraphCanvasInner() {
     duration: reducedMotion ? 0 : 260,
     ease: fitViewEase,
   }), [leftInset, reducedMotion, rightInset])
+  const fitFrame = useCallback((nodeIds?: string[]) => {
+    const wrapper = wrapperRef.current
+    const targetNodes = nodeIds
+      ? nodes.filter((node) => nodeIds.includes(node.id) && !node.hidden)
+      : nodes.filter((node) => !node.hidden)
+
+    if (!wrapper || targetNodes.length === 0) return Promise.resolve(false)
+
+    const rect = wrapper.getBoundingClientRect()
+    const usableWidth = rect.width - leftInset - rightInset
+    if (usableWidth <= 0 || rect.height <= 0) {
+      return fitView({
+        ...fitViewOptions,
+        nodes: nodeIds?.map((id) => ({ id })),
+      })
+    }
+
+    const viewport = getViewportForBounds(
+      getNodesBounds(targetNodes),
+      usableWidth,
+      rect.height,
+      MIN_ZOOM,
+      MAX_ZOOM,
+      `${FIT_VIEW_GUTTER}px`,
+    )
+
+    return setViewport(
+      { ...viewport, x: viewport.x + leftInset },
+      { duration: reducedMotion ? 0 : 260, ease: fitViewEase },
+    )
+  }, [fitView, fitViewOptions, getNodesBounds, leftInset, nodes, reducedMotion, rightInset, setViewport])
   const [spliceCue, setSpliceCue] = useState<{
     edgeId: string
     x: number
@@ -346,14 +376,12 @@ function NodeGraphCanvasInner() {
     const el = wrapperRef.current
     if (!el) return
     const r = el.getBoundingClientRect()
-    const insetLeft = panelInsetPx('--sidebar-width', DEFAULT_SIDEBAR_W, sidebarOpen)
-    const insetRight = panelInsetPx('--right-panel-width', DEFAULT_PREVIEW_W, previewPanelOpen)
-    const usableWidth = Math.max(0, r.width - insetLeft - insetRight)
+    const usableWidth = Math.max(0, r.width - leftInset - rightInset)
     setViewCenter(screenToFlowPosition({
-      x: r.left + insetLeft + usableWidth * 0.05,
+      x: r.left + leftInset + usableWidth * 0.05,
       y: r.top + r.height / 2,
     }))
-  }, [screenToFlowPosition, setViewCenter, sidebarOpen, previewPanelOpen])
+  }, [leftInset, rightInset, screenToFlowPosition, setViewCenter])
 
   useEffect(() => {
     publishCenter()
@@ -364,11 +392,8 @@ function NodeGraphCanvasInner() {
   useEffect(() => {
     if (fitViewRequest.nonce === 0 || fitViewRequest.nonce === lastFitViewNonce.current) return
     lastFitViewNonce.current = fitViewRequest.nonce
-    void fitView({
-      ...fitViewOptions,
-      nodes: fitViewRequest.nodeIds?.map((id) => ({ id })),
-    })
-  }, [fitView, fitViewOptions, fitViewRequest])
+    void fitFrame(fitViewRequest.nodeIds)
+  }, [fitFrame, fitViewRequest])
 
   // On pan/zoom: remember the viewport (so a reload restores it) and refresh
   // the click-to-add centre.
@@ -1045,8 +1070,8 @@ function NodeGraphCanvasInner() {
         zoomOnDoubleClick={false}
         snapToGrid
         snapGrid={SNAP_GRID}
-        minZoom={0.4}
-        maxZoom={2}
+        minZoom={MIN_ZOOM}
+        maxZoom={MAX_ZOOM}
         defaultViewport={initialViewport ?? undefined}
         fitView={!initialViewport}
         fitViewOptions={fitViewOptions}
@@ -1076,8 +1101,20 @@ function NodeGraphCanvasInner() {
         <Controls
           className={styles.controls}
           style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-glow)' }}
+          showFitView={false}
           fitViewOptions={fitViewOptions}
-        />
+        >
+          <ControlButton
+            className={styles.fitFrameButton}
+            onClick={() => { void fitFrame() }}
+            title="Fit frame"
+            aria-label="Fit frame"
+          >
+            <svg viewBox="0 0 32 32" aria-hidden="true">
+              <path d="M10 5H5v5h2V7h3V5Zm12 0v2h3v3h2V5h-5ZM7 22H5v5h5v-2H7v-3Zm20 0h-2v3h-3v2h5v-5Z" />
+            </svg>
+          </ControlButton>
+        </Controls>
         <MiniMap
           nodeColor={minimapNodeColor}
           nodeStrokeWidth={0}
