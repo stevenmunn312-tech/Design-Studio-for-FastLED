@@ -31,4 +31,18 @@ describe('signal visuals', () => {
     ])
     expect(ambient.energy).toBe(1)
   })
+
+  it('keeps a saturated corner colour instead of averaging rainbow pixels to gray', () => {
+    const ambient = frameAmbient([
+      [{ r: 255, g: 0, b: 0 }, { r: 255, g: 255, b: 255 }, { r: 0, g: 0, b: 255 }, { r: 255, g: 255, b: 255 }],
+      [{ r: 0, g: 255, b: 0 }, { r: 255, g: 255, b: 255 }, { r: 255, g: 0, b: 255 }, { r: 255, g: 255, b: 255 }],
+    ])
+
+    expect(ambient.colors).toEqual([
+      'rgb(255 0 0)',
+      'rgb(0 0 255)',
+      'rgb(0 255 0)',
+      'rgb(255 0 255)',
+    ])
+  })
 })

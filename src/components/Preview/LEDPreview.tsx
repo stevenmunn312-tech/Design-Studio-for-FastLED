@@ -1170,9 +1170,13 @@ export default function LEDPreview() {
         className={`${styles.canvasWrap} ${effectivePreview3d ? styles.canvasWrap3d : ''}`}
       >
         {import.meta.env.DEV && <DevPerformanceHud />}
-        {uiEffectsEnabled && <div className={styles.ambilight} aria-hidden="true" />}
         <div className={styles.canvasBay}>
           <div className={styles.canvasFrame}>
+            {uiEffectsEnabled && (
+              <div className={styles.ambilight} aria-hidden="true">
+                <i /><i /><i /><i />
+              </div>
+            )}
             <div className={styles.canvasFrameHeader}>
               <span className={`${styles.visualizerKicker} ${styles.canvasFrameTag}`}>
                 {previewRoutes.length > 1 ? `Output route ${previewRoutes.findIndex((route) => route.id === activeOutputId) + 1}` : 'Output matrix'}
