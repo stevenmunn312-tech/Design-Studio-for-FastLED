@@ -2,8 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { canAddNodeType, useGraphStore } from '../../state/graphStore'
 import { NODE_LIBRARY, CATEGORIES, NODE_DESCRIPTIONS, portsCompatible } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
+import { saveGroupToLibrary, usePatternLibrary } from '../../state/patternLibrary'
+import { useUiStore } from '../../state/uiStore'
 import { runTidy } from '../../utils/tidyGraph'
 import type { NodeDefinition, NodePort } from '../../types'
+import CreateGroupDialog, { type CreateGroupResult } from './CreateGroupDialog'
 import styles from './CanvasContextMenu.module.css'
 
 const FFT_BAND_IDS = ['bass', 'mids', 'treble'] as const
@@ -222,10 +225,14 @@ interface Props {
 }
 
 export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onPlaced, startInPicker, onClose }: Props) {
-  const { addNode, onConnect, clipboard, pasteNode, selectAllNodes, deleteSelection, nodes } = useGraphStore()
+  const { addNode, onConnect, clipboard, pasteNode, selectAllNodes, deleteSelection, createGroup, nodes } = useGraphStore()
+  const requestConfirm = useUiStore((s) => s.requestConfirm)
+  const setStatus = useUiStore((s) => s.setStatus)
+  const patterns = usePatternLibrary((s) => s.patterns)
   const menuRef = useRef<HTMLDivElement>(null)
   const [mode, setMode] = useState<'main' | 'picker'>(connectFrom || startInPicker ? 'picker' : 'main')
   const [query, setQuery] = useState('')
+  const [showGroupDialog, setShowGroupDialog] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -391,9 +398,52 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
 
   const isEmptyGraph = nodes.length === 0
   const canPaste = !!clipboard && clipboard.nodes.some((n) => canAddNodeType(nodes, n.data.nodeType))
-  const hasSelection = nodes.some((n) => n.selected)
+  const selectedIds = nodes.filter((n) => n.selected).map((n) => n.id)
+  const hasSelection = selectedIds.length > 0
 
   const act = (fn: () => void) => { fn(); onClose() }
+
+  const handleCreateGroup = async (name: string, { saveToLibrary, exposePaletteNodeIds }: CreateGroupResult) => {
+    const groupId = createGroup(name, selectedIds, { saveToLibrary, exposePaletteNodeIds })
+    let savedToLibrary = false
+    let replacedLibraryPattern = false
+    if (saveToLibrary) {
+      const trimmedName = name.trim()
+      const replacing = patterns.some((pattern) => pattern.name.trim().toLocaleLowerCase() === trimmedName.toLocaleLowerCase())
+      const ok = !replacing || await requestConfirm({
+        title: 'Replace library pattern?',
+        message: `A library pattern named “${trimmedName}” already exists. Replace it?`,
+        confirmLabel: 'Replace',
+        cancelLabel: 'Cancel',
+        tone: 'danger',
+      })
+      if (ok) {
+        const result = saveGroupToLibrary(`groupnode-${groupId}`, { replaceByName: replacing })
+        savedToLibrary = !!result
+        replacedLibraryPattern = !!result?.replaced
+      }
+    }
+    setStatus(
+      `Grouped ${selectedIds.length} node(s) into “${name}”${
+        savedToLibrary
+          ? replacedLibraryPattern ? ' and replaced its library copy' : ' and saved to library'
+          : ''
+      }`,
+      'success',
+    )
+    setShowGroupDialog(false)
+    onClose()
+  }
+
+  if (showGroupDialog) {
+    return (
+      <CreateGroupDialog
+        selectedIds={selectedIds}
+        onClose={() => { setShowGroupDialog(false); onClose() }}
+        onCreate={handleCreateGroup}
+      />
+    )
+  }
 
   if (mode === 'picker') {
     return (
@@ -494,6 +544,13 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
         onClick={() => { if (!isEmptyGraph) act(selectAllNodes) }}
       >
         Select All
+      </button>
+      <button
+        className={`${styles.item} ${!hasSelection ? styles.disabled : ''}`}
+        disabled={!hasSelection}
+        onClick={() => { if (hasSelection) setShowGroupDialog(true) }}
+      >
+        Create Group
       </button>
       <button
         className={`${styles.item} ${(!hasSelection || isEmptyGraph) ? styles.disabled : ''}`}

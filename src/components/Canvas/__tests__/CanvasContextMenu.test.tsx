@@ -252,6 +252,27 @@ describe('CanvasContextMenu — drag-to-empty picker', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
+  it('shows Create Group immediately after Select All and groups the selection', () => {
+    seedSelectedNodes()
+    const onClose = vi.fn()
+    const { getByRole, getAllByRole } = render(
+      <CanvasContextMenu
+        x={0} y={0} flowPosition={{ x: 100, y: 100 }}
+        onClose={onClose}
+      />
+    )
+
+    const menuButtons = getAllByRole('button')
+    const selectAllIndex = menuButtons.findIndex((button) => button.textContent === 'Select All')
+    expect(menuButtons[selectAllIndex + 1].textContent).toBe('Create Group')
+
+    fireEvent.click(getByRole('button', { name: 'Create Group' }))
+    fireEvent.click(getByRole('button', { name: 'Create Group' }))
+
+    expect(useGraphStore.getState().nodes.some((node) => node.data.nodeType === 'Group')).toBe(true)
+    expect(onClose).toHaveBeenCalled()
+  })
+
   it('keeps Paste enabled on an empty graph when the clipboard has nodes', () => {
     seedEmptyGraphWithClipboard()
     const { getByRole } = render(
@@ -263,6 +284,7 @@ describe('CanvasContextMenu — drag-to-empty picker', () => {
 
     expect(getByRole('button', { name: 'Add Node ▶' }).hasAttribute('disabled')).toBe(false)
     expect(getByRole('button', { name: 'Select All' }).hasAttribute('disabled')).toBe(true)
+    expect(getByRole('button', { name: 'Create Group' }).hasAttribute('disabled')).toBe(true)
     expect(getByRole('button', { name: 'Delete Selected' }).hasAttribute('disabled')).toBe(true)
     expect(getByRole('button', { name: 'Tidy Graph' }).hasAttribute('disabled')).toBe(true)
     expect(getByRole('button', { name: 'Paste' }).hasAttribute('disabled')).toBe(false)
