@@ -14,14 +14,7 @@
   width: 100%;
   height: 100%;
   display: block;
-  image-rendering: pixelated;
-  object-fit: contain;
 }
-
-/* The blurred glow canvas was removed: a `filter: blur()` on a canvas whose
-   pixels are rewritten every frame makes Chromium leak GPU compositor memory
-   unbounded (the per-node glow layers were the dominant memory leak on a heavy
-   audio-reactive graph). See the note in NodePreview.tsx. */
 
 .bar {
   width: 100%;
