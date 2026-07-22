@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, waitFor } from '@testing-library/react'
+import { getViewportForBounds } from '@xyflow/react'
 import type { ReactNode } from 'react'
 import NodeGraphCanvas from '../NodeGraphCanvas'
 import { useGraphStore } from '../../../state/graphStore'
@@ -11,7 +12,9 @@ const screenToFlowPositionMock = ({ x, y }: { x: number; y: number }) => ({ x, y
 const flowToScreenPositionMock = ({ x, y }: { x: number; y: number }) => ({ x, y })
 const getNodeMock = vi.fn()
 const getInternalNodeMock = () => undefined
+const getNodesBoundsMock = vi.fn()
 const setCenterMock = vi.fn()
+const setViewportMock = vi.fn().mockResolvedValue(true)
 const getZoomMock = () => 1
 const startAudioMock = vi.fn(async () => {})
 const { runTidyMock } = vi.hoisted(() => ({ runTidyMock: vi.fn() }))
@@ -27,14 +30,16 @@ vi.mock('@xyflow/react', async (orig) => {
       return <div data-testid="react-flow">{props.children}</div>
     },
     Background: () => null,
-    Controls: () => null,
+    Controls: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
     MiniMap: () => null,
     useReactFlow: () => ({
       screenToFlowPosition: screenToFlowPositionMock,
       flowToScreenPosition: flowToScreenPositionMock,
       getNode: getNodeMock,
       getInternalNode: getInternalNodeMock,
+      getNodesBounds: getNodesBoundsMock,
       setCenter: setCenterMock,
+      setViewport: setViewportMock,
       getZoom: getZoomMock,
       fitView: fitViewMock,
     }),
@@ -56,6 +61,7 @@ describe('NodeGraphCanvas start screen', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     getNodeMock.mockReturnValue(undefined)
+    getNodesBoundsMock.mockReturnValue({ x: 0, y: 0, width: 100, height: 600 })
     Object.defineProperty(document, 'elementsFromPoint', { configurable: true, value: vi.fn(() => []) })
     reactFlowProps = {}
     localStorage.clear()
@@ -108,32 +114,54 @@ describe('NodeGraphCanvas start screen', () => {
     expect(localStorage.getItem('design-studio-for-fastled-test-signal')).toBe('false')
   })
 
-  it('fits nodes inside both open side panels', async () => {
-    render(<NodeGraphCanvas />)
-
+  it('centres fit frame in the space between differently sized side panels', async () => {
+    useGraphStore.getState().loadGraph([{
+      id: 'tall-node',
+      type: 'studioNode',
+      position: { x: 0, y: 0 },
+      width: 100,
+      height: 600,
+      data: {
+        nodeType: 'Comment', label: 'Tall node', category: 'note', properties: {}, inputs: [], outputs: [],
+      },
+    }], [])
     useUiStore.setState({
       sidebarOpen: true,
+      sidebarWidth: 300,
       previewPanelOpen: true,
-      fitViewRequest: { nonce: 1 },
+      previewWidth: 500,
+    })
+    const { getByRole, getByTestId } = render(<NodeGraphCanvas />)
+    const wrapper = getByTestId('react-flow').parentElement as HTMLDivElement
+    vi.spyOn(wrapper, 'getBoundingClientRect').mockReturnValue({
+      x: 0, y: 0, left: 0, top: 0, right: 1400, bottom: 800, width: 1400, height: 800,
+      toJSON: () => ({}),
     })
 
+    fireEvent.click(getByRole('button', { name: 'Fit frame' }))
+
+    const expected = getViewportForBounds(
+      { x: 0, y: 0, width: 100, height: 600 },
+      600,
+      800,
+      0.2,
+      2,
+      '32px',
+    )
+
     await waitFor(() => {
-      expect(fitViewMock).toHaveBeenCalledWith(expect.objectContaining({
-        padding: {
-          top: '32px',
-          right: '528px',
-          bottom: '32px',
-          left: '312px',
-        },
-      }))
+      expect(setViewportMock).toHaveBeenCalledWith(
+        { ...expected, x: expected.x + 300 },
+        expect.objectContaining({ duration: 260 }),
+      )
     })
 
     expect(reactFlowProps.fitViewOptions).toEqual(expect.objectContaining({
       padding: {
         top: '32px',
-        right: '528px',
+        right: '532px',
         bottom: '32px',
-        left: '312px',
+        left: '332px',
       },
     }))
   })
