@@ -9,11 +9,12 @@ import { useAudioStore } from '../../../state/audioStore'
 const fitViewMock = vi.fn().mockResolvedValue(undefined)
 const screenToFlowPositionMock = ({ x, y }: { x: number; y: number }) => ({ x, y })
 const flowToScreenPositionMock = ({ x, y }: { x: number; y: number }) => ({ x, y })
-const getNodeMock = () => undefined
+const getNodeMock = vi.fn()
 const getInternalNodeMock = () => undefined
 const setCenterMock = vi.fn()
 const getZoomMock = () => 1
 const startAudioMock = vi.fn(async () => {})
+const { runTidyMock } = vi.hoisted(() => ({ runTidyMock: vi.fn() }))
 let reactFlowProps: Record<string, unknown> = {}
 
 vi.mock('@xyflow/react', async (orig) => {
@@ -49,10 +50,13 @@ vi.mock('../../../audio/interactionSfx', () => ({
   playNoodleConnectSfx: vi.fn(),
   playNoodleDisconnectSfx: vi.fn(),
 }))
+vi.mock('../../../utils/tidyGraph', () => ({ runTidy: runTidyMock }))
 
 describe('NodeGraphCanvas start screen', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    getNodeMock.mockReturnValue(undefined)
+    Object.defineProperty(document, 'elementsFromPoint', { configurable: true, value: vi.fn(() => []) })
     reactFlowProps = {}
     localStorage.clear()
     useGraphStore.getState().loadGraph([], [])
@@ -200,5 +204,47 @@ describe('NodeGraphCanvas start screen', () => {
 
     expect(useGraphStore.getState().edges).toEqual([])
     expect(useUiStore.getState().statusText).toBe('Noodle unplugged')
+  })
+
+  it('tidies after an existing loose node is spliced into a connection', () => {
+    useGraphStore.getState().loadGraph([
+      {
+        id: 'source', type: 'studioNode', position: { x: 0, y: 0 },
+        data: {
+          nodeType: 'SolidColor', label: 'Solid Color', category: 'pattern', properties: {}, inputs: [],
+          outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+        },
+      },
+      {
+        id: 'invert', type: 'studioNode', position: { x: 300, y: 0 },
+        data: {
+          nodeType: 'Invert', label: 'Invert', category: 'composite', properties: {},
+          inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+          outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+        },
+      },
+      {
+        id: 'output', type: 'studioNode', position: { x: 600, y: 0 },
+        data: {
+          nodeType: 'MatrixOutput', label: 'Matrix Output', category: 'output', properties: {},
+          inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }], outputs: [],
+        },
+      },
+    ], [{
+      id: 'edge', source: 'source', sourceHandle: 'frame', target: 'output', targetHandle: 'frame',
+      type: 'glowEdge',
+    }])
+    getNodeMock.mockImplementation((id: string) => useGraphStore.getState().nodes.find((node) => node.id === id))
+
+    render(<NodeGraphCanvas />)
+
+    const onNodeDragStop = reactFlowProps.onNodeDragStop as (event: unknown, node: ReturnType<typeof getNodeMock>) => void
+    onNodeDragStop({}, useGraphStore.getState().nodes.find((node) => node.id === 'invert'))
+
+    expect(useGraphStore.getState().edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: 'source', target: 'invert' }),
+      expect.objectContaining({ source: 'invert', target: 'output' }),
+    ]))
+    expect(runTidyMock).toHaveBeenCalledOnce()
   })
 })
