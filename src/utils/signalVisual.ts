@@ -88,6 +88,47 @@ function sampleFrame(frame: Frame, region?: { x0: number; y0: number; x1: number
   return samples
 }
 
+/** Pick the strongest chromatic family in a region instead of averaging every
+ * hue together. A rainbow quadrant has plenty of light but a straight RGB/RMS
+ * average converges toward gray, which makes an Ambilight spill look detached
+ * from the pixels that produced it. */
+function dominantAmbientColor(samples: RGB[], fallback: string): string {
+  const bins = Array.from({ length: 12 }, () => ({ weight: 0, rr: 0, gg: 0, bb: 0 }))
+
+  for (const sample of samples) {
+    const r = clampByte(sample.r)
+    const g = clampByte(sample.g)
+    const b = clampByte(sample.b)
+    const max = Math.max(r, g, b)
+    const min = Math.min(r, g, b)
+    const chroma = max - min
+    if (max < 12 || chroma < 8) continue
+
+    let hue = 0
+    if (max === r) hue = ((g - b) / chroma + 6) % 6
+    else if (max === g) hue = (b - r) / chroma + 2
+    else hue = (r - g) / chroma + 4
+
+    const saturation = chroma / max
+    const weight = (max / 255) * saturation * saturation
+    const bin = bins[Math.floor((hue * 2) % bins.length)]
+    bin.weight += weight
+    bin.rr += r * r * weight
+    bin.gg += g * g * weight
+    bin.bb += b * b * weight
+  }
+
+  const dominant = bins.reduce((best, bin) => bin.weight > best.weight ? bin : best, bins[0])
+  if (dominant.weight === 0) return fallback
+
+  const r = clampByte(Math.sqrt(dominant.rr / dominant.weight))
+  const g = clampByte(Math.sqrt(dominant.gg / dominant.weight))
+  const b = clampByte(Math.sqrt(dominant.bb / dominant.weight))
+  const peak = Math.max(r, g, b)
+  const scale = peak > 0 ? Math.max(1, 180 / peak) : 0
+  return `rgb(${clampByte(r * scale)} ${clampByte(g * scale)} ${clampByte(b * scale)})`
+}
+
 /** Reduce a frame, palette, or colour port to a stable visual signal. */
 export function signalVisual(value: unknown): SignalVisual | null {
   if (isRgb(value)) return summarise([value])
@@ -107,10 +148,11 @@ export function frameAmbient(frame: Frame): FrameAmbient {
     { x0: 0, y0: 0.5, x1: 0.5, y1: 1 },
     { x0: 0.5, y0: 0.5, x1: 1, y1: 1 },
   ]
-  const visuals = regions.map((region) => summarise(sampleFrame(frame, region)))
+  const samples = regions.map((region) => sampleFrame(frame, region))
+  const visuals = samples.map(summarise)
   const fallback = 'rgb(0 0 0)'
   return {
-    colors: visuals.map((visual) => visual?.emissive ?? fallback) as FrameAmbient['colors'],
+    colors: visuals.map((visual, index) => dominantAmbientColor(samples[index], visual?.emissive ?? fallback)) as FrameAmbient['colors'],
     energy: Math.round((visuals.reduce((sum, visual) => sum + (visual?.energy ?? 0), 0) / 4) * 100) / 100,
   }
 }

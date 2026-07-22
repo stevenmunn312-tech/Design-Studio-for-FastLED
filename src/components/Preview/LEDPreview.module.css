@@ -322,21 +322,35 @@
 .ambilight {
   position: absolute;
   z-index: 0;
-  inset: 5% 9%;
-  border-radius: 22%;
+  inset: -14%;
   opacity: var(--ambient-opacity, 0);
-  /* Softness comes from the wide transparent gradient falloff, NOT a CSS
-     `filter: blur()`: the --ambient-* colours are rewritten ~10x/sec, and a
-     filter on a per-update element leaks GPU compositor memory unbounded (same
-     footgun as the node-preview glow / animated edges). */
-  background:
-    radial-gradient(circle at 16% 18%, var(--ambient-nw, transparent), transparent 66%),
-    radial-gradient(circle at 84% 18%, var(--ambient-ne, transparent), transparent 66%),
-    radial-gradient(circle at 16% 82%, var(--ambient-sw, transparent), transparent 66%),
-    radial-gradient(circle at 84% 82%, var(--ambient-se, transparent), transparent 66%);
-  transform: scale(1.16);
-  transition: opacity 180ms linear, background 180ms linear;
+  transition: opacity 180ms linear;
   pointer-events: none;
+}
+
+/* Four separate, matrix-anchored lobes keep corner colours distinct instead
+   of blending a full-panel gradient into gray. Their broad transparent falloff
+   supplies the softness without putting a CSS filter on live-updated content. */
+.ambilight i {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.ambilight i:nth-child(1) {
+  background: radial-gradient(ellipse at 11% 11%, var(--ambient-nw, transparent), transparent 47%);
+}
+
+.ambilight i:nth-child(2) {
+  background: radial-gradient(ellipse at 89% 11%, var(--ambient-ne, transparent), transparent 47%);
+}
+
+.ambilight i:nth-child(3) {
+  background: radial-gradient(ellipse at 11% 89%, var(--ambient-sw, transparent), transparent 47%);
+}
+
+.ambilight i:nth-child(4) {
+  background: radial-gradient(ellipse at 89% 89%, var(--ambient-se, transparent), transparent 47%);
 }
 
 .canvasBay {
@@ -351,6 +365,7 @@
 
 .canvasFrame {
   position: relative;
+  isolation: isolate;
   display: inline-flex;
   max-width: 100%;
   max-height: 100%;
@@ -443,6 +458,7 @@
 
 .canvasStack {
   position: relative;
+  z-index: 1;
   display: inline-block;
   line-height: 0;
   transition: transform 0.05s linear;
