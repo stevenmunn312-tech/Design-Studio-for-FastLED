@@ -31,6 +31,13 @@ __pycache__/
 # but project skills are part of the repo's tooling and travel with it.
 .claude/*
 !.claude/skills/
+# Scratch git worktrees Claude Code creates per-task; always local/disposable.
+.claude/worktrees/
+
+# Local skill cache mirroring .claude/skills/ for other tooling, plus its sync
+# lockfile — regenerated locally, not repo content.
+/.agents/
+/skills-lock.json
 
 # Saved node-graph patterns ("My Patterns") — per-user local content, written by
 # the upload helper. Share individual pattern files by hand; don't commit the folder.
