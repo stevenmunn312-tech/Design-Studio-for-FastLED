@@ -8,6 +8,7 @@ import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import { useMusicStore } from '../../../state/musicStore'
 import { usePreviewStore } from '../../../state/previewStore'
 import { useAudioStore } from '../../../state/audioStore'
+import { useNodeDefaults } from '../../../state/nodeDefaults'
 
 // React Flow's <Handle> needs flow context; keep a lightweight DOM stand-in so
 // node-body tests can also assert the absolute port geometry.
@@ -44,6 +45,7 @@ describe('StudioNode', () => {
     useMusicStore.setState({ entries: [] })
     usePreviewStore.setState({ outputs: new Map() })
     useAudioStore.setState({ active: false, bass: 0, mids: 0, treble: 0, beat: false, bpm: 120, spectrum: Array(16).fill(0) })
+    useNodeDefaults.setState({ overrides: {} })
     // Collapsible property-group open/closed state is persisted per node type
     // across a whole browser session; reset it so tests don't leak into each
     // other (a group opened in one test would start already-open in the next).
@@ -182,6 +184,29 @@ describe('StudioNode', () => {
     expect(container.querySelectorAll('input[type="range"]')).toHaveLength(1)
     expect(container.textContent).not.toContain('AGC')
     expect(useGraphStore.getState().nodes[0].data.properties).not.toHaveProperty('agc')
+  })
+
+  it('keeps a pinned "set default" override in sync with later pin edits', () => {
+    // Regression test: "Set Default" used to snapshot properties once at
+    // check-time, so editing a pin like MicInput's i2sWs afterwards left the
+    // saved default stale at the old value.
+    const first = renderNode(makeNode('MicInput', {
+      gain: 1, i2sWs: 39, i2sSck: 40, i2sSd: 41, channel: 'Left', serialDebug: false,
+    }))
+    const checkbox = first.container.querySelector(
+      '[title="Remember these settings as the default for new Microphone nodes"] input[type="checkbox"]'
+    ) as HTMLInputElement
+    expect(checkbox).toBeTruthy()
+    fireEvent.click(checkbox)
+    expect(useNodeDefaults.getState().overrides.MicInput?.i2sWs).toBe(39)
+    first.unmount()
+
+    // React Flow re-renders the node with fresh store data after an edit —
+    // simulate that by rendering again with the pin changed.
+    renderNode(makeNode('MicInput', {
+      gain: 1, i2sWs: 5, i2sSck: 40, i2sSd: 41, channel: 'Left', serialDebug: false,
+    }))
+    expect(useNodeDefaults.getState().overrides.MicInput?.i2sWs).toBe(5)
   })
 
   it('anchors connection handles to their port rows', () => {

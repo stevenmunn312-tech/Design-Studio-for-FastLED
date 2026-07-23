@@ -254,6 +254,15 @@ const LivePropertyControls = memo(function LivePropertyControls({
   pinProperty,
   unpinProperty,
 }: LivePropertyControlsProps) {
+  // "Set Default" is meant to keep tracking this node's settings, not just
+  // snapshot them once — otherwise a pin edited after the checkbox was
+  // ticked (e.g. MicInput's i2sWs) silently falls out of sync with the
+  // saved default until the user unchecks/rechecks it.
+  useEffect(() => {
+    if (!showSetDefault || !isCustomDefault) return
+    useNodeDefaults.getState().setDefault(nodeType, rawProps)
+  }, [showSetDefault, isCustomDefault, nodeType, rawProps])
+
   // Port id matching a property key drives that property (evaluator convention);
   // the `paletteIn` port drives the `palette` property, and the `color` port
   // drives the `r/g/b` swatch.
