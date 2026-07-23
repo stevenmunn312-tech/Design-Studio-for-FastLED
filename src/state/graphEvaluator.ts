@@ -3459,8 +3459,10 @@ interface ShowState {
   cur: number; nxt: number; phase: 'hold' | 'trans'
   start: number; dwell: number; trans: string; lastBeat: boolean; n: number
   seed: number
-  /** ms of the most recent beat-triggered particle burst, if any. */
-  burstT?: number
+  /** The most recent beat-triggered particle burst, if any — style/colour are
+   *  rolled once when the burst starts (randomStyle/randomColor) so they stay
+   *  fixed for the burst's lifetime instead of re-rolling every frame. */
+  burst?: { t: number; style: number; color: RGB }
 }
 export interface PatternShowSelection {
   currentIndex: number
@@ -3469,7 +3471,8 @@ export interface PatternShowSelection {
 }
 interface ShowOpts {
   minTime: number; maxTime: number; transSec: number; pool: string[]; beatEnabled: boolean
-  particles: boolean; particleStyle: number; particleHue: number; particleIntensity: number
+  particles: boolean; particleStyle: number; particleColor: RGB; particleIntensity: number
+  randomStyle: boolean; randomColor: boolean
   seed: number
 }
 
@@ -3504,27 +3507,16 @@ function particlePrnd(n: number): number {
   return s - Math.floor(s)
 }
 
-function particleHsv(hue: number): RGB {
-  const h = ((hue / 255) * 360) % 360
-  const c = 1, x = c * (1 - Math.abs(((h / 60) % 2) - 1))
-  let r = 0, g = 0, b = 0
-  if (h < 60) { r = c; g = x } else if (h < 120) { r = x; g = c }
-  else if (h < 180) { g = c; b = x } else if (h < 240) { g = x; b = c }
-  else if (h < 300) { r = x; b = c } else { r = c; b = x }
-  return { r: r * 255, g: g * 255, b: b * 255 }
-}
-
 /** Additive spark overlay (0–255 per channel, pre-brightness) for a burst that
  *  started at `burstTms`, or null when outside its lifetime. `intensity` 0–1. */
 export function renderParticleBurst(
-  burstTms: number, timeMs: number, intensity: number, style: number, hue: number,
+  burstTms: number, timeMs: number, intensity: number, style: number, col: RGB,
   W = DEFAULT_W, H = DEFAULT_H,
 ): Frame | null {
   if (timeMs < burstTms || timeMs >= burstTms + PARTICLE_LIFE_MS) return null
   const ov = blankFrame(W, H)
   const ageSec = (timeMs - burstTms) / 1000
   const f = (timeMs - burstTms) / PARTICLE_LIFE_MS
-  const col = particleHsv(hue)
   const cx = W * 0.5, cy = H * 0.5, maxR = Math.min(W, H) * 0.5
   for (let i = 0; i < PARTICLE_COUNT; i++) {
     const base = burstTms * 0.001 + i * 7.13
@@ -3651,8 +3643,16 @@ function evalPatternShow(
   const beatEdge = o.beatEnabled && beat && !st.lastBeat
   st.lastBeat = beat
   // Each beat also fires a particle burst (independent of the dwell-gated
-  // pattern advance), if the node has particles enabled.
-  if (beatEdge && o.particles) st.burstT = t * 1000
+  // pattern advance), if the node has particles enabled. Style/colour are
+  // rolled once here (when randomStyle/randomColor are on) so they stay fixed
+  // for the whole burst instead of changing every frame.
+  if (beatEdge && o.particles) {
+    st.burst = {
+      t: t * 1000,
+      style: o.randomStyle ? Math.floor(rnd() * 17) : o.particleStyle,
+      color: o.randomColor ? hsv(rnd() * 360, 1, 1) : o.particleColor,
+    }
+  }
 
   if (st.phase === 'hold' && n > 1) {
     const timeUp = t >= st.start + st.dwell
@@ -3681,8 +3681,8 @@ function evalPatternShow(
 
   // Overlay a beat-triggered particle burst additively (pre-brightness), the
   // same sparks the firmware spawns on _audioBeat.
-  if (o.particles && st.burstT != null) {
-    const ov = renderParticleBurst(st.burstT, t * 1000, o.particleIntensity, o.particleStyle, o.particleHue, W, H)
+  if (o.particles && st.burst != null) {
+    const ov = renderParticleBurst(st.burst.t, t * 1000, o.particleIntensity, st.burst.style, st.burst.color, W, H)
     if (ov) {
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
         const s = ov[y][x], px = frame[y][x]
@@ -5721,8 +5721,10 @@ function createEvalNode(
           beatEnabled: incoming.has(`${id}:beat`),
           particles: Boolean(input(id, 'particles', Boolean(props.particles))),
           particleStyle: Number(props.particleStyle ?? 0),
-          particleHue: num(id, 'particleHue', props, 'particleHue', 0),
+          particleColor: (input(id, 'particleColor', null) as RGB | null) ?? hexToRgb(String(props.particleColor ?? '#ff8000')),
           particleIntensity: num(id, 'particleIntensity', props, 'particleIntensity', 1),
+          randomStyle: Boolean(input(id, 'randomStyle', Boolean(props.randomStyle))),
+          randomColor: Boolean(input(id, 'randomColor', Boolean(props.randomColor))),
           seed: normalizedSeed(props.seed),
         }
         out = { frame: evalPatternShow(stateKey(id), ids, render, beat, o, t, W, H) }

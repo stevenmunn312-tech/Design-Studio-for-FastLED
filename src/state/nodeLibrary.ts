@@ -1857,15 +1857,20 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'maxTime',     label: 'Max Time',    dataType: 'float' },
       { id: 'transitionSec', label: 'Transition', dataType: 'float' },
       { id: 'particles',   label: 'Particles',   dataType: 'bool' },
-      { id: 'particleHue', label: 'Particle Hue', dataType: 'float' },
+      { id: 'particleColor', label: 'Particle Color', dataType: 'color' },
+      { id: 'randomColor', label: 'Random Color', dataType: 'bool' },
       { id: 'particleIntensity', label: 'Particle Intensity', dataType: 'float' },
+      { id: 'randomStyle', label: 'Random Style', dataType: 'bool' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       minTime: 4, maxTime: 12, transitionSec: 1,
       // Transition styles come from a wired TransitionSet; unwired ⇒ crossfade.
       // Beat-triggered particle overlay (needs a wired beat). Off by default.
-      particles: false, particleStyle: 0, particleHue: 24, particleIntensity: 0.8, seed: 0,
+      // `randomColor`/`randomStyle` re-roll the burst's colour/style each beat
+      // instead of using the fixed swatch/slider below.
+      particles: false, randomColor: false, randomStyle: false,
+      particleColor: '#ff8000', particleStyle: 0, particleIntensity: 0.8, seed: 0,
     },
   },
   {
@@ -2702,9 +2707,8 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   boost:      { control: 'slider', min: 0, max: 1, step: 0.01 },
   // Beat Flash overdrive — 1 = the pre-existing flash brightness, up to 2x hotter.
   intensity:  { control: 'slider', min: 0, max: 2, step: 0.05 },
-  // Show Engine beat-triggered particle overlay (style 0–10, hue 0–255).
-  particleStyle:     { control: 'slider', min: 0, max: 10, step: 1 },
-  particleHue:       { control: 'slider', min: 0, max: 255, step: 1 },
+  // Show Engine beat-triggered particle overlay (17 motion styles, 0–16).
+  particleStyle:     { control: 'slider', min: 0, max: 16, step: 1 },
   particleIntensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
   s:          { control: 'slider', min: 0, max: 1, step: 0.01 },
   v:          { control: 'slider', min: 0, max: 1, step: 0.01 },
@@ -3072,11 +3076,34 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   Transition: {
     direction: 'Slide direction for the Wipe / Push styles.',
   },
+  PatternMaster: {
+    particles: 'Beat-triggered spark overlay over the show. Requires a wired beat input — with nothing wired, turning this on has no effect.',
+    particleColor: 'Spark colour for the beat-triggered particle overlay.',
+    randomColor: 'Pick a new spark colour on every beat instead of the fixed colour below.',
+    particleStyle: 'Spark motion style for the beat-triggered particle overlay.',
+    randomStyle: 'Pick a new spark motion style on every beat instead of the fixed style below.',
+  },
 }
 
 /** Hover-tooltip text for a node's property, honouring per-node overrides. */
 export function propertyDescription(nodeType: string, key: string): string | undefined {
   return PROPERTY_DESCRIPTIONS_OVERRIDES[nodeType]?.[key] ?? PROPERTY_DESCRIPTIONS[key]
+}
+
+/** Per-node overrides for a property's displayed label (defaults to the raw key). */
+export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
+  PatternMaster: {
+    particles: 'use particles',
+    particleColor: 'particle color',
+    randomColor: 'use random color',
+    particleStyle: 'particle style',
+    randomStyle: 'use random style',
+  },
+}
+
+/** Display text for a node's property row (StudioNode's inline editors). */
+export function propertyLabel(nodeType: string, key: string): string {
+  return PROPERTY_LABELS[nodeType]?.[key] ?? key
 }
 
 // Hardware/setup values should remain literal and MatrixOutput width/height
@@ -3189,7 +3216,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   PatternMaster: [
     { key: 'timing', label: 'Timing', keys: ['minTime', 'maxTime', 'transitionSec'] },
     { key: 'randomness', label: 'Randomness', keys: ['seed'] },
-    { key: 'particles', label: 'Particles', keys: ['particleStyle', 'particleHue', 'particleIntensity'] },
+    { key: 'particles', label: 'Particles', keys: ['particles', 'randomColor', 'randomStyle', 'particleColor', 'particleStyle', 'particleIntensity'] },
   ],
   Array: [
     { key: 'position', label: 'Position', keys: ['offsetX', 'offsetY', 'angle', 'scale'] },
@@ -3430,6 +3457,16 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
       case 'gravity': return PARTICLE_GRAVITY_MODES.has(pt)
       // Modes with a floor-bounce restitution constant.
       case 'bounce':  return PARTICLE_BOUNCE_MODES.has(pt)
+    }
+  }
+  if (nodeType === 'PatternMaster') {
+    const on = properties.particles === true
+    switch (key) {
+      case 'particleColor': return on && properties.randomColor !== true
+      case 'randomColor':
+      case 'particleIntensity': return on
+      case 'particleStyle': return on && properties.randomStyle !== true
+      case 'randomStyle': return on
     }
   }
   return true

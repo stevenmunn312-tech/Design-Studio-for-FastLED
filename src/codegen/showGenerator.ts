@@ -19,6 +19,7 @@ import { generateCpp, audioEngineForGraph, psramBufferDecl, PSRAM_ALLOC_CPP, led
 import { SPI_CHIPSETS } from '../state/nodeLibrary'
 import { SHOW_TRANSITIONS } from './performanceGenerator'
 import { TRANSITION_HELPER_CPP, PARTICLE_OVERLAY_CPP } from './transitionHelperCpp'
+import { hexToRgb } from '../state/polinePalette'
 import { buildXYTable } from '../state/xyLayout'
 import { compositionDims, outputRoutes } from '../state/outputRouting'
 
@@ -55,8 +56,12 @@ interface ShowInfo {
   /** Beat-triggered particle overlay params (particles off ⇒ no overlay). */
   particles: boolean
   particleStyle: number
-  particleHue: number
+  particleColor: { r: number; g: number; b: number }
   particleIntensity: number
+  /** Re-roll the burst's style/colour each beat instead of using the fixed
+   *  particleStyle/particleColor above. */
+  randomStyle: boolean
+  randomColor: boolean
   seed: number
 }
 
@@ -92,8 +97,10 @@ function showInfo(nodes: StudioNode[], edges: StudioEdge[]): ShowInfo | null {
     beatWired: edges.some((e) => e.target === master.id && e.targetHandle === 'beat'),
     particles: !!p.particles,
     particleStyle: Number(p.particleStyle ?? 0),
-    particleHue: Number(p.particleHue ?? 0),
+    particleColor: hexToRgb(String(p.particleColor ?? '#ff8000')),
     particleIntensity: Number(p.particleIntensity ?? 0.8),
+    randomStyle: !!p.randomStyle,
+    randomColor: !!p.randomColor,
     seed: Math.max(0, Math.round(Number(p.seed ?? 0))) >>> 0,
   }
 }
@@ -300,7 +307,7 @@ export function generateShowSketch(
   const fastLedDecls = new Set<string>([
     'void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt);',
   ])
-  if (particlesOn) fastLedDecls.add('void particleOverlay(uint32_t burstStart, uint8_t burstStyle, uint8_t burstHue, float burstIntensity, uint32_t posMs);')
+  if (particlesOn) fastLedDecls.add('void particleOverlay(uint32_t burstStart, uint8_t burstStyle, uint8_t burstR, uint8_t burstG, uint8_t burstB, float burstIntensity, uint32_t posMs);')
   for (const block of [...renderers.helpers, ...renderers.functions]) {
     const proto = cppPrototype(block)
     if (proto && /CRGB(?:Palette16)?/.test(proto)) fastLedDecls.add(proto)
@@ -415,10 +422,18 @@ export function generateShowSketch(
   L.push('  static uint8_t  cur = random8(PATTERN_COUNT), nxt = 0, transType = 0;')
   L.push('  static bool     transitioning = false;')
   L.push('  static uint32_t phaseStart = 0, dwell = 0;')
-  if (particlesOn) L.push('  static uint32_t burstStart = 0; static bool prevBeat = false;')
+  if (particlesOn) {
+    L.push('  static uint32_t burstStart = 0; static bool prevBeat = false;')
+    L.push(`  static uint8_t  burstStyle = ${info.particleStyle};`)
+    L.push(`  static CRGB     burstColor = CRGB(${info.particleColor.r}, ${info.particleColor.g}, ${info.particleColor.b});`)
+  }
   L.push('  uint32_t now = millis();')
   if (particlesOn) {
-    L.push('  if (_audioBeat && !prevBeat) burstStart = now;   // spawn a burst on each beat')
+    L.push('  if (_audioBeat && !prevBeat) {   // spawn a burst on each beat')
+    L.push('    burstStart = now;')
+    if (info.randomStyle) L.push('    burstStyle = random8(17);')
+    if (info.randomColor) L.push('    burstColor = CHSV(random8(), 255, 255);')
+    L.push('  }')
     L.push('  prevBeat = _audioBeat;')
   }
   L.push(`  if (dwell == 0) dwell = random16(${minMs}, ${maxMs});`)
@@ -443,7 +458,7 @@ export function generateShowSketch(
   L.push('  }')
   L.push('')
   if (particlesOn) {
-    L.push(`  particleOverlay(burstStart, ${info.particleStyle}, ${info.particleHue}, ${info.particleIntensity}f, now);`)
+    L.push(`  particleOverlay(burstStart, burstStyle, burstColor.r, burstColor.g, burstColor.b, ${info.particleIntensity}f, now);`)
   }
   if (multiOutput) {
     for (const route of routes) {
