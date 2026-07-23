@@ -238,8 +238,16 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   refreshPorts: async () => {
     const ports = await listPorts()
     set({ ports })
-    // Default the port to the first detected board if nothing is chosen yet.
-    if (!get().selectedPort && ports[0]) get().setSelectedPort(ports[0].address)
+    // Default to the first detected board when nothing is chosen, or when the
+    // previously selected port has disappeared from the list (e.g. the board
+    // re-enumerated on a different port after a replug). Otherwise
+    // `selectedPort` keeps pointing at a port that no longer exists while the
+    // <select> silently falls back to displaying the first option — making it
+    // look like the right port is selected when uploads still target the
+    // stale one.
+    const { selectedPort } = get()
+    const stillPresent = selectedPort && ports.some((p) => p.address === selectedPort)
+    if (!stillPresent && ports[0]) get().setSelectedPort(ports[0].address)
   },
 
   refreshCores: async () => set({ installedCores: await listCores() }),

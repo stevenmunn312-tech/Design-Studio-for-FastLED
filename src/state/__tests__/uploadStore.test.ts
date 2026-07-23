@@ -124,4 +124,18 @@ describe('uploadStore', () => {
     await useUploadStore.getState().runLastUpload()
     expect(mocks.uploadSketch).not.toHaveBeenCalled()
   })
+
+  it('re-syncs the selected port when it disappears from a refresh (board re-enumerated on a new port)', async () => {
+    const { useUploadStore } = await freshStores()
+    mocks.listPorts.mockResolvedValueOnce([{ address: 'COM5', label: 'COM5', boards: [] }])
+    await useUploadStore.getState().refreshPorts()
+    expect(useUploadStore.getState().selectedPort).toBe('COM5')
+
+    // The board was unplugged and replugged; it now enumerates on COM4 and
+    // COM5 is gone. A stale `selectedPort` would otherwise keep uploads
+    // silently targeting a port that no longer exists.
+    mocks.listPorts.mockResolvedValueOnce([{ address: 'COM4', label: 'COM4', boards: [] }])
+    await useUploadStore.getState().refreshPorts()
+    expect(useUploadStore.getState().selectedPort).toBe('COM4')
+  })
 })
