@@ -176,7 +176,11 @@ function buildPattern(
   // controller-hosted mic globals (the controller emits the engine once).
   const sketch = generateCpp(nodes, retainedEdges, groups, { externalAudio, nativeFastLedAudio, groupInputExprs })
   const lines = sketch.split('\n')
-  const pfx = (s: string) => s.replace(/\b(?:buf|field)_[A-Za-z0-9_]+\b/g, (m) => `p${index}_${m}`)
+  // FrameFeedback's history ring buffer (`_fb_<id>`) is a per-node global too,
+  // and its <id> is the raw node id — so two patterns that happen to share a
+  // FrameFeedback node id (e.g. both authored from the same starter) must not
+  // collide on one shared buffer. Prefix it alongside buf_/field_.
+  const pfx = (s: string) => s.replace(/\b(?:buf|field)_[A-Za-z0-9_]+\b|\b_fb_[A-Za-z0-9_]+\b/g, (m) => `p${index}_${m}`)
 
   const buffers: string[] = []
   const helpers = new Map<string, string>()
@@ -192,6 +196,8 @@ function buildPattern(
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     if (/^(?:CRGB buf_|float field_)[A-Za-z0-9_]+\[NUM_LEDS\];$/.test(line)) { buffers.push(pfx(line)); continue }
+    // FrameFeedback's history ring buffer: `CRGB _fb_<id>[<capacity>][NUM_LEDS];`.
+    if (/^CRGB _fb_[A-Za-z0-9_]+\[\d+\]\[NUM_LEDS\];$/.test(line)) { buffers.push(pfx(line)); continue }
     // Formula shims are emitted as one-line helper functions. They used to be
     // discarded here, leaving calls such as `_fsin8(...)` undeclared.
     const shim = line.match(/^float (_f[A-Za-z0-9_]+)\(/)

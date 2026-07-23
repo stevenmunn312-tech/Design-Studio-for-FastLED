@@ -1148,6 +1148,7 @@ export function generateCpp(
           ln(`    float _cx=_cxv>1.0f?_cxv:(0.5f-_mx)+_cxv*((WIDTH-1.0f)+2.0f*_mx),_cy=_cyv>1.0f?_cyv:(0.5f-_my)+_cyv*((HEIGHT-1.0f)+2.0f*_my);`)
           emitShapePass('_cx', '_cy', '    ')
         }
+        ln(`  }`)
         break
       }
 
@@ -1648,7 +1649,7 @@ export function generateCpp(
           ln(`    static uint32_t _svWaterfall_${id}=0; if(!_svWaterfall_${id})_svWaterfall_${id}=_svNow;`)
           ln(`    int _steps=min(HEIGHT,(int)((_svNow-_svWaterfall_${id})*${waterfallSpeed.toFixed(3)}f/1000.0f));`)
           ln(`    if(_steps>0){ _svWaterfall_${id}+=(uint32_t)(_steps*(1000.0f/${waterfallSpeed.toFixed(3)}f)); for(int _step=0;_step<_steps;_step++){`)
-          ln(`      if(HEIGHT>1)memmove(${ob},${ob}+WIDTH,sizeof(CRGB)*WIDTH*(HEIGHT-1));`)
+          ln(`      if(HEIGHT>1)::memmove(${ob},${ob}+WIDTH,sizeof(CRGB)*WIDTH*(HEIGHT-1));`)
           ln(`      for(int _x=0;_x<WIDTH;_x++){ float _lv=constrain(_svLevel_${id}[_x],0.0f,1.0f); ${ob}[(HEIGHT-1)*WIDTH+_x]=_lv<0.02f?CRGB::Black:_svColor(_lv,0.25f+_lv*0.75f); }`)
           ln(`    } }`)
         } else if (style === 'Orbit') {

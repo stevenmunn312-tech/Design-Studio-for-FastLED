@@ -664,6 +664,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('CRGB _fill=CRGB(255, 0, 128)')                 // fill hex → CRGB
     expect(cpp).toContain('CRGB(0, 224, 255)')                           // edge hex → CRGB
     expect(cpp).toContain('nblend(buf_sh[_y*WIDTH+_x],_col,')             // over-composite
+    expect((cpp.match(/\{/g) ?? []).length).toBe((cpp.match(/\}/g) ?? []).length) // balanced braces
   })
 
   it('emits a Shape rect/ellipse without the polygon branch', () => {
@@ -684,6 +685,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float _cx=_cxv>1.0f?_cxv:(WIDTH*0.5f-WIDTH)+_cxv*(WIDTH*2.0f),_cy=_cyv>1.0f?_cyv:(HEIGHT*0.5f-HEIGHT)+_cyv*(HEIGHT*2.0f);')
     expect(cpp).toContain('float _wrapX[3]={-(float)WIDTH,0.0f,(float)WIDTH};')
     expect(cpp).toContain('float _wcx=_cx+_wrapX[_wx],_wcy=_cy+_wrapY[_wy];')
+    expect((cpp.match(/\{/g) ?? []).length).toBe((cpp.match(/\}/g) ?? []).length) // balanced braces
   })
 
   it('emits Shape pixel-space center compatibility', () => {
@@ -1839,7 +1841,7 @@ describe('generateCpp — INMP441 audio engine', () => {
     })
     const cpp = generateCpp([visualizer, out], [edge('svw-frame', 'svw', 'out', 'frame', 'frame')])
     expect(cpp).toContain('SpectrumVisualizer · Waterfall')
-    expect(cpp).toContain('memmove(buf_svw,buf_svw+WIDTH')
+    expect(cpp).toContain('::memmove(buf_svw,buf_svw+WIDTH')
     expect(cpp).toContain('Connect a Microphone to the Audio input')
     expect(cpp).not.toContain('_sum+=_audioSpectrum[_i]')
   })
