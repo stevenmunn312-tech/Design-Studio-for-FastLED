@@ -146,6 +146,25 @@ describe('showGenerator', () => {
     expect(cpp.match(/fl::XYMap _xyMap =/g)).toHaveLength(1)
   })
 
+  it('prefixes FrameFeedback\'s history buffer per pattern so same-id patterns don\'t collide', () => {
+    // Two saved patterns whose FrameFeedback node happens to share the id
+    // "fb" (plausible if both were authored from the same starter/duplicate).
+    // Each pattern must get its own hoisted, uniquely-named ring buffer.
+    const fbGroups: GroupRegistry = {
+      g0: { nodes: [node('sc', 'SolidColor', { r: 255, g: 0, b: 0 }), node('fb', 'FrameFeedback', { delayFrames: 2 }), node('go', 'GroupOutput')],
+            edges: [edge('e1', 'sc', 'frame', 'fb', 'frame'), edge('e2', 'fb', 'frame', 'go', 'frame')] },
+      g1: { nodes: [node('sc', 'SolidColor', { r: 0, g: 255, b: 0 }), node('fb', 'FrameFeedback', { delayFrames: 3 }), node('go', 'GroupOutput')],
+            edges: [edge('e1', 'sc', 'frame', 'fb', 'frame'), edge('e2', 'fb', 'frame', 'go', 'frame')] },
+    }
+    const r = buildPatternRenderers(['g0', 'g1'], fbGroups)
+    expect(r.buffers).toContain('CRGB p0__fb_fb[3][NUM_LEDS];')
+    expect(r.buffers).toContain('CRGB p1__fb_fb[4][NUM_LEDS];')
+    expect(r.functions[0]).toContain('p0__fb_fb[')
+    expect(r.functions[0]).not.toContain('p1__fb_fb[')
+    expect(r.functions[1]).toContain('p1__fb_fb[')
+    expect(r.functions[1]).not.toContain('p0__fb_fb[')
+  })
+
   it('handles a Pattern Master with no patterns', () => {
     const lone = [node('pc', 'PatternCollection', { patternIds: [] }), node('pm', 'PatternMaster', {}), node('out', 'MatrixOutput', {})]
     const loneEdges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
