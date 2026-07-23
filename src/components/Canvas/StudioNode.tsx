@@ -5,7 +5,7 @@ import { useGraphStore } from '../../state/graphStore'
 import { compositionDims } from '../../state/outputRouting'
 import type { StudioEdge, StudioNodeData } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { NODE_LIBRARY, CATEGORY_ACCENT_VAR, portColor, propertyMeta, propertyDescription, hasClampableInputs, bypassPort, nodeDisplayLabel, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression } from '../../state/nodeLibrary'
+import { NODE_LIBRARY, CATEGORY_ACCENT_VAR, portColor, propertyMeta, propertyDescription, propertyLabel, hasClampableInputs, bypassPort, nodeDisplayLabel, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression } from '../../state/nodeLibrary'
 import { isPinnableProperty } from '../../state/performanceDeck'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../../state/scalarExpression'
 import { waveNodeSamples } from '../../state/wave'
@@ -400,7 +400,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
             className={`${styles.propRow}${disabled ? ` ${styles.wired}` : ''}`}
             title={rowTitle}
           >
-            <span className={styles.propKey} title={key}>{key}</span>
+            <span className={styles.propKey} title={key}>{propertyLabel(nodeType, key)}</span>
             {meta?.control === 'select' ? (
               <select
                 className={`nodrag ${styles.propSelect}`}

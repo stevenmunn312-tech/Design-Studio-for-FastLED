@@ -9,6 +9,7 @@
 // outgoing pattern to the incoming one over its `duration`, mirroring the device.
 
 import { evaluateGraph, compositeTransition, renderParticleBurst, PARTICLE_LIFE_MS, type Frame, type GroupRegistry, type PortValue, type AudioOverride } from './graphEvaluator'
+import { hsv } from './ledColor'
 import { showAudioOverride } from './showAudio'
 import { NODE_LIBRARY } from './nodeLibrary'
 import { isStudioPalette } from './paletteCatalog'
@@ -256,7 +257,7 @@ function particleOverlayAt(show: ShowFile, timeMs: number, W: number, H: number)
   if (timeMs >= burst.t + PARTICLE_LIFE_MS) return null
   return renderParticleBurst(
     burst.t, timeMs, Number(burst.params.intensity) / 255,
-    Number(burst.params.style ?? 0), Number(burst.params.hue), W, H,
+    Number(burst.params.style ?? 0), hsv((Number(burst.params.hue) / 255) * 360, 1, 1), W, H,
   )
 }
 

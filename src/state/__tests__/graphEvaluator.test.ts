@@ -378,15 +378,16 @@ describe('evaluateGraph', () => {
 
   it('renderParticleBurst spawns fading sparks within the burst lifetime', () => {
     const W = 8, H = 8
+    const col = { r: 255, g: 128, b: 0 }
     const lit = (f: ReturnType<typeof renderParticleBurst>) =>
       f ? f.flat().filter((px) => px.r + px.g + px.b > 0).length : 0
-    expect(renderParticleBurst(0, -1, 1, 0, 24, W, H)).toBeNull()               // before the burst
-    expect(renderParticleBurst(0, PARTICLE_LIFE_MS, 1, 0, 24, W, H)).toBeNull() // past its lifetime
-    const early = renderParticleBurst(0, 80, 1, 2, 24, W, H)                    // explode, mid-life
+    expect(renderParticleBurst(0, -1, 1, 0, col, W, H)).toBeNull()               // before the burst
+    expect(renderParticleBurst(0, PARTICLE_LIFE_MS, 1, 0, col, W, H)).toBeNull() // past its lifetime
+    const early = renderParticleBurst(0, 80, 1, 2, col, W, H)                    // explode, mid-life
     expect(lit(early)).toBeGreaterThan(0)
     // A deterministic function of burst time + spark index: same inputs → same frame.
-    expect(JSON.stringify(renderParticleBurst(0, 80, 1, 2, 24, W, H)))
-      .toEqual(JSON.stringify(renderParticleBurst(0, 80, 1, 2, 24, W, H)))
+    expect(JSON.stringify(renderParticleBurst(0, 80, 1, 2, col, W, H)))
+      .toEqual(JSON.stringify(renderParticleBurst(0, 80, 1, 2, col, W, H)))
   })
 
   it('audio-reactive nodes read an audioOverride instead of the mic store', () => {

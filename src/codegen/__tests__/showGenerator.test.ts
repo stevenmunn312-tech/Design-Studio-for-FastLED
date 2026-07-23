@@ -201,7 +201,7 @@ describe('showGenerator', () => {
   it('emits a beat-triggered particle overlay only with particles on, a beat wired, and a mic', () => {
     const pmParticles = node('pm', 'PatternMaster', {
       minTime: 4, maxTime: 12, transitionSec: 1,
-      particles: true, particleStyle: 3, particleHue: 200, particleIntensity: 0.9,
+      particles: true, particleStyle: 3, particleColor: '#3366cc', particleIntensity: 0.9,
     })
     const base = [node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }), pmParticles,
       node('out', 'MatrixOutput', { width: 8, height: 8 })]
@@ -215,8 +215,25 @@ describe('showGenerator', () => {
     const withMic = [...base, node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })]
     const cpp = generateShowSketch(withMic, wire, groups)
     expect(cpp).toContain('void particleOverlay(')
-    expect(cpp).toContain('if (_audioBeat && !prevBeat) burstStart = now;')
-    expect(cpp).toContain('particleOverlay(burstStart, 3, 200, 0.9f, now);')
+    expect(cpp).toContain('static uint8_t  burstStyle = 3;')
+    expect(cpp).toContain('static CRGB     burstColor = CRGB(51, 102, 204);')
+    expect(cpp).toContain('burstStart = now;')
+    expect(cpp).toContain('particleOverlay(burstStart, burstStyle, burstColor.r, burstColor.g, burstColor.b, 0.9f, now);')
+  })
+
+  it('rolls a random style/colour per beat when randomStyle/randomColor are on', () => {
+    const pmRandom = node('pm', 'PatternMaster', {
+      minTime: 4, maxTime: 12, transitionSec: 1,
+      particles: true, randomStyle: true, randomColor: true, particleIntensity: 0.9,
+    })
+    const base = [node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }), pmRandom,
+      node('out', 'MatrixOutput', { width: 8, height: 8 }),
+      node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })]
+    const wire = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame'),
+      edge('eb', 'pm', 'beat', 'pm', 'beat')]
+    const cpp = generateShowSketch(base, wire, groups)
+    expect(cpp).toContain('burstStyle = random8(17);')
+    expect(cpp).toContain('burstColor = CHSV(random8(), 255, 255);')
   })
 
   it('adds a beat-triggered early advance only when a beat is wired and a mic hosts _audioBeat', () => {
