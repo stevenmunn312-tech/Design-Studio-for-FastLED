@@ -499,6 +499,9 @@ const LivePropertyControls = memo(function LivePropertyControls({
                   title={pinId ? 'Unpin from Performance Deck' : 'Pin to Performance Deck'}
                   aria-label={pinId ? `Unpin ${key} from Performance Deck` : `Pin ${key} to Performance Deck`}
                   aria-pressed={Boolean(pinId)}
+                  // Out of tab order so Tab moves straight to the next property
+                  // field instead of stopping on this button every row.
+                  tabIndex={-1}
                   onClick={() => (pinId ? unpinProperty(pinId) : pinProperty(nodeId, key))}
                 >
                   📌
