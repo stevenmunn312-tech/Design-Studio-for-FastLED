@@ -144,6 +144,20 @@ describe('isPinnableProperty', () => {
     expect(isPinnableProperty('MatrixOutput', 'brightness', 200)).toBe(true)
     expect(presettableProperties('MatrixOutput', { brightness: 200 })).toEqual({})
   })
+
+  it('excludes physical wiring on MicInput and MatrixOutput, but not lookalike keys elsewhere', () => {
+    expect(isPinnableProperty('MicInput', 'i2sWs', 39)).toBe(false)
+    expect(isPinnableProperty('MicInput', 'i2sSck', 40)).toBe(false)
+    expect(isPinnableProperty('MicInput', 'i2sSd', 41)).toBe(false)
+    expect(isPinnableProperty('MicInput', 'channel', 'Left')).toBe(false)
+    expect(isPinnableProperty('MatrixOutput', 'chipset', 'WS2812B')).toBe(false)
+    expect(isPinnableProperty('MatrixOutput', 'colorOrder', 'GRB')).toBe(false)
+    expect(isPinnableProperty('MatrixOutput', 'dataPin', 5)).toBe(false)
+    expect(isPinnableProperty('MatrixOutput', 'clockPin', 6)).toBe(false)
+    expect(isPinnableProperty('MatrixOutput', 'serpentine', false)).toBe(false)
+    // gain is the live-tunable MicInput control, not wiring — must stay pinnable.
+    expect(isPinnableProperty('MicInput', 'gain', 1)).toBe(true)
+  })
 })
 
 describe('deriveControlShape', () => {
