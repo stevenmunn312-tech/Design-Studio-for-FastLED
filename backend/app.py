@@ -29,6 +29,7 @@ import platform
 import re
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 import time
@@ -886,7 +887,65 @@ def _serial_send(port, payloads):
         ser.close()
 
 
+_WINDOWS_EDITION_LABELS = {
+    "Core": "Home",
+    "CoreN": "Home N",
+    "CoreSingleLanguage": "Home Single Language",
+    "Professional": "Pro",
+    "ProfessionalN": "Pro N",
+    "Enterprise": "Enterprise",
+    "EnterpriseN": "Enterprise N",
+    "Education": "Education",
+    "EducationN": "Education N",
+}
+
+
+def _system_info() -> dict:
+    """Exact host OS name/build for the hardware validation report's Host OS
+    field — no browser API can expose this (User-Agent Client Hints only give
+    a coded Windows release marker, never the real build number)."""
+    system = platform.system()
+    if system == "Windows":
+        try:
+            build = sys.getwindowsversion().build  # type: ignore[attr-defined]
+            release = "11" if build >= 22000 else "10"
+            version_label = f"10.0.{build}"
+        except Exception:
+            build = None
+            release = platform.release()
+            version_label = platform.version()
+        try:
+            edition = _WINDOWS_EDITION_LABELS.get(platform.win32_edition())  # type: ignore[attr-defined]
+        except Exception:
+            edition = None
+        os_label = f"Windows {release}" + (f" {edition}" if edition else "")
+    elif system == "Darwin":
+        mac_release, _, _ = platform.mac_ver()
+        os_label = f"macOS {mac_release}" if mac_release else "macOS"
+        version_label = mac_release or platform.release()
+    elif system == "Linux":
+        try:
+            info = platform.freedesktop_os_release()  # type: ignore[attr-defined]
+            os_label = info.get("PRETTY_NAME") or f"Linux {platform.release()}"
+        except Exception:
+            os_label = f"Linux {platform.release()}"
+        version_label = platform.release()
+    else:
+        os_label = system or "Unknown"
+        version_label = platform.release()
+    return {
+        "ok": True,
+        "os": os_label,
+        "osVersion": version_label,
+    }
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
+@app.get("/api/system-info")
+def system_info():
+    return _system_info()
+
+
 @app.get("/api/health")
 def health():
     """Liveness + which build engine is active + arduino-cli availability (so

@@ -40,6 +40,25 @@ export async function checkBackend(signal?: AbortSignal): Promise<BackendHealth 
   }
 }
 
+export interface SystemInfo {
+  ok: boolean
+  os: string
+  osVersion: string
+}
+
+/** Exact host OS name/build, read server-side via Python's own OS APIs — no
+ *  browser API can expose the literal build number. Returns null if the
+ *  helper isn't reachable. */
+export async function getSystemInfo(signal?: AbortSignal): Promise<SystemInfo | null> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/system-info`, { signal })
+    if (!res.ok) return null
+    return (await res.json()) as SystemInfo
+  } catch {
+    return null
+  }
+}
+
 /** Persist a build-engine preference (`fbuild` manages its own per-board
  *  toolchains; `arduino-cli` additionally supports custom boards-by-URL and
  *  core update checks). Only takes effect if that engine's binary was found. */

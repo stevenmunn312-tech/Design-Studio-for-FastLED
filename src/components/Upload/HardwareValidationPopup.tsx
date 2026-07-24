@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import type { BackendHealth, CompileCheckResult } from '../../utils/backendClient'
+import { getSystemInfo, type BackendHealth, type CompileCheckResult, type SystemInfo } from '../../utils/backendClient'
 import {
   buildHardwareValidationProfile,
+  detectValidationRuntimeHighEntropy,
   formatHardwareValidationReport,
   hardwareValidationIssueUrl,
   validationActionLabel,
@@ -12,6 +13,10 @@ import {
   type ValidationResult,
 } from '../../utils/hardwareValidation'
 import styles from './Upload.module.css'
+
+function formatSystemInfoHostOs(info: SystemInfo): string {
+  return info.os.includes(info.osVersion) ? info.os : `${info.os} build ${info.osVersion}`
+}
 
 const ACTIONS: HardwareValidationAction[] = [
   'normal-upload',
@@ -48,6 +53,25 @@ export default function HardwareValidationPopup({
   const [results, setResults] = useState<Record<string, ValidationResult>>({})
   const [notes, setNotes] = useState('')
   const [recordedAt] = useState(() => new Date().toISOString())
+
+  // Refine the placeholder OS/browser fields once better sources resolve, but
+  // never clobber a value the tester has already edited. The local helper
+  // (when reachable) reads the exact OS build straight from Python — the one
+  // thing no browser API can expose; Client Hints (Chromium only) still cover
+  // the exact browser build.
+  useEffect(() => {
+    let cancelled = false
+    void Promise.all([
+      getSystemInfo(),
+      detectValidationRuntimeHighEntropy(initialProfile.environment),
+    ]).then(([systemInfo, resolved]) => {
+      if (cancelled) return
+      const resolvedHostOs = systemInfo?.ok ? formatSystemInfoHostOs(systemInfo) : resolved.hostOs
+      setHostOs((current) => (current === initialProfile.environment.hostOs ? resolvedHostOs : current))
+      setBrowser((current) => (current === initialProfile.environment.browser ? resolved.browser : current))
+    })
+    return () => { cancelled = true }
+  }, [initialProfile.environment])
 
   const profile = useMemo(() => buildHardwareValidationProfile({
     nodes,
