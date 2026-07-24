@@ -959,19 +959,47 @@
 
 .codeBody {
   flex: 1;
+  display: flex;
+  align-items: flex-start;
   margin: 0;
-  padding: var(--space-2);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.012), rgba(255, 255, 255, 0)),
     #0b0f14;
+  overflow: auto;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Display-only line-number gutter: sticky during horizontal scroll, unselectable
+   so it's never picked up by a manual copy — Copy/Download always use the raw
+   `code` string, never this markup. */
+.codeGutter {
+  position: sticky;
+  left: 0;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2) 10px var(--space-2) var(--space-2);
+  background: #0b0f14;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: right;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.codeText {
+  flex: 1;
+  margin: 0;
+  padding: var(--space-2) var(--space-2) var(--space-2) 10px;
   color: #c9d1d9;
   font-family: var(--font-code);
   font-size: 11px;
   line-height: 1.5;
-  overflow: auto;
   white-space: pre;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .note {
@@ -1171,6 +1199,15 @@
   border-radius: 2px;
 }
 .consoleCopyBtn:disabled { opacity: 0.38; cursor: not-allowed; }
+.consoleUploadBtn {
+  composes: consoleCopyBtn;
+  color: var(--success);
+  text-decoration-color: color-mix(in srgb, var(--success) 52%, transparent);
+}
+.consoleUploadBtn:hover:not(:disabled) {
+  color: color-mix(in srgb, var(--success) 70%, white);
+  text-decoration-color: currentColor;
+}
 .consoleBtn {
   background: none;
   border: 1px solid rgba(255, 255, 255, 0.08);

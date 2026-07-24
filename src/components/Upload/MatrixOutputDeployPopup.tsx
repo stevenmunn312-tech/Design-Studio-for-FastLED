@@ -523,7 +523,21 @@ export default function MatrixOutputDeployPopup() {
         </div>
 
         {streamError && <div className={styles.streamError}>{streamError}</div>}
-        {codeViewOpen && <CodeViewPopup code={code} />}
+        {codeViewOpen && (
+          <CodeViewPopup
+            code={code}
+            onUpload={handleUpload}
+            uploadDisabled={!canBuild || !uploadReady || busy}
+            uploadTitle={
+              busy ? status.message
+              : !hasFrameInput ? 'Connect a frame to enable upload'
+              : blockingErrors.length > 0 ? blockingErrors.join('\n')
+              : readinessIssues.length > 0 ? readinessIssues.join('\n')
+              : 'Compile & upload to the board'
+            }
+            busy={busy}
+          />
+        )}
         {validationAction && (
           <HardwareValidationPopup
             nodes={nodes}
