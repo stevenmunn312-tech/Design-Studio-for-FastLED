@@ -308,7 +308,7 @@
 @media (prefers-reduced-motion: reduce) {
   .busyText { animation: none; }
 }
-.uploadBtn.stDone  { background: var(--success); border-color: var(--success) !important; }
+.uploadBtn.stDone  { background: var(--success); border-color: var(--success) !important; color: #06170f; }
 .uploadBtn.stError { background: var(--error); border-color: var(--error) !important; color: #fff; }
 
 .exportBtn {

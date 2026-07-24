@@ -200,6 +200,20 @@ let persistedPrefs = load()
 const initialSelection = projectSelection(persistedPrefs)
 let serialController: AbortController | null = null
 
+// An error status sticks around until the user notices it, then quietly
+// reverts to the normal idle button — otherwise a red "Error" button is
+// permanent until the next upload attempt.
+const ERROR_RESET_MS = 5000
+let errorResetTimer: ReturnType<typeof setTimeout> | null = null
+
+function scheduleErrorReset(set: (partial: Partial<UploadState>) => void, get: () => UploadState) {
+  if (errorResetTimer) clearTimeout(errorResetTimer)
+  errorResetTimer = setTimeout(() => {
+    errorResetTimer = null
+    if (get().status.phase === 'error') set({ status: IDLE })
+  }, ERROR_RESET_MS)
+}
+
 function saveProjectSelection(selectedFqbn: string, selectedPort: string) {
   useProjectStore.getState().setProjectUploadTarget({ selectedFqbn, selectedPort })
 }
@@ -351,12 +365,15 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       // Settle on a terminal status from the full log.
       const final = parseStatus(get().log)
       set({ status: final.phase === 'uploading' || final.phase === 'working' ? { phase: 'done', message: 'Done' } : final })
-      if (get().status.phase === 'error') set({ consoleOpen: true })
+      // Pop the output/serial console open whenever an upload finishes, not
+      // just on failure, so the result is always visible without an extra click.
+      set({ consoleOpen: true })
     } catch (err) {
       get().appendLog(`\n[error] ${err}\n`)
       set({ status: { phase: 'error', message: 'Error — helper offline?' }, consoleOpen: true })
     } finally {
       set({ busy: false })
+      if (get().status.phase === 'error') scheduleErrorReset(set, get)
     }
   },
 
@@ -389,6 +406,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       set({ status: { phase: 'error', message: 'Error — helper offline?' }, consoleOpen: true })
     } finally {
       set({ busy: false })
+      if (get().status.phase === 'error') scheduleErrorReset(set, get)
     }
   },
 
@@ -421,6 +439,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       set({ status: { phase: 'error', message: 'Install failed' } })
     } finally {
       set({ busy: false })
+      if (get().status.phase === 'error') scheduleErrorReset(set, get)
     }
   },
 
@@ -437,6 +456,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       set({ status: { phase: 'error', message: 'Core install failed' } })
     } finally {
       set({ busy: false })
+      if (get().status.phase === 'error') scheduleErrorReset(set, get)
     }
   },
 }))
