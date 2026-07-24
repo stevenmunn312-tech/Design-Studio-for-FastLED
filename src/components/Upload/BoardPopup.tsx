@@ -10,10 +10,17 @@ const EMPTY_CUSTOM_BOARD = { label: '', fqbn: '', core: '', boardUrl: '' }
 // core string (e.g. "esp8266:esp8266") is shown as-is when it isn't one of these.
 const PLATFORM_LABELS: Record<string, string> = {
   'esp32:esp32': 'ESP32',
+  'esp8266:esp8266': 'ESP8266',
   'arduino:avr': 'Arduino AVR',
+  'arduino:megaavr': 'Arduino MegaAVR',
   'teensy:avr': 'Teensy',
   'rp2040:rp2040': 'RP2040',
   'arduino:samd': 'Arduino SAMD',
+  'arduino:sam': 'Arduino SAM',
+  'adafruit:samd': 'Adafruit SAMD',
+  'STMicroelectronics:stm32': 'STM32',
+  'arduino:renesas_uno': 'Renesas RA (UNO R4)',
+  'adafruit:nrf52': 'Nordic nRF52',
 }
 const platformLabel = (core: string) => PLATFORM_LABELS[core] ?? core
 

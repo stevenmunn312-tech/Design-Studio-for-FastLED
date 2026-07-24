@@ -76,6 +76,10 @@ _CORE_URLS = {
     "esp32:esp32": "https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json",
     "rp2040:rp2040": "https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json",
     "teensy:avr": "https://www.pjrc.com/teensy/package_teensy_index.json",
+    "esp8266:esp8266": "http://arduino.esp8266.com/stable/package_esp8266com_index.json",
+    "adafruit:samd": "https://adafruit.github.io/arduino-board-index/package_adafruit_index.json",
+    "adafruit:nrf52": "https://adafruit.github.io/arduino-board-index/package_adafruit_index.json",
+    "STMicroelectronics:stm32": "https://github.com/stm32duino/BoardManagerFiles/raw/main/package_stmicroelectronics_index.json",
 }
 
 
@@ -245,10 +249,40 @@ _PIO_BOARDS: dict[str, dict] = {
     },
     "arduino:avr:uno": {"platform": "atmelavr", "board": "uno"},
     "arduino:avr:nano": {"platform": "atmelavr", "board": "nanoatmega328new"},
+    "arduino:avr:leonardo": {"platform": "atmelavr", "board": "leonardo"},
     "arduino:avr:mega": {"platform": "atmelavr", "board": "megaatmega2560"},
+    "arduino:megaavr:nona4809": {"platform": "atmelmegaavr", "board": "nona4809"},
+    "esp32:esp32:esp32s2": {"platform": "espressif32", "board": "esp32-s2-saola-1"},
+    "esp32:esp32:esp32c3": {"platform": "espressif32", "board": "esp32-c3-devkitm-1"},
+    "esp32:esp32:esp32c6": {"platform": "espressif32", "board": "esp32-c6-devkitc-1"},
+    "esp32:esp32:esp32h2": {"platform": "espressif32", "board": "esp32-h2-devkitc-1"},
+    "esp8266:esp8266:nodemcuv2": {"platform": "espressif8266", "board": "nodemcuv2"},
     "teensy:avr:teensy41": {"platform": "teensy", "board": "teensy41"},
+    "teensy:avr:teensy40": {"platform": "teensy", "board": "teensy40"},
+    "teensy:avr:teensy36": {"platform": "teensy", "board": "teensy36"},
+    "teensy:avr:teensy35": {"platform": "teensy", "board": "teensy35"},
+    "teensy:avr:teensy31": {"platform": "teensy", "board": "teensy31"},
+    "teensy:avr:teensy30": {"platform": "teensy", "board": "teensy30"},
+    "teensy:avr:teensyLC": {"platform": "teensy", "board": "teensyLC"},
     "rp2040:rp2040:rpipico": {"platform": "raspberrypi", "board": "pico"},
+    "rp2040:rp2040:rpipico2": {"platform": "raspberrypi", "board": "rpipico2"},
     "arduino:samd:nano_33_iot": {"platform": "atmelsam", "board": "nano_33_iot"},
+    "arduino:sam:arduino_due_x": {"platform": "atmelsam", "board": "due"},
+    # Confirmed against fbuild's board-support reference for a bare SAMD21
+    # Arduino Zero, but not yet build-tested here — see the "(experimental)"
+    # note on this board in `src/state/uploadStore.ts`.
+    "arduino:samd:arduino_zero_native": {"platform": "atmelsam", "board": "zeroUSB"},
+    "adafruit:samd:adafruit_feather_m0": {"platform": "atmelsam", "board": "adafruit_feather_m0"},
+    "adafruit:samd:adafruit_qtpy_m0": {"platform": "atmelsam", "board": "adafruit_qtpy_m0"},
+    "adafruit:samd:adafruit_feather_m4": {"platform": "atmelsam", "board": "adafruit_feather_m4"},
+    "adafruit:samd:adafruit_grandcentral_m4": {"platform": "atmelsam", "board": "adafruit_grandcentral_m4"},
+    "adafruit:samd:adafruit_matrixportal_m4": {"platform": "atmelsam", "board": "adafruit_matrixportal_m4"},
+    "STMicroelectronics:stm32:bluepill_f103c8": {"platform": "ststm32", "board": "bluepill_f103c8"},
+    "STMicroelectronics:stm32:blackpill_f411ce": {"platform": "ststm32", "board": "blackpill_f411ce"},
+    "STMicroelectronics:stm32:nucleo_f429zi": {"platform": "ststm32", "board": "nucleo_f429zi"},
+    "STMicroelectronics:stm32:nucleo_f439zi": {"platform": "ststm32", "board": "nucleo_f439zi"},
+    "arduino:renesas_uno:unor4wifi": {"platform": "renesas-ra", "board": "uno_r4_wifi"},
+    "adafruit:nrf52:pca10056": {"platform": "nordicnrf52", "board": "nrf52840_dk"},
 }
 
 # arduino-cli's FQBN "menu option" suffix (e.g. `PSRAM=opi`) -> our PSRAM id.
