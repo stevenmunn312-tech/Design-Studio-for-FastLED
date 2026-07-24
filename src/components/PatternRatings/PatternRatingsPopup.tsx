@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useUiStore } from '../../state/uiStore'
-import { usePatternLibrary } from '../../state/patternLibrary'
+import { usePatternLibrary, type SavedPattern } from '../../state/patternLibrary'
 import { getGroupRegistry, matrixDims, useGraphStore } from '../../state/graphStore'
 import { rateAllPatterns, type CriterionScore, type PatternRating } from '../../state/patternRating'
 import type { Frame } from '../../state/graphEvaluator'
+import { NODE_LIBRARY } from '../../state/nodeLibrary'
+import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { renderGridFrame } from '../Preview/frameCanvas'
 import styles from './PatternRatingsPopup.module.css'
 
@@ -56,11 +58,18 @@ function CriterionRow({ criterion }: { criterion: CriterionScore }) {
   )
 }
 
-function RatingCard({ rating }: { rating: PatternRating }) {
+function RatingCard({ rating, checked, onToggle }: { rating: PatternRating; checked: boolean; onToggle: (id: string) => void }) {
   const t = tier(rating.overall / 100)
   return (
     <div className={`${styles.card} ${styles[`card_${rating.failed ? 'bad' : t}`]}`}>
       <div className={styles.cardHead}>
+        <input
+          type="checkbox"
+          className={styles.cardCheck}
+          checked={checked}
+          onChange={() => onToggle(rating.patternId)}
+          aria-label={`Select "${rating.name}" for a new Pattern Collection`}
+        />
         <span className={styles.name}>{rating.name}</span>
         {rating.audioReactive && <span className={styles.audioTag}>audio</span>}
         {rating.bundled && <span className={styles.bundledTag}>included</span>}
@@ -90,11 +99,49 @@ function RatingCard({ rating }: { rating: PatternRating }) {
 // patterns most worth fixing surface at the top.
 export default function PatternRatingsPopup() {
   const closeRatings = useUiStore((s) => s.closeRatings)
+  const setStatus = useUiStore((s) => s.setStatus)
+  const viewCenter = useUiStore((s) => s.viewCenter)
   const patterns = usePatternLibrary((s) => s.patterns)
+  const createCollectionFromPatterns = useGraphStore((s) => s.createCollectionFromPatterns)
 
   const [ratings, setRatings] = useState<PatternRating[]>([])
   const [progress, setProgress] = useState({ done: 0, total: patterns.length })
   const [busy, setBusy] = useState(true)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  const toggleSelected = (id: string) => {
+    setSelected((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleCreateCollection = () => {
+    const chosen: SavedPattern[] = patterns.filter((p) => selected.has(p.id))
+    if (chosen.length === 0) {
+      setStatus('Select at least one pattern first', 'error')
+      return
+    }
+    const def = NODE_LIBRARY.find((n) => n.type === 'PatternCollection')
+    if (!def) {
+      setStatus('Pattern Collection node is unavailable', 'error')
+      return
+    }
+    const position = {
+      x: viewCenter.x + (Math.random() - 0.5) * 80,
+      y: viewCenter.y + (Math.random() - 0.5) * 80,
+    }
+    createCollectionFromPatterns(
+      chosen,
+      position,
+      resolveDefaultProperties(def.type, def.defaultProperties),
+      true,
+    )
+    setStatus(`Created collection with ${chosen.length} pattern${chosen.length === 1 ? '' : 's'}`, 'success')
+    closeRatings()
+  }
 
   useEffect(() => {
     // No run-once ref guard: under StrictMode the first mount's cleanup would
@@ -151,10 +198,24 @@ export default function PatternRatingsPopup() {
         <div className={styles.hint}>
           Each pattern is rendered and scored on clarity, colour balance, brightness evenness,
           refresh stability, graph health, and audio wiring. Weakest first.
-          {!busy && ratings.some((r) => !r.failed) && (
-            <span className={styles.avgChip}>Library average {average}%</span>
-          )}
         </div>
+
+        {!busy && ratings.length > 0 && (
+          <div className={styles.actionsRow}>
+            <button
+              className={styles.createCollectionBtn}
+              type="button"
+              onClick={handleCreateCollection}
+              disabled={selected.size === 0}
+              title="Select the patterns you’d like to bundle into a Pattern Collection node, then click to add it to the canvas."
+            >
+              + Create Pattern Collection{selected.size > 0 ? ` (${selected.size})` : ''}
+            </button>
+            {ratings.some((r) => !r.failed) && (
+              <span className={styles.avgChip}>Library average {average}%</span>
+            )}
+          </div>
+        )}
 
         {busy ? (
           <div className={styles.loading}>
@@ -165,7 +226,14 @@ export default function PatternRatingsPopup() {
           <div className={styles.empty}>No saved patterns to rate yet.</div>
         ) : (
           <div className={styles.list}>
-            {ratings.map((rating) => <RatingCard key={rating.patternId} rating={rating} />)}
+            {ratings.map((rating) => (
+              <RatingCard
+                key={rating.patternId}
+                rating={rating}
+                checked={selected.has(rating.patternId)}
+                onToggle={toggleSelected}
+              />
+            ))}
           </div>
         )}
       </div>
