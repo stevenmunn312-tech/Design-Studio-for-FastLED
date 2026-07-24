@@ -302,6 +302,16 @@ _fbuild_project_ready = False
 # fbuild compiles are always serialized project-wide.
 _fbuild_build_lock = threading.Lock()
 
+# A build can legitimately run long (a cold toolchain/library clone), but if
+# one is ever genuinely wedged (a hung subprocess, an interrupted git clone
+# leaving a stale lock file, ...), every later build/upload/capacity-check
+# request would otherwise queue on `_fbuild_build_lock` forever with zero
+# output — the UI just shows "Starting…" indefinitely with no error and no
+# way to tell a slow build from a stuck one. Bound the wait instead so a
+# stuck build fails fast and visibly rather than silently wedging everything
+# that comes after it.
+_FBUILD_LOCK_TIMEOUT_S = 180
+
 
 def _env_id(base_fqbn: str, psram_id: str | None = None) -> str:
     slug = re.sub(r"[^A-Za-z0-9_]", "_", base_fqbn)
@@ -754,8 +764,17 @@ def _compile_upload_fbuild(label, ino, fqbn, port):
     one shared directory (see above), so a second build starting before this
     one finishes would overwrite `main.cpp` and interleave `fbuild build`
     output — serializing here is what makes that impossible rather than just
-    unlikely."""
-    with _fbuild_build_lock:
+    unlikely. The acquire is timeout-bounded (see `_FBUILD_LOCK_TIMEOUT_S`)
+    so a genuinely wedged build fails fast and visibly instead of silently
+    starving every later build/upload/capacity-check request forever."""
+    if not _fbuild_build_lock.acquire(timeout=_FBUILD_LOCK_TIMEOUT_S):
+        yield (
+            f"\n=== ✗ {label}: another fbuild build has been running for over "
+            f"{_FBUILD_LOCK_TIMEOUT_S}s — it may be stuck. Wait for it to finish, "
+            "or restart the helper to clear it. ===\n"
+        )
+        return -1, "compile"
+    try:
         yield from _ensure_fbuild_project()
         env = _fbuild_env_for_fqbn(fqbn)
         if env is None:
@@ -800,6 +819,8 @@ def _compile_upload_fbuild(label, ino, fqbn, port):
             cwd=_FBUILD_PROJECT_DIR,
         )
         return rc, "upload"
+    finally:
+        _fbuild_build_lock.release()
 
 
 def _upload_result_lines(rc, phase, port):

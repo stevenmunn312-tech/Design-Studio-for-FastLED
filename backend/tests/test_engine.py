@@ -284,6 +284,35 @@ def test_compile_upload_fbuild_serializes_concurrent_builds(monkeypatch):
     assert max_active == 1
 
 
+def test_compile_upload_fbuild_fails_fast_when_lock_is_wedged(monkeypatch):
+    # Regression: `_fbuild_build_lock` used to be a plain blocking `with`, so a
+    # genuinely stuck build (a hung subprocess, an interrupted git clone, ...)
+    # silently starved every later build/upload/capacity-check request forever
+    # — the UI just showed "Starting…" indefinitely with zero output and no
+    # error. A bounded acquire must fail fast with a clear message instead.
+    monkeypatch.setattr(app, "_FBUILD_LOCK_TIMEOUT_S", 0.05)
+    app._fbuild_build_lock.acquire()  # simulate another build already wedged
+    try:
+        lines = list(app._compile_upload_fbuild("Test", "void setup(){}", "esp32:esp32:esp32s3", ""))
+    finally:
+        app._fbuild_build_lock.release()
+
+    assert any("stuck" in line.lower() or "restart the helper" in line.lower() for line in lines)
+
+
+def test_compile_upload_fbuild_releases_lock_after_a_failed_build(monkeypatch):
+    # The lock must release on every return path (bad fqbn, failed compile,
+    # successful compile-only, successful upload) or a single failed build
+    # would itself become the next "wedged lock" case above.
+    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn: None)
+
+    list(app._compile_upload_fbuild("Test", "void setup(){}", "someone:elses:board", ""))
+
+    assert app._fbuild_build_lock.acquire(timeout=1)
+    app._fbuild_build_lock.release()
+
+
 def test_drain_compile_collects_lines_and_return_value():
     def gen():
         yield "a\n"
