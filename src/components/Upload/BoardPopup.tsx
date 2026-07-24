@@ -156,7 +156,13 @@ export default function BoardPopup() {
           })}
         </div>
 
-        {!usingFbuild && (
+        <div className={styles.sectionTitle}>Custom boards &amp; updates</div>
+        {usingFbuild ? (
+          <div className={styles.note}>
+            Adding a custom board and checking for core updates need the arduino-cli engine — fbuild manages its own
+            per-board toolchains from a fixed list and can't build for an ad-hoc board yet.
+          </div>
+        ) : (
           <>
             {showAddForm ? (
               <div className={styles.wizardChecklist}>
