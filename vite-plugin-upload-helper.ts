@@ -53,6 +53,16 @@ export function uploadHelper(): Plugin {
       { stdio: ['ignore', 'pipe', 'pipe'] },
     )
 
+    // Piped stdio has a small, fixed OS buffer (~64KB on Windows) — if nothing
+    // reads it, uvicorn's own per-request access-log lines eventually fill it,
+    // and the child's next stdout write then blocks at the OS level. Since
+    // that write happens on the same thread driving the asyncio event loop,
+    // an unread pipe silently freezes the *entire* helper process once enough
+    // requests have logged, not just whichever request logged last. Forward
+    // both streams to keep them drained and to surface Python errors/logs.
+    child.stdout?.pipe(process.stdout)
+    child.stderr?.pipe(process.stderr)
+
     child.on('error', (err) => {
       logger.warn(
         `  ➜  upload helper: could not start (${err.message}). ` +
