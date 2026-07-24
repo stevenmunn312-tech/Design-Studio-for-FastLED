@@ -46,6 +46,16 @@ override the global cortex / strict-git rules for this repository.**
 - If `main` moves while a branch is in progress, fetch it and merge it into
   the branch; do not rewrite a shared branch without explicit approval.
 
+## Verifying UI changes — don't use the browser preview tool
+
+Do **not** use the Browser preview tools (`preview_start`, `computer`,
+`read_page`, `javascript_tool`, etc.) to verify UI/visual changes in this
+project — this overrides the general "start a dev server and use the feature
+in a browser before reporting complete" guidance for this repo specifically.
+Instead, describe what changed and ask the user to check it in their own
+browser (`npm run dev` is already their normal workflow). Reserve the browser
+tools for cases the user explicitly asks you to drive the browser yourself.
+
 ## Commands
 
 ```bash
