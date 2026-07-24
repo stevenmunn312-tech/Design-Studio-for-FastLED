@@ -237,6 +237,7 @@ function Sidebar() {
   const requestConfirm = useUiStore((s) => s.requestConfirm)
   const viewCenter = useUiStore((s) => s.viewCenter)
   const setStatus = useUiStore((s) => s.setStatus)
+  const openRatings = useUiStore((s) => s.openRatings)
   const setDraggingNodeType = useUiStore((s) => s.setDraggingNodeType)
   // One-bank-at-a-time accordion. We still persist the last opened section,
   // but unlike the old multi-open drawer this keeps the library scan tight.
@@ -931,6 +932,16 @@ function Sidebar() {
                 <path d="M13.25 3.85v2.5" />
                 <path d="M10 10.8h4.5" />
               </svg>
+            </button>
+            <button
+              className={styles.revealBtn}
+              type="button"
+              aria-label="Rate my patterns"
+              title="Rate every saved pattern for quality"
+              onClick={openRatings}
+              disabled={patterns.length === 0}
+            >
+              ★
             </button>
             <button
               className={styles.revealBtn}

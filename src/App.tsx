@@ -40,6 +40,7 @@ const HelpModal = lazy(() => import('./components/HelpModal/HelpModal'))
 const NewProjectPrompt = lazy(() => import('./components/NewProjectPrompt/NewProjectPrompt'))
 const RecoverPopup = lazy(() => import('./components/Recover/RecoverPopup'))
 const TemplatesPopup = lazy(() => import('./components/Templates/TemplatesPopup'))
+const PatternRatingsPopup = lazy(() => import('./components/PatternRatings/PatternRatingsPopup'))
 const ProjectsPopup = lazy(() => import('./components/Projects/ProjectsPopup'))
 const AUTOSAVE_INTERVAL = 10_000
 const AUTOSAVE_IDLE_TIMEOUT = 2_000
@@ -60,6 +61,7 @@ export default function App() {
   const recoverOpen = useUiStore((s) => s.recoverOpen)
   const templatesOpen = useUiStore((s) => s.templatesOpen)
   const projectsOpen = useUiStore((s) => s.projectsOpen)
+  const ratingsOpen = useUiStore((s) => s.ratingsOpen)
   const toggleSidebar = useUiStore((s) => s.toggleSidebar)
   const togglePreviewPanel = useUiStore((s) => s.togglePreviewPanel)
   const sidebarWidth = useUiStore((s) => s.sidebarWidth)
@@ -482,6 +484,7 @@ export default function App() {
         {recoverOpen && <RecoverPopup />}
         {templatesOpen && <TemplatesPopup />}
         {projectsOpen && <ProjectsPopup />}
+        {ratingsOpen && <PatternRatingsPopup />}
       </Suspense>
     </div>
   )

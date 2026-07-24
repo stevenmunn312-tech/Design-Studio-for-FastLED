@@ -154,6 +154,7 @@ interface UiState {
   recoverOpen: boolean
   templatesOpen: boolean
   projectsOpen: boolean
+  ratingsOpen: boolean
   newProjectPrompt: NewProjectPromptState
   lastStartChoice: StartChoice
   appDialog: AppDialogState | null
@@ -198,6 +199,8 @@ interface UiState {
   closeTemplates: () => void
   openProjects: () => void
   closeProjects: () => void
+  openRatings: () => void
+  closeRatings: () => void
   setLastStartChoice: (choice: StartChoice) => void
   requestAlert: (options: AppAlertOptions) => Promise<void>
   requestConfirm: (options: AppConfirmOptions) => Promise<boolean>
@@ -256,6 +259,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   },
   recoverOpen: false,
   templatesOpen: false,
+  ratingsOpen: false,
   projectsOpen: false,
   newProjectPrompt: { open: false, projectName: '', actionLabel: 'creating a new project', destinationLabel: 'a new blank project' },
   lastStartChoice: load<StartChoice>(START_CHOICE_KEY, null),
@@ -384,6 +388,8 @@ export const useUiStore = create<UiState>((set, get) => ({
   closeRecover: () => set({ recoverOpen: false }),
   openTemplates: () => set({ templatesOpen: true }),
   closeTemplates: () => set({ templatesOpen: false }),
+  openRatings: () => set({ ratingsOpen: true }),
+  closeRatings: () => set({ ratingsOpen: false }),
   openProjects: () => set({ projectsOpen: true }),
   closeProjects: () => set({ projectsOpen: false }),
   setLastStartChoice: (lastStartChoice) => {
