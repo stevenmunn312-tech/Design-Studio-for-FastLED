@@ -10,8 +10,8 @@ import styles from './Upload.module.css'
 const STEPS = [
   { key: 'controller', title: 'Controller', blurb: 'Pick the board, port, and build path.' },
   { key: 'matrix', title: 'Matrix', blurb: 'Set the shape of the LEDs you want to drive.' },
-  { key: 'leds', title: 'LEDs', blurb: 'Match the strip type, color order, and wiring pins.' },
-  { key: 'finish', title: 'Finish', blurb: 'Check power options, PSRAM, and run a wiring test.' },
+  { key: 'leds', title: 'LEDs', blurb: 'Match the strip type, color order, wiring pins, brightness, and power.' },
+  { key: 'upload', title: 'Upload', blurb: 'Review the setup, then run a wiring test or open the upload tools.' },
 ] as const
 
 const SIZE_PRESETS = [
@@ -54,6 +54,7 @@ export default function MatrixOutputSetupWizard() {
     openBoardPopup,
     openCliPopup,
     closeSetupWizard,
+    openDeployPopup,
     runUpload, activeOutputNodeId,
   } = useUploadStore()
 
@@ -108,6 +109,11 @@ export default function MatrixOutputSetupWizard() {
 
   function openAdvancedBoardManager() {
     openBoardPopup()
+  }
+
+  function handleOpenUpload() {
+    closeSetupWizard()
+    openDeployPopup(matrixNodeId)
   }
 
   return (
@@ -388,11 +394,7 @@ export default function MatrixOutputSetupWizard() {
                 ? 'SPI chipsets need both a data pin and a clock pin.'
                 : 'Clockless chipsets only need the data pin.'}
             </div>
-          </div>
-        )}
 
-        {step === 3 && (
-          <div className={styles.wizardSection}>
             <label className={styles.fieldBlock}>
               <span className={styles.fieldLabel}>Brightness</span>
               <input
@@ -456,7 +458,11 @@ export default function MatrixOutputSetupWizard() {
                   : ` · recommended PSU ≥ ${(power.recommendedMa / 1000).toFixed(1)} A`}
               </div>
             )}
+          </div>
+        )}
 
+        {step === 3 && (
+          <div className={styles.wizardSection}>
             <div className={styles.wizardSummary}>
               <div className={styles.wizardSummaryRow}><span>Target</span><strong>{board?.label ?? 'No board'} · {portLabel || 'No port'}</strong></div>
               <div className={styles.wizardSummaryRow}><span>Matrix</span><strong>{width} × {height} · {layout}</strong></div>
@@ -465,12 +471,20 @@ export default function MatrixOutputSetupWizard() {
             </div>
 
             <button
-              className={`${styles.wizardButtonBase} ${styles.uploadBtn}`}
+              className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
               disabled={!uploadReady || busy || layoutErrors.length > 0}
               onClick={handleFlashWiringTest}
               title={!uploadReady ? 'Finish board and port setup first' : layoutErrors.join('\n') || 'Flash a wiring test to confirm the matrix before uploading a creative sketch'}
             >
               🧪 Flash wiring test
+            </button>
+
+            <button
+              className={`${styles.wizardButtonBase} ${styles.uploadBtn}`}
+              onClick={handleOpenUpload}
+              title="Close the wizard and open the upload, export, diagnostics, and streaming tools"
+            >
+              ↑ Open upload tools
             </button>
           </div>
         )}

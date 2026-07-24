@@ -92,9 +92,23 @@ describe('MatrixOutputSetupWizard', () => {
 
     const { getByRole } = render(<MatrixOutputSetupWizard />)
 
-    fireEvent.click(getByRole('button', { name: /Finish/ }))
+    fireEvent.click(getByRole('button', { name: /Upload/ }))
     fireEvent.click(getByRole('button', { name: '🧪 Flash wiring test' }))
 
     expect(runUpload).toHaveBeenCalledWith('// wiring diagnostic', undefined, { cache: false })
+  })
+
+  it('opens the deploy popup and closes the wizard from the final step', () => {
+    const openDeployPopup = vi.fn()
+    const closeSetupWizard = vi.fn()
+    useUploadStore.setState({ openDeployPopup, closeSetupWizard })
+
+    const { getByRole } = render(<MatrixOutputSetupWizard />)
+
+    fireEvent.click(getByRole('button', { name: /Upload/ }))
+    fireEvent.click(getByRole('button', { name: '↑ Open upload tools' }))
+
+    expect(closeSetupWizard).toHaveBeenCalled()
+    expect(openDeployPopup).toHaveBeenCalledWith('matrix')
   })
 })
