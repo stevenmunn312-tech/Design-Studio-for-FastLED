@@ -60,10 +60,7 @@ Unless a future row says otherwise, treat the following as experimental:
 - All non-rectangular physical layouts: strip, tiled panels, and custom XY
   maps.
 - `arduino-cli` as an upload engine.
-- SD show provisioning and player upload.
 - PSRAM modes.
-- Non-crossfade show transitions, beat-triggered show advance, and particle
-  overlay in generative shows.
 - Baked song envelopes and collection-driven modulation in the music-show
   pipeline.
 - SD show provisioning and player upload (music-sync shows remain experimental).
