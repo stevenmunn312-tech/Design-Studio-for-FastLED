@@ -17,17 +17,16 @@ const PLATFORM_LABELS: Record<string, string> = {
 }
 const platformLabel = (core: string) => PLATFORM_LABELS[core] ?? core
 
-// Popup launched from the MatrixOutput "Board" button. Top: a board manager to
-// toggle which boards appear in the dropdown (plus, on the arduino-cli
-// fallback engine, install their cores, add a custom board by URL, and check
-// for core updates). Then a board dropdown, a port dropdown, and the resolved
+// Popup launched from the MatrixOutput "Board" button. Top: custom boards
+// (add by URL, remove, check for core updates). Then a Platform dropdown, a
+// Board dropdown scoped to that platform, a Port dropdown, and the resolved
 // "<board> · <port>" label.
 export default function BoardPopup() {
   const {
-    helper, ports, installedCores, myBoards, selectedFqbn, selectedPort, busy,
+    helper, ports, installedCores, customBoards, selectedFqbn, selectedPort, busy,
     checkingUpdates, availableUpdates, updatesPopupOpen,
-    toggleBoard, setSelectedFqbn, setSelectedPort, refreshPorts, setEngine,
-    installCore, closeBoardPopup, openCliPopup,
+    setSelectedFqbn, setSelectedPort, refreshPorts, setEngine,
+    closeBoardPopup, openCliPopup,
     addCustomBoard, removeCustomBoard, checkForUpdates, closeUpdatesPopup, upgradeCores,
   } = useUploadStore()
   const { nodes, edges, updateNodeProperty } = useGraphStore()
@@ -38,20 +37,26 @@ export default function BoardPopup() {
   const usingFbuild = helper?.engine === 'fbuild'
   const ready = engineReady(helper)
   const boards = allBoards()
-  const selectable = boards.filter((b) => myBoards.includes(b.fqbn))
   const board = boardByFqbn(selectedFqbn)
-  // Group the selectable boards by platform (their arduino-cli core), in
-  // first-seen order, so the board manager can offer a platform dropdown
-  // before narrowing down to the specific board within it.
+  // A platform (arduino-cli core) is "installed" when fbuild is the active
+  // engine (it downloads its own per-board toolchain on first build, so
+  // nothing needs a separate install step) or, on arduino-cli, when its core
+  // has actually been installed. Only installed platforms are offered, in
+  // first-seen catalogue order; the Board dropdown then lists every board
+  // that shares the chosen platform's core.
+  const readyBoards = useMemo(
+    () => boards.filter((b) => ready && (usingFbuild || installedCores.includes(b.core))),
+    [boards, ready, usingFbuild, installedCores],
+  )
   const platformKeys = useMemo(() => {
     const seen: string[] = []
-    for (const b of selectable) if (!seen.includes(b.core)) seen.push(b.core)
+    for (const b of readyBoards) if (!seen.includes(b.core)) seen.push(b.core)
     return seen
-  }, [selectable])
-  const currentPlatform = board?.core ?? platformKeys[0] ?? ''
-  const boardsInPlatform = selectable.filter((b) => b.core === currentPlatform)
+  }, [readyBoards])
+  const currentPlatform = board && platformKeys.includes(board.core) ? board.core : (platformKeys[0] ?? '')
+  const boardsInPlatform = readyBoards.filter((b) => b.core === currentPlatform)
   const handlePlatformChange = (core: string) => {
-    const first = selectable.find((b) => b.core === core)
+    const first = readyBoards.find((b) => b.core === core)
     if (first) setSelectedFqbn(first.fqbn)
   }
   const portLabel = ports.find((p) => p.address === selectedPort)?.label ?? selectedPort
@@ -166,48 +171,7 @@ export default function BoardPopup() {
           </div>
         ) : null}
 
-        {/* Board manager */}
-        <div className={styles.sectionTitle}>Boards manager</div>
-        <div className={styles.boardList}>
-          {boards.map((b) => {
-            const on = myBoards.includes(b.fqbn)
-            const coreReady = installedCores.includes(b.core)
-            return (
-              <div key={b.fqbn} className={styles.boardRow}>
-                <label className={styles.boardCheck}>
-                  <input type="checkbox" checked={on} onChange={() => toggleBoard(b.fqbn)} />
-                  <span>{b.label}</span>
-                </label>
-                <div className={styles.targetRow}>
-                  {!usingFbuild && ready && (
-                    coreReady ? (
-                      <span className={styles.coreOk} title={`${b.core} installed`}>✓ core</span>
-                    ) : (
-                      <button
-                        className={styles.coreBtn}
-                        disabled={busy}
-                        onClick={() => installCore(b.core)}
-                        title={`Install ${b.core}${b.thirdParty ? ' (third-party core — downloads a few hundred MB)' : ''}`}
-                      >
-                        install core
-                      </button>
-                    )
-                  )}
-                  {b.boardUrl && (
-                    <button
-                      className={styles.coreBtn}
-                      onClick={() => removeCustomBoard(b.fqbn)}
-                      title="Remove this custom board"
-                    >
-                      remove
-                    </button>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
+        {/* Custom boards & updates */}
         <div className={styles.sectionTitle}>Custom boards &amp; updates</div>
         {usingFbuild ? (
           <div className={styles.note}>
@@ -216,6 +180,22 @@ export default function BoardPopup() {
           </div>
         ) : (
           <>
+            {customBoards.length > 0 && (
+              <div className={styles.boardList}>
+                {customBoards.map((b) => (
+                  <div key={b.fqbn} className={styles.boardRow}>
+                    <span>{b.label}</span>
+                    <button
+                      className={styles.coreBtn}
+                      onClick={() => removeCustomBoard(b.fqbn)}
+                      title="Remove this custom board"
+                    >
+                      remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             {showAddForm ? (
               <div className={styles.wizardChecklist}>
                 <div className={styles.fieldBlock}>
