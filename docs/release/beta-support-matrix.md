@@ -23,6 +23,7 @@ the exact environment and path that were exercised. Everything else stays
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.101 | ESP32-S3 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | ⚡ Flash Stream Receiver + 📡 Live Stream | Flash the Adalight stream receiver once, then push live-preview frames to the board over serial | `CLAUDE.md` live-streaming note (`2026-07-15`) |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.101 | ESP32-S3 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | USB flash via `esptool` through the helper's normal Upload path | Generate a generative show controller sketch (`PatternCollection` → Show Engine → `MatrixOutput`), compile, flash, and run it on hardware | `CLAUDE.md` show-codegen note (`2026-06-26`) |
 | Experimental | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.101 | ESP32-S3 + INMP441 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | USB flash via `esptool` through the helper's normal Upload path | FastLED `fl::audio::Processor` replacement is compile-validated; repeat the live mic hardware validation before restoring Supported | `CLAUDE.md` on-device-audio note (`2026-07-17`) |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP32-S3 + INMP441 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | USB flash via `esptool` through the helper's normal Upload path | Generate a generative show with on-device microphone, non-crossfade transitions, beat-triggered advance, and particle overlay; compile, flash, and run it on hardware | GitHub issue #106 (hw-e791188d, `2026-07-24`): all checks passed including show runtime, beat advance, and particle overlay |
 
 These are the only fully recorded public-beta support rows today.
 
@@ -65,6 +66,7 @@ Unless a future row says otherwise, treat the following as experimental:
   overlay in generative shows.
 - Baked song envelopes and collection-driven modulation in the music-show
   pipeline.
+- SD show provisioning and player upload (music-sync shows remain experimental).
 
 ## How to graduate a new supported row
 
