@@ -36,6 +36,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+import asyncio
 import threading
 
 from fastapi import Body, FastAPI, File, Form, Request, UploadFile
@@ -1042,7 +1043,13 @@ def stream_start(payload: dict = Body(...)):
                 pass
             _stream_serial = None
         try:
-            ser = serial.Serial(port, baud, timeout=0)
+            # write_timeout bounds how long a write can block: without it pyserial
+            # defaults to an indefinite blocking write, and if the receiver ever
+            # falls behind (e.g. mid `FastLED.show()` with interrupts disabled)
+            # long enough to back up the OS/driver output buffer, a write would
+            # hang forever — see stream_frame's off-thread dispatch for why that
+            # matters beyond just this one request.
+            ser = serial.Serial(port, baud, timeout=0, write_timeout=1.0)
             # Avoid pulsing the common auto-reset lines on open — the receiver
             # sketch is already running, a reset would just show a black frame.
             ser.dtr = False
@@ -1055,6 +1062,28 @@ def stream_start(payload: dict = Body(...)):
     return {"ok": True}
 
 
+def _stream_write_sync(body: bytes) -> tuple[bool, str | None, int]:
+    """Blocking write to the open stream port — see stream_frame for why this
+    runs in a worker thread rather than inline on the event loop."""
+    global _stream_serial
+    with _stream_lock:
+        if _stream_serial is None:
+            return False, "stream not started", 409
+        try:
+            _stream_serial.write(body)
+        except Exception as e:
+            # A write failure (e.g. the board was unplugged, or write_timeout
+            # elapsed) ends the session — the frontend should call
+            # /api/stream/start again to resume.
+            try:
+                _stream_serial.close()
+            except Exception:
+                pass
+            _stream_serial = None
+            return False, str(e), 500
+    return True, None, 200
+
+
 @app.post("/api/stream/frame")
 async def stream_frame(request: Request):
     """Write one pre-framed Adalight packet straight to the open stream port.
@@ -1062,23 +1091,19 @@ async def stream_frame(request: Request):
     The body is already the exact bytes to send (header + checksum + RGB data,
     built client-side by `src/utils/adalight.ts`) — this endpoint is deliberately
     just a thin pipe so per-frame overhead stays minimal.
+
+    The write itself runs via `asyncio.to_thread` rather than inline: this
+    process runs a single asyncio event loop, and `Serial.write()` can block
+    for up to the port's `write_timeout` if the receiver falls behind. An
+    inline blocking write would freeze every other request the helper is
+    serving, not just this one — previously this could wedge live streaming
+    silently (the frontend's fetch just never resolves) once enough backlog
+    built up.
     """
-    global _stream_serial
     body = await request.body()
-    with _stream_lock:
-        if _stream_serial is None:
-            return JSONResponse({"ok": False, "error": "stream not started"}, status_code=409)
-        try:
-            _stream_serial.write(body)
-        except Exception as e:
-            # A write failure (e.g. the board was unplugged) ends the session —
-            # the frontend should call /api/stream/start again to resume.
-            try:
-                _stream_serial.close()
-            except Exception:
-                pass
-            _stream_serial = None
-            return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    ok, error, status = await asyncio.to_thread(_stream_write_sync, body)
+    if not ok:
+        return JSONResponse({"ok": False, "error": error}, status_code=status)
     return {"ok": True}
 
 

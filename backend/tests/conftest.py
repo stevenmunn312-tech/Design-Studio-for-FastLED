@@ -31,9 +31,11 @@ class FakeSerial:
 
     instances: list["FakeSerial"] = []
 
-    def __init__(self, port, baud, timeout=0):
+    def __init__(self, port, baud, timeout=0, write_timeout=None):
         self.port = port
         self.baud = baud
+        self.timeout = timeout
+        self.write_timeout = write_timeout
         self.dtr = True
         self.rts = True
         self.closed = False
