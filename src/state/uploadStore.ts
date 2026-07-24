@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import {
   checkBackend, listPorts, listCores, uploadSketch, uploadShow, locateCli, installCli, installCore,
-  monitorSerial, checkCoreUpdates, upgradeCores as requestCoreUpgrade,
+  monitorSerial, checkCoreUpdates, upgradeCores as requestCoreUpgrade, setEngine as requestSetEngine,
   type BackendHealth, type SerialPort, type ShowUploadFile, type CoreUpdate,
 } from '../utils/backendClient'
 import { useProjectStore } from './projectStore'
@@ -183,6 +183,10 @@ interface UploadState {
   refreshHelper: () => Promise<void>
   refreshPorts: () => Promise<void>
   refreshCores: () => Promise<void>
+  /** Switch the helper's build engine. `fbuild` manages its own per-board
+   *  toolchains; `arduino-cli` additionally supports custom boards-by-URL and
+   *  core update checks. Only takes effect when that engine's binary exists. */
+  setEngine: (engine: 'fbuild' | 'arduino-cli') => Promise<void>
   // selection
   setMyBoards: (fqbns: string[]) => void
   toggleBoard: (fqbn: string) => void
@@ -285,6 +289,12 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     // Ports/cores enumeration degrades gracefully on its own (empty lists), so
     // just gate on the helper being reachable at all, not on a specific engine.
     if (h?.ok) { get().refreshPorts(); get().refreshCores() }
+  },
+
+  setEngine: async (engine) => {
+    if (get().busy) return
+    const res = await requestSetEngine(engine)
+    if (res.ok) await get().refreshHelper()
   },
 
   refreshPorts: async () => {

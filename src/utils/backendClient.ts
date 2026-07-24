@@ -40,6 +40,22 @@ export async function checkBackend(signal?: AbortSignal): Promise<BackendHealth 
   }
 }
 
+/** Persist a build-engine preference (`fbuild` manages its own per-board
+ *  toolchains; `arduino-cli` additionally supports custom boards-by-URL and
+ *  core update checks). Only takes effect if that engine's binary was found. */
+export async function setEngine(engine: 'fbuild' | 'arduino-cli'): Promise<{ ok: boolean; engine?: string; error?: string }> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/engine`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ engine }),
+    })
+    return (await res.json()) as { ok: boolean; engine?: string; error?: string }
+  } catch (e) {
+    return { ok: false, error: String(e) }
+  }
+}
+
 /** Connected serial boards/ports, or [] when the helper or arduino-cli is absent. */
 export async function listPorts(): Promise<SerialPort[]> {
   try {

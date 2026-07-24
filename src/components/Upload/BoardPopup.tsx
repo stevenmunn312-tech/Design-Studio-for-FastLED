@@ -15,7 +15,7 @@ export default function BoardPopup() {
   const {
     helper, ports, installedCores, myBoards, selectedFqbn, selectedPort, busy,
     checkingUpdates, availableUpdates, updatesPopupOpen,
-    toggleBoard, setSelectedFqbn, setSelectedPort, refreshPorts,
+    toggleBoard, setSelectedFqbn, setSelectedPort, refreshPorts, setEngine,
     installCore, closeBoardPopup, openCliPopup,
     addCustomBoard, removeCustomBoard, checkForUpdates, closeUpdatesPopup, upgradeCores,
   } = useUploadStore()
@@ -97,6 +97,33 @@ export default function BoardPopup() {
           <span>Board &amp; Port</span>
           <button className={styles.closeBtn} onClick={closeBoardPopup} title="Close">×</button>
         </div>
+
+        {/* Build engine switcher — fbuild manages its own per-board toolchains
+            automatically; arduino-cli additionally supports custom boards by
+            URL and core update checks. Persisted by the helper. */}
+        {helper && (
+          <>
+            <div className={styles.sectionTitle}>Build engine</div>
+            <div className={styles.consoleTabs}>
+              <button
+                className={usingFbuild ? styles.consoleTabActive : styles.consoleTab}
+                disabled={busy || !helper.fbuild}
+                onClick={() => setEngine('fbuild')}
+                title={helper.fbuild ? 'fbuild — manages its own per-board toolchains automatically' : 'fbuild not found on this machine'}
+              >
+                fbuild
+              </button>
+              <button
+                className={!usingFbuild ? styles.consoleTabActive : styles.consoleTab}
+                disabled={busy || !helper.arduinoCli}
+                onClick={() => setEngine('arduino-cli')}
+                title={helper.arduinoCli ? 'arduino-cli — supports custom boards by URL and core update checks' : 'arduino-cli not found — see "Fix…" below'}
+              >
+                arduino-cli
+              </button>
+            </div>
+          </>
+        )}
 
         {/* Engine status / not-found bridge (arduino-cli fallback only — fbuild
             manages its own toolchains, so there's nothing to "fix" here). */}
