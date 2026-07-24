@@ -87,14 +87,14 @@ describe('CanvasContextMenu — drag-to-empty picker', () => {
 
   it('lists only nodes with an input compatible with the dragged output type', () => {
     // Drag from a `frame` output: every listed node must accept a frame input.
-    const { container } = render(
+    render(
       <CanvasContextMenu
         x={0} y={0} flowPosition={{ x: 100, y: 100 }}
         connectFrom={{ nodeId: 'src', handleId: 'frame', dataType: 'frame' }}
         onClose={() => {}}
       />
     )
-    const labels = Array.from(container.querySelectorAll('[data-suggestion-type="direct"]'))
+    const labels = Array.from(document.body.querySelectorAll('[data-suggestion-type="direct"]'))
       .map((button) => button.getAttribute('data-node-type'))
       .filter((value): value is string => !!value)
     expect(labels.length).toBeGreaterThan(0)

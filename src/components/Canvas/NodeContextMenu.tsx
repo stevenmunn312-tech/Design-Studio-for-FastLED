@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useGraphStore } from '../../state/graphStore'
 import {
   defaultPropertiesForNodeType,
@@ -179,7 +180,7 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
     )
   }
 
-  return (
+  return createPortal(
     <div
       ref={menuRef}
       className={styles.menu}
@@ -240,6 +241,7 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
       <button className={`${styles.item} ${styles.danger}`} onClick={() => act(() => deleteNode(nodeId))}>
         Delete
       </button>
-    </div>
+    </div>,
+    document.body,
   )
 }

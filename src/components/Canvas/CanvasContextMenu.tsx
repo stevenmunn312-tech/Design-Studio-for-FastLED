@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { canAddNodeType, useGraphStore } from '../../state/graphStore'
 import { NODE_LIBRARY, CATEGORIES, NODE_DESCRIPTIONS, portsCompatible } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
@@ -446,7 +447,7 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
   }
 
   if (mode === 'picker') {
-    return (
+    return createPortal(
       <div ref={menuRef} className={styles.menu} style={{ left: x, top: y }}>
         {connectFrom && (
           <div className={styles.catLabel}>Drag-to-create from {connectFrom.dataType}</div>
@@ -528,11 +529,12 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
             })
           )}
         </div>
-      </div>
+      </div>,
+      document.body,
     )
   }
 
-  return (
+  return createPortal(
     <div ref={menuRef} className={styles.menu} style={{ left: x, top: y }}>
       <button className={styles.item} onClick={() => setMode('picker')}>
         Add Node ▶
@@ -573,6 +575,7 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
       >
         {clipboard && clipboard.nodes.length > 1 ? `Paste ${clipboard.nodes.length} Nodes` : 'Paste'}
       </button>
-    </div>
+    </div>,
+    document.body,
   )
 }
