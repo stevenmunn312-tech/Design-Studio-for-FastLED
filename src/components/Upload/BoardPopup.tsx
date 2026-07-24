@@ -6,6 +6,17 @@ import styles from './Upload.module.css'
 
 const EMPTY_CUSTOM_BOARD = { label: '', fqbn: '', core: '', boardUrl: '' }
 
+// Human-readable platform names for the known built-in cores; a custom board's
+// core string (e.g. "esp8266:esp8266") is shown as-is when it isn't one of these.
+const PLATFORM_LABELS: Record<string, string> = {
+  'esp32:esp32': 'ESP32',
+  'arduino:avr': 'Arduino AVR',
+  'teensy:avr': 'Teensy',
+  'rp2040:rp2040': 'RP2040',
+  'arduino:samd': 'Arduino SAMD',
+}
+const platformLabel = (core: string) => PLATFORM_LABELS[core] ?? core
+
 // Popup launched from the MatrixOutput "Board" button. Top: a board manager to
 // toggle which boards appear in the dropdown (plus, on the arduino-cli
 // fallback engine, install their cores, add a custom board by URL, and check
@@ -29,6 +40,20 @@ export default function BoardPopup() {
   const boards = allBoards()
   const selectable = boards.filter((b) => myBoards.includes(b.fqbn))
   const board = boardByFqbn(selectedFqbn)
+  // Group the selectable boards by platform (their arduino-cli core), in
+  // first-seen order, so the board manager can offer a platform dropdown
+  // before narrowing down to the specific board within it.
+  const platformKeys = useMemo(() => {
+    const seen: string[] = []
+    for (const b of selectable) if (!seen.includes(b.core)) seen.push(b.core)
+    return seen
+  }, [selectable])
+  const currentPlatform = board?.core ?? platformKeys[0] ?? ''
+  const boardsInPlatform = selectable.filter((b) => b.core === currentPlatform)
+  const handlePlatformChange = (core: string) => {
+    const first = selectable.find((b) => b.core === core)
+    if (first) setSelectedFqbn(first.fqbn)
+  }
   const portLabel = ports.find((p) => p.address === selectedPort)?.label ?? selectedPort
   const target = `${board?.label ?? 'No board'} · ${portLabel || 'no port'}`
   const outputNode = nodes.find((n) => n.data.nodeType === 'MatrixOutput')
@@ -253,11 +278,23 @@ export default function BoardPopup() {
           </>
         )}
 
+        {/* Platform selection — narrows the Board dropdown below to just the
+            boards that share that platform's core. */}
+        <div className={styles.sectionTitle}>Platform</div>
+        <select
+          className={styles.select}
+          value={currentPlatform}
+          onChange={(e) => handlePlatformChange(e.target.value)}
+        >
+          {platformKeys.length === 0 && <option value="">No boards selected</option>}
+          {platformKeys.map((core) => <option key={core} value={core}>{platformLabel(core)}</option>)}
+        </select>
+
         {/* Board selection */}
         <div className={styles.sectionTitle}>Board</div>
         <select className={styles.select} value={selectedFqbn} onChange={(e) => setSelectedFqbn(e.target.value)}>
-          {selectable.length === 0 && <option value="">No boards selected</option>}
-          {selectable.map((b) => <option key={b.fqbn} value={b.fqbn}>{b.label}</option>)}
+          {boardsInPlatform.length === 0 && <option value="">No boards selected</option>}
+          {boardsInPlatform.map((b) => <option key={b.fqbn} value={b.fqbn}>{b.label}</option>)}
         </select>
 
         {/* Port selection */}
