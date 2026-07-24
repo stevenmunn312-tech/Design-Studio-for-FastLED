@@ -29,6 +29,15 @@ export interface Board {
   boardUrl?: string
 }
 
+// The boards below (past Uno/Nano/Mega/Nano 33 IoT) were added from fbuild's
+// own board-support reference (BOARD_STATUS.md) to widen the fbuild catalogue.
+// None are hardware-validated by this project yet — see beta-support-matrix.md,
+// which already treats "all boards except ESP32-S3" as experimental. A few
+// entries carry an extra inline caveat where the exact arduino-cli FQBN or
+// fbuild/PlatformIO board id couldn't be verified against a real toolchain in
+// this environment; fbuild (the preferred engine) is expected to work for all
+// of them via `_PIO_BOARDS` in `backend/app.py` — arduino-cli fallback may not
+// for the STM32/Zero entries flagged below.
 export const BOARDS: Board[] = [
   { label: 'ESP32-S3',      fqbn: 'esp32:esp32:esp32s3',   core: 'esp32:esp32',   thirdParty: true,
     psram: [
@@ -39,18 +48,58 @@ export const BOARDS: Board[] = [
     psram: [
       { id: 'qspi', label: 'QSPI (WROVER modules)', opt: 'PSRAM=enabled' },
     ] },
+  { label: 'ESP32-S2',      fqbn: 'esp32:esp32:esp32s2',   core: 'esp32:esp32',   thirdParty: true },
+  { label: 'ESP32-C3',      fqbn: 'esp32:esp32:esp32c3',   core: 'esp32:esp32',   thirdParty: true },
+  { label: 'ESP32-C6',      fqbn: 'esp32:esp32:esp32c6',   core: 'esp32:esp32',   thirdParty: true },
+  { label: 'ESP32-H2',      fqbn: 'esp32:esp32:esp32h2',   core: 'esp32:esp32',   thirdParty: true },
+  { label: 'ESP8266',       fqbn: 'esp8266:esp8266:nodemcuv2', core: 'esp8266:esp8266', thirdParty: true },
   { label: 'Arduino Uno',   fqbn: 'arduino:avr:uno',       core: 'arduino:avr' },
   { label: 'Arduino Nano',  fqbn: 'arduino:avr:nano',      core: 'arduino:avr' },
+  { label: 'Arduino Leonardo', fqbn: 'arduino:avr:leonardo', core: 'arduino:avr' },
   // Same arduino:avr core as Uno/Nano above (built-in board index, no
   // board-manager URL to register) — just a bigger chip with more pins.
   // Not yet hardware-validated by this project; see beta-support-matrix.md.
   { label: 'Arduino Mega (experimental)', fqbn: 'arduino:avr:mega', core: 'arduino:avr' },
+  // Arduino's own MegaAVR core (0-series), part of arduino-cli's built-in
+  // board index like arduino:samd below — no board-manager URL to register.
+  { label: 'Arduino Nano Every', fqbn: 'arduino:megaavr:nona4809', core: 'arduino:megaavr' },
   { label: 'Teensy 4.1',    fqbn: 'teensy:avr:teensy41',   core: 'teensy:avr',    thirdParty: true },
+  { label: 'Teensy 4.0',    fqbn: 'teensy:avr:teensy40',   core: 'teensy:avr',    thirdParty: true },
+  { label: 'Teensy 3.6',    fqbn: 'teensy:avr:teensy36',   core: 'teensy:avr',    thirdParty: true },
+  { label: 'Teensy 3.5',    fqbn: 'teensy:avr:teensy35',   core: 'teensy:avr',    thirdParty: true },
+  // Teensy 3.1 and 3.2 are the same MK20DX256 board revision and share this fqbn.
+  { label: 'Teensy 3.1 / 3.2', fqbn: 'teensy:avr:teensy31', core: 'teensy:avr',  thirdParty: true },
+  { label: 'Teensy 3.0',    fqbn: 'teensy:avr:teensy30',   core: 'teensy:avr',    thirdParty: true },
+  { label: 'Teensy LC',     fqbn: 'teensy:avr:teensyLC',   core: 'teensy:avr',    thirdParty: true },
   { label: 'RP2040 (Pico)', fqbn: 'rp2040:rp2040:rpipico', core: 'rp2040:rp2040', thirdParty: true },
-  // arduino:samd is also part of arduino-cli's built-in board index (Arduino's
-  // own SAMD core, unlike the ESP32/RP2040/Teensy third-party packages above).
-  // Not yet hardware-validated by this project; see beta-support-matrix.md.
+  { label: 'RP2350 (Pico 2)', fqbn: 'rp2040:rp2040:rpipico2', core: 'rp2040:rp2040', thirdParty: true },
+  // arduino:samd and arduino:sam are also part of arduino-cli's built-in board
+  // index (Arduino's own cores, unlike the ESP32/RP2040/Teensy third-party
+  // packages above). Not yet hardware-validated by this project; see
+  // beta-support-matrix.md.
   { label: 'Arduino Nano 33 IoT (experimental)', fqbn: 'arduino:samd:nano_33_iot', core: 'arduino:samd' },
+  { label: 'Arduino Due',   fqbn: 'arduino:sam:arduino_due_x', core: 'arduino:sam' },
+  // The exact fbuild/PlatformIO board id for a bare Arduino Zero (vs. the
+  // Adafruit Feather M0 below, which shares the same SAMD21 chip) could not be
+  // confirmed against a real toolchain here — flagged experimental until
+  // someone validates the `_PIO_BOARDS` entry compiles.
+  { label: 'Arduino Zero (experimental)', fqbn: 'arduino:samd:arduino_zero_native', core: 'arduino:samd' },
+  { label: 'Adafruit Feather M0 (SAMD21)', fqbn: 'adafruit:samd:adafruit_feather_m0', core: 'adafruit:samd', thirdParty: true },
+  { label: 'Adafruit QT Py M0 (SAMD21)', fqbn: 'adafruit:samd:adafruit_qtpy_m0', core: 'adafruit:samd', thirdParty: true },
+  { label: 'Adafruit Feather M4 (SAMD51)', fqbn: 'adafruit:samd:adafruit_feather_m4', core: 'adafruit:samd', thirdParty: true },
+  { label: 'Adafruit Grand Central M4 (SAMD51)', fqbn: 'adafruit:samd:adafruit_grandcentral_m4', core: 'adafruit:samd', thirdParty: true },
+  { label: 'Adafruit Matrix Portal M4 (SAMD51)', fqbn: 'adafruit:samd:adafruit_matrixportal_m4', core: 'adafruit:samd', thirdParty: true },
+  // STM32duino's Arduino core needs a `pnum` FQBN sub-option to pick the exact
+  // chip variant (e.g. `:pnum=BLUEPILL_F103C8`), which this app doesn't set —
+  // so the arduino-cli engine likely can't build these as-is. fbuild (the
+  // preferred engine) builds them directly via `_PIO_BOARDS` in
+  // `backend/app.py`, which is the reliable path for this group.
+  { label: 'STM32F103C8 (Blue Pill, experimental)', fqbn: 'STMicroelectronics:stm32:bluepill_f103c8', core: 'STMicroelectronics:stm32', thirdParty: true },
+  { label: 'STM32F411CE (Black Pill, experimental)', fqbn: 'STMicroelectronics:stm32:blackpill_f411ce', core: 'STMicroelectronics:stm32', thirdParty: true },
+  { label: 'Nucleo F429ZI (experimental)', fqbn: 'STMicroelectronics:stm32:nucleo_f429zi', core: 'STMicroelectronics:stm32', thirdParty: true },
+  { label: 'Nucleo F439ZI (experimental)', fqbn: 'STMicroelectronics:stm32:nucleo_f439zi', core: 'STMicroelectronics:stm32', thirdParty: true },
+  { label: 'Arduino UNO R4 WiFi', fqbn: 'arduino:renesas_uno:unor4wifi', core: 'arduino:renesas_uno' },
+  { label: 'nRF52840 DK', fqbn: 'adafruit:nrf52:pca10056', core: 'adafruit:nrf52', thirdParty: true },
 ]
 
 export function boardByFqbn(fqbn: string): Board | undefined {
