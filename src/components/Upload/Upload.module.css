@@ -990,6 +990,16 @@
   background: none; border: none; color: var(--accent-output);
   cursor: pointer; text-decoration: underline; font-size: inherit; padding: 0;
 }
+.linkBtn:disabled { opacity: 0.4; cursor: not-allowed; text-decoration: none; }
+
+.linkRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 2px;
+  font-size: var(--fs-caption);
+}
 
 .select, .textInput {
   width: 100%;

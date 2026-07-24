@@ -140,12 +140,44 @@ export async function installCli(onLog: (chunk: string) => void, signal?: AbortS
   await pipeStream(res, onLog)
 }
 
-/** Install a board core (+ FastLED lib), streaming progress to `onLog`. */
-export async function installCore(core: string, onLog: (chunk: string) => void, signal?: AbortSignal): Promise<void> {
+/** Install a board core (+ FastLED lib), streaming progress to `onLog`. `url`
+ *  registers a custom board-manager index first (a user-added board). */
+export async function installCore(core: string, onLog: (chunk: string) => void, signal?: AbortSignal, url?: string): Promise<void> {
   const res = await fetch(`${BACKEND_URL}/api/core/install`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ core }),
+    body: JSON.stringify({ core, url }),
+    signal,
+  })
+  await pipeStream(res, onLog)
+}
+
+export interface CoreUpdate { core: string; installed: string; latest: string }
+
+/** Refresh the board index (registering any `urls` first) and report which
+ *  installed cores have a newer version available. */
+export async function checkCoreUpdates(urls: string[] = [], signal?: AbortSignal): Promise<CoreUpdate[]> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/core/updates`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ urls }),
+      signal,
+    })
+    const data = await res.json()
+    return data.ok ? (data.updates as CoreUpdate[]) : []
+  } catch {
+    return []
+  }
+}
+
+/** Upgrade one or more installed board cores (all outdated cores when `cores`
+ *  is omitted), streaming progress to `onLog`. */
+export async function upgradeCores(cores: string[], urls: string[], onLog: (chunk: string) => void, signal?: AbortSignal): Promise<void> {
+  const res = await fetch(`${BACKEND_URL}/api/core/upgrade`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cores, urls }),
     signal,
   })
   await pipeStream(res, onLog)

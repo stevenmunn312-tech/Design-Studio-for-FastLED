@@ -79,6 +79,16 @@ _CORE_URLS = {
 }
 
 
+def _core_version_fields(entry: dict) -> tuple[str, str, str]:
+    """Return (id, installed, latest) from one `core list --format json` entry.
+    Handles both the older (`ID`/`Installed`/`Latest`) and current
+    (`id`/`installed_version`/`latest_version`) arduino-cli JSON key casing."""
+    cid = entry.get("id") or entry.get("ID") or ""
+    installed = entry.get("installed_version") or entry.get("Installed") or ""
+    latest = entry.get("latest_version") or entry.get("Latest") or ""
+    return cid, installed, latest
+
+
 def _load_config() -> dict:
     try:
         return json.loads(_CONFIG_PATH.read_text())
@@ -1255,17 +1265,18 @@ def cores():
 def core_install(payload: dict = Body(...)):
     """Install a board core (and the FastLED lib), streaming progress as text.
 
-    Body: {"core": "esp32:esp32"}. For third-party cores the matching
-    board-manager URL is registered first.
+    Body: {"core": "esp32:esp32", "url": "..."}. For third-party cores the
+    matching board-manager URL is registered first — either the built-in
+    `_CORE_URLS` mapping, or an explicit `url` (a user-added custom board).
     """
     if not _ARDUINO_CLI:
         return JSONResponse({"ok": False, "error": "arduino-cli not found"}, status_code=400)
     core = (payload.get("core") or "").strip()
     if not core:
         return JSONResponse({"ok": False, "error": "no core given"}, status_code=400)
+    url = (payload.get("url") or "").strip() or _CORE_URLS.get(core)
 
     def stream():
-        url = _CORE_URLS.get(core)
         if url:
             yield from _run_phase(
                 "register board URL",
@@ -1278,6 +1289,82 @@ def core_install(payload: dict = Body(...)):
             yield f"\n{core} ready.\n"
         else:
             yield f"\n*** core install failed (exit {rc}) ***\n"
+
+    return StreamingResponse(stream(), media_type="text/plain")
+
+
+@app.post("/api/core/updates")
+def core_updates(payload: dict = Body(default={})):
+    """Check installed board cores for available updates.
+
+    Body: {"urls": ["..."]} — optional extra board-manager URLs (e.g. custom
+    boards added via the UI) to register before refreshing the index, so a
+    freshly-added board's updates are visible even after a config reset.
+    Returns {"ok": true, "updates": [{"core", "installed", "latest"}]}.
+    """
+    if not _ARDUINO_CLI:
+        return JSONResponse({"ok": False, "error": "arduino-cli not found", "updates": []}, status_code=400)
+    urls = [u.strip() for u in (payload.get("urls") or []) if isinstance(u, str) and u.strip()]
+    for url in urls:
+        try:
+            subprocess.run(
+                _ARDUINO_BASE + ["config", "add", "board_manager.additional_urls", url],
+                capture_output=True, text=True, timeout=15, env=_TOOLCHAIN_ENV,
+            )
+        except Exception:
+            pass
+    try:
+        subprocess.run(
+            _ARDUINO_BASE + ["core", "update-index"],
+            capture_output=True, text=True, timeout=60, env=_TOOLCHAIN_ENV,
+        )
+    except Exception:
+        pass
+    try:
+        proc = subprocess.run(
+            _ARDUINO_BASE + ["core", "list", "--format", "json"],
+            capture_output=True, text=True, timeout=30, env=_TOOLCHAIN_ENV,
+        )
+        data = json.loads(proc.stdout or "[]")
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e), "updates": []}, status_code=500)
+    items = data.get("platforms", data) if isinstance(data, dict) else data
+    updates = []
+    for entry in items or []:
+        if not isinstance(entry, dict):
+            continue
+        cid, installed, latest = _core_version_fields(entry)
+        if cid and installed and latest and installed != latest:
+            updates.append({"core": cid, "installed": installed, "latest": latest})
+    return {"ok": True, "updates": updates}
+
+
+@app.post("/api/core/upgrade")
+def core_upgrade(payload: dict = Body(default={})):
+    """Upgrade installed board cores to their latest version, streaming progress.
+
+    Body: {"cores": ["esp32:esp32", ...], "urls": [...]}. `cores` empty/omitted
+    upgrades every outdated core (plain `core upgrade`). `urls` are registered
+    first, same as /api/core/updates.
+    """
+    if not _ARDUINO_CLI:
+        return JSONResponse({"ok": False, "error": "arduino-cli not found"}, status_code=400)
+    cores = [c.strip() for c in (payload.get("cores") or []) if isinstance(c, str) and c.strip()]
+    urls = [u.strip() for u in (payload.get("urls") or []) if isinstance(u, str) and u.strip()]
+
+    def stream():
+        for url in urls:
+            yield from _run_phase(
+                "register board URL",
+                _ARDUINO_BASE + ["config", "add", "board_manager.additional_urls", url],
+            )
+        yield from _run_phase("update index", _ARDUINO_BASE + ["core", "update-index"])
+        if cores:
+            for core in cores:
+                yield from _run_phase(f"upgrade {core}", _ARDUINO_BASE + ["core", "upgrade", core])
+        else:
+            yield from _run_phase("upgrade all", _ARDUINO_BASE + ["core", "upgrade"])
+        yield "\nUpdate complete.\n"
 
     return StreamingResponse(stream(), media_type="text/plain")
 

@@ -1,8 +1,8 @@
 import { create } from 'zustand'
 import {
   checkBackend, listPorts, listCores, uploadSketch, uploadShow, locateCli, installCli, installCore,
-  monitorSerial,
-  type BackendHealth, type SerialPort, type ShowUploadFile,
+  monitorSerial, checkCoreUpdates, upgradeCores as requestCoreUpgrade,
+  type BackendHealth, type SerialPort, type ShowUploadFile, type CoreUpdate,
 } from '../utils/backendClient'
 import { useProjectStore } from './projectStore'
 import { useStreamStore } from './streamStore'
@@ -18,7 +18,16 @@ import { useStreamStore } from './streamStore'
 // firmware checks `psramFound()` at runtime. Boards without the field (AVR,
 // RP2040, Teensy) have no PSRAM support.
 export interface PsramOption { id: string; label: string; opt: string }
-export interface Board { label: string; fqbn: string; core: string; thirdParty?: boolean; psram?: PsramOption[] }
+export interface Board {
+  label: string
+  fqbn: string
+  core: string
+  thirdParty?: boolean
+  psram?: PsramOption[]
+  /** Board-manager index URL — present on user-added custom boards, so their
+   *  core can be installed/updated without a hardcoded `_CORE_URLS` entry. */
+  boardUrl?: string
+}
 
 export const BOARDS: Board[] = [
   { label: 'ESP32-S3',      fqbn: 'esp32:esp32:esp32s3',   core: 'esp32:esp32',   thirdParty: true,
@@ -45,7 +54,12 @@ export const BOARDS: Board[] = [
 ]
 
 export function boardByFqbn(fqbn: string): Board | undefined {
-  return BOARDS.find((b) => b.fqbn === fqbn)
+  return BOARDS.find((b) => b.fqbn === fqbn) ?? useUploadStore.getState().customBoards.find((b) => b.fqbn === fqbn)
+}
+
+/** Built-in catalogue plus any user-added custom boards, in display order. */
+export function allBoards(): Board[] {
+  return [...BOARDS, ...useUploadStore.getState().customBoards]
 }
 
 // Whether the helper's *active* engine is actually usable — fbuild needs no
@@ -95,15 +109,21 @@ export function parseStatus(log: string): UploadStatus {
 
 // ── Persistence ───────────────────────────────────────────────────────────────
 const KEY = 'design-studio-for-fastled-upload'
-interface Persisted { myBoards: string[]; selectedFqbn: string; selectedPort: string }
+interface Persisted { myBoards: string[]; selectedFqbn: string; selectedPort: string; customBoards: Board[] }
 interface CachedSketchUpload { code: string; fqbnOpt?: string }
 
 function load(): Persisted {
-  const fallback: Persisted = { myBoards: BOARDS.map((b) => b.fqbn), selectedFqbn: BOARDS[0].fqbn, selectedPort: '' }
+  const fallback: Persisted = { myBoards: BOARDS.map((b) => b.fqbn), selectedFqbn: BOARDS[0].fqbn, selectedPort: '', customBoards: [] }
   try {
     const v = localStorage.getItem(KEY)
     if (!v) return fallback
-    return { ...fallback, ...(JSON.parse(v) as Partial<Persisted>) }
+    const parsed = { ...fallback, ...(JSON.parse(v) as Partial<Persisted>) }
+    // A custom board's core must also be selectable, so a stale save (e.g.
+    // the board was removed elsewhere) doesn't leave `myBoards` pointing at
+    // a core with nothing behind it.
+    const customFqbns = new Set(parsed.customBoards.map((b) => b.fqbn))
+    parsed.myBoards = parsed.myBoards.filter((f) => BOARDS.some((b) => b.fqbn === f) || customFqbns.has(f))
+    return parsed
   } catch {
     return fallback
   }
@@ -118,9 +138,9 @@ function projectSelection(fallback: Persisted): Pick<UploadState, 'selectedFqbn'
   }
 }
 
-function persistFallback(s: Pick<UploadState, 'myBoards' | 'selectedFqbn' | 'selectedPort'>) {
-  persistedPrefs = { myBoards: s.myBoards, selectedFqbn: s.selectedFqbn, selectedPort: s.selectedPort }
-  try { localStorage.setItem(KEY, JSON.stringify({ myBoards: s.myBoards, selectedFqbn: s.selectedFqbn, selectedPort: s.selectedPort })) } catch { /* quota */ }
+function persistFallback(s: Pick<UploadState, 'myBoards' | 'selectedFqbn' | 'selectedPort' | 'customBoards'>) {
+  persistedPrefs = { myBoards: s.myBoards, selectedFqbn: s.selectedFqbn, selectedPort: s.selectedPort, customBoards: s.customBoards }
+  try { localStorage.setItem(KEY, JSON.stringify(persistedPrefs)) } catch { /* quota */ }
 }
 
 // ── Store ─────────────────────────────────────────────────────────────────────
@@ -133,7 +153,14 @@ interface UploadState {
   myBoards: string[]
   selectedFqbn: string
   selectedPort: string
+  /** User-added boards (custom board-manager URL), merged with the built-in
+   *  catalogue by `allBoards()`/`boardByFqbn()`. */
+  customBoards: Board[]
   lastSketchByProject: Record<string, CachedSketchUpload>
+  // core-update check (arduino-cli engine only)
+  checkingUpdates: boolean
+  availableUpdates: CoreUpdate[]
+  updatesPopupOpen: boolean
   // run state
   busy: boolean
   status: UploadStatus
@@ -161,6 +188,9 @@ interface UploadState {
   toggleBoard: (fqbn: string) => void
   setSelectedFqbn: (fqbn: string) => void
   setSelectedPort: (port: string) => void
+  // custom boards (add-by-URL)
+  addCustomBoard: (input: { label: string; fqbn: string; core: string; boardUrl: string }) => { ok: boolean; error?: string }
+  removeCustomBoard: (fqbn: string) => void
   // overlays
   openBoardPopup: () => void
   closeBoardPopup: () => void
@@ -194,6 +224,10 @@ interface UploadState {
   locate: (path: string) => Promise<{ ok: boolean; error?: string }>
   installCli: () => Promise<void>
   installCore: (core: string) => Promise<void>
+  // core updates (arduino-cli engine only)
+  checkForUpdates: () => Promise<void>
+  closeUpdatesPopup: () => void
+  upgradeCores: (cores?: string[]) => Promise<void>
 }
 
 let persistedPrefs = load()
@@ -225,7 +259,11 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   myBoards: persistedPrefs.myBoards,
   selectedFqbn: initialSelection.selectedFqbn,
   selectedPort: initialSelection.selectedPort,
+  customBoards: persistedPrefs.customBoards,
   lastSketchByProject: {},
+  checkingUpdates: false,
+  availableUpdates: [],
+  updatesPopupOpen: false,
   busy: false,
   status: IDLE,
   log: '',
@@ -283,6 +321,29 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     set({ selectedFqbn: fqbn })
     persistFallback({ ...get(), selectedFqbn: fqbn, selectedPort })
     saveProjectSelection(fqbn, selectedPort)
+  },
+  addCustomBoard: ({ label, fqbn, core, boardUrl }) => {
+    const l = label.trim(), f = fqbn.trim(), c = core.trim(), u = boardUrl.trim()
+    if (!l || !f || !c || !u) return { ok: false, error: 'Label, FQBN, core, and board URL are all required.' }
+    if (BOARDS.some((b) => b.fqbn === f) || get().customBoards.some((b) => b.fqbn === f)) {
+      return { ok: false, error: `A board with FQBN "${f}" already exists.` }
+    }
+    const board: Board = { label: l, fqbn: f, core: c, boardUrl: u, thirdParty: true }
+    const customBoards = [...get().customBoards, board]
+    const myBoards = [...get().myBoards, f]
+    set({ customBoards, myBoards })
+    persistFallback({ ...get(), customBoards, myBoards })
+    return { ok: true }
+  },
+  removeCustomBoard: (fqbn) => {
+    const customBoards = get().customBoards.filter((b) => b.fqbn !== fqbn)
+    const myBoards = get().myBoards.filter((f) => f !== fqbn)
+    let selectedFqbn = get().selectedFqbn
+    if (selectedFqbn === fqbn) selectedFqbn = myBoards[0] ?? ''
+    const selectedPort = get().selectedPort
+    set({ customBoards, myBoards, selectedFqbn })
+    persistFallback({ ...get(), customBoards, myBoards, selectedFqbn, selectedPort })
+    saveProjectSelection(selectedFqbn, selectedPort)
   },
   setSelectedPort: (port) => {
     const selectedFqbn = get().selectedFqbn
@@ -445,15 +506,51 @@ export const useUploadStore = create<UploadState>((set, get) => ({
 
   installCore: async (core) => {
     if (get().busy) return
+    const url = allBoards().find((b) => b.core === core && b.boardUrl)?.boardUrl
     set({ busy: true, consoleOpen: true, log: get().log + `\n=== Installing ${core} ===\n`, status: { phase: 'working', message: `Installing ${core}…` } })
     try {
-      await installCore(core, (chunk) => get().appendLog(chunk))
+      await installCore(core, (chunk) => get().appendLog(chunk), undefined, url)
       await get().refreshCores()
       const ok = get().installedCores.includes(core)
       set({ status: ok ? { phase: 'done', message: `${core} installed` } : { phase: 'error', message: 'Core install failed' } })
     } catch (err) {
       get().appendLog(`\n[error] ${err}\n`)
       set({ status: { phase: 'error', message: 'Core install failed' } })
+    } finally {
+      set({ busy: false })
+      if (get().status.phase === 'error') scheduleErrorReset(set, get)
+    }
+  },
+
+  checkForUpdates: async () => {
+    if (get().checkingUpdates || get().busy) return
+    set({ checkingUpdates: true })
+    try {
+      const urls = get().customBoards.map((b) => b.boardUrl).filter((u): u is string => !!u)
+      const updates = await checkCoreUpdates(urls)
+      set({ availableUpdates: updates, updatesPopupOpen: true })
+    } finally {
+      set({ checkingUpdates: false })
+    }
+  },
+  closeUpdatesPopup: () => set({ updatesPopupOpen: false }),
+  upgradeCores: async (cores) => {
+    if (get().busy) return
+    const list = cores ?? get().availableUpdates.map((u) => u.core)
+    const urls = get().customBoards.map((b) => b.boardUrl).filter((u): u is string => !!u)
+    set({
+      busy: true, consoleOpen: true, updatesPopupOpen: false,
+      log: get().log + `\n=== Updating ${list.length ? list.join(', ') : 'all boards'} ===\n`,
+      status: { phase: 'working', message: 'Updating…' },
+    })
+    try {
+      await requestCoreUpgrade(list, urls, (chunk) => get().appendLog(chunk))
+      await get().refreshCores()
+      const updated = await checkCoreUpdates(urls)
+      set({ availableUpdates: updated, status: { phase: 'done', message: 'Update complete' } })
+    } catch (err) {
+      get().appendLog(`\n[error] ${err}\n`)
+      set({ status: { phase: 'error', message: 'Update failed' } })
     } finally {
       set({ busy: false })
       if (get().status.phase === 'error') scheduleErrorReset(set, get)

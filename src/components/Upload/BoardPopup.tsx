@@ -1,24 +1,33 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useGraphStore } from '../../state/graphStore'
-import { BOARDS, boardByFqbn, engineReady, useUploadStore } from '../../state/uploadStore'
+import { allBoards, boardByFqbn, engineReady, useUploadStore } from '../../state/uploadStore'
 import { estimateFirmwareRam } from '../../utils/validateGraph'
 import styles from './Upload.module.css'
 
+const EMPTY_CUSTOM_BOARD = { label: '', fqbn: '', core: '', boardUrl: '' }
+
 // Popup launched from the MatrixOutput "Board" button. Top: a board manager to
 // toggle which boards appear in the dropdown (plus, on the arduino-cli
-// fallback engine, install their cores). Then a board dropdown, a port
-// dropdown, and the resolved "<board> · <port>" label.
+// fallback engine, install their cores, add a custom board by URL, and check
+// for core updates). Then a board dropdown, a port dropdown, and the resolved
+// "<board> · <port>" label.
 export default function BoardPopup() {
   const {
     helper, ports, installedCores, myBoards, selectedFqbn, selectedPort, busy,
+    checkingUpdates, availableUpdates, updatesPopupOpen,
     toggleBoard, setSelectedFqbn, setSelectedPort, refreshPorts,
     installCore, closeBoardPopup, openCliPopup,
+    addCustomBoard, removeCustomBoard, checkForUpdates, closeUpdatesPopup, upgradeCores,
   } = useUploadStore()
   const { nodes, edges, updateNodeProperty } = useGraphStore()
+  const [newBoard, setNewBoard] = useState(EMPTY_CUSTOM_BOARD)
+  const [addError, setAddError] = useState<string | null>(null)
+  const [showAddForm, setShowAddForm] = useState(false)
 
   const usingFbuild = helper?.engine === 'fbuild'
   const ready = engineReady(helper)
-  const selectable = BOARDS.filter((b) => myBoards.includes(b.fqbn))
+  const boards = allBoards()
+  const selectable = boards.filter((b) => myBoards.includes(b.fqbn))
   const board = boardByFqbn(selectedFqbn)
   const portLabel = ports.find((p) => p.address === selectedPort)?.label ?? selectedPort
   const target = `${board?.label ?? 'No board'} · ${portLabel || 'no port'}`
@@ -28,6 +37,58 @@ export default function BoardPopup() {
   const usePsram = !!psramOptions && ownProps.usePsram === true
   const psramChoice = psramOptions?.find((option) => option.id === ownProps.psramMode) ?? psramOptions?.[0]
   const ram = useMemo(() => estimateFirmwareRam(nodes, edges), [nodes, edges])
+
+  const handleAddBoard = () => {
+    const result = addCustomBoard(newBoard)
+    if (result.ok) {
+      setNewBoard(EMPTY_CUSTOM_BOARD)
+      setAddError(null)
+      setShowAddForm(false)
+    } else {
+      setAddError(result.error ?? 'Could not add board.')
+    }
+  }
+
+  // "Update available" result popup, shown in place of the normal board
+  // manager after a "Check for updates" run.
+  if (updatesPopupOpen) {
+    return (
+      <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) closeBoardPopup() }}>
+        <div className={styles.popup} role="dialog" aria-label="Board updates">
+          <div className={styles.popupHeader}>
+            <span>Board Updates</span>
+            <button className={styles.closeBtn} onClick={closeBoardPopup} title="Close">×</button>
+          </div>
+          {availableUpdates.length === 0 ? (
+            <div className={styles.note}>All your installed boards are up to date.</div>
+          ) : (
+            <div className={styles.boardList}>
+              {availableUpdates.map((u) => {
+                const label = boards.find((b) => b.core === u.core)?.label ?? u.core
+                return (
+                  <div key={u.core} className={styles.note}>
+                    Update available for the {label} board. ({u.installed} → {u.latest})
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          <div className={styles.wizardFooter}>
+            <button className={styles.wizardButtonBase} onClick={closeUpdatesPopup}>Cancel</button>
+            {availableUpdates.length > 0 && (
+              <button
+                className={`${styles.wizardButtonBase} ${styles.uploadOpenBtn}`}
+                disabled={busy}
+                onClick={() => upgradeCores()}
+              >
+                {availableUpdates.length > 1 ? 'Update all' : 'Update'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) closeBoardPopup() }}>
@@ -56,7 +117,7 @@ export default function BoardPopup() {
         {/* Board manager */}
         <div className={styles.sectionTitle}>Boards manager</div>
         <div className={styles.boardList}>
-          {BOARDS.map((b) => {
+          {boards.map((b) => {
             const on = myBoards.includes(b.fqbn)
             const coreReady = installedCores.includes(b.core)
             return (
@@ -65,24 +126,99 @@ export default function BoardPopup() {
                   <input type="checkbox" checked={on} onChange={() => toggleBoard(b.fqbn)} />
                   <span>{b.label}</span>
                 </label>
-                {!usingFbuild && ready && (
-                  coreReady ? (
-                    <span className={styles.coreOk} title={`${b.core} installed`}>✓ core</span>
-                  ) : (
+                <div className={styles.targetRow}>
+                  {!usingFbuild && ready && (
+                    coreReady ? (
+                      <span className={styles.coreOk} title={`${b.core} installed`}>✓ core</span>
+                    ) : (
+                      <button
+                        className={styles.coreBtn}
+                        disabled={busy}
+                        onClick={() => installCore(b.core)}
+                        title={`Install ${b.core}${b.thirdParty ? ' (third-party core — downloads a few hundred MB)' : ''}`}
+                      >
+                        install core
+                      </button>
+                    )
+                  )}
+                  {b.boardUrl && (
                     <button
                       className={styles.coreBtn}
-                      disabled={busy}
-                      onClick={() => installCore(b.core)}
-                      title={`Install ${b.core}${b.thirdParty ? ' (third-party core — downloads a few hundred MB)' : ''}`}
+                      onClick={() => removeCustomBoard(b.fqbn)}
+                      title="Remove this custom board"
                     >
-                      install core
+                      remove
                     </button>
-                  )
-                )}
+                  )}
+                </div>
               </div>
             )
           })}
         </div>
+
+        {!usingFbuild && (
+          <>
+            {showAddForm ? (
+              <div className={styles.wizardChecklist}>
+                <div className={styles.fieldBlock}>
+                  <span className={styles.fieldLabel}>Board label</span>
+                  <input
+                    className={styles.textInput}
+                    placeholder="e.g. ESP8266"
+                    value={newBoard.label}
+                    onChange={(e) => setNewBoard({ ...newBoard, label: e.target.value })}
+                  />
+                </div>
+                <div className={styles.fieldBlock}>
+                  <span className={styles.fieldLabel}>FQBN</span>
+                  <input
+                    className={styles.textInput}
+                    placeholder="e.g. esp8266:esp8266:nodemcuv2"
+                    value={newBoard.fqbn}
+                    onChange={(e) => setNewBoard({ ...newBoard, fqbn: e.target.value })}
+                  />
+                </div>
+                <div className={styles.fieldBlock}>
+                  <span className={styles.fieldLabel}>Core</span>
+                  <input
+                    className={styles.textInput}
+                    placeholder="e.g. esp8266:esp8266"
+                    value={newBoard.core}
+                    onChange={(e) => setNewBoard({ ...newBoard, core: e.target.value })}
+                  />
+                </div>
+                <div className={styles.fieldBlock}>
+                  <span className={styles.fieldLabel}>Board manager URL</span>
+                  <input
+                    className={styles.textInput}
+                    placeholder="e.g. http://arduino.esp8266.com/stable/package_esp8266com_index.json"
+                    value={newBoard.boardUrl}
+                    onChange={(e) => setNewBoard({ ...newBoard, boardUrl: e.target.value })}
+                  />
+                </div>
+                {addError && <div className={`${styles.note} ${styles.noteWarn}`}>{addError}</div>}
+                <div className={styles.wizardFooter}>
+                  <button
+                    className={styles.wizardButtonBase}
+                    onClick={() => { setShowAddForm(false); setNewBoard(EMPTY_CUSTOM_BOARD); setAddError(null) }}
+                  >
+                    Cancel
+                  </button>
+                  <button className={`${styles.wizardButtonBase} ${styles.uploadOpenBtn}`} onClick={handleAddBoard}>
+                    Add board
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className={styles.linkRow}>
+                <button className={styles.linkBtn} onClick={() => setShowAddForm(true)}>+ Add board by URL…</button>
+                <button className={styles.linkBtn} disabled={checkingUpdates || !ready} onClick={checkForUpdates}>
+                  {checkingUpdates ? 'Checking…' : 'Check for updates'}
+                </button>
+              </div>
+            )}
+          </>
+        )}
 
         {/* Board selection */}
         <div className={styles.sectionTitle}>Board</div>
