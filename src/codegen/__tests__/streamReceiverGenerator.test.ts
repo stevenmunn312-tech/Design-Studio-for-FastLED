@@ -60,6 +60,18 @@ describe('generateStreamReceiverSketch', () => {
     expect(sketch).not.toContain('uint16_t XY(')
   })
 
+  it('bounds every byte read with a timeout instead of hanging forever on a dropped byte', () => {
+    // Regression: the receiver used to busy-wait on `while (!Serial.available()) {}`
+    // with no timeout at every header/payload byte. A single byte lost to a UART RX
+    // overflow (e.g. during FastLED.show()'s interrupts-disabled window) would
+    // desync it permanently — the LEDs freeze with no error visible to the host,
+    // since the write side never learns the receiver stopped consuming bytes.
+    const sketch = generateStreamReceiverSketch([outputNode])!
+    expect(sketch).toContain('#define READ_TIMEOUT_MS')
+    expect(sketch).toContain('int readByte()')
+    expect(sketch).not.toContain('while (!Serial.available()) {}')
+  })
+
   it('emits CLOCK_PIN only for SPI chipsets', () => {
     const clockless = generateStreamReceiverSketch([outputNode])!
     expect(clockless).not.toContain('CLOCK_PIN')
