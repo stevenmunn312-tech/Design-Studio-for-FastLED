@@ -1186,26 +1186,46 @@ def stream_start(payload: dict = Body(...)):
     return {"ok": True}
 
 
-def _stream_write_sync(body: bytes) -> tuple[bool, str | None, int]:
-    """Blocking write to the open stream port — see stream_frame for why this
-    runs in a worker thread rather than inline on the event loop."""
+# A hard backstop above pyserial's own `write_timeout` (1.0s, set in
+# stream_start). In practice a stalled receiver has been observed to make
+# Serial.write() block far past that configured timeout on Windows — a known
+# limitation of pyserial's overlapped-I/O write path with some USB-serial
+# drivers, which don't reliably signal the timeout back through
+# GetOverlappedResult when the device stops draining its input buffer. When
+# that happens, `write_timeout` alone leaves the write hung forever, which
+# used to wedge _stream_lock permanently (every later frame/stop/start request
+# would then also block acquiring it) with no error ever surfacing — the
+# stream just silently froze. This timeout is enforced independently at the
+# asyncio layer, and closing the port's handle from here is what actually
+# unblocks (or invalidates) the wedged write in its worker thread, since nothing
+# else can interrupt a stuck blocking syscall in Python.
+_STREAM_WRITE_TIMEOUT_S = 2.0
+
+
+def _stream_write_sync(ser, body: bytes) -> None:
+    """Blocking write on an already-open port object — runs in a worker
+    thread. Takes `ser` directly (rather than reading the module global)
+    so it never needs to hold `_stream_lock` for the write itself — only a
+    quick snapshot/clear of the shared reference needs the lock, so one
+    wedged write can't block every other stream request behind it."""
+    ser.write(body)
+
+
+async def _stream_fail(ser, error: str, status: int) -> JSONResponse:
+    """A write failed or timed out — force the port closed and clear the
+    session so the frontend's next frame/start sees a clean failure instead
+    of silently going nowhere. Closing here (not from the possibly still-
+    blocked write thread) is what lets an orphaned wedged write eventually
+    unblock, since `Serial.close()` cancels a pending Windows overlapped I/O."""
     global _stream_serial
     with _stream_lock:
-        if _stream_serial is None:
-            return False, "stream not started", 409
-        try:
-            _stream_serial.write(body)
-        except Exception as e:
-            # A write failure (e.g. the board was unplugged, or write_timeout
-            # elapsed) ends the session — the frontend should call
-            # /api/stream/start again to resume.
-            try:
-                _stream_serial.close()
-            except Exception:
-                pass
+        if _stream_serial is ser:
             _stream_serial = None
-            return False, str(e), 500
-    return True, None, 200
+    try:
+        ser.close()
+    except Exception:
+        pass
+    return JSONResponse({"ok": False, "error": error}, status_code=status)
 
 
 @app.post("/api/stream/frame")
@@ -1222,12 +1242,20 @@ async def stream_frame(request: Request):
     inline blocking write would freeze every other request the helper is
     serving, not just this one — previously this could wedge live streaming
     silently (the frontend's fetch just never resolves) once enough backlog
-    built up.
+    built up. `asyncio.wait_for` adds a second, independent bound on top of
+    pyserial's own `write_timeout` — see `_STREAM_WRITE_TIMEOUT_S`.
     """
     body = await request.body()
-    ok, error, status = await asyncio.to_thread(_stream_write_sync, body)
-    if not ok:
-        return JSONResponse({"ok": False, "error": error}, status_code=status)
+    with _stream_lock:
+        ser = _stream_serial
+    if ser is None:
+        return JSONResponse({"ok": False, "error": "stream not started"}, status_code=409)
+    try:
+        await asyncio.wait_for(asyncio.to_thread(_stream_write_sync, ser, body), timeout=_STREAM_WRITE_TIMEOUT_S)
+    except asyncio.TimeoutError:
+        return await _stream_fail(ser, "write timed out — the port may be wedged; stream stopped", 500)
+    except Exception as e:
+        return await _stream_fail(ser, str(e), 500)
     return {"ok": True}
 
 

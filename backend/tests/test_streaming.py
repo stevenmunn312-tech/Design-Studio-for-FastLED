@@ -80,6 +80,29 @@ def test_serial_monitor_refuses_while_same_port_is_streaming(client, fake_serial
     assert r.status_code == 409
 
 
+def test_frame_write_that_hangs_past_write_timeout_fails_fast_and_frees_the_port(client, fake_serial, monkeypatch):
+    # Regression: a stalled receiver was observed to make Serial.write() block
+    # past pyserial's own write_timeout entirely on Windows (a known
+    # limitation with some USB-serial drivers) — the write held _stream_lock
+    # forever, silently wedging the stream with no error and blocking every
+    # later frame/start/stop request too. The app's own independent
+    # _STREAM_WRITE_TIMEOUT_S watchdog must catch this and force the port
+    # closed instead of hanging forever.
+    monkeypatch.setattr(app, "_STREAM_WRITE_TIMEOUT_S", 0.05)
+    client.post("/api/stream/start", json={"port": "COM7", "baud": 115200})
+    fake_serial.instances[0].hang_seconds = 0.3  # comfortably longer than the watchdog
+
+    r = client.post("/api/stream/frame", content=b"stuck-frame")
+    assert r.status_code == 500
+    assert "timed out" in r.json()["error"]
+
+    # The port must be freed, not left wedged — a fresh frame is a clean 409
+    # (not started), and start/stop aren't blocked by the orphaned write.
+    r2 = client.post("/api/stream/frame", content=b"next-frame")
+    assert r2.status_code == 409
+    assert client.post("/api/stream/stop").status_code == 200
+
+
 def test_stop_clears_state_so_monitor_is_allowed_again(client, fake_serial):
     client.post("/api/stream/start", json={"port": "COM7", "baud": 115200})
     client.post("/api/stream/stop")
