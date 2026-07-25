@@ -847,10 +847,17 @@ def _compile_upload_fbuild(label, ino, fqbn, port):
         if not port:
             yield "  (no port selected — compiled only)\n"
             return 0, "compile"
+        upload_lines = []
         rc = yield from _run_phase(
             f"{label} · upload", [_FBUILD_BIN, "deploy", "-e", env, "-p", port, "--skip-build", "--no-timestamp"],
-            cwd=_FBUILD_PROJECT_DIR,
+            sink=upload_lines, cwd=_FBUILD_PROJECT_DIR,
         )
+        # fbuild's own deployer doesn't cover every platform it can compile for
+        # yet (e.g. Espressif8266, as of 2.5.4) — arduino-cli's mature per-board
+        # upload tooling still handles those, so point at the working fallback
+        # instead of leaving a bare "deployer ... not yet implemented" error.
+        if rc != 0 and any("not yet implemented" in line.lower() for line in upload_lines):
+            yield "  [engine-gap] fbuild can't flash this board yet. Switch to the arduino-cli engine and try again.\n"
         return rc, "upload"
     finally:
         _fbuild_build_lock.release()
