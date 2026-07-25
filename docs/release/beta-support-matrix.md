@@ -32,7 +32,7 @@ These are the only fully recorded public-beta support rows today.
 
 | Date | Config | Passed | Failed | Not tested | Notes |
 | --- | --- | --- | --- | --- | --- |
-| 2026-07-25 | ESP8266 (NodeMCU) + WS2812B, 10x1 strip, `arduino-cli`, Serial live stream (`hw-b0b34ed3`) | Compile, Upload, Reconnect/re-upload | LED output, Live stream | Color order, Orientation/layout, Brightness, Power cap | Same exact board/chipset/strip/engine combo passed both Normal USB upload (`hw-f57928b9`) and Flash Wiring Test (`hw-7adaec6f`) minutes earlier — narrows this to the Adalight receiver/live-stream path specifically, not general wiring or power. Root cause not yet identified; awaiting tester clarification (see the live-streaming note in `CLAUDE.md`) before any retest. |
+| 2026-07-25 | ESP8266 (NodeMCU) + WS2812B, 10x1 strip, `arduino-cli`, Serial live stream (`hw-b0b34ed3`) | Compile, Upload, Reconnect/re-upload | LED output, Live stream | Color order, Orientation/layout, Brightness, Power cap | Root cause identified and fixed: `LEDPreview.tsx` published the stream's frame dimensions using the display canvas's clamped-to-minimum-2 grid size instead of the frame's real shape, so a 1-row strip always disagreed with the receiver's correctly baked size and every frame was silently dropped (see the live-streaming note in `CLAUDE.md`). Not ESP8266-specific — affects any 1-row/1-col strip on any board. Awaiting hardware re-validation to promote to Supported. |
 
 ## CI-covered host/platform coverage
 
