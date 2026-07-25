@@ -23,6 +23,7 @@ the exact environment and path that were exercised. Everything else stays
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP32-S3 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | ⚡ Flash Stream Receiver + 📡 Live Stream | Flash the Adalight stream receiver once, then push live-preview frames to the board over serial, sustained | `CLAUDE.md` live-streaming note (`hw-f31a7f82`, `2026-07-24`): re-validated after fixing an intermittent freeze (root cause: the dev helper's unread stdout/stderr pipes, not the receiver or write path) — 5+ minutes of steady 30 fps with no freeze; supersedes the `2026-07-15` first pass |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.101 | ESP32-S3 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | USB flash via `esptool` through the helper's normal Upload path | Generate a generative show controller sketch (`PatternCollection` → Show Engine → `MatrixOutput`), compile, flash, and run it on hardware | `CLAUDE.md` show-codegen note (`2026-06-26`) |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP32-S3 + INMP441 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | USB flash via `esptool` through the helper's normal Upload path | Generate a generative show with on-device microphone, non-crossfade transitions, beat-triggered advance, and particle overlay; compile, flash, and run it on hardware | GitHub issue #106 (hw-e791188d, `2026-07-24`): all checks passed including show runtime, beat advance, and particle overlay |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP8266 | WS2812B | 10x1 | Strip (non-matrix) | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Generate a live-graph sketch, compile, flash, and run it on hardware | `CLAUDE.md` physical-layout note (`hw-f57928b9`, `2026-07-25`): all checks passed including color order, orientation, and power cap |
 
 These are the only fully recorded public-beta support rows today.
 
@@ -54,12 +55,13 @@ Unless a future row says otherwise, treat the following as experimental:
 - All host OS + browser combinations except Windows 11 Home (build
   10.0.26200) + Chrome 150.0.7871.101 or 150.0.7871.187, the recorded combos
   above.
-- All boards except ESP32-S3.
+- All boards except ESP32-S3 and ESP8266 (see the rows above).
 - All LED chipsets except the recorded WS2812B row above.
-- All matrix sizes except the recorded 16x16 row above.
-- All non-rectangular physical layouts: strip, tiled panels, and custom XY
-  maps.
-- `arduino-cli` as an upload engine.
+- All matrix/strip sizes except the recorded 16x16 and 10x1 rows above.
+- Tiled panels and custom XY maps (non-rectangular layouts) — strip layout
+  has one recorded validation (see the ESP8266 row above).
+- `arduino-cli` as an upload engine, beyond the recorded ESP8266 +
+  strip-layout row above.
 - PSRAM modes.
 - Baked song envelopes and collection-driven modulation in the music-show
   pipeline.
