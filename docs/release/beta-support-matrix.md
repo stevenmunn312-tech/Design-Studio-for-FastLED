@@ -25,14 +25,16 @@ the exact environment and path that were exercised. Everything else stays
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP32-S3 + INMP441 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | USB flash via `esptool` through the helper's normal Upload path | Generate a generative show with on-device microphone, non-crossfade transitions, beat-triggered advance, and particle overlay; compile, flash, and run it on hardware | GitHub issue #106 (hw-e791188d, `2026-07-24`): all checks passed including show runtime, beat advance, and particle overlay |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP8266 | WS2812B | 10x1 | Strip (non-matrix) | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Generate a live-graph sketch, compile, flash, and run it on hardware | `CLAUDE.md` physical-layout note (`hw-f57928b9`, `2026-07-25`): all checks passed including color order, orientation, and power cap |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP8266 | WS2812B | 10x1 | Strip (non-matrix) | `arduino-cli` | 🧪 Flash Wiring Test | Flash the standalone wiring-diagnostic sketch and confirm LEDs display correctly | `CLAUDE.md` wiring-diagnostics note (`hw-7adaec6f`, `2026-07-25`): full diagnostic sequence confirmed correct on ESP8266 + strip layout |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP8266 | WS2812B | 10x1 | Strip (non-matrix) | `arduino-cli` | ⚡ Flash Stream Receiver + 📡 Live Stream | Flash the Adalight stream receiver once, then push live-preview frames to the board over serial | `CLAUDE.md` live-streaming note (`hw-b0b34ed3`, `2026-07-25`): re-validated after fixing a frame-dimension bug that silently dropped every frame on 1-row strip layouts — all checks passed |
 
 These are the only fully recorded public-beta support rows today.
 
 ## Recorded validations that are not yet full support rows
 
-| Date | Config | Passed | Failed | Not tested | Notes |
-| --- | --- | --- | --- | --- | --- |
-| 2026-07-25 | ESP8266 (NodeMCU) + WS2812B, 10x1 strip, `arduino-cli`, Serial live stream (`hw-b0b34ed3`) | Compile, Upload, Reconnect/re-upload | LED output, Live stream | Color order, Orientation/layout, Brightness, Power cap | Root cause identified and fixed: `LEDPreview.tsx` published the stream's frame dimensions using the display canvas's clamped-to-minimum-2 grid size instead of the frame's real shape, so a 1-row strip always disagreed with the receiver's correctly baked size and every frame was silently dropped (see the live-streaming note in `CLAUDE.md`). Not ESP8266-specific — affects any 1-row/1-col strip on any board. Awaiting hardware re-validation to promote to Supported. |
+None currently — every hardware validation recorded to date has captured all
+six graduation fields and has been promoted to the Supported table above.
+This section stays as a placeholder for future runs that record only a
+partial combo.
 
 ## CI-covered host/platform coverage
 
