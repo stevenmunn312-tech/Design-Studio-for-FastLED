@@ -30,10 +30,9 @@ These are the only fully recorded public-beta support rows today.
 
 ## Recorded validations that are not yet full support rows
 
-None currently — every hardware validation recorded to date has captured all
-six graduation fields and has been promoted to the Supported table above.
-This section stays as a placeholder for future runs that record only a
-partial combo.
+| Date | Config | Passed | Failed | Not tested | Notes |
+| --- | --- | --- | --- | --- | --- |
+| 2026-07-25 | ESP8266 (NodeMCU) + WS2812B, 10x1 strip, `arduino-cli`, Serial live stream (`hw-b0b34ed3`) | Compile, Upload, Reconnect/re-upload | LED output, Live stream | Color order, Orientation/layout, Brightness, Power cap | Same exact board/chipset/strip/engine combo passed both Normal USB upload (`hw-f57928b9`) and Flash Wiring Test (`hw-7adaec6f`) minutes earlier — narrows this to the Adalight receiver/live-stream path specifically, not general wiring or power. Root cause not yet identified; awaiting tester clarification (see the live-streaming note in `CLAUDE.md`) before any retest. |
 
 ## CI-covered host/platform coverage
 
