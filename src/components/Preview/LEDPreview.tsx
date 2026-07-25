@@ -812,7 +812,13 @@ export default function LEDPreview() {
         // Feed the live-stream send-loop the exact matrix frame the preview
         // just computed — cheap (a reference store, not a copy) since the
         // stream sends at its own throttled rate independent of this 60fps loop.
-        publishStreamFrame(frame, gW, gH)
+        // Publish the frame's own real shape, not gW/gH: those are floored to
+        // a minimum of 2 for canvas/WebGL sizing, but a strip layout can be a
+        // single row (height 1) — publishing the clamped height there made
+        // the stream's width/height gate permanently disagree with the
+        // receiver's correctly unclamped baked size, silently dropping every
+        // frame forever (no error, fps stuck at 0) on any 1-row/1-col strip.
+        publishStreamFrame(frame, frame[0]?.length ?? 0, frame.length)
 
         const bw = canvasBufWRef.current, bh = canvasBufHRef.current
         const drawStart = PERF_TELEMETRY ? performance.now() : 0
