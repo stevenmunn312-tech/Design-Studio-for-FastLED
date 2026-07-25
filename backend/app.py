@@ -385,7 +385,40 @@ def _ensure_fbuild_project():
         )
         if rc != 0:
             yield "[error] failed to vendor FastLED — the build below will fail on FastLED.h\n"
+    _patch_fastled_sd_stub()
     _fbuild_project_ready = True
+
+
+# FastLED unconditionally compiles an SD-card support unity file into its own
+# library archive, relying on the *linker* to tree-shake it away when unused
+# (its own comment: "no user opt-in required" — an earlier FASTLED_USE_SDCARD
+# opt-in macro was deliberately removed). That file needs SPI -> SD -> SDFS ->
+# SdFat. On at least one real toolchain (ESP8266's bundled framework), fbuild's
+# dependency scanner never adds SPI's include path when it's only referenced
+# transitively from this *vendored local library's* own headers (confirmed:
+# SPI uses the legacy flat layout with no src/ subfolder, unlike every library
+# that resolves fine here) — and SDFS pulls in the third-party SdFat library,
+# which isn't bundled at all. Neither `lib_deps` nor a `library.json`
+# `dependencies` entry nor its `build.srcFilter` (confirmed: fbuild doesn't
+# consult srcFilter for this vendored library at all — every rewrite, positive
+# or negative, compiled the exact same file set) changes what actually gets
+# compiled. The only lever that works is the file's own contents. This project
+# never calls FastLED's own SD/filesystem API — SD/audio here goes through a
+# separate ESP32-audioI2S path — so stubbing this one file out costs nothing
+# and applies to every board, not just the one it was found on.
+_FASTLED_SD_STUB = (
+    "// Patched by the Design Studio for FastLED helper (_patch_fastled_sd_stub\n"
+    "// in backend/app.py) — see that function for why.\n"
+)
+
+
+def _patch_fastled_sd_stub() -> None:
+    path = _FBUILD_LIB_DIR / "src" / "fl" / "build" / "fl.system.sd+.cpp"
+    if not path.exists():
+        return
+    if path.read_text(encoding="utf-8") == _FASTLED_SD_STUB:
+        return
+    path.write_text(_FASTLED_SD_STUB, encoding="utf-8")
 
 
 _fbuild_audio_lib_ready = False
