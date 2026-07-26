@@ -7,6 +7,7 @@ import {
 } from '../state/graphEvaluator'
 import { asFont, textBlockLayout, textAlignMode, TEXT_LINE_GAP } from '../state/font'
 import { asAnimatedImage, asImage } from '../state/image'
+import { imagePaletteStops16 } from '../state/imagePalette'
 import { polineStops16, hexToRgb } from '../state/polinePalette'
 import { customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCatalog'
 import { audioFlowExpr } from '../state/audioFlowRange'
@@ -20,9 +21,10 @@ import { inputClampRange, bypassPort, CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, CORR
 import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledShims'
 import { particleRadius } from '../state/particleScale'
 import { buildXYTable } from '../state/xyLayout'
-import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette } from '../state/customPalette'
+import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette, type RGB } from '../state/customPalette'
 import { animartrixCppLines } from '../animartrix/codegen'
 import { compositionDims, outputRoutes } from '../state/outputRouting'
+import { sanitizePin } from './hardwarePins'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -340,7 +342,7 @@ export function ledHardwareFromProps(p: Record<string, unknown>): LedHardware {
     correction: pick(p.correction, CORRECTION_OPTIONS, 'none'),
     dither:     p.dither !== false,
     overclock:  num(p.overclock, 1, 1, 2),
-    clockPin:   Math.round(num(p.clockPin, 6, 0, 48)),
+    clockPin:   sanitizePin(p.clockPin, 6),
   }
 }
 
@@ -396,9 +398,6 @@ export function audioEngineForGraph(nodes: StudioNode[]): { include: string; cod
   const micNode = nodes.find((n) => n.data.nodeType === 'MicInput')
   if (!micNode) return null
   const p = micNode.data.properties as Record<string, unknown>
-  const ic = (v: unknown, d: number, min: number, max: number) => {
-    const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : d
-  }
   const fc = (v: unknown, d: number, min: number, max: number) => {
     const n = Number(v); return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : d
   }
@@ -408,7 +407,7 @@ export function audioEngineForGraph(nodes: StudioNode[]): { include: string; cod
       `// Live microphone capture and analysis are supplied by FastLED 3.10.3+.`,
     ].join('\n'),
     code: audioEngineCpp(
-      ic(p.i2sWs, 39, 0, 48), ic(p.i2sSck, 40, 0, 48), ic(p.i2sSd, 41, 0, 48), channel,
+      sanitizePin(p.i2sWs, 39), sanitizePin(p.i2sSck, 40), sanitizePin(p.i2sSd, 41), channel,
       fc(p.gain, MIC_DEFAULTS.gain, 0, MIC_MAX_GAIN),
       p.serialDebug === true,
     ),
@@ -488,7 +487,7 @@ export function generateCpp(
     width * expressionScale,
     height * expressionScale,
   )
-  const dataPin    = intProp(outputNode ? props(outputNode).dataPin : undefined, 5, 0, 48)
+  const dataPin    = sanitizePin(outputNode ? props(outputNode).dataPin : undefined, 5)
   // Chipset, colour order, master brightness, correction, dithering, overclock
   // — sanitised centrally (shared with the show/player generators).
   const hw = ledHardwareFromProps(outputNode ? props(outputNode) : {})
@@ -524,7 +523,7 @@ export function generateCpp(
     return {
       ...route,
       safeId: safeId(route.id),
-      dataPin: intProp(p.dataPin, 5, 0, 48),
+      dataPin: sanitizePin(p.dataPin, 5),
       hardware: ledHardwareFromProps(p),
       xyTable: buildXYTable(route.width, route.height, p),
     }
@@ -565,10 +564,17 @@ export function generateCpp(
     return 'false'
   }
 
-  function colorExpr(nodeId: string, portId: string): string {
+  function colorExpr(nodeId: string, portId: string, fallback = 'CRGB::Black'): string {
     const up = incoming.get(`${nodeId}:${portId}`)
     if (up) return `n_${safeId(up.srcId)}_${up.srcPort}`
-    return 'CRGB::Black'
+    return fallback
+  }
+
+  function colorPropExpr(nodeProps: Record<string, unknown>, rKey: string, gKey: string, bKey: string, fallback: RGB): string {
+    const r = intProp(nodeProps[rKey], fallback.r, 0, 255)
+    const g = intProp(nodeProps[gKey], fallback.g, 0, 255)
+    const b = intProp(nodeProps[bKey], fallback.b, 0, 255)
+    return `CRGB(${r},${g},${b})`
   }
 
   // Resolve a palette name to its FastLED preset palette constant.
@@ -576,20 +582,18 @@ export function generateCpp(
     return paletteCppRef(name.toLowerCase())
   }
 
-  // Resolve the FastLED palette constant for a palette-consuming port: follow a
-  // connected PaletteSelector/PaletteBlend back to its chosen palette, otherwise
-  // fall back to the node's own `palette` property. (PaletteBlend resolves to its
-  // base palette A; runtime blending is left as a generated comment.)
+  // Resolve the FastLED palette for a palette-consuming port: runtime palette
+  // builders resolve to their generated `pal_*` value; selectors resolve to a
+  // preset constant; otherwise use the consuming node's palette property.
   function paletteExpr(nodeId: string, portId: string, nodeProps: Record<string, unknown>): string {
     const up = incoming.get(`${nodeId}:${portId}`)
     if (up) {
       const src = nodeMap.get(up.srcId)
       if (src) {
-        // CustomPalette and PaletteBlend build a runtime CRGBPalette16 (see
-        // their emit cases); reference it by name. A palette-role GroupInput
-        // (collection-show codegen) likewise resolves to its `pal_<id>` copy of
-        // the render_pN palette param.
-        if (src.data.nodeType === 'CustomPalette' || src.data.nodeType === 'PaletteBlend' || src.data.nodeType === 'Poline') return `pal_${safeId(up.srcId)}`
+        // Palette builders create a CRGBPalette16 in their emit cases; reference
+        // it by name. A palette-role GroupInput (collection-show codegen)
+        // likewise resolves to its `pal_<id>` copy of the render_pN param.
+        if (src.data.nodeType === 'CustomPalette' || src.data.nodeType === 'PaletteFromImage' || src.data.nodeType === 'PaletteBlend' || src.data.nodeType === 'Poline') return `pal_${safeId(up.srcId)}`
         if (src.data.nodeType === 'GroupInput' && String(props(src).paramId ?? '') === 'palette') return `pal_${safeId(up.srcId)}`
         return fastledPalette(String(props(src).palette ?? 'rainbow'))
       }
@@ -679,7 +683,7 @@ export function generateCpp(
       case 'TimeNode':
         needsT.v = true
         ln(`  float ${v('time')} = t;`)
-        ln(`  float ${v('dt')} = 0.016f;`)
+        ln(`  float ${v('dt')} = 1.0f / 60.0f;`)
         break
 
       // A role-tagged group input kept by buildPattern (collection-show codegen)
@@ -725,7 +729,7 @@ export function generateCpp(
 
       case 'MapRange':
         needsMapFloat[0] = true
-        ln(`  float ${v('result')} = mapFloat(${f('value', 'value', 0)}, ${f('inMin', 'inMin', 0)}, ${f('inMax', 'inMax', 1)}, ${Number(p.outMin ?? 0)}, ${Number(p.outMax ?? 1)});`)
+        ln(`  float ${v('result')} = mapFloat(${f('value', 'value', 0)}, ${f('inMin', 'inMin', 0)}, ${f('inMax', 'inMax', 1)}, ${f('outMin', 'outMin', 0)}, ${f('outMax', 'outMax', 1)});`)
         break
 
       case 'Sin':
@@ -769,16 +773,26 @@ export function generateCpp(
         break
       }
 
-      // Easing curve on a 0–1 value via FastLED lib8tion. Keep the branch map in
-      // sync with `applyEase` in graphEvaluator.ts.
+      // Easing curve on a 0–1 value via legacy lib8tion or FastLED's accurate
+      // fl::ease* functions. Existing ids keep their historical calls.
       case 'Ease': {
         const type = String(p.easeType ?? 'inOutCubic')
         const fn = type === 'inOutQuad' ? 'ease8InOutQuad'
+          : type === 'linear' ? ''
+          : type === 'inOutApprox' ? 'ease8InOutApprox'
+          : type === 'inQuad' ? 'fl::easeInQuad8'
+          : type === 'outQuad' ? 'fl::easeOutQuad8'
+          : type === 'inCubic' ? 'fl::easeInCubic8'
+          : type === 'outCubic' ? 'fl::easeOutCubic8'
+          : type === 'inSine' ? 'fl::easeInSine8'
+          : type === 'outSine' ? 'fl::easeOutSine8'
+          : type === 'inOutSine' ? 'fl::easeInOutSine8'
           : type === 'triwave' ? 'triwave8'
           : type === 'quadwave' ? 'quadwave8'
           : type === 'cubicwave' ? 'cubicwave8'
           : 'ease8InOutCubic'
-        ln(`  float ${v('result')} = ${fn}((uint8_t)(constrain(${f('t', 't', 0)}, 0.0f, 1.0f) * 255)) / 255.0f;`)
+        const input = `(uint8_t)(constrain(${f('t', 't', 0)}, 0.0f, 1.0f) * 255)`
+        ln(`  float ${v('result')} = ${fn ? `${fn}(${input})` : input} / 255.0f;`)
         break
       }
 
@@ -805,7 +819,7 @@ export function generateCpp(
 
       // The inverse of HSVToRGB — via FastLED's rgb2hsv_approximate.
       case 'RGBToHSV': {
-        const rgb = colorExpr(node.id, 'rgb')
+        const rgb = colorExpr(node.id, 'rgb', colorPropExpr(p, 'r', 'g', 'b', { r: 0, g: 0, b: 0 }))
         ln(`  CHSV _hsv_${id} = rgb2hsv_approximate(${rgb});`)
         ln(`  float ${v('h')} = _hsv_${id}.hue / 255.0f * 360.0f;`)
         ln(`  float ${v('s')} = _hsv_${id}.sat / 255.0f;`)
@@ -824,8 +838,8 @@ export function generateCpp(
         break
 
       case 'BlendColors': {
-        const ca = colorExpr(node.id, 'a')
-        const cb = colorExpr(node.id, 'b')
+        const ca = colorExpr(node.id, 'a', colorPropExpr(p, 'rA', 'gA', 'bA', { r: 255, g: 0, b: 0 }))
+        const cb = colorExpr(node.id, 'b', colorPropExpr(p, 'rB', 'gB', 'bB', { r: 0, g: 0, b: 255 }))
         const mix = f('t', 't', 0.5)
         ln(`  CRGB ${v('color')} = blend(${ca}, ${cb}, (uint8_t)((${mix}) * 255));`)
         break
@@ -838,11 +852,41 @@ export function generateCpp(
         const tilt = Math.max(0, Math.min(1, Number(p.tilt ?? 0)))
         const midsGain = gain * (1 + tilt * 0.6)
         const trebleGain = gain * (1 + tilt * 1.8)
-        const bass = useAudioGlobals ? '_audioBass' : '0.0f'
-        const mids = useAudioGlobals ? '_audioMids' : '0.0f'
-        const treble = useAudioGlobals ? '_audioTreble' : '0.0f'
+        // `bands` genuinely drives analysis resolution here — mirrors
+        // graphEvaluator.ts's FFTAnalyzer case exactly: resample the raw
+        // 32-bin spectrum to `bands` bins (same technique as
+        // SpectrumVisualizer's `_svBands`), then average contiguous thirds
+        // into bass/mids/treble. `bands` is baked in at generation time, so
+        // the group boundaries are plain compile-time constants.
+        const bands = Math.max(8, Math.min(32, Math.round(Number(p.bands ?? 24))))
+        const groupBounds = (start: number, end: number): [number, number] => {
+          const from = Math.max(0, Math.floor(start))
+          const to = Math.max(from + 1, Math.min(bands, Math.ceil(end)))
+          return [from, to]
+        }
+        const third = bands / 3
+        const [bassFrom, bassTo] = groupBounds(0, third)
+        const [midsFrom, midsTo] = groupBounds(third, third * 2)
+        const [trebleFrom, trebleTo] = groupBounds(third * 2, bands)
+        const bandsVar = `_fftBands_${id}`
+        const groupExpr = (from: number, to: number) =>
+          `(${Array.from({ length: to - from }, (_, i) => `${bandsVar}[${from + i}]`).join('+')}) / ${(to - from).toFixed(1)}f`
+        const rawBass = `${v('bass')}_raw`
+        const rawMids = `${v('mids')}_raw`
+        const rawTreble = `${v('treble')}_raw`
         if (!useAudioGlobals) ln(`  // FFTAnalyzer — add a Microphone node to drive these from the INMP441`)
-        ln(`  float ${v('bass')}_target = constrain(${bass} * ${gain.toFixed(3)}f, 0.0f, 1.0f), ${v('mids')}_target = constrain(${mids} * ${midsGain.toFixed(3)}f, 0.0f, 1.0f), ${v('treble')}_target = constrain(${treble} * ${trebleGain.toFixed(3)}f, 0.0f, 1.0f);`)
+        // The resample loop's counters (_b/_lo/_hi/_i/_sum) are generic
+        // names, so they're scoped to a block — multiple FFTAnalyzer nodes
+        // in the same sketch would otherwise redeclare them.
+        ln(`  float ${rawBass}, ${rawMids}, ${rawTreble};`)
+        ln(`  {`)
+        ln(`    float ${bandsVar}[${bands}];`)
+        ln(`    for (int _b = 0; _b < ${bands}; _b++) { int _lo = (_b * 32) / ${bands}, _hi = max(_lo + 1, ((_b + 1) * 32) / ${bands}); float _sum = 0.0f; for (int _i = _lo; _i < _hi; _i++) _sum += ${useAudioGlobals ? '_audioSpectrum[_i]' : '0.0f'}; ${bandsVar}[_b] = _sum / (_hi - _lo); }`)
+        ln(`    ${rawBass} = ${groupExpr(bassFrom, bassTo)};`)
+        ln(`    ${rawMids} = ${groupExpr(midsFrom, midsTo)};`)
+        ln(`    ${rawTreble} = ${groupExpr(trebleFrom, trebleTo)};`)
+        ln(`  }`)
+        ln(`  float ${v('bass')}_target = constrain(${rawBass} * ${gain.toFixed(3)}f, 0.0f, 1.0f), ${v('mids')}_target = constrain(${rawMids} * ${midsGain.toFixed(3)}f, 0.0f, 1.0f), ${v('treble')}_target = constrain(${rawTreble} * ${trebleGain.toFixed(3)}f, 0.0f, 1.0f);`)
         ln(`  static float ${v('bass')}_smooth = -1, ${v('mids')}_smooth = -1, ${v('treble')}_smooth = -1;`)
         ln(`  ${v('bass')}_smooth = ${v('bass')}_smooth < 0 ? ${v('bass')}_target : ${v('bass')}_smooth * ${smoothing.toFixed(3)}f + ${v('bass')}_target * ${(1 - smoothing).toFixed(3)}f;`)
         ln(`  ${v('mids')}_smooth = ${v('mids')}_smooth < 0 ? ${v('mids')}_target : ${v('mids')}_smooth * ${smoothing.toFixed(3)}f + ${v('mids')}_target * ${(1 - smoothing).toFixed(3)}f;`)
@@ -854,6 +898,7 @@ export function generateCpp(
       case 'BeatDetect': {
         if (nativeFastLedAudio) {
           ln(`  bool ${v('beat')} = _audioBeat; float ${v('bpm')} = _audioBpm;`)
+          ln(`  float ${v('flux')} = 0.0f, ${v('onset')} = 0.0f, ${v('contrast')} = 0.0f, ${v('threshold')} = 0.0f, ${v('cooldownMs')} = 0.0f;`)
         } else if (useAudioGlobals) {
           const threshold = denormalizeBeatParam('threshold', floatProp(p.threshold, 0.2, 0, 1))
           const attack = denormalizeBeatParam('attack', floatProp(p.attack, 0.55, 0, 1))
@@ -861,6 +906,8 @@ export function generateCpp(
           const prefix = v('detector')
           ln(`  bool ${v('beat')} = false;`)
           ln(`  static float ${v('bpm')} = 120.0f, ${prefix}_fast = 0.0f, ${prefix}_slow = 0.0f, ${prefix}_prevFlux = 0.0f;`)
+          ln(`  float ${v('flux')} = 0.0f, ${v('onset')} = 0.0f, ${v('contrast')} = 0.0f, ${v('cooldownMs')} = 0.0f;`)
+          ln(`  const float ${v('threshold')} = ${threshold.toFixed(4)}f;`)
           ln(`  static float ${prefix}_prevSpectrum[32]; static bool ${prefix}_ready = false; static uint32_t ${prefix}_lastBeat = 0, ${prefix}_lastMs = 0;`)
           ln(`  if (${prefix}_ready) {`)
           ln(`    float _flux = 0.0f, _weightSum = 0.0f;`)
@@ -887,11 +934,13 @@ export function generateCpp(
           ln(`      ${v('bpm')} = ${v('bpm')} * 0.65f + _instant * 0.35f;`)
           ln(`    } } ${prefix}_lastBeat = _now; }`)
           ln(`    ${prefix}_prevFlux = _flux;`)
+          ln(`    ${v('flux')} = _flux; ${v('onset')} = _onset; ${v('contrast')} = _onset / _baseline; ${v('cooldownMs')} = _gap;`)
           ln(`  }`)
           ln(`  for (int _i = 0; _i < 32; _i++) ${prefix}_prevSpectrum[_i] = _audioSpectrum[_i]; ${prefix}_ready = true;`)
         } else {
           ln(`  // BeatDetect — add a Microphone node for on-device beat detection`)
           ln(`  bool ${v('beat')} = false; float ${v('bpm')} = 120.0f;`)
+          ln(`  float ${v('flux')} = 0.0f, ${v('onset')} = 0.0f, ${v('contrast')} = 0.0f, ${v('threshold')} = 0.0f, ${v('cooldownMs')} = 0.0f;`)
         }
         break
       }
@@ -979,28 +1028,33 @@ export function generateCpp(
         break
 
       case 'ButtonInput': {
-        const pin = Number(p.pin ?? 0)
+        const pin = sanitizePin(p.pin, 0)
         pinSetupLines.add(`  pinMode(${pin}, ${p.pullup === false ? 'INPUT' : 'INPUT_PULLUP'});`)
         ln(`  bool ${v('pressed')} = digitalRead(${pin}) == LOW;`)
         break
       }
 
       case 'PotInput':
-        ln(`  float ${v('value')} = analogRead(${Number(p.pin ?? 34)}) / 4095.0f;`)
+        ln(`  float ${v('value')} = analogRead(${sanitizePin(p.pin, 4)}) / 4095.0f;`)
         break
 
       // Polling quadrature decode (no interrupts) via a standard 4x lookup
       // table; `position` is an unbounded running count.
       case 'EncoderInput': {
-        const pinA = Number(p.pinA ?? 32), pinB = Number(p.pinB ?? 33), pinSW = Number(p.pinSW ?? 25)
+        const pinA = sanitizePin(p.pinA, 6), pinB = sanitizePin(p.pinB, 7), pinSW = sanitizePin(p.pinSW, 8)
         const mode = p.pullup === false ? 'INPUT' : 'INPUT_PULLUP'
         for (const pin of [pinA, pinB, pinSW]) pinSetupLines.add(`  pinMode(${pin}, ${mode});`)
         ln(`  static int8_t _encLast_${id} = 0; static float _encPos_${id} = 0;`)
         ln(`  { int8_t _a=digitalRead(${pinA}),_b=digitalRead(${pinB}); int8_t _s=(_a<<1)|_b;`)
         ln(`    static const int8_t _encTbl_${id}[16]={0,-1,1,0, 1,0,0,-1, -1,0,0,1, 0,1,-1,0};`)
         ln(`    _encPos_${id}+=_encTbl_${id}[(_encLast_${id}<<2)|_s]; _encLast_${id}=_s; }`)
-        ln(`  float ${v('position')} = _encPos_${id};`)
         ln(`  bool ${v('pressed')} = digitalRead(${pinSW}) == LOW;`)
+        if (p.resetOnPress === true) {
+          ln(`  static bool _encSwLast_${id} = false;`)
+          ln(`  if (${v('pressed')} && !_encSwLast_${id}) _encPos_${id} = 0;`)
+          ln(`  _encSwLast_${id} = ${v('pressed')};`)
+        }
+        ln(`  float ${v('position')} = _encPos_${id};`)
         break
       }
 
@@ -1148,6 +1202,7 @@ export function generateCpp(
           ln(`    float _cx=_cxv>1.0f?_cxv:(0.5f-_mx)+_cxv*((WIDTH-1.0f)+2.0f*_mx),_cy=_cyv>1.0f?_cyv:(0.5f-_my)+_cyv*((HEIGHT-1.0f)+2.0f*_my);`)
           emitShapePass('_cx', '_cy', '    ')
         }
+        ln(`  }`)
         break
       }
 
@@ -1648,7 +1703,7 @@ export function generateCpp(
           ln(`    static uint32_t _svWaterfall_${id}=0; if(!_svWaterfall_${id})_svWaterfall_${id}=_svNow;`)
           ln(`    int _steps=min(HEIGHT,(int)((_svNow-_svWaterfall_${id})*${waterfallSpeed.toFixed(3)}f/1000.0f));`)
           ln(`    if(_steps>0){ _svWaterfall_${id}+=(uint32_t)(_steps*(1000.0f/${waterfallSpeed.toFixed(3)}f)); for(int _step=0;_step<_steps;_step++){`)
-          ln(`      if(HEIGHT>1)memmove(${ob},${ob}+WIDTH,sizeof(CRGB)*WIDTH*(HEIGHT-1));`)
+          ln(`      if(HEIGHT>1)::memmove(${ob},${ob}+WIDTH,sizeof(CRGB)*WIDTH*(HEIGHT-1));`)
           ln(`      for(int _x=0;_x<WIDTH;_x++){ float _lv=constrain(_svLevel_${id}[_x],0.0f,1.0f); ${ob}[(HEIGHT-1)*WIDTH+_x]=_lv<0.02f?CRGB::Black:_svColor(_lv,0.25f+_lv*0.75f); }`)
           ln(`    } }`)
         } else if (style === 'Orbit') {
@@ -1901,6 +1956,7 @@ export function generateCpp(
         const hihat = f('hihat', 'hihat', 0)
         const energy = f('energy', 'energy', 0.7)
         const speed = f('speed', 'speed', 1)
+        const tiles = f('tiles', 'tiles', 1)
         const pal = paletteExpr(node.id, 'paletteIn', p)
         const CAP = Math.max(1, Math.round(Number(p.count ?? 8)))
         const lifeMult = Math.max(0.05, Number(p.decay ?? 1))
@@ -1913,11 +1969,11 @@ export function generateCpp(
         ln(`  { // KickShock`)
         ln(`    static float _ksBorn_${id}[${CAP}]; static float _ksX_${id}[${CAP}]; static float _ksY_${id}[${CAP}]; static uint8_t _ksKind_${id}[${CAP}]; static bool _ksAlive_${id}[${CAP}]; static bool _ksInit_${id}=false; static uint8_t _ksNext_${id}=0; static bool _ksPrevKick_${id}=false,_ksPrevSnare_${id}=false;`)
         ln(`    if(!_ksInit_${id}){ for(int _i=0;_i<${CAP};_i++) _ksAlive_${id}[_i]=false; _ksInit_${id}=true; }`)
-        ln(`    float _spd=${speed},_strength=min(1.0f,max(0.0f,${energy})),_hihatAmt=min(1.0f,max(0.0f,${hihat}));`)
+        ln(`    float _spd=${speed},_strength=min(1.0f,max(0.0f,${energy})),_hihatAmt=min(1.0f,max(0.0f,${hihat})); int _tiles=max(1,min(8,(int)roundf(${tiles})));`)
         ln(`    bool _kickHit=(${kick})>0.5f, _snareHit=(${snare})>0.5f;`)
-        ln(`    float _ksCx=(WIDTH-1)/2.0f,_ksCy=(HEIGHT-1)/2.0f;`)
-        ln(`    if(_kickHit && !_ksPrevKick_${id}){ _ksX_${id}[_ksNext_${id}]=_ksCx+(random8()/255.0f*WIDTH-_ksCx)*${spreadF}; _ksY_${id}[_ksNext_${id}]=_ksCy+(random8()/255.0f*HEIGHT-_ksCy)*${spreadF}; _ksBorn_${id}[_ksNext_${id}]=t; _ksKind_${id}[_ksNext_${id}]=0; _ksAlive_${id}[_ksNext_${id}]=true; _ksNext_${id}=(uint8_t)((_ksNext_${id}+1)%${CAP}); }`)
-        ln(`    if(_snareHit && !_ksPrevSnare_${id}){ _ksX_${id}[_ksNext_${id}]=_ksCx+(random8()/255.0f*WIDTH-_ksCx)*${spreadF}; _ksY_${id}[_ksNext_${id}]=_ksCy+(random8()/255.0f*HEIGHT-_ksCy)*${spreadF}; _ksBorn_${id}[_ksNext_${id}]=t; _ksKind_${id}[_ksNext_${id}]=1; _ksAlive_${id}[_ksNext_${id}]=true; _ksNext_${id}=(uint8_t)((_ksNext_${id}+1)%${CAP}); }`)
+        ln(`    float _tileW=WIDTH/(float)_tiles,_tileH=HEIGHT/(float)_tiles,_ksCx=(_tileW-1)/2.0f,_ksCy=(_tileH-1)/2.0f;`)
+        ln(`    if(_kickHit && !_ksPrevKick_${id}){ _ksX_${id}[_ksNext_${id}]=_ksCx+(random8()/255.0f*_tileW-_ksCx)*${spreadF}; _ksY_${id}[_ksNext_${id}]=_ksCy+(random8()/255.0f*_tileH-_ksCy)*${spreadF}; _ksBorn_${id}[_ksNext_${id}]=t; _ksKind_${id}[_ksNext_${id}]=0; _ksAlive_${id}[_ksNext_${id}]=true; _ksNext_${id}=(uint8_t)((_ksNext_${id}+1)%${CAP}); }`)
+        ln(`    if(_snareHit && !_ksPrevSnare_${id}){ _ksX_${id}[_ksNext_${id}]=_ksCx+(random8()/255.0f*_tileW-_ksCx)*${spreadF}; _ksY_${id}[_ksNext_${id}]=_ksCy+(random8()/255.0f*_tileH-_ksCy)*${spreadF}; _ksBorn_${id}[_ksNext_${id}]=t; _ksKind_${id}[_ksNext_${id}]=1; _ksAlive_${id}[_ksNext_${id}]=true; _ksNext_${id}=(uint8_t)((_ksNext_${id}+1)%${CAP}); }`)
         ln(`    _ksPrevKick_${id}=_kickHit; _ksPrevSnare_${id}=_snareHit;`)
         // Divide by lifeMult so total travel (speed*life) stays constant
         // regardless of decay — mirrors the evaluator (see evalKickShock).
@@ -1925,13 +1981,14 @@ export function generateCpp(
         ln(`    const float _lifeK=${lifeK}f,_lifeS=${lifeS}f,_bandK=${bandK}f,_bandS=${bandS}f;`)
         ln(`    float _maxD=max(1e-6f,sqrtf(_ksCx*_ksCx+_ksCy*_ksCy));`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`      float _cdx=_x-_ksCx,_cdy=_y-_ksCy,_distC=sqrtf(_cdx*_cdx+_cdy*_cdy)/_maxD;`)
+        ln(`      float _lx=fmodf((_x+0.5f)*_tiles,WIDTH)/_tiles-0.5f,_ly=fmodf((_y+0.5f)*_tiles,HEIGHT)/_tiles-0.5f;`)
+        ln(`      float _cdx=_lx-_ksCx,_cdy=_ly-_ksCy,_distC=sqrtf(_cdx*_cdx+_cdy*_cdy)/_maxD;`)
         ln(`      float _wave=0;`)
         ln(`      for(int _r=0;_r<${CAP};_r++){ if(!_ksAlive_${id}[_r]) continue;`)
         ln(`        float _age=t-_ksBorn_${id}[_r]; bool _isKick=_ksKind_${id}[_r]==0;`)
         ln(`        float _spdR=_isKick?_spdK:_spdS,_life=_isKick?_lifeK:_lifeS,_band=_isKick?_bandK:_bandS;`)
         ln(`        if(_age<0||_age>_life) continue;`)
-        ln(`        float _rdx=_x-_ksX_${id}[_r],_rdy=_y-_ksY_${id}[_r],_dist=sqrtf(_rdx*_rdx+_rdy*_rdy)/_maxD;`)
+        ln(`        float _rdx=_lx-_ksX_${id}[_r],_rdy=_ly-_ksY_${id}[_r],_dist=sqrtf(_rdx*_rdx+_rdy*_rdy)/_maxD;`)
         ln(`        float _d=_dist-_age*_spdR; float _front=expf(-(_d*_d)/(2.0f*_band*_band));`)
         ln(additive
           ? `        _wave+=_front*(1.0f-_age/_life); }`
@@ -2278,7 +2335,7 @@ export function generateCpp(
       case 'BrightnessMod': {
         const ob = ownBuf()
         const br = f('brightness', 'brightness', 1)
-        ln(`  { ${seedFrom('frame')} uint8_t _br = (uint8_t)(constrain(${br}, 0, 1) * 255); for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i].nscale8(_br); }`)
+        ln(`  { ${seedFrom('frame')} float _br = fmaxf(0.0f, ${br}); for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i] = CRGB((uint8_t)fminf(255.0f, ${ob}[_i].r * _br), (uint8_t)fminf(255.0f, ${ob}[_i].g * _br), (uint8_t)fminf(255.0f, ${ob}[_i].b * _br)); }`)
         break
       }
 
@@ -2558,10 +2615,11 @@ export function generateCpp(
         needsT.v = true
         const ob = ownBuf()
         const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.RadialBurst)
+        const rings = f('arms', 'arms', 8)
         const pal = paletteExpr(node.id, 'paletteIn', p)
-        ln(`  { float _spd=${speed}; for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`  { float _spd=${speed},_rings=max(1.0f,min(32.0f,${rings})); for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`    float _d=sqrt((_x-WIDTH/2.0f)*(_x-WIDTH/2.0f)+(_y-HEIGHT/2.0f)*(_y-HEIGHT/2.0f))/sqrt(WIDTH*WIDTH/4.0f+HEIGHT*HEIGHT/4.0f);`)
-        ln(`    float _w=(sin((_d*8-t*_spd*3)*3.14159f)+1)/2.0f;`)
+        ln(`    float _w=(sin((_d*_rings-t*_spd*3)*3.14159f)+1)/2.0f;`)
         ln(`    ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(_d*255)); ${ob}[_y*WIDTH+_x].nscale8((uint8_t)(_w*255));}}`)
         break
       }
@@ -2827,7 +2885,15 @@ export function generateCpp(
 
       case 'Random': {
         const lo = Number(p.min ?? 0), hi = Number(p.max ?? 1)
-        ln(`  float ${v('value')} = ${lo} + random8() / 255.0f * ${hi - lo};`)
+        const seed = seedProp(p)
+        const loLit = floatLit(lo)
+        const spanLit = floatLit(hi - lo)
+        if (seed) {
+          ln(`  static uint32_t _rng_${id} = ${seed}u; _rng_${id} = _rng_${id} * 1664525u + 1013904223u;`)
+          ln(`  float ${v('value')} = ${loLit} + (((_rng_${id} >> 16) & 0xFFFFu) / 65535.0f) * ${spanLit};`)
+        } else {
+          ln(`  float ${v('value')} = ${loLit} + (random16() / 65535.0f) * ${spanLit};`)
+        }
         break
       }
 
@@ -2873,14 +2939,21 @@ export function generateCpp(
         break
       }
 
-      // Trigger envelope — 1 on a rising edge, linear decay to 0 over `decay`
-      // seconds; outputs 0 until the first trigger.
+      // Trigger envelope — optional linear attack to 1 on a rising edge, then
+      // linear decay to 0; outputs 0 until the first trigger.
       case 'Envelope': {
         const trig = boolExpr(node.id, 'trigger')
-        const ms = Math.max(50, Math.round(Number(p.decay ?? 0.5) * 1000))
+        const attackProp = Number(p.attack ?? 0)
+        const decayProp = Number(p.decay ?? 0.5)
+        const attackMs = Number.isFinite(attackProp) ? Math.max(0, Math.round(attackProp * 1000)) : 0
+        const decayMs = Number.isFinite(decayProp) ? Math.max(50, Math.round(decayProp * 1000)) : 500
         ln(`  static uint32_t _envT_${id} = 0; static bool _envF_${id} = false, _envP_${id} = false;`)
         ln(`  { bool _t = (${trig}); if (_t && !_envP_${id}) { _envT_${id} = millis(); _envF_${id} = true; } _envP_${id} = _t; }`)
-        ln(`  float ${v('result')} = _envF_${id} ? constrain(1.0f - (millis() - _envT_${id}) / ${ms}.0f, 0.0f, 1.0f) : 0.0f;`)
+        ln(`  float ${v('result')} = 0.0f;`)
+        ln(`  if (_envF_${id}) { uint32_t _envAge_${id} = millis() - _envT_${id};`)
+        if (attackMs > 0) ln(`    ${v('result')} = _envAge_${id} < ${attackMs}u ? constrain(_envAge_${id} / ${attackMs}.0f, 0.0f, 1.0f) : constrain(1.0f - (_envAge_${id} - ${attackMs}u) / ${decayMs}.0f, 0.0f, 1.0f);`)
+        else ln(`    ${v('result')} = constrain(1.0f - _envAge_${id} / ${decayMs}.0f, 0.0f, 1.0f);`)
+        ln(`  }`)
         break
       }
 
@@ -3804,6 +3877,20 @@ export function generateCpp(
         break
       }
 
+      case 'PaletteFromImage': {
+        const upstream = incoming.get(`${node.id}:image`)
+        const sourceNode = upstream ? nodeMap.get(upstream.srcId) : null
+        const sourceProps = sourceNode?.data.nodeType === 'Image' ? props(sourceNode) : null
+        const source = sourceProps
+          ? (asAnimatedImage(sourceProps.animation) ?? asImage(sourceProps.image))
+          : null
+        const stops = imagePaletteStops16(source, Number(p.count ?? 6))
+        const cppStops = stops.map((color) => `CRGB(${color.r},${color.g},${color.b})`).join(', ')
+        if (!source) globalLines.push(`// Palette from Image: connect an Image node with an uploaded file.`)
+        globalLines.push(`const CRGBPalette16 pal_${id}(${cppStops});`)
+        break
+      }
+
       case 'Poline': {
         // Bake the poline palette (computed from the configured anchor hex
         // props) into a CRGBPalette16. Live-wired anchors drive only the
@@ -3832,7 +3919,9 @@ export function generateCpp(
       }
 
       case 'BeatSin': {
-        const bpm = Number(p.bpm ?? 60), lo = Number(p.low ?? 0), hi = Number(p.high ?? 1)
+        const bpmProp = Number(p.bpm ?? 60)
+        const bpm = Number.isFinite(bpmProp) ? bpmProp : 60
+        const lo = Number(p.low ?? 0), hi = Number(p.high ?? 1)
         ln(`  float ${v('value')} = ${lo.toFixed(3)}f + ((sinf(((millis() / 1000.0f) * ${bpm.toFixed(3)}f / 60.0f) * 6.2831853f) + 1.0f) * 0.5f) * (${hi.toFixed(3)}f - ${lo.toFixed(3)}f);`)
         break
       }

@@ -1,7 +1,7 @@
 import { useGraphStore } from '../../state/graphStore'
 import { compositionDims } from '../../state/outputRouting'
 import { useUiStore } from '../../state/uiStore'
-import { supportsScalarExpression } from '../../state/nodeLibrary'
+import { propertyDescription, supportsScalarExpression } from '../../state/nodeLibrary'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../../state/scalarExpression'
 import { asFont, DEFAULT_FONT } from '../../state/font'
 import { asImage, IMAGE_MAX_DIM } from '../../state/image'
@@ -163,7 +163,7 @@ export default function Inspector() {
               />
             </div>
           ) : key === 'formula' ? (
-            <div key={key} className={styles.formulaRow}>
+            <div key={key} className={styles.formulaRow} title={propertyDescription(node.data.nodeType, key)}>
               <label className={styles.fieldLabel} htmlFor={`prop-${key}`}>{key}</label>
               <textarea
                 id={`prop-${key}`}

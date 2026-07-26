@@ -122,24 +122,41 @@ describe('evaluateGraph', () => {
     expect(run('max', 3, 4)).toBe(4)
   })
 
+  it('Ease evaluates the expanded FastLED curve family', () => {
+    const run = (easeType: string, t: number) =>
+      evaluateScalar([node('ease', 'Ease', 'math', { easeType, t })], [], 'ease', 'result', 0)
+
+    expect(run('linear', 0.5)).toBeCloseTo(127 / 255, 6)
+    expect(run('inQuad', 0.5)).toBeCloseTo(63 / 255, 6)
+    expect(run('outQuad', 0.5)).toBeCloseTo(191 / 255, 6)
+    expect(run('inCubic', 0.5)).toBeCloseTo(32 / 255, 6)
+    expect(run('outCubic', 0.5)).toBeCloseTo(223 / 255, 6)
+    expect(run('inSine', 0.5)).toBeLessThan(run('linear', 0.5))
+    expect(run('outSine', 0.5)).toBeGreaterThan(run('linear', 0.5))
+    expect(run('inOutSine', 0.5)).toBeCloseTo(127 / 255, 6)
+    expect(run('inOutApprox', 128 / 255)).toBeCloseTo(128 / 255, 6)
+  })
+
+  it('MapRange can drive its output range from wired inputs', () => {
+    const value = node('value', 'Math', 'math', { mathOp: 'add', a: 0.5, b: 0 })
+    const lo = node('lo', 'Math', 'math', { mathOp: 'add', a: 10, b: 0 })
+    const hi = node('hi', 'Math', 'math', { mathOp: 'add', a: 20, b: 0 })
+    const map = node('map', 'MapRange', 'math', { inMin: 0, inMax: 1, outMin: 0, outMax: 1 })
+    expect(evaluateScalar(
+      [value, lo, hi, map],
+      [
+        edge('e1', 'value', 'result', 'map', 'value'),
+        edge('e2', 'lo', 'result', 'map', 'outMin'),
+        edge('e3', 'hi', 'result', 'map', 'outMax'),
+      ],
+      'map', 'result', 0,
+    )).toBe(15)
+  })
+
   it('Wave drives a value over time per waveform type', () => {
-    // Wave.result → BrightnessMod.brightness over a white frame, so frame[0][0].r
-    // equals round(255 * waveValue) — making the scalar observable.
     const brightnessAt = (waveform: string, tick: number, props: Record<string, unknown> = {}) => {
       const wave = node('w', 'Wave', 'math', { amplitude: 1, frequency: 1, phase: 0, waveform, ...props })
-      const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })
-      const bm = node('bm', 'BrightnessMod', 'composite', {})
-      const out = node('out', 'MatrixOutput', 'output', {})
-      const f = evaluateGraph(
-        [wave, sc, bm, out],
-        [
-          edge('e1', 'w', 'result', 'bm', 'brightness'),
-          edge('e2', 'sc', 'frame', 'bm', 'frame'),
-          edge('e3', 'bm', 'frame', 'out', 'frame'),
-        ],
-        tick, 4, 4,
-      )!
-      return f[0][0].r
+      return Math.round(evaluateScalar([wave], [], 'w', 'result', tick) * 255)
     }
     // sine: 0 at the start, peaks at the quarter period (tick 15 of 60).
     expect(brightnessAt('sine', 0)).toBe(0)
@@ -171,6 +188,21 @@ describe('evaluateGraph', () => {
     const random = node('random-expr', 'Random', 'signal', { min: 'max_y', max: 'center_x' })
     const spy = vi.spyOn(Math, 'random').mockReturnValue(0.5)
     expect(evaluateScalar([random], [], random.id, 'value', 0, 12, 4)).toBeCloseTo(4.25, 5)
+    spy.mockRestore()
+  })
+
+  it('Random uses a deterministic per-node sequence when seeded', () => {
+    pruneEvaluatorState(0, Number.POSITIVE_INFINITY)
+    const random = node('random-seeded', 'Random', 'signal', { min: 10, max: 20, seed: 123 })
+    const spy = vi.spyOn(Math, 'random')
+    const first = evaluateScalar([random], [], random.id, 'value', 0)
+    const second = evaluateScalar([random], [], random.id, 'value', 1)
+    expect(spy).not.toHaveBeenCalled()
+    expect(second).not.toBe(first)
+
+    pruneEvaluatorState(0, Number.POSITIVE_INFINITY)
+    const repeatFirst = evaluateScalar([random], [], random.id, 'value', 0)
+    expect(repeatFirst).toBe(first)
     spy.mockRestore()
   })
 
@@ -242,6 +274,35 @@ describe('evaluateGraph', () => {
     mockAudio.bpm = 120
   })
 
+  it('BeatDetect decays its diagnostics gracefully when audio disconnects instead of snapping to zero', () => {
+    mockAudio.active = true
+    const mic = node('mic-decay', 'MicInput', 'input', {})
+    const beatNode = node('bd-decay', 'BeatDetect', 'audio', { threshold: 0.1, attack: 0.6, decay: 0.9 })
+    const edges = [edge('ea-decay', 'mic-decay', 'audio', 'bd-decay', 'audio')]
+    mockAudio.detectorSpectrum = [0.02, 0.01, 0, 0]
+    evaluateGraphFull([mic, beatNode], edges, 0, W, H)
+    mockAudio.detectorSpectrum = [0.3, 0.24, 0.1, 0.02]
+    const connected = evaluateGraphFull([mic, beatNode], edges, 15, W, H).outputs.get('bd-decay')!
+    expect(connected.flux as number).toBeGreaterThan(0)
+
+    // Audio drops out (edge stays wired, but the store reports inactive).
+    mockAudio.active = false
+    const afterDisconnect = evaluateGraphFull([mic, beatNode], edges, 30, W, H).outputs.get('bd-decay')!
+    expect(afterDisconnect.beat).toBe(false)
+    expect(afterDisconnect.flux as number).toBeLessThan(connected.flux as number)
+
+    // Keep stepping through silence — the envelope should settle toward zero
+    // rather than holding or oscillating, and the state should self-clear.
+    let last = afterDisconnect.flux as number
+    for (let i = 0; i < 40; i++) {
+      const out = evaluateGraphFull([mic, beatNode], edges, 40 + i, W, H).outputs.get('bd-decay')!
+      expect(out.flux as number).toBeLessThanOrEqual(last + 1e-9)
+      last = out.flux as number
+    }
+    expect(last).toBeLessThan(0.01)
+    mockAudio.active = false
+  })
+
   it('PercussionDetect emits separate kick, snare, and hi-hat envelopes', () => {
     mockAudio.active = true
     const mic = node('micp', 'MicInput', 'input', {})
@@ -263,6 +324,32 @@ describe('evaluateGraph', () => {
     mockAudio.active = false
   })
 
+  it('PercussionDetect decays kick/snare/hihat gracefully when audio disconnects instead of snapping to zero', () => {
+    mockAudio.active = true
+    const mic = node('micp-decay', 'MicInput', 'input', {})
+    const perc = node('pd-decay', 'PercussionDetect', 'audio', { sensitivity: 0.65, decay: 0.85, separation: 0.45 })
+    const edges = [edge('epd-decay', 'micp-decay', 'audio', 'pd-decay', 'audio')]
+    mockAudio.detectorSpectrum = Array(32).fill(0)
+    evaluateGraphFull([mic, perc], edges, 0, W, H)
+    mockAudio.detectorSpectrum = [0.9, 0.82, 0.64, 0.4, 0.14, 0.08, 0.03, 0.02, 0.01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    const connected = evaluateGraphFull([mic, perc], edges, 15, W, H).outputs.get('pd-decay')!
+    expect(connected.kick as number).toBeGreaterThan(0.3)
+
+    mockAudio.active = false
+    const afterDisconnect = evaluateGraphFull([mic, perc], edges, 30, W, H).outputs.get('pd-decay')!
+    expect(afterDisconnect.kick as number).toBeGreaterThan(0)
+    expect(afterDisconnect.kick as number).toBeLessThan(connected.kick as number)
+
+    let last = afterDisconnect.kick as number
+    for (let i = 0; i < 40; i++) {
+      const out = evaluateGraphFull([mic, perc], edges, 40 + i, W, H).outputs.get('pd-decay')!
+      expect(out.kick as number).toBeLessThanOrEqual(last + 1e-9)
+      last = out.kick as number
+    }
+    expect(last).toBeLessThan(0.01)
+    mockAudio.active = false
+  })
+
   it('AudioFeatures emits vocals, energy, and silence heuristics', () => {
     mockAudio.active = true
     const mic = node('micaf', 'MicInput', 'input', {})
@@ -280,6 +367,33 @@ describe('evaluateGraph', () => {
     mockAudio.detectorSpectrum = Array(32).fill(0)
     out = evaluateGraphFull([mic, features], [edge('ef2', 'micaf', 'audio', 'af', 'audio')], 30, W, H).outputs.get('af')!
     expect(out.energy).toBeLessThan(0.2)
+    mockAudio.active = false
+  })
+
+  it('AudioFeatures decays vocals/energy gracefully when audio disconnects instead of snapping to zero', () => {
+    mockAudio.active = true
+    const mic = node('micaf-decay', 'MicInput', 'input', {})
+    const features = node('af-decay', 'AudioFeatures', 'audio', { sensitivity: 0.6, gate: 0.1, smoothing: 0.9 })
+    const edges = [edge('ef-decay', 'micaf-decay', 'audio', 'af-decay', 'audio')]
+    mockAudio.detectorSpectrum = [0.05, 0.06, 0.07, 0.08, 0.1, 0.12, 0.18, 0.26, 0.36, 0.48, 0.58, 0.64, 0.62, 0.54, 0.44, 0.34, 0.26, 0.2, 0.16, 0.14, 0.12, 0.1, 0.08, 0.06, 0.05, 0.04, 0.03, 0.03, 0.02, 0.02, 0.01, 0.01]
+    // Slow smoothing means the attack needs a few frames to build up too —
+    // prime it before asserting the connected level.
+    for (let i = 0; i < 30; i++) evaluateGraphFull([mic, features], edges, i, W, H)
+    const connected = evaluateGraphFull([mic, features], edges, 30, W, H).outputs.get('af-decay')!
+    expect(connected.energy as number).toBeGreaterThan(0.15)
+
+    mockAudio.active = false
+    const afterDisconnect = evaluateGraphFull([mic, features], edges, 30, W, H).outputs.get('af-decay')!
+    expect(afterDisconnect.energy as number).toBeGreaterThan(0)
+    expect(afterDisconnect.energy as number).toBeLessThan(connected.energy as number)
+
+    let last = afterDisconnect.energy as number
+    for (let i = 0; i < 60; i++) {
+      const out = evaluateGraphFull([mic, features], edges, 40 + i, W, H).outputs.get('af-decay')!
+      expect(out.energy as number).toBeLessThanOrEqual(last + 1e-9)
+      last = out.energy as number
+    }
+    expect(last).toBeLessThan(0.01)
     mockAudio.active = false
   })
 
@@ -378,21 +492,23 @@ describe('evaluateGraph', () => {
 
   it('renderParticleBurst spawns fading sparks within the burst lifetime', () => {
     const W = 8, H = 8
+    const col = { r: 255, g: 128, b: 0 }
     const lit = (f: ReturnType<typeof renderParticleBurst>) =>
       f ? f.flat().filter((px) => px.r + px.g + px.b > 0).length : 0
-    expect(renderParticleBurst(0, -1, 1, 0, 24, W, H)).toBeNull()               // before the burst
-    expect(renderParticleBurst(0, PARTICLE_LIFE_MS, 1, 0, 24, W, H)).toBeNull() // past its lifetime
-    const early = renderParticleBurst(0, 80, 1, 2, 24, W, H)                    // explode, mid-life
+    expect(renderParticleBurst(0, -1, 1, 0, col, W, H)).toBeNull()               // before the burst
+    expect(renderParticleBurst(0, PARTICLE_LIFE_MS, 1, 0, col, W, H)).toBeNull() // past its lifetime
+    const early = renderParticleBurst(0, 80, 1, 2, col, W, H)                    // explode, mid-life
     expect(lit(early)).toBeGreaterThan(0)
     // A deterministic function of burst time + spark index: same inputs → same frame.
-    expect(JSON.stringify(renderParticleBurst(0, 80, 1, 2, 24, W, H)))
-      .toEqual(JSON.stringify(renderParticleBurst(0, 80, 1, 2, 24, W, H)))
+    expect(JSON.stringify(renderParticleBurst(0, 80, 1, 2, col, W, H)))
+      .toEqual(JSON.stringify(renderParticleBurst(0, 80, 1, 2, col, W, H)))
   })
 
   it('audio-reactive nodes read an audioOverride instead of the mic store', () => {
-    // The show preview passes the song's baked bass/mids/treble as an override so
-    // a group's FFTAnalyzer reacts to the track without a live mic. FFTAnalyzer
-    // seeds its smoothing from the first target, so frame 0 == the raw band.
+    // The show preview passes the song's baked audio as a synthetic 32-bin
+    // spectrum override (showAudio.ts's bandsToSpectrum) so a group's
+    // FFTAnalyzer reacts to the track without a live mic. FFTAnalyzer seeds
+    // its smoothing from the first target, so frame 0 == the raw band.
     const fft = node('fftov', 'FFTAnalyzer', 'audio', {})
     const sc = node('scov', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })
     const bm = node('bmov', 'BrightnessMod', 'composite', {})
@@ -403,19 +519,25 @@ describe('evaluateGraph', () => {
       edge('e3', 'bmov', 'frame', 'outov', 'frame'),
     ]
     const override = {
-      active: true, micActive: true, micBass: 0.6, micMids: 0, micTreble: 0,
-      spectrum: [], detectorSpectrum: [],
+      active: true, micActive: true, micBass: 0, micMids: 0, micTreble: 0,
+      spectrum: Array(32).fill(0.6), detectorSpectrum: Array(32).fill(0.6),
     }
     const f = evaluateGraph([fft, sc, bm, out], edges, 0, 4, 4, {}, '', new Set(), {}, override)!
     expect(f[0][0].r).toBe(Math.round(255 * 0.6))
   })
 
-  it('FFTAnalyzer uses the active shared audio bands even without mic-specific values', () => {
+  it('FFTAnalyzer derives its bands from the raw spectrum, not the store\'s pre-computed levels', () => {
+    // FFTAnalyzer used to read audio.bass/mids/treble (a separately
+    // adaptive-normalized detector) directly, which is why its own `bands`
+    // slider had no effect. It now resamples the raw spectrum instead —
+    // proven here by setting store.bass to a decoy value FFTAnalyzer must
+    // NOT use.
     mockAudio.active = true
     mockAudio.micActive = false
-    mockAudio.bass = 0.65
-    mockAudio.mids = 0.35
-    mockAudio.treble = 0.2
+    mockAudio.bass = 0.1
+    mockAudio.mids = 0.1
+    mockAudio.treble = 0.1
+    mockAudio.detectorSpectrum = Array(32).fill(0.65)
     const mic = node('mic-live', 'MicInput', 'input', {})
     const fft = node('fft-live', 'FFTAnalyzer', 'audio', { gain: 1, smoothing: 0 })
     const sc = node('sc-live', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })
@@ -437,6 +559,31 @@ describe('evaluateGraph', () => {
     mockAudio.bass = 0
     mockAudio.mids = 0
     mockAudio.treble = 0
+    mockAudio.detectorSpectrum = Array(32).fill(0)
+  })
+
+  it("FFTAnalyzer's bands control genuinely changes analysis resolution", () => {
+    mockAudio.active = true
+    // A single hot raw bin (index 7) gets grouped into the resampled "bass"
+    // bucket differently depending on how many bins the raw 32-bin spectrum
+    // is resampled into first — proof `bands` isn't a no-op. (32 bands = no
+    // resampling, bass = raw bins [0,11) → 1/11; 24 bands resamples
+    // unevenly, landing bin 7 alone in resampled bin 5 of 8 → 0.5/8.)
+    mockAudio.detectorSpectrum = Array.from({ length: 32 }, (_, i) => (i === 7 ? 1 : 0))
+    const mic = node('mic-bands', 'MicInput', 'input', {})
+    const runWithBands = (bands: number) => {
+      const fft = node('fft-bands', 'FFTAnalyzer', 'audio', { gain: 1, smoothing: 0, bands })
+      const { outputs } = evaluateGraphFull(
+        [mic, fft],
+        [edge('ea-bands', 'mic-bands', 'audio', 'fft-bands', 'audio')],
+        0, W, H,
+      )
+      return outputs.get('fft-bands')!
+    }
+    expect(runWithBands(32).bass as number).toBeCloseTo(1 / 11, 5)
+    expect(runWithBands(24).bass as number).toBeCloseTo(0.0625, 5)
+    mockAudio.active = false
+    mockAudio.detectorSpectrum = Array(32).fill(0)
   })
 
   it('FFTAnalyzer stays silent when its audio input is not wired', () => {
@@ -560,6 +707,30 @@ describe('evaluateGraph', () => {
     expect(frame).not.toBeNull()
     // byte(200/255) = 200, then *0.5 ≈ 100
     expect(frame![0][0].r).toBeCloseTo(100, -1)
+  })
+
+  it('BrightnessMod amplifies channels and saturates at the byte ceiling', () => {
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 80, g: 100, b: 200 })
+    const bm = node('bm', 'BrightnessMod', 'composite', { brightness: 2 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph([sc, bm, out], [
+      edge('e1', 'sc', 'frame', 'bm', 'frame'),
+      edge('e2', 'bm', 'frame', 'out', 'frame'),
+    ], 0, W, H)
+
+    expect(frame![0][0]).toEqual({ r: 160, g: 200, b: 255 })
+  })
+
+  it('BrightnessMod treats negative wired multipliers as black', () => {
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 80, g: 100, b: 200 })
+    const bm = node('bm', 'BrightnessMod', 'composite', { brightness: -1 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph([sc, bm, out], [
+      edge('e1', 'sc', 'frame', 'bm', 'frame'),
+      edge('e2', 'bm', 'frame', 'out', 'frame'),
+    ], 0, W, H)
+
+    expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
   })
 
   it('Fade scales pixels toward black by (1 - fade)', () => {
@@ -1485,6 +1656,27 @@ describe('evaluateGraph', () => {
     expect(f.flat().every((px) => px.r === 0 && px.g === 0 && px.b === 0)).toBe(true)
   })
 
+  it('Palette from Image extracts the Image upload into a reusable palette', () => {
+    const image = {
+      w: 4,
+      h: 1,
+      pixels: [255, 0, 0, 255, 0, 0, 255, 0, 0, 0, 0, 255],
+    }
+    const img = node('img', 'Image', 'pattern', { image })
+    const extract = node('extract', 'PaletteFromImage', 'color', { count: 2 })
+    const result = evaluateGraphFull(
+      [img, extract],
+      [edge('e', 'img', 'image', 'extract', 'image')],
+      0,
+      4,
+      1,
+    )
+    const palette = result.outputs.get('extract')?.palette as RGB[]
+    expect(palette).toHaveLength(16)
+    expect(palette[0]).toEqual({ r: 0, g: 0, b: 255 })
+    expect(palette[15]).toEqual({ r: 255, g: 0, b: 0 })
+  })
+
   it('Image applies placement and transform properties', () => {
     const image = { w: 2, h: 1, pixels: [255, 0, 0, 0, 255, 0] }
     const img = node('img', 'Image', 'pattern', {
@@ -1965,20 +2157,20 @@ describe('evaluateGraph', () => {
   })
 
   it('clampInputs clamps a wired control to its slider range', () => {
-    const grey = node('g', 'SolidColor', 'pattern', { r: 128, g: 128, b: 128 })
-    const two  = node('two', 'Math', 'math', { mathOp: 'add', a: 2, b: 0 })   // emits 2.0
+    const grey = node('g', 'SolidColor', 'pattern', { r: 50, g: 50, b: 50 })
+    const four = node('four', 'Math', 'math', { mathOp: 'add', a: 4, b: 0 })   // emits 4.0
     const mk = (clampInputs: boolean) => {
       const bm  = node('bm', 'BrightnessMod', 'composite', { brightness: 1, clampInputs })
       const out = node('out', 'MatrixOutput', 'output', {})
-      const frame = evaluateGraph([grey, two, bm, out], [
+      const frame = evaluateGraph([grey, four, bm, out], [
         edge('e1', 'g', 'frame', 'bm', 'frame'),
-        edge('e2', 'two', 'result', 'bm', 'brightness'),
+        edge('e2', 'four', 'result', 'bm', 'brightness'),
         edge('e3', 'bm', 'frame', 'out', 'frame'),
       ], 0, W, H)
       return frame![0][0].r
     }
-    expect(mk(false)).toBe(255)   // 128 × 2 → capped at the 255 byte ceiling
-    expect(mk(true)).toBe(128)    // brightness clamped to 1 → 128 × 1
+    expect(mk(false)).toBe(200)   // 50 × 4 with input clamping disabled
+    expect(mk(true)).toBe(150)    // brightness clamped to the 3× slider ceiling
   })
 
   it('PatternMaster renders a pattern from its collection', () => {
@@ -2013,6 +2205,7 @@ describe('evaluateGraph', () => {
     mockAudio.micBass = 0.7
     mockAudio.micMids = 0.2
     mockAudio.micTreble = 0.1
+    mockAudio.detectorSpectrum = Array(32).fill(0.7)
     const groupId = 'grp-audio-show'
     const groups = {
       [groupId]: {
@@ -2057,6 +2250,7 @@ describe('evaluateGraph', () => {
     mockAudio.micBass = 0
     mockAudio.micMids = 0
     mockAudio.micTreble = 0
+    mockAudio.detectorSpectrum = Array(32).fill(0)
   })
 
   it('Transition blends A→B per transitionType', () => {
@@ -2276,6 +2470,7 @@ describe('evaluateGraph — groups', () => {
     mockAudio.micBass = 0.7
     mockAudio.micMids = 0.2
     mockAudio.micTreble = 0.1
+    mockAudio.detectorSpectrum = Array(32).fill(0.7)
     const groups = {
       spectrum: {
         nodes: [
@@ -2323,6 +2518,7 @@ describe('evaluateGraph — groups', () => {
     mockAudio.micBass = 0
     mockAudio.micMids = 0
     mockAudio.micTreble = 0
+    mockAudio.detectorSpectrum = Array(32).fill(0)
   })
 
   it('keeps stateful node state isolated per group instance', () => {
@@ -2695,6 +2891,17 @@ describe('signal utility nodes', () => {
     expect(evaluateScalar(graph(1), edges, 'env1', 'result', 75)).toBeCloseTo(0.5, 6)
     // Fully decayed and clamped at 0.
     expect(evaluateScalar(graph(1), edges, 'env1', 'result', 120)).toBe(0)
+  })
+
+  it('Envelope can ramp up over an attack time before decaying', () => {
+    const graph = (on: number) => [boolSrc('envat', on), node('env2', 'Envelope', 'signal', { attack: 0.5, decay: 0.5 })]
+    const edges = [edge('e', 'envat', 'result', 'env2', 'trigger')]
+    expect(evaluateScalar(graph(0), edges, 'env2', 'result', 0)).toBe(0)
+    expect(evaluateScalar(graph(1), edges, 'env2', 'result', 60)).toBe(0)
+    expect(evaluateScalar(graph(1), edges, 'env2', 'result', 75)).toBeCloseTo(0.5, 6)
+    expect(evaluateScalar(graph(1), edges, 'env2', 'result', 90)).toBe(1)
+    expect(evaluateScalar(graph(1), edges, 'env2', 'result', 105)).toBeCloseTo(0.5, 6)
+    expect(evaluateScalar(graph(1), edges, 'env2', 'result', 120)).toBe(0)
   })
 
   it('Trigger toggle flips output on each rising edge', () => {
@@ -3385,6 +3592,16 @@ describe('Saturation and RGBToHSV', () => {
     expect(colorAt('quad', 3.75)).not.toEqual(colorAt('linear', 3.75))
   })
 
+  it('BlendColors uses editable fallback swatches when color inputs are unwired', () => {
+    const blend = node('bc', 'BlendColors', 'color', {
+      rA: 10, gA: 20, bA: 30,
+      rB: 110, gB: 220, bB: 130,
+      t: 0.25,
+    })
+    const { outputs } = evaluateGraphFull([blend], [], 0, W, H)
+    expect(outputs.get('bc')!.color).toEqual({ r: 35, g: 70, b: 55 })
+  })
+
   it('RGBToHSV extracts hue/sat/val from a connected color', () => {
     const c = node('rgbsrc', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })   // pure red
     const rh = node('rh', 'RGBToHSV', 'color', {})
@@ -3412,6 +3629,15 @@ describe('Saturation and RGBToHSV', () => {
     expect(hsvOut.h).toBe(0)
     expect(hsvOut.s).toBe(0)
     expect(hsvOut.v).toBe(0)
+  })
+
+  it('RGBToHSV uses its editable color fallback when unwired', () => {
+    const rh = node('rhgreen', 'RGBToHSV', 'color', { r: 0, g: 255, b: 0 })
+    const { outputs } = evaluateGraphFull([rh], [], 0, W, H)
+    const hsvOut = outputs.get('rhgreen')!
+    expect(hsvOut.h).toBeCloseTo(120, 0)
+    expect(hsvOut.s).toBeCloseTo(1, 1)
+    expect(hsvOut.v).toBeCloseTo(1, 1)
   })
 })
 
@@ -3629,6 +3855,20 @@ const totalBrightness = (frame: Frame) => frame.flat().reduce((s, p) => s + p.r 
 const boolConst = (id: string, on: number) => node(id, 'Compare', 'math', { a: on, b: 0.5 })
 
 describe('KickShock', () => {
+  it('tiles repeats the shockwave field across a square grid', () => {
+    const hit = withOutput(node('ksTiles', 'KickShock', 'pattern', { tiles: 2 }), [boolConst('khTiles', 1)], [
+      edge('e1', 'khTiles', 'result', 'ksTiles', 'kick'),
+    ])
+    const tiled = evaluateGraph(hit.nodes, hit.edges, SEC(0.25), W, H)!
+
+    for (let y = 0; y < H / 2; y++) {
+      for (let x = 0; x < W / 2; x++) {
+        expect(tiled[y][x]).toEqual(tiled[y][x + W / 2])
+        expect(tiled[y][x]).toEqual(tiled[y + H / 2][x])
+      }
+    }
+  })
+
   it('a kick spawns an expanding ring at the matrix centre by default (spawnSpread=0)', () => {
     const hit = withOutput(node('ks1', 'KickShock', 'pattern', {}), [boolConst('kh1', 1)], [
       edge('e1', 'kh1', 'result', 'ks1', 'kick'),
@@ -3739,6 +3979,15 @@ describe('KickShock', () => {
       edge('e1', 'kh11', 'result', 'ks11', 'kick'),
     ])
     expect(() => evaluateGraph(small.nodes, small.edges, 0, W, H)).not.toThrow()
+  })
+})
+
+describe('RadialBurst', () => {
+  it('ring density changes the generated frame', () => {
+    const sparse = withOutput(node('rbSparse', 'RadialBurst', 'pattern', { speed: 0, arms: 2 }))
+    const dense = withOutput(node('rbDense', 'RadialBurst', 'pattern', { speed: 0, arms: 16 }))
+    expect(evaluateGraph(sparse.nodes, sparse.edges, 0, 8, 8))
+      .not.toEqual(evaluateGraph(dense.nodes, dense.edges, 0, 8, 8))
   })
 })
 

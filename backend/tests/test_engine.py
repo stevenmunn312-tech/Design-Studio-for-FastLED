@@ -95,6 +95,50 @@ def test_write_fbuild_ini_emits_a_section_per_board_and_psram_variant(tmp_path, 
     assert "CORE_DEBUG_LEVEL" not in uno_section
 
 
+def test_patch_fastled_sd_stub_replaces_file_contents(tmp_path, monkeypatch):
+    # Regression: FastLED unconditionally compiles fl/build/fl.system.sd+.cpp
+    # into its own library archive (meant to be tree-shaken by the linker when
+    # unused), and that file needs SPI -> SD -> SDFS -> SdFat. On at least one
+    # real toolchain (ESP8266's bundled framework) fbuild's dependency scanner
+    # never resolves SPI's include path for a vendored *local* library, and
+    # neither lib_deps, a library.json `dependencies` entry, nor its
+    # `build.srcFilter` change what fbuild actually compiles for FastLED
+    # (confirmed empirically: every srcFilter rewrite, inclusion or exclusion,
+    # compiled the identical file set). The file's own contents are the only
+    # lever that works, and this project never calls FastLED's own SD/
+    # filesystem API, so stubbing it out costs nothing.
+    lib_dir = tmp_path / "FastLED"
+    monkeypatch.setattr(app, "_FBUILD_LIB_DIR", lib_dir)
+    build_dir = lib_dir / "src" / "fl" / "build"
+    build_dir.mkdir(parents=True)
+    target = build_dir / "fl.system.sd+.cpp"
+    target.write_text('#include "fl/system/sd/_build.cpp.hpp"\n', encoding="utf-8")
+
+    app._patch_fastled_sd_stub()
+
+    assert target.read_text(encoding="utf-8") == app._FASTLED_SD_STUB
+
+
+def test_patch_fastled_sd_stub_is_idempotent(tmp_path, monkeypatch):
+    lib_dir = tmp_path / "FastLED"
+    monkeypatch.setattr(app, "_FBUILD_LIB_DIR", lib_dir)
+    build_dir = lib_dir / "src" / "fl" / "build"
+    build_dir.mkdir(parents=True)
+    target = build_dir / "fl.system.sd+.cpp"
+    target.write_text(app._FASTLED_SD_STUB, encoding="utf-8")
+
+    app._patch_fastled_sd_stub()  # must not raise or otherwise disturb an already-patched file
+
+    assert target.read_text(encoding="utf-8") == app._FASTLED_SD_STUB
+
+
+def test_patch_fastled_sd_stub_is_a_noop_before_fastled_is_vendored(tmp_path, monkeypatch):
+    # Called from _ensure_fbuild_project even on a fresh clone attempt that
+    # failed — the target file may not exist yet, and that must not raise.
+    monkeypatch.setattr(app, "_FBUILD_LIB_DIR", tmp_path / "FastLED")
+    app._patch_fastled_sd_stub()
+
+
 def test_fbuild_size_report_keeps_sane_ram_percentage():
     report = app._fbuild_size_report([
         "Flash: 4.45KB / 31.50KB (14.1%)\n",
@@ -282,6 +326,90 @@ def test_compile_upload_fbuild_serializes_concurrent_builds(monkeypatch):
         t.join()
 
     assert max_active == 1
+
+
+def test_compile_upload_fbuild_fails_fast_when_lock_is_wedged(monkeypatch):
+    # Regression: `_fbuild_build_lock` used to be a plain blocking `with`, so a
+    # genuinely stuck build (a hung subprocess, an interrupted git clone, ...)
+    # silently starved every later build/upload/capacity-check request forever
+    # — the UI just showed "Starting…" indefinitely with zero output and no
+    # error. A bounded acquire must fail fast with a clear message instead.
+    monkeypatch.setattr(app, "_FBUILD_LOCK_TIMEOUT_S", 0.05)
+    app._fbuild_build_lock.acquire()  # simulate another build already wedged
+    try:
+        lines = list(app._compile_upload_fbuild("Test", "void setup(){}", "esp32:esp32:esp32s3", ""))
+    finally:
+        app._fbuild_build_lock.release()
+
+    assert any("stuck" in line.lower() or "restart the helper" in line.lower() for line in lines)
+
+
+def test_compile_upload_fbuild_releases_lock_after_a_failed_build(monkeypatch):
+    # The lock must release on every return path (bad fqbn, failed compile,
+    # successful compile-only, successful upload) or a single failed build
+    # would itself become the next "wedged lock" case above.
+    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn: None)
+
+    list(app._compile_upload_fbuild("Test", "void setup(){}", "someone:elses:board", ""))
+
+    assert app._fbuild_build_lock.acquire(timeout=1)
+    app._fbuild_build_lock.release()
+
+
+def test_compile_upload_fbuild_points_at_arduino_cli_when_deployer_is_missing(monkeypatch):
+    # fbuild can compile for boards it can't yet flash (e.g. Espressif8266 as
+    # of fbuild 2.5.4: "deployer for Espressif8266 not yet implemented"). A
+    # bare failure there reads as "upload broken" when it's really "wrong
+    # engine for this board" — point at the engine that actually works.
+    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn: "esp8266_esp8266_nodemcuv2")
+    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
+
+    def fake_run_phase(label, args, sink=None, cwd=None):
+        if "deploy" in args:
+            line = "deploy error: deploy failed: deployer for Espressif8266 not yet implemented\n"
+            if sink is not None:
+                sink.append(line)
+            yield line
+            return 1
+        if sink is not None:
+            sink.append("Flash: 1.00KB / 10.00KB (10.0%)\n")
+        yield "ok\n"
+        return 0
+
+    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+
+    lines = list(app._compile_upload_fbuild("Test", "void setup(){}", "esp8266:esp8266:nodemcuv2", "COM6"))
+
+    assert any("Switch to the arduino-cli engine and try again" in line for line in lines)
+
+
+def test_compile_upload_fbuild_stays_silent_on_other_upload_failures(monkeypatch):
+    # The engine-gap hint is specific to the "not yet implemented" deployer
+    # gap — an unrelated upload failure (board unplugged, wrong port, ...)
+    # shouldn't get a misleading "switch engines" suggestion.
+    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn: "esp32_esp32_esp32s3")
+    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
+
+    def fake_run_phase(label, args, sink=None, cwd=None):
+        if "deploy" in args:
+            line = "esptool.py: could not open port 'COM7': PermissionError\n"
+            if sink is not None:
+                sink.append(line)
+            yield line
+            return 1
+        if sink is not None:
+            sink.append("Flash: 1.00KB / 10.00KB (10.0%)\n")
+        yield "ok\n"
+        return 0
+
+    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+
+    lines = list(app._compile_upload_fbuild("Test", "void setup(){}", "esp32:esp32:esp32s3", "COM7"))
+
+    assert not any("arduino-cli" in line for line in lines)
 
 
 def test_drain_compile_collects_lines_and_return_value():

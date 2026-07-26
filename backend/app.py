@@ -29,6 +29,7 @@ import platform
 import re
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 import time
@@ -36,6 +37,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+import asyncio
 import threading
 
 from fastapi import Body, FastAPI, File, Form, Request, UploadFile
@@ -75,7 +77,21 @@ _CORE_URLS = {
     "esp32:esp32": "https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json",
     "rp2040:rp2040": "https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json",
     "teensy:avr": "https://www.pjrc.com/teensy/package_teensy_index.json",
+    "esp8266:esp8266": "http://arduino.esp8266.com/stable/package_esp8266com_index.json",
+    "adafruit:samd": "https://adafruit.github.io/arduino-board-index/package_adafruit_index.json",
+    "adafruit:nrf52": "https://adafruit.github.io/arduino-board-index/package_adafruit_index.json",
+    "STMicroelectronics:stm32": "https://github.com/stm32duino/BoardManagerFiles/raw/main/package_stmicroelectronics_index.json",
 }
+
+
+def _core_version_fields(entry: dict) -> tuple[str, str, str]:
+    """Return (id, installed, latest) from one `core list --format json` entry.
+    Handles both the older (`ID`/`Installed`/`Latest`) and current
+    (`id`/`installed_version`/`latest_version`) arduino-cli JSON key casing."""
+    cid = entry.get("id") or entry.get("ID") or ""
+    installed = entry.get("installed_version") or entry.get("Installed") or ""
+    latest = entry.get("latest_version") or entry.get("Latest") or ""
+    return cid, installed, latest
 
 
 def _load_config() -> dict:
@@ -234,10 +250,40 @@ _PIO_BOARDS: dict[str, dict] = {
     },
     "arduino:avr:uno": {"platform": "atmelavr", "board": "uno"},
     "arduino:avr:nano": {"platform": "atmelavr", "board": "nanoatmega328new"},
+    "arduino:avr:leonardo": {"platform": "atmelavr", "board": "leonardo"},
     "arduino:avr:mega": {"platform": "atmelavr", "board": "megaatmega2560"},
+    "arduino:megaavr:nona4809": {"platform": "atmelmegaavr", "board": "nona4809"},
+    "esp32:esp32:esp32s2": {"platform": "espressif32", "board": "esp32-s2-saola-1"},
+    "esp32:esp32:esp32c3": {"platform": "espressif32", "board": "esp32-c3-devkitm-1"},
+    "esp32:esp32:esp32c6": {"platform": "espressif32", "board": "esp32-c6-devkitc-1"},
+    "esp32:esp32:esp32h2": {"platform": "espressif32", "board": "esp32-h2-devkitc-1"},
+    "esp8266:esp8266:nodemcuv2": {"platform": "espressif8266", "board": "nodemcuv2"},
     "teensy:avr:teensy41": {"platform": "teensy", "board": "teensy41"},
+    "teensy:avr:teensy40": {"platform": "teensy", "board": "teensy40"},
+    "teensy:avr:teensy36": {"platform": "teensy", "board": "teensy36"},
+    "teensy:avr:teensy35": {"platform": "teensy", "board": "teensy35"},
+    "teensy:avr:teensy31": {"platform": "teensy", "board": "teensy31"},
+    "teensy:avr:teensy30": {"platform": "teensy", "board": "teensy30"},
+    "teensy:avr:teensyLC": {"platform": "teensy", "board": "teensyLC"},
     "rp2040:rp2040:rpipico": {"platform": "raspberrypi", "board": "pico"},
+    "rp2040:rp2040:rpipico2": {"platform": "raspberrypi", "board": "rpipico2"},
     "arduino:samd:nano_33_iot": {"platform": "atmelsam", "board": "nano_33_iot"},
+    "arduino:sam:arduino_due_x": {"platform": "atmelsam", "board": "due"},
+    # Confirmed against fbuild's board-support reference for a bare SAMD21
+    # Arduino Zero, but not yet build-tested here — see the "(experimental)"
+    # note on this board in `src/state/uploadStore.ts`.
+    "arduino:samd:arduino_zero_native": {"platform": "atmelsam", "board": "zeroUSB"},
+    "adafruit:samd:adafruit_feather_m0": {"platform": "atmelsam", "board": "adafruit_feather_m0"},
+    "adafruit:samd:adafruit_qtpy_m0": {"platform": "atmelsam", "board": "adafruit_qtpy_m0"},
+    "adafruit:samd:adafruit_feather_m4": {"platform": "atmelsam", "board": "adafruit_feather_m4"},
+    "adafruit:samd:adafruit_grandcentral_m4": {"platform": "atmelsam", "board": "adafruit_grandcentral_m4"},
+    "adafruit:samd:adafruit_matrixportal_m4": {"platform": "atmelsam", "board": "adafruit_matrixportal_m4"},
+    "STMicroelectronics:stm32:bluepill_f103c8": {"platform": "ststm32", "board": "bluepill_f103c8"},
+    "STMicroelectronics:stm32:blackpill_f411ce": {"platform": "ststm32", "board": "blackpill_f411ce"},
+    "STMicroelectronics:stm32:nucleo_f429zi": {"platform": "ststm32", "board": "nucleo_f429zi"},
+    "STMicroelectronics:stm32:nucleo_f439zi": {"platform": "ststm32", "board": "nucleo_f439zi"},
+    "arduino:renesas_uno:unor4wifi": {"platform": "renesas-ra", "board": "uno_r4_wifi"},
+    "adafruit:nrf52:pca10056": {"platform": "nordicnrf52", "board": "nrf52840_dk"},
 }
 
 # arduino-cli's FQBN "menu option" suffix (e.g. `PSRAM=opi`) -> our PSRAM id.
@@ -255,6 +301,16 @@ _fbuild_project_ready = False
 # Every `_compile_upload_fbuild` run holds this for its whole duration so
 # fbuild compiles are always serialized project-wide.
 _fbuild_build_lock = threading.Lock()
+
+# A build can legitimately run long (a cold toolchain/library clone), but if
+# one is ever genuinely wedged (a hung subprocess, an interrupted git clone
+# leaving a stale lock file, ...), every later build/upload/capacity-check
+# request would otherwise queue on `_fbuild_build_lock` forever with zero
+# output — the UI just shows "Starting…" indefinitely with no error and no
+# way to tell a slow build from a stuck one. Bound the wait instead so a
+# stuck build fails fast and visibly rather than silently wedging everything
+# that comes after it.
+_FBUILD_LOCK_TIMEOUT_S = 180
 
 
 def _env_id(base_fqbn: str, psram_id: str | None = None) -> str:
@@ -329,7 +385,40 @@ def _ensure_fbuild_project():
         )
         if rc != 0:
             yield "[error] failed to vendor FastLED — the build below will fail on FastLED.h\n"
+    _patch_fastled_sd_stub()
     _fbuild_project_ready = True
+
+
+# FastLED unconditionally compiles an SD-card support unity file into its own
+# library archive, relying on the *linker* to tree-shake it away when unused
+# (its own comment: "no user opt-in required" — an earlier FASTLED_USE_SDCARD
+# opt-in macro was deliberately removed). That file needs SPI -> SD -> SDFS ->
+# SdFat. On at least one real toolchain (ESP8266's bundled framework), fbuild's
+# dependency scanner never adds SPI's include path when it's only referenced
+# transitively from this *vendored local library's* own headers (confirmed:
+# SPI uses the legacy flat layout with no src/ subfolder, unlike every library
+# that resolves fine here) — and SDFS pulls in the third-party SdFat library,
+# which isn't bundled at all. Neither `lib_deps` nor a `library.json`
+# `dependencies` entry nor its `build.srcFilter` (confirmed: fbuild doesn't
+# consult srcFilter for this vendored library at all — every rewrite, positive
+# or negative, compiled the exact same file set) changes what actually gets
+# compiled. The only lever that works is the file's own contents. This project
+# never calls FastLED's own SD/filesystem API — SD/audio here goes through a
+# separate ESP32-audioI2S path — so stubbing this one file out costs nothing
+# and applies to every board, not just the one it was found on.
+_FASTLED_SD_STUB = (
+    "// Patched by the Design Studio for FastLED helper (_patch_fastled_sd_stub\n"
+    "// in backend/app.py) — see that function for why.\n"
+)
+
+
+def _patch_fastled_sd_stub() -> None:
+    path = _FBUILD_LIB_DIR / "src" / "fl" / "build" / "fl.system.sd+.cpp"
+    if not path.exists():
+        return
+    if path.read_text(encoding="utf-8") == _FASTLED_SD_STUB:
+        return
+    path.write_text(_FASTLED_SD_STUB, encoding="utf-8")
 
 
 _fbuild_audio_lib_ready = False
@@ -708,8 +797,17 @@ def _compile_upload_fbuild(label, ino, fqbn, port):
     one shared directory (see above), so a second build starting before this
     one finishes would overwrite `main.cpp` and interleave `fbuild build`
     output — serializing here is what makes that impossible rather than just
-    unlikely."""
-    with _fbuild_build_lock:
+    unlikely. The acquire is timeout-bounded (see `_FBUILD_LOCK_TIMEOUT_S`)
+    so a genuinely wedged build fails fast and visibly instead of silently
+    starving every later build/upload/capacity-check request forever."""
+    if not _fbuild_build_lock.acquire(timeout=_FBUILD_LOCK_TIMEOUT_S):
+        yield (
+            f"\n=== ✗ {label}: another fbuild build has been running for over "
+            f"{_FBUILD_LOCK_TIMEOUT_S}s — it may be stuck. Wait for it to finish, "
+            "or restart the helper to clear it. ===\n"
+        )
+        return -1, "compile"
+    try:
         yield from _ensure_fbuild_project()
         env = _fbuild_env_for_fqbn(fqbn)
         if env is None:
@@ -749,11 +847,20 @@ def _compile_upload_fbuild(label, ino, fqbn, port):
         if not port:
             yield "  (no port selected — compiled only)\n"
             return 0, "compile"
+        upload_lines = []
         rc = yield from _run_phase(
             f"{label} · upload", [_FBUILD_BIN, "deploy", "-e", env, "-p", port, "--skip-build", "--no-timestamp"],
-            cwd=_FBUILD_PROJECT_DIR,
+            sink=upload_lines, cwd=_FBUILD_PROJECT_DIR,
         )
+        # fbuild's own deployer doesn't cover every platform it can compile for
+        # yet (e.g. Espressif8266, as of 2.5.4) — arduino-cli's mature per-board
+        # upload tooling still handles those, so point at the working fallback
+        # instead of leaving a bare "deployer ... not yet implemented" error.
+        if rc != 0 and any("not yet implemented" in line.lower() for line in upload_lines):
+            yield "  [engine-gap] fbuild can't flash this board yet. Switch to the arduino-cli engine and try again.\n"
         return rc, "upload"
+    finally:
+        _fbuild_build_lock.release()
 
 
 def _upload_result_lines(rc, phase, port):
@@ -841,7 +948,65 @@ def _serial_send(port, payloads):
         ser.close()
 
 
+_WINDOWS_EDITION_LABELS = {
+    "Core": "Home",
+    "CoreN": "Home N",
+    "CoreSingleLanguage": "Home Single Language",
+    "Professional": "Pro",
+    "ProfessionalN": "Pro N",
+    "Enterprise": "Enterprise",
+    "EnterpriseN": "Enterprise N",
+    "Education": "Education",
+    "EducationN": "Education N",
+}
+
+
+def _system_info() -> dict:
+    """Exact host OS name/build for the hardware validation report's Host OS
+    field — no browser API can expose this (User-Agent Client Hints only give
+    a coded Windows release marker, never the real build number)."""
+    system = platform.system()
+    if system == "Windows":
+        try:
+            build = sys.getwindowsversion().build  # type: ignore[attr-defined]
+            release = "11" if build >= 22000 else "10"
+            version_label = f"10.0.{build}"
+        except Exception:
+            build = None
+            release = platform.release()
+            version_label = platform.version()
+        try:
+            edition = _WINDOWS_EDITION_LABELS.get(platform.win32_edition())  # type: ignore[attr-defined]
+        except Exception:
+            edition = None
+        os_label = f"Windows {release}" + (f" {edition}" if edition else "")
+    elif system == "Darwin":
+        mac_release, _, _ = platform.mac_ver()
+        os_label = f"macOS {mac_release}" if mac_release else "macOS"
+        version_label = mac_release or platform.release()
+    elif system == "Linux":
+        try:
+            info = platform.freedesktop_os_release()  # type: ignore[attr-defined]
+            os_label = info.get("PRETTY_NAME") or f"Linux {platform.release()}"
+        except Exception:
+            os_label = f"Linux {platform.release()}"
+        version_label = platform.release()
+    else:
+        os_label = system or "Unknown"
+        version_label = platform.release()
+    return {
+        "ok": True,
+        "os": os_label,
+        "osVersion": version_label,
+    }
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
+@app.get("/api/system-info")
+def system_info():
+    return _system_info()
+
+
 @app.get("/api/health")
 def health():
     """Liveness + which build engine is active + arduino-cli availability (so
@@ -1042,7 +1207,13 @@ def stream_start(payload: dict = Body(...)):
                 pass
             _stream_serial = None
         try:
-            ser = serial.Serial(port, baud, timeout=0)
+            # write_timeout bounds how long a write can block: without it pyserial
+            # defaults to an indefinite blocking write, and if the receiver ever
+            # falls behind (e.g. mid `FastLED.show()` with interrupts disabled)
+            # long enough to back up the OS/driver output buffer, a write would
+            # hang forever — see stream_frame's off-thread dispatch for why that
+            # matters beyond just this one request.
+            ser = serial.Serial(port, baud, timeout=0, write_timeout=1.0)
             # Avoid pulsing the common auto-reset lines on open — the receiver
             # sketch is already running, a reset would just show a black frame.
             ser.dtr = False
@@ -1055,6 +1226,48 @@ def stream_start(payload: dict = Body(...)):
     return {"ok": True}
 
 
+# A hard backstop above pyserial's own `write_timeout` (1.0s, set in
+# stream_start). In practice a stalled receiver has been observed to make
+# Serial.write() block far past that configured timeout on Windows — a known
+# limitation of pyserial's overlapped-I/O write path with some USB-serial
+# drivers, which don't reliably signal the timeout back through
+# GetOverlappedResult when the device stops draining its input buffer. When
+# that happens, `write_timeout` alone leaves the write hung forever, which
+# used to wedge _stream_lock permanently (every later frame/stop/start request
+# would then also block acquiring it) with no error ever surfacing — the
+# stream just silently froze. This timeout is enforced independently at the
+# asyncio layer, and closing the port's handle from here is what actually
+# unblocks (or invalidates) the wedged write in its worker thread, since nothing
+# else can interrupt a stuck blocking syscall in Python.
+_STREAM_WRITE_TIMEOUT_S = 2.0
+
+
+def _stream_write_sync(ser, body: bytes) -> None:
+    """Blocking write on an already-open port object — runs in a worker
+    thread. Takes `ser` directly (rather than reading the module global)
+    so it never needs to hold `_stream_lock` for the write itself — only a
+    quick snapshot/clear of the shared reference needs the lock, so one
+    wedged write can't block every other stream request behind it."""
+    ser.write(body)
+
+
+async def _stream_fail(ser, error: str, status: int) -> JSONResponse:
+    """A write failed or timed out — force the port closed and clear the
+    session so the frontend's next frame/start sees a clean failure instead
+    of silently going nowhere. Closing here (not from the possibly still-
+    blocked write thread) is what lets an orphaned wedged write eventually
+    unblock, since `Serial.close()` cancels a pending Windows overlapped I/O."""
+    global _stream_serial
+    with _stream_lock:
+        if _stream_serial is ser:
+            _stream_serial = None
+    try:
+        ser.close()
+    except Exception:
+        pass
+    return JSONResponse({"ok": False, "error": error}, status_code=status)
+
+
 @app.post("/api/stream/frame")
 async def stream_frame(request: Request):
     """Write one pre-framed Adalight packet straight to the open stream port.
@@ -1062,23 +1275,27 @@ async def stream_frame(request: Request):
     The body is already the exact bytes to send (header + checksum + RGB data,
     built client-side by `src/utils/adalight.ts`) — this endpoint is deliberately
     just a thin pipe so per-frame overhead stays minimal.
+
+    The write itself runs via `asyncio.to_thread` rather than inline: this
+    process runs a single asyncio event loop, and `Serial.write()` can block
+    for up to the port's `write_timeout` if the receiver falls behind. An
+    inline blocking write would freeze every other request the helper is
+    serving, not just this one — previously this could wedge live streaming
+    silently (the frontend's fetch just never resolves) once enough backlog
+    built up. `asyncio.wait_for` adds a second, independent bound on top of
+    pyserial's own `write_timeout` — see `_STREAM_WRITE_TIMEOUT_S`.
     """
-    global _stream_serial
     body = await request.body()
     with _stream_lock:
-        if _stream_serial is None:
-            return JSONResponse({"ok": False, "error": "stream not started"}, status_code=409)
-        try:
-            _stream_serial.write(body)
-        except Exception as e:
-            # A write failure (e.g. the board was unplugged) ends the session —
-            # the frontend should call /api/stream/start again to resume.
-            try:
-                _stream_serial.close()
-            except Exception:
-                pass
-            _stream_serial = None
-            return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+        ser = _stream_serial
+    if ser is None:
+        return JSONResponse({"ok": False, "error": "stream not started"}, status_code=409)
+    try:
+        await asyncio.wait_for(asyncio.to_thread(_stream_write_sync, ser, body), timeout=_STREAM_WRITE_TIMEOUT_S)
+    except asyncio.TimeoutError:
+        return await _stream_fail(ser, "write timed out — the port may be wedged; stream stopped", 500)
+    except Exception as e:
+        return await _stream_fail(ser, str(e), 500)
     return {"ok": True}
 
 
@@ -1230,17 +1447,18 @@ def cores():
 def core_install(payload: dict = Body(...)):
     """Install a board core (and the FastLED lib), streaming progress as text.
 
-    Body: {"core": "esp32:esp32"}. For third-party cores the matching
-    board-manager URL is registered first.
+    Body: {"core": "esp32:esp32", "url": "..."}. For third-party cores the
+    matching board-manager URL is registered first — either the built-in
+    `_CORE_URLS` mapping, or an explicit `url` (a user-added custom board).
     """
     if not _ARDUINO_CLI:
         return JSONResponse({"ok": False, "error": "arduino-cli not found"}, status_code=400)
     core = (payload.get("core") or "").strip()
     if not core:
         return JSONResponse({"ok": False, "error": "no core given"}, status_code=400)
+    url = (payload.get("url") or "").strip() or _CORE_URLS.get(core)
 
     def stream():
-        url = _CORE_URLS.get(core)
         if url:
             yield from _run_phase(
                 "register board URL",
@@ -1253,6 +1471,82 @@ def core_install(payload: dict = Body(...)):
             yield f"\n{core} ready.\n"
         else:
             yield f"\n*** core install failed (exit {rc}) ***\n"
+
+    return StreamingResponse(stream(), media_type="text/plain")
+
+
+@app.post("/api/core/updates")
+def core_updates(payload: dict = Body(default={})):
+    """Check installed board cores for available updates.
+
+    Body: {"urls": ["..."]} — optional extra board-manager URLs (e.g. custom
+    boards added via the UI) to register before refreshing the index, so a
+    freshly-added board's updates are visible even after a config reset.
+    Returns {"ok": true, "updates": [{"core", "installed", "latest"}]}.
+    """
+    if not _ARDUINO_CLI:
+        return JSONResponse({"ok": False, "error": "arduino-cli not found", "updates": []}, status_code=400)
+    urls = [u.strip() for u in (payload.get("urls") or []) if isinstance(u, str) and u.strip()]
+    for url in urls:
+        try:
+            subprocess.run(
+                _ARDUINO_BASE + ["config", "add", "board_manager.additional_urls", url],
+                capture_output=True, text=True, timeout=15, env=_TOOLCHAIN_ENV,
+            )
+        except Exception:
+            pass
+    try:
+        subprocess.run(
+            _ARDUINO_BASE + ["core", "update-index"],
+            capture_output=True, text=True, timeout=60, env=_TOOLCHAIN_ENV,
+        )
+    except Exception:
+        pass
+    try:
+        proc = subprocess.run(
+            _ARDUINO_BASE + ["core", "list", "--format", "json"],
+            capture_output=True, text=True, timeout=30, env=_TOOLCHAIN_ENV,
+        )
+        data = json.loads(proc.stdout or "[]")
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e), "updates": []}, status_code=500)
+    items = data.get("platforms", data) if isinstance(data, dict) else data
+    updates = []
+    for entry in items or []:
+        if not isinstance(entry, dict):
+            continue
+        cid, installed, latest = _core_version_fields(entry)
+        if cid and installed and latest and installed != latest:
+            updates.append({"core": cid, "installed": installed, "latest": latest})
+    return {"ok": True, "updates": updates}
+
+
+@app.post("/api/core/upgrade")
+def core_upgrade(payload: dict = Body(default={})):
+    """Upgrade installed board cores to their latest version, streaming progress.
+
+    Body: {"cores": ["esp32:esp32", ...], "urls": [...]}. `cores` empty/omitted
+    upgrades every outdated core (plain `core upgrade`). `urls` are registered
+    first, same as /api/core/updates.
+    """
+    if not _ARDUINO_CLI:
+        return JSONResponse({"ok": False, "error": "arduino-cli not found"}, status_code=400)
+    cores = [c.strip() for c in (payload.get("cores") or []) if isinstance(c, str) and c.strip()]
+    urls = [u.strip() for u in (payload.get("urls") or []) if isinstance(u, str) and u.strip()]
+
+    def stream():
+        for url in urls:
+            yield from _run_phase(
+                "register board URL",
+                _ARDUINO_BASE + ["config", "add", "board_manager.additional_urls", url],
+            )
+        yield from _run_phase("update index", _ARDUINO_BASE + ["core", "update-index"])
+        if cores:
+            for core in cores:
+                yield from _run_phase(f"upgrade {core}", _ARDUINO_BASE + ["core", "upgrade", core])
+        else:
+            yield from _run_phase("upgrade all", _ARDUINO_BASE + ["core", "upgrade"])
+        yield "\nUpdate complete.\n"
 
     return StreamingResponse(stream(), media_type="text/plain")
 

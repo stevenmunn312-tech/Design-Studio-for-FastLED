@@ -117,6 +117,35 @@ describe('showGenerator', () => {
     expect(cpp.indexOf('CRGB kelvinToRGB(float kelvin);')).toBeLessThan(cpp.indexOf('CRGB kelvinToRGB(float kelvin) {'))
   })
 
+  it('hoists and prefixes baked image palettes inside collected patterns', () => {
+    const image = { w: 2, h: 1, pixels: [255, 0, 0, 0, 0, 255] }
+    const paletteGroups: GroupRegistry = {
+      gp: {
+        nodes: [
+          node('img', 'Image', { image }, [], [
+            { id: 'frame', dataType: 'frame' },
+            { id: 'image', dataType: 'image' },
+          ]),
+          node('extract', 'PaletteFromImage', { count: 2 }, [
+            { id: 'image', dataType: 'image' },
+          ], [{ id: 'palette', dataType: 'palette' }]),
+          node('noise', 'Noise', { noiseType: 'simplex' }, [
+            { id: 'paletteIn', dataType: 'palette' },
+          ], [{ id: 'frame', dataType: 'frame' }]),
+          node('go', 'GroupOutput'),
+        ],
+        edges: [
+          edge('e1', 'img', 'image', 'extract', 'image'),
+          edge('e2', 'extract', 'palette', 'noise', 'paletteIn'),
+          edge('e3', 'noise', 'frame', 'go', 'frame'),
+        ],
+      },
+    }
+    const renderers = buildPatternRenderers(['gp'], paletteGroups)
+    expect(renderers.helpers.join('\n')).toContain('const CRGBPalette16 p0_pal_extract(')
+    expect(renderers.functions[0]).toContain('ColorFromPalette(p0_pal_extract,')
+  })
+
   it('moves show + pattern buffers to PSRAM when the MatrixOutput toggle is on', () => {
     const psNodes = [nodes[0], nodes[1], node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5, usePsram: true })]
     const cpp = generateShowSketch(psNodes, edges, groups)
@@ -144,6 +173,25 @@ describe('showGenerator', () => {
     expect(cpp).toContain('blur2d(p1_buf_bl, WIDTH, HEIGHT, (uint8_t)(constrain(0.25,0.0f,1.0f)*255.0f), _xyMap)')
     // Declared once at file scope, not per pattern.
     expect(cpp.match(/fl::XYMap _xyMap =/g)).toHaveLength(1)
+  })
+
+  it('prefixes FrameFeedback\'s history buffer per pattern so same-id patterns don\'t collide', () => {
+    // Two saved patterns whose FrameFeedback node happens to share the id
+    // "fb" (plausible if both were authored from the same starter/duplicate).
+    // Each pattern must get its own hoisted, uniquely-named ring buffer.
+    const fbGroups: GroupRegistry = {
+      g0: { nodes: [node('sc', 'SolidColor', { r: 255, g: 0, b: 0 }), node('fb', 'FrameFeedback', { delayFrames: 2 }), node('go', 'GroupOutput')],
+            edges: [edge('e1', 'sc', 'frame', 'fb', 'frame'), edge('e2', 'fb', 'frame', 'go', 'frame')] },
+      g1: { nodes: [node('sc', 'SolidColor', { r: 0, g: 255, b: 0 }), node('fb', 'FrameFeedback', { delayFrames: 3 }), node('go', 'GroupOutput')],
+            edges: [edge('e1', 'sc', 'frame', 'fb', 'frame'), edge('e2', 'fb', 'frame', 'go', 'frame')] },
+    }
+    const r = buildPatternRenderers(['g0', 'g1'], fbGroups)
+    expect(r.buffers).toContain('CRGB p0__fb_fb[3][NUM_LEDS];')
+    expect(r.buffers).toContain('CRGB p1__fb_fb[4][NUM_LEDS];')
+    expect(r.functions[0]).toContain('p0__fb_fb[')
+    expect(r.functions[0]).not.toContain('p1__fb_fb[')
+    expect(r.functions[1]).toContain('p1__fb_fb[')
+    expect(r.functions[1]).not.toContain('p0__fb_fb[')
   })
 
   it('handles a Pattern Master with no patterns', () => {
@@ -201,7 +249,7 @@ describe('showGenerator', () => {
   it('emits a beat-triggered particle overlay only with particles on, a beat wired, and a mic', () => {
     const pmParticles = node('pm', 'PatternMaster', {
       minTime: 4, maxTime: 12, transitionSec: 1,
-      particles: true, particleStyle: 3, particleHue: 200, particleIntensity: 0.9,
+      particles: true, particleStyle: 3, particleColor: '#3366cc', particleIntensity: 0.9,
     })
     const base = [node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }), pmParticles,
       node('out', 'MatrixOutput', { width: 8, height: 8 })]
@@ -215,8 +263,25 @@ describe('showGenerator', () => {
     const withMic = [...base, node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })]
     const cpp = generateShowSketch(withMic, wire, groups)
     expect(cpp).toContain('void particleOverlay(')
-    expect(cpp).toContain('if (_audioBeat && !prevBeat) burstStart = now;')
-    expect(cpp).toContain('particleOverlay(burstStart, 3, 200, 0.9f, now);')
+    expect(cpp).toContain('static uint8_t  burstStyle = 3;')
+    expect(cpp).toContain('static CRGB     burstColor = CRGB(51, 102, 204);')
+    expect(cpp).toContain('burstStart = now;')
+    expect(cpp).toContain('particleOverlay(burstStart, burstStyle, burstColor.r, burstColor.g, burstColor.b, 0.9f, now);')
+  })
+
+  it('rolls a random style/colour per beat when randomStyle/randomColor are on', () => {
+    const pmRandom = node('pm', 'PatternMaster', {
+      minTime: 4, maxTime: 12, transitionSec: 1,
+      particles: true, randomStyle: true, randomColor: true, particleIntensity: 0.9,
+    })
+    const base = [node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }), pmRandom,
+      node('out', 'MatrixOutput', { width: 8, height: 8 }),
+      node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })]
+    const wire = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame'),
+      edge('eb', 'pm', 'beat', 'pm', 'beat')]
+    const cpp = generateShowSketch(base, wire, groups)
+    expect(cpp).toContain('burstStyle = random8(17);')
+    expect(cpp).toContain('burstColor = CHSV(random8(), 255, 255);')
   })
 
   it('adds a beat-triggered early advance only when a beat is wired and a mic hosts _audioBeat', () => {
@@ -342,7 +407,7 @@ describe('showGenerator', () => {
       expect(cpp).toContain('void updateAudio()')
       expect(cpp).toContain('setupAudio();')              // in setup()
       expect(cpp).toMatch(/void loop\(\) \{\n {2}updateAudio\(\);/)   // once per frame
-      expect(cpp).toContain('_audioBass')                 // render_p0 reads the live global
+      expect(cpp).toContain('_sum += _audioSpectrum[_i];') // render_p0 resamples the live spectrum
       expect(cpp).not.toContain('constrain(0.5f')         // not the placeholder
     })
 
@@ -350,7 +415,7 @@ describe('showGenerator', () => {
       const cpp = generateShowSketch(showNodes(false), showEdges, audioGroups)
       expect(cpp).not.toContain('driver/i2s.h')
       expect(cpp).not.toContain('updateAudio()')
-      expect(cpp).toContain('constrain(0.0f')             // no invented hardware signal
+      expect(cpp).toContain('_sum += 0.0f;')              // no invented hardware signal
     })
 
     it('binds exposed audio GroupInputs to host audio bands', () => {

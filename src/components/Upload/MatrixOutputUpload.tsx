@@ -21,7 +21,7 @@ export default function MatrixOutputUpload({
   hasSdCardInput: boolean
 }) {
   const { nodes, edges } = useGraphStore()
-  const { helper, installedCores, selectedFqbn, selectedPort, ports, openBoardPopup, openSetupWizard, openDeployPopup } = useUploadStore()
+  const { helper, installedCores, selectedFqbn, selectedPort, ports, openSetupWizard, openDeployPopup } = useUploadStore()
   const { status: capacityStatus, result: capacityResult, request: requestCapacityCheck } = useCapacityStore()
 
   const board = boardByFqbn(selectedFqbn)
@@ -85,13 +85,10 @@ export default function MatrixOutputUpload({
         <button className={styles.setupBtn} onClick={() => openSetupWizard(nodeId)} title="Open the guided Matrix Output setup wizard">
           ✦ Setup...
         </button>
-        <button className={styles.boardBtn} onClick={openBoardPopup} title="Choose board & port, manage boards">
-          ⚙ Board...
+        <button className={styles.uploadOpenBtn} onClick={() => openDeployPopup(nodeId)} title="Open upload, export, diagnostics, and streaming tools">
+          ↑ Upload...
         </button>
       </div>
-      <button className={styles.uploadOpenBtn} onClick={() => openDeployPopup(nodeId)} title="Open upload, export, diagnostics, and streaming tools">
-        ↑ Upload...
-      </button>
     </div>
   )
 }

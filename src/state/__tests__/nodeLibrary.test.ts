@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { NODE_LIBRARY, NODE_DESCRIPTIONS, portColor, propertyMeta, propertyDescription, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, isPropertyEnabled } from '../nodeLibrary'
+import { NODE_LIBRARY, NODE_DESCRIPTIONS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, isPropertyEnabled, isGpioPinProperty, gpioRequirementForProperty, nodeDisplayLabel } from '../nodeLibrary'
+import { EASE_TYPES } from '../easing'
 
 describe('nodeLibrary', () => {
   it('gives Image nodes placement and transform defaults', () => {
@@ -38,6 +39,48 @@ describe('nodeLibrary', () => {
       paletteLevels: 'full',
     })
     expect(NODE_LIBRARY.find((n) => n.type === 'AnimatedImage')).toBeUndefined()
+  })
+
+  it('connects Image data to a bounded palette extraction node', () => {
+    const image = NODE_LIBRARY.find((n) => n.type === 'Image')
+    const extract = NODE_LIBRARY.find((n) => n.type === 'PaletteFromImage')
+    expect(image?.outputs).toContainEqual({ id: 'image', label: 'Image Data', dataType: 'image' })
+    expect(extract).toMatchObject({
+      category: 'color',
+      subcategory: 'Palettes',
+      inputs: [{ id: 'image', label: 'Image', dataType: 'image' }],
+      outputs: [{ id: 'palette', label: 'Palette', dataType: 'palette' }],
+      defaultProperties: { count: 6 },
+    })
+    expect(propertyMeta('PaletteFromImage', 'count')).toEqual({
+      control: 'slider',
+      min: 2,
+      max: 8,
+      step: 1,
+    })
+    expect(propertyLabel('PaletteFromImage', 'count')).toBe('Colors')
+  })
+
+  it('ships matrix-relative Line defaults', () => {
+    expect(NODE_LIBRARY.find((n) => n.type === 'Line')?.defaultProperties).toMatchObject({
+      x1: 0, y1: 0, x2: 'W-1', y2: 'H-1',
+    })
+  })
+
+  it('makes RadialBurst ring density and KickShock tiling functional controls', () => {
+    const radial = NODE_LIBRARY.find((n) => n.type === 'RadialBurst')
+    const shock = NODE_LIBRARY.find((n) => n.type === 'KickShock')
+    expect(radial?.inputs.find((port) => port.id === 'arms')?.label).toBe('Rings')
+    expect(radial?.defaultProperties).toMatchObject({ arms: 8 })
+    expect(propertyMeta('RadialBurst', 'arms')).toMatchObject({ control: 'slider', min: 1, max: 32 })
+    expect(shock?.defaultProperties).toMatchObject({ tiles: 1 })
+    expect(propertyMeta('KickShock', 'tiles')).toMatchObject({ control: 'slider', min: 1, max: 8 })
+  })
+
+  it('gives formula nodes editable inputs and in-app vocabulary help', () => {
+    expect(NODE_LIBRARY.find((n) => n.type === 'CustomFormula')?.defaultProperties).toMatchObject({ a: 0, b: 0 })
+    expect(propertyDescription('CustomFormula', 'formula')).toMatch(/x, y, t.*sin8/)
+    expect(propertyDescription('FieldFormula', 'formula')).toMatch(/beatsin8.*fieldIn/)
   })
 
   it('every node in the shelf has a tooltip description', () => {
@@ -109,6 +152,13 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('BeatDetect', 'decay')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
+  it('BeatDetect exposes its internal tuning diagnostics as outputs', () => {
+    const bd = NODE_LIBRARY.find((n) => n.type === 'BeatDetect')
+    expect(bd?.outputs.map((p) => p.id)).toEqual([
+      'beat', 'bpm', 'flux', 'onset', 'contrast', 'threshold', 'cooldownMs',
+    ])
+  })
+
   it('PercussionDetect exposes kick/snare/hihat with tunable heuristics', () => {
     const pd = NODE_LIBRARY.find((n) => n.type === 'PercussionDetect')
     expect(pd?.category).toBe('audio')
@@ -125,6 +175,20 @@ describe('nodeLibrary', () => {
     expect(af?.defaultProperties).toMatchObject({ sensitivity: 0.5, gate: 0.12, smoothing: 0.8 })
     expect(propertyMeta('AudioFeatures', 'gate')).toMatchObject({ control: 'slider', min: 0, max: 1 })
     expect(propertyMeta('AudioFeatures', 'smoothing')).toMatchObject({ control: 'slider', min: 0, max: 0.95 })
+  })
+
+  it("AudioFeatures.gate has a display label and tooltip explaining what it gates", () => {
+    expect(propertyLabel('AudioFeatures', 'gate')).toBe('Silence Gate')
+    expect(propertyDescription('AudioFeatures', 'gate')).toMatch(/silence/i)
+  })
+
+  it('AudioHue has default properties so it renders without being wired', () => {
+    const audioHue = NODE_LIBRARY.find((n) => n.type === 'AudioHue')
+    expect(audioHue?.defaultProperties).toEqual({ bass: 0.5, mids: 0.5, treble: 0.5 })
+  })
+
+  it("FFTAnalyzer's bands tooltip explains its resample resolution", () => {
+    expect(propertyDescription('FFTAnalyzer', 'bands')).toMatch(/resample|resolution/i)
   })
 
   it('MicInput exposes FastLED processor gain without obsolete custom gate controls', () => {
@@ -286,6 +350,12 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('ColorBoost', 'boost')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
+  it('BrightnessMod exposes a safe amplification range', () => {
+    expect(propertyMeta('BrightnessMod', 'brightness')).toEqual({
+      control: 'slider', min: 0, max: 3, step: 0.01,
+    })
+  })
+
   it('AudioCascade exposes full-spectrum audio inputs with normalized controls', () => {
     const ac = NODE_LIBRARY.find((n) => n.type === 'AudioCascade')
     expect(ac?.inputs.map((p) => p.id)).toEqual(['bass', 'mids', 'treble', 'energy', 'speed', 'paletteIn'])
@@ -295,7 +365,17 @@ describe('nodeLibrary', () => {
   })
 
   it('MusicLibrary shelves with the show pipeline nodes', () => {
-    expect(NODE_LIBRARY.find((n) => n.type === 'MusicLibrary')?.category).toBe('show')
+    const musicLibrary = NODE_LIBRARY.find((n) => n.type === 'MusicLibrary')
+    expect(musicLibrary?.category).toBe('show')
+    expect(musicLibrary?.defaultProperties).toEqual({})
+  })
+
+  it('bounds Show duration, SD pin, and volume controls to their runtime ranges', () => {
+    expect(propertyMeta('Sequencer', 'fade')).toEqual({ control: 'slider', min: 0, max: 20, step: 0.1 })
+    for (const key of ['sdCsPin', 'i2sBclk', 'i2sLrc', 'i2sDout']) {
+      expect(propertyMeta('SDCard', key), key).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+    }
+    expect(propertyMeta('SDCard', 'maxVolume')).toEqual({ control: 'slider', min: 0, max: 21, step: 1 })
   })
 
   it('PerformanceGenerator exposes only shows — no misleading frame port', () => {
@@ -353,5 +433,137 @@ describe('nodeLibrary', () => {
     expect(c?.inputs).toEqual([])
     expect(c?.outputs).toEqual([])
     expect(c?.defaultProperties).toMatchObject({ text: 'Note', color: '#ffd24a' })
+  })
+
+  it('bounds the Input category GPIO fallback to Arduino numeric pin aliases', () => {
+    expect(propertyMeta('MicInput', 'i2sWs')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+    expect(propertyMeta('MicInput', 'i2sSck')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+    expect(propertyMeta('MicInput', 'i2sSd')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+    expect(propertyMeta('ButtonInput', 'pin')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+    expect(propertyMeta('PotInput', 'pin')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+    expect(propertyMeta('EncoderInput', 'pinA')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+    expect(propertyMeta('EncoderInput', 'pinB')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+    expect(propertyMeta('EncoderInput', 'pinSW')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+  })
+
+  it('bounds MidiInput note/cc to a 0-127 slider', () => {
+    expect(propertyMeta('MidiInput', 'note')).toEqual({ control: 'slider', min: 0, max: 127, step: 1 })
+    expect(propertyMeta('MidiInput', 'cc')).toEqual({ control: 'slider', min: 0, max: 127, step: 1 })
+  })
+
+  it('flags hardware-input and SDCard GPIO properties for the board-aware picker', () => {
+    expect(isGpioPinProperty('MicInput', 'i2sWs')).toBe(true)
+    expect(isGpioPinProperty('MicInput', 'i2sSck')).toBe(true)
+    expect(isGpioPinProperty('MicInput', 'i2sSd')).toBe(true)
+    expect(isGpioPinProperty('MicInput', 'gain')).toBe(false)
+    expect(isGpioPinProperty('ButtonInput', 'pin')).toBe(true)
+    expect(isGpioPinProperty('PotInput', 'pin')).toBe(true)
+    expect(isGpioPinProperty('EncoderInput', 'pinA')).toBe(true)
+    expect(isGpioPinProperty('EncoderInput', 'pinB')).toBe(true)
+    expect(isGpioPinProperty('EncoderInput', 'pinSW')).toBe(true)
+    expect(isGpioPinProperty('EncoderInput', 'resetOnPress')).toBe(false)
+    expect(isGpioPinProperty('SDCard', 'sdCsPin')).toBe(true)
+    expect(isGpioPinProperty('SDCard', 'i2sBclk')).toBe(true)
+    expect(isGpioPinProperty('SDCard', 'i2sLrc')).toBe(true)
+    expect(isGpioPinProperty('SDCard', 'i2sDout')).toBe(true)
+    expect(isGpioPinProperty('SDCard', 'maxVolume')).toBe(false)
+    expect(isGpioPinProperty('MatrixOutput', 'dataPin')).toBe(true)
+    expect(isGpioPinProperty('MatrixOutput', 'clockPin')).toBe(true)
+    expect(isGpioPinProperty('MatrixOutput', 'brightness')).toBe(false)
+  })
+
+  it('assigns electrical requirements to generated pin roles', () => {
+    expect(gpioRequirementForProperty('PotInput', 'pin', {})).toEqual({
+      capability: 'analogInput',
+      pullup: false,
+    })
+    expect(gpioRequirementForProperty('ButtonInput', 'pin', { pullup: true })).toEqual({
+      capability: 'digitalInput',
+      pullup: true,
+    })
+    expect(gpioRequirementForProperty('EncoderInput', 'pinA', { pullup: false })).toEqual({
+      capability: 'digitalInput',
+      pullup: false,
+    })
+    expect(gpioRequirementForProperty('MicInput', 'i2sSd', {})).toEqual({
+      capability: 'digitalInput',
+      pullup: false,
+    })
+    expect(gpioRequirementForProperty('MicInput', 'i2sSck', {})).toEqual({
+      capability: 'digitalOutput',
+      pullup: false,
+    })
+  })
+
+  it('bounds MatrixOutput pins to the shared GPIO range', () => {
+    expect(propertyMeta('MatrixOutput', 'dataPin')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+    expect(propertyMeta('MatrixOutput', 'clockPin')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+  })
+
+  it('EncoderInput defaults resetOnPress to off', () => {
+    const enc = NODE_LIBRARY.find((n) => n.type === 'EncoderInput')
+    expect(enc?.defaultProperties).toMatchObject({ resetOnPress: false })
+  })
+
+  it('math todo nodes expose editable defaults before wiring', () => {
+    const defaults = (type: string) => NODE_LIBRARY.find((n) => n.type === type)?.defaultProperties ?? {}
+    expect(defaults('Math')).toEqual({ mathOp: 'add' })
+    expect(defaults('Clamp')).toMatchObject({ value: 0, min: 0, max: 1 })
+    expect(defaults('MapRange')).toMatchObject({ value: 0, inMin: 0, inMax: 1, outMin: 0, outMax: 1 })
+    expect(NODE_LIBRARY.find((n) => n.type === 'MapRange')?.inputs.map((port) => port.id)).toEqual([
+      'value', 'inMin', 'inMax', 'outMin', 'outMax',
+    ])
+    expect(defaults('Lerp')).toMatchObject({ a: 0, b: 1, t: 0.5 })
+    expect(defaults('Ease')).toMatchObject({ easeType: 'inOutCubic', t: 0 })
+    expect(defaults('Abs')).toMatchObject({ x: 0 })
+    expect(defaults('Mod')).toMatchObject({ x: 0, m: 1 })
+    expect(defaults('Gate')).toMatchObject({ value: 0, fallback: 0 })
+    expect(defaults('Smooth')).toMatchObject({ value: 0, response: 0.25 })
+    expect(defaults('SampleHold')).toMatchObject({ value: 0 })
+    expect(defaults('Compare')).toMatchObject({ a: 0, b: 0.5 })
+    expect(defaults('XYMapper')).toMatchObject({ x: 0, y: 0 })
+  })
+
+  it('exposes every Ease variant with a descriptive bundled title', () => {
+    expect(propertyMeta('Ease', 'easeType')).toEqual({
+      control: 'select',
+      options: [...EASE_TYPES],
+    })
+    for (const easeType of EASE_TYPES) {
+      expect(nodeDisplayLabel('Ease', { easeType }, 'Ease'), easeType).not.toBe('Ease')
+    }
+    expect(nodeDisplayLabel('Ease', { easeType: 'unknown' }, 'Ease')).toBe('Ease')
+  })
+
+  it('color todo nodes expose editable defaults and bounded hue controls', () => {
+    const defaults = (type: string) => NODE_LIBRARY.find((n) => n.type === type)?.defaultProperties ?? {}
+    expect(defaults('BlendColors')).toMatchObject({
+      rA: 255, gA: 0, bA: 0,
+      rB: 0, gB: 0, bB: 255,
+      t: 0.5,
+    })
+    expect(defaults('RGBToHSV')).toMatchObject({ r: 0, g: 0, b: 0 })
+    expect(defaults('GradientSampler')).toMatchObject({ t: 0 })
+    expect(propertyMeta('HSVToRGB', 'h')).toEqual({ control: 'slider', min: 0, max: 360, step: 1 })
+  })
+
+  it('signal todo nodes expose bounded controls and compatibility defaults', () => {
+    expect(NODE_LIBRARY.find((n) => n.type === 'Random')?.defaultProperties).toMatchObject({ min: 0, max: 1, seed: 0 })
+    expect(propertyMeta('Random', 'seed')).toEqual({ control: 'slider', min: 0, max: 9999, step: 1 })
+    expect(NODE_LIBRARY.find((n) => n.type === 'Envelope')?.defaultProperties).toMatchObject({ attack: 0, decay: 0.5 })
+    expect(propertyMeta('Envelope', 'attack')).toEqual({ control: 'slider', min: 0, max: 5, step: 0.05 })
+    expect(propertyMeta('Envelope', 'decay')).toEqual({ control: 'slider', min: 0.05, max: 5, step: 0.05 })
+    expect(propertyMeta('BeatSin', 'bpm')).toEqual({ control: 'slider', min: 40, max: 220, step: 1 })
+  })
+
+  it('explains that Sin and Cos need an explicit X signal to animate', () => {
+    expect(propertyDescription('Sin', 'x')).toMatch(/does not animate on its own/i)
+    expect(propertyDescription('Cos', 'x')).toMatch(/does not animate on its own/i)
+  })
+
+  it('has tooltips for serialDebug and pullup', () => {
+    expect(propertyDescription('MicInput', 'serialDebug')).toMatch(/serial monitor/i)
+    expect(propertyDescription('ButtonInput', 'pullup')).toMatch(/INPUT_PULLUP/)
+    expect(propertyDescription('EncoderInput', 'pullup')).toMatch(/INPUT_PULLUP/)
   })
 })

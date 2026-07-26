@@ -19,10 +19,13 @@ the exact environment and path that were exercised. Everything else stays
 | Status | Host OS | Browser | Board | Chipset | Matrix | Layout | Build engine | Upload method | Scope | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.101 | ESP32-S3 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | USB flash via `esptool` through the helper's normal Upload path | Generate a live-graph sketch, compile, flash, and run it on hardware | `backend/README.md` and `CLAUDE.md` build-engine note (`2026-06-26`) |
-| Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.101 | ESP32-S3 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | 🧪 Flash Wiring Test | Flash the standalone wiring-diagnostic sketch and confirm LEDs display correctly | `CLAUDE.md` wiring-diagnostics note (`2026-07-15`) |
-| Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.101 | ESP32-S3 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | ⚡ Flash Stream Receiver + 📡 Live Stream | Flash the Adalight stream receiver once, then push live-preview frames to the board over serial | `CLAUDE.md` live-streaming note (`2026-07-15`) |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP32-S3 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | 🧪 Flash Wiring Test | Flash the standalone wiring-diagnostic sketch and confirm LEDs display correctly | `CLAUDE.md` wiring-diagnostics note (`hw-59a1bb36`, `2026-07-24`): full diagnostic sequence confirmed correct; re-validation of the `2026-07-15` first pass |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP32-S3 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | ⚡ Flash Stream Receiver + 📡 Live Stream | Flash the Adalight stream receiver once, then push live-preview frames to the board over serial, sustained | `CLAUDE.md` live-streaming note (`hw-f31a7f82`, `2026-07-24`): re-validated after fixing an intermittent freeze (root cause: the dev helper's unread stdout/stderr pipes, not the receiver or write path) — 5+ minutes of steady 30 fps with no freeze; supersedes the `2026-07-15` first pass |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.101 | ESP32-S3 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | USB flash via `esptool` through the helper's normal Upload path | Generate a generative show controller sketch (`PatternCollection` → Show Engine → `MatrixOutput`), compile, flash, and run it on hardware | `CLAUDE.md` show-codegen note (`2026-06-26`) |
-| Experimental | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.101 | ESP32-S3 + INMP441 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | USB flash via `esptool` through the helper's normal Upload path | FastLED `fl::audio::Processor` replacement is compile-validated; repeat the live mic hardware validation before restoring Supported | `CLAUDE.md` on-device-audio note (`2026-07-17`) |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP32-S3 + INMP441 | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` | USB flash via `esptool` through the helper's normal Upload path | Generate a generative show with on-device microphone, non-crossfade transitions, beat-triggered advance, and particle overlay; compile, flash, and run it on hardware | GitHub issue #106 (hw-e791188d, `2026-07-24`): all checks passed including show runtime, beat advance, and particle overlay |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP8266 | WS2812B | 10x1 | Strip (non-matrix) | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Generate a live-graph sketch, compile, flash, and run it on hardware | `CLAUDE.md` physical-layout note (`hw-f57928b9`, `2026-07-25`): all checks passed including color order, orientation, and power cap |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP8266 | WS2812B | 10x1 | Strip (non-matrix) | `arduino-cli` | 🧪 Flash Wiring Test | Flash the standalone wiring-diagnostic sketch and confirm LEDs display correctly | `CLAUDE.md` wiring-diagnostics note (`hw-7adaec6f`, `2026-07-25`): full diagnostic sequence confirmed correct on ESP8266 + strip layout |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP8266 | WS2812B | 10x1 | Strip (non-matrix) | `arduino-cli` | ⚡ Flash Stream Receiver + 📡 Live Stream | Flash the Adalight stream receiver once, then push live-preview frames to the board over serial | `CLAUDE.md` live-streaming note (`hw-b0b34ed3`, `2026-07-25`): re-validated after fixing a frame-dimension bug that silently dropped every frame on 1-row strip layouts — all checks passed |
 
 These are the only fully recorded public-beta support rows today.
 
@@ -49,22 +52,22 @@ board validation:
 
 Unless a future row says otherwise, treat the following as experimental:
 
-- All browsers except Chrome 150.0.7871.101, the only browser with a recorded
-  manual validation pass.
+- All browsers except Chrome 150.0.7871.101 / 150.0.7871.187, the only
+  browser builds with a recorded manual validation pass.
 - All host OS + browser combinations except Windows 11 Home (build
-  10.0.26200) + Chrome 150.0.7871.101, the recorded combo above.
-- All boards except ESP32-S3.
+  10.0.26200) + Chrome 150.0.7871.101 or 150.0.7871.187, the recorded combos
+  above.
+- All boards except ESP32-S3 and ESP8266 (see the rows above).
 - All LED chipsets except the recorded WS2812B row above.
-- All matrix sizes except the recorded 16x16 row above.
-- All non-rectangular physical layouts: strip, tiled panels, and custom XY
-  maps.
-- `arduino-cli` as an upload engine.
-- SD show provisioning and player upload.
+- All matrix/strip sizes except the recorded 16x16 and 10x1 rows above.
+- Tiled panels and custom XY maps (non-rectangular layouts) — strip layout
+  has one recorded validation (see the ESP8266 row above).
+- `arduino-cli` as an upload engine, beyond the recorded ESP8266 +
+  strip-layout row above.
 - PSRAM modes.
-- Non-crossfade show transitions, beat-triggered show advance, and particle
-  overlay in generative shows.
 - Baked song envelopes and collection-driven modulation in the music-show
   pipeline.
+- SD show provisioning and player upload (music-sync shows remain experimental).
 
 ## How to graduate a new supported row
 

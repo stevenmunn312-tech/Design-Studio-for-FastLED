@@ -42,6 +42,19 @@ describe('generateStreamReceiverSketch', () => {
     expect(sketch).toContain('#define NUM_LEDS (WIDTH * HEIGHT)')
   })
 
+  it('sanitizes MatrixOutput data and SPI clock pins', () => {
+    const out = node('out', 'MatrixOutput', 'output', {
+      width: 8,
+      height: 8,
+      chipset: 'APA102',
+      dataPin: -4,
+      clockPin: 299,
+    })
+    const sketch = generateStreamReceiverSketch([out])!
+    expect(sketch).toContain('#define DATA_PIN 0')
+    expect(sketch).toContain('#define CLOCK_PIN 255')
+  })
+
   it('initialises FastLED with the configured chipset/order', () => {
     const sketch = generateStreamReceiverSketch([outputNode])!
     expect(sketch).toContain('FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);')
@@ -58,6 +71,18 @@ describe('generateStreamReceiverSketch', () => {
     const sketch = generateStreamReceiverSketch([outputNode])!
     expect(sketch).toContain('for (uint16_t i = 0; i < NUM_LEDS; i++)')
     expect(sketch).not.toContain('uint16_t XY(')
+  })
+
+  it('bounds every byte read with a timeout instead of hanging forever on a dropped byte', () => {
+    // Regression: the receiver used to busy-wait on `while (!Serial.available()) {}`
+    // with no timeout at every header/payload byte. A single byte lost to a UART RX
+    // overflow (e.g. during FastLED.show()'s interrupts-disabled window) would
+    // desync it permanently — the LEDs freeze with no error visible to the host,
+    // since the write side never learns the receiver stopped consuming bytes.
+    const sketch = generateStreamReceiverSketch([outputNode])!
+    expect(sketch).toContain('#define READ_TIMEOUT_MS')
+    expect(sketch).toContain('int readByte()')
+    expect(sketch).not.toContain('while (!Serial.available()) {}')
   })
 
   it('emits CLOCK_PIN only for SPI chipsets', () => {

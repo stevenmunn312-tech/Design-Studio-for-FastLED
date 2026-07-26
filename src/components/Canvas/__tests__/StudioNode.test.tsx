@@ -8,6 +8,9 @@ import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import { useMusicStore } from '../../../state/musicStore'
 import { usePreviewStore } from '../../../state/previewStore'
 import { useAudioStore } from '../../../state/audioStore'
+import { useNodeDefaults } from '../../../state/nodeDefaults'
+import { useUploadStore } from '../../../state/uploadStore'
+import { useHardwareInputStore } from '../../../state/hardwareInputStore'
 
 // React Flow's <Handle> needs flow context; keep a lightweight DOM stand-in so
 // node-body tests can also assert the absolute port geometry.
@@ -15,11 +18,18 @@ vi.mock('@xyflow/react', async (orig) => {
   const actual = await orig<typeof import('@xyflow/react')>()
   return {
     ...actual,
-    Handle: ({ type, id, style }: { type: string; id: string; style?: React.CSSProperties }) => (
-      <span data-handle={`${type}:${id}`} style={style} />
+    Handle: ({ type, id, style, ...rest }: { type: string; id: string; style?: React.CSSProperties } & React.HTMLAttributes<HTMLSpanElement>) => (
+      <span data-handle={`${type}:${id}`} style={style} {...rest} />
     ),
   }
 })
+
+// jsdom doesn't implement pointer capture; EncoderInputWidget calls it on
+// every drag/tap, so tests simulating those gestures need a harmless stub.
+if (!Element.prototype.setPointerCapture) {
+  Element.prototype.setPointerCapture = () => {}
+  Element.prototype.releasePointerCapture = () => {}
+}
 
 function makeNode(nodeType: string, props: Record<string, unknown>): StudioNodeT {
   const def = NODE_LIBRARY.find((n) => n.type === nodeType)!
@@ -44,6 +54,11 @@ describe('StudioNode', () => {
     useMusicStore.setState({ entries: [] })
     usePreviewStore.setState({ outputs: new Map() })
     useAudioStore.setState({ active: false, bass: 0, mids: 0, treble: 0, beat: false, bpm: 120, spectrum: Array(16).fill(0) })
+    useNodeDefaults.setState({ overrides: {} })
+    // Default board matches the app's own default (ESP32-S3, which has a GPIO
+    // table) so pin-picker tests aren't sensitive to another test's selection.
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
+    useHardwareInputStore.setState({ button: new Map(), pot: new Map(), encoder: new Map() })
     // Collapsible property-group open/closed state is persisted per node type
     // across a whole browser session; reset it so tests don't leak into each
     // other (a group opened in one test would start already-open in the next).
@@ -184,6 +199,29 @@ describe('StudioNode', () => {
     expect(useGraphStore.getState().nodes[0].data.properties).not.toHaveProperty('agc')
   })
 
+  it('keeps a pinned "set default" override in sync with later pin edits', () => {
+    // Regression test: "Set Default" used to snapshot properties once at
+    // check-time, so editing a pin like MicInput's i2sWs afterwards left the
+    // saved default stale at the old value.
+    const first = renderNode(makeNode('MicInput', {
+      gain: 1, i2sWs: 39, i2sSck: 40, i2sSd: 41, channel: 'Left', serialDebug: false,
+    }))
+    const checkbox = first.container.querySelector(
+      '[title="Remember these settings as the default for new Microphone nodes"] input[type="checkbox"]'
+    ) as HTMLInputElement
+    expect(checkbox).toBeTruthy()
+    fireEvent.click(checkbox)
+    expect(useNodeDefaults.getState().overrides.MicInput?.i2sWs).toBe(39)
+    first.unmount()
+
+    // React Flow re-renders the node with fresh store data after an edit —
+    // simulate that by rendering again with the pin changed.
+    renderNode(makeNode('MicInput', {
+      gain: 1, i2sWs: 5, i2sSck: 40, i2sSd: 41, channel: 'Left', serialDebug: false,
+    }))
+    expect(useNodeDefaults.getState().overrides.MicInput?.i2sWs).toBe(5)
+  })
+
   it('anchors connection handles to their port rows', () => {
     const { container } = renderNode(makeNode('FFTAnalyzer', { bands: 24, gain: 1, smoothing: 0.72 }))
     const audio = container.querySelector('[data-handle="target:audio"]') as HTMLElement
@@ -200,6 +238,42 @@ describe('StudioNode', () => {
     expect(mids.style.top).toBe('50%')
     expect(audio.style.left).toBe('-8px')
     expect(bass.style.right).toBe('-8px')
+  })
+
+  it('makes connection handles named and keyboard operable', () => {
+    const { container, getByRole } = renderNode(makeNode('FFTAnalyzer', { bands: 24, gain: 1, smoothing: 0.72 }))
+    const input = getByRole('button', { name: /Connect to FFT Analyzer Audio input/ })
+    const output = getByRole('button', { name: /Connect from FFT Analyzer Bass output/ })
+
+    expect(input.getAttribute('tabindex')).toBe('0')
+    expect(output.getAttribute('tabindex')).toBe('0')
+
+    const click = vi.spyOn(output as HTMLElement, 'click')
+    fireEvent.keyDown(output, { key: 'Enter' })
+    expect(click).toHaveBeenCalledOnce()
+    expect(container.querySelectorAll('[role="button"][data-handle]')).toHaveLength(4)
+  })
+
+  it('programmatically labels common property controls', () => {
+    const noise = renderNode(makeNode('Noise', { speed: 1, scale: 1, palette: 'rainbow', seed: 0 }))
+    expect(noise.getByLabelText('speed value')).toBeTruthy()
+    expect(noise.getByLabelText('scale value')).toBeTruthy()
+    expect(noise.getByLabelText('palette value')).toBeTruthy()
+    noise.unmount()
+
+    const circle = renderNode(makeNode('Circle', {
+      cx: 0.5, cy: 0.5, radius: 3, wrap: false, filled: true, fill: '#00ff00', edge: '#ff0000',
+    }))
+    expect(circle.getByLabelText('filled')).toBeTruthy()
+    expect(circle.getByLabelText('fill color')).toBeTruthy()
+    expect(circle.getByLabelText('radius value or expression')).toBeTruthy()
+  })
+
+  it('labels freeform node editors', () => {
+    expect(renderNode(makeNode('Comment', { text: 'Note' })).getByLabelText('Comment comment text')).toBeTruthy()
+    const code = renderNode(makeNode('Code', { globalCode: '', code: '' }))
+    expect(code.getByLabelText('Code global code')).toBeTruthy()
+    expect(code.getByLabelText('Code loop code')).toBeTruthy()
   })
 
   it('disables wired AudioFlow sliders but keeps their live values visible', () => {
@@ -455,6 +529,46 @@ describe('StudioNode', () => {
       .getByText('0.50')).toBeTruthy()
     expect(renderNode(makeNode('EncoderInput', { pinA: 32, pinB: 33, pinSW: 25, pullup: true }))
       .getByText('0')).toBeTruthy()
+  })
+
+  it('resetOnPress zeros the encoder position on a tap (no drag)', () => {
+    useHardwareInputStore.setState({ encoder: new Map([['n1', { position: 5, pressed: false }]]) })
+    const { getByTitle, getByText } = renderNode(
+      makeNode('EncoderInput', { pinA: 32, pinB: 33, pinSW: 25, pullup: true, resetOnPress: true })
+    )
+    expect(getByText('5')).toBeTruthy()
+    const dial = getByTitle('Drag to turn, click to press')
+    fireEvent.pointerDown(dial, { clientY: 100, pointerId: 1 })
+    fireEvent.pointerUp(dial, { clientY: 100, pointerId: 1 })
+    expect(getByText('0')).toBeTruthy()
+  })
+
+  it('the GPIO pin picker filters each built-in board by the property capability', () => {
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
+    const withTable = renderNode(makeNode('MicInput', {
+      gain: 1, i2sWs: 39, i2sSck: 40, i2sSd: 41, channel: 'Left', serialDebug: false,
+    }))
+    // i2sWs/i2sSck/i2sSd live in the collapsible "I2S Pins" property group,
+    // which starts closed.
+    fireEvent.click(within(withTable.container).getByText('I2S Pins'))
+    const i2sWsSelect = Array.from(withTable.container.querySelectorAll('select'))
+      .find((s) => Array.from(s.options).some((o) => o.value === '39')) as HTMLSelectElement
+    expect(i2sWsSelect).toBeTruthy()
+    expect(i2sWsSelect.value).toBe('39')
+    expect(within(i2sWsSelect).getByText(/Common I2S WS default/)).toBeTruthy()
+    withTable.unmount()
+    // The group-open state above persisted to localStorage — clear it so the
+    // next mount starts collapsed again instead of toggling it back shut.
+    localStorage.clear()
+
+    useUploadStore.setState({ selectedFqbn: 'arduino:avr:uno' })
+    const unoPot = renderNode(makeNode('PotInput', { pin: 14 }))
+    const analogSelect = unoPot.container.querySelector('select') as HTMLSelectElement
+    expect(analogSelect).toBeTruthy()
+    expect(analogSelect.value).toBe('14')
+    expect(Array.from(analogSelect.options).map((option) => option.value))
+      .toEqual(['14', '15', '16', '17', '18', '19', '__custom__'])
+    expect(within(analogSelect).getByText('A0 (14)')).toBeTruthy()
   })
 
   it('flags the preview-only fallback on MidiInput, and only there', () => {

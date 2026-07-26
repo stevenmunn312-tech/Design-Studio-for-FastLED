@@ -147,17 +147,17 @@ float prnd(float n) { float s = sinf(n * 12.9898f) * 43758.5453f; return s - flo
 `
 
 // Beat-triggered particle overlay as a self-contained function that adds sparks
-// onto the global `leds`. The 11-style switch mirrors renderParticleBurst in
+// onto the global `leds`. The 17-style switch mirrors renderParticleBurst in
 // graphEvaluator.ts (and the inline block in playerSketchGenerator.ts) — keep
 // the three in sync. Requires WIDTH/HEIGHT #defines, the `leds` buffer, and the
 // prnd() from TRANSITION_HELPER_CPP.
 export const PARTICLE_OVERLAY_CPP = `#define PARTICLE_LIFE_MS   600
 #define PARTICLE_COUNT     16
-void particleOverlay(uint32_t burstStart, uint8_t burstStyle, uint8_t burstHue, float burstIntensity, uint32_t posMs) {
+void particleOverlay(uint32_t burstStart, uint8_t burstStyle, uint8_t burstR, uint8_t burstG, uint8_t burstB, float burstIntensity, uint32_t posMs) {
   if (!(burstIntensity > 0.01f && (float)(posMs - burstStart) < PARTICLE_LIFE_MS)) return;
   float ageSec = (posMs - burstStart) / 1000.0f;
   float f = (float)(posMs - burstStart) / PARTICLE_LIFE_MS;
-  CRGB base = CHSV(burstHue, 217, 255);
+  CRGB base = CRGB(burstR, burstG, burstB);
   float cx = WIDTH * 0.5f, cy = HEIGHT * 0.5f, maxR = min(WIDTH, HEIGHT) * 0.5f;
   for (int i = 0; i < PARTICLE_COUNT; i++) {
     float bp = burstStart * 0.001f + i * 7.13f;
@@ -215,6 +215,40 @@ void particleOverlay(uint32_t burstStart, uint8_t burstStyle, uint8_t burstHue, 
         y = fmodf(r2 * HEIGHT + ageSec * (2.0f + r4 * 4.0f), (float)HEIGHT);
         bri = (1.0f - f) * (0.55f + 0.45f * powf(sinf(ageSec * 12.0f + r3 * 6.2831853f), 2.0f));
         break;
+      case 11:  // sparkle — fast twinkle drizzling slowly down
+        x = r1 * WIDTH + (r4 - 0.5f);
+        y = r2 * HEIGHT * 0.3f + ageSec * (2.0f + r3 * 3.0f);
+        bri = max(0.0f, sinf(ageSec * (30.0f + r3 * 30.0f) + r4 * 6.2831853f)) * (1.0f - f);
+        break;
+      case 12: {  // comet — one shared Lissajous head with a fading trail of sparks
+        float trailT = ageSec - (i / (float)PARTICLE_COUNT) * 0.4f;
+        float tt = max(0.0f, trailT);
+        x = WIDTH * 0.5f + 0.42f * (WIDTH - 1) * sinf(tt * 8.0f);
+        y = HEIGHT * 0.5f + 0.42f * (HEIGHT - 1) * sinf(tt * 5.5f + 1.3f);
+        bri = trailT < 0.0f ? 0.0f : (1.0f - f) * (1.0f - i / (float)PARTICLE_COUNT);
+        break;
+      }
+      case 13:  // snow — slow fall with a gentle horizontal sway
+        x = r1 * WIDTH + sinf(ageSec * 1.5f + r4 * 6.2831853f) * 1.3f;
+        y = r2 * HEIGHT * 0.5f + ageSec * (1.2f + r3 * 1.3f);
+        bri = (1.0f - f) * (0.6f + 0.4f * r4);
+        break;
+      case 14:  // gravity — drops from the top, accelerating as they fall
+        x = r1 * WIDTH + (r4 - 0.5f);
+        y = r2 * HEIGHT * 0.35f + 5.5f * ageSec * ageSec;
+        break;
+      case 15: {  // bubbles — buoyant rise with a wobble, popping partway up
+        x = r1 * WIDTH + sinf(ageSec * 3.0f + r4 * 6.2831853f);
+        y = (HEIGHT - 1) - ageSec * (2.0f + r2 * 2.0f);
+        float popT = 0.3f + r3 * 0.5f;
+        bri = f < popT ? 1.0f - f : 0.0f;
+        break;
+      }
+      case 16: {  // vortex — spirals inward toward the centre, spinning faster as it collapses
+        float a = r1 * 6.2831853f + (2.0f + f * 10.0f) * ageSec, rad = (1.0f - f * 0.85f) * maxR;
+        x = cx + cosf(a) * rad; y = cy + sinf(a) * rad;
+        break;
+      }
       default:  // rise
         x = r1 * WIDTH + (r3 - 0.5f) * 8.0f * ageSec;
         y = r2 * HEIGHT + (-(1.0f + r4 * 3.0f)) * ageSec + 3.0f * ageSec * ageSec;

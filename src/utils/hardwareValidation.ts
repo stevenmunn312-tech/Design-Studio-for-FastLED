@@ -106,7 +106,72 @@ const ACTION_LABELS: Record<HardwareValidationAction, string> = {
 }
 
 const CLOCKED_CHIPSETS = new Set(['APA102', 'APA102HD', 'WS2801', 'HD108'])
-const RECORDED_USER_AGENT = /Windows NT 10\.0.*Chrome\/150\.0\.7871\.101/
+
+// User-Agent Client Hints: not yet in TS's bundled DOM lib, so declared locally.
+interface UAHighEntropyValues {
+  platformVersion?: string
+  fullVersionList?: Array<{ brand: string; version: string }>
+}
+
+interface UADataLike {
+  platform: string
+  getHighEntropyValues(hints: string[]): Promise<UAHighEntropyValues>
+}
+
+function userAgentData(): UADataLike | undefined {
+  if (typeof navigator === 'undefined') return undefined
+  return (navigator as Navigator & { userAgentData?: UADataLike }).userAgentData
+}
+
+const KNOWN_BROWSER_BRANDS = ['Microsoft Edge', 'Google Chrome', 'Opera', 'Brave', 'Chromium']
+
+function bestBrandEntry(list: Array<{ brand: string; version: string }>): { brand: string; version: string } | undefined {
+  for (const name of KNOWN_BROWSER_BRANDS) {
+    const match = list.find((entry) => entry.brand === name)
+    if (match) return match
+  }
+  return list.find((entry) => !/Not.?[A-Z]?Brand/i.test(entry.brand))
+}
+
+// Windows' Client Hints platformVersion is a coded release marker, not the
+// real OS version: major 0 => Windows 7/8/8.1, 1-10 => Windows 10, 13+ => Windows 11.
+// It never carries the literal build number (e.g. 26200) — no web API exposes that.
+function windowsReleaseFromPlatformVersion(platformVersion: string): string {
+  const major = Number(platformVersion.split('.')[0])
+  if (!Number.isFinite(major)) return 'Windows'
+  if (major >= 13) return 'Windows 11'
+  if (major >= 1) return 'Windows 10'
+  return 'Windows (7/8/8.1)'
+}
+
+/**
+ * Refines a fallback ValidationRuntime using the User-Agent Client Hints API
+ * (Chromium-based browsers only). Gives an exact browser version and the
+ * correct Windows 10 vs. 11 release; the literal OS build number still isn't
+ * obtainable from any browser API, so that always needs a manual entry.
+ */
+export async function detectValidationRuntimeHighEntropy(fallback: ValidationRuntime): Promise<ValidationRuntime> {
+  const data = userAgentData()
+  if (!data) return fallback
+  try {
+    const hints = await data.getHighEntropyValues(['platformVersion', 'fullVersionList'])
+    const result: ValidationRuntime = { ...fallback }
+
+    const brandEntry = hints.fullVersionList?.length ? bestBrandEntry(hints.fullVersionList) : undefined
+    if (brandEntry) result.browser = `${brandEntry.brand} ${brandEntry.version}`
+
+    if (hints.platformVersion) {
+      if (data.platform === 'Windows') {
+        result.hostOs = `${windowsReleaseFromPlatformVersion(hints.platformVersion)} — exact build not exposed by the browser, please add it`
+      } else if (data.platform === 'macOS') {
+        result.hostOs = `macOS ${hints.platformVersion}`
+      }
+    }
+    return result
+  } catch {
+    return fallback
+  }
+}
 
 function nodeType(node: StudioNode): string {
   return String(node.data.nodeType ?? '')
@@ -244,14 +309,6 @@ function findGaps(profile: Omit<HardwareValidationProfile, 'gaps' | 'checks'>): 
     })
   }
 
-  if (!RECORDED_USER_AGENT.test(profile.environment.userAgent)) {
-    gaps.push({
-      id: 'host-browser',
-      label: 'Host OS + browser combination',
-      reason: 'The recorded beta path is Windows 11 Home build 10.0.26200 with Chrome 150.0.7871.101; this runtime differs or cannot expose the full OS build.',
-    })
-  }
-
   const recordedActions = new Set<HardwareValidationAction>([
     'normal-upload', 'wiring-test', 'live-stream', 'generative-show', 'microphone',
   ])
@@ -268,9 +325,6 @@ function findGaps(profile: Omit<HardwareValidationProfile, 'gaps' | 'checks'>): 
     ['Custom XY map', 'Custom physical-index mappings are still experimental.'],
     ['Strip layout', 'Non-matrix physical layouts are still experimental.'],
     ['2× supersampling', 'Supersampled firmware output has not been recorded on hardware.'],
-    ['Non-crossfade show transitions', 'Only the basic show path/crossfade has a hardware record.'],
-    ['Beat-triggered show advance', 'Beat-triggered early show advance is awaiting hardware evidence.'],
-    ['Beat particle overlay', 'The beat particle overlay is awaiting hardware evidence.'],
     ['Baked song envelopes', 'Baked song-envelope playback is awaiting hardware evidence.'],
     ['Group-input modulation', 'Collection-driven group-input modulation is awaiting hardware evidence.'],
     ['SD show provisioning/player', 'SD provisioning, file transfer, player flashing, playback, and sync are awaiting a full hardware record.'],

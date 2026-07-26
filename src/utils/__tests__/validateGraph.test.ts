@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findOutputResourceErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findOutputResourceErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -299,6 +299,100 @@ describe('validateGraph', () => {
       const edges = [edge('e1', 'sc', 'out', 'frame')]
       const { errors } = validateGraph(nodes, edges)
       expect(errors.some(e => e.includes('GPIO 5'))).toBe(true)
+    })
+  })
+
+  describe('findPinRangeWarnings', () => {
+    it('finds no warnings for pins in range', () => {
+      const nodes = [
+        node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 }),
+        node('btn', 'ButtonInput', { pin: 0 }),
+      ]
+      expect(findPinRangeWarnings(nodes)).toHaveLength(0)
+    })
+
+    it('flags a negative pin', () => {
+      const nodes = [node('btn', 'ButtonInput', { pin: -5 })]
+      const warnings = findPinRangeWarnings(nodes)
+      expect(warnings).toHaveLength(1)
+      expect(warnings[0]).toContain('-5')
+    })
+
+    it('flags a pin above the highest supported GPIO', () => {
+      const nodes = [node('pot', 'PotInput', { pin: 9999 })]
+      const warnings = findPinRangeWarnings(nodes)
+      expect(warnings).toHaveLength(1)
+      expect(warnings[0]).toContain('9999')
+    })
+
+    it('flags a fractional pin', () => {
+      const nodes = [node('enc', 'EncoderInput', { pinA: 32.7, pinB: 33, pinSW: 25 })]
+      const warnings = findPinRangeWarnings(nodes)
+      expect(warnings).toHaveLength(1)
+      expect(warnings[0]).toContain('pin A')
+    })
+
+    it('checks SD Card CS and external-I2S pins', () => {
+      const nodes = [
+        node('sd', 'SDCard', {
+          sdCsPin: -1,
+          audioOutput: 'i2s',
+          i2sBclk: 26,
+          i2sLrc: 25.5,
+          i2sDout: 9999,
+        }),
+      ]
+      const warnings = findPinRangeWarnings(nodes)
+      expect(warnings).toHaveLength(3)
+      expect(warnings.some((warning) => warning.includes('CS pin'))).toBe(true)
+      expect(warnings.some((warning) => warning.includes('I2S LRC'))).toBe(true)
+      expect(warnings.some((warning) => warning.includes('I2S DOUT'))).toBe(true)
+    })
+
+    it('surfaces out-of-range pins as warnings (not errors) from validateGraph', () => {
+      const nodes = [
+        node('sc', 'SolidColor'),
+        node('out', 'MatrixOutput', { dataPin: 5 }),
+        node('btn', 'ButtonInput', { pin: 300 }),
+      ]
+      const edges = [edge('e1', 'sc', 'out', 'frame')]
+      const { errors, warnings } = validateGraph(nodes, edges)
+      expect(errors.some(e => e.includes('300'))).toBe(false)
+      expect(warnings.some(w => w.includes('300'))).toBe(true)
+    })
+  })
+
+  describe('findBoardPinCompatibility', () => {
+    it('rejects a digital-only pin for a potentiometer', () => {
+      const result = findBoardPinCompatibility(
+        [node('pot', 'PotInput', { pin: 5 })],
+        'arduino:avr:uno',
+      )
+      expect(result.errors).toEqual([expect.stringMatching(/doesn't support analog input/)])
+    })
+
+    it('models input-only pins and their missing pull resistors', () => {
+      expect(findBoardPinCompatibility(
+        [node('btn', 'ButtonInput', { pin: 34, pullup: true })],
+        'esp32:esp32:esp32',
+      ).errors).toEqual([expect.stringMatching(/no internal pull-up/)])
+      expect(findBoardPinCompatibility(
+        [node('btn', 'ButtonInput', { pin: 34, pullup: false })],
+        'esp32:esp32:esp32',
+      ).errors).toEqual([])
+      expect(findBoardPinCompatibility(
+        [node('out', 'MatrixOutput', { dataPin: 34 })],
+        'esp32:esp32:esp32',
+      ).errors).toEqual([expect.stringMatching(/doesn't support digital output/)])
+    })
+
+    it('warns when an ESP32 ADC2 pin is used for analog input with Wi-Fi', () => {
+      const result = findBoardPinCompatibility(
+        [node('pot', 'PotInput', { pin: 25 })],
+        'esp32:esp32:esp32',
+      )
+      expect(result.errors).toEqual([])
+      expect(result.warnings).toEqual([expect.stringMatching(/ADC2 shares hardware with Wi-Fi/)])
     })
   })
 

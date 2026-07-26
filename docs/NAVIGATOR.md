@@ -62,6 +62,9 @@ build/architecture overview aimed at contributors.
 - [Desktop distribution](release/desktop-distribution.md)
   — the bundled launcher architecture, per-platform build procedure, mutable
     data locations, local validation evidence, and remaining signing work.
+- [Keyboard and screen-reader smoke test](release/accessibility-smoke-test.md)
+  — the repeatable keyboard-only and NVDA release scenario, browser-assisted
+    preflight evidence, and the completion record for the accessibility gate.
 
 ## Design intent (original specs)
 

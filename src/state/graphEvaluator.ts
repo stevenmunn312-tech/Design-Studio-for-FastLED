@@ -5,6 +5,7 @@ import { useMidiStore } from './midiStore'
 import { useUiStore } from './uiStore'
 import { asFont, textBlockLayout, textAlignMode, TEXT_LINE_GAP, type BitmapFont, DEFAULT_FONT } from './font'
 import { animatedImageFrame, asAnimatedImage, asImage, sampleImageToFrame, type ImageData } from './image'
+import { imagePaletteStops16, type ImagePaletteSource } from './imagePalette'
 import { waveSample, combineWaves } from './wave'
 import { polinePalette, hexToRgb } from './polinePalette'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette } from './customPalette'
@@ -19,6 +20,7 @@ import { hsv, samplePalette } from './ledColor'
 import type { RGB, Palette, Frame } from './ledColor'
 import { evalCodeAsync, getCodeError as getCodeErrorFromSandbox, disposeCodeSandbox } from './codeSandboxRuntime'
 import { evalAnimartrix, disposeAnimartrixState } from '../animartrix/preview'
+import { applyEase } from './easing'
 
 export type { RGB, Palette, Frame }
 export { getCodeErrorFromSandbox as getCodeError }
@@ -516,32 +518,6 @@ function kelvinToRgb(kelvin: number): RGB {
   else if (t <= 19) b = 0
   else b = 138.5177312231 * Math.log(t - 10) - 305.0447927307
   return { r: clamp(r), g: clamp(g), b: clamp(b) }
-}
-
-// Easing curves matching FastLED's lib8tion, on a normalised 0–1 value. Each
-// maps 0–1 → 0–1 and mirrors the corresponding ease8/*wave8 firmware call so the
-// preview matches on-device. Keep in sync with the `Ease` case in cppGenerator.
-function easeInOutQuad(x: number): number {
-  return x < 0.5 ? 2 * x * x : 1 - 2 * (1 - x) * (1 - x)
-}
-function easeInOutCubic(x: number): number {
-  // smoothstep: 3x² − 2x³ (FastLED ease8InOutCubic)
-  return x * x * (3 - 2 * x)
-}
-function triwave(x: number): number {
-  const h = ((x % 1) + 1) % 1
-  return h < 0.5 ? 2 * h : 2 * (1 - h)
-}
-function applyEase(type: string, x: number): number {
-  const t = Math.max(0, Math.min(1, x))
-  switch (type) {
-    case 'inOutQuad':  return easeInOutQuad(t)
-    case 'triwave':    return triwave(t)
-    case 'quadwave':   return easeInOutQuad(triwave(t))
-    case 'cubicwave':  return easeInOutCubic(triwave(t))
-    case 'inOutCubic':
-    default:           return easeInOutCubic(t)
-  }
 }
 
 /** Shape one 0→1 leg of a PaletteSweep. The ping-pong timing itself is
@@ -1822,6 +1798,7 @@ function evalKickShock(
   key: string, kick: number, snare: number, hihat: number, energy: number, speed: number,
   t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H,
   count = 8, decay = 1, thickness = 1, spawnSpread = 0, blendMode: 'add' | 'max' = 'add',
+  tiles = 1,
 ): Frame {
   const CAP = Math.max(1, Math.round(count))
   let state = kickShockState.get(key)
@@ -1829,11 +1806,13 @@ function evalKickShock(
     state = { rings: new Array(CAP).fill(null), next: 0, prevKick: false, prevSnare: false }
     kickShockState.set(key, state)
   }
-  const cx = (W - 1) / 2, cy = (H - 1) / 2
+  const tileCount = Math.max(1, Math.min(8, Math.round(tiles)))
+  const tileW = W / tileCount, tileH = H / tileCount
+  const cx = (tileW - 1) / 2, cy = (tileH - 1) / 2
   const spread = clamp01(spawnSpread)
   // spread=0 (the default) always spawns at the shared centre — identical to
   // the old fixed-origin shockwave; spread=1 spawns anywhere on the matrix.
-  const spawnAt = () => ({ x: cx + (Math.random() * W - cx) * spread, y: cy + (Math.random() * H - cy) * spread })
+  const spawnAt = () => ({ x: cx + (Math.random() * tileW - cx) * spread, y: cy + (Math.random() * tileH - cy) * spread })
   const kickHit = kick > 0.5, snareHit = snare > 0.5
   if (kickHit && !state.prevKick) { const o = spawnAt(); state.rings[state.next] = { born: t, kind: 0, ...o }; state.next = (state.next + 1) % CAP }
   if (snareHit && !state.prevSnare) { const o = spawnAt(); state.rings[state.next] = { born: t, kind: 1, ...o }; state.next = (state.next + 1) % CAP }
@@ -1854,10 +1833,14 @@ function evalKickShock(
   const additive = blendMode !== 'max'
 
   return buildFrame(W, H, (x, y) => {
+    // Repeat the same shockwave field in every grid cell. Fractional tile
+    // coordinates keep the split even when W/H are not divisible by tiles.
+    const localX = ((x + 0.5) * tileCount % W) / tileCount - 0.5
+    const localY = ((y + 0.5) * tileCount % H) / tileCount - 0.5
     // Kept centre-relative regardless of spawnSpread — the jitter/palette
     // texture is a cosmetic sweep from the matrix middle, not tied to any
     // one ring's origin.
-    const distC = Math.hypot(x - cx, y - cy) / maxD
+    const distC = Math.hypot(localX - cx, localY - cy) / maxD
     let wave = 0
     for (const ring of state.rings) {
       if (!ring) continue
@@ -1865,7 +1848,7 @@ function evalKickShock(
       const isKick = ring.kind === 0
       const spdR = isKick ? speedK : speedS, life = isKick ? lifeK : lifeS, band = isKick ? bandK : bandS
       if (age < 0 || age > life) continue
-      const dist = Math.hypot(x - ring.x, y - ring.y) / maxD
+      const dist = Math.hypot(localX - ring.x, localY - ring.y) / maxD
       const front = Math.exp(-((dist - age * spdR) ** 2) / (2 * band * band))
       const contribution = front * (1 - age / life)
       wave = additive ? wave + contribution : Math.max(wave, contribution)
@@ -2212,11 +2195,12 @@ function evalSineField(speed: number, scale: number, t: number, W = DEFAULT_W, H
   return out
 }
 
-function evalRadialBurst(speed: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalRadialBurst(speed: number, rings: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const cx = W / 2, cy = H / 2, maxD = Math.hypot(cx, cy)
+  const density = Math.max(1, Math.min(32, rings))
   return buildFrame(W, H, (x, y) => {
       const dist = Math.hypot(x - cx, y - cy) / maxD
-      const wave = (Math.sin((dist * 8 - t * speed * 3) * Math.PI) + 1) / 2
+      const wave = (Math.sin((dist * density - t * speed * 3) * Math.PI) + 1) / 2
       // Palette across the radius, ring brightness from the burst wave.
       return scaleRgb(samplePalette(palette, dist), wave)
     })
@@ -3459,8 +3443,10 @@ interface ShowState {
   cur: number; nxt: number; phase: 'hold' | 'trans'
   start: number; dwell: number; trans: string; lastBeat: boolean; n: number
   seed: number
-  /** ms of the most recent beat-triggered particle burst, if any. */
-  burstT?: number
+  /** The most recent beat-triggered particle burst, if any — style/colour are
+   *  rolled once when the burst starts (randomStyle/randomColor) so they stay
+   *  fixed for the burst's lifetime instead of re-rolling every frame. */
+  burst?: { t: number; style: number; color: RGB }
 }
 export interface PatternShowSelection {
   currentIndex: number
@@ -3469,7 +3455,8 @@ export interface PatternShowSelection {
 }
 interface ShowOpts {
   minTime: number; maxTime: number; transSec: number; pool: string[]; beatEnabled: boolean
-  particles: boolean; particleStyle: number; particleHue: number; particleIntensity: number
+  particles: boolean; particleStyle: number; particleColor: RGB; particleIntensity: number
+  randomStyle: boolean; randomColor: boolean
   seed: number
 }
 
@@ -3504,27 +3491,16 @@ function particlePrnd(n: number): number {
   return s - Math.floor(s)
 }
 
-function particleHsv(hue: number): RGB {
-  const h = ((hue / 255) * 360) % 360
-  const c = 1, x = c * (1 - Math.abs(((h / 60) % 2) - 1))
-  let r = 0, g = 0, b = 0
-  if (h < 60) { r = c; g = x } else if (h < 120) { r = x; g = c }
-  else if (h < 180) { g = c; b = x } else if (h < 240) { g = x; b = c }
-  else if (h < 300) { r = x; b = c } else { r = c; b = x }
-  return { r: r * 255, g: g * 255, b: b * 255 }
-}
-
 /** Additive spark overlay (0–255 per channel, pre-brightness) for a burst that
  *  started at `burstTms`, or null when outside its lifetime. `intensity` 0–1. */
 export function renderParticleBurst(
-  burstTms: number, timeMs: number, intensity: number, style: number, hue: number,
+  burstTms: number, timeMs: number, intensity: number, style: number, col: RGB,
   W = DEFAULT_W, H = DEFAULT_H,
 ): Frame | null {
   if (timeMs < burstTms || timeMs >= burstTms + PARTICLE_LIFE_MS) return null
   const ov = blankFrame(W, H)
   const ageSec = (timeMs - burstTms) / 1000
   const f = (timeMs - burstTms) / PARTICLE_LIFE_MS
-  const col = particleHsv(hue)
   const cx = W * 0.5, cy = H * 0.5, maxR = Math.min(W, H) * 0.5
   for (let i = 0; i < PARTICLE_COUNT; i++) {
     const base = burstTms * 0.001 + i * 7.13
@@ -3651,8 +3627,16 @@ function evalPatternShow(
   const beatEdge = o.beatEnabled && beat && !st.lastBeat
   st.lastBeat = beat
   // Each beat also fires a particle burst (independent of the dwell-gated
-  // pattern advance), if the node has particles enabled.
-  if (beatEdge && o.particles) st.burstT = t * 1000
+  // pattern advance), if the node has particles enabled. Style/colour are
+  // rolled once here (when randomStyle/randomColor are on) so they stay fixed
+  // for the whole burst instead of changing every frame.
+  if (beatEdge && o.particles) {
+    st.burst = {
+      t: t * 1000,
+      style: o.randomStyle ? Math.floor(rnd() * 17) : o.particleStyle,
+      color: o.randomColor ? hsv(rnd() * 360, 1, 1) : o.particleColor,
+    }
+  }
 
   if (st.phase === 'hold' && n > 1) {
     const timeUp = t >= st.start + st.dwell
@@ -3681,8 +3665,8 @@ function evalPatternShow(
 
   // Overlay a beat-triggered particle burst additively (pre-brightness), the
   // same sparks the firmware spawns on _audioBeat.
-  if (o.particles && st.burstT != null) {
-    const ov = renderParticleBurst(st.burstT, t * 1000, o.particleIntensity, o.particleStyle, o.particleHue, W, H)
+  if (o.particles && st.burst != null) {
+    const ov = renderParticleBurst(st.burst.t, t * 1000, o.particleIntensity, st.burst.style, st.burst.color, W, H)
     if (ov) {
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
         const s = ov[y][x], px = frame[y][x]
@@ -3961,7 +3945,7 @@ function evalFieldTile(field: Field | null, tilesX: number, tilesY: number, W = 
 
 // ── Main entry point ──────────────────────────────────────────────────────────
 
-export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | null
+export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | null
 
 /** A reusable pattern group: a named subgraph that a `Group` node evaluates. */
 export interface GroupDef { nodes: StudioNode[]; edges: StudioEdge[] }
@@ -4174,8 +4158,8 @@ function createEvalNode(
         const val   = num(id, 'value', props, 'value', 0)
         const inLo  = num(id, 'inMin', props, 'inMin', 0)
         const inHi  = num(id, 'inMax', props, 'inMax', 1)
-        const outLo = Number(props.outMin ?? 0)
-        const outHi = Number(props.outMax ?? 1)
+        const outLo = num(id, 'outMin', props, 'outMin', 0)
+        const outHi = num(id, 'outMax', props, 'outMax', 1)
         const t2 = inHi === inLo ? 0 : (val - inLo) / (inHi - inLo)
         out = { result: outLo + t2 * (outHi - outLo) }
         break
@@ -4223,14 +4207,22 @@ function createEvalNode(
         // It's off by default so unwired/grouped patterns aren't driven into
         // "hyperdrive" and stay tunable.
         const hasLiveAudio = audioConnected && Boolean(audio.active || audio.micActive)
-        const band = (value: number | undefined, fallback: number | undefined) =>
-          clamp01(Number.isFinite(value) ? Number(value) : Number(fallback ?? 0))
+        // `bands` genuinely drives analysis resolution: the raw 32-bin
+        // spectrum is resampled to this many bins (resampleSpectrumBins(),
+        // shared with SpectrumVisualizer), then split into three contiguous
+        // groups. More bands means a sharper bass/mids/treble split; fewer
+        // means a blurrier one — instead of a slider with zero effect.
+        const bands = Math.max(8, Math.min(32, Math.round(Number(props.bands ?? 24))))
         const raw = hasLiveAudio
-          ? {
-              bass: band(audio.bass, audio.micBass),
-              mids: band(audio.mids, audio.micMids),
-              treble: band(audio.treble, audio.micTreble),
-            }
+          ? (() => {
+              const sampled = resampleSpectrumBins(audio.detectorSpectrum ?? audio.spectrum ?? [], bands)
+              const third = bands / 3
+              return {
+                bass:   avgRange(sampled, 0, third),
+                mids:   avgRange(sampled, third, third * 2),
+                treble: avgRange(sampled, third * 2, bands),
+              }
+            })()
           : useUiStore.getState().testSignal
             ? {
                 bass:   (Math.sin(t * 2.1) + 1) / 2,
@@ -4284,25 +4276,48 @@ function createEvalNode(
             threshold: 0,
             cooldownMs: 0,
           }
-        } else if (audioConnected && audio.active) {
+        } else {
           const threshold = denormalizeBeatParam('threshold', normProp(props.threshold, 0.2))
           const attack = denormalizeBeatParam('attack', normProp(props.attack, 0.55))
           const decay = denormalizeBeatParam('decay', normProp(props.decay, 0.25))
-          const prev = beatLevels.get(key) ?? createBeatDetectorState()
-          const result = updateBeatDetectorFromSpectrum(audio.detectorSpectrum ?? audio.spectrum ?? [], t * 1000, prev, { threshold, attack, decay })
-          beatLevels.set(key, result.state)
-          out = {
-            beat: result.beat,
-            bpm: result.bpm,
-            flux: result.state.lastFlux,
-            onset: result.state.lastOnset,
-            contrast: result.state.lastContrast,
-            threshold: result.state.lastThreshold,
-            cooldownMs: result.state.lastCooldownMs,
+          const prev = beatLevels.get(key)
+          if (audioConnected && audio.active) {
+            const result = updateBeatDetectorFromSpectrum(audio.detectorSpectrum ?? audio.spectrum ?? [], t * 1000, prev ?? createBeatDetectorState(), { threshold, attack, decay })
+            beatLevels.set(key, result.state)
+            out = {
+              beat: result.beat,
+              bpm: result.bpm,
+              flux: result.state.lastFlux,
+              onset: result.state.lastOnset,
+              contrast: result.state.lastContrast,
+              threshold: result.state.lastThreshold,
+              cooldownMs: result.state.lastCooldownMs,
+            }
+          } else if (prev) {
+            // Audio just dropped out — feed silence through the same
+            // attack/decay envelope instead of snapping straight to zero, so
+            // a momentary mic hiccup fades rather than cuts. Self-clears once
+            // the envelope is imperceptible instead of lingering forever.
+            const silence = prev.prevSpectrum.length ? new Array(prev.prevSpectrum.length).fill(0) : []
+            const result = updateBeatDetectorFromSpectrum(silence, t * 1000, prev, { threshold, attack, decay })
+            if (result.state.fast < 0.002 && result.state.slow < 0.002) {
+              beatLevels.delete(key)
+              out = { beat: false, bpm: 120, flux: 0, onset: 0, contrast: 0, threshold: 0, cooldownMs: 0 }
+            } else {
+              beatLevels.set(key, result.state)
+              out = {
+                beat: false,
+                bpm: result.bpm,
+                flux: result.state.lastFlux,
+                onset: result.state.lastOnset,
+                contrast: result.state.lastContrast,
+                threshold: result.state.lastThreshold,
+                cooldownMs: result.state.lastCooldownMs,
+              }
+            }
+          } else {
+            out = { beat: false, bpm: 120, flux: 0, onset: 0, contrast: 0, threshold: 0, cooldownMs: 0 }
           }
-        } else {
-          beatLevels.delete(key)
-          out = { beat: false, bpm: 120, flux: 0, onset: 0, contrast: 0, threshold: 0, cooldownMs: 0 }
         }
         break
       }
@@ -4345,15 +4360,32 @@ function createEvalNode(
           }
           percussionLevels.set(key, next)
           out = { kick: next.kick, snare: next.snare, hihat: next.hihat }
-        } else {
+        } else if (useUiStore.getState().testSignal) {
           percussionLevels.delete(key)
-          out = useUiStore.getState().testSignal
-            ? {
-                kick: clamp01(Math.sin(t * 2.1) * 0.5 + 0.5),
-                snare: clamp01(Math.sin(t * 4.0 + 1.2) * 0.5 + 0.5),
-                hihat: clamp01(Math.sin(t * 7.5 + 2.1) * 0.5 + 0.5),
-              }
-            : { kick: 0, snare: 0, hihat: 0 }
+          out = {
+            kick: clamp01(Math.sin(t * 2.1) * 0.5 + 0.5),
+            snare: clamp01(Math.sin(t * 4.0 + 1.2) * 0.5 + 0.5),
+            hihat: clamp01(Math.sin(t * 7.5 + 2.1) * 0.5 + 0.5),
+          }
+        } else {
+          // Audio just dropped out — decay through the node's own `decay`
+          // curve instead of snapping straight to zero, so a momentary mic
+          // hiccup fades rather than cuts. Self-clears once imperceptible.
+          const prev = percussionLevels.get(key)
+          if (prev) {
+            const kick = followLevel(prev.kick, 0, decay)
+            const snare = followLevel(prev.snare, 0, decay)
+            const hihat = followLevel(prev.hihat, 0, decay)
+            if (kick < 0.002 && snare < 0.002 && hihat < 0.002) {
+              percussionLevels.delete(key)
+              out = { kick: 0, snare: 0, hihat: 0 }
+            } else {
+              percussionLevels.set(key, { ...prev, kick, snare, hihat })
+              out = { kick, snare, hihat }
+            }
+          } else {
+            out = { kick: 0, snare: 0, hihat: 0 }
+          }
         }
         break
       }
@@ -4390,11 +4422,25 @@ function createEvalNode(
           const next = { ...prev, prevSpectrum: spectrum, vocals, energy, silence }
           audioFeatureLevels.set(key, next)
           out = { vocals, energy, silence }
-        } else {
+        } else if (useUiStore.getState().testSignal) {
           audioFeatureLevels.delete(key)
-          if (useUiStore.getState().testSignal) {
-            const energy = clamp01((Math.sin(t * 0.8) + 1) / 2)
-            out = { vocals: clamp01((Math.sin(t * 1.6 + 0.8) + 1) / 2), energy, silence: energy < 0.2 }
+          const energy = clamp01((Math.sin(t * 0.8) + 1) / 2)
+          out = { vocals: clamp01((Math.sin(t * 1.6 + 0.8) + 1) / 2), energy, silence: energy < 0.2 }
+        } else {
+          // Audio just dropped out — decay through the node's own `smoothing`
+          // curve instead of snapping straight to zero, so a momentary mic
+          // hiccup fades rather than cuts. Self-clears once imperceptible.
+          const prev = audioFeatureLevels.get(key)
+          if (prev) {
+            const vocals = prev.vocals * smoothing
+            const energy = prev.energy * smoothing
+            if (vocals < 0.002 && energy < 0.002) {
+              audioFeatureLevels.delete(key)
+              out = { vocals: 0, energy: 0, silence: true }
+            } else {
+              audioFeatureLevels.set(key, { ...prev, vocals, energy, silence: true })
+              out = { vocals, energy, silence: true }
+            }
           } else {
             out = { vocals: 0, energy: 0, silence: true }
           }
@@ -4691,9 +4737,9 @@ function createEvalNode(
         out = {
           frame: src.map(row =>
             row.map(px => ({
-              r: Math.min(255, Math.round(px.r * br)),
-              g: Math.min(255, Math.round(px.g * br)),
-              b: Math.min(255, Math.round(px.b * br)),
+              r: Math.max(0, Math.min(255, Math.round(px.r * br))),
+              g: Math.max(0, Math.min(255, Math.round(px.g * br))),
+              b: Math.max(0, Math.min(255, Math.round(px.b * br))),
             }))
           ),
         }
@@ -5034,8 +5080,9 @@ function createEvalNode(
         const decay = Number(props.decay ?? 1)
         const thickness = Number(props.thickness ?? 1)
         const spawnSpread = Number(props.spawnSpread ?? 0)
+        const tiles = num(id, 'tiles', props, 'tiles', 1)
         const blendMode = String(props.blendMode ?? 'add') === 'max' ? 'max' : 'add'
-        out = { frame: evalKickShock(stateKey(id), kick, snare, hihat, energy, speed, t, palette, W, H, count, decay, thickness, spawnSpread, blendMode) }
+        out = { frame: evalKickShock(stateKey(id), kick, snare, hihat, energy, speed, t, palette, W, H, count, decay, thickness, spawnSpread, blendMode, tiles) }
         break
       }
 
@@ -5161,7 +5208,8 @@ function createEvalNode(
 
       // The inverse of HSVToRGB — shares HueShift/Saturation's inline extraction.
       case 'RGBToHSV': {
-        const c = (input(id, 'rgb', null) as RGB | null) ?? { r: 0, g: 0, b: 0 }
+        const c = (input(id, 'rgb', null) as RGB | null)
+          ?? { r: Number(props.r ?? 0), g: Number(props.g ?? 0), b: Number(props.b ?? 0) }
         const r = c.r / 255, g = c.g / 255, b = c.b / 255
         const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
         let h = 0
@@ -5193,8 +5241,8 @@ function createEvalNode(
         const ca = input(id, 'a', null) as RGB | null
         const cb = input(id, 'b', null) as RGB | null
         const mix = num(id, 't', props, 't', 0.5)
-        const a = ca ?? { r: 255, g: 0, b: 0 }
-        const b = cb ?? { r: 0, g: 0, b: 255 }
+        const a = ca ?? { r: Number(props.rA ?? 255), g: Number(props.gA ?? 0), b: Number(props.bA ?? 0) }
+        const b = cb ?? { r: Number(props.rB ?? 0), g: Number(props.gB ?? 0), b: Number(props.bB ?? 255) }
         out = {
           color: {
             r: Math.round(a.r * (1 - mix) + b.r * mix),
@@ -5208,8 +5256,9 @@ function createEvalNode(
       // ── New pattern nodes ──────────────────────────────────────────────
       case 'RadialBurst': {
         const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.RadialBurst)
+        const rings = num(id, 'arms', props, 'arms', 8)
         const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
-        out = { frame: evalRadialBurst(speed, palette, t, W, H) }
+        out = { frame: evalRadialBurst(speed, rings, palette, t, W, H) }
         break
       }
 
@@ -5330,7 +5379,8 @@ function createEvalNode(
 
       case 'Random': {
         const lo = Number(props.min ?? 0), hi = Number(props.max ?? 1)
-        out = { value: lo + Math.random() * (hi - lo) }
+        const seed = normalizedSeed(props.seed)
+        out = { value: lo + seededRandom(stateKey(id), seed) * (hi - lo) }
         break
       }
 
@@ -5392,18 +5442,25 @@ function createEvalNode(
         break
       }
 
-      // Trigger envelope — 1 on a rising edge of `trigger`, decaying linearly
-      // to 0 over `decay` seconds (wire through Ease for a shaped curve).
+      // Trigger envelope — optional linear attack to 1 on a rising edge, then
+      // linear decay to 0 (wire through Ease for a shaped curve).
       case 'Envelope': {
         const trig = Boolean(input(id, 'trigger', false))
-        const decay = Math.max(0.05, Number(props.decay ?? 0.5))
+        const attackProp = Number(props.attack ?? 0)
+        const decayProp = Number(props.decay ?? 0.5)
+        const attack = Number.isFinite(attackProp) ? Math.max(0, attackProp) : 0
+        const decay = Number.isFinite(decayProp) ? Math.max(0.05, decayProp) : 0.5
         const key = stateKey(id)
         const prev = envState.get(key)
         // Forget the fire time on a clock reset (t jumped backwards).
         let fire = prev && prev.fire <= t ? prev.fire : -Infinity
         if (trig && !prev?.prev) fire = t
         envState.set(key, { fire, prev: trig })
-        out = { result: Math.max(0, Math.min(1, 1 - (t - fire) / decay)) }
+        const age = t - fire
+        const value = age < attack && attack > 0
+          ? age / attack
+          : 1 - (age - attack) / decay
+        out = { result: Math.max(0, Math.min(1, value)) }
         break
       }
 
@@ -5517,27 +5574,37 @@ function createEvalNode(
         } else {
           img = asImage(props.image)
         }
-        out = { frame: img ? sampleImageToFrame(img, W, H, {
-          fit: props.fit as 'stretch' | 'contain' | 'cover' | 'original',
-          positionX: num(id, 'positionX', props, 'positionX', 0.5),
-          positionY: num(id, 'positionY', props, 'positionY', 0.5),
-          rotation: num(id, 'rotation', props, 'rotation', Number(props.rotation ?? 0)),
-          flipX: Boolean(props.flipX),
-          flipY: Boolean(props.flipY),
-          sampling: props.sampling === 'smooth' ? 'smooth' : 'nearest',
-          brightness: num(id, 'brightness', props, 'brightness', 1),
-          background: hexToRgb(String(props.background ?? '#000000')),
-          zoom: num(id, 'zoom', props, 'zoom', 1),
-          cropX: num(id, 'cropX', props, 'cropX', 0.5),
-          cropY: num(id, 'cropY', props, 'cropY', 0.5),
-          saturation: num(id, 'saturation', props, 'saturation', 1),
-          contrast: num(id, 'contrast', props, 'contrast', 1),
-          hueShift: num(id, 'hueShift', props, 'hueShift', 0),
-          monochrome: Boolean(props.monochrome),
-          gamma: num(id, 'gamma', props, 'gamma', 1),
-          paletteLevels: props.paletteLevels as number | string,
-          dithering: props.dithering === 'ordered2x2' || props.dithering === 'ordered4x4' ? props.dithering : 'none',
-        }) : blankFrame(W, H) }
+        out = {
+          frame: img ? sampleImageToFrame(img, W, H, {
+            fit: props.fit as 'stretch' | 'contain' | 'cover' | 'original',
+            positionX: num(id, 'positionX', props, 'positionX', 0.5),
+            positionY: num(id, 'positionY', props, 'positionY', 0.5),
+            rotation: num(id, 'rotation', props, 'rotation', Number(props.rotation ?? 0)),
+            flipX: Boolean(props.flipX),
+            flipY: Boolean(props.flipY),
+            sampling: props.sampling === 'smooth' ? 'smooth' : 'nearest',
+            brightness: num(id, 'brightness', props, 'brightness', 1),
+            background: hexToRgb(String(props.background ?? '#000000')),
+            zoom: num(id, 'zoom', props, 'zoom', 1),
+            cropX: num(id, 'cropX', props, 'cropX', 0.5),
+            cropY: num(id, 'cropY', props, 'cropY', 0.5),
+            saturation: num(id, 'saturation', props, 'saturation', 1),
+            contrast: num(id, 'contrast', props, 'contrast', 1),
+            hueShift: num(id, 'hueShift', props, 'hueShift', 0),
+            monochrome: Boolean(props.monochrome),
+            gamma: num(id, 'gamma', props, 'gamma', 1),
+            paletteLevels: props.paletteLevels as number | string,
+            dithering: props.dithering === 'ordered2x2' || props.dithering === 'ordered4x4' ? props.dithering : 'none',
+          }) : blankFrame(W, H),
+          // Publish the validated raw property object (rather than the fresh
+          // wrapper returned by asImage/asAnimatedImage) so palette extraction
+          // can cache against stable upload identity across preview frames.
+          image: animation
+            ? props.animation as ImagePaletteSource
+            : img
+              ? props.image as ImagePaletteSource
+              : null,
+        }
         break
       }
 
@@ -5721,8 +5788,10 @@ function createEvalNode(
           beatEnabled: incoming.has(`${id}:beat`),
           particles: Boolean(input(id, 'particles', Boolean(props.particles))),
           particleStyle: Number(props.particleStyle ?? 0),
-          particleHue: num(id, 'particleHue', props, 'particleHue', 0),
+          particleColor: (input(id, 'particleColor', null) as RGB | null) ?? hexToRgb(String(props.particleColor ?? '#ff8000')),
           particleIntensity: num(id, 'particleIntensity', props, 'particleIntensity', 1),
+          randomStyle: Boolean(input(id, 'randomStyle', Boolean(props.randomStyle))),
+          randomColor: Boolean(input(id, 'randomColor', Boolean(props.randomColor))),
           seed: normalizedSeed(props.seed),
         }
         out = { frame: evalPatternShow(stateKey(id), ids, render, beat, o, t, W, H) }
@@ -5908,6 +5977,12 @@ function createEvalNode(
         break
       }
 
+      case 'PaletteFromImage': {
+        const source = input(id, 'image', null)
+        out = { palette: imagePaletteStops16(source, Number(props.count ?? 6)) }
+        break
+      }
+
       case 'Poline': {
         // Polar-interpolated palette between up to three anchor colours
         // (poline). Wired colours override the per-anchor hex defaults.
@@ -5940,7 +6015,8 @@ function createEvalNode(
       }
 
       case 'BeatSin': {
-        const bpm = Number(props.bpm ?? 60)
+        const bpmProp = Number(props.bpm ?? 60)
+        const bpm = Number.isFinite(bpmProp) ? bpmProp : 60
         const lo  = Number(props.low  ?? 0)
         const hi  = Number(props.high ?? 1)
         const phase = (t * bpm / 60) % 1

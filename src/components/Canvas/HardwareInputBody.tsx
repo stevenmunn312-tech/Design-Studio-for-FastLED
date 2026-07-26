@@ -66,7 +66,7 @@ const ENCODER_DRAG_SENSITIVITY = 0.5
 const ENCODER_CLICK_THRESHOLD_PX = 4
 const ENCODER_TAP_MS = 120
 
-function EncoderInputWidget({ nodeId }: { nodeId: string }) {
+function EncoderInputWidget({ nodeId, resetOnPress }: { nodeId: string; resetOnPress: boolean }) {
   const position = useHardwareInputStore((s) => s.encoder.get(nodeId)?.position ?? 0)
   const pressed = useHardwareInputStore((s) => s.encoder.get(nodeId)?.pressed ?? false)
   const setEncoder = useHardwareInputStore((s) => s.setEncoder)
@@ -94,7 +94,7 @@ function EncoderInputWidget({ nodeId }: { nodeId: string }) {
           const drag = dragRef.current
           dragRef.current = null
           if (drag && drag.moved < ENCODER_CLICK_THRESHOLD_PX) {
-            setEncoder(nodeId, { pressed: true })
+            setEncoder(nodeId, resetOnPress ? { pressed: true, position: 0 } : { pressed: true })
             setTimeout(() => setEncoder(nodeId, { pressed: false }), ENCODER_TAP_MS)
           }
         }}
@@ -108,9 +108,9 @@ function EncoderInputWidget({ nodeId }: { nodeId: string }) {
   )
 }
 
-export default function HardwareInputBody({ nodeId, nodeType }: { nodeId: string; nodeType: string }) {
+export default function HardwareInputBody({ nodeId, nodeType, resetOnPress = false }: { nodeId: string; nodeType: string; resetOnPress?: boolean }) {
   if (nodeType === 'ButtonInput') return <ButtonInputWidget nodeId={nodeId} />
   if (nodeType === 'PotInput') return <PotInputWidget nodeId={nodeId} />
-  if (nodeType === 'EncoderInput') return <EncoderInputWidget nodeId={nodeId} />
+  if (nodeType === 'EncoderInput') return <EncoderInputWidget nodeId={nodeId} resetOnPress={resetOnPress} />
   return null
 }

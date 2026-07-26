@@ -5,13 +5,14 @@ import { CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, SPI_CHIPSETS } from '../../state/
 import { validateMatrixLayout } from '../../state/xyLayout'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
 import { estimatePowerLoad } from '../../utils/validateGraph'
+import { useModalFocus } from '../../hooks/useModalFocus'
 import styles from './Upload.module.css'
 
 const STEPS = [
   { key: 'controller', title: 'Controller', blurb: 'Pick the board, port, and build path.' },
   { key: 'matrix', title: 'Matrix', blurb: 'Set the shape of the LEDs you want to drive.' },
-  { key: 'leds', title: 'LEDs', blurb: 'Match the strip type, color order, and wiring pins.' },
-  { key: 'finish', title: 'Finish', blurb: 'Check power options, PSRAM, and run a wiring test.' },
+  { key: 'leds', title: 'LEDs', blurb: 'Match the strip type, color order, wiring pins, brightness, and power.' },
+  { key: 'upload', title: 'Upload', blurb: 'Review the setup, then run a wiring test or open the upload tools.' },
 ] as const
 
 const SIZE_PRESETS = [
@@ -54,8 +55,10 @@ export default function MatrixOutputSetupWizard() {
     openBoardPopup,
     openCliPopup,
     closeSetupWizard,
+    openDeployPopup,
     runUpload, activeOutputNodeId,
   } = useUploadStore()
+  const dialogRef = useModalFocus<HTMLDivElement>(closeSetupWizard)
 
   const node = nodes.find((n) => n.id === activeOutputNodeId && n.data.nodeType === 'MatrixOutput')
     ?? nodes.find((n) => n.data.nodeType === 'MatrixOutput')
@@ -110,15 +113,27 @@ export default function MatrixOutputSetupWizard() {
     openBoardPopup()
   }
 
+  function handleOpenUpload() {
+    closeSetupWizard()
+    openDeployPopup(matrixNodeId)
+  }
+
   return (
     <div className={styles.overlay} onMouseDown={(event) => { if (event.target === event.currentTarget) closeSetupWizard() }}>
-      <div className={`${styles.popup} ${styles.wizardPopup}`} role="dialog" aria-label="Matrix Output setup wizard">
+      <div
+        ref={dialogRef}
+        className={`${styles.popup} ${styles.wizardPopup}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Matrix Output setup wizard"
+        tabIndex={-1}
+      >
         <div className={styles.popupHeader}>
           <div>
             <div className={styles.wizardKicker}>Setup wizard</div>
             <div className={styles.wizardTitle}>Matrix Output</div>
           </div>
-          <button className={styles.closeBtn} onClick={closeSetupWizard} title="Close">×</button>
+          <button className={styles.closeBtn} onClick={closeSetupWizard} title="Close" aria-label="Close Matrix Output setup wizard">×</button>
         </div>
 
         <div className={styles.wizardSteps} aria-label="Wizard steps">
@@ -388,11 +403,7 @@ export default function MatrixOutputSetupWizard() {
                 ? 'SPI chipsets need both a data pin and a clock pin.'
                 : 'Clockless chipsets only need the data pin.'}
             </div>
-          </div>
-        )}
 
-        {step === 3 && (
-          <div className={styles.wizardSection}>
             <label className={styles.fieldBlock}>
               <span className={styles.fieldLabel}>Brightness</span>
               <input
@@ -456,7 +467,11 @@ export default function MatrixOutputSetupWizard() {
                   : ` · recommended PSU ≥ ${(power.recommendedMa / 1000).toFixed(1)} A`}
               </div>
             )}
+          </div>
+        )}
 
+        {step === 3 && (
+          <div className={styles.wizardSection}>
             <div className={styles.wizardSummary}>
               <div className={styles.wizardSummaryRow}><span>Target</span><strong>{board?.label ?? 'No board'} · {portLabel || 'No port'}</strong></div>
               <div className={styles.wizardSummaryRow}><span>Matrix</span><strong>{width} × {height} · {layout}</strong></div>
@@ -465,12 +480,20 @@ export default function MatrixOutputSetupWizard() {
             </div>
 
             <button
-              className={`${styles.wizardButtonBase} ${styles.uploadBtn}`}
+              className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
               disabled={!uploadReady || busy || layoutErrors.length > 0}
               onClick={handleFlashWiringTest}
               title={!uploadReady ? 'Finish board and port setup first' : layoutErrors.join('\n') || 'Flash a wiring test to confirm the matrix before uploading a creative sketch'}
             >
               🧪 Flash wiring test
+            </button>
+
+            <button
+              className={`${styles.wizardButtonBase} ${styles.uploadBtn}`}
+              onClick={handleOpenUpload}
+              title="Close the wizard and open the upload, export, diagnostics, and streaming tools"
+            >
+              ↑ Open upload tools
             </button>
           </div>
         )}

@@ -1,3 +1,5 @@
+import time
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -31,18 +33,29 @@ class FakeSerial:
 
     instances: list["FakeSerial"] = []
 
-    def __init__(self, port, baud, timeout=0):
+    def __init__(self, port, baud, timeout=0, write_timeout=None):
         self.port = port
         self.baud = baud
+        self.timeout = timeout
+        self.write_timeout = write_timeout
         self.dtr = True
         self.rts = True
         self.closed = False
         self.writes: list[bytes] = []
+        # Simulates a write that never returns within pyserial's own
+        # write_timeout — e.g. a Windows driver that doesn't honor it while
+        # the receiver has stopped draining the line. Real writes obviously
+        # can't be interrupted this way; this just lets tests exercise the
+        # app's own independent watchdog (_STREAM_WRITE_TIMEOUT_S) instead of
+        # trusting pyserial's timeout alone.
+        self.hang_seconds: float = 0
         FakeSerial.instances.append(self)
 
     def write(self, data: bytes):
         if self.closed:
             raise RuntimeError("write to closed port")
+        if self.hang_seconds:
+            time.sleep(self.hang_seconds)
         self.writes.append(data)
 
     def close(self):

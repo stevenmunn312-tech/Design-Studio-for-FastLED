@@ -528,8 +528,15 @@ export default function LEDPreview() {
     if (activeOutputId !== previewOutputId) setPreviewOutputId(activeOutputId)
   }, [activeOutputId, previewOutputId, setPreviewOutputId])
   const activeOutput = useGraphStore((s) => s.nodes.find((node) => node.id === activeOutputId && node.data.nodeType === 'MatrixOutput'))
-  const gridW = Math.max(2, Math.min(64, selectedRouteSummary?.width ?? 16))
-  const gridH = Math.max(2, Math.min(64, selectedRouteSummary?.height ?? 16))
+  // Real matrix dimensions — used for the canvas/WebGL buffer size, the
+  // frame passed to the renderers, and the on-screen W×H readout, so a
+  // strip layout (e.g. 10×1) never grows a phantom extra row/column. Only
+  // the pixel-scale math below (`pixelScaleW/H`) floors to 2, so a thin
+  // strip's LEDs aren't blown up to fill the whole available height/width.
+  const gridW = Math.max(1, Math.min(64, selectedRouteSummary?.width ?? 16))
+  const gridH = Math.max(1, Math.min(64, selectedRouteSummary?.height ?? 16))
+  const pixelScaleW = Math.max(2, gridW)
+  const pixelScaleH = Math.max(2, gridH)
   // Panel-tile grid (MatrixOutput layout==='panels') — 0 when there's nothing
   // to draw gridlines for. Select primitives, not the memoised object itself
   // (matching gridW/gridH's use of matrixDims below): a store selector must
@@ -562,8 +569,8 @@ export default function LEDPreview() {
   const availableCanvasH = Math.max(0, canvasWrapSize.height - canvasWrapSize.padY)
   const windowedPixelLimit = Math.min(
     stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX,
-    availableCanvasW > 0 ? availableCanvasW / gridW : stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX,
-    availableCanvasH > 0 ? availableCanvasH / gridH : stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX,
+    availableCanvasW > 0 ? availableCanvasW / pixelScaleW : stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX,
+    availableCanvasH > 0 ? availableCanvasH / pixelScaleH : stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX,
   )
   const pixel = Math.max(1, windowedPixelLimit)
   // Integer drawing-buffer size — floor the *canvas* dimensions, not the per-LED
@@ -812,7 +819,13 @@ export default function LEDPreview() {
         // Feed the live-stream send-loop the exact matrix frame the preview
         // just computed — cheap (a reference store, not a copy) since the
         // stream sends at its own throttled rate independent of this 60fps loop.
-        publishStreamFrame(frame, gW, gH)
+        // Publish the frame's own real shape, not gW/gH: those are floored to
+        // a minimum of 2 for canvas/WebGL sizing, but a strip layout can be a
+        // single row (height 1) — publishing the clamped height there made
+        // the stream's width/height gate permanently disagree with the
+        // receiver's correctly unclamped baked size, silently dropping every
+        // frame forever (no error, fps stuck at 0) on any 1-row/1-col strip.
+        publishStreamFrame(frame, frame[0]?.length ?? 0, frame.length)
 
         const bw = canvasBufWRef.current, bh = canvasBufHRef.current
         const drawStart = PERF_TELEMETRY ? performance.now() : 0
@@ -839,6 +852,13 @@ export default function LEDPreview() {
           wrap.style.setProperty('--ambient-sw', ambient.colors[2])
           wrap.style.setProperty('--ambient-se', ambient.colors[3])
           wrap.style.setProperty('--ambient-opacity', String(Math.min(0.78, 0.08 + ambient.energy * 0.7)))
+          // A percentage inset resolves independently per axis against the
+          // frame's own box (top/bottom against height, left/right against
+          // width), so a strip layout's short axis gets almost no spill room
+          // and the glow reads as a hard rectangle instead of a soft bloom.
+          // Base the spread on the frame's larger side in px so both axes
+          // get the same absolute falloff room regardless of aspect ratio.
+          wrap.style.setProperty('--ambient-spread', `${Math.max(16, Math.max(bw, bh) * 0.14)}px`)
         }
 
         // Beat pulses last one evaluation frame, so publish them immediately;
@@ -1170,9 +1190,13 @@ export default function LEDPreview() {
         className={`${styles.canvasWrap} ${effectivePreview3d ? styles.canvasWrap3d : ''}`}
       >
         {import.meta.env.DEV && <DevPerformanceHud />}
-        {uiEffectsEnabled && <div className={styles.ambilight} aria-hidden="true" />}
         <div className={styles.canvasBay}>
           <div className={styles.canvasFrame}>
+            {uiEffectsEnabled && (
+              <div className={styles.ambilight} aria-hidden="true">
+                <i /><i /><i /><i />
+              </div>
+            )}
             <div className={styles.canvasFrameHeader}>
               <span className={`${styles.visualizerKicker} ${styles.canvasFrameTag}`}>
                 {previewRoutes.length > 1 ? `Output route ${previewRoutes.findIndex((route) => route.id === activeOutputId) + 1}` : 'Output matrix'}

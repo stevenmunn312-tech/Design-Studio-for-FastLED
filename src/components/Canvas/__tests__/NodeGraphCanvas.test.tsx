@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, waitFor } from '@testing-library/react'
+import { getViewportForBounds } from '@xyflow/react'
 import type { ReactNode } from 'react'
 import NodeGraphCanvas from '../NodeGraphCanvas'
 import { useGraphStore } from '../../../state/graphStore'
@@ -11,11 +12,14 @@ const screenToFlowPositionMock = ({ x, y }: { x: number; y: number }) => ({ x, y
 const flowToScreenPositionMock = ({ x, y }: { x: number; y: number }) => ({ x, y })
 const getNodeMock = vi.fn()
 const getInternalNodeMock = () => undefined
+const getNodesBoundsMock = vi.fn()
 const setCenterMock = vi.fn()
+const setViewportMock = vi.fn().mockResolvedValue(true)
 const getZoomMock = () => 1
 const startAudioMock = vi.fn(async () => {})
 const { runTidyMock } = vi.hoisted(() => ({ runTidyMock: vi.fn() }))
 let reactFlowProps: Record<string, unknown> = {}
+let canvasContextMenuProps: Record<string, unknown> = {}
 
 vi.mock('@xyflow/react', async (orig) => {
   const actual = await orig<typeof import('@xyflow/react')>()
@@ -27,14 +31,16 @@ vi.mock('@xyflow/react', async (orig) => {
       return <div data-testid="react-flow">{props.children}</div>
     },
     Background: () => null,
-    Controls: () => null,
+    Controls: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
     MiniMap: () => null,
     useReactFlow: () => ({
       screenToFlowPosition: screenToFlowPositionMock,
       flowToScreenPosition: flowToScreenPositionMock,
       getNode: getNodeMock,
       getInternalNode: getInternalNodeMock,
+      getNodesBounds: getNodesBoundsMock,
       setCenter: setCenterMock,
+      setViewport: setViewportMock,
       getZoom: getZoomMock,
       fitView: fitViewMock,
     }),
@@ -45,7 +51,12 @@ vi.mock('../StudioNode', () => ({ default: () => null }))
 vi.mock('../GlowEdge', () => ({ default: () => null }))
 vi.mock('../GroupControls', () => ({ default: () => null }))
 vi.mock('../NodeContextMenu', () => ({ default: () => null }))
-vi.mock('../CanvasContextMenu', () => ({ default: () => null }))
+vi.mock('../CanvasContextMenu', () => ({
+  default: (props: Record<string, unknown>) => {
+    canvasContextMenuProps = props
+    return <div data-testid="canvas-context-menu" />
+  },
+}))
 vi.mock('../../../audio/interactionSfx', () => ({
   playNoodleConnectSfx: vi.fn(),
   playNoodleDisconnectSfx: vi.fn(),
@@ -56,8 +67,10 @@ describe('NodeGraphCanvas start screen', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     getNodeMock.mockReturnValue(undefined)
+    getNodesBoundsMock.mockReturnValue({ x: 0, y: 0, width: 100, height: 600 })
     Object.defineProperty(document, 'elementsFromPoint', { configurable: true, value: vi.fn(() => []) })
     reactFlowProps = {}
+    canvasContextMenuProps = {}
     localStorage.clear()
     useGraphStore.getState().loadGraph([], [])
     useGraphStore.temporal.getState().clear()
@@ -93,6 +106,62 @@ describe('NodeGraphCanvas start screen', () => {
     })
   })
 
+  it('keeps Tab for focus navigation and opens node search with Ctrl+K', () => {
+    const { getByRole, queryByTestId, getByTestId } = render(<NodeGraphCanvas />)
+    const startButton = getByRole('button', { name: 'Start with Rainbow' })
+
+    fireEvent.keyDown(startButton, { key: 'Tab' })
+    expect(queryByTestId('canvas-context-menu')).toBeNull()
+
+    fireEvent.keyDown(startButton, { key: 'k', ctrlKey: true })
+    expect(getByTestId('canvas-context-menu')).toBeTruthy()
+    expect(canvasContextMenuProps.startInPicker).toBe(true)
+    expect(canvasContextMenuProps.flowPosition).toEqual(useUiStore.getState().viewCenter)
+  })
+
+  it('gives the graph, nodes, and connections descriptive accessible names', () => {
+    useGraphStore.getState().loadGraph([
+      {
+        id: 'source',
+        type: 'studioNode',
+        position: { x: 0, y: 0 },
+        data: {
+          nodeType: 'SolidColor', label: 'Solid Color', category: 'pattern', properties: {}, inputs: [],
+          outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+        },
+      },
+      {
+        id: 'output',
+        type: 'studioNode',
+        position: { x: 300, y: 0 },
+        data: {
+          nodeType: 'MatrixOutput', label: 'Matrix Output', category: 'output', properties: {},
+          inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }], outputs: [],
+        },
+      },
+    ], [{
+      id: 'edge',
+      source: 'source',
+      sourceHandle: 'frame',
+      target: 'output',
+      targetHandle: 'frame',
+      type: 'glowEdge',
+    }])
+
+    render(<NodeGraphCanvas />)
+
+    expect(reactFlowProps['aria-label']).toBe('Node graph editor')
+    expect(reactFlowProps.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'source', ariaLabel: 'Solid Color node. 1 input, 1 output.' }),
+      expect.objectContaining({ id: 'output', ariaLabel: 'Matrix Output node. 2 inputs, 0 outputs.' }),
+    ]))
+    expect(reactFlowProps.edges).toEqual([
+      expect.objectContaining({
+        ariaLabel: 'Connection from Solid Color Frame output to Matrix Output Frame input.',
+      }),
+    ])
+  })
+
   it('launches the audio first patch with its tutorial and live microphone', async () => {
     useUiStore.setState({ testSignal: true })
     localStorage.setItem('design-studio-for-fastled-test-signal', 'true')
@@ -108,32 +177,54 @@ describe('NodeGraphCanvas start screen', () => {
     expect(localStorage.getItem('design-studio-for-fastled-test-signal')).toBe('false')
   })
 
-  it('fits nodes inside both open side panels', async () => {
-    render(<NodeGraphCanvas />)
-
+  it('centres fit frame in the space between differently sized side panels', async () => {
+    useGraphStore.getState().loadGraph([{
+      id: 'tall-node',
+      type: 'studioNode',
+      position: { x: 0, y: 0 },
+      width: 100,
+      height: 600,
+      data: {
+        nodeType: 'Comment', label: 'Tall node', category: 'note', properties: {}, inputs: [], outputs: [],
+      },
+    }], [])
     useUiStore.setState({
       sidebarOpen: true,
+      sidebarWidth: 300,
       previewPanelOpen: true,
-      fitViewRequest: { nonce: 1 },
+      previewWidth: 500,
+    })
+    const { getByRole, getByTestId } = render(<NodeGraphCanvas />)
+    const wrapper = getByTestId('react-flow').parentElement as HTMLDivElement
+    vi.spyOn(wrapper, 'getBoundingClientRect').mockReturnValue({
+      x: 0, y: 0, left: 0, top: 0, right: 1400, bottom: 800, width: 1400, height: 800,
+      toJSON: () => ({}),
     })
 
+    fireEvent.click(getByRole('button', { name: 'Fit frame' }))
+
+    const expected = getViewportForBounds(
+      { x: 0, y: 0, width: 100, height: 600 },
+      600,
+      800,
+      0.2,
+      2,
+      '32px',
+    )
+
     await waitFor(() => {
-      expect(fitViewMock).toHaveBeenCalledWith(expect.objectContaining({
-        padding: {
-          top: '32px',
-          right: '528px',
-          bottom: '32px',
-          left: '312px',
-        },
-      }))
+      expect(setViewportMock).toHaveBeenCalledWith(
+        { ...expected, x: expected.x + 300 },
+        expect.objectContaining({ duration: 260 }),
+      )
     })
 
     expect(reactFlowProps.fitViewOptions).toEqual(expect.objectContaining({
       padding: {
         top: '32px',
-        right: '528px',
+        right: '532px',
         bottom: '32px',
-        left: '312px',
+        left: '332px',
       },
     }))
   })

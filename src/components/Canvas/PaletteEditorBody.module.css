@@ -17,6 +17,17 @@
   font-size: var(--fs-caption);
 }
 
+.badge {
+  padding: 1px 5px;
+  border: 1px solid color-mix(in srgb, var(--accent-color) 44%, var(--border-glow));
+  border-radius: 4px;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--accent-color) 12%, var(--bg-primary));
+  font-size: 9px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
 .miniBtn,
 .preset,
 .stopTools button {

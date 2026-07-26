@@ -5,8 +5,9 @@ import { useGraphStore } from '../../state/graphStore'
 import { compositionDims } from '../../state/outputRouting'
 import type { StudioEdge, StudioNodeData } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { NODE_LIBRARY, CATEGORY_ACCENT_VAR, portColor, propertyMeta, propertyDescription, hasClampableInputs, bypassPort, nodeDisplayLabel, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression } from '../../state/nodeLibrary'
+import { NODE_LIBRARY, CATEGORY_ACCENT_VAR, portColor, propertyMeta, propertyDescription, propertyLabel, hasClampableInputs, bypassPort, nodeDisplayLabel, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression, isGpioPinProperty, gpioRequirementForProperty } from '../../state/nodeLibrary'
 import { isPinnableProperty } from '../../state/performanceDeck'
+import { useUploadStore, boardGpioInfo } from '../../state/uploadStore'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../../state/scalarExpression'
 import { waveNodeSamples } from '../../state/wave'
 import WaveScope from './WaveScope'
@@ -17,6 +18,7 @@ import BeatDetectBody from './BeatDetectBody'
 import FFTAnalyzerBody from './FFTAnalyzerBody'
 import HardwareInputBody from './HardwareInputBody'
 import MidiInputBody from './MidiInputBody'
+import { pinDisplayLabel, pinSupports } from '../../state/boardGpio'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
 import { usePerformanceBakeStore } from '../../state/performanceBakeStore'
@@ -107,6 +109,13 @@ function applyNodeSignal(
   meter?.style.setProperty('--signal-energy', energy)
 }
 
+function activateHandleFromKeyboard(event: React.KeyboardEvent<HTMLDivElement>) {
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  event.preventDefault()
+  event.stopPropagation()
+  event.currentTarget.click()
+}
+
 function SliderProperty({
   label,
   value,
@@ -194,6 +203,7 @@ function SliderProperty({
         step={step}
         disabled={disabled}
         value={value}
+        aria-label={`${label} value`}
         onChange={(e) => onChange(Number(e.target.value))}
         onDoubleClick={(e) => {
           e.stopPropagation()
@@ -202,6 +212,102 @@ function SliderProperty({
       />
       <span className={styles.propVal} onDoubleClick={beginEditing}>{showNum(value)}</span>
     </span>
+  )
+}
+
+// Board-aware GPIO picker for every generated pin property (see
+// isGpioPinProperty). Built-in boards get a capability-filtered dropdown;
+// custom boards without a table, and existing incompatible values, retain a
+// bounded numeric editor so projects can still be inspected and corrected.
+function PinPickerField({
+  label,
+  nodeType,
+  propertyKey,
+  props,
+  value,
+  min,
+  max,
+  disabled,
+  onChange,
+}: {
+  label: string
+  nodeType: string
+  propertyKey: string
+  props: Record<string, unknown>
+  value: number
+  min: number
+  max: number
+  disabled: boolean
+  onChange: (value: number) => void
+}) {
+  const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
+  const gpio = boardGpioInfo(selectedFqbn)
+  const [customOpen, setCustomOpen] = useState(false)
+  const requirement = gpioRequirementForProperty(nodeType, propertyKey, props)
+
+  if (!gpio || !requirement || gpio.recommended.length === 0) {
+    return <SliderProperty label={label} value={value} min={min} max={max} step={1} disabled={disabled} onChange={onChange} />
+  }
+
+  const compatible = gpio.recommended.filter((pin) =>
+    pinSupports(pin, requirement.capability)
+    && (!requirement.pullup || pinSupports(pin, 'pullup'))
+  )
+  const isRecommended = compatible.some((pin) => pin.pin === value)
+  const legacyMax = Math.max(min, ...gpio.recommended.map((pin) => pin.pin), ...gpio.caution.map((pin) => pin.pin))
+  const boardMax = Math.min(max, gpio.maxPin ?? legacyMax)
+
+  if (customOpen || !isRecommended) {
+    return (
+      <span className={styles.gpioPickerWrap}>
+        <input
+          className={`nodrag ${styles.propInput}`}
+          type="number"
+          min={min}
+          max={boardMax}
+          step={1}
+          disabled={disabled}
+          value={value}
+          aria-label={`${label} value`}
+          onWheelCapture={stopWheelWhileFocused}
+          onChange={(e) => {
+            const n = Math.round(Number(e.target.value))
+            if (Number.isFinite(n)) onChange(Math.max(min, Math.min(boardMax, n)))
+          }}
+        />
+        <button
+          type="button"
+          className={`nodrag ${styles.gpioBackBtn}`}
+          disabled={disabled}
+          title="Pick from known-good pins for this board"
+          aria-label={`Choose ${label} from recommended pins`}
+          onClick={() => setCustomOpen(false)}
+        >
+          ☰
+        </button>
+      </span>
+    )
+  }
+
+  return (
+    <select
+      className={`nodrag ${styles.propSelect}`}
+      disabled={disabled}
+      value={String(value)}
+      aria-label={`${label} value`}
+      onWheelCapture={stopWheelWhileFocused}
+      onChange={(e) => {
+        if (e.target.value === '__custom__') { setCustomOpen(true); return }
+        onChange(Number(e.target.value))
+      }}
+    >
+      {compatible.map((pin) => (
+        <option key={pin.pin} value={pin.pin}>
+          {`${pinDisplayLabel(pin)}${pin.warning || pin.note ? ` — ${pin.warning ?? pin.note}` : ''}`}
+        </option>
+      ))}
+      <option value="__custom__">Other (type a number)…</option>
+    </select>
   )
 }
 
@@ -254,6 +360,20 @@ const LivePropertyControls = memo(function LivePropertyControls({
   pinProperty,
   unpinProperty,
 }: LivePropertyControlsProps) {
+  // For the GPIO pin picker's dropdown + row-tooltip caveats (PinPickerField
+  // below reads the same store directly for its own render).
+  const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
+  const boardGpio = boardGpioInfo(selectedFqbn)
+
+  // "Set Default" is meant to keep tracking this node's settings, not just
+  // snapshot them once — otherwise a pin edited after the checkbox was
+  // ticked (e.g. MicInput's i2sWs) silently falls out of sync with the
+  // saved default until the user unchecks/rechecks it.
+  useEffect(() => {
+    if (!showSetDefault || !isCustomDefault) return
+    useNodeDefaults.getState().setDefault(nodeType, rawProps)
+  }, [showSetDefault, isCustomDefault, nodeType, rawProps])
+
   // Port id matching a property key drives that property (evaluator convention);
   // the `paletteIn` port drives the `palette` property, and the `color` port
   // drives the `r/g/b` swatch.
@@ -331,6 +451,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
               className={`nodrag ${styles.propSelect}`}
               disabled={locked}
               value={role}
+              aria-label={`${nodeLabel} role value`}
               onWheelCapture={stopWheelWhileFocused}
               onChange={(e) => setGroupInputRole(nodeId, e.target.value)}
             >
@@ -354,6 +475,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
               type="color"
               disabled={wired || locked}
               value={swatch}
+              aria-label={`${nodeLabel} color`}
               onChange={(e) => updateNodeProperties(nodeId, hexToRgb(e.target.value))}
             />
           </div>
@@ -362,6 +484,8 @@ const LivePropertyControls = memo(function LivePropertyControls({
       {(() => {
         const renderPropRow = ([key, val]: [string, unknown]) => {
         const meta = propertyMeta(nodeType, key)
+        const displayLabel = propertyLabel(nodeType, key)
+        const controlLabel = displayLabel
         const wired = drivenBy(key)
         // A property may be inapplicable to the current variant (e.g. a
         // Transition's `direction` outside wipe): shown but disabled.
@@ -374,6 +498,21 @@ const LivePropertyControls = memo(function LivePropertyControls({
           ? evaluateScalarExpression(val, expressionW, expressionH)
           : null
         const expressionInvalid = expressionCapable && typeof val === 'string' && expressionResult == null
+        const isGpioPin = isGpioPinProperty(nodeType, key)
+        const gpioRequirement = isGpioPin ? gpioRequirementForProperty(nodeType, key, props) : null
+        const gpioPin = typeof val === 'number' ? boardGpio?.recommended.find((pin) => pin.pin === val) : undefined
+        const gpioUnavailable = typeof val === 'number' ? boardGpio?.caution.find((pin) => pin.pin === val) : undefined
+        const gpioNote = !gpioRequirement || typeof val !== 'number' || !boardGpio
+          ? undefined
+          : gpioUnavailable
+            ? `Unavailable on this board — ${gpioUnavailable.note}`
+            : !gpioPin
+              ? `Pin ${val} isn't listed for this board`
+              : !pinSupports(gpioPin, gpioRequirement.capability)
+                ? `Pin ${val} doesn't support ${gpioRequirement.capability === 'analogInput' ? 'analog input' : gpioRequirement.capability === 'digitalInput' ? 'digital input' : 'digital output'}`
+                : gpioRequirement.pullup && !pinSupports(gpioPin, 'pullup')
+                  ? `Pin ${val} has no internal pull-up`
+                  : gpioPin.warning ?? gpioPin.note
         const rowTitle = wired
           ? 'Driven by connection'
           : gated
@@ -384,19 +523,20 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 : typeof val === 'string'
                   ? `${val} = ${showNum(expressionResult!)}`
                   : `Number or expression. ${SCALAR_EXPRESSION_HELP}`
-              : propertyDescription(nodeType, key)
+              : gpioNote ?? propertyDescription(nodeType, key)
         return (
           <div
             key={key}
             className={`${styles.propRow}${disabled ? ` ${styles.wired}` : ''}`}
             title={rowTitle}
           >
-            <span className={styles.propKey} title={key}>{key}</span>
+            <span className={styles.propKey} title={key}>{displayLabel}</span>
             {meta?.control === 'select' ? (
               <select
                 className={`nodrag ${styles.propSelect}`}
                 disabled={disabled}
                 value={typeof live === 'string' && meta.options.includes(live) ? live : String(val)}
+                aria-label={`${controlLabel} value`}
                 onWheelCapture={stopWheelWhileFocused}
                 onChange={(e) => updateNodeProperty(nodeId, key, e.target.value)}
               >
@@ -404,9 +544,21 @@ const LivePropertyControls = memo(function LivePropertyControls({
                   <option key={opt} value={opt}>{opt}</option>
                 ))}
               </select>
+            ) : isGpioPin && meta?.control === 'slider' && typeof val === 'number' ? (
+              <PinPickerField
+                label={controlLabel}
+                nodeType={nodeType}
+                propertyKey={key}
+                props={props}
+                value={typeof live === 'number' ? live : val}
+                min={meta.min}
+                max={meta.max}
+                disabled={disabled}
+                onChange={(value) => updateNodeProperty(nodeId, key, value)}
+              />
             ) : meta?.control === 'slider' && typeof val === 'number' ? (
               <SliderProperty
-                label={key}
+                label={controlLabel}
                 value={typeof live === 'number' ? live : val}
                 min={meta.min}
                 max={meta.max}
@@ -420,6 +572,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 type="checkbox"
                 disabled={disabled}
                 checked={typeof live === 'boolean' ? live : val}
+                aria-label={controlLabel}
                 onChange={(e) => updateNodeProperty(nodeId, key, e.target.checked)}
               />
             ) : isHexColor(val) ? (
@@ -428,6 +581,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 type="color"
                 disabled={disabled}
                 value={isHexColor(live) ? live : val}
+                aria-label={`${controlLabel} color`}
                 onChange={(e) => updateNodeProperty(nodeId, key, e.target.value)}
               />
             ) : expressionCapable ? (
@@ -435,7 +589,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 className={`nodrag ${styles.propInput}`}
                 type="text"
                 inputMode="decimal"
-                aria-label={`${key} value or expression`}
+                aria-label={`${controlLabel} value or expression`}
                 aria-invalid={expressionInvalid ? 'true' : undefined}
                 disabled={disabled}
                 value={wired && live !== undefined ? String(live) : String(val)}
@@ -453,6 +607,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 step="any"
                 disabled={disabled}
                 value={typeof live === 'number' ? showNum(live) : val}
+                aria-label={`${controlLabel} value`}
                 onWheelCapture={stopWheelWhileFocused}
                 onChange={(e) => {
                   const n = Number(e.target.value)
@@ -466,6 +621,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 inputMode="decimal"
                 disabled={disabled}
                 value={typeof live === 'number' ? showNum(live) : val}
+                aria-label={`${controlLabel} value`}
                 onWheelCapture={stopWheelWhileFocused}
                 onChange={(e) => {
                   const n = Number(e.target.value)
@@ -478,6 +634,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 type="color"
                 disabled={disabled}
                 value={isRGB(live) ? toHex(live.r, live.g, live.b) : typeof live === 'string' && /^#[0-9a-f]{6}$/i.test(live) ? live : val}
+                aria-label={`${controlLabel} color`}
                 onChange={(e) => updateNodeProperty(nodeId, key, e.target.value)}
               />
             ) : (
@@ -486,6 +643,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 type="text"
                 disabled={disabled}
                 value={wired && live !== undefined ? String(live) : String(val)}
+                aria-label={`${controlLabel} value`}
                 onWheelCapture={stopWheelWhileFocused}
                 onChange={(e) => updateNodeProperty(nodeId, key, e.target.value)}
               />
@@ -531,6 +689,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                       className={`nodrag ${styles.propSelect}`}
                       disabled={locked}
                       value={preset}
+                      aria-label={`${nodeLabel} matrix size`}
                       onWheelCapture={stopWheelWhileFocused}
                       onChange={(e) => {
                         const v = e.target.value
@@ -597,6 +756,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
             type="checkbox"
             disabled={locked}
             checked={Boolean(props.clampInputs)}
+            aria-label={`${nodeLabel} clamp wired inputs`}
             onChange={(e) => updateNodeProperty(nodeId, 'clampInputs', e.target.checked)}
           />
         </div>
@@ -612,6 +772,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
             type="checkbox"
             disabled={locked}
             checked={Boolean(props.bypassed)}
+            aria-label={`${nodeLabel} bypass`}
             onChange={(e) => updateNodeProperty(nodeId, 'bypassed', e.target.checked)}
           />
         </div>
@@ -627,6 +788,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
             type="checkbox"
             disabled={locked}
             checked={isCustomDefault}
+            aria-label={`Use these settings as the default for new ${nodeLabel} nodes`}
             onChange={(e) => {
               if (e.target.checked) useNodeDefaults.getState().setDefault(nodeType, rawProps)
               else useNodeDefaults.getState().clearDefault(nodeType)
@@ -931,6 +1093,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const categoryTag = CATEGORY_TAG[d.category] ?? 'MOD'
   const headerCode = moduleCode(d.nodeType)
   const nodeTag = id.slice(-3).toUpperCase()
+  const displayName = nodeDisplayLabel(d.nodeType, props, d.label)
   const showLiveNodeVisuals = uiEffectsEnabled
 
   useEffect(() => {
@@ -955,7 +1118,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     >
       <span ref={signalAuraRef} className={styles.signalAura} aria-hidden="true" />
       <div className={styles.header} style={{ background: accent }}>
-        <span className={styles.headerTitle}>{nodeDisplayLabel(d.nodeType, props, d.label)}</span>
+        <span className={styles.headerTitle}>{displayName}</span>
         <span className={styles.headerMeta}>
           <span className={styles.headerTag}>{categoryTag}</span>
           <span className={styles.headerCode}>{headerCode}-{nodeTag}</span>
@@ -975,6 +1138,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
             spellCheck={false}
             value={String(props.text ?? '')}
             placeholder="Note…"
+            aria-label={`${displayName} comment text`}
             onWheelCapture={stopWheelWhileFocused}
             onChange={(e) => updateNodeProperty(id, 'text', e.target.value)}
           />
@@ -983,7 +1147,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {showLiveNodeVisuals && isComplexWave && <ComplexWaveScope nodeId={id} />}
         {showLiveNodeVisuals && isBeatDetect && <BeatDetectBody nodeId={id} />}
         {showLiveNodeVisuals && isFFTAnalyzer && <FFTAnalyzerBody nodeId={id} bands={Number(props.bands ?? 24)} />}
-        {showLiveNodeVisuals && isHardwareInput && <HardwareInputBody nodeId={id} nodeType={d.nodeType} />}
+        {showLiveNodeVisuals && isHardwareInput && <HardwareInputBody nodeId={id} nodeType={d.nodeType} resetOnPress={props.resetOnPress === true} />}
         {showLiveNodeVisuals && d.nodeType === 'MidiInput' && <MidiInputBody note={Math.round(Number(props.note ?? 60))} cc={Math.round(Number(props.cc ?? 1))} />}
         {showLiveNodeVisuals && previewKind && outPort && (
           previewHidden ? (
@@ -1031,6 +1195,10 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                     position={Position.Left}
                     id={input.id}
                     title={`${input.label} · ${input.dataType}`}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Connect to ${displayName} ${input.label} input, ${input.dataType}. Press Enter or Space to ${sourceMap.has(input.id) ? 'replace the existing connection' : 'choose a source port'}.`}
+                    onKeyDown={activateHandleFromKeyboard}
                     style={{ ...HANDLE_STYLE, top: '50%', left: -8, background: inputColor, boxShadow: `0 0 6px ${inputColor}` }}
                   />
                   {sparkPortId === input.id && <span className={styles.spark} />}
@@ -1044,6 +1212,10 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                   position={Position.Right}
                   id={output.id}
                   title={`${output.label} · ${output.dataType}`}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Connect from ${displayName} ${output.label} output, ${output.dataType}. Press Enter or Space to choose a destination port.`}
+                  onKeyDown={activateHandleFromKeyboard}
                   style={{ ...HANDLE_STYLE, top: '50%', right: -8, background: outputColor, boxShadow: `0 0 6px ${outputColor}` }}
                 />
               )}
@@ -1080,6 +1252,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
               spellCheck={false}
               value={String(props.globalCode ?? '')}
               placeholder="// file scope: helpers, palettes, persistent vars"
+              aria-label={`${displayName} global code`}
               onWheelCapture={stopWheelWhileFocused}
               onChange={(e) => updateNodeProperty(id, 'globalCode', e.target.value)}
             />
@@ -1089,6 +1262,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
               spellCheck={false}
               value={String(props.code ?? '')}
               placeholder="// loop body — runs each frame, writes into leds[]"
+              aria-label={`${displayName} loop code`}
               onWheelCapture={stopWheelWhileFocused}
               onChange={(e) => updateNodeProperty(id, 'code', e.target.value)}
             />

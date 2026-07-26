@@ -237,6 +237,7 @@ function Sidebar() {
   const requestConfirm = useUiStore((s) => s.requestConfirm)
   const viewCenter = useUiStore((s) => s.viewCenter)
   const setStatus = useUiStore((s) => s.setStatus)
+  const openRatings = useUiStore((s) => s.openRatings)
   const setDraggingNodeType = useUiStore((s) => s.setDraggingNodeType)
   // One-bank-at-a-time accordion. We still persist the last opened section,
   // but unlike the old multi-open drawer this keeps the library scan tight.
@@ -900,6 +901,7 @@ function Sidebar() {
             <button
               className={styles.categoryHeaderBtn}
               onClick={() => toggle('library')}
+              aria-expanded={expandedId === 'library'}
             >
               <span className={styles.drawerLabel}>
                 <span className={styles.drawerLight} aria-hidden="true" />
@@ -934,6 +936,16 @@ function Sidebar() {
             </button>
             <button
               className={styles.revealBtn}
+              type="button"
+              aria-label="Rate my patterns"
+              title="Rate every saved pattern for quality"
+              onClick={openRatings}
+              disabled={patterns.length === 0}
+            >
+              ★
+            </button>
+            <button
+              className={styles.revealBtn}
               aria-label="Reveal saved-pattern folder"
               title="Reveal saved-pattern folder on disk"
               onClick={handleRevealFolder}
@@ -946,6 +958,8 @@ function Sidebar() {
               className={styles.categoryHeaderBtn}
               style={{ flex: '0 0 auto' }}
               onClick={() => toggle('library')}
+              aria-label={expandedId === 'library' ? 'Collapse Pattern Library' : 'Expand Pattern Library'}
+              aria-expanded={expandedId === 'library'}
             >
               <span
                 className={styles.chevron}

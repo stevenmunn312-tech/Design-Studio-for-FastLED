@@ -708,6 +708,16 @@
   border-bottom: none;
 }
 
+.controls .fitFrameButton {
+  order: 2;
+  border-bottom: 1px solid var(--border-glow);
+}
+
+.controls :global(.react-flow__controls-interactive) {
+  order: 3;
+  border-bottom: none;
+}
+
 .controls :global(.react-flow__controls-button:hover) {
   background: color-mix(in srgb, var(--accent-output) 7%, transparent);
 }

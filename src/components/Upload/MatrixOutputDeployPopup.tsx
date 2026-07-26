@@ -13,6 +13,7 @@ import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGe
 import { sdCardConnected, readySongCount, buildShowPayload } from '../../utils/showUpload'
 import { findPinConflicts, findMatrixLayoutErrors, findBoardCompatibilityErrors, findOutputResourceErrors } from '../../utils/validateGraph'
 import { summarizeCapacity } from '../../utils/capacityFormat'
+import { useModalFocus } from '../../hooks/useModalFocus'
 import {
   buildHardwareValidationProfile,
   suggestedValidationAction,
@@ -41,6 +42,7 @@ export default function MatrixOutputDeployPopup() {
   } = useUploadStore()
   const hasLastSketch = useUploadStore((s) => !!(currentProjectId && s.lastSketchByProject[currentProjectId]))
   const { streaming, fps: streamFps, error: streamError, start: startStreaming, stop: stopStreaming } = useStreamStore()
+  const dialogRef = useModalFocus<HTMLDivElement>(closeDeployPopup)
 
   const outputNode = nodes.find((n) => n.id === activeOutputNodeId && n.data.nodeType === 'MatrixOutput')
     ?? nodes.find((n) => n.data.nodeType === 'MatrixOutput')
@@ -324,13 +326,20 @@ export default function MatrixOutputDeployPopup() {
 
   return (
     <div className={styles.overlay} onMouseDown={(event) => { if (event.target === event.currentTarget) closeDeployPopup() }}>
-      <div className={`${styles.popup} ${styles.deployPopup}`} role="dialog" aria-label="Upload tools">
+      <div
+        ref={dialogRef}
+        className={`${styles.popup} ${styles.deployPopup}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Upload tools"
+        tabIndex={-1}
+      >
         <div className={styles.popupHeader}>
           <div>
             <div className={styles.wizardKicker}>Upload</div>
             <div className={styles.wizardTitle}>Deploy to hardware</div>
           </div>
-          <button className={styles.closeBtn} onClick={closeDeployPopup} title="Close">×</button>
+          <button className={styles.closeBtn} onClick={closeDeployPopup} title="Close" aria-label="Close upload tools">×</button>
         </div>
 
         <div className={styles.targetBig}>{target}</div>
@@ -523,7 +532,21 @@ export default function MatrixOutputDeployPopup() {
         </div>
 
         {streamError && <div className={styles.streamError}>{streamError}</div>}
-        {codeViewOpen && <CodeViewPopup code={code} />}
+        {codeViewOpen && (
+          <CodeViewPopup
+            code={code}
+            onUpload={handleUpload}
+            uploadDisabled={!canBuild || !uploadReady || busy}
+            uploadTitle={
+              busy ? status.message
+              : !hasFrameInput ? 'Connect a frame to enable upload'
+              : blockingErrors.length > 0 ? blockingErrors.join('\n')
+              : readinessIssues.length > 0 ? readinessIssues.join('\n')
+              : 'Compile & upload to the board'
+            }
+            busy={busy}
+          />
+        )}
         {validationAction && (
           <HardwareValidationPopup
             nodes={nodes}

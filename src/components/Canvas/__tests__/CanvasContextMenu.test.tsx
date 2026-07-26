@@ -87,14 +87,14 @@ describe('CanvasContextMenu — drag-to-empty picker', () => {
 
   it('lists only nodes with an input compatible with the dragged output type', () => {
     // Drag from a `frame` output: every listed node must accept a frame input.
-    const { container } = render(
+    render(
       <CanvasContextMenu
         x={0} y={0} flowPosition={{ x: 100, y: 100 }}
         connectFrom={{ nodeId: 'src', handleId: 'frame', dataType: 'frame' }}
         onClose={() => {}}
       />
     )
-    const labels = Array.from(container.querySelectorAll('[data-suggestion-type="direct"]'))
+    const labels = Array.from(document.body.querySelectorAll('[data-suggestion-type="direct"]'))
       .map((button) => button.getAttribute('data-node-type'))
       .filter((value): value is string => !!value)
     expect(labels.length).toBeGreaterThan(0)
@@ -252,6 +252,27 @@ describe('CanvasContextMenu — drag-to-empty picker', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
+  it('shows Create Group immediately after Select All and groups the selection', () => {
+    seedSelectedNodes()
+    const onClose = vi.fn()
+    const { getByRole, getAllByRole } = render(
+      <CanvasContextMenu
+        x={0} y={0} flowPosition={{ x: 100, y: 100 }}
+        onClose={onClose}
+      />
+    )
+
+    const menuButtons = getAllByRole('button')
+    const selectAllIndex = menuButtons.findIndex((button) => button.textContent === 'Select All')
+    expect(menuButtons[selectAllIndex + 1].textContent).toBe('Create Group')
+
+    fireEvent.click(getByRole('button', { name: 'Create Group' }))
+    fireEvent.click(getByRole('button', { name: 'Create Group' }))
+
+    expect(useGraphStore.getState().nodes.some((node) => node.data.nodeType === 'Group')).toBe(true)
+    expect(onClose).toHaveBeenCalled()
+  })
+
   it('keeps Paste enabled on an empty graph when the clipboard has nodes', () => {
     seedEmptyGraphWithClipboard()
     const { getByRole } = render(
@@ -263,6 +284,7 @@ describe('CanvasContextMenu — drag-to-empty picker', () => {
 
     expect(getByRole('button', { name: 'Add Node ▶' }).hasAttribute('disabled')).toBe(false)
     expect(getByRole('button', { name: 'Select All' }).hasAttribute('disabled')).toBe(true)
+    expect(getByRole('button', { name: 'Create Group' }).hasAttribute('disabled')).toBe(true)
     expect(getByRole('button', { name: 'Delete Selected' }).hasAttribute('disabled')).toBe(true)
     expect(getByRole('button', { name: 'Tidy Graph' }).hasAttribute('disabled')).toBe(true)
     expect(getByRole('button', { name: 'Paste' }).hasAttribute('disabled')).toBe(false)

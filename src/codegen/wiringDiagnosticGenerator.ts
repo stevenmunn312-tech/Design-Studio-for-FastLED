@@ -1,6 +1,7 @@
 import type { StudioNode } from '../state/graphStore'
 import { buildXYTable } from '../state/xyLayout'
 import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp } from './cppGenerator'
+import { sanitizePin } from './hardwarePins'
 import { SPI_CHIPSETS } from '../state/nodeLibrary'
 
 function intProp(val: unknown, def: number, min: number, max: number): number {
@@ -25,7 +26,7 @@ export function generateWiringDiagnosticSketch(nodes: StudioNode[], outputNodeId
   const p = outputNode.data.properties as Record<string, unknown>
   const width = intProp(p.width, 16, 1, 64)
   const height = intProp(p.height, 16, 1, 64)
-  const dataPin = intProp(p.dataPin, 5, 0, 48)
+  const dataPin = sanitizePin(p.dataPin, 5)
   const hw = ledHardwareFromProps(p)
   const xyTable = buildXYTable(width, height, p)
   const powerLimit = p.powerLimit === true

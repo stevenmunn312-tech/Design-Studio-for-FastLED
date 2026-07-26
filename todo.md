@@ -53,7 +53,7 @@
 - [x] **Define the signature visual hierarchy.** Added shared quiet-chrome tokens and retuned the main visual layers so the LED matrix and active patch state carry the brightest glow: idle node/edge halos are lower, selected/active-path nodes retain stronger emphasis, mini node previews no longer compete with the main preview, and static panel/handle chrome uses softer borders and shadows. Verify visually in the user's running dev server per the repo's no-preview-tool rule.
 - [x] **Give display typography a distinctive instrument voice.** Bundled Audiowide locally under `public/fonts/` with its OFL notice, promoted it to `--font-display`, and applied it only to restrained instrument-facing surfaces: app/preview identity, sidebar rack headers/recipe titles, visualizer kickers, stage title, and active stage pattern names. Body controls remain on Inter and dense data/status readouts stay on JetBrains Mono. CSS was checked against dark, solarized, and light theme token contrast without widening the decorative face into node controls.
 - [x] **Standardize dialogs.** `AppDialogHost` (`src/components/AppDialog/`) renders alert/confirm/prompt dialogs driven from `uiStore`'s `requestAlert`/`requestConfirm`/`requestPrompt`, with explicit action labels, `role="dialog"` + `aria-modal`, initial focus (primary button or prompt input), a Tab focus trap, Escape-to-cancel, and focus restoration to the triggering element on close. All `window.alert`/`prompt`/`confirm` call sites (menu bar, sidebar, node context menu, group controls, projects/recover/templates popups) now go through it.
-- [x] **Complete keyboard and screen-reader behavior.** MenuBar dropdowns now use roving keyboard focus with ArrowUp/ArrowDown/Home/End, Escape returns focus to the trigger, and Tab closes the menu while preserving normal focus movement; transient StatusBar messages announce through polite/assertive live regions (`role="status"` / `role="alert"`), and hidden sidebar/preview panels remain `aria-hidden` + `inert` when collapsed. Covered by focused MenuBar and StatusBar accessibility regressions.
+- [x] **Complete keyboard and screen-reader behavior.** MenuBar dropdowns now use roving keyboard focus with ArrowUp/ArrowDown/Home/End, Escape returns focus to the trigger, and Tab closes the menu while preserving normal focus movement; transient StatusBar messages announce through polite/assertive live regions (`role="status"` / `role="alert"`), and hidden sidebar/preview panels remain `aria-hidden` + `inert` when collapsed. Normal Tab navigation is no longer overridden by node search (`Ctrl/Cmd+K` now opens it); graph nodes, edges, ports, and central property controls have descriptive accessible names; ports support Enter/Space click-to-connect; and Matrix Output setup/deploy dialogs share focus entry, trapping, Escape, and restoration behavior. Covered by focused MenuBar, StatusBar, graph, node-control, and modal-focus regressions.
 - [x] **Document the desktop viewport contract.** Added `docs/architecture/desktop-viewport-contract.md` (linked from `docs/NAVIGATOR.md` and `README.md`) defining the desktop target (`1440×900`), supported minimum (`1280×720`), and the expected degrade path below that. Backed it with two layout guardrails: `MenuBar.module.css` menus now cap their height and scroll internally on short windows, and `StatusBar.module.css` now keeps the left status message prioritized while the right chip rail scrolls horizontally instead of spilling off-screen. Verified with a green lint/build pass and the existing panel/Stage-mode scroll behavior already in `App.tsx` / `App.module.css`.
 - [x] **Complete PWA polish.** The manifest now ships concrete PNG install assets alongside the SVG (`icon-192.png`, `icon-512.png`, `icon-maskable-192.png`, `icon-maskable-512.png` generated from `public/icon.svg`), `index.html` advertises the `apple-touch-icon`, and Vite PWA's precache glob now includes PNG branding assets such as `design-studio-pixel-brand.png` (formerly `fastled-studio-pixel-brand.png`). `README.md` and `HelpModal` now explicitly state the split between offline authoring/preview and helper-backed hardware workflows (upload, live stream, board discovery, project-file dialogs). Verified by a production build plus emitted `dist/manifest.webmanifest` / `dist/sw.js` containing the new icons and cached branding assets.
 - [x] **Update public documentation.** `README.md` and `HelpModal` now match the current app: no obsolete WebSerial claim, current starter onboarding (`✦ Start` / empty-canvas launcher), current project-vs-JSON-vs-share terminology, current microphone node naming (`Mic Input`), and the modern Matrix Output actions (`Upload`, `Flash Stream Receiver`, `Live Stream`, `Upload show to SD`, `View Code`, `Export .ino`). The docs also add generative-show and music-sync SD-show walkthroughs so README, Help, `CLAUDE.md`, and `todo.md` are back in step.
@@ -87,7 +87,7 @@
 - [x] No imported/shared content can execute preview code before explicit trust, and the trust boundary has adversarial test coverage. Main graph evaluation, music-sync collection playback/baking/main-preview overrides, and cached collection frames all honour the workspace trust flag; formula-language escape attempts, worker timeout/fail-closed behavior, external load paths, pattern drops, and the collection-preview regression are covered by tests.
 - [ ] A first-time user can launch, load a starter, see an animated result, configure supported hardware, and export or upload it without consulting source-code documentation.
 - [ ] Pin, layout, power, board/toolchain, and graph validation prevent known unsafe or non-functional uploads with actionable messages.
-- [x] Keyboard-only and screen-reader smoke tests cover the core authoring and upload workflow.
+- [x] Keyboard-only and screen-reader smoke tests cover the core authoring and upload workflow. Browser-assisted keyboard/accessibility-tree checks passed on 2026-07-26, and the NVDA pass was subsequently confirmed by the user; see `docs/release/accessibility-smoke-test.md`.
 - [ ] Offline/PWA behavior, icons, documentation, licensing, versioning, and release artifacts have been verified from a fresh machine/account.
 
 ## Core Graph
@@ -319,8 +319,115 @@ show pipeline). Ordered by expected impact within each tier.
 
 ### Workflow improvements
 
-- [x] **Keyboard-first node add** — `Tab` (from anywhere, not typing) or double-clicking empty canvas opens the existing node search picker (`CanvasContextMenu`'s picker mode, now reachable without a drag-to-create origin via `startInPicker`); `Tab` opens at the view centre, double-click at the click point (`zoomOnDoubleClick` disabled so the gesture is free on the pane; double-click on a node still enters a group)
+- [x] **Keyboard-first node add** — `Ctrl/Cmd+K` (from anywhere, not typing) or double-clicking empty canvas opens the existing node search picker (`CanvasContextMenu`'s picker mode, now reachable without a drag-to-create origin via `startInPicker`); the keyboard shortcut opens at the view centre without overriding `Tab` focus navigation, while double-click opens at the pointer (`zoomOnDoubleClick` disabled so the gesture is free on the pane; double-click on a node still enters a group)
 - [x] **"Save selection to library" in one step** — right-clicking a node that's part of a 2+ multi-selection now shows "Group N Nodes…" in `NodeContextMenu`, opening the same `CreateGroupDialog` (name + Save to library checkbox) the toolbar's ⊞ Group button uses
 - [x] **Check undo granularity on slider drags** — confirmed each `updateNodeProperty` tick was landing as its own zundo snapshot; fixed via zundo's `handleSet` option with a burst-aware debounce (`debounceHandleSet` in `graphStore.ts`) that pins the pre-burst state and only pushes one history entry per ~400ms-quiet gesture (slider drag, fast typing)
 - [x] **Import safety** — loading a JSON file via MenuBar's Load button now confirms before replacing a non-empty workspace (`window.confirm` in `handleFileChange`); the Sidebar's drag-drop `.json` import is unaffected since it adds to the pattern library rather than replacing the graph
 - [x] **Upload ergonomics** — board+port now persist per project via `projectStore.uploadTarget` (with the old global selection kept only as the fallback for new projects), and MatrixOutput's hardware bay adds a `↻ Re-upload last sketch` shortcut that re-sends the most recently uploaded sketch for the current project without regenerating it
+
+## Node review findings (`docs/development/plans/node-todo.md`)
+
+Imported from the category-by-category node review. Each item below is a
+short pointer back to the full writeup in `node-todo.md` (search that file
+for the bolded phrase to find the detailed rationale/fix). Checked items were
+fixed category-by-category as this review was worked through (starting
+2026-07-26, commit `281868a`); everything else is still open.
+
+### Input (MicInput, ButtonInput, PotInput, EncoderInput, MidiInput)
+
+- [x] **I2S pin fields unbounded in UI but silently clamped in codegen.** Added a shared `sanitizePin()` in `cppGenerator.ts` (round + clamp to the shared 0–255 Arduino-pin safety range); the UI now narrows MicInput's `i2sWs`/`i2sSck`/`i2sSd` choices to pins with the required input/output capability on the selected board.
+- [x] **MicInput `serialDebug` has no tooltip.** Added a `PROPERTY_DESCRIPTIONS` entry.
+- [x] **ButtonInput/PotInput/EncoderInput pin fields aren't sanitized anywhere.** The same `sanitizePin()` now covers `pin`/`pinA`/`pinB`/`pinSW`; their board-aware controls require digital input, ADC input, and internal pull-up support as appropriate.
+- [x] **`validateGraph`'s GPIO check only catches duplicates, never invalid ranges.** Added `findPinRangeWarnings()`, wired into both `validateGraph()` and the Graph Health drawer.
+- [x] **No board-aware pin picker.** Added the initial `BoardGpio` table + `PinPickerField`; the full per-board capability expansion is completed below.
+- [x] **`pullup`'s wiring implication isn't explained.** Added a `PROPERTY_DESCRIPTIONS` entry (shared across ButtonInput/EncoderInput).
+- [x] **MidiInput `note`/`cc` are unbounded and shown as bare numbers.** Added 0–127 sliders plus a note-name readout ("60 → C4") in `MidiInputBody.tsx`.
+- [x] **EncoderInput push-button only reports continuous state, not an edge.** Added a `resetOnPress` property (zeros the running position on a press edge, both preview and firmware).
+- [x] **Bonus (found while building the pin picker, not in the original review): `PotInput`'s default pin (34) has no ADC capability on the app's own default board (ESP32-S3).** Changed the default to GPIO4 (valid ADC1 on the S3).
+- [x] **Board-aware pin picker for the full built-in catalogue.** `boardGpio.ts` now covers every built-in ESP32/ESP8266, Arduino AVR/megaAVR/SAM/SAMD, Teensy, RP2040/RP2350, Adafruit SAMD, STM32, Renesas, and nRF52840 target. Each entry records digital input/output, ADC, and internal pull-up capabilities plus reserved pins and board caveats. Property-specific filtering keeps analog-only/input-only pins out of incompatible controls; graph validation blocks incompatible assignments and surfaces ADC2/Wi-Fi and boot-strap warnings. Custom boards without a table retain bounded numeric entry.
+
+### Audio (FFTAnalyzer, BeatDetect, PercussionDetect, AudioFeatures, AudioHue)
+
+- [x] **FFTAnalyzer's `bands` is a dead control.** Implemented option (b) from the review: `bands` now genuinely drives analysis resolution. `graphEvaluator.ts`'s `FFTAnalyzer` case resamples the raw 32-bin spectrum (`audio.detectorSpectrum`/`audio.spectrum`) to `bands` bins via `resampleSpectrumBins()` (shared with `SpectrumVisualizer`), then averages contiguous thirds into bass/mids/treble — replacing the previous source (`audio.bass`/`mids`/`treble`, a separately adaptive-normalized detector that ignored `bands` entirely). `cppGenerator.ts` mirrors the exact same resample-then-group math against firmware's `_audioSpectrum[32]` for preview/firmware parity, baking the group boundaries in as compile-time constants since `bands` isn't runtime-tunable in generated sketches. This is a genuine behavior change for existing patterns using FFTAnalyzer (the underlying signal source changed, not just the `bands` knob), documented via an updated `PROPERTY_DESCRIPTIONS_OVERRIDES` tooltip. Updated/added evaluator + codegen tests confirm `bands` now produces different real outputs.
+- [x] **BeatDetect's rich diagnostics (`flux`/`onset`/`contrast`/effective `threshold`/`cooldownMs`) are computed but never exposed as outputs.** Added them as connectable output ports in `nodeLibrary.ts` (the evaluator already computed them) and mirrored matching variables in `cppGenerator.ts`'s `BeatDetect` case (native/Studio-detector/no-mic branches) so wiring them compiles in generated firmware too.
+- [x] **AudioFeatures' `gate` property name doesn't communicate what it does.** Added a `PROPERTY_LABELS.AudioFeatures.gate` ("Silence Gate") and a `PROPERTY_DESCRIPTIONS_OVERRIDES` tooltip — display-only, no migration needed.
+- [x] **Audio disconnect snaps `kick`/`snare`/`hihat`/`vocals`/`energy` straight to 0** instead of decaying. `BeatDetect`/`PercussionDetect`/`AudioFeatures` (`graphEvaluator.ts`) now feed silence through the node's own existing decay/smoothing curve when audio drops out (reusing `updateBeatDetectorFromSpectrum`/`followLevel`/the smoothing formula), so a momentary mic hiccup fades instead of cutting; each self-clears its state map entry once the envelope decays below an imperceptible epsilon rather than either holding forever or deleting instantly. New evaluator tests cover the decay-then-self-clear behavior for all three nodes.
+- [x] **AudioHue has no default properties** (`bass`/`mids`/`treble`). Added `{ bass: 0.5, mids: 0.5, treble: 0.5 }` to `defaultProperties`, matching the evaluator's existing hardcoded fallback, so the node is explorable without wiring.
+- [x] **AudioHue's bass/mids/treble weighting (0.5/0.3/0.2) is fixed and undocumented.** Added `PROPERTY_DESCRIPTIONS_OVERRIDES` tooltips on each input stating its weight in the resulting hue; exposing the weights as properties remains a larger follow-up feature, not done here.
+
+### Signal (TimeNode, Interval, Counter, Random, Envelope, Sin, Cos, Wave, ComplexWave, BeatSin, Clock)
+
+- [x] **Sin/Cos are inert (constant output) unless wired, with no time dependency**, unlike every sibling signal-source node. Added per-node tooltips explaining that Sin/Cos compute `sin(x*2π)`/`cos(x*2π)` from the wired X value and recommending Time/Counter or Wave for continuous motion.
+- [x] **Random's firmware quantizes to 256 steps (`random8()`) while preview is continuous** — codegen now uses `random16()` for unseeded Random output.
+- [x] **Random has no `seed` property**, unlike every other randomized node in the library (Noise, Particles, Fire, TwinkleFox, …) — added `seed: 0` plus a 0–9999 slider; preview uses the shared seeded LCG when nonzero, and firmware emits a per-instance 16-bit LCG draw.
+- [x] **Envelope has no `attack` time**, unlike its pattern-node sibling BeatFlash — added an opt-in `attack` duration defaulting to 0 so existing envelopes keep their instant rise, with matching preview/codegen attack-then-decay behavior.
+- [x] **BeatSin's `bpm` has no bounds**, unlike Clock's 40–220 — added a matching 40–220 BPM slider override.
+- [x] **TimeNode's `dt` differs slightly between preview (`1/60` exact) and firmware (`0.016f` literal)** — codegen now emits `1.0f / 60.0f`.
+
+### Math (Math, Clamp, MapRange, Lerp, Ease, Abs, Mod, Compare, Not, Gate, Smooth, SampleHold, Switch, XYMapper, Trigger)
+
+- [x] **10 of 15 nodes are missing a default property for at least one primary float input** (`Math` a/b, `Clamp` value, `MapRange` value, `Lerp` a/b/t, `Abs` x, `Mod` x, `Compare` a, `Gate` value, `Smooth` value, `SampleHold` value, `XYMapper` x/y), so nothing renders until wired. `Clamp`, `MapRange`, `Lerp`, `Abs`, `Mod`, `Compare`, `Gate`, `Smooth`, `SampleHold`, and `XYMapper` now expose editable unwired defaults. `Math` keeps operation-dependent identity fallbacks in evaluator/codegen (`0` except multiply/divide use `1`) and `StudioNode` synthesizes matching A/B editors without baking the wrong identity into `defaultProperties`.
+- [x] **`Ease.t` is a clean, self-contained quick win** — `Ease` now includes `t: 0` in `defaultProperties`, using the existing generic 0–1 slider metadata.
+- [x] **MapRange's `outMin`/`outMax` aren't wireable, unlike `inMin`/`inMax`** — `MapRange` now exposes `outMin`/`outMax` as float input ports and both preview/codegen read wired or property-backed output ranges.
+
+### Color (HueCycle, HSVToRGB, RGBToHSV, CHSV, Temperature, HeatColor, BlendColors, GradientSampler, PaletteSampler, PaletteSweep, PaletteSelector, CustomPalette, Poline, PaletteBlend)
+
+- [x] **BlendColors: preview and firmware genuinely disagree.** Added editable `rA/gA/bA` and `rB/gB/bB` fallback swatches, with preview and firmware now reading the same property-backed unwired colors instead of preview-only red/blue vs firmware black.
+- [x] **RGBToHSV's `rgb` input has no default property.** Added an editable black `r/g/b` fallback and wired preview/codegen to use it whenever the color input is unwired.
+- [x] **HSVToRGB.h has no bounds despite its own label promising "H (0–360)".** Added an `HSVToRGB`-specific 0–360 hue slider override.
+- [x] **GradientSampler.t is the same quick win as Ease.t.** Added `t: 0` to `GradientSampler` defaults so its existing generic 0–1 slider appears before wiring.
+- [x] **Poline: wired anchor colors drive only the preview; firmware always bakes the anchor swatches.** The Poline editor now disables wired anchor swatches immediately and shows a compact "preview-only wires" badge/tooltip whenever any anchor is connected.
+
+### Pattern → Shapes & Text
+
+- [x] **Image.rotation: preview and firmware disagree on a wired rotation signal.** `sampleImageToFrame()` now snaps every finite angle to the nearest quarter turn with C++ `roundf`-compatible half-away-from-zero behavior, including negative wired values; focused image tests cover 44°, 46°, and −45°.
+- [x] **Line's `x1`/`y1`/`x2`/`y2` are raw pixel coordinates defaulting to a 16×16-sized line.** New Line nodes now default to `(0,0)` → (`W-1`,`H-1`), so they span any matrix while retaining the existing expression-capable fields.
+- [x] **Doc gap: `Path` isn't listed in `CLAUDE.md`'s Shapes & Text inventory.** Added it to the canonical pattern inventory.
+
+### Pattern → Generative
+
+- [x] **RadialBurst.arms is a fully dead, wireable port.** It now drives 1–32× ring density in preview and firmware, defaults to 8 (preserving the old hardcoded look), and is displayed as **Rings**. The persisted `arms` port id remains intact so existing saved edges do not break.
+- [x] **Doc gap: `Scanner`/`Confetti`/`Juggle` aren't listed in `CLAUDE.md`'s Generative inventory.** Added all three to the canonical pattern inventory.
+
+### Pattern → Simulations
+
+- [x] **Particles wasn't exhaustively audited** (20 movement variants). Completed the dedicated side-by-side pass across every preview/firmware spawn, update, lifetime, variant-control, and render branch; the existing all-mode evaluator/codegen coverage remains green and no concrete parity defect was found.
+- [x] **Doc gap: `Boids` isn't listed in `CLAUDE.md`'s Simulations inventory.** Added it to the canonical pattern inventory.
+
+### Pattern → Audio-Reactive
+
+- [x] **Doc gap: 11 of this subcategory's 22 nodes aren't listed in `CLAUDE.md`.** Added `SpectrumVisualizer`, `KickShock`, `VocalAurora`, `BeatKaleidoscope`, `SpectraMosaic`, `PercussionBlobs`, `EmberPulse`, `TurbulentBloom`, `GravityWell`, `RainRipples`, and `PrismStorm` to the canonical pattern inventory.
+- [x] **KickShock.tiles is a second dead port.** It now repeats the shockwave field across a live 1–8× square grid in both preview and generated firmware; the default is 1, preserving existing projects' single-field appearance.
+
+### Pattern → Code
+
+- [x] **CustomFormula's `a`/`b` are missing default properties.** Added `a: 0, b: 0`, matching the evaluator and firmware fallbacks so both inputs are editable before wiring.
+- [x] **No in-app help for the formula language's vocabulary.** `CustomFormula` and `FieldFormula` formula rows now expose concise variable/function tooltips in both the node editor and Inspector, including the coordinate variables and FastLED shims.
+- [x] Security/sandboxing was re-verified intact (no `new Function`/`eval`, Code node's worker timeout, `trusted` gating) — no action needed, confirmed clean.
+
+### Field
+
+- [x] Clean — every node passed the dead-port, missing-default, and evaluator/codegen-parity checks. No action needed; flagged in the review as a positive reference point for the rest of the library.
+
+### Effects / composite
+
+- [x] **BrightnessMod:** now exposes a 0–3× slider and both preview and firmware clamp final RGB channels rather than the multiplier, allowing safe amplification as well as dimming.
+
+### Show (MusicLibrary, PatternCollection, TransitionSet, PatternMaster, Sequencer, Transition, PerformanceGenerator, SDCard)
+
+- [x] **MusicLibrary:** removed the dead `colors`/`positions` defaults; existing saves may retain the harmless unused keys without migration.
+- [x] **Sequencer:** its duration-based `fade` control now spans 0–20 seconds, matching the node's interval ceiling.
+- [x] **SDCard pins:** all four pin fields now use the board-aware picker and shared 0–255 Arduino-pin sanitization in generated provisioner/player sketches.
+- [x] **SDCard volume:** `maxVolume` now has a bounded 0–21 integer slider and generated-player safety clamp.
+
+### Output (MatrixOutput)
+
+- [x] **MatrixOutput pins:** `dataPin` and SPI-only `clockPin` now use the board-aware picker and shared 0–255 Arduino-pin sanitization across normal, show-player, live-stream, and wiring-diagnostic firmware.
+- [x] **MatrixOutput size ceiling:** retain 64×64 as the deliberate supported maximum to protect preview performance and firmware memory budgets.
+
+### Node additions worth considering
+
+- [x] **More `Ease` curve variants.** Added linear and FastLED's `ease8InOutApprox`, directional quad/cubic/sine, and in/out sine choices alongside the five original curves. Preview evaluation uses a shared byte-aware implementation, generated firmware dispatches to the compatible legacy or `fl::ease*8` primitive, node headers identify every selection, and focused tests cover the option list, curve behavior, evaluator integration, and emitted C++.
+- [x] **Palette-from-image extraction node** — `Image` now exposes its validated raw upload on a second `image` port while retaining its existing `frame` output. `PaletteFromImage` applies alpha- and animation-duration-weighted median-cut quantisation (2–8 representative colours), orders the anchors dark→light, and expands them through the shared custom-palette interpolation into 16 FastLED stops. Preview extraction is cached by upload identity; codegen runs the same helper at generation time and bakes the result into a `CRGBPalette16`, so firmware pays no per-frame quantisation cost. Covered by extraction, node-library, evaluator, codegen, and live-help-example tests.
+- [ ] **DMX/Art-Net input node** — bigger lift (new `dmx` dataType, `esp_dmx`-style library, new wiring config on par with SDCard's I2S setup); candidate for a dedicated design doc, not a quick add.
+- Time-of-day/scheduled triggers were explicitly flagged as a **non-starter for now** (no RTC/network infrastructure exists yet) — not a recommendation, just ruled out for the record.

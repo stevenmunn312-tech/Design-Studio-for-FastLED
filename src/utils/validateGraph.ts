@@ -1,15 +1,24 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
-import { SPI_CHIPSETS, NODE_LIBRARY, supportsScalarExpression } from '../state/nodeLibrary'
+import { SPI_CHIPSETS, NODE_LIBRARY, supportsScalarExpression, gpioRequirementForProperty, type GpioPropertyRequirement } from '../state/nodeLibrary'
 import { evaluateScalarExpression } from '../state/scalarExpression'
 import { validateMatrixLayout } from '../state/xyLayout'
 import { compositionDims } from '../state/outputRouting'
+import { boardGpioInfo } from '../state/uploadStore'
+import { MAX_PIN_NUMBER, pinSupports } from '../state/boardGpio'
 
 export interface ValidationResult {
   errors:   string[]
   warnings: string[]
 }
 
-interface PinUse { label: string; nodeId: string; pin: number }
+interface PinUse {
+  label: string
+  nodeId: string
+  nodeType: string
+  propertyKey: string
+  pin: number
+  requirement: GpioPropertyRequirement | null
+}
 
 // Every GPIO-typed property across the hardware-input/output nodes, tagged
 // with a human label for the error message. MatrixOutput's clockPin only
@@ -21,8 +30,18 @@ function collectPinUses(nodes: StudioNode[]): PinUse[] {
   const uses: PinUse[] = []
   const matrixOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
   const matrixOrdinal = new Map(matrixOutputs.map((node, index) => [node.id, index + 1]))
-  const push = (nodeId: string, label: string, value: unknown) => {
-    if (typeof value === 'number' && Number.isFinite(value)) uses.push({ label, nodeId, pin: value })
+  const push = (node: StudioNode, label: string, propertyKey: string, value: unknown) => {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return
+    const nodeType = node.data.nodeType
+    const props = node.data.properties as Record<string, unknown>
+    uses.push({
+      label,
+      nodeId: node.id,
+      nodeType,
+      propertyKey,
+      pin: value,
+      requirement: gpioRequirementForProperty(nodeType, propertyKey, props),
+    })
   }
   for (const n of nodes) {
     const props = n.data.properties as Record<string, unknown>
@@ -32,35 +51,35 @@ function collectPinUses(nodes: StudioNode[]): PinUse[] {
       : baseLabel
     switch (n.data.nodeType) {
       case 'MicInput':
-        push(n.id, `${label} I2S WS`, props.i2sWs)
-        push(n.id, `${label} I2S SCK`, props.i2sSck)
-        push(n.id, `${label} I2S SD`, props.i2sSd)
+        push(n, `${label} I2S WS`, 'i2sWs', props.i2sWs)
+        push(n, `${label} I2S SCK`, 'i2sSck', props.i2sSck)
+        push(n, `${label} I2S SD`, 'i2sSd', props.i2sSd)
         break
       case 'MatrixOutput':
-        push(n.id, `${label} data pin`, props.dataPin)
-        if (SPI_CHIPSETS.has(String(props.chipset ?? 'WS2812B'))) push(n.id, `${label} clock pin`, props.clockPin)
+        push(n, `${label} data pin`, 'dataPin', props.dataPin)
+        if (SPI_CHIPSETS.has(String(props.chipset ?? 'WS2812B'))) push(n, `${label} clock pin`, 'clockPin', props.clockPin)
         break
       case 'ButtonInput':
-        push(n.id, `${label} pin`, props.pin)
+        push(n, `${label} pin`, 'pin', props.pin)
         break
       case 'PotInput':
-        push(n.id, `${label} pin`, props.pin)
+        push(n, `${label} pin`, 'pin', props.pin)
         break
       case 'EncoderInput':
-        push(n.id, `${label} pin A`, props.pinA)
-        push(n.id, `${label} pin B`, props.pinB)
-        push(n.id, `${label} switch pin`, props.pinSW)
+        push(n, `${label} pin A`, 'pinA', props.pinA)
+        push(n, `${label} pin B`, 'pinB', props.pinB)
+        push(n, `${label} switch pin`, 'pinSW', props.pinSW)
         break
       case 'SDCard':
-        push(n.id, `${label} CS pin`, props.sdCsPin)
+        push(n, `${label} CS pin`, 'sdCsPin', props.sdCsPin)
         if (props.audioOutput === 'internalDac') {
           // ESP32-audioI2S's internal-DAC mode is fixed to these two pins.
-          push(n.id, `${label} internal DAC (GPIO25)`, 25)
-          push(n.id, `${label} internal DAC (GPIO26)`, 26)
+          push(n, `${label} internal DAC (GPIO25)`, 'internalDac', 25)
+          push(n, `${label} internal DAC (GPIO26)`, 'internalDac', 26)
         } else {
-          push(n.id, `${label} I2S BCLK`, props.i2sBclk)
-          push(n.id, `${label} I2S LRC`, props.i2sLrc)
-          push(n.id, `${label} I2S DOUT`, props.i2sDout)
+          push(n, `${label} I2S BCLK`, 'i2sBclk', props.i2sBclk)
+          push(n, `${label} I2S LRC`, 'i2sLrc', props.i2sLrc)
+          push(n, `${label} I2S DOUT`, 'i2sDout', props.i2sDout)
         }
         break
     }
@@ -258,6 +277,59 @@ export function findPinConflicts(nodes: StudioNode[]): string[] {
   return conflicts.sort()
 }
 
+export function isValidPinNumber(pin: number): boolean {
+  return Number.isInteger(pin) && pin >= 0 && pin <= MAX_PIN_NUMBER
+}
+
+export function findPinRangeWarnings(nodes: StudioNode[]): string[] {
+  const warnings = collectPinUses(nodes)
+    .filter((use) => !isValidPinNumber(use.pin))
+    .map((use) => `${use.label} is set to ${use.pin}, which isn't a valid Arduino pin number (expected a whole number from 0–${MAX_PIN_NUMBER})`)
+  return warnings.sort()
+}
+
+export interface BoardPinCompatibility {
+  errors: string[]
+  warnings: string[]
+}
+
+/** Checks every generated pin role against the selected board's Arduino pin
+ * table. Custom boards without a table keep the numeric-only fallback. */
+export function findBoardPinCompatibility(nodes: StudioNode[], selectedFqbn: string): BoardPinCompatibility {
+  const gpio = selectedFqbn ? boardGpioInfo(selectedFqbn) : undefined
+  if (!gpio) return { errors: [], warnings: [] }
+  const errors: string[] = []
+  const warnings: string[] = []
+  for (const use of collectPinUses(nodes)) {
+    if (!isValidPinNumber(use.pin) || !use.requirement) continue
+    const unavailable = gpio.caution.find((pin) => pin.pin === use.pin)
+    if (unavailable) {
+      errors.push(`${use.label} uses pin ${use.pin}, which is unavailable on the selected board: ${unavailable.note}`)
+      continue
+    }
+    const pin = gpio.recommended.find((candidate) => candidate.pin === use.pin)
+    if (!pin) {
+      errors.push(`${use.label} uses pin ${use.pin}, which isn't listed as a usable pin on the selected board`)
+      continue
+    }
+    if (!pinSupports(pin, use.requirement.capability)) {
+      const capability = use.requirement.capability === 'analogInput'
+        ? 'analog input'
+        : use.requirement.capability === 'digitalInput'
+          ? 'digital input'
+          : 'digital output'
+      errors.push(`${use.label} uses pin ${use.pin}, which doesn't support ${capability} on the selected board`)
+      continue
+    }
+    if (use.requirement.pullup && !pinSupports(pin, 'pullup')) {
+      errors.push(`${use.label} uses pin ${use.pin}, which has no internal pull-up on the selected board`)
+      continue
+    }
+    if (pin.warning) warnings.push(`${use.label} uses pin ${use.pin}: ${pin.warning}`)
+  }
+  return { errors: errors.sort(), warnings: warnings.sort() }
+}
+
 export function findMatrixLayoutErrors(nodes: StudioNode[]): string[] {
   return nodes.filter((node) => node.data.nodeType === 'MatrixOutput').flatMap((output, index) => {
     const props = output.data.properties as Record<string, unknown>
@@ -282,6 +354,7 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
   if (selectedFqbn && internalDacSd && selectedFqbn !== 'esp32:esp32:esp32') {
     errors.push('SD Card internal-DAC audio output requires the classic ESP32 board — ESP32-S3/S2/C3 have no built-in DAC')
   }
+  errors.push(...findBoardPinCompatibility(nodes, selectedFqbn).errors)
   return errors
 }
 
@@ -432,6 +505,30 @@ export function buildGraphDiagnostics(
       nodeIds: [...new Set(uses.map((use) => use.nodeId))],
       nodeLabel: uses.length === 2 ? uses.map((use) => use.label).join(' / ') : `${uses.length} pin roles`,
     })
+  }
+  for (const use of collectPinUses(nodes)) {
+    if (isValidPinNumber(use.pin)) continue
+    diagnostics.push({
+      id: `pin-range-${use.nodeId}-${use.label}`, severity: 'warning', category: 'pins',
+      title: `${use.label} isn't a valid GPIO number`,
+      message: `Set to ${use.pin} — expected a whole number from 0–${MAX_PIN_NUMBER}.`,
+      fix: 'Enter a whole number GPIO pin in range for the selected board.',
+      nodeIds: [use.nodeId], nodeLabel: use.label,
+    })
+  }
+  if (options.selectedFqbn) {
+    const boardPins = findBoardPinCompatibility(nodes, options.selectedFqbn)
+    for (const [severity, messages] of [['error', boardPins.errors], ['warning', boardPins.warnings]] as const) {
+      messages.forEach((message, index) => diagnostics.push({
+        id: `board-pin-${severity}-${index}`,
+        severity,
+        category: 'pins',
+        title: severity === 'error' ? 'Pin is incompatible with the selected board' : 'Selected pin has a board caveat',
+        message,
+        fix: 'Choose a compatible pin from the board-aware pin picker.',
+        nodeIds: collectPinUses(nodes).filter((use) => message.startsWith(use.label)).map((use) => use.nodeId).slice(0, 1),
+      }))
+    }
   }
   const cappedOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput' && (node.data.properties as Record<string, unknown>).powerLimit === true)
   const outputResourceErrors = findOutputResourceErrors(nodes)
@@ -630,6 +727,8 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   errors.push(...findScalarExpressionErrors(nodes))
   errors.push(...findBoardCompatibilityErrors(nodes, selectedFqbn))
   warnings.push(...findPreviewOnlyWarnings(nodes, edges))
+  warnings.push(...findPinRangeWarnings(nodes))
+  warnings.push(...findBoardPinCompatibility(nodes, selectedFqbn).warnings)
 
   const power = estimatePowerLoad(nodes)
   if (power?.exceedsConfigured) {

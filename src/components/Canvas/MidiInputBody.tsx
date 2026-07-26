@@ -5,6 +5,17 @@ import styles from './MidiInputBody.module.css'
 // the current velocity/CC values for the note/cc numbers this node is
 // listening to, mirroring FFTAnalyzerBody's LIVE/SILENT status pill.
 
+const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+
+// Scientific pitch notation, MIDI note 60 = C4 (the common DAW/General MIDI
+// convention) — lets a non-musician tell what key a raw note number means.
+function midiNoteName(note: number): string {
+  const n = Math.round(note)
+  if (!Number.isFinite(n) || n < 0 || n > 127) return '—'
+  const octave = Math.floor(n / 12) - 1
+  return `${NOTE_NAMES[n % 12]}${octave}`
+}
+
 export default function MidiInputBody({ note, cc }: { note: number; cc: number }) {
   const supported = useMidiStore((s) => s.supported)
   const active = useMidiStore((s) => s.active)
@@ -19,7 +30,7 @@ export default function MidiInputBody({ note, cc }: { note: number; cc: number }
         <span />{label}
       </div>
       <div className={styles.readout}>
-        <span>note {note}</span>
+        <span>note {note} → {midiNoteName(note)}</span>
         <span>{velocity.toFixed(2)}</span>
       </div>
       <div className={styles.readout}>

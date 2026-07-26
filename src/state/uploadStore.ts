@@ -1,11 +1,14 @@
 import { create } from 'zustand'
 import {
   checkBackend, listPorts, listCores, uploadSketch, uploadShow, locateCli, installCli, installCore,
-  monitorSerial,
-  type BackendHealth, type SerialPort, type ShowUploadFile,
+  monitorSerial, checkCoreUpdates, upgradeCores as requestCoreUpgrade, setEngine as requestSetEngine,
+  type BackendHealth, type SerialPort, type ShowUploadFile, type CoreUpdate,
 } from '../utils/backendClient'
 import { useProjectStore } from './projectStore'
 import { useStreamStore } from './streamStore'
+import { BOARD_GPIO_BY_FQBN, type BoardGpio } from './boardGpio'
+
+export type { BoardGpio, PinNote } from './boardGpio'
 
 // ── Board catalogue ───────────────────────────────────────────────────────────
 // Each board maps to an arduino-cli FQBN and the core that provides it. ESP32,
@@ -18,34 +21,109 @@ import { useStreamStore } from './streamStore'
 // firmware checks `psramFound()` at runtime. Boards without the field (AVR,
 // RP2040, Teensy) have no PSRAM support.
 export interface PsramOption { id: string; label: string; opt: string }
-export interface Board { label: string; fqbn: string; core: string; thirdParty?: boolean; psram?: PsramOption[] }
 
+export interface Board {
+  label: string
+  fqbn: string
+  core: string
+  thirdParty?: boolean
+  psram?: PsramOption[]
+  /** Board-manager index URL — present on user-added custom boards, so their
+   *  core can be installed/updated without a hardcoded `_CORE_URLS` entry. */
+  boardUrl?: string
+  /** Optional GPIO reference for a user-added board. Built-in boards use the
+   *  complete BOARD_GPIO_BY_FQBN capability catalogue. */
+  gpio?: BoardGpio
+}
+
+// The boards below (past Uno/Nano/Mega/Nano 33 IoT) were added from fbuild's
+// own board-support reference (BOARD_STATUS.md) to widen the fbuild catalogue.
+// None are hardware-validated by this project yet — see beta-support-matrix.md,
+// which already treats "all boards except ESP32-S3" as experimental. A few
+// entries carry an extra inline caveat where the exact arduino-cli FQBN or
+// fbuild/PlatformIO board id couldn't be verified against a real toolchain in
+// this environment; fbuild (the preferred engine) is expected to work for all
+// of them via `_PIO_BOARDS` in `backend/app.py` — arduino-cli fallback may not
+// for the STM32/Zero entries flagged below.
 export const BOARDS: Board[] = [
   { label: 'ESP32-S3',      fqbn: 'esp32:esp32:esp32s3',   core: 'esp32:esp32',   thirdParty: true,
     psram: [
       { id: 'opi',  label: 'OPI (R8 modules, e.g. N16R8)', opt: 'PSRAM=opi' },
       { id: 'qspi', label: 'QSPI (R2 modules, e.g. N8R2)', opt: 'PSRAM=enabled' },
-    ] },
+    ],
+  },
   { label: 'ESP32',         fqbn: 'esp32:esp32:esp32',     core: 'esp32:esp32',   thirdParty: true,
     psram: [
       { id: 'qspi', label: 'QSPI (WROVER modules)', opt: 'PSRAM=enabled' },
-    ] },
+    ],
+  },
+  { label: 'ESP32-S2',      fqbn: 'esp32:esp32:esp32s2',   core: 'esp32:esp32',   thirdParty: true },
+  { label: 'ESP32-C3',      fqbn: 'esp32:esp32:esp32c3',   core: 'esp32:esp32',   thirdParty: true },
+  { label: 'ESP32-C6',      fqbn: 'esp32:esp32:esp32c6',   core: 'esp32:esp32',   thirdParty: true },
+  { label: 'ESP32-H2',      fqbn: 'esp32:esp32:esp32h2',   core: 'esp32:esp32',   thirdParty: true },
+  { label: 'ESP8266',       fqbn: 'esp8266:esp8266:nodemcuv2', core: 'esp8266:esp8266', thirdParty: true },
   { label: 'Arduino Uno',   fqbn: 'arduino:avr:uno',       core: 'arduino:avr' },
   { label: 'Arduino Nano',  fqbn: 'arduino:avr:nano',      core: 'arduino:avr' },
+  { label: 'Arduino Leonardo', fqbn: 'arduino:avr:leonardo', core: 'arduino:avr' },
   // Same arduino:avr core as Uno/Nano above (built-in board index, no
   // board-manager URL to register) — just a bigger chip with more pins.
   // Not yet hardware-validated by this project; see beta-support-matrix.md.
   { label: 'Arduino Mega (experimental)', fqbn: 'arduino:avr:mega', core: 'arduino:avr' },
+  // Arduino's own MegaAVR core (0-series), part of arduino-cli's built-in
+  // board index like arduino:samd below — no board-manager URL to register.
+  { label: 'Arduino Nano Every', fqbn: 'arduino:megaavr:nona4809', core: 'arduino:megaavr' },
   { label: 'Teensy 4.1',    fqbn: 'teensy:avr:teensy41',   core: 'teensy:avr',    thirdParty: true },
+  { label: 'Teensy 4.0',    fqbn: 'teensy:avr:teensy40',   core: 'teensy:avr',    thirdParty: true },
+  { label: 'Teensy 3.6',    fqbn: 'teensy:avr:teensy36',   core: 'teensy:avr',    thirdParty: true },
+  { label: 'Teensy 3.5',    fqbn: 'teensy:avr:teensy35',   core: 'teensy:avr',    thirdParty: true },
+  // Teensy 3.1 and 3.2 are the same MK20DX256 board revision and share this fqbn.
+  { label: 'Teensy 3.1 / 3.2', fqbn: 'teensy:avr:teensy31', core: 'teensy:avr',  thirdParty: true },
+  { label: 'Teensy 3.0',    fqbn: 'teensy:avr:teensy30',   core: 'teensy:avr',    thirdParty: true },
+  { label: 'Teensy LC',     fqbn: 'teensy:avr:teensyLC',   core: 'teensy:avr',    thirdParty: true },
   { label: 'RP2040 (Pico)', fqbn: 'rp2040:rp2040:rpipico', core: 'rp2040:rp2040', thirdParty: true },
-  // arduino:samd is also part of arduino-cli's built-in board index (Arduino's
-  // own SAMD core, unlike the ESP32/RP2040/Teensy third-party packages above).
-  // Not yet hardware-validated by this project; see beta-support-matrix.md.
+  { label: 'RP2350 (Pico 2)', fqbn: 'rp2040:rp2040:rpipico2', core: 'rp2040:rp2040', thirdParty: true },
+  // arduino:samd and arduino:sam are also part of arduino-cli's built-in board
+  // index (Arduino's own cores, unlike the ESP32/RP2040/Teensy third-party
+  // packages above). Not yet hardware-validated by this project; see
+  // beta-support-matrix.md.
   { label: 'Arduino Nano 33 IoT (experimental)', fqbn: 'arduino:samd:nano_33_iot', core: 'arduino:samd' },
+  { label: 'Arduino Due',   fqbn: 'arduino:sam:arduino_due_x', core: 'arduino:sam' },
+  // The exact fbuild/PlatformIO board id for a bare Arduino Zero (vs. the
+  // Adafruit Feather M0 below, which shares the same SAMD21 chip) could not be
+  // confirmed against a real toolchain here — flagged experimental until
+  // someone validates the `_PIO_BOARDS` entry compiles.
+  { label: 'Arduino Zero (experimental)', fqbn: 'arduino:samd:arduino_zero_native', core: 'arduino:samd' },
+  { label: 'Adafruit Feather M0 (SAMD21)', fqbn: 'adafruit:samd:adafruit_feather_m0', core: 'adafruit:samd', thirdParty: true },
+  { label: 'Adafruit QT Py M0 (SAMD21)', fqbn: 'adafruit:samd:adafruit_qtpy_m0', core: 'adafruit:samd', thirdParty: true },
+  { label: 'Adafruit Feather M4 (SAMD51)', fqbn: 'adafruit:samd:adafruit_feather_m4', core: 'adafruit:samd', thirdParty: true },
+  { label: 'Adafruit Grand Central M4 (SAMD51)', fqbn: 'adafruit:samd:adafruit_grandcentral_m4', core: 'adafruit:samd', thirdParty: true },
+  { label: 'Adafruit Matrix Portal M4 (SAMD51)', fqbn: 'adafruit:samd:adafruit_matrixportal_m4', core: 'adafruit:samd', thirdParty: true },
+  // STM32duino's Arduino core needs a `pnum` FQBN sub-option to pick the exact
+  // chip variant (e.g. `:pnum=BLUEPILL_F103C8`), which this app doesn't set —
+  // so the arduino-cli engine likely can't build these as-is. fbuild (the
+  // preferred engine) builds them directly via `_PIO_BOARDS` in
+  // `backend/app.py`, which is the reliable path for this group.
+  { label: 'STM32F103C8 (Blue Pill, experimental)', fqbn: 'STMicroelectronics:stm32:bluepill_f103c8', core: 'STMicroelectronics:stm32', thirdParty: true },
+  { label: 'STM32F411CE (Black Pill, experimental)', fqbn: 'STMicroelectronics:stm32:blackpill_f411ce', core: 'STMicroelectronics:stm32', thirdParty: true },
+  { label: 'Nucleo F429ZI (experimental)', fqbn: 'STMicroelectronics:stm32:nucleo_f429zi', core: 'STMicroelectronics:stm32', thirdParty: true },
+  { label: 'Nucleo F439ZI (experimental)', fqbn: 'STMicroelectronics:stm32:nucleo_f439zi', core: 'STMicroelectronics:stm32', thirdParty: true },
+  { label: 'Arduino UNO R4 WiFi', fqbn: 'arduino:renesas_uno:unor4wifi', core: 'arduino:renesas_uno' },
+  { label: 'nRF52840 DK', fqbn: 'adafruit:nrf52:pca10056', core: 'adafruit:nrf52', thirdParty: true },
 ]
 
 export function boardByFqbn(fqbn: string): Board | undefined {
-  return BOARDS.find((b) => b.fqbn === fqbn)
+  return BOARDS.find((b) => b.fqbn === fqbn) ?? useUploadStore.getState().customBoards.find((b) => b.fqbn === fqbn)
+}
+
+/** GPIO capability reference for a built-in board, or an optional custom-board
+ *  table. Custom boards without one use conservative numeric entry. */
+export function boardGpioInfo(fqbn: string): BoardGpio | undefined {
+  return BOARD_GPIO_BY_FQBN[fqbn] ?? boardByFqbn(fqbn)?.gpio
+}
+
+/** Built-in catalogue plus any user-added custom boards, in display order. */
+export function allBoards(): Board[] {
+  return [...BOARDS, ...useUploadStore.getState().customBoards]
 }
 
 // Whether the helper's *active* engine is actually usable — fbuild needs no
@@ -95,15 +173,21 @@ export function parseStatus(log: string): UploadStatus {
 
 // ── Persistence ───────────────────────────────────────────────────────────────
 const KEY = 'design-studio-for-fastled-upload'
-interface Persisted { myBoards: string[]; selectedFqbn: string; selectedPort: string }
+interface Persisted { myBoards: string[]; selectedFqbn: string; selectedPort: string; customBoards: Board[] }
 interface CachedSketchUpload { code: string; fqbnOpt?: string }
 
 function load(): Persisted {
-  const fallback: Persisted = { myBoards: BOARDS.map((b) => b.fqbn), selectedFqbn: BOARDS[0].fqbn, selectedPort: '' }
+  const fallback: Persisted = { myBoards: BOARDS.map((b) => b.fqbn), selectedFqbn: BOARDS[0].fqbn, selectedPort: '', customBoards: [] }
   try {
     const v = localStorage.getItem(KEY)
     if (!v) return fallback
-    return { ...fallback, ...(JSON.parse(v) as Partial<Persisted>) }
+    const parsed = { ...fallback, ...(JSON.parse(v) as Partial<Persisted>) }
+    // A custom board's core must also be selectable, so a stale save (e.g.
+    // the board was removed elsewhere) doesn't leave `myBoards` pointing at
+    // a core with nothing behind it.
+    const customFqbns = new Set(parsed.customBoards.map((b) => b.fqbn))
+    parsed.myBoards = parsed.myBoards.filter((f) => BOARDS.some((b) => b.fqbn === f) || customFqbns.has(f))
+    return parsed
   } catch {
     return fallback
   }
@@ -118,9 +202,9 @@ function projectSelection(fallback: Persisted): Pick<UploadState, 'selectedFqbn'
   }
 }
 
-function persistFallback(s: Pick<UploadState, 'myBoards' | 'selectedFqbn' | 'selectedPort'>) {
-  persistedPrefs = { myBoards: s.myBoards, selectedFqbn: s.selectedFqbn, selectedPort: s.selectedPort }
-  try { localStorage.setItem(KEY, JSON.stringify({ myBoards: s.myBoards, selectedFqbn: s.selectedFqbn, selectedPort: s.selectedPort })) } catch { /* quota */ }
+function persistFallback(s: Pick<UploadState, 'myBoards' | 'selectedFqbn' | 'selectedPort' | 'customBoards'>) {
+  persistedPrefs = { myBoards: s.myBoards, selectedFqbn: s.selectedFqbn, selectedPort: s.selectedPort, customBoards: s.customBoards }
+  try { localStorage.setItem(KEY, JSON.stringify(persistedPrefs)) } catch { /* quota */ }
 }
 
 // ── Store ─────────────────────────────────────────────────────────────────────
@@ -133,7 +217,14 @@ interface UploadState {
   myBoards: string[]
   selectedFqbn: string
   selectedPort: string
+  /** User-added boards (custom board-manager URL), merged with the built-in
+   *  catalogue by `allBoards()`/`boardByFqbn()`. */
+  customBoards: Board[]
   lastSketchByProject: Record<string, CachedSketchUpload>
+  // core-update check (arduino-cli engine only)
+  checkingUpdates: boolean
+  availableUpdates: CoreUpdate[]
+  updatesPopupOpen: boolean
   // run state
   busy: boolean
   status: UploadStatus
@@ -156,11 +247,18 @@ interface UploadState {
   refreshHelper: () => Promise<void>
   refreshPorts: () => Promise<void>
   refreshCores: () => Promise<void>
+  /** Switch the helper's build engine. `fbuild` manages its own per-board
+   *  toolchains; `arduino-cli` additionally supports custom boards-by-URL and
+   *  core update checks. Only takes effect when that engine's binary exists. */
+  setEngine: (engine: 'fbuild' | 'arduino-cli') => Promise<void>
   // selection
   setMyBoards: (fqbns: string[]) => void
   toggleBoard: (fqbn: string) => void
   setSelectedFqbn: (fqbn: string) => void
   setSelectedPort: (port: string) => void
+  // custom boards (add-by-URL)
+  addCustomBoard: (input: { label: string; fqbn: string; core: string; boardUrl: string }) => { ok: boolean; error?: string }
+  removeCustomBoard: (fqbn: string) => void
   // overlays
   openBoardPopup: () => void
   closeBoardPopup: () => void
@@ -194,11 +292,29 @@ interface UploadState {
   locate: (path: string) => Promise<{ ok: boolean; error?: string }>
   installCli: () => Promise<void>
   installCore: (core: string) => Promise<void>
+  // core updates (arduino-cli engine only)
+  checkForUpdates: () => Promise<void>
+  closeUpdatesPopup: () => void
+  upgradeCores: (cores?: string[]) => Promise<void>
 }
 
 let persistedPrefs = load()
 const initialSelection = projectSelection(persistedPrefs)
 let serialController: AbortController | null = null
+
+// An error status sticks around until the user notices it, then quietly
+// reverts to the normal idle button — otherwise a red "Error" button is
+// permanent until the next upload attempt.
+const ERROR_RESET_MS = 5000
+let errorResetTimer: ReturnType<typeof setTimeout> | null = null
+
+function scheduleErrorReset(set: (partial: Partial<UploadState>) => void, get: () => UploadState) {
+  if (errorResetTimer) clearTimeout(errorResetTimer)
+  errorResetTimer = setTimeout(() => {
+    errorResetTimer = null
+    if (get().status.phase === 'error') set({ status: IDLE })
+  }, ERROR_RESET_MS)
+}
 
 function saveProjectSelection(selectedFqbn: string, selectedPort: string) {
   useProjectStore.getState().setProjectUploadTarget({ selectedFqbn, selectedPort })
@@ -211,7 +327,11 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   myBoards: persistedPrefs.myBoards,
   selectedFqbn: initialSelection.selectedFqbn,
   selectedPort: initialSelection.selectedPort,
+  customBoards: persistedPrefs.customBoards,
   lastSketchByProject: {},
+  checkingUpdates: false,
+  availableUpdates: [],
+  updatesPopupOpen: false,
   busy: false,
   status: IDLE,
   log: '',
@@ -235,11 +355,25 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     if (h?.ok) { get().refreshPorts(); get().refreshCores() }
   },
 
+  setEngine: async (engine) => {
+    if (get().busy) return
+    const res = await requestSetEngine(engine)
+    if (res.ok) await get().refreshHelper()
+  },
+
   refreshPorts: async () => {
     const ports = await listPorts()
     set({ ports })
-    // Default the port to the first detected board if nothing is chosen yet.
-    if (!get().selectedPort && ports[0]) get().setSelectedPort(ports[0].address)
+    // Default to the first detected board when nothing is chosen, or when the
+    // previously selected port has disappeared from the list (e.g. the board
+    // re-enumerated on a different port after a replug). Otherwise
+    // `selectedPort` keeps pointing at a port that no longer exists while the
+    // <select> silently falls back to displaying the first option — making it
+    // look like the right port is selected when uploads still target the
+    // stale one.
+    const { selectedPort } = get()
+    const stillPresent = selectedPort && ports.some((p) => p.address === selectedPort)
+    if (!stillPresent && ports[0]) get().setSelectedPort(ports[0].address)
   },
 
   refreshCores: async () => set({ installedCores: await listCores() }),
@@ -261,6 +395,29 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     set({ selectedFqbn: fqbn })
     persistFallback({ ...get(), selectedFqbn: fqbn, selectedPort })
     saveProjectSelection(fqbn, selectedPort)
+  },
+  addCustomBoard: ({ label, fqbn, core, boardUrl }) => {
+    const l = label.trim(), f = fqbn.trim(), c = core.trim(), u = boardUrl.trim()
+    if (!l || !f || !c || !u) return { ok: false, error: 'Label, FQBN, core, and board URL are all required.' }
+    if (BOARDS.some((b) => b.fqbn === f) || get().customBoards.some((b) => b.fqbn === f)) {
+      return { ok: false, error: `A board with FQBN "${f}" already exists.` }
+    }
+    const board: Board = { label: l, fqbn: f, core: c, boardUrl: u, thirdParty: true }
+    const customBoards = [...get().customBoards, board]
+    const myBoards = [...get().myBoards, f]
+    set({ customBoards, myBoards })
+    persistFallback({ ...get(), customBoards, myBoards })
+    return { ok: true }
+  },
+  removeCustomBoard: (fqbn) => {
+    const customBoards = get().customBoards.filter((b) => b.fqbn !== fqbn)
+    const myBoards = get().myBoards.filter((f) => f !== fqbn)
+    let selectedFqbn = get().selectedFqbn
+    if (selectedFqbn === fqbn) selectedFqbn = myBoards[0] ?? ''
+    const selectedPort = get().selectedPort
+    set({ customBoards, myBoards, selectedFqbn })
+    persistFallback({ ...get(), customBoards, myBoards, selectedFqbn, selectedPort })
+    saveProjectSelection(selectedFqbn, selectedPort)
   },
   setSelectedPort: (port) => {
     const selectedFqbn = get().selectedFqbn
@@ -343,12 +500,15 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       // Settle on a terminal status from the full log.
       const final = parseStatus(get().log)
       set({ status: final.phase === 'uploading' || final.phase === 'working' ? { phase: 'done', message: 'Done' } : final })
-      if (get().status.phase === 'error') set({ consoleOpen: true })
+      // Pop the output/serial console open whenever an upload finishes, not
+      // just on failure, so the result is always visible without an extra click.
+      set({ consoleOpen: true })
     } catch (err) {
       get().appendLog(`\n[error] ${err}\n`)
       set({ status: { phase: 'error', message: 'Error — helper offline?' }, consoleOpen: true })
     } finally {
       set({ busy: false })
+      if (get().status.phase === 'error') scheduleErrorReset(set, get)
     }
   },
 
@@ -381,6 +541,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       set({ status: { phase: 'error', message: 'Error — helper offline?' }, consoleOpen: true })
     } finally {
       set({ busy: false })
+      if (get().status.phase === 'error') scheduleErrorReset(set, get)
     }
   },
 
@@ -413,14 +574,16 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       set({ status: { phase: 'error', message: 'Install failed' } })
     } finally {
       set({ busy: false })
+      if (get().status.phase === 'error') scheduleErrorReset(set, get)
     }
   },
 
   installCore: async (core) => {
     if (get().busy) return
+    const url = allBoards().find((b) => b.core === core && b.boardUrl)?.boardUrl
     set({ busy: true, consoleOpen: true, log: get().log + `\n=== Installing ${core} ===\n`, status: { phase: 'working', message: `Installing ${core}…` } })
     try {
-      await installCore(core, (chunk) => get().appendLog(chunk))
+      await installCore(core, (chunk) => get().appendLog(chunk), undefined, url)
       await get().refreshCores()
       const ok = get().installedCores.includes(core)
       set({ status: ok ? { phase: 'done', message: `${core} installed` } : { phase: 'error', message: 'Core install failed' } })
@@ -429,6 +592,42 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       set({ status: { phase: 'error', message: 'Core install failed' } })
     } finally {
       set({ busy: false })
+      if (get().status.phase === 'error') scheduleErrorReset(set, get)
+    }
+  },
+
+  checkForUpdates: async () => {
+    if (get().checkingUpdates || get().busy) return
+    set({ checkingUpdates: true })
+    try {
+      const urls = get().customBoards.map((b) => b.boardUrl).filter((u): u is string => !!u)
+      const updates = await checkCoreUpdates(urls)
+      set({ availableUpdates: updates, updatesPopupOpen: true })
+    } finally {
+      set({ checkingUpdates: false })
+    }
+  },
+  closeUpdatesPopup: () => set({ updatesPopupOpen: false }),
+  upgradeCores: async (cores) => {
+    if (get().busy) return
+    const list = cores ?? get().availableUpdates.map((u) => u.core)
+    const urls = get().customBoards.map((b) => b.boardUrl).filter((u): u is string => !!u)
+    set({
+      busy: true, consoleOpen: true, updatesPopupOpen: false,
+      log: get().log + `\n=== Updating ${list.length ? list.join(', ') : 'all boards'} ===\n`,
+      status: { phase: 'working', message: 'Updating…' },
+    })
+    try {
+      await requestCoreUpgrade(list, urls, (chunk) => get().appendLog(chunk))
+      await get().refreshCores()
+      const updated = await checkCoreUpdates(urls)
+      set({ availableUpdates: updated, status: { phase: 'done', message: 'Update complete' } })
+    } catch (err) {
+      get().appendLog(`\n[error] ${err}\n`)
+      set({ status: { phase: 'error', message: 'Update failed' } })
+    } finally {
+      set({ busy: false })
+      if (get().status.phase === 'error') scheduleErrorReset(set, get)
     }
   },
 }))

@@ -119,6 +119,19 @@ const STRUCTURAL_KEYS = new Set([
   'b',
 ])
 
+// Physical wiring — which GPIO pin, which chipset, which I2S channel — is a
+// one-time hardware decision made once per rig, not something a performer
+// rides live, so it doesn't get a "pin to Performance Deck" button even
+// though it's otherwise pinnable-shaped (numbers/enums). Scoped per node
+// type since the same key name could mean something else on another node.
+const WIRING_KEYS: Record<string, Set<string>> = {
+  MicInput: new Set(['i2sWs', 'i2sSck', 'i2sSd', 'channel']),
+  MatrixOutput: new Set(['chipset', 'colorOrder', 'dataPin', 'clockPin', 'serpentine']),
+  ButtonInput: new Set(['pin']),
+  PotInput: new Set(['pin']),
+  EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
+}
+
 /** Whether a node property is sensible to pin as a live performance control.
  *  Deliberately property-shape-based (numbers/booleans/enum strings), not
  *  category-based — unlike nodePresets.ts's blanket input/output/hardware
@@ -126,6 +139,7 @@ const STRUCTURAL_KEYS = new Set([
  *  pinnable. */
 export function isPinnableProperty(nodeType: string, key: string, value?: unknown): boolean {
   if (STRUCTURAL_KEYS.has(key)) return false
+  if (WIRING_KEYS[nodeType]?.has(key)) return false
   if (value === undefined) return true
   const meta = propertyMeta(nodeType, key)
   if (meta) return true
@@ -337,4 +351,5 @@ export const RESERVED_COMBOS = new Set([
   'Ctrl+V',
   'Ctrl+D',
   'Ctrl+G',
+  'Ctrl+K',
 ])

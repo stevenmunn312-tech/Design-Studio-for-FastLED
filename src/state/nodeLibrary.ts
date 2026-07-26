@@ -1,9 +1,10 @@
 import type { NodeDefinition } from '../types'
 import { STUDIO_PALETTES } from './paletteCatalog'
-import { DEFAULT_CUSTOM_COLORS, DEFAULT_CUSTOM_POSITIONS } from './customPalette'
 import { evaluateScalarExpression } from './scalarExpression'
 import { MIC_DEFAULTS, MIC_MAX_GAIN } from '../audio/micAnalysis'
 import { ANIMARTRIX_EFFECTS } from '../animartrix/catalog'
+import { MAX_PIN_NUMBER, type GpioCapability } from './boardGpio'
+import { EASE_TYPES } from './easing'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   // ── Inputs ─────────────────────────────────────────────────────────────
@@ -36,7 +37,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'show',
     inputs: [],
     outputs: [{ id: 'music', label: 'Music', dataType: 'music' }],
-    defaultProperties: { colors: [...DEFAULT_CUSTOM_COLORS], positions: [...DEFAULT_CUSTOM_POSITIONS] },
+    defaultProperties: {},
   },
   {
     type: 'FFTAnalyzer',
@@ -58,6 +59,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [
       { id: 'beat', label: 'Beat', dataType: 'bool' },
       { id: 'bpm', label: 'BPM', dataType: 'float' },
+      // Internal tuning diagnostics — surfaced so threshold/attack/decay can
+      // be dialed in visually instead of trial-and-error against a silent
+      // binary pulse. See graphEvaluator.ts's BeatDetect case.
+      { id: 'flux', label: 'Flux', dataType: 'float' },
+      { id: 'onset', label: 'Onset', dataType: 'float' },
+      { id: 'contrast', label: 'Contrast', dataType: 'float' },
+      { id: 'threshold', label: 'Threshold', dataType: 'float' },
+      { id: 'cooldownMs', label: 'Cooldown (ms)', dataType: 'float' },
     ],
     defaultProperties: { threshold: 0.2, attack: 0.55, decay: 0.25 },
   },
@@ -151,7 +160,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'y2',    label: 'Y2', dataType: 'float' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { x1: 0, y1: 0, x2: 15, y2: 15, r: 0, g: 200, b: 255 },
+    defaultProperties: { x1: 0, y1: 0, x2: 'W-1', y2: 'H-1', r: 0, g: 200, b: 255 },
   },
   {
     // Bundled shape generator: draws a rect / ellipse / regular polygon at
@@ -721,7 +730,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
-      energy: 0.7, speed: 1.0, palette: 'volcano',
+      energy: 0.7, speed: 1.0, tiles: 1, palette: 'volcano',
       count: 8, decay: 1, thickness: 1, spawnSpread: 0, blendMode: 'add',
     },
   },
@@ -885,11 +894,13 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     subcategory: 'Generative',
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
-      { id: 'arms', label: 'Arms', dataType: 'float' },
+      // Keep the persisted `arms` port id for saved-graph compatibility; the
+      // pattern is radial rings, so the user-facing name describes its effect.
+      { id: 'arms', label: 'Rings', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.5, palette: 'ocean' },
+    defaultProperties: { speed: 0.5, arms: 8, palette: 'ocean' },
   },
   {
     type: 'Spiral',
@@ -1078,7 +1089,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'colorB', label: 'Color B', dataType: 'color' },
     ],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
-    defaultProperties: { rA: 0, gA: 200, bA: 255, rB: 255, gB: 0, bB: 255 },
+    defaultProperties: { t: 0, rA: 0, gA: 200, bA: 255, rB: 255, gB: 0, bB: 255 },
   },
   {
     type: 'PaletteSampler',
@@ -1132,7 +1143,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'max', label: 'Max', dataType: 'float' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: { min: 0, max: 1 },
+    defaultProperties: { value: 0, min: 0, max: 1 },
   },
   {
     type: 'MapRange',
@@ -1142,9 +1153,11 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'value', label: 'Value', dataType: 'float' },
       { id: 'inMin', label: 'In Min', dataType: 'float' },
       { id: 'inMax', label: 'In Max', dataType: 'float' },
+      { id: 'outMin', label: 'Out Min', dataType: 'float' },
+      { id: 'outMax', label: 'Out Max', dataType: 'float' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: { inMin: 0, inMax: 1, outMin: 0, outMax: 1 },
+    defaultProperties: { value: 0, inMin: 0, inMax: 1, outMin: 0, outMax: 1 },
   },
   {
     type: 'Sin',
@@ -1197,17 +1210,18 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 't', label: 'T', dataType: 'float' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: {},
+    defaultProperties: { a: 0, b: 1, t: 0.5 },
   },
   {
-    // Easing curve on a 0–1 value — FastLED lib8tion (ease8/*wave8). `easeType`
-    // selects the curve; the header reflects it. See PROPERTY_META.easeType.
+    // Easing curve on a 0–1 value — legacy lib8tion shapes plus FastLED's
+    // directional quad/cubic/sine family. `easeType` selects the curve; the
+    // header reflects it. See PROPERTY_META.easeType.
     type: 'Ease',
     label: 'Ease',
     category: 'math',
     inputs: [{ id: 't', label: 'T (0–1)', dataType: 'float' }],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: { easeType: 'inOutCubic' },
+    defaultProperties: { easeType: 'inOutCubic', t: 0 },
   },
   {
     // Metronome — emits a boolean pulse once every `interval` seconds (a non-audio
@@ -1221,14 +1235,15 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   },
   {
     // Trigger envelope — jumps to 1 on a rising edge of `trigger`, then decays
-    // linearly to 0 over `decay` seconds (pipe through Ease for a curve). The
-    // generic float analogue of BeatFlash: drive any knob from a beat/button.
+    // linearly to 0 over `decay` seconds; `attack` optionally ramps the rise.
+    // Pipe through Ease for a curve. The generic float analogue of BeatFlash:
+    // drive any knob from a beat/button.
     type: 'Envelope',
     label: 'Envelope',
     category: 'signal',
     inputs: [{ id: 'trigger', label: 'Trigger', dataType: 'bool' }],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: { decay: 0.5 },
+    defaultProperties: { attack: 0, decay: 0.5 },
   },
   {
     type: 'TimeNode',
@@ -1249,7 +1264,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'math',
     inputs: [{ id: 'x', label: 'X', dataType: 'float' }],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: {},
+    defaultProperties: { x: 0 },
   },
   {
     type: 'Mod',
@@ -1260,7 +1275,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'm', label: 'M', dataType: 'float' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: { m: 1 },
+    defaultProperties: { x: 0, m: 1 },
   },
   {
     type: 'Random',
@@ -1268,7 +1283,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'signal',
     inputs: [],
     outputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
-    defaultProperties: { min: 0, max: 1 },
+    defaultProperties: { min: 0, max: 1, seed: 0 },
   },
   {
     type: 'Counter',
@@ -1287,7 +1302,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'gate', label: 'Gate', dataType: 'bool' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: { fallback: 0 },
+    defaultProperties: { value: 0, fallback: 0 },
   },
   {
     // Low-pass smoothing — eases a jittery value (FFT bands, PotInput) toward
@@ -1299,7 +1314,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'math',
     inputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: { response: 0.25 },
+    defaultProperties: { value: 0, response: 0.25 },
   },
   {
     // Sample & hold — latches `value` on each rising edge of `trigger`
@@ -1313,7 +1328,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'trigger', label: 'Trigger', dataType: 'bool' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: {},
+    defaultProperties: { value: 0 },
   },
   {
     // A/B selector — outputs A when `sel` is false, B when true (unlike Gate,
@@ -1346,7 +1361,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'b', label: 'B', dataType: 'float' },
     ],
     outputs: [{ id: 'result', label: 'A > B', dataType: 'bool' }],
-    defaultProperties: { b: 0.5 },
+    defaultProperties: { a: 0, b: 0.5 },
   },
   {
     // Bundled trigger/edge utility — `triggerOp` selects Debounce, Toggle/Flip-
@@ -1378,7 +1393,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'treble', label: 'Treble', dataType: 'float' },
     ],
     outputs: [{ id: 'hue', label: 'Hue (0–360)', dataType: 'float' }],
-    defaultProperties: {},
+    // Matches the evaluator's own hardcoded fallback (graphEvaluator.ts) so
+    // an unwired node still renders sliders instead of nothing at all.
+    defaultProperties: { bass: 0.5, mids: 0.5, treble: 0.5 },
   },
 
   // ── Color ──────────────────────────────────────────────────────────────
@@ -1423,7 +1440,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 's', label: 'S (0–1)', dataType: 'float' },
       { id: 'v', label: 'V (0–1)', dataType: 'float' },
     ],
-    defaultProperties: {},
+    defaultProperties: { r: 0, g: 0, b: 0 },
   },
   {
     // Black-body white point from a normalized warm→cool temperature control.
@@ -1456,7 +1473,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 't', label: 'Mix', dataType: 'float' },
     ],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
-    defaultProperties: { t: 0.5 },
+    defaultProperties: { rA: 255, gA: 0, bA: 0, rB: 0, gB: 0, bB: 255, t: 0.5 },
   },
   {
     type: 'CHSV',
@@ -1494,6 +1511,18 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     outputs: [{ id: 'palette', label: 'Palette', dataType: 'palette' }],
     defaultProperties: {},
+  },
+  {
+    // Extracts representative colours from the raw upload retained by Image.
+    // This consumes image data rather than a rendered frame, so firmware can
+    // bake the same palette as the preview with no per-frame extraction cost.
+    type: 'PaletteFromImage',
+    label: 'Palette from Image',
+    category: 'color',
+    subcategory: 'Palettes',
+    inputs: [{ id: 'image', label: 'Image', dataType: 'image' }],
+    outputs: [{ id: 'palette', label: 'Palette', dataType: 'palette' }],
+    defaultProperties: { count: 6 },
   },
   {
     // Polar-interpolated palette between two or three anchor colours (poline).
@@ -1562,7 +1591,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'y', label: 'Y', dataType: 'float' },
     ],
     outputs: [{ id: 'index', label: 'Index', dataType: 'float' }],
-    defaultProperties: {},
+    defaultProperties: { x: 0, y: 0 },
   },
 
   // ── Proper noise (Simplex2D / Noise3D / Worley / PlasmaFractal folded into
@@ -1635,7 +1664,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'hueShift', label: 'Hue', dataType: 'float' },
       { id: 'playbackRate', label: 'Playback', dataType: 'float' },
     ],
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    outputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      { id: 'image', label: 'Image Data', dataType: 'image' },
+    ],
     defaultProperties: {
       fit: 'stretch',
       positionX: 0.5,
@@ -1857,15 +1889,20 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'maxTime',     label: 'Max Time',    dataType: 'float' },
       { id: 'transitionSec', label: 'Transition', dataType: 'float' },
       { id: 'particles',   label: 'Particles',   dataType: 'bool' },
-      { id: 'particleHue', label: 'Particle Hue', dataType: 'float' },
+      { id: 'particleColor', label: 'Particle Color', dataType: 'color' },
+      { id: 'randomColor', label: 'Random Color', dataType: 'bool' },
       { id: 'particleIntensity', label: 'Particle Intensity', dataType: 'float' },
+      { id: 'randomStyle', label: 'Random Style', dataType: 'bool' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       minTime: 4, maxTime: 12, transitionSec: 1,
       // Transition styles come from a wired TransitionSet; unwired ⇒ crossfade.
       // Beat-triggered particle overlay (needs a wired beat). Off by default.
-      particles: false, particleStyle: 0, particleHue: 24, particleIntensity: 0.8, seed: 0,
+      // `randomColor`/`randomStyle` re-roll the burst's colour/style each beat
+      // instead of using the fixed swatch/slider below.
+      particles: false, randomColor: false, randomStyle: false,
+      particleColor: '#ff8000', particleStyle: 0, particleIntensity: 0.8, seed: 0,
     },
   },
   {
@@ -1921,7 +1958,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { formula: 'sin(x*6+t)*0.5+0.5', palette: 'rainbow' },
+    defaultProperties: { formula: 'sin(x*6+t)*0.5+0.5', a: 0, b: 0, palette: 'rainbow' },
   },
   {
     // Paste raw FastLED C++ (a loop body that writes into leds[]). The text is
@@ -2172,7 +2209,11 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'input',
     inputs: [],
     outputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
-    defaultProperties: { pin: 34 },
+    // GPIO4 is ADC1 on the app's default board (ESP32-S3, ADC1 = GPIO1-10) —
+    // the old default of 34 was an ADC1 pin on the *classic* ESP32 (ADC1 =
+    // GPIO32-39) but has no ADC capability at all on the S3, so a fresh node
+    // silently read garbage on the app's own default board.
+    defaultProperties: { pin: 4 },
   },
   {
     // Rotary encoder (e.g. KY-040) — polling quadrature decode (no interrupts,
@@ -2187,7 +2228,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'position', label: 'Position', dataType: 'float' },
       { id: 'pressed', label: 'Pressed', dataType: 'bool' },
     ],
-    defaultProperties: { pinA: 32, pinB: 33, pinSW: 25, pullup: true },
+    defaultProperties: { pinA: 6, pinB: 7, pinSW: 8, pullup: true, resetOnPress: false },
   },
   {
     // Web MIDI input — no embedded-hardware equivalent, so this is
@@ -2313,7 +2354,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Wave: 'Oscillator — sine, triangle, square or sawtooth over time.',
   ComplexWave: 'Combines two waves (add, multiply, average, min/max, difference).',
   Lerp: 'Linear interpolation between a and b by t.',
-  Ease: 'Easing curve on a 0–1 value — cubic, quad, or tri/quad/cubic waves.',
+  Ease: 'Shapes 0–1 with FastLED linear, quad, cubic, sine, or wave curves.',
   Interval: 'Metronome — pulses true every N seconds (EVERY_N_MILLISECONDS).',
   TimeNode: 'Elapsed time in seconds, plus a frame delta.',
   Abs: 'Absolute value.',
@@ -2324,7 +2365,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Smooth: 'Low-pass — eases a jittery value in over a response time.',
   SampleHold: 'Latches the value each time the trigger pulses true.',
   Switch: 'Outputs A or B, selected by a boolean.',
-  Envelope: 'Jumps to 1 on a trigger, then decays to 0 over the decay time.',
+  Envelope: 'Ramps up on a trigger, then decays to 0 over the decay time.',
   Not: 'Logical NOT of a boolean.',
   Compare: 'True when a > b.',
   Trigger: 'Debounce, Toggle, One Shot, Pulse Divider, or Trigger Delay on a bool.',
@@ -2344,6 +2385,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   HeatColor: 'FastLED HeatColor — a 0–1 heat value to a fire-ramp colour.',
   PaletteSelector: 'Outputs a named preset palette.',
   CustomPalette: 'Builds a palette from up to four colors.',
+  PaletteFromImage: 'Extracts dominant colours from an uploaded Image into a 16-stop palette.',
   Poline: 'Smooth poline palette between up to three anchor colours.',
   PaletteBlend: 'Interpolates between two palettes.',
   // pattern
@@ -2419,7 +2461,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Blur2D: 'Box-blurs the frame.',
   Blend: 'Blends B over A — normal, multiply, screen, overlay, add or difference.',
   Mask: 'Masks a frame by another frame’s brightness.',
-  BrightnessMod: 'Scales frame brightness.',
+  BrightnessMod: 'Dims or amplifies a frame with saturated 0–3× scaling.',
   Fade: 'Fades the frame toward black (fadeToBlackBy).',
   HueShift: 'Rotates all hues.',
   Gamma: 'Perceptual gamma correction so gradients look right on the LEDs.',
@@ -2523,6 +2565,7 @@ const PORT_COLORS: Record<string, string> = {
   bool:  '#9aa0a6',
   color: '#ffd24a',
   palette: '#ff5cf0',
+  image: '#c6a0ff',
   frame: '#5ad1ff',
   field: '#f5c542',
   audio: '#00e0a4',
@@ -2611,7 +2654,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   blendMode:      { control: 'select', options: ['normal', 'multiply', 'screen', 'overlay', 'add', 'difference'] },
   mirrorMode:     { control: 'select', options: ['horizontal', 'vertical', 'quad', 'diagonal'] },
   glowAmount:     { control: 'slider', min: 0, max: 1, step: 0.01 },
-  easeType:       { control: 'select', options: ['inOutCubic', 'inOutQuad', 'triwave', 'quadwave', 'cubicwave'] },
+  easeType:       { control: 'select', options: [...EASE_TYPES] },
   easing:         { control: 'select', options: ['linear', 'sine', 'quad', 'cubic'] },
   triggerOp:      { control: 'select', options: ['debounce', 'toggle', 'oneShot', 'pulseDivider', 'delay'] },
   feedbackTransform: { control: 'select', options: ['none', 'translate', 'rotate', 'scale'] },
@@ -2702,9 +2745,8 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   boost:      { control: 'slider', min: 0, max: 1, step: 0.01 },
   // Beat Flash overdrive — 1 = the pre-existing flash brightness, up to 2x hotter.
   intensity:  { control: 'slider', min: 0, max: 2, step: 0.05 },
-  // Show Engine beat-triggered particle overlay (style 0–10, hue 0–255).
-  particleStyle:     { control: 'slider', min: 0, max: 10, step: 1 },
-  particleHue:       { control: 'slider', min: 0, max: 255, step: 1 },
+  // Show Engine beat-triggered particle overlay (17 motion styles, 0–16).
+  particleStyle:     { control: 'slider', min: 0, max: 16, step: 1 },
   particleIntensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
   s:          { control: 'slider', min: 0, max: 1, step: 0.01 },
   v:          { control: 'slider', min: 0, max: 1, step: 0.01 },
@@ -2732,11 +2774,20 @@ const N01: PropertyControl = { control: 'slider', min: 0, max: 1, step: 0.01 }
 // via speedRange.ts); the simulation patterns use a steps-per-second rate, and
 // `rate` is a 0–1 emission rate for Particles but a degrees/sec spin for Transform.
 export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyControl>> = {
+  PaletteFromImage: {
+    count: { control: 'slider', min: 2, max: 8, step: 1 },
+  },
   HueCycle: {
     rate: { control: 'slider', min: 0, max: 4, step: 0.01 },
   },
+  HSVToRGB: {
+    h: { control: 'slider', min: 0, max: 360, step: 1 },
+  },
   PaletteSweep: {
     rate: { control: 'slider', min: 0, max: 4, step: 0.01 },
+  },
+  BrightnessMod: {
+    brightness: { control: 'slider', min: 0, max: 3, step: 0.01 },
   },
   Circle: {
     cx: N01,
@@ -2769,12 +2820,21 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   // Envelope's decay is a duration in seconds, not the shared 0–1 rate.
   Envelope: {
+    attack: { control: 'slider', min: 0, max: 5, step: 0.05 },
     decay: { control: 'slider', min: 0.05, max: 5, step: 0.05 },
+  },
+  BeatSin: {
+    bpm: { control: 'slider', min: 40, max: 220, step: 1 },
+  },
+  Random: {
+    seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
   // MatrixOutput's brightness is FastLED.setBrightness's native 0–255 (the
   // shared `brightness` meta is a 0–1 frame-level scale).
   MatrixOutput: {
     brightness: { control: 'slider', min: 0, max: 255, step: 1 },
+    dataPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    clockPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     layout: { control: 'select', options: ['matrix', 'strip', 'panels', 'custom'] },
     routeMode: { control: 'select', options: ['fit', 'crop'] },
     routeX: { control: 'slider', min: 0, max: 63, step: 1 },
@@ -2859,6 +2919,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   // those names have elsewhere.
   KickShock: {
     speed: N01,
+    tiles:     { control: 'slider', min: 1, max: 8, step: 1 },
     count:     { control: 'slider', min: 2, max: 16, step: 1 },
     thickness: { control: 'slider', min: 0.25, max: 3, step: 0.05 },
     decay:     { control: 'slider', min: 0.3, max: 3, step: 0.05 },
@@ -2897,7 +2958,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Noise:           { speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   Plasma:          { speed: N01 },
   Rainbow:         { speed: N01 },
-  RadialBurst:     { speed: N01 },
+  RadialBurst:     { speed: N01, arms: { control: 'slider', min: 1, max: 32, step: 1 } },
   Spiral:          { speed: N01 },
   Starfield:       { speed: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   Boids:           {
@@ -2949,6 +3010,38 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   MicInput: {
     gain:      { control: 'slider', min: 0, max: MIC_MAX_GAIN, step: 0.05 },
+    // Board-aware pickers narrow these to the selected board; the shared
+    // 0–255 ceiling preserves numeric Arduino pin aliases on larger boards.
+    i2sWs:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    i2sSck: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    i2sSd:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
+  ButtonInput: {
+    pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
+  PotInput: {
+    pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
+  EncoderInput: {
+    pinA: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    pinB: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    pinSW: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
+  Sequencer: {
+    fade: { control: 'slider', min: 0, max: 20, step: 0.1 },
+  },
+  SDCard: {
+    sdCsPin:   { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    i2sBclk:   { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    i2sLrc:    { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    i2sDout:   { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    maxVolume: { control: 'slider', min: 0, max: 21, step: 1 },
+  },
+  // MIDI note/CC numbers are conventionally 0–127; MidiInputBody shows the
+  // note name (e.g. "60 → C4") alongside the raw number.
+  MidiInput: {
+    note: { control: 'slider', min: 0, max: 127, step: 1 },
+    cc:   { control: 'slider', min: 0, max: 127, step: 1 },
   },
   FrameFeedback: {
     blendMode: { control: 'select', options: ['normal', 'screen', 'add', 'multiply', 'difference', 'lighten'] },
@@ -3053,10 +3146,18 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   chipset: 'The LED chipset driving this output — must match the physical strip/panel.',
   colorOrder: 'Wire colour byte order the chipset expects. The wrong order swaps colours (e.g. red renders as green).',
   clockPin: 'SPI chipsets only — the clock line alongside the data pin.',
+  serialDebug: "Prints processor/conditioner stats to the serial monitor ~10×/sec, for checking mic wiring on-device. Firmware-only — no visible effect here.",
+  pullup: "On wires the pin INPUT_PULLUP (idle high, press pulls low) — the common no-extra-parts wiring. Off wires it plain INPUT, which needs an external pull-down resistor or the pin will float when not pressed.",
+  resetOnPress: 'Zeros the running position count every time the integrated push-button is pressed, instead of only ever counting up/down.',
 }
+
+export const FORMULA_LANG_HELP = 'Variables: x, y, t, cx, cy, r, angle, W, H, a, b. Functions: sin, cos, abs, sqrt, min, max, sin8, cos8, sin16, beatsin8, beatsin16, scale8, qadd8, qsub8.'
 
 /** Per-node overrides for property names whose meaning collides across nodes. */
 export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, string>> = {
+  PaletteFromImage: {
+    count: 'Number of representative colour anchors extracted before interpolation to 16 FastLED stops.',
+  },
   Fire: {
     direction: 'Which way the flame rises.',
     turbulence: 'Widens the sideways heat diffusion window; 1 reproduces the original fixed-width kernel.',
@@ -3072,11 +3173,63 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   Transition: {
     direction: 'Slide direction for the Wipe / Push styles.',
   },
+  PatternMaster: {
+    particles: 'Beat-triggered spark overlay over the show. Requires a wired beat input — with nothing wired, turning this on has no effect.',
+    particleColor: 'Spark colour for the beat-triggered particle overlay.',
+    randomColor: 'Pick a new spark colour on every beat instead of the fixed colour below.',
+    particleStyle: 'Spark motion style for the beat-triggered particle overlay.',
+    randomStyle: 'Pick a new spark motion style on every beat instead of the fixed style below.',
+  },
+  FFTAnalyzer: {
+    bands: 'Resamples the raw spectrum to this many bins before averaging it into bass/mids/treble (also resizes the live meter). Higher = a sharper split between the three; lower = blurrier.',
+  },
+  AudioFeatures: {
+    gate: 'Silence-detection threshold — how much energy is required before `silence` flips false.',
+  },
+  AudioHue: {
+    bass: 'Weighted 0.5 into the resulting hue (0–360°).',
+    mids: 'Weighted 0.3 into the resulting hue (0–360°).',
+    treble: 'Weighted 0.2 into the resulting hue (0–360°).',
+  },
+  Sin: {
+    x: 'Computes sin(x*2π) from the wired X value; it does not animate on its own. Wire Time or Counter into X, or use Wave for a ready-made oscillator.',
+  },
+  Cos: {
+    x: 'Computes cos(x*2π) from the wired X value; it does not animate on its own. Wire Time or Counter into X, or use Wave for a ready-made oscillator.',
+  },
+  CustomFormula: {
+    formula: FORMULA_LANG_HELP,
+  },
+  FieldFormula: {
+    formula: `${FORMULA_LANG_HELP} Field Formula also provides fieldIn.`,
+  },
 }
 
 /** Hover-tooltip text for a node's property, honouring per-node overrides. */
 export function propertyDescription(nodeType: string, key: string): string | undefined {
   return PROPERTY_DESCRIPTIONS_OVERRIDES[nodeType]?.[key] ?? PROPERTY_DESCRIPTIONS[key]
+}
+
+/** Per-node overrides for a property's displayed label (defaults to the raw key). */
+export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
+  PaletteFromImage: {
+    count: 'Colors',
+  },
+  PatternMaster: {
+    particles: 'use particles',
+    particleColor: 'particle color',
+    randomColor: 'use random color',
+    particleStyle: 'particle style',
+    randomStyle: 'use random style',
+  },
+  AudioFeatures: {
+    gate: 'Silence Gate',
+  },
+}
+
+/** Display text for a node's property row (StudioNode's inline editors). */
+export function propertyLabel(nodeType: string, key: string): string {
+  return PROPERTY_LABELS[nodeType]?.[key] ?? key
 }
 
 // Hardware/setup values should remain literal and MatrixOutput width/height
@@ -3189,7 +3342,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   PatternMaster: [
     { key: 'timing', label: 'Timing', keys: ['minTime', 'maxTime', 'transitionSec'] },
     { key: 'randomness', label: 'Randomness', keys: ['seed'] },
-    { key: 'particles', label: 'Particles', keys: ['particleStyle', 'particleHue', 'particleIntensity'] },
+    { key: 'particles', label: 'Particles', keys: ['particles', 'randomColor', 'randomStyle', 'particleColor', 'particleStyle', 'particleIntensity'] },
   ],
   Array: [
     { key: 'position', label: 'Position', keys: ['offsetX', 'offsetY', 'angle', 'scale'] },
@@ -3233,6 +3386,47 @@ export function inputClampRange(nodeType: string, key: string): { min: number; m
  *  the "clamp inputs" toggle would do anything, so it's worth showing. */
 export function hasClampableInputs(nodeType: string, inputs: { id: string; dataType?: string }[]): boolean {
   return inputs.some((p) => p.dataType === 'float' && inputClampRange(nodeType, p.id) != null)
+}
+
+// Every GPIO-typed property that should render as the board-aware pin picker
+// (StudioNode.tsx's PinPickerField) instead of a plain bounded slider. Mirrors
+// validateGraph.ts's collectPinUses except for MatrixOutput, whose specialised
+// node body owns its hardware controls.
+const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
+  MicInput: new Set(['i2sWs', 'i2sSck', 'i2sSd']),
+  ButtonInput: new Set(['pin']),
+  PotInput: new Set(['pin']),
+  EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
+  SDCard: new Set(['sdCsPin', 'i2sBclk', 'i2sLrc', 'i2sDout']),
+  MatrixOutput: new Set(['dataPin', 'clockPin']),
+}
+
+export function isGpioPinProperty(nodeType: string, key: string): boolean {
+  return GPIO_PIN_PROPERTIES[nodeType]?.has(key) ?? false
+}
+
+export interface GpioPropertyRequirement {
+  capability: GpioCapability
+  pullup: boolean
+}
+
+/** Electrical capability required by each generated use of an Arduino pin.
+ *  `pullup` is dynamic for Button/Encoder because their property controls the
+ *  emitted INPUT vs INPUT_PULLUP pinMode. */
+export function gpioRequirementForProperty(
+  nodeType: string,
+  key: string,
+  props: Record<string, unknown>,
+): GpioPropertyRequirement | null {
+  if (!isGpioPinProperty(nodeType, key)) return null
+  if (nodeType === 'PotInput') return { capability: 'analogInput', pullup: false }
+  if (nodeType === 'ButtonInput' || nodeType === 'EncoderInput') {
+    return { capability: 'digitalInput', pullup: props.pullup !== false }
+  }
+  if (nodeType === 'MicInput' && key === 'i2sSd') {
+    return { capability: 'digitalInput', pullup: false }
+  }
+  return { capability: 'digitalOutput', pullup: false }
 }
 
 /**
@@ -3313,7 +3507,22 @@ const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, stri
   },
   Ease: {
     prop: 'easeType',
-    labels: { inOutCubic: 'Ease · Cubic', inOutQuad: 'Ease · Quad', triwave: 'Triangle Wave', quadwave: 'Quad Wave', cubicwave: 'Cubic Wave' },
+    labels: {
+      inOutCubic: 'Ease · Cubic',
+      inOutQuad: 'Ease · Quad',
+      linear: 'Linear',
+      inOutApprox: 'Ease · Fast Approx',
+      inQuad: 'Ease In · Quad',
+      outQuad: 'Ease Out · Quad',
+      inCubic: 'Ease In · Cubic',
+      outCubic: 'Ease Out · Cubic',
+      inSine: 'Ease In · Sine',
+      outSine: 'Ease Out · Sine',
+      inOutSine: 'Ease In/Out · Sine',
+      triwave: 'Triangle Wave',
+      quadwave: 'Quad Wave',
+      cubicwave: 'Cubic Wave',
+    },
   },
   Trigger: {
     prop: 'triggerOp',
@@ -3430,6 +3639,16 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
       case 'gravity': return PARTICLE_GRAVITY_MODES.has(pt)
       // Modes with a floor-bounce restitution constant.
       case 'bounce':  return PARTICLE_BOUNCE_MODES.has(pt)
+    }
+  }
+  if (nodeType === 'PatternMaster') {
+    const on = properties.particles === true
+    switch (key) {
+      case 'particleColor': return on && properties.randomColor !== true
+      case 'randomColor':
+      case 'particleIntensity': return on
+      case 'particleStyle': return on && properties.randomStyle !== true
+      case 'randomStyle': return on
     }
   }
   return true

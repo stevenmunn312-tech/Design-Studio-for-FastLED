@@ -32,6 +32,7 @@ const ANCHORS = [
   ['anchorC', 'colorC', 'C'],
 ] as const
 const ANCHOR_PORTS = ANCHORS.map(([, port]) => port)
+type IncomingColor = { wired: boolean; color: RGB | null }
 
 function gradient(stops: RGB[]) {
   return `linear-gradient(to right, ${stops
@@ -47,7 +48,7 @@ function rgbValue(value: unknown): RGB | null {
     : null
 }
 
-function useIncomingColors(nodeId: string, portIds: readonly string[]): (RGB | null)[] {
+function useIncomingColors(nodeId: string, portIds: readonly string[]): IncomingColor[] {
   const sourceKey = useGraphStore((s) => {
     const edges = s.edges
     return portIds.map((portId) => {
@@ -63,10 +64,16 @@ function useIncomingColors(nodeId: string, portIds: readonly string[]): (RGB | n
       return color ? `${color.r},${color.g},${color.b}` : ''
     }).join('|')
   })
-  return liveKey.split('|').map((part) => {
-    if (!part) return null
+  const sources = sourceKey.split('|')
+  const liveParts = liveKey.split('|')
+  return sources.map((source, i) => {
+    const part = liveParts[i] ?? ''
+    if (!part) return { wired: Boolean(source), color: null }
     const [r, g, b] = part.split(',').map(Number)
-    return Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b) ? { r, g, b } : null
+    return {
+      wired: Boolean(source),
+      color: Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b) ? { r, g, b } : null,
+    }
   })
 }
 
@@ -133,7 +140,7 @@ export function CustomPaletteEditorBody({ nodeId }: { nodeId: string }) {
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
   const local = normalizeCustomPalette(props.colors, props.positions)
   const wired = useIncomingColors(nodeId, INPUT_PORTS)
-  const displayColors = local.colors.map((color, i) => wired[i] ? rgbToHex(wired[i]!) : color)
+  const displayColors = local.colors.map((color, i) => wired[i]?.color ? rgbToHex(wired[i].color) : color)
   const stops = customPaletteStops16(displayColors.map(hexToRgb), local.positions)
   const gradientCss = gradient(stops)
 
@@ -176,7 +183,7 @@ export function CustomPaletteEditorBody({ nodeId }: { nodeId: string }) {
             index={i}
             color={displayColors[i]}
             position={local.positions[i]}
-            wired={Boolean(wired[i])}
+            wired={Boolean(wired[i]?.wired)}
             onMove={(position) => setPosition(i, position)}
             onColor={(next) => setColor(i, next)}
             onRemove={() => remove(i)}
@@ -206,8 +213,9 @@ export function PolineEditorBody({ nodeId }: { nodeId: string }) {
   )
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
   const wired = useIncomingColors(nodeId, ANCHOR_PORTS)
+  const hasWiredAnchor = wired.some((anchor) => anchor.wired)
   const anchors = ANCHORS.map(([key], i) => {
-    const live = wired[i]
+    const live = wired[i]?.color
     const prop = props[key]
     return live ? rgbToHex(live) : isHexColor(prop) ? prop : POLINE_PRESETS[0].colors[i]
   })
@@ -218,6 +226,14 @@ export function PolineEditorBody({ nodeId }: { nodeId: string }) {
     <div className={`nodrag ${styles.wrap}`}>
       <div className={styles.header}>
         <span>Poline anchors</span>
+        {hasWiredAnchor && (
+          <span
+            className={styles.badge}
+            title="Wired anchors drive the live preview only; generated firmware bakes the configured anchor swatches."
+          >
+            preview-only wires
+          </span>
+        )}
       </div>
       <div className={styles.anchorRail} style={{ background: gradientCss }}>
         {ANCHORS.map(([key,, label], i) => (
@@ -225,7 +241,7 @@ export function PolineEditorBody({ nodeId }: { nodeId: string }) {
             <span>{label}</span>
             <input
               type="color"
-              disabled={Boolean(wired[i])}
+              disabled={Boolean(wired[i]?.wired)}
               value={anchors[i]}
               onChange={(e) => updateNodeProperties(nodeId, { [key]: e.target.value })}
             />
