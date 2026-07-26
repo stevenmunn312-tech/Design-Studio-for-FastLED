@@ -373,11 +373,11 @@ fixed category-by-category as this review was worked through (starting
 
 ### Color (HueCycle, HSVToRGB, RGBToHSV, CHSV, Temperature, HeatColor, BlendColors, GradientSampler, PaletteSampler, PaletteSweep, PaletteSelector, CustomPalette, Poline, PaletteBlend)
 
-- [ ] **BlendColors: preview and firmware genuinely disagree.** Unwired `a`/`b` render red→blue in preview (evaluator hardcodes a fallback) but solid black in firmware (`colorExpr()`'s generic default) — give it its own `rA/gA/bA`/`rB/gB/bB` defaults like `GradientFrame`/`GradientSampler`, read directly in codegen.
-- [ ] **RGBToHSV's `rgb` input has no default property** — pure UI-completeness gap (preview/firmware already agree on black).
-- [ ] **HSVToRGB.h has no bounds despite its own label promising "H (0–360)"** — add a 0–360 slider override.
-- [ ] **GradientSampler.t is the same quick win as Ease.t** — missing default despite an existing generic 0–1 slider; sibling `PaletteSampler` already does this correctly.
-- [ ] **Poline: wired anchor colors drive only the preview; firmware always bakes the anchor swatches**, with no in-app indication of this deliberate limitation — add a small badge/tooltip when an anchor is wired.
+- [x] **BlendColors: preview and firmware genuinely disagree.** Added editable `rA/gA/bA` and `rB/gB/bB` fallback swatches, with preview and firmware now reading the same property-backed unwired colors instead of preview-only red/blue vs firmware black.
+- [x] **RGBToHSV's `rgb` input has no default property.** Added an editable black `r/g/b` fallback and wired preview/codegen to use it whenever the color input is unwired.
+- [x] **HSVToRGB.h has no bounds despite its own label promising "H (0–360)".** Added an `HSVToRGB`-specific 0–360 hue slider override.
+- [x] **GradientSampler.t is the same quick win as Ease.t.** Added `t: 0` to `GradientSampler` defaults so its existing generic 0–1 slider appears before wiring.
+- [x] **Poline: wired anchor colors drive only the preview; firmware always bakes the anchor swatches.** The Poline editor now disables wired anchor swatches immediately and shows a compact "preview-only wires" badge/tooltip whenever any anchor is connected.
 
 ### Pattern → Shapes & Text
 

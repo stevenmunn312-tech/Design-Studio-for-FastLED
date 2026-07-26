@@ -2382,6 +2382,16 @@ describe('Saturation / RGBToHSV (codegen)', () => {
     expect(cpp).toContain('buf_cb[_i].r = (uint8_t)constrain(_l + (buf_cb[_i].r - _l) * _cs, 0.0f, 255.0f);')
   })
 
+  it('BlendColors emits editable fallback swatches when color inputs are unwired', () => {
+    const bc = node('bc', 'BlendColors', 'color', {
+      rA: 10, gA: 20, bA: 30,
+      rB: 110, gB: 220, bB: 130,
+      t: 0.25,
+    })
+    const cpp = generateCpp([bc, outputNode], [])
+    expect(cpp).toContain('CRGB n_bc_color = blend(CRGB(10,20,30), CRGB(110,220,130), (uint8_t)((0.25) * 255));')
+  })
+
   it('RGBToHSV emits h/s/v floats via rgb2hsv_approximate', () => {
     const c = node('c', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })
     const rh = node('rh', 'RGBToHSV', 'color', {})
@@ -2393,6 +2403,12 @@ describe('Saturation / RGBToHSV (codegen)', () => {
     expect(cpp).toContain('float n_rh_h = _hsv_rh.hue / 255.0f * 360.0f;')
     expect(cpp).toContain('float n_rh_s = _hsv_rh.sat / 255.0f;')
     expect(cpp).toContain('float n_rh_v = _hsv_rh.val / 255.0f;')
+  })
+
+  it('RGBToHSV emits its editable color fallback when unwired', () => {
+    const rh = node('rh', 'RGBToHSV', 'color', { r: 0, g: 255, b: 0 })
+    const cpp = generateCpp([rh, outputNode], [])
+    expect(cpp).toContain('CHSV _hsv_rh = rgb2hsv_approximate(CRGB(0,255,0));')
   })
 })
 

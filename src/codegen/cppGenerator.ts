@@ -20,7 +20,7 @@ import { inputClampRange, bypassPort, CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, CORR
 import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledShims'
 import { particleRadius } from '../state/particleScale'
 import { buildXYTable } from '../state/xyLayout'
-import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette } from '../state/customPalette'
+import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette, type RGB } from '../state/customPalette'
 import { animartrixCppLines } from '../animartrix/codegen'
 import { compositionDims, outputRoutes } from '../state/outputRouting'
 
@@ -573,10 +573,17 @@ export function generateCpp(
     return 'false'
   }
 
-  function colorExpr(nodeId: string, portId: string): string {
+  function colorExpr(nodeId: string, portId: string, fallback = 'CRGB::Black'): string {
     const up = incoming.get(`${nodeId}:${portId}`)
     if (up) return `n_${safeId(up.srcId)}_${up.srcPort}`
-    return 'CRGB::Black'
+    return fallback
+  }
+
+  function colorPropExpr(nodeProps: Record<string, unknown>, rKey: string, gKey: string, bKey: string, fallback: RGB): string {
+    const r = intProp(nodeProps[rKey], fallback.r, 0, 255)
+    const g = intProp(nodeProps[gKey], fallback.g, 0, 255)
+    const b = intProp(nodeProps[bKey], fallback.b, 0, 255)
+    return `CRGB(${r},${g},${b})`
   }
 
   // Resolve a palette name to its FastLED preset palette constant.
@@ -813,7 +820,7 @@ export function generateCpp(
 
       // The inverse of HSVToRGB — via FastLED's rgb2hsv_approximate.
       case 'RGBToHSV': {
-        const rgb = colorExpr(node.id, 'rgb')
+        const rgb = colorExpr(node.id, 'rgb', colorPropExpr(p, 'r', 'g', 'b', { r: 0, g: 0, b: 0 }))
         ln(`  CHSV _hsv_${id} = rgb2hsv_approximate(${rgb});`)
         ln(`  float ${v('h')} = _hsv_${id}.hue / 255.0f * 360.0f;`)
         ln(`  float ${v('s')} = _hsv_${id}.sat / 255.0f;`)
@@ -832,8 +839,8 @@ export function generateCpp(
         break
 
       case 'BlendColors': {
-        const ca = colorExpr(node.id, 'a')
-        const cb = colorExpr(node.id, 'b')
+        const ca = colorExpr(node.id, 'a', colorPropExpr(p, 'rA', 'gA', 'bA', { r: 255, g: 0, b: 0 }))
+        const cb = colorExpr(node.id, 'b', colorPropExpr(p, 'rB', 'gB', 'bB', { r: 0, g: 0, b: 255 }))
         const mix = f('t', 't', 0.5)
         ln(`  CRGB ${v('color')} = blend(${ca}, ${cb}, (uint8_t)((${mix}) * 255));`)
         break

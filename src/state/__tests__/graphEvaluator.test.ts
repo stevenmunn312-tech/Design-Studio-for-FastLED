@@ -3546,6 +3546,16 @@ describe('Saturation and RGBToHSV', () => {
     expect(colorAt('quad', 3.75)).not.toEqual(colorAt('linear', 3.75))
   })
 
+  it('BlendColors uses editable fallback swatches when color inputs are unwired', () => {
+    const blend = node('bc', 'BlendColors', 'color', {
+      rA: 10, gA: 20, bA: 30,
+      rB: 110, gB: 220, bB: 130,
+      t: 0.25,
+    })
+    const { outputs } = evaluateGraphFull([blend], [], 0, W, H)
+    expect(outputs.get('bc')!.color).toEqual({ r: 35, g: 70, b: 55 })
+  })
+
   it('RGBToHSV extracts hue/sat/val from a connected color', () => {
     const c = node('rgbsrc', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })   // pure red
     const rh = node('rh', 'RGBToHSV', 'color', {})
@@ -3573,6 +3583,15 @@ describe('Saturation and RGBToHSV', () => {
     expect(hsvOut.h).toBe(0)
     expect(hsvOut.s).toBe(0)
     expect(hsvOut.v).toBe(0)
+  })
+
+  it('RGBToHSV uses its editable color fallback when unwired', () => {
+    const rh = node('rhgreen', 'RGBToHSV', 'color', { r: 0, g: 255, b: 0 })
+    const { outputs } = evaluateGraphFull([rh], [], 0, W, H)
+    const hsvOut = outputs.get('rhgreen')!
+    expect(hsvOut.h).toBeCloseTo(120, 0)
+    expect(hsvOut.s).toBeCloseTo(1, 1)
+    expect(hsvOut.v).toBeCloseTo(1, 1)
   })
 })
 
