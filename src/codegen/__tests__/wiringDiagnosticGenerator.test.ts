@@ -38,11 +38,11 @@ describe('generateWiringDiagnosticSketch', () => {
       height: 8,
       chipset: 'APA102',
       dataPin: -4,
-      clockPin: 99,
+      clockPin: 299,
     })
     const sketch = generateWiringDiagnosticSketch([out])!
     expect(sketch).toContain('#define DATA_PIN 0')
-    expect(sketch).toContain('#define CLOCK_PIN 48')
+    expect(sketch).toContain('#define CLOCK_PIN 255')
   })
 
   it('cycles through the diagnostic modes for color order, brightness, orientation, panels, and both chases', () => {

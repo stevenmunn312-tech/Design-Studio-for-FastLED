@@ -336,16 +336,16 @@ fixed category-by-category as this review was worked through (starting
 
 ### Input (MicInput, ButtonInput, PotInput, EncoderInput, MidiInput)
 
-- [x] **I2S pin fields unbounded in UI but silently clamped in codegen.** Added a shared `sanitizePin()` in `cppGenerator.ts` (round + clamp to 0–48) and matching 0–48 sliders in the UI for MicInput's `i2sWs`/`i2sSck`/`i2sSd`.
+- [x] **I2S pin fields unbounded in UI but silently clamped in codegen.** Added a shared `sanitizePin()` in `cppGenerator.ts` (round + clamp to the shared 0–255 Arduino-pin safety range); the UI now narrows MicInput's `i2sWs`/`i2sSck`/`i2sSd` choices to pins with the required input/output capability on the selected board.
 - [x] **MicInput `serialDebug` has no tooltip.** Added a `PROPERTY_DESCRIPTIONS` entry.
-- [x] **ButtonInput/PotInput/EncoderInput pin fields aren't sanitized anywhere.** Same `sanitizePin()` now covers `pin`/`pinA`/`pinB`/`pinSW`, plus matching 0–48 UI sliders.
+- [x] **ButtonInput/PotInput/EncoderInput pin fields aren't sanitized anywhere.** The same `sanitizePin()` now covers `pin`/`pinA`/`pinB`/`pinSW`; their board-aware controls require digital input, ADC input, and internal pull-up support as appropriate.
 - [x] **`validateGraph`'s GPIO check only catches duplicates, never invalid ranges.** Added `findPinRangeWarnings()`, wired into both `validateGraph()` and the Graph Health drawer.
-- [x] **No board-aware pin picker.** Added a `BoardGpio` table (`uploadStore.ts`) + `PinPickerField` (`StudioNode.tsx`) — curated dropdown of known-good pins for **ESP32-S3/ESP32/ESP8266 only**; every other board still falls back to free numeric entry. **Follow-up:** no per-peripheral modeling (e.g. which pins are actually ADC-capable) — still a gap, and no table for ESP32-C3/S2/C6/H2 or any non-ESP board.
+- [x] **No board-aware pin picker.** Added the initial `BoardGpio` table + `PinPickerField`; the full per-board capability expansion is completed below.
 - [x] **`pullup`'s wiring implication isn't explained.** Added a `PROPERTY_DESCRIPTIONS` entry (shared across ButtonInput/EncoderInput).
 - [x] **MidiInput `note`/`cc` are unbounded and shown as bare numbers.** Added 0–127 sliders plus a note-name readout ("60 → C4") in `MidiInputBody.tsx`.
 - [x] **EncoderInput push-button only reports continuous state, not an edge.** Added a `resetOnPress` property (zeros the running position on a press edge, both preview and firmware).
 - [x] **Bonus (found while building the pin picker, not in the original review): `PotInput`'s default pin (34) has no ADC capability on the app's own default board (ESP32-S3).** Changed the default to GPIO4 (valid ADC1 on the S3).
-- [ ] **Feature (deferred): board-aware pin picker for the rest of the GPIO capability table.** A real per-board ADC/ADC2-WiFi-conflict/input-only model, plus tables for the remaining boards, would need a dedicated design pass — see the picker's own code comments in `uploadStore.ts`.
+- [x] **Board-aware pin picker for the full built-in catalogue.** `boardGpio.ts` now covers every built-in ESP32/ESP8266, Arduino AVR/megaAVR/SAM/SAMD, Teensy, RP2040/RP2350, Adafruit SAMD, STM32, Renesas, and nRF52840 target. Each entry records digital input/output, ADC, and internal pull-up capabilities plus reserved pins and board caveats. Property-specific filtering keeps analog-only/input-only pins out of incompatible controls; graph validation blocks incompatible assignments and surfaces ADC2/Wi-Fi and boot-strap warnings. Custom boards without a table retain bounded numeric entry.
 
 ### Audio (FFTAnalyzer, BeatDetect, PercussionDetect, AudioFeatures, AudioHue)
 
@@ -418,12 +418,12 @@ fixed category-by-category as this review was worked through (starting
 
 - [x] **MusicLibrary:** removed the dead `colors`/`positions` defaults; existing saves may retain the harmless unused keys without migration.
 - [x] **Sequencer:** its duration-based `fade` control now spans 0–20 seconds, matching the node's interval ceiling.
-- [x] **SDCard pins:** all four pin fields now use the board-aware picker and shared 0–48 GPIO sanitization in generated provisioner/player sketches.
+- [x] **SDCard pins:** all four pin fields now use the board-aware picker and shared 0–255 Arduino-pin sanitization in generated provisioner/player sketches.
 - [x] **SDCard volume:** `maxVolume` now has a bounded 0–21 integer slider and generated-player safety clamp.
 
 ### Output (MatrixOutput)
 
-- [x] **MatrixOutput pins:** `dataPin` and SPI-only `clockPin` now use the board-aware picker and shared 0–48 GPIO sanitization across normal, show-player, live-stream, and wiring-diagnostic firmware.
+- [x] **MatrixOutput pins:** `dataPin` and SPI-only `clockPin` now use the board-aware picker and shared 0–255 Arduino-pin sanitization across normal, show-player, live-stream, and wiring-diagnostic firmware.
 - [x] **MatrixOutput size ceiling:** retain 64×64 as the deliberate supported maximum to protect preview performance and firmware memory budgets.
 
 ### Node additions worth considering

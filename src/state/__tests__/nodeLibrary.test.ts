@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { NODE_LIBRARY, NODE_DESCRIPTIONS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, isPropertyEnabled, isGpioPinProperty } from '../nodeLibrary'
+import { NODE_LIBRARY, NODE_DESCRIPTIONS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, isPropertyEnabled, isGpioPinProperty, gpioRequirementForProperty } from '../nodeLibrary'
 
 describe('nodeLibrary', () => {
   it('gives Image nodes placement and transform defaults', () => {
@@ -352,7 +352,7 @@ describe('nodeLibrary', () => {
   it('bounds Show duration, SD pin, and volume controls to their runtime ranges', () => {
     expect(propertyMeta('Sequencer', 'fade')).toEqual({ control: 'slider', min: 0, max: 20, step: 0.1 })
     for (const key of ['sdCsPin', 'i2sBclk', 'i2sLrc', 'i2sDout']) {
-      expect(propertyMeta('SDCard', key), key).toEqual({ control: 'slider', min: 0, max: 48, step: 1 })
+      expect(propertyMeta('SDCard', key), key).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
     }
     expect(propertyMeta('SDCard', 'maxVolume')).toEqual({ control: 'slider', min: 0, max: 21, step: 1 })
   })
@@ -414,15 +414,15 @@ describe('nodeLibrary', () => {
     expect(c?.defaultProperties).toMatchObject({ text: 'Note', color: '#ffd24a' })
   })
 
-  it('bounds the Input category\'s GPIO pin fields to a 0-48 slider', () => {
-    expect(propertyMeta('MicInput', 'i2sWs')).toEqual({ control: 'slider', min: 0, max: 48, step: 1 })
-    expect(propertyMeta('MicInput', 'i2sSck')).toEqual({ control: 'slider', min: 0, max: 48, step: 1 })
-    expect(propertyMeta('MicInput', 'i2sSd')).toEqual({ control: 'slider', min: 0, max: 48, step: 1 })
-    expect(propertyMeta('ButtonInput', 'pin')).toEqual({ control: 'slider', min: 0, max: 48, step: 1 })
-    expect(propertyMeta('PotInput', 'pin')).toEqual({ control: 'slider', min: 0, max: 48, step: 1 })
-    expect(propertyMeta('EncoderInput', 'pinA')).toEqual({ control: 'slider', min: 0, max: 48, step: 1 })
-    expect(propertyMeta('EncoderInput', 'pinB')).toEqual({ control: 'slider', min: 0, max: 48, step: 1 })
-    expect(propertyMeta('EncoderInput', 'pinSW')).toEqual({ control: 'slider', min: 0, max: 48, step: 1 })
+  it('bounds the Input category GPIO fallback to Arduino numeric pin aliases', () => {
+    expect(propertyMeta('MicInput', 'i2sWs')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+    expect(propertyMeta('MicInput', 'i2sSck')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+    expect(propertyMeta('MicInput', 'i2sSd')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+    expect(propertyMeta('ButtonInput', 'pin')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+    expect(propertyMeta('PotInput', 'pin')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+    expect(propertyMeta('EncoderInput', 'pinA')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+    expect(propertyMeta('EncoderInput', 'pinB')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+    expect(propertyMeta('EncoderInput', 'pinSW')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
   })
 
   it('bounds MidiInput note/cc to a 0-127 slider', () => {
@@ -451,9 +451,32 @@ describe('nodeLibrary', () => {
     expect(isGpioPinProperty('MatrixOutput', 'brightness')).toBe(false)
   })
 
+  it('assigns electrical requirements to generated pin roles', () => {
+    expect(gpioRequirementForProperty('PotInput', 'pin', {})).toEqual({
+      capability: 'analogInput',
+      pullup: false,
+    })
+    expect(gpioRequirementForProperty('ButtonInput', 'pin', { pullup: true })).toEqual({
+      capability: 'digitalInput',
+      pullup: true,
+    })
+    expect(gpioRequirementForProperty('EncoderInput', 'pinA', { pullup: false })).toEqual({
+      capability: 'digitalInput',
+      pullup: false,
+    })
+    expect(gpioRequirementForProperty('MicInput', 'i2sSd', {})).toEqual({
+      capability: 'digitalInput',
+      pullup: false,
+    })
+    expect(gpioRequirementForProperty('MicInput', 'i2sSck', {})).toEqual({
+      capability: 'digitalOutput',
+      pullup: false,
+    })
+  })
+
   it('bounds MatrixOutput pins to the shared GPIO range', () => {
-    expect(propertyMeta('MatrixOutput', 'dataPin')).toEqual({ control: 'slider', min: 0, max: 48, step: 1 })
-    expect(propertyMeta('MatrixOutput', 'clockPin')).toEqual({ control: 'slider', min: 0, max: 48, step: 1 })
+    expect(propertyMeta('MatrixOutput', 'dataPin')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+    expect(propertyMeta('MatrixOutput', 'clockPin')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
   })
 
   it('EncoderInput defaults resetOnPress to off', () => {

@@ -507,7 +507,7 @@ describe('StudioNode', () => {
     expect(getByText('0')).toBeTruthy()
   })
 
-  it('the GPIO pin picker offers a curated dropdown for a board with a table, and free entry otherwise', () => {
+  it('the GPIO pin picker filters each built-in board by the property capability', () => {
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
     const withTable = renderNode(makeNode('MicInput', {
       gain: 1, i2sWs: 39, i2sSck: 40, i2sSd: 41, channel: 'Left', serialDebug: false,
@@ -526,11 +526,13 @@ describe('StudioNode', () => {
     localStorage.clear()
 
     useUploadStore.setState({ selectedFqbn: 'arduino:avr:uno' })
-    const noTable = renderNode(makeNode('MicInput', {
-      gain: 1, i2sWs: 39, i2sSck: 40, i2sSd: 41, channel: 'Left', serialDebug: false,
-    }))
-    fireEvent.click(within(noTable.container).getByText('I2S Pins'))
-    expect(noTable.container.querySelectorAll('input[type="range"]').length).toBeGreaterThan(0)
+    const unoPot = renderNode(makeNode('PotInput', { pin: 14 }))
+    const analogSelect = unoPot.container.querySelector('select') as HTMLSelectElement
+    expect(analogSelect).toBeTruthy()
+    expect(analogSelect.value).toBe('14')
+    expect(Array.from(analogSelect.options).map((option) => option.value))
+      .toEqual(['14', '15', '16', '17', '18', '19', '__custom__'])
+    expect(within(analogSelect).getByText('A0 (14)')).toBeTruthy()
   })
 
   it('flags the preview-only fallback on MidiInput, and only there', () => {

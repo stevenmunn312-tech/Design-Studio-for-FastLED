@@ -48,11 +48,11 @@ describe('generateStreamReceiverSketch', () => {
       height: 8,
       chipset: 'APA102',
       dataPin: -4,
-      clockPin: 99,
+      clockPin: 299,
     })
     const sketch = generateStreamReceiverSketch([out])!
     expect(sketch).toContain('#define DATA_PIN 0')
-    expect(sketch).toContain('#define CLOCK_PIN 48')
+    expect(sketch).toContain('#define CLOCK_PIN 255')
   })
 
   it('initialises FastLED with the configured chipset/order', () => {

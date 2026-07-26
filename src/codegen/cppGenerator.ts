@@ -1026,13 +1026,13 @@ export function generateCpp(
       }
 
       case 'PotInput':
-        ln(`  float ${v('value')} = analogRead(${sanitizePin(p.pin, 34)}) / 4095.0f;`)
+        ln(`  float ${v('value')} = analogRead(${sanitizePin(p.pin, 4)}) / 4095.0f;`)
         break
 
       // Polling quadrature decode (no interrupts) via a standard 4x lookup
       // table; `position` is an unbounded running count.
       case 'EncoderInput': {
-        const pinA = sanitizePin(p.pinA, 32), pinB = sanitizePin(p.pinB, 33), pinSW = sanitizePin(p.pinSW, 25)
+        const pinA = sanitizePin(p.pinA, 6), pinB = sanitizePin(p.pinB, 7), pinSW = sanitizePin(p.pinSW, 8)
         const mode = p.pullup === false ? 'INPUT' : 'INPUT_PULLUP'
         for (const pin of [pinA, pinB, pinSW]) pinSetupLines.add(`  pinMode(${pin}, ${mode});`)
         ln(`  static int8_t _encLast_${id} = 0; static float _encPos_${id} = 0;`)

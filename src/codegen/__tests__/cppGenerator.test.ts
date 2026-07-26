@@ -145,7 +145,7 @@ describe('generateCpp', () => {
     expect(generateCpp([btn], [])).not.toContain('-5.7')
 
     const pot = node('pot', 'PotInput', 'hardware', { pin: 9999 })
-    expect(generateCpp([pot], [])).toContain('analogRead(48)')
+    expect(generateCpp([pot], [])).toContain('analogRead(255)')
 
     const enc = node('enc', 'EncoderInput', 'input', { pinA: 32.4, pinB: 33, pinSW: 25 })
     expect(generateCpp([enc], [])).toContain('pinMode(32,')
@@ -157,7 +157,7 @@ describe('generateCpp', () => {
     })
     const outCpp = generateCpp([out], [])
     expect(outCpp).toContain('#define DATA_PIN 0')
-    expect(outCpp).toContain('#define CLOCK_PIN 48')
+    expect(outCpp).toContain('#define CLOCK_PIN 255')
   })
 
   it('emits the FASTLED_OVERCLOCK define before the FastLED include', () => {
