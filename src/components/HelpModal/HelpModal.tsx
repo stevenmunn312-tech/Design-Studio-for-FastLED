@@ -108,7 +108,7 @@ function QuickStartTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>5</div>
             <div className={styles.stepText}>
-              <strong>Choose the output path.</strong> In <strong>Matrix Output</strong>, use <strong>Upload</strong> for a normal sketch, <strong>Flash Wiring Test</strong> to verify color order/layout/brightness before building a full patch, <strong>Flash Stream Receiver</strong> + <strong>Live Stream</strong> for rapid serial preview on hardware, <strong>Upload show to SD</strong> for music-sync offline playback, or <strong>View Code</strong> / <strong>Export .ino</strong> if you want the generated sketch first.
+              <strong>Choose the output path.</strong> In <strong>Matrix Output</strong>, open <strong>Upload...</strong> for the full hardware toolbox: <strong>Upload</strong> for a normal sketch, <strong>Flash Wiring Test</strong> to verify color order/layout/brightness first, <strong>Flash Stream Receiver</strong> + <strong>Live Stream</strong> for rapid serial preview, <strong>Upload show to SD</strong> for music-sync playback, <strong>View Code</strong> / <strong>Export .ino</strong> when you want the sketch first, and <strong>Re-upload last sketch</strong> for a quick repeat flash of the current project's last successful upload.
             </div>
           </div>
         </div>
@@ -281,25 +281,25 @@ function UploadTab() {
           <div className={styles.tip}>
             <div className={styles.tipIcon}>1</div>
             <div className={styles.tipText}>
-              <strong>arduino-cli</strong> must be installed and on your <code>PATH</code>, or discoverable via the Arduino IDE bundle. The helper can also download it for you (click <strong>⚙ Board</strong> → install prompt).
+              The local <strong>helper service</strong> must be running on this machine. The portable desktop beta starts it for you; source runs start it from the platform launch scripts, and you can also launch it manually with <code>npm run helper</code>.
             </div>
           </div>
           <div className={styles.tip}>
             <div className={styles.tipIcon}>2</div>
             <div className={styles.tipText}>
-              <strong>Board core</strong> must be installed — e.g. <code>esp32:esp32</code> for ESP32 boards. Click <strong>⚙ Board</strong> → Boards manager → Install core next to your board.
+              Studio prefers <strong>fbuild</strong> when it is available, including the portable desktop bundle. In that mode the board toolchain is fetched automatically on first compile and there is no separate Arduino core install step.
             </div>
           </div>
           <div className={styles.tip}>
             <div className={styles.tipIcon}>3</div>
             <div className={styles.tipText}>
-              <strong>FastLED library</strong> — install via Arduino IDE Library Manager, or run <code>arduino-cli lib install FastLED</code>.
+              If Studio falls back to <strong>arduino-cli</strong>, then you do need the board core installed for that board and the <strong>FastLED</strong> library available. The helper can also locate or download <code>arduino-cli</code> for you.
             </div>
           </div>
           <div className={styles.tip}>
             <div className={styles.tipIcon}>4</div>
             <div className={styles.tipText}>
-              The upload <strong>helper service</strong> is started by the platform launch scripts and can also be started manually with <code>npm run helper</code>. Upload, live stream, board discovery, and project-file dialogs all rely on it.
+              USB upload or streaming still needs a compatible board, a detected port, and any operating-system permission prompts accepted. The <strong>Upload readiness</strong> checklist in <strong>Upload...</strong> shows what is missing and offers one-click fixes where possible.
             </div>
           </div>
         </div>
@@ -313,31 +313,31 @@ function UploadTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>1</div>
             <div className={styles.stepText}>
-              Click <strong>⚙ Board</strong> in the Matrix Output node. Enable your board, install its core if needed, then select the board and USB port.
+              Use <strong>✦ Setup...</strong> on the Matrix Output node for the guided board, size, chipset, layout, and pin setup. Open <strong>↑ Upload...</strong> any time to review the current board and port.
             </div>
           </div>
           <div className={styles.step}>
             <div className={styles.stepNum}>2</div>
             <div className={styles.stepText}>
-              Click <strong>Upload</strong> for a normal sketch. The button shows live status — <em>Compiling…</em> → <em>Uploading NN%</em> → <em>✓ Done</em>. Click <strong>⌗ Output</strong> to see the full build log.
+              Watch the <strong>live controller-capacity</strong> line and open the <strong>Upload readiness</strong> checklist. They tell you whether the current design fits on the selected board and whether helper, engine, toolchain, and port are ready before you flash.
             </div>
           </div>
           <div className={styles.step}>
             <div className={styles.stepNum}>3</div>
             <div className={styles.stepText}>
-              If the hardware is new or freshly rewired, click <strong>🧪 Flash Wiring Test</strong> first. It cycles through RGB solids, brightness bars, orientation markers, panel labels, and logical/physical pixel chases using the current Matrix Output settings.
+              Click <strong>Upload</strong> for a normal sketch. The button shows live status — <em>Compiling…</em> → <em>Uploading NN%</em> → <em>✓ Done</em>. Click <strong>⌗ Output / Serial</strong> to inspect the full log.
             </div>
           </div>
           <div className={styles.step}>
             <div className={styles.stepNum}>4</div>
             <div className={styles.stepText}>
-              For rapid hardware preview, flash <strong>⚡ Stream Receiver</strong> once, then use <strong>📡 Live Stream</strong> to push the current preview frames straight to the board without recompiling.
+              If the hardware is new or freshly rewired, click <strong>🧪 Flash Wiring Test</strong> first. It cycles through RGB solids, brightness bars, orientation markers, panel labels, and logical/physical pixel chases using the current Matrix Output settings.
             </div>
           </div>
           <div className={styles.step}>
             <div className={styles.stepNum}>5</div>
             <div className={styles.stepText}>
-              For a <strong>music-sync show</strong>, wire an SD Card node to Matrix Output's <code>sdcard</code> input, then click <strong>♪ Upload show to SD</strong> to provision the card and flash the player.
+              For rapid hardware preview, flash <strong>⚡ Stream Receiver</strong> once, then use <strong>📡 Live Stream</strong> to push the current preview frames straight to the board without recompiling. For a <strong>music-sync show</strong>, wire an SD Card node to Matrix Output's <code>sdcard</code> input, then click <strong>♪ Upload show to SD</strong> to provision the card and flash the player.
             </div>
           </div>
         </div>
@@ -360,7 +360,7 @@ function UploadTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Board catalogue (out of the box)</div>
         <div className={styles.text}>
-          ESP32-S3 · ESP32 · Arduino Uno · Arduino Nano · Arduino Mega <em>(experimental)</em> · Teensy 4.1 · RP2040 (Pico) · Arduino Nano 33 IoT <em>(experimental)</em>. These are present in the Boards manager by default; installing each one's core still requires a working internet connection the first time. Only the ESP32-S3 + WS2812B + 16×16 combo is currently hardware-validated for the public beta — see the <a className={styles.link} href={`${REPO_URL}/blob/main/docs/release/beta-support-matrix.md`} target="_blank" rel="noopener noreferrer">beta support matrix</a> for what's supported vs. experimental. The two marked <em>(experimental)</em> compile through the same generic FastLED codegen path as every other board here, but haven't been flashed to real hardware by this project yet.
+          Studio ships a starter board catalogue including ESP32-S3, ESP32, ESP8266, Arduino Uno, Arduino Nano, Arduino Mega, Teensy 4.1, RP2040 (Pico), and Arduino Nano 33 IoT, plus any custom boards you add yourself. As of July 26, 2026, the recorded public-beta support rows cover both <strong>ESP32-S3 + 16×16 WS2812B matrix</strong> and <strong>ESP8266 + 10×1 WS2812B strip</strong>, including normal Upload, Flash Wiring Test, and Flash Stream Receiver + Live Stream paths for those exact combos. Everything else should still be treated as experimental until it is added to the <a className={styles.link} href={`${REPO_URL}/blob/main/docs/release/beta-support-matrix.md`} target="_blank" rel="noopener noreferrer">beta support matrix</a>.
         </div>
       </div>
     </>

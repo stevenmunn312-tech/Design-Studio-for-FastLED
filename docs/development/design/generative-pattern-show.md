@@ -30,8 +30,9 @@ Three distinct concepts (Library ≠ Collection):
 
 1. **Library** — a persistent vault of saved pattern groups. Save a named group
    and it appears in the sidebar beside the built-in nodes; it survives across
-   sessions and grows over time. **Storage: `localStorage`** first (works on the
-   plain static site, no backend needed); a backend/export path can come later.
+   sessions and grows over time. As shipped, browser-local state is the first
+   cache layer and the local helper mirrors user patterns into JSON files when
+   it is available.
 2. **Collection** — a *subset chosen from the Library* for one show. The on-canvas
    Collection node "absorbs" patterns into an internal list (the declutter win),
    reusing the existing group/subgraph machinery, and outputs a new `patternset`
@@ -78,10 +79,11 @@ unshipped follow-up if flash-size or build-time pressure ever calls for it.
 
 ## Phased rollout
 
-1. **Library** ✅ — save a named group to `localStorage`; a "My Patterns" sidebar
-   section; drag to instantiate; rename/delete. A `patternLibrary.ts` store so
-   later phases read the same source. *(Self-contained — no codegen / Pattern
-   Master changes.)*
+1. **Library** ✅ — save a named group into the Pattern Library; drag to
+   instantiate; rename/delete; organize into shelves. The shipped flow uses
+   `patternLibrary.ts`, caches locally in the browser, and mirrors user
+   patterns into helper-backed JSON files when available. *(Self-contained —
+   no codegen / Pattern Master changes.)*
 2. **Collection node** ✅ — absorb patterns into an internal list; `patternset` data
    type; declutter.
 3. **Pattern Master upgrade** ✅ — `patternset` input, transition-pool selection
@@ -91,12 +93,15 @@ unshipped follow-up if flash-size or build-time pressure ever calls for it.
    (random pattern + random transition on triggers, beat-triggered particle
    overlay), as a single file rather than per-pattern `.h`s (see above).
 
-All four phases are implemented; only the basic time-based crossfade path has
-been hardware-validated (see `CLAUDE.md`).
+All four phases are implemented. Hardware validation now covers the controller
+show path, the full transition pool, and the on-device microphone/beat-triggered
+particle overlay flow; see the July 24, 2026 validation notes summarized in
+`CLAUDE.md` and `docs/release/beta-support-matrix.md`.
 
 ## Open questions / later
 
-- Backend-backed (shareable) library + export, beyond `localStorage`.
+- Broader sharing/distribution beyond the current helper-backed local JSON
+  mirroring.
 - Per-pattern weighting or tags (e.g. "calm" vs "drop") for smarter random picks.
 - Whether Collection and Pattern Master should merge once the dust settles.
 

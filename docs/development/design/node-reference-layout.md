@@ -1,6 +1,8 @@
-# Node reference layout and rollout
+# Node reference layout and upkeep
 
-This document records the approved Node Reference design and the conventions to use when converting the remaining node pages. The **Microphone** page is the reference implementation.
+This document records the approved Node Reference design and the conventions to
+use when maintaining it. The rollout is complete; the **Microphone** page
+remains the reference implementation for the richer article layout.
 
 ## Page structure
 
@@ -28,17 +30,24 @@ The help modal keeps a fixed node-library directory on the left and a scrollable
    - Include this section only when the rendered result materially clarifies the node’s use case.
    - Pair the preview with a short description of what should move or change.
 
-## Screenshot rules
+## Generated visuals
 
-- Captures must use the real node UI, not a synthetic recreation.
-- Run **Tidy** before capturing an example graph.
-- Keep all graph nodes fully visible, including Matrix Output when it is part of the example.
-- Prefer a useful, representative frame over an idle/black result.
+- Generated visuals must use the real node data and property defaults, not a
+  synthetic recreation of the library.
+- The example graph for a node should stay tidy and keep all nodes fully
+  visible, including Matrix Output when it is part of the example.
+- Prefer a useful, representative preview frame over an idle/black result.
 - Audio examples may use:
   `C:\Users\User\Downloads\Organic Soup - Old Timers - 2017 - MP3 (1)\01 - Organic Soup - Old Timers (2016 Edit).mp3`
-- Store assets under `public/node-reference/nodes/<NodeType>/` as `node.png`, `graph.png`, and `preview.png`.
-- `src/components/HelpModal/nodeReferenceAssets.generated.ts` is the asset manifest.
-- `scripts/generate-node-reference-assets.mjs` is the capture scaffold. It exposes the relevant development stores, builds representative graphs, runs Tidy, and captures the node/graph/preview regions.
+- Generated assets live under `public/node-cards/`:
+  - `public/node-cards/<slug>.svg` for the node card
+  - `public/node-cards/graphs/<slug>.svg` for the example graph
+  - `public/node-cards/previews/<slug>.svg` for the evaluated preview
+- `scripts/generate-node-card-svgs.ts` is the generator. Run it through
+  `npm run gen:node-cards`.
+- The in-app Node Reference itself is data-driven from `NODE_LIBRARY`,
+  `NODE_DESCRIPTIONS`, `liveExamples.ts`, and the article helpers in
+  `src/components/HelpModal/NodeReference.tsx`.
 
 ## Try it live
 
@@ -65,7 +74,7 @@ Microphone feeds live audio to FFT Analyzer. FFT separates bass, mids, and trebl
 
 ## Rollout status — complete
 
-The rollout is complete across all 144 nodes in the library:
+The rollout is complete across all 145 nodes in the library:
 
 - [x] Every node uses the approved reference-article structure.
 - [x] Every node has an example recipe, explanation, and an appropriate preview or workflow outcome.

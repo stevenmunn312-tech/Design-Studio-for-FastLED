@@ -18,9 +18,9 @@ build/architecture overview aimed at contributors.
 
 - [Design notes](development/design/)
   - [Generative pattern show](development/design/generative-pattern-show.md)
-    — the Library → Collection → Pattern Master flow for a random pattern/
-    transition show (localStorage library, audio-reactive patterns, per-pattern
-    `.h` codegen), and its phased rollout.
+    — the Pattern Library → Collection → Show Engine flow for a random
+    pattern/transition show, including helper-backed library mirroring,
+    transition pools, and the current controller-sketch codegen shape.
   - [Collection-driven performance](development/design/collection-driven-performance.md)
     — plug a Pattern Collection into the Performance Generator so the music-sync
     rules engine schedules the user's own patterns, with a "Use group inputs"
@@ -43,8 +43,8 @@ build/architecture overview aimed at contributors.
   — a generated reference card image for every node in the library (ports,
     typed port colours, inline controls at their defaults, evaluated preview
     thumbnails). Regenerate with `npm run gen:node-cards` after changing
-    `nodeLibrary.ts`; images live in `public/node-cards/` and are also shown
-    in the Help modal's node-reference pages.
+    `nodeLibrary.ts`; images live in `public/node-cards/` and the same node
+    inventory feeds the Help modal's node-reference pages.
 
 ## Release
 

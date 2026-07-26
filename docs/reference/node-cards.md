@@ -302,6 +302,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Custom Palette example graph](../../public/node-cards/graphs/custom-palette.svg)
 
+### Palette from Image
+
+![Palette from Image node](../../public/node-cards/palette-from-image.svg)
+
+![Palette from Image example graph](../../public/node-cards/graphs/palette-from-image.svg)
+
 ### Poline Palette
 
 ![Poline Palette node](../../public/node-cards/poline.svg)
