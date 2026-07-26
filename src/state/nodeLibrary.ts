@@ -2443,7 +2443,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Blur2D: 'Box-blurs the frame.',
   Blend: 'Blends B over A — normal, multiply, screen, overlay, add or difference.',
   Mask: 'Masks a frame by another frame’s brightness.',
-  BrightnessMod: 'Scales frame brightness.',
+  BrightnessMod: 'Dims or amplifies a frame with saturated 0–3× scaling.',
   Fade: 'Fades the frame toward black (fadeToBlackBy).',
   HueShift: 'Rotates all hues.',
   Gamma: 'Perceptual gamma correction so gradients look right on the LEDs.',
@@ -2763,6 +2763,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   PaletteSweep: {
     rate: { control: 'slider', min: 0, max: 4, step: 0.01 },
+  },
+  BrightnessMod: {
+    brightness: { control: 'slider', min: 0, max: 3, step: 0.01 },
   },
   Circle: {
     cx: N01,

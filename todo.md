@@ -412,7 +412,7 @@ fixed category-by-category as this review was worked through (starting
 
 ### Effects / composite
 
-- [ ] **BrightnessMod: firmware can only dim, never brighten, and the slider can't express amplification either.** The evaluator's multiplier is unclamped (only the final pixel is clamped to 255) but codegen clamps the multiplier itself to `[0,1]` — widen codegen's clamp to match, and add a `BrightnessMod`-specific slider override reaching ~2–3×.
+- [x] **BrightnessMod:** now exposes a 0–3× slider and both preview and firmware clamp final RGB channels rather than the multiplier, allowing safe amplification as well as dimming.
 
 ### Show (MusicLibrary, PatternCollection, TransitionSet, PatternMaster, Sequencer, Transition, PerformanceGenerator, SDCard)
 

@@ -139,23 +139,9 @@ describe('evaluateGraph', () => {
   })
 
   it('Wave drives a value over time per waveform type', () => {
-    // Wave.result → BrightnessMod.brightness over a white frame, so frame[0][0].r
-    // equals round(255 * waveValue) — making the scalar observable.
     const brightnessAt = (waveform: string, tick: number, props: Record<string, unknown> = {}) => {
       const wave = node('w', 'Wave', 'math', { amplitude: 1, frequency: 1, phase: 0, waveform, ...props })
-      const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })
-      const bm = node('bm', 'BrightnessMod', 'composite', {})
-      const out = node('out', 'MatrixOutput', 'output', {})
-      const f = evaluateGraph(
-        [wave, sc, bm, out],
-        [
-          edge('e1', 'w', 'result', 'bm', 'brightness'),
-          edge('e2', 'sc', 'frame', 'bm', 'frame'),
-          edge('e3', 'bm', 'frame', 'out', 'frame'),
-        ],
-        tick, 4, 4,
-      )!
-      return f[0][0].r
+      return Math.round(evaluateScalar([wave], [], 'w', 'result', tick) * 255)
     }
     // sine: 0 at the start, peaks at the quarter period (tick 15 of 60).
     expect(brightnessAt('sine', 0)).toBe(0)
@@ -706,6 +692,30 @@ describe('evaluateGraph', () => {
     expect(frame).not.toBeNull()
     // byte(200/255) = 200, then *0.5 ≈ 100
     expect(frame![0][0].r).toBeCloseTo(100, -1)
+  })
+
+  it('BrightnessMod amplifies channels and saturates at the byte ceiling', () => {
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 80, g: 100, b: 200 })
+    const bm = node('bm', 'BrightnessMod', 'composite', { brightness: 2 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph([sc, bm, out], [
+      edge('e1', 'sc', 'frame', 'bm', 'frame'),
+      edge('e2', 'bm', 'frame', 'out', 'frame'),
+    ], 0, W, H)
+
+    expect(frame![0][0]).toEqual({ r: 160, g: 200, b: 255 })
+  })
+
+  it('BrightnessMod treats negative wired multipliers as black', () => {
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 80, g: 100, b: 200 })
+    const bm = node('bm', 'BrightnessMod', 'composite', { brightness: -1 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph([sc, bm, out], [
+      edge('e1', 'sc', 'frame', 'bm', 'frame'),
+      edge('e2', 'bm', 'frame', 'out', 'frame'),
+    ], 0, W, H)
+
+    expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
   })
 
   it('Fade scales pixels toward black by (1 - fade)', () => {
@@ -2111,20 +2121,20 @@ describe('evaluateGraph', () => {
   })
 
   it('clampInputs clamps a wired control to its slider range', () => {
-    const grey = node('g', 'SolidColor', 'pattern', { r: 128, g: 128, b: 128 })
-    const two  = node('two', 'Math', 'math', { mathOp: 'add', a: 2, b: 0 })   // emits 2.0
+    const grey = node('g', 'SolidColor', 'pattern', { r: 50, g: 50, b: 50 })
+    const four = node('four', 'Math', 'math', { mathOp: 'add', a: 4, b: 0 })   // emits 4.0
     const mk = (clampInputs: boolean) => {
       const bm  = node('bm', 'BrightnessMod', 'composite', { brightness: 1, clampInputs })
       const out = node('out', 'MatrixOutput', 'output', {})
-      const frame = evaluateGraph([grey, two, bm, out], [
+      const frame = evaluateGraph([grey, four, bm, out], [
         edge('e1', 'g', 'frame', 'bm', 'frame'),
-        edge('e2', 'two', 'result', 'bm', 'brightness'),
+        edge('e2', 'four', 'result', 'bm', 'brightness'),
         edge('e3', 'bm', 'frame', 'out', 'frame'),
       ], 0, W, H)
       return frame![0][0].r
     }
-    expect(mk(false)).toBe(255)   // 128 × 2 → capped at the 255 byte ceiling
-    expect(mk(true)).toBe(128)    // brightness clamped to 1 → 128 × 1
+    expect(mk(false)).toBe(200)   // 50 × 4 with input clamping disabled
+    expect(mk(true)).toBe(150)    // brightness clamped to the 3× slider ceiling
   })
 
   it('PatternMaster renders a pattern from its collection', () => {

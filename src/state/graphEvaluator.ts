@@ -4761,9 +4761,9 @@ function createEvalNode(
         out = {
           frame: src.map(row =>
             row.map(px => ({
-              r: Math.min(255, Math.round(px.r * br)),
-              g: Math.min(255, Math.round(px.g * br)),
-              b: Math.min(255, Math.round(px.b * br)),
+              r: Math.max(0, Math.min(255, Math.round(px.r * br))),
+              g: Math.max(0, Math.min(255, Math.round(px.g * br))),
+              b: Math.max(0, Math.min(255, Math.round(px.b * br))),
             }))
           ),
         }
