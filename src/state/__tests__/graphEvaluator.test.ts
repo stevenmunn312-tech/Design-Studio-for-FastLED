@@ -1656,6 +1656,27 @@ describe('evaluateGraph', () => {
     expect(f.flat().every((px) => px.r === 0 && px.g === 0 && px.b === 0)).toBe(true)
   })
 
+  it('Palette from Image extracts the Image upload into a reusable palette', () => {
+    const image = {
+      w: 4,
+      h: 1,
+      pixels: [255, 0, 0, 255, 0, 0, 255, 0, 0, 0, 0, 255],
+    }
+    const img = node('img', 'Image', 'pattern', { image })
+    const extract = node('extract', 'PaletteFromImage', 'color', { count: 2 })
+    const result = evaluateGraphFull(
+      [img, extract],
+      [edge('e', 'img', 'image', 'extract', 'image')],
+      0,
+      4,
+      1,
+    )
+    const palette = result.outputs.get('extract')?.palette as RGB[]
+    expect(palette).toHaveLength(16)
+    expect(palette[0]).toEqual({ r: 0, g: 0, b: 255 })
+    expect(palette[15]).toEqual({ r: 255, g: 0, b: 0 })
+  })
+
   it('Image applies placement and transform properties', () => {
     const image = { w: 2, h: 1, pixels: [255, 0, 0, 0, 255, 0] }
     const img = node('img', 'Image', 'pattern', {

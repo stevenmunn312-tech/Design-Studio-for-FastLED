@@ -176,11 +176,20 @@ function buildPattern(
   // controller-hosted mic globals (the controller emits the engine once).
   const sketch = generateCpp(nodes, retainedEdges, groups, { externalAudio, nativeFastLedAudio, groupInputExprs })
   const lines = sketch.split('\n')
-  // FrameFeedback's history ring buffer (`_fb_<id>`) is a per-node global too,
-  // and its <id> is the raw node id — so two patterns that happen to share a
-  // FrameFeedback node id (e.g. both authored from the same starter) must not
-  // collide on one shared buffer. Prefix it alongside buf_/field_.
-  const pfx = (s: string) => s.replace(/\b(?:buf|field)_[A-Za-z0-9_]+\b|\b_fb_[A-Za-z0-9_]+\b/g, (m) => `p${index}_${m}`)
+  // FrameFeedback history and baked image palettes are per-node globals too.
+  // Prefix them alongside buf_/field_ so two collected patterns cloned from
+  // the same starter cannot collide on the same generated symbol. Other
+  // `pal_*` values are function-local and deliberately keep their old names.
+  const imagePaletteSymbols = nodes
+    .filter((node) => nodeType(node) === 'PaletteFromImage')
+    .map((node) => `pal_${safeId(node.id)}`)
+  const pfx = (source: string) => {
+    let result = source.replace(/\b(?:buf|field)_[A-Za-z0-9_]+\b|\b_fb_[A-Za-z0-9_]+\b/g, (m) => `p${index}_${m}`)
+    for (const symbol of imagePaletteSymbols) {
+      result = result.replace(new RegExp(`\\b${symbol}\\b`, 'g'), `p${index}_${symbol}`)
+    }
+    return result
+  }
 
   const buffers: string[] = []
   const helpers = new Map<string, string>()
@@ -198,6 +207,12 @@ function buildPattern(
     if (/^(?:CRGB buf_|float field_)[A-Za-z0-9_]+\[NUM_LEDS\];$/.test(line)) { buffers.push(pfx(line)); continue }
     // FrameFeedback's history ring buffer: `CRGB _fb_<id>[<capacity>][NUM_LEDS];`.
     if (/^CRGB _fb_[A-Za-z0-9_]+\[\d+\]\[NUM_LEDS\];$/.test(line)) { buffers.push(pfx(line)); continue }
+    // PaletteFromImage is fully baked at generation time and emitted as a
+    // file-scope constant. Hoist it with a per-pattern-prefixed symbol.
+    if (/^const CRGBPalette16 pal_[A-Za-z0-9_]+\(/.test(line)) {
+      helpers.set(`imagePalette:${index}`, pfx(line))
+      continue
+    }
     // Formula shims are emitted as one-line helper functions. They used to be
     // discarded here, leaving calls such as `_fsin8(...)` undeclared.
     const shim = line.match(/^float (_f[A-Za-z0-9_]+)\(/)

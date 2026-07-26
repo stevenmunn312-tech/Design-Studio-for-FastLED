@@ -7,6 +7,7 @@ import {
 } from '../state/graphEvaluator'
 import { asFont, textBlockLayout, textAlignMode, TEXT_LINE_GAP } from '../state/font'
 import { asAnimatedImage, asImage } from '../state/image'
+import { imagePaletteStops16 } from '../state/imagePalette'
 import { polineStops16, hexToRgb } from '../state/polinePalette'
 import { customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCatalog'
 import { audioFlowExpr } from '../state/audioFlowRange'
@@ -581,20 +582,18 @@ export function generateCpp(
     return paletteCppRef(name.toLowerCase())
   }
 
-  // Resolve the FastLED palette constant for a palette-consuming port: follow a
-  // connected PaletteSelector/PaletteBlend back to its chosen palette, otherwise
-  // fall back to the node's own `palette` property. (PaletteBlend resolves to its
-  // base palette A; runtime blending is left as a generated comment.)
+  // Resolve the FastLED palette for a palette-consuming port: runtime palette
+  // builders resolve to their generated `pal_*` value; selectors resolve to a
+  // preset constant; otherwise use the consuming node's palette property.
   function paletteExpr(nodeId: string, portId: string, nodeProps: Record<string, unknown>): string {
     const up = incoming.get(`${nodeId}:${portId}`)
     if (up) {
       const src = nodeMap.get(up.srcId)
       if (src) {
-        // CustomPalette and PaletteBlend build a runtime CRGBPalette16 (see
-        // their emit cases); reference it by name. A palette-role GroupInput
-        // (collection-show codegen) likewise resolves to its `pal_<id>` copy of
-        // the render_pN palette param.
-        if (src.data.nodeType === 'CustomPalette' || src.data.nodeType === 'PaletteBlend' || src.data.nodeType === 'Poline') return `pal_${safeId(up.srcId)}`
+        // Palette builders create a CRGBPalette16 in their emit cases; reference
+        // it by name. A palette-role GroupInput (collection-show codegen)
+        // likewise resolves to its `pal_<id>` copy of the render_pN param.
+        if (src.data.nodeType === 'CustomPalette' || src.data.nodeType === 'PaletteFromImage' || src.data.nodeType === 'PaletteBlend' || src.data.nodeType === 'Poline') return `pal_${safeId(up.srcId)}`
         if (src.data.nodeType === 'GroupInput' && String(props(src).paramId ?? '') === 'palette') return `pal_${safeId(up.srcId)}`
         return fastledPalette(String(props(src).palette ?? 'rainbow'))
       }
@@ -3875,6 +3874,20 @@ export function generateCpp(
           return `blend(${leftExpr}, ${rightExpr}, ${amount})`
         }
         ln(`  CRGBPalette16 pal_${id}(${Array.from({ length: 16 }, (_, i) => stopExpr(i)).join(', ')});`)
+        break
+      }
+
+      case 'PaletteFromImage': {
+        const upstream = incoming.get(`${node.id}:image`)
+        const sourceNode = upstream ? nodeMap.get(upstream.srcId) : null
+        const sourceProps = sourceNode?.data.nodeType === 'Image' ? props(sourceNode) : null
+        const source = sourceProps
+          ? (asAnimatedImage(sourceProps.animation) ?? asImage(sourceProps.image))
+          : null
+        const stops = imagePaletteStops16(source, Number(p.count ?? 6))
+        const cppStops = stops.map((color) => `CRGB(${color.r},${color.g},${color.b})`).join(', ')
+        if (!source) globalLines.push(`// Palette from Image: connect an Image node with an uploaded file.`)
+        globalLines.push(`const CRGBPalette16 pal_${id}(${cppStops});`)
         break
       }
 

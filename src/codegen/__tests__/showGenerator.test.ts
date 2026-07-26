@@ -117,6 +117,35 @@ describe('showGenerator', () => {
     expect(cpp.indexOf('CRGB kelvinToRGB(float kelvin);')).toBeLessThan(cpp.indexOf('CRGB kelvinToRGB(float kelvin) {'))
   })
 
+  it('hoists and prefixes baked image palettes inside collected patterns', () => {
+    const image = { w: 2, h: 1, pixels: [255, 0, 0, 0, 0, 255] }
+    const paletteGroups: GroupRegistry = {
+      gp: {
+        nodes: [
+          node('img', 'Image', { image }, [], [
+            { id: 'frame', dataType: 'frame' },
+            { id: 'image', dataType: 'image' },
+          ]),
+          node('extract', 'PaletteFromImage', { count: 2 }, [
+            { id: 'image', dataType: 'image' },
+          ], [{ id: 'palette', dataType: 'palette' }]),
+          node('noise', 'Noise', { noiseType: 'simplex' }, [
+            { id: 'paletteIn', dataType: 'palette' },
+          ], [{ id: 'frame', dataType: 'frame' }]),
+          node('go', 'GroupOutput'),
+        ],
+        edges: [
+          edge('e1', 'img', 'image', 'extract', 'image'),
+          edge('e2', 'extract', 'palette', 'noise', 'paletteIn'),
+          edge('e3', 'noise', 'frame', 'go', 'frame'),
+        ],
+      },
+    }
+    const renderers = buildPatternRenderers(['gp'], paletteGroups)
+    expect(renderers.helpers.join('\n')).toContain('const CRGBPalette16 p0_pal_extract(')
+    expect(renderers.functions[0]).toContain('ColorFromPalette(p0_pal_extract,')
+  })
+
   it('moves show + pattern buffers to PSRAM when the MatrixOutput toggle is on', () => {
     const psNodes = [nodes[0], nodes[1], node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5, usePsram: true })]
     const cpp = generateShowSketch(psNodes, edges, groups)

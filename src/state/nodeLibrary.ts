@@ -1513,6 +1513,18 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: {},
   },
   {
+    // Extracts representative colours from the raw upload retained by Image.
+    // This consumes image data rather than a rendered frame, so firmware can
+    // bake the same palette as the preview with no per-frame extraction cost.
+    type: 'PaletteFromImage',
+    label: 'Palette from Image',
+    category: 'color',
+    subcategory: 'Palettes',
+    inputs: [{ id: 'image', label: 'Image', dataType: 'image' }],
+    outputs: [{ id: 'palette', label: 'Palette', dataType: 'palette' }],
+    defaultProperties: { count: 6 },
+  },
+  {
     // Polar-interpolated palette between two or three anchor colours (poline).
     type: 'Poline',
     label: 'Poline Palette',
@@ -1652,7 +1664,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'hueShift', label: 'Hue', dataType: 'float' },
       { id: 'playbackRate', label: 'Playback', dataType: 'float' },
     ],
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    outputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      { id: 'image', label: 'Image Data', dataType: 'image' },
+    ],
     defaultProperties: {
       fit: 'stretch',
       positionX: 0.5,
@@ -2370,6 +2385,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   HeatColor: 'FastLED HeatColor — a 0–1 heat value to a fire-ramp colour.',
   PaletteSelector: 'Outputs a named preset palette.',
   CustomPalette: 'Builds a palette from up to four colors.',
+  PaletteFromImage: 'Extracts dominant colours from an uploaded Image into a 16-stop palette.',
   Poline: 'Smooth poline palette between up to three anchor colours.',
   PaletteBlend: 'Interpolates between two palettes.',
   // pattern
@@ -2549,6 +2565,7 @@ const PORT_COLORS: Record<string, string> = {
   bool:  '#9aa0a6',
   color: '#ffd24a',
   palette: '#ff5cf0',
+  image: '#c6a0ff',
   frame: '#5ad1ff',
   field: '#f5c542',
   audio: '#00e0a4',
@@ -2757,6 +2774,9 @@ const N01: PropertyControl = { control: 'slider', min: 0, max: 1, step: 0.01 }
 // via speedRange.ts); the simulation patterns use a steps-per-second rate, and
 // `rate` is a 0–1 emission rate for Particles but a degrees/sec spin for Transform.
 export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyControl>> = {
+  PaletteFromImage: {
+    count: { control: 'slider', min: 2, max: 8, step: 1 },
+  },
   HueCycle: {
     rate: { control: 'slider', min: 0, max: 4, step: 0.01 },
   },
@@ -3135,6 +3155,9 @@ export const FORMULA_LANG_HELP = 'Variables: x, y, t, cx, cy, r, angle, W, H, a,
 
 /** Per-node overrides for property names whose meaning collides across nodes. */
 export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, string>> = {
+  PaletteFromImage: {
+    count: 'Number of representative colour anchors extracted before interpolation to 16 FastLED stops.',
+  },
   Fire: {
     direction: 'Which way the flame rises.',
     turbulence: 'Widens the sideways heat diffusion window; 1 reproduces the original fixed-width kernel.',
@@ -3189,6 +3212,9 @@ export function propertyDescription(nodeType: string, key: string): string | und
 
 /** Per-node overrides for a property's displayed label (defaults to the raw key). */
 export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
+  PaletteFromImage: {
+    count: 'Colors',
+  },
   PatternMaster: {
     particles: 'use particles',
     particleColor: 'particle color',
