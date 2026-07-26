@@ -413,6 +413,20 @@ describe('nodeLibrary', () => {
     expect(enc?.defaultProperties).toMatchObject({ resetOnPress: false })
   })
 
+  it('signal todo nodes expose bounded controls and compatibility defaults', () => {
+    expect(NODE_LIBRARY.find((n) => n.type === 'Random')?.defaultProperties).toMatchObject({ min: 0, max: 1, seed: 0 })
+    expect(propertyMeta('Random', 'seed')).toEqual({ control: 'slider', min: 0, max: 9999, step: 1 })
+    expect(NODE_LIBRARY.find((n) => n.type === 'Envelope')?.defaultProperties).toMatchObject({ attack: 0, decay: 0.5 })
+    expect(propertyMeta('Envelope', 'attack')).toEqual({ control: 'slider', min: 0, max: 5, step: 0.05 })
+    expect(propertyMeta('Envelope', 'decay')).toEqual({ control: 'slider', min: 0.05, max: 5, step: 0.05 })
+    expect(propertyMeta('BeatSin', 'bpm')).toEqual({ control: 'slider', min: 40, max: 220, step: 1 })
+  })
+
+  it('explains that Sin and Cos need an explicit X signal to animate', () => {
+    expect(propertyDescription('Sin', 'x')).toMatch(/does not animate on its own/i)
+    expect(propertyDescription('Cos', 'x')).toMatch(/does not animate on its own/i)
+  })
+
   it('has tooltips for serialDebug and pullup', () => {
     expect(propertyDescription('MicInput', 'serialDebug')).toMatch(/serial monitor/i)
     expect(propertyDescription('ButtonInput', 'pullup')).toMatch(/INPUT_PULLUP/)

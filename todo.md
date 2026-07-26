@@ -358,12 +358,12 @@ fixed category-by-category as this review was worked through (starting
 
 ### Signal (TimeNode, Interval, Counter, Random, Envelope, Sin, Cos, Wave, ComplexWave, BeatSin, Clock)
 
-- [ ] **Sin/Cos are inert (constant output) unless wired, with no time dependency**, unlike every sibling signal-source node. At minimum needs a tooltip explaining this; defaulting `x` to `TimeNode.time` would be a behavior change worth flagging separately.
-- [ ] **Random's firmware quantizes to 256 steps (`random8()`) while preview is continuous** — switch codegen to `random16()`.
-- [ ] **Random has no `seed` property**, unlike every other randomized node in the library (Noise, Particles, Fire, TwinkleFox, …) — add the standard seed convention.
-- [ ] **Envelope has no `attack` time**, unlike its pattern-node sibling BeatFlash — minor symmetry gap.
-- [ ] **BeatSin's `bpm` has no bounds**, unlike Clock's 40–220 — add a matching `PROPERTY_META_OVERRIDES` entry.
-- [ ] **TimeNode's `dt` differs slightly between preview (`1/60` exact) and firmware (`0.016f` literal)** — low-impact, one-line fix (`1.0f/60.0f`).
+- [x] **Sin/Cos are inert (constant output) unless wired, with no time dependency**, unlike every sibling signal-source node. Added per-node tooltips explaining that Sin/Cos compute `sin(x*2π)`/`cos(x*2π)` from the wired X value and recommending Time/Counter or Wave for continuous motion.
+- [x] **Random's firmware quantizes to 256 steps (`random8()`) while preview is continuous** — codegen now uses `random16()` for unseeded Random output.
+- [x] **Random has no `seed` property**, unlike every other randomized node in the library (Noise, Particles, Fire, TwinkleFox, …) — added `seed: 0` plus a 0–9999 slider; preview uses the shared seeded LCG when nonzero, and firmware emits a per-instance 16-bit LCG draw.
+- [x] **Envelope has no `attack` time**, unlike its pattern-node sibling BeatFlash — added an opt-in `attack` duration defaulting to 0 so existing envelopes keep their instant rise, with matching preview/codegen attack-then-decay behavior.
+- [x] **BeatSin's `bpm` has no bounds**, unlike Clock's 40–220 — added a matching 40–220 BPM slider override.
+- [x] **TimeNode's `dt` differs slightly between preview (`1/60` exact) and firmware (`0.016f` literal)** — codegen now emits `1.0f / 60.0f`.
 
 ### Math (Math, Clamp, MapRange, Lerp, Ease, Abs, Mod, Compare, Not, Gate, Smooth, SampleHold, Switch, XYMapper, Trigger)
 
