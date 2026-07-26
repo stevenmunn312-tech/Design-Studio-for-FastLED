@@ -774,16 +774,26 @@ export function generateCpp(
         break
       }
 
-      // Easing curve on a 0–1 value via FastLED lib8tion. Keep the branch map in
-      // sync with `applyEase` in graphEvaluator.ts.
+      // Easing curve on a 0–1 value via legacy lib8tion or FastLED's accurate
+      // fl::ease* functions. Existing ids keep their historical calls.
       case 'Ease': {
         const type = String(p.easeType ?? 'inOutCubic')
         const fn = type === 'inOutQuad' ? 'ease8InOutQuad'
+          : type === 'linear' ? ''
+          : type === 'inOutApprox' ? 'ease8InOutApprox'
+          : type === 'inQuad' ? 'fl::easeInQuad8'
+          : type === 'outQuad' ? 'fl::easeOutQuad8'
+          : type === 'inCubic' ? 'fl::easeInCubic8'
+          : type === 'outCubic' ? 'fl::easeOutCubic8'
+          : type === 'inSine' ? 'fl::easeInSine8'
+          : type === 'outSine' ? 'fl::easeOutSine8'
+          : type === 'inOutSine' ? 'fl::easeInOutSine8'
           : type === 'triwave' ? 'triwave8'
           : type === 'quadwave' ? 'quadwave8'
           : type === 'cubicwave' ? 'cubicwave8'
           : 'ease8InOutCubic'
-        ln(`  float ${v('result')} = ${fn}((uint8_t)(constrain(${f('t', 't', 0)}, 0.0f, 1.0f) * 255)) / 255.0f;`)
+        const input = `(uint8_t)(constrain(${f('t', 't', 0)}, 0.0f, 1.0f) * 255)`
+        ln(`  float ${v('result')} = ${fn ? `${fn}(${input})` : input} / 255.0f;`)
         break
       }
 

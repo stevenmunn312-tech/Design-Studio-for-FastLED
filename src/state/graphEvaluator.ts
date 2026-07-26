@@ -19,6 +19,7 @@ import { hsv, samplePalette } from './ledColor'
 import type { RGB, Palette, Frame } from './ledColor'
 import { evalCodeAsync, getCodeError as getCodeErrorFromSandbox, disposeCodeSandbox } from './codeSandboxRuntime'
 import { evalAnimartrix, disposeAnimartrixState } from '../animartrix/preview'
+import { applyEase } from './easing'
 
 export type { RGB, Palette, Frame }
 export { getCodeErrorFromSandbox as getCodeError }
@@ -516,32 +517,6 @@ function kelvinToRgb(kelvin: number): RGB {
   else if (t <= 19) b = 0
   else b = 138.5177312231 * Math.log(t - 10) - 305.0447927307
   return { r: clamp(r), g: clamp(g), b: clamp(b) }
-}
-
-// Easing curves matching FastLED's lib8tion, on a normalised 0–1 value. Each
-// maps 0–1 → 0–1 and mirrors the corresponding ease8/*wave8 firmware call so the
-// preview matches on-device. Keep in sync with the `Ease` case in cppGenerator.
-function easeInOutQuad(x: number): number {
-  return x < 0.5 ? 2 * x * x : 1 - 2 * (1 - x) * (1 - x)
-}
-function easeInOutCubic(x: number): number {
-  // smoothstep: 3x² − 2x³ (FastLED ease8InOutCubic)
-  return x * x * (3 - 2 * x)
-}
-function triwave(x: number): number {
-  const h = ((x % 1) + 1) % 1
-  return h < 0.5 ? 2 * h : 2 * (1 - h)
-}
-function applyEase(type: string, x: number): number {
-  const t = Math.max(0, Math.min(1, x))
-  switch (type) {
-    case 'inOutQuad':  return easeInOutQuad(t)
-    case 'triwave':    return triwave(t)
-    case 'quadwave':   return easeInOutQuad(triwave(t))
-    case 'cubicwave':  return easeInOutCubic(triwave(t))
-    case 'inOutCubic':
-    default:           return easeInOutCubic(t)
-  }
 }
 
 /** Shape one 0→1 leg of a PaletteSweep. The ping-pong timing itself is
