@@ -1007,6 +1007,9 @@ could technically address more pixels via multi-output routing. Flagging as
 a question for you rather than asserting it's wrong, since I don't have
 visibility into why 64 specifically was chosen.
 
+**Decision (2026-07-26): retain 64×64 as the intentional supported maximum**
+to protect browser-preview performance and firmware memory budgets.
+
 ### customXYMap — verified robust, no issues
 
 Specifically checked this since it parses user-supplied JSON into a raw

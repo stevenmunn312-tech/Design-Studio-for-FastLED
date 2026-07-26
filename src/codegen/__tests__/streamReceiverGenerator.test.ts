@@ -42,6 +42,19 @@ describe('generateStreamReceiverSketch', () => {
     expect(sketch).toContain('#define NUM_LEDS (WIDTH * HEIGHT)')
   })
 
+  it('sanitizes MatrixOutput data and SPI clock pins', () => {
+    const out = node('out', 'MatrixOutput', 'output', {
+      width: 8,
+      height: 8,
+      chipset: 'APA102',
+      dataPin: -4,
+      clockPin: 99,
+    })
+    const sketch = generateStreamReceiverSketch([out])!
+    expect(sketch).toContain('#define DATA_PIN 0')
+    expect(sketch).toContain('#define CLOCK_PIN 48')
+  })
+
   it('initialises FastLED with the configured chipset/order', () => {
     const sketch = generateStreamReceiverSketch([outputNode])!
     expect(sketch).toContain('FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);')

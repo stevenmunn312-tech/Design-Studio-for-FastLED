@@ -2810,6 +2810,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   // shared `brightness` meta is a 0–1 frame-level scale).
   MatrixOutput: {
     brightness: { control: 'slider', min: 0, max: 255, step: 1 },
+    dataPin: { control: 'slider', min: 0, max: 48, step: 1 },
+    clockPin: { control: 'slider', min: 0, max: 48, step: 1 },
     layout: { control: 'select', options: ['matrix', 'strip', 'panels', 'custom'] },
     routeMode: { control: 'select', options: ['fit', 'crop'] },
     routeX: { control: 'slider', min: 0, max: 63, step: 1 },
@@ -3367,6 +3369,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   PotInput: new Set(['pin']),
   EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
   SDCard: new Set(['sdCsPin', 'i2sBclk', 'i2sLrc', 'i2sDout']),
+  MatrixOutput: new Set(['dataPin', 'clockPin']),
 }
 
 export function isGpioPinProperty(nodeType: string, key: string): boolean {

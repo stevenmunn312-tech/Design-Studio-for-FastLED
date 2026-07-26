@@ -1,5 +1,6 @@
 import type { StudioNode } from '../state/graphStore'
 import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp } from './cppGenerator'
+import { sanitizePin } from './hardwarePins'
 import { SPI_CHIPSETS } from '../state/nodeLibrary'
 
 // A tiny, generic Adalight-protocol receiver — flashed once, then the studio
@@ -42,7 +43,7 @@ export function generateStreamReceiverSketch(nodes: StudioNode[]): string | null
   const layout = streamLayoutForGraph(nodes)
   if (!layout) return null
   const p = outputNode.data.properties as Record<string, unknown>
-  const dataPin = intProp(p.dataPin, 5, 0, 48)
+  const dataPin = sanitizePin(p.dataPin, 5)
   const hw = ledHardwareFromProps(p)
 
   const lines: string[] = []

@@ -32,6 +32,19 @@ describe('generateWiringDiagnosticSketch', () => {
     expect(sketch).toContain('FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);')
   })
 
+  it('sanitizes MatrixOutput data and SPI clock pins', () => {
+    const out = node('out', 'MatrixOutput', 'output', {
+      width: 8,
+      height: 8,
+      chipset: 'APA102',
+      dataPin: -4,
+      clockPin: 99,
+    })
+    const sketch = generateWiringDiagnosticSketch([out])!
+    expect(sketch).toContain('#define DATA_PIN 0')
+    expect(sketch).toContain('#define CLOCK_PIN 48')
+  })
+
   it('cycles through the diagnostic modes for color order, brightness, orientation, panels, and both chases', () => {
     const sketch = generateWiringDiagnosticSketch([outputNode])!
     expect(sketch).toContain('drawBrightnessBars()')

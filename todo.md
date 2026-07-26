@@ -423,8 +423,8 @@ fixed category-by-category as this review was worked through (starting
 
 ### Output (MatrixOutput)
 
-- [ ] **`dataPin`/`clockPin` share the same pin-sanitization gap** as every other hardware-facing node — last instance of the systemic pin-handling issue; extend the shared helper/picker here too.
-- [ ] **Open question, not a bug: MatrixOutput's 64×64 size ceiling** (`MatrixSizePopup.tsx`) — confirm whether this is a deliberate preview-performance cap or should be raised for large installations.
+- [x] **MatrixOutput pins:** `dataPin` and SPI-only `clockPin` now use the board-aware picker and shared 0–48 GPIO sanitization across normal, show-player, live-stream, and wiring-diagnostic firmware.
+- [x] **MatrixOutput size ceiling:** retain 64×64 as the deliberate supported maximum to protect preview performance and firmware memory budgets.
 
 ### Node additions worth considering
 

@@ -446,9 +446,14 @@ describe('nodeLibrary', () => {
     expect(isGpioPinProperty('SDCard', 'i2sLrc')).toBe(true)
     expect(isGpioPinProperty('SDCard', 'i2sDout')).toBe(true)
     expect(isGpioPinProperty('SDCard', 'maxVolume')).toBe(false)
-    // MatrixOutput's dataPin/clockPin aren't in GPIO_PIN_PROPERTIES yet — no
-    // picker for them until that category gets the same treatment.
-    expect(isGpioPinProperty('MatrixOutput', 'dataPin')).toBe(false)
+    expect(isGpioPinProperty('MatrixOutput', 'dataPin')).toBe(true)
+    expect(isGpioPinProperty('MatrixOutput', 'clockPin')).toBe(true)
+    expect(isGpioPinProperty('MatrixOutput', 'brightness')).toBe(false)
+  })
+
+  it('bounds MatrixOutput pins to the shared GPIO range', () => {
+    expect(propertyMeta('MatrixOutput', 'dataPin')).toEqual({ control: 'slider', min: 0, max: 48, step: 1 })
+    expect(propertyMeta('MatrixOutput', 'clockPin')).toEqual({ control: 'slider', min: 0, max: 48, step: 1 })
   })
 
   it('EncoderInput defaults resetOnPress to off', () => {

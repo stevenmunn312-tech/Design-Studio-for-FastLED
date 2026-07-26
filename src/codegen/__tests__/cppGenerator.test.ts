@@ -149,6 +149,15 @@ describe('generateCpp', () => {
 
     const enc = node('enc', 'EncoderInput', 'input', { pinA: 32.4, pinB: 33, pinSW: 25 })
     expect(generateCpp([enc], [])).toContain('pinMode(32,')
+
+    const out = node('out', 'MatrixOutput', 'output', {
+      dataPin: -9.2,
+      clockPin: 500,
+      chipset: 'APA102',
+    })
+    const outCpp = generateCpp([out], [])
+    expect(outCpp).toContain('#define DATA_PIN 0')
+    expect(outCpp).toContain('#define CLOCK_PIN 48')
   })
 
   it('emits the FASTLED_OVERCLOCK define before the FastLED include', () => {
