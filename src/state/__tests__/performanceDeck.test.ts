@@ -7,6 +7,7 @@ import {
   isPinnableProperty,
   deriveControlShape,
   serializeKeyCombo,
+  RESERVED_COMBOS,
   type PinnedControl,
   type ParameterScene,
 } from '../performanceDeck'
@@ -216,5 +217,9 @@ describe('serializeKeyCombo', () => {
   it('is stable across repeated calls with the same event', () => {
     const e = evt('F7', { shiftKey: true })
     expect(serializeKeyCombo(e)).toBe(serializeKeyCombo(e))
+  })
+
+  it('reserves the node-search shortcut from user performance bindings', () => {
+    expect(RESERVED_COMBOS.has('Ctrl+K')).toBe(true)
   })
 })

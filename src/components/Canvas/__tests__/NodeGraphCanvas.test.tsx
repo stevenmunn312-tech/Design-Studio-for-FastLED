@@ -19,6 +19,7 @@ const getZoomMock = () => 1
 const startAudioMock = vi.fn(async () => {})
 const { runTidyMock } = vi.hoisted(() => ({ runTidyMock: vi.fn() }))
 let reactFlowProps: Record<string, unknown> = {}
+let canvasContextMenuProps: Record<string, unknown> = {}
 
 vi.mock('@xyflow/react', async (orig) => {
   const actual = await orig<typeof import('@xyflow/react')>()
@@ -50,7 +51,12 @@ vi.mock('../StudioNode', () => ({ default: () => null }))
 vi.mock('../GlowEdge', () => ({ default: () => null }))
 vi.mock('../GroupControls', () => ({ default: () => null }))
 vi.mock('../NodeContextMenu', () => ({ default: () => null }))
-vi.mock('../CanvasContextMenu', () => ({ default: () => null }))
+vi.mock('../CanvasContextMenu', () => ({
+  default: (props: Record<string, unknown>) => {
+    canvasContextMenuProps = props
+    return <div data-testid="canvas-context-menu" />
+  },
+}))
 vi.mock('../../../audio/interactionSfx', () => ({
   playNoodleConnectSfx: vi.fn(),
   playNoodleDisconnectSfx: vi.fn(),
@@ -64,6 +70,7 @@ describe('NodeGraphCanvas start screen', () => {
     getNodesBoundsMock.mockReturnValue({ x: 0, y: 0, width: 100, height: 600 })
     Object.defineProperty(document, 'elementsFromPoint', { configurable: true, value: vi.fn(() => []) })
     reactFlowProps = {}
+    canvasContextMenuProps = {}
     localStorage.clear()
     useGraphStore.getState().loadGraph([], [])
     useGraphStore.temporal.getState().clear()
@@ -97,6 +104,62 @@ describe('NodeGraphCanvas start screen', () => {
     await waitFor(() => {
       expect(fitViewMock).toHaveBeenCalled()
     })
+  })
+
+  it('keeps Tab for focus navigation and opens node search with Ctrl+K', () => {
+    const { getByRole, queryByTestId, getByTestId } = render(<NodeGraphCanvas />)
+    const startButton = getByRole('button', { name: 'Start with Rainbow' })
+
+    fireEvent.keyDown(startButton, { key: 'Tab' })
+    expect(queryByTestId('canvas-context-menu')).toBeNull()
+
+    fireEvent.keyDown(startButton, { key: 'k', ctrlKey: true })
+    expect(getByTestId('canvas-context-menu')).toBeTruthy()
+    expect(canvasContextMenuProps.startInPicker).toBe(true)
+    expect(canvasContextMenuProps.flowPosition).toEqual(useUiStore.getState().viewCenter)
+  })
+
+  it('gives the graph, nodes, and connections descriptive accessible names', () => {
+    useGraphStore.getState().loadGraph([
+      {
+        id: 'source',
+        type: 'studioNode',
+        position: { x: 0, y: 0 },
+        data: {
+          nodeType: 'SolidColor', label: 'Solid Color', category: 'pattern', properties: {}, inputs: [],
+          outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+        },
+      },
+      {
+        id: 'output',
+        type: 'studioNode',
+        position: { x: 300, y: 0 },
+        data: {
+          nodeType: 'MatrixOutput', label: 'Matrix Output', category: 'output', properties: {},
+          inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }], outputs: [],
+        },
+      },
+    ], [{
+      id: 'edge',
+      source: 'source',
+      sourceHandle: 'frame',
+      target: 'output',
+      targetHandle: 'frame',
+      type: 'glowEdge',
+    }])
+
+    render(<NodeGraphCanvas />)
+
+    expect(reactFlowProps['aria-label']).toBe('Node graph editor')
+    expect(reactFlowProps.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'source', ariaLabel: 'Solid Color node. 1 input, 1 output.' }),
+      expect.objectContaining({ id: 'output', ariaLabel: 'Matrix Output node. 2 inputs, 0 outputs.' }),
+    ]))
+    expect(reactFlowProps.edges).toEqual([
+      expect.objectContaining({
+        ariaLabel: 'Connection from Solid Color Frame output to Matrix Output Frame input.',
+      }),
+    ])
   })
 
   it('launches the audio first patch with its tutorial and live microphone', async () => {

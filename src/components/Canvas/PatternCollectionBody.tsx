@@ -52,13 +52,15 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
         <ul className={styles.list} onWheelCapture={handleListWheel}>
           {patternIds.map((id) => {
             const tags = patternSections[id] ?? EMPTY
+            const patternName = graphs[id]?.name ?? id
             return (
               <li key={id} className={styles.row}>
                 <div className={styles.head}>
-                  <span className={styles.name}>{graphs[id]?.name ?? id}</span>
+                  <span className={styles.name}>{patternName}</span>
                   <button
                     className={styles.remove}
                     title="Remove from collection"
+                    aria-label={`Remove ${patternName} from collection`}
                     onClick={() => removeFromCollection(nodeId, id)}
                   >
                     ✕
@@ -68,6 +70,8 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
                   <button
                     className={`${styles.chip} ${tags.length === SECTION_TYPES.length ? styles.chipOn : ''}`}
                     title="All sections"
+                    aria-label={`${patternName}: all sections`}
+                    aria-pressed={tags.length === SECTION_TYPES.length}
                     onClick={() => setPatternSections(nodeId, id, tags.length === SECTION_TYPES.length ? [] : [...SECTION_TYPES])}
                   >
                     all
@@ -77,6 +81,8 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
                       key={sec}
                       className={`${styles.chip} ${tags.includes(sec) ? styles.chipOn : ''}`}
                       title={sec}
+                      aria-label={`${patternName}: ${sec} section`}
+                      aria-pressed={tags.includes(sec)}
                       onClick={() => togglePatternSection(nodeId, id, sec)}
                     >
                       {SECTION_ABBR[sec]}

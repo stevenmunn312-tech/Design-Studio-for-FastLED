@@ -351,4 +351,5 @@ export const RESERVED_COMBOS = new Set([
   'Ctrl+V',
   'Ctrl+D',
   'Ctrl+G',
+  'Ctrl+K',
 ])

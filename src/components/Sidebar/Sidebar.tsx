@@ -901,6 +901,7 @@ function Sidebar() {
             <button
               className={styles.categoryHeaderBtn}
               onClick={() => toggle('library')}
+              aria-expanded={expandedId === 'library'}
             >
               <span className={styles.drawerLabel}>
                 <span className={styles.drawerLight} aria-hidden="true" />
@@ -957,6 +958,8 @@ function Sidebar() {
               className={styles.categoryHeaderBtn}
               style={{ flex: '0 0 auto' }}
               onClick={() => toggle('library')}
+              aria-label={expandedId === 'library' ? 'Collapse Pattern Library' : 'Expand Pattern Library'}
+              aria-expanded={expandedId === 'library'}
             >
               <span
                 className={styles.chevron}

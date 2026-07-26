@@ -18,8 +18,8 @@ vi.mock('@xyflow/react', async (orig) => {
   const actual = await orig<typeof import('@xyflow/react')>()
   return {
     ...actual,
-    Handle: ({ type, id, style }: { type: string; id: string; style?: React.CSSProperties }) => (
-      <span data-handle={`${type}:${id}`} style={style} />
+    Handle: ({ type, id, style, ...rest }: { type: string; id: string; style?: React.CSSProperties } & React.HTMLAttributes<HTMLSpanElement>) => (
+      <span data-handle={`${type}:${id}`} style={style} {...rest} />
     ),
   }
 })
@@ -238,6 +238,42 @@ describe('StudioNode', () => {
     expect(mids.style.top).toBe('50%')
     expect(audio.style.left).toBe('-8px')
     expect(bass.style.right).toBe('-8px')
+  })
+
+  it('makes connection handles named and keyboard operable', () => {
+    const { container, getByRole } = renderNode(makeNode('FFTAnalyzer', { bands: 24, gain: 1, smoothing: 0.72 }))
+    const input = getByRole('button', { name: /Connect to FFT Analyzer Audio input/ })
+    const output = getByRole('button', { name: /Connect from FFT Analyzer Bass output/ })
+
+    expect(input.getAttribute('tabindex')).toBe('0')
+    expect(output.getAttribute('tabindex')).toBe('0')
+
+    const click = vi.spyOn(output as HTMLElement, 'click')
+    fireEvent.keyDown(output, { key: 'Enter' })
+    expect(click).toHaveBeenCalledOnce()
+    expect(container.querySelectorAll('[role="button"][data-handle]')).toHaveLength(4)
+  })
+
+  it('programmatically labels common property controls', () => {
+    const noise = renderNode(makeNode('Noise', { speed: 1, scale: 1, palette: 'rainbow', seed: 0 }))
+    expect(noise.getByLabelText('speed value')).toBeTruthy()
+    expect(noise.getByLabelText('scale value')).toBeTruthy()
+    expect(noise.getByLabelText('palette value')).toBeTruthy()
+    noise.unmount()
+
+    const circle = renderNode(makeNode('Circle', {
+      cx: 0.5, cy: 0.5, radius: 3, wrap: false, filled: true, fill: '#00ff00', edge: '#ff0000',
+    }))
+    expect(circle.getByLabelText('filled')).toBeTruthy()
+    expect(circle.getByLabelText('fill color')).toBeTruthy()
+    expect(circle.getByLabelText('radius value or expression')).toBeTruthy()
+  })
+
+  it('labels freeform node editors', () => {
+    expect(renderNode(makeNode('Comment', { text: 'Note' })).getByLabelText('Comment comment text')).toBeTruthy()
+    const code = renderNode(makeNode('Code', { globalCode: '', code: '' }))
+    expect(code.getByLabelText('Code global code')).toBeTruthy()
+    expect(code.getByLabelText('Code loop code')).toBeTruthy()
   })
 
   it('disables wired AudioFlow sliders but keeps their live values visible', () => {

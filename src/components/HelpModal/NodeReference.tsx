@@ -1724,7 +1724,7 @@ function UsingNodesArticle() {
         <h2>Add or spawn nodes</h2>
         <ol className={styles.guideSteps}>
           <li><b>From the sidebar:</b> click a node card to add it near the centre of the current view, or drag the card onto the exact canvas position you want.</li>
-          <li><b>From the canvas:</b> press <Key>Tab</Key> to open search at the view centre, double-click empty canvas to search at the pointer, or right-click and choose <b>Add Node</b>.</li>
+          <li><b>From the canvas:</b> press <Key>Ctrl</Key>+<Key>K</Key> to open search at the view centre, double-click empty canvas to search at the pointer, or right-click and choose <b>Add Node</b>.</li>
           <li><b>From a connection:</b> drag an output noodle onto empty canvas. The picker shows compatible next nodes and auto-connects your choice. It can also offer a small bridge chain when the data types need converting.</li>
           <li><b>Into an existing chain:</b> drop a compatible sidebar node—or drag a loose, unconnected node—onto a noodle to splice it between the two connected nodes.</li>
           <li><b>For a head start:</b> use Quick recipes in the sidebar or <b>✦ Start</b> for a complete starter patch.</li>
