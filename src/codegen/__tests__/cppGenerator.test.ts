@@ -311,6 +311,7 @@ describe('generateCpp', () => {
       [edge('e1', 't1', 's1', 'time', 'x')]
     )
     expect(cpp).toContain('n_t1_time')
+    expect(cpp).toContain('float n_t1_dt = 1.0f / 60.0f;')
     expect(cpp).toContain('n_s1_result')
   })
 
@@ -348,13 +349,21 @@ describe('generateCpp', () => {
   })
 
   it('resolves matrix expressions before emitting scalar properties', () => {
-    const bs = node('bx', 'BeatSin', 'math', { bpm: 'max_dim * 10', low: 'center_y', high: 'num_leds / 8' })
+    const bs = node('bx', 'BeatSin', 'math', { bpm: 80, low: 'center_y', high: 'num_leds / 8' })
     const random = node('rx', 'Random', 'signal', { min: 'max_x', max: 'w + h' })
     const cpp = generateCpp([bs, random, outputNode], [])
     expect(cpp).toContain('* 80.000f / 60.0f')
     expect(cpp).toContain('3.500f')
     expect(cpp).toContain('(8.000f - 3.500f)')
-    expect(cpp).toContain('float n_rx_value = 7 + random8() / 255.0f * 9;')
+    expect(cpp).toContain('float n_rx_value = 7.0f + (random16() / 65535.0f) * 9.0f;')
+  })
+
+  it('emits seeded Random with a per-instance 16-bit LCG draw', () => {
+    const random = node('rs', 'Random', 'signal', { min: -1, max: 1, seed: 77 })
+    const cpp = generateCpp([random, outputNode], [])
+    expect(cpp).toContain('static uint32_t _rng_rs = 77u')
+    expect(cpp).toContain('(_rng_rs >> 16) & 0xFFFFu')
+    expect(cpp).not.toContain('random16() / 65535.0f')
   })
 
   it('emits a millis()-based Clock with bpm/beatsPerBar/subdivision baked in', () => {
@@ -2090,7 +2099,17 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
     const cpp = generateCpp([iv, node('env', 'Envelope', 'signal', { decay: 0.5 }), ...t.nodes],
       [edge('e0', 'iv', 'env', 'pulse', 'trigger'), ...t.edges])
     expect(cpp).toContain('static uint32_t _envT_env')
-    expect(cpp).toContain('constrain(1.0f - (millis() - _envT_env) / 500.0f, 0.0f, 1.0f)')
+    expect(cpp).toContain('constrain(1.0f - _envAge_env / 500.0f, 0.0f, 1.0f)')
+  })
+
+  it('Envelope emits an attack ramp when configured', () => {
+    const t = tail('env', 'result')
+    const iv = node('iv', 'Interval', 'signal', { interval: 1 })
+    const cpp = generateCpp([iv, node('env', 'Envelope', 'signal', { attack: 0.25, decay: 0.5 }), ...t.nodes],
+      [edge('e0', 'iv', 'env', 'pulse', 'trigger'), ...t.edges])
+    expect(cpp).toContain('_envAge_env < 250u')
+    expect(cpp).toContain('_envAge_env / 250.0f')
+    expect(cpp).toContain('(_envAge_env - 250u) / 500.0f')
   })
 
   it('Trigger debounce emits a millis()-based stability window', () => {

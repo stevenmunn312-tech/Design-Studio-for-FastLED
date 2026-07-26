@@ -5392,7 +5392,8 @@ function createEvalNode(
 
       case 'Random': {
         const lo = Number(props.min ?? 0), hi = Number(props.max ?? 1)
-        out = { value: lo + Math.random() * (hi - lo) }
+        const seed = normalizedSeed(props.seed)
+        out = { value: lo + seededRandom(stateKey(id), seed) * (hi - lo) }
         break
       }
 
@@ -5454,18 +5455,25 @@ function createEvalNode(
         break
       }
 
-      // Trigger envelope — 1 on a rising edge of `trigger`, decaying linearly
-      // to 0 over `decay` seconds (wire through Ease for a shaped curve).
+      // Trigger envelope — optional linear attack to 1 on a rising edge, then
+      // linear decay to 0 (wire through Ease for a shaped curve).
       case 'Envelope': {
         const trig = Boolean(input(id, 'trigger', false))
-        const decay = Math.max(0.05, Number(props.decay ?? 0.5))
+        const attackProp = Number(props.attack ?? 0)
+        const decayProp = Number(props.decay ?? 0.5)
+        const attack = Number.isFinite(attackProp) ? Math.max(0, attackProp) : 0
+        const decay = Number.isFinite(decayProp) ? Math.max(0.05, decayProp) : 0.5
         const key = stateKey(id)
         const prev = envState.get(key)
         // Forget the fire time on a clock reset (t jumped backwards).
         let fire = prev && prev.fire <= t ? prev.fire : -Infinity
         if (trig && !prev?.prev) fire = t
         envState.set(key, { fire, prev: trig })
-        out = { result: Math.max(0, Math.min(1, 1 - (t - fire) / decay)) }
+        const age = t - fire
+        const value = age < attack && attack > 0
+          ? age / attack
+          : 1 - (age - attack) / decay
+        out = { result: Math.max(0, Math.min(1, value)) }
         break
       }
 
@@ -6004,7 +6012,8 @@ function createEvalNode(
       }
 
       case 'BeatSin': {
-        const bpm = Number(props.bpm ?? 60)
+        const bpmProp = Number(props.bpm ?? 60)
+        const bpm = Number.isFinite(bpmProp) ? bpmProp : 60
         const lo  = Number(props.low  ?? 0)
         const hi  = Number(props.high ?? 1)
         const phase = (t * bpm / 60) % 1

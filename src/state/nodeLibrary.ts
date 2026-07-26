@@ -1229,14 +1229,15 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   },
   {
     // Trigger envelope — jumps to 1 on a rising edge of `trigger`, then decays
-    // linearly to 0 over `decay` seconds (pipe through Ease for a curve). The
-    // generic float analogue of BeatFlash: drive any knob from a beat/button.
+    // linearly to 0 over `decay` seconds; `attack` optionally ramps the rise.
+    // Pipe through Ease for a curve. The generic float analogue of BeatFlash:
+    // drive any knob from a beat/button.
     type: 'Envelope',
     label: 'Envelope',
     category: 'signal',
     inputs: [{ id: 'trigger', label: 'Trigger', dataType: 'bool' }],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: { decay: 0.5 },
+    defaultProperties: { attack: 0, decay: 0.5 },
   },
   {
     type: 'TimeNode',
@@ -1276,7 +1277,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'signal',
     inputs: [],
     outputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
-    defaultProperties: { min: 0, max: 1 },
+    defaultProperties: { min: 0, max: 1, seed: 0 },
   },
   {
     type: 'Counter',
@@ -2343,7 +2344,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Smooth: 'Low-pass — eases a jittery value in over a response time.',
   SampleHold: 'Latches the value each time the trigger pulses true.',
   Switch: 'Outputs A or B, selected by a boolean.',
-  Envelope: 'Jumps to 1 on a trigger, then decays to 0 over the decay time.',
+  Envelope: 'Ramps up on a trigger, then decays to 0 over the decay time.',
   Not: 'Logical NOT of a boolean.',
   Compare: 'True when a > b.',
   Trigger: 'Debounce, Toggle, One Shot, Pulse Divider, or Trigger Delay on a bool.',
@@ -2787,7 +2788,14 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   // Envelope's decay is a duration in seconds, not the shared 0–1 rate.
   Envelope: {
+    attack: { control: 'slider', min: 0, max: 5, step: 0.05 },
     decay: { control: 'slider', min: 0.05, max: 5, step: 0.05 },
+  },
+  BeatSin: {
+    bpm: { control: 'slider', min: 40, max: 220, step: 1 },
+  },
+  Random: {
+    seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
   // MatrixOutput's brightness is FastLED.setBrightness's native 0–255 (the
   // shared `brightness` meta is a 0–1 frame-level scale).
@@ -3132,6 +3140,12 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     bass: 'Weighted 0.5 into the resulting hue (0–360°).',
     mids: 'Weighted 0.3 into the resulting hue (0–360°).',
     treble: 'Weighted 0.2 into the resulting hue (0–360°).',
+  },
+  Sin: {
+    x: 'Computes sin(x*2π) from the wired X value; it does not animate on its own. Wire Time or Counter into X, or use Wave for a ready-made oscillator.',
+  },
+  Cos: {
+    x: 'Computes cos(x*2π) from the wired X value; it does not animate on its own. Wire Time or Counter into X, or use Wave for a ready-made oscillator.',
   },
 }
 

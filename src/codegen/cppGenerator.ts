@@ -687,7 +687,7 @@ export function generateCpp(
       case 'TimeNode':
         needsT.v = true
         ln(`  float ${v('time')} = t;`)
-        ln(`  float ${v('dt')} = 0.016f;`)
+        ln(`  float ${v('dt')} = 1.0f / 60.0f;`)
         break
 
       // A role-tagged group input kept by buildPattern (collection-show codegen)
@@ -2876,7 +2876,15 @@ export function generateCpp(
 
       case 'Random': {
         const lo = Number(p.min ?? 0), hi = Number(p.max ?? 1)
-        ln(`  float ${v('value')} = ${lo} + random8() / 255.0f * ${hi - lo};`)
+        const seed = seedProp(p)
+        const loLit = floatLit(lo)
+        const spanLit = floatLit(hi - lo)
+        if (seed) {
+          ln(`  static uint32_t _rng_${id} = ${seed}u; _rng_${id} = _rng_${id} * 1664525u + 1013904223u;`)
+          ln(`  float ${v('value')} = ${loLit} + (((_rng_${id} >> 16) & 0xFFFFu) / 65535.0f) * ${spanLit};`)
+        } else {
+          ln(`  float ${v('value')} = ${loLit} + (random16() / 65535.0f) * ${spanLit};`)
+        }
         break
       }
 
@@ -2922,14 +2930,21 @@ export function generateCpp(
         break
       }
 
-      // Trigger envelope — 1 on a rising edge, linear decay to 0 over `decay`
-      // seconds; outputs 0 until the first trigger.
+      // Trigger envelope — optional linear attack to 1 on a rising edge, then
+      // linear decay to 0; outputs 0 until the first trigger.
       case 'Envelope': {
         const trig = boolExpr(node.id, 'trigger')
-        const ms = Math.max(50, Math.round(Number(p.decay ?? 0.5) * 1000))
+        const attackProp = Number(p.attack ?? 0)
+        const decayProp = Number(p.decay ?? 0.5)
+        const attackMs = Number.isFinite(attackProp) ? Math.max(0, Math.round(attackProp * 1000)) : 0
+        const decayMs = Number.isFinite(decayProp) ? Math.max(50, Math.round(decayProp * 1000)) : 500
         ln(`  static uint32_t _envT_${id} = 0; static bool _envF_${id} = false, _envP_${id} = false;`)
         ln(`  { bool _t = (${trig}); if (_t && !_envP_${id}) { _envT_${id} = millis(); _envF_${id} = true; } _envP_${id} = _t; }`)
-        ln(`  float ${v('result')} = _envF_${id} ? constrain(1.0f - (millis() - _envT_${id}) / ${ms}.0f, 0.0f, 1.0f) : 0.0f;`)
+        ln(`  float ${v('result')} = 0.0f;`)
+        ln(`  if (_envF_${id}) { uint32_t _envAge_${id} = millis() - _envT_${id};`)
+        if (attackMs > 0) ln(`    ${v('result')} = _envAge_${id} < ${attackMs}u ? constrain(_envAge_${id} / ${attackMs}.0f, 0.0f, 1.0f) : constrain(1.0f - (_envAge_${id} - ${attackMs}u) / ${decayMs}.0f, 0.0f, 1.0f);`)
+        else ln(`    ${v('result')} = constrain(1.0f - _envAge_${id} / ${decayMs}.0f, 0.0f, 1.0f);`)
+        ln(`  }`)
         break
       }
 
@@ -3881,7 +3896,9 @@ export function generateCpp(
       }
 
       case 'BeatSin': {
-        const bpm = Number(p.bpm ?? 60), lo = Number(p.low ?? 0), hi = Number(p.high ?? 1)
+        const bpmProp = Number(p.bpm ?? 60)
+        const bpm = Number.isFinite(bpmProp) ? bpmProp : 60
+        const lo = Number(p.low ?? 0), hi = Number(p.high ?? 1)
         ln(`  float ${v('value')} = ${lo.toFixed(3)}f + ((sinf(((millis() / 1000.0f) * ${bpm.toFixed(3)}f / 60.0f) * 6.2831853f) + 1.0f) * 0.5f) * (${hi.toFixed(3)}f - ${lo.toFixed(3)}f);`)
         break
       }

@@ -174,6 +174,21 @@ describe('evaluateGraph', () => {
     spy.mockRestore()
   })
 
+  it('Random uses a deterministic per-node sequence when seeded', () => {
+    pruneEvaluatorState(0, Number.POSITIVE_INFINITY)
+    const random = node('random-seeded', 'Random', 'signal', { min: 10, max: 20, seed: 123 })
+    const spy = vi.spyOn(Math, 'random')
+    const first = evaluateScalar([random], [], random.id, 'value', 0)
+    const second = evaluateScalar([random], [], random.id, 'value', 1)
+    expect(spy).not.toHaveBeenCalled()
+    expect(second).not.toBe(first)
+
+    pruneEvaluatorState(0, Number.POSITIVE_INFINITY)
+    const repeatFirst = evaluateScalar([random], [], random.id, 'value', 0)
+    expect(repeatFirst).toBe(first)
+    spy.mockRestore()
+  })
+
   it('bypassed node passes its matching frame input straight through unchanged', () => {
     const sc = node('sc', 'SolidColor', 'pattern', { r: 10, g: 20, b: 30 })
     const bm = node('bm', 'BrightnessMod', 'composite', { brightness: 0, bypassed: true })
@@ -2814,6 +2829,17 @@ describe('signal utility nodes', () => {
     expect(evaluateScalar(graph(1), edges, 'env1', 'result', 75)).toBeCloseTo(0.5, 6)
     // Fully decayed and clamped at 0.
     expect(evaluateScalar(graph(1), edges, 'env1', 'result', 120)).toBe(0)
+  })
+
+  it('Envelope can ramp up over an attack time before decaying', () => {
+    const graph = (on: number) => [boolSrc('envat', on), node('env2', 'Envelope', 'signal', { attack: 0.5, decay: 0.5 })]
+    const edges = [edge('e', 'envat', 'result', 'env2', 'trigger')]
+    expect(evaluateScalar(graph(0), edges, 'env2', 'result', 0)).toBe(0)
+    expect(evaluateScalar(graph(1), edges, 'env2', 'result', 60)).toBe(0)
+    expect(evaluateScalar(graph(1), edges, 'env2', 'result', 75)).toBeCloseTo(0.5, 6)
+    expect(evaluateScalar(graph(1), edges, 'env2', 'result', 90)).toBe(1)
+    expect(evaluateScalar(graph(1), edges, 'env2', 'result', 105)).toBeCloseTo(0.5, 6)
+    expect(evaluateScalar(graph(1), edges, 'env2', 'result', 120)).toBe(0)
   })
 
   it('Trigger toggle flips output on each rising edge', () => {
