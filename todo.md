@@ -325,3 +325,110 @@ show pipeline). Ordered by expected impact within each tier.
 - [x] **Check undo granularity on slider drags** — confirmed each `updateNodeProperty` tick was landing as its own zundo snapshot; fixed via zundo's `handleSet` option with a burst-aware debounce (`debounceHandleSet` in `graphStore.ts`) that pins the pre-burst state and only pushes one history entry per ~400ms-quiet gesture (slider drag, fast typing)
 - [x] **Import safety** — loading a JSON file via MenuBar's Load button now confirms before replacing a non-empty workspace (`window.confirm` in `handleFileChange`); the Sidebar's drag-drop `.json` import is unaffected since it adds to the pattern library rather than replacing the graph
 - [x] **Upload ergonomics** — board+port now persist per project via `projectStore.uploadTarget` (with the old global selection kept only as the fallback for new projects), and MatrixOutput's hardware bay adds a `↻ Re-upload last sketch` shortcut that re-sends the most recently uploaded sketch for the current project without regenerating it
+
+## Node review findings (`docs/development/plans/node-todo.md`)
+
+Imported from the category-by-category node review. Each item below is a
+short pointer back to the full writeup in `node-todo.md` (search that file
+for the bolded phrase to find the detailed rationale/fix). Checked items were
+fixed in this pass (2026-07-26, commit `281868a`); everything else is still
+open.
+
+### Input (MicInput, ButtonInput, PotInput, EncoderInput, MidiInput)
+
+- [x] **I2S pin fields unbounded in UI but silently clamped in codegen.** Added a shared `sanitizePin()` in `cppGenerator.ts` (round + clamp to 0–48) and matching 0–48 sliders in the UI for MicInput's `i2sWs`/`i2sSck`/`i2sSd`.
+- [x] **MicInput `serialDebug` has no tooltip.** Added a `PROPERTY_DESCRIPTIONS` entry.
+- [x] **ButtonInput/PotInput/EncoderInput pin fields aren't sanitized anywhere.** Same `sanitizePin()` now covers `pin`/`pinA`/`pinB`/`pinSW`, plus matching 0–48 UI sliders.
+- [x] **`validateGraph`'s GPIO check only catches duplicates, never invalid ranges.** Added `findPinRangeWarnings()`, wired into both `validateGraph()` and the Graph Health drawer.
+- [x] **No board-aware pin picker.** Added a `BoardGpio` table (`uploadStore.ts`) + `PinPickerField` (`StudioNode.tsx`) — curated dropdown of known-good pins for **ESP32-S3/ESP32/ESP8266 only**; every other board still falls back to free numeric entry. **Follow-up:** no per-peripheral modeling (e.g. which pins are actually ADC-capable) — still a gap, and no table for ESP32-C3/S2/C6/H2 or any non-ESP board.
+- [x] **`pullup`'s wiring implication isn't explained.** Added a `PROPERTY_DESCRIPTIONS` entry (shared across ButtonInput/EncoderInput).
+- [x] **MidiInput `note`/`cc` are unbounded and shown as bare numbers.** Added 0–127 sliders plus a note-name readout ("60 → C4") in `MidiInputBody.tsx`.
+- [x] **EncoderInput push-button only reports continuous state, not an edge.** Added a `resetOnPress` property (zeros the running position on a press edge, both preview and firmware).
+- [x] **Bonus (found while building the pin picker, not in the original review): `PotInput`'s default pin (34) has no ADC capability on the app's own default board (ESP32-S3).** Changed the default to GPIO4 (valid ADC1 on the S3).
+- [ ] **Feature (deferred): board-aware pin picker for the rest of the GPIO capability table.** A real per-board ADC/ADC2-WiFi-conflict/input-only model, plus tables for the remaining boards, would need a dedicated design pass — see the picker's own code comments in `uploadStore.ts`.
+
+### Audio (FFTAnalyzer, BeatDetect, PercussionDetect, AudioFeatures, AudioHue)
+
+- [ ] **FFTAnalyzer's `bands` is a dead control.** Has a slider and a default but is never read in the evaluator or codegen — either wire it to a real variable-resolution band output (via `SpectrumVisualizer`'s existing `resampleSpectrumBins()`) or remove it.
+- [ ] **BeatDetect's rich diagnostics (`flux`/`onset`/`contrast`/effective `threshold`/`cooldownMs`) are computed but never exposed as outputs**, making beat-tuning trial-and-error instead of visual.
+- [ ] **AudioFeatures' `gate` property name doesn't communicate what it does** (a silence-detection threshold). Add a `PROPERTY_LABELS`/`PROPERTY_DESCRIPTIONS` entry (display-only, no migration needed).
+- [ ] **Audio disconnect snaps `kick`/`snare`/`hihat`/`vocals`/`energy` straight to 0** instead of decaying — BeatDetect/PercussionDetect/AudioFeatures all `.delete()` state the instant audio goes inactive.
+- [ ] **AudioHue has no default properties** (`bass`/`mids`/`treble`), so it renders nothing until fully wired — the one node in the library that breaks the "explorable without wiring" convention.
+- [ ] **AudioHue's bass/mids/treble weighting (0.5/0.3/0.2) is fixed and undocumented** — add a tooltip at minimum; exposing the weights as properties would be a larger feature.
+
+### Signal (TimeNode, Interval, Counter, Random, Envelope, Sin, Cos, Wave, ComplexWave, BeatSin, Clock)
+
+- [ ] **Sin/Cos are inert (constant output) unless wired, with no time dependency**, unlike every sibling signal-source node. At minimum needs a tooltip explaining this; defaulting `x` to `TimeNode.time` would be a behavior change worth flagging separately.
+- [ ] **Random's firmware quantizes to 256 steps (`random8()`) while preview is continuous** — switch codegen to `random16()`.
+- [ ] **Random has no `seed` property**, unlike every other randomized node in the library (Noise, Particles, Fire, TwinkleFox, …) — add the standard seed convention.
+- [ ] **Envelope has no `attack` time**, unlike its pattern-node sibling BeatFlash — minor symmetry gap.
+- [ ] **BeatSin's `bpm` has no bounds**, unlike Clock's 40–220 — add a matching `PROPERTY_META_OVERRIDES` entry.
+- [ ] **TimeNode's `dt` differs slightly between preview (`1/60` exact) and firmware (`0.016f` literal)** — low-impact, one-line fix (`1.0f/60.0f`).
+
+### Math (Math, Clamp, MapRange, Lerp, Ease, Abs, Mod, Compare, Not, Gate, Smooth, SampleHold, Switch, XYMapper, Trigger)
+
+- [ ] **10 of 15 nodes are missing a default property for at least one primary float input** (`Math` a/b, `Clamp` value, `MapRange` value, `Lerp` a/b/t, `Abs` x, `Mod` x, `Compare` a, `Gate` value, `Smooth` value, `SampleHold` value, `XYMapper` x/y), so nothing renders until wired. `Switch` already does this correctly — copy its pattern. `Math`'s fallback is mode-dependent (identity element for `mathOp`), so it needs a decision, not a mechanical copy-paste.
+- [ ] **`Ease.t` is a clean, self-contained quick win** — `t` already has a generic 0–1 slider in `PROPERTY_META`, just missing from `Ease`'s `defaultProperties`.
+- [ ] **MapRange's `outMin`/`outMax` aren't wireable, unlike `inMin`/`inMax`** — promote them to wired input ports for symmetry (feature).
+
+### Color (HueCycle, HSVToRGB, RGBToHSV, CHSV, Temperature, HeatColor, BlendColors, GradientSampler, PaletteSampler, PaletteSweep, PaletteSelector, CustomPalette, Poline, PaletteBlend)
+
+- [ ] **BlendColors: preview and firmware genuinely disagree.** Unwired `a`/`b` render red→blue in preview (evaluator hardcodes a fallback) but solid black in firmware (`colorExpr()`'s generic default) — give it its own `rA/gA/bA`/`rB/gB/bB` defaults like `GradientFrame`/`GradientSampler`, read directly in codegen.
+- [ ] **RGBToHSV's `rgb` input has no default property** — pure UI-completeness gap (preview/firmware already agree on black).
+- [ ] **HSVToRGB.h has no bounds despite its own label promising "H (0–360)"** — add a 0–360 slider override.
+- [ ] **GradientSampler.t is the same quick win as Ease.t** — missing default despite an existing generic 0–1 slider; sibling `PaletteSampler` already does this correctly.
+- [ ] **Poline: wired anchor colors drive only the preview; firmware always bakes the anchor swatches**, with no in-app indication of this deliberate limitation — add a small badge/tooltip when an anchor is wired.
+
+### Pattern → Shapes & Text
+
+- [ ] **Image.rotation: preview and firmware disagree on a wired rotation signal.** Evaluator only special-cases exact `90`/`180`/`270`; codegen rounds any input to the nearest quarter turn — make the evaluator round the same way so a wired rotation signal looks the same (snapping) in both.
+- [ ] **Line's `x1`/`y1`/`x2`/`y2` are raw pixel coordinates defaulting to a 16×16-sized line** — the fields already support matrix-relative expressions (`W-1`/`H-1`), just ship those as the defaults instead of literal `15`/`15`.
+- [ ] **Doc gap: `Path` isn't listed in `CLAUDE.md`'s Shapes & Text inventory.**
+
+### Pattern → Generative
+
+- [ ] **RadialBurst.arms is a fully dead, wireable port** — never read in evaluator or codegen (the ring pattern hardcodes `dist * 8`). Either remove the port or wire it up as a real ring-density control (renamed `rings`), the more valuable option since the UI already implies the capability.
+- [ ] **Doc gap: `Scanner`/`Confetti`/`Juggle` aren't listed in `CLAUDE.md`'s Generative inventory.**
+
+### Pattern → Simulations
+
+- [ ] **Particles wasn't exhaustively audited** (20 movement variants — spot-checked only) — worth a dedicated line-by-line evaluator/codegen parity pass on its own given its size. No concrete bug found, just flagging the lower confidence.
+- [ ] **Doc gap: `Boids` isn't listed in `CLAUDE.md`'s Simulations inventory.**
+
+### Pattern → Audio-Reactive
+
+- [ ] **Doc gap: 11 of this subcategory's 22 nodes aren't listed in `CLAUDE.md`** (`SpectrumVisualizer`, `KickShock`, `VocalAurora`, `BeatKaleidoscope`, `SpectraMosaic`, `PercussionBlobs`, `EmberPulse`, `TurbulentBloom`, `GravityWell`, `RainRipples`, `PrismStorm`) — worth a dedicated doc pass rather than a one-liner.
+- [ ] **KickShock.tiles is a second dead port**, same shape as RadialBurst.arms — declared, connectable, never read in evaluator or codegen. Sibling `SpectraMosaic` has a genuinely functional `tiles` property, suggesting copy-paste; either remove or wire it to a real tile-grid split.
+
+### Pattern → Code
+
+- [ ] **CustomFormula's `a`/`b` are missing default properties** — same recurring pattern as the Math category; add `a: 0, b: 0`.
+- [ ] **No in-app help for the formula language's vocabulary** (`x`/`y`/`t`/`cx`/`cy`/`r`/`angle`, `sin8`/`beatsin8`/`scale8`/…) — the app's other free-text power feature (scalar expressions) already has this via `SCALAR_EXPRESSION_HELP`; add a `FORMULA_LANG_HELP`-style tooltip for `CustomFormula`/`FieldFormula`.
+- [x] Security/sandboxing was re-verified intact (no `new Function`/`eval`, Code node's worker timeout, `trusted` gating) — no action needed, confirmed clean.
+
+### Field
+
+- [x] Clean — every node passed the dead-port, missing-default, and evaluator/codegen-parity checks. No action needed; flagged in the review as a positive reference point for the rest of the library.
+
+### Effects / composite
+
+- [ ] **BrightnessMod: firmware can only dim, never brighten, and the slider can't express amplification either.** The evaluator's multiplier is unclamped (only the final pixel is clamped to 255) but codegen clamps the multiplier itself to `[0,1]` — widen codegen's clamp to match, and add a `BrightnessMod`-specific slider override reaching ~2–3×.
+
+### Show (MusicLibrary, PatternCollection, TransitionSet, PatternMaster, Sequencer, Transition, PerformanceGenerator, SDCard)
+
+- [ ] **MusicLibrary's `colors`/`positions` properties are fully dead** — never read anywhere; safe to drop from `defaultProperties` (old saves already carry the unused keys harmlessly).
+- [ ] **Sequencer's `fade` slider is capped at 1, but the node supports a crossfade up to the full `interval` (0.1–20s)** — it fell back to the generic 0–1 "opacity" meta instead of getting its own override.
+- [ ] **SDCard's pin fields (`sdCsPin`/`i2sBclk`/`i2sLrc`/`i2sDout`) share the Input category's sanitization gap** — extend the `sanitizePin()`/pin-picker work above to SDCard.
+- [ ] **SDCard's `maxVolume` is unbounded** (ESP32-audioI2S's practical range is 0–21) — add a matching `PROPERTY_META` override.
+
+### Output (MatrixOutput)
+
+- [ ] **`dataPin`/`clockPin` share the same pin-sanitization gap** as every other hardware-facing node — last instance of the systemic pin-handling issue; extend the shared helper/picker here too.
+- [ ] **Open question, not a bug: MatrixOutput's 64×64 size ceiling** (`MatrixSizePopup.tsx`) — confirm whether this is a deliberate preview-performance cap or should be raised for large installations.
+
+### Node additions worth considering
+
+- [ ] **More `Ease` curve variants** (e.g. `ease8InOutApprox`) — low effort, the bundled-variant dispatch pattern is already proven elsewhere.
+- [ ] **Palette-from-image extraction node** — sample an uploaded `Image` node's dominant colors into a ready-made palette; reuses existing image/palette infrastructure.
+- [ ] **DMX/Art-Net input node** — bigger lift (new `dmx` dataType, `esp_dmx`-style library, new wiring config on par with SDCard's I2S setup); candidate for a dedicated design doc, not a quick add.
+- Time-of-day/scheduled triggers were explicitly flagged as a **non-starter for now** (no RTC/network infrastructure exists yet) — not a recommendation, just ruled out for the record.
