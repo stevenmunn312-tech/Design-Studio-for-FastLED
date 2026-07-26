@@ -1663,6 +1663,19 @@ describe('Float Field — Phase 3 codegen', () => {
   })
 })
 
+describe('generateCpp — RadialBurst', () => {
+  it('uses the compatible arms port as live ring density', () => {
+    const density = node('density', 'Random', 'signal', { min: 2, max: 12 })
+    const radial = node('radial', 'RadialBurst', 'pattern', {})
+    const cpp = generateCpp([density, radial, outputNode], [
+      edge('densityEdge', 'density', 'radial', 'value', 'arms'),
+      edge('outEdge', 'radial', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('_rings=max(1.0f,min(32.0f,n_density_value))')
+    expect(cpp).toContain('_d*_rings')
+  })
+})
+
 describe('generateCpp — Particles modes', () => {
   const out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8 })
   const gen = (mode: string, props: Record<string, unknown> = {}) => {
@@ -2531,6 +2544,17 @@ describe('generateCpp — BeatFlash', () => {
 })
 
 describe('KickShock / PercussionBlobs / RainRipples pool-spawner codegen', () => {
+  it('KickShock consumes its tiles input and remaps pixels into tile-local coordinates', () => {
+    const tiles = node('tiles', 'Random', 'signal', { min: 2, max: 4 })
+    const ks = node('ksTiles', 'KickShock', 'pattern', {})
+    const cpp = generateCpp([tiles, ks, outputNode], [
+      edge('tilesEdge', 'tiles', 'ksTiles', 'value', 'tiles'),
+      edge('outEdge', 'ksTiles', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('roundf(n_tiles_value)')
+    expect(cpp).toContain('fmodf((_x+0.5f)*_tiles,WIDTH)/_tiles-0.5f')
+  })
+
   it('KickShock bakes count into the static array size and combine mode', () => {
     const ks = node('ks', 'KickShock', 'pattern', { count: 5, blendMode: 'max' })
     const cpp = generateCpp([ks, outputNode], [edge('e', 'ks', 'out', 'frame', 'frame')])

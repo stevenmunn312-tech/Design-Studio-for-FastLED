@@ -69,6 +69,20 @@ describe('sampleImageToFrame', () => {
     expect(flipped.map(row => row.map(p => p.r))).toEqual([[10, 30], [20, 40]])
   })
 
+  it('snaps arbitrary rotation signals to the nearest quarter turn like firmware', () => {
+    const img = { w: 2, h: 2, pixels: [
+      10, 0, 0, 20, 0, 0,
+      30, 0, 0, 40, 0, 0,
+    ] }
+    const unrotated = sampleImageToFrame(img, 2, 2, { rotation: 44 })
+    const clockwise = sampleImageToFrame(img, 2, 2, { rotation: 46 })
+    const counterClockwise = sampleImageToFrame(img, 2, 2, { rotation: -45 })
+
+    expect(unrotated.map(row => row.map(p => p.r))).toEqual([[10, 20], [30, 40]])
+    expect(clockwise.map(row => row.map(p => p.r))).toEqual([[30, 10], [40, 20]])
+    expect(counterClockwise.map(row => row.map(p => p.r))).toEqual([[20, 40], [10, 30]])
+  })
+
   it('places an original-size image without scaling it', () => {
     const img = { w: 2, h: 1, pixels: [10, 0, 0, 20, 0, 0] }
     const frame = sampleImageToFrame(img, 4, 3, { fit: 'original', positionX: 1, positionY: 1 })

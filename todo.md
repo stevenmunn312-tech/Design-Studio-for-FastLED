@@ -381,29 +381,29 @@ fixed category-by-category as this review was worked through (starting
 
 ### Pattern → Shapes & Text
 
-- [ ] **Image.rotation: preview and firmware disagree on a wired rotation signal.** Evaluator only special-cases exact `90`/`180`/`270`; codegen rounds any input to the nearest quarter turn — make the evaluator round the same way so a wired rotation signal looks the same (snapping) in both.
-- [ ] **Line's `x1`/`y1`/`x2`/`y2` are raw pixel coordinates defaulting to a 16×16-sized line** — the fields already support matrix-relative expressions (`W-1`/`H-1`), just ship those as the defaults instead of literal `15`/`15`.
-- [ ] **Doc gap: `Path` isn't listed in `CLAUDE.md`'s Shapes & Text inventory.**
+- [x] **Image.rotation: preview and firmware disagree on a wired rotation signal.** `sampleImageToFrame()` now snaps every finite angle to the nearest quarter turn with C++ `roundf`-compatible half-away-from-zero behavior, including negative wired values; focused image tests cover 44°, 46°, and −45°.
+- [x] **Line's `x1`/`y1`/`x2`/`y2` are raw pixel coordinates defaulting to a 16×16-sized line.** New Line nodes now default to `(0,0)` → (`W-1`,`H-1`), so they span any matrix while retaining the existing expression-capable fields.
+- [x] **Doc gap: `Path` isn't listed in `CLAUDE.md`'s Shapes & Text inventory.** Added it to the canonical pattern inventory.
 
 ### Pattern → Generative
 
-- [ ] **RadialBurst.arms is a fully dead, wireable port** — never read in evaluator or codegen (the ring pattern hardcodes `dist * 8`). Either remove the port or wire it up as a real ring-density control (renamed `rings`), the more valuable option since the UI already implies the capability.
-- [ ] **Doc gap: `Scanner`/`Confetti`/`Juggle` aren't listed in `CLAUDE.md`'s Generative inventory.**
+- [x] **RadialBurst.arms is a fully dead, wireable port.** It now drives 1–32× ring density in preview and firmware, defaults to 8 (preserving the old hardcoded look), and is displayed as **Rings**. The persisted `arms` port id remains intact so existing saved edges do not break.
+- [x] **Doc gap: `Scanner`/`Confetti`/`Juggle` aren't listed in `CLAUDE.md`'s Generative inventory.** Added all three to the canonical pattern inventory.
 
 ### Pattern → Simulations
 
-- [ ] **Particles wasn't exhaustively audited** (20 movement variants — spot-checked only) — worth a dedicated line-by-line evaluator/codegen parity pass on its own given its size. No concrete bug found, just flagging the lower confidence.
-- [ ] **Doc gap: `Boids` isn't listed in `CLAUDE.md`'s Simulations inventory.**
+- [x] **Particles wasn't exhaustively audited** (20 movement variants). Completed the dedicated side-by-side pass across every preview/firmware spawn, update, lifetime, variant-control, and render branch; the existing all-mode evaluator/codegen coverage remains green and no concrete parity defect was found.
+- [x] **Doc gap: `Boids` isn't listed in `CLAUDE.md`'s Simulations inventory.** Added it to the canonical pattern inventory.
 
 ### Pattern → Audio-Reactive
 
-- [ ] **Doc gap: 11 of this subcategory's 22 nodes aren't listed in `CLAUDE.md`** (`SpectrumVisualizer`, `KickShock`, `VocalAurora`, `BeatKaleidoscope`, `SpectraMosaic`, `PercussionBlobs`, `EmberPulse`, `TurbulentBloom`, `GravityWell`, `RainRipples`, `PrismStorm`) — worth a dedicated doc pass rather than a one-liner.
-- [ ] **KickShock.tiles is a second dead port**, same shape as RadialBurst.arms — declared, connectable, never read in evaluator or codegen. Sibling `SpectraMosaic` has a genuinely functional `tiles` property, suggesting copy-paste; either remove or wire it to a real tile-grid split.
+- [x] **Doc gap: 11 of this subcategory's 22 nodes aren't listed in `CLAUDE.md`.** Added `SpectrumVisualizer`, `KickShock`, `VocalAurora`, `BeatKaleidoscope`, `SpectraMosaic`, `PercussionBlobs`, `EmberPulse`, `TurbulentBloom`, `GravityWell`, `RainRipples`, and `PrismStorm` to the canonical pattern inventory.
+- [x] **KickShock.tiles is a second dead port.** It now repeats the shockwave field across a live 1–8× square grid in both preview and generated firmware; the default is 1, preserving existing projects' single-field appearance.
 
 ### Pattern → Code
 
-- [ ] **CustomFormula's `a`/`b` are missing default properties** — same recurring pattern as the Math category; add `a: 0, b: 0`.
-- [ ] **No in-app help for the formula language's vocabulary** (`x`/`y`/`t`/`cx`/`cy`/`r`/`angle`, `sin8`/`beatsin8`/`scale8`/…) — the app's other free-text power feature (scalar expressions) already has this via `SCALAR_EXPRESSION_HELP`; add a `FORMULA_LANG_HELP`-style tooltip for `CustomFormula`/`FieldFormula`.
+- [x] **CustomFormula's `a`/`b` are missing default properties.** Added `a: 0, b: 0`, matching the evaluator and firmware fallbacks so both inputs are editable before wiring.
+- [x] **No in-app help for the formula language's vocabulary.** `CustomFormula` and `FieldFormula` formula rows now expose concise variable/function tooltips in both the node editor and Inspector, including the coordinate variables and FastLED shims.
 - [x] Security/sandboxing was re-verified intact (no `new Function`/`eval`, Code node's worker timeout, `trusted` gating) — no action needed, confirmed clean.
 
 ### Field

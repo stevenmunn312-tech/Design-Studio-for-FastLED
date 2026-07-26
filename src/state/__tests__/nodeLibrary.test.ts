@@ -40,6 +40,28 @@ describe('nodeLibrary', () => {
     expect(NODE_LIBRARY.find((n) => n.type === 'AnimatedImage')).toBeUndefined()
   })
 
+  it('ships matrix-relative Line defaults', () => {
+    expect(NODE_LIBRARY.find((n) => n.type === 'Line')?.defaultProperties).toMatchObject({
+      x1: 0, y1: 0, x2: 'W-1', y2: 'H-1',
+    })
+  })
+
+  it('makes RadialBurst ring density and KickShock tiling functional controls', () => {
+    const radial = NODE_LIBRARY.find((n) => n.type === 'RadialBurst')
+    const shock = NODE_LIBRARY.find((n) => n.type === 'KickShock')
+    expect(radial?.inputs.find((port) => port.id === 'arms')?.label).toBe('Rings')
+    expect(radial?.defaultProperties).toMatchObject({ arms: 8 })
+    expect(propertyMeta('RadialBurst', 'arms')).toMatchObject({ control: 'slider', min: 1, max: 32 })
+    expect(shock?.defaultProperties).toMatchObject({ tiles: 1 })
+    expect(propertyMeta('KickShock', 'tiles')).toMatchObject({ control: 'slider', min: 1, max: 8 })
+  })
+
+  it('gives formula nodes editable inputs and in-app vocabulary help', () => {
+    expect(NODE_LIBRARY.find((n) => n.type === 'CustomFormula')?.defaultProperties).toMatchObject({ a: 0, b: 0 })
+    expect(propertyDescription('CustomFormula', 'formula')).toMatch(/x, y, t.*sin8/)
+    expect(propertyDescription('FieldFormula', 'formula')).toMatch(/beatsin8.*fieldIn/)
+  })
+
   it('every node in the shelf has a tooltip description', () => {
     const missing = NODE_LIBRARY.filter((n) => !NODE_DESCRIPTIONS[n.type]).map((n) => n.type)
     expect(missing).toEqual([])

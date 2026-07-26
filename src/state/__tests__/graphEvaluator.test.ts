@@ -3809,6 +3809,20 @@ const totalBrightness = (frame: Frame) => frame.flat().reduce((s, p) => s + p.r 
 const boolConst = (id: string, on: number) => node(id, 'Compare', 'math', { a: on, b: 0.5 })
 
 describe('KickShock', () => {
+  it('tiles repeats the shockwave field across a square grid', () => {
+    const hit = withOutput(node('ksTiles', 'KickShock', 'pattern', { tiles: 2 }), [boolConst('khTiles', 1)], [
+      edge('e1', 'khTiles', 'result', 'ksTiles', 'kick'),
+    ])
+    const tiled = evaluateGraph(hit.nodes, hit.edges, SEC(0.25), W, H)!
+
+    for (let y = 0; y < H / 2; y++) {
+      for (let x = 0; x < W / 2; x++) {
+        expect(tiled[y][x]).toEqual(tiled[y][x + W / 2])
+        expect(tiled[y][x]).toEqual(tiled[y + H / 2][x])
+      }
+    }
+  })
+
   it('a kick spawns an expanding ring at the matrix centre by default (spawnSpread=0)', () => {
     const hit = withOutput(node('ks1', 'KickShock', 'pattern', {}), [boolConst('kh1', 1)], [
       edge('e1', 'kh1', 'result', 'ks1', 'kick'),
@@ -3919,6 +3933,15 @@ describe('KickShock', () => {
       edge('e1', 'kh11', 'result', 'ks11', 'kick'),
     ])
     expect(() => evaluateGraph(small.nodes, small.edges, 0, W, H)).not.toThrow()
+  })
+})
+
+describe('RadialBurst', () => {
+  it('ring density changes the generated frame', () => {
+    const sparse = withOutput(node('rbSparse', 'RadialBurst', 'pattern', { speed: 0, arms: 2 }))
+    const dense = withOutput(node('rbDense', 'RadialBurst', 'pattern', { speed: 0, arms: 16 }))
+    expect(evaluateGraph(sparse.nodes, sparse.edges, 0, 8, 8))
+      .not.toEqual(evaluateGraph(dense.nodes, dense.edges, 0, 8, 8))
   })
 })
 
