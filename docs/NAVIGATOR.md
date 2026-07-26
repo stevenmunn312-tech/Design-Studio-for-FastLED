@@ -33,6 +33,10 @@ build/architecture overview aimed at contributors.
     `FieldToFrame`, `DistanceField`, `FieldMath`, and `FieldWarp` nodes that
     unlock ANIMartRIX-style coordinate → scalar → colour pipelines.
 - [Plans](development/plans/)
+  - [Ease variants and scheduled triggers](development/plans/ease-and-scheduled-triggers.md)
+    — research and implementation plans for extending the existing FastLED
+    Ease node and for adding trustworthy time-of-day scheduling across browser
+    preview, generated firmware, NTP, and a later offline RTC provider.
   - [T-HMI feature integration](development/plans/thmi-feature-integration.md)
     — how to replay the divergent `feature/thmi-touchscreen-ui` branch (FFT
     audio, 13 transitions, T-HMI firmware) onto current `main` as PRs.
