@@ -9,6 +9,8 @@ import { useMusicStore } from '../../../state/musicStore'
 import { usePreviewStore } from '../../../state/previewStore'
 import { useAudioStore } from '../../../state/audioStore'
 import { useNodeDefaults } from '../../../state/nodeDefaults'
+import { useUploadStore } from '../../../state/uploadStore'
+import { useHardwareInputStore } from '../../../state/hardwareInputStore'
 
 // React Flow's <Handle> needs flow context; keep a lightweight DOM stand-in so
 // node-body tests can also assert the absolute port geometry.
@@ -21,6 +23,13 @@ vi.mock('@xyflow/react', async (orig) => {
     ),
   }
 })
+
+// jsdom doesn't implement pointer capture; EncoderInputWidget calls it on
+// every drag/tap, so tests simulating those gestures need a harmless stub.
+if (!Element.prototype.setPointerCapture) {
+  Element.prototype.setPointerCapture = () => {}
+  Element.prototype.releasePointerCapture = () => {}
+}
 
 function makeNode(nodeType: string, props: Record<string, unknown>): StudioNodeT {
   const def = NODE_LIBRARY.find((n) => n.type === nodeType)!
@@ -46,6 +55,10 @@ describe('StudioNode', () => {
     usePreviewStore.setState({ outputs: new Map() })
     useAudioStore.setState({ active: false, bass: 0, mids: 0, treble: 0, beat: false, bpm: 120, spectrum: Array(16).fill(0) })
     useNodeDefaults.setState({ overrides: {} })
+    // Default board matches the app's own default (ESP32-S3, which has a GPIO
+    // table) so pin-picker tests aren't sensitive to another test's selection.
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
+    useHardwareInputStore.setState({ button: new Map(), pot: new Map(), encoder: new Map() })
     // Collapsible property-group open/closed state is persisted per node type
     // across a whole browser session; reset it so tests don't leak into each
     // other (a group opened in one test would start already-open in the next).
@@ -480,6 +493,44 @@ describe('StudioNode', () => {
       .getByText('0.50')).toBeTruthy()
     expect(renderNode(makeNode('EncoderInput', { pinA: 32, pinB: 33, pinSW: 25, pullup: true }))
       .getByText('0')).toBeTruthy()
+  })
+
+  it('resetOnPress zeros the encoder position on a tap (no drag)', () => {
+    useHardwareInputStore.setState({ encoder: new Map([['n1', { position: 5, pressed: false }]]) })
+    const { getByTitle, getByText } = renderNode(
+      makeNode('EncoderInput', { pinA: 32, pinB: 33, pinSW: 25, pullup: true, resetOnPress: true })
+    )
+    expect(getByText('5')).toBeTruthy()
+    const dial = getByTitle('Drag to turn, click to press')
+    fireEvent.pointerDown(dial, { clientY: 100, pointerId: 1 })
+    fireEvent.pointerUp(dial, { clientY: 100, pointerId: 1 })
+    expect(getByText('0')).toBeTruthy()
+  })
+
+  it('the GPIO pin picker offers a curated dropdown for a board with a table, and free entry otherwise', () => {
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
+    const withTable = renderNode(makeNode('MicInput', {
+      gain: 1, i2sWs: 39, i2sSck: 40, i2sSd: 41, channel: 'Left', serialDebug: false,
+    }))
+    // i2sWs/i2sSck/i2sSd live in the collapsible "I2S Pins" property group,
+    // which starts closed.
+    fireEvent.click(within(withTable.container).getByText('I2S Pins'))
+    const i2sWsSelect = Array.from(withTable.container.querySelectorAll('select'))
+      .find((s) => Array.from(s.options).some((o) => o.value === '39')) as HTMLSelectElement
+    expect(i2sWsSelect).toBeTruthy()
+    expect(i2sWsSelect.value).toBe('39')
+    expect(within(i2sWsSelect).getByText(/Common I2S WS default/)).toBeTruthy()
+    withTable.unmount()
+    // The group-open state above persisted to localStorage — clear it so the
+    // next mount starts collapsed again instead of toggling it back shut.
+    localStorage.clear()
+
+    useUploadStore.setState({ selectedFqbn: 'arduino:avr:uno' })
+    const noTable = renderNode(makeNode('MicInput', {
+      gain: 1, i2sWs: 39, i2sSck: 40, i2sSd: 41, channel: 'Left', serialDebug: false,
+    }))
+    fireEvent.click(within(noTable.container).getByText('I2S Pins'))
+    expect(noTable.container.querySelectorAll('input[type="range"]').length).toBeGreaterThan(0)
   })
 
   it('flags the preview-only fallback on MidiInput, and only there', () => {

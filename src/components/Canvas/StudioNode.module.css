@@ -534,6 +534,32 @@
   border-color: var(--accent-output);
 }
 
+/* Board-aware GPIO picker (PinPickerField) — a select of known-good pins for
+   the selected board, or a fallback number entry with a button back to the
+   list. Unrelated to .pinBtn above, which pins a property to the Performance
+   Deck. */
+.gpioPickerWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.gpioBackBtn {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  padding: 0 2px;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.6;
+  color: var(--text-secondary);
+}
+
+.gpioBackBtn:hover {
+  opacity: 1;
+}
+
 /* Collapsible property-group section (e.g. MatrixOutput's Wiring/Layout/
    Rendering/Power groups) — a clickable header that shows/hides its rows. */
 .propGroup {

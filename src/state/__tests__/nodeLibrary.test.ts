@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { NODE_LIBRARY, NODE_DESCRIPTIONS, portColor, propertyMeta, propertyDescription, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, isPropertyEnabled } from '../nodeLibrary'
+import { NODE_LIBRARY, NODE_DESCRIPTIONS, portColor, propertyMeta, propertyDescription, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, isPropertyEnabled, isGpioPinProperty } from '../nodeLibrary'
 
 describe('nodeLibrary', () => {
   it('gives Image nodes placement and transform defaults', () => {
@@ -353,5 +353,48 @@ describe('nodeLibrary', () => {
     expect(c?.inputs).toEqual([])
     expect(c?.outputs).toEqual([])
     expect(c?.defaultProperties).toMatchObject({ text: 'Note', color: '#ffd24a' })
+  })
+
+  it('bounds the Input category\'s GPIO pin fields to a 0-48 slider', () => {
+    expect(propertyMeta('MicInput', 'i2sWs')).toEqual({ control: 'slider', min: 0, max: 48, step: 1 })
+    expect(propertyMeta('MicInput', 'i2sSck')).toEqual({ control: 'slider', min: 0, max: 48, step: 1 })
+    expect(propertyMeta('MicInput', 'i2sSd')).toEqual({ control: 'slider', min: 0, max: 48, step: 1 })
+    expect(propertyMeta('ButtonInput', 'pin')).toEqual({ control: 'slider', min: 0, max: 48, step: 1 })
+    expect(propertyMeta('PotInput', 'pin')).toEqual({ control: 'slider', min: 0, max: 48, step: 1 })
+    expect(propertyMeta('EncoderInput', 'pinA')).toEqual({ control: 'slider', min: 0, max: 48, step: 1 })
+    expect(propertyMeta('EncoderInput', 'pinB')).toEqual({ control: 'slider', min: 0, max: 48, step: 1 })
+    expect(propertyMeta('EncoderInput', 'pinSW')).toEqual({ control: 'slider', min: 0, max: 48, step: 1 })
+  })
+
+  it('bounds MidiInput note/cc to a 0-127 slider', () => {
+    expect(propertyMeta('MidiInput', 'note')).toEqual({ control: 'slider', min: 0, max: 127, step: 1 })
+    expect(propertyMeta('MidiInput', 'cc')).toEqual({ control: 'slider', min: 0, max: 127, step: 1 })
+  })
+
+  it('flags exactly the Input category GPIO pin properties for the board-aware picker', () => {
+    expect(isGpioPinProperty('MicInput', 'i2sWs')).toBe(true)
+    expect(isGpioPinProperty('MicInput', 'i2sSck')).toBe(true)
+    expect(isGpioPinProperty('MicInput', 'i2sSd')).toBe(true)
+    expect(isGpioPinProperty('MicInput', 'gain')).toBe(false)
+    expect(isGpioPinProperty('ButtonInput', 'pin')).toBe(true)
+    expect(isGpioPinProperty('PotInput', 'pin')).toBe(true)
+    expect(isGpioPinProperty('EncoderInput', 'pinA')).toBe(true)
+    expect(isGpioPinProperty('EncoderInput', 'pinB')).toBe(true)
+    expect(isGpioPinProperty('EncoderInput', 'pinSW')).toBe(true)
+    expect(isGpioPinProperty('EncoderInput', 'resetOnPress')).toBe(false)
+    // MatrixOutput's dataPin/clockPin aren't in GPIO_PIN_PROPERTIES yet — no
+    // picker for them until that category gets the same treatment.
+    expect(isGpioPinProperty('MatrixOutput', 'dataPin')).toBe(false)
+  })
+
+  it('EncoderInput defaults resetOnPress to off', () => {
+    const enc = NODE_LIBRARY.find((n) => n.type === 'EncoderInput')
+    expect(enc?.defaultProperties).toMatchObject({ resetOnPress: false })
+  })
+
+  it('has tooltips for serialDebug and pullup', () => {
+    expect(propertyDescription('MicInput', 'serialDebug')).toMatch(/serial monitor/i)
+    expect(propertyDescription('ButtonInput', 'pullup')).toMatch(/INPUT_PULLUP/)
+    expect(propertyDescription('EncoderInput', 'pullup')).toMatch(/INPUT_PULLUP/)
   })
 })

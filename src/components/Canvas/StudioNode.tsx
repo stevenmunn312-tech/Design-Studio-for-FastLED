@@ -5,8 +5,9 @@ import { useGraphStore } from '../../state/graphStore'
 import { compositionDims } from '../../state/outputRouting'
 import type { StudioEdge, StudioNodeData } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { NODE_LIBRARY, CATEGORY_ACCENT_VAR, portColor, propertyMeta, propertyDescription, propertyLabel, hasClampableInputs, bypassPort, nodeDisplayLabel, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression } from '../../state/nodeLibrary'
+import { NODE_LIBRARY, CATEGORY_ACCENT_VAR, portColor, propertyMeta, propertyDescription, propertyLabel, hasClampableInputs, bypassPort, nodeDisplayLabel, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression, isGpioPinProperty } from '../../state/nodeLibrary'
 import { isPinnableProperty } from '../../state/performanceDeck'
+import { useUploadStore, boardGpioInfo } from '../../state/uploadStore'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../../state/scalarExpression'
 import { waveNodeSamples } from '../../state/wave'
 import WaveScope from './WaveScope'
@@ -205,6 +206,84 @@ function SliderProperty({
   )
 }
 
+// Board-aware GPIO picker for MicInput/ButtonInput/PotInput/EncoderInput's
+// pin properties (see isGpioPinProperty). Offers a dropdown of curated
+// known-good pins for boards with a BoardGpio table (boardGpioInfo);
+// otherwise — and whenever the current value isn't one of the curated
+// options — falls back to the plain bounded number entry every board
+// supports, so nothing is ever unreachable.
+function PinPickerField({
+  value,
+  min,
+  max,
+  disabled,
+  onChange,
+}: {
+  value: number
+  min: number
+  max: number
+  disabled: boolean
+  onChange: (value: number) => void
+}) {
+  const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
+  const gpio = boardGpioInfo(selectedFqbn)
+  const [customOpen, setCustomOpen] = useState(false)
+
+  if (!gpio || gpio.recommended.length === 0) {
+    return <SliderProperty label="pin" value={value} min={min} max={max} step={1} disabled={disabled} onChange={onChange} />
+  }
+
+  const isRecommended = gpio.recommended.some((p) => p.pin === value)
+
+  if (customOpen || !isRecommended) {
+    return (
+      <span className={styles.gpioPickerWrap}>
+        <input
+          className={`nodrag ${styles.propInput}`}
+          type="number"
+          min={min}
+          max={max}
+          step={1}
+          disabled={disabled}
+          value={value}
+          onWheelCapture={stopWheelWhileFocused}
+          onChange={(e) => {
+            const n = Math.round(Number(e.target.value))
+            if (Number.isFinite(n)) onChange(Math.max(min, Math.min(max, n)))
+          }}
+        />
+        <button
+          type="button"
+          className={`nodrag ${styles.gpioBackBtn}`}
+          disabled={disabled}
+          title="Pick from known-good pins for this board"
+          onClick={() => setCustomOpen(false)}
+        >
+          ☰
+        </button>
+      </span>
+    )
+  }
+
+  return (
+    <select
+      className={`nodrag ${styles.propSelect}`}
+      disabled={disabled}
+      value={String(value)}
+      onWheelCapture={stopWheelWhileFocused}
+      onChange={(e) => {
+        if (e.target.value === '__custom__') { setCustomOpen(true); return }
+        onChange(Number(e.target.value))
+      }}
+    >
+      {gpio.recommended.map((p) => (
+        <option key={p.pin} value={p.pin}>{`GPIO ${p.pin}${p.note ? ` — ${p.note}` : ''}`}</option>
+      ))}
+      <option value="__custom__">Other (type a number)…</option>
+    </select>
+  )
+}
+
 interface LivePropertyControlsProps {
   nodeId: string
   nodeType: string
@@ -254,6 +333,11 @@ const LivePropertyControls = memo(function LivePropertyControls({
   pinProperty,
   unpinProperty,
 }: LivePropertyControlsProps) {
+  // For the GPIO pin picker's dropdown + row-tooltip caveats (PinPickerField
+  // below reads the same store directly for its own render).
+  const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
+  const boardGpio = boardGpioInfo(selectedFqbn)
+
   // "Set Default" is meant to keep tracking this node's settings, not just
   // snapshot them once — otherwise a pin edited after the checkbox was
   // ticked (e.g. MicInput's i2sWs) silently falls out of sync with the
@@ -383,6 +467,10 @@ const LivePropertyControls = memo(function LivePropertyControls({
           ? evaluateScalarExpression(val, expressionW, expressionH)
           : null
         const expressionInvalid = expressionCapable && typeof val === 'string' && expressionResult == null
+        const isGpioPin = isGpioPinProperty(nodeType, key)
+        const gpioNote = isGpioPin && typeof val === 'number' && boardGpio
+          ? (boardGpio.caution.find((c) => c.pin === val)?.note ?? boardGpio.recommended.find((r) => r.pin === val)?.note)
+          : undefined
         const rowTitle = wired
           ? 'Driven by connection'
           : gated
@@ -393,7 +481,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 : typeof val === 'string'
                   ? `${val} = ${showNum(expressionResult!)}`
                   : `Number or expression. ${SCALAR_EXPRESSION_HELP}`
-              : propertyDescription(nodeType, key)
+              : gpioNote ?? propertyDescription(nodeType, key)
         return (
           <div
             key={key}
@@ -413,6 +501,14 @@ const LivePropertyControls = memo(function LivePropertyControls({
                   <option key={opt} value={opt}>{opt}</option>
                 ))}
               </select>
+            ) : isGpioPin && meta?.control === 'slider' && typeof val === 'number' ? (
+              <PinPickerField
+                value={typeof live === 'number' ? live : val}
+                min={meta.min}
+                max={meta.max}
+                disabled={disabled}
+                onChange={(value) => updateNodeProperty(nodeId, key, value)}
+              />
             ) : meta?.control === 'slider' && typeof val === 'number' ? (
               <SliderProperty
                 label={key}
@@ -995,7 +1091,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {showLiveNodeVisuals && isComplexWave && <ComplexWaveScope nodeId={id} />}
         {showLiveNodeVisuals && isBeatDetect && <BeatDetectBody nodeId={id} />}
         {showLiveNodeVisuals && isFFTAnalyzer && <FFTAnalyzerBody nodeId={id} bands={Number(props.bands ?? 24)} />}
-        {showLiveNodeVisuals && isHardwareInput && <HardwareInputBody nodeId={id} nodeType={d.nodeType} />}
+        {showLiveNodeVisuals && isHardwareInput && <HardwareInputBody nodeId={id} nodeType={d.nodeType} resetOnPress={props.resetOnPress === true} />}
         {showLiveNodeVisuals && d.nodeType === 'MidiInput' && <MidiInputBody note={Math.round(Number(props.note ?? 60))} cc={Math.round(Number(props.cc ?? 1))} />}
         {showLiveNodeVisuals && previewKind && outPort && (
           previewHidden ? (

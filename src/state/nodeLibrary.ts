@@ -2177,7 +2177,11 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'input',
     inputs: [],
     outputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
-    defaultProperties: { pin: 34 },
+    // GPIO4 is ADC1 on the app's default board (ESP32-S3, ADC1 = GPIO1-10) —
+    // the old default of 34 was an ADC1 pin on the *classic* ESP32 (ADC1 =
+    // GPIO32-39) but has no ADC capability at all on the S3, so a fresh node
+    // silently read garbage on the app's own default board.
+    defaultProperties: { pin: 4 },
   },
   {
     // Rotary encoder (e.g. KY-040) — polling quadrature decode (no interrupts,
@@ -2192,7 +2196,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'position', label: 'Position', dataType: 'float' },
       { id: 'pressed', label: 'Pressed', dataType: 'bool' },
     ],
-    defaultProperties: { pinA: 32, pinB: 33, pinSW: 25, pullup: true },
+    defaultProperties: { pinA: 32, pinB: 33, pinSW: 25, pullup: true, resetOnPress: false },
   },
   {
     // Web MIDI input — no embedded-hardware equivalent, so this is
@@ -2953,6 +2957,28 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   MicInput: {
     gain:      { control: 'slider', min: 0, max: MIC_MAX_GAIN, step: 0.05 },
+    // Matches cppGenerator.ts's sanitizePin() clamp, so what's shown on the
+    // node is what actually ships to firmware.
+    i2sWs:  { control: 'slider', min: 0, max: 48, step: 1 },
+    i2sSck: { control: 'slider', min: 0, max: 48, step: 1 },
+    i2sSd:  { control: 'slider', min: 0, max: 48, step: 1 },
+  },
+  ButtonInput: {
+    pin: { control: 'slider', min: 0, max: 48, step: 1 },
+  },
+  PotInput: {
+    pin: { control: 'slider', min: 0, max: 48, step: 1 },
+  },
+  EncoderInput: {
+    pinA: { control: 'slider', min: 0, max: 48, step: 1 },
+    pinB: { control: 'slider', min: 0, max: 48, step: 1 },
+    pinSW: { control: 'slider', min: 0, max: 48, step: 1 },
+  },
+  // MIDI note/CC numbers are conventionally 0–127; MidiInputBody shows the
+  // note name (e.g. "60 → C4") alongside the raw number.
+  MidiInput: {
+    note: { control: 'slider', min: 0, max: 127, step: 1 },
+    cc:   { control: 'slider', min: 0, max: 127, step: 1 },
   },
   FrameFeedback: {
     blendMode: { control: 'select', options: ['normal', 'screen', 'add', 'multiply', 'difference', 'lighten'] },
@@ -3057,6 +3083,9 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   chipset: 'The LED chipset driving this output — must match the physical strip/panel.',
   colorOrder: 'Wire colour byte order the chipset expects. The wrong order swaps colours (e.g. red renders as green).',
   clockPin: 'SPI chipsets only — the clock line alongside the data pin.',
+  serialDebug: "Prints processor/conditioner stats to the serial monitor ~10×/sec, for checking mic wiring on-device. Firmware-only — no visible effect here.",
+  pullup: "On wires the pin INPUT_PULLUP (idle high, press pulls low) — the common no-extra-parts wiring. Off wires it plain INPUT, which needs an external pull-down resistor or the pin will float when not pressed.",
+  resetOnPress: 'Zeros the running position count every time the integrated push-button is pressed, instead of only ever counting up/down.',
 }
 
 /** Per-node overrides for property names whose meaning collides across nodes. */
@@ -3260,6 +3289,21 @@ export function inputClampRange(nodeType: string, key: string): { min: number; m
  *  the "clamp inputs" toggle would do anything, so it's worth showing. */
 export function hasClampableInputs(nodeType: string, inputs: { id: string; dataType?: string }[]): boolean {
   return inputs.some((p) => p.dataType === 'float' && inputClampRange(nodeType, p.id) != null)
+}
+
+// Every GPIO-typed property that should render as the board-aware pin picker
+// (StudioNode.tsx's PinPickerField) instead of a plain bounded slider. Mirrors
+// validateGraph.ts's collectPinUses — kept as a separate list since that one
+// also covers SDCard/MatrixOutput, which don't have a picker yet.
+const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
+  MicInput: new Set(['i2sWs', 'i2sSck', 'i2sSd']),
+  ButtonInput: new Set(['pin']),
+  PotInput: new Set(['pin']),
+  EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
+}
+
+export function isGpioPinProperty(nodeType: string, key: string): boolean {
+  return GPIO_PIN_PROPERTIES[nodeType]?.has(key) ?? false
 }
 
 /**

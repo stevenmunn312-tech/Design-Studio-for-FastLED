@@ -35,6 +35,17 @@ function seedProp(p: Record<string, unknown>): number {
   return Number.isFinite(n) ? Math.max(0, n) >>> 0 : 0
 }
 
+// Rounds and clamps a user-entered GPIO pin number to [0, 48] (the highest
+// GPIO on any currently supported board, the ESP32-S3) so a fractional or
+// out-of-range value can never reach generated firmware — every hardware-pin
+// property (MicInput's I2S pins, Button/Pot/Encoder's pins, SDCard's pins,
+// MatrixOutput's data/clock pins) should route through this rather than a
+// bare Number(...).
+export function sanitizePin(value: unknown, fallback: number, min = 0, max = 48): number {
+  const n = Math.round(Number(value))
+  return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback
+}
+
 function floatLit(value: number, digits = 4): string {
   const n = Number(value)
   if (!Number.isFinite(n)) return '0.0f'
@@ -396,9 +407,6 @@ export function audioEngineForGraph(nodes: StudioNode[]): { include: string; cod
   const micNode = nodes.find((n) => n.data.nodeType === 'MicInput')
   if (!micNode) return null
   const p = micNode.data.properties as Record<string, unknown>
-  const ic = (v: unknown, d: number, min: number, max: number) => {
-    const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : d
-  }
   const fc = (v: unknown, d: number, min: number, max: number) => {
     const n = Number(v); return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : d
   }
@@ -408,7 +416,7 @@ export function audioEngineForGraph(nodes: StudioNode[]): { include: string; cod
       `// Live microphone capture and analysis are supplied by FastLED 3.10.3+.`,
     ].join('\n'),
     code: audioEngineCpp(
-      ic(p.i2sWs, 39, 0, 48), ic(p.i2sSck, 40, 0, 48), ic(p.i2sSd, 41, 0, 48), channel,
+      sanitizePin(p.i2sWs, 39), sanitizePin(p.i2sSck, 40), sanitizePin(p.i2sSd, 41), channel,
       fc(p.gain, MIC_DEFAULTS.gain, 0, MIC_MAX_GAIN),
       p.serialDebug === true,
     ),
@@ -979,28 +987,33 @@ export function generateCpp(
         break
 
       case 'ButtonInput': {
-        const pin = Number(p.pin ?? 0)
+        const pin = sanitizePin(p.pin, 0)
         pinSetupLines.add(`  pinMode(${pin}, ${p.pullup === false ? 'INPUT' : 'INPUT_PULLUP'});`)
         ln(`  bool ${v('pressed')} = digitalRead(${pin}) == LOW;`)
         break
       }
 
       case 'PotInput':
-        ln(`  float ${v('value')} = analogRead(${Number(p.pin ?? 34)}) / 4095.0f;`)
+        ln(`  float ${v('value')} = analogRead(${sanitizePin(p.pin, 34)}) / 4095.0f;`)
         break
 
       // Polling quadrature decode (no interrupts) via a standard 4x lookup
       // table; `position` is an unbounded running count.
       case 'EncoderInput': {
-        const pinA = Number(p.pinA ?? 32), pinB = Number(p.pinB ?? 33), pinSW = Number(p.pinSW ?? 25)
+        const pinA = sanitizePin(p.pinA, 32), pinB = sanitizePin(p.pinB, 33), pinSW = sanitizePin(p.pinSW, 25)
         const mode = p.pullup === false ? 'INPUT' : 'INPUT_PULLUP'
         for (const pin of [pinA, pinB, pinSW]) pinSetupLines.add(`  pinMode(${pin}, ${mode});`)
         ln(`  static int8_t _encLast_${id} = 0; static float _encPos_${id} = 0;`)
         ln(`  { int8_t _a=digitalRead(${pinA}),_b=digitalRead(${pinB}); int8_t _s=(_a<<1)|_b;`)
         ln(`    static const int8_t _encTbl_${id}[16]={0,-1,1,0, 1,0,0,-1, -1,0,0,1, 0,1,-1,0};`)
         ln(`    _encPos_${id}+=_encTbl_${id}[(_encLast_${id}<<2)|_s]; _encLast_${id}=_s; }`)
-        ln(`  float ${v('position')} = _encPos_${id};`)
         ln(`  bool ${v('pressed')} = digitalRead(${pinSW}) == LOW;`)
+        if (p.resetOnPress === true) {
+          ln(`  static bool _encSwLast_${id} = false;`)
+          ln(`  if (${v('pressed')} && !_encSwLast_${id}) _encPos_${id} = 0;`)
+          ln(`  _encSwLast_${id} = ${v('pressed')};`)
+        }
+        ln(`  float ${v('position')} = _encPos_${id};`)
         break
       }
 

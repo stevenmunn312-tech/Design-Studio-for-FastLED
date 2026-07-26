@@ -258,6 +258,23 @@ export function findPinConflicts(nodes: StudioNode[]): string[] {
   return conflicts.sort()
 }
 
+// Every ESP32-family part in the board catalogue tops out at GPIO 48 (the S3);
+// a pin outside [0, 48] or a fractional value can never be a real GPIO, but
+// collectPinUses only rejects non-finite input — this is the only place that
+// range-checks the number itself.
+const MAX_GPIO_PIN = 48
+
+export function isValidPinNumber(pin: number): boolean {
+  return Number.isInteger(pin) && pin >= 0 && pin <= MAX_GPIO_PIN
+}
+
+export function findPinRangeWarnings(nodes: StudioNode[]): string[] {
+  const warnings = collectPinUses(nodes)
+    .filter((use) => !isValidPinNumber(use.pin))
+    .map((use) => `${use.label} is set to ${use.pin}, which isn't a valid GPIO number (expected a whole number from 0–${MAX_GPIO_PIN})`)
+  return warnings.sort()
+}
+
 export function findMatrixLayoutErrors(nodes: StudioNode[]): string[] {
   return nodes.filter((node) => node.data.nodeType === 'MatrixOutput').flatMap((output, index) => {
     const props = output.data.properties as Record<string, unknown>
@@ -431,6 +448,16 @@ export function buildGraphDiagnostics(
       fix: 'Assign a unique GPIO number to every listed hardware role.',
       nodeIds: [...new Set(uses.map((use) => use.nodeId))],
       nodeLabel: uses.length === 2 ? uses.map((use) => use.label).join(' / ') : `${uses.length} pin roles`,
+    })
+  }
+  for (const use of collectPinUses(nodes)) {
+    if (isValidPinNumber(use.pin)) continue
+    diagnostics.push({
+      id: `pin-range-${use.nodeId}-${use.label}`, severity: 'warning', category: 'pins',
+      title: `${use.label} isn't a valid GPIO number`,
+      message: `Set to ${use.pin} — expected a whole number from 0–${MAX_GPIO_PIN}.`,
+      fix: 'Enter a whole number GPIO pin in range for the selected board.',
+      nodeIds: [use.nodeId], nodeLabel: use.label,
     })
   }
   const cappedOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput' && (node.data.properties as Record<string, unknown>).powerLimit === true)
@@ -630,6 +657,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   errors.push(...findScalarExpressionErrors(nodes))
   errors.push(...findBoardCompatibilityErrors(nodes, selectedFqbn))
   warnings.push(...findPreviewOnlyWarnings(nodes, edges))
+  warnings.push(...findPinRangeWarnings(nodes))
 
   const power = estimatePowerLoad(nodes)
   if (power?.exceedsConfigured) {

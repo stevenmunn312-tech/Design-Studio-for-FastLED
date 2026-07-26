@@ -136,6 +136,21 @@ describe('generateCpp', () => {
     for (const pin of [18, 19, 21]) expect(cpp2).toContain(`pinMode(${pin}, INPUT);`)
   })
 
+  it('rounds and clamps out-of-range pins to a valid GPIO instead of emitting them literally', () => {
+    // A fractional/negative/too-large pin must never reach generated C++ as-is
+    // (sanitizePin in cppGenerator.ts) — mirrors the same clamp MicInput's I2S
+    // pins already had.
+    const btn = node('btn', 'ButtonInput', 'input', { pin: -5.7 })
+    expect(generateCpp([btn], [])).toContain('pinMode(0,')
+    expect(generateCpp([btn], [])).not.toContain('-5.7')
+
+    const pot = node('pot', 'PotInput', 'hardware', { pin: 9999 })
+    expect(generateCpp([pot], [])).toContain('analogRead(48)')
+
+    const enc = node('enc', 'EncoderInput', 'input', { pinA: 32.4, pinB: 33, pinSW: 25 })
+    expect(generateCpp([enc], [])).toContain('pinMode(32,')
+  })
+
   it('emits the FASTLED_OVERCLOCK define before the FastLED include', () => {
     const out = node('out', 'MatrixOutput', 'output', { overclock: 1.25 })
     const cpp = generateCpp([out], [])
@@ -2339,6 +2354,23 @@ describe('EncoderInput (codegen)', () => {
     expect(cpp).toContain('digitalRead(33)')
     expect(cpp).toContain('float n_enc_position = _encPos_enc;')
     expect(cpp).toContain('bool n_enc_pressed = digitalRead(25) == LOW;')
+  })
+
+  it('omits the reset-on-press latch when resetOnPress is off (the default)', () => {
+    const enc = node('enc', 'EncoderInput', 'input', { pinA: 32, pinB: 33, pinSW: 25, resetOnPress: false })
+    const cpp = generateCpp([enc, outputNode], [])
+    expect(cpp).not.toContain('_encSwLast_enc')
+  })
+
+  it('zeros the running position on a press edge when resetOnPress is on', () => {
+    const enc = node('enc', 'EncoderInput', 'input', { pinA: 32, pinB: 33, pinSW: 25, resetOnPress: true })
+    const cpp = generateCpp([enc, outputNode], [])
+    expect(cpp).toContain('static bool _encSwLast_enc = false;')
+    expect(cpp).toContain('if (n_enc_pressed && !_encSwLast_enc) _encPos_enc = 0;')
+    expect(cpp).toContain('_encSwLast_enc = n_enc_pressed;')
+    // The latch must run before `position` is read out, so the same frame a
+    // press lands already reports the reset value.
+    expect(cpp.indexOf('_encPos_enc = 0;')).toBeLessThan(cpp.indexOf('float n_enc_position = _encPos_enc;'))
   })
 })
 

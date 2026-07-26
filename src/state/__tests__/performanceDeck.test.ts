@@ -158,6 +158,20 @@ describe('isPinnableProperty', () => {
     // gain is the live-tunable MicInput control, not wiring — must stay pinnable.
     expect(isPinnableProperty('MicInput', 'gain', 1)).toBe(true)
   })
+
+  it('excludes GPIO pin properties on ButtonInput/PotInput/EncoderInput', () => {
+    // Same rationale as MicInput's I2S pins above: a hardware pin is a
+    // one-time wiring decision, not something to ride live on a performance
+    // deck fader — now that these pins have slider metadata (bounded 0-48),
+    // they'd otherwise look pinnable-shaped.
+    expect(isPinnableProperty('ButtonInput', 'pin', 0)).toBe(false)
+    expect(isPinnableProperty('PotInput', 'pin', 34)).toBe(false)
+    expect(isPinnableProperty('EncoderInput', 'pinA', 32)).toBe(false)
+    expect(isPinnableProperty('EncoderInput', 'pinB', 33)).toBe(false)
+    expect(isPinnableProperty('EncoderInput', 'pinSW', 25)).toBe(false)
+    // resetOnPress is a genuine behavior toggle, not wiring — stays pinnable.
+    expect(isPinnableProperty('EncoderInput', 'resetOnPress', false)).toBe(true)
+  })
 })
 
 describe('deriveControlShape', () => {

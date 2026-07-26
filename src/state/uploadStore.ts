@@ -18,6 +18,25 @@ import { useStreamStore } from './streamStore'
 // firmware checks `psramFound()` at runtime. Boards without the field (AVR,
 // RP2040, Teensy) have no PSRAM support.
 export interface PsramOption { id: string; label: string; opt: string }
+
+export interface PinNote { pin: number; note?: string }
+// A curated (non-exhaustive) GPIO reference for the pin-picker UI — general-
+// purpose *digital* IO validity only (strapping/boot pins, pins tied to the
+// module's integrated SPI flash, UART/USB pins), not a full per-peripheral
+// electrical spec (e.g. it doesn't model which pins are ADC-capable). Exact
+// reserved ranges can vary by module/board revision (flagged with hedged
+// wording like "often"/"typically" below) — treat this as a starting point
+// for the picker's dropdown, not a substitute for the board's datasheet.
+export interface BoardGpio {
+  /** Pins offered in the picker's dropdown, each with an optional caveat
+   *  shown inline (e.g. a strapping pin that's usually fine but worth flagging). */
+  recommended: PinNote[]
+  /** Pins deliberately left out of the dropdown (flash-reserved, UART, native
+   *  USB, …) — still checked against whatever the user free-types, so a
+   *  manually-entered bad pin still surfaces a warning. */
+  caution: PinNote[]
+}
+
 export interface Board {
   label: string
   fqbn: string
@@ -27,6 +46,102 @@ export interface Board {
   /** Board-manager index URL — present on user-added custom boards, so their
    *  core can be installed/updated without a hardcoded `_CORE_URLS` entry. */
   boardUrl?: string
+  /** GPIO reference for the pin-picker UI. Only populated for boards this
+   *  project has hardware-validated or that have a single, stable, widely
+   *  documented pinout (ESP32-S3, ESP32, ESP8266 NodeMCU) — every other board
+   *  falls back to free numeric entry rather than guessed-at pin data. */
+  gpio?: BoardGpio
+}
+
+// ESP32-S3 (e.g. DevKitC-1, N16R8/N8R2 WROOM modules). Octal-SPI PSRAM/flash
+// modules (e.g. N16R8) commonly reserve GPIO26-32 for the extra flash/PSRAM
+// data lines; quad-SPI modules (e.g. N8R2) do not — hedged accordingly below.
+const ESP32_S3_GPIO: BoardGpio = {
+  recommended: [
+    { pin: 0, note: 'Boot-strapping pin — must be high at boot; usually fine after boot' },
+    { pin: 1 }, { pin: 2 },
+    { pin: 3, note: 'Strapping pin — check it floats correctly at boot' },
+    { pin: 4 }, { pin: 5 }, { pin: 6 }, { pin: 7 }, { pin: 8 }, { pin: 9 }, { pin: 10 },
+    { pin: 11 }, { pin: 12 }, { pin: 13 }, { pin: 14 }, { pin: 15 }, { pin: 16 }, { pin: 17 }, { pin: 18 },
+    { pin: 21 },
+    { pin: 26, note: 'Often reserved for integrated flash/PSRAM on octal-SPI modules (e.g. N16R8) — check your board' },
+    { pin: 27, note: 'Often reserved for integrated flash/PSRAM on octal-SPI modules — check your board' },
+    { pin: 33 }, { pin: 34 }, { pin: 35 }, { pin: 36 }, { pin: 37 }, { pin: 38 },
+    { pin: 39, note: 'Common I2S WS default' }, { pin: 40, note: 'Common I2S SCK default' }, { pin: 41, note: 'Common I2S SD default' },
+    { pin: 42 }, { pin: 47 }, { pin: 48 },
+  ],
+  caution: [
+    { pin: 19, note: 'Native-USB D− on boards with USB-OTG — avoid if you need the USB port' },
+    { pin: 20, note: 'Native-USB D+ on boards with USB-OTG — avoid if you need the USB port' },
+    { pin: 28, note: 'Often reserved for integrated flash/PSRAM on octal-SPI modules' },
+    { pin: 29, note: 'Often reserved for integrated flash/PSRAM on octal-SPI modules' },
+    { pin: 30, note: 'Often reserved for integrated flash/PSRAM on octal-SPI modules' },
+    { pin: 31, note: 'Often reserved for integrated flash/PSRAM on octal-SPI modules' },
+    { pin: 32, note: 'Often reserved for integrated flash/PSRAM on octal-SPI modules' },
+    { pin: 43, note: 'Default UART0 TX — using it disables the USB serial monitor' },
+    { pin: 44, note: 'Default UART0 RX — using it disables the USB serial monitor' },
+    { pin: 45, note: 'Strapping pin — sets output voltage for one of the flash/PSRAM banks' },
+    { pin: 46, note: 'Strapping pin, input-only on some modules' },
+  ],
+}
+
+// Classic ESP32 (e.g. DevKitC, WROOM-32). GPIO6-11 wire to the module's
+// integrated SPI flash on every WROOM/WROVER board and are never broken out.
+const ESP32_GPIO: BoardGpio = {
+  recommended: [
+    { pin: 0, note: 'Boot-strapping pin (BOOT button on most dev boards) — must be high at boot' },
+    { pin: 2, note: 'Strapping pin; often tied to the onboard LED' },
+    { pin: 4 }, { pin: 5 },
+    { pin: 12, note: 'Strapping pin (sets flash voltage) — must be low at boot on most modules' },
+    { pin: 13 }, { pin: 14 },
+    { pin: 15, note: 'Strapping pin — pulls the boot log silent if grounded at boot' },
+    { pin: 16 }, { pin: 17 }, { pin: 18 }, { pin: 19 }, { pin: 21 }, { pin: 22 }, { pin: 23 },
+    { pin: 25 }, { pin: 26 }, { pin: 27 }, { pin: 32 }, { pin: 33 },
+    { pin: 34, note: 'Input-only — no internal pull resistor' },
+    { pin: 35, note: 'Input-only — no internal pull resistor' },
+    { pin: 36, note: 'Input-only — no internal pull resistor' },
+    { pin: 39, note: 'Input-only — no internal pull resistor' },
+  ],
+  caution: [
+    { pin: 1, note: 'UART0 TX — used by the serial monitor/programmer' },
+    { pin: 3, note: 'UART0 RX — used by the serial monitor/programmer' },
+    { pin: 6, note: "Connected to the module's integrated SPI flash — not usable" },
+    { pin: 7, note: "Connected to the module's integrated SPI flash — not usable" },
+    { pin: 8, note: "Connected to the module's integrated SPI flash — not usable" },
+    { pin: 9, note: "Connected to the module's integrated SPI flash — not usable" },
+    { pin: 10, note: "Connected to the module's integrated SPI flash — not usable" },
+    { pin: 11, note: "Connected to the module's integrated SPI flash — not usable" },
+    { pin: 20, note: 'Not broken out on most ESP32 modules' },
+    { pin: 24, note: 'Not broken out on most ESP32 modules' },
+    { pin: 28, note: 'Not broken out on most ESP32 modules' },
+    { pin: 29, note: 'Not broken out on most ESP32 modules' },
+    { pin: 30, note: 'Not broken out on most ESP32 modules' },
+    { pin: 31, note: 'Not broken out on most ESP32 modules' },
+    { pin: 37, note: 'Not broken out on most ESP32 modules' },
+    { pin: 38, note: 'Not broken out on most ESP32 modules' },
+  ],
+}
+
+// ESP8266 (NodeMCU-style module) — very pin-constrained; GPIO6-11 drive the
+// module's integrated SPI flash and aren't broken out on NodeMCU boards.
+const ESP8266_GPIO: BoardGpio = {
+  recommended: [
+    { pin: 0, note: 'Boot-strapping (D3) — must be high at boot' },
+    { pin: 2, note: 'Boot-strapping (D4); often tied to the onboard LED — must be high at boot' },
+    { pin: 4 }, { pin: 5 }, { pin: 12 }, { pin: 13 }, { pin: 14 },
+    { pin: 15, note: 'Boot-strapping (D8) — must be low at boot' },
+    { pin: 16, note: 'D0 — no interrupt/PWM support; typically reserved for deep-sleep wake' },
+  ],
+  caution: [
+    { pin: 1, note: 'UART0 TX (TXD0) — used by the serial monitor/programmer' },
+    { pin: 3, note: 'UART0 RX (RXD0) — used by the serial monitor/programmer' },
+    { pin: 6, note: "Connected to the module's integrated SPI flash — not usable" },
+    { pin: 7, note: "Connected to the module's integrated SPI flash — not usable" },
+    { pin: 8, note: "Connected to the module's integrated SPI flash — not usable" },
+    { pin: 9, note: "Connected to the module's integrated SPI flash — not usable" },
+    { pin: 10, note: "Connected to the module's integrated SPI flash — not usable" },
+    { pin: 11, note: "Connected to the module's integrated SPI flash — not usable" },
+  ],
 }
 
 // The boards below (past Uno/Nano/Mega/Nano 33 IoT) were added from fbuild's
@@ -43,16 +158,18 @@ export const BOARDS: Board[] = [
     psram: [
       { id: 'opi',  label: 'OPI (R8 modules, e.g. N16R8)', opt: 'PSRAM=opi' },
       { id: 'qspi', label: 'QSPI (R2 modules, e.g. N8R2)', opt: 'PSRAM=enabled' },
-    ] },
+    ],
+    gpio: ESP32_S3_GPIO },
   { label: 'ESP32',         fqbn: 'esp32:esp32:esp32',     core: 'esp32:esp32',   thirdParty: true,
     psram: [
       { id: 'qspi', label: 'QSPI (WROVER modules)', opt: 'PSRAM=enabled' },
-    ] },
+    ],
+    gpio: ESP32_GPIO },
   { label: 'ESP32-S2',      fqbn: 'esp32:esp32:esp32s2',   core: 'esp32:esp32',   thirdParty: true },
   { label: 'ESP32-C3',      fqbn: 'esp32:esp32:esp32c3',   core: 'esp32:esp32',   thirdParty: true },
   { label: 'ESP32-C6',      fqbn: 'esp32:esp32:esp32c6',   core: 'esp32:esp32',   thirdParty: true },
   { label: 'ESP32-H2',      fqbn: 'esp32:esp32:esp32h2',   core: 'esp32:esp32',   thirdParty: true },
-  { label: 'ESP8266',       fqbn: 'esp8266:esp8266:nodemcuv2', core: 'esp8266:esp8266', thirdParty: true },
+  { label: 'ESP8266',       fqbn: 'esp8266:esp8266:nodemcuv2', core: 'esp8266:esp8266', thirdParty: true, gpio: ESP8266_GPIO },
   { label: 'Arduino Uno',   fqbn: 'arduino:avr:uno',       core: 'arduino:avr' },
   { label: 'Arduino Nano',  fqbn: 'arduino:avr:nano',      core: 'arduino:avr' },
   { label: 'Arduino Leonardo', fqbn: 'arduino:avr:leonardo', core: 'arduino:avr' },
@@ -104,6 +221,13 @@ export const BOARDS: Board[] = [
 
 export function boardByFqbn(fqbn: string): Board | undefined {
   return BOARDS.find((b) => b.fqbn === fqbn) ?? useUploadStore.getState().customBoards.find((b) => b.fqbn === fqbn)
+}
+
+/** GPIO reference for the pin-picker UI, or undefined for boards without a
+ *  curated table (every custom board, and most of the catalogue above) — the
+ *  picker falls back to free numeric entry in that case. */
+export function boardGpioInfo(fqbn: string): BoardGpio | undefined {
+  return boardByFqbn(fqbn)?.gpio
 }
 
 /** Built-in catalogue plus any user-added custom boards, in display order. */

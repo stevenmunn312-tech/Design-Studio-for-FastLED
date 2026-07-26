@@ -127,6 +127,9 @@ const STRUCTURAL_KEYS = new Set([
 const WIRING_KEYS: Record<string, Set<string>> = {
   MicInput: new Set(['i2sWs', 'i2sSck', 'i2sSd', 'channel']),
   MatrixOutput: new Set(['chipset', 'colorOrder', 'dataPin', 'clockPin', 'serpentine']),
+  ButtonInput: new Set(['pin']),
+  PotInput: new Set(['pin']),
+  EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
 }
 
 /** Whether a node property is sensible to pin as a live performance control.

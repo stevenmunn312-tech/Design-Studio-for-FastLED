@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findOutputResourceErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findOutputResourceErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -299,6 +299,49 @@ describe('validateGraph', () => {
       const edges = [edge('e1', 'sc', 'out', 'frame')]
       const { errors } = validateGraph(nodes, edges)
       expect(errors.some(e => e.includes('GPIO 5'))).toBe(true)
+    })
+  })
+
+  describe('findPinRangeWarnings', () => {
+    it('finds no warnings for pins in range', () => {
+      const nodes = [
+        node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 }),
+        node('btn', 'ButtonInput', { pin: 0 }),
+      ]
+      expect(findPinRangeWarnings(nodes)).toHaveLength(0)
+    })
+
+    it('flags a negative pin', () => {
+      const nodes = [node('btn', 'ButtonInput', { pin: -5 })]
+      const warnings = findPinRangeWarnings(nodes)
+      expect(warnings).toHaveLength(1)
+      expect(warnings[0]).toContain('-5')
+    })
+
+    it('flags a pin above the highest supported GPIO', () => {
+      const nodes = [node('pot', 'PotInput', { pin: 9999 })]
+      const warnings = findPinRangeWarnings(nodes)
+      expect(warnings).toHaveLength(1)
+      expect(warnings[0]).toContain('9999')
+    })
+
+    it('flags a fractional pin', () => {
+      const nodes = [node('enc', 'EncoderInput', { pinA: 32.7, pinB: 33, pinSW: 25 })]
+      const warnings = findPinRangeWarnings(nodes)
+      expect(warnings).toHaveLength(1)
+      expect(warnings[0]).toContain('pin A')
+    })
+
+    it('surfaces out-of-range pins as warnings (not errors) from validateGraph', () => {
+      const nodes = [
+        node('sc', 'SolidColor'),
+        node('out', 'MatrixOutput', { dataPin: 5 }),
+        node('btn', 'ButtonInput', { pin: 200 }),
+      ]
+      const edges = [edge('e1', 'sc', 'out', 'frame')]
+      const { errors, warnings } = validateGraph(nodes, edges)
+      expect(errors.some(e => e.includes('200'))).toBe(false)
+      expect(warnings.some(w => w.includes('200'))).toBe(true)
     })
   })
 
