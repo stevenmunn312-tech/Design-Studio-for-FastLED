@@ -413,6 +413,25 @@ describe('nodeLibrary', () => {
     expect(enc?.defaultProperties).toMatchObject({ resetOnPress: false })
   })
 
+  it('math todo nodes expose editable defaults before wiring', () => {
+    const defaults = (type: string) => NODE_LIBRARY.find((n) => n.type === type)?.defaultProperties ?? {}
+    expect(defaults('Math')).toEqual({ mathOp: 'add' })
+    expect(defaults('Clamp')).toMatchObject({ value: 0, min: 0, max: 1 })
+    expect(defaults('MapRange')).toMatchObject({ value: 0, inMin: 0, inMax: 1, outMin: 0, outMax: 1 })
+    expect(NODE_LIBRARY.find((n) => n.type === 'MapRange')?.inputs.map((port) => port.id)).toEqual([
+      'value', 'inMin', 'inMax', 'outMin', 'outMax',
+    ])
+    expect(defaults('Lerp')).toMatchObject({ a: 0, b: 1, t: 0.5 })
+    expect(defaults('Ease')).toMatchObject({ easeType: 'inOutCubic', t: 0 })
+    expect(defaults('Abs')).toMatchObject({ x: 0 })
+    expect(defaults('Mod')).toMatchObject({ x: 0, m: 1 })
+    expect(defaults('Gate')).toMatchObject({ value: 0, fallback: 0 })
+    expect(defaults('Smooth')).toMatchObject({ value: 0, response: 0.25 })
+    expect(defaults('SampleHold')).toMatchObject({ value: 0 })
+    expect(defaults('Compare')).toMatchObject({ a: 0, b: 0.5 })
+    expect(defaults('XYMapper')).toMatchObject({ x: 0, y: 0 })
+  })
+
   it('signal todo nodes expose bounded controls and compatibility defaults', () => {
     expect(NODE_LIBRARY.find((n) => n.type === 'Random')?.defaultProperties).toMatchObject({ min: 0, max: 1, seed: 0 })
     expect(propertyMeta('Random', 'seed')).toEqual({ control: 'slider', min: 0, max: 9999, step: 1 })

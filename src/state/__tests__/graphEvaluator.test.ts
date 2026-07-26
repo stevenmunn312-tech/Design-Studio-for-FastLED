@@ -122,6 +122,22 @@ describe('evaluateGraph', () => {
     expect(run('max', 3, 4)).toBe(4)
   })
 
+  it('MapRange can drive its output range from wired inputs', () => {
+    const value = node('value', 'Math', 'math', { mathOp: 'add', a: 0.5, b: 0 })
+    const lo = node('lo', 'Math', 'math', { mathOp: 'add', a: 10, b: 0 })
+    const hi = node('hi', 'Math', 'math', { mathOp: 'add', a: 20, b: 0 })
+    const map = node('map', 'MapRange', 'math', { inMin: 0, inMax: 1, outMin: 0, outMax: 1 })
+    expect(evaluateScalar(
+      [value, lo, hi, map],
+      [
+        edge('e1', 'value', 'result', 'map', 'value'),
+        edge('e2', 'lo', 'result', 'map', 'outMin'),
+        edge('e3', 'hi', 'result', 'map', 'outMax'),
+      ],
+      'map', 'result', 0,
+    )).toBe(15)
+  })
+
   it('Wave drives a value over time per waveform type', () => {
     // Wave.result → BrightnessMod.brightness over a white frame, so frame[0][0].r
     // equals round(255 * waveValue) — making the scalar observable.

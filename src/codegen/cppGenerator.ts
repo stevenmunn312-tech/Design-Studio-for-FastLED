@@ -733,7 +733,7 @@ export function generateCpp(
 
       case 'MapRange':
         needsMapFloat[0] = true
-        ln(`  float ${v('result')} = mapFloat(${f('value', 'value', 0)}, ${f('inMin', 'inMin', 0)}, ${f('inMax', 'inMax', 1)}, ${Number(p.outMin ?? 0)}, ${Number(p.outMax ?? 1)});`)
+        ln(`  float ${v('result')} = mapFloat(${f('value', 'value', 0)}, ${f('inMin', 'inMin', 0)}, ${f('inMax', 'inMax', 1)}, ${f('outMin', 'outMin', 0)}, ${f('outMax', 'outMax', 1)});`)
         break
 
       case 'Sin':

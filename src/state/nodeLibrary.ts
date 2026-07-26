@@ -1140,7 +1140,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'max', label: 'Max', dataType: 'float' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: { min: 0, max: 1 },
+    defaultProperties: { value: 0, min: 0, max: 1 },
   },
   {
     type: 'MapRange',
@@ -1150,9 +1150,11 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'value', label: 'Value', dataType: 'float' },
       { id: 'inMin', label: 'In Min', dataType: 'float' },
       { id: 'inMax', label: 'In Max', dataType: 'float' },
+      { id: 'outMin', label: 'Out Min', dataType: 'float' },
+      { id: 'outMax', label: 'Out Max', dataType: 'float' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: { inMin: 0, inMax: 1, outMin: 0, outMax: 1 },
+    defaultProperties: { value: 0, inMin: 0, inMax: 1, outMin: 0, outMax: 1 },
   },
   {
     type: 'Sin',
@@ -1205,7 +1207,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 't', label: 'T', dataType: 'float' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: {},
+    defaultProperties: { a: 0, b: 1, t: 0.5 },
   },
   {
     // Easing curve on a 0–1 value — FastLED lib8tion (ease8/*wave8). `easeType`
@@ -1215,7 +1217,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'math',
     inputs: [{ id: 't', label: 'T (0–1)', dataType: 'float' }],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: { easeType: 'inOutCubic' },
+    defaultProperties: { easeType: 'inOutCubic', t: 0 },
   },
   {
     // Metronome — emits a boolean pulse once every `interval` seconds (a non-audio
@@ -1258,7 +1260,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'math',
     inputs: [{ id: 'x', label: 'X', dataType: 'float' }],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: {},
+    defaultProperties: { x: 0 },
   },
   {
     type: 'Mod',
@@ -1269,7 +1271,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'm', label: 'M', dataType: 'float' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: { m: 1 },
+    defaultProperties: { x: 0, m: 1 },
   },
   {
     type: 'Random',
@@ -1296,7 +1298,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'gate', label: 'Gate', dataType: 'bool' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: { fallback: 0 },
+    defaultProperties: { value: 0, fallback: 0 },
   },
   {
     // Low-pass smoothing — eases a jittery value (FFT bands, PotInput) toward
@@ -1308,7 +1310,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'math',
     inputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: { response: 0.25 },
+    defaultProperties: { value: 0, response: 0.25 },
   },
   {
     // Sample & hold — latches `value` on each rising edge of `trigger`
@@ -1322,7 +1324,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'trigger', label: 'Trigger', dataType: 'bool' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: {},
+    defaultProperties: { value: 0 },
   },
   {
     // A/B selector — outputs A when `sel` is false, B when true (unlike Gate,
@@ -1355,7 +1357,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'b', label: 'B', dataType: 'float' },
     ],
     outputs: [{ id: 'result', label: 'A > B', dataType: 'bool' }],
-    defaultProperties: { b: 0.5 },
+    defaultProperties: { a: 0, b: 0.5 },
   },
   {
     // Bundled trigger/edge utility — `triggerOp` selects Debounce, Toggle/Flip-
@@ -1573,7 +1575,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'y', label: 'Y', dataType: 'float' },
     ],
     outputs: [{ id: 'index', label: 'Index', dataType: 'float' }],
-    defaultProperties: {},
+    defaultProperties: { x: 0, y: 0 },
   },
 
   // ── Proper noise (Simplex2D / Noise3D / Worley / PlasmaFractal folded into
