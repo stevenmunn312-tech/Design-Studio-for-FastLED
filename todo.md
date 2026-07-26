@@ -416,10 +416,10 @@ fixed category-by-category as this review was worked through (starting
 
 ### Show (MusicLibrary, PatternCollection, TransitionSet, PatternMaster, Sequencer, Transition, PerformanceGenerator, SDCard)
 
-- [ ] **MusicLibrary's `colors`/`positions` properties are fully dead** — never read anywhere; safe to drop from `defaultProperties` (old saves already carry the unused keys harmlessly).
-- [ ] **Sequencer's `fade` slider is capped at 1, but the node supports a crossfade up to the full `interval` (0.1–20s)** — it fell back to the generic 0–1 "opacity" meta instead of getting its own override.
-- [ ] **SDCard's pin fields (`sdCsPin`/`i2sBclk`/`i2sLrc`/`i2sDout`) share the Input category's sanitization gap** — extend the `sanitizePin()`/pin-picker work above to SDCard.
-- [ ] **SDCard's `maxVolume` is unbounded** (ESP32-audioI2S's practical range is 0–21) — add a matching `PROPERTY_META` override.
+- [x] **MusicLibrary:** removed the dead `colors`/`positions` defaults; existing saves may retain the harmless unused keys without migration.
+- [x] **Sequencer:** its duration-based `fade` control now spans 0–20 seconds, matching the node's interval ceiling.
+- [x] **SDCard pins:** all four pin fields now use the board-aware picker and shared 0–48 GPIO sanitization in generated provisioner/player sketches.
+- [x] **SDCard volume:** `maxVolume` now has a bounded 0–21 integer slider and generated-player safety clamp.
 
 ### Output (MatrixOutput)
 

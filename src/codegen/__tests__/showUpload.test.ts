@@ -10,6 +10,12 @@ describe('generateProvisionerSketch', () => {
     expect(ino).toContain(`#define CHUNK  ${PROVISION_CHUNK}`)
   })
 
+  it('rounds and clamps the SD chip-select pin before emitting firmware', () => {
+    expect(generateProvisionerSketch({ sdCsPin: -4.7 })).toContain('#define SD_CS  0')
+    expect(generateProvisionerSketch({ sdCsPin: 80 })).toContain('#define SD_CS  48')
+    expect(generateProvisionerSketch({ sdCsPin: Number.NaN })).toContain('#define SD_CS  10')
+  })
+
   it('implements the PUT/END control protocol', () => {
     const ino = generateProvisionerSketch()
     expect(ino).toContain('#define SD_CS  10')             // default pin
@@ -51,6 +57,25 @@ describe('playerConfigFromGraph', () => {
     const cfg = playerConfigFromGraph([node('SDCard', { audioOutput: 'internalDac' })])
     expect(cfg.audioOutput).toBe('internalDac')
   })
+
+  it('sanitizes SD/I2S pins and max volume read from saved graph properties', () => {
+    const cfg = playerConfigFromGraph([
+      node('SDCard', {
+        sdCsPin: -4.7,
+        i2sBclk: 19.6,
+        i2sLrc: 80,
+        i2sDout: 'invalid',
+        maxVolume: 99,
+      }),
+    ])
+    expect(cfg).toMatchObject({
+      sdCsPin: 0,
+      i2sBclk: 20,
+      i2sLrc: 48,
+      i2sDout: 22,
+      maxVolume: 21,
+    })
+  })
 })
 
 describe('generatePlayerSketch audio output', () => {
@@ -68,6 +93,21 @@ describe('generatePlayerSketch audio output', () => {
     expect(ino).not.toContain('#define I2S_BCLK')
     expect(ino).not.toContain('#define I2S_LRC')
     expect(ino).not.toContain('#define I2S_DOUT')
+  })
+
+  it('sanitizes direct pin and volume configuration before emitting firmware', () => {
+    const ino = generatePlayerSketch({
+      sdCsPin: -10,
+      i2sBclk: 60,
+      i2sLrc: 24.6,
+      i2sDout: Number.NaN,
+      maxVolume: -3,
+    })
+    expect(ino).toContain('#define SD_CS         0')
+    expect(ino).toContain('#define I2S_BCLK      48')
+    expect(ino).toContain('#define I2S_LRC       25')
+    expect(ino).toContain('#define I2S_DOUT      22')
+    expect(ino).toContain('audio.setVolume(0);')
   })
 })
 

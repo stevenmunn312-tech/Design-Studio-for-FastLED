@@ -138,7 +138,7 @@ describe('generateCpp', () => {
 
   it('rounds and clamps out-of-range pins to a valid GPIO instead of emitting them literally', () => {
     // A fractional/negative/too-large pin must never reach generated C++ as-is
-    // (sanitizePin in cppGenerator.ts) — mirrors the same clamp MicInput's I2S
+    // (the shared sanitizePin helper) — mirrors the same clamp MicInput's I2S
     // pins already had.
     const btn = node('btn', 'ButtonInput', 'input', { pin: -5.7 })
     expect(generateCpp([btn], [])).toContain('pinMode(0,')

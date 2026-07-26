@@ -1,6 +1,5 @@
 import type { NodeDefinition } from '../types'
 import { STUDIO_PALETTES } from './paletteCatalog'
-import { DEFAULT_CUSTOM_COLORS, DEFAULT_CUSTOM_POSITIONS } from './customPalette'
 import { evaluateScalarExpression } from './scalarExpression'
 import { MIC_DEFAULTS, MIC_MAX_GAIN } from '../audio/micAnalysis'
 import { ANIMARTRIX_EFFECTS } from '../animartrix/catalog'
@@ -36,7 +35,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'show',
     inputs: [],
     outputs: [{ id: 'music', label: 'Music', dataType: 'music' }],
-    defaultProperties: { colors: [...DEFAULT_CUSTOM_COLORS], positions: [...DEFAULT_CUSTOM_POSITIONS] },
+    defaultProperties: {},
   },
   {
     type: 'FFTAnalyzer',
@@ -3003,6 +3002,16 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     pinB: { control: 'slider', min: 0, max: 48, step: 1 },
     pinSW: { control: 'slider', min: 0, max: 48, step: 1 },
   },
+  Sequencer: {
+    fade: { control: 'slider', min: 0, max: 20, step: 0.1 },
+  },
+  SDCard: {
+    sdCsPin:   { control: 'slider', min: 0, max: 48, step: 1 },
+    i2sBclk:   { control: 'slider', min: 0, max: 48, step: 1 },
+    i2sLrc:    { control: 'slider', min: 0, max: 48, step: 1 },
+    i2sDout:   { control: 'slider', min: 0, max: 48, step: 1 },
+    maxVolume: { control: 'slider', min: 0, max: 21, step: 1 },
+  },
   // MIDI note/CC numbers are conventionally 0–127; MidiInputBody shows the
   // note name (e.g. "60 → C4") alongside the raw number.
   MidiInput: {
@@ -3350,13 +3359,14 @@ export function hasClampableInputs(nodeType: string, inputs: { id: string; dataT
 
 // Every GPIO-typed property that should render as the board-aware pin picker
 // (StudioNode.tsx's PinPickerField) instead of a plain bounded slider. Mirrors
-// validateGraph.ts's collectPinUses — kept as a separate list since that one
-// also covers SDCard/MatrixOutput, which don't have a picker yet.
+// validateGraph.ts's collectPinUses except for MatrixOutput, whose specialised
+// node body owns its hardware controls.
 const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   MicInput: new Set(['i2sWs', 'i2sSck', 'i2sSd']),
   ButtonInput: new Set(['pin']),
   PotInput: new Set(['pin']),
   EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
+  SDCard: new Set(['sdCsPin', 'i2sBclk', 'i2sLrc', 'i2sDout']),
 }
 
 export function isGpioPinProperty(nodeType: string, key: string): boolean {
