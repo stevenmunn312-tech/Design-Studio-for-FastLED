@@ -276,6 +276,9 @@
 <circle cx="-2" cy="308" r="9" fill="#9aa0a6" opacity="0.25"/>
 <circle cx="-2" cy="308" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="312" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Pos Y</text>
+<circle cx="242" cy="308" r="9" fill="#c6a0ff" opacity="0.25"/>
+<circle cx="242" cy="308" r="6" fill="#c6a0ff" stroke="#0d0f12" stroke-width="1.5"/>
+<text x="230" y="312" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Image Data</text>
 <circle cx="-2" cy="336" r="9" fill="#9aa0a6" opacity="0.25"/>
 <circle cx="-2" cy="336" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="340" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Rotation</text>

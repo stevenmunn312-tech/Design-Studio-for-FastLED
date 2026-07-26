@@ -549,8 +549,8 @@
 <text x="8" y="425" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">fade</text>
 <g>
 <rect x="120" y="419" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="120" y="419" width="72.0" height="4" rx="2" fill="#d633ff"/>
-<circle cx="192.0" cy="421" r="5" fill="#d633ff"/>
+<rect x="120" y="419" width="3.6" height="4" rx="2" fill="#d633ff"/>
+<circle cx="123.6" cy="421" r="5" fill="#d633ff"/>
 <text x="232" y="425" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">1</text>
 </g>
 <text x="8" y="446" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">bypass</text>

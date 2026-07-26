@@ -1,37 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 408 408" width="408" height="408" role="img" aria-label="LED preview of the Line example graph">
 <rect width="408" height="408" rx="10" fill="#05070a"/>
-<circle cx="24" cy="24" r="12" fill="rgb(191,211,255)" opacity="0.35"/>
-<circle cx="24" cy="24" r="9" fill="rgb(191,211,255)"/>
-<circle cx="48" cy="24" r="12" fill="rgb(221,244,255)" opacity="0.35"/>
-<circle cx="48" cy="24" r="9" fill="rgb(221,244,255)"/>
-<circle cx="72" cy="24" r="12" fill="rgb(227,251,255)" opacity="0.35"/>
-<circle cx="72" cy="24" r="9" fill="rgb(227,251,255)"/>
-<circle cx="96" cy="24" r="12" fill="rgb(234,255,255)" opacity="0.35"/>
-<circle cx="96" cy="24" r="9" fill="rgb(234,255,255)"/>
-<circle cx="120" cy="24" r="12" fill="rgb(242,255,255)" opacity="0.35"/>
-<circle cx="120" cy="24" r="9" fill="rgb(242,255,255)"/>
-<circle cx="144" cy="24" r="12" fill="rgb(248,255,255)" opacity="0.35"/>
-<circle cx="144" cy="24" r="9" fill="rgb(248,255,255)"/>
-<circle cx="168" cy="24" r="12" fill="rgb(253,255,255)" opacity="0.35"/>
-<circle cx="168" cy="24" r="9" fill="rgb(253,255,255)"/>
-<circle cx="192" cy="24" r="12" fill="rgb(255,255,255)" opacity="0.35"/>
-<circle cx="192" cy="24" r="9" fill="rgb(255,255,255)"/>
-<circle cx="216" cy="24" r="12" fill="rgb(255,255,255)" opacity="0.35"/>
-<circle cx="216" cy="24" r="9" fill="rgb(255,255,255)"/>
-<circle cx="240" cy="24" r="12" fill="rgb(255,255,255)" opacity="0.35"/>
-<circle cx="240" cy="24" r="9" fill="rgb(255,255,255)"/>
-<circle cx="264" cy="24" r="12" fill="rgb(255,255,255)" opacity="0.35"/>
-<circle cx="264" cy="24" r="9" fill="rgb(255,255,255)"/>
-<circle cx="288" cy="24" r="12" fill="rgb(255,255,255)" opacity="0.35"/>
-<circle cx="288" cy="24" r="9" fill="rgb(255,255,255)"/>
-<circle cx="312" cy="24" r="12" fill="rgb(255,255,255)" opacity="0.35"/>
-<circle cx="312" cy="24" r="9" fill="rgb(255,255,255)"/>
-<circle cx="336" cy="24" r="12" fill="rgb(255,255,255)" opacity="0.35"/>
-<circle cx="336" cy="24" r="9" fill="rgb(255,255,255)"/>
-<circle cx="360" cy="24" r="12" fill="rgb(255,255,255)" opacity="0.35"/>
-<circle cx="360" cy="24" r="9" fill="rgb(255,255,255)"/>
-<circle cx="384" cy="24" r="12" fill="rgb(80,88,107)" opacity="0.35"/>
-<circle cx="384" cy="24" r="9" fill="rgb(80,88,107)"/>
+<circle cx="24" cy="24" r="9" fill="#14171c"/>
+<circle cx="48" cy="24" r="9" fill="#14171c"/>
+<circle cx="72" cy="24" r="9" fill="#14171c"/>
+<circle cx="96" cy="24" r="9" fill="#14171c"/>
+<circle cx="120" cy="24" r="9" fill="#14171c"/>
+<circle cx="144" cy="24" r="9" fill="#14171c"/>
+<circle cx="168" cy="24" r="9" fill="#14171c"/>
+<circle cx="192" cy="24" r="9" fill="#14171c"/>
+<circle cx="216" cy="24" r="9" fill="#14171c"/>
+<circle cx="240" cy="24" r="9" fill="#14171c"/>
+<circle cx="264" cy="24" r="9" fill="#14171c"/>
+<circle cx="288" cy="24" r="9" fill="#14171c"/>
+<circle cx="312" cy="24" r="9" fill="#14171c"/>
+<circle cx="336" cy="24" r="9" fill="#14171c"/>
+<circle cx="360" cy="24" r="9" fill="#14171c"/>
+<circle cx="384" cy="24" r="9" fill="#14171c"/>
 <circle cx="24" cy="48" r="9" fill="#14171c"/>
 <circle cx="48" cy="48" r="9" fill="#14171c"/>
 <circle cx="72" cy="48" r="9" fill="#14171c"/>

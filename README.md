@@ -2,7 +2,7 @@
 
 Design LED animations as a live node graph, watch them move on a virtual matrix, then send the same patch to FastLED hardware.
 
-**Public beta · 144 nodes · 20 included audio-reactive patterns · Windows/macOS/Linux packaging · MIT core**
+**Public beta · 145 nodes · 20 included audio-reactive patterns · Windows/macOS/Linux packaging · MIT core**
 
 ![Design Studio for FastLED overview](docs/images/readme/design-studio-overview.png)
 
@@ -61,10 +61,11 @@ Pattern → optional signals/palettes/effects → Matrix Output → Hardware
 ```
 
 1. Wire any frame-producing pattern directly—or through effects—into **Matrix Output**.
-2. Open **⚙ Board**, select the controller and USB port, then confirm width, height, chipset, color order, data pin, layout, brightness, and optional power limit.
+2. Use **✦ Setup...** to choose the controller, dimensions, chipset, layout, color order, pins, brightness, and optional power limit. Open **↑ Upload...** to review the current board/port, the live controller-capacity meter, and the readiness checklist.
 3. Use **🧪 Flash Wiring Test** first on new wiring. It checks colors, orientation, tiles, and physical pixel order without needing a finished patch.
 4. Choose an output route:
    - **Upload** compiles and flashes a standalone FastLED sketch.
+   - **↻ Re-upload last sketch** quickly re-sends the current project's last uploaded sketch without regenerating it.
    - **⚡ Flash Stream Receiver** once, then **📡 Live Stream** for rapid no-recompile preview.
    - **View Code** or **Export .ino** if you want to inspect or build the sketch yourself.
    - **Upload show to SD** provisions the separate music-synced SD-card workflow.
@@ -133,7 +134,7 @@ The empty-canvas launcher and **✦ Start** gallery include Rainbow Sweep, Fire,
 
 ## Complete node catalogue
 
-Design Studio for FastLED currently ships **144 nodes**. The in-app **Help → Node Reference** is authoritative and explains each one in depth.
+Design Studio for FastLED currently ships **145 nodes**. The in-app **Help → Node Reference** is authoritative and explains each one in depth.
 
 <details>
 <summary><strong>Show all nodes by category</strong></summary>
@@ -173,9 +174,11 @@ Drop MP3s into **Music Library**, analyze them, generate or hand-edit the show t
 
 ## Help test the beta
 
-**This is a beta: expect breaking changes between releases.** Node types, project and pattern file formats, and share links are not final, and no migration path is promised before 1.0 — a project, pattern, or share link saved in one beta build may not open in a later one. Export anything you want to keep as a `.ino` sketch, and keep your original audio files for SD shows.
+**This is a beta: expect active iteration between releases.** Node types, project and pattern formats, and share links are still evolving. Saved projects, patterns, and share links should not be treated as permanent archival formats yet, so keep exported `.ino` sketches for anything critical and keep the original audio files for SD shows.
 
 The current support promise is deliberately narrower than the feature list. Before testing, read the [Beta support matrix](docs/release/beta-support-matrix.md) and [Hardware validation guide](docs/release/beta-hardware-validation.md).
+
+As of **July 26, 2026**, the recorded public-beta hardware rows cover two exact end-to-end setups: **ESP32-S3 + 16×16 WS2812B matrix** and **ESP8266 + 10×1 WS2812B strip**, including normal Upload, Wiring Test, and Live Stream on those combos. Everything else remains experimental until it appears in the matrix.
 
 Useful reports include:
 

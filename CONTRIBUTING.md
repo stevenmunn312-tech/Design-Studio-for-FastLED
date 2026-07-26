@@ -46,8 +46,9 @@ feature work may wait behind those.
 PRs are welcome during the beta with two caveats:
 
 1. **Open an issue first for anything non-trivial.** The codebase is moving
-   quickly and pre-1.0 breaking changes land without migration paths; agreeing
-   on direction first avoids wasted work.
+   quickly, and saved projects/patterns/share links need deliberate compatibility
+   handling when a change reshapes them; agreeing on direction first avoids
+   wasted work.
 2. **Keep PRs small and focused.** One fix or one feature per PR.
 
 All changes must come through a branch and pull request; do not commit directly
