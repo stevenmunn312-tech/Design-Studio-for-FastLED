@@ -41,6 +41,26 @@ describe('nodeLibrary', () => {
     expect(NODE_LIBRARY.find((n) => n.type === 'AnimatedImage')).toBeUndefined()
   })
 
+  it('connects Image data to a bounded palette extraction node', () => {
+    const image = NODE_LIBRARY.find((n) => n.type === 'Image')
+    const extract = NODE_LIBRARY.find((n) => n.type === 'PaletteFromImage')
+    expect(image?.outputs).toContainEqual({ id: 'image', label: 'Image Data', dataType: 'image' })
+    expect(extract).toMatchObject({
+      category: 'color',
+      subcategory: 'Palettes',
+      inputs: [{ id: 'image', label: 'Image', dataType: 'image' }],
+      outputs: [{ id: 'palette', label: 'Palette', dataType: 'palette' }],
+      defaultProperties: { count: 6 },
+    })
+    expect(propertyMeta('PaletteFromImage', 'count')).toEqual({
+      control: 'slider',
+      min: 2,
+      max: 8,
+      step: 1,
+    })
+    expect(propertyLabel('PaletteFromImage', 'count')).toBe('Colors')
+  })
+
   it('ships matrix-relative Line defaults', () => {
     expect(NODE_LIBRARY.find((n) => n.type === 'Line')?.defaultProperties).toMatchObject({
       x1: 0, y1: 0, x2: 'W-1', y2: 'H-1',

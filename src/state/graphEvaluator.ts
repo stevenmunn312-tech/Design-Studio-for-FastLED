@@ -5,6 +5,7 @@ import { useMidiStore } from './midiStore'
 import { useUiStore } from './uiStore'
 import { asFont, textBlockLayout, textAlignMode, TEXT_LINE_GAP, type BitmapFont, DEFAULT_FONT } from './font'
 import { animatedImageFrame, asAnimatedImage, asImage, sampleImageToFrame, type ImageData } from './image'
+import { imagePaletteStops16, type ImagePaletteSource } from './imagePalette'
 import { waveSample, combineWaves } from './wave'
 import { polinePalette, hexToRgb } from './polinePalette'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette } from './customPalette'
@@ -3944,7 +3945,7 @@ function evalFieldTile(field: Field | null, tilesX: number, tilesY: number, W = 
 
 // ── Main entry point ──────────────────────────────────────────────────────────
 
-export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | null
+export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | null
 
 /** A reusable pattern group: a named subgraph that a `Group` node evaluates. */
 export interface GroupDef { nodes: StudioNode[]; edges: StudioEdge[] }
@@ -5573,27 +5574,37 @@ function createEvalNode(
         } else {
           img = asImage(props.image)
         }
-        out = { frame: img ? sampleImageToFrame(img, W, H, {
-          fit: props.fit as 'stretch' | 'contain' | 'cover' | 'original',
-          positionX: num(id, 'positionX', props, 'positionX', 0.5),
-          positionY: num(id, 'positionY', props, 'positionY', 0.5),
-          rotation: num(id, 'rotation', props, 'rotation', Number(props.rotation ?? 0)),
-          flipX: Boolean(props.flipX),
-          flipY: Boolean(props.flipY),
-          sampling: props.sampling === 'smooth' ? 'smooth' : 'nearest',
-          brightness: num(id, 'brightness', props, 'brightness', 1),
-          background: hexToRgb(String(props.background ?? '#000000')),
-          zoom: num(id, 'zoom', props, 'zoom', 1),
-          cropX: num(id, 'cropX', props, 'cropX', 0.5),
-          cropY: num(id, 'cropY', props, 'cropY', 0.5),
-          saturation: num(id, 'saturation', props, 'saturation', 1),
-          contrast: num(id, 'contrast', props, 'contrast', 1),
-          hueShift: num(id, 'hueShift', props, 'hueShift', 0),
-          monochrome: Boolean(props.monochrome),
-          gamma: num(id, 'gamma', props, 'gamma', 1),
-          paletteLevels: props.paletteLevels as number | string,
-          dithering: props.dithering === 'ordered2x2' || props.dithering === 'ordered4x4' ? props.dithering : 'none',
-        }) : blankFrame(W, H) }
+        out = {
+          frame: img ? sampleImageToFrame(img, W, H, {
+            fit: props.fit as 'stretch' | 'contain' | 'cover' | 'original',
+            positionX: num(id, 'positionX', props, 'positionX', 0.5),
+            positionY: num(id, 'positionY', props, 'positionY', 0.5),
+            rotation: num(id, 'rotation', props, 'rotation', Number(props.rotation ?? 0)),
+            flipX: Boolean(props.flipX),
+            flipY: Boolean(props.flipY),
+            sampling: props.sampling === 'smooth' ? 'smooth' : 'nearest',
+            brightness: num(id, 'brightness', props, 'brightness', 1),
+            background: hexToRgb(String(props.background ?? '#000000')),
+            zoom: num(id, 'zoom', props, 'zoom', 1),
+            cropX: num(id, 'cropX', props, 'cropX', 0.5),
+            cropY: num(id, 'cropY', props, 'cropY', 0.5),
+            saturation: num(id, 'saturation', props, 'saturation', 1),
+            contrast: num(id, 'contrast', props, 'contrast', 1),
+            hueShift: num(id, 'hueShift', props, 'hueShift', 0),
+            monochrome: Boolean(props.monochrome),
+            gamma: num(id, 'gamma', props, 'gamma', 1),
+            paletteLevels: props.paletteLevels as number | string,
+            dithering: props.dithering === 'ordered2x2' || props.dithering === 'ordered4x4' ? props.dithering : 'none',
+          }) : blankFrame(W, H),
+          // Publish the validated raw property object (rather than the fresh
+          // wrapper returned by asImage/asAnimatedImage) so palette extraction
+          // can cache against stable upload identity across preview frames.
+          image: animation
+            ? props.animation as ImagePaletteSource
+            : img
+              ? props.image as ImagePaletteSource
+              : null,
+        }
         break
       }
 
@@ -5963,6 +5974,12 @@ function createEvalNode(
           (input(id, `color${i}`, null) as RGB | null) ?? customHexToRgb(color)
         )
         out = { palette: customPaletteStops16(colors, local.positions) }
+        break
+      }
+
+      case 'PaletteFromImage': {
+        const source = input(id, 'image', null)
+        out = { palette: imagePaletteStops16(source, Number(props.count ?? 6)) }
         break
       }
 

@@ -302,6 +302,12 @@ function connectField(builder: ExampleBuilder, targetKey: string, inputId: strin
   builder.wire(key, 'field', targetKey, inputId)
 }
 
+function connectImage(builder: ExampleBuilder, targetKey: string, inputId: string, salt = 0): void {
+  const key = `image-${inputId}-${salt}`
+  builder.add(key, 'Image', { image: SAMPLE_IMAGE, fit: 'contain', saturation: 1.15 })
+  builder.wire(key, 'image', targetKey, inputId)
+}
+
 function connectInput(builder: ExampleBuilder, targetKey: string, input: NodePort, salt = 0): void {
   switch (input.dataType) {
     case 'float': connectFloat(builder, targetKey, input.id, salt); break
@@ -310,6 +316,7 @@ function connectInput(builder: ExampleBuilder, targetKey: string, input: NodePor
     case 'palette': connectPalette(builder, targetKey, input.id, salt); break
     case 'frame': connectFrame(builder, targetKey, input.id, salt); break
     case 'field': connectField(builder, targetKey, input.id, salt); break
+    case 'image': connectImage(builder, targetKey, input.id, salt); break
     case 'audio':
       builder.add('mic-auto', 'MicInput')
       builder.wire('mic-auto', 'audio', targetKey, input.id)
@@ -334,6 +341,7 @@ const TARGET_PROPERTIES: Record<string, Record<string, unknown>> = {
   Comment: { text: 'Audio drives colour; Interval chooses a new accent.', color: '#ff33d6' },
   FrameFeedback: { delayFrames: 5, amount: 0.68, fade: 0.9, transform: 'rotate', angle: 4, blendMode: 'screen' },
   Image: { image: SAMPLE_IMAGE, fit: 'contain', brightness: 1, saturation: 1.15 },
+  PaletteFromImage: { count: 5 },
   Noise: { noiseType: 'simplex', speed: 0.42, scale: 0.58, palette: 'ocean' },
   Particles: { particleType: 'fireflies', rate: 0.36, count: 28, decay: 0.93, palette: 'party', size: 1.3 },
   Text: { text: 'FASTLED', scroll: 0.18, r: 0, g: 235, b: 255 },
@@ -392,6 +400,7 @@ function selectedInputs(node: NodeDefinition): NodePort[] {
     HeatColor: ['heat'],
     BlendColors: ['a', 'b', 't'],
     CustomPalette: ['color0', 'color1'],
+    PaletteFromImage: ['image'],
     Poline: ['colorA', 'colorB', 'colorC'],
     PaletteBlend: ['paletteA', 'paletteB', 'amount'],
     Math: ['a', 'b'],

@@ -978,6 +978,26 @@ describe('generateCpp', () => {
     expect(cpp).toContain('CRGB(255,0,0))')
   })
 
+  it('bakes an uploaded Image dominant colours into a reusable palette', () => {
+    const image = {
+      w: 4,
+      h: 1,
+      pixels: [255, 0, 0, 255, 0, 0, 255, 0, 0, 0, 0, 255],
+    }
+    const img = node('img', 'Image', 'pattern', { image })
+    const extract = node('extract', 'PaletteFromImage', 'color', { count: 2 })
+    const noise = node('noise', 'Noise', 'pattern', { noiseType: 'simplex' })
+    const cpp = generateCpp([img, extract, noise, outputNode], [
+      edge('e1', 'img', 'extract', 'image', 'image'),
+      edge('e2', 'extract', 'noise', 'palette', 'paletteIn'),
+      edge('e3', 'noise', 'out', 'frame', 'frame'),
+    ])
+
+    expect(cpp).toContain('const CRGBPalette16 pal_extract(CRGB(0,0,255)')
+    expect(cpp).toContain('CRGB(255,0,0));')
+    expect(cpp).toContain('ColorFromPalette(pal_extract,')
+  })
+
   it('bakes a poline palette into a CRGBPalette16 used downstream', () => {
     const pl = node('pl', 'Poline', 'color', { anchorA: '#ff0000', anchorB: '#0000ff', anchorC: '#00ff00', points: 4, position: 'sinusoidal' })
     const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex', palette: 'rainbow' })
