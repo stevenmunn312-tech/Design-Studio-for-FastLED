@@ -4,6 +4,7 @@ import { evaluateScalarExpression } from './scalarExpression'
 import { MIC_DEFAULTS, MIC_MAX_GAIN } from '../audio/micAnalysis'
 import { ANIMARTRIX_EFFECTS } from '../animartrix/catalog'
 import { MAX_PIN_NUMBER, type GpioCapability } from './boardGpio'
+import { EASE_TYPES } from './easing'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   // ── Inputs ─────────────────────────────────────────────────────────────
@@ -1212,8 +1213,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { a: 0, b: 1, t: 0.5 },
   },
   {
-    // Easing curve on a 0–1 value — FastLED lib8tion (ease8/*wave8). `easeType`
-    // selects the curve; the header reflects it. See PROPERTY_META.easeType.
+    // Easing curve on a 0–1 value — legacy lib8tion shapes plus FastLED's
+    // directional quad/cubic/sine family. `easeType` selects the curve; the
+    // header reflects it. See PROPERTY_META.easeType.
     type: 'Ease',
     label: 'Ease',
     category: 'math',
@@ -2337,7 +2339,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Wave: 'Oscillator — sine, triangle, square or sawtooth over time.',
   ComplexWave: 'Combines two waves (add, multiply, average, min/max, difference).',
   Lerp: 'Linear interpolation between a and b by t.',
-  Ease: 'Easing curve on a 0–1 value — cubic, quad, or tri/quad/cubic waves.',
+  Ease: 'Shapes 0–1 with FastLED linear, quad, cubic, sine, or wave curves.',
   Interval: 'Metronome — pulses true every N seconds (EVERY_N_MILLISECONDS).',
   TimeNode: 'Elapsed time in seconds, plus a frame delta.',
   Abs: 'Absolute value.',
@@ -2635,7 +2637,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   blendMode:      { control: 'select', options: ['normal', 'multiply', 'screen', 'overlay', 'add', 'difference'] },
   mirrorMode:     { control: 'select', options: ['horizontal', 'vertical', 'quad', 'diagonal'] },
   glowAmount:     { control: 'slider', min: 0, max: 1, step: 0.01 },
-  easeType:       { control: 'select', options: ['inOutCubic', 'inOutQuad', 'triwave', 'quadwave', 'cubicwave'] },
+  easeType:       { control: 'select', options: [...EASE_TYPES] },
   easing:         { control: 'select', options: ['linear', 'sine', 'quad', 'cubic'] },
   triggerOp:      { control: 'select', options: ['debounce', 'toggle', 'oneShot', 'pulseDivider', 'delay'] },
   feedbackTransform: { control: 'select', options: ['none', 'translate', 'rotate', 'scale'] },
@@ -3479,7 +3481,22 @@ const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, stri
   },
   Ease: {
     prop: 'easeType',
-    labels: { inOutCubic: 'Ease · Cubic', inOutQuad: 'Ease · Quad', triwave: 'Triangle Wave', quadwave: 'Quad Wave', cubicwave: 'Cubic Wave' },
+    labels: {
+      inOutCubic: 'Ease · Cubic',
+      inOutQuad: 'Ease · Quad',
+      linear: 'Linear',
+      inOutApprox: 'Ease · Fast Approx',
+      inQuad: 'Ease In · Quad',
+      outQuad: 'Ease Out · Quad',
+      inCubic: 'Ease In · Cubic',
+      outCubic: 'Ease Out · Cubic',
+      inSine: 'Ease In · Sine',
+      outSine: 'Ease Out · Sine',
+      inOutSine: 'Ease In/Out · Sine',
+      triwave: 'Triangle Wave',
+      quadwave: 'Quad Wave',
+      cubicwave: 'Cubic Wave',
+    },
   },
   Trigger: {
     prop: 'triggerOp',

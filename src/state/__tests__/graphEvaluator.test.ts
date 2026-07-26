@@ -122,6 +122,21 @@ describe('evaluateGraph', () => {
     expect(run('max', 3, 4)).toBe(4)
   })
 
+  it('Ease evaluates the expanded FastLED curve family', () => {
+    const run = (easeType: string, t: number) =>
+      evaluateScalar([node('ease', 'Ease', 'math', { easeType, t })], [], 'ease', 'result', 0)
+
+    expect(run('linear', 0.5)).toBeCloseTo(127 / 255, 6)
+    expect(run('inQuad', 0.5)).toBeCloseTo(63 / 255, 6)
+    expect(run('outQuad', 0.5)).toBeCloseTo(191 / 255, 6)
+    expect(run('inCubic', 0.5)).toBeCloseTo(32 / 255, 6)
+    expect(run('outCubic', 0.5)).toBeCloseTo(223 / 255, 6)
+    expect(run('inSine', 0.5)).toBeLessThan(run('linear', 0.5))
+    expect(run('outSine', 0.5)).toBeGreaterThan(run('linear', 0.5))
+    expect(run('inOutSine', 0.5)).toBeCloseTo(127 / 255, 6)
+    expect(run('inOutApprox', 128 / 255)).toBeCloseTo(128 / 255, 6)
+  })
+
   it('MapRange can drive its output range from wired inputs', () => {
     const value = node('value', 'Math', 'math', { mathOp: 'add', a: 0.5, b: 0 })
     const lo = node('lo', 'Math', 'math', { mathOp: 'add', a: 10, b: 0 })

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { NODE_LIBRARY, NODE_DESCRIPTIONS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, isPropertyEnabled, isGpioPinProperty, gpioRequirementForProperty } from '../nodeLibrary'
+import { NODE_LIBRARY, NODE_DESCRIPTIONS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, isPropertyEnabled, isGpioPinProperty, gpioRequirementForProperty, nodeDisplayLabel } from '../nodeLibrary'
+import { EASE_TYPES } from '../easing'
 
 describe('nodeLibrary', () => {
   it('gives Image nodes placement and transform defaults', () => {
@@ -501,6 +502,17 @@ describe('nodeLibrary', () => {
     expect(defaults('SampleHold')).toMatchObject({ value: 0 })
     expect(defaults('Compare')).toMatchObject({ a: 0, b: 0.5 })
     expect(defaults('XYMapper')).toMatchObject({ x: 0, y: 0 })
+  })
+
+  it('exposes every Ease variant with a descriptive bundled title', () => {
+    expect(propertyMeta('Ease', 'easeType')).toEqual({
+      control: 'select',
+      options: [...EASE_TYPES],
+    })
+    for (const easeType of EASE_TYPES) {
+      expect(nodeDisplayLabel('Ease', { easeType }, 'Ease'), easeType).not.toBe('Ease')
+    }
+    expect(nodeDisplayLabel('Ease', { easeType: 'unknown' }, 'Ease')).toBe('Ease')
   })
 
   it('color todo nodes expose editable defaults and bounded hue controls', () => {

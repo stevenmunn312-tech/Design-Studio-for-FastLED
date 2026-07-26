@@ -345,6 +345,35 @@ describe('generateCpp', () => {
     expect(mul).toContain('(3) * (4)')
   })
 
+  it('emits every Ease variant through its compatible FastLED primitive', () => {
+    const expected = {
+      inOutCubic: 'ease8InOutCubic(',
+      inOutQuad: 'ease8InOutQuad(',
+      inOutApprox: 'ease8InOutApprox(',
+      inQuad: 'fl::easeInQuad8(',
+      outQuad: 'fl::easeOutQuad8(',
+      inCubic: 'fl::easeInCubic8(',
+      outCubic: 'fl::easeOutCubic8(',
+      inSine: 'fl::easeInSine8(',
+      outSine: 'fl::easeOutSine8(',
+      inOutSine: 'fl::easeInOutSine8(',
+      triwave: 'triwave8(',
+      quadwave: 'quadwave8(',
+      cubicwave: 'cubicwave8(',
+    }
+    for (const [easeType, primitive] of Object.entries(expected)) {
+      const ease = node('ease', 'Ease', 'math', { easeType, t: 0.5 })
+      expect(generateCpp([ease, outputNode], []), easeType).toContain(primitive)
+    }
+
+    const linear = generateCpp([node('ease', 'Ease', 'math', { easeType: 'linear', t: 0.5 }), outputNode], [])
+    expect(linear).toContain('float n_ease_result = (uint8_t)(constrain(0.5, 0.0f, 1.0f) * 255) / 255.0f;')
+    expect(linear).not.toContain('fl::ease')
+
+    const unknown = generateCpp([node('ease', 'Ease', 'math', { easeType: 'unknown', t: 0.5 }), outputNode], [])
+    expect(unknown).toContain('ease8InOutCubic(')
+  })
+
   it('chains node output as input to downstream node', () => {
     const timeN = node('t1', 'TimeNode', 'math', {})
     const sin   = node('s1', 'Sin', 'math', {})
