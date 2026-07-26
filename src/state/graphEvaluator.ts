@@ -5223,7 +5223,8 @@ function createEvalNode(
 
       // The inverse of HSVToRGB — shares HueShift/Saturation's inline extraction.
       case 'RGBToHSV': {
-        const c = (input(id, 'rgb', null) as RGB | null) ?? { r: 0, g: 0, b: 0 }
+        const c = (input(id, 'rgb', null) as RGB | null)
+          ?? { r: Number(props.r ?? 0), g: Number(props.g ?? 0), b: Number(props.b ?? 0) }
         const r = c.r / 255, g = c.g / 255, b = c.b / 255
         const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
         let h = 0
@@ -5255,8 +5256,8 @@ function createEvalNode(
         const ca = input(id, 'a', null) as RGB | null
         const cb = input(id, 'b', null) as RGB | null
         const mix = num(id, 't', props, 't', 0.5)
-        const a = ca ?? { r: 255, g: 0, b: 0 }
-        const b = cb ?? { r: 0, g: 0, b: 255 }
+        const a = ca ?? { r: Number(props.rA ?? 255), g: Number(props.gA ?? 0), b: Number(props.bA ?? 0) }
+        const b = cb ?? { r: Number(props.rB ?? 0), g: Number(props.gB ?? 0), b: Number(props.bB ?? 255) }
         out = {
           color: {
             r: Math.round(a.r * (1 - mix) + b.r * mix),

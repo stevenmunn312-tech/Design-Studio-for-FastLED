@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render } from '@testing-library/react'
 import { useGraphStore } from '../../../state/graphStore'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
-import { CustomPaletteEditorBody } from '../PaletteEditorBody'
+import { CustomPaletteEditorBody, PolineEditorBody } from '../PaletteEditorBody'
 import { TransitionBody } from '../TransitionPickerBody'
 
 function nodeData(type: string, properties: Record<string, unknown>) {
@@ -77,5 +77,33 @@ describe('palette and transition node bodies', () => {
     expect(props.colors).toContain('#112233')
     expect(props.colors).toHaveLength(3)
     expect(props.positions).toHaveLength(3)
+  })
+
+  it('flags wired Poline anchors as preview-only for firmware', () => {
+    useGraphStore.setState({
+      nodes: [{
+        id: 'src',
+        type: 'studioNode',
+        position: { x: 0, y: 0 },
+        data: nodeData('CHSV', { hue: 0, sat: 255, val: 255 }),
+      }, {
+        id: 'pl',
+        type: 'studioNode',
+        position: { x: 0, y: 0 },
+        data: nodeData('Poline', {
+          anchorA: '#1020ff',
+          anchorB: '#ff20a0',
+          anchorC: '#20ffd0',
+          points: 4,
+          position: 'sinusoidal',
+        }),
+      }],
+      edges: [{ id: 'e1', source: 'src', sourceHandle: 'rgb', target: 'pl', targetHandle: 'colorA' }],
+    })
+
+    const { container, getByText, getByTitle } = render(<PolineEditorBody nodeId="pl" />)
+    expect(getByText('preview-only wires')).toBeTruthy()
+    expect(getByTitle(/generated firmware bakes/i)).toBeTruthy()
+    expect((container.querySelector('input[type="color"]') as HTMLInputElement | null)?.disabled).toBe(true)
   })
 })

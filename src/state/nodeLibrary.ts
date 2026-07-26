@@ -1086,7 +1086,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'colorB', label: 'Color B', dataType: 'color' },
     ],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
-    defaultProperties: { rA: 0, gA: 200, bA: 255, rB: 255, gB: 0, bB: 255 },
+    defaultProperties: { t: 0, rA: 0, gA: 200, bA: 255, rB: 255, gB: 0, bB: 255 },
   },
   {
     type: 'PaletteSampler',
@@ -1436,7 +1436,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 's', label: 'S (0–1)', dataType: 'float' },
       { id: 'v', label: 'V (0–1)', dataType: 'float' },
     ],
-    defaultProperties: {},
+    defaultProperties: { r: 0, g: 0, b: 0 },
   },
   {
     // Black-body white point from a normalized warm→cool temperature control.
@@ -1469,7 +1469,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 't', label: 'Mix', dataType: 'float' },
     ],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
-    defaultProperties: { t: 0.5 },
+    defaultProperties: { rA: 255, gA: 0, bA: 0, rB: 0, gB: 0, bB: 255, t: 0.5 },
   },
   {
     type: 'CHSV',
@@ -2755,6 +2755,9 @@ const N01: PropertyControl = { control: 'slider', min: 0, max: 1, step: 0.01 }
 export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyControl>> = {
   HueCycle: {
     rate: { control: 'slider', min: 0, max: 4, step: 0.01 },
+  },
+  HSVToRGB: {
+    h: { control: 'slider', min: 0, max: 360, step: 1 },
   },
   PaletteSweep: {
     rate: { control: 'slider', min: 0, max: 4, step: 0.01 },

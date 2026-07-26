@@ -432,6 +432,18 @@ describe('nodeLibrary', () => {
     expect(defaults('XYMapper')).toMatchObject({ x: 0, y: 0 })
   })
 
+  it('color todo nodes expose editable defaults and bounded hue controls', () => {
+    const defaults = (type: string) => NODE_LIBRARY.find((n) => n.type === type)?.defaultProperties ?? {}
+    expect(defaults('BlendColors')).toMatchObject({
+      rA: 255, gA: 0, bA: 0,
+      rB: 0, gB: 0, bB: 255,
+      t: 0.5,
+    })
+    expect(defaults('RGBToHSV')).toMatchObject({ r: 0, g: 0, b: 0 })
+    expect(defaults('GradientSampler')).toMatchObject({ t: 0 })
+    expect(propertyMeta('HSVToRGB', 'h')).toEqual({ control: 'slider', min: 0, max: 360, step: 1 })
+  })
+
   it('signal todo nodes expose bounded controls and compatibility defaults', () => {
     expect(NODE_LIBRARY.find((n) => n.type === 'Random')?.defaultProperties).toMatchObject({ min: 0, max: 1, seed: 0 })
     expect(propertyMeta('Random', 'seed')).toEqual({ control: 'slider', min: 0, max: 9999, step: 1 })
