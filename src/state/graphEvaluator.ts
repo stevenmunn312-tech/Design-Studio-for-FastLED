@@ -4174,8 +4174,8 @@ function createEvalNode(
         const val   = num(id, 'value', props, 'value', 0)
         const inLo  = num(id, 'inMin', props, 'inMin', 0)
         const inHi  = num(id, 'inMax', props, 'inMax', 1)
-        const outLo = Number(props.outMin ?? 0)
-        const outHi = Number(props.outMax ?? 1)
+        const outLo = num(id, 'outMin', props, 'outMin', 0)
+        const outHi = num(id, 'outMax', props, 'outMax', 1)
         const t2 = inHi === inLo ? 0 : (val - inLo) / (inHi - inLo)
         out = { result: outLo + t2 * (outHi - outLo) }
         break

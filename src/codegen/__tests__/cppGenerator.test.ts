@@ -294,6 +294,22 @@ describe('generateCpp', () => {
     expect(withMapRange).toContain('float mapFloat(')
   })
 
+  it('emits wired MapRange output bounds', () => {
+    const value = node('value', 'Math', 'math', { mathOp: 'add', a: 0.5, b: 0 })
+    const lo = node('lo', 'Math', 'math', { mathOp: 'add', a: 10, b: 0 })
+    const hi = node('hi', 'Math', 'math', { mathOp: 'add', a: 20, b: 0 })
+    const mr = node('mr', 'MapRange', 'math', { inMin: 0, inMax: 1, outMin: 0, outMax: 1 })
+    const cpp = generateCpp(
+      [value, lo, hi, mr, outputNode],
+      [
+        edge('e1', 'value', 'mr', 'result', 'value'),
+        edge('e2', 'lo', 'mr', 'result', 'outMin'),
+        edge('e3', 'hi', 'mr', 'result', 'outMax'),
+      ],
+    )
+    expect(cpp).toContain('mapFloat(n_value_result, 0, 1, n_lo_result, n_hi_result)')
+  })
+
   it('emits Math result variable for the selected operation', () => {
     const add = node('a', 'Math', 'math', { mathOp: 'add', a: 1, b: 2 })
     const cpp = generateCpp([add, outputNode], [])
