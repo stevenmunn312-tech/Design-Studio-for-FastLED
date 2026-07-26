@@ -88,7 +88,7 @@
 - [ ] Every advertised beta hardware combination has a dated smoke-test record; experimental combinations are labelled in the UI and documentation.
 - [ ] A first-time user can launch, load a starter, see an animated result, configure supported hardware, and export or upload it without consulting source-code documentation.
 - [ ] Pin, layout, power, board/toolchain, and graph validation prevent known unsafe or non-functional uploads with actionable messages.
-- [ ] Keyboard-only and screen-reader smoke tests cover the core authoring and upload workflow.
+- [x] Keyboard-only and screen-reader smoke tests cover the core authoring and upload workflow. Browser-assisted keyboard/accessibility-tree checks passed on 2026-07-26, and the NVDA pass was subsequently confirmed by the user; see `docs/release/accessibility-smoke-test.md`.
 - [ ] Offline/PWA behavior, icons, documentation, licensing, versioning, and release artifacts have been verified from a fresh machine/account.
 
 ## Core Graph

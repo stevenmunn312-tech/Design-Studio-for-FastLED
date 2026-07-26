@@ -86,11 +86,11 @@ the change: lint, 1,478 tests across 93 files, and the production build.
 
 ## Completion record
 
-Status: **NVDA pass pending**.
+Status: **Passed**.
 
-Do not check the release exit criterion until the keyboard-only and NVDA
-scenarios both pass and the environment/result is recorded below.
+The release exit criterion was checked after the keyboard-only and NVDA
+scenarios were confirmed.
 
 | Date | Tester | Windows | Chrome | NVDA | Build | Keyboard | Screen reader | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Pending | — | — | — | — | — | — | — | Run the scenarios above. |
+| 2026-07-26 | User-confirmed | Version not supplied | Version not supplied | Version not supplied | Local Vite app | Pass | Pass | NVDA pass confirmed by the user; exact environment versions were not supplied. |
