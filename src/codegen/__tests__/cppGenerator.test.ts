@@ -200,6 +200,23 @@ describe('generateCpp', () => {
     expect(cpp).toContain('fill_solid(buf_sc, NUM_LEDS, CRGB(255, 0, 0))')
   })
 
+  it('BrightnessMod amplifies and saturates channels instead of clamping its multiplier', () => {
+    const sc = node('sc', 'SolidColor', 'pattern', { r: 80, g: 100, b: 200 })
+    const bm = node('bm', 'BrightnessMod', 'composite', { brightness: 2.5 })
+    const cpp = generateCpp(
+      [sc, bm, outputNode],
+      [
+        edge('e1', 'sc', 'bm', 'frame', 'frame'),
+        edge('e2', 'bm', 'out', 'frame', 'frame'),
+      ],
+    )
+
+    expect(cpp).toContain('float _br = fmaxf(0.0f, 2.5)')
+    expect(cpp).toContain('fminf(255.0f, buf_bm[_i].r * _br)')
+    expect(cpp).not.toContain('constrain(2.5, 0, 1)')
+    expect(cpp).not.toContain('nscale8(_br)')
+  })
+
   it('PerformanceGenerator has no frame port to wire into MatrixOutput', () => {
     // Music-sync shows only ever play back through the SD-card export
     // (`shows` → SDCard) or the in-browser preview — never a normal sketch's

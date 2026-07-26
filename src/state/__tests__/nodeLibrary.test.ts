@@ -329,6 +329,12 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('ColorBoost', 'boost')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
+  it('BrightnessMod exposes a safe amplification range', () => {
+    expect(propertyMeta('BrightnessMod', 'brightness')).toEqual({
+      control: 'slider', min: 0, max: 3, step: 0.01,
+    })
+  })
+
   it('AudioCascade exposes full-spectrum audio inputs with normalized controls', () => {
     const ac = NODE_LIBRARY.find((n) => n.type === 'AudioCascade')
     expect(ac?.inputs.map((p) => p.id)).toEqual(['bass', 'mids', 'treble', 'energy', 'speed', 'paletteIn'])
