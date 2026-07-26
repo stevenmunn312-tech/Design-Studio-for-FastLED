@@ -220,7 +220,7 @@ function ShortcutsTab() {
           <div className={styles.shortcutDesc}>Close this dialog / menu, exit Stage/Performance mode, or deselect nodes on the canvas — in that priority order</div>
           <div className={styles.kbd}><span className={styles.key}>?</span></div>
           <div className={styles.shortcutDesc}>Open this Help dialog (F1 also works)</div>
-          <div className={styles.kbd}><span className={styles.key}>Tab</span></div>
+          <div className={styles.kbd}><span className={styles.key}>Ctrl</span><span className={styles.key}>K</span></div>
           <div className={styles.shortcutDesc}>Open the node search picker at the view centre</div>
           <div className={styles.kbd}><span className={styles.key}>F8</span></div>
           <div className={styles.shortcutDesc}>Toggle the Performance Deck (pinned knobs/faders, scenes, panic). MIDI and additional keyboard bindings are assigned from inside the deck panel itself, not listed here.</div>

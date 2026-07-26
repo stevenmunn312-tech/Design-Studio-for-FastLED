@@ -5,6 +5,7 @@ import { CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, SPI_CHIPSETS } from '../../state/
 import { validateMatrixLayout } from '../../state/xyLayout'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
 import { estimatePowerLoad } from '../../utils/validateGraph'
+import { useModalFocus } from '../../hooks/useModalFocus'
 import styles from './Upload.module.css'
 
 const STEPS = [
@@ -57,6 +58,7 @@ export default function MatrixOutputSetupWizard() {
     openDeployPopup,
     runUpload, activeOutputNodeId,
   } = useUploadStore()
+  const dialogRef = useModalFocus<HTMLDivElement>(closeSetupWizard)
 
   const node = nodes.find((n) => n.id === activeOutputNodeId && n.data.nodeType === 'MatrixOutput')
     ?? nodes.find((n) => n.data.nodeType === 'MatrixOutput')
@@ -118,13 +120,20 @@ export default function MatrixOutputSetupWizard() {
 
   return (
     <div className={styles.overlay} onMouseDown={(event) => { if (event.target === event.currentTarget) closeSetupWizard() }}>
-      <div className={`${styles.popup} ${styles.wizardPopup}`} role="dialog" aria-label="Matrix Output setup wizard">
+      <div
+        ref={dialogRef}
+        className={`${styles.popup} ${styles.wizardPopup}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Matrix Output setup wizard"
+        tabIndex={-1}
+      >
         <div className={styles.popupHeader}>
           <div>
             <div className={styles.wizardKicker}>Setup wizard</div>
             <div className={styles.wizardTitle}>Matrix Output</div>
           </div>
-          <button className={styles.closeBtn} onClick={closeSetupWizard} title="Close">×</button>
+          <button className={styles.closeBtn} onClick={closeSetupWizard} title="Close" aria-label="Close Matrix Output setup wizard">×</button>
         </div>
 
         <div className={styles.wizardSteps} aria-label="Wizard steps">

@@ -220,7 +220,7 @@ interface Props {
    * the node to sit its connected handle at the drop point.
    */
   onPlaced?: (nodeId: string, handleId: string, flow: { x: number; y: number }) => void
-  /** Open straight into the search picker (e.g. Tab / double-click empty canvas), without a drag-to-create origin. */
+  /** Open straight into the search picker (e.g. Ctrl/Cmd+K / double-click empty canvas), without a drag-to-create origin. */
   startInPicker?: boolean
   onClose: () => void
 }

@@ -28,7 +28,7 @@ import '@xyflow/react/dist/style.css'
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { usePatternLibrary } from '../../state/patternLibrary'
-import { NODE_LIBRARY, CATEGORY_COLOR, portsCompatible } from '../../state/nodeLibrary'
+import { NODE_LIBRARY, CATEGORY_COLOR, nodeDisplayLabel, portsCompatible } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import StudioNode from './StudioNode'
 import GlowEdge from './GlowEdge'
@@ -51,6 +51,8 @@ const edgeTypes: EdgeTypes = { glowEdge: GlowEdge as any }
 
 const minimapNodeColor = (n: Node) =>
   CATEGORY_COLOR[(n.data as { category?: string }).category ?? ''] ?? '#444'
+
+type AccessiblePort = { id: string; label: string; dataType: string }
 
 // Persist the canvas pan/zoom so a reload restores the same view instead of
 // re-fitting to the nodes (which reads as the view "jumping").
@@ -619,11 +621,11 @@ function NodeGraphCanvasInner() {
     [screenToFlowPosition]
   )
 
-  // Tab opens the same search picker at the current view centre — a
-  // keyboard-only path to add a node without touching the mouse.
+  // Ctrl/Cmd+K opens the same search picker at the current view centre. Tab
+  // must remain available for ordinary focus navigation across the studio.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab') return
+      if (e.key.toLowerCase() !== 'k' || (!e.ctrlKey && !e.metaKey) || e.altKey) return
       const el = e.target as HTMLElement | null
       const isTyping = !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
       if (isTyping) return
@@ -894,14 +896,50 @@ function NodeGraphCanvasInner() {
 
   const spliceEdgeId = spliceCue?.edgeId ?? null
   const focusedNodes = useMemo(() => signalPathFor(edges, selectedNodeId), [edges, selectedNodeId])
+  const accessibleNodes = useMemo(() => nodes.map((node) => {
+    const data = node.data as {
+      label?: string
+      nodeType?: string
+      properties?: Record<string, unknown>
+      inputs?: AccessiblePort[]
+      outputs?: AccessiblePort[]
+    }
+    const label = nodeDisplayLabel(data.nodeType ?? '', data.properties ?? {}, data.label ?? data.nodeType ?? 'Untitled')
+    const inputs = data.inputs?.length ?? 0
+    const outputs = data.outputs?.length ?? 0
+    return {
+      ...node,
+      ariaLabel: `${label} node${node.id === selectedNodeId ? ', selected' : ''}. ${inputs} input${inputs === 1 ? '' : 's'}, ${outputs} output${outputs === 1 ? '' : 's'}.`,
+    }
+  }), [nodes, selectedNodeId])
+  const accessibleNodeInfo = useMemo(() => new Map(nodes.map((node) => {
+    const data = node.data as {
+      label?: string
+      nodeType?: string
+      properties?: Record<string, unknown>
+      inputs?: AccessiblePort[]
+      outputs?: AccessiblePort[]
+    }
+    return [node.id, {
+      label: nodeDisplayLabel(data.nodeType ?? '', data.properties ?? {}, data.label ?? data.nodeType ?? 'Untitled'),
+      inputs: data.inputs ?? [],
+      outputs: data.outputs ?? [],
+    }]
+  })), [nodes])
   const displayEdges = useMemo(() => {
-    if (!draggingNodeType && !canvasDragNodeId && !spliceEdgeId && !selectedNodeId && !connectionPulse) return edges
     return edges.map((edge) => {
       const focusState = selectedNodeId
         ? focusedNodes.has(edge.source) && focusedNodes.has(edge.target) ? 'active' : 'dim'
         : undefined
+      const source = accessibleNodeInfo.get(edge.source)
+      const target = accessibleNodeInfo.get(edge.target)
+      const sourcePort = source?.outputs.find((port) => port.id === edge.sourceHandle)
+      const targetPort = target?.inputs.find((port) => port.id === edge.targetHandle)
+      const sourceLabel = source?.label ?? edge.source
+      const targetLabel = target?.label ?? edge.target
       return {
         ...edge,
+        ariaLabel: `Connection from ${sourceLabel} ${sourcePort?.label ?? edge.sourceHandle ?? 'output'} output to ${targetLabel} ${targetPort?.label ?? edge.targetHandle ?? 'input'} input.`,
         // The selected node's glow (.nodeSelected/.nodePath) reads as "front" even
         // when React Flow's own elevateEdgesOnSelect hasn't kicked in (e.g. a
         // freshly-added node is never RF-`.selected`, only tracked via our own
@@ -924,7 +962,7 @@ function NodeGraphCanvasInner() {
         },
       }
     })
-  }, [canvasDragNodeId, connectionPulse, draggingNodeType, edges, focusedNodes, selectedNodeId, spliceEdgeId])
+  }, [accessibleNodeInfo, canvasDragNodeId, connectionPulse, draggingNodeType, edges, focusedNodes, selectedNodeId, spliceEdgeId])
 
   return (
     <div
@@ -1044,7 +1082,7 @@ function NodeGraphCanvasInner() {
         </div>
       )}
       <ReactFlow
-        nodes={nodes}
+        nodes={accessibleNodes}
         edges={displayEdges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
@@ -1081,6 +1119,7 @@ function NodeGraphCanvasInner() {
         style={{ background: 'var(--bg-primary)' }}
         defaultEdgeOptions={{ type: 'glowEdge' }}
         proOptions={{ hideAttribution: true }}
+        aria-label="Node graph editor"
       >
         {uiEffectsEnabled && (
           <div className={styles.atmosphere} aria-hidden="true">
