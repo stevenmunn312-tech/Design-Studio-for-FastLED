@@ -9,7 +9,9 @@ interface Props {
 }
 
 // Opened from MatrixOutput's size dropdown when "Custom" is picked, so the
-// user can dial in an X,Y that isn't one of the 16/32/64 presets.
+// user can dial in an X,Y that isn't one of the 16/32/64 presets. The 64×64
+// ceiling is intentional: larger compositions multiply preview work and
+// firmware buffer demand too aggressively for the supported design envelope.
 export default function MatrixSizePopup({ width, height, onApply, onClose }: Props) {
   const [w, setW] = useState(String(width))
   const [h, setH] = useState(String(height))

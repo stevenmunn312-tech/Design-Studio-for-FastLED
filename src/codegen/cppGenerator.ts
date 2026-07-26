@@ -341,7 +341,7 @@ export function ledHardwareFromProps(p: Record<string, unknown>): LedHardware {
     correction: pick(p.correction, CORRECTION_OPTIONS, 'none'),
     dither:     p.dither !== false,
     overclock:  num(p.overclock, 1, 1, 2),
-    clockPin:   Math.round(num(p.clockPin, 6, 0, 48)),
+    clockPin:   sanitizePin(p.clockPin, 6),
   }
 }
 
@@ -486,7 +486,7 @@ export function generateCpp(
     width * expressionScale,
     height * expressionScale,
   )
-  const dataPin    = intProp(outputNode ? props(outputNode).dataPin : undefined, 5, 0, 48)
+  const dataPin    = sanitizePin(outputNode ? props(outputNode).dataPin : undefined, 5)
   // Chipset, colour order, master brightness, correction, dithering, overclock
   // — sanitised centrally (shared with the show/player generators).
   const hw = ledHardwareFromProps(outputNode ? props(outputNode) : {})
@@ -522,7 +522,7 @@ export function generateCpp(
     return {
       ...route,
       safeId: safeId(route.id),
-      dataPin: intProp(p.dataPin, 5, 0, 48),
+      dataPin: sanitizePin(p.dataPin, 5),
       hardware: ledHardwareFromProps(p),
       xyTable: buildXYTable(route.width, route.height, p),
     }

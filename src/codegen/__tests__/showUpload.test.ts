@@ -76,6 +76,13 @@ describe('playerConfigFromGraph', () => {
       maxVolume: 21,
     })
   })
+
+  it('sanitizes MatrixOutput pins read from saved graph properties', () => {
+    const cfg = playerConfigFromGraph([
+      node('MatrixOutput', { dataPin: -3.8, clockPin: 70 }),
+    ])
+    expect(cfg).toMatchObject({ ledDataPin: 0, ledClockPin: 48 })
+  })
 })
 
 describe('generatePlayerSketch audio output', () => {
@@ -97,12 +104,17 @@ describe('generatePlayerSketch audio output', () => {
 
   it('sanitizes direct pin and volume configuration before emitting firmware', () => {
     const ino = generatePlayerSketch({
+      ledDataPin: -9,
+      ledClockPin: 90,
+      chipset: 'APA102',
       sdCsPin: -10,
       i2sBclk: 60,
       i2sLrc: 24.6,
       i2sDout: Number.NaN,
       maxVolume: -3,
     })
+    expect(ino).toContain('#define LED_DATA_PIN  0')
+    expect(ino).toContain('#define LED_CLOCK_PIN 48')
     expect(ino).toContain('#define SD_CS         0')
     expect(ino).toContain('#define I2S_BCLK      48')
     expect(ino).toContain('#define I2S_LRC       25')

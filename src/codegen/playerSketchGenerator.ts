@@ -70,8 +70,8 @@ export function playerConfigFromGraph(nodes: ConfigNode[]): Partial<PlayerConfig
   return {
     ledWidth:    num(mo.width, DEFAULTS.ledWidth),
     ledHeight:   num(mo.height, DEFAULTS.ledHeight),
-    ledDataPin:  num(mo.dataPin, DEFAULTS.ledDataPin),
-    ledClockPin: num(mo.clockPin, DEFAULTS.ledClockPin),
+    ledDataPin:  sanitizePin(mo.dataPin, DEFAULTS.ledDataPin),
+    ledClockPin: sanitizePin(mo.clockPin, DEFAULTS.ledClockPin),
     chipset:     str(mo.chipset, DEFAULTS.chipset),
     colorOrder:  str(mo.colorOrder, DEFAULTS.colorOrder),
     correction:  str(mo.correction, DEFAULTS.correction),
@@ -96,6 +96,8 @@ export function generatePlayerSketch(
   const raw = { ...DEFAULTS, ...cfg }
   const c = {
     ...raw,
+    ledDataPin: sanitizePin(raw.ledDataPin, DEFAULTS.ledDataPin),
+    ledClockPin: sanitizePin(raw.ledClockPin, DEFAULTS.ledClockPin),
     sdCsPin: sanitizePin(raw.sdCsPin, DEFAULTS.sdCsPin),
     i2sBclk: sanitizePin(raw.i2sBclk, DEFAULTS.i2sBclk),
     i2sLrc: sanitizePin(raw.i2sLrc, DEFAULTS.i2sLrc),
