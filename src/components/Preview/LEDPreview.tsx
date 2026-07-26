@@ -528,8 +528,15 @@ export default function LEDPreview() {
     if (activeOutputId !== previewOutputId) setPreviewOutputId(activeOutputId)
   }, [activeOutputId, previewOutputId, setPreviewOutputId])
   const activeOutput = useGraphStore((s) => s.nodes.find((node) => node.id === activeOutputId && node.data.nodeType === 'MatrixOutput'))
-  const gridW = Math.max(2, Math.min(64, selectedRouteSummary?.width ?? 16))
-  const gridH = Math.max(2, Math.min(64, selectedRouteSummary?.height ?? 16))
+  // Real matrix dimensions — used for the canvas/WebGL buffer size, the
+  // frame passed to the renderers, and the on-screen W×H readout, so a
+  // strip layout (e.g. 10×1) never grows a phantom extra row/column. Only
+  // the pixel-scale math below (`pixelScaleW/H`) floors to 2, so a thin
+  // strip's LEDs aren't blown up to fill the whole available height/width.
+  const gridW = Math.max(1, Math.min(64, selectedRouteSummary?.width ?? 16))
+  const gridH = Math.max(1, Math.min(64, selectedRouteSummary?.height ?? 16))
+  const pixelScaleW = Math.max(2, gridW)
+  const pixelScaleH = Math.max(2, gridH)
   // Panel-tile grid (MatrixOutput layout==='panels') — 0 when there's nothing
   // to draw gridlines for. Select primitives, not the memoised object itself
   // (matching gridW/gridH's use of matrixDims below): a store selector must
@@ -562,8 +569,8 @@ export default function LEDPreview() {
   const availableCanvasH = Math.max(0, canvasWrapSize.height - canvasWrapSize.padY)
   const windowedPixelLimit = Math.min(
     stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX,
-    availableCanvasW > 0 ? availableCanvasW / gridW : stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX,
-    availableCanvasH > 0 ? availableCanvasH / gridH : stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX,
+    availableCanvasW > 0 ? availableCanvasW / pixelScaleW : stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX,
+    availableCanvasH > 0 ? availableCanvasH / pixelScaleH : stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX,
   )
   const pixel = Math.max(1, windowedPixelLimit)
   // Integer drawing-buffer size — floor the *canvas* dimensions, not the per-LED
@@ -845,6 +852,13 @@ export default function LEDPreview() {
           wrap.style.setProperty('--ambient-sw', ambient.colors[2])
           wrap.style.setProperty('--ambient-se', ambient.colors[3])
           wrap.style.setProperty('--ambient-opacity', String(Math.min(0.78, 0.08 + ambient.energy * 0.7)))
+          // A percentage inset resolves independently per axis against the
+          // frame's own box (top/bottom against height, left/right against
+          // width), so a strip layout's short axis gets almost no spill room
+          // and the glow reads as a hard rectangle instead of a soft bloom.
+          // Base the spread on the frame's larger side in px so both axes
+          // get the same absolute falloff room regardless of aspect ratio.
+          wrap.style.setProperty('--ambient-spread', `${Math.max(16, Math.max(bw, bh) * 0.14)}px`)
         }
 
         // Beat pulses last one evaluation frame, so publish them immediately;

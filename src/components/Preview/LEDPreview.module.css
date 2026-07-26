@@ -322,7 +322,7 @@
 .ambilight {
   position: absolute;
   z-index: 0;
-  inset: -14%;
+  inset: calc(-1 * var(--ambient-spread, 14%));
   opacity: var(--ambient-opacity, 0);
   transition: opacity 180ms linear;
   pointer-events: none;
