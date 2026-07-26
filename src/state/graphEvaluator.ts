@@ -4223,14 +4223,22 @@ function createEvalNode(
         // It's off by default so unwired/grouped patterns aren't driven into
         // "hyperdrive" and stay tunable.
         const hasLiveAudio = audioConnected && Boolean(audio.active || audio.micActive)
-        const band = (value: number | undefined, fallback: number | undefined) =>
-          clamp01(Number.isFinite(value) ? Number(value) : Number(fallback ?? 0))
+        // `bands` genuinely drives analysis resolution: the raw 32-bin
+        // spectrum is resampled to this many bins (resampleSpectrumBins(),
+        // shared with SpectrumVisualizer), then split into three contiguous
+        // groups. More bands means a sharper bass/mids/treble split; fewer
+        // means a blurrier one — instead of a slider with zero effect.
+        const bands = Math.max(8, Math.min(32, Math.round(Number(props.bands ?? 24))))
         const raw = hasLiveAudio
-          ? {
-              bass: band(audio.bass, audio.micBass),
-              mids: band(audio.mids, audio.micMids),
-              treble: band(audio.treble, audio.micTreble),
-            }
+          ? (() => {
+              const sampled = resampleSpectrumBins(audio.detectorSpectrum ?? audio.spectrum ?? [], bands)
+              const third = bands / 3
+              return {
+                bass:   avgRange(sampled, 0, third),
+                mids:   avgRange(sampled, third, third * 2),
+                treble: avgRange(sampled, third * 2, bands),
+              }
+            })()
           : useUiStore.getState().testSignal
             ? {
                 bass:   (Math.sin(t * 2.1) + 1) / 2,
@@ -4284,25 +4292,48 @@ function createEvalNode(
             threshold: 0,
             cooldownMs: 0,
           }
-        } else if (audioConnected && audio.active) {
+        } else {
           const threshold = denormalizeBeatParam('threshold', normProp(props.threshold, 0.2))
           const attack = denormalizeBeatParam('attack', normProp(props.attack, 0.55))
           const decay = denormalizeBeatParam('decay', normProp(props.decay, 0.25))
-          const prev = beatLevels.get(key) ?? createBeatDetectorState()
-          const result = updateBeatDetectorFromSpectrum(audio.detectorSpectrum ?? audio.spectrum ?? [], t * 1000, prev, { threshold, attack, decay })
-          beatLevels.set(key, result.state)
-          out = {
-            beat: result.beat,
-            bpm: result.bpm,
-            flux: result.state.lastFlux,
-            onset: result.state.lastOnset,
-            contrast: result.state.lastContrast,
-            threshold: result.state.lastThreshold,
-            cooldownMs: result.state.lastCooldownMs,
+          const prev = beatLevels.get(key)
+          if (audioConnected && audio.active) {
+            const result = updateBeatDetectorFromSpectrum(audio.detectorSpectrum ?? audio.spectrum ?? [], t * 1000, prev ?? createBeatDetectorState(), { threshold, attack, decay })
+            beatLevels.set(key, result.state)
+            out = {
+              beat: result.beat,
+              bpm: result.bpm,
+              flux: result.state.lastFlux,
+              onset: result.state.lastOnset,
+              contrast: result.state.lastContrast,
+              threshold: result.state.lastThreshold,
+              cooldownMs: result.state.lastCooldownMs,
+            }
+          } else if (prev) {
+            // Audio just dropped out — feed silence through the same
+            // attack/decay envelope instead of snapping straight to zero, so
+            // a momentary mic hiccup fades rather than cuts. Self-clears once
+            // the envelope is imperceptible instead of lingering forever.
+            const silence = prev.prevSpectrum.length ? new Array(prev.prevSpectrum.length).fill(0) : []
+            const result = updateBeatDetectorFromSpectrum(silence, t * 1000, prev, { threshold, attack, decay })
+            if (result.state.fast < 0.002 && result.state.slow < 0.002) {
+              beatLevels.delete(key)
+              out = { beat: false, bpm: 120, flux: 0, onset: 0, contrast: 0, threshold: 0, cooldownMs: 0 }
+            } else {
+              beatLevels.set(key, result.state)
+              out = {
+                beat: false,
+                bpm: result.bpm,
+                flux: result.state.lastFlux,
+                onset: result.state.lastOnset,
+                contrast: result.state.lastContrast,
+                threshold: result.state.lastThreshold,
+                cooldownMs: result.state.lastCooldownMs,
+              }
+            }
+          } else {
+            out = { beat: false, bpm: 120, flux: 0, onset: 0, contrast: 0, threshold: 0, cooldownMs: 0 }
           }
-        } else {
-          beatLevels.delete(key)
-          out = { beat: false, bpm: 120, flux: 0, onset: 0, contrast: 0, threshold: 0, cooldownMs: 0 }
         }
         break
       }
@@ -4345,15 +4376,32 @@ function createEvalNode(
           }
           percussionLevels.set(key, next)
           out = { kick: next.kick, snare: next.snare, hihat: next.hihat }
-        } else {
+        } else if (useUiStore.getState().testSignal) {
           percussionLevels.delete(key)
-          out = useUiStore.getState().testSignal
-            ? {
-                kick: clamp01(Math.sin(t * 2.1) * 0.5 + 0.5),
-                snare: clamp01(Math.sin(t * 4.0 + 1.2) * 0.5 + 0.5),
-                hihat: clamp01(Math.sin(t * 7.5 + 2.1) * 0.5 + 0.5),
-              }
-            : { kick: 0, snare: 0, hihat: 0 }
+          out = {
+            kick: clamp01(Math.sin(t * 2.1) * 0.5 + 0.5),
+            snare: clamp01(Math.sin(t * 4.0 + 1.2) * 0.5 + 0.5),
+            hihat: clamp01(Math.sin(t * 7.5 + 2.1) * 0.5 + 0.5),
+          }
+        } else {
+          // Audio just dropped out — decay through the node's own `decay`
+          // curve instead of snapping straight to zero, so a momentary mic
+          // hiccup fades rather than cuts. Self-clears once imperceptible.
+          const prev = percussionLevels.get(key)
+          if (prev) {
+            const kick = followLevel(prev.kick, 0, decay)
+            const snare = followLevel(prev.snare, 0, decay)
+            const hihat = followLevel(prev.hihat, 0, decay)
+            if (kick < 0.002 && snare < 0.002 && hihat < 0.002) {
+              percussionLevels.delete(key)
+              out = { kick: 0, snare: 0, hihat: 0 }
+            } else {
+              percussionLevels.set(key, { ...prev, kick, snare, hihat })
+              out = { kick, snare, hihat }
+            }
+          } else {
+            out = { kick: 0, snare: 0, hihat: 0 }
+          }
         }
         break
       }
@@ -4390,11 +4438,25 @@ function createEvalNode(
           const next = { ...prev, prevSpectrum: spectrum, vocals, energy, silence }
           audioFeatureLevels.set(key, next)
           out = { vocals, energy, silence }
-        } else {
+        } else if (useUiStore.getState().testSignal) {
           audioFeatureLevels.delete(key)
-          if (useUiStore.getState().testSignal) {
-            const energy = clamp01((Math.sin(t * 0.8) + 1) / 2)
-            out = { vocals: clamp01((Math.sin(t * 1.6 + 0.8) + 1) / 2), energy, silence: energy < 0.2 }
+          const energy = clamp01((Math.sin(t * 0.8) + 1) / 2)
+          out = { vocals: clamp01((Math.sin(t * 1.6 + 0.8) + 1) / 2), energy, silence: energy < 0.2 }
+        } else {
+          // Audio just dropped out — decay through the node's own `smoothing`
+          // curve instead of snapping straight to zero, so a momentary mic
+          // hiccup fades rather than cuts. Self-clears once imperceptible.
+          const prev = audioFeatureLevels.get(key)
+          if (prev) {
+            const vocals = prev.vocals * smoothing
+            const energy = prev.energy * smoothing
+            if (vocals < 0.002 && energy < 0.002) {
+              audioFeatureLevels.delete(key)
+              out = { vocals: 0, energy: 0, silence: true }
+            } else {
+              audioFeatureLevels.set(key, { ...prev, vocals, energy, silence: true })
+              out = { vocals, energy, silence: true }
+            }
           } else {
             out = { vocals: 0, energy: 0, silence: true }
           }

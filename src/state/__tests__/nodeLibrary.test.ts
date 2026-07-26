@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { NODE_LIBRARY, NODE_DESCRIPTIONS, portColor, propertyMeta, propertyDescription, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, isPropertyEnabled, isGpioPinProperty } from '../nodeLibrary'
+import { NODE_LIBRARY, NODE_DESCRIPTIONS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, isPropertyEnabled, isGpioPinProperty } from '../nodeLibrary'
 
 describe('nodeLibrary', () => {
   it('gives Image nodes placement and transform defaults', () => {
@@ -109,6 +109,13 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('BeatDetect', 'decay')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
+  it('BeatDetect exposes its internal tuning diagnostics as outputs', () => {
+    const bd = NODE_LIBRARY.find((n) => n.type === 'BeatDetect')
+    expect(bd?.outputs.map((p) => p.id)).toEqual([
+      'beat', 'bpm', 'flux', 'onset', 'contrast', 'threshold', 'cooldownMs',
+    ])
+  })
+
   it('PercussionDetect exposes kick/snare/hihat with tunable heuristics', () => {
     const pd = NODE_LIBRARY.find((n) => n.type === 'PercussionDetect')
     expect(pd?.category).toBe('audio')
@@ -125,6 +132,20 @@ describe('nodeLibrary', () => {
     expect(af?.defaultProperties).toMatchObject({ sensitivity: 0.5, gate: 0.12, smoothing: 0.8 })
     expect(propertyMeta('AudioFeatures', 'gate')).toMatchObject({ control: 'slider', min: 0, max: 1 })
     expect(propertyMeta('AudioFeatures', 'smoothing')).toMatchObject({ control: 'slider', min: 0, max: 0.95 })
+  })
+
+  it("AudioFeatures.gate has a display label and tooltip explaining what it gates", () => {
+    expect(propertyLabel('AudioFeatures', 'gate')).toBe('Silence Gate')
+    expect(propertyDescription('AudioFeatures', 'gate')).toMatch(/silence/i)
+  })
+
+  it('AudioHue has default properties so it renders without being wired', () => {
+    const audioHue = NODE_LIBRARY.find((n) => n.type === 'AudioHue')
+    expect(audioHue?.defaultProperties).toEqual({ bass: 0.5, mids: 0.5, treble: 0.5 })
+  })
+
+  it("FFTAnalyzer's bands tooltip explains its resample resolution", () => {
+    expect(propertyDescription('FFTAnalyzer', 'bands')).toMatch(/resample|resolution/i)
   })
 
   it('MicInput exposes FastLED processor gain without obsolete custom gate controls', () => {

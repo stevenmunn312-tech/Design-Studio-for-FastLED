@@ -846,11 +846,41 @@ export function generateCpp(
         const tilt = Math.max(0, Math.min(1, Number(p.tilt ?? 0)))
         const midsGain = gain * (1 + tilt * 0.6)
         const trebleGain = gain * (1 + tilt * 1.8)
-        const bass = useAudioGlobals ? '_audioBass' : '0.0f'
-        const mids = useAudioGlobals ? '_audioMids' : '0.0f'
-        const treble = useAudioGlobals ? '_audioTreble' : '0.0f'
+        // `bands` genuinely drives analysis resolution here — mirrors
+        // graphEvaluator.ts's FFTAnalyzer case exactly: resample the raw
+        // 32-bin spectrum to `bands` bins (same technique as
+        // SpectrumVisualizer's `_svBands`), then average contiguous thirds
+        // into bass/mids/treble. `bands` is baked in at generation time, so
+        // the group boundaries are plain compile-time constants.
+        const bands = Math.max(8, Math.min(32, Math.round(Number(p.bands ?? 24))))
+        const groupBounds = (start: number, end: number): [number, number] => {
+          const from = Math.max(0, Math.floor(start))
+          const to = Math.max(from + 1, Math.min(bands, Math.ceil(end)))
+          return [from, to]
+        }
+        const third = bands / 3
+        const [bassFrom, bassTo] = groupBounds(0, third)
+        const [midsFrom, midsTo] = groupBounds(third, third * 2)
+        const [trebleFrom, trebleTo] = groupBounds(third * 2, bands)
+        const bandsVar = `_fftBands_${id}`
+        const groupExpr = (from: number, to: number) =>
+          `(${Array.from({ length: to - from }, (_, i) => `${bandsVar}[${from + i}]`).join('+')}) / ${(to - from).toFixed(1)}f`
+        const rawBass = `${v('bass')}_raw`
+        const rawMids = `${v('mids')}_raw`
+        const rawTreble = `${v('treble')}_raw`
         if (!useAudioGlobals) ln(`  // FFTAnalyzer — add a Microphone node to drive these from the INMP441`)
-        ln(`  float ${v('bass')}_target = constrain(${bass} * ${gain.toFixed(3)}f, 0.0f, 1.0f), ${v('mids')}_target = constrain(${mids} * ${midsGain.toFixed(3)}f, 0.0f, 1.0f), ${v('treble')}_target = constrain(${treble} * ${trebleGain.toFixed(3)}f, 0.0f, 1.0f);`)
+        // The resample loop's counters (_b/_lo/_hi/_i/_sum) are generic
+        // names, so they're scoped to a block — multiple FFTAnalyzer nodes
+        // in the same sketch would otherwise redeclare them.
+        ln(`  float ${rawBass}, ${rawMids}, ${rawTreble};`)
+        ln(`  {`)
+        ln(`    float ${bandsVar}[${bands}];`)
+        ln(`    for (int _b = 0; _b < ${bands}; _b++) { int _lo = (_b * 32) / ${bands}, _hi = max(_lo + 1, ((_b + 1) * 32) / ${bands}); float _sum = 0.0f; for (int _i = _lo; _i < _hi; _i++) _sum += ${useAudioGlobals ? '_audioSpectrum[_i]' : '0.0f'}; ${bandsVar}[_b] = _sum / (_hi - _lo); }`)
+        ln(`    ${rawBass} = ${groupExpr(bassFrom, bassTo)};`)
+        ln(`    ${rawMids} = ${groupExpr(midsFrom, midsTo)};`)
+        ln(`    ${rawTreble} = ${groupExpr(trebleFrom, trebleTo)};`)
+        ln(`  }`)
+        ln(`  float ${v('bass')}_target = constrain(${rawBass} * ${gain.toFixed(3)}f, 0.0f, 1.0f), ${v('mids')}_target = constrain(${rawMids} * ${midsGain.toFixed(3)}f, 0.0f, 1.0f), ${v('treble')}_target = constrain(${rawTreble} * ${trebleGain.toFixed(3)}f, 0.0f, 1.0f);`)
         ln(`  static float ${v('bass')}_smooth = -1, ${v('mids')}_smooth = -1, ${v('treble')}_smooth = -1;`)
         ln(`  ${v('bass')}_smooth = ${v('bass')}_smooth < 0 ? ${v('bass')}_target : ${v('bass')}_smooth * ${smoothing.toFixed(3)}f + ${v('bass')}_target * ${(1 - smoothing).toFixed(3)}f;`)
         ln(`  ${v('mids')}_smooth = ${v('mids')}_smooth < 0 ? ${v('mids')}_target : ${v('mids')}_smooth * ${smoothing.toFixed(3)}f + ${v('mids')}_target * ${(1 - smoothing).toFixed(3)}f;`)
@@ -862,6 +892,7 @@ export function generateCpp(
       case 'BeatDetect': {
         if (nativeFastLedAudio) {
           ln(`  bool ${v('beat')} = _audioBeat; float ${v('bpm')} = _audioBpm;`)
+          ln(`  float ${v('flux')} = 0.0f, ${v('onset')} = 0.0f, ${v('contrast')} = 0.0f, ${v('threshold')} = 0.0f, ${v('cooldownMs')} = 0.0f;`)
         } else if (useAudioGlobals) {
           const threshold = denormalizeBeatParam('threshold', floatProp(p.threshold, 0.2, 0, 1))
           const attack = denormalizeBeatParam('attack', floatProp(p.attack, 0.55, 0, 1))
@@ -869,6 +900,8 @@ export function generateCpp(
           const prefix = v('detector')
           ln(`  bool ${v('beat')} = false;`)
           ln(`  static float ${v('bpm')} = 120.0f, ${prefix}_fast = 0.0f, ${prefix}_slow = 0.0f, ${prefix}_prevFlux = 0.0f;`)
+          ln(`  float ${v('flux')} = 0.0f, ${v('onset')} = 0.0f, ${v('contrast')} = 0.0f, ${v('cooldownMs')} = 0.0f;`)
+          ln(`  const float ${v('threshold')} = ${threshold.toFixed(4)}f;`)
           ln(`  static float ${prefix}_prevSpectrum[32]; static bool ${prefix}_ready = false; static uint32_t ${prefix}_lastBeat = 0, ${prefix}_lastMs = 0;`)
           ln(`  if (${prefix}_ready) {`)
           ln(`    float _flux = 0.0f, _weightSum = 0.0f;`)
@@ -895,11 +928,13 @@ export function generateCpp(
           ln(`      ${v('bpm')} = ${v('bpm')} * 0.65f + _instant * 0.35f;`)
           ln(`    } } ${prefix}_lastBeat = _now; }`)
           ln(`    ${prefix}_prevFlux = _flux;`)
+          ln(`    ${v('flux')} = _flux; ${v('onset')} = _onset; ${v('contrast')} = _onset / _baseline; ${v('cooldownMs')} = _gap;`)
           ln(`  }`)
           ln(`  for (int _i = 0; _i < 32; _i++) ${prefix}_prevSpectrum[_i] = _audioSpectrum[_i]; ${prefix}_ready = true;`)
         } else {
           ln(`  // BeatDetect — add a Microphone node for on-device beat detection`)
           ln(`  bool ${v('beat')} = false; float ${v('bpm')} = 120.0f;`)
+          ln(`  float ${v('flux')} = 0.0f, ${v('onset')} = 0.0f, ${v('contrast')} = 0.0f, ${v('threshold')} = 0.0f, ${v('cooldownMs')} = 0.0f;`)
         }
         break
       }
