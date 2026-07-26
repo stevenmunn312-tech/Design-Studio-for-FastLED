@@ -862,6 +862,7 @@ export function generateCpp(
       case 'BeatDetect': {
         if (nativeFastLedAudio) {
           ln(`  bool ${v('beat')} = _audioBeat; float ${v('bpm')} = _audioBpm;`)
+          ln(`  float ${v('flux')} = 0.0f, ${v('onset')} = 0.0f, ${v('contrast')} = 0.0f, ${v('threshold')} = 0.0f, ${v('cooldownMs')} = 0.0f;`)
         } else if (useAudioGlobals) {
           const threshold = denormalizeBeatParam('threshold', floatProp(p.threshold, 0.2, 0, 1))
           const attack = denormalizeBeatParam('attack', floatProp(p.attack, 0.55, 0, 1))
@@ -869,6 +870,8 @@ export function generateCpp(
           const prefix = v('detector')
           ln(`  bool ${v('beat')} = false;`)
           ln(`  static float ${v('bpm')} = 120.0f, ${prefix}_fast = 0.0f, ${prefix}_slow = 0.0f, ${prefix}_prevFlux = 0.0f;`)
+          ln(`  float ${v('flux')} = 0.0f, ${v('onset')} = 0.0f, ${v('contrast')} = 0.0f, ${v('cooldownMs')} = 0.0f;`)
+          ln(`  const float ${v('threshold')} = ${threshold.toFixed(4)}f;`)
           ln(`  static float ${prefix}_prevSpectrum[32]; static bool ${prefix}_ready = false; static uint32_t ${prefix}_lastBeat = 0, ${prefix}_lastMs = 0;`)
           ln(`  if (${prefix}_ready) {`)
           ln(`    float _flux = 0.0f, _weightSum = 0.0f;`)
@@ -895,11 +898,13 @@ export function generateCpp(
           ln(`      ${v('bpm')} = ${v('bpm')} * 0.65f + _instant * 0.35f;`)
           ln(`    } } ${prefix}_lastBeat = _now; }`)
           ln(`    ${prefix}_prevFlux = _flux;`)
+          ln(`    ${v('flux')} = _flux; ${v('onset')} = _onset; ${v('contrast')} = _onset / _baseline; ${v('cooldownMs')} = _gap;`)
           ln(`  }`)
           ln(`  for (int _i = 0; _i < 32; _i++) ${prefix}_prevSpectrum[_i] = _audioSpectrum[_i]; ${prefix}_ready = true;`)
         } else {
           ln(`  // BeatDetect — add a Microphone node for on-device beat detection`)
           ln(`  bool ${v('beat')} = false; float ${v('bpm')} = 120.0f;`)
+          ln(`  float ${v('flux')} = 0.0f, ${v('onset')} = 0.0f, ${v('contrast')} = 0.0f, ${v('threshold')} = 0.0f, ${v('cooldownMs')} = 0.0f;`)
         }
         break
       }

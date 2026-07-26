@@ -331,8 +331,8 @@ show pipeline). Ordered by expected impact within each tier.
 Imported from the category-by-category node review. Each item below is a
 short pointer back to the full writeup in `node-todo.md` (search that file
 for the bolded phrase to find the detailed rationale/fix). Checked items were
-fixed in this pass (2026-07-26, commit `281868a`); everything else is still
-open.
+fixed category-by-category as this review was worked through (starting
+2026-07-26, commit `281868a`); everything else is still open.
 
 ### Input (MicInput, ButtonInput, PotInput, EncoderInput, MidiInput)
 
@@ -349,12 +349,12 @@ open.
 
 ### Audio (FFTAnalyzer, BeatDetect, PercussionDetect, AudioFeatures, AudioHue)
 
-- [ ] **FFTAnalyzer's `bands` is a dead control.** Has a slider and a default but is never read in the evaluator or codegen — either wire it to a real variable-resolution band output (via `SpectrumVisualizer`'s existing `resampleSpectrumBins()`) or remove it.
-- [ ] **BeatDetect's rich diagnostics (`flux`/`onset`/`contrast`/effective `threshold`/`cooldownMs`) are computed but never exposed as outputs**, making beat-tuning trial-and-error instead of visual.
-- [ ] **AudioFeatures' `gate` property name doesn't communicate what it does** (a silence-detection threshold). Add a `PROPERTY_LABELS`/`PROPERTY_DESCRIPTIONS` entry (display-only, no migration needed).
-- [ ] **Audio disconnect snaps `kick`/`snare`/`hihat`/`vocals`/`energy` straight to 0** instead of decaying — BeatDetect/PercussionDetect/AudioFeatures all `.delete()` state the instant audio goes inactive.
-- [ ] **AudioHue has no default properties** (`bass`/`mids`/`treble`), so it renders nothing until fully wired — the one node in the library that breaks the "explorable without wiring" convention.
-- [ ] **AudioHue's bass/mids/treble weighting (0.5/0.3/0.2) is fixed and undocumented** — add a tooltip at minimum; exposing the weights as properties would be a larger feature.
+- [x] **FFTAnalyzer's `bands` is a dead control.** Turned out not to be fully dead — `StudioNode.tsx`/`FFTAnalyzerBody.tsx` already use it to size the on-node live meter's bar count; it just never affects the bass/mids/treble analysis itself (always fixed 3-band), which is the misleading part. Added a `PROPERTY_DESCRIPTIONS_OVERRIDES.FFTAnalyzer.bands` tooltip clarifying the actual scope instead of removing a control that does have a (cosmetic) effect.
+- [x] **BeatDetect's rich diagnostics (`flux`/`onset`/`contrast`/effective `threshold`/`cooldownMs`) are computed but never exposed as outputs.** Added them as connectable output ports in `nodeLibrary.ts` (the evaluator already computed them) and mirrored matching variables in `cppGenerator.ts`'s `BeatDetect` case (native/Studio-detector/no-mic branches) so wiring them compiles in generated firmware too.
+- [x] **AudioFeatures' `gate` property name doesn't communicate what it does.** Added a `PROPERTY_LABELS.AudioFeatures.gate` ("Silence Gate") and a `PROPERTY_DESCRIPTIONS_OVERRIDES` tooltip — display-only, no migration needed.
+- [x] **Audio disconnect snaps `kick`/`snare`/`hihat`/`vocals`/`energy` straight to 0** instead of decaying. `BeatDetect`/`PercussionDetect`/`AudioFeatures` (`graphEvaluator.ts`) now feed silence through the node's own existing decay/smoothing curve when audio drops out (reusing `updateBeatDetectorFromSpectrum`/`followLevel`/the smoothing formula), so a momentary mic hiccup fades instead of cutting; each self-clears its state map entry once the envelope decays below an imperceptible epsilon rather than either holding forever or deleting instantly. New evaluator tests cover the decay-then-self-clear behavior for all three nodes.
+- [x] **AudioHue has no default properties** (`bass`/`mids`/`treble`). Added `{ bass: 0.5, mids: 0.5, treble: 0.5 }` to `defaultProperties`, matching the evaluator's existing hardcoded fallback, so the node is explorable without wiring.
+- [x] **AudioHue's bass/mids/treble weighting (0.5/0.3/0.2) is fixed and undocumented.** Added `PROPERTY_DESCRIPTIONS_OVERRIDES` tooltips on each input stating its weight in the resulting hue; exposing the weights as properties remains a larger follow-up feature, not done here.
 
 ### Signal (TimeNode, Interval, Counter, Random, Envelope, Sin, Cos, Wave, ComplexWave, BeatSin, Clock)
 

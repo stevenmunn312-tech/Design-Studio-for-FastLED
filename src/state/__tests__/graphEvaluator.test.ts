@@ -242,6 +242,35 @@ describe('evaluateGraph', () => {
     mockAudio.bpm = 120
   })
 
+  it('BeatDetect decays its diagnostics gracefully when audio disconnects instead of snapping to zero', () => {
+    mockAudio.active = true
+    const mic = node('mic-decay', 'MicInput', 'input', {})
+    const beatNode = node('bd-decay', 'BeatDetect', 'audio', { threshold: 0.1, attack: 0.6, decay: 0.9 })
+    const edges = [edge('ea-decay', 'mic-decay', 'audio', 'bd-decay', 'audio')]
+    mockAudio.detectorSpectrum = [0.02, 0.01, 0, 0]
+    evaluateGraphFull([mic, beatNode], edges, 0, W, H)
+    mockAudio.detectorSpectrum = [0.3, 0.24, 0.1, 0.02]
+    const connected = evaluateGraphFull([mic, beatNode], edges, 15, W, H).outputs.get('bd-decay')!
+    expect(connected.flux as number).toBeGreaterThan(0)
+
+    // Audio drops out (edge stays wired, but the store reports inactive).
+    mockAudio.active = false
+    const afterDisconnect = evaluateGraphFull([mic, beatNode], edges, 30, W, H).outputs.get('bd-decay')!
+    expect(afterDisconnect.beat).toBe(false)
+    expect(afterDisconnect.flux as number).toBeLessThan(connected.flux as number)
+
+    // Keep stepping through silence — the envelope should settle toward zero
+    // rather than holding or oscillating, and the state should self-clear.
+    let last = afterDisconnect.flux as number
+    for (let i = 0; i < 40; i++) {
+      const out = evaluateGraphFull([mic, beatNode], edges, 40 + i, W, H).outputs.get('bd-decay')!
+      expect(out.flux as number).toBeLessThanOrEqual(last + 1e-9)
+      last = out.flux as number
+    }
+    expect(last).toBeLessThan(0.01)
+    mockAudio.active = false
+  })
+
   it('PercussionDetect emits separate kick, snare, and hi-hat envelopes', () => {
     mockAudio.active = true
     const mic = node('micp', 'MicInput', 'input', {})
@@ -263,6 +292,32 @@ describe('evaluateGraph', () => {
     mockAudio.active = false
   })
 
+  it('PercussionDetect decays kick/snare/hihat gracefully when audio disconnects instead of snapping to zero', () => {
+    mockAudio.active = true
+    const mic = node('micp-decay', 'MicInput', 'input', {})
+    const perc = node('pd-decay', 'PercussionDetect', 'audio', { sensitivity: 0.65, decay: 0.85, separation: 0.45 })
+    const edges = [edge('epd-decay', 'micp-decay', 'audio', 'pd-decay', 'audio')]
+    mockAudio.detectorSpectrum = Array(32).fill(0)
+    evaluateGraphFull([mic, perc], edges, 0, W, H)
+    mockAudio.detectorSpectrum = [0.9, 0.82, 0.64, 0.4, 0.14, 0.08, 0.03, 0.02, 0.01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    const connected = evaluateGraphFull([mic, perc], edges, 15, W, H).outputs.get('pd-decay')!
+    expect(connected.kick as number).toBeGreaterThan(0.3)
+
+    mockAudio.active = false
+    const afterDisconnect = evaluateGraphFull([mic, perc], edges, 30, W, H).outputs.get('pd-decay')!
+    expect(afterDisconnect.kick as number).toBeGreaterThan(0)
+    expect(afterDisconnect.kick as number).toBeLessThan(connected.kick as number)
+
+    let last = afterDisconnect.kick as number
+    for (let i = 0; i < 40; i++) {
+      const out = evaluateGraphFull([mic, perc], edges, 40 + i, W, H).outputs.get('pd-decay')!
+      expect(out.kick as number).toBeLessThanOrEqual(last + 1e-9)
+      last = out.kick as number
+    }
+    expect(last).toBeLessThan(0.01)
+    mockAudio.active = false
+  })
+
   it('AudioFeatures emits vocals, energy, and silence heuristics', () => {
     mockAudio.active = true
     const mic = node('micaf', 'MicInput', 'input', {})
@@ -280,6 +335,33 @@ describe('evaluateGraph', () => {
     mockAudio.detectorSpectrum = Array(32).fill(0)
     out = evaluateGraphFull([mic, features], [edge('ef2', 'micaf', 'audio', 'af', 'audio')], 30, W, H).outputs.get('af')!
     expect(out.energy).toBeLessThan(0.2)
+    mockAudio.active = false
+  })
+
+  it('AudioFeatures decays vocals/energy gracefully when audio disconnects instead of snapping to zero', () => {
+    mockAudio.active = true
+    const mic = node('micaf-decay', 'MicInput', 'input', {})
+    const features = node('af-decay', 'AudioFeatures', 'audio', { sensitivity: 0.6, gate: 0.1, smoothing: 0.9 })
+    const edges = [edge('ef-decay', 'micaf-decay', 'audio', 'af-decay', 'audio')]
+    mockAudio.detectorSpectrum = [0.05, 0.06, 0.07, 0.08, 0.1, 0.12, 0.18, 0.26, 0.36, 0.48, 0.58, 0.64, 0.62, 0.54, 0.44, 0.34, 0.26, 0.2, 0.16, 0.14, 0.12, 0.1, 0.08, 0.06, 0.05, 0.04, 0.03, 0.03, 0.02, 0.02, 0.01, 0.01]
+    // Slow smoothing means the attack needs a few frames to build up too —
+    // prime it before asserting the connected level.
+    for (let i = 0; i < 30; i++) evaluateGraphFull([mic, features], edges, i, W, H)
+    const connected = evaluateGraphFull([mic, features], edges, 30, W, H).outputs.get('af-decay')!
+    expect(connected.energy as number).toBeGreaterThan(0.15)
+
+    mockAudio.active = false
+    const afterDisconnect = evaluateGraphFull([mic, features], edges, 30, W, H).outputs.get('af-decay')!
+    expect(afterDisconnect.energy as number).toBeGreaterThan(0)
+    expect(afterDisconnect.energy as number).toBeLessThan(connected.energy as number)
+
+    let last = afterDisconnect.energy as number
+    for (let i = 0; i < 60; i++) {
+      const out = evaluateGraphFull([mic, features], edges, 40 + i, W, H).outputs.get('af-decay')!
+      expect(out.energy as number).toBeLessThanOrEqual(last + 1e-9)
+      last = out.energy as number
+    }
+    expect(last).toBeLessThan(0.01)
     mockAudio.active = false
   })
 

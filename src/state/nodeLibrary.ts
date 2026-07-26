@@ -58,6 +58,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [
       { id: 'beat', label: 'Beat', dataType: 'bool' },
       { id: 'bpm', label: 'BPM', dataType: 'float' },
+      // Internal tuning diagnostics — surfaced so threshold/attack/decay can
+      // be dialed in visually instead of trial-and-error against a silent
+      // binary pulse. See graphEvaluator.ts's BeatDetect case.
+      { id: 'flux', label: 'Flux', dataType: 'float' },
+      { id: 'onset', label: 'Onset', dataType: 'float' },
+      { id: 'contrast', label: 'Contrast', dataType: 'float' },
+      { id: 'threshold', label: 'Threshold', dataType: 'float' },
+      { id: 'cooldownMs', label: 'Cooldown (ms)', dataType: 'float' },
     ],
     defaultProperties: { threshold: 0.2, attack: 0.55, decay: 0.25 },
   },
@@ -1378,7 +1386,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'treble', label: 'Treble', dataType: 'float' },
     ],
     outputs: [{ id: 'hue', label: 'Hue (0–360)', dataType: 'float' }],
-    defaultProperties: {},
+    // Matches the evaluator's own hardcoded fallback (graphEvaluator.ts) so
+    // an unwired node still renders sliders instead of nothing at all.
+    defaultProperties: { bass: 0.5, mids: 0.5, treble: 0.5 },
   },
 
   // ── Color ──────────────────────────────────────────────────────────────
@@ -3112,6 +3122,17 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     particleStyle: 'Spark motion style for the beat-triggered particle overlay.',
     randomStyle: 'Pick a new spark motion style on every beat instead of the fixed style below.',
   },
+  FFTAnalyzer: {
+    bands: "Only resizes this node's own live meter bar count — the bass/mids/treble analysis itself is always a fixed 3 bands.",
+  },
+  AudioFeatures: {
+    gate: 'Silence-detection threshold — how much energy is required before `silence` flips false.',
+  },
+  AudioHue: {
+    bass: 'Weighted 0.5 into the resulting hue (0–360°).',
+    mids: 'Weighted 0.3 into the resulting hue (0–360°).',
+    treble: 'Weighted 0.2 into the resulting hue (0–360°).',
+  },
 }
 
 /** Hover-tooltip text for a node's property, honouring per-node overrides. */
@@ -3127,6 +3148,9 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
     randomColor: 'use random color',
     particleStyle: 'particle style',
     randomStyle: 'use random style',
+  },
+  AudioFeatures: {
+    gate: 'Silence Gate',
   },
 }
 
