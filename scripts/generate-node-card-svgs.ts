@@ -79,6 +79,9 @@ const PROP_GAP = 3        // .props flex gap
 const STRIP_H = 24        // embedded-UI placeholder strip
 const NOTE_H = 72         // Comment sticky-note area
 const MIN_NODE_H = 80     // --node-height
+const BUTTON_WIDGET_H = 28
+const POT_WIDGET_H = 24
+const ENCODER_WIDGET_H = 48
 
 const PAD_X = 28          // canvas margin (port dots + glow)
 const PAD_TOP = 24
@@ -493,6 +496,47 @@ function noteSvg(text: string, y: number): string {
   ].join('\n')
 }
 
+function hardwareWidgetSvg(def: NodeDefinition, props: Record<string, unknown>, y: number): string | null {
+  const w = NODE_W - BODY_PAD * 2
+  if (def.type === 'ButtonInput') {
+    const buttonW = 78
+    const x = BODY_PAD + ((w - buttonW) / 2)
+    return [
+      `<rect x="${x}" y="${y}" width="${buttonW}" height="${BUTTON_WIDGET_H}" rx="8" fill="${C.field}" stroke="${C.border}"/>`,
+      `<text x="${x + buttonW / 2}" y="${y + 18}" text-anchor="middle" font-family=${JSON.stringify(MONO)} font-size="12" fill="${C.text}">press</text>`,
+    ].join('\n')
+  }
+  if (def.type === 'PotInput') {
+    const readout = '0.50'
+    const readoutW = 34
+    const trackW = w - readoutW - 10
+    const x = BODY_PAD
+    const cy = y + POT_WIDGET_H / 2
+    const thumbX = x + trackW * 0.5
+    return [
+      `<rect x="${x}" y="${cy - 4}" width="${trackW}" height="8" rx="4" fill="${C.field}" stroke="${C.border}"/>`,
+      `<rect x="${x}" y="${cy - 4}" width="${(trackW * 0.5).toFixed(1)}" height="8" rx="4" fill="${C.slider}" opacity="0.75"/>`,
+      `<circle cx="${thumbX.toFixed(1)}" cy="${cy}" r="7" fill="${C.slider}" stroke="rgba(255,255,255,0.18)"/>`,
+      `<text x="${BODY_PAD + trackW + 10 + readoutW}" y="${cy + 4}" text-anchor="end" font-family=${JSON.stringify(MONO)} font-size="12" fill="${C.text}">${readout}</text>`,
+    ].join('\n')
+  }
+  if (def.type === 'EncoderInput') {
+    const dialR = 16
+    const cx = BODY_PAD + 22
+    const cy = y + ENCODER_WIDGET_H / 2
+    const notchY = cy - dialR + 5
+    const readout = props.resetOnPress === true ? '0' : '12'
+    return [
+      `<circle cx="${cx}" cy="${cy}" r="${dialR + 4}" fill="rgba(214,51,255,0.14)"/>`,
+      `<circle cx="${cx}" cy="${cy}" r="${dialR}" fill="${C.field}" stroke="${C.border}"/>`,
+      `<circle cx="${cx}" cy="${cy}" r="${dialR - 5}" fill="rgba(255,255,255,0.04)"/>`,
+      `<rect x="${cx - 2}" y="${notchY}" width="4" height="9" rx="2" fill="${C.slider}"/>`,
+      `<text x="${BODY_PAD + 58}" y="${cy + 4}" font-family=${JSON.stringify(MONO)} font-size="12" fill="${C.text}">${readout}</text>`,
+    ].join('\n')
+  }
+  return null
+}
+
 // ── Node assembly ──
 // The preview evaluation dominates generation time and graphs repeat the same
 // stock nodes, so cache by type + overrides.
@@ -515,6 +559,7 @@ interface NodeInner {
 function nodeInner(def: NodeDefinition, overrides?: Record<string, unknown>): NodeInner {
   const props = { ...libraryDefaults(def.type), ...overrides }
   const isComment = def.type === 'Comment'
+  const isHardwareInput = def.type === 'ButtonInput' || def.type === 'PotInput' || def.type === 'EncoderInput'
   // A Comment tints itself with its own colour property (sticky-note
   // convention) instead of the category accent — mirror StudioNode.
   const commentColor = String(props.color ?? '')
@@ -538,6 +583,13 @@ function nodeInner(def: NodeDefinition, overrides?: Record<string, unknown>): No
     })
   }
   if (hasScope) children.push({ h: SCOPE_H, render: (y) => scopeSvg(y, accent) })
+  if (isHardwareInput) {
+    const widgetH = def.type === 'ButtonInput' ? BUTTON_WIDGET_H : def.type === 'PotInput' ? POT_WIDGET_H : ENCODER_WIDGET_H
+    children.push({
+      h: widgetH,
+      render: (y) => hardwareWidgetSvg(def, props, y) ?? '',
+    })
+  }
   for (let i = 0; i < rowCount; i++) {
     children.push({ h: ROW_H, portRow: i, render: (y) => portRowSvg(def, i, y) })
   }

@@ -9,6 +9,7 @@ import { useMusicStore } from '../../../state/musicStore'
 import { usePreviewStore } from '../../../state/previewStore'
 import { useAudioStore } from '../../../state/audioStore'
 import { useNodeDefaults } from '../../../state/nodeDefaults'
+import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/uploadStore'
 import { useHardwareInputStore } from '../../../state/hardwareInputStore'
 
@@ -55,6 +56,7 @@ describe('StudioNode', () => {
     usePreviewStore.setState({ outputs: new Map() })
     useAudioStore.setState({ active: false, bass: 0, mids: 0, treble: 0, beat: false, bpm: 120, spectrum: Array(16).fill(0) })
     useNodeDefaults.setState({ overrides: {} })
+    useUiStore.setState({ uiEffectsEnabled: true })
     // Default board matches the app's own default (ESP32-S3, which has a GPIO
     // table) so pin-picker tests aren't sensitive to another test's selection.
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
@@ -523,6 +525,17 @@ describe('StudioNode', () => {
   // (HardwareInputBody) instead of a fixed value, so their pressed/value/
   // position ports actually respond in preview.
   it('renders a live widget on hardware-input nodes', () => {
+    expect(renderNode(makeNode('ButtonInput', { pin: 0, pullup: true }))
+      .getByText('press')).toBeTruthy()
+    expect(renderNode(makeNode('PotInput', { pin: 34 }))
+      .getByText('0.50')).toBeTruthy()
+    expect(renderNode(makeNode('EncoderInput', { pinA: 32, pinB: 33, pinSW: 25, pullup: true }))
+      .getByText('0')).toBeTruthy()
+  })
+
+  it('keeps hardware-input widgets visible when UI FX are off', () => {
+    useUiStore.setState({ uiEffectsEnabled: false })
+
     expect(renderNode(makeNode('ButtonInput', { pin: 0, pullup: true }))
       .getByText('press')).toBeTruthy()
     expect(renderNode(makeNode('PotInput', { pin: 34 }))

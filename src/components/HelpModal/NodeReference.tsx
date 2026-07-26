@@ -1198,8 +1198,8 @@ function ButtonArticle({ node }: { node: NodeDefinition }) {
   const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
   const tryLive = () => {
     openLiveExample(BUTTON_LIVE_EXAMPLE, {
-      successMessage: 'Button example added — press the Button node to trigger Beat Flash',
-      skippedMessage: 'Button example added — Matrix Output is already in use; connect Beat Flash when ready',
+      successMessage: 'Button example added — press the Button node to swap scenes',
+      skippedMessage: 'Button example added — Matrix Output is already in use; connect the Frame Switch chain when ready',
     })
   }
   return (
@@ -1250,7 +1250,7 @@ function ButtonArticle({ node }: { node: NodeDefinition }) {
             </button>
           </div>
         </div>
-        <ExampleGraphFigure node={node} alt="Tidy trigger graph using Button, Noise Field, Beat Flash, and Matrix Output" />
+        <ExampleGraphFigure node={node} alt="Tidy scene-switch graph using Button, Pacifica, Fire 2012, Frame Switch, and Matrix Output" />
         <div className={styles.exampleExplanation}>
           <b>How it works</b>
           <p>{BUTTON_LIVE_EXAMPLE.explanation}</p>
@@ -1264,7 +1264,7 @@ function ButtonArticle({ node }: { node: NodeDefinition }) {
           <p>{BUTTON_LIVE_EXAMPLE.previewDescription}</p>
         </div>
         <figure className={styles.previewCapture}>
-          <MainPreviewImage node={node} alt="LED preview showing the bright Button-triggered Beat Flash result" />
+          <MainPreviewImage node={node} alt="LED preview showing the Button swapping between Pacifica and Fire 2012" />
         </figure>
       </section>
     </article>
@@ -1327,7 +1327,7 @@ function PotentiometerArticle({ node }: { node: NodeDefinition }) {
             </button>
           </div>
         </div>
-        <ExampleGraphFigure node={node} alt="Tidy control graph using Potentiometer, Noise Field, Brightness, and Matrix Output" />
+        <ExampleGraphFigure node={node} alt="Tidy control graph using Potentiometer, Map Range, Blobs, Hue Shift, and Matrix Output" />
         <div className={styles.exampleExplanation}>
           <b>How it works</b>
           <p>{POTENTIOMETER_LIVE_EXAMPLE.explanation}</p>
@@ -1341,7 +1341,7 @@ function PotentiometerArticle({ node }: { node: NodeDefinition }) {
           <p>{POTENTIOMETER_LIVE_EXAMPLE.previewDescription}</p>
         </div>
         <figure className={styles.previewCapture}>
-          <MainPreviewImage node={node} alt="LED preview showing the Potentiometer-controlled brightness result" />
+          <MainPreviewImage node={node} alt="LED preview showing the Potentiometer sweeping Blobs through hue rotation" />
         </figure>
       </section>
     </article>
@@ -1353,7 +1353,7 @@ function EncoderArticle({ node }: { node: NodeDefinition }) {
   const tryLive = () => {
     openLiveExample(ENCODER_LIVE_EXAMPLE, {
       successMessage: 'Encoder example added — turn the star and click to flash it',
-      skippedMessage: 'Encoder example added — Matrix Output is already in use; connect Beat Flash when ready',
+      skippedMessage: 'Encoder example added — Matrix Output is already in use; connect the Shape chain when ready',
     })
   }
   return (
@@ -1404,7 +1404,7 @@ function EncoderArticle({ node }: { node: NodeDefinition }) {
             </button>
           </div>
         </div>
-        <ExampleGraphFigure node={node} alt="Tidy control graph using Encoder, Noise Field, Hue Shift, Beat Flash, and Matrix Output" />
+        <ExampleGraphFigure node={node} alt="Tidy control graph using Encoder, Map Range, Shape, Trails, Beat Flash, and Matrix Output" />
         <div className={styles.exampleExplanation}>
           <b>How it works</b>
           <p>{ENCODER_LIVE_EXAMPLE.explanation}</p>
@@ -1418,7 +1418,7 @@ function EncoderArticle({ node }: { node: NodeDefinition }) {
           <p>{ENCODER_LIVE_EXAMPLE.previewDescription}</p>
         </div>
         <figure className={styles.previewCapture}>
-          <MainPreviewImage node={node} alt="LED preview showing Encoder-driven hue rotation with a flash accent" />
+          <MainPreviewImage node={node} alt="LED preview showing Encoder-driven star rotation with a flash accent" />
         </figure>
       </section>
     </article>
