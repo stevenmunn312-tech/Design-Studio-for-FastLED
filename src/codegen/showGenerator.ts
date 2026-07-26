@@ -10,7 +10,8 @@
 // Implements the full 16-style transition pool (via a wired TransitionSet) and
 // the beat trigger (via a wired MicInput's _audioBeat). Remaining scope: a
 // single controller file — multi-file (.h-per-pattern) output is a follow-up.
-// Only the basic time-based crossfade case has been hardware-validated.
+// The full transition pool, beat-triggered early advance, and particle overlay
+// were later hardware-validated on ESP32-S3 + INMP441 hardware.
 
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
