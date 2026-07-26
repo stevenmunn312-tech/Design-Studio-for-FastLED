@@ -367,9 +367,9 @@ fixed category-by-category as this review was worked through (starting
 
 ### Math (Math, Clamp, MapRange, Lerp, Ease, Abs, Mod, Compare, Not, Gate, Smooth, SampleHold, Switch, XYMapper, Trigger)
 
-- [ ] **10 of 15 nodes are missing a default property for at least one primary float input** (`Math` a/b, `Clamp` value, `MapRange` value, `Lerp` a/b/t, `Abs` x, `Mod` x, `Compare` a, `Gate` value, `Smooth` value, `SampleHold` value, `XYMapper` x/y), so nothing renders until wired. `Switch` already does this correctly — copy its pattern. `Math`'s fallback is mode-dependent (identity element for `mathOp`), so it needs a decision, not a mechanical copy-paste.
-- [ ] **`Ease.t` is a clean, self-contained quick win** — `t` already has a generic 0–1 slider in `PROPERTY_META`, just missing from `Ease`'s `defaultProperties`.
-- [ ] **MapRange's `outMin`/`outMax` aren't wireable, unlike `inMin`/`inMax`** — promote them to wired input ports for symmetry (feature).
+- [x] **10 of 15 nodes are missing a default property for at least one primary float input** (`Math` a/b, `Clamp` value, `MapRange` value, `Lerp` a/b/t, `Abs` x, `Mod` x, `Compare` a, `Gate` value, `Smooth` value, `SampleHold` value, `XYMapper` x/y), so nothing renders until wired. `Clamp`, `MapRange`, `Lerp`, `Abs`, `Mod`, `Compare`, `Gate`, `Smooth`, `SampleHold`, and `XYMapper` now expose editable unwired defaults. `Math` keeps operation-dependent identity fallbacks in evaluator/codegen (`0` except multiply/divide use `1`) and `StudioNode` synthesizes matching A/B editors without baking the wrong identity into `defaultProperties`.
+- [x] **`Ease.t` is a clean, self-contained quick win** — `Ease` now includes `t: 0` in `defaultProperties`, using the existing generic 0–1 slider metadata.
+- [x] **MapRange's `outMin`/`outMax` aren't wireable, unlike `inMin`/`inMax`** — `MapRange` now exposes `outMin`/`outMax` as float input ports and both preview/codegen read wired or property-backed output ranges.
 
 ### Color (HueCycle, HSVToRGB, RGBToHSV, CHSV, Temperature, HeatColor, BlendColors, GradientSampler, PaletteSampler, PaletteSweep, PaletteSelector, CustomPalette, Poline, PaletteBlend)
 
