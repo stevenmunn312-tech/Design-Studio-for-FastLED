@@ -23,6 +23,7 @@ import { buildXYTable } from '../state/xyLayout'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette, type RGB } from '../state/customPalette'
 import { animartrixCppLines } from '../animartrix/codegen'
 import { compositionDims, outputRoutes } from '../state/outputRouting'
+import { sanitizePin } from './hardwarePins'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -33,17 +34,6 @@ function safeId(id: string): string {
 function seedProp(p: Record<string, unknown>): number {
   const n = Math.round(Number(p.seed ?? 0))
   return Number.isFinite(n) ? Math.max(0, n) >>> 0 : 0
-}
-
-// Rounds and clamps a user-entered GPIO pin number to [0, 48] (the highest
-// GPIO on any currently supported board, the ESP32-S3) so a fractional or
-// out-of-range value can never reach generated firmware — every hardware-pin
-// property (MicInput's I2S pins, Button/Pot/Encoder's pins, SDCard's pins,
-// MatrixOutput's data/clock pins) should route through this rather than a
-// bare Number(...).
-export function sanitizePin(value: unknown, fallback: number, min = 0, max = 48): number {
-  const n = Math.round(Number(value))
-  return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback
 }
 
 function floatLit(value: number, digits = 4): string {

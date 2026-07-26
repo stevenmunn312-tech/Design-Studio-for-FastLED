@@ -332,6 +332,23 @@ describe('validateGraph', () => {
       expect(warnings[0]).toContain('pin A')
     })
 
+    it('checks SD Card CS and external-I2S pins', () => {
+      const nodes = [
+        node('sd', 'SDCard', {
+          sdCsPin: -1,
+          audioOutput: 'i2s',
+          i2sBclk: 26,
+          i2sLrc: 25.5,
+          i2sDout: 90,
+        }),
+      ]
+      const warnings = findPinRangeWarnings(nodes)
+      expect(warnings).toHaveLength(3)
+      expect(warnings.some((warning) => warning.includes('CS pin'))).toBe(true)
+      expect(warnings.some((warning) => warning.includes('I2S LRC'))).toBe(true)
+      expect(warnings.some((warning) => warning.includes('I2S DOUT'))).toBe(true)
+    })
+
     it('surfaces out-of-range pins as warnings (not errors) from validateGraph', () => {
       const nodes = [
         node('sc', 'SolidColor'),

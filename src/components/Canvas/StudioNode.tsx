@@ -206,8 +206,8 @@ function SliderProperty({
   )
 }
 
-// Board-aware GPIO picker for MicInput/ButtonInput/PotInput/EncoderInput's
-// pin properties (see isGpioPinProperty). Offers a dropdown of curated
+// Board-aware GPIO picker for the hardware-input and SDCard pin properties
+// (see isGpioPinProperty). Offers a dropdown of curated
 // known-good pins for boards with a BoardGpio table (boardGpioInfo);
 // otherwise — and whenever the current value isn't one of the curated
 // options — falls back to the plain bounded number entry every board

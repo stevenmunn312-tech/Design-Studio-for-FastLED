@@ -12,6 +12,7 @@
 import type { PatternRenderers } from './showGenerator'
 import { STUDIO_PALETTES, customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCatalog'
 import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp } from './cppGenerator'
+import { sanitizePin } from './hardwarePins'
 import { SPI_CHIPSETS } from '../state/nodeLibrary'
 
 export interface PlayerConfig {
@@ -43,6 +44,11 @@ const DEFAULTS: PlayerConfig = {
   maxVolume: 18,
 }
 
+function sanitizeVolume(value: unknown, fallback = DEFAULTS.maxVolume): number {
+  const n = Math.round(Number(value))
+  return Number.isFinite(n) ? Math.max(0, Math.min(21, n)) : fallback
+}
+
 function cppPrototype(definition: string): string | null {
   const match = definition.match(/^([^\n{]+?\([^)]*\))\s*\{/m)
   return match ? `${match[1]};` : null
@@ -71,12 +77,12 @@ export function playerConfigFromGraph(nodes: ConfigNode[]): Partial<PlayerConfig
     correction:  str(mo.correction, DEFAULTS.correction),
     dither:      mo.dither !== false,
     overclock:   num(mo.overclock, DEFAULTS.overclock),
-    sdCsPin:    num(sd.sdCsPin, DEFAULTS.sdCsPin),
+    sdCsPin:    sanitizePin(sd.sdCsPin, DEFAULTS.sdCsPin),
     audioOutput: str(sd.audioOutput, DEFAULTS.audioOutput),
-    i2sBclk:    num(sd.i2sBclk, DEFAULTS.i2sBclk),
-    i2sLrc:     num(sd.i2sLrc, DEFAULTS.i2sLrc),
-    i2sDout:    num(sd.i2sDout, DEFAULTS.i2sDout),
-    maxVolume:  num(sd.maxVolume, DEFAULTS.maxVolume),
+    i2sBclk:    sanitizePin(sd.i2sBclk, DEFAULTS.i2sBclk),
+    i2sLrc:     sanitizePin(sd.i2sLrc, DEFAULTS.i2sLrc),
+    i2sDout:    sanitizePin(sd.i2sDout, DEFAULTS.i2sDout),
+    maxVolume:  sanitizeVolume(sd.maxVolume),
   }
 }
 
@@ -87,7 +93,15 @@ export function generatePlayerSketch(
   // so the player hosts the _audio* globals and feeds them from the track.
   opts: { audioEnvelope?: boolean } = {},
 ): string {
-  const c = { ...DEFAULTS, ...cfg }
+  const raw = { ...DEFAULTS, ...cfg }
+  const c = {
+    ...raw,
+    sdCsPin: sanitizePin(raw.sdCsPin, DEFAULTS.sdCsPin),
+    i2sBclk: sanitizePin(raw.i2sBclk, DEFAULTS.i2sBclk),
+    i2sLrc: sanitizePin(raw.i2sLrc, DEFAULTS.i2sLrc),
+    i2sDout: sanitizePin(raw.i2sDout, DEFAULTS.i2sDout),
+    maxVolume: sanitizeVolume(raw.maxVolume),
+  }
   const numLeds = c.ledWidth * c.ledHeight
   const collection = !!(renderers && renderers.count > 0)
   const bakedAudio = !!opts.audioEnvelope
