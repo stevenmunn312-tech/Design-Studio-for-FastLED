@@ -4223,14 +4223,22 @@ function createEvalNode(
         // It's off by default so unwired/grouped patterns aren't driven into
         // "hyperdrive" and stay tunable.
         const hasLiveAudio = audioConnected && Boolean(audio.active || audio.micActive)
-        const band = (value: number | undefined, fallback: number | undefined) =>
-          clamp01(Number.isFinite(value) ? Number(value) : Number(fallback ?? 0))
+        // `bands` genuinely drives analysis resolution: the raw 32-bin
+        // spectrum is resampled to this many bins (resampleSpectrumBins(),
+        // shared with SpectrumVisualizer), then split into three contiguous
+        // groups. More bands means a sharper bass/mids/treble split; fewer
+        // means a blurrier one — instead of a slider with zero effect.
+        const bands = Math.max(8, Math.min(32, Math.round(Number(props.bands ?? 24))))
         const raw = hasLiveAudio
-          ? {
-              bass: band(audio.bass, audio.micBass),
-              mids: band(audio.mids, audio.micMids),
-              treble: band(audio.treble, audio.micTreble),
-            }
+          ? (() => {
+              const sampled = resampleSpectrumBins(audio.detectorSpectrum ?? audio.spectrum ?? [], bands)
+              const third = bands / 3
+              return {
+                bass:   avgRange(sampled, 0, third),
+                mids:   avgRange(sampled, third, third * 2),
+                treble: avgRange(sampled, third * 2, bands),
+              }
+            })()
           : useUiStore.getState().testSignal
             ? {
                 bass:   (Math.sin(t * 2.1) + 1) / 2,

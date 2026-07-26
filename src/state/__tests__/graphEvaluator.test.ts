@@ -473,9 +473,10 @@ describe('evaluateGraph', () => {
   })
 
   it('audio-reactive nodes read an audioOverride instead of the mic store', () => {
-    // The show preview passes the song's baked bass/mids/treble as an override so
-    // a group's FFTAnalyzer reacts to the track without a live mic. FFTAnalyzer
-    // seeds its smoothing from the first target, so frame 0 == the raw band.
+    // The show preview passes the song's baked audio as a synthetic 32-bin
+    // spectrum override (showAudio.ts's bandsToSpectrum) so a group's
+    // FFTAnalyzer reacts to the track without a live mic. FFTAnalyzer seeds
+    // its smoothing from the first target, so frame 0 == the raw band.
     const fft = node('fftov', 'FFTAnalyzer', 'audio', {})
     const sc = node('scov', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })
     const bm = node('bmov', 'BrightnessMod', 'composite', {})
@@ -486,19 +487,25 @@ describe('evaluateGraph', () => {
       edge('e3', 'bmov', 'frame', 'outov', 'frame'),
     ]
     const override = {
-      active: true, micActive: true, micBass: 0.6, micMids: 0, micTreble: 0,
-      spectrum: [], detectorSpectrum: [],
+      active: true, micActive: true, micBass: 0, micMids: 0, micTreble: 0,
+      spectrum: Array(32).fill(0.6), detectorSpectrum: Array(32).fill(0.6),
     }
     const f = evaluateGraph([fft, sc, bm, out], edges, 0, 4, 4, {}, '', new Set(), {}, override)!
     expect(f[0][0].r).toBe(Math.round(255 * 0.6))
   })
 
-  it('FFTAnalyzer uses the active shared audio bands even without mic-specific values', () => {
+  it('FFTAnalyzer derives its bands from the raw spectrum, not the store\'s pre-computed levels', () => {
+    // FFTAnalyzer used to read audio.bass/mids/treble (a separately
+    // adaptive-normalized detector) directly, which is why its own `bands`
+    // slider had no effect. It now resamples the raw spectrum instead —
+    // proven here by setting store.bass to a decoy value FFTAnalyzer must
+    // NOT use.
     mockAudio.active = true
     mockAudio.micActive = false
-    mockAudio.bass = 0.65
-    mockAudio.mids = 0.35
-    mockAudio.treble = 0.2
+    mockAudio.bass = 0.1
+    mockAudio.mids = 0.1
+    mockAudio.treble = 0.1
+    mockAudio.detectorSpectrum = Array(32).fill(0.65)
     const mic = node('mic-live', 'MicInput', 'input', {})
     const fft = node('fft-live', 'FFTAnalyzer', 'audio', { gain: 1, smoothing: 0 })
     const sc = node('sc-live', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })
@@ -520,6 +527,31 @@ describe('evaluateGraph', () => {
     mockAudio.bass = 0
     mockAudio.mids = 0
     mockAudio.treble = 0
+    mockAudio.detectorSpectrum = Array(32).fill(0)
+  })
+
+  it("FFTAnalyzer's bands control genuinely changes analysis resolution", () => {
+    mockAudio.active = true
+    // A single hot raw bin (index 7) gets grouped into the resampled "bass"
+    // bucket differently depending on how many bins the raw 32-bin spectrum
+    // is resampled into first — proof `bands` isn't a no-op. (32 bands = no
+    // resampling, bass = raw bins [0,11) → 1/11; 24 bands resamples
+    // unevenly, landing bin 7 alone in resampled bin 5 of 8 → 0.5/8.)
+    mockAudio.detectorSpectrum = Array.from({ length: 32 }, (_, i) => (i === 7 ? 1 : 0))
+    const mic = node('mic-bands', 'MicInput', 'input', {})
+    const runWithBands = (bands: number) => {
+      const fft = node('fft-bands', 'FFTAnalyzer', 'audio', { gain: 1, smoothing: 0, bands })
+      const { outputs } = evaluateGraphFull(
+        [mic, fft],
+        [edge('ea-bands', 'mic-bands', 'audio', 'fft-bands', 'audio')],
+        0, W, H,
+      )
+      return outputs.get('fft-bands')!
+    }
+    expect(runWithBands(32).bass as number).toBeCloseTo(1 / 11, 5)
+    expect(runWithBands(24).bass as number).toBeCloseTo(0.0625, 5)
+    mockAudio.active = false
+    mockAudio.detectorSpectrum = Array(32).fill(0)
   })
 
   it('FFTAnalyzer stays silent when its audio input is not wired', () => {
@@ -2096,6 +2128,7 @@ describe('evaluateGraph', () => {
     mockAudio.micBass = 0.7
     mockAudio.micMids = 0.2
     mockAudio.micTreble = 0.1
+    mockAudio.detectorSpectrum = Array(32).fill(0.7)
     const groupId = 'grp-audio-show'
     const groups = {
       [groupId]: {
@@ -2140,6 +2173,7 @@ describe('evaluateGraph', () => {
     mockAudio.micBass = 0
     mockAudio.micMids = 0
     mockAudio.micTreble = 0
+    mockAudio.detectorSpectrum = Array(32).fill(0)
   })
 
   it('Transition blends A→B per transitionType', () => {
@@ -2359,6 +2393,7 @@ describe('evaluateGraph — groups', () => {
     mockAudio.micBass = 0.7
     mockAudio.micMids = 0.2
     mockAudio.micTreble = 0.1
+    mockAudio.detectorSpectrum = Array(32).fill(0.7)
     const groups = {
       spectrum: {
         nodes: [
@@ -2406,6 +2441,7 @@ describe('evaluateGraph — groups', () => {
     mockAudio.micBass = 0
     mockAudio.micMids = 0
     mockAudio.micTreble = 0
+    mockAudio.detectorSpectrum = Array(32).fill(0)
   })
 
   it('keeps stateful node state isolated per group instance', () => {

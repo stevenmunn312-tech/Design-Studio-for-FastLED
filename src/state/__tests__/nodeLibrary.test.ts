@@ -144,8 +144,8 @@ describe('nodeLibrary', () => {
     expect(audioHue?.defaultProperties).toEqual({ bass: 0.5, mids: 0.5, treble: 0.5 })
   })
 
-  it("FFTAnalyzer's bands tooltip clarifies it only resizes the live meter", () => {
-    expect(propertyDescription('FFTAnalyzer', 'bands')).toMatch(/live meter/i)
+  it("FFTAnalyzer's bands tooltip explains its resample resolution", () => {
+    expect(propertyDescription('FFTAnalyzer', 'bands')).toMatch(/resample|resolution/i)
   })
 
   it('MicInput exposes FastLED processor gain without obsolete custom gate controls', () => {

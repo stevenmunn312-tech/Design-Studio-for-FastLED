@@ -378,7 +378,7 @@ describe('showGenerator', () => {
       expect(cpp).toContain('void updateAudio()')
       expect(cpp).toContain('setupAudio();')              // in setup()
       expect(cpp).toMatch(/void loop\(\) \{\n {2}updateAudio\(\);/)   // once per frame
-      expect(cpp).toContain('_audioBass')                 // render_p0 reads the live global
+      expect(cpp).toContain('_sum += _audioSpectrum[_i];') // render_p0 resamples the live spectrum
       expect(cpp).not.toContain('constrain(0.5f')         // not the placeholder
     })
 
@@ -386,7 +386,7 @@ describe('showGenerator', () => {
       const cpp = generateShowSketch(showNodes(false), showEdges, audioGroups)
       expect(cpp).not.toContain('driver/i2s.h')
       expect(cpp).not.toContain('updateAudio()')
-      expect(cpp).toContain('constrain(0.0f')             // no invented hardware signal
+      expect(cpp).toContain('_sum += 0.0f;')              // no invented hardware signal
     })
 
     it('binds exposed audio GroupInputs to host audio bands', () => {

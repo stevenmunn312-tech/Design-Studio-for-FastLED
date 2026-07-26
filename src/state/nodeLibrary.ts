@@ -3123,7 +3123,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     randomStyle: 'Pick a new spark motion style on every beat instead of the fixed style below.',
   },
   FFTAnalyzer: {
-    bands: "Only resizes this node's own live meter bar count — the bass/mids/treble analysis itself is always a fixed 3 bands.",
+    bands: 'Resamples the raw spectrum to this many bins before averaging it into bass/mids/treble (also resizes the live meter). Higher = a sharper split between the three; lower = blurrier.',
   },
   AudioFeatures: {
     gate: 'Silence-detection threshold — how much energy is required before `silence` flips false.',

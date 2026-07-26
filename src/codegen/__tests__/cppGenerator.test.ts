@@ -1768,11 +1768,16 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(micGraph()).toContain('#define MIC_DEBUG 0')
   })
 
-  it('FFTAnalyzer resolves to the live band globals when a mic is present', () => {
+  it('FFTAnalyzer resamples the live spectrum into bands when a mic is present', () => {
     const cpp = micGraph()
-    expect(cpp).toContain('n_fft_bass_target = constrain(_audioBass * 1.000f')
-    expect(cpp).toContain('_audioMids')
-    expect(cpp).toContain('_audioTreble')
+    // `bands` (default 24) genuinely drives resolution: the raw 32-bin
+    // spectrum is resampled into a `_fftBands_<id>` array, then averaged in
+    // contiguous thirds — not a direct read of FastLED's own _audioBass/
+    // _audioMids/_audioTreble globals (which ignored `bands` entirely).
+    expect(cpp).toContain('float _fftBands_fft[24];')
+    expect(cpp).toContain('_sum += _audioSpectrum[_i];')
+    expect(cpp).toContain('n_fft_bass_target = constrain(n_fft_bass_raw * 1.000f')
+    expect(cpp).not.toContain('n_fft_bass_target = constrain(_audioBass')
     expect(cpp).not.toContain('float n_fft_bass = 0.5f')
   })
 
@@ -1780,9 +1785,17 @@ describe('generateCpp — INMP441 audio engine', () => {
     const mic = node('mic', 'MicInput', 'hardware', {})
     const fft = node('fft', 'FFTAnalyzer', 'audio', { gain: 1.5, smoothing: 0.8 })
     const cpp = generateCpp([mic, fft, out], [edge('e1', 'mic', 'fft', 'audio', 'audio')])
-    expect(cpp).toContain('_audioBass * 1.500f')
+    expect(cpp).toContain('n_fft_bass_raw * 1.500f')
     expect(cpp).toContain('_smooth * 0.800f')
     expect(cpp).toContain('* 0.200f')
+  })
+
+  it("FFTAnalyzer's bands property changes the generated resample resolution", () => {
+    const mic = node('mic', 'MicInput', 'hardware', {})
+    const fft = node('fft', 'FFTAnalyzer', 'audio', { bands: 12 })
+    const cpp = generateCpp([mic, fft, out], [edge('e1', 'mic', 'fft', 'audio', 'audio')])
+    expect(cpp).toContain('float _fftBands_fft[12];')
+    expect(cpp).toContain('for (int _b = 0; _b < 12; _b++)')
   })
 
   it('emits SpectrumBars as a palette-driven on-device equalizer', () => {
@@ -1954,21 +1967,24 @@ describe('generateCpp — INMP441 audio engine', () => {
     ])
     expect(cpp).not.toContain('driver/i2s.h')
     expect(cpp).not.toContain('updateAudio()')
-    expect(cpp).toContain('constrain(0.0f * 1.000f')
+    expect(cpp).toContain('_sum += 0.0f;')
+    expect(cpp).toContain('constrain(n_fft_bass_raw * 1.000f')
     expect(cpp).toContain('float n_fft_bass = n_fft_bass_smooth')
   })
 
-  it('externalAudio references the mic globals without emitting the engine', () => {
-    // A host controller provides _audioBass etc.; this subgraph must reference
-    // them (not the 0.5f placeholder) yet not re-declare the engine.
+  it('externalAudio references the live spectrum without emitting the engine', () => {
+    // A host controller provides _audioSpectrum etc.; this subgraph must
+    // resample the live array (not the always-zero placeholder) yet not
+    // re-declare the engine.
     const fft = node('fft', 'FFTAnalyzer', 'audio', {})
     const bp = node('bp', 'BassPulse', 'pattern', {})
     const cpp = generateCpp([fft, bp, out], [
       edge('e2', 'fft', 'bp', 'bass', 'bass'),
       edge('e3', 'bp', 'out', 'frame', 'frame'),
     ], {}, { externalAudio: true })
-    expect(cpp).toContain('constrain(_audioBass * 1.000f')   // live global, not 0.5f
-    expect(cpp).not.toContain('constrain(0.0f * 1.000f')
+    expect(cpp).toContain('_sum += _audioSpectrum[_i];')   // live global, not the 0.0f placeholder
+    expect(cpp).not.toContain('_sum += 0.0f;')
+    expect(cpp).toContain('constrain(n_fft_bass_raw * 1.000f')
     expect(cpp).not.toContain('void updateAudio()')          // engine is the host's job
     expect(cpp).not.toContain('driver/i2s.h')
     expect(cpp).not.toContain('setupAudio();')

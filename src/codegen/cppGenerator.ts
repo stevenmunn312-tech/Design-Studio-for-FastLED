@@ -846,11 +846,41 @@ export function generateCpp(
         const tilt = Math.max(0, Math.min(1, Number(p.tilt ?? 0)))
         const midsGain = gain * (1 + tilt * 0.6)
         const trebleGain = gain * (1 + tilt * 1.8)
-        const bass = useAudioGlobals ? '_audioBass' : '0.0f'
-        const mids = useAudioGlobals ? '_audioMids' : '0.0f'
-        const treble = useAudioGlobals ? '_audioTreble' : '0.0f'
+        // `bands` genuinely drives analysis resolution here — mirrors
+        // graphEvaluator.ts's FFTAnalyzer case exactly: resample the raw
+        // 32-bin spectrum to `bands` bins (same technique as
+        // SpectrumVisualizer's `_svBands`), then average contiguous thirds
+        // into bass/mids/treble. `bands` is baked in at generation time, so
+        // the group boundaries are plain compile-time constants.
+        const bands = Math.max(8, Math.min(32, Math.round(Number(p.bands ?? 24))))
+        const groupBounds = (start: number, end: number): [number, number] => {
+          const from = Math.max(0, Math.floor(start))
+          const to = Math.max(from + 1, Math.min(bands, Math.ceil(end)))
+          return [from, to]
+        }
+        const third = bands / 3
+        const [bassFrom, bassTo] = groupBounds(0, third)
+        const [midsFrom, midsTo] = groupBounds(third, third * 2)
+        const [trebleFrom, trebleTo] = groupBounds(third * 2, bands)
+        const bandsVar = `_fftBands_${id}`
+        const groupExpr = (from: number, to: number) =>
+          `(${Array.from({ length: to - from }, (_, i) => `${bandsVar}[${from + i}]`).join('+')}) / ${(to - from).toFixed(1)}f`
+        const rawBass = `${v('bass')}_raw`
+        const rawMids = `${v('mids')}_raw`
+        const rawTreble = `${v('treble')}_raw`
         if (!useAudioGlobals) ln(`  // FFTAnalyzer — add a Microphone node to drive these from the INMP441`)
-        ln(`  float ${v('bass')}_target = constrain(${bass} * ${gain.toFixed(3)}f, 0.0f, 1.0f), ${v('mids')}_target = constrain(${mids} * ${midsGain.toFixed(3)}f, 0.0f, 1.0f), ${v('treble')}_target = constrain(${treble} * ${trebleGain.toFixed(3)}f, 0.0f, 1.0f);`)
+        // The resample loop's counters (_b/_lo/_hi/_i/_sum) are generic
+        // names, so they're scoped to a block — multiple FFTAnalyzer nodes
+        // in the same sketch would otherwise redeclare them.
+        ln(`  float ${rawBass}, ${rawMids}, ${rawTreble};`)
+        ln(`  {`)
+        ln(`    float ${bandsVar}[${bands}];`)
+        ln(`    for (int _b = 0; _b < ${bands}; _b++) { int _lo = (_b * 32) / ${bands}, _hi = max(_lo + 1, ((_b + 1) * 32) / ${bands}); float _sum = 0.0f; for (int _i = _lo; _i < _hi; _i++) _sum += ${useAudioGlobals ? '_audioSpectrum[_i]' : '0.0f'}; ${bandsVar}[_b] = _sum / (_hi - _lo); }`)
+        ln(`    ${rawBass} = ${groupExpr(bassFrom, bassTo)};`)
+        ln(`    ${rawMids} = ${groupExpr(midsFrom, midsTo)};`)
+        ln(`    ${rawTreble} = ${groupExpr(trebleFrom, trebleTo)};`)
+        ln(`  }`)
+        ln(`  float ${v('bass')}_target = constrain(${rawBass} * ${gain.toFixed(3)}f, 0.0f, 1.0f), ${v('mids')}_target = constrain(${rawMids} * ${midsGain.toFixed(3)}f, 0.0f, 1.0f), ${v('treble')}_target = constrain(${rawTreble} * ${trebleGain.toFixed(3)}f, 0.0f, 1.0f);`)
         ln(`  static float ${v('bass')}_smooth = -1, ${v('mids')}_smooth = -1, ${v('treble')}_smooth = -1;`)
         ln(`  ${v('bass')}_smooth = ${v('bass')}_smooth < 0 ? ${v('bass')}_target : ${v('bass')}_smooth * ${smoothing.toFixed(3)}f + ${v('bass')}_target * ${(1 - smoothing).toFixed(3)}f;`)
         ln(`  ${v('mids')}_smooth = ${v('mids')}_smooth < 0 ? ${v('mids')}_target : ${v('mids')}_smooth * ${smoothing.toFixed(3)}f + ${v('mids')}_target * ${(1 - smoothing).toFixed(3)}f;`)
