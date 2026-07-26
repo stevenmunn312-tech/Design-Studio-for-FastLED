@@ -3,6 +3,7 @@ import { STUDIO_PALETTES } from './paletteCatalog'
 import { evaluateScalarExpression } from './scalarExpression'
 import { MIC_DEFAULTS, MIC_MAX_GAIN } from '../audio/micAnalysis'
 import { ANIMARTRIX_EFFECTS } from '../animartrix/catalog'
+import { MAX_PIN_NUMBER, type GpioCapability } from './boardGpio'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   // ── Inputs ─────────────────────────────────────────────────────────────
@@ -2210,7 +2211,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'position', label: 'Position', dataType: 'float' },
       { id: 'pressed', label: 'Pressed', dataType: 'bool' },
     ],
-    defaultProperties: { pinA: 32, pinB: 33, pinSW: 25, pullup: true, resetOnPress: false },
+    defaultProperties: { pinA: 6, pinB: 7, pinSW: 8, pullup: true, resetOnPress: false },
   },
   {
     // Web MIDI input — no embedded-hardware equivalent, so this is
@@ -2810,8 +2811,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   // shared `brightness` meta is a 0–1 frame-level scale).
   MatrixOutput: {
     brightness: { control: 'slider', min: 0, max: 255, step: 1 },
-    dataPin: { control: 'slider', min: 0, max: 48, step: 1 },
-    clockPin: { control: 'slider', min: 0, max: 48, step: 1 },
+    dataPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    clockPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     layout: { control: 'select', options: ['matrix', 'strip', 'panels', 'custom'] },
     routeMode: { control: 'select', options: ['fit', 'crop'] },
     routeX: { control: 'slider', min: 0, max: 63, step: 1 },
@@ -2987,31 +2988,31 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   MicInput: {
     gain:      { control: 'slider', min: 0, max: MIC_MAX_GAIN, step: 0.05 },
-    // Matches cppGenerator.ts's sanitizePin() clamp, so what's shown on the
-    // node is what actually ships to firmware.
-    i2sWs:  { control: 'slider', min: 0, max: 48, step: 1 },
-    i2sSck: { control: 'slider', min: 0, max: 48, step: 1 },
-    i2sSd:  { control: 'slider', min: 0, max: 48, step: 1 },
+    // Board-aware pickers narrow these to the selected board; the shared
+    // 0–255 ceiling preserves numeric Arduino pin aliases on larger boards.
+    i2sWs:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    i2sSck: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    i2sSd:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
   ButtonInput: {
-    pin: { control: 'slider', min: 0, max: 48, step: 1 },
+    pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
   PotInput: {
-    pin: { control: 'slider', min: 0, max: 48, step: 1 },
+    pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
   EncoderInput: {
-    pinA: { control: 'slider', min: 0, max: 48, step: 1 },
-    pinB: { control: 'slider', min: 0, max: 48, step: 1 },
-    pinSW: { control: 'slider', min: 0, max: 48, step: 1 },
+    pinA: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    pinB: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    pinSW: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
   Sequencer: {
     fade: { control: 'slider', min: 0, max: 20, step: 0.1 },
   },
   SDCard: {
-    sdCsPin:   { control: 'slider', min: 0, max: 48, step: 1 },
-    i2sBclk:   { control: 'slider', min: 0, max: 48, step: 1 },
-    i2sLrc:    { control: 'slider', min: 0, max: 48, step: 1 },
-    i2sDout:   { control: 'slider', min: 0, max: 48, step: 1 },
+    sdCsPin:   { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    i2sBclk:   { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    i2sLrc:    { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    i2sDout:   { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     maxVolume: { control: 'slider', min: 0, max: 21, step: 1 },
   },
   // MIDI note/CC numbers are conventionally 0–127; MidiInputBody shows the
@@ -3374,6 +3375,30 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
 
 export function isGpioPinProperty(nodeType: string, key: string): boolean {
   return GPIO_PIN_PROPERTIES[nodeType]?.has(key) ?? false
+}
+
+export interface GpioPropertyRequirement {
+  capability: GpioCapability
+  pullup: boolean
+}
+
+/** Electrical capability required by each generated use of an Arduino pin.
+ *  `pullup` is dynamic for Button/Encoder because their property controls the
+ *  emitted INPUT vs INPUT_PULLUP pinMode. */
+export function gpioRequirementForProperty(
+  nodeType: string,
+  key: string,
+  props: Record<string, unknown>,
+): GpioPropertyRequirement | null {
+  if (!isGpioPinProperty(nodeType, key)) return null
+  if (nodeType === 'PotInput') return { capability: 'analogInput', pullup: false }
+  if (nodeType === 'ButtonInput' || nodeType === 'EncoderInput') {
+    return { capability: 'digitalInput', pullup: props.pullup !== false }
+  }
+  if (nodeType === 'MicInput' && key === 'i2sSd') {
+    return { capability: 'digitalInput', pullup: false }
+  }
+  return { capability: 'digitalOutput', pullup: false }
 }
 
 /**

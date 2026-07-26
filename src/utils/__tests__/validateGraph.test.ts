@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findOutputResourceErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findOutputResourceErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -339,7 +339,7 @@ describe('validateGraph', () => {
           audioOutput: 'i2s',
           i2sBclk: 26,
           i2sLrc: 25.5,
-          i2sDout: 90,
+          i2sDout: 9999,
         }),
       ]
       const warnings = findPinRangeWarnings(nodes)
@@ -353,12 +353,46 @@ describe('validateGraph', () => {
       const nodes = [
         node('sc', 'SolidColor'),
         node('out', 'MatrixOutput', { dataPin: 5 }),
-        node('btn', 'ButtonInput', { pin: 200 }),
+        node('btn', 'ButtonInput', { pin: 300 }),
       ]
       const edges = [edge('e1', 'sc', 'out', 'frame')]
       const { errors, warnings } = validateGraph(nodes, edges)
-      expect(errors.some(e => e.includes('200'))).toBe(false)
-      expect(warnings.some(w => w.includes('200'))).toBe(true)
+      expect(errors.some(e => e.includes('300'))).toBe(false)
+      expect(warnings.some(w => w.includes('300'))).toBe(true)
+    })
+  })
+
+  describe('findBoardPinCompatibility', () => {
+    it('rejects a digital-only pin for a potentiometer', () => {
+      const result = findBoardPinCompatibility(
+        [node('pot', 'PotInput', { pin: 5 })],
+        'arduino:avr:uno',
+      )
+      expect(result.errors).toEqual([expect.stringMatching(/doesn't support analog input/)])
+    })
+
+    it('models input-only pins and their missing pull resistors', () => {
+      expect(findBoardPinCompatibility(
+        [node('btn', 'ButtonInput', { pin: 34, pullup: true })],
+        'esp32:esp32:esp32',
+      ).errors).toEqual([expect.stringMatching(/no internal pull-up/)])
+      expect(findBoardPinCompatibility(
+        [node('btn', 'ButtonInput', { pin: 34, pullup: false })],
+        'esp32:esp32:esp32',
+      ).errors).toEqual([])
+      expect(findBoardPinCompatibility(
+        [node('out', 'MatrixOutput', { dataPin: 34 })],
+        'esp32:esp32:esp32',
+      ).errors).toEqual([expect.stringMatching(/doesn't support digital output/)])
+    })
+
+    it('warns when an ESP32 ADC2 pin is used for analog input with Wi-Fi', () => {
+      const result = findBoardPinCompatibility(
+        [node('pot', 'PotInput', { pin: 25 })],
+        'esp32:esp32:esp32',
+      )
+      expect(result.errors).toEqual([])
+      expect(result.warnings).toEqual([expect.stringMatching(/ADC2 shares hardware with Wi-Fi/)])
     })
   })
 

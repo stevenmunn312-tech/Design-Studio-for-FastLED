@@ -12,7 +12,7 @@ describe('generateProvisionerSketch', () => {
 
   it('rounds and clamps the SD chip-select pin before emitting firmware', () => {
     expect(generateProvisionerSketch({ sdCsPin: -4.7 })).toContain('#define SD_CS  0')
-    expect(generateProvisionerSketch({ sdCsPin: 80 })).toContain('#define SD_CS  48')
+    expect(generateProvisionerSketch({ sdCsPin: 280 })).toContain('#define SD_CS  255')
     expect(generateProvisionerSketch({ sdCsPin: Number.NaN })).toContain('#define SD_CS  10')
   })
 
@@ -63,7 +63,7 @@ describe('playerConfigFromGraph', () => {
       node('SDCard', {
         sdCsPin: -4.7,
         i2sBclk: 19.6,
-        i2sLrc: 80,
+        i2sLrc: 280,
         i2sDout: 'invalid',
         maxVolume: 99,
       }),
@@ -71,7 +71,7 @@ describe('playerConfigFromGraph', () => {
     expect(cfg).toMatchObject({
       sdCsPin: 0,
       i2sBclk: 20,
-      i2sLrc: 48,
+      i2sLrc: 255,
       i2sDout: 22,
       maxVolume: 21,
     })
@@ -79,9 +79,9 @@ describe('playerConfigFromGraph', () => {
 
   it('sanitizes MatrixOutput pins read from saved graph properties', () => {
     const cfg = playerConfigFromGraph([
-      node('MatrixOutput', { dataPin: -3.8, clockPin: 70 }),
+      node('MatrixOutput', { dataPin: -3.8, clockPin: 270 }),
     ])
-    expect(cfg).toMatchObject({ ledDataPin: 0, ledClockPin: 48 })
+    expect(cfg).toMatchObject({ ledDataPin: 0, ledClockPin: 255 })
   })
 })
 
@@ -105,18 +105,18 @@ describe('generatePlayerSketch audio output', () => {
   it('sanitizes direct pin and volume configuration before emitting firmware', () => {
     const ino = generatePlayerSketch({
       ledDataPin: -9,
-      ledClockPin: 90,
+      ledClockPin: 290,
       chipset: 'APA102',
       sdCsPin: -10,
-      i2sBclk: 60,
+      i2sBclk: 260,
       i2sLrc: 24.6,
       i2sDout: Number.NaN,
       maxVolume: -3,
     })
     expect(ino).toContain('#define LED_DATA_PIN  0')
-    expect(ino).toContain('#define LED_CLOCK_PIN 48')
+    expect(ino).toContain('#define LED_CLOCK_PIN 255')
     expect(ino).toContain('#define SD_CS         0')
-    expect(ino).toContain('#define I2S_BCLK      48')
+    expect(ino).toContain('#define I2S_BCLK      255')
     expect(ino).toContain('#define I2S_LRC       25')
     expect(ino).toContain('#define I2S_DOUT      22')
     expect(ino).toContain('audio.setVolume(0);')

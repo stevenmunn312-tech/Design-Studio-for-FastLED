@@ -5,7 +5,7 @@ import { useGraphStore } from '../../state/graphStore'
 import { compositionDims } from '../../state/outputRouting'
 import type { StudioEdge, StudioNodeData } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { NODE_LIBRARY, CATEGORY_ACCENT_VAR, portColor, propertyMeta, propertyDescription, propertyLabel, hasClampableInputs, bypassPort, nodeDisplayLabel, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression, isGpioPinProperty } from '../../state/nodeLibrary'
+import { NODE_LIBRARY, CATEGORY_ACCENT_VAR, portColor, propertyMeta, propertyDescription, propertyLabel, hasClampableInputs, bypassPort, nodeDisplayLabel, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression, isGpioPinProperty, gpioRequirementForProperty } from '../../state/nodeLibrary'
 import { isPinnableProperty } from '../../state/performanceDeck'
 import { useUploadStore, boardGpioInfo } from '../../state/uploadStore'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../../state/scalarExpression'
@@ -18,6 +18,7 @@ import BeatDetectBody from './BeatDetectBody'
 import FFTAnalyzerBody from './FFTAnalyzerBody'
 import HardwareInputBody from './HardwareInputBody'
 import MidiInputBody from './MidiInputBody'
+import { pinDisplayLabel, pinSupports } from '../../state/boardGpio'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
 import { usePerformanceBakeStore } from '../../state/performanceBakeStore'
@@ -206,19 +207,23 @@ function SliderProperty({
   )
 }
 
-// Board-aware GPIO picker for the hardware-input and SDCard pin properties
-// (see isGpioPinProperty). Offers a dropdown of curated
-// known-good pins for boards with a BoardGpio table (boardGpioInfo);
-// otherwise — and whenever the current value isn't one of the curated
-// options — falls back to the plain bounded number entry every board
-// supports, so nothing is ever unreachable.
+// Board-aware GPIO picker for every generated pin property (see
+// isGpioPinProperty). Built-in boards get a capability-filtered dropdown;
+// custom boards without a table, and existing incompatible values, retain a
+// bounded numeric editor so projects can still be inspected and corrected.
 function PinPickerField({
+  nodeType,
+  propertyKey,
+  props,
   value,
   min,
   max,
   disabled,
   onChange,
 }: {
+  nodeType: string
+  propertyKey: string
+  props: Record<string, unknown>
   value: number
   min: number
   max: number
@@ -228,12 +233,19 @@ function PinPickerField({
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
   const gpio = boardGpioInfo(selectedFqbn)
   const [customOpen, setCustomOpen] = useState(false)
+  const requirement = gpioRequirementForProperty(nodeType, propertyKey, props)
 
-  if (!gpio || gpio.recommended.length === 0) {
+  if (!gpio || !requirement || gpio.recommended.length === 0) {
     return <SliderProperty label="pin" value={value} min={min} max={max} step={1} disabled={disabled} onChange={onChange} />
   }
 
-  const isRecommended = gpio.recommended.some((p) => p.pin === value)
+  const compatible = gpio.recommended.filter((pin) =>
+    pinSupports(pin, requirement.capability)
+    && (!requirement.pullup || pinSupports(pin, 'pullup'))
+  )
+  const isRecommended = compatible.some((pin) => pin.pin === value)
+  const legacyMax = Math.max(min, ...gpio.recommended.map((pin) => pin.pin), ...gpio.caution.map((pin) => pin.pin))
+  const boardMax = Math.min(max, gpio.maxPin ?? legacyMax)
 
   if (customOpen || !isRecommended) {
     return (
@@ -242,14 +254,14 @@ function PinPickerField({
           className={`nodrag ${styles.propInput}`}
           type="number"
           min={min}
-          max={max}
+          max={boardMax}
           step={1}
           disabled={disabled}
           value={value}
           onWheelCapture={stopWheelWhileFocused}
           onChange={(e) => {
             const n = Math.round(Number(e.target.value))
-            if (Number.isFinite(n)) onChange(Math.max(min, Math.min(max, n)))
+            if (Number.isFinite(n)) onChange(Math.max(min, Math.min(boardMax, n)))
           }}
         />
         <button
@@ -276,8 +288,10 @@ function PinPickerField({
         onChange(Number(e.target.value))
       }}
     >
-      {gpio.recommended.map((p) => (
-        <option key={p.pin} value={p.pin}>{`GPIO ${p.pin}${p.note ? ` — ${p.note}` : ''}`}</option>
+      {compatible.map((pin) => (
+        <option key={pin.pin} value={pin.pin}>
+          {`${pinDisplayLabel(pin)}${pin.warning || pin.note ? ` — ${pin.warning ?? pin.note}` : ''}`}
+        </option>
       ))}
       <option value="__custom__">Other (type a number)…</option>
     </select>
@@ -468,9 +482,20 @@ const LivePropertyControls = memo(function LivePropertyControls({
           : null
         const expressionInvalid = expressionCapable && typeof val === 'string' && expressionResult == null
         const isGpioPin = isGpioPinProperty(nodeType, key)
-        const gpioNote = isGpioPin && typeof val === 'number' && boardGpio
-          ? (boardGpio.caution.find((c) => c.pin === val)?.note ?? boardGpio.recommended.find((r) => r.pin === val)?.note)
-          : undefined
+        const gpioRequirement = isGpioPin ? gpioRequirementForProperty(nodeType, key, props) : null
+        const gpioPin = typeof val === 'number' ? boardGpio?.recommended.find((pin) => pin.pin === val) : undefined
+        const gpioUnavailable = typeof val === 'number' ? boardGpio?.caution.find((pin) => pin.pin === val) : undefined
+        const gpioNote = !gpioRequirement || typeof val !== 'number' || !boardGpio
+          ? undefined
+          : gpioUnavailable
+            ? `Unavailable on this board — ${gpioUnavailable.note}`
+            : !gpioPin
+              ? `Pin ${val} isn't listed for this board`
+              : !pinSupports(gpioPin, gpioRequirement.capability)
+                ? `Pin ${val} doesn't support ${gpioRequirement.capability === 'analogInput' ? 'analog input' : gpioRequirement.capability === 'digitalInput' ? 'digital input' : 'digital output'}`
+                : gpioRequirement.pullup && !pinSupports(gpioPin, 'pullup')
+                  ? `Pin ${val} has no internal pull-up`
+                  : gpioPin.warning ?? gpioPin.note
         const rowTitle = wired
           ? 'Driven by connection'
           : gated
@@ -503,6 +528,9 @@ const LivePropertyControls = memo(function LivePropertyControls({
               </select>
             ) : isGpioPin && meta?.control === 'slider' && typeof val === 'number' ? (
               <PinPickerField
+                nodeType={nodeType}
+                propertyKey={key}
+                props={props}
                 value={typeof live === 'number' ? live : val}
                 min={meta.min}
                 max={meta.max}
