@@ -107,7 +107,13 @@ export function sampleImageToFrame(
   }
   const positionX = position(transform.positionX)
   const positionY = position(transform.positionY)
-  const rotation = ((Number(transform.rotation ?? 0) % 360) + 360) % 360
+  const rawRotation = Number(transform.rotation ?? 0)
+  // Firmware supports quarter turns and rounds any wired signal to the
+  // nearest one. Snap here too so preview and generated output stay aligned.
+  const rotationStep = Number.isFinite(rawRotation)
+    ? Math.sign(rawRotation) * Math.floor(Math.abs(rawRotation) / 90 + 0.5)
+    : 0
+  const rotation = ((rotationStep % 4) + 4) % 4 * 90
   const sampling: ImageSampling = transform.sampling === 'smooth' ? 'smooth' : 'nearest'
   const rawBrightness = Number(transform.brightness ?? 1)
   const brightness = Number.isFinite(rawBrightness) ? Math.max(0, Math.min(1, rawBrightness)) : 1

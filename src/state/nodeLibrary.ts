@@ -159,7 +159,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'y2',    label: 'Y2', dataType: 'float' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { x1: 0, y1: 0, x2: 15, y2: 15, r: 0, g: 200, b: 255 },
+    defaultProperties: { x1: 0, y1: 0, x2: 'W-1', y2: 'H-1', r: 0, g: 200, b: 255 },
   },
   {
     // Bundled shape generator: draws a rect / ellipse / regular polygon at
@@ -729,7 +729,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
-      energy: 0.7, speed: 1.0, palette: 'volcano',
+      energy: 0.7, speed: 1.0, tiles: 1, palette: 'volcano',
       count: 8, decay: 1, thickness: 1, spawnSpread: 0, blendMode: 'add',
     },
   },
@@ -893,11 +893,13 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     subcategory: 'Generative',
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
-      { id: 'arms', label: 'Arms', dataType: 'float' },
+      // Keep the persisted `arms` port id for saved-graph compatibility; the
+      // pattern is radial rings, so the user-facing name describes its effect.
+      { id: 'arms', label: 'Rings', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.5, palette: 'ocean' },
+    defaultProperties: { speed: 0.5, arms: 8, palette: 'ocean' },
   },
   {
     type: 'Spiral',
@@ -1939,7 +1941,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { formula: 'sin(x*6+t)*0.5+0.5', palette: 'rainbow' },
+    defaultProperties: { formula: 'sin(x*6+t)*0.5+0.5', a: 0, b: 0, palette: 'rainbow' },
   },
   {
     // Paste raw FastLED C++ (a loop body that writes into leds[]). The text is
@@ -2890,6 +2892,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   // those names have elsewhere.
   KickShock: {
     speed: N01,
+    tiles:     { control: 'slider', min: 1, max: 8, step: 1 },
     count:     { control: 'slider', min: 2, max: 16, step: 1 },
     thickness: { control: 'slider', min: 0.25, max: 3, step: 0.05 },
     decay:     { control: 'slider', min: 0.3, max: 3, step: 0.05 },
@@ -2928,7 +2931,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Noise:           { speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   Plasma:          { speed: N01 },
   Rainbow:         { speed: N01 },
-  RadialBurst:     { speed: N01 },
+  RadialBurst:     { speed: N01, arms: { control: 'slider', min: 1, max: 32, step: 1 } },
   Spiral:          { speed: N01 },
   Starfield:       { speed: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   Boids:           {
@@ -3111,6 +3114,8 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   resetOnPress: 'Zeros the running position count every time the integrated push-button is pressed, instead of only ever counting up/down.',
 }
 
+export const FORMULA_LANG_HELP = 'Variables: x, y, t, cx, cy, r, angle, W, H, a, b. Functions: sin, cos, abs, sqrt, min, max, sin8, cos8, sin16, beatsin8, beatsin16, scale8, qadd8, qsub8.'
+
 /** Per-node overrides for property names whose meaning collides across nodes. */
 export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, string>> = {
   Fire: {
@@ -3151,6 +3156,12 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   Cos: {
     x: 'Computes cos(x*2π) from the wired X value; it does not animate on its own. Wire Time or Counter into X, or use Wave for a ready-made oscillator.',
+  },
+  CustomFormula: {
+    formula: FORMULA_LANG_HELP,
+  },
+  FieldFormula: {
+    formula: `${FORMULA_LANG_HELP} Field Formula also provides fieldIn.`,
   },
 }
 

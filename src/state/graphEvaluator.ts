@@ -1822,6 +1822,7 @@ function evalKickShock(
   key: string, kick: number, snare: number, hihat: number, energy: number, speed: number,
   t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H,
   count = 8, decay = 1, thickness = 1, spawnSpread = 0, blendMode: 'add' | 'max' = 'add',
+  tiles = 1,
 ): Frame {
   const CAP = Math.max(1, Math.round(count))
   let state = kickShockState.get(key)
@@ -1829,11 +1830,13 @@ function evalKickShock(
     state = { rings: new Array(CAP).fill(null), next: 0, prevKick: false, prevSnare: false }
     kickShockState.set(key, state)
   }
-  const cx = (W - 1) / 2, cy = (H - 1) / 2
+  const tileCount = Math.max(1, Math.min(8, Math.round(tiles)))
+  const tileW = W / tileCount, tileH = H / tileCount
+  const cx = (tileW - 1) / 2, cy = (tileH - 1) / 2
   const spread = clamp01(spawnSpread)
   // spread=0 (the default) always spawns at the shared centre — identical to
   // the old fixed-origin shockwave; spread=1 spawns anywhere on the matrix.
-  const spawnAt = () => ({ x: cx + (Math.random() * W - cx) * spread, y: cy + (Math.random() * H - cy) * spread })
+  const spawnAt = () => ({ x: cx + (Math.random() * tileW - cx) * spread, y: cy + (Math.random() * tileH - cy) * spread })
   const kickHit = kick > 0.5, snareHit = snare > 0.5
   if (kickHit && !state.prevKick) { const o = spawnAt(); state.rings[state.next] = { born: t, kind: 0, ...o }; state.next = (state.next + 1) % CAP }
   if (snareHit && !state.prevSnare) { const o = spawnAt(); state.rings[state.next] = { born: t, kind: 1, ...o }; state.next = (state.next + 1) % CAP }
@@ -1854,10 +1857,14 @@ function evalKickShock(
   const additive = blendMode !== 'max'
 
   return buildFrame(W, H, (x, y) => {
+    // Repeat the same shockwave field in every grid cell. Fractional tile
+    // coordinates keep the split even when W/H are not divisible by tiles.
+    const localX = ((x + 0.5) * tileCount % W) / tileCount - 0.5
+    const localY = ((y + 0.5) * tileCount % H) / tileCount - 0.5
     // Kept centre-relative regardless of spawnSpread — the jitter/palette
     // texture is a cosmetic sweep from the matrix middle, not tied to any
     // one ring's origin.
-    const distC = Math.hypot(x - cx, y - cy) / maxD
+    const distC = Math.hypot(localX - cx, localY - cy) / maxD
     let wave = 0
     for (const ring of state.rings) {
       if (!ring) continue
@@ -1865,7 +1872,7 @@ function evalKickShock(
       const isKick = ring.kind === 0
       const spdR = isKick ? speedK : speedS, life = isKick ? lifeK : lifeS, band = isKick ? bandK : bandS
       if (age < 0 || age > life) continue
-      const dist = Math.hypot(x - ring.x, y - ring.y) / maxD
+      const dist = Math.hypot(localX - ring.x, localY - ring.y) / maxD
       const front = Math.exp(-((dist - age * spdR) ** 2) / (2 * band * band))
       const contribution = front * (1 - age / life)
       wave = additive ? wave + contribution : Math.max(wave, contribution)
@@ -2212,11 +2219,12 @@ function evalSineField(speed: number, scale: number, t: number, W = DEFAULT_W, H
   return out
 }
 
-function evalRadialBurst(speed: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalRadialBurst(speed: number, rings: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const cx = W / 2, cy = H / 2, maxD = Math.hypot(cx, cy)
+  const density = Math.max(1, Math.min(32, rings))
   return buildFrame(W, H, (x, y) => {
       const dist = Math.hypot(x - cx, y - cy) / maxD
-      const wave = (Math.sin((dist * 8 - t * speed * 3) * Math.PI) + 1) / 2
+      const wave = (Math.sin((dist * density - t * speed * 3) * Math.PI) + 1) / 2
       // Palette across the radius, ring brightness from the burst wave.
       return scaleRgb(samplePalette(palette, dist), wave)
     })
@@ -5096,8 +5104,9 @@ function createEvalNode(
         const decay = Number(props.decay ?? 1)
         const thickness = Number(props.thickness ?? 1)
         const spawnSpread = Number(props.spawnSpread ?? 0)
+        const tiles = num(id, 'tiles', props, 'tiles', 1)
         const blendMode = String(props.blendMode ?? 'add') === 'max' ? 'max' : 'add'
-        out = { frame: evalKickShock(stateKey(id), kick, snare, hihat, energy, speed, t, palette, W, H, count, decay, thickness, spawnSpread, blendMode) }
+        out = { frame: evalKickShock(stateKey(id), kick, snare, hihat, energy, speed, t, palette, W, H, count, decay, thickness, spawnSpread, blendMode, tiles) }
         break
       }
 
@@ -5271,8 +5280,9 @@ function createEvalNode(
       // ── New pattern nodes ──────────────────────────────────────────────
       case 'RadialBurst': {
         const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.RadialBurst)
+        const rings = num(id, 'arms', props, 'arms', 8)
         const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
-        out = { frame: evalRadialBurst(speed, palette, t, W, H) }
+        out = { frame: evalRadialBurst(speed, rings, palette, t, W, H) }
         break
       }
 

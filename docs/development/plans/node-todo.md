@@ -686,22 +686,16 @@ matching bounds. Codegen mirrors this with the same `fireGrid`/`fireXYExpr`
 approach, using `WIDTH`/`HEIGHT` macro names rather than baked numbers so
 the heat array stays correctly sized under supersampling. No issues found.
 
-### Particles — spot-checked, not exhaustively verified
+### Particles — exhaustive follow-up audit completed
 
 This is the largest single node in the library (20 movement variants, 5
-gated extra controls) and a full line-by-line audit of every mode in both
-`evalParticles` and the codegen `Particles` case was outside what's
-reasonable to do by hand in this pass. What I did check: the five gated
-controls (`count`/`spread`/`gravity`/`bounce`/`size`) are genuinely read in
-codegen (`spreadP`/`gravityP`/`bounceP` all feed into mode-specific
-branches, not dead), and both implementations carry matching comments
-cross-referencing `PARTICLE_*_MODES` in `nodeLibrary.ts`, which is a good
-sign of deliberate, maintained parity. I'd flag this node as the one place
-in the library where a dedicated, narrower follow-up pass (comparing each of
-the 20 modes' evaluator/codegen bodies side by side) would be worth doing on
-its own, given its size — I did not find a concrete bug, but I also can't
-claim the same exhaustive confidence here that I have for the smaller nodes
-in this review.
+gated extra controls), so it received a dedicated follow-up pass. Every
+mode's spawn, update, lifetime/culling, variant-control, and shared render
+path was compared side by side between `evalParticles` and the codegen
+`Particles` case. The five gated controls
+(`count`/`spread`/`gravity`/`bounce`/`size`) are genuinely consumed in the
+same applicable branches on both sides. The existing evaluator and codegen
+tests cover all 20 dispatch variants. No concrete parity defect was found.
 
 ## Pattern → Audio-Reactive (SpectrumBars, SpectrumVisualizer, BassPulse, BassRings, MidrangeWaves, MidrangeBloom, TrebleSparks, TreblePrism, AudioCascade, BeatFlash, KickShock, VocalAurora, BeatKaleidoscope, SpectraMosaic, PercussionBlobs, EmberPulse, TurbulentBloom, GravityWell, RainRipples, PrismStorm, AudioFlow, ColorTrails)
 
