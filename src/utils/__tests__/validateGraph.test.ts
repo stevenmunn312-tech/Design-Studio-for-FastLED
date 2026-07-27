@@ -566,17 +566,15 @@ describe('validateGraph', () => {
       expect(findPreviewOnlyWarnings(nodes, [])).toHaveLength(0)
     })
 
-    it('warns when an RTCInput node is wired into generated logic', () => {
-      const nodes = [node('rtc', 'RTCInput'), node('math', 'Math')]
-      const edges = [edge('e1', 'rtc', 'math', 'a')]
-      const warnings = findPreviewOnlyWarnings(nodes, edges)
-      expect(warnings).toHaveLength(1)
-      expect(warnings[0]).toContain('preview-only')
-    })
-
     it('does not warn about other input nodes with real firmware equivalents', () => {
       const nodes = [node('btn', 'ButtonInput'), node('math', 'Math')]
       const edges = [edge('e1', 'btn', 'math', 'a')]
+      expect(findPreviewOnlyWarnings(nodes, edges)).toHaveLength(0)
+    })
+
+    it('does not warn about an RTCInput node now that firmware clock support exists', () => {
+      const nodes = [node('rtc', 'RTCInput'), node('math', 'Math')]
+      const edges = [edge('e1', 'rtc', 'math', 'a')]
       expect(findPreviewOnlyWarnings(nodes, edges)).toHaveLength(0)
     })
 
@@ -585,6 +583,15 @@ describe('validateGraph', () => {
       const edges = [edge('e1', 'midi', 'math', 'a'), edge('e2', 'math', 'out', 'frame')]
       const { warnings } = validateGraph(nodes, edges)
       expect(warnings.some(w => w.includes('preview-only'))).toBe(true)
+    })
+
+    it('warns when an RTCInput manual start time is not a real date', () => {
+      const nodes = [
+        node('rtc', 'RTCInput', { timeSource: 'Manual', startYear: 2026, startMonth: 2, startDay: 31, startHour: 12, startMinute: 0, startSecond: 0 }),
+        node('math', 'Math'),
+      ]
+      const { warnings } = validateGraph(nodes, [edge('e1', 'rtc', 'math', 'a')])
+      expect(warnings.some(w => w.includes('invalid manual RTC start date/time'))).toBe(true)
     })
   })
 })

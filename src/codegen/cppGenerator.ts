@@ -436,6 +436,100 @@ function textAxisStartExpr(valueExpr: string, sizeVar: string, lengthExpr: strin
   return align === 'end' ? `(${edge}) - (${lengthExpr})` : edge
 }
 
+function rtcHelperCpp(): string[] {
+  return [
+    '// ── RTC software clock helpers ────────────────────────────────────────────',
+    'struct _RtcDateTime {',
+    '  int16_t year;',
+    '  uint8_t month, day, hour, minute, second, weekday;',
+    '  bool valid;',
+    '};',
+    '',
+    'bool _rtcLeap(int16_t year) {',
+    '  return (year % 4 == 0) && ((year % 100 != 0) || (year % 400 == 0));',
+    '}',
+    '',
+    'uint8_t _rtcDaysInMonth(int16_t year, uint8_t month) {',
+    '  switch (month) {',
+    '    case 2: return _rtcLeap(year) ? 29 : 28;',
+    '    case 4: case 6: case 9: case 11: return 30;',
+    '    default: return 31;',
+    '  }',
+    '}',
+    '',
+    'bool _rtcValidDateTime(int16_t year, uint8_t month, uint8_t day, uint8_t hour, uint8_t minute, uint8_t second) {',
+    '  if (year < 1970 || year > 9999) return false;',
+    '  if (month < 1 || month > 12) return false;',
+    '  if (day < 1 || day > _rtcDaysInMonth(year, month)) return false;',
+    '  if (hour > 23 || minute > 59 || second > 59) return false;',
+    '  return true;',
+    '}',
+    '',
+    'int32_t _rtcDaysFromCivil(int16_t year, uint8_t month, uint8_t day) {',
+    '  year -= month <= 2;',
+    '  const int32_t era = (year >= 0 ? year : year - 399) / 400;',
+    '  const uint32_t yoe = (uint32_t)(year - era * 400);',
+    '  const uint32_t shiftedMonth = (uint32_t)(month > 2 ? month - 3 : month + 9);',
+    '  const uint32_t doy = (153u * shiftedMonth + 2u) / 5u + day - 1u;',
+    '  const uint32_t doe = yoe * 365u + yoe / 4u - yoe / 100u + doy;',
+    '  return era * 146097 + (int32_t)doe - 719468;',
+    '}',
+    '',
+    'void _rtcCivilFromDays(int32_t z, int16_t &year, uint8_t &month, uint8_t &day) {',
+    '  z += 719468;',
+    '  const int32_t era = (z >= 0 ? z : z - 146096) / 146097;',
+    '  const uint32_t doe = (uint32_t)(z - era * 146097);',
+    '  const uint32_t yoe = (doe - doe / 1460u + doe / 36524u - doe / 146096u) / 365u;',
+    '  year = (int16_t)(yoe + era * 400);',
+    '  const uint32_t doy = doe - (365u * yoe + yoe / 4u - yoe / 100u);',
+    '  const uint32_t mp = (5u * doy + 2u) / 153u;',
+    '  day = (uint8_t)(doy - (153u * mp + 2u) / 5u + 1u);',
+    '  month = (uint8_t)(mp < 10u ? mp + 3u : mp - 9u);',
+    '  year += month <= 2;',
+    '}',
+    '',
+    'uint8_t _rtcWeekdayFromDays(int32_t days) {',
+    '  int32_t weekday = (days + 4) % 7;',
+    '  if (weekday < 0) weekday += 7;',
+    '  return (uint8_t)weekday;',
+    '}',
+    '',
+    'uint8_t _rtcMonthFromBuildDate(const char *dateStr) {',
+    "  switch (dateStr[0]) {",
+    "    case 'J': return dateStr[1] == 'a' ? 1 : (dateStr[2] == 'n' ? 6 : 7);",
+    "    case 'F': return 2;",
+    "    case 'M': return dateStr[2] == 'r' ? 3 : 5;",
+    "    case 'A': return dateStr[1] == 'p' ? 4 : 8;",
+    "    case 'S': return 9;",
+    "    case 'O': return 10;",
+    "    case 'N': return 11;",
+    "    case 'D': return 12;",
+    "    default: return 0;",
+    '  }',
+    '}',
+    '',
+    'bool _rtcParseBuildStamp(const char *dateStr, const char *timeStr, _RtcDateTime &out) {',
+    '  const uint8_t month = _rtcMonthFromBuildDate(dateStr);',
+    "  const uint8_t day = (uint8_t)((dateStr[4] == ' ' ? 0 : (dateStr[4] - '0')) * 10 + (dateStr[5] - '0'));",
+    "  const int16_t year = (int16_t)((dateStr[7] - '0') * 1000 + (dateStr[8] - '0') * 100 + (dateStr[9] - '0') * 10 + (dateStr[10] - '0'));",
+    "  const uint8_t hour = (uint8_t)((timeStr[0] - '0') * 10 + (timeStr[1] - '0'));",
+    "  const uint8_t minute = (uint8_t)((timeStr[3] - '0') * 10 + (timeStr[4] - '0'));",
+    "  const uint8_t second = (uint8_t)((timeStr[6] - '0') * 10 + (timeStr[7] - '0'));",
+    '  if (!_rtcValidDateTime(year, month, day, hour, minute, second)) { out.valid = false; return false; }',
+    '  out.year = year;',
+    '  out.month = month;',
+    '  out.day = day;',
+    '  out.hour = hour;',
+    '  out.minute = minute;',
+    '  out.second = second;',
+    '  out.weekday = _rtcWeekdayFromDays(_rtcDaysFromCivil(year, month, day));',
+    '  out.valid = true;',
+    '  return true;',
+    '}',
+    '',
+  ]
+}
+
 export function generateCpp(
   nodes: StudioNode[], edges: StudioEdge[], groups: GroupRegistry = {},
   // `externalAudio`: the host sketch already provides the audio-engine globals
@@ -540,6 +634,7 @@ export function generateCpp(
   const nativeFastLedAudio = emitEngine || !!opts.nativeFastLedAudio
 
   const sorted = topoSort(nodes, edges)
+  const emitRtcHelpers = sorted.some((n) => n.data.nodeType === 'RTCInput')
 
   // Resolve a float input to a C++ expression
   function floatExpr(nodeId: string, portId: string, nodeProps: Record<string, unknown>, propKey: string, def: number): string {
@@ -1058,14 +1153,69 @@ export function generateCpp(
         break
       }
 
-      // RTCInput is preview-first until embedded RTC/timekeeping support lands.
-      // Downstream logic can gate on `valid` to distinguish the firmware fallback.
-      case 'RTCInput':
+      case 'RTCInput': {
+        const rawInt = (value: unknown, def: number) => {
+          const n = Math.round(Number(value))
+          return Number.isFinite(n) ? n : def
+        }
+        const source = String(p.timeSource ?? 'Compile Time') === 'Manual' ? 'Manual' : 'Compile Time'
+        const startYear = rawInt(p.startYear, 2026)
+        const startMonth = rawInt(p.startMonth, 1)
+        const startDay = rawInt(p.startDay, 1)
+        const startHour = rawInt(p.startHour, 12)
+        const startMinute = rawInt(p.startMinute, 0)
+        const startSecond = rawInt(p.startSecond, 0)
+        ln(`  static bool _rtcInit_${id} = false, _rtcSeedValid_${id} = false;`)
+        ln(`  static int32_t _rtcBaseDays_${id} = 0;`)
+        ln(`  static uint32_t _rtcBaseSeconds_${id} = 0, _rtcLastMillis_${id} = 0;`)
+        ln(`  static uint64_t _rtcElapsedMillis_${id} = 0;`)
+        ln(`  if (!_rtcInit_${id}) {`)
+        if (source === 'Manual') {
+          ln(`    _rtcSeedValid_${id} = _rtcValidDateTime(${startYear}, ${startMonth}, ${startDay}, ${startHour}, ${startMinute}, ${startSecond});`)
+          ln(`    if (_rtcSeedValid_${id}) {`)
+          ln(`      _rtcBaseDays_${id} = _rtcDaysFromCivil(${startYear}, ${startMonth}, ${startDay});`)
+          ln(`      _rtcBaseSeconds_${id} = (uint32_t)(${startHour}) * 3600u + (uint32_t)(${startMinute}) * 60u + (uint32_t)(${startSecond});`)
+          ln(`    }`)
+        } else {
+          ln(`    _RtcDateTime _rtcBuild_${id};`)
+          ln(`    _rtcSeedValid_${id} = _rtcParseBuildStamp(__DATE__, __TIME__, _rtcBuild_${id});`)
+          ln(`    if (_rtcSeedValid_${id}) {`)
+          ln(`      _rtcBaseDays_${id} = _rtcDaysFromCivil(_rtcBuild_${id}.year, _rtcBuild_${id}.month, _rtcBuild_${id}.day);`)
+          ln(`      _rtcBaseSeconds_${id} = (uint32_t)_rtcBuild_${id}.hour * 3600u + (uint32_t)_rtcBuild_${id}.minute * 60u + (uint32_t)_rtcBuild_${id}.second;`)
+          ln(`    }`)
+        }
+        ln(`    _rtcLastMillis_${id} = millis();`)
+        ln(`    _rtcInit_${id} = true;`)
+        ln(`  }`)
         ln(`  bool ${v('valid')} = false, ${v('weekend')} = false;`)
         ln(`  float ${v('hour')} = 0.0f, ${v('minute')} = 0.0f, ${v('second')} = 0.0f;`)
         ln(`  float ${v('weekday')} = 0.0f, ${v('day')} = 0.0f, ${v('month')} = 0.0f, ${v('year')} = 0.0f;`)
         ln(`  float ${v('secondsOfDay')} = 0.0f;`)
+        ln(`  if (_rtcSeedValid_${id}) {`)
+        ln(`    uint32_t _rtcNowMs_${id} = millis();`)
+        ln(`    _rtcElapsedMillis_${id} += (uint32_t)(_rtcNowMs_${id} - _rtcLastMillis_${id});`)
+        ln(`    _rtcLastMillis_${id} = _rtcNowMs_${id};`)
+        ln(`    uint64_t _rtcWholeSeconds_${id} = _rtcElapsedMillis_${id} / 1000ull;`)
+        ln(`    uint32_t _rtcMillisRema_${id} = (uint32_t)(_rtcElapsedMillis_${id} % 1000ull);`)
+        ln(`    uint64_t _rtcTotalSeconds_${id} = (uint64_t)_rtcBaseSeconds_${id} + _rtcWholeSeconds_${id};`)
+        ln(`    int32_t _rtcDays_${id} = _rtcBaseDays_${id} + (int32_t)(_rtcTotalSeconds_${id} / 86400ull);`)
+        ln(`    uint32_t _rtcSecondsOfDay_${id} = (uint32_t)(_rtcTotalSeconds_${id} % 86400ull);`)
+        ln(`    int16_t _rtcYear_${id}; uint8_t _rtcMonth_${id}, _rtcDay_${id};`)
+        ln(`    _rtcCivilFromDays(_rtcDays_${id}, _rtcYear_${id}, _rtcMonth_${id}, _rtcDay_${id});`)
+        ln(`    uint8_t _rtcWeekday_${id} = _rtcWeekdayFromDays(_rtcDays_${id});`)
+        ln(`    ${v('valid')} = true;`)
+        ln(`    ${v('hour')} = (float)(_rtcSecondsOfDay_${id} / 3600u);`)
+        ln(`    ${v('minute')} = (float)((_rtcSecondsOfDay_${id} / 60u) % 60u);`)
+        ln(`    ${v('second')} = (float)(_rtcSecondsOfDay_${id} % 60u);`)
+        ln(`    ${v('weekday')} = (float)_rtcWeekday_${id};`)
+        ln(`    ${v('day')} = (float)_rtcDay_${id};`)
+        ln(`    ${v('month')} = (float)_rtcMonth_${id};`)
+        ln(`    ${v('year')} = (float)_rtcYear_${id};`)
+        ln(`    ${v('secondsOfDay')} = (float)_rtcSecondsOfDay_${id} + _rtcMillisRema_${id} / 1000.0f;`)
+        ln(`    ${v('weekend')} = _rtcWeekday_${id} == 0 || _rtcWeekday_${id} == 6;`)
+        ln(`  }`)
         break
+      }
 
       // Web MIDI has no embedded-hardware equivalent — preview-only, so
       // firmware just sees the idle default.
@@ -4387,6 +4537,10 @@ export function generateCpp(
   if (audio) {
     lines.push(...audio.code)
     lines.push(``)
+  }
+
+  if (emitRtcHelpers) {
+    lines.push(...rtcHelperCpp())
   }
 
   lines.push(...customPaletteDeclarationsCpp())

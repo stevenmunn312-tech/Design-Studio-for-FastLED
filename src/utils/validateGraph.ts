@@ -1,6 +1,7 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { SPI_CHIPSETS, NODE_LIBRARY, supportsScalarExpression, gpioRequirementForProperty, type GpioPropertyRequirement } from '../state/nodeLibrary'
 import { evaluateScalarExpression } from '../state/scalarExpression'
+import { isValidRtcDateTime } from '../state/rtc'
 import { validateMatrixLayout } from '../state/xyLayout'
 import { compositionDims } from '../state/outputRouting'
 import { boardGpioInfo } from '../state/uploadStore'
@@ -92,7 +93,7 @@ function collectPinUses(nodes: StudioNode[]): PinUse[] {
 // The generated firmware always sees these nodes' idle default — a used one
 // is worth flagging explicitly rather than letting the substitution pass
 // silently.
-const PREVIEW_ONLY_NODE_TYPES: ReadonlySet<string> = new Set(['MidiInput', 'RTCInput'])
+const PREVIEW_ONLY_NODE_TYPES: ReadonlySet<string> = new Set(['MidiInput'])
 
 export function findPreviewOnlyWarnings(nodes: StudioNode[], edges: StudioEdge[]): string[] {
   const used = nodes.filter(n =>
@@ -101,6 +102,23 @@ export function findPreviewOnlyWarnings(nodes: StudioNode[], edges: StudioEdge[]
   if (used.length === 0) return []
   const names = used.map(n => String(n.data.label ?? n.data.nodeType)).join(', ')
   return [`${names} ${used.length > 1 ? 'are' : 'is'} preview-only — the generated firmware will see the idle default instead of live input`]
+}
+
+function findRtcWarnings(nodes: StudioNode[]): string[] {
+  return nodes.flatMap((node) => {
+    if (node.data.nodeType !== 'RTCInput') return []
+    const props = node.data.properties as Record<string, unknown>
+    if (String(props.timeSource ?? 'Compile Time') !== 'Manual') return []
+    const valid = isValidRtcDateTime({
+      year: Number(props.startYear ?? 0),
+      month: Number(props.startMonth ?? 0),
+      day: Number(props.startDay ?? 0),
+      hour: Number(props.startHour ?? 0),
+      minute: Number(props.startMinute ?? 0),
+      second: Number(props.startSecond ?? 0),
+    })
+    return valid ? [] : [`${String(node.data.label ?? node.data.nodeType)} has an invalid manual RTC start date/time`]
+  })
 }
 
 export interface PowerEstimate {
@@ -580,6 +598,30 @@ export function buildGraphDiagnostics(
   }
 
   for (const node of nodes) {
+    if (node.data.nodeType !== 'RTCInput') continue
+    const props = node.data.properties as Record<string, unknown>
+    if (String(props.timeSource ?? 'Compile Time') !== 'Manual') continue
+    if (isValidRtcDateTime({
+      year: Number(props.startYear ?? 0),
+      month: Number(props.startMonth ?? 0),
+      day: Number(props.startDay ?? 0),
+      hour: Number(props.startHour ?? 0),
+      minute: Number(props.startMinute ?? 0),
+      second: Number(props.startSecond ?? 0),
+    })) continue
+    diagnostics.push({
+      id: `${node.id}-rtc-manual-start`,
+      severity: 'warning',
+      category: 'preview',
+      title: `${nodeLabel(node)} has an invalid manual clock start`,
+      message: 'The generated firmware clock will stay invalid until the manual year, month, day, hour, minute, and second form a real calendar time.',
+      fix: 'Enter a real local date/time, or switch the RTC Clock node back to Compile Time.',
+      nodeIds: [node.id],
+      nodeLabel: nodeLabel(node),
+    })
+  }
+
+  for (const node of nodes) {
     if (!PREVIEW_ONLY_NODE_TYPES.has(node.data.nodeType) || !edges.some((edge) => edge.source === node.id)) continue
     diagnostics.push({
       id: `${node.id}-preview-only`, severity: 'warning', category: 'preview',
@@ -727,6 +769,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   errors.push(...findScalarExpressionErrors(nodes))
   errors.push(...findBoardCompatibilityErrors(nodes, selectedFqbn))
   warnings.push(...findPreviewOnlyWarnings(nodes, edges))
+  warnings.push(...findRtcWarnings(nodes))
   warnings.push(...findPinRangeWarnings(nodes))
   warnings.push(...findBoardPinCompatibility(nodes, selectedFqbn).warnings)
 

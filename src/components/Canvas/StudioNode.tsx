@@ -825,8 +825,8 @@ const GROUP_INPUT_ROLES = ['energy', 'speed', 'palette']
 // get a live widget (HardwareInputBody) instead of a note.
 const PREVIEW_NOTES: Record<string, { text: string; title: string }> = {
   RTCInput: {
-    text: 'browser-time preview — firmware RTC support not wired yet',
-    title: 'In preview this node reads the browser clock. Generated firmware currently falls back to Valid=false with zeroed date/time fields until embedded RTC support is implemented.',
+    text: 'preview uses browser time; firmware uses the configured software clock',
+    title: 'In preview this node reads the browser clock. Generated firmware keeps its own software clock seeded from the node’s Compile Time or Manual settings, so the two can intentionally differ.',
   },
   MidiInput: {
     text: 'preview-only — no embedded MIDI equivalent',

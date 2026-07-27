@@ -2530,13 +2530,30 @@ describe('EncoderInput (codegen)', () => {
 })
 
 describe('RTCInput (codegen)', () => {
-  it('emits an explicit invalid-clock fallback until firmware RTC support exists', () => {
+  it('emits compile-time-seeded firmware clock support by default', () => {
     const rtc = node('rtc', 'RTCInput', 'input', {})
     const cpp = generateCpp([rtc, outputNode], [])
-    expect(cpp).toContain('bool n_rtc_valid = false, n_rtc_weekend = false;')
-    expect(cpp).toContain('float n_rtc_hour = 0.0f, n_rtc_minute = 0.0f, n_rtc_second = 0.0f;')
-    expect(cpp).toContain('float n_rtc_weekday = 0.0f, n_rtc_day = 0.0f, n_rtc_month = 0.0f, n_rtc_year = 0.0f;')
-    expect(cpp).toContain('float n_rtc_secondsOfDay = 0.0f;')
+    expect(cpp).toContain('struct _RtcDateTime {')
+    expect(cpp).toContain('_rtcSeedValid_rtc = _rtcParseBuildStamp(__DATE__, __TIME__, _rtcBuild_rtc);')
+    expect(cpp).toContain('static uint64_t _rtcElapsedMillis_rtc = 0;')
+    expect(cpp).toContain('n_rtc_valid = true;')
+    expect(cpp).toContain('n_rtc_secondsOfDay = (float)_rtcSecondsOfDay_rtc + _rtcMillisRema_rtc / 1000.0f;')
+  })
+
+  it('emits a manual firmware clock seed when requested', () => {
+    const rtc = node('rtc', 'RTCInput', 'input', {
+      timeSource: 'Manual',
+      startYear: 2026,
+      startMonth: 12,
+      startDay: 31,
+      startHour: 23,
+      startMinute: 59,
+      startSecond: 58,
+    })
+    const cpp = generateCpp([rtc, outputNode], [])
+    expect(cpp).toContain('_rtcSeedValid_rtc = _rtcValidDateTime(2026, 12, 31, 23, 59, 58);')
+    expect(cpp).toContain('_rtcBaseDays_rtc = _rtcDaysFromCivil(2026, 12, 31);')
+    expect(cpp).toContain('_rtcBaseSeconds_rtc = (uint32_t)(23) * 3600u + (uint32_t)(59) * 60u + (uint32_t)(58);')
   })
 })
 

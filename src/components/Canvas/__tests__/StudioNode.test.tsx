@@ -594,7 +594,7 @@ describe('StudioNode', () => {
     expect(solid.container.textContent).not.toMatch(/preview stub|preview-only/)
   })
 
-  it('renders a live RTC readout plus an explicit firmware fallback note', () => {
+  it('renders a live RTC readout plus the preview-vs-firmware clock note', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 6, 27, 14, 5, 9, 250))
     try {
@@ -602,7 +602,7 @@ describe('StudioNode', () => {
       expect(rtc.getByText('PREVIEW CLOCK')).toBeTruthy()
       expect(rtc.getByText('14:05:09')).toBeTruthy()
       expect(rtc.getByText('Mon 2026-07-27')).toBeTruthy()
-      expect(rtc.getByText(/firmware RTC support not wired yet/)).toBeTruthy()
+      expect(rtc.getByText(/firmware uses the configured software clock/)).toBeTruthy()
     } finally {
       vi.useRealTimers()
     }

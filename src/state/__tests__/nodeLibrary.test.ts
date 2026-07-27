@@ -370,14 +370,24 @@ describe('nodeLibrary', () => {
     expect(musicLibrary?.defaultProperties).toEqual({})
   })
 
-  it('RTCInput exposes schedule-friendly clock fields with no fake hardware props yet', () => {
+  it('RTCInput exposes schedule-friendly clock fields plus firmware clock settings', () => {
     const rtc = NODE_LIBRARY.find((n) => n.type === 'RTCInput')
     expect(rtc?.category).toBe('input')
     expect(rtc?.inputs).toEqual([])
     expect(rtc?.outputs.map((port) => port.id)).toEqual([
       'valid', 'hour', 'minute', 'second', 'weekday', 'day', 'month', 'year', 'secondsOfDay', 'weekend',
     ])
-    expect(rtc?.defaultProperties).toEqual({})
+    expect(rtc?.defaultProperties).toEqual({
+      timeSource: 'Compile Time',
+      startYear: 2026,
+      startMonth: 1,
+      startDay: 1,
+      startHour: 12,
+      startMinute: 0,
+      startSecond: 0,
+    })
+    expect(isPropertyEnabled('RTCInput', 'startYear', { timeSource: 'Manual' })).toBe(true)
+    expect(isPropertyEnabled('RTCInput', 'startYear', { timeSource: 'Compile Time' })).toBe(false)
   })
 
   it('ClockDisplay offers RTC-fed clock layouts plus stopwatch/timer controls', () => {
