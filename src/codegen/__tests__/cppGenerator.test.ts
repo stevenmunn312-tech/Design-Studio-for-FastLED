@@ -2529,6 +2529,17 @@ describe('EncoderInput (codegen)', () => {
   })
 })
 
+describe('RTCInput (codegen)', () => {
+  it('emits an explicit invalid-clock fallback until firmware RTC support exists', () => {
+    const rtc = node('rtc', 'RTCInput', 'input', {})
+    const cpp = generateCpp([rtc, outputNode], [])
+    expect(cpp).toContain('bool n_rtc_valid = false, n_rtc_weekend = false;')
+    expect(cpp).toContain('float n_rtc_hour = 0.0f, n_rtc_minute = 0.0f, n_rtc_second = 0.0f;')
+    expect(cpp).toContain('float n_rtc_weekday = 0.0f, n_rtc_day = 0.0f, n_rtc_month = 0.0f, n_rtc_year = 0.0f;')
+    expect(cpp).toContain('float n_rtc_secondsOfDay = 0.0f;')
+  })
+})
+
 describe('bypassed nodes (codegen)', () => {
   // The generic `node()` helper leaves inputs/outputs empty; bypass needs the
   // real frame/field port lists to find a matching pass-through pair.

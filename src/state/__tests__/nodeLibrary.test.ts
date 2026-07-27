@@ -370,6 +370,16 @@ describe('nodeLibrary', () => {
     expect(musicLibrary?.defaultProperties).toEqual({})
   })
 
+  it('RTCInput exposes schedule-friendly clock fields with no fake hardware props yet', () => {
+    const rtc = NODE_LIBRARY.find((n) => n.type === 'RTCInput')
+    expect(rtc?.category).toBe('input')
+    expect(rtc?.inputs).toEqual([])
+    expect(rtc?.outputs.map((port) => port.id)).toEqual([
+      'valid', 'hour', 'minute', 'second', 'weekday', 'day', 'month', 'year', 'secondsOfDay', 'weekend',
+    ])
+    expect(rtc?.defaultProperties).toEqual({})
+  })
+
   it('bounds Show duration, SD pin, and volume controls to their runtime ranges', () => {
     expect(propertyMeta('Sequencer', 'fade')).toEqual({ control: 'slider', min: 0, max: 20, step: 0.1 })
     for (const key of ['sdCsPin', 'i2sBclk', 'i2sLrc', 'i2sDout']) {

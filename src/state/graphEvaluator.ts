@@ -2,6 +2,7 @@ import type { StudioNode, StudioEdge } from './graphStore'
 import { useAudioStore } from './audioStore'
 import { useHardwareInputStore } from './hardwareInputStore'
 import { useMidiStore } from './midiStore'
+import { readRtcSnapshot } from './rtc'
 import { useUiStore } from './uiStore'
 import { asFont, textBlockLayout, textAlignMode, TEXT_LINE_GAP, type BitmapFont, DEFAULT_FONT } from './font'
 import { animatedImageFrame, asAnimatedImage, asImage, sampleImageToFrame, type ImageData } from './image'
@@ -6169,6 +6170,23 @@ function createEvalNode(
       case 'EncoderInput': {
         const enc = useHardwareInputStore.getState().encoder.get(id)
         out = { position: enc?.position ?? 0, pressed: enc?.pressed ?? false }
+        break
+      }
+
+      case 'RTCInput': {
+        const rtc = readRtcSnapshot()
+        out = {
+          valid: rtc.valid,
+          hour: rtc.hour,
+          minute: rtc.minute,
+          second: rtc.second,
+          weekday: rtc.weekday,
+          day: rtc.day,
+          month: rtc.month,
+          year: rtc.year,
+          secondsOfDay: rtc.secondsOfDay,
+          weekend: rtc.weekend,
+        }
         break
       }
 

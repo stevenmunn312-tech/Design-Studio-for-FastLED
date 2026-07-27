@@ -2231,6 +2231,28 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { pinA: 6, pinB: 7, pinSW: 8, pullup: true, resetOnPress: false },
   },
   {
+    // Real-time clock fields for preview-time prototyping. The browser clock is
+    // the source of truth in-app for now; generated firmware currently falls
+    // back to `valid = false` until embedded RTC support lands.
+    type: 'RTCInput',
+    label: 'RTC Clock',
+    category: 'input',
+    inputs: [],
+    outputs: [
+      { id: 'valid', label: 'Valid', dataType: 'bool' },
+      { id: 'hour', label: 'Hour', dataType: 'float' },
+      { id: 'minute', label: 'Minute', dataType: 'float' },
+      { id: 'second', label: 'Second', dataType: 'float' },
+      { id: 'weekday', label: 'Weekday', dataType: 'float' },
+      { id: 'day', label: 'Day', dataType: 'float' },
+      { id: 'month', label: 'Month', dataType: 'float' },
+      { id: 'year', label: 'Year', dataType: 'float' },
+      { id: 'secondsOfDay', label: 'Seconds Today', dataType: 'float' },
+      { id: 'weekend', label: 'Weekend', dataType: 'bool' },
+    ],
+    defaultProperties: {},
+  },
+  {
     // Web MIDI input — no embedded-hardware equivalent, so this is
     // preview-only (VJ-style control while designing). `note`/`cc` are the
     // MIDI numbers this node listens for; `note` output is note-on velocity
@@ -2341,6 +2363,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   ButtonInput: 'Reads a hardware button as a boolean.',
   PotInput: 'Reads a potentiometer as a 0–1 value.',
   EncoderInput: 'Reads a rotary encoder — running position plus its push-button.',
+  RTCInput: 'Local clock fields in preview; firmware currently falls back to Valid=false.',
   MidiInput: 'Web MIDI note velocity/gate + CC value from a controller. Preview-only.',
   MusicLibrary: 'Music source — double-click to drop tracks, analyse and export.',
   PerformanceGenerator: 'Converts analysed music into timed LED show files.',

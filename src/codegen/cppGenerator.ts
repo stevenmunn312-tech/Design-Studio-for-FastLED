@@ -1058,6 +1058,15 @@ export function generateCpp(
         break
       }
 
+      // RTCInput is preview-first until embedded RTC/timekeeping support lands.
+      // Downstream logic can gate on `valid` to distinguish the firmware fallback.
+      case 'RTCInput':
+        ln(`  bool ${v('valid')} = false, ${v('weekend')} = false;`)
+        ln(`  float ${v('hour')} = 0.0f, ${v('minute')} = 0.0f, ${v('second')} = 0.0f;`)
+        ln(`  float ${v('weekday')} = 0.0f, ${v('day')} = 0.0f, ${v('month')} = 0.0f, ${v('year')} = 0.0f;`)
+        ln(`  float ${v('secondsOfDay')} = 0.0f;`)
+        break
+
       // Web MIDI has no embedded-hardware equivalent — preview-only, so
       // firmware just sees the idle default.
       case 'MidiInput':

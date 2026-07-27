@@ -3651,6 +3651,31 @@ describe('EncoderInput', () => {
   })
 })
 
+describe('RTCInput', () => {
+  it('reads the local browser clock into schedule-friendly fields', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 6, 27, 14, 5, 9, 250))
+    try {
+      const rtc = node('rtc', 'RTCInput', 'input', {})
+      const { outputs } = evaluateGraphFull([rtc], [], 0, W, H)
+      expect(outputs.get('rtc')).toMatchObject({
+        valid: true,
+        hour: 14,
+        minute: 5,
+        second: 9,
+        weekday: 1,
+        day: 27,
+        month: 7,
+        year: 2026,
+        weekend: false,
+      })
+      expect(outputs.get('rtc')?.secondsOfDay).toBeCloseTo(14 * 3600 + 5 * 60 + 9.25, 4)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
 // ── Hot-set evaluation (auxNodes = false) ─────────────────────────────────────
 
 describe('evaluateGraphFull hot set', () => {

@@ -18,6 +18,7 @@ import BeatDetectBody from './BeatDetectBody'
 import FFTAnalyzerBody from './FFTAnalyzerBody'
 import HardwareInputBody from './HardwareInputBody'
 import MidiInputBody from './MidiInputBody'
+import RtcInputBody from './RtcInputBody'
 import { pinDisplayLabel, pinSupports } from '../../state/boardGpio'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
@@ -823,6 +824,10 @@ const GROUP_INPUT_ROLES = ['energy', 'speed', 'palette']
 // BeatDetectBody's LIVE / PREVIEW badge); ButtonInput/PotInput/EncoderInput
 // get a live widget (HardwareInputBody) instead of a note.
 const PREVIEW_NOTES: Record<string, { text: string; title: string }> = {
+  RTCInput: {
+    text: 'browser-time preview — firmware RTC support not wired yet',
+    title: 'In preview this node reads the browser clock. Generated firmware currently falls back to Valid=false with zeroed date/time fields until embedded RTC support is implemented.',
+  },
   MidiInput: {
     text: 'preview-only — no embedded MIDI equivalent',
     title: 'Reads a connected MIDI controller via the Web MIDI API for live preview control. There is no hardware analogue, so the generated firmware always sees the idle default (velocity 0, gate off, cc 0).',
@@ -1150,6 +1155,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {/* Hardware-input widgets are functional preview controls, not purely
             decorative FX, so keep them available even when UI FX are off. */}
         {isHardwareInput && <HardwareInputBody nodeId={id} nodeType={d.nodeType} resetOnPress={props.resetOnPress === true} />}
+        {d.nodeType === 'RTCInput' && <RtcInputBody />}
         {showLiveNodeVisuals && d.nodeType === 'MidiInput' && <MidiInputBody note={Math.round(Number(props.note ?? 60))} cc={Math.round(Number(props.cc ?? 1))} />}
         {showLiveNodeVisuals && previewKind && outPort && (
           previewHidden ? (

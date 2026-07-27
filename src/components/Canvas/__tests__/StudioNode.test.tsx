@@ -594,6 +594,20 @@ describe('StudioNode', () => {
     expect(solid.container.textContent).not.toMatch(/preview stub|preview-only/)
   })
 
+  it('renders a live RTC readout plus an explicit firmware fallback note', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 6, 27, 14, 5, 9, 250))
+    try {
+      const rtc = renderNode(makeNode('RTCInput', {}))
+      expect(rtc.getByText('PREVIEW CLOCK')).toBeTruthy()
+      expect(rtc.getByText('14:05:09')).toBeTruthy()
+      expect(rtc.getByText('Mon 2026-07-27')).toBeTruthy()
+      expect(rtc.getByText(/firmware RTC support not wired yet/)).toBeTruthy()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('a bundled node header reflects the selected variant', () => {
     const { getByText } = renderNode(makeNode('Math', { mathOp: 'multiply', a: 1, b: 2 }))
     expect(getByText('Multiply')).toBeTruthy()   // not the generic "Math"

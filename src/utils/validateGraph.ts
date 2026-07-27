@@ -92,7 +92,7 @@ function collectPinUses(nodes: StudioNode[]): PinUse[] {
 // The generated firmware always sees these nodes' idle default — a used one
 // is worth flagging explicitly rather than letting the substitution pass
 // silently.
-const PREVIEW_ONLY_NODE_TYPES: ReadonlySet<string> = new Set(['MidiInput'])
+const PREVIEW_ONLY_NODE_TYPES: ReadonlySet<string> = new Set(['MidiInput', 'RTCInput'])
 
 export function findPreviewOnlyWarnings(nodes: StudioNode[], edges: StudioEdge[]): string[] {
   const used = nodes.filter(n =>

@@ -566,6 +566,14 @@ describe('validateGraph', () => {
       expect(findPreviewOnlyWarnings(nodes, [])).toHaveLength(0)
     })
 
+    it('warns when an RTCInput node is wired into generated logic', () => {
+      const nodes = [node('rtc', 'RTCInput'), node('math', 'Math')]
+      const edges = [edge('e1', 'rtc', 'math', 'a')]
+      const warnings = findPreviewOnlyWarnings(nodes, edges)
+      expect(warnings).toHaveLength(1)
+      expect(warnings[0]).toContain('preview-only')
+    })
+
     it('does not warn about other input nodes with real firmware equivalents', () => {
       const nodes = [node('btn', 'ButtonInput'), node('math', 'Math')]
       const edges = [edge('e1', 'btn', 'math', 'a')]
