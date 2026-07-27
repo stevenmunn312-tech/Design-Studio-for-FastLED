@@ -380,6 +380,34 @@ describe('nodeLibrary', () => {
     expect(rtc?.defaultProperties).toEqual({})
   })
 
+  it('ClockDisplay offers RTC-fed clock layouts plus stopwatch/timer controls', () => {
+    const clock = NODE_LIBRARY.find((n) => n.type === 'ClockDisplay')
+    expect(clock?.category).toBe('pattern')
+    expect(clock?.subcategory).toBe('Shapes & Text')
+    expect(clock?.inputs.map((port) => port.id)).toEqual([
+      'color', 'secondsOfDay', 'valid', 'day', 'month', 'run', 'reset', 'durationSec', 'x', 'y', 'radius',
+    ])
+    expect(clock?.defaultProperties).toMatchObject({
+      displayMode: 'Digital HH:MM',
+      x: 0.5,
+      y: 0.5,
+      radius: 6,
+      run: true,
+      durationSec: 300,
+    })
+    expect(propertyMeta('ClockDisplay', 'displayMode')).toEqual({
+      control: 'select',
+      options: ['Digital HH:MM', 'Digital HH:MM:SS', 'Digital 12H', 'Digital + Date', 'Analog', 'Analog + Date', 'Stopwatch', 'Timer'],
+    })
+    expect(propertyMeta('ClockDisplay', 'radius')).toMatchObject({ control: 'slider', min: 2, max: 16 })
+    expect(propertyLabel('ClockDisplay', 'durationSec')).toBe('duration (s)')
+    expect(nodeDisplayLabel('ClockDisplay', { displayMode: 'Analog + Date' }, 'Clock Display')).toBe('Clock · Analog + Date')
+    expect(isPropertyEnabled('ClockDisplay', 'radius', { displayMode: 'Analog' })).toBe(true)
+    expect(isPropertyEnabled('ClockDisplay', 'radius', { displayMode: 'Digital HH:MM' })).toBe(false)
+    expect(isPropertyEnabled('ClockDisplay', 'durationSec', { displayMode: 'Timer' })).toBe(true)
+    expect(isPropertyEnabled('ClockDisplay', 'durationSec', { displayMode: 'Stopwatch' })).toBe(false)
+  })
+
   it('bounds Show duration, SD pin, and volume controls to their runtime ranges', () => {
     expect(propertyMeta('Sequencer', 'fade')).toEqual({ control: 'slider', min: 0, max: 20, step: 0.1 })
     for (const key of ['sdCsPin', 'i2sBclk', 'i2sLrc', 'i2sDout']) {

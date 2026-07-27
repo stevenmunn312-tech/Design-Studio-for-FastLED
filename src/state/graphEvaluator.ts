@@ -91,6 +91,15 @@ interface ClockState {
   lastSubCount: number
 }
 const clockState = new Map<string, ClockState>()
+interface ClockDisplayState {
+  lastT: number
+  elapsed: number
+  remaining: number
+  prevReset: boolean
+  mode: string
+  duration: number
+}
+const clockDisplayState = new Map<string, ClockDisplayState>()
 // Trails node — the persisted, fading accumulator frame.
 const trailState = new Map<string, Frame>()
 interface FrameFeedbackState { frames: Frame[]; index: number; w: number; h: number; capacity: number }
@@ -373,7 +382,7 @@ export function pruneEvaluatorState(maxIdleMs = STATE_IDLE_TTL_MS, now = stateCl
 
   const maps: Array<{ delete: (key: string) => boolean }> = [
     fireHeat, flashLevel, counterVals, intervalLast, smoothState, holdState,
-    envState, trailState, frameFeedbackState, fftLevels, beatLevels, clockState, fireRngState,
+    envState, trailState, frameFeedbackState, fftLevels, beatLevels, clockState, clockDisplayState, fireRngState,
     seededRngState, triggerState, particleState, particleSeedState, patternShowState,
     percussionLevels, audioFeatureLevels,
     rdState, golState, waveSimState, flowState, colorTrailsState, spectrumVisualizerState, starState, boidState, sparkState, fire2012Heat,
@@ -951,6 +960,136 @@ function renderText(
     }
   }
   return frame
+}
+
+const CLOCK_ANALOG_MODES = new Set(['Analog', 'Analog + Date'])
+const CLOCK_TRANSPORT_MODES = new Set(['Stopwatch', 'Timer'])
+
+function pad2(value: number): string {
+  return String(Math.max(0, Math.floor(value))).padStart(2, '0')
+}
+
+function clockParts(secondsOfDay: number): {
+  hour: number
+  minute: number
+  second: number
+  total: number
+} {
+  const total = ((secondsOfDay % 86400) + 86400) % 86400
+  const hour = Math.floor(total / 3600)
+  const minute = Math.floor((total % 3600) / 60)
+  const second = Math.floor(total % 60)
+  return { hour, minute, second, total }
+}
+
+function clockDateText(day: number, month: number): string {
+  return `${pad2(day)}.${pad2(month)}`
+}
+
+function formatClockTwelveHour(hour: number, minute: number): { main: string; sub: string } {
+  const h12 = hour % 12 || 12
+  return { main: `${pad2(h12)}:${pad2(minute)}`, sub: hour < 12 ? 'AM' : 'PM' }
+}
+
+function formatTransportText(seconds: number): { main: string; sub: string } {
+  const safe = Math.max(0, seconds)
+  const whole = Math.floor(safe)
+  const hours = Math.floor(whole / 3600)
+  const minutes = Math.floor((whole % 3600) / 60)
+  const secs = whole % 60
+  const centis = Math.floor((safe - whole) * 100) % 100
+  if (hours > 0) return { main: `${pad2(hours)}:${pad2(minutes)}`, sub: pad2(secs) }
+  return { main: `${pad2(minutes)}:${pad2(secs)}`, sub: pad2(centis) }
+}
+
+function drawPixelLighten(frame: Frame, x: number, y: number, color: RGB, W: number, H: number): void {
+  if (x < 0 || x >= W || y < 0 || y >= H) return
+  const px = frame[y][x]
+  px.r = Math.max(px.r, color.r)
+  px.g = Math.max(px.g, color.g)
+  px.b = Math.max(px.b, color.b)
+}
+
+function drawLineLighten(frame: Frame, x0: number, y0: number, x1: number, y1: number, color: RGB, W: number, H: number): void {
+  const steps = Math.max(1, Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) * 2))
+  for (let i = 0; i <= steps; i++) {
+    const tt = i / steps
+    drawPixelLighten(frame, Math.round(x0 + (x1 - x0) * tt), Math.round(y0 + (y1 - y0) * tt), color, W, H)
+  }
+}
+
+function drawRingLighten(frame: Frame, cx: number, cy: number, radius: number, color: RGB, W: number, H: number): void {
+  const x0 = Math.max(0, Math.floor(cx - radius - 1))
+  const x1 = Math.min(W - 1, Math.ceil(cx + radius + 1))
+  const y0 = Math.max(0, Math.floor(cy - radius - 1))
+  const y1 = Math.min(H - 1, Math.ceil(cy + radius + 1))
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const dist = Math.abs(Math.hypot(x - cx, y - cy) - radius)
+      if (dist <= 0.65) drawPixelLighten(frame, x, y, color, W, H)
+    }
+  }
+}
+
+function blitText(
+  frame: Frame,
+  text: string,
+  color: RGB,
+  x: number,
+  y: number,
+  font: BitmapFont,
+  W: number,
+  H: number,
+  hAlign: 'start' | 'center' | 'end',
+  vAlign: 'start' | 'center' | 'end',
+  wrap = false,
+  letterSpacing = 0,
+): void {
+  const layout = textBlockLayout(text, font, letterSpacing)
+  if (layout.lines.length === 0) return
+  const sx = layout.lines.map((line) => textAlignedStart(x, W, line.cols.length, hAlign, wrap))
+  const sy = textAlignedStart(y, H, layout.height, vAlign, wrap)
+  const xOffsets = wrap ? [-W, 0, W] : [0]
+  const yOffsets = wrap ? [-H, 0, H] : [0]
+  for (const ox of xOffsets) {
+    for (const oy of yOffsets) {
+      for (let i = 0; i < layout.lines.length; i++) {
+        const line = layout.lines[i]
+        const lineY = sy + i * (font.h + TEXT_LINE_GAP) + oy
+        const startX = sx[i] + ox
+        for (let xx = 0; xx < W; xx++) {
+          const ci = xx - startX
+          if (ci < 0 || ci >= line.cols.length) continue
+          const col = line.cols[ci]
+          for (let r = 0; r < font.h; r++) {
+            if (col & (1 << r)) drawPixelLighten(frame, xx, lineY + r, color, W, H)
+          }
+        }
+      }
+    }
+  }
+}
+
+function renderAnalogClock(frame: Frame, secondsOfDay: number, color: RGB, cx: number, cy: number, radius: number, W: number, H: number): void {
+  const ring = scaleRgb(color, 0.45)
+  const ticks = scaleRgb(color, 0.3)
+  const secondColor = scaleRgb(color, 0.7)
+  const handHour = Math.max(2, radius * 0.5)
+  const handMinute = Math.max(3, radius * 0.78)
+  const handSecond = Math.max(3, radius * 0.92)
+  drawRingLighten(frame, cx, cy, radius, ring, W, H)
+  for (let i = 0; i < 4; i++) {
+    const a = -Math.PI / 2 + i * (Math.PI / 2)
+    drawPixelLighten(frame, Math.round(cx + Math.cos(a) * radius), Math.round(cy + Math.sin(a) * radius), ticks, W, H)
+  }
+  const parts = clockParts(secondsOfDay)
+  const hourA = -Math.PI / 2 + ((parts.hour % 12) + parts.minute / 60 + parts.second / 3600) / 12 * Math.PI * 2
+  const minuteA = -Math.PI / 2 + (parts.minute + parts.second / 60) / 60 * Math.PI * 2
+  const secondA = -Math.PI / 2 + (parts.total % 60) / 60 * Math.PI * 2
+  drawLineLighten(frame, cx, cy, cx + Math.cos(hourA) * handHour, cy + Math.sin(hourA) * handHour, color, W, H)
+  drawLineLighten(frame, cx, cy, cx + Math.cos(minuteA) * handMinute, cy + Math.sin(minuteA) * handMinute, color, W, H)
+  drawLineLighten(frame, cx, cy, cx + Math.cos(secondA) * handSecond, cy + Math.sin(secondA) * handSecond, secondColor, W, H)
+  drawPixelLighten(frame, Math.round(cx), Math.round(cy), color, W, H)
 }
 
 function shapeExtents(shape: string, size: number, aspect: number, rotation: number, thickness: number): { x: number; y: number } {
@@ -4482,6 +4621,122 @@ function createEvalNode(
         const sy = textAlignedStart(y, H, layout.height, vAlign, wrap)
         const scroll = num(id, 'scroll', props, 'scroll', 0)
         out = { frame: renderText(text, color, sx, sy, scroll, scrollAxis, t, font, W, H, wrap, letterSpacing) }
+        break
+      }
+
+      case 'ClockDisplay': {
+        const mode = String(props.displayMode ?? 'Digital HH:MM')
+        const colorIn = input(id, 'color', null) as RGB | null
+        const color = colorIn ?? {
+          r: byte(Number(props.r ?? 255) / 255),
+          g: byte(Number(props.g ?? 220) / 255),
+          b: byte(Number(props.b ?? 90) / 255),
+        }
+        const fallbackRtc = readRtcSnapshot()
+        const valid = Boolean(input(id, 'valid', fallbackRtc.valid))
+        const secondsOfDay = Number(input(id, 'secondsOfDay', fallbackRtc.secondsOfDay))
+        const day = Number(input(id, 'day', fallbackRtc.day))
+        const month = Number(input(id, 'month', fallbackRtc.month))
+        const x = num(id, 'x', props, 'x', 0.5)
+        const y = num(id, 'y', props, 'y', 0.5)
+        const radius = Math.max(2, num(id, 'radius', props, 'radius', 6))
+        const frame = blankFrame(W, H)
+
+        if (CLOCK_TRANSPORT_MODES.has(mode)) {
+          const key = stateKey(id)
+          const run = Boolean(input(id, 'run', Boolean(props.run ?? true)))
+          const reset = Boolean(input(id, 'reset', Boolean(props.reset ?? false)))
+          const duration = Math.max(0, num(id, 'durationSec', props, 'durationSec', 300))
+          let st = clockDisplayState.get(key)
+          const reinit = !st || t < st.lastT || st.mode !== mode
+          if (!st || reinit) {
+            st = { lastT: t, elapsed: 0, remaining: duration, prevReset: false, mode, duration }
+          }
+          const durationChanged = Math.abs(st.duration - duration) > 1e-6
+          let dt = Math.min(0.25, Math.max(0, t - st.lastT))
+          const resetEdge = reset && !st.prevReset
+          if (durationChanged) {
+            st.duration = duration
+            st.remaining = duration
+            dt = 0
+          }
+          if (resetEdge) {
+            st.elapsed = 0
+            st.remaining = duration
+            dt = 0
+          }
+          if (run) {
+            if (mode === 'Timer') st.remaining = Math.max(0, st.remaining - dt)
+            else st.elapsed += dt
+          }
+          st.lastT = t
+          st.prevReset = reset
+          st.mode = mode
+          clockDisplayState.set(key, st)
+          const text = formatTransportText(mode === 'Timer' ? st.remaining : st.elapsed)
+          blitText(
+            frame,
+            `${text.main}\n${text.sub}`,
+            color,
+            x,
+            y,
+            DEFAULT_FONT,
+            W,
+            H,
+            textAlignMode(props.hAlign ?? 'center', 'left', 'right'),
+            textAlignMode(props.vAlign ?? 'middle', 'top', 'bottom'),
+            false,
+            0,
+          )
+          out = { frame }
+          break
+        }
+
+        if (CLOCK_ANALOG_MODES.has(mode)) {
+          const cx = normalizedCenterAxis(x, W, radius, false)
+          const cy = normalizedCenterAxis(y, H, radius, false)
+          renderAnalogClock(frame, valid ? secondsOfDay : 0, color, cx, cy, radius, W, H)
+          if (mode === 'Analog + Date') {
+            blitText(frame, valid ? clockDateText(day, month) : '--.--', scaleRgb(color, 0.9), x, cy + radius + 1, DEFAULT_FONT, W, H, 'center', 'start', false, 0)
+          }
+          out = { frame }
+          break
+        }
+
+        const { hour, minute, second } = clockParts(secondsOfDay)
+        let text = '--:--'
+        switch (mode) {
+          case 'Digital HH:MM:SS':
+            text = valid ? `${pad2(hour)}:${pad2(minute)}\n${pad2(second)}` : '--:--\n--'
+            break
+          case 'Digital 12H': {
+            const t12 = formatClockTwelveHour(hour, minute)
+            text = valid ? `${t12.main}\n${t12.sub}` : '--:--\n--'
+            break
+          }
+          case 'Digital + Date':
+            text = valid ? `${pad2(hour)}:${pad2(minute)}\n${clockDateText(day, month)}` : '--:--\n--.--'
+            break
+          case 'Digital HH:MM':
+          default:
+            text = valid ? `${pad2(hour)}:${pad2(minute)}` : '--:--'
+            break
+        }
+        blitText(
+          frame,
+          text,
+          color,
+          x,
+          y,
+          DEFAULT_FONT,
+          W,
+          H,
+          textAlignMode(props.hAlign ?? 'center', 'left', 'right'),
+          textAlignMode(props.vAlign ?? 'middle', 'top', 'bottom'),
+          false,
+          0,
+        )
+        out = { frame }
         break
       }
 

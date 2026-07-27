@@ -2540,6 +2540,33 @@ describe('RTCInput (codegen)', () => {
   })
 })
 
+describe('ClockDisplay (codegen)', () => {
+  it('emits a dynamic bitmap text renderer for RTC-fed clock/date modes', () => {
+    const rtc = node('rtc', 'RTCInput', 'input', {})
+    const clk = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Digital + Date' })
+    const cpp = generateCpp([rtc, clk, outputNode], [
+      edge('e1', 'rtc', 'clk', 'secondsOfDay', 'secondsOfDay'),
+      edge('e2', 'rtc', 'clk', 'valid', 'valid'),
+      edge('e3', 'rtc', 'clk', 'day', 'day'),
+      edge('e4', 'rtc', 'clk', 'month', 'month'),
+      edge('e5', 'clk', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain("auto _clkCols = [&](char _ch, uint8_t &_c0, uint8_t &_c1, uint8_t &_c2)")
+    expect(cpp).toContain('snprintf(_clkSub_clk, sizeof(_clkSub_clk), "%02d.%02d"')
+    expect(cpp).toContain('if (n_rtc_valid)')
+    expect(cpp).toContain('_clkText(_clkMain_clk')
+  })
+
+  it('emits millis-driven stopwatch/timer state for transport modes', () => {
+    const clk = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Timer', durationSec: 90, run: true })
+    const cpp = generateCpp([clk, outputNode], [edge('e1', 'clk', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('static float _clkElapsed_clk = 0.0f, _clkRemaining_clk = 0.0f, _clkLastDuration_clk = -1.0f;')
+    expect(cpp).toContain('uint32_t _clkNow_clk = millis();')
+    expect(cpp).toContain('if (_clkRun_clk) _clkRemaining_clk = max(0.0f, _clkRemaining_clk - _clkDt_clk);')
+    expect(cpp).toContain('snprintf(_clkMain_clk, sizeof(_clkMain_clk), "%02d:%02d"')
+  })
+})
+
 describe('bypassed nodes (codegen)', () => {
   // The generic `node()` helper leaves inputs/outputs empty; bypass needs the
   // real frame/field port lists to find a matching pass-through pair.

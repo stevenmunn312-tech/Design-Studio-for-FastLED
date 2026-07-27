@@ -73,6 +73,13 @@ function withOutput(gen: StudioNode, extra: StudioNode[] = [], extraEdges: Studi
   }
 }
 
+function litPixels(frame: Frame | null): number {
+  if (!frame) return 0
+  let n = 0
+  for (const row of frame) for (const px of row) if (px.r || px.g || px.b) n++
+  return n
+}
+
 const W = 4, H = 4
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -3673,6 +3680,41 @@ describe('RTCInput', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('ClockDisplay', () => {
+  it('renders a wired RTC time/date display that changes with the upstream clock', () => {
+    vi.useFakeTimers()
+    try {
+      const rtc = node('rtc', 'RTCInput', 'input', {})
+      const clock = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Digital + Date' })
+      const wires = [
+        edge('e1', 'rtc', 'secondsOfDay', 'clk', 'secondsOfDay'),
+        edge('e2', 'rtc', 'valid', 'clk', 'valid'),
+        edge('e3', 'rtc', 'day', 'clk', 'day'),
+        edge('e4', 'rtc', 'month', 'clk', 'month'),
+      ]
+
+      vi.setSystemTime(new Date(2026, 6, 27, 14, 5, 9, 250))
+      const a = evaluateGraph([...withOutput(clock, [rtc], wires).nodes], [...withOutput(clock, [rtc], wires).edges], 0, 16, 16)
+
+      vi.setSystemTime(new Date(2026, 6, 27, 14, 6, 9, 250))
+      const b = evaluateGraph([...withOutput(clock, [rtc], wires).nodes], [...withOutput(clock, [rtc], wires).edges], 0, 16, 16)
+
+      expect(litPixels(a)).toBeGreaterThan(0)
+      expect(JSON.stringify(a)).not.toEqual(JSON.stringify(b))
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('advances its stopwatch mode over time and keeps pixels lit while running', () => {
+    const { nodes, edges } = withOutput(node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Stopwatch', run: true }), [], [])
+    const start = evaluateGraph(nodes, edges, 0, 16, 16)
+    const later = evaluateGraph(nodes, edges, 120, 16, 16)
+    expect(litPixels(start)).toBeGreaterThan(0)
+    expect(JSON.stringify(start)).not.toEqual(JSON.stringify(later))
   })
 })
 

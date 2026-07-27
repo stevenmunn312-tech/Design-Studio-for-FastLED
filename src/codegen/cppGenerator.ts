@@ -1309,6 +1309,160 @@ export function generateCpp(
         break
       }
 
+      case 'ClockDisplay': {
+        const ob = ownBuf()
+        const mode = String(p.displayMode ?? 'Digital HH:MM')
+        const analog = mode === 'Analog' || mode === 'Analog + Date'
+        const transport = mode === 'Stopwatch' || mode === 'Timer'
+        const hAlign = textAlignMode(p.hAlign ?? 'center', 'left', 'right')
+        const vAlign = textAlignMode(p.vAlign ?? 'middle', 'top', 'bottom')
+        const colorE = incoming.get(`${node.id}:color`)
+          ? colorExpr(node.id, 'color')
+          : `CRGB(${Number(p.r ?? 255)}, ${Number(p.g ?? 220)}, ${Number(p.b ?? 90)})`
+        const xExpr = f('x', 'x', 0.5)
+        const yExpr = f('y', 'y', 0.5)
+        const validExpr = incoming.get(`${node.id}:valid`) ? boolExpr(node.id, 'valid') : 'false'
+        const secondsExpr = f('secondsOfDay', 'secondsOfDay', 0)
+        const dayExpr = f('day', 'day', 1)
+        const monthExpr = f('month', 'month', 1)
+        const runExpr = incoming.get(`${node.id}:run`) ? boolExpr(node.id, 'run') : (p.run === false ? 'false' : 'true')
+        const resetExpr = incoming.get(`${node.id}:reset`) ? boolExpr(node.id, 'reset') : (p.reset === true ? 'true' : 'false')
+        const durationExpr = `max(0.0f, ${f('durationSec', 'durationSec', 300)})`
+        ln(`  { // Clock Display`)
+        ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
+        ln(`    auto _clkPx = [&](int _x, int _y, const CRGB &_col) {`)
+        ln(`      if (_x < 0 || _x >= WIDTH || _y < 0 || _y >= HEIGHT) return;`)
+        ln(`      CRGB &_dst = ${ob}[_y * WIDTH + _x];`)
+        ln(`      _dst.r = max(_dst.r, _col.r); _dst.g = max(_dst.g, _col.g); _dst.b = max(_dst.b, _col.b);`)
+        ln(`    };`)
+        ln(`    auto _clkCols = [&](char _ch, uint8_t &_c0, uint8_t &_c1, uint8_t &_c2) {`)
+        ln(`      switch (_ch) {`)
+        ln(`        case '0': _c0 = 31; _c1 = 17; _c2 = 31; break;`)
+        ln(`        case '1': _c0 = 18; _c1 = 31; _c2 = 16; break;`)
+        ln(`        case '2': _c0 = 29; _c1 = 21; _c2 = 23; break;`)
+        ln(`        case '3': _c0 = 21; _c1 = 21; _c2 = 31; break;`)
+        ln(`        case '4': _c0 = 7;  _c1 = 4;  _c2 = 31; break;`)
+        ln(`        case '5': _c0 = 23; _c1 = 21; _c2 = 29; break;`)
+        ln(`        case '6': _c0 = 31; _c1 = 21; _c2 = 29; break;`)
+        ln(`        case '7': _c0 = 1;  _c1 = 29; _c2 = 3;  break;`)
+        ln(`        case '8': _c0 = 31; _c1 = 21; _c2 = 31; break;`)
+        ln(`        case '9': _c0 = 23; _c1 = 21; _c2 = 31; break;`)
+        ln(`        case '-': _c0 = 4;  _c1 = 4;  _c2 = 4;  break;`)
+        ln(`        case '.': _c0 = 0;  _c1 = 16; _c2 = 0;  break;`)
+        ln(`        case ':': _c0 = 0;  _c1 = 10; _c2 = 0;  break;`)
+        ln(`        case 'A': _c0 = 31; _c1 = 5;  _c2 = 31; break;`)
+        ln(`        case 'M': _c0 = 31; _c1 = 6;  _c2 = 31; break;`)
+        ln(`        case 'P': _c0 = 31; _c1 = 5;  _c2 = 7;  break;`)
+        ln(`        default:  _c0 = 0;  _c1 = 0;  _c2 = 0;  break;`)
+        ln(`      }`)
+        ln(`    };`)
+        ln(`    auto _clkText = [&](const char *_s, int _sx, int _sy, const CRGB &_col) {`)
+        ln(`      for (int _i = 0; _s[_i]; _i++) {`)
+        ln(`        uint8_t _c0 = 0, _c1 = 0, _c2 = 0; _clkCols(_s[_i], _c0, _c1, _c2); uint8_t _cols[3] = {_c0, _c1, _c2};`)
+        ln(`        for (int _c = 0; _c < 3; _c++) { int _x = _sx + _i * 3 + _c; if (_x < 0 || _x >= WIDTH) continue; uint8_t _bits = _cols[_c];`)
+        ln(`          for (int _r = 0; _r < 5; _r++) if (_bits & (1 << _r)) _clkPx(_x, _sy + _r, _col); }`)
+        ln(`      }`)
+        ln(`    };`)
+        ln(`    auto _clkLine = [&](float _x0, float _y0, float _x1, float _y1, const CRGB &_col) {`)
+        ln(`      int _steps = max(1, (int)ceilf(max(fabsf(_x1 - _x0), fabsf(_y1 - _y0)) * 2.0f));`)
+        ln(`      for (int _i = 0; _i <= _steps; _i++) { float _tt = _steps > 0 ? (float)_i / (float)_steps : 0.0f; _clkPx((int)roundf(_x0 + (_x1 - _x0) * _tt), (int)roundf(_y0 + (_y1 - _y0) * _tt), _col); }`)
+        ln(`    };`)
+        ln(`    auto _clkRing = [&](float _cx, float _cy, float _rad, const CRGB &_col) {`)
+        ln(`      int _x0 = max(0, (int)floorf(_cx - _rad - 1.0f)), _x1 = min(WIDTH - 1, (int)ceilf(_cx + _rad + 1.0f));`)
+        ln(`      int _y0 = max(0, (int)floorf(_cy - _rad - 1.0f)), _y1 = min(HEIGHT - 1, (int)ceilf(_cy + _rad + 1.0f));`)
+        ln(`      for (int _y = _y0; _y <= _y1; _y++) for (int _x = _x0; _x <= _x1; _x++) {`)
+        ln(`        float _dx = _x - _cx, _dy = _y - _cy; if (fabsf(sqrtf(_dx * _dx + _dy * _dy) - _rad) <= 0.65f) _clkPx(_x, _y, _col);`)
+        ln(`      }`)
+        ln(`    };`)
+        if (transport) {
+          const line2Width = mode === 'Timer' || mode === 'Stopwatch' ? 6 : 15
+          const syExpr = textAxisStartExpr(yExpr, 'HEIGHT', '11', vAlign, false)
+          const sxMainExpr = textAxisStartExpr(xExpr, 'WIDTH', '15', hAlign, false)
+          const sxSubExpr = textAxisStartExpr(xExpr, 'WIDTH', `${line2Width}`, hAlign, false)
+          ln(`    static float _clkElapsed_${id} = 0.0f, _clkRemaining_${id} = 0.0f, _clkLastDuration_${id} = -1.0f;`)
+          ln(`    static uint32_t _clkLastMs_${id} = 0; static bool _clkPrevReset_${id} = false;`)
+          ln(`    uint32_t _clkNow_${id} = millis(); float _clkDuration_${id} = ${durationExpr}; bool _clkRun_${id} = ${runExpr}; bool _clkReset_${id} = ${resetExpr};`)
+          ln(`    if (_clkLastMs_${id} == 0 || _clkNow_${id} < _clkLastMs_${id}) { _clkLastMs_${id} = _clkNow_${id}; _clkElapsed_${id} = 0.0f; _clkRemaining_${id} = _clkDuration_${id}; _clkLastDuration_${id} = _clkDuration_${id}; _clkPrevReset_${id} = false; }`)
+          ln(`    float _clkDt_${id} = min(0.25f, max(0.0f, (_clkNow_${id} - _clkLastMs_${id}) / 1000.0f));`)
+          ln(`    if (fabsf(_clkLastDuration_${id} - _clkDuration_${id}) > 0.0001f) { _clkRemaining_${id} = _clkDuration_${id}; _clkLastDuration_${id} = _clkDuration_${id}; _clkDt_${id} = 0.0f; }`)
+          ln(`    bool _clkResetEdge_${id} = _clkReset_${id} && !_clkPrevReset_${id};`)
+          ln(`    if (_clkResetEdge_${id}) { _clkElapsed_${id} = 0.0f; _clkRemaining_${id} = _clkDuration_${id}; _clkDt_${id} = 0.0f; }`)
+          if (mode === 'Timer') ln(`    if (_clkRun_${id}) _clkRemaining_${id} = max(0.0f, _clkRemaining_${id} - _clkDt_${id});`)
+          else ln(`    if (_clkRun_${id}) _clkElapsed_${id} += _clkDt_${id};`)
+          ln(`    _clkLastMs_${id} = _clkNow_${id}; _clkPrevReset_${id} = _clkReset_${id};`)
+          ln(`    float _clkShow_${id} = ${mode === 'Timer' ? `_clkRemaining_${id}` : `_clkElapsed_${id}`};`)
+          ln(`    int _clkWhole_${id} = max(0, (int)floorf(_clkShow_${id}));`)
+          ln(`    int _clkHours_${id} = _clkWhole_${id} / 3600, _clkMinutes_${id} = (_clkWhole_${id} % 3600) / 60, _clkSeconds_${id} = _clkWhole_${id} % 60;`)
+          ln(`    int _clkCentis_${id} = ((int)floorf((_clkShow_${id} - _clkWhole_${id}) * 100.0f)) % 100;`)
+          ln(`    char _clkMain_${id}[6], _clkSub_${id}[3];`)
+          ln(`    if (_clkHours_${id} > 0) { snprintf(_clkMain_${id}, sizeof(_clkMain_${id}), "%02d:%02d", min(_clkHours_${id}, 99), _clkMinutes_${id}); snprintf(_clkSub_${id}, sizeof(_clkSub_${id}), "%02d", _clkSeconds_${id}); }`)
+          ln(`    else { snprintf(_clkMain_${id}, sizeof(_clkMain_${id}), "%02d:%02d", _clkMinutes_${id}, _clkSeconds_${id}); snprintf(_clkSub_${id}, sizeof(_clkSub_${id}), "%02d", _clkCentis_${id}); }`)
+          ln(`    int _clkSy_${id} = (int)${syExpr}, _clkSx0_${id} = (int)${sxMainExpr}, _clkSx1_${id} = (int)${sxSubExpr};`)
+          ln(`    _clkText(_clkMain_${id}, _clkSx0_${id}, _clkSy_${id}, ${colorE});`)
+          ln(`    _clkText(_clkSub_${id}, _clkSx1_${id}, _clkSy_${id} + 6, ${colorE});`)
+        } else if (analog) {
+          const radiusExpr = `max(2.0f, ${f('radius', 'radius', 6)})`
+          ln(`    float _clkRad_${id} = ${radiusExpr};`)
+          ln(`    float _clkXv_${id} = ${xExpr}, _clkYv_${id} = ${yExpr};`)
+          ln(`    float _clkCx_${id} = _clkXv_${id} > 1.0f ? _clkXv_${id} : (0.5f - (_clkRad_${id} + 1.0f)) + _clkXv_${id} * ((WIDTH - 1.0f) + 2.0f * (_clkRad_${id} + 1.0f));`)
+          ln(`    float _clkCy_${id} = _clkYv_${id} > 1.0f ? _clkYv_${id} : (0.5f - (_clkRad_${id} + 1.0f)) + _clkYv_${id} * ((HEIGHT - 1.0f) + 2.0f * (_clkRad_${id} + 1.0f));`)
+          ln(`    float _clkSec_${id} = ${validExpr} ? ${secondsExpr} : 0.0f;`)
+          ln(`    while (_clkSec_${id} < 0.0f) _clkSec_${id} += 86400.0f; while (_clkSec_${id} >= 86400.0f) _clkSec_${id} -= 86400.0f;`)
+          ln(`    int _clkHour_${id} = (int)floorf(_clkSec_${id} / 3600.0f); int _clkMinute_${id} = ((int)floorf(_clkSec_${id} / 60.0f)) % 60;`)
+          ln(`    float _clkRingScale_${id} = 0.45f, _clkTickScale_${id} = 0.30f, _clkSecondScale_${id} = 0.70f;`)
+          ln(`    CRGB _clkRingCol_${id} = ${colorE}; _clkRingCol_${id}.nscale8((uint8_t)(_clkRingScale_${id} * 255.0f));`)
+          ln(`    CRGB _clkTickCol_${id} = ${colorE}; _clkTickCol_${id}.nscale8((uint8_t)(_clkTickScale_${id} * 255.0f));`)
+          ln(`    CRGB _clkSecondCol_${id} = ${colorE}; _clkSecondCol_${id}.nscale8((uint8_t)(_clkSecondScale_${id} * 255.0f));`)
+          ln(`    _clkRing(_clkCx_${id}, _clkCy_${id}, _clkRad_${id}, _clkRingCol_${id});`)
+          ln(`    for (int _m = 0; _m < 4; _m++) { float _a = -1.5707963f + _m * 1.5707963f; _clkPx((int)roundf(_clkCx_${id} + cosf(_a) * _clkRad_${id}), (int)roundf(_clkCy_${id} + sinf(_a) * _clkRad_${id}), _clkTickCol_${id}); }`)
+          ln(`    float _clkHourA_${id} = -1.5707963f + (((_clkHour_${id} % 12) + _clkMinute_${id} / 60.0f + fmodf(_clkSec_${id}, 60.0f) / 3600.0f) / 12.0f) * 6.2831853f;`)
+          ln(`    float _clkMinuteA_${id} = -1.5707963f + ((_clkMinute_${id} + fmodf(_clkSec_${id}, 60.0f) / 60.0f) / 60.0f) * 6.2831853f;`)
+          ln(`    float _clkSecondA_${id} = -1.5707963f + (fmodf(_clkSec_${id}, 60.0f) / 60.0f) * 6.2831853f;`)
+          ln(`    _clkLine(_clkCx_${id}, _clkCy_${id}, _clkCx_${id} + cosf(_clkHourA_${id}) * max(2.0f, _clkRad_${id} * 0.50f), _clkCy_${id} + sinf(_clkHourA_${id}) * max(2.0f, _clkRad_${id} * 0.50f), ${colorE});`)
+          ln(`    _clkLine(_clkCx_${id}, _clkCy_${id}, _clkCx_${id} + cosf(_clkMinuteA_${id}) * max(3.0f, _clkRad_${id} * 0.78f), _clkCy_${id} + sinf(_clkMinuteA_${id}) * max(3.0f, _clkRad_${id} * 0.78f), ${colorE});`)
+          ln(`    _clkLine(_clkCx_${id}, _clkCy_${id}, _clkCx_${id} + cosf(_clkSecondA_${id}) * max(3.0f, _clkRad_${id} * 0.92f), _clkCy_${id} + sinf(_clkSecondA_${id}) * max(3.0f, _clkRad_${id} * 0.92f), _clkSecondCol_${id});`)
+          ln(`    _clkPx((int)roundf(_clkCx_${id}), (int)roundf(_clkCy_${id}), ${colorE});`)
+          if (mode === 'Analog + Date') {
+            const dateXExpr = textAxisStartExpr(xExpr, 'WIDTH', '15', 'center', false)
+            ln(`    char _clkDate_${id}[6];`)
+            ln(`    if (${validExpr}) snprintf(_clkDate_${id}, sizeof(_clkDate_${id}), "%02d.%02d", (int)(${dayExpr}), (int)(${monthExpr}));`)
+            ln(`    else memcpy(_clkDate_${id}, "--.--", 6);`)
+            ln(`    CRGB _clkDateCol_${id} = ${colorE}; _clkDateCol_${id}.nscale8((uint8_t)(0.90f * 255.0f));`)
+            ln(`    _clkText(_clkDate_${id}, (int)${dateXExpr}, (int)floorf(_clkCy_${id} + _clkRad_${id} + 1.0f), _clkDateCol_${id});`)
+          }
+        } else {
+          const twoLine = mode !== 'Digital HH:MM'
+          const line2Width = mode === 'Digital + Date' ? 15 : 6
+          const syExpr = textAxisStartExpr(yExpr, 'HEIGHT', twoLine ? '11' : '5', vAlign, false)
+          const sxMainExpr = textAxisStartExpr(xExpr, 'WIDTH', '15', hAlign, false)
+          const sxSubExpr = textAxisStartExpr(xExpr, 'WIDTH', `${line2Width}`, hAlign, false)
+          ln(`    float _clkSec_${id} = ${secondsExpr}; while (_clkSec_${id} < 0.0f) _clkSec_${id} += 86400.0f; while (_clkSec_${id} >= 86400.0f) _clkSec_${id} -= 86400.0f;`)
+          ln(`    int _clkHour_${id} = (int)floorf(_clkSec_${id} / 3600.0f), _clkMinute_${id} = ((int)floorf(_clkSec_${id} / 60.0f)) % 60, _clkSecond_${id} = ((int)floorf(_clkSec_${id})) % 60;`)
+          ln(`    char _clkMain_${id}[6], _clkSub_${id}[6] = "";`)
+          if (mode === 'Digital HH:MM:SS') {
+            ln(`    if (${validExpr}) { snprintf(_clkMain_${id}, sizeof(_clkMain_${id}), "%02d:%02d", _clkHour_${id}, _clkMinute_${id}); snprintf(_clkSub_${id}, sizeof(_clkSub_${id}), "%02d", _clkSecond_${id}); }`)
+            ln(`    else { memcpy(_clkMain_${id}, "--:--", 6); memcpy(_clkSub_${id}, "--", 3); }`)
+          } else if (mode === 'Digital 12H') {
+            ln(`    if (${validExpr}) { int _clkH12_${id} = _clkHour_${id} % 12; if (_clkH12_${id} == 0) _clkH12_${id} = 12; snprintf(_clkMain_${id}, sizeof(_clkMain_${id}), "%02d:%02d", _clkH12_${id}, _clkMinute_${id}); memcpy(_clkSub_${id}, _clkHour_${id} < 12 ? "AM" : "PM", 3); }`)
+            ln(`    else { memcpy(_clkMain_${id}, "--:--", 6); memcpy(_clkSub_${id}, "--", 3); }`)
+          } else if (mode === 'Digital + Date') {
+            ln(`    if (${validExpr}) { snprintf(_clkMain_${id}, sizeof(_clkMain_${id}), "%02d:%02d", _clkHour_${id}, _clkMinute_${id}); snprintf(_clkSub_${id}, sizeof(_clkSub_${id}), "%02d.%02d", (int)(${dayExpr}), (int)(${monthExpr})); }`)
+            ln(`    else { memcpy(_clkMain_${id}, "--:--", 6); memcpy(_clkSub_${id}, "--.--", 6); }`)
+          } else {
+            ln(`    if (${validExpr}) snprintf(_clkMain_${id}, sizeof(_clkMain_${id}), "%02d:%02d", _clkHour_${id}, _clkMinute_${id});`)
+            ln(`    else memcpy(_clkMain_${id}, "--:--", 6);`)
+          }
+          ln(`    int _clkSy_${id} = (int)${syExpr}, _clkSx0_${id} = (int)${sxMainExpr};`)
+          ln(`    _clkText(_clkMain_${id}, _clkSx0_${id}, _clkSy_${id}, ${colorE});`)
+          if (twoLine) {
+            ln(`    int _clkSx1_${id} = (int)${sxSubExpr};`)
+            ln(`    _clkText(_clkSub_${id}, _clkSx1_${id}, _clkSy_${id} + 6, ${colorE});`)
+          }
+        }
+        ln(`  }`)
+        break
+      }
+
       // Bundled noise node — `noiseType` picks the algorithm. Each variant
       // writes a raw scalar field, then the node maps that field through its
       // palette for the normal frame output. Keep the cases in sync with

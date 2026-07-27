@@ -126,6 +126,44 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
   {
+    // RTC-fed clock/date display plus local stopwatch/timer modes. The clock
+    // modes read `secondsOfDay` (and optional date fields) from RTCInput; the
+    // stopwatch/timer modes keep their own state so graph bools can run/pause
+    // or reset them.
+    type: 'ClockDisplay',
+    label: 'Clock Display',
+    category: 'pattern',
+    subcategory: 'Shapes & Text',
+    inputs: [
+      { id: 'color', label: 'Color', dataType: 'color' },
+      { id: 'secondsOfDay', label: 'Seconds Today', dataType: 'float' },
+      { id: 'valid', label: 'Valid', dataType: 'bool' },
+      { id: 'day', label: 'Day', dataType: 'float' },
+      { id: 'month', label: 'Month', dataType: 'float' },
+      { id: 'run', label: 'Run', dataType: 'bool' },
+      { id: 'reset', label: 'Reset', dataType: 'bool' },
+      { id: 'durationSec', label: 'Duration', dataType: 'float' },
+      { id: 'x', label: 'X', dataType: 'float' },
+      { id: 'y', label: 'Y', dataType: 'float' },
+      { id: 'radius', label: 'Radius', dataType: 'float' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: {
+      displayMode: 'Digital HH:MM',
+      x: 0.5,
+      y: 0.5,
+      radius: 6,
+      run: true,
+      reset: false,
+      durationSec: 300,
+      r: 255,
+      g: 220,
+      b: 90,
+      hAlign: 'center',
+      vAlign: 'middle',
+    },
+  },
+  {
     // Draws a circle (ring, or filled disc) over an optional base frame.
     // `fill`/`edge`/`thickness` mirror the Shape node — same SDF renderer
     // (a circle is Shape's ellipse at aspect 1), so drawing matches exactly.
@@ -2418,6 +2456,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Shape: 'Rect, ellipse or morphing N-gon with a fill and outline colour.',
   Path: 'Traces a parametric curve point with subpixel splatting.',
   Text: 'Renders scrolling text in a bitmap font.',
+  ClockDisplay: 'RTC-fed digital/analog clock plus stopwatch and timer displays.',
   Noise: 'Bundled noise variants with frame and raw field outputs.',
   Fire: 'Classic rising fire effect.',
   Fire2012: 'FastLED Fire2012 heat simulation.',
@@ -2656,6 +2695,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   // Text node authoring controls.
   hAlign:        { control: 'select', options: ['left', 'center', 'right'] },
   vAlign:        { control: 'select', options: ['top', 'middle', 'bottom'] },
+  displayMode:   { control: 'select', options: ['Digital HH:MM', 'Digital HH:MM:SS', 'Digital 12H', 'Digital + Date', 'Analog', 'Analog + Date', 'Stopwatch', 'Timer'] },
   scrollAxis:    { control: 'select', options: ['horizontal', 'vertical'] },
   letterSpacing: { control: 'slider', min: 0, max: 4, step: 1 },
   tileSize:   { control: 'slider', min: 1, max: 16, step: 1 },
@@ -2820,6 +2860,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Text: {
     x: N01,
     y: N01,
+  },
+  ClockDisplay: {
+    x: N01,
+    y: N01,
+    radius: { control: 'slider', min: 2, max: 16, step: 0.5 },
   },
   BeatFlash: {
     // 'none' (default) uses the r/g/b color below; any other preset sweeps
@@ -3226,6 +3271,13 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   FieldFormula: {
     formula: `${FORMULA_LANG_HELP} Field Formula also provides fieldIn.`,
   },
+  ClockDisplay: {
+    displayMode: 'Clock/date layout plus stopwatch/timer modes. Clock modes read the wired RTC fields when present; stopwatch and timer ignore them.',
+    durationSec: 'Countdown duration in seconds for Timer mode.',
+    run: 'Runs or pauses the stopwatch/timer. Clock/date modes ignore it.',
+    reset: 'Rising-edge reset for the stopwatch/timer; toggle it off and on again to retrigger manually.',
+    radius: 'Analog face radius. Only used by the analog display modes.',
+  },
 }
 
 /** Hover-tooltip text for a node's property, honouring per-node overrides. */
@@ -3244,6 +3296,10 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
     randomColor: 'use random color',
     particleStyle: 'particle style',
     randomStyle: 'use random style',
+  },
+  ClockDisplay: {
+    displayMode: 'display',
+    durationSec: 'duration (s)',
   },
   AudioFeatures: {
     gate: 'Silence Gate',
@@ -3333,6 +3389,10 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'response', label: 'Response', keys: ['gain', 'smoothing', 'tilt'] },
     { key: 'peaks', label: 'Peak Dots', keys: ['peakHold', 'peakGravity'] },
     { key: 'waterfall', label: 'Waterfall', keys: ['waterfallSpeed'] },
+  ],
+  ClockDisplay: [
+    { key: 'display', label: 'Display', keys: ['displayMode', 'x', 'y', 'hAlign', 'vAlign', 'radius'] },
+    { key: 'transport', label: 'Transport', keys: ['run', 'reset', 'durationSec'] },
   ],
   ColorTrails: [
     { key: 'style', label: 'Style', keys: ['injectionMode', 'flowMode'] },
@@ -3474,6 +3534,19 @@ export function bypassPort(outputs: { id: string; dataType?: string }[], inputs:
  * matching `PROPERTY_META` options and the evaluator/codegen cases.
  */
 const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, string> }> = {
+  ClockDisplay: {
+    prop: 'displayMode',
+    labels: {
+      'Digital HH:MM': 'Clock · HH:MM',
+      'Digital HH:MM:SS': 'Clock · HH:MM:SS',
+      'Digital 12H': 'Clock · 12H',
+      'Digital + Date': 'Clock · Time + Date',
+      Analog: 'Clock · Analog',
+      'Analog + Date': 'Clock · Analog + Date',
+      Stopwatch: 'Clock · Stopwatch',
+      Timer: 'Clock · Timer',
+    },
+  },
   Noise: {
     prop: 'noiseType',
     labels: { field: 'Noise Field', simplex: 'Simplex', noise3d: 'Noise 3D', noise4d: 'Noise 4D', worley: 'Worley', plasma: 'Plasma Fractal', sine: 'Sine 2D' },
@@ -3587,6 +3660,15 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     if (key === 'aspect') return shape === 'rect' || shape === 'ellipse'
     // Fill colour is unused when only the outline is drawn.
     if (key === 'fill')   return properties.filled === true
+  }
+  if (nodeType === 'ClockDisplay') {
+    const mode = String(properties.displayMode ?? 'Digital HH:MM')
+    const analog = mode === 'Analog' || mode === 'Analog + Date'
+    const transport = mode === 'Stopwatch' || mode === 'Timer'
+    if (key === 'radius') return analog
+    if (key === 'hAlign' || key === 'vAlign') return !analog
+    if (key === 'durationSec') return mode === 'Timer'
+    if (key === 'run' || key === 'reset') return transport
   }
   if (nodeType === 'Circle' && key === 'fill') {
     // Same as Shape: fill colour is unused when only the ring is drawn.
