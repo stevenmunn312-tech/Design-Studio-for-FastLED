@@ -2269,9 +2269,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { pinA: 6, pinB: 7, pinSW: 8, pullup: true, resetOnPress: false },
   },
   {
-    // Real-time clock fields for preview-time prototyping. The browser clock is
-    // the source of truth in-app for now; generated firmware currently falls
-    // back to `valid = false` until embedded RTC support lands.
+    // Real-time clock fields. Preview uses the browser clock; generated
+    // firmware keeps a software clock seeded from either the sketch compile
+    // stamp or a manual start date/time.
     type: 'RTCInput',
     label: 'RTC Clock',
     category: 'input',
@@ -2288,7 +2288,15 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'secondsOfDay', label: 'Seconds Today', dataType: 'float' },
       { id: 'weekend', label: 'Weekend', dataType: 'bool' },
     ],
-    defaultProperties: {},
+    defaultProperties: {
+      timeSource: 'Compile Time',
+      startYear: 2026,
+      startMonth: 1,
+      startDay: 1,
+      startHour: 12,
+      startMinute: 0,
+      startSecond: 0,
+    },
   },
   {
     // Web MIDI input — no embedded-hardware equivalent, so this is
@@ -2401,7 +2409,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   ButtonInput: 'Reads a hardware button as a boolean.',
   PotInput: 'Reads a potentiometer as a 0–1 value.',
   EncoderInput: 'Reads a rotary encoder — running position plus its push-button.',
-  RTCInput: 'Local clock fields in preview; firmware currently falls back to Valid=false.',
+  RTCInput: 'Browser preview plus firmware clock from compile time or manual start.',
   MidiInput: 'Web MIDI note velocity/gate + CC value from a controller. Preview-only.',
   MusicLibrary: 'Music source — double-click to drop tracks, analyse and export.',
   PerformanceGenerator: 'Converts analysed music into timed LED show files.',
@@ -2837,6 +2845,14 @@ const N01: PropertyControl = { control: 'slider', min: 0, max: 1, step: 0.01 }
 // via speedRange.ts); the simulation patterns use a steps-per-second rate, and
 // `rate` is a 0–1 emission rate for Particles but a degrees/sec spin for Transform.
 export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyControl>> = {
+  RTCInput: {
+    timeSource: { control: 'select', options: ['Compile Time', 'Manual'] },
+    startMonth: { control: 'slider', min: 1, max: 12, step: 1 },
+    startDay: { control: 'slider', min: 1, max: 31, step: 1 },
+    startHour: { control: 'slider', min: 0, max: 23, step: 1 },
+    startMinute: { control: 'slider', min: 0, max: 59, step: 1 },
+    startSecond: { control: 'slider', min: 0, max: 59, step: 1 },
+  },
   PaletteFromImage: {
     count: { control: 'slider', min: 2, max: 8, step: 1 },
   },
@@ -3223,6 +3239,15 @@ export const FORMULA_LANG_HELP = 'Variables: x, y, t, cx, cy, r, angle, W, H, a,
 
 /** Per-node overrides for property names whose meaning collides across nodes. */
 export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, string>> = {
+  RTCInput: {
+    timeSource: 'Compile Time seeds the firmware clock from the sketch build stamp; Manual uses the date and time entered below.',
+    startYear: 'Manual clock start year. Only used when Time source is Manual.',
+    startMonth: 'Manual clock start month (1-12). Only used when Time source is Manual.',
+    startDay: 'Manual clock start day of month. Only used when Time source is Manual.',
+    startHour: 'Manual clock start hour (24-hour). Only used when Time source is Manual.',
+    startMinute: 'Manual clock start minute. Only used when Time source is Manual.',
+    startSecond: 'Manual clock start second. Only used when Time source is Manual.',
+  },
   PaletteFromImage: {
     count: 'Number of representative colour anchors extracted before interpolation to 16 FastLED stops.',
   },
@@ -3287,6 +3312,15 @@ export function propertyDescription(nodeType: string, key: string): string | und
 
 /** Per-node overrides for a property's displayed label (defaults to the raw key). */
 export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
+  RTCInput: {
+    timeSource: 'time source',
+    startYear: 'year',
+    startMonth: 'month',
+    startDay: 'day',
+    startHour: 'hour',
+    startMinute: 'minute',
+    startSecond: 'second',
+  },
   PaletteFromImage: {
     count: 'Colors',
   },
@@ -3317,6 +3351,7 @@ export function propertyLabel(nodeType: string, key: string): string {
 // bounded sliders stay deliberately simple and predictable.
 const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
   'MatrixOutput', 'MicInput', 'ButtonInput', 'PotInput', 'EncoderInput',
+  'RTCInput',
   'MidiInput', 'SDCard',
 ])
 
@@ -3362,6 +3397,10 @@ export interface PropertyGroup {
  * property to one of these nodes degrades gracefully instead of disappearing.
  */
 export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
+  RTCInput: [
+    { key: 'source', label: 'Clock Source', keys: ['timeSource'] },
+    { key: 'manualStart', label: 'Manual Start', keys: ['startYear', 'startMonth', 'startDay', 'startHour', 'startMinute', 'startSecond'] },
+  ],
   MatrixOutput: [
     { key: 'routing', label: 'Frame Route', keys: ['routeMode', 'routeX', 'routeY'] },
     { key: 'wiring', label: 'Wiring', keys: ['chipset', 'colorOrder', 'dataPin', 'clockPin', 'serpentine'] },
@@ -3647,6 +3686,9 @@ const PARTICLE_BOUNCE_MODES = new Set(['gravity', 'waterfall'])
  *  inapplicable to the current variant (e.g. Transition `direction` only applies
  *  to a wipe), in which case the editor is shown disabled but keeps its value. */
 export function isPropertyEnabled(nodeType: string, key: string, properties: Record<string, unknown>): boolean {
+  if (nodeType === 'RTCInput') {
+    if (key.startsWith('start')) return String(properties.timeSource ?? 'Compile Time') === 'Manual'
+  }
   if (nodeType === 'PerformanceGenerator' && key === 'fixedPalette') {
     return String(properties.paletteMode ?? 'mood') === 'fixed'
   }
