@@ -4,6 +4,7 @@ import {
   BEAT_FLASH_ATTACK_MAX_SEC,
   VOCAL_AURORA_MAX_INPUT_GAIN,
   VOCAL_AURORA_MIN_INPUT_GAIN,
+  scheduleTimeOfDay,
 } from '../state/graphEvaluator'
 import {
   asFont, textBlockLayout, textAlignMode, textColumns, DEFAULT_FONT, FONT_H, FONT_W, TEXT_LINE_GAP,
@@ -1434,16 +1435,10 @@ export function generateCpp(
         const dayMode = String(p.dayMode ?? 'Every day')
         const requireSync = p.requireSync === true
         const enabledDefault = p.enable !== false
-        const startSec = Math.max(0, Math.min(86399,
-          intProp(p.startHour, 0, 0, 23) * 3600
-          + intProp(p.startMinute, 0, 0, 59) * 60
-          + intProp(p.startSecond, 0, 0, 59),
-        ))
-        const endSec = Math.max(0, Math.min(86399,
-          intProp(p.endHour, 0, 0, 23) * 3600
-          + intProp(p.endMinute, 0, 0, 59) * 60
-          + intProp(p.endSecond, 0, 0, 59),
-        ))
+        // Same per-field clamping the evaluator applies, via the shared helper,
+        // so preview and firmware resolve the same instant.
+        const startSec = scheduleTimeOfDay(p.startHour, p.startMinute, p.startSecond)
+        const endSec = scheduleTimeOfDay(p.endHour, p.endMinute, p.endSecond)
         const sunday = p.sunday !== false
         const monday = p.monday !== false
         const tuesday = p.tuesday !== false
@@ -1453,12 +1448,17 @@ export function generateCpp(
         const saturday = p.saturday !== false
         ln(`  static bool _schedulePrevActive_${id} = false;`)
         ln(`  static int32_t _scheduleLastPulseDay_${id} = -1;`)
+        // Previous usable seconds-of-day sample (negative = none), so Trigger
+        // mode fires on the crossing of its instant instead of only while
+        // inside a one-second window — see the evaluator's ScheduleState.
+        ln(`  static float _schedulePrevSeconds_${id} = -1.0f;`)
+        ln(`  static int32_t _schedulePrevDay_${id} = -1;`)
         ln(`  bool _scheduleValid_${id} = ${boolExpr(node.id, 'valid')};`)
         ln(`  bool _scheduleSynced_${id} = ${boolExpr(node.id, 'synced')};`)
         ln(`  bool _scheduleEnabled_${id} = ${incoming.has(`${node.id}:enable`) ? boolExpr(node.id, 'enable') : enabledDefault ? 'true' : 'false'};`)
         ln(`  int _scheduleWeekday_${id} = constrain((int)roundf(${floatExpr(node.id, 'weekday', p, 'weekday', 0)}), 0, 6);`)
         ln(`  float _scheduleSeconds_${id} = constrain(${floatExpr(node.id, 'secondsOfDay', p, 'secondsOfDay', 0)}, 0.0f, 86399.999f);`)
-        ln(`  int _scheduleDay_${id} = max(1, (int)roundf(${floatExpr(node.id, 'day', p, 'day', 1)}));`)
+        ln(`  int _scheduleDay_${id} = constrain((int)roundf(${floatExpr(node.id, 'day', p, 'day', 1)}), 1, 31);`)
         ln(`  int _scheduleMonth_${id} = constrain((int)roundf(${floatExpr(node.id, 'month', p, 'month', 1)}), 1, 12);`)
         ln(`  int _scheduleYear_${id} = max(1970, (int)roundf(${floatExpr(node.id, 'year', p, 'year', 1970)}));`)
         ln(`  bool _scheduleDayAllowed_${id} = true;`)
@@ -1482,21 +1482,44 @@ export function generateCpp(
         ln(`  bool ${v('active')} = false;`)
         ln(`  bool ${v('start')} = false;`)
         ln(`  bool ${v('end')} = false;`)
+        ln(`  float ${v('progress')} = 0.0f;`)
         ln(`  if (_scheduleEnabled_${id} && _scheduleTimeReady_${id} && _scheduleDayAllowed_${id}) {`)
         if (mode === 'Trigger') {
-          ln(`    if (_scheduleLastPulseDay_${id} != _scheduleDayKey_${id} && _scheduleSeconds_${id} >= ${startSec}.0f && _scheduleSeconds_${id} < ${startSec + 1}.0f) {`)
+          // A new calendar day puts the whole day ahead of us; no previous
+          // sample at all never fires, so a board booting after the instant
+          // does not back-fire.
+          ln(`    float _scheduleSince_${id} = _schedulePrevDay_${id} < 0 ? -2.0f`)
+          ln(`      : (_schedulePrevDay_${id} == _scheduleDayKey_${id} ? _schedulePrevSeconds_${id} : -1.0f);`)
+          ln(`    if (_scheduleSince_${id} > -2.0f && _scheduleSince_${id} < ${startSec}.0f && _scheduleSeconds_${id} >= ${startSec}.0f`)
+          ln(`        && _scheduleLastPulseDay_${id} != _scheduleDayKey_${id}) {`)
           ln(`      ${v('start')} = true;`)
           ln(`      _scheduleLastPulseDay_${id} = _scheduleDayKey_${id};`)
           ln(`    }`)
-        } else if (startSec <= endSec) {
-          ln(`    ${v('active')} = _scheduleSeconds_${id} >= ${startSec}.0f && _scheduleSeconds_${id} <= ${endSec}.0f;`)
         } else {
-          ln(`    ${v('active')} = _scheduleSeconds_${id} >= ${startSec}.0f || _scheduleSeconds_${id} <= ${endSec}.0f;`)
+          if (startSec <= endSec) {
+            ln(`    ${v('active')} = _scheduleSeconds_${id} >= ${startSec}.0f && _scheduleSeconds_${id} <= ${endSec}.0f;`)
+          } else {
+            ln(`    ${v('active')} = _scheduleSeconds_${id} >= ${startSec}.0f || _scheduleSeconds_${id} <= ${endSec}.0f;`)
+          }
+          // Mirrors scheduleWindowProgress: elapsed / span, both measured
+          // across the wrap when the window crosses midnight.
+          const span = endSec >= startSec ? endSec - startSec : 86400 - startSec + endSec
+          if (span > 0) {
+            ln(`    if (${v('active')}) {`)
+            ln(`      float _scheduleElapsed_${id} = _scheduleSeconds_${id} >= ${startSec}.0f`)
+            ln(`        ? _scheduleSeconds_${id} - ${startSec}.0f : ${86400 - startSec}.0f + _scheduleSeconds_${id};`)
+            ln(`      ${v('progress')} = constrain(_scheduleElapsed_${id} / ${span}.0f, 0.0f, 1.0f);`)
+            ln(`    }`)
+          }
         }
         ln(`  }`)
         ln(`  if (${v('active')} && !_schedulePrevActive_${id}) ${v('start')} = true;`)
         ln(`  if (!${v('active')} && _schedulePrevActive_${id}) ${v('end')} = true;`)
         ln(`  _schedulePrevActive_${id} = ${v('active')};`)
+        // Only remember a sample the clock vouched for, so the first frame
+        // after a sync is a fresh start rather than one giant jump.
+        ln(`  _schedulePrevSeconds_${id} = _scheduleTimeReady_${id} ? _scheduleSeconds_${id} : -1.0f;`)
+        ln(`  _schedulePrevDay_${id} = _scheduleTimeReady_${id} ? _scheduleDayKey_${id} : -1;`)
         break
       }
 

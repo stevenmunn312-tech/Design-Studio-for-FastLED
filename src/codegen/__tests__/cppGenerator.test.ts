@@ -2558,6 +2558,63 @@ describe('RTCInput (codegen)', () => {
   })
 })
 
+describe('ScheduleTrigger (codegen)', () => {
+  // The firmware trigger has to fire on the crossing, not while inside a
+  // one-second band, or a coarse clock or slow frame drops the day's pulse.
+  it('fires a trigger on the crossing and remembers the previous sample', () => {
+    const rtc = node('rtc', 'RTCInput', 'input', {})
+    const sched = node('sch', 'ScheduleTrigger', 'signal', {
+      scheduleMode: 'Trigger', startHour: 18, startMinute: 0, startSecond: 0,
+    })
+    const cpp = generateCpp([rtc, sched, outputNode], [
+      edge('e1', 'rtc', 'sch', 'valid', 'valid'),
+      edge('e2', 'rtc', 'sch', 'secondsOfDay', 'secondsOfDay'),
+    ])
+    expect(cpp).toContain('static float _schedulePrevSeconds_sch = -1.0f;')
+    expect(cpp).toContain('static int32_t _schedulePrevDay_sch = -1;')
+    expect(cpp).toContain('_scheduleSince_sch < 64800.0f && _scheduleSeconds_sch >= 64800.0f')
+    expect(cpp).toContain('_schedulePrevSeconds_sch = _scheduleTimeReady_sch ? _scheduleSeconds_sch : -1.0f;')
+  })
+
+  it('emits window progress with the span baked in', () => {
+    const sched = node('sch', 'ScheduleTrigger', 'signal', {
+      scheduleMode: 'Window', startHour: 18, endHour: 20,
+    })
+    const cpp = generateCpp([sched, outputNode], [])
+    expect(cpp).toContain('float n_sch_progress = 0.0f;')
+    // 18:00 → 20:00 is a 7200 s span starting at 64800 s.
+    expect(cpp).toContain('n_sch_progress = constrain(_scheduleElapsed_sch / 7200.0f, 0.0f, 1.0f);')
+  })
+
+  it('measures a midnight-wrapping window across the wrap', () => {
+    const sched = node('sch', 'ScheduleTrigger', 'signal', {
+      scheduleMode: 'Window', startHour: 22, endHour: 2,
+    })
+    const cpp = generateCpp([sched, outputNode], [])
+    // 22:00 → 02:00 is four hours, and the pre-midnight part is 7200 s long.
+    expect(cpp).toContain('n_sch_progress = constrain(_scheduleElapsed_sch / 14400.0f, 0.0f, 1.0f);')
+    expect(cpp).toContain('? _scheduleSeconds_sch - 79200.0f : 7200.0f + _scheduleSeconds_sch;')
+  })
+
+  // Both sides clamp the calendar day, so the one-pulse-per-day key matches.
+  it('clamps the day of month the same way the evaluator does', () => {
+    const sched = node('sch', 'ScheduleTrigger', 'signal', { scheduleMode: 'Trigger' })
+    expect(generateCpp([sched, outputNode], [])).toContain(
+      'int _scheduleDay_sch = constrain((int)roundf(1), 1, 31);',
+    )
+  })
+
+  // Summing before clamping mapped an out-of-range saved hour to a different
+  // instant than the evaluator reached.
+  it('clamps each time field before summing', () => {
+    const sched = node('sch', 'ScheduleTrigger', 'signal', {
+      scheduleMode: 'Window', startHour: 30, startMinute: 0, startSecond: 0, endHour: 23, endMinute: 59, endSecond: 59,
+    })
+    // Hour clamps to 23, not a total clamped to 86399.
+    expect(generateCpp([sched, outputNode], [])).toContain('_scheduleSeconds_sch >= 82800.0f')
+  })
+})
+
 describe('ClockDisplay (codegen)', () => {
   it('emits a dynamic bitmap text renderer for RTC-fed clock/date modes', () => {
     const rtc = node('rtc', 'RTCInput', 'input', {})

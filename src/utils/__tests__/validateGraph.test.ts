@@ -594,6 +594,35 @@ describe('validateGraph', () => {
       expect(warnings.some(w => w.includes('invalid manual RTC start date/time'))).toBe(true)
     })
 
+    // Schedule problems used to come back with an empty nodeIds, so clicking
+    // one in Graph Health could not select or fit the offending node.
+    it('attributes schedule warnings to the node that owns them', () => {
+      const nodes = [
+        node('sched', 'ScheduleTrigger', { scheduleMode: 'Window', startHour: 18, endHour: 20 }),
+        node('out', 'MatrixOutput', { width: 8, height: 8 }),
+      ]
+      const diagnostics = buildGraphDiagnostics(nodes, [edge('e1', 'sched', 'out', 'frame')], {})
+      const schedule = diagnostics.filter((issue) => issue.id.startsWith('schedule-'))
+      expect(schedule.length).toBeGreaterThan(0)
+      expect(schedule.every((issue) => issue.nodeIds.includes('sched'))).toBe(true)
+    })
+
+    it('warns when a schedule window starts and ends at the same time', () => {
+      const nodes = [
+        node('sched', 'ScheduleTrigger', {
+          scheduleMode: 'Window',
+          startHour: 18, startMinute: 30, startSecond: 0,
+          endHour: 18, endMinute: 30, endSecond: 0,
+        }),
+        node('rtc', 'RTCInput'),
+      ]
+      const { warnings } = validateGraph(nodes, [
+        edge('e1', 'rtc', 'sched', 'valid'),
+        edge('e2', 'rtc', 'sched', 'secondsOfDay'),
+      ])
+      expect(warnings.some((w) => w.includes('starts and ends at the same time'))).toBe(true)
+    })
+
     // Preview falls back to the browser clock, so a missing RTC wire is
     // invisible until the sketch is flashed and shows dashes forever.
     it('flags a clock-mode ClockDisplay with no time source wired', () => {

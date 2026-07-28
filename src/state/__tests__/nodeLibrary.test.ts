@@ -396,6 +396,15 @@ describe('nodeLibrary', () => {
     expect(isPropertyEnabled('RTCInput', 'ntpServer', { timeSource: 'Manual' })).toBe(false)
   })
 
+  it('ScheduleTrigger exposes window state, both pulses, and window progress', () => {
+    const sched = NODE_LIBRARY.find((n) => n.type === 'ScheduleTrigger')
+    expect(sched?.category).toBe('signal')
+    expect(sched?.outputs.map((port) => port.id)).toEqual(['active', 'start', 'end', 'progress'])
+    // End-of-window fields only make sense for the Window mode.
+    expect(isPropertyEnabled('ScheduleTrigger', 'endHour', { scheduleMode: 'Window' })).toBe(true)
+    expect(isPropertyEnabled('ScheduleTrigger', 'endHour', { scheduleMode: 'Trigger' })).toBe(false)
+  })
+
   it('ClockDisplay offers RTC-fed clock layouts plus stopwatch/timer controls', () => {
     const clock = NODE_LIBRARY.find((n) => n.type === 'ClockDisplay')
     expect(clock?.category).toBe('pattern')

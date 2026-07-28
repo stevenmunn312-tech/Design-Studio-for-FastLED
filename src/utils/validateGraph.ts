@@ -189,23 +189,46 @@ function findNetworkConfigWarnings(nodes: StudioNode[]): string[] {
   return warnings
 }
 
-function findScheduleWarnings(nodes: StudioNode[], edges: StudioEdge[]): string[] {
+/** Schedule problems, each attributed to the node that owns it so the Graph
+ *  Health drawer can select and fit it like every other node diagnostic. */
+function findScheduleIssues(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+): { nodeId: string; message: string; fix: string }[] {
   const incoming = new Set(edges.filter((edge) => edge.target && edge.targetHandle).map((edge) => `${edge.target}:${edge.targetHandle}`))
-  const warnings: string[] = []
+  const issues: { nodeId: string; message: string; fix: string }[] = []
   for (const node of nodes) {
     if (node.data.nodeType !== 'ScheduleTrigger') continue
     const label = String(node.data.label ?? node.data.nodeType)
     if (!incoming.has(`${node.id}:secondsOfDay`) || !incoming.has(`${node.id}:valid`)) {
-      warnings.push(`${label} should be wired to an RTC Clock valid + seconds-of-day feed`)
+      issues.push({
+        nodeId: node.id,
+        message: `${label} should be wired to an RTC Clock valid + seconds-of-day feed`,
+        fix: 'Wire an RTC Clock node’s Valid and Seconds Today outputs into this schedule.',
+      })
     }
     const props = node.data.properties as Record<string, unknown>
     if (String(props.scheduleMode ?? 'Window') === 'Window') {
       const start = Number(props.startHour ?? 0) * 3600 + Number(props.startMinute ?? 0) * 60 + Number(props.startSecond ?? 0)
       const end = Number(props.endHour ?? 0) * 3600 + Number(props.endMinute ?? 0) * 60 + Number(props.endSecond ?? 0)
-      if (!Number.isFinite(start) || !Number.isFinite(end)) warnings.push(`${label} has an invalid schedule time`)
+      if (!Number.isFinite(start) || !Number.isFinite(end)) {
+        issues.push({
+          nodeId: node.id,
+          message: `${label} has an invalid schedule time`,
+          fix: 'Set the start and end hour/minute/second to real numbers.',
+        })
+      } else if (start === end) {
+        // `active` uses an inclusive compare, so an equal start/end is on for a
+        // single instant — almost always a half-finished window, not intent.
+        issues.push({
+          nodeId: node.id,
+          message: `${label} starts and ends at the same time, so it is only ever active for that one instant`,
+          fix: 'Move the end time later than the start, or switch the node to Trigger mode for a one-shot pulse.',
+        })
+      }
     }
   }
-  return warnings
+  return issues
 }
 
 export interface PowerEstimate {
@@ -752,15 +775,17 @@ export function buildGraphDiagnostics(
     })
   })
 
-  findScheduleWarnings(nodes, edges).forEach((message, index) => {
+  findScheduleIssues(nodes, edges).forEach((issue, index) => {
+    const node = nodes.find((entry) => entry.id === issue.nodeId)
     diagnostics.push({
-      id: `schedule-${index}`,
+      id: `schedule-${issue.nodeId}-${index}`,
       severity: 'warning',
       category: 'connection',
       title: 'Schedule setup is incomplete',
-      message,
-      fix: 'Wire the schedule to an RTC Clock node and verify its day/time settings.',
-      nodeIds: [],
+      message: issue.message,
+      fix: issue.fix,
+      nodeIds: [issue.nodeId],
+      nodeLabel: node ? nodeLabel(node) : undefined,
     })
   })
 
@@ -944,7 +969,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   warnings.push(...findPreviewOnlyWarnings(nodes, edges))
   warnings.push(...findRtcWarnings(nodes))
   warnings.push(...findNetworkConfigWarnings(nodes))
-  warnings.push(...findScheduleWarnings(nodes, edges))
+  warnings.push(...findScheduleIssues(nodes, edges).map((issue) => issue.message))
   warnings.push(...findPinRangeWarnings(nodes))
   warnings.push(...findBoardPinCompatibility(nodes, selectedFqbn).warnings)
 

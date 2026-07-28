@@ -82,6 +82,13 @@ const triggerState = new Map<string, TriggerState>()
 interface ScheduleState {
   prevActive: boolean
   lastPulseDay: number
+  /** Previous in-range seconds-of-day sample, or null when the clock was not
+   *  usable last frame. Trigger mode fires on the *crossing* of its scheduled
+   *  instant rather than while inside a one-second window, so a coarse RTC, a
+   *  slow frame, or a clock correction can't silently skip the day's pulse —
+   *  and a board that boots after the instant does not back-fire. */
+  prevSeconds: number | null
+  prevDayKey: number
 }
 const scheduleState = new Map<string, ScheduleState>()
 // Clock/Transport node — free-runs from `resetOffset`; a `tap`/`sync` rising
@@ -4168,6 +4175,27 @@ function scheduleDayEnabled(
   return props[dayKeys[Math.max(0, Math.min(6, Math.round(weekday)))] ?? 'sunday'] !== false
 }
 
+/** A ScheduleTrigger hour/minute/second triple as seconds-of-day. Each field is
+ *  clamped to its own range first (matching the C++ generator's `intProp`), so
+ *  an out-of-range saved value resolves to the same instant in both. */
+export function scheduleTimeOfDay(hour: unknown, minute: unknown, second: unknown): number {
+  const part = (value: unknown, max: number) => {
+    const n = Math.round(Number(value ?? 0))
+    return Number.isFinite(n) ? Math.max(0, Math.min(max, n)) : 0
+  }
+  return part(hour, 23) * 3600 + part(minute, 59) * 60 + part(second, 59)
+}
+
+/** How far through an active window `seconds` sits, 0→1. Windows that wrap past
+ *  midnight (start > end) measure across the wrap. Shared shape with the C++
+ *  generator, which bakes the constants at generation time. */
+export function scheduleWindowProgress(seconds: number, startSec: number, endSec: number): number {
+  const span = endSec >= startSec ? endSec - startSec : 86400 - startSec + endSec
+  if (span <= 0) return 0
+  const elapsed = seconds >= startSec ? seconds - startSec : 86400 - startSec + seconds
+  return Math.max(0, Math.min(1, elapsed / span))
+}
+
 function createEvalNode(
   nodes: StudioNode[],
   edges: StudioEdge[],
@@ -5820,29 +5848,30 @@ function createEvalNode(
         const month = Math.max(1, Math.min(12, Math.round(Number(input(id, 'month', 1)))))
         const year = Math.max(1970, Math.round(Number(input(id, 'year', 1970))))
         const requireSync = props.requireSync === true
-        const startSec = Math.max(0, Math.min(86399,
-          Math.round(Number(props.startHour ?? 0)) * 3600
-          + Math.round(Number(props.startMinute ?? 0)) * 60
-          + Math.round(Number(props.startSecond ?? 0))
-        ))
-        const endSec = Math.max(0, Math.min(86399,
-          Math.round(Number(props.endHour ?? 0)) * 3600
-          + Math.round(Number(props.endMinute ?? 0)) * 60
-          + Math.round(Number(props.endSecond ?? 0))
-        ))
+        // Clamp each field to its own slider range before summing, exactly like
+        // the C++ generator's intProp — summing first and clamping the total
+        // maps an out-of-range saved value to a different time than firmware.
+        const startSec = scheduleTimeOfDay(props.startHour, props.startMinute, props.startSecond)
+        const endSec = scheduleTimeOfDay(props.endHour, props.endMinute, props.endSecond)
         const dayKey = year * 10_000 + month * 100 + day
-        const prev = scheduleState.get(key) ?? { prevActive: false, lastPulseDay: -1 }
+        const prev = scheduleState.get(key)
+          ?? { prevActive: false, lastPulseDay: -1, prevSeconds: null, prevDayKey: -1 }
         const dayAllowed = scheduleDayEnabled(dayMode, weekday, props)
         const timeReady = valid && (!requireSync || synced)
 
         let active = false
         let start = false
         let end = false
+        let progress = 0
 
         if (enabled && timeReady && dayAllowed) {
           if (mode === 'Trigger') {
             active = false
-            if (prev.lastPulseDay !== dayKey && secondsOfDay >= startSec && secondsOfDay < startSec + 1) {
+            // A new calendar day means the whole day lies ahead of us, so treat
+            // the previous sample as "before midnight"; no previous sample at
+            // all (first frame, or the clock was unusable) never fires.
+            const since = prev.prevDayKey < 0 ? null : (prev.prevDayKey === dayKey ? prev.prevSeconds : -1)
+            if (since !== null && since < startSec && secondsOfDay >= startSec && prev.lastPulseDay !== dayKey) {
               start = true
               prev.lastPulseDay = dayKey
             }
@@ -5851,12 +5880,20 @@ function createEvalNode(
           } else {
             active = secondsOfDay >= startSec || secondsOfDay <= endSec
           }
+          if (active) progress = scheduleWindowProgress(secondsOfDay, startSec, endSec)
         }
 
         if (active && !prev.prevActive) start = true
         if (!active && prev.prevActive) end = true
-        scheduleState.set(key, { prevActive: active, lastPulseDay: prev.lastPulseDay })
-        out = { active, start, end }
+        scheduleState.set(key, {
+          prevActive: active,
+          lastPulseDay: prev.lastPulseDay,
+          // Only remember a sample the clock actually vouched for, so the first
+          // frame after a sync is a fresh start rather than a giant jump.
+          prevSeconds: timeReady ? secondsOfDay : null,
+          prevDayKey: timeReady ? dayKey : -1,
+        })
+        out = { active, start, end, progress }
         break
       }
 

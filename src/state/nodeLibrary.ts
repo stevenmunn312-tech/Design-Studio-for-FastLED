@@ -1449,6 +1449,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'active', label: 'Active', dataType: 'bool' },
       { id: 'start', label: 'Start Pulse', dataType: 'bool' },
       { id: 'end', label: 'End Pulse', dataType: 'bool' },
+      // How far through the window we are (0→1), so a schedule can drive a
+      // fade or ramp instead of only a hard on/off. Always 0 in Trigger mode.
+      { id: 'progress', label: 'Progress', dataType: 'float' },
     ],
     defaultProperties: {
       scheduleMode: 'Window',
