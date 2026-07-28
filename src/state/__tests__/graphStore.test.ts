@@ -581,6 +581,22 @@ describe('graphStore — loadGraph normalization', () => {
     expect(dataOf('mic').properties.gain).toBe(1)
   })
 
+  it('backfills AudioHue band weights with the mix that used to be hardcoded', () => {
+    const hue = node('ah', 'AudioHue', { bass: 0.5, mids: 0.5, treble: 0.5 })
+    useGraphStore.getState().loadGraph([hue], [])
+    expect(dataOf('ah').properties).toMatchObject({
+      bassWeight: 0.5, midsWeight: 0.3, trebleWeight: 0.2,
+    })
+  })
+
+  it('keeps AudioHue band weights the user already chose', () => {
+    const hue = node('ah', 'AudioHue', { bass: 0.5, bassWeight: 0, midsWeight: 1 })
+    useGraphStore.getState().loadGraph([hue], [])
+    expect(dataOf('ah').properties).toMatchObject({
+      bassWeight: 0, midsWeight: 1, trebleWeight: 0.2,
+    })
+  })
+
   it('refreshes saved ports from the node library on load', () => {
     const perf = node('pg', 'PerformanceGenerator')
     perf.data.inputs = [

@@ -4226,6 +4226,15 @@ export function scheduleTimeOfDay(hour: unknown, minute: unknown, second: unknow
   return part(hour, 23) * 3600 + part(minute, 59) * 60 + part(second, 59)
 }
 
+/** One AudioHue band weight, clamped to the slider's 0–1 range. `fallback` is
+ *  the mix that used to be hardcoded (bass 0.5 / mids 0.3 / treble 0.2), so a
+ *  save made before the weights existed resolves to the identical hue. Shared
+ *  with the C++ generator, which bakes the resolved weights as literals. */
+export function audioHueWeight(value: unknown, fallback: number): number {
+  const n = Number(value)
+  return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : fallback
+}
+
 /** How far through an active window `seconds` sits, 0→1. Windows that wrap past
  *  midnight (start > end) measure across the wrap. Shared shape with the C++
  *  generator, which bakes the constants at generation time. */
@@ -6565,7 +6574,13 @@ function createEvalNode(
         const bass   = num(id, 'bass',   props, 'bass',   0.5)
         const mids   = num(id, 'mids',   props, 'mids',   0.5)
         const treble = num(id, 'treble', props, 'treble', 0.5)
-        out = { hue: (bass * 0.5 + mids * 0.3 + treble * 0.2) * 360 }
+        // The 0.5/0.3/0.2 mix used to be hardcoded here and in cppGenerator;
+        // it is now the default of three editable weights. Missing properties
+        // (older saves) fall back to exactly that mix, so the hue is unchanged.
+        const bw = audioHueWeight(props.bassWeight,   0.5)
+        const mw = audioHueWeight(props.midsWeight,   0.3)
+        const tw = audioHueWeight(props.trebleWeight, 0.2)
+        out = { hue: (bass * bw + mids * mw + treble * tw) * 360 }
         break
       }
 

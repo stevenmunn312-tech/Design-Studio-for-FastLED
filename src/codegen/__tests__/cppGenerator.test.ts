@@ -1951,6 +1951,16 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).not.toContain('uint8_t n_ah_hue')
   })
 
+  it('bakes Audio to Hue band weights as literals', () => {
+    const audioHue = node('ah', 'AudioHue', 'audio', {
+      bass: 1, mids: 0.5, treble: 0.25,
+      bassWeight: 0, midsWeight: 0.2, trebleWeight: 1,
+    })
+    const cpp = generateCpp([audioHue, out], [])
+
+    expect(cpp).toContain('float n_ah_hue = ((1)*0.0f+(0.5)*0.2f+(0.25)*1.0f)*360.0f;')
+  })
+
   it('keeps Turbulent Bloom responsive across FastLED\'s upper bass range', () => {
     const bloom = node('tb', 'TurbulentBloom', 'pattern', { bass: 0.8, mids: 0.5, treble: 0.5 })
     const cpp = generateCpp([bloom, out], [edge('tb-out', 'tb', 'out', 'frame', 'frame')])

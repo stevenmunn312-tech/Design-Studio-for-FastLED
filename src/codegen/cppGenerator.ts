@@ -4,6 +4,7 @@ import {
   BEAT_FLASH_ATTACK_MAX_SEC,
   VOCAL_AURORA_MAX_INPUT_GAIN,
   VOCAL_AURORA_MIN_INPUT_GAIN,
+  audioHueWeight,
   scheduleTimeOfDay,
 } from '../state/graphEvaluator'
 import {
@@ -4663,10 +4664,16 @@ export function generateCpp(
 
       case 'AudioHue': {
         const bass = f('bass','bass',0.5), mids = f('mids','mids',0.5), treble = f('treble','treble',0.5)
+        // Band weights are node properties, not ports, so they bake in as
+        // literals. audioHueWeight() is shared with the evaluator, including
+        // its pre-weights fallback mix, so preview and firmware agree.
+        const bw = floatLit(audioHueWeight(p.bassWeight,   0.5))
+        const mw = floatLit(audioHueWeight(p.midsWeight,   0.3))
+        const tw = floatLit(audioHueWeight(p.trebleWeight, 0.2))
         // The port contract is degrees (0..360), matching the evaluator and
         // HSVToRGB.  Keeping this as a byte silently compressed firmware hues
         // into 0..255 degrees and made the same patch change colour on-device.
-        ln(`  float ${v('hue')} = ((${bass})*0.5f+(${mids})*0.3f+(${treble})*0.2f)*360.0f;`)
+        ln(`  float ${v('hue')} = ((${bass})*${bw}+(${mids})*${mw}+(${treble})*${tw})*360.0f;`)
         break
       }
 

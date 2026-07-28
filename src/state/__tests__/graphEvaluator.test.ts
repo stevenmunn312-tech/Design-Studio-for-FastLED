@@ -1486,6 +1486,25 @@ describe('evaluateGraph', () => {
     expect(result).toBeCloseTo((1 * 0.5 + 0.5 * 0.3 + 0.25 * 0.2) * 360)
   })
 
+  it('Audio to Hue honours editable band weights', () => {
+    const audioHue = node('ah-w', 'AudioHue', 'audio', {
+      bass: 1, mids: 0.5, treble: 0.25,
+      bassWeight: 0, midsWeight: 0.2, trebleWeight: 1,
+    })
+    const result = evaluateScalar([audioHue], [], 'ah-w', 'hue', 0)
+    expect(result).toBeCloseTo((1 * 0 + 0.5 * 0.2 + 0.25 * 1) * 360)
+  })
+
+  it('Audio to Hue clamps out-of-range weights to the slider bounds', () => {
+    const audioHue = node('ah-clamp', 'AudioHue', 'audio', {
+      bass: 1, mids: 1, treble: 1,
+      bassWeight: 5, midsWeight: -3, trebleWeight: 'oops',
+    })
+    const result = evaluateScalar([audioHue], [], 'ah-clamp', 'hue', 0)
+    // 5 → 1, -3 → 0, and a non-numeric value falls back to treble's old 0.2.
+    expect(result).toBeCloseTo((1 * 1 + 1 * 0 + 1 * 0.2) * 360)
+  })
+
   it('Turbulent Bloom retains brightness response in FastLED\'s upper bass range', () => {
     const brightnessAt = (bass: number) => {
       const bloom = node('tb-upper-bass', 'TurbulentBloom', 'pattern', {
