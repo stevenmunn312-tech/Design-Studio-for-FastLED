@@ -9,6 +9,18 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Added DMX / Art-Net input. A **DMX / Art-Net** source node carries one
+  512-channel universe down a single `dmx` wire, and a **DMX Channel** node
+  decodes one slot into a normalized value, a raw byte, and active/changed
+  flags. Preview receives Art-Net through a UDP listener in the local helper,
+  with connection, packet-rate, and live-channel status on the node. Generated
+  firmware implements both transports: Art-Net over Wi-Fi on ESP32/ESP8266, and
+  real DMX512 through an RS-485 transceiver on ESP32 (`esp_dmx`, vendored
+  automatically by the `fbuild` engine). Validation blocks DMX512 on non-ESP32
+  targets and network modes on boards without Wi-Fi, folds the DMX UART pins
+  into the shared GPIO conflict check, and flags missing or conflicting Wi-Fi
+  settings. Experimental until a hardware validation pass is recorded.
+
 - Added multiple Matrix Output routes in one project. Each route can select an
   independent frame branch and configure its own pins, chipset/color order,
   dimensions, physical layout, brightness, and fit/crop mapping. Preview can
@@ -29,6 +41,15 @@ versioning (`0.y.z`) until the first stable release.
   preview-only behavior, output power, internal RAM, show structure, and board
   compatibility. Each issue includes a specific repair and can locate the
   affected node or open the relevant workspace control.
+
+### Security
+
+- Wi-Fi credentials entered for Art-Net input or NTP time sync are held in a
+  browser-local store keyed by node id instead of as node properties, so they
+  never travel in project files, share links, or the helper-backed `Projects/`
+  mirror. Previously saved values migrate into the local store and are stripped
+  from the project on load. Generated firmware still embeds the credential in
+  plain text, since a sketch has no other way to join a network.
 
 ## [0.3.0] - 2026-07-20
 

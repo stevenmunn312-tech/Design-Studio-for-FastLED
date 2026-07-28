@@ -30,6 +30,18 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Encoder example graph](../../public/node-cards/graphs/encoder-input.svg)
 
+### DMX / Art-Net
+
+![DMX / Art-Net node](../../public/node-cards/dmx-input.svg)
+
+![DMX / Art-Net example graph](../../public/node-cards/graphs/dmx-input.svg)
+
+### RTC Clock
+
+![RTC Clock node](../../public/node-cards/rtc-input.svg)
+
+![RTC Clock example graph](../../public/node-cards/graphs/rtc-input.svg)
+
 ### MIDI
 
 ![MIDI node](../../public/node-cards/midi-input.svg)
@@ -135,6 +147,18 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Clock node](../../public/node-cards/clock.svg)
 
 ![Clock example graph](../../public/node-cards/graphs/clock.svg)
+
+### Schedule Trigger
+
+![Schedule Trigger node](../../public/node-cards/schedule-trigger.svg)
+
+![Schedule Trigger example graph](../../public/node-cards/graphs/schedule-trigger.svg)
+
+### DMX Channel
+
+![DMX Channel node](../../public/node-cards/dmx-channel.svg)
+
+![DMX Channel example graph](../../public/node-cards/graphs/dmx-channel.svg)
 
 ## Math & Logic
 
@@ -333,6 +357,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Text node](../../public/node-cards/text.svg)
 
 ![Text example graph](../../public/node-cards/graphs/text.svg)
+
+### Clock Display
+
+![Clock Display node](../../public/node-cards/clock-display.svg)
+
+![Clock Display example graph](../../public/node-cards/graphs/clock-display.svg)
 
 ### Circle
 

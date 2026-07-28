@@ -68,6 +68,24 @@ Unless a future row says otherwise, treat the following as experimental:
 - Baked song envelopes and collection-driven modulation in the music-show
   pipeline.
 - SD show provisioning and player upload (music-sync shows remain experimental).
+- **DMX / Art-Net input, in every mode.** No hardware pass has been recorded
+  for either transport. Two separate runs are needed before any part of this
+  graduates:
+  - **Art-Net firmware** (ESP32 / ESP8266): a generated sketch joins Wi-Fi,
+    receives a universe from a real controller or desk, and drives the matrix.
+  - **DMX512 firmware** (ESP32 only): a generated sketch reads a real DMX line
+    through an RS-485 transceiver on the configured UART pins.
+  - **Helper-backed Art-Net preview** is browser + helper only and never
+    touches a board, so it graduates with the Art-Net firmware run rather than
+    as its own row. Note that preview holds exactly one live universe.
+- **Wi-Fi-dependent firmware generally**, including NTP time sync for the RTC
+  Clock node — no board has confirmed a real network connection, and neither
+  the software clock's drift nor an actual NTP sync has been validated.
+
+  Everything above is covered by unit, codegen, and backend tests only. A DMX
+  hardware row also needs the transceiver part number and wiring, the
+  controller/desk software and version, and the universe and channels
+  exercised, in addition to the six fields listed below.
 
 ## How to graduate a new supported row
 
