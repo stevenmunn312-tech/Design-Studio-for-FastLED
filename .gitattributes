@@ -3,3 +3,15 @@
 *.bat     text eol=crlf
 *.sh      text eol=lf
 *.command text eol=lf
+
+# Node reference cards are written by `npm run gen:node-cards` with LF. Without
+# this, core.autocrlf=true checks them out as CRLF, so on Windows every
+# regenerated file reads as modified in `git status` while `git diff` shows
+# nothing — the blobs normalize to identical content. Pinning LF makes a
+# no-op regeneration leave a genuinely clean tree.
+#
+# They are also marked generated so review tools collapse them: a routine
+# regeneration is a five-figure line diff that nobody should read by hand. Edit
+# the generator, never these files.
+public/node-cards/**/*.svg   text eol=lf linguist-generated=true
+docs/reference/node-cards.md text eol=lf linguist-generated=true
