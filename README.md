@@ -190,6 +190,35 @@ For DMX512, `fbuild` vendors the `esp_dmx` library automatically on the first bu
 
 The same Wi-Fi connection is shared by every Art-Net input and every NTP clock in one sketch, so configure them identically; Graph Health warns when they disagree.
 
+## RTC clock and time-of-day scheduling
+
+**Experimental — no hardware validation pass has been recorded yet.** The software clock's drift and a real NTP sync are both unverified; see the [Beta support matrix](docs/release/beta-support-matrix.md).
+
+```text
+RTC Clock → Schedule Trigger → any bool/float input
+RTC Clock → Clock Display
+```
+
+**RTC Clock** publishes `valid`, `synced`, `stale`, the calendar fields, and `secondsOfDay` from a `timeSource` you pick on the node:
+
+- **Compile Time** — seeds from the sketch's own build stamp. Works on every board, needs no configuration, and is always `valid`/`synced`. It drifts from the moment it's flashed and never corrects itself.
+- **Manual** — seeds from a date/time you type into the node. Works on every board. Preview runs it forward from that seed in real time, which doubles as a schedule simulator: set it to 17:59:50 and watch an 18:00 window open without waiting.
+- **NTP** — seeds from the build stamp, then corrects to the real time once Wi-Fi connects and a sync succeeds. Requires a Wi-Fi-capable board (ESP32-family or ESP8266 — see the capability table below) plus an SSID/password and an NTP server on the node. Before sync, `synced` is false and `stale` is true so downstream logic can tell a fresh boot from a trusted clock; use `Schedule Trigger`'s `requireSync` input to gate on the confirmed sync rather than the drifting fallback.
+
+**Schedule Trigger** reads the clock and produces either a **Window** (an `active` level plus `start`/`end` pulses, wrapping correctly across midnight, with a `progress` 0→1 output for driving a fade) or a **Trigger** (one pulse at a chosen time, at most once per day). Both are gated by a day-of-week rule (every day, weekdays, weekends, or custom days) and an `enable` input.
+
+**Clock Display** renders the clock: four digital layouts, two analog faces, or a local Stopwatch/Timer that ignores the RTC and keeps its own state. With no time source wired it shows `--:--` and Graph Health warns that the preview's browser-clock fallback will not survive a flash.
+
+There is no external RTC module (DS3231 or similar) in this version — every source is a software clock, and there is no timezone database or DST handling, only a fixed `timezoneOffsetMinutes` offset. NTP credentials follow the same browser-local storage and plain-text-in-firmware rules as Art-Net, described above.
+
+### Board × time source
+
+| Time source | Works on | Notes |
+| --- | --- | --- |
+| Compile Time | Every board | No configuration; drifts from flash time and never corrects |
+| Manual | Every board | Seed typed into the node; drifts the same way once running |
+| NTP | ESP32-family (S3, S2, C3, C6, H2, classic) and ESP8266 | Needs Wi-Fi + an NTP server; blocked by validation on every other board in the catalogue, including boards with their own Wi-Fi radio (e.g. Arduino UNO R4 WiFi) — that combination isn't wired up yet |
+
 ## Projects and saving
 
 - **Project:** your normal named, autosaved workspace.

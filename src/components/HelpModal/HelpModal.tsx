@@ -387,6 +387,35 @@ function UploadTab() {
       <div className={styles.divider} />
 
       <div className={styles.section}>
+        <div className={styles.sectionTitle}>RTC clock and scheduling hardware setup</div>
+        <div className={styles.text}>
+          An <strong>RTC Clock</strong> node publishes calendar fields and a <code>valid</code>/<code>synced</code>/<code>stale</code> status; <strong>Schedule Trigger</strong> and <strong>Clock Display</strong> read it through ordinary ports. <strong>Experimental</strong> — no hardware pass has confirmed either the software clock's drift or a real NTP sync yet.
+        </div>
+        <div className={styles.tipList}>
+          <div className={styles.tip}>
+            <div className={styles.tipIcon}>◇</div>
+            <div className={styles.tipText}>
+              Pick a <strong>time source</strong> on the RTC Clock node. <strong>Compile Time</strong> and <strong>Manual</strong> work on every board with no network — Manual seeds from a date/time you type in, and preview runs it forward in real time so you can rehearse a schedule without waiting for the actual hour. <strong>NTP</strong> needs a Wi-Fi-capable board (ESP32-family or ESP8266) plus an SSID, password, and NTP server.
+            </div>
+          </div>
+          <div className={styles.tip}>
+            <div className={styles.tipIcon}>◇</div>
+            <div className={styles.tipText}>
+              With NTP selected, the sketch runs from its compile-time build stamp (<code>synced</code> false, <code>stale</code> true) until Wi-Fi connects and a sync actually completes — it never sits dark waiting on the network. Wire Schedule Trigger's <code>requireSync</code> input when a schedule must not fire on the unsynced fallback clock.
+            </div>
+          </div>
+          <div className={styles.tip}>
+            <div className={styles.tipIcon}>◇</div>
+            <div className={styles.tipText}>
+              NTP credentials follow the same rules as Art-Net: stored only in this browser's local storage, never in the project, share links, or synced project files, but embedded in plain text in the generated sketch. One sketch shares a single Wi-Fi connection across every Art-Net input and NTP clock — Graph Health flags it when they disagree, and warns when a Clock Display has no time source wired at all (it will show <code>--:--</code> on real hardware).
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
         <div className={styles.sectionTitle}>Board catalogue (out of the box)</div>
         <div className={styles.text}>
           Studio ships a starter board catalogue including ESP32-S3, ESP32, ESP8266, Arduino Uno, Arduino Nano, Arduino Mega, Teensy 4.1, RP2040 (Pico), and Arduino Nano 33 IoT, plus any custom boards you add yourself. As of July 26, 2026, the recorded public-beta support rows cover both <strong>ESP32-S3 + 16×16 WS2812B matrix</strong> and <strong>ESP8266 + 10×1 WS2812B strip</strong>, including normal Upload, Flash Wiring Test, and Flash Stream Receiver + Live Stream paths for those exact combos. Everything else should still be treated as experimental until it is added to the <a className={styles.link} href={`${REPO_URL}/blob/main/docs/release/beta-support-matrix.md`} target="_blank" rel="noopener noreferrer">beta support matrix</a>.

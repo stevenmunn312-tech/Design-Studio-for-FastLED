@@ -87,6 +87,34 @@ Unless a future row says otherwise, treat the following as experimental:
   controller/desk software and version, and the universe and channels
   exercised, in addition to the six fields listed below.
 
+### RTC Clock: board × time-source capability matrix
+
+`RTCInput`'s `timeSource` picks how firmware seeds its clock; which boards
+each source is allowed on is enforced in `validateGraph.ts`
+(`findBoardCompatibilityErrors`), not just implied by the docs above:
+
+| Time source | Allowed boards | Enforced by validation | Hardware validated |
+| --- | --- | --- | --- |
+| Compile Time | Every board in the catalogue | No board restriction | No |
+| Manual | Every board in the catalogue | No board restriction | No |
+| NTP | ESP32-family (S3, S2, C3, C6, H2, classic) and ESP8266 | Yes — blocked on every other board | No |
+
+Notes:
+
+- The NTP restriction is keyed on FQBN prefix (`esp32:` / `esp8266:`), not on
+  whether a board actually has a Wi-Fi radio. **Arduino UNO R4 WiFi** is in the
+  board catalogue and does have Wi-Fi hardware, but is not an ESP32/ESP8266
+  FQBN, so NTP is currently blocked on it too — a known gap, not a validated
+  "unsupported" result.
+- Art-Net input (see above) is gated by the identical ESP32-family-or-ESP8266
+  check and shares this same open hardware-validation gap.
+- Compile Time and Manual need no network and are not blocked on any board,
+  but neither has a recorded drift measurement — see the note below.
+- No external RTC chip (DS3231 or similar) is supported in v1 on any board;
+  every source is a free-running software clock. See
+  [`rtc-clock-and-schedule.md`](../development/design/rtc-clock-and-schedule.md)
+  for the full decision record.
+
 ## How to graduate a new supported row
 
 When a new combo is validated, record all of the following in the same note or

@@ -9,6 +9,22 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Added an RTC clock and time-of-day scheduling. An **RTC Clock** source node
+  publishes calendar fields plus `valid`/`synced`/`stale` status from one of
+  three time sources: the sketch's compile-time build stamp, a manually
+  entered date/time, or NTP over Wi-Fi. A **Schedule Trigger** node reads that
+  clock through ordinary ports and fires a time-of-day window (with a 0–1
+  progress output) or a one-shot daily trigger, gated by day-of-week rules. A
+  **Clock Display** node renders the time as a digital or analog face, or runs
+  as a local stopwatch/timer. Preview mirrors whichever time source is
+  selected, generated firmware runs a free-running software clock seeded from
+  that source (NTP corrects it once Wi-Fi/sync succeed rather than staying
+  dark until then), and Graph Health flags unsupported boards, incomplete
+  schedules, and an unwired clock display. NTP time sync shares the same
+  Wi-Fi bootstrap and browser-local credential store as Art-Net input.
+  Experimental until a hardware validation pass — clock drift and a real NTP
+  sync — is recorded.
+
 - Added DMX / Art-Net input. A **DMX / Art-Net** source node carries one
   512-channel universe down a single `dmx` wire, and a **DMX Channel** node
   decodes one slot into a normalized value, a raw byte, and active/changed
