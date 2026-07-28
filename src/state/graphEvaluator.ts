@@ -384,6 +384,25 @@ function markStateUsed(key: string): string {
   return key
 }
 
+// Every per-instance state collection, in one place: both the idle sweep and
+// the full reset below must cover all of them or state leaks past its owner.
+// Built on first use, not at module scope — some of these maps (fire2012Heat)
+// are declared further down the file, so a module-level array would capture
+// them before they are initialized.
+type StateMap = { delete: (key: string) => boolean; clear: () => void }
+let _stateMaps: StateMap[] | null = null
+function stateMaps(): StateMap[] {
+  return _stateMaps ??= [
+    fireHeat, flashLevel, counterVals, intervalLast, smoothState, holdState,
+    envState, dmxChannelState, trailState, frameFeedbackState, fftLevels, beatLevels, clockState, clockDisplayState, fireRngState,
+    seededRngState, triggerState, scheduleState, particleState, particleSeedState, patternShowState,
+    percussionLevels, audioFeatureLevels,
+    rdState, golState, waveSimState, flowState, colorTrailsState, spectrumVisualizerState, starState, boidState, sparkState, fire2012Heat,
+    kickShockState, kaleidoPunch, percussionBlobsState, emberBurst,
+    rainRipplesState, prismOrientation, driftPhase,
+  ]
+}
+
 /** Drop persistent evaluator buffers that have not participated in a recent
  * evaluation. Exported so graph lifecycle code/tests can force an immediate
  * sweep; normal preview evaluation runs a throttled sweep automatically. */
@@ -395,22 +414,43 @@ export function pruneEvaluatorState(maxIdleMs = STATE_IDLE_TTL_MS, now = stateCl
   }
   if (stale.length === 0) return 0
 
-  const maps: Array<{ delete: (key: string) => boolean }> = [
-    fireHeat, flashLevel, counterVals, intervalLast, smoothState, holdState,
-    envState, dmxChannelState, trailState, frameFeedbackState, fftLevels, beatLevels, clockState, clockDisplayState, fireRngState,
-    seededRngState, triggerState, scheduleState, particleState, particleSeedState, patternShowState,
-    percussionLevels, audioFeatureLevels,
-    rdState, golState, waveSimState, flowState, colorTrailsState, spectrumVisualizerState, starState, boidState, sparkState, fire2012Heat,
-    kickShockState, kaleidoPunch, percussionBlobsState, emberBurst,
-    rainRipplesState, prismOrientation, driftPhase,
-  ]
   for (const key of stale) {
-    for (const map of maps) map.delete(key)
+    for (const map of stateMaps()) map.delete(key)
     disposeAnimartrixState(key)
     disposeCodeSandbox(key)   // Code-node worker (if any) lives outside these Maps
     stateLastUsed.delete(key)
   }
   return stale.length
+}
+
+/** Discard *all* evaluator state — every per-instance simulation buffer plus
+ * the frame/field pools and their sweep timers — returning the module to the
+ * condition it was in before the first evaluation.
+ *
+ * This exists because the idle sweeps above are driven by wall-clock time, so
+ * whether a given instance's state survives between two evaluations depends on
+ * how long the surrounding work took. That is fine for a live preview, but it
+ * makes any batch renderer non-reproducible: state carried over from a previous
+ * render perturbs the next one, and (via the shared seeded RNG) everything
+ * after it. Offline renderers call this between renders so each one starts
+ * cold. Not used by the live preview loop. */
+export function resetEvaluatorState(): void {
+  for (const key of stateLastUsed.keys()) {
+    disposeAnimartrixState(key)
+    disposeCodeSandbox(key)
+  }
+  for (const map of stateMaps()) map.clear()
+  stateLastUsed.clear()
+  framePoolFree.clear()
+  fieldPoolFree.clear()
+  framePoolLastUsed.clear()
+  fieldPoolLastUsed.clear()
+  framePassPeak.clear()
+  fieldPassPeak.clear()
+  poolPrev = { frames: [], fields: [] }
+  poolCurr = { frames: [], fields: [] }
+  lastPoolSweep = 0
+  lastStatePrune = 0
 }
 
 /** Dev-only memory probe: the entry count of every retained evaluator

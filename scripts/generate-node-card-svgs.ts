@@ -23,8 +23,9 @@ import {
   propertyMeta, isPropertyEnabled, propertyGroupsFor, hasClampableInputs,
   bypassPort, nodeDisplayLabel, libraryDefaults,
 } from '../src/state/nodeLibrary'
-import { evaluateGraphFull } from '../src/state/graphEvaluator'
+import { evaluateGraphFull, resetEvaluatorState } from '../src/state/graphEvaluator'
 import { useUiStore } from '../src/state/uiStore'
+import { setRtcClockSource } from '../src/state/rtc'
 import { samplePalette, type RGB, type Palette, type Frame } from '../src/state/ledColor'
 import { liveExampleForNode } from '../src/components/HelpModal/liveExamples'
 import { tidyLayout } from '../src/utils/tidyLayout'
@@ -35,6 +36,14 @@ import type { NodeDefinition } from '../src/types'
 // Synthetic audio for the audio-reactive nodes' previews (same as the app's
 // Test Signal toggle), so they don't render dark for lack of a microphone.
 useUiStore.setState({ testSignal: true })
+
+// The clock nodes (RTC Clock, Clock Display) render the current time, so
+// without a fixed instant their cards change on every run. Pin one, built from
+// *local* components on purpose: the default 'Compile Time' source reads local
+// fields (getHours/getDate/…), so a UTC instant would render differently
+// depending on the machine's timezone. This way the captured face reads
+// 10:04:05 on Fri 2 Jan 2026 wherever the generator runs.
+setRtcClockSource(() => new Date(2026, 0, 2, 10, 4, 5))
 
 // Deterministic Math.random so regenerating without library changes yields
 // byte-identical SVGs (no git churn from the stochastic simulation nodes).
@@ -307,11 +316,18 @@ function buildPreview(def: NodeDefinition, overrides?: Record<string, unknown>):
   }
 
   try {
-    let value: unknown
-    for (let tick = 0; tick <= WARMUP_TICKS; tick++) {
-      const res = evaluateGraphFull(nodes, edges, tick, PREVIEW_GRID, PREVIEW_GRID)
-      value = res.outputs.get(targetId)?.[out.id]
-    }
+    // Cold-start the evaluator and run on this card's own RNG stream, so the
+    // rendered result depends only on the node being drawn — not on which
+    // cards happened to be rendered before it, nor on how long they took.
+    resetEvaluatorState()
+    const value = withRandomSeed(targetId, () => {
+      let last: unknown
+      for (let tick = 0; tick <= WARMUP_TICKS; tick++) {
+        const res = evaluateGraphFull(nodes, edges, tick, PREVIEW_GRID, PREVIEW_GRID)
+        last = res.outputs.get(targetId)?.[out.id]
+      }
+      return last
+    })
     if (out.dataType === 'frame') {
       if (!Array.isArray(value) || !Array.isArray(value[0])) return null
       return { kind: 'frame', frame: value as Frame }
@@ -322,8 +338,13 @@ function buildPreview(def: NodeDefinition, overrides?: Record<string, unknown>):
       return { kind: 'palette', stops }
     }
     return isRGB(value) ? { kind: 'color', rgb: value } : null
-  } catch {
-    return null // sandboxed/worker-backed nodes (Code) can't evaluate here
+  } catch (err) {
+    // Sandboxed/worker-backed nodes (Code) genuinely can't evaluate here, so a
+    // failure is not fatal — but say so. Swallowing this silently once let a
+    // broken shared helper drop the preview from every card while the run
+    // still reported "wrote 150 node cards".
+    console.warn(`  [preview] ${def.type}: ${(err as Error).message}`)
+    return null
   }
 }
 
@@ -692,6 +713,7 @@ function evalSpecFrame(spec: LiveExampleSpec, slug: string): Frame | null {
       targetHandle: e.targetHandle,
     }))
   try {
+    resetEvaluatorState()   // cold start — see buildPreview
     return withRandomSeed(`example-preview:${slug}`, () => {
       let frame: Frame | null = null
       for (let tick = 0; tick <= WARMUP_TICKS; tick++) {
@@ -699,7 +721,8 @@ function evalSpecFrame(spec: LiveExampleSpec, slug: string): Frame | null {
       }
       return frame
     })
-  } catch {
+  } catch (err) {
+    console.warn(`  [example] ${slug}: ${(err as Error).message}`)
     return null
   }
 }

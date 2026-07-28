@@ -22,7 +22,7 @@ vi.mock('../audioStore', () => ({
   },
 }))
 
-import { evaluateGraph, evaluateGraphFull, evaluateScalar, pruneEvaluatorState, prunePoolBuffers, renderParticleBurst, PARTICLE_LIFE_MS } from '../graphEvaluator'
+import { evaluateGraph, evaluateGraphFull, evaluateScalar, pruneEvaluatorState, prunePoolBuffers, resetEvaluatorState, getEvaluatorMemoryStats, renderParticleBurst, PARTICLE_LIFE_MS } from '../graphEvaluator'
 import type { Frame, RGB } from '../graphEvaluator'
 import { waveSample, combineWaves } from '../wave'
 import { NODE_LIBRARY } from '../nodeLibrary'
@@ -3982,6 +3982,83 @@ describe('frame pool pruning', () => {
     const f6 = evaluateGraphFull(nodes, wires, 5, 8, 8).frame!
     expect(f6).not.toBe(f1)
     expect(f6).not.toBe(f2)
+  })
+})
+
+describe('resetEvaluatorState', () => {
+  // Counter is the crispest witness of carried-over state: it accumulates
+  // monotonically, is fully deterministic, and draws no randomness — so any
+  // difference between two identical runs is leftover state and nothing else.
+  const runCounter = (ticks = 20): number => {
+    const n = node('ctr', 'Counter', 'signal', { rate: 1 })
+    let value = 0
+    for (let t = 0; t <= ticks; t++) {
+      value = Number(evaluateGraphFull([n], [], t, 8, 8).outputs.get('ctr')?.value ?? 0)
+    }
+    return value
+  }
+
+  it('makes a repeated run reproducible, which it is not without a reset', () => {
+    resetEvaluatorState()
+    const first = runCounter()
+
+    // Without a reset the node resumes from where the previous run left off,
+    // so the same inputs produce a different value.
+    expect(runCounter()).not.toBe(first)
+
+    // With one, the run starts cold and reproduces the original exactly. This
+    // is what keeps `npm run gen:node-cards` byte-identical between runs: the
+    // idle sweeps that would otherwise clear this state are driven by
+    // wall-clock time, so without an explicit reset a batch render's output
+    // depends on how long the surrounding work happened to take.
+    resetEvaluatorState()
+    expect(runCounter()).toBe(first)
+  })
+
+  it('resets a stateful pattern render, not just scalar state', () => {
+    // Reaction-Diffusion is seed-independent, so a reproduced frame is down to
+    // the reset rather than to any seeded RNG.
+    const rd = () => ({
+      nodes: [node('rd', 'ReactionDiffusion', 'pattern', {}), node('mo', 'MatrixOutput', 'output', {})],
+      wires: [edge('e1', 'rd', 'frame', 'mo', 'frame')],
+    })
+    const render = (): string => {
+      const { nodes, wires } = rd()
+      let frame: Frame | undefined
+      for (let t = 0; t <= 60; t++) frame = evaluateGraphFull(nodes, wires, t, 16, 16).frame!
+      return frame!.map((row) => row.map((p) => `${p.r},${p.g},${p.b}`).join(' ')).join('|')
+    }
+
+    resetEvaluatorState()
+    const first = render()
+    resetEvaluatorState()
+    expect(render()).toBe(first)
+  })
+
+  it('clears state for every node type, not just the one being measured', () => {
+    // Populate a spread of the state maps, then assert the reset emptied them.
+    const populate = [
+      node('fire', 'Fire', 'pattern', {}),
+      node('gol', 'GameOfLife', 'pattern', {}),
+      node('trail', 'Trails', 'composite', {}),
+      node('ctr', 'Counter', 'signal', {}),
+    ]
+    for (const n of populate) evaluateGraphFull([n], [], 0, 8, 8)
+    expect(getEvaluatorMemoryStats().totalStateEntries).toBeGreaterThan(0)
+
+    resetEvaluatorState()
+    const stats = getEvaluatorMemoryStats()
+    expect(stats.trackedKeys).toBe(0)
+    // formulaCache/fieldFormulaCache are pure parse caches keyed by source
+    // text, not per-instance state, so they are deliberately left alone.
+    const perInstance = { ...stats.stateMaps }
+    delete (perInstance as Record<string, number>).formulaCache
+    delete (perInstance as Record<string, number>).fieldFormulaCache
+    for (const [name, size] of Object.entries(perInstance)) {
+      expect(`${name}=${size}`).toBe(`${name}=0`)
+    }
+    expect(stats.pool.frameLists).toBe(0)
+    expect(stats.pool.fieldLists).toBe(0)
   })
 })
 

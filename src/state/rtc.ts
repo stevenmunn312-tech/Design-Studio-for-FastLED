@@ -57,7 +57,20 @@ export function isValidRtcDateTime(fields: RtcDateTimeFields): boolean {
   return true
 }
 
-export function readRtcSnapshot(now: Date = new Date()): RtcSnapshot {
+// Where "now" comes from when a caller doesn't supply one. The live preview
+// wants the real wall clock; an offline renderer capturing reference images
+// needs a fixed instant, or every capture of a clock node differs. Callers that
+// already thread an explicit `now` are unaffected.
+let rtcClockSource: () => Date = () => new Date()
+
+/** Pin the wall clock these helpers fall back to. Pass no argument to restore
+ * the real clock. Intended for offline/deterministic rendering and tests — the
+ * app never calls this. */
+export function setRtcClockSource(source?: () => Date): void {
+  rtcClockSource = source ?? (() => new Date())
+}
+
+export function readRtcSnapshot(now: Date = rtcClockSource()): RtcSnapshot {
   const hour = now.getHours()
   const minute = now.getMinutes()
   const second = now.getSeconds()
@@ -139,7 +152,7 @@ function snapshotFromUtc(date: Date): RtcSnapshot {
 export function rtcPreviewSnapshot(
   properties: Record<string, unknown> | undefined,
   elapsedSeconds = 0,
-  now: Date = new Date(),
+  now: Date = rtcClockSource(),
 ): RtcPreview {
   const props = properties ?? {}
   switch (rtcTimeSource(props)) {
