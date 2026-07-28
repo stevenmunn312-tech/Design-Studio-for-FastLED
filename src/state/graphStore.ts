@@ -275,6 +275,16 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     // preview nor firmware honored it. FastLED's INMP441 pipeline owns the
     // 44.1 kHz rate now, so strip the misleading legacy property on load.
     if (nodeType === 'MicInput') delete properties.sampleRate
+    // AudioHue's bass/mids/treble mix used to be hardcoded in the evaluator and
+    // the C++ generator. It is now three editable weights, so backfill saves
+    // made before they existed with the old mix — otherwise the node keeps
+    // behaving correctly (both runtimes fall back to it) but never shows the
+    // new sliders, since inline editors render from the saved property keys.
+    if (nodeType === 'AudioHue') {
+      properties.bassWeight   ??= 0.5
+      properties.midsWeight   ??= 0.3
+      properties.trebleWeight ??= 0.2
+    }
     // Wi-Fi SSID/password used to be ordinary node properties (persisted into
     // project files and share links). They now live browser-local only in
     // networkCredentials.ts — migrate any already-saved values across, then

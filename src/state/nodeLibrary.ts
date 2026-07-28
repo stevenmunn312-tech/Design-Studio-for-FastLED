@@ -1485,9 +1485,15 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'treble', label: 'Treble', dataType: 'float' },
     ],
     outputs: [{ id: 'hue', label: 'Hue (0–360)', dataType: 'float' }],
-    // Matches the evaluator's own hardcoded fallback (graphEvaluator.ts) so
-    // an unwired node still renders sliders instead of nothing at all.
-    defaultProperties: { bass: 0.5, mids: 0.5, treble: 0.5 },
+    // bass/mids/treble match the evaluator's own hardcoded fallback
+    // (graphEvaluator.ts) so an unwired node still renders sliders instead of
+    // nothing at all. The three weights default to the mix that used to be
+    // hardcoded in both the evaluator and the C++ generator, so an existing
+    // patch keeps its exact hue.
+    defaultProperties: {
+      bass: 0.5, mids: 0.5, treble: 0.5,
+      bassWeight: 0.5, midsWeight: 0.3, trebleWeight: 0.2,
+    },
   },
 
   // ── Color ──────────────────────────────────────────────────────────────
@@ -3077,6 +3083,13 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     gate:        { control: 'slider', min: 0, max: 1, step: 0.01 },
     smoothing:   { control: 'slider', min: 0, max: 0.95, step: 0.01 },
   },
+  AudioHue: {
+    // The unwired band fallbacks share the generic 0–1 slider; the three
+    // weights are their own controls so the mix can be retuned per patch.
+    bassWeight:   { control: 'slider', min: 0, max: 1, step: 0.01 },
+    midsWeight:   { control: 'slider', min: 0, max: 1, step: 0.01 },
+    trebleWeight: { control: 'slider', min: 0, max: 1, step: 0.01 },
+  },
   AudioFlow: {
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
     scale: { control: 'slider', min: 0, max: 1, step: 0.01 },
@@ -3416,9 +3429,12 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     gate: 'Silence-detection threshold — how much energy is required before `silence` flips false.',
   },
   AudioHue: {
-    bass: 'Weighted 0.5 into the resulting hue (0–360°).',
-    mids: 'Weighted 0.3 into the resulting hue (0–360°).',
-    treble: 'Weighted 0.2 into the resulting hue (0–360°).',
+    bass: 'Bass level used when the Bass input is unwired. Scaled by the bass weight below.',
+    mids: 'Mids level used when the Mids input is unwired. Scaled by the mids weight below.',
+    treble: 'Treble level used when the Treble input is unwired. Scaled by the treble weight below.',
+    bassWeight: 'How much bass contributes to the hue. The three weights are summed and scaled to 0–360°; the hue wraps past 360.',
+    midsWeight: 'How much mids contributes to the hue. The three weights are summed and scaled to 0–360°; the hue wraps past 360.',
+    trebleWeight: 'How much treble contributes to the hue. The three weights are summed and scaled to 0–360°; the hue wraps past 360.',
   },
   Sin: {
     x: 'Computes sin(x*2π) from the wired X value; it does not animate on its own. Wire Time or Counter into X, or use Wave for a ready-made oscillator.',
@@ -3509,6 +3525,11 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   AudioFeatures: {
     gate: 'Silence Gate',
+  },
+  AudioHue: {
+    bassWeight: 'bass weight',
+    midsWeight: 'mids weight',
+    trebleWeight: 'treble weight',
   },
 }
 
