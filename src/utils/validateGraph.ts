@@ -6,6 +6,7 @@ import { validateMatrixLayout } from '../state/xyLayout'
 import { compositionDims } from '../state/outputRouting'
 import { boardGpioInfo } from '../state/uploadStore'
 import { MAX_PIN_NUMBER, pinSupports } from '../state/boardGpio'
+import { getNetworkCredentials } from '../state/networkCredentials'
 
 export interface ValidationResult {
   errors:   string[]
@@ -128,7 +129,7 @@ function findRtcWarnings(nodes: StudioNode[]): string[] {
     }
     if (source === 'NTP') {
       if (!String(props.ntpServer ?? '').trim()) return [`${String(node.data.label ?? node.data.nodeType)} is missing its NTP server`]
-      if (!String(props.wifiSsid ?? '').trim()) return [`${String(node.data.label ?? node.data.nodeType)} is missing its Wi-Fi SSID for NTP sync`]
+      if (!getNetworkCredentials(node.id).ssid.trim()) return [`${String(node.data.label ?? node.data.nodeType)} is missing its Wi-Fi SSID for NTP sync`]
     }
     return []
   })
@@ -157,9 +158,10 @@ function findNetworkConfigWarnings(nodes: StudioNode[]): string[] {
 
   const signatures = new Set(networkUsers.map((node) => {
     const props = node.data.properties as Record<string, unknown>
+    const credentials = getNetworkCredentials(node.id)
     return JSON.stringify({
-      wifiSsid: String(props.wifiSsid ?? '').trim(),
-      wifiPassword: String(props.wifiPassword ?? ''),
+      wifiSsid: credentials.ssid.trim(),
+      wifiPassword: credentials.password,
       wifiHostname: String(props.wifiHostname ?? '').trim(),
       useDhcp: props.useDhcp !== false,
       staticIp: String(props.staticIp ?? '').trim(),
@@ -175,7 +177,7 @@ function findNetworkConfigWarnings(nodes: StudioNode[]): string[] {
   for (const node of networkUsers) {
     const props = node.data.properties as Record<string, unknown>
     const label = String(node.data.label ?? node.data.nodeType)
-    if (!String(props.wifiSsid ?? '').trim()) warnings.push(`${label} is missing its Wi-Fi SSID`)
+    if (!getNetworkCredentials(node.id).ssid.trim()) warnings.push(`${label} is missing its Wi-Fi SSID`)
     if (props.useDhcp === false) {
       if (!isIpv4(props.staticIp)) warnings.push(`${label} has an invalid static IP address`)
       if (!isIpv4(props.staticGateway)) warnings.push(`${label} has an invalid gateway address`)

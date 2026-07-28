@@ -2324,8 +2324,6 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       inputMode: 'Art-Net',
       universe: 0,
       previewPort: 6454,
-      wifiSsid: '',
-      wifiPassword: '',
       wifiHostname: 'fastled-dmx',
       useDhcp: true,
       staticIp: '',
@@ -2379,8 +2377,6 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       timeSource: 'Compile Time',
       ntpServer: 'pool.ntp.org',
       timezoneOffsetMinutes: 0,
-      wifiSsid: '',
-      wifiPassword: '',
       wifiHostname: 'fastled-clock',
       useDhcp: true,
       staticIp: '',
@@ -3344,7 +3340,6 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   seed: '0 runs free (Math.random each time); any other value reproduces the exact same result on every run.',
   clampInputs: "Clamps a wired float input to this node's slider range, so an unbounded upstream signal can't exceed it.",
   timezoneOffsetMinutes: 'Fixed local offset from UTC for NTP-synced firmware time. Preview still reads the browser clock.',
-  wifiPassword: 'Stored in the project file as plain text so generated firmware can connect to Wi-Fi.',
   previewPort: 'UDP port the local helper listens on for preview-side Art-Net packets.',
   dmxPort: 'ESP32 UART used by esp_dmx for DMX512 receive.',
   requireSync: 'Keeps the schedule inactive until the upstream RTC Clock reports a real NTP sync.',
@@ -3445,8 +3440,6 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
   DMXInput: {
     inputMode: 'firmware source',
     previewPort: 'preview UDP port',
-    wifiSsid: 'Wi-Fi SSID',
-    wifiPassword: 'Wi-Fi password',
     wifiHostname: 'hostname',
     useDhcp: 'use DHCP',
     staticIp: 'static IP',
@@ -3465,8 +3458,6 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
     timeSource: 'time source',
     ntpServer: 'NTP server',
     timezoneOffsetMinutes: 'UTC offset (min)',
-    wifiSsid: 'Wi-Fi SSID',
-    wifiPassword: 'Wi-Fi password',
     wifiHostname: 'hostname',
     useDhcp: 'use DHCP',
     staticIp: 'static IP',
@@ -3569,12 +3560,12 @@ export interface PropertyGroup {
 export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   DMXInput: [
     { key: 'source', label: 'Firmware Source', keys: ['inputMode', 'universe', 'previewPort'] },
-    { key: 'wifi', label: 'Art-Net Wi-Fi', keys: ['wifiSsid', 'wifiPassword', 'wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
+    { key: 'wifi', label: 'Art-Net Wi-Fi', keys: ['wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
     { key: 'dmx512', label: 'DMX512 Wiring', keys: ['dmxPort', 'dmxTxPin', 'dmxRxPin', 'dmxEnablePin'] },
   ],
   RTCInput: [
     { key: 'source', label: 'Clock Source', keys: ['timeSource'] },
-    { key: 'network', label: 'NTP Network', keys: ['ntpServer', 'timezoneOffsetMinutes', 'wifiSsid', 'wifiPassword', 'wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
+    { key: 'network', label: 'NTP Network', keys: ['ntpServer', 'timezoneOffsetMinutes', 'wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
     { key: 'manualStart', label: 'Manual Start', keys: ['startYear', 'startMonth', 'startDay', 'startHour', 'startMinute', 'startSecond'] },
   ],
   ScheduleTrigger: [
@@ -3875,7 +3866,7 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     if (key === 'staticIp' || key === 'staticGateway' || key === 'staticSubnet' || key === 'staticDns') {
       return artnet && properties.useDhcp === false
     }
-    if (key === 'wifiSsid' || key === 'wifiPassword' || key === 'wifiHostname' || key === 'useDhcp') {
+    if (key === 'wifiHostname' || key === 'useDhcp') {
       return artnet
     }
     if (key === 'dmxPort' || key === 'dmxTxPin' || key === 'dmxRxPin' || key === 'dmxEnablePin') {
@@ -3883,7 +3874,7 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     }
   }
   if (nodeType === 'RTCInput') {
-    if (key === 'ntpServer' || key === 'timezoneOffsetMinutes' || key === 'wifiSsid' || key === 'wifiPassword' || key === 'wifiHostname' || key === 'useDhcp' || key === 'staticIp' || key === 'staticGateway' || key === 'staticSubnet' || key === 'staticDns') {
+    if (key === 'ntpServer' || key === 'timezoneOffsetMinutes' || key === 'wifiHostname' || key === 'useDhcp' || key === 'staticIp' || key === 'staticGateway' || key === 'staticSubnet' || key === 'staticDns') {
       if (String(properties.timeSource ?? 'Compile Time') !== 'NTP') return false
       if (key === 'staticIp' || key === 'staticGateway' || key === 'staticSubnet' || key === 'staticDns') return properties.useDhcp === false
       return true
