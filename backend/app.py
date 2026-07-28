@@ -348,9 +348,21 @@ def _write_fbuild_ini() -> None:
         # fails to compile without this — a known PlatformIO+esp32 gotcha, not
         # specific to this project.
         base_flags = ["-DCORE_DEBUG_LEVEL=0"] if meta["platform"] == "espressif32" else []
+        # The stock dual-OTA `default.csv` partition table caps each app slot at
+        # 0x140000 (1,310,720 bytes) on a typical 4MB-flash ESP32 module. The
+        # music-sync Player sketch (ESP32-audioI2S's codec support pushes it well
+        # past 1.7MB) doesn't fit, and esptool writes the oversized image anyway —
+        # the failure only shows up as a bootloader "Image length ... doesn't fit
+        # in partition length 1310720" boot loop, with no build-time error. This
+        # app always flashes fresh over USB (no OTA), so trade the second OTA
+        # slot and some of the unused SPIFFS region for one ~3MB app partition
+        # (`huge_app.csv`, the same table Arduino IDE's "Huge APP" option uses)
+        # instead. PSRAM variants below already set their own larger table.
+        is_esp32 = meta["platform"] == "espressif32"
         lines += [
             f"[env:{_env_id(base_fqbn)}]", f"platform = {meta['platform']}", f"board = {meta['board']}", "framework = arduino",
-            *([f"build_flags = {' '.join(base_flags)}"] if base_flags else []), "",
+            *([f"build_flags = {' '.join(base_flags)}"] if base_flags else []),
+            *(["board_build.partitions = huge_app.csv"] if is_esp32 else []), "",
         ]
         for psram_id, psram_meta in meta.get("psram_memory_type", {}).items():
             lines += [
@@ -440,9 +452,20 @@ def _ensure_fbuild_audio_lib():
         return
     yield "\n=== vendoring ESP32-audioI2S (first run only) ===\n"
     _FBUILD_AUDIO_LIB_DIR.parent.mkdir(parents=True, exist_ok=True)
+    # Pinned to 3.0.12, NOT the default branch: the library was rewritten
+    # starting with 3.1.0 so AudioBuffer always allocates a fixed ~640KB+64KB
+    # input buffer with no PSRAM/DRAM distinction — an allocation that can
+    # never succeed on a plain (non-PSRAM) ESP32's ~320KB of internal RAM, so
+    # the Player silently fails to buffer audio ("OOM: failed to allocate
+    # 720896 bytes for AudioBuffer") even though it compiles and flashes fine.
+    # 3.0.x is the last line where AudioBuffer falls back to a small
+    # (~16KB) internal-RAM buffer when PSRAM isn't present — 3.0.12 is its
+    # newest patch release. Re-pin deliberately (bump the tag here) rather
+    # than tracking the default branch, which has no stability guarantee.
     rc = yield from _run_phase(
         "vendor ESP32-audioI2S",
-        ["git", "clone", "--depth", "1", "https://github.com/schreibfaul1/ESP32-audioI2S.git", str(_FBUILD_AUDIO_LIB_DIR)],
+        ["git", "clone", "--branch", "3.0.12", "--depth", "1",
+         "https://github.com/schreibfaul1/ESP32-audioI2S.git", str(_FBUILD_AUDIO_LIB_DIR)],
     )
     if rc != 0:
         yield "[error] failed to vendor ESP32-audioI2S — the Player build below will fail on Audio.h\n"
@@ -873,11 +896,27 @@ def _compile_upload_fbuild(label, ino, fqbn, port):
         if not port:
             yield "  (no port selected — compiled only)\n"
             return 0, "compile"
+        # esptool (spawned fresh by each `deploy`) intermittently loses the race
+        # against Windows fully releasing the port after a *previous* flash's
+        # hard reset (or another brief holder, e.g. the frontend's live serial
+        # monitor tearing down) — "Could not open COM5 ... PermissionError(13,
+        # 'Access is denied.')". It isn't a real hardware problem and clears up
+        # on its own within a couple seconds, so retry a couple times before
+        # surfacing it as a failure.
         upload_lines = []
-        rc = yield from _run_phase(
-            f"{label} · upload", [_FBUILD_BIN, "deploy", "-e", env, "-p", port, "--skip-build", "--no-timestamp"],
-            sink=upload_lines, cwd=_FBUILD_PROJECT_DIR,
-        )
+        for attempt in range(3):
+            upload_lines = []
+            rc = yield from _run_phase(
+                f"{label} · upload", [_FBUILD_BIN, "deploy", "-e", env, "-p", port, "--skip-build", "--no-timestamp"],
+                sink=upload_lines, cwd=_FBUILD_PROJECT_DIR,
+            )
+            if rc == 0:
+                break
+            port_busy = any("access is denied" in line.lower() or "port is busy" in line.lower() for line in upload_lines)
+            if not port_busy or attempt == 2:
+                break
+            yield f"  [retry] {port} looked busy (still releasing from a previous flash?) — retrying in 2s…\n"
+            time.sleep(2.0)
         # fbuild's own deployer doesn't cover every platform it can compile for
         # yet (e.g. Espressif8266, as of 2.5.4) — arduino-cli's mature per-board
         # upload tooling still handles those, so point at the working fallback
@@ -917,7 +956,12 @@ def _serial_send(port, payloads):
     ser = None
     for _ in range(5):
         try:
-            ser = serial.Serial(port, 115200, timeout=5)
+            # A block ack (below) can take much longer than typical serial I/O:
+            # the first SD write to a fresh file on a large, freshly-formatted
+            # card has to walk the FAT for a free cluster, which can take many
+            # seconds even though the write itself succeeds. A short timeout
+            # here reads as a lost ack and aborts the whole transfer.
+            ser = serial.Serial(port, 115200, timeout=20)
             break
         except Exception as e:
             yield f"  opening {port}… ({e})\n"

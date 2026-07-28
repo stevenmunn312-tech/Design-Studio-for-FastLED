@@ -431,7 +431,7 @@ struct ShowEvent {
 CRGB leds[NUM_LEDS];
 CRGB showA[NUM_LEDS];             // outgoing pattern during a transition
 CRGB showB[NUM_LEDS];            // incoming pattern during a transition
-Audio audio;
+Audio audio${internalDac ? '(true)' : ''};  // true = output via the internal DAC (GPIO25/26), else external I2S
 
 ShowEvent* showEvents = nullptr;
 uint32_t   eventCount = 0;
@@ -581,7 +581,7 @@ ${ledSetupLines}
 
   if (!SD.begin(SD_CS)) { Serial.println("SD mount failed"); while(1); }
 
-  ${internalDac ? 'audio.setInternalDAC(true);' : 'audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);'}
+  ${internalDac ? '' : 'audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);'}
   audio.setVolume(${c.maxVolume});
 
   // Play the first .mp3 found in /music/
@@ -602,11 +602,26 @@ ${ledSetupLines}
 
 // ── Loop ──────────────────────────────────────────────────────────────────────
 void loop() {
+  // Heartbeat so a serial monitor can tell "still running, just quiet" apart
+  // from "hung" — printed before audio.loop() so it keeps ticking even if
+  // that call itself stalls. audioPos not advancing points at playback;
+  // pattern/event not advancing with audioPos moving points at show sync.
+  static uint32_t _dbgLast = 0;
+  if (millis() - _dbgLast >= 2000) {
+    _dbgLast = millis();
+    Serial.printf("[status] uptime=%lus audioPos=%lu pattern=%u event=%u/%u\\n",
+                  millis() / 1000, (unsigned long)audio.getFilePos(), patternId, eventIdx, eventCount);
+  }
+
   audio.loop();
 
-  uint32_t posMs = audio.getFilePos() > 0
-    ? (uint32_t)(audio.getFilePos() * 8.0f / audio.getBitRate() * 1000.0f)
-    : 0;
+  // getAudioCurrentTime() is the library's own elapsed-playback-time tracker
+  // (seconds) — use it directly rather than reconstructing position from
+  // getFilePos()*8/getBitRate(): getBitRate() returns the *instantaneous*
+  // current-frame bitrate, which is 0/unstable for the first several frames
+  // of decode, so that reconstruction could spike to a huge bogus value and
+  // fire the entire event queue at once instead of pacing it across playback.
+  uint32_t posMs = audio.getAudioCurrentTime() * 1000;
 
   // Dispatch all events whose timestamp has passed
   while (eventIdx < eventCount && showEvents[eventIdx].t <= posMs) {

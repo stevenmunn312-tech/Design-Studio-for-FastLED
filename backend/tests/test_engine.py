@@ -94,6 +94,13 @@ def test_write_fbuild_ini_emits_a_section_per_board_and_psram_variant(tmp_path, 
     uno_section = text.split("[env:arduino_avr_uno]")[1].split("[env:")[0]
     assert "CORE_DEBUG_LEVEL" not in uno_section
 
+    # Base (non-PSRAM) ESP32 envs get the huge_app.csv partition table — the
+    # stock default.csv's 1.31MB OTA app slots are too small for the
+    # audio-heavy music-sync Player sketch. Non-ESP32 boards don't.
+    esp32_section = text.split("[env:esp32_esp32_esp32]")[1].split("[env:")[0]
+    assert "board_build.partitions = huge_app.csv" in esp32_section
+    assert "board_build.partitions" not in uno_section
+
 
 def test_patch_fastled_sd_stub_replaces_file_contents(tmp_path, monkeypatch):
     # Regression: FastLED unconditionally compiles fl/build/fl.system.sd+.cpp

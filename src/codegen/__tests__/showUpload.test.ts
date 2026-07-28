@@ -95,7 +95,8 @@ describe('generatePlayerSketch audio output', () => {
 
   it('switches to the internal DAC and drops the I2S pin defines', () => {
     const ino = generatePlayerSketch({ audioOutput: 'internalDac' })
-    expect(ino).toContain('audio.setInternalDAC(true);')
+    expect(ino).toContain('Audio audio(true);')
+    expect(ino).not.toContain('setInternalDAC')
     expect(ino).not.toContain('audio.setPinout(')
     expect(ino).not.toContain('#define I2S_BCLK')
     expect(ino).not.toContain('#define I2S_LRC')
