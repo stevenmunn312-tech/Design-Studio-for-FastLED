@@ -401,8 +401,9 @@ describe('nodeLibrary', () => {
     expect(clock?.category).toBe('pattern')
     expect(clock?.subcategory).toBe('Shapes & Text')
     expect(clock?.inputs.map((port) => port.id)).toEqual([
-      'color', 'secondsOfDay', 'valid', 'day', 'month', 'run', 'reset', 'durationSec', 'x', 'y', 'radius',
+      'base', 'color', 'secondsOfDay', 'valid', 'day', 'month', 'run', 'reset', 'durationSec', 'x', 'y', 'radius',
     ])
+    expect(clock?.outputs.map((port) => port.id)).toEqual(['frame', 'seconds', 'done'])
     expect(clock?.defaultProperties).toMatchObject({
       displayMode: 'Digital HH:MM',
       x: 0.5,

@@ -830,8 +830,8 @@ const PREVIEW_NOTES: Record<string, { text: string; title: string }> = {
     title: 'The browser preview reads Art-Net packets through the local helper. Generated firmware uses this node’s selected DMX source instead: Art-Net over Wi-Fi or DMX512 over an ESP32 transceiver.',
   },
   RTCInput: {
-    text: 'preview uses browser time; firmware uses the configured clock source',
-    title: 'In preview this node reads the browser clock. Generated firmware uses the node’s configured source instead: compile time, a manual seed, or network/NTP when enabled.',
+    text: 'preview follows the configured source; only sync state is simulated',
+    title: 'The preview clock matches the configured source: a Manual seed runs forward from when the preview started, NTP shows UTC plus the configured offset, and Compile Time stands in for the build stamp using the browser clock. Preview cannot know real network state, so it always reports synced.',
   },
   MidiInput: {
     text: 'preview-only — no embedded MIDI equivalent',

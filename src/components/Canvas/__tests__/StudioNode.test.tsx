@@ -602,10 +602,22 @@ describe('StudioNode', () => {
       expect(rtc.getByText('PREVIEW CLOCK')).toBeTruthy()
       expect(rtc.getByText('14:05:09')).toBeTruthy()
       expect(rtc.getByText('Mon 2026-07-27')).toBeTruthy()
-      expect(rtc.getByText('FIRMWARE COMPILE TIME')).toBeTruthy()
+      expect(rtc.getByText('COMPILE TIME')).toBeTruthy()
+      rtc.unmount()
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  // The readout follows the node's configured source, so an unusable Manual
+  // seed reads as broken here rather than only after a flash.
+  it('shows a Manual RTC seed as invalid when it is not a real date', () => {
+    const rtc = renderNode(makeNode('RTCInput', {
+      timeSource: 'Manual', startYear: 2026, startMonth: 2, startDay: 30,
+      startHour: 12, startMinute: 0, startSecond: 0,
+    }))
+    expect(rtc.getByText('CLOCK INVALID')).toBeTruthy()
+    expect(rtc.getByText('--:--:--')).toBeTruthy()
   })
 
   it('a bundled node header reflects the selected variant', () => {

@@ -593,5 +593,37 @@ describe('validateGraph', () => {
       const { warnings } = validateGraph(nodes, [edge('e1', 'rtc', 'math', 'a')])
       expect(warnings.some(w => w.includes('invalid manual RTC start date/time'))).toBe(true)
     })
+
+    // Preview falls back to the browser clock, so a missing RTC wire is
+    // invisible until the sketch is flashed and shows dashes forever.
+    it('flags a clock-mode ClockDisplay with no time source wired', () => {
+      const nodes = [
+        node('clk', 'ClockDisplay', { displayMode: 'Digital HH:MM' }),
+        node('out', 'MatrixOutput', { width: 8, height: 8 }),
+      ]
+      const diagnostics = buildGraphDiagnostics(nodes, [edge('e1', 'clk', 'out', 'frame')], {})
+      expect(diagnostics).toContainEqual(expect.objectContaining({
+        id: 'clk-clock-no-time',
+        severity: 'warning',
+        nodeIds: ['clk'],
+      }))
+    })
+
+    it('does not flag a wired clock, or a stopwatch that needs no clock', () => {
+      const out = node('out', 'MatrixOutput', { width: 8, height: 8 })
+      const wired = buildGraphDiagnostics(
+        [node('rtc', 'RTCInput'), node('clk', 'ClockDisplay', { displayMode: 'Analog' }), out],
+        [edge('e1', 'rtc', 'clk', 'secondsOfDay'), edge('e2', 'clk', 'out', 'frame')],
+        {},
+      )
+      expect(wired.some((issue) => issue.id === 'clk-clock-no-time')).toBe(false)
+
+      const stopwatch = buildGraphDiagnostics(
+        [node('clk', 'ClockDisplay', { displayMode: 'Stopwatch' }), out],
+        [edge('e1', 'clk', 'out', 'frame')],
+        {},
+      )
+      expect(stopwatch.some((issue) => issue.id === 'clk-clock-no-time')).toBe(false)
+    })
   })
 })

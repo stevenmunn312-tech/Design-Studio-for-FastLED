@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { generateCpp, audioEngineForGraph } from '../cppGenerator'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
+import { DEFAULT_FONT, textColumns } from '../../state/font'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -2568,10 +2569,43 @@ describe('ClockDisplay (codegen)', () => {
       edge('e4', 'rtc', 'clk', 'month', 'month'),
       edge('e5', 'clk', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain("auto _clkCols = [&](char _ch, uint8_t &_c0, uint8_t &_c1, uint8_t &_c2)")
+    expect(cpp).toContain('auto _clkCols = [&](char _ch, uint8_t *_cols)')
     expect(cpp).toContain('snprintf(_clkSub_clk, sizeof(_clkSub_clk), "%02d.%02d"')
     expect(cpp).toContain('if (n_rtc_valid)')
     expect(cpp).toContain('_clkText(_clkMain_clk')
+  })
+
+  // The runtime glyph table has to come from the shared bitmap font, not a
+  // hand-written copy, or preview and firmware can drift apart silently.
+  it('bakes its glyph table from the shared font', () => {
+    const rtc = node('rtc', 'RTCInput', 'input', {})
+    const clk = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Digital HH:MM' })
+    const cpp = generateCpp([rtc, clk, outputNode], [
+      edge('e1', 'rtc', 'clk', 'secondsOfDay', 'secondsOfDay'),
+      edge('e2', 'clk', 'out', 'frame', 'frame'),
+    ])
+    const chars = /static const char _clkChars_clk\[\] = "([^"]+)";/.exec(cpp)?.[1] ?? ''
+    expect(chars).not.toHaveLength(0)
+    const table = /static const uint8_t _clkGlyphs_clk\[\]\[3\] = \{(.+)\};/.exec(cpp)?.[1] ?? ''
+    const rows = table.split('}, ').map((row) => row.replace(/[{}]/g, '').split(',').map(Number))
+    expect(rows).toHaveLength(chars.length)
+    for (let i = 0; i < chars.length; i++) {
+      expect(rows[i]).toEqual(textColumns(chars[i], DEFAULT_FONT, 0))
+    }
+  })
+
+  // Wiring the time but not the valid flag used to preview a running clock and
+  // then flash permanent dashes.
+  it('treats a wired time with an unwired valid flag as valid, and an unwired time as invalid', () => {
+    const rtc = node('rtc', 'RTCInput', 'input', {})
+    const clk = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Digital HH:MM' })
+    const wired = generateCpp([rtc, clk, outputNode], [
+      edge('e1', 'rtc', 'clk', 'secondsOfDay', 'secondsOfDay'),
+      edge('e2', 'clk', 'out', 'frame', 'frame'),
+    ])
+    expect(wired).toContain('if (true) snprintf(_clkMain_clk')
+    const bare = generateCpp([clk, outputNode], [edge('e1', 'clk', 'out', 'frame', 'frame')])
+    expect(bare).toContain('if (false) snprintf(_clkMain_clk')
   })
 
   it('emits millis-driven stopwatch/timer state for transport modes', () => {
@@ -2581,6 +2615,14 @@ describe('ClockDisplay (codegen)', () => {
     expect(cpp).toContain('uint32_t _clkNow_clk = millis();')
     expect(cpp).toContain('if (_clkRun_clk) _clkRemaining_clk = max(0.0f, _clkRemaining_clk - _clkDt_clk);')
     expect(cpp).toContain('snprintf(_clkMain_clk, sizeof(_clkMain_clk), "%02d:%02d"')
+  })
+
+  it('publishes transport readouts so a timer can drive the rest of the graph', () => {
+    const clk = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Timer', durationSec: 90 })
+    const cpp = generateCpp([clk, outputNode], [edge('e1', 'clk', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('float n_clk_seconds = 0.0f; bool n_clk_done = false;')
+    expect(cpp).toContain('n_clk_seconds = _clkShow_clk;')
+    expect(cpp).toContain('n_clk_done = _clkRemaining_clk <= 0.0f;')
   })
 })
 

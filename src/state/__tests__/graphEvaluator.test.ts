@@ -3681,6 +3681,47 @@ describe('RTCInput', () => {
       vi.useRealTimers()
     }
   })
+
+  // The firmware clock follows `timeSource`, so the preview has to as well or
+  // the designer sees a different time than the board will show.
+  it('runs a Manual seed forward from preview time instead of the browser clock', () => {
+    const rtc = node('rtc', 'RTCInput', 'input', {
+      timeSource: 'Manual',
+      startYear: 2026, startMonth: 3, startDay: 1,
+      startHour: 23, startMinute: 59, startSecond: 30,
+    })
+    const seeded = evaluateGraphFull([rtc], [], 0, W, H).outputs.get('rtc')
+    expect(seeded).toMatchObject({ valid: true, hour: 23, minute: 59, second: 30, day: 1, month: 3 })
+
+    // 60 seconds of preview time (60 ticks/sec) rolls the seed past midnight.
+    const later = evaluateGraphFull([rtc], [], 60 * 60, W, H).outputs.get('rtc')
+    expect(later).toMatchObject({ hour: 0, minute: 0, second: 30, day: 2, month: 3, year: 2026 })
+  })
+
+  it('reports an impossible Manual seed as invalid, matching the firmware clock', () => {
+    const rtc = node('rtc', 'RTCInput', 'input', {
+      timeSource: 'Manual',
+      startYear: 2026, startMonth: 2, startDay: 30,
+      startHour: 12, startMinute: 0, startSecond: 0,
+    })
+    expect(evaluateGraphFull([rtc], [], 0, W, H).outputs.get('rtc')).toMatchObject({
+      valid: false, synced: false, hour: 0, minute: 0, day: 0, month: 0, year: 0,
+    })
+  })
+
+  it('shows NTP time as UTC plus the configured offset', () => {
+    vi.useFakeTimers()
+    // 12:00 UTC exactly, whatever the host timezone is.
+    vi.setSystemTime(new Date(Date.UTC(2026, 6, 27, 12, 0, 0)))
+    try {
+      const rtc = node('rtc', 'RTCInput', 'input', { timeSource: 'NTP', timezoneOffsetMinutes: 330 })
+      expect(evaluateGraphFull([rtc], [], 0, W, H).outputs.get('rtc')).toMatchObject({
+        valid: true, hour: 17, minute: 30, day: 27, month: 7, year: 2026,
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
 
 describe('ClockDisplay', () => {
@@ -3715,6 +3756,35 @@ describe('ClockDisplay', () => {
     const later = evaluateGraph(nodes, edges, 120, 16, 16)
     expect(litPixels(start)).toBeGreaterThan(0)
     expect(JSON.stringify(start)).not.toEqual(JSON.stringify(later))
+  })
+
+  it('draws over a wired base frame instead of blanking it', () => {
+    const solid = node('bg', 'SolidColor', 'pattern', { r: 0, g: 0, b: 40 })
+    const clock = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Digital HH:MM' })
+    const { nodes, edges } = withOutput(clock, [solid], [edge('e1', 'bg', 'frame', 'clk', 'base')])
+    const frame = evaluateGraph(nodes, edges, 0, 16, 16)!
+    // Every pixel keeps the backdrop, and the digits add on top of it.
+    expect(frame.every((row) => row.every((px) => px.b >= 40))).toBe(true)
+    expect(litPixels(frame)).toBe(16 * 16)
+  })
+
+  it('publishes timer readouts so the transport can drive other nodes', () => {
+    const { nodes, edges } = withOutput(
+      node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Timer', durationSec: 2, run: true }),
+      [], [],
+    )
+    // The evaluator clamps each step to 0.25 s (same guard the firmware uses),
+    // so walk the timer down in real steps rather than one big jump.
+    evaluateGraphFull(nodes, edges, 0, 16, 16)
+    const mid = evaluateGraphFull(nodes, edges, 15, 16, 16).outputs.get('clk')
+    expect(mid?.seconds).toBeCloseTo(1.75, 3)
+    expect(mid?.done).toBe(false)
+    let end = mid
+    for (let step = 2; step <= 12; step++) {
+      end = evaluateGraphFull(nodes, edges, step * 15, 16, 16).outputs.get('clk')
+    }
+    expect(end?.seconds).toBe(0)
+    expect(end?.done).toBe(true)
   })
 })
 

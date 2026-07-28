@@ -79,6 +79,97 @@ export function readRtcSnapshot(now: Date = new Date()): RtcSnapshot {
   }
 }
 
+// ── Source-aware preview clock ───────────────────────────────────────────────
+// The generated firmware picks its wall clock from RTCInput's `timeSource`, so
+// the preview has to do the same or the designer sees a different time than the
+// board will show. Manual runs a seeded software clock forward from boot (and
+// reports invalid for an impossible seed, exactly like `_rtcValidDateTime`);
+// NTP shows UTC shifted by the configured offset, which is the wall clock
+// `configTime(offset, 0, server)` produces on-device. Compile Time seeds from
+// the build stamp on hardware, so the browser's local clock is its closest
+// preview.
+
+export type RtcTimeSource = 'Compile Time' | 'Manual' | 'NTP'
+
+/** An RTC snapshot plus the sync flags RTCInput exposes alongside the fields. */
+export interface RtcPreview extends RtcSnapshot {
+  synced: boolean
+  stale: boolean
+}
+
+/** All fields dark — mirrors the firmware's "seed invalid" state, where every
+ *  RTCInput output stays at its zero initialiser. */
+const RTC_INVALID: RtcPreview = {
+  hour: 0, minute: 0, second: 0, weekday: 0, day: 0, month: 0, year: 0,
+  secondsOfDay: 0, weekend: false, valid: false, synced: false, stale: false,
+}
+
+export function rtcTimeSource(properties: Record<string, unknown> | undefined): RtcTimeSource {
+  const source = String(properties?.timeSource ?? 'Compile Time')
+  return source === 'Manual' || source === 'NTP' ? source : 'Compile Time'
+}
+
+/** Read a UTC instant into the same shape `readRtcSnapshot` produces for local
+ *  time — used by the sources whose wall clock is offset-defined, not local. */
+function snapshotFromUtc(date: Date): RtcSnapshot {
+  const hour = date.getUTCHours()
+  const minute = date.getUTCMinutes()
+  const second = date.getUTCSeconds()
+  const weekday = date.getUTCDay()
+  return {
+    hour,
+    minute,
+    second,
+    weekday,
+    day: date.getUTCDate(),
+    month: date.getUTCMonth() + 1,
+    year: date.getUTCFullYear(),
+    secondsOfDay: hour * 3600 + minute * 60 + second + date.getUTCMilliseconds() / 1000,
+    weekend: weekday === 0 || weekday === 6,
+    valid: true,
+  }
+}
+
+/**
+ * The clock the preview should show for an RTCInput node's configured source.
+ * `elapsedSeconds` is preview time since the render loop started — the browser
+ * stand-in for the firmware's `millis()`, so a Manual seed advances the same
+ * way it will on the board.
+ */
+export function rtcPreviewSnapshot(
+  properties: Record<string, unknown> | undefined,
+  elapsedSeconds = 0,
+  now: Date = new Date(),
+): RtcPreview {
+  const props = properties ?? {}
+  switch (rtcTimeSource(props)) {
+    case 'Manual': {
+      const fields: RtcDateTimeFields = {
+        year: Number(props.startYear ?? 0),
+        month: Number(props.startMonth ?? 0),
+        day: Number(props.startDay ?? 0),
+        hour: Number(props.startHour ?? 0),
+        minute: Number(props.startMinute ?? 0),
+        second: Number(props.startSecond ?? 0),
+      }
+      if (!isValidRtcDateTime(fields)) return RTC_INVALID
+      const seed = Date.UTC(
+        Math.round(fields.year), Math.round(fields.month) - 1, Math.round(fields.day),
+        Math.round(fields.hour), Math.round(fields.minute), Math.round(fields.second),
+      )
+      const elapsed = Number.isFinite(elapsedSeconds) ? Math.max(0, elapsedSeconds) : 0
+      return { ...snapshotFromUtc(new Date(seed + elapsed * 1000)), synced: true, stale: false }
+    }
+    case 'NTP': {
+      const offsetMinutes = Number(props.timezoneOffsetMinutes ?? 0)
+      const offset = Number.isFinite(offsetMinutes) ? offsetMinutes : 0
+      return { ...snapshotFromUtc(new Date(now.getTime() + offset * 60_000)), synced: true, stale: false }
+    }
+    default:
+      return { ...readRtcSnapshot(now), synced: true, stale: false }
+  }
+}
+
 export function formatRtcTime(snapshot: RtcSnapshot): string {
   return [snapshot.hour, snapshot.minute, snapshot.second]
     .map((value) => String(value).padStart(2, '0'))

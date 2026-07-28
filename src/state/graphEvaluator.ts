@@ -4,7 +4,7 @@ import { useDmxStore } from './dmxStore'
 import { useHardwareInputStore } from './hardwareInputStore'
 import { useMidiStore } from './midiStore'
 import { blankDmxSnapshot, clampDmxChannel, clampDmxByte, type DmxSnapshot } from './dmx'
-import { readRtcSnapshot } from './rtc'
+import { readRtcSnapshot, rtcPreviewSnapshot } from './rtc'
 import { useUiStore } from './uiStore'
 import { asFont, textBlockLayout, textAlignMode, TEXT_LINE_GAP, type BitmapFont, DEFAULT_FONT } from './font'
 import { animatedImageFrame, asAnimatedImage, asImage, sampleImageToFrame, type ImageData } from './image'
@@ -4660,7 +4660,8 @@ function createEvalNode(
         const x = num(id, 'x', props, 'x', 0.5)
         const y = num(id, 'y', props, 'y', 0.5)
         const radius = Math.max(2, num(id, 'radius', props, 'radius', 6))
-        const frame = blankFrame(W, H)
+        const baseIn = input(id, 'base', null) as Frame | null
+        const frame = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
 
         if (CLOCK_TRANSPORT_MODES.has(mode)) {
           const key = stateKey(id)
@@ -4708,9 +4709,19 @@ function createEvalNode(
             false,
             0,
           )
-          out = { frame }
+          // A Timer reads "done" the instant it reaches zero; a Stopwatch has
+          // no end, so it never fires.
+          out = {
+            frame,
+            seconds: mode === 'Timer' ? st.remaining : st.elapsed,
+            done: mode === 'Timer' && st.remaining <= 0,
+          }
           break
         }
+
+        // Clock modes pass the wall clock through so the same node can drive
+        // downstream time logic without a second RTC hop.
+        const clockOut = { seconds: valid ? secondsOfDay : 0, done: false }
 
         if (CLOCK_ANALOG_MODES.has(mode)) {
           const cx = normalizedCenterAxis(x, W, radius, false)
@@ -4719,7 +4730,7 @@ function createEvalNode(
           if (mode === 'Analog + Date') {
             blitText(frame, valid ? clockDateText(day, month) : '--.--', scaleRgb(color, 0.9), x, cy + radius + 1, DEFAULT_FONT, W, H, 'center', 'start', false, 0)
           }
-          out = { frame }
+          out = { frame, ...clockOut }
           break
         }
 
@@ -4756,7 +4767,7 @@ function createEvalNode(
           false,
           0,
         )
-        out = { frame }
+        out = { frame, ...clockOut }
         break
       }
 
@@ -6531,11 +6542,15 @@ function createEvalNode(
       }
 
       case 'RTCInput': {
-        const rtc = readRtcSnapshot()
+        // Preview the clock the *configured* source will produce on-device, not
+        // just the browser clock: a Manual seed runs forward from `t` (the
+        // preview's stand-in for millis()) and reads invalid for an impossible
+        // date, and NTP shows UTC + the configured offset. See rtc.ts.
+        const rtc = rtcPreviewSnapshot(props, t)
         out = {
           valid: rtc.valid,
-          synced: rtc.valid,
-          stale: false,
+          synced: rtc.synced,
+          stale: rtc.stale,
           hour: rtc.hour,
           minute: rtc.minute,
           second: rtc.second,

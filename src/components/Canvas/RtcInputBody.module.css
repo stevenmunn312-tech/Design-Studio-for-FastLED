@@ -29,6 +29,16 @@
   box-shadow: 0 0 10px color-mix(in srgb, var(--node-accent) 55%, rgba(184, 255, 223, 0.7));
 }
 
+.statusBad {
+  background: rgba(255, 96, 96, 0.16);
+  color: #ffd7d7;
+}
+
+.statusBad span {
+  background: #ff6b6b;
+  box-shadow: 0 0 10px rgba(255, 107, 107, 0.6);
+}
+
 .readout {
   display: flex;
   align-items: baseline;

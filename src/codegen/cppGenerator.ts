@@ -5,7 +5,9 @@ import {
   VOCAL_AURORA_MAX_INPUT_GAIN,
   VOCAL_AURORA_MIN_INPUT_GAIN,
 } from '../state/graphEvaluator'
-import { asFont, textBlockLayout, textAlignMode, TEXT_LINE_GAP } from '../state/font'
+import {
+  asFont, textBlockLayout, textAlignMode, textColumns, DEFAULT_FONT, FONT_H, FONT_W, TEXT_LINE_GAP,
+} from '../state/font'
 import { asAnimatedImage, asImage } from '../state/image'
 import { imagePaletteStops16 } from '../state/imagePalette'
 import { polineStops16, hexToRgb } from '../state/polinePalette'
@@ -415,6 +417,11 @@ export function audioEngineForGraph(nodes: StudioNode[]): { include: string; cod
   }
 }
 
+// Every character the Clock Display can print, in every mode (digits, the
+// separators, and the AM/PM letters). Its glyph columns are pulled from the
+// shared bitmap font when the sketch is generated.
+const CLOCK_GLYPH_CHARS = '0123456789:.-AMP'
+
 // Mirrors graphEvaluator's textAlignedStart/normalizedCenterAxis for the Text
 // node's C++ codegen: 'center' keeps the existing centred formula (an object
 // of half-extent `lengthExpr/2` sliding so its centre tracks `valueExpr`);
@@ -809,12 +816,23 @@ export function generateCpp(
       const nodeInputs = node.data.inputs as { id: string; dataType?: string }[]
       const bp = bypassPort(nodeOutputs, nodeInputs)
       const bpType = bp ? nodeOutputs.find((o) => o.id === bp.outPort)?.dataType : undefined
+      // A bypassed node skips its own body, so any scalar side outputs it also
+      // publishes (e.g. Clock Display's transport readouts) still need a
+      // declaration or a downstream reference would not compile.
+      const declareScalarOutputs = () => {
+        for (const o of nodeOutputs) {
+          if (o.dataType === 'float') ln(`  float ${v(o.id)} = 0.0f;`)
+          else if (o.dataType === 'bool') ln(`  bool ${v(o.id)} = false;`)
+        }
+      }
       if (bp && bpType === 'frame') {
         ownBuf()
         ln(`  ${seedFrom(bp.inPort)}`)
+        declareScalarOutputs()
         return
       }
       if (bp && bpType === 'field') {
+        declareScalarOutputs()
         const src = srcField(bp.inPort)
         const buf = ownField()
         ln(src ? `  memcpy(${buf}, ${src}, sizeof(float) * NUM_LEDS);` : `  memset(${buf}, 0, sizeof(float) * NUM_LEDS);`)
@@ -1323,7 +1341,8 @@ export function generateCpp(
         const startSecond = rawInt(p.startSecond, 0)
         const timezoneOffsetMinutes = rawInt(p.timezoneOffsetMinutes, 0)
         const ntpServer = cppStringLiteral(p.ntpServer ?? 'pool.ntp.org')
-        ln(`  static bool _rtcInit_${id} = false, _rtcSeedValid_${id} = false, _rtcEverSynced_${id} = false;`)
+        const ntp = source === 'NTP'
+        ln(`  static bool _rtcInit_${id} = false, _rtcSeedValid_${id} = false;`)
         ln(`  static bool _rtcNtpConfigured_${id} = false;`)
         ln(`  static int32_t _rtcBaseDays_${id} = 0;`)
         ln(`  static uint32_t _rtcBaseSeconds_${id} = 0, _rtcLastMillis_${id} = 0;`)
@@ -1335,9 +1354,10 @@ export function generateCpp(
           ln(`      _rtcBaseDays_${id} = _rtcDaysFromCivil(${startYear}, ${startMonth}, ${startDay});`)
           ln(`      _rtcBaseSeconds_${id} = (uint32_t)(${startHour}) * 3600u + (uint32_t)(${startMinute}) * 60u + (uint32_t)(${startSecond});`)
           ln(`    }`)
-        } else if (source === 'NTP') {
-          ln(`    _rtcSeedValid_${id} = false;`)
         } else {
+          // NTP seeds from the build stamp too, so the clock runs (flagged
+          // stale, not synced) before the first successful sync instead of
+          // leaving every output dark until Wi-Fi comes up.
           ln(`    _RtcDateTime _rtcBuild_${id};`)
           ln(`    _rtcSeedValid_${id} = _rtcParseBuildStamp(__DATE__, __TIME__, _rtcBuild_${id});`)
           ln(`    if (_rtcSeedValid_${id}) {`)
@@ -1352,7 +1372,35 @@ export function generateCpp(
         ln(`  float ${v('hour')} = 0.0f, ${v('minute')} = 0.0f, ${v('second')} = 0.0f;`)
         ln(`  float ${v('weekday')} = 0.0f, ${v('day')} = 0.0f, ${v('month')} = 0.0f, ${v('year')} = 0.0f;`)
         ln(`  float ${v('secondsOfDay')} = 0.0f;`)
-        if (source === 'NTP') {
+        // Free-running software clock. It is the clock for Compile Time and
+        // Manual, and the pre-sync fallback for NTP (which overwrites the
+        // fields below once the network hands back a real epoch).
+        ln(`  if (_rtcSeedValid_${id}) {`)
+        ln(`    uint32_t _rtcNowMs_${id} = millis();`)
+        ln(`    _rtcElapsedMillis_${id} += (uint32_t)(_rtcNowMs_${id} - _rtcLastMillis_${id});`)
+        ln(`    _rtcLastMillis_${id} = _rtcNowMs_${id};`)
+        ln(`    uint64_t _rtcWholeSeconds_${id} = _rtcElapsedMillis_${id} / 1000ull;`)
+        ln(`    uint32_t _rtcMillisRema_${id} = (uint32_t)(_rtcElapsedMillis_${id} % 1000ull);`)
+        ln(`    uint64_t _rtcTotalSeconds_${id} = (uint64_t)_rtcBaseSeconds_${id} + _rtcWholeSeconds_${id};`)
+        ln(`    int32_t _rtcDays_${id} = _rtcBaseDays_${id} + (int32_t)(_rtcTotalSeconds_${id} / 86400ull);`)
+        ln(`    uint32_t _rtcSecondsOfDay_${id} = (uint32_t)(_rtcTotalSeconds_${id} % 86400ull);`)
+        ln(`    int16_t _rtcYear_${id}; uint8_t _rtcMonth_${id}, _rtcDay_${id};`)
+        ln(`    _rtcCivilFromDays(_rtcDays_${id}, _rtcYear_${id}, _rtcMonth_${id}, _rtcDay_${id});`)
+        ln(`    uint8_t _rtcWeekday_${id} = _rtcWeekdayFromDays(_rtcDays_${id});`)
+        ln(`    ${v('valid')} = true;`)
+        ln(`    ${v('synced')} = ${ntp ? 'false' : 'true'};`)
+        ln(`    ${v('stale')} = ${ntp ? 'true' : 'false'};`)
+        ln(`    ${v('hour')} = (float)(_rtcSecondsOfDay_${id} / 3600u);`)
+        ln(`    ${v('minute')} = (float)((_rtcSecondsOfDay_${id} / 60u) % 60u);`)
+        ln(`    ${v('second')} = (float)(_rtcSecondsOfDay_${id} % 60u);`)
+        ln(`    ${v('weekday')} = (float)_rtcWeekday_${id};`)
+        ln(`    ${v('day')} = (float)_rtcDay_${id};`)
+        ln(`    ${v('month')} = (float)_rtcMonth_${id};`)
+        ln(`    ${v('year')} = (float)_rtcYear_${id};`)
+        ln(`    ${v('secondsOfDay')} = (float)_rtcSecondsOfDay_${id} + _rtcMillisRema_${id} / 1000.0f;`)
+        ln(`    ${v('weekend')} = _rtcWeekday_${id} == 0 || _rtcWeekday_${id} == 6;`)
+        ln(`  }`)
+        if (ntp) {
           ln(`  _wifiEnsureConnected();`)
           ln(`#if FLS_WIFI_SUPPORTED`)
           ln(`  if (_wifiConnected() && !_rtcNtpConfigured_${id}) {`)
@@ -1360,14 +1408,12 @@ export function generateCpp(
           ln(`    _rtcNtpConfigured_${id} = true;`)
           ln(`  }`)
           ln(`  time_t _rtcEpoch_${id} = time(nullptr);`)
-          ln(`  bool _rtcHasEpoch_${id} = _rtcEpoch_${id} >= 946684800;`)
-          ln(`  if (_rtcHasEpoch_${id}) {`)
+          ln(`  if (_rtcEpoch_${id} >= 946684800) {`)
           ln(`    struct tm _rtcTm_${id};`)
           ln(`    localtime_r(&_rtcEpoch_${id}, &_rtcTm_${id});`)
           ln(`    ${v('valid')} = true;`)
           ln(`    ${v('synced')} = _wifiConnected();`)
           ln(`    ${v('stale')} = !_wifiConnected();`)
-          ln(`    _rtcEverSynced_${id} = true;`)
           ln(`    ${v('hour')} = (float)_rtcTm_${id}.tm_hour;`)
           ln(`    ${v('minute')} = (float)_rtcTm_${id}.tm_min;`)
           ln(`    ${v('second')} = (float)_rtcTm_${id}.tm_sec;`)
@@ -1377,36 +1423,8 @@ export function generateCpp(
           ln(`    ${v('year')} = (float)(_rtcTm_${id}.tm_year + 1900);`)
           ln(`    ${v('secondsOfDay')} = (float)(_rtcTm_${id}.tm_hour * 3600 + _rtcTm_${id}.tm_min * 60 + _rtcTm_${id}.tm_sec);`)
           ln(`    ${v('weekend')} = _rtcTm_${id}.tm_wday == 0 || _rtcTm_${id}.tm_wday == 6;`)
-          ln(`  } else if (_rtcEverSynced_${id}) {`)
-          ln(`    ${v('stale')} = true;`)
           ln(`  }`)
           ln(`#endif`)
-        } else {
-          ln(`  if (_rtcSeedValid_${id}) {`)
-          ln(`    uint32_t _rtcNowMs_${id} = millis();`)
-          ln(`    _rtcElapsedMillis_${id} += (uint32_t)(_rtcNowMs_${id} - _rtcLastMillis_${id});`)
-          ln(`    _rtcLastMillis_${id} = _rtcNowMs_${id};`)
-          ln(`    uint64_t _rtcWholeSeconds_${id} = _rtcElapsedMillis_${id} / 1000ull;`)
-          ln(`    uint32_t _rtcMillisRema_${id} = (uint32_t)(_rtcElapsedMillis_${id} % 1000ull);`)
-          ln(`    uint64_t _rtcTotalSeconds_${id} = (uint64_t)_rtcBaseSeconds_${id} + _rtcWholeSeconds_${id};`)
-          ln(`    int32_t _rtcDays_${id} = _rtcBaseDays_${id} + (int32_t)(_rtcTotalSeconds_${id} / 86400ull);`)
-          ln(`    uint32_t _rtcSecondsOfDay_${id} = (uint32_t)(_rtcTotalSeconds_${id} % 86400ull);`)
-          ln(`    int16_t _rtcYear_${id}; uint8_t _rtcMonth_${id}, _rtcDay_${id};`)
-          ln(`    _rtcCivilFromDays(_rtcDays_${id}, _rtcYear_${id}, _rtcMonth_${id}, _rtcDay_${id});`)
-          ln(`    uint8_t _rtcWeekday_${id} = _rtcWeekdayFromDays(_rtcDays_${id});`)
-          ln(`    ${v('valid')} = true;`)
-          ln(`    ${v('synced')} = true;`)
-          ln(`    ${v('stale')} = false;`)
-          ln(`    ${v('hour')} = (float)(_rtcSecondsOfDay_${id} / 3600u);`)
-          ln(`    ${v('minute')} = (float)((_rtcSecondsOfDay_${id} / 60u) % 60u);`)
-          ln(`    ${v('second')} = (float)(_rtcSecondsOfDay_${id} % 60u);`)
-          ln(`    ${v('weekday')} = (float)_rtcWeekday_${id};`)
-          ln(`    ${v('day')} = (float)_rtcDay_${id};`)
-          ln(`    ${v('month')} = (float)_rtcMonth_${id};`)
-          ln(`    ${v('year')} = (float)_rtcYear_${id};`)
-          ln(`    ${v('secondsOfDay')} = (float)_rtcSecondsOfDay_${id} + _rtcMillisRema_${id} / 1000.0f;`)
-          ln(`    ${v('weekend')} = _rtcWeekday_${id} == 0 || _rtcWeekday_${id} == 6;`)
-          ln(`  }`)
         }
         break
       }
@@ -1736,46 +1754,50 @@ export function generateCpp(
           : `CRGB(${Number(p.r ?? 255)}, ${Number(p.g ?? 220)}, ${Number(p.b ?? 90)})`
         const xExpr = f('x', 'x', 0.5)
         const yExpr = f('y', 'y', 0.5)
-        const validExpr = incoming.get(`${node.id}:valid`) ? boolExpr(node.id, 'valid') : 'false'
+        // The evaluator treats an unwired `valid` as true whenever a time is
+        // available, so a graph that wires the seconds but not the valid flag
+        // must not preview a running clock and then flash dashes. With neither
+        // wired there is no clock at all on hardware, so dashes are correct —
+        // buildGraphDiagnostics flags that case.
+        const validExpr = incoming.get(`${node.id}:valid`)
+          ? boolExpr(node.id, 'valid')
+          : (incoming.get(`${node.id}:secondsOfDay`) ? 'true' : 'false')
         const secondsExpr = f('secondsOfDay', 'secondsOfDay', 0)
         const dayExpr = f('day', 'day', 1)
         const monthExpr = f('month', 'month', 1)
         const runExpr = incoming.get(`${node.id}:run`) ? boolExpr(node.id, 'run') : (p.run === false ? 'false' : 'true')
         const resetExpr = incoming.get(`${node.id}:reset`) ? boolExpr(node.id, 'reset') : (p.reset === true ? 'true' : 'false')
         const durationExpr = `max(0.0f, ${f('durationSec', 'durationSec', 300)})`
+        // Declared outside the render block so downstream nodes can read the
+        // transport readouts (clock modes pass the time of day through).
+        ln(`  float ${v('seconds')} = 0.0f; bool ${v('done')} = false;`)
         ln(`  { // Clock Display`)
-        ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
+        ln(`    ${seedFrom('base')}`)
         ln(`    auto _clkPx = [&](int _x, int _y, const CRGB &_col) {`)
         ln(`      if (_x < 0 || _x >= WIDTH || _y < 0 || _y >= HEIGHT) return;`)
         ln(`      CRGB &_dst = ${ob}[_y * WIDTH + _x];`)
         ln(`      _dst.r = max(_dst.r, _col.r); _dst.g = max(_dst.g, _col.g); _dst.b = max(_dst.b, _col.b);`)
         ln(`    };`)
-        ln(`    auto _clkCols = [&](char _ch, uint8_t &_c0, uint8_t &_c1, uint8_t &_c2) {`)
-        ln(`      switch (_ch) {`)
-        ln(`        case '0': _c0 = 31; _c1 = 17; _c2 = 31; break;`)
-        ln(`        case '1': _c0 = 18; _c1 = 31; _c2 = 16; break;`)
-        ln(`        case '2': _c0 = 29; _c1 = 21; _c2 = 23; break;`)
-        ln(`        case '3': _c0 = 21; _c1 = 21; _c2 = 31; break;`)
-        ln(`        case '4': _c0 = 7;  _c1 = 4;  _c2 = 31; break;`)
-        ln(`        case '5': _c0 = 23; _c1 = 21; _c2 = 29; break;`)
-        ln(`        case '6': _c0 = 31; _c1 = 21; _c2 = 29; break;`)
-        ln(`        case '7': _c0 = 1;  _c1 = 29; _c2 = 3;  break;`)
-        ln(`        case '8': _c0 = 31; _c1 = 21; _c2 = 31; break;`)
-        ln(`        case '9': _c0 = 23; _c1 = 21; _c2 = 31; break;`)
-        ln(`        case '-': _c0 = 4;  _c1 = 4;  _c2 = 4;  break;`)
-        ln(`        case '.': _c0 = 0;  _c1 = 16; _c2 = 0;  break;`)
-        ln(`        case ':': _c0 = 0;  _c1 = 10; _c2 = 0;  break;`)
-        ln(`        case 'A': _c0 = 31; _c1 = 5;  _c2 = 31; break;`)
-        ln(`        case 'M': _c0 = 31; _c1 = 6;  _c2 = 31; break;`)
-        ln(`        case 'P': _c0 = 31; _c1 = 5;  _c2 = 7;  break;`)
-        ln(`        default:  _c0 = 0;  _c1 = 0;  _c2 = 0;  break;`)
+        // The clock's text is assembled at runtime (unlike the Text node, whose
+        // string is known here and baked as columns), so the sketch carries a
+        // glyph lookup — generated from the shared bitmap font in state/font.ts
+        // rather than hand-transcribed, so preview and firmware cannot drift.
+        ln(`    static const char _clkChars_${id}[] = "${CLOCK_GLYPH_CHARS}";`)
+        ln(`    static const uint8_t _clkGlyphs_${id}[][${FONT_W}] = {${
+          [...CLOCK_GLYPH_CHARS].map((ch) => `{${textColumns(ch, DEFAULT_FONT, 0).join(',')}}`).join(', ')
+        }};`)
+        ln(`    auto _clkCols = [&](char _ch, uint8_t *_cols) {`)
+        ln(`      for (int _c = 0; _c < ${FONT_W}; _c++) _cols[_c] = 0;`)
+        ln(`      for (int _g = 0; _clkChars_${id}[_g]; _g++) if (_clkChars_${id}[_g] == _ch) {`)
+        ln(`        for (int _c = 0; _c < ${FONT_W}; _c++) _cols[_c] = _clkGlyphs_${id}[_g][_c];`)
+        ln(`        return;`)
         ln(`      }`)
         ln(`    };`)
         ln(`    auto _clkText = [&](const char *_s, int _sx, int _sy, const CRGB &_col) {`)
         ln(`      for (int _i = 0; _s[_i]; _i++) {`)
-        ln(`        uint8_t _c0 = 0, _c1 = 0, _c2 = 0; _clkCols(_s[_i], _c0, _c1, _c2); uint8_t _cols[3] = {_c0, _c1, _c2};`)
-        ln(`        for (int _c = 0; _c < 3; _c++) { int _x = _sx + _i * 3 + _c; if (_x < 0 || _x >= WIDTH) continue; uint8_t _bits = _cols[_c];`)
-        ln(`          for (int _r = 0; _r < 5; _r++) if (_bits & (1 << _r)) _clkPx(_x, _sy + _r, _col); }`)
+        ln(`        uint8_t _cols[${FONT_W}]; _clkCols(_s[_i], _cols);`)
+        ln(`        for (int _c = 0; _c < ${FONT_W}; _c++) { int _x = _sx + _i * ${FONT_W} + _c; if (_x < 0 || _x >= WIDTH) continue; uint8_t _bits = _cols[_c];`)
+        ln(`          for (int _r = 0; _r < ${FONT_H}; _r++) if (_bits & (1 << _r)) _clkPx(_x, _sy + _r, _col); }`)
         ln(`      }`)
         ln(`    };`)
         ln(`    auto _clkLine = [&](float _x0, float _y0, float _x1, float _y1, const CRGB &_col) {`)
@@ -1789,11 +1811,15 @@ export function generateCpp(
         ln(`        float _dx = _x - _cx, _dy = _y - _cy; if (fabsf(sqrtf(_dx * _dx + _dy * _dy) - _rad) <= 0.65f) _clkPx(_x, _y, _col);`)
         ln(`      }`)
         ln(`    };`)
+        // Pixel extents of the strings each mode prints, derived from the
+        // shared font so they stay in step with blitText's own layout maths.
+        const glyphRun = (chars: number) => `${chars * FONT_W}`
+        const twoLineHeight = `${FONT_H * 2 + TEXT_LINE_GAP}`
+        const subLineOffset = FONT_H + TEXT_LINE_GAP
         if (transport) {
-          const line2Width = mode === 'Timer' || mode === 'Stopwatch' ? 6 : 15
-          const syExpr = textAxisStartExpr(yExpr, 'HEIGHT', '11', vAlign, false)
-          const sxMainExpr = textAxisStartExpr(xExpr, 'WIDTH', '15', hAlign, false)
-          const sxSubExpr = textAxisStartExpr(xExpr, 'WIDTH', `${line2Width}`, hAlign, false)
+          const syExpr = textAxisStartExpr(yExpr, 'HEIGHT', twoLineHeight, vAlign, false)
+          const sxMainExpr = textAxisStartExpr(xExpr, 'WIDTH', glyphRun(5), hAlign, false)
+          const sxSubExpr = textAxisStartExpr(xExpr, 'WIDTH', glyphRun(2), hAlign, false)
           ln(`    static float _clkElapsed_${id} = 0.0f, _clkRemaining_${id} = 0.0f, _clkLastDuration_${id} = -1.0f;`)
           ln(`    static uint32_t _clkLastMs_${id} = 0; static bool _clkPrevReset_${id} = false;`)
           ln(`    uint32_t _clkNow_${id} = millis(); float _clkDuration_${id} = ${durationExpr}; bool _clkRun_${id} = ${runExpr}; bool _clkReset_${id} = ${resetExpr};`)
@@ -1806,6 +1832,8 @@ export function generateCpp(
           else ln(`    if (_clkRun_${id}) _clkElapsed_${id} += _clkDt_${id};`)
           ln(`    _clkLastMs_${id} = _clkNow_${id}; _clkPrevReset_${id} = _clkReset_${id};`)
           ln(`    float _clkShow_${id} = ${mode === 'Timer' ? `_clkRemaining_${id}` : `_clkElapsed_${id}`};`)
+          ln(`    ${v('seconds')} = _clkShow_${id};`)
+          ln(`    ${v('done')} = ${mode === 'Timer' ? `_clkRemaining_${id} <= 0.0f` : 'false'};`)
           ln(`    int _clkWhole_${id} = max(0, (int)floorf(_clkShow_${id}));`)
           ln(`    int _clkHours_${id} = _clkWhole_${id} / 3600, _clkMinutes_${id} = (_clkWhole_${id} % 3600) / 60, _clkSeconds_${id} = _clkWhole_${id} % 60;`)
           ln(`    int _clkCentis_${id} = ((int)floorf((_clkShow_${id} - _clkWhole_${id}) * 100.0f)) % 100;`)
@@ -1814,7 +1842,7 @@ export function generateCpp(
           ln(`    else { snprintf(_clkMain_${id}, sizeof(_clkMain_${id}), "%02d:%02d", _clkMinutes_${id}, _clkSeconds_${id}); snprintf(_clkSub_${id}, sizeof(_clkSub_${id}), "%02d", _clkCentis_${id}); }`)
           ln(`    int _clkSy_${id} = (int)${syExpr}, _clkSx0_${id} = (int)${sxMainExpr}, _clkSx1_${id} = (int)${sxSubExpr};`)
           ln(`    _clkText(_clkMain_${id}, _clkSx0_${id}, _clkSy_${id}, ${colorE});`)
-          ln(`    _clkText(_clkSub_${id}, _clkSx1_${id}, _clkSy_${id} + 6, ${colorE});`)
+          ln(`    _clkText(_clkSub_${id}, _clkSx1_${id}, _clkSy_${id} + ${subLineOffset}, ${colorE});`)
         } else if (analog) {
           const radiusExpr = `max(2.0f, ${f('radius', 'radius', 6)})`
           ln(`    float _clkRad_${id} = ${radiusExpr};`)
@@ -1823,6 +1851,7 @@ export function generateCpp(
           ln(`    float _clkCy_${id} = _clkYv_${id} > 1.0f ? _clkYv_${id} : (0.5f - (_clkRad_${id} + 1.0f)) + _clkYv_${id} * ((HEIGHT - 1.0f) + 2.0f * (_clkRad_${id} + 1.0f));`)
           ln(`    float _clkSec_${id} = ${validExpr} ? ${secondsExpr} : 0.0f;`)
           ln(`    while (_clkSec_${id} < 0.0f) _clkSec_${id} += 86400.0f; while (_clkSec_${id} >= 86400.0f) _clkSec_${id} -= 86400.0f;`)
+          ln(`    ${v('seconds')} = ${validExpr} ? _clkSec_${id} : 0.0f;`)
           ln(`    int _clkHour_${id} = (int)floorf(_clkSec_${id} / 3600.0f); int _clkMinute_${id} = ((int)floorf(_clkSec_${id} / 60.0f)) % 60;`)
           ln(`    float _clkRingScale_${id} = 0.45f, _clkTickScale_${id} = 0.30f, _clkSecondScale_${id} = 0.70f;`)
           ln(`    CRGB _clkRingCol_${id} = ${colorE}; _clkRingCol_${id}.nscale8((uint8_t)(_clkRingScale_${id} * 255.0f));`)
@@ -1838,7 +1867,7 @@ export function generateCpp(
           ln(`    _clkLine(_clkCx_${id}, _clkCy_${id}, _clkCx_${id} + cosf(_clkSecondA_${id}) * max(3.0f, _clkRad_${id} * 0.92f), _clkCy_${id} + sinf(_clkSecondA_${id}) * max(3.0f, _clkRad_${id} * 0.92f), _clkSecondCol_${id});`)
           ln(`    _clkPx((int)roundf(_clkCx_${id}), (int)roundf(_clkCy_${id}), ${colorE});`)
           if (mode === 'Analog + Date') {
-            const dateXExpr = textAxisStartExpr(xExpr, 'WIDTH', '15', 'center', false)
+            const dateXExpr = textAxisStartExpr(xExpr, 'WIDTH', glyphRun(5), 'center', false)
             ln(`    char _clkDate_${id}[6];`)
             ln(`    if (${validExpr}) snprintf(_clkDate_${id}, sizeof(_clkDate_${id}), "%02d.%02d", (int)(${dayExpr}), (int)(${monthExpr}));`)
             ln(`    else memcpy(_clkDate_${id}, "--.--", 6);`)
@@ -1847,11 +1876,11 @@ export function generateCpp(
           }
         } else {
           const twoLine = mode !== 'Digital HH:MM'
-          const line2Width = mode === 'Digital + Date' ? 15 : 6
-          const syExpr = textAxisStartExpr(yExpr, 'HEIGHT', twoLine ? '11' : '5', vAlign, false)
-          const sxMainExpr = textAxisStartExpr(xExpr, 'WIDTH', '15', hAlign, false)
-          const sxSubExpr = textAxisStartExpr(xExpr, 'WIDTH', `${line2Width}`, hAlign, false)
+          const syExpr = textAxisStartExpr(yExpr, 'HEIGHT', twoLine ? twoLineHeight : `${FONT_H}`, vAlign, false)
+          const sxMainExpr = textAxisStartExpr(xExpr, 'WIDTH', glyphRun(5), hAlign, false)
+          const sxSubExpr = textAxisStartExpr(xExpr, 'WIDTH', glyphRun(mode === 'Digital + Date' ? 5 : 2), hAlign, false)
           ln(`    float _clkSec_${id} = ${secondsExpr}; while (_clkSec_${id} < 0.0f) _clkSec_${id} += 86400.0f; while (_clkSec_${id} >= 86400.0f) _clkSec_${id} -= 86400.0f;`)
+          ln(`    ${v('seconds')} = ${validExpr} ? _clkSec_${id} : 0.0f;`)
           ln(`    int _clkHour_${id} = (int)floorf(_clkSec_${id} / 3600.0f), _clkMinute_${id} = ((int)floorf(_clkSec_${id} / 60.0f)) % 60, _clkSecond_${id} = ((int)floorf(_clkSec_${id})) % 60;`)
           ln(`    char _clkMain_${id}[6], _clkSub_${id}[6] = "";`)
           if (mode === 'Digital HH:MM:SS') {
@@ -1871,7 +1900,7 @@ export function generateCpp(
           ln(`    _clkText(_clkMain_${id}, _clkSx0_${id}, _clkSy_${id}, ${colorE});`)
           if (twoLine) {
             ln(`    int _clkSx1_${id} = (int)${sxSubExpr};`)
-            ln(`    _clkText(_clkSub_${id}, _clkSx1_${id}, _clkSy_${id} + 6, ${colorE});`)
+            ln(`    _clkText(_clkSub_${id}, _clkSx1_${id}, _clkSy_${id} + ${subLineOffset}, ${colorE});`)
           }
         }
         ln(`  }`)

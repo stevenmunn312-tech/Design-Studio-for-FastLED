@@ -135,6 +135,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'pattern',
     subcategory: 'Shapes & Text',
     inputs: [
+      { id: 'base', label: 'Base', dataType: 'frame' },
       { id: 'color', label: 'Color', dataType: 'color' },
       { id: 'secondsOfDay', label: 'Seconds Today', dataType: 'float' },
       { id: 'valid', label: 'Valid', dataType: 'bool' },
@@ -147,7 +148,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'y', label: 'Y', dataType: 'float' },
       { id: 'radius', label: 'Radius', dataType: 'float' },
     ],
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    outputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      // Stopwatch/Timer readouts, so a transport can drive the rest of the
+      // graph instead of only drawing itself. Clock modes pass the time of day
+      // through on `seconds` and hold `done` low.
+      { id: 'seconds', label: 'Seconds', dataType: 'float' },
+      { id: 'done', label: 'Done', dataType: 'bool' },
+    ],
     defaultProperties: {
       displayMode: 'Digital HH:MM',
       x: 0.5,
