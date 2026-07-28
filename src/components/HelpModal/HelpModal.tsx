@@ -358,6 +358,35 @@ function UploadTab() {
       <div className={styles.divider} />
 
       <div className={styles.section}>
+        <div className={styles.sectionTitle}>DMX / Art-Net hardware setup</div>
+        <div className={styles.text}>
+          A <strong>DMX / Art-Net</strong> node carries one universe into the graph; <strong>DMX Channel</strong> decodes a single slot. Both transports are <strong>experimental</strong> — no hardware validation pass has been recorded for either one yet.
+        </div>
+        <div className={styles.tipList}>
+          <div className={styles.tip}>
+            <div className={styles.tipIcon}>◇</div>
+            <div className={styles.tipText}>
+              <strong>Art-Net</strong> needs a Wi-Fi-capable board (ESP32 or ESP8266). Enter the SSID and password on the node, choose DHCP or a static address, and match the universe and UDP port your controller sends on. Credentials stay in this browser and are never written into the project, share links, or synced project files — but they are embedded in plain text in the generated sketch, so treat an exported network-enabled <code>.ino</code> as a secret.
+            </div>
+          </div>
+          <div className={styles.tip}>
+            <div className={styles.tipIcon}>◇</div>
+            <div className={styles.tipText}>
+              <strong>DMX512</strong> is ESP32-only and needs an RS-485 transceiver such as a MAX485 or SN75176 — a bare GPIO cannot read a DMX line. Wire the transceiver's TX, RX, and enable pins to the ones set on the node, connect DMX data +/− and ground to the XLR line, and terminate the run. With <strong>fbuild</strong> the <code>esp_dmx</code> library is vendored automatically on the first DMX512 build; with <strong>arduino-cli</strong>, install <code>esp_dmx</code> yourself first.
+            </div>
+          </div>
+          <div className={styles.tip}>
+            <div className={styles.tipIcon}>◇</div>
+            <div className={styles.tipText}>
+              <strong>Preview receives Art-Net only</strong>, in both modes, through the local helper's UDP listener — so a DMX512 node previews blank unless an Art-Net source happens to be sending. Preview holds one live universe at a time. One sketch shares a single Wi-Fi connection across every Art-Net input and NTP clock, so configure them identically; Graph Health flags unsupported boards, pin conflicts, and missing or conflicting Wi-Fi settings before upload.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
         <div className={styles.sectionTitle}>Board catalogue (out of the box)</div>
         <div className={styles.text}>
           Studio ships a starter board catalogue including ESP32-S3, ESP32, ESP8266, Arduino Uno, Arduino Nano, Arduino Mega, Teensy 4.1, RP2040 (Pico), and Arduino Nano 33 IoT, plus any custom boards you add yourself. As of July 26, 2026, the recorded public-beta support rows cover both <strong>ESP32-S3 + 16×16 WS2812B matrix</strong> and <strong>ESP8266 + 10×1 WS2812B strip</strong>, including normal Upload, Flash Wiring Test, and Flash Stream Receiver + Live Stream paths for those exact combos. Everything else should still be treated as experimental until it is added to the <a className={styles.link} href={`${REPO_URL}/blob/main/docs/release/beta-support-matrix.md`} target="_blank" rel="noopener noreferrer">beta support matrix</a>.

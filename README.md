@@ -2,7 +2,7 @@
 
 Design LED animations as a live node graph, watch them move on a virtual matrix, then send the same patch to FastLED hardware.
 
-**Public beta · 145 nodes · 20 included audio-reactive patterns · Windows/macOS/Linux packaging · MIT core**
+**Public beta · 150 nodes · 20 included audio-reactive patterns · Windows/macOS/Linux packaging · MIT core**
 
 ![Design Studio for FastLED overview](docs/images/readme/design-studio-overview.png)
 
@@ -118,6 +118,8 @@ Design Studio for FastLED is in beta and the direct-download desktop packages ar
 - **Imported projects and patterns:** files and share links are treated as untrusted. Formula and Code previews remain blocked until you review the source and choose **Trust and run**. Only trust content from people you know.
 - **Microphone permission:** audio-reactive previews require browser microphone permission. Audio stays in the browser analysis pipeline; a denied permission simply leaves live audio nodes inactive.
 - **Local helper and USB access:** upload, serial streaming, file dialogs, and disk-backed pattern/project sync use a service on your own machine. It listens on localhost and needs access to the selected serial device. Your firewall or operating system may ask for confirmation on first launch.
+- **Wi-Fi credentials:** an SSID and password entered for Art-Net input or NTP time sync are stored only in this browser's local storage, never in project files, share links, or the helper's `Projects/` folder. They are embedded in plain text in generated firmware, so handle an exported network-enabled `.ino` accordingly.
+- **Art-Net preview and the network:** the helper opens a UDP listener on your local network only while an Art-Net-mode **DMX / Art-Net** node is on the canvas, and closes it as soon as that node is removed or switched to DMX512.
 
 Read the full [Security policy](SECURITY.md) and report vulnerabilities privately through the channel documented there.
 
@@ -134,17 +136,17 @@ The empty-canvas launcher and **✦ Start** gallery include Rainbow Sweep, Fire,
 
 ## Complete node catalogue
 
-Design Studio for FastLED currently ships **145 nodes**. The in-app **Help → Node Reference** is authoritative and explains each one in depth.
+Design Studio for FastLED currently ships **150 nodes**. The in-app **Help → Node Reference** is authoritative and explains each one in depth.
 
 <details>
 <summary><strong>Show all nodes by category</strong></summary>
 
-- **Inputs:** Microphone, Button, Potentiometer, Encoder, MIDI
+- **Inputs:** Microphone, Button, Potentiometer, Encoder, DMX / Art-Net, RTC Clock, MIDI
 - **Audio:** FFT Analyzer, Beat Detect, Percussion Detect, Audio Features, Audio → Hue
-- **Signals:** Time, Interval, Counter, Random, Envelope, Sin, Cos, Wave, Complex Wave, BeatSin, Clock
+- **Signals:** Time, Interval, Counter, Random, Envelope, Sin, Cos, Wave, Complex Wave, BeatSin, Clock, Schedule Trigger, DMX Channel
 - **Math & Logic:** Math, Clamp, Map Range, Lerp, Ease, Abs, Mod, Gate, Smooth, Sample & Hold, Switch, Not, Compare, Trigger, XY → Index
 - **Color:** Hue Cycle, HSV → RGB, RGB → HSV, Color Temperature, Heat Color, Blend Colors, CHSV, Gradient Sampler, Palette Sampler, Palette Sweep, Palette Selector, Custom Palette, Palette from Image, Poline Palette, Blend Palettes
-- **Patterns:** Solid Color, Text, Circle, Line, Shape, Path, Gradient Frame, Palette Gradient, Image, Noise, Plasma, Rainbow, Pride 2015, Pacifica, TwinkleFox, Scanner, Confetti, Juggle, Radial Burst, Spiral, Kaleidoscope, Fractal Noise, Gabor Noise, Blobs, Fire, Fire 2012, Particles, Flow Field, Starfield, Boids, Reaction Diffusion, Game of Life, Spectrum Bars, Spectrum Visualizer, Bass Pulse, Bass Rings, Midrange Waves, Midrange Bloom, Treble Sparks, Treble Prism, Audio Cascade, Beat Flash, Kick Shock, Vocal Aurora, Beat Kaleidoscope, Spectra Mosaic, Percussion Blobs, Ember Pulse, Turbulent Bloom, Gravity Well, Rain Ripples, Prism Storm, Audio Flow, Color Trails, AnimARTrix, Custom Formula, Code
+- **Patterns:** Solid Color, Text, Clock Display, Circle, Line, Shape, Path, Gradient Frame, Palette Gradient, Image, Noise, Plasma, Rainbow, Pride 2015, Pacifica, TwinkleFox, Scanner, Confetti, Juggle, Radial Burst, Spiral, Kaleidoscope, Fractal Noise, Gabor Noise, Blobs, Fire, Fire 2012, Particles, Flow Field, Starfield, Boids, Reaction Diffusion, Game of Life, Spectrum Bars, Spectrum Visualizer, Bass Pulse, Bass Rings, Midrange Waves, Midrange Bloom, Treble Sparks, Treble Prism, Audio Cascade, Beat Flash, Kick Shock, Vocal Aurora, Beat Kaleidoscope, Spectra Mosaic, Percussion Blobs, Ember Pulse, Turbulent Bloom, Gravity Well, Rain Ripples, Prism Storm, Audio Flow, Color Trails, AnimARTrix, Custom Formula, Code
 - **Fields:** Field Formula, Field Noise, Wave Sim, Distance Field, Frame → Field, Field Math, Field Warp, Field Rotate, Field Tile, Field → Frame
 - **Effects:** Blur 2D, Blend, Mask, Brightness, Fade to Black, Hue Shift, Gamma, Saturation, Color Boost, Transform, Array, Invert, Mirror, Trails, Frame Feedback, Frame Switch, Zones
 - **Show:** Music Library, Pattern Collection, Transitions, Show Engine, Sequencer, Transition, Performance Generator, SD Card
@@ -162,6 +164,31 @@ Music Library → Performance Generator → SD Card → Matrix Output.sdcard
 ```
 
 Drop MP3s into **Music Library**, analyze them, generate or hand-edit the show timeline, connect the SD path, then use **Upload show to SD**. A Pattern Collection can feed the Performance Generator so your saved groups become the song's visual vocabulary.
+
+## External control: DMX and Art-Net
+
+**Experimental — no hardware validation pass has been recorded yet.** The code paths below are covered by unit, codegen, and backend tests only; see the [Beta support matrix](docs/release/beta-support-matrix.md).
+
+A lighting desk or Art-Net controller can drive a patch:
+
+```text
+DMX / Art-Net → DMX Channel → any float/bool input
+```
+
+**DMX / Art-Net** receives one universe as a single `dmx` wire; **DMX Channel** isolates one slot (1–512) as a normalized `Value (0–1)`, a raw `Byte (0–255)`, plus `Active` and `Changed` booleans. Use several DMX Channel nodes to read several slots.
+
+Pick the transport on the source node:
+
+- **Art-Net** (ESP32 or ESP8266) — the sketch joins your Wi-Fi and listens for Art-Net UDP on the configured port and universe. Set the hostname, DHCP or a static IP, and the universe on the node.
+- **DMX512** (ESP32 only) — the sketch reads a real DMX line through an RS-485 transceiver (e.g. MAX485 or SN75176) on the selected UART. Wire the transceiver's driver-enable, TX, and RX to the node's configured pins, connect DMX data +/− and ground to the XLR line, and terminate the run as usual. The transceiver is required; a bare GPIO cannot read a DMX line.
+
+For DMX512, `fbuild` vendors the `esp_dmx` library automatically on the first build. With `arduino-cli`, install `esp_dmx` yourself before compiling.
+
+**Preview listens for Art-Net only, in both modes.** The local helper owns the UDP socket, and the node body reports `HELPER OFFLINE`, `LISTENER ERROR`, `NOT LISTENING`, `LISTENING`, or `ART-NET LIVE` with a packet rate and the first four channel values. There is no browser-side DMX512 path, so a node set to DMX512 says so and previews blank unless an Art-Net controller happens to be sending. Preview holds exactly one live universe at a time.
+
+**Wi-Fi credentials are never saved into your work.** The SSID and password you enter for Art-Net (and for NTP time sync) live only in this browser's local storage, keyed by node — they are not written to project files, share links, or the helper's `Projects/` folder. Generated firmware still embeds the credential in plain text, because a sketch has no other way to join a network: treat an exported `.ino` for a network-enabled patch like a password, and do not paste one into an issue.
+
+The same Wi-Fi connection is shared by every Art-Net input and every NTP clock in one sketch, so configure them identically; Graph Health warns when they disagree.
 
 ## Projects and saving
 
