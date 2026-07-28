@@ -24,6 +24,7 @@ import { buildXYTable } from '../state/xyLayout'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette, type RGB } from '../state/customPalette'
 import { animartrixCppLines } from '../animartrix/codegen'
 import { compositionDims, outputRoutes } from '../state/outputRouting'
+import { getNetworkCredentials } from '../state/networkCredentials'
 import { sanitizePin } from './hardwarePins'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -668,9 +669,12 @@ export function generateCpp(
       || (n.data.nodeType === 'RTCInput' && String(p.timeSource ?? 'Compile Time') === 'NTP')
   })
   const networkProps = networkSource ? props(networkSource) : {}
+  // SSID/password are deliberately not node properties — see networkCredentials.ts —
+  // so they're looked up by node id from that browser-local store instead of `props`.
+  const networkCredentials = networkSource ? getNetworkCredentials(networkSource.id) : { ssid: '', password: '' }
   const networkCfg = {
-    ssid: cppStringLiteral(networkProps.wifiSsid ?? ''),
-    password: cppStringLiteral(networkProps.wifiPassword ?? ''),
+    ssid: cppStringLiteral(networkCredentials.ssid),
+    password: cppStringLiteral(networkCredentials.password),
     hostname: cppStringLiteral(networkProps.wifiHostname ?? 'fastled-node'),
     useDhcp: networkProps.useDhcp !== false,
     staticIp: parseIpv4Literal(networkProps.staticIp),

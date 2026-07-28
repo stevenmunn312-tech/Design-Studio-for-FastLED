@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useGraphStore } from '../../state/graphStore'
 import { useDmxStore } from '../../state/dmxStore'
+import { useNetworkCredentialsStore, EMPTY_CREDENTIALS } from '../../state/networkCredentials'
 import { clampDmxUniverse } from '../../state/dmx'
 import styles from './DmxInputBody.module.css'
 
@@ -23,6 +24,8 @@ export default function DmxInputBody({ nodeId }: { nodeId: string }) {
   const snapshot = useDmxStore((s) => s.snapshot)
   const configure = useDmxStore((s) => s.configure)
   const stop = useDmxStore((s) => s.stop)
+  const credentials = useNetworkCredentialsStore((s) => s.byNodeId[nodeId] ?? EMPTY_CREDENTIALS)
+  const setCredentials = useNetworkCredentialsStore((s) => s.setCredentials)
 
   const universe = clampDmxUniverse(props.universe ?? 0)
   const listenPort = Math.max(1, Math.min(65535, Math.round(Number(props.previewPort ?? 6454) || 6454)))
@@ -56,6 +59,35 @@ export default function DmxInputBody({ nodeId }: { nodeId: string }) {
       {error && <div className={styles.note}>{error}</div>}
       {mode !== 'Art-Net' && (
         <div className={styles.note}>Preview listens for Art-Net only; firmware uses the selected DMX512 pins.</div>
+      )}
+      {mode === 'Art-Net' && (
+        <>
+          <div className={styles.field}>
+            <label className={styles.fieldLabel} htmlFor={`${nodeId}-dmx-ssid`}>Wi-Fi SSID</label>
+            <input
+              id={`${nodeId}-dmx-ssid`}
+              className={`nodrag ${styles.fieldInput}`}
+              type="text"
+              autoComplete="off"
+              value={credentials.ssid}
+              onChange={(e) => setCredentials(nodeId, { ssid: e.target.value })}
+              placeholder="network name"
+            />
+          </div>
+          <div className={styles.field}>
+            <label className={styles.fieldLabel} htmlFor={`${nodeId}-dmx-password`}>Wi-Fi password</label>
+            <input
+              id={`${nodeId}-dmx-password`}
+              className={`nodrag ${styles.fieldInput}`}
+              type="password"
+              autoComplete="off"
+              value={credentials.password}
+              onChange={(e) => setCredentials(nodeId, { password: e.target.value })}
+              placeholder="password"
+            />
+          </div>
+          <div className={styles.note}>Stored in this browser only — never saved in the project file or share links.</div>
+        </>
       )}
     </div>
   )

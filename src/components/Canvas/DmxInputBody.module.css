@@ -39,3 +39,31 @@
   line-height: 1.35;
   color: rgba(229, 236, 244, 0.7);
 }
+
+.field {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.fieldLabel {
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: rgba(229, 236, 244, 0.65);
+}
+
+.fieldInput {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(10, 14, 20, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  color: rgba(247, 251, 255, 0.92);
+  font-size: 0.76rem;
+  font-family: var(--font-code, monospace);
+  padding: 3px 6px;
+}
+
+.fieldInput:focus {
+  outline: none;
+  border-color: rgba(107, 248, 255, 0.7);
+}

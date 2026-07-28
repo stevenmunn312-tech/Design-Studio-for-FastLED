@@ -17,6 +17,7 @@ import { NODE_LIBRARY, portColor } from './nodeLibrary'
 import type { GroupRegistry } from './graphEvaluator'
 import type { SavedPattern } from './patternLibrary'
 import { isPatternContentTrusted, trustPatternContent } from './patternTrust'
+import { useNetworkCredentialsStore } from './networkCredentials'
 import { useUiStore } from './uiStore'
 import { validateMatrixLayout } from './xyLayout'
 import {
@@ -274,6 +275,17 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     // preview nor firmware honored it. FastLED's INMP441 pipeline owns the
     // 44.1 kHz rate now, so strip the misleading legacy property on load.
     if (nodeType === 'MicInput') delete properties.sampleRate
+    // Wi-Fi SSID/password used to be ordinary node properties (persisted into
+    // project files and share links). They now live browser-local only in
+    // networkCredentials.ts — migrate any already-saved values across, then
+    // strip them so they never round-trip through storage again.
+    if (nodeType === 'DMXInput' || nodeType === 'RTCInput') {
+      const ssid = typeof properties.wifiSsid === 'string' ? properties.wifiSsid : ''
+      const password = typeof properties.wifiPassword === 'string' ? properties.wifiPassword : ''
+      if (ssid || password) useNetworkCredentialsStore.getState().setCredentials(n.id, { ssid, password })
+      delete properties.wifiSsid
+      delete properties.wifiPassword
+    }
     const inputs = def?.inputs ?? (Array.isArray(data.inputs) ? data.inputs : [])
     const outputs = def?.outputs ?? (Array.isArray(data.outputs) ? data.outputs : [])
     return { ...n, data: { ...data, nodeType, label, category, properties, inputs, outputs } }
