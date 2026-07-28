@@ -32,6 +32,14 @@ build/architecture overview aimed at contributors.
     — a new `field` data type (per-pixel scalar grid) plus `FieldFormula`,
     `FieldToFrame`, `DistanceField`, `FieldMath`, and `FieldWarp` nodes that
     unlock ANIMartRIX-style coordinate → scalar → colour pipelines.
+  - [DMX / Art-Net input](development/design/dmx-artnet-input.md)
+    — the `dmx` data type carrying a whole 512-channel universe down one wire,
+    the `DMXInput` source / `DMXChannel` decoder split, and the parity rules
+    between helper-backed Art-Net preview, Art-Net firmware, and ESP32 DMX512.
+  - [RTC clock and scheduled triggers](development/design/rtc-clock-and-schedule.md)
+    — the software clock and its `Compile Time` / `Manual` / `NTP` sources, why
+    the clock is a wire rather than a scene singleton, and the window/trigger
+    edge rules `ScheduleTrigger` holds identical across preview and firmware.
 - [Plans](development/plans/)
   - [T-HMI feature integration](development/plans/thmi-feature-integration.md)
     — how to replay the divergent `feature/thmi-touchscreen-ui` branch (FFT
