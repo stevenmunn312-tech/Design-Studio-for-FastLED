@@ -25,6 +25,7 @@ def _clean_stream_state():
         app_module._stream_serial = None
         app_module._stream_port = None
         app_module._stream_baud = 0
+    app_module._artnet_stop_listener(clear_error=True)
 
 
 class FakeSerial:

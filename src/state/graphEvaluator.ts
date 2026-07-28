@@ -1,7 +1,9 @@
 import type { StudioNode, StudioEdge } from './graphStore'
 import { useAudioStore } from './audioStore'
+import { useDmxStore } from './dmxStore'
 import { useHardwareInputStore } from './hardwareInputStore'
 import { useMidiStore } from './midiStore'
+import { blankDmxSnapshot, clampDmxChannel, clampDmxByte, type DmxSnapshot } from './dmx'
 import { readRtcSnapshot } from './rtc'
 import { useUiStore } from './uiStore'
 import { asFont, textBlockLayout, textAlignMode, TEXT_LINE_GAP, type BitmapFont, DEFAULT_FONT } from './font'
@@ -62,6 +64,7 @@ const smoothState = new Map<string, { v: number; t: number }>()
 const holdState = new Map<string, { v: number; prev: boolean }>()
 // Envelope node — trigger fire time (seconds) + previous trigger level.
 const envState = new Map<string, { fire: number; prev: boolean }>()
+const dmxChannelState = new Map<string, { last: number; seen: boolean }>()
 // Trigger node (bundled Debounce/Toggle/One Shot/Pulse Divider/Trigger Delay) —
 // one combined state bag; only the fields the active variant needs are touched.
 interface TriggerState {
@@ -76,6 +79,11 @@ interface TriggerState {
   scheduled: number | null
 }
 const triggerState = new Map<string, TriggerState>()
+interface ScheduleState {
+  prevActive: boolean
+  lastPulseDay: number
+}
+const scheduleState = new Map<string, ScheduleState>()
 // Clock/Transport node — free-runs from `resetOffset`; a `tap`/`sync` rising
 // edge re-zeros the offset and (from the second pulse on) derives a live BPM
 // from the pulse interval via an EMA, mirroring the millis()-based codegen.
@@ -382,8 +390,8 @@ export function pruneEvaluatorState(maxIdleMs = STATE_IDLE_TTL_MS, now = stateCl
 
   const maps: Array<{ delete: (key: string) => boolean }> = [
     fireHeat, flashLevel, counterVals, intervalLast, smoothState, holdState,
-    envState, trailState, frameFeedbackState, fftLevels, beatLevels, clockState, clockDisplayState, fireRngState,
-    seededRngState, triggerState, particleState, particleSeedState, patternShowState,
+    envState, dmxChannelState, trailState, frameFeedbackState, fftLevels, beatLevels, clockState, clockDisplayState, fireRngState,
+    seededRngState, triggerState, scheduleState, particleState, particleSeedState, patternShowState,
     percussionLevels, audioFeatureLevels,
     rdState, golState, waveSimState, flowState, colorTrailsState, spectrumVisualizerState, starState, boidState, sparkState, fire2012Heat,
     kickShockState, kaleidoPunch, percussionBlobsState, emberBurst,
@@ -412,7 +420,7 @@ export function getEvaluatorMemoryStats(): {
     fireHeat: fireHeat.size, fire2012Heat: fire2012Heat.size, fireRngState: fireRngState.size,
     seededRngState: seededRngState.size, flashLevel: flashLevel.size, counterVals: counterVals.size,
     intervalLast: intervalLast.size, smoothState: smoothState.size, holdState: holdState.size,
-    envState: envState.size, triggerState: triggerState.size, clockState: clockState.size,
+    envState: envState.size, dmxChannelState: dmxChannelState.size, triggerState: triggerState.size, scheduleState: scheduleState.size, clockState: clockState.size,
     trailState: trailState.size, frameFeedbackState: frameFeedbackState.size,
     fftLevels: fftLevels.size, beatLevels: beatLevels.size, percussionLevels: percussionLevels.size,
     audioFeatureLevels: audioFeatureLevels.size, particleState: particleState.size,
@@ -4085,7 +4093,7 @@ function evalFieldTile(field: Field | null, tilesX: number, tilesY: number, W = 
 
 // ── Main entry point ──────────────────────────────────────────────────────────
 
-export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | null
+export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | null
 
 /** A reusable pattern group: a named subgraph that a `Group` node evaluates. */
 export interface GroupDef { nodes: StudioNode[]; edges: StudioEdge[] }
@@ -4146,6 +4154,18 @@ function buildEvalMaps(nodes: StudioNode[], edges: StudioEdge[]): EvalMaps {
       })
   }
   return { nodeMap, incoming }
+}
+
+function scheduleDayEnabled(
+  mode: string,
+  weekday: number,
+  props: Record<string, unknown>,
+): boolean {
+  if (mode === 'Every day') return true
+  if (mode === 'Weekdays') return weekday >= 1 && weekday <= 5
+  if (mode === 'Weekends') return weekday === 0 || weekday === 6
+  const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const
+  return props[dayKeys[Math.max(0, Math.min(6, Math.round(weekday)))] ?? 'sunday'] !== false
 }
 
 function createEvalNode(
@@ -5776,6 +5796,59 @@ function createEvalNode(
         break
       }
 
+      case 'ScheduleTrigger': {
+        const key = stateKey(id)
+        const mode = String(props.scheduleMode ?? 'Window')
+        const dayMode = String(props.dayMode ?? 'Every day')
+        const valid = Boolean(input(id, 'valid', false))
+        const synced = Boolean(input(id, 'synced', false))
+        const enabled = Boolean(input(id, 'enable', props.enable !== false))
+        const weekday = Math.max(0, Math.min(6, Math.round(Number(input(id, 'weekday', 0)))))
+        const secondsOfDay = Math.max(0, Math.min(86399.999, Number(input(id, 'secondsOfDay', 0))))
+        const day = Math.max(1, Math.min(31, Math.round(Number(input(id, 'day', 1)))))
+        const month = Math.max(1, Math.min(12, Math.round(Number(input(id, 'month', 1)))))
+        const year = Math.max(1970, Math.round(Number(input(id, 'year', 1970))))
+        const requireSync = props.requireSync === true
+        const startSec = Math.max(0, Math.min(86399,
+          Math.round(Number(props.startHour ?? 0)) * 3600
+          + Math.round(Number(props.startMinute ?? 0)) * 60
+          + Math.round(Number(props.startSecond ?? 0))
+        ))
+        const endSec = Math.max(0, Math.min(86399,
+          Math.round(Number(props.endHour ?? 0)) * 3600
+          + Math.round(Number(props.endMinute ?? 0)) * 60
+          + Math.round(Number(props.endSecond ?? 0))
+        ))
+        const dayKey = year * 10_000 + month * 100 + day
+        const prev = scheduleState.get(key) ?? { prevActive: false, lastPulseDay: -1 }
+        const dayAllowed = scheduleDayEnabled(dayMode, weekday, props)
+        const timeReady = valid && (!requireSync || synced)
+
+        let active = false
+        let start = false
+        let end = false
+
+        if (enabled && timeReady && dayAllowed) {
+          if (mode === 'Trigger') {
+            active = false
+            if (prev.lastPulseDay !== dayKey && secondsOfDay >= startSec && secondsOfDay < startSec + 1) {
+              start = true
+              prev.lastPulseDay = dayKey
+            }
+          } else if (startSec <= endSec) {
+            active = secondsOfDay >= startSec && secondsOfDay <= endSec
+          } else {
+            active = secondsOfDay >= startSec || secondsOfDay <= endSec
+          }
+        }
+
+        if (active && !prev.prevActive) start = true
+        if (!active && prev.prevActive) end = true
+        scheduleState.set(key, { prevActive: active, lastPulseDay: prev.lastPulseDay })
+        out = { active, start, end }
+        break
+      }
+
       case 'Not': {
         const x = input(id, 'x', false) as boolean
         out = { result: !x }
@@ -6428,10 +6501,41 @@ function createEvalNode(
         break
       }
 
+      case 'DMXInput': {
+        const universe = Math.max(0, Math.min(32767, Math.round(Number(props.universe ?? 0))))
+        const snapshot = useDmxStore.getState().snapshot
+        out = {
+          dmx: snapshot.universe === universe
+            ? snapshot
+            : blankDmxSnapshot(universe),
+        }
+        break
+      }
+
+      case 'DMXChannel': {
+        const snapshot = input(id, 'dmx', blankDmxSnapshot()) as DmxSnapshot
+        const channel = clampDmxChannel(props.channel ?? 1, 1)
+        const byte = clampDmxByte(snapshot.channels[channel - 1] ?? 0, 0)
+        const threshold = clampDmxByte(props.activeThreshold ?? 1, 1)
+        const key = stateKey(id)
+        const prev = dmxChannelState.get(key)
+        const changed = prev?.seen === true && prev.last !== byte
+        dmxChannelState.set(key, { last: byte, seen: true })
+        out = {
+          value: byte / 255,
+          byte,
+          active: byte >= threshold,
+          changed,
+        }
+        break
+      }
+
       case 'RTCInput': {
         const rtc = readRtcSnapshot()
         out = {
           valid: rtc.valid,
+          synced: rtc.valid,
+          stale: false,
           hour: rtc.hour,
           minute: rtc.minute,
           second: rtc.second,

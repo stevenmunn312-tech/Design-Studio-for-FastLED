@@ -602,7 +602,7 @@ describe('StudioNode', () => {
       expect(rtc.getByText('PREVIEW CLOCK')).toBeTruthy()
       expect(rtc.getByText('14:05:09')).toBeTruthy()
       expect(rtc.getByText('Mon 2026-07-27')).toBeTruthy()
-      expect(rtc.getByText(/firmware uses the configured software clock/)).toBeTruthy()
+      expect(rtc.getByText('FIRMWARE COMPILE TIME')).toBeTruthy()
     } finally {
       vi.useRealTimers()
     }

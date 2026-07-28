@@ -1,0 +1,41 @@
+.body {
+  display: grid;
+  gap: 0.35rem;
+  padding-bottom: 0.15rem;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.69rem;
+  letter-spacing: 0.1em;
+  color: rgba(247, 251, 255, 0.88);
+}
+
+.status span {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: rgba(255, 186, 68, 0.8);
+  box-shadow: 0 0 0.5rem rgba(255, 186, 68, 0.4);
+}
+
+.status[data-active='true'] span {
+  background: rgba(85, 255, 166, 0.92);
+  box-shadow: 0 0 0.7rem rgba(85, 255, 166, 0.45);
+}
+
+.readout {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.78rem;
+  color: rgba(229, 236, 244, 0.86);
+}
+
+.note {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: rgba(229, 236, 244, 0.7);
+}

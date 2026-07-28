@@ -22,6 +22,7 @@ const RECENT_LIMIT = 8
 
 const BEGINNER_NODE_TYPES = new Set([
   'MicInput', 'FFTAnalyzer', 'BeatDetect',
+  'DMXInput', 'DMXChannel', 'RTCInput', 'ScheduleTrigger',
   'Wave', 'Counter', 'Random', 'SampleHold',
   'HueCycle', 'HSVToRGB', 'PaletteSelector',
   'SolidColor', 'Text', 'GradientFrame', 'Noise', 'Rainbow', 'Fire2012', 'SpectrumBars', 'SpectrumVisualizer', 'ColorTrails', 'Animartrix',
@@ -32,6 +33,10 @@ const BEGINNER_NODE_TYPES = new Set([
 
 const INTENT_TAGS: Record<string, string[]> = {
   MicInput: ['audio', 'hardware'],
+  DMXInput: ['dmx', 'art-net', 'lighting console'],
+  DMXChannel: ['dmx', 'decoder', 'channel'],
+  RTCInput: ['clock', 'schedule', 'time'],
+  ScheduleTrigger: ['schedule', 'time', 'trigger'],
   FFTAnalyzer: ['audio', 'reactive'],
   BeatDetect: ['audio', 'trigger'],
   AudioFeatures: ['audio', 'analysis'],
@@ -163,7 +168,7 @@ const RECIPE_CARDS: RecipeCard[] = [
 ]
 
 const TYPE_GLYPH: Record<string, string> = {
-  frame: '▦', palette: '≋', color: '●', audio: '⌁', float: '∿', bool: '◆',
+  frame: '▦', palette: '≋', color: '●', audio: '⌁', dmx: '◫', float: '∿', bool: '◆',
   field: '⌖', music: '♫', shows: '▶', sdcard: '▣', patternset: '◫', transitionset: '⇄',
 }
 

@@ -18,6 +18,7 @@ import BeatDetectBody from './BeatDetectBody'
 import FFTAnalyzerBody from './FFTAnalyzerBody'
 import HardwareInputBody from './HardwareInputBody'
 import MidiInputBody from './MidiInputBody'
+import DmxInputBody from './DmxInputBody'
 import RtcInputBody from './RtcInputBody'
 import { pinDisplayLabel, pinSupports } from '../../state/boardGpio'
 import { usePreviewStore } from '../../state/previewStore'
@@ -824,9 +825,13 @@ const GROUP_INPUT_ROLES = ['energy', 'speed', 'palette']
 // BeatDetectBody's LIVE / PREVIEW badge); ButtonInput/PotInput/EncoderInput
 // get a live widget (HardwareInputBody) instead of a note.
 const PREVIEW_NOTES: Record<string, { text: string; title: string }> = {
+  DMXInput: {
+    text: 'preview listens for helper-backed Art-Net; firmware uses the selected DMX source',
+    title: 'The browser preview reads Art-Net packets through the local helper. Generated firmware uses this node’s selected DMX source instead: Art-Net over Wi-Fi or DMX512 over an ESP32 transceiver.',
+  },
   RTCInput: {
-    text: 'preview uses browser time; firmware uses the configured software clock',
-    title: 'In preview this node reads the browser clock. Generated firmware keeps its own software clock seeded from the node’s Compile Time or Manual settings, so the two can intentionally differ.',
+    text: 'preview uses browser time; firmware uses the configured clock source',
+    title: 'In preview this node reads the browser clock. Generated firmware uses the node’s configured source instead: compile time, a manual seed, or network/NTP when enabled.',
   },
   MidiInput: {
     text: 'preview-only — no embedded MIDI equivalent',
@@ -1155,7 +1160,8 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {/* Hardware-input widgets are functional preview controls, not purely
             decorative FX, so keep them available even when UI FX are off. */}
         {isHardwareInput && <HardwareInputBody nodeId={id} nodeType={d.nodeType} resetOnPress={props.resetOnPress === true} />}
-        {d.nodeType === 'RTCInput' && <RtcInputBody />}
+        {d.nodeType === 'DMXInput' && <DmxInputBody nodeId={id} />}
+        {d.nodeType === 'RTCInput' && <RtcInputBody nodeId={id} />}
         {showLiveNodeVisuals && d.nodeType === 'MidiInput' && <MidiInputBody note={Math.round(Number(props.note ?? 60))} cc={Math.round(Number(props.cc ?? 1))} />}
         {showLiveNodeVisuals && previewKind && outPort && (
           previewHidden ? (

@@ -530,6 +530,27 @@ function rtcHelperCpp(): string[] {
   ]
 }
 
+function cppStringLiteral(value: unknown): string {
+  return `"${String(value ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')}"`
+}
+
+function parseIpv4Literal(value: unknown): [number, number, number, number] | null {
+  const parts = String(value ?? '').trim().split('.')
+  if (parts.length !== 4) return null
+  const nums = parts.map((part) => Number(part))
+  if (nums.some((num) => !Number.isInteger(num) || num < 0 || num > 255)) return null
+  return nums as [number, number, number, number]
+}
+
+function ipAddressExpr(value: [number, number, number, number] | null): string {
+  const ip = value ?? [0, 0, 0, 0]
+  return `IPAddress(${ip[0]}, ${ip[1]}, ${ip[2]}, ${ip[3]})`
+}
+
 export function generateCpp(
   nodes: StudioNode[], edges: StudioEdge[], groups: GroupRegistry = {},
   // `externalAudio`: the host sketch already provides the audio-engine globals
@@ -635,6 +656,28 @@ export function generateCpp(
 
   const sorted = topoSort(nodes, edges)
   const emitRtcHelpers = sorted.some((n) => n.data.nodeType === 'RTCInput')
+  const dmxInputs = sorted.filter((n) => n.data.nodeType === 'DMXInput')
+  const needsArtNet = dmxInputs.some((n) => String(props(n).inputMode ?? 'Art-Net') === 'Art-Net')
+  const needsDmx512 = dmxInputs.some((n) => String(props(n).inputMode ?? 'Art-Net') === 'DMX512')
+  const ntpNodes = sorted.filter((n) => n.data.nodeType === 'RTCInput' && String(props(n).timeSource ?? 'Compile Time') === 'NTP')
+  const needsNtp = ntpNodes.length > 0
+  const needsWifi = needsArtNet || needsNtp
+  const networkSource = sorted.find((n) => {
+    const p = props(n)
+    return (n.data.nodeType === 'DMXInput' && String(p.inputMode ?? 'Art-Net') === 'Art-Net')
+      || (n.data.nodeType === 'RTCInput' && String(p.timeSource ?? 'Compile Time') === 'NTP')
+  })
+  const networkProps = networkSource ? props(networkSource) : {}
+  const networkCfg = {
+    ssid: cppStringLiteral(networkProps.wifiSsid ?? ''),
+    password: cppStringLiteral(networkProps.wifiPassword ?? ''),
+    hostname: cppStringLiteral(networkProps.wifiHostname ?? 'fastled-node'),
+    useDhcp: networkProps.useDhcp !== false,
+    staticIp: parseIpv4Literal(networkProps.staticIp),
+    staticGateway: parseIpv4Literal(networkProps.staticGateway),
+    staticSubnet: parseIpv4Literal(networkProps.staticSubnet),
+    staticDns: parseIpv4Literal(networkProps.staticDns),
+  }
 
   // Resolve a float input to a C++ expression
   function floatExpr(nodeId: string, portId: string, nodeProps: Record<string, unknown>, propKey: string, def: number): string {
@@ -700,6 +743,7 @@ export function generateCpp(
   // pinMode(...) calls contributed by hardware-input nodes, emitted in setup().
   // A Set so two nodes reading the same pin don't emit it twice.
   const pinSetupLines = new Set<string>()
+  const setupLines: string[] = []
   // File-scope lines contributed by Code nodes (helpers, persistent vars, etc.),
   // emitted between the buffer declarations and setup().
   const globalLines: string[] = []
@@ -1153,19 +1197,130 @@ export function generateCpp(
         break
       }
 
+      case 'DMXInput': {
+        const inputMode = String(p.inputMode ?? 'Art-Net')
+        const universe = intProp(p.universe, 0, 0, 32767)
+        globalLines.push(`uint8_t _dmxData_${id}[512] = {0};`)
+        globalLines.push(`bool _dmxValid_${id} = false, _dmxLive_${id} = false;`)
+        globalLines.push(`float _dmxPacketRate_${id} = 0.0f;`)
+        globalLines.push(`uint32_t _dmxLastPacketMs_${id} = 0;`)
+
+        if (inputMode === 'DMX512') {
+          const dmxPort = intProp(p.dmxPort, 1, 1, 2)
+          const txPin = sanitizePin(p.dmxTxPin, 17)
+          const rxPin = sanitizePin(p.dmxRxPin, 16)
+          const enPin = sanitizePin(p.dmxEnablePin, 21)
+          globalLines.push(`#if defined(ESP32)`)
+          globalLines.push(`static dmx_port_t _dmxPort_${id} = (dmx_port_t)${dmxPort};`)
+          globalLines.push(`#endif`)
+          setupLines.push(`#if defined(ESP32)`)
+          setupLines.push(`  dmx_config_t _dmxConfig_${id} = DMX_CONFIG_DEFAULT;`)
+          setupLines.push(`  dmx_personality_t _dmxPersonality_${id}[] = { {1, "Studio"} };`)
+          setupLines.push(`  dmx_driver_install(_dmxPort_${id}, &_dmxConfig_${id}, _dmxPersonality_${id}, 1);`)
+          setupLines.push(`  dmx_set_pin(_dmxPort_${id}, ${txPin}, ${rxPin}, ${enPin});`)
+          setupLines.push(`#endif`)
+          ln(`#if defined(ESP32)`)
+          ln(`  dmx_packet_t _dmxPacket_${id};`)
+          ln(`  if (dmx_receive(_dmxPort_${id}, &_dmxPacket_${id}, DMX_TIMEOUT_TICK)) {`)
+          ln(`    if (!_dmxPacket_${id}.err) {`)
+          ln(`      uint8_t _dmxRaw_${id}[DMX_PACKET_SIZE] = {0};`)
+          ln(`      dmx_read(_dmxPort_${id}, _dmxRaw_${id}, _dmxPacket_${id}.size);`)
+          ln(`      uint16_t _dmxSlots_${id} = (uint16_t)min<int>(max(0, (int)_dmxPacket_${id}.size - 1), 512);`)
+          ln(`      memset(_dmxData_${id}, 0, 512);`)
+          ln(`      if (_dmxSlots_${id} > 0) memcpy(_dmxData_${id}, _dmxRaw_${id} + 1, _dmxSlots_${id});`)
+          ln(`      uint32_t _dmxNow_${id} = millis();`)
+          ln(`      if (_dmxLastPacketMs_${id}) _dmxPacketRate_${id} = 1000.0f / max(1u, _dmxNow_${id} - _dmxLastPacketMs_${id});`)
+          ln(`      _dmxLastPacketMs_${id} = _dmxNow_${id};`)
+          ln(`      _dmxValid_${id} = true;`)
+          ln(`      _dmxLive_${id} = true;`)
+          ln(`    }`)
+          ln(`  } else if (_dmxLastPacketMs_${id} && millis() - _dmxLastPacketMs_${id} > 1000u) {`)
+          ln(`    _dmxLive_${id} = false;`)
+          ln(`  }`)
+          ln(`#else`)
+          ln(`  _dmxValid_${id} = false;`)
+          ln(`  _dmxLive_${id} = false;`)
+          ln(`  _dmxPacketRate_${id} = 0.0f;`)
+          ln(`#endif`)
+        } else {
+          const port = intProp(p.previewPort, 6454, 1, 65535)
+          globalLines.push(`#if FLS_WIFI_SUPPORTED`)
+          globalLines.push(`WiFiUDP _artnetUdp_${id};`)
+          globalLines.push(`#endif`)
+          setupLines.push(`#if FLS_WIFI_SUPPORTED`)
+          setupLines.push(`  _artnetUdp_${id}.begin(${port});`)
+          setupLines.push(`#endif`)
+          ln(`  _wifiEnsureConnected();`)
+          ln(`#if FLS_WIFI_SUPPORTED`)
+          ln(`  if (_wifiConnected()) {`)
+          ln(`    int _artPkt_${id} = _artnetUdp_${id}.parsePacket();`)
+          ln(`    while (_artPkt_${id} > 0) {`)
+          ln(`      uint8_t _artBuf_${id}[530] = {0};`)
+          ln(`      int _artLen_${id} = _artnetUdp_${id}.read(_artBuf_${id}, sizeof(_artBuf_${id}));`)
+          ln(`      if (_artLen_${id} >= 18 && memcmp(_artBuf_${id}, "Art-Net\\0", 8) == 0) {`)
+          ln(`        uint16_t _artOp_${id} = (uint16_t)_artBuf_${id}[8] | ((uint16_t)_artBuf_${id}[9] << 8);`)
+          ln(`        uint16_t _artUni_${id} = (uint16_t)_artBuf_${id}[14] | ((uint16_t)_artBuf_${id}[15] << 8);`)
+          ln(`        uint16_t _artCount_${id} = ((uint16_t)_artBuf_${id}[16] << 8) | (uint16_t)_artBuf_${id}[17];`)
+          ln(`        if (_artOp_${id} == 0x5000u && _artUni_${id} == ${universe}) {`)
+          ln(`          uint16_t _artSlots_${id} = min<uint16_t>(_artCount_${id}, 512u);`)
+          ln(`          if (18 + (int)_artSlots_${id} <= _artLen_${id}) {`)
+          ln(`            memset(_dmxData_${id}, 0, 512);`)
+          ln(`            memcpy(_dmxData_${id}, _artBuf_${id} + 18, _artSlots_${id});`)
+          ln(`            uint32_t _artNow_${id} = millis();`)
+          ln(`            if (_dmxLastPacketMs_${id}) _dmxPacketRate_${id} = 1000.0f / max(1u, _artNow_${id} - _dmxLastPacketMs_${id});`)
+          ln(`            _dmxLastPacketMs_${id} = _artNow_${id};`)
+          ln(`            _dmxValid_${id} = true;`)
+          ln(`            _dmxLive_${id} = true;`)
+          ln(`          }`)
+          ln(`        }`)
+          ln(`      }`)
+          ln(`      _artPkt_${id} = _artnetUdp_${id}.parsePacket();`)
+          ln(`    }`)
+          ln(`  }`)
+          ln(`  if (_dmxLastPacketMs_${id} && millis() - _dmxLastPacketMs_${id} > 2000u) _dmxLive_${id} = false;`)
+          ln(`#else`)
+          ln(`  _dmxValid_${id} = false;`)
+          ln(`  _dmxLive_${id} = false;`)
+          ln(`  _dmxPacketRate_${id} = 0.0f;`)
+          ln(`#endif`)
+        }
+        break
+      }
+
+      case 'DMXChannel': {
+        const channel = intProp(p.channel, 1, 1, 512)
+        const threshold = intProp(p.activeThreshold, 1, 0, 255)
+        const up = incoming.get(`${node.id}:dmx`)
+        const src = up ? nodeMap.get(up.srcId) : null
+        const srcId = src?.data.nodeType === 'DMXInput' ? safeId(up!.srcId) : ''
+        ln(`  uint8_t _dmxByte_${id} = ${srcId ? `_dmxData_${srcId}[${channel - 1}]` : '0'};`)
+        ln(`  static bool _dmxSeen_${id} = false;`)
+        ln(`  static uint8_t _dmxPrev_${id} = 0;`)
+        ln(`  float ${v('value')} = _dmxByte_${id} / 255.0f;`)
+        ln(`  float ${v('byte')} = (float)_dmxByte_${id};`)
+        ln(`  bool ${v('active')} = _dmxByte_${id} >= ${threshold};`)
+        ln(`  bool ${v('changed')} = _dmxSeen_${id} && _dmxByte_${id} != _dmxPrev_${id};`)
+        ln(`  _dmxSeen_${id} = true;`)
+        ln(`  _dmxPrev_${id} = _dmxByte_${id};`)
+        break
+      }
+
       case 'RTCInput': {
         const rawInt = (value: unknown, def: number) => {
           const n = Math.round(Number(value))
           return Number.isFinite(n) ? n : def
         }
-        const source = String(p.timeSource ?? 'Compile Time') === 'Manual' ? 'Manual' : 'Compile Time'
+        const source = String(p.timeSource ?? 'Compile Time')
         const startYear = rawInt(p.startYear, 2026)
         const startMonth = rawInt(p.startMonth, 1)
         const startDay = rawInt(p.startDay, 1)
         const startHour = rawInt(p.startHour, 12)
         const startMinute = rawInt(p.startMinute, 0)
         const startSecond = rawInt(p.startSecond, 0)
-        ln(`  static bool _rtcInit_${id} = false, _rtcSeedValid_${id} = false;`)
+        const timezoneOffsetMinutes = rawInt(p.timezoneOffsetMinutes, 0)
+        const ntpServer = cppStringLiteral(p.ntpServer ?? 'pool.ntp.org')
+        ln(`  static bool _rtcInit_${id} = false, _rtcSeedValid_${id} = false, _rtcEverSynced_${id} = false;`)
+        ln(`  static bool _rtcNtpConfigured_${id} = false;`)
         ln(`  static int32_t _rtcBaseDays_${id} = 0;`)
         ln(`  static uint32_t _rtcBaseSeconds_${id} = 0, _rtcLastMillis_${id} = 0;`)
         ln(`  static uint64_t _rtcElapsedMillis_${id} = 0;`)
@@ -1176,6 +1331,8 @@ export function generateCpp(
           ln(`      _rtcBaseDays_${id} = _rtcDaysFromCivil(${startYear}, ${startMonth}, ${startDay});`)
           ln(`      _rtcBaseSeconds_${id} = (uint32_t)(${startHour}) * 3600u + (uint32_t)(${startMinute}) * 60u + (uint32_t)(${startSecond});`)
           ln(`    }`)
+        } else if (source === 'NTP') {
+          ln(`    _rtcSeedValid_${id} = false;`)
         } else {
           ln(`    _RtcDateTime _rtcBuild_${id};`)
           ln(`    _rtcSeedValid_${id} = _rtcParseBuildStamp(__DATE__, __TIME__, _rtcBuild_${id});`)
@@ -1187,33 +1344,137 @@ export function generateCpp(
         ln(`    _rtcLastMillis_${id} = millis();`)
         ln(`    _rtcInit_${id} = true;`)
         ln(`  }`)
-        ln(`  bool ${v('valid')} = false, ${v('weekend')} = false;`)
+        ln(`  bool ${v('valid')} = false, ${v('synced')} = false, ${v('stale')} = false, ${v('weekend')} = false;`)
         ln(`  float ${v('hour')} = 0.0f, ${v('minute')} = 0.0f, ${v('second')} = 0.0f;`)
         ln(`  float ${v('weekday')} = 0.0f, ${v('day')} = 0.0f, ${v('month')} = 0.0f, ${v('year')} = 0.0f;`)
         ln(`  float ${v('secondsOfDay')} = 0.0f;`)
-        ln(`  if (_rtcSeedValid_${id}) {`)
-        ln(`    uint32_t _rtcNowMs_${id} = millis();`)
-        ln(`    _rtcElapsedMillis_${id} += (uint32_t)(_rtcNowMs_${id} - _rtcLastMillis_${id});`)
-        ln(`    _rtcLastMillis_${id} = _rtcNowMs_${id};`)
-        ln(`    uint64_t _rtcWholeSeconds_${id} = _rtcElapsedMillis_${id} / 1000ull;`)
-        ln(`    uint32_t _rtcMillisRema_${id} = (uint32_t)(_rtcElapsedMillis_${id} % 1000ull);`)
-        ln(`    uint64_t _rtcTotalSeconds_${id} = (uint64_t)_rtcBaseSeconds_${id} + _rtcWholeSeconds_${id};`)
-        ln(`    int32_t _rtcDays_${id} = _rtcBaseDays_${id} + (int32_t)(_rtcTotalSeconds_${id} / 86400ull);`)
-        ln(`    uint32_t _rtcSecondsOfDay_${id} = (uint32_t)(_rtcTotalSeconds_${id} % 86400ull);`)
-        ln(`    int16_t _rtcYear_${id}; uint8_t _rtcMonth_${id}, _rtcDay_${id};`)
-        ln(`    _rtcCivilFromDays(_rtcDays_${id}, _rtcYear_${id}, _rtcMonth_${id}, _rtcDay_${id});`)
-        ln(`    uint8_t _rtcWeekday_${id} = _rtcWeekdayFromDays(_rtcDays_${id});`)
-        ln(`    ${v('valid')} = true;`)
-        ln(`    ${v('hour')} = (float)(_rtcSecondsOfDay_${id} / 3600u);`)
-        ln(`    ${v('minute')} = (float)((_rtcSecondsOfDay_${id} / 60u) % 60u);`)
-        ln(`    ${v('second')} = (float)(_rtcSecondsOfDay_${id} % 60u);`)
-        ln(`    ${v('weekday')} = (float)_rtcWeekday_${id};`)
-        ln(`    ${v('day')} = (float)_rtcDay_${id};`)
-        ln(`    ${v('month')} = (float)_rtcMonth_${id};`)
-        ln(`    ${v('year')} = (float)_rtcYear_${id};`)
-        ln(`    ${v('secondsOfDay')} = (float)_rtcSecondsOfDay_${id} + _rtcMillisRema_${id} / 1000.0f;`)
-        ln(`    ${v('weekend')} = _rtcWeekday_${id} == 0 || _rtcWeekday_${id} == 6;`)
+        if (source === 'NTP') {
+          ln(`  _wifiEnsureConnected();`)
+          ln(`#if FLS_WIFI_SUPPORTED`)
+          ln(`  if (_wifiConnected() && !_rtcNtpConfigured_${id}) {`)
+          ln(`    configTime(${timezoneOffsetMinutes * 60}, 0, ${ntpServer});`)
+          ln(`    _rtcNtpConfigured_${id} = true;`)
+          ln(`  }`)
+          ln(`  time_t _rtcEpoch_${id} = time(nullptr);`)
+          ln(`  bool _rtcHasEpoch_${id} = _rtcEpoch_${id} >= 946684800;`)
+          ln(`  if (_rtcHasEpoch_${id}) {`)
+          ln(`    struct tm _rtcTm_${id};`)
+          ln(`    localtime_r(&_rtcEpoch_${id}, &_rtcTm_${id});`)
+          ln(`    ${v('valid')} = true;`)
+          ln(`    ${v('synced')} = _wifiConnected();`)
+          ln(`    ${v('stale')} = !_wifiConnected();`)
+          ln(`    _rtcEverSynced_${id} = true;`)
+          ln(`    ${v('hour')} = (float)_rtcTm_${id}.tm_hour;`)
+          ln(`    ${v('minute')} = (float)_rtcTm_${id}.tm_min;`)
+          ln(`    ${v('second')} = (float)_rtcTm_${id}.tm_sec;`)
+          ln(`    ${v('weekday')} = (float)_rtcTm_${id}.tm_wday;`)
+          ln(`    ${v('day')} = (float)_rtcTm_${id}.tm_mday;`)
+          ln(`    ${v('month')} = (float)(_rtcTm_${id}.tm_mon + 1);`)
+          ln(`    ${v('year')} = (float)(_rtcTm_${id}.tm_year + 1900);`)
+          ln(`    ${v('secondsOfDay')} = (float)(_rtcTm_${id}.tm_hour * 3600 + _rtcTm_${id}.tm_min * 60 + _rtcTm_${id}.tm_sec);`)
+          ln(`    ${v('weekend')} = _rtcTm_${id}.tm_wday == 0 || _rtcTm_${id}.tm_wday == 6;`)
+          ln(`  } else if (_rtcEverSynced_${id}) {`)
+          ln(`    ${v('stale')} = true;`)
+          ln(`  }`)
+          ln(`#endif`)
+        } else {
+          ln(`  if (_rtcSeedValid_${id}) {`)
+          ln(`    uint32_t _rtcNowMs_${id} = millis();`)
+          ln(`    _rtcElapsedMillis_${id} += (uint32_t)(_rtcNowMs_${id} - _rtcLastMillis_${id});`)
+          ln(`    _rtcLastMillis_${id} = _rtcNowMs_${id};`)
+          ln(`    uint64_t _rtcWholeSeconds_${id} = _rtcElapsedMillis_${id} / 1000ull;`)
+          ln(`    uint32_t _rtcMillisRema_${id} = (uint32_t)(_rtcElapsedMillis_${id} % 1000ull);`)
+          ln(`    uint64_t _rtcTotalSeconds_${id} = (uint64_t)_rtcBaseSeconds_${id} + _rtcWholeSeconds_${id};`)
+          ln(`    int32_t _rtcDays_${id} = _rtcBaseDays_${id} + (int32_t)(_rtcTotalSeconds_${id} / 86400ull);`)
+          ln(`    uint32_t _rtcSecondsOfDay_${id} = (uint32_t)(_rtcTotalSeconds_${id} % 86400ull);`)
+          ln(`    int16_t _rtcYear_${id}; uint8_t _rtcMonth_${id}, _rtcDay_${id};`)
+          ln(`    _rtcCivilFromDays(_rtcDays_${id}, _rtcYear_${id}, _rtcMonth_${id}, _rtcDay_${id});`)
+          ln(`    uint8_t _rtcWeekday_${id} = _rtcWeekdayFromDays(_rtcDays_${id});`)
+          ln(`    ${v('valid')} = true;`)
+          ln(`    ${v('synced')} = true;`)
+          ln(`    ${v('stale')} = false;`)
+          ln(`    ${v('hour')} = (float)(_rtcSecondsOfDay_${id} / 3600u);`)
+          ln(`    ${v('minute')} = (float)((_rtcSecondsOfDay_${id} / 60u) % 60u);`)
+          ln(`    ${v('second')} = (float)(_rtcSecondsOfDay_${id} % 60u);`)
+          ln(`    ${v('weekday')} = (float)_rtcWeekday_${id};`)
+          ln(`    ${v('day')} = (float)_rtcDay_${id};`)
+          ln(`    ${v('month')} = (float)_rtcMonth_${id};`)
+          ln(`    ${v('year')} = (float)_rtcYear_${id};`)
+          ln(`    ${v('secondsOfDay')} = (float)_rtcSecondsOfDay_${id} + _rtcMillisRema_${id} / 1000.0f;`)
+          ln(`    ${v('weekend')} = _rtcWeekday_${id} == 0 || _rtcWeekday_${id} == 6;`)
+          ln(`  }`)
+        }
+        break
+      }
+
+      case 'ScheduleTrigger': {
+        const mode = String(p.scheduleMode ?? 'Window')
+        const dayMode = String(p.dayMode ?? 'Every day')
+        const requireSync = p.requireSync === true
+        const enabledDefault = p.enable !== false
+        const startSec = Math.max(0, Math.min(86399,
+          intProp(p.startHour, 0, 0, 23) * 3600
+          + intProp(p.startMinute, 0, 0, 59) * 60
+          + intProp(p.startSecond, 0, 0, 59),
+        ))
+        const endSec = Math.max(0, Math.min(86399,
+          intProp(p.endHour, 0, 0, 23) * 3600
+          + intProp(p.endMinute, 0, 0, 59) * 60
+          + intProp(p.endSecond, 0, 0, 59),
+        ))
+        const sunday = p.sunday !== false
+        const monday = p.monday !== false
+        const tuesday = p.tuesday !== false
+        const wednesday = p.wednesday !== false
+        const thursday = p.thursday !== false
+        const friday = p.friday !== false
+        const saturday = p.saturday !== false
+        ln(`  static bool _schedulePrevActive_${id} = false;`)
+        ln(`  static int32_t _scheduleLastPulseDay_${id} = -1;`)
+        ln(`  bool _scheduleValid_${id} = ${boolExpr(node.id, 'valid')};`)
+        ln(`  bool _scheduleSynced_${id} = ${boolExpr(node.id, 'synced')};`)
+        ln(`  bool _scheduleEnabled_${id} = ${incoming.has(`${node.id}:enable`) ? boolExpr(node.id, 'enable') : enabledDefault ? 'true' : 'false'};`)
+        ln(`  int _scheduleWeekday_${id} = constrain((int)roundf(${floatExpr(node.id, 'weekday', p, 'weekday', 0)}), 0, 6);`)
+        ln(`  float _scheduleSeconds_${id} = constrain(${floatExpr(node.id, 'secondsOfDay', p, 'secondsOfDay', 0)}, 0.0f, 86399.999f);`)
+        ln(`  int _scheduleDay_${id} = max(1, (int)roundf(${floatExpr(node.id, 'day', p, 'day', 1)}));`)
+        ln(`  int _scheduleMonth_${id} = constrain((int)roundf(${floatExpr(node.id, 'month', p, 'month', 1)}), 1, 12);`)
+        ln(`  int _scheduleYear_${id} = max(1970, (int)roundf(${floatExpr(node.id, 'year', p, 'year', 1970)}));`)
+        ln(`  bool _scheduleDayAllowed_${id} = true;`)
+        if (dayMode === 'Weekdays') {
+          ln(`  _scheduleDayAllowed_${id} = _scheduleWeekday_${id} >= 1 && _scheduleWeekday_${id} <= 5;`)
+        } else if (dayMode === 'Weekends') {
+          ln(`  _scheduleDayAllowed_${id} = _scheduleWeekday_${id} == 0 || _scheduleWeekday_${id} == 6;`)
+        } else if (dayMode === 'Custom') {
+          ln(`  switch (_scheduleWeekday_${id}) {`)
+          ln(`    case 0: _scheduleDayAllowed_${id} = ${sunday ? 'true' : 'false'}; break;`)
+          ln(`    case 1: _scheduleDayAllowed_${id} = ${monday ? 'true' : 'false'}; break;`)
+          ln(`    case 2: _scheduleDayAllowed_${id} = ${tuesday ? 'true' : 'false'}; break;`)
+          ln(`    case 3: _scheduleDayAllowed_${id} = ${wednesday ? 'true' : 'false'}; break;`)
+          ln(`    case 4: _scheduleDayAllowed_${id} = ${thursday ? 'true' : 'false'}; break;`)
+          ln(`    case 5: _scheduleDayAllowed_${id} = ${friday ? 'true' : 'false'}; break;`)
+          ln(`    default: _scheduleDayAllowed_${id} = ${saturday ? 'true' : 'false'}; break;`)
+          ln(`  }`)
+        }
+        ln(`  bool _scheduleTimeReady_${id} = _scheduleValid_${id} && ${requireSync ? '_scheduleSynced_' + id : 'true'};`)
+        ln(`  int32_t _scheduleDayKey_${id} = _scheduleYear_${id} * 10000 + _scheduleMonth_${id} * 100 + _scheduleDay_${id};`)
+        ln(`  bool ${v('active')} = false;`)
+        ln(`  bool ${v('start')} = false;`)
+        ln(`  bool ${v('end')} = false;`)
+        ln(`  if (_scheduleEnabled_${id} && _scheduleTimeReady_${id} && _scheduleDayAllowed_${id}) {`)
+        if (mode === 'Trigger') {
+          ln(`    if (_scheduleLastPulseDay_${id} != _scheduleDayKey_${id} && _scheduleSeconds_${id} >= ${startSec}.0f && _scheduleSeconds_${id} < ${startSec + 1}.0f) {`)
+          ln(`      ${v('start')} = true;`)
+          ln(`      _scheduleLastPulseDay_${id} = _scheduleDayKey_${id};`)
+          ln(`    }`)
+        } else if (startSec <= endSec) {
+          ln(`    ${v('active')} = _scheduleSeconds_${id} >= ${startSec}.0f && _scheduleSeconds_${id} <= ${endSec}.0f;`)
+        } else {
+          ln(`    ${v('active')} = _scheduleSeconds_${id} >= ${startSec}.0f || _scheduleSeconds_${id} <= ${endSec}.0f;`)
+        }
         ln(`  }`)
+        ln(`  if (${v('active')} && !_schedulePrevActive_${id}) ${v('start')} = true;`)
+        ln(`  if (!${v('active')} && _schedulePrevActive_${id}) ${v('end')} = true;`)
+        ln(`  _schedulePrevActive_${id} = ${v('active')};`)
         break
       }
 
@@ -4423,6 +4684,26 @@ export function generateCpp(
     : hw
   lines.push(...overclockDefineCpp(overclockHw))
   lines.push(`#include <FastLED.h>`)
+  if (needsWifi) {
+    lines.push(`#if defined(ESP32)`)
+    lines.push(`#include <WiFi.h>`)
+    lines.push(`#include <WiFiUdp.h>`)
+    lines.push(`#include <time.h>`)
+    lines.push(`#define FLS_WIFI_SUPPORTED 1`)
+    lines.push(`#elif defined(ESP8266)`)
+    lines.push(`#include <ESP8266WiFi.h>`)
+    lines.push(`#include <WiFiUdp.h>`)
+    lines.push(`#include <time.h>`)
+    lines.push(`#define FLS_WIFI_SUPPORTED 1`)
+    lines.push(`#else`)
+    lines.push(`#define FLS_WIFI_SUPPORTED 0`)
+    lines.push(`#endif`)
+  }
+  if (needsDmx512) {
+    lines.push(`#if defined(ESP32)`)
+    lines.push(`#include <esp_dmx.h>`)
+    lines.push(`#endif`)
+  }
   if (audio) lines.push(audio.include)
   lines.push(``)
   if (ss) {
@@ -4543,6 +4824,41 @@ export function generateCpp(
     lines.push(...rtcHelperCpp())
   }
 
+  if (needsWifi) {
+    lines.push(`// Shared Wi-Fi bootstrap for Art-Net receive / NTP clock sync.`)
+    lines.push(`static bool _wifiInit = false;`)
+    lines.push(`static uint32_t _wifiLastAttemptMs = 0;`)
+    lines.push(`void _wifiEnsureConnected() {`)
+    lines.push(`#if FLS_WIFI_SUPPORTED`)
+    lines.push(`  if (!_wifiInit) {`)
+    lines.push(`    WiFi.mode(WIFI_STA);`)
+    lines.push(`#if defined(ESP32)`)
+    lines.push(`    WiFi.setHostname(${networkCfg.hostname});`)
+    lines.push(`#elif defined(ESP8266)`)
+    lines.push(`    WiFi.hostname(${networkCfg.hostname});`)
+    lines.push(`#endif`)
+    if (!networkCfg.useDhcp && networkCfg.staticIp && networkCfg.staticGateway && networkCfg.staticSubnet) {
+      lines.push(`    WiFi.config(${ipAddressExpr(networkCfg.staticIp)}, ${ipAddressExpr(networkCfg.staticGateway)}, ${ipAddressExpr(networkCfg.staticSubnet)}, ${ipAddressExpr(networkCfg.staticDns)});`)
+    }
+    lines.push(`    _wifiInit = true;`)
+    lines.push(`  }`)
+    lines.push(`  if (WiFi.status() == WL_CONNECTED) return;`)
+    lines.push(`  uint32_t _wifiNow = millis();`)
+    lines.push(`  if (_wifiNow - _wifiLastAttemptMs < 5000u) return;`)
+    lines.push(`  _wifiLastAttemptMs = _wifiNow;`)
+    lines.push(`  WiFi.begin(${networkCfg.ssid}, ${networkCfg.password});`)
+    lines.push(`#endif`)
+    lines.push(`}`)
+    lines.push(`bool _wifiConnected() {`)
+    lines.push(`#if FLS_WIFI_SUPPORTED`)
+    lines.push(`  return WiFi.status() == WL_CONNECTED;`)
+    lines.push(`#else`)
+    lines.push(`  return false;`)
+    lines.push(`#endif`)
+    lines.push(`}`)
+    lines.push(``)
+  }
+
   lines.push(...customPaletteDeclarationsCpp())
   lines.push(``)
 
@@ -4554,6 +4870,7 @@ export function generateCpp(
   lines.push(`void setup() {`)
   lines.push(...psramAllocs)
   lines.push(...pinSetupLines)
+  lines.push(...setupLines)
   if (multipleOutputs) {
     for (const route of outputConfigs) {
       lines.push(...fastledSetupCpp(route.hardware, {

@@ -375,10 +375,14 @@ describe('nodeLibrary', () => {
     expect(rtc?.category).toBe('input')
     expect(rtc?.inputs).toEqual([])
     expect(rtc?.outputs.map((port) => port.id)).toEqual([
-      'valid', 'hour', 'minute', 'second', 'weekday', 'day', 'month', 'year', 'secondsOfDay', 'weekend',
+      'valid', 'synced', 'stale', 'hour', 'minute', 'second', 'weekday', 'day', 'month', 'year', 'secondsOfDay', 'weekend',
     ])
-    expect(rtc?.defaultProperties).toEqual({
+    expect(rtc?.defaultProperties).toMatchObject({
       timeSource: 'Compile Time',
+      ntpServer: 'pool.ntp.org',
+      timezoneOffsetMinutes: 0,
+      wifiHostname: 'fastled-clock',
+      useDhcp: true,
       startYear: 2026,
       startMonth: 1,
       startDay: 1,
@@ -388,6 +392,8 @@ describe('nodeLibrary', () => {
     })
     expect(isPropertyEnabled('RTCInput', 'startYear', { timeSource: 'Manual' })).toBe(true)
     expect(isPropertyEnabled('RTCInput', 'startYear', { timeSource: 'Compile Time' })).toBe(false)
+    expect(isPropertyEnabled('RTCInput', 'ntpServer', { timeSource: 'NTP' })).toBe(true)
+    expect(isPropertyEnabled('RTCInput', 'ntpServer', { timeSource: 'Manual' })).toBe(false)
   })
 
   it('ClockDisplay offers RTC-fed clock layouts plus stopwatch/timer controls', () => {

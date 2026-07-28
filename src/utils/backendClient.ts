@@ -144,6 +144,69 @@ export async function stopStream(): Promise<void> {
   }
 }
 
+// ── Art-Net / DMX preview helper ────────────────────────────────────────────
+
+export interface ArtnetStatusResponse {
+  ok: boolean
+  listening: boolean
+  port: number
+  live: boolean
+  packetRate: number
+  lastPacketAt: number | null
+  error?: string
+}
+
+export interface ArtnetSnapshotResponse {
+  ok: boolean
+  universe: number
+  valid: boolean
+  live: boolean
+  packetRate: number
+  lastPacketAt: number | null
+  channels: number[]
+}
+
+export async function startArtnetListener(port: number): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/artnet/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ port }),
+    })
+    return (await res.json()) as { ok: boolean; error?: string }
+  } catch (e) {
+    return { ok: false, error: String(e) }
+  }
+}
+
+export async function stopArtnetListener(): Promise<void> {
+  try {
+    await fetch(`${BACKEND_URL}/api/artnet/stop`, { method: 'POST' })
+  } catch {
+    // helper offline — nothing to clean up
+  }
+}
+
+export async function getArtnetStatus(universe: number): Promise<ArtnetStatusResponse | null> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/artnet/status?${new URLSearchParams({ universe: String(universe) })}`)
+    if (!res.ok) return null
+    return (await res.json()) as ArtnetStatusResponse
+  } catch {
+    return null
+  }
+}
+
+export async function getArtnetSnapshot(universe: number): Promise<ArtnetSnapshotResponse | null> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/artnet/snapshot?${new URLSearchParams({ universe: String(universe) })}`)
+    if (!res.ok) return null
+    return (await res.json()) as ArtnetSnapshotResponse
+  } catch {
+    return null
+  }
+}
+
 /** Installed board-core ids (e.g. `esp32:esp32`), so the board manager can show status. */
 export async function listCores(): Promise<string[]> {
   try {
