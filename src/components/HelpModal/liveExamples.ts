@@ -1001,6 +1001,25 @@ export const MIDI_LIVE_EXAMPLE = namedExample(
   'Move CC 1 to rotate colour, hold the configured note to select the shifted scene, and vary velocity to change its brightness.',
 )
 
+export const DMX_INPUT_LIVE_EXAMPLE = namedExample(
+  'Drive brightness from Art-Net / DMX',
+  [
+    { key: 'dmx', type: 'DMXInput', properties: { inputMode: 'Art-Net', universe: 0, previewPort: 6454 } },
+    { key: 'channel', type: 'DMXChannel', properties: { channel: 1, activeThreshold: 1 } },
+    { key: 'base', type: 'Pacifica', properties: { palette: 'ocean' } },
+    { key: 'brightness', type: 'BrightnessMod' },
+    { key: 'out', type: 'MatrixOutput' },
+  ],
+  [
+    { source: 'dmx', sourceHandle: 'dmx', target: 'channel', targetHandle: 'dmx' },
+    { source: 'base', sourceHandle: 'frame', target: 'brightness', targetHandle: 'frame' },
+    { source: 'channel', sourceHandle: 'value', target: 'brightness', targetHandle: 'brightness' },
+    { source: 'brightness', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+  ],
+  'DMX / Art-Net receives one live universe, DMX Channel isolates slot 1 as a normalized 0–1 control, and Brightness Mod turns that raw transport data into an obvious visual response.',
+  'Without live Art-Net the preview sits dim. Send universe 0, channel 1 to fade Pacifica smoothly from black to full brightness.',
+)
+
 export const FFT_ANALYZER_LIVE_EXAMPLE = MICROPHONE_LIVE_EXAMPLE
 
 export const BEAT_DETECT_LIVE_EXAMPLE = namedExample(
@@ -1095,6 +1114,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   PotInput: POTENTIOMETER_LIVE_EXAMPLE,
   EncoderInput: ENCODER_LIVE_EXAMPLE,
   MidiInput: MIDI_LIVE_EXAMPLE,
+  DMXInput: DMX_INPUT_LIVE_EXAMPLE,
   FFTAnalyzer: FFT_ANALYZER_LIVE_EXAMPLE,
   BeatDetect: BEAT_DETECT_LIVE_EXAMPLE,
   PercussionDetect: PERCUSSION_DETECT_LIVE_EXAMPLE,

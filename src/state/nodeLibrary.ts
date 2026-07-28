@@ -1419,6 +1419,49 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       delayTime: 0.5,
     },
   },
+  {
+    // Scheduled trigger/window logic driven by RTCInput's clock/date fields.
+    // `active` stays high while the schedule is in-range; `start`/`end` pulse
+    // once on the transitions. Trigger mode collapses the window to a single
+    // moment-of-day pulse on matching days.
+    type: 'ScheduleTrigger',
+    label: 'Schedule Trigger',
+    category: 'signal',
+    inputs: [
+      { id: 'valid', label: 'Valid', dataType: 'bool' },
+      { id: 'synced', label: 'Synced', dataType: 'bool' },
+      { id: 'secondsOfDay', label: 'Seconds Today', dataType: 'float' },
+      { id: 'weekday', label: 'Weekday', dataType: 'float' },
+      { id: 'day', label: 'Day', dataType: 'float' },
+      { id: 'month', label: 'Month', dataType: 'float' },
+      { id: 'year', label: 'Year', dataType: 'float' },
+      { id: 'enable', label: 'Enable', dataType: 'bool' },
+    ],
+    outputs: [
+      { id: 'active', label: 'Active', dataType: 'bool' },
+      { id: 'start', label: 'Start Pulse', dataType: 'bool' },
+      { id: 'end', label: 'End Pulse', dataType: 'bool' },
+    ],
+    defaultProperties: {
+      scheduleMode: 'Window',
+      dayMode: 'Every day',
+      startHour: 18,
+      startMinute: 0,
+      startSecond: 0,
+      endHour: 23,
+      endMinute: 0,
+      endSecond: 0,
+      monday: true,
+      tuesday: true,
+      wednesday: true,
+      thursday: true,
+      friday: true,
+      saturday: true,
+      sunday: true,
+      requireSync: false,
+      enable: true,
+    },
+  },
 
   // ── Audio extras ──────────────────────────────────────────────────────
   {
@@ -2269,15 +2312,59 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { pinA: 6, pinB: 7, pinSW: 8, pullup: true, resetOnPress: false },
   },
   {
+    // Scene-wide DMX source. Browser preview reads helper-backed Art-Net;
+    // generated firmware uses the selected input mode (Art-Net over Wi-Fi, or
+    // DMX512 over an ESP32 transceiver).
+    type: 'DMXInput',
+    label: 'DMX / Art-Net',
+    category: 'input',
+    inputs: [],
+    outputs: [{ id: 'dmx', label: 'DMX', dataType: 'dmx' }],
+    defaultProperties: {
+      inputMode: 'Art-Net',
+      universe: 0,
+      previewPort: 6454,
+      wifiSsid: '',
+      wifiPassword: '',
+      wifiHostname: 'fastled-dmx',
+      useDhcp: true,
+      staticIp: '',
+      staticGateway: '',
+      staticSubnet: '255.255.255.0',
+      staticDns: '',
+      dmxPort: 1,
+      dmxTxPin: 17,
+      dmxRxPin: 16,
+      dmxEnablePin: 21,
+    },
+  },
+  {
+    // Focused DMX decoder: reads one channel from the raw universe buffer and
+    // exposes it as normalized float, raw byte, plus activity/change booleans.
+    type: 'DMXChannel',
+    label: 'DMX Channel',
+    category: 'signal',
+    inputs: [{ id: 'dmx', label: 'DMX', dataType: 'dmx' }],
+    outputs: [
+      { id: 'value', label: 'Value (0–1)', dataType: 'float' },
+      { id: 'byte', label: 'Byte (0–255)', dataType: 'float' },
+      { id: 'active', label: 'Active', dataType: 'bool' },
+      { id: 'changed', label: 'Changed', dataType: 'bool' },
+    ],
+    defaultProperties: { channel: 1, activeThreshold: 1 },
+  },
+  {
     // Real-time clock fields. Preview uses the browser clock; generated
-    // firmware keeps a software clock seeded from either the sketch compile
-    // stamp or a manual start date/time.
+    // firmware keeps a software clock seeded from compile time, a manual start
+    // date/time, or network/NTP sync when Wi-Fi is configured.
     type: 'RTCInput',
     label: 'RTC Clock',
     category: 'input',
     inputs: [],
     outputs: [
       { id: 'valid', label: 'Valid', dataType: 'bool' },
+      { id: 'synced', label: 'Synced', dataType: 'bool' },
+      { id: 'stale', label: 'Stale', dataType: 'bool' },
       { id: 'hour', label: 'Hour', dataType: 'float' },
       { id: 'minute', label: 'Minute', dataType: 'float' },
       { id: 'second', label: 'Second', dataType: 'float' },
@@ -2290,6 +2377,16 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     defaultProperties: {
       timeSource: 'Compile Time',
+      ntpServer: 'pool.ntp.org',
+      timezoneOffsetMinutes: 0,
+      wifiSsid: '',
+      wifiPassword: '',
+      wifiHostname: 'fastled-clock',
+      useDhcp: true,
+      staticIp: '',
+      staticGateway: '',
+      staticSubnet: '255.255.255.0',
+      staticDns: '',
       startYear: 2026,
       startMonth: 1,
       startDay: 1,
@@ -2409,7 +2506,8 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   ButtonInput: 'Reads a hardware button as a boolean.',
   PotInput: 'Reads a potentiometer as a 0–1 value.',
   EncoderInput: 'Reads a rotary encoder — running position plus its push-button.',
-  RTCInput: 'Browser preview plus firmware clock from compile time or manual start.',
+  DMXInput: 'DMX / Art-Net source for preview and firmware (Art-Net or ESP32 DMX512).',
+  RTCInput: 'RTC clock for preview and firmware via compile time, manual seed, or NTP.',
   MidiInput: 'Web MIDI note velocity/gate + CC value from a controller. Preview-only.',
   MusicLibrary: 'Music source — double-click to drop tracks, analyse and export.',
   PerformanceGenerator: 'Converts analysed music into timed LED show files.',
@@ -2438,8 +2536,10 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Not: 'Logical NOT of a boolean.',
   Compare: 'True when a > b.',
   Trigger: 'Debounce, Toggle, One Shot, Pulse Divider, or Trigger Delay on a bool.',
+  ScheduleTrigger: 'Time-of-day window/trigger driven by RTCInput clock and calendar fields.',
   BeatSin: 'Beat-synced sine oscillator — outputs a normalized low↔high value at a BPM.',
   Clock: 'BPM clock — phase/beat/bar/subdivision pulses; tap tempo, sync, and reset.',
+  DMXChannel: 'Reads one channel from a raw DMX/Art-Net universe buffer.',
   XYMapper: 'Converts (x, y) to a strip index.',
   // color
   HueCycle: 'Cycles around the hue wheel at a rate measured in cycles per second.',
@@ -2593,7 +2693,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // matters more than the library's declaration order (fields compose toward
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
-  signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin', 'Clock'],
+  signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
   field:  ['FieldFormula', 'FieldNoise', 'WaveSim', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'PatternMaster', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
@@ -2639,6 +2739,7 @@ const PORT_COLORS: Record<string, string> = {
   frame: '#5ad1ff',
   field: '#f5c542',
   audio: '#00e0a4',
+  dmx: '#6bf8ff',
   music: '#ffb74d',
   shows: '#ffa726',
   sdcard: '#ffa500',
@@ -2845,13 +2946,37 @@ const N01: PropertyControl = { control: 'slider', min: 0, max: 1, step: 0.01 }
 // via speedRange.ts); the simulation patterns use a steps-per-second rate, and
 // `rate` is a 0–1 emission rate for Particles but a degrees/sec spin for Transform.
 export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyControl>> = {
+  DMXInput: {
+    inputMode: { control: 'select', options: ['Art-Net', 'DMX512'] },
+    universe: { control: 'slider', min: 0, max: 32767, step: 1 },
+    previewPort: { control: 'slider', min: 1, max: 65535, step: 1 },
+    dmxPort: { control: 'slider', min: 1, max: 2, step: 1 },
+    dmxTxPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    dmxRxPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    dmxEnablePin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
+  DMXChannel: {
+    channel: { control: 'slider', min: 1, max: 512, step: 1 },
+    activeThreshold: { control: 'slider', min: 0, max: 255, step: 1 },
+  },
   RTCInput: {
-    timeSource: { control: 'select', options: ['Compile Time', 'Manual'] },
+    timeSource: { control: 'select', options: ['Compile Time', 'Manual', 'NTP'] },
+    timezoneOffsetMinutes: { control: 'slider', min: -720, max: 840, step: 15 },
     startMonth: { control: 'slider', min: 1, max: 12, step: 1 },
     startDay: { control: 'slider', min: 1, max: 31, step: 1 },
     startHour: { control: 'slider', min: 0, max: 23, step: 1 },
     startMinute: { control: 'slider', min: 0, max: 59, step: 1 },
     startSecond: { control: 'slider', min: 0, max: 59, step: 1 },
+  },
+  ScheduleTrigger: {
+    scheduleMode: { control: 'select', options: ['Window', 'Trigger'] },
+    dayMode: { control: 'select', options: ['Every day', 'Weekdays', 'Weekends', 'Custom'] },
+    startHour: { control: 'slider', min: 0, max: 23, step: 1 },
+    startMinute: { control: 'slider', min: 0, max: 59, step: 1 },
+    startSecond: { control: 'slider', min: 0, max: 59, step: 1 },
+    endHour: { control: 'slider', min: 0, max: 23, step: 1 },
+    endMinute: { control: 'slider', min: 0, max: 59, step: 1 },
+    endSecond: { control: 'slider', min: 0, max: 59, step: 1 },
   },
   PaletteFromImage: {
     count: { control: 'slider', min: 2, max: 8, step: 1 },
@@ -3218,6 +3343,11 @@ export function propertyMeta(nodeType: string, key: string): PropertyControl | u
 export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   seed: '0 runs free (Math.random each time); any other value reproduces the exact same result on every run.',
   clampInputs: "Clamps a wired float input to this node's slider range, so an unbounded upstream signal can't exceed it.",
+  timezoneOffsetMinutes: 'Fixed local offset from UTC for NTP-synced firmware time. Preview still reads the browser clock.',
+  wifiPassword: 'Stored in the project file as plain text so generated firmware can connect to Wi-Fi.',
+  previewPort: 'UDP port the local helper listens on for preview-side Art-Net packets.',
+  dmxPort: 'ESP32 UART used by esp_dmx for DMX512 receive.',
+  requireSync: 'Keeps the schedule inactive until the upstream RTC Clock reports a real NTP sync.',
   bypassed: "Skips this node's own effect entirely and passes the matching input straight through — a quick A/B mute without unwiring.",
   audioOutput: "'i2s' drives an external DAC/amp over the I2S pins below. 'internalDac' uses the classic ESP32's built-in DAC, fixed to GPIO25/26 — not available on ESP32-S3/S2/C3.",
   overclock: 'Clockless chipsets only — multiplies the FastLED output clock. 1 = stock timing.',
@@ -3312,14 +3442,54 @@ export function propertyDescription(nodeType: string, key: string): string | und
 
 /** Per-node overrides for a property's displayed label (defaults to the raw key). */
 export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
+  DMXInput: {
+    inputMode: 'firmware source',
+    previewPort: 'preview UDP port',
+    wifiSsid: 'Wi-Fi SSID',
+    wifiPassword: 'Wi-Fi password',
+    wifiHostname: 'hostname',
+    useDhcp: 'use DHCP',
+    staticIp: 'static IP',
+    staticGateway: 'gateway',
+    staticSubnet: 'subnet mask',
+    staticDns: 'DNS',
+    dmxPort: 'UART port',
+    dmxTxPin: 'TX pin',
+    dmxRxPin: 'RX pin',
+    dmxEnablePin: 'enable pin',
+  },
+  DMXChannel: {
+    activeThreshold: 'active >=',
+  },
   RTCInput: {
     timeSource: 'time source',
+    ntpServer: 'NTP server',
+    timezoneOffsetMinutes: 'UTC offset (min)',
+    wifiSsid: 'Wi-Fi SSID',
+    wifiPassword: 'Wi-Fi password',
+    wifiHostname: 'hostname',
+    useDhcp: 'use DHCP',
+    staticIp: 'static IP',
+    staticGateway: 'gateway',
+    staticSubnet: 'subnet mask',
+    staticDns: 'DNS',
     startYear: 'year',
     startMonth: 'month',
     startDay: 'day',
     startHour: 'hour',
     startMinute: 'minute',
     startSecond: 'second',
+  },
+  ScheduleTrigger: {
+    scheduleMode: 'mode',
+    dayMode: 'days',
+    startHour: 'start hour',
+    startMinute: 'start minute',
+    startSecond: 'start second',
+    endHour: 'end hour',
+    endMinute: 'end minute',
+    endSecond: 'end second',
+    requireSync: 'require synced time',
   },
   PaletteFromImage: {
     count: 'Colors',
@@ -3351,7 +3521,7 @@ export function propertyLabel(nodeType: string, key: string): string {
 // bounded sliders stay deliberately simple and predictable.
 const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
   'MatrixOutput', 'MicInput', 'ButtonInput', 'PotInput', 'EncoderInput',
-  'RTCInput',
+  'DMXInput', 'DMXChannel', 'RTCInput',
   'MidiInput', 'SDCard',
 ])
 
@@ -3397,9 +3567,19 @@ export interface PropertyGroup {
  * property to one of these nodes degrades gracefully instead of disappearing.
  */
 export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
+  DMXInput: [
+    { key: 'source', label: 'Firmware Source', keys: ['inputMode', 'universe', 'previewPort'] },
+    { key: 'wifi', label: 'Art-Net Wi-Fi', keys: ['wifiSsid', 'wifiPassword', 'wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
+    { key: 'dmx512', label: 'DMX512 Wiring', keys: ['dmxPort', 'dmxTxPin', 'dmxRxPin', 'dmxEnablePin'] },
+  ],
   RTCInput: [
     { key: 'source', label: 'Clock Source', keys: ['timeSource'] },
+    { key: 'network', label: 'NTP Network', keys: ['ntpServer', 'timezoneOffsetMinutes', 'wifiSsid', 'wifiPassword', 'wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
     { key: 'manualStart', label: 'Manual Start', keys: ['startYear', 'startMonth', 'startDay', 'startHour', 'startMinute', 'startSecond'] },
+  ],
+  ScheduleTrigger: [
+    { key: 'timing', label: 'Timing', keys: ['scheduleMode', 'startHour', 'startMinute', 'startSecond', 'endHour', 'endMinute', 'endSecond'] },
+    { key: 'days', label: 'Day Rules', keys: ['dayMode', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 'requireSync', 'enable'] },
   ],
   MatrixOutput: [
     { key: 'routing', label: 'Frame Route', keys: ['routeMode', 'routeX', 'routeY'] },
@@ -3516,6 +3696,7 @@ export function hasClampableInputs(nodeType: string, inputs: { id: string; dataT
 // node body owns its hardware controls.
 const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   MicInput: new Set(['i2sWs', 'i2sSck', 'i2sSd']),
+  DMXInput: new Set(['dmxTxPin', 'dmxRxPin', 'dmxEnablePin']),
   ButtonInput: new Set(['pin']),
   PotInput: new Set(['pin']),
   EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
@@ -3544,6 +3725,9 @@ export function gpioRequirementForProperty(
   if (nodeType === 'PotInput') return { capability: 'analogInput', pullup: false }
   if (nodeType === 'ButtonInput' || nodeType === 'EncoderInput') {
     return { capability: 'digitalInput', pullup: props.pullup !== false }
+  }
+  if (nodeType === 'DMXInput' && key === 'dmxRxPin') {
+    return { capability: 'digitalInput', pullup: false }
   }
   if (nodeType === 'MicInput' && key === 'i2sSd') {
     return { capability: 'digitalInput', pullup: false }
@@ -3686,8 +3870,33 @@ const PARTICLE_BOUNCE_MODES = new Set(['gravity', 'waterfall'])
  *  inapplicable to the current variant (e.g. Transition `direction` only applies
  *  to a wipe), in which case the editor is shown disabled but keeps its value. */
 export function isPropertyEnabled(nodeType: string, key: string, properties: Record<string, unknown>): boolean {
+  if (nodeType === 'DMXInput') {
+    const artnet = String(properties.inputMode ?? 'Art-Net') === 'Art-Net'
+    if (key === 'staticIp' || key === 'staticGateway' || key === 'staticSubnet' || key === 'staticDns') {
+      return artnet && properties.useDhcp === false
+    }
+    if (key === 'wifiSsid' || key === 'wifiPassword' || key === 'wifiHostname' || key === 'useDhcp') {
+      return artnet
+    }
+    if (key === 'dmxPort' || key === 'dmxTxPin' || key === 'dmxRxPin' || key === 'dmxEnablePin') {
+      return !artnet
+    }
+  }
   if (nodeType === 'RTCInput') {
+    if (key === 'ntpServer' || key === 'timezoneOffsetMinutes' || key === 'wifiSsid' || key === 'wifiPassword' || key === 'wifiHostname' || key === 'useDhcp' || key === 'staticIp' || key === 'staticGateway' || key === 'staticSubnet' || key === 'staticDns') {
+      if (String(properties.timeSource ?? 'Compile Time') !== 'NTP') return false
+      if (key === 'staticIp' || key === 'staticGateway' || key === 'staticSubnet' || key === 'staticDns') return properties.useDhcp === false
+      return true
+    }
     if (key.startsWith('start')) return String(properties.timeSource ?? 'Compile Time') === 'Manual'
+  }
+  if (nodeType === 'ScheduleTrigger') {
+    if (key === 'endHour' || key === 'endMinute' || key === 'endSecond') {
+      return String(properties.scheduleMode ?? 'Window') === 'Window'
+    }
+    if (key === 'monday' || key === 'tuesday' || key === 'wednesday' || key === 'thursday' || key === 'friday' || key === 'saturday' || key === 'sunday') {
+      return String(properties.dayMode ?? 'Every day') === 'Custom'
+    }
   }
   if (nodeType === 'PerformanceGenerator' && key === 'fixedPalette') {
     return String(properties.paletteMode ?? 'mood') === 'fixed'

@@ -28,6 +28,7 @@ import os
 import platform
 import re
 import shutil
+import socket
 import subprocess
 import sys
 import tarfile
@@ -204,6 +205,7 @@ _FBUILD_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "FastLED"
 # ESP32-audioI2S. Vendored the same way as FastLED, but lazily — only the
 # Player build path needs it, so it's not fetched for every ordinary compile.
 _FBUILD_AUDIO_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "ESP32-audioI2S"
+_FBUILD_ESP_DMX_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "esp_dmx"
 
 # arduino-cli FQBN -> PlatformIO platform/board, mirroring `BOARDS` in
 # `src/state/uploadStore.ts`. `psram_memory_type` maps this repo's PSRAM option
@@ -445,6 +447,28 @@ def _ensure_fbuild_audio_lib():
     if rc != 0:
         yield "[error] failed to vendor ESP32-audioI2S — the Player build below will fail on Audio.h\n"
     _fbuild_audio_lib_ready = True
+
+
+_fbuild_esp_dmx_lib_ready = False
+
+
+def _ensure_fbuild_esp_dmx_lib():
+    """Vendor esp_dmx (someweisguy/esp_dmx) on first DMX512 firmware build."""
+    global _fbuild_esp_dmx_lib_ready
+    if _fbuild_esp_dmx_lib_ready:
+        return
+    if (_FBUILD_ESP_DMX_LIB_DIR / "library.properties").exists():
+        _fbuild_esp_dmx_lib_ready = True
+        return
+    yield "\n=== vendoring esp_dmx (first DMX512 build only) ===\n"
+    _FBUILD_ESP_DMX_LIB_DIR.parent.mkdir(parents=True, exist_ok=True)
+    rc = yield from _run_phase(
+        "vendor esp_dmx",
+        ["git", "clone", "--depth", "1", "https://github.com/someweisguy/esp_dmx.git", str(_FBUILD_ESP_DMX_LIB_DIR)],
+    )
+    if rc != 0:
+        yield "[error] failed to vendor esp_dmx — DMX512 builds may fail on esp_dmx.h\n"
+    _fbuild_esp_dmx_lib_ready = True
 
 
 def _write_fbuild_main(ino: str) -> None:
@@ -809,6 +833,8 @@ def _compile_upload_fbuild(label, ino, fqbn, port):
         return -1, "compile"
     try:
         yield from _ensure_fbuild_project()
+        if "#include <esp_dmx.h>" in ino:
+            yield from _ensure_fbuild_esp_dmx_lib()
         env = _fbuild_env_for_fqbn(fqbn)
         if env is None:
             yield f"\n=== ✗ {label}: no fbuild board mapping for {fqbn} ===\n"
@@ -1317,6 +1343,188 @@ def stream_stop():
 @app.get("/api/stream/status")
 def stream_status():
     return {"ok": True, "streaming": _stream_active(), "port": _stream_port, "baud": _stream_baud}
+
+
+# ── Art-Net / DMX preview helper ─────────────────────────────────────────────
+# The browser preview can't bind UDP sockets directly, so the local helper keeps
+# one listener alive across requests and exposes cached universe snapshots over
+# HTTP.
+_ARTNET_LIVE_TTL_S = 2.0
+_artnet_lock = threading.Lock()
+_artnet_socket: socket.socket | None = None
+_artnet_thread: threading.Thread | None = None
+_artnet_stop_event: threading.Event | None = None
+_artnet_port: int = 6454
+_artnet_error: str | None = None
+_artnet_snapshots: dict[int, dict] = {}
+
+
+def _artnet_blank_channels() -> list[int]:
+    return [0] * 512
+
+
+def _artnet_last_packet_ms(snapshot: dict | None) -> int | None:
+    if not snapshot or snapshot.get("last_packet_at") is None:
+        return None
+    return int(float(snapshot["last_packet_at"]) * 1000)
+
+
+def _artnet_is_live(snapshot: dict | None, now: float | None = None) -> bool:
+    if not snapshot or snapshot.get("last_packet_at") is None:
+        return False
+    now = time.time() if now is None else now
+    return now - float(snapshot["last_packet_at"]) <= _ARTNET_LIVE_TTL_S
+
+
+def _artnet_listening_locked() -> bool:
+    return _artnet_socket is not None and _artnet_thread is not None and _artnet_thread.is_alive()
+
+
+def _artnet_stop_listener(clear_error: bool = False) -> None:
+    global _artnet_socket, _artnet_thread, _artnet_stop_event, _artnet_port, _artnet_snapshots, _artnet_error
+    with _artnet_lock:
+        sock = _artnet_socket
+        thread = _artnet_thread
+        stop_event = _artnet_stop_event
+        _artnet_socket = None
+        _artnet_thread = None
+        _artnet_stop_event = None
+        _artnet_snapshots = {}
+        if clear_error:
+            _artnet_error = None
+    if stop_event is not None:
+        stop_event.set()
+    if sock is not None:
+        try:
+            sock.close()
+        except Exception:
+            pass
+    if thread is not None and thread.is_alive():
+        thread.join(timeout=1.0)
+
+
+def _artnet_listener_loop(sock: socket.socket, stop_event: threading.Event) -> None:
+    global _artnet_socket, _artnet_thread, _artnet_stop_event, _artnet_error
+    try:
+        while not stop_event.is_set():
+            try:
+                packet, _addr = sock.recvfrom(1024)
+            except socket.timeout:
+                continue
+            except OSError:
+                if stop_event.is_set():
+                    break
+                raise
+            if len(packet) < 18 or not packet.startswith(b"Art-Net\x00"):
+                continue
+            opcode = packet[8] | (packet[9] << 8)
+            if opcode != 0x5000:
+                continue
+            universe = packet[14] | (packet[15] << 8)
+            count = min(((packet[16] << 8) | packet[17]), 512)
+            if len(packet) < 18 + count:
+                continue
+            channels = _artnet_blank_channels()
+            payload = packet[18:18 + count]
+            channels[:len(payload)] = payload
+            now = time.time()
+            with _artnet_lock:
+                previous = _artnet_snapshots.get(universe)
+                prev_at = float(previous["last_packet_at"]) if previous and previous.get("last_packet_at") is not None else None
+                packet_rate = (1.0 / max(0.001, now - prev_at)) if prev_at is not None else 0.0
+                _artnet_snapshots[universe] = {
+                    "channels": channels,
+                    "last_packet_at": now,
+                    "packet_rate": packet_rate,
+                    "valid": True,
+                }
+                _artnet_error = None
+    except Exception as exc:
+        with _artnet_lock:
+            _artnet_error = str(exc)
+    finally:
+        with _artnet_lock:
+            if _artnet_socket is sock:
+                _artnet_socket = None
+            if _artnet_stop_event is stop_event:
+                _artnet_stop_event = None
+            _artnet_thread = None
+        try:
+            sock.close()
+        except Exception:
+            pass
+
+
+@app.post("/api/artnet/start")
+def artnet_start(payload: dict = Body(...)):
+    global _artnet_socket, _artnet_thread, _artnet_stop_event, _artnet_port, _artnet_error
+    port = int(payload.get("port") or 6454)
+    if port < 1 or port > 65535:
+        return JSONResponse({"ok": False, "error": "UDP port must be between 1 and 65535"}, status_code=400)
+    with _artnet_lock:
+        if _artnet_listening_locked() and _artnet_port == port:
+            return {"ok": True}
+    _artnet_stop_listener(clear_error=True)
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(("0.0.0.0", port))
+        sock.settimeout(0.25)
+    except Exception as exc:
+        try:
+            sock.close()
+        except Exception:
+            pass
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    stop_event = threading.Event()
+    thread = threading.Thread(target=_artnet_listener_loop, args=(sock, stop_event), daemon=True, name="artnet-listener")
+    with _artnet_lock:
+        _artnet_socket = sock
+        _artnet_thread = thread
+        _artnet_stop_event = stop_event
+        _artnet_port = port
+        _artnet_error = None
+    thread.start()
+    return {"ok": True}
+
+
+@app.post("/api/artnet/stop")
+def artnet_stop():
+    _artnet_stop_listener(clear_error=True)
+    return {"ok": True}
+
+
+@app.get("/api/artnet/status")
+def artnet_status(universe: int = 0):
+    with _artnet_lock:
+        snapshot = _artnet_snapshots.get(universe)
+        listening = _artnet_listening_locked()
+        port = _artnet_port
+        error = _artnet_error
+    return {
+        "ok": True,
+        "listening": listening,
+        "port": port,
+        "live": _artnet_is_live(snapshot),
+        "packetRate": float(snapshot.get("packet_rate") or 0.0) if snapshot else 0.0,
+        "lastPacketAt": _artnet_last_packet_ms(snapshot),
+        "error": error,
+    }
+
+
+@app.get("/api/artnet/snapshot")
+def artnet_snapshot(universe: int = 0):
+    with _artnet_lock:
+        snapshot = _artnet_snapshots.get(universe)
+    return {
+        "ok": True,
+        "universe": universe,
+        "valid": bool(snapshot and snapshot.get("valid")),
+        "live": _artnet_is_live(snapshot),
+        "packetRate": float(snapshot.get("packet_rate") or 0.0) if snapshot else 0.0,
+        "lastPacketAt": _artnet_last_packet_ms(snapshot),
+        "channels": list(snapshot["channels"]) if snapshot else _artnet_blank_channels(),
+    }
 
 
 # ── arduino-cli management ────────────────────────────────────────────────────

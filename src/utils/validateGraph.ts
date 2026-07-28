@@ -56,6 +56,12 @@ function collectPinUses(nodes: StudioNode[]): PinUse[] {
         push(n, `${label} I2S SCK`, 'i2sSck', props.i2sSck)
         push(n, `${label} I2S SD`, 'i2sSd', props.i2sSd)
         break
+      case 'DMXInput':
+        if (String(props.inputMode ?? 'Art-Net') !== 'DMX512') break
+        push(n, `${label} TX pin`, 'dmxTxPin', props.dmxTxPin)
+        push(n, `${label} RX pin`, 'dmxRxPin', props.dmxRxPin)
+        push(n, `${label} enable pin`, 'dmxEnablePin', props.dmxEnablePin)
+        break
       case 'MatrixOutput':
         push(n, `${label} data pin`, 'dataPin', props.dataPin)
         if (SPI_CHIPSETS.has(String(props.chipset ?? 'WS2812B'))) push(n, `${label} clock pin`, 'clockPin', props.clockPin)
@@ -108,17 +114,96 @@ function findRtcWarnings(nodes: StudioNode[]): string[] {
   return nodes.flatMap((node) => {
     if (node.data.nodeType !== 'RTCInput') return []
     const props = node.data.properties as Record<string, unknown>
-    if (String(props.timeSource ?? 'Compile Time') !== 'Manual') return []
-    const valid = isValidRtcDateTime({
-      year: Number(props.startYear ?? 0),
-      month: Number(props.startMonth ?? 0),
-      day: Number(props.startDay ?? 0),
-      hour: Number(props.startHour ?? 0),
-      minute: Number(props.startMinute ?? 0),
-      second: Number(props.startSecond ?? 0),
-    })
-    return valid ? [] : [`${String(node.data.label ?? node.data.nodeType)} has an invalid manual RTC start date/time`]
+    const source = String(props.timeSource ?? 'Compile Time')
+    if (source === 'Manual') {
+      const valid = isValidRtcDateTime({
+        year: Number(props.startYear ?? 0),
+        month: Number(props.startMonth ?? 0),
+        day: Number(props.startDay ?? 0),
+        hour: Number(props.startHour ?? 0),
+        minute: Number(props.startMinute ?? 0),
+        second: Number(props.startSecond ?? 0),
+      })
+      return valid ? [] : [`${String(node.data.label ?? node.data.nodeType)} has an invalid manual RTC start date/time`]
+    }
+    if (source === 'NTP') {
+      if (!String(props.ntpServer ?? '').trim()) return [`${String(node.data.label ?? node.data.nodeType)} is missing its NTP server`]
+      if (!String(props.wifiSsid ?? '').trim()) return [`${String(node.data.label ?? node.data.nodeType)} is missing its Wi-Fi SSID for NTP sync`]
+    }
+    return []
   })
+}
+
+function isIpv4(value: unknown): boolean {
+  const text = String(value ?? '').trim()
+  if (!text) return false
+  const parts = text.split('.')
+  if (parts.length !== 4) return false
+  return parts.every((part) => {
+    if (!/^\d+$/.test(part)) return false
+    const n = Number(part)
+    return n >= 0 && n <= 255
+  })
+}
+
+function findNetworkConfigWarnings(nodes: StudioNode[]): string[] {
+  const warnings: string[] = []
+  const networkUsers = nodes.filter((node) => {
+    const props = node.data.properties as Record<string, unknown>
+    return (node.data.nodeType === 'DMXInput' && String(props.inputMode ?? 'Art-Net') === 'Art-Net')
+      || (node.data.nodeType === 'RTCInput' && String(props.timeSource ?? 'Compile Time') === 'NTP')
+  })
+  if (networkUsers.length === 0) return warnings
+
+  const signatures = new Set(networkUsers.map((node) => {
+    const props = node.data.properties as Record<string, unknown>
+    return JSON.stringify({
+      wifiSsid: String(props.wifiSsid ?? '').trim(),
+      wifiPassword: String(props.wifiPassword ?? ''),
+      wifiHostname: String(props.wifiHostname ?? '').trim(),
+      useDhcp: props.useDhcp !== false,
+      staticIp: String(props.staticIp ?? '').trim(),
+      staticGateway: String(props.staticGateway ?? '').trim(),
+      staticSubnet: String(props.staticSubnet ?? '').trim(),
+      staticDns: String(props.staticDns ?? '').trim(),
+    })
+  }))
+  if (signatures.size > 1) {
+    warnings.push('Network-enabled DMX / RTC nodes disagree on Wi-Fi settings — generated firmware shares one Wi-Fi connection')
+  }
+
+  for (const node of networkUsers) {
+    const props = node.data.properties as Record<string, unknown>
+    const label = String(node.data.label ?? node.data.nodeType)
+    if (!String(props.wifiSsid ?? '').trim()) warnings.push(`${label} is missing its Wi-Fi SSID`)
+    if (props.useDhcp === false) {
+      if (!isIpv4(props.staticIp)) warnings.push(`${label} has an invalid static IP address`)
+      if (!isIpv4(props.staticGateway)) warnings.push(`${label} has an invalid gateway address`)
+      if (!isIpv4(props.staticSubnet)) warnings.push(`${label} has an invalid subnet mask`)
+      const dns = String(props.staticDns ?? '').trim()
+      if (dns && !isIpv4(dns)) warnings.push(`${label} has an invalid DNS address`)
+    }
+  }
+  return warnings
+}
+
+function findScheduleWarnings(nodes: StudioNode[], edges: StudioEdge[]): string[] {
+  const incoming = new Set(edges.filter((edge) => edge.target && edge.targetHandle).map((edge) => `${edge.target}:${edge.targetHandle}`))
+  const warnings: string[] = []
+  for (const node of nodes) {
+    if (node.data.nodeType !== 'ScheduleTrigger') continue
+    const label = String(node.data.label ?? node.data.nodeType)
+    if (!incoming.has(`${node.id}:secondsOfDay`) || !incoming.has(`${node.id}:valid`)) {
+      warnings.push(`${label} should be wired to an RTC Clock valid + seconds-of-day feed`)
+    }
+    const props = node.data.properties as Record<string, unknown>
+    if (String(props.scheduleMode ?? 'Window') === 'Window') {
+      const start = Number(props.startHour ?? 0) * 3600 + Number(props.startMinute ?? 0) * 60 + Number(props.startSecond ?? 0)
+      const end = Number(props.endHour ?? 0) * 3600 + Number(props.endMinute ?? 0) * 60 + Number(props.endSecond ?? 0)
+      if (!Number.isFinite(start) || !Number.isFinite(end)) warnings.push(`${label} has an invalid schedule time`)
+    }
+  }
+  return warnings
 }
 
 export interface PowerEstimate {
@@ -363,6 +448,18 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
   const errors: string[] = []
   if (selectedFqbn && nodes.some((node) => node.data.nodeType === 'MicInput') && !selectedFqbn.startsWith('esp32:')) {
     errors.push('Microphone firmware requires an ESP32-family board because INMP441 capture uses the ESP-IDF I2S driver')
+  }
+  if (selectedFqbn && nodes.some((node) =>
+    node.data.nodeType === 'DMXInput' && String((node.data.properties as Record<string, unknown>).inputMode ?? 'Art-Net') === 'DMX512'
+  ) && !selectedFqbn.startsWith('esp32:')) {
+    errors.push('DMX512 firmware input requires an ESP32-family board because the generated sketch uses esp_dmx')
+  }
+  if (selectedFqbn && nodes.some((node) => {
+    const props = node.data.properties as Record<string, unknown>
+    return (node.data.nodeType === 'DMXInput' && String(props.inputMode ?? 'Art-Net') === 'Art-Net')
+      || (node.data.nodeType === 'RTCInput' && String(props.timeSource ?? 'Compile Time') === 'NTP')
+  }) && !selectedFqbn.startsWith('esp32:') && !selectedFqbn.startsWith('esp8266:')) {
+    errors.push('Art-Net and NTP time sync require a Wi-Fi-capable ESP32-family board or ESP8266')
   }
   const internalDacSd = nodes.find((node) =>
     node.data.nodeType === 'SDCard' && (node.data.properties as Record<string, unknown>).audioOutput === 'internalDac'
@@ -621,6 +718,30 @@ export function buildGraphDiagnostics(
     })
   }
 
+  findNetworkConfigWarnings(nodes).forEach((message, index) => {
+    diagnostics.push({
+      id: `network-config-${index}`,
+      severity: 'warning',
+      category: 'board',
+      title: 'Network configuration needs attention',
+      message,
+      fix: 'Use one shared Wi-Fi setup across DMX / RTC nodes, and complete every required address field.',
+      nodeIds: [],
+    })
+  })
+
+  findScheduleWarnings(nodes, edges).forEach((message, index) => {
+    diagnostics.push({
+      id: `schedule-${index}`,
+      severity: 'warning',
+      category: 'connection',
+      title: 'Schedule setup is incomplete',
+      message,
+      fix: 'Wire the schedule to an RTC Clock node and verify its day/time settings.',
+      nodeIds: [],
+    })
+  })
+
   for (const node of nodes) {
     if (!PREVIEW_ONLY_NODE_TYPES.has(node.data.nodeType) || !edges.some((edge) => edge.source === node.id)) continue
     diagnostics.push({
@@ -669,6 +790,36 @@ export function buildGraphDiagnostics(
         title: 'Microphone is incompatible with the selected board',
         message: 'INMP441 capture uses the ESP-IDF I2S driver and cannot compile for this target.',
         fix: 'Choose an ESP32-family board in Board & Port, or remove the Microphone node.',
+        nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
+      })
+    }
+  }
+
+  if (options.selectedFqbn && !options.selectedFqbn.startsWith('esp32:')) {
+    for (const node of nodes.filter((entry) =>
+      entry.data.nodeType === 'DMXInput' && String((entry.data.properties as Record<string, unknown>).inputMode ?? 'Art-Net') === 'DMX512'
+    )) {
+      diagnostics.push({
+        id: `${node.id}-board-dmx512`, severity: 'error', category: 'board',
+        title: 'DMX512 input is incompatible with the selected board',
+        message: 'The generated DMX512 receiver uses esp_dmx, which is ESP32-only.',
+        fix: 'Choose an ESP32-family board in Board & Port, or switch the DMX node to Art-Net mode.',
+        nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
+      })
+    }
+  }
+
+  if (options.selectedFqbn && !options.selectedFqbn.startsWith('esp32:') && !options.selectedFqbn.startsWith('esp8266:')) {
+    for (const node of nodes.filter((entry) => {
+      const props = entry.data.properties as Record<string, unknown>
+      return (entry.data.nodeType === 'DMXInput' && String(props.inputMode ?? 'Art-Net') === 'Art-Net')
+        || (entry.data.nodeType === 'RTCInput' && String(props.timeSource ?? 'Compile Time') === 'NTP')
+    })) {
+      diagnostics.push({
+        id: `${node.id}-board-network`, severity: 'error', category: 'board',
+        title: 'Network sync is incompatible with the selected board',
+        message: 'Art-Net receive and NTP time sync need a Wi-Fi-capable ESP32-family board or ESP8266 target.',
+        fix: 'Choose an ESP32-family board / ESP8266 in Board & Port, or switch the node back to a non-network mode.',
         nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
       })
     }
@@ -770,6 +921,8 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   errors.push(...findBoardCompatibilityErrors(nodes, selectedFqbn))
   warnings.push(...findPreviewOnlyWarnings(nodes, edges))
   warnings.push(...findRtcWarnings(nodes))
+  warnings.push(...findNetworkConfigWarnings(nodes))
+  warnings.push(...findScheduleWarnings(nodes, edges))
   warnings.push(...findPinRangeWarnings(nodes))
   warnings.push(...findBoardPinCompatibility(nodes, selectedFqbn).warnings)
 

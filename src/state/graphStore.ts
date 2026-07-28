@@ -229,13 +229,13 @@ type HistorySlice = Pick<GraphState, 'nodes' | 'edges'>
 // variant dropdown.
 // Scene-level outputs/sources are left behind in the parent graph when
 // encapsulating a selection into a group. MatrixOutput can have several root
-// routes; MicInput remains a singleton.
-const GROUP_EXCLUDED_TYPES = new Set(['MatrixOutput', 'MicInput', 'MusicLibrary'])
+// routes; scene-wide hardware/time sources remain singletons in the root graph.
+const GROUP_EXCLUDED_TYPES = new Set(['MatrixOutput', 'MicInput', 'DMXInput', 'MusicLibrary'])
 
 /** Nodes that represent one scene-wide hardware resource. Creation actions use
  *  this set as a final guard, so every UI path (click, drop, paste, duplicate)
  *  preserves the one-per-canvas invariant. */
-export const SINGLETON_NODE_TYPES = new Set(['MicInput'])
+export const SINGLETON_NODE_TYPES = new Set(['MicInput', 'DMXInput'])
 
 export function canAddNodeType(nodes: StudioNode[], nodeType: string): boolean {
   return !SINGLETON_NODE_TYPES.has(nodeType) || !nodes.some((n) => n.data.nodeType === nodeType)
