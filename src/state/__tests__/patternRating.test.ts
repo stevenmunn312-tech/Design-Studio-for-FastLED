@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { Frame, RGB } from '../graphEvaluator'
 import { hsv } from '../ledColor'
-import { BUNDLED_PATTERNS } from '../bundledPatterns'
+import { BUNDLED_PATTERNS, STANDARD_BUNDLED_PATTERNS } from '../bundledPatterns'
 import { captureWindows } from '../patternRating'
 import type { StudioNode, StudioEdge } from '../graphStore'
 import type { GraphDiagnostic } from '../../utils/validateGraph'
@@ -164,6 +164,51 @@ describe('bundled audio patterns light up after warm-up', () => {
       expect(maxBrightness(windows.flat())).toBeGreaterThan(0.12)
     })
   }
+})
+
+describe('bundled standard patterns stay strong under the rating pass', () => {
+  const scoreOf = (id: string, criteria: { id: string; score: number }[]) =>
+    criteria.find((criterion) => criterion.id === id)?.score ?? 0
+
+  it('keeps every shipped standard pattern above the quality floor', async () => {
+    const summaries: {
+      name: string
+      overall: number
+      structure: number
+      color: number
+      brightness: number
+      stability: number
+    }[] = []
+
+    for (const saved of STANDARD_BUNDLED_PATTERNS) {
+      const windows = await captureWindows(saved, 16, 16, {})
+      let best = 0
+      let bestCriteria: { id: string; score: number }[] = []
+      for (const frames of windows) {
+        const scored = scorePattern(frames, [], saved.subgraph.nodes, saved.subgraph.edges)
+        if (scored.overall > best) {
+          best = scored.overall
+          bestCriteria = scored.criteria
+        }
+      }
+      summaries.push({
+        name: saved.name,
+        overall: best,
+        structure: scoreOf('structure', bestCriteria),
+        color: scoreOf('color', bestCriteria),
+        brightness: scoreOf('brightness', bestCriteria),
+        stability: scoreOf('stability', bestCriteria),
+      })
+    }
+
+    const average = summaries.reduce((sum, entry) => sum + entry.overall, 0) / summaries.length
+    expect(average).toBeGreaterThanOrEqual(78)
+    for (const entry of summaries) {
+      expect(entry.overall, `${entry.name} overall`).toBeGreaterThanOrEqual(72)
+      expect(entry.structure, `${entry.name} structure`).toBeGreaterThanOrEqual(0.42)
+      expect(entry.stability, `${entry.name} stability`).toBeGreaterThanOrEqual(0.72)
+    }
+  })
 })
 
 describe('scorePattern', () => {
