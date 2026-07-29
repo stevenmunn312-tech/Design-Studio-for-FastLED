@@ -135,7 +135,7 @@
           "properties": {
             "anchorA": "#08203a",
             "anchorB": "#58d7ff",
-            "anchorC": "#f2f5ff",
+            "anchorC": "#ffffff",
             "points": 6,
             "position": "sinusoidal"
           },

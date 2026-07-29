@@ -302,6 +302,13 @@ function nodeSubcategory(node: StudioNode): string {
 function groupInputRole(node: StudioNode): string {
   return String((node.data.properties as { paramId?: unknown }).paramId ?? '')
 }
+/** A GroupInput whose exposed port is the whole raw audio signal (as opposed to
+ *  a single named band/role) is just as much a real audio source as one tagged
+ *  with a band role — its `paramId` is often just "audio"/"param0". */
+function groupInputIsAudioTyped(node: StudioNode): boolean {
+  const outputs = (node.data as { outputs?: { dataType?: unknown }[] }).outputs
+  return (outputs ?? []).some((p) => p.dataType === 'audio')
+}
 
 /** True when the subgraph is meant to react to audio: it contains an audio
  *  analyzer, an Audio-Reactive pattern node, or an audio-role GroupInput. */
@@ -310,24 +317,42 @@ export function isAudioReactiveSubgraph(nodes: StudioNode[]): boolean {
     nodeCategory(n) === 'audio' ||
     nodeType(n) === 'MicInput' ||
     nodeSubcategory(n) === 'Audio-Reactive' ||
-    (nodeType(n) === 'GroupInput' && AUDIO_ROLES.has(groupInputRole(n))),
+    (nodeType(n) === 'GroupInput' && (AUDIO_ROLES.has(groupInputRole(n)) || groupInputIsAudioTyped(n))),
   )
 }
 
+// Nodes in this category are plain signal transforms (Smooth, Math, MapRange,
+// Clamp, Lerp, Ease, …): wiring an audio band through one before a consumer
+// (the documented way to tame jittery FFT/beat data — see Smooth in
+// nodeLibrary.ts) doesn't change *what* is driving the consumer, so a source
+// found behind one of these still counts as "fed by a real audio source".
+const PASSTHROUGH_CATEGORY = 'math'
+const MAX_TRACE_DEPTH = 4
+
 /** Audio correctness: audio-reactive consumers should be fed by a real audio
  *  source (an analyzer or an audio-role GroupInput), not left unwired or driven
- *  by a non-audio signal. */
+ *  by a non-audio signal. Traces back through simple signal-conditioning nodes
+ *  (see PASSTHROUGH_CATEGORY) so a Smooth'd/Math'd band still counts. */
 export function scoreAudioCorrectness(nodes: StudioNode[], edges: StudioEdge[]): number {
+  const nodeById = new Map(nodes.map((n) => [n.id, n]))
   const sourceIds = new Set(
     nodes
       .filter((n) =>
         nodeCategory(n) === 'audio' ||
         nodeType(n) === 'MicInput' ||
-        (nodeType(n) === 'GroupInput' && AUDIO_ROLES.has(groupInputRole(n))),
+        (nodeType(n) === 'GroupInput' && (AUDIO_ROLES.has(groupInputRole(n)) || groupInputIsAudioTyped(n))),
       )
       .map((n) => n.id),
   )
   const hasSource = sourceIds.size > 0
+
+  function resolvesToSource(nodeId: string, depth: number): boolean {
+    if (sourceIds.has(nodeId)) return true
+    if (depth >= MAX_TRACE_DEPTH) return false
+    const upstream = nodeById.get(nodeId)
+    if (!upstream || nodeCategory(upstream) !== PASSTHROUGH_CATEGORY) return false
+    return edges.some((e) => e.target === nodeId && resolvesToSource(e.source, depth + 1))
+  }
 
   const reactive = nodes.filter((n) => nodeSubcategory(n) === 'Audio-Reactive')
 
@@ -344,7 +369,7 @@ export function scoreAudioCorrectness(nodes: StudioNode[], edges: StudioEdge[]):
     const isFed = edges.some(
       (e) => e.target === node.id &&
         bandHandles.includes(String(e.targetHandle ?? '')) &&
-        sourceIds.has(e.source),
+        resolvesToSource(e.source, 0),
     )
     if (isFed) fed++
   }

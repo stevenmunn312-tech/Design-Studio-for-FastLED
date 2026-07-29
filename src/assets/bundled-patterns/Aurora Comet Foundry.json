@@ -186,7 +186,7 @@
           "category": "color",
           "properties": {
             "h": 0,
-            "s": 0.95,
+            "s": 1,
             "v": 1
           },
           "inputs": [
@@ -422,7 +422,7 @@
           "category": "composite",
           "properties": {
             "blendMode": "add",
-            "amount": 1
+            "amount": 0.4
           },
           "inputs": [
             {
@@ -466,7 +466,7 @@
           "nodeType": "Blur2D",
           "category": "composite",
           "properties": {
-            "amount": 0.48
+            "amount": 0.12
           },
           "inputs": [
             {

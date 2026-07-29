@@ -172,13 +172,33 @@
           "y": 470
         },
         "data": {
-          "label": "Palette Selector",
-          "nodeType": "PaletteSelector",
+          "label": "Poline Palette",
+          "nodeType": "Poline",
           "category": "color",
           "properties": {
-            "palette": "aurora"
+            "anchorA": "#061826",
+            "anchorB": "#17a398",
+            "anchorC": "#00e08c",
+            "points": 6,
+            "position": "sinusoidal"
           },
-          "inputs": [],
+          "inputs": [
+            {
+              "id": "colorA",
+              "label": "Anchor A",
+              "dataType": "color"
+            },
+            {
+              "id": "colorB",
+              "label": "Anchor B",
+              "dataType": "color"
+            },
+            {
+              "id": "colorC",
+              "label": "Anchor C",
+              "dataType": "color"
+            }
+          ],
           "outputs": [
             {
               "id": "palette",
@@ -248,13 +268,33 @@
           "y": 350
         },
         "data": {
-          "label": "Palette Selector",
-          "nodeType": "PaletteSelector",
+          "label": "Poline Palette",
+          "nodeType": "Poline",
           "category": "color",
           "properties": {
-            "palette": "opal"
+            "anchorA": "#2a1e38",
+            "anchorB": "#d1462f",
+            "anchorC": "#f06ba8",
+            "points": 6,
+            "position": "sinusoidal"
           },
-          "inputs": [],
+          "inputs": [
+            {
+              "id": "colorA",
+              "label": "Anchor A",
+              "dataType": "color"
+            },
+            {
+              "id": "colorB",
+              "label": "Anchor B",
+              "dataType": "color"
+            },
+            {
+              "id": "colorC",
+              "label": "Anchor C",
+              "dataType": "color"
+            }
+          ],
           "outputs": [
             {
               "id": "palette",
@@ -340,7 +380,7 @@
           "category": "composite",
           "properties": {
             "blendMode": "screen",
-            "amount": 0.55
+            "amount": 0.32
           },
           "inputs": [
             {
@@ -453,7 +493,7 @@
             "intensity": 0.7,
             "blendMode": "screen",
             "preserveBase": true,
-            "palette": "opal",
+            "palette": "none",
             "r": 255,
             "g": 255,
             "b": 255

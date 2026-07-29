@@ -93,13 +93,33 @@
           "y": -20
         },
         "data": {
-          "label": "Palette Selector",
-          "nodeType": "PaletteSelector",
+          "label": "Poline Palette",
+          "nodeType": "Poline",
           "category": "color",
           "properties": {
-            "palette": "ultraviolet"
+            "anchorA": "#0b032d",
+            "anchorB": "#5a189a",
+            "anchorC": "#d500f9",
+            "points": 6,
+            "position": "sinusoidal"
           },
-          "inputs": [],
+          "inputs": [
+            {
+              "id": "colorA",
+              "label": "Anchor A",
+              "dataType": "color"
+            },
+            {
+              "id": "colorB",
+              "label": "Anchor B",
+              "dataType": "color"
+            },
+            {
+              "id": "colorC",
+              "label": "Anchor C",
+              "dataType": "color"
+            }
+          ],
           "outputs": [
             {
               "id": "palette",
@@ -231,7 +251,7 @@
             "intensity": 1.25,
             "blendMode": "screen",
             "preserveBase": true,
-            "palette": "ice",
+            "palette": "none",
             "r": 255,
             "g": 255,
             "b": 255
