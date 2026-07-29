@@ -13,14 +13,12 @@ import { captureWorkspace, blankWorkspace } from '../../state/workspacePersisten
 import {
   buildProjectSnapshot,
   nextDefaultProjectName,
-  openProjectWithNativePicker,
   parseProjectFile,
   projectFileBaseName,
-  saveProjectWithNativePicker,
   serializeProject,
   suggestProjectFileName,
 } from '../../utils/projectFileIO'
-import { openProjectDialog, saveProjectWithDialog } from '../../utils/backendClient'
+import { openProjectWithFallbacks, saveProjectWithFallbacks } from '../../utils/projectDialogs'
 import { runTidy } from '../../utils/tidyGraph'
 import { buildShareUrl } from '../../utils/shareGraph'
 import { promptTrustIfNeeded } from '../../utils/trustPrompt'
@@ -311,8 +309,8 @@ export default function MenuBar() {
       // After the yes/no/cancel prompt resolves, browsers may drop the user
       // activation needed for showSaveFilePicker(). The helper-backed dialog
       // does not have that limitation, so prefer it for new-project creation.
-      const saved = await saveProjectWithDialog(draft) ?? await saveProjectWithNativePicker(draft)
-      if (!saved) throw new Error('Native picker unavailable')
+      const saved = await saveProjectWithFallbacks(draft, 'dialog-first')
+      if (!saved) throw new Error('No save dialog available')
       if (saveCurrentFirst && currentProject) {
         useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
       }
@@ -384,8 +382,8 @@ export default function MenuBar() {
     })
     void (async () => {
       try {
-        const saved = await saveProjectWithNativePicker(draft) ?? await saveProjectWithDialog(draft)
-        if (!saved) throw new Error('Native picker unavailable')
+        const saved = await saveProjectWithFallbacks(draft)
+        if (!saved) throw new Error('No save dialog available')
         const project = useProjectStore.getState().upsertProject(saved)
         setStatus(`Saved as "${project.name}"`, 'success')
       } catch (error) {
@@ -407,26 +405,12 @@ export default function MenuBar() {
     closeMenus()
     void (async () => {
       try {
-        const picked = await openProjectWithNativePicker()
+        const picked = await openProjectWithFallbacks()
         if (picked) {
           const decision = await confirmProjectChange(`project "${picked.fallbackName}"`)
           if (decision === 'cancel') return
           try {
-            await openParsedProject(await picked.file.text(), picked.fallbackName, {
-              saveCurrentFirst: decision === 'yes',
-              confirmedReplace: true,
-            })
-          } catch {
-            setStatus('Failed to open project file — invalid file', 'error')
-          }
-          return
-        }
-        const backendPicked = await openProjectDialog()
-        if (backendPicked) {
-          const decision = await confirmProjectChange(`project "${projectFileBaseName(backendPicked.name)}"`)
-          if (decision === 'cancel') return
-          try {
-            await openParsedProject(backendPicked.text, projectFileBaseName(backendPicked.name), {
+            await openParsedProject(picked.text, picked.fallbackName, {
               saveCurrentFirst: decision === 'yes',
               confirmedReplace: true,
             })

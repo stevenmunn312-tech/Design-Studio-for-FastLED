@@ -447,4 +447,53 @@ describe('MenuBar file menu', () => {
       },
     })
   })
+
+  it('falls back to the helper save dialog when the browser picker errors', async () => {
+    const alpha = project('alpha', 'alpha', 'alpha-node', 200)
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: async () => ({
+        ok: true,
+        project: {
+          ...alpha,
+          id: 'helper-copy-id',
+          name: 'helper-copy',
+          workspace: {
+            nodes: [{ id: 'scratch', type: 'studioNode', position: { x: 10, y: 10 }, data: { label: 'Noise', nodeType: 'Noise', category: 'pattern', properties: {}, inputs: [], outputs: [] } }],
+            edges: [],
+          },
+        },
+      }),
+    })
+    const showSaveFilePicker = vi.fn().mockRejectedValue(new DOMException('Blocked', 'SecurityError'))
+    vi.stubGlobal('fetch', fetchMock)
+    useProjectStore.setState({ projects: [alpha], currentProjectId: alpha.id })
+    useGraphStore.setState({
+      nodes: [{
+        id: 'scratch',
+        type: 'studioNode',
+        position: { x: 10, y: 10 },
+        data: { label: 'Noise', nodeType: 'Noise', category: 'pattern', properties: {}, inputs: [], outputs: [] },
+      }] as never[],
+      edges: [],
+      graphData: {},
+      graphs: { root: { id: 'root', name: 'Main' } },
+      activeGraphId: 'root',
+    })
+
+    ;(window as Window & { showSaveFilePicker?: typeof showSaveFilePicker }).showSaveFilePicker = showSaveFilePicker
+
+    const { getByRole, getByText } = render(<MenuBar />)
+    fireEvent.click(getByRole('button', { name: 'File menu' }))
+    fireEvent.click(getByText('Save Project File As…'))
+
+    await waitFor(() => {
+      expect(useProjectStore.getState().currentProjectId).toBe('helper-copy-id')
+    })
+
+    expect(showSaveFilePicker).toHaveBeenCalled()
+    expect(fetchMock).toHaveBeenCalledWith('http://localhost:8008/api/projects/dialog/save', expect.objectContaining({
+      method: 'POST',
+    }))
+    expect(useProjectStore.getState().projects.find((entry) => entry.id === 'helper-copy-id')?.name).toBe('helper-copy')
+  })
 })

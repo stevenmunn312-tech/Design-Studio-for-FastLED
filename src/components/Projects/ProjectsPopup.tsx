@@ -6,11 +6,10 @@ import { captureWorkspace, blankWorkspace } from '../../state/workspacePersisten
 import {
   buildProjectSnapshot,
   nextDefaultProjectName,
-  saveProjectWithNativePicker,
   serializeProject,
   suggestProjectFileName,
 } from '../../utils/projectFileIO'
-import { saveProjectWithDialog } from '../../utils/backendClient'
+import { saveProjectWithFallbacks } from '../../utils/projectDialogs'
 import styles from './ProjectsPopup.module.css'
 
 function relativeTime(timestamp: number): string {
@@ -66,8 +65,8 @@ export default function ProjectsPopup() {
       // After the yes/no/cancel prompt resolves, browsers may drop the user
       // activation needed for showSaveFilePicker(). The helper-backed dialog
       // does not have that limitation, so prefer it for new-project creation.
-      const saved = await saveProjectWithDialog(draft) ?? await saveProjectWithNativePicker(draft)
-      if (!saved) throw new Error('Native picker unavailable')
+      const saved = await saveProjectWithFallbacks(draft, 'dialog-first')
+      if (!saved) throw new Error('No save dialog available')
       if (saveCurrentFirst && currentProject) {
         useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
       }

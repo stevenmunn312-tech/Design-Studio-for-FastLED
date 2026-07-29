@@ -471,10 +471,12 @@ export async function openProjectDialog(): Promise<{ text: string; name: string 
   try {
     const res = await fetch(`${BACKEND_URL}/api/projects/dialog/open`, { method: 'POST' })
     const data = await res.json() as { ok?: boolean; canceled?: boolean; text?: string; name?: string }
+    if (data.canceled) throw new DOMException('The user aborted a request.', 'AbortError')
     return data.ok && typeof data.text === 'string' && typeof data.name === 'string'
       ? { text: data.text, name: data.name }
       : null
-  } catch {
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error
     return null
   }
 }
@@ -488,8 +490,10 @@ export async function saveProjectWithDialog(project: SavedProject): Promise<Save
       body: JSON.stringify(project),
     })
     const data = await res.json() as { ok?: boolean; canceled?: boolean; project?: SavedProject }
+    if (data.canceled) throw new DOMException('The user aborted a request.', 'AbortError')
     return data.ok && data.project ? data.project : null
-  } catch {
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error
     return null
   }
 }
