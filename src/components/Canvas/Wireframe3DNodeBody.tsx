@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { asWireframeMesh, parseWireframeMeshFile, WIREFRAME_MAX_EDGES, WIREFRAME_MAX_VERTS } from '../../state/wireframeModel'
+import { asWireframeMesh, parseWireframeMeshFile, WIREFRAME_DECIMATE_INPUT_MAX_VERTS } from '../../state/wireframeModel'
 import styles from './ImageNodeBody.module.css'
 
 // Only relevant when `model === 'custom'` (StudioNode gates rendering this
@@ -30,13 +30,14 @@ export default function Wireframe3DNodeBody({ nodeId }: { nodeId: string }) {
     setLoading(true)
     try {
       const text = await file.text()
-      const parsed = parseWireframeMeshFile(file.name, text)
-      if (!parsed) {
-        setStatus(`Could not read model (max ${WIREFRAME_MAX_VERTS} verts / ${WIREFRAME_MAX_EDGES} edges)`, 'error')
+      const result = parseWireframeMeshFile(file.name, text)
+      if (!result) {
+        setStatus(`Could not read model (too complex to simplify — max ${WIREFRAME_DECIMATE_INPUT_MAX_VERTS} verts)`, 'error')
         return
       }
-      updateNodeProperty(nodeId, 'mesh', parsed)
-      setStatus(`Loaded model (${parsed.vertices.length / 3} verts, ${parsed.edges.length / 2} edges)`, 'success')
+      updateNodeProperty(nodeId, 'mesh', result.mesh)
+      const counts = `${result.mesh.vertices.length / 3} verts, ${result.mesh.edges.length / 2} edges`
+      setStatus(result.decimated ? `Loaded model, simplified to fit (${counts})` : `Loaded model (${counts})`, 'success')
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Could not load model', 'error')
     } finally {
