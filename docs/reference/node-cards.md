@@ -388,6 +388,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Path example graph](../../public/node-cards/graphs/path.svg)
 
+### 3D Wireframe
+
+![3D Wireframe node](../../public/node-cards/wireframe3-d.svg)
+
+![3D Wireframe example graph](../../public/node-cards/graphs/wireframe3-d.svg)
+
 ### Gradient Frame
 
 ![Gradient Frame node](../../public/node-cards/gradient-frame.svg)

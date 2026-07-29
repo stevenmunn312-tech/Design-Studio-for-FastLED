@@ -2,7 +2,7 @@
 
 Design LED animations as a live node graph, watch them move on a virtual matrix, then send the same patch to FastLED hardware.
 
-**Public beta · 150 nodes · 20 included audio-reactive patterns · Windows/macOS/Linux packaging · MIT core**
+**Public beta · 151 nodes · 20 included audio-reactive patterns · Windows/macOS/Linux packaging · MIT core**
 
 ![Design Studio for FastLED overview](docs/images/readme/design-studio-overview.png)
 
@@ -136,7 +136,7 @@ The empty-canvas launcher and **✦ Start** gallery include Rainbow Sweep, Fire,
 
 ## Complete node catalogue
 
-Design Studio for FastLED currently ships **150 nodes**. The in-app **Help → Node Reference** is authoritative and explains each one in depth.
+Design Studio for FastLED currently ships **151 nodes**. The in-app **Help → Node Reference** is authoritative and explains each one in depth.
 
 <details>
 <summary><strong>Show all nodes by category</strong></summary>
@@ -146,7 +146,7 @@ Design Studio for FastLED currently ships **150 nodes**. The in-app **Help → N
 - **Signals:** Time, Interval, Counter, Random, Envelope, Sin, Cos, Wave, Complex Wave, BeatSin, Clock, Schedule Trigger, DMX Channel
 - **Math & Logic:** Math, Clamp, Map Range, Lerp, Ease, Abs, Mod, Gate, Smooth, Sample & Hold, Switch, Not, Compare, Trigger, XY → Index
 - **Color:** Hue Cycle, HSV → RGB, RGB → HSV, Color Temperature, Heat Color, Blend Colors, CHSV, Gradient Sampler, Palette Sampler, Palette Sweep, Palette Selector, Custom Palette, Palette from Image, Poline Palette, Blend Palettes
-- **Patterns:** Solid Color, Text, Clock Display, Circle, Line, Shape, Path, Gradient Frame, Palette Gradient, Image, Noise, Plasma, Rainbow, Pride 2015, Pacifica, TwinkleFox, Scanner, Confetti, Juggle, Radial Burst, Spiral, Kaleidoscope, Fractal Noise, Gabor Noise, Blobs, Fire, Fire 2012, Particles, Flow Field, Starfield, Boids, Reaction Diffusion, Game of Life, Spectrum Bars, Spectrum Visualizer, Bass Pulse, Bass Rings, Midrange Waves, Midrange Bloom, Treble Sparks, Treble Prism, Audio Cascade, Beat Flash, Kick Shock, Vocal Aurora, Beat Kaleidoscope, Spectra Mosaic, Percussion Blobs, Ember Pulse, Turbulent Bloom, Gravity Well, Rain Ripples, Prism Storm, Audio Flow, Color Trails, AnimARTrix, Custom Formula, Code
+- **Patterns:** Solid Color, Text, Clock Display, Circle, Line, Shape, Path, 3D Wireframe, Gradient Frame, Palette Gradient, Image, Noise, Plasma, Rainbow, Pride 2015, Pacifica, TwinkleFox, Scanner, Confetti, Juggle, Radial Burst, Spiral, Kaleidoscope, Fractal Noise, Gabor Noise, Blobs, Fire, Fire 2012, Particles, Flow Field, Starfield, Boids, Reaction Diffusion, Game of Life, Spectrum Bars, Spectrum Visualizer, Bass Pulse, Bass Rings, Midrange Waves, Midrange Bloom, Treble Sparks, Treble Prism, Audio Cascade, Beat Flash, Kick Shock, Vocal Aurora, Beat Kaleidoscope, Spectra Mosaic, Percussion Blobs, Ember Pulse, Turbulent Bloom, Gravity Well, Rain Ripples, Prism Storm, Audio Flow, Color Trails, AnimARTrix, Custom Formula, Code
 - **Fields:** Field Formula, Field Noise, Wave Sim, Distance Field, Frame → Field, Field Math, Field Warp, Field Rotate, Field Tile, Field → Frame
 - **Effects:** Blur 2D, Blend, Mask, Brightness, Fade to Black, Hue Shift, Gamma, Saturation, Color Boost, Transform, Array, Invert, Mirror, Trails, Frame Feedback, Frame Switch, Zones
 - **Show:** Music Library, Pattern Collection, Transitions, Show Engine, Sequencer, Transition, Performance Generator, SD Card

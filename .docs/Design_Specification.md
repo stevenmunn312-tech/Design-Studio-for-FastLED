@@ -1,3 +1,8 @@
+> **Historical, non-normative specification.** This early design brief retains
+> the project's former name and initial visual ideas. For current behavior and
+> tokens, use `CLAUDE.md`, `docs/`, `src/themes/tokens.css`, and the generated
+> Node Reference.
+
 LumiNode Studio — Full Design Specification
 
 1️⃣ Design Philosophy

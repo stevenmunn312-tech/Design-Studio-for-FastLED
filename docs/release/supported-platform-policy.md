@@ -38,8 +38,8 @@ the UI exposes it or codegen exists for it.
 
 ## Hardware/upload policy
 
-- The only supported end-to-end hardware combo is the one listed in the beta
-  support matrix.
+- The supported end-to-end hardware combinations and exercised workflows are
+  exactly the rows listed in the beta support matrix.
 - Other boards, chipsets, layouts, upload engines, and advanced show/audio
   paths may work, but they are still experimental until recorded validation
   exists.

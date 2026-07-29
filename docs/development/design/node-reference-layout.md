@@ -74,7 +74,7 @@ Microphone feeds live audio to FFT Analyzer. FFT separates bass, mids, and trebl
 
 ## Rollout status — complete
 
-The rollout is complete across all 145 nodes in the library:
+The rollout is complete across all 151 nodes in the library:
 
 - [x] Every node uses the approved reference-article structure.
 - [x] Every node has an example recipe, explanation, and an appropriate preview or workflow outcome.

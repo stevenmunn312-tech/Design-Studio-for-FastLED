@@ -10,16 +10,16 @@ pointer).
 
 ## Git workflow (public repository)
 
-This is a public repository. Keep `main` releasable and make every change on a
-short-lived branch reviewed through a pull request. **These instructions
+This is a public repository. Keep `main` releasable. **These instructions
 override the global cortex / strict-git rules for this repository.**
 
 - **Use plain `git`** (`git add`, `git commit`, `git push`, `git pull`). Do **not**
   use `cortex git` here.
-- **Never commit or push directly to `main`.** Start from an up-to-date `main`,
-  then create a descriptive branch before editing. Codex branches use the
-  `codex/` prefix; other contributors may use `fix/`, `feature/`, `docs/`, or
-  another clear prefix.
+- **Direct commits and pushes to `main` are allowed only when the user
+  explicitly requests that workflow.** Otherwise start from an up-to-date
+  `main`, create a descriptive branch, and use a pull request. Codex branches
+  use the `codex/` prefix; other contributors may use `fix/`, `feature/`,
+  `docs/`, or another clear prefix.
 - Keep branches focused on one change. Push the branch with upstream tracking
   and open a pull request into `main`; use a draft PR while work is still in
   progress unless the user explicitly asks for a ready-for-review PR.
@@ -28,15 +28,17 @@ override the global cortex / strict-git rules for this repository.**
   draft PR is also part of the normal workflow.
 - **Commit message style:** a short, plain summary line is fine (e.g.
   `add Fade node`, `fix toolbar contrast`). No need to split into many tiny
-  atomic commits. Still end commit messages with the
-  `Co-Authored-By: Codex <noreply@anthropic.com>` trailer.
+  atomic commits. AI-assisted commits use the active tool's standard trailer:
+  `Co-Authored-By: Codex <noreply@anthropic.com>` for Codex, or the equivalent
+  Claude trailer when Claude Code contributes.
 - **Do still pause and ask** before genuinely destructive or irreversible things:
   deleting branches, force-pushing, rewriting shared history, `git reset --hard`,
   or discarding the user's uncommitted work.
-- Normal loop: update `main` → create branch → code → run checks → stage the
-  intended files → commit → `git push -u origin <branch>` → open a draft PR.
-  If `main` moves while the branch is in progress, fetch it and merge it into
-  the branch; do not rewrite a shared branch without explicit approval.
+- Normal loop (unless a direct-`main` workflow was explicitly requested):
+  update `main` → create branch → code → run checks → stage the intended files
+  → commit → `git push -u origin <branch>` → open a draft PR. If `main` moves
+  while the branch is in progress, fetch it and merge it into the branch; do
+  not rewrite a shared branch without explicit approval.
 
 ## Commands
 

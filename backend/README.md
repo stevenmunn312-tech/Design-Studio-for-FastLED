@@ -5,8 +5,10 @@ sketches to a board over USB. A web page can't run a local program, so the
 studio POSTs the generated `.ino` here and this helper drives a build engine,
 streaming the build/upload logs back.
 
-It's **optional**: if it isn't running, the Build & Upload panel falls back to
-showing the copy-paste CLI commands.
+It's **optional** for authoring: graph editing, preview, project data cached in
+the browser, View Code, and Export `.ino` still work without it. Compile/upload,
+live serial streaming, Art-Net preview, native file dialogs, and disk-backed
+Project/Pattern Library sync remain unavailable until the helper is online.
 
 ## Build engines
 
@@ -18,11 +20,11 @@ and `/api/engine`.
   It manages its own toolchains/frameworks per board (downloaded on first use
   into `.fbuild-project/`, a persistent scaffold this helper generates), so
   there's no per-board core install step. FastLED and, for the music-sync
-  Player, `ESP32-audioI2S` are vendored into `.fbuild-project/lib/` — as of
-  fbuild 2.4.0 its `lib_deps` registry resolution doesn't actually fetch
-  anything (`fbuild sync` marks entries `unresolved`), so a local vendored
-  copy is the working alternative. The generated source is also written as
-  `main.cpp`, not `main.ino` (`_write_fbuild_main` in `app.py`) — fbuild's
+  Player, `ESP32-audioI2S` are vendored into `.fbuild-project/lib/` because the
+  helper cannot rely on fbuild's registry dependency resolution to fetch them
+  consistently (the workaround was introduced against fbuild 2.4.0 and is
+  retained with the currently pinned 2.5.4). The generated source is also
+  written as `main.cpp`, not `main.ino` (`_write_fbuild_main` in `app.py`) — fbuild's
   `.ino`→`.cpp` preprocessing auto-inserts function prototypes *before* any
   user `#include`s, which breaks on FastLED-typed helpers (e.g. `CRGB
   kelvinToRGB(...)`) since `CRGB` isn't declared yet at that point. Writing
@@ -74,15 +76,34 @@ The studio talks to `http://localhost:8008` by default; override with the
 
 ## Endpoints
 
-| Method | Path                        | Purpose                                                                   |
-| ------ | --------------------------- | ------------------------------------------------------------------------- |
-| GET    | `/api/health`               | Liveness + active engine + arduino-cli/fbuild availability.                |
-| GET    | `/api/engine`               | Which build engine is active.                                             |
-| POST   | `/api/engine`               | Persist an engine preference (`{"engine": "fbuild" \| "arduino-cli"}`).   |
-| GET    | `/api/serial/ports`         | Connected serial boards/ports (`board list`).                             |
-| POST   | `/api/upload`               | Compile a raw `.ino` and upload it (streams logs).                        |
-| POST   | `/api/upload-show`          | Music-sync upload: provisioner sketch → SD file transfer → player sketch. |
-| GET    | `/api/cores`                | List installable board-manager cores (arduino-cli engine only).           |
-| POST   | `/api/core/install`         | Install a board-manager core, e.g. `esp32:esp32` (arduino-cli engine only). |
-| POST   | `/api/arduino-cli/locate`   | Point the helper at a user-supplied `arduino-cli` binary.                 |
-| POST   | `/api/arduino-cli/install`  | Download and install the official `arduino-cli` into `backend/bin`.       |
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/system-info` | Host OS information used by opt-in hardware-validation reports. |
+| GET | `/api/health` | Liveness, active engine, and arduino-cli/fbuild availability. |
+| GET / POST | `/api/engine` | Read or persist the active build engine. |
+| GET | `/api/serial/ports` | Connected serial boards/ports (`board list`). |
+| GET | `/api/serial/monitor` | Read a bounded serial-monitor sample from a selected port. |
+| POST | `/api/stream/start` | Open a serial port for live Adalight frame streaming. |
+| POST | `/api/stream/frame` | Send one packed live-preview frame to the open stream. |
+| POST | `/api/stream/stop` | Close the live-stream serial session. |
+| GET | `/api/stream/status` | Report whether a serial stream is active. |
+| POST | `/api/artnet/start` | Start the helper's Art-Net UDP receiver for one universe. |
+| POST | `/api/artnet/stop` | Stop the Art-Net receiver. |
+| GET | `/api/artnet/status` | Return receiver/liveness and packet-rate status. |
+| GET | `/api/artnet/snapshot` | Return the latest cached 512-channel universe. |
+| POST | `/api/arduino-cli/locate` | Point the helper at a user-supplied `arduino-cli` binary. |
+| POST | `/api/arduino-cli/install` | Download the official `arduino-cli` into `backend/bin`. |
+| GET | `/api/cores` | List board-manager cores (`arduino-cli` engine only). |
+| POST | `/api/core/install` | Install a board-manager core. |
+| POST | `/api/core/updates` | Check installed board cores for updates. |
+| POST | `/api/core/upgrade` | Upgrade selected installed board cores. |
+| POST | `/api/upload` | Compile a generated sketch and optionally upload it; streams logs. |
+| POST | `/api/compile-check` | Compile without flashing and return flash/RAM capacity data. |
+| POST | `/api/upload-show` | Provisioner upload → SD transfer → music-show player upload. |
+| GET / POST | `/api/patterns` | List or save helper-backed Pattern Library JSON files. |
+| DELETE | `/api/patterns/{pattern_id}` | Delete one helper-backed pattern. |
+| POST | `/api/patterns/reveal` | Reveal the native Pattern Library folder. |
+| GET / POST | `/api/projects` | List or save helper-backed project JSON files. |
+| POST | `/api/projects/dialog/open` | Open a native project-file picker. |
+| POST | `/api/projects/dialog/save` | Open a native project-file save dialog. |
+| DELETE | `/api/projects/{project_id}` | Delete one helper-backed project. |

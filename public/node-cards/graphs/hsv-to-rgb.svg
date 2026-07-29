@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1688 778" width="1688" height="778" role="img" aria-label="Paint a moving scene with HSV → RGB">
-<rect width="1688" height="778" fill="#0d0f12"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1688 799" width="1688" height="799" role="img" aria-label="Paint a moving scene with HSV → RGB">
+<rect width="1688" height="799" fill="#0d0f12"/>
 <circle cx="10" cy="10" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="30" cy="10" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="50" cy="10" r="1" fill="rgba(255,255,255,0.04)"/>
@@ -3276,6 +3276,90 @@
 <circle cx="1630" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="1650" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="1670" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="10" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="30" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="50" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="70" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="90" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="110" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="130" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="150" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="170" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="190" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="210" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="230" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="250" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="270" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="290" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="310" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="330" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="350" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="370" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="390" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="410" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="430" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="450" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="470" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="490" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="510" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="530" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="550" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="570" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="590" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="610" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="630" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="650" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="670" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="690" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="710" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="730" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="750" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="770" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="790" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="810" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="830" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="850" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="870" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="890" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="910" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="930" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="950" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="970" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="990" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1010" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1030" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1050" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1070" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1090" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1110" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1130" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1150" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1170" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1190" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1210" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1230" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1250" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1270" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1290" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1310" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1330" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1350" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1370" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1390" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1410" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1430" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1450" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1470" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1490" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1510" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1530" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1550" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1570" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1590" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1610" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1630" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1650" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="1670" cy="790" r="1" fill="rgba(255,255,255,0.04)"/>
 <defs><filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#000" flood-opacity="0.45"/></filter></defs>
 <path d="M286,376 C329.2,376 338.8,360 382,360" fill="none" stroke="#33ff33" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
 <path d="M286,376 C329.2,376 338.8,360 382,360" fill="none" stroke="#33ff33" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
@@ -3285,13 +3369,13 @@
 <path d="M626,360 C669.2,360 678.8,352 722,352" fill="none" stroke="#33ffd6" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
 <path d="M626,360 C669.2,360 678.8,352 722,352" fill="none" stroke="#33ffd6" stroke-width="1.2" stroke-linecap="round"/>
 <circle cx="722" cy="352" r="3" fill="#33ffd6"/>
-<path d="M966,324 C1009.2,324 1018.8,464 1062,464" fill="none" stroke="#33d6ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M966,324 C1009.2,324 1018.8,464 1062,464" fill="none" stroke="#33d6ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M966,324 C1009.2,324 1018.8,464 1062,464" fill="none" stroke="#33d6ff" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="1062" cy="464" r="3" fill="#33d6ff"/>
-<path d="M1306,464 C1349.2,464 1358.8,316 1402,316" fill="none" stroke="#3333ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M1306,464 C1349.2,464 1358.8,316 1402,316" fill="none" stroke="#3333ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M1306,464 C1349.2,464 1358.8,316 1402,316" fill="none" stroke="#3333ff" stroke-width="1.2" stroke-linecap="round"/>
+<path d="M966,324 C1009.2,324 1018.8,484 1062,484" fill="none" stroke="#33d6ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M966,324 C1009.2,324 1018.8,484 1062,484" fill="none" stroke="#33d6ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M966,324 C1009.2,324 1018.8,484 1062,484" fill="none" stroke="#33d6ff" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="1062" cy="484" r="3" fill="#33d6ff"/>
+<path d="M1306,484 C1349.2,484 1358.8,316 1402,316" fill="none" stroke="#3333ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M1306,484 C1349.2,484 1358.8,316 1402,316" fill="none" stroke="#3333ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M1306,484 C1349.2,484 1358.8,316 1402,316" fill="none" stroke="#3333ff" stroke-width="1.2" stroke-linecap="round"/>
 <circle cx="1402" cy="316" r="3" fill="#3333ff"/>
 <g transform="translate(384,264)">
 <rect x="0" y="0" width="240" height="268" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
@@ -3374,8 +3458,8 @@
 </g>
 </g>
 <g transform="translate(724,44)">
-<rect x="0" y="0" width="240" height="690" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
-<rect x="0" y="0" width="240" height="690" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
+<rect x="0" y="0" width="240" height="711" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
+<rect x="0" y="0" width="240" height="711" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#33d6ff"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Circle</text>
 <rect x="154" y="10" width="25" height="12" rx="6" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
@@ -3830,42 +3914,47 @@
 <rect x="160" y="518" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
 <text x="164" y="530" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">5.5</text>
 </g>
-<text x="8" y="551" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">thickness</text>
+<text x="8" y="551" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">scaleWithMatrix</text>
 <g>
-<rect x="120" y="545" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="120" y="545" width="18.0" height="4" rx="2" fill="#d633ff"/>
-<circle cx="138.0" cy="547" r="5" fill="#d633ff"/>
-<text x="232" y="551" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">1.5</text>
+<rect x="220" y="541" width="12" height="12" rx="3" fill="#d633ff"/>
+<path d="M222.5,547 l3,3 l4.5,-5.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
 </g>
-<text x="8" y="572" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">wrap</text>
+<text x="8" y="572" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">thickness</text>
 <g>
-<rect x="220" y="562" width="12" height="12" rx="3" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
+<rect x="120" y="566" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="120" y="566" width="18.0" height="4" rx="2" fill="#d633ff"/>
+<circle cx="138.0" cy="568" r="5" fill="#d633ff"/>
+<text x="232" y="572" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">1.5</text>
 </g>
-<text x="8" y="593" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">filled</text>
+<text x="8" y="593" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">wrap</text>
 <g>
-<rect x="220" y="583" width="12" height="12" rx="3" fill="#d633ff"/>
-<path d="M222.5,589 l3,3 l4.5,-5.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+<rect x="220" y="583" width="12" height="12" rx="3" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
 </g>
-<text x="8" y="614" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">fill</text>
+<text x="8" y="614" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">filled</text>
 <g>
-<rect x="160" y="602" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="614" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">#ff3080</text>
+<rect x="220" y="604" width="12" height="12" rx="3" fill="#d633ff"/>
+<path d="M222.5,610 l3,3 l4.5,-5.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
 </g>
-<text x="8" y="635" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">edge</text>
+<text x="8" y="635" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">fill</text>
 <g>
 <rect x="160" y="623" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="635" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">#ff0080</text>
+<text x="164" y="635" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">#ff3080</text>
 </g>
-<text x="8" y="656" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">clamp inputs</text>
+<text x="8" y="656" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">edge</text>
 <g>
-<rect x="220" y="646" width="12" height="12" rx="3" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
+<rect x="160" y="644" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
+<text x="164" y="656" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">#ff0080</text>
 </g>
-<text x="8" y="677" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">bypass</text>
+<text x="8" y="677" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">clamp inputs</text>
 <g>
 <rect x="220" y="667" width="12" height="12" rx="3" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
 </g>
+<text x="8" y="698" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">bypass</text>
+<g>
+<rect x="220" y="688" width="12" height="12" rx="3" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
 </g>
-<g transform="translate(1064,184)">
+</g>
+<g transform="translate(1064,204)">
 <rect x="0" y="0" width="240" height="403" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
 <rect x="0" y="0" width="240" height="403" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#3333ff"/>

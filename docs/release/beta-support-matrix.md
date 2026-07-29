@@ -31,10 +31,17 @@ These are the only fully recorded public-beta support rows today.
 
 ## Recorded validations that are not yet full support rows
 
-None currently — every hardware validation recorded to date has captured all
-six graduation fields and has been promoted to the Supported table above.
-This section stays as a placeholder for future runs that record only a
-partial combo.
+- **2026-07-28 — classic ESP32, music-sync SD-show pipeline (`fbuild`),
+  partial/failed bring-up.** The run reached the real provisioning/player path
+  and exposed four defects: the provisioner's initial SD-write acknowledgement
+  timeout was too short, the stock dual-OTA partition capped the Player sketch,
+  `ESP32-audioI2S` releases ≥3.1.0 allocated more buffer than a non-PSRAM ESP32
+  could provide, and the generated Player used the wrong DAC/time-position
+  APIs. Commit `4dc22f1` fixes those findings (20 s acknowledgement timeout,
+  `huge_app.csv`, pinned `ESP32-audioI2S` 3.0.12, and
+  `getAudioCurrentTime()`), but no confirming end-to-end playback pass or full
+  six-field environment record exists yet. SD-show provisioning therefore
+  remains experimental.
 
 ## CI-covered host/platform coverage
 
