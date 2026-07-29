@@ -3349,9 +3349,26 @@ export function generateCpp(
         break
       }
 
+      // Wedge mirror — folds each pixel's polar angle into a single segment,
+      // reflects it about the segment's midline, and samples the source there.
+      // Mirrors evalKaleidoscope in graphEvaluator.ts: same W/2,H/2 centre, the
+      // same two-step fold, and floorf(v+0.5f) to match JS Math.round, so the
+      // preview and the flashed sketch produce identical frames.
       case 'Kaleidoscope': {
         const ob = ownBuf()
-        ln(`  ${seedFrom('frame')}  // Kaleidoscope: mirror logic to apply on ${ob}`)
+        const src = srcBuf('frame')
+        if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // Kaleidoscope: no input`); break }
+        // `segments` is wireable, so the wedge angle is computed per frame.
+        const seg = f('segments', 'segments', 6)
+        ln(`  { float _kCx=WIDTH/2.0f,_kCy=HEIGHT/2.0f;`)
+        ln(`    float _kSeg=6.2831853f/max(2.0f,(float)(${seg}));`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`      float _kdx=_x-_kCx,_kdy=_y-_kCy,_kd=sqrtf(_kdx*_kdx+_kdy*_kdy);`)
+        ln(`      float _ka=fmodf(fmodf(atan2f(_kdy,_kdx),_kSeg)+_kSeg,_kSeg);`)
+        ln(`      if(_ka>_kSeg*0.5f) _ka=_kSeg-_ka;`)
+        ln(`      int _ksx=(int)floorf(_kCx+_kd*cosf(_ka)+0.5f),_ksy=(int)floorf(_kCy+_kd*sinf(_ka)+0.5f);`)
+        ln(`      ${ob}[_y*WIDTH+_x]=(_ksx<0||_ksx>=WIDTH||_ksy<0||_ksy>=HEIGHT)?CRGB::Black:${src}[_ksy*WIDTH+_ksx];`)
+        ln(`    } }`)
         break
       }
 

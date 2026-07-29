@@ -1792,6 +1792,57 @@ describe('generateCpp — RadialBurst', () => {
   })
 })
 
+describe('generateCpp — Kaleidoscope', () => {
+  const src = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+  const gen = (props: Record<string, unknown> = {}, extra: StudioNode[] = [], extraEdges: StudioEdge[] = []) => {
+    const kal = node('kal', 'Kaleidoscope', 'pattern', props)
+    return generateCpp([src, kal, ...extra, outputNode], [
+      edge('e1', 'sc', 'kal', 'frame', 'frame'),
+      edge('e2', 'kal', 'out', 'frame', 'frame'),
+      ...extraEdges,
+    ])
+  }
+
+  // Regression guard: this case used to be a stub that copied the input frame
+  // straight through, so the effect worked in the preview and silently
+  // vanished on hardware.
+  it('samples the source through the wedge fold instead of copying it through', () => {
+    const cpp = gen({ segments: 6 })
+    expect(cpp).toContain('CRGB buf_kal[NUM_LEDS];')
+    expect(cpp).toContain('buf_kal[_y*WIDTH+_x]=(_ksx<0||_ksx>=WIDTH||_ksy<0||_ksy>=HEIGHT)?CRGB::Black:buf_sc[_ksy*WIDTH+_ksx];')
+    expect(cpp).not.toContain('::memmove(buf_kal, buf_sc')
+    expect(cpp).not.toContain('mirror logic to apply')
+  })
+
+  // The fold, centre and rounding must match evalKaleidoscope in
+  // graphEvaluator.ts or preview and firmware diverge.
+  it('mirrors the evaluator centre, two-step angle fold and rounding', () => {
+    const cpp = gen({ segments: 6 })
+    expect(cpp).toContain('float _kCx=WIDTH/2.0f,_kCy=HEIGHT/2.0f;')
+    expect(cpp).toContain('float _kdx=_x-_kCx,_kdy=_y-_kCy,_kd=sqrtf(_kdx*_kdx+_kdy*_kdy);')
+    expect(cpp).toContain('float _ka=fmodf(fmodf(atan2f(_kdy,_kdx),_kSeg)+_kSeg,_kSeg);')
+    expect(cpp).toContain('if(_ka>_kSeg*0.5f) _ka=_kSeg-_ka;')
+    expect(cpp).toContain('int _ksx=(int)floorf(_kCx+_kd*cosf(_ka)+0.5f),_ksy=(int)floorf(_kCy+_kd*sinf(_ka)+0.5f);')
+  })
+
+  it('bakes an unwired segments property and clamps it to the evaluator floor of 2', () => {
+    expect(gen({ segments: 8 })).toContain('float _kSeg=6.2831853f/max(2.0f,(float)(8));')
+    expect(gen({ segments: 1 })).toContain('max(2.0f,(float)(1))')
+  })
+
+  it('recomputes the wedge angle from a wired segments input', () => {
+    const seg = node('seg', 'Random', 'signal', { min: 3, max: 9 })
+    const cpp = gen({ segments: 6 }, [seg], [edge('e3', 'seg', 'kal', 'value', 'segments')])
+    expect(cpp).toContain('float _kSeg=6.2831853f/max(2.0f,(float)(n_seg_value));')
+  })
+
+  it('renders black when nothing is wired into the frame input', () => {
+    const kal = node('kal', 'Kaleidoscope', 'pattern', { segments: 6 })
+    const cpp = generateCpp([kal, outputNode], [edge('e', 'kal', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('fill_solid(buf_kal, NUM_LEDS, CRGB::Black); // Kaleidoscope: no input')
+  })
+})
+
 describe('generateCpp — Particles modes', () => {
   const out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8 })
   const gen = (mode: string, props: Record<string, unknown> = {}) => {
