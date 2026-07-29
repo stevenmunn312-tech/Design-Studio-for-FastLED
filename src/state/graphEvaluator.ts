@@ -47,6 +47,18 @@ function normalizedCenterAxis(value: number, size: number, extent: number, wrap:
   return 0.5 - margin + value * (Math.max(0, size - 1) + 2 * margin)
 }
 
+// Circle's and ClockDisplay's `radius` were originally tuned as raw pixel
+// counts against a 16x16 matrix (this module's own DEFAULT_W/DEFAULT_H).
+// scaleWithMatrix (opt-in per node, see nodeLibrary.ts) scales that radius
+// proportionally by the target matrix's shorter side, so the same slider
+// value reads as "the same relative size" on any matrix instead of shrinking
+// to a speck on a large panel or overflowing a small strip. Mirrored by
+// cppGenerator.ts's own matrix-scale expression — keep the reference size in
+// sync between the two.
+function matrixSizeScale(W: number, H: number): number {
+  return Math.min(W, H) / Math.min(DEFAULT_W, DEFAULT_H)
+}
+
 // ── Persistent state for stateful pattern nodes ───────────────────────────────
 const fireHeat    = new Map<string, number[][]>()
 // Fire/Fire2012 deterministic-reseed PRNG — an LCG per instance, only used
@@ -4736,7 +4748,8 @@ function createEvalNode(
         const month = Number(input(id, 'month', fallbackRtc.month))
         const x = num(id, 'x', props, 'x', 0.5)
         const y = num(id, 'y', props, 'y', 0.5)
-        const radius = Math.max(2, num(id, 'radius', props, 'radius', 6))
+        const radiusScale = props.scaleWithMatrix ? matrixSizeScale(W, H) : 1
+        const radius = Math.max(2, num(id, 'radius', props, 'radius', 6) * radiusScale)
         const baseIn = input(id, 'base', null) as Frame | null
         const frame = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
 
@@ -4855,7 +4868,8 @@ function createEvalNode(
         const frame  = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
         const fill = (input(id, 'fill', null) as RGB | null) ?? hexToRgb(String(props.fill ?? '#ff3080'))
         const edge = (input(id, 'edge', null) as RGB | null) ?? hexToRgb(String(props.edge ?? '#ff0080'))
-        const rad = Math.max(0.5, num(id, 'radius', props, 'radius', 6))
+        const radiusScale = props.scaleWithMatrix ? matrixSizeScale(W, H) : 1
+        const rad = Math.max(0.5, num(id, 'radius', props, 'radius', 6) * radiusScale)
         const thickness = Math.max(0, num(id, 'thickness', props, 'thickness', 1.5))
         const filled = Boolean(props.filled ?? true)
         const wrap = Boolean(props.wrap)

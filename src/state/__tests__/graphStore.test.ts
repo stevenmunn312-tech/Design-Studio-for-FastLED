@@ -597,6 +597,20 @@ describe('graphStore — loadGraph normalization', () => {
     })
   })
 
+  it('backfills scaleWithMatrix to false for a Circle/ClockDisplay saved before the toggle existed', () => {
+    const circle = node('c', 'Circle', { radius: 6 })
+    const clock = node('clk', 'ClockDisplay', { radius: 6 })
+    useGraphStore.getState().loadGraph([circle, clock], [])
+    expect(dataOf('c').properties.scaleWithMatrix).toBe(false)
+    expect(dataOf('clk').properties.scaleWithMatrix).toBe(false)
+  })
+
+  it('keeps an explicit scaleWithMatrix choice already on the saved node', () => {
+    const circle = node('c', 'Circle', { radius: 6, scaleWithMatrix: true })
+    useGraphStore.getState().loadGraph([circle], [])
+    expect(dataOf('c').properties.scaleWithMatrix).toBe(true)
+  })
+
   it('refreshes saved ports from the node library on load', () => {
     const perf = node('pg', 'PerformanceGenerator')
     perf.data.inputs = [

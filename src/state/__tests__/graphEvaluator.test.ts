@@ -1129,6 +1129,26 @@ describe('evaluateGraph', () => {
     expect(frame![16][31].g).toBeGreaterThan(0)            // wrapped copy appears on the far edge
   })
 
+  it('Circle radius is a fixed pixel count by default, unaffected by matrix size', () => {
+    const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, filled: true, edge: '#ff0000', fill: '#00ff00' })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [edge('e', 'c', 'frame', 'out', 'frame')]
+    // A 64x64 matrix is 4x the 16x16 reference size; without scaleWithMatrix
+    // the same radius:3 stays exactly 3px, well short of 12px out.
+    const frame = evaluateGraph([c, out], edges, 0, 64, 64)
+    expect(frame![32][32 - 12]).toEqual({ r: 0, g: 0, b: 0 })
+  })
+
+  it('Circle scaleWithMatrix scales the radius by the matrix\'s shorter side vs. the 16px reference', () => {
+    const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, filled: true, scaleWithMatrix: true, edge: '#ff0000', fill: '#00ff00' })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const edges = [edge('e', 'c', 'frame', 'out', 'frame')]
+    // At 64x64 (4x the 16x16 reference) radius:3 scales to ~12px, so a point
+    // 12px from center now falls inside the filled disc.
+    const frame = evaluateGraph([c, out], edges, 0, 64, 64)
+    expect(frame![32][32 - 12].g).toBeGreaterThan(0)
+  })
+
   it('Line draws a diagonal between its endpoints', () => {
     const l = node('l', 'Line', 'pattern', { x1: 0, y1: 0, x2: 3, y2: 3, r: 0, g: 255, b: 0 })
     const out = node('out', 'MatrixOutput', 'output', {})
@@ -3919,6 +3939,25 @@ describe('ClockDisplay', () => {
     // Every pixel keeps the backdrop, and the digits add on top of it.
     expect(frame.every((row) => row.every((px) => px.b >= 40))).toBe(true)
     expect(litPixels(frame)).toBe(16 * 16)
+  })
+
+  it('analog face radius is a fixed pixel count by default, unaffected by matrix size', () => {
+    const clock = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Analog', radius: 6 })
+    const { nodes, edges } = withOutput(clock)
+    const frame = evaluateGraph(nodes, edges, 0, 64, 64)!
+    // Center lands at (32, 32); a 64x64 matrix is 4x the 16x16 reference, so
+    // without scaleWithMatrix the ring stays at 6px out, well short of 24px.
+    expect(frame[32][32 + 24]).toEqual({ r: 0, g: 0, b: 0 })
+  })
+
+  it('analog face radius scales with matrix size when scaleWithMatrix is on', () => {
+    const clock = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Analog', radius: 6, scaleWithMatrix: true })
+    const { nodes, edges } = withOutput(clock)
+    const frame = evaluateGraph(nodes, edges, 0, 64, 64)!
+    // radius:6 scales to 24px at 64x64 (4x the 16x16 reference), so the ring
+    // now lands near 24px out from the (32, 32) center.
+    const px = frame[32][32 + 24]
+    expect(px.r + px.g + px.b).toBeGreaterThan(0)
   })
 
   it('publishes timer readouts so the transport can drive other nodes', () => {

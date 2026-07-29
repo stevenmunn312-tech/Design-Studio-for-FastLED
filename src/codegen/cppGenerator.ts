@@ -50,6 +50,18 @@ function floatLit(value: number, digits = 4): string {
   return `${n.toFixed(digits).replace(/0+$/, '').replace(/\.$/, '.0')}f`
 }
 
+// Circle's and ClockDisplay's `radius` were originally tuned as raw pixel
+// counts against a 16x16 matrix (graphEvaluator.ts's DEFAULT_W/DEFAULT_H).
+// scaleWithMatrix (opt-in per node) scales that radius proportionally by the
+// target matrix's shorter side, using the WIDTH/HEIGHT *macro names* (not
+// baked JS numbers) so it tracks the supersampled render resolution — mirrors
+// graphEvaluator.ts's matrixSizeScale(); keep the reference size (16) in sync.
+// Returns `radiusExpr` unchanged when the toggle is off, so existing sketches
+// generate byte-identical code.
+function withMatrixScale(radiusExpr: string, p: Record<string, unknown>): string {
+  return p.scaleWithMatrix ? `${radiusExpr}*(min(WIDTH,HEIGHT)/16.0f)` : radiusExpr
+}
+
 // Fire/Fire2012 share these direction/turbulence/paletteMix/mirror/seed
 // controls — mirrors graphEvaluator.ts's firePrimaryLen/fireSecondaryLen/
 // fireToXY. The heat simulation always runs in a canonical [P][S] grid (P =
@@ -1559,7 +1571,7 @@ export function generateCpp(
           ln(`${indent}  CRGB _col=_fill; nblend(_col,_edge,(uint8_t)(_ec*255.0f)); nblend(${ob}[_y*WIDTH+_x],_col,(uint8_t)(_al*255.0f)); }`)
         }
         ln(`  { ${seedFrom('base')}`)
-        ln(`    float _rad=max(0.5f,${f('radius', 'radius', 6)});`)
+        ln(`    float _rad=max(0.5f,${withMatrixScale(f('radius', 'radius', 6), p)});`)
         ln(`    CRGB _fill=${fillE},_edge=${edgeE};`)
         ln(`    float _th=max(0.0f,${f('thickness', 'thickness', 1.5)});`)
         ln(`    float _extent=_rad+_th*0.5f;`)
@@ -1868,7 +1880,7 @@ export function generateCpp(
           ln(`    _clkText(_clkMain_${id}, _clkSx0_${id}, _clkSy_${id}, ${colorE});`)
           ln(`    _clkText(_clkSub_${id}, _clkSx1_${id}, _clkSy_${id} + ${subLineOffset}, ${colorE});`)
         } else if (analog) {
-          const radiusExpr = `max(2.0f, ${f('radius', 'radius', 6)})`
+          const radiusExpr = `max(2.0f, ${withMatrixScale(f('radius', 'radius', 6), p)})`
           ln(`    float _clkRad_${id} = ${radiusExpr};`)
           ln(`    float _clkXv_${id} = ${xExpr}, _clkYv_${id} = ${yExpr};`)
           ln(`    float _clkCx_${id} = _clkXv_${id} > 1.0f ? _clkXv_${id} : (0.5f - (_clkRad_${id} + 1.0f)) + _clkXv_${id} * ((WIDTH - 1.0f) + 2.0f * (_clkRad_${id} + 1.0f));`)

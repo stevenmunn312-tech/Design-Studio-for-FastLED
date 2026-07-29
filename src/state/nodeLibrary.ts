@@ -161,6 +161,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       x: 0.5,
       y: 0.5,
       radius: 6,
+      scaleWithMatrix: true,
       run: true,
       reset: false,
       durationSec: 300,
@@ -189,7 +190,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'thickness', label: 'Thickness', dataType: 'float' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { cx: 0.5, cy: 0.5, radius: 6, thickness: 1.5, wrap: false, filled: true, fill: '#ff3080', edge: '#ff0080' },
+    defaultProperties: { cx: 0.5, cy: 0.5, radius: 6, scaleWithMatrix: true, thickness: 1.5, wrap: false, filled: true, fill: '#ff3080', edge: '#ff0080' },
   },
   {
     // Draws a line between two points over an optional base frame.
@@ -3382,6 +3383,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   serialDebug: "Prints processor/conditioner stats to the serial monitor ~10×/sec, for checking mic wiring on-device. Firmware-only — no visible effect here.",
   pullup: "On wires the pin INPUT_PULLUP (idle high, press pulls low) — the common no-extra-parts wiring. Off wires it plain INPUT, which needs an external pull-down resistor or the pin will float when not pressed.",
   resetOnPress: 'Zeros the running position count every time the integrated push-button is pressed, instead of only ever counting up/down.',
+  scaleWithMatrix: "Scales the radius with the matrix's shorter side (tuned against a 16px reference) so the same value looks proportionally similar across different matrix sizes. Off keeps radius as an exact pixel count.",
 }
 
 export const FORMULA_LANG_HELP = 'Variables: x, y, t, cx, cy, r, angle, W, H, a, b. Functions: sin, cos, abs, sqrt, min, max, sin8, cos8, sin16, beatsin8, beatsin16, scale8, qadd8, qsub8.'
@@ -3522,6 +3524,10 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
   ClockDisplay: {
     displayMode: 'display',
     durationSec: 'duration (s)',
+    scaleWithMatrix: 'scale with matrix',
+  },
+  Circle: {
+    scaleWithMatrix: 'scale with matrix',
   },
   AudioFeatures: {
     gate: 'Silence Gate',
@@ -3633,7 +3639,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'waterfall', label: 'Waterfall', keys: ['waterfallSpeed'] },
   ],
   ClockDisplay: [
-    { key: 'display', label: 'Display', keys: ['displayMode', 'x', 'y', 'hAlign', 'vAlign', 'radius'] },
+    { key: 'display', label: 'Display', keys: ['displayMode', 'x', 'y', 'hAlign', 'vAlign', 'radius', 'scaleWithMatrix'] },
     { key: 'transport', label: 'Transport', keys: ['run', 'reset', 'durationSec'] },
   ],
   ColorTrails: [

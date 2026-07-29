@@ -285,6 +285,14 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
       properties.midsWeight   ??= 0.3
       properties.trebleWeight ??= 0.2
     }
+    // Circle's and ClockDisplay's `radius` used to be a fixed pixel count
+    // regardless of matrix size. scaleWithMatrix now lets it scale
+    // proportionally instead — default it explicitly to false on load so a
+    // save made before the toggle existed keeps its exact original pixel
+    // radius rather than silently picking up the new node-creation default.
+    if (nodeType === 'Circle' || nodeType === 'ClockDisplay') {
+      properties.scaleWithMatrix ??= false
+    }
     // Wi-Fi SSID/password used to be ordinary node properties (persisted into
     // project files and share links). They now live browser-local only in
     // networkCredentials.ts — migrate any already-saved values across, then

@@ -1361,6 +1361,12 @@ describe('generateCpp', () => {
     expect(cpp).toContain('CRGB(255, 0, 0)')
   })
 
+  it('scales the Circle radius by matrix size only when scaleWithMatrix is on', () => {
+    const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, thickness: 2, filled: false, edge: '#ff0000', scaleWithMatrix: true })
+    const cpp = generateCpp([c, outputNode], [edge('e', 'c', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('float _rad=max(0.5f,3*(min(WIDTH,HEIGHT)/16.0f));')
+  })
+
   it('emits a Circle fill color for filled discs', () => {
     const c = node('c', 'Circle', 'pattern', { cx: 0.5, cy: 0.5, radius: 3, filled: true, edge: '#ff0000', fill: '#00ff00' })
     const cpp = generateCpp([c, outputNode], [edge('e', 'c', 'out', 'frame', 'frame')])
@@ -2659,6 +2665,16 @@ describe('ClockDisplay (codegen)', () => {
     for (let i = 0; i < chars.length; i++) {
       expect(rows[i]).toEqual(textColumns(chars[i], DEFAULT_FONT, 0))
     }
+  })
+
+  it('scales the analog face radius by matrix size only when scaleWithMatrix is on', () => {
+    const clk = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Analog', radius: 6 })
+    const cpp = generateCpp([clk, outputNode], [edge('e1', 'clk', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('float _clkRad_clk = max(2.0f, 6);')
+
+    const scaled = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Analog', radius: 6, scaleWithMatrix: true })
+    const scaledCpp = generateCpp([scaled, outputNode], [edge('e1', 'clk', 'out', 'frame', 'frame')])
+    expect(scaledCpp).toContain('float _clkRad_clk = max(2.0f, 6*(min(WIDTH,HEIGHT)/16.0f));')
   })
 
   // Wiring the time but not the valid flag used to preview a running clock and
