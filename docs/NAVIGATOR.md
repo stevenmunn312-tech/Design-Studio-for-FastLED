@@ -44,6 +44,12 @@ build/architecture overview aimed at contributors.
   - [T-HMI feature integration](development/plans/thmi-feature-integration.md)
     — how to replay the divergent `feature/thmi-touchscreen-ui` branch (FFT
     audio, 13 transitions, T-HMI firmware) onto current `main` as PRs.
+- [Reports](development/reports/)
+  - [Node library review](development/reports/node-review.md)
+    — a pass over all 150 node types cross-checking the registry, live preview,
+    and firmware generator: preview/firmware divergences (a `Kaleidoscope`
+    codegen stub, `Mod` by zero, frame-rate-coupled timing), unbounded
+    property values, and node-metadata improvements.
 
 ## Reference
 
