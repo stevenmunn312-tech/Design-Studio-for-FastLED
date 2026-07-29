@@ -3,6 +3,7 @@ import { useUiStore } from '../../state/uiStore'
 import styles from './HelpModal.module.css'
 import NodeReference from './NodeReference'
 import type { HelpTab } from '../../state/uiStore'
+import firstPatchScreenshot from '../../../docs/images/readme/design-studio-patch.png'
 
 const TABS: { id: HelpTab; label: string }[] = [
   { id: 'quickstart', label: 'Quick Start' },
@@ -79,38 +80,92 @@ function QuickStartTab() {
   return (
     <>
       <div className={styles.section}>
-        <div className={styles.sectionTitle}>Core workflow</div>
+        <div className={styles.sectionTitle}>Your first working patch</div>
+        <div className={styles.lede}>
+          Every design follows the same path: make a frame, connect it to <strong>Matrix Output</strong>, check the preview, then choose whether to keep designing, export code, or run it on LEDs.
+        </div>
         <div className={styles.steps}>
           <div className={styles.step}>
             <div className={styles.stepNum}>1</div>
             <div className={styles.stepText}>
-              <strong>Start from the launcher.</strong> On an empty canvas, use <strong>Start with Rainbow</strong>, <strong>Audio-reactive demo</strong>, <strong>Browse starter patches</strong>, or <strong>Blank canvas</strong>. The top-bar <strong>✦ Start</strong> button reopens the full gallery any time.
+              <strong>Load a starter.</strong> Choose <strong>Start with Rainbow</strong> on the welcome screen. If you are already editing, use <strong>✦ Start</strong> in the top bar to reopen the starter gallery.
             </div>
           </div>
           <div className={styles.step}>
             <div className={styles.stepNum}>2</div>
             <div className={styles.stepText}>
-              <strong>Build toward Matrix Output.</strong> Add a <strong>Matrix Output</strong> node or start from a template that already has one, then set grid width, height, chipset, and pins. This is the terminal that drives codegen, upload, live stream, and SD-show provisioning.
+              <strong>Check the frame path.</strong> The starter connects <code>Rainbow.frame</code> to <code>Matrix Output.frame</code>. A frame connection is cyan; drag from the output handle on the right of Rainbow to the matching input on the left of Matrix Output if it is missing.
             </div>
           </div>
           <div className={styles.step}>
             <div className={styles.stepNum}>3</div>
             <div className={styles.stepText}>
-              <strong>Patch the animation path.</strong> Drag a pattern node (for example Rainbow, Fire 2012, Plasma, Noise, or Spectrum Bars) and wire its <code>frame</code> output to Matrix Output's <code>frame</code> input. The main LED preview and node previews update live from the same graph evaluation.
+              <strong>Make a visible change.</strong> Move Rainbow's <strong>Speed</strong> slider. The node preview and LED Preview update immediately; no compile or hardware is needed.
             </div>
           </div>
           <div className={styles.step}>
             <div className={styles.stepNum}>4</div>
             <div className={styles.stepText}>
-              <strong>Layer effects or audio.</strong> Composite nodes such as Blur 2D, Brightness, Hue Shift, Transition, and Trails sit between the generator and Matrix Output. For audio reactivity, drop <strong>Mic Input</strong> into FFT Analyzer or Beat Detect and wire those values into pattern or math inputs.
+              <strong>Match your LEDs.</strong> Open <strong>✦ Setup…</strong> on Matrix Output and set the grid or strip size, chipset, layout, and pins. These settings control the preview dimensions and the generated firmware.
             </div>
           </div>
           <div className={styles.step}>
             <div className={styles.stepNum}>5</div>
             <div className={styles.stepText}>
-              <strong>Choose the output path.</strong> In <strong>Matrix Output</strong>, open <strong>Upload...</strong> for the full hardware toolbox: <strong>Upload</strong> for a normal sketch, <strong>Flash Wiring Test</strong> to verify color order/layout/brightness first, <strong>Flash Stream Receiver</strong> + <strong>Live Stream</strong> for rapid serial preview, <strong>Upload show to SD</strong> for music-sync playback, <strong>View Code</strong> / <strong>Export .ino</strong> when you want the sketch first, and <strong>Re-upload last sketch</strong> for a quick repeat flash of the current project's last successful upload.
+              <strong>Save or continue.</strong> Projects autosave as you work. Use <strong>File</strong> when you want a named copy, a portable project file, graph JSON, a share link, or a recovery snapshot.
             </div>
           </div>
+        </div>
+        <figure className={styles.helpFigure}>
+          <img
+            className={styles.helpImage}
+            src={firstPatchScreenshot}
+            alt="Design Studio workspace showing the Node Library, a Rainbow node connected to Matrix Output, and the live LED Preview"
+          />
+          <figcaption>
+            A complete two-node patch: choose nodes in the library on the left, connect them on the canvas, and confirm the result in LED Preview on the right.
+          </figcaption>
+        </figure>
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>Grow the patch</div>
+        <div className={styles.choiceGrid}>
+          <div className={styles.choiceCard}>
+            <strong>Add an effect</strong>
+            <span>Drag Blur 2D, Brightness, Hue Shift, Trails, or another compatible effect onto the cyan noodle. Studio splices it into the frame path.</span>
+          </div>
+          <div className={styles.choiceCard}>
+            <strong>Add audio response</strong>
+            <span>Connect Microphone to FFT Analyzer or Beat Detect, then wire the resulting values into a pattern, math, or composite node. Allow microphone access when prompted.</span>
+          </div>
+          <div className={styles.choiceCard}>
+            <strong>Find the right node</strong>
+            <span>Press <kbd className={styles.inlineKey}>Ctrl/Cmd K</kbd>, double-click empty canvas, or search the Node Library. The Node Reference tab explains every port and property.</span>
+          </div>
+          <div className={styles.choiceCard}>
+            <strong>Fix an incomplete graph</strong>
+            <span>Open Graph Health for node-specific repair steps. A design needs a complete frame path into Matrix Output before it can export or upload.</span>
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>Projects, files, and recovery</div>
+        <div className={styles.definitionGrid}>
+          <div><strong>Project</strong><span>Your named, autosaved workspace, including its graphs and groups.</span></div>
+          <div><strong>Project file</strong><span>A full workspace copy for backup or moving to another machine.</span></div>
+          <div><strong>Graph JSON</strong><span>Raw graph interchange for development and advanced workflows.</span></div>
+          <div><strong>Share link</strong><span>A URL containing a copy of the workspace at the time you create it.</span></div>
+          <div><strong>Recovery snapshot</strong><span>One of the recent rolling browser snapshots; use it after an unwanted edit or failed load.</span></div>
+          <div><strong>Pattern Library</strong><span>Reusable groups saved independently so they can be dropped into other projects and shows.</span></div>
+        </div>
+        <div className={styles.note}>
+          <strong>Offline authoring:</strong> after the first successful load, Studio can be installed and reopened offline for editing and preview. Board discovery, upload, live stream, and helper-backed file operations still need the local helper.
         </div>
       </div>
 
@@ -119,70 +174,35 @@ function QuickStartTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Dimension-aware numeric expressions</div>
         <div className={styles.text}>
-          Free-entry numeric fields on creative nodes can contain a number or a safe expression. For example, set BeatSin <code>high</code> to <code>h - 2</code>, or Random <code>max</code> to <code>w / 2</code>. The preview and generated firmware resolve the expression against the active render grid, so the patch adapts when the Matrix Output size changes.
+          A free-entry number field on a creative node can use a safe expression instead of a fixed number. For example, set BeatSin <code>high</code> to <code>h - 2</code> or Random <code>max</code> to <code>w / 2</code>. Preview and firmware both resolve the expression from the active Matrix Output size.
         </div>
-        <div className={styles.text}>
-          Available values: <code>w</code>, <code>h</code>, <code>num_leds</code>, <code>max_x</code>, <code>max_y</code>, <code>center_x</code>, <code>center_y</code>, <code>min_dim</code>, <code>max_dim</code>, <code>aspect</code>, <code>pi</code>, and <code>tau</code>. Use ordinary arithmetic, parentheses, and helpers such as <code>min()</code>, <code>max()</code>, <code>floor()</code>, <code>ceil()</code>, and <code>round()</code>. Invalid expressions are outlined and block export/upload validation until corrected.
+        <div className={styles.expressionBox}>
+          <div>
+            <strong>Geometry values</strong>
+            <span><code>w</code>, <code>h</code>, <code>num_leds</code>, <code>max_x</code>, <code>max_y</code>, <code>center_x</code>, <code>center_y</code>, <code>min_dim</code>, <code>max_dim</code>, <code>aspect</code></span>
+          </div>
+          <div>
+            <strong>Math values and helpers</strong>
+            <span><code>pi</code>, <code>tau</code>, arithmetic, parentheses, <code>min()</code>, <code>max()</code>, <code>floor()</code>, <code>ceil()</code>, and <code>round()</code></span>
+          </div>
         </div>
-        <div className={styles.text}>
-          <code>w</code> and <code>h</code> are pixel counts; the final valid coordinates are <code>max_x</code> (<code>w - 1</code>) and <code>max_y</code> (<code>h - 1</code>). Bounded sliders and hardware/setup fields remain literal values.
-        </div>
-      </div>
-
-      <div className={styles.divider} />
-
-      <div className={styles.section}>
-        <div className={styles.sectionTitle}>Key concepts</div>
-        <div className={styles.tipList}>
-          <div className={styles.tip}>
-            <div className={styles.tipIcon}>⬡</div>
-            <div className={styles.tipText}>
-              <strong>Typed ports</strong> — each port has a data type (float, color, palette, frame, audio…). Connection handles are colour-coded by type; incompatible ports refuse to connect. Port colours match their node's category accent.
-            </div>
-          </div>
-          <div className={styles.tip}>
-            <div className={styles.tipIcon}>⬡</div>
-            <div className={styles.tipText}>
-              <strong>Live preview</strong> — the LED matrix preview evaluates the full graph at ~60 fps using wall-clock time, so animation speed exactly matches what will run on the microcontroller.
-            </div>
-          </div>
-          <div className={styles.tip}>
-            <div className={styles.tipIcon}>⬡</div>
-            <div className={styles.tipText}>
-              <strong>Pattern groups</strong> — select nodes and right-click → <strong>Make Group</strong> to encapsulate them into a reusable pattern. Double-click a group to enter it. Groups can be saved to the Pattern Library (sidebar) and dropped into a show via Pattern Collection + Show Engine.
-            </div>
-          </div>
-          <div className={styles.tip}>
-            <div className={styles.tipIcon}>⬡</div>
-            <div className={styles.tipText}>
-              <strong>Project vocabulary</strong> — a <strong>Project</strong> is your everyday autosaved workspace; <strong>Open Project File</strong> / <strong>Save Project File As</strong> moves that full workspace between machines; <strong>Import Graph JSON</strong> / <strong>Export Graph JSON</strong> is raw graph interchange; <strong>Copy Share Link</strong> makes a URL copy of the workspace; and <strong>Recover Snapshot</strong> restores one of the recent rolling recovery snapshots for this browser.
-            </div>
-          </div>
-          <div className={styles.tip}>
-            <div className={styles.tipIcon}>⬡</div>
-            <div className={styles.tipText}>
-              <strong>Offline vs hardware</strong> — after the first successful load, Studio can be installed and reopened offline for authoring and preview. Upload, live stream, board discovery, and project-file dialogs still require the local helper running on this machine.
-            </div>
-          </div>
+        <div className={styles.note}>
+          <code>w</code> and <code>h</code> are pixel counts; the last valid coordinates are <code>max_x</code> (<code>w - 1</code>) and <code>max_y</code> (<code>h - 1</code>). Invalid expressions are outlined and block export or upload. Sliders and hardware setup fields remain literal values.
         </div>
       </div>
 
       <div className={styles.divider} />
 
       <div className={styles.section}>
-        <div className={styles.sectionTitle}>Show starters</div>
-        <div className={styles.tipList}>
-          <div className={styles.tip}>
-            <div className={styles.tipIcon}>♫</div>
-            <div className={styles.tipText}>
-              <strong>Generative Show</strong> — use <strong>Add patterns…</strong> on a <strong>Pattern Collection</strong> (or drag saved patterns onto it), feed the collection into <strong>Show Engine</strong>, then wire that frame output to <strong>Matrix Output</strong> for a self-running live show.
-            </div>
+        <div className={styles.sectionTitle}>Build a show</div>
+        <div className={styles.choiceGrid}>
+          <div className={styles.choiceCard}>
+            <strong>Self-running generative show</strong>
+            <span>Add saved patterns to Pattern Collection, connect it to Show Engine, then connect the engine's frame to Matrix Output. The engine chooses patterns and transitions while it runs.</span>
           </div>
-          <div className={styles.tip}>
-            <div className={styles.tipIcon}>♪</div>
-            <div className={styles.tipText}>
-              <strong>Music-synced SD Show</strong> — analyse songs in <strong>Music Library</strong>, generate timed show files in <strong>Performance Generator</strong>, pass them through <strong>SD Card</strong>, then use <strong>Upload show to SD</strong> from <strong>Matrix Output</strong>.
-            </div>
+          <div className={styles.choiceCard}>
+            <strong>Music-synced SD show</strong>
+            <span>Analyse tracks in Music Library, build the timeline in Performance Generator, connect it through SD Card to Matrix Output, then choose <strong>Upload show to SD</strong>.</span>
           </div>
         </div>
       </div>
@@ -196,23 +216,23 @@ function ShortcutsTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Keyboard</div>
         <div className={styles.shortcutGrid}>
-          <div className={styles.kbd}><span className={styles.key}>Ctrl</span><span className={styles.key}>Z</span></div>
+          <div className={styles.kbd}><span className={styles.key}>Ctrl/Cmd</span><span className={styles.key}>Z</span></div>
           <div className={styles.shortcutDesc}>Undo</div>
-          <div className={styles.kbd}><span className={styles.key}>Ctrl</span><span className={styles.key}>Y</span></div>
+          <div className={styles.kbd}><span className={styles.key}>Ctrl/Cmd</span><span className={styles.key}>Y</span></div>
           <div className={styles.shortcutDesc}>Redo</div>
-          <div className={styles.kbd}><span className={styles.key}>Ctrl</span><span className={styles.key}>Shift</span><span className={styles.key}>Z</span></div>
+          <div className={styles.kbd}><span className={styles.key}>Ctrl/Cmd</span><span className={styles.key}>Shift</span><span className={styles.key}>Z</span></div>
           <div className={styles.shortcutDesc}>Redo (alternative)</div>
-          <div className={styles.kbd}><span className={styles.key}>Ctrl</span><span className={styles.key}>S</span></div>
+          <div className={styles.kbd}><span className={styles.key}>Ctrl/Cmd</span><span className={styles.key}>S</span></div>
           <div className={styles.shortcutDesc}>Save the current project (or open Projects if none is active)</div>
-          <div className={styles.kbd}><span className={styles.key}>Ctrl</span><span className={styles.key}>A</span></div>
+          <div className={styles.kbd}><span className={styles.key}>Ctrl/Cmd</span><span className={styles.key}>A</span></div>
           <div className={styles.shortcutDesc}>Select all nodes</div>
-          <div className={styles.kbd}><span className={styles.key}>Ctrl</span><span className={styles.key}>C</span></div>
-          <div className={styles.shortcutDesc}>Copy the selected node</div>
-          <div className={styles.kbd}><span className={styles.key}>Ctrl</span><span className={styles.key}>V</span></div>
-          <div className={styles.shortcutDesc}>Paste the copied node near the view centre</div>
-          <div className={styles.kbd}><span className={styles.key}>Ctrl</span><span className={styles.key}>D</span></div>
-          <div className={styles.shortcutDesc}>Duplicate the selected node</div>
-          <div className={styles.kbd}><span className={styles.key}>Ctrl</span><span className={styles.key}>G</span></div>
+          <div className={styles.kbd}><span className={styles.key}>Ctrl/Cmd</span><span className={styles.key}>C</span></div>
+          <div className={styles.shortcutDesc}>Copy the selected node or multi-selection, including internal connections</div>
+          <div className={styles.kbd}><span className={styles.key}>Ctrl/Cmd</span><span className={styles.key}>V</span></div>
+          <div className={styles.shortcutDesc}>Paste the copied patch near the view centre</div>
+          <div className={styles.kbd}><span className={styles.key}>Ctrl/Cmd</span><span className={styles.key}>D</span></div>
+          <div className={styles.shortcutDesc}>Duplicate the focused node</div>
+          <div className={styles.kbd}><span className={styles.key}>Ctrl/Cmd</span><span className={styles.key}>G</span></div>
           <div className={styles.shortcutDesc}>Group the selected nodes (opens the naming dialog)</div>
           <div className={styles.kbd}><span className={styles.key}>Del</span><span className={styles.key}>Backspace</span></div>
           <div className={styles.shortcutDesc}>Delete selected node(s)</div>
@@ -220,7 +240,7 @@ function ShortcutsTab() {
           <div className={styles.shortcutDesc}>Close this dialog / menu, exit Stage/Performance mode, or deselect nodes on the canvas — in that priority order</div>
           <div className={styles.kbd}><span className={styles.key}>?</span></div>
           <div className={styles.shortcutDesc}>Open this Help dialog (F1 also works)</div>
-          <div className={styles.kbd}><span className={styles.key}>Ctrl</span><span className={styles.key}>K</span></div>
+          <div className={styles.kbd}><span className={styles.key}>Ctrl/Cmd</span><span className={styles.key}>K</span></div>
           <div className={styles.shortcutDesc}>Open the node search picker at the view centre</div>
           <div className={styles.kbd}><span className={styles.key}>F8</span></div>
           <div className={styles.shortcutDesc}>Toggle the Performance Deck (pinned knobs/faders, scenes, panic). MIDI and additional keyboard bindings are assigned from inside the deck panel itself, not listed here.</div>
@@ -242,7 +262,7 @@ function ShortcutsTab() {
           <div className={styles.shortcutDesc}>Open the node search picker on empty canvas</div>
           <div className={styles.kbd}><span className={styles.key}>Scroll</span></div>
           <div className={styles.shortcutDesc}>Zoom in / out</div>
-          <div className={styles.kbd}><span className={styles.key}>Ctrl</span><span className={styles.key}>Scroll</span></div>
+          <div className={styles.kbd}><span className={styles.key}>Ctrl/Cmd</span><span className={styles.key}>Scroll</span></div>
           <div className={styles.shortcutDesc}>Zoom (trackpad pinch alternative)</div>
           <div className={styles.kbd}><span className={styles.key}>Shift</span><span className={styles.key}>Click</span></div>
           <div className={styles.shortcutDesc}>Add node to selection</div>
@@ -276,30 +296,89 @@ function UploadTab() {
   return (
     <>
       <div className={styles.section}>
-        <div className={styles.sectionTitle}>Prerequisites</div>
+        <div className={styles.sectionTitle}>Choose the result you want</div>
+        <div className={styles.choiceGrid}>
+          <div className={styles.choiceCard}>
+            <strong>Run this design on LEDs</strong>
+            <span>Choose <strong>Upload</strong>. Studio generates, compiles, and flashes a standalone FastLED sketch.</span>
+          </div>
+          <div className={styles.choiceCard}>
+            <strong>Check new wiring</strong>
+            <span>Choose <strong>Flash Wiring Test</strong> before the real design. It verifies colour order, orientation, layout, and brightness.</span>
+          </div>
+          <div className={styles.choiceCard}>
+            <strong>Iterate without recompiling</strong>
+            <span>Flash <strong>Stream Receiver</strong> once, then use <strong>Live Stream</strong> to send preview frames over the serial connection.</span>
+          </div>
+          <div className={styles.choiceCard}>
+            <strong>Compile elsewhere</strong>
+            <span>Use <strong>View Code</strong> to inspect the sketch or <strong>Export .ino</strong> to download it for Arduino IDE or another toolchain.</span>
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>Before the first upload</div>
         <div className={styles.tipList}>
           <div className={styles.tip}>
             <div className={styles.tipIcon}>1</div>
             <div className={styles.tipText}>
-              The local <strong>helper service</strong> must be running on this machine. The portable desktop beta starts it for you; source runs start it from the platform launch scripts, and you can also launch it manually with <code>npm run helper</code>.
+              <strong>Start the local helper.</strong> The portable desktop build starts it automatically. For a source checkout, use the platform launcher or run <code>npm run helper</code>.
             </div>
           </div>
           <div className={styles.tip}>
             <div className={styles.tipIcon}>2</div>
             <div className={styles.tipText}>
-              Studio prefers <strong>fbuild</strong> when it is available, including the portable desktop bundle. In that mode the board toolchain is fetched automatically on first compile and there is no separate Arduino core install step.
+              <strong>Connect the board by USB</strong> and accept any operating-system permission prompt. Select the exact board and detected port in <strong>Matrix Output → Setup…</strong>.
             </div>
           </div>
           <div className={styles.tip}>
             <div className={styles.tipIcon}>3</div>
             <div className={styles.tipText}>
-              If Studio falls back to <strong>arduino-cli</strong>, then you do need the board core installed for that board and the <strong>FastLED</strong> library available. The helper can also locate or download <code>arduino-cli</code> for you.
+              <strong>Let the build engine prepare.</strong> Studio prefers <strong>fbuild</strong>, which downloads its board toolchain on the first compile. This may take longer than later builds.
             </div>
           </div>
           <div className={styles.tip}>
             <div className={styles.tipIcon}>4</div>
             <div className={styles.tipText}>
-              USB upload or streaming still needs a compatible board, a detected port, and any operating-system permission prompts accepted. The <strong>Upload readiness</strong> checklist in <strong>Upload...</strong> shows what is missing and offers one-click fixes where possible.
+              <strong>If Studio uses arduino-cli instead,</strong> install the board core and FastLED library. The helper can locate or download <code>arduino-cli</code>, but its libraries and cores are managed separately.
+            </div>
+          </div>
+        </div>
+        <div className={styles.note}>
+          Open <strong>Upload… → Upload readiness</strong> for the current checklist. It identifies missing helper, engine, toolchain, board, port, graph, and capacity requirements and offers a repair action when one is available.
+        </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>Upload a design</div>
+        <div className={styles.steps}>
+          <div className={styles.step}>
+            <div className={styles.stepNum}>1</div>
+            <div className={styles.stepText}>
+              Use <strong>✦ Setup…</strong> on Matrix Output to confirm the board, port, LED dimensions, chipset, layout, and pins.
+            </div>
+          </div>
+          <div className={styles.step}>
+            <div className={styles.stepNum}>2</div>
+            <div className={styles.stepText}>
+              Open <strong>↑ Upload…</strong>. Check <strong>Upload readiness</strong> and the live flash/SRAM capacity reading. Resolve blocking items before continuing.
+            </div>
+          </div>
+          <div className={styles.step}>
+            <div className={styles.stepNum}>3</div>
+            <div className={styles.stepText}>
+              On new or changed hardware, run <strong>🧪 Flash Wiring Test</strong>. Confirm red, green, blue, brightness, orientation, panel labels, and the logical/physical pixel chases before flashing the design.
+            </div>
+          </div>
+          <div className={styles.step}>
+            <div className={styles.stepNum}>4</div>
+            <div className={styles.stepText}>
+              Click <strong>Upload</strong>. Status moves from <em>Compiling…</em> to <em>Uploading NN%</em> to <em>✓ Done</em>. Open <strong>⌗ Output / Serial</strong> for the full log; use <strong>Re-upload last sketch</strong> to repeat the current project's last successful upload without regenerating it.
             </div>
           </div>
         </div>
@@ -308,38 +387,12 @@ function UploadTab() {
       <div className={styles.divider} />
 
       <div className={styles.section}>
-        <div className={styles.sectionTitle}>Uploading</div>
-        <div className={styles.steps}>
-          <div className={styles.step}>
-            <div className={styles.stepNum}>1</div>
-            <div className={styles.stepText}>
-              Use <strong>✦ Setup...</strong> on the Matrix Output node for the guided board, size, chipset, layout, and pin setup. Open <strong>↑ Upload...</strong> any time to review the current board and port.
-            </div>
-          </div>
-          <div className={styles.step}>
-            <div className={styles.stepNum}>2</div>
-            <div className={styles.stepText}>
-              Watch the <strong>live controller-capacity</strong> line and open the <strong>Upload readiness</strong> checklist. They tell you whether the current design fits on the selected board and whether helper, engine, toolchain, and port are ready before you flash.
-            </div>
-          </div>
-          <div className={styles.step}>
-            <div className={styles.stepNum}>3</div>
-            <div className={styles.stepText}>
-              Click <strong>Upload</strong> for a normal sketch. The button shows live status — <em>Compiling…</em> → <em>Uploading NN%</em> → <em>✓ Done</em>. Click <strong>⌗ Output / Serial</strong> to inspect the full log.
-            </div>
-          </div>
-          <div className={styles.step}>
-            <div className={styles.stepNum}>4</div>
-            <div className={styles.stepText}>
-              If the hardware is new or freshly rewired, click <strong>🧪 Flash Wiring Test</strong> first. It cycles through RGB solids, brightness bars, orientation markers, panel labels, and logical/physical pixel chases using the current Matrix Output settings.
-            </div>
-          </div>
-          <div className={styles.step}>
-            <div className={styles.stepNum}>5</div>
-            <div className={styles.stepText}>
-              For rapid hardware preview, flash <strong>⚡ Stream Receiver</strong> once, then use <strong>📡 Live Stream</strong> to push the current preview frames straight to the board without recompiling. For a <strong>music-sync show</strong>, wire an SD Card node to Matrix Output's <code>sdcard</code> input, then click <strong>♪ Upload show to SD</strong> to provision the card and flash the player.
-            </div>
-          </div>
+        <div className={styles.sectionTitle}>If an upload fails</div>
+        <div className={styles.definitionGrid}>
+          <div><strong>Compile failed</strong><span>No firmware reached the board. Open Output / Serial, fix the reported graph, dependency, or capacity error, then compile again.</span></div>
+          <div><strong>Upload failed</strong><span>The sketch compiled, but flashing failed. Recheck the selected port, USB cable, driver, permissions, and any board-specific download-mode steps.</span></div>
+          <div><strong>Wrong colours or order</strong><span>Run Wiring Test and correct colour order, serpentine direction, panel layout, or custom XY map in Matrix Output.</span></div>
+          <div><strong>Preview works, LEDs do not</strong><span>Confirm data and clock pins, common ground, external power, chipset, brightness, and power-limit settings before changing the graph.</span></div>
         </div>
       </div>
 
@@ -351,7 +404,16 @@ function UploadTab() {
           Click <strong>View Code</strong> in the Matrix Output node to inspect the exact sketch that would be uploaded, or <strong>Export .ino</strong> to download it. Open it in the Arduino IDE or compile with <code>arduino-cli compile --fqbn &lt;board&gt; sketch.ino</code>.
         </div>
         <div className={styles.text}>
-          The generated sketch targets FastLED and is compatible with any board and chipset combination — it does not depend on the Studio app or helper at runtime.
+          The generated sketch targets FastLED and does not need Studio or the helper at runtime. Compatibility still depends on the selected board, chipset, libraries, pins, memory, and any node-specific hardware support; check Graph Health and the beta support matrix rather than assuming every combination is validated.
+        </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>Music-synced SD show</div>
+        <div className={styles.text}>
+          Connect an <strong>SD Card</strong> node to Matrix Output's <code>sdcard</code> input after building a timeline with Music Library and Performance Generator. Then choose <strong>♪ Upload show to SD</strong> to provision the card and flash the player. Keep ordinary generative shows on the normal <strong>Upload</strong> path.
         </div>
       </div>
 
@@ -418,7 +480,10 @@ function UploadTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Board catalogue (out of the box)</div>
         <div className={styles.text}>
-          Studio ships a starter board catalogue including ESP32-S3, ESP32, ESP8266, Arduino Uno, Arduino Nano, Arduino Mega, Teensy 4.1, RP2040 (Pico), and Arduino Nano 33 IoT, plus any custom boards you add yourself. As of July 26, 2026, the recorded public-beta support rows cover both <strong>ESP32-S3 + 16×16 WS2812B matrix</strong> and <strong>ESP8266 + 10×1 WS2812B strip</strong>, including normal Upload, Flash Wiring Test, and Flash Stream Receiver + Live Stream paths for those exact combos. Everything else should still be treated as experimental until it is added to the <a className={styles.link} href={`${REPO_URL}/blob/main/docs/release/beta-support-matrix.md`} target="_blank" rel="noopener noreferrer">beta support matrix</a>.
+          Studio includes ESP32-S3, ESP32, ESP8266, Arduino Uno, Arduino Nano, Arduino Mega, Teensy 4.1, RP2040 (Pico), and Arduino Nano 33 IoT, plus custom boards you add. A catalogue entry means Studio knows how to target the board; it does not mean every feature and LED configuration has been tested on it.
+        </div>
+        <div className={styles.text}>
+          The recorded public-beta validation covers <strong>ESP32-S3 + 16×16 WS2812B matrix</strong> and <strong>ESP8266 + 10×1 WS2812B strip</strong> for normal Upload, Wiring Test, and Stream Receiver + Live Stream. Treat other combinations as experimental until they appear in the <a className={styles.link} href={`${REPO_URL}/blob/main/docs/release/beta-support-matrix.md`} target="_blank" rel="noopener noreferrer">beta support matrix</a>.
         </div>
       </div>
     </>

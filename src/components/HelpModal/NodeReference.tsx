@@ -1681,7 +1681,7 @@ function UsingNodesArticle() {
         <div>
           <div className={styles.eyebrow}><i style={{ background: '#5ad1ff' }} />Getting started</div>
           <h1>Using Nodes</h1>
-          <p>Learn the everyday canvas moves: add and connect nodes, work with a multi-selection, copy or remove a patch, and keep larger graphs organised.</p>
+          <p>Start with the small set of canvas actions used in every design: add nodes, connect compatible ports, edit values, and organise a growing patch.</p>
         </div>
         <div className={styles.articleMeta}>Add · connect · edit · organise</div>
       </header>
@@ -1711,11 +1711,11 @@ function UsingNodesArticle() {
         <div className={styles.guideGrid}>
           <div className={styles.guideCard}>
             <h3><span>●</span> Inputs and outputs</h3>
-            <p>Inputs are on the left and outputs are on the right. The port colour identifies its data type, so matching colours are a quick connection guide. Drag from an output to a compatible input to make a noodle.</p>
+            <p>Inputs are on the left; outputs are on the right. Port colour identifies the data type, so matching colours are a useful first check. Drag from an output to a compatible input to create a connection, called a noodle.</p>
           </div>
           <div className={styles.guideCard}>
             <h3><span>◫</span> Controls and preview</h3>
-            <p>Edit sliders, switches, and menus directly in the node. A wired input takes priority over its local value, so that editor becomes unavailable while connected. Frame, colour, and palette previews can be collapsed with their preview toggle.</p>
+            <p>Edit sliders, switches, and menus directly on the node. A connected input overrides its local editor, which becomes unavailable until you unplug that input. Collapse frame, colour, and palette previews when you need more canvas space.</p>
           </div>
         </div>
       </section>
@@ -1723,11 +1723,11 @@ function UsingNodesArticle() {
       <section className={styles.manualSection}>
         <h2>Add or spawn nodes</h2>
         <ol className={styles.guideSteps}>
-          <li><b>From the sidebar:</b> click a node card to add it near the centre of the current view, or drag the card onto the exact canvas position you want.</li>
-          <li><b>From the canvas:</b> press <Key>Ctrl</Key>+<Key>K</Key> to open search at the view centre, double-click empty canvas to search at the pointer, or right-click and choose <b>Add Node</b>.</li>
-          <li><b>From a connection:</b> drag an output noodle onto empty canvas. The picker shows compatible next nodes and auto-connects your choice. It can also offer a small bridge chain when the data types need converting.</li>
-          <li><b>Into an existing chain:</b> drop a compatible sidebar node—or drag a loose, unconnected node—onto a noodle to splice it between the two connected nodes.</li>
-          <li><b>For a head start:</b> use Quick recipes in the sidebar or <b>✦ Start</b> for a complete starter patch.</li>
+          <li><b>Choose from the library:</b> click a node card to add it near the view centre, or drag the card to an exact canvas position.</li>
+          <li><b>Search at the canvas:</b> press <Key>Ctrl/Cmd</Key>+<Key>K</Key> to search at the view centre, double-click empty canvas to search at the pointer, or right-click and choose <b>Add Node</b>.</li>
+          <li><b>Continue from an output:</b> drag a noodle from an output to empty canvas. Search is filtered to compatible next nodes and connects your choice automatically. When needed, it can offer a short conversion chain.</li>
+          <li><b>Insert into a connection:</b> drop a compatible library node—or drag a loose, unconnected node—onto a noodle. Studio splices it between the two connected nodes.</li>
+          <li><b>Start with a complete example:</b> use Quick recipes in the sidebar or <b>✦ Start</b> when you would rather modify a working patch.</li>
         </ol>
       </section>
 
@@ -1740,7 +1740,7 @@ function UsingNodesArticle() {
           </div>
           <div className={styles.guideCard}>
             <h3>Move and navigate</h3>
-            <p>Drag a selected node to move it; a multi-selection moves together. Drag empty background to pan and scroll or pinch to zoom. The MiniMap can jump the view to another part of a large graph.</p>
+            <p>Drag any selected node to move the whole selection. Drag empty background to pan; scroll or pinch to zoom. Drag the MiniMap viewport to jump around a large graph.</p>
           </div>
         </div>
       </section>
@@ -1773,7 +1773,7 @@ function UsingNodesArticle() {
         <div className={styles.guideGrid}>
           <div className={styles.guideCard}>
             <h3>Connect with typed ports</h3>
-            <p>Start at an output and release on a compatible input. Each input accepts one noodle; making a new connection to an occupied input replaces the old one. Hover a port to see its label and data type.</p>
+            <p>Start at an output and release on a compatible input. Each input accepts one noodle, so a new connection replaces the one already there. Hover a port to confirm its label and data type; incompatible ports will not connect.</p>
           </div>
           <div className={styles.guideCard}>
             <h3>Unplug or reroute</h3>
@@ -1806,7 +1806,7 @@ function UsingNodesArticle() {
 
       <section className={styles.manualSection}>
         <h2>A reliable first patch</h2>
-        <p className={styles.guideCallout}>Add <b>Rainbow</b> and <b>Matrix Output</b>, then wire <b>Rainbow.frame → Matrix Output.frame</b>. Adjust Rainbow on the node, insert an effect by dropping it on the noodle, and use Tidy when the chain grows. This tiny patch exercises the same editing workflow as a full show.</p>
+        <p className={styles.guideCallout}>Add <b>Rainbow</b> and <b>Matrix Output</b>, then connect <b>Rainbow.frame → Matrix Output.frame</b>. If the LED Preview animates, the graph is complete. Adjust Rainbow, drop an effect onto the noodle, and use Tidy as the chain grows. This two-node patch uses the same editing workflow as a full show.</p>
       </section>
     </article>
   )
