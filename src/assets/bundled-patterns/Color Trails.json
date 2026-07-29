@@ -147,7 +147,7 @@
           "nodeType": "PaletteSelector",
           "category": "color",
           "properties": {
-            "palette": "cloud"
+            "palette": "rainbow"
           },
           "inputs": [],
           "outputs": [

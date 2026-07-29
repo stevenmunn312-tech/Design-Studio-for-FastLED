@@ -239,13 +239,33 @@
           "y": 440
         },
         "data": {
-          "label": "Palette Selector",
-          "nodeType": "PaletteSelector",
+          "label": "Poline Palette",
+          "nodeType": "Poline",
           "category": "color",
           "properties": {
-            "palette": "amethyst"
+            "anchorA": "#14001f",
+            "anchorB": "#7b2cbf",
+            "anchorC": "#d500f9",
+            "points": 6,
+            "position": "sinusoidal"
           },
-          "inputs": [],
+          "inputs": [
+            {
+              "id": "colorA",
+              "label": "Anchor A",
+              "dataType": "color"
+            },
+            {
+              "id": "colorB",
+              "label": "Anchor B",
+              "dataType": "color"
+            },
+            {
+              "id": "colorC",
+              "label": "Anchor C",
+              "dataType": "color"
+            }
+          ],
           "outputs": [
             {
               "id": "palette",

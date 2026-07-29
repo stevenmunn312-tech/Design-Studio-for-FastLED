@@ -309,13 +309,33 @@
           "y": 320
         },
         "data": {
-          "label": "Palette Selector",
-          "nodeType": "PaletteSelector",
+          "label": "Poline Palette",
+          "nodeType": "Poline",
           "category": "color",
           "properties": {
-            "palette": "peacock"
+            "anchorA": "#031926",
+            "anchorB": "#00b4d8",
+            "anchorC": "#00f5d4",
+            "points": 6,
+            "position": "sinusoidal"
           },
-          "inputs": [],
+          "inputs": [
+            {
+              "id": "colorA",
+              "label": "Anchor A",
+              "dataType": "color"
+            },
+            {
+              "id": "colorB",
+              "label": "Anchor B",
+              "dataType": "color"
+            },
+            {
+              "id": "colorC",
+              "label": "Anchor C",
+              "dataType": "color"
+            }
+          ],
           "outputs": [
             {
               "id": "palette",
@@ -337,7 +357,7 @@
           "nodeType": "FieldToFrame",
           "category": "field",
           "properties": {
-            "palette": "peacock",
+            "palette": "volcano",
             "brightness": 1
           },
           "inputs": [
@@ -378,8 +398,8 @@
           "nodeType": "Blend",
           "category": "composite",
           "properties": {
-            "blendMode": "difference",
-            "amount": 0.88
+            "blendMode": "lighten",
+            "amount": 0.75
           },
           "inputs": [
             {

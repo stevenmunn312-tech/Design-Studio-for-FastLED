@@ -439,13 +439,33 @@
           "y": 420
         },
         "data": {
-          "label": "Palette Selector",
-          "nodeType": "PaletteSelector",
+          "label": "Poline Palette",
+          "nodeType": "Poline",
           "category": "color",
           "properties": {
-            "palette": "aurora"
+            "anchorA": "#061826",
+            "anchorB": "#17a398",
+            "anchorC": "#00e08c",
+            "points": 6,
+            "position": "sinusoidal"
           },
-          "inputs": [],
+          "inputs": [
+            {
+              "id": "colorA",
+              "label": "Anchor A",
+              "dataType": "color"
+            },
+            {
+              "id": "colorB",
+              "label": "Anchor B",
+              "dataType": "color"
+            },
+            {
+              "id": "colorC",
+              "label": "Anchor C",
+              "dataType": "color"
+            }
+          ],
           "outputs": [
             {
               "id": "palette",

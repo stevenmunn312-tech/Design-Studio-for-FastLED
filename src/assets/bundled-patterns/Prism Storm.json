@@ -238,13 +238,33 @@
           "y": 1080
         },
         "data": {
-          "label": "Palette Selector",
-          "nodeType": "PaletteSelector",
+          "label": "Poline Palette",
+          "nodeType": "Poline",
           "category": "color",
           "properties": {
-            "palette": "cloud"
+            "anchorA": "#14001f",
+            "anchorB": "#7b2cbf",
+            "anchorC": "#d500f9",
+            "points": 6,
+            "position": "sinusoidal"
           },
-          "inputs": [],
+          "inputs": [
+            {
+              "id": "colorA",
+              "label": "Anchor A",
+              "dataType": "color"
+            },
+            {
+              "id": "colorB",
+              "label": "Anchor B",
+              "dataType": "color"
+            },
+            {
+              "id": "colorC",
+              "label": "Anchor C",
+              "dataType": "color"
+            }
+          ],
           "outputs": [
             {
               "id": "palette",
@@ -393,6 +413,126 @@
         }
       },
       {
+        "id": "smooth-help-1784222066107-mids",
+        "type": "studioNode",
+        "position": {
+          "x": -660,
+          "y": 220
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "response": 0.25
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "smooth-help-1784222066107-treble",
+        "type": "studioNode",
+        "position": {
+          "x": -660,
+          "y": 300
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "response": 0.25
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "smooth-help-1784222066107-hihat",
+        "type": "studioNode",
+        "position": {
+          "x": -660,
+          "y": 600
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "response": 0.2
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "smooth-help-1784222066107-energy",
+        "type": "studioNode",
+        "position": {
+          "x": -660,
+          "y": 840
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "response": 0.25
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
         "id": "groupout-group-1784222136323",
         "type": "studioNode",
         "position": {
@@ -418,8 +558,8 @@
     "edges": [
       {
         "id": "e-help-1784222066107-1",
-        "source": "help-1784222066107-fft",
-        "sourceHandle": "mids",
+        "source": "smooth-help-1784222066107-mids",
+        "sourceHandle": "result",
         "target": "help-1784222066107-target",
         "targetHandle": "mids",
         "type": "glowEdge",
@@ -430,8 +570,8 @@
       },
       {
         "id": "e-help-1784222066107-2",
-        "source": "help-1784222066107-fft",
-        "sourceHandle": "treble",
+        "source": "smooth-help-1784222066107-treble",
+        "sourceHandle": "result",
         "target": "help-1784222066107-target",
         "targetHandle": "treble",
         "type": "glowEdge",
@@ -442,8 +582,8 @@
       },
       {
         "id": "e-help-1784222066107-4",
-        "source": "help-1784222066107-percussion",
-        "sourceHandle": "hihat",
+        "source": "smooth-help-1784222066107-hihat",
+        "sourceHandle": "result",
         "target": "help-1784222066107-target",
         "targetHandle": "hihat",
         "type": "glowEdge",
@@ -454,8 +594,8 @@
       },
       {
         "id": "e-help-1784222066107-6",
-        "source": "help-1784222066107-features",
-        "sourceHandle": "energy",
+        "source": "smooth-help-1784222066107-energy",
+        "sourceHandle": "result",
         "target": "help-1784222066107-target",
         "targetHandle": "energy",
         "type": "glowEdge",
@@ -463,6 +603,34 @@
         "style": {
           "stroke": "#9aa0a6"
         }
+      },
+      {
+        "id": "e-help-1784222066107-mids-smooth",
+        "source": "help-1784222066107-fft",
+        "sourceHandle": "mids",
+        "target": "smooth-help-1784222066107-mids",
+        "targetHandle": "value"
+      },
+      {
+        "id": "e-help-1784222066107-treble-smooth",
+        "source": "help-1784222066107-fft",
+        "sourceHandle": "treble",
+        "target": "smooth-help-1784222066107-treble",
+        "targetHandle": "value"
+      },
+      {
+        "id": "e-help-1784222066107-hihat-smooth",
+        "source": "help-1784222066107-percussion",
+        "sourceHandle": "hihat",
+        "target": "smooth-help-1784222066107-hihat",
+        "targetHandle": "value"
+      },
+      {
+        "id": "e-help-1784222066107-energy-smooth",
+        "source": "help-1784222066107-features",
+        "sourceHandle": "energy",
+        "target": "smooth-help-1784222066107-energy",
+        "targetHandle": "value"
       },
       {
         "id": "e-help-1784222066107-7",

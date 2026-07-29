@@ -382,7 +382,8 @@
           "nodeType": "BeatFlash",
           "category": "pattern",
           "properties": {
-            "decay": 0.8
+            "decay": 0.45,
+            "intensity": 0.6
           },
           "inputs": [
             {

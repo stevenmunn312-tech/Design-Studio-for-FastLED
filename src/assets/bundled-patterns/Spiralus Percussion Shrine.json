@@ -307,13 +307,33 @@
           "y": 230
         },
         "data": {
-          "label": "Palette Selector",
-          "nodeType": "PaletteSelector",
+          "label": "Poline Palette",
+          "nodeType": "Poline",
           "category": "color",
           "properties": {
-            "palette": "synthwave"
+            "anchorA": "#120136",
+            "anchorB": "#ff2d95",
+            "anchorC": "#ff8a00",
+            "points": 6,
+            "position": "sinusoidal"
           },
-          "inputs": [],
+          "inputs": [
+            {
+              "id": "colorA",
+              "label": "Anchor A",
+              "dataType": "color"
+            },
+            {
+              "id": "colorB",
+              "label": "Anchor B",
+              "dataType": "color"
+            },
+            {
+              "id": "colorC",
+              "label": "Anchor C",
+              "dataType": "color"
+            }
+          ],
           "outputs": [
             {
               "id": "palette",
