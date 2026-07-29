@@ -88,19 +88,19 @@ function QuickStartTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>1</div>
             <div className={styles.stepText}>
-              <strong>Load a starter.</strong> Choose <strong>Start with Rainbow</strong> on the welcome screen. If you are already editing, use <strong>✦ Start</strong> in the top bar to reopen the starter gallery.
+              <strong>Load a starter.</strong> Choose <strong>Start with Juggle</strong> on the welcome screen. If you are already editing, use <strong>✦ Start</strong> in the top bar to reopen the starter gallery.
             </div>
           </div>
           <div className={styles.step}>
             <div className={styles.stepNum}>2</div>
             <div className={styles.stepText}>
-              <strong>Check the frame path.</strong> The starter connects <code>Rainbow.frame</code> to <code>Matrix Output.frame</code>. A frame connection is cyan; drag from the output handle on the right of Rainbow to the matching input on the left of Matrix Output if it is missing.
+              <strong>Check the frame path.</strong> The starter connects <code>Juggle.frame</code> to <code>Matrix Output.frame</code>. A frame connection is cyan; drag from the output handle on the right of Juggle to the matching input on the left of Matrix Output if it is missing.
             </div>
           </div>
           <div className={styles.step}>
             <div className={styles.stepNum}>3</div>
             <div className={styles.stepText}>
-              <strong>Make a visible change.</strong> Move Rainbow's <strong>Speed</strong> slider. The node preview and LED Preview update immediately; no compile or hardware is needed.
+              <strong>Make a visible change.</strong> Set Juggle's <strong>Count</strong> to 5, then raise <strong>Speed</strong>. The node preview and LED Preview update immediately; no compile or hardware is needed.
             </div>
           </div>
           <div className={styles.step}>

@@ -657,8 +657,8 @@ function NodeGraphCanvasInner() {
     })
   }, [getZoom, setCenter])
 
-  const handleStartRainbow = useCallback(() => {
-    startTemplateById('rainbow')
+  const handleStartJuggle = useCallback(() => {
+    startTemplateById('juggle')
   }, [])
 
   const handleStartAudioDemo = useCallback(() => {
@@ -995,8 +995,8 @@ function NodeGraphCanvasInner() {
               Load a guided patch with an editable tutorial note, browse the full starter gallery, or stay blank and build from scratch.
             </span>
             <div className={styles.emptyActions}>
-              <button type="button" className={`${styles.startAction} ${styles.startActionPrimary}`} onClick={handleStartRainbow}>
-                Start with Rainbow
+              <button type="button" className={`${styles.startAction} ${styles.startActionPrimary}`} onClick={handleStartJuggle}>
+                Start with Juggle
               </button>
               <button type="button" className={`${styles.startAction} ${styles.startActionPrimary}`} onClick={handleStartAudioDemo}>
                 Audio-reactive demo

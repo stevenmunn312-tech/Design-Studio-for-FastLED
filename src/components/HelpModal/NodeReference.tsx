@@ -1806,7 +1806,7 @@ function UsingNodesArticle() {
 
       <section className={styles.manualSection}>
         <h2>A reliable first patch</h2>
-        <p className={styles.guideCallout}>Add <b>Rainbow</b> and <b>Matrix Output</b>, then connect <b>Rainbow.frame → Matrix Output.frame</b>. If the LED Preview animates, the graph is complete. Adjust Rainbow, drop an effect onto the noodle, and use Tidy as the chain grows. This two-node patch uses the same editing workflow as a full show.</p>
+        <p className={styles.guideCallout}>Add <b>Juggle</b> and <b>Matrix Output</b>, then connect <b>Juggle.frame → Matrix Output.frame</b>. If the LED Preview animates, the graph is complete. Set Count to 5, raise Speed, splice in Trails, then splice in Transform. This two-node patch uses the same editing workflow as a full show.</p>
       </section>
     </article>
   )

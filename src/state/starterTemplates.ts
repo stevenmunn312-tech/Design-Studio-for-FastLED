@@ -140,24 +140,25 @@ function buildGraph(nodeSpecs: NodeSpec[], edgeSpecs: EdgeSpec[]): { nodes: Stud
 
 export const STARTER_TEMPLATES: StarterTemplate[] = [
   template({
-    id: 'rainbow',
-    name: 'Rainbow Sweep',
+    id: 'juggle',
+    name: 'Juggle',
     description: 'Learn the basic patch: a pattern makes pixels, and Matrix Output sends them to the preview or LEDs.',
     completionSteps: [
-      'Follow the blue Frame wire from Rainbow to Matrix Output and watch the preview.',
-      'Change Speed and Delta Hue on Rainbow to see how node controls alter the signal.',
-      'From Effects, drag Trails onto the blue wire. If the rainbow blooms toward white, raise Trails Decay to 0.4–0.6.',
+      'Follow the blue Frame wire from Juggle to Matrix Output and watch the preview.',
+      'Set Count to 5 and raise Speed on Juggle to see how node controls alter the signal.',
+      'From Effects, drag Trails onto the blue wire.',
+      'Finally, drag Transform onto the blue wire to reshape the motion.',
     ],
     nodeSpecs: [
-      { id: 'rainbow', type: 'Rainbow', col: 0 },
+      { id: 'juggle', type: 'Juggle', col: 0 },
       { id: 'out', type: 'MatrixOutput', col: 1 },
       tutorialNote(
         'guide', 0, -1,
-        'FIRST PATCH\nBlue wire carries pixels.\nEffects → Trails adds motion memory.\nToo bright? Raise Decay to 0.4–0.6.',
+        'FIRST PATCH\nSet Juggle Count to 5 and raise Speed.\nNext splice in Trails, then splice Transform.',
       ),
     ],
     edgeSpecs: [
-      { source: 'rainbow', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+      { source: 'juggle', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
     ],
   }),
   template({

@@ -90,15 +90,15 @@ describe('NodeGraphCanvas start screen', () => {
     useAudioStore.setState({ startAudio: startAudioMock })
   })
 
-  it('launches the rainbow starter from the empty-canvas start screen', async () => {
+  it('launches the juggle starter from the empty-canvas start screen', async () => {
     const { getByRole } = render(<NodeGraphCanvas />)
 
-    fireEvent.click(getByRole('button', { name: 'Start with Rainbow' }))
+    fireEvent.click(getByRole('button', { name: 'Start with Juggle' }))
 
     await waitFor(() => {
       expect(useGraphStore.getState().nodes).toHaveLength(3)
     })
-    expect(useUiStore.getState().lastStartChoice).toBe('rainbow')
+    expect(useUiStore.getState().lastStartChoice).toBe('juggle')
     expect(useUiStore.getState().fitViewRequest.nodeIds).toHaveLength(3)
     expect(useGraphStore.getState().nodes.some((node) => node.data.nodeType === 'Comment')).toBe(true)
     await waitFor(() => {
@@ -108,7 +108,7 @@ describe('NodeGraphCanvas start screen', () => {
 
   it('keeps Tab for focus navigation and opens node search with Ctrl+K', () => {
     const { getByRole, queryByTestId, getByTestId } = render(<NodeGraphCanvas />)
-    const startButton = getByRole('button', { name: 'Start with Rainbow' })
+    const startButton = getByRole('button', { name: 'Start with Juggle' })
 
     fireEvent.keyDown(startButton, { key: 'Tab' })
     expect(queryByTestId('canvas-context-menu')).toBeNull()
