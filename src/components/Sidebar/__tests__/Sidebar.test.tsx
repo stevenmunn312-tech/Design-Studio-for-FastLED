@@ -2,12 +2,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render } from '@testing-library/react'
 import Sidebar from '../Sidebar'
 import { useGraphStore } from '../../../state/graphStore'
-import { usePatternLibrary } from '../../../state/patternLibrary'
+import { usePatternLibrary, type SavedPattern } from '../../../state/patternLibrary'
+import { patternRatingKey, usePatternRatingStore } from '../../../state/patternRating'
 import { useUiStore } from '../../../state/uiStore'
 import { useAudioStore } from '../../../state/audioStore'
 
 const realStartAudio = useAudioStore.getState().startAudio
 const startAudio = vi.fn(async () => {})
+
+function savedPattern(id: string, name: string): SavedPattern {
+  return {
+    id,
+    name,
+    createdAt: 1,
+    inputs: [],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    subgraph: { nodes: [], edges: [] },
+  }
+}
 
 describe('Sidebar equipment rack', () => {
   beforeEach(() => {
@@ -17,6 +29,7 @@ describe('Sidebar equipment rack', () => {
     localStorage.removeItem('design-studio-for-fastled-sidebar-recent')
     useGraphStore.setState({ nodes: [], edges: [], selectedNodeId: null })
     usePatternLibrary.setState({ patterns: [] })
+    usePatternRatingStore.setState({ ratingsByKey: {} })
     useUiStore.setState({ viewCenter: { x: 200, y: 180 }, draggingNodeType: null, testSignal: false })
     startAudio.mockClear()
     useAudioStore.setState({ startAudio })
@@ -105,5 +118,81 @@ describe('Sidebar equipment rack', () => {
     expect(localStorage.getItem('design-studio-for-fastled-test-signal')).toBe('false')
     expect(String(useGraphStore.getState().nodes.find((node) => node.data.nodeType === 'Comment')?.data.properties.text)).toContain('\n')
     expect(startAudio).toHaveBeenCalledOnce()
+  })
+
+  it('shows a completed rating in place of the bundled label', () => {
+    const pattern = { ...savedPattern('pat-1', 'Aurora'), bundled: true }
+    usePatternLibrary.setState({ patterns: [pattern] })
+    usePatternRatingStore.setState({
+      ratingsByKey: {
+        [patternRatingKey(pattern)]: {
+          patternId: pattern.id,
+          name: pattern.name,
+          bundled: true,
+          overall: 88,
+          criteria: [],
+          audioReactive: false,
+        },
+      },
+    })
+    localStorage.setItem('design-studio-for-fastled-sidebar-expanded-v2', JSON.stringify('library'))
+    useGraphStore.setState({
+      nodes: [{
+        id: 'keep-library-open',
+        type: 'studioNode',
+        position: { x: 0, y: 0 },
+        data: { label: 'Comment', nodeType: 'Comment', category: 'note', properties: {}, inputs: [], outputs: [] },
+      }],
+    })
+
+    const view = render(<Sidebar />)
+    fireEvent.click(view.getByRole('button', { name: /New & Unsorted/ }))
+
+    expect(view.getByText('88%')).toBeTruthy()
+    expect(view.queryByText('included')).toBeNull()
+  })
+
+  it('uses click/shift-click selection and adds the selection to an existing collection', () => {
+    const aurora = savedPattern('pat-1', 'Aurora')
+    const comet = savedPattern('pat-2', 'Comet')
+    usePatternLibrary.setState({ patterns: [aurora, comet] })
+    localStorage.setItem('design-studio-for-fastled-sidebar-expanded-v2', JSON.stringify('library'))
+    useGraphStore.setState({
+      nodes: [{
+        id: 'collection',
+        type: 'studioNode',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Pattern Collection',
+          nodeType: 'PatternCollection',
+          category: 'show',
+          properties: { patternIds: [], patternSections: {} },
+          inputs: [],
+          outputs: [],
+        },
+      }],
+      graphs: { root: { id: 'root', name: 'Main' } },
+      graphData: {},
+      activeGraphId: 'root',
+    })
+
+    const view = render(<Sidebar />)
+    fireEvent.click(view.getByRole('button', { name: /New & Unsorted/ }))
+    const auroraRow = view.getByRole('option', { name: 'Aurora' })
+    const cometRow = view.getByRole('option', { name: 'Comet' })
+
+    fireEvent.click(auroraRow)
+    fireEvent.click(cometRow, { shiftKey: true })
+    expect(auroraRow.getAttribute('aria-selected')).toBe('true')
+    expect(cometRow.getAttribute('aria-selected')).toBe('true')
+    expect(useGraphStore.getState().nodes).toHaveLength(1)
+
+    fireEvent.contextMenu(cometRow)
+    fireEvent.click(view.getByRole('menuitem', { name: 'Pattern Collection 1' }))
+
+    const collection = useGraphStore.getState().nodes.find((node) => node.id === 'collection')
+    const patternIds = (collection?.data.properties as { patternIds?: string[] }).patternIds ?? []
+    expect(patternIds).toHaveLength(2)
+    expect(patternIds.map((id) => useGraphStore.getState().graphs[id]?.sourcePatternId)).toEqual(['pat-1', 'pat-2'])
   })
 })

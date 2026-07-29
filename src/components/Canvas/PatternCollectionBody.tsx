@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { useGraphStore } from '../../state/graphStore'
 import { SECTION_TYPES } from '../../codegen/performanceGenerator'
 import { useCapacityStore } from '../../state/capacityStore'
 import { capacityDelta, formatCapacityDelta } from '../../utils/capacityFormat'
 import { shouldConsumeWheel } from './wheelBehavior'
+import PatternCollectionPicker from '../PatternCollection/PatternCollectionPicker'
 import styles from './PatternCollectionBody.module.css'
 
 // Body of the PatternCollection node: the list of absorbed pattern groups (by
@@ -21,6 +23,7 @@ const SECTION_ABBR: Record<string, string> = {
 }
 
 export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
+  const [pickerOpen, setPickerOpen] = useState(false)
   const patternIds = useGraphStore(
     (s) => ((s.nodes.find((n) => n.id === nodeId)?.data.properties as { patternIds?: string[] } | undefined)?.patternIds) ?? EMPTY,
   )
@@ -47,7 +50,7 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
   return (
     <div className={`nodrag ${styles.wrap}`}>
       {patternIds.length === 0 ? (
-        <div className={styles.empty}>Connect a Group node to add a pattern</div>
+        <div className={styles.empty}>Choose saved patterns or connect a Group node</div>
       ) : (
         <ul className={styles.list} onWheelCapture={handleListWheel}>
           {patternIds.map((id) => {
@@ -94,11 +97,18 @@ export default function PatternCollectionBody({ nodeId }: { nodeId: string }) {
           })}
         </ul>
       )}
+      <button type="button" className={styles.addPatterns} onClick={() => setPickerOpen(true)}>
+        <span aria-hidden="true">＋</span>
+        Add patterns…
+      </button>
       <div className={styles.count}>{patternIds.length} pattern{patternIds.length === 1 ? '' : 's'}</div>
       {deltaText && (
         <div className={styles.delta} title="Change in measured controller capacity since the last live check on this board">
           since last check: {deltaText}
         </div>
+      )}
+      {pickerOpen && (
+        <PatternCollectionPicker collectionNodeId={nodeId} onClose={() => setPickerOpen(false)} />
       )}
     </div>
   )

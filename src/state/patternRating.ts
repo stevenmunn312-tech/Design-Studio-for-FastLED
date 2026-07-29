@@ -18,6 +18,7 @@ import { NODE_LIBRARY } from './nodeLibrary'
 import { bandsToSpectrum } from './showAudio'
 import { buildGraphDiagnostics, type GraphDiagnostic } from '../utils/validateGraph'
 import { yieldToUi } from '../components/Preview/recordCapture'
+import { create } from 'zustand'
 
 export interface CriterionScore {
   id: string
@@ -42,6 +43,20 @@ export interface PatternRating {
   failed?: boolean
   error?: string
 }
+
+interface PatternRatingState {
+  /** Ratings are keyed by pattern content, not just id, so editing or renaming a
+   *  saved pattern makes its old score disappear until that version is rated. */
+  ratingsByKey: Record<string, PatternRating>
+  publish: (key: string, rating: PatternRating) => void
+}
+
+export const usePatternRatingStore = create<PatternRatingState>((set) => ({
+  ratingsByKey: {},
+  publish: (key, rating) => set((state) => ({
+    ratingsByKey: { ...state.ratingsByKey, [key]: rating },
+  })),
+}))
 
 /** How representative a frame is as a thumbnail: rewards good lit coverage AND
  *  colourfulness, so it favours a colourful, well-filled moment while rejecting
@@ -542,17 +557,24 @@ export interface RateOptions {
 // In-session memo so reopening the popup doesn't recompute unchanged patterns.
 const ratingCache = new Map<string, PatternRating>()
 
-function cacheKey(saved: SavedPattern): string {
+export function patternRatingKey(saved: SavedPattern): string {
   return `${saved.id}|${saved.name}|${JSON.stringify(saved.subgraph)}`
+}
+
+export function ratingTier(score: number): 'good' | 'ok' | 'bad' {
+  return score >= 75 ? 'good' : score >= 50 ? 'ok' : 'bad'
 }
 
 /** Rate one saved pattern (rendered + analysed). Browser-only. Never throws —
  *  a pattern that can't be rendered or scored resolves to a `failed` rating so
  *  one bad entry can't stall the whole batch. */
 export async function ratePattern(saved: SavedPattern, opts: RateOptions): Promise<PatternRating> {
-  const key = cacheKey(saved)
+  const key = patternRatingKey(saved)
   const cached = ratingCache.get(key)
-  if (cached) return cached
+  if (cached) {
+    usePatternRatingStore.getState().publish(key, cached)
+    return cached
+  }
 
   let rating: PatternRating
   try {
@@ -588,6 +610,7 @@ export async function ratePattern(saved: SavedPattern, opts: RateOptions): Promi
     }
   }
   ratingCache.set(key, rating)
+  usePatternRatingStore.getState().publish(key, rating)
   return rating
 }
 
