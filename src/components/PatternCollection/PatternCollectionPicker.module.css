@@ -108,6 +108,12 @@
 
 .tools select {
   padding: 0 28px 0 9px;
+  background: var(--bg-panel);
+}
+
+.tools select option {
+  background: var(--bg-panel);
+  color: var(--text-primary);
 }
 
 .columnHead {
