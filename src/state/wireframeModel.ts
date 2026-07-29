@@ -7,9 +7,11 @@
 // FONT); an uploaded custom mesh is validated and capped the same way
 // image.ts caps an uploaded picture.
 
-/** Largest custom mesh accepted — caps the baked array size and per-frame cost. */
-export const WIREFRAME_MAX_VERTS = 64
-export const WIREFRAME_MAX_EDGES = 128
+/** Largest custom mesh accepted — caps the baked array size and per-frame cost.
+ *  WIREFRAME_MAX_VERTS must stay <= 256: the C++ generator bakes edge vertex
+ *  indices as uint8_t (0-255). */
+export const WIREFRAME_MAX_VERTS = 256
+export const WIREFRAME_MAX_EDGES = 512
 
 export interface WireframeMesh {
   vertices: number[] // flat x,y,z triples, length a multiple of 3
