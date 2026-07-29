@@ -5,6 +5,7 @@ import { MIC_DEFAULTS, MIC_MAX_GAIN } from '../audio/micAnalysis'
 import { ANIMARTRIX_EFFECTS } from '../animartrix/catalog'
 import { MAX_PIN_NUMBER, type GpioCapability } from './boardGpio'
 import { EASE_TYPES } from './easing'
+import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   // ── Inputs ─────────────────────────────────────────────────────────────
@@ -263,6 +264,34 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { pathShape: 'circle', t: 0, scale: 0.8, thickness: 1.25, r: 255, g: 220, b: 80 },
+  },
+  {
+    // Rotating 3D wireframe (a built-in Platonic-solid preset, or an uploaded
+    // custom mesh) drawn over an optional base frame. Vertices are normalised
+    // to a unit sphere and auto-scaled to fit the matrix before projecting, so
+    // any model reads at a sensible size by default. See
+    // src/state/wireframeModel.ts for the shared rotate/project math — kept
+    // in lockstep with the Wireframe3D case in cppGenerator.ts.
+    type: 'Wireframe3D',
+    label: '3D Wireframe',
+    category: 'pattern',
+    subcategory: 'Shapes & Text',
+    inputs: [
+      { id: 'base',  label: 'Base',  dataType: 'frame' },
+      { id: 'color', label: 'Color', dataType: 'color' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: {
+      model: 'cube',
+      spinX: 0,
+      spinY: 40,
+      spinZ: 0,
+      scale: 1,
+      projection: 'orthographic',
+      perspectiveStrength: 0.4,
+      depthShade: true,
+      r: 0, g: 200, b: 255,
+    },
   },
   {
     // Bundled noise generators — `noiseType` selects the algorithm. The
@@ -2577,6 +2606,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Line: 'Draws a line between two points.',
   Shape: 'Rect, ellipse or morphing N-gon with a fill and outline colour.',
   Path: 'Traces a parametric curve point with subpixel splatting.',
+  Wireframe3D: 'Rotating 3D wireframe model, auto-scaled to fit the matrix.',
   Text: 'Renders scrolling text in a bitmap font.',
   ClockDisplay: 'RTC-fed digital/analog clock plus stopwatch and timer displays.',
   Noise: 'Bundled noise variants with frame and raw field outputs.',
@@ -3289,6 +3319,15 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     rotation:  { control: 'slider', min: -180, max: 180, step: 1 },
     thickness: { control: 'slider', min: 0, max: 6, step: 0.1 },
   },
+  Wireframe3D: {
+    model:      { control: 'select', options: WIREFRAME_MODEL_OPTIONS },
+    spinX:      { control: 'slider', min: -180, max: 180, step: 1 },
+    spinY:      { control: 'slider', min: -180, max: 180, step: 1 },
+    spinZ:      { control: 'slider', min: -180, max: 180, step: 1 },
+    scale:      { control: 'slider', min: 0.2, max: 2, step: 0.05 },
+    projection: { control: 'select', options: ['orthographic', 'perspective'] },
+    perspectiveStrength: N01,
+  },
   Counter:           { rate:  { control: 'slider', min: 0, max: 5,   step: 0.1 } },
   GameOfLife:        { speed: { control: 'slider', min: 1, max: 30,  step: 1 }, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   ReactionDiffusion: { speed: { control: 'slider', min: 1, max: 30,  step: 1 }, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
@@ -3627,6 +3666,12 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'geometry', label: 'Geometry', keys: ['shape', 'sides', 'thickness', 'wrap', 'filled'] },
     { key: 'color', label: 'Color', keys: ['fill', 'edge'] },
   ],
+  Wireframe3D: [
+    { key: 'model', label: 'Model', keys: ['model'] },
+    { key: 'rotation', label: 'Rotation', keys: ['spinX', 'spinY', 'spinZ'] },
+    { key: 'projection', label: 'Projection', keys: ['scale', 'projection', 'perspectiveStrength'] },
+    { key: 'appearance', label: 'Appearance', keys: ['depthShade'] },
+  ],
   MicInput: [
     { key: 'levels', label: 'Levels', keys: ['gain'] },
     { key: 'i2s', label: 'I2S Pins', keys: ['i2sWs', 'i2sSck', 'i2sSd', 'channel'] },
@@ -3940,6 +3985,9 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     if (key === 'aspect') return shape === 'rect' || shape === 'ellipse'
     // Fill colour is unused when only the outline is drawn.
     if (key === 'fill')   return properties.filled === true
+  }
+  if (nodeType === 'Wireframe3D' && key === 'perspectiveStrength') {
+    return properties.projection === 'perspective'
   }
   if (nodeType === 'ClockDisplay') {
     const mode = String(properties.displayMode ?? 'Digital HH:MM')

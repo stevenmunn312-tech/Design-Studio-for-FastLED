@@ -24,6 +24,7 @@ import type { RGB, Palette, Frame } from './ledColor'
 import { evalCodeAsync, getCodeError as getCodeErrorFromSandbox, disposeCodeSandbox } from './codeSandboxRuntime'
 import { evalAnimartrix, disposeAnimartrixState } from '../animartrix/preview'
 import { applyEase } from './easing'
+import { projectWireframeVertices, resolveWireframeMesh } from './wireframeModel'
 
 export type { RGB, Palette, Frame }
 export { getCodeErrorFromSandbox as getCodeError }
@@ -4955,6 +4956,48 @@ function createEvalNode(
         const radius = thickness * 0.5
         const extent = Math.max(0, Math.min(W, H) * 0.5 * scale - radius)
         splatDisc(frame, cx + p.x * extent, cy - p.y * extent, radius, color)
+        out = { frame }
+        break
+      }
+
+      // Rotating 3D wireframe: project every vertex once, then step along
+      // each edge splatting AA discs (same technique as Line), dimming by
+      // rotated depth when depthShade is on. Kept in lockstep with the
+      // Wireframe3D case in cppGenerator.ts.
+      case 'Wireframe3D': {
+        const baseIn = input(id, 'base', null) as Frame | null
+        const frame  = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
+        const colorIn = input(id, 'color', null) as RGB | null
+        const color = colorIn ?? {
+          r: byte(Number(props.r ?? 0)   / 255),
+          g: byte(Number(props.g ?? 200) / 255),
+          b: byte(Number(props.b ?? 255) / 255),
+        }
+        const mesh = resolveWireframeMesh(props.model, props.mesh)
+        const projection = props.projection === 'perspective' ? 'perspective' : 'orthographic'
+        const verts = projectWireframeVertices(mesh, {
+          spinX: Number(props.spinX ?? 0),
+          spinY: Number(props.spinY ?? 40),
+          spinZ: Number(props.spinZ ?? 0),
+          t,
+          scale: Math.max(0.05, Number(props.scale ?? 1)),
+          W, H,
+          projection,
+          perspectiveStrength: normProp(props.perspectiveStrength, 0.4),
+        })
+        const depthShade = props.depthShade !== false
+        const edgeCount = mesh.edges.length / 2
+        for (let e = 0; e < edgeCount; e++) {
+          const p0 = verts[mesh.edges[e * 2]], p1 = verts[mesh.edges[e * 2 + 1]]
+          const len = Math.hypot(p1.x - p0.x, p1.y - p0.y)
+          const steps = Math.max(1, Math.ceil(len * 2))
+          for (let i = 0; i <= steps; i++) {
+            const u = i / steps
+            const depth = depthShade ? p0.depth + (p1.depth - p0.depth) * u : 1
+            const bright = 0.35 + 0.65 * depth
+            splatDisc(frame, p0.x + (p1.x - p0.x) * u, p0.y + (p1.y - p0.y) * u, 0.5, scaleRgb(color, bright))
+          }
+        }
         out = { frame }
         break
       }

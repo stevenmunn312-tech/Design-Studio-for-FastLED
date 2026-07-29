@@ -30,6 +30,7 @@ import { animartrixCppLines } from '../animartrix/codegen'
 import { compositionDims, outputRoutes } from '../state/outputRouting'
 import { getNetworkCredentials } from '../state/networkCredentials'
 import { sanitizePin } from './hardwarePins'
+import { resolveWireframeMesh, meshBoundingRadius, WIREFRAME_FIT_MARGIN, WIREFRAME_CAM_FAR, WIREFRAME_CAM_NEAR } from '../state/wireframeModel'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -1715,6 +1716,75 @@ export function generateCpp(
         ln(`      float _dx = (_x + 0.5f) - _sx, _dy = (_y + 0.5f) - _sy;`)
         ln(`      float _cov = constrain(_rad + 0.5f - sqrtf(_dx * _dx + _dy * _dy), 0.0f, 1.0f);`)
         ln(`      if (_cov <= 0.0f) continue; CRGB _add = ${colorE}; _add.nscale8((uint8_t)(_cov * 255.0f)); ${ob}[_y * WIDTH + _x] += _add; } }`)
+        break
+      }
+
+      // Rotating 3D wireframe. The selected preset (or validated custom
+      // upload) is baked as flat vertex/edge arrays at codegen time; the
+      // per-frame rotation/projection/edge-rasterization math is a hand-port
+      // of projectWireframeVertices() in state/wireframeModel.ts and the
+      // Wireframe3D case in graphEvaluator.ts — keep all three in lockstep.
+      case 'Wireframe3D': {
+        const ob = ownBuf()
+        needsT.v = true
+        const mesh = resolveWireframeMesh(p.model, p.mesh)
+        const vertCount = mesh.vertices.length / 3
+        const edgeCount = mesh.edges.length / 2
+        const radius = meshBoundingRadius(mesh)
+        const spinX = Number(p.spinX ?? 0)
+        const spinY = Number(p.spinY ?? 40)
+        const spinZ = Number(p.spinZ ?? 0)
+        const scaleMul = Math.max(0.05, Number(p.scale ?? 1))
+        const perspective = p.projection === 'perspective'
+        const strength = Math.max(0, Math.min(1, Number(p.perspectiveStrength ?? 0.4)))
+        const camDist = WIREFRAME_CAM_FAR - strength * (WIREFRAME_CAM_FAR - WIREFRAME_CAM_NEAR)
+        const depthShade = p.depthShade !== false
+        const colorE = incoming.get(`${node.id}:color`)
+          ? colorExpr(node.id, 'color')
+          : `CRGB(${Number(p.r ?? 0)}, ${Number(p.g ?? 200)}, ${Number(p.b ?? 255)})`
+        ln(`  { ${seedFrom('base')}`)
+        ln(`    static const float _vtx_${id}[] = {${mesh.vertices.map((n) => `${n.toFixed(6)}f`).join(',')}};`)
+        ln(`    static const uint8_t _edg_${id}[] = {${mesh.edges.join(',')}};`)
+        ln(`    CRGB _wfColor = ${colorE};`)
+        ln(`    float _ax = ${spinX.toFixed(3)}f * t * 0.017453293f, _ay = ${spinY.toFixed(3)}f * t * 0.017453293f, _az = ${spinZ.toFixed(3)}f * t * 0.017453293f;`)
+        ln(`    float _cx1=cosf(_ax),_sx1=sinf(_ax),_cy1=cosf(_ay),_sy1=sinf(_ay),_cz1=cosf(_az),_sz1=sinf(_az);`)
+        ln(`    float _ccx=(WIDTH-1)*0.5f,_ccy=(HEIGHT-1)*0.5f;`)
+        ln(`    float _fit=(min((float)WIDTH,(float)HEIGHT)*0.5f)*${WIREFRAME_FIT_MARGIN}f*${scaleMul.toFixed(4)}f;`)
+        ln(`    float _sxp[${vertCount}], _syp[${vertCount}], _sdp[${vertCount}];`)
+        ln(`    for (int _i = 0; _i < ${vertCount}; _i++) {`)
+        ln(`      float _x=_vtx_${id}[_i*3]/${radius.toFixed(6)}f,_y=_vtx_${id}[_i*3+1]/${radius.toFixed(6)}f,_z=_vtx_${id}[_i*3+2]/${radius.toFixed(6)}f;`)
+        ln(`      float _ry=_y*_cx1-_z*_sx1,_rz=_y*_sx1+_z*_cx1; _y=_ry; _z=_rz;`)
+        ln(`      float _rx=_x*_cy1+_z*_sy1; _rz=-_x*_sy1+_z*_cy1; _x=_rx; _z=_rz;`)
+        ln(`      _rx=_x*_cz1-_y*_sz1; _ry=_x*_sz1+_y*_cz1; _x=_rx; _y=_ry;`)
+        if (perspective) {
+          ln(`      float _factor=${camDist.toFixed(4)}f/(${camDist.toFixed(4)}f-_z);`)
+          ln(`      _sxp[_i]=_ccx+_x*_factor*_fit; _syp[_i]=_ccy-_y*_factor*_fit;`)
+        } else {
+          ln(`      _sxp[_i]=_ccx+_x*_fit; _syp[_i]=_ccy-_y*_fit;`)
+        }
+        ln(`      _sdp[_i]=(_z+1.0f)*0.5f;`)
+        ln(`    }`)
+        ln(`    for (int _e = 0; _e < ${edgeCount}; _e++) {`)
+        ln(`      int _i0=_edg_${id}[_e*2],_i1=_edg_${id}[_e*2+1];`)
+        ln(`      float _x0=_sxp[_i0],_y0=_syp[_i0],_x1=_sxp[_i1],_y1=_syp[_i1];`)
+        ln(`      float _len=sqrtf((_x1-_x0)*(_x1-_x0)+(_y1-_y0)*(_y1-_y0));`)
+        ln(`      int _steps=max(1,(int)ceilf(_len*2.0f));`)
+        ln(`      for (int _s = 0; _s <= _steps; _s++) {`)
+        ln(`        float _u=_s/(float)_steps;`)
+        ln(`        float _px=_x0+(_x1-_x0)*_u,_py=_y0+(_y1-_y0)*_u;`)
+        if (depthShade) {
+          ln(`        float _depth=_sdp[_i0]+(_sdp[_i1]-_sdp[_i0])*_u,_bright=0.35f+0.65f*_depth;`)
+        } else {
+          ln(`        float _bright=1.0f;`)
+        }
+        ln(`        float _rad=0.5f;`)
+        ln(`        int _xmin=max(0,(int)floorf(_px-_rad-1.0f)),_xmax=min(WIDTH-1,(int)ceilf(_px+_rad+1.0f));`)
+        ln(`        int _ymin=max(0,(int)floorf(_py-_rad-1.0f)),_ymax=min(HEIGHT-1,(int)ceilf(_py+_rad+1.0f));`)
+        ln(`        for (int _y = _ymin; _y <= _ymax; _y++) for (int _x = _xmin; _x <= _xmax; _x++) {`)
+        ln(`          float _dx=(_x+0.5f)-_px,_dy=(_y+0.5f)-_py;`)
+        ln(`          float _cov=constrain(_rad+0.5f-sqrtf(_dx*_dx+_dy*_dy),0.0f,1.0f);`)
+        ln(`          if (_cov<=0.0f) continue; CRGB _add=_wfColor; _add.nscale8((uint8_t)(_bright*_cov*255.0f)); ${ob}[_y*WIDTH+_x] += _add; } } }`)
+        ln(`  }`)
         break
       }
 

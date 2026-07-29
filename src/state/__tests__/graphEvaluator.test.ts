@@ -4586,3 +4586,51 @@ describe('RainRipples', () => {
     expect(() => evaluateGraph(small.nodes, small.edges, 0, W, H)).not.toThrow()
   })
 })
+
+describe('Wireframe3D', () => {
+  const W2 = 16, H2 = 16
+
+  it('renders the default cube preset as a non-empty frame', () => {
+    const { nodes, edges } = withOutput(node('wf1', 'Wireframe3D', 'pattern', {}))
+    const frame = evaluateGraph(nodes, edges, 0, W2, H2)
+    expect(frame).not.toBeNull()
+    expect(litPixels(frame)).toBeGreaterThan(0)
+  })
+
+  it('spins over time — the lit-pixel pattern changes between two ticks', () => {
+    const at0 = withOutput(node('wf2', 'Wireframe3D', 'pattern', { spinY: 40 }))
+    const frameAt0 = evaluateGraph(at0.nodes, at0.edges, 0, W2, H2)!
+    const at120 = withOutput(node('wf2', 'Wireframe3D', 'pattern', { spinY: 40 }))
+    const frameAt120 = evaluateGraph(at120.nodes, at120.edges, 120, W2, H2)! // 2s at 60fps
+    expect(frameAt0).not.toEqual(frameAt120)
+  })
+
+  it('renders every built-in preset without throwing', () => {
+    for (const model of ['cube', 'pyramid', 'octahedron', 'icosahedron']) {
+      const { nodes, edges } = withOutput(node(`wf-${model}`, 'Wireframe3D', 'pattern', { model }))
+      const frame = evaluateGraph(nodes, edges, 30, W2, H2)
+      expect(litPixels(frame)).toBeGreaterThan(0)
+    }
+  })
+
+  it('falls back to the cube preset when a custom mesh is selected but missing', () => {
+    const { nodes, edges } = withOutput(node('wf3', 'Wireframe3D', 'pattern', { model: 'custom' }))
+    const frame = evaluateGraph(nodes, edges, 0, W2, H2)
+    expect(litPixels(frame)).toBeGreaterThan(0)
+  })
+
+  it('uses a validated custom mesh when provided', () => {
+    const mesh = { vertices: [0, 0, 0, 1, 1, 1], edges: [0, 1] }
+    const { nodes, edges } = withOutput(node('wf4', 'Wireframe3D', 'pattern', { model: 'custom', mesh }))
+    const frame = evaluateGraph(nodes, edges, 0, W2, H2)
+    expect(litPixels(frame)).toBeGreaterThan(0)
+  })
+
+  it('depthShade toggling does not change which pixels are lit, only their brightness', () => {
+    const shaded = withOutput(node('wf5', 'Wireframe3D', 'pattern', { spinX: 0, spinY: 0, spinZ: 0, depthShade: true }))
+    const flat = withOutput(node('wf5', 'Wireframe3D', 'pattern', { spinX: 0, spinY: 0, spinZ: 0, depthShade: false }))
+    const shadedFrame = evaluateGraph(shaded.nodes, shaded.edges, 0, W2, H2)!
+    const flatFrame = evaluateGraph(flat.nodes, flat.edges, 0, W2, H2)!
+    expect(litPixels(shadedFrame)).toBe(litPixels(flatFrame))
+  })
+})

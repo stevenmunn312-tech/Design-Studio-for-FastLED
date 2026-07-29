@@ -102,7 +102,7 @@ export default function Inspector() {
   const props = node.data.properties as Record<string, unknown>
   const customFont = node.data.nodeType === 'Text' ? asFont(props.font) : null
   const hasCustomFont = node.data.nodeType === 'Text' && props.font != null && customFont !== DEFAULT_FONT
-  const propertyEntries = Object.entries(props).filter(([key]) => key !== 'font' && key !== 'image' && key !== 'animation')
+  const propertyEntries = Object.entries(props).filter(([key]) => key !== 'font' && key !== 'image' && key !== 'animation' && key !== 'mesh')
   const propertyCount = propertyEntries.length + (node.data.nodeType === 'Text' ? 1 : 0) + (node.data.nodeType === 'Image' ? 1 : 0)
   const hasRGB =
     'r' in props && 'g' in props && 'b' in props &&
