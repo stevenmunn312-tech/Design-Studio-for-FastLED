@@ -1835,7 +1835,13 @@ export default function NodeReference() {
   const readerRef = useRef<HTMLDivElement>(null)
   const articleKey = showingIntroduction ? NODE_INTRO_TYPE : selectedNode?.type
   useEffect(() => {
-    readerRef.current?.scrollTo({ top: 0 })
+    const reader = readerRef.current
+    if (!reader) return
+    if (typeof reader.scrollTo === 'function') {
+      reader.scrollTo({ top: 0 })
+      return
+    }
+    reader.scrollTop = 0
   }, [articleKey])
 
   return (
