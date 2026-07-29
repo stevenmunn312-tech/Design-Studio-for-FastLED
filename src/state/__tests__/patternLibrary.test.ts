@@ -7,8 +7,10 @@ import {
 } from '../patternLibrary'
 import {
   AUDIO_REACTIVE_CATEGORY_ID,
+  AUDIO_BUNDLED_PATTERNS,
   BUNDLED_PATTERNS,
   STANDARD_CATEGORY_ID,
+  STANDARD_BUNDLED_PATTERNS,
 } from '../bundledPatterns'
 import { useGraphStore, ROOT_GRAPH_ID } from '../graphStore'
 import type { StudioNode, StudioEdge } from '../graphStore'
@@ -147,9 +149,14 @@ describe('patternLibrary', () => {
     )).toEqual([pendingPattern])
   })
 
-  it('ships 20 immutable audio-reactive beta patterns and fixed starter shelves', async () => {
-    expect(BUNDLED_PATTERNS).toHaveLength(20)
-    expect(BUNDLED_PATTERNS.every((pattern) => (
+  it('ships immutable bundled patterns for both built-in shelves', async () => {
+    expect(STANDARD_BUNDLED_PATTERNS).toHaveLength(20)
+    expect(AUDIO_BUNDLED_PATTERNS).toHaveLength(20)
+    expect(BUNDLED_PATTERNS).toHaveLength(40)
+    expect(STANDARD_BUNDLED_PATTERNS.every((pattern) => (
+      pattern.bundled && pattern.categoryId === STANDARD_CATEGORY_ID
+    ))).toBe(true)
+    expect(AUDIO_BUNDLED_PATTERNS.every((pattern) => (
       pattern.bundled && pattern.categoryId === AUDIO_REACTIVE_CATEGORY_ID
     ))).toBe(true)
     expect(BUILT_IN_PATTERN_CATEGORIES.map((category) => category.id)).toEqual([
