@@ -130,7 +130,7 @@ where it is needed.
   the `Group` node, so external values (math, audio, a hardware knob) drive a
   group through preview and codegen — which is also how hardware-driven
   transitions are built. Phase 3 complete.
-- **Phase 4 — Expansion.** _In progress._ A `Mask` node scales a frame
+- **Phase 4 — Expansion.** _Done._ A `Mask` node scales a frame
   per-pixel by a mask frame's luminance (any soft frame gives feathered edges).
   A `Text` node renders with a built-in 3×5 bitmap font (`src/state/font.ts`,
   shared by evaluator + codegen) and can scroll; the font is plain data so a

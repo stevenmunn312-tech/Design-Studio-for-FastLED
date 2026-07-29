@@ -1,8 +1,8 @@
 # Security Policy
 
-Design Studio for FastLED is still in pre-release / public-beta preparation. Security
-issues are still important, especially where imported graphs, generated code,
-local file access, or the upload helper are involved.
+Design Studio for FastLED is in public beta. Security issues are especially
+important where imported graphs, generated code, local file access, or the
+upload helper are involved.
 
 ## What to report
 

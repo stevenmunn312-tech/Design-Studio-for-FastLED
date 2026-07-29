@@ -9,6 +9,9 @@ build/architecture overview aimed at contributors.
   — the supported desktop minimum, the expected graceful-degradation behavior,
     and the “must stay reachable” checklist for chrome, panels, dialogs, and
     status information.
+- [Multi-output routing](architecture/multi-output-routing.md)
+  — the composition-canvas contract, per-route fit/crop mapping, synchronized
+    firmware output, and cross-route GPIO/power/RAM validation.
 - [Decisions (ADRs)](architecture/decisions/)
   - [0001 — Pattern node-group architecture (two-tier dataflow)](architecture/decisions/0001-pattern-node-group-architecture.md)
     — the paradigm (dataflow), the encapsulation model (pattern groups become
@@ -40,7 +43,13 @@ build/architecture overview aimed at contributors.
     — the software clock and its `Compile Time` / `Manual` / `NTP` sources, why
     the clock is a wire rather than a scene singleton, and the window/trigger
     edge rules `ScheduleTrigger` holds identical across preview and firmware.
+  - [Node reference layout and upkeep](development/design/node-reference-layout.md)
+    — the approved Help article structure, generated visual contract, live
+    example behavior, and maintenance checklist for new nodes.
 - [Plans](development/plans/)
+  - [Node review findings](development/plans/node-todo.md)
+    — the category-by-category control, validation, evaluator, and codegen
+    audit, including completed fixes and retained follow-ups.
   - [T-HMI feature integration](development/plans/thmi-feature-integration.md)
     — how to replay the divergent `feature/thmi-touchscreen-ui` branch (FFT
     audio, 13 transitions, T-HMI firmware) onto current `main` as PRs.
@@ -74,9 +83,10 @@ build/architecture overview aimed at contributors.
   — the repeatable keyboard-only and NVDA release scenario, browser-assisted
     preflight evidence, and the completion record for the accessibility gate.
 
-## Design intent (original specs)
+## Historical design intent (non-normative)
 
-Located in `.docs/` at the repo root:
+Located in `.docs/` at the repo root. These preserve the early brief and are
+not current implementation guidance:
 
 - `.docs/Proposal-FastLED_Studio` — node-type catalogue and deployment workflow
 - `.docs/Design_Specification.md` — visual design system

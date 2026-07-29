@@ -9,6 +9,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Added a **3D Wireframe** pattern node. It renders rotating built-in
+  Platonic-solid presets or an uploaded custom mesh with orthographic or
+  perspective projection, optional depth shading, independent X/Y/Z spin,
+  live preview, and matching FastLED code generation. Oversized custom meshes
+  are automatically decimated within the node's validated vertex/edge limits.
+
 - Added an RTC clock and time-of-day scheduling. An **RTC Clock** source node
   publishes calendar fields plus `valid`/`synced`/`stale` status from one of
   three time sources: the sketch's compile-time build stamp, a manually

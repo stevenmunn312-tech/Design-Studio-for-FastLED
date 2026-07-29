@@ -1,3 +1,8 @@
+> **Historical, non-normative specification.** This early handoff predates the
+> implemented React Flow, CSS Modules, FastAPI helper, and local
+> `fbuild`/`arduino-cli` architecture. Do not use its proposed technology stack
+> or upload pipeline as current implementation guidance.
+
 FastLED Studio — Developer Handoff Specification
 
 This document defines everything engineering needs to implement the UI exactly as designed:  

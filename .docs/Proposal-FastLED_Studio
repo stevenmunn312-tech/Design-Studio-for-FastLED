@@ -1,3 +1,7 @@
+> **Historical, non-normative proposal.** This catalogue records the original
+> product scope; shipped nodes, workflows, and support promises are documented
+> by `README.md`, `CLAUDE.md`, `docs/`, and `src/state/nodeLibrary.ts`.
+
 Proposal: Node‑Based Visual Designer for FastLED LED Matrix Systems
 
 🎯 Core Vision
@@ -324,4 +328,4 @@ The output is a single .ino or .cpp project ready for upload.
 - Hardware‑aware  
 - Beginner‑friendly  
 - Power‑user‑capable  
-- Future‑proof  
+- Future‑proof
