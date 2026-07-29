@@ -38,7 +38,7 @@ describe('HelpModal session state', () => {
     const second = render(<HelpModal />)
 
     expect(second.getByRole('tab', { name: 'Upload & Export' }).getAttribute('aria-selected')).toBe('true')
-    expect(second.getByText('Prerequisites')).toBeTruthy()
+    expect(second.getByText('Before the first upload')).toBeTruthy()
   })
 
   it('shows version, license, and credits on the About tab', () => {
@@ -89,6 +89,19 @@ describe('HelpModal session state', () => {
     expect(view.getByRole('heading', { name: 'Add or spawn nodes' })).toBeTruthy()
     expect(view.getByRole('heading', { name: 'Copy, paste, duplicate, and delete' })).toBeTruthy()
     expect(view.getByRole('button', { name: /Using Nodes/ })).toBeTruthy()
+  })
+
+  it('presents the first patch visually and separates deployment choices', () => {
+    const view = render(<HelpModal />)
+
+    expect(view.getByText('Your first working patch')).toBeTruthy()
+    expect(view.getByAltText(/Rainbow node connected to Matrix Output/i)).toBeTruthy()
+
+    fireEvent.click(view.getByRole('tab', { name: 'Upload & Export' }))
+
+    expect(view.getByText('Choose the result you want')).toBeTruthy()
+    expect(view.getByText('Run this design on LEDs')).toBeTruthy()
+    expect(view.getByText('If an upload fails')).toBeTruthy()
   })
 
   it.each(['BeatDetect', 'SpectrumBars'])('forces real audio for the %s live example', (selectedType) => {
