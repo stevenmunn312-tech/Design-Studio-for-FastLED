@@ -1,4 +1,4 @@
-import { useDeferredValue } from 'react'
+import { useDeferredValue, useEffect, useRef } from 'react'
 import type { NodeCategory, NodeDefinition } from '../../types'
 import { CATEGORIES, CATEGORY_COLOR, NODE_DESCRIPTIONS, NODE_LIBRARY, propertyGroupsFor, propertyMeta, portColor } from '../../state/nodeLibrary'
 import { useUiStore } from '../../state/uiStore'
@@ -1832,6 +1832,12 @@ export default function NodeReference() {
     return acc
   }, {})
 
+  const readerRef = useRef<HTMLDivElement>(null)
+  const articleKey = showingIntroduction ? NODE_INTRO_TYPE : selectedNode?.type
+  useEffect(() => {
+    readerRef.current?.scrollTo({ top: 0 })
+  }, [articleKey])
+
   return (
     <div className={styles.reference}>
       <aside className={styles.directory} aria-label="Node reference index">
@@ -1916,7 +1922,7 @@ export default function NodeReference() {
         </nav>
       </aside>
 
-      <div className={styles.reader}>
+      <div className={styles.reader} ref={readerRef}>
         {showingIntroduction && <UsingNodesArticle />}
         {selectedNode && <NodeArticle key={selectedNode.type} node={selectedNode} />}
       </div>
