@@ -1421,6 +1421,40 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float _pr = cosf(_ang * 4.0f);')
   })
 
+  it('emits a rotating Wireframe3D cube with balanced braces and a baked vertex/edge table', () => {
+    const wf = node('wf', 'Wireframe3D', 'pattern', { model: 'cube', spinY: 40, r: 0, g: 200, b: 255 })
+    const cpp = generateCpp([wf, outputNode], [edge('e', 'wf', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('static const float _vtx_wf[]')
+    expect(cpp).toContain('static const uint8_t _edg_wf[]')
+    // Cube: 8 vertices, 12 edges.
+    expect(cpp).toContain('for (int _i = 0; _i < 8; _i++)')
+    expect(cpp).toContain('for (int _e = 0; _e < 12; _e++)')
+    expect(cpp).toContain('float t = millis() / 1000.0f;')
+    expect(cpp).toContain('CRGB(0, 200, 255)')
+    const opens = (cpp.match(/\{/g) ?? []).length
+    const closes = (cpp.match(/\}/g) ?? []).length
+    expect(opens).toBe(closes)
+  })
+
+  it('Wireframe3D emits a perspective-projection branch only when selected', () => {
+    const ortho = node('wfo', 'Wireframe3D', 'pattern', { model: 'octahedron', projection: 'orthographic' })
+    const persp = node('wfp', 'Wireframe3D', 'pattern', { model: 'octahedron', projection: 'perspective', perspectiveStrength: 0.7 })
+    const orthoCpp = generateCpp([ortho, outputNode], [edge('e', 'wfo', 'out', 'frame', 'frame')])
+    const perspCpp = generateCpp([persp, outputNode], [edge('e', 'wfp', 'out', 'frame', 'frame')])
+    expect(orthoCpp).not.toContain('_factor')
+    expect(perspCpp).toContain('float _factor=')
+  })
+
+  it('Wireframe3D bakes a validated custom mesh instead of the cube preset', () => {
+    const wf = node('wfc', 'Wireframe3D', 'pattern', {
+      model: 'custom',
+      mesh: { vertices: [0, 0, 0, 1, 0, 0, 0, 1, 0], edges: [0, 1, 1, 2] },
+    })
+    const cpp = generateCpp([wf, outputNode], [edge('e', 'wfc', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('for (int _i = 0; _i < 3; _i++)')
+    expect(cpp).toContain('for (int _e = 0; _e < 2; _e++)')
+  })
+
   it('emits a Text node with embedded font columns', () => {
     const txt = node('t', 'Text', 'pattern', { text: 'HI', x: 0.5, y: 0.5, scroll: 0, r: 0, g: 255, b: 0 })
     const cpp = generateCpp([txt, outputNode], [edge('e', 't', 'out', 'frame', 'frame')])
