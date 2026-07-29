@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { canAddNodeType, SINGLETON_NODE_TYPES, useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audioStore'
@@ -6,6 +7,7 @@ import { usePatternLibrary, importPatternFile, type SavedPattern } from '../../s
 import { AUDIO_REACTIVE_CATEGORY_ID, STANDARD_CATEGORY_ID } from '../../state/bundledPatterns'
 import { NODE_LIBRARY, CATEGORIES, CATEGORY_ACCENT_VAR, NODE_DESCRIPTIONS, categoryNodes } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
+import { patternRatingKey, ratingTier, usePatternRatingStore } from '../../state/patternRating'
 import { revealPatternsFolder } from '../../utils/backendClient'
 import { runTidy } from '../../utils/tidyGraph'
 import type { NodeDefinition } from '../../types'
@@ -232,6 +234,11 @@ function Sidebar() {
   const isEmptyGraph = useGraphStore((s) => s.nodes.length === 0)
   const instantiatePattern = useGraphStore((s) => s.instantiatePattern)
   const createCollectionFromPatterns = useGraphStore((s) => s.createCollectionFromPatterns)
+  const addPatternsToCollection = useGraphStore((s) => s.addPatternsToCollection)
+  const collectionNodeSignature = useGraphStore((s) => s.nodes
+    .filter((node) => node.data.nodeType === 'PatternCollection')
+    .map((node) => node.id)
+    .join('|'))
   const patterns = usePatternLibrary((s) => s.patterns)
   const patternCategories = usePatternLibrary((s) => s.categories)
   const renamePattern = usePatternLibrary((s) => s.renamePattern)
@@ -239,6 +246,7 @@ function Sidebar() {
   const createPatternCategory = usePatternLibrary((s) => s.createCategory)
   const deletePatternCategory = usePatternLibrary((s) => s.deleteCategory)
   const movePattern = usePatternLibrary((s) => s.movePattern)
+  const ratingsByKey = usePatternRatingStore((s) => s.ratingsByKey)
   const requestConfirm = useUiStore((s) => s.requestConfirm)
   const viewCenter = useUiStore((s) => s.viewCenter)
   const setStatus = useUiStore((s) => s.setStatus)
@@ -256,6 +264,9 @@ function Sidebar() {
   const [creatingPatternCategory, setCreatingPatternCategory] = useState(false)
   const [patternCategoryDraft, setPatternCategoryDraft] = useState('')
   const [patternShelfDrop, setPatternShelfDrop] = useState<string | null>(null)
+  const [selectedPatternIds, setSelectedPatternIds] = useState<Set<string>>(new Set())
+  const [patternSelectionAnchor, setPatternSelectionAnchor] = useState<string | null>(null)
+  const [patternContextMenu, setPatternContextMenu] = useState<{ x: number; y: number } | null>(null)
 
   // Persist on every change so the layout survives reloads.
   useEffect(() => {
@@ -447,7 +458,10 @@ function Sidebar() {
   })
   const handleAddPattern = (p: SavedPattern) => instantiatePattern(p, dropPos(), true)
   const handleCreateCollection = () => {
-    if (patterns.length === 0) {
+    const chosen = selectedPatternIds.size > 0
+      ? patterns.filter((pattern) => selectedPatternIds.has(pattern.id))
+      : patterns
+    if (chosen.length === 0) {
       setStatus('Pattern Library is empty', 'error')
       return
     }
@@ -457,12 +471,12 @@ function Sidebar() {
       return
     }
     createCollectionFromPatterns(
-      patterns,
+      chosen,
       dropPos(),
       resolveDefaultProperties(def.type, def.defaultProperties),
       true,
     )
-    setStatus(`Created collection with ${patterns.length} pattern${patterns.length === 1 ? '' : 's'}`, 'success')
+    setStatus(`Created collection with ${chosen.length} pattern${chosen.length === 1 ? '' : 's'}`, 'success')
   }
 
   const startRename = (p: SavedPattern) => {
@@ -488,6 +502,135 @@ function Sidebar() {
       visiblePatterns.filter((pattern) => pattern.categoryId === category.id),
     ]),
   ), [patternCategories, visiblePatterns])
+  const displayPatternIds = [
+    ...(openPatternCategories.has('__unsorted__') ? uncategorizedPatterns.map((pattern) => pattern.id) : []),
+    ...patternCategories.flatMap((category) => (
+      openPatternCategories.has(category.id)
+        ? (patternsByCategory.get(category.id) ?? []).map((pattern) => pattern.id)
+        : []
+    )),
+  ]
+  const selectedPatterns = patterns.filter((pattern) => selectedPatternIds.has(pattern.id))
+  const editableSelectedPatterns = selectedPatterns.filter((pattern) => !pattern.bundled)
+  const collectionNodeIds = collectionNodeSignature.split('|').filter(Boolean)
+
+  useEffect(() => {
+    const validIds = new Set(patterns.map((pattern) => pattern.id))
+    setSelectedPatternIds((current) => {
+      const next = new Set([...current].filter((id) => validIds.has(id)))
+      return next.size === current.size ? current : next
+    })
+    if (patternSelectionAnchor && !validIds.has(patternSelectionAnchor)) setPatternSelectionAnchor(null)
+  }, [patternSelectionAnchor, patterns])
+
+  useEffect(() => {
+    if (!patternContextMenu) return
+    const close = () => setPatternContextMenu(null)
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close()
+    }
+    window.addEventListener('mousedown', close)
+    window.addEventListener('blur', close)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('mousedown', close)
+      window.removeEventListener('blur', close)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [patternContextMenu])
+
+  const handlePatternSelection = (
+    event: Pick<React.MouseEvent, 'shiftKey' | 'ctrlKey' | 'metaKey'>,
+    patternId: string,
+  ) => {
+    if (event.shiftKey && patternSelectionAnchor) {
+      const anchorIndex = displayPatternIds.indexOf(patternSelectionAnchor)
+      const targetIndex = displayPatternIds.indexOf(patternId)
+      if (anchorIndex >= 0 && targetIndex >= 0) {
+        const range = displayPatternIds.slice(
+          Math.min(anchorIndex, targetIndex),
+          Math.max(anchorIndex, targetIndex) + 1,
+        )
+        setSelectedPatternIds((current) => new Set(
+          event.ctrlKey || event.metaKey ? [...current, ...range] : range,
+        ))
+        return
+      }
+    }
+    if (event.ctrlKey || event.metaKey) {
+      setSelectedPatternIds((current) => {
+        const next = new Set(current)
+        if (next.has(patternId)) next.delete(patternId)
+        else next.add(patternId)
+        return next
+      })
+    } else {
+      setSelectedPatternIds(new Set([patternId]))
+    }
+    setPatternSelectionAnchor(patternId)
+  }
+
+  const showPatternContextMenu = (patternId: string, clientX: number, clientY: number) => {
+    if (!selectedPatternIds.has(patternId)) {
+      setSelectedPatternIds(new Set([patternId]))
+      setPatternSelectionAnchor(patternId)
+    }
+    setPatternContextMenu({
+      x: Math.max(8, Math.min(clientX, window.innerWidth - 250)),
+      y: Math.max(8, Math.min(clientY, window.innerHeight - 320)),
+    })
+  }
+
+  const openPatternContextMenu = (event: React.MouseEvent, patternId: string) => {
+    event.preventDefault()
+    event.stopPropagation()
+    showPatternContextMenu(patternId, event.clientX, event.clientY)
+  }
+
+  const addSelectedPatternsToCanvas = () => {
+    selectedPatterns.forEach((pattern, index) => {
+      const position = dropPos()
+      instantiatePattern(pattern, { x: position.x + index * 24, y: position.y + index * 18 }, true)
+    })
+    setStatus(`Added ${selectedPatterns.length} pattern${selectedPatterns.length === 1 ? '' : 's'} to the canvas`, 'success')
+    setPatternContextMenu(null)
+  }
+
+  const addSelectedPatternsToCollection = (collectionNodeId: string) => {
+    if (selectedPatterns.length === 0) return
+    addPatternsToCollection(collectionNodeId, selectedPatterns)
+    setStatus(`Added ${selectedPatterns.length} pattern${selectedPatterns.length === 1 ? '' : 's'} to the collection`, 'success')
+    setPatternContextMenu(null)
+  }
+
+  const createCollectionFromSelection = () => {
+    if (selectedPatterns.length === 0) return
+    handleCreateCollection()
+    setPatternContextMenu(null)
+  }
+
+  const deleteSelectedPatterns = async () => {
+    if (editableSelectedPatterns.length === 0) return
+    const bundledKept = selectedPatterns.length - editableSelectedPatterns.length
+    const ok = await requestConfirm({
+      title: `Delete ${editableSelectedPatterns.length} library pattern${editableSelectedPatterns.length === 1 ? '' : 's'}?`,
+      message: editableSelectedPatterns.length === 1
+        ? `Delete “${editableSelectedPatterns[0].name}” from the library?${bundledKept > 0 ? ' Bundled patterns will be kept.' : ''}`
+        : `Delete ${editableSelectedPatterns.length} saved patterns from the library?${bundledKept > 0 ? ' Bundled patterns will be kept.' : ''}`,
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      tone: 'danger',
+    })
+    if (!ok) return
+    await Promise.all(editableSelectedPatterns.map((pattern) => deletePattern(pattern.id)))
+    setSelectedPatternIds((current) => {
+      const next = new Set(current)
+      editableSelectedPatterns.forEach((pattern) => next.delete(pattern.id))
+      return next
+    })
+    setPatternContextMenu(null)
+    setStatus(`Deleted ${editableSelectedPatterns.length} pattern${editableSelectedPatterns.length === 1 ? '' : 's'}`, 'success')
+  }
   const visibleSectionIds = useMemo(() => [
     ...(favouriteDefs.length > 0 ? ['favourites'] : []),
     ...(recentDefs.length > 0 ? ['recent'] : []),
@@ -716,20 +859,49 @@ function Sidebar() {
     entries.length === 0 ? (
       <div className={styles.patternDropHint}>{emptyMessage}</div>
     ) : (
-      <ul className={`${styles.nodeList} ${styles.patternList}`}>
+      <ul className={`${styles.nodeList} ${styles.patternList}`} role="listbox" aria-multiselectable="true">
         {entries.map((pattern) => {
           const renaming = renamingId === pattern.id
+          const selected = selectedPatternIds.has(pattern.id)
+          const rating = ratingsByKey[patternRatingKey(pattern)]
+          const scoreTier = rating && !rating.failed ? ratingTier(rating.overall) : 'bad'
           return (
             <li
               key={pattern.id}
-              className={`${styles.nodeItem} ${styles.patternItem}`}
+              className={`${styles.nodeItem} ${styles.patternItem} ${selected ? styles.patternItemSelected : ''}`}
               style={{ '--accent': 'var(--accent-library)' } as React.CSSProperties}
               draggable={!renaming}
-              onDragStart={(event) => handlePatternDragStart(event, pattern)}
-              onClick={() => { if (!renaming) handleAddPattern(pattern) }}
+              role="option"
+              tabIndex={renaming ? -1 : 0}
+              aria-selected={selected}
+              aria-label={pattern.name}
+              onDragStart={(event) => {
+                if (!selected) {
+                  setSelectedPatternIds(new Set([pattern.id]))
+                  setPatternSelectionAnchor(pattern.id)
+                }
+                handlePatternDragStart(event, pattern)
+              }}
+              onClick={(event) => { if (!renaming) handlePatternSelection(event, pattern.id) }}
+              onDoubleClick={() => { if (!renaming) handleAddPattern(pattern) }}
+              onContextMenu={(event) => { if (!renaming) openPatternContextMenu(event, pattern.id) }}
+              onKeyDown={(event) => {
+                if (renaming) return
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  handleAddPattern(pattern)
+                } else if (event.key === ' ') {
+                  event.preventDefault()
+                  handlePatternSelection(event, pattern.id)
+                } else if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+                  event.preventDefault()
+                  const rect = event.currentTarget.getBoundingClientRect()
+                  showPatternContextMenu(pattern.id, rect.left + 22, rect.top + rect.height / 2)
+                }
+              }}
               title={renaming
                 ? undefined
-                : `${pattern.name}\n${pattern.bundled ? 'Included beta pattern · ' : ''}Click to add · drag to place`}
+                : `${pattern.name}\n${pattern.bundled ? 'Bundled pattern · ' : ''}Click to select · double-click to add · drag to place`}
             >
               {renaming ? (
                 <input
@@ -748,9 +920,15 @@ function Sidebar() {
               ) : (
                 <>
                   <span className={styles.patternName}>{pattern.name}</span>
-                  {pattern.bundled ? (
-                    <span className={styles.patternBadge} title="Included with the beta release">included</span>
-                  ) : (
+                  {rating && (
+                    <span
+                      className={`${styles.patternRating} ${styles[`patternRating_${scoreTier}`]}`}
+                      title={rating.failed ? 'Pattern could not be rated' : `Pattern rating ${rating.overall}%`}
+                    >
+                      {rating.failed ? '—' : `${rating.overall}%`}
+                    </span>
+                  )}
+                  {!pattern.bundled && (
                     <span className={styles.patternActions}>
                       <button
                         className={styles.patternBtn}
@@ -795,6 +973,7 @@ function Sidebar() {
   )
 
   return (
+    <>
     <aside className={styles.sidebar} id="node-library">
       <div className={styles.header}>
         <div className={styles.headerTop}>
@@ -927,7 +1106,9 @@ function Sidebar() {
               className={styles.collectionBtn}
               type="button"
               aria-label="Create Pattern Collection from Pattern Library"
-              title="Create a Pattern Collection containing all saved patterns"
+              title={selectedPatternIds.size > 0
+                ? `Create a Pattern Collection containing the ${selectedPatternIds.size} selected patterns`
+                : 'Create a Pattern Collection containing all saved patterns'}
               onClick={handleCreateCollection}
               disabled={patterns.length === 0}
             >
@@ -1072,6 +1253,54 @@ function Sidebar() {
         </div>
       </div>
     </aside>
+    {patternContextMenu && createPortal(
+      <div
+        className={styles.patternContextMenu}
+        role="menu"
+        aria-label="Pattern actions"
+        style={{ left: patternContextMenu.x, top: patternContextMenu.y }}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className={styles.patternContextSummary}>
+          <strong>{selectedPatterns.length} selected</strong>
+          <span>{editableSelectedPatterns.length} editable</span>
+        </div>
+        <button type="button" role="menuitem" autoFocus onClick={addSelectedPatternsToCanvas}>
+          <span aria-hidden="true">↗</span>
+          Add to canvas
+        </button>
+        <div className={styles.patternContextLabel}>Add to collection</div>
+        {collectionNodeIds.map((nodeId, index) => (
+          <button
+            key={nodeId}
+            type="button"
+            role="menuitem"
+            onClick={() => addSelectedPatternsToCollection(nodeId)}
+          >
+            <span aria-hidden="true">＋</span>
+            Pattern Collection {index + 1}
+          </button>
+        ))}
+        <button type="button" role="menuitem" onClick={createCollectionFromSelection}>
+          <span aria-hidden="true">◇</span>
+          New collection
+        </button>
+        <div className={styles.patternContextDivider} />
+        <button
+          type="button"
+          role="menuitem"
+          className={styles.patternContextDanger}
+          onClick={() => void deleteSelectedPatterns()}
+          disabled={editableSelectedPatterns.length === 0}
+          title={editableSelectedPatterns.length === 0 ? 'Bundled patterns cannot be deleted' : undefined}
+        >
+          <span aria-hidden="true">×</span>
+          Delete{editableSelectedPatterns.length > 1 ? ` ${editableSelectedPatterns.length} patterns` : ''}
+        </button>
+      </div>,
+      document.body,
+    )}
+    </>
   )
 }
 

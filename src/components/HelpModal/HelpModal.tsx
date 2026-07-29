@@ -175,7 +175,7 @@ function QuickStartTab() {
           <div className={styles.tip}>
             <div className={styles.tipIcon}>♫</div>
             <div className={styles.tipText}>
-              <strong>Generative Show</strong> — collect grouped patterns into <strong>Pattern Collection</strong>, feed them into <strong>Show Engine</strong>, then wire that frame output to <strong>Matrix Output</strong> for a self-running live show.
+              <strong>Generative Show</strong> — use <strong>Add patterns…</strong> on a <strong>Pattern Collection</strong> (or drag saved patterns onto it), feed the collection into <strong>Show Engine</strong>, then wire that frame output to <strong>Matrix Output</strong> for a self-running live show.
             </div>
           </div>
           <div className={styles.tip}>

@@ -3,6 +3,7 @@ import { createEvent, fireEvent, render } from '@testing-library/react'
 import PatternCollectionBody from '../PatternCollectionBody'
 import { useGraphStore } from '../../../state/graphStore'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
+import { usePatternLibrary, type SavedPattern } from '../../../state/patternLibrary'
 
 function nodeData(type: string, properties: Record<string, unknown>) {
   const def = NODE_LIBRARY.find((n) => n.type === type)!
@@ -18,6 +19,7 @@ function nodeData(type: string, properties: Record<string, unknown>) {
 
 describe('PatternCollectionBody', () => {
   beforeEach(() => {
+    usePatternLibrary.setState({ patterns: [] })
     useGraphStore.setState({
       nodes: [
         {
@@ -58,5 +60,33 @@ describe('PatternCollectionBody', () => {
     fireEvent(list, event)
 
     expect(stopPropagation).toHaveBeenCalled()
+  })
+
+  it('adds several saved patterns through the node picker in one action', () => {
+    const patterns: SavedPattern[] = ['Aurora', 'Comet'].map((name, index) => ({
+      id: `saved-${index}`,
+      name,
+      createdAt: index,
+      inputs: [],
+      outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+      subgraph: { nodes: [], edges: [] },
+    }))
+    usePatternLibrary.setState({ patterns })
+
+    const view = render(<PatternCollectionBody nodeId="collection" />)
+    fireEvent.click(view.getByRole('button', { name: 'Add patterns…' }))
+
+    expect(view.getByRole('dialog', { name: 'Add patterns to collection' })).toBeTruthy()
+    fireEvent.click(view.getByLabelText('Select Aurora'))
+    fireEvent.click(view.getByLabelText('Select Comet'))
+    fireEvent.click(view.getByRole('button', { name: 'Add 2 patterns' }))
+
+    const collection = useGraphStore.getState().nodes.find((node) => node.id === 'collection')
+    const ids = (collection?.data.properties as { patternIds?: string[] }).patternIds ?? []
+    expect(ids).toHaveLength(4)
+    expect(ids.slice(2).map((id) => useGraphStore.getState().graphs[id]?.sourcePatternId)).toEqual([
+      'saved-0',
+      'saved-1',
+    ])
   })
 })

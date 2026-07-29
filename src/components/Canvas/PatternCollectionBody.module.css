@@ -14,6 +14,31 @@
   text-align: center;
 }
 
+.addPatterns {
+  width: 100%;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 2px;
+  border: 1px dashed color-mix(in srgb, var(--accent-library) 34%, rgba(255, 255, 255, 0.08));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent-library) 6%, transparent);
+  color: color-mix(in srgb, var(--accent-library) 68%, white);
+  font-family: var(--font-code);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.addPatterns:hover {
+  border-color: color-mix(in srgb, var(--accent-library) 62%, white);
+  background: color-mix(in srgb, var(--accent-library) 12%, transparent);
+}
+
 .list {
   list-style: none;
   margin: 0;
