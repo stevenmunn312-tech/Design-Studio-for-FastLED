@@ -22,7 +22,7 @@
 .popup {
   width: min(720px, 100%);
   max-height: calc(100dvh - var(--menubar-height) - 48px);
-  overflow-y: auto;
+  overflow: hidden;
   overscroll-behavior: contain;
   scrollbar-color: rgba(255, 210, 74, 0.42) rgba(255, 255, 255, 0.04);
   scrollbar-width: thin;
@@ -109,6 +109,7 @@
 }
 
 .actionsRow {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -172,9 +173,16 @@
 }
 
 .list {
+  min-height: 0;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  overflow-y: auto;
+  padding-right: 4px;
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(255, 210, 74, 0.42) rgba(255, 255, 255, 0.04);
+  scrollbar-width: thin;
 }
 
 .card {

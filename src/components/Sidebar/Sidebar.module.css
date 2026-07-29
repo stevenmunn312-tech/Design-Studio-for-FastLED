@@ -798,14 +798,115 @@
   box-shadow: inset 2px 0 var(--accent-library);
 }
 
-.patternBadge {
+.patternItemSelected,
+.patternItemSelected:hover {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent-library) 14%, transparent), transparent 88%),
+    rgba(255, 255, 255, 0.025);
+  box-shadow:
+    inset 2px 0 var(--accent-library),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent-library) 22%, transparent);
+}
+
+.patternRating {
   flex-shrink: 0;
-  padding: 1px 5px;
-  border: 1px solid color-mix(in srgb, var(--accent-audio) 30%, transparent);
-  border-radius: 999px;
-  color: color-mix(in srgb, var(--accent-audio) 72%, white);
+  min-width: 31px;
+  color: var(--text-secondary);
   font-family: var(--font-code);
-  font-size: 7px;
-  letter-spacing: 0.08em;
+  font-size: 9px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.patternRating_good { color: var(--good, #4ade80); }
+.patternRating_ok { color: var(--warn, #fbbf24); }
+.patternRating_bad { color: var(--bad, #f87171); }
+
+.patternContextMenu {
+  position: fixed;
+  z-index: 180;
+  width: 220px;
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: 6px;
+  border: 1px solid color-mix(in srgb, var(--accent-library) 24%, rgba(255, 255, 255, 0.08));
+  border-radius: 9px;
+  background:
+    linear-gradient(180deg, rgba(25, 28, 34, 0.99), rgba(10, 13, 17, 0.99)),
+    var(--bg-panel);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.52);
+}
+
+.patternContextSummary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 7px 8px;
+  color: var(--text-primary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.patternContextSummary span {
+  color: var(--text-secondary);
+  font-size: 8px;
+}
+
+.patternContextMenu > button {
+  width: 100%;
+  min-height: 31px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.patternContextMenu > button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-library) 12%, rgba(255, 255, 255, 0.025));
+}
+
+.patternContextMenu > button:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.patternContextMenu > button > span {
+  color: var(--accent-library);
+  font-family: var(--font-code);
+  text-align: center;
+}
+
+.patternContextLabel {
+  padding: 8px 7px 4px;
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.patternContextDivider {
+  height: 1px;
+  margin: 5px 3px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.patternContextMenu > .patternContextDanger {
+  color: var(--error);
+}
+
+.patternContextMenu > .patternContextDanger > span {
+  color: var(--error);
 }
