@@ -1,13 +1,13 @@
 {
   "category": "kinetic-type",
-  "duration_s": 4,
+  "duration_s": 7,
   "fps": 30,
   "canvas": {
     "w": 1920,
     "h": 1080,
     "aspect": "16:9"
   },
-  "style": "Design Studio for FastLED lighting-console identity: dark precision panels, large approachable technical typography, restrained node graph, and one cyan-to-purple-to-magenta signal pulse",
+  "style": "Design Studio for FastLED lighting-console identity: dark precision panels, large approachable technical typography, real application node cards, and one cyan-to-purple-to-magenta signal pulse",
   "palette": [
     "#0D0F12",
     "#161A1F",
@@ -25,9 +25,14 @@
     0.18,
     0.52,
     0.92,
-    1.36,
+    1.08,
+    1.48,
     2.3,
-    3.3
+    3.3,
+    4.4,
+    5.5,
+    6.2,
+    6.5
   ],
   "export": "mp4",
   "asset_needs": [
@@ -54,7 +59,7 @@
       "metadata": "left column at y=330",
       "title": "left column, 108px Audiowide, maximum two lines, 1040px wide",
       "supportingLine": "left column, 31px Inter, maximum 980px wide",
-      "nodeGraph": "right third, three simplified panels connected left-to-right",
+      "nodeGraph": "right third, three real SVG node cards from the application connected left-to-right",
       "matrix": "right edge, compact 8x8 LED matrix",
       "progress": "bottom-left, eleven LED squares"
     }
@@ -64,7 +69,7 @@
       {
         "id": "card",
         "start": 0,
-        "end": 4,
+        "end": 7,
         "text": "Variable-driven tutorial title or next-card copy",
         "emphasis_words": [],
         "emotion": "confident, technical, approachable",
@@ -73,9 +78,14 @@
           0.18,
           0.52,
           0.92,
-          1.36,
+          1.08,
+          1.48,
           2.3,
-          3.3
+          3.3,
+          4.4,
+          5.5,
+          6.2,
+          6.5
         ]
       }
     ],
@@ -103,12 +113,16 @@
           "action": "faint grid, structural rules, and node panels fade into the dark workspace"
         },
         {
-          "time": 0.42,
-          "action": "signal path draws from the first cyan port toward the purple show node"
+          "time": 1.02,
+          "action": "after the real node cards settle, the signal bases fade in on their exact port anchors"
         },
         {
-          "time": 0.78,
-          "action": "bright pulse travels along the completed path"
+          "time": 1.08,
+          "action": "the two aligned signal wires draw left-to-right between the visible ports"
+        },
+        {
+          "time": 1.48,
+          "action": "a bright pulse travels across the completed connections"
         },
         {
           "time": 0.92,
@@ -137,9 +151,25 @@
         {
           "time": 3.3,
           "action": "a second restrained LED shimmer leads into the clean final hold"
+        },
+        {
+          "time": 4.4,
+          "action": "a third restrained LED shimmer maintains a quiet living hold"
+        },
+        {
+          "time": 5.5,
+          "action": "a fourth restrained LED shimmer maintains the extended reading hold"
+        },
+        {
+          "time": 6.2,
+          "action": "a final restrained LED shimmer leads into the fadeout"
+        },
+        {
+          "time": 6.5,
+          "action": "the complete card fades evenly to the dark background over the final half-second"
         }
       ],
-      "hold": "All copy and primary geometry remain completely stable from 1.72s through 4.0s."
+      "hold": "All copy and primary geometry remain completely stable from 1.72s through 6.5s, followed by a 0.5s full-frame fadeout."
     },
     "modes": {
       "title": "BEGINNER SERIES / TUTORIAL NN, hero title, supporting line, current progress square magenta",
@@ -159,6 +189,6 @@
       "hardware": "magenta Matrix Output feeding the LED matrix",
       "save": "three thin-line file, link, and help glyphs"
     },
-    "brief": "A reusable title-and-end-card system. The hero frame is left-anchored typography balanced by a simplified node graph on the right. The official pixel lockup sits in the upper-left. A single signal pulse is the dominant motion motif; it travels through cyan and purple ports into a magenta output and lights a compact LED matrix. Opening cards resolve to a tutorial title. End cards resolve to NEXT UP, the following tutorial title, and an eleven-pixel progress rail. The final card resolves to SERIES COMPLETE."
+    "brief": "A reusable title-and-end-card system. The hero frame is left-anchored typography balanced by three authentic application node cards on the right. The official pixel lockup sits in the upper-left. A single signal pulse travels behind the real cards and lights a compact LED matrix. Opening cards resolve to a tutorial title. End cards resolve to NEXT UP, the following tutorial title, and an eleven-pixel progress rail. The final card resolves to SERIES COMPLETE."
   }
 }

@@ -7,7 +7,7 @@ destination: youtube
 aspect: 1920x1080
 language: en
 audience: beginner Design Studio for FastLED users
-length: 4s per card
+length: 7s per card
 angle: branded tutorial title-and-next-card system
 style_preset: fastled-lighting-console
 ---
@@ -17,9 +17,9 @@ style_preset: fastled-lighting-console
 Create one reusable animated identity system for an eleven-part onboarding
 series. Deliver an opening card and an end card for every tutorial. The visual
 language should match the application: a precise dark lighting console with
-large readable typography, restrained node-graph geometry, LED pixels, and a
-cyan-to-purple-to-magenta signal path. Motion should feel confident, technical,
-and approachable.
+large readable typography, the application’s actual node-card artwork, LED
+pixels, and a cyan-to-purple-to-magenta signal path. Motion should feel
+confident, technical, and approachable.
 
 ## Assets
 
@@ -30,6 +30,8 @@ and approachable.
 - `../../src/themes/tokens.css` — authoritative application colors and font
   families.
 - `../../public/fonts/Audiowide-Regular.ttf` — display typeface.
+- `../../public/node-cards/*.svg` — authoritative node artwork; freeze the
+  tutorial-relevant cards locally and show them without redrawing their UI.
 - `../../index.html` — the app’s official Google Fonts declarations for Inter
   and JetBrains Mono.
 
@@ -39,8 +41,8 @@ and approachable.
   supporting line.
 - End cards announce the next tutorial and show progress across eleven LED
   squares.
-- Tutorial-specific node-path illustrations change while the layout, logo, and
-  title positions remain consistent.
+- Tutorial-specific combinations of real node cards change while the layout,
+  logo, and title positions remain consistent.
 - Tutorial 11 ends with `SERIES COMPLETE` and `YOU’RE READY TO BUILD`.
 - Export a 1920×1080 MP4 for every opening and end card.
 

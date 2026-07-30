@@ -213,8 +213,8 @@
       .graph-zone {
         position: absolute;
         top: 285px;
-        right: 82px;
-        width: 660px;
+        right: 40px;
+        width: 720px;
         height: 620px;
         overflow: visible;
       }
@@ -268,7 +268,7 @@
       .signal-svg {
         position: absolute;
         inset: 0;
-        width: 660px;
+        width: 720px;
         height: 620px;
         overflow: visible;
       }
@@ -278,6 +278,7 @@
         stroke: rgba(51, 214, 255, 0.28);
         stroke-width: 4;
         stroke-linecap: round;
+        opacity: 0;
       }
 
       .signal-drawn {
@@ -286,6 +287,7 @@
         stroke-width: 5;
         stroke-linecap: round;
         filter: drop-shadow(0 0 8px rgba(51, 214, 255, 0.45));
+        opacity: 0;
       }
 
       .signal-pulse {
@@ -294,100 +296,49 @@
         stroke-width: 9;
         stroke-linecap: round;
         filter: drop-shadow(0 0 11px rgba(51, 214, 255, 0.95));
+        opacity: 0;
+      }
+
+      .motif-compare .signal-svg,
+      .motif-hardware .signal-svg,
+      .motif-save .signal-svg {
+        opacity: 0;
       }
 
       .node-panel {
         position: absolute;
-        width: 166px;
-        min-height: 126px;
-        border: 2px solid rgba(255, 255, 255, 0.12);
-        border-radius: 10px;
-        background: linear-gradient(180deg, rgba(31, 36, 43, 0.98), rgba(18, 22, 27, 0.98));
-        box-shadow: 0 18px 32px rgba(0, 0, 0, 0.34);
-        overflow: hidden;
+        top: 114px;
+        display: flex;
+        width: 215px;
+        height: 470px;
+        align-items: center;
+        justify-content: center;
+        overflow: visible;
       }
 
       .node-panel::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 9px;
-        background: var(--node-color);
-        box-shadow: 0 0 18px color-mix(in srgb, var(--node-color) 44%, transparent);
+        display: none;
       }
 
       .node-source {
-        --node-color: var(--pattern);
-        left: 38px;
-        top: 224px;
+        left: 0;
       }
 
       .node-process {
-        --node-color: var(--show);
-        left: 246px;
-        top: 326px;
+        left: 252px;
       }
 
       .node-output {
-        --node-color: var(--output);
-        left: 450px;
-        top: 214px;
+        left: 505px;
       }
 
-      .node-title {
-        padding: 25px 18px 11px;
-        color: var(--text);
-        font-family: "Audiowide", "Inter", sans-serif;
-        font-size: 17px;
-        line-height: 1.2;
-      }
-
-      .node-code {
-        position: absolute;
-        top: 24px;
-        right: 13px;
-        color: #969a9f;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 11px;
-        letter-spacing: 0.08em;
-      }
-
-      .node-screen {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 64px;
-        margin: 0 14px 14px;
-        border: 2px solid rgba(255, 255, 255, 0.08);
-        border-radius: 6px;
-        background: rgba(7, 11, 16, 0.92);
-        color: color-mix(in srgb, var(--node-color) 76%, white);
-        font-family: "JetBrains Mono", monospace;
-        font-size: 18px;
-        line-height: 1.2;
-        letter-spacing: 0.08em;
-        text-align: center;
-      }
-
-      .port {
-        position: absolute;
-        top: 71px;
-        width: 14px;
-        height: 14px;
-        border: 2px solid rgba(255, 255, 255, 0.7);
-        border-radius: 50%;
-        background: var(--node-color);
-        box-shadow: 0 0 13px var(--node-color);
-      }
-
-      .port-in {
-        left: -8px;
-      }
-
-      .port-out {
-        right: -8px;
+      .node-card {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        object-position: center;
+        filter: drop-shadow(0 18px 26px rgba(0, 0, 0, 0.42));
       }
 
       .matrix-shell {
@@ -423,15 +374,6 @@
         box-shadow:
           0 0 7px color-mix(in srgb, var(--output) 70%, transparent),
           0 0 14px color-mix(in srgb, var(--pattern) 30%, transparent);
-      }
-
-      .motif-audio .node-source,
-      .motif-percussion .node-source {
-        --node-color: var(--audio);
-      }
-
-      .motif-library .node-source {
-        --node-color: var(--library);
       }
 
       .progress-wrap {
@@ -507,8 +449,8 @@
     </style>
   </head>
   <body>
-    <div data-hf-id="hf-911h" id="stage" data-composition-id="tutorial-card" data-start="0" data-duration="4" data-fps="30" data-width="1920" data-height="1080">
-      <section data-hf-id="hf-ttnh" id="card" class="clip" data-start="0" data-duration="4" data-track-index="0">
+    <div data-hf-id="hf-911h" id="stage" data-composition-id="tutorial-card" data-start="0" data-duration="7" data-fps="30" data-width="1920" data-height="1080">
+      <section data-hf-id="hf-ttnh" id="card" class="clip" data-start="0" data-duration="7" data-track-index="0">
         <div data-hf-id="hf-a01l" class="scene-bg" data-layout-ignore=""></div>
         <div data-hf-id="hf-80b5" class="grid" data-layout-ignore=""></div>
         <div data-hf-id="hf-dp2b" class="top-rule struct-line" data-layout-ignore=""></div>
@@ -532,7 +474,7 @@
           <div data-hf-id="hf-ddhk" class="graph-label">Signal overview</div>
           <div data-hf-id="hf-5i7h" class="graph-status">Live</div>
 
-          <svg data-hf-id="hf-umsa" class="signal-svg" viewBox="0 0 660 620" aria-hidden="true">
+          <svg data-hf-id="hf-umsa" class="signal-svg" viewBox="0 0 720 620" aria-hidden="true">
             <defs data-hf-id="hf-mh0t">
               <lineargradient data-hf-id="hf-6v9t" id="signal-gradient" x1="0" y1="0" x2="1" y2="0">
                 <stop data-hf-id="hf-25g3" offset="0%" stop-color="#33D6FF" />
@@ -540,31 +482,24 @@
                 <stop data-hf-id="hf-4avu" offset="100%" stop-color="#D633FF" />
               </lineargradient>
             </defs>
-            <path data-hf-id="hf-a4qd" class="signal-base" d="M 202 295 C 235 295, 222 397, 246 397 S 415 397, 415 285 S 444 285, 450 285" pathLength="1000" />
-            <path data-hf-id="hf-6qqt" id="signal-drawn" class="signal-drawn" d="M 202 295 C 235 295, 222 397, 246 397 S 415 397, 415 285 S 444 285, 450 285" pathLength="1000" />
-            <path data-hf-id="hf-bwwd" id="signal-pulse" class="signal-pulse" d="M 202 295 C 235 295, 222 397, 246 397 S 415 397, 415 285 S 444 285, 450 285" pathLength="1000" />
+            <path data-hf-id="hf-a4qd" id="signal-base-a" class="signal-base" d="M 214 355 C 232 355, 232 405, 252 405" pathLength="1000" />
+            <path data-hf-id="hf-a4qe" id="signal-base-b" class="signal-base" d="M 467 405 C 485 405, 485 355, 505 355" pathLength="1000" />
+            <path data-hf-id="hf-6qqt" id="signal-drawn-a" class="signal-drawn" d="M 214 355 C 232 355, 232 405, 252 405" pathLength="1000" />
+            <path data-hf-id="hf-6qqu" id="signal-drawn-b" class="signal-drawn" d="M 467 405 C 485 405, 485 355, 505 355" pathLength="1000" />
+            <path data-hf-id="hf-bwwd" id="signal-pulse-a" class="signal-pulse" d="M 214 355 C 232 355, 232 405, 252 405" pathLength="1000" />
+            <path data-hf-id="hf-bwwe" id="signal-pulse-b" class="signal-pulse" d="M 467 405 C 485 405, 485 355, 505 355" pathLength="1000" />
           </svg>
 
           <div data-hf-id="hf-yto0" class="node-panel node-source graph-node">
-            <div data-hf-id="hf-wo05" class="node-title" id="source-title">Pattern</div>
-            <div data-hf-id="hf-2ruv" class="node-code">PAT</div>
-            <div data-hf-id="hf-ejgq" class="node-screen" id="source-screen">● ● ●</div>
-            <i data-hf-id="hf-zg5t" class="port port-out"></i>
+            <img data-hf-id="hf-wo05" id="source-node-card" class="node-card" src="./assets/node-cards/juggle.svg" alt="Juggle node">
           </div>
 
           <div data-hf-id="hf-jnq0" class="node-panel node-process graph-node">
-            <i data-hf-id="hf-6a7y" class="port port-in"></i>
-            <div data-hf-id="hf-jvn8" class="node-title" id="process-title">Process</div>
-            <div data-hf-id="hf-j048" class="node-code">FX</div>
-            <div data-hf-id="hf-t3n2" class="node-screen" id="process-screen">TRAILS</div>
-            <i data-hf-id="hf-5ddx" class="port port-out"></i>
+            <img data-hf-id="hf-jvn8" id="process-node-card" class="node-card" src="./assets/node-cards/trails.svg" alt="Trails node">
           </div>
 
           <div data-hf-id="hf-zryg" class="node-panel node-output graph-node">
-            <i data-hf-id="hf-7vhe" class="port port-in"></i>
-            <div data-hf-id="hf-1dcl" class="node-title">Matrix Output</div>
-            <div data-hf-id="hf-3cka" class="node-code">OUT</div>
-            <div data-hf-id="hf-m2pq" class="node-screen">FRAME</div>
+            <img data-hf-id="hf-1dcl" id="output-node-card" class="node-card" src="./assets/node-cards/matrix-output.svg" alt="Matrix Output node">
           </div>
 
           <div data-hf-id="hf-3dci" class="matrix-shell">
@@ -612,25 +547,136 @@
       const titleSize = title.length > 46 ? 66 : title.length > 38 ? 73 : title.length > 30 ? 80 : 88;
       stage.style.setProperty("--title-size", `${titleSize}px`);
 
-      const motifCopy = {
-        juggle: ["Juggle", "● ● ●", "Effects", "TRAILS"],
-        interface: ["Workspace", "LIB  CAN  PRE", "Tools", "UNDO  TIDY"],
-        audio: ["Microphone", "⌁  AUDIO", "Visualizer", "BARS  FRAME"],
-        group: ["Mini Patch", "▦  ▦  ▦", "Group", "GROUPED"],
-        percussion: ["Percussion", "K  S  H", "Kick Shock", "TRIGGER"],
-        generative: ["Collection", "G1  G2  G3", "Show Engine", "CHOOSE"],
-        music: ["Music", "▁▃▆▂▅▇▃", "Performance", "ANALYZE"],
-        sd: ["Performance", "SHOW DATA", "SD Card", "▣  PACKAGE"],
-        compare: ["Patterns", "GROUP SET", "Two Paths", "LIVE / SD"],
-        hardware: ["Controller", "USB  GPIO", "Matrix Output", "16 × 16"],
-        save: ["Project", "FILE  LINK", "Library", "SAVE  HELP"]
+      const motifCards = {
+        juggle: [
+          ["juggle", "Juggle"],
+          ["trails", "Trails"],
+          ["matrix-output", "Matrix Output"]
+        ],
+        interface: [
+          ["juggle", "Juggle"],
+          ["trails", "Trails"],
+          ["matrix-output", "Matrix Output"]
+        ],
+        audio: [
+          ["mic-input", "Microphone"],
+          ["spectrum-visualizer", "Spectrum Visualizer"],
+          ["matrix-output", "Matrix Output"]
+        ],
+        group: [
+          ["spectrum-visualizer", "Spectrum Visualizer"],
+          ["trails", "Trails"],
+          ["matrix-output", "Matrix Output"]
+        ],
+        percussion: [
+          ["percussion-detect", "Percussion Detect"],
+          ["kick-shock", "Kick Shock"],
+          ["matrix-output", "Matrix Output"]
+        ],
+        generative: [
+          ["pattern-collection", "Pattern Collection"],
+          ["pattern-master", "Show Engine"],
+          ["matrix-output", "Matrix Output"]
+        ],
+        music: [
+          ["music-library", "Music Library"],
+          ["performance-generator", "Performance Generator"],
+          ["sd-card", "SD Card"]
+        ],
+        sd: [
+          ["performance-generator", "Performance Generator"],
+          ["sd-card", "SD Card"],
+          ["matrix-output", "Matrix Output"]
+        ],
+        compare: [
+          ["pattern-collection", "Pattern Collection"],
+          ["pattern-master", "Show Engine"],
+          ["performance-generator", "Performance Generator"]
+        ],
+        hardware: [
+          ["mic-input", "Microphone"],
+          ["sd-card", "SD Card"],
+          ["matrix-output", "Matrix Output"]
+        ],
+        save: [
+          ["comment", "Comment"],
+          ["pattern-collection", "Pattern Collection"],
+          ["matrix-output", "Matrix Output"]
+        ]
       };
 
-      const copy = motifCopy[motif] || motifCopy.juggle;
-      document.getElementById("source-title").textContent = copy[0];
-      document.getElementById("source-screen").textContent = copy[1];
-      document.getElementById("process-title").textContent = copy[2];
-      document.getElementById("process-screen").textContent = copy[3];
+      const cards = motifCards[motif] || motifCards.juggle;
+      ["source", "process", "output"].forEach((slot, index) => {
+        const [fileName, label] = cards[index];
+        const image = document.getElementById(`${slot}-node-card`);
+        image.src = `./assets/node-cards/${fileName}.svg`;
+        image.alt = `${label} node`;
+      });
+
+      const nodeHeights = {
+        juggle: 524,
+        comment: 178,
+        "mic-input": 226,
+        "spectrum-visualizer": 482,
+        trails: 461,
+        "percussion-detect": 261,
+        "kick-shock": 748,
+        "pattern-collection": 158,
+        "pattern-master": 762,
+        "music-library": 158,
+        "performance-generator": 310,
+        "sd-card": 268,
+        "matrix-output": 324
+      };
+
+      const motifPorts = {
+        juggle: [[280, 280], [280, 52]],
+        interface: [[280, 280], [280, 52]],
+        audio: [[52, 280], [280, 52]],
+        group: [[280, 280], [280, 52]],
+        percussion: [[52, 280], [280, 52]],
+        generative: [[52, 280], [280, 52]],
+        music: [[52, 52], [52, 52]],
+        sd: [[52, 52], [52, 80]]
+      };
+
+      const slotLeft = [0, 252, 505];
+      const slotTop = 114;
+      const slotWidth = 215;
+      const slotHeight = 470;
+      const sourceWidth = 296;
+
+      const nodePortPoint = (slotIndex, fileName, side, portY) => {
+        const sourceHeight = nodeHeights[fileName];
+        const scale = Math.min(slotWidth / sourceWidth, slotHeight / sourceHeight);
+        const renderedWidth = sourceWidth * scale;
+        const renderedHeight = sourceHeight * scale;
+        const offsetX = (slotWidth - renderedWidth) / 2;
+        const offsetY = (slotHeight - renderedHeight) / 2;
+        const sourceX = side === "right" ? 270 : 26;
+        return {
+          x: slotLeft[slotIndex] + offsetX + sourceX * scale,
+          y: slotTop + offsetY + (24 + portY) * scale
+        };
+      };
+
+      const wirePath = (from, to) => {
+        const control = Math.max(12, Math.min(28, (to.x - from.x) * 0.46));
+        return `M ${from.x.toFixed(1)} ${from.y.toFixed(1)} C ${(from.x + control).toFixed(1)} ${from.y.toFixed(1)}, ${(to.x - control).toFixed(1)} ${to.y.toFixed(1)}, ${to.x.toFixed(1)} ${to.y.toFixed(1)}`;
+      };
+
+      const topology = motifPorts[motif];
+      if (topology) {
+        topology.forEach(([fromPortY, toPortY], index) => {
+          const from = nodePortPoint(index, cards[index][0], "right", fromPortY);
+          const to = nodePortPoint(index + 1, cards[index + 1][0], "left", toPortY);
+          const path = wirePath(from, to);
+          const suffix = index === 0 ? "a" : "b";
+          document.getElementById(`signal-base-${suffix}`).setAttribute("d", path);
+          document.getElementById(`signal-drawn-${suffix}`).setAttribute("d", path);
+          document.getElementById(`signal-pulse-${suffix}`).setAttribute("d", path);
+        });
+      }
 
       const matrix = document.getElementById("matrix-grid");
       for (let i = 0; i < 32; i += 1) {
@@ -663,19 +709,20 @@
       tl.fromTo(".graph-label, .graph-status", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.38, stagger: 0.08, ease: "power1.out" }, 0.38);
       tl.fromTo(".graph-node", { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 0.48, stagger: 0.1, ease: "power4.out" }, 0.34);
 
+      tl.to(".signal-base", { opacity: 1, duration: 0.18, ease: "sine.out" }, 1.02);
       tl.fromTo(
-        "#signal-drawn",
-        { attr: { "stroke-dasharray": 1000, "stroke-dashoffset": 1000 } },
-        { attr: { "stroke-dashoffset": 0 }, duration: 0.68, ease: "power2.out" },
-        0.48
+        ".signal-drawn",
+        { attr: { "stroke-dasharray": 1000, "stroke-dashoffset": 1000 }, opacity: 0 },
+        { attr: { "stroke-dashoffset": 0 }, opacity: 1, duration: 0.42, stagger: 0.12, ease: "power2.out" },
+        1.08
       );
       tl.fromTo(
-        "#signal-pulse",
+        ".signal-pulse",
         { attr: { "stroke-dasharray": "36 964", "stroke-dashoffset": 1000 }, opacity: 0 },
-        { attr: { "stroke-dashoffset": 0 }, opacity: 1, duration: 0.64, ease: "power1.inOut" },
-        0.72
+        { attr: { "stroke-dashoffset": 0 }, opacity: 1, duration: 0.38, stagger: 0.12, ease: "power1.inOut" },
+        1.48
       );
-      tl.to("#signal-pulse", { opacity: 0, duration: 0.14, ease: "power2.in" }, 1.36);
+      tl.to(".signal-pulse", { opacity: 0, duration: 0.14, ease: "power2.in" }, 2.0);
 
       tl.fromTo(".matrix-shell", { autoAlpha: 0, scale: 0.96 }, { autoAlpha: 1, scale: 1, duration: 0.42, ease: "back.out(1.5)" }, 0.86);
       tl.fromTo(".matrix-cell", { opacity: 0.06, scale: 0.45 }, { opacity: 1, scale: 1, duration: 0.34, stagger: 0.008, ease: "power3.out" }, 0.94);
@@ -689,6 +736,13 @@
       tl.to(shimmerCell, { opacity: 0.32, scale: 0.72, duration: 0.12, yoyo: true, repeat: 1, ease: "sine.inOut" }, 2.3);
       const secondShimmerCell = document.querySelector(".matrix-cell:nth-child(27)");
       tl.to(secondShimmerCell, { opacity: 0.32, scale: 0.72, duration: 0.12, yoyo: true, repeat: 1, ease: "sine.inOut" }, 3.3);
+      const thirdShimmerCell = document.querySelector(".matrix-cell:nth-child(8)");
+      tl.to(thirdShimmerCell, { opacity: 0.32, scale: 0.72, duration: 0.12, yoyo: true, repeat: 1, ease: "sine.inOut" }, 4.4);
+      const fourthShimmerCell = document.querySelector(".matrix-cell:nth-child(22)");
+      tl.to(fourthShimmerCell, { opacity: 0.32, scale: 0.72, duration: 0.12, yoyo: true, repeat: 1, ease: "sine.inOut" }, 5.5);
+      const finalShimmerCell = document.querySelector(".matrix-cell:nth-child(31)");
+      tl.to(finalShimmerCell, { opacity: 0.32, scale: 0.72, duration: 0.12, yoyo: true, repeat: 1, ease: "sine.inOut" }, 6.2);
+      tl.to("#card", { autoAlpha: 0, duration: 0.5, ease: "power2.inOut" }, 6.5);
 
       window.__timelines["tutorial-card"] = tl;
       tl.seek(0);

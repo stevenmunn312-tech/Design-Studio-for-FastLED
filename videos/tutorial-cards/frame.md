@@ -50,11 +50,12 @@ technical, creative, and approachable.
 
 ## Do
 
-- Use subtle grid lines, structural rules, node panels, round ports, and LED
-  pixels that clearly reference the application.
+- Use subtle grid lines, structural rules, the application’s real SVG node
+  cards, and LED pixels that clearly reference the application.
 - Let cyan Frame signals pass through purple Show elements into magenta Output.
 - Use lime only when the tutorial is explicitly about audio.
-- Hold the final hero frame completely stable for editorial flexibility.
+- Hold the final hero frame completely stable, then fade the full card out over
+  the final half-second.
 
 ## Do not
 
