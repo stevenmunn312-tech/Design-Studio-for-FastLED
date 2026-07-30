@@ -39,10 +39,9 @@ describe('Sidebar equipment rack', () => {
 
   it('labels modules with their primary output type', () => {
     const { getByRole, getByLabelText } = render(<Sidebar />)
-    // The graph is empty in this test, which now steers the sidebar to open
-    // "Quick recipes" by default (see the "open Quick recipes when the graph
-    // is empty" behavior) — open Audio explicitly rather than relying on it
-    // already being expanded.
+    // The graph is empty in this test, which collapses every section (see the
+    // "blank canvas collapses the rack" behavior) — open Audio explicitly
+    // rather than relying on it already being expanded.
     fireEvent.click(getByRole('button', { name: /^Audio\d/ }))
     const fft = getByLabelText('Add FFT Analyzer')
     expect(fft.querySelector('[data-output-type="float"]')).toBeTruthy()
@@ -103,11 +102,11 @@ describe('Sidebar equipment rack', () => {
     ['Percussion trails', ['MicInput', 'PercussionDetect', 'KickShock', 'Trails', 'MatrixOutput', 'Comment'], 6],
   ])('drops the %s real-audio recipe onto the canvas', (title, expectedTypes, expectedEdges) => {
     useUiStore.setState({ testSignal: true })
-    const { getByText } = render(<Sidebar />)
+    const { getByRole, getByText } = render(<Sidebar />)
 
-    // The graph is empty, so "Quick recipes" is already open by default
-    // (see the "open Quick recipes when the graph is empty" behavior) —
-    // clicking its header here would only toggle it closed.
+    // The graph is empty, so the whole rack starts collapsed — open Quick
+    // recipes before clicking the card inside it.
+    fireEvent.click(getByRole('button', { name: /Quick recipes/i }))
     fireEvent.click(getByText(title))
 
     expect(useGraphStore.getState().nodes.map((node) => node.data.nodeType)).toEqual(
@@ -206,19 +205,21 @@ describe('Sidebar remembered section', () => {
     useUiStore.setState({ viewCenter: { x: 0, y: 0 }, draggingNodeType: null, testSignal: false })
   })
 
-  it('still steers an empty graph to Quick recipes', () => {
+  it('collapses every section — Quick recipes included — on an empty graph', () => {
     localStorage.setItem(KEY, JSON.stringify('audio'))
     useGraphStore.setState({ nodes: [], edges: [], selectedNodeId: null })
 
-    const { getByRole } = render(<Sidebar />)
+    const { getAllByRole } = render(<Sidebar />)
 
-    expect(getByRole('button', { name: /Quick recipes/i }).getAttribute('aria-expanded')).toBe('true')
+    const headers = getAllByRole('button').filter((button) => button.hasAttribute('aria-expanded'))
+    expect(headers.length).toBeGreaterThan(1)
+    expect(headers.map((header) => header.getAttribute('aria-expanded'))).not.toContain('true')
   })
 
-  it('does not let that steer overwrite the section the user chose', () => {
-    // The user picked Audio, then emptied the canvas. The steer opens Quick
-    // recipes for this session, but the remembered preference must survive so
-    // the next load still comes back to Audio.
+  it('does not let that reset overwrite the section the user chose', () => {
+    // The user picked Audio, then emptied the canvas. The rack collapses for
+    // this session, but the remembered preference must survive so the next
+    // load still comes back to Audio.
     localStorage.setItem(KEY, JSON.stringify('audio'))
     useGraphStore.setState({ nodes: [], edges: [], selectedNodeId: null })
 

@@ -269,7 +269,12 @@ function Sidebar() {
   const setDraggingNodeType = useUiStore((s) => s.setDraggingNodeType)
   // One-bank-at-a-time accordion. We still persist the last opened section,
   // but unlike the old multi-open drawer this keeps the library scan tight.
-  const [expandedId, setExpandedId] = useState<string | null>(() => loadExpanded() ?? 'recipes')
+  // A blank canvas starts fully collapsed (see the isEmptyGraph effect below);
+  // seeding that here rather than only in the effect avoids a first frame with
+  // a section flashing open.
+  const [expandedId, setExpandedId] = useState<string | null>(() => (
+    isEmptyGraph ? null : loadExpanded() ?? 'recipes'
+  ))
   const [viewMode, setViewMode] = useState<'beginner' | 'all'>(() => loadView())
   const [favourites, setFavourites] = useState<string[]>(() => loadStringArray(FAVOURITES_KEY))
   const [recent, setRecent] = useState<string[]>(() => loadStringArray(RECENT_KEY))
@@ -659,11 +664,13 @@ function Sidebar() {
     setExpandedId(visibleSectionIds[0] ?? null)
   }, [expandedId, query, visibleSectionIds])
 
-  // Landing on an empty graph (fresh load, cleared canvas, new project) is
-  // exactly when a new/returning user most needs a starting point — steer
-  // them to Quick recipes regardless of whatever section they last had open.
+  // Landing on an empty graph (fresh load, cleared canvas, new project) resets
+  // the rack to fully collapsed — every category *and* Quick recipes — so a
+  // blank canvas comes with a blank sidebar rather than whatever section was
+  // last open. The remembered section is untouched (see saveExpanded), so the
+  // next load of a real graph still comes back to it.
   useEffect(() => {
-    if (isEmptyGraph) setExpandedId('recipes')
+    if (isEmptyGraph) setExpandedId(null)
   }, [isEmptyGraph])
 
   const searchStatus = query === ''
