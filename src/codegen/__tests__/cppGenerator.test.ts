@@ -230,10 +230,14 @@ describe('generateCpp', () => {
   it('PerformanceGenerator has no frame port to wire into MatrixOutput', () => {
     // Music-sync shows only ever play back through the SD-card export
     // (`shows` → SDCard) or the in-browser preview — never a normal sketch's
-    // frame path (see nodeLibrary.ts).
+    // frame path (see nodeLibrary.ts). It contributes no render buffer and no
+    // loop body, but it is deliberately handled elsewhere rather than missing,
+    // so the sketch says where instead of calling it unsupported.
     const generator = node('pg', 'PerformanceGenerator', 'show')
     const cpp = generateCpp([generator, outputNode], [])
-    expect(cpp).toContain('not yet supported in code gen')
+    expect(cpp).not.toContain('buf_pg')
+    expect(cpp).toContain('// PerformanceGenerator —')
+    expect(cpp).not.toContain('not yet supported')
   })
 
   it('TrebleSparks colours its sparks from the connected palette input', () => {
@@ -2959,5 +2963,39 @@ describe('KickShock / PercussionBlobs / RainRipples pool-spawner codegen', () =>
     const rr = node('rr3', 'RainRipples', 'pattern', {})
     const cpp = generateCpp([rr, outputNode], [edge('e', 'rr3', 'out', 'frame', 'frame')])
     expect(cpp).toContain('-_rrCx)*1.0f')
+  })
+})
+
+describe('show-pipeline nodes in a normal sketch', () => {
+  // These five have no emit() case by design — a different generator handles
+  // them. The default branch used to label them "not yet supported in code
+  // gen", which two shipped starters baked into their exported .ino.
+  const SHOW_PIPELINE = ['MusicLibrary', 'PerformanceGenerator', 'SDCard', 'PatternCollection', 'TransitionSet']
+
+  it('explains where each one is handled instead of calling it unsupported', () => {
+    for (const type of SHOW_PIPELINE) {
+      const cpp = generateCpp([node(`n-${type}`, type, 'show', {}), outputNode], [])
+      expect(cpp, type).toContain(`// ${type} —`)
+      expect(cpp, type).not.toContain('not yet supported')
+    }
+  })
+
+  it('still flags a genuinely unknown node type as unsupported', () => {
+    const cpp = generateCpp([node('mystery', 'NotARealNode', 'pattern', {}), outputNode], [])
+    expect(cpp).toContain('NotARealNode — not yet supported in code gen')
+  })
+})
+
+describe('starter templates', () => {
+  it('never generate a sketch claiming a supported node is unsupported', async () => {
+    const { STARTER_TEMPLATES } = await import('../../state/starterTemplates')
+    const { generateShowSketch, isPatternShow } = await import('../showGenerator')
+    for (const template of STARTER_TEMPLATES) {
+      const graph = template.build()
+      const code = isPatternShow(graph.nodes, graph.edges)
+        ? generateShowSketch(graph.nodes, graph.edges, {}, {})
+        : generateCpp(graph.nodes, graph.edges, {}, {})
+      expect(code, template.id).not.toContain('not yet supported')
+    }
   })
 })

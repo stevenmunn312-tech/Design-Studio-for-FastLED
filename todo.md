@@ -331,6 +331,30 @@ Also fixed in the same pass:
 - [x] **"Audio live" wasn't liveness.** The chip was set from any audio-category node existing on the canvas; it now reads `Audio live` only while the microphone is actually running and `Audio idle` otherwise, with a tooltip explaining the difference.
 - [x] Node cards checked — `docs/reference/node-cards.md` and `public/node-cards/` are in fact current (151 cards for 151 node types, DMX/RTC/Schedule/Clock Display included); `npm run gen:node-cards` reproduces them byte for byte. The earlier claim that they were stale was itself out of date.
 
+## App review findings — second pass (2026-07-30)
+
+A follow-up sweep over the ground the first pass missed: the Python helper, all
+three C++ generators, the show pipeline, frame pooling, and accessibility.
+
+- [x] **Two shipped starters generated firmware saying a supported node was unsupported.** `cppGenerator`'s `default:` branch could not tell "unimplemented" from "deliberately handled by another generator", so the Generative Show starter emitted `// PatternCollection — not yet supported in code gen` and the Music-synced SD Show starter emitted the same for `MusicLibrary`, `PerformanceGenerator`, and `SDCard` — visible in View Code / Export `.ino` / uploaded firmware, on two hardware-validated workflows. `SHOW_PIPELINE_NOTES` now names where each is actually handled; a genuinely unknown type still reports as unsupported. Covered by `cppGenerator.test.ts`, including a guard that no starter template ever emits the phrase.
+- [x] **Clearing the canvas permanently overwrote the remembered sidebar section.** The empty-graph steer to Quick recipes is deliberate, but a blanket persist-on-every-change effect wrote it through to `localStorage`, so the sidebar reopened on Quick recipes on every later load, full graph or not. `expandedId` is now persisted only from the header click (`saveExpanded`); the search auto-open and the empty-graph steer are transient. Three tests pin both halves — the steer still happens, and the preference survives it.
+- [x] **Collapsible sidebar sections had no `aria-expanded`.** Only the Pattern Library header exposed it; the 11 category headers and Quick recipes did not, so a screen reader could not tell whether a section was open. Added to both.
+- [x] Documentation corrected: `CLAUDE.md` described the show particle bursts as "6 motions" when there are **17** (the two `switch` blocks are genuinely in sync — only the doc was wrong, in exactly the place someone would check before editing them), and the note-category colour record above was updated.
+
+Latent, deliberately not changed — each was traced and is unreachable today, so
+a fix would be speculative. Worth knowing if the surrounding code changes:
+
+- [ ] `cppGenerator.ts`'s multi-output branch interpolates a user-editable node label into a `//` comment unescaped. Unreachable because `normalizeLoadedGraph` resets every library node's label from `NODE_LIBRARY` on load and there is no in-session rename for library nodes — **this becomes live the moment node renaming is added.**
+- [ ] `buildXYTable` throws `RangeError: Invalid array length` on negative dimensions. Every production call site clamps to 1–64 first.
+- [ ] `publishStreamFrame` stores a raw reference to a pooled evaluator frame, while `latestStreamFrameCopy` in the same module documents "callers must never hold the raw reference". Safe only because the render loop's body is synchronous, so the 30 fps send interval can never observe a half-rewritten buffer.
+
+Checked and found clean: backend path handling (sanitizer plus `resolve()`
+containment on both write endpoints; deletes match by JSON id rather than
+building a path from input), localhost-only CORS, the 16 transition styles and
+17 particle styles matching across preview and firmware, `showFileToBinary`
+trimming its worst-case buffer, balanced event listeners, no codegen throw
+across all 151 node types, and icon-button labelling.
+
 ## App review suggestions (2026-07-12)
 
 From a full app review (state stores, canvas, menu bar, codegen, upload path,
@@ -349,7 +373,7 @@ show pipeline). Ordered by expected impact within each tier.
 ### Smaller feature gaps
 
 - [x] **Node bypass/mute** — a `bypassed` property toggle on any node whose primary output is `frame`/`field` and has a matching-type input (e.g. every composite/effect node): the evaluator passes that input straight to the output, skipping the node's own logic and any stateful side effects; codegen mirrors it by copying the source buffer (`memmove`/`memcpy`) into the node's own buffer instead of emitting its render. `bypassPort()` in `nodeLibrary.ts` decides eligibility (shared by the evaluator, codegen, and the "bypass" checkbox in `StudioNode`, shown only where it would do something)
-- [x] **Canvas annotations** — a `Comment` node (no ports, just text and color) so big show graphs stay legible. Its own `note` category (`#ffd24a`, outside the pipeline hue sweep), a multi-line textarea body, and a color picker that tints the node itself rather than the fixed category accent. No evaluator/codegen participation — excluded from the isolated-node warning and skipped explicitly in both switches
+- [x] **Canvas annotations** — a `Comment` node (no ports, just text and color) so big show graphs stay legible. Its own `note` category (`#ffd24a` at the time; it later joined the sidebar hue sweep as `#ff33d6`), a multi-line textarea body, and a color picker that tints the node itself rather than the fixed category accent. No evaluator/codegen participation — excluded from the isolated-node warning and skipped explicitly in both switches
 - [x] **View generated C++** — a "View Code" button next to Export .ino on MatrixOutput opens a read-only modal (`CodeViewPopup.tsx`) showing the exact sketch string that would be exported/uploaded (reuses `MatrixOutputUpload`'s existing `code` memo, no separate codegen call), with line count + Copy-to-clipboard
 - [x] **Float signal visibility** — hovering a `float`/`bool` noodle shows a small readout of its current value at the edge midpoint, reading the live per-port value already published to `previewStore` by the render loop (`GlowEdge.tsx`)
 - [x] **Web MIDI input** — a `MidiInput` node (note velocity/gate + CC → float/bool) via the Web MIDI API (`src/midi/midiEngine.ts` singleton + `midiStore.ts` bridge, mirroring `AudioEngine`/`useAudioStore`), no deps. `note`/`cc` properties pick which MIDI numbers to listen to; on-node status readout shows connection + live values. Preview-only — no embedded equivalent, so firmware sees the idle default

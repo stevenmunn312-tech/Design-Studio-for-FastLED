@@ -574,6 +574,22 @@ function ipAddressExpr(value: [number, number, number, number] | null): string {
   return `IPAddress(${ip[0]}, ${ip[1]}, ${ip[2]}, ${ip[3]})`
 }
 
+/**
+ * Show-pipeline nodes have no `emit()` case here *by design* — they are handled
+ * by a different generator, not missing from this one. Without this table the
+ * `default:` branch below labelled them "not yet supported in code gen", which
+ * two shipped starter templates (Generative Show, Music-synced SD Show) then
+ * baked into their exported `.ino` — telling users a hardware-validated
+ * workflow was unfinished. Say where each one is actually handled instead.
+ */
+const SHOW_PIPELINE_NOTES: Record<string, string> = {
+  MusicLibrary: 'song source for the music-sync SD show; the Player sketch (Upload show to SD) consumes it, not this sketch',
+  PerformanceGenerator: 'builds the timed .show file exported to the SD card; no equivalent in a normal sketch',
+  SDCard: 'SD/I2S player configuration; emitted by the Player sketch (Upload show to SD)',
+  PatternCollection: 'resolved by the show controller generator once its Show Engine drives a Matrix Output',
+  TransitionSet: 'transition pool read by the Show Engine / Performance Generator, not emitted directly',
+}
+
 export function generateCpp(
   nodes: StudioNode[], edges: StudioEdge[], groups: GroupRegistry = {},
   // `externalAudio`: the host sketch already provides the audio-engine globals
@@ -4830,7 +4846,7 @@ export function generateCpp(
         break
 
       default:
-        ln(`  // ${type} — not yet supported in code gen`)
+        ln(`  // ${type} — ${SHOW_PIPELINE_NOTES[type] ?? 'not yet supported in code gen'}`)
     }
   }
 
