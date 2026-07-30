@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en" data-resolution="landscape" data-composition-variables='[
+    {"id":"name","type":"string","label":"Export name","default":"title-01"},
+    {"id":"cardType","type":"enum","label":"Card type","default":"title","options":[{"value":"title","label":"Opening title"},{"value":"end","label":"Next tutorial"},{"value":"complete","label":"Series complete"}]},
+    {"id":"tutorialNumber","type":"string","label":"Tutorial number","default":"01"},
+    {"id":"eyebrow","type":"string","label":"Eyebrow","default":"BEGINNER SERIES / TUTORIAL 01"},
+    {"id":"title","type":"string","label":"Title","default":"Build Your First Pattern with Juggle"},
+    {"id":"supportingLine","type":"string","label":"Supporting line","default":"Make pixels, add effects, and watch the preview"},
+    {"id":"progress","type":"number","label":"Progress","default":1,"min":1,"max":11,"step":1},
+    {"id":"motif","type":"enum","label":"Motif","default":"juggle","options":[{"value":"juggle","label":"Juggle"},{"value":"interface","label":"Interface"},{"value":"audio","label":"Audio"},{"value":"group","label":"Group"},{"value":"percussion","label":"Percussion"},{"value":"generative","label":"Generative"},{"value":"music","label":"Music"},{"value":"sd","label":"SD card"},{"value":"compare","label":"Comparison"},{"value":"hardware","label":"Hardware"},{"value":"save","label":"Save"}]},
+    {"id":"accent","type":"color","label":"Accent","default":"#33D6FF"}
+  ]'>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080">
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      @font-face {
+        font-family: "Audiowide";
+        src: url("./assets/Audiowide-Regular.ttf") format("truetype");
+        font-weight: 400;
+        font-style: normal;
+        font-display: block;
+      }
+
+      :root {
+        --bg: #0d0f12;
+        --panel: #161a1f;
+        --node: #1f242b;
+        --text: #e0e0e0;
+        --muted: #a0a0a0;
+        --pattern: #33d6ff;
+        --show: #8533ff;
+        --output: #d633ff;
+        --library: #ff3385;
+        --audio: #85ff33;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        margin: 0;
+        overflow: hidden;
+        background: var(--bg);
+      }
+
+      body {
+        font-family: "Inter", sans-serif;
+      }
+
+      #stage {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        color: var(--text);
+      }
+
+      #card {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+      }
+
+      .scene-bg {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(circle at 79% 44%, rgba(51, 214, 255, 0.105), transparent 28%),
+          radial-gradient(circle at 91% 68%, rgba(214, 51, 255, 0.09), transparent 24%),
+          var(--bg);
+      }
+
+      .grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(255, 255, 255, 0.035) 2px, transparent 2px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.035) 2px, transparent 2px);
+        background-size: 48px 48px;
+        mask-image: radial-gradient(circle at 70% 48%, black 0%, transparent 72%);
+        opacity: 0.72;
+      }
+
+      .top-rule,
+      .bottom-rule {
+        position: absolute;
+        left: 150px;
+        right: 150px;
+        height: 2px;
+        transform-origin: left center;
+        background: rgba(255, 255, 255, 0.12);
+      }
+
+      .top-rule {
+        top: 252px;
+      }
+
+      .bottom-rule {
+        bottom: 108px;
+      }
+
+      .top-rule::after {
+        content: "";
+        display: block;
+        width: 280px;
+        height: 2px;
+        background: linear-gradient(90deg, var(--pattern), var(--show), var(--output));
+      }
+
+      .brand {
+        position: absolute;
+        top: 72px;
+        left: 150px;
+        display: flex;
+        align-items: center;
+        gap: 28px;
+        width: 650px;
+        height: 132px;
+      }
+
+      .brand img {
+        display: block;
+        width: 550px;
+        height: auto;
+        max-height: 112px;
+        object-fit: contain;
+        object-position: left center;
+      }
+
+      .brand-meta {
+        border-left: 2px solid rgba(255, 255, 255, 0.13);
+        padding-left: 22px;
+        color: var(--muted);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 19px;
+        line-height: 1.45;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .brand-meta span {
+        display: block;
+      }
+
+      #title-panel {
+        position: absolute;
+        left: 150px;
+        top: 330px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        width: 1040px;
+        min-height: 450px;
+        padding: 0 24px 0 0;
+      }
+
+      #eyebrow {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        margin-bottom: 30px;
+        color: var(--accent);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 22px;
+        font-weight: 500;
+        letter-spacing: 0.14em;
+        line-height: 1.2;
+        text-transform: uppercase;
+      }
+
+      #eyebrow::before {
+        content: "";
+        flex: 0 0 62px;
+        height: 5px;
+        border-radius: 99px;
+        background: var(--accent);
+        box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 58%, transparent);
+      }
+
+      #hero-title {
+        display: block;
+        max-width: 1020px;
+        margin: 0;
+        color: var(--text);
+        font-family: "Audiowide", "Inter", sans-serif;
+        font-size: var(--title-size, 82px);
+        font-weight: 400;
+        letter-spacing: -0.025em;
+        line-height: 1.08;
+        text-wrap: balance;
+      }
+
+      #supporting-line {
+        display: block;
+        max-width: 940px;
+        margin: 30px 0 0;
+        color: var(--muted);
+        font-size: 31px;
+        font-weight: 400;
+        letter-spacing: 0.01em;
+        line-height: 1.35;
+      }
+
+      .graph-zone {
+        position: absolute;
+        top: 285px;
+        right: 82px;
+        width: 660px;
+        height: 620px;
+        overflow: visible;
+      }
+
+      .graph-frame {
+        position: absolute;
+        inset: 0;
+        border: 2px solid rgba(255, 255, 255, 0.09);
+        border-radius: 18px;
+        background:
+          radial-gradient(circle at 36% 45%, rgba(51, 214, 255, 0.09), transparent 35%),
+          rgba(22, 26, 31, 0.52);
+        box-shadow:
+          inset 0 0 0 2px rgba(255, 255, 255, 0.015),
+          0 24px 70px rgba(0, 0, 0, 0.32);
+      }
+
+      .graph-label {
+        position: absolute;
+        top: 26px;
+        left: 34px;
+        color: var(--muted);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 18px;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+      }
+
+      .graph-status {
+        position: absolute;
+        top: 24px;
+        right: 28px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--pattern);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 17px;
+        letter-spacing: 0.08em;
+      }
+
+      .graph-status::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--pattern);
+        box-shadow: 0 0 14px rgba(51, 214, 255, 0.8);
+      }
+
+      .signal-svg {
+        position: absolute;
+        inset: 0;
+        width: 660px;
+        height: 620px;
+        overflow: visible;
+      }
+
+      .signal-base {
+        fill: none;
+        stroke: rgba(51, 214, 255, 0.28);
+        stroke-width: 4;
+        stroke-linecap: round;
+      }
+
+      .signal-drawn {
+        fill: none;
+        stroke: url("#signal-gradient");
+        stroke-width: 5;
+        stroke-linecap: round;
+        filter: drop-shadow(0 0 8px rgba(51, 214, 255, 0.45));
+      }
+
+      .signal-pulse {
+        fill: none;
+        stroke: #effcff;
+        stroke-width: 9;
+        stroke-linecap: round;
+        filter: drop-shadow(0 0 11px rgba(51, 214, 255, 0.95));
+      }
+
+      .node-panel {
+        position: absolute;
+        width: 166px;
+        min-height: 126px;
+        border: 2px solid rgba(255, 255, 255, 0.12);
+        border-radius: 10px;
+        background: linear-gradient(180deg, rgba(31, 36, 43, 0.98), rgba(18, 22, 27, 0.98));
+        box-shadow: 0 18px 32px rgba(0, 0, 0, 0.34);
+        overflow: hidden;
+      }
+
+      .node-panel::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 9px;
+        background: var(--node-color);
+        box-shadow: 0 0 18px color-mix(in srgb, var(--node-color) 44%, transparent);
+      }
+
+      .node-source {
+        --node-color: var(--pattern);
+        left: 38px;
+        top: 224px;
+      }
+
+      .node-process {
+        --node-color: var(--show);
+        left: 246px;
+        top: 326px;
+      }
+
+      .node-output {
+        --node-color: var(--output);
+        left: 450px;
+        top: 214px;
+      }
+
+      .node-title {
+        padding: 25px 18px 11px;
+        color: var(--text);
+        font-family: "Audiowide", "Inter", sans-serif;
+        font-size: 17px;
+        line-height: 1.2;
+      }
+
+      .node-code {
+        position: absolute;
+        top: 24px;
+        right: 13px;
+        color: #969a9f;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+      }
+
+      .node-screen {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 64px;
+        margin: 0 14px 14px;
+        border: 2px solid rgba(255, 255, 255, 0.08);
+        border-radius: 6px;
+        background: rgba(7, 11, 16, 0.92);
+        color: color-mix(in srgb, var(--node-color) 76%, white);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 18px;
+        line-height: 1.2;
+        letter-spacing: 0.08em;
+        text-align: center;
+      }
+
+      .port {
+        position: absolute;
+        top: 71px;
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(255, 255, 255, 0.7);
+        border-radius: 50%;
+        background: var(--node-color);
+        box-shadow: 0 0 13px var(--node-color);
+      }
+
+      .port-in {
+        left: -8px;
+      }
+
+      .port-out {
+        right: -8px;
+      }
+
+      .matrix-shell {
+        position: absolute;
+        top: 88px;
+        right: 42px;
+        width: 210px;
+        height: 118px;
+        padding: 13px;
+        border: 2px solid rgba(214, 51, 255, 0.28);
+        border-radius: 12px;
+        background: rgba(13, 15, 18, 0.92);
+        box-shadow:
+          inset 0 0 22px rgba(214, 51, 255, 0.08),
+          0 0 30px rgba(214, 51, 255, 0.08);
+      }
+
+      .matrix-grid {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        grid-template-rows: repeat(4, 1fr);
+        gap: 6px;
+        width: 100%;
+        height: 100%;
+      }
+
+      .matrix-cell {
+        display: block;
+        min-width: 0;
+        min-height: 0;
+        border-radius: 50%;
+        background: color-mix(in srgb, var(--output) 84%, var(--pattern));
+        box-shadow:
+          0 0 7px color-mix(in srgb, var(--output) 70%, transparent),
+          0 0 14px color-mix(in srgb, var(--pattern) 30%, transparent);
+      }
+
+      .motif-audio .node-source,
+      .motif-percussion .node-source {
+        --node-color: var(--audio);
+      }
+
+      .motif-library .node-source {
+        --node-color: var(--library);
+      }
+
+      .progress-wrap {
+        position: absolute;
+        left: 150px;
+        bottom: 58px;
+        display: flex;
+        align-items: center;
+        gap: 24px;
+      }
+
+      .progress-label {
+        color: var(--muted);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 18px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      #progress-rail {
+        display: flex;
+        align-items: center;
+        gap: 13px;
+      }
+
+      .progress-pixel {
+        display: block;
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(255, 255, 255, 0.14);
+        border-radius: 4px;
+        background: rgba(224, 224, 224, 0.08);
+      }
+
+      .progress-pixel.done {
+        border-color: var(--pattern);
+        background: var(--pattern);
+        box-shadow: 0 0 12px rgba(51, 214, 255, 0.54);
+      }
+
+      .progress-pixel.current {
+        border-color: var(--output);
+        background: var(--output);
+        box-shadow: 0 0 15px rgba(214, 51, 255, 0.68);
+      }
+
+      .mode-complete #title-panel {
+        width: 1120px;
+      }
+
+      .mode-complete #hero-title {
+        color: var(--text);
+      }
+
+      .mode-complete #eyebrow {
+        color: var(--output);
+      }
+
+      .mode-complete #eyebrow::before {
+        background: var(--output);
+      }
+
+      .footer-meta {
+        position: absolute;
+        right: 150px;
+        bottom: 62px;
+        color: rgba(224, 224, 224, 0.52);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 17px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-911h" id="stage" data-composition-id="tutorial-card" data-start="0" data-duration="4" data-fps="30" data-width="1920" data-height="1080">
+      <section data-hf-id="hf-ttnh" id="card" class="clip" data-start="0" data-duration="4" data-track-index="0">
+        <div data-hf-id="hf-a01l" class="scene-bg" data-layout-ignore=""></div>
+        <div data-hf-id="hf-80b5" class="grid" data-layout-ignore=""></div>
+        <div data-hf-id="hf-dp2b" class="top-rule struct-line" data-layout-ignore=""></div>
+        <div data-hf-id="hf-quob" class="bottom-rule struct-line" data-layout-ignore=""></div>
+
+        <header data-hf-id="hf-in8v" class="brand">
+          <img data-hf-id="hf-eooz" id="brand-lockup" src="./assets/design-studio-pixel-lockup.png" alt="Design Studio for FastLED">
+          <div data-hf-id="hf-ej7r" class="brand-meta"><span data-hf-id="hf-d1yo">Tutorials</span><span data-hf-id="hf-652l">Signal live</span></div>
+        </header>
+
+        <main data-hf-id="hf-eg9o" id="title-panel">
+          <div data-hf-id="hf-d0rn" id="eyebrow" data-var-text="eyebrow">BEGINNER SERIES / TUTORIAL 01</div>
+          <h1 data-hf-id="hf-knq0" id="hero-title" data-var-text="title">Build Your First Pattern with Juggle</h1>
+          <p data-hf-id="hf-4byb" id="supporting-line" data-var-text="supportingLine">
+            Make pixels, add effects, and watch the preview
+          </p>
+        </main>
+
+        <aside data-hf-id="hf-utzx" class="graph-zone" data-layout-allow-overflow="true">
+          <div data-hf-id="hf-0ef4" class="graph-frame"></div>
+          <div data-hf-id="hf-ddhk" class="graph-label">Signal overview</div>
+          <div data-hf-id="hf-5i7h" class="graph-status">Live</div>
+
+          <svg data-hf-id="hf-umsa" class="signal-svg" viewBox="0 0 660 620" aria-hidden="true">
+            <defs data-hf-id="hf-mh0t">
+              <lineargradient data-hf-id="hf-6v9t" id="signal-gradient" x1="0" y1="0" x2="1" y2="0">
+                <stop data-hf-id="hf-25g3" offset="0%" stop-color="#33D6FF" />
+                <stop data-hf-id="hf-cjvy" offset="55%" stop-color="#8533FF" />
+                <stop data-hf-id="hf-4avu" offset="100%" stop-color="#D633FF" />
+              </lineargradient>
+            </defs>
+            <path data-hf-id="hf-a4qd" class="signal-base" d="M 202 295 C 235 295, 222 397, 246 397 S 415 397, 415 285 S 444 285, 450 285" pathLength="1000" />
+            <path data-hf-id="hf-6qqt" id="signal-drawn" class="signal-drawn" d="M 202 295 C 235 295, 222 397, 246 397 S 415 397, 415 285 S 444 285, 450 285" pathLength="1000" />
+            <path data-hf-id="hf-bwwd" id="signal-pulse" class="signal-pulse" d="M 202 295 C 235 295, 222 397, 246 397 S 415 397, 415 285 S 444 285, 450 285" pathLength="1000" />
+          </svg>
+
+          <div data-hf-id="hf-yto0" class="node-panel node-source graph-node">
+            <div data-hf-id="hf-wo05" class="node-title" id="source-title">Pattern</div>
+            <div data-hf-id="hf-2ruv" class="node-code">PAT</div>
+            <div data-hf-id="hf-ejgq" class="node-screen" id="source-screen">● ● ●</div>
+            <i data-hf-id="hf-zg5t" class="port port-out"></i>
+          </div>
+
+          <div data-hf-id="hf-jnq0" class="node-panel node-process graph-node">
+            <i data-hf-id="hf-6a7y" class="port port-in"></i>
+            <div data-hf-id="hf-jvn8" class="node-title" id="process-title">Process</div>
+            <div data-hf-id="hf-j048" class="node-code">FX</div>
+            <div data-hf-id="hf-t3n2" class="node-screen" id="process-screen">TRAILS</div>
+            <i data-hf-id="hf-5ddx" class="port port-out"></i>
+          </div>
+
+          <div data-hf-id="hf-zryg" class="node-panel node-output graph-node">
+            <i data-hf-id="hf-7vhe" class="port port-in"></i>
+            <div data-hf-id="hf-1dcl" class="node-title">Matrix Output</div>
+            <div data-hf-id="hf-3cka" class="node-code">OUT</div>
+            <div data-hf-id="hf-m2pq" class="node-screen">FRAME</div>
+          </div>
+
+          <div data-hf-id="hf-3dci" class="matrix-shell">
+            <div data-hf-id="hf-q2qe" id="matrix-grid" class="matrix-grid"></div>
+          </div>
+        </aside>
+
+        <div data-hf-id="hf-ysia" class="progress-wrap">
+          <span data-hf-id="hf-44pn" class="progress-label">Series progress</span>
+          <div data-hf-id="hf-1cuc" id="progress-rail" aria-label="Tutorial series progress"></div>
+        </div>
+
+        <div data-hf-id="hf-avrk" class="footer-meta">1920 × 1080 / 30 FPS</div>
+      </section>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+
+      const variables = window.__hyperframes?.getVariables?.() || {
+        name: "title-01",
+        cardType: "title",
+        tutorialNumber: "01",
+        eyebrow: "BEGINNER SERIES / TUTORIAL 01",
+        title: "Build Your First Pattern with Juggle",
+        supportingLine: "Make pixels, add effects, and watch the preview",
+        progress: 1,
+        motif: "juggle",
+        accent: "#33D6FF"
+      };
+
+      const {
+        cardType,
+        tutorialNumber,
+        title,
+        progress,
+        motif,
+        accent
+      } = variables;
+
+      const stage = document.getElementById("stage");
+      stage.classList.add(`mode-${cardType}`, `motif-${motif}`);
+      stage.style.setProperty("--accent", accent);
+
+      const titleSize = title.length > 46 ? 66 : title.length > 38 ? 73 : title.length > 30 ? 80 : 88;
+      stage.style.setProperty("--title-size", `${titleSize}px`);
+
+      const motifCopy = {
+        juggle: ["Juggle", "● ● ●", "Effects", "TRAILS"],
+        interface: ["Workspace", "LIB  CAN  PRE", "Tools", "UNDO  TIDY"],
+        audio: ["Microphone", "⌁  AUDIO", "Visualizer", "BARS  FRAME"],
+        group: ["Mini Patch", "▦  ▦  ▦", "Group", "GROUPED"],
+        percussion: ["Percussion", "K  S  H", "Kick Shock", "TRIGGER"],
+        generative: ["Collection", "G1  G2  G3", "Show Engine", "CHOOSE"],
+        music: ["Music", "▁▃▆▂▅▇▃", "Performance", "ANALYZE"],
+        sd: ["Performance", "SHOW DATA", "SD Card", "▣  PACKAGE"],
+        compare: ["Patterns", "GROUP SET", "Two Paths", "LIVE / SD"],
+        hardware: ["Controller", "USB  GPIO", "Matrix Output", "16 × 16"],
+        save: ["Project", "FILE  LINK", "Library", "SAVE  HELP"]
+      };
+
+      const copy = motifCopy[motif] || motifCopy.juggle;
+      document.getElementById("source-title").textContent = copy[0];
+      document.getElementById("source-screen").textContent = copy[1];
+      document.getElementById("process-title").textContent = copy[2];
+      document.getElementById("process-screen").textContent = copy[3];
+
+      const matrix = document.getElementById("matrix-grid");
+      for (let i = 0; i < 32; i += 1) {
+        const cell = document.createElement("span");
+        cell.className = "matrix-cell";
+        matrix.appendChild(cell);
+      }
+
+      const rail = document.getElementById("progress-rail");
+      const currentStep = Math.max(1, Math.min(11, Number(progress) || 1));
+      for (let i = 1; i <= 11; i += 1) {
+        const pixel = document.createElement("span");
+        pixel.className = "progress-pixel";
+        if (cardType === "complete" || i < currentStep) pixel.classList.add("done");
+        else if (i === currentStep) pixel.classList.add("current");
+        rail.appendChild(pixel);
+      }
+
+      document.querySelector(".footer-meta").textContent =
+        cardType === "complete"
+          ? "Series complete / 11 of 11"
+          : `Tutorial ${tutorialNumber} / 11`;
+
+      const tl = gsap.timeline({ paused: true });
+
+      tl.fromTo(".grid", { opacity: 0 }, { opacity: 0.72, duration: 0.75, ease: "sine.out" }, 0.18);
+      tl.fromTo(".struct-line", { scaleX: 0 }, { scaleX: 1, duration: 0.82, stagger: 0.12, ease: "expo.out" }, 0.22);
+      tl.fromTo(".brand", { autoAlpha: 0, x: -28 }, { autoAlpha: 1, x: 0, duration: 0.58, ease: "power3.out" }, 0.2);
+      tl.fromTo(".graph-frame", { autoAlpha: 0, scale: 0.985 }, { autoAlpha: 1, scale: 1, duration: 0.72, ease: "circ.out" }, 0.24);
+      tl.fromTo(".graph-label, .graph-status", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.38, stagger: 0.08, ease: "power1.out" }, 0.38);
+      tl.fromTo(".graph-node", { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 0.48, stagger: 0.1, ease: "power4.out" }, 0.34);
+
+      tl.fromTo(
+        "#signal-drawn",
+        { attr: { "stroke-dasharray": 1000, "stroke-dashoffset": 1000 } },
+        { attr: { "stroke-dashoffset": 0 }, duration: 0.68, ease: "power2.out" },
+        0.48
+      );
+      tl.fromTo(
+        "#signal-pulse",
+        { attr: { "stroke-dasharray": "36 964", "stroke-dashoffset": 1000 }, opacity: 0 },
+        { attr: { "stroke-dashoffset": 0 }, opacity: 1, duration: 0.64, ease: "power1.inOut" },
+        0.72
+      );
+      tl.to("#signal-pulse", { opacity: 0, duration: 0.14, ease: "power2.in" }, 1.36);
+
+      tl.fromTo(".matrix-shell", { autoAlpha: 0, scale: 0.96 }, { autoAlpha: 1, scale: 1, duration: 0.42, ease: "back.out(1.5)" }, 0.86);
+      tl.fromTo(".matrix-cell", { opacity: 0.06, scale: 0.45 }, { opacity: 1, scale: 1, duration: 0.34, stagger: 0.008, ease: "power3.out" }, 0.94);
+
+      tl.fromTo("#eyebrow", { autoAlpha: 0, x: -34 }, { autoAlpha: 1, x: 0, duration: 0.42, ease: "expo.out" }, 1.0);
+      tl.fromTo("#hero-title", { autoAlpha: 0, y: 34 }, { autoAlpha: 1, y: 0, duration: 0.62, ease: "power4.out" }, 1.12);
+      tl.fromTo("#supporting-line", { autoAlpha: 0, x: -18 }, { autoAlpha: 1, x: 0, duration: 0.44, ease: "circ.out" }, 1.38);
+      tl.fromTo(".progress-wrap, .footer-meta", { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.36, stagger: 0.08, ease: "power2.out" }, 1.52);
+
+      const shimmerCell = document.querySelector(".matrix-cell:nth-child(19)");
+      tl.to(shimmerCell, { opacity: 0.32, scale: 0.72, duration: 0.12, yoyo: true, repeat: 1, ease: "sine.inOut" }, 2.3);
+      const secondShimmerCell = document.querySelector(".matrix-cell:nth-child(27)");
+      tl.to(secondShimmerCell, { opacity: 0.32, scale: 0.72, duration: 0.12, yoyo: true, repeat: 1, ease: "sine.inOut" }, 3.3);
+
+      window.__timelines["tutorial-card"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

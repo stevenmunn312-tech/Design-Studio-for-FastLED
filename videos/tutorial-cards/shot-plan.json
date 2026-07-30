@@ -1,0 +1,164 @@
+{
+  "category": "kinetic-type",
+  "duration_s": 4,
+  "fps": 30,
+  "canvas": {
+    "w": 1920,
+    "h": 1080,
+    "aspect": "16:9"
+  },
+  "style": "Design Studio for FastLED lighting-console identity: dark precision panels, large approachable technical typography, restrained node graph, and one cyan-to-purple-to-magenta signal pulse",
+  "palette": [
+    "#0D0F12",
+    "#161A1F",
+    "#1F242B",
+    "#E0E0E0",
+    "#A0A0A0",
+    "#33D6FF",
+    "#8533FF",
+    "#D633FF",
+    "#FF3385",
+    "#85FF33"
+  ],
+  "font": "Audiowide",
+  "beats": [
+    0.18,
+    0.52,
+    0.92,
+    1.36,
+    2.3,
+    3.3
+  ],
+  "export": "mp4",
+  "asset_needs": [
+    {
+      "role": "brand-lockup",
+      "kind": "logo",
+      "source": "../../public/brand-concepts/concept-1-pixel.png",
+      "treatment": "none"
+    }
+  ],
+  "block": "caption-editorial-emphasis",
+  "customize": {
+    "reuse": "Borrow the block's large editorial hierarchy and deterministic GSAP entrance timing.",
+    "handAuthoredGaps": [
+      "official brand lockup placement",
+      "node-graph signal rail",
+      "LED matrix output motif",
+      "eleven-square progress rail",
+      "variable-driven title, end, and series-complete modes"
+    ],
+    "layout": {
+      "safeMarginPx": 150,
+      "logo": "upper-left, 500px wide maximum",
+      "metadata": "left column at y=330",
+      "title": "left column, 108px Audiowide, maximum two lines, 1040px wide",
+      "supportingLine": "left column, 31px Inter, maximum 980px wide",
+      "nodeGraph": "right third, three simplified panels connected left-to-right",
+      "matrix": "right edge, compact 8x8 LED matrix",
+      "progress": "bottom-left, eleven LED squares"
+    }
+  },
+  "content": {
+    "scenes": [
+      {
+        "id": "card",
+        "start": 0,
+        "end": 4,
+        "text": "Variable-driven tutorial title or next-card copy",
+        "emphasis_words": [],
+        "emotion": "confident, technical, approachable",
+        "motion": "signal path draws from left to right, a pulse travels into the output node, LED pixels illuminate, then metadata and title resolve into a stable hold",
+        "beats": [
+          0.18,
+          0.52,
+          0.92,
+          1.36,
+          2.3,
+          3.3
+        ]
+      }
+    ],
+    "batch": {
+      "cards": 22,
+      "variables": [
+        "name",
+        "cardType",
+        "tutorialNumber",
+        "seriesLabel",
+        "eyebrow",
+        "title",
+        "supportingLine",
+        "nextTitle",
+        "progress",
+        "motif",
+        "accent"
+      ]
+    },
+    "motion": {
+      "dominantMotif": "One signal pulse travels left-to-right through the node path and illuminates the destination matrix.",
+      "timeline": [
+        {
+          "time": 0.18,
+          "action": "faint grid, structural rules, and node panels fade into the dark workspace"
+        },
+        {
+          "time": 0.42,
+          "action": "signal path draws from the first cyan port toward the purple show node"
+        },
+        {
+          "time": 0.78,
+          "action": "bright pulse travels along the completed path"
+        },
+        {
+          "time": 0.92,
+          "action": "magenta output node and LED matrix illuminate"
+        },
+        {
+          "time": 1.05,
+          "action": "series metadata resolves from the left"
+        },
+        {
+          "time": 1.22,
+          "action": "hero title resolves with a short upward movement and opacity fade"
+        },
+        {
+          "time": 1.48,
+          "action": "supporting line and progress rail resolve"
+        },
+        {
+          "time": 1.72,
+          "action": "stable hero frame begins"
+        },
+        {
+          "time": 2.3,
+          "action": "one restrained LED shimmer keeps the resolved frame gently alive without moving the typography"
+        },
+        {
+          "time": 3.3,
+          "action": "a second restrained LED shimmer leads into the clean final hold"
+        }
+      ],
+      "hold": "All copy and primary geometry remain completely stable from 1.72s through 4.0s."
+    },
+    "modes": {
+      "title": "BEGINNER SERIES / TUTORIAL NN, hero title, supporting line, current progress square magenta",
+      "end": "NEXT UP, next tutorial number and title, completed progress squares cyan and next square magenta",
+      "complete": "SERIES COMPLETE, YOU'RE READY TO BUILD, Create, preview, and perform with Design Studio for FastLED."
+    },
+    "motifVariants": {
+      "juggle": "three cyan pixel orbs crossing inside the pattern node",
+      "interface": "three restrained panel zones",
+      "audio": "one lime audio pulse entering a cyan frame path",
+      "group": "three small node tiles collapsing into one Group panel",
+      "percussion": "three lime trigger ticks entering a cyan shockwave node",
+      "generative": "two Group tiles entering a purple Show Engine node",
+      "music": "a short waveform entering Performance Generator",
+      "sd": "signal path terminating in a small SD-card glyph",
+      "compare": "one path splitting toward Show Engine and SD playback",
+      "hardware": "magenta Matrix Output feeding the LED matrix",
+      "save": "three thin-line file, link, and help glyphs"
+    },
+    "brief": "A reusable title-and-end-card system. The hero frame is left-anchored typography balanced by a simplified node graph on the right. The official pixel lockup sits in the upper-left. A single signal pulse is the dominant motion motif; it travels through cyan and purple ports into a magenta output and lights a compact LED matrix. Opening cards resolve to a tutorial title. End cards resolve to NEXT UP, the following tutorial title, and an eleven-pixel progress rail. The final card resolves to SERIES COMPLETE."
+  }
+}

@@ -1,0 +1,473 @@
+{
+  "version": 1,
+  "batchPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\batch-cards.json",
+  "manifestPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\renders\\manifest.json",
+  "total": 22,
+  "completed": 22,
+  "failed": 0,
+  "skipped": 0,
+  "rows": [
+    {
+      "index": 0,
+      "outputPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\renders\\title-01-juggle.mp4",
+      "status": "completed",
+      "durationMs": 4000,
+      "renderTimeMs": 33487,
+      "error": null,
+      "startedAt": "2026-07-30T01:55:58.236Z",
+      "completedAt": "2026-07-30T01:56:33.385Z",
+      "variables": {
+        "name": "title-01-juggle",
+        "cardType": "title",
+        "tutorialNumber": "01",
+        "eyebrow": "BEGINNER SERIES / TUTORIAL 01",
+        "title": "Build Your First Pattern with Juggle",
+        "supportingLine": "Make pixels, add effects, and watch the preview",
+        "progress": 1,
+        "motif": "juggle",
+        "accent": "#33D6FF"
+      }
+    },
+    {
+      "index": 1,
+      "outputPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\renders\\end-01-next-interface.mp4",
+      "status": "completed",
+      "durationMs": 4000,
+      "renderTimeMs": 21263,
+      "error": null,
+      "startedAt": "2026-07-30T01:56:33.387Z",
+      "completedAt": "2026-07-30T01:56:54.847Z",
+      "variables": {
+        "name": "end-01-next-interface",
+        "cardType": "end",
+        "tutorialNumber": "02",
+        "eyebrow": "NEXT UP / TUTORIAL 02",
+        "title": "Understand the Studio Interface",
+        "supportingLine": "Find nodes, follow signals, and navigate the canvas",
+        "progress": 2,
+        "motif": "interface",
+        "accent": "#D633FF"
+      }
+    },
+    {
+      "index": 2,
+      "outputPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\renders\\title-02-interface.mp4",
+      "status": "completed",
+      "durationMs": 4000,
+      "renderTimeMs": 21310,
+      "error": null,
+      "startedAt": "2026-07-30T01:56:54.848Z",
+      "completedAt": "2026-07-30T01:57:16.317Z",
+      "variables": {
+        "name": "title-02-interface",
+        "cardType": "title",
+        "tutorialNumber": "02",
+        "eyebrow": "BEGINNER SERIES / TUTORIAL 02",
+        "title": "Understand the Studio Interface",
+        "supportingLine": "Find nodes, follow signals, and navigate the canvas",
+        "progress": 2,
+        "motif": "interface",
+        "accent": "#33D6FF"
+      }
+    },
+    {
+      "index": 3,
+      "outputPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\renders\\end-02-next-simple-audio.mp4",
+      "status": "completed",
+      "durationMs": 4000,
+      "renderTimeMs": 20505,
+      "error": null,
+      "startedAt": "2026-07-30T01:57:16.319Z",
+      "completedAt": "2026-07-30T01:57:37.002Z",
+      "variables": {
+        "name": "end-02-next-simple-audio",
+        "cardType": "end",
+        "tutorialNumber": "03",
+        "eyebrow": "NEXT UP / TUTORIAL 03",
+        "title": "Create a Simple Audio-Reactive Pattern",
+        "supportingLine": "Connect live sound to animated pixels",
+        "progress": 3,
+        "motif": "audio",
+        "accent": "#85FF33"
+      }
+    },
+    {
+      "index": 4,
+      "outputPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\renders\\title-03-simple-audio.mp4",
+      "status": "completed",
+      "durationMs": 4000,
+      "renderTimeMs": 21016,
+      "error": null,
+      "startedAt": "2026-07-30T01:57:37.003Z",
+      "completedAt": "2026-07-30T01:57:58.178Z",
+      "variables": {
+        "name": "title-03-simple-audio",
+        "cardType": "title",
+        "tutorialNumber": "03",
+        "eyebrow": "BEGINNER SERIES / TUTORIAL 03",
+        "title": "Create a Simple Audio-Reactive Pattern",
+        "supportingLine": "Connect live sound to animated pixels",
+        "progress": 3,
+        "motif": "audio",
+        "accent": "#85FF33"
+      }
+    },
+    {
+      "index": 5,
+      "outputPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\renders\\end-03-next-groups.mp4",
+      "status": "completed",
+      "durationMs": 4000,
+      "renderTimeMs": 20366,
+      "error": null,
+      "startedAt": "2026-07-30T01:57:58.180Z",
+      "completedAt": "2026-07-30T01:58:18.713Z",
+      "variables": {
+        "name": "end-03-next-groups",
+        "cardType": "end",
+        "tutorialNumber": "04",
+        "eyebrow": "NEXT UP / TUTORIAL 04",
+        "title": "Patterns, Groups, and the Pattern Library",
+        "supportingLine": "Turn a mini-patch into a reusable pattern",
+        "progress": 4,
+        "motif": "group",
+        "accent": "#FF3385"
+      }
+    },
+    {
+      "index": 6,
+      "outputPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\renders\\title-04-groups.mp4",
+      "status": "completed",
+      "durationMs": 4000,
+      "renderTimeMs": 20585,
+      "error": null,
+      "startedAt": "2026-07-30T01:58:18.714Z",
+      "completedAt": "2026-07-30T01:58:39.448Z",
+      "variables": {
+        "name": "title-04-groups",
+        "cardType": "title",
+        "tutorialNumber": "04",
+        "eyebrow": "BEGINNER SERIES / TUTORIAL 04",
+        "title": "Patterns, Groups, and the Pattern Library",
+        "supportingLine": "Turn a mini-patch into a reusable pattern",
+        "progress": 4,
+        "motif": "group",
+        "accent": "#FF3385"
+      }
+    },
+    {
+      "index": 7,
+      "outputPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\renders\\end-04-next-advanced-audio.mp4",
+      "status": "completed",
+      "durationMs": 4000,
+      "renderTimeMs": 21080,
+      "error": null,
+      "startedAt": "2026-07-30T01:58:39.449Z",
+      "completedAt": "2026-07-30T01:59:00.701Z",
+      "variables": {
+        "name": "end-04-next-advanced-audio",
+        "cardType": "end",
+        "tutorialNumber": "05",
+        "eyebrow": "NEXT UP / TUTORIAL 05",
+        "title": "Create an Advanced Audio-Reactive Pattern",
+        "supportingLine": "Separate kick, snare, and hi-hat into visual events",
+        "progress": 5,
+        "motif": "percussion",
+        "accent": "#85FF33"
+      }
+    },
+    {
+      "index": 8,
+      "outputPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\renders\\title-05-advanced-audio.mp4",
+      "status": "completed",
+      "durationMs": 4000,
+      "renderTimeMs": 20076,
+      "error": null,
+      "startedAt": "2026-07-30T01:59:00.702Z",
+      "completedAt": "2026-07-30T01:59:20.916Z",
+      "variables": {
+        "name": "title-05-advanced-audio",
+        "cardType": "title",
+        "tutorialNumber": "05",
+        "eyebrow": "BEGINNER SERIES / TUTORIAL 05",
+        "title": "Create an Advanced Audio-Reactive Pattern",
+        "supportingLine": "Separate kick, snare, and hi-hat into visual events",
+        "progress": 5,
+        "motif": "percussion",
+        "accent": "#85FF33"
+      }
+    },
+    {
+      "index": 9,
+      "outputPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\renders\\end-05-next-generative.mp4",
+      "status": "completed",
+      "durationMs": 4000,
+      "renderTimeMs": 20637,
+      "error": null,
+      "startedAt": "2026-07-30T01:59:20.917Z",
+      "completedAt": "2026-07-30T01:59:41.693Z",
+      "variables": {
+        "name": "end-05-next-generative",
+        "cardType": "end",
+        "tutorialNumber": "06",
+        "eyebrow": "NEXT UP / TUTORIAL 06",
+        "title": "Build a Generative Show",
+        "supportingLine": "Let Show Engine choose and transition between patterns",
+        "progress": 6,
+        "motif": "generative",
+        "accent": "#8533FF"
+      }
+    },
+    {
+      "index": 10,
+      "outputPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\renders\\title-06-generative.mp4",
+      "status": "completed",
+      "durationMs": 4000,
+      "renderTimeMs": 20149,
+      "error": null,
+      "startedAt": "2026-07-30T01:59:41.694Z",
+      "completedAt": "2026-07-30T02:00:02.034Z",
+      "variables": {
+        "name": "title-06-generative",
+        "cardType": "title",
+        "tutorialNumber": "06",
+        "eyebrow": "BEGINNER SERIES / TUTORIAL 06",
+        "title": "Build a Generative Show",
+        "supportingLine": "Let Show Engine choose and transition between patterns",
+        "progress": 6,
+        "motif": "generative",
+        "accent": "#8533FF"
+      }
+    },
+    {
+      "index": 11,
+      "outputPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\renders\\end-06-next-music.mp4",
+      "status": "completed",
+      "durationMs": 4000,
+      "renderTimeMs": 20532,
+      "error": null,
+      "startedAt": "2026-07-30T02:00:02.035Z",
+      "completedAt": "2026-07-30T02:00:22.726Z",
+      "variables": {
+        "name": "end-06-next-music",
+        "cardType": "end",
+        "tutorialNumber": "07",
+        "eyebrow": "NEXT UP / TUTORIAL 07",
+        "title": "Prepare a Music-Synced SD Show",
+        "supportingLine": "Analyze a song and build a timed performance",
+        "progress": 7,
+        "motif": "music",
+        "accent": "#8533FF"
+      }
+    },
+    {
+      "index": 12,
+      "outputPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\renders\\title-07-music.mp4",
+      "status": "completed",
+      "durationMs": 4000,
+      "renderTimeMs": 20901,
+      "error": null,
+      "startedAt": "2026-07-30T02:00:22.728Z",
+      "completedAt": "2026-07-30T02:00:43.812Z",
+      "variables": {
+        "name": "title-07-music",
+        "cardType": "title",
+        "tutorialNumber": "07",
+        "eyebrow": "BEGINNER SERIES / TUTORIAL 07",
+        "title": "Prepare a Music-Synced SD Show",
+        "supportingLine": "Analyze a song and build a timed performance",
+        "progress": 7,
+        "motif": "music",
+        "accent": "#8533FF"
+      }
+    },
+    {
+      "index": 13,
+      "outputPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\renders\\end-07-next-package-sd.mp4",
+      "status": "completed",
+      "durationMs": 4000,
+      "renderTimeMs": 20520,
+      "error": null,
+      "startedAt": "2026-07-30T02:00:43.813Z",
+      "completedAt": "2026-07-30T02:01:04.479Z",
+      "variables": {
+        "name": "end-07-next-package-sd",
+        "cardType": "end",
+        "tutorialNumber": "08",
+        "eyebrow": "NEXT UP / TUTORIAL 08",
+        "title": "Preview and Package the SD Show",
+        "supportingLine": "Refine the timeline and prepare offline playback",
+        "progress": 8,
+        "motif": "sd",
+        "accent": "#8533FF"
+      }
+    },
+    {
+      "index": 14,
+      "outputPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\renders\\title-08-package-sd.mp4",
+      "status": "completed",
+      "durationMs": 4000,
+      "renderTimeMs": 21326,
+      "error": null,
+      "startedAt": "2026-07-30T02:01:04.480Z",
+      "completedAt": "2026-07-30T02:01:25.983Z",
+      "variables": {
+        "name": "title-08-package-sd",
+        "cardType": "title",
+        "tutorialNumber": "08",
+        "eyebrow": "BEGINNER SERIES / TUTORIAL 08",
+        "title": "Preview and Package the SD Show",
+        "supportingLine": "Refine the timeline and prepare offline playback",
+        "progress": 8,
+        "motif": "sd",
+        "accent": "#8533FF"
+      }
+    },
+    {
+      "index": 15,
+      "outputPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\renders\\end-08-next-compare.mp4",
+      "status": "completed",
+      "durationMs": 4000,
+      "renderTimeMs": 20248,
+      "error": null,
+      "startedAt": "2026-07-30T02:01:25.985Z",
+      "completedAt": "2026-07-30T02:01:46.402Z",
+      "variables": {
+        "name": "end-08-next-compare",
+        "cardType": "end",
+        "tutorialNumber": "09",
+        "eyebrow": "NEXT UP / TUTORIAL 09",
+        "title": "Generative Show or SD Show?",
+        "supportingLine": "Choose the right workflow for your project",
+        "progress": 9,
+        "motif": "compare",
+        "accent": "#D633FF"
+      }
+    },
+    {
+      "index": 16,
+      "outputPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\renders\\title-09-compare.mp4",
+      "status": "completed",
+      "durationMs": 4000,
+      "renderTimeMs": 20377,
+      "error": null,
+      "startedAt": "2026-07-30T02:01:46.403Z",
+      "completedAt": "2026-07-30T02:02:06.914Z",
+      "variables": {
+        "name": "title-09-compare",
+        "cardType": "title",
+        "tutorialNumber": "09",
+        "eyebrow": "BEGINNER SERIES / TUTORIAL 09",
+        "title": "Generative Show or SD Show?",
+        "supportingLine": "Choose the right workflow for your project",
+        "progress": 9,
+        "motif": "compare",
+        "accent": "#D633FF"
+      }
+    },
+    {
+      "index": 17,
+      "outputPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\renders\\end-09-next-hardware.mp4",
+      "status": "completed",
+      "durationMs": 4000,
+      "renderTimeMs": 21211,
+      "error": null,
+      "startedAt": "2026-07-30T02:02:06.916Z",
+      "completedAt": "2026-07-30T02:02:28.284Z",
+      "variables": {
+        "name": "end-09-next-hardware",
+        "cardType": "end",
+        "tutorialNumber": "10",
+        "eyebrow": "NEXT UP / TUTORIAL 10",
+        "title": "Configure and Test Your Hardware",
+        "supportingLine": "Match the Studio to your controller and LEDs",
+        "progress": 10,
+        "motif": "hardware",
+        "accent": "#D633FF"
+      }
+    },
+    {
+      "index": 18,
+      "outputPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\renders\\title-10-hardware.mp4",
+      "status": "completed",
+      "durationMs": 4000,
+      "renderTimeMs": 20737,
+      "error": null,
+      "startedAt": "2026-07-30T02:02:28.285Z",
+      "completedAt": "2026-07-30T02:02:49.195Z",
+      "variables": {
+        "name": "title-10-hardware",
+        "cardType": "title",
+        "tutorialNumber": "10",
+        "eyebrow": "BEGINNER SERIES / TUTORIAL 10",
+        "title": "Configure and Test Your Hardware",
+        "supportingLine": "Match the Studio to your controller and LEDs",
+        "progress": 10,
+        "motif": "hardware",
+        "accent": "#D633FF"
+      }
+    },
+    {
+      "index": 19,
+      "outputPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\renders\\end-10-next-save.mp4",
+      "status": "completed",
+      "durationMs": 4000,
+      "renderTimeMs": 21082,
+      "error": null,
+      "startedAt": "2026-07-30T02:02:49.197Z",
+      "completedAt": "2026-07-30T02:03:10.455Z",
+      "variables": {
+        "name": "end-10-next-save",
+        "cardType": "end",
+        "tutorialNumber": "11",
+        "eyebrow": "NEXT UP / TUTORIAL 11",
+        "title": "Save, Share, and Find Help",
+        "supportingLine": "Protect your work and find answers quickly",
+        "progress": 11,
+        "motif": "save",
+        "accent": "#FF3385"
+      }
+    },
+    {
+      "index": 20,
+      "outputPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\renders\\title-11-save.mp4",
+      "status": "completed",
+      "durationMs": 4000,
+      "renderTimeMs": 20694,
+      "error": null,
+      "startedAt": "2026-07-30T02:03:10.456Z",
+      "completedAt": "2026-07-30T02:03:31.322Z",
+      "variables": {
+        "name": "title-11-save",
+        "cardType": "title",
+        "tutorialNumber": "11",
+        "eyebrow": "BEGINNER SERIES / TUTORIAL 11",
+        "title": "Save, Share, and Find Help",
+        "supportingLine": "Protect your work and find answers quickly",
+        "progress": 11,
+        "motif": "save",
+        "accent": "#FF3385"
+      }
+    },
+    {
+      "index": 21,
+      "outputPath": "C:\\dev\\Design-Studio-for-FastLED\\videos\\tutorial-cards\\renders\\end-11-series-complete.mp4",
+      "status": "completed",
+      "durationMs": 4000,
+      "renderTimeMs": 22013,
+      "error": null,
+      "startedAt": "2026-07-30T02:03:31.323Z",
+      "completedAt": "2026-07-30T02:03:53.485Z",
+      "variables": {
+        "name": "end-11-series-complete",
+        "cardType": "complete",
+        "tutorialNumber": "11",
+        "eyebrow": "SERIES COMPLETE",
+        "title": "YOU’RE READY TO BUILD",
+        "supportingLine": "Create, preview, and perform with Design Studio for FastLED.",
+        "progress": 11,
+        "motif": "hardware",
+        "accent": "#D633FF"
+      }
+    }
+  ]
+}

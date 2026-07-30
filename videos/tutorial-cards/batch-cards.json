@@ -1,0 +1,246 @@
+{
+  "rows": [
+    {
+      "name": "title-01-juggle",
+      "cardType": "title",
+      "tutorialNumber": "01",
+      "eyebrow": "BEGINNER SERIES / TUTORIAL 01",
+      "title": "Build Your First Pattern with Juggle",
+      "supportingLine": "Make pixels, add effects, and watch the preview",
+      "progress": 1,
+      "motif": "juggle",
+      "accent": "#33D6FF"
+    },
+    {
+      "name": "end-01-next-interface",
+      "cardType": "end",
+      "tutorialNumber": "02",
+      "eyebrow": "NEXT UP / TUTORIAL 02",
+      "title": "Understand the Studio Interface",
+      "supportingLine": "Find nodes, follow signals, and navigate the canvas",
+      "progress": 2,
+      "motif": "interface",
+      "accent": "#D633FF"
+    },
+    {
+      "name": "title-02-interface",
+      "cardType": "title",
+      "tutorialNumber": "02",
+      "eyebrow": "BEGINNER SERIES / TUTORIAL 02",
+      "title": "Understand the Studio Interface",
+      "supportingLine": "Find nodes, follow signals, and navigate the canvas",
+      "progress": 2,
+      "motif": "interface",
+      "accent": "#33D6FF"
+    },
+    {
+      "name": "end-02-next-simple-audio",
+      "cardType": "end",
+      "tutorialNumber": "03",
+      "eyebrow": "NEXT UP / TUTORIAL 03",
+      "title": "Create a Simple Audio-Reactive Pattern",
+      "supportingLine": "Connect live sound to animated pixels",
+      "progress": 3,
+      "motif": "audio",
+      "accent": "#85FF33"
+    },
+    {
+      "name": "title-03-simple-audio",
+      "cardType": "title",
+      "tutorialNumber": "03",
+      "eyebrow": "BEGINNER SERIES / TUTORIAL 03",
+      "title": "Create a Simple Audio-Reactive Pattern",
+      "supportingLine": "Connect live sound to animated pixels",
+      "progress": 3,
+      "motif": "audio",
+      "accent": "#85FF33"
+    },
+    {
+      "name": "end-03-next-groups",
+      "cardType": "end",
+      "tutorialNumber": "04",
+      "eyebrow": "NEXT UP / TUTORIAL 04",
+      "title": "Patterns, Groups, and the Pattern Library",
+      "supportingLine": "Turn a mini-patch into a reusable pattern",
+      "progress": 4,
+      "motif": "group",
+      "accent": "#FF3385"
+    },
+    {
+      "name": "title-04-groups",
+      "cardType": "title",
+      "tutorialNumber": "04",
+      "eyebrow": "BEGINNER SERIES / TUTORIAL 04",
+      "title": "Patterns, Groups, and the Pattern Library",
+      "supportingLine": "Turn a mini-patch into a reusable pattern",
+      "progress": 4,
+      "motif": "group",
+      "accent": "#FF3385"
+    },
+    {
+      "name": "end-04-next-advanced-audio",
+      "cardType": "end",
+      "tutorialNumber": "05",
+      "eyebrow": "NEXT UP / TUTORIAL 05",
+      "title": "Create an Advanced Audio-Reactive Pattern",
+      "supportingLine": "Separate kick, snare, and hi-hat into visual events",
+      "progress": 5,
+      "motif": "percussion",
+      "accent": "#85FF33"
+    },
+    {
+      "name": "title-05-advanced-audio",
+      "cardType": "title",
+      "tutorialNumber": "05",
+      "eyebrow": "BEGINNER SERIES / TUTORIAL 05",
+      "title": "Create an Advanced Audio-Reactive Pattern",
+      "supportingLine": "Separate kick, snare, and hi-hat into visual events",
+      "progress": 5,
+      "motif": "percussion",
+      "accent": "#85FF33"
+    },
+    {
+      "name": "end-05-next-generative",
+      "cardType": "end",
+      "tutorialNumber": "06",
+      "eyebrow": "NEXT UP / TUTORIAL 06",
+      "title": "Build a Generative Show",
+      "supportingLine": "Let Show Engine choose and transition between patterns",
+      "progress": 6,
+      "motif": "generative",
+      "accent": "#8533FF"
+    },
+    {
+      "name": "title-06-generative",
+      "cardType": "title",
+      "tutorialNumber": "06",
+      "eyebrow": "BEGINNER SERIES / TUTORIAL 06",
+      "title": "Build a Generative Show",
+      "supportingLine": "Let Show Engine choose and transition between patterns",
+      "progress": 6,
+      "motif": "generative",
+      "accent": "#8533FF"
+    },
+    {
+      "name": "end-06-next-music",
+      "cardType": "end",
+      "tutorialNumber": "07",
+      "eyebrow": "NEXT UP / TUTORIAL 07",
+      "title": "Prepare a Music-Synced SD Show",
+      "supportingLine": "Analyze a song and build a timed performance",
+      "progress": 7,
+      "motif": "music",
+      "accent": "#8533FF"
+    },
+    {
+      "name": "title-07-music",
+      "cardType": "title",
+      "tutorialNumber": "07",
+      "eyebrow": "BEGINNER SERIES / TUTORIAL 07",
+      "title": "Prepare a Music-Synced SD Show",
+      "supportingLine": "Analyze a song and build a timed performance",
+      "progress": 7,
+      "motif": "music",
+      "accent": "#8533FF"
+    },
+    {
+      "name": "end-07-next-package-sd",
+      "cardType": "end",
+      "tutorialNumber": "08",
+      "eyebrow": "NEXT UP / TUTORIAL 08",
+      "title": "Preview and Package the SD Show",
+      "supportingLine": "Refine the timeline and prepare offline playback",
+      "progress": 8,
+      "motif": "sd",
+      "accent": "#8533FF"
+    },
+    {
+      "name": "title-08-package-sd",
+      "cardType": "title",
+      "tutorialNumber": "08",
+      "eyebrow": "BEGINNER SERIES / TUTORIAL 08",
+      "title": "Preview and Package the SD Show",
+      "supportingLine": "Refine the timeline and prepare offline playback",
+      "progress": 8,
+      "motif": "sd",
+      "accent": "#8533FF"
+    },
+    {
+      "name": "end-08-next-compare",
+      "cardType": "end",
+      "tutorialNumber": "09",
+      "eyebrow": "NEXT UP / TUTORIAL 09",
+      "title": "Generative Show or SD Show?",
+      "supportingLine": "Choose the right workflow for your project",
+      "progress": 9,
+      "motif": "compare",
+      "accent": "#D633FF"
+    },
+    {
+      "name": "title-09-compare",
+      "cardType": "title",
+      "tutorialNumber": "09",
+      "eyebrow": "BEGINNER SERIES / TUTORIAL 09",
+      "title": "Generative Show or SD Show?",
+      "supportingLine": "Choose the right workflow for your project",
+      "progress": 9,
+      "motif": "compare",
+      "accent": "#D633FF"
+    },
+    {
+      "name": "end-09-next-hardware",
+      "cardType": "end",
+      "tutorialNumber": "10",
+      "eyebrow": "NEXT UP / TUTORIAL 10",
+      "title": "Configure and Test Your Hardware",
+      "supportingLine": "Match the Studio to your controller and LEDs",
+      "progress": 10,
+      "motif": "hardware",
+      "accent": "#D633FF"
+    },
+    {
+      "name": "title-10-hardware",
+      "cardType": "title",
+      "tutorialNumber": "10",
+      "eyebrow": "BEGINNER SERIES / TUTORIAL 10",
+      "title": "Configure and Test Your Hardware",
+      "supportingLine": "Match the Studio to your controller and LEDs",
+      "progress": 10,
+      "motif": "hardware",
+      "accent": "#D633FF"
+    },
+    {
+      "name": "end-10-next-save",
+      "cardType": "end",
+      "tutorialNumber": "11",
+      "eyebrow": "NEXT UP / TUTORIAL 11",
+      "title": "Save, Share, and Find Help",
+      "supportingLine": "Protect your work and find answers quickly",
+      "progress": 11,
+      "motif": "save",
+      "accent": "#FF3385"
+    },
+    {
+      "name": "title-11-save",
+      "cardType": "title",
+      "tutorialNumber": "11",
+      "eyebrow": "BEGINNER SERIES / TUTORIAL 11",
+      "title": "Save, Share, and Find Help",
+      "supportingLine": "Protect your work and find answers quickly",
+      "progress": 11,
+      "motif": "save",
+      "accent": "#FF3385"
+    },
+    {
+      "name": "end-11-series-complete",
+      "cardType": "complete",
+      "tutorialNumber": "11",
+      "eyebrow": "SERIES COMPLETE",
+      "title": "YOU’RE READY TO BUILD",
+      "supportingLine": "Create, preview, and perform with Design Studio for FastLED.",
+      "progress": 11,
+      "motif": "hardware",
+      "accent": "#D633FF"
+    }
+  ]
+}

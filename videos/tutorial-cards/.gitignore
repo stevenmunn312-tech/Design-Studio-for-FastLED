@@ -1,0 +1,4 @@
+.thumbnails/
+*.log
+snapshots/
+renders/verification/*.png
