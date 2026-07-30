@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildAdalightPacket } from '../adalight'
+import { buildAdalightPacket, buildAdalightPacketFromRgb } from '../adalight'
 import type { Frame, RGB } from '../../state/graphEvaluator'
 
 function solidFrame(w: number, h: number, color: RGB): Frame {
@@ -51,5 +51,37 @@ describe('buildAdalightPacket', () => {
   it('defaults missing pixels to black rather than throwing', () => {
     const packet = buildAdalightPacket([], { width: 2, height: 2, serpentine: false })
     expect([...packet.slice(6)]).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+  })
+})
+
+describe('buildAdalightPacketFromRgb', () => {
+  function packed(frame: Frame, w: number, h: number): Uint8ClampedArray {
+    const bytes = new Uint8ClampedArray(w * h * 3)
+    let at = 0
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const px = frame[y]?.[x]
+      bytes[at++] = px?.r ?? 0; bytes[at++] = px?.g ?? 0; bytes[at++] = px?.b ?? 0
+    }
+    return bytes
+  }
+
+  // The live-stream path switched to the packed form so it never holds a
+  // pooled evaluator frame; it must stay byte-identical to the Frame form.
+  it.each([
+    ['row-major', false],
+    ['serpentine', true],
+  ])('matches the Frame overload byte for byte (%s)', (_label, serpentine) => {
+    const frame: Frame = [
+      [{ r: 1, g: 2, b: 3 }, { r: 4, g: 5, b: 6 }, { r: 7, g: 8, b: 9 }],
+      [{ r: 10, g: 11, b: 12 }, { r: 13, g: 14, b: 15 }, { r: 16, g: 17, b: 18 }],
+    ]
+    const layout = { width: 3, height: 2, serpentine }
+    expect([...buildAdalightPacketFromRgb(packed(frame, 3, 2), layout)])
+      .toEqual([...buildAdalightPacket(frame, layout)])
+  })
+
+  it('zero-fills when the buffer is shorter than the layout', () => {
+    const packet = buildAdalightPacketFromRgb(new Uint8ClampedArray(0), { width: 2, height: 2, serpentine: false })
+    expect([...packet.slice(6)]).toEqual(new Array(12).fill(0))
   })
 })

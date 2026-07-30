@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { Frame } from './graphEvaluator'
 import { startStream, sendStreamFrame, stopStream } from '../utils/backendClient'
-import { buildAdalightPacket } from '../utils/adalight'
+import { buildAdalightPacketFromRgb } from '../utils/adalight'
 import type { StreamLayout } from '../codegen/streamReceiverGenerator'
 
 // Latest computed matrix frame, written every render-loop tick (~60fps, see
@@ -9,48 +9,51 @@ import type { StreamLayout } from '../codegen/streamReceiverGenerator'
 // A plain module holder rather than Zustand state — publishing here must not
 // trigger a React re-render 60 times a second.
 //
-// This deliberately stores the evaluator's *pooled* frame by reference, which
-// looks like it contradicts `latestStreamFrameCopy` below ("callers must never
-// hold the raw reference"). The difference is when the read happens. Both
-// readers here — the send interval and the snapshot button — run as their own
-// macrotasks, and the render loop's per-frame body is fully synchronous, so
-// neither can ever observe the pool mid-recycle: they see either the frame
-// this pointer was last set to, or a completed later one. `latestStreamFrameCopy`
-// still copies because it hands the pixels to callers that outlive that
-// guarantee.
-//
-// The precondition is therefore "the render loop never yields mid-frame". If
-// LEDPreview's rAF body ever gains an `await`, a generator, or chunked
-// rendering, this holder must start copying (into a reused packed buffer)
-// instead — a torn frame here reaches real hardware over the wire.
-let latestFrame: Frame | null = null
+// Held as packed row-major RGB, not as the evaluator's `Frame`. Evaluator
+// frames are pooled and recycled a pass or two later, so keeping one by
+// reference means both readers here — the send interval and the snapshot
+// button — are reading a buffer whose owner may since have handed it to a
+// different node. That is safe only while the render loop's body stays fully
+// synchronous, so neither reader can interleave with a pass: an invariant
+// nothing enforced and nothing tested, guarding a path whose bytes go out over
+// serial to real hardware. Packing once here costs 0.04–0.5% of a core from
+// 16x16 to 64x64 (measured), which is not worth trading for a hazard that
+// returns the moment that loop gains an `await` or chunked rendering.
+let latestRgb: Uint8ClampedArray | null = null
 let latestW = 0
 let latestH = 0
 
 export function publishStreamFrame(frame: Frame, width: number, height: number) {
-  latestFrame = frame
+  if (width <= 0 || height <= 0) {
+    latestRgb = null
+    latestW = 0
+    latestH = 0
+    return
+  }
+  const needed = width * height * 3
+  // Reused across ticks; reallocated only when the matrix is resized.
+  if (!latestRgb || latestRgb.length !== needed) latestRgb = new Uint8ClampedArray(needed)
+  let at = 0
+  for (let y = 0; y < height; y++) {
+    const row = frame[y]
+    for (let x = 0; x < width; x++) {
+      const px = row?.[x]
+      latestRgb[at++] = px?.r ?? 0
+      latestRgb[at++] = px?.g ?? 0
+      latestRgb[at++] = px?.b ?? 0
+    }
+  }
   latestW = width
   latestH = height
 }
 
 /** The most recently rendered preview frame (post-brightness, post-show-
- *  overlay) as a packed-RGB copy — the recorder's PNG snapshot source. Copied
- *  because evaluator frames are pooled and recycled a couple of passes later;
- *  callers must never hold the raw reference. */
+ *  overlay) as packed RGB — the recorder's PNG snapshot source. Returns a
+ *  fresh copy because the buffer above is reused every tick, so a caller
+ *  holding this across frames would otherwise watch its pixels change. */
 export function latestStreamFrameCopy(): { bytes: Uint8ClampedArray; width: number; height: number } | null {
-  if (!latestFrame || latestW <= 0 || latestH <= 0) return null
-  const bytes = new Uint8ClampedArray(latestW * latestH * 3)
-  let at = 0
-  for (let y = 0; y < latestH; y++) {
-    const row = latestFrame[y]
-    for (let x = 0; x < latestW; x++) {
-      const px = row?.[x]
-      bytes[at++] = px?.r ?? 0
-      bytes[at++] = px?.g ?? 0
-      bytes[at++] = px?.b ?? 0
-    }
-  }
-  return { bytes, width: latestW, height: latestH }
+  if (!latestRgb || latestW <= 0 || latestH <= 0) return null
+  return { bytes: latestRgb.slice(), width: latestW, height: latestH }
 }
 
 // Cap the wire rate independent of the 60fps preview loop — a serial link
@@ -90,7 +93,7 @@ export const useStreamStore = create<StreamState>((set, get) => ({
     sentCount = 0
     lastFpsTick = performance.now()
     sendTimer = setInterval(() => {
-      if (inFlight || !latestFrame) return
+      if (inFlight || !latestRgb) return
       // The matrix was resized/reconfigured since the receiver was flashed —
       // skip until the sizes line up again rather than sending a mismatched
       // packet (the receiver has NUM_LEDS baked in at flash time). Say so:
@@ -103,7 +106,7 @@ export const useStreamStore = create<StreamState>((set, get) => ({
       }
       if (get().error) set({ error: null })
       inFlight = true
-      const packet = buildAdalightPacket(latestFrame, layout)
+      const packet = buildAdalightPacketFromRgb(latestRgb, layout)
       void sendStreamFrame(packet).then((ok) => {
         inFlight = false
         if (!ok) {
