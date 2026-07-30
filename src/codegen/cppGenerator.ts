@@ -553,6 +553,20 @@ function rtcHelperCpp(): string[] {
   ]
 }
 
+/** Free text made safe to drop into a `//` comment.
+ *
+ *  A newline would end the comment and turn the remainder of the value into
+ *  code. Nothing can currently smuggle one in — `normalizeLoadedGraph` resets
+ *  every library node's label from `NODE_LIBRARY` on load, and there is no
+ *  in-session rename — but that invariant lives in the graph store, far from
+ *  the generator that depends on it, and is enforced by code with no idea
+ *  codegen relies on it. Escaping here keeps it an incidental fact rather than
+ *  a load-bearing one, so adding node renaming later can't quietly turn an
+ *  imported project's label into an injection point in exported firmware. */
+export function cppComment(value: unknown): string {
+  return String(value ?? '').replace(/[\r\n\u2028\u2029]+/g, ' ').slice(0, 120)
+}
+
 function cppStringLiteral(value: unknown): string {
   return `"${String(value ?? '')
     .replace(/\\/g, '\\\\')
@@ -4980,7 +4994,7 @@ export function generateCpp(
   if (multipleOutputs) {
     for (const route of outputConfigs) {
       if (!route.xyTable) continue
-      lines.push(`// Physical wiring map for ${route.label}.`)
+      lines.push(`// Physical wiring map for ${cppComment(route.label)}.`)
       lines.push(`const uint16_t _xytable_${route.safeId}[${route.width * route.height}] PROGMEM = { ${route.xyTable.join(',')} };`)
       lines.push(`uint16_t XY_${route.safeId}(uint8_t x, uint8_t y) { return pgm_read_word(&_xytable_${route.safeId}[(uint16_t)y * ${route.width} + x]); }`)
       lines.push(``)

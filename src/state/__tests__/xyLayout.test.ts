@@ -100,3 +100,25 @@ describe('validateMatrixLayout', () => {
     ])
   })
 })
+
+describe('buildXYTable — degenerate sizes', () => {
+  // Every in-app caller clamps to 1..64 first, but this is an exported pure
+  // function: a negative or non-finite size used to reach `new Array(w * h)`
+  // and throw RangeError out of a helper whose whole job is to degrade to
+  // row-major.
+  it('returns null instead of throwing on a negative or zero size', () => {
+    for (const [w, h] of [[-4, 4], [4, -4], [0, 16], [16, 0], [0, 0]] as const) {
+      expect(() => buildXYTable(w, h, { layout: 'matrix', serpentine: true }), `${w}x${h}`).not.toThrow()
+      expect(buildXYTable(w, h, { layout: 'matrix', serpentine: true }), `${w}x${h}`).toBeNull()
+    }
+  })
+
+  it('returns null on a non-finite size', () => {
+    expect(buildXYTable(NaN, 16, { layout: 'matrix', serpentine: true })).toBeNull()
+    expect(buildXYTable(16, Infinity, { layout: 'matrix', serpentine: true })).toBeNull()
+  })
+
+  it('still builds a table for a legitimate 1-row strip', () => {
+    expect(buildXYTable(10, 1, { layout: 'strip', serpentine: true })).toHaveLength(10)
+  })
+})

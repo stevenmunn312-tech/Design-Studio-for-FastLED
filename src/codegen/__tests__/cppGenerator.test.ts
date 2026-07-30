@@ -2986,6 +2986,33 @@ describe('show-pipeline nodes in a normal sketch', () => {
   })
 })
 
+describe('generated-comment escaping', () => {
+  // Node labels reach the sketch as `// Physical wiring map for <label>.` in
+  // the multi-output branch. A newline there would end the comment and turn
+  // the rest of the label into code.
+  it('cannot break out of a // comment via a node label', () => {
+    const evil = 'Panel A\n#include <evil.h>\nvoid pwn() { }'
+    const a = { ...node('outA', 'MatrixOutput', 'output', { width: 8, height: 8, serpentine: true, dataPin: 5 }) }
+    a.data.label = evil
+    const b = node('outB', 'MatrixOutput', 'output', { width: 8, height: 8, serpentine: true, dataPin: 6 })
+    const src = node('sc', 'SolidColor', 'pattern', { r: 1, g: 2, b: 3 })
+    const cpp = generateCpp(
+      [src, a, b],
+      [edge('e1', 'sc', 'frame', 'outA', 'frame'), edge('e2', 'sc', 'frame', 'outB', 'frame')],
+    )
+
+    // The label's text may still appear — inside the comment, which is fine.
+    // What must never happen is it occupying a line of its own as real code.
+    const lines = cpp.split('\n').map((l) => l.trim())
+    expect(lines.some((l) => l.startsWith('#include <evil.h>'))).toBe(false)
+    expect(lines.some((l) => l.startsWith('void pwn()'))).toBe(false)
+
+    // It is flattened onto the single comment line instead, still readable.
+    const commentLines = lines.filter((l) => l.startsWith('// Physical wiring map for'))
+    expect(commentLines.some((l) => l.includes('Panel A') && l.includes('void pwn()'))).toBe(true)
+  })
+})
+
 describe('starter templates', () => {
   it('never generate a sketch claiming a supported node is unsupported', async () => {
     const { STARTER_TEMPLATES } = await import('../../state/starterTemplates')
