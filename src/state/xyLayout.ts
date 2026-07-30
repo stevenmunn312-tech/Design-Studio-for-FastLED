@@ -144,6 +144,14 @@ function rotatePoint(lx: number, ly: number, w: number, h: number, deg: TileRota
  *  row-major matrix/strip with pixel serpentine off — the caller's
  *  existing memmove fast path already does the right thing). */
 export function buildXYTable(width: number, height: number, props: TileLayoutProps): number[] | null {
+  // Every in-app caller clamps the matrix dimensions to 1..64 before getting
+  // here, but this is an exported pure function and a negative or non-finite
+  // size used to reach `new Array(width * height)` and throw `RangeError:
+  // Invalid array length` — an exception from a layout helper, out of a code
+  // path whose whole job is to degrade gracefully to row-major. Treat a
+  // degenerate size as "no remap needed" instead.
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width < 1 || height < 1) return null
+
   const layout = normalizedLayout(props)
   const pixelSerpentine = props.serpentine === true
 

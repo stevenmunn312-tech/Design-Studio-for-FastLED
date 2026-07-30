@@ -8,6 +8,21 @@ import type { StreamLayout } from '../codegen/streamReceiverGenerator'
 // LEDPreview.tsx) and read by the send-loop below at its own throttled rate.
 // A plain module holder rather than Zustand state — publishing here must not
 // trigger a React re-render 60 times a second.
+//
+// This deliberately stores the evaluator's *pooled* frame by reference, which
+// looks like it contradicts `latestStreamFrameCopy` below ("callers must never
+// hold the raw reference"). The difference is when the read happens. Both
+// readers here — the send interval and the snapshot button — run as their own
+// macrotasks, and the render loop's per-frame body is fully synchronous, so
+// neither can ever observe the pool mid-recycle: they see either the frame
+// this pointer was last set to, or a completed later one. `latestStreamFrameCopy`
+// still copies because it hands the pixels to callers that outlive that
+// guarantee.
+//
+// The precondition is therefore "the render loop never yields mid-frame". If
+// LEDPreview's rAF body ever gains an `await`, a generator, or chunked
+// rendering, this holder must start copying (into a reused packed buffer)
+// instead — a torn frame here reaches real hardware over the wire.
 let latestFrame: Frame | null = null
 let latestW = 0
 let latestH = 0
