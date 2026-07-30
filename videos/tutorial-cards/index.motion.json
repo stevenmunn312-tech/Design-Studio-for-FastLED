@@ -1,0 +1,29 @@
+{
+  "duration": 7,
+  "maxStaticSec": 1.1,
+  "assertions": [
+    {
+      "kind": "appearsBy",
+      "selector": "#brand-lockup",
+      "bySec": 0.9
+    },
+    {
+      "kind": "appearsBy",
+      "selector": "#hero-title",
+      "bySec": 1.8
+    },
+    {
+      "kind": "before",
+      "a": "#eyebrow",
+      "b": "#hero-title"
+    },
+    {
+      "kind": "staysInFrame",
+      "selector": "#title-panel"
+    },
+    {
+      "kind": "keepsMoving",
+      "withinSelector": "#card"
+    }
+  ]
+}
