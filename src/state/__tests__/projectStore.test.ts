@@ -328,4 +328,39 @@ describe('projectStore', () => {
     expect(projects).toEqual([stateAlpha])
     expect(projectsToSave).toEqual([stateAlpha])
   })
+
+  it('keeps projects whose write the helper never acknowledged, even against an empty folder', async () => {
+    const { reconcileProjectsFromDisk } = await freshStore()
+    const local = [
+      { id: 'alpha', name: 'Alpha', createdAt: 100, updatedAt: 200, workspace: workspace(['alpha']) },
+      { id: 'beta', name: 'Beta', createdAt: 100, updatedAt: 200, workspace: workspace(['beta']) },
+    ]
+
+    // A browser-only session: every saveProjectToDisk failed, so both ids are
+    // still journalled. An empty Projects/ folder must not read as "deleted".
+    const { projects, projectsToSave } = reconcileProjectsFromDisk([], local, ['alpha', 'beta'])
+
+    expect(projects.map((project) => project.id).sort()).toEqual(['alpha', 'beta'])
+    expect(projectsToSave.map((project) => project.id).sort()).toEqual(['alpha', 'beta'])
+  })
+
+  it('still drops an unjournalled project that is missing from disk', async () => {
+    const { reconcileProjectsFromDisk } = await freshStore()
+    const alpha = { id: 'alpha', name: 'Alpha', createdAt: 100, updatedAt: 200, workspace: workspace(['alpha']) }
+    const gone = { id: 'gone', name: 'Gone', createdAt: 100, updatedAt: 200, workspace: workspace(['gone']) }
+
+    const { projects } = reconcileProjectsFromDisk([alpha], [alpha, gone], ['alpha'])
+
+    expect(projects.map((project) => project.id)).toEqual(['alpha'])
+  })
+
+  it('suppresses a disk entry whose deletion has not been acknowledged yet', async () => {
+    const { reconcileProjectsFromDisk } = await freshStore()
+    const alpha = { id: 'alpha', name: 'Alpha', createdAt: 100, updatedAt: 200, workspace: workspace(['alpha']) }
+    const doomed = { id: 'doomed', name: 'Doomed', createdAt: 100, updatedAt: 200, workspace: workspace(['doomed']) }
+
+    const { projects } = reconcileProjectsFromDisk([alpha, doomed], [alpha, doomed], [], ['doomed'])
+
+    expect(projects.map((project) => project.id)).toEqual(['alpha'])
+  })
 })

@@ -66,6 +66,38 @@
   text-transform: uppercase;
 }
 
+/* The subtitle slot now carries the open project's name and doubles as the
+   projects-manager trigger, so it needs button chrome stripped back to the
+   surrounding text while staying focusable and obviously clickable. */
+.projectChip {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  cursor: pointer;
+}
+
+.projectChip:hover,
+.projectChip:focus-visible {
+  color: var(--text-primary);
+}
+
+.projectChip:focus-visible {
+  outline: 1px solid var(--accent-output);
+  outline-offset: 2px;
+}
+
+/* Nothing is being autosaved in this state — make it read as a warning rather
+   than as a project name. */
+.projectChipUnsaved {
+  color: var(--error);
+}
+
 .nav {
   display: flex;
   align-items: center;

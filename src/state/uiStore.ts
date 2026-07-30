@@ -86,6 +86,22 @@ function load<T>(key: string, fallback: T): T {
   try { const v = localStorage.getItem(key); return v !== null ? JSON.parse(v) : fallback } catch { return fallback }
 }
 
+/** Persist a UI preference, tolerating unavailable or full storage.
+ *
+ *  These writes all happen *before* the matching `set()`, so an unguarded
+ *  `localStorage.setItem` throwing (Safari private mode, or a quota the app
+ *  can genuinely exhaust — `snapshotHistory` already trims for it) took the
+ *  whole action down with it: the theme/contrast/preview-style toggle would
+ *  throw and the UI state would never change. A preference that fails to
+ *  persist should still apply for this session. */
+function save(key: string, value: unknown): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    // Preference is session-only when storage is unavailable or full.
+  }
+}
+
 function loadPreviewStyle(): PreviewStyle {
   try {
     const style = localStorage.getItem(PREVIEW_STYLE_KEY)
@@ -282,21 +298,21 @@ export const useUiStore = create<UiState>((set, get) => ({
   togglePreviewPanel: () => set((s) => ({ previewPanelOpen: !s.previewPanelOpen })),
   setSidebarWidth: (px) => {
     const width = clampPanelWidth(px, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH)
-    localStorage.setItem(SIDEBAR_WIDTH_KEY, JSON.stringify(width))
-    localStorage.setItem(LAYOUT_PRESET_KEY, JSON.stringify('custom'))
+    save(SIDEBAR_WIDTH_KEY, width)
+    save(LAYOUT_PRESET_KEY, 'custom')
     set({ sidebarWidth: width, layoutPreset: 'custom' })
   },
   setPreviewWidth: (px) => {
     const width = clampPanelWidth(px, MIN_PREVIEW_WIDTH, MAX_PREVIEW_WIDTH)
-    localStorage.setItem(PREVIEW_WIDTH_KEY, JSON.stringify(width))
-    localStorage.setItem(LAYOUT_PRESET_KEY, JSON.stringify('custom'))
+    save(PREVIEW_WIDTH_KEY, width)
+    save(LAYOUT_PRESET_KEY, 'custom')
     set({ previewWidth: width, layoutPreset: 'custom' })
   },
   applyLayoutPreset: (preset) => {
     const config = LAYOUT_PRESETS[preset]
-    localStorage.setItem(SIDEBAR_WIDTH_KEY, JSON.stringify(config.sidebarWidth))
-    localStorage.setItem(PREVIEW_WIDTH_KEY, JSON.stringify(config.previewWidth))
-    localStorage.setItem(LAYOUT_PRESET_KEY, JSON.stringify(preset))
+    save(SIDEBAR_WIDTH_KEY, config.sidebarWidth)
+    save(PREVIEW_WIDTH_KEY, config.previewWidth)
+    save(LAYOUT_PRESET_KEY, preset)
     set({
       sidebarWidth: config.sidebarWidth,
       previewWidth: config.previewWidth,
@@ -307,7 +323,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   },
   toggleGraphHealth: () => {
     const next = !get().graphHealthOpen
-    localStorage.setItem(GRAPH_HEALTH_KEY, JSON.stringify(next))
+    save(GRAPH_HEALTH_KEY, next)
     set({ graphHealthOpen: next })
   },
   toggleEvaluation: () => set((s) => ({ evaluationRunning: !s.evaluationRunning })),
@@ -317,32 +333,32 @@ export const useUiStore = create<UiState>((set, get) => ({
   setPerformanceMode: (performanceMode) => set({ performanceMode }),
   toggleUiEffects: () => {
     const next = !get().uiEffectsEnabled
-    localStorage.setItem(UI_EFFECTS_KEY, JSON.stringify(next))
+    save(UI_EFFECTS_KEY, next)
     set({ uiEffectsEnabled: next })
   },
   toggleSignalPathDim: () => {
     const next = !get().signalPathDimEnabled
-    localStorage.setItem(SIGNAL_PATH_DIM_KEY, JSON.stringify(next))
+    save(SIGNAL_PATH_DIM_KEY, next)
     set({ signalPathDimEnabled: next })
   },
   togglePreview3d: () => set((s) => ({ preview3d: !s.preview3d })),
   setPreviewOutputId: (previewOutputId) => set({ previewOutputId }),
   toggleTestSignal: () => {
     const next = !get().testSignal
-    localStorage.setItem(TEST_SIGNAL_KEY, JSON.stringify(next))
+    save(TEST_SIGNAL_KEY, next)
     set({ testSignal: next })
   },
   setPreviewStyle: (style) => {
-    localStorage.setItem(PREVIEW_STYLE_KEY, JSON.stringify(style))
+    save(PREVIEW_STYLE_KEY, style)
     set({ previewStyle: style })
   },
   cyclePreviewStyle: () => {
     const next = nextPreviewStyle(get().previewStyle)
-    localStorage.setItem(PREVIEW_STYLE_KEY, JSON.stringify(next))
+    save(PREVIEW_STYLE_KEY, next)
     set({ previewStyle: next })
   },
   setSpectrumVisualizerMode: (spectrumVisualizerMode) => {
-    localStorage.setItem(SPECTRUM_VISUALIZER_KEY, JSON.stringify(spectrumVisualizerMode))
+    save(SPECTRUM_VISUALIZER_KEY, spectrumVisualizerMode)
     set({ spectrumVisualizerMode })
   },
   setFps: (fps) => set({ fps }),
@@ -355,26 +371,26 @@ export const useUiStore = create<UiState>((set, get) => ({
   })),
 
   setTheme: (theme) => {
-    localStorage.setItem(THEME_KEY, JSON.stringify(theme))
+    save(THEME_KEY, theme)
     set({ theme })
   },
 
   cycleTheme: () => {
     const { theme } = get()
     const next = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]
-    localStorage.setItem(THEME_KEY, JSON.stringify(next))
+    save(THEME_KEY, next)
     set({ theme: next })
   },
 
   toggleReducedMotion: () => {
     const next = !get().reducedMotion
-    localStorage.setItem(MOTION_KEY, JSON.stringify(next))
+    save(MOTION_KEY, next)
     set({ reducedMotion: next })
   },
 
   toggleHighContrast: () => {
     const next = !get().highContrast
-    localStorage.setItem(CONTRAST_KEY, JSON.stringify(next))
+    save(CONTRAST_KEY, next)
     set({ highContrast: next })
   },
 
@@ -393,7 +409,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   openProjects: () => set({ projectsOpen: true }),
   closeProjects: () => set({ projectsOpen: false }),
   setLastStartChoice: (lastStartChoice) => {
-    localStorage.setItem(START_CHOICE_KEY, JSON.stringify(lastStartChoice))
+    save(START_CHOICE_KEY, lastStartChoice)
     set({ lastStartChoice })
   },
   requestAlert: ({ confirmLabel = 'OK', tone = 'default', ...options }) => {

@@ -93,6 +93,40 @@ describe('MenuBar file menu', () => {
     expect(getByText('No recent projects yet')).toBeTruthy()
   })
 
+  it('names the open project in the menu bar and opens the manager from it', () => {
+    const alpha = project('alpha', 'Neon Show', 'alpha-node', 200)
+    useProjectStore.setState({ projects: [alpha], currentProjectId: alpha.id, recentProjectIds: [] })
+
+    const { getByRole } = render(<MenuBar />)
+    const chip = getByRole('button', { name: 'Neon Show' })
+
+    fireEvent.click(chip)
+    expect(useUiStore.getState().projectsOpen).toBe(true)
+  })
+
+  it('warns in the menu bar when no project is open, so unsaved work is visible', () => {
+    useProjectStore.setState({ projects: [], currentProjectId: '', recentProjectIds: [] })
+
+    const { getByRole } = render(<MenuBar />)
+    const chip = getByRole('button', { name: 'No project — not saving' })
+
+    expect(chip.getAttribute('title')).toContain('not being saved')
+    fireEvent.click(chip)
+    expect(useUiStore.getState().projectsOpen).toBe(true)
+  })
+
+  it('opens the projects manager from the File menu', () => {
+    const alpha = project('alpha', 'alpha', 'alpha-node', 200)
+    useProjectStore.setState({ projects: [alpha], currentProjectId: alpha.id, recentProjectIds: [] })
+
+    const { getByRole } = render(<MenuBar />)
+    fireEvent.click(getByRole('button', { name: 'File menu' }))
+    fireEvent.click(getByRole('menuitem', { name: 'Manage Projects…' }))
+
+    expect(useUiStore.getState().projectsOpen).toBe(true)
+    expect(getByRole('button', { name: 'File menu' }).getAttribute('aria-expanded')).toBe('false')
+  })
+
   it('offers a persistent Start button outside the File menu', () => {
     const { getByRole } = render(<MenuBar />)
     fireEvent.click(getByRole('button', { name: 'Open start gallery' }))

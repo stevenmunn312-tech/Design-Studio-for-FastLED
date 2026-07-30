@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
 import { useUploadStore, boardByFqbn, engineReady } from '../../state/uploadStore'
 import { useCapacityStore } from '../../state/capacityStore'
@@ -6,6 +7,7 @@ import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { sdCardConnected } from '../../utils/showUpload'
 import { summarizeCapacity } from '../../utils/capacityFormat'
+import { useCodegenGraph } from '../../utils/codegenGraph'
 import styles from './Upload.module.css'
 
 const CAPACITY_LEVEL_CLASS = {
@@ -20,9 +22,23 @@ export default function MatrixOutputUpload({
   hasFrameInput: boolean
   hasSdCardInput: boolean
 }) {
-  const { nodes, edges } = useGraphStore()
-  const { helper, installedCores, selectedFqbn, selectedPort, ports, openSetupWizard, openDeployPopup } = useUploadStore()
-  const { status: capacityStatus, result: capacityResult, request: requestCapacityCheck } = useCapacityStore()
+  // This body is always mounted on the canvas, so it must not re-render on
+  // unrelated store writes — it drives the live capacity check.
+  const nodes = useGraphStore((s) => s.nodes)
+  const edges = useGraphStore((s) => s.edges)
+  const { helper, installedCores, selectedFqbn, selectedPort, ports, openSetupWizard, openDeployPopup } =
+    useUploadStore(useShallow((s) => ({
+      helper: s.helper,
+      installedCores: s.installedCores,
+      selectedFqbn: s.selectedFqbn,
+      selectedPort: s.selectedPort,
+      ports: s.ports,
+      openSetupWizard: s.openSetupWizard,
+      openDeployPopup: s.openDeployPopup,
+    })))
+  const capacityStatus = useCapacityStore((s) => s.status)
+  const capacityResult = useCapacityStore((s) => s.result)
+  const requestCapacityCheck = useCapacityStore((s) => s.request)
 
   const board = boardByFqbn(selectedFqbn)
   const portLabel = ports.find((p) => p.address === selectedPort)?.label ?? selectedPort
@@ -46,14 +62,19 @@ export default function MatrixOutputUpload({
   const psramChoice = psramOptions?.find((o) => o.id === ownProps.psramMode) ?? psramOptions?.[0]
   const fqbnWithOpt = usePsram && psramChoice ? `${selectedFqbn}:${psramChoice.opt}` : selectedFqbn
 
+  // Keyed on the codegen-relevant graph rather than the raw arrays: React Flow
+  // hands this component a fresh `nodes` array on every pointer move of a
+  // drag, which used to re-run the whole sketch generator ~60×/sec for output
+  // that node positions cannot affect.
+  const codegenGraph = useCodegenGraph(nodes, edges)
   const capacityCode = useMemo(() => {
     if (!hasFrameInput) return null
     const groups = getGroupRegistry()
     const opts = { psramAllowed: !!psramOptions }
-    return isPatternShow(nodes, edges)
-      ? generateShowSketch(nodes, edges, groups, opts)
-      : generateCpp(nodes, edges, groups, opts)
-  }, [nodes, edges, psramOptions, hasFrameInput])
+    return isPatternShow(codegenGraph.nodes, codegenGraph.edges)
+      ? generateShowSketch(codegenGraph.nodes, codegenGraph.edges, groups, opts)
+      : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
+  }, [codegenGraph, psramOptions, hasFrameInput])
 
   useEffect(() => {
     if (!capacityCode) return

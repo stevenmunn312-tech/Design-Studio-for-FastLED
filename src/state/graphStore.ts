@@ -159,6 +159,10 @@ interface GraphState {
   updateNodeProperties: (id: string, updates: Record<string, unknown>) => void
   loadGraph: (nodes: StudioNode[], edges: StudioEdge[], workspace?: WorkspaceExtras) => void
   duplicateNode: (id: string) => void
+  /** Duplicate every currently multi-selected node plus the edges wiring them
+   *  together — the Ctrl+D counterpart to `copySelection`. Falls back to a
+   *  single-node duplicate when fewer than two nodes are selected. */
+  duplicateSelection: () => void
   copyNode: (id: string) => void
   /** Copy every currently multi-selected node (`node.selected`) plus the edges
    *  wiring them together, so a selection with internal wiring pastes intact. */
@@ -436,15 +440,58 @@ function pruneOrphanGraphData(
 // the prune fires only after the store has been quiet for a full second: any
 // state change while it is pending pushes it back (see the subscription below
 // the store), which guarantees the snapshot is in `pastStates` first.
-/** Every node array held by the undo/redo history. Annotated (not inferred)
- *  so the store creator can call it without a circular type dependency on the
- *  store's own inferred type. */
+// ── Per-graph undo history ───────────────────────────────────────────────────
+// zundo tracks only the *active* graph's nodes/edges, so a step recorded in one
+// graph must never be applied while another is active. Entering a group used to
+// resolve that by clearing history outright — correct, but it meant double-
+// clicking into a group to nudge one slider and coming back out silently threw
+// away everything the user could previously undo. Instead, each graph's stacks
+// are stashed here on the way out and restored on the way back in, so history
+// follows the graph it belongs to.
+type HistoryStacks = { pastStates: Partial<HistorySlice>[]; futureStates: Partial<HistorySlice>[] }
+const stashedHistory = new Map<string, HistoryStacks>()
+
+function stashActiveHistory(graphId: string): void {
+  const { pastStates, futureStates } = useGraphStore.temporal.getState()
+  if (pastStates.length === 0 && futureStates.length === 0) {
+    stashedHistory.delete(graphId)
+    return
+  }
+  stashedHistory.set(graphId, { pastStates: [...pastStates], futureStates: [...futureStates] })
+}
+
+function restoreStashedHistory(graphId: string): void {
+  const stacks = stashedHistory.get(graphId)
+  stashedHistory.delete(graphId)
+  useGraphStore.temporal.setState({
+    pastStates: stacks?.pastStates ?? [],
+    futureStates: stacks?.futureStates ?? [],
+  })
+}
+
+/** Forget every stashed stack — used wherever history is genuinely invalidated
+ *  (loading a project, restoring a snapshot), so a stale stack can't come back
+ *  when the user next enters a group that happens to reuse an id. */
+export function clearStashedGraphHistory(): void {
+  stashedHistory.clear()
+}
+
+/** Every node array held by the undo/redo history — the live stacks plus the
+ *  per-graph stashes above, since a stashed step can still be the only thing
+ *  referencing a subgraph and the orphan sweep must not collect it. Annotated
+ *  (not inferred) so the store creator can call it without a circular type
+ *  dependency on the store's own inferred type. */
 function historyNodeLists(): StudioNode[][] {
   const history = useGraphStore.temporal.getState()
-  return [
+  const lists: StudioNode[][] = [
     ...history.pastStates.map((snapshot) => snapshot.nodes ?? []),
     ...history.futureStates.map((snapshot) => snapshot.nodes ?? []),
   ]
+  for (const stacks of stashedHistory.values()) {
+    for (const snapshot of stacks.pastStates) lists.push(snapshot.nodes ?? [])
+    for (const snapshot of stacks.futureStates) lists.push(snapshot.nodes ?? [])
+  }
+  return lists
 }
 
 const ORPHAN_PRUNE_DELAY_MS = 1_000
@@ -918,7 +965,12 @@ export const useGraphStore = create<GraphState>()(
           }),
         })),
 
-      loadGraph: (nodes, edges, workspace) =>
+      loadGraph: (nodes, edges, workspace) => {
+        // Replacing the workspace invalidates every graph's history, stashed
+        // stacks included — otherwise entering a group whose id happens to
+        // recur in the newly loaded workspace would restore the old project's
+        // undo steps. Callers clear the live stacks themselves right after.
+        clearStashedGraphHistory()
         set(() => {
           // Restore the active graph plus every stashed pattern-group subgraph.
           const active = normalizeLoadedGraph(nodes, edges)
@@ -954,13 +1006,14 @@ export const useGraphStore = create<GraphState>()(
             panicActive: false,
             panicRestoreValues: null,
           }
-        }),
+        })
+      },
 
       duplicateNode: (id) =>
         set((s) => {
           const node = s.nodes.find((n) => n.id === id)
           if (!node || !canAddNodeType(s.nodes, node.data.nodeType)) return s
-          const newId = `${node.data.nodeType}-${Date.now()}`
+          const newId = uniqueId(`${node.data.nodeType}-${Date.now()}`, new Set(s.nodes.map((n) => n.id)))
           return {
             nodes: [
               ...s.nodes.map((n) => (n.selected ? { ...n, selected: false } : n)),
@@ -972,6 +1025,56 @@ export const useGraphStore = create<GraphState>()(
               },
             ],
             selectedNodeId: newId,
+          }
+        }),
+
+      duplicateSelection: () =>
+        set((s) => {
+          const selected = s.nodes.filter((n) => n.selected)
+          if (selected.length === 0) return s
+
+          // Scene-level singletons (MatrixOutput, MicInput, …) can't be
+          // duplicated; skip them rather than refusing the whole gesture, the
+          // same way pasteNode filters its clipboard.
+          const used = new Set(s.nodes.map((n) => n.id))
+          const duplicable: StudioNode[] = []
+          const projected = [...s.nodes]
+          for (const node of selected) {
+            if (!canAddNodeType(projected, node.data.nodeType)) continue
+            duplicable.push(node)
+            // Count each accepted duplicate against the singleton budget so two
+            // selected copies of a limited type can't both slip through.
+            projected.push(node)
+          }
+          if (duplicable.length === 0) return s
+
+          const sourceIds = new Set(duplicable.map((n) => n.id))
+          const idMap = new Map<string, string>()
+          const newNodes = duplicable.map((node) => {
+            const newId = uniqueId(`${node.data.nodeType}-${Date.now()}`, used)
+            idMap.set(node.id, newId)
+            return {
+              ...node,
+              id: newId,
+              position: { x: node.position.x + 20, y: node.position.y + 20 },
+              selected: true,
+            }
+          })
+          // Edges wholly inside the selection come along, so a duplicated chain
+          // stays wired instead of arriving as loose nodes.
+          const newEdges = s.edges
+            .filter((e) => sourceIds.has(e.source!) && sourceIds.has(e.target!))
+            .map((e) => ({
+              ...e,
+              id: `e-${idMap.get(e.source!)}-${idMap.get(e.target!)}-${e.sourceHandle}-${e.targetHandle}`,
+              source: idMap.get(e.source!)!,
+              target: idMap.get(e.target!)!,
+            }))
+
+          return {
+            nodes: [...s.nodes.map((n) => (n.selected ? { ...n, selected: false } : n)), ...newNodes],
+            edges: [...s.edges, ...newEdges],
+            selectedNodeId: newNodes[0].id,
           }
         }),
 
@@ -1022,17 +1125,23 @@ export const useGraphStore = create<GraphState>()(
         set((s) => {
           if (id === s.activeGraphId || !s.graphs[id]) return s
           // Stash the current graph, load the target. Graph navigation is not
-          // an undoable edit, so pause + clear history around the swap.
+          // itself an undoable edit, so history stays paused across the swap —
+          // but each graph keeps its own stacks rather than everything being
+          // thrown away, so stepping into a group to tweak one value no longer
+          // costs the user every undo step they had in the parent.
           const temporalApi = useGraphStore.temporal.getState()
           temporalApi.pause()
+          const leaving = s.activeGraphId
+          stashActiveHistory(leaving)
           const target = s.graphData[id] ?? { nodes: [], edges: [] }
-          const nextData = { ...s.graphData, [s.activeGraphId]: { nodes: s.nodes, edges: s.edges } }
+          const nextData = { ...s.graphData, [leaving]: { nodes: s.nodes, edges: s.edges } }
           delete nextData[id]
           queueMicrotask(() => {
-            temporalApi.clear()
+            restoreStashedHistory(id)
             temporalApi.resume()
             useUiStore.getState().requestFitView()
-            // History is gone, so any subgraph it was keeping alive can go too.
+            // Stashed stacks count as live references (see historyNodeLists),
+            // so this only collects subgraphs nothing can reach any more.
             useGraphStore.getState().pruneOrphanGraphs()
           })
           return {
@@ -1045,8 +1154,13 @@ export const useGraphStore = create<GraphState>()(
         }),
 
       createGroup: (name, nodeIds, options) => {
-        const groupId = `group-${Date.now()}`
+        // Every id this action mints (the Group node, its GroupOutput/GroupInput
+        // nodes, their edges) is derived from `groupId`, so disambiguating it
+        // against the existing subgraphs keeps the whole set collision-free even
+        // when two groups are created within the same millisecond.
+        let groupId = `group-${Date.now()}`
         set((s) => {
+          groupId = uniqueId(groupId, new Set(Object.keys(s.graphs)))
           const idSet = new Set(nodeIds)
           // Scene-level outputs/sources stay in the parent graph rather than being
           // sealed inside a reusable pattern. A surviving MatrixOutput is
@@ -1352,11 +1466,16 @@ export const useGraphStore = create<GraphState>()(
 
       instantiatePattern: (saved, position, centreOnDrop) =>
         set((s) => {
-          const groupId = `group-${Date.now()}`
+          // Millisecond stamps collide when several patterns are dropped in one
+          // synchronous burst (the library's multi-select "Add to canvas" loops
+          // this action), which previously minted duplicate group *and* node
+          // ids. Disambiguate against what already exists, like every other
+          // group-minting action here does.
+          const groupId = uniqueId(`group-${Date.now()}`, new Set(Object.keys(s.graphs)))
           // Clone the saved subgraph so two instances of the same pattern don't
           // share node/edge objects (editing one would otherwise touch both).
           const sub = structuredClone(saved.subgraph)
-          const nodeId = `groupnode-${groupId}`
+          const nodeId = uniqueId(`groupnode-${groupId}`, new Set(s.nodes.map((n) => n.id)))
           if (centreOnDrop) pendingCentreY.set(nodeId, position.y)
           const groupNode: StudioNode = {
             id: nodeId,

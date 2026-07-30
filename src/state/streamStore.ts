@@ -78,8 +78,15 @@ export const useStreamStore = create<StreamState>((set, get) => ({
       if (inFlight || !latestFrame) return
       // The matrix was resized/reconfigured since the receiver was flashed —
       // skip until the sizes line up again rather than sending a mismatched
-      // packet (the receiver has NUM_LEDS baked in at flash time).
-      if (latestW !== layout.width || latestH !== layout.height) return
+      // packet (the receiver has NUM_LEDS baked in at flash time). Say so:
+      // silently dropping every frame reads as "streaming, 0 fps" with no
+      // explanation, which is exactly how an earlier 1-row-strip bug hid.
+      if (latestW !== layout.width || latestH !== layout.height) {
+        const message = `Matrix is now ${latestW}×${latestH} but the receiver was flashed for ${layout.width}×${layout.height} — re-flash the stream receiver, or restore the previous size.`
+        if (get().error !== message) set({ error: message })
+        return
+      }
+      if (get().error) set({ error: null })
       inFlight = true
       const packet = buildAdalightPacket(latestFrame, layout)
       void sendStreamFrame(packet).then((ok) => {
