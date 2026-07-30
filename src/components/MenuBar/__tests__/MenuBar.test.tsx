@@ -93,6 +93,18 @@ describe('MenuBar file menu', () => {
     expect(getByText('No recent projects yet')).toBeTruthy()
   })
 
+  it('opens the projects manager from the File menu', () => {
+    const alpha = project('alpha', 'alpha', 'alpha-node', 200)
+    useProjectStore.setState({ projects: [alpha], currentProjectId: alpha.id, recentProjectIds: [] })
+
+    const { getByRole } = render(<MenuBar />)
+    fireEvent.click(getByRole('button', { name: 'File menu' }))
+    fireEvent.click(getByRole('menuitem', { name: 'Manage Projects…' }))
+
+    expect(useUiStore.getState().projectsOpen).toBe(true)
+    expect(getByRole('button', { name: 'File menu' }).getAttribute('aria-expanded')).toBe('false')
+  })
+
   it('offers a persistent Start button outside the File menu', () => {
     const { getByRole } = render(<MenuBar />)
     fireEvent.click(getByRole('button', { name: 'Open start gallery' }))

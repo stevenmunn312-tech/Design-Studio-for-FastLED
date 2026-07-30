@@ -1045,8 +1045,13 @@ export const useGraphStore = create<GraphState>()(
         }),
 
       createGroup: (name, nodeIds, options) => {
-        const groupId = `group-${Date.now()}`
+        // Every id this action mints (the Group node, its GroupOutput/GroupInput
+        // nodes, their edges) is derived from `groupId`, so disambiguating it
+        // against the existing subgraphs keeps the whole set collision-free even
+        // when two groups are created within the same millisecond.
+        let groupId = `group-${Date.now()}`
         set((s) => {
+          groupId = uniqueId(groupId, new Set(Object.keys(s.graphs)))
           const idSet = new Set(nodeIds)
           // Scene-level outputs/sources stay in the parent graph rather than being
           // sealed inside a reusable pattern. A surviving MatrixOutput is
@@ -1352,11 +1357,16 @@ export const useGraphStore = create<GraphState>()(
 
       instantiatePattern: (saved, position, centreOnDrop) =>
         set((s) => {
-          const groupId = `group-${Date.now()}`
+          // Millisecond stamps collide when several patterns are dropped in one
+          // synchronous burst (the library's multi-select "Add to canvas" loops
+          // this action), which previously minted duplicate group *and* node
+          // ids. Disambiguate against what already exists, like every other
+          // group-minting action here does.
+          const groupId = uniqueId(`group-${Date.now()}`, new Set(Object.keys(s.graphs)))
           // Clone the saved subgraph so two instances of the same pattern don't
           // share node/edge objects (editing one would otherwise touch both).
           const sub = structuredClone(saved.subgraph)
-          const nodeId = `groupnode-${groupId}`
+          const nodeId = uniqueId(`groupnode-${groupId}`, new Set(s.nodes.map((n) => n.id)))
           if (centreOnDrop) pendingCentreY.set(nodeId, position.y)
           const groupNode: StudioNode = {
             id: nodeId,

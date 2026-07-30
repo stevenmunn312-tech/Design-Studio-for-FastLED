@@ -49,9 +49,97 @@ interface ProjectState {
 const KEY = 'design-studio-for-fastled.projects.v1'
 const CURRENT_PROJECT_KEY = 'design-studio-for-fastled.current-project.v1'
 const CURRENT_WORKSPACE_KEY = 'design-studio-for-fastled.current-workspace.v1'
+const SYNC_KEY = 'design-studio-for-fastled.projects-sync.v1'
 const LEGACY_AUTOSAVE_KEY = 'design-studio-for-fastled-graph'
 const DISK_SYNC = !import.meta.env.VITEST
 const RECENT_PROJECT_LIMIT = 6
+
+// ── Helper sync journal ──────────────────────────────────────────────────────
+// Mirrors the pattern library's journal (patternLibrary.ts). Disk is
+// authoritative for projects the helper has confirmed it wrote, but a write it
+// never acknowledged must not be mistaken for "the user deleted this file" —
+// otherwise a browser-only session (helper never installed, every
+// `saveProjectToDisk` silently failing) loses every project the first time the
+// helper does come online and reports an empty folder.
+interface ProjectSyncJournal {
+  pendingUpserts: string[]
+  pendingDeletes: string[]
+}
+
+function loadSyncJournal(): ProjectSyncJournal {
+  try {
+    const raw = localStorage.getItem(SYNC_KEY)
+    const parsed = raw ? JSON.parse(raw) as Partial<ProjectSyncJournal> : {}
+    const ids = (value: unknown) => Array.isArray(value)
+      ? [...new Set(value.filter((id): id is string => typeof id === 'string' && !!id))]
+      : []
+    return { pendingUpserts: ids(parsed.pendingUpserts), pendingDeletes: ids(parsed.pendingDeletes) }
+  } catch {
+    return { pendingUpserts: [], pendingDeletes: [] }
+  }
+}
+
+function persistSyncJournal(journal: ProjectSyncJournal) {
+  try {
+    if (journal.pendingUpserts.length === 0 && journal.pendingDeletes.length === 0) {
+      localStorage.removeItem(SYNC_KEY)
+    } else {
+      localStorage.setItem(SYNC_KEY, JSON.stringify(journal))
+    }
+  } catch {
+    // The in-memory project list still works when storage is unavailable.
+  }
+}
+
+function updateSyncJournal(update: (journal: ProjectSyncJournal) => ProjectSyncJournal) {
+  persistSyncJournal(update(loadSyncJournal()))
+}
+
+function markPendingUpsert(id: string) {
+  updateSyncJournal((journal) => ({
+    pendingUpserts: [...new Set([...journal.pendingUpserts, id])],
+    pendingDeletes: journal.pendingDeletes.filter((entry) => entry !== id),
+  }))
+}
+
+function clearPendingUpsert(id: string) {
+  updateSyncJournal((journal) => ({
+    ...journal,
+    pendingUpserts: journal.pendingUpserts.filter((entry) => entry !== id),
+  }))
+}
+
+function markPendingDelete(id: string) {
+  updateSyncJournal((journal) => ({
+    pendingUpserts: journal.pendingUpserts.filter((entry) => entry !== id),
+    pendingDeletes: [...new Set([...journal.pendingDeletes, id])],
+  }))
+}
+
+function clearPendingDelete(id: string) {
+  updateSyncJournal((journal) => ({
+    ...journal,
+    pendingDeletes: journal.pendingDeletes.filter((entry) => entry !== id),
+  }))
+}
+
+/** Write a project to disk, journalling it until the helper acknowledges. */
+function queueProjectUpsert(project: SavedProject) {
+  if (!DISK_SYNC) return
+  markPendingUpsert(project.id)
+  void saveProjectToDisk(project).then((saved) => {
+    if (saved) clearPendingUpsert(project.id)
+  })
+}
+
+/** Delete a project's file, journalling it until the helper acknowledges. */
+function queueProjectDelete(id: string) {
+  if (!DISK_SYNC) return
+  markPendingDelete(id)
+  void deleteProjectFromDisk(id).then((deleted) => {
+    if (deleted) clearPendingDelete(id)
+  })
+}
 
 function trimName(name: string): string {
   return name.trim().slice(0, 80)
@@ -232,18 +320,37 @@ function buildState(
   }
 }
 
+/** Disk is authoritative for projects the helper has acknowledged: an entry
+ *  missing from the folder is a deletion, not a reason to recreate the file
+ *  from browser cache. Projects whose write the helper never acknowledged
+ *  (`pendingUpserts` — the whole browser-only case, where the helper was
+ *  offline for every save) are the exception: dropping those would silently
+ *  destroy work that only ever existed locally. `pendingDeletes` suppresses a
+ *  disk entry whose deletion request has not gone through yet, so a slow retry
+ *  never resurrects a removed project. */
 export function reconcileProjectsFromDisk(
   diskProjects: SavedProject[],
   stateProjects: SavedProject[],
+  pendingUpserts: Iterable<string> = [],
+  pendingDeletes: Iterable<string> = [],
 ): { projects: SavedProject[]; projectsToSave: SavedProject[] } {
+  const upsertIds = new Set(pendingUpserts)
+  const deletedIds = new Set(pendingDeletes)
   const merged = new Map<string, SavedProject>()
   const projectsToSave: SavedProject[] = []
-  for (const project of diskProjects) merged.set(project.id, project)
+  for (const project of diskProjects) {
+    if (deletedIds.has(project.id)) continue
+    merged.set(project.id, project)
+  }
   for (const project of stateProjects) {
+    if (deletedIds.has(project.id)) continue
     const existing = merged.get(project.id)
     if (!existing) {
-      // If the file is gone from disk, treat that as an intentional delete
-      // instead of silently recreating it from stale in-memory state.
+      // Never written to disk successfully — keep it and retry the write.
+      if (upsertIds.has(project.id)) {
+        merged.set(project.id, project)
+        projectsToSave.push(project)
+      }
       continue
     }
     if (project.updatedAt >= existing.updatedAt) {
@@ -356,7 +463,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     )
     persist(next)
     set(next)
-    if (DISK_SYNC) void saveProjectToDisk(project)
+    queueProjectUpsert(project)
     return project
   },
 
@@ -374,7 +481,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const next = buildState(projects, normalized.id, recentProjectIds)
     persist(next)
     set(next)
-    if (DISK_SYNC) void saveProjectToDisk(normalized)
+    queueProjectUpsert(normalized)
     return normalized
   },
 
@@ -388,7 +495,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     persist(next)
     set(next)
     const renamed = next.projects.find((project) => project.id === id)
-    if (DISK_SYNC && renamed) void saveProjectToDisk(renamed)
+    if (renamed) queueProjectUpsert(renamed)
   },
 
   deleteProject: (id) => {
@@ -400,7 +507,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const next = buildState(projects, currentProjectId, state.recentProjectIds.filter((entry) => entry !== id))
     persist(next)
     set(next)
-    if (DISK_SYNC) void deleteProjectFromDisk(id)
+    queueProjectDelete(id)
     return next.projects.find((project) => project.id === next.currentProjectId) ?? null
   },
 
@@ -428,7 +535,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     persist(next)
     set({ projects: next.projects })
     const current = next.projects.find((project) => project.id === next.currentProjectId)
-    if (DISK_SYNC && current) void saveProjectToDisk(current)
+    if (current) queueProjectUpsert(current)
   },
 
   setProjectUploadTarget: (uploadTarget, id) => {
@@ -444,15 +551,49 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     persist(next)
     set({ projects: next.projects })
     const updated = next.projects.find((project) => project.id === projectId)
-    if (DISK_SYNC && updated) void saveProjectToDisk(updated)
+    if (updated) queueProjectUpsert(updated)
   },
 
   refreshFromDisk: async () => {
     if (!DISK_SYNC) return
     const disk = await listProjects()
-    if (!disk) return
+    if (!disk) return  // helper offline — keep the localStorage copy as-is
+
+    // Replay unacknowledged deletions first, and filter the already-fetched
+    // snapshot regardless of whether the retry succeeded, so a slow or failing
+    // request never resurrects a project the user removed.
+    const deleteIds = loadSyncJournal().pendingDeletes
+    for (const id of deleteIds) {
+      if (await deleteProjectFromDisk(id)) clearPendingDelete(id)
+    }
+    let nextDisk = disk.filter((project) => !deleteIds.includes(project.id))
+
+    // Retry unacknowledged writes, so a session that only ever ran without the
+    // helper lands its projects on disk the first time one is available. A
+    // successful retry has to be folded into the snapshot by hand — `disk` was
+    // fetched before the write, so reconcile would otherwise see the project
+    // as absent from disk with its journal entry already cleared.
+    for (const id of loadSyncJournal().pendingUpserts) {
+      const project = get().projects.find((entry) => entry.id === id)
+      if (!project) {
+        clearPendingUpsert(id)
+        continue
+      }
+      if (await saveProjectToDisk(project)) {
+        clearPendingUpsert(id)
+        nextDisk = [...nextDisk.filter((entry) => entry.id !== id), project]
+      }
+    }
+
+    // Re-read: an autosave may have landed while the retries were in flight.
     const state = get()
-    const { projects, projectsToSave } = reconcileProjectsFromDisk(disk, state.projects)
+    const journal = loadSyncJournal()
+    const { projects, projectsToSave } = reconcileProjectsFromDisk(
+      nextDisk,
+      state.projects,
+      journal.pendingUpserts,
+      [...deleteIds, ...journal.pendingDeletes],
+    )
     const preferredProjectId = loadCurrentProjectHint() ?? state.currentProjectId
     const currentProjectId = projects.some((project) => project.id === preferredProjectId)
       ? preferredProjectId
@@ -460,6 +601,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const next = buildState(projects, currentProjectId, state.recentProjectIds)
     persist(next)
     set(next)
-    for (const project of projectsToSave) void saveProjectToDisk(project)
+    for (const project of projectsToSave) queueProjectUpsert(project)
   },
 }))

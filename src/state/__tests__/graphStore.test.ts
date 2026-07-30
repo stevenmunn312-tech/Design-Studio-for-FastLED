@@ -217,6 +217,32 @@ describe('graphStore — grouping', () => {
     expect(useGraphStore.getState().nodes.filter((n) => n.data.nodeType === 'SolidColor')).toHaveLength(3)
   })
 
+  it('gives each pattern its own ids when several are dropped in one synchronous burst', () => {
+    reset()
+    const saved = (id: string) => ({
+      id, name: id,
+      inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+      subgraph: { nodes: [node(`inner-${id}`, 'SolidColor')], edges: [] },
+    } as unknown as import('../patternLibrary').SavedPattern)
+
+    // The library's multi-select "Add to canvas" loops instantiatePattern, so
+    // every drop shares one Date.now() stamp.
+    ;['a', 'b', 'c'].forEach((id, i) =>
+      useGraphStore.getState().instantiatePattern(saved(id), { x: i * 24, y: i * 18 }))
+
+    const s = useGraphStore.getState()
+    const groupNodes = s.nodes.filter((n) => n.data.nodeType === 'Group')
+    const nodeIds = groupNodes.map((n) => n.id)
+    const groupIds = groupNodes.map((n) => (n.data.properties as { groupId: string }).groupId)
+
+    expect(groupNodes).toHaveLength(3)
+    expect(new Set(nodeIds).size).toBe(3)
+    expect(new Set(groupIds).size).toBe(3)
+    // Each group keeps its own subgraph rather than clobbering the last one.
+    expect(Object.keys(s.graphData).filter((id) => groupIds.includes(id))).toHaveLength(3)
+    expect(groupIds.map((id) => s.graphs[id]?.sourcePatternId).sort()).toEqual(['a', 'b', 'c'])
+  })
+
   it('instantiatePattern with centreOnDrop lifts the Group node by half its measured height', () => {
     reset()
     const saved = {

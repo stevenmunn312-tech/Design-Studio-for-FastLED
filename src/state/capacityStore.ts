@@ -67,16 +67,25 @@ export const useCapacityStore = create<CapacityState>((set) => ({
     if (key === requestedKey) return
 
     const boardChanged = requestedFqbn !== null && requestedFqbn !== fqbn
-    requestedKey = key
     requestedFqbn = fqbn
 
     if (debounceTimer) clearTimeout(debounceTimer)
     inFlightController?.abort()
 
     if (!toolchainReady) {
-      set({ status: 'toolchain-missing' })
+      // Clear the cache key rather than storing it: nothing was measured, so
+      // the identical call that arrives once the core finishes installing
+      // (same code, same board, same engine) must not be swallowed by the
+      // early return above — that used to pin the meter to 'toolchain-missing'
+      // until the user happened to edit the graph or switch boards. Only
+      // publish when the status actually changes, since this branch is now
+      // re-entered on every render while the toolchain is unavailable.
+      requestedKey = null
+      set((s) => (s.status === 'toolchain-missing' ? s : { status: 'toolchain-missing' }))
       return
     }
+
+    requestedKey = key
 
     // A board switch invalidates any number we're showing outright (never
     // show one board's reading labelled as another's); otherwise keep the

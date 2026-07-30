@@ -78,6 +78,7 @@ export default function MenuBar() {
     setHelpTab,
     openRecover,
     openTemplates,
+    openProjects,
     requestAlert,
     requestConfirm,
     requestNewProjectDecision,
@@ -111,6 +112,7 @@ export default function MenuBar() {
     setHelpTab: s.setHelpTab,
     openRecover: s.openRecover,
     openTemplates: s.openTemplates,
+    openProjects: s.openProjects,
     requestAlert: s.requestAlert,
     requestConfirm: s.requestConfirm,
     requestNewProjectDecision: s.requestNewProjectDecision,
@@ -547,6 +549,14 @@ export default function MenuBar() {
                 Save Project File As…
               </button>
               <div className={styles.menuDivider} />
+              <button
+                className={styles.menuItem}
+                role="menuitem"
+                onClick={() => { closeMenus(); openProjects() }}
+                title="Browse, duplicate, rename, and delete saved projects"
+              >
+                Manage Projects…
+              </button>
               <div className={styles.menuLabel}>Recent Projects</div>
               {recentProjects.length > 0 ? recentProjects.map((project) => (
                 <button
