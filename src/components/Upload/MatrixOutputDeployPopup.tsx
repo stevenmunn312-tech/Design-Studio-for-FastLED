@@ -13,6 +13,7 @@ import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGe
 import { sdCardConnected, readySongCount, buildShowPayload } from '../../utils/showUpload'
 import { findPinConflicts, findMatrixLayoutErrors, findBoardCompatibilityErrors, findOutputResourceErrors } from '../../utils/validateGraph'
 import { summarizeCapacity } from '../../utils/capacityFormat'
+import { useCodegenGraph } from '../../utils/codegenGraph'
 import { useModalFocus } from '../../hooks/useModalFocus'
 import {
   buildHardwareValidationProfile,
@@ -58,13 +59,16 @@ export default function MatrixOutputDeployPopup() {
   const usePsram = !!psramOptions && ownProps.usePsram === true
   const psramChoice = psramOptions?.find((o) => o.id === ownProps.psramMode) ?? psramOptions?.[0]
 
+  // See MatrixOutputUpload: keyed on the codegen-relevant graph so a node drag
+  // behind this popup doesn't re-run the sketch generator every frame.
+  const codegenGraph = useCodegenGraph(nodes, edges)
   const code = useMemo(() => {
     const groups = getGroupRegistry()
     const opts = { psramAllowed: !!psramOptions }
-    return isPatternShow(nodes, edges)
-      ? generateShowSketch(nodes, edges, groups, opts)
-      : generateCpp(nodes, edges, groups, opts)
-  }, [nodes, edges, psramOptions])
+    return isPatternShow(codegenGraph.nodes, codegenGraph.edges)
+      ? generateShowSketch(codegenGraph.nodes, codegenGraph.edges, groups, opts)
+      : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
+  }, [codegenGraph, psramOptions])
 
   const portLabel = ports.find((p) => p.address === selectedPort)?.label ?? selectedPort
   const target = `${board?.label ?? 'No board'} · ${portLabel || 'no port'}`

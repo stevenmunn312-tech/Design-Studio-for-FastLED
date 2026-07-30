@@ -25,6 +25,7 @@ import {
   type Node,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { useShallow } from 'zustand/react/shallow'
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { usePatternLibrary } from '../../state/patternLibrary'
@@ -112,8 +113,31 @@ function hoveredNodeId(eventTarget: EventTarget | null): string | undefined {
 }
 
 function NodeGraphCanvasInner() {
+  // Selector + shallow compare rather than a bare `useGraphStore()`: this is
+  // the heaviest component in the app, and an unselectored subscription
+  // re-renders it on every unrelated store write (clipboard, trust flag,
+  // performance-deck edits, …) on top of the node/edge churn it genuinely
+  // needs.
   const { nodes, edges, selectedNodeId, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, insertNodeOnEdge, spliceNodeOnEdge, spreadNodes, instantiatePattern, addToCollection, addPatternToCollection, enterGraph, removeEdge, reconnectNoodle } =
-    useGraphStore()
+    useGraphStore(useShallow((s) => ({
+      nodes: s.nodes,
+      edges: s.edges,
+      selectedNodeId: s.selectedNodeId,
+      onNodesChange: s.onNodesChange,
+      onEdgesChange: s.onEdgesChange,
+      onConnect: s.onConnect,
+      selectNode: s.selectNode,
+      addNode: s.addNode,
+      insertNodeOnEdge: s.insertNodeOnEdge,
+      spliceNodeOnEdge: s.spliceNodeOnEdge,
+      spreadNodes: s.spreadNodes,
+      instantiatePattern: s.instantiatePattern,
+      addToCollection: s.addToCollection,
+      addPatternToCollection: s.addPatternToCollection,
+      enterGraph: s.enterGraph,
+      removeEdge: s.removeEdge,
+      reconnectNoodle: s.reconnectNoodle,
+    })))
   // Restore the saved pan/zoom on mount; fit the view only when there's none
   // (first run). Read once so it isn't re-applied on every render.
   const initialViewport = useMemo(() => loadViewport(), [])
@@ -136,6 +160,9 @@ function NodeGraphCanvasInner() {
   // click that React Flow emits right after the drop doesn't close it.
   const menuOpenedAt = useRef(0)
   const { screenToFlowPosition, flowToScreenPosition, getNode, getInternalNode, getNodesBounds, setCenter, setViewport, getZoom, fitView } = useReactFlow()
+  // Likewise selector-scoped: `uiStore` carries the once-per-second FPS and
+  // memory telemetry the preview loop publishes, so a bare `useUiStore()` here
+  // re-rendered the canvas every second for readings it never displays.
   const {
     setStatus,
     setSparkPort,
@@ -152,7 +179,23 @@ function NodeGraphCanvasInner() {
     uiEffectsEnabled,
     openTemplates,
     lastStartChoice,
-  } = useUiStore()
+  } = useUiStore(useShallow((s) => ({
+    setStatus: s.setStatus,
+    setSparkPort: s.setSparkPort,
+    setViewCenter: s.setViewCenter,
+    draggingNodeType: s.draggingNodeType,
+    setDraggingNodeType: s.setDraggingNodeType,
+    sidebarOpen: s.sidebarOpen,
+    sidebarWidth: s.sidebarWidth,
+    previewPanelOpen: s.previewPanelOpen,
+    previewWidth: s.previewWidth,
+    performanceMode: s.performanceMode,
+    reducedMotion: s.reducedMotion,
+    fitViewRequest: s.fitViewRequest,
+    uiEffectsEnabled: s.uiEffectsEnabled,
+    openTemplates: s.openTemplates,
+    lastStartChoice: s.lastStartChoice,
+  })))
   const wrapperRef = useRef<HTMLDivElement>(null)
   const leftInset = sidebarOpen ? sidebarWidth ?? DEFAULT_SIDEBAR_W : 0
   const rightInset = previewPanelOpen ? previewWidth ?? DEFAULT_PREVIEW_W : 0

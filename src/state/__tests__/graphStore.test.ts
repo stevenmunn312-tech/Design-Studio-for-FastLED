@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { useGraphStore, getGroupRegistry, matrixTileLayout, ROOT_GRAPH_ID } from '../graphStore'
+import { useGraphStore, getGroupRegistry, matrixTileLayout, ROOT_GRAPH_ID, clearStashedGraphHistory } from '../graphStore'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { evaluateGraph } from '../graphEvaluator'
 import type { StudioNode, StudioEdge } from '../graphStore'
@@ -37,6 +37,9 @@ function reset(nodes: StudioNode[] = [], edges: StudioEdge[] = []) {
     panicRestoreValues: null,
   })
   useUiStore.setState({ fitViewRequest: { nonce: 0 } })
+  // Per-graph stashes outlive a bare setState, so drop them between tests the
+  // way a real workspace load would.
+  clearStashedGraphHistory()
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -428,6 +431,99 @@ describe('graphStore — grouping', () => {
     expect(s.activeGraphId).toBe(ROOT_GRAPH_ID)
     expect(s.nodes.some((n) => n.data.nodeType === 'Group')).toBe(true)
     expect(useUiStore.getState().fitViewRequest).toEqual({ nonce: 2, nodeIds: undefined })
+  })
+
+  it('keeps the parent graph\'s undo history across a round trip into a group', async () => {
+    reset([node('sc', 'SolidColor', { r: 0, g: 0, b: 255 })], [])
+    const gid = useGraphStore.getState().createGroup('Blue', ['sc'])
+    const rootBefore = useGraphStore.getState().nodes
+    useGraphStore.temporal.setState({ pastStates: [{ nodes: rootBefore, edges: [] }], futureStates: [] })
+
+    useGraphStore.getState().enterGraph(gid)
+    await Promise.resolve()
+    // The group starts with its own (empty) history rather than inheriting the
+    // parent's — a parent step must never be applied to a subgraph.
+    expect(useGraphStore.temporal.getState().pastStates).toHaveLength(0)
+
+    useGraphStore.getState().enterGraph(ROOT_GRAPH_ID)
+    await Promise.resolve()
+    expect(useGraphStore.temporal.getState().pastStates).toHaveLength(1)
+    expect(useGraphStore.temporal.getState().pastStates[0].nodes).toBe(rootBefore)
+  })
+
+  it('restores a group\'s own history when it is re-entered', async () => {
+    reset([node('sc', 'SolidColor', { r: 0, g: 0, b: 255 })], [])
+    const gid = useGraphStore.getState().createGroup('Blue', ['sc'])
+    useGraphStore.temporal.getState().clear()
+
+    useGraphStore.getState().enterGraph(gid)
+    await Promise.resolve()
+    const insideBefore = useGraphStore.getState().nodes
+    useGraphStore.temporal.setState({ pastStates: [{ nodes: insideBefore, edges: [] }], futureStates: [] })
+
+    useGraphStore.getState().enterGraph(ROOT_GRAPH_ID)
+    await Promise.resolve()
+    expect(useGraphStore.temporal.getState().pastStates).toHaveLength(0)
+
+    useGraphStore.getState().enterGraph(gid)
+    await Promise.resolve()
+    expect(useGraphStore.temporal.getState().pastStates).toHaveLength(1)
+    expect(useGraphStore.temporal.getState().pastStates[0].nodes).toBe(insideBefore)
+  })
+
+  it('does not collect a subgraph that only a stashed history step still references', async () => {
+    reset([node('a', 'SolidColor', { r: 255, g: 0, b: 0 }), node('b', 'SolidColor', { r: 0, g: 255, b: 0 })], [])
+    const groupA = useGraphStore.getState().createGroup('A', ['a'])
+    const groupB = useGraphStore.getState().createGroup('B', ['b'])
+    const bNodeId = useGraphStore.getState().nodes.find((n) =>
+      (n.data.properties as { groupId?: string }).groupId === groupB)!.id
+
+    // A root-level undo step that still holds B's Group node...
+    useGraphStore.temporal.setState({
+      pastStates: [{ nodes: useGraphStore.getState().nodes, edges: [] }],
+      futureStates: [],
+    })
+
+    // ...is stashed when we step into A, and B's node is then removed from the
+    // parked root graph. The stashed step is B's only remaining reference.
+    useGraphStore.getState().enterGraph(groupA)
+    await Promise.resolve()
+    useGraphStore.setState((s) => ({
+      graphData: {
+        ...s.graphData,
+        [ROOT_GRAPH_ID]: {
+          nodes: (s.graphData[ROOT_GRAPH_ID]?.nodes ?? []).filter((n) => n.id !== bNodeId),
+          edges: s.graphData[ROOT_GRAPH_ID]?.edges ?? [],
+        },
+      },
+    }))
+    useGraphStore.getState().pruneOrphanGraphs()
+
+    expect(useGraphStore.getState().graphData[groupB]).toBeTruthy()
+  })
+
+  it('clears stashed group history when a new workspace is loaded', async () => {
+    reset([node('sc', 'SolidColor', { r: 0, g: 0, b: 255 })], [])
+    const gid = useGraphStore.getState().createGroup('Blue', ['sc'])
+    const stale = useGraphStore.getState().nodes
+    useGraphStore.temporal.setState({ pastStates: [{ nodes: stale, edges: [] }], futureStates: [] })
+
+    // Root's stack is stashed on the way in.
+    useGraphStore.getState().enterGraph(gid)
+    await Promise.resolve()
+
+    // A workspace load invalidates every graph's history, stash included.
+    useGraphStore.getState().loadGraph([node('fresh', 'SolidColor')], [])
+    useGraphStore.temporal.getState().clear()
+
+    // Returning to root must not resurrect the previous workspace's steps.
+    useGraphStore.setState({ activeGraphId: gid, graphs: {
+      [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' },
+      [gid]: { id: gid, name: 'Blue' },
+    } })
+    useGraphStore.getState().enterGraph(ROOT_GRAPH_ID)
+    await Promise.resolve()
+    expect(useGraphStore.temporal.getState().pastStates).toHaveLength(0)
   })
 
   it('a grouped pipeline still renders the same frame through evaluateGraph', () => {
@@ -1254,5 +1350,73 @@ describe('graphStore — performance control deck', () => {
       },
     })
     expect(useGraphStore.getState().performanceDeck.pins).toHaveLength(1)
+  })
+})
+
+describe('graphStore — duplicateSelection', () => {
+  beforeEach(() => {
+    reset()
+    useGraphStore.temporal.getState().clear()
+  })
+
+  it('duplicates every selected node and the edges wiring them together', () => {
+    reset(
+      [
+        { ...node('sc', 'SolidColor', { r: 1, g: 2, b: 3 }), selected: true },
+        { ...node('bm', 'BrightnessMod'), selected: true },
+        node('spare', 'SolidColor'),
+      ],
+      [edge('e1', 'sc', 'frame', 'bm', 'frame')],
+    )
+
+    useGraphStore.getState().duplicateSelection()
+
+    const s = useGraphStore.getState()
+    expect(s.nodes).toHaveLength(5)
+    expect(new Set(s.nodes.map((n) => n.id)).size).toBe(5)
+    // The internal edge is duplicated; the copies are wired to each other.
+    expect(s.edges).toHaveLength(2)
+    const copies = s.nodes.filter((n) => n.selected)
+    expect(copies).toHaveLength(2)
+    const copyIds = new Set(copies.map((n) => n.id))
+    const newEdge = s.edges.find((e) => e.id !== 'e1')!
+    expect(copyIds.has(newEdge.source!)).toBe(true)
+    expect(copyIds.has(newEdge.target!)).toBe(true)
+    // Originals are deselected so the duplicates are what the user now drags.
+    expect(s.nodes.filter((n) => n.id === 'sc' || n.id === 'bm').every((n) => !n.selected)).toBe(true)
+  })
+
+  it('skips scene-level singletons rather than refusing the whole gesture', () => {
+    reset([
+      { ...node('mic', 'MicInput'), selected: true },
+      { ...node('sc', 'SolidColor'), selected: true },
+    ])
+
+    useGraphStore.getState().duplicateSelection()
+
+    const s = useGraphStore.getState()
+    expect(s.nodes.filter((n) => n.data.nodeType === 'MicInput')).toHaveLength(1)
+    expect(s.nodes.filter((n) => n.data.nodeType === 'SolidColor')).toHaveLength(2)
+  })
+
+  it('does not let two selected copies of a singleton both slip through', () => {
+    // Neither can be duplicated: one already exists, and the budget must not
+    // be re-checked against a stale snapshot per node.
+    reset([
+      { ...node('sc-a', 'SolidColor'), selected: true },
+      { ...node('sc-b', 'SolidColor'), selected: true },
+      { ...node('mic', 'MicInput'), selected: true },
+    ])
+
+    useGraphStore.getState().duplicateSelection()
+
+    expect(useGraphStore.getState().nodes.filter((n) => n.data.nodeType === 'MicInput')).toHaveLength(1)
+    expect(useGraphStore.getState().nodes.filter((n) => n.data.nodeType === 'SolidColor')).toHaveLength(4)
+  })
+
+  it('is a no-op with an empty selection', () => {
+    reset([node('sc', 'SolidColor')])
+    useGraphStore.getState().duplicateSelection()
+    expect(useGraphStore.getState().nodes).toHaveLength(1)
   })
 })

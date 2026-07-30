@@ -1,5 +1,6 @@
 import { useUiStore } from '../../state/uiStore'
 import { useGraphStore } from '../../state/graphStore'
+import { useAudioStore } from '../../state/audioStore'
 import { useUploadStore, boardByFqbn } from '../../state/uploadStore'
 import type { StatusLevel } from '../../types'
 import styles from './StatusBar.module.css'
@@ -15,7 +16,11 @@ export default function StatusBar() {
   const { statusText, statusLevel, fps, performanceMode, stageMode } = useUiStore()
   const nodeCount = useGraphStore((s) => s.nodes.length)
   const edgeCount = useGraphStore((s) => s.edges.length)
+  // "Audio" = the graph has analysis nodes; "live" = the microphone is actually
+  // running. Reporting the first as the second told users a silent graph was
+  // live, so the chip now distinguishes the two.
   const hasAudio = useGraphStore((s) => s.nodes.some((n) => n.data.category === 'audio' || n.data.nodeType === 'MicInput'))
+  const micActive = useAudioStore((s) => s.micActive)
   const hasShow = useGraphStore((s) => s.nodes.some((n) => n.data.category === 'show'))
   const hasFrameSignal = useGraphStore((s) => {
     const terminalIds = new Set(
@@ -65,7 +70,16 @@ export default function StatusBar() {
         <span className={styles.chip}>{edgeCount} patches</span>
         {performanceMode && <span className={`${styles.chip} ${styles.chipAccent}`}>Performance</span>}
         {stageMode && <span className={`${styles.chip} ${styles.chipAccent}`}>Stage</span>}
-        {hasAudio && <span className={styles.chip}>Audio live</span>}
+        {hasAudio && (
+          <span
+            className={styles.chip}
+            title={micActive
+              ? 'Microphone is running — audio nodes are reading live input'
+              : 'Audio nodes are on the canvas but the microphone is not running'}
+          >
+            {micActive ? 'Audio live' : 'Audio idle'}
+          </span>
+        )}
         {hasShow && <span className={styles.chip}>Show graph</span>}
         <span className={styles.chip}>FPS: {displayFps}</span>
         <span className={styles.chip}>Board: {boardLabel ?? 'Not selected'}</span>

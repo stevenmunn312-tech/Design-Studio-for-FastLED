@@ -370,8 +370,16 @@ export default function App() {
       }
       if (e.key === 'd') {
         e.preventDefault()
-        const id = useGraphStore.getState().selectedNodeId
-        if (id) useGraphStore.getState().duplicateNode(id)
+        const store = useGraphStore.getState()
+        const selectedCount = store.nodes.filter((n) => n.selected).length
+        // Match Ctrl+C's reading of "the selection": duplicate all of it when
+        // several nodes are selected, not just the last-clicked one.
+        if (selectedCount > 1) {
+          store.duplicateSelection()
+          setStatus(`${selectedCount} nodes duplicated`, 'info')
+        } else if (store.selectedNodeId) {
+          store.duplicateNode(store.selectedNodeId)
+        }
       }
       if (e.key === 'v') {
         const { clipboard, pasteNode } = useGraphStore.getState()

@@ -167,6 +167,13 @@ export default function ProjectsPopup() {
       }
       useGraphStore.temporal.getState().clear()
     }
+    // With no project left there is nothing for autosave to write into, so say
+    // so outright — the menu bar now carries a standing warning too, but the
+    // moment it becomes true is worth calling out.
+    if (!nextActive && useProjectStore.getState().projects.length === 0) {
+      setStatus(`Deleted project "${name}" — no project is open, so new work will not be saved until you create one`, 'info')
+      return
+    }
     setStatus(`Deleted project "${name}"`, 'success')
   }
 
