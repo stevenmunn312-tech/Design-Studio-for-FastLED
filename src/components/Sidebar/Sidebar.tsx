@@ -202,6 +202,21 @@ function loadExpanded(): string | null {
   }
 }
 
+/** Remember the section the user deliberately opened.
+ *
+ *  Only the header click calls this. The search auto-open and the empty-graph
+ *  steer to Quick recipes are transient navigation, and persisting those (as a
+ *  blanket write-on-every-change effect used to) meant clearing the canvas once
+ *  permanently replaced the user's remembered section with `recipes` — it then
+ *  reopened there on every later load, full graph or not. */
+function saveExpanded(id: string | null): void {
+  try {
+    localStorage.setItem(EXPANDED_KEY, JSON.stringify(id))
+  } catch {
+    // storage full/unavailable — non-critical, skip
+  }
+}
+
 function loadStringArray(key: string): string[] {
   try {
     const parsed = JSON.parse(localStorage.getItem(key) ?? '[]') as unknown
@@ -268,14 +283,8 @@ function Sidebar() {
   const [patternSelectionAnchor, setPatternSelectionAnchor] = useState<string | null>(null)
   const [patternContextMenu, setPatternContextMenu] = useState<{ x: number; y: number } | null>(null)
 
-  // Persist on every change so the layout survives reloads.
-  useEffect(() => {
-    try {
-      localStorage.setItem(EXPANDED_KEY, JSON.stringify(expandedId))
-    } catch {
-      // storage full/unavailable — non-critical, skip
-    }
-  }, [expandedId])
+  // `expandedId` is persisted from `toggle` (the user's own click) rather than
+  // by an effect on every change — see saveExpanded.
   useEffect(() => {
     try { localStorage.setItem(VIEW_KEY, JSON.stringify(viewMode)) } catch { /* ignore */ }
   }, [viewMode])
@@ -322,7 +331,11 @@ function Sidebar() {
     query === '' || `${recipe.title} ${recipe.kicker} ${recipe.description}`.toLowerCase().includes(query)
   ))
 
-  const toggle = (id: string) => setExpandedId((prev) => (prev === id ? null : id))
+  const toggle = (id: string) => {
+    const next = expandedId === id ? null : id
+    saveExpanded(next)
+    setExpandedId(next)
+  }
 
   const rememberRecent = (type: string) => {
     setRecent((prev) => [type, ...prev.filter((entry) => entry !== type)].slice(0, RECENT_LIMIT))
@@ -818,6 +831,7 @@ function Sidebar() {
           className={styles.categoryHeader}
           style={{ '--accent': accent } as React.CSSProperties}
           onClick={() => toggle(id)}
+          aria-expanded={open}
         >
           <span className={styles.drawerLabel}>
             <span className={styles.drawerLight} aria-hidden="true" />
@@ -1023,6 +1037,7 @@ function Sidebar() {
               className={styles.categoryHeader}
               style={{ '--accent': 'var(--accent-recipes)' } as React.CSSProperties}
               onClick={() => toggle('recipes')}
+              aria-expanded={expandedId === 'recipes'}
             >
               <span className={styles.drawerLabel}>
                 <span className={styles.drawerLight} aria-hidden="true" />

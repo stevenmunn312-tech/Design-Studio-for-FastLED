@@ -196,3 +196,43 @@ describe('Sidebar equipment rack', () => {
     expect(patternIds.map((id) => useGraphStore.getState().graphs[id]?.sourcePatternId)).toEqual(['pat-1', 'pat-2'])
   })
 })
+
+describe('Sidebar remembered section', () => {
+  const KEY = 'design-studio-for-fastled-sidebar-expanded-v2'
+
+  beforeEach(() => {
+    localStorage.clear()
+    usePatternLibrary.setState({ patterns: [] })
+    useUiStore.setState({ viewCenter: { x: 0, y: 0 }, draggingNodeType: null, testSignal: false })
+  })
+
+  it('still steers an empty graph to Quick recipes', () => {
+    localStorage.setItem(KEY, JSON.stringify('audio'))
+    useGraphStore.setState({ nodes: [], edges: [], selectedNodeId: null })
+
+    const { getByRole } = render(<Sidebar />)
+
+    expect(getByRole('button', { name: /Quick recipes/i }).getAttribute('aria-expanded')).toBe('true')
+  })
+
+  it('does not let that steer overwrite the section the user chose', () => {
+    // The user picked Audio, then emptied the canvas. The steer opens Quick
+    // recipes for this session, but the remembered preference must survive so
+    // the next load still comes back to Audio.
+    localStorage.setItem(KEY, JSON.stringify('audio'))
+    useGraphStore.setState({ nodes: [], edges: [], selectedNodeId: null })
+
+    render(<Sidebar />)
+
+    expect(JSON.parse(localStorage.getItem(KEY) ?? 'null')).toBe('audio')
+  })
+
+  it('persists a section the user opens by clicking its header', () => {
+    useGraphStore.setState({ nodes: [], edges: [], selectedNodeId: null })
+    const { getByRole } = render(<Sidebar />)
+
+    fireEvent.click(getByRole('button', { name: /Audio/i }))
+
+    expect(JSON.parse(localStorage.getItem(KEY) ?? 'null')).toBe('audio')
+  })
+})
