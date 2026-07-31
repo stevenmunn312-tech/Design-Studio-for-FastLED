@@ -528,6 +528,41 @@ function debounceHandleSet<Fn extends (pastState: never, replace: never, current
   }) as Fn
 }
 
+// React Flow's `selected` flag is per-node UI state, not an undoable graph
+// edit (see the `partialize` comment below) — compare nodes ignoring it so a
+// plain click-to-select doesn't produce its own history entry. `applyChanges`
+// (xyflow) always shallow-copies a touched node (`{ ...element }`) and mutates
+// only the fields a change actually touches, so every other field keeps its
+// prior reference — a per-field reference compare is safe and cheap here.
+function nodeEqualIgnoringSelection(a: StudioNode, b: StudioNode): boolean {
+  if (a === b) return true
+  // A node that has never been selected has no `selected` key at all (xyflow
+  // only adds it once a 'select' change lands), so union rather than
+  // intersect the two key sets before ignoring `selected`.
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<keyof StudioNode>
+  keys.delete('selected')
+  for (const k of keys) {
+    if (a[k] !== b[k]) return false
+  }
+  return true
+}
+
+function nodesEqualIgnoringSelection(a: StudioNode[], b: StudioNode[]): boolean {
+  if (a === b) return true
+  if (a.length !== b.length) return false
+  return a.every((n, i) => nodeEqualIgnoringSelection(n, b[i]))
+}
+
+// While a node is mid-drag, the `equality` option below treats every
+// per-pointer-move set() as unchanged so history isn't spammed with one
+// snapshot per frame. That means the pastState zundo would otherwise hand to
+// handleSet once the drag ends is whatever set() ran right before — a
+// mid-drag frame, not the state from before the drag started. Stash the real
+// pre-drag state the moment dragging begins, and swap it back in for the
+// post-drag push (see `handleSet` below) so a single Undo reverts the whole
+// gesture instead of landing on an almost-identical mid-drag frame.
+let preDragHistoryState: HistorySlice | undefined
+
 export const useGraphStore = create<GraphState>()(
   temporal(
     (set) => ({
@@ -1708,15 +1743,43 @@ export const useGraphStore = create<GraphState>()(
       limit: 100,
       // Only track nodes + edges in history — not UI selection state
       partialize: (s): HistorySlice => ({ nodes: s.nodes, edges: s.edges }),
-      // Treat states as equal (don't snapshot) while any node is mid-drag
+      // Treat states as equal (don't snapshot) while any node is mid-drag —
+      // but remember the state from just before the drag started, since the
+      // eventual post-drag push needs it (see preDragHistoryState above).
       equality: (past, current) => {
-        if (current.nodes.some((n) => n.dragging)) return true
-        return past.nodes === current.nodes && past.edges === current.edges
+        const wasDragging = past.nodes.some((n) => n.dragging)
+        if (current.nodes.some((n) => n.dragging)) {
+          // Guard with `=== undefined` (not just `!wasDragging`) so a second
+          // drag starting before the first one's debounced push has fired
+          // doesn't clobber the first drag's pre-drag snapshot — the pair
+          // folds into one undo step instead of losing the first drag's undo.
+          if (!wasDragging && preDragHistoryState === undefined) preDragHistoryState = past
+          return true
+        }
+        if (past.nodes === current.nodes && past.edges === current.edges) return true
+        // A pure selection change (no drag, no edit) isn't an undoable graph
+        // edit — see the partialize comment above.
+        return past.edges === current.edges && nodesEqualIgnoringSelection(past.nodes, current.nodes)
       },
       // A slider drag or a fast typed edit fires updateNodeProperty once per
       // tick/keystroke; debouncing the history-push collapses a whole burst
       // (e.g. one drag gesture) into a single undo step instead of dozens.
-      handleSet: (handleSet) => debounceHandleSet(handleSet, 400),
+      // Wrap handleSet first so a post-drag push swaps in the true pre-drag
+      // pastState (captured by `equality` above) instead of the mid-drag
+      // frame zundo would otherwise pass.
+      handleSet: (handleSet) => {
+        const rawHandleSet = handleSet as unknown as
+          (pastState: HistorySlice, replace: never, currentState: HistorySlice, deltaState?: never) => void
+        const withPreDragCorrection = (
+          pastState: HistorySlice, replace: never, currentState: HistorySlice, deltaState?: never
+        ): void => {
+          const wasDragging = pastState.nodes.some((n) => n.dragging)
+          const effectivePastState = wasDragging && preDragHistoryState ? preDragHistoryState : pastState
+          preDragHistoryState = undefined
+          rawHandleSet(effectivePastState, replace, currentState, deltaState)
+        }
+        return debounceHandleSet(withPreDragCorrection, 400) as unknown as typeof handleSet
+      },
     }
   )
 )

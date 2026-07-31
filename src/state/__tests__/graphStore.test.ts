@@ -1104,6 +1104,60 @@ describe('graphStore — undo coalescing', () => {
 
     expect(useGraphStore.temporal.getState().pastStates).toHaveLength(2)
   })
+
+  it('a single Undo after a drag restores the pre-drag position', () => {
+    const { onNodesChange } = useGraphStore.getState()
+    // Simulate React Flow's per-pointer-move onNodesChange calls during a drag.
+    onNodesChange([{ id: 'sc', type: 'position', position: { x: 10, y: 0 }, dragging: true }])
+    vi.advanceTimersByTime(16)
+    onNodesChange([{ id: 'sc', type: 'position', position: { x: 30, y: 0 }, dragging: true }])
+    vi.advanceTimersByTime(16)
+    onNodesChange([{ id: 'sc', type: 'position', position: { x: 50, y: 0 }, dragging: false }])
+    vi.advanceTimersByTime(400)
+
+    expect(useGraphStore.getState().nodes[0].position).toEqual({ x: 50, y: 0 })
+    expect(useGraphStore.temporal.getState().pastStates).toHaveLength(1)
+
+    useGraphStore.temporal.getState().undo()
+    expect(useGraphStore.getState().nodes[0].position).toEqual({ x: 0, y: 0 })
+  })
+
+  it('selecting a node with no drag does not create an undo entry', () => {
+    const { onNodesChange } = useGraphStore.getState()
+    onNodesChange([{ id: 'sc', type: 'select', selected: true }])
+    vi.advanceTimersByTime(400)
+
+    expect(useGraphStore.temporal.getState().pastStates).toHaveLength(0)
+  })
+
+  it('a single Undo after click-to-select then drag restores position (selection stays untracked)', () => {
+    const { onNodesChange } = useGraphStore.getState()
+    onNodesChange([{ id: 'sc', type: 'select', selected: true }])
+    onNodesChange([{ id: 'sc', type: 'position', position: { x: 10, y: 0 }, dragging: true }])
+    vi.advanceTimersByTime(16)
+    onNodesChange([{ id: 'sc', type: 'position', position: { x: 50, y: 0 }, dragging: false }])
+    vi.advanceTimersByTime(400)
+
+    expect(useGraphStore.temporal.getState().pastStates).toHaveLength(1)
+
+    useGraphStore.temporal.getState().undo()
+    expect(useGraphStore.getState().nodes[0].position).toEqual({ x: 0, y: 0 })
+  })
+
+  it('folds two drags separated by a short pause into one undo step', () => {
+    const { onNodesChange } = useGraphStore.getState()
+    onNodesChange([{ id: 'sc', type: 'position', position: { x: 10, y: 0 }, dragging: true }])
+    onNodesChange([{ id: 'sc', type: 'position', position: { x: 20, y: 0 }, dragging: false }])
+    vi.advanceTimersByTime(100) // well under the 400ms debounce window
+    onNodesChange([{ id: 'sc', type: 'position', position: { x: 30, y: 0 }, dragging: true }])
+    onNodesChange([{ id: 'sc', type: 'position', position: { x: 40, y: 0 }, dragging: false }])
+    vi.advanceTimersByTime(400)
+
+    expect(useGraphStore.temporal.getState().pastStates).toHaveLength(1)
+
+    useGraphStore.temporal.getState().undo()
+    expect(useGraphStore.getState().nodes[0].position).toEqual({ x: 0, y: 0 })
+  })
 })
 
 describe('matrixTileLayout', () => {
