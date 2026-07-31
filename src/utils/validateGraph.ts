@@ -239,7 +239,11 @@ export interface PowerEstimate {
   configuredMa: number | null
   /** Worst-case draw rounded up to a sane PSU-shopping figure. */
   recommendedMa: number
-  /** True once a configured cap exists and worst case would exceed it. */
+  /** True once a configured cap exists and falls short of a sane safety margin
+   *  below worst case (see `POWER_CAP_MIN_COVERAGE`) — not simply "any cap
+   *  below the theoretical full-white max", since FastLED's power capping is
+   *  designed to auto-dim in that everyday case and a cap can never clear a
+   *  100%-of-worst-case bar without being pointless. */
   exceedsConfigured: boolean
 }
 
@@ -248,6 +252,13 @@ export interface PowerEstimate {
 // this is the right order of magnitude for a "will my PSU cope" estimate —
 // exact chipset current draw isn't published widely enough to model per-part.
 const MA_PER_LED_WORST_CASE = 60
+
+// A configured power cap almost never needs to cover a full-white-everywhere
+// moment — that's the scenario FastLED's power capping exists to auto-dim
+// gracefully, and real patterns rarely hit it. A cap at or above this fraction
+// of the theoretical worst case is treated as a deliberate, adequate safety
+// margin rather than a misconfiguration to keep flagging.
+const POWER_CAP_MIN_COVERAGE = 2 / 3
 
 export function estimatePowerLoad(nodes: StudioNode[]): PowerEstimate | null {
   const outputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
@@ -267,7 +278,7 @@ export function estimatePowerLoad(nodes: StudioNode[]): PowerEstimate | null {
     worstCaseMa,
     configuredMa,
     recommendedMa,
-    exceedsConfigured: configuredMa != null && worstCaseMa > configuredMa,
+    exceedsConfigured: configuredMa != null && configuredMa < worstCaseMa * POWER_CAP_MIN_COVERAGE,
   }
 }
 

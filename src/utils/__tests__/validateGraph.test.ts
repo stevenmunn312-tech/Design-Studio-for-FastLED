@@ -448,6 +448,21 @@ describe('validateGraph', () => {
       expect(power.exceedsConfigured).toBe(false)
     })
 
+    it('does not flag a cap that covers at least 2/3 of worst-case draw as a safety margin', () => {
+      // 16x16 = 256 LEDs -> worst case 15360 mA; 2/3 of that is 10240 mA.
+      const nodes = [node('out', 'MatrixOutput', { width: 16, height: 16, powerLimit: true, milliamps: 10240 })]
+      const power = estimatePowerLoad(nodes)!
+      expect(power.worstCaseMa).toBe(15360)
+      expect(power.configuredMa).toBe(10240)
+      expect(power.exceedsConfigured).toBe(false)
+    })
+
+    it('still flags a cap just below the 2/3 safety margin', () => {
+      const nodes = [node('out', 'MatrixOutput', { width: 16, height: 16, powerLimit: true, milliamps: 10000 })]
+      const power = estimatePowerLoad(nodes)!
+      expect(power.exceedsConfigured).toBe(true)
+    })
+
     it('surfaces an exceeded power cap as a validateGraph warning', () => {
       const nodes = [
         node('sc', 'SolidColor'),
