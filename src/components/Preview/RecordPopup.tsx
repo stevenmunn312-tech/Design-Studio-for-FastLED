@@ -65,6 +65,14 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
   // Abandon any in-flight capture when the dialog unmounts.
   useEffect(() => () => { cancelRef.current = true }, [])
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { cancelRef.current = true; onClose() }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
   const webmMime = pickWebmMime()
   const maxScale = Math.max(2, Math.floor(MAX_OUTPUT_PX / Math.max(gridW, gridH)))
   const effScale = Math.min(scale, maxScale)
