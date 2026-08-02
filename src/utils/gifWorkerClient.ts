@@ -1,4 +1,4 @@
-import type { GifRecordStyle } from './gifRasterizer'
+import type { RecordRasterStyle } from './recordRasterizer'
 
 export interface WorkerGifOptions {
   width: number
@@ -6,7 +6,7 @@ export interface WorkerGifOptions {
   gridW: number
   gridH: number
   scale: number
-  style: GifRecordStyle
+  style: RecordRasterStyle
   delayCs: number
   frameCount: number
   frameAt: (index: number) => Uint8ClampedArray

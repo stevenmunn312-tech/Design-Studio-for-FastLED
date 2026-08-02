@@ -1,4 +1,4 @@
-export type GifRecordStyle = 'leds' | 'pixels'
+export type RecordRasterStyle = 'leds' | 'pixels'
 
 const clampByte = (value: number): number => Math.max(0, Math.min(255, Math.round(value)))
 
@@ -9,12 +9,12 @@ const clampByte = (value: number): number => Math.max(0, Math.min(255, Math.roun
  * linear output-pixel pass. This avoids thousands of drawImage/arc calls per
  * frame on large matrices while retaining the recognisable preview look.
  */
-export function rasterizeGifFrame(
+export function rasterizeRecordedFrame(
   rgb: Uint8ClampedArray,
   gridW: number,
   gridH: number,
   scale: number,
-  style: GifRecordStyle,
+  style: RecordRasterStyle,
 ): Uint8ClampedArray {
   const outW = gridW * scale
   const outH = gridH * scale
