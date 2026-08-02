@@ -4,7 +4,7 @@ import { encodeGifInWorker } from '../gifWorkerClient'
 type Response =
   | { type: 'ready' }
   | { type: 'frame'; frameCount: number }
-  | { type: 'done'; frameCount: number; blob: Blob }
+  | { type: 'done'; frameCount: number; bytes: ArrayBuffer }
 
 class FakeWorker {
   static instances: FakeWorker[] = []
@@ -29,7 +29,7 @@ class FakeWorker {
         this.respond({
           type: 'done',
           frameCount: ++this.frames,
-          blob: new Blob([Uint8Array.from([0x47, 0x49, 0x46])]),
+          bytes: Uint8Array.from([0x47, 0x49, 0x46]).buffer,
         })
       } else this.respond({ type: 'frame', frameCount: ++this.frames })
     })

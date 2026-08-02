@@ -12,7 +12,7 @@ export interface WorkerGifOptions {
 type WorkerResponse =
   | { type: 'ready' }
   | { type: 'frame'; frameCount: number }
-  | { type: 'done'; frameCount: number; blob: Blob }
+  | { type: 'done'; frameCount: number; bytes: ArrayBuffer }
   | { type: 'error'; message: string }
 
 /**
@@ -54,7 +54,7 @@ export function encodeGifInWorker(options: WorkerGifOptions): Promise<Blob | nul
           finish(null, new Error(message.message))
         } else if (message.type === 'done') {
           options.onProgress?.(message.frameCount, options.frameCount)
-          finish(message.blob)
+          finish(new Blob([message.bytes], { type: 'image/gif' }))
         } else if (message.type === 'frame') {
           options.onProgress?.(message.frameCount, options.frameCount)
           sendNext()

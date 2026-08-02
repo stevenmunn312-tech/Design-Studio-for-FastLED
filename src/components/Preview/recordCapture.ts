@@ -90,9 +90,9 @@ export function loopBlendFrames(totalFrames: number, fps: number): number {
 // Animated GIFs retain every full raster frame. Keep the combined raster
 // workload bounded so large matrices and long clips cannot create a
 // hundreds-of-megabytes final Blob even though each individual dimension is
-// within the canvas limit. 64M pixels is 256 MB of transient RGBA work before
+// within the canvas limit. 16M pixels is 64 MB of transient RGBA work before
 // palette compression and remains practical on mainstream browsers.
-export const MAX_GIF_RASTER_PIXELS = 64_000_000
+export const MAX_GIF_RASTER_PIXELS = 16_000_000
 
 export function gifScaleLimit(
   gridW: number,

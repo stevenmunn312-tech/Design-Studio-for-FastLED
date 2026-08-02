@@ -105,8 +105,8 @@ describe('applyLoopBlend', () => {
 })
 
 describe('gifScaleLimit', () => {
-  it('caps a 64x64 225-frame export at 512px to bound finalization memory', () => {
-    expect(gifScaleLimit(64, 64, 225, 2048)).toBe(8)
+  it('caps a 64x64 225-frame export at 256px to bound finalization memory', () => {
+    expect(gifScaleLimit(64, 64, 225, 2048)).toBe(4)
   })
 
   it('leaves a normal 16x16 clip above the default 12px scale', () => {
