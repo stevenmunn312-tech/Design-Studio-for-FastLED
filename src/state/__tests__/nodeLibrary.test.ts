@@ -407,6 +407,10 @@ describe('nodeLibrary', () => {
     expect(isPropertyEnabled('RTCInput', 'startYear', { timeSource: 'Compile Time' })).toBe(false)
     expect(isPropertyEnabled('RTCInput', 'ntpServer', { timeSource: 'NTP' })).toBe(true)
     expect(isPropertyEnabled('RTCInput', 'ntpServer', { timeSource: 'Manual' })).toBe(false)
+    expect(propertyMeta('RTCInput', 'timeSource')).toEqual({
+      control: 'select',
+      options: ['Compile Time', 'Manual', 'NTP', 'DS3231'],
+    })
   })
 
   it('ScheduleTrigger exposes window state, both pulses, and window progress', () => {

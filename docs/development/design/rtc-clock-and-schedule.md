@@ -1,7 +1,7 @@
 # RTC clock and scheduled triggers — design note
 
-Status: implemented (v1 shipped, hardware validation outstanding) · Owner: app ·
-Date: 2026-07-28
+Status: implemented (DS3231 source added 2026-08-02; hardware validation outstanding) · Owner: app ·
+Date: 2026-08-02
 
 Gives a graph a wall clock: an installation can run one look during the day and
 another after dark, a sign can wake at opening time, a display can show the
@@ -28,12 +28,13 @@ means a schedule inside a pattern group works with no new machinery, and a patch
 can feed a schedule a *synthetic* clock (a `Counter` through `MapRange`) to test
 it — which is how you exercise a 3 a.m. behaviour at 2 p.m.
 
-Consequence to keep in mind: `RTCInput` is **not** a singleton. Two of them are
-two independent software clocks. That is intentional (two schedules on different
-timezone offsets is a real installation shape), but it means "the current time"
-is per-node, not per-scene.
+Consequence to keep in mind: `RTCInput` is **not** a singleton. Two software
+sources are two independent clocks, while two DS3231 sources read the same
+board-default I²C bus. The per-node model is intentional (two schedules on
+different timezone offsets is a real installation shape), but it means "the
+current time" is per-node, not per-scene.
 
-### Time sources: a software clock plus optional NTP. No RTC chip in v1.
+### Time sources: software clock, optional NTP, or a DS3231
 
 `timeSource` picks how firmware seeds its clock:
 
@@ -42,8 +43,9 @@ is per-node, not per-scene.
 | `Compile Time` | the sketch's `__DATE__` / `__TIME__` build stamp | true | true | false |
 | `Manual` | the entered start date/time | true once the seed parses | true | false |
 | `NTP` | build stamp, then the network epoch once it arrives | true | false until synced | true until synced |
+| `DS3231` | battery-backed I²C calendar registers | true after a valid read | true when OSF is clear | true when OSF is set or a later read fails |
 
-All three run the **same** free-running software clock: a `millis()` delta
+The first three run the **same** free-running software clock: a `millis()` delta
 accumulated into a 64-bit millisecond counter over a civil-date base. NTP is a
 correction layered on top, not a separate path — `configTime(offset, 0, server)`
 is issued once the Wi-Fi link is up, and thereafter the sketch reads
@@ -61,12 +63,16 @@ An impossible seed (a Manual `2026-02-31`) leaves the clock unseeded and every
 output at zero with `valid: false`, in both runtimes. Downstream nodes gate on
 `valid` rather than guessing from a zeroed date.
 
-**No external RTC chip (DS3231 and friends) in v1.** A battery-backed module is
-the right answer for an offline installation that must survive a power cut, but
-it needs I²C pin config, a driver dependency, per-board wiring guidance, and its
-own hardware validation. Deferred rather than half-built. Adding one later is a
-fourth `timeSource` plus a seed path — the software clock, the validity guard,
-and everything downstream stay as they are.
+`DS3231` is the battery-backed path for an offline installation that must
+survive a power cut. Generated firmware uses Arduino's built-in `Wire` API and
+decodes the DS3231 registers directly, so it adds no RTClib dependency. It reads
+the fixed address `0x68` on the target board's default SDA/SCL pins. A valid BCD
+calendar is published immediately. Status register bit 7 (OSF, oscillator stop)
+maps to `stale`; `synced` is true only when OSF is clear. If a module that was
+reading successfully later disappears from the bus, firmware keeps the last
+good sample visible but marks it stale. A module absent from boot remains
+invalid. This path is experimental until the support matrix records a physical
+hardware run.
 
 ### Timezone model: a fixed offset, no DST
 
@@ -85,6 +91,8 @@ source* will produce on-device, not simply the browser's clock:
   reports an impossible seed as fully invalid, matching `_rtcValidDateTime`.
 - **NTP** shows UTC plus the configured offset, which is the wall clock
   `configTime` produces.
+- **DS3231** uses browser-local time as a deliberate healthy-module simulation;
+  a browser cannot inspect the board's I²C bus. The node body says so explicitly.
 - **Compile Time** previews as the browser's local clock. The build stamp isn't
   knowable in the browser, and local time is its closest honest approximation.
 
@@ -136,9 +144,10 @@ Preview and firmware must agree on:
   weekday derivation are ported to C++ (`rtcHelperCpp()`) against the same
   leap-year rule `src/state/rtc.ts` uses.
 
-Deliberately different: **drift**. The browser preview reads a clock that is
-correct by construction; the firmware software clock is an uncompensated
-`millis()` accumulation and will drift. How much is unmeasured — see follow-ups.
+Deliberately different: **drift and hardware status**. The browser preview reads
+a clock that is correct by construction; the firmware software clock is an
+uncompensated `millis()` accumulation and will drift, while DS3231 firmware may
+report invalid/stale based on the real module. How much drift remains unmeasured.
 
 ### `ClockDisplay` renders the clock
 
@@ -171,9 +180,9 @@ in the Graph Health drawer.
 Wi-Fi credentials for NTP live in the same browser-local store as the Art-Net
 ones and never travel with the graph — see the DMX note for the full rationale.
 
-## Deliberately out of v1
+## Deliberately out of scope
 
-- **External RTC hardware**, DST rules, and any timezone database.
+- **Other RTC hardware** (DS1307, PCF8523, RV-3028), DST rules, and any timezone database.
 - **Sunrise/sunset** (needs a location and an almanac) and **date-range
   schedules** ("December only") — the day gate is weekday-based.
 - **A shared scene clock resource.** Per-node clocks, as above.
@@ -193,8 +202,9 @@ scheduled trigger support**:
   [`beta-support-matrix.md`](../../release/beta-support-matrix.md) records the
   board × time-source table (including the Arduino UNO R4 WiFi gap noted
   above).
-- **Hardware validation — both passes.** One RTC run (does the software clock
-  hold time, and how far does it drift over hours?) and one NTP run (does a real
-  board actually sync, and does `synced` flip when it does?). Until then this
-  stays experimental in `docs/release/beta-support-matrix.md`; everything above
-  is verified only by unit and codegen tests.
+- **Hardware validation — three passes.** One software-clock run (does it hold
+  time, and how far does it drift over hours?), one NTP run (does a real board
+  sync, and does `synced` flip?), and one DS3231 run (valid read, OSF/stale
+  behavior, unplug/reconnect). Until then these stay experimental in
+  `docs/release/beta-support-matrix.md`; everything above is verified only by
+  unit and codegen tests.

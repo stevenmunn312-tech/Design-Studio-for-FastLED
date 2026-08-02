@@ -2661,6 +2661,20 @@ describe('RTCInput (codegen)', () => {
     expect(cpp).toContain('_rtcBaseDays_rtc = _rtcDaysFromCivil(2026, 12, 31);')
     expect(cpp).toContain('_rtcBaseSeconds_rtc = (uint32_t)(23) * 3600u + (uint32_t)(59) * 60u + (uint32_t)(58);')
   })
+
+  it('reads a DS3231 directly over Wire without a third-party RTC library', () => {
+    const rtc = node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' })
+    const cpp = generateCpp([rtc, outputNode], [])
+    expect(cpp).toContain('#include <Wire.h>')
+    expect(cpp).toContain("Wire.begin();  // DS3231 on the board's default SDA/SCL pins")
+    expect(cpp).toContain('bool _rtcReadDs3231(_RtcDateTime &out, bool &oscillatorStopped)')
+    expect(cpp).toContain('Wire.beginTransmission(0x68);')
+    expect(cpp).toContain('oscillatorStopped = (Wire.read() & 0x80u) != 0;')
+    expect(cpp).toContain('n_rtc_synced = !_rtcChipStale_rtc;')
+    expect(cpp).toContain('n_rtc_stale = _rtcChipStale_rtc;')
+    expect(cpp).not.toContain('#include <RTClib.h>')
+    expect(cpp).not.toContain('_rtcParseBuildStamp(__DATE__, __TIME__, _rtcBuild_rtc);')
+  })
 })
 
 describe('ScheduleTrigger (codegen)', () => {

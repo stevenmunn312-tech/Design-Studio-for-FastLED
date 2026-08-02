@@ -553,6 +553,63 @@ function rtcHelperCpp(): string[] {
   ]
 }
 
+/** Minimal DS3231 reader built on Arduino Wire. Keeping the register decoder in
+ * generated code avoids a third-party RTClib dependency and works with every
+ * supported Arduino core's default I2C bus. */
+function ds3231HelperCpp(): string[] {
+  return [
+    '// ── DS3231 hardware clock (I2C address 0x68) ─────────────────────────────',
+    'uint8_t _rtcBcdToDec(uint8_t value) {',
+    '  return (uint8_t)((value >> 4) * 10u + (value & 0x0fu));',
+    '}',
+    '',
+    'bool _rtcReadDs3231(_RtcDateTime &out, bool &oscillatorStopped) {',
+    '  Wire.beginTransmission(0x68);',
+    '  Wire.write((uint8_t)0x00);',
+    '  if (Wire.endTransmission() != 0) return false;',
+    '  if (Wire.requestFrom((uint8_t)0x68, (uint8_t)7) != 7) return false;',
+    '  const uint8_t rawSecond = Wire.read();',
+    '  const uint8_t rawMinute = Wire.read();',
+    '  const uint8_t rawHour = Wire.read();',
+    '  Wire.read();  // chip day-of-week; derive it from the validated date below',
+    '  const uint8_t rawDay = Wire.read();',
+    '  const uint8_t rawMonth = Wire.read();',
+    '  const uint8_t rawYear = Wire.read();',
+    '',
+    '  uint8_t hour;',
+    '  if (rawHour & 0x40u) {',
+    '    hour = _rtcBcdToDec(rawHour & 0x1fu);',
+    '    if (hour == 12u) hour = 0u;',
+    '    if (rawHour & 0x20u) hour = (uint8_t)(hour + 12u);',
+    '  } else {',
+    '    hour = _rtcBcdToDec(rawHour & 0x3fu);',
+    '  }',
+    '  const uint8_t month = _rtcBcdToDec(rawMonth & 0x1fu);',
+    '  const int16_t year = (int16_t)(2000 + _rtcBcdToDec(rawYear) + ((rawMonth & 0x80u) ? 100 : 0));',
+    '  const uint8_t day = _rtcBcdToDec(rawDay & 0x3fu);',
+    '  const uint8_t minute = _rtcBcdToDec(rawMinute & 0x7fu);',
+    '  const uint8_t second = _rtcBcdToDec(rawSecond & 0x7fu);',
+    '  if (!_rtcValidDateTime(year, month, day, hour, minute, second)) return false;',
+    '',
+    '  out.year = year; out.month = month; out.day = day;',
+    '  out.hour = hour; out.minute = minute; out.second = second;',
+    '  out.weekday = _rtcWeekdayFromDays(_rtcDaysFromCivil(year, month, day));',
+    '  out.valid = true;',
+    '',
+    '  // OSF (status bit 7) means the oscillator stopped and the stored time may',
+    '  // be wrong. A status-register read failure also leaves the sample stale.',
+    '  oscillatorStopped = true;',
+    '  Wire.beginTransmission(0x68);',
+    '  Wire.write((uint8_t)0x0f);',
+    '  if (Wire.endTransmission() == 0 && Wire.requestFrom((uint8_t)0x68, (uint8_t)1) == 1) {',
+    '    oscillatorStopped = (Wire.read() & 0x80u) != 0;',
+    '  }',
+    '  return true;',
+    '}',
+    '',
+  ]
+}
+
 /** Free text made safe to drop into a `//` comment.
  *
  *  A newline would end the comment and turn the remainder of the value into
@@ -709,6 +766,7 @@ export function generateCpp(
 
   const sorted = topoSort(nodes, edges)
   const emitRtcHelpers = sorted.some((n) => n.data.nodeType === 'RTCInput')
+  const needsDs3231 = sorted.some((n) => n.data.nodeType === 'RTCInput' && String(props(n).timeSource ?? 'Compile Time') === 'DS3231')
   const dmxInputs = sorted.filter((n) => n.data.nodeType === 'DMXInput')
   const needsArtNet = dmxInputs.some((n) => String(props(n).inputMode ?? 'Art-Net') === 'Art-Net')
   const needsDmx512 = dmxInputs.some((n) => String(props(n).inputMode ?? 'Art-Net') === 'DMX512')
@@ -800,6 +858,7 @@ export function generateCpp(
   // A Set so two nodes reading the same pin don't emit it twice.
   const pinSetupLines = new Set<string>()
   const setupLines: string[] = []
+  if (needsDs3231) setupLines.push(`  Wire.begin();  // DS3231 on the board's default SDA/SCL pins`)
   // File-scope lines contributed by Code nodes (helpers, persistent vars, etc.),
   // emitted between the buffer declarations and setup().
   const globalLines: string[] = []
@@ -1387,6 +1446,7 @@ export function generateCpp(
         const timezoneOffsetMinutes = rawInt(p.timezoneOffsetMinutes, 0)
         const ntpServer = cppStringLiteral(p.ntpServer ?? 'pool.ntp.org')
         const ntp = source === 'NTP'
+        const ds3231 = source === 'DS3231'
         ln(`  static bool _rtcInit_${id} = false, _rtcSeedValid_${id} = false;`)
         ln(`  static bool _rtcNtpConfigured_${id} = false;`)
         ln(`  static int32_t _rtcBaseDays_${id} = 0;`)
@@ -1399,7 +1459,7 @@ export function generateCpp(
           ln(`      _rtcBaseDays_${id} = _rtcDaysFromCivil(${startYear}, ${startMonth}, ${startDay});`)
           ln(`      _rtcBaseSeconds_${id} = (uint32_t)(${startHour}) * 3600u + (uint32_t)(${startMinute}) * 60u + (uint32_t)(${startSecond});`)
           ln(`    }`)
-        } else {
+        } else if (!ds3231) {
           // NTP seeds from the build stamp too, so the clock runs (flagged
           // stale, not synced) before the first successful sync instead of
           // leaving every output dark until Wi-Fi comes up.
@@ -1470,6 +1530,38 @@ export function generateCpp(
           ln(`    ${v('weekend')} = _rtcTm_${id}.tm_wday == 0 || _rtcTm_${id}.tm_wday == 6;`)
           ln(`  }`)
           ln(`#endif`)
+        }
+        if (ds3231) {
+          ln(`  static _RtcDateTime _rtcChip_${id};`)
+          ln(`  static bool _rtcChipValid_${id} = false, _rtcChipStale_${id} = true, _rtcChipAttempted_${id} = false;`)
+          ln(`  static uint32_t _rtcChipLastRead_${id} = 0;`)
+          ln(`  uint32_t _rtcChipNow_${id} = millis();`)
+          ln(`  if (!_rtcChipAttempted_${id} || (uint32_t)(_rtcChipNow_${id} - _rtcChipLastRead_${id}) >= 250u) {`)
+          ln(`    _RtcDateTime _rtcCandidate_${id}; bool _rtcOscillatorStopped_${id} = true;`)
+          ln(`    if (_rtcReadDs3231(_rtcCandidate_${id}, _rtcOscillatorStopped_${id})) {`)
+          ln(`      _rtcChip_${id} = _rtcCandidate_${id};`)
+          ln(`      _rtcChipValid_${id} = true;`)
+          ln(`      _rtcChipStale_${id} = _rtcOscillatorStopped_${id};`)
+          ln(`    } else if (_rtcChipValid_${id}) {`)
+          ln(`      _rtcChipStale_${id} = true;  // retain the last good sample through a transient bus failure`)
+          ln(`    }`)
+          ln(`    _rtcChipAttempted_${id} = true;`)
+          ln(`    _rtcChipLastRead_${id} = _rtcChipNow_${id};`)
+          ln(`  }`)
+          ln(`  if (_rtcChipValid_${id}) {`)
+          ln(`    ${v('valid')} = true;`)
+          ln(`    ${v('synced')} = !_rtcChipStale_${id};`)
+          ln(`    ${v('stale')} = _rtcChipStale_${id};`)
+          ln(`    ${v('hour')} = (float)_rtcChip_${id}.hour;`)
+          ln(`    ${v('minute')} = (float)_rtcChip_${id}.minute;`)
+          ln(`    ${v('second')} = (float)_rtcChip_${id}.second;`)
+          ln(`    ${v('weekday')} = (float)_rtcChip_${id}.weekday;`)
+          ln(`    ${v('day')} = (float)_rtcChip_${id}.day;`)
+          ln(`    ${v('month')} = (float)_rtcChip_${id}.month;`)
+          ln(`    ${v('year')} = (float)_rtcChip_${id}.year;`)
+          ln(`    ${v('secondsOfDay')} = (float)((uint32_t)_rtcChip_${id}.hour * 3600u + (uint32_t)_rtcChip_${id}.minute * 60u + _rtcChip_${id}.second);`)
+          ln(`    ${v('weekend')} = _rtcChip_${id}.weekday == 0 || _rtcChip_${id}.weekday == 6;`)
+          ln(`  }`)
         }
         break
       }
@@ -4876,6 +4968,7 @@ export function generateCpp(
     : hw
   lines.push(...overclockDefineCpp(overclockHw))
   lines.push(`#include <FastLED.h>`)
+  if (needsDs3231) lines.push(`#include <Wire.h>`)
   if (needsWifi) {
     lines.push(`#if defined(ESP32)`)
     lines.push(`#include <WiFi.h>`)
@@ -5014,6 +5107,9 @@ export function generateCpp(
 
   if (emitRtcHelpers) {
     lines.push(...rtcHelperCpp())
+  }
+  if (needsDs3231) {
+    lines.push(...ds3231HelperCpp())
   }
 
   if (needsWifi) {

@@ -451,19 +451,25 @@ function UploadTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>RTC clock and scheduling hardware setup</div>
         <div className={styles.text}>
-          An <strong>RTC Clock</strong> node publishes calendar fields and a <code>valid</code>/<code>synced</code>/<code>stale</code> status; <strong>Schedule Trigger</strong> and <strong>Clock Display</strong> read it through ordinary ports. <strong>Experimental</strong> — no hardware pass has confirmed either the software clock's drift or a real NTP sync yet.
+          An <strong>RTC Clock</strong> node publishes calendar fields and a <code>valid</code>/<code>synced</code>/<code>stale</code> status; <strong>Schedule Trigger</strong> and <strong>Clock Display</strong> read it through ordinary ports. <strong>Experimental</strong> — the software clock, NTP sync, and DS3231 path still need recorded hardware passes.
         </div>
         <div className={styles.tipList}>
           <div className={styles.tip}>
             <div className={styles.tipIcon}>◇</div>
             <div className={styles.tipText}>
-              Pick a <strong>time source</strong> on the RTC Clock node. <strong>Compile Time</strong> and <strong>Manual</strong> work on every board with no network — Manual seeds from a date/time you type in, and preview runs it forward in real time so you can rehearse a schedule without waiting for the actual hour. <strong>NTP</strong> needs a Wi-Fi-capable board (ESP32-family or ESP8266) plus an SSID, password, and NTP server.
+              Pick a <strong>time source</strong> on the RTC Clock node. <strong>Compile Time</strong> and <strong>Manual</strong> work on every board with no network — Manual seeds from a date/time you type in, and preview runs it forward in real time so you can rehearse a schedule without waiting for the actual hour. <strong>NTP</strong> needs a Wi-Fi-capable board (ESP32-family or ESP8266) plus an SSID, password, and NTP server. <strong>DS3231</strong> reads a battery-backed module at I²C address <code>0x68</code> through the board&apos;s default SDA/SCL pins and needs no extra Arduino library.
             </div>
           </div>
           <div className={styles.tip}>
             <div className={styles.tipIcon}>◇</div>
             <div className={styles.tipText}>
               With NTP selected, the sketch runs from its compile-time build stamp (<code>synced</code> false, <code>stale</code> true) until Wi-Fi connects and a sync actually completes — it never sits dark waiting on the network. Wire Schedule Trigger's <code>requireSync</code> input when a schedule must not fire on the unsynced fallback clock.
+            </div>
+          </div>
+          <div className={styles.tip}>
+            <div className={styles.tipIcon}>◇</div>
+            <div className={styles.tipText}>
+              For a DS3231, connect <strong>VCC</strong>, <strong>GND</strong>, <strong>SDA</strong>, and <strong>SCL</strong> to the board&apos;s labelled I²C pins. The browser simulates a healthy module; on firmware, <code>valid</code> confirms a readable calendar value, <code>synced</code> means the DS3231 oscillator-stop flag is clear, and <code>stale</code> warns that the module lost time or a previously working I²C read failed. Avoid assigning those SDA/SCL pins to the LED output or another non-I²C peripheral.
             </div>
           </div>
           <div className={styles.tip}>
