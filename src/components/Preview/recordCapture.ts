@@ -87,6 +87,25 @@ export function loopBlendFrames(totalFrames: number, fps: number): number {
   return Math.min(Math.round(fps * 1.5), Math.floor(totalFrames / 3))
 }
 
+// Animated GIFs retain every full raster frame. Keep the combined raster
+// workload bounded so large matrices and long clips cannot create a
+// hundreds-of-megabytes final Blob even though each individual dimension is
+// within the canvas limit. 16M pixels is 64 MB of transient RGBA work before
+// palette compression and remains practical on mainstream browsers.
+export const MAX_GIF_RASTER_PIXELS = 16_000_000
+
+export function gifScaleLimit(
+  gridW: number,
+  gridH: number,
+  frameCount: number,
+  maxOutputPx: number,
+  rasterBudget = MAX_GIF_RASTER_PIXELS,
+): number {
+  const dimensionLimit = Math.floor(maxOutputPx / Math.max(gridW, gridH))
+  const animationLimit = Math.floor(Math.sqrt(rasterBudget / Math.max(1, gridW * gridH * frameCount)))
+  return Math.max(2, Math.min(dimensionLimit, animationLimit))
+}
+
 // Distinct evaluator-state namespace per capture run, so every recording
 // starts stateful nodes from a fresh t = 0 (the idle-TTL sweep reclaims the
 // abandoned namespaces a few seconds after the capture ends).

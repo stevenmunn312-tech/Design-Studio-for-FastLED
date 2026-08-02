@@ -22,7 +22,7 @@ vi.mock('../../../state/audioStore', () => ({
   },
 }))
 
-import { captureSequence, frameToBytes, applyLoopBlend, loopBlendFrames } from '../recordCapture'
+import { captureSequence, frameToBytes, applyLoopBlend, gifScaleLimit, loopBlendFrames } from '../recordCapture'
 import type { Frame } from '../../../state/graphEvaluator'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../../state/graphStore'
@@ -101,6 +101,16 @@ describe('applyLoopBlend', () => {
     expect(loopBlendFrames(30, 30)).toBe(10)
     expect(loopBlendFrames(300, 30)).toBe(45)
     expect(loopBlendFrames(1, 30)).toBe(0)
+  })
+})
+
+describe('gifScaleLimit', () => {
+  it('caps a 64x64 225-frame export at 256px to bound finalization memory', () => {
+    expect(gifScaleLimit(64, 64, 225, 2048)).toBe(4)
+  })
+
+  it('leaves a normal 16x16 clip above the default 12px scale', () => {
+    expect(gifScaleLimit(16, 16, 225, 2048)).toBeGreaterThanOrEqual(12)
   })
 })
 

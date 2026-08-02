@@ -1,8 +1,10 @@
 // Zero-dependency animated GIF (GIF89a) encoder, in the spirit of
 // zipExport.ts: no library, just the format. Frames are added one at a time
 // as opaque RGBA pixel buffers (a canvas getImageData().data); each frame
-// carries its own local colour table, quantised to ≤256 colours with a
-// median-cut pass when the frame exceeds the GIF palette limit.
+// carries its own local colour table. Frames with ≤256 colours stay exact;
+// gradient-heavy frames use a balanced 6×7×6 RGB cube. That fixed palette
+// keeps quantisation linear in the pixel count instead of making recording
+// time grow with both the number of source colours and palette entries.
 
 export interface EncodedGifInfo {
   bytes: Uint8Array
@@ -22,104 +24,50 @@ function packRgb(r: number, g: number, b: number): number {
   return (r << 16) | (g << 8) | b
 }
 
-// Median-cut over the frame's colour histogram: split the box with the widest
-// channel range at its weighted median until we have ≤256 boxes, then average
-// each box into one palette entry.
-function medianCut(hist: Map<number, number>): number[] {
-  interface Box { colors: [number, number][] }
-  const boxes: Box[] = [{ colors: [...hist.entries()] }]
+const RED_LEVELS = 6
+const GREEN_LEVELS = 7
+const BLUE_LEVELS = 6
 
-  const channelRange = (box: Box, shift: number): number => {
-    let min = 255, max = 0
-    for (const [c] of box.colors) {
-      const v = (c >> shift) & 0xff
-      if (v < min) min = v
-      if (v > max) max = v
-    }
-    return max - min
-  }
+const quantizedLevel = (value: number, levels: number): number =>
+  Math.round((value * (levels - 1)) / 255)
 
-  while (boxes.length < MAX_PALETTE) {
-    // Pick the box with the largest single-channel spread that can still split.
-    let bestBox = -1, bestRange = 0, bestShift = 16
-    for (let i = 0; i < boxes.length; i++) {
-      if (boxes[i].colors.length < 2) continue
-      for (const shift of [16, 8, 0]) {
-        const range = channelRange(boxes[i], shift)
-        if (range > bestRange) { bestRange = range; bestBox = i; bestShift = shift }
-      }
-    }
-    if (bestBox < 0) break
+const levelValue = (level: number, levels: number): number =>
+  Math.round((level * 255) / (levels - 1))
 
-    const box = boxes[bestBox]
-    box.colors.sort((a, b) => ((a[0] >> bestShift) & 0xff) - ((b[0] >> bestShift) & 0xff))
-    // Split at the weighted median so both halves carry similar pixel counts.
-    const totalWeight = box.colors.reduce((sum, [, n]) => sum + n, 0)
-    let acc = 0, cut = 0
-    while (cut < box.colors.length - 1 && acc + box.colors[cut][1] < totalWeight / 2) {
-      acc += box.colors[cut][1]
-      cut++
-    }
-    boxes[bestBox] = { colors: box.colors.slice(0, Math.max(1, cut)) }
-    boxes.push({ colors: box.colors.slice(Math.max(1, cut)) })
-  }
+const cubePalette = Array.from({ length: RED_LEVELS * GREEN_LEVELS * BLUE_LEVELS }, (_, index) => {
+  const b = index % BLUE_LEVELS
+  const g = Math.floor(index / BLUE_LEVELS) % GREEN_LEVELS
+  const r = Math.floor(index / (BLUE_LEVELS * GREEN_LEVELS))
+  return packRgb(levelValue(r, RED_LEVELS), levelValue(g, GREEN_LEVELS), levelValue(b, BLUE_LEVELS))
+})
 
-  return boxes.map(({ colors }) => {
-    let r = 0, g = 0, b = 0, n = 0
-    for (const [c, count] of colors) {
-      r += ((c >> 16) & 0xff) * count
-      g += ((c >> 8) & 0xff) * count
-      b += (c & 0xff) * count
-      n += count
-    }
-    return packRgb(Math.round(r / n), Math.round(g / n), Math.round(b / n))
-  })
+function cubeIndex(r: number, g: number, b: number): number {
+  return (
+    quantizedLevel(r, RED_LEVELS) * GREEN_LEVELS * BLUE_LEVELS
+    + quantizedLevel(g, GREEN_LEVELS) * BLUE_LEVELS
+    + quantizedLevel(b, BLUE_LEVELS)
+  )
 }
 
-// Drop each channel to 5 bits — the same quantisation the LED sprite renderer
-// applies — collapsing a gradient-heavy frame's histogram by ~512× before the
-// (comparatively expensive) median-cut and nearest-colour passes run.
-const fold = (c: number): number => c & 0xf8f8f8
-
 function quantize(rgba: Uint8ClampedArray, pixelCount: number): QuantResult {
-  let hist = new Map<number, number>()
+  const exactSlots = new Map<number, number>()
   for (let i = 0; i < pixelCount; i++) {
     const o = i * 4
     const c = packRgb(rgba[o], rgba[o + 1], rgba[o + 2])
-    hist.set(c, (hist.get(c) ?? 0) + 1)
-  }
-
-  const exact = hist.size <= MAX_PALETTE
-  if (!exact) {
-    const folded = new Map<number, number>()
-    for (const [c, n] of hist) folded.set(fold(c), (folded.get(fold(c)) ?? 0) + n)
-    hist = folded
-  }
-  const palette = exact ? [...hist.keys()] : medianCut(hist)
-
-  // Map every distinct colour to its palette slot once, then index pixels.
-  const slot = new Map<number, number>()
-  if (exact) {
-    palette.forEach((c, i) => slot.set(c, i))
-  } else {
-    for (const c of hist.keys()) {
-      const r = (c >> 16) & 0xff, g = (c >> 8) & 0xff, b = c & 0xff
-      let best = 0, bestDist = Infinity
-      for (let i = 0; i < palette.length; i++) {
-        const p = palette[i]
-        const dr = r - ((p >> 16) & 0xff), dg = g - ((p >> 8) & 0xff), db = b - (p & 0xff)
-        const dist = dr * dr + dg * dg + db * db
-        if (dist < bestDist) { bestDist = dist; best = i }
-      }
-      slot.set(c, best)
+    if (!exactSlots.has(c)) {
+      exactSlots.set(c, exactSlots.size)
+      if (exactSlots.size > MAX_PALETTE) break
     }
   }
 
+  const exact = exactSlots.size <= MAX_PALETTE
+  const palette = exact ? [...exactSlots.keys()] : cubePalette
   const indices = new Uint8Array(pixelCount)
   for (let i = 0; i < pixelCount; i++) {
     const o = i * 4
-    const c = packRgb(rgba[o], rgba[o + 1], rgba[o + 2])
-    indices[i] = slot.get(exact ? c : fold(c))!
+    indices[i] = exact
+      ? exactSlots.get(packRgb(rgba[o], rgba[o + 1], rgba[o + 2]))!
+      : cubeIndex(rgba[o], rgba[o + 1], rgba[o + 2])
   }
   return { palette, indices }
 }
@@ -181,7 +129,7 @@ function lzwEncode(indices: Uint8Array, minCodeSize: number): Uint8Array {
 // ── Encoder ──────────────────────────────────────────────────────────────────
 
 export class GifEncoder {
-  private readonly parts: Uint8Array[] = []
+  private parts: Uint8Array[] = []
   private frames = 0
 
   /** `delayCs` is the per-frame delay in hundredths of a second (GIF's native
@@ -251,12 +199,26 @@ export class GifEncoder {
     this.frames++
   }
 
-  finish(): Uint8Array {
+  /** Return and release the encoded chunks accumulated so far. Streaming
+   *  callers can drain after every frame to keep memory bounded, then append
+   *  the result of `finishParts()`. */
+  drainParts(): Uint8Array[] {
+    const parts = this.parts
+    this.parts = []
+    return parts
+  }
+
+  finishParts(): Uint8Array[] {
     this.parts.push(Uint8Array.from([0x3b]))            // trailer
-    const total = this.parts.reduce((sum, p) => sum + p.length, 0)
+    return this.drainParts()
+  }
+
+  finish(): Uint8Array {
+    const parts = this.finishParts()
+    const total = parts.reduce((sum, p) => sum + p.length, 0)
     const bytes = new Uint8Array(total)
     let at = 0
-    for (const part of this.parts) {
+    for (const part of parts) {
       bytes.set(part, at)
       at += part.length
     }
