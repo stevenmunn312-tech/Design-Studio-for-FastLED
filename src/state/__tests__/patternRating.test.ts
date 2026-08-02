@@ -1,8 +1,14 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { Frame, RGB } from '../graphEvaluator'
 import { hsv } from '../ledColor'
 import { BUNDLED_PATTERNS, STANDARD_BUNDLED_PATTERNS } from '../bundledPatterns'
-import { captureWindows } from '../patternRating'
+import { captureWindows, ratePattern } from '../patternRating'
+import type { SavedPattern } from '../patternLibrary'
+import {
+  clearPatternContentTrustForTests,
+  isPatternContentTrusted,
+  trustPatternContent,
+} from '../patternTrust'
 import type { StudioNode, StudioEdge } from '../graphStore'
 import type { GraphDiagnostic } from '../../utils/validateGraph'
 import {
@@ -230,5 +236,116 @@ describe('scorePattern', () => {
     expect(result.audioReactive).toBe(true)
     expect(result.criteria.map((c) => c.id)).toContain('audio')
     expect(result.criteria).toHaveLength(6)
+  })
+})
+
+// ── Trust gate ───────────────────────────────────────────────────────────────
+// Rating renders a saved pattern, so it has to clear the same trust boundary
+// the live preview does. `ratePattern` asks the user (via the injectable
+// `confirmTrust`) only when running the pattern would actually execute gated
+// Formula/Code logic; a decline returns a `skipped` rating and never renders.
+describe('ratePattern trust gate', () => {
+  const opts = { gridW: 4, gridH: 4, groups: {} }
+
+  const savedPattern = (id: string, nodes: StudioNode[], edges: StudioEdge[] = []): SavedPattern => ({
+    id, name: `pattern ${id}`, createdAt: 0, inputs: [], outputs: [],
+    subgraph: { nodes, edges },
+  })
+  const formulaPattern = (id: string) => savedPattern(id, [
+    node('cf', 'CustomFormula', 'pattern', { formula: `sin(x*6+t)*0.5+0.${id.length}` }),
+    node('out', 'GroupOutput', 'output'),
+  ], [edge('e1', 'cf', 'out', 'frame', 'frame')])
+
+  beforeEach(() => clearPatternContentTrustForTests())
+
+  it('does not ask about a pattern with no Formula or Code nodes', async () => {
+    const confirmTrust = vi.fn(async () => true)
+    const saved = savedPattern('plain-1', [
+      node('s', 'SolidColor', 'pattern', { r: 200, g: 40, b: 90 }),
+      node('out', 'GroupOutput', 'output'),
+    ], [edge('e1', 's', 'out', 'frame', 'frame')])
+
+    const rating = await ratePattern(saved, { ...opts, confirmTrust })
+    expect(confirmTrust).not.toHaveBeenCalled()
+    expect(rating.skipped).toBeFalsy()
+  })
+
+  it('skips an untrusted pattern the user declines, without rendering it', async () => {
+    const confirmTrust = vi.fn(async () => false)
+    const saved = formulaPattern('decline')
+
+    const rating = await ratePattern(saved, { ...opts, confirmTrust })
+    expect(confirmTrust).toHaveBeenCalledTimes(1)
+    expect(rating.skipped).toBe(true)
+    expect(rating.criteria).toHaveLength(0)
+    expect(rating.thumbnail).toBeUndefined()
+    // A decline is "not now" — it must not harden into a remembered verdict.
+    expect(isPatternContentTrusted(saved.subgraph)).toBe(false)
+  })
+
+  it('asks again on the next run after a skip, rather than caching it', async () => {
+    const confirmTrust = vi.fn(async () => false)
+    const saved = formulaPattern('reask')
+    await ratePattern(saved, { ...opts, confirmTrust })
+    await ratePattern(saved, { ...opts, confirmTrust })
+    expect(confirmTrust).toHaveBeenCalledTimes(2)
+  })
+
+  it('rates a pattern the user trusts, and remembers the decision', async () => {
+    const saved = formulaPattern('accept')
+    const confirmTrust = vi.fn(async () => {
+      // The real prompt records trust on a yes; mirror that here.
+      trustPatternContent(saved.subgraph)
+      return true
+    })
+
+    const rating = await ratePattern(saved, { ...opts, confirmTrust })
+    expect(confirmTrust).toHaveBeenCalledTimes(1)
+    expect(rating.skipped).toBeFalsy()
+    expect(rating.failed).toBeFalsy()
+    // The formula actually ran, so the pattern isn't blank.
+    expect(rating.overall).toBeGreaterThan(0)
+    expect(isPatternContentTrusted(saved.subgraph)).toBe(true)
+  })
+
+  it('does not ask about an already-trusted pattern', async () => {
+    const saved = formulaPattern('pretrusted')
+    trustPatternContent(saved.subgraph)
+    const confirmTrust = vi.fn(async () => true)
+
+    const rating = await ratePattern(saved, { ...opts, confirmTrust })
+    expect(confirmTrust).not.toHaveBeenCalled()
+    expect(rating.skipped).toBeFalsy()
+  })
+
+  it('does not ask about a bundled pattern', async () => {
+    const confirmTrust = vi.fn(async () => true)
+    const saved = { ...formulaPattern('bundled'), bundled: true }
+
+    await ratePattern(saved, { ...opts, confirmTrust })
+    expect(confirmTrust).not.toHaveBeenCalled()
+  })
+})
+
+// A declined pattern must render blank even if it reaches the renderer — the
+// trust value is threaded into evaluateGraph rather than hardcoded, so the
+// gate holds independently of `patternNeedsTrust`'s scoping.
+describe('captureWindows trust threading', () => {
+  const saved: SavedPattern = {
+    id: 'thread', name: 'thread', createdAt: 0, inputs: [], outputs: [],
+    subgraph: {
+      nodes: [
+        node('cf', 'CustomFormula', 'pattern', { formula: '0.9' }),
+        node('out', 'GroupOutput', 'output'),
+      ],
+      edges: [edge('e1', 'cf', 'out', 'frame', 'frame')],
+    },
+  }
+  const anyLit = (windows: Frame[][]) =>
+    windows.some((frames) => frames.some((f) => f.some((row) => row.some((p) => p.r || p.g || p.b))))
+
+  it('renders the formula when trusted and blank when not', async () => {
+    expect(anyLit(await captureWindows(saved, 4, 4, {}, true))).toBe(true)
+    expect(anyLit(await captureWindows(saved, 4, 4, {}, false))).toBe(false)
   })
 })

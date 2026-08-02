@@ -60,8 +60,10 @@ function CriterionRow({ criterion }: { criterion: CriterionScore }) {
 
 function RatingCard({ rating, checked, onToggle }: { rating: PatternRating; checked: boolean; onToggle: (id: string) => void }) {
   const t = tier(rating.overall / 100)
+  // A skipped pattern was never run, so it has no score to colour the card by.
+  const unscored = rating.failed || rating.skipped
   return (
-    <div className={`${styles.card} ${styles[`card_${rating.failed ? 'bad' : t}`]}`}>
+    <div className={`${styles.card} ${styles[`card_${rating.failed ? 'bad' : rating.skipped ? 'ok' : t}`]}`}>
       <div className={styles.cardHead}>
         <input
           type="checkbox"
@@ -73,8 +75,9 @@ function RatingCard({ rating, checked, onToggle }: { rating: PatternRating; chec
         <span className={styles.name}>{rating.name}</span>
         {rating.audioReactive && <span className={styles.audioTag}>audio</span>}
         {rating.bundled && <span className={styles.bundledTag}>included</span>}
-        <span className={`${styles.overall} ${styles[rating.failed ? 'bad' : t]}`}>
-          {rating.failed ? '—' : `${rating.overall}%`}
+        {rating.skipped && <span className={styles.skippedTag}>skipped</span>}
+        <span className={`${styles.overall} ${styles[rating.failed ? 'bad' : rating.skipped ? 'ok' : t]}`}>
+          {unscored ? '—' : `${rating.overall}%`}
         </span>
       </div>
       <div className={styles.cardBody}>
@@ -83,6 +86,11 @@ function RatingCard({ rating, checked, onToggle }: { rating: PatternRating; chec
         </div>
         {rating.failed ? (
           <div className={styles.failNote}>Couldn’t render this pattern{rating.error ? `: ${rating.error}` : ''}</div>
+        ) : rating.skipped ? (
+          <div className={styles.failNote}>
+            Not rated — you chose to skip this pattern rather than run its Formula or Code
+            nodes. Reopen this popup to be asked again.
+          </div>
         ) : (
           <ul className={styles.criteria}>
             {rating.criteria.map((c) => <CriterionRow key={c.id} criterion={c} />)}
@@ -164,9 +172,13 @@ export default function PatternRatingsPopup() {
       onProgress: (done, total) => { if (!cancelled) setProgress({ done, total }) },
     }).then((result) => {
       if (cancelled) return
-      // Failed patterns (couldn't render) sort to the very top for attention.
+      // Failed patterns (couldn't render) sort to the very top for attention;
+      // skipped ones sort to the bottom — they carry no verdict, so a 0 among
+      // the genuinely weak patterns would misread as "this one is terrible".
       setRatings([...result].sort((a, b) =>
-        (a.failed ? -1 : 0) - (b.failed ? -1 : 0) || a.overall - b.overall,
+        (a.skipped ? 1 : 0) - (b.skipped ? 1 : 0) ||
+        (a.failed ? -1 : 0) - (b.failed ? -1 : 0) ||
+        a.overall - b.overall,
       ))
       setBusy(false)
     }).catch((err) => {
@@ -180,7 +192,7 @@ export default function PatternRatingsPopup() {
   }, [])
 
   const average = useMemo(() => {
-    const scored = ratings.filter((r) => !r.failed)
+    const scored = ratings.filter((r) => !r.failed && !r.skipped)
     return scored.length ? Math.round(scored.reduce((a, r) => a + r.overall, 0) / scored.length) : 0
   }, [ratings])
 
@@ -211,7 +223,7 @@ export default function PatternRatingsPopup() {
             >
               + Create Pattern Collection{selected.size > 0 ? ` (${selected.size})` : ''}
             </button>
-            {ratings.some((r) => !r.failed) && (
+            {ratings.some((r) => !r.failed && !r.skipped) && (
               <span className={styles.avgChip}>Library average {average}%</span>
             )}
           </div>

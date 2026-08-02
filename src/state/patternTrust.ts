@@ -10,8 +10,15 @@
 // not id-addressed, so a pattern file can't be swapped out under an
 // already-trusted name/id.
 import type { GraphContent } from './graphStore'
+import type { GroupRegistry } from './graphEvaluator'
 
 const KEY = 'design-studio-for-fastled.trusted-pattern-content.v1'
+
+/** The node types whose preview logic the trust boundary actually gates — see
+ *  the `trusted` checks in graphEvaluator's `CustomFormula`/`FieldFormula`/
+ *  `Code` cases. A subgraph containing none of these renders identically
+ *  trusted or not, so there is nothing to ask the user about. */
+const TRUST_GATED_NODE_TYPES = new Set(['CustomFormula', 'FieldFormula', 'Code'])
 
 function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalize)
@@ -49,6 +56,35 @@ function persist() {
 
 export function isPatternContentTrusted(subgraph: GraphContent): boolean {
   return trustedFingerprints.has(fingerprint(subgraph))
+}
+
+/**
+ * Whether running this subgraph would actually execute anything the trust
+ * boundary gates — a `CustomFormula`, `FieldFormula`, or `Code` node, either
+ * directly or inside a nested group. Used to decide whether running the
+ * pattern is worth interrupting the user for; a pattern built from ordinary
+ * nodes renders the same either way, so it never prompts.
+ *
+ * The nested-group walk matters because `evaluateGraph` forwards `trusted`
+ * into subgraphs: a gated node one group down is gated too, so it has to count
+ * here as well or the prompt would be skipped for content that is still
+ * blocked.
+ */
+export function patternNeedsTrust(subgraph: GraphContent, groups: GroupRegistry = {}): boolean {
+  const seen = new Set<string>()
+  const walk = (content: GraphContent): boolean => content.nodes.some((node) => {
+    const nodeType = String((node.data as { nodeType?: string } | undefined)?.nodeType ?? '')
+    if (TRUST_GATED_NODE_TYPES.has(nodeType)) return true
+    if (nodeType !== 'Group') return false
+    const groupId = String((node.data as { properties?: { groupId?: unknown } } | undefined)?.properties?.groupId ?? '')
+    // A group that (transitively) contains itself would otherwise recurse
+    // forever — the same guard the evaluator's `groupStack` provides.
+    if (!groupId || seen.has(groupId)) return false
+    seen.add(groupId)
+    const nested = groups[groupId]
+    return nested ? walk(nested) : false
+  })
+  return walk(subgraph)
 }
 
 export function trustPatternContent(subgraph: GraphContent): void {
