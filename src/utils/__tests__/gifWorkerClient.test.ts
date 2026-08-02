@@ -3,8 +3,8 @@ import { encodeGifInWorker } from '../gifWorkerClient'
 
 type Response =
   | { type: 'ready' }
-  | { type: 'frame'; frameCount: number; chunk: Blob }
-  | { type: 'done'; chunk: Blob }
+  | { type: 'frame'; frameCount: number }
+  | { type: 'done'; blob: Blob }
 
 class FakeWorker {
   static instances: FakeWorker[] = []
@@ -25,11 +25,8 @@ class FakeWorker {
     this.transfers.push(transfer)
     queueMicrotask(() => {
       if (message.type === 'start') this.respond({ type: 'ready' })
-      else if (message.type === 'frame') {
-        this.respond({ type: 'frame', frameCount: ++this.frames, chunk: new Blob([Uint8Array.of(this.frames)]) })
-      } else {
-        this.respond({ type: 'done', chunk: new Blob([Uint8Array.from([0x47, 0x49, 0x46])]) })
-      }
+      else if (message.type === 'frame') this.respond({ type: 'frame', frameCount: ++this.frames })
+      else this.respond({ type: 'done', blob: new Blob([Uint8Array.from([0x47, 0x49, 0x46])]) })
     })
   }
 
@@ -51,6 +48,7 @@ describe('encodeGifInWorker', () => {
   it('uses one-frame backpressure and reports worker progress', async () => {
     vi.stubGlobal('Worker', FakeWorker)
     const progress: number[] = []
+    const onFinalizing = vi.fn()
     const frameAt = vi.fn(() => new Uint8ClampedArray(16))
 
     const gif = await encodeGifInWorker({
@@ -60,14 +58,16 @@ describe('encodeGifInWorker', () => {
       frameCount: 3,
       frameAt,
       onProgress: (done) => progress.push(done),
+      onFinalizing,
     })
 
     const worker = FakeWorker.instances[0]
-    expect([...new Uint8Array(await gif!.arrayBuffer())]).toEqual([1, 2, 3, 0x47, 0x49, 0x46])
+    expect([...new Uint8Array(await gif!.arrayBuffer())]).toEqual([0x47, 0x49, 0x46])
     expect(worker.messages).toEqual(['start', 'frame', 'frame', 'frame', 'finish'])
     expect(worker.transfers.slice(1, 4).every((items) => items.length === 1)).toBe(true)
     expect(frameAt).toHaveBeenCalledTimes(3)
     expect(progress).toEqual([1, 2, 3])
+    expect(onFinalizing).toHaveBeenCalledOnce()
     expect(worker.terminated).toBe(true)
   })
 

@@ -5,13 +5,14 @@ export interface WorkerGifOptions {
   frameCount: number
   frameAt: (index: number) => Uint8ClampedArray
   onProgress?: (done: number, total: number) => void
+  onFinalizing?: () => void
   isCancelled?: () => boolean
 }
 
 type WorkerResponse =
   | { type: 'ready' }
-  | { type: 'frame'; frameCount: number; chunk: Blob }
-  | { type: 'done'; chunk: Blob }
+  | { type: 'frame'; frameCount: number }
+  | { type: 'done'; blob: Blob }
   | { type: 'error'; message: string }
 
 /**
@@ -22,7 +23,6 @@ type WorkerResponse =
 export function encodeGifInWorker(options: WorkerGifOptions): Promise<Blob | null> {
   return new Promise((resolve, reject) => {
     const worker = new Worker(new URL('./gifEncoder.worker.ts', import.meta.url), { type: 'module' })
-    const chunks: Blob[] = []
     let nextFrame = 0
     let settled = false
 
@@ -40,6 +40,7 @@ export function encodeGifInWorker(options: WorkerGifOptions): Promise<Blob | nul
         return
       }
       if (nextFrame >= options.frameCount) {
+        options.onFinalizing?.()
         worker.postMessage({ type: 'finish' })
         return
       }
@@ -50,18 +51,20 @@ export function encodeGifInWorker(options: WorkerGifOptions): Promise<Blob | nul
 
     worker.onerror = (event) => finish(null, new Error(event.message || 'GIF encoding worker failed'))
     worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
-      const message = event.data
-      if (message.type === 'error') {
-        finish(null, new Error(message.message))
-      } else if (message.type === 'done') {
-        chunks.push(message.chunk)
-        finish(new Blob(chunks, { type: 'image/gif' }))
-      } else if (message.type === 'frame') {
-        chunks.push(message.chunk)
-        options.onProgress?.(message.frameCount, options.frameCount)
-        sendNext()
-      } else {
-        sendNext()
+      try {
+        const message = event.data
+        if (message.type === 'error') {
+          finish(null, new Error(message.message))
+        } else if (message.type === 'done') {
+          finish(message.blob)
+        } else if (message.type === 'frame') {
+          options.onProgress?.(message.frameCount, options.frameCount)
+          sendNext()
+        } else {
+          sendNext()
+        }
+      } catch (error) {
+        finish(null, error instanceof Error ? error : new Error(String(error)))
       }
     }
 

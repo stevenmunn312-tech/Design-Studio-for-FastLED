@@ -5,7 +5,7 @@ import { useUiStore } from '../../state/uiStore'
 import { outputRoutes } from '../../state/outputRouting'
 import { latestStreamFrameCopy } from '../../state/streamStore'
 import { encodeGifInWorker } from '../../utils/gifWorkerClient'
-import { captureSequence, drawCapturedFrame, loopBlendFrames, type RecordStyle } from './recordCapture'
+import { captureSequence, drawCapturedFrame, gifScaleLimit, loopBlendFrames, type RecordStyle } from './recordCapture'
 import { graphConsumesAudio } from './previewAudioUsage'
 import styles from './RecordPopup.module.css'
 
@@ -14,7 +14,7 @@ import styles from './RecordPopup.module.css'
 // seamless-loop options. Opened from the preview header's Record button.
 
 type RecordFormat = 'png' | 'gif' | 'webm'
-type Phase = 'idle' | 'rendering' | 'encoding' | 'recording' | 'done' | 'error'
+type Phase = 'idle' | 'rendering' | 'encoding' | 'finalizing' | 'recording' | 'done' | 'error'
 
 const FPS_CHOICES = [10, 15, 20, 25, 30, 50]
 const MAX_OUTPUT_PX = 2048
@@ -74,13 +74,16 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
   }, [onClose])
 
   const webmMime = pickWebmMime()
-  const maxScale = Math.max(2, Math.floor(MAX_OUTPUT_PX / Math.max(gridW, gridH)))
+  const totalFrames = Math.max(1, Math.round(durationSec * fps))
+  const dimensionMaxScale = Math.max(2, Math.floor(MAX_OUTPUT_PX / Math.max(gridW, gridH)))
+  const maxScale = format === 'gif'
+    ? gifScaleLimit(gridW, gridH, totalFrames, MAX_OUTPUT_PX)
+    : dimensionMaxScale
   const effScale = Math.min(scale, maxScale)
   const outW = gridW * effScale
   const outH = gridH * effScale
-  const totalFrames = Math.max(1, Math.round(durationSec * fps))
   const animated = format !== 'png'
-  const busy = phase === 'rendering' || phase === 'encoding' || phase === 'recording'
+  const busy = phase === 'rendering' || phase === 'encoding' || phase === 'finalizing' || phase === 'recording'
 
   const makeCanvas = (): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } => {
     const canvas = document.createElement('canvas')
@@ -155,6 +158,7 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
         return ctx.getImageData(0, 0, outW, outH).data
       },
       onProgress: (done, total) => setProgress({ done, total }),
+      onFinalizing: () => setPhase('finalizing'),
       isCancelled: () => cancelRef.current,
     })
     if (!gif) return
@@ -232,6 +236,8 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
     ? `Rendering frames… ${progress.done}/${progress.total}`
     : phase === 'encoding'
       ? `Encoding GIF… ${progress.done}/${progress.total}`
+      : phase === 'finalizing'
+        ? 'Finalizing GIF download…'
       : phase === 'recording'
         ? `Recording video… ${progress.done}/${progress.total}`
         : null
@@ -360,6 +366,9 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
           {outW}×{outH}px{animated ? ` · ${totalFrames} frames @ ${fps} fps` : ' · current frame'}
           {format === 'gif' && fps > 50 ? ' · GIF timing rounds to 10 ms steps' : ''}
         </div>
+        {format === 'gif' && maxScale < dimensionMaxScale && (
+          <div className={styles.meta}>GIF scale is capped for this frame count to keep finalization reliable.</div>
+        )}
         {audioReactive && animated && (
           <div className={styles.meta}>
             ♪ Audio-reactive nodes are captured with the microphone levels at render time — for a synced clip, keep the music playing while exporting.

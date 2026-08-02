@@ -6,28 +6,33 @@ type Request =
   | { type: 'finish' }
 
 let encoder: GifEncoder | null = null
+let output = new Blob([], { type: 'image/gif' })
 
 self.onmessage = (event: MessageEvent<Request>) => {
   try {
     const message = event.data
     if (message.type === 'start') {
       encoder = new GifEncoder(message.width, message.height, message.delayCs)
+      output = new Blob([], { type: 'image/gif' })
       self.postMessage({ type: 'ready' })
       return
     }
     if (!encoder) throw new Error('GIF encoder worker was not started')
     if (message.type === 'frame') {
       encoder.addFrame(new Uint8ClampedArray(message.rgba))
-      // Ship completed frame chunks immediately. Blob structured-cloning is
-      // effectively zero-copy and lets the main thread compose the final file
-      // without one huge end-of-export allocation in either thread.
-      const chunk = new Blob(encoder.drainParts(), { type: 'image/gif' })
-      self.postMessage({ type: 'frame', frameCount: encoder.frameCount, chunk })
+      // Extend an immutable Blob as each frame completes. Blob-to-Blob
+      // composition is zero-copy in browsers, keeps the encoder's byte arrays
+      // bounded to one frame, and makes finalisation a two-part append instead
+      // of a large contiguous allocation or hundreds-part main-thread merge.
+      output = new Blob([output, ...encoder.drainParts()], { type: 'image/gif' })
+      self.postMessage({ type: 'frame', frameCount: encoder.frameCount })
       return
     }
-    const chunk = new Blob(encoder.finishParts(), { type: 'image/gif' })
+    output = new Blob([output, ...encoder.finishParts()], { type: 'image/gif' })
+    const blob = output
     encoder = null
-    self.postMessage({ type: 'done', chunk })
+    output = new Blob([], { type: 'image/gif' })
+    self.postMessage({ type: 'done', blob })
   } catch (error) {
     self.postMessage({
       type: 'error',
