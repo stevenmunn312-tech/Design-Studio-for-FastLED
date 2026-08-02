@@ -81,6 +81,7 @@ export default function RtcInputBody({ nodeId }: { nodeId: string }) {
         <div className={styles.note}>
           Preview simulates a healthy module with the browser clock. Firmware reads address
           0x68 on the board&apos;s default SDA/SCL pins; stale means the oscillator-stop flag is set.
+          Set a new module&apos;s clock once with its setup utility—the generated sketch never overwrites it.
         </div>
       )}
       {String(timeSource ?? 'Compile Time') === 'NTP' && (

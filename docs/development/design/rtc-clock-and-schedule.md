@@ -71,8 +71,12 @@ calendar is published immediately. Status register bit 7 (OSF, oscillator stop)
 maps to `stale`; `synced` is true only when OSF is clear. If a module that was
 reading successfully later disappears from the bus, firmware keeps the last
 good sample visible but marks it stale. A module absent from boot remains
-invalid. This path is experimental until the support matrix records a physical
-hardware run.
+invalid. Firmware deliberately never writes or clears OSF: a fresh/replaced
+module must be set once with its vendor or library setup utility, and a stale
+flag remains visible until the clock is deliberately corrected. This avoids a
+normal board reboot silently overwriting battery-backed time with a build stamp.
+This path is experimental until the support matrix records a physical hardware
+run.
 
 ### Timezone model: a fixed offset, no DST
 

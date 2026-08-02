@@ -469,7 +469,7 @@ function UploadTab() {
           <div className={styles.tip}>
             <div className={styles.tipIcon}>◇</div>
             <div className={styles.tipText}>
-              For a DS3231, connect <strong>VCC</strong>, <strong>GND</strong>, <strong>SDA</strong>, and <strong>SCL</strong> to the board&apos;s labelled I²C pins. The browser simulates a healthy module; on firmware, <code>valid</code> confirms a readable calendar value, <code>synced</code> means the DS3231 oscillator-stop flag is clear, and <code>stale</code> warns that the module lost time or a previously working I²C read failed. Avoid assigning those SDA/SCL pins to the LED output or another non-I²C peripheral.
+              For a DS3231, connect <strong>VCC</strong>, <strong>GND</strong>, <strong>SDA</strong>, and <strong>SCL</strong> to the board&apos;s labelled I²C pins. Set a fresh module&apos;s clock once with its vendor/library setup example; generated Studio firmware reads but never overwrites the battery-backed calendar. The browser simulates a healthy module; on firmware, <code>valid</code> confirms a readable calendar value, <code>synced</code> means the DS3231 oscillator-stop flag is clear, and <code>stale</code> warns that the module lost time or a previously working I²C read failed. Avoid assigning those SDA/SCL pins to the LED output or another non-I²C peripheral.
             </div>
           </div>
           <div className={styles.tip}>
