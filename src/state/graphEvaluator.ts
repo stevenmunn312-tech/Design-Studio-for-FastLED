@@ -6257,6 +6257,10 @@ function createEvalNode(
             def.nodes, def.edges, tick, W, H, groups,
             `${instancePrefix}${id}/${gid}/`,
             new Set([...groupStack, gid]), groupInputs, audioOverride,
+            // A collected pattern is part of the same workspace, so it inherits
+            // this graph's trust — an untrusted show must not run formula/Code
+            // nodes just because they sit inside a collected pattern group.
+            trusted,
           ) ?? blankFrame(W, H)
         }
         // Transitions come from a wired TransitionSet (the same node type feeds
@@ -6742,6 +6746,10 @@ function createEvalNode(
           `${instancePrefix}${id}/`,
           new Set([...groupStack, groupId]),
           boundInputs, audioOverride,
+          // A subgraph is part of the same workspace, so it inherits this
+          // graph's trust — otherwise an untrusted import could run its
+          // formula/Code nodes simply by nesting them inside a group.
+          trusted,
         ) ?? blankFrame(W, H)
         out = { frame }
         break
