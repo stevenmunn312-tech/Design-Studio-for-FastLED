@@ -22,6 +22,23 @@ vi.mock('../audioStore', () => ({
   },
 }))
 
+// The Code node's preview runs in a Web Worker and is decoupled from the render
+// cadence, so a real trusted call still returns black on its first tick — which
+// would make a "black when untrusted" assertion pass for the wrong reason. Stub
+// the sandbox entry point with a synchronous white frame instead: an untrusted
+// graph must then be black *and* never have reached the sandbox at all.
+const codeSandbox = vi.hoisted(() => ({ calls: 0 }))
+vi.mock('../codeSandboxRuntime', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../codeSandboxRuntime')>()
+  return {
+    ...actual,
+    evalCodeAsync: (_k: string, _g: string, _c: string, _s: unknown, _t: number, w: number, h: number) => {
+      codeSandbox.calls++
+      return Array.from({ length: h }, () => Array.from({ length: w }, () => ({ r: 255, g: 255, b: 255 })))
+    },
+  }
+})
+
 import { evaluateGraph, evaluateGraphFull, evaluateScalar, pruneEvaluatorState, prunePoolBuffers, resetEvaluatorState, getEvaluatorMemoryStats, renderParticleBurst, PARTICLE_LIFE_MS } from '../graphEvaluator'
 import type { Frame, RGB } from '../graphEvaluator'
 import { waveSample, combineWaves } from '../wave'
@@ -802,8 +819,107 @@ describe('evaluateGraph', () => {
     const cd = node('cd', 'Code', 'pattern', { code: 'leds[0] = CRGB(255, 255, 255);' })
     const out = node('out', 'MatrixOutput', 'output', {})
     const edges = [edge('e1', 'cd', 'frame', 'out', 'frame')]
+    codeSandbox.calls = 0
     const untrustedFrame = evaluateGraph([cd, out], edges, 0, W, H, {}, '', new Set(), {}, null, false)
     expect(untrustedFrame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
+    expect(codeSandbox.calls).toBe(0)
+  })
+
+  // The two recursion sites (the `Group` case and PatternMaster's per-pattern
+  // `render`) call evaluateGraph again for a subgraph. Both must forward the
+  // enclosing `trusted` value: nesting a formula/Code node inside a group — the
+  // normal shape of a shared pattern — must not launder it past the trust gate.
+  describe('trust boundary through nested subgraphs', () => {
+    // A pattern group: <gen> → GroupOutput, the terminal evaluateGraph renders.
+    const patternGroup = (gen: StudioNode) => ({
+      nodes: [gen, node('gout', 'GroupOutput', 'output', {})],
+      edges: [edge('ge', gen.id, 'frame', 'gout', 'frame')],
+    })
+    const formulaNode = (id: string) =>
+      node(id, 'CustomFormula', 'pattern', { formula: 'sin(x*6+t)*0.5+0.5' })
+
+    it('a Group forwards untrusted to its subgraph, blanking a nested CustomFormula', () => {
+      const groups = { pg: patternGroup(formulaNode('cf')) }
+      const grp = node('grp', 'Group', 'pattern', { groupId: 'pg' })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      const edges = [edge('e1', 'grp', 'frame', 'out', 'frame')]
+
+      const trustedFrame = evaluateGraph([grp, out], edges, 0, W, H, groups, '', new Set(), {}, null, true)
+      expect(litPixels(trustedFrame)).toBeGreaterThan(0)
+
+      const untrustedFrame = evaluateGraph([grp, out], edges, 0, W, H, groups, '', new Set(), {}, null, false)
+      expect(litPixels(untrustedFrame)).toBe(0)
+    })
+
+    it('a Group forwards untrusted to a nested Code node', () => {
+      const code = node('cd', 'Code', 'pattern', { code: 'leds[0] = CRGB(255, 255, 255);' })
+      const groups = { pg: patternGroup(code) }
+      const grp = node('grp2', 'Group', 'pattern', { groupId: 'pg' })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      const edges = [edge('e1', 'grp2', 'frame', 'out', 'frame')]
+
+      codeSandbox.calls = 0
+      expect(litPixels(evaluateGraph([grp, out], edges, 0, W, H, groups, '', new Set(), {}, null, true))).toBeGreaterThan(0)
+      expect(codeSandbox.calls).toBe(1)
+
+      codeSandbox.calls = 0
+      const untrustedFrame = evaluateGraph([grp, out], edges, 0, W, H, groups, '', new Set(), {}, null, false)
+      expect(litPixels(untrustedFrame)).toBe(0)
+      expect(codeSandbox.calls).toBe(0)
+    })
+
+    it('a Group forwards untrusted through a nested group inside a group', () => {
+      const groups = {
+        inner: patternGroup(formulaNode('cf')),
+        outer: patternGroup(node('innergrp', 'Group', 'pattern', { groupId: 'inner' })),
+      }
+      const grp = node('grp3', 'Group', 'pattern', { groupId: 'outer' })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      const edges = [edge('e1', 'grp3', 'frame', 'out', 'frame')]
+
+      expect(litPixels(evaluateGraph([grp, out], edges, 0, W, H, groups, '', new Set(), {}, null, true))).toBeGreaterThan(0)
+      expect(litPixels(evaluateGraph([grp, out], edges, 0, W, H, groups, '', new Set(), {}, null, false))).toBe(0)
+    })
+
+    // PatternCollection → Show Engine → MatrixOutput, the generative-show shape.
+    // One collected pattern means evalPatternShow holds it (no transition), so
+    // the frame is exactly that group's render.
+    const showGraph = (masterId: string) => {
+      const coll = node('coll', 'PatternCollection', 'show', { patternIds: ['pg'] })
+      const master = node(masterId, 'PatternMaster', 'show', {})
+      const out = node('out', 'MatrixOutput', 'output', {})
+      return {
+        nodes: [coll, master, out],
+        edges: [
+          edge('e1', 'coll', 'patternset', masterId, 'patternset'),
+          edge('e2', masterId, 'frame', 'out', 'frame'),
+        ],
+      }
+    }
+
+    it("the Show Engine forwards untrusted to a collected pattern's CustomFormula", () => {
+      const groups = { pg: patternGroup(formulaNode('cf')) }
+      const t = showGraph('pmT')
+      expect(litPixels(evaluateGraph(t.nodes, t.edges, 0, W, H, groups, '', new Set(), {}, null, true))).toBeGreaterThan(0)
+
+      const u = showGraph('pmU')
+      expect(litPixels(evaluateGraph(u.nodes, u.edges, 0, W, H, groups, '', new Set(), {}, null, false))).toBe(0)
+    })
+
+    it("the Show Engine forwards untrusted to a collected pattern's Code node", () => {
+      const code = node('cd', 'Code', 'pattern', { code: 'leds[0] = CRGB(255, 255, 255);' })
+      const groups = { pg: patternGroup(code) }
+
+      const t = showGraph('pmCodeT')
+      codeSandbox.calls = 0
+      expect(litPixels(evaluateGraph(t.nodes, t.edges, 0, W, H, groups, '', new Set(), {}, null, true))).toBeGreaterThan(0)
+      expect(codeSandbox.calls).toBe(1)
+
+      const u = showGraph('pmCodeU')
+      codeSandbox.calls = 0
+      expect(litPixels(evaluateGraph(u.nodes, u.edges, 0, W, H, groups, '', new Set(), {}, null, false))).toBe(0)
+      expect(codeSandbox.calls).toBe(0)
+    })
   })
 
   it('TrebleSparks tints its sparks from the wired palette input', () => {
