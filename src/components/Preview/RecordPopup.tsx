@@ -4,8 +4,8 @@ import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { outputRoutes } from '../../state/outputRouting'
 import { latestStreamFrameCopy } from '../../state/streamStore'
-import { GifEncoder } from '../../utils/gifEncoder'
-import { captureSequence, drawCapturedFrame, loopBlendFrames, yieldToUi, type RecordStyle } from './recordCapture'
+import { encodeGifInWorker } from '../../utils/gifWorkerClient'
+import { captureSequence, drawCapturedFrame, loopBlendFrames, type RecordStyle } from './recordCapture'
 import { graphConsumesAudio } from './previewAudioUsage'
 import styles from './RecordPopup.module.css'
 
@@ -145,15 +145,19 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
     if (!frames) return
     setPhase('encoding')
     const { ctx } = makeCanvas()
-    const encoder = new GifEncoder(outW, outH, Math.round(100 / fps))
-    for (let i = 0; i < frames.length; i++) {
-      if (cancelRef.current) return
-      drawCapturedFrame(ctx, frames[i], gridW, gridH, effScale, style)
-      encoder.addFrame(ctx.getImageData(0, 0, outW, outH).data)
-      setProgress({ done: i + 1, total: frames.length })
-      if ((i + 1) % 8 === 0) await yieldToUi()
-    }
-    const gif = encoder.finish()
+    const gif = await encodeGifInWorker({
+      width: outW,
+      height: outH,
+      delayCs: Math.round(100 / fps),
+      frameCount: frames.length,
+      frameAt: (index) => {
+        drawCapturedFrame(ctx, frames[index], gridW, gridH, effScale, style)
+        return ctx.getImageData(0, 0, outW, outH).data
+      },
+      onProgress: (done, total) => setProgress({ done, total }),
+      isCancelled: () => cancelRef.current,
+    })
+    if (!gif) return
     downloadBlob(new Blob([gif.buffer as ArrayBuffer], { type: 'image/gif' }), exportFilename('gif'))
     setPhase('done')
   }
