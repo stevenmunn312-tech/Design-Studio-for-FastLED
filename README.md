@@ -1,145 +1,148 @@
 # Design Studio for FastLED
 
-Design LED animations as a live node graph, watch them move on a virtual matrix, then send the same patch to FastLED hardware.
+## Build LED worlds visually. Ship them as real FastLED firmware.
 
-**Public beta · 151 nodes · 20 included audio-reactive patterns · Windows/macOS/Linux packaging · MIT core**
+Design Studio for FastLED is a live, node-based creative environment for LED strips, matrices, and tiled panels. Connect patterns, palettes, signals, effects, audio analysis, and hardware output; watch the result move instantly; then generate or upload the same design as FastLED C++.
 
-![Design Studio for FastLED overview](docs/images/readme/design-studio-overview.png)
+**Public beta · 151 modules · 20 included audio-reactive patterns · Windows, macOS, and Linux packaging · MIT core**
 
-Design Studio for FastLED is a visual authoring environment for LED strips, matrices, and tiled panels. Drag in generators, signals, palettes, effects, audio analysis, and hardware output; connect matching ports; and tune every control while the main preview and node previews run live.
+[Watch the one-minute demo](https://youtu.be/Kjywc9C-aME) · [Check beta releases](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/releases) · [Run from source](#run-from-source) · [Help test hardware](#help-test-the-beta)
 
-> **Beta hardware testers wanted.** If you have an ESP32-family board, an Arduino, a Pico, an unusual LED chipset, tiled panels, or an audio setup, see [Help test the beta](#help-test-the-beta). Reports from real wiring are the fastest way to turn experimental combinations into supported ones.
+![A complete Field Warp patch running in Design Studio for FastLED](docs/images/readme/design-studio-overview.png)
 
-## See it in action
+## From idea to LEDs—without breaking your flow
 
-**[Watch the demo video](https://youtu.be/Kjywc9C-aME)**
+| Create | See | Perform | Deploy |
+| --- | --- | --- | --- |
+| Build with typed, color-coded nodes instead of starting from a blank sketch. | Preview the complete matrix and individual nodes while you edit. | Run full-screen visuals, audio-reactive patterns, and generative shows. | Generate C++, flash a controller, or stream live frames over USB. |
 
-| Build and preview a patch | Browse reusable patterns |
-|---|---|
-| ![A patch driving the live LED preview](docs/images/readme/design-studio-patch.png) | ![Pattern Library with included audio-reactive patterns](docs/images/readme/design-studio-pattern-library.png) |
+What makes the Studio useful:
 
-### Perform in Stage Mode
+- **Immediate visual feedback.** Adjust a speed, palette, blend, field, or particle control and see the result now.
+- **A deep creative toolbox.** Choose from 151 modules spanning patterns, simulations, color, fields, effects, audio, logic, show control, hardware input, and output.
+- **Preview-to-firmware parity.** The graph evaluator and C++ generator are designed together so the hardware result follows what you authored.
+- **Reusable creative building blocks.** Turn any patch into a Group, save it to the Pattern Library, organize it into shelves, and reuse it in future shows.
+- **A real performance workflow.** Stage Mode, the Performance Deck, music transport, spectrum views, transitions, and beat-driven particles turn patches into playable visuals.
+- **Hardware-aware guardrails.** Graph Health, wiring diagnostics, board compatibility checks, power warnings, and measured flash/RAM capacity catch problems before upload.
+- **Your work stays portable.** Use named projects, Project Files, Graph JSON, share links, recovery snapshots, and standalone `.ino` exports.
 
-Press **Stage** or **F10** to turn the workspace into a focused performance view. The live matrix fills most of the screen while the spectrum analyzer, show transport, pattern status, frame rate, and memory telemetry stay visible. Select the spectrum name to cycle through the available visualizers; press **Esc** or **F10** to return to the editor.
+## Start with a spark, not an empty canvas
 
-The shot below is a generated show playing a lava-coloured pattern while its analyzed audio track drives the spectrum display.
+The Start Gallery includes guided patches for Juggle, Fire, scrolling text, live audio, field warping, generative shows, and music-synced SD playback. Each starter arrives with an editable Comment node explaining what to try next.
 
-![Stage Mode playing a generated show with the live spectrum analyzer](docs/images/readme/design-studio-stage.png)
+![The full-screen Start Gallery with beginner, audio, field, and show templates](docs/images/readme/design-studio-start-gallery.png)
 
-## Your first five minutes
+The first patch is deliberately simple: a live Juggle pattern flows into Matrix Output. Change a few controls, splice an effect directly into the wire, and the preview responds immediately.
 
-1. **Start with something alive.** On the empty canvas choose **Start with Juggle**, **Audio-reactive demo**, or **Browse starter patches**. Every starter opens with an editable Comment node that explains what to change next; the audio first patch also starts the microphone. The **✦ Start** button reopens the gallery at any time.
-2. **Read the graph left to right.** Source nodes create values or pixels; effects transform them; **Matrix Output** is the destination. Ports with the same color/type connect.
-3. **Try one edit.** Change a speed, palette, particle style, or effect amount. The LED preview updates immediately.
-4. **Add a module.** Click a card in the left Node Library or drag it onto the canvas. Drag a cable onto empty canvas to see only compatible next nodes.
-5. **Open Help.** Press **?** for the Quick Start, shortcuts, upload guide, illustrated examples, and searchable reference for every node.
+| Build and preview a patch | Browse and collect reusable patterns |
+| --- | --- |
+| ![A Juggle patch driving the live LED matrix](docs/images/readme/design-studio-patch.png) | ![The Pattern Library open beside a live Field Warp patch](docs/images/readme/design-studio-pattern-library.png) |
 
-The fastest experiments are in **Quick recipes** in the sidebar: *Live spectrum*, *Beat colour jump*, and *Percussion trails* each place a complete working chain plus a short tutorial Comment on the canvas. The full node library is visible by default; switch to **Beginner** when you want a smaller curated rack.
+## Put the visuals center stage
 
-## Two main workflows
+Press **Stage** or **F10** to turn the workspace into a clean performance view. The output matrix becomes the focus while spectrum, transport, frame rate, memory, and signal state remain visible. Toggle the 3D presentation, cycle spectrum styles, or press **Esc** to return to the editor.
 
-### 1. Make a reusable pattern show
+![Stage Mode showing a full-screen live matrix and performance controls](docs/images/readme/design-studio-stage.png)
 
-```text
-Pattern patch → Group → Save to Library → Pattern Library
-              → Pattern Collection → Show Engine → Matrix Output → Hardware
-```
-
-1. Build a patch that ends in a frame. Select the pattern-producing nodes—not the scene's **Mic Input** or **Matrix Output**—and press **Ctrl/Cmd + G** or choose **Make Group**.
-2. Name the Group and enable **Save to library**, or right-click the completed Group and choose **Save to Library**.
-3. The pattern appears under **Pattern Library → New & Unsorted**. Drag it onto **Standard**, **Audio Reactive**, or a shelf you created with **＋**. Removing a custom shelf safely returns its patterns to New & Unsorted.
-4. Add a **Pattern Collection**. Drag Pattern Library cards directly onto it, or wire a Group's frame output to its `pattern` input. The collection absorbs each Group as a reusable show entry.
-5. Wire `Pattern Collection.patternset` → `Show Engine.patternset`, then `Show Engine.frame` → `Matrix Output.frame`. A **Transitions** node and beat input are optional.
-6. Configure the board and port in Matrix Output, run **Flash Wiring Test**, then choose **Upload**.
-
-The beta includes 20 curated patterns in the built-in **Audio Reactive** shelf. They expose an audio input: add a **Microphone** node and connect it when auditioning one on the canvas. Included patterns are immutable examples; your own copies and saved patterns remain yours to rename, organize, share, or delete.
-
-### 2. Send one patch straight to hardware
-
-```text
-Pattern → optional signals/palettes/effects → Matrix Output → Hardware
-```
-
-1. Wire any frame-producing pattern directly—or through effects—into **Matrix Output**.
-2. Use **✦ Setup...** to choose the controller, dimensions, chipset, layout, color order, pins, brightness, and optional power limit. Open **↑ Upload...** to review the current board/port, the live controller-capacity meter, and the readiness checklist.
-3. Use **🧪 Flash Wiring Test** first on new wiring. It checks colors, orientation, tiles, and physical pixel order without needing a finished patch.
-4. Choose an output route:
-   - **Upload** compiles and flashes a standalone FastLED sketch.
-   - **↻ Re-upload last sketch** quickly re-sends the current project's last uploaded sketch without regenerating it.
-   - **⚡ Flash Stream Receiver** once, then **📡 Live Stream** for rapid no-recompile preview.
-   - **View Code** or **Export .ino** if you want to inspect or build the sketch yourself.
-   - **Upload show to SD** provisions the separate music-synced SD-card workflow.
-
-## Pattern Library
-
-The old **My Patterns** rack is now the **Pattern Library**:
-
-- **New & Unsorted** receives every newly saved or imported pattern.
-- **Standard** and **Audio Reactive** are permanent built-in shelves.
-- Create custom shelves with **＋** and remove them without deleting their patterns.
-- Drag your patterns onto a shelf header to file them, or back to **New & Unsorted** to unfile them.
-- Click a pattern to place it near the center of the canvas, drag it to position it, or drag it directly onto a Pattern Collection.
-- The optional local helper mirrors user patterns as shareable JSON files in its per-user `My Patterns` data folder. Included beta patterns are bundled with the application and are not written over your files.
-
-![Pattern Library shelves](docs/images/readme/design-studio-pattern-library.png)
-
-## Install and run
+## Get started
 
 ### Portable desktop beta
 
-When a release archive is available for your operating system, extract it and launch **Design Studio for FastLED** (`Design Studio for FastLED.exe` on Windows). The portable package includes the Studio, upload helper, fbuild, and esptool; users do not need to install Node.js or Python.
+Check [GitHub Releases](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/releases) for an archive for your operating system. Extract it and launch **Design Studio for FastLED** (`Design Studio for FastLED.exe` on Windows).
 
-The browser opens automatically. Keep the launcher window open while using hardware, project-file, and Pattern Library disk features. Packaging details are in [Desktop distribution](docs/release/desktop-distribution.md).
+The portable package is designed to include the Studio, local upload helper, `fbuild`, and `esptool`, so users do not need to install Node.js or Python. Keep the launcher open while using USB upload, local project files, and disk-backed Pattern Library features. See [Desktop distribution](docs/release/desktop-distribution.md) for packaging status and limitations.
+
+> Desktop packages are beta builds and are not yet code-signed or notarized. Only run archives downloaded from this repository’s official release page. See [Security messages](#security-and-privacy) below.
 
 ### Run from source
 
-1. Install [Node.js](https://nodejs.org) LTS. Install [Python 3](https://python.org) as well if you want local upload features.
-2. Clone or download this repository.
-3. Launch it:
-   - **Windows:** double-click `Start Design Studio for FastLED.bat`
-   - **macOS:** double-click `Start Design Studio for FastLED.command`; on first use, right-click it and choose **Open**
-   - **Linux:** run `./start.sh`
-
-For development:
+Install [Node.js](https://nodejs.org) LTS, then:
 
 ```bash
+git clone https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED.git
+cd Design-Studio-for-FastLED
 npm install
-npm run dev        # http://localhost:5173
+npm run dev
 ```
 
-The first source launch installs dependencies and can take a few minutes. Without Python, visual authoring, projects, code export, and preview still work; direct hardware actions stay unavailable.
+Open `http://localhost:5173`. Install [Python 3](https://python.org) as well if you want the local upload helper and hardware features.
 
-## Security messages you may see
+You can also use the included launchers:
 
-Design Studio for FastLED is in beta and the direct-download desktop packages are not yet code-signed or notarized.
+- **Windows:** double-click `Start Design Studio for FastLED.bat`
+- **macOS:** double-click `Start Design Studio for FastLED.command`; on first use, right-click it and choose **Open**
+- **Linux:** run `./start.sh`
 
-- **Windows SmartScreen:** Windows may show **Windows protected your PC** or **Unknown publisher**. Only continue with **More info → Run anyway** when the archive came from this repository's official release page and you expected to run it. Do not disable SmartScreen system-wide.
-- **macOS Gatekeeper:** macOS may say the application cannot be opened because the developer cannot be verified. For an official beta archive, right-click the application and choose **Open** to make the one-time exception. Do not remove Gatekeeper globally.
-- **Imported projects and patterns:** files and share links are treated as untrusted. Formula and Code previews remain blocked until you review the source and choose **Trust and run**. Only trust content from people you know.
-- **Microphone permission:** audio-reactive previews require browser microphone permission. Audio stays in the browser analysis pipeline; a denied permission simply leaves live audio nodes inactive.
-- **Local helper and USB access:** upload, serial streaming, file dialogs, and disk-backed pattern/project sync use a service on your own machine. It listens on localhost and needs access to the selected serial device. Your firewall or operating system may ask for confirmation on first launch.
-- **Wi-Fi credentials:** an SSID and password entered for Art-Net input or NTP time sync are stored only in this browser's local storage, never in project files, share links, or the helper's `Projects/` folder. They are embedded in plain text in generated firmware, so handle an exported network-enabled `.ino` accordingly.
-- **Art-Net preview and the network:** the helper opens a UDP listener on your local network only while an Art-Net-mode **DMX / Art-Net** node is on the canvas, and closes it as soon as that node is removed or switched to DMX512.
+Without Python, visual authoring, live preview, projects, sharing, and code export still work. Direct hardware actions remain unavailable.
 
-Read the full [Security policy](SECURITY.md) and report vulnerabilities privately through the channel documented there.
+## Your first five minutes
 
-## Help, examples, and node reference
+1. Choose **Start with Juggle** or open **✦ Start** and pick a guided patch.
+2. Read the graph from left to right. Sources create signals or pixels; effects transform them; **Matrix Output** is the destination.
+3. Change a speed, palette, particle style, or effect amount and watch the preview react.
+4. Drag a module from the Node Library—or drag a wire onto empty canvas to see only compatible next nodes.
+5. Press **? Help** for shortcuts, upload guidance, illustrated examples, and searchable documentation for every module.
 
-Press **?** inside Studio. Help contains:
+For an even faster experiment, use the sidebar’s **Quick recipes**: *Live spectrum*, *Beat colour jump*, and *Percussion trails* place complete audio-reactive chains on the canvas with a tutorial note.
 
-- a beginner Quick Start and canvas/wiring gestures;
-- keyboard shortcuts;
-- upload, wiring-test, live-stream, code-export, and SD-show instructions;
-- searchable documentation for every node, including ports, controls, use cases, and live example diagrams.
+## Three ways to create
 
-The empty-canvas launcher and **✦ Start** gallery include Juggle, Fire, Scrolling Text, Audio Spectrum, Field Warp, a generative show, and a music-synced SD show. The Pattern Library adds 20 richer audio-reactive examples for dismantling, remixing, and collecting.
+### Design one patch
 
-## Complete node catalogue
+```text
+Pattern → signals / palettes / effects → Matrix Output → LEDs
+```
 
-Design Studio for FastLED currently ships **151 nodes**. The in-app **Help → Node Reference** is authoritative and explains each one in depth.
+This is the shortest route from an idea to hardware. Every frame-producing pattern can run alone or flow through a chain of transforms, masks, feedback, fields, and color tools.
+
+### Build a generative show
+
+```text
+Pattern → Group → Pattern Library → Pattern Collection
+        → Show Engine → Matrix Output → LEDs
+```
+
+Save finished patterns as reusable Groups, collect the ones you want, and let Show Engine choose timing and transitions. Add an optional beat input to advance the show and trigger particle bursts. The preview and generated controller sketch share the same show structure.
+
+### Author a music-synced SD show
+
+```text
+Music Library → Performance Generator → SD Card → Matrix Output
+```
+
+Analyze MP3s, generate a timed show, hand-edit its event timeline, audition it against the music, and package the player, show data, and tracks for SD-card playback. A Pattern Collection can provide the visual vocabulary.
+
+> Music-synced SD provisioning is experimental. See the [Beta support matrix](docs/release/beta-support-matrix.md) before planning a production installation.
+
+## From preview to hardware
+
+Configure the controller, size, LED chipset, color order, pins, brightness, physical layout, and optional power cap directly on **Matrix Output**. Then choose the workflow that fits the moment:
+
+- **Upload** — compile and flash a standalone FastLED sketch.
+- **Re-upload last sketch** — resend the current project’s last upload without regenerating it.
+- **Flash Wiring Test** — verify color order, brightness, orientation, tiles, and physical pixel order before the graph is finished.
+- **Flash Stream Receiver + Live Stream** — flash once, then send live preview frames over USB without recompiling after every edit.
+- **View Code / Export `.ino`** — inspect, modify, or build the generated sketch yourself.
+- **Upload show to SD** — provision the separate music-synced playback workflow.
+
+Graph Health continuously explains incomplete wiring, pin conflicts, output power, controller compatibility, show structure, and memory pressure. The live controller-capacity meter performs a real compile-only check against the selected board and reports measured flash/RAM use when the toolchain can provide it.
+
+## Pattern Library
+
+The Pattern Library turns good experiments into a personal visual vocabulary:
+
+- New saves and imports land in **New & Unsorted**.
+- **Standard** and **Audio Reactive** provide built-in shelves, including 20 curated audio-reactive patterns.
+- Create your own shelves, drag patterns between them, and remove a shelf without deleting its contents.
+- Click or drag a pattern onto the canvas, or drop it directly into a Pattern Collection.
+- With the local helper running, personal patterns are mirrored as shareable JSON files in the per-user `My Patterns` data folder.
+
+Built-in patterns are immutable examples. Your own patterns remain yours to rename, organize, share, remix, and delete.
+
+## Feature map
 
 <details>
-<summary><strong>Show all nodes by category</strong></summary>
+<summary><strong>Show all 151 modules by category</strong></summary>
 
 - **Inputs:** Microphone, Button, Potentiometer, Encoder, DMX / Art-Net, RTC Clock, MIDI
 - **Audio:** FFT Analyzer, Beat Detect, Percussion Detect, Audio Features, Audio → Hue
@@ -155,127 +158,94 @@ Design Studio for FastLED currently ships **151 nodes**. The in-app **Help → N
 
 </details>
 
-## Music-synced SD shows
+<details>
+<summary><strong>Advanced and experimental workflows</strong></summary>
 
-For offline playback locked to songs:
+- **Audio reactive:** live microphone analysis, FFT bands, beat/percussion features, audio-driven color and pattern nodes, plus on-device INMP441 support for validated ESP32-S3 show configurations.
+- **Fields and simulations:** scalar-field math and warping, reaction diffusion, Game of Life, particles, flow fields, boids, feedback, trails, image palettes, and custom formulas.
+- **Show control:** reusable pattern collections, 16 transition styles, beat-driven particles, section-aware music shows, timeline editing, and performance controls.
+- **Physical layouts:** strips, serpentine matrices, tiled panels, multiple outputs, and custom XY maps. Only the exact combinations recorded in the support matrix count as supported today.
+- **DMX / Art-Net:** Art-Net preview plus Art-Net or DMX512 firmware paths. Hardware validation has not yet been recorded, so all modes remain experimental.
+- **Clock and schedules:** build-time, manual, and NTP-backed software clocks; time windows and scheduled triggers; digital/analog clock patterns. Hardware validation is still open, and no external RTC module is supported in this version.
 
-```text
-Music Library → Performance Generator → SD Card → Matrix Output.sdcard
-```
+</details>
 
-Drop MP3s into **Music Library**, analyze them, generate or hand-edit the show timeline, connect the SD path, then use **Upload show to SD**. A Pattern Collection can feed the Performance Generator so your saved groups become the song's visual vocabulary.
+## Projects, files, and sharing
 
-## External control: DMX and Art-Net
+- **Project** — the everyday named, autosaved workspace.
+- **Project File** — a portable full workspace created with **Save Project File As**.
+- **Graph JSON** — raw graph interchange.
+- **Share Link** — a URL containing the workspace.
+- **Recovery Snapshot** — a recent browser-local restore point.
+- **Pattern** — a reusable saved Group in the Pattern Library.
 
-**Experimental — no hardware validation pass has been recorded yet.** The code paths below are covered by unit, codegen, and backend tests only; see the [Beta support matrix](docs/release/beta-support-matrix.md).
+Imported projects, patterns, and share links are treated as untrusted. Formula and Code previews remain blocked until you review the source and choose **Trust and run**.
 
-A lighting desk or Art-Net controller can drive a patch:
+## Beta hardware scope
 
-```text
-DMX / Art-Net → DMX Channel → any float/bool input
-```
+This is a public beta with a deliberately narrow support promise. A combination counts as supported only after an end-to-end hardware run is recorded in the repository.
 
-**DMX / Art-Net** receives one universe as a single `dmx` wire; **DMX Channel** isolates one slot (1–512) as a normalized `Value (0–1)`, a raw `Byte (0–255)`, plus `Active` and `Changed` booleans. Use several DMX Channel nodes to read several slots.
+Current recorded combinations include:
 
-Pick the transport on the source node:
+| Board and LEDs | Validated paths |
+| --- | --- |
+| ESP32-S3 · 16×16 WS2812B serpentine matrix · Windows 11 / Chrome · `fbuild` | Normal upload, Flash Wiring Test, sustained Live Stream, generative show, and an INMP441 audio-reactive show |
+| ESP8266 · 10×1 WS2812B strip · Windows 11 / Chrome · `arduino-cli` | Normal upload, Flash Wiring Test, and Live Stream |
 
-- **Art-Net** (ESP32 or ESP8266) — the sketch joins your Wi-Fi and listens for Art-Net UDP on the configured port and universe. Set the hostname, DHCP or a static IP, and the universe on the node.
-- **DMX512** (ESP32 only) — the sketch reads a real DMX line through an RS-485 transceiver (e.g. MAX485 or SN75176) on the selected UART. Wire the transceiver's driver-enable, TX, and RX to the node's configured pins, connect DMX data +/− and ground to the XLR line, and terminate the run as usual. The transceiver is required; a bare GPIO cannot read a DMX line.
-
-For DMX512, `fbuild` vendors the `esp_dmx` library automatically on the first build. With `arduino-cli`, install `esp_dmx` yourself before compiling.
-
-**Preview listens for Art-Net only, in both modes.** The local helper owns the UDP socket, and the node body reports `HELPER OFFLINE`, `LISTENER ERROR`, `NOT LISTENING`, `LISTENING`, or `ART-NET LIVE` with a packet rate and the first four channel values. There is no browser-side DMX512 path, so a node set to DMX512 says so and previews blank unless an Art-Net controller happens to be sending. Preview holds exactly one live universe at a time.
-
-**Wi-Fi credentials are never saved into your work.** The SSID and password you enter for Art-Net (and for NTP time sync) live only in this browser's local storage, keyed by node — they are not written to project files, share links, or the helper's `Projects/` folder. Generated firmware still embeds the credential in plain text, because a sketch has no other way to join a network: treat an exported `.ino` for a network-enabled patch like a password, and do not paste one into an issue.
-
-The same Wi-Fi connection is shared by every Art-Net input and every NTP clock in one sketch, so configure them identically; Graph Health warns when they disagree.
-
-## RTC clock and time-of-day scheduling
-
-**Experimental — no hardware validation pass has been recorded yet.** The software clock's drift and a real NTP sync are both unverified; see the [Beta support matrix](docs/release/beta-support-matrix.md).
-
-```text
-RTC Clock → Schedule Trigger → any bool/float input
-RTC Clock → Clock Display
-```
-
-**RTC Clock** publishes `valid`, `synced`, `stale`, the calendar fields, and `secondsOfDay` from a `timeSource` you pick on the node:
-
-- **Compile Time** — seeds from the sketch's own build stamp. Works on every board, needs no configuration, and is always `valid`/`synced`. It drifts from the moment it's flashed and never corrects itself.
-- **Manual** — seeds from a date/time you type into the node. Works on every board. Preview runs it forward from that seed in real time, which doubles as a schedule simulator: set it to 17:59:50 and watch an 18:00 window open without waiting.
-- **NTP** — seeds from the build stamp, then corrects to the real time once Wi-Fi connects and a sync succeeds. Requires a Wi-Fi-capable board (ESP32-family or ESP8266 — see the capability table below) plus an SSID/password and an NTP server on the node. Before sync, `synced` is false and `stale` is true so downstream logic can tell a fresh boot from a trusted clock; use `Schedule Trigger`'s `requireSync` input to gate on the confirmed sync rather than the drifting fallback.
-
-**Schedule Trigger** reads the clock and produces either a **Window** (an `active` level plus `start`/`end` pulses, wrapping correctly across midnight, with a `progress` 0→1 output for driving a fade) or a **Trigger** (one pulse at a chosen time, at most once per day). Both are gated by a day-of-week rule (every day, weekdays, weekends, or custom days) and an `enable` input.
-
-**Clock Display** renders the clock: four digital layouts, two analog faces, or a local Stopwatch/Timer that ignores the RTC and keeps its own state. With no time source wired it shows `--:--` and Graph Health warns that the preview's browser-clock fallback will not survive a flash.
-
-There is no external RTC module (DS3231 or similar) in this version — every source is a software clock, and there is no timezone database or DST handling, only a fixed `timezoneOffsetMinutes` offset. NTP credentials follow the same browser-local storage and plain-text-in-firmware rules as Art-Net, described above.
-
-### Board × time source
-
-| Time source | Works on | Notes |
-| --- | --- | --- |
-| Compile Time | Every board | No configuration; drifts from flash time and never corrects |
-| Manual | Every board | Seed typed into the node; drifts the same way once running |
-| NTP | ESP32-family (S3, S2, C3, C6, H2, classic) and ESP8266 | Needs Wi-Fi + an NTP server; blocked by validation on every other board in the catalogue, including boards with their own Wi-Fi radio (e.g. Arduino UNO R4 WiFi) — that combination isn't wired up yet |
-
-## Projects and saving
-
-- **Project:** your normal named, autosaved workspace.
-- **Project File:** a portable full workspace created by **Save Project File As**.
-- **Graph JSON:** raw graph interchange.
-- **Share Link:** a URL containing the workspace.
-- **Recovery Snapshot:** a recent browser-local restore point.
-- **Pattern:** a reusable saved Group in the Pattern Library.
+Everything else—including other boards, browsers, operating-system combinations, chipsets, tiled/custom layouts, PSRAM modes, SD-show provisioning, DMX/Art-Net, and network clock paths—remains experimental until it appears in the [Beta support matrix](docs/release/beta-support-matrix.md).
 
 ## Help test the beta
 
-**This is a beta: expect active iteration between releases.** Node types, project and pattern formats, and share links are still evolving. Saved projects, patterns, and share links should not be treated as permanent archival formats yet, so keep exported `.ino` sketches for anything critical and keep the original audio files for SD shows.
-
-The current support promise is deliberately narrower than the feature list. Before testing, read the [Beta support matrix](docs/release/beta-support-matrix.md) and [Hardware validation guide](docs/release/beta-hardware-validation.md).
-
-As of **July 26, 2026**, the recorded public-beta hardware rows cover two exact end-to-end setups: **ESP32-S3 + 16×16 WS2812B matrix** and **ESP8266 + 10×1 WS2812B strip**, including normal Upload, Wiring Test, and Live Stream on those combos. Everything else remains experimental until it appears in the matrix.
+Real hardware reports are the fastest way to expand that support matrix. The Matrix Output upload panel includes an opt-in **Beta hardware coverage** report that shows exactly what will be copied or downloaded; nothing is submitted automatically.
 
 Useful reports include:
 
 - operating system and Design Studio for FastLED version;
-- exact board, LED chipset, matrix/strip dimensions, color order, pins, and power arrangement;
-- layout type: strip, serpentine matrix, tiled panels, or custom XY map;
-- build engine (`fbuild` or `arduino-cli`) and whether compile, wiring test, upload, live stream, mic audio, and SD playback succeeded;
-- the opt-in Matrix Output hardware report plus relevant log tail, photos, or a short video;
-- whether preview behavior matched the physical LEDs.
+- exact board, LED chipset, dimensions, color order, pins, layout, and power arrangement;
+- build engine and the path tested—compile, upload, Wiring Test, Live Stream, microphone, or SD playback;
+- whether the preview matched the physical LEDs;
+- the generated report plus a focused log tail, photo, or short video.
 
-Open a [GitHub issue](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/issues) for reproducible bugs and validation results. Never include Wi-Fi credentials, private project data, serial numbers you consider sensitive, or unrelated log contents.
+Read the [Hardware validation guide](docs/release/beta-hardware-validation.md), then open a [GitHub issue](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/issues). Never include Wi-Fi credentials, private project data, or unrelated logs.
 
-> LED installations can draw substantial current. Use an appropriately rated supply, fuse and inject power where required, connect grounds correctly, and do not power a large LED load through a microcontroller's regulator or USB connector.
+> LED installations can draw substantial current. Use a correctly rated power supply, fuse and inject power where required, connect grounds correctly, and never power a large LED load through a microcontroller regulator or USB connector.
 
-## Browser, desktop, and hardware scope
+## Security and privacy
 
-- Tuned for desktop windows at `1440 × 900`; supported minimum `1280 × 720`.
-- Modern Chromium, Firefox, and Safari can author and preview; exact beta coverage is recorded in the support matrix.
-- The PWA can reopen core authoring and preview offline after its first successful load.
-- Upload, live stream, device discovery, file dialogs, and disk-backed sync require the local helper on the same machine.
+- **Unsigned beta packages:** Windows SmartScreen or macOS Gatekeeper may warn because desktop builds are not yet signed/notarized. Only make a one-time exception for an archive you intentionally downloaded from this repository’s release page; do not disable operating-system protections globally.
+- **Microphone:** audio-reactive preview requires browser permission. Denying it simply leaves live audio nodes inactive.
+- **Local helper:** USB upload, streaming, native file dialogs, and disk-backed project/pattern sync use a localhost service on your machine.
+- **Network credentials:** Art-Net and NTP credentials stay in browser-local storage and are excluded from projects and share links. Generated network-enabled firmware necessarily embeds them in plain text, so treat exported `.ino` files accordingly.
+- **Art-Net preview:** the helper opens a local-network UDP listener only while an Art-Net input is active.
 
-## Build and test
+Read [SECURITY.md](SECURITY.md) for the full policy and private vulnerability-reporting process.
+
+## Browser and desktop scope
+
+- Designed for desktop at `1440 × 900`; supported minimum `1280 × 720`.
+- Modern Chromium, Firefox, and Safari can author and preview; exact tested combinations are listed in the support matrix.
+- The installable PWA can reopen core authoring and preview offline after its first successful load.
+- Upload, Live Stream, device discovery, native file dialogs, and disk-backed sync require the local helper on the same machine.
+
+## Development
 
 ```bash
-npm run build          # type-check + production build
+npm run dev            # local development server
 npm run lint           # ESLint
 npm test               # Vitest
-npm run preview        # serve dist/
+npm run build          # type-check + production build
+npm run preview        # serve the production build
 npm run package:desktop
 ```
 
-## Contributing
-
-The repository is public and `main` is kept releasable, so all changes land through a branch and pull request — never commit directly to `main`. Create a short-lived branch (`fix/…`, `feature/…`, `docs/…`), make sure `npm run lint`, `npm test`, and `npm run build` pass, and open a PR. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guidelines, including bug reporting and hardware validation.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for bug reports, development conventions, pull requests, and hardware validation.
 
 ## Credits and licensing
 
-Design Studio for FastLED's core is MIT licensed. See [LICENSE](LICENSE), [third-party notices](THIRD_PARTY_NOTICES.md), and the [changelog](CHANGELOG.md).
+Design Studio for FastLED’s core is MIT licensed. See [LICENSE](LICENSE), [third-party notices](THIRD_PARTY_NOTICES.md), and the [changelog](CHANGELOG.md).
 
-Offline music analysis uses [Essentia](http://essentia.upf.edu). **Color Trails** is adapted from prototype work by [Stefan Petrick](https://github.com/StefanPetrick), creator of [AnimARTrix](https://github.com/StefanPetrick/animartrix). The separately licensed **AnimARTrix** integration preserves Stefan's credit and CC BY-NC-SA 4.0 terms in [its license](src/animartrix/LICENSE.md).
+Offline music analysis uses [Essentia](http://essentia.upf.edu). **Color Trails** is adapted from prototype work by [Stefan Petrick](https://github.com/StefanPetrick), creator of [AnimARTrix](https://github.com/StefanPetrick/animartrix). The separately licensed **AnimARTrix** integration preserves Stefan’s credit and CC BY-NC-SA 4.0 terms in [its license](src/animartrix/LICENSE.md).
 
-Design Studio for FastLED is an independent, community project. It generates code that targets the [FastLED](https://github.com/FastLED/FastLED) library but is not affiliated with, endorsed by, or sponsored by the FastLED project or its maintainers. "FastLED" is used here only to describe compatibility with that library.
+Design Studio for FastLED is an independent community project. It generates code for the [FastLED](https://github.com/FastLED/FastLED) library but is not affiliated with, endorsed by, or sponsored by the FastLED project or its maintainers. “FastLED” is used only to describe compatibility with that library.
 
-Release references: [supported-platform policy](docs/release/supported-platform-policy.md) · [versioning and releases](docs/release/versioning-and-releases.md) · [desktop distribution](docs/release/desktop-distribution.md)
+Release references: [support matrix](docs/release/beta-support-matrix.md) · [supported-platform policy](docs/release/supported-platform-policy.md) · [versioning and releases](docs/release/versioning-and-releases.md) · [desktop distribution](docs/release/desktop-distribution.md)
