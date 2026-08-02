@@ -6,7 +6,7 @@ Design Studio for FastLED is a live, node-based creative environment for LED str
 
 **Public beta · 151 modules · 20 included audio-reactive patterns · Windows, macOS, and Linux packaging · MIT core**
 
-[Watch the one-minute demo](https://youtu.be/Kjywc9C-aME) · [Check beta releases](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/releases) · [Run from source](#run-from-source) · [Help test hardware](#help-test-the-beta)
+[Check beta releases](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/releases) · [Run from source](#run-from-source) · [Help test hardware](#help-test-the-beta)
 
 ![A complete Field Warp patch running in Design Studio for FastLED](docs/images/readme/design-studio-overview.png)
 
