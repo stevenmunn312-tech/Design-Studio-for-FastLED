@@ -70,7 +70,8 @@ On 2026-07-17, a Windows x86-64 bundle was built and launch-smoked locally:
 
 - packaged Design Studio for FastLED shell returned HTTP 200;
 - `/api/desktop/status` identified the frozen launcher;
-- bundled `fbuild 2.5.0` and `esptool 5.3.1` executed successfully;
+- bundled `fbuild 2.5.0` and `esptool 5.3.1` executed successfully (the
+  current release candidate uses `fbuild 2.5.4` and must repeat this smoke);
 - output was a 61 MB ZIP / 168 MB unpacked one-folder bundle.
 
 This validates the packaging mechanism, not a public support promise. Before a
@@ -99,10 +100,10 @@ beside each archive and retains the outputs as Actions artifacts. Manual runs
 default to artifact-only validation; tag runs, or an explicit manual opt-in,
 assemble the passing artifacts into a draft pre-release.
 
-The `fbuild 2.5.0` wheel currently carries unusable macOS executables (the ARM
+The `fbuild 2.5.4` wheel currently carries unusable macOS executables (the ARM
 binary is rejected by `dyld`, while the Intel host receives the wrong CPU
 slice). The workflow therefore compiles `fbuild` and `fbuild-daemon` from the
-exact `v2.5.0` source commit on each Mac runner, verifies that commit before the
+exact `v2.5.4` source commit on each Mac runner, verifies that commit before the
 build, and replaces only those two wheel-provided tools before packaging. The
 result remains the same pinned upstream version and is launch-smoked as part of
 the normal bundle test.

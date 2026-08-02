@@ -148,6 +148,11 @@ versioning (`0.y.z`) until the first stable release.
   Save As picker fallback, context-menu layering, preview sizing, and excessive
   code generation/store subscriptions during ordinary graph interaction.
 
+- Fixed Intel macOS desktop dependency resolution by retaining the
+  `cryptography <49` constraint required by `esptool 5.3.1`, compiling the
+  matching fbuild 2.5.4 source in macOS packages, and adding Intel macOS to the
+  cross-platform dependency-compatibility matrix.
+
 ### Security
 
 - Wi-Fi credentials entered for Art-Net input or NTP time sync are held in a
