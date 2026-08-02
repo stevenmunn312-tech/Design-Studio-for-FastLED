@@ -6,7 +6,7 @@ on:
       release_tag:
         description: Tag to use if a draft pre-release is created
         required: true
-        default: v0.2.0
+        default: v0.4.0
         type: string
       create_draft_release:
         description: Create or update a draft GitHub pre-release after all builds pass
@@ -69,7 +69,7 @@ jobs:
       - name: Install desktop packaging dependencies
         run: python -m pip install -r backend/requirements-packaging.txt -c backend/constraints.txt
 
-      # fbuild 2.5.0's universal wheel contains unusable macOS executables:
+      # fbuild 2.5.4's universal wheel contains unusable macOS executables:
       # dyld rejects the ARM binary and the Intel host receives the wrong CPU
       # slice. Cache the known-good source-built tools per architecture.
       - name: Restore source-built macOS fbuild tools
@@ -78,18 +78,18 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ${{ runner.temp }}/fbuild-v2.5.0/target/release/fbuild
-            ${{ runner.temp }}/fbuild-v2.5.0/target/release/fbuild-daemon
-          key: fbuild-v2.5.0-${{ matrix.target }}-66e2cb0b358cf06d30be88241d5cd4ca99ceda2f
+            ${{ runner.temp }}/fbuild-v2.5.4/target/release/fbuild
+            ${{ runner.temp }}/fbuild-v2.5.4/target/release/fbuild-daemon
+          key: fbuild-v2.5.4-${{ matrix.target }}-7df3220d5a8ed0a6237d6ee2488e1ae1d47fd7c2
 
       - name: Check out tagged fbuild source
         if: ${{ startsWith(matrix.target, 'macos-') && steps.fbuild-cache.outputs.cache-hit != 'true' }}
         shell: bash
         env:
-          FBUILD_COMMIT: 66e2cb0b358cf06d30be88241d5cd4ca99ceda2f
+          FBUILD_COMMIT: 7df3220d5a8ed0a6237d6ee2488e1ae1d47fd7c2
         run: |
-          source_dir="$RUNNER_TEMP/fbuild-v2.5.0"
-          git clone --depth 1 --branch v2.5.0 https://github.com/FastLED/fbuild.git "$source_dir"
+          source_dir="$RUNNER_TEMP/fbuild-v2.5.4"
+          git clone --depth 1 --branch v2.5.4 https://github.com/FastLED/fbuild.git "$source_dir"
           test "$(git -C "$source_dir" rev-parse HEAD)" = "$FBUILD_COMMIT"
 
       - name: Build working fbuild tools from tagged source
@@ -98,7 +98,7 @@ jobs:
         env:
           MACOSX_DEPLOYMENT_TARGET: "12.0"
         run: |
-          source_dir="$RUNNER_TEMP/fbuild-v2.5.0"
+          source_dir="$RUNNER_TEMP/fbuild-v2.5.4"
           cargo build \
             --manifest-path "$source_dir/Cargo.toml" \
             --release \
@@ -110,7 +110,7 @@ jobs:
         if: ${{ startsWith(matrix.target, 'macos-') }}
         shell: bash
         run: |
-          source_dir="$RUNNER_TEMP/fbuild-v2.5.0"
+          source_dir="$RUNNER_TEMP/fbuild-v2.5.4"
           for tool in fbuild fbuild-daemon; do
             install -m 755 "$source_dir/target/release/$tool" "$(command -v "$tool")"
             file "$(command -v "$tool")"

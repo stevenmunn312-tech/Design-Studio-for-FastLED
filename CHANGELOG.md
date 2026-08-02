@@ -7,6 +7,8 @@ versioning (`0.y.z`) until the first stable release.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-02
+
 ### Added
 
 - Added a **3D Wireframe** pattern node. It renders rotating built-in
@@ -67,6 +69,90 @@ versioning (`0.y.z`) until the first stable release.
   compatibility. Each issue includes a specific repair and can locate the
   affected node or open the relevant workspace control.
 
+- Added a dockable **Performance Deck** for pinning graph properties as large
+  knobs, faders, toggles, or selectors. Performers can save and recall parameter
+  scenes, morph between two scenes, invoke a panic/restore action, and learn MIDI
+  or keyboard bindings without leaving the live graph.
+
+- Added **Pattern Ratings**, an offline quality pass over saved and bundled
+  patterns that scores structure, colour balance, brightness, stability, graph
+  health, and audio wiring. Rated selections can be turned directly into a
+  Pattern Collection, and the bundled audio-reactive shelf was expanded and
+  polished using the same checks.
+
+- Added **Palette from Image**, which extracts two to eight representative
+  colours from an uploaded image using weighted median-cut quantisation and
+  bakes the resulting palette into generated firmware.
+
+- Added opt-in beta hardware coverage reports. The deploy panel identifies
+  whether the current host/board/layout/workflow has a recorded support row and
+  lets testers explicitly copy or download a privacy-reviewed report; nothing
+  is submitted automatically.
+
+- Expanded the node catalogue and node controls with additional Ease variants,
+  board-aware pin selection, richer Audio Hue weighting, matrix-aware shape
+  sizing, and the completed node-reference/card set for the current library.
+
+### Changed
+
+- Reworked project management around named, autosaved workspaces with recent
+  project access, create/duplicate/rename/delete controls, per-project upload
+  targets, helper-backed disk mirroring, recovery snapshots, and explicit
+  save/continue prompts. Legacy autosaves migrate into the default project.
+
+- Improved the first-run path with guided starters, a redesigned Start gallery,
+  clearer in-app help, progressive node-library disclosure, quick audio recipes,
+  and refreshed README imagery and pixel branding.
+
+- Expanded the Matrix Output workflow with a streamlined setup wizard, build
+  engine switching, custom board-manager URLs and core updates, board-aware GPIO
+  guidance, live flash/RAM capacity reporting, wiring diagnostics, and clearer
+  upload/readiness errors.
+
+- Added resizable workbench panels and layout presets, improved graph fitting and
+  tidy/splice behavior, and completed keyboard/screen-reader smoke coverage for
+  the core authoring and upload path.
+
+- Updated the helper toolchain to `fbuild 2.5.4` and broadened recorded hardware
+  coverage to include ESP8266 strip upload, wiring diagnostics, and live stream,
+  plus ESP32-S3 microphone-driven generative-show transitions and particles.
+
+- Kept RTC/NTP, DMX/Art-Net, PSRAM, tiled/custom layouts, and the music-sync SD
+  pipeline explicitly experimental until their remaining hardware-validation
+  runs are recorded in the beta support matrix.
+
+### Fixed
+
+- Fixed sustained live streaming freezes caused by unread helper output pipes,
+  blocked serial writes, and receiver reads that could wait forever after a
+  dropped byte. Also fixed all 1-row/1-column layouts silently dropping every
+  streamed frame because display dimensions were used instead of frame
+  dimensions.
+
+- Fixed music-sync SD provisioning and playback issues found on real hardware:
+  first-write acknowledgement timeouts, undersized ESP32 app partitions,
+  excessive audio-library memory use, an invalid DAC API, and incorrect playback
+  position tracking.
+
+- Fixed show-codegen buffer/brace issues, Kaleidoscope code generation,
+  brightness amplification, stale upload ports, upload contrast/error recovery,
+  and misleading unsupported-node comments in generated show firmware.
+
+- Fixed project and graph-state regressions including lost browser-only projects,
+  an unreachable project manager, invisible no-save state, group navigation
+  discarding undo history, duplicate ids during multi-pattern drops, and node
+  drags requiring two Undo presses.
+
+- Fixed pattern-library selection and rendering issues, invalid palette fallbacks,
+  sidebar preference loss on an empty canvas, record-dialog Escape handling,
+  Save As picker fallback, context-menu layering, preview sizing, and excessive
+  code generation/store subscriptions during ordinary graph interaction.
+
+- Fixed Intel macOS desktop dependency resolution by retaining the
+  `cryptography <49` constraint required by `esptool 5.3.1`, compiling the
+  matching fbuild 2.5.4 source in macOS packages, and adding Intel macOS to the
+  cross-platform dependency-compatibility matrix.
+
 ### Security
 
 - Wi-Fi credentials entered for Art-Net input or NTP time sync are held in a
@@ -75,6 +161,10 @@ versioning (`0.y.z`) until the first stable release.
   mirror. Previously saved values migrate into the local store and are stripped
   from the project on load. Generated firmware still embeds the credential in
   plain text, since a sketch has no other way to join a network.
+
+- Refreshed vulnerable transitive development dependencies used by linting and
+  production builds. Both the production and full npm dependency audits now
+  report zero known advisories.
 
 ## [0.3.0] - 2026-07-20
 
