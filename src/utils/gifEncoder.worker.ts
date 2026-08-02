@@ -1,12 +1,12 @@
 import { GifEncoder } from './gifEncoder'
-import { rasterizeGifFrame, type GifRecordStyle } from './gifRasterizer'
+import { rasterizeRecordedFrame, type RecordRasterStyle } from './recordRasterizer'
 
 type Request =
-  | { type: 'start'; width: number; height: number; gridW: number; gridH: number; scale: number; style: GifRecordStyle; delayCs: number }
+  | { type: 'start'; width: number; height: number; gridW: number; gridH: number; scale: number; style: RecordRasterStyle; delayCs: number }
   | { type: 'frame'; rgb: ArrayBuffer; final: boolean }
 
 let encoder: GifEncoder | null = null
-let rasterConfig: { gridW: number; gridH: number; scale: number; style: GifRecordStyle } | null = null
+let rasterConfig: { gridW: number; gridH: number; scale: number; style: RecordRasterStyle } | null = null
 
 self.onmessage = (event: MessageEvent<Request>) => {
   try {
@@ -19,7 +19,7 @@ self.onmessage = (event: MessageEvent<Request>) => {
     }
     if (!encoder || !rasterConfig) throw new Error('GIF encoder worker was not started')
     if (message.type === 'frame') {
-      const rgba = rasterizeGifFrame(
+      const rgba = rasterizeRecordedFrame(
         new Uint8ClampedArray(message.rgb),
         rasterConfig.gridW,
         rasterConfig.gridH,

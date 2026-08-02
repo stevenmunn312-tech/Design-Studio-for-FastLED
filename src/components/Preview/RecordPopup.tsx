@@ -5,6 +5,7 @@ import { useUiStore } from '../../state/uiStore'
 import { outputRoutes } from '../../state/outputRouting'
 import { latestStreamFrameCopy } from '../../state/streamStore'
 import { encodeGifInWorker } from '../../utils/gifWorkerClient'
+import { rasterizeRecordedFrame } from '../../utils/recordRasterizer'
 import { captureSequence, drawCapturedFrame, gifScaleLimit, loopBlendFrames, type RecordStyle } from './recordCapture'
 import { graphConsumesAudio } from './previewAudioUsage'
 import styles from './RecordPopup.module.css'
@@ -178,24 +179,34 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
     const recorder = new MediaRecorder(stream, { mimeType: webmMime, videoBitsPerSecond: 8_000_000 })
     const chunks: BlobPart[] = []
     recorder.ondataavailable = (event) => { if (event.data.size > 0) chunks.push(event.data) }
+    const drawWebmFrame = (frame: Uint8ClampedArray) => {
+      const rgba = rasterizeRecordedFrame(frame, gridW, gridH, effScale, style)
+      ctx.putImageData(new ImageData(rgba, outW, outH), 0, 0)
+    }
 
     const blob = await new Promise<Blob | null>((resolve) => {
       recorder.onstop = () => resolve(cancelRef.current ? null : new Blob(chunks, { type: 'video/webm' }))
       recorder.onerror = () => resolve(null)
-      drawCapturedFrame(ctx, frames[0], gridW, gridH, effScale, style)
+      drawWebmFrame(frames[0])
       recorder.start()
       const started = performance.now()
       let drawn = 1
       const tick = () => {
         if (cancelRef.current) { recorder.stop(); return }
         const due = Math.min(frames.length, Math.floor(((performance.now() - started) / 1000) * fps) + 1)
-        while (drawn < due) {
-          drawCapturedFrame(ctx, frames[drawn], gridW, gridH, effScale, style)
-          drawn++
+        if (drawn < due) {
+          // MediaRecorder samples the canvas on wall-clock time. If the tab
+          // was paused or one render ran long, drawing every overdue frame in
+          // this same task cannot put them back into the video; it only blocks
+          // the page in a large catch-up burst. Draw the newest due frame and
+          // continue from the current recording position instead.
+          drawWebmFrame(frames[due - 1])
+          drawn = due
         }
         setProgress({ done: drawn, total: frames.length })
         if (drawn >= frames.length) {
           // Small tail so the encoder captures the final frame's full dwell.
+          setPhase('finalizing')
           setTimeout(() => recorder.stop(), 1000 / fps + 120)
           return
         }
@@ -237,7 +248,7 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
     : phase === 'encoding'
       ? `Encoding GIF… ${progress.done}/${progress.total}`
       : phase === 'finalizing'
-        ? 'Finalizing GIF download…'
+        ? `Finalizing ${format === 'gif' ? 'GIF' : 'WebM'} download…`
       : phase === 'recording'
         ? `Recording video… ${progress.done}/${progress.total}`
         : null

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { rasterizeGifFrame } from '../gifRasterizer'
+import { rasterizeRecordedFrame } from '../recordRasterizer'
 
-describe('rasterizeGifFrame', () => {
+describe('rasterizeRecordedFrame', () => {
   it('expands flat logical pixels into scale-sized RGBA blocks', () => {
-    const rgba = rasterizeGifFrame(Uint8ClampedArray.from([255, 0, 0, 0, 20, 255]), 2, 1, 2, 'pixels')
+    const rgba = rasterizeRecordedFrame(Uint8ClampedArray.from([255, 0, 0, 0, 20, 255]), 2, 1, 2, 'pixels')
     const pixels = Array.from({ length: 8 }, (_, index) => [...rgba.slice(index * 4, index * 4 + 4)])
 
     expect(pixels).toEqual([
@@ -13,7 +13,7 @@ describe('rasterizeGifFrame', () => {
   })
 
   it('renders lit LED centres over an opaque dark substrate', () => {
-    const rgba = rasterizeGifFrame(Uint8ClampedArray.from([255, 80, 0]), 1, 1, 8, 'leds')
+    const rgba = rasterizeRecordedFrame(Uint8ClampedArray.from([255, 80, 0]), 1, 1, 8, 'leds')
     const corner = [...rgba.slice(0, 4)]
     const centreOffset = (4 * 8 + 4) * 4
     const centre = [...rgba.slice(centreOffset, centreOffset + 4)]
