@@ -18,12 +18,16 @@ self.onmessage = (event: MessageEvent<Request>) => {
     if (!encoder) throw new Error('GIF encoder worker was not started')
     if (message.type === 'frame') {
       encoder.addFrame(new Uint8ClampedArray(message.rgba))
-      self.postMessage({ type: 'frame', frameCount: encoder.frameCount })
+      // Ship completed frame chunks immediately. Blob structured-cloning is
+      // effectively zero-copy and lets the main thread compose the final file
+      // without one huge end-of-export allocation in either thread.
+      const chunk = new Blob(encoder.drainParts(), { type: 'image/gif' })
+      self.postMessage({ type: 'frame', frameCount: encoder.frameCount, chunk })
       return
     }
-    const bytes = encoder.finish()
+    const chunk = new Blob(encoder.finishParts(), { type: 'image/gif' })
     encoder = null
-    self.postMessage({ type: 'done', bytes: bytes.buffer }, { transfer: [bytes.buffer] })
+    self.postMessage({ type: 'done', chunk })
   } catch (error) {
     self.postMessage({
       type: 'error',

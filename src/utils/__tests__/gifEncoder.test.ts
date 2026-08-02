@@ -206,4 +206,26 @@ describe('GifEncoder', () => {
     const { frames } = parseGif(encoder.finish())
     expect(frames[0].delayCs).toBe(2)
   })
+
+  it('can stream frame chunks without a whole-file finish allocation', () => {
+    const encoder = new GifEncoder(2, 2, 5)
+    const chunks: Uint8Array[] = []
+    encoder.addFrame(rgbaFrame(2, 2, () => [255, 0, 0]))
+    chunks.push(...encoder.drainParts())
+    encoder.addFrame(rgbaFrame(2, 2, () => [0, 0, 255]))
+    chunks.push(...encoder.drainParts(), ...encoder.finishParts())
+
+    const length = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
+    const bytes = new Uint8Array(length)
+    let offset = 0
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset)
+      offset += chunk.length
+    }
+
+    const parsed = parseGif(bytes)
+    expect(parsed.frames).toHaveLength(2)
+    expect(parsed.frames[0].pixels[0]).toEqual([255, 0, 0])
+    expect(parsed.frames[1].pixels[0]).toEqual([0, 0, 255])
+  })
 })

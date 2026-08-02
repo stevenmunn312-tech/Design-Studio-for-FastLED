@@ -129,7 +129,7 @@ function lzwEncode(indices: Uint8Array, minCodeSize: number): Uint8Array {
 // ── Encoder ──────────────────────────────────────────────────────────────────
 
 export class GifEncoder {
-  private readonly parts: Uint8Array[] = []
+  private parts: Uint8Array[] = []
   private frames = 0
 
   /** `delayCs` is the per-frame delay in hundredths of a second (GIF's native
@@ -199,12 +199,26 @@ export class GifEncoder {
     this.frames++
   }
 
-  finish(): Uint8Array {
+  /** Return and release the encoded chunks accumulated so far. Streaming
+   *  callers can drain after every frame to keep memory bounded, then append
+   *  the result of `finishParts()`. */
+  drainParts(): Uint8Array[] {
+    const parts = this.parts
+    this.parts = []
+    return parts
+  }
+
+  finishParts(): Uint8Array[] {
     this.parts.push(Uint8Array.from([0x3b]))            // trailer
-    const total = this.parts.reduce((sum, p) => sum + p.length, 0)
+    return this.drainParts()
+  }
+
+  finish(): Uint8Array {
+    const parts = this.finishParts()
+    const total = parts.reduce((sum, p) => sum + p.length, 0)
     const bytes = new Uint8Array(total)
     let at = 0
-    for (const part of this.parts) {
+    for (const part of parts) {
       bytes.set(part, at)
       at += part.length
     }

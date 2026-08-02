@@ -10,8 +10,8 @@ export interface WorkerGifOptions {
 
 type WorkerResponse =
   | { type: 'ready' }
-  | { type: 'frame'; frameCount: number }
-  | { type: 'done'; bytes: ArrayBuffer }
+  | { type: 'frame'; frameCount: number; chunk: Blob }
+  | { type: 'done'; chunk: Blob }
   | { type: 'error'; message: string }
 
 /**
@@ -19,13 +19,14 @@ type WorkerResponse =
  * Waiting for each acknowledgement provides backpressure, so a large export
  * cannot queue hundreds of full-resolution RGBA buffers in worker memory.
  */
-export function encodeGifInWorker(options: WorkerGifOptions): Promise<Uint8Array | null> {
+export function encodeGifInWorker(options: WorkerGifOptions): Promise<Blob | null> {
   return new Promise((resolve, reject) => {
     const worker = new Worker(new URL('./gifEncoder.worker.ts', import.meta.url), { type: 'module' })
+    const chunks: Blob[] = []
     let nextFrame = 0
     let settled = false
 
-    const finish = (result: Uint8Array | null, error?: Error) => {
+    const finish = (result: Blob | null, error?: Error) => {
       if (settled) return
       settled = true
       worker.terminate()
@@ -53,8 +54,10 @@ export function encodeGifInWorker(options: WorkerGifOptions): Promise<Uint8Array
       if (message.type === 'error') {
         finish(null, new Error(message.message))
       } else if (message.type === 'done') {
-        finish(new Uint8Array(message.bytes))
+        chunks.push(message.chunk)
+        finish(new Blob(chunks, { type: 'image/gif' }))
       } else if (message.type === 'frame') {
+        chunks.push(message.chunk)
         options.onProgress?.(message.frameCount, options.frameCount)
         sendNext()
       } else {

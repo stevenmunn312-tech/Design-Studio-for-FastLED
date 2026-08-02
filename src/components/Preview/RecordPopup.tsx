@@ -158,7 +158,7 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
       isCancelled: () => cancelRef.current,
     })
     if (!gif) return
-    downloadBlob(new Blob([gif.buffer as ArrayBuffer], { type: 'image/gif' }), exportFilename('gif'))
+    downloadBlob(gif, exportFilename('gif'))
     setPhase('done')
   }
 
