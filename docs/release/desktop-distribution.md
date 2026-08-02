@@ -78,6 +78,16 @@ This validates the packaging mechanism, not a public support promise. Before a
 release artifact is promoted, repeat the smoke on a clean Windows account and
 build/test the macOS and Linux bundles on those hosts.
 
+On 2026-08-02, the v0.4.0 release candidate repeated the automated packaging
+and launcher smoke on clean GitHub-hosted runners for Windows x86-64, Linux
+x86-64, macOS ARM64, and macOS x86-64. Every target produced an archive, wrote
+its SHA-256 checksum, and uploaded the pair as workflow artifacts. The run is
+recorded at
+[`30746475347`](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/30746475347).
+This closes the cross-platform build/launch-smoke check, but it is not a
+substitute for signing/notarization, a clean end-user account launch, default
+browser behavior, physical serial-port discovery, or a hardware upload.
+
 ## Signing and publishing
 
 The current output is an unsigned portable beta archive. A public release still
