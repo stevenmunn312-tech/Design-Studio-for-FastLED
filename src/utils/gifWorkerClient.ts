@@ -12,7 +12,7 @@ export interface WorkerGifOptions {
 type WorkerResponse =
   | { type: 'ready' }
   | { type: 'frame'; frameCount: number }
-  | { type: 'done'; blob: Blob }
+  | { type: 'done'; frameCount: number; blob: Blob }
   | { type: 'error'; message: string }
 
 /**
@@ -39,14 +39,11 @@ export function encodeGifInWorker(options: WorkerGifOptions): Promise<Blob | nul
         finish(null)
         return
       }
-      if (nextFrame >= options.frameCount) {
-        options.onFinalizing?.()
-        worker.postMessage({ type: 'finish' })
-        return
-      }
       const rgba = options.frameAt(nextFrame++)
+      const final = nextFrame >= options.frameCount
+      if (final) options.onFinalizing?.()
       const buffer = rgba.buffer as ArrayBuffer
-      worker.postMessage({ type: 'frame', rgba: buffer }, [buffer])
+      worker.postMessage({ type: 'frame', rgba: buffer, final }, [buffer])
     }
 
     worker.onerror = (event) => finish(null, new Error(event.message || 'GIF encoding worker failed'))
@@ -56,6 +53,7 @@ export function encodeGifInWorker(options: WorkerGifOptions): Promise<Blob | nul
         if (message.type === 'error') {
           finish(null, new Error(message.message))
         } else if (message.type === 'done') {
+          options.onProgress?.(message.frameCount, options.frameCount)
           finish(message.blob)
         } else if (message.type === 'frame') {
           options.onProgress?.(message.frameCount, options.frameCount)

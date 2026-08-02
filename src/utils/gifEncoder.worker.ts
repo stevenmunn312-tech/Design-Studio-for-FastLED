@@ -2,8 +2,7 @@ import { GifEncoder } from './gifEncoder'
 
 type Request =
   | { type: 'start'; width: number; height: number; delayCs: number }
-  | { type: 'frame'; rgba: ArrayBuffer }
-  | { type: 'finish' }
+  | { type: 'frame'; rgba: ArrayBuffer; final: boolean }
 
 let encoder: GifEncoder | null = null
 let output = new Blob([], { type: 'image/gif' })
@@ -24,15 +23,19 @@ self.onmessage = (event: MessageEvent<Request>) => {
       // composition is zero-copy in browsers, keeps the encoder's byte arrays
       // bounded to one frame, and makes finalisation a two-part append instead
       // of a large contiguous allocation or hundreds-part main-thread merge.
-      output = new Blob([output, ...encoder.drainParts()], { type: 'image/gif' })
-      self.postMessage({ type: 'frame', frameCount: encoder.frameCount })
+      const frameCount = encoder.frameCount
+      if (message.final) {
+        output = new Blob([output, ...encoder.drainParts(), ...encoder.finishParts()], { type: 'image/gif' })
+        const blob = output
+        encoder = null
+        output = new Blob([], { type: 'image/gif' })
+        self.postMessage({ type: 'done', frameCount, blob })
+      } else {
+        output = new Blob([output, ...encoder.drainParts()], { type: 'image/gif' })
+        self.postMessage({ type: 'frame', frameCount })
+      }
       return
     }
-    output = new Blob([output, ...encoder.finishParts()], { type: 'image/gif' })
-    const blob = output
-    encoder = null
-    output = new Blob([], { type: 'image/gif' })
-    self.postMessage({ type: 'done', blob })
   } catch (error) {
     self.postMessage({
       type: 'error',

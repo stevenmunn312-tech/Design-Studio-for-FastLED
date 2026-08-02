@@ -4,7 +4,7 @@ import { encodeGifInWorker } from '../gifWorkerClient'
 type Response =
   | { type: 'ready' }
   | { type: 'frame'; frameCount: number }
-  | { type: 'done'; blob: Blob }
+  | { type: 'done'; frameCount: number; blob: Blob }
 
 class FakeWorker {
   static instances: FakeWorker[] = []
@@ -20,13 +20,18 @@ class FakeWorker {
     FakeWorker.instances.push(this)
   }
 
-  postMessage(message: { type: string }, transfer: Transferable[] = []) {
+  postMessage(message: { type: string; final?: boolean }, transfer: Transferable[] = []) {
     this.messages.push(message.type)
     this.transfers.push(transfer)
     queueMicrotask(() => {
       if (message.type === 'start') this.respond({ type: 'ready' })
-      else if (message.type === 'frame') this.respond({ type: 'frame', frameCount: ++this.frames })
-      else this.respond({ type: 'done', blob: new Blob([Uint8Array.from([0x47, 0x49, 0x46])]) })
+      else if (message.final) {
+        this.respond({
+          type: 'done',
+          frameCount: ++this.frames,
+          blob: new Blob([Uint8Array.from([0x47, 0x49, 0x46])]),
+        })
+      } else this.respond({ type: 'frame', frameCount: ++this.frames })
     })
   }
 
@@ -63,7 +68,7 @@ describe('encodeGifInWorker', () => {
 
     const worker = FakeWorker.instances[0]
     expect([...new Uint8Array(await gif!.arrayBuffer())]).toEqual([0x47, 0x49, 0x46])
-    expect(worker.messages).toEqual(['start', 'frame', 'frame', 'frame', 'finish'])
+    expect(worker.messages).toEqual(['start', 'frame', 'frame', 'frame'])
     expect(worker.transfers.slice(1, 4).every((items) => items.length === 1)).toBe(true)
     expect(frameAt).toHaveBeenCalledTimes(3)
     expect(progress).toEqual([1, 2, 3])
