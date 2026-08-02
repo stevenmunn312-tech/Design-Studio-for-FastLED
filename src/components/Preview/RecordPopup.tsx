@@ -5,8 +5,8 @@ import { useUiStore } from '../../state/uiStore'
 import { outputRoutes } from '../../state/outputRouting'
 import { latestStreamFrameCopy } from '../../state/streamStore'
 import { encodeGifInWorker } from '../../utils/gifWorkerClient'
-import { rasterizeRecordedFrame } from '../../utils/recordRasterizer'
-import { captureSequence, drawCapturedFrame, gifScaleLimit, loopBlendFrames, type RecordStyle } from './recordCapture'
+import { rasterizeRecordedFrame, type RecordRasterStyle } from '../../utils/recordRasterizer'
+import { captureSequence, gifScaleLimit, loopBlendFrames } from './recordCapture'
 import { graphConsumesAudio } from './previewAudioUsage'
 import styles from './RecordPopup.module.css'
 
@@ -53,7 +53,7 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
   const audioReactive = useGraphStore((s) => graphConsumesAudio(s.nodes, s.edges))
 
   const [format, setFormat] = useState<RecordFormat>('gif')
-  const [style, setStyle] = useState<RecordStyle>('leds')
+  const [style, setStyle] = useState<RecordRasterStyle>('leds')
   const [durationSec, setDurationSec] = useState(6)
   const [fps, setFps] = useState(30)
   const [scale, setScale] = useState(12)
@@ -136,7 +136,9 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
     canvas.height = live.height * scale
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Could not create an export canvas')
-    drawCapturedFrame(ctx, live.bytes, live.width, live.height, scale, style)
+    setPhase('finalizing')
+    const rgba = rasterizeRecordedFrame(live.bytes, live.width, live.height, scale, style)
+    ctx.putImageData(new ImageData(rgba, canvas.width, canvas.height), 0, 0)
     canvas.toBlob((blob) => {
       if (!blob) { setPhase('error'); setError('PNG encoding failed in this browser.'); return }
       downloadBlob(blob, exportFilename('png'))
@@ -248,7 +250,7 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
     : phase === 'encoding'
       ? `Encoding GIF… ${progress.done}/${progress.total}`
       : phase === 'finalizing'
-        ? `Finalizing ${format === 'gif' ? 'GIF' : 'WebM'} download…`
+        ? `Finalizing ${format === 'gif' ? 'GIF' : format === 'webm' ? 'WebM' : 'PNG'} download…`
       : phase === 'recording'
         ? `Recording video… ${progress.done}/${progress.total}`
         : null

@@ -3,7 +3,7 @@ export type RecordRasterStyle = 'leds' | 'pixels'
 const clampByte = (value: number): number => Math.max(0, Math.min(255, Math.round(value)))
 
 /**
- * Expand packed logical RGB LEDs into an opaque RGBA GIF frame without using
+ * Expand packed logical RGB LEDs into an opaque RGBA export frame without using
  * Canvas. The LED style is deliberately lightweight: a dark substrate, soft
  * colour spill, emitter disc, and hot white centre, all evaluated in one
  * linear output-pixel pass. This avoids thousands of drawImage/arc calls per

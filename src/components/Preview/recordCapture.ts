@@ -1,7 +1,6 @@
 import { evaluateGraph, type Frame, type GroupRegistry } from '../../state/graphEvaluator'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import { idleFrame } from './idleFrame'
-import { renderGridFrame } from './frameCanvas'
 import { compositionDims, outputRoutes, routeFrame } from '../../state/outputRouting'
 
 // Offline capture engine for the preview recorder: evaluates the graph
@@ -11,8 +10,6 @@ import { compositionDims, outputRoutes, routeFrame } from '../../state/outputRou
 // double-advanced (the same isolation trick evaluateScalarSeries and the show
 // preview use). Each rendered frame is copied to packed RGB bytes immediately,
 // because evaluator frames are pooled and recycled between passes.
-
-export type RecordStyle = 'leds' | 'pixels'
 
 export interface CaptureOptions {
   nodes: StudioNode[]
@@ -163,54 +160,4 @@ export async function captureSequence(opts: CaptureOptions): Promise<Uint8Clampe
   }
 
   return blend > 0 ? applyLoopBlend(frames, total, blend) : frames
-}
-
-// ── Rasterisation (shared by PNG / GIF / WebM export) ────────────────────────
-
-// Scratch Frame reused when the LED-look renderer needs RGB[][] input.
-let scratchFrame: Frame = []
-
-function bytesToFrame(bytes: Uint8ClampedArray, w: number, h: number): Frame {
-  if (scratchFrame.length !== h || (scratchFrame[0]?.length ?? 0) !== w) {
-    scratchFrame = Array.from({ length: h }, () => Array.from({ length: w }, () => ({ r: 0, g: 0, b: 0 })))
-  }
-  let at = 0
-  for (let y = 0; y < h; y++) {
-    const row = scratchFrame[y]
-    for (let x = 0; x < w; x++) {
-      const px = row[x]
-      px.r = bytes[at++]
-      px.g = bytes[at++]
-      px.b = bytes[at++]
-    }
-  }
-  return scratchFrame
-}
-
-/** Draw one captured byte frame at `scale` px per LED: either the preview's
- *  LED-disc look (via the shared renderGridFrame) or crisp flat pixels
- *  (nearest-neighbour blocks — exact colours, ideal for docs/bug reports). */
-export function drawCapturedFrame(
-  ctx: CanvasRenderingContext2D,
-  bytes: Uint8ClampedArray,
-  w: number,
-  h: number,
-  scale: number,
-  style: RecordStyle,
-): void {
-  if (style === 'leds') {
-    renderGridFrame(ctx, bytesToFrame(bytes, w, h), scale)
-    return
-  }
-  ctx.fillStyle = '#000'
-  ctx.fillRect(0, 0, w * scale, h * scale)
-  let at = 0
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const r = bytes[at++], g = bytes[at++], b = bytes[at++]
-      if (r === 0 && g === 0 && b === 0) continue
-      ctx.fillStyle = `rgb(${r},${g},${b})`
-      ctx.fillRect(x * scale, y * scale, scale, scale)
-    }
-  }
 }
