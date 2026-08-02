@@ -31,20 +31,18 @@ export async function promptTrustIfNeeded(): Promise<void> {
   useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
 }
 
-// Concurrent asks for the same pattern content share one dialog. Pattern
-// rating runs as a batch, and the ratings popup's effect can start twice under
-// StrictMode — without this the second run would stack a duplicate dialog on
-// the first and silently resolve it as a skip.
+// Pattern Insights scans a batch, so concurrent requests for the same content
+// share one dialog instead of stacking duplicate trust prompts.
 const pendingPatternTrust = new Map<string, Promise<boolean>>()
 
 /**
  * Ask whether a saved Pattern Library pattern may run its Formula/Code node
  * logic. Unlike `promptTrustIfNeeded` this is per-pattern rather than
- * per-workspace: rating renders each saved pattern's subgraph on its own,
+ * per-workspace: the critic renders each saved pattern's subgraph on its own,
  * outside any workspace, so there is no workspace trust flag to consult.
  *
  * A yes is remembered by content in `patternTrust`, so the same pattern isn't
- * re-asked on the next rating run (and dropping it on the canvas later won't
+ * re-asked on the next scan (and dropping it on the canvas later won't
  * re-ask either — it's the same trust store `TrustBanner` writes to). A no is
  * deliberately *not* remembered: "skip this one" shouldn't harden into a
  * permanent verdict the user has no obvious way to undo.
@@ -59,8 +57,8 @@ export async function promptPatternTrust(saved: SavedPattern): Promise<boolean> 
   const ask = (async () => {
     const trust = await useUiStore.getState().requestConfirm({
       title: 'Trust this pattern?',
-      message: `“${saved.name}” contains Formula or Code nodes, and you haven’t run this version of it before. Rating it means running that logic in your browser. Skip it if you didn’t make this pattern and don’t know where it came from.`,
-      confirmLabel: 'Trust and rate',
+      message: `“${saved.name}” contains Formula or Code nodes, and you haven’t run this version before. Judging it means running that logic in your browser. Skip it if you didn’t make this pattern and don’t know where it came from.`,
+      confirmLabel: 'Trust and judge',
       cancelLabel: 'Skip this pattern',
       tone: 'danger',
     })

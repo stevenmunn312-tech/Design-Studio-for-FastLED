@@ -1,11 +1,9 @@
-// Pattern quality ratings. Renders each saved pattern's subgraph offline (the
-// same isolated-namespace trick recordCapture / evaluateScalarSeries use, so the
-// live preview's stateful nodes are never disturbed) and reduces the resulting
-// frames to a set of 0–1 criterion scores, combined with the graph diagnostics.
-// The criteria mirror the qualities a user cares about on a physical matrix:
-// visible structure, clean neutrals (no unwanted R/G/B tint), even brightness
-// (no lone blown pixels), refresh stability (no flicker), a healthy graph, and —
-// for audio-reactive patterns — correct audio wiring.
+// Pattern Insights: an opinionated Studio Score judged against the pattern's
+// inferred or user-selected intent, alongside a completely independent personal
+// 1–5 star rating. Saved subgraphs render offline under isolated evaluator
+// namespaces, then the critic examines the complete run (not just its strongest
+// moment) for technical integrity, composition, tonal control, motion, temporal
+// expressiveness, and — when appropriate — response across three audio scenarios.
 //
 // The pure metric helpers are exported and unit-tested directly on Frame arrays;
 // the async driver is browser-only (it pulls the workspace matrix size and group
@@ -31,16 +29,47 @@ export interface CriterionScore {
   weight: number
 }
 
+export type PatternIntent = 'ambient' | 'showpiece' | 'accent' | 'audio-reactive' | 'static-utility'
+export type PatternVerdict = 'exceptional' | 'strong' | 'promising' | 'needs-work' | 'fundamentally-weak'
+
+export const PATTERN_INTENTS: { id: PatternIntent; label: string; description: string }[] = [
+  { id: 'ambient', label: 'Ambient', description: 'Restrained, smooth, and comfortable over long runs.' },
+  { id: 'showpiece', label: 'Showpiece', description: 'Bold, structured, and designed to command attention.' },
+  { id: 'accent', label: 'Accent / Sparkle', description: 'Sparse, burst-like, or deliberately punctuated.' },
+  { id: 'audio-reactive', label: 'Audio-reactive', description: 'Judged on controlled, visible response to music.' },
+  { id: 'static-utility', label: 'Static / Utility', description: 'Text, clocks, indicators, fills, and functional output.' },
+]
+
+export interface RatingThumbnail {
+  width: number
+  height: number
+  /** Packed row-major RGB bytes. */
+  rgb: number[]
+}
+
 export interface PatternRating {
   patternId: string
   name: string
   bundled: boolean
   /** 0–100. */
   overall: number
+  intent: PatternIntent
+  inferredIntent: PatternIntent
+  verdict: PatternVerdict
+  verdictLabel: string
+  summary: string
+  strengths: string[]
+  improvements: string[]
   criteria: CriterionScore[]
   audioReactive: boolean
-  /** A representative (brightest) rendered frame, for a preview thumbnail. */
-  thumbnail?: Frame
+  /** A representative, strongest, and weakest moment from the same analysis. */
+  thumbnails?: {
+    typical?: RatingThumbnail
+    strongest?: RatingThumbnail
+    weakest?: RatingThumbnail
+  }
+  /** Versioned render-context key used to decide whether this result is reusable. */
+  cacheKey: string
   /** Set when the pattern could not be rendered/scored (see `error`). */
   failed?: boolean
   error?: string
@@ -49,18 +78,96 @@ export interface PatternRating {
 }
 
 interface PatternRatingState {
-  /** Ratings are keyed by pattern content, not just id, so editing or renaming a
-   *  saved pattern makes its old score disappear until that version is rated. */
-  ratingsByKey: Record<string, PatternRating>
-  publish: (key: string, rating: PatternRating) => void
+  /** The latest analysis for each library entry. `cacheKey` decides whether it
+   *  can be reused for the current graph + matrix context. */
+  ratingsByPatternId: Record<string, PatternRating>
+  userRatingsByPatternId: Record<string, number>
+  intentOverridesByPatternId: Record<string, PatternIntent>
+  publish: (rating: PatternRating) => void
+  setUserRating: (patternId: string, rating: number) => void
+  setIntentOverride: (patternId: string, intent: PatternIntent | null) => void
 }
 
+const RATING_STORAGE_KEY = 'design-studio-for-fastled.pattern-insights.v2'
+const PREFERENCE_STORAGE_KEY = 'design-studio-for-fastled.pattern-preferences.v2'
+
+function loadJson<T>(key: string, fallback: T): T {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) ?? 'null') as T | null
+    return parsed ?? fallback
+  } catch {
+    return fallback
+  }
+}
+
+function saveJson(key: string, value: unknown): void {
+  try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* keep session state */ }
+}
+
+const initialRatings = loadJson<Record<string, PatternRating>>(RATING_STORAGE_KEY, {})
+const initialPreferences = loadJson<{
+  userRatingsByPatternId?: Record<string, number>
+  intentOverridesByPatternId?: Record<string, PatternIntent>
+}>(PREFERENCE_STORAGE_KEY, {})
+
 export const usePatternRatingStore = create<PatternRatingState>((set) => ({
-  ratingsByKey: {},
-  publish: (key, rating) => set((state) => ({
-    ratingsByKey: { ...state.ratingsByKey, [key]: rating },
-  })),
+  ratingsByPatternId: initialRatings,
+  userRatingsByPatternId: initialPreferences.userRatingsByPatternId ?? {},
+  intentOverridesByPatternId: initialPreferences.intentOverridesByPatternId ?? {},
+  publish: (rating) => set((state) => {
+    const ratingsByPatternId = { ...state.ratingsByPatternId, [rating.patternId]: rating }
+    saveJson(RATING_STORAGE_KEY, ratingsByPatternId)
+    return { ratingsByPatternId }
+  }),
+  setUserRating: (patternId, value) => set((state) => {
+    const userRatingsByPatternId = { ...state.userRatingsByPatternId }
+    const rating = Math.round(Math.max(0, Math.min(5, value)))
+    if (rating === 0) delete userRatingsByPatternId[patternId]
+    else userRatingsByPatternId[patternId] = rating
+    saveJson(PREFERENCE_STORAGE_KEY, {
+      userRatingsByPatternId,
+      intentOverridesByPatternId: state.intentOverridesByPatternId,
+    })
+    return { userRatingsByPatternId }
+  }),
+  setIntentOverride: (patternId, intent) => set((state) => {
+    const intentOverridesByPatternId = { ...state.intentOverridesByPatternId }
+    if (intent) intentOverridesByPatternId[patternId] = intent
+    else delete intentOverridesByPatternId[patternId]
+    saveJson(PREFERENCE_STORAGE_KEY, {
+      userRatingsByPatternId: state.userRatingsByPatternId,
+      intentOverridesByPatternId,
+    })
+    return { intentOverridesByPatternId }
+  }),
 }))
+
+export function thumbnailToFrame(thumbnail?: RatingThumbnail): Frame | undefined {
+  if (!thumbnail || thumbnail.width <= 0 || thumbnail.height <= 0) return undefined
+  const frame: Frame = []
+  for (let y = 0; y < thumbnail.height; y++) {
+    const row: RGB[] = []
+    for (let x = 0; x < thumbnail.width; x++) {
+      const offset = (y * thumbnail.width + x) * 3
+      row.push({
+        r: thumbnail.rgb[offset] ?? 0,
+        g: thumbnail.rgb[offset + 1] ?? 0,
+        b: thumbnail.rgb[offset + 2] ?? 0,
+      })
+    }
+    frame.push(row)
+  }
+  return frame
+}
+
+function packThumbnail(frame?: Frame): RatingThumbnail | undefined {
+  const height = frame?.length ?? 0
+  const width = frame?.[0]?.length ?? 0
+  if (!frame || width === 0 || height === 0) return undefined
+  const rgb: number[] = []
+  for (const row of frame) for (const px of row) rgb.push(px.r, px.g, px.b)
+  return { width, height, rgb }
+}
 
 /** How representative a frame is as a thumbnail: rewards good lit coverage AND
  *  colourfulness, so it favours a colourful, well-filled moment while rejecting
@@ -102,21 +209,21 @@ function pickThumbnail(frames: Frame[]): Frame | undefined {
 }
 
 // ── Capture parameters ───────────────────────────────────────────────────────
-const RATE_FPS = 20
-const RATE_DURATION_SEC = 1.5
+const RATE_FPS = 15
+const RATE_DURATION_SEC = 1.4
 const RATE_FRAMES = Math.max(2, Math.round(RATE_FPS * RATE_DURATION_SEC))
 // Frames evaluated (but not scored) before the capture window, so slow-warming
 // nodes — FrameFeedback's recursive buffer, Smooth's EMA, audio build-up — reach
 // a representative state instead of the cold black they start at from t=0. The
 // live preview looks lit only because it has been running for seconds.
-const RATE_WARMUP_FRAMES = Math.max(2, Math.round(RATE_FPS * 2))
+const RATE_WARMUP_FRAMES = Math.max(2, Math.round(RATE_FPS * 1.2))
 // A pattern's look varies moment to moment (quiet vs. peak sections, beat
 // flashes, slow morphs). Capture a few windows spread across the animation and
 // keep the best-scoring one, so a pattern is judged on how good it can look
 // rather than whichever instant we happened to sample. GAP frames advance state
 // between windows (not scored) so the windows sample genuinely different moments.
-const RATE_RUNS = 3
-const RATE_GAP_FRAMES = Math.max(1, Math.round(RATE_FPS * 1))
+const RATE_RUNS = 2
+const RATE_GAP_FRAMES = Math.max(1, Math.round(RATE_FPS * 0.8))
 
 // ── Pixel primitives ─────────────────────────────────────────────────────────
 
@@ -202,90 +309,6 @@ export function scoreStructure(frames: Frame[]): number {
     return 0.55 * variation + 0.3 * hueDiversity + 0.15 * coverage
   })
   return clamp01(mean(per))
-}
-
-/** Colour balance: pixels meant to read neutral (bright but low-saturation —
- *  whites and pastels) should not carry a consistent R/G/B tint. Returns 1 when
- *  the pattern has no such pixels (a vivid, fully-saturated pattern is not
- *  judged here). */
-export function scoreColorBalance(frames: Frame[]): number {
-  let sumR = 0, sumG = 0, sumB = 0, count = 0
-  for (const frame of frames) {
-    forEachPixel(frame, (px) => {
-      const max = Math.max(px.r, px.g, px.b)
-      const min = Math.min(px.r, px.g, px.b)
-      if (max < 60) return
-      const saturation = max > 0 ? (max - min) / max : 0
-      if (saturation >= 0.35) return // intentionally coloured, not a neutral
-      sumR += px.r; sumG += px.g; sumB += px.b; count++
-    })
-  }
-  if (count === 0) return 1
-  const r = sumR / count, g = sumG / count, b = sumB / count
-  const avg = (r + g + b) / 3
-  if (avg <= 0) return 1
-  const tint = (Math.max(r, g, b) - Math.min(r, g, b)) / avg
-  return clamp01(1 - tint / 0.18)
-}
-
-/** Brightness uniformity: penalise lone pixels that are far brighter than their
- *  immediate neighbourhood (a blown pixel on a dark field). Averaged over
- *  frames; lenient denominator so genuinely sparse patterns aren't wrecked. */
-export function scoreBrightnessUniformity(frames: Frame[]): number {
-  const per = frames.map((frame) => {
-    const h = frame.length
-    const w = frame[0]?.length ?? 0
-    if (w === 0 || h === 0) return 1
-    let lit = 0
-    let outliers = 0
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const px = frame[y]?.[x]
-        if (!px) continue
-        const b = pixelBrightness(px)
-        if (b <= 0.05) continue
-        lit++
-        let neigh = 0
-        let nCount = 0
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            if (dx === 0 && dy === 0) continue
-            const np = frame[y + dy]?.[x + dx]
-            if (!np) continue
-            neigh += pixelBrightness(np)
-            nCount++
-          }
-        }
-        const neighMean = nCount > 0 ? neigh / nCount : 0
-        if (b - neighMean > 0.6 && neighMean < 0.1) outliers++
-      }
-    }
-    if (lit === 0) return 1
-    return clamp01(1 - (outliers / lit) / 0.25)
-  })
-  return clamp01(mean(per))
-}
-
-/** Refresh stability: measures the average frame-to-frame brightness change.
- *  A fully static pattern is neutral (1). Smooth motion stays high; chaotic
- *  full-range flicker drives the score down. */
-export function scoreRefreshStability(frames: Frame[]): number {
-  if (frames.length < 2) return 1
-  const deltas: number[] = []
-  for (let i = 1; i < frames.length; i++) {
-    const prev = frames[i - 1]
-    const cur = frames[i]
-    const diffs: number[] = []
-    forEachPixel(cur, (px, x, y) => {
-      const pp = prev[y]?.[x]
-      if (!pp) return
-      diffs.push(Math.abs(pixelBrightness(px) - pixelBrightness(pp)))
-    })
-    deltas.push(mean(diffs))
-  }
-  const meanDelta = mean(deltas)
-  if (meanDelta < 0.02) return 1 // effectively static — not flicker
-  return clamp01(1 - (meanDelta - 0.12) / 0.28)
 }
 
 /** Structural health from the shared graph diagnostics. Errors weigh heavily,
@@ -406,6 +429,147 @@ export function scoreAudioCorrectness(nodes: StudioNode[], edges: StudioEdge[]):
 
 // ── Scoring ──────────────────────────────────────────────────────────────────
 
+const STATIC_TYPES = new Set(['SolidColor', 'Text', 'Image', 'ClockDisplay', 'GradientFrame', 'PaletteGradient'])
+const ACCENT_TYPES = new Set(['TwinkleFox', 'Confetti', 'Particles', 'Starfield', 'BeatFlash', 'TrebleSparks', 'KickShock', 'RadialBurst'])
+const AMBIENT_TYPES = new Set(['Pacifica', 'Noise', 'Plasma', 'FractalNoise', 'FieldNoise', 'FlowField', 'ReactionDiffusion', 'Blobs', 'TurbulentBloom', 'VocalAurora'])
+const ANIMATED_TYPES = new Set([
+  'TimeNode', 'Interval', 'Counter', 'Random', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave',
+  'BeatSin', 'HueCycle', 'PaletteSweep', 'Noise', 'Plasma', 'Rainbow', 'Pride2015', 'Pacifica',
+  'TwinkleFox', 'Scanner', 'Confetti', 'Juggle', 'RadialBurst', 'Spiral', 'Kaleidoscope',
+  'FractalNoise', 'GaborNoise', 'Blobs', 'Animartrix', 'Fire', 'Fire2012', 'Particles',
+  'FlowField', 'Starfield', 'Boids', 'ReactionDiffusion', 'GameOfLife', 'SpectrumBars',
+  'SpectrumVisualizer', 'BassPulse', 'BassRings', 'MidrangeWaves', 'MidrangeBloom',
+  'TrebleSparks', 'TreblePrism', 'AudioCascade', 'BeatFlash', 'KickShock', 'VocalAurora',
+  'BeatKaleidoscope', 'SpectraMosaic', 'PercussionBlobs', 'EmberPulse', 'TurbulentBloom',
+  'GravityWell', 'RainRipples', 'PrismStorm', 'AudioFlow', 'ColorTrails', 'WaveSim',
+])
+
+export function inferPatternIntent(nodes: StudioNode[]): PatternIntent {
+  if (isAudioReactiveSubgraph(nodes)) return 'audio-reactive'
+  const types = nodes.map(nodeType)
+  if (types.some((type) => ACCENT_TYPES.has(type))) return 'accent'
+  if (types.some((type) => AMBIENT_TYPES.has(type))) return 'ambient'
+  const visibleTypes = types.filter((type) => !['GroupInput', 'GroupOutput', 'Comment'].includes(type))
+  if (visibleTypes.some((type) => STATIC_TYPES.has(type)) && !visibleTypes.some((type) => ANIMATED_TYPES.has(type))) {
+    return 'static-utility'
+  }
+  return 'showpiece'
+}
+
+interface MotionStats {
+  meanDelta: number
+  spanDelta: number
+}
+
+function frameDifference(a: Frame | undefined, b: Frame | undefined): number {
+  if (!a || !b) return 0
+  const diffs: number[] = []
+  forEachPixel(b, (px, x, y) => {
+    const prev = a[y]?.[x]
+    if (!prev) return
+    diffs.push((Math.abs(px.r - prev.r) + Math.abs(px.g - prev.g) + Math.abs(px.b - prev.b)) / (255 * 3))
+  })
+  return mean(diffs)
+}
+
+function motionStats(frames: Frame[]): MotionStats {
+  if (frames.length < 2) return { meanDelta: 0, spanDelta: 0 }
+  const deltas: number[] = []
+  for (let i = 1; i < frames.length; i++) deltas.push(frameDifference(frames[i - 1], frames[i]))
+  return { meanDelta: mean(deltas), spanDelta: frameDifference(frames[0], frames[frames.length - 1]) }
+}
+
+function scoreInRange(value: number, low: number, high: number, falloff: number): number {
+  if (value >= low && value <= high) return 1
+  if (value < low) return clamp01(1 - (low - value) / Math.max(0.0001, falloff))
+  return clamp01(1 - (value - high) / Math.max(0.0001, falloff))
+}
+
+function scoreComposition(frames: Frame[], nodes: StudioNode[], intent: PatternIntent): number {
+  const raw = scoreStructure(frames)
+  if (intent === 'static-utility' && nodes.some((node) => nodeType(node) === 'SolidColor')) return 0.9
+  if (intent === 'ambient') return clamp01(0.48 + raw * 0.52)
+  if (intent === 'accent') return clamp01(0.38 + raw * 0.62)
+  return raw
+}
+
+function tonalStats(frames: Frame[]): { meanLuma: number; blackFraction: number; whiteFraction: number } {
+  let total = 0, luma = 0, black = 0, white = 0
+  for (const frame of frames) forEachPixel(frame, (px) => {
+    const value = (0.2126 * px.r + 0.7152 * px.g + 0.0722 * px.b) / 255
+    total++
+    luma += value
+    if (value < 0.015) black++
+    if (value > 0.97 && Math.max(px.r, px.g, px.b) - Math.min(px.r, px.g, px.b) < 12) white++
+  })
+  return total === 0
+    ? { meanLuma: 0, blackFraction: 1, whiteFraction: 0 }
+    : { meanLuma: luma / total, blackFraction: black / total, whiteFraction: white / total }
+}
+
+function scoreTonalControl(frames: Frame[], intent: PatternIntent): number {
+  const stats = tonalStats(frames)
+  const ranges: Record<PatternIntent, [number, number, number]> = {
+    ambient: [0.08, 0.55, 0.24],
+    showpiece: [0.12, 0.72, 0.24],
+    accent: [0.025, 0.45, 0.18],
+    'audio-reactive': [0.06, 0.7, 0.24],
+    'static-utility': [0.05, 0.85, 0.28],
+  }
+  const [low, high, falloff] = ranges[intent]
+  const exposure = scoreInRange(stats.meanLuma, low, high, falloff)
+  const blankPenalty = stats.blackFraction > 0.995 ? 0 : 1
+  const whitePenalty = clamp01(1 - Math.max(0, stats.whiteFraction - 0.75) / 0.25)
+  return clamp01(exposure * blankPenalty * whitePenalty)
+}
+
+function scoreMotionCraft(frames: Frame[], intent: PatternIntent): number {
+  const { meanDelta } = motionStats(frames)
+  const ranges: Record<PatternIntent, [number, number, number]> = {
+    ambient: [0.001, 0.09, 0.12],
+    showpiece: [0.006, 0.22, 0.16],
+    accent: [0.004, 0.34, 0.2],
+    'audio-reactive': [0.004, 0.34, 0.2],
+    'static-utility': [0, 0.012, 0.12],
+  }
+  const [low, high, falloff] = ranges[intent]
+  return scoreInRange(meanDelta, low, high, falloff)
+}
+
+function scoreExpressiveness(frames: Frame[], intent: PatternIntent): number {
+  if (intent === 'static-utility') return 1
+  const { spanDelta } = motionStats(frames)
+  const target = intent === 'ambient' ? 0.035 : intent === 'showpiece' ? 0.09 : 0.065
+  return clamp01(spanDelta / target)
+}
+
+function averageFrame(frames: Frame[]): Frame | undefined {
+  const h = frames[0]?.length ?? 0
+  const w = frames[0]?.[0]?.length ?? 0
+  if (!w || !h || frames.length === 0) return undefined
+  return Array.from({ length: h }, (_, y) => Array.from({ length: w }, (_, x) => {
+    let r = 0, g = 0, b = 0, count = 0
+    for (const frame of frames) {
+      const px = frame[y]?.[x]
+      if (!px) continue
+      r += px.r; g += px.g; b += px.b; count++
+    }
+    return count ? { r: r / count, g: g / count, b: b / count } : { r: 0, g: 0, b: 0 }
+  }))
+}
+
+function scoreAudioResponsiveness(scenarios: Record<string, Frame[]>): number {
+  const silent = averageFrame(scenarios.silent ?? [])
+  const steady = averageFrame(scenarios.steady ?? [])
+  const pulse = averageFrame(scenarios.pulse ?? [])
+  const separation = Math.max(
+    frameDifference(silent, steady),
+    frameDifference(silent, pulse),
+    frameDifference(steady, pulse),
+  )
+  return clamp01(separation / 0.16)
+}
+
 interface CriterionSpec {
   id: string
   label: string
@@ -426,65 +590,105 @@ export function scorePattern(
   diagnostics: GraphDiagnostic[],
   nodes: StudioNode[],
   edges: StudioEdge[],
-): { overall: number; criteria: CriterionScore[]; audioReactive: boolean } {
+  requestedIntent?: PatternIntent,
+  scenarios: Record<string, Frame[]> = {},
+): {
+  overall: number
+  criteria: CriterionScore[]
+  audioReactive: boolean
+  intent: PatternIntent
+  inferredIntent: PatternIntent
+  verdict: PatternVerdict
+  verdictLabel: string
+  summary: string
+  strengths: string[]
+  improvements: string[]
+} {
   const audioReactive = isAudioReactiveSubgraph(nodes)
+  const inferredIntent = inferPatternIntent(nodes)
+  const intent = requestedIntent ?? inferredIntent
 
   const specs: CriterionSpec[] = [
     {
-      id: 'structure', label: 'Clarity & structure', weight: 0.25,
-      score: scoreStructure(frames),
-      detail: (s) => s >= 0.6 ? 'Clear, well-defined shape' : s >= 0.35 ? 'Some structure, could be bolder' : 'Little visible structure — looks flat or empty',
-    },
-    {
-      id: 'color', label: 'Colour balance', weight: 0.15,
-      score: scoreColorBalance(frames),
-      detail: (s) => s >= 0.8 ? 'Neutrals read clean' : s >= 0.5 ? 'Slight colour tint on neutral tones' : 'Whites/pastels carry an unwanted colour tint',
-    },
-    {
-      id: 'brightness', label: 'Brightness uniformity', weight: 0.15,
-      score: scoreBrightnessUniformity(frames),
-      detail: (s) => s >= 0.8 ? 'Even brightness across the matrix' : s >= 0.5 ? 'A few pixels brighter than their neighbours' : 'Lone over-bright pixels stand out',
-    },
-    {
-      id: 'stability', label: 'Refresh stability', weight: 0.2,
-      score: scoreRefreshStability(frames),
-      detail: (s) => s >= 0.8 ? 'Smooth, no flicker' : s >= 0.5 ? 'Some rapid frame-to-frame jumps' : 'Heavy flicker — output changes erratically',
-    },
-    {
-      id: 'health', label: 'Graph health', weight: 0.15,
+      id: 'technical', label: 'Technical integrity', weight: 0.18,
       score: scoreStructuralHealth(diagnostics),
-      detail: (s) => s >= 0.99 ? 'No graph issues' : s >= 0.6 ? 'Minor graph warnings' : 'Graph errors — may not render correctly',
+      detail: (s) => s >= 0.99 ? 'The graph is clean and complete' : s >= 0.6 ? 'Minor graph warnings need review' : 'Graph errors undermine the result',
+    },
+    {
+      id: 'composition', label: 'Spatial composition', weight: 0.22,
+      score: scoreComposition(frames, nodes, intent),
+      detail: (s) => s >= 0.8 ? 'Uses the matrix with clear intent' : s >= 0.55 ? 'The composition reads, but lacks definition' : 'The frame feels unresolved for this intent',
+    },
+    {
+      id: 'tone', label: 'Colour & tonal control', weight: 0.18,
+      score: scoreTonalControl(frames, intent),
+      detail: (s) => s >= 0.8 ? 'Brightness and colour remain controlled' : s >= 0.55 ? 'Some passages lose tonal separation' : 'Output is crushed, empty, or overexposed',
+    },
+    {
+      id: 'motion', label: 'Motion craft', weight: intent === 'static-utility' ? 0.14 : 0.22,
+      score: scoreMotionCraft(frames, intent),
+      detail: (s) => s >= 0.8 ? 'Motion suits the pattern’s intent' : s >= 0.55 ? 'Pacing is usable but uneven' : intent === 'static-utility' ? 'Unexpected motion distracts from its function' : 'Motion is either inert or too erratic',
+    },
+    {
+      id: 'expressiveness', label: 'Expressiveness over time', weight: intent === 'static-utility' ? 0.1 : 0.2,
+      score: scoreExpressiveness(frames, intent),
+      detail: (s) => s >= 0.8 ? 'Develops meaningfully across the captured run' : s >= 0.55 ? 'Some evolution, but the range is narrow' : intent === 'static-utility' ? 'Stable and readable' : 'Changes too little to sustain interest',
     },
   ]
 
-  if (audioReactive) {
+  if (intent === 'audio-reactive') {
     specs.push({
-      id: 'audio', label: 'Audio wiring', weight: 0.1,
-      score: scoreAudioCorrectness(nodes, edges),
-      detail: (s) => s >= 0.8 ? 'Audio nodes correctly wired' : s >= 0.4 ? 'Some audio inputs left unconnected' : 'Audio-reactive but not wired to an audio source',
+      id: 'audio', label: 'Audio responsiveness', weight: 0.22,
+      score: scoreAudioCorrectness(nodes, edges) * scoreAudioResponsiveness(scenarios),
+      detail: (s) => s >= 0.8 ? 'Music creates a clear, controlled response' : s >= 0.5 ? 'Audio response is present but subtle or uneven' : 'Audio wiring or visible response is too weak',
     })
   }
 
   const totalWeight = specs.reduce((a, s) => a + s.weight, 0)
-  const overall = pct(specs.reduce((a, s) => a + s.score * s.weight, 0) / totalWeight)
+  let overall = pct(specs.reduce((a, s) => a + s.score * s.weight, 0) / totalWeight)
+  const hasError = diagnostics.some((diagnostic) => diagnostic.severity === 'error')
+  const { blackFraction } = tonalStats(frames)
+  if (hasError) overall = Math.min(overall, 49)
+  if (blackFraction > 0.995) overall = Math.min(overall, 29)
   const criteria: CriterionScore[] = specs.map((s) => ({
     id: s.id, label: s.label, score: s.score, weight: s.weight, detail: s.detail(s.score),
   }))
-  return { overall, criteria, audioReactive }
+  const { id: verdict, label: verdictLabel } = verdictForScore(overall)
+  const ranked = [...criteria].sort((a, b) => b.score - a.score)
+  const strengths = ranked.filter((criterion) => criterion.score >= 0.72).slice(0, 2).map((criterion) => criterion.detail)
+  const improvements = [...criteria].sort((a, b) => a.score - b.score).slice(0, 2).map((criterion) => criterion.detail)
+  const intentLabel = PATTERN_INTENTS.find((entry) => entry.id === intent)?.label ?? intent
+  const weakest = [...criteria].sort((a, b) => a.score - b.score)[0]
+  const summary = `${verdictLabel} for ${intentLabel}. ${weakest?.detail ?? 'No critique available.'}`
+  return {
+    overall, criteria, audioReactive, intent, inferredIntent, verdict, verdictLabel,
+    summary, strengths, improvements,
+  }
+}
+
+export function verdictForScore(score: number): { id: PatternVerdict; label: string } {
+  if (score >= 90) return { id: 'exceptional', label: 'Exceptional' }
+  if (score >= 75) return { id: 'strong', label: 'Strong' }
+  if (score >= 60) return { id: 'promising', label: 'Promising' }
+  if (score >= 40) return { id: 'needs-work', label: 'Needs work' }
+  return { id: 'fundamentally-weak', label: 'Fundamentally weak' }
 }
 
 // ── Offline rendering + driver (browser-only) ────────────────────────────────
 
 let rateSerial = 0
 
-/** Swept synthetic audio so audio-reactive patterns animate during rating
- *  instead of rendering black. */
-function audioForFrame(i: number): { override: AudioOverride; roles: Record<string, number | boolean> } {
+type AudioScenario = 'silent' | 'steady' | 'pulse'
+
+/** Deterministic audio scenarios let the critic distinguish "looks good during
+ *  one sweep" from a pattern that behaves coherently in silence, sustained
+ *  energy, and beat-heavy material. */
+function audioForFrame(i: number, scenario: AudioScenario): { override: AudioOverride; roles: Record<string, number | boolean> } {
   const t = i / RATE_FPS
-  const bass = 0.5 + 0.5 * Math.sin(2 * Math.PI * 0.7 * t)
-  const mids = 0.5 + 0.5 * Math.sin(2 * Math.PI * 1.1 * t + 1)
-  const treble = 0.5 + 0.5 * Math.sin(2 * Math.PI * 1.7 * t + 2)
-  const beat = i % Math.max(1, Math.round(RATE_FPS * 0.5)) === 0
+  const bass = scenario === 'silent' ? 0 : scenario === 'steady' ? 0.58 : 0.5 + 0.5 * Math.sin(2 * Math.PI * 0.7 * t)
+  const mids = scenario === 'silent' ? 0 : scenario === 'steady' ? 0.42 : 0.5 + 0.5 * Math.sin(2 * Math.PI * 1.1 * t + 1)
+  const treble = scenario === 'silent' ? 0 : scenario === 'steady' ? 0.34 : 0.5 + 0.5 * Math.sin(2 * Math.PI * 1.7 * t + 2)
+  const beat = scenario === 'pulse' && i % Math.max(1, Math.round(RATE_FPS * 0.5)) === 0
   const spectrum = bandsToSpectrum(bass, mids, treble)
   const override: AudioOverride = {
     active: true, micActive: true, beat, bpm: 120,
@@ -493,7 +697,7 @@ function audioForFrame(i: number): { override: AudioOverride; roles: Record<stri
   }
   const roles: Record<string, number | boolean> = {
     bass, mids, treble, kick: bass, snare: mids, hihat: treble, vocals: mids,
-    energy: (bass + mids + treble) / 3, beat, silence: false,
+    energy: (bass + mids + treble) / 3, beat, silence: scenario === 'silent',
   }
   return { override, roles }
 }
@@ -515,6 +719,9 @@ export async function captureWindows(
   // answer to the trust prompt. Passed through rather than hardcoded so a
   // declined pattern renders blank even if it somehow reaches here.
   trusted = true,
+  scenario: AudioScenario = 'pulse',
+  runs = RATE_RUNS,
+  signal?: AbortSignal,
 ): Promise<Frame[][]> {
   const groupId = `__rate_group_${saved.id}`
   const prefix = `__rate_${rateSerial++}/`
@@ -523,8 +730,9 @@ export async function captureWindows(
   // One continuous evaluation on a single prefix keeps state (feedback, EMAs,
   // audio build-up) coherent across warm-up, windows, and the gaps between them.
   const step = async (): Promise<Frame> => {
+    if (signal?.aborted) throw new DOMException('Pattern scan cancelled', 'AbortError')
     const tick = (i * 60) / RATE_FPS
-    const { override, roles } = audioForFrame(i)
+    const { override, roles } = audioForFrame(i, scenario)
     i++
     // Per-frame guard, mirroring the live preview loop: a single malformed
     // frame is skipped (rendered as blank) rather than tearing down the rating.
@@ -543,11 +751,11 @@ export async function captureWindows(
 
   for (let k = 0; k < RATE_WARMUP_FRAMES; k++) await step()
   const windows: Frame[][] = []
-  for (let run = 0; run < RATE_RUNS; run++) {
+  for (let run = 0; run < runs; run++) {
     const frames: Frame[] = []
     for (let k = 0; k < RATE_FRAMES; k++) frames.push(await step())
     windows.push(frames)
-    if (run < RATE_RUNS - 1) for (let k = 0; k < RATE_GAP_FRAMES; k++) await step()
+    if (run < runs - 1) for (let k = 0; k < RATE_GAP_FRAMES; k++) await step()
   }
   return windows
 }
@@ -561,16 +769,84 @@ export interface RateOptions {
   gridH: number
   groups: GroupRegistry
   onProgress?: (done: number, total: number) => void
+  signal?: AbortSignal
   /** Asks the user whether an untrusted pattern may run its Formula/Code nodes.
    *  Defaults to the real dialog; injectable so tests don't need the UI store. */
   confirmTrust?: (saved: SavedPattern) => Promise<boolean>
 }
 
-// In-session memo so reopening the popup doesn't recompute unchanged patterns.
+const ANALYSIS_VERSION = 2
+
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalize)
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, entry]) => [key, canonicalize(entry)]))
+}
+
+function analysisGraph(saved: SavedPattern): unknown {
+  return {
+    inputs: saved.inputs,
+    outputs: saved.outputs,
+    nodes: saved.subgraph.nodes.map((node) => ({
+      id: node.id,
+      type: node.type,
+      data: {
+        nodeType: node.data.nodeType,
+        properties: node.data.properties,
+        inputs: node.data.inputs,
+        outputs: node.data.outputs,
+      },
+    })).sort((a, b) => a.id.localeCompare(b.id)),
+    edges: saved.subgraph.edges.map((edge) => ({
+      source: edge.source,
+      sourceHandle: edge.sourceHandle,
+      target: edge.target,
+      targetHandle: edge.targetHandle,
+    })).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+  }
+}
+
+function referencedGroupContent(saved: SavedPattern, groups: GroupRegistry): unknown {
+  const found: Record<string, unknown> = {}
+  const pending = saved.subgraph.nodes
+    .filter((node) => nodeType(node) === 'Group')
+    .map((node) => String((node.data.properties as { groupId?: unknown }).groupId ?? ''))
+  const seen = new Set<string>()
+  while (pending.length > 0) {
+    const id = pending.shift() ?? ''
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    const group = groups[id]
+    if (!group) { found[id] = null; continue }
+    found[id] = group
+    for (const node of group.nodes) {
+      if (nodeType(node) === 'Group') pending.push(String((node.data.properties as { groupId?: unknown }).groupId ?? ''))
+    }
+  }
+  return found
+}
+
+// In-session memo complements the persistent store and avoids serialising work
+// twice during React StrictMode's development remount.
 const ratingCache = new Map<string, PatternRating>()
 
-export function patternRatingKey(saved: SavedPattern): string {
-  return `${saved.id}|${saved.name}|${JSON.stringify(saved.subgraph)}`
+export function patternRatingKey(saved: SavedPattern, opts: Pick<RateOptions, 'gridW' | 'gridH' | 'groups'>, intent?: PatternIntent): string {
+  const payload = JSON.stringify(canonicalize({
+    version: ANALYSIS_VERSION,
+    gridW: opts.gridW,
+    gridH: opts.gridH,
+    intent: intent ?? inferPatternIntent(saved.subgraph.nodes),
+    graph: analysisGraph(saved),
+    groups: referencedGroupContent(saved, opts.groups),
+  }))
+  let hash = 2166136261
+  for (let i = 0; i < payload.length; i++) {
+    hash ^= payload.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  return `v${ANALYSIS_VERSION}:${opts.gridW}x${opts.gridH}:${intent ?? inferPatternIntent(saved.subgraph.nodes)}:${(hash >>> 0).toString(36)}`
 }
 
 export function ratingTier(score: number): 'good' | 'ok' | 'bad' {
@@ -581,11 +857,15 @@ export function ratingTier(score: number): 'good' | 'ok' | 'bad' {
  *  a pattern that can't be rendered or scored resolves to a `failed` rating so
  *  one bad entry can't stall the whole batch. */
 export async function ratePattern(saved: SavedPattern, opts: RateOptions): Promise<PatternRating> {
-  const key = patternRatingKey(saved)
-  const cached = ratingCache.get(key)
+  const inferredIntent = inferPatternIntent(saved.subgraph.nodes)
+  const intent = usePatternRatingStore.getState().intentOverridesByPatternId[saved.id] ?? inferredIntent
+  const key = patternRatingKey(saved, opts, intent)
+  const cached = ratingCache.get(key) ?? Object.values(usePatternRatingStore.getState().ratingsByPatternId)
+    .find((entry) => !entry.skipped && entry.cacheKey === key)
   if (cached) {
-    usePatternRatingStore.getState().publish(key, cached)
-    return cached
+    const current = { ...cached, name: saved.name, bundled: !!saved.bundled }
+    usePatternRatingStore.getState().publish(current)
+    return current
   }
 
   // Rating runs the pattern, so it has to clear the same trust boundary the
@@ -599,11 +879,14 @@ export async function ratePattern(saved: SavedPattern, opts: RateOptions): Promi
     if (!trusted) {
       const skipped: PatternRating = {
         patternId: saved.id, name: saved.name, bundled: !!saved.bundled,
-        overall: 0, criteria: [], audioReactive: false, skipped: true,
+        overall: 0, intent, inferredIntent, verdict: 'fundamentally-weak',
+        verdictLabel: 'Not assessed', summary: 'Trust is required before Studio can judge this pattern.',
+        strengths: [], improvements: [], criteria: [], audioReactive: false,
+        skipped: true, cacheKey: key,
       }
       // Deliberately not cached: a skip is "not now", so reopening the ratings
       // popup asks again rather than leaving an unrateable card for the session.
-      usePatternRatingStore.getState().publish(key, skipped)
+      usePatternRatingStore.getState().publish(skipped)
       return skipped
     }
   }
@@ -614,35 +897,50 @@ export async function ratePattern(saved: SavedPattern, opts: RateOptions): Promi
     // pathological pattern hangs the tab, the last line in the console names it.
     console.debug(`[patternRating] rating "${saved.name}"`)
     const startedAt = performance.now()
-    const windows = await captureWindows(saved, opts.gridW, opts.gridH, opts.groups, trusted)
+    const audioReactive = isAudioReactiveSubgraph(saved.subgraph.nodes) || intent === 'audio-reactive'
+    const scenarios: Record<string, Frame[]> = {}
+    if (audioReactive) {
+      for (const scenario of ['silent', 'steady', 'pulse'] as const) {
+        scenarios[scenario] = (await captureWindows(saved, opts.gridW, opts.gridH, opts.groups, trusted, scenario, 1, opts.signal))[0] ?? []
+      }
+    } else {
+      scenarios.motion = (await captureWindows(saved, opts.gridW, opts.gridH, opts.groups, trusted, 'pulse', RATE_RUNS, opts.signal)).flat()
+    }
+    const frames = Object.values(scenarios).flat()
     const elapsed = performance.now() - startedAt
     if (elapsed > 3000) console.warn(`[patternRating] "${saved.name}" took ${Math.round(elapsed)}ms to render — consider simplifying it`)
     const diagnostics = buildGraphDiagnostics(saved.subgraph.nodes, saved.subgraph.edges, { target: 'group' })
-    // Score each window; keep the best. A pattern is judged on its strongest
-    // moment (and its thumbnail comes from that same window) rather than on
-    // whichever instant we happened to sample.
-    let best: { overall: number; criteria: CriterionScore[]; audioReactive: boolean; thumbnail?: Frame } | null = null
-    for (const frames of windows) {
-      const scored = scorePattern(frames, diagnostics, saved.subgraph.nodes, saved.subgraph.edges)
-      if (!best || scored.overall > best.overall) {
-        best = { ...scored, thumbnail: pickThumbnail(frames) }
-      }
-    }
+    // Judge the whole run. Strong moments inform the thumbnail, but weak ones
+    // remain in every criterion instead of disappearing behind a best-window pick.
+    const scored = scorePattern(frames, diagnostics, saved.subgraph.nodes, saved.subgraph.edges, intent, scenarios)
+    const ordered = [...frames].sort((a, b) => frameThumbnailScore(a) - frameThumbnailScore(b))
+    const weakest = ordered[0]
+    const typical = ordered[Math.floor(ordered.length / 2)]
+    const strongest = pickThumbnail(frames)
     rating = {
       patternId: saved.id, name: saved.name, bundled: !!saved.bundled,
-      overall: best?.overall ?? 0, criteria: best?.criteria ?? [],
-      audioReactive: best?.audioReactive ?? false, thumbnail: best?.thumbnail,
+      ...scored,
+      thumbnails: {
+        weakest: packThumbnail(weakest),
+        typical: packThumbnail(typical),
+        strongest: packThumbnail(strongest),
+      },
+      cacheKey: key,
     }
   } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
     console.warn(`[patternRating] failed to rate "${saved.name}"`, err)
     rating = {
       patternId: saved.id, name: saved.name, bundled: !!saved.bundled,
-      overall: 0, criteria: [], audioReactive: false,
+      overall: 0, intent, inferredIntent, verdict: 'fundamentally-weak',
+      verdictLabel: 'Could not assess', summary: 'The pattern could not be rendered safely enough to judge.',
+      strengths: [], improvements: ['Fix the render failure, then scan again.'],
+      criteria: [], audioReactive: false, cacheKey: key,
       failed: true, error: err instanceof Error ? err.message : String(err),
     }
   }
   ratingCache.set(key, rating)
-  usePatternRatingStore.getState().publish(key, rating)
+  usePatternRatingStore.getState().publish(rating)
   return rating
 }
 
@@ -651,6 +949,7 @@ export async function ratePattern(saved: SavedPattern, opts: RateOptions): Promi
 export async function rateAllPatterns(patterns: SavedPattern[], opts: RateOptions): Promise<PatternRating[]> {
   const results: PatternRating[] = []
   for (let i = 0; i < patterns.length; i++) {
+    if (opts.signal?.aborted) throw new DOMException('Pattern scan cancelled', 'AbortError')
     results.push(await ratePattern(patterns[i], opts))
     opts.onProgress?.(i + 1, patterns.length)
     await yieldToUi()

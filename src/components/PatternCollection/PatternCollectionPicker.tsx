@@ -3,9 +3,10 @@ import { createPortal } from 'react-dom'
 import { useGraphStore } from '../../state/graphStore'
 import { usePatternLibrary } from '../../state/patternLibrary'
 import {
-  patternRatingKey,
+  PATTERN_INTENTS,
   ratingTier,
   usePatternRatingStore,
+  type PatternIntent,
 } from '../../state/patternRating'
 import { useUiStore } from '../../state/uiStore'
 import { useModalFocus } from '../../hooks/useModalFocus'
@@ -16,17 +17,20 @@ interface Props {
   onClose: () => void
 }
 
-type SortMode = 'name' | 'rating' | 'shelf'
+type SortMode = 'name' | 'studio' | 'mine' | 'intent' | 'shelf'
 const EMPTY_PATTERN_IDS: string[] = []
 
 export default function PatternCollectionPicker({ collectionNodeId, onClose }: Props) {
   const patterns = usePatternLibrary((state) => state.patterns)
   const categories = usePatternLibrary((state) => state.categories)
-  const ratingsByKey = usePatternRatingStore((state) => state.ratingsByKey)
+  const ratingsByPatternId = usePatternRatingStore((state) => state.ratingsByPatternId)
+  const userRatingsByPatternId = usePatternRatingStore((state) => state.userRatingsByPatternId)
   const addPatternsToCollection = useGraphStore((state) => state.addPatternsToCollection)
   const setStatus = useUiStore((state) => state.setStatus)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortMode>('name')
+  const [intentFilter, setIntentFilter] = useState<PatternIntent | 'all'>('all')
+  const [strongOnly, setStrongOnly] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const dialogRef = useModalFocus<HTMLDivElement>(onClose)
 
@@ -46,25 +50,30 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
     const needle = query.trim().toLocaleLowerCase()
     return patterns
       .map((pattern) => {
-        const rating = ratingsByKey[patternRatingKey(pattern)]
+        const rating = ratingsByPatternId[pattern.id]
+        const userRating = userRatingsByPatternId[pattern.id] ?? 0
         const shelf = pattern.categoryId ? categoryNames.get(pattern.categoryId) ?? 'Unknown shelf' : 'New & Unsorted'
-        return { pattern, rating, shelf }
+        return { pattern, rating, userRating, shelf }
       })
-      .filter(({ pattern, shelf }) => (
-        !needle || `${pattern.name} ${shelf}`.toLocaleLowerCase().includes(needle)
+      .filter(({ pattern, rating, shelf }) => (
+        (!needle || `${pattern.name} ${shelf}`.toLocaleLowerCase().includes(needle))
+        && (intentFilter === 'all' || rating?.intent === intentFilter)
+        && (!strongOnly || (!!rating && !rating.failed && !rating.skipped && rating.overall >= 75))
       ))
       .sort((a, b) => {
-        if (sort === 'rating') {
+        if (sort === 'studio') {
           const aScore = a.rating?.failed ? -1 : a.rating?.overall ?? -1
           const bScore = b.rating?.failed ? -1 : b.rating?.overall ?? -1
           return bScore - aScore || a.pattern.name.localeCompare(b.pattern.name)
         }
+        if (sort === 'mine') return b.userRating - a.userRating || a.pattern.name.localeCompare(b.pattern.name)
+        if (sort === 'intent') return (a.rating?.intent ?? 'zz').localeCompare(b.rating?.intent ?? 'zz') || a.pattern.name.localeCompare(b.pattern.name)
         if (sort === 'shelf') {
           return a.shelf.localeCompare(b.shelf) || a.pattern.name.localeCompare(b.pattern.name)
         }
         return a.pattern.name.localeCompare(b.pattern.name)
       })
-  }, [categoryNames, patterns, query, ratingsByKey, sort])
+  }, [categoryNames, intentFilter, patterns, query, ratingsByPatternId, sort, strongOnly, userRatingsByPatternId])
 
   const selectableRows = rows.filter(({ pattern }) => !existingSourceIds.has(pattern.id))
   const allVisibleSelected = selectableRows.length > 0
@@ -134,9 +143,22 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
             <span>Sort</span>
             <select value={sort} onChange={(event) => setSort(event.target.value as SortMode)}>
               <option value="name">Name</option>
-              <option value="rating">Rating</option>
+              <option value="studio">Studio Score</option>
+              <option value="mine">My Rating</option>
+              <option value="intent">Intent</option>
               <option value="shelf">Shelf</option>
             </select>
+          </label>
+          <label>
+            <span>Intent</span>
+            <select value={intentFilter} onChange={(event) => setIntentFilter(event.target.value as PatternIntent | 'all')}>
+              <option value="all">All</option>
+              {PATTERN_INTENTS.map((intent) => <option key={intent.id} value={intent.id}>{intent.label}</option>)}
+            </select>
+          </label>
+          <label className={styles.strongToggle}>
+            <input type="checkbox" checked={strongOnly} onChange={(event) => setStrongOnly(event.target.checked)} />
+            <span>Strong only</span>
           </label>
         </div>
 
@@ -150,7 +172,7 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
         <div className={styles.list}>
           {rows.length === 0 ? (
             <div className={styles.empty}>No patterns match this search.</div>
-          ) : rows.map(({ pattern, rating, shelf }) => {
+          ) : rows.map(({ pattern, rating, userRating, shelf }) => {
             const added = existingSourceIds.has(pattern.id)
             const checked = selected.has(pattern.id)
             const tier = rating && !rating.failed ? ratingTier(rating.overall) : 'bad'
@@ -168,13 +190,14 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
                 />
                 <span className={styles.rowCopy}>
                   <strong>{pattern.name}</strong>
-                  <small>{shelf}{pattern.bundled ? ' · bundled' : ''}</small>
+                  <small>{shelf}{rating ? ` · ${PATTERN_INTENTS.find((intent) => intent.id === rating.intent)?.label ?? rating.intent}` : ''}{pattern.bundled ? ' · bundled' : ''}</small>
                 </span>
                 {added ? (
                   <span className={styles.addedChip}>Added</span>
                 ) : rating ? (
-                  <span className={`${styles.rating} ${styles[tier]}`}>
-                    {rating.failed ? '—' : `${rating.overall}%`}
+                  <span className={styles.scoreStack}>
+                    <span className={`${styles.rating} ${styles[tier]}`}>{rating.failed || rating.skipped ? '—' : rating.overall}</span>
+                    {userRating > 0 && <span className={styles.userRating}>★{userRating}</span>}
                   </span>
                 ) : (
                   <span className={styles.unrated}>unrated</span>

@@ -1,253 +1,325 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import { usePatternLibrary, type SavedPattern } from '../../state/patternLibrary'
 import { getGroupRegistry, matrixDims, useGraphStore } from '../../state/graphStore'
-import { rateAllPatterns, type CriterionScore, type PatternRating } from '../../state/patternRating'
-import type { Frame } from '../../state/graphEvaluator'
+import {
+  PATTERN_INTENTS,
+  patternRatingKey,
+  rateAllPatterns,
+  ratePattern,
+  ratingTier,
+  thumbnailToFrame,
+  usePatternRatingStore,
+  type CriterionScore,
+  type PatternIntent,
+  type PatternRating,
+  type RatingThumbnail,
+} from '../../state/patternRating'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { renderGridFrame } from '../Preview/frameCanvas'
+import { useModalFocus } from '../../hooks/useModalFocus'
 import styles from './PatternRatingsPopup.module.css'
 
-function tier(score: number): 'good' | 'ok' | 'bad' {
-  return score >= 0.75 ? 'good' : score >= 0.5 ? 'ok' : 'bad'
-}
-
-// A "screenshot" of the pattern lit, using the same LED-glow renderer as the
-// live preview so it reads like the real matrix. Drawn to a backing canvas
-// sized in LED pixels and CSS-scaled to fill its half of the card.
-function PatternThumb({ frame }: { frame?: Frame }) {
-  const ref = useRef<HTMLCanvasElement>(null)
-  useEffect(() => {
-    const canvas = ref.current
+function PatternThumb({ thumbnail, label }: { thumbnail?: RatingThumbnail; label: string }) {
+  const frame = thumbnailToFrame(thumbnail)
+  const callbackRef = (canvas: HTMLCanvasElement | null) => {
     if (!canvas) return
     const h = frame?.length ?? 0
     const w = frame?.[0]?.length ?? 0
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
     if (!frame || w === 0 || h === 0) {
       canvas.width = 2; canvas.height = 2
-      ctx.clearRect(0, 0, 2, 2)
       return
     }
-    const pixel = Math.max(6, Math.round(320 / w))
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const pixel = Math.max(5, Math.round(180 / w))
     canvas.width = w * pixel
     canvas.height = h * pixel
     renderGridFrame(ctx, frame, pixel)
-  }, [frame])
-  return <canvas ref={ref} className={styles.thumb} aria-hidden="true" />
+  }
+  return (
+    <figure className={styles.moment}>
+      <canvas ref={callbackRef} className={styles.thumb} aria-label={`${label} captured moment`} />
+      <figcaption>{label}</figcaption>
+    </figure>
+  )
+}
+
+function StarRating({ value, onChange, name }: { value: number; onChange: (value: number) => void; name: string }) {
+  return (
+    <div className={styles.starControl} role="group" aria-label={`Your rating for ${name}`}>
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          type="button"
+          className={star <= value ? styles.starActive : styles.star}
+          onClick={() => onChange(star === value ? 0 : star)}
+          aria-label={`${star} star${star === 1 ? '' : 's'}`}
+          aria-pressed={star <= value}
+        >★</button>
+      ))}
+      <span>{value ? `${value}/5 yours` : 'Not rated by you'}</span>
+    </div>
+  )
 }
 
 function CriterionRow({ criterion }: { criterion: CriterionScore }) {
+  const tier = ratingTier(criterion.score * 100)
   return (
     <li className={styles.criterion}>
       <div className={styles.criterionTop}>
         <span className={styles.criterionLabel}>{criterion.label}</span>
-        <span className={`${styles.criterionPct} ${styles[tier(criterion.score)]}`}>
-          {Math.round(criterion.score * 100)}%
-        </span>
+        <span className={`${styles.criterionPct} ${styles[tier]}`}>{Math.round(criterion.score * 100)}</span>
       </div>
       <div className={styles.bar}>
-        <div
-          className={`${styles.barFill} ${styles[tier(criterion.score)]}`}
-          style={{ width: `${Math.round(criterion.score * 100)}%` }}
-        />
+        <div className={`${styles.barFill} ${styles[tier]}`} style={{ width: `${Math.round(criterion.score * 100)}%` }} />
       </div>
       <span className={styles.criterionDetail}>{criterion.detail}</span>
     </li>
   )
 }
 
-function RatingCard({ rating, checked, onToggle }: { rating: PatternRating; checked: boolean; onToggle: (id: string) => void }) {
-  const t = tier(rating.overall / 100)
-  // A skipped pattern was never run, so it has no score to colour the card by.
+interface RatingCardProps {
+  pattern: SavedPattern
+  rating: PatternRating
+  checked: boolean
+  userRating: number
+  rescanning: boolean
+  onToggle: (id: string) => void
+  onUserRating: (id: string, value: number) => void
+  onIntentChange: (pattern: SavedPattern, intent: PatternIntent) => void
+}
+
+function RatingCard({
+  pattern, rating, checked, userRating, rescanning,
+  onToggle, onUserRating, onIntentChange,
+}: RatingCardProps) {
+  const tier = ratingTier(rating.overall)
   const unscored = rating.failed || rating.skipped
   return (
-    <div className={`${styles.card} ${styles[`card_${rating.failed ? 'bad' : rating.skipped ? 'ok' : t}`]}`}>
-      <div className={styles.cardHead}>
+    <article className={`${styles.card} ${styles[`card_${unscored ? 'bad' : tier}`]}`}>
+      <header className={styles.cardHead}>
         <input
           type="checkbox"
           className={styles.cardCheck}
           checked={checked}
-          onChange={() => onToggle(rating.patternId)}
-          aria-label={`Select "${rating.name}" for a new Pattern Collection`}
+          onChange={() => onToggle(pattern.id)}
+          aria-label={`Select "${pattern.name}" for a new Pattern Collection`}
         />
-        <span className={styles.name}>{rating.name}</span>
+        <span className={styles.name}>{pattern.name}</span>
         {rating.audioReactive && <span className={styles.audioTag}>audio</span>}
-        {rating.bundled && <span className={styles.bundledTag}>included</span>}
-        {rating.skipped && <span className={styles.skippedTag}>skipped</span>}
-        <span className={`${styles.overall} ${styles[rating.failed ? 'bad' : rating.skipped ? 'ok' : t]}`}>
-          {unscored ? '—' : `${rating.overall}%`}
-        </span>
-      </div>
-      <div className={styles.cardBody}>
-        <div className={styles.thumbWrap}>
-          <PatternThumb frame={rating.thumbnail} />
+        {pattern.bundled && <span className={styles.bundledTag}>included</span>}
+        <span className={`${styles.verdictLabel} ${styles[tier]}`}>{rating.verdictLabel}</span>
+        <span className={`${styles.overall} ${styles[tier]}`}>{unscored ? '—' : rating.overall}</span>
+      </header>
+
+      {rating.failed || rating.skipped ? (
+        <div className={styles.failNote}>
+          {rating.failed
+            ? `Couldn’t render this pattern${rating.error ? `: ${rating.error}` : ''}`
+            : 'Not assessed. Choose Scan patterns when you are ready to review and trust executable Formula or Code nodes.'}
         </div>
-        {rating.failed ? (
-          <div className={styles.failNote}>Couldn’t render this pattern{rating.error ? `: ${rating.error}` : ''}</div>
-        ) : rating.skipped ? (
-          <div className={styles.failNote}>
-            Not rated — you chose to skip this pattern rather than run its Formula or Code
-            nodes. Reopen this popup to be asked again.
+      ) : (
+        <div className={styles.cardBody}>
+          <div className={styles.momentRail}>
+            <PatternThumb thumbnail={rating.thumbnails?.weakest} label="Weak" />
+            <PatternThumb thumbnail={rating.thumbnails?.typical} label="Typical" />
+            <PatternThumb thumbnail={rating.thumbnails?.strongest} label="Strong" />
           </div>
-        ) : (
-          <ul className={styles.criteria}>
-            {rating.criteria.map((c) => <CriterionRow key={c.id} criterion={c} />)}
-          </ul>
-        )}
-      </div>
-    </div>
+
+          <div className={styles.critique}>
+            <div className={styles.intentRow}>
+              <label>
+                <span>Judged as</span>
+                <select
+                  value={rating.intent}
+                  disabled={rescanning}
+                  onChange={(event) => onIntentChange(pattern, event.target.value as PatternIntent)}
+                >
+                  {PATTERN_INTENTS.map((intent) => <option key={intent.id} value={intent.id}>{intent.label}</option>)}
+                </select>
+              </label>
+              {rating.intent !== rating.inferredIntent && <span className={styles.overrideTag}>manual intent</span>}
+              {rescanning && <span className={styles.rescanning}>Rejudging…</span>}
+            </div>
+
+            <p className={styles.summary}>{rating.summary}</p>
+            <StarRating value={userRating} onChange={(value) => onUserRating(pattern.id, value)} name={pattern.name} />
+
+            <div className={styles.notesGrid}>
+              <div>
+                <h3>What works</h3>
+                <ul>{rating.strengths.length ? rating.strengths.map((text) => <li key={text}>{text}</li>) : <li>No clear strength yet.</li>}</ul>
+              </div>
+              <div>
+                <h3>Highest-value improvements</h3>
+                <ul>{rating.improvements.map((text) => <li key={text}>{text}</li>)}</ul>
+              </div>
+            </div>
+
+            <details className={styles.details}>
+              <summary>Criterion evidence</summary>
+              <ul className={styles.criteria}>{rating.criteria.map((criterion) => <CriterionRow key={criterion.id} criterion={criterion} />)}</ul>
+            </details>
+          </div>
+        </div>
+      )}
+    </article>
   )
 }
 
-// Rates every saved pattern by rendering its subgraph offline and scoring the
-// frames (structure, colour balance, brightness uniformity, refresh stability,
-// graph health, and — for audio patterns — audio wiring). Weakest first, so the
-// patterns most worth fixing surface at the top.
-export default function PatternRatingsPopup() {
-  const closeRatings = useUiStore((s) => s.closeRatings)
-  const setStatus = useUiStore((s) => s.setStatus)
-  const viewCenter = useUiStore((s) => s.viewCenter)
-  const patterns = usePatternLibrary((s) => s.patterns)
-  const createCollectionFromPatterns = useGraphStore((s) => s.createCollectionFromPatterns)
+function ratingContext() {
+  const { w, h } = matrixDims(useGraphStore.getState().nodes)
+  const cap = 32
+  const scale = Math.min(1, cap / Math.max(w, h))
+  return {
+    gridW: Math.max(2, Math.round(w * scale)),
+    gridH: Math.max(2, Math.round(h * scale)),
+    groups: getGroupRegistry(),
+  }
+}
 
-  const [ratings, setRatings] = useState<PatternRating[]>([])
+export default function PatternRatingsPopup() {
+  const closeRatings = useUiStore((state) => state.closeRatings)
+  const setStatus = useUiStore((state) => state.setStatus)
+  const viewCenter = useUiStore((state) => state.viewCenter)
+  const patterns = usePatternLibrary((state) => state.patterns)
+  const createCollectionFromPatterns = useGraphStore((state) => state.createCollectionFromPatterns)
+  const storedRatings = usePatternRatingStore((state) => state.ratingsByPatternId)
+  const userRatings = usePatternRatingStore((state) => state.userRatingsByPatternId)
+  const intentOverrides = usePatternRatingStore((state) => state.intentOverridesByPatternId)
+  const setUserRating = usePatternRatingStore((state) => state.setUserRating)
+  const setIntentOverride = usePatternRatingStore((state) => state.setIntentOverride)
+  const abortRef = useRef<AbortController | null>(null)
+  const handleClose = () => {
+    abortRef.current?.abort()
+    closeRatings()
+  }
+  const dialogRef = useModalFocus<HTMLDivElement>(handleClose)
+
+  const context = useMemo(() => ratingContext(), [])
+  const [ratings, setRatings] = useState<PatternRating[]>(() => patterns.flatMap((pattern) => {
+    const rating = storedRatings[pattern.id]
+    const expectedKey = patternRatingKey(pattern, context, intentOverrides[pattern.id])
+    return rating?.cacheKey === expectedKey ? [rating] : []
+  }))
   const [progress, setProgress] = useState({ done: 0, total: patterns.length })
-  const [busy, setBusy] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [rescanningId, setRescanningId] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
-  const toggleSelected = (id: string) => {
-    setSelected((current) => {
-      const next = new Set(current)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+  const sortedRatings = useMemo(() => [...ratings].sort((a, b) => a.overall - b.overall || a.name.localeCompare(b.name)), [ratings])
+  const ratingById = useMemo(() => new Map(sortedRatings.map((rating) => [rating.patternId, rating])), [sortedRatings])
+
+  const toggleSelected = (id: string) => setSelected((current) => {
+    const next = new Set(current)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    return next
+  })
+
+  const scanPatterns = async () => {
+    const controller = new AbortController()
+    abortRef.current = controller
+    setBusy(true)
+    setProgress({ done: 0, total: patterns.length })
+    try {
+      const result = await rateAllPatterns(patterns, {
+        ...context,
+        signal: controller.signal,
+        onProgress: (done, total) => setProgress({ done, total }),
+      })
+      setRatings(result)
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      console.error('[PatternInsights] scan failed', error)
+      setStatus('Pattern scan failed', 'error')
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null
+      setBusy(false)
+    }
+  }
+
+  const changeIntent = async (pattern: SavedPattern, intent: PatternIntent) => {
+    setIntentOverride(pattern.id, intent)
+    setRescanningId(pattern.id)
+    try {
+      const next = await ratePattern(pattern, context)
+      setRatings((current) => [...current.filter((rating) => rating.patternId !== pattern.id), next])
+    } finally {
+      setRescanningId(null)
+    }
   }
 
   const handleCreateCollection = () => {
-    const chosen: SavedPattern[] = patterns.filter((p) => selected.has(p.id))
-    if (chosen.length === 0) {
-      setStatus('Select at least one pattern first', 'error')
-      return
-    }
-    const def = NODE_LIBRARY.find((n) => n.type === 'PatternCollection')
-    if (!def) {
-      setStatus('Pattern Collection node is unavailable', 'error')
-      return
-    }
-    const position = {
+    const chosen = patterns.filter((pattern) => selected.has(pattern.id))
+    if (chosen.length === 0) return setStatus('Select at least one pattern first', 'error')
+    const def = NODE_LIBRARY.find((node) => node.type === 'PatternCollection')
+    if (!def) return setStatus('Pattern Collection node is unavailable', 'error')
+    createCollectionFromPatterns(chosen, {
       x: viewCenter.x + (Math.random() - 0.5) * 80,
       y: viewCenter.y + (Math.random() - 0.5) * 80,
-    }
-    createCollectionFromPatterns(
-      chosen,
-      position,
-      resolveDefaultProperties(def.type, def.defaultProperties),
-      true,
-    )
+    }, resolveDefaultProperties(def.type, def.defaultProperties), true)
     setStatus(`Created collection with ${chosen.length} pattern${chosen.length === 1 ? '' : 's'}`, 'success')
-    closeRatings()
+    handleClose()
   }
 
-  useEffect(() => {
-    // No run-once ref guard: under StrictMode the first mount's cleanup would
-    // cancel that run while a ref guard blocks the real second mount from
-    // starting a fresh one, leaving the popup stuck on "busy" forever. Rely on
-    // `cancelled` alone; the rating cache makes the double run essentially free.
-    let cancelled = false
-    const nodes = useGraphStore.getState().nodes
-    const { w, h } = matrixDims(nodes)
-    // Cap the render size: rating quality and the thumbnail don't need full
-    // resolution, and rendering every pattern at a large workspace matrix
-    // (heavy per-pixel patterns × 30 frames) can lock the tab. Preserve aspect.
-    const CAP = 32
-    const scale = Math.min(1, CAP / Math.max(w, h))
-    const gridW = Math.max(2, Math.round(w * scale))
-    const gridH = Math.max(2, Math.round(h * scale))
-    setProgress({ done: 0, total: patterns.length })
-    void rateAllPatterns(patterns, {
-      gridW, gridH, groups: getGroupRegistry(),
-      onProgress: (done, total) => { if (!cancelled) setProgress({ done, total }) },
-    }).then((result) => {
-      if (cancelled) return
-      // Failed patterns (couldn't render) sort to the very top for attention;
-      // skipped ones sort to the bottom — they carry no verdict, so a 0 among
-      // the genuinely weak patterns would misread as "this one is terrible".
-      setRatings([...result].sort((a, b) =>
-        (a.skipped ? 1 : 0) - (b.skipped ? 1 : 0) ||
-        (a.failed ? -1 : 0) - (b.failed ? -1 : 0) ||
-        a.overall - b.overall,
-      ))
-      setBusy(false)
-    }).catch((err) => {
-      if (cancelled) return
-      console.error('[PatternRatings] rating run failed', err)
-      setBusy(false)
-    })
-    return () => { cancelled = true }
-    // Snapshot the pattern list once when the popup opens.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  const average = useMemo(() => {
-    const scored = ratings.filter((r) => !r.failed && !r.skipped)
-    return scored.length ? Math.round(scored.reduce((a, r) => a + r.overall, 0) / scored.length) : 0
-  }, [ratings])
+  const assessed = ratings.filter((rating) => !rating.failed && !rating.skipped)
+  const strongCount = assessed.filter((rating) => rating.overall >= 75).length
 
   return (
-    <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) closeRatings() }}>
-      <div className={styles.popup} role="dialog" aria-label="Pattern ratings">
-        <div className={styles.header}>
+    <div className={styles.overlay} onMouseDown={(event) => { if (event.target === event.currentTarget) handleClose() }}>
+      <div ref={dialogRef} className={styles.popup} role="dialog" aria-modal="true" aria-labelledby="pattern-insights-title" tabIndex={-1}>
+        <header className={styles.header}>
           <div>
-            <div className={styles.kicker}>Pattern Ratings</div>
-            <span>How your saved patterns score</span>
+            <div className={styles.kicker}>Pattern critic</div>
+            <h2 id="pattern-insights-title">Pattern Insights</h2>
+            <p>Studio judges execution against each pattern’s intent. Your stars remain entirely your own.</p>
           </div>
-          <button className={styles.closeBtn} onClick={closeRatings} title="Close">×</button>
+          <button className={styles.closeBtn} onClick={handleClose} aria-label="Close Pattern Insights">×</button>
+        </header>
+
+        <div className={styles.actionsRow}>
+          <button
+            className={styles.scanBtn}
+            type="button"
+            onClick={() => busy ? abortRef.current?.abort() : void scanPatterns()}
+            disabled={patterns.length === 0}
+          >
+            {busy ? `Cancel · ${progress.done}/${progress.total}` : ratings.length ? 'Scan changed patterns' : 'Scan patterns'}
+          </button>
+          <button className={styles.createCollectionBtn} type="button" onClick={handleCreateCollection} disabled={selected.size === 0}>
+            + Create collection{selected.size ? ` (${selected.size})` : ''}
+          </button>
+          <span className={styles.librarySummary}>{assessed.length} assessed · {strongCount} strong or exceptional</span>
         </div>
 
-        <div className={styles.hint}>
-          Each pattern is rendered and scored on clarity, colour balance, brightness evenness,
-          refresh stability, graph health, and audio wiring. Weakest first.
-        </div>
+        {busy && <div className={styles.progressTrack}><span style={{ width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%` }} /></div>}
 
-        {!busy && ratings.length > 0 && (
-          <div className={styles.actionsRow}>
-            <button
-              className={styles.createCollectionBtn}
-              type="button"
-              onClick={handleCreateCollection}
-              disabled={selected.size === 0}
-              title="Select the patterns you’d like to bundle into a Pattern Collection node, then click to add it to the canvas."
-            >
-              + Create Pattern Collection{selected.size > 0 ? ` (${selected.size})` : ''}
-            </button>
-            {ratings.some((r) => !r.failed && !r.skipped) && (
-              <span className={styles.avgChip}>Library average {average}%</span>
-            )}
-          </div>
-        )}
-
-        {busy ? (
-          <div className={styles.loading}>
-            <div className={styles.spinner} aria-hidden="true" />
-            <span>Rating patterns… {progress.done}/{progress.total}</span>
-          </div>
-        ) : ratings.length === 0 ? (
-          <div className={styles.empty}>No saved patterns to rate yet.</div>
-        ) : (
-          <div className={styles.list}>
-            {ratings.map((rating) => (
+        <div className={styles.list}>
+          {patterns.length === 0 ? (
+            <div className={styles.empty}>Save a pattern to the library before asking Studio for a critique.</div>
+          ) : ratings.length === 0 ? (
+            <div className={styles.empty}>No current verdicts. Scan the library when you are ready to run and judge its patterns.</div>
+          ) : patterns.map((pattern) => {
+            const rating = ratingById.get(pattern.id)
+            if (!rating) return null
+            return (
               <RatingCard
-                key={rating.patternId}
+                key={pattern.id}
+                pattern={pattern}
                 rating={rating}
-                checked={selected.has(rating.patternId)}
+                checked={selected.has(pattern.id)}
+                userRating={userRatings[pattern.id] ?? 0}
+                rescanning={rescanningId === pattern.id}
                 onToggle={toggleSelected}
+                onUserRating={setUserRating}
+                onIntentChange={changeIntent}
               />
-            ))}
-          </div>
-        )}
+            )
+          })}
+        </div>
       </div>
     </div>
   )
