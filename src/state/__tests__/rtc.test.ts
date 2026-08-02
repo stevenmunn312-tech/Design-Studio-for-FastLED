@@ -37,6 +37,14 @@ describe('setRtcClockSource', () => {
     })
   })
 
+  it('simulates a healthy DS3231 from the browser clock', () => {
+    const now = new Date(2027, 3, 5, 6, 7, 8)
+    expect(rtcPreviewSnapshot({ timeSource: 'DS3231' }, 0, now)).toMatchObject({
+      year: 2027, month: 4, day: 5, hour: 6, minute: 7, second: 8,
+      valid: true, synced: true, stale: false,
+    })
+  })
+
   it('restores the real clock when called with no argument', () => {
     setRtcClockSource(() => new Date(2026, 0, 2, 10, 4, 5))
     expect(readRtcSnapshot().year).toBe(2026)

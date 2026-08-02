@@ -166,7 +166,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 - **Show control:** reusable pattern collections, 16 transition styles, beat-driven particles, section-aware music shows, timeline editing, and performance controls.
 - **Physical layouts:** strips, serpentine matrices, tiled panels, multiple outputs, and custom XY maps. Only the exact combinations recorded in the support matrix count as supported today.
 - **DMX / Art-Net:** Art-Net preview plus Art-Net or DMX512 firmware paths. Hardware validation has not yet been recorded, so all modes remain experimental.
-- **Clock and schedules:** build-time, manual, and NTP-backed software clocks; time windows and scheduled triggers; digital/analog clock patterns. Hardware validation is still open, and no external RTC module is supported in this version.
+- **Clock and schedules:** build-time, manual, NTP-backed, and battery-backed DS3231 clocks; time windows and scheduled triggers; digital/analog clock patterns. Hardware validation is still open for every clock path.
 
 </details>
 

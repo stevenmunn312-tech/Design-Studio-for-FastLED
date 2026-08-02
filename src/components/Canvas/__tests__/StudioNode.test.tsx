@@ -620,6 +620,13 @@ describe('StudioNode', () => {
     expect(rtc.getByText('--:--:--')).toBeTruthy()
   })
 
+  it('labels the DS3231 preview as simulated hardware time', () => {
+    const rtc = renderNode(makeNode('RTCInput', { timeSource: 'DS3231' }))
+    expect(rtc.getByText('DS3231 / I2C')).toBeTruthy()
+    expect(rtc.getByText(/Preview simulates a healthy module/)).toBeTruthy()
+    expect(rtc.getByText(/default SDA\/SCL pins/)).toBeTruthy()
+  })
+
   it('a bundled node header reflects the selected variant', () => {
     const { getByText } = renderNode(makeNode('Math', { mathOp: 'multiply', a: 1, b: 2 }))
     expect(getByText('Multiply')).toBeTruthy()   // not the generic "Math"

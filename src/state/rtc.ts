@@ -100,9 +100,10 @@ export function readRtcSnapshot(now: Date = rtcClockSource()): RtcSnapshot {
 // NTP shows UTC shifted by the configured offset, which is the wall clock
 // `configTime(offset, 0, server)` produces on-device. Compile Time seeds from
 // the build stamp on hardware, so the browser's local clock is its closest
-// preview.
+// preview. A physical DS3231 cannot be read by the browser, so preview models a
+// healthy chip with the browser clock; firmware performs the real I2C read.
 
-export type RtcTimeSource = 'Compile Time' | 'Manual' | 'NTP'
+export type RtcTimeSource = 'Compile Time' | 'Manual' | 'NTP' | 'DS3231'
 
 /** An RTC snapshot plus the sync flags RTCInput exposes alongside the fields. */
 export interface RtcPreview extends RtcSnapshot {
@@ -119,7 +120,7 @@ const RTC_INVALID: RtcPreview = {
 
 export function rtcTimeSource(properties: Record<string, unknown> | undefined): RtcTimeSource {
   const source = String(properties?.timeSource ?? 'Compile Time')
-  return source === 'Manual' || source === 'NTP' ? source : 'Compile Time'
+  return source === 'Manual' || source === 'NTP' || source === 'DS3231' ? source : 'Compile Time'
 }
 
 /** Read a UTC instant into the same shape `readRtcSnapshot` produces for local
@@ -178,6 +179,10 @@ export function rtcPreviewSnapshot(
       const offset = Number.isFinite(offsetMinutes) ? offsetMinutes : 0
       return { ...snapshotFromUtc(new Date(now.getTime() + offset * 60_000)), synced: true, stale: false }
     }
+    case 'DS3231':
+      // Browser-side simulation of a connected, trustworthy module. The
+      // generated sketch replaces this with the real I2C fields and OSF flag.
+      return { ...readRtcSnapshot(now), synced: true, stale: false }
     default:
       return { ...readRtcSnapshot(now), synced: true, stale: false }
   }

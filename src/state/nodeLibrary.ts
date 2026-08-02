@@ -2401,7 +2401,8 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     // Real-time clock fields. Preview uses the browser clock; generated
     // firmware keeps a software clock seeded from compile time, a manual start
-    // date/time, or network/NTP sync when Wi-Fi is configured.
+    // date/time, or network/NTP sync when Wi-Fi is configured; it can also read
+    // a battery-backed DS3231 directly over the board's default I2C bus.
     type: 'RTCInput',
     label: 'RTC Clock',
     category: 'input',
@@ -2550,7 +2551,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   PotInput: 'Reads a potentiometer as a 0–1 value.',
   EncoderInput: 'Reads a rotary encoder — running position plus its push-button.',
   DMXInput: 'DMX / Art-Net source for preview and firmware (Art-Net or ESP32 DMX512).',
-  RTCInput: 'RTC clock for preview and firmware via compile time, manual seed, or NTP.',
+  RTCInput: 'Clock for preview/firmware via build stamp, manual seed, NTP, or DS3231.',
   MidiInput: 'Web MIDI note velocity/gate + CC value from a controller. Preview-only.',
   MusicLibrary: 'Music source — double-click to drop tracks, analyse and export.',
   PerformanceGenerator: 'Converts analysed music into timed LED show files.',
@@ -3004,7 +3005,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     activeThreshold: { control: 'slider', min: 0, max: 255, step: 1 },
   },
   RTCInput: {
-    timeSource: { control: 'select', options: ['Compile Time', 'Manual', 'NTP'] },
+    timeSource: { control: 'select', options: ['Compile Time', 'Manual', 'NTP', 'DS3231'] },
     timezoneOffsetMinutes: { control: 'slider', min: -720, max: 840, step: 15 },
     startMonth: { control: 'slider', min: 1, max: 12, step: 1 },
     startDay: { control: 'slider', min: 1, max: 31, step: 1 },
@@ -3430,7 +3431,7 @@ export const FORMULA_LANG_HELP = 'Variables: x, y, t, cx, cy, r, angle, W, H, a,
 /** Per-node overrides for property names whose meaning collides across nodes. */
 export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, string>> = {
   RTCInput: {
-    timeSource: 'Compile Time seeds the firmware clock from the sketch build stamp; Manual uses the date and time entered below.',
+    timeSource: 'Compile Time seeds from the sketch build stamp; Manual uses the fields below; NTP syncs over Wi-Fi; DS3231 reads a battery-backed clock on the board default I2C pins.',
     startYear: 'Manual clock start year. Only used when Time source is Manual.',
     startMonth: 'Manual clock start month (1-12). Only used when Time source is Manual.',
     startDay: 'Manual clock start day of month. Only used when Time source is Manual.',

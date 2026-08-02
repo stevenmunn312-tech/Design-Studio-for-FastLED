@@ -105,6 +105,7 @@ each source is allowed on is enforced in `validateGraph.ts`
 | Compile Time | Every board in the catalogue | No board restriction | No |
 | Manual | Every board in the catalogue | No board restriction | No |
 | NTP | ESP32-family (S3, S2, C3, C6, H2, classic) and ESP8266 | Yes — blocked on every other board | No |
+| DS3231 | Every board with the standard Arduino `Wire` API and a default I²C bus | No board restriction | No |
 
 Notes:
 
@@ -117,10 +118,12 @@ Notes:
   check and shares this same open hardware-validation gap.
 - Compile Time and Manual need no network and are not blocked on any board,
   but neither has a recorded drift measurement — see the note below.
-- No external RTC chip (DS3231 or similar) is supported in v1 on any board;
-  every source is a free-running software clock. See
-  [`rtc-clock-and-schedule.md`](../development/design/rtc-clock-and-schedule.md)
-  for the full decision record.
+- DS3231 uses address `0x68` and the board core's default SDA/SCL pins. It has no
+  third-party library dependency. Pin labels vary by board, and the current GPIO
+  validator cannot infer those board-default aliases, so users must avoid
+  assigning the same physical pins to a non-I²C role. Other RTC chips are not
+  supported. See [`rtc-clock-and-schedule.md`](../development/design/rtc-clock-and-schedule.md)
+  for the full contract.
 
 ## How to graduate a new supported row
 

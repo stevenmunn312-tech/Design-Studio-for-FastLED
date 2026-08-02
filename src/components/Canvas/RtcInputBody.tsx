@@ -14,6 +14,7 @@ function sourceLabel(timeSource: string): string {
   switch (timeSource) {
     case 'Manual': return 'MANUAL SEED'
     case 'NTP': return 'NTP / UTC OFFSET'
+    case 'DS3231': return 'DS3231 / I2C'
     default: return 'COMPILE TIME'
   }
 }
@@ -74,6 +75,13 @@ export default function RtcInputBody({ nodeId }: { nodeId: string }) {
         <div className={styles.note}>
           The manual start date/time is not a real calendar instant, so the firmware clock
           never starts and every output stays at zero. Fix the Manual Start fields below.
+        </div>
+      )}
+      {timeSource === 'DS3231' && (
+        <div className={styles.note}>
+          Preview simulates a healthy module with the browser clock. Firmware reads address
+          0x68 on the board&apos;s default SDA/SCL pins; stale means the oscillator-stop flag is set.
+          Set a new module&apos;s clock once with its setup utility—the generated sketch never overwrites it.
         </div>
       )}
       {String(timeSource ?? 'Compile Time') === 'NTP' && (
