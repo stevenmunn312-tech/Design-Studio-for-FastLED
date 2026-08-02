@@ -1,0 +1,40 @@
+<template>
+  <style>
+    @font-face{font-family:Inter;src:url('assets/fonts/Inter.ttf') format('truetype');font-weight:100 900}
+    @font-face{font-family:JetBrains;src:url('assets/fonts/JetBrainsMono.ttf') format('truetype');font-weight:100 900}
+    #root{position:relative;width:1920px;height:1080px;overflow:hidden;container-type:size;font-family:Inter,sans-serif;color:#e0e0e0}
+    .f06-bg{position:absolute;inset:0;background:#0d0f12}
+    .f06-title{position:absolute;left:86px;top:50px;font:800 72px/1 Inter;letter-spacing:-.04em;text-transform:uppercase}.f06-title b{color:#5ad1ff}
+    .f06-stage{position:absolute;left:86px;top:150px;width:1748px;height:662px;border:7px solid #e0e0e0;overflow:hidden;background:#161a1f}
+    .f06-shot{position:absolute;left:0;top:-12px;width:100%;height:100%;object-fit:cover;will-change:transform}
+    .f06-stack{position:absolute;left:120px;top:220px;z-index:6;display:grid;gap:12px}.f06-stack div{width:max-content;border:4px solid #e0e0e0;background:#0d0f12;padding:10px 16px;font:700 22px JetBrains;letter-spacing:.08em}.f06-stack div:nth-child(2){background:#3333ff}.f06-stack div:nth-child(4){background:#0075a2}
+    .f06-focus{position:absolute;left:240px;top:470px;width:1210px;height:112px;border:7px solid #5ad1ff;z-index:5}
+    .f06-cursor{position:absolute;left:460px;top:220px;width:32px;height:32px;background:#5ad1ff;border:5px solid #e0e0e0;z-index:8;clip-path:polygon(0 0,100% 48%,56% 60%,42% 100%)}
+    .f06-marker{position:absolute;right:94px;top:95px;z-index:10;background:#0075a2;border:6px solid #e0e0e0;padding:18px 24px;font:800 46px Inter;letter-spacing:-.03em;box-shadow:22px 22px 0 #5ad1ff,22px 22px 0 5px #e0e0e0}
+    .f06-meta{position:absolute;right:88px;top:866px;font:500 21px JetBrains;color:#a0a0a0}
+  </style>
+  <div id="root" data-composition-id="06-graph-health" data-width="1920" data-height="1080" data-duration="9.339">
+    <div id="f06-background" class="clip f06-bg" data-start="0" data-duration="9.339" data-track-index="0"></div>
+    <div id="f06-content" class="clip" data-start="0" data-duration="9.339" data-track-index="1">
+      <div class="f06-title">GRAPH <b>HEALTH</b></div>
+      <div class="f06-stage"><img class="f06-shot" data-layout-allow-overflow src="assets/fresh-05-health.png" alt="Fresh Graph Health diagnostic" /><div class="f06-stack"><div>WIRING</div><div>POWER</div><div>MEMORY</div><div>BOARD COMPATIBILITY</div></div><div class="f06-focus"></div><div class="f06-cursor" data-layout-ignore></div></div>
+      <div class="f06-marker">BEFORE HARDWARE</div><div class="f06-meta">CONCRETE GUIDANCE · WHILE EDITABLE</div>
+    </div>
+  </div>
+  <script>
+    window.__timelines=window.__timelines||{};
+    const labels=gsap.utils.toArray('.f06-stack div');gsap.set(labels,{opacity:0});
+    const tl=gsap.timeline({paused:true});
+    tl.fromTo('.f06-stage',{opacity:0,scale:.985},{opacity:1,scale:1,duration:.5,ease:'power3.out'},0)
+      .fromTo('.f06-title',{opacity:0,x:-38},{opacity:1,x:0,duration:.55,ease:'power3.out'},.2)
+      .fromTo(labels.slice(0,2),{opacity:0,x:-28},{opacity:1,x:0,duration:.42,stagger:.58,ease:'power3.out'},.85)
+      .fromTo('.f06-cursor',{opacity:0,x:-220,y:-40},{opacity:1,x:0,y:0,duration:.65,ease:'power3.out'},1.1)
+      .to('.f06-shot',{y:-90,duration:1.0,ease:'power3.inOut'},2.05)
+      .to('.f06-cursor',{x:100,y:330,duration:1.0,ease:'power3.inOut'},2.05)
+      .fromTo(labels.slice(2),{opacity:0,x:-28},{opacity:1,x:0,duration:.46,stagger:.78,ease:'power3.out'},3.15)
+      .fromTo('.f06-focus',{opacity:0,scaleX:.75},{opacity:1,scaleX:1,duration:.65,ease:'power3.out'},5.15)
+      .fromTo('.f06-marker',{opacity:0,x:50},{opacity:1,x:0,duration:.65,ease:'power3.out'},6.1)
+      .fromTo('.f06-meta',{opacity:0},{opacity:1,duration:.55,ease:'power2.out'},7.95);
+    window.__timelines['06-graph-health']=tl;
+  </script>
+</template>

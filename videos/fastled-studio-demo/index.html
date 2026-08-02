@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js" integrity="sha384-sG0Hv1tP1lZCk9KQmrIbY/XNwi+OY84GQqhMscbnsoBFqAz8KNCil1kvfL3Hbbk2" crossorigin="anonymous"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #000;
+      }
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #0D0F12;
+      }
+      .scene {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="60.801"
+      data-width="1920"
+      data-height="1080"
+    >
+      <div
+        id="el-01-not-just-the-light"
+        class="scene"
+        data-composition-id="01-not-just-the-light"
+        data-composition-src="compositions/frames/01-not-just-the-light.html"
+        data-start="0"
+        data-duration="5.947"
+        data-track-index="0"
+      ></div>
+      <audio
+        id="el-01-not-just-the-light-voice"
+        src="assets/voice/01.wav"
+        data-start="0"
+        data-duration="5.547"
+        data-track-index="10"
+        data-volume="1"
+      ></audio>
+
+      <div
+        id="el-02-meet-the-studio"
+        class="scene"
+        data-composition-id="02-meet-the-studio"
+        data-composition-src="compositions/frames/02-meet-the-studio.html"
+        data-start="5.547"
+        data-duration="9.823"
+        data-track-index="1"
+      ></div>
+      <audio
+        id="el-02-meet-the-studio-voice"
+        src="assets/voice/02.wav"
+        data-start="5.547"
+        data-duration="9.323"
+        data-track-index="10"
+        data-volume="1"
+      ></audio>
+
+      <div
+        id="el-03-follow-the-signal"
+        class="scene"
+        data-composition-id="03-follow-the-signal"
+        data-composition-src="compositions/frames/03-follow-the-signal.html"
+        data-start="14.870000000000001"
+        data-duration="7.732"
+        data-track-index="0"
+      ></div>
+      <audio
+        id="el-03-follow-the-signal-voice"
+        src="assets/voice/03.wav"
+        data-start="14.870000000000001"
+        data-duration="7.232"
+        data-track-index="10"
+        data-volume="1"
+      ></audio>
+
+      <div
+        id="el-04-live-response"
+        class="scene"
+        data-composition-id="04-live-response"
+        data-composition-src="compositions/frames/04-live-response.html"
+        data-start="22.102"
+        data-duration="12.027"
+        data-track-index="1"
+      ></div>
+      <audio
+        id="el-04-live-response-voice"
+        src="assets/voice/04.wav"
+        data-start="22.102"
+        data-duration="11.627"
+        data-track-index="10"
+        data-volume="1"
+      ></audio>
+
+      <div
+        id="el-05-stage-and-3d"
+        class="scene"
+        data-composition-id="05-stage-and-3d"
+        data-composition-src="compositions/frames/05-stage-and-3d.html"
+        data-start="33.729"
+        data-duration="8.649"
+        data-track-index="0"
+      ></div>
+      <audio
+        id="el-05-stage-and-3d-voice"
+        src="assets/voice/05.wav"
+        data-start="33.729"
+        data-duration="8.149"
+        data-track-index="10"
+        data-volume="1"
+      ></audio>
+
+      <div
+        id="el-06-graph-health"
+        class="scene"
+        data-composition-id="06-graph-health"
+        data-composition-src="compositions/frames/06-graph-health.html"
+        data-start="41.878"
+        data-duration="9.339"
+        data-track-index="1"
+      ></div>
+      <audio
+        id="el-06-graph-health-voice"
+        src="assets/voice/06.wav"
+        data-start="41.878"
+        data-duration="8.939"
+        data-track-index="10"
+        data-volume="1"
+      ></audio>
+
+      <div
+        id="el-07-canvas-to-controller"
+        class="scene"
+        data-composition-id="07-canvas-to-controller"
+        data-composition-src="compositions/frames/07-canvas-to-controller.html"
+        data-start="50.817"
+        data-duration="9.984"
+        data-track-index="0"
+      ></div>
+      <audio
+        id="el-07-canvas-to-controller-voice"
+        src="assets/voice/07.wav"
+        data-start="50.817"
+        data-duration="9.984"
+        data-track-index="10"
+        data-volume="1"
+      ></audio>
+
+      <!-- BGM -->
+      <audio
+        id="el-bgm"
+        src="assets/bgm/track.wav"
+        data-start="0"
+        data-duration="60.801"
+        data-track-index="11"
+        data-volume="0.12"
+      ></audio>
+
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      window.__timelines["main"] = gsap.timeline({ paused: true });
+      // ── frame transitions (injected by transitions.mjs) ──
+      (function () { var tl = window.__timelines["main"];
+        tl.to("#el-01-not-just-the-light", { scale: 2.5, opacity: 0, filter: "blur(8px)", duration: 0.4, ease: "power3.in" }, 5.547);
+        tl.fromTo("#el-02-meet-the-studio", { scale: 0.5, opacity: 0, filter: "blur(8px)" }, { scale: 1, opacity: 1, filter: "blur(0px)", duration: 0.4, ease: "power3.out" }, 5.547);
+        tl.to("#el-02-meet-the-studio", { x: -1920, duration: 0.5, ease: "power3.inOut" }, 14.87);
+        tl.fromTo("#el-03-follow-the-signal", { x: 1920, opacity: 1 }, { x: 0, duration: 0.5, ease: "power3.inOut" }, 14.87);
+        tl.to("#el-03-follow-the-signal", { opacity: 0, duration: 0.5, ease: "power2.inOut" }, 22.102);
+        tl.fromTo("#el-04-live-response", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.inOut" }, 22.102);
+        tl.to("#el-04-live-response", { scaleX: 0, transformOrigin: "left center", duration: 0.4, ease: "power3.inOut" }, 33.729);
+        tl.fromTo("#el-05-stage-and-3d", { scaleX: 0, transformOrigin: "right center", opacity: 1 }, { scaleX: 1, transformOrigin: "right center", duration: 0.4, ease: "power3.inOut" }, 33.729);
+        tl.to("#el-05-stage-and-3d", { y: -1080, duration: 0.5, ease: "power3.inOut" }, 41.878);
+        tl.fromTo("#el-06-graph-health", { y: 1080, opacity: 1 }, { y: 0, duration: 0.5, ease: "power3.inOut" }, 41.878);
+        tl.to("#el-06-graph-health", { scale: 2.5, opacity: 0, filter: "blur(8px)", duration: 0.4, ease: "power3.in" }, 50.817);
+        tl.fromTo("#el-07-canvas-to-controller", { scale: 0.5, opacity: 0, filter: "blur(8px)" }, { scale: 1, opacity: 1, filter: "blur(0px)", duration: 0.4, ease: "power3.out" }, 50.817);
+        tl.to({}, { duration: 60.801 }, 0); // full-span anchor — main.duration() == composition total (Studio master duration)
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,38 @@
+<template>
+  <style>
+    @font-face{font-family:Inter;src:url('assets/fonts/Inter.ttf') format('truetype');font-weight:100 900}
+    @font-face{font-family:JetBrains;src:url('assets/fonts/JetBrainsMono.ttf') format('truetype');font-weight:100 900}
+    #root{position:relative;width:1920px;height:1080px;overflow:hidden;container-type:size;font-family:Inter,sans-serif;color:#e0e0e0}
+    .f05-bg{position:absolute;inset:0;background:#0d0f12}
+    .f05-word{position:absolute;left:78px;top:35px;font:800 170px/.88 Inter;letter-spacing:-.06em;color:#3333ff;text-transform:uppercase;z-index:1}
+    .f05-surface{position:absolute;left:164px;top:162px;width:1592px;height:652px;border:8px solid #e0e0e0;overflow:hidden;background:#161a1f;z-index:2;box-shadow:25px 25px 0 #0075a2,25px 25px 0 5px #e0e0e0}
+    .f05-shot{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.f05-three{opacity:0}
+    .f05-toggle{position:absolute;right:110px;top:84px;z-index:7;display:flex;align-items:center;gap:15px;background:#0d0f12;border:5px solid #e0e0e0;padding:12px 18px;font:700 23px JetBrains;letter-spacing:.08em}
+    .f05-switch{width:72px;height:34px;border:4px solid #e0e0e0;border-radius:999px;position:relative}.f05-knob{position:absolute;left:4px;top:4px;width:18px;height:18px;border-radius:50%;background:#5ad1ff}
+    .f05-qualities{position:absolute;left:174px;top:742px;z-index:8;display:flex;gap:18px}.f05-q{background:#0d0f12;border:5px solid #e0e0e0;padding:13px 20px;font:700 24px JetBrains;letter-spacing:.08em}.f05-q:nth-child(2){background:#3333ff}.f05-q:nth-child(3){background:#0075a2}
+    .f05-meta{position:absolute;right:164px;top:874px;font:500 21px JetBrains;color:#a0a0a0}
+  </style>
+  <div id="root" data-composition-id="05-stage-and-3d" data-width="1920" data-height="1080" data-duration="8.649">
+    <div id="f05-background" class="clip f05-bg" data-start="0" data-duration="8.649" data-track-index="0"></div>
+    <div id="f05-content" class="clip" data-start="0" data-duration="8.649" data-track-index="1">
+      <div class="f05-word">STAGE</div>
+      <div class="f05-surface"><img class="f05-shot f05-flat" src="assets/fresh-03-stage.png" alt="Fresh flat Stage preview" /><img class="f05-shot f05-three" src="assets/fresh-04-stage-3d.png" alt="Fresh 3D Stage preview" /></div>
+      <div class="f05-toggle"><span>3D</span><div class="f05-switch"><i class="f05-knob"></i></div></div>
+      <div class="f05-qualities"><div class="f05-q">DEPTH</div><div class="f05-q">MOTION</div><div class="f05-q">COMPOSITION</div></div>
+      <div class="f05-meta">FULL-SCALE PERFORMANCE VIEW</div>
+    </div>
+  </div>
+  <script>
+    window.__timelines=window.__timelines||{};
+    const tl=gsap.timeline({paused:true});
+    tl.fromTo('.f05-surface',{opacity:0,y:36,scale:.97},{opacity:1,y:0,scale:1,duration:.65,ease:'power3.out'},0)
+      .fromTo('.f05-word',{opacity:0,x:-80},{opacity:1,x:0,duration:.75,ease:'power3.out'},.25)
+      .fromTo('.f05-toggle',{opacity:0,x:35},{opacity:1,x:0,duration:.5,ease:'power3.out'},2.25)
+      .to('.f05-knob',{x:38,duration:.42,ease:'power3.out'},2.8)
+      .to('.f05-flat',{opacity:0,duration:.5,ease:'power2.inOut'},2.8)
+      .to('.f05-three',{opacity:1,duration:.5,ease:'power2.inOut'},2.8)
+      .fromTo('.f05-q',{opacity:0,y:24},{opacity:1,y:0,duration:.48,stagger:.72,ease:'power3.out'},4.55)
+      .fromTo('.f05-meta',{opacity:0},{opacity:1,duration:.55,ease:'power2.out'},7.15);
+    window.__timelines['05-stage-and-3d']=tl;
+  </script>
+</template>

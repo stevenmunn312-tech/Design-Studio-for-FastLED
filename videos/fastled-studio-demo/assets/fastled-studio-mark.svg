@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Design Studio pixel mark created for this video">
+  <rect width="120" height="120" fill="#0D0F12"/>
+  <g stroke="#E0E0E0" stroke-width="2">
+    <rect x="10" y="10" width="20" height="20" fill="#3333FF"/><rect x="35" y="10" width="20" height="20" fill="#5656FF"/><rect x="60" y="10" width="20" height="20" fill="#0075A2"/><rect x="85" y="10" width="20" height="20" fill="#5AD1FF"/>
+    <rect x="10" y="35" width="20" height="20" fill="#5656FF"/><rect x="35" y="35" width="20" height="20" fill="#0075A2"/><rect x="60" y="35" width="20" height="20" fill="#5AD1FF"/><rect x="85" y="35" width="20" height="20" fill="#3333FF"/>
+    <rect x="10" y="60" width="20" height="20" fill="#0075A2"/><rect x="35" y="60" width="20" height="20" fill="#5AD1FF"/><rect x="60" y="60" width="20" height="20" fill="#3333FF"/><rect x="85" y="60" width="20" height="20" fill="#5656FF"/>
+    <rect x="10" y="85" width="20" height="20" fill="#5AD1FF"/><rect x="35" y="85" width="20" height="20" fill="#3333FF"/><rect x="60" y="85" width="20" height="20" fill="#5656FF"/><rect x="85" y="85" width="20" height="20" fill="#0075A2"/>
+  </g>
+</svg>
