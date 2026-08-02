@@ -1,6 +1,12 @@
+import type { GifRecordStyle } from './gifRasterizer'
+
 export interface WorkerGifOptions {
   width: number
   height: number
+  gridW: number
+  gridH: number
+  scale: number
+  style: GifRecordStyle
   delayCs: number
   frameCount: number
   frameAt: (index: number) => Uint8ClampedArray
@@ -39,11 +45,11 @@ export function encodeGifInWorker(options: WorkerGifOptions): Promise<Blob | nul
         finish(null)
         return
       }
-      const rgba = options.frameAt(nextFrame++)
+      const rgb = options.frameAt(nextFrame++)
       const final = nextFrame >= options.frameCount
       if (final) options.onFinalizing?.()
-      const buffer = rgba.buffer as ArrayBuffer
-      worker.postMessage({ type: 'frame', rgba: buffer, final }, [buffer])
+      const buffer = rgb.buffer as ArrayBuffer
+      worker.postMessage({ type: 'frame', rgb: buffer, final }, [buffer])
     }
 
     worker.onerror = (event) => finish(null, new Error(event.message || 'GIF encoding worker failed'))
@@ -70,6 +76,10 @@ export function encodeGifInWorker(options: WorkerGifOptions): Promise<Blob | nul
       type: 'start',
       width: options.width,
       height: options.height,
+      gridW: options.gridW,
+      gridH: options.gridH,
+      scale: options.scale,
+      style: options.style,
       delayCs: options.delayCs,
     })
   })

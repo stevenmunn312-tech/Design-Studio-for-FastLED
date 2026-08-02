@@ -59,6 +59,10 @@ describe('encodeGifInWorker', () => {
     const gif = await encodeGifInWorker({
       width: 2,
       height: 2,
+      gridW: 1,
+      gridH: 1,
+      scale: 2,
+      style: 'pixels',
       delayCs: 5,
       frameCount: 3,
       frameAt,
@@ -83,6 +87,10 @@ describe('encodeGifInWorker', () => {
     const bytes = await encodeGifInWorker({
       width: 2,
       height: 2,
+      gridW: 1,
+      gridH: 1,
+      scale: 2,
+      style: 'pixels',
       delayCs: 5,
       frameCount: 3,
       frameAt,

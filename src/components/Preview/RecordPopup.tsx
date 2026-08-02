@@ -147,16 +147,16 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
     const frames = await captureFrames()
     if (!frames) return
     setPhase('encoding')
-    const { ctx } = makeCanvas()
     const gif = await encodeGifInWorker({
       width: outW,
       height: outH,
+      gridW,
+      gridH,
+      scale: effScale,
+      style,
       delayCs: Math.round(100 / fps),
       frameCount: frames.length,
-      frameAt: (index) => {
-        drawCapturedFrame(ctx, frames[index], gridW, gridH, effScale, style)
-        return ctx.getImageData(0, 0, outW, outH).data
-      },
+      frameAt: (index) => frames[index],
       onProgress: (done, total) => setProgress({ done, total }),
       onFinalizing: () => setPhase('finalizing'),
       isCancelled: () => cancelRef.current,
