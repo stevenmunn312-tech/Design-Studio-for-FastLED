@@ -17,6 +17,8 @@ import type { SavedPattern } from './patternLibrary'
 import { NODE_LIBRARY } from './nodeLibrary'
 import { bandsToSpectrum } from './showAudio'
 import { buildGraphDiagnostics, type GraphDiagnostic } from '../utils/validateGraph'
+import { isPatternContentTrusted, patternNeedsTrust } from './patternTrust'
+import { promptPatternTrust } from '../utils/trustPrompt'
 import { yieldToUi } from '../components/Preview/recordCapture'
 import { create } from 'zustand'
 
@@ -42,6 +44,8 @@ export interface PatternRating {
   /** Set when the pattern could not be rendered/scored (see `error`). */
   failed?: boolean
   error?: string
+  /** Set when the user declined to trust the pattern, so it was never run. */
+  skipped?: boolean
 }
 
 interface PatternRatingState {
@@ -506,6 +510,11 @@ function copyFrame(frame: Frame): Frame {
  *  for tests. */
 export async function captureWindows(
   saved: SavedPattern, w: number, h: number, groups: GroupRegistry,
+  // Whether this pattern's Formula/Code nodes may run — resolved by the caller
+  // (`ratePattern`) from the content-addressed trust store, plus the user's
+  // answer to the trust prompt. Passed through rather than hardcoded so a
+  // declined pattern renders blank even if it somehow reaches here.
+  trusted = true,
 ): Promise<Frame[][]> {
   const groupId = `__rate_group_${saved.id}`
   const prefix = `__rate_${rateSerial++}/`
@@ -523,7 +532,7 @@ export async function captureWindows(
     try {
       rendered = evaluateGraph(
         saved.subgraph.nodes, saved.subgraph.edges, tick, w, h, registry,
-        prefix, new Set([groupId]), roles, override, true,
+        prefix, new Set([groupId]), roles, override, trusted,
       )
     } catch {
       rendered = null
@@ -552,6 +561,9 @@ export interface RateOptions {
   gridH: number
   groups: GroupRegistry
   onProgress?: (done: number, total: number) => void
+  /** Asks the user whether an untrusted pattern may run its Formula/Code nodes.
+   *  Defaults to the real dialog; injectable so tests don't need the UI store. */
+  confirmTrust?: (saved: SavedPattern) => Promise<boolean>
 }
 
 // In-session memo so reopening the popup doesn't recompute unchanged patterns.
@@ -576,13 +588,33 @@ export async function ratePattern(saved: SavedPattern, opts: RateOptions): Promi
     return cached
   }
 
+  // Rating runs the pattern, so it has to clear the same trust boundary the
+  // live preview does. Curated bundled patterns ship with the app and are
+  // trusted by definition; anything else is checked against the
+  // content-addressed trust store, and the user is asked only when running it
+  // would actually execute gated Formula/Code logic.
+  let trusted = saved.bundled || isPatternContentTrusted(saved.subgraph)
+  if (!trusted && patternNeedsTrust(saved.subgraph, opts.groups)) {
+    trusted = await (opts.confirmTrust ?? promptPatternTrust)(saved)
+    if (!trusted) {
+      const skipped: PatternRating = {
+        patternId: saved.id, name: saved.name, bundled: !!saved.bundled,
+        overall: 0, criteria: [], audioReactive: false, skipped: true,
+      }
+      // Deliberately not cached: a skip is "not now", so reopening the ratings
+      // popup asks again rather than leaving an unrateable card for the session.
+      usePatternRatingStore.getState().publish(key, skipped)
+      return skipped
+    }
+  }
+
   let rating: PatternRating
   try {
     // Logged before the (synchronous, un-interruptible) render so that if a
     // pathological pattern hangs the tab, the last line in the console names it.
     console.debug(`[patternRating] rating "${saved.name}"`)
     const startedAt = performance.now()
-    const windows = await captureWindows(saved, opts.gridW, opts.gridH, opts.groups)
+    const windows = await captureWindows(saved, opts.gridW, opts.gridH, opts.groups, trusted)
     const elapsed = performance.now() - startedAt
     if (elapsed > 3000) console.warn(`[patternRating] "${saved.name}" took ${Math.round(elapsed)}ms to render — consider simplifying it`)
     const diagnostics = buildGraphDiagnostics(saved.subgraph.nodes, saved.subgraph.edges, { target: 'group' })

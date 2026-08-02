@@ -250,7 +250,8 @@
 }
 
 .audioTag,
-.bundledTag {
+.bundledTag,
+.skippedTag {
   flex-shrink: 0;
   padding: 2px 8px;
   border-radius: 999px;
@@ -270,6 +271,14 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-secondary);
+}
+
+/* Untrusted pattern the user declined to run — amber, matching the `ok` tier
+   the card border uses, so it reads as "unresolved" rather than "bad". */
+.skippedTag {
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  background: rgba(251, 191, 36, 0.1);
+  color: var(--warn, #fbbf24);
 }
 
 .overall {
