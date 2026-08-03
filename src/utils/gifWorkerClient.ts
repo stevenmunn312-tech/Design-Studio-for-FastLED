@@ -1,14 +1,10 @@
-import type { RecordRasterStyle } from './recordRasterizer'
-
 export interface WorkerGifOptions {
   width: number
   height: number
-  gridW: number
-  gridH: number
-  scale: number
-  style: RecordRasterStyle
   delayCs: number
   frameCount: number
+  /** Rasterise frame `index` to opaque RGBA at width×height. Called on the main
+   *  thread (the renderers need a real canvas), one frame at a time. */
   frameAt: (index: number) => Uint8ClampedArray
   onProgress?: (done: number, total: number) => void
   onFinalizing?: () => void
@@ -45,11 +41,11 @@ export function encodeGifInWorker(options: WorkerGifOptions): Promise<Blob | nul
         finish(null)
         return
       }
-      const rgb = options.frameAt(nextFrame++)
+      const rgba = options.frameAt(nextFrame++)
       const final = nextFrame >= options.frameCount
       if (final) options.onFinalizing?.()
-      const buffer = rgb.buffer as ArrayBuffer
-      worker.postMessage({ type: 'frame', rgb: buffer, final }, [buffer])
+      const buffer = rgba.buffer as ArrayBuffer
+      worker.postMessage({ type: 'frame', rgba: buffer, final }, [buffer])
     }
 
     worker.onerror = (event) => finish(null, new Error(event.message || 'GIF encoding worker failed'))
@@ -76,10 +72,6 @@ export function encodeGifInWorker(options: WorkerGifOptions): Promise<Blob | nul
       type: 'start',
       width: options.width,
       height: options.height,
-      gridW: options.gridW,
-      gridH: options.gridH,
-      scale: options.scale,
-      style: options.style,
       delayCs: options.delayCs,
     })
   })

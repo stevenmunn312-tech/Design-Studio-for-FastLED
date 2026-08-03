@@ -2,11 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
+import { useShowPlayback } from '../../state/showPlayback'
 import { outputRoutes } from '../../state/outputRouting'
 import { latestStreamFrameCopy } from '../../state/streamStore'
 import { encodeGifInWorker } from '../../utils/gifWorkerClient'
-import { rasterizeRecordedFrame, type RecordRasterStyle } from '../../utils/recordRasterizer'
+import { createRecordRenderer, type RecordRasterStyle } from './recordRenderer'
+import { previewStyleLabel, type PreviewStyle } from './previewStyles'
 import { captureSequence, gifScaleLimit, loopBlendFrames } from './recordCapture'
+import { liveAudioAvailable, recordAudioTimeline, type RecordedAudioFrame } from './recordAudio'
 import { graphConsumesAudio } from './previewAudioUsage'
 import styles from './RecordPopup.module.css'
 
@@ -15,11 +18,15 @@ import styles from './RecordPopup.module.css'
 // seamless-loop options. Opened from the preview header's Record button.
 
 type RecordFormat = 'png' | 'gif' | 'webm'
-type Phase = 'idle' | 'rendering' | 'encoding' | 'finalizing' | 'recording' | 'done' | 'error'
+type Phase = 'idle' | 'listening' | 'rendering' | 'encoding' | 'finalizing' | 'recording' | 'done' | 'error'
 
 const FPS_CHOICES = [10, 15, 20, 25, 30, 50]
 const MAX_OUTPUT_PX = 2048
 const MAX_DURATION_SEC = 30
+// Enough for the slowest settling simulations (Reaction-Diffusion, Game of
+// Life, long Trails decays) to leave their blank boot state, without making a
+// short clip feel like it hangs before the progress bar moves.
+const WARMUP_SEC = 2
 
 function pickWebmMime(): string | null {
   if (typeof MediaRecorder === 'undefined') return null
@@ -48,16 +55,27 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
   const routeKey = useGraphStore((s) => JSON.stringify(outputRoutes(s.nodes).map((route) => ({ id: route.id, width: route.width, height: route.height }))))
   const routes = JSON.parse(routeKey) as Array<{ id: string; width: number; height: number }>
   const route = routes.find((candidate) => candidate.id === previewOutputId) ?? routes[0]
-  const gridW = Math.max(2, Math.min(64, route?.width ?? 16))
-  const gridH = Math.max(2, Math.min(64, route?.height ?? 16))
+  // Clamp to 1, not 2, exactly as LEDPreview does: a strip layout is a real
+  // 1-row frame, and padding the grid to 2 here appended a permanently black
+  // phantom row to every export (the same clamped-vs-actual dimension mistake
+  // that once silently broke live streaming to 1-row strips).
+  const gridW = Math.max(1, Math.min(64, route?.width ?? 16))
+  const gridH = Math.max(1, Math.min(64, route?.height ?? 16))
   const audioReactive = useGraphStore((s) => graphConsumesAudio(s.nodes, s.edges))
+  // The recorder renders through the preview's own renderers, so it needs the
+  // same effective style the canvas is using — including UI FX being off.
+  const uiEffectsEnabled = useUiStore((s) => s.uiEffectsEnabled)
+  const rawPreviewStyle = useUiStore((s) => s.previewStyle)
+  const previewStyle: PreviewStyle = uiEffectsEnabled ? rawPreviewStyle : 'standard'
 
   const [format, setFormat] = useState<RecordFormat>('gif')
-  const [style, setStyle] = useState<RecordRasterStyle>('leds')
+  const [style, setStyle] = useState<RecordRasterStyle>('preview')
   const [durationSec, setDurationSec] = useState(6)
   const [fps, setFps] = useState(30)
   const [scale, setScale] = useState(12)
   const [loop, setLoop] = useState(true)
+  const [warmup, setWarmup] = useState(true)
+  const [captureAudio, setCaptureAudio] = useState(true)
   const [phase, setPhase] = useState<Phase>('idle')
   const [progress, setProgress] = useState({ done: 0, total: 1 })
   const [error, setError] = useState<string | null>(null)
@@ -84,7 +102,13 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
   const outW = gridW * effScale
   const outH = gridH * effScale
   const animated = format !== 'png'
-  const busy = phase === 'rendering' || phase === 'encoding' || phase === 'finalizing' || phase === 'recording'
+  const busy = phase === 'listening' || phase === 'rendering' || phase === 'encoding' || phase === 'finalizing' || phase === 'recording'
+  // Listening only makes sense for an animated clip whose graph reacts to audio
+  // that is actually coming in. With the mic off, the evaluator's silent /
+  // test-signal fallbacks are already deterministic, so there is nothing to
+  // record and no reason to make the user wait for it.
+  const canCaptureAudio = animated && audioReactive && liveAudioAvailable()
+  const listenSec = Math.round(((totalFrames + (loop ? loopBlendFrames(totalFrames, fps) : 0)) / fps) * 10) / 10
 
   const makeCanvas = (): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } => {
     const canvas = document.createElement('canvas')
@@ -95,10 +119,32 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
     return { canvas, ctx }
   }
 
+  const makeRenderer = (rasterScale = effScale, w = gridW, h = gridH) =>
+    createRecordRenderer({ gridW: w, gridH: h, scale: rasterScale, style, previewStyle })
+
+  /** Listen in real time first, so the offline render has a live-audio track to
+   *  replay instead of resampling one frozen instant for every frame. */
+  const listenForAudio = async (): Promise<RecordedAudioFrame[] | null | undefined> => {
+    if (!canCaptureAudio || !captureAudio) return undefined
+    setPhase('listening')
+    const frameCount = totalFrames + (loop ? loopBlendFrames(totalFrames, fps) : 0)
+    return recordAudioTimeline({
+      fps,
+      frameCount,
+      onProgress: (elapsedMs, totalMs) => setProgress({ done: Math.round(elapsedMs), total: Math.round(totalMs) }),
+      isCancelled: () => cancelRef.current,
+    })
+  }
+
   const captureFrames = async () => {
+    const audioTimeline = await listenForAudio()
+    // A cancelled listen returns null; undefined just means we never listened.
+    if (audioTimeline === null) return null
     setPhase('rendering')
     const { nodes, edges, trusted } = useGraphStore.getState()
+    const playback = useShowPlayback.getState()
     return captureSequence({
+      audioTimeline,
       nodes,
       edges,
       groups: getGroupRegistry(),
@@ -109,6 +155,8 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
       fps,
       durationSec,
       seamlessLoop: loop,
+      warmupSec: warmup ? WARMUP_SEC : 0,
+      showPlayback: playback.show ? playback : null,
       onProgress: (done, total) => setProgress({ done, total }),
       isCancelled: () => cancelRef.current,
     })
@@ -122,22 +170,31 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
     let live = latestStreamFrameCopy()
     if (!live) {
       const { nodes, edges, trusted } = useGraphStore.getState()
+      const playback = useShowPlayback.getState()
       const frames = await captureSequence({
         nodes, edges, groups: getGroupRegistry(), trusted,
         gridW, gridH, outputId: route?.id, fps: 1, durationSec: 1, seamlessLoop: false,
+        warmupSec: warmup ? WARMUP_SEC : 0,
+        showPlayback: playback.show ? playback : null,
         isCancelled: () => cancelRef.current,
       })
       if (!frames) return
       live = { bytes: frames[0], width: gridW, height: gridH }
     }
-    const scale = Math.min(effScale, Math.max(2, Math.floor(MAX_OUTPUT_PX / Math.max(live.width, live.height))))
+    const pngScale = Math.min(effScale, Math.max(1, Math.floor(MAX_OUTPUT_PX / Math.max(live.width, live.height))))
+    setPhase('finalizing')
+    const renderer = makeRenderer(pngScale, live.width, live.height)
+    let rgba: Uint8ClampedArray
+    try {
+      rgba = renderer.render(live.bytes)
+    } finally {
+      renderer.dispose()
+    }
     const canvas = document.createElement('canvas')
-    canvas.width = live.width * scale
-    canvas.height = live.height * scale
+    canvas.width = live.width * pngScale
+    canvas.height = live.height * pngScale
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Could not create an export canvas')
-    setPhase('finalizing')
-    const rgba = rasterizeRecordedFrame(live.bytes, live.width, live.height, scale, style)
     ctx.putImageData(new ImageData(rgba, canvas.width, canvas.height), 0, 0)
     canvas.toBlob((blob) => {
       if (!blob) { setPhase('error'); setError('PNG encoding failed in this browser.'); return }
@@ -150,20 +207,22 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
     const frames = await captureFrames()
     if (!frames) return
     setPhase('encoding')
-    const gif = await encodeGifInWorker({
-      width: outW,
-      height: outH,
-      gridW,
-      gridH,
-      scale: effScale,
-      style,
-      delayCs: Math.round(100 / fps),
-      frameCount: frames.length,
-      frameAt: (index) => frames[index],
-      onProgress: (done, total) => setProgress({ done, total }),
-      onFinalizing: () => setPhase('finalizing'),
-      isCancelled: () => cancelRef.current,
-    })
+    const renderer = makeRenderer()
+    let gif: Blob | null
+    try {
+      gif = await encodeGifInWorker({
+        width: outW,
+        height: outH,
+        delayCs: Math.round(100 / fps),
+        frameCount: frames.length,
+        frameAt: (index) => renderer.render(frames[index]),
+        onProgress: (done, total) => setProgress({ done, total }),
+        onFinalizing: () => setPhase('finalizing'),
+        isCancelled: () => cancelRef.current,
+      })
+    } finally {
+      renderer.dispose()
+    }
     if (!gif) return
     downloadBlob(gif, exportFilename('gif'))
     setPhase('done')
@@ -181,9 +240,9 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
     const recorder = new MediaRecorder(stream, { mimeType: webmMime, videoBitsPerSecond: 8_000_000 })
     const chunks: BlobPart[] = []
     recorder.ondataavailable = (event) => { if (event.data.size > 0) chunks.push(event.data) }
+    const renderer = makeRenderer()
     const drawWebmFrame = (frame: Uint8ClampedArray) => {
-      const rgba = rasterizeRecordedFrame(frame, gridW, gridH, effScale, style)
-      ctx.putImageData(new ImageData(rgba, outW, outH), 0, 0)
+      ctx.putImageData(new ImageData(renderer.render(frame), outW, outH), 0, 0)
     }
 
     const blob = await new Promise<Blob | null>((resolve) => {
@@ -216,6 +275,7 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
       }
       setTimeout(tick, 1000 / fps / 2)
     })
+    renderer.dispose()
 
     if (!blob) {
       if (!cancelRef.current) throw new Error('WebM recording failed in this browser.')
@@ -245,7 +305,9 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
     setPhase('idle')
   }
 
-  const phaseLabel = phase === 'rendering'
+  const phaseLabel = phase === 'listening'
+    ? `Listening to audio… ${Math.max(0, Math.ceil((progress.total - progress.done) / 1000))}s left — keep the music playing`
+    : phase === 'rendering'
     ? `Rendering frames… ${progress.done}/${progress.total}`
     : phase === 'encoding'
       ? `Encoding GIF… ${progress.done}/${progress.total}`
@@ -290,12 +352,12 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
           <div className={styles.segmented}>
             <button
               type="button"
-              className={`${styles.segment} ${style === 'leds' ? styles.segmentActive : ''}`}
-              onClick={() => setStyle('leds')}
+              className={`${styles.segment} ${style === 'preview' ? styles.segmentActive : ''}`}
+              onClick={() => setStyle('preview')}
               disabled={busy}
-              title="The preview's LED-disc look with glow"
+              title={`Rendered through the live preview's own renderer — currently ${previewStyleLabel(previewStyle)}`}
             >
-              LED look
+              Match preview
             </button>
             <button
               type="button"
@@ -308,6 +370,13 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
             </button>
           </div>
         </div>
+
+        {style === 'preview' && (
+          <div className={styles.meta}>
+            Using the preview style <strong>{previewStyleLabel(previewStyle)}</strong>
+            {!uiEffectsEnabled ? ' (UI FX are off)' : ''} — change it in the preview header to change the export.
+          </div>
+        )}
 
         {animated && (
           <>
@@ -375,6 +444,35 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
           </label>
         )}
 
+        <label className={styles.checkRow}>
+          <input
+            type="checkbox"
+            checked={warmup}
+            onChange={(e) => setWarmup(e.target.checked)}
+            disabled={busy}
+          />
+          Warm up simulations
+          <span className={styles.hint}>
+            render {WARMUP_SEC}s first so fire, trails and particles start settled, not blank
+          </span>
+        </label>
+
+        {canCaptureAudio && (
+          <label className={styles.checkRow}>
+            <input
+              type="checkbox"
+              checked={captureAudio}
+              onChange={(e) => setCaptureAudio(e.target.checked)}
+              disabled={busy}
+            />
+            Capture live audio
+            <span className={styles.hint}>
+              listen for {listenSec}s first, then render against that — without it every frame
+              samples the same instant and the reaction comes out frozen
+            </span>
+          </label>
+        )}
+
         <div className={styles.meta}>
           {outW}×{outH}px{animated ? ` · ${totalFrames} frames @ ${fps} fps` : ' · current frame'}
           {format === 'gif' && fps > 50 ? ' · GIF timing rounds to 10 ms steps' : ''}
@@ -382,9 +480,10 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
         {format === 'gif' && maxScale < dimensionMaxScale && (
           <div className={styles.meta}>GIF scale is capped for this frame count to keep finalization reliable.</div>
         )}
-        {audioReactive && animated && (
+        {audioReactive && animated && !canCaptureAudio && (
           <div className={styles.meta}>
-            ♪ Audio-reactive nodes are captured with the microphone levels at render time — for a synced clip, keep the music playing while exporting.
+            ♪ This graph reacts to audio, but no live input is running — start the mic before
+            exporting, or the clip records the silent / test-signal fallback.
           </div>
         )}
         {loopNote && <div className={styles.meta}>{loopNote}</div>}

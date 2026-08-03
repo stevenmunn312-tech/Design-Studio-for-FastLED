@@ -151,4 +151,67 @@ describe('captureSequence', () => {
     // The idle animation is never fully black.
     expect(frames![0].some((v) => v > 0)).toBe(true)
   })
+
+  it('sizes frames from the route, so a 1-row strip has no phantom second row', async () => {
+    const { nodes, edges } = solidGraph(255, 255, 255, { width: 10, height: 1 })
+    const frames = await captureSequence({
+      nodes, edges, groups: {}, trusted: true,
+      gridW: 10, gridH: 1, fps: 10, durationSec: 0.2, seamlessLoop: false,
+    })
+
+    // 10 LEDs × 3 bytes — not 20 with a black row appended.
+    expect(frames![0]).toHaveLength(10 * 3)
+    expect([...frames![0]].every((v) => v > 0)).toBe(true)
+  })
+
+  it('drives audio-reactive nodes from the recorded timeline, not the frozen live store', async () => {
+    // The mock store is silent, so any reaction can only come from the timeline.
+    const nodes = [
+      node('fft', 'FFTAnalyzer', 'audio'),
+      node('mic', 'MicInput', 'input'),
+      node('bars', 'SpectrumBars', 'pattern'),
+      node('out', 'MatrixOutput', 'output', { width: 8, height: 8, brightness: 255 }),
+    ]
+    const edges = [
+      edge('e1', 'mic', 'audio', 'fft', 'audio'),
+      edge('e2', 'fft', 'bass', 'bars', 'bass'),
+      edge('e3', 'fft', 'mids', 'bars', 'mids'),
+      edge('e4', 'fft', 'treble', 'bars', 'treble'),
+      edge('e5', 'bars', 'frame', 'out', 'frame'),
+    ]
+    const audioFrame = (level: number) => ({
+      active: true, micActive: true, beat: false, bpm: 120,
+      bass: level, mids: level, treble: level,
+      micBass: level, micMids: level, micTreble: level,
+      spectrum: Array(32).fill(level), detectorSpectrum: Array(32).fill(level),
+      implicitConnection: false as const,
+    })
+
+    const frames = await captureSequence({
+      nodes, edges, groups: {}, trusted: true,
+      gridW: 8, gridH: 8, fps: 10, durationSec: 0.2, seamlessLoop: false,
+      audioTimeline: [audioFrame(0), audioFrame(1)],
+    })
+
+    const lit = (frame: Uint8ClampedArray) => [...frame].reduce((sum, v) => sum + v, 0)
+    // Silence renders nothing; full level renders bars. A frozen live store
+    // would have produced two identical (dark) frames.
+    expect(lit(frames![0])).toBe(0)
+    expect(lit(frames![1])).toBeGreaterThan(0)
+  })
+
+  it('discards warm-up frames but leaves the clip starting on a whole frame', async () => {
+    const { nodes, edges } = solidGraph(255, 0, 0)
+    const seen: number[] = []
+    const frames = await captureSequence({
+      nodes, edges, groups: {}, trusted: true,
+      gridW: 8, gridH: 8, fps: 10, durationSec: 0.5, seamlessLoop: false,
+      warmupSec: 0.3,
+      onProgress: (done, total) => { seen.push(done); expect(total).toBe(8) },
+    })
+
+    // 3 warm-up + 5 recorded frames rendered; only the 5 are returned.
+    expect(seen).toHaveLength(8)
+    expect(frames).toHaveLength(5)
+  })
 })

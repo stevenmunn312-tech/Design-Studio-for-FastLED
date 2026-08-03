@@ -198,8 +198,16 @@ export class WebGLLEDRenderer {
   private lastDiffusion = false
   private destroyed = false
 
-  constructor(canvas: HTMLCanvasElement) {
-    const gl = canvas.getContext('webgl', { antialias: false, powerPreference: 'high-performance' })
+  // `preserveDrawingBuffer` is only for the preview recorder, which reads the
+  // rendered canvas back (drawImage → getImageData) after each draw. The live
+  // preview leaves it off: the browser is free to discard the buffer at
+  // composite time, which is cheaper and is all the on-screen path needs.
+  constructor(canvas: HTMLCanvasElement, opts: { preserveDrawingBuffer?: boolean } = {}) {
+    const gl = canvas.getContext('webgl', {
+      antialias: false,
+      powerPreference: 'high-performance',
+      preserveDrawingBuffer: opts.preserveDrawingBuffer === true,
+    })
     if (!gl) throw new Error('WebGL unavailable')
     this.gl = gl
 

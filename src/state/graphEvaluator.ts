@@ -4175,6 +4175,13 @@ export interface AudioOverride {
   micTreble: number
   spectrum: number[]
   detectorSpectrum: number[]
+  /** Whether the override itself counts as an audio connection, so an *unwired*
+   *  analysis node still reads it. True (the default) for show playback, where
+   *  the song is the implicit source and there is no cable to draw. False for
+   *  the preview recorder, which replays the same live mic the canvas is
+   *  reading — there, an unwired node must stay unwired or the export would
+   *  light up nodes the preview leaves dark. */
+  implicitConnection?: boolean
 }
 
 function semanticAudioInputs(audio: Pick<AudioOverride, 'micBass' | 'micMids' | 'micTreble'>): Record<string, PortValue> {
@@ -4285,6 +4292,10 @@ function createEvalNode(
   // State maps are module-level and keyed by node id; prefix with the group
   // instance path so two instances of the same group don't share state.
   const stateKey = (id: string) => markStateUsed(instancePrefix + id)
+
+  // See AudioOverride.implicitConnection: an override normally stands in for a
+  // wire (the show's song), but the recorder's mic replay must not.
+  const overrideIsAudioSource = audioOverride !== null && audioOverride.implicitConnection !== false
 
   const { nodeMap, incoming } = shared ?? buildEvalMaps(nodes, edges)
 
@@ -4451,7 +4462,7 @@ function createEvalNode(
 
       case 'FFTAnalyzer': {
         const audio = audioOverride ?? useAudioStore.getState()
-        const audioConnected = audioOverride !== null || input(id, 'audio', null) !== null
+        const audioConnected = overrideIsAudioSource || input(id, 'audio', null) !== null
         // No live audio source → no signal, unless the Test Signal toggle is on
         // (a synthetic oscillation for previewing motion without a microphone).
         // It's off by default so unwired/grouped patterns aren't driven into
@@ -4511,7 +4522,7 @@ function createEvalNode(
       case 'BeatDetect': {
         const key = stateKey(id)
         const audio = audioOverride ?? useAudioStore.getState()
-        const audioConnected = audioOverride !== null || input(id, 'audio', null) !== null
+        const audioConnected = overrideIsAudioSource || input(id, 'audio', null) !== null
         if (audioConnected && audio.active && audio.nativeFastLed === true) {
           // Live microphone audio has already passed through FastLED's native
           // Beat detector. Preserve the baked/SD override path below, which
@@ -4578,7 +4589,7 @@ function createEvalNode(
         const decay = Math.max(0, Math.min(0.98, Number(props.decay ?? 0.72)))
         const separation = normProp(props.separation, 0.4)
         const audio = audioOverride ?? useAudioStore.getState()
-        const audioConnected = audioOverride !== null || input(id, 'audio', null) !== null
+        const audioConnected = overrideIsAudioSource || input(id, 'audio', null) !== null
         if (audioConnected && audio.active) {
           const spectrum = (audio.detectorSpectrum ?? audio.spectrum ?? []).map((v) => clamp01(Number(v) || 0))
           const prev = percussionLevels.get(key) ?? {
@@ -4646,7 +4657,7 @@ function createEvalNode(
         const gate = normProp(props.gate, 0.12)
         const smoothing = Math.max(0, Math.min(0.95, Number(props.smoothing ?? 0.8)))
         const audio = audioOverride ?? useAudioStore.getState()
-        const audioConnected = audioOverride !== null || input(id, 'audio', null) !== null
+        const audioConnected = overrideIsAudioSource || input(id, 'audio', null) !== null
         if (audioConnected && audio.active) {
           const spectrum = (audio.detectorSpectrum ?? audio.spectrum ?? []).map((v) => clamp01(Number(v) || 0))
           const prev = audioFeatureLevels.get(key) ?? {
@@ -5112,7 +5123,7 @@ function createEvalNode(
 
       case 'SpectrumVisualizer': {
         const audio = audioOverride ?? useAudioStore.getState()
-        const audioConnected = audioOverride !== null || input(id, 'audio', null) !== null
+        const audioConnected = overrideIsAudioSource || input(id, 'audio', null) !== null
         const hasLiveAudio = audioConnected && Boolean(audio.active || audio.micActive)
         const previewAudio = audio as AudioOverride & { previewSpectrum?: number[] }
         const spectrum = hasLiveAudio

@@ -2,6 +2,9 @@ import { evaluateGraph, type Frame, type GroupRegistry } from '../../state/graph
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import { idleFrame } from './idleFrame'
 import { compositionDims, outputRoutes, routeFrame } from '../../state/outputRouting'
+import { applyShowPlaybackSignal } from './showPlaybackSignal'
+import type { RecordedAudioFrame } from './recordAudio'
+import type { ShowFile } from '../../types/showFile'
 
 // Offline capture engine for the preview recorder: evaluates the graph
 // deterministically from t = 0 at the chosen capture fps — independent of the
@@ -10,6 +13,20 @@ import { compositionDims, outputRoutes, routeFrame } from '../../state/outputRou
 // double-advanced (the same isolation trick evaluateScalarSeries and the show
 // preview use). Each rendered frame is copied to packed RGB bytes immediately,
 // because evaluator frames are pooled and recycled between passes.
+//
+// The per-frame pipeline mirrors LEDPreview's render loop step for step —
+// evaluate on the shared composition canvas, route into the selected output,
+// apply the master brightness, then the show-playback overlay — so a recording
+// cannot show something the live matrix never did.
+
+/** Mirrors the shape LEDPreview reads out of `showPlayback`, minus the live
+ *  position: an offline capture advances that on its own clock. */
+export interface CaptureShowPlayback {
+  nodeId: string | null
+  show: ShowFile | null
+  posMs: number
+  useGroupInputs: boolean
+}
 
 export interface CaptureOptions {
   nodes: StudioNode[]
@@ -24,6 +41,17 @@ export interface CaptureOptions {
   /** Crossfade the opening frames into the frames past the end so the
    *  animation wraps without a visible cut. */
   seamlessLoop: boolean
+  /** Seconds of frames to render and discard before the clip starts, so
+   *  simulation nodes (Fire, Trails, Particles, Game of Life, …) are in a
+   *  settled state at frame 0 rather than the blank one they hold at boot. */
+  warmupSec?: number
+  /** A show the preview is currently overlaying (PerformanceGenerator's
+   *  "Show in main LED preview"). Its `posMs` is the clip's start position. */
+  showPlayback?: CaptureShowPlayback | null
+  /** One pre-recorded live-audio frame per captured frame (see recordAudio.ts).
+   *  Without it the evaluator reads the mic store directly, which an offline
+   *  render samples far faster than real time — freezing the reaction. */
+  audioTimeline?: RecordedAudioFrame[] | null
   onProgress?: (done: number, total: number) => void
   isCancelled?: () => boolean
 }
@@ -33,6 +61,15 @@ function masterBrightnessScale(output: StudioNode | undefined): number {
   const raw = Number((output.data.properties as { brightness?: unknown }).brightness)
   const brightness = Number.isFinite(raw) ? Math.max(0, Math.min(255, raw)) : 200
   return brightness >= 255 ? 1 : brightness / 255
+}
+
+/** LEDPreview's applyMasterBrightness, in place. Safe to mutate here because
+ *  the frame is routeFrame's own fresh per-call allocation, never the
+ *  evaluator's pooled buffer. */
+function scaleFrame(frame: Frame, scale: number): Frame {
+  if (scale === 1) return frame
+  for (const row of frame) for (const px of row) { px.r *= scale; px.g *= scale; px.b *= scale }
+  return frame
 }
 
 /** Fold a (possibly supersampled) frame down to packed RGB bytes, averaging
@@ -130,10 +167,17 @@ export async function captureSequence(opts: CaptureOptions): Promise<Uint8Clampe
   const total = Math.max(1, Math.round(durationSec * fps))
   const blend = seamlessLoop ? loopBlendFrames(total, fps) : 0
   const renderCount = total + blend
+  const warmup = Math.max(0, Math.round((opts.warmupSec ?? 0) * fps))
   const routes = outputRoutes(nodes)
   const route = routes.find((candidate) => candidate.id === opts.outputId) ?? routes[0]
   const composition = compositionDims(nodes)
   const brightness = masterBrightnessScale(route?.node)
+  // The routed frame's true shape. gridW/gridH is the caller's expectation and
+  // only applies when there is no route to size against.
+  const outW = route?.width ?? gridW
+  const outH = route?.height ?? gridH
+  const playback = opts.showPlayback ?? null
+  const audioTimeline = opts.audioTimeline ?? null
   // evaluateGraph returns the first terminal, so reorder only the terminal
   // list to make the chosen route first while preserving every dependency.
   const evaluationNodes = route
@@ -141,18 +185,29 @@ export async function captureSequence(opts: CaptureOptions): Promise<Uint8Clampe
     : nodes
 
   const frames: Uint8ClampedArray[] = []
-  for (let i = 0; i < renderCount; i++) {
+  for (let i = 0; i < warmup + renderCount; i++) {
     if (opts.isCancelled?.()) return null
     // tick/60 = seconds, so frame i of an fps-rate capture sits at i/fps sec.
+    // Warm-up frames occupy the seconds before the clip, so the recorded window
+    // still begins at a whole number of frames from the warmed-up state.
     const tick = (i * 60) / fps
-    const rendered = evaluateGraph(evaluationNodes, edges, tick, composition.w, composition.h, groups, prefix, new Set(), {}, null, trusted)
+    // Warm-up frames sit before the recorded window, so they hold the clip's
+    // opening audio rather than running off the front of the timeline.
+    const audio = audioTimeline
+      ? audioTimeline[Math.min(audioTimeline.length - 1, Math.max(0, i - warmup))] ?? null
+      : null
+    const rendered = evaluateGraph(evaluationNodes, edges, tick, composition.w, composition.h, groups, prefix, new Set(), {}, audio, trusted)
     const routed = route ? routeFrame(rendered, route, composition.w, composition.h) : rendered
-    frames.push(routed
-      ? frameToBytes(routed, 1, brightness, gridW, gridH)
-      // Same fallback as the live loop: no terminal frame shows the idle
-      // shimmer (rendered at grid resolution, undimmed — it isn't real output).
-      : frameToBytes(idleFrame(tick, gridW, gridH), 1, 1, gridW, gridH))
-    opts.onProgress?.(i + 1, renderCount)
+    // Same order as LEDPreview's loop: route → master brightness → idle
+    // fallback (undimmed; it isn't real output) → show-playback overlay.
+    let frame = routed && route ? scaleFrame(routed, brightness) : routed
+    if (!frame) frame = idleFrame(tick, outW, outH)
+    if (playback) {
+      const posMs = playback.posMs + ((i - warmup) * 1000) / fps
+      frame = applyShowPlaybackSignal(frame, { ...playback, posMs }, outW, outH, groups, trusted)
+    }
+    if (i >= warmup) frames.push(frameToBytes(frame, 1, 1, outW, outH))
+    opts.onProgress?.(i + 1, warmup + renderCount)
     // Yield periodically: keeps the UI responsive and lets the live preview
     // loop advance the evaluator's frame pool so capture evaluations reuse
     // buffers instead of growing the pool for the whole run.

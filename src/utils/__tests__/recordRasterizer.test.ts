@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { rasterizeRecordedFrame } from '../recordRasterizer'
+import { expandFlatFrame } from '../recordRasterizer'
 
-describe('rasterizeRecordedFrame', () => {
+describe('expandFlatFrame', () => {
   it('expands flat logical pixels into scale-sized RGBA blocks', () => {
-    const rgba = rasterizeRecordedFrame(Uint8ClampedArray.from([255, 0, 0, 0, 20, 255]), 2, 1, 2, 'pixels')
+    const rgba = expandFlatFrame(Uint8ClampedArray.from([255, 0, 0, 0, 20, 255]), 2, 1, 2)
     const pixels = Array.from({ length: 8 }, (_, index) => [...rgba.slice(index * 4, index * 4 + 4)])
 
     expect(pixels).toEqual([
@@ -12,15 +12,20 @@ describe('rasterizeRecordedFrame', () => {
     ])
   })
 
-  it('renders lit LED centres over an opaque dark substrate', () => {
-    const rgba = rasterizeRecordedFrame(Uint8ClampedArray.from([255, 80, 0]), 1, 1, 8, 'leds')
-    const corner = [...rgba.slice(0, 4)]
-    const centreOffset = (4 * 8 + 4) * 4
-    const centre = [...rgba.slice(centreOffset, centreOffset + 4)]
+  it('reproduces LED colours exactly, with no glow or substrate', () => {
+    const rgba = expandFlatFrame(Uint8ClampedArray.from([255, 80, 0, 0, 0, 0]), 1, 2, 4)
+    // Every pixel of the lit row is the exact LED colour…
+    for (let i = 0; i < 16; i++) {
+      expect([...rgba.slice(i * 4, i * 4 + 4)]).toEqual([255, 80, 0, 255])
+    }
+    // …and the dark row stays fully black rather than picking up bloom.
+    for (let i = 16; i < 32; i++) {
+      expect([...rgba.slice(i * 4, i * 4 + 4)]).toEqual([0, 0, 0, 255])
+    }
+  })
 
-    expect(corner[3]).toBe(255)
-    expect(centre[3]).toBe(255)
-    expect(centre[0]).toBeGreaterThan(corner[0])
-    expect(centre[1]).toBeGreaterThan(corner[1])
+  it('keeps a single-row strip a single row', () => {
+    const rgba = expandFlatFrame(Uint8ClampedArray.from([10, 20, 30, 40, 50, 60]), 2, 1, 3)
+    expect(rgba).toHaveLength(2 * 3 * 1 * 3 * 4)
   })
 })
