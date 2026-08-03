@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import { usePatternLibrary, type SavedPattern } from '../../state/patternLibrary'
 import { getGroupRegistry, matrixDims, useGraphStore } from '../../state/graphStore'
@@ -8,7 +8,6 @@ import {
   rateAllPatterns,
   ratePattern,
   ratingTier,
-  thumbnailToFrame,
   usePatternRatingStore,
   type CriterionScore,
   type PatternIntent,
@@ -17,34 +16,46 @@ import {
 } from '../../state/patternRating'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
-import { renderGridFrame } from '../Preview/frameCanvas'
 import { useModalFocus } from '../../hooks/useModalFocus'
 import styles from './PatternRatingsPopup.module.css'
 
-function PatternThumb({ thumbnail, label }: { thumbnail?: RatingThumbnail; label: string }) {
-  const frame = thumbnailToFrame(thumbnail)
-  const callbackRef = (canvas: HTMLCanvasElement | null) => {
-    if (!canvas) return
-    const h = frame?.length ?? 0
-    const w = frame?.[0]?.length ?? 0
-    if (!frame || w === 0 || h === 0) {
-      canvas.width = 2; canvas.height = 2
-      return
-    }
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    const pixel = Math.max(5, Math.round(180 / w))
-    canvas.width = w * pixel
-    canvas.height = h * pixel
-    renderGridFrame(ctx, frame, pixel)
+/** Rating cards can mount well over a hundred evidence thumbnails at once.
+ * Draw their already-packed RGB bytes directly instead of using the live LED
+ * renderer, whose per-colour glow sprites are deliberately much heavier. */
+function drawPatternThumb(canvas: HTMLCanvasElement, thumbnail?: RatingThumbnail) {
+  const width = thumbnail?.width ?? 0
+  const height = thumbnail?.height ?? 0
+  if (!thumbnail || width <= 0 || height <= 0) {
+    canvas.width = 2
+    canvas.height = 2
+    return
   }
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  const image = ctx.createImageData(width, height)
+  for (let source = 0, target = 0; target < image.data.length; source += 3, target += 4) {
+    image.data[target] = thumbnail.rgb[source] ?? 0
+    image.data[target + 1] = thumbnail.rgb[source + 1] ?? 0
+    image.data[target + 2] = thumbnail.rgb[source + 2] ?? 0
+    image.data[target + 3] = 255
+  }
+  ctx.putImageData(image, 0, 0)
+}
+
+const PatternThumb = memo(function PatternThumb({ thumbnail, label }: { thumbnail?: RatingThumbnail; label: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    if (canvasRef.current) drawPatternThumb(canvasRef.current, thumbnail)
+  }, [thumbnail])
   return (
     <figure className={styles.moment}>
-      <canvas ref={callbackRef} className={styles.thumb} aria-label={`${label} captured moment`} />
+      <canvas ref={canvasRef} className={styles.thumb} aria-label={`${label} captured moment`} />
       <figcaption>{label}</figcaption>
     </figure>
   )
-}
+})
 
 function StarRating({ value, onChange, name }: { value: number; onChange: (value: number) => void; name: string }) {
   return (
