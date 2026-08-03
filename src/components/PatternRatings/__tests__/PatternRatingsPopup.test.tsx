@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render } from '@testing-library/react'
 import PatternRatingsPopup from '../PatternRatingsPopup'
 import { getGroupRegistry, useGraphStore } from '../../../state/graphStore'
@@ -24,6 +24,8 @@ describe('Pattern Insights popup', () => {
       intentOverridesByPatternId: {},
     })
   })
+
+  afterEach(() => vi.restoreAllMocks())
 
   it('separates Studio judgement from the user’s stars', () => {
     const context = { gridW: 16, gridH: 16, groups: getGroupRegistry() }
@@ -64,5 +66,54 @@ describe('Pattern Insights popup', () => {
     const view = render(<PatternRatingsPopup />)
     expect(view.getByRole('button', { name: 'Scan patterns' })).toBeTruthy()
     expect(view.getByText(/No current verdicts/)).toBeTruthy()
+  })
+
+  it('draws a large result set through the lightweight thumbnail path only once', () => {
+    const putImageData = vi.fn()
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      createImageData: (width: number, height: number) => ({
+        width,
+        height,
+        colorSpace: 'srgb',
+        data: new Uint8ClampedArray(width * height * 4),
+      }),
+      putImageData,
+    } as unknown as CanvasRenderingContext2D)
+
+    const patterns = Array.from({ length: 43 }, (_, index): SavedPattern => ({
+      ...pattern,
+      id: `pat-${index}`,
+      name: `Pattern ${index}`,
+    }))
+    const context = { gridW: 16, gridH: 16, groups: getGroupRegistry() }
+    const thumbnail = { width: 2, height: 2, rgb: [255, 0, 20, 0, 80, 255, 20, 255, 80, 0, 0, 0] }
+    const ratingsByPatternId = Object.fromEntries(patterns.map((entry) => [entry.id, {
+      patternId: entry.id,
+      name: entry.name,
+      bundled: false,
+      overall: 72,
+      intent: 'ambient',
+      inferredIntent: 'ambient',
+      verdict: 'promising',
+      verdictLabel: 'Promising',
+      summary: 'Promising for Ambient.',
+      strengths: [],
+      improvements: [],
+      criteria: [],
+      audioReactive: false,
+      thumbnails: { weakest: thumbnail, typical: thumbnail, strongest: thumbnail },
+      cacheKey: patternRatingKey(entry, context, 'ambient'),
+    } satisfies PatternRating]))
+    usePatternLibrary.setState({ patterns })
+    usePatternRatingStore.setState({
+      ratingsByPatternId,
+      intentOverridesByPatternId: Object.fromEntries(patterns.map((entry) => [entry.id, 'ambient'])),
+    })
+
+    const view = render(<PatternRatingsPopup />)
+    expect(putImageData).toHaveBeenCalledTimes(43 * 3)
+
+    fireEvent.click(view.getAllByRole('button', { name: '5 stars' })[0])
+    expect(putImageData).toHaveBeenCalledTimes(43 * 3)
   })
 })
