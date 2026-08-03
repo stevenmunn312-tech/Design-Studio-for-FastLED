@@ -6,11 +6,17 @@ import { usePatternLibrary, type SavedPattern } from '../../../state/patternLibr
 import { usePatternRatingStore } from '../../../state/patternRating'
 import { useUiStore } from '../../../state/uiStore'
 import { useAudioStore } from '../../../state/audioStore'
-import { openCommunityUpload } from '../../../utils/communityUpload'
+import { openCommunityTab, postToCommunityTab } from '../../../utils/communityUpload'
+import { captureSharePreview } from '../../../utils/sharePreviewCapture'
 
 vi.mock('../../../utils/communityUpload', () => ({
-  openCommunityUpload: vi.fn().mockReturnValue({ opened: true }),
+  openCommunityTab: vi.fn().mockReturnValue({ target: 'design-studio-community-test', opened: true }),
+  postToCommunityTab: vi.fn().mockResolvedValue(undefined),
   suggestPatternFileName: (name: string) => `${name}.fastled-pattern.json`,
+}))
+
+vi.mock('../../../utils/sharePreviewCapture', () => ({
+  captureSharePreview: vi.fn().mockResolvedValue(null),
 }))
 
 const realStartAudio = useAudioStore.getState().startAudio
@@ -260,7 +266,9 @@ describe('Sidebar community share', () => {
     useGraphStore.setState({ nodes: [], edges: [], selectedNodeId: null })
     usePatternRatingStore.setState({ ratingsByPatternId: {}, userRatingsByPatternId: {}, intentOverridesByPatternId: {} })
     useUiStore.setState({ viewCenter: { x: 0, y: 0 }, draggingNodeType: null, testSignal: false })
-    vi.mocked(openCommunityUpload).mockClear()
+    vi.mocked(openCommunityTab).mockClear()
+    vi.mocked(postToCommunityTab).mockClear()
+    vi.mocked(captureSharePreview).mockClear()
   })
 
   it('shares a saved pattern as a hardware-agnostic subgraph after confirming', async () => {
@@ -280,8 +288,8 @@ describe('Sidebar community share', () => {
     fireEvent.click(getByRole('button', { name: /New & Unsorted/ }))
     fireEvent.click(getByLabelText('Share Aurora Ribbon on the community site'))
 
-    await waitFor(() => expect(openCommunityUpload).toHaveBeenCalledTimes(1))
-    const call = vi.mocked(openCommunityUpload).mock.calls[0][0]
+    await waitFor(() => expect(postToCommunityTab).toHaveBeenCalledTimes(1))
+    const call = vi.mocked(postToCommunityTab).mock.calls[0][1]
     expect(call.name).toBe('Aurora Ribbon')
 
     const shared = JSON.parse(call.patternJson) as { name: string; subgraph: { nodes: unknown[]; edges: unknown[] } }
@@ -307,6 +315,6 @@ describe('Sidebar community share', () => {
     fireEvent.click(getByLabelText('Share Aurora Ribbon on the community site'))
 
     await waitFor(() => expect(useUiStore.getState().requestConfirm).toHaveBeenCalled())
-    expect(openCommunityUpload).not.toHaveBeenCalled()
+    expect(postToCommunityTab).not.toHaveBeenCalled()
   })
 })

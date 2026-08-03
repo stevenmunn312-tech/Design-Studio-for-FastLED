@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { openCommunityUpload } from '../communityUpload'
+import { openCommunityTab, postToCommunityTab } from '../communityUpload'
 
 const pattern = {
   name: 'Aurora Grid',
@@ -12,28 +12,48 @@ const pattern = {
 describe('community upload handoff', () => {
   afterEach(() => vi.restoreAllMocks())
 
-  it('posts the pattern to the community handoff in a new tab', () => {
+  it('opens a blank named tab synchronously', () => {
     vi.spyOn(window, 'open').mockReturnValue({} as Window)
+
+    const { target, opened } = openCommunityTab()
+
+    expect(opened).toBe(true)
+    expect(target).toMatch(/^design-studio-community-/)
+    expect(window.open).toHaveBeenCalledWith('', target)
+  })
+
+  it('reports a blocked popup', () => {
+    vi.spyOn(window, 'open').mockReturnValue(null)
+
+    expect(openCommunityTab().opened).toBe(false)
+  })
+
+  it('posts the pattern into the named tab', async () => {
     const submit = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {})
 
-    expect(openCommunityUpload(pattern).opened).toBe(true)
-    expect(window.open).toHaveBeenCalledWith('', expect.stringMatching(/^design-studio-community-/))
-    expect(submit).toHaveBeenCalledOnce()
+    await postToCommunityTab('design-studio-community-123', pattern)
 
+    expect(submit).toHaveBeenCalledOnce()
     const form = submit.mock.instances[0] as HTMLFormElement
     expect(form.method).toBe('post')
-    expect(form.enctype).toBe('application/x-www-form-urlencoded')
+    expect(form.target).toBe('design-studio-community-123')
     expect(form.action).toBe('https://design-studio-for-fastled.design-studio-for-fastled.workers.dev/upload/handoff')
     expect(new FormData(form).get('patternName')).toBe('Aurora Grid')
     expect(new FormData(form).get('patternJson')).toBe(pattern.patternJson)
     expect(new FormData(form).get('ledCount')).toBe('256')
+    expect(new FormData(form).get('previewMediaBase64')).toBeNull()
   })
 
-  it('reports a blocked popup without posting the pattern', () => {
-    vi.spyOn(window, 'open').mockReturnValue(null)
+  it('includes the captured preview clip as base64 when provided', async () => {
     const submit = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {})
+    const previewMedia = new Blob(['fake-webm-bytes'], { type: 'video/webm' })
 
-    expect(openCommunityUpload(pattern).opened).toBe(false)
-    expect(submit).not.toHaveBeenCalled()
+    await postToCommunityTab('design-studio-community-456', { ...pattern, previewMedia })
+
+    const form = submit.mock.instances[0] as HTMLFormElement
+    const data = new FormData(form)
+    expect(data.get('previewMediaType')).toBe('video/webm')
+    expect(typeof data.get('previewMediaBase64')).toBe('string')
+    expect((data.get('previewMediaBase64') as string).length).toBeGreaterThan(0)
   })
 })

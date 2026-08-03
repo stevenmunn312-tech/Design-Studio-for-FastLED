@@ -7,11 +7,17 @@ import { useUiStore } from '../../../state/uiStore'
 import { useAudioStore } from '../../../state/audioStore'
 import { useShowPlayback } from '../../../state/showPlayback'
 import type { SavedProject } from '../../../state/projectStore'
-import { openCommunityUpload } from '../../../utils/communityUpload'
+import { openCommunityTab, postToCommunityTab } from '../../../utils/communityUpload'
+import { captureSharePreview } from '../../../utils/sharePreviewCapture'
 
 vi.mock('../../../utils/communityUpload', () => ({
-  openCommunityUpload: vi.fn().mockReturnValue({ opened: true }),
+  openCommunityTab: vi.fn().mockReturnValue({ target: 'design-studio-community-test', opened: true }),
+  postToCommunityTab: vi.fn().mockResolvedValue(undefined),
   suggestPatternFileName: (name: string) => `${name}.fastled-pattern.json`,
+}))
+
+vi.mock('../../../utils/sharePreviewCapture', () => ({
+  captureSharePreview: vi.fn().mockResolvedValue(null),
 }))
 
 const defaultRequestNewProjectDecision = useUiStore.getState().requestNewProjectDecision
@@ -537,8 +543,10 @@ describe('MenuBar file menu', () => {
     expect(useProjectStore.getState().projects.find((entry) => entry.id === 'helper-copy-id')?.name).toBe('helper-copy')
   })
 
-  it('shares the current project as a hardware-agnostic pattern, stripping Matrix Output', () => {
-    vi.mocked(openCommunityUpload).mockClear()
+  it('shares the current project as a hardware-agnostic pattern, stripping Matrix Output', async () => {
+    vi.mocked(openCommunityTab).mockClear()
+    vi.mocked(postToCommunityTab).mockClear()
+    vi.mocked(captureSharePreview).mockClear()
     const alpha = project('alpha', 'Aurora Grid', 'alpha-node', 200)
     useProjectStore.setState({ projects: [alpha], currentProjectId: alpha.id })
     useGraphStore.setState({
@@ -565,8 +573,9 @@ describe('MenuBar file menu', () => {
     const { getByRole } = render(<MenuBar />)
     fireEvent.click(getByRole('button', { name: 'Share current project to the community' }))
 
-    expect(openCommunityUpload).toHaveBeenCalledTimes(1)
-    const call = vi.mocked(openCommunityUpload).mock.calls[0][0]
+    await waitFor(() => expect(postToCommunityTab).toHaveBeenCalledTimes(1))
+    expect(openCommunityTab).toHaveBeenCalledTimes(1)
+    const call = vi.mocked(postToCommunityTab).mock.calls[0][1]
     expect(call.name).toBe('Aurora Grid')
     expect(call.ledCount).toBe(256)
 

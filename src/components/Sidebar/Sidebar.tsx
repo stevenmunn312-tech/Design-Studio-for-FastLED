@@ -9,7 +9,8 @@ import { NODE_LIBRARY, CATEGORIES, CATEGORY_ACCENT_VAR, NODE_DESCRIPTIONS, categ
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { ratingTier, usePatternRatingStore } from '../../state/patternRating'
 import { revealPatternsFolder } from '../../utils/backendClient'
-import { openCommunityUpload, suggestPatternFileName } from '../../utils/communityUpload'
+import { openCommunityTab, postToCommunityTab, suggestPatternFileName } from '../../utils/communityUpload'
+import { captureSharePreview } from '../../utils/sharePreviewCapture'
 import { runTidy } from '../../utils/tidyGraph'
 import type { NodeDefinition } from '../../types'
 import styles from './Sidebar.module.css'
@@ -527,18 +528,24 @@ function Sidebar() {
       return
     }
 
-    const handoff = openCommunityUpload({
+    const tab = openCommunityTab()
+    if (!tab.opened) {
+      setStatus('The community page was blocked. Allow pop-ups for Design Studio and try again.', 'error')
+      return
+    }
+
+    setStatus('Generating a preview clip for the community site…', 'info')
+    const previewMedia = await captureSharePreview({ nodes: pattern.subgraph.nodes, edges: pattern.subgraph.edges }) ?? undefined
+
+    await postToCommunityTab(tab.target, {
       name: pattern.name,
       fileName: suggestPatternFileName(pattern.name),
       patternJson,
       controller: 'Other',
       ledCount: 256,
+      previewMedia,
     })
 
-    if (!handoff.opened) {
-      setStatus('The community page was blocked. Allow pop-ups for Design Studio and try again.', 'error')
-      return
-    }
     setStatus(`"${pattern.name}" is opening on the community site`, 'success')
   }
 

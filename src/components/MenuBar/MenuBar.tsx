@@ -22,7 +22,8 @@ import {
 import { openProjectWithFallbacks, saveProjectWithFallbacks } from '../../utils/projectDialogs'
 import { runTidy } from '../../utils/tidyGraph'
 import { buildShareUrl } from '../../utils/shareGraph'
-import { openCommunityUpload, suggestPatternFileName } from '../../utils/communityUpload'
+import { openCommunityTab, postToCommunityTab, suggestPatternFileName } from '../../utils/communityUpload'
+import { captureSharePreview } from '../../utils/sharePreviewCapture'
 import { promptTrustIfNeeded } from '../../utils/trustPrompt'
 import { DevPerformanceHudToggle } from '../Preview/DevPerformanceHud'
 import { IconPause, IconPlay } from '../Preview/PlayerIcons'
@@ -260,7 +261,7 @@ export default function MenuBar() {
     }
   }
 
-  const handleCommunityShare = () => {
+  const handleCommunityShare = async () => {
     const graphState = useGraphStore.getState()
     if (graphState.nodes.length === 0 && Object.keys(graphState.graphData ?? {}).length === 0) {
       setStatus('Add a pattern before sharing it with the community', 'info')
@@ -307,18 +308,27 @@ export default function MenuBar() {
       return
     }
 
-    const handoff = openCommunityUpload({
+    // Open the tab now, synchronously — a browser only allows window.open
+    // without a popup block inside this direct click handler, and the
+    // capture below takes a few seconds.
+    const tab = openCommunityTab()
+    if (!tab.opened) {
+      setStatus('The community page was blocked. Allow pop-ups for Design Studio and try again.', 'error')
+      return
+    }
+
+    setStatus('Generating a preview clip for the community site…', 'info')
+    const previewMedia = await captureSharePreview({ nodes: sharableNodes, edges: sharableEdges }) ?? undefined
+
+    await postToCommunityTab(tab.target, {
       name: projectName,
       fileName: suggestPatternFileName(projectName),
       patternJson,
       controller,
       ledCount,
+      previewMedia,
     })
 
-    if (!handoff.opened) {
-      setStatus('The community page was blocked. Allow pop-ups for Design Studio and try again.', 'error')
-      return
-    }
     setStatus(`"${projectName}" is opening on the community site`, 'success')
   }
 
@@ -810,7 +820,7 @@ export default function MenuBar() {
         </button>
         <button
           className={`${styles.btn} ${styles.communityBtn}`}
-          onClick={handleCommunityShare}
+          onClick={() => { void handleCommunityShare() }}
           aria-label="Share current project to the community"
           title="Open the community upload page with this project's graph attached, as a hardware-agnostic pattern"
         >
