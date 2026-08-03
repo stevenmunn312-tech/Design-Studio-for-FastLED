@@ -7,6 +7,19 @@ versioning (`0.y.z`) until the first stable release.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-03
+
+### Added
+
+- Added a **Share** action to the command bar and File menu that hands the
+  current named project directly to the community site: it packages the
+  project along with its detected controller and LED count and opens them in
+  a new community tab for the maker to review before publishing. Blocked
+  pop-ups and projects over the 2 MB community upload limit are reported
+  in place; the existing copyable graph share link remains available as a
+  separate action, and the handoff does not persist the project or share
+  authentication between sites.
+
 ### Changed
 
 - Replaced the universal Pattern Ratings percentage with **Pattern Insights**:
@@ -15,6 +28,59 @@ versioning (`0.y.z`) until the first stable release.
   and presents a verdict with weak/typical/strong evidence and actionable
   critique. Persistent personal 1–5 star ratings remain independent of Studio
   Score and can be used alongside intent and score when building collections.
+  Library scans are now explicit and cancellable and are subject to the same
+  per-pattern trust gate described below.
+
+### Fixed
+
+- Fixed preview recordings (PNG/GIF/WebM) diverging from the live preview in
+  five ways: exports now render through the same renderers the on-screen
+  matrix uses, so soft/dreamy/cyberpunk/neon/CRT styles and cross-LED glow
+  bleed are captured correctly instead of exporting flat; a captured
+  PerformanceGenerator show overlay is no longer dropped; a new warm-up
+  option renders and discards leading frames so Fire/Trails/Particles/Game of
+  Life/Reaction-Diffusion start settled instead of in their blank boot state;
+  and 1-row/1-column strip exports no longer gain a phantom black row. A
+  related fix replays a folded recording of the live microphone so
+  audio-reactive graphs animate in exports instead of sampling one frozen
+  instant.
+
+- Fixed a freeze when a full Pattern Insights library scan completed:
+  evidence thumbnails now render directly from packed pixel bytes and
+  memoize so unrelated card updates don't redraw every canvas, instead of
+  mounting the full live LED renderer three times per result card.
+
+- Fixed a GIF export freeze by moving quantization and LZW compression off
+  the UI thread, replacing the expensive gradient median-cut path with a
+  fast balanced RGB palette, and adding backpressure, cancellation, and
+  bounded finalization memory.
+
+- Fixed a WebM recording freeze by rasterizing frames through the shared
+  pixel-buffer renderer, skipping obsolete catch-up frames instead of
+  blocking the page, and showing an explicit finalization state after the
+  last frame.
+
+- Fixed a PNG export freeze by rendering snapshots through the same shared
+  rasterizer and showing an explicit finalization state while the browser
+  compresses the image.
+
+### Security
+
+- Nested subgraphs — a Group, or a pattern reached through
+  `Pattern Collection → Show Engine` — now honor the workspace's untrusted
+  trust flag. `evaluateGraph`'s two recursion points previously fell back to
+  their `trusted = true` default, so an imported, share-linked, or
+  project-file workspace the user had not yet approved via "Trust and run"
+  would still execute `CustomFormula`/`FieldFormula`/`Code` nodes as soon as
+  they sat inside a group or a pattern collection — the normal shape of a
+  shared pattern.
+
+- Pattern Insights scanning now resolves trust per pattern instead of always
+  rendering as trusted. Bundled curated patterns run as before; any other
+  pattern containing a gated node (directly or in a nested group) prompts
+  "Trust and rate" vs. "Skip this pattern" before it executes. A yes is
+  remembered by content; a no is not cached, so the pattern is asked again
+  on the next scan rather than left permanently unrateable.
 
 ## [0.4.0] - 2026-08-02
 
