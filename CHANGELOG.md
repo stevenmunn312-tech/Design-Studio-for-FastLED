@@ -7,6 +7,15 @@ versioning (`0.y.z`) until the first stable release.
 
 ## [Unreleased]
 
+### Changed
+
+- Replaced the universal Pattern Ratings percentage with **Pattern Insights**:
+  Studio now judges each pattern against an inferred or manually selected
+  intent, examines the complete captured run plus multiple audio scenarios,
+  and presents a verdict with weak/typical/strong evidence and actionable
+  critique. Persistent personal 1–5 star ratings remain independent of Studio
+  Score and can be used alongside intent and score when building collections.
+
 ## [0.4.0] - 2026-08-02
 
 ### Added

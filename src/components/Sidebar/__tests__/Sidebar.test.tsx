@@ -3,7 +3,7 @@ import { fireEvent, render } from '@testing-library/react'
 import Sidebar from '../Sidebar'
 import { useGraphStore } from '../../../state/graphStore'
 import { usePatternLibrary, type SavedPattern } from '../../../state/patternLibrary'
-import { patternRatingKey, usePatternRatingStore } from '../../../state/patternRating'
+import { usePatternRatingStore } from '../../../state/patternRating'
 import { useUiStore } from '../../../state/uiStore'
 import { useAudioStore } from '../../../state/audioStore'
 
@@ -29,7 +29,7 @@ describe('Sidebar equipment rack', () => {
     localStorage.removeItem('design-studio-for-fastled-sidebar-recent')
     useGraphStore.setState({ nodes: [], edges: [], selectedNodeId: null })
     usePatternLibrary.setState({ patterns: [] })
-    usePatternRatingStore.setState({ ratingsByKey: {} })
+    usePatternRatingStore.setState({ ratingsByPatternId: {}, userRatingsByPatternId: {}, intentOverridesByPatternId: {} })
     useUiStore.setState({ viewCenter: { x: 200, y: 180 }, draggingNodeType: null, testSignal: false })
     startAudio.mockClear()
     useAudioStore.setState({ startAudio })
@@ -123,16 +123,25 @@ describe('Sidebar equipment rack', () => {
     const pattern = { ...savedPattern('pat-1', 'Aurora'), bundled: true }
     usePatternLibrary.setState({ patterns: [pattern] })
     usePatternRatingStore.setState({
-      ratingsByKey: {
-        [patternRatingKey(pattern)]: {
+      ratingsByPatternId: {
+        [pattern.id]: {
           patternId: pattern.id,
           name: pattern.name,
           bundled: true,
           overall: 88,
+          intent: 'ambient',
+          inferredIntent: 'ambient',
+          verdict: 'strong',
+          verdictLabel: 'Strong',
+          summary: 'Strong for Ambient.',
+          strengths: [],
+          improvements: [],
           criteria: [],
           audioReactive: false,
+          cacheKey: 'test',
         },
       },
+      userRatingsByPatternId: { [pattern.id]: 5 },
     })
     localStorage.setItem('design-studio-for-fastled-sidebar-expanded-v2', JSON.stringify('library'))
     useGraphStore.setState({
@@ -147,7 +156,8 @@ describe('Sidebar equipment rack', () => {
     const view = render(<Sidebar />)
     fireEvent.click(view.getByRole('button', { name: /New & Unsorted/ }))
 
-    expect(view.getByText('88%')).toBeTruthy()
+    expect(view.getByText('88')).toBeTruthy()
+    expect(view.getByText('★5')).toBeTruthy()
     expect(view.queryByText('included')).toBeNull()
   })
 

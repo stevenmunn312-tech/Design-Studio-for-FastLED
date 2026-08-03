@@ -67,12 +67,12 @@
 
 .tools {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   gap: 10px;
   padding: 0 20px 12px;
 }
 
-.tools input,
+.tools input[type="search"],
 .tools select {
   min-height: 34px;
   box-sizing: border-box;
@@ -84,12 +84,12 @@
   font: 11px var(--font-body);
 }
 
-.tools input {
+.tools input[type="search"] {
   width: 100%;
   padding: 0 11px;
 }
 
-.tools input:focus,
+.tools input[type="search"]:focus,
 .tools select:focus {
   border-color: color-mix(in srgb, var(--accent-library) 66%, white);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-library) 12%, transparent);
@@ -114,6 +114,23 @@
 .tools select option {
   background: var(--bg-panel);
   color: var(--text-primary);
+}
+
+.tools .strongToggle {
+  align-self: center;
+  min-height: 34px;
+  box-sizing: border-box;
+  padding: 0 9px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.strongToggle input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent-library);
 }
 
 .columnHead {
@@ -231,6 +248,23 @@
 .rating.good { color: var(--good, #4ade80); }
 .rating.ok { color: var(--warn, #fbbf24); }
 .rating.bad { color: var(--bad, #f87171); }
+
+.scoreStack {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.userRating {
+  color: #ffd24a;
+  font-family: var(--font-code);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .tools { grid-template-columns: minmax(0, 1fr) 1fr; }
+}
 
 .unrated {
   color: var(--text-secondary);

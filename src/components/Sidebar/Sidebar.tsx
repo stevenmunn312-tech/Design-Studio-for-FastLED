@@ -7,7 +7,7 @@ import { usePatternLibrary, importPatternFile, type SavedPattern } from '../../s
 import { AUDIO_REACTIVE_CATEGORY_ID, STANDARD_CATEGORY_ID } from '../../state/bundledPatterns'
 import { NODE_LIBRARY, CATEGORIES, CATEGORY_ACCENT_VAR, NODE_DESCRIPTIONS, categoryNodes } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
-import { patternRatingKey, ratingTier, usePatternRatingStore } from '../../state/patternRating'
+import { ratingTier, usePatternRatingStore } from '../../state/patternRating'
 import { revealPatternsFolder } from '../../utils/backendClient'
 import { runTidy } from '../../utils/tidyGraph'
 import type { NodeDefinition } from '../../types'
@@ -261,7 +261,8 @@ function Sidebar() {
   const createPatternCategory = usePatternLibrary((s) => s.createCategory)
   const deletePatternCategory = usePatternLibrary((s) => s.deleteCategory)
   const movePattern = usePatternLibrary((s) => s.movePattern)
-  const ratingsByKey = usePatternRatingStore((s) => s.ratingsByKey)
+  const ratingsByPatternId = usePatternRatingStore((s) => s.ratingsByPatternId)
+  const userRatingsByPatternId = usePatternRatingStore((s) => s.userRatingsByPatternId)
   const requestConfirm = useUiStore((s) => s.requestConfirm)
   const viewCenter = useUiStore((s) => s.viewCenter)
   const setStatus = useUiStore((s) => s.setStatus)
@@ -884,8 +885,9 @@ function Sidebar() {
         {entries.map((pattern) => {
           const renaming = renamingId === pattern.id
           const selected = selectedPatternIds.has(pattern.id)
-          const rating = ratingsByKey[patternRatingKey(pattern)]
-          const scoreTier = rating && !rating.failed ? ratingTier(rating.overall) : 'bad'
+          const rating = ratingsByPatternId[pattern.id]
+          const userRating = userRatingsByPatternId[pattern.id]
+          const scoreTier = rating && !rating.failed && !rating.skipped ? ratingTier(rating.overall) : 'bad'
           return (
             <li
               key={pattern.id}
@@ -944,9 +946,14 @@ function Sidebar() {
                   {rating && (
                     <span
                       className={`${styles.patternRating} ${styles[`patternRating_${scoreTier}`]}`}
-                      title={rating.failed ? 'Pattern could not be rated' : `Pattern rating ${rating.overall}%`}
+                      title={rating.failed ? 'Studio could not assess this pattern' : rating.skipped ? 'Trust is required before Studio can judge this pattern' : `${rating.verdictLabel} · Studio Score ${rating.overall}`}
                     >
-                      {rating.failed ? '—' : `${rating.overall}%`}
+                      {rating.failed || rating.skipped ? '—' : rating.overall}
+                    </span>
+                  )}
+                  {userRating && (
+                    <span className={styles.patternUserRating} title={`Your rating: ${userRating} of 5 stars`}>
+                      ★{userRating}
                     </span>
                   )}
                   {!pattern.bundled && (
@@ -1145,8 +1152,8 @@ function Sidebar() {
             <button
               className={styles.revealBtn}
               type="button"
-              aria-label="Rate my patterns"
-              title="Rate every saved pattern for quality"
+              aria-label="Open Pattern Insights"
+              title="Ask Studio to judge your saved patterns and set your own ratings"
               onClick={openRatings}
               disabled={patterns.length === 0}
             >

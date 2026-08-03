@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { Frame, RGB } from '../graphEvaluator'
 import { hsv } from '../ledColor'
 import { BUNDLED_PATTERNS, STANDARD_BUNDLED_PATTERNS } from '../bundledPatterns'
-import { captureWindows, ratePattern } from '../patternRating'
+import { captureWindows, inferPatternIntent, patternRatingKey, rateAllPatterns, ratePattern, usePatternRatingStore, verdictForScore } from '../patternRating'
 import type { SavedPattern } from '../patternLibrary'
 import {
   clearPatternContentTrustForTests,
@@ -13,9 +13,6 @@ import type { StudioNode, StudioEdge } from '../graphStore'
 import type { GraphDiagnostic } from '../../utils/validateGraph'
 import {
   scoreStructure,
-  scoreColorBalance,
-  scoreBrightnessUniformity,
-  scoreRefreshStability,
   scoreStructuralHealth,
   isAudioReactiveSubgraph,
   scoreAudioCorrectness,
@@ -56,41 +53,6 @@ describe('frameThumbnailScore', () => {
   })
   it('scores a black frame at zero', () => {
     expect(frameThumbnailScore(black(8, 8))).toBe(0)
-  })
-})
-
-describe('scoreColorBalance', () => {
-  it('passes clean neutral pixels', () => {
-    expect(scoreColorBalance([solid(8, 8, { r: 230, g: 232, b: 231 })])).toBeGreaterThan(0.8)
-  })
-  it('penalises a consistent tint on neutral tones', () => {
-    expect(scoreColorBalance([solid(8, 8, { r: 200, g: 150, b: 150 })])).toBeLessThan(0.4)
-  })
-  it('does not judge a fully saturated pattern (returns 1)', () => {
-    expect(scoreColorBalance([solid(8, 8, { r: 255, g: 0, b: 0 })])).toBe(1)
-  })
-})
-
-describe('scoreBrightnessUniformity', () => {
-  it('passes an evenly-lit frame', () => {
-    expect(scoreBrightnessUniformity([solid(8, 8, { r: 100, g: 100, b: 100 })])).toBeGreaterThan(0.9)
-  })
-  it('penalises a lone blown pixel on a dark field', () => {
-    const frame = buildFrame(8, 8, (x, y) =>
-      x === 4 && y === 4 ? { r: 255, g: 255, b: 255 } : { r: 0, g: 0, b: 0 },
-    )
-    expect(scoreBrightnessUniformity([frame])).toBeLessThan(0.4)
-  })
-})
-
-describe('scoreRefreshStability', () => {
-  it('treats a fully static pattern as stable', () => {
-    const f = solid(8, 8, { r: 40, g: 90, b: 160 })
-    expect(scoreRefreshStability([f, f, f])).toBe(1)
-  })
-  it('penalises full-range flicker', () => {
-    const frames = [black(8, 8), solid(8, 8, { r: 255, g: 255, b: 255 }), black(8, 8), solid(8, 8, { r: 255, g: 255, b: 255 })]
-    expect(scoreRefreshStability(frames)).toBeLessThan(0.4)
   })
 })
 
@@ -172,48 +134,51 @@ describe('bundled audio patterns light up after warm-up', () => {
   }
 })
 
-describe('bundled standard patterns stay strong under the rating pass', () => {
-  const scoreOf = (id: string, criteria: { id: string; score: number }[]) =>
-    criteria.find((criterion) => criterion.id === id)?.score ?? 0
-
-  it('keeps every shipped standard pattern above the quality floor', async () => {
-    const summaries: {
-      name: string
-      overall: number
-      structure: number
-      color: number
-      brightness: number
-      stability: number
-    }[] = []
-
+describe('intent-aware critic', () => {
+  it('classifies every bundled standard pattern without enforcing an aesthetic score floor', () => {
     for (const saved of STANDARD_BUNDLED_PATTERNS) {
-      const windows = await captureWindows(saved, 16, 16, {})
-      let best = 0
-      let bestCriteria: { id: string; score: number }[] = []
-      for (const frames of windows) {
-        const scored = scorePattern(frames, [], saved.subgraph.nodes, saved.subgraph.edges)
-        if (scored.overall > best) {
-          best = scored.overall
-          bestCriteria = scored.criteria
-        }
-      }
-      summaries.push({
-        name: saved.name,
-        overall: best,
-        structure: scoreOf('structure', bestCriteria),
-        color: scoreOf('color', bestCriteria),
-        brightness: scoreOf('brightness', bestCriteria),
-        stability: scoreOf('stability', bestCriteria),
-      })
+      expect(['ambient', 'showpiece', 'accent', 'audio-reactive', 'static-utility']).toContain(
+        inferPatternIntent(saved.subgraph.nodes),
+      )
     }
+  })
 
-    const average = summaries.reduce((sum, entry) => sum + entry.overall, 0) / summaries.length
-    expect(average).toBeGreaterThanOrEqual(78)
-    for (const entry of summaries) {
-      expect(entry.overall, `${entry.name} overall`).toBeGreaterThanOrEqual(72)
-      expect(entry.structure, `${entry.name} structure`).toBeGreaterThanOrEqual(0.42)
-      expect(entry.stability, `${entry.name} stability`).toBeGreaterThanOrEqual(0.72)
+  it('does not punish a functional solid fill for being static or spatially flat', () => {
+    const nodes = [node('solid', 'SolidColor', 'pattern')]
+    const frames = [solid(8, 8, { r: 45, g: 100, b: 180 }), solid(8, 8, { r: 45, g: 100, b: 180 })]
+    const utility = scorePattern(frames, [], nodes, [], 'static-utility')
+    const showpiece = scorePattern(frames, [], nodes, [], 'showpiece')
+    expect(utility.criteria.find((criterion) => criterion.id === 'composition')?.score).toBeGreaterThanOrEqual(0.85)
+    expect(utility.overall).toBeGreaterThan(showpiece.overall)
+  })
+
+  it('caps a graph with an error below Promising', () => {
+    const nodes = [node('solid', 'SolidColor', 'pattern')]
+    const frames = [solid(8, 8, { r: 45, g: 100, b: 180 })]
+    const diagnostic: GraphDiagnostic = {
+      id: 'broken', severity: 'error', category: 'connection', title: 'Broken',
+      message: 'Broken graph', fix: 'Repair it', nodeIds: ['solid'],
     }
+    expect(scorePattern(frames, [diagnostic], nodes, [], 'static-utility').overall).toBeLessThanOrEqual(49)
+  })
+
+  it('uses the agreed verdict thresholds', () => {
+    expect(verdictForScore(90).label).toBe('Exceptional')
+    expect(verdictForScore(75).label).toBe('Strong')
+    expect(verdictForScore(60).label).toBe('Promising')
+    expect(verdictForScore(40).label).toBe('Needs work')
+    expect(verdictForScore(39).label).toBe('Fundamentally weak')
+  })
+
+  it('keeps rename out of the cache key but includes render context and intent', () => {
+    const pattern: SavedPattern = {
+      id: 'one', name: 'Before', createdAt: 0, inputs: [], outputs: [],
+      subgraph: { nodes: [node('solid', 'SolidColor', 'pattern')], edges: [] },
+    }
+    const context = { gridW: 16, gridH: 16, groups: {} }
+    expect(patternRatingKey({ ...pattern, name: 'After' }, context)).toBe(patternRatingKey(pattern, context))
+    expect(patternRatingKey(pattern, { ...context, gridW: 32 })).not.toBe(patternRatingKey(pattern, context))
+    expect(patternRatingKey(pattern, context, 'ambient')).not.toBe(patternRatingKey(pattern, context, 'showpiece'))
   })
 })
 
@@ -232,10 +197,58 @@ describe('scorePattern', () => {
 
   it('includes the audio criterion for an audio-reactive pattern', () => {
     const nodes = [node('fft', 'FFTAnalyzer', 'audio'), node('bp', 'BassPulse', 'pattern')]
-    const result = scorePattern(frames, [], nodes, [edge('e', 'fft', 'bp', 'bass', 'bass')])
+    const result = scorePattern(
+      frames,
+      [],
+      nodes,
+      [edge('e', 'fft', 'bp', 'bass', 'bass')],
+      'audio-reactive',
+      {
+        silent: [black(8, 8)],
+        steady: [solid(8, 8, { r: 40, g: 80, b: 120 })],
+        pulse: [solid(8, 8, { r: 180, g: 40, b: 100 })],
+      },
+    )
     expect(result.audioReactive).toBe(true)
     expect(result.criteria.map((c) => c.id)).toContain('audio')
     expect(result.criteria).toHaveLength(6)
+    expect(result.criteria.find((criterion) => criterion.id === 'audio')?.score).toBeGreaterThan(0)
+  })
+})
+
+describe('personal pattern preferences', () => {
+  beforeEach(() => {
+    localStorage.removeItem('design-studio-for-fastled.pattern-preferences.v2')
+    usePatternRatingStore.setState({ userRatingsByPatternId: {}, intentOverridesByPatternId: {} })
+  })
+
+  it('persists personal stars independently from Studio analysis', () => {
+    usePatternRatingStore.getState().setUserRating('pat-1', 5)
+    expect(usePatternRatingStore.getState().userRatingsByPatternId['pat-1']).toBe(5)
+    expect(JSON.parse(localStorage.getItem('design-studio-for-fastled.pattern-preferences.v2') ?? '{}').userRatingsByPatternId['pat-1']).toBe(5)
+
+    usePatternRatingStore.getState().setUserRating('pat-1', 0)
+    expect(usePatternRatingStore.getState().userRatingsByPatternId['pat-1']).toBeUndefined()
+  })
+
+  it('stores an explicit intent override without changing personal stars', () => {
+    usePatternRatingStore.getState().setUserRating('pat-1', 4)
+    usePatternRatingStore.getState().setIntentOverride('pat-1', 'accent')
+    expect(usePatternRatingStore.getState().intentOverridesByPatternId['pat-1']).toBe('accent')
+    expect(usePatternRatingStore.getState().userRatingsByPatternId['pat-1']).toBe(4)
+  })
+})
+
+describe('scan cancellation', () => {
+  it('stops before starting another pattern', async () => {
+    const controller = new AbortController()
+    controller.abort()
+    await expect(rateAllPatterns([], { gridW: 4, gridH: 4, groups: {}, signal: controller.signal })).resolves.toEqual([])
+    const saved: SavedPattern = {
+      id: 'cancel', name: 'cancel', createdAt: 0, inputs: [], outputs: [],
+      subgraph: { nodes: [node('solid', 'SolidColor', 'pattern')], edges: [] },
+    }
+    await expect(rateAllPatterns([saved], { gridW: 4, gridH: 4, groups: {}, signal: controller.signal })).rejects.toMatchObject({ name: 'AbortError' })
   })
 })
 
@@ -278,7 +291,7 @@ describe('ratePattern trust gate', () => {
     expect(confirmTrust).toHaveBeenCalledTimes(1)
     expect(rating.skipped).toBe(true)
     expect(rating.criteria).toHaveLength(0)
-    expect(rating.thumbnail).toBeUndefined()
+    expect(rating.thumbnails).toBeUndefined()
     // A decline is "not now" — it must not harden into a remembered verdict.
     expect(isPatternContentTrusted(saved.subgraph)).toBe(false)
   })
