@@ -20,8 +20,9 @@ describe('community upload handoff', () => {
     expect(window.open).toHaveBeenCalledWith('', expect.stringMatching(/^design-studio-community-/))
     expect(submit).toHaveBeenCalledOnce()
 
-    const form = submit.mock.instances[0]
+    const form = submit.mock.instances[0] as HTMLFormElement
     expect(form.method).toBe('post')
+    expect(form.enctype).toBe('application/x-www-form-urlencoded')
     expect(form.action).toBe('https://design-studio-for-fastled.design-studio-for-fastled.workers.dev/upload/handoff')
     expect(new FormData(form).get('projectName')).toBe('Aurora Grid')
     expect(new FormData(form).get('projectJson')).toBe(project.projectJson)

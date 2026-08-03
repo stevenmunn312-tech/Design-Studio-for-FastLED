@@ -43,7 +43,6 @@ export function openCommunityUpload(project: CommunityUploadProject): CommunityU
   form.method = 'POST'
   form.action = destination.toString()
   form.target = target
-  form.enctype = 'multipart/form-data'
   form.hidden = true
   hiddenField(form, 'projectName', project.projectName)
   hiddenField(form, 'fileName', project.fileName)
