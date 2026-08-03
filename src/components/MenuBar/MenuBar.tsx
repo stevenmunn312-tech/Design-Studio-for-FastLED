@@ -8,6 +8,7 @@ import { usePerformanceDeckSession } from '../../state/performanceDeckSessionSto
 import { useAudioStore } from '../../state/audioStore'
 import { useShowPlayback } from '../../state/showPlayback'
 import { useProjectStore } from '../../state/projectStore'
+import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import type { StudioNode, StudioEdge, WorkspaceExtras } from '../../state/graphStore'
 import { captureWorkspace, blankWorkspace } from '../../state/workspacePersistence'
 import {
@@ -21,6 +22,7 @@ import {
 import { openProjectWithFallbacks, saveProjectWithFallbacks } from '../../utils/projectDialogs'
 import { runTidy } from '../../utils/tidyGraph'
 import { buildShareUrl } from '../../utils/shareGraph'
+import { openCommunityUpload } from '../../utils/communityUpload'
 import { promptTrustIfNeeded } from '../../utils/trustPrompt'
 import { DevPerformanceHudToggle } from '../Preview/DevPerformanceHud'
 import { IconPause, IconPlay } from '../Preview/PlayerIcons'
@@ -237,7 +239,7 @@ export default function MenuBar() {
     setStatus('Graph JSON exported', 'success')
   }
 
-  const handleShare = async () => {
+  const handleCopyShareLink = async () => {
     const { nodes, edges, graphData, graphs, activeGraphId } = useGraphStore.getState()
     const url = buildShareUrl({ nodes, edges, graphData, graphs, activeGraphId })
     try {
@@ -256,6 +258,58 @@ export default function MenuBar() {
         cancelLabel: null,
       })
     }
+  }
+
+  const handleCommunityShare = () => {
+    const graphState = useGraphStore.getState()
+    if (graphState.nodes.length === 0 && Object.keys(graphState.graphData ?? {}).length === 0) {
+      setStatus('Add a pattern before sharing it with the community', 'info')
+      return
+    }
+
+    const workspace = captureWorkspace(graphState)
+    const projectName = currentProject?.name?.trim() || 'Untitled Pattern'
+    const project = buildProjectSnapshot(workspace, {
+      sourceProject: currentProject,
+      name: projectName,
+    })
+    const projectJson = serializeProject(project)
+    if (new Blob([projectJson]).size > 2 * 1024 * 1024) {
+      setStatus('This project is over the community upload limit of 2 MB', 'error')
+      return
+    }
+
+    const allNodes = [
+      ...workspace.nodes,
+      ...Object.values(workspace.graphData ?? {}).flatMap((graph) => graph.nodes ?? []),
+    ]
+    const output = allNodes.find((node) => node.data.nodeType === 'MatrixOutput')
+    const width = Number(output?.data.properties.width ?? 16)
+    const height = Number(output?.data.properties.height ?? 16)
+    const ledCount = Math.max(1, Math.round(width) * Math.round(height))
+    const fqbn = currentProject?.uploadTarget?.selectedFqbn ?? useUploadStore.getState().selectedFqbn
+    const board = boardByFqbn(fqbn)
+    const boardIdentity = `${board?.label ?? ''} ${fqbn}`.toLowerCase()
+    const controller = boardIdentity.includes('esp8266') ? 'ESP8266'
+      : boardIdentity.includes('esp32') ? 'ESP32'
+        : boardIdentity.includes('rp2040') || boardIdentity.includes('rp2350') ? 'RP2040'
+          : boardIdentity.includes('teensy') ? 'Teensy'
+            : boardIdentity.includes('arduino') ? 'Arduino'
+              : 'Other'
+
+    const handoff = openCommunityUpload({
+      projectName,
+      fileName: suggestProjectFileName(projectName),
+      projectJson,
+      controller,
+      ledCount,
+    })
+
+    if (!handoff.opened) {
+      setStatus('The community page was blocked. Allow pop-ups for Design Studio and try again.', 'error')
+      return
+    }
+    setStatus(`"${projectName}" is opening on the community site`, 'success')
   }
 
   const handleLoadJSON = () => importInputRef.current?.click()
@@ -594,8 +648,11 @@ export default function MenuBar() {
               <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); openTemplates() }}>
                 Starter Templates…
               </button>
-              <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); handleShare() }}>
-                Copy Share Link
+              <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); void handleCopyShareLink() }}>
+                Copy Graph Link
+              </button>
+              <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); handleCommunityShare() }}>
+                Share to Community…
               </button>
               <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); openRecover() }}>
                 Recover Snapshot…
@@ -740,6 +797,14 @@ export default function MenuBar() {
           title={startTitle}
         >
           ✦ Start
+        </button>
+        <button
+          className={`${styles.btn} ${styles.communityBtn}`}
+          onClick={handleCommunityShare}
+          aria-label="Share current project to the community"
+          title="Open the community upload page with this project attached"
+        >
+          <span aria-hidden="true">↗</span> Share
         </button>
         <button
           className={`${styles.btn} ${styles.evaluationBtn} ${evaluationRunning ? styles.evaluationRunning : styles.evaluationPaused}`}
