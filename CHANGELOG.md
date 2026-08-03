@@ -7,6 +7,19 @@ versioning (`0.y.z`) until the first stable release.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-08-03
+
+### Changed
+
+- Community sharing now sends a single, hardware-agnostic pattern instead of
+  a whole project. A new **Share** icon on each Pattern Library entry hands
+  that saved pattern's graph to the community site as-is. The existing
+  command-bar **Share** action still hands over the whole active project, but
+  now collapses it down to that same shape first, stripping Matrix Output
+  and its wires so the shared graph plugs into anyone's rig via that node's
+  own defaults rather than the sharer's board, pins, or chipset. Controller
+  and LED count still travel along as separate, editable metadata.
+
 ## [0.5.0] - 2026-08-03
 
 ### Added
