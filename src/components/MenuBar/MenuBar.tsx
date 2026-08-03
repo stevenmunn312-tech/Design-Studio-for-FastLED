@@ -22,7 +22,7 @@ import {
 import { openProjectWithFallbacks, saveProjectWithFallbacks } from '../../utils/projectDialogs'
 import { runTidy } from '../../utils/tidyGraph'
 import { buildShareUrl } from '../../utils/shareGraph'
-import { openCommunityUpload } from '../../utils/communityUpload'
+import { openCommunityUpload, suggestPatternFileName } from '../../utils/communityUpload'
 import { promptTrustIfNeeded } from '../../utils/trustPrompt'
 import { DevPerformanceHudToggle } from '../Preview/DevPerformanceHud'
 import { IconPause, IconPlay } from '../Preview/PlayerIcons'
@@ -267,22 +267,19 @@ export default function MenuBar() {
       return
     }
 
+    // Snapshot only — the live graph is never touched by sharing.
     const workspace = captureWorkspace(graphState)
     const projectName = currentProject?.name?.trim() || 'Untitled Pattern'
-    const project = buildProjectSnapshot(workspace, {
-      sourceProject: currentProject,
-      name: projectName,
-    })
-    const projectJson = serializeProject(project)
-    if (new Blob([projectJson]).size > 2 * 1024 * 1024) {
-      setStatus('This project is over the community upload limit of 2 MB', 'error')
-      return
-    }
 
     const allNodes = [
       ...workspace.nodes,
       ...Object.values(workspace.graphData ?? {}).flatMap((graph) => graph.nodes ?? []),
     ]
+    const allEdges = [
+      ...workspace.edges,
+      ...Object.values(workspace.graphData ?? {}).flatMap((graph) => graph.edges ?? []),
+    ]
+
     const output = allNodes.find((node) => node.data.nodeType === 'MatrixOutput')
     const width = Number(output?.data.properties.width ?? 16)
     const height = Number(output?.data.properties.height ?? 16)
@@ -297,10 +294,23 @@ export default function MenuBar() {
             : boardIdentity.includes('arduino') ? 'Arduino'
               : 'Other'
 
+    // Shared patterns stay hardware-agnostic: drop Matrix Output (and its
+    // wires) so the graph plugs into anyone's rig via that node's own
+    // defaults, the same shape as a saved Pattern Library entry.
+    const outputIds = new Set(allNodes.filter((node) => node.data.nodeType === 'MatrixOutput').map((node) => node.id))
+    const sharableNodes = allNodes.filter((node) => !outputIds.has(node.id))
+    const sharableEdges = allEdges.filter((edge) => !outputIds.has(edge.source) && !outputIds.has(edge.target))
+
+    const patternJson = JSON.stringify({ name: projectName, subgraph: { nodes: sharableNodes, edges: sharableEdges } })
+    if (new Blob([patternJson]).size > 2 * 1024 * 1024) {
+      setStatus('This pattern is over the community upload limit of 2 MB', 'error')
+      return
+    }
+
     const handoff = openCommunityUpload({
-      projectName,
-      fileName: suggestProjectFileName(projectName),
-      projectJson,
+      name: projectName,
+      fileName: suggestPatternFileName(projectName),
+      patternJson,
       controller,
       ledCount,
     })
@@ -802,7 +812,7 @@ export default function MenuBar() {
           className={`${styles.btn} ${styles.communityBtn}`}
           onClick={handleCommunityShare}
           aria-label="Share current project to the community"
-          title="Open the community upload page with this project attached"
+          title="Open the community upload page with this project's graph attached, as a hardware-agnostic pattern"
         >
           <span aria-hidden="true">↗</span> Share
         </button>

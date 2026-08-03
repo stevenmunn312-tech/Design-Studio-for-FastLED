@@ -1,9 +1,14 @@
 const DEFAULT_COMMUNITY_SITE = 'https://design-studio-for-fastled.design-studio-for-fastled.workers.dev'
 
-export interface CommunityUploadProject {
-  projectName: string
+/**
+ * A single, hardware-agnostic pattern: a name plus a subgraph (nodes/edges).
+ * No MatrixOutput, pins, or chipset — the same shape whether it came from a
+ * saved Pattern Library entry or the active project's whole graph.
+ */
+export interface CommunitySharePattern {
+  name: string
   fileName: string
-  projectJson: string
+  patternJson: string
   controller: string
   ledCount: number
 }
@@ -25,13 +30,24 @@ function hiddenField(form: HTMLFormElement, name: string, value: string) {
   form.appendChild(field)
 }
 
+const RESERVED_FILENAME_CHARS = new Set(['<', '>', ':', '"', '/', '\\', '|', '?', '*'])
+
+export function suggestPatternFileName(name: string): string {
+  const safe = Array.from(name.trim().slice(0, 80))
+    .map((char) => (RESERVED_FILENAME_CHARS.has(char) || char.codePointAt(0)! < 0x20 ? '-' : char))
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return `${safe || 'Untitled Pattern'}.fastled-pattern.json`
+}
+
 /**
- * Posts the current project into a new community-site tab. A form navigation is
+ * Posts a pattern into a new community-site tab. A form navigation is
  * used because Design Studio's cross-origin isolation intentionally severs
- * normal opener messaging. The community endpoint validates the project and
+ * normal opener messaging. The community endpoint validates the pattern and
  * places it only in that tab's session storage before showing confirmation.
  */
-export function openCommunityUpload(project: CommunityUploadProject): CommunityUploadResult {
+export function openCommunityUpload(pattern: CommunitySharePattern): CommunityUploadResult {
   const destination = communitySiteUrl()
   destination.pathname = '/upload/handoff'
   destination.search = ''
@@ -44,11 +60,11 @@ export function openCommunityUpload(project: CommunityUploadProject): CommunityU
   form.action = destination.toString()
   form.target = target
   form.hidden = true
-  hiddenField(form, 'projectName', project.projectName)
-  hiddenField(form, 'fileName', project.fileName)
-  hiddenField(form, 'projectJson', project.projectJson)
-  hiddenField(form, 'controller', project.controller)
-  hiddenField(form, 'ledCount', String(project.ledCount))
+  hiddenField(form, 'patternName', pattern.name)
+  hiddenField(form, 'fileName', pattern.fileName)
+  hiddenField(form, 'patternJson', pattern.patternJson)
+  hiddenField(form, 'controller', pattern.controller)
+  hiddenField(form, 'ledCount', String(pattern.ledCount))
   document.body.appendChild(form)
   form.submit()
   form.remove()

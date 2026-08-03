@@ -9,6 +9,7 @@ import { NODE_LIBRARY, CATEGORIES, CATEGORY_ACCENT_VAR, NODE_DESCRIPTIONS, categ
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { ratingTier, usePatternRatingStore } from '../../state/patternRating'
 import { revealPatternsFolder } from '../../utils/backendClient'
+import { openCommunityUpload, suggestPatternFileName } from '../../utils/communityUpload'
 import { runTidy } from '../../utils/tidyGraph'
 import type { NodeDefinition } from '../../types'
 import styles from './Sidebar.module.css'
@@ -511,6 +512,36 @@ function Sidebar() {
   }
   const cancelRename = () => setRenamingId(null)
 
+  const handleSharePattern = async (pattern: SavedPattern) => {
+    const ok = await requestConfirm({
+      title: 'Share on the community site?',
+      message: `Share “${pattern.name}” on designstudioforfastled.com? It shares hardware-agnostic — no board, pins, or chipset are included.`,
+      confirmLabel: 'Share',
+      cancelLabel: 'Cancel',
+    })
+    if (!ok) return
+
+    const patternJson = JSON.stringify({ name: pattern.name, subgraph: pattern.subgraph })
+    if (new Blob([patternJson]).size > 2 * 1024 * 1024) {
+      setStatus('This pattern is over the community upload limit of 2 MB', 'error')
+      return
+    }
+
+    const handoff = openCommunityUpload({
+      name: pattern.name,
+      fileName: suggestPatternFileName(pattern.name),
+      patternJson,
+      controller: 'Other',
+      ledCount: 256,
+    })
+
+    if (!handoff.opened) {
+      setStatus('The community page was blocked. Allow pop-ups for Design Studio and try again.', 'error')
+      return
+    }
+    setStatus(`"${pattern.name}" is opening on the community site`, 'success')
+  }
+
   const visiblePatterns = patterns.filter(
     (p) => query === '' || p.name.toLowerCase().includes(query)
   )
@@ -968,6 +999,17 @@ function Sidebar() {
                         }}
                       >
                         ✎
+                      </button>
+                      <button
+                        className={styles.patternBtn}
+                        aria-label={`Share ${pattern.name} on the community site`}
+                        title="Share on designstudioforfastled.com"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          void handleSharePattern(pattern)
+                        }}
+                      >
+                        ↗
                       </button>
                       <button
                         className={styles.patternBtn}

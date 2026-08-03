@@ -1,11 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render } from '@testing-library/react'
+import { fireEvent, render, waitFor } from '@testing-library/react'
 import Sidebar from '../Sidebar'
 import { useGraphStore } from '../../../state/graphStore'
 import { usePatternLibrary, type SavedPattern } from '../../../state/patternLibrary'
 import { usePatternRatingStore } from '../../../state/patternRating'
 import { useUiStore } from '../../../state/uiStore'
 import { useAudioStore } from '../../../state/audioStore'
+import { openCommunityUpload } from '../../../utils/communityUpload'
+
+vi.mock('../../../utils/communityUpload', () => ({
+  openCommunityUpload: vi.fn().mockReturnValue({ opened: true }),
+  suggestPatternFileName: (name: string) => `${name}.fastled-pattern.json`,
+}))
 
 const realStartAudio = useAudioStore.getState().startAudio
 const startAudio = vi.fn(async () => {})
@@ -245,5 +251,62 @@ describe('Sidebar remembered section', () => {
     fireEvent.click(getByRole('button', { name: /Audio/i }))
 
     expect(JSON.parse(localStorage.getItem(KEY) ?? 'null')).toBe('audio')
+  })
+})
+
+describe('Sidebar community share', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    useGraphStore.setState({ nodes: [], edges: [], selectedNodeId: null })
+    usePatternRatingStore.setState({ ratingsByPatternId: {}, userRatingsByPatternId: {}, intentOverridesByPatternId: {} })
+    useUiStore.setState({ viewCenter: { x: 0, y: 0 }, draggingNodeType: null, testSignal: false })
+    vi.mocked(openCommunityUpload).mockClear()
+  })
+
+  it('shares a saved pattern as a hardware-agnostic subgraph after confirming', async () => {
+    const pattern: SavedPattern = {
+      id: 'pat-1',
+      name: 'Aurora Ribbon',
+      createdAt: 1,
+      inputs: [],
+      outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+      subgraph: { nodes: [{ id: 'n1', data: { nodeType: 'Animartrix' } }] as never[], edges: [] },
+    }
+    usePatternLibrary.setState({ patterns: [pattern], categories: [] })
+    useUiStore.setState({ requestConfirm: vi.fn().mockResolvedValue(true) })
+
+    const { getByRole, getByLabelText } = render(<Sidebar />)
+    fireEvent.click(getByRole('button', { name: /^Pattern Library/ }))
+    fireEvent.click(getByRole('button', { name: /New & Unsorted/ }))
+    fireEvent.click(getByLabelText('Share Aurora Ribbon on the community site'))
+
+    await waitFor(() => expect(openCommunityUpload).toHaveBeenCalledTimes(1))
+    const call = vi.mocked(openCommunityUpload).mock.calls[0][0]
+    expect(call.name).toBe('Aurora Ribbon')
+
+    const shared = JSON.parse(call.patternJson) as { name: string; subgraph: { nodes: unknown[]; edges: unknown[] } }
+    expect(shared.name).toBe('Aurora Ribbon')
+    expect(shared.subgraph.nodes).toEqual(pattern.subgraph.nodes)
+  })
+
+  it('does not share when the confirm popup is cancelled', async () => {
+    const pattern: SavedPattern = {
+      id: 'pat-1',
+      name: 'Aurora Ribbon',
+      createdAt: 1,
+      inputs: [],
+      outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+      subgraph: { nodes: [], edges: [] },
+    }
+    usePatternLibrary.setState({ patterns: [pattern], categories: [] })
+    useUiStore.setState({ requestConfirm: vi.fn().mockResolvedValue(false) })
+
+    const { getByRole, getByLabelText } = render(<Sidebar />)
+    fireEvent.click(getByRole('button', { name: /^Pattern Library/ }))
+    fireEvent.click(getByRole('button', { name: /New & Unsorted/ }))
+    fireEvent.click(getByLabelText('Share Aurora Ribbon on the community site'))
+
+    await waitFor(() => expect(useUiStore.getState().requestConfirm).toHaveBeenCalled())
+    expect(openCommunityUpload).not.toHaveBeenCalled()
   })
 })

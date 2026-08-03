@@ -7,6 +7,12 @@ import { useUiStore } from '../../../state/uiStore'
 import { useAudioStore } from '../../../state/audioStore'
 import { useShowPlayback } from '../../../state/showPlayback'
 import type { SavedProject } from '../../../state/projectStore'
+import { openCommunityUpload } from '../../../utils/communityUpload'
+
+vi.mock('../../../utils/communityUpload', () => ({
+  openCommunityUpload: vi.fn().mockReturnValue({ opened: true }),
+  suggestPatternFileName: (name: string) => `${name}.fastled-pattern.json`,
+}))
 
 const defaultRequestNewProjectDecision = useUiStore.getState().requestNewProjectDecision
 const defaultResolveNewProjectDecision = useUiStore.getState().resolveNewProjectDecision
@@ -529,5 +535,47 @@ describe('MenuBar file menu', () => {
       method: 'POST',
     }))
     expect(useProjectStore.getState().projects.find((entry) => entry.id === 'helper-copy-id')?.name).toBe('helper-copy')
+  })
+
+  it('shares the current project as a hardware-agnostic pattern, stripping Matrix Output', () => {
+    vi.mocked(openCommunityUpload).mockClear()
+    const alpha = project('alpha', 'Aurora Grid', 'alpha-node', 200)
+    useProjectStore.setState({ projects: [alpha], currentProjectId: alpha.id })
+    useGraphStore.setState({
+      nodes: [
+        {
+          id: 'fx',
+          type: 'studioNode',
+          position: { x: 0, y: 0 },
+          data: { label: 'Animartrix', nodeType: 'Animartrix', category: 'pattern', properties: { effect: 'Polar Waves' }, inputs: [], outputs: [] },
+        },
+        {
+          id: 'out',
+          type: 'studioNode',
+          position: { x: 100, y: 0 },
+          data: { label: 'Matrix Output', nodeType: 'MatrixOutput', category: 'output', properties: { width: 16, height: 16 }, inputs: [], outputs: [] },
+        },
+      ] as never[],
+      edges: [{ id: 'e1', source: 'fx', target: 'out' }] as never[],
+      graphData: {},
+      graphs: { root: { id: 'root', name: 'Main' } },
+      activeGraphId: 'root',
+    })
+
+    const { getByRole } = render(<MenuBar />)
+    fireEvent.click(getByRole('button', { name: 'Share current project to the community' }))
+
+    expect(openCommunityUpload).toHaveBeenCalledTimes(1)
+    const call = vi.mocked(openCommunityUpload).mock.calls[0][0]
+    expect(call.name).toBe('Aurora Grid')
+    expect(call.ledCount).toBe(256)
+
+    const shared = JSON.parse(call.patternJson) as {
+      name: string
+      subgraph: { nodes: Array<{ id: string; data: { nodeType: string } }>; edges: unknown[] }
+    }
+    expect(shared.name).toBe('Aurora Grid')
+    expect(shared.subgraph.nodes.map((node) => node.data.nodeType)).toEqual(['Animartrix'])
+    expect(shared.subgraph.edges).toHaveLength(0)
   })
 })
