@@ -3,7 +3,7 @@ import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUiStore } from '../../state/uiStore'
 import type { LayoutPresetId } from '../../state/layoutPresets'
-import { useGraphStore, useTemporalStore } from '../../state/graphStore'
+import { useGraphStore, useTemporalStore, ROOT_GRAPH_ID, reachableGroupRegistry } from '../../state/graphStore'
 import { usePerformanceDeckSession } from '../../state/performanceDeckSessionStore'
 import { useAudioStore } from '../../state/audioStore'
 import { useShowPlayback } from '../../state/showPlayback'
@@ -272,16 +272,22 @@ export default function MenuBar() {
     const workspace = captureWorkspace(graphState)
     const projectName = currentProject?.name?.trim() || 'Untitled Pattern'
 
-    const allNodes = [
-      ...workspace.nodes,
-      ...Object.values(workspace.graphData ?? {}).flatMap((graph) => graph.nodes ?? []),
-    ]
-    const allEdges = [
-      ...workspace.edges,
-      ...Object.values(workspace.graphData ?? {}).flatMap((graph) => graph.edges ?? []),
-    ]
+    // `workspace.nodes`/`edges` are whichever graph is currently active —
+    // the top-level canvas only if the editor is sitting at the root. If the
+    // user is drilled into a group when they hit Share, the real top-level
+    // canvas is stashed in graphData[ROOT_GRAPH_ID] instead (see enterGraph
+    // in graphStore.ts), and the active group's own live content needs to be
+    // patched back into the registry the same way getGroupRegistry() does.
+    const atRoot = workspace.activeGraphId === ROOT_GRAPH_ID
+    const rootNodes = atRoot ? workspace.nodes : (workspace.graphData?.[ROOT_GRAPH_ID]?.nodes ?? [])
+    const rootEdges = atRoot ? workspace.edges : (workspace.graphData?.[ROOT_GRAPH_ID]?.edges ?? [])
+    const fullGraphData = atRoot
+      ? (workspace.graphData ?? {})
+      : { ...(workspace.graphData ?? {}), [workspace.activeGraphId]: { nodes: workspace.nodes, edges: workspace.edges } }
 
-    const output = allNodes.find((node) => node.data.nodeType === 'MatrixOutput')
+    // MatrixOutput only ever sits on the top-level canvas, never inside a
+    // Group's own subgraph.
+    const output = rootNodes.find((node) => node.data.nodeType === 'MatrixOutput')
     const width = Number(output?.data.properties.width ?? 16)
     const height = Number(output?.data.properties.height ?? 16)
     const ledCount = Math.max(1, Math.round(width) * Math.round(height))
@@ -297,12 +303,17 @@ export default function MenuBar() {
 
     // Shared patterns stay hardware-agnostic: drop Matrix Output (and its
     // wires) so the graph plugs into anyone's rig via that node's own
-    // defaults, the same shape as a saved Pattern Library entry.
-    const outputIds = new Set(allNodes.filter((node) => node.data.nodeType === 'MatrixOutput').map((node) => node.id))
-    const sharableNodes = allNodes.filter((node) => !outputIds.has(node.id))
-    const sharableEdges = allEdges.filter((edge) => !outputIds.has(edge.source) && !outputIds.has(edge.target))
+    // defaults, the same shape as a saved Pattern Library entry. Group
+    // nodes stay as references — their content travels alongside as `groups`
+    // rather than being flattened into one undifferentiated node list, which
+    // used to leave stray GroupOutput terminals from nested groups for the
+    // evaluator to stumble into instead of the canvas's real one.
+    const outputIds = new Set(rootNodes.filter((node) => node.data.nodeType === 'MatrixOutput').map((node) => node.id))
+    const sharableNodes = rootNodes.filter((node) => !outputIds.has(node.id))
+    const sharableEdges = rootEdges.filter((edge) => !outputIds.has(edge.source) && !outputIds.has(edge.target))
+    const groups = reachableGroupRegistry(sharableNodes, fullGraphData)
 
-    const patternJson = JSON.stringify({ name: projectName, subgraph: { nodes: sharableNodes, edges: sharableEdges } })
+    const patternJson = JSON.stringify({ name: projectName, subgraph: { nodes: sharableNodes, edges: sharableEdges }, groups })
     if (new Blob([patternJson]).size > 2 * 1024 * 1024) {
       setStatus('This pattern is over the community upload limit of 2 MB', 'error')
       return
@@ -318,7 +329,7 @@ export default function MenuBar() {
     }
 
     setStatus('Generating a preview clip for the community site…', 'info')
-    const previewMedia = await captureSharePreview({ nodes: sharableNodes, edges: sharableEdges }) ?? undefined
+    const previewMedia = await captureSharePreview({ nodes: sharableNodes, edges: sharableEdges, groups }) ?? undefined
 
     await postToCommunityTab(tab.target, {
       name: projectName,

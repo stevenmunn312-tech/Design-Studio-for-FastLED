@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { canAddNodeType, SINGLETON_NODE_TYPES, useGraphStore } from '../../state/graphStore'
+import { canAddNodeType, SINGLETON_NODE_TYPES, useGraphStore, reachableGroupRegistry } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audioStore'
 import { usePatternLibrary, importPatternFile, type SavedPattern } from '../../state/patternLibrary'
@@ -522,7 +522,11 @@ function Sidebar() {
     })
     if (!ok) return
 
-    const patternJson = JSON.stringify({ name: pattern.name, subgraph: pattern.subgraph })
+    // A saved pattern can itself contain Group nodes referencing other saved
+    // groups — carry their content alongside the subgraph so the site can
+    // resolve them, instead of leaving unresolvable references behind.
+    const groups = reachableGroupRegistry(pattern.subgraph.nodes, useGraphStore.getState().graphData)
+    const patternJson = JSON.stringify({ name: pattern.name, subgraph: pattern.subgraph, groups })
     if (new Blob([patternJson]).size > 2 * 1024 * 1024) {
       setStatus('This pattern is over the community upload limit of 2 MB', 'error')
       return
@@ -535,7 +539,7 @@ function Sidebar() {
     }
 
     setStatus('Generating a preview clip for the community site…', 'info')
-    const previewMedia = await captureSharePreview({ nodes: pattern.subgraph.nodes, edges: pattern.subgraph.edges }) ?? undefined
+    const previewMedia = await captureSharePreview({ nodes: pattern.subgraph.nodes, edges: pattern.subgraph.edges, groups }) ?? undefined
     const personalRating = usePatternRatingStore.getState().userRatingsByPatternId[pattern.id]
 
     await postToCommunityTab(tab.target, {

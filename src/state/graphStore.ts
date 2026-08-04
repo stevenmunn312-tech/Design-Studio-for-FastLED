@@ -435,6 +435,32 @@ function pruneOrphanGraphData(
   return { graphData, graphs }
 }
 
+/** Every group (recursively) reachable from `nodes` via Group/PatternCollection
+ *  references, scoped to `graphData` — the registry an export needs to carry
+ *  alongside `nodes` so nested Group instances resolve to the right content
+ *  instead of being silently unresolvable. Mirrors `pruneOrphanGraphData`'s
+ *  traversal but returns the positive registry rather than the orphan set. */
+export function reachableGroupRegistry(
+  nodes: StudioNode[],
+  graphData: Record<string, GraphContent>,
+): Record<string, GraphContent> {
+  const queue: string[] = []
+  collectGraphRefs(nodes, queue)
+  const reachable = new Set<string>()
+  const result: Record<string, GraphContent> = {}
+  while (queue.length) {
+    const id = queue.pop()!
+    if (reachable.has(id)) continue
+    reachable.add(id)
+    const content = graphData[id]
+    if (content) {
+      result[id] = content
+      collectGraphRefs(content.nodes, queue)
+    }
+  }
+  return result
+}
+
 // The sweep must not run until zundo has pushed the pre-delete snapshot, and
 // that push is itself debounced (400 ms after the *last* set in a burst). So
 // the prune fires only after the store has been quiet for a full second: any

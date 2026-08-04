@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { useGraphStore, getGroupRegistry, matrixTileLayout, ROOT_GRAPH_ID, clearStashedGraphHistory } from '../graphStore'
+import { useGraphStore, getGroupRegistry, matrixTileLayout, ROOT_GRAPH_ID, clearStashedGraphHistory, reachableGroupRegistry } from '../graphStore'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { evaluateGraph } from '../graphEvaluator'
 import type { StudioNode, StudioEdge } from '../graphStore'
@@ -1253,6 +1253,49 @@ describe('graphStore — orphaned subgraph pruning', () => {
     const s = useGraphStore.getState()
     expect(s.graphData.zombie).toBeUndefined()
     expect(s.graphs.zombie).toBeUndefined()
+  })
+})
+
+describe('reachableGroupRegistry', () => {
+  it('collects a group referenced directly by a node list', () => {
+    const nodes = [node('g', 'Group', { groupId: 'g1' })]
+    const graphData = { g1: { nodes: [node('sc', 'SolidColor')], edges: [] } }
+
+    expect(reachableGroupRegistry(nodes, graphData)).toEqual({ g1: graphData.g1 })
+  })
+
+  it('recurses into nested Group references', () => {
+    const nodes = [node('g', 'Group', { groupId: 'g1' })]
+    const graphData = {
+      g1: { nodes: [node('inner', 'Group', { groupId: 'g2' })], edges: [] },
+      g2: { nodes: [node('sc', 'SolidColor')], edges: [] },
+    }
+
+    expect(reachableGroupRegistry(nodes, graphData)).toEqual(graphData)
+  })
+
+  it('follows PatternCollection patternIds too', () => {
+    const nodes = [node('coll', 'PatternCollection', { patternIds: ['g1', 'g2'] })]
+    const graphData = {
+      g1: { nodes: [], edges: [] },
+      g2: { nodes: [], edges: [] },
+    }
+
+    expect(reachableGroupRegistry(nodes, graphData)).toEqual(graphData)
+  })
+
+  it('omits groups nothing in the given node list references', () => {
+    const nodes = [node('g', 'Group', { groupId: 'g1' })]
+    const graphData = {
+      g1: { nodes: [], edges: [] },
+      unrelated: { nodes: [], edges: [] },
+    }
+
+    expect(reachableGroupRegistry(nodes, graphData)).toEqual({ g1: graphData.g1 })
+  })
+
+  it('returns an empty registry when nothing is referenced', () => {
+    expect(reachableGroupRegistry([node('sc', 'SolidColor')], { orphan: { nodes: [], edges: [] } })).toEqual({})
   })
 })
 

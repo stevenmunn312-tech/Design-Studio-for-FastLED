@@ -587,4 +587,58 @@ describe('MenuBar file menu', () => {
     expect(shared.subgraph.nodes.map((node) => node.data.nodeType)).toEqual(['Animartrix'])
     expect(shared.subgraph.edges).toHaveLength(0)
   })
+
+  it('shares the real top-level canvas — not a stray nested GroupOutput — as groups instead of one flattened node list', async () => {
+    vi.mocked(openCommunityTab).mockClear()
+    vi.mocked(postToCommunityTab).mockClear()
+    vi.mocked(captureSharePreview).mockClear()
+    const alpha = project('alpha', 'Nested Share', 'alpha-node', 200)
+    useProjectStore.setState({ projects: [alpha], currentProjectId: alpha.id })
+
+    const groupNode = {
+      id: 'g', type: 'studioNode', position: { x: 0, y: 0 },
+      data: { label: 'Pattern', nodeType: 'Group', category: 'composite', properties: { groupId: 'g1' }, inputs: [], outputs: [] },
+    }
+    const outputNode = {
+      id: 'out', type: 'studioNode', position: { x: 100, y: 0 },
+      data: { label: 'Matrix Output', nodeType: 'MatrixOutput', category: 'output', properties: { width: 16, height: 16 }, inputs: [], outputs: [] },
+    }
+    const groupInnerNode = {
+      id: 'sc', type: 'studioNode', position: { x: 0, y: 0 },
+      data: { label: 'Solid Color', nodeType: 'SolidColor', category: 'pattern', properties: {}, inputs: [], outputs: [] },
+    }
+
+    // The editor is currently drilled INTO the group — its content is the
+    // "active" nodes/edges, while the real top-level canvas (groupNode +
+    // outputNode) is stashed under graphData[ROOT_GRAPH_ID], exactly as
+    // enterGraph leaves it.
+    useGraphStore.setState({
+      nodes: [groupInnerNode] as never[],
+      edges: [] as never[],
+      graphData: { root: { nodes: [groupNode, outputNode] as never[], edges: [] as never[] } },
+      graphs: { root: { id: 'root', name: 'Main' }, g1: { id: 'g1', name: 'Pattern' } },
+      activeGraphId: 'g1',
+    })
+
+    const { getByRole } = render(<MenuBar />)
+    fireEvent.click(getByRole('button', { name: 'Share current project to the community' }))
+
+    await waitFor(() => expect(postToCommunityTab).toHaveBeenCalledTimes(1))
+    const call = vi.mocked(postToCommunityTab).mock.calls[0][1]
+
+    const shared = JSON.parse(call.patternJson) as {
+      subgraph: { nodes: Array<{ id: string; data: { nodeType: string } }>; edges: unknown[] }
+      groups: Record<string, { nodes: Array<{ id: string; data: { nodeType: string } }> }>
+    }
+    // The top-level canvas — Group reference, Matrix Output stripped — not
+    // the group's own inner SolidColor.
+    expect(shared.subgraph.nodes.map((node) => node.data.nodeType)).toEqual(['Group'])
+    // The group's content travels alongside as a labeled registry entry,
+    // not merged into subgraph.nodes where it could be mistaken for a
+    // second, competing terminal.
+    expect(shared.groups.g1.nodes.map((node) => node.data.nodeType)).toEqual(['SolidColor'])
+
+    const previewCall = vi.mocked(captureSharePreview).mock.calls[0][0]
+    expect(previewCall.groups).toEqual({ g1: { nodes: [groupInnerNode], edges: [] } })
+  })
 })
