@@ -283,7 +283,7 @@ export default function MenuBar() {
     const rootEdges = atRoot ? workspace.edges : (workspace.graphData?.[ROOT_GRAPH_ID]?.edges ?? [])
     const fullGraphData = atRoot
       ? (workspace.graphData ?? {})
-      : { ...(workspace.graphData ?? {}), [workspace.activeGraphId]: { nodes: workspace.nodes, edges: workspace.edges } }
+      : { ...(workspace.graphData ?? {}), [workspace.activeGraphId as string]: { nodes: workspace.nodes, edges: workspace.edges } }
 
     // MatrixOutput only ever sits on the top-level canvas, never inside a
     // Group's own subgraph.
