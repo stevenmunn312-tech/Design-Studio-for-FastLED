@@ -1,0 +1,280 @@
+{
+  "id": "website-featured-01",
+  "name": "Stillwater Halo",
+  "createdAt": 1785715200000,
+  "inputs": [],
+  "outputs": [
+    {
+      "id": "frame",
+      "label": "Frame",
+      "dataType": "frame"
+    }
+  ],
+  "subgraph": {
+    "nodes": [
+      {
+        "id": "pal",
+        "type": "studioNode",
+        "position": {
+          "x": -760,
+          "y": 40
+        },
+        "data": {
+          "label": "Poline Palette",
+          "nodeType": "Poline",
+          "category": "color",
+          "properties": {
+            "anchorA": "#041826",
+            "anchorB": "#2b879f",
+            "anchorC": "#c8fff8",
+            "points": 6,
+            "position": "sinusoidal"
+          },
+          "inputs": [
+            {
+              "id": "colorA",
+              "label": "Anchor A",
+              "dataType": "color"
+            },
+            {
+              "id": "colorB",
+              "label": "Anchor B",
+              "dataType": "color"
+            },
+            {
+              "id": "colorC",
+              "label": "Anchor C",
+              "dataType": "color"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ]
+        }
+      },
+      {
+        "id": "base",
+        "type": "studioNode",
+        "position": {
+          "x": -460,
+          "y": 40
+        },
+        "data": {
+          "label": "Pacifica",
+          "nodeType": "Pacifica",
+          "category": "pattern",
+          "properties": {
+            "speed": 0.12,
+            "scale": 0.44,
+            "palette": "ocean"
+          },
+          "inputs": [
+            {
+              "id": "speed",
+              "label": "Speed",
+              "dataType": "float"
+            },
+            {
+              "id": "scale",
+              "label": "Scale",
+              "dataType": "float"
+            },
+            {
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "kale",
+        "type": "studioNode",
+        "position": {
+          "x": -160,
+          "y": 40
+        },
+        "data": {
+          "label": "Kaleidoscope",
+          "nodeType": "Kaleidoscope",
+          "category": "pattern",
+          "properties": {
+            "segments": 5
+          },
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            },
+            {
+              "id": "segments",
+              "label": "Segments",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "blur",
+        "type": "studioNode",
+        "position": {
+          "x": 120,
+          "y": 40
+        },
+        "data": {
+          "label": "Blur 2D",
+          "nodeType": "Blur2D",
+          "category": "composite",
+          "properties": {
+            "amount": 0.1
+          },
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            },
+            {
+              "id": "amount",
+              "label": "Amount",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "sat",
+        "type": "studioNode",
+        "position": {
+          "x": 400,
+          "y": 40
+        },
+        "data": {
+          "label": "Saturation",
+          "nodeType": "Saturation",
+          "category": "composite",
+          "properties": {
+            "amount": 1.16
+          },
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            },
+            {
+              "id": "amount",
+              "label": "Amount",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "out",
+        "type": "studioNode",
+        "position": {
+          "x": 680,
+          "y": 40
+        },
+        "data": {
+          "label": "Group Output",
+          "nodeType": "GroupOutput",
+          "category": "output",
+          "properties": {},
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ],
+          "outputs": []
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "pal",
+        "sourceHandle": "palette",
+        "target": "base",
+        "targetHandle": "paletteIn",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#ff5cf0"
+        }
+      },
+      {
+        "id": "e2",
+        "source": "base",
+        "sourceHandle": "frame",
+        "target": "kale",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "e3",
+        "source": "kale",
+        "sourceHandle": "frame",
+        "target": "blur",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "e4",
+        "source": "blur",
+        "sourceHandle": "frame",
+        "target": "sat",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "e5",
+        "source": "sat",
+        "sourceHandle": "frame",
+        "target": "out",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      }
+    ]
+  }
+}

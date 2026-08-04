@@ -1,0 +1,375 @@
+{
+  "id": "website-featured-05",
+  "name": "Moonpool Aviary",
+  "createdAt": 1785715200004,
+  "inputs": [],
+  "outputs": [
+    {
+      "id": "frame",
+      "label": "Frame",
+      "dataType": "frame"
+    }
+  ],
+  "subgraph": {
+    "nodes": [
+      {
+        "id": "backdrop",
+        "type": "studioNode",
+        "position": {
+          "x": -1040,
+          "y": -80
+        },
+        "data": {
+          "label": "Gradient Frame",
+          "nodeType": "GradientFrame",
+          "category": "pattern",
+          "properties": {
+            "rA": 6,
+            "gA": 14,
+            "bA": 38,
+            "rB": 18,
+            "gB": 44,
+            "bB": 82,
+            "vertical": true
+          },
+          "inputs": [
+            {
+              "id": "colorA",
+              "label": "Color A",
+              "dataType": "color"
+            },
+            {
+              "id": "colorB",
+              "label": "Color B",
+              "dataType": "color"
+            },
+            {
+              "id": "vertical",
+              "label": "Vertical",
+              "dataType": "bool"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "pal",
+        "type": "studioNode",
+        "position": {
+          "x": -1040,
+          "y": 220
+        },
+        "data": {
+          "label": "Poline Palette",
+          "nodeType": "Poline",
+          "category": "color",
+          "properties": {
+            "anchorA": "#102448",
+            "anchorB": "#7cecff",
+            "anchorC": "#cdb8ff",
+            "points": 6,
+            "position": "sinusoidal"
+          },
+          "inputs": [
+            {
+              "id": "colorA",
+              "label": "Anchor A",
+              "dataType": "color"
+            },
+            {
+              "id": "colorB",
+              "label": "Anchor B",
+              "dataType": "color"
+            },
+            {
+              "id": "colorC",
+              "label": "Anchor C",
+              "dataType": "color"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ]
+        }
+      },
+      {
+        "id": "boids",
+        "type": "studioNode",
+        "position": {
+          "x": -660,
+          "y": 80
+        },
+        "data": {
+          "label": "Boids",
+          "nodeType": "Boids",
+          "category": "pattern",
+          "properties": {
+            "speed": 0.12,
+            "count": 18,
+            "separation": 0.42,
+            "alignment": 0.6,
+            "cohesion": 0.46,
+            "visualRange": 5,
+            "colorMode": "palette",
+            "r": 120,
+            "g": 200,
+            "b": 255,
+            "palette": "rainbow",
+            "seed": 401
+          },
+          "inputs": [
+            {
+              "id": "color",
+              "label": "Color",
+              "dataType": "color"
+            },
+            {
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            },
+            {
+              "id": "speed",
+              "label": "Speed",
+              "dataType": "float"
+            },
+            {
+              "id": "count",
+              "label": "Count",
+              "dataType": "float"
+            },
+            {
+              "id": "separation",
+              "label": "Separation",
+              "dataType": "float"
+            },
+            {
+              "id": "alignment",
+              "label": "Alignment",
+              "dataType": "float"
+            },
+            {
+              "id": "cohesion",
+              "label": "Cohesion",
+              "dataType": "float"
+            },
+            {
+              "id": "visualRange",
+              "label": "Range",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "blur",
+        "type": "studioNode",
+        "position": {
+          "x": -340,
+          "y": 80
+        },
+        "data": {
+          "label": "Blur 2D",
+          "nodeType": "Blur2D",
+          "category": "composite",
+          "properties": {
+            "amount": 0.22
+          },
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            },
+            {
+              "id": "amount",
+              "label": "Amount",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "blend",
+        "type": "studioNode",
+        "position": {
+          "x": -20,
+          "y": 80
+        },
+        "data": {
+          "label": "Blend",
+          "nodeType": "Blend",
+          "category": "composite",
+          "properties": {
+            "blendMode": "screen",
+            "amount": 0.32
+          },
+          "inputs": [
+            {
+              "id": "a",
+              "label": "A",
+              "dataType": "frame"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "frame"
+            },
+            {
+              "id": "amount",
+              "label": "Opacity",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "sat",
+        "type": "studioNode",
+        "position": {
+          "x": 280,
+          "y": 80
+        },
+        "data": {
+          "label": "Saturation",
+          "nodeType": "Saturation",
+          "category": "composite",
+          "properties": {
+            "amount": 1.22
+          },
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            },
+            {
+              "id": "amount",
+              "label": "Amount",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "out",
+        "type": "studioNode",
+        "position": {
+          "x": 560,
+          "y": 80
+        },
+        "data": {
+          "label": "Group Output",
+          "nodeType": "GroupOutput",
+          "category": "output",
+          "properties": {},
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ],
+          "outputs": []
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "pal",
+        "sourceHandle": "palette",
+        "target": "boids",
+        "targetHandle": "paletteIn",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#ff5cf0"
+        }
+      },
+      {
+        "id": "e2",
+        "source": "boids",
+        "sourceHandle": "frame",
+        "target": "blur",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "e3",
+        "source": "backdrop",
+        "sourceHandle": "frame",
+        "target": "blend",
+        "targetHandle": "a",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "e4",
+        "source": "blur",
+        "sourceHandle": "frame",
+        "target": "blend",
+        "targetHandle": "b",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "e5",
+        "source": "blend",
+        "sourceHandle": "frame",
+        "target": "sat",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "e6",
+        "source": "sat",
+        "sourceHandle": "frame",
+        "target": "out",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      }
+    ]
+  }
+}
