@@ -170,7 +170,13 @@ export async function captureSequence(opts: CaptureOptions): Promise<Uint8Clampe
   const warmup = Math.max(0, Math.round((opts.warmupSec ?? 0) * fps))
   const routes = outputRoutes(nodes)
   const route = routes.find((candidate) => candidate.id === opts.outputId) ?? routes[0]
-  const composition = compositionDims(nodes)
+  // compositionDims falls back to a hardcoded 16x16 when there's no route to
+  // size against (e.g. a hardware-agnostic shared pattern with MatrixOutput
+  // stripped) — but frameToBytes below packs bytes at outW/outH, which falls
+  // back to the caller's gridW/gridH in that same case. Without this, a
+  // 32x32 capture request would evaluate at 16x16 and then read a phantom
+  // 32x32 region out of it, leaving 3/4 of the packed frame black.
+  const composition = route ? compositionDims(nodes) : { w: gridW, h: gridH }
   const brightness = masterBrightnessScale(route?.node)
   // The routed frame's true shape. gridW/gridH is the caller's expectation and
   // only applies when there is no route to size against.

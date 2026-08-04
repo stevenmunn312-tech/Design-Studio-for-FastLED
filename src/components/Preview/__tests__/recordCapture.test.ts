@@ -164,6 +164,26 @@ describe('captureSequence', () => {
     expect([...frames![0]].every((v) => v > 0)).toBe(true)
   })
 
+  it('renders at the requested grid when there is no output route, not the hardcoded 16x16 fallback', async () => {
+    // Hardware-agnostic shared pattern: a GroupOutput terminal, no MatrixOutput
+    // anywhere, so outputRoutes(nodes) is empty and there's nothing to size
+    // the composition against except the caller's own gridW/gridH.
+    const nodes = [
+      node('solid', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 }),
+      node('out', 'GroupOutput', 'output'),
+    ]
+    const edges = [edge('e1', 'solid', 'frame', 'out', 'frame')]
+    const frames = await captureSequence({
+      nodes, edges, groups: {}, trusted: true,
+      gridW: 32, gridH: 32, fps: 10, durationSec: 0.2, seamlessLoop: false,
+    })
+
+    // 32x32 fully lit — not a 16x16 pattern in the corner of an otherwise
+    // black 32x32 frame (1024 * 3 bytes, every one of them lit).
+    expect(frames![0]).toHaveLength(32 * 32 * 3)
+    expect([...frames![0]].every((v) => v > 0)).toBe(true)
+  })
+
   it('drives audio-reactive nodes from the recorded timeline, not the frozen live store', async () => {
     // The mock store is silent, so any reaction can only come from the timeline.
     const nodes = [
