@@ -16,6 +16,12 @@ export interface CommunitySharePattern {
    *  browser. Omitted when capture wasn't possible — the site falls back to
    *  live evaluation for that pattern. */
   previewMedia?: Blob
+  /** The sharer's own 1–5 star rating for this pattern (usePatternRatingStore's
+   *  userRatingsByPatternId), seeding the community rating with a real opinion
+   *  instead of leaving it at zero until strangers rate it. Omitted when the
+   *  sharer never rated this pattern, or when sharing the whole project
+   *  (which has no single Pattern Library entry to have been rated). */
+  personalRating?: number
 }
 
 function communitySiteUrl(): URL {
@@ -92,6 +98,9 @@ export async function postToCommunityTab(target: string, pattern: CommunityShare
   if (pattern.previewMedia) {
     hiddenField(form, 'previewMediaBase64', await blobToBase64(pattern.previewMedia))
     hiddenField(form, 'previewMediaType', pattern.previewMedia.type)
+  }
+  if (pattern.personalRating && pattern.personalRating >= 1 && pattern.personalRating <= 5) {
+    hiddenField(form, 'personalRating', String(Math.round(pattern.personalRating)))
   }
   document.body.appendChild(form)
   form.submit()

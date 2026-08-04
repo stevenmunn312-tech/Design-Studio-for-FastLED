@@ -536,6 +536,7 @@ function Sidebar() {
 
     setStatus('Generating a preview clip for the community site…', 'info')
     const previewMedia = await captureSharePreview({ nodes: pattern.subgraph.nodes, edges: pattern.subgraph.edges }) ?? undefined
+    const personalRating = usePatternRatingStore.getState().userRatingsByPatternId[pattern.id]
 
     await postToCommunityTab(tab.target, {
       name: pattern.name,
@@ -544,6 +545,7 @@ function Sidebar() {
       controller: 'Other',
       ledCount: 256,
       previewMedia,
+      personalRating,
     })
 
     setStatus(`"${pattern.name}" is opening on the community site`, 'success')

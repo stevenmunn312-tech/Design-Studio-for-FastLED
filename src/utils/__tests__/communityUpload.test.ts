@@ -56,4 +56,26 @@ describe('community upload handoff', () => {
     expect(typeof data.get('previewMediaBase64')).toBe('string')
     expect((data.get('previewMediaBase64') as string).length).toBeGreaterThan(0)
   })
+
+  it('includes the sharer’s personal rating when set', async () => {
+    const submit = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {})
+
+    await postToCommunityTab('design-studio-community-789', { ...pattern, personalRating: 4 })
+
+    const form = submit.mock.instances[0] as HTMLFormElement
+    expect(new FormData(form).get('personalRating')).toBe('4')
+  })
+
+  it('omits the personal rating when unset or out of range', async () => {
+    const submit = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {})
+
+    await postToCommunityTab('design-studio-community-000', pattern)
+    expect(new FormData(submit.mock.instances[0] as HTMLFormElement).get('personalRating')).toBeNull()
+
+    await postToCommunityTab('design-studio-community-001', { ...pattern, personalRating: 0 })
+    expect(new FormData(submit.mock.instances[1] as HTMLFormElement).get('personalRating')).toBeNull()
+
+    await postToCommunityTab('design-studio-community-002', { ...pattern, personalRating: 6 })
+    expect(new FormData(submit.mock.instances[2] as HTMLFormElement).get('personalRating')).toBeNull()
+  })
 })
