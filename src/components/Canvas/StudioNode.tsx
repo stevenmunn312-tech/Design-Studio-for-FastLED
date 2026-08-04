@@ -1164,7 +1164,13 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {d.nodeType === 'DMXInput' && <DmxInputBody nodeId={id} />}
         {d.nodeType === 'RTCInput' && <RtcInputBody nodeId={id} />}
         {showLiveNodeVisuals && d.nodeType === 'MidiInput' && <MidiInputBody note={Math.round(Number(props.note ?? 60))} cc={Math.round(Number(props.cc ?? 1))} />}
-        {showLiveNodeVisuals && previewKind && outPort && (
+        {(d.nodeType === 'CustomPalette' || d.nodeType === 'Poline') && (
+          <Suspense fallback={null}>
+            {d.nodeType === 'CustomPalette' && <CustomPaletteEditorBody nodeId={id} topPlacement />}
+            {d.nodeType === 'Poline' && <PolineEditorBody nodeId={id} topPlacement />}
+          </Suspense>
+        )}
+        {showLiveNodeVisuals && previewKind && outPort && d.nodeType !== 'CustomPalette' && d.nodeType !== 'Poline' && (
           previewHidden ? (
             <button
               type="button"
@@ -1247,8 +1253,6 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}
           {d.nodeType === 'Transition' && <TransitionPickerBody nodeId={id} />}
           {d.nodeType === 'TransitionSet' && <TransitionSetBody nodeId={id} />}
-          {d.nodeType === 'CustomPalette' && <CustomPaletteEditorBody nodeId={id} />}
-          {d.nodeType === 'Poline' && <PolineEditorBody nodeId={id} />}
 
           {d.nodeType === 'MatrixOutput' && (
             <MatrixOutputUpload

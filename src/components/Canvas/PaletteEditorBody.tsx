@@ -133,7 +133,7 @@ function StopHandle({
   )
 }
 
-export function CustomPaletteEditorBody({ nodeId }: { nodeId: string }) {
+export function CustomPaletteEditorBody({ nodeId, topPlacement }: { nodeId: string; topPlacement?: boolean }) {
   const props = useGraphStore(
     (s) => (s.nodes.find((n) => n.id === nodeId)?.data.properties as Record<string, unknown> | undefined) ?? {},
   )
@@ -171,7 +171,7 @@ export function CustomPaletteEditorBody({ nodeId }: { nodeId: string }) {
   }
 
   return (
-    <div className={`nodrag ${styles.wrap}`}>
+    <div className={`nodrag ${topPlacement ? styles.wrapTop : styles.wrap}`}>
       <div className={styles.header}>
         <span>Palette stops</span>
         <button type="button" className={styles.miniBtn} onClick={add} disabled={local.colors.length >= 8}>add</button>
@@ -207,7 +207,7 @@ export function CustomPaletteEditorBody({ nodeId }: { nodeId: string }) {
   )
 }
 
-export function PolineEditorBody({ nodeId }: { nodeId: string }) {
+export function PolineEditorBody({ nodeId, topPlacement }: { nodeId: string; topPlacement?: boolean }) {
   const props = useGraphStore(
     (s) => (s.nodes.find((n) => n.id === nodeId)?.data.properties as Record<string, unknown> | undefined) ?? {},
   )
@@ -223,7 +223,7 @@ export function PolineEditorBody({ nodeId }: { nodeId: string }) {
   const gradientCss = gradient(stops.length ? stops : anchors.map(hexToRgb))
 
   return (
-    <div className={`nodrag ${styles.wrap}`}>
+    <div className={`nodrag ${topPlacement ? styles.wrapTop : styles.wrap}`}>
       <div className={styles.header}>
         <span>Poline anchors</span>
         {hasWiredAnchor && (
