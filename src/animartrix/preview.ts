@@ -9,6 +9,7 @@
  */
 
 import type { Frame, RGB } from '../state/ledColor'
+import { buildFrame } from '../state/graphEvaluator'
 import { asAnimartrixEffect, type AnimartrixEffect } from './catalog'
 
 export interface AnimartrixAudio {
@@ -148,14 +149,15 @@ export function evalAnimartrix(key: string, params: AnimartrixParams, t: number,
   const s = updateState(key, params, t)
   const effect = asAnimartrixEffect(params.effect)
   const amount = Math.max(0, Math.min(2, params.audioAmount))
-  const frame: Frame = Array.from({ length: height }, () => Array.from({ length: width }, () => ({ r: 0, g: 0, b: 0 })))
   const scale = 2 / Math.max(1, Math.min(width, height) - 1)
   const cx = (width - 1) * 0.5
   const cy = (height - 1) * 0.5
-  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
-    frame[y][x] = renderPixel(effect, (x - cx) * scale, (y - cy) * scale, s, amount)
-  }
-  return frame
+  // buildFrame draws from the evaluator's pooled buffers instead of a fresh
+  // Array.from allocation — every other node type in the evaluator recycles
+  // its per-frame pixel buffers this way; this is the highest-allocation-rate
+  // path in the whole evaluator (1024 fresh objects/frame at 32x32, 60x/sec)
+  // and was the one place still bypassing the pool.
+  return buildFrame(width, height, (x, y) => renderPixel(effect, (x - cx) * scale, (y - cy) * scale, s, amount))
 }
 
 export function disposeAnimartrixState(key: string): void {
