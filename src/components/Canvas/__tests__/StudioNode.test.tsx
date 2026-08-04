@@ -657,9 +657,11 @@ describe('StudioNode', () => {
       positions: [0, 1],
     })
     const { findByLabelText, getByTestId } = renderNode(node)
+    // Wait for the lazy-loaded palette editor to mount before reading initial state.
+    const colorInput = await findByLabelText('Stop 1 color')
     const before = getByTestId('palette-preview-strip').style.background
 
-    fireEvent.change(await findByLabelText('Stop 1 color'), { target: { value: '#ff0000' } })
+    fireEvent.change(colorInput, { target: { value: '#ff0000' } })
 
     await waitFor(() => {
       expect(getByTestId('palette-preview-strip').style.background).not.toBe(before)
