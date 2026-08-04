@@ -176,7 +176,7 @@ export function CustomPaletteEditorBody({ nodeId, topPlacement }: { nodeId: stri
         <span>Palette stops</span>
         <button type="button" className={styles.miniBtn} onClick={add} disabled={local.colors.length >= 8}>add</button>
       </div>
-      <div className={styles.rail} style={{ background: gradientCss }}>
+      <div className={styles.rail} style={{ background: gradientCss }} data-testid="palette-preview-strip">
         {local.colors.map((color, i) => (
           <StopHandle
             key={`${i}-${color}`}
