@@ -634,7 +634,7 @@ describe('nodeLibrary', () => {
     expect(NODE_LIBRARY.find((n) => n.type === 'Envelope')?.defaultProperties).toMatchObject({ attack: 0, decay: 0.5 })
     expect(propertyMeta('Envelope', 'attack')).toEqual({ control: 'slider', min: 0, max: 5, step: 0.05 })
     expect(propertyMeta('Envelope', 'decay')).toEqual({ control: 'slider', min: 0.05, max: 5, step: 0.05 })
-    expect(propertyMeta('BeatSin', 'bpm')).toEqual({ control: 'slider', min: 40, max: 220, step: 1 })
+    expect(propertyMeta('BeatSin', 'bpm')).toEqual({ control: 'slider', min: 1, max: 220, step: 1 })
   })
 
   it('explains that Sin and Cos need an explicit X signal to animate', () => {

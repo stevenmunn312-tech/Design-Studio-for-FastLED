@@ -3078,7 +3078,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     decay: { control: 'slider', min: 0.05, max: 5, step: 0.05 },
   },
   BeatSin: {
-    bpm: { control: 'slider', min: 40, max: 220, step: 1 },
+    bpm: { control: 'slider', min: 1, max: 220, step: 1 },
   },
   Random: {
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
