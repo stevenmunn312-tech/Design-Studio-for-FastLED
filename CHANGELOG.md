@@ -7,6 +7,43 @@ versioning (`0.y.z`) until the first stable release.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-06
+
+### Added
+
+- Shared patterns now carry a looping 5s preview clip captured through the
+  same evaluator and renderer the live preview uses, so the community
+  gallery can play each card back from that clip instead of live-evaluating
+  every pattern on the page at once; live evaluation is reserved for the one
+  pattern a visitor actually opens.
+- The sharer's own 1–5 star rating now travels with a per-pattern community
+  share, seeding the site's rating with a real opinion instead of starting
+  every shared pattern at zero. Whole-project shares have no single Pattern
+  Library entry to have been rated, so they omit it.
+
+### Changed
+
+- Custom Palette and Poline nodes now show the interactive stop/anchor rail
+  at the top of the node body, where the separate gradient preview strip
+  used to be, removing the duplicate gradient display.
+
+### Fixed
+
+- Fixed whole-project community shares silently substituting an unrelated
+  inner subgraph for the actual canvas content whenever the project used any
+  Group nodes: the share path was flattening the top-level canvas and every
+  nested group's subgraph into one node list, so the evaluator's terminal
+  search could land on a stray nested `GroupOutput` instead of the canvas's
+  real one.
+- Fixed shared patterns with `MatrixOutput` stripped (the normal
+  hardware-agnostic share shape) rendering a "tiny preview": capture fell
+  back to evaluating at a hardcoded 16x16 grid while still packing bytes at
+  the caller's requested size, leaving roughly three-quarters of every
+  frame black.
+- Reduced per-frame allocation in the AnimARTrix evaluator path by drawing
+  its pixel buffer from the same recycling pool every other node type
+  already uses, instead of allocating a fresh buffer every frame.
+
 ## [0.5.1] - 2026-08-03
 
 ### Changed

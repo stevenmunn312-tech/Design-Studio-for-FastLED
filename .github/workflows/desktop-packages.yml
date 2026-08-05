@@ -6,7 +6,7 @@ on:
       release_tag:
         description: Tag to use if a draft pre-release is created
         required: true
-        default: v0.5.1
+        default: v0.6.0
         type: string
       create_draft_release:
         description: Create or update a draft GitHub pre-release after all builds pass
