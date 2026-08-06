@@ -1290,13 +1290,24 @@
    postage stamp while preserving the full visualizer on normal displays. */
 @media (max-height: 620px) {
   .canvasWrap {
-    flex: 2 3 auto;
-    min-height: 150px;
+    /* Shrink slower than the visualizer, not faster. With the old 3-vs-1 split
+       the matrix gave up height three times as fast as the spectrum/transport
+       stack and rode down onto its own min-height, which is the exact collapse
+       this block exists to prevent. The visualizer can't starve in return: its
+       transport rows are flex-shrink 0 and the spectrum keeps a 48px floor. */
+    flex: 3 1 auto;
+    min-height: 220px;
     padding: var(--space-2);
   }
 
   .visualizer {
-    flex: 2 1 auto;
+    flex: 1 3 auto;
+    /* Now that it yields height first, it needs a floor or the transport rows
+       get clipped. `auto` won't do it — this is a scroll container (overflow
+       hidden), so its automatic minimum size resolves to zero; `min-content`
+       is not subject to that exception. The panel scrolls when the canvas
+       floor and this one can't both fit. */
+    min-height: min-content;
     padding-bottom: 8px;
   }
 
