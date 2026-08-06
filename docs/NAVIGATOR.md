@@ -59,6 +59,10 @@ build/architecture overview aimed at contributors.
     and firmware generator: preview/firmware divergences (a `Kaleidoscope`
     codegen stub, `Mod` by zero, frame-rate-coupled timing), unbounded
     property values, and node-metadata improvements.
+  - [fbuild workarounds](development/reports/fbuild-workarounds.md)
+    — every accommodation the upload helper makes for the fbuild build engine,
+    with symptoms, code references, and version-verification status; written to
+    double as an upstream bug report.
 
 ## Reference
 
