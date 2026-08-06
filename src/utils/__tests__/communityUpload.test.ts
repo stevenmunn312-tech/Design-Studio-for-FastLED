@@ -37,7 +37,7 @@ describe('community upload handoff', () => {
     const form = submit.mock.instances[0] as HTMLFormElement
     expect(form.method).toBe('post')
     expect(form.target).toBe('design-studio-community-123')
-    expect(form.action).toBe('https://design-studio-for-fastled.design-studio-for-fastled.workers.dev/upload/handoff')
+    expect(form.action).toBe('https://designstudioforfastled.com/upload/handoff')
     expect(new FormData(form).get('patternName')).toBe('Aurora Grid')
     expect(new FormData(form).get('patternJson')).toBe(pattern.patternJson)
     expect(new FormData(form).get('ledCount')).toBe('256')

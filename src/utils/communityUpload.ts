@@ -1,4 +1,6 @@
-const DEFAULT_COMMUNITY_SITE = 'https://design-studio-for-fastled.design-studio-for-fastled.workers.dev'
+// The public site. Must match the domain the share confirmation names, or the
+// dialog promises one destination and the handoff tab opens another.
+const DEFAULT_COMMUNITY_SITE = 'https://designstudioforfastled.com'
 
 /**
  * A single, hardware-agnostic pattern: a name plus a subgraph (nodes/edges).
