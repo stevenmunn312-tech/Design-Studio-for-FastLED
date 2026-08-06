@@ -54,7 +54,7 @@ jobs:
           node-version: 22
           cache: npm
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip
@@ -75,7 +75,7 @@ jobs:
       - name: Restore source-built macOS fbuild tools
         id: fbuild-cache
         if: ${{ startsWith(matrix.target, 'macos-') }}
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ${{ runner.temp }}/fbuild-v2.5.4/target/release/fbuild
@@ -129,7 +129,7 @@ jobs:
           p.with_name(p.name + '.sha256').write_text(f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n', encoding='utf-8')"
 
       - name: Upload desktop archive
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: design-studio-for-fastled-${{ matrix.target }}
           path: |
@@ -152,7 +152,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v7
         with:
           pattern: design-studio-for-fastled-*
           path: release-assets
