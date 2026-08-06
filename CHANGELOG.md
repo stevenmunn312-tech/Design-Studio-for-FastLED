@@ -7,6 +7,20 @@ versioning (`0.y.z`) until the first stable release.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-08-06
+
+### Fixed
+
+- Fixed the LED matrix preview collapsing to a postage stamp on short
+  viewports — most visibly on Windows at 125% display scaling, where the
+  browser viewport drops under the 620px height breakpoint. In that compact
+  layout the canvas gave up height three times as fast as the spectrum and
+  transport below it, so it rode down onto its own minimum while the
+  decoration kept its space; the block was meant to do the opposite. The
+  transport rows now hold a content-sized floor of their own so they cannot
+  be clipped in return, and the panel scrolls when the matrix and the
+  controls do not both fit.
+
 ## [0.6.0] - 2026-08-06
 
 ### Added
