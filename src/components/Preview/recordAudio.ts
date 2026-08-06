@@ -111,7 +111,13 @@ export function createAudioTimeline(fps: number, frameCount: number): AudioTimel
       return total === 0 || buckets[total - 1] !== null
     },
     finish() {
-      let carry: RecordedAudioFrame | null = null
+      // The first animation frame can land past capture frame 0's window when
+      // the capture fps runs ahead of rAF, which would open the clip on a
+      // silent frame — an audible dropout the mic never had. Backfill that
+      // leading gap from the first real sample instead, minus its beat, which
+      // belongs to the frame that actually saw it.
+      const first = buckets.find((bucket) => bucket !== null) ?? null
+      let carry: RecordedAudioFrame | null = first && { ...first, beat: false }
       for (let i = 0; i < total; i++) {
         if (buckets[i]) carry = buckets[i]
         // A carried-forward frame repeats the previous levels but must not

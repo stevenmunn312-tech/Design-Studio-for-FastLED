@@ -89,6 +89,17 @@ describe('createAudioTimeline', () => {
     expect(frames[3].micBass).toBe(0.8)
   })
 
+  it('backfills a leading bucket the first sample landed past', () => {
+    // rAF running behind the capture fps can miss capture frame 0 outright.
+    const timeline = createAudioTimeline(50, 3)
+    timeline.sample(25, sample({ micBass: 0.6, beat: true }))
+
+    const frames = timeline.finish()
+    expect(frames[0].micBass).toBe(0.6)   // not a silent frame opening the clip
+    expect(frames[0].beat).toBe(false)    // the beat stays on the frame that saw it
+    expect(frames[1].beat).toBe(true)
+  })
+
   it('falls back to silence when nothing was ever sampled', () => {
     const frames = createAudioTimeline(10, 2).finish()
     expect(frames).toHaveLength(2)
