@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../../state/audioStore', () => ({
   useAudioStore: { getState: () => ({ active: false, micActive: false }) },
@@ -117,8 +117,35 @@ describe('createAudioTimeline', () => {
   })
 })
 
+/** Drive the recorder's rAF loop on a fake clock ticking every `stepMs`. jsdom's
+ *  own rAF lands within a millisecond of a 20 ms capture-frame boundary, so
+ *  timing these cases against the wall clock decides them on runner load. */
+function stubAnimationClock(stepMs: number) {
+  let now = 0
+  vi.spyOn(performance, 'now').mockImplementation(() => now)
+  vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+    now += stepMs
+    queueMicrotask(() => cb(now))
+    return 0
+  })
+}
+
 describe('recordAudioTimeline', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
   it('listens for the clip duration and returns one frame per capture frame', async () => {
+    stubAnimationClock(16)   // 60 fps rAF against a 50 fps capture
+    const frames = await recordAudioTimeline({ fps: 50, frameCount: 3, read: () => sample({ micBass: 0.6 }) })
+
+    expect(frames).toHaveLength(3)
+    expect(frames!.every((frame) => frame.micBass === 0.6)).toBe(true)
+  })
+
+  it('opens on live levels when the first animation frame misses capture frame 0', async () => {
+    stubAnimationClock(25)   // 40 fps rAF: nothing lands in the first 20 ms
     const frames = await recordAudioTimeline({ fps: 50, frameCount: 3, read: () => sample({ micBass: 0.6 }) })
 
     expect(frames).toHaveLength(3)
