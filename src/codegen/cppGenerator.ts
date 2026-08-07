@@ -13,7 +13,7 @@ import {
 import { asAnimatedImage, asImage } from '../state/image'
 import { imagePaletteStops16 } from '../state/imagePalette'
 import { polineStops16, hexToRgb } from '../state/polinePalette'
-import { customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCatalog'
+import { customPaletteDeclarationsCpp, paletteCppRef, resolvePaletteId } from '../state/paletteCatalog'
 import { audioFlowExpr } from '../state/audioFlowRange'
 import { SPEED_MAX, SCALE_MAX, NOISE_SPEED_MAX, NOISE_SCALE_MAX, rateCpp } from '../state/speedRange'
 import { denormalizeBeatParam, FLUX_GAIN } from '../audio/beatDetection'
@@ -829,9 +829,18 @@ export function generateCpp(
     return `CRGB(${r},${g},${b})`
   }
 
-  // Resolve a palette name to its FastLED preset palette constant.
+  // Canonical ids of every palette `fastledPalette` resolves below. The emit
+  // pass runs before the declarations are written, so this set is complete by
+  // the time it gates them.
+  const usedPalettes = new Set<string>()
+
+  // Resolve a palette name to its baked `paldef_*` table, recording the
+  // canonical id so only the palettes this sketch names are declared. Each
+  // declaration is a non-const 48-byte global, so unused ones cost real RAM.
   function fastledPalette(name: string): string {
-    return paletteCppRef(name.toLowerCase())
+    const id = resolvePaletteId(name.toLowerCase())
+    usedPalettes.add(id)
+    return paletteCppRef(id)
   }
 
   // Resolve the FastLED palette for a palette-consuming port: runtime palette
@@ -5147,7 +5156,7 @@ export function generateCpp(
     lines.push(``)
   }
 
-  lines.push(...customPaletteDeclarationsCpp())
+  lines.push(...customPaletteDeclarationsCpp(usedPalettes))
   lines.push(``)
 
   // File-scope code from Code nodes (helpers, persistent vars, palettes).

@@ -8,16 +8,27 @@ export interface PaletteDefinition {
   id: string
   label: string
   stops: readonly string[]
-  fastled?: string
 }
 
+// Every palette bakes its own `paldef_*` CRGBPalette16 from `stops`, so preview
+// and firmware sample identical colours. Six of these (rainbow/heat/ocean/lava/
+// forest/party) used to shortcut to FastLED's same-named built-ins
+// (RainbowColors_p, …) in generated C++ while the preview rendered the `stops`
+// below — a different palette under the same name. A WASM parity run measured
+// that gap on the default `rainbow` at mean Δ 43.6/255 per channel (max 152);
+// baking all of them drops it to Δ 9.0 (max 50), the residual being FastLED's
+// own 16-stop sampling convention rather than the colours.
+//
+// Cost is ~288 bytes of RAM, not flash: these are non-const globals, so all 29
+// live in .data whether or not the sketch references them. See the note on
+// customPaletteDeclarationsCpp below.
 export const PALETTE_DEFS: readonly PaletteDefinition[] = [
-  { id: 'rainbow',      label: 'Rainbow',       fastled: 'RainbowColors_p', stops: ['#FF0000', '#FF7A00', '#FFD500', '#00C853', '#00B0FF', '#304FFE', '#D500F9'] },
-  { id: 'heat',         label: 'Heat',          fastled: 'HeatColors_p',    stops: ['#000000', '#6A040F', '#D00000', '#FF7B00', '#FFD166', '#FFF3B0'] },
-  { id: 'ocean',        label: 'Ocean',         fastled: 'OceanColors_p',   stops: ['#031D44', '#0A4DA2', '#0E90D2', '#57CCF2', '#D8F3FF'] },
-  { id: 'lava',         label: 'Lava',          fastled: 'LavaColors_p',    stops: ['#140000', '#5E0000', '#B22222', '#FF5A00', '#FFC857'] },
-  { id: 'forest',       label: 'Forest',        fastled: 'ForestColors_p',  stops: ['#081C15', '#1B4332', '#2D6A4F', '#52B788', '#D8F3DC'] },
-  { id: 'party',        label: 'Party',         fastled: 'PartyColors_p',   stops: ['#FF006E', '#FB5607', '#FFBE0B', '#8338EC', '#3A86FF'] },
+  { id: 'rainbow',      label: 'Rainbow',                           stops: ['#FF0000', '#FF7A00', '#FFD500', '#00C853', '#00B0FF', '#304FFE', '#D500F9'] },
+  { id: 'heat',         label: 'Heat',                              stops: ['#000000', '#6A040F', '#D00000', '#FF7B00', '#FFD166', '#FFF3B0'] },
+  { id: 'ocean',        label: 'Ocean',                             stops: ['#031D44', '#0A4DA2', '#0E90D2', '#57CCF2', '#D8F3FF'] },
+  { id: 'lava',         label: 'Lava',                              stops: ['#140000', '#5E0000', '#B22222', '#FF5A00', '#FFC857'] },
+  { id: 'forest',       label: 'Forest',                            stops: ['#081C15', '#1B4332', '#2D6A4F', '#52B788', '#D8F3DC'] },
+  { id: 'party',        label: 'Party',                             stops: ['#FF006E', '#FB5607', '#FFBE0B', '#8338EC', '#3A86FF'] },
   { id: 'fire',         label: 'Fire',                              stops: ['#120000', '#7F0000', '#FF3D00', '#FF9E00', '#FFF0A8'] },
   { id: 'ice',          label: 'Ice',                               stops: ['#031926', '#468FAF', '#89C2D9', '#D6F0FF', '#FFFFFF'] },
   { id: 'purple',       label: 'Purple',                            stops: ['#1B1037', '#4C1D95', '#7C3AED', '#C084FC', '#F5D0FE'] },
@@ -108,15 +119,36 @@ export function paletteStops16(name: string): PaletteRgb[] {
   return Array.from({ length: 16 }, (_, index) => sampleStops(stops, index / 15))
 }
 
-export function paletteCppRef(name: string): string {
-  const palette = PALETTE_MAP.get(name)
-  if (!palette) return 'RainbowColors_p'
-  return palette.fastled ?? `paldef_${cppId(palette.id)}`
+/**
+ * Canonical palette id for a name, falling back to the same default the
+ * evaluator uses. Generators record this — not the raw name — so the set of
+ * palettes they declare always covers what `paletteCppRef` actually emitted.
+ */
+export function resolvePaletteId(name: string): string {
+  return PALETTE_MAP.has(name) ? name : 'rainbow'
 }
 
-export function customPaletteDeclarationsCpp(): string[] {
+export function paletteCppRef(name: string): string {
+  return `paldef_${cppId(resolvePaletteId(name))}`
+}
+
+/**
+ * `CRGBPalette16 paldef_*` declarations for the generated sketch.
+ *
+ * These are non-const globals (48 bytes each), so they occupy RAM whether or
+ * not the sketch references them — all 29 is 1,392 bytes, over half an Uno's
+ * SRAM. Pass `used` (canonical ids from `resolvePaletteId`) to emit only the
+ * ones a sketch actually names.
+ *
+ * Omitting `used` declares all of them, which is required — not merely
+ * convenient — for the SD-show player: a `.show` file stores a palette *id*
+ * that `SET_PALETTE` resolves at playback time, so any palette may be selected
+ * by a file the sketch was not compiled against.
+ */
+export function customPaletteDeclarationsCpp(used?: Iterable<string>): string[] {
+  const wanted = used ? new Set(used) : null
   return PALETTE_DEFS
-    .filter((palette) => !palette.fastled)
+    .filter((palette) => !wanted || wanted.has(palette.id))
     .map((palette) => {
       const stops = paletteStops16(palette.id)
       const cppStops = stops.map((stop) => `CRGB(${stop.r},${stop.g},${stop.b})`).join(', ')

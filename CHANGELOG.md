@@ -7,6 +7,49 @@ versioning (`0.y.z`) until the first stable release.
 
 ## [Unreleased]
 
+### Fixed
+
+- Generated firmware now renders the same palette colours the preview shows.
+  Six palettes — `rainbow`, `heat`, `ocean`, `lava`, `forest` and `party` —
+  carried a `fastled:` shortcut that emitted FastLED's same-named built-in
+  (`RainbowColors_p`, `HeatColors_p`, …) into the sketch, while the preview
+  rendered this project's own colour stops. Same palette name, different
+  colours, on the default palette of every palette-consuming node. The other
+  23 palettes already baked their stops into a `paldef_*` table and matched;
+  all 29 now take that path.
+
+  Measured by compiling the generated sketch to WASM and diffing its LED bytes
+  against the evaluator frame by frame: a static ramp through `rainbow` went
+  from mean Δ 43.6/255 per channel (max 152) to Δ 9.0 (max 50), and Plasma
+  from Δ 39–61 to a flat Δ 13.5 — the drift over time disappearing along with
+  it. The remainder is a separate, smaller issue: FastLED spreads 16 palette
+  entries over 16 intervals and wraps the last back to the first, while
+  `samplePalette` spreads them over 15 and clamps.
+
+  **If you have flashed a design using any of those six palettes, its colours
+  will change on the next upload** — toward what the preview has always shown.
+  Saved projects are unaffected; nothing about their stored shape changes.
+
+- Generated sketches now declare only the palettes they actually name. Every
+  palette was previously emitted regardless of use — 29 `CRGBPalette16`
+  globals, non-const and so RAM-resident at 48 bytes each, or 1,392 bytes on a
+  sketch referencing none of them. That was over half an Arduino Uno's 2 KB of
+  SRAM spent on colour tables nothing read. A typical single-palette design
+  now spends 48 bytes.
+
+  The SD-show player still declares all of them, and must: a `.show` file
+  stores a palette id that `SET_PALETTE` resolves during playback, so any
+  palette may be selected by a file the sketch was never compiled against.
+  The generative-show controller also keeps the full set, since its pattern
+  bodies are rewritten in from separate codegen runs whose palette use isn't
+  visible at that point; it targets ESP32-class hardware where the cost is
+  under half a percent of RAM.
+
+  Side effect: the pre-upload RAM estimate does not count palette globals, so
+  it had been under-reporting by that same ~1.1 KB on every sketch. For normal
+  sketches the gap is now down to a few dozen bytes. The live capacity meter
+  was never affected — it reads the real figure from the linker.
+
 ## [0.6.1] - 2026-08-06
 
 ### Fixed
