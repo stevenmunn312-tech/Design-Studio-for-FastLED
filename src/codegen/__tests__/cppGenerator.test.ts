@@ -250,7 +250,7 @@ describe('generateCpp', () => {
         edge('e2', 'ts', 'out', 'frame', 'frame'),
       ],
     )
-    expect(cpp).toContain('CRGB _spark = blend(ColorFromPalette(OceanColors_p, random8()), CRGB::White')
+    expect(cpp).toContain('CRGB _spark = blend(ColorFromPalette(paldef_ocean, random8()), CRGB::White')
     expect(cpp).toContain('fadeToBlackBy(buf_ts, NUM_LEDS')
   })
 
@@ -500,7 +500,7 @@ describe('generateCpp', () => {
   it('emits NoiseField coloured through its palette', () => {
     const nf = node('nf', 'Noise', 'pattern', { noiseType: 'field', speed: 1, scale: 1, palette: 'ocean' })
     const cpp = generateCpp([nf, outputNode], [edge('e', 'nf', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('ColorFromPalette(OceanColors_p')
+    expect(cpp).toContain('ColorFromPalette(paldef_ocean')
     expect(cpp).not.toContain('CHSV((uint8_t)((_v')  // no longer hardcoded hue
   })
 
@@ -700,7 +700,7 @@ describe('generateCpp', () => {
     const cpp = generateCpp([fire, outputNode], [])
     expect(cpp).toContain('Fire2012')
     // Default 'heat' palette reproduces the classic HeatColors fire ramp.
-    expect(cpp).toContain('ColorFromPalette(HeatColors_p, _h)')
+    expect(cpp).toContain('ColorFromPalette(paldef_heat, _h)')
   })
 
   describe.each(['Fire', 'Fire2012'] as const)('%s extra controls', (type) => {
@@ -808,7 +808,7 @@ describe('generateCpp', () => {
   it('maps a Simplex2D palette property to its FastLED constant', () => {
     const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex', palette: 'lava' })
     const cpp = generateCpp([sx, outputNode], [edge('e1', 'sx', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('ColorFromPalette(LavaColors_p')
+    expect(cpp).toContain('ColorFromPalette(paldef_lava')
   })
 
   it('emits custom named palettes for generated firmware', () => {
@@ -826,15 +826,15 @@ describe('generateCpp', () => {
       edge('e2', 'sx', 'out', 'frame', 'frame'),
     ])
     // The connected selector's palette wins over the node's own property.
-    expect(cpp).toContain('ColorFromPalette(OceanColors_p')
-    expect(cpp).not.toContain('ColorFromPalette(RainbowColors_p')
+    expect(cpp).toContain('ColorFromPalette(paldef_ocean')
+    expect(cpp).not.toContain('ColorFromPalette(paldef_rainbow')
   })
 
   it('resolves a connected PaletteBlend to its base palette A', () => {
     const blend = node('bl', 'PaletteBlend', 'color', { paletteA: 'forest', paletteB: 'party', amount: 0.5 })
     const samp  = node('s', 'PaletteSampler', 'color', { t: 0.5 })
     const cpp = generateCpp([blend, samp, outputNode], [edge('e1', 'bl', 's', 'palette', 'paletteIn')])
-    expect(cpp).toContain('ColorFromPalette(ForestColors_p')
+    expect(cpp).toContain('ColorFromPalette(paldef_forest')
   })
 
   it('generates a self-contained eased palette sweep', () => {
@@ -847,7 +847,7 @@ describe('generateCpp', () => {
 
     expect(cpp).toContain('fmodf(t * fmaxf(0.0f, (0.5')
     expect(cpp).toContain('powf(-2.0f * _psPos_ps + 2.0f, 3.0f)')
-    expect(cpp).toContain('ColorFromPalette(OceanColors_p')
+    expect(cpp).toContain('ColorFromPalette(paldef_ocean')
   })
 
   it('inlines a group’s pattern code into the sketch', () => {
@@ -947,7 +947,7 @@ describe('generateCpp', () => {
       edge('e2', 'sx', 'out', 'frame', 'frame'),
     ])
     expect(cpp).toContain('CRGBPalette16 pal_pb;')
-    expect(cpp).toContain('blend(ColorFromPalette(HeatColors_p, _p), ColorFromPalette(OceanColors_p, _p), _amt)')
+    expect(cpp).toContain('blend(ColorFromPalette(paldef_heat, _p), ColorFromPalette(paldef_ocean, _p), _amt)')
     expect(cpp).toContain('ColorFromPalette(pal_pb,')
   })
 
@@ -1030,7 +1030,7 @@ describe('generateCpp', () => {
     const cpp = generateCpp([rd, outputNode], [edge('e', 'rd', 'out', 'frame', 'frame')])
     expect(cpp).toContain('static float _u_rd[NUM_LEDS]')
     expect(cpp).toContain('::memcpy(_u_rd,_un_rd,sizeof(_u_rd))')
-    expect(cpp).toContain('ColorFromPalette(OceanColors_p')
+    expect(cpp).toContain('ColorFromPalette(paldef_ocean')
   })
 
   it('emits a Blobs metaball field', () => {
@@ -1039,7 +1039,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('int _count=max(1,min(6,(int)floorf(3)))')
     expect(cpp).toContain('float _bx[6], _by[6]')
     expect(cpp).toContain('_f/(_f+1.0f)')
-    expect(cpp).toContain('ColorFromPalette(LavaColors_p')
+    expect(cpp).toContain('ColorFromPalette(paldef_lava')
   })
 
   it('emits a stateful FlowField with particle buffers', () => {
@@ -1049,7 +1049,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('static float _fpx_ff[400], _fpy_ff[400], _ftr_ff[NUM_LEDS]')
     expect(cpp).toContain('inoise8(')
     expect(cpp).toContain('_ftr_ff[_i]*=0.9')
-    expect(cpp).toContain('ColorFromPalette(OceanColors_p')
+    expect(cpp).toContain('ColorFromPalette(paldef_ocean')
   })
 
   it('emits a stateful Starfield with star buffers and projection', () => {
@@ -1065,7 +1065,7 @@ describe('generateCpp', () => {
     const pf = node('pf', 'Noise', 'pattern', { noiseType: 'plasma', speed: 1, scale: 0.15, palette: 'rainbow' })
     const cpp = generateCpp([pf, outputNode], [edge('e', 'pf', 'out', 'frame', 'frame')])
     expect(cpp).toContain('inoise8(')
-    expect(cpp).toContain('ColorFromPalette(RainbowColors_p')
+    expect(cpp).toContain('ColorFromPalette(paldef_rainbow')
     expect(cpp).toContain('float t = millis()')
   })
 
@@ -1073,7 +1073,7 @@ describe('generateCpp', () => {
     const af = node('af', 'AudioFlow', 'pattern', { speed: 0.5, scale: 0.5, palette: 'party', bass: 0.5, mids: 0.5, treble: 0.3 })
     const cpp = generateCpp([af, outputNode], [edge('e', 'af', 'out', 'frame', 'frame')])
     expect(cpp).toContain('inoise8(')
-    expect(cpp).toContain('ColorFromPalette(PartyColors_p')
+    expect(cpp).toContain('ColorFromPalette(paldef_party')
     expect(cpp).toContain('.nscale8(_bright)')
     expect(cpp).toContain('sqrtf(constrain(_b,0.0f,1.0f))*0.75f')
     expect(cpp).toContain('constrain((')
@@ -1099,7 +1099,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('https://github.com/StefanPetrick/animartrix')
     expect(cpp).toContain('0x7feb352dU')
     expect(cpp).toContain('_xf*_xf*_xf*(_xf*(_xf*6.0f-15.0f)+10.0f)')
-    expect(cpp).toContain('ColorFromPalette(RainbowColors_p')
+    expect(cpp).toContain('ColorFromPalette(paldef_rainbow')
     expect(cpp).toContain('_ctBeatPulse_ct=(n_ctbeat_result)?1.0f')
     expect(cpp.match(/float _shift=constrain\(_profile\*_ctDisp,-1\.0f,1\.0f\)/g)).toHaveLength(2)
     expect(cpp).toContain('fmodf(_x-_shift,(float)WIDTH)')
@@ -1146,7 +1146,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float _motion = _spd * (1.0f + _mAmt * 1.5f * _strength);')
     expect(cpp).toContain('float _contrast = 0.7f + _mAmt * 1.8f * _strength;')
     expect(cpp).toContain('powf(_mAmt, 0.65f) * 1.25f * _strength')
-    expect(cpp).toContain('ColorFromPalette(OceanColors_p')
+    expect(cpp).toContain('ColorFromPalette(paldef_ocean')
     expect(cpp).toContain('.nscale8((uint8_t)(_v * 255))')
   })
 
@@ -1159,7 +1159,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float _rings = 4.0f + _b * 8.0f * _strength;')
     expect(cpp).toContain('sinf(_dist * _rings * 6.2831853f - _phase)')
     expect(cpp).toContain('powf(max(0.0f, _wave * 0.5f + 0.5f), 2.4f)')
-    expect(cpp).toContain('ColorFromPalette(LavaColors_p, (uint8_t)(_dist * 255))')
+    expect(cpp).toContain('ColorFromPalette(paldef_lava, (uint8_t)(_dist * 255))')
   })
 
   it('emits MidrangeBloom through a palette with radial bloom modulation', () => {
@@ -1168,7 +1168,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float _motion = min(1.0f, max(0.0f, _spd)) * (0.8f + _mAmt * 2.2f * _strength);')
     expect(cpp).toContain('float _swirl = sinf((_cx * _cx - _cy * _cy) * 6 + t * _motion * 3.2f)')
     expect(cpp).toContain('float _bloom = sinf(_radial * (5.0f + _mAmt * 8.0f * _strength) * 3.14159265f')
-    expect(cpp).toContain('ColorFromPalette(PartyColors_p')
+    expect(cpp).toContain('ColorFromPalette(paldef_party')
     expect(cpp).toContain('.nscale8((uint8_t)(_v * 255))')
   })
 
@@ -1188,7 +1188,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float _motion = _spd * (0.8f + (_b + _m + _t) * 1.4f * _strength);')
     expect(cpp).toContain('float _ribbon = sinf((_nx * 7.0f + _ny * 2.5f) + t * _motion * (2.0f + _m * 3.0f * _strength));')
     expect(cpp).toContain('float _shimmer = powf(max(0.0f, sinf((_nx + _ny) * 18.0f + t * _motion * (4.0f + _t * 8.0f * _strength)) * 0.5f + 0.5f), 6.0f);')
-    expect(cpp).toContain('ColorFromPalette(RainbowColors_p')
+    expect(cpp).toContain('ColorFromPalette(paldef_rainbow')
     expect(cpp).toContain('.nscale8((uint8_t)(_v * 255));')
   })
 
@@ -1198,7 +1198,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float _worleyHash(int x, int y)')
     expect(cpp).toContain('expf(')
     expect(cpp).toContain('cosf(')
-    expect(cpp).toContain('ColorFromPalette(OceanColors_p')
+    expect(cpp).toContain('ColorFromPalette(paldef_ocean')
   })
 
   it('emits an angled palette gradient with projection normalisation', () => {
@@ -1206,7 +1206,7 @@ describe('generateCpp', () => {
     const cpp = generateCpp([g, outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])
     expect(cpp).toContain('45*0.01745329f')
     expect(cpp).toContain('_pmax-_pmin')
-    expect(cpp).toContain('ColorFromPalette(RainbowColors_p')
+    expect(cpp).toContain('ColorFromPalette(paldef_rainbow')
     expect(cpp).toContain('_tn*2+t*')
   })
 
@@ -1310,7 +1310,7 @@ describe('generateCpp', () => {
     const cpp = generateCpp([fn, outputNode], [edge('e', 'fn', 'out', 'frame', 'frame')])
     expect(cpp).toContain('inoise8(')
     expect(cpp).toContain('_o<4')
-    expect(cpp).toContain('ColorFromPalette(ForestColors_p')
+    expect(cpp).toContain('ColorFromPalette(paldef_forest')
   })
 
   it('emits Worley noise with its hash helper', () => {
@@ -1318,7 +1318,7 @@ describe('generateCpp', () => {
     const cpp = generateCpp([w, outputNode], [edge('e', 'w', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _worleyHash(int x, int y)')
     expect(cpp).toContain('_worleyHash(_cx,_cy)')
-    expect(cpp).toContain('ColorFromPalette(ForestColors_p')
+    expect(cpp).toContain('ColorFromPalette(paldef_forest')
   })
 
   it('emits looping 4D noise through inoise16(x, y, z, t)', () => {
@@ -1327,7 +1327,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('inoise16((uint32_t)(_x*_fr),(uint32_t)(_y*_fr),_z+(uint32_t)(_o*8192),_w+(uint32_t)(_o*12288))')
     expect(cpp).toContain('float _spd=')
     expect(cpp).toContain('_ang=_t*_spd*6.2831853f;')
-    expect(cpp).toContain('ColorFromPalette(OceanColors_p')
+    expect(cpp).toContain('ColorFromPalette(paldef_ocean')
   })
 
   it('emits the right Transition code per transitionType', () => {
@@ -1667,7 +1667,7 @@ describe('Float Field codegen', () => {
     )
     expect(cpp).toContain('float field_nz[NUM_LEDS];')
     expect(cpp).toContain('field_nz[_y*WIDTH+_x]=')
-    expect(cpp).toContain('buf_nz[_i]=ColorFromPalette(OceanColors_p,(uint8_t)(constrain(field_nz[_i],0.0f,1.0f)*255.0f));')
+    expect(cpp).toContain('buf_nz[_i]=ColorFromPalette(paldef_ocean,(uint8_t)(constrain(field_nz[_i],0.0f,1.0f)*255.0f));')
     expect(cpp).toContain('field_nz[_i]*255')
   })
 
@@ -2021,7 +2021,7 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('fill_solid(buf_sb, NUM_LEDS, CRGB::Black);')
     expect(cpp).toContain('float _levels[3] = { _b, _m, _t };')
     expect(cpp).toContain('float _paletteScroll = t * (0.08f + _spd * 0.42f);')
-    expect(cpp).toContain('ColorFromPalette(OceanColors_p')
+    expect(cpp).toContain('ColorFromPalette(paldef_ocean')
     expect(cpp).toContain('WIDTH - 1 - _x')
     expect(cpp).not.toContain('// SpectrumBars')
   })
@@ -2506,7 +2506,7 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     const pa = node('pa', 'Pacifica', 'pattern', { speed: 0.35, scale: 0.5, palette: 'ocean' })
     const cpp = generateCpp([pa, outputNode], [edge('e1', 'pa', 'out', 'frame', 'frame')])
     expect(cpp).toContain('CRGB buf_pa[NUM_LEDS];')
-    expect(cpp).toContain('ColorFromPalette(OceanColors_p,(uint8_t)(_n*255.0f))')
+    expect(cpp).toContain('ColorFromPalette(paldef_ocean,(uint8_t)(_n*255.0f))')
     expect(cpp).toContain('if(_foam>0.85f)')
   })
 
@@ -2517,7 +2517,7 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     expect(cpp).toContain('int _si=_i+0;')
     expect(cpp).toContain('_ph=sinf(_si*12.9898f)*43758.5453f')
     expect(cpp).toContain('float _tri=1.0f-fabsf(2.0f*_cy-1.0f);')
-    expect(cpp).toContain('ColorFromPalette(PartyColors_p,(uint8_t)(_ci*255.0f))')
+    expect(cpp).toContain('ColorFromPalette(paldef_party,(uint8_t)(_ci*255.0f))')
     expect(cpp).toContain('_px.nscale8_video((uint8_t)(_bri*255.0f))')
   })
 
@@ -2526,7 +2526,7 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     const cpp = generateCpp([sc, outputNode], [edge('e1', 'sc', 'out', 'frame', 'frame')])
     expect(cpp).toContain('CRGB buf_sc[NUM_LEDS];')
     expect(cpp).toContain('float _travel=_ph<=1.0f?_ph:2.0f-_ph;')
-    expect(cpp).toContain('ColorFromPalette(LavaColors_p,(uint8_t)(_travel*255.0f))')
+    expect(cpp).toContain('ColorFromPalette(paldef_lava,(uint8_t)(_travel*255.0f))')
     expect(cpp).toContain('float _coord=(float)_y;')
     expect(cpp).toContain('_px.nscale8_video((uint8_t)(_v*255.0f));')
   })
@@ -2537,7 +2537,7 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     expect(cpp).toContain('CRGB buf_cf[NUM_LEDS];')
     expect(cpp).toContain('fadeToBlackBy(buf_cf, NUM_LEDS, (uint8_t)(_fd * 255.0f));')
     expect(cpp).toContain('int _spawns=(int)(_den * (0.08f + _spd * 0.2142857f) * sqrtf((float)NUM_LEDS));')
-    expect(cpp).toContain('buf_cf[_i] += ColorFromPalette(PartyColors_p, random8() + _drift);')
+    expect(cpp).toContain('buf_cf[_i] += ColorFromPalette(paldef_party, random8() + _drift);')
   })
 
   it('Juggle emits fading multi-dot palette motion and supports the Sinelon count=1 case', () => {
@@ -2548,7 +2548,7 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     expect(cpp).toContain('fadeToBlackBy(buf_jg, NUM_LEDS, (uint8_t)(_fd * 255.0f));')
     expect(cpp).toContain('float _phase=0.0f;')
     expect(cpp).toContain('float _travel=sinf(t*_spd*(2.5f+_d*0.35f)+_d*0.9f+_phase)*0.5f+0.5f;')
-    expect(cpp).toContain('ColorFromPalette(RainbowColors_p, (uint8_t)fmodf((_travel*0.35f+_d/(float)_dots)*255.0f, 255.0f));')
+    expect(cpp).toContain('ColorFromPalette(paldef_rainbow, (uint8_t)fmodf((_travel*0.35f+_d/(float)_dots)*255.0f, 255.0f));')
   })
 })
 
@@ -2866,7 +2866,7 @@ describe('generateCpp — BeatFlash', () => {
     ])
     expect(cpp).toContain('CRGB(255, 255, 255)')
     expect(cpp).toContain('_fAtkStep_bf')
-    expect(cpp).not.toContain('ColorFromPalette(RainbowColors_p')
+    expect(cpp).not.toContain('ColorFromPalette(paldef_rainbow')
     // Screen blend subtracts the base pixel from the flash color.
     expect(cpp).toMatch(/_fc_bf\.r - .*\[_i\]\.r/)
   })
@@ -2877,7 +2877,7 @@ describe('generateCpp — BeatFlash', () => {
       edge('e1', 'beat', 'bf2', 'pressed', 'beat'),
       edge('e2', 'base', 'bf2', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('ColorFromPalette(OceanColors_p')
+    expect(cpp).toContain('ColorFromPalette(paldef_ocean')
     expect(cpp).not.toContain('CRGB(255, 255, 255)')
   })
 

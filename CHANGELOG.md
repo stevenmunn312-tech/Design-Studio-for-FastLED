@@ -7,6 +7,29 @@ versioning (`0.y.z`) until the first stable release.
 
 ## [Unreleased]
 
+### Fixed
+
+- Generated firmware now renders the same palette colours the preview shows.
+  Six palettes — `rainbow`, `heat`, `ocean`, `lava`, `forest` and `party` —
+  carried a `fastled:` shortcut that emitted FastLED's same-named built-in
+  (`RainbowColors_p`, `HeatColors_p`, …) into the sketch, while the preview
+  rendered this project's own colour stops. Same palette name, different
+  colours, on the default palette of every palette-consuming node. The other
+  23 palettes already baked their stops into a `paldef_*` table and matched;
+  all 29 now take that path.
+
+  Measured by compiling the generated sketch to WASM and diffing its LED bytes
+  against the evaluator frame by frame: a static ramp through `rainbow` went
+  from mean Δ 43.6/255 per channel (max 152) to Δ 9.0 (max 50), and Plasma
+  from Δ 39–61 to a flat Δ 13.5 — the drift over time disappearing along with
+  it. The remainder is a separate, smaller issue: FastLED spreads 16 palette
+  entries over 16 intervals and wraps the last back to the first, while
+  `samplePalette` spreads them over 15 and clamps.
+
+  **If you have flashed a design using any of those six palettes, its colours
+  will change on the next upload** — toward what the preview has always shown.
+  Saved projects are unaffected; nothing about their stored shape changes.
+
 ## [0.6.1] - 2026-08-06
 
 ### Fixed

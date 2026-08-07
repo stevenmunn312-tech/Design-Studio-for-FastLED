@@ -464,7 +464,7 @@ ${paletteGlobals}
 CRGB samplePalette(uint8_t palId, uint8_t index) {
   switch (palId) {
 ${paletteSampleCases}
-    default: return ColorFromPalette(RainbowColors_p, index);
+    default: return ColorFromPalette(${paletteCppRef('rainbow')}, index);
   }
 }
 ${hasPalette ? `
@@ -474,7 +474,7 @@ ${hasPalette ? `
 CRGBPalette16 paletteFromId(uint8_t palId) {
   switch (palId) {
 ${paletteFromIdCases}
-    default: return RainbowColors_p;
+    default: return ${paletteCppRef('rainbow')};
   }
 }
 ` : ''}
