@@ -32,10 +32,18 @@ versioning (`0.y.z`) until the first stable release.
 
 - Generated sketches now declare only the palettes they actually name. Every
   palette was previously emitted regardless of use — 29 `CRGBPalette16`
-  globals, non-const and so RAM-resident at 48 bytes each, or 1,392 bytes on a
-  sketch referencing none of them. That was over half an Arduino Uno's 2 KB of
-  SRAM spent on colour tables nothing read. A typical single-palette design
-  now spends 48 bytes.
+  globals, non-const and so RAM-resident at 48 bytes each. A typical
+  single-palette design now spends 48 bytes.
+
+  Measured on a real Arduino Uno build of an 8×8 Plasma sketch: RAM fell from
+  1,831 to 775 bytes (89.4% → 37.8% of the 2 KB available) and flash from
+  15,032 to 7,072 bytes. That sketch was within a whisker of running out of
+  SRAM purely from colour tables nothing read.
+
+  The flash saving is the larger and less obvious half. These globals carry
+  dynamic initialisers, so each one also emits constructor code that runs at
+  startup — roughly 360 bytes of flash apiece on top of its 48 bytes of RAM.
+  An unused palette cost about 408 bytes in total, not 48.
 
   The SD-show player still declares all of them, and must: a `.show` file
   stores a palette id that `SET_PALETTE` resolves during playback, so any
@@ -45,10 +53,12 @@ versioning (`0.y.z`) until the first stable release.
   visible at that point; it targets ESP32-class hardware where the cost is
   under half a percent of RAM.
 
-  Side effect: the pre-upload RAM estimate does not count palette globals, so
-  it had been under-reporting by that same ~1.1 KB on every sketch. For normal
-  sketches the gap is now down to a few dozen bytes. The live capacity meter
-  was never affected — it reads the real figure from the linker.
+- The pre-upload RAM estimate now counts palette tables. It had ignored them
+  entirely, under-reporting by up to ~1.4 KB. It resolves them the way codegen
+  does — reading palette-typed input ports from the node library rather than
+  restating which nodes consume one — counting one shared table per distinct
+  named palette plus one per palette-building node. The live capacity meter
+  was never affected; it reads the real figure from the linker.
 
 ## [0.6.1] - 2026-08-06
 
