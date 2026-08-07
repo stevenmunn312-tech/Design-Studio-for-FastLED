@@ -21,6 +21,10 @@ backend/.helper-config.json
 backend/bin/
 # fbuild build workspace + vendored FastLED/audio libs
 backend/.fbuild-project/
+# Scratch output of the dependency refresh in backend/DEPENDENCIES.md — the
+# resolver report and the throwaway venv used to verify the pinned set.
+backend/deps-report.json
+/.venv-backend-check/
 __pycache__/
 *.pyc
 
