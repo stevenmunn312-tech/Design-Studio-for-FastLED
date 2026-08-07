@@ -295,6 +295,10 @@ export interface FirmwareRamEstimate {
    *  …) — these stay in internal RAM even when PSRAM is enabled (a noted
    *  follow-up in CLAUDE.md), so they're tracked separately from the buffers. */
   statefulBytes: number
+  /** `CRGBPalette16` globals the sketch declares — the shared `paldef_<name>`
+   *  tables plus one `pal_<id>` per palette-building node. 48 bytes each, and
+   *  always internal: codegen never PSRAM-allocates them. */
+  paletteBytes: number
   /** Whether MatrixOutput's `usePsram` is on (frame/field buffers move to PSRAM). */
   usesPsram: boolean
   /** RAM that must fit in the MCU's internal SRAM regardless of PSRAM. */
@@ -306,6 +310,19 @@ export interface FirmwareRamEstimate {
 const OUTPUT_DATATYPES_BY_NODE_TYPE = new Map(
   NODE_LIBRARY.map((def) => [def.type, new Set(def.outputs.map((o) => o.dataType))])
 )
+
+/** Input ports that consume a `palette`, so a node's palette references can be resolved. */
+const PALETTE_INPUT_PORTS_BY_NODE_TYPE = new Map(
+  NODE_LIBRARY.map((def) => [def.type, def.inputs.filter((i) => i.dataType === 'palette').map((i) => i.id)])
+)
+
+/** `sizeof(CRGBPalette16)` — 16 CRGB entries. */
+const PALETTE_BYTES = 48
+
+// Node types whose emit case builds its own `pal_<id>` table rather than
+// referencing a shared `paldef_<name>` one. Mirrors the branch in
+// cppGenerator's `paletteExpr`.
+const PALETTE_BUILDER_TYPES = new Set(['CustomPalette', 'PaletteFromImage', 'PaletteBlend', 'Poline'])
 
 // Extra `static` state a handful of simulation nodes allocate beyond their own
 // frame/field render buffer — mirrors the arrays cppGenerator.ts emits for
@@ -389,12 +406,39 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[]): F
     }
   }
 
+  // Palette globals. Codegen declares one shared `paldef_<name>` per distinct
+  // named palette a sketch references, plus one `pal_<id>` per palette-building
+  // node — resolved the same way cppGenerator's `paletteExpr` does, reading the
+  // palette-typed input ports from NODE_LIBRARY rather than restating which
+  // nodes consume one. Errs toward over-counting if an emit case declares a
+  // palette port it never samples, which is the safe direction for a budget.
+  const incomingByHandle = new Map<string, StudioEdge>()
+  for (const e of edges) {
+    if (e.target && e.targetHandle) incomingByHandle.set(`${e.target}:${e.targetHandle}`, e)
+  }
+  const namedPalettes = new Set<string>()
+  let builderPalettes = 0
+  for (const id of reachable) {
+    const n = byId.get(id)
+    if (!n) continue
+    if (PALETTE_BUILDER_TYPES.has(n.data.nodeType)) builderPalettes++
+    for (const port of PALETTE_INPUT_PORTS_BY_NODE_TYPE.get(n.data.nodeType) ?? []) {
+      const wired = incomingByHandle.get(`${id}:${port}`)
+      const src = wired ? byId.get(wired.source) : undefined
+      // A builder upstream resolves to its own `pal_<id>`, already counted above.
+      if (src && PALETTE_BUILDER_TYPES.has(src.data.nodeType)) continue
+      const props = ((src ?? n).data.properties ?? {}) as Record<string, unknown>
+      namedPalettes.add(String(props.palette ?? 'rainbow').toLowerCase())
+    }
+  }
+  const paletteBytes = (namedPalettes.size + builderPalettes) * PALETTE_BYTES
+
   const ledsArrayBytes = ledCount * 3
   const usesPsram = outputs.some((output) => (output.data.properties as Record<string, unknown>).usePsram === true)
   const psramBytes = usesPsram ? frameBufferBytes + fieldBufferBytes : 0
-  const internalBytes = ledsArrayBytes + statefulBytes + (usesPsram ? 0 : frameBufferBytes + fieldBufferBytes)
+  const internalBytes = ledsArrayBytes + statefulBytes + paletteBytes + (usesPsram ? 0 : frameBufferBytes + fieldBufferBytes)
 
-  return { ledCount, ledsArrayBytes, frameBufferBytes, fieldBufferBytes, statefulBytes, usesPsram, internalBytes, psramBytes }
+  return { ledCount, ledsArrayBytes, frameBufferBytes, fieldBufferBytes, statefulBytes, paletteBytes, usesPsram, internalBytes, psramBytes }
 }
 
 // A conservative "worth a heads-up" threshold for classic ESP32-class internal

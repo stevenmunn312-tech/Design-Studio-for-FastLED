@@ -540,7 +540,48 @@ describe('validateGraph', () => {
       const ram = estimateFirmwareRam(nodes, edges)!
       expect(ram.frameBufferBytes).toBe(96) // persistent output + one CRGB intermediate
       expect(ram.statefulBytes).toBe(0)
-      expect(ram.internalBytes).toBe(144) // two buffers + physical leds
+      expect(ram.paletteBytes).toBe(48)   // ColorTrails samples a palette
+      expect(ram.internalBytes).toBe(192) // two buffers + physical leds + palette
+    })
+
+    it('counts one palette table per distinct named palette', () => {
+      // Two nodes on the same palette share a single `paldef_` table; a third on
+      // a different one adds a second.
+      const nodes = [
+        node('a', 'Plasma', { palette: 'ocean' }),
+        node('b', 'Plasma', { palette: 'ocean' }),
+        node('c', 'Plasma', { palette: 'lava' }),
+        node('blend', 'Blend'),
+        node('blend2', 'Blend'),
+        node('out', 'MatrixOutput', { width: 4, height: 4 }),
+      ]
+      const edges = [
+        edge('e1', 'a', 'blend', 'a'), edge('e2', 'b', 'blend', 'b'),
+        edge('e3', 'blend', 'blend2', 'a'), edge('e4', 'c', 'blend2', 'b'),
+        edge('e5', 'blend2', 'out', 'frame'),
+      ]
+      expect(estimateFirmwareRam(nodes, edges)!.paletteBytes).toBe(96) // ocean + lava
+    })
+
+    it('counts a per-node table for a palette builder instead of a named one', () => {
+      const nodes = [
+        node('cp', 'CustomPalette'),
+        node('p', 'Plasma'),
+        node('out', 'MatrixOutput', { width: 4, height: 4 }),
+      ]
+      const edges = [edge('e1', 'cp', 'p', 'paletteIn'), edge('e2', 'p', 'out', 'frame')]
+      // One `pal_<id>` for the builder — the consumer resolves to it rather
+      // than pulling in a shared `paldef_` table as well.
+      expect(estimateFirmwareRam(nodes, edges)!.paletteBytes).toBe(48)
+    })
+
+    it('ignores palettes on nodes unreachable from MatrixOutput', () => {
+      const nodes = [
+        node('sc', 'SolidColor'),
+        node('out', 'MatrixOutput', { width: 4, height: 4 }),
+        node('orphan', 'Plasma', { palette: 'lava' }),
+      ]
+      expect(estimateFirmwareRam(nodes, [edge('e1', 'sc', 'out', 'frame')])!.paletteBytes).toBe(0)
     })
 
     it('offloads frame/field buffers to PSRAM when usePsram is on', () => {
