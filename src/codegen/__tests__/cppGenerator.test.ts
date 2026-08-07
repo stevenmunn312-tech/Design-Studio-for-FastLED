@@ -1061,6 +1061,46 @@ describe('generateCpp', () => {
     expect(cpp).toContain('.nscale8(')
   })
 
+  // Each `paldef_*` is a non-const 48-byte global, so declaring all 29
+  // unconditionally cost 1,392 bytes of RAM — over half an Uno's SRAM — on
+  // sketches that reference none of them.
+  describe('palette declarations', () => {
+    it('declares no palettes when the graph names none', () => {
+      const sc = node('sc', 'SolidColor', 'pattern', { r: 200, g: 40, b: 90 })
+      const cpp = generateCpp([sc, outputNode], [edge('e', 'sc', 'out', 'frame', 'frame')])
+      expect(cpp).not.toContain('CRGBPalette16 paldef_')
+    })
+
+    it('declares only the palettes the graph actually names', () => {
+      const pf = node('pf', 'Noise', 'pattern', { noiseType: 'plasma', palette: 'ocean' })
+      const cpp = generateCpp([pf, outputNode], [edge('e', 'pf', 'out', 'frame', 'frame')])
+      expect(cpp).toContain('CRGBPalette16 paldef_ocean(')
+      expect(cpp).not.toContain('CRGBPalette16 paldef_rainbow(')
+      expect(cpp).not.toContain('CRGBPalette16 paldef_lava(')
+      expect((cpp.match(/CRGBPalette16 paldef_/g) ?? []).length).toBe(1)
+    })
+
+    it('declares each named palette once across several consumers', () => {
+      const a = node('a', 'Noise', 'pattern', { noiseType: 'plasma', palette: 'ocean' })
+      const b = node('b', 'Noise', 'pattern', { noiseType: 'simplex', palette: 'ocean' })
+      const c = node('c', 'Noise', 'pattern', { noiseType: 'worley', palette: 'lava' })
+      const cpp = generateCpp(
+        [a, b, c, outputNode],
+        [edge('e1', 'a', 'out', 'frame', 'frame'), edge('e2', 'b', 'out', 'frame', 'frame'), edge('e3', 'c', 'out', 'frame', 'frame')],
+      )
+      expect((cpp.match(/CRGBPalette16 paldef_ocean\(/g) ?? []).length).toBe(1)
+      expect((cpp.match(/CRGBPalette16 paldef_lava\(/g) ?? []).length).toBe(1)
+      expect((cpp.match(/CRGBPalette16 paldef_/g) ?? []).length).toBe(2)
+    })
+
+    it('falls back to rainbow for an unknown palette name, and declares it', () => {
+      const pf = node('pf', 'Noise', 'pattern', { noiseType: 'plasma', palette: 'not-a-palette' })
+      const cpp = generateCpp([pf, outputNode], [edge('e', 'pf', 'out', 'frame', 'frame')])
+      expect(cpp).toContain('CRGBPalette16 paldef_rainbow(')
+      expect(cpp).toContain('ColorFromPalette(paldef_rainbow')
+    })
+  })
+
   it('emits a PlasmaFractal with sin sums and inoise8 octaves', () => {
     const pf = node('pf', 'Noise', 'pattern', { noiseType: 'plasma', speed: 1, scale: 0.15, palette: 'rainbow' })
     const cpp = generateCpp([pf, outputNode], [edge('e', 'pf', 'out', 'frame', 'frame')])

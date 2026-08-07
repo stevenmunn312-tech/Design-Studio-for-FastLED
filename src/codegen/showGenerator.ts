@@ -384,6 +384,11 @@ export function generateShowSketch(
   L.push(`const uint8_t TRANS_POOL[] = { ${info.transitionIds.join(', ')} };`)
   L.push(`#define TRANS_POOL_N ${info.transitionIds.length}`)
   L.push('')
+  // Declares all palettes rather than narrowing to the ones the collected
+  // patterns name (as generateCpp does for a normal sketch): the pattern bodies
+  // are rewritten in from separate generateCpp runs, so the union isn't known
+  // here. Costs ~1.4KB of RAM, which is under half a percent on the ESP32-class
+  // hardware a multi-pattern show already requires.
   for (const decl of customPaletteDeclarationsCpp()) L.push(decl)
   L.push('')
   if (audio) { for (const line of audio.code) L.push(line); L.push('') }

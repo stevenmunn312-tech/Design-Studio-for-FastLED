@@ -119,16 +119,36 @@ export function paletteStops16(name: string): PaletteRgb[] {
   return Array.from({ length: 16 }, (_, index) => sampleStops(stops, index / 15))
 }
 
-export function paletteCppRef(name: string): string {
-  const palette = PALETTE_MAP.get(name)
-  // Unknown names fall back to the same default the evaluator uses ('rainbow'),
-  // now its own baked definition rather than FastLED's RainbowColors_p.
-  if (!palette) return `paldef_${cppId('rainbow')}`
-  return `paldef_${cppId(palette.id)}`
+/**
+ * Canonical palette id for a name, falling back to the same default the
+ * evaluator uses. Generators record this — not the raw name — so the set of
+ * palettes they declare always covers what `paletteCppRef` actually emitted.
+ */
+export function resolvePaletteId(name: string): string {
+  return PALETTE_MAP.has(name) ? name : 'rainbow'
 }
 
-export function customPaletteDeclarationsCpp(): string[] {
+export function paletteCppRef(name: string): string {
+  return `paldef_${cppId(resolvePaletteId(name))}`
+}
+
+/**
+ * `CRGBPalette16 paldef_*` declarations for the generated sketch.
+ *
+ * These are non-const globals (48 bytes each), so they occupy RAM whether or
+ * not the sketch references them — all 29 is 1,392 bytes, over half an Uno's
+ * SRAM. Pass `used` (canonical ids from `resolvePaletteId`) to emit only the
+ * ones a sketch actually names.
+ *
+ * Omitting `used` declares all of them, which is required — not merely
+ * convenient — for the SD-show player: a `.show` file stores a palette *id*
+ * that `SET_PALETTE` resolves at playback time, so any palette may be selected
+ * by a file the sketch was not compiled against.
+ */
+export function customPaletteDeclarationsCpp(used?: Iterable<string>): string[] {
+  const wanted = used ? new Set(used) : null
   return PALETTE_DEFS
+    .filter((palette) => !wanted || wanted.has(palette.id))
     .map((palette) => {
       const stops = paletteStops16(palette.id)
       const cppStops = stops.map((stop) => `CRGB(${stop.r},${stop.g},${stop.b})`).join(', ')
