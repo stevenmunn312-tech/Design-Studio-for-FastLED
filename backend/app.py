@@ -206,6 +206,10 @@ _FBUILD_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "FastLED"
 # Player build path needs it, so it's not fetched for every ordinary compile.
 _FBUILD_AUDIO_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "ESP32-audioI2S"
 _FBUILD_ESP_DMX_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "esp_dmx"
+# HUB75 scan-panel output (docs/development/design/hub75-output.md) — FastLED
+# has no native HUB75 driver, so a HUB75 MatrixOutput route needs this DMA
+# library instead. Vendored the same lazy way as ESP32-audioI2S/esp_dmx above.
+_FBUILD_HUB75_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "ESP32-HUB75-MatrixPanel-DMA"
 
 # arduino-cli FQBN -> PlatformIO platform/board, mirroring `BOARDS` in
 # `src/state/uploadStore.ts`. `psram_memory_type` maps this repo's PSRAM option
@@ -492,6 +496,36 @@ def _ensure_fbuild_esp_dmx_lib():
     if rc != 0:
         yield "[error] failed to vendor esp_dmx — DMX512 builds may fail on esp_dmx.h\n"
     _fbuild_esp_dmx_lib_ready = True
+
+
+_fbuild_hub75_lib_ready = False
+
+
+def _ensure_fbuild_hub75_lib():
+    """Vendor ESP32-HUB75-MatrixPanel-DMA (mrcodetastic/ESP32-HUB75-MatrixPanel-DMA)
+    on first HUB75 firmware build — same rationale as `_ensure_fbuild_audio_lib`/
+    `_ensure_fbuild_esp_dmx_lib`: fbuild 2.4.0's `lib_deps` registry resolution
+    doesn't work, so a vendored local lib is the only path that compiles."""
+    global _fbuild_hub75_lib_ready
+    if _fbuild_hub75_lib_ready:
+        return
+    if (_FBUILD_HUB75_LIB_DIR / "library.json").exists():
+        _fbuild_hub75_lib_ready = True
+        return
+    yield "\n=== vendoring ESP32-HUB75-MatrixPanel-DMA (first HUB75 build only) ===\n"
+    _FBUILD_HUB75_LIB_DIR.parent.mkdir(parents=True, exist_ok=True)
+    # Pinned to 3.0.14 (the newest non-prerelease tag as of 2026-08-08), not the
+    # default branch — same "known-good tag, not a tracked branch" rule as the
+    # other vendored libs above; re-pin deliberately (bump the tag here) rather
+    # than floating.
+    rc = yield from _run_phase(
+        "vendor ESP32-HUB75-MatrixPanel-DMA",
+        ["git", "clone", "--branch", "3.0.14", "--depth", "1",
+         "https://github.com/mrcodetastic/ESP32-HUB75-MatrixPanel-DMA.git", str(_FBUILD_HUB75_LIB_DIR)],
+    )
+    if rc != 0:
+        yield "[error] failed to vendor ESP32-HUB75-MatrixPanel-DMA — HUB75 builds will fail on ESP32-HUB75-MatrixPanel-I2S-DMA.h\n"
+    _fbuild_hub75_lib_ready = True
 
 
 def _write_fbuild_main(ino: str) -> None:
@@ -858,6 +892,8 @@ def _compile_upload_fbuild(label, ino, fqbn, port):
         yield from _ensure_fbuild_project()
         if "#include <esp_dmx.h>" in ino:
             yield from _ensure_fbuild_esp_dmx_lib()
+        if "#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>" in ino:
+            yield from _ensure_fbuild_hub75_lib()
         env = _fbuild_env_for_fqbn(fqbn)
         if env is None:
             yield f"\n=== ✗ {label}: no fbuild board mapping for {fqbn} ===\n"

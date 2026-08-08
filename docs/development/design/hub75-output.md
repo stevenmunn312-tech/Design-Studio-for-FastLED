@@ -79,22 +79,31 @@ type. Rejected alternative: a standalone `HUB75Output` node — would fork the
 route/composition logic MatrixOutput already owns for no clear benefit, since
 a HUB75 panel plays the identical *role* in a graph (a Frame sink).
 
-### New per-route properties
+### New per-route properties (implemented — `src/state/nodeLibrary.ts`)
 
-- `panelResX` / `panelResY` (typically 64×32 or 64×64 per physical panel)
-- `chainLength` (panels wired in series) and `panelRows`/`panelCols` if the
-  chain is folded into a 2D virtual-panel grid rather than a single row
-- `colorDepthBits` (PWM bit depth — trades refresh-rate smoothness/flicker
-  against CPU/DMA bandwidth; the DMA library exposes this directly)
-- The 13–14 HUB75 pin fields, defaulted to the DMA library's documented
-  default pinout for whichever board is selected, each joining the existing
-  shared GPIO-conflict namespace
+- No separate panel-resolution/chain-length properties: per-panel resolution
+  falls out of the existing `width`/`height` ÷ `tilesX`/`tilesY` (reusing the
+  `panels` layout — see the resolved chaining-model question below).
+- `hub75ColorDepthBits` (PWM bit depth, 1–8 — trades refresh-rate
+  smoothness/flicker against CPU/DMA bandwidth; the DMA library exposes this
+  directly)
+- `hub75WideScan` (bool) gates `hub75EPin`, the row-select line only 1:32-scan
+  (typically 64-row) panels need
+- The 13–14 HUB75 pin fields (`hub75R1Pin`…`hub75OePin`), defaulted to the DMA
+  library's documented classic-ESP32 pinout (per-board remapping is a
+  follow-up, same as every other hardware node), each joining the existing
+  shared GPIO-conflict namespace (`GPIO_PIN_PROPERTIES`, `collectPinUses` in
+  `src/utils/validateGraph.ts`)
 
-### Vendoring
+Selecting `HUB75` is blocked from Upload/Export with a clear validation error
+(`findUnimplementedChipsetErrors`) until codegen (below) exists.
 
-Follow the existing `ESP32-audioI2S` pattern (`_ensure_fbuild_audio_lib` in
-`backend/app.py`): `git clone` the DMA library into the fbuild project's
-`lib/` on first use, pinned to a known-good tag rather than tracking a
+### Vendoring (implemented — `backend/app.py`)
+
+Follows the existing `ESP32-audioI2S`/`esp_dmx` pattern
+(`_ensure_fbuild_hub75_lib`): `git clone` the DMA library into the fbuild
+project's `lib/` on first use, pinned to tag `3.0.14` (the newest
+non-prerelease release as of 2026-08-08) rather than tracking a
 branch (the audio-lib vendoring hit a real regression from doing that — see
 `todo.md`'s hardware-validation entry from 2026-07-28). `arduino-cli` should
 be able to pull it through its own library manager as a fallback engine.
@@ -107,11 +116,12 @@ be able to pull it through its own library manager as a fallback engine.
   without contention is unverified — needs to be answered with real hardware
   before allowing a mixed rig in the UI, and blocked (with a validation-graph
   error) until it is.
-- **Virtual-panel chaining model.** Single-row chain vs. a folded 2D grid of
-  panels both exist in the wild; `MatrixOutput`'s existing `panels` tiling
-  layout (`src/state/xyLayout.ts`) already solves a similar problem for
-  addressable panels — worth reusing its rotation/serpentine-chain model
-  rather than inventing a second one.
+- ~~**Virtual-panel chaining model.**~~ **Resolved:** reuses the existing
+  `layout: 'panels'` tiling (`tilesX`/`tilesY`/`tileRotations`/
+  `tileSerpentine`, `src/state/xyLayout.ts`) rather than inventing separate
+  panel-resolution/chain-length properties — a HUB75 chain's per-panel
+  resolution falls out of `width`/`height` ÷ `tilesX`/`tilesY`, same as an
+  addressable panel grid.
 - **Preview fidelity.** The live preview already renders LEDs as discs with
   glow (`webglRenderer.ts`); a HUB75 panel's actual visual character (visible
   scan lines, lower effective bit depth at high refresh) is different enough
