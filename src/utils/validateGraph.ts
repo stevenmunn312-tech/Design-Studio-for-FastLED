@@ -7,6 +7,8 @@ import { compositionDims } from '../state/outputRouting'
 import { boardGpioInfo } from '../state/uploadStore'
 import { MAX_PIN_NUMBER, pinSupports } from '../state/boardGpio'
 import { getNetworkCredentials } from '../state/networkCredentials'
+import { isPatternShow } from '../codegen/showGenerator'
+import { sdCardConnected } from './showUpload'
 
 export interface ValidationResult {
   errors:   string[]
@@ -564,10 +566,22 @@ export interface Hub75ConfigIssue {
 // second output route or supersampling would need HUB75-specific handling
 // cppGenerator.ts's shared codepaths (addLeds<>()-shaped) don't have. Block
 // every other combination rather than silently generating a broken sketch.
-export function findHub75ConfigIssues(nodes: StudioNode[]): Hub75ConfigIssue[] {
+//
+// generateWiringDiagnosticSketch and generateStreamReceiverSketch also have
+// real HUB75 support now, so they don't need a gate here — they're always
+// reachable regardless of graph shape (no graph at all, for the wiring
+// test), sharing this same blockingErrors gate with plain Upload, so
+// blocking them here would incorrectly block a supported plain HUB75 Upload
+// too. generateShowSketch (the Pattern Show controller) and
+// playerSketchGenerator (the music-sync SD player) are the opposite case:
+// each only runs for a *specific* graph shape, so gating them here precisely
+// targets the graphs that would actually reach them.
+export function findHub75ConfigIssues(nodes: StudioNode[], edges: StudioEdge[] = []): Hub75ConfigIssue[] {
   const issues: Hub75ConfigIssue[] = []
   const matrixOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
   const singleOutput = matrixOutputs.length === 1
+  const patternShow = isPatternShow(nodes, edges)
+  const sdShow = sdCardConnected(nodes, edges)
   matrixOutputs.forEach((output, index) => {
     const props = output.data.properties as Record<string, unknown>
     if (String(props.chipset ?? 'WS2812B') !== HUB75_CHIPSET) return
@@ -593,12 +607,24 @@ export function findHub75ConfigIssues(nodes: StudioNode[]): Hub75ConfigIssue[] {
         message: `${label} is set to HUB75, which doesn't support supersampling yet — turn off Supersample, or use an addressable chipset.`,
       })
     }
+    if (patternShow) {
+      issues.push({
+        nodeId: output.id, label,
+        message: `${label} is set to HUB75, which doesn't support the generative Pattern Show pipeline yet — remove the Show Engine wiring, or use an addressable chipset.`,
+      })
+    }
+    if (sdShow) {
+      issues.push({
+        nodeId: output.id, label,
+        message: `${label} is set to HUB75, which doesn't support the music-sync SD show pipeline yet — unwire the SD Card, or use an addressable chipset.`,
+      })
+    }
   })
   return issues
 }
 
-export function findHub75ConfigErrors(nodes: StudioNode[]): string[] {
-  return findHub75ConfigIssues(nodes).map((issue) => issue.message)
+export function findHub75ConfigErrors(nodes: StudioNode[], edges: StudioEdge[] = []): string[] {
+  return findHub75ConfigIssues(nodes, edges).map((issue) => issue.message)
 }
 
 export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: string): string[] {
@@ -827,7 +853,7 @@ export function buildGraphDiagnostics(
 
   const matrixOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
   const matrixOutput = matrixOutputs[0]
-  const hub75Issues = findHub75ConfigIssues(nodes)
+  const hub75Issues = findHub75ConfigIssues(nodes, edges)
   for (const matrixOutput of matrixOutputs) {
     const props = matrixOutput.data.properties as Record<string, unknown>
     const width = Math.max(0, Math.round(Number(props.width ?? 0)))
@@ -1117,7 +1143,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   errors.push(...findPinConflicts(nodes))
   errors.push(...findOutputResourceErrors(nodes))
   errors.push(...findMatrixLayoutErrors(nodes))
-  errors.push(...findHub75ConfigErrors(nodes))
+  errors.push(...findHub75ConfigErrors(nodes, edges))
   errors.push(...findScalarExpressionErrors(nodes))
   errors.push(...findBoardCompatibilityErrors(nodes, selectedFqbn))
   warnings.push(...findPreviewOnlyWarnings(nodes, edges))

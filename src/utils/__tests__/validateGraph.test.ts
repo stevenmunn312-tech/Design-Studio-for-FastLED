@@ -143,6 +143,34 @@ describe('validateGraph', () => {
     expect(errors).toEqual([expect.stringMatching(/only supports a single Matrix Output route/)])
   })
 
+  it('blocks HUB75 wired into the generative Pattern Show pipeline', () => {
+    const out = node('out', 'MatrixOutput', { chipset: 'HUB75' })
+    const nodes = [node('coll', 'PatternCollection'), node('master', 'PatternMaster'), out]
+    const edges = [
+      edge('e1', 'coll', 'master', 'patternset'),
+      edge('e2', 'master', 'out', 'frame'),
+    ]
+    expect(findHub75ConfigErrors(nodes, edges)).toEqual([
+      expect.stringMatching(/doesn't support the generative Pattern Show pipeline yet/),
+    ])
+    // Same shape but addressable — no HUB75-specific error.
+    expect(findHub75ConfigErrors(
+      [node('coll', 'PatternCollection'), node('master', 'PatternMaster'), node('out', 'MatrixOutput', { chipset: 'WS2812B' })],
+      edges,
+    )).toEqual([])
+  })
+
+  it('blocks HUB75 with an SD Card wired for the music-sync show pipeline', () => {
+    const out = node('out', 'MatrixOutput', { chipset: 'HUB75' })
+    const nodes = [node('sd', 'SDCard'), out]
+    const edges = [edge('e1', 'sd', 'out', 'sdcard')]
+    expect(findHub75ConfigErrors(nodes, edges)).toEqual([
+      expect.stringMatching(/doesn't support the music-sync SD show pipeline yet/),
+    ])
+    // Unwired SD Card node present but not connected: no HUB75-specific error.
+    expect(findHub75ConfigErrors([node('sd', 'SDCard'), out], [])).toEqual([])
+  })
+
   it('errors on empty graph', () => {
     const { errors } = validateGraph([], [])
     expect(errors).toContain('No nodes in graph')

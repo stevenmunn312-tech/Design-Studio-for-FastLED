@@ -1,8 +1,8 @@
 import type { StudioNode } from '../state/graphStore'
 import { buildXYTable } from '../state/xyLayout'
-import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp } from './cppGenerator'
+import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp, hub75HardwareFromProps, hub75SetupCpp } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
-import { SPI_CHIPSETS } from '../state/nodeLibrary'
+import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 
 function intProp(val: unknown, def: number, min: number, max: number): number {
   const n = Math.round(Number(val))
@@ -28,6 +28,8 @@ export function generateWiringDiagnosticSketch(nodes: StudioNode[], outputNodeId
   const height = intProp(p.height, 16, 1, 64)
   const dataPin = sanitizePin(p.dataPin, 5)
   const hw = ledHardwareFromProps(p)
+  const isHub75 = hw.chipset === HUB75_CHIPSET
+  const hub75Hw = isHub75 ? hub75HardwareFromProps(p, width, height) : null
   const xyTable = buildXYTable(width, height, p)
   const powerLimit = p.powerLimit === true
   const volts = intProp(p.volts, 5, 1, 24)
@@ -51,10 +53,13 @@ export function generateWiringDiagnosticSketch(nodes: StudioNode[], outputNodeId
   lines.push('// direct physical-index chase for dead-pixel / chain-order checks.')
   lines.push(...overclockDefineCpp(hw))
   lines.push('#include <FastLED.h>')
+  if (isHub75) lines.push('#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>')
   lines.push('#include <stdio.h>')
   lines.push('')
-  lines.push(`#define DATA_PIN ${dataPin}`)
-  if (SPI_CHIPSETS.has(hw.chipset)) lines.push(`#define CLOCK_PIN ${hw.clockPin}`)
+  if (!isHub75) {
+    lines.push(`#define DATA_PIN ${dataPin}`)
+    if (SPI_CHIPSETS.has(hw.chipset)) lines.push(`#define CLOCK_PIN ${hw.clockPin}`)
+  }
   lines.push(`#define WIDTH ${width}`)
   lines.push(`#define HEIGHT ${height}`)
   lines.push('#define NUM_LEDS (WIDTH * HEIGHT)')
@@ -66,6 +71,7 @@ export function generateWiringDiagnosticSketch(nodes: StudioNode[], outputNodeId
   lines.push(`#define DIAG_CHASE_MS ${chaseMs}`)
   lines.push('')
   lines.push('CRGB leds[NUM_LEDS];')
+  if (isHub75) lines.push('MatrixPanel_I2S_DMA *dma_display = nullptr;')
   lines.push('')
   if (xyTable) {
     lines.push('// Physical wiring map (grid index -> physical LED index), baked from')
@@ -189,8 +195,11 @@ export function generateWiringDiagnosticSketch(nodes: StudioNode[], outputNodeId
   lines.push('}')
   lines.push('')
   lines.push('void setup() {')
-  lines.push(...fastledSetupCpp(hw))
-  if (powerLimit) lines.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${volts}, ${milliamps});`)
+  if (isHub75) lines.push(...hub75SetupCpp(hub75Hw!))
+  else lines.push(...fastledSetupCpp(hw))
+  // HUB75 has no FastLED CLEDController registered, so setMaxPowerInVoltsAndMilliamps
+  // would have nothing to throttle — mirrors cppGenerator.ts's same gate.
+  if (powerLimit && !isHub75) lines.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${volts}, ${milliamps});`)
   lines.push('}')
   lines.push('')
   lines.push('void loop() {')
@@ -207,7 +216,14 @@ export function generateWiringDiagnosticSketch(nodes: StudioNode[], outputNodeId
   lines.push('    case 6: drawLogicalChase(now); break;')
   lines.push('    default: drawPhysicalChase(now); break;')
   lines.push('  }')
-  lines.push('  FastLED.show();')
+  if (isHub75) {
+    lines.push('  for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {')
+    lines.push(`    CRGB c = leds[${xyTable ? 'XY((uint8_t)x, (uint8_t)y)' : '(uint16_t)y * WIDTH + x'}];`)
+    lines.push('    dma_display->drawPixelRGB888(x, y, c.r, c.g, c.b);')
+    lines.push('  }')
+  } else {
+    lines.push('  FastLED.show();')
+  }
   lines.push('  FastLED.delay(16);')
   lines.push('}')
   lines.push('')
