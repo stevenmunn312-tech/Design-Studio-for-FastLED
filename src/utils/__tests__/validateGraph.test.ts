@@ -85,6 +85,21 @@ describe('validateGraph', () => {
     expect(findBoardCompatibilityErrors([node('sd', 'SDCard')], 'esp32:esp32:esp32s3')).toEqual([])
   })
 
+  it('blocks HUB75 on boards without the LCD-mode DMA peripheral', () => {
+    const nodes = [node('out', 'MatrixOutput', { chipset: 'HUB75' })]
+    for (const fqbn of ['esp32:esp32:esp32', 'esp32:esp32:esp32s2', 'esp32:esp32:esp32s3']) {
+      expect(findBoardCompatibilityErrors(nodes, fqbn)).toEqual([])
+    }
+    for (const fqbn of ['esp32:esp32:esp32c3', 'esp32:esp32:esp32c6', 'esp32:esp32:esp32h2', 'esp8266:esp8266:nodemcuv2', 'arduino:avr:uno']) {
+      expect(findBoardCompatibilityErrors(nodes, fqbn)).toEqual([
+        expect.stringMatching(/HUB75 output requires a classic ESP32, ESP32-S2, or ESP32-S3/),
+      ])
+    }
+    // No board selected yet, or an addressable chipset: no HUB75-specific error.
+    expect(findBoardCompatibilityErrors(nodes, '')).toEqual([])
+    expect(findBoardCompatibilityErrors([node('out', 'MatrixOutput', { chipset: 'WS2812B' })], 'esp32:esp32:esp32c3')).toEqual([])
+  })
+
   it('allows a single HUB75 Matrix Output route with default layout', () => {
     expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'WS2812B' })])).toEqual([])
     expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'HUB75' })])).toEqual([])
