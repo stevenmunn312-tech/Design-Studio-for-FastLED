@@ -13,6 +13,13 @@ export interface ValidationResult {
   warnings: string[]
 }
 
+// Boards ESP32-HUB75-MatrixPanel-DMA actually supports (its 'LCD mode' DMA
+// peripheral) — the classic ESP32 and its S2/S3 successors, not the RISC-V
+// C3/C6/H2 variants (or any other board family). Plain base FQBNs: the
+// upload UI passes `selectedFqbn` without a `:PSRAM=…` suffix here (that's
+// only appended at the actual build/compile call site).
+const HUB75_SUPPORTED_FQBNS = new Set(['esp32:esp32:esp32', 'esp32:esp32:esp32s2', 'esp32:esp32:esp32s3'])
+
 interface PinUse {
   label: string
   nodeId: string
@@ -618,6 +625,16 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
   // mode drives; S3/S2/C3 have no DAC hardware at all.
   if (selectedFqbn && internalDacSd && selectedFqbn !== 'esp32:esp32:esp32') {
     errors.push('SD Card internal-DAC audio output requires the classic ESP32 board — ESP32-S3/S2/C3 have no built-in DAC')
+  }
+  // ESP32-HUB75-MatrixPanel-DMA needs the ESP32/S2/S3 'LCD mode' DMA
+  // peripheral; RISC-V ESP32 variants (C3/C6/H2) have no such hardware, per
+  // the library's own supported-variants list — confirmed against its README
+  // at the vendored tag, not guessed. Every other board family (AVR, RP2040,
+  // SAMD, STM32, Teensy, ESP8266, …) is out entirely too.
+  if (selectedFqbn && nodes.some((node) =>
+    node.data.nodeType === 'MatrixOutput' && String((node.data.properties as Record<string, unknown>).chipset ?? 'WS2812B') === HUB75_CHIPSET
+  ) && !HUB75_SUPPORTED_FQBNS.has(selectedFqbn)) {
+    errors.push('HUB75 output requires a classic ESP32, ESP32-S2, or ESP32-S3 board — the DMA library needs their LCD-mode peripheral, which RISC-V ESP32 variants (C3/C6/H2) and other board families don\'t have')
   }
   errors.push(...findBoardPinCompatibility(nodes, selectedFqbn).errors)
   return errors
