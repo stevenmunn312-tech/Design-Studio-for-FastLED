@@ -364,6 +364,34 @@ def test_compile_upload_fbuild_releases_lock_after_a_failed_build(monkeypatch):
     app._fbuild_build_lock.release()
 
 
+def test_compile_upload_fbuild_vendors_hub75_lib_only_when_sketch_needs_it(monkeypatch):
+    # HUB75 (docs/development/design/hub75-output.md) is vendored lazily, same
+    # as ESP32-audioI2S/esp_dmx: only sketches that actually include the DMA
+    # library's header should trigger the vendor-clone.
+    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn: "esp32_esp32_esp32s3")
+    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
+
+    calls = []
+    monkeypatch.setattr(app, "_ensure_fbuild_hub75_lib", lambda: calls.append(1) or iter(()))
+
+    def fake_run_phase(label, args, sink=None, cwd=None):
+        if sink is not None:
+            sink.append("Flash: 1.00KB / 10.00KB (10.0%)\n")
+        yield "ok\n"
+        return 0
+
+    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+
+    list(app._compile_upload_fbuild("Test", "void setup(){}", "esp32:esp32:esp32s3", ""))
+    assert calls == []
+
+    list(app._compile_upload_fbuild(
+        "Test", '#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>\nvoid setup(){}', "esp32:esp32:esp32s3", "",
+    ))
+    assert calls == [1]
+
+
 def test_compile_upload_fbuild_points_at_arduino_cli_when_deployer_is_missing(monkeypatch):
     # fbuild can compile for boards it can't yet flash (e.g. Espressif8266 as
     # of fbuild 2.5.4: "deployer for Espressif8266 not yet implemented"). A
