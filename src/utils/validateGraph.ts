@@ -544,21 +544,54 @@ export function findMatrixLayoutErrors(nodes: StudioNode[]): string[] {
   })
 }
 
-// HUB75 exists as a selectable chipset (docs/development/design/hub75-output.md)
-// so the property model/UI can be built and reviewed ahead of codegen, but
-// cppGenerator.ts has no HUB75 emission path yet — block deployment outright
-// rather than silently generating a broken addLeds<>() sketch for it.
-export function findUnimplementedChipsetErrors(nodes: StudioNode[]): string[] {
-  const errors: string[] = []
+export interface Hub75ConfigIssue {
+  nodeId: string
+  label: string
+  message: string
+}
+
+// cppGenerator.ts's HUB75 codegen (docs/development/design/hub75-output.md)
+// is scoped to a single Matrix Output route, layout: 'matrix' (one panel, no
+// chaining), and no supersampling — panel chaining needs the DMA library's
+// separate VirtualMatrixPanel wrapper, which isn't wired up yet, and a
+// second output route or supersampling would need HUB75-specific handling
+// cppGenerator.ts's shared codepaths (addLeds<>()-shaped) don't have. Block
+// every other combination rather than silently generating a broken sketch.
+export function findHub75ConfigIssues(nodes: StudioNode[]): Hub75ConfigIssue[] {
+  const issues: Hub75ConfigIssue[] = []
   const matrixOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
+  const singleOutput = matrixOutputs.length === 1
   matrixOutputs.forEach((output, index) => {
     const props = output.data.properties as Record<string, unknown>
     if (String(props.chipset ?? 'WS2812B') !== HUB75_CHIPSET) return
     const base = String(output.data.label ?? output.data.nodeType)
     const label = matrixOutputs.length > 1 ? `${base} ${index + 1}` : base
-    errors.push(`${label} is set to HUB75, which isn't implemented yet — firmware generation for HUB75 scan panels is still in progress`)
+    if (!singleOutput) {
+      issues.push({
+        nodeId: output.id, label,
+        message: `${label} is set to HUB75, which only supports a single Matrix Output route for now — remove the other output route(s), or switch this one to an addressable chipset.`,
+      })
+      return
+    }
+    if (String(props.layout ?? 'matrix') !== 'matrix') {
+      issues.push({
+        nodeId: output.id, label,
+        message: `${label} is set to HUB75, which only supports the Matrix layout so far (no panel chaining/tiling yet) — switch layout back to Matrix, or use an addressable chipset.`,
+      })
+      return
+    }
+    if (props.supersample === true) {
+      issues.push({
+        nodeId: output.id, label,
+        message: `${label} is set to HUB75, which doesn't support supersampling yet — turn off Supersample, or use an addressable chipset.`,
+      })
+    }
   })
-  return errors
+  return issues
+}
+
+export function findHub75ConfigErrors(nodes: StudioNode[]): string[] {
+  return findHub75ConfigIssues(nodes).map((issue) => issue.message)
 }
 
 export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: string): string[] {
@@ -777,6 +810,7 @@ export function buildGraphDiagnostics(
 
   const matrixOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
   const matrixOutput = matrixOutputs[0]
+  const hub75Issues = findHub75ConfigIssues(nodes)
   for (const matrixOutput of matrixOutputs) {
     const props = matrixOutput.data.properties as Record<string, unknown>
     const width = Math.max(0, Math.round(Number(props.width ?? 0)))
@@ -789,12 +823,13 @@ export function buildGraphDiagnostics(
         nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput),
       })
     })
-    if (String(props.chipset ?? 'WS2812B') === HUB75_CHIPSET) {
+    const hub75Issue = hub75Issues.find((issue) => issue.nodeId === matrixOutput.id)
+    if (hub75Issue) {
       diagnostics.push({
-        id: `${matrixOutput.id}-hub75-unimplemented`, severity: 'error', category: 'layout',
-        title: 'HUB75 firmware generation is not implemented yet',
-        message: 'HUB75 is selectable for property review, but codegen for scan-panel matrices is still in progress.',
-        fix: 'Switch to an addressable chipset (WS2812B, APA102, …) to build/upload, or wait for HUB75 codegen support.',
+        id: `${matrixOutput.id}-hub75-config`, severity: 'error', category: 'layout',
+        title: 'HUB75 configuration is not supported yet',
+        message: hub75Issue.message,
+        fix: 'Switch to an addressable chipset, or adjust the HUB75 route to a single Matrix Output, layout: Matrix, with Supersample off.',
         nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput),
       })
     }
@@ -1065,7 +1100,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   errors.push(...findPinConflicts(nodes))
   errors.push(...findOutputResourceErrors(nodes))
   errors.push(...findMatrixLayoutErrors(nodes))
-  errors.push(...findUnimplementedChipsetErrors(nodes))
+  errors.push(...findHub75ConfigErrors(nodes))
   errors.push(...findScalarExpressionErrors(nodes))
   errors.push(...findBoardCompatibilityErrors(nodes, selectedFqbn))
   warnings.push(...findPreviewOnlyWarnings(nodes, edges))

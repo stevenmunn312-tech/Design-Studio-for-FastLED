@@ -1,12 +1,14 @@
 # HUB75 output — design note
 
-Status: proposed (not started) · Owner: app · Date: 2026-08-07
+Status: in progress — property model, vendoring, and single-panel codegen
+implemented; panel chaining, the other four sketch generators, board-support
+validation, and hardware validation are not. · Owner: app · Date: 2026-08-07
 
 Scopes a second physical-output family for `MatrixOutput`: HUB75 scan-panel
 matrices (the common indoor P2–P10 modules), driven over their ribbon
-connector instead of a single-wire addressable chipset. Written before any
-code exists, so this records a proposal and open questions, not a shipped
-contract — update it as decisions get made.
+connector instead of a single-wire addressable chipset. Originally written
+before any code existed; update it as decisions get made (see `todo.md`'s
+**HUB75 Output node** entry for the current checklist).
 
 ## The shape of the problem
 
@@ -95,9 +97,6 @@ a HUB75 panel plays the identical *role* in a graph (a Frame sink).
   shared GPIO-conflict namespace (`GPIO_PIN_PROPERTIES`, `collectPinUses` in
   `src/utils/validateGraph.ts`)
 
-Selecting `HUB75` is blocked from Upload/Export with a clear validation error
-(`findUnimplementedChipsetErrors`) until codegen (below) exists.
-
 ### Vendoring (implemented — `backend/app.py`)
 
 Follows the existing `ESP32-audioI2S`/`esp_dmx` pattern
@@ -108,20 +107,56 @@ branch (the audio-lib vendoring hit a real regression from doing that — see
 `todo.md`'s hardware-validation entry from 2026-07-28). `arduino-cli` should
 be able to pull it through its own library manager as a fallback engine.
 
+### Codegen (implemented, single panel only — `src/codegen/cppGenerator.ts`)
+
+`hub75HardwareFromProps`/`hub75SetupCpp` swap `ledHardwareFromProps`/
+`FastLED.addLeds<>()` for `HUB75_I2S_CFG`/`MatrixPanel_I2S_DMA` — verified
+against the vendored library's real header and bundled example sketch at tag
+`3.0.14`, not guessed: the `i2s_pins` struct field order, the
+`HUB75_I2S_CFG(width, height, chain, pins)` constructor,
+`setPixelColorDepthBits()`, `begin()`, `setBrightness8()`, and
+`drawPixelRGB888(x, y, r, g, b)` are all real API surface. Per frame, the
+composited buffer is walked pixel-by-pixel into `drawPixelRGB888()` instead
+of a `leds[]` array + `FastLED.show()`; `FastLED.setMaxPowerInVoltsAndMilliamps`
+is skipped for HUB75 since no `CLEDController` is registered for it to
+throttle.
+
+This is intentionally narrow: only a **single** `MatrixOutput` route, only
+`layout: 'matrix'` (one panel, no chaining/tiling), and no supersampling.
+`findHub75ConfigErrors`/`findHub75ConfigIssues` in `validateGraph.ts`
+(renamed from the earlier blanket `findUnimplementedChipsetErrors`) allow
+that supported shape and block every other HUB75 combination — multiple
+Matrix Output routes, a non-Matrix layout, or supersampling — each with its
+own message pointing at what to change. The other four sketch generators
+that share the same `ledHardwareFromProps`/`fastledSetupCpp` helpers (show
+controller, music-sync player, live-stream receiver, standalone wiring
+diagnostic) do **not** have HUB75 support yet; `validateGraph`'s single-route
+rule keeps a HUB75-plus-any-of-those combination from being reachable via the
+UI today, but those generators have no HUB75-aware codepath of their own if
+ever called directly. Not yet hardware-validated.
+
 ## Open questions
 
 - **Can a HUB75 route and an addressable-strip route share one board?**
   Both the DMA library and FastLED's own clockless/RMT output lean on
   DMA-capable peripherals (I2S/RMT). Whether they can run concurrently
-  without contention is unverified — needs to be answered with real hardware
-  before allowing a mixed rig in the UI, and blocked (with a validation-graph
-  error) until it is.
-- ~~**Virtual-panel chaining model.**~~ **Resolved:** reuses the existing
+  without contention is still unverified — needs real hardware to answer.
+  Currently moot in practice: codegen only supports a single Matrix Output
+  route at all (see above), so a mixed HUB75 + addressable-strip rig is
+  blocked regardless of this question's answer.
+- ~~**Virtual-panel chaining model.**~~ **Resolved for the property model,
+  open for codegen:** the property model reuses the existing
   `layout: 'panels'` tiling (`tilesX`/`tilesY`/`tileRotations`/
   `tileSerpentine`, `src/state/xyLayout.ts`) rather than inventing separate
   panel-resolution/chain-length properties — a HUB75 chain's per-panel
   resolution falls out of `width`/`height` ÷ `tilesX`/`tilesY`, same as an
-  addressable panel grid.
+  addressable panel grid. Codegen doesn't act on that yet, though: turning a
+  `tilesX`/`tilesY` grid into a real DMA chain needs the library's separate
+  `VirtualMatrixPanel` wrapper class for anything beyond `chain_length = 1`
+  panels in a single row, and that class's API hasn't been verified against
+  the vendored source yet (unlike `HUB75_I2S_CFG`/`MatrixPanel_I2S_DMA`
+  above). `findHub75ConfigErrors` blocks `layout !== 'matrix'` for HUB75
+  until this is done.
 - **Preview fidelity.** The live preview already renders LEDs as discs with
   glow (`webglRenderer.ts`); a HUB75 panel's actual visual character (visible
   scan lines, lower effective bit depth at high refresh) is different enough
