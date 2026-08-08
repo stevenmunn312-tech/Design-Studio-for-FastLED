@@ -2319,6 +2319,33 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // `psramMode` holds the board's PsramOption id (OPI vs QSPI on the S3).
       usePsram: false,
       psramMode: 'opi',
+      // HUB75 scan-panel wiring (chipset === 'HUB75' only; see
+      // docs/development/design/hub75-output.md). Defaults match
+      // ESP32-HUB75-MatrixPanel-DMA's documented classic-ESP32 pinout —
+      // per-board remapping is a follow-up, same as every other hardware node.
+      hub75R1Pin: 25,
+      hub75G1Pin: 26,
+      hub75B1Pin: 27,
+      hub75R2Pin: 14,
+      hub75G2Pin: 12,
+      hub75B2Pin: 13,
+      hub75APin: 23,
+      hub75BPin: 19,
+      hub75CPin: 5,
+      hub75DPin: 17,
+      // Row-select address line E, only wired for 1/32-scan (e.g. 64-row)
+      // panels — gated by hub75WideScan below.
+      hub75EPin: 21,
+      hub75ClkPin: 16,
+      hub75LatPin: 4,
+      hub75OePin: 15,
+      // 64-row / 1:32-scan panels multiplex an extra row-select line (E,
+      // above); 32-row / 1:16-scan panels leave it unconnected.
+      hub75WideScan: false,
+      // PWM bit depth per channel — trades refresh-rate smoothness/flicker
+      // against CPU/DMA bandwidth (ESP32-HUB75-MatrixPanel-DMA's
+      // setPixelColorDepthBits).
+      hub75ColorDepthBits: 8,
     },
   },
 
@@ -2817,12 +2844,17 @@ export const PALETTES = STUDIO_PALETTES
 // non-literal entry: codegen maps it to `SK6812` + `.setRgbw(RgbwDefault())`.
 export const CHIPSET_OPTIONS = [
   'WS2812B', 'WS2811', 'WS2815', 'SK6812', 'SK6812-RGBW', 'WS2816', 'SM16824E',
-  'NEOPIXEL', 'APA102', 'APA102HD', 'WS2801', 'HD108',
+  'NEOPIXEL', 'APA102', 'APA102HD', 'WS2801', 'HD108', 'HUB75',
 ] as const
 
 /** SPI (clocked) chipsets — need a `clockPin` alongside the data pin, and the
  *  FASTLED_OVERCLOCK define doesn't apply to them. */
 export const SPI_CHIPSETS: ReadonlySet<string> = new Set(['APA102', 'APA102HD', 'WS2801', 'HD108'])
+
+/** HUB75 scan-panel matrices (docs/development/design/hub75-output.md) — driven
+ *  over a 13-14 signal ribbon via a DMA library, not a FastLED addLeds<>() pin
+ *  pair, so they're neither a clockless nor an SPI chipset in the sense above. */
+export const HUB75_CHIPSET = 'HUB75'
 
 export const COLOR_ORDER_OPTIONS = ['GRB', 'RGB', 'BGR', 'BRG', 'GBR', 'RBG'] as const
 
@@ -2895,6 +2927,21 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   colorOrder: { control: 'select', options: COLOR_ORDER_OPTIONS },
   correction: { control: 'select', options: CORRECTION_OPTIONS },
   overclock:  { control: 'slider', min: 1, max: 1.7, step: 0.05 },
+  hub75R1Pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  hub75G1Pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  hub75B1Pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  hub75R2Pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  hub75G2Pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  hub75B2Pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  hub75APin:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  hub75BPin:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  hub75CPin:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  hub75DPin:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  hub75EPin:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  hub75ClkPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  hub75LatPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  hub75OePin:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  hub75ColorDepthBits: { control: 'slider', min: 1, max: 8, step: 1 },
 
   // Bounded numeric ranges → slider
   speed:    { control: 'slider', min: 0, max: 5, step: 0.1 },
@@ -3417,9 +3464,12 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   usePsram: "Moves this board's render buffers into PSRAM instead of internal DRAM, for designs that overflow internal RAM. Only available on boards with PSRAM.",
   psramMode: "Which PSRAM interface to target — must match the board module's physical package; it can't be probed from the host.",
   layout: 'How the grid maps to physical LED wiring order — plain matrix, a single strip, tiled panels, or a custom index permutation.',
-  chipset: 'The LED chipset driving this output — must match the physical strip/panel.',
+  chipset: "The LED chipset driving this output — must match the physical strip/panel. HUB75 (scan-panel matrices) isn't implemented yet; see docs/development/design/hub75-output.md.",
   colorOrder: 'Wire colour byte order the chipset expects. The wrong order swaps colours (e.g. red renders as green).',
   clockPin: 'SPI chipsets only — the clock line alongside the data pin.',
+  hub75WideScan: '64-row (1:32 scan) panels multiplex an extra row-select line (E) below; 32-row (1:16 scan) panels leave it unconnected.',
+  hub75EPin: 'Row-select address line E — only wired for 1:32-scan (typically 64-row) panels. Ignored otherwise.',
+  hub75ColorDepthBits: 'PWM bits per colour channel. Higher looks smoother but costs more CPU/DMA bandwidth; lower can flicker on camera.',
   serialDebug: "Prints processor/conditioner stats to the serial monitor ~10×/sec, for checking mic wiring on-device. Firmware-only — no visible effect here.",
   pullup: "On wires the pin INPUT_PULLUP (idle high, press pulls low) — the common no-extra-parts wiring. Off wires it plain INPUT, which needs an external pull-down resistor or the pin will float when not pressed.",
   resetOnPress: 'Zeros the running position count every time the integrated push-button is pressed, instead of only ever counting up/down.',
@@ -3653,6 +3703,11 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   MatrixOutput: [
     { key: 'routing', label: 'Frame Route', keys: ['routeMode', 'routeX', 'routeY'] },
     { key: 'wiring', label: 'Wiring', keys: ['chipset', 'colorOrder', 'dataPin', 'clockPin', 'serpentine'] },
+    { key: 'hub75', label: 'HUB75 Wiring', keys: [
+      'hub75R1Pin', 'hub75G1Pin', 'hub75B1Pin', 'hub75R2Pin', 'hub75G2Pin', 'hub75B2Pin',
+      'hub75APin', 'hub75BPin', 'hub75CPin', 'hub75DPin', 'hub75WideScan', 'hub75EPin',
+      'hub75ClkPin', 'hub75LatPin', 'hub75OePin', 'hub75ColorDepthBits',
+    ] },
     { key: 'layout', label: 'Layout', keys: ['layout', 'tilesX', 'tilesY', 'tileSerpentine', 'tileRotations', 'customXYMap'] },
     { key: 'rendering', label: 'Rendering', keys: ['supersample', 'brightness', 'correction', 'dither', 'overclock'] },
     { key: 'power', label: 'Power', keys: ['powerLimit', 'volts', 'milliamps'] },
@@ -3776,7 +3831,12 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   PotInput: new Set(['pin']),
   EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
   SDCard: new Set(['sdCsPin', 'i2sBclk', 'i2sLrc', 'i2sDout']),
-  MatrixOutput: new Set(['dataPin', 'clockPin']),
+  MatrixOutput: new Set([
+    'dataPin', 'clockPin',
+    'hub75R1Pin', 'hub75G1Pin', 'hub75B1Pin', 'hub75R2Pin', 'hub75G2Pin', 'hub75B2Pin',
+    'hub75APin', 'hub75BPin', 'hub75CPin', 'hub75DPin', 'hub75EPin',
+    'hub75ClkPin', 'hub75LatPin', 'hub75OePin',
+  ]),
 }
 
 export function isGpioPinProperty(nodeType: string, key: string): boolean {
@@ -4006,11 +4066,21 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
   if (nodeType === 'MatrixOutput') {
     if (key === 'routeX' || key === 'routeY') return properties.routeMode === 'crop'
     if (key === 'volts' || key === 'milliamps') return properties.powerLimit === true
-    const spi = SPI_CHIPSETS.has(String(properties.chipset ?? 'WS2812B'))
+    const chipset = String(properties.chipset ?? 'WS2812B')
+    const hub75 = chipset === HUB75_CHIPSET
+    const spi = SPI_CHIPSETS.has(chipset)
+    // HUB75 is driven over its own pin ribbon via a DMA library, not FastLED's
+    // addLeds<>() — the single data pin, wire colour order, per-pixel
+    // serpentine, and clockless-only overclock define all stop applying.
+    if (key === 'dataPin' || key === 'colorOrder' || key === 'serpentine') return !hub75
     // The clock pin only exists on SPI chipsets; FASTLED_OVERCLOCK only applies
-    // to clockless ones.
+    // to clockless (non-HUB75) ones.
     if (key === 'clockPin') return spi
-    if (key === 'overclock') return !spi
+    if (key === 'overclock') return !spi && !hub75
+    if (key.startsWith('hub75')) {
+      if (key === 'hub75EPin') return hub75 && properties.hub75WideScan === true
+      return hub75
+    }
     if (key === 'tilesX' || key === 'tilesY' || key === 'tileSerpentine' || key === 'tileRotations')
       return properties.layout === 'panels'
     if (key === 'customXYMap') return properties.layout === 'custom'

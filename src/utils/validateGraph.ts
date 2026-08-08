@@ -1,5 +1,5 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
-import { SPI_CHIPSETS, NODE_LIBRARY, supportsScalarExpression, gpioRequirementForProperty, type GpioPropertyRequirement } from '../state/nodeLibrary'
+import { SPI_CHIPSETS, HUB75_CHIPSET, NODE_LIBRARY, supportsScalarExpression, gpioRequirementForProperty, type GpioPropertyRequirement } from '../state/nodeLibrary'
 import { evaluateScalarExpression } from '../state/scalarExpression'
 import { isValidRtcDateTime } from '../state/rtc'
 import { validateMatrixLayout } from '../state/xyLayout'
@@ -24,10 +24,13 @@ interface PinUse {
 
 // Every GPIO-typed property across the hardware-input/output nodes, tagged
 // with a human label for the error message. MatrixOutput's clockPin only
-// counts for SPI chipsets (it's unused, and its editor disabled, otherwise).
-// There is no shared-bus concept in the generated firmware today — each of
-// these pins drives exactly one peripheral — so any reuse of a GPIO number
-// across two of these roles (even on the same node) is a real conflict.
+// counts for SPI chipsets (it's unused, and its editor disabled, otherwise);
+// a HUB75 chipset swaps the single dataPin/clockPin pair for its own 13-14
+// pin ribbon (hub75EPin only when hub75WideScan is on — see
+// docs/development/design/hub75-output.md). There is no shared-bus concept
+// in the generated firmware today — each of these pins drives exactly one
+// peripheral — so any reuse of a GPIO number across two of these roles (even
+// on the same node) is a real conflict.
 function collectPinUses(nodes: StudioNode[]): PinUse[] {
   const uses: PinUse[] = []
   const matrixOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
@@ -64,8 +67,25 @@ function collectPinUses(nodes: StudioNode[]): PinUse[] {
         push(n, `${label} enable pin`, 'dmxEnablePin', props.dmxEnablePin)
         break
       case 'MatrixOutput':
-        push(n, `${label} data pin`, 'dataPin', props.dataPin)
-        if (SPI_CHIPSETS.has(String(props.chipset ?? 'WS2812B'))) push(n, `${label} clock pin`, 'clockPin', props.clockPin)
+        if (String(props.chipset ?? 'WS2812B') === HUB75_CHIPSET) {
+          push(n, `${label} R1 pin`, 'hub75R1Pin', props.hub75R1Pin)
+          push(n, `${label} G1 pin`, 'hub75G1Pin', props.hub75G1Pin)
+          push(n, `${label} B1 pin`, 'hub75B1Pin', props.hub75B1Pin)
+          push(n, `${label} R2 pin`, 'hub75R2Pin', props.hub75R2Pin)
+          push(n, `${label} G2 pin`, 'hub75G2Pin', props.hub75G2Pin)
+          push(n, `${label} B2 pin`, 'hub75B2Pin', props.hub75B2Pin)
+          push(n, `${label} row-select A`, 'hub75APin', props.hub75APin)
+          push(n, `${label} row-select B`, 'hub75BPin', props.hub75BPin)
+          push(n, `${label} row-select C`, 'hub75CPin', props.hub75CPin)
+          push(n, `${label} row-select D`, 'hub75DPin', props.hub75DPin)
+          if (props.hub75WideScan === true) push(n, `${label} row-select E`, 'hub75EPin', props.hub75EPin)
+          push(n, `${label} clock pin`, 'hub75ClkPin', props.hub75ClkPin)
+          push(n, `${label} latch pin`, 'hub75LatPin', props.hub75LatPin)
+          push(n, `${label} output-enable pin`, 'hub75OePin', props.hub75OePin)
+        } else {
+          push(n, `${label} data pin`, 'dataPin', props.dataPin)
+          if (SPI_CHIPSETS.has(String(props.chipset ?? 'WS2812B'))) push(n, `${label} clock pin`, 'clockPin', props.clockPin)
+        }
         break
       case 'ButtonInput':
         push(n, `${label} pin`, 'pin', props.pin)
@@ -524,6 +544,23 @@ export function findMatrixLayoutErrors(nodes: StudioNode[]): string[] {
   })
 }
 
+// HUB75 exists as a selectable chipset (docs/development/design/hub75-output.md)
+// so the property model/UI can be built and reviewed ahead of codegen, but
+// cppGenerator.ts has no HUB75 emission path yet — block deployment outright
+// rather than silently generating a broken addLeds<>() sketch for it.
+export function findUnimplementedChipsetErrors(nodes: StudioNode[]): string[] {
+  const errors: string[] = []
+  const matrixOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
+  matrixOutputs.forEach((output, index) => {
+    const props = output.data.properties as Record<string, unknown>
+    if (String(props.chipset ?? 'WS2812B') !== HUB75_CHIPSET) return
+    const base = String(output.data.label ?? output.data.nodeType)
+    const label = matrixOutputs.length > 1 ? `${base} ${index + 1}` : base
+    errors.push(`${label} is set to HUB75, which isn't implemented yet — firmware generation for HUB75 scan panels is still in progress`)
+  })
+  return errors
+}
+
 export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: string): string[] {
   const errors: string[] = []
   if (selectedFqbn && nodes.some((node) => node.data.nodeType === 'MicInput') && !selectedFqbn.startsWith('esp32:')) {
@@ -752,6 +789,15 @@ export function buildGraphDiagnostics(
         nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput),
       })
     })
+    if (String(props.chipset ?? 'WS2812B') === HUB75_CHIPSET) {
+      diagnostics.push({
+        id: `${matrixOutput.id}-hub75-unimplemented`, severity: 'error', category: 'layout',
+        title: 'HUB75 firmware generation is not implemented yet',
+        message: 'HUB75 is selectable for property review, but codegen for scan-panel matrices is still in progress.',
+        fix: 'Switch to an addressable chipset (WS2812B, APA102, …) to build/upload, or wait for HUB75 codegen support.',
+        nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput),
+      })
+    }
   }
 
   const { w: expressionWidth, h: expressionHeight } = compositionDims(nodes)
@@ -1019,6 +1065,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   errors.push(...findPinConflicts(nodes))
   errors.push(...findOutputResourceErrors(nodes))
   errors.push(...findMatrixLayoutErrors(nodes))
+  errors.push(...findUnimplementedChipsetErrors(nodes))
   errors.push(...findScalarExpressionErrors(nodes))
   errors.push(...findBoardCompatibilityErrors(nodes, selectedFqbn))
   warnings.push(...findPreviewOnlyWarnings(nodes, edges))
