@@ -84,7 +84,7 @@ export default function MatrixOutputDeployPopup() {
     () => findBoardCompatibilityErrors(nodes, selectedFqbn),
     [nodes, selectedFqbn],
   )
-  const hub75ConfigErrors = useMemo(() => findHub75ConfigErrors(nodes), [nodes])
+  const hub75ConfigErrors = useMemo(() => findHub75ConfigErrors(nodes, edges), [nodes, edges])
 
   // Live controller-capacity meter (see MatrixOutputUpload.tsx, which drives
   // the actual debounced compile-check) — the measured result is the

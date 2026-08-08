@@ -101,4 +101,45 @@ describe('generateWiringDiagnosticSketch', () => {
     const spiSketch = generateWiringDiagnosticSketch([spi])!
     expect(spiSketch).toContain('#define CLOCK_PIN 7')
   })
+
+  describe('HUB75 (docs/development/design/hub75-output.md)', () => {
+    const hub75Out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, chipset: 'HUB75' })
+
+    it('drives the DMA library instead of FastLED addLeds/show', () => {
+      const sketch = generateWiringDiagnosticSketch([hub75Out])!
+      expect(sketch).toContain('#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>')
+      expect(sketch).toContain('MatrixPanel_I2S_DMA *dma_display = nullptr;')
+      expect(sketch).toContain(
+        'HUB75_I2S_CFG::i2s_pins _hub75Pins = { 25, 26, 27, 14, 12, 13, 23, 19, 5, 17, -1, 4, 15, 16 };',
+      )
+      expect(sketch).toContain('HUB75_I2S_CFG _hub75Cfg(8, 8, 1, _hub75Pins);')
+      expect(sketch).toContain('dma_display = new MatrixPanel_I2S_DMA(_hub75Cfg);')
+      expect(sketch).not.toContain('#define DATA_PIN')
+      expect(sketch).not.toContain('FastLED.addLeds<')
+      expect(sketch).not.toContain('FastLED.show();')
+      // Still uses the same CRGB leds[] diagnostic-drawing logic as every
+      // other chipset — only the setup/output step differs.
+      expect(sketch).toContain('CRGB leds[NUM_LEDS];')
+      expect(sketch).toContain('case 0: fill_solid(leds, NUM_LEDS, CRGB::Red); break;')
+      expect(sketch).toContain('dma_display->drawPixelRGB888(x, y, c.r, c.g, c.b);')
+    })
+
+    it('skips setMaxPowerInVoltsAndMilliamps for HUB75 (no FastLED controller to throttle)', () => {
+      const capped = node('out', 'MatrixOutput', 'output', {
+        width: 8, height: 8, chipset: 'HUB75', powerLimit: true, volts: 5, milliamps: 1500,
+      })
+      const sketch = generateWiringDiagnosticSketch([capped])!
+      expect(sketch).not.toContain('setMaxPowerInVoltsAndMilliamps')
+    })
+
+    it('reads through the baked XY table when the blit needs one', () => {
+      const custom = node('out', 'MatrixOutput', 'output', {
+        width: 8, height: 8, chipset: 'HUB75', layout: 'custom',
+        customXYMap: JSON.stringify(Array.from({ length: 64 }, (_, i) => 63 - i)),
+      })
+      const sketch = generateWiringDiagnosticSketch([custom])!
+      expect(sketch).toContain('const uint16_t _xytable[64] PROGMEM')
+      expect(sketch).toContain('CRGB c = leds[XY((uint8_t)x, (uint8_t)y)];')
+    })
+  })
 })

@@ -27,6 +27,15 @@ describe('streamLayoutForGraph', () => {
     const out = node('out', 'MatrixOutput', 'output', { width: 4, height: 4, serpentine: true })
     expect(streamLayoutForGraph([out])?.serpentine).toBe(true)
   })
+
+  it('forces serpentine off for HUB75 even if a stale flag is set', () => {
+    // Regression: serpentine is an addressable-strip wiring concept the HUB75
+    // property editor hides, but switching a node's chipset from an
+    // addressable one to HUB75 leaves the old stored value in place. Both the
+    // sender (buildAdalightPacket) and receiver must agree it's a no-op here.
+    const out = node('out', 'MatrixOutput', 'output', { width: 4, height: 4, chipset: 'HUB75', serpentine: true })
+    expect(streamLayoutForGraph([out])?.serpentine).toBe(false)
+  })
 })
 
 describe('generateStreamReceiverSketch', () => {
@@ -92,5 +101,25 @@ describe('generateStreamReceiverSketch', () => {
     const spi = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, chipset: 'APA102', clockPin: 7 })
     const spiSketch = generateStreamReceiverSketch([spi])!
     expect(spiSketch).toContain('#define CLOCK_PIN 7')
+  })
+
+  describe('HUB75 (docs/development/design/hub75-output.md)', () => {
+    const hub75Out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, chipset: 'HUB75' })
+
+    it('drives the DMA library instead of FastLED addLeds/show', () => {
+      const sketch = generateStreamReceiverSketch([hub75Out])!
+      expect(sketch).toContain('#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>')
+      expect(sketch).toContain('MatrixPanel_I2S_DMA *dma_display = nullptr;')
+      expect(sketch).toContain('HUB75_I2S_CFG _hub75Cfg(8, 8, 1, _hub75Pins);')
+      expect(sketch).toContain('dma_display = new MatrixPanel_I2S_DMA(_hub75Cfg);')
+      expect(sketch).not.toContain('#define DATA_PIN')
+      expect(sketch).not.toContain('FastLED.addLeds<')
+      expect(sketch).not.toContain('FastLED.show();')
+      // Still reads exactly NUM_LEDS triples via the same Adalight handshake —
+      // only the setup/output step differs.
+      expect(sketch).toContain("'A', 'd', 'a'")
+      expect(sketch).toContain('leds[i] = CRGB(r, g, bl);')
+      expect(sketch).toContain('dma_display->drawPixelRGB888(i % WIDTH, i / WIDTH, leds[i].r, leds[i].g, leds[i].b);')
+    })
   })
 })
