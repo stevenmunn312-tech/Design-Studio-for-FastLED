@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render } from '@testing-library/react'
 import MatrixOutputDeployPopup from '../MatrixOutputDeployPopup'
 import { useGraphStore } from '../../../state/graphStore'
@@ -6,6 +6,7 @@ import { useUploadStore } from '../../../state/uploadStore'
 import { useMusicStore } from '../../../state/musicStore'
 import { useProjectStore } from '../../../state/projectStore'
 import { useStreamStore } from '../../../state/streamStore'
+import { findHub75ConfigErrors } from '../../../utils/validateGraph'
 
 vi.mock('../../../codegen/cppGenerator', () => ({
   generateCpp: vi.fn(() => '// sketch'),
@@ -36,6 +37,7 @@ vi.mock('../../../utils/validateGraph', () => ({
   findMatrixLayoutErrors: vi.fn(() => []),
   findOutputResourceErrors: vi.fn(() => []),
   findBoardCompatibilityErrors: vi.fn(() => []),
+  findHub75ConfigErrors: vi.fn(() => []),
 }))
 
 function setMatrixGraph() {
@@ -93,6 +95,10 @@ describe('MatrixOutputDeployPopup', () => {
     })
   })
 
+  afterEach(() => {
+    vi.mocked(findHub75ConfigErrors).mockReturnValue([])
+  })
+
   it('keeps readiness collapsed behind the action-needed gate', () => {
     const { getByRole, queryByText } = render(<MatrixOutputDeployPopup />)
 
@@ -144,6 +150,28 @@ describe('MatrixOutputDeployPopup', () => {
 
     fireEvent.click(wiringButton)
     expect(runUpload).toHaveBeenCalledWith('// wiring diagnostic', undefined, { cache: false })
+  })
+
+  it('blocks Flash Wiring Test on an unsupported HUB75 config', () => {
+    // Regression: findHub75ConfigErrors (multi-route/non-Matrix-layout/
+    // supersample) used to be surfaced only in the Graph Health drawer, never
+    // in this popup's own blockingErrors — so Flash Wiring Test (which needs
+    // no frame input, unlike Upload) stayed clickable for a HUB75 shape
+    // cppGenerator.ts can't actually emit.
+    vi.mocked(findHub75ConfigErrors).mockReturnValue([
+      'Matrix Output is set to HUB75, which only supports the Matrix layout so far (no panel chaining/tiling yet) — switch layout back to Matrix, or use an addressable chipset.',
+    ])
+    useUploadStore.setState({
+      helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' },
+      installedCores: [],
+      selectedPort: 'COM7',
+      ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [{ name: 'ESP32-S3' }] }],
+    })
+
+    const { getByRole } = render(<MatrixOutputDeployPopup />)
+
+    const wiringButton = getByRole('button', { name: '🧪 Flash Wiring Test' }) as HTMLButtonElement
+    expect(wiringButton.disabled).toBe(true)
   })
 
   it('requests an explicit validation report after a successful unrecorded hardware action', async () => {
