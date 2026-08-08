@@ -21,7 +21,7 @@ import {
   MIC_DEFAULTS,
   MIC_MAX_GAIN,
 } from '../audio/micAnalysis'
-import { inputClampRange, bypassPort, CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, CORRECTION_OPTIONS, SPI_CHIPSETS, resolveNodeScalarExpressions } from '../state/nodeLibrary'
+import { inputClampRange, bypassPort, CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, CORRECTION_OPTIONS, SPI_CHIPSETS, HUB75_CHIPSET, resolveNodeScalarExpressions } from '../state/nodeLibrary'
 import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledShims'
 import { particleRadius } from '../state/particleScale'
 import { buildXYTable } from '../state/xyLayout'
@@ -404,6 +404,68 @@ export function fastledSetupCpp(
   return lines
 }
 
+// ── HUB75 hardware setup (MatrixOutput → ESP32-HUB75-MatrixPanel-DMA) ──────
+// A HUB75 route (docs/development/design/hub75-output.md) has no FastLED
+// driver — it's driven over its own 13-14 signal ribbon via a separate DMA
+// library instead of FastLED's addLeds<>()/leds[]/show(). Scoped for now to a
+// single Matrix Output route, layout: 'matrix' (one panel, no chaining) —
+// see findUnimplementedChipsetErrors in validateGraph.ts for the gate.
+
+export interface Hub75Hardware {
+  panelResX: number
+  panelResY: number
+  pins: {
+    r1: number; g1: number; b1: number; r2: number; g2: number; b2: number
+    a: number; b: number; c: number; d: number; e: number
+    lat: number; oe: number; clk: number
+  }
+  colorDepthBits: number
+  brightness: number
+}
+
+/** Resolve + sanitise a MatrixOutput node's HUB75 properties. `width`/`height`
+ *  become the single physical panel's resolution (panel chaining isn't
+ *  implemented yet, so the whole composed matrix is one panel). `hub75EPin`
+ *  is only meaningful when `hub75WideScan` is on — the DMA library's own
+ *  convention for "unused" is -1, matching its documented default pinout. */
+export function hub75HardwareFromProps(p: Record<string, unknown>, width: number, height: number): Hub75Hardware {
+  const num = (v: unknown, def: number, min: number, max: number) => {
+    const n = Number(v)
+    return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : def
+  }
+  const wideScan = p.hub75WideScan === true
+  return {
+    panelResX: width,
+    panelResY: height,
+    pins: {
+      r1: sanitizePin(p.hub75R1Pin, 25), g1: sanitizePin(p.hub75G1Pin, 26), b1: sanitizePin(p.hub75B1Pin, 27),
+      r2: sanitizePin(p.hub75R2Pin, 14), g2: sanitizePin(p.hub75G2Pin, 12), b2: sanitizePin(p.hub75B2Pin, 13),
+      a: sanitizePin(p.hub75APin, 23), b: sanitizePin(p.hub75BPin, 19), c: sanitizePin(p.hub75CPin, 5), d: sanitizePin(p.hub75DPin, 17),
+      e: wideScan ? sanitizePin(p.hub75EPin, 21) : -1,
+      lat: sanitizePin(p.hub75LatPin, 4), oe: sanitizePin(p.hub75OePin, 15), clk: sanitizePin(p.hub75ClkPin, 16),
+    },
+    colorDepthBits: Math.round(num(p.hub75ColorDepthBits, 8, 1, 8)),
+    brightness: Math.round(num(p.brightness, 200, 0, 255)),
+  }
+}
+
+/** setup() lines initialising the DMA display: pin struct, HUB75_I2S_CFG,
+ *  MatrixPanel_I2S_DMA, begin(), brightness, and an initial clear — mirrors
+ *  the example sketch bundled with ESP32-HUB75-MatrixPanel-DMA (verified
+ *  against the vendored tag, 3.0.14). */
+export function hub75SetupCpp(hw: Hub75Hardware): string[] {
+  const p = hw.pins
+  return [
+    `  HUB75_I2S_CFG::i2s_pins _hub75Pins = { ${p.r1}, ${p.g1}, ${p.b1}, ${p.r2}, ${p.g2}, ${p.b2}, ${p.a}, ${p.b}, ${p.c}, ${p.d}, ${p.e}, ${p.lat}, ${p.oe}, ${p.clk} };`,
+    `  HUB75_I2S_CFG _hub75Cfg(${hw.panelResX}, ${hw.panelResY}, 1, _hub75Pins);`,
+    `  _hub75Cfg.setPixelColorDepthBits(${hw.colorDepthBits});`,
+    `  dma_display = new MatrixPanel_I2S_DMA(_hub75Cfg);`,
+    `  dma_display->begin();`,
+    `  dma_display->setBrightness8(${hw.brightness});`,
+    `  dma_display->clearScreen();`,
+  ]
+}
+
 /**
  * The on-device FastLED audio processor for a graph that
  * contains a MicInput, so a *controller* sketch (e.g. the generative pattern
@@ -716,6 +778,12 @@ export function generateCpp(
   // Chipset, colour order, master brightness, correction, dithering, overclock
   // — sanitised centrally (shared with the show/player generators).
   const hw = ledHardwareFromProps(outputNode ? props(outputNode) : {})
+  // HUB75 has no FastLED driver — it's driven via a separate DMA library
+  // instead of addLeds<>()/leds[]/show(). Scoped to a single Matrix Output
+  // route for now; findUnimplementedChipsetErrors blocks every other
+  // combination (multi-route, panel chaining, supersample) before deploy.
+  const isHub75 = !multipleOutputs && hw.chipset === HUB75_CHIPSET
+  const hub75Hw = isHub75 ? hub75HardwareFromProps(props(outputNode!), width, height) : null
   // Serpentine (zig-zag) matrices wire alternate rows in reverse; buffers stay
   // row-major and MatrixOutput remaps grid → physical index via XY(). Panel/
   // custom layouts (src/state/xyLayout.ts) fold into the same XY() remap, so
@@ -4909,6 +4977,17 @@ export function generateCpp(
 
       case 'MatrixOutput': {
         const src = srcBuf('frame')
+        if (isHub75) {
+          if (!src) {
+            ln(`  dma_display->clearScreen();`)
+          } else {
+            ln(`  for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
+            ln(`    CRGB _c = ${src}[_y * WIDTH + _x];`)
+            ln(`    dma_display->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);`)
+            ln(`  }`)
+          }
+          break
+        }
         if (multipleOutputs) {
           const route = outputConfigs.find((candidate) => candidate.id === node.id)!
           const leds = `leds_${route.safeId}`
@@ -4977,6 +5056,7 @@ export function generateCpp(
     : hw
   lines.push(...overclockDefineCpp(overclockHw))
   lines.push(`#include <FastLED.h>`)
+  if (isHub75) lines.push(`#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>`)
   if (needsDs3231) lines.push(`#include <Wire.h>`)
   if (needsWifi) {
     lines.push(`#if defined(ESP32)`)
@@ -5018,13 +5098,15 @@ export function generateCpp(
       lines.push(`#define DATA_PIN_${route.safeId} ${route.dataPin}`)
       if (SPI_CHIPSETS.has(route.hardware.chipset)) lines.push(`#define CLOCK_PIN_${route.safeId} ${route.hardware.clockPin}`)
     }
-  } else {
+  } else if (!isHub75) {
     lines.push(`#define DATA_PIN ${dataPin}`)
     if (SPI_CHIPSETS.has(hw.chipset)) lines.push(`#define CLOCK_PIN ${hw.clockPin}`)
   }
   lines.push(``)
   if (multipleOutputs) {
     for (const route of outputConfigs) lines.push(`CRGB leds_${route.safeId}[${route.width * route.height}];`)
+  } else if (isHub75) {
+    lines.push(`MatrixPanel_I2S_DMA *dma_display = nullptr;`)
   } else {
     lines.push(`CRGB leds[${physLeds}];`)
   }
@@ -5180,10 +5262,14 @@ export function generateCpp(
       }))
     }
     lines.push(`  FastLED.setBrightness(255);  // per-output brightness is applied while routing pixels`)
+  } else if (isHub75) {
+    lines.push(...hub75SetupCpp(hub75Hw!))
   } else {
     lines.push(...fastledSetupCpp(hw, ss ? { ledCountMacro: physLeds } : {}))
   }
-  if (powerLimit) lines.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${volts}, ${milliamps});`)
+  // HUB75 has no FastLED CLEDController registered, so setMaxPowerInVoltsAndMilliamps
+  // would have nothing to throttle.
+  if (powerLimit && !isHub75) lines.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${volts}, ${milliamps});`)
   if (emitEngine) lines.push(`  setupAudio();`)
   lines.push(`}`)
   lines.push(``)

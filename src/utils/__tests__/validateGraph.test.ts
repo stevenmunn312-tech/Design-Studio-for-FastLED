@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findOutputResourceErrors, findUnimplementedChipsetErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findOutputResourceErrors, findHub75ConfigErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -85,11 +85,10 @@ describe('validateGraph', () => {
     expect(findBoardCompatibilityErrors([node('sd', 'SDCard')], 'esp32:esp32:esp32s3')).toEqual([])
   })
 
-  it('blocks HUB75 deployment as not-yet-implemented', () => {
-    expect(findUnimplementedChipsetErrors([node('out', 'MatrixOutput', { chipset: 'WS2812B' })])).toEqual([])
-    expect(findUnimplementedChipsetErrors([node('out', 'MatrixOutput', { chipset: 'HUB75' })])).toEqual([
-      expect.stringMatching(/HUB75.*isn't implemented yet/),
-    ])
+  it('allows a single HUB75 Matrix Output route with default layout', () => {
+    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'WS2812B' })])).toEqual([])
+    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'HUB75' })])).toEqual([])
+    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'HUB75', layout: 'matrix', supersample: false })])).toEqual([])
 
     const nodes = [
       node('sc', 'SolidColor'),
@@ -97,14 +96,36 @@ describe('validateGraph', () => {
     ]
     const edges = [edge('e1', 'sc', 'out', 'frame')]
     const { errors } = validateGraph(nodes, edges)
-    expect(errors).toEqual(expect.arrayContaining([expect.stringMatching(/HUB75.*isn't implemented yet/)]))
+    expect(errors.some((e) => e.toLowerCase().includes('hub75'))).toBe(false)
 
     const diagnostics = buildGraphDiagnostics(nodes, edges)
-    expect(diagnostics).toContainEqual(expect.objectContaining({
-      id: 'out-hub75-unimplemented',
-      severity: 'error',
-      nodeIds: ['out'],
-    }))
+    expect(diagnostics.some((d) => d.id === 'out-hub75-config')).toBe(false)
+  })
+
+  it('blocks HUB75 panel chaining/tiling', () => {
+    const errors = findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'HUB75', layout: 'panels', tilesX: 2 })])
+    expect(errors).toEqual([expect.stringMatching(/only supports the Matrix layout/)])
+
+    const diagnostics = buildGraphDiagnostics(
+      [node('sc', 'SolidColor'), node('out', 'MatrixOutput', { chipset: 'HUB75', layout: 'panels', tilesX: 2 })],
+      [edge('e1', 'sc', 'out', 'frame')],
+    )
+    expect(diagnostics).toContainEqual(expect.objectContaining({ id: 'out-hub75-config', severity: 'error', nodeIds: ['out'] }))
+  })
+
+  it('blocks HUB75 supersampling', () => {
+    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'HUB75', supersample: true })])).toEqual([
+      expect.stringMatching(/doesn't support supersampling/),
+    ])
+  })
+
+  it('blocks HUB75 combined with a second Matrix Output route', () => {
+    const nodes = [
+      node('out-a', 'MatrixOutput', { chipset: 'HUB75' }),
+      node('out-b', 'MatrixOutput', { chipset: 'WS2812B' }),
+    ]
+    const errors = findHub75ConfigErrors(nodes)
+    expect(errors).toEqual([expect.stringMatching(/only supports a single Matrix Output route/)])
   })
 
   it('errors on empty graph', () => {

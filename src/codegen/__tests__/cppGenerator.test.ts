@@ -2297,6 +2297,67 @@ describe('PSRAM buffer placement (MatrixOutput usePsram)', () => {
   })
 })
 
+describe('HUB75 codegen (docs/development/design/hub75-output.md)', () => {
+  const hub75Out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, chipset: 'HUB75' })
+  const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+  const wiring = [edge('e1', 'sc', 'out', 'frame', 'frame')]
+
+  it('drives the DMA display instead of FastLED addLeds<>()', () => {
+    const cpp = generateCpp([sc, hub75Out], wiring)
+    expect(cpp).toContain('#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>')
+    expect(cpp).toContain('MatrixPanel_I2S_DMA *dma_display = nullptr;')
+    expect(cpp).not.toContain('FastLED.addLeds<')
+    expect(cpp).not.toContain('CRGB leds[')
+    expect(cpp).not.toContain('#define DATA_PIN')
+    expect(cpp).not.toContain('#define CLOCK_PIN')
+    expect(cpp).not.toContain('FastLED.show();')
+  })
+
+  it('emits the documented default pinout with E disabled (-1) when wide-scan is off', () => {
+    const cpp = generateCpp([sc, hub75Out], wiring)
+    expect(cpp).toContain(
+      'HUB75_I2S_CFG::i2s_pins _hub75Pins = { 25, 26, 27, 14, 12, 13, 23, 19, 5, 17, -1, 4, 15, 16 };',
+    )
+    expect(cpp).toContain('HUB75_I2S_CFG _hub75Cfg(8, 8, 1, _hub75Pins);')
+    expect(cpp).toContain('_hub75Cfg.setPixelColorDepthBits(8);')
+    expect(cpp).toContain('dma_display = new MatrixPanel_I2S_DMA(_hub75Cfg);')
+    expect(cpp).toContain('dma_display->begin();')
+    expect(cpp).toContain('dma_display->setBrightness8(200);')
+  })
+
+  it('wires the real E pin when hub75WideScan is on', () => {
+    const wideOut = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, chipset: 'HUB75', hub75WideScan: true, hub75EPin: 22 })
+    const cpp = generateCpp([sc, wideOut], wiring)
+    expect(cpp).toContain('_hub75Pins = { 25, 26, 27, 14, 12, 13, 23, 19, 5, 17, 22, 4, 15, 16 };')
+  })
+
+  it('draws the composited frame per-pixel via drawPixelRGB888', () => {
+    const cpp = generateCpp([sc, hub75Out], wiring)
+    expect(cpp).toContain('for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {')
+    expect(cpp).toContain('dma_display->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);')
+  })
+
+  it('clears the panel instead of writing garbage when nothing is wired', () => {
+    const cpp = generateCpp([hub75Out], [])
+    expect(cpp).toContain('dma_display->clearScreen();')
+    expect(cpp).not.toContain('drawPixelRGB888')
+  })
+
+  it('respects a custom color depth', () => {
+    const deepOut = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, chipset: 'HUB75', hub75ColorDepthBits: 4 })
+    const cpp = generateCpp([sc, deepOut], wiring)
+    expect(cpp).toContain('_hub75Cfg.setPixelColorDepthBits(4);')
+  })
+
+  it('skips setMaxPowerInVoltsAndMilliamps — no FastLED controller is registered to throttle', () => {
+    const poweredOut = node('out', 'MatrixOutput', 'output', {
+      width: 8, height: 8, chipset: 'HUB75', powerLimit: true, volts: 5, milliamps: 2000,
+    })
+    const cpp = generateCpp([sc, poweredOut], wiring)
+    expect(cpp).not.toContain('setMaxPowerInVoltsAndMilliamps')
+  })
+})
+
 describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameSwitch)', () => {
   // Each scalar node drives BrightnessMod so its output participates in the sketch.
   const tail = (srcId: string, srcPort: string) => {
