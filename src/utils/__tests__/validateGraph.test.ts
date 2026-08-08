@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findOutputResourceErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findOutputResourceErrors, findUnimplementedChipsetErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -83,6 +83,28 @@ describe('validateGraph', () => {
     expect(findBoardCompatibilityErrors(nodes, 'esp32:esp32:esp32')).toEqual([])
     // Default (I2S) output is unaffected by board choice.
     expect(findBoardCompatibilityErrors([node('sd', 'SDCard')], 'esp32:esp32:esp32s3')).toEqual([])
+  })
+
+  it('blocks HUB75 deployment as not-yet-implemented', () => {
+    expect(findUnimplementedChipsetErrors([node('out', 'MatrixOutput', { chipset: 'WS2812B' })])).toEqual([])
+    expect(findUnimplementedChipsetErrors([node('out', 'MatrixOutput', { chipset: 'HUB75' })])).toEqual([
+      expect.stringMatching(/HUB75.*isn't implemented yet/),
+    ])
+
+    const nodes = [
+      node('sc', 'SolidColor'),
+      node('out', 'MatrixOutput', { chipset: 'HUB75' }),
+    ]
+    const edges = [edge('e1', 'sc', 'out', 'frame')]
+    const { errors } = validateGraph(nodes, edges)
+    expect(errors).toEqual(expect.arrayContaining([expect.stringMatching(/HUB75.*isn't implemented yet/)]))
+
+    const diagnostics = buildGraphDiagnostics(nodes, edges)
+    expect(diagnostics).toContainEqual(expect.objectContaining({
+      id: 'out-hub75-unimplemented',
+      severity: 'error',
+      nodeIds: ['out'],
+    }))
   })
 
   it('errors on empty graph', () => {
@@ -288,6 +310,40 @@ describe('validateGraph', () => {
       const conflicts = findPinConflicts(nodes)
       expect(conflicts).toHaveLength(1)
       expect(conflicts[0]).toContain('GPIO 34')
+    })
+
+    it('checks HUB75 ribbon pins instead of dataPin/clockPin, ignoring dataPin\'s leftover default', () => {
+      const nodes = [
+        node('out', 'MatrixOutput', {
+          chipset: 'HUB75', dataPin: 5, clockPin: 6,
+          hub75R1Pin: 25, hub75G1Pin: 26, hub75B1Pin: 27,
+          hub75R2Pin: 14, hub75G2Pin: 12, hub75B2Pin: 13,
+          hub75APin: 23, hub75BPin: 19, hub75CPin: 5, hub75DPin: 17,
+          hub75ClkPin: 16, hub75LatPin: 4, hub75OePin: 15,
+        }),
+        node('pot', 'PotInput', { pin: 5 }),
+      ]
+      // dataPin (also 5) is unused for HUB75, so only hub75CPin (also 5) conflicts.
+      const conflicts = findPinConflicts(nodes)
+      expect(conflicts).toHaveLength(1)
+      expect(conflicts[0]).toContain('GPIO 5')
+      expect(conflicts[0]).toContain('row-select C')
+    })
+
+    it('only checks HUB75 row-select E when hub75WideScan is on', () => {
+      const withoutE = [
+        node('out', 'MatrixOutput', { chipset: 'HUB75', hub75EPin: 8, hub75WideScan: false }),
+        node('pot', 'PotInput', { pin: 8 }),
+      ]
+      expect(findPinConflicts(withoutE)).toHaveLength(0)
+
+      const withE = [
+        node('out', 'MatrixOutput', { chipset: 'HUB75', hub75EPin: 8, hub75WideScan: true }),
+        node('pot', 'PotInput', { pin: 8 }),
+      ]
+      const conflicts = findPinConflicts(withE)
+      expect(conflicts).toHaveLength(1)
+      expect(conflicts[0]).toContain('row-select E')
     })
 
     it('surfaces pin conflicts as errors from validateGraph', () => {

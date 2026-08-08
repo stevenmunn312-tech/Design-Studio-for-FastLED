@@ -551,6 +551,9 @@ describe('nodeLibrary', () => {
     expect(isGpioPinProperty('MatrixOutput', 'dataPin')).toBe(true)
     expect(isGpioPinProperty('MatrixOutput', 'clockPin')).toBe(true)
     expect(isGpioPinProperty('MatrixOutput', 'brightness')).toBe(false)
+    expect(isGpioPinProperty('MatrixOutput', 'hub75R1Pin')).toBe(true)
+    expect(isGpioPinProperty('MatrixOutput', 'hub75OePin')).toBe(true)
+    expect(isGpioPinProperty('MatrixOutput', 'hub75ColorDepthBits')).toBe(false)
   })
 
   it('assigns electrical requirements to generated pin roles', () => {
@@ -579,6 +582,50 @@ describe('nodeLibrary', () => {
   it('bounds MatrixOutput pins to the shared GPIO range', () => {
     expect(propertyMeta('MatrixOutput', 'dataPin')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
     expect(propertyMeta('MatrixOutput', 'clockPin')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+    expect(propertyMeta('MatrixOutput', 'hub75R1Pin')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+    expect(propertyMeta('MatrixOutput', 'hub75ColorDepthBits')).toEqual({ control: 'slider', min: 1, max: 8, step: 1 })
+  })
+
+  it('gates MatrixOutput HUB75 wiring to the HUB75 chipset', () => {
+    const hub75 = { chipset: 'HUB75' }
+    const ws2812 = { chipset: 'WS2812B' }
+    expect(isPropertyEnabled('MatrixOutput', 'hub75R1Pin', hub75)).toBe(true)
+    expect(isPropertyEnabled('MatrixOutput', 'hub75ClkPin', hub75)).toBe(true)
+    expect(isPropertyEnabled('MatrixOutput', 'hub75ColorDepthBits', hub75)).toBe(true)
+    expect(isPropertyEnabled('MatrixOutput', 'hub75R1Pin', ws2812)).toBe(false)
+    // A single-wire chipset still owns dataPin/colorOrder/serpentine; HUB75 doesn't.
+    expect(isPropertyEnabled('MatrixOutput', 'dataPin', hub75)).toBe(false)
+    expect(isPropertyEnabled('MatrixOutput', 'colorOrder', hub75)).toBe(false)
+    expect(isPropertyEnabled('MatrixOutput', 'serpentine', hub75)).toBe(false)
+    expect(isPropertyEnabled('MatrixOutput', 'dataPin', ws2812)).toBe(true)
+    // FASTLED_OVERCLOCK doesn't apply to HUB75 (it's not driven via FastLED's
+    // clockless RMT path at all).
+    expect(isPropertyEnabled('MatrixOutput', 'overclock', hub75)).toBe(false)
+    expect(isPropertyEnabled('MatrixOutput', 'overclock', ws2812)).toBe(true)
+  })
+
+  it('gates MatrixOutput hub75EPin on hub75WideScan', () => {
+    expect(isPropertyEnabled('MatrixOutput', 'hub75EPin', { chipset: 'HUB75', hub75WideScan: true })).toBe(true)
+    expect(isPropertyEnabled('MatrixOutput', 'hub75EPin', { chipset: 'HUB75', hub75WideScan: false })).toBe(false)
+    expect(isPropertyEnabled('MatrixOutput', 'hub75EPin', { chipset: 'WS2812B', hub75WideScan: true })).toBe(false)
+  })
+
+  it('MatrixOutput defaults HUB75 wiring off with a full pin set to fall back on', () => {
+    const matrixOutput = NODE_LIBRARY.find((n) => n.type === 'MatrixOutput')
+    expect(matrixOutput?.defaultProperties?.chipset).toBe('WS2812B')
+    expect(matrixOutput?.defaultProperties).toMatchObject({
+      hub75WideScan: false,
+      hub75ColorDepthBits: 8,
+    })
+    const pins = [
+      'hub75R1Pin', 'hub75G1Pin', 'hub75B1Pin', 'hub75R2Pin', 'hub75G2Pin', 'hub75B2Pin',
+      'hub75APin', 'hub75BPin', 'hub75CPin', 'hub75DPin', 'hub75EPin',
+      'hub75ClkPin', 'hub75LatPin', 'hub75OePin',
+    ]
+    const values = pins.map((key) => (matrixOutput?.defaultProperties as Record<string, unknown>)[key])
+    for (const value of values) expect(typeof value).toBe('number')
+    // No two HUB75 lines should default onto the same GPIO.
+    expect(new Set(values).size).toBe(values.length)
   })
 
   it('EncoderInput defaults resetOnPress to off', () => {
