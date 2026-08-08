@@ -11,7 +11,7 @@ import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph } from '../../codegen/streamReceiverGenerator'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
 import { sdCardConnected, readySongCount, buildShowPayload } from '../../utils/showUpload'
-import { findPinConflicts, findMatrixLayoutErrors, findBoardCompatibilityErrors, findOutputResourceErrors } from '../../utils/validateGraph'
+import { findPinConflicts, findMatrixLayoutErrors, findBoardCompatibilityErrors, findOutputResourceErrors, findHub75ConfigErrors } from '../../utils/validateGraph'
 import { summarizeCapacity } from '../../utils/capacityFormat'
 import { useCodegenGraph } from '../../utils/codegenGraph'
 import { useModalFocus } from '../../hooks/useModalFocus'
@@ -84,6 +84,7 @@ export default function MatrixOutputDeployPopup() {
     () => findBoardCompatibilityErrors(nodes, selectedFqbn),
     [nodes, selectedFqbn],
   )
+  const hub75ConfigErrors = useMemo(() => findHub75ConfigErrors(nodes), [nodes])
 
   // Live controller-capacity meter (see MatrixOutputUpload.tsx, which drives
   // the actual debounced compile-check) — the measured result is the
@@ -99,6 +100,7 @@ export default function MatrixOutputDeployPopup() {
     ...layoutErrors,
     ...outputResourceErrors,
     ...boardCompatibilityErrors,
+    ...hub75ConfigErrors,
     ...(capacityOverflow ? [`${board?.label ?? 'This board'}: design is too large to fit (live capacity check)`] : []),
   ]
   const canBuild = hasFrameInput && blockingErrors.length === 0
