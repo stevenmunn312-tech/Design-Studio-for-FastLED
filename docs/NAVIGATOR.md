@@ -46,6 +46,10 @@ build/architecture overview aimed at contributors.
   - [Node reference layout and upkeep](development/design/node-reference-layout.md)
     — the approved Help article structure, generated visual contract, live
     example behavior, and maintenance checklist for new nodes.
+  - [HUB75 output](development/design/hub75-output.md)
+    — proposal (not started) for driving HUB75 scan-panel matrices via
+    `ESP32-HUB75-MatrixPanel-DMA` as a third `MatrixOutput` route family
+    alongside the existing clockless/SPI addressable chipsets.
 - [Plans](development/plans/)
   - [Node review findings](development/plans/node-todo.md)
     — the category-by-category control, validation, evaluator, and codegen
