@@ -162,10 +162,14 @@ ever called directly. Not yet hardware-validated.
   scan lines, lower effective bit depth at high refresh) is different enough
   that the preview may want a distinct render mode, or may be fine reusing
   the existing one — needs a look once something is on screen.
-- **Brightness/power model.** `estimatePowerLoad()`'s ~60 mA/LED worst-case
-  figure is tuned for addressable strips; HUB75 panels have their own
-  published max-draw figures (per panel, not per LED) that should replace it
-  for HUB75 routes rather than silently reusing the wrong number.
+- ~~**Brightness/power model.**~~ **Resolved:** `estimatePowerLoad()` now
+  rates HUB75 routes at `MA_PER_HUB75_PIXEL_WORST_CASE` (~1 mA/px) instead of
+  the addressable-strip `MA_PER_LED_WORST_CASE` (60 mA/LED) — derived from
+  real current draw Steve reported on a P4 64×64 panel (1.0–2.5 A typical, up
+  to ~4 A worst case; anchored to the ~4 A high end, matching the existing
+  figure's "worst case" framing). One measured data point for one panel
+  model, not a published spec-sheet figure — may not generalize to other
+  panel resolutions or driver ICs.
 
 ## Deliberately out of v1
 

@@ -592,6 +592,27 @@ describe('validateGraph', () => {
       const { warnings } = validateGraph(nodes, edges)
       expect(warnings.some(w => w.includes('exceeds the configured power cap'))).toBe(true)
     })
+
+    it('uses a HUB75-specific per-pixel rate instead of the addressable-strip figure', () => {
+      // 64x64 P4 panel: 4096 px * 1 mA/px (derived from real hardware — see
+      // MA_PER_HUB75_PIXEL_WORST_CASE) vs. the same grid at the 60 mA/LED
+      // addressable-strip rate, which would wildly overstate HUB75 draw.
+      const hub75 = estimatePowerLoad([node('out', 'MatrixOutput', { width: 64, height: 64, chipset: 'HUB75' })])!
+      const addressable = estimatePowerLoad([node('out', 'MatrixOutput', { width: 64, height: 64, chipset: 'WS2812B' })])!
+      expect(hub75.ledCount).toBe(4096)
+      expect(hub75.worstCaseMa).toBe(4096)
+      expect(addressable.worstCaseMa).toBe(4096 * 60)
+    })
+
+    it('sums per-route rates across mixed HUB75 and addressable outputs', () => {
+      const nodes = [
+        node('a', 'MatrixOutput', { width: 16, height: 16, chipset: 'HUB75' }),
+        node('b', 'MatrixOutput', { width: 8, height: 8, chipset: 'WS2812B' }),
+      ]
+      const power = estimatePowerLoad(nodes)!
+      expect(power.ledCount).toBe(256 + 64)
+      expect(power.worstCaseMa).toBe(256 * 1 + 64 * 60)
+    })
   })
 
   describe('estimateFirmwareRam', () => {
