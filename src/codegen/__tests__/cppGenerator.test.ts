@@ -2316,7 +2316,7 @@ describe('HUB75 codegen (docs/development/design/hub75-output.md)', () => {
   it('emits the documented default pinout with E disabled (-1) when wide-scan is off', () => {
     const cpp = generateCpp([sc, hub75Out], wiring)
     expect(cpp).toContain(
-      'HUB75_I2S_CFG::i2s_pins _hub75Pins = { 25, 26, 27, 14, 12, 13, 23, 19, 5, 17, -1, 4, 15, 16 };',
+      'HUB75_I2S_CFG::i2s_pins _hub75Pins = { 1, 2, 3, 4, 5, 12, 13, 14, 15, 16, -1, 17, 18, 0 };',
     )
     expect(cpp).toContain('HUB75_I2S_CFG _hub75Cfg(8, 8, 1, _hub75Pins);')
     expect(cpp).toContain('_hub75Cfg.setPixelColorDepthBits(8);')
@@ -2328,7 +2328,7 @@ describe('HUB75 codegen (docs/development/design/hub75-output.md)', () => {
   it('wires the real E pin when hub75WideScan is on', () => {
     const wideOut = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, chipset: 'HUB75', hub75WideScan: true, hub75EPin: 22 })
     const cpp = generateCpp([sc, wideOut], wiring)
-    expect(cpp).toContain('_hub75Pins = { 25, 26, 27, 14, 12, 13, 23, 19, 5, 17, 22, 4, 15, 16 };')
+    expect(cpp).toContain('_hub75Pins = { 1, 2, 3, 4, 5, 12, 13, 14, 15, 16, 22, 17, 18, 0 };')
   })
 
   it('draws the composited frame per-pixel via drawPixelRGB888', () => {

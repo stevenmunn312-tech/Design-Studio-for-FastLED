@@ -1,5 +1,5 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
-import { SPI_CHIPSETS, HUB75_CHIPSET, NODE_LIBRARY, supportsScalarExpression, gpioRequirementForProperty, type GpioPropertyRequirement } from '../state/nodeLibrary'
+import { SPI_CHIPSETS, HUB75_CHIPSET, NODE_LIBRARY, supportsScalarExpression, gpioRequirementForProperty, libraryDefaults, type GpioPropertyRequirement } from '../state/nodeLibrary'
 import { evaluateScalarExpression } from '../state/scalarExpression'
 import { isValidRtcDateTime } from '../state/rtc'
 import { validateMatrixLayout } from '../state/xyLayout'
@@ -77,20 +77,34 @@ function collectPinUses(nodes: StudioNode[]): PinUse[] {
         break
       case 'MatrixOutput':
         if (String(props.chipset ?? 'WS2812B') === HUB75_CHIPSET) {
-          push(n, `${label} R1 pin`, 'hub75R1Pin', props.hub75R1Pin)
-          push(n, `${label} G1 pin`, 'hub75G1Pin', props.hub75G1Pin)
-          push(n, `${label} B1 pin`, 'hub75B1Pin', props.hub75B1Pin)
-          push(n, `${label} R2 pin`, 'hub75R2Pin', props.hub75R2Pin)
-          push(n, `${label} G2 pin`, 'hub75G2Pin', props.hub75G2Pin)
-          push(n, `${label} B2 pin`, 'hub75B2Pin', props.hub75B2Pin)
-          push(n, `${label} row-select A`, 'hub75APin', props.hub75APin)
-          push(n, `${label} row-select B`, 'hub75BPin', props.hub75BPin)
-          push(n, `${label} row-select C`, 'hub75CPin', props.hub75CPin)
-          push(n, `${label} row-select D`, 'hub75DPin', props.hub75DPin)
-          if (props.hub75WideScan === true) push(n, `${label} row-select E`, 'hub75EPin', props.hub75EPin)
-          push(n, `${label} clock pin`, 'hub75ClkPin', props.hub75ClkPin)
-          push(n, `${label} latch pin`, 'hub75LatPin', props.hub75LatPin)
-          push(n, `${label} output-enable pin`, 'hub75OePin', props.hub75OePin)
+          // Regression: a MatrixOutput created before HUB75 existed (or before
+          // the user ever opened "HUB75 Wiring") has none of these keys on its
+          // own saved properties — StudioNode.tsx's editor only *displays* the
+          // library default (merged in for the UI), it never writes it back
+          // onto the node. `push()` silently skips a non-number, so without
+          // this fallback these pins escaped every conflict/board-compat
+          // check entirely while codegen (hub75HardwareFromProps) baked in
+          // that same default regardless — confirmed on real hardware: the
+          // unchecked G1/B1 defaults (26/27) collide with the ESP32-S3's
+          // flash/PSRAM pins, and A (23) isn't present as GPIO on the S3 at
+          // all, producing an ESP-IDF "GPIO number error" boot failure that
+          // no validation had ever seen. Merge the library defaults first so
+          // validation always checks the pins that will actually be flashed.
+          const hub75Props = { ...libraryDefaults('MatrixOutput'), ...props }
+          push(n, `${label} R1 pin`, 'hub75R1Pin', hub75Props.hub75R1Pin)
+          push(n, `${label} G1 pin`, 'hub75G1Pin', hub75Props.hub75G1Pin)
+          push(n, `${label} B1 pin`, 'hub75B1Pin', hub75Props.hub75B1Pin)
+          push(n, `${label} R2 pin`, 'hub75R2Pin', hub75Props.hub75R2Pin)
+          push(n, `${label} G2 pin`, 'hub75G2Pin', hub75Props.hub75G2Pin)
+          push(n, `${label} B2 pin`, 'hub75B2Pin', hub75Props.hub75B2Pin)
+          push(n, `${label} row-select A`, 'hub75APin', hub75Props.hub75APin)
+          push(n, `${label} row-select B`, 'hub75BPin', hub75Props.hub75BPin)
+          push(n, `${label} row-select C`, 'hub75CPin', hub75Props.hub75CPin)
+          push(n, `${label} row-select D`, 'hub75DPin', hub75Props.hub75DPin)
+          if (hub75Props.hub75WideScan === true) push(n, `${label} row-select E`, 'hub75EPin', hub75Props.hub75EPin)
+          push(n, `${label} clock pin`, 'hub75ClkPin', hub75Props.hub75ClkPin)
+          push(n, `${label} latch pin`, 'hub75LatPin', hub75Props.hub75LatPin)
+          push(n, `${label} output-enable pin`, 'hub75OePin', hub75Props.hub75OePin)
         } else {
           push(n, `${label} data pin`, 'dataPin', props.dataPin)
           if (SPI_CHIPSETS.has(String(props.chipset ?? 'WS2812B'))) push(n, `${label} clock pin`, 'clockPin', props.clockPin)
