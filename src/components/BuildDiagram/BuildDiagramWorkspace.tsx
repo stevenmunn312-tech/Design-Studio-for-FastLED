@@ -16,10 +16,14 @@ import {
   type BuildExportMode,
   type BuildInstallationTopology,
   type OwnedSupplyDeclaration,
+  type OwnedWireDeclaration,
+  type OwnedConnectorDeclaration,
+  type OwnedFuseDeclaration,
   type BuildOutputProfile,
   type BuildSupplyFeedLocation,
 } from '../../build/buildProfile'
 import { calculateElectricalPlan } from '../../build/electricalPlan'
+import { bomCsv, buildBomRows, buildConnectionRows, connectionsCsv } from '../../build/buildExports'
 import { buildHardwareManifest, type HardwareManifestItem, type HardwarePinUse } from '../../build/hardwareManifest'
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
@@ -82,6 +86,15 @@ const MAX_SIDEBAR_WIDTH = 420
 const DEFAULT_DETAIL_WIDTH = 360
 const MIN_DETAIL_WIDTH = 300
 const MAX_DETAIL_WIDTH = 440
+
+function downloadBuildFile(contents: string, filename: string, type: string) {
+  const url = URL.createObjectURL(new Blob([contents], { type }))
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
 
 function formatFactValue(value: unknown): string {
   if (value == null) return 'Unknown'
@@ -186,6 +199,7 @@ function itemFingerprint(
   controllerPower: BuildControllerPowerProfile | undefined,
   assumptions: BuildAssumptions | undefined,
   ownedParts: BuildOwnedParts | undefined,
+  signalConditioningConfirmed: boolean,
 ): string {
   return fingerprintValue({
     selectedFqbn,
@@ -194,6 +208,7 @@ function itemFingerprint(
     controllerPower,
     assumptions,
     ownedParts,
+    signalConditioningConfirmed,
     item: {
       id: item.id,
       kind: item.kind,
@@ -287,10 +302,11 @@ export default function BuildDiagramWorkspace() {
         buildProfile.controllerPower,
         buildProfile.assumptions,
         buildProfile.ownedParts,
+        buildProfile.signalConditioning?.[item.id] === true,
       ))
     }
     return map
-  }, [buildProfile.assumptions, buildProfile.controllerPower, buildProfile.outputs, buildProfile.ownedParts, buildProfile.physicalBoardProfileId, primaryItems, selectedFqbn])
+  }, [buildProfile.assumptions, buildProfile.controllerPower, buildProfile.outputs, buildProfile.ownedParts, buildProfile.physicalBoardProfileId, buildProfile.signalConditioning, primaryItems, selectedFqbn])
 
   const completedItemIds = useMemo(() => {
     const ids = new Set<string>()
@@ -364,7 +380,7 @@ export default function BuildDiagramWorkspace() {
     return blockers
   }, [buildProfile.controllerPower?.preferredPath, buildProfile.outputs, exactBoard, outputItems])
   const requirementsInputText = planningBlockers.length === 0
-    ? 'all currently expected install facts are captured for the future planner'
+    ? 'all required installation facts are captured for the electrical planner'
     : `${planningBlockers.length} input blocker${planningBlockers.length === 1 ? '' : 's'} still need review`
   const electricalPlan = useMemo(
     () => calculateElectricalPlan(manifest, buildProfile, exactBoard),
@@ -394,6 +410,16 @@ export default function BuildDiagramWorkspace() {
     lines.push({ id: 'wire', quantity: '-', label: 'Hookup wire', pending: true })
     return lines
   }, [exactBoard, outputItems.length, ownedSupplies, primaryItems])
+  const exportItems = exportMode === 'complete-build' ? primaryItems : visiblePrimaryItems
+  const exportItemIds = useMemo(() => new Set(exportItems.map((item) => item.id)), [exportItems])
+  const exportConnectionRows = useMemo(
+    () => buildConnectionRows(exportItems, electricalPlan, exactBoard),
+    [electricalPlan, exactBoard, exportItems],
+  )
+  const exportBomRows = useMemo(
+    () => buildBomRows(manifest, electricalPlan, buildProfile, exactBoard, exportItemIds),
+    [buildProfile, electricalPlan, exactBoard, exportItemIds, manifest],
+  )
   const supplyAssignments = useMemo(
     () => buildProfile.ownedParts?.supplyAssignments ?? {},
     [buildProfile.ownedParts?.supplyAssignments],
@@ -432,6 +458,7 @@ export default function BuildDiagramWorkspace() {
       buildProfile.controllerPower,
       buildProfile.assumptions,
       buildProfile.ownedParts,
+      buildProfile.signalConditioning?.[item.id] === true,
     )
     patchBuildProfile((current) => {
       const done = { ...(current.done ?? {}) }
@@ -456,6 +483,32 @@ export default function BuildDiagramWorkspace() {
       ...current,
       exportMode: mode === 'complete-build' ? undefined : mode,
     }))
+  }
+
+  const exportDiagramSvg = () => {
+    const source = document.querySelector<SVGSVGElement>(`svg[data-build-export="${exportMode}"]`)
+    if (!source) return
+    const clone = source.cloneNode(true) as SVGSVGElement
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+    clone.setAttribute('data-export-status', exportDraftStatus)
+    const metadata = document.createElementNS('http://www.w3.org/2000/svg', 'metadata')
+    metadata.textContent = JSON.stringify({ exportMode, status: exportDraftStatus, boardConfidence: exactBoard?.confidence ?? 'unresolved', ruleSetVersion: electricalPlan.ruleSetVersion })
+    clone.prepend(metadata)
+    downloadBuildFile(new XMLSerializer().serializeToString(clone), 'fastled-build-diagram.svg', 'image/svg+xml;charset=utf-8')
+  }
+
+  const exportConnectionsCsv = () => {
+    downloadBuildFile(connectionsCsv(exportConnectionRows, {
+      status: exportDraftStatus,
+      ruleSetVersion: electricalPlan.ruleSetVersion,
+    }), 'fastled-build-connections.csv', 'text/csv;charset=utf-8')
+  }
+
+  const exportBomCsv = () => {
+    downloadBuildFile(bomCsv(exportBomRows, {
+      status: exportDraftStatus,
+      ruleSetVersion: electricalPlan.ruleSetVersion,
+    }), 'fastled-build-bom.csv', 'text/csv;charset=utf-8')
   }
 
   const updateOutputProfile = (
@@ -521,6 +574,60 @@ export default function BuildDiagramWorkspace() {
     updateOutputProfile(itemId, (current) => ({
       ...(current ?? {}),
       [key]: rawValue.trim() ? rawValue : undefined,
+    }))
+  }
+
+  const setOutputInjectionPoints = (itemId: string, rawValue: string) => {
+    const points = rawValue.split(',').map((entry) => entry.trim()).filter(Boolean)
+    updateOutputProfile(itemId, (current) => ({
+      ...(current ?? {}),
+      manualInjectionPoints: points.length > 0 ? points : undefined,
+    }))
+  }
+
+  const adoptRecommendedBranchKit = (itemId: string) => {
+    const plan = electricalPlan.outputs.find((entry) => entry.itemId === itemId)
+    if (!plan?.conductor || !plan.connectorMinimumMa || !plan.fuse.ratingMa) return
+    const conductor = plan.conductor
+    const connectorMinimumMa = plan.connectorMinimumMa
+    const fuseRatingMa = plan.fuse.ratingMa
+    updateOwnedParts((current) => {
+      const wireId = `recommended-wire:${itemId}`
+      const connectorId = `recommended-connector:${itemId}`
+      const fuseId = `recommended-fuse:${itemId}`
+      const wire: OwnedWireDeclaration = {
+        id: wireId,
+        label: `Confirmed AWG ${conductor.awg} branch wire`,
+        gaugeAwg: conductor.awg,
+        crossSectionMm2: conductor.crossSectionMm2,
+        conductorMaterial: conductor.material,
+      }
+      const connector: OwnedConnectorDeclaration = {
+        id: connectorId,
+        label: `Confirmed ${formatCurrentMa(connectorMinimumMa)} connector`,
+        continuousCurrentMa: connectorMinimumMa,
+      }
+      const fuse: OwnedFuseDeclaration = {
+        id: fuseId,
+        label: `Confirmed ${formatCurrentMa(fuseRatingMa)} branch fuse`,
+        ratingMa: fuseRatingMa,
+      }
+      return {
+        ...(current ?? {}),
+        wires: { ...(current?.wires ?? {}), [wireId]: wire },
+        connectors: { ...(current?.connectors ?? {}), [connectorId]: connector },
+        fuses: { ...(current?.fuses ?? {}), [fuseId]: fuse },
+        wireAssignments: { ...(current?.wireAssignments ?? {}), [itemId]: wireId },
+        connectorAssignments: { ...(current?.connectorAssignments ?? {}), [itemId]: connectorId },
+        fuseAssignments: { ...(current?.fuseAssignments ?? {}), [itemId]: fuseId },
+      }
+    })
+    patchBuildProfile((current) => ({
+      ...current,
+      signalConditioning: {
+        ...(current.signalConditioning ?? {}),
+        [itemId]: true,
+      },
     }))
   }
 
@@ -774,28 +881,41 @@ export default function BuildDiagramWorkspace() {
     ? selectedConnections
     : []
 
-  const signalReady = !!exactBoard && canRenderControllerPins && unresolvedConnections.length === 0
+  const unresolvedSignalMappingCount = primaryItems.reduce((count, item) => count + item.pins.reduce((pinCount, pinUse) => {
+    if (!canRenderControllerPins) return pinCount + 1
+    const boardPin = boardPinForGpio(exactBoard, pinUse.pin)
+    return pinCount + (!boardPin || boardPin.availability === 'unavailable' ? 1 : 0)
+  }, 0), 0)
+  const unconfirmedSignalConditioning = outputItems.filter((item) => buildProfile.signalConditioning?.[item.id] !== true)
+  const signalReady = !!exactBoard
+    && canRenderControllerPins
+    && unresolvedSignalMappingCount === 0
+    && unconfirmedSignalConditioning.length === 0
   const readinessText = !exactBoard
     ? 'blocked by exact-board selection'
     : !canRenderControllerPins
       ? 'blocked because this exact board profile is still missing a reviewed physical pin map'
-      : unresolvedConnections.length > 0
-        ? `needs review: ${unresolvedConnections.length} controller pin mapping${unresolvedConnections.length === 1 ? '' : 's'} unresolved`
-        : 'all visible supported hardware maps cleanly onto the selected physical board'
+      : unresolvedSignalMappingCount > 0
+        ? `needs review: ${unresolvedSignalMappingCount} controller pin mapping${unresolvedSignalMappingCount === 1 ? '' : 's'} unresolved`
+        : unconfirmedSignalConditioning.length > 0
+          ? `needs review: ${unconfirmedSignalConditioning.length} LED data route${unconfirmedSignalConditioning.length === 1 ? '' : 's'} still need the calculated level shifter and series resistor confirmed`
+          : 'all supported hardware maps cleanly and required LED signal conditioning is confirmed'
   const requirementsCalculatedText = electricalPlan.requirementsCalculatedText
   const buildReadyText = signalReady && electricalPlan.powerReadyPasses
     ? 'ready'
     : !signalReady
       ? 'blocked by Signal ready'
       : 'blocked until Power ready passes'
-  const exportDraftStatus = planningBlockers.length > 0 || !signalReady
+  const exportDraftStatus = planningBlockers.length > 0 || !signalReady || !electricalPlan.powerReadyPasses
     ? 'Draft — unresolved build requirements'
-    : 'Draft — electrical plan export pending assembly/BOM generation'
+    : 'Build reference — Signal and Power ready'
   const exportDraftReason = planningBlockers.length > 0
-    ? 'Exports stay draft because Build Diagram is still missing install facts the future electrical plan depends on.'
+    ? 'Exports stay draft because Build Diagram is still missing installation facts required by the electrical plan.'
     : !signalReady
       ? 'Exports stay draft because controller-side signal mapping still needs review before the build reference is trustworthy.'
-      : 'Exports stay draft because the normalized electrical assembly, BOM, and file-export layers are not implemented yet.'
+      : !electricalPlan.powerReadyPasses
+        ? 'Exports stay draft until declared supply, conductor, connector, fuse, injection, and controller power checks all pass.'
+        : 'The exported reference includes the selected board confidence, calculation ruleset, connections, and parts plan.'
 
   const canvasWidth = 1120
   const canvasHeight = 760
@@ -920,6 +1040,7 @@ export default function BuildDiagramWorkspace() {
         styles.workspace,
         sidebarCollapsed ? styles.workspaceSidebarCollapsed : '',
         detailPaneCollapsed ? styles.workspaceDetailCollapsed : '',
+        exportMode === 'complete-build' ? styles.exportCompleteMode : '',
       ].join(' ').trim()}
       aria-label="Build Diagram workspace"
       style={workspaceStyle}
@@ -1006,7 +1127,7 @@ export default function BuildDiagramWorkspace() {
                 />
               </label>
               <p className={styles.copyMuted}>
-                Missing here today: validated regulator path, converter sizing, and power-branch ownership. Those will be checked once the electrical assembly layer lands.
+                USB is the currently validated controller path on manufacturer-reviewed boards. VIN, regulator, and converter paths stay blocked until matching reviewed profiles are added.
               </p>
             </section>
 
@@ -1239,6 +1360,16 @@ export default function BuildDiagramWorkspace() {
                               onChange={(event) => setOutputNumberField(item.id, 'desiredCurrentCapMa', event.target.value)}
                             />
                           </label>
+                          <label className={styles.fieldBlock}>
+                            <span className={styles.fieldLabel}>Confirmed injection points (mm)</span>
+                            <input
+                              className={styles.fieldInput}
+                              type="text"
+                              placeholder="0, 1250, 2500"
+                              value={(profile?.manualInjectionPoints ?? []).join(', ')}
+                              onChange={(event) => setOutputInjectionPoints(item.id, event.target.value)}
+                            />
+                          </label>
                         </div>
                         <label className={styles.fieldBlock}>
                           <span className={styles.fieldLabel}>Install notes</span>
@@ -1264,13 +1395,41 @@ export default function BuildDiagramWorkspace() {
                             ))}
                           </select>
                         </label>
+                        {(() => {
+                          const plan = electricalPlan.outputs.find((entry) => entry.itemId === item.id)
+                          if (!plan) return null
+                          const assigned = !!buildProfile.ownedParts?.wireAssignments?.[item.id]
+                            && !!buildProfile.ownedParts?.connectorAssignments?.[item.id]
+                            && !!buildProfile.ownedParts?.fuseAssignments?.[item.id]
+                            && buildProfile.signalConditioning?.[item.id] === true
+                          return (
+                            <div className={styles.branchKitCallout}>
+                              <div>
+                                <strong>Calculated branch kit</strong>
+                                <p className={styles.copyMuted}>
+                                  {plan.conductor
+                                    ? `74AHCT125 + 330 ohm data resistor; AWG ${plan.conductor.awg} / ${plan.conductor.crossSectionMm2} mm2 ${plan.conductor.material}; ${formatCurrentMa(plan.connectorMinimumMa ?? 0)} connector; ${plan.fuse.ratingMa ? formatCurrentMa(plan.fuse.ratingMa) : 'fuse unresolved'}.`
+                                    : 'No reviewed conductor size meets the current assumptions.'}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                className={`${styles.smallButton} ${assigned ? styles.smallButtonDone : ''}`}
+                                disabled={!plan.conductor || !plan.connectorMinimumMa || !plan.fuse.ratingMa}
+                                onClick={() => adoptRecommendedBranchKit(item.id)}
+                              >
+                                {assigned ? 'Branch kit selected' : 'Use this branch kit'}
+                              </button>
+                            </div>
+                          )
+                        })()}
                         {missingFactLabels.length > 0 && (
                           <p className={styles.warningText}>
                             Still needed for later power calculations: {missingFactLabels.join(', ')}.
                           </p>
                         )}
                         <p className={styles.copyMuted}>
-                          Missing here today: exact LED product/profile, injection overrides, and environmental assumptions. Those stay for the next electrical-planning slice.
+                          Exact injection spacing remains unresolved without reviewed LED-product copper-path data; confirmed manual injection points can be entered below. Advanced environmental assumptions use conservative defaults unless changed.
                         </p>
                       </section>
                     )
@@ -1363,7 +1522,7 @@ export default function BuildDiagramWorkspace() {
             <section className={styles.card}>
               <h3 className={styles.cardTitle}>Power-planning blockers</h3>
               <p className={styles.copyMuted}>
-                This does not run the electrical engine yet. It simply shows which missing facts will block later conductor, injection, and controller-power checks.
+                These are the missing facts currently preventing conductor, injection, or controller-power calculations from completing.
               </p>
               {planningBlockers.length === 0 ? (
                 <p className={styles.copy}>All currently expected planner inputs are captured.</p>
@@ -1454,7 +1613,7 @@ export default function BuildDiagramWorkspace() {
                     </label>
                   </div>
                   <p className={styles.copyMuted}>
-                    These assumptions will later affect conductor sizing, connector limits, fuse recommendations, and supply minimums. They are intentionally hidden by default so casual setups stay on safe reviewed defaults.
+                    These assumptions immediately affect conductor sizing, connector limits, fuse recommendations, and supply minimums. They are hidden by default so casual setups stay on the reviewed conservative defaults.
                   </p>
                 </div>
               )}
@@ -1541,6 +1700,7 @@ export default function BuildDiagramWorkspace() {
                 <PhysicalAssemblyDiagram
                   boardLabel={exactBoard.label}
                   items={visiblePrimaryItems}
+                  exportScope="current-view"
                   selectedItemId={selectedItemId}
                   onSelectItem={setSelectedItemId}
                   connections={allConnections.map((connection) => ({
@@ -1552,6 +1712,23 @@ export default function BuildDiagramWorkspace() {
                 />
               </div>
             </div>
+          </div>
+        )}
+        {exactBoard && (
+          <div className={styles.exportDiagramHidden} aria-hidden="true">
+            <PhysicalAssemblyDiagram
+              boardLabel={exactBoard.label}
+              items={primaryItems}
+              exportScope="complete-build"
+              selectedItemId="controller"
+              onSelectItem={() => undefined}
+              connections={primaryItems.flatMap((item) => item.pins.map((pin) => ({
+                id: `${item.id}:${pin.propertyKey}`,
+                itemId: item.id,
+                pinLabel: `GPIO ${pin.pin}`,
+                useLabel: pin.label,
+              })))}
+            />
           </div>
         )}
       </main>
@@ -1766,6 +1943,12 @@ export default function BuildDiagramWorkspace() {
                           <li>Estimated LED density: {output.estimatedDensityPerMeter}/m ({output.estimatedPitchMm} mm pitch)</li>
                           <li>Conservative current-per-metre: {formatCurrentMa(output.currentPerMeterMa)}</li>
                           <li>Recommended branch supply budget: {formatCurrentMa(output.recommendedSupplyCurrentMa)} @ {output.nominalVoltage} V ({formatWattage(output.recommendedSupplyWattage)})</li>
+                          {output.conductor && (
+                            <li>Feed conductor: AWG {output.conductor.awg} / {output.conductor.crossSectionMm2} mm2 {output.conductor.material}; {output.conductor.voltageDropPercent}% calculated drop</li>
+                          )}
+                          {output.connectorMinimumMa && <li>Connector minimum: {formatCurrentMa(output.connectorMinimumMa)} continuous</li>}
+                          {output.fuse.ratingMa && <li>Branch fuse: {formatCurrentMa(output.fuse.ratingMa)}</li>}
+                          <li>Injection: {output.injectionPointsMm.length > 0 ? output.injectionPointsMm.map((point) => `${point} mm`).join(', ') : 'unresolved - select an exact LED product or confirm points'}</li>
                           {output.operatingCurrentCapMa != null && <li>Configured operating cap: {formatCurrentMa(output.operatingCurrentCapMa)}</li>}
                         </ul>
                       </section>
@@ -1865,6 +2048,31 @@ export default function BuildDiagramWorkspace() {
             </section>
 
             <section className={styles.card}>
+              <h3 className={styles.cardTitle}>Branch validation</h3>
+              {electricalPlan.status === 'blocked' ? (
+                <p className={styles.copyMuted}>Branch validation unlocks after the required installation facts are complete.</p>
+              ) : electricalPlan.branchChecks.length === 0 ? (
+                <p className={styles.copyMuted}>Select the calculated branch kit for each output and confirm its injection points.</p>
+              ) : (
+                <div className={styles.outputFactList}>
+                  {electricalPlan.branchChecks.map((check) => (
+                    <section key={check.itemId} className={styles.outputFactCard}>
+                      <div className={styles.rowBetween}>
+                        <h4 className={styles.subTitle}>{check.title}</h4>
+                        <span className={styles.progressPill}>{check.issues.length === 0 ? 'Passes' : `${check.issues.length} issues`}</span>
+                      </div>
+                      {check.issues.length === 0 ? (
+                        <p className={styles.copyMuted}>Declared conductor, connector, branch fuse, and injection plan meet the calculated minimums.</p>
+                      ) : (
+                        <ul className={styles.flatList}>{check.issues.map((issue) => <li key={issue.id}>{issue.detail}</li>)}</ul>
+                      )}
+                    </section>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className={styles.card}>
               <h3 className={styles.cardTitle}>Exports</h3>
               <div className={styles.exportModeRow} role="radiogroup" aria-label="Build Diagram export mode">
                 <button
@@ -1887,7 +2095,7 @@ export default function BuildDiagramWorkspace() {
               <p className={styles.copyMuted}>
                 {exportMode === 'complete-build'
                   ? hiddenPrimaryItemCount > 0 || !!isolatedItemId
-                    ? 'Complete build is selected. Hidden or isolated hardware will still be included once export generation lands.'
+                    ? 'Complete build is selected. Hidden or isolated hardware will still be included.'
                     : 'Complete build is selected. Exports will include every configured hardware item by default.'
                   : 'Current view is selected. Exports will follow the hardware currently visible under the eye/filter/isolation state.'}
               </p>
@@ -1895,9 +2103,12 @@ export default function BuildDiagramWorkspace() {
               <p className={styles.copyMuted}>
                 {exportDraftReason}
               </p>
-              <p className={styles.copyMuted}>
-                Current-view and complete-build exports will be enabled once the normalized assembly and BOM layers are in place.
-              </p>
+              <div className={styles.exportActionGrid}>
+                <button type="button" className={styles.exportModeButton} disabled={!exactBoard} onClick={exportDiagramSvg}>Export SVG</button>
+                <button type="button" className={styles.exportModeButton} disabled={!exactBoard} onClick={() => window.print()}>Print / PDF</button>
+                <button type="button" className={styles.exportModeButton} disabled={!exactBoard} onClick={exportConnectionsCsv}>Connections CSV</button>
+                <button type="button" className={styles.exportModeButton} disabled={!exactBoard} onClick={exportBomCsv}>BOM CSV</button>
+              </div>
             </section>
           </>
         )}

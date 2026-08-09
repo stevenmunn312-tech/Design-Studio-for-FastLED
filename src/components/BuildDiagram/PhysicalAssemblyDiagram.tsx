@@ -14,6 +14,7 @@ interface PhysicalAssemblyDiagramProps {
   connections: PhysicalDiagramConnection[]
   selectedItemId: string
   onSelectItem: (itemId: string) => void
+  exportScope?: 'current-view' | 'complete-build'
 }
 
 type ItemLayout = {
@@ -160,7 +161,7 @@ function OutputGraphic({ layout, selected }: { layout: ItemLayout; selected: boo
   )
 }
 
-export default function PhysicalAssemblyDiagram({ boardLabel, items, connections, selectedItemId, onSelectItem }: PhysicalAssemblyDiagramProps) {
+export default function PhysicalAssemblyDiagram({ boardLabel, items, connections, selectedItemId, onSelectItem, exportScope = 'current-view' }: PhysicalAssemblyDiagramProps) {
   const layouts = itemLayouts(items)
   const outputLayouts = layouts.filter((layout) => layout.item.kind === 'matrix-output')
   const peripheralLayouts = layouts.filter((layout) => layout.item.kind !== 'matrix-output')
@@ -172,6 +173,7 @@ export default function PhysicalAssemblyDiagram({ boardLabel, items, connections
       className={styles.physicalDiagram}
       viewBox={`0 0 ${CANVAS_WIDTH} ${CANVAS_HEIGHT}`}
       role="img"
+      data-build-export={exportScope}
       aria-labelledby="physical-diagram-title physical-diagram-desc"
     >
       <title id="physical-diagram-title">Physical LED controller assembly</title>

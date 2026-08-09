@@ -68,8 +68,8 @@ describe('electricalPlan', () => {
       },
     }), boardProfileById('espressif-esp32-s3-devkitc-1'))
 
-    expect(plan.status).toBe('partial')
-    expect(plan.requirementsCalculatedText).toBe('partial: conservative supply/current summary ready, conductor/fuse tables pending')
+    expect(plan.status).toBe('calculated')
+    expect(plan.requirementsCalculatedText).toContain('calculated with build-rules-')
     expect(plan.controllerPowerPath).toBe('USB power')
     expect(plan.blockers).toHaveLength(0)
     expect(plan.outputs).toEqual([
@@ -84,6 +84,9 @@ describe('electricalPlan', () => {
         operatingCurrentCapMa: 9000,
         recommendedSupplyCurrentMa: 19200,
         recommendedSupplyWattage: 96,
+        conductor: expect.objectContaining({ awg: 14, crossSectionMm2: 2 }),
+        connectorMinimumMa: 30000,
+        fuse: expect.objectContaining({ ratingMa: 25000 }),
       }),
     ])
     expect(plan.totals).toEqual(expect.objectContaining({
@@ -94,7 +97,8 @@ describe('electricalPlan', () => {
       nominalVoltage: 5,
       headroomPercent: 25,
     }))
-    expect(plan.unresolved).toHaveLength(3)
+    expect(plan.unresolved).toHaveLength(1)
+    expect(plan.unresolved[0]).toContain('injection spacing')
   })
 
   it('keeps Power ready pending until owned LED supplies are declared', () => {
@@ -115,8 +119,8 @@ describe('electricalPlan', () => {
       },
     }), boardProfileById('espressif-esp32-s3-devkitc-1'))
 
-    expect(plan.status).toBe('partial')
-    expect(plan.powerReadyText).toBe('pending owned LED supply declarations')
+    expect(plan.status).toBe('calculated')
+    expect(plan.powerReadyText).toBe('needs review: 6 power-path issues')
     expect(plan.supplyChecks).toEqual([])
   })
 
@@ -152,7 +156,7 @@ describe('electricalPlan', () => {
       },
     }), boardProfileById('espressif-esp32-s3-devkitc-1'))
 
-    expect(plan.powerReadyText).toBe('partial: assigned LED supplies satisfy conservative current/voltage budget; controller branch, wire, fuse, and connector validation still pending')
+    expect(plan.powerReadyText).toBe('needs review: 4 power-path issues')
     expect(plan.supplyChecks).toEqual([
       expect.objectContaining({
         supplyId: 'supply-1',
@@ -200,7 +204,7 @@ describe('electricalPlan', () => {
       },
     }), boardProfileById('espressif-esp32-s3-devkitc-1'))
 
-    expect(plan.powerReadyText).toBe('needs review: 3 owned supply validation issues')
+    expect(plan.powerReadyText).toBe('needs review: 7 power-path issues')
     expect(plan.supplyChecks[0]?.issues.map((issue) => issue.id)).toEqual([
       'supply-1:voltage',
       'supply-1:current',
@@ -236,5 +240,39 @@ describe('electricalPlan', () => {
 
     expect(plan.outputs[0]?.operatingCurrentCapMa).toBe(7500)
     expect(plan.totals?.operatingCurrentCapMa).toBe(7500)
+  })
+
+  it('passes Power ready only when the complete declared branch meets the calculated plan', () => {
+    const manifest = buildHardwareManifest([
+      node('out', 'MatrixOutput', { width: 16, height: 16, chipset: 'WS2812B', dataPin: 14 }),
+    ], [], 'esp32:esp32:esp32s3')
+    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({
+      version: 1,
+      physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1',
+      controllerPower: { preferredPath: 'usb' },
+      outputs: {
+        'output:out': {
+          physicalLengthMm: 2500,
+          ledDensityPerMeter: 60,
+          feedCableLengthMm: 500,
+          manualInjectionPoints: ['0', '2500'],
+        },
+      },
+      ownedParts: {
+        supplies: { psu: { id: 'psu', voltage: 5, continuousCurrentMa: 20000, wattage: 100 } },
+        wires: { wire: { id: 'wire', gaugeAwg: 14, crossSectionMm2: 2, conductorMaterial: 'copper' } },
+        connectors: { connector: { id: 'connector', continuousCurrentMa: 30000 } },
+        fuses: { fuse: { id: 'fuse', ratingMa: 25000 } },
+        supplyAssignments: { 'output:out': 'psu' },
+        wireAssignments: { 'output:out': 'wire' },
+        connectorAssignments: { 'output:out': 'connector' },
+        fuseAssignments: { 'output:out': 'fuse' },
+      },
+    }), boardProfileById('espressif-esp32-s3-devkitc-1'))
+
+    expect(plan.branchChecks[0]?.issues).toEqual([])
+    expect(plan.supplyChecks[0]?.issues).toEqual([])
+    expect(plan.powerReadyPasses).toBe(true)
+    expect(plan.powerReadyText).toContain('ready:')
   })
 })

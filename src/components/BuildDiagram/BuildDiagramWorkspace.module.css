@@ -585,6 +585,13 @@
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-output) 24%, transparent);
 }
 
+.exportActionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
 .connectionRow {
   display: flex;
   flex-direction: column;
@@ -819,6 +826,15 @@
   user-select: none;
 }
 
+.exportDiagramHidden {
+  position: fixed;
+  left: -20000px;
+  top: 0;
+  width: 1120px;
+  height: 760px;
+  pointer-events: none;
+}
+
 .physicalClickable {
   cursor: pointer;
 }
@@ -1015,6 +1031,22 @@
   border-radius: 7px;
 }
 
+.branchKitCallout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #506067;
+  border-radius: 7px;
+  background: rgba(36, 51, 57, 0.62);
+}
+
+.branchKitCallout strong {
+  color: #eef2ef;
+  font-size: 12px;
+}
+
 .partsRow {
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr) 28px;
@@ -1077,5 +1109,45 @@
 
   .detailPane {
     display: none;
+  }
+}
+
+@media print {
+  .workspace {
+    display: block;
+    overflow: visible;
+    background: white;
+  }
+
+  .sidebar,
+  .detailPane,
+  .diagramHeader {
+    display: none;
+  }
+
+  .diagramPane,
+  .diagramViewport,
+  .diagramSurface {
+    display: block;
+    margin: 0;
+    overflow: visible;
+    border: 0;
+    box-shadow: none;
+    background: white;
+  }
+
+  .diagramCanvas {
+    transform: none !important;
+  }
+
+  .exportCompleteMode .diagramViewport {
+    display: none;
+  }
+
+  .exportCompleteMode .exportDiagramHidden {
+    position: static;
+    display: block;
+    width: 1120px;
+    height: 760px;
   }
 }
