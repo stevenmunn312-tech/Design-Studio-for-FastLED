@@ -149,5 +149,17 @@ describe('generateWiringDiagnosticSketch', () => {
       const sketch = generateWiringDiagnosticSketch([chainedOut])!
       expect(sketch).toContain('HUB75_I2S_CFG _hub75Cfg(8, 8, 3, _hub75Pins);')
     })
+
+    it('drives a folded 2D panel grid via VirtualMatrixPanel_T', () => {
+      const gridOut = node('out', 'MatrixOutput', 'output', {
+        width: 16, height: 16, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2,
+      })
+      const sketch = generateWiringDiagnosticSketch([gridOut])!
+      expect(sketch).toContain('#include <ESP32-HUB75-VirtualMatrixPanel_T.hpp>')
+      expect(sketch).toContain('HUB75_I2S_CFG _hub75Cfg(8, 8, 4, _hub75Pins);')
+      expect(sketch).toContain('hub75Virtual = new VirtualMatrixPanel_T<CHAIN_TOP_LEFT_DOWN>(2, 2, 8, 8);')
+      expect(sketch).toContain('hub75Virtual->setDisplay(*dma_display);')
+      expect(sketch).toContain('hub75Virtual->drawPixelRGB888(x, y, c.r, c.g, c.b);')
+    })
   })
 })

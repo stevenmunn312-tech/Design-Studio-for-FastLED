@@ -75,6 +75,15 @@ describe('showGenerator', () => {
       const cpp = generateShowSketch([nodes[0], nodes[1], chainedOut], edges, groups)
       expect(cpp).toContain('HUB75_I2S_CFG _hub75Cfg(8, 8, 3, _hub75Pins);')
     })
+
+    it('drives a folded 2D HUB75 panel grid via VirtualMatrixPanel_T', () => {
+      const gridOut = node('out', 'MatrixOutput', { width: 16, height: 16, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2 })
+      const cpp = generateShowSketch([nodes[0], nodes[1], gridOut], edges, groups)
+      expect(cpp).toContain('#include <ESP32-HUB75-VirtualMatrixPanel_T.hpp>')
+      expect(cpp).toContain('HUB75_I2S_CFG _hub75Cfg(8, 8, 4, _hub75Pins);')
+      expect(cpp).toContain('hub75Virtual = new VirtualMatrixPanel_T<CHAIN_TOP_LEFT_DOWN>(2, 2, 8, 8);')
+      expect(cpp).toContain('hub75Virtual->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);')
+    })
   })
 
   it('emits a fixed controller seed when the Show Engine seed is nonzero', () => {

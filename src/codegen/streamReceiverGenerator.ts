@@ -1,5 +1,5 @@
 import type { StudioNode } from '../state/graphStore'
-import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp, hub75HardwareFromProps, hub75SetupCpp } from './cppGenerator'
+import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75DisplayVar } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 
@@ -59,7 +59,7 @@ export function generateStreamReceiverSketch(nodes: StudioNode[]): string | null
   lines.push('// the matrix size, chipset, pins, or serpentine wiring change.')
   lines.push(...overclockDefineCpp(hw))
   lines.push('#include <FastLED.h>')
-  if (isHub75) lines.push('#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>')
+  if (isHub75) lines.push(...hub75IncludesCpp(hub75Hw!))
   lines.push('')
   if (!isHub75) {
     lines.push(`#define DATA_PIN ${dataPin}`)
@@ -75,7 +75,7 @@ export function generateStreamReceiverSketch(nodes: StudioNode[]): string | null
   lines.push('#define READ_TIMEOUT_MS 200')
   lines.push('')
   lines.push('CRGB leds[NUM_LEDS];')
-  if (isHub75) lines.push('MatrixPanel_I2S_DMA *dma_display = nullptr;')
+  if (isHub75) lines.push(...hub75GlobalsCpp(hub75Hw!))
   lines.push('')
   lines.push('void setup() {')
   lines.push(`  Serial.begin(${layout.baud});`)
@@ -122,9 +122,12 @@ export function generateStreamReceiverSketch(nodes: StudioNode[]): string | null
   if (isHub75) {
     // The sender resolves serpentine/layout wiring client-side before
     // transmission (streamLayoutForGraph forces plain row-major for HUB75),
-    // so leds[i] is already in (x, y) = (i % WIDTH, i / WIDTH) order here.
+    // so leds[i] is already in (x, y) = (i % WIDTH, i / WIDTH) order here —
+    // the full virtual grid's logical coordinates, which is exactly what
+    // the display object (base or virtual-grid wrapper) expects.
+    const hub75Disp = hub75DisplayVar(hub75Hw!)
     lines.push('  for (uint16_t i = 0; i < NUM_LEDS; i++) {')
-    lines.push('    dma_display->drawPixelRGB888(i % WIDTH, i / WIDTH, leds[i].r, leds[i].g, leds[i].b);')
+    lines.push(`    ${hub75Disp}->drawPixelRGB888(i % WIDTH, i / WIDTH, leds[i].r, leds[i].g, leds[i].b);`)
     lines.push('  }')
   } else {
     lines.push('  FastLED.show();')

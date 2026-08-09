@@ -11,7 +11,7 @@
 
 import type { PatternRenderers } from './showGenerator'
 import { STUDIO_PALETTES, customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCatalog'
-import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp } from './cppGenerator'
+import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75DisplayVar } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 
@@ -398,7 +398,7 @@ float prnd(float n) { float s = sinf(n * 12.9898f) * 43758.5453f; return s - flo
 // Hardware: SD card on SPI, audio out via ${internalDac ? "the ESP32's internal DAC (fixed GPIO25/26 — classic ESP32 only, no ESP32-S3/S2/C3 support)" : 'an I2S DAC (MAX98357A or PCM5102) on pins below'}.
 
 ${overclockDefines}#include <FastLED.h>
-${isHub75 ? '#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>\n' : ''}#include <SD.h>
+${isHub75 ? hub75IncludesCpp(hub75Hw!).join('\n') + '\n' : ''}#include <SD.h>
 #include <SPI.h>
 #include <Audio.h>       // ESP32-audioI2S
 
@@ -439,7 +439,7 @@ struct ShowEvent {
 
 // ── Globals ───────────────────────────────────────────────────────────────────
 CRGB leds[NUM_LEDS];
-${isHub75 ? 'MatrixPanel_I2S_DMA *dma_display = nullptr;\n' : ''}CRGB showA[NUM_LEDS];             // outgoing pattern during a transition
+${isHub75 ? hub75GlobalsCpp(hub75Hw!).join('\n') + '\n' : ''}CRGB showA[NUM_LEDS];             // outgoing pattern during a transition
 CRGB showB[NUM_LEDS];            // incoming pattern during a transition
 Audio audio${internalDac ? '(true)' : ''};  // true = output via the internal DAC (GPIO25/26), else external I2S
 
@@ -778,7 +778,7 @@ ${bakedAudio ? '  updateShowAudio(posMs);   // song-synced FFT → pattern audio
   ${isHub75 ? [
     'for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {',
     '    CRGB _c = leds[_y * WIDTH + _x];',
-    '    dma_display->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);',
+    `    ${hub75DisplayVar(hub75Hw!)}->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);`,
     '  }',
   ].join('\n  ') : 'FastLED.show();'}
   FastLED.delay(16);  // ~60 fps
