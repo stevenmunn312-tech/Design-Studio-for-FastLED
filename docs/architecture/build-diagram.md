@@ -2,196 +2,133 @@
 
 ## Purpose
 
-Build Diagram is a separate workspace mode that projects the logical node graph
-into a physical hardware/build view. The graph remains the source of truth for
-effects and firmware behaviour. Build Diagram adds project-specific physical
-board identity, installation facts, calculated electrical requirements, and
-wiring progress without introducing a controller node into the graph itself.
-It is opened as a full-workspace mode from `View -> Build Diagram` rather than
-as another permanently visible editor panel.
+Build Diagram turns the hardware already configured in the logical graph into a
+beginner-readable physical wiring reference and shopping list. It is not a form
+for asking the user to design the electrical system.
 
-## Product contract
+The graph remains the source of truth for hardware type, quantity, dimensions,
+chipset, and GPIO assignment. Build Diagram adds one required piece of physical
+identity: the exact controller board. Once that board is selected, the app
+generates the recommended circuit, supporting parts, protection, power
+distribution, and wiring.
 
-- Build Diagram is a physical/electrical projection of the graph, not a
-  replacement for the graph.
-- An exact physical board profile is required before controller pins or
-  controller-side wires can be trusted.
-- The workspace uses one large diagram canvas with pan/zoom controls rather
-  than automatic pagination.
-- Layout is left for hardware/build facts, centre for the diagram, and right
-  for readiness, connections, BOM, and export state.
-- Visibility and wiring progress are separate controls for each primary
-  hardware item.
-- Selection highlights the relevant hardware and wires; isolation reduces the
-  diagram to the selected item, the controller, and required shared
-  infrastructure.
-- Requirements calculated, Signal ready, Power ready, and Build ready are
-  independent states; Build ready is valid only when Signal ready and Power
-  ready both pass.
-- Export modes must distinguish Current view from Complete build so hidden
-  items are never silently omitted from a complete reference.
+## Product Contract
 
-## Terminology
+- The only required user confirmation is the exact physical controller board.
+- Matrix, strip, microphone, button, potentiometer, encoder, and other supported
+  hardware come from the graph; the user does not re-enter them.
+- The app recommends the supplies, distribution, fuses, conductors, connectors,
+  power-injection feeds, logic conditioning, resistors, and capacitors needed by
+  the graph-derived hardware.
+- The app does not ask what power supply or wiring the user already owns before
+  producing a complete recommendation.
+- A supported graph with a valid exact-board pin map produces a complete wiring
+  reference without planning blockers or material-confirmation gates.
+- Visibility, isolation, and Done controls affect the workspace view and
+  progress only; they do not change the generated electrical design.
+- Current-view exports may reflect visibility. Complete-build exports must
+  always include every graph-derived item and generated supporting part.
 
-- **Target family**: the current compile/upload target family, such as ESP32-S3.
-- **Physical board profile**: the exact development-board PCB and revision used
-  for real-world wiring.
-- **Build Profile**: project-specific hardware selections, physical
-  installation facts, advanced assumptions, optional owned-part declarations,
-  visibility state, and wiring-progress state.
-- **Hardware manifest**: hardware facts derived from graph nodes and their
-  firmware-relevant pin usage.
-- **Calculated electrical plan**: derived loads, supply requirements,
-  conductors, connectors, fuses, converters, injection, and stated
-  assumptions.
-- **Electrical assembly**: normalized components, terminals, nets, calculated
-  plan, recommendations, validation results, and BOM lines.
-- **Requirements calculated**: enough reviewed hardware identity and
-  installation facts exist to produce an electrical specification and shopping
-  plan.
-- **Signal ready**: controller-side pins, shared reference requirements, and
-  required signal conditioning are valid for the selected exact board.
-- **Power ready**: the actual or explicitly selected power-path parts satisfy
-  the calculated electrical plan.
-- **Build ready**: both Signal ready and Power ready pass.
+## Data Ownership
 
-## Safety invariants
+- **Graph:** controller family, GPIO assignments, hardware nodes, LED chipset,
+  pixel count, matrix dimensions, and firmware configuration.
+- **Physical board profile:** exact connector positions, valid GPIO exposure,
+  power-entry labels, and board confidence notes.
+- **Build Profile:** exact-board selection plus view-only state such as item
+  visibility and wiring progress. Legacy planning fields may still deserialize
+  for backward compatibility but are not required inputs to generation.
+- **Electrical plan:** derived recommendation recalculated from the graph,
+  board profile, and versioned electrical rules. It is not editable source data.
 
-- GPIO-valid never implies electrically safe.
-- External LED load current must never be routed through a controller GPIO,
-  regulator, USB connector, header current path, or board trace not reviewed
-  for that load.
-- Every LED output requires direct supply power and a common ground reference
-  with the controller for non-isolated data links.
-- Controller power is modeled as its own low-current branch, separate from LED
-  load branches.
-- Every independently powered LED output requires branch protection.
-- Main protection is per external supply.
-- Conductor and connector requirements are sized before protection selection.
-- A direct overvoltage path to the controller is a blocking Power error.
-- Missing reviewed rule-table inputs must keep Power unresolved; the feature
-  must prefer honest incompleteness over confident guesses.
+## Readiness
 
-## Confidence levels
+- **Graph hardware:** supported physical hardware was found in the graph.
+- **Exact board:** the selected profile matches the controller target family.
+- **Wiring plan:** every supported hardware terminal has a generated route.
+- **Signal plan:** GPIOs are valid and any required level shifting or series
+  resistance is included automatically.
+- **Power plan:** the generated supply, distribution, conductor, connector,
+  fuse, capacitor, common-ground, and injection recommendations are complete.
+- **Build reference:** exact board, signal plan, and power plan all pass.
 
-- **Manufacturer verified**: official pinout and schematic/path documentation
-  reviewed.
-- **Pinout verified**: header map reviewed, but the power-path behaviour is not
-  fully verified.
-- **Visual match only**: board appearance may help identification, but no
-  wiring should be generated from it.
+Readiness describes completeness of the generated recommendation. It does not
+wait for the user to buy parts or confirm that a recommended component exists.
 
-The generic `ESP32-S3 N16R8, 44-pin dual USB-C` profile currently remains
-**Pinout verified** only. Its header map is usable, the controller power label
-should be treated as `5VIN`, and GPIO35-GPIO37 must be treated as unavailable
-on N16R8 modules because octal PSRAM consumes them. USB power sharing,
-backfeed protection, regulator current, and jumper behaviour remain unverified.
+## Wiring Invariants
 
-## Data ownership
+- External LED load current never travels through controller GPIO, USB,
+  regulator, or development-board traces.
+- Every LED output is powered from fused external distribution and shares a
+  ground reference with the controller-side data circuit.
+- The controller uses its own low-current USB-C power path in the generated
+  reference unless a future reviewed board profile explicitly requires another
+  topology.
+- Every generated LED feed has positive and ground conductors, branch
+  protection, and a stated conductor/connector minimum.
+- Every external supply feeds both positive distribution and common ground.
+- Every LED data route includes a 74AHCT125-class 3.3 V to 5 V conditioning
+  stage and a 330 ohm series resistor for the current ESP32-S3/WS2812 scope.
+- The level shifter has connected VCC, ground, and active-low enable terminals.
+- Every LED power entry includes a bulk capacitor connected across positive and
+  ground, never to ground alone.
+- Every INMP441 route includes VDD, ground, BCLK/SCK, WS, and SD/DOUT.
+- No line may stop near a part: generated wires terminate on visible terminals.
 
-- Graph nodes remain the source of truth for controller family, pin
-  assignments, dimensions, layout, chipset, and firmware configuration.
-- Build Profile stores the exact board selection and physical installation
-  facts separately from graph state so electrical data never leaks into node
-  definitions.
-- Derived results are not an editable source of truth and should be
-  recalculated from Build Profile inputs plus reviewed rule/profile versions.
+## Generated Electrical Defaults
 
-## Viewport contract
+The current bounded WS2812-class rules use:
 
-Build Diagram is part of the desktop viewport contract:
+- 5 V nominal LED power.
+- 60 mA per pixel conservative full-white design load.
+- 25% supply-current headroom.
+- 60 pixels per metre when the graph has no physical density metadata.
+- 500 mm one-way feed cable when no reviewed physical route is available.
+- Approximately 4 A maximum design load per generated fused feed.
+- Approximately 60 A maximum per recommended power supply, with multiple
+  supplies generated for larger builds.
+- Reviewed conductor, connector, voltage-drop, derating, and fuse tables for
+  each feed.
 
-- Target authoring size: `1440×900`
-- Supported minimum: `1280×720`
-- Layout: left hardware/build panel, centre diagram workspace, right
-  requirements/connections/BOM panel
-- Below target width, the diagram remains the priority; side panels collapse
-  and scroll independently rather than forcing the centre workspace off-screen
+These values produce a safe, conservative reference from the information the
+graph can know. They are stated in the UI and exports rather than presented as
+questions to a beginner.
 
-## Initial MVP scope
+## Board Confidence
 
-- Exact-board selection for ESP32-S3 physical profiles
-- Graph-derived hardware manifest for Matrix Output, INMP441 microphone,
-  button, potentiometer, and rotary encoder
-- Project-specific Build Profile persistence
-- Build Diagram workspace shell with board gating, hardware inventory, and
-  progress state
+- **Manufacturer verified:** official pinout and board documentation reviewed.
+- **Pinout verified:** header map reviewed; board-level caveats remain visible.
+- **Visual match only:** no controller wiring may be generated.
 
-## Initial reviewed board profiles
+The generic `ESP32-S3 N16R8, 44-pin dual USB-C` profile is pinout verified.
+Its power-entry label is `5VIN`, GPIO35-GPIO37 are unavailable on N16R8 modules
+because octal PSRAM consumes them, and its unverified USB/backfeed behaviour is
+shown as a note rather than turned into a beginner planning questionnaire.
 
-- `generic-esp32-s3-n16r8-44pin-dual-usbc`
-  - Confidence: Pinout verified
-  - Notes: user-supplied pinout image reviewed; use `5VIN` naming; GPIO35-37
-    unavailable on N16R8 modules
-  - Caveat: board-level power-path behaviour is still unresolved
-- `espressif-esp32-s3-devkitc-1`
-  - Confidence: Manufacturer verified
-  - Notes: official DevKitC-1 documentation reviewed, including memory-variant
-    caveats
-- `seeed-xiao-esp32s3`
-  - Confidence: Manufacturer verified
-  - Notes: compact layout with reviewed expansion-pad GPIO exposure
+## Viewport And Export Contract
 
-## Electrical rules and sources
+- Target authoring size: `1440x900`; supported minimum: `1280x720`.
+- Left panel: graph hardware and icon-based visibility/progress controls.
+- Centre: pannable, zoomable generated wiring diagram.
+- Right panel: exact-board notes, generated readiness, connections, BOM, and
+  export controls.
+- Panels scroll independently and the diagram remains the priority below the
+  target width.
+- SVG, print/PDF, Connections CSV, and BOM CSV outputs carry the ruleset version
+  and generated readiness state.
 
-The current ruleset is `build-rules-2026.08.10-v1`. It is intentionally a
-bounded MVP ruleset rather than a general mains/building-wiring design tool.
+## Current Scope
 
-- WS2812-class design load uses the existing conservative 60 mA-per-pixel
-  full-white assumption. A configured firmware current cap is displayed as an
-  operating case but never reduces physical branch sizing.
-- Feed voltage drop uses the complete out-and-back conductor length. The
-  default limit is 5%, supply headroom is 25%, and ambient/bundle derating is
-  applied before a conductor can pass.
-- The conductor table is a limited low-voltage GPT automotive-wire subset from
-  Littelfuse. It is applicable only to comparable chassis-style installations;
-  local wiring codes, insulation temperature, enclosure, termination, and
-  installation method can require a larger conductor.
-- Fuse selection follows Littelfuse's 75% maximum continuous-loading guidance
-  and will not choose a fuse above the selected conductor or connector limit.
-- Exact injection spacing remains unresolved until the selected LED product's
-  reviewed copper-path resistance/current limits exist, or the user explicitly
-  confirms manual injection points. The engine never falls back to an
-  "every metre" heuristic.
-- ESP32-S3-to-5 V WS2812-class routes recommend a 74AHCT125-class conditioning
-  stage and a 330 ohm series resistor. This is recorded as a required material
-  confirmation before Signal ready can pass.
+- Exact profiles for the generic ESP32-S3 N16R8 dual-USB-C board, Espressif
+  ESP32-S3-DevKitC-1, and Seeed Studio XIAO ESP32S3.
+- WS2812-class strips and matrices, INMP441 microphones, momentary buttons,
+  analog potentiometers, and rotary encoders.
+- Automatic supply count, feed count, conductor, connector, fuse, distribution,
+  level-shifter, resistor, capacitor, and controller-power recommendations.
+- Unsupported graph hardware is reported and omitted rather than wired
+  speculatively.
 
-Primary references:
-
-- FastLED power management: <https://fastled.io/docs/d3/d1d/group___power.html>
-- Littelfuse Fuseology and GPT wire/fuse guidance:
-  <https://www.littelfuse.com/assetdocs/littelfuse-fuseology?assetguid=c81c1a21-b903-44b6-b46d-180c48f7c3c5>
-- JST VH connector reference: <https://www.jst-mfg.com/product/pdf/eng/eVH.pdf>
-- Espressif ESP32-S3 datasheet:
-  <https://documentation.espressif.com/esp32-s3_datasheet_en.pdf>
-- TI SN74AHCT125 datasheet: <https://www.ti.com/lit/ds/symlink/sn74ahct125.pdf>
-- Worldsemi WS2812 family: <https://world-semi.com/ws2812-family/>
-
-The formulas, source-table transcription, defaults, derating, fuse policy, and
-wording still require independent electrical review before the feature is
-promoted as authoritative guidance. Until that review, exported material is a
-design-assistance reference that must be checked against the exact parts,
-manufacturer instructions, and applicable local requirements.
-
-## Current implementation status
-
-- Build Diagram gating, exact-board selection, visibility filters, isolation,
-  independently resizable panels, and wiring-progress fingerprinting are
-  implemented as of August 10, 2026.
-- The centre workspace renders a deterministic physical assembly diagram with
-  item/wire selection, pan/zoom/focus controls, and explicit current-view or
-  complete-build export scope.
-- Build Profile persists physical install facts, controller power intent,
-  advanced assumptions, explicit branch-part assignments, signal-conditioning
-  confirmation, visibility, and Done state.
-- The UI-independent electrical planner calculates conservative output and
-  whole-build load, supply headroom, feed conductor, connector minimum, and
-  branch fuse, then validates selected supply/wire/connector/fuse declarations.
-- Requirements calculated, Signal ready, Power ready, and Build ready are
-  independent. Unverified generic-board power paths and missing injection or
-  selected branch parts remain blocking rather than becoming optimistic
-  defaults.
-- SVG, browser print/PDF, Connections CSV, and BOM CSV exports are implemented.
-  SVG and CSV output carry the readiness status and ruleset version; complete
-  exports do not inherit live visibility/isolation filtering.
+The formulas and source-table transcription still require independent
+electrical review before the feature is presented as authoritative engineering
+advice. Exports remain a low-voltage design-assistance reference and must be
+checked against exact component datasheets and applicable local requirements.

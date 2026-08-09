@@ -8,19 +8,9 @@ import {
   type PhysicalBoardPinProfile,
 } from '../../build/boardProfiles'
 import {
-  type BuildAssumptions,
-  type BuildControllerPowerProfile,
-  type BuildOwnedParts,
   ensureBuildProfile,
   fingerprintValue,
   type BuildExportMode,
-  type BuildInstallationTopology,
-  type OwnedSupplyDeclaration,
-  type OwnedWireDeclaration,
-  type OwnedConnectorDeclaration,
-  type OwnedFuseDeclaration,
-  type BuildOutputProfile,
-  type BuildSupplyFeedLocation,
 } from '../../build/buildProfile'
 import { calculateElectricalPlan } from '../../build/electricalPlan'
 import { bomCsv, buildBomRows, buildConnectionRows, connectionsCsv } from '../../build/buildExports'
@@ -46,12 +36,6 @@ interface DiagramConnection {
   unresolvedReason?: string
 }
 
-interface PlanningBlocker {
-  id: string
-  title: string
-  details: string[]
-}
-
 type VisibilityFilter = 'all' | 'unfinished'
 type ViewportPanState = { pointerId: number; startX: number; startY: number; startScrollLeft: number; startScrollTop: number }
 
@@ -59,26 +43,6 @@ const MIN_ZOOM = 0.55
 const MAX_ZOOM = 1.8
 const ZOOM_STEP = 0.15
 const FIT_PADDING = 48
-const OUTPUT_TOPOLOGY_OPTIONS: { value: BuildInstallationTopology; label: string }[] = [
-  { value: 'strip', label: 'Strip / linear run' },
-  { value: 'matrix', label: 'Matrix / panel face' },
-  { value: 'panels', label: 'Tiled panels' },
-  { value: 'custom', label: 'Custom geometry' },
-]
-const FEED_LOCATION_OPTIONS: { value: BuildSupplyFeedLocation; label: string }[] = [
-  { value: 'start', label: 'Feed at start' },
-  { value: 'end', label: 'Feed at end' },
-  { value: 'both-ends', label: 'Feed both ends' },
-  { value: 'center', label: 'Feed at center' },
-  { value: 'custom', label: 'Custom feed plan' },
-]
-const CONTROLLER_POWER_OPTIONS: { value: NonNullable<BuildControllerPowerProfile['preferredPath']>; label: string }[] = [
-  { value: 'usb', label: 'USB power' },
-  { value: 'vin', label: 'VIN input' },
-  { value: '5vin', label: '5VIN input' },
-  { value: 'regulated-5v', label: 'External regulated 5 V' },
-  { value: 'regulated-3v3', label: 'External regulated 3.3 V' },
-]
 const PANEL_WIDTH_STEP = 32
 const DEFAULT_SIDEBAR_WIDTH = 340
 const MIN_SIDEBAR_WIDTH = 280
@@ -133,82 +97,14 @@ function confidenceSummary(profile: PhysicalBoardProfile): string {
   return 'Visual match only - wiring guidance stays disabled.'
 }
 
-function parseNumberInput(value: string): number | undefined {
-  if (!value.trim()) return undefined
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : undefined
-}
-
-function hasBuildOutputProfileData(profile: BuildOutputProfile | undefined): profile is BuildOutputProfile {
-  if (!profile) return false
-  return Object.entries(profile).some(([key, value]) => {
-    if (value == null) return false
-    if (Array.isArray(value)) return value.length > 0
-    if (typeof value === 'string') return key === 'notes' ? value.trim().length > 0 : true
-    return true
-  })
-}
-
-function hasControllerPowerProfileData(profile: BuildControllerPowerProfile | undefined): profile is BuildControllerPowerProfile {
-  if (!profile) return false
-  return !!profile.preferredPath || !!profile.notes?.trim()
-}
-
-function hasAssumptionsData(assumptions: BuildAssumptions | undefined): assumptions is BuildAssumptions {
-  if (!assumptions) return false
-  return Object.values(assumptions).some((value) => value !== undefined)
-}
-
-function hasOwnedPartsData(ownedParts: BuildOwnedParts | undefined): ownedParts is BuildOwnedParts {
-  if (!ownedParts) return false
-  return Object.values(ownedParts).some((value) => {
-    if (!value) return false
-    if (typeof value !== 'object') return false
-    return Object.keys(value).length > 0
-  })
-}
-
-function inferredOutputTopology(item: HardwareManifestItem): BuildInstallationTopology {
-  const layout = String(item.facts.layout ?? 'matrix')
-  if (layout === 'panels') return 'panels'
-  const width = Number(item.facts.width ?? 0)
-  const height = Number(item.facts.height ?? 0)
-  if (width > 1 && height > 1) return 'matrix'
-  return 'strip'
-}
-
-function outputPlanningBlockers(profile: BuildOutputProfile | undefined): string[] {
-  const blockers: string[] = []
-  if (profile?.physicalLengthMm == null) {
-    blockers.push('Physical length is still missing, so conductor sizing and injection spacing cannot be estimated yet.')
-  }
-  if (profile?.ledDensityPerMeter == null && profile?.pitchMm == null) {
-    blockers.push('LED density or pitch is still missing, so current-per-length and injection planning cannot be estimated yet.')
-  }
-  if (profile?.feedCableLengthMm == null) {
-    blockers.push('Feed-cable length is still missing, so voltage-drop and cable-size checks cannot be estimated yet.')
-  }
-  return blockers
-}
-
 function itemFingerprint(
   item: HardwareManifestItem,
   selectedFqbn: string,
   physicalBoardProfileId: string | undefined,
-  outputProfile: BuildOutputProfile | undefined,
-  controllerPower: BuildControllerPowerProfile | undefined,
-  assumptions: BuildAssumptions | undefined,
-  ownedParts: BuildOwnedParts | undefined,
-  signalConditioningConfirmed: boolean,
 ): string {
   return fingerprintValue({
     selectedFqbn,
     physicalBoardProfileId,
-    outputProfile,
-    controllerPower,
-    assumptions,
-    ownedParts,
-    signalConditioningConfirmed,
     item: {
       id: item.id,
       kind: item.kind,
@@ -231,6 +127,34 @@ function BoardPreview({ svg, label }: { svg: string; label: string }) {
       aria-label={label}
       dangerouslySetInnerHTML={{ __html: svg }}
     />
+  )
+}
+
+function EyeIcon({ crossed = false }: { crossed?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+      <circle cx="12" cy="12" r="2.7" />
+      {crossed && <path d="M4 4l16 16" />}
+    </svg>
+  )
+}
+
+function IsolateIcon({ active = false }: { active?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="4" className={active ? styles.iconFill : undefined} />
+      <path d="M12 2v4m0 12v4M2 12h4m12 0h4" />
+    </svg>
+  )
+}
+
+function DoneIcon({ active = false }: { active?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" className={active ? styles.iconFill : undefined} />
+      <path d="m7.5 12 3 3 6-7" />
+    </svg>
   )
 }
 
@@ -284,7 +208,6 @@ export default function BuildDiagramWorkspace() {
   const [detailPaneCollapsed, setDetailPaneCollapsed] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH)
   const [detailPaneWidth, setDetailPaneWidth] = useState(DEFAULT_DETAIL_WIDTH)
-  const [advancedAssumptionsOpen, setAdvancedAssumptionsOpen] = useState(false)
   const [diagramZoom, setDiagramZoom] = useState(1)
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const panStateRef = useRef<ViewportPanState | null>(null)
@@ -298,15 +221,10 @@ export default function BuildDiagramWorkspace() {
         item,
         selectedFqbn,
         buildProfile.physicalBoardProfileId,
-        buildProfile.outputs?.[item.id],
-        buildProfile.controllerPower,
-        buildProfile.assumptions,
-        buildProfile.ownedParts,
-        buildProfile.signalConditioning?.[item.id] === true,
       ))
     }
     return map
-  }, [buildProfile.assumptions, buildProfile.controllerPower, buildProfile.outputs, buildProfile.ownedParts, buildProfile.physicalBoardProfileId, buildProfile.signalConditioning, primaryItems, selectedFqbn])
+  }, [buildProfile.physicalBoardProfileId, primaryItems, selectedFqbn])
 
   const completedItemIds = useMemo(() => {
     const ids = new Set<string>()
@@ -351,44 +269,9 @@ export default function BuildDiagramWorkspace() {
     return isItemDone(item.id)
   }).length
   const hiddenPrimaryItemCount = primaryItems.filter((item) => buildProfile.visibility?.[item.id] === false).length
-  const planningBlockers = useMemo<PlanningBlocker[]>(() => {
-    const blockers: PlanningBlocker[] = []
-    if (!exactBoard) {
-      blockers.push({
-        id: 'exact-board',
-        title: 'Exact board profile',
-        details: ['Controller-side wiring and reviewed controller power-path checks stay blocked until the exact physical board is selected.'],
-      })
-    }
-    if (!buildProfile.controllerPower?.preferredPath) {
-      blockers.push({
-        id: 'controller-power',
-        title: 'Controller power path',
-        details: ['Controller branch validation stays incomplete until Build Diagram knows whether the controller expects USB, VIN, 5VIN, or an external regulated rail.'],
-      })
-    }
-    for (const item of outputItems) {
-      const details = outputPlanningBlockers(buildProfile.outputs?.[item.id])
-      if (details.length > 0) {
-        blockers.push({
-          id: `planner:${item.id}`,
-          title: item.title,
-          details,
-        })
-      }
-    }
-    return blockers
-  }, [buildProfile.controllerPower?.preferredPath, buildProfile.outputs, exactBoard, outputItems])
-  const requirementsInputText = planningBlockers.length === 0
-    ? 'all required installation facts are captured for the electrical planner'
-    : `${planningBlockers.length} input blocker${planningBlockers.length === 1 ? '' : 's'} still need review`
   const electricalPlan = useMemo(
     () => calculateElectricalPlan(manifest, buildProfile, exactBoard),
     [buildProfile, exactBoard, manifest],
-  )
-  const ownedSupplies = useMemo(
-    () => Object.values(buildProfile.ownedParts?.supplies ?? {}),
-    [buildProfile.ownedParts?.supplies],
   )
   const partsSummary = useMemo(() => {
     const lines: Array<{ id: string; quantity: string; label: string; pending?: boolean }> = []
@@ -397,19 +280,22 @@ export default function BuildDiagramWorkspace() {
     if (outputItems.length > 0) {
       lines.push({ id: 'level-shifter', quantity: String(Math.max(1, Math.ceil(outputItems.length / 4))), label: '74AHCT125 level shifter' })
       lines.push({ id: 'resistors', quantity: String(outputItems.length), label: '330 ohm data resistor' })
-      lines.push({ id: 'fuses', quantity: String(outputItems.length), label: 'Branch fuse', pending: true })
+      const feedCount = electricalPlan.outputs.reduce((sum, output) => sum + output.recommendedFeedCount, 0)
+      const fuseRatings = [...new Set(electricalPlan.outputs.map((output) => output.fuse.ratingMa).filter((value): value is number => !!value))]
+      lines.push({ id: 'fuses', quantity: String(feedCount), label: `${fuseRatings.map(formatCurrentMa).join(' / ') || 'Rated'} branch fuse` })
       lines.push({ id: 'capacitors', quantity: String(outputItems.length), label: '1000uF bulk capacitor' })
     }
-    if (ownedSupplies.length > 0) {
-      for (const supply of ownedSupplies) {
-        lines.push({ id: `owned:${supply.id}`, quantity: '1', label: supply.label ?? supply.id })
-      }
-    } else if (outputItems.length > 0) {
-      lines.push({ id: 'supply', quantity: '1', label: '5 V DC supply', pending: true })
+    if (electricalPlan.totals) {
+      lines.push({
+        id: 'supply',
+        quantity: String(electricalPlan.totals.recommendedSupplyCount),
+        label: `5 V · ${formatCurrentMa(electricalPlan.totals.perSupplyCurrentMa)} continuous supply`,
+      })
     }
-    lines.push({ id: 'wire', quantity: '-', label: 'Hookup wire', pending: true })
+    const conductors = [...new Set(electricalPlan.outputs.map((output) => output.conductor ? `AWG ${output.conductor.awg} / ${output.conductor.crossSectionMm2} mm2 copper` : '').filter(Boolean))]
+    if (conductors.length > 0) lines.push({ id: 'wire', quantity: 'As required', label: conductors.join(' / ') })
     return lines
-  }, [exactBoard, outputItems.length, ownedSupplies, primaryItems])
+  }, [electricalPlan.outputs, electricalPlan.totals, exactBoard, outputItems.length, primaryItems])
   const exportItems = exportMode === 'complete-build' ? primaryItems : visiblePrimaryItems
   const exportItemIds = useMemo(() => new Set(exportItems.map((item) => item.id)), [exportItems])
   const exportConnectionRows = useMemo(
@@ -420,18 +306,6 @@ export default function BuildDiagramWorkspace() {
     () => buildBomRows(manifest, electricalPlan, buildProfile, exactBoard, exportItemIds),
     [buildProfile, electricalPlan, exactBoard, exportItemIds, manifest],
   )
-  const supplyAssignments = useMemo(
-    () => buildProfile.ownedParts?.supplyAssignments ?? {},
-    [buildProfile.ownedParts?.supplyAssignments],
-  )
-  const assignmentCountsBySupplyId = useMemo(() => {
-    const counts: Record<string, number> = {}
-    for (const supplyId of Object.values(supplyAssignments)) {
-      counts[supplyId] = (counts[supplyId] ?? 0) + 1
-    }
-    return counts
-  }, [supplyAssignments])
-
   const patchBuildProfile = (recipe: (current: ReturnType<typeof ensureBuildProfile>) => ReturnType<typeof ensureBuildProfile>) => {
     updateBuildProfile((current) => recipe(ensureBuildProfile(current)))
   }
@@ -454,11 +328,6 @@ export default function BuildDiagramWorkspace() {
       item,
       selectedFqbn,
       buildProfile.physicalBoardProfileId,
-      buildProfile.outputs?.[item.id],
-      buildProfile.controllerPower,
-      buildProfile.assumptions,
-      buildProfile.ownedParts,
-      buildProfile.signalConditioning?.[item.id] === true,
     )
     patchBuildProfile((current) => {
       const done = { ...(current.done ?? {}) }
@@ -509,252 +378,6 @@ export default function BuildDiagramWorkspace() {
       status: exportDraftStatus,
       ruleSetVersion: electricalPlan.ruleSetVersion,
     }), 'fastled-build-bom.csv', 'text/csv;charset=utf-8')
-  }
-
-  const updateOutputProfile = (
-    itemId: string,
-    recipe: (current: BuildOutputProfile | undefined) => BuildOutputProfile | undefined,
-  ) => {
-    patchBuildProfile((current) => {
-      const outputs = { ...(current.outputs ?? {}) }
-      const nextProfile = recipe(outputs[itemId])
-      if (hasBuildOutputProfileData(nextProfile)) outputs[itemId] = nextProfile
-      else delete outputs[itemId]
-      return {
-        ...current,
-        outputs: Object.keys(outputs).length > 0 ? outputs : undefined,
-      }
-    })
-  }
-
-  const setOutputNumberField = (itemId: string, key: keyof BuildOutputProfile, rawValue: string) => {
-    updateOutputProfile(itemId, (current) => ({
-      ...(current ?? {}),
-      [key]: parseNumberInput(rawValue),
-    }))
-  }
-
-  const updateControllerPowerProfile = (
-    recipe: (current: BuildControllerPowerProfile | undefined) => BuildControllerPowerProfile | undefined,
-  ) => {
-    patchBuildProfile((current) => {
-      const nextProfile = recipe(current.controllerPower)
-      return {
-        ...current,
-        controllerPower: hasControllerPowerProfileData(nextProfile) ? nextProfile : undefined,
-      }
-    })
-  }
-
-  const updateAssumptions = (
-    recipe: (current: BuildAssumptions | undefined) => BuildAssumptions | undefined,
-  ) => {
-    patchBuildProfile((current) => {
-      const nextAssumptions = recipe(current.assumptions)
-      return {
-        ...current,
-        assumptions: hasAssumptionsData(nextAssumptions) ? nextAssumptions : undefined,
-      }
-    })
-  }
-
-  const updateOwnedParts = (
-    recipe: (current: BuildOwnedParts | undefined) => BuildOwnedParts | undefined,
-  ) => {
-    patchBuildProfile((current) => {
-      const nextOwnedParts = recipe(current.ownedParts)
-      return {
-        ...current,
-        ownedParts: hasOwnedPartsData(nextOwnedParts) ? nextOwnedParts : undefined,
-      }
-    })
-  }
-
-  const setOutputTextField = (itemId: string, key: keyof BuildOutputProfile, rawValue: string) => {
-    updateOutputProfile(itemId, (current) => ({
-      ...(current ?? {}),
-      [key]: rawValue.trim() ? rawValue : undefined,
-    }))
-  }
-
-  const setOutputInjectionPoints = (itemId: string, rawValue: string) => {
-    const points = rawValue.split(',').map((entry) => entry.trim()).filter(Boolean)
-    updateOutputProfile(itemId, (current) => ({
-      ...(current ?? {}),
-      manualInjectionPoints: points.length > 0 ? points : undefined,
-    }))
-  }
-
-  const adoptRecommendedBranchKit = (itemId: string) => {
-    const plan = electricalPlan.outputs.find((entry) => entry.itemId === itemId)
-    if (!plan?.conductor || !plan.connectorMinimumMa || !plan.fuse.ratingMa) return
-    const conductor = plan.conductor
-    const connectorMinimumMa = plan.connectorMinimumMa
-    const fuseRatingMa = plan.fuse.ratingMa
-    updateOwnedParts((current) => {
-      const wireId = `recommended-wire:${itemId}`
-      const connectorId = `recommended-connector:${itemId}`
-      const fuseId = `recommended-fuse:${itemId}`
-      const wire: OwnedWireDeclaration = {
-        id: wireId,
-        label: `Confirmed AWG ${conductor.awg} branch wire`,
-        gaugeAwg: conductor.awg,
-        crossSectionMm2: conductor.crossSectionMm2,
-        conductorMaterial: conductor.material,
-      }
-      const connector: OwnedConnectorDeclaration = {
-        id: connectorId,
-        label: `Confirmed ${formatCurrentMa(connectorMinimumMa)} connector`,
-        continuousCurrentMa: connectorMinimumMa,
-      }
-      const fuse: OwnedFuseDeclaration = {
-        id: fuseId,
-        label: `Confirmed ${formatCurrentMa(fuseRatingMa)} branch fuse`,
-        ratingMa: fuseRatingMa,
-      }
-      return {
-        ...(current ?? {}),
-        wires: { ...(current?.wires ?? {}), [wireId]: wire },
-        connectors: { ...(current?.connectors ?? {}), [connectorId]: connector },
-        fuses: { ...(current?.fuses ?? {}), [fuseId]: fuse },
-        wireAssignments: { ...(current?.wireAssignments ?? {}), [itemId]: wireId },
-        connectorAssignments: { ...(current?.connectorAssignments ?? {}), [itemId]: connectorId },
-        fuseAssignments: { ...(current?.fuseAssignments ?? {}), [itemId]: fuseId },
-      }
-    })
-    patchBuildProfile((current) => ({
-      ...current,
-      signalConditioning: {
-        ...(current.signalConditioning ?? {}),
-        [itemId]: true,
-      },
-    }))
-  }
-
-  const setOutputEnumField = (itemId: string, key: keyof BuildOutputProfile, rawValue: string) => {
-    updateOutputProfile(itemId, (current) => ({
-      ...(current ?? {}),
-      [key]: rawValue ? rawValue : undefined,
-    }))
-  }
-
-  const setControllerPowerPath = (rawValue: string) => {
-    updateControllerPowerProfile((current) => ({
-      ...(current ?? {}),
-      preferredPath: rawValue
-        ? rawValue as NonNullable<BuildControllerPowerProfile['preferredPath']>
-        : undefined,
-    }))
-  }
-
-  const setControllerPowerNotes = (rawValue: string) => {
-    updateControllerPowerProfile((current) => ({
-      ...(current ?? {}),
-      notes: rawValue.trim() ? rawValue : undefined,
-    }))
-  }
-
-  const setAssumptionNumberField = (key: keyof BuildAssumptions, rawValue: string) => {
-    updateAssumptions((current) => ({
-      ...(current ?? {}),
-      [key]: parseNumberInput(rawValue),
-    }))
-  }
-
-  const setAssumptionMaterial = (rawValue: string) => {
-    updateAssumptions((current) => ({
-      ...(current ?? {}),
-      conductorMaterial: rawValue === 'copper' || rawValue === 'cca' ? rawValue : undefined,
-    }))
-  }
-
-  const addOwnedSupply = () => {
-    updateOwnedParts((current) => {
-      const supplies = { ...(current?.supplies ?? {}) }
-      let index = Object.keys(supplies).length + 1
-      let id = `supply-${index}`
-      while (supplies[id]) {
-        index += 1
-        id = `supply-${index}`
-      }
-      supplies[id] = {
-        id,
-        label: `Supply ${index}`,
-        voltage: 5,
-        continuousCurrentMa: 20000,
-        wattage: 100,
-      }
-      return {
-        ...(current ?? {}),
-        supplies,
-      }
-    })
-  }
-
-  const updateOwnedSupply = (
-    supplyId: string,
-    recipe: (current: OwnedSupplyDeclaration | undefined) => OwnedSupplyDeclaration | undefined,
-  ) => {
-    updateOwnedParts((current) => {
-      const supplies = { ...(current?.supplies ?? {}) }
-      const nextSupply = recipe(supplies[supplyId])
-      if (nextSupply) supplies[supplyId] = nextSupply
-      else delete supplies[supplyId]
-      return {
-        ...(current ?? {}),
-        supplies: Object.keys(supplies).length > 0 ? supplies : undefined,
-      }
-    })
-  }
-
-  const removeOwnedSupply = (supplyId: string) => {
-    updateOwnedParts((current) => {
-      const supplies = { ...(current?.supplies ?? {}) }
-      delete supplies[supplyId]
-      const assignments = { ...(current?.supplyAssignments ?? {}) }
-      for (const [itemId, assignedSupplyId] of Object.entries(assignments)) {
-        if (assignedSupplyId === supplyId) delete assignments[itemId]
-      }
-      return {
-        ...(current ?? {}),
-        supplies: Object.keys(supplies).length > 0 ? supplies : undefined,
-        supplyAssignments: Object.keys(assignments).length > 0 ? assignments : undefined,
-      }
-    })
-  }
-
-  const setOwnedSupplyTextField = (supplyId: string, key: 'label', rawValue: string) => {
-    updateOwnedSupply(supplyId, (current) => ({
-      ...(current ?? { id: supplyId, voltage: 5, continuousCurrentMa: 20000 }),
-      [key]: rawValue.trim() ? rawValue : undefined,
-    }))
-  }
-
-  const setOwnedSupplyNumberField = (
-    supplyId: string,
-    key: 'voltage' | 'continuousCurrentMa' | 'wattage',
-    rawValue: string,
-  ) => {
-    updateOwnedSupply(supplyId, (current) => {
-      const parsed = parseNumberInput(rawValue)
-      if (key !== 'wattage' && parsed == null) return current
-      return {
-        ...(current ?? { id: supplyId, voltage: 5, continuousCurrentMa: 20000 }),
-        [key]: parsed,
-      }
-    })
-  }
-
-  const setSupplyAssignment = (itemId: string, supplyId: string) => {
-    updateOwnedParts((current) => {
-      const assignments = { ...(current?.supplyAssignments ?? {}) }
-      if (supplyId) assignments[itemId] = supplyId
-      else delete assignments[itemId]
-      return {
-        ...(current ?? {}),
-        supplyAssignments: Object.keys(assignments).length > 0 ? assignments : undefined,
-      }
-    })
   }
 
   const setAllVisible = () => {
@@ -886,35 +509,29 @@ export default function BuildDiagramWorkspace() {
     const boardPin = boardPinForGpio(exactBoard, pinUse.pin)
     return pinCount + (!boardPin || boardPin.availability === 'unavailable' ? 1 : 0)
   }, 0), 0)
-  const unconfirmedSignalConditioning = outputItems.filter((item) => buildProfile.signalConditioning?.[item.id] !== true)
   const signalReady = !!exactBoard
     && canRenderControllerPins
     && unresolvedSignalMappingCount === 0
-    && unconfirmedSignalConditioning.length === 0
   const readinessText = !exactBoard
     ? 'blocked by exact-board selection'
     : !canRenderControllerPins
       ? 'blocked because this exact board profile is still missing a reviewed physical pin map'
       : unresolvedSignalMappingCount > 0
         ? `needs review: ${unresolvedSignalMappingCount} controller pin mapping${unresolvedSignalMappingCount === 1 ? '' : 's'} unresolved`
-        : unconfirmedSignalConditioning.length > 0
-          ? `needs review: ${unconfirmedSignalConditioning.length} LED data route${unconfirmedSignalConditioning.length === 1 ? '' : 's'} still need the calculated level shifter and series resistor confirmed`
-          : 'all supported hardware maps cleanly and required LED signal conditioning is confirmed'
+        : 'all graph hardware maps cleanly; required signal conditioning is included automatically'
   const requirementsCalculatedText = electricalPlan.requirementsCalculatedText
   const buildReadyText = signalReady && electricalPlan.powerReadyPasses
     ? 'ready'
     : !signalReady
       ? 'blocked by Signal ready'
-      : 'blocked until Power ready passes'
-  const exportDraftStatus = planningBlockers.length > 0 || !signalReady || !electricalPlan.powerReadyPasses
+      : 'blocked by generated power-plan support'
+  const exportDraftStatus = !signalReady || !electricalPlan.powerReadyPasses
     ? 'Draft — unresolved build requirements'
     : 'Build reference — Signal and Power ready'
-  const exportDraftReason = planningBlockers.length > 0
-    ? 'Exports stay draft because Build Diagram is still missing installation facts required by the electrical plan.'
-    : !signalReady
+  const exportDraftReason = !signalReady
       ? 'Exports stay draft because controller-side signal mapping still needs review before the build reference is trustworthy.'
       : !electricalPlan.powerReadyPasses
-        ? 'Exports stay draft until declared supply, conductor, connector, fuse, injection, and controller power checks all pass.'
+        ? 'Exports stay draft only when the graph contains an electrical route the generated planner does not support.'
         : 'The exported reference includes the selected board confidence, calculation ruleset, connections, and parts plan.'
 
   const canvasWidth = 1120
@@ -1055,7 +672,7 @@ export default function BuildDiagramWorkspace() {
             <div className={styles.panelHeader}>
               <div>
                 <h2 className={styles.panelTitle}>Build Diagram</h2>
-                <p className={styles.panelSubtitle}>Physical hardware and installation facts for this project.</p>
+                <p className={styles.panelSubtitle}>Graph hardware in, complete recommended wiring out.</p>
               </div>
               <div className={styles.headerActions}>
                 <div className={styles.panelSizeControls}>
@@ -1096,38 +713,6 @@ export default function BuildDiagramWorkspace() {
               </p>
               <p className={styles.copyMuted}>
                 Exact physical board profiles stay separate from the compile target. Build Diagram needs the exact board before it can trust physical wiring.
-              </p>
-            </section>
-
-            <section className={styles.card}>
-              <h3 className={styles.cardTitle}>Controller power</h3>
-              <p className={styles.copyMuted}>
-                Choose the controller power path you expect to use. This does not size the power system yet, but it does record which voltage path later safety checks should validate.
-              </p>
-              <label className={styles.fieldBlock}>
-                <span className={styles.fieldLabel}>Preferred path</span>
-                <select
-                  className={styles.fieldInput}
-                  value={buildProfile.controllerPower?.preferredPath ?? ''}
-                  onChange={(event) => setControllerPowerPath(event.target.value)}
-                >
-                  <option value="">Not decided yet</option>
-                  {CONTROLLER_POWER_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label className={styles.fieldBlock}>
-                <span className={styles.fieldLabel}>Controller power notes</span>
-                <textarea
-                  className={styles.noteInput}
-                  rows={3}
-                  value={buildProfile.controllerPower?.notes ?? ''}
-                  onChange={(event) => setControllerPowerNotes(event.target.value)}
-                />
-              </label>
-              <p className={styles.copyMuted}>
-                USB is the currently validated controller path on manufacturer-reviewed boards. VIN, regulator, and converter paths stay blocked until matching reviewed profiles are added.
               </p>
             </section>
 
@@ -1207,14 +792,14 @@ export default function BuildDiagramWorkspace() {
                         {isStale && <span className={styles.staleNotice}>Wiring changed—recheck this connection.</span>}
                       </button>
                       <div className={styles.hardwareActions}>
-                        <button type="button" className={styles.smallButton} onClick={() => toggleVisibility(item.id)}>
-                          {isVisible ? 'Hide' : 'Show'}
+                        <button type="button" className={styles.iconButton} aria-label={isVisible ? `Hide ${item.title}` : `Show ${item.title}`} title={isVisible ? 'Hide' : 'Show'} onClick={() => toggleVisibility(item.id)}>
+                          <EyeIcon crossed={!isVisible} />
                         </button>
-                        <button type="button" className={styles.smallButton} onClick={() => setIsolatedItemId(isolatedItemId === item.id ? null : item.id)}>
-                          {isolatedItemId === item.id ? 'Unisolate' : 'Isolate'}
+                        <button type="button" className={`${styles.iconButton} ${isolatedItemId === item.id ? styles.iconButtonActive : ''}`} aria-label={isolatedItemId === item.id ? `Show all hardware around ${item.title}` : `Isolate ${item.title}`} title={isolatedItemId === item.id ? 'Show all' : 'Isolate'} onClick={() => setIsolatedItemId(isolatedItemId === item.id ? null : item.id)}>
+                          <IsolateIcon active={isolatedItemId === item.id} />
                         </button>
-                        <button type="button" className={`${styles.smallButton} ${isDone ? styles.smallButtonDone : ''}`} onClick={() => toggleDone(item)}>
-                          {isDone ? 'Done' : 'Mark done'}
+                        <button type="button" className={`${styles.iconButton} ${isDone ? styles.iconButtonDone : ''}`} aria-label={isDone ? `Mark ${item.title} unfinished` : `Mark ${item.title} done`} title={isDone ? 'Done' : 'Mark done'} onClick={() => toggleDone(item)}>
+                          <DoneIcon active={isDone} />
                         </button>
                       </div>
                     </div>
@@ -1248,375 +833,17 @@ export default function BuildDiagramWorkspace() {
               </div>
             </section>
 
-            {outputItems.length > 0 && (
-              <section className={styles.card}>
-                <h3 className={styles.cardTitle}>Physical install facts</h3>
-                <p className={styles.copyMuted}>
-                  Build Diagram already knows controller pins, route size, and chipset from the graph. Add the missing real-world strip length, density, and feed facts here so the electrical planner has something trustworthy to work from.
-                </p>
-                <div className={styles.outputFactList}>
-                  {outputItems.map((item) => {
-                    const profile = buildProfile.outputs?.[item.id]
-                    const topology = profile?.topology ?? inferredOutputTopology(item)
-                    const width = Number(item.facts.width ?? 0)
-                    const height = Number(item.facts.height ?? 0)
-                    const pixelCount = Number(item.facts.pixelCount ?? 0)
-                    const missingFactLabels = [
-                      profile?.physicalLengthMm == null ? 'physical length' : null,
-                      profile?.ledDensityPerMeter == null && profile?.pitchMm == null ? 'LED density or pitch' : null,
-                      profile?.feedCableLengthMm == null ? 'feed-cable length' : null,
-                    ].filter((entry): entry is string => !!entry)
-                    return (
-                      <section key={item.id} className={styles.outputFactCard}>
-                        <div className={styles.rowBetween}>
-                          <div>
-                            <h4 className={styles.subTitle}>{item.title}</h4>
-                            <p className={styles.copyMuted}>{item.subtitle}</p>
-                          </div>
-                          <span className={styles.progressPill}>{pixelCount} px</span>
-                        </div>
-                        <div className={styles.knownFactRow}>
-                          <span className={styles.knownFactChip}>{width}×{height}</span>
-                          <span className={styles.knownFactChip}>{String(item.facts.chipset ?? 'Unknown chipset')}</span>
-                          <span className={styles.knownFactChip}>{String(item.facts.layout ?? 'matrix')}</span>
-                        </div>
-                        <div className={styles.formGrid}>
-                          <label className={styles.fieldBlock}>
-                            <span className={styles.fieldLabel}>Topology</span>
-                            <select
-                              className={styles.fieldInput}
-                              value={topology}
-                              onChange={(event) => setOutputEnumField(item.id, 'topology', event.target.value)}
-                            >
-                              {OUTPUT_TOPOLOGY_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>{option.label}</option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className={styles.fieldBlock}>
-                            <span className={styles.fieldLabel}>Feed location</span>
-                            <select
-                              className={styles.fieldInput}
-                              value={profile?.intendedFeedLocation ?? 'start'}
-                              onChange={(event) => setOutputEnumField(item.id, 'intendedFeedLocation', event.target.value)}
-                            >
-                              {FEED_LOCATION_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>{option.label}</option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className={styles.fieldBlock}>
-                            <span className={styles.fieldLabel}>Physical length (mm)</span>
-                            <input
-                              className={styles.fieldInput}
-                              type="number"
-                              min="0"
-                              step="1"
-                              value={profile?.physicalLengthMm ?? ''}
-                              onChange={(event) => setOutputNumberField(item.id, 'physicalLengthMm', event.target.value)}
-                            />
-                          </label>
-                          <label className={styles.fieldBlock}>
-                            <span className={styles.fieldLabel}>LED density (/m)</span>
-                            <input
-                              className={styles.fieldInput}
-                              type="number"
-                              min="0"
-                              step="1"
-                              value={profile?.ledDensityPerMeter ?? ''}
-                              onChange={(event) => setOutputNumberField(item.id, 'ledDensityPerMeter', event.target.value)}
-                            />
-                          </label>
-                          <label className={styles.fieldBlock}>
-                            <span className={styles.fieldLabel}>Pitch (mm)</span>
-                            <input
-                              className={styles.fieldInput}
-                              type="number"
-                              min="0"
-                              step="0.1"
-                              value={profile?.pitchMm ?? ''}
-                              onChange={(event) => setOutputNumberField(item.id, 'pitchMm', event.target.value)}
-                            />
-                          </label>
-                          <label className={styles.fieldBlock}>
-                            <span className={styles.fieldLabel}>Feed cable length (mm)</span>
-                            <input
-                              className={styles.fieldInput}
-                              type="number"
-                              min="0"
-                              step="1"
-                              value={profile?.feedCableLengthMm ?? ''}
-                              onChange={(event) => setOutputNumberField(item.id, 'feedCableLengthMm', event.target.value)}
-                            />
-                          </label>
-                          <label className={styles.fieldBlock}>
-                            <span className={styles.fieldLabel}>Operating current cap (mA)</span>
-                            <input
-                              className={styles.fieldInput}
-                              type="number"
-                              min="0"
-                              step="100"
-                              value={profile?.desiredCurrentCapMa ?? ''}
-                              onChange={(event) => setOutputNumberField(item.id, 'desiredCurrentCapMa', event.target.value)}
-                            />
-                          </label>
-                          <label className={styles.fieldBlock}>
-                            <span className={styles.fieldLabel}>Confirmed injection points (mm)</span>
-                            <input
-                              className={styles.fieldInput}
-                              type="text"
-                              placeholder="0, 1250, 2500"
-                              value={(profile?.manualInjectionPoints ?? []).join(', ')}
-                              onChange={(event) => setOutputInjectionPoints(item.id, event.target.value)}
-                            />
-                          </label>
-                        </div>
-                        <label className={styles.fieldBlock}>
-                          <span className={styles.fieldLabel}>Install notes</span>
-                          <textarea
-                            className={styles.noteInput}
-                            rows={3}
-                            value={profile?.notes ?? ''}
-                            onChange={(event) => setOutputTextField(item.id, 'notes', event.target.value)}
-                          />
-                        </label>
-                        <label className={styles.fieldBlock}>
-                          <span className={styles.fieldLabel}>Assigned owned supply</span>
-                          <select
-                            className={styles.fieldInput}
-                            value={supplyAssignments[item.id] ?? ''}
-                            onChange={(event) => setSupplyAssignment(item.id, event.target.value)}
-                          >
-                            <option value="">Not assigned yet</option>
-                            {ownedSupplies.map((supply) => (
-                              <option key={supply.id} value={supply.id}>
-                                {supply.label ?? supply.id} · {formatVoltage(supply.voltage)} · {formatCurrentMa(supply.continuousCurrentMa)}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        {(() => {
-                          const plan = electricalPlan.outputs.find((entry) => entry.itemId === item.id)
-                          if (!plan) return null
-                          const assigned = !!buildProfile.ownedParts?.wireAssignments?.[item.id]
-                            && !!buildProfile.ownedParts?.connectorAssignments?.[item.id]
-                            && !!buildProfile.ownedParts?.fuseAssignments?.[item.id]
-                            && buildProfile.signalConditioning?.[item.id] === true
-                          return (
-                            <div className={styles.branchKitCallout}>
-                              <div>
-                                <strong>Calculated branch kit</strong>
-                                <p className={styles.copyMuted}>
-                                  {plan.conductor
-                                    ? `74AHCT125 + 330 ohm data resistor; AWG ${plan.conductor.awg} / ${plan.conductor.crossSectionMm2} mm2 ${plan.conductor.material}; ${formatCurrentMa(plan.connectorMinimumMa ?? 0)} connector; ${plan.fuse.ratingMa ? formatCurrentMa(plan.fuse.ratingMa) : 'fuse unresolved'}.`
-                                    : 'No reviewed conductor size meets the current assumptions.'}
-                                </p>
-                              </div>
-                              <button
-                                type="button"
-                                className={`${styles.smallButton} ${assigned ? styles.smallButtonDone : ''}`}
-                                disabled={!plan.conductor || !plan.connectorMinimumMa || !plan.fuse.ratingMa}
-                                onClick={() => adoptRecommendedBranchKit(item.id)}
-                              >
-                                {assigned ? 'Branch kit selected' : 'Use this branch kit'}
-                              </button>
-                            </div>
-                          )
-                        })()}
-                        {missingFactLabels.length > 0 && (
-                          <p className={styles.warningText}>
-                            Still needed for later power calculations: {missingFactLabels.join(', ')}.
-                          </p>
-                        )}
-                        <p className={styles.copyMuted}>
-                          Exact injection spacing remains unresolved without reviewed LED-product copper-path data; confirmed manual injection points can be entered below. Advanced environmental assumptions use conservative defaults unless changed.
-                        </p>
-                      </section>
-                    )
-                  })}
-                </div>
-              </section>
-            )}
-
             <section className={styles.card}>
-              <div className={styles.rowBetween}>
-                <div>
-                  <h3 className={styles.cardTitle}>Owned supplies</h3>
-                  <p className={styles.copyMuted}>
-                    Optional: record the LED power supplies you already have, then assign each output so Build Diagram can validate the conservative branch budget against real parts.
-                  </p>
-                </div>
-                <button type="button" className={styles.smallButton} onClick={addOwnedSupply}>
-                  Add supply
-                </button>
-              </div>
-              {ownedSupplies.length === 0 ? (
-                <p className={styles.copyMuted}>
-                  No owned supplies recorded yet. Requirements can still be calculated first; Power ready stays pending until explicit supply choices are entered and assigned.
-                </p>
-              ) : (
-                <div className={styles.outputFactList}>
-                  {ownedSupplies.map((supply) => (
-                    <section key={supply.id} className={styles.outputFactCard}>
-                      <div className={styles.rowBetween}>
-                        <div>
-                          <h4 className={styles.subTitle}>{supply.label ?? supply.id}</h4>
-                          <p className={styles.copyMuted}>
-                            Used by {(assignmentCountsBySupplyId[supply.id] ?? 0)} output{(assignmentCountsBySupplyId[supply.id] ?? 0) === 1 ? '' : 's'}.
-                          </p>
-                        </div>
-                        <button type="button" className={styles.smallButton} onClick={() => removeOwnedSupply(supply.id)}>
-                          Remove
-                        </button>
-                      </div>
-                      <div className={styles.formGrid}>
-                        <label className={styles.fieldBlock}>
-                          <span className={styles.fieldLabel}>Label</span>
-                          <input
-                            className={styles.fieldInput}
-                            type="text"
-                            value={supply.label ?? ''}
-                            onChange={(event) => setOwnedSupplyTextField(supply.id, 'label', event.target.value)}
-                          />
-                        </label>
-                        <label className={styles.fieldBlock}>
-                          <span className={styles.fieldLabel}>Voltage (V)</span>
-                          <input
-                            className={styles.fieldInput}
-                            type="number"
-                            min="0"
-                            step="0.1"
-                            value={supply.voltage}
-                            onChange={(event) => setOwnedSupplyNumberField(supply.id, 'voltage', event.target.value)}
-                          />
-                        </label>
-                        <label className={styles.fieldBlock}>
-                          <span className={styles.fieldLabel}>Continuous current (mA)</span>
-                          <input
-                            className={styles.fieldInput}
-                            type="number"
-                            min="0"
-                            step="100"
-                            value={supply.continuousCurrentMa}
-                            onChange={(event) => setOwnedSupplyNumberField(supply.id, 'continuousCurrentMa', event.target.value)}
-                          />
-                        </label>
-                        <label className={styles.fieldBlock}>
-                          <span className={styles.fieldLabel}>Wattage (W)</span>
-                          <input
-                            className={styles.fieldInput}
-                            type="number"
-                            min="0"
-                            step="0.1"
-                            value={supply.wattage ?? ''}
-                            onChange={(event) => setOwnedSupplyNumberField(supply.id, 'wattage', event.target.value)}
-                          />
-                        </label>
-                      </div>
-                    </section>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className={styles.card}>
-              <h3 className={styles.cardTitle}>Power-planning blockers</h3>
+              <h3 className={styles.cardTitle}>Generated from the graph</h3>
               <p className={styles.copyMuted}>
-                These are the missing facts currently preventing conductor, injection, or controller-power calculations from completing.
+                Confirm the exact controller board once. Build Diagram then chooses the controller power method,
+                signal conditioning, supply capacity, fused distribution, conductor size, and LED feed count for you.
               </p>
-              {planningBlockers.length === 0 ? (
-                <p className={styles.copy}>All currently expected planner inputs are captured.</p>
-              ) : (
-                <ul className={styles.flatList}>
-                  {planningBlockers.map((blocker) => (
-                    <li key={blocker.id}>
-                      <strong>{blocker.title}</strong>: {blocker.details.join(' ')}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            <section className={styles.card}>
-              <div className={styles.rowBetween}>
-                <div>
-                  <h3 className={styles.cardTitle}>Advanced assumptions</h3>
-                  <p className={styles.copyMuted}>
-                    Leave these blank to keep the reviewed conservative defaults. Open this only when you need to override the safety margins the future power planner will use.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className={styles.smallButton}
-                  onClick={() => setAdvancedAssumptionsOpen((current) => !current)}
-                >
-                  {advancedAssumptionsOpen ? 'Hide assumptions' : 'Show assumptions'}
-                </button>
-              </div>
-              {advancedAssumptionsOpen && (
-                <div className={styles.assumptionPanel}>
-                  <div className={styles.formGrid}>
-                    <label className={styles.fieldBlock}>
-                      <span className={styles.fieldLabel}>Conductor material</span>
-                      <select
-                        className={styles.fieldInput}
-                        value={buildProfile.assumptions?.conductorMaterial ?? ''}
-                        onChange={(event) => setAssumptionMaterial(event.target.value)}
-                      >
-                        <option value="">Reviewed default</option>
-                        <option value="copper">Copper</option>
-                        <option value="cca">CCA / copper-clad aluminium</option>
-                      </select>
-                    </label>
-                    <label className={styles.fieldBlock}>
-                      <span className={styles.fieldLabel}>Allowed voltage drop (%)</span>
-                      <input
-                        className={styles.fieldInput}
-                        type="number"
-                        min="0"
-                        step="0.1"
-                        value={buildProfile.assumptions?.allowedVoltageDropPercent ?? ''}
-                        onChange={(event) => setAssumptionNumberField('allowedVoltageDropPercent', event.target.value)}
-                      />
-                    </label>
-                    <label className={styles.fieldBlock}>
-                      <span className={styles.fieldLabel}>Ambient temperature (C)</span>
-                      <input
-                        className={styles.fieldInput}
-                        type="number"
-                        step="1"
-                        value={buildProfile.assumptions?.ambientC ?? ''}
-                        onChange={(event) => setAssumptionNumberField('ambientC', event.target.value)}
-                      />
-                    </label>
-                    <label className={styles.fieldBlock}>
-                      <span className={styles.fieldLabel}>Bundled circuits</span>
-                      <input
-                        className={styles.fieldInput}
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={buildProfile.assumptions?.bundledCircuits ?? ''}
-                        onChange={(event) => setAssumptionNumberField('bundledCircuits', event.target.value)}
-                      />
-                    </label>
-                    <label className={styles.fieldBlock}>
-                      <span className={styles.fieldLabel}>Supply headroom (%)</span>
-                      <input
-                        className={styles.fieldInput}
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={buildProfile.assumptions?.supplyHeadroomPercent ?? ''}
-                        onChange={(event) => setAssumptionNumberField('supplyHeadroomPercent', event.target.value)}
-                      />
-                    </label>
-                  </div>
-                  <p className={styles.copyMuted}>
-                    These assumptions immediately affect conductor sizing, connector limits, fuse recommendations, and supply minimums. They are hidden by default so casual setups stay on the reviewed conservative defaults.
-                  </p>
-                </div>
-              )}
+              <ol className={styles.generatedSteps}>
+                <li>Buy the parts listed in the generated BOM.</li>
+                <li>Wire each labelled terminal exactly as shown in the centre diagram.</li>
+                <li>Use the calculated fused-feed count; never power the LED load through the controller.</li>
+              </ol>
             </section>
 
             {manifest.unsupportedItems.length > 0 && (
@@ -1700,6 +927,7 @@ export default function BuildDiagramWorkspace() {
                 <PhysicalAssemblyDiagram
                   boardLabel={exactBoard.label}
                   items={visiblePrimaryItems}
+                  plan={electricalPlan}
                   exportScope="current-view"
                   selectedItemId={selectedItemId}
                   onSelectItem={setSelectedItemId}
@@ -1719,6 +947,7 @@ export default function BuildDiagramWorkspace() {
             <PhysicalAssemblyDiagram
               boardLabel={exactBoard.label}
               items={primaryItems}
+              plan={electricalPlan}
               exportScope="complete-build"
               selectedItemId="controller"
               onSelectItem={() => undefined}
@@ -1844,11 +1073,12 @@ export default function BuildDiagramWorkspace() {
             <section className={styles.card}>
               <h3 className={styles.cardTitle}>Readiness</h3>
               <ul className={styles.flatList}>
-                <li>Requirements inputs: {requirementsInputText}</li>
-                <li>Requirements calculated: {requirementsCalculatedText}</li>
-                <li>Signal ready: {readinessText}</li>
-                <li>Power ready: {electricalPlan.powerReadyText}</li>
-                <li>Build ready: {buildReadyText}</li>
+                <li>Graph hardware: captured automatically</li>
+                <li>Exact board: {exactBoard ? 'confirmed' : 'select one board profile'}</li>
+                <li>Wiring plan: {requirementsCalculatedText}</li>
+                <li>Signal plan: {readinessText}</li>
+                <li>Power plan: {electricalPlan.powerReadyText}</li>
+                <li>Build reference: {buildReadyText}</li>
               </ul>
             </section>
 
@@ -1907,12 +1137,12 @@ export default function BuildDiagramWorkspace() {
               <h3 className={styles.cardTitle}>Calculated requirements</h3>
               {electricalPlan.outputs.length === 0 ? (
                 <p className={styles.copyMuted}>
-                  Conservative supply/current requirements appear here once the exact board, controller power path, and output install facts are captured.
+                  The graph has no supported 5 V LED output requiring an external power plan.
                 </p>
               ) : (
                 <>
                   <p className={styles.copyMuted}>
-                    Conservative WS2812-class power summary for the currently supported Build Diagram scope. Wire, fuse, connector, and injection sizing still stay explicitly unresolved until the reviewed rule tables land.
+                    This is the hardware to use, calculated automatically from the graph. Ratings are conservative full-white design values, not questions for the user to answer.
                   </p>
                   {electricalPlan.totals && (
                     <ul className={styles.flatList}>
@@ -1921,9 +1151,9 @@ export default function BuildDiagramWorkspace() {
                         <li>Configured operating cap: {formatCurrentMa(electricalPlan.totals.operatingCurrentCapMa)}</li>
                       )}
                       <li>
-                        Minimum supply budget: {formatCurrentMa(electricalPlan.totals.recommendedSupplyCurrentMa)} continuous
-                        {' '}@ {electricalPlan.totals.nominalVoltage} V ({formatWattage(electricalPlan.totals.recommendedSupplyWattage)})
-                        {' '}with {electricalPlan.totals.headroomPercent}% headroom
+                        Buy {electricalPlan.totals.recommendedSupplyCount} × {electricalPlan.totals.nominalVoltage} V supply,
+                        {' '}at least {formatCurrentMa(electricalPlan.totals.perSupplyCurrentMa)} continuous each
+                        {' '}({formatWattage(electricalPlan.totals.recommendedSupplyWattage)} total capacity with {electricalPlan.totals.headroomPercent}% headroom)
                       </li>
                       {electricalPlan.controllerPowerPath && <li>Controller branch: {electricalPlan.controllerPowerPath}</li>}
                     </ul>
@@ -1934,21 +1164,19 @@ export default function BuildDiagramWorkspace() {
                         <div className={styles.rowBetween}>
                           <div>
                             <h4 className={styles.subTitle}>{output.title}</h4>
-                            <p className={styles.copyMuted}>{output.pixelCount} px · {output.topology} · feed at {output.feedLocation}</p>
+                            <p className={styles.copyMuted}>{output.pixelCount} px · {output.topology} · generated distributed power</p>
                           </div>
                           <span className={styles.progressPill}>{formatCurrentMa(output.designCurrentMa)}</span>
                         </div>
                         <ul className={styles.flatList}>
-                          <li>Physical length: {Math.round(output.physicalLengthMm)} mm</li>
-                          <li>Estimated LED density: {output.estimatedDensityPerMeter}/m ({output.estimatedPitchMm} mm pitch)</li>
-                          <li>Conservative current-per-metre: {formatCurrentMa(output.currentPerMeterMa)}</li>
-                          <li>Recommended branch supply budget: {formatCurrentMa(output.recommendedSupplyCurrentMa)} @ {output.nominalVoltage} V ({formatWattage(output.recommendedSupplyWattage)})</li>
+                          <li>Power feeds: {output.recommendedFeedCount} fused feeds, distributed evenly across the matrix</li>
+                          <li>Feed grouping: no more than approximately {output.pixelsPerFeed} pixels / {formatCurrentMa(output.branchDesignCurrentMa)} design load per feed</li>
+                          <li>Output supply budget: {formatCurrentMa(output.recommendedSupplyCurrentMa)} @ {output.nominalVoltage} V ({formatWattage(output.recommendedSupplyWattage)})</li>
                           {output.conductor && (
-                            <li>Feed conductor: AWG {output.conductor.awg} / {output.conductor.crossSectionMm2} mm2 {output.conductor.material}; {output.conductor.voltageDropPercent}% calculated drop</li>
+                            <li>Each feed conductor: AWG {output.conductor.awg} / {output.conductor.crossSectionMm2} mm2 {output.conductor.material} minimum</li>
                           )}
                           {output.connectorMinimumMa && <li>Connector minimum: {formatCurrentMa(output.connectorMinimumMa)} continuous</li>}
-                          {output.fuse.ratingMa && <li>Branch fuse: {formatCurrentMa(output.fuse.ratingMa)}</li>}
-                          <li>Injection: {output.injectionPointsMm.length > 0 ? output.injectionPointsMm.map((point) => `${point} mm`).join(', ') : 'unresolved - select an exact LED product or confirm points'}</li>
+                          {output.fuse.ratingMa && <li>Each feed fuse: {formatCurrentMa(output.fuse.ratingMa)}</li>}
                           {output.operatingCurrentCapMa != null && <li>Configured operating cap: {formatCurrentMa(output.operatingCurrentCapMa)}</li>}
                         </ul>
                       </section>
@@ -1991,84 +1219,6 @@ export default function BuildDiagramWorkspace() {
                     ))}
                   </ul>
                 </>
-              )}
-            </section>
-
-            <section className={styles.card}>
-              <h3 className={styles.cardTitle}>Owned supply validation</h3>
-              {electricalPlan.status === 'blocked' ? (
-                <p className={styles.copyMuted}>
-                  Supply validation unlocks after Requirements calculated has enough exact-board, controller-power, and installation facts to produce branch budgets.
-                </p>
-              ) : ownedSupplies.length === 0 ? (
-                <p className={styles.copyMuted}>
-                  Add at least one owned supply and assign every output to start validating actual LED power branches.
-                </p>
-              ) : electricalPlan.supplyChecks.length === 0 ? (
-                <p className={styles.copyMuted}>
-                  Assign each output to an owned supply to compare the conservative branch requirements against declared voltage and current ratings.
-                </p>
-              ) : (
-                <div className={styles.outputFactList}>
-                  {electricalPlan.supplyChecks.map((check) => (
-                    <section key={check.supplyId} className={styles.outputFactCard}>
-                      <div className={styles.rowBetween}>
-                        <div>
-                          <h4 className={styles.subTitle}>{check.label}</h4>
-                          <p className={styles.copyMuted}>
-                            {check.assignedOutputTitles.join(', ') || 'No assigned outputs'}
-                          </p>
-                        </div>
-                        <span className={styles.progressPill}>
-                          {check.issues.length === 0 ? 'Matches budget' : `${check.issues.length} issue${check.issues.length === 1 ? '' : 's'}`}
-                        </span>
-                      </div>
-                      <ul className={styles.flatList}>
-                        <li>Required branch budget: {formatCurrentMa(check.requiredCurrentMa)} @ {formatVoltage(check.requiredVoltage)} ({formatWattage(check.requiredWattage)})</li>
-                        <li>Declared supply: {formatCurrentMa(check.declaredCurrentMa)} @ {formatVoltage(check.declaredVoltage)}{check.declaredWattage != null ? ` (${formatWattage(check.declaredWattage)})` : ''}</li>
-                      </ul>
-                      {check.issues.length > 0 ? (
-                        <>
-                          <h4 className={styles.subTitle}>Issues</h4>
-                          <ul className={styles.flatList}>
-                            {check.issues.map((issue) => (
-                              <li key={issue.id}>{issue.detail}</li>
-                            ))}
-                          </ul>
-                        </>
-                      ) : (
-                        <p className={styles.copyMuted}>
-                          This declared supply meets the current conservative current and voltage budget for its assigned outputs. Wire, fuse, connector, and controller-branch validation still remain separate gates.
-                        </p>
-                      )}
-                    </section>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className={styles.card}>
-              <h3 className={styles.cardTitle}>Branch validation</h3>
-              {electricalPlan.status === 'blocked' ? (
-                <p className={styles.copyMuted}>Branch validation unlocks after the required installation facts are complete.</p>
-              ) : electricalPlan.branchChecks.length === 0 ? (
-                <p className={styles.copyMuted}>Select the calculated branch kit for each output and confirm its injection points.</p>
-              ) : (
-                <div className={styles.outputFactList}>
-                  {electricalPlan.branchChecks.map((check) => (
-                    <section key={check.itemId} className={styles.outputFactCard}>
-                      <div className={styles.rowBetween}>
-                        <h4 className={styles.subTitle}>{check.title}</h4>
-                        <span className={styles.progressPill}>{check.issues.length === 0 ? 'Passes' : `${check.issues.length} issues`}</span>
-                      </div>
-                      {check.issues.length === 0 ? (
-                        <p className={styles.copyMuted}>Declared conductor, connector, branch fuse, and injection plan meet the calculated minimums.</p>
-                      ) : (
-                        <ul className={styles.flatList}>{check.issues.map((issue) => <li key={issue.id}>{issue.detail}</li>)}</ul>
-                      )}
-                    </section>
-                  ))}
-                </div>
               )}
             </section>
 

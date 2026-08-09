@@ -239,6 +239,55 @@
   gap: 8px;
 }
 
+.iconButton {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  padding: 8px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--border-glow) 78%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg-panel) 82%, rgba(255, 255, 255, 0.03));
+  color: var(--text-secondary);
+}
+
+.iconButton svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.iconButton:hover,
+.iconButtonActive {
+  border-color: var(--accent-output);
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--accent-output) 16%, var(--bg-panel));
+}
+
+.iconButtonDone {
+  border-color: #65c956;
+  color: #bff5b7;
+  background: rgba(101, 201, 86, 0.14);
+}
+
+.iconFill {
+  fill: currentColor;
+  fill-opacity: 0.18;
+}
+
+.generatedSteps {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding-left: 22px;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
 .outputFactList {
   display: flex;
   flex-direction: column;
@@ -876,6 +925,19 @@
   fill: none;
   stroke: #4358dc;
   stroke-width: 4;
+}
+
+.logicPowerWire {
+  fill: none;
+  stroke: #4a63df;
+  stroke-width: 4;
+}
+
+.physicalWireLabel {
+  fill: #596164;
+  font-family: var(--font-code);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .dimWire {

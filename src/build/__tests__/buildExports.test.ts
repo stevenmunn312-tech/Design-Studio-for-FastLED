@@ -50,11 +50,12 @@ describe('buildExports', () => {
 
     expect(connectionRows).toEqual(expect.arrayContaining([
       expect.objectContaining({ fromTerminal: 'GPIO 14', to: 'Matrix Output' }),
-      expect.objectContaining({ from: 'LED supply / distribution', purpose: 'Direct LED load power' }),
+      expect.objectContaining({ from: 'Fused LED power distribution', purpose: 'Direct distributed LED load power' }),
     ]))
     expect(bomRows).toEqual(expect.arrayContaining([
-      expect.objectContaining({ item: 'Matrix Output branch fuse', status: 'calculated' }),
-      expect.objectContaining({ item: 'Matrix Output injection feeds', status: 'configured' }),
+      expect.objectContaining({ quantity: '4', item: 'Matrix Output branch fuse', status: 'calculated' }),
+      expect.objectContaining({ quantity: '4', item: 'Matrix Output distributed feed points', status: 'calculated' }),
+      expect.objectContaining({ item: '5 V DC power supply', status: 'calculated' }),
     ]))
     expect(connectionsCsv(connectionRows)).toContain('Common ground reference')
     expect(bomCsv(bomRows)).toContain('Matrix Output branch fuse')

@@ -5,16 +5,16 @@ import { calculateElectricalPlan } from '../electricalPlan'
 import { buildHardwareManifest } from '../hardwareManifest'
 import type { StudioNode } from '../../state/graphStore'
 
-function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
+function outputNode(width = 16, height = 16, extra: Record<string, unknown> = {}): StudioNode {
   return {
-    id,
+    id: 'out',
     type: 'studioNode',
     position: { x: 0, y: 0 },
     data: {
-      label: nodeType === 'MatrixOutput' ? 'Matrix Output' : nodeType,
-      nodeType,
-      category: nodeType === 'MatrixOutput' ? 'output' : 'input',
-      properties,
+      label: 'Matrix Output',
+      nodeType: 'MatrixOutput',
+      category: 'output',
+      properties: { width, height, chipset: 'WS2812B', dataPin: 14, ...extra },
       inputs: [],
       outputs: [],
     },
@@ -22,257 +22,111 @@ function node(id: string, nodeType: string, properties: Record<string, unknown> 
 }
 
 describe('electricalPlan', () => {
-  it('stays blocked while exact-board, controller-power, and install facts are missing', () => {
-    const manifest = buildHardwareManifest([
-      node('out', 'MatrixOutput', { width: 16, height: 16, chipset: 'WS2812B', dataPin: 14 }),
-    ], [], 'esp32:esp32:esp32s3')
-
+  it('generates the complete recommendation from graph hardware before board confirmation', () => {
+    const manifest = buildHardwareManifest([outputNode()], [], 'esp32:esp32:esp32s3')
     const plan = calculateElectricalPlan(manifest, ensureBuildProfile(undefined), undefined)
 
     expect(plan.status).toBe('blocked')
-    expect(plan.requirementsCalculatedText).toBe('blocked by 5 missing planner inputs')
-    expect(plan.blockers.map((entry) => entry.id)).toEqual([
-      'exact-board',
-      'controller-power',
-      'output:out:length',
-      'output:out:density',
-      'output:out:feed',
-    ])
-    expect(plan.outputs).toHaveLength(0)
-  })
-
-  it('calculates a conservative WS2812-class supply summary once the required facts are present', () => {
-    const manifest = buildHardwareManifest([
-      node('out', 'MatrixOutput', {
-        width: 16,
-        height: 16,
-        chipset: 'WS2812B',
-        dataPin: 14,
-        powerLimit: true,
-        milliamps: 9000,
-      }),
-    ], [], 'esp32:esp32:esp32s3')
-
-    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({
-      version: 1,
-      physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1',
-      controllerPower: { preferredPath: 'usb' },
-      outputs: {
-        'output:out': {
-          physicalLengthMm: 2500,
-          ledDensityPerMeter: 60,
-          feedCableLengthMm: 500,
-          intendedFeedLocation: 'start',
-          topology: 'matrix',
-        },
-      },
-    }), boardProfileById('espressif-esp32-s3-devkitc-1'))
-
-    expect(plan.status).toBe('calculated')
-    expect(plan.requirementsCalculatedText).toContain('calculated with build-rules-')
-    expect(plan.controllerPowerPath).toBe('USB power')
-    expect(plan.blockers).toHaveLength(0)
+    expect(plan.blockers.map((entry) => entry.id)).toEqual(['exact-board'])
+    expect(plan.requirementsCalculatedText).toBe('waiting for exact-board confirmation')
     expect(plan.outputs).toEqual([
       expect.objectContaining({
-        itemId: 'output:out',
         pixelCount: 256,
-        physicalLengthMm: 2500,
-        estimatedDensityPerMeter: 60,
-        estimatedPitchMm: 16.7,
-        currentPerMeterMa: 3600,
         designCurrentMa: 15360,
-        operatingCurrentCapMa: 9000,
+        recommendedFeedCount: 4,
+        pixelsPerFeed: 64,
+        branchDesignCurrentMa: 3840,
         recommendedSupplyCurrentMa: 19200,
-        recommendedSupplyWattage: 96,
-        conductor: expect.objectContaining({ awg: 14, crossSectionMm2: 2 }),
-        connectorMinimumMa: 30000,
-        fuse: expect.objectContaining({ ratingMa: 25000 }),
+        conductor: expect.objectContaining({ awg: 20, crossSectionMm2: 0.5 }),
+        connectorMinimumMa: 7500,
+        fuse: expect.objectContaining({ ratingMa: 7500 }),
       }),
     ])
-    expect(plan.totals).toEqual(expect.objectContaining({
-      designCurrentMa: 15360,
-      operatingCurrentCapMa: 9000,
-      recommendedSupplyCurrentMa: 19200,
-      recommendedSupplyWattage: 96,
-      nominalVoltage: 5,
-      headroomPercent: 25,
-    }))
-    expect(plan.unresolved).toHaveLength(1)
-    expect(plan.unresolved[0]).toContain('injection spacing')
+    expect(plan.unresolved).toEqual([])
   })
 
-  it('keeps Power ready pending until owned LED supplies are declared', () => {
-    const manifest = buildHardwareManifest([
-      node('out', 'MatrixOutput', { width: 16, height: 16, chipset: 'WS2812B', dataPin: 14 }),
-    ], [], 'esp32:esp32:esp32s3')
-
-    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({
-      version: 1,
-      physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1',
-      controllerPower: { preferredPath: 'usb' },
-      outputs: {
-        'output:out': {
-          physicalLengthMm: 2500,
-          ledDensityPerMeter: 60,
-          feedCableLengthMm: 500,
-        },
-      },
-    }), boardProfileById('espressif-esp32-s3-devkitc-1'))
+  it('becomes ready immediately after exact-board confirmation', () => {
+    const manifest = buildHardwareManifest([outputNode()], [], 'esp32:esp32:esp32s3')
+    const board = boardProfileById('espressif-esp32-s3-devkitc-1')
+    const profile = ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id })
+    const plan = calculateElectricalPlan(manifest, profile, board)
 
     expect(plan.status).toBe('calculated')
-    expect(plan.powerReadyText).toBe('needs review: 6 power-path issues')
-    expect(plan.supplyChecks).toEqual([])
-  })
-
-  it('validates assigned owned supplies against the conservative branch budget', () => {
-    const manifest = buildHardwareManifest([
-      node('out', 'MatrixOutput', { width: 16, height: 16, chipset: 'WS2812B', dataPin: 14 }),
-    ], [], 'esp32:esp32:esp32s3')
-
-    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({
-      version: 1,
-      physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1',
-      controllerPower: { preferredPath: 'usb' },
-      outputs: {
-        'output:out': {
-          physicalLengthMm: 2500,
-          ledDensityPerMeter: 60,
-          feedCableLengthMm: 500,
-        },
-      },
-      ownedParts: {
-        supplies: {
-          'supply-1': {
-            id: 'supply-1',
-            label: 'Bench 5V',
-            voltage: 5,
-            continuousCurrentMa: 20000,
-            wattage: 100,
-          },
-        },
-        supplyAssignments: {
-          'output:out': 'supply-1',
-        },
-      },
-    }), boardProfileById('espressif-esp32-s3-devkitc-1'))
-
-    expect(plan.powerReadyText).toBe('needs review: 4 power-path issues')
-    expect(plan.supplyChecks).toEqual([
-      expect.objectContaining({
-        supplyId: 'supply-1',
-        label: 'Bench 5V',
-        requiredVoltage: 5,
-        requiredCurrentMa: 19200,
-        requiredWattage: 96,
-        declaredVoltage: 5,
-        declaredCurrentMa: 20000,
-        declaredWattage: 100,
-        issues: [],
-      }),
-    ])
-  })
-
-  it('flags assigned owned supplies that do not meet voltage or current requirements', () => {
-    const manifest = buildHardwareManifest([
-      node('out', 'MatrixOutput', { width: 16, height: 16, chipset: 'WS2812B', dataPin: 14 }),
-    ], [], 'esp32:esp32:esp32s3')
-
-    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({
-      version: 1,
-      physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1',
-      controllerPower: { preferredPath: 'usb' },
-      outputs: {
-        'output:out': {
-          physicalLengthMm: 2500,
-          ledDensityPerMeter: 60,
-          feedCableLengthMm: 500,
-        },
-      },
-      ownedParts: {
-        supplies: {
-          'supply-1': {
-            id: 'supply-1',
-            label: 'Tiny 12V Brick',
-            voltage: 12,
-            continuousCurrentMa: 5000,
-            wattage: 40,
-          },
-        },
-        supplyAssignments: {
-          'output:out': 'supply-1',
-        },
-      },
-    }), boardProfileById('espressif-esp32-s3-devkitc-1'))
-
-    expect(plan.powerReadyText).toBe('needs review: 7 power-path issues')
-    expect(plan.supplyChecks[0]?.issues.map((issue) => issue.id)).toEqual([
-      'supply-1:voltage',
-      'supply-1:current',
-      'supply-1:wattage',
-    ])
-  })
-
-  it('prefers the Build Diagram operating-current cap over the node-derived cap', () => {
-    const manifest = buildHardwareManifest([
-      node('out', 'MatrixOutput', {
-        width: 16,
-        height: 16,
-        chipset: 'WS2812B',
-        dataPin: 14,
-        powerLimit: true,
-        milliamps: 9000,
-      }),
-    ], [], 'esp32:esp32:esp32s3')
-
-    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({
-      version: 1,
-      physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1',
-      controllerPower: { preferredPath: 'usb' },
-      outputs: {
-        'output:out': {
-          physicalLengthMm: 2500,
-          ledDensityPerMeter: 60,
-          feedCableLengthMm: 500,
-          desiredCurrentCapMa: 7500,
-        },
-      },
-    }), boardProfileById('espressif-esp32-s3-devkitc-1'))
-
-    expect(plan.outputs[0]?.operatingCurrentCapMa).toBe(7500)
-    expect(plan.totals?.operatingCurrentCapMa).toBe(7500)
-  })
-
-  it('passes Power ready only when the complete declared branch meets the calculated plan', () => {
-    const manifest = buildHardwareManifest([
-      node('out', 'MatrixOutput', { width: 16, height: 16, chipset: 'WS2812B', dataPin: 14 }),
-    ], [], 'esp32:esp32:esp32s3')
-    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({
-      version: 1,
-      physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1',
-      controllerPower: { preferredPath: 'usb' },
-      outputs: {
-        'output:out': {
-          physicalLengthMm: 2500,
-          ledDensityPerMeter: 60,
-          feedCableLengthMm: 500,
-          manualInjectionPoints: ['0', '2500'],
-        },
-      },
-      ownedParts: {
-        supplies: { psu: { id: 'psu', voltage: 5, continuousCurrentMa: 20000, wattage: 100 } },
-        wires: { wire: { id: 'wire', gaugeAwg: 14, crossSectionMm2: 2, conductorMaterial: 'copper' } },
-        connectors: { connector: { id: 'connector', continuousCurrentMa: 30000 } },
-        fuses: { fuse: { id: 'fuse', ratingMa: 25000 } },
-        supplyAssignments: { 'output:out': 'psu' },
-        wireAssignments: { 'output:out': 'wire' },
-        connectorAssignments: { 'output:out': 'connector' },
-        fuseAssignments: { 'output:out': 'fuse' },
-      },
-    }), boardProfileById('espressif-esp32-s3-devkitc-1'))
-
-    expect(plan.branchChecks[0]?.issues).toEqual([])
-    expect(plan.supplyChecks[0]?.issues).toEqual([])
+    expect(plan.requirementsCalculatedText).toContain('generated from graph with build-rules-')
+    expect(plan.controllerPowerPath).toBe('USB-C power (controller only)')
     expect(plan.powerReadyPasses).toBe(true)
-    expect(plan.powerReadyText).toContain('ready:')
+    expect(plan.powerReadyText).toContain('recommended supply')
+    expect(plan.supplyChecks).toEqual([])
+    expect(plan.branchChecks).toEqual([])
+  })
+
+  it('splits large matrices into practical feeds and multiple supplies automatically', () => {
+    const manifest = buildHardwareManifest([outputNode(64, 64)], [], 'esp32:esp32:esp32s3')
+    const board = boardProfileById('espressif-esp32-s3-devkitc-1')
+    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id }), board)
+
+    expect(plan.outputs[0]).toEqual(expect.objectContaining({
+      pixelCount: 4096,
+      designCurrentMa: 245760,
+      recommendedFeedCount: 62,
+      pixelsPerFeed: 67,
+    }))
+    expect(plan.totals).toEqual(expect.objectContaining({
+      recommendedSupplyCurrentMa: 307200,
+      recommendedSupplyWattage: 1536,
+      recommendedSupplyCount: 6,
+      perSupplyCurrentMa: 52000,
+    }))
+  })
+
+  it('shows a firmware cap separately without weakening physical recommendations', () => {
+    const manifest = buildHardwareManifest([outputNode(16, 16, { powerLimit: true, milliamps: 9000 })], [], 'esp32:esp32:esp32s3')
+    const board = boardProfileById('espressif-esp32-s3-devkitc-1')
+    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id }), board)
+
+    expect(plan.outputs[0]?.operatingCurrentCapMa).toBe(9000)
+    expect(plan.outputs[0]?.designCurrentMa).toBe(15360)
+    expect(plan.totals?.recommendedSupplyCurrentMa).toBe(19200)
+  })
+
+  it('ignores obsolete planner answers and always regenerates from graph hardware', () => {
+    const manifest = buildHardwareManifest([outputNode()], [], 'esp32:esp32:esp32s3')
+    const board = boardProfileById('espressif-esp32-s3-devkitc-1')
+    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({
+      version: 1,
+      physicalBoardProfileId: board?.id,
+      outputs: {
+        'output:out': {
+          physicalLengthMm: 99_000,
+          ledDensityPerMeter: 1,
+          feedCableLengthMm: 25_000,
+          desiredCurrentCapMa: 100,
+        },
+      },
+      assumptions: {
+        supplyHeadroomPercent: 1,
+        allowedVoltageDropPercent: 99,
+      },
+    }), board)
+
+    expect(plan.outputs[0]).toEqual(expect.objectContaining({
+      physicalLengthMm: 4267,
+      estimatedDensityPerMeter: 60,
+      operatingCurrentCapMa: undefined,
+      recommendedSupplyCurrentMa: 19200,
+      recommendedFeedCount: 4,
+    }))
+    expect(plan.totals?.headroomPercent).toBe(25)
+  })
+
+  it('keeps reduced-confidence boards usable while warning against board-powered LED loads', () => {
+    const manifest = buildHardwareManifest([outputNode()], [], 'esp32:esp32:esp32s3')
+    const board = boardProfileById('generic-esp32-s3-n16r8-44pin-dual-usbc')
+    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id }), board)
+
+    expect(plan.powerReadyPasses).toBe(true)
+    expect(plan.warnings).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'board-power-confidence' }),
+    ]))
   })
 })
