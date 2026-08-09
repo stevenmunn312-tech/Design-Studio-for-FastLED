@@ -24,7 +24,7 @@ import {
 import { inputClampRange, bypassPort, CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, CORRECTION_OPTIONS, SPI_CHIPSETS, HUB75_CHIPSET, resolveNodeScalarExpressions } from '../state/nodeLibrary'
 import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledShims'
 import { particleRadius } from '../state/particleScale'
-import { buildXYTable } from '../state/xyLayout'
+import { buildXYTable, rotatePoint, tileRotationAt } from '../state/xyLayout'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette, type RGB } from '../state/customPalette'
 import { animartrixCppLines } from '../animartrix/codegen'
 import { compositionDims, outputRoutes } from '../state/outputRouting'
@@ -436,6 +436,9 @@ export interface Hub75Hardware {
   panelResY: number
   chainLength: number
   virtualGrid: Hub75VirtualGrid | null
+  // Logical (x, y) -> display-space (x, y) remap for per-panel tileRotations,
+  // packed as y<<8 | x (MatrixOutput dimensions clamp to <=64).
+  coordMap: number[] | null
   pins: {
     r1: number; g1: number; b1: number; r2: number; g2: number; b2: number
     a: number; b: number; c: number; d: number; e: number
@@ -445,18 +448,43 @@ export interface Hub75Hardware {
   brightness: number
 }
 
+function hub75CoordMapFromProps(
+  p: Record<string, unknown>,
+  width: number,
+  height: number,
+  tilesX: number,
+  tilesY: number,
+): number[] | null {
+  if (String(p.layout ?? 'matrix') !== 'panels') return null
+  if (width % tilesX !== 0 || height % tilesY !== 0) return null
+  const tileW = width / tilesX
+  const tileH = height / tilesY
+  const map = new Array<number>(width * height)
+  let needsMap = false
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const tx = Math.floor(x / tileW)
+      const ty = Math.floor(y / tileH)
+      const lx = x - tx * tileW
+      const ly = y - ty * tileH
+      const deg = tileRotationAt(p, ty * tilesX + tx)
+      if (deg !== 0) needsMap = true
+      const r = rotatePoint(lx, ly, tileW, tileH, deg)
+      map[y * width + x] = ((ty * tileH + r.y) << 8) | (tx * tileW + r.x)
+    }
+  }
+  return needsMap ? map : null
+}
+
 /** Resolve + sanitise a MatrixOutput node's HUB75 properties. `width`/`height`
- *  are the composed matrix's dimensions; for `layout: 'panels'` (enforced by
- *  validateGraph.ts's findHub75ConfigIssues to have no per-panel rotation —
- *  `VirtualMatrixPanel_T` has no equivalent to that), `width`/`height` split
- *  evenly across `tilesX`×`tilesY` chained panels. A single row
- *  (`tilesY === 1`) needs no wrapper at all: the DMA library's base class
- *  already addresses that whole chain directly
- *  (`PIXELS_PER_ROW = mx_width * chain_length`), so virtual (x, y) IS
- *  physical (x, y) and every per-pixel draw loop in cppGenerator.ts/
- *  wiringDiagnosticGenerator.ts/streamReceiverGenerator.ts/showGenerator.ts/
- *  playerSketchGenerator.ts stays unchanged, targeting whichever display
- *  object `hub75DisplayVar` names. `hub75EPin` is only meaningful when
+ *  are the composed matrix's dimensions; for `layout: 'panels'`,
+ *  `width`/`height` split evenly across `tilesX`×`tilesY` chained panels. A
+ *  single row (`tilesY === 1`) needs no wrapper at all: the DMA library's base
+ *  class already addresses that whole chain directly
+ *  (`PIXELS_PER_ROW = mx_width * chain_length`). A folded 2D grid
+ *  (`tilesY > 1`) uses `VirtualMatrixPanel_T` for the chain routing, and an
+ *  optional coordMap handles this app's independent per-panel tileRotations on
+ *  top of that virtual display. `hub75EPin` is only meaningful when
  *  `hub75WideScan` is on — the DMA library's own convention for "unused" is
  *  -1, matching its documented default pinout. Fallback pin numbers MUST
  *  match nodeLibrary.ts's MatrixOutput defaultProperties exactly (kept in
@@ -485,6 +513,7 @@ export function hub75HardwareFromProps(p: Record<string, unknown>, width: number
     panelResY,
     chainLength,
     virtualGrid: tilesY > 1 ? { rows: tilesY, cols: tilesX, chainType } : null,
+    coordMap: hub75CoordMapFromProps(p, width, height, tilesX, tilesY),
     pins: {
       r1: sanitizePin(p.hub75R1Pin, 1), g1: sanitizePin(p.hub75G1Pin, 2), b1: sanitizePin(p.hub75B1Pin, 3),
       r2: sanitizePin(p.hub75R2Pin, 4), g2: sanitizePin(p.hub75G2Pin, 5), b2: sanitizePin(p.hub75B2Pin, 12),
@@ -513,6 +542,7 @@ export function hub75GlobalsCpp(hw: Hub75Hardware): string[] {
   return [
     'MatrixPanel_I2S_DMA *dma_display = nullptr;',
     ...(hw.virtualGrid ? [`VirtualMatrixPanel_T<${hw.virtualGrid.chainType}> *hub75Virtual = nullptr;`] : []),
+    ...(hw.coordMap ? ['const uint16_t _hub75CoordMap[NUM_LEDS] PROGMEM = { ' + hw.coordMap.join(',') + ' };'] : []),
   ]
 }
 
@@ -521,6 +551,27 @@ export function hub75GlobalsCpp(hw: Hub75Hardware): string[] {
  *  display internally), otherwise the base DMA display directly. */
 export function hub75DisplayVar(hw: Hub75Hardware): string {
   return hw.virtualGrid ? 'hub75Virtual' : 'dma_display'
+}
+
+/** Emit the row-major CRGB -> HUB75 blit. When per-panel tileRotations are in
+ *  play, `_hub75CoordMap` remaps each logical pixel into the correct panel-
+ *  local rotated coordinate before handing it to the DMA display object. */
+export function hub75BlitRowsCpp(hw: Hub75Hardware, srcExpr = 'leds[_y * WIDTH + _x]'): string[] {
+  const display = hub75DisplayVar(hw)
+  const lines = [
+    '  for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {',
+    `    CRGB _c = ${srcExpr};`,
+  ]
+  if (hw.coordMap) {
+    lines.push(
+      '    uint16_t _hub75XY = pgm_read_word(&_hub75CoordMap[_y * WIDTH + _x]);',
+      `    ${display}->drawPixelRGB888(_hub75XY & 0xFF, _hub75XY >> 8, _c.r, _c.g, _c.b);`,
+    )
+  } else {
+    lines.push(`    ${display}->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);`)
+  }
+  lines.push('  }')
+  return lines
 }
 
 /** setup() lines initialising the DMA display: pin struct, HUB75_I2S_CFG,
@@ -5063,11 +5114,7 @@ export function generateCpp(
           if (!src) {
             ln(`  dma_display->clearScreen();`)
           } else {
-            const hub75Disp = hub75DisplayVar(hub75Hw!)
-            ln(`  for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
-            ln(`    CRGB _c = ${src}[_y * WIDTH + _x];`)
-            ln(`    ${hub75Disp}->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);`)
-            ln(`  }`)
+            for (const line of hub75BlitRowsCpp(hub75Hw!, `${src}[_y * WIDTH + _x]`)) ln(line)
           }
           break
         }

@@ -588,17 +588,14 @@ export interface Hub75ConfigIssue {
   message: string
 }
 
-// cppGenerator.ts's HUB75 codegen (docs/development/design/hub75-output.md)
-// is scoped to a single Matrix Output route and no supersampling — a second
-// output route or supersampling would need HUB75-specific handling
-// cppGenerator.ts's shared codepaths (addLeds<>()-shaped) don't have. Layout
-// is either 'matrix' (one panel) or 'panels' (a single-row or folded 2D chain
-// of panels — a single row needs no wrapper, since the DMA library's base
-// MatrixPanel_I2S_DMA class already addresses a horizontal chain directly;
-// a 2D grid uses its separate VirtualMatrixPanel_T wrapper — both confirmed
-// against the real header/source at the vendored tag). Per-panel rotation
-// still isn't supported for HUB75 either way — VirtualMatrixPanel_T's chain
-// topology has no equivalent to our independent per-panel rotation model.
+// HUB75 is a deliberately single-route output family: if a board is driving a
+// HUB75 panel, this project does not also support an addressable-strip output
+// on that same board. Supersampling is still unsupported too. Layout is either
+// 'matrix' (one panel) or 'panels' (a single-row or folded 2D chain). Per-
+// panel rotation is now supported by a generated coordinate remap layered on
+// top of the DMA library's own chain routing, with one remaining shape guard:
+// 90°/270° quarter-turns only make sense when each panel tile is square,
+// because the library's panel resolution is fixed per chain.
 // Block every other combination rather than silently generating a broken
 // sketch.
 //
@@ -606,8 +603,9 @@ export interface Hub75ConfigIssue {
 // HUB75 support (generateCpp, generateWiringDiagnosticSketch,
 // generateStreamReceiverSketch, generateShowSketch, and
 // playerSketchGenerator), so this gate only needs to cover config shapes
-// none of them can emit yet (multi-route, unsupported layout, rotation,
-// supersample) — not which generator a given graph would reach.
+// none of them can emit yet (mixed-output HUB75, unsupported layout, non-
+// square quarter-turns, supersample) — not which generator a given graph would
+// reach.
 export function findHub75ConfigIssues(nodes: StudioNode[]): Hub75ConfigIssue[] {
   const issues: Hub75ConfigIssue[] = []
   const matrixOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
@@ -620,7 +618,7 @@ export function findHub75ConfigIssues(nodes: StudioNode[]): Hub75ConfigIssue[] {
     if (!singleOutput) {
       issues.push({
         nodeId: output.id, label,
-        message: `${label} is set to HUB75, which only supports a single Matrix Output route for now — remove the other output route(s), or switch this one to an addressable chipset.`,
+        message: `${label} is set to HUB75, which only supports a single Matrix Output route by design — remove the other output route(s), or switch this one to an addressable chipset.`,
       })
       return
     }
@@ -628,11 +626,15 @@ export function findHub75ConfigIssues(nodes: StudioNode[]): Hub75ConfigIssue[] {
     if (layout === 'panels') {
       const tilesY = Math.max(1, Math.round(Number(props.tilesY ?? 1)))
       const tilesX = Math.max(1, Math.round(Number(props.tilesX ?? 1)))
-      const rotated = Array.from({ length: tilesX * tilesY }, (_, i) => tileRotationAt(props, i)).some((r) => r !== 0)
-      if (rotated) {
+      const width = Math.max(0, Math.round(Number(props.width ?? 0)))
+      const height = Math.max(0, Math.round(Number(props.height ?? 0)))
+      const tileW = width % tilesX === 0 ? width / tilesX : 0
+      const tileH = height % tilesY === 0 ? height / tilesY : 0
+      const quarterTurn = Array.from({ length: tilesX * tilesY }, (_, i) => tileRotationAt(props, i)).some((r) => r === 90 || r === 270)
+      if (quarterTurn && tileW > 0 && tileH > 0 && tileW !== tileH) {
         issues.push({
           nodeId: output.id, label,
-          message: `${label} is set to HUB75, which doesn't support per-panel rotation in a chain yet — clear the panel rotations, or use an addressable chipset.`,
+          message: `${label} is set to HUB75, which only supports 90°/270° per-panel rotation when each panel tile is square — use square panel tiles, change those panels to 0°/180°, or use an addressable chipset.`,
         })
         return
       }
@@ -900,9 +902,9 @@ export function buildGraphDiagnostics(
     if (hub75Issue) {
       diagnostics.push({
         id: `${matrixOutput.id}-hub75-config`, severity: 'error', category: 'layout',
-        title: 'HUB75 configuration is not supported yet',
+        title: 'HUB75 configuration is not supported',
         message: hub75Issue.message,
-        fix: 'Switch to an addressable chipset, or adjust the HUB75 route to a single Matrix Output, layout: Matrix, with Supersample off.',
+        fix: 'Switch to an addressable chipset, or adjust the HUB75 route to a single Matrix Output using Matrix or Panels layout with Supersample off.',
         nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput),
       })
     }

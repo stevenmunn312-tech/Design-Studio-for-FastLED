@@ -159,7 +159,7 @@ describe('MatrixOutputDeployPopup', () => {
     // no frame input, unlike Upload) stayed clickable for a HUB75 shape
     // cppGenerator.ts can't actually emit.
     vi.mocked(findHub75ConfigErrors).mockReturnValue([
-      'Matrix Output is set to HUB75, which only supports the Matrix layout so far (no panel chaining/tiling yet) — switch layout back to Matrix, or use an addressable chipset.',
+      'Matrix Output is set to HUB75, which only supports the Matrix layout or a Panels chain so far — switch layout to Matrix or Panels, or use an addressable chipset.',
     ])
     useUploadStore.setState({
       helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' },

@@ -41,11 +41,11 @@ These are the only fully recorded public-beta support rows today.
   (FastLED's native on-device audio engine) — also ran correctly, confirming
   HUB75 output and the FastLED audio engine coexist on this board with no
   conflict. No full row yet — missing the exact host OS/browser version
-  fields. Live Stream, panel chaining, HUB75+**addressable-strip** peripheral
-  contention (a different, still-untested question from the audio-input
-  coexistence above), and the show/player generators (unimplemented for
-  HUB75) remain unvalidated. See `docs/development/design/hub75-output.md`
-  and `todo.md`.
+  fields. Live Stream, panel chaining / folded grids / rotated panel layouts,
+  and the show/player generators are still **unvalidated on real HUB75
+  hardware**. Mixed HUB75 + **addressable-strip** output on one board is not
+  a validation gap here — it is unsupported by design. See
+  `docs/development/design/hub75-output.md` and `todo.md`.
 - **2026-07-28 — classic ESP32, music-sync SD-show pipeline (`fbuild`),
   partial/failed bring-up.** The run reached the real provisioning/player path
   and exposed four defects: the provisioner's initial SD-write acknowledgement

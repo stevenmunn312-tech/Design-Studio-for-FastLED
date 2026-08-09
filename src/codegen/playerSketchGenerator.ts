@@ -11,7 +11,7 @@
 
 import type { PatternRenderers } from './showGenerator'
 import { STUDIO_PALETTES, customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCatalog'
-import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75DisplayVar } from './cppGenerator'
+import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 
@@ -775,12 +775,7 @@ ${bakedAudio ? '  updateShowAudio(posMs);   // song-synced FFT → pattern audio
     }
   }
 
-  ${isHub75 ? [
-    'for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {',
-    '    CRGB _c = leds[_y * WIDTH + _x];',
-    `    ${hub75DisplayVar(hub75Hw!)}->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);`,
-    '  }',
-  ].join('\n  ') : 'FastLED.show();'}
+  ${isHub75 ? hub75BlitRowsCpp(hub75Hw!).map((line) => line.replace(/^ {2}/, '')).join('\n  ') : 'FastLED.show();'}
   FastLED.delay(16);  // ~60 fps
 }
 `

@@ -46,6 +46,15 @@ describe('playerSketchGenerator', () => {
       expect(sketch).toContain('HUB75_I2S_CFG _hub75Cfg(8, 8, 3, _hub75Pins);')
     })
 
+    it('remaps square-tile per-panel rotation through a HUB75 coord table', () => {
+      const rotatedCfg = playerConfigFromGraph([
+        { data: { nodeType: 'MatrixOutput', properties: { width: 16, height: 8, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 1, tileRotations: '0,90' } } },
+      ])
+      const sketch = generatePlayerSketch(rotatedCfg)
+      expect(sketch).toContain('const uint16_t _hub75CoordMap[NUM_LEDS] PROGMEM = {')
+      expect(sketch).toContain('dma_display->drawPixelRGB888(_hub75XY & 0xFF, _hub75XY >> 8, _c.r, _c.g, _c.b);')
+    })
+
     it('drives a folded 2D HUB75 panel grid via VirtualMatrixPanel_T', () => {
       const gridCfg = playerConfigFromGraph([
         { data: { nodeType: 'MatrixOutput', properties: { width: 16, height: 16, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2 } } },
@@ -59,6 +68,15 @@ describe('playerSketchGenerator', () => {
       // always targets the underlying real display, virtual grid or not.
       expect(sketch).toContain('case CMD_SET_BRIGHTNESS: dma_display->setBrightness8((uint8_t)ev.params[0]); break;')
       expect(sketch).toContain('hub75Virtual->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);')
+    })
+
+    it('remaps rotated tiles before drawing into a folded 2D HUB75 virtual grid', () => {
+      const gridCfg = playerConfigFromGraph([
+        { data: { nodeType: 'MatrixOutput', properties: { width: 16, height: 16, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2, tileRotations: '0,90,180,270' } } },
+      ])
+      const sketch = generatePlayerSketch(gridCfg)
+      expect(sketch).toContain('const uint16_t _hub75CoordMap[NUM_LEDS] PROGMEM = {')
+      expect(sketch).toContain('hub75Virtual->drawPixelRGB888(_hub75XY & 0xFF, _hub75XY >> 8, _c.r, _c.g, _c.b);')
     })
   })
 })

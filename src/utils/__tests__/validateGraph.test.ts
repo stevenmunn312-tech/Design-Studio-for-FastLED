@@ -142,22 +142,23 @@ describe('validateGraph', () => {
     expect(diagnostics.some((d) => d.id === 'out-hub75-config')).toBe(false)
   })
 
-  it('blocks a rotated panel within an otherwise-supported HUB75 chain', () => {
-    const errors = findHub75ConfigErrors([
-      node('out', 'MatrixOutput', { chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 1, tileRotations: '0,90' }),
-    ])
-    expect(errors).toEqual([expect.stringMatching(/doesn't support per-panel rotation/)])
+  it('allows per-panel rotation within a square-tile HUB75 chain', () => {
+    expect(findHub75ConfigErrors([
+      node('out', 'MatrixOutput', { width: 16, height: 8, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 1, tileRotations: '0,90' }),
+    ])).toEqual([])
   })
 
-  it('blocks a rotated panel within a 2D HUB75 panel grid', () => {
-    // The previous rotation check only scanned the first row's tiles
-    // (Array.from({ length: tilesX })) — a latent bug that a single-row
-    // chain never exercised. Now that 2D grids are allowed, every tile in
-    // the tilesX * tilesY grid must be checked, including later rows.
+  it('allows per-panel rotation within a square-tile 2D HUB75 panel grid', () => {
+    expect(findHub75ConfigErrors([
+      node('out', 'MatrixOutput', { width: 16, height: 16, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2, tileRotations: '0,0,0,90' }),
+    ])).toEqual([])
+  })
+
+  it('blocks HUB75 quarter-turn panel rotation on non-square tiles', () => {
     const errors = findHub75ConfigErrors([
-      node('out', 'MatrixOutput', { chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2, tileRotations: '0,0,0,90' }),
+      node('out', 'MatrixOutput', { width: 64, height: 32, chipset: 'HUB75', layout: 'panels', tilesX: 1, tilesY: 1, tileRotations: '90' }),
     ])
-    expect(errors).toEqual([expect.stringMatching(/doesn't support per-panel rotation/)])
+    expect(errors).toEqual([expect.stringMatching(/only supports 90°\/270° per-panel rotation when each panel tile is square/)])
   })
 
   it('blocks HUB75 strip/custom layouts', () => {

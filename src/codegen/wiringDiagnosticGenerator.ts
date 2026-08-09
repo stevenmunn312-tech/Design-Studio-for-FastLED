@@ -1,6 +1,6 @@
 import type { StudioNode } from '../state/graphStore'
 import { buildXYTable } from '../state/xyLayout'
-import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75DisplayVar } from './cppGenerator'
+import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 
@@ -217,11 +217,7 @@ export function generateWiringDiagnosticSketch(nodes: StudioNode[], outputNodeId
   lines.push('    default: drawPhysicalChase(now); break;')
   lines.push('  }')
   if (isHub75) {
-    const hub75Disp = hub75DisplayVar(hub75Hw!)
-    lines.push('  for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {')
-    lines.push(`    CRGB c = leds[${xyTable ? 'XY((uint8_t)x, (uint8_t)y)' : '(uint16_t)y * WIDTH + x'}];`)
-    lines.push(`    ${hub75Disp}->drawPixelRGB888(x, y, c.r, c.g, c.b);`)
-    lines.push('  }')
+    lines.push(...hub75BlitRowsCpp(hub75Hw!, `leds[${xyTable ? 'XY((uint8_t)_x, (uint8_t)_y)' : '(uint16_t)_y * WIDTH + _x'}]`))
   } else {
     lines.push('  FastLED.show();')
   }

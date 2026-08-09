@@ -11,7 +11,7 @@ then (2) a normal `generateCpp` Upload of a real pattern graph — including a
 wired `MicInput` (FastLED's native on-device audio engine) — ran correctly,
 confirming HUB75 output and the FastLED audio engine coexist on this board
 with no conflict. Single-row panel chaining (`layout: 'panels'`,
-`tilesY === 1`, unrotated) is also now implemented — verified against the
+`tilesY === 1`) is also now implemented — verified against the
 real library source that the base `MatrixPanel_I2S_DMA` class addresses a
 horizontal chain directly, no `VirtualMatrixPanel_T` wrapper needed — but not
 yet hardware-validated. **All five sketch generators now support HUB75**
@@ -24,14 +24,17 @@ so only the include/setup/output step changed (the player's live
 HUB75 too). Neither has a hardware pass yet. **Folded 2D panel grids
 (`layout: 'panels'`, `tilesY > 1`) are also now implemented** via the
 library's `VirtualMatrixPanel_T` wrapper — verified against the real vendored
-header/example at tag `3.0.14`. Per-panel rotation within a chain and
-HUB75+**addressable-strip** peripheral contention (a different, still-untested
-question — see Open Questions below; audio input sharing the board is not the
-same as a second LED output route) remain unimplemented/unvalidated; the 2D
-grid path itself is not yet hardware-validated (no real multi-panel HUB75
-chain has run it), and the specific `PANEL_CHAIN_TYPE` chosen is a best-effort
-source-reading match, not confirmed against real hardware or the library's own
-wiring-topology reference. · Owner: app · Date: 2026-08-07
+header/example at tag `3.0.14`. **Per-panel rotation is now implemented too**
+via a generated coordinate remap layered on top of the DMA library's chain
+routing: `0°/180°` work on any equal tile, while `90°/270°` quarter-turns are
+supported when each tile is square (the chain's panel resolution is fixed, so
+non-square quarter-turns cannot be represented safely). Mixed
+HUB75+**addressable-strip** output on one board is no longer an open question
+here — it is deliberately unsupported by design. The multi-panel chain/grid
+paths, rotated layouts, Live Stream, and the show/player generators still need
+real HUB75 hardware validation, and the specific `PANEL_CHAIN_TYPE` chosen is
+a best-effort source-reading match rather than a confirmed topology from real
+2+ panel hardware. · Owner: app · Date: 2026-08-09
 
 Scopes a second physical-output family for `MatrixOutput`: HUB75 scan-panel
 matrices (the common indoor P2–P10 modules), driven over their ribbon
@@ -155,12 +158,13 @@ wrapper around `dma_display` and draws through it instead (see the resolved
 "Virtual-panel chaining model" open question below for the full picture).
 
 Scoped to a **single** `MatrixOutput` route, `layout: 'matrix'` or a
-`'panels'` chain (single-row or folded 2D grid, unrotated), and no
+`'panels'` chain (single-row or folded 2D grid), and no
 supersampling. `findHub75ConfigErrors`/`findHub75ConfigIssues` in
 `validateGraph.ts` (renamed from the earlier blanket
 `findUnimplementedChipsetErrors`) allow that supported shape and block every
 other combination — multiple Matrix Output routes, an unsupported layout,
-per-panel rotation, or supersampling — each with its own message. All
+non-square `90°/270°` quarter-turns, or supersampling — each with its own
+message. All
 **five** sketch generators that share these hardware helpers now have real
 HUB75 support:
 
@@ -188,13 +192,10 @@ hardware pass yet.
 
 ## Open questions
 
-- **Can a HUB75 route and an addressable-strip route share one board?**
-  Both the DMA library and FastLED's own clockless/RMT output lean on
-  DMA-capable peripherals (I2S/RMT). Whether they can run concurrently
-  without contention is still unverified — needs real hardware to answer.
-  Currently moot in practice: codegen only supports a single Matrix Output
-  route at all (see above), so a mixed HUB75 + addressable-strip rig is
-  blocked regardless of this question's answer.
+- ~~**Can a HUB75 route and an addressable-strip route share one board?**~~
+  **Resolved as a product decision: no.** HUB75 remains a deliberately
+  single-output route family in this project. If a board is driving a HUB75
+  panel, it does not also support an addressable-strip `MatrixOutput`.
 - ~~**Virtual-panel chaining model.**~~ **Resolved, single row and folded 2D
   grid both implemented:** the property model reuses the existing
   `layout: 'panels'` tiling (`tilesX`/`tilesY`/`tileRotations`/
@@ -218,14 +219,15 @@ hardware pass yet.
   `tileSerpentine` is on — reusing the existing per-chain serpentine property
   rather than adding a new one, on the theory that a folded panel grid's
   physical ribbon-cable wiring snakes the same way an addressable panel grid's
-  pixel wiring would. Per-panel rotation (`tileRotations`) is still blocked
-  for any HUB75 chain, 1D or 2D — `VirtualMatrixPanel_T`'s `PANEL_CHAIN_TYPE`
-  is a fixed enum of whole-chain wiring topologies with no equivalent to this
-  app's independent per-panel rotation model, and reconciling the two (or
-  writing a custom remap reusing `xyLayout.ts`'s rotation math instead of the
-  wrapper) remains unresolved; `findHub75ConfigIssues` now correctly scans
-  every tile in the `tilesX * tilesY` grid for a nonzero rotation rather than
-  just the first row (a latent bug the single-row-only gate never exercised).
+  pixel wiring would. **Per-panel rotation is now resolved too:** codegen
+  emits a compact `_hub75CoordMap` table that remaps each logical `(x, y)` into
+  the correct panel-local rotated coordinate before calling
+  `drawPixelRGB888()`, so the DMA display object still handles only the chain
+  routing while the generated sketch handles each tile's independent mount
+  angle. `0°/180°` work for any tile aspect ratio; `90°/270°` are supported
+  when each tile is square. Non-square quarter-turns stay blocked because the
+  DMA library's panel resolution is fixed per chain, so a `64×32` panel cannot
+  safely masquerade as a `32×64` tile inside the existing equal-tiles model.
   **Caveat carried forward, not yet resolved:** the `CHAIN_TOP_LEFT_DOWN`
   default is a best-effort match from reading the library's source and
   `VirtualMatrixPanel.ino` example — not verified against real 2+ panel
@@ -255,8 +257,7 @@ hardware pass yet.
 
 - Outdoor-brightness / higher-PWM-frequency panel variants — start with the
   common indoor P2–P10 class.
-- Mixed HUB75 + addressable-strip rigs, until the peripheral-contention
-  question above is answered.
+- Mixed HUB75 + addressable-strip rigs — unsupported by design.
 - Any board family besides ESP32/S2/S3 — the DMA library is ESP32-only.
 
 ## Follow-ups

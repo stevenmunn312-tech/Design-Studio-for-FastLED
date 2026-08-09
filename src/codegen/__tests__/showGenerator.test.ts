@@ -76,6 +76,15 @@ describe('showGenerator', () => {
       expect(cpp).toContain('HUB75_I2S_CFG _hub75Cfg(8, 8, 3, _hub75Pins);')
     })
 
+    it('remaps square-tile per-panel rotation through a HUB75 coord table', () => {
+      const rotatedOut = node('out', 'MatrixOutput', {
+        width: 16, height: 8, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 1, tileRotations: '0,90',
+      })
+      const cpp = generateShowSketch([nodes[0], nodes[1], rotatedOut], edges, groups)
+      expect(cpp).toContain('const uint16_t _hub75CoordMap[NUM_LEDS] PROGMEM = {')
+      expect(cpp).toContain('dma_display->drawPixelRGB888(_hub75XY & 0xFF, _hub75XY >> 8, _c.r, _c.g, _c.b);')
+    })
+
     it('drives a folded 2D HUB75 panel grid via VirtualMatrixPanel_T', () => {
       const gridOut = node('out', 'MatrixOutput', { width: 16, height: 16, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2 })
       const cpp = generateShowSketch([nodes[0], nodes[1], gridOut], edges, groups)
@@ -83,6 +92,15 @@ describe('showGenerator', () => {
       expect(cpp).toContain('HUB75_I2S_CFG _hub75Cfg(8, 8, 4, _hub75Pins);')
       expect(cpp).toContain('hub75Virtual = new VirtualMatrixPanel_T<CHAIN_TOP_LEFT_DOWN>(2, 2, 8, 8);')
       expect(cpp).toContain('hub75Virtual->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);')
+    })
+
+    it('remaps rotated tiles before drawing into a folded 2D HUB75 virtual grid', () => {
+      const gridOut = node('out', 'MatrixOutput', {
+        width: 16, height: 16, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2, tileRotations: '0,90,180,270',
+      })
+      const cpp = generateShowSketch([nodes[0], nodes[1], gridOut], edges, groups)
+      expect(cpp).toContain('const uint16_t _hub75CoordMap[NUM_LEDS] PROGMEM = {')
+      expect(cpp).toContain('hub75Virtual->drawPixelRGB888(_hub75XY & 0xFF, _hub75XY >> 8, _c.r, _c.g, _c.b);')
     })
   })
 

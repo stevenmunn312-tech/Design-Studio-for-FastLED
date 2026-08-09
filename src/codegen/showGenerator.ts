@@ -16,7 +16,7 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import { customPaletteDeclarationsCpp } from '../state/paletteCatalog'
-import { generateCpp, audioEngineForGraph, psramBufferDecl, PSRAM_ALLOC_CPP, ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75DisplayVar } from './cppGenerator'
+import { generateCpp, audioEngineForGraph, psramBufferDecl, PSRAM_ALLOC_CPP, ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp } from './cppGenerator'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { SHOW_TRANSITIONS } from './performanceGenerator'
 import { TRANSITION_HELPER_CPP, PARTICLE_OVERLAY_CPP } from './transitionHelperCpp'
@@ -521,11 +521,7 @@ export function generateShowSketch(
     }
   }
   if (isHub75) {
-    const hub75Disp = hub75DisplayVar(hub75Hw!)
-    L.push('  for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {')
-    L.push('    CRGB _c = leds[_y * WIDTH + _x];')
-    L.push(`    ${hub75Disp}->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);`)
-    L.push('  }')
+    L.push(...hub75BlitRowsCpp(hub75Hw!))
   } else {
     L.push('  FastLED.show();')
   }

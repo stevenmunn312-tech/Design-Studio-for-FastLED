@@ -3479,7 +3479,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   usePsram: "Moves this board's render buffers into PSRAM instead of internal DRAM, for designs that overflow internal RAM. Only available on boards with PSRAM.",
   psramMode: "Which PSRAM interface to target — must match the board module's physical package; it can't be probed from the host.",
   layout: 'How the grid maps to physical LED wiring order — plain matrix, a single strip, tiled panels, or a custom index permutation.',
-  chipset: "The LED chipset driving this output — must match the physical strip/panel. HUB75 (scan-panel matrices) isn't implemented yet; see docs/development/design/hub75-output.md.",
+  chipset: "The LED chipset driving this output — must match the physical strip/panel. HUB75 (scan-panel matrices) is supported on ESP32 / ESP32-S2 / ESP32-S3 as a single-output route; see docs/development/design/hub75-output.md.",
   colorOrder: 'Wire colour byte order the chipset expects. The wrong order swaps colours (e.g. red renders as green).',
   clockPin: 'SPI chipsets only — the clock line alongside the data pin.',
   hub75WideScan: '64-row (1:32 scan) panels multiplex an extra row-select line (E) below; 32-row (1:16 scan) panels leave it unconnected.',

@@ -119,7 +119,8 @@ describe('generateStreamReceiverSketch', () => {
       // only the setup/output step differs.
       expect(sketch).toContain("'A', 'd', 'a'")
       expect(sketch).toContain('leds[i] = CRGB(r, g, bl);')
-      expect(sketch).toContain('dma_display->drawPixelRGB888(i % WIDTH, i / WIDTH, leds[i].r, leds[i].g, leds[i].b);')
+      expect(sketch).toContain('for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {')
+      expect(sketch).toContain('dma_display->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);')
     })
 
     it('drives a single-row panel chain via chain_length', () => {
@@ -138,7 +139,17 @@ describe('generateStreamReceiverSketch', () => {
       expect(sketch).toContain('#include <ESP32-HUB75-VirtualMatrixPanel_T.hpp>')
       expect(sketch).toContain('HUB75_I2S_CFG _hub75Cfg(8, 8, 4, _hub75Pins);')
       expect(sketch).toContain('hub75Virtual = new VirtualMatrixPanel_T<CHAIN_TOP_LEFT_DOWN>(2, 2, 8, 8);')
-      expect(sketch).toContain('hub75Virtual->drawPixelRGB888(i % WIDTH, i / WIDTH, leds[i].r, leds[i].g, leds[i].b);')
+      expect(sketch).toContain('hub75Virtual->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);')
+    })
+
+    it('remaps rotated HUB75 panel tiles through a coord table before drawing', () => {
+      const rotatedOut = node('out', 'MatrixOutput', 'output', {
+        width: 16, height: 8, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 1, tileRotations: '0,90',
+      })
+      const sketch = generateStreamReceiverSketch([rotatedOut])!
+      expect(sketch).toContain('const uint16_t _hub75CoordMap[NUM_LEDS] PROGMEM = {')
+      expect(sketch).toContain('uint16_t _hub75XY = pgm_read_word(&_hub75CoordMap[_y * WIDTH + _x]);')
+      expect(sketch).toContain('dma_display->drawPixelRGB888(_hub75XY & 0xFF, _hub75XY >> 8, _c.r, _c.g, _c.b);')
     })
   })
 })

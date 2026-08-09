@@ -2364,6 +2364,17 @@ describe('HUB75 codegen (docs/development/design/hub75-output.md)', () => {
     expect(cpp).toContain('dma_display->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);')
   })
 
+  it('remaps square-tile per-panel rotation through a HUB75 coord table', () => {
+    const rotatedOut = node('out', 'MatrixOutput', 'output', {
+      width: 16, height: 8, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 1, tileRotations: '0,90',
+    })
+    const cpp = generateCpp([sc, rotatedOut], wiring)
+    expect(cpp).toContain('const uint16_t _hub75CoordMap[NUM_LEDS] PROGMEM = {')
+    expect(cpp).toContain('uint16_t _hub75XY = pgm_read_word(&_hub75CoordMap[_y * WIDTH + _x]);')
+    expect(cpp).toContain('dma_display->drawPixelRGB888(_hub75XY & 0xFF, _hub75XY >> 8, _c.r, _c.g, _c.b);')
+    expect(cpp).not.toContain('dma_display->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);')
+  })
+
   it('skips setMaxPowerInVoltsAndMilliamps — no FastLED controller is registered to throttle', () => {
     const poweredOut = node('out', 'MatrixOutput', 'output', {
       width: 8, height: 8, chipset: 'HUB75', powerLimit: true, volts: 5, milliamps: 2000,
@@ -2387,6 +2398,15 @@ describe('HUB75 codegen (docs/development/design/hub75-output.md)', () => {
     expect(cpp).toContain('hub75Virtual->setDisplay(*dma_display);')
     expect(cpp).toContain('for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {')
     expect(cpp).toContain('hub75Virtual->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);')
+  })
+
+  it('remaps rotated tiles before drawing into a folded 2D HUB75 virtual grid', () => {
+    const rotatedGridOut = node('out', 'MatrixOutput', 'output', {
+      width: 16, height: 16, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2, tileRotations: '0,90,180,270',
+    })
+    const cpp = generateCpp([sc, rotatedGridOut], wiring)
+    expect(cpp).toContain('const uint16_t _hub75CoordMap[NUM_LEDS] PROGMEM = {')
+    expect(cpp).toContain('hub75Virtual->drawPixelRGB888(_hub75XY & 0xFF, _hub75XY >> 8, _c.r, _c.g, _c.b);')
   })
 
   it('selects the zig-zag chain type when the panel chain is serpentine', () => {

@@ -129,8 +129,10 @@ function serpentineTable(width: number, height: number): number[] {
 
 /** Rotate a point within a `w`×`h` tile by `deg` clockwise, returning the
  *  rotated coordinates plus the tile's dimensions as seen after rotation
- *  (90/270 swap width and height). */
-function rotatePoint(lx: number, ly: number, w: number, h: number, deg: TileRotation) {
+ *  (90/270 swap width and height). Shared by the addressable XY table builder
+ *  and HUB75's per-panel coordinate remap so both honour tileRotations the
+ *  same way. */
+export function rotatePoint(lx: number, ly: number, w: number, h: number, deg: TileRotation) {
   switch (deg) {
     case 90:  return { x: ly, y: w - 1 - lx, w: h, h: w }
     case 180: return { x: w - 1 - lx, y: h - 1 - ly, w, h }

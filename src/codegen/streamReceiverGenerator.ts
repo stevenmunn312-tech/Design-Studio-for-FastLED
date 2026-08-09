@@ -1,5 +1,5 @@
 import type { StudioNode } from '../state/graphStore'
-import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75DisplayVar } from './cppGenerator'
+import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 
@@ -125,10 +125,7 @@ export function generateStreamReceiverSketch(nodes: StudioNode[]): string | null
     // so leds[i] is already in (x, y) = (i % WIDTH, i / WIDTH) order here —
     // the full virtual grid's logical coordinates, which is exactly what
     // the display object (base or virtual-grid wrapper) expects.
-    const hub75Disp = hub75DisplayVar(hub75Hw!)
-    lines.push('  for (uint16_t i = 0; i < NUM_LEDS; i++) {')
-    lines.push(`    ${hub75Disp}->drawPixelRGB888(i % WIDTH, i / WIDTH, leds[i].r, leds[i].g, leds[i].b);`)
-    lines.push('  }')
+    lines.push(...hub75BlitRowsCpp(hub75Hw!))
   } else {
     lines.push('  FastLED.show();')
   }
