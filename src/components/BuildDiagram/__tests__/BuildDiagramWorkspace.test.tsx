@@ -171,6 +171,34 @@ describe('BuildDiagramWorkspace', () => {
     ).toBeTruthy()
   })
 
+  it('does not let hidden invalid routes make Signal ready pass', () => {
+    useGraphStore.setState({
+      nodes: [14, 35].map((dataPin, index) => ({
+        id: `out-${index}`,
+        type: 'studioNode',
+        position: { x: 0, y: 0 },
+        data: {
+          label: `Matrix Output ${index + 1}`,
+          nodeType: 'MatrixOutput',
+          category: 'output',
+          properties: { width: 16, height: 16, chipset: 'WS2812B', dataPin },
+          inputs: [],
+          outputs: [],
+        },
+      })) as never[],
+      buildProfile: {
+        version: 1,
+        physicalBoardProfileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc',
+      },
+    })
+
+    const { getAllByText, getByText } = render(<BuildDiagramWorkspace />)
+
+    expect(getByText('Signal ready: needs review: 1 controller pin mapping unresolved', { selector: 'li' })).toBeTruthy()
+    fireEvent.click(getAllByText('Hide')[1])
+    expect(getByText('Signal ready: needs review: 1 controller pin mapping unresolved', { selector: 'li' })).toBeTruthy()
+  })
+
   it('shows identifying details for each exact board option', () => {
     const { getByText } = render(<BuildDiagramWorkspace />)
 
@@ -262,9 +290,9 @@ describe('BuildDiagramWorkspace', () => {
     fireEvent.change(getByLabelText('LED density (/m)'), { target: { value: '60' } })
     fireEvent.change(getByLabelText('Feed cable length (mm)'), { target: { value: '500' } })
 
-    expect(getByText('Requirements inputs: all currently expected install facts are captured for the future planner')).toBeTruthy()
-    expect(getByText('Requirements calculated: partial: conservative supply/current summary ready, conductor/fuse tables pending')).toBeTruthy()
-    expect(getByText('Draft — electrical plan export pending assembly/BOM generation')).toBeTruthy()
+    expect(getByText('Requirements inputs: all required installation facts are captured for the electrical planner')).toBeTruthy()
+    expect(getByText((_, node) => node?.tagName === 'LI' && node.textContent?.startsWith('Requirements calculated: calculated with build-rules-') === true)).toBeTruthy()
+    expect(getByText('Draft — unresolved build requirements')).toBeTruthy()
     expect(getByText('All currently expected planner inputs are captured.')).toBeTruthy()
     expect(getByText('Minimum supply budget: 19.2 A continuous @ 5 V (96 W) with 25% headroom')).toBeTruthy()
     expect(getByText('Controller branch: USB power')).toBeTruthy()
@@ -312,17 +340,36 @@ describe('BuildDiagramWorkspace', () => {
     fireEvent.change(getByLabelText('LED density (/m)'), { target: { value: '60' } })
     fireEvent.change(getByLabelText('Feed cable length (mm)'), { target: { value: '500' } })
 
-    expect(getByText('Power ready: pending owned LED supply declarations', { selector: 'li' })).toBeTruthy()
+    expect(getByText('Power ready: needs review: 7 power-path issues', { selector: 'li' })).toBeTruthy()
 
     fireEvent.click(getByText('Add supply'))
-    expect(getByText('Power ready: needs review: 1 owned supply validation issue', { selector: 'li' })).toBeTruthy()
+    expect(getByText('Power ready: needs review: 6 power-path issues', { selector: 'li' })).toBeTruthy()
 
     fireEvent.change(getByLabelText('Assigned owned supply'), { target: { value: 'supply-1' } })
 
     expect(useGraphStore.getState().buildProfile?.ownedParts?.supplyAssignments?.['output:out']).toBe('supply-1')
-    expect(getByText('Power ready: partial: assigned LED supplies satisfy conservative current/voltage budget; controller branch, wire, fuse, and connector validation still pending', { selector: 'li' })).toBeTruthy()
+    expect(getByText('Power ready: needs review: 5 power-path issues', { selector: 'li' })).toBeTruthy()
     expect(getAllByText('Supply 1').length).toBeGreaterThan(0)
     expect(getByText('Matches budget')).toBeTruthy()
+  })
+
+  it('reaches Power and Build ready only after the complete branch is explicitly selected', () => {
+    const { getByLabelText, getByText } = render(<BuildDiagramWorkspace />)
+
+    fireEvent.click(getByText('Espressif ESP32-S3-DevKitC-1'))
+    fireEvent.change(getByLabelText('Preferred path'), { target: { value: 'usb' } })
+    fireEvent.change(getByLabelText('Physical length (mm)'), { target: { value: '2500' } })
+    fireEvent.change(getByLabelText('LED density (/m)'), { target: { value: '60' } })
+    fireEvent.change(getByLabelText('Feed cable length (mm)'), { target: { value: '500' } })
+    fireEvent.change(getByLabelText('Confirmed injection points (mm)'), { target: { value: '0, 2500' } })
+    fireEvent.click(getByText('Add supply'))
+    fireEvent.change(getByLabelText('Assigned owned supply'), { target: { value: 'supply-1' } })
+    fireEvent.click(getByText('Use this branch kit'))
+
+    expect(getByText((_, node) => node?.tagName === 'LI' && node.textContent?.startsWith('Power ready: ready:') === true)).toBeTruthy()
+    expect(getByText('Build ready: ready', { selector: 'li' })).toBeTruthy()
+    expect(getByText('Branch kit selected')).toBeTruthy()
+    expect(getByText('Build reference — Signal and Power ready')).toBeTruthy()
   })
 
   it('invalidates done state when owned supply data changes', () => {

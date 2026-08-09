@@ -92,6 +92,10 @@ export interface BuildOwnedParts {
   fuses?: Record<string, OwnedFuseDeclaration>
   converters?: Record<string, OwnedConverterDeclaration>
   supplyAssignments?: Record<string, string>
+  wireAssignments?: Record<string, string>
+  connectorAssignments?: Record<string, string>
+  fuseAssignments?: Record<string, string>
+  converterAssignments?: Record<string, string>
 }
 
 export interface BuildDoneState {
@@ -104,6 +108,7 @@ export interface BuildProfile {
   version: typeof BUILD_PROFILE_VERSION
   physicalBoardProfileId?: string
   outputs?: Record<string, BuildOutputProfile>
+  signalConditioning?: Record<string, boolean>
   controllerPower?: BuildControllerPowerProfile
   assumptions?: BuildAssumptions
   ownedParts?: BuildOwnedParts
@@ -239,6 +244,14 @@ function normalizeOwnedParts(value: unknown): BuildOwnedParts | undefined {
   })
   next.supplyAssignments = normalizeRecord(value.supplyAssignments, (entry) =>
     typeof entry === 'string' && entry ? entry : undefined)
+  next.wireAssignments = normalizeRecord(value.wireAssignments, (entry) =>
+    typeof entry === 'string' && entry ? entry : undefined)
+  next.connectorAssignments = normalizeRecord(value.connectorAssignments, (entry) =>
+    typeof entry === 'string' && entry ? entry : undefined)
+  next.fuseAssignments = normalizeRecord(value.fuseAssignments, (entry) =>
+    typeof entry === 'string' && entry ? entry : undefined)
+  next.converterAssignments = normalizeRecord(value.converterAssignments, (entry) =>
+    typeof entry === 'string' && entry ? entry : undefined)
   return Object.keys(next).length > 0 ? next : undefined
 }
 
@@ -257,6 +270,7 @@ export function normalizeBuildProfile(value: unknown): BuildProfile | undefined 
     next.physicalBoardProfileId = value.physicalBoardProfileId
   }
   next.outputs = normalizeRecord(value.outputs, normalizeOutputProfile)
+  next.signalConditioning = normalizeBooleanMap(value.signalConditioning)
   if (isObject(value.controllerPower)) {
     next.controllerPower = {
       preferredPath: typeof value.controllerPower.preferredPath === 'string'

@@ -1,9 +1,19 @@
 import type { PhysicalBoardProfile } from './boardProfiles'
 import type { BuildControllerPowerProfile, BuildProfile, BuildOutputProfile } from './buildProfile'
 import type { HardwareManifest, HardwareManifestItem } from './hardwareManifest'
+import {
+  DEFAULT_ALLOWED_VOLTAGE_DROP_PERCENT,
+  ELECTRICAL_RULESET_VERSION,
+  recommendConductor,
+  recommendFuse,
+  wireRuleForOwnedPart,
+  type ConductorRecommendation,
+  type FuseRecommendation,
+} from './electricalRules'
 
 const DEFAULT_SUPPLY_HEADROOM_PERCENT = 25
 const WS2812_WORST_CASE_MA_PER_PIXEL = 60
+const STANDARD_CONNECTOR_RATINGS_MA = [3000, 5000, 7500, 10000, 15000, 20000, 30000, 45000, 60000] as const
 
 export type ElectricalPlanSeverity = 'blocking' | 'warning' | 'info'
 
@@ -29,6 +39,11 @@ export interface OutputElectricalPlan {
   operatingCurrentCapMa?: number
   recommendedSupplyCurrentMa: number
   recommendedSupplyWattage: number
+  conductor?: ConductorRecommendation
+  connectorMinimumMa?: number
+  fuse: FuseRecommendation
+  injectionPointsMm: number[]
+  injectionUnresolvedReason?: string
 }
 
 export interface ElectricalPlanTotals {
@@ -41,7 +56,7 @@ export interface ElectricalPlanTotals {
 }
 
 export interface ElectricalPlanSummary {
-  status: 'blocked' | 'partial'
+  status: 'blocked' | 'calculated'
   requirementsCalculatedText: string
   powerReadyText: string
   powerReadyPasses: boolean
@@ -51,9 +66,11 @@ export interface ElectricalPlanSummary {
   totals?: ElectricalPlanTotals
   controllerPowerPath?: string
   supplyChecks: OwnedSupplyCheck[]
+  branchChecks: OwnedBranchCheck[]
   recommendations: string[]
   unresolved: string[]
   assumptionsUsed: string[]
+  ruleSetVersion: string
 }
 
 export interface OwnedSupplyCheck {
@@ -70,8 +87,23 @@ export interface OwnedSupplyCheck {
   issues: ElectricalPlanIssue[]
 }
 
+export interface OwnedBranchCheck {
+  itemId: string
+  title: string
+  wireId?: string
+  connectorId?: string
+  fuseId?: string
+  issues: ElectricalPlanIssue[]
+}
+
 function roundToStep(value: number, step: number): number {
   return Math.ceil(value / step) * step
+}
+
+function formatRuleCurrent(valueMa: number): string {
+  return valueMa >= 1000
+    ? `${Number((valueMa / 1000).toFixed(2))} A`
+    : `${Math.round(valueMa)} mA`
 }
 
 function deriveDensityPerMeter(profile: BuildOutputProfile, pixelCount: number): number | undefined {
@@ -95,6 +127,18 @@ function derivePitchMm(profile: BuildOutputProfile, densityPerMeter: number | un
     return 1000 / densityPerMeter
   }
   return undefined
+}
+
+function connectorMinimumForLoad(designCurrentMa: number): number | undefined {
+  const required = Math.ceil(designCurrentMa / 0.75)
+  return STANDARD_CONNECTOR_RATINGS_MA.find((rating) => rating >= required)
+}
+
+function parsedInjectionPoints(profile: BuildOutputProfile, physicalLengthMm: number): number[] {
+  return (profile.manualInjectionPoints ?? [])
+    .map((entry) => Number(entry))
+    .filter((entry) => Number.isFinite(entry) && entry >= 0 && entry <= physicalLengthMm)
+    .sort((a, b) => a - b)
 }
 
 function controllerPowerLabel(path: BuildControllerPowerProfile['preferredPath'] | undefined): string | undefined {
@@ -145,6 +189,7 @@ export function calculateElectricalPlan(
   const blockers: ElectricalPlanIssue[] = []
   const warnings: ElectricalPlanIssue[] = []
   const supplyChecks: OwnedSupplyCheck[] = []
+  const branchChecks: OwnedBranchCheck[] = []
 
   if (!exactBoard) {
     blockers.push({
@@ -203,6 +248,29 @@ export function calculateElectricalPlan(
     const headroomPercent = buildProfile.assumptions?.supplyHeadroomPercent ?? DEFAULT_SUPPLY_HEADROOM_PERCENT
     const recommendedSupplyCurrentMa = roundToStep(designCurrentMa * (1 + (headroomPercent / 100)), 100)
     const recommendedSupplyWattage = Number(((recommendedSupplyCurrentMa / 1000) * nominalVoltage).toFixed(1))
+    const connectorMinimumMa = connectorMinimumForLoad(designCurrentMa)
+    const conductor = recommendConductor({
+      designCurrentMa: Math.ceil(designCurrentMa / 0.75),
+      oneWayLengthMm: profile.feedCableLengthMm ?? 0,
+      circuitVoltage: nominalVoltage,
+      allowedVoltageDropPercent: buildProfile.assumptions?.allowedVoltageDropPercent ?? DEFAULT_ALLOWED_VOLTAGE_DROP_PERCENT,
+      material: buildProfile.assumptions?.conductorMaterial ?? 'copper',
+      ambientC: buildProfile.assumptions?.ambientC ?? 30,
+      bundledCircuits: buildProfile.assumptions?.bundledCircuits ?? 1,
+    })
+    const fuse = conductor && connectorMinimumMa
+      ? recommendFuse(designCurrentMa, conductor.deratedAmpacityMa, connectorMinimumMa)
+      : {
+          minimumLoadRatingMa: Math.ceil(designCurrentMa / 0.75),
+          maximumProtectiveRatingMa: 0,
+          unresolvedReason: conductor
+            ? 'No reviewed connector rating is available for this branch load.'
+            : 'No conductor in the reviewed table meets this branch load and voltage-drop target.',
+        }
+    const injectionPointsMm = parsedInjectionPoints(profile, profile.physicalLengthMm)
+    const injectionUnresolvedReason = injectionPointsMm.length > 0
+      ? undefined
+      : 'Exact injection spacing needs the selected LED product copper-path resistance/current limit; add reviewed product data or confirmed manual injection points.'
 
     outputPlans.push({
       itemId: item.id,
@@ -219,12 +287,18 @@ export function calculateElectricalPlan(
       operatingCurrentCapMa,
       recommendedSupplyCurrentMa,
       recommendedSupplyWattage,
+      conductor,
+      connectorMinimumMa,
+      fuse,
+      injectionPointsMm,
+      injectionUnresolvedReason,
     })
   }
 
   const assumptionsUsed = [
     `WS2812-class outputs use the conservative 60 mA-per-pixel full-white design load already used elsewhere in the app.`,
     `Supply headroom defaults to ${buildProfile.assumptions?.supplyHeadroomPercent ?? DEFAULT_SUPPLY_HEADROOM_PERCENT}% unless overridden in Advanced assumptions.`,
+    `Feed conductors use the ${ELECTRICAL_RULESET_VERSION} reviewed GPT-wire subset, ${(buildProfile.assumptions?.allowedVoltageDropPercent ?? DEFAULT_ALLOWED_VOLTAGE_DROP_PERCENT)}% maximum voltage drop, ${(buildProfile.assumptions?.ambientC ?? 30)} C ambient, and ${(buildProfile.assumptions?.bundledCircuits ?? 1)} bundled circuit(s).`,
   ]
   if (buildProfile.assumptions?.allowedVoltageDropPercent != null) {
     assumptionsUsed.push(`Allowed voltage drop is currently recorded as ${buildProfile.assumptions.allowedVoltageDropPercent}%.`)
@@ -244,12 +318,23 @@ export function calculateElectricalPlan(
   if (exactBoard?.confidence === 'pinout-verified') {
     recommendations.push('Keep controller power-path recommendations provisional on this board until its USB/5VIN/regulator behavior is independently reviewed.')
   }
+  for (const output of outputPlans) {
+    if (output.conductor) {
+      recommendations.push(`${output.title}: use at least AWG ${output.conductor.awg} / ${output.conductor.crossSectionMm2} mm2 ${output.conductor.material} feed conductor for ${output.conductor.oneWayLengthMm} mm one-way; calculated drop ${output.conductor.voltageDrop} V (${output.conductor.voltageDropPercent}%).`)
+    }
+    if (output.connectorMinimumMa) {
+      recommendations.push(`${output.title}: connector path must be rated at least ${formatRuleCurrent(output.connectorMinimumMa)} continuous.`)
+    }
+    if (output.fuse.ratingMa) {
+      recommendations.push(`${output.title}: use a ${formatRuleCurrent(output.fuse.ratingMa)} branch fuse; it carries the design load at no more than 75% while remaining below the conductor/connector limit.`)
+    }
+  }
 
-  const unresolved = [
-    'Minimum wire gauge / cross-section still depends on the reviewed conductor ampacity and voltage-drop tables that are not implemented yet.',
-    'Branch fuse and connector ratings still stay unresolved until the conductor and connector rule tables land.',
-    'Injection spacing still stays unresolved because the planner does not yet have the reviewed conductor/connector and voltage-drop rule tables needed to justify exact feed placement.',
-  ]
+  const unresolved = outputPlans.flatMap((output) => [
+    output.conductor ? undefined : `${output.title}: no reviewed conductor size meets the selected load, distance, derating, and voltage-drop target.`,
+    output.fuse.unresolvedReason ? `${output.title}: ${output.fuse.unresolvedReason}` : undefined,
+    output.injectionUnresolvedReason ? `${output.title}: ${output.injectionUnresolvedReason}` : undefined,
+  ].filter((entry): entry is string => !!entry))
 
   const totals = outputPlans.length > 0
     ? (() => {
@@ -275,108 +360,168 @@ export function calculateElectricalPlan(
     })()
     : undefined
 
-  const status: ElectricalPlanSummary['status'] = blockers.length > 0 ? 'blocked' : 'partial'
+  const status: ElectricalPlanSummary['status'] = blockers.length > 0 ? 'blocked' : 'calculated'
   const requirementsCalculatedText = blockers.length > 0
     ? `blocked by ${blockers.length} missing planner input${blockers.length === 1 ? '' : 's'}`
-    : 'partial: conservative supply/current summary ready, conductor/fuse tables pending'
+    : `calculated with ${ELECTRICAL_RULESET_VERSION}`
   const headroomPercent = buildProfile.assumptions?.supplyHeadroomPercent ?? DEFAULT_SUPPLY_HEADROOM_PERCENT
   const supplyEntries = Object.values(buildProfile.ownedParts?.supplies ?? {})
   const supplyAssignments = buildProfile.ownedParts?.supplyAssignments ?? {}
+  const wireAssignments = buildProfile.ownedParts?.wireAssignments ?? {}
+  const connectorAssignments = buildProfile.ownedParts?.connectorAssignments ?? {}
+  const fuseAssignments = buildProfile.ownedParts?.fuseAssignments ?? {}
   let powerReadyText = 'blocked until Requirements calculated passes'
-  const powerReadyPasses = false
+  let powerReadyPasses = false
 
   if (blockers.length === 0 && outputPlans.length > 0) {
-    if (supplyEntries.length === 0) {
-      powerReadyText = 'pending owned LED supply declarations'
-    } else {
-      const issues: ElectricalPlanIssue[] = []
-      const assignmentsBySupplyId = new Map<string, OutputElectricalPlan[]>()
+    const issues: ElectricalPlanIssue[] = []
+    const assignmentsBySupplyId = new Map<string, OutputElectricalPlan[]>()
 
-      for (const plan of outputPlans) {
-        const assignedSupplyId = supplyAssignments[plan.itemId]
-        if (!assignedSupplyId) {
-          issues.push({
-            id: `${plan.itemId}:assignment`,
-            severity: 'blocking',
-            title: plan.title,
-            detail: 'Assign this output to an owned supply before LED branch validation can pass.',
-          })
-          continue
-        }
+    if (supplyEntries.length === 0) {
+      issues.push({
+        id: 'owned-supply',
+        severity: 'blocking',
+        title: 'Owned LED supply',
+        detail: 'Declare and assign the actual LED supply before Power ready can pass.',
+      })
+    }
+
+    for (const plan of outputPlans) {
+      const assignedSupplyId = supplyAssignments[plan.itemId]
+      if (!assignedSupplyId) {
+        issues.push({
+          id: `${plan.itemId}:assignment`,
+          severity: 'blocking',
+          title: plan.title,
+          detail: 'Assign this output to an owned supply before LED branch validation can pass.',
+        })
+      } else {
         const list = assignmentsBySupplyId.get(assignedSupplyId) ?? []
         list.push(plan)
         assignmentsBySupplyId.set(assignedSupplyId, list)
       }
 
-      for (const [supplyId, assignedPlans] of assignmentsBySupplyId.entries()) {
-        const supply = buildProfile.ownedParts?.supplies?.[supplyId]
-        if (!supply) {
-          for (const plan of assignedPlans) {
-            issues.push({
-              id: `${plan.itemId}:missing-supply`,
-              severity: 'blocking',
-              title: plan.title,
-              detail: `Assigned supply "${supplyId}" is missing from Owned supplies.`,
-            })
-          }
-          continue
-        }
-
-        const requiredCurrentMa = roundToStep(
-          assignedPlans.reduce((sum, plan) => sum + plan.designCurrentMa, 0) * (1 + (headroomPercent / 100)),
-          100,
-        )
-        const requiredWattage = Number(((requiredCurrentMa / 1000) * assignedPlans[0].nominalVoltage).toFixed(1))
-        const checkIssues: ElectricalPlanIssue[] = []
-        const nominalVoltage = assignedPlans[0].nominalVoltage
-
-        if (Math.abs(supply.voltage - nominalVoltage) > 0.05) {
-          checkIssues.push({
-            id: `${supplyId}:voltage`,
-            severity: 'blocking',
-            title: supply.label ?? supply.id,
-            detail: `Declared ${supply.voltage} V does not match the current ${nominalVoltage} V LED branch requirement.`,
-          })
-        }
-        if (supply.continuousCurrentMa < requiredCurrentMa) {
-          checkIssues.push({
-            id: `${supplyId}:current`,
-            severity: 'blocking',
-            title: supply.label ?? supply.id,
-            detail: `Continuous current ${supply.continuousCurrentMa} mA is below the required ${requiredCurrentMa} mA branch budget.`,
-          })
-        }
-        if (typeof supply.wattage === 'number' && Number.isFinite(supply.wattage) && supply.wattage < requiredWattage) {
-          checkIssues.push({
-            id: `${supplyId}:wattage`,
-            severity: 'blocking',
-            title: supply.label ?? supply.id,
-            detail: `Declared wattage ${supply.wattage} W is below the required ${requiredWattage} W branch budget.`,
-          })
-        }
-
-        supplyChecks.push({
-          supplyId,
-          label: supply.label ?? supply.id,
-          assignedOutputIds: assignedPlans.map((plan) => plan.itemId),
-          assignedOutputTitles: assignedPlans.map((plan) => plan.title),
-          requiredVoltage: nominalVoltage,
-          requiredCurrentMa,
-          requiredWattage,
-          declaredVoltage: supply.voltage,
-          declaredCurrentMa: supply.continuousCurrentMa,
-          declaredWattage: supply.wattage,
-          issues: checkIssues,
+      const branchIssues: ElectricalPlanIssue[] = []
+      const wireId = wireAssignments[plan.itemId]
+      const wire = wireId ? buildProfile.ownedParts?.wires?.[wireId] : undefined
+      const wireRule = wire ? wireRuleForOwnedPart(wire.gaugeAwg, wire.crossSectionMm2) : undefined
+      if (!wireId || !wire || !wireRule || !plan.conductor) {
+        branchIssues.push({
+          id: `${plan.itemId}:wire`,
+          severity: 'blocking',
+          title: plan.title,
+          detail: 'Assign a declared wire with a reviewed AWG or cross-section that meets the calculated branch minimum.',
         })
-        issues.push(...checkIssues)
+      } else if (wireRule.crossSectionMm2 < plan.conductor.crossSectionMm2) {
+        branchIssues.push({
+          id: `${plan.itemId}:wire-size`,
+          severity: 'blocking',
+          title: plan.title,
+          detail: `${wire.label ?? wire.id} is ${wireRule.crossSectionMm2} mm2; this branch requires at least ${plan.conductor.crossSectionMm2} mm2.`,
+        })
+      } else if ((wire.conductorMaterial ?? 'copper') !== plan.conductor.material) {
+        branchIssues.push({
+          id: `${plan.itemId}:wire-material`,
+          severity: 'blocking',
+          title: plan.title,
+          detail: `${wire.label ?? wire.id} is declared as ${wire.conductorMaterial ?? 'copper'} but this calculation assumes ${plan.conductor.material}; recalculate with the actual conductor material.`,
+        })
       }
 
-      if (issues.length > 0) {
-        powerReadyText = `needs review: ${issues.length} owned supply validation issue${issues.length === 1 ? '' : 's'}`
-      } else {
-        powerReadyText = 'partial: assigned LED supplies satisfy conservative current/voltage budget; controller branch, wire, fuse, and connector validation still pending'
+      const connectorId = connectorAssignments[plan.itemId]
+      const connector = connectorId ? buildProfile.ownedParts?.connectors?.[connectorId] : undefined
+      if (!connectorId || !connector || !plan.connectorMinimumMa) {
+        branchIssues.push({
+          id: `${plan.itemId}:connector`,
+          severity: 'blocking',
+          title: plan.title,
+          detail: 'Assign a declared connector that meets the calculated continuous-current minimum.',
+        })
+      } else if (connector.continuousCurrentMa < plan.connectorMinimumMa) {
+        branchIssues.push({
+          id: `${plan.itemId}:connector-rating`,
+          severity: 'blocking',
+          title: plan.title,
+          detail: `${connector.label ?? connector.id} is rated ${connector.continuousCurrentMa} mA; this branch requires at least ${plan.connectorMinimumMa} mA continuous.`,
+        })
       }
+
+      const fuseId = fuseAssignments[plan.itemId]
+      const fuse = fuseId ? buildProfile.ownedParts?.fuses?.[fuseId] : undefined
+      if (!fuseId || !fuse || !plan.fuse.ratingMa) {
+        branchIssues.push({
+          id: `${plan.itemId}:fuse`,
+          severity: 'blocking',
+          title: plan.title,
+          detail: 'Assign a declared branch fuse after the conductor and connector limits are resolved.',
+        })
+      } else if (fuse.ratingMa < plan.fuse.minimumLoadRatingMa || fuse.ratingMa > plan.fuse.maximumProtectiveRatingMa) {
+        branchIssues.push({
+          id: `${plan.itemId}:fuse-rating`,
+          severity: 'blocking',
+          title: plan.title,
+          detail: `${fuse.label ?? fuse.id} is ${fuse.ratingMa} mA; the allowed range is ${plan.fuse.minimumLoadRatingMa}-${plan.fuse.maximumProtectiveRatingMa} mA.`,
+        })
+      }
+
+      if (plan.injectionUnresolvedReason) {
+        branchIssues.push({
+          id: `${plan.itemId}:injection`,
+          severity: 'blocking',
+          title: plan.title,
+          detail: plan.injectionUnresolvedReason,
+        })
+      }
+
+      branchChecks.push({ itemId: plan.itemId, title: plan.title, wireId, connectorId, fuseId, issues: branchIssues })
+      issues.push(...branchIssues)
     }
+
+    for (const [supplyId, assignedPlans] of assignmentsBySupplyId.entries()) {
+      const supply = buildProfile.ownedParts?.supplies?.[supplyId]
+      if (!supply) {
+        for (const plan of assignedPlans) {
+          issues.push({
+            id: `${plan.itemId}:missing-supply`,
+            severity: 'blocking',
+            title: plan.title,
+            detail: `Assigned supply "${supplyId}" is missing from Owned supplies.`,
+          })
+        }
+        continue
+      }
+
+      const requiredCurrentMa = roundToStep(
+        assignedPlans.reduce((sum, plan) => sum + plan.designCurrentMa, 0) * (1 + (headroomPercent / 100)),
+        100,
+      )
+      const requiredWattage = Number(((requiredCurrentMa / 1000) * assignedPlans[0].nominalVoltage).toFixed(1))
+      const checkIssues: ElectricalPlanIssue[] = []
+      const nominalVoltage = assignedPlans[0].nominalVoltage
+
+      if (Math.abs(supply.voltage - nominalVoltage) > 0.05) checkIssues.push({ id: `${supplyId}:voltage`, severity: 'blocking', title: supply.label ?? supply.id, detail: `Declared ${supply.voltage} V does not match the current ${nominalVoltage} V LED branch requirement.` })
+      if (supply.continuousCurrentMa < requiredCurrentMa) checkIssues.push({ id: `${supplyId}:current`, severity: 'blocking', title: supply.label ?? supply.id, detail: `Continuous current ${supply.continuousCurrentMa} mA is below the required ${requiredCurrentMa} mA branch budget.` })
+      if (typeof supply.wattage === 'number' && Number.isFinite(supply.wattage) && supply.wattage < requiredWattage) checkIssues.push({ id: `${supplyId}:wattage`, severity: 'blocking', title: supply.label ?? supply.id, detail: `Declared wattage ${supply.wattage} W is below the required ${requiredWattage} W branch budget.` })
+
+      supplyChecks.push({ supplyId, label: supply.label ?? supply.id, assignedOutputIds: assignedPlans.map((plan) => plan.itemId), assignedOutputTitles: assignedPlans.map((plan) => plan.title), requiredVoltage: nominalVoltage, requiredCurrentMa, requiredWattage, declaredVoltage: supply.voltage, declaredCurrentMa: supply.continuousCurrentMa, declaredWattage: supply.wattage, issues: checkIssues })
+      issues.push(...checkIssues)
+    }
+
+    if (exactBoard?.confidence !== 'manufacturer-verified' || buildProfile.controllerPower?.preferredPath !== 'usb') {
+      issues.push({
+        id: 'controller-power-validation',
+        severity: 'blocking',
+        title: 'Controller power branch',
+        detail: exactBoard?.confidence !== 'manufacturer-verified'
+          ? 'This board power path is not manufacturer-verified, so Power ready cannot pass.'
+          : 'Current controller branch validation supports the manufacturer-verified USB path; select USB or add a reviewed converter/power-path profile.',
+      })
+    }
+
+    powerReadyPasses = issues.length === 0
+    powerReadyText = powerReadyPasses
+      ? 'ready: declared supply, conductor, connector, fuse, injection, and controller branch all pass'
+      : `needs review: ${issues.length} power-path issue${issues.length === 1 ? '' : 's'}`
   }
 
   return {
@@ -390,8 +535,10 @@ export function calculateElectricalPlan(
     totals,
     controllerPowerPath: controllerPowerLabel(buildProfile.controllerPower?.preferredPath),
     supplyChecks,
+    branchChecks,
     recommendations,
     unresolved,
     assumptionsUsed,
+    ruleSetVersion: ELECTRICAL_RULESET_VERSION,
   }
 }
