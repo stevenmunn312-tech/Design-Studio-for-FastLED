@@ -1,0 +1,400 @@
+{
+  "id": "website-featured-03",
+  "name": "Mosslight Cloister",
+  "createdAt": 1785715200002,
+  "inputs": [],
+  "outputs": [
+    {
+      "id": "frame",
+      "label": "Frame",
+      "dataType": "frame"
+    }
+  ],
+  "subgraph": {
+    "nodes": [
+      {
+        "id": "forest",
+        "type": "studioNode",
+        "position": {
+          "x": -1040,
+          "y": -100
+        },
+        "data": {
+          "label": "Palette Selector",
+          "nodeType": "PaletteSelector",
+          "category": "color",
+          "properties": {
+            "palette": "forest"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ]
+        }
+      },
+      {
+        "id": "ocean",
+        "type": "studioNode",
+        "position": {
+          "x": -1040,
+          "y": 140
+        },
+        "data": {
+          "label": "Palette Selector",
+          "nodeType": "PaletteSelector",
+          "category": "color",
+          "properties": {
+            "palette": "ocean"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ]
+        }
+      },
+      {
+        "id": "mix",
+        "type": "studioNode",
+        "position": {
+          "x": -760,
+          "y": 20
+        },
+        "data": {
+          "label": "Blend Palettes",
+          "nodeType": "PaletteBlend",
+          "category": "color",
+          "properties": {
+            "paletteA": "rainbow",
+            "paletteB": "ocean",
+            "amount": 0.22
+          },
+          "inputs": [
+            {
+              "id": "paletteA",
+              "label": "Palette A",
+              "dataType": "palette"
+            },
+            {
+              "id": "paletteB",
+              "label": "Palette B",
+              "dataType": "palette"
+            },
+            {
+              "id": "amount",
+              "label": "Amount",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ]
+        }
+      },
+      {
+        "id": "noise",
+        "type": "studioNode",
+        "position": {
+          "x": -460,
+          "y": 20
+        },
+        "data": {
+          "label": "Fractal Noise",
+          "nodeType": "FractalNoise",
+          "category": "pattern",
+          "properties": {
+            "speed": 0.1,
+            "scale": 0.34,
+            "octaves": 5,
+            "palette": "forest",
+            "seed": 812
+          },
+          "inputs": [
+            {
+              "id": "speed",
+              "label": "Speed",
+              "dataType": "float"
+            },
+            {
+              "id": "scale",
+              "label": "Scale",
+              "dataType": "float"
+            },
+            {
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "mirror",
+        "type": "studioNode",
+        "position": {
+          "x": -160,
+          "y": 20
+        },
+        "data": {
+          "label": "Mirror",
+          "nodeType": "Mirror",
+          "category": "composite",
+          "properties": {
+            "mirrorMode": "quad",
+            "glow": true,
+            "glowAmount": 0.18,
+            "r": 255,
+            "g": 255,
+            "b": 255
+          },
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            },
+            {
+              "id": "color",
+              "label": "Tint",
+              "dataType": "color"
+            },
+            {
+              "id": "glowAmount",
+              "label": "Glow",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "swing",
+        "type": "studioNode",
+        "position": {
+          "x": -160,
+          "y": 220
+        },
+        "data": {
+          "label": "BeatSin",
+          "nodeType": "BeatSin",
+          "category": "signal",
+          "properties": {
+            "bpm": 3,
+            "low": -0.03,
+            "high": 0.05
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "value",
+              "label": "Value (0–1)",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "shift",
+        "type": "studioNode",
+        "position": {
+          "x": 140,
+          "y": 20
+        },
+        "data": {
+          "label": "Hue Shift",
+          "nodeType": "HueShift",
+          "category": "composite",
+          "properties": {
+            "shift": 0
+          },
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            },
+            {
+              "id": "shift",
+              "label": "Shift",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "blur",
+        "type": "studioNode",
+        "position": {
+          "x": 440,
+          "y": 20
+        },
+        "data": {
+          "label": "Blur 2D",
+          "nodeType": "Blur2D",
+          "category": "composite",
+          "properties": {
+            "amount": 0.08
+          },
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            },
+            {
+              "id": "amount",
+              "label": "Amount",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "out",
+        "type": "studioNode",
+        "position": {
+          "x": 720,
+          "y": 20
+        },
+        "data": {
+          "label": "Group Output",
+          "nodeType": "GroupOutput",
+          "category": "output",
+          "properties": {},
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ],
+          "outputs": []
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "forest",
+        "sourceHandle": "palette",
+        "target": "mix",
+        "targetHandle": "paletteA",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#ff5cf0"
+        }
+      },
+      {
+        "id": "e2",
+        "source": "ocean",
+        "sourceHandle": "palette",
+        "target": "mix",
+        "targetHandle": "paletteB",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#ff5cf0"
+        }
+      },
+      {
+        "id": "e3",
+        "source": "mix",
+        "sourceHandle": "palette",
+        "target": "noise",
+        "targetHandle": "paletteIn",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#ff5cf0"
+        }
+      },
+      {
+        "id": "e4",
+        "source": "noise",
+        "sourceHandle": "frame",
+        "target": "mirror",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "e5",
+        "source": "mirror",
+        "sourceHandle": "frame",
+        "target": "shift",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "e6",
+        "source": "swing",
+        "sourceHandle": "value",
+        "target": "shift",
+        "targetHandle": "shift",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "e7",
+        "source": "shift",
+        "sourceHandle": "frame",
+        "target": "blur",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "e8",
+        "source": "blur",
+        "sourceHandle": "frame",
+        "target": "out",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      }
+    ]
+  }
+}
