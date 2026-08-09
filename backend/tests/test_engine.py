@@ -94,6 +94,14 @@ def test_write_fbuild_ini_emits_a_section_per_board_and_psram_variant(tmp_path, 
     uno_section = text.split("[env:arduino_avr_uno]")[1].split("[env:")[0]
     assert "CORE_DEBUG_LEVEL" not in uno_section
 
+    # ESP32 boards also get -DNO_GFX=1, unconditionally — the vendored HUB75
+    # DMA library (_ensure_fbuild_hub75_lib) needs it to drop its Adafruit_GFX
+    # dependency, which isn't vendored (confirmed by a real build failure:
+    # "Adafruit_GFX.h: No such file or directory"). Harmless for every other
+    # ESP32 sketch since the macro is only consulted inside that header.
+    assert "-DNO_GFX=1" in text
+    assert "NO_GFX" not in uno_section
+
     # Base (non-PSRAM) ESP32 envs get the huge_app.csv partition table — the
     # stock default.csv's 1.31MB OTA app slots are too small for the
     # audio-heavy music-sync Player sketch. Non-ESP32 boards don't.
