@@ -2,14 +2,19 @@
 
 Status: in progress — property model, vendoring, single-panel codegen (normal
 Upload/Export, Flash Wiring Test, Live Stream), board-family gating, and a
-HUB75-specific power estimate implemented. **Hardware-validated (2026-08-09)**:
-Flash Wiring Test on a real ESP32-S3 + P4 64×64 panel confirmed the diagnostic
-pattern displays correctly (see `todo.md` for the two boot-failure bugs found
-and fixed along the way — a validation gap in `collectPinUses` and a default
-pinout that collided with the S3's flash pins). Panel chaining, the show
-controller and music-sync player generators, and HUB75+addressable
-peripheral-contention are not yet implemented/validated. · Owner: app ·
-Date: 2026-08-07
+HUB75-specific power estimate implemented. **Hardware-validated (2026-08-09)**
+on a real ESP32-S3 + P4 64×64 panel, same session: (1) Flash Wiring Test
+confirmed the diagnostic pattern displays correctly (see `todo.md` for the two
+boot-failure bugs found and fixed along the way — a validation gap in
+`collectPinUses` and a default pinout that collided with the S3's flash pins),
+then (2) a normal `generateCpp` Upload of a real pattern graph — including a
+wired `MicInput` (FastLED's native on-device audio engine) — ran correctly,
+confirming HUB75 output and the FastLED audio engine coexist on this board
+with no conflict. Panel chaining, the show controller and music-sync player
+generators, and HUB75+**addressable-strip** peripheral contention (a
+different, still-untested question — see Open Questions below; audio input
+sharing the board is not the same as a second LED output route) remain
+unimplemented/unvalidated. · Owner: app · Date: 2026-08-07
 
 Scopes a second physical-output family for `MatrixOutput`: HUB75 scan-panel
 matrices (the common indoor P2–P10 modules), driven over their ribbon
