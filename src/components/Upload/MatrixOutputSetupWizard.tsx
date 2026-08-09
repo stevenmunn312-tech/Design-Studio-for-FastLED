@@ -4,7 +4,7 @@ import { BOARDS, boardByFqbn, engineReady, useUploadStore } from '../../state/up
 import { CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, SPI_CHIPSETS } from '../../state/nodeLibrary'
 import { validateMatrixLayout } from '../../state/xyLayout'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
-import { estimatePowerLoad } from '../../utils/validateGraph'
+import { estimatePowerLoad, findHub75TopologyDiagnosticErrors } from '../../utils/validateGraph'
 import { useModalFocus } from '../../hooks/useModalFocus'
 import styles from './Upload.module.css'
 
@@ -90,6 +90,10 @@ export default function MatrixOutputSetupWizard() {
     [width, height, layout, tilesX, tilesY, tileSerpentine, tileRotations, customXYMap],
   )
   const power = useMemo(() => estimatePowerLoad(nodes), [nodes])
+  const hub75TopologyErrors = useMemo(
+    () => findHub75TopologyDiagnosticErrors(nodes, nodeId ?? undefined),
+    [nodes, nodeId],
+  )
   const hasFrameInput = !!nodeId && edges.some((e) => e.target === nodeId && e.targetHandle === 'frame')
 
   if (!nodeId) return null
@@ -106,6 +110,11 @@ export default function MatrixOutputSetupWizard() {
 
   function handleFlashWiringTest() {
     const sketch = generateWiringDiagnosticSketch(nodes, matrixNodeId)
+    if (sketch) void runUpload(sketch, undefined, { cache: false })
+  }
+
+  function handleFlashHub75Topology() {
+    const sketch = generateWiringDiagnosticSketch(nodes, matrixNodeId, 'hub75-panel-topology')
     if (sketch) void runUpload(sketch, undefined, { cache: false })
   }
 
@@ -487,6 +496,17 @@ export default function MatrixOutputSetupWizard() {
             >
               🧪 Flash wiring test
             </button>
+
+            {chipset === 'HUB75' && (
+              <button
+                className={`${styles.wizardButtonBase} ${styles.exportBtn} ${styles.topologyBtn}`}
+                disabled={!uploadReady || busy || hub75TopologyErrors.length > 0}
+                onClick={handleFlashHub75Topology}
+                title={hub75TopologyErrors.join('\n') || 'Hold per-panel coordinates, orientation corners, rotation labels, and chain arrows for this folded HUB75 grid'}
+              >
+                🧭 Flash HUB75 topology
+              </button>
+            )}
 
             <button
               className={`${styles.wizardButtonBase} ${styles.uploadBtn}`}

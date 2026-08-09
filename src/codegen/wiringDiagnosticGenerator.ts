@@ -1,5 +1,5 @@
 import type { StudioNode } from '../state/graphStore'
-import { buildXYTable } from '../state/xyLayout'
+import { buildXYTable, tileRotationAt } from '../state/xyLayout'
 import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
@@ -14,12 +14,18 @@ function matrixOutputNode(nodes: StudioNode[], outputNodeId?: string): StudioNod
     ?? nodes.find((n) => n.data.nodeType === 'MatrixOutput')
 }
 
+export type WiringDiagnosticMode = 'cycle' | 'hub75-panel-topology'
+
 /** Generate a standalone hardware-wiring diagnostic sketch from the current
  *  MatrixOutput settings. The sketch cycles through color-order solids,
  *  brightness/current-limit bars, an orientation gradient, panel numbering,
  *  a logical XY chase, and a direct physical-index chase, so it can be flashed
  *  before the user has built a normal creative graph. */
-export function generateWiringDiagnosticSketch(nodes: StudioNode[], outputNodeId?: string): string | null {
+export function generateWiringDiagnosticSketch(
+  nodes: StudioNode[],
+  outputNodeId?: string,
+  diagnosticMode: WiringDiagnosticMode = 'cycle',
+): string | null {
   const outputNode = matrixOutputNode(nodes, outputNodeId)
   if (!outputNode) return null
 
@@ -30,7 +36,11 @@ export function generateWiringDiagnosticSketch(nodes: StudioNode[], outputNodeId
   const hw = ledHardwareFromProps(p)
   const isHub75 = hw.chipset === HUB75_CHIPSET
   const hub75Hw = isHub75 ? hub75HardwareFromProps(p, width, height) : null
-  const xyTable = buildXYTable(width, height, p)
+  // Addressable LEDs need the baked grid -> physical-index table. HUB75's DMA
+  // display / VirtualMatrixPanel_T path already owns chain routing, with
+  // hub75Hw.coordMap handling per-tile rotation, so applying buildXYTable here
+  // as well would remap a folded grid twice.
+  const xyTable = isHub75 ? null : buildXYTable(width, height, p)
   const powerLimit = p.powerLimit === true
   const volts = intProp(p.volts, 5, 1, 24)
   const milliamps = intProp(p.milliamps, 2000, 100, 50000)
@@ -42,6 +52,14 @@ export function generateWiringDiagnosticSketch(nodes: StudioNode[], outputNodeId
   const effectiveTilesY = panelsValid ? tilesY : 1
   const tileW = Math.max(1, Math.floor(width / effectiveTilesX))
   const tileH = Math.max(1, Math.floor(height / effectiveTilesY))
+  const hub75TopologyAvailable = isHub75 && panelsValid && effectiveTilesY > 1
+  if (diagnosticMode === 'hub75-panel-topology' && !hub75TopologyAvailable) return null
+  const topologyOnly = diagnosticMode === 'hub75-panel-topology'
+  const tileSerpentine = p.tileSerpentine === true
+  const tileRotations = Array.from(
+    { length: effectiveTilesX * effectiveTilesY },
+    (_, index) => tileRotationAt(p, index),
+  )
   const modeMs = 3200
   const chaseMs = 90
 
@@ -51,6 +69,10 @@ export function generateWiringDiagnosticSketch(nodes: StudioNode[], outputNodeId
   lines.push('// The sketch cycles through: RGB color-order solids, brightness/current-limit')
   lines.push('// bars, an orientation gradient, panel numbering, a logical XY chase, and a')
   lines.push('// direct physical-index chase for dead-pixel / chain-order checks.')
+  if (hub75TopologyAvailable) {
+    lines.push('// HUB75 folded-grid mode adds per-panel X/Y axes, fixed-colour corners,')
+    lines.push('// grid coordinates, configured rotation, chain ordinal, and chain arrows.')
+  }
   lines.push(...overclockDefineCpp(hw))
   lines.push('#include <FastLED.h>')
   if (isHub75) lines.push(...hub75IncludesCpp(hub75Hw!))
@@ -67,6 +89,10 @@ export function generateWiringDiagnosticSketch(nodes: StudioNode[], outputNodeId
   lines.push(`#define PANEL_TILES_Y ${effectiveTilesY}`)
   lines.push(`#define PANEL_W ${tileW}`)
   lines.push(`#define PANEL_H ${tileH}`)
+  if (hub75TopologyAvailable) {
+    lines.push(`#define PANEL_SERPENTINE ${tileSerpentine ? 1 : 0}`)
+    lines.push(`#define HUB75_PANEL_TOPOLOGY_ONLY ${topologyOnly ? 1 : 0}`)
+  }
   lines.push(`#define DIAG_MODE_MS ${modeMs}`)
   lines.push(`#define DIAG_CHASE_MS ${chaseMs}`)
   lines.push('')
@@ -92,6 +118,13 @@ export function generateWiringDiagnosticSketch(nodes: StudioNode[], outputNodeId
   lines.push('  { 0b111, 0b101, 0b111, 0b101, 0b111 },')
   lines.push('  { 0b111, 0b101, 0b111, 0b001, 0b111 }')
   lines.push('};')
+  if (hub75TopologyAvailable) {
+    lines.push('const uint8_t GLYPH_X[5] PROGMEM = { 0b101, 0b101, 0b010, 0b101, 0b101 };')
+    lines.push('const uint8_t GLYPH_Y[5] PROGMEM = { 0b101, 0b101, 0b010, 0b010, 0b010 };')
+    lines.push('const uint8_t GLYPH_P[5] PROGMEM = { 0b110, 0b101, 0b110, 0b100, 0b100 };')
+    lines.push('const uint8_t GLYPH_R[5] PROGMEM = { 0b110, 0b101, 0b110, 0b101, 0b101 };')
+    lines.push(`const uint16_t PANEL_ROTATIONS[PANEL_TILES_X * PANEL_TILES_Y] PROGMEM = { ${tileRotations.join(',')} };`)
+  }
   lines.push('')
   lines.push('void plot(int x, int y, const CRGB& color) {')
   lines.push('  if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) return;')
@@ -99,6 +132,29 @@ export function generateWiringDiagnosticSketch(nodes: StudioNode[], outputNodeId
   else lines.push('  leds[(uint16_t)y * WIDTH + x] = color;')
   lines.push('}')
   lines.push('')
+  if (hub75TopologyAvailable) {
+    lines.push('void drawGlyph3x5(int x, int y, const uint8_t glyph[5], const CRGB& color) {')
+    lines.push('  for (int row = 0; row < 5; row++) {')
+    lines.push('    uint8_t bits = pgm_read_byte(&glyph[row]);')
+    lines.push('    for (int col = 0; col < 3; col++) if (bits & (1 << (2 - col))) plot(x + col, y + row, color);')
+    lines.push('  }')
+    lines.push('}')
+    lines.push('')
+    lines.push('void drawHorizontalArrow(int x0, int x1, int y, bool right, const CRGB& color) {')
+    lines.push('  if (x1 < x0) return;')
+    lines.push('  for (int x = x0; x <= x1; x++) plot(x, y, color);')
+    lines.push('  int tip = right ? x1 : x0;')
+    lines.push('  int stem = right ? tip - 1 : tip + 1;')
+    lines.push('  plot(stem, y - 1, color); plot(stem, y + 1, color);')
+    lines.push('}')
+    lines.push('')
+    lines.push('void drawVerticalArrow(int x, int y0, int y1, const CRGB& color) {')
+    lines.push('  if (y1 < y0) return;')
+    lines.push('  for (int y = y0; y <= y1; y++) plot(x, y, color);')
+    lines.push('  plot(x - 1, y1 - 1, color); plot(x + 1, y1 - 1, color);')
+    lines.push('}')
+    lines.push('')
+  }
   lines.push('void drawDigit(int x, int y, int digit, const CRGB& color) {')
   lines.push('  if (digit < 0 || digit > 9) return;')
   lines.push('  for (int row = 0; row < 5; row++) {')
@@ -177,6 +233,52 @@ export function generateWiringDiagnosticSketch(nodes: StudioNode[], outputNodeId
   lines.push('  }')
   lines.push('}')
   lines.push('')
+  if (hub75TopologyAvailable) {
+    lines.push('void drawHub75PanelTopology(bool blink) {')
+    lines.push('  fill_solid(leds, NUM_LEDS, CRGB::Black);')
+    lines.push('  for (int ty = 0; ty < PANEL_TILES_Y; ty++) for (int tx = 0; tx < PANEL_TILES_X; tx++) {')
+    lines.push('    int panelIndex = ty * PANEL_TILES_X + tx;')
+    lines.push('    int chainX = (PANEL_SERPENTINE && (ty & 1)) ? PANEL_TILES_X - 1 - tx : tx;')
+    lines.push('    int chainOrdinal = ty * PANEL_TILES_X + chainX;')
+    lines.push('    bool chainRight = !(PANEL_SERPENTINE && (ty & 1));')
+    lines.push('    int px = tx * PANEL_W; int py = ty * PANEL_H;')
+    lines.push('    CHSV fill = CHSV((uint8_t)(chainOrdinal * 47), 220, 18);')
+    lines.push('    CHSV edge = CHSV((uint8_t)(chainOrdinal * 47), 255, 105);')
+    lines.push('    for (int y = 0; y < PANEL_H; y++) for (int x = 0; x < PANEL_W; x++) plot(px + x, py + y, fill);')
+    lines.push('    for (int x = 0; x < PANEL_W; x++) { plot(px + x, py, edge); plot(px + x, py + PANEL_H - 1, edge); }')
+    lines.push('    for (int y = 0; y < PANEL_H; y++) { plot(px, py + y, edge); plot(px + PANEL_W - 1, py + y, edge); }')
+    lines.push('')
+    lines.push('    // Global logical axes: red always points +X/right; blue always points +Y/down.')
+    lines.push('    if (PANEL_W >= 7) drawHorizontalArrow(px + 2, px + PANEL_W - 3, py + 2, true, CRGB::Red);')
+    lines.push('    if (PANEL_H >= 7) drawVerticalArrow(px + 2, py + 2, py + PANEL_H - 3, CRGB::Blue);')
+    lines.push('')
+    lines.push('    // Four invariant corner blocks make every 90/180/270-degree error obvious.')
+    lines.push('    CRGB topLeft = (chainOrdinal == 0 && blink) ? CRGB::Cyan : CRGB::White;')
+    lines.push('    CRGB bottomRight = (chainOrdinal == PANEL_TILES_X * PANEL_TILES_Y - 1 && blink) ? CRGB::Magenta : CRGB::Green;')
+    lines.push('    plot(px, py, topLeft); plot(px + 1, py, topLeft); plot(px, py + 1, topLeft);')
+    lines.push('    plot(px + PANEL_W - 1, py, CRGB::Red); plot(px + PANEL_W - 2, py, CRGB::Red); plot(px + PANEL_W - 1, py + 1, CRGB::Red);')
+    lines.push('    plot(px, py + PANEL_H - 1, CRGB::Blue); plot(px + 1, py + PANEL_H - 1, CRGB::Blue); plot(px, py + PANEL_H - 2, CRGB::Blue);')
+    lines.push('    plot(px + PANEL_W - 1, py + PANEL_H - 1, bottomRight); plot(px + PANEL_W - 2, py + PANEL_H - 1, bottomRight); plot(px + PANEL_W - 1, py + PANEL_H - 2, bottomRight);')
+    lines.push('')
+    lines.push('    // Yellow is physical chain direction; alternating rows expose serpentine folds.')
+    lines.push('    if (PANEL_W >= 9) drawHorizontalArrow(px + 3, px + PANEL_W - 4, py + PANEL_H / 2, chainRight, CRGB::Yellow);')
+    lines.push('')
+    lines.push('    if (PANEL_W >= 13 && PANEL_H >= 13) {')
+    lines.push('      drawGlyph3x5(px + 5, py + 4, GLYPH_X, CRGB::Red); drawNumber(px + 9, py + 4, tx, CRGB::White);')
+    lines.push('      drawGlyph3x5(px + 5, py + 10, GLYPH_Y, CRGB::Blue); drawNumber(px + 9, py + 10, ty, CRGB::White);')
+    lines.push('    }')
+    lines.push('    if (PANEL_W >= 16 && PANEL_H >= 26) {')
+    lines.push('      int chainLabelY = py + PANEL_H / 2 + 2;')
+    lines.push('      drawGlyph3x5(px + 5, chainLabelY, GLYPH_P, CRGB::Yellow); drawNumber(px + 9, chainLabelY, chainOrdinal, CRGB::White);')
+    lines.push('    }')
+    lines.push('    if (PANEL_W >= 20 && PANEL_H >= 20) {')
+    lines.push('      int rotation = pgm_read_word(&PANEL_ROTATIONS[panelIndex]);')
+    lines.push('      drawGlyph3x5(px + 5, py + PANEL_H - 7, GLYPH_R, CRGB::Orange); drawNumber(px + 9, py + PANEL_H - 7, rotation, CRGB::White);')
+    lines.push('    }')
+    lines.push('  }')
+    lines.push('}')
+    lines.push('')
+  }
   lines.push('void drawLogicalChase(uint32_t now) {')
   lines.push('  fill_solid(leds, NUM_LEDS, CRGB::Black);')
   lines.push('  int logical = (int)((now / DIAG_CHASE_MS) % NUM_LEDS);')
@@ -204,20 +306,29 @@ export function generateWiringDiagnosticSketch(nodes: StudioNode[], outputNodeId
   lines.push('')
   lines.push('void loop() {')
   lines.push('  uint32_t now = millis();')
-  lines.push('  uint8_t mode = (uint8_t)((now / DIAG_MODE_MS) % 8);')
   lines.push('  bool blink = ((now / 240) & 1) == 0;')
-  lines.push('  switch (mode) {')
-  lines.push('    case 0: fill_solid(leds, NUM_LEDS, CRGB::Red); break;')
-  lines.push('    case 1: fill_solid(leds, NUM_LEDS, CRGB::Green); break;')
-  lines.push('    case 2: fill_solid(leds, NUM_LEDS, CRGB::Blue); break;')
-  lines.push('    case 3: drawBrightnessBars(); break;')
-  lines.push('    case 4: drawOrientationMap(blink); break;')
-  lines.push('    case 5: drawPanelDiagnostic(); break;')
-  lines.push('    case 6: drawLogicalChase(now); break;')
-  lines.push('    default: drawPhysicalChase(now); break;')
-  lines.push('  }')
+  if (topologyOnly) {
+    lines.push('  drawHub75PanelTopology(blink);')
+  } else {
+    lines.push(`  uint8_t mode = (uint8_t)((now / DIAG_MODE_MS) % ${hub75TopologyAvailable ? 9 : 8});`)
+    lines.push('  switch (mode) {')
+    lines.push('    case 0: fill_solid(leds, NUM_LEDS, CRGB::Red); break;')
+    lines.push('    case 1: fill_solid(leds, NUM_LEDS, CRGB::Green); break;')
+    lines.push('    case 2: fill_solid(leds, NUM_LEDS, CRGB::Blue); break;')
+    lines.push('    case 3: drawBrightnessBars(); break;')
+    lines.push('    case 4: drawOrientationMap(blink); break;')
+    lines.push('    case 5: drawPanelDiagnostic(); break;')
+    if (hub75TopologyAvailable) {
+      lines.push('    case 6: drawHub75PanelTopology(blink); break;')
+      lines.push('    case 7: drawLogicalChase(now); break;')
+    } else {
+      lines.push('    case 6: drawLogicalChase(now); break;')
+    }
+    lines.push('    default: drawPhysicalChase(now); break;')
+    lines.push('  }')
+  }
   if (isHub75) {
-    lines.push(...hub75BlitRowsCpp(hub75Hw!, `leds[${xyTable ? 'XY((uint8_t)_x, (uint8_t)_y)' : '(uint16_t)_y * WIDTH + _x'}]`))
+    lines.push(...hub75BlitRowsCpp(hub75Hw!, 'leds[(uint16_t)_y * WIDTH + _x]'))
   } else {
     lines.push('  FastLED.show();')
   }

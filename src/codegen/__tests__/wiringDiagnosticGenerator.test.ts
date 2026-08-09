@@ -132,14 +132,13 @@ describe('generateWiringDiagnosticSketch', () => {
       expect(sketch).not.toContain('setMaxPowerInVoltsAndMilliamps')
     })
 
-    it('reads through the baked XY table when the blit needs one', () => {
-      const custom = node('out', 'MatrixOutput', 'output', {
-        width: 8, height: 8, chipset: 'HUB75', layout: 'custom',
-        customXYMap: JSON.stringify(Array.from({ length: 64 }, (_, i) => 63 - i)),
+    it('keeps the HUB75 framebuffer logical and lets the DMA topology path own routing', () => {
+      const grid = node('out', 'MatrixOutput', 'output', {
+        width: 16, height: 16, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2,
       })
-      const sketch = generateWiringDiagnosticSketch([custom])!
-      expect(sketch).toContain('const uint16_t _xytable[64] PROGMEM')
-      expect(sketch).toContain('CRGB _c = leds[XY((uint8_t)_x, (uint8_t)_y)];')
+      const sketch = generateWiringDiagnosticSketch([grid])!
+      expect(sketch).not.toContain('const uint16_t _xytable')
+      expect(sketch).toContain('CRGB _c = leds[(uint16_t)_y * WIDTH + _x];')
     })
 
     it('drives a single-row panel chain via chain_length', () => {
@@ -170,6 +169,44 @@ describe('generateWiringDiagnosticSketch', () => {
       expect(sketch).toContain('const uint16_t _hub75CoordMap[NUM_LEDS] PROGMEM = {')
       expect(sketch).toContain('uint16_t _hub75XY = pgm_read_word(&_hub75CoordMap[_y * WIDTH + _x]);')
       expect(sketch).toContain('dma_display->drawPixelRGB888(_hub75XY & 0xFF, _hub75XY >> 8, _c.r, _c.g, _c.b);')
+    })
+
+    it('adds the panel-topology phase to a folded-grid wiring-test cycle', () => {
+      const gridOut = node('out', 'MatrixOutput', 'output', {
+        width: 64, height: 64, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2,
+        tileSerpentine: true, tileRotations: '0,90,180,270',
+      })
+      const sketch = generateWiringDiagnosticSketch([gridOut])!
+      expect(sketch).toContain('#define PANEL_SERPENTINE 1')
+      expect(sketch).toContain('#define HUB75_PANEL_TOPOLOGY_ONLY 0')
+      expect(sketch).toContain('const uint16_t PANEL_ROTATIONS[PANEL_TILES_X * PANEL_TILES_Y] PROGMEM = { 0,90,180,270 };')
+      expect(sketch).toContain('uint8_t mode = (uint8_t)((now / DIAG_MODE_MS) % 9);')
+      expect(sketch).toContain('case 6: drawHub75PanelTopology(blink); break;')
+    })
+
+    it('generates a dedicated folded-grid topology pattern from MatrixOutput settings', () => {
+      const gridOut = node('out', 'MatrixOutput', 'output', {
+        width: 64, height: 64, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2,
+        tileSerpentine: true, tileRotations: '0,90,180,270',
+      })
+      const sketch = generateWiringDiagnosticSketch([gridOut], 'out', 'hub75-panel-topology')!
+      expect(sketch).toContain('#define PANEL_TILES_X 2')
+      expect(sketch).toContain('#define PANEL_TILES_Y 2')
+      expect(sketch).toContain('#define PANEL_W 32')
+      expect(sketch).toContain('#define PANEL_H 32')
+      expect(sketch).toContain('#define HUB75_PANEL_TOPOLOGY_ONLY 1')
+      expect(sketch).toContain('int chainX = (PANEL_SERPENTINE && (ty & 1)) ? PANEL_TILES_X - 1 - tx : tx;')
+      expect(sketch).toContain('drawGlyph3x5(px + 5, py + 4, GLYPH_X, CRGB::Red)')
+      expect(sketch).toContain('drawGlyph3x5(px + 5, py + 10, GLYPH_Y, CRGB::Blue)')
+      expect(sketch).toContain('drawGlyph3x5(px + 5, py + PANEL_H - 7, GLYPH_R, CRGB::Orange)')
+      expect(sketch).toContain('drawHorizontalArrow(px + 3, px + PANEL_W - 4, py + PANEL_H / 2, chainRight, CRGB::Yellow)')
+      expect(sketch).toContain('drawHub75PanelTopology(blink);')
+      expect(sketch).not.toContain('switch (mode)')
+    })
+
+    it('does not generate the dedicated topology mode for non-folded outputs', () => {
+      expect(generateWiringDiagnosticSketch([hub75Out], 'out', 'hub75-panel-topology')).toBeNull()
+      expect(generateWiringDiagnosticSketch([outputNode], 'out', 'hub75-panel-topology')).toBeNull()
     })
   })
 })

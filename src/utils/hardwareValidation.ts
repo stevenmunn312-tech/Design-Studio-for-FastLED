@@ -352,7 +352,18 @@ function makeChecks(profile: Omit<HardwareValidationProfile, 'gaps' | 'checks'>)
   ]
   if (profile.matrix.powerLimit) checks.push({ id: 'power-cap', label: 'Power cap', detail: 'The configured voltage/current cap visibly limited output as expected.' })
   if (profile.features.includes('INMP441/on-device microphone')) checks.push({ id: 'microphone', label: 'Microphone input', detail: 'Live audio drove the expected FFT/beat behavior on-device.' })
-  if (profile.action === 'wiring-test') checks.push({ id: 'wiring-diagnostic', label: 'Diagnostic sequence', detail: 'Solids, gradients, corner marks, indices, and chases all rendered correctly.' })
+  if (profile.action === 'wiring-test') {
+    const foldedHub75 = profile.matrix.chipset === 'HUB75'
+      && profile.matrix.layout === 'panels'
+      && (profile.matrix.tilesY ?? 1) > 1
+    checks.push({
+      id: 'wiring-diagnostic',
+      label: foldedHub75 ? 'Diagnostic + panel topology' : 'Diagnostic sequence',
+      detail: foldedHub75
+        ? 'Solids and chases rendered correctly; every panel showed the expected X/Y coordinate, fixed-color corners, rotation, chain ordinal, and serpentine direction.'
+        : 'Solids, gradients, corner marks, indices, and chases all rendered correctly.',
+    })
+  }
   if (profile.action === 'live-stream') checks.push({ id: 'live-stream', label: 'Live stream', detail: 'The receiver accepted frames, stayed responsive, and released the port cleanly.' })
   if (profile.action === 'generative-show') checks.push({ id: 'show-runtime', label: 'Show runtime', detail: 'Pattern dwell, transitions, beat advance, and overlays behaved as configured.' })
   if (profile.action === 'sd-show') {

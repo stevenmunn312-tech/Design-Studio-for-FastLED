@@ -2,7 +2,11 @@
 
 Status: in progress — property model, vendoring, single-panel codegen (normal
 Upload/Export, Flash Wiring Test, Live Stream), board-family gating, and a
-HUB75-specific power estimate implemented. **Hardware-validated (2026-08-09)**
+HUB75-specific power estimate implemented. Flash Wiring Test now also has a
+dedicated folded-grid topology mode driven by the MatrixOutput panel count,
+serpentine-chain, and per-tile rotation settings; it marks every panel with
+fixed-colour corners, X/Y axes and coordinates, rotation, chain ordinal, and
+chain direction. **Hardware-validated (2026-08-09)**
 on a real ESP32-S3 + P4 64×64 panel, same session: (1) Flash Wiring Test
 confirmed the diagnostic pattern displays correctly (see `todo.md` for the two
 boot-failure bugs found and fixed along the way — a validation gap in
@@ -184,8 +188,10 @@ HUB75 support:
   `CMD_SET_BRIGHTNESS` show event now routes to `dma_display->setBrightness8()`
   instead of `FastLED.setBrightness()` for HUB75.
 
-Hardware-validated so far: only `generateCpp` and
-`generateWiringDiagnosticSketch` (see the status line above). The other
+Hardware-validated so far: only `generateCpp` and the original general
+`generateWiringDiagnosticSketch` sequence (see the status line above). The
+new dedicated HUB75 2D topology mode is generator/validation-tested but has
+not yet had a multi-panel hardware pass. The other
 three — `generateStreamReceiverSketch`, `generateShowSketch`,
 `generatePlayerSketch` — compile and pass their unit tests but have no real
 hardware pass yet.

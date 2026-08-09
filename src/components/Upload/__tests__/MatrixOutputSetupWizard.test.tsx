@@ -3,6 +3,7 @@ import { fireEvent, render } from '@testing-library/react'
 import MatrixOutputSetupWizard from '../MatrixOutputSetupWizard'
 import { useGraphStore } from '../../../state/graphStore'
 import { useUploadStore } from '../../../state/uploadStore'
+import { generateWiringDiagnosticSketch } from '../../../codegen/wiringDiagnosticGenerator'
 
 vi.mock('../../../codegen/wiringDiagnosticGenerator', () => ({
   generateWiringDiagnosticSketch: vi.fn(() => '// wiring diagnostic'),
@@ -95,6 +96,40 @@ describe('MatrixOutputSetupWizard', () => {
     fireEvent.click(getByRole('button', { name: /Upload/ }))
     fireEvent.click(getByRole('button', { name: '🧪 Flash wiring test' }))
 
+    expect(runUpload).toHaveBeenCalledWith('// wiring diagnostic', undefined, { cache: false })
+  })
+
+  it('offers the dedicated topology mode for a folded HUB75 grid', () => {
+    useGraphStore.setState({
+      nodes: useGraphStore.getState().nodes.map((matrix) => ({
+        ...matrix,
+        data: {
+          ...matrix.data,
+          properties: {
+            ...matrix.data.properties,
+            width: 64,
+            height: 64,
+            chipset: 'HUB75',
+            layout: 'panels',
+            tilesX: 2,
+            tilesY: 2,
+            tileSerpentine: true,
+          },
+        },
+      })) as never[],
+    })
+    const runUpload = vi.fn()
+    useUploadStore.setState({ runUpload })
+
+    const { getByRole } = render(<MatrixOutputSetupWizard />)
+    fireEvent.click(getByRole('button', { name: /Upload/ }))
+    fireEvent.click(getByRole('button', { name: '🧭 Flash HUB75 topology' }))
+
+    expect(generateWiringDiagnosticSketch).toHaveBeenCalledWith(
+      expect.any(Array),
+      'matrix',
+      'hub75-panel-topology',
+    )
     expect(runUpload).toHaveBeenCalledWith('// wiring diagnostic', undefined, { cache: false })
   })
 
