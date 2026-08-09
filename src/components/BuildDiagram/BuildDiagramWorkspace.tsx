@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   boardPinForGpio,
   boardProfileById,
@@ -71,6 +71,13 @@ const CONTROLLER_POWER_OPTIONS: { value: NonNullable<BuildControllerPowerProfile
   { value: 'regulated-5v', label: 'External regulated 5 V' },
   { value: 'regulated-3v3', label: 'External regulated 3.3 V' },
 ]
+const PANEL_WIDTH_STEP = 32
+const DEFAULT_SIDEBAR_WIDTH = 340
+const MIN_SIDEBAR_WIDTH = 280
+const MAX_SIDEBAR_WIDTH = 420
+const DEFAULT_DETAIL_WIDTH = 360
+const MIN_DETAIL_WIDTH = 300
+const MAX_DETAIL_WIDTH = 440
 
 function formatFactValue(value: unknown): string {
   if (value == null) return 'Unknown'
@@ -229,6 +236,8 @@ export default function BuildDiagramWorkspace() {
   const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>('all')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [detailPaneCollapsed, setDetailPaneCollapsed] = useState(false)
+  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH)
+  const [detailPaneWidth, setDetailPaneWidth] = useState(DEFAULT_DETAIL_WIDTH)
   const [advancedAssumptionsOpen, setAdvancedAssumptionsOpen] = useState(false)
   const [diagramZoom, setDiagramZoom] = useState(1)
   const viewportRef = useRef<HTMLDivElement | null>(null)
@@ -492,6 +501,14 @@ export default function BuildDiagramWorkspace() {
     })
   }
 
+  const adjustSidebarWidth = (delta: number) => {
+    setSidebarWidth((current) => Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, current + delta)))
+  }
+
+  const adjustDetailPaneWidth = (delta: number) => {
+    setDetailPaneWidth((current) => Math.min(MAX_DETAIL_WIDTH, Math.max(MIN_DETAIL_WIDTH, current + delta)))
+  }
+
   const controllerBox = useMemo(() => {
     const size = controllerBoxSize(exactBoard?.pinAnchors)
     return {
@@ -730,6 +747,11 @@ export default function BuildDiagramWorkspace() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exactBoard?.id, canvasWidth, canvasHeight])
 
+  const workspaceStyle = {
+    '--build-sidebar-width': `${sidebarWidth}px`,
+    '--build-detail-width': `${detailPaneWidth}px`,
+  } as CSSProperties
+
   return (
     <section
       className={[
@@ -738,6 +760,7 @@ export default function BuildDiagramWorkspace() {
         detailPaneCollapsed ? styles.workspaceDetailCollapsed : '',
       ].join(' ').trim()}
       aria-label="Build Diagram workspace"
+      style={workspaceStyle}
     >
       <aside className={styles.sidebar}>
         {sidebarCollapsed ? (
@@ -752,6 +775,24 @@ export default function BuildDiagramWorkspace() {
                 <p className={styles.panelSubtitle}>Physical hardware and installation facts for this project.</p>
               </div>
               <div className={styles.headerActions}>
+                <div className={styles.panelSizeControls}>
+                  <button
+                    type="button"
+                    className={styles.smallButton}
+                    onClick={() => adjustSidebarWidth(-PANEL_WIDTH_STEP)}
+                    disabled={sidebarWidth <= MIN_SIDEBAR_WIDTH}
+                  >
+                    Narrow build panel
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.smallButton}
+                    onClick={() => adjustSidebarWidth(PANEL_WIDTH_STEP)}
+                    disabled={sidebarWidth >= MAX_SIDEBAR_WIDTH}
+                  >
+                    Widen build panel
+                  </button>
+                </div>
                 <button type="button" className={styles.smallButton} onClick={() => setSidebarCollapsed(true)}>
                   Hide build panel
                 </button>
@@ -1321,9 +1362,29 @@ export default function BuildDiagramWorkspace() {
                 <h2 className={styles.panelTitle}>Details</h2>
                 <p className={styles.panelSubtitle}>Readiness, connections, board notes, and export state.</p>
               </div>
-              <button type="button" className={styles.smallButton} onClick={() => setDetailPaneCollapsed(true)}>
-                Hide details
-              </button>
+              <div className={styles.headerActions}>
+                <div className={styles.panelSizeControls}>
+                  <button
+                    type="button"
+                    className={styles.smallButton}
+                    onClick={() => adjustDetailPaneWidth(-PANEL_WIDTH_STEP)}
+                    disabled={detailPaneWidth <= MIN_DETAIL_WIDTH}
+                  >
+                    Narrow details
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.smallButton}
+                    onClick={() => adjustDetailPaneWidth(PANEL_WIDTH_STEP)}
+                    disabled={detailPaneWidth >= MAX_DETAIL_WIDTH}
+                  >
+                    Widen details
+                  </button>
+                </div>
+                <button type="button" className={styles.smallButton} onClick={() => setDetailPaneCollapsed(true)}>
+                  Hide details
+                </button>
+              </div>
             </div>
 
             <section className={styles.card}>

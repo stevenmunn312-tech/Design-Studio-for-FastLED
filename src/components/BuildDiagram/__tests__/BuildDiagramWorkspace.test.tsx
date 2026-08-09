@@ -203,6 +203,22 @@ describe('BuildDiagramWorkspace', () => {
     expect(getByText('Selected item')).toBeTruthy()
   })
 
+  it('can resize both side panels independently', () => {
+    const { getByLabelText, getByText } = render(<BuildDiagramWorkspace />)
+    const workspace = getByLabelText('Build Diagram workspace') as HTMLElement
+
+    expect(workspace.getAttribute('style')).toContain('--build-sidebar-width: 340px')
+    expect(workspace.getAttribute('style')).toContain('--build-detail-width: 360px')
+
+    fireEvent.click(getByText('Widen build panel'))
+    expect(workspace.getAttribute('style')).toContain('--build-sidebar-width: 372px')
+    expect(workspace.getAttribute('style')).toContain('--build-detail-width: 360px')
+
+    fireEvent.click(getByText('Narrow details'))
+    expect(workspace.getAttribute('style')).toContain('--build-sidebar-width: 372px')
+    expect(workspace.getAttribute('style')).toContain('--build-detail-width: 328px')
+  })
+
   it('defaults exports to complete build and lets the user switch to current view', () => {
     const { getByText } = render(<BuildDiagramWorkspace />)
 

@@ -1,6 +1,9 @@
 .workspace {
   display: grid;
-  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) minmax(300px, 360px);
+  grid-template-columns:
+    minmax(280px, var(--build-sidebar-width, 340px))
+    minmax(0, 1fr)
+    minmax(300px, var(--build-detail-width, 360px));
   gap: 16px;
   flex: 1;
   min-height: 0;
@@ -9,11 +12,11 @@
 }
 
 .workspaceSidebarCollapsed {
-  grid-template-columns: 68px minmax(0, 1fr) minmax(300px, 360px);
+  grid-template-columns: 68px minmax(0, 1fr) minmax(300px, var(--build-detail-width, 360px));
 }
 
 .workspaceDetailCollapsed {
-  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) 68px;
+  grid-template-columns: minmax(280px, var(--build-sidebar-width, 340px)) minmax(0, 1fr) 68px;
 }
 
 .workspaceSidebarCollapsed.workspaceDetailCollapsed {
@@ -59,6 +62,13 @@
 .headerActions {
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.panelSizeControls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .panelHeader,
