@@ -351,7 +351,21 @@ def _write_fbuild_ini() -> None:
         # doesn't, so anything referencing it (e.g. ESP32-audioI2S's Audio.h)
         # fails to compile without this — a known PlatformIO+esp32 gotcha, not
         # specific to this project.
-        base_flags = ["-DCORE_DEBUG_LEVEL=0"] if meta["platform"] == "espressif32" else []
+        #
+        # ESP32-HUB75-MatrixPanel-DMA (vendored lazily by _ensure_fbuild_hub75_lib)
+        # depends on Adafruit_GFX by default, which we don't vendor — confirmed by
+        # a real build failure ("Adafruit_GFX.h: No such file or directory") once
+        # a HUB75 sketch actually reached this compile step. -DNO_GFX=1 (the
+        # library's own documented build flag, doc/BuildOptions.md) drops that
+        # dependency entirely: MatrixPanel_I2S_DMA stops inheriting from
+        # Adafruit_GFX, but every method our codegen calls — begin(),
+        # setBrightness8(), clearScreen(), drawPixelRGB888() — is declared
+        # unconditionally in the header, not part of the GFX API, so nothing we
+        # emit needs Adafruit_GFX. Set unconditionally rather than only for HUB75
+        # builds (this static ini is written once for every env, not per
+        # request) — the macro is inert for every sketch that doesn't include the
+        # HUB75 header.
+        base_flags = ["-DCORE_DEBUG_LEVEL=0", "-DNO_GFX=1"] if meta["platform"] == "espressif32" else []
         # The stock dual-OTA `default.csv` partition table caps each app slot at
         # 0x140000 (1,310,720 bytes) on a typical 4MB-flash ESP32 module. The
         # music-sync Player sketch (ESP32-audioI2S's codec support pushes it well
