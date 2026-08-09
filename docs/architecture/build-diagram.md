@@ -138,6 +138,12 @@ Build Diagram is part of the desktop viewport contract:
   wiring-progress fingerprinting are implemented as of August 9, 2026.
 - The centre workspace renders a deterministic SVG-backed layout with exact
   board pin labels, connection highlighting, and viewport zoom/focus controls.
+- Build Profile inputs now cover exact-board choice, per-output physical
+  install facts, controller power-path intent, and collapsible advanced
+  assumptions for future electrical planning.
+- Readiness and export state now distinguish missing planner inputs from
+  reviewed signal mapping and from the still-unimplemented electrical
+  assembly/BOM export layer, so unresolved work stays explicit.
 - The electrical assembly/rule engine is still the next major layer and must
   build on the same Build Profile, hardware manifest, and confidence model.
 
