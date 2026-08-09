@@ -72,6 +72,58 @@ describe('BuildDiagramWorkspace', () => {
     expect(getByText('Zoom 100%')).toBeTruthy()
   })
 
+  it('keeps layout positions stable and distinguishes fit visible from fit all', () => {
+    const clientWidthDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth')
+    const clientHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight')
+
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      get: () => 1000,
+    })
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+      configurable: true,
+      get: () => 500,
+    })
+
+    try {
+      useGraphStore.setState({
+        nodes: Array.from({ length: 6 }, (_, index) => ({
+          id: `out-${index}`,
+          type: 'studioNode',
+          position: { x: 0, y: 0 },
+          data: {
+            label: `Matrix Output ${index + 1}`,
+            nodeType: 'MatrixOutput',
+            category: 'output',
+            properties: { width: 16, height: 16, chipset: 'WS2812B', dataPin: 10 + index },
+            inputs: [],
+            outputs: [],
+          },
+        })) as never[],
+        buildProfile: {
+          version: 1,
+          physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1',
+        },
+      })
+
+      const { getAllByText, getByText } = render(<BuildDiagramWorkspace />)
+
+      fireEvent.click(getAllByText('Isolate')[0])
+      expect(getByText('Unisolate')).toBeTruthy()
+      fireEvent.click(getByText('Fit visible'))
+      const fitVisibleZoom = Number(getByText((_, node) => node?.tagName === 'SPAN' && (node.textContent?.startsWith('Zoom ') ?? false)).textContent?.replace(/\D/g, ''))
+
+      fireEvent.click(getByText('Fit all'))
+      const fitAllZoom = Number(getByText((_, node) => node?.tagName === 'SPAN' && (node.textContent?.startsWith('Zoom ') ?? false)).textContent?.replace(/\D/g, ''))
+      expect(fitAllZoom).toBeLessThan(fitVisibleZoom)
+    } finally {
+      if (clientWidthDescriptor) Object.defineProperty(HTMLElement.prototype, 'clientWidth', clientWidthDescriptor)
+      else delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth
+      if (clientHeightDescriptor) Object.defineProperty(HTMLElement.prototype, 'clientHeight', clientHeightDescriptor)
+      else delete (HTMLElement.prototype as { clientHeight?: number }).clientHeight
+    }
+  })
+
   it('uses the supplied generic N16R8 pin map for controller-side connections', () => {
     useGraphStore.setState({
       buildProfile: {

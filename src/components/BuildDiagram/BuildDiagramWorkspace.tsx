@@ -194,6 +194,24 @@ function clampZoom(value: number) {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number(value.toFixed(2))))
 }
 
+function boundsForLayouts(
+  controllerBox: { x: number; y: number; width: number; height: number },
+  layouts: Array<{ x: number; y: number; width: number; height: number }>,
+) {
+  const right = layouts.length > 0
+    ? Math.max(controllerBox.x + controllerBox.width, ...layouts.map((layout) => layout.x + layout.width))
+    : controllerBox.x + controllerBox.width
+  const bottom = layouts.length > 0
+    ? Math.max(controllerBox.y + controllerBox.height, ...layouts.map((layout) => layout.y + layout.height))
+    : controllerBox.y + controllerBox.height
+  return {
+    x: 0,
+    y: 0,
+    width: right + 40,
+    height: bottom + 40,
+  }
+}
+
 export default function BuildDiagramWorkspace() {
   const nodes = useGraphStore((state) => state.nodes)
   const edges = useGraphStore((state) => state.edges)
@@ -484,9 +502,9 @@ export default function BuildDiagramWorkspace() {
     }
   }, [exactBoard])
 
-  const deviceLayouts = useMemo(() => {
+  const allDeviceLayouts = useMemo(() => {
     let y = 72
-    return visiblePrimaryItems.map((item) => {
+    return primaryItems.map((item) => {
       const height = Math.max(92, 58 + (item.pins.length * 24))
       const layout = {
         itemId: item.id,
@@ -498,13 +516,20 @@ export default function BuildDiagramWorkspace() {
       y += height + 26
       return layout
     })
-  }, [controllerBox.width, controllerBox.x, visiblePrimaryItems])
+  }, [controllerBox.width, controllerBox.x, primaryItems])
+  const visibleItemIds = useMemo(() => new Set(visiblePrimaryItems.map((item) => item.id)), [visiblePrimaryItems])
+  const visibleDeviceLayouts = useMemo(
+    () => allDeviceLayouts.filter((layout) => visibleItemIds.has(layout.itemId)),
+    [allDeviceLayouts, visibleItemIds],
+  )
+  const allBounds = useMemo(() => boundsForLayouts(controllerBox, allDeviceLayouts), [allDeviceLayouts, controllerBox])
+  const visibleBounds = useMemo(() => boundsForLayouts(controllerBox, visibleDeviceLayouts), [controllerBox, visibleDeviceLayouts])
 
   const boardAnchorsById = useMemo(() => new Map((exactBoard?.pinAnchors ?? []).map((anchor) => [anchor.id, anchor])), [exactBoard])
   const canRenderControllerPins = !!exactBoard && boardAnchorsById.size > 0 && (exactBoard.pins?.length ?? 0) > 0
 
   const allConnections = useMemo<DiagramConnection[]>(() => {
-    const byItemId = new Map(deviceLayouts.map((layout) => [layout.itemId, layout]))
+    const byItemId = new Map(allDeviceLayouts.map((layout) => [layout.itemId, layout]))
     return visiblePrimaryItems.flatMap((item) => {
       const layout = byItemId.get(item.id)
       if (!layout) return []
@@ -544,7 +569,7 @@ export default function BuildDiagramWorkspace() {
     canRenderControllerPins,
     controllerBox.x,
     controllerBox.y,
-    deviceLayouts,
+    allDeviceLayouts,
     exactBoard,
     visiblePrimaryItems,
   ])
@@ -593,12 +618,8 @@ export default function BuildDiagramWorkspace() {
       ? 'Exports stay draft because controller-side signal mapping still needs review before the build reference is trustworthy.'
       : 'Exports stay draft because the normalized electrical assembly, BOM, and file-export layers are not implemented yet.'
 
-  const canvasWidth = deviceLayouts.length > 0
-    ? Math.max(controllerBox.x + controllerBox.width + 420, ...deviceLayouts.map((layout) => layout.x + layout.width + 40))
-    : controllerBox.x + controllerBox.width + 80
-  const canvasHeight = deviceLayouts.length > 0
-    ? Math.max(controllerBox.y + controllerBox.height + 40, ...deviceLayouts.map((layout) => layout.y + layout.height + 40))
-    : controllerBox.y + controllerBox.height + 40
+  const canvasWidth = allBounds.width
+  const canvasHeight = allBounds.height
   const scaledCanvasWidth = canvasWidth * diagramZoom
   const scaledCanvasHeight = canvasHeight * diagramZoom
 
@@ -628,14 +649,24 @@ export default function BuildDiagramWorkspace() {
     const viewport = viewportRef.current
     if (!viewport) return
     if (viewport.clientWidth < FIT_PADDING || viewport.clientHeight < FIT_PADDING) return
-    const widthZoom = (viewport.clientWidth - FIT_PADDING) / canvasWidth
-    const heightZoom = (viewport.clientHeight - FIT_PADDING) / canvasHeight
+    const widthZoom = (viewport.clientWidth - FIT_PADDING) / allBounds.width
+    const heightZoom = (viewport.clientHeight - FIT_PADDING) / allBounds.height
     const fitZoom = clampZoom(Math.min(widthZoom, heightZoom, 1))
-    updateViewport(fitZoom, { x: 0, y: 0, width: canvasWidth, height: canvasHeight })
+    updateViewport(fitZoom, allBounds)
+  }
+
+  const fitVisible = () => {
+    const viewport = viewportRef.current
+    if (!viewport) return
+    if (viewport.clientWidth < FIT_PADDING || viewport.clientHeight < FIT_PADDING) return
+    const widthZoom = (viewport.clientWidth - FIT_PADDING) / visibleBounds.width
+    const heightZoom = (viewport.clientHeight - FIT_PADDING) / visibleBounds.height
+    const fitZoom = clampZoom(Math.min(widthZoom, heightZoom, 1))
+    updateViewport(fitZoom, visibleBounds)
   }
 
   const focusSelected = () => {
-    const layout = deviceLayouts.find((entry) => entry.itemId === selectedItemId)
+    const layout = allDeviceLayouts.find((entry) => entry.itemId === selectedItemId)
     if (selectedItemId === 'controller' || !layout) {
       updateViewport(diagramZoom, controllerBox)
       return
@@ -695,7 +726,7 @@ export default function BuildDiagramWorkspace() {
       setDiagramZoom(1)
       return
     }
-    fitAll()
+    fitVisible()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exactBoard?.id, canvasWidth, canvasHeight])
 
@@ -1128,6 +1159,9 @@ export default function BuildDiagramWorkspace() {
             <button type="button" className={styles.smallButton} onClick={fitAll} disabled={!exactBoard}>
               Fit all
             </button>
+            <button type="button" className={styles.smallButton} onClick={fitVisible} disabled={!exactBoard}>
+              Fit visible
+            </button>
             <button type="button" className={styles.smallButton} onClick={focusSelected} disabled={!exactBoard}>
               Focus selected
             </button>
@@ -1232,7 +1266,7 @@ export default function BuildDiagramWorkspace() {
                   </div>
                 </button>
 
-                {deviceLayouts.map((layout) => {
+                {visibleDeviceLayouts.map((layout) => {
                   const item = visiblePrimaryItems.find((entry) => entry.id === layout.itemId)
                   if (!item) return null
                   const itemConnections = allConnections.filter((connection) => connection.itemId === item.id)
