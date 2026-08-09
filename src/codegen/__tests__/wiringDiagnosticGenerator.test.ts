@@ -141,5 +141,13 @@ describe('generateWiringDiagnosticSketch', () => {
       expect(sketch).toContain('const uint16_t _xytable[64] PROGMEM')
       expect(sketch).toContain('CRGB c = leds[XY((uint8_t)x, (uint8_t)y)];')
     })
+
+    it('drives a single-row panel chain via chain_length', () => {
+      const chainedOut = node('out', 'MatrixOutput', 'output', {
+        width: 24, height: 8, chipset: 'HUB75', layout: 'panels', tilesX: 3, tilesY: 1,
+      })
+      const sketch = generateWiringDiagnosticSketch([chainedOut])!
+      expect(sketch).toContain('HUB75_I2S_CFG _hub75Cfg(8, 8, 3, _hub75Pins);')
+    })
   })
 })
