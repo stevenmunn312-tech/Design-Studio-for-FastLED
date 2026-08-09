@@ -1,8 +1,15 @@
 # HUB75 output — design note
 
-Status: in progress — property model, vendoring, and single-panel codegen
-implemented; panel chaining, the other four sketch generators, board-support
-validation, and hardware validation are not. · Owner: app · Date: 2026-08-07
+Status: in progress — property model, vendoring, single-panel codegen (normal
+Upload/Export, Flash Wiring Test, Live Stream), board-family gating, and a
+HUB75-specific power estimate implemented. **Hardware-validated (2026-08-09)**:
+Flash Wiring Test on a real ESP32-S3 + P4 64×64 panel confirmed the diagnostic
+pattern displays correctly (see `todo.md` for the two boot-failure bugs found
+and fixed along the way — a validation gap in `collectPinUses` and a default
+pinout that collided with the S3's flash pins). Panel chaining, the show
+controller and music-sync player generators, and HUB75+addressable
+peripheral-contention are not yet implemented/validated. · Owner: app ·
+Date: 2026-08-07
 
 Scopes a second physical-output family for `MatrixOutput`: HUB75 scan-panel
 matrices (the common indoor P2–P10 modules), driven over their ribbon
