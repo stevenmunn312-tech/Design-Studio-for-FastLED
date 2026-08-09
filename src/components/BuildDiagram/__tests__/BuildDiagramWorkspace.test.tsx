@@ -288,4 +288,52 @@ describe('BuildDiagramWorkspace', () => {
     expect(useGraphStore.getState().buildProfile?.assumptions?.allowedVoltageDropPercent).toBe(7.5)
     expect(getByText('Wiring changed—recheck this connection.')).toBeTruthy()
   })
+
+  it('stores a Build Diagram operating-current cap and shows it in calculated requirements', () => {
+    const { getAllByText, getByLabelText, getByText } = render(<BuildDiagramWorkspace />)
+
+    fireEvent.click(getByText('Generic ESP32-S3 N16R8, 44-pin dual USB-C'))
+    fireEvent.change(getByLabelText('Preferred path'), { target: { value: 'usb' } })
+    fireEvent.change(getByLabelText('Physical length (mm)'), { target: { value: '2500' } })
+    fireEvent.change(getByLabelText('LED density (/m)'), { target: { value: '60' } })
+    fireEvent.change(getByLabelText('Feed cable length (mm)'), { target: { value: '500' } })
+    fireEvent.change(getByLabelText('Operating current cap (mA)'), { target: { value: '7500' } })
+
+    expect(useGraphStore.getState().buildProfile?.outputs?.['output:out']?.desiredCurrentCapMa).toBe(7500)
+    expect(getAllByText('Configured operating cap: 7.5 A').length).toBeGreaterThan(0)
+  })
+
+  it('records owned supplies and validates assigned output budgets', () => {
+    const { getAllByText, getByLabelText, getByText } = render(<BuildDiagramWorkspace />)
+
+    fireEvent.click(getByText('Generic ESP32-S3 N16R8, 44-pin dual USB-C'))
+    fireEvent.change(getByLabelText('Preferred path'), { target: { value: 'usb' } })
+    fireEvent.change(getByLabelText('Physical length (mm)'), { target: { value: '2500' } })
+    fireEvent.change(getByLabelText('LED density (/m)'), { target: { value: '60' } })
+    fireEvent.change(getByLabelText('Feed cable length (mm)'), { target: { value: '500' } })
+
+    expect(getByText('Power ready: pending owned LED supply declarations', { selector: 'li' })).toBeTruthy()
+
+    fireEvent.click(getByText('Add supply'))
+    expect(getByText('Power ready: needs review: 1 owned supply validation issue', { selector: 'li' })).toBeTruthy()
+
+    fireEvent.change(getByLabelText('Assigned owned supply'), { target: { value: 'supply-1' } })
+
+    expect(useGraphStore.getState().buildProfile?.ownedParts?.supplyAssignments?.['output:out']).toBe('supply-1')
+    expect(getByText('Power ready: partial: assigned LED supplies satisfy conservative current/voltage budget; controller branch, wire, fuse, and connector validation still pending', { selector: 'li' })).toBeTruthy()
+    expect(getAllByText('Supply 1').length).toBeGreaterThan(0)
+    expect(getByText('Matches budget')).toBeTruthy()
+  })
+
+  it('invalidates done state when owned supply data changes', () => {
+    const { getByText } = render(<BuildDiagramWorkspace />)
+
+    fireEvent.click(getByText('Mark done'))
+    expect(getByText('1/1 done')).toBeTruthy()
+
+    fireEvent.click(getByText('Add supply'))
+
+    expect(getByText('0/1 done')).toBeTruthy()
+    expect(getByText('Wiring changed—recheck this connection.')).toBeTruthy()
+  })
 })

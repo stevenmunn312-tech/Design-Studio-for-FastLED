@@ -43,14 +43,31 @@ export interface ElectricalPlanTotals {
 export interface ElectricalPlanSummary {
   status: 'blocked' | 'partial'
   requirementsCalculatedText: string
+  powerReadyText: string
+  powerReadyPasses: boolean
   blockers: ElectricalPlanIssue[]
   warnings: ElectricalPlanIssue[]
   outputs: OutputElectricalPlan[]
   totals?: ElectricalPlanTotals
   controllerPowerPath?: string
+  supplyChecks: OwnedSupplyCheck[]
   recommendations: string[]
   unresolved: string[]
   assumptionsUsed: string[]
+}
+
+export interface OwnedSupplyCheck {
+  supplyId: string
+  label: string
+  assignedOutputIds: string[]
+  assignedOutputTitles: string[]
+  requiredVoltage: number
+  requiredCurrentMa: number
+  requiredWattage: number
+  declaredVoltage: number
+  declaredCurrentMa: number
+  declaredWattage?: number
+  issues: ElectricalPlanIssue[]
 }
 
 function roundToStep(value: number, step: number): number {
@@ -127,6 +144,7 @@ export function calculateElectricalPlan(
 ): ElectricalPlanSummary {
   const blockers: ElectricalPlanIssue[] = []
   const warnings: ElectricalPlanIssue[] = []
+  const supplyChecks: OwnedSupplyCheck[] = []
 
   if (!exactBoard) {
     blockers.push({
@@ -176,8 +194,11 @@ export function calculateElectricalPlan(
     const pitchMm = derivePitchMm(profile, densityPerMeter)
     const currentPerMeterMa = densityPerMeter ? Math.round(densityPerMeter * WS2812_WORST_CASE_MA_PER_PIXEL) : 0
     const designCurrentMa = pixelCount * WS2812_WORST_CASE_MA_PER_PIXEL
-    const operatingCurrentCapMa = typeof item.facts.desiredCurrentCapMa === 'number' && Number.isFinite(item.facts.desiredCurrentCapMa)
-      ? Math.max(0, Math.round(Number(item.facts.desiredCurrentCapMa)))
+    const operatingCurrentCapSource = typeof profile.desiredCurrentCapMa === 'number' && Number.isFinite(profile.desiredCurrentCapMa)
+      ? profile.desiredCurrentCapMa
+      : item.facts.desiredCurrentCapMa
+    const operatingCurrentCapMa = typeof operatingCurrentCapSource === 'number' && Number.isFinite(operatingCurrentCapSource)
+      ? Math.max(0, Math.round(Number(operatingCurrentCapSource)))
       : undefined
     const headroomPercent = buildProfile.assumptions?.supplyHeadroomPercent ?? DEFAULT_SUPPLY_HEADROOM_PERCENT
     const recommendedSupplyCurrentMa = roundToStep(designCurrentMa * (1 + (headroomPercent / 100)), 100)
@@ -258,15 +279,117 @@ export function calculateElectricalPlan(
   const requirementsCalculatedText = blockers.length > 0
     ? `blocked by ${blockers.length} missing planner input${blockers.length === 1 ? '' : 's'}`
     : 'partial: conservative supply/current summary ready, conductor/fuse tables pending'
+  const headroomPercent = buildProfile.assumptions?.supplyHeadroomPercent ?? DEFAULT_SUPPLY_HEADROOM_PERCENT
+  const supplyEntries = Object.values(buildProfile.ownedParts?.supplies ?? {})
+  const supplyAssignments = buildProfile.ownedParts?.supplyAssignments ?? {}
+  let powerReadyText = 'blocked until Requirements calculated passes'
+  const powerReadyPasses = false
+
+  if (blockers.length === 0 && outputPlans.length > 0) {
+    if (supplyEntries.length === 0) {
+      powerReadyText = 'pending owned LED supply declarations'
+    } else {
+      const issues: ElectricalPlanIssue[] = []
+      const assignmentsBySupplyId = new Map<string, OutputElectricalPlan[]>()
+
+      for (const plan of outputPlans) {
+        const assignedSupplyId = supplyAssignments[plan.itemId]
+        if (!assignedSupplyId) {
+          issues.push({
+            id: `${plan.itemId}:assignment`,
+            severity: 'blocking',
+            title: plan.title,
+            detail: 'Assign this output to an owned supply before LED branch validation can pass.',
+          })
+          continue
+        }
+        const list = assignmentsBySupplyId.get(assignedSupplyId) ?? []
+        list.push(plan)
+        assignmentsBySupplyId.set(assignedSupplyId, list)
+      }
+
+      for (const [supplyId, assignedPlans] of assignmentsBySupplyId.entries()) {
+        const supply = buildProfile.ownedParts?.supplies?.[supplyId]
+        if (!supply) {
+          for (const plan of assignedPlans) {
+            issues.push({
+              id: `${plan.itemId}:missing-supply`,
+              severity: 'blocking',
+              title: plan.title,
+              detail: `Assigned supply "${supplyId}" is missing from Owned supplies.`,
+            })
+          }
+          continue
+        }
+
+        const requiredCurrentMa = roundToStep(
+          assignedPlans.reduce((sum, plan) => sum + plan.designCurrentMa, 0) * (1 + (headroomPercent / 100)),
+          100,
+        )
+        const requiredWattage = Number(((requiredCurrentMa / 1000) * assignedPlans[0].nominalVoltage).toFixed(1))
+        const checkIssues: ElectricalPlanIssue[] = []
+        const nominalVoltage = assignedPlans[0].nominalVoltage
+
+        if (Math.abs(supply.voltage - nominalVoltage) > 0.05) {
+          checkIssues.push({
+            id: `${supplyId}:voltage`,
+            severity: 'blocking',
+            title: supply.label ?? supply.id,
+            detail: `Declared ${supply.voltage} V does not match the current ${nominalVoltage} V LED branch requirement.`,
+          })
+        }
+        if (supply.continuousCurrentMa < requiredCurrentMa) {
+          checkIssues.push({
+            id: `${supplyId}:current`,
+            severity: 'blocking',
+            title: supply.label ?? supply.id,
+            detail: `Continuous current ${supply.continuousCurrentMa} mA is below the required ${requiredCurrentMa} mA branch budget.`,
+          })
+        }
+        if (typeof supply.wattage === 'number' && Number.isFinite(supply.wattage) && supply.wattage < requiredWattage) {
+          checkIssues.push({
+            id: `${supplyId}:wattage`,
+            severity: 'blocking',
+            title: supply.label ?? supply.id,
+            detail: `Declared wattage ${supply.wattage} W is below the required ${requiredWattage} W branch budget.`,
+          })
+        }
+
+        supplyChecks.push({
+          supplyId,
+          label: supply.label ?? supply.id,
+          assignedOutputIds: assignedPlans.map((plan) => plan.itemId),
+          assignedOutputTitles: assignedPlans.map((plan) => plan.title),
+          requiredVoltage: nominalVoltage,
+          requiredCurrentMa,
+          requiredWattage,
+          declaredVoltage: supply.voltage,
+          declaredCurrentMa: supply.continuousCurrentMa,
+          declaredWattage: supply.wattage,
+          issues: checkIssues,
+        })
+        issues.push(...checkIssues)
+      }
+
+      if (issues.length > 0) {
+        powerReadyText = `needs review: ${issues.length} owned supply validation issue${issues.length === 1 ? '' : 's'}`
+      } else {
+        powerReadyText = 'partial: assigned LED supplies satisfy conservative current/voltage budget; controller branch, wire, fuse, and connector validation still pending'
+      }
+    }
+  }
 
   return {
     status,
     requirementsCalculatedText,
+    powerReadyText,
+    powerReadyPasses,
     blockers,
     warnings,
     outputs: outputPlans,
     totals,
     controllerPowerPath: controllerPowerLabel(buildProfile.controllerPower?.preferredPath),
+    supplyChecks,
     recommendations,
     unresolved,
     assumptionsUsed,
