@@ -163,4 +163,17 @@ describe('BuildDiagramWorkspace', () => {
     expect(getByText('Complete build is selected. Exports will include every configured hardware item by default.')).toBeTruthy()
     expect(useGraphStore.getState().buildProfile?.exportMode).toBeUndefined()
   })
+
+  it('stores output install facts and invalidates done state when they change', () => {
+    const { getByLabelText, getByText } = render(<BuildDiagramWorkspace />)
+
+    fireEvent.click(getByText('Mark done'))
+    expect(getByText('1/1 done')).toBeTruthy()
+
+    fireEvent.change(getByLabelText('Physical length (mm)'), { target: { value: '2500' } })
+
+    expect(useGraphStore.getState().buildProfile?.outputs?.['output:out']?.physicalLengthMm).toBe(2500)
+    expect(getByText('0/1 done')).toBeTruthy()
+    expect(getByText('Wiring changed—recheck this connection.')).toBeTruthy()
+  })
 })

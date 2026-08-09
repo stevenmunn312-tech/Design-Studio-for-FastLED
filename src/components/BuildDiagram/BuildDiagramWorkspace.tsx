@@ -7,7 +7,14 @@ import {
   type PhysicalBoardProfile,
   type PhysicalBoardPinProfile,
 } from '../../build/boardProfiles'
-import { ensureBuildProfile, fingerprintValue, type BuildExportMode } from '../../build/buildProfile'
+import {
+  ensureBuildProfile,
+  fingerprintValue,
+  type BuildExportMode,
+  type BuildInstallationTopology,
+  type BuildOutputProfile,
+  type BuildSupplyFeedLocation,
+} from '../../build/buildProfile'
 import { buildHardwareManifest, type HardwareManifestItem, type HardwarePinUse } from '../../build/hardwareManifest'
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
@@ -36,6 +43,19 @@ const MIN_ZOOM = 0.55
 const MAX_ZOOM = 1.8
 const ZOOM_STEP = 0.15
 const FIT_PADDING = 48
+const OUTPUT_TOPOLOGY_OPTIONS: { value: BuildInstallationTopology; label: string }[] = [
+  { value: 'strip', label: 'Strip / linear run' },
+  { value: 'matrix', label: 'Matrix / panel face' },
+  { value: 'panels', label: 'Tiled panels' },
+  { value: 'custom', label: 'Custom geometry' },
+]
+const FEED_LOCATION_OPTIONS: { value: BuildSupplyFeedLocation; label: string }[] = [
+  { value: 'start', label: 'Feed at start' },
+  { value: 'end', label: 'Feed at end' },
+  { value: 'both-ends', label: 'Feed both ends' },
+  { value: 'center', label: 'Feed at center' },
+  { value: 'custom', label: 'Custom feed plan' },
+]
 
 function formatFactValue(value: unknown): string {
   if (value == null) return 'Unknown'
@@ -58,14 +78,41 @@ function confidenceSummary(profile: PhysicalBoardProfile): string {
   return 'Visual match only - wiring guidance stays disabled.'
 }
 
+function parseNumberInput(value: string): number | undefined {
+  if (!value.trim()) return undefined
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+function hasBuildOutputProfileData(profile: BuildOutputProfile | undefined): profile is BuildOutputProfile {
+  if (!profile) return false
+  return Object.entries(profile).some(([key, value]) => {
+    if (value == null) return false
+    if (Array.isArray(value)) return value.length > 0
+    if (typeof value === 'string') return key === 'notes' ? value.trim().length > 0 : true
+    return true
+  })
+}
+
+function inferredOutputTopology(item: HardwareManifestItem): BuildInstallationTopology {
+  const layout = String(item.facts.layout ?? 'matrix')
+  if (layout === 'panels') return 'panels'
+  const width = Number(item.facts.width ?? 0)
+  const height = Number(item.facts.height ?? 0)
+  if (width > 1 && height > 1) return 'matrix'
+  return 'strip'
+}
+
 function itemFingerprint(
   item: HardwareManifestItem,
   selectedFqbn: string,
   physicalBoardProfileId: string | undefined,
+  outputProfile: BuildOutputProfile | undefined,
 ): string {
   return fingerprintValue({
     selectedFqbn,
     physicalBoardProfileId,
+    outputProfile,
     item: {
       id: item.id,
       kind: item.kind,
@@ -126,13 +173,14 @@ export default function BuildDiagramWorkspace() {
   const panStateRef = useRef<ViewportPanState | null>(null)
 
   const primaryItems = manifest.primaryItems
+  const outputItems = useMemo(() => primaryItems.filter((item) => item.kind === 'matrix-output'), [primaryItems])
   const currentFingerprints = useMemo(() => {
     const map = new Map<string, string>()
     for (const item of primaryItems) {
-      map.set(item.id, itemFingerprint(item, selectedFqbn, buildProfile.physicalBoardProfileId))
+      map.set(item.id, itemFingerprint(item, selectedFqbn, buildProfile.physicalBoardProfileId, buildProfile.outputs?.[item.id]))
     }
     return map
-  }, [buildProfile.physicalBoardProfileId, primaryItems, selectedFqbn])
+  }, [buildProfile.outputs, buildProfile.physicalBoardProfileId, primaryItems, selectedFqbn])
 
   const completedItemIds = useMemo(() => {
     const ids = new Set<string>()
@@ -196,7 +244,7 @@ export default function BuildDiagramWorkspace() {
   }
 
   const toggleDone = (item: HardwareManifestItem) => {
-    const fingerprint = itemFingerprint(item, selectedFqbn, buildProfile.physicalBoardProfileId)
+    const fingerprint = itemFingerprint(item, selectedFqbn, buildProfile.physicalBoardProfileId, buildProfile.outputs?.[item.id])
     patchBuildProfile((current) => {
       const done = { ...(current.done ?? {}) }
       if (done[item.id]?.fingerprint === fingerprint) delete done[item.id]
@@ -219,6 +267,43 @@ export default function BuildDiagramWorkspace() {
     patchBuildProfile((current) => ({
       ...current,
       exportMode: mode === 'complete-build' ? undefined : mode,
+    }))
+  }
+
+  const updateOutputProfile = (
+    itemId: string,
+    recipe: (current: BuildOutputProfile | undefined) => BuildOutputProfile | undefined,
+  ) => {
+    patchBuildProfile((current) => {
+      const outputs = { ...(current.outputs ?? {}) }
+      const nextProfile = recipe(outputs[itemId])
+      if (hasBuildOutputProfileData(nextProfile)) outputs[itemId] = nextProfile
+      else delete outputs[itemId]
+      return {
+        ...current,
+        outputs: Object.keys(outputs).length > 0 ? outputs : undefined,
+      }
+    })
+  }
+
+  const setOutputNumberField = (itemId: string, key: keyof BuildOutputProfile, rawValue: string) => {
+    updateOutputProfile(itemId, (current) => ({
+      ...(current ?? {}),
+      [key]: parseNumberInput(rawValue),
+    }))
+  }
+
+  const setOutputTextField = (itemId: string, key: keyof BuildOutputProfile, rawValue: string) => {
+    updateOutputProfile(itemId, (current) => ({
+      ...(current ?? {}),
+      [key]: rawValue.trim() ? rawValue : undefined,
+    }))
+  }
+
+  const setOutputEnumField = (itemId: string, key: keyof BuildOutputProfile, rawValue: string) => {
+    updateOutputProfile(itemId, (current) => ({
+      ...(current ?? {}),
+      [key]: rawValue ? rawValue : undefined,
     }))
   }
 
@@ -592,6 +677,133 @@ export default function BuildDiagramWorkspace() {
                 })}
               </div>
             </section>
+
+            {outputItems.length > 0 && (
+              <section className={styles.card}>
+                <h3 className={styles.cardTitle}>Physical install facts</h3>
+                <p className={styles.copyMuted}>
+                  Build Diagram already knows controller pins, route size, and chipset from the graph. Add the missing real-world strip length, density, and feed facts here so the electrical planner has something trustworthy to work from.
+                </p>
+                <div className={styles.outputFactList}>
+                  {outputItems.map((item) => {
+                    const profile = buildProfile.outputs?.[item.id]
+                    const topology = profile?.topology ?? inferredOutputTopology(item)
+                    const width = Number(item.facts.width ?? 0)
+                    const height = Number(item.facts.height ?? 0)
+                    const pixelCount = Number(item.facts.pixelCount ?? 0)
+                    const missingFactLabels = [
+                      profile?.physicalLengthMm == null ? 'physical length' : null,
+                      profile?.ledDensityPerMeter == null ? 'LED density' : null,
+                      profile?.pitchMm == null ? 'LED pitch' : null,
+                      profile?.feedCableLengthMm == null ? 'feed-cable length' : null,
+                    ].filter((entry): entry is string => !!entry)
+                    return (
+                      <section key={item.id} className={styles.outputFactCard}>
+                        <div className={styles.rowBetween}>
+                          <div>
+                            <h4 className={styles.subTitle}>{item.title}</h4>
+                            <p className={styles.copyMuted}>{item.subtitle}</p>
+                          </div>
+                          <span className={styles.progressPill}>{pixelCount} px</span>
+                        </div>
+                        <div className={styles.knownFactRow}>
+                          <span className={styles.knownFactChip}>{width}×{height}</span>
+                          <span className={styles.knownFactChip}>{String(item.facts.chipset ?? 'Unknown chipset')}</span>
+                          <span className={styles.knownFactChip}>{String(item.facts.layout ?? 'matrix')}</span>
+                        </div>
+                        <div className={styles.formGrid}>
+                          <label className={styles.fieldBlock}>
+                            <span className={styles.fieldLabel}>Topology</span>
+                            <select
+                              className={styles.fieldInput}
+                              value={topology}
+                              onChange={(event) => setOutputEnumField(item.id, 'topology', event.target.value)}
+                            >
+                              {OUTPUT_TOPOLOGY_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className={styles.fieldBlock}>
+                            <span className={styles.fieldLabel}>Feed location</span>
+                            <select
+                              className={styles.fieldInput}
+                              value={profile?.intendedFeedLocation ?? 'start'}
+                              onChange={(event) => setOutputEnumField(item.id, 'intendedFeedLocation', event.target.value)}
+                            >
+                              {FEED_LOCATION_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className={styles.fieldBlock}>
+                            <span className={styles.fieldLabel}>Physical length (mm)</span>
+                            <input
+                              className={styles.fieldInput}
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={profile?.physicalLengthMm ?? ''}
+                              onChange={(event) => setOutputNumberField(item.id, 'physicalLengthMm', event.target.value)}
+                            />
+                          </label>
+                          <label className={styles.fieldBlock}>
+                            <span className={styles.fieldLabel}>LED density (/m)</span>
+                            <input
+                              className={styles.fieldInput}
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={profile?.ledDensityPerMeter ?? ''}
+                              onChange={(event) => setOutputNumberField(item.id, 'ledDensityPerMeter', event.target.value)}
+                            />
+                          </label>
+                          <label className={styles.fieldBlock}>
+                            <span className={styles.fieldLabel}>Pitch (mm)</span>
+                            <input
+                              className={styles.fieldInput}
+                              type="number"
+                              min="0"
+                              step="0.1"
+                              value={profile?.pitchMm ?? ''}
+                              onChange={(event) => setOutputNumberField(item.id, 'pitchMm', event.target.value)}
+                            />
+                          </label>
+                          <label className={styles.fieldBlock}>
+                            <span className={styles.fieldLabel}>Feed cable length (mm)</span>
+                            <input
+                              className={styles.fieldInput}
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={profile?.feedCableLengthMm ?? ''}
+                              onChange={(event) => setOutputNumberField(item.id, 'feedCableLengthMm', event.target.value)}
+                            />
+                          </label>
+                        </div>
+                        <label className={styles.fieldBlock}>
+                          <span className={styles.fieldLabel}>Install notes</span>
+                          <textarea
+                            className={styles.noteInput}
+                            rows={3}
+                            value={profile?.notes ?? ''}
+                            onChange={(event) => setOutputTextField(item.id, 'notes', event.target.value)}
+                          />
+                        </label>
+                        {missingFactLabels.length > 0 && (
+                          <p className={styles.warningText}>
+                            Still needed for later power calculations: {missingFactLabels.join(', ')}.
+                          </p>
+                        )}
+                        <p className={styles.copyMuted}>
+                          Missing here today: exact LED product/profile, injection overrides, and environmental assumptions. Those stay for the next electrical-planning slice.
+                        </p>
+                      </section>
+                    )
+                  })}
+                </div>
+              </section>
+            )}
 
             {manifest.unsupportedItems.length > 0 && (
               <section className={styles.card}>

@@ -229,6 +229,70 @@
   gap: 8px;
 }
 
+.outputFactList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.outputFactCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--border-glow) 74%, transparent);
+  background: color-mix(in srgb, var(--bg-panel) 80%, rgba(255, 255, 255, 0.025));
+}
+
+.knownFactRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.knownFactChip {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border-glow) 20%, transparent);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.fieldBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.fieldInput,
+.noteInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border-glow) 78%, transparent);
+  background: color-mix(in srgb, var(--bg-panel) 86%, rgba(255, 255, 255, 0.03));
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.noteInput {
+  resize: vertical;
+}
+
 .filterRow {
   display: flex;
   flex-wrap: wrap;
@@ -583,5 +647,9 @@
     min-height: 56px;
     writing-mode: horizontal-tb;
     transform: none;
+  }
+
+  .formGrid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
