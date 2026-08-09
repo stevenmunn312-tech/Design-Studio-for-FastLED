@@ -2,7 +2,7 @@ import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { SPI_CHIPSETS, HUB75_CHIPSET, NODE_LIBRARY, supportsScalarExpression, gpioRequirementForProperty, libraryDefaults, type GpioPropertyRequirement } from '../state/nodeLibrary'
 import { evaluateScalarExpression } from '../state/scalarExpression'
 import { isValidRtcDateTime } from '../state/rtc'
-import { validateMatrixLayout } from '../state/xyLayout'
+import { validateMatrixLayout, tileRotationAt } from '../state/xyLayout'
 import { compositionDims } from '../state/outputRouting'
 import { boardGpioInfo } from '../state/uploadStore'
 import { MAX_PIN_NUMBER, pinSupports } from '../state/boardGpio'
@@ -591,12 +591,18 @@ export interface Hub75ConfigIssue {
 }
 
 // cppGenerator.ts's HUB75 codegen (docs/development/design/hub75-output.md)
-// is scoped to a single Matrix Output route, layout: 'matrix' (one panel, no
-// chaining), and no supersampling — panel chaining needs the DMA library's
-// separate VirtualMatrixPanel wrapper, which isn't wired up yet, and a
-// second output route or supersampling would need HUB75-specific handling
-// cppGenerator.ts's shared codepaths (addLeds<>()-shaped) don't have. Block
-// every other combination rather than silently generating a broken sketch.
+// is scoped to a single Matrix Output route and no supersampling — a second
+// output route or supersampling would need HUB75-specific handling
+// cppGenerator.ts's shared codepaths (addLeds<>()-shaped) don't have. Layout
+// is either 'matrix' (one panel) or 'panels' with a single row (tilesY === 1,
+// no per-panel rotation): the DMA library's base MatrixPanel_I2S_DMA class
+// already addresses a horizontal chain directly (PIXELS_PER_ROW = mx_width *
+// chain_length — confirmed against the real header at the vendored tag), so
+// no extra wrapper is needed for that shape. A folded 2D grid (tilesY > 1)
+// needs the library's separate VirtualMatrixPanel_T wrapper, whose topology
+// is a fixed enum of whole-chain wiring patterns rather than our per-panel
+// rotation model — not wired up yet. Block every other combination rather
+// than silently generating a broken sketch.
 //
 // generateWiringDiagnosticSketch and generateStreamReceiverSketch also have
 // real HUB75 support now, so they don't need a gate here — they're always
@@ -625,10 +631,29 @@ export function findHub75ConfigIssues(nodes: StudioNode[], edges: StudioEdge[] =
       })
       return
     }
-    if (String(props.layout ?? 'matrix') !== 'matrix') {
+    const layout = String(props.layout ?? 'matrix')
+    if (layout === 'panels') {
+      const tilesY = Math.max(1, Math.round(Number(props.tilesY ?? 1)))
+      const tilesX = Math.max(1, Math.round(Number(props.tilesX ?? 1)))
+      if (tilesY > 1) {
+        issues.push({
+          nodeId: output.id, label,
+          message: `${label} is set to HUB75, which only supports a single-row panel chain so far (no folded 2D grids yet) — set panel rows to 1, or use an addressable chipset.`,
+        })
+        return
+      }
+      const rotated = Array.from({ length: tilesX }, (_, i) => tileRotationAt(props, i)).some((r) => r !== 0)
+      if (rotated) {
+        issues.push({
+          nodeId: output.id, label,
+          message: `${label} is set to HUB75, which doesn't support per-panel rotation in a chain yet — clear the panel rotations, or use an addressable chipset.`,
+        })
+        return
+      }
+    } else if (layout !== 'matrix') {
       issues.push({
         nodeId: output.id, label,
-        message: `${label} is set to HUB75, which only supports the Matrix layout so far (no panel chaining/tiling yet) — switch layout back to Matrix, or use an addressable chipset.`,
+        message: `${label} is set to HUB75, which only supports the Matrix layout or a single-row panel chain so far — switch layout to Matrix or Panels, or use an addressable chipset.`,
       })
       return
     }

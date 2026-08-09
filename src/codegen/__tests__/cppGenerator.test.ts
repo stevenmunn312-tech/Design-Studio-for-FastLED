@@ -2349,6 +2349,21 @@ describe('HUB75 codegen (docs/development/design/hub75-output.md)', () => {
     expect(cpp).toContain('_hub75Cfg.setPixelColorDepthBits(4);')
   })
 
+  it('drives a single-row panel chain via chain_length, no VirtualMatrixPanel wrapper', () => {
+    // 24-wide composed matrix, 3 panels of 8px each in a single row: the DMA
+    // library's base class addresses the whole chain directly, so this is
+    // still per-pixel drawPixelRGB888(x, y) over the FULL composed canvas —
+    // no XY remap, no extra include.
+    const chainedOut = node('out', 'MatrixOutput', 'output', {
+      width: 24, height: 8, chipset: 'HUB75', layout: 'panels', tilesX: 3, tilesY: 1,
+    })
+    const cpp = generateCpp([sc, chainedOut], wiring)
+    expect(cpp).toContain('HUB75_I2S_CFG _hub75Cfg(8, 8, 3, _hub75Pins);')
+    expect(cpp).not.toContain('VirtualMatrixPanel')
+    expect(cpp).toContain('for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {')
+    expect(cpp).toContain('dma_display->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);')
+  })
+
   it('skips setMaxPowerInVoltsAndMilliamps — no FastLED controller is registered to throttle', () => {
     const poweredOut = node('out', 'MatrixOutput', 'output', {
       width: 8, height: 8, chipset: 'HUB75', powerLimit: true, volts: 5, milliamps: 2000,

@@ -120,15 +120,40 @@ describe('validateGraph', () => {
     expect(diagnostics.some((d) => d.id === 'out-hub75-config')).toBe(false)
   })
 
-  it('blocks HUB75 panel chaining/tiling', () => {
-    const errors = findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'HUB75', layout: 'panels', tilesX: 2 })])
-    expect(errors).toEqual([expect.stringMatching(/only supports the Matrix layout/)])
+  it('allows an unrotated single-row HUB75 panel chain', () => {
+    // The DMA library's base class already addresses a horizontal chain
+    // directly (PIXELS_PER_ROW = mx_width * chain_length) — no
+    // VirtualMatrixPanel_T wrapper needed for tilesY === 1.
+    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'HUB75', layout: 'panels', tilesX: 3, tilesY: 1 })])).toEqual([])
+    // tilesY defaults to 1 when unset.
+    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'HUB75', layout: 'panels', tilesX: 2 })])).toEqual([])
+  })
+
+  it('blocks a folded 2D HUB75 panel grid', () => {
+    const errors = findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2 })])
+    expect(errors).toEqual([expect.stringMatching(/only supports a single-row panel chain/)])
 
     const diagnostics = buildGraphDiagnostics(
-      [node('sc', 'SolidColor'), node('out', 'MatrixOutput', { chipset: 'HUB75', layout: 'panels', tilesX: 2 })],
+      [node('sc', 'SolidColor'), node('out', 'MatrixOutput', { chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2 })],
       [edge('e1', 'sc', 'out', 'frame')],
     )
     expect(diagnostics).toContainEqual(expect.objectContaining({ id: 'out-hub75-config', severity: 'error', nodeIds: ['out'] }))
+  })
+
+  it('blocks a rotated panel within an otherwise-supported HUB75 chain', () => {
+    const errors = findHub75ConfigErrors([
+      node('out', 'MatrixOutput', { chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 1, tileRotations: '0,90' }),
+    ])
+    expect(errors).toEqual([expect.stringMatching(/doesn't support per-panel rotation/)])
+  })
+
+  it('blocks HUB75 strip/custom layouts', () => {
+    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'HUB75', layout: 'strip' })])).toEqual([
+      expect.stringMatching(/only supports the Matrix layout or a single-row panel chain/),
+    ])
+    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'HUB75', layout: 'custom' })])).toEqual([
+      expect.stringMatching(/only supports the Matrix layout or a single-row panel chain/),
+    ])
   })
 
   it('blocks HUB75 supersampling', () => {

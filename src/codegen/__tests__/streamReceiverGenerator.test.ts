@@ -121,5 +121,13 @@ describe('generateStreamReceiverSketch', () => {
       expect(sketch).toContain('leds[i] = CRGB(r, g, bl);')
       expect(sketch).toContain('dma_display->drawPixelRGB888(i % WIDTH, i / WIDTH, leds[i].r, leds[i].g, leds[i].b);')
     })
+
+    it('drives a single-row panel chain via chain_length', () => {
+      const chainedOut = node('out', 'MatrixOutput', 'output', {
+        width: 24, height: 8, chipset: 'HUB75', layout: 'panels', tilesX: 3, tilesY: 1,
+      })
+      const sketch = generateStreamReceiverSketch([chainedOut])!
+      expect(sketch).toContain('HUB75_I2S_CFG _hub75Cfg(8, 8, 3, _hub75Pins);')
+    })
   })
 })

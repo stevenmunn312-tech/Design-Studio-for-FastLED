@@ -10,11 +10,16 @@ boot-failure bugs found and fixed along the way — a validation gap in
 then (2) a normal `generateCpp` Upload of a real pattern graph — including a
 wired `MicInput` (FastLED's native on-device audio engine) — ran correctly,
 confirming HUB75 output and the FastLED audio engine coexist on this board
-with no conflict. Panel chaining, the show controller and music-sync player
-generators, and HUB75+**addressable-strip** peripheral contention (a
-different, still-untested question — see Open Questions below; audio input
-sharing the board is not the same as a second LED output route) remain
-unimplemented/unvalidated. · Owner: app · Date: 2026-08-07
+with no conflict. Single-row panel chaining (`layout: 'panels'`,
+`tilesY === 1`, unrotated) is also now implemented — verified against the
+real library source that the base `MatrixPanel_I2S_DMA` class addresses a
+horizontal chain directly, no `VirtualMatrixPanel_T` wrapper needed — but not
+yet hardware-validated. Folded 2D panel grids, per-panel rotation within a
+chain, the show controller and music-sync player generators, and
+HUB75+**addressable-strip** peripheral contention (a different, still-untested
+question — see Open Questions below; audio input sharing the board is not the
+same as a second LED output route) remain unimplemented/unvalidated. ·
+Owner: app · Date: 2026-08-07
 
 Scopes a second physical-output family for `MatrixOutput`: HUB75 scan-panel
 matrices (the common indoor P2–P10 modules), driven over their ribbon
@@ -156,19 +161,25 @@ ever called directly. Not yet hardware-validated.
   Currently moot in practice: codegen only supports a single Matrix Output
   route at all (see above), so a mixed HUB75 + addressable-strip rig is
   blocked regardless of this question's answer.
-- ~~**Virtual-panel chaining model.**~~ **Resolved for the property model,
-  open for codegen:** the property model reuses the existing
-  `layout: 'panels'` tiling (`tilesX`/`tilesY`/`tileRotations`/
-  `tileSerpentine`, `src/state/xyLayout.ts`) rather than inventing separate
-  panel-resolution/chain-length properties — a HUB75 chain's per-panel
-  resolution falls out of `width`/`height` ÷ `tilesX`/`tilesY`, same as an
-  addressable panel grid. Codegen doesn't act on that yet, though: turning a
-  `tilesX`/`tilesY` grid into a real DMA chain needs the library's separate
-  `VirtualMatrixPanel` wrapper class for anything beyond `chain_length = 1`
-  panels in a single row, and that class's API hasn't been verified against
-  the vendored source yet (unlike `HUB75_I2S_CFG`/`MatrixPanel_I2S_DMA`
-  above). `findHub75ConfigErrors` blocks `layout !== 'matrix'` for HUB75
-  until this is done.
+- ~~**Virtual-panel chaining model.**~~ **Resolved, single row implemented:**
+  the property model reuses the existing `layout: 'panels'` tiling
+  (`tilesX`/`tilesY`/`tileRotations`/`tileSerpentine`, `src/state/xyLayout.ts`)
+  rather than inventing separate panel-resolution/chain-length properties — a
+  HUB75 chain's per-panel resolution falls out of `width`/`height` ÷
+  `tilesX`/`tilesY`, same as an addressable panel grid. Codegen now acts on
+  this for a single row (`tilesY === 1`, unrotated): verified against the
+  vendored library source at tag `3.0.14` that the base `MatrixPanel_I2S_DMA`
+  class already addresses a horizontal chain directly
+  (`PIXELS_PER_ROW = mx_width * chain_length`), so `chain_length = tilesX` in
+  `HUB75_I2S_CFG` is all that's needed — no `VirtualMatrixPanel_T` wrapper, no
+  per-pixel remap, since virtual (x, y) is physical (x, y) for this shape.
+  Folded 2D grids (`tilesY > 1`) still need that wrapper class — its
+  `PANEL_CHAIN_TYPE` is a fixed enum of whole-chain wiring topologies, which
+  doesn't map cleanly onto this app's independent per-panel `tileRotations`
+  model, so reconciling the two (or writing a custom remap that reuses
+  `xyLayout.ts`'s existing rotation math instead of the wrapper) is still
+  unresolved. `findHub75ConfigIssues` blocks `tilesY > 1` and any per-panel
+  rotation within a chain until that's done.
 - **Preview fidelity.** The live preview already renders LEDs as discs with
   glow (`webglRenderer.ts`); a HUB75 panel's actual visual character (visible
   scan lines, lower effective bit depth at high refresh) is different enough
