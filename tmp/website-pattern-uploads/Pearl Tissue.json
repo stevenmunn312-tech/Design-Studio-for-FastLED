@@ -1,0 +1,313 @@
+{
+  "id": "website-featured-10",
+  "name": "Pearl Tissue",
+  "createdAt": 1785715200009,
+  "inputs": [],
+  "outputs": [
+    {
+      "id": "frame",
+      "label": "Frame",
+      "dataType": "frame"
+    }
+  ],
+  "subgraph": {
+    "nodes": [
+      {
+        "id": "cloud",
+        "type": "studioNode",
+        "position": {
+          "x": -1040,
+          "y": -80
+        },
+        "data": {
+          "label": "Palette Selector",
+          "nodeType": "PaletteSelector",
+          "category": "color",
+          "properties": {
+            "palette": "cloud"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ]
+        }
+      },
+      {
+        "id": "ocean",
+        "type": "studioNode",
+        "position": {
+          "x": -1040,
+          "y": 160
+        },
+        "data": {
+          "label": "Palette Selector",
+          "nodeType": "PaletteSelector",
+          "category": "color",
+          "properties": {
+            "palette": "ocean"
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ]
+        }
+      },
+      {
+        "id": "mix",
+        "type": "studioNode",
+        "position": {
+          "x": -760,
+          "y": 40
+        },
+        "data": {
+          "label": "Blend Palettes",
+          "nodeType": "PaletteBlend",
+          "category": "color",
+          "properties": {
+            "paletteA": "rainbow",
+            "paletteB": "ocean",
+            "amount": 0.44
+          },
+          "inputs": [
+            {
+              "id": "paletteA",
+              "label": "Palette A",
+              "dataType": "palette"
+            },
+            {
+              "id": "paletteB",
+              "label": "Palette B",
+              "dataType": "palette"
+            },
+            {
+              "id": "amount",
+              "label": "Amount",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ]
+        }
+      },
+      {
+        "id": "react",
+        "type": "studioNode",
+        "position": {
+          "x": -460,
+          "y": 40
+        },
+        "data": {
+          "label": "Reaction Diffusion",
+          "nodeType": "ReactionDiffusion",
+          "category": "pattern",
+          "properties": {
+            "feed": 0.05,
+            "kill": 0.061,
+            "speed": 4,
+            "palette": "ocean",
+            "seed": 111
+          },
+          "inputs": [
+            {
+              "id": "feed",
+              "label": "Feed",
+              "dataType": "float"
+            },
+            {
+              "id": "kill",
+              "label": "Kill",
+              "dataType": "float"
+            },
+            {
+              "id": "speed",
+              "label": "Speed",
+              "dataType": "float"
+            },
+            {
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "blur",
+        "type": "studioNode",
+        "position": {
+          "x": -140,
+          "y": 40
+        },
+        "data": {
+          "label": "Blur 2D",
+          "nodeType": "Blur2D",
+          "category": "composite",
+          "properties": {
+            "amount": 0.06
+          },
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            },
+            {
+              "id": "amount",
+              "label": "Amount",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "sat",
+        "type": "studioNode",
+        "position": {
+          "x": 140,
+          "y": 40
+        },
+        "data": {
+          "label": "Saturation",
+          "nodeType": "Saturation",
+          "category": "composite",
+          "properties": {
+            "amount": 1.28
+          },
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            },
+            {
+              "id": "amount",
+              "label": "Amount",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "out",
+        "type": "studioNode",
+        "position": {
+          "x": 420,
+          "y": 40
+        },
+        "data": {
+          "label": "Group Output",
+          "nodeType": "GroupOutput",
+          "category": "output",
+          "properties": {},
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ],
+          "outputs": []
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "cloud",
+        "sourceHandle": "palette",
+        "target": "mix",
+        "targetHandle": "paletteA",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#ff5cf0"
+        }
+      },
+      {
+        "id": "e2",
+        "source": "ocean",
+        "sourceHandle": "palette",
+        "target": "mix",
+        "targetHandle": "paletteB",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#ff5cf0"
+        }
+      },
+      {
+        "id": "e3",
+        "source": "mix",
+        "sourceHandle": "palette",
+        "target": "react",
+        "targetHandle": "paletteIn",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#ff5cf0"
+        }
+      },
+      {
+        "id": "e4",
+        "source": "react",
+        "sourceHandle": "frame",
+        "target": "blur",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "e5",
+        "source": "blur",
+        "sourceHandle": "frame",
+        "target": "sat",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "e6",
+        "source": "sat",
+        "sourceHandle": "frame",
+        "target": "out",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      }
+    ]
+  }
+}

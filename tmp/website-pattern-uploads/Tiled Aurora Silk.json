@@ -1,0 +1,382 @@
+{
+  "id": "website-featured-07",
+  "name": "Tiled Aurora Silk",
+  "createdAt": 1785715200006,
+  "inputs": [],
+  "outputs": [
+    {
+      "id": "frame",
+      "label": "Frame",
+      "dataType": "frame"
+    }
+  ],
+  "subgraph": {
+    "nodes": [
+      {
+        "id": "pal",
+        "type": "studioNode",
+        "position": {
+          "x": -1040,
+          "y": -40
+        },
+        "data": {
+          "label": "Poline Palette",
+          "nodeType": "Poline",
+          "category": "color",
+          "properties": {
+            "anchorA": "#0a1f46",
+            "anchorB": "#20b8a0",
+            "anchorC": "#d3fff1",
+            "points": 6,
+            "position": "sinusoidal"
+          },
+          "inputs": [
+            {
+              "id": "colorA",
+              "label": "Anchor A",
+              "dataType": "color"
+            },
+            {
+              "id": "colorB",
+              "label": "Anchor B",
+              "dataType": "color"
+            },
+            {
+              "id": "colorC",
+              "label": "Anchor C",
+              "dataType": "color"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ]
+        }
+      },
+      {
+        "id": "noise",
+        "type": "studioNode",
+        "position": {
+          "x": -1040,
+          "y": 180
+        },
+        "data": {
+          "label": "Field Noise",
+          "nodeType": "FieldNoise",
+          "category": "field",
+          "properties": {
+            "speed": 0.16,
+            "scale": 0.24,
+            "octaves": 5,
+            "seed": 618
+          },
+          "inputs": [
+            {
+              "id": "speed",
+              "label": "Speed",
+              "dataType": "float"
+            },
+            {
+              "id": "scale",
+              "label": "Scale",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "field",
+              "label": "Field",
+              "dataType": "field"
+            }
+          ]
+        }
+      },
+      {
+        "id": "tile",
+        "type": "studioNode",
+        "position": {
+          "x": -760,
+          "y": 180
+        },
+        "data": {
+          "label": "Field Tile",
+          "nodeType": "FieldTile",
+          "category": "field",
+          "properties": {
+            "tilesX": 3,
+            "tilesY": 2
+          },
+          "inputs": [
+            {
+              "id": "field",
+              "label": "Field",
+              "dataType": "field"
+            },
+            {
+              "id": "tilesX",
+              "label": "Tiles X",
+              "dataType": "float"
+            },
+            {
+              "id": "tilesY",
+              "label": "Tiles Y",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "field",
+              "label": "Field",
+              "dataType": "field"
+            }
+          ]
+        }
+      },
+      {
+        "id": "rotate",
+        "type": "studioNode",
+        "position": {
+          "x": -480,
+          "y": 180
+        },
+        "data": {
+          "label": "Field Rotate",
+          "nodeType": "FieldRotate",
+          "category": "field",
+          "properties": {
+            "angle": 0,
+            "spin": 9
+          },
+          "inputs": [
+            {
+              "id": "field",
+              "label": "Field",
+              "dataType": "field"
+            },
+            {
+              "id": "angle",
+              "label": "Angle",
+              "dataType": "float"
+            },
+            {
+              "id": "spin",
+              "label": "Spin",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "field",
+              "label": "Field",
+              "dataType": "field"
+            }
+          ]
+        }
+      },
+      {
+        "id": "toFrame",
+        "type": "studioNode",
+        "position": {
+          "x": -180,
+          "y": 120
+        },
+        "data": {
+          "label": "Field → Frame",
+          "nodeType": "FieldToFrame",
+          "category": "field",
+          "properties": {
+            "palette": "ocean",
+            "brightness": 1
+          },
+          "inputs": [
+            {
+              "id": "field",
+              "label": "Field",
+              "dataType": "field"
+            },
+            {
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            },
+            {
+              "id": "brightness",
+              "label": "Brightness",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "blur",
+        "type": "studioNode",
+        "position": {
+          "x": 120,
+          "y": 120
+        },
+        "data": {
+          "label": "Blur 2D",
+          "nodeType": "Blur2D",
+          "category": "composite",
+          "properties": {
+            "amount": 0.08
+          },
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            },
+            {
+              "id": "amount",
+              "label": "Amount",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "sat",
+        "type": "studioNode",
+        "position": {
+          "x": 400,
+          "y": 120
+        },
+        "data": {
+          "label": "Saturation",
+          "nodeType": "Saturation",
+          "category": "composite",
+          "properties": {
+            "amount": 1.48
+          },
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            },
+            {
+              "id": "amount",
+              "label": "Amount",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "out",
+        "type": "studioNode",
+        "position": {
+          "x": 680,
+          "y": 120
+        },
+        "data": {
+          "label": "Group Output",
+          "nodeType": "GroupOutput",
+          "category": "output",
+          "properties": {},
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ],
+          "outputs": []
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "noise",
+        "sourceHandle": "field",
+        "target": "tile",
+        "targetHandle": "field",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "e2",
+        "source": "tile",
+        "sourceHandle": "field",
+        "target": "rotate",
+        "targetHandle": "field",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "e3",
+        "source": "rotate",
+        "sourceHandle": "field",
+        "target": "toFrame",
+        "targetHandle": "field",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "e4",
+        "source": "pal",
+        "sourceHandle": "palette",
+        "target": "toFrame",
+        "targetHandle": "paletteIn",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#ff5cf0"
+        }
+      },
+      {
+        "id": "e5",
+        "source": "toFrame",
+        "sourceHandle": "frame",
+        "target": "blur",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "e6",
+        "source": "blur",
+        "sourceHandle": "frame",
+        "target": "sat",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "e7",
+        "source": "sat",
+        "sourceHandle": "frame",
+        "target": "out",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      }
+    ]
+  }
+}
