@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useUiStore } from './state/uiStore'
 import { useGraphStore } from './state/graphStore'
 import { useAudioStore } from './state/audioStore'
@@ -26,6 +26,7 @@ import { serializeKeyCombo } from './state/performanceDeck'
 import { dispatchDeckAction } from './state/performanceDeckActions'
 import { PanelResizeHandle } from './components/Layout/PanelResizeHandle'
 import { DEFAULT_PREVIEW_WIDTH, DEFAULT_SIDEBAR_WIDTH, MAX_PREVIEW_WIDTH, MAX_SIDEBAR_WIDTH, MIN_PREVIEW_WIDTH, MIN_SIDEBAR_WIDTH } from './state/layoutPresets'
+import { enterStagePresentation, exitStagePresentation } from './utils/stagePresentation'
 import styles from './App.module.css'
 
 const PerformanceDeck = lazy(() => import('./components/PerformanceDeck/PerformanceDeck'))
@@ -45,6 +46,7 @@ const ProjectsPopup = lazy(() => import('./components/Projects/ProjectsPopup'))
 const AUTOSAVE_INTERVAL = 10_000
 const AUTOSAVE_IDLE_TIMEOUT = 2_000
 const SNAPSHOT_INTERVAL = 120_000
+const STAGE_CURSOR_IDLE_MS = 2_000
 
 export default function App() {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen)
@@ -83,6 +85,8 @@ export default function App() {
   const consoleOpen = useUploadStore((s) => s.consoleOpen)
   const refreshHelper = useUploadStore((s) => s.refreshHelper)
   const hadMicNode = useRef(false)
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null)
+  const [stageCursorHidden, setStageCursorHidden] = useState(false)
 
   // Probe the upload helper once on mount (the Vite plugin should have spawned it).
   useEffect(() => { refreshHelper() }, [refreshHelper])
@@ -263,6 +267,105 @@ export default function App() {
     if (hadMicNode.current) stopAudio()
   }, [stopAudio])
 
+  // Browser chrome and Stage are one presentation session. Browser-native Esc
+  // exits fullscreen first; mirror that exit into the app so the editor returns
+  // instead of leaving a windowed Stage behind. A rejected/unsupported request
+  // deliberately remains in windowed Stage as a graceful fallback.
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      const state = useUiStore.getState()
+      if (document.fullscreenElement) {
+        if (state.stageMode) state.setStageFullscreenStatus('active')
+        return
+      }
+      if (state.stageMode && state.stageFullscreenStatus === 'active') {
+        state.setStageMode(false)
+        state.setStageFullscreenStatus('idle')
+        state.setStageWakeLockStatus('idle')
+      }
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
+  }, [])
+
+  // Screen wake locks are released by the browser whenever the document is
+  // hidden. Reacquire on visibility return for an uninterrupted ambient show.
+  useEffect(() => {
+    let cancelled = false
+
+    const requestWakeLock = async () => {
+      if (cancelled || document.visibilityState !== 'visible') return
+      if (!('wakeLock' in navigator)) {
+        useUiStore.getState().setStageWakeLockStatus('unavailable')
+        return
+      }
+      if (wakeLockRef.current && !wakeLockRef.current.released) return
+
+      useUiStore.getState().setStageWakeLockStatus('requesting')
+      try {
+        const lock = await navigator.wakeLock.request('screen')
+        if (cancelled || !useUiStore.getState().stageMode) {
+          await lock.release()
+          return
+        }
+        wakeLockRef.current = lock
+        useUiStore.getState().setStageWakeLockStatus('active')
+        lock.addEventListener('release', () => {
+          if (wakeLockRef.current === lock) wakeLockRef.current = null
+          if (!cancelled && useUiStore.getState().stageMode) {
+            useUiStore.getState().setStageWakeLockStatus('idle')
+          }
+        }, { once: true })
+      } catch {
+        if (!cancelled) useUiStore.getState().setStageWakeLockStatus('unavailable')
+      }
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void requestWakeLock()
+    }
+
+    if (stageMode) {
+      void requestWakeLock()
+      document.addEventListener('visibilitychange', onVisibilityChange)
+    }
+
+    return () => {
+      cancelled = true
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      const lock = wakeLockRef.current
+      wakeLockRef.current = null
+      if (lock && !lock.released) void lock.release()
+      if (!useUiStore.getState().stageMode) {
+        useUiStore.getState().setStageWakeLockStatus('idle')
+      }
+    }
+  }, [stageMode])
+
+  // A screensaver should disappear as an interface when nobody is touching it.
+  // Pointer movement brings the cursor back immediately; two quiet seconds hide
+  // it again. Keyboard focus remains visible and all controls stay operable.
+  useEffect(() => {
+    if (!stageMode) {
+      setStageCursorHidden(false)
+      return
+    }
+
+    let timer = window.setTimeout(() => setStageCursorHidden(true), STAGE_CURSOR_IDLE_MS)
+    const wakeCursor = () => {
+      setStageCursorHidden(false)
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => setStageCursorHidden(true), STAGE_CURSOR_IDLE_MS)
+    }
+    window.addEventListener('pointermove', wakeCursor, { passive: true })
+    window.addEventListener('pointerdown', wakeCursor, { passive: true })
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('pointermove', wakeCursor)
+      window.removeEventListener('pointerdown', wakeCursor)
+    }
+  }, [stageMode])
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       // Never hijack normal text editing — node property fields, the node
@@ -281,7 +384,7 @@ export default function App() {
           return
         }
         if (useUiStore.getState().stageMode) {
-          useUiStore.getState().setStageMode(false)
+          void exitStagePresentation()
           return
         }
         if (useUiStore.getState().performanceMode) {
@@ -294,7 +397,8 @@ export default function App() {
 
       if (e.key === 'F10' && !isTyping) {
         e.preventDefault()
-        useUiStore.getState().toggleStageMode()
+        if (useUiStore.getState().stageMode) void exitStagePresentation()
+        else void enterStagePresentation()
         return
       }
 
@@ -397,7 +501,7 @@ export default function App() {
   }, [setStatus])
 
   return (
-    <div className={`${styles.app} ${stageMode ? styles.appStage : ''} ${performanceMode ? styles.appPerformance : ''}`}>
+    <div className={`${styles.app} ${stageMode ? styles.appStage : ''} ${stageCursorHidden ? styles.appStageCursorHidden : ''} ${performanceMode ? styles.appPerformance : ''}`}>
       <div className={styles.menuShell}><MenuBar /></div>
       {!stageMode && <TrustBanner />}
       <div className={`${styles.workspace} ${stageMode ? styles.workspaceStage : ''}`}>

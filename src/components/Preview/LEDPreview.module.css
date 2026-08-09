@@ -159,6 +159,67 @@
   letter-spacing: 0.04em;
 }
 
+.stageStatusChip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.stageStatusActive::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 9px color-mix(in srgb, var(--success) 68%, transparent);
+}
+
+.exitStageBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 0 10px 0 12px;
+  border: 1px solid color-mix(in srgb, #ff5e9d 42%, var(--border-glow));
+  border-radius: 7px;
+  background: rgba(255, 94, 157, 0.08);
+  color: var(--text-primary);
+  font-family: var(--font-code);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.exitStageBtn:hover,
+.exitStageBtn:focus-visible {
+  border-color: #ff5e9d;
+  background: rgba(255, 94, 157, 0.16);
+  box-shadow: 0 0 18px rgba(255, 94, 157, 0.18);
+}
+
+.exitStageBtn kbd {
+  padding: 2px 5px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 8px;
+}
+
 @keyframes liveBreath {
   0%, 100% { opacity: 0.62; }
   50% { opacity: 1; }
@@ -1277,6 +1338,10 @@
   }
 
   .panelStage .toggleBtn:not(.stageToggle) {
+    display: none;
+  }
+
+  .panelStage .stageStatusChip {
     display: none;
   }
 
