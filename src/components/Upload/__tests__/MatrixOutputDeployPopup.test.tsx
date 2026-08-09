@@ -6,7 +6,8 @@ import { useUploadStore } from '../../../state/uploadStore'
 import { useMusicStore } from '../../../state/musicStore'
 import { useProjectStore } from '../../../state/projectStore'
 import { useStreamStore } from '../../../state/streamStore'
-import { findHub75ConfigErrors } from '../../../utils/validateGraph'
+import { generateWiringDiagnosticSketch } from '../../../codegen/wiringDiagnosticGenerator'
+import { findHub75ConfigErrors, findHub75TopologyDiagnosticErrors } from '../../../utils/validateGraph'
 
 vi.mock('../../../codegen/cppGenerator', () => ({
   generateCpp: vi.fn(() => '// sketch'),
@@ -38,6 +39,7 @@ vi.mock('../../../utils/validateGraph', () => ({
   findOutputResourceErrors: vi.fn(() => []),
   findBoardCompatibilityErrors: vi.fn(() => []),
   findHub75ConfigErrors: vi.fn(() => []),
+  findHub75TopologyDiagnosticErrors: vi.fn(() => []),
 }))
 
 function setMatrixGraph() {
@@ -60,6 +62,29 @@ function setMatrixGraph() {
     graphData: {},
     graphs: { root: { id: 'root', name: 'Main' } },
     activeGraphId: 'root',
+  })
+}
+
+function setHub75Grid() {
+  setMatrixGraph()
+  useGraphStore.setState({
+    nodes: useGraphStore.getState().nodes.map((matrix) => ({
+      ...matrix,
+      data: {
+        ...matrix.data,
+        properties: {
+          ...matrix.data.properties,
+          width: 64,
+          height: 64,
+          chipset: 'HUB75',
+          layout: 'panels',
+          tilesX: 2,
+          tilesY: 2,
+          tileSerpentine: true,
+          tileRotations: '0,90,180,270',
+        },
+      },
+    })) as never[],
   })
 }
 
@@ -97,6 +122,7 @@ describe('MatrixOutputDeployPopup', () => {
 
   afterEach(() => {
     vi.mocked(findHub75ConfigErrors).mockReturnValue([])
+    vi.mocked(findHub75TopologyDiagnosticErrors).mockReturnValue([])
   })
 
   it('keeps readiness collapsed behind the action-needed gate', () => {
@@ -172,6 +198,37 @@ describe('MatrixOutputDeployPopup', () => {
 
     const wiringButton = getByRole('button', { name: '🧪 Flash Wiring Test' }) as HTMLButtonElement
     expect(wiringButton.disabled).toBe(true)
+  })
+
+  it('offers a dedicated HUB75 topology flash for a valid folded grid', () => {
+    setHub75Grid()
+    const runUpload = vi.fn()
+    useUploadStore.setState({
+      helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' },
+      installedCores: [],
+      selectedPort: 'COM7',
+      ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [{ name: 'ESP32-S3' }] }],
+      runUpload,
+    })
+
+    const { getByRole } = render(<MatrixOutputDeployPopup />)
+    const topologyButton = getByRole('button', { name: '🧭 Flash HUB75 Topology' }) as HTMLButtonElement
+    expect(topologyButton.disabled).toBe(false)
+
+    fireEvent.click(topologyButton)
+    expect(generateWiringDiagnosticSketch).toHaveBeenCalledWith(
+      expect.any(Array),
+      'matrix',
+      'hub75-panel-topology',
+    )
+    expect(runUpload).toHaveBeenCalledWith('// wiring diagnostic', undefined, { cache: false })
+  })
+
+  it('disables the HUB75 topology flash when the topology validator rejects the grid', () => {
+    setHub75Grid()
+    vi.mocked(findHub75TopologyDiagnosticErrors).mockReturnValue(['Set Panels Y to at least 2.'])
+    const { getByRole } = render(<MatrixOutputDeployPopup />)
+    expect((getByRole('button', { name: '🧭 Flash HUB75 Topology' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('requests an explicit validation report after a successful unrecorded hardware action', async () => {

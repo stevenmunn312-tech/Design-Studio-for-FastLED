@@ -659,6 +659,41 @@ export function findHub75ConfigErrors(nodes: StudioNode[]): string[] {
   return findHub75ConfigIssues(nodes).map((issue) => issue.message)
 }
 
+/** Validate the narrower shape required by the dedicated HUB75 2D topology
+ *  wiring test. Normal HUB75 output also supports one panel and one horizontal
+ *  row; the topology pattern is intentionally limited to folded grids because
+ *  its job is to expose row folds, panel-chain serpentine order, and per-tile
+ *  mounting rotation. Kept separate from build validation so a perfectly
+ *  valid single-panel project is never diagnosed as unhealthy merely because
+ *  this optional hardware test does not apply to it. */
+export function findHub75TopologyDiagnosticErrors(nodes: StudioNode[], outputNodeId?: string): string[] {
+  const output = nodes.find((node) => node.id === outputNodeId && node.data.nodeType === 'MatrixOutput')
+    ?? nodes.find((node) => node.data.nodeType === 'MatrixOutput')
+  if (!output) return ['Add a Matrix Output before flashing the HUB75 2D topology test.']
+
+  const props = output.data.properties as Record<string, unknown>
+  if (String(props.chipset ?? 'WS2812B') !== HUB75_CHIPSET) {
+    return ['Set Matrix Output chipset to HUB75 to use the 2D panel-topology test.']
+  }
+
+  const configIssue = findHub75ConfigIssues(nodes).find((issue) => issue.nodeId === output.id)
+  if (configIssue) return [configIssue.message]
+  if (String(props.layout ?? 'matrix') !== 'panels') {
+    return ['Set Matrix Output layout to Panels to use the HUB75 2D panel-topology test.']
+  }
+
+  const width = Math.max(0, Math.round(Number(props.width ?? 0)))
+  const height = Math.max(0, Math.round(Number(props.height ?? 0)))
+  const layoutErrors = validateMatrixLayout(width, height, props)
+  if (layoutErrors.length > 0) return layoutErrors.map((message) => `${String(output.data.label ?? 'Matrix Output')}: ${message}`)
+
+  const tilesY = Math.max(1, Math.round(Number(props.tilesY ?? 1)))
+  if (tilesY < 2) {
+    return ['Set Panels Y to at least 2; the dedicated topology test is for folded 2D HUB75 grids.']
+  }
+  return []
+}
+
 export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: string): string[] {
   const errors: string[] = []
   if (selectedFqbn && nodes.some((node) => node.data.nodeType === 'MicInput') && !selectedFqbn.startsWith('esp32:')) {

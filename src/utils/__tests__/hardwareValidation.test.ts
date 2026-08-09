@@ -65,6 +65,33 @@ describe('hardware validation profiles', () => {
     expect(profile.checks.map((check) => check.id)).toContain('reconnect')
   })
 
+  it('asks for the per-panel topology markers when validating a folded HUB75 wiring test', () => {
+    const output = node('matrix', 'MatrixOutput', {
+      width: 128,
+      height: 64,
+      chipset: 'HUB75',
+      layout: 'panels',
+      tilesX: 2,
+      tilesY: 2,
+      tileSerpentine: true,
+      tileRotations: '0,180,0,180',
+    })
+    const profile = buildHardwareValidationProfile({
+      nodes: [output],
+      edges: [],
+      selectedFqbn: 'esp32:esp32:esp32s3',
+      helper: fbuild,
+      action: 'wiring-test',
+      runtime: RECORDED_RUNTIME,
+    })
+
+    expect(profile.checks).toContainEqual(expect.objectContaining({
+      id: 'wiring-diagnostic',
+      label: 'Diagnostic + panel topology',
+      detail: expect.stringMatching(/X\/Y coordinate.*rotation.*serpentine direction/),
+    }))
+  })
+
   it('identifies SD-show and advanced music pipeline gaps and requests SD checks', () => {
     const output = node('matrix', 'MatrixOutput', { ...baselineMatrix.data.properties })
     const performance = node('performance', 'PerformanceGenerator', { useGroupInputs: true })

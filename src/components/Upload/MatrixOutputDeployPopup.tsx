@@ -11,7 +11,7 @@ import { generateShowSketch, isPatternShow } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph } from '../../codegen/streamReceiverGenerator'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
 import { sdCardConnected, readySongCount, buildShowPayload } from '../../utils/showUpload'
-import { findPinConflicts, findMatrixLayoutErrors, findBoardCompatibilityErrors, findOutputResourceErrors, findHub75ConfigErrors } from '../../utils/validateGraph'
+import { findPinConflicts, findMatrixLayoutErrors, findBoardCompatibilityErrors, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors } from '../../utils/validateGraph'
 import { summarizeCapacity } from '../../utils/capacityFormat'
 import { useCodegenGraph } from '../../utils/codegenGraph'
 import { useModalFocus } from '../../hooks/useModalFocus'
@@ -49,6 +49,7 @@ export default function MatrixOutputDeployPopup() {
     ?? nodes.find((n) => n.data.nodeType === 'MatrixOutput')
   const ownProps = ((outputNode?.data.properties ?? {}) as Record<string, unknown>)
   const nodeId = outputNode?.id ?? ''
+  const isHub75 = String(ownProps.chipset ?? 'WS2812B') === 'HUB75'
   const hasFrameInput = !!outputNode && edges.some((e) => e.target === nodeId && e.targetHandle === 'frame')
   const hasSdCardInput = !!outputNode && edges.some((e) => e.target === nodeId && e.targetHandle === 'sdcard')
 
@@ -85,6 +86,10 @@ export default function MatrixOutputDeployPopup() {
     [nodes, selectedFqbn],
   )
   const hub75ConfigErrors = useMemo(() => findHub75ConfigErrors(nodes), [nodes])
+  const hub75TopologyErrors = useMemo(
+    () => findHub75TopologyDiagnosticErrors(nodes, nodeId),
+    [nodes, nodeId],
+  )
 
   // Live controller-capacity meter (see MatrixOutputUpload.tsx, which drives
   // the actual debounced compile-check) — the measured result is the
@@ -268,6 +273,10 @@ export default function MatrixOutputDeployPopup() {
   }
   function handleFlashWiringTest() {
     const sketch = generateWiringDiagnosticSketch(nodes, nodeId)
+    if (sketch) void offerValidationAfter('wiring-test', runUpload(sketch, undefined, { cache: false }))
+  }
+  function handleFlashHub75Topology() {
+    const sketch = generateWiringDiagnosticSketch(nodes, nodeId, 'hub75-panel-topology')
     if (sketch) void offerValidationAfter('wiring-test', runUpload(sketch, undefined, { cache: false }))
   }
   function handleToggleStream() {
@@ -486,6 +495,25 @@ export default function MatrixOutputDeployPopup() {
           >
             🧪 Flash Wiring Test
           </button>
+
+          {isHub75 && (
+            <button
+              className={`${styles.wizardButtonBase} ${styles.exportBtn} ${styles.topologyBtn}`}
+              disabled={!uploadReady || busy || streaming || blockingErrors.length > 0 || hub75TopologyErrors.length > 0}
+              onClick={handleFlashHub75Topology}
+              title={
+                hub75TopologyErrors.length > 0
+                  ? hub75TopologyErrors.join('\n')
+                  : blockingErrors.length > 0
+                    ? blockingErrors.join('\n')
+                  : readinessIssues.length > 0
+                    ? readinessIssues.join('\n')
+                    : 'Hold a dedicated per-panel HUB75 topology pattern using the current panel grid, serpentine chain, and tile-rotation settings'
+              }
+            >
+              🧭 Flash HUB75 Topology
+            </button>
+          )}
 
           <button
             className={`${styles.wizardButtonBase} ${styles.exportBtn}`}

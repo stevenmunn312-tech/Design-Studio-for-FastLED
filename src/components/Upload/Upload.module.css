@@ -321,6 +321,18 @@
   box-shadow: 0 0 12px rgba(255, 255, 255, 0.06);
 }
 
+.topologyBtn {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, #5ad1ff 13%, transparent), color-mix(in srgb, #ffd24a 7%, transparent));
+  border-color: color-mix(in srgb, #5ad1ff 42%, transparent) !important;
+  color: #9ce8ff;
+}
+.topologyBtn:hover:not(:disabled) {
+  color: #d8f7ff;
+  border-color: #5ad1ff !important;
+  box-shadow: 0 0 14px color-mix(in srgb, #5ad1ff 20%, transparent);
+}
+
 .streamBtnActive {
   background: linear-gradient(135deg, rgba(0, 224, 164, 0.16), rgba(255, 255, 255, 0.04));
   border-color: #00e0a4 !important;

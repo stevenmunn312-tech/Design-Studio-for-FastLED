@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findOutputResourceErrors, findHub75ConfigErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, estimatePowerLoad, estimateFirmwareRam } from '../validateGraph'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -152,6 +152,39 @@ describe('validateGraph', () => {
     expect(findHub75ConfigErrors([
       node('out', 'MatrixOutput', { width: 16, height: 16, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2, tileRotations: '0,0,0,90' }),
     ])).toEqual([])
+  })
+
+  it('allows the dedicated topology diagnostic for a valid folded serpentine HUB75 grid', () => {
+    expect(findHub75TopologyDiagnosticErrors([
+      node('out', 'MatrixOutput', {
+        width: 64, height: 64, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2,
+        tileSerpentine: true, tileRotations: '0,90,180,270',
+      }),
+    ], 'out')).toEqual([])
+  })
+
+  it('explains when the dedicated topology diagnostic does not apply', () => {
+    expect(findHub75TopologyDiagnosticErrors([
+      node('out', 'MatrixOutput', { width: 64, height: 64, chipset: 'WS2812B', layout: 'panels', tilesX: 2, tilesY: 2 }),
+    ])).toEqual([expect.stringMatching(/chipset to HUB75/)])
+    expect(findHub75TopologyDiagnosticErrors([
+      node('out', 'MatrixOutput', { width: 64, height: 64, chipset: 'HUB75', layout: 'matrix' }),
+    ])).toEqual([expect.stringMatching(/layout to Panels/)])
+    expect(findHub75TopologyDiagnosticErrors([
+      node('out', 'MatrixOutput', { width: 64, height: 32, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 1 }),
+    ])).toEqual([expect.stringMatching(/Panels Y to at least 2/)])
+  })
+
+  it('reuses layout and HUB75 shape validation for the topology diagnostic', () => {
+    expect(findHub75TopologyDiagnosticErrors([
+      node('out', 'MatrixOutput', { width: 63, height: 64, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2 }),
+    ])).toEqual([expect.stringMatching(/can't be divided into 2×2 equal tiles/)])
+    expect(findHub75TopologyDiagnosticErrors([
+      node('out', 'MatrixOutput', {
+        width: 128, height: 64, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2,
+        tileRotations: '0,90,0,0',
+      }),
+    ])).toEqual([expect.stringMatching(/only supports 90°\/270° per-panel rotation when each panel tile is square/)])
   })
 
   it('blocks HUB75 quarter-turn panel rotation on non-square tiles', () => {

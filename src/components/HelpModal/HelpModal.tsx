@@ -372,7 +372,7 @@ function UploadTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>3</div>
             <div className={styles.stepText}>
-              On new or changed hardware, run <strong>🧪 Flash Wiring Test</strong>. Confirm red, green, blue, brightness, orientation, panel labels, and the logical/physical pixel chases before flashing the design.
+              On new or changed hardware, run <strong>🧪 Flash Wiring Test</strong>. Confirm red, green, blue, brightness, orientation, panel labels, and the logical/physical pixel chases before flashing the design. For a folded HUB75 grid, use <strong>🧭 Flash HUB75 Topology</strong> and verify every panel’s X/Y label, four corner colours, rotation, chain number, and yellow direction arrow.
             </div>
           </div>
           <div className={styles.step}>
