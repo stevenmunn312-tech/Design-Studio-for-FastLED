@@ -282,6 +282,18 @@ export interface PowerEstimate {
 // exact chipset current draw isn't published widely enough to model per-part.
 const MA_PER_LED_WORST_CASE = 60
 
+// HUB75 panels draw far less per pixel than an addressable-strip LED (their
+// sub-pixels are smaller and current-limited by the panel's own driver ICs),
+// so reusing MA_PER_LED_WORST_CASE above would wildly overstate a HUB75
+// route's draw. Derived from real hardware, not a spec sheet: reported
+// current draw on a P4 64×64 (4096-pixel) indoor panel ranges roughly
+// 1.0–2.5 A typical, up to ~4 A at the high end. Anchored to that high end
+// (4 A / 4096 px ≈ 1 mA/px) to keep the same "worst case" framing as the
+// addressable figure above. This is one measured data point for one panel
+// model — real draw varies by resolution/driver IC, so treat it as a rough
+// guide, same as the addressable-strip figure.
+const MA_PER_HUB75_PIXEL_WORST_CASE = 1
+
 // A configured power cap almost never needs to cover a full-white-everywhere
 // moment — that's the scenario FastLED's power capping exists to auto-dim
 // gracefully, and real patterns rarely hit it. A cap at or above this fraction
@@ -296,7 +308,12 @@ export function estimatePowerLoad(nodes: StudioNode[]): PowerEstimate | null {
     const props = output.data.properties as Record<string, unknown>
     return sum + Math.max(0, Math.round(Number(props.width ?? 0))) * Math.max(0, Math.round(Number(props.height ?? 0)))
   }, 0)
-  const worstCaseMa = ledCount * MA_PER_LED_WORST_CASE
+  const worstCaseMa = outputs.reduce((sum, output) => {
+    const props = output.data.properties as Record<string, unknown>
+    const pixels = Math.max(0, Math.round(Number(props.width ?? 0))) * Math.max(0, Math.round(Number(props.height ?? 0)))
+    const rate = String(props.chipset ?? 'WS2812B') === HUB75_CHIPSET ? MA_PER_HUB75_PIXEL_WORST_CASE : MA_PER_LED_WORST_CASE
+    return sum + pixels * rate
+  }, 0)
   const capped = outputs.filter((output) => (output.data.properties as Record<string, unknown>).powerLimit === true)
   const configuredMa = capped.length > 0
     ? capped.reduce((sum, output) => sum + Number((output.data.properties as Record<string, unknown>).milliamps ?? 0), 0)
