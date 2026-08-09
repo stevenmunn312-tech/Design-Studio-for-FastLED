@@ -31,15 +31,21 @@ These are the only fully recorded public-beta support rows today.
 
 ## Recorded validations that are not yet full support rows
 
-- **2026-08-09 — ESP32-S3, HUB75 output, 🧪 Flash Wiring Test (`fbuild`).**
+- **2026-08-09 — ESP32-S3, HUB75 output (`fbuild`), two passes same session.**
   A real ESP32-S3 driving a P4 64×64 HUB75 panel (single panel, `layout:
-  matrix`, default pinout) compiled, flashed, and booted cleanly, and the
-  wiring-diagnostic pattern displayed correctly. Confirms both the pin fix and
-  the GPIO0→CLK boot-strapping choice in `nodeLibrary.ts`'s HUB75 defaults are
-  safe in practice on this board+panel combo. No full row yet — missing the
-  exact host OS/browser version fields, and normal Upload, Live Stream, panel
-  chaining, and the show/player generators (unimplemented for HUB75) remain
-  unvalidated. See `docs/development/design/hub75-output.md` and `todo.md`.
+  matrix`, default pinout): (1) 🧪 Flash Wiring Test compiled, flashed, booted
+  cleanly, and displayed the diagnostic pattern correctly, confirming the pin
+  fix and the GPIO0→CLK boot-strapping choice in `nodeLibrary.ts`'s HUB75
+  defaults are safe in practice on this board+panel combo; (2) a normal
+  `generateCpp` Upload of a real pattern graph — including a wired `MicInput`
+  (FastLED's native on-device audio engine) — also ran correctly, confirming
+  HUB75 output and the FastLED audio engine coexist on this board with no
+  conflict. No full row yet — missing the exact host OS/browser version
+  fields. Live Stream, panel chaining, HUB75+**addressable-strip** peripheral
+  contention (a different, still-untested question from the audio-input
+  coexistence above), and the show/player generators (unimplemented for
+  HUB75) remain unvalidated. See `docs/development/design/hub75-output.md`
+  and `todo.md`.
 - **2026-07-28 — classic ESP32, music-sync SD-show pipeline (`fbuild`),
   partial/failed bring-up.** The run reached the real provisioning/player path
   and exposed four defects: the provisioner's initial SD-write acknowledgement
