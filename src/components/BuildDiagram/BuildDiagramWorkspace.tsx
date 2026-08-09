@@ -17,6 +17,7 @@ import {
   type BuildOutputProfile,
   type BuildSupplyFeedLocation,
 } from '../../build/buildProfile'
+import { calculateElectricalPlan } from '../../build/electricalPlan'
 import { buildHardwareManifest, type HardwareManifestItem, type HardwarePinUse } from '../../build/hardwareManifest'
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
@@ -92,6 +93,17 @@ function formatFactLabel(key: string): string {
     .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
     .replace(/[-_]/g, ' ')
     .replace(/^./, (char) => char.toUpperCase())
+}
+
+function formatCurrentMa(value: number): string {
+  if (!Number.isFinite(value)) return 'Unknown'
+  if (value >= 1000) return `${(value / 1000).toFixed(2).replace(/\.?0+$/, '')} A`
+  return `${Math.round(value)} mA`
+}
+
+function formatWattage(value: number): string {
+  if (!Number.isFinite(value)) return 'Unknown'
+  return `${value.toFixed(1).replace(/\.0$/, '')} W`
 }
 
 function confidenceSummary(profile: PhysicalBoardProfile): string {
@@ -334,6 +346,10 @@ export default function BuildDiagramWorkspace() {
   const requirementsInputText = planningBlockers.length === 0
     ? 'all currently expected install facts are captured for the future planner'
     : `${planningBlockers.length} input blocker${planningBlockers.length === 1 ? '' : 's'} still need review`
+  const electricalPlan = useMemo(
+    () => calculateElectricalPlan(manifest, buildProfile, exactBoard),
+    [buildProfile, exactBoard, manifest],
+  )
 
   const patchBuildProfile = (recipe: (current: ReturnType<typeof ensureBuildProfile>) => ReturnType<typeof ensureBuildProfile>) => {
     updateBuildProfile((current) => recipe(ensureBuildProfile(current)))
@@ -623,9 +639,7 @@ export default function BuildDiagramWorkspace() {
       : unresolvedConnections.length > 0
         ? `needs review: ${unresolvedConnections.length} controller pin mapping${unresolvedConnections.length === 1 ? '' : 's'} unresolved`
         : 'all visible supported hardware maps cleanly onto the selected physical board'
-  const requirementsCalculatedText = planningBlockers.length > 0
-    ? `blocked by ${planningBlockers.length} missing planner input${planningBlockers.length === 1 ? '' : 's'}`
-    : 'ready to calculate once the electrical rule engine lands'
+  const requirementsCalculatedText = electricalPlan.requirementsCalculatedText
   const exportDraftStatus = planningBlockers.length > 0 || !signalReady
     ? 'Draft — unresolved build requirements'
     : 'Draft — electrical plan export pending assembly/BOM generation'
@@ -1491,6 +1505,91 @@ export default function BuildDiagramWorkspace() {
                     {unresolvedConnections.map((connection) => (
                       <li key={connection.id}>
                         <strong>{connection.itemTitle}</strong>: {connection.unresolvedReason}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </section>
+
+            <section className={styles.card}>
+              <h3 className={styles.cardTitle}>Calculated requirements</h3>
+              {electricalPlan.outputs.length === 0 ? (
+                <p className={styles.copyMuted}>
+                  Conservative supply/current requirements appear here once the exact board, controller power path, and output install facts are captured.
+                </p>
+              ) : (
+                <>
+                  <p className={styles.copyMuted}>
+                    Conservative WS2812-class power summary for the currently supported Build Diagram scope. Wire, fuse, connector, and injection sizing still stay explicitly unresolved until the reviewed rule tables land.
+                  </p>
+                  {electricalPlan.totals && (
+                    <ul className={styles.flatList}>
+                      <li>Total design load: {formatCurrentMa(electricalPlan.totals.designCurrentMa)} @ {electricalPlan.totals.nominalVoltage} V</li>
+                      {electricalPlan.totals.operatingCurrentCapMa != null && (
+                        <li>Configured operating cap: {formatCurrentMa(electricalPlan.totals.operatingCurrentCapMa)}</li>
+                      )}
+                      <li>
+                        Minimum supply budget: {formatCurrentMa(electricalPlan.totals.recommendedSupplyCurrentMa)} continuous
+                        {' '}@ {electricalPlan.totals.nominalVoltage} V ({formatWattage(electricalPlan.totals.recommendedSupplyWattage)})
+                        {' '}with {electricalPlan.totals.headroomPercent}% headroom
+                      </li>
+                      {electricalPlan.controllerPowerPath && <li>Controller branch: {electricalPlan.controllerPowerPath}</li>}
+                    </ul>
+                  )}
+                  <div className={styles.outputFactList}>
+                    {electricalPlan.outputs.map((output) => (
+                      <section key={output.itemId} className={styles.outputFactCard}>
+                        <div className={styles.rowBetween}>
+                          <div>
+                            <h4 className={styles.subTitle}>{output.title}</h4>
+                            <p className={styles.copyMuted}>{output.pixelCount} px · {output.topology} · feed at {output.feedLocation}</p>
+                          </div>
+                          <span className={styles.progressPill}>{formatCurrentMa(output.designCurrentMa)}</span>
+                        </div>
+                        <ul className={styles.flatList}>
+                          <li>Physical length: {Math.round(output.physicalLengthMm)} mm</li>
+                          <li>Estimated LED density: {output.estimatedDensityPerMeter}/m ({output.estimatedPitchMm} mm pitch)</li>
+                          <li>Conservative current-per-metre: {formatCurrentMa(output.currentPerMeterMa)}</li>
+                          <li>Recommended branch supply budget: {formatCurrentMa(output.recommendedSupplyCurrentMa)} @ {output.nominalVoltage} V ({formatWattage(output.recommendedSupplyWattage)})</li>
+                          {output.operatingCurrentCapMa != null && <li>Configured operating cap: {formatCurrentMa(output.operatingCurrentCapMa)}</li>}
+                        </ul>
+                      </section>
+                    ))}
+                  </div>
+                </>
+              )}
+              {electricalPlan.recommendations.length > 0 && (
+                <>
+                  <h4 className={styles.subTitle}>Recommendations</h4>
+                  <ul className={styles.flatList}>
+                    {electricalPlan.recommendations.map((entry) => <li key={entry}>{entry}</li>)}
+                  </ul>
+                </>
+              )}
+              {electricalPlan.unresolved.length > 0 && (
+                <>
+                  <h4 className={styles.subTitle}>Still unresolved</h4>
+                  <ul className={styles.flatList}>
+                    {electricalPlan.unresolved.map((entry) => <li key={entry}>{entry}</li>)}
+                  </ul>
+                </>
+              )}
+              {electricalPlan.assumptionsUsed.length > 0 && (
+                <>
+                  <h4 className={styles.subTitle}>Assumptions used</h4>
+                  <ul className={styles.flatList}>
+                    {electricalPlan.assumptionsUsed.map((entry) => <li key={entry}>{entry}</li>)}
+                  </ul>
+                </>
+              )}
+              {electricalPlan.warnings.length > 0 && (
+                <>
+                  <h4 className={styles.subTitle}>Planner warnings</h4>
+                  <ul className={styles.flatList}>
+                    {electricalPlan.warnings.map((entry) => (
+                      <li key={entry.id}>
+                        <strong>{entry.title}</strong>: {entry.detail}
                       </li>
                     ))}
                   </ul>

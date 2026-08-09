@@ -250,7 +250,7 @@ describe('BuildDiagramWorkspace', () => {
     const { getByLabelText, getByText } = render(<BuildDiagramWorkspace />)
 
     expect(getByText('Requirements inputs: 3 input blockers still need review')).toBeTruthy()
-    expect(getByText('Requirements calculated: blocked by 3 missing planner inputs')).toBeTruthy()
+    expect(getByText('Requirements calculated: blocked by 5 missing planner inputs')).toBeTruthy()
     expect(getByText('Draft — unresolved build requirements')).toBeTruthy()
     expect(getByText((_, node) => node?.textContent === 'Exact board profile: Controller-side wiring and reviewed controller power-path checks stay blocked until the exact physical board is selected.')).toBeTruthy()
     expect(getByText((_, node) => node?.textContent === 'Controller power path: Controller branch validation stays incomplete until Build Diagram knows whether the controller expects USB, VIN, 5VIN, or an external regulated rail.')).toBeTruthy()
@@ -263,9 +263,11 @@ describe('BuildDiagramWorkspace', () => {
     fireEvent.change(getByLabelText('Feed cable length (mm)'), { target: { value: '500' } })
 
     expect(getByText('Requirements inputs: all currently expected install facts are captured for the future planner')).toBeTruthy()
-    expect(getByText('Requirements calculated: ready to calculate once the electrical rule engine lands')).toBeTruthy()
+    expect(getByText('Requirements calculated: partial: conservative supply/current summary ready, conductor/fuse tables pending')).toBeTruthy()
     expect(getByText('Draft — electrical plan export pending assembly/BOM generation')).toBeTruthy()
     expect(getByText('All currently expected planner inputs are captured.')).toBeTruthy()
+    expect(getByText('Minimum supply budget: 19.2 A continuous @ 5 V (96 W) with 25% headroom')).toBeTruthy()
+    expect(getByText('Controller branch: USB power')).toBeTruthy()
   })
 
   it('stores controller power preferences and advanced assumptions, invalidating done state when they change', () => {
