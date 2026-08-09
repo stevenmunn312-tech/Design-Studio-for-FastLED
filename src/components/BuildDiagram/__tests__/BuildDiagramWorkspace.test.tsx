@@ -176,4 +176,41 @@ describe('BuildDiagramWorkspace', () => {
     expect(getByText('0/1 done')).toBeTruthy()
     expect(getByText('Wiring changed—recheck this connection.')).toBeTruthy()
   })
+
+  it('summarizes the missing facts that still block future power planning', () => {
+    const { getByLabelText, getByText } = render(<BuildDiagramWorkspace />)
+
+    expect(getByText('Requirements inputs: 3 input blockers still need review')).toBeTruthy()
+    expect(getByText((_, node) => node?.textContent === 'Exact board profile: Controller-side wiring and reviewed controller power-path checks stay blocked until the exact physical board is selected.')).toBeTruthy()
+    expect(getByText((_, node) => node?.textContent === 'Controller power path: Controller branch validation stays incomplete until Build Diagram knows whether the controller expects USB, VIN, 5VIN, or an external regulated rail.')).toBeTruthy()
+    expect(getByText((_, node) => node?.textContent === 'Matrix Output: Physical length is still missing, so conductor sizing and injection spacing cannot be estimated yet. LED density or pitch is still missing, so current-per-length and injection planning cannot be estimated yet. Feed-cable length is still missing, so voltage-drop and cable-size checks cannot be estimated yet.')).toBeTruthy()
+
+    fireEvent.click(getByText('Generic ESP32-S3 N16R8, 44-pin dual USB-C'))
+    fireEvent.change(getByLabelText('Preferred path'), { target: { value: 'usb' } })
+    fireEvent.change(getByLabelText('Physical length (mm)'), { target: { value: '2500' } })
+    fireEvent.change(getByLabelText('LED density (/m)'), { target: { value: '60' } })
+    fireEvent.change(getByLabelText('Feed cable length (mm)'), { target: { value: '500' } })
+
+    expect(getByText('Requirements inputs: all currently expected install facts are captured for the future planner')).toBeTruthy()
+    expect(getByText('All currently expected planner inputs are captured.')).toBeTruthy()
+  })
+
+  it('stores controller power preferences and advanced assumptions, invalidating done state when they change', () => {
+    const { getByLabelText, getByText, queryByText } = render(<BuildDiagramWorkspace />)
+
+    expect(queryByText('Conductor material')).toBeNull()
+    fireEvent.click(getByText('Mark done'))
+    expect(getByText('1/1 done')).toBeTruthy()
+
+    fireEvent.change(getByLabelText('Preferred path'), { target: { value: 'usb' } })
+    expect(useGraphStore.getState().buildProfile?.controllerPower?.preferredPath).toBe('usb')
+    expect(getByText('0/1 done')).toBeTruthy()
+
+    fireEvent.click(getByText('Show assumptions'))
+    expect(getByText('Hide assumptions')).toBeTruthy()
+    fireEvent.change(getByLabelText('Allowed voltage drop (%)'), { target: { value: '7.5' } })
+
+    expect(useGraphStore.getState().buildProfile?.assumptions?.allowedVoltageDropPercent).toBe(7.5)
+    expect(getByText('Wiring changed—recheck this connection.')).toBeTruthy()
+  })
 })

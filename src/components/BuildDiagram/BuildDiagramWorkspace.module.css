@@ -236,6 +236,13 @@
   margin-top: 12px;
 }
 
+.assumptionPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
 .outputFactCard {
   display: flex;
   flex-direction: column;

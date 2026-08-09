@@ -8,6 +8,8 @@ import {
   type PhysicalBoardPinProfile,
 } from '../../build/boardProfiles'
 import {
+  type BuildAssumptions,
+  type BuildControllerPowerProfile,
   ensureBuildProfile,
   fingerprintValue,
   type BuildExportMode,
@@ -36,6 +38,12 @@ interface DiagramConnection {
   unresolvedReason?: string
 }
 
+interface PlanningBlocker {
+  id: string
+  title: string
+  details: string[]
+}
+
 type VisibilityFilter = 'all' | 'unfinished'
 type ViewportPanState = { pointerId: number; startX: number; startY: number; startScrollLeft: number; startScrollTop: number }
 
@@ -55,6 +63,13 @@ const FEED_LOCATION_OPTIONS: { value: BuildSupplyFeedLocation; label: string }[]
   { value: 'both-ends', label: 'Feed both ends' },
   { value: 'center', label: 'Feed at center' },
   { value: 'custom', label: 'Custom feed plan' },
+]
+const CONTROLLER_POWER_OPTIONS: { value: NonNullable<BuildControllerPowerProfile['preferredPath']>; label: string }[] = [
+  { value: 'usb', label: 'USB power' },
+  { value: 'vin', label: 'VIN input' },
+  { value: '5vin', label: '5VIN input' },
+  { value: 'regulated-5v', label: 'External regulated 5 V' },
+  { value: 'regulated-3v3', label: 'External regulated 3.3 V' },
 ]
 
 function formatFactValue(value: unknown): string {
@@ -94,6 +109,16 @@ function hasBuildOutputProfileData(profile: BuildOutputProfile | undefined): pro
   })
 }
 
+function hasControllerPowerProfileData(profile: BuildControllerPowerProfile | undefined): profile is BuildControllerPowerProfile {
+  if (!profile) return false
+  return !!profile.preferredPath || !!profile.notes?.trim()
+}
+
+function hasAssumptionsData(assumptions: BuildAssumptions | undefined): assumptions is BuildAssumptions {
+  if (!assumptions) return false
+  return Object.values(assumptions).some((value) => value !== undefined)
+}
+
 function inferredOutputTopology(item: HardwareManifestItem): BuildInstallationTopology {
   const layout = String(item.facts.layout ?? 'matrix')
   if (layout === 'panels') return 'panels'
@@ -103,16 +128,34 @@ function inferredOutputTopology(item: HardwareManifestItem): BuildInstallationTo
   return 'strip'
 }
 
+function outputPlanningBlockers(profile: BuildOutputProfile | undefined): string[] {
+  const blockers: string[] = []
+  if (profile?.physicalLengthMm == null) {
+    blockers.push('Physical length is still missing, so conductor sizing and injection spacing cannot be estimated yet.')
+  }
+  if (profile?.ledDensityPerMeter == null && profile?.pitchMm == null) {
+    blockers.push('LED density or pitch is still missing, so current-per-length and injection planning cannot be estimated yet.')
+  }
+  if (profile?.feedCableLengthMm == null) {
+    blockers.push('Feed-cable length is still missing, so voltage-drop and cable-size checks cannot be estimated yet.')
+  }
+  return blockers
+}
+
 function itemFingerprint(
   item: HardwareManifestItem,
   selectedFqbn: string,
   physicalBoardProfileId: string | undefined,
   outputProfile: BuildOutputProfile | undefined,
+  controllerPower: BuildControllerPowerProfile | undefined,
+  assumptions: BuildAssumptions | undefined,
 ): string {
   return fingerprintValue({
     selectedFqbn,
     physicalBoardProfileId,
     outputProfile,
+    controllerPower,
+    assumptions,
     item: {
       id: item.id,
       kind: item.kind,
@@ -168,6 +211,7 @@ export default function BuildDiagramWorkspace() {
   const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>('all')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [detailPaneCollapsed, setDetailPaneCollapsed] = useState(false)
+  const [advancedAssumptionsOpen, setAdvancedAssumptionsOpen] = useState(false)
   const [diagramZoom, setDiagramZoom] = useState(1)
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const panStateRef = useRef<ViewportPanState | null>(null)
@@ -177,10 +221,17 @@ export default function BuildDiagramWorkspace() {
   const currentFingerprints = useMemo(() => {
     const map = new Map<string, string>()
     for (const item of primaryItems) {
-      map.set(item.id, itemFingerprint(item, selectedFqbn, buildProfile.physicalBoardProfileId, buildProfile.outputs?.[item.id]))
+      map.set(item.id, itemFingerprint(
+        item,
+        selectedFqbn,
+        buildProfile.physicalBoardProfileId,
+        buildProfile.outputs?.[item.id],
+        buildProfile.controllerPower,
+        buildProfile.assumptions,
+      ))
     }
     return map
-  }, [buildProfile.outputs, buildProfile.physicalBoardProfileId, primaryItems, selectedFqbn])
+  }, [buildProfile.assumptions, buildProfile.controllerPower, buildProfile.outputs, buildProfile.physicalBoardProfileId, primaryItems, selectedFqbn])
 
   const completedItemIds = useMemo(() => {
     const ids = new Set<string>()
@@ -225,6 +276,37 @@ export default function BuildDiagramWorkspace() {
     return isItemDone(item.id)
   }).length
   const hiddenPrimaryItemCount = primaryItems.filter((item) => buildProfile.visibility?.[item.id] === false).length
+  const planningBlockers = useMemo<PlanningBlocker[]>(() => {
+    const blockers: PlanningBlocker[] = []
+    if (!exactBoard) {
+      blockers.push({
+        id: 'exact-board',
+        title: 'Exact board profile',
+        details: ['Controller-side wiring and reviewed controller power-path checks stay blocked until the exact physical board is selected.'],
+      })
+    }
+    if (!buildProfile.controllerPower?.preferredPath) {
+      blockers.push({
+        id: 'controller-power',
+        title: 'Controller power path',
+        details: ['Controller branch validation stays incomplete until Build Diagram knows whether the controller expects USB, VIN, 5VIN, or an external regulated rail.'],
+      })
+    }
+    for (const item of outputItems) {
+      const details = outputPlanningBlockers(buildProfile.outputs?.[item.id])
+      if (details.length > 0) {
+        blockers.push({
+          id: `planner:${item.id}`,
+          title: item.title,
+          details,
+        })
+      }
+    }
+    return blockers
+  }, [buildProfile.controllerPower?.preferredPath, buildProfile.outputs, exactBoard, outputItems])
+  const requirementsInputText = planningBlockers.length === 0
+    ? 'all currently expected install facts are captured for the future planner'
+    : `${planningBlockers.length} input blocker${planningBlockers.length === 1 ? '' : 's'} still need review`
 
   const patchBuildProfile = (recipe: (current: ReturnType<typeof ensureBuildProfile>) => ReturnType<typeof ensureBuildProfile>) => {
     updateBuildProfile((current) => recipe(ensureBuildProfile(current)))
@@ -244,7 +326,14 @@ export default function BuildDiagramWorkspace() {
   }
 
   const toggleDone = (item: HardwareManifestItem) => {
-    const fingerprint = itemFingerprint(item, selectedFqbn, buildProfile.physicalBoardProfileId, buildProfile.outputs?.[item.id])
+    const fingerprint = itemFingerprint(
+      item,
+      selectedFqbn,
+      buildProfile.physicalBoardProfileId,
+      buildProfile.outputs?.[item.id],
+      buildProfile.controllerPower,
+      buildProfile.assumptions,
+    )
     patchBuildProfile((current) => {
       const done = { ...(current.done ?? {}) }
       if (done[item.id]?.fingerprint === fingerprint) delete done[item.id]
@@ -293,6 +382,30 @@ export default function BuildDiagramWorkspace() {
     }))
   }
 
+  const updateControllerPowerProfile = (
+    recipe: (current: BuildControllerPowerProfile | undefined) => BuildControllerPowerProfile | undefined,
+  ) => {
+    patchBuildProfile((current) => {
+      const nextProfile = recipe(current.controllerPower)
+      return {
+        ...current,
+        controllerPower: hasControllerPowerProfileData(nextProfile) ? nextProfile : undefined,
+      }
+    })
+  }
+
+  const updateAssumptions = (
+    recipe: (current: BuildAssumptions | undefined) => BuildAssumptions | undefined,
+  ) => {
+    patchBuildProfile((current) => {
+      const nextAssumptions = recipe(current.assumptions)
+      return {
+        ...current,
+        assumptions: hasAssumptionsData(nextAssumptions) ? nextAssumptions : undefined,
+      }
+    })
+  }
+
   const setOutputTextField = (itemId: string, key: keyof BuildOutputProfile, rawValue: string) => {
     updateOutputProfile(itemId, (current) => ({
       ...(current ?? {}),
@@ -304,6 +417,36 @@ export default function BuildDiagramWorkspace() {
     updateOutputProfile(itemId, (current) => ({
       ...(current ?? {}),
       [key]: rawValue ? rawValue : undefined,
+    }))
+  }
+
+  const setControllerPowerPath = (rawValue: string) => {
+    updateControllerPowerProfile((current) => ({
+      ...(current ?? {}),
+      preferredPath: rawValue
+        ? rawValue as NonNullable<BuildControllerPowerProfile['preferredPath']>
+        : undefined,
+    }))
+  }
+
+  const setControllerPowerNotes = (rawValue: string) => {
+    updateControllerPowerProfile((current) => ({
+      ...(current ?? {}),
+      notes: rawValue.trim() ? rawValue : undefined,
+    }))
+  }
+
+  const setAssumptionNumberField = (key: keyof BuildAssumptions, rawValue: string) => {
+    updateAssumptions((current) => ({
+      ...(current ?? {}),
+      [key]: parseNumberInput(rawValue),
+    }))
+  }
+
+  const setAssumptionMaterial = (rawValue: string) => {
+    updateAssumptions((current) => ({
+      ...(current ?? {}),
+      conductorMaterial: rawValue === 'copper' || rawValue === 'cca' ? rawValue : undefined,
     }))
   }
 
@@ -587,6 +730,38 @@ export default function BuildDiagramWorkspace() {
             </section>
 
             <section className={styles.card}>
+              <h3 className={styles.cardTitle}>Controller power</h3>
+              <p className={styles.copyMuted}>
+                Choose the controller power path you expect to use. This does not size the power system yet, but it does record which voltage path later safety checks should validate.
+              </p>
+              <label className={styles.fieldBlock}>
+                <span className={styles.fieldLabel}>Preferred path</span>
+                <select
+                  className={styles.fieldInput}
+                  value={buildProfile.controllerPower?.preferredPath ?? ''}
+                  onChange={(event) => setControllerPowerPath(event.target.value)}
+                >
+                  <option value="">Not decided yet</option>
+                  {CONTROLLER_POWER_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className={styles.fieldBlock}>
+                <span className={styles.fieldLabel}>Controller power notes</span>
+                <textarea
+                  className={styles.noteInput}
+                  rows={3}
+                  value={buildProfile.controllerPower?.notes ?? ''}
+                  onChange={(event) => setControllerPowerNotes(event.target.value)}
+                />
+              </label>
+              <p className={styles.copyMuted}>
+                Missing here today: validated regulator path, converter sizing, and power-branch ownership. Those will be checked once the electrical assembly layer lands.
+              </p>
+            </section>
+
+            <section className={styles.card}>
               <h3 className={styles.cardTitle}>Exact board</h3>
               {boardOptions.length === 0 ? (
                 <p className={styles.warningText}>
@@ -804,6 +979,106 @@ export default function BuildDiagramWorkspace() {
                 </div>
               </section>
             )}
+
+            <section className={styles.card}>
+              <h3 className={styles.cardTitle}>Power-planning blockers</h3>
+              <p className={styles.copyMuted}>
+                This does not run the electrical engine yet. It simply shows which missing facts will block later conductor, injection, and controller-power checks.
+              </p>
+              {planningBlockers.length === 0 ? (
+                <p className={styles.copy}>All currently expected planner inputs are captured.</p>
+              ) : (
+                <ul className={styles.flatList}>
+                  {planningBlockers.map((blocker) => (
+                    <li key={blocker.id}>
+                      <strong>{blocker.title}</strong>: {blocker.details.join(' ')}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section className={styles.card}>
+              <div className={styles.rowBetween}>
+                <div>
+                  <h3 className={styles.cardTitle}>Advanced assumptions</h3>
+                  <p className={styles.copyMuted}>
+                    Leave these blank to keep the reviewed conservative defaults. Open this only when you need to override the safety margins the future power planner will use.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className={styles.smallButton}
+                  onClick={() => setAdvancedAssumptionsOpen((current) => !current)}
+                >
+                  {advancedAssumptionsOpen ? 'Hide assumptions' : 'Show assumptions'}
+                </button>
+              </div>
+              {advancedAssumptionsOpen && (
+                <div className={styles.assumptionPanel}>
+                  <div className={styles.formGrid}>
+                    <label className={styles.fieldBlock}>
+                      <span className={styles.fieldLabel}>Conductor material</span>
+                      <select
+                        className={styles.fieldInput}
+                        value={buildProfile.assumptions?.conductorMaterial ?? ''}
+                        onChange={(event) => setAssumptionMaterial(event.target.value)}
+                      >
+                        <option value="">Reviewed default</option>
+                        <option value="copper">Copper</option>
+                        <option value="cca">CCA / copper-clad aluminium</option>
+                      </select>
+                    </label>
+                    <label className={styles.fieldBlock}>
+                      <span className={styles.fieldLabel}>Allowed voltage drop (%)</span>
+                      <input
+                        className={styles.fieldInput}
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={buildProfile.assumptions?.allowedVoltageDropPercent ?? ''}
+                        onChange={(event) => setAssumptionNumberField('allowedVoltageDropPercent', event.target.value)}
+                      />
+                    </label>
+                    <label className={styles.fieldBlock}>
+                      <span className={styles.fieldLabel}>Ambient temperature (C)</span>
+                      <input
+                        className={styles.fieldInput}
+                        type="number"
+                        step="1"
+                        value={buildProfile.assumptions?.ambientC ?? ''}
+                        onChange={(event) => setAssumptionNumberField('ambientC', event.target.value)}
+                      />
+                    </label>
+                    <label className={styles.fieldBlock}>
+                      <span className={styles.fieldLabel}>Bundled circuits</span>
+                      <input
+                        className={styles.fieldInput}
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={buildProfile.assumptions?.bundledCircuits ?? ''}
+                        onChange={(event) => setAssumptionNumberField('bundledCircuits', event.target.value)}
+                      />
+                    </label>
+                    <label className={styles.fieldBlock}>
+                      <span className={styles.fieldLabel}>Supply headroom (%)</span>
+                      <input
+                        className={styles.fieldInput}
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={buildProfile.assumptions?.supplyHeadroomPercent ?? ''}
+                        onChange={(event) => setAssumptionNumberField('supplyHeadroomPercent', event.target.value)}
+                      />
+                    </label>
+                  </div>
+                  <p className={styles.copyMuted}>
+                    These assumptions will later affect conductor sizing, connector limits, fuse recommendations, and supply minimums. They are intentionally hidden by default so casual setups stay on safe reviewed defaults.
+                  </p>
+                </div>
+              )}
+            </section>
 
             {manifest.unsupportedItems.length > 0 && (
               <section className={styles.card}>
@@ -1076,6 +1351,7 @@ export default function BuildDiagramWorkspace() {
             <section className={styles.card}>
               <h3 className={styles.cardTitle}>Readiness</h3>
               <ul className={styles.flatList}>
+                <li>Requirements inputs: {requirementsInputText}</li>
                 <li>Requirements calculated: pending the electrical rule engine</li>
                 <li>Signal ready: {readinessText}</li>
                 <li>Power ready: pending the calculated electrical plan and owned-parts validation</li>
