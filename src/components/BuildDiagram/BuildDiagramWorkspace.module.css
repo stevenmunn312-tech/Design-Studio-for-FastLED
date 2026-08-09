@@ -109,6 +109,14 @@
   border-radius: 14px;
 }
 
+.optionPreviewWrap {
+  width: 100%;
+  min-height: 92px;
+  padding: 6px 8px 2px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-panel) 72%, rgba(255, 255, 255, 0.04));
+}
+
 .optionCardActive,
 .diagramCardActive,
 .hardwareRowActive .hardwareMain,
@@ -164,6 +172,13 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.filterRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .smallButton,
@@ -252,6 +267,11 @@
 .boardPreview {
   width: min(70%, 220px);
   margin: 26px auto 0;
+}
+
+.optionPreviewWrap .boardPreview {
+  width: 100%;
+  margin: 0;
 }
 
 .boardPreview :global(svg) {

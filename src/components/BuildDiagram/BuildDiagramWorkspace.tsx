@@ -28,6 +28,8 @@ interface DiagramConnection {
   unresolvedReason?: string
 }
 
+type VisibilityFilter = 'all' | 'unfinished'
+
 function formatFactValue(value: unknown): string {
   if (value == null) return 'Unknown'
   if (Array.isArray(value)) return value.join(', ')
@@ -99,13 +101,43 @@ export default function BuildDiagramWorkspace() {
   const selectedTarget = boardByFqbn(selectedFqbn)
   const [selectedItemId, setSelectedItemId] = useState<string>('controller')
   const [isolatedItemId, setIsolatedItemId] = useState<string | null>(null)
+  const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>('all')
 
   const primaryItems = manifest.primaryItems
+  const currentFingerprints = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const item of primaryItems) {
+      map.set(item.id, itemFingerprint(item, selectedFqbn, buildProfile.physicalBoardProfileId))
+    }
+    return map
+  }, [buildProfile.physicalBoardProfileId, primaryItems, selectedFqbn])
+
+  const completedItemIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const item of primaryItems) {
+      const done = buildProfile.done?.[item.id]
+      const fingerprint = currentFingerprints.get(item.id)
+      if (done && done.fingerprint === fingerprint) ids.add(item.id)
+    }
+    return ids
+  }, [buildProfile.done, currentFingerprints, primaryItems])
+
+  const isItemDone = (itemId: string) => {
+    return completedItemIds.has(itemId)
+  }
+
+  const listedPrimaryItems = useMemo(() => {
+    if (visibilityFilter === 'all') return primaryItems
+    return primaryItems.filter((item) => !completedItemIds.has(item.id))
+  }, [completedItemIds, primaryItems, visibilityFilter])
+
   const visiblePrimaryItems = useMemo(() => {
-    const items = primaryItems.filter((item) => buildProfile.visibility?.[item.id] !== false)
+    const items = primaryItems.filter((item) =>
+      buildProfile.visibility?.[item.id] !== false
+      && (visibilityFilter === 'all' || !completedItemIds.has(item.id)))
     if (isolatedItemId) return items.filter((item) => item.id === isolatedItemId)
     return items
-  }, [buildProfile.visibility, isolatedItemId, primaryItems])
+  }, [buildProfile.visibility, completedItemIds, isolatedItemId, primaryItems, visibilityFilter])
 
   useEffect(() => {
     const availableIds = new Set(['controller', ...visiblePrimaryItems.map((item) => item.id)])
@@ -119,8 +151,7 @@ export default function BuildDiagramWorkspace() {
     : manifest.items.find((item) => item.id === selectedItemId) ?? manifest.controller
 
   const completedCount = primaryItems.filter((item) => {
-    const done = buildProfile.done?.[item.id]
-    return done?.fingerprint === itemFingerprint(item, selectedFqbn, buildProfile.physicalBoardProfileId)
+    return isItemDone(item.id)
   }).length
 
   const patchBuildProfile = (recipe: (current: ReturnType<typeof ensureBuildProfile>) => ReturnType<typeof ensureBuildProfile>) => {
@@ -158,6 +189,30 @@ export default function BuildDiagramWorkspace() {
       ...current,
       physicalBoardProfileId: profileId,
     }))
+  }
+
+  const setAllVisible = () => {
+    setVisibilityFilter('all')
+    setIsolatedItemId(null)
+    patchBuildProfile((current) => ({
+      ...current,
+      visibility: undefined,
+    }))
+  }
+
+  const hideCompletedItems = () => {
+    setVisibilityFilter('all')
+    setIsolatedItemId(null)
+    patchBuildProfile((current) => {
+      const visibility = { ...(current.visibility ?? {}) }
+      for (const item of primaryItems) {
+        if (isItemDone(item.id)) visibility[item.id] = false
+      }
+      return {
+        ...current,
+        visibility: Object.keys(visibility).length > 0 ? visibility : undefined,
+      }
+    })
   }
 
   const controllerBox = useMemo(() => {
@@ -308,8 +363,14 @@ export default function BuildDiagramWorkspace() {
                   className={`${styles.optionCard} ${buildProfile.physicalBoardProfileId === profile.id ? styles.optionCardActive : ''}`}
                   onClick={() => selectExactBoard(profile.id)}
                 >
+                  <div className={styles.optionPreviewWrap}>
+                    <BoardPreview svg={profile.previewSvg} label={`${profile.label} preview`} />
+                  </div>
                   <span className={styles.optionTitle}>{profile.label}</span>
-                  <span className={styles.optionMeta}>{profile.confidence.replace(/-/g, ' ')}</span>
+                  <span className={styles.optionMeta}>
+                    {profile.manufacturer} · {profile.dimensionsMm.width}×{profile.dimensionsMm.height} mm · {profile.confidence.replace(/-/g, ' ')}
+                  </span>
+                  <span className={styles.optionHint}>{profile.sourceSummary}</span>
                   {profile.caveats[0] && <span className={styles.optionHint}>{profile.caveats[0]}</span>}
                 </button>
               ))}
@@ -322,14 +383,33 @@ export default function BuildDiagramWorkspace() {
             <h3 className={styles.cardTitle}>Hardware items</h3>
             <span className={styles.progressPill}>{completedCount}/{primaryItems.length} done</span>
           </div>
+          <div className={styles.filterRow}>
+            <button type="button" className={styles.smallButton} onClick={setAllVisible}>
+              Show all
+            </button>
+            <button type="button" className={styles.smallButton} onClick={hideCompletedItems}>
+              Hide completed
+            </button>
+            <button
+              type="button"
+              className={`${styles.smallButton} ${visibilityFilter === 'unfinished' ? styles.smallButtonDone : ''}`}
+              onClick={() => {
+                setIsolatedItemId(null)
+                setVisibilityFilter((current) => current === 'unfinished' ? 'all' : 'unfinished')
+              }}
+            >
+              {visibilityFilter === 'unfinished' ? 'Showing unfinished' : 'Show unfinished only'}
+            </button>
+          </div>
           <div className={styles.hardwareList}>
             {primaryItems.length === 0 ? (
               <p className={styles.copyMuted}>Add Matrix Output routes or supported hardware-input nodes to populate the build list.</p>
-            ) : primaryItems.map((item) => {
+            ) : listedPrimaryItems.length === 0 ? (
+              <p className={styles.copyMuted}>All hardware items are complete under the current filter.</p>
+            ) : listedPrimaryItems.map((item) => {
               const isVisible = buildProfile.visibility?.[item.id] !== false
-              const fingerprint = itemFingerprint(item, selectedFqbn, buildProfile.physicalBoardProfileId)
               const done = buildProfile.done?.[item.id]
-              const isDone = done?.fingerprint === fingerprint
+              const isDone = isItemDone(item.id)
               const isStale = !!done && !isDone
               return (
                 <div key={item.id} className={`${styles.hardwareRow} ${selectedItemId === item.id ? styles.hardwareRowActive : ''}`}>

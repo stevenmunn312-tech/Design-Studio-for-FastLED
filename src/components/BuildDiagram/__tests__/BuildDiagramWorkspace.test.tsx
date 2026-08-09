@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { render } from '@testing-library/react'
+import { fireEvent, render } from '@testing-library/react'
 import BuildDiagramWorkspace from '../BuildDiagramWorkspace'
 import { useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
@@ -50,5 +50,23 @@ describe('BuildDiagramWorkspace', () => {
 
     expect(getByText('Espressif ESP32-S3-DevKitC-1 selected. Connections now resolve against that exact board\'s pin map.')).toBeTruthy()
     expect(getAllByText((_, node) => node?.textContent?.includes('GPIO14 → Matrix Output data pin') ?? false).length).toBeGreaterThan(0)
+  })
+
+  it('shows identifying details for each exact board option', () => {
+    const { getByText } = render(<BuildDiagramWorkspace />)
+
+    expect(getByText('Generic / AliExpress · 53×28 mm · pinout verified')).toBeTruthy()
+    expect(getByText('Espressif · 54×28 mm · manufacturer verified')).toBeTruthy()
+    expect(getByText('Seeed Studio · 21×18 mm · manufacturer verified')).toBeTruthy()
+  })
+
+  it('can filter the hardware list down to unfinished items', () => {
+    const { getByText, queryByText } = render(<BuildDiagramWorkspace />)
+
+    fireEvent.click(getByText('Mark done'))
+    expect(getByText('1/1 done')).toBeTruthy()
+
+    fireEvent.click(getByText('Show unfinished only'))
+    expect(queryByText('Hide')).toBeNull()
   })
 })
