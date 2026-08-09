@@ -20,6 +20,7 @@ export type BuildTargetFamily =
 export type BuildSupplyFeedLocation = 'start' | 'end' | 'both-ends' | 'center' | 'custom'
 export type BuildInstallationTopology = 'strip' | 'matrix' | 'panels' | 'custom'
 export type BuildConductorMaterial = 'copper' | 'cca'
+export type BuildExportMode = 'complete-build' | 'current-view'
 
 export interface BuildOutputProfile {
   ledProfileId?: string
@@ -106,6 +107,7 @@ export interface BuildProfile {
   controllerPower?: BuildControllerPowerProfile
   assumptions?: BuildAssumptions
   ownedParts?: BuildOwnedParts
+  exportMode?: BuildExportMode
   visibility?: Record<string, boolean>
   done?: Record<string, BuildDoneState>
 }
@@ -279,6 +281,9 @@ export function normalizeBuildProfile(value: unknown): BuildProfile | undefined 
     if (Object.values(next.assumptions).every((entry) => entry === undefined)) delete next.assumptions
   }
   next.ownedParts = normalizeOwnedParts(value.ownedParts)
+  if (value.exportMode === 'complete-build' || value.exportMode === 'current-view') {
+    next.exportMode = value.exportMode
+  }
   next.visibility = normalizeBooleanMap(value.visibility)
   next.done = normalizeDoneMap(value.done)
   return next

@@ -150,4 +150,17 @@ describe('BuildDiagramWorkspace', () => {
     fireEvent.click(getByText('Show details'))
     expect(getByText('Selected item')).toBeTruthy()
   })
+
+  it('defaults exports to complete build and lets the user switch to current view', () => {
+    const { getByText } = render(<BuildDiagramWorkspace />)
+
+    expect(getByText('Complete build is selected. Exports will include every configured hardware item by default.')).toBeTruthy()
+    fireEvent.click(getByText('Current view'))
+    expect(getByText('Current view is selected. Exports will follow the hardware currently visible under the eye/filter/isolation state.')).toBeTruthy()
+    expect(useGraphStore.getState().buildProfile?.exportMode).toBe('current-view')
+
+    fireEvent.click(getByText('Complete build'))
+    expect(getByText('Complete build is selected. Exports will include every configured hardware item by default.')).toBeTruthy()
+    expect(useGraphStore.getState().buildProfile?.exportMode).toBeUndefined()
+  })
 })

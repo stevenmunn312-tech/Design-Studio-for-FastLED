@@ -481,6 +481,29 @@
   margin-top: 10px;
 }
 
+.exportModeRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.exportModeButton {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border-glow) 78%, transparent);
+  background: color-mix(in srgb, var(--bg-panel) 82%, rgba(255, 255, 255, 0.03));
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.exportModeButtonActive {
+  border-color: color-mix(in srgb, var(--accent-output) 68%, var(--border-glow));
+  color: var(--text-primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-output) 24%, transparent);
+}
+
 .connectionRow {
   display: flex;
   flex-direction: column;

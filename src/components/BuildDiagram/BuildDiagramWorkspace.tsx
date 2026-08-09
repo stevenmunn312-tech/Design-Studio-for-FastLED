@@ -7,7 +7,7 @@ import {
   type PhysicalBoardProfile,
   type PhysicalBoardPinProfile,
 } from '../../build/boardProfiles'
-import { ensureBuildProfile, fingerprintValue } from '../../build/buildProfile'
+import { ensureBuildProfile, fingerprintValue, type BuildExportMode } from '../../build/buildProfile'
 import { buildHardwareManifest, type HardwareManifestItem, type HardwarePinUse } from '../../build/hardwareManifest'
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
@@ -171,10 +171,12 @@ export default function BuildDiagramWorkspace() {
   const selectedItem = selectedItemId === 'controller'
     ? manifest.controller
     : manifest.items.find((item) => item.id === selectedItemId) ?? manifest.controller
+  const exportMode: BuildExportMode = buildProfile.exportMode ?? 'complete-build'
 
   const completedCount = primaryItems.filter((item) => {
     return isItemDone(item.id)
   }).length
+  const hiddenPrimaryItemCount = primaryItems.filter((item) => buildProfile.visibility?.[item.id] === false).length
 
   const patchBuildProfile = (recipe: (current: ReturnType<typeof ensureBuildProfile>) => ReturnType<typeof ensureBuildProfile>) => {
     updateBuildProfile((current) => recipe(ensureBuildProfile(current)))
@@ -210,6 +212,13 @@ export default function BuildDiagramWorkspace() {
     patchBuildProfile((current) => ({
       ...current,
       physicalBoardProfileId: profileId,
+    }))
+  }
+
+  const setExportMode = (mode: BuildExportMode) => {
+    patchBuildProfile((current) => ({
+      ...current,
+      exportMode: mode === 'complete-build' ? undefined : mode,
     }))
   }
 
@@ -897,6 +906,31 @@ export default function BuildDiagramWorkspace() {
 
             <section className={styles.card}>
               <h3 className={styles.cardTitle}>Exports</h3>
+              <div className={styles.exportModeRow} role="radiogroup" aria-label="Build Diagram export mode">
+                <button
+                  type="button"
+                  className={`${styles.exportModeButton} ${exportMode === 'complete-build' ? styles.exportModeButtonActive : ''}`}
+                  aria-pressed={exportMode === 'complete-build'}
+                  onClick={() => setExportMode('complete-build')}
+                >
+                  Complete build
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.exportModeButton} ${exportMode === 'current-view' ? styles.exportModeButtonActive : ''}`}
+                  aria-pressed={exportMode === 'current-view'}
+                  onClick={() => setExportMode('current-view')}
+                >
+                  Current view
+                </button>
+              </div>
+              <p className={styles.copyMuted}>
+                {exportMode === 'complete-build'
+                  ? hiddenPrimaryItemCount > 0 || !!isolatedItemId
+                    ? 'Complete build is selected. Hidden or isolated hardware will still be included once export generation lands.'
+                    : 'Complete build is selected. Exports will include every configured hardware item by default.'
+                  : 'Current view is selected. Exports will follow the hardware currently visible under the eye/filter/isolation state.'}
+              </p>
               <p className={styles.copyMuted}>
                 Current-view and complete-build exports will be enabled once the normalized assembly and BOM layers are in place.
               </p>

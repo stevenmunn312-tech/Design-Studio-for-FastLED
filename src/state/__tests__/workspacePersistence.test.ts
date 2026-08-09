@@ -13,6 +13,7 @@ describe('captureWorkspace', () => {
       buildProfile: {
         version: 1,
         physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1',
+        exportMode: 'current-view',
         visibility: { 'output:o1': false },
       },
       trusted: true,
@@ -21,6 +22,7 @@ describe('captureWorkspace', () => {
     expect(workspace.buildProfile).toEqual({
       version: 1,
       physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1',
+      exportMode: 'current-view',
       visibility: { 'output:o1': false },
     })
   })
