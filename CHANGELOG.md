@@ -7,7 +7,44 @@ versioning (`0.y.z`) until the first stable release.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-09
+
+### Added
+
+- Added HUB75 scan-panel output as a third `MatrixOutput` hardware family for
+  classic ESP32, ESP32-S2, and ESP32-S3 boards. The generated firmware uses
+  `ESP32-HUB75-MatrixPanel-DMA` for single panels, horizontal chains, folded
+  2D grids, serpentine panel chains, and independently rotated panel tiles.
+  Normal uploads, Flash Wiring Test, Live Stream, generative shows, and the
+  music-sync SD player all share the same HUB75 configuration and output path.
+  Single-panel output and the general wiring diagnostic have been exercised on
+  a real ESP32-S3 with a P4 64×64 panel; chained, folded, rotated, streaming,
+  and show/player paths remain experimental until their own hardware passes.
+
+- Added a dedicated **Flash HUB75 Topology** wiring-test mode for folded grids.
+  Each tile holds unmistakable fixed-colour corners, logical X/Y axes and
+  coordinates, configured rotation, panel-chain ordinal, and a direction arrow
+  that reverses on serpentine rows. The normal wiring-test cycle includes the
+  same topology phase automatically when the MatrixOutput configuration is a
+  valid folded HUB75 grid.
+
+- Added a curated ten-pattern featured set and prepared matching community-site
+  pattern payloads for richer public examples.
+
+- Added WASM preview-versus-firmware parity tests and a firmware-RAM calibration
+  harness, providing byte-level render comparisons and measured checks for the
+  pre-upload memory estimator.
+
+### Changed
+
+- Updated the bundled/helper build path to fbuild 2.5.15 and moved the remaining
+  GitHub Actions JavaScript runtimes from Node 20 to Node 24.
+
 ### Fixed
+
+- Live-audio recordings no longer open on a silent frame when the first browser
+  animation sample lands after capture frame zero. The leading level is
+  backfilled from the first real sample without duplicating its beat pulse.
 
 - Generated firmware now renders the same palette colours the preview shows.
   Six palettes — `rainbow`, `heat`, `ocean`, `lava`, `forest` and `party` —

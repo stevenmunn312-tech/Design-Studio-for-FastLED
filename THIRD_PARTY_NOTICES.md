@@ -77,6 +77,11 @@ set. Refresh this file when the lockfile changes in a release-significant way.
   `fbuild`.
 - If a packaged release ships that vendored copy or another bundled FastLED
   checkout, include FastLED's copyright and license text in the artifact.
+- HUB75 firmware uses `ESP32-HUB75-MatrixPanel-DMA` 3.0.14 from
+  `mrcodetastic/ESP32-HUB75-MatrixPanel-DMA`. The helper clones it lazily into
+  `backend/.fbuild-project/lib/ESP32-HUB75-MatrixPanel-DMA/` only when a HUB75
+  sketch is built. The library is MIT-licensed, Copyright (c) 2018-2032
+  Faptastic; preserve its bundled `LICENSE.txt` if redistributing that checkout.
 
 ## Stefan Petrick / AnimARTrix
 
