@@ -52,6 +52,21 @@ describe('BuildDiagramWorkspace', () => {
     expect(getAllByText((_, node) => node?.textContent?.includes('GPIO14 → Matrix Output data pin') ?? false).length).toBeGreaterThan(0)
   })
 
+  it('uses the supplied generic N16R8 pin map for controller-side connections', () => {
+    useGraphStore.setState({
+      buildProfile: {
+        version: 1,
+        physicalBoardProfileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc',
+      },
+    })
+
+    const { getByText, queryByText } = render(<BuildDiagramWorkspace />)
+
+    expect(getByText('Generic ESP32-S3 N16R8, 44-pin dual USB-C selected. Connections now resolve against that exact board\'s pin map.')).toBeTruthy()
+    expect(getByText('GPIO14 → Matrix Output data pin')).toBeTruthy()
+    expect(queryByText('This exact board profile does not yet have a reviewed physical pin map.')).toBeNull()
+  })
+
   it('shows identifying details for each exact board option', () => {
     const { getByText } = render(<BuildDiagramWorkspace />)
 

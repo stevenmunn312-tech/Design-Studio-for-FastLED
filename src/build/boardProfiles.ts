@@ -152,6 +152,67 @@ const DEVKITC_PINS: PhysicalBoardPinProfile[] = [
   pin('j3-22', 'GND', 'ground', 'j3-22'),
 ]
 
+const GENERIC_N16R8_LEFT_LABELS = [
+  '3V3', 'BOOT', 'GPIO1', 'GPIO2', 'GPIO3', 'GPIO4', 'GPIO5', 'GPIO6', 'GPIO7', 'GPIO8', 'GPIO9',
+  'GPIO10', 'GPIO11', 'GPIO12', 'GPIO13', 'GPIO14', 'GPIO15', 'GPIO16', 'GPIO17', 'GPIO18', '5VIN', 'GND',
+] as const
+
+const GENERIC_N16R8_RIGHT_LABELS = [
+  'GND', 'RST', 'GPIO46', 'GPIO45', 'GPIO43', 'GPIO44', 'GPIO42', 'GPIO41', 'GPIO40', 'GPIO39', 'GPIO38',
+  'GPIO37', 'GPIO36', 'GPIO35', 'GPIO34', 'GPIO33', 'GPIO21', 'USB_D-', 'USB_D+', 'GPIO48', 'GPIO47',
+] as const
+
+const GENERIC_N16R8_PIN_ANCHORS = [
+  ...verticalAnchors('left', 'left', GENERIC_N16R8_LEFT_LABELS, 30, 78, 16),
+  ...verticalAnchors('right', 'right', GENERIC_N16R8_RIGHT_LABELS, 354, 86, 16),
+]
+
+const GENERIC_N16R8_PINS: PhysicalBoardPinProfile[] = [
+  pin('left-1', '3V3', 'power-out', 'left-1'),
+  pin('left-2', 'BOOT / GPIO0', 'gpio', 'left-2', 0, 'Boot-strapping pin'),
+  pin('left-3', 'GPIO1', 'gpio', 'left-3', 1),
+  pin('left-4', 'GPIO2', 'gpio', 'left-4', 2),
+  pin('left-5', 'GPIO3', 'gpio', 'left-5', 3),
+  pin('left-6', 'GPIO4', 'gpio', 'left-6', 4),
+  pin('left-7', 'GPIO5', 'gpio', 'left-7', 5),
+  pin('left-8', 'GPIO6', 'gpio', 'left-8', 6),
+  pin('left-9', 'GPIO7', 'gpio', 'left-9', 7),
+  pin('left-10', 'GPIO8', 'gpio', 'left-10', 8),
+  pin('left-11', 'GPIO9', 'gpio', 'left-11', 9),
+  pin('left-12', 'GPIO10', 'gpio', 'left-12', 10),
+  pin('left-13', 'GPIO11', 'gpio', 'left-13', 11),
+  pin('left-14', 'GPIO12', 'gpio', 'left-14', 12),
+  pin('left-15', 'GPIO13', 'gpio', 'left-15', 13),
+  pin('left-16', 'GPIO14', 'gpio', 'left-16', 14),
+  pin('left-17', 'GPIO15', 'gpio', 'left-17', 15),
+  pin('left-18', 'GPIO16', 'gpio', 'left-18', 16),
+  pin('left-19', 'GPIO17', 'gpio', 'left-19', 17),
+  pin('left-20', 'GPIO18', 'gpio', 'left-20', 18),
+  pin('left-21', '5VIN', 'power-in', 'left-21', undefined, 'Use this 5VIN label for controller power discussions'),
+  pin('left-22', 'GND', 'ground', 'left-22'),
+  pin('right-1', 'GND', 'ground', 'right-1'),
+  pin('right-2', 'RST', 'reserved', 'right-2', undefined, 'Board reset / EN'),
+  pin('right-3', 'GPIO46', 'gpio', 'right-3', 46, 'Input-only / strapping pin'),
+  pin('right-4', 'GPIO45', 'gpio', 'right-4', 45, 'Strapping pin'),
+  pin('right-5', 'GPIO43', 'gpio', 'right-5', 43, 'UART0 TX'),
+  pin('right-6', 'GPIO44', 'gpio', 'right-6', 44, 'UART0 RX'),
+  pin('right-7', 'GPIO42', 'gpio', 'right-7', 42),
+  pin('right-8', 'GPIO41', 'gpio', 'right-8', 41),
+  pin('right-9', 'GPIO40', 'gpio', 'right-9', 40),
+  pin('right-10', 'GPIO39', 'gpio', 'right-10', 39),
+  pin('right-11', 'GPIO38', 'gpio', 'right-11', 38),
+  pin('right-12', 'GPIO37', 'gpio', 'right-12', 37, 'Unavailable on N16R8 octal PSRAM modules'),
+  pin('right-13', 'GPIO36', 'gpio', 'right-13', 36, 'Unavailable on N16R8 octal PSRAM modules'),
+  pin('right-14', 'GPIO35', 'gpio', 'right-14', 35, 'Unavailable on N16R8 octal PSRAM modules'),
+  pin('right-15', 'GPIO34', 'gpio', 'right-15', 34),
+  pin('right-16', 'GPIO33', 'gpio', 'right-16', 33),
+  pin('right-17', 'GPIO21', 'gpio', 'right-17', 21),
+  pin('right-18', 'USB_D- / GPIO20', 'gpio', 'right-18', 20, 'Native USB D-'),
+  pin('right-19', 'USB_D+ / GPIO19', 'gpio', 'right-19', 19, 'Native USB D+'),
+  pin('right-20', 'GPIO48', 'gpio', 'right-20', 48, 'Also drives the on-board RGB LED'),
+  pin('right-21', 'GPIO47', 'gpio', 'right-21', 47),
+]
+
 const XIAO_PIN_ANCHORS: PhysicalBoardPinAnchor[] = [
   ...verticalAnchors('left', 'left', ['5V', 'GND', '3V3', 'D0', 'D1', 'D2', 'D3'], 24, 92, 30),
   ...verticalAnchors('right', 'right', ['D10', 'D9', 'D8', 'D7', 'D6', 'D5', 'D4'], 276, 92, 30),
@@ -197,12 +258,14 @@ export const BOARD_PROFILES: PhysicalBoardProfile[] = [
     notes: [
       'Use the physical board\'s 5VIN label for controller power discussions in Build Diagram.',
       'GPIO35, GPIO36, and GPIO37 are unavailable because octal PSRAM consumes them on N16R8 modules.',
+      'This header map comes from the user-supplied dual-USB-C pinout image for seller variant 1005008201847680.',
     ],
     caveats: [
       'USB power sharing, 5VIN backfeed protection, regulator current, and jumper behaviour remain unverified.',
-      'This reduced-confidence profile still needs a reviewed physical pin/anchor map before controller-side wiring can be drawn.',
     ],
-    sourceSummary: 'Header map reviewed; power-path behaviour still treated as uncertain.',
+    sourceSummary: 'Header map reviewed from the user-supplied pinout image; power-path behaviour still treated as uncertain.',
+    pinAnchors: GENERIC_N16R8_PIN_ANCHORS,
+    pins: GENERIC_N16R8_PINS,
   },
   {
     id: 'espressif-esp32-s3-devkitc-1',

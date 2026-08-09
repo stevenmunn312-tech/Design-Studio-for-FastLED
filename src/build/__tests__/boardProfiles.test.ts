@@ -25,9 +25,12 @@ describe('boardProfiles', () => {
   })
 
   it('maps reviewed board pins back from logical GPIO numbers', () => {
+    const generic = BOARD_PROFILES.find((profile) => profile.id === 'generic-esp32-s3-n16r8-44pin-dual-usbc')
     const devkit = BOARD_PROFILES.find((profile) => profile.id === 'espressif-esp32-s3-devkitc-1')
     const xiao = BOARD_PROFILES.find((profile) => profile.id === 'seeed-xiao-esp32s3')
 
+    expect(boardPinForGpio(generic, 0)?.label).toBe('BOOT / GPIO0')
+    expect(boardPinForGpio(generic, 14)?.label).toBe('GPIO14')
     expect(boardPinForGpio(devkit, 14)?.label).toBe('GPIO14')
     expect(boardPinForGpio(xiao, 43)?.label).toBe('D6 / GPIO43')
   })
