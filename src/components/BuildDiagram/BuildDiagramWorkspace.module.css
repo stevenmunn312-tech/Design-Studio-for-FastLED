@@ -111,7 +111,8 @@
 
 .optionCardActive,
 .diagramCardActive,
-.hardwareRowActive .hardwareMain {
+.hardwareRowActive .hardwareMain,
+.connectionRowActive {
   border-color: color-mix(in srgb, var(--accent-output) 68%, var(--border-glow));
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-output) 28%, transparent);
 }
@@ -128,6 +129,12 @@
 .diagramCardPins {
   color: var(--text-secondary);
   font-size: 0.9rem;
+}
+
+.optionHint {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.35;
 }
 
 .progressPill {
@@ -179,11 +186,8 @@
   font-size: 0.88rem;
 }
 
-.diagramCanvas {
+.diagramSurface {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
-  gap: 24px;
   flex: 1;
   min-height: 0;
   padding: 18px;
@@ -195,55 +199,130 @@
   overflow: auto;
 }
 
-.diagramCanvas::before {
-  content: '';
+.wireLayer {
   position: absolute;
-  left: 320px;
-  top: 28px;
-  bottom: 28px;
-  width: 1px;
-  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--border-glow) 80%, transparent), transparent);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.wirePath {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.wirePathActive {
+  stroke: color-mix(in srgb, var(--accent-output) 78%, white 10%);
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent-output) 36%, transparent));
+}
+
+.wirePathDim {
+  stroke: color-mix(in srgb, var(--border-glow) 56%, transparent);
+  opacity: 0.52;
 }
 
 .controllerCard,
 .diagramCard {
-  position: relative;
+  position: absolute;
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 16px;
   border-radius: 18px;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
-.diagramItems {
+.controllerHeader {
   display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding-left: 18px;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
 }
 
-.diagramCard::before {
-  content: '';
-  position: absolute;
-  left: -18px;
-  top: 50%;
-  width: 18px;
-  height: 1px;
-  background: color-mix(in srgb, var(--border-glow) 86%, transparent);
-}
-
-.controllerCard::before {
-  display: none;
+.controllerBody {
+  position: relative;
+  flex: 1;
+  min-height: 0;
 }
 
 .boardPreview {
-  width: 100%;
+  width: min(70%, 220px);
+  margin: 26px auto 0;
 }
 
 .boardPreview :global(svg) {
   display: block;
   width: 100%;
   height: auto;
+}
+
+.controllerPin {
+  position: absolute;
+  padding: 4px 7px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border-glow) 72%, transparent);
+  background: color-mix(in srgb, var(--bg-panel) 92%, rgba(255, 255, 255, 0.02));
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  line-height: 1;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+}
+
+.controllerPinLeft {
+  transform: translate(-100%, -50%);
+}
+
+.controllerPinRight {
+  transform: translate(0, -50%);
+}
+
+.controllerPinTop {
+  transform: translate(-50%, -100%);
+}
+
+.controllerPinBottom {
+  transform: translate(-50%, 0);
+}
+
+.controllerPinUsed {
+  color: var(--text-primary);
+}
+
+.controllerPinUnused {
+  opacity: 0.72;
+}
+
+.controllerPinSelected {
+  border-color: color-mix(in srgb, var(--accent-output) 70%, transparent);
+  color: var(--text-primary);
+  font-weight: 700;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-output) 24%, transparent);
+}
+
+.devicePinList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.devicePinRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+}
+
+.devicePinRow strong {
+  color: var(--text-primary);
+  font-size: 0.82rem;
 }
 
 .factList {
@@ -277,6 +356,38 @@
 
 .pinRow {
   font-weight: 600;
+}
+
+.subTitle {
+  margin: 14px 0 0;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+}
+
+.connectionList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.connectionRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--border-glow) 78%, transparent);
+  background: color-mix(in srgb, var(--bg-panel) 82%, rgba(255, 255, 255, 0.03));
+  text-align: left;
+  font: inherit;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.connectionRow span {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
 }
 
 .emptyState {
@@ -325,16 +436,7 @@
     display: flex;
   }
 
-  .diagramCanvas {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .diagramCanvas::before,
-  .diagramCard::before {
-    display: none;
-  }
-
-  .diagramItems {
-    padding-left: 0;
+  .diagramSurface {
+    min-height: 560px;
   }
 }

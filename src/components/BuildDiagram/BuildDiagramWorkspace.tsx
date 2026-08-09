@@ -1,17 +1,46 @@
 import { useEffect, useMemo, useState } from 'react'
-import { boardProfileById, compatibleBoardProfilesForFqbn } from '../../build/boardProfiles'
+import {
+  boardPinForGpio,
+  boardProfileById,
+  compatibleBoardProfilesForFqbn,
+  type PhysicalBoardPinAnchor,
+  type PhysicalBoardPinProfile,
+} from '../../build/boardProfiles'
 import { ensureBuildProfile, fingerprintValue } from '../../build/buildProfile'
-import { buildHardwareManifest, type HardwareManifestItem } from '../../build/hardwareManifest'
+import { buildHardwareManifest, type HardwareManifestItem, type HardwarePinUse } from '../../build/hardwareManifest'
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import styles from './BuildDiagramWorkspace.module.css'
+
+interface DiagramConnection {
+  id: string
+  itemId: string
+  itemTitle: string
+  itemSubtitle: string
+  pinUse: HardwarePinUse
+  boardPin?: PhysicalBoardPinProfile
+  boardAnchor?: PhysicalBoardPinAnchor
+  controllerX?: number
+  controllerY?: number
+  deviceX: number
+  deviceY: number
+  unresolvedReason?: string
+}
 
 function formatFactValue(value: unknown): string {
   if (value == null) return 'Unknown'
   if (Array.isArray(value)) return value.join(', ')
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
   return String(value)
+}
+
+function formatFactLabel(key: string): string {
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .replace(/[-_]/g, ' ')
+    .replace(/^./, (char) => char.toUpperCase())
 }
 
 function itemFingerprint(
@@ -45,6 +74,15 @@ function BoardPreview({ svg, label }: { svg: string; label: string }) {
       dangerouslySetInnerHTML={{ __html: svg }}
     />
   )
+}
+
+function controllerBoxSize(anchors: PhysicalBoardPinAnchor[] | undefined) {
+  const maxX = Math.max(280, ...(anchors ?? []).map((anchor) => anchor.x))
+  const maxY = Math.max(280, ...(anchors ?? []).map((anchor) => anchor.y))
+  return {
+    width: maxX + 36,
+    height: maxY + 44,
+  }
 }
 
 export default function BuildDiagramWorkspace() {
@@ -85,18 +123,6 @@ export default function BuildDiagramWorkspace() {
     return done?.fingerprint === itemFingerprint(item, selectedFqbn, buildProfile.physicalBoardProfileId)
   }).length
 
-  const connectionRows = exactBoard
-    ? (selectedItemId === 'controller' ? visiblePrimaryItems : [selectedItem]).flatMap((item) =>
-        item.kind === 'controller'
-          ? []
-          : item.pins.map((pin) => ({
-              id: `${item.id}:${pin.propertyKey}`,
-              title: item.title,
-              left: `GPIO ${pin.pin}`,
-              right: pin.label,
-            })))
-    : []
-
   const patchBuildProfile = (recipe: (current: ReturnType<typeof ensureBuildProfile>) => ReturnType<typeof ensureBuildProfile>) => {
     updateBuildProfile((current) => recipe(ensureBuildProfile(current)))
   }
@@ -133,6 +159,116 @@ export default function BuildDiagramWorkspace() {
       physicalBoardProfileId: profileId,
     }))
   }
+
+  const controllerBox = useMemo(() => {
+    const size = controllerBoxSize(exactBoard?.pinAnchors)
+    return {
+      x: 40,
+      y: 44,
+      width: size.width,
+      height: size.height,
+    }
+  }, [exactBoard])
+
+  const deviceLayouts = useMemo(() => {
+    let y = 72
+    return visiblePrimaryItems.map((item) => {
+      const height = Math.max(92, 58 + (item.pins.length * 24))
+      const layout = {
+        itemId: item.id,
+        x: controllerBox.x + controllerBox.width + 164,
+        y,
+        width: 320,
+        height,
+      }
+      y += height + 26
+      return layout
+    })
+  }, [controllerBox.width, controllerBox.x, visiblePrimaryItems])
+
+  const boardAnchorsById = useMemo(() => new Map((exactBoard?.pinAnchors ?? []).map((anchor) => [anchor.id, anchor])), [exactBoard])
+  const canRenderControllerPins = !!exactBoard && boardAnchorsById.size > 0 && (exactBoard.pins?.length ?? 0) > 0
+
+  const allConnections = useMemo<DiagramConnection[]>(() => {
+    const byItemId = new Map(deviceLayouts.map((layout) => [layout.itemId, layout]))
+    return visiblePrimaryItems.flatMap((item) => {
+      const layout = byItemId.get(item.id)
+      if (!layout) return []
+      return item.pins.map((pinUse, pinIndex) => {
+        const boardPin = canRenderControllerPins ? boardPinForGpio(exactBoard, pinUse.pin) : undefined
+        const boardAnchor = boardPin ? boardAnchorsById.get(boardPin.anchorId) : undefined
+        const deviceY = layout.y + 52 + (pinIndex * 24)
+        const controllerX = boardAnchor ? controllerBox.x + boardAnchor.x : undefined
+        const controllerY = boardAnchor ? controllerBox.y + boardAnchor.y : undefined
+        return {
+          id: `${item.id}:${pinUse.propertyKey}`,
+          itemId: item.id,
+          itemTitle: item.title,
+          itemSubtitle: item.subtitle,
+          pinUse,
+          boardPin,
+          boardAnchor,
+          controllerX,
+          controllerY,
+          deviceX: layout.x,
+          deviceY,
+          unresolvedReason: !canRenderControllerPins
+            ? 'This exact board profile does not yet have a reviewed physical pin map.'
+            : boardPin
+              ? undefined
+              : `GPIO ${pinUse.pin} is not mapped on the selected physical board profile.`,
+        }
+      })
+    })
+  }, [
+    boardAnchorsById,
+    canRenderControllerPins,
+    controllerBox.x,
+    controllerBox.y,
+    deviceLayouts,
+    exactBoard,
+    visiblePrimaryItems,
+  ])
+
+  const selectedConnections = useMemo(() => {
+    if (selectedItemId === 'controller') return allConnections
+    return allConnections.filter((connection) => connection.itemId === selectedItemId)
+  }, [allConnections, selectedItemId])
+
+  const unresolvedConnections = allConnections.filter((connection) => connection.unresolvedReason)
+  const highlightedBoardPinIds = useMemo(
+    () => new Set(selectedConnections.flatMap((connection) => connection.boardPin ? [connection.boardPin.id] : [])),
+    [selectedConnections],
+  )
+  const usedBoardPinIds = useMemo(
+    () => new Set(allConnections.flatMap((connection) => connection.boardPin ? [connection.boardPin.id] : [])),
+    [allConnections],
+  )
+
+  const boardPinsToRender = useMemo(() => {
+    return (exactBoard?.pins ?? []).filter((pin) =>
+      usedBoardPinIds.has(pin.id) || pin.role === 'power-in' || pin.role === 'power-out' || pin.role === 'ground' || pin.role === 'usb')
+  }, [exactBoard, usedBoardPinIds])
+
+  const connectionRows = canRenderControllerPins
+    ? selectedConnections
+    : []
+
+  const signalReady = !!exactBoard && canRenderControllerPins && unresolvedConnections.length === 0
+  const readinessText = !exactBoard
+    ? 'blocked by exact-board selection'
+    : !canRenderControllerPins
+      ? 'blocked because this exact board profile is still missing a reviewed physical pin map'
+      : unresolvedConnections.length > 0
+        ? `needs review: ${unresolvedConnections.length} controller pin mapping${unresolvedConnections.length === 1 ? '' : 's'} unresolved`
+        : 'all visible supported hardware maps cleanly onto the selected physical board'
+
+  const canvasWidth = deviceLayouts.length > 0
+    ? Math.max(controllerBox.x + controllerBox.width + 420, ...deviceLayouts.map((layout) => layout.x + layout.width + 40))
+    : controllerBox.x + controllerBox.width + 80
+  const canvasHeight = deviceLayouts.length > 0
+    ? Math.max(controllerBox.y + controllerBox.height + 40, ...deviceLayouts.map((layout) => layout.y + layout.height + 40))
+    : controllerBox.y + controllerBox.height + 40
 
   return (
     <section className={styles.workspace} aria-label="Build Diagram workspace">
@@ -174,6 +310,7 @@ export default function BuildDiagramWorkspace() {
                 >
                   <span className={styles.optionTitle}>{profile.label}</span>
                   <span className={styles.optionMeta}>{profile.confidence.replace(/-/g, ' ')}</span>
+                  {profile.caveats[0] && <span className={styles.optionHint}>{profile.caveats[0]}</span>}
                 </button>
               ))}
             </div>
@@ -235,9 +372,11 @@ export default function BuildDiagramWorkspace() {
           <div>
             <h2 className={styles.panelTitle}>Diagram</h2>
             <p className={styles.panelSubtitle}>
-              {exactBoard
-                ? `${exactBoard.label} selected. Controller rendering is gated behind that exact-board choice.`
-                : 'Select an exact board profile to unlock controller-aware wiring details.'}
+              {!exactBoard
+                ? 'Select an exact board profile to unlock controller-aware wiring details.'
+                : !canRenderControllerPins
+                  ? `${exactBoard.label} selected. This profile still needs a reviewed physical pin map before controller-side wiring can be drawn.`
+                  : `${exactBoard.label} selected. Connections now resolve against that exact board's pin map.`}
             </p>
           </div>
           <button type="button" className={styles.resetButton} onClick={() => setIsolatedItemId(null)} disabled={!isolatedItemId}>
@@ -253,34 +392,110 @@ export default function BuildDiagramWorkspace() {
             </p>
           </div>
         ) : (
-          <div className={styles.diagramCanvas}>
+          <div className={styles.diagramSurface} style={{ minWidth: `${canvasWidth}px`, minHeight: `${canvasHeight}px` }}>
+            <svg
+              className={styles.wireLayer}
+              viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
+              aria-hidden="true"
+            >
+              {allConnections.map((connection, index) => {
+                if (connection.controllerX == null || connection.controllerY == null) return null
+                const midX = connection.controllerX + 86 + ((index % 3) * 10)
+                const path = [
+                  `M ${connection.controllerX} ${connection.controllerY}`,
+                  `L ${midX} ${connection.controllerY}`,
+                  `L ${midX} ${connection.deviceY}`,
+                  `L ${connection.deviceX} ${connection.deviceY}`,
+                ].join(' ')
+                const active = selectedItemId === 'controller' || selectedItemId === connection.itemId
+                return (
+                  <path
+                    key={connection.id}
+                    d={path}
+                    className={`${styles.wirePath} ${active ? styles.wirePathActive : styles.wirePathDim}`}
+                  />
+                )
+              })}
+            </svg>
+
             <button
               type="button"
               className={`${styles.controllerCard} ${selectedItemId === 'controller' ? styles.diagramCardActive : ''}`}
+              style={{
+                left: `${controllerBox.x}px`,
+                top: `${controllerBox.y}px`,
+                width: `${controllerBox.width}px`,
+                height: `${controllerBox.height}px`,
+              }}
               onClick={() => setSelectedItemId('controller')}
             >
-              <BoardPreview svg={exactBoard.previewSvg} label={exactBoard.label} />
-              <span className={styles.diagramCardTitle}>{exactBoard.label}</span>
-              <span className={styles.diagramCardMeta}>{exactBoard.confidence.replace(/-/g, ' ')}</span>
+              <div className={styles.controllerHeader}>
+                <span className={styles.diagramCardTitle}>{exactBoard.label}</span>
+                <span className={styles.diagramCardMeta}>{exactBoard.confidence.replace(/-/g, ' ')}</span>
+              </div>
+              <div className={styles.controllerBody}>
+                <BoardPreview svg={exactBoard.previewSvg} label={exactBoard.label} />
+                {boardPinsToRender.map((pin) => {
+                  const anchor = boardAnchorsById.get(pin.anchorId)
+                  if (!anchor) return null
+                  const selected = highlightedBoardPinIds.has(pin.id)
+                  const used = usedBoardPinIds.has(pin.id)
+                  return (
+                    <span
+                      key={pin.id}
+                      className={[
+                        styles.controllerPin,
+                        styles[`controllerPin${anchor.labelAlign[0].toUpperCase()}${anchor.labelAlign.slice(1)}`],
+                        selected ? styles.controllerPinSelected : '',
+                        used ? styles.controllerPinUsed : styles.controllerPinUnused,
+                      ].join(' ').trim()}
+                      style={{ left: `${anchor.x}px`, top: `${anchor.y}px` }}
+                      title={pin.note ?? pin.label}
+                    >
+                      {pin.label}
+                    </span>
+                  )
+                })}
+              </div>
             </button>
-            <div className={styles.diagramItems}>
-              {visiblePrimaryItems.map((item) => (
+
+            {deviceLayouts.map((layout) => {
+              const item = visiblePrimaryItems.find((entry) => entry.id === layout.itemId)
+              if (!item) return null
+              const itemConnections = allConnections.filter((connection) => connection.itemId === item.id)
+              return (
                 <button
                   key={item.id}
                   type="button"
                   className={`${styles.diagramCard} ${selectedItemId === item.id ? styles.diagramCardActive : ''}`}
+                  style={{
+                    left: `${layout.x}px`,
+                    top: `${layout.y}px`,
+                    width: `${layout.width}px`,
+                    height: `${layout.height}px`,
+                  }}
                   onClick={() => setSelectedItemId(item.id)}
                 >
                   <span className={styles.diagramCardTitle}>{item.title}</span>
                   <span className={styles.diagramCardMeta}>{item.subtitle}</span>
-                  {item.pins.length > 0 && (
+                  {itemConnections.length > 0 && (
                     <span className={styles.diagramCardPins}>
-                      {item.pins.map((pin) => `GPIO ${pin.pin}`).join(' · ')}
+                      {itemConnections.map((connection) =>
+                        connection.boardPin ? connection.boardPin.label : `GPIO ${connection.pinUse.pin}`
+                      ).join(' · ')}
                     </span>
                   )}
+                  <div className={styles.devicePinList}>
+                    {itemConnections.map((connection) => (
+                      <span key={connection.id} className={styles.devicePinRow}>
+                        <strong>{connection.boardPin?.label ?? `GPIO ${connection.pinUse.pin}`}</strong>
+                        <span>{connection.pinUse.label}</span>
+                      </span>
+                    ))}
+                  </div>
                 </button>
-              ))}
-            </div>
+              )
+            })}
           </div>
         )}
       </main>
@@ -290,23 +505,59 @@ export default function BuildDiagramWorkspace() {
           <h3 className={styles.cardTitle}>Selected item</h3>
           <p className={styles.copy}><strong>{selectedItem.title}</strong></p>
           <p className={styles.copyMuted}>{selectedItem.subtitle}</p>
+          {selectedItemId === 'controller' && exactBoard && (
+            <>
+              <p className={styles.copyMuted}>{exactBoard.sourceSummary}</p>
+              {exactBoard.notes.length > 0 && (
+                <>
+                  <h4 className={styles.subTitle}>Board notes</h4>
+                  <ul className={styles.flatList}>
+                    {exactBoard.notes.map((note) => <li key={note}>{note}</li>)}
+                  </ul>
+                </>
+              )}
+              {exactBoard.caveats.length > 0 && (
+                <>
+                  <h4 className={styles.subTitle}>Caveats</h4>
+                  <ul className={styles.flatList}>
+                    {exactBoard.caveats.map((note) => <li key={note}>{note}</li>)}
+                  </ul>
+                </>
+              )}
+            </>
+          )}
           {selectedItemId !== 'controller' && !exactBoard && (
             <p className={styles.warningText}>Select an exact board profile before pin definitions or controller-side connections appear here.</p>
           )}
-          {selectedItem.pins.length > 0 && exactBoard && (
-            <ul className={styles.flatList}>
-              {selectedItem.pins.map((pin) => (
-                <li key={`${selectedItem.id}-${pin.propertyKey}`} className={styles.pinRow}>
-                  <strong>GPIO {pin.pin}</strong> · {pin.label}
-                </li>
-              ))}
-            </ul>
+          {selectedConnections.length > 0 && canRenderControllerPins && (
+            <>
+              <h4 className={styles.subTitle}>Controller pins</h4>
+              <ul className={styles.flatList}>
+                {selectedConnections.map((connection) => (
+                  <li key={connection.id} className={styles.pinRow}>
+                    <strong>{connection.boardPin?.label ?? `GPIO ${connection.pinUse.pin}`}</strong> · {connection.pinUse.label}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {selectedConnections.some((connection) => connection.unresolvedReason) && (
+            <>
+              <h4 className={styles.subTitle}>Needs review</h4>
+              <ul className={styles.flatList}>
+                {selectedConnections
+                  .filter((connection) => connection.unresolvedReason)
+                  .map((connection) => (
+                    <li key={connection.id}>{connection.unresolvedReason}</li>
+                  ))}
+              </ul>
+            </>
           )}
           {Object.keys(selectedItem.facts).length > 0 && (
             <dl className={styles.factList}>
               {Object.entries(selectedItem.facts).map(([key, value]) => (
                 <div key={key} className={styles.factRow}>
-                  <dt>{key}</dt>
+                  <dt>{formatFactLabel(key)}</dt>
                   <dd>{formatFactValue(value)}</dd>
                 </div>
               ))}
@@ -318,24 +569,42 @@ export default function BuildDiagramWorkspace() {
           <h3 className={styles.cardTitle}>Readiness</h3>
           <ul className={styles.flatList}>
             <li>Requirements calculated: pending the electrical rule engine</li>
-            <li>Signal ready: {exactBoard ? 'exact board selected; physical pin rendering still pending' : 'blocked by exact-board selection'}</li>
+            <li>Signal ready: {readinessText}</li>
             <li>Power ready: pending the calculated electrical plan and owned-parts validation</li>
-            <li>Build ready: pending Signal ready and Power ready</li>
+            <li>Build ready: {signalReady ? 'blocked until Power ready passes' : 'blocked by Signal ready'}</li>
           </ul>
         </section>
 
         <section className={styles.card}>
           <h3 className={styles.cardTitle}>Connections</h3>
           {connectionRows.length === 0 ? (
-            <p className={styles.copyMuted}>Controller-side connections appear here after an exact board is selected.</p>
+            <p className={styles.copyMuted}>Controller-side connections appear here after an exact board with a reviewed pin map is selected.</p>
           ) : (
-            <ul className={styles.flatList}>
+            <div className={styles.connectionList}>
               {connectionRows.map((row) => (
-                <li key={row.id}>
-                  <strong>{row.title}</strong>: {row.left} → {row.right}
-                </li>
+                <button
+                  key={row.id}
+                  type="button"
+                  className={`${styles.connectionRow} ${selectedItemId === row.itemId ? styles.connectionRowActive : ''}`}
+                  onClick={() => setSelectedItemId(row.itemId)}
+                >
+                  <strong>{row.itemTitle}</strong>
+                  <span>{row.boardPin?.label ?? `GPIO ${row.pinUse.pin}`} → {row.pinUse.label}</span>
+                </button>
               ))}
-            </ul>
+            </div>
+          )}
+          {unresolvedConnections.length > 0 && (
+            <>
+              <h4 className={styles.subTitle}>Unresolved</h4>
+              <ul className={styles.flatList}>
+                {unresolvedConnections.map((connection) => (
+                  <li key={connection.id}>
+                    <strong>{connection.itemTitle}</strong>: {connection.unresolvedReason}
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </section>
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   BOARD_PROFILES,
+  boardPinForGpio,
   compatibleBoardProfilesForFqbn,
   isBoardProfileCompatibleWithFqbn,
   validateBoardProfiles,
@@ -21,5 +22,13 @@ describe('boardProfiles', () => {
   it('checks exact-board compatibility against the project target', () => {
     expect(isBoardProfileCompatibleWithFqbn('seeed-xiao-esp32s3', 'esp32:esp32:esp32s3')).toBe(true)
     expect(isBoardProfileCompatibleWithFqbn('seeed-xiao-esp32s3', 'rp2040:rp2040:rpipico')).toBe(false)
+  })
+
+  it('maps reviewed board pins back from logical GPIO numbers', () => {
+    const devkit = BOARD_PROFILES.find((profile) => profile.id === 'espressif-esp32-s3-devkitc-1')
+    const xiao = BOARD_PROFILES.find((profile) => profile.id === 'seeed-xiao-esp32s3')
+
+    expect(boardPinForGpio(devkit, 14)?.label).toBe('GPIO14')
+    expect(boardPinForGpio(xiao, 43)?.label).toBe('D6 / GPIO43')
   })
 })

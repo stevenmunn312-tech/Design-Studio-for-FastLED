@@ -35,7 +35,7 @@ describe('BuildDiagramWorkspace', () => {
     const { getByText } = render(<BuildDiagramWorkspace />)
 
     expect(getByText('Exact board required')).toBeTruthy()
-    expect(getByText('Controller-side connections appear here after an exact board is selected.')).toBeTruthy()
+    expect(getByText('Controller-side connections appear here after an exact board with a reviewed pin map is selected.')).toBeTruthy()
   })
 
   it('shows GPIO connections once a reviewed exact board profile is selected', () => {
@@ -48,7 +48,7 @@ describe('BuildDiagramWorkspace', () => {
 
     const { getAllByText, getByText } = render(<BuildDiagramWorkspace />)
 
-    expect(getByText('Espressif ESP32-S3-DevKitC-1 selected. Controller rendering is gated behind that exact-board choice.')).toBeTruthy()
-    expect(getAllByText((_, node) => node?.textContent?.includes('Matrix Output: GPIO 14 → Matrix Output data pin') ?? false).length).toBeGreaterThan(0)
+    expect(getByText('Espressif ESP32-S3-DevKitC-1 selected. Connections now resolve against that exact board\'s pin map.')).toBeTruthy()
+    expect(getAllByText((_, node) => node?.textContent?.includes('GPIO14 → Matrix Output data pin') ?? false).length).toBeGreaterThan(0)
   })
 })
