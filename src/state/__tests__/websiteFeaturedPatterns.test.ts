@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest'
 import {
   WEBSITE_FEATURED_PATTERN_ASSETS,
   WEBSITE_FEATURED_PATTERNS,
