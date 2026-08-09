@@ -91,9 +91,12 @@ describe('validateGraph', () => {
       expect(findBoardCompatibilityErrors(nodes, fqbn)).toEqual([])
     }
     for (const fqbn of ['esp32:esp32:esp32c3', 'esp32:esp32:esp32c6', 'esp32:esp32:esp32h2', 'esp8266:esp8266:nodemcuv2', 'arduino:avr:uno']) {
-      expect(findBoardCompatibilityErrors(nodes, fqbn)).toEqual([
+      // The default HUB75 pins may also collide with that specific
+      // (already-rejected) board's own GPIO table — harmless noise on top of
+      // the one message that actually matters, so just require it's present.
+      expect(findBoardCompatibilityErrors(nodes, fqbn)).toEqual(expect.arrayContaining([
         expect.stringMatching(/HUB75 output requires a classic ESP32, ESP32-S2, or ESP32-S3/),
-      ])
+      ]))
     }
     // No board selected yet, or an addressable chipset: no HUB75-specific error.
     expect(findBoardCompatibilityErrors(nodes, '')).toEqual([])

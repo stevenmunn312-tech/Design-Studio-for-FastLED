@@ -2320,25 +2320,40 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       usePsram: false,
       psramMode: 'opi',
       // HUB75 scan-panel wiring (chipset === 'HUB75' only; see
-      // docs/development/design/hub75-output.md). Defaults match
-      // ESP32-HUB75-MatrixPanel-DMA's documented classic-ESP32 pinout —
-      // per-board remapping is a follow-up, same as every other hardware node.
-      hub75R1Pin: 25,
-      hub75G1Pin: 26,
-      hub75B1Pin: 27,
-      hub75R2Pin: 14,
-      hub75G2Pin: 12,
-      hub75B2Pin: 13,
-      hub75APin: 23,
-      hub75BPin: 19,
-      hub75CPin: 5,
-      hub75DPin: 17,
+      // docs/development/design/hub75-output.md). ESP32-HUB75-MatrixPanel-DMA's
+      // own documented default pinout (R1=25/G1=26/B1=27/A=23/...) is tuned for
+      // the classic ESP32 — hardware-tested-false on ESP32-S3 (2026-08-09,
+      // GitHub issue tracker N/A, see todo.md): G1(26)/B1(27) collide with the
+      // S3's flash/PSRAM pins and A(23) isn't present as GPIO on the S3 at all,
+      // producing an ESP-IDF "GPIO number error" boot failure. `HUB75_SUPPORTED_FQBNS`
+      // (validateGraph.ts) allows the classic ESP32, ESP32-S2, and ESP32-S3, and
+      // a single shared default set (no per-board defaults yet) has to actually
+      // work on all three — computed as the exact intersection of each board's
+      // valid, output-capable GPIOs (ESP32_GPIO/ESP32_S2_GPIO/ESP32_S3_GPIO in
+      // src/state/boardGpio.ts): exactly 14 pins exist in that intersection, one
+      // per HUB75 signal with none to spare. GPIO0 (needed to fill that count)
+      // is a boot-strapping pin on all three chips — assigned to CLK, a
+      // continuously-toggling line rather than a level-held control line, to
+      // minimize (not eliminate) boot-level risk; not yet confirmed safe on
+      // real hardware. Per-board remapping (so each board could use its own
+      // less-constrained set) remains a follow-up, same as every other
+      // hardware node.
+      hub75R1Pin: 1,
+      hub75G1Pin: 2,
+      hub75B1Pin: 3,
+      hub75R2Pin: 4,
+      hub75G2Pin: 5,
+      hub75B2Pin: 12,
+      hub75APin: 13,
+      hub75BPin: 14,
+      hub75CPin: 15,
+      hub75DPin: 16,
       // Row-select address line E, only wired for 1/32-scan (e.g. 64-row)
       // panels — gated by hub75WideScan below.
-      hub75EPin: 21,
-      hub75ClkPin: 16,
-      hub75LatPin: 4,
-      hub75OePin: 15,
+      hub75EPin: 33,
+      hub75ClkPin: 0,
+      hub75LatPin: 17,
+      hub75OePin: 18,
       // 64-row / 1:32-scan panels multiplex an extra row-select line (E,
       // above); 32-row / 1:16-scan panels leave it unconnected.
       hub75WideScan: false,

@@ -427,7 +427,16 @@ export interface Hub75Hardware {
  *  become the single physical panel's resolution (panel chaining isn't
  *  implemented yet, so the whole composed matrix is one panel). `hub75EPin`
  *  is only meaningful when `hub75WideScan` is on — the DMA library's own
- *  convention for "unused" is -1, matching its documented default pinout. */
+ *  convention for "unused" is -1, matching its documented default pinout.
+ *  Fallback pin numbers MUST match nodeLibrary.ts's MatrixOutput
+ *  defaultProperties exactly (kept in sync by hand) — validateGraph.ts's
+ *  collectPinUses reads the same library defaults to check pins that were
+ *  never explicitly saved on an older node, so a mismatch here would let a
+ *  codegen-only default escape validation again. Chosen as the exact
+ *  intersection of valid, output-capable GPIOs across every
+ *  `HUB75_SUPPORTED_FQBNS` board (ESP32/S2/S3) — see the comment on these
+ *  defaults in nodeLibrary.ts for the full derivation and the GPIO0/CLK
+ *  caveat. */
 export function hub75HardwareFromProps(p: Record<string, unknown>, width: number, height: number): Hub75Hardware {
   const num = (v: unknown, def: number, min: number, max: number) => {
     const n = Number(v)
@@ -438,11 +447,11 @@ export function hub75HardwareFromProps(p: Record<string, unknown>, width: number
     panelResX: width,
     panelResY: height,
     pins: {
-      r1: sanitizePin(p.hub75R1Pin, 25), g1: sanitizePin(p.hub75G1Pin, 26), b1: sanitizePin(p.hub75B1Pin, 27),
-      r2: sanitizePin(p.hub75R2Pin, 14), g2: sanitizePin(p.hub75G2Pin, 12), b2: sanitizePin(p.hub75B2Pin, 13),
-      a: sanitizePin(p.hub75APin, 23), b: sanitizePin(p.hub75BPin, 19), c: sanitizePin(p.hub75CPin, 5), d: sanitizePin(p.hub75DPin, 17),
-      e: wideScan ? sanitizePin(p.hub75EPin, 21) : -1,
-      lat: sanitizePin(p.hub75LatPin, 4), oe: sanitizePin(p.hub75OePin, 15), clk: sanitizePin(p.hub75ClkPin, 16),
+      r1: sanitizePin(p.hub75R1Pin, 1), g1: sanitizePin(p.hub75G1Pin, 2), b1: sanitizePin(p.hub75B1Pin, 3),
+      r2: sanitizePin(p.hub75R2Pin, 4), g2: sanitizePin(p.hub75G2Pin, 5), b2: sanitizePin(p.hub75B2Pin, 12),
+      a: sanitizePin(p.hub75APin, 13), b: sanitizePin(p.hub75BPin, 14), c: sanitizePin(p.hub75CPin, 15), d: sanitizePin(p.hub75DPin, 16),
+      e: wideScan ? sanitizePin(p.hub75EPin, 33) : -1,
+      lat: sanitizePin(p.hub75LatPin, 17), oe: sanitizePin(p.hub75OePin, 18), clk: sanitizePin(p.hub75ClkPin, 0),
     },
     colorDepthBits: Math.round(num(p.hub75ColorDepthBits, 8, 1, 8)),
     brightness: Math.round(num(p.brightness, 200, 0, 255)),

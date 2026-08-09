@@ -110,7 +110,7 @@ describe('generateWiringDiagnosticSketch', () => {
       expect(sketch).toContain('#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>')
       expect(sketch).toContain('MatrixPanel_I2S_DMA *dma_display = nullptr;')
       expect(sketch).toContain(
-        'HUB75_I2S_CFG::i2s_pins _hub75Pins = { 25, 26, 27, 14, 12, 13, 23, 19, 5, 17, -1, 4, 15, 16 };',
+        'HUB75_I2S_CFG::i2s_pins _hub75Pins = { 1, 2, 3, 4, 5, 12, 13, 14, 15, 16, -1, 17, 18, 0 };',
       )
       expect(sketch).toContain('HUB75_I2S_CFG _hub75Cfg(8, 8, 1, _hub75Pins);')
       expect(sketch).toContain('dma_display = new MatrixPanel_I2S_DMA(_hub75Cfg);')
