@@ -24,6 +24,7 @@ import { buildHardwareManifest, type HardwareManifestItem, type HardwarePinUse }
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
+import PhysicalAssemblyDiagram from './PhysicalAssemblyDiagram'
 import styles from './BuildDiagramWorkspace.module.css'
 
 interface DiagramConnection {
@@ -373,6 +374,26 @@ export default function BuildDiagramWorkspace() {
     () => Object.values(buildProfile.ownedParts?.supplies ?? {}),
     [buildProfile.ownedParts?.supplies],
   )
+  const partsSummary = useMemo(() => {
+    const lines: Array<{ id: string; quantity: string; label: string; pending?: boolean }> = []
+    if (exactBoard) lines.push({ id: 'board', quantity: '1', label: exactBoard.label })
+    for (const item of primaryItems) lines.push({ id: item.id, quantity: '1', label: item.title })
+    if (outputItems.length > 0) {
+      lines.push({ id: 'level-shifter', quantity: String(Math.max(1, Math.ceil(outputItems.length / 4))), label: '74AHCT125 level shifter' })
+      lines.push({ id: 'resistors', quantity: String(outputItems.length), label: '330 ohm data resistor' })
+      lines.push({ id: 'fuses', quantity: String(outputItems.length), label: 'Branch fuse', pending: true })
+      lines.push({ id: 'capacitors', quantity: String(outputItems.length), label: '1000uF bulk capacitor' })
+    }
+    if (ownedSupplies.length > 0) {
+      for (const supply of ownedSupplies) {
+        lines.push({ id: `owned:${supply.id}`, quantity: '1', label: supply.label ?? supply.id })
+      }
+    } else if (outputItems.length > 0) {
+      lines.push({ id: 'supply', quantity: '1', label: '5 V DC supply', pending: true })
+    }
+    lines.push({ id: 'wire', quantity: '-', label: 'Hookup wire', pending: true })
+    return lines
+  }, [exactBoard, outputItems.length, ownedSupplies, primaryItems])
   const supplyAssignments = useMemo(
     () => buildProfile.ownedParts?.supplyAssignments ?? {},
     [buildProfile.ownedParts?.supplyAssignments],
@@ -749,20 +770,6 @@ export default function BuildDiagramWorkspace() {
   }, [allConnections, selectedItemId])
 
   const unresolvedConnections = allConnections.filter((connection) => connection.unresolvedReason)
-  const highlightedBoardPinIds = useMemo(
-    () => new Set(selectedConnections.flatMap((connection) => connection.boardPin ? [connection.boardPin.id] : [])),
-    [selectedConnections],
-  )
-  const usedBoardPinIds = useMemo(
-    () => new Set(allConnections.flatMap((connection) => connection.boardPin ? [connection.boardPin.id] : [])),
-    [allConnections],
-  )
-
-  const boardPinsToRender = useMemo(() => {
-    return (exactBoard?.pins ?? []).filter((pin) =>
-      usedBoardPinIds.has(pin.id) || pin.role === 'power-in' || pin.role === 'power-out' || pin.role === 'ground' || pin.role === 'usb')
-  }, [exactBoard, usedBoardPinIds])
-
   const connectionRows = canRenderControllerPins
     ? selectedConnections
     : []
@@ -790,8 +797,8 @@ export default function BuildDiagramWorkspace() {
       ? 'Exports stay draft because controller-side signal mapping still needs review before the build reference is trustworthy.'
       : 'Exports stay draft because the normalized electrical assembly, BOM, and file-export layers are not implemented yet.'
 
-  const canvasWidth = allBounds.width
-  const canvasHeight = allBounds.height
+  const canvasWidth = 1120
+  const canvasHeight = 760
   const scaledCanvasWidth = canvasWidth * diagramZoom
   const scaledCanvasHeight = canvasHeight * diagramZoom
 
@@ -936,23 +943,27 @@ export default function BuildDiagramWorkspace() {
                     className={styles.smallButton}
                     onClick={() => adjustSidebarWidth(-PANEL_WIDTH_STEP)}
                     disabled={sidebarWidth <= MIN_SIDEBAR_WIDTH}
+                    aria-label="Narrow build panel"
+                    title="Narrow build panel"
                   >
-                    Narrow build panel
+                    <span aria-hidden="true">-</span><span className={styles.visuallyHidden}>Narrow build panel</span>
                   </button>
                   <button
                     type="button"
                     className={styles.smallButton}
                     onClick={() => adjustSidebarWidth(PANEL_WIDTH_STEP)}
                     disabled={sidebarWidth >= MAX_SIDEBAR_WIDTH}
+                    aria-label="Widen build panel"
+                    title="Widen build panel"
                   >
-                    Widen build panel
+                    <span aria-hidden="true">+</span><span className={styles.visuallyHidden}>Widen build panel</span>
                   </button>
                 </div>
                 <button type="button" className={styles.smallButton} onClick={() => setSidebarCollapsed(true)}>
-                  Hide build panel
+                  <span aria-hidden="true">&lt;&lt;</span><span className={styles.visuallyHidden}>Hide build panel</span>
                 </button>
                 <button type="button" className={styles.backButton} onClick={closeBuildDiagram}>
-                  Back to Design
+                  <span aria-hidden="true">Design</span><span className={styles.visuallyHidden}>Back to Design</span>
                 </button>
               </div>
             </div>
@@ -1088,6 +1099,31 @@ export default function BuildDiagramWorkspace() {
                     </div>
                   )
                 })}
+              </div>
+            </section>
+
+            <section className={`${styles.card} ${styles.powerSummaryCard}`}>
+              <h3 className={styles.cardTitle}>Power summary</h3>
+              {electricalPlan.totals ? (
+                <>
+                  <span className={styles.powerSummaryValue}>{formatCurrentMa(electricalPlan.totals.designCurrentMa)}</span>
+                  <span className={styles.powerSummaryMeta}>
+                    design load @ {formatVoltage(electricalPlan.totals.nominalVoltage)}
+                  </span>
+                  <span className={styles.powerSummaryBudget}>
+                    Supply budget {formatCurrentMa(electricalPlan.totals.recommendedSupplyCurrentMa)} / {formatWattage(electricalPlan.totals.recommendedSupplyWattage)}
+                  </span>
+                </>
+              ) : (
+                <p className={styles.copyMuted}>Add the missing installation facts to calculate the conservative supply budget.</p>
+              )}
+            </section>
+
+            <section className={`${styles.card} ${signalReady ? styles.readinessCardReady : styles.readinessCardPending}`}>
+              <span className={styles.readinessMark}>{signalReady ? 'OK' : '!'}</span>
+              <div>
+                <h3 className={styles.cardTitle}>{signalReady ? 'No pin conflicts' : 'Signal review needed'}</h3>
+                <p className={styles.copyMuted}>{readinessText}</p>
               </div>
             </section>
 
@@ -1452,26 +1488,26 @@ export default function BuildDiagramWorkspace() {
           </div>
           <div className={styles.diagramToolbar}>
             <span className={styles.zoomPill}>Zoom {Math.round(diagramZoom * 100)}%</span>
-            <button type="button" className={styles.smallButton} onClick={() => updateViewport(diagramZoom - ZOOM_STEP)}>
-              Zoom out
+            <button type="button" className={styles.smallButton} aria-label="Zoom out" title="Zoom out" onClick={() => updateViewport(diagramZoom - ZOOM_STEP)}>
+              <span aria-hidden="true">-</span><i className={styles.visuallyHidden}>Zoom out</i>
             </button>
-            <button type="button" className={styles.smallButton} onClick={() => updateViewport(diagramZoom + ZOOM_STEP)}>
-              Zoom in
+            <button type="button" className={styles.smallButton} aria-label="Zoom in" title="Zoom in" onClick={() => updateViewport(diagramZoom + ZOOM_STEP)}>
+              <span aria-hidden="true">+</span><i className={styles.visuallyHidden}>Zoom in</i>
             </button>
             <button type="button" className={styles.smallButton} onClick={fitAll} disabled={!exactBoard}>
-              Fit all
+              <span aria-hidden="true">Fit</span><span className={styles.visuallyHidden}>Fit all</span>
             </button>
             <button type="button" className={styles.smallButton} onClick={fitVisible} disabled={!exactBoard}>
-              Fit visible
+              <span aria-hidden="true">Visible</span><span className={styles.visuallyHidden}>Fit visible</span>
             </button>
             <button type="button" className={styles.smallButton} onClick={focusSelected} disabled={!exactBoard}>
-              Focus selected
+              <span aria-hidden="true">Focus</span><span className={styles.visuallyHidden}>Focus selected</span>
             </button>
             <button type="button" className={styles.smallButton} onClick={resetView} disabled={!exactBoard}>
-              Reset view
+              <span aria-hidden="true">Reset</span><span className={styles.visuallyHidden}>Reset view</span>
             </button>
             <button type="button" className={styles.resetButton} onClick={() => setIsolatedItemId(null)} disabled={!isolatedItemId}>
-              Show all
+              All
             </button>
           </div>
         </div>
@@ -1502,109 +1538,18 @@ export default function BuildDiagramWorkspace() {
                 }}
                 data-pan-surface="true"
               >
-                <svg
-                  className={styles.wireLayer}
-                  viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
-                  aria-hidden="true"
-                >
-                  {allConnections.map((connection, index) => {
-                    if (connection.controllerX == null || connection.controllerY == null) return null
-                    const midX = connection.controllerX + 86 + ((index % 3) * 10)
-                    const path = [
-                      `M ${connection.controllerX} ${connection.controllerY}`,
-                      `L ${midX} ${connection.controllerY}`,
-                      `L ${midX} ${connection.deviceY}`,
-                      `L ${connection.deviceX} ${connection.deviceY}`,
-                    ].join(' ')
-                    const active = selectedItemId === 'controller' || selectedItemId === connection.itemId
-                    return (
-                      <path
-                        key={connection.id}
-                        d={path}
-                        className={`${styles.wirePath} ${active ? styles.wirePathActive : styles.wirePathDim}`}
-                      />
-                    )
-                  })}
-                </svg>
-
-                <button
-                  type="button"
-                  className={`${styles.controllerCard} ${selectedItemId === 'controller' ? styles.diagramCardActive : ''}`}
-                  style={{
-                    left: `${controllerBox.x}px`,
-                    top: `${controllerBox.y}px`,
-                    width: `${controllerBox.width}px`,
-                    height: `${controllerBox.height}px`,
-                  }}
-                  onClick={() => setSelectedItemId('controller')}
-                >
-                  <div className={styles.controllerHeader}>
-                    <span className={styles.diagramCardTitle}>{exactBoard.label}</span>
-                    <span className={styles.diagramCardMeta}>{exactBoard.confidence.replace(/-/g, ' ')}</span>
-                  </div>
-                  <div className={styles.controllerBody}>
-                    <BoardPreview svg={exactBoard.previewSvg} label={exactBoard.label} />
-                    {boardPinsToRender.map((pin) => {
-                      const anchor = boardAnchorsById.get(pin.anchorId)
-                      if (!anchor) return null
-                      const selected = highlightedBoardPinIds.has(pin.id)
-                      const used = usedBoardPinIds.has(pin.id)
-                      return (
-                        <span
-                          key={pin.id}
-                          className={[
-                            styles.controllerPin,
-                            styles[`controllerPin${anchor.labelAlign[0].toUpperCase()}${anchor.labelAlign.slice(1)}`],
-                            selected ? styles.controllerPinSelected : '',
-                            used ? styles.controllerPinUsed : styles.controllerPinUnused,
-                          ].join(' ').trim()}
-                          style={{ left: `${anchor.x}px`, top: `${anchor.y}px` }}
-                          title={pin.note ?? pin.label}
-                        >
-                          {pin.label}
-                        </span>
-                      )
-                    })}
-                  </div>
-                </button>
-
-                {visibleDeviceLayouts.map((layout) => {
-                  const item = visiblePrimaryItems.find((entry) => entry.id === layout.itemId)
-                  if (!item) return null
-                  const itemConnections = allConnections.filter((connection) => connection.itemId === item.id)
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className={`${styles.diagramCard} ${selectedItemId === item.id ? styles.diagramCardActive : ''}`}
-                      style={{
-                        left: `${layout.x}px`,
-                        top: `${layout.y}px`,
-                        width: `${layout.width}px`,
-                        height: `${layout.height}px`,
-                      }}
-                      onClick={() => setSelectedItemId(item.id)}
-                    >
-                      <span className={styles.diagramCardTitle}>{item.title}</span>
-                      <span className={styles.diagramCardMeta}>{item.subtitle}</span>
-                      {itemConnections.length > 0 && (
-                        <span className={styles.diagramCardPins}>
-                          {itemConnections.map((connection) =>
-                            connection.boardPin ? connection.boardPin.label : `GPIO ${connection.pinUse.pin}`
-                          ).join(' · ')}
-                        </span>
-                      )}
-                      <div className={styles.devicePinList}>
-                        {itemConnections.map((connection) => (
-                          <span key={connection.id} className={styles.devicePinRow}>
-                            <strong>{connection.boardPin?.label ?? `GPIO ${connection.pinUse.pin}`}</strong>
-                            <span>{connection.pinUse.label}</span>
-                          </span>
-                        ))}
-                      </div>
-                    </button>
-                  )
-                })}
+                <PhysicalAssemblyDiagram
+                  boardLabel={exactBoard.label}
+                  items={visiblePrimaryItems}
+                  selectedItemId={selectedItemId}
+                  onSelectItem={setSelectedItemId}
+                  connections={allConnections.map((connection) => ({
+                    id: connection.id,
+                    itemId: connection.itemId,
+                    pinLabel: connection.boardPin?.label ?? `GPIO ${connection.pinUse.pin}`,
+                    useLabel: connection.pinUse.label,
+                  }))}
+                />
               </div>
             </div>
           </div>
@@ -1630,20 +1575,24 @@ export default function BuildDiagramWorkspace() {
                     className={styles.smallButton}
                     onClick={() => adjustDetailPaneWidth(-PANEL_WIDTH_STEP)}
                     disabled={detailPaneWidth <= MIN_DETAIL_WIDTH}
+                    aria-label="Narrow details panel"
+                    title="Narrow details panel"
                   >
-                    Narrow details
+                    <span aria-hidden="true">-</span><span className={styles.visuallyHidden}>Narrow details</span>
                   </button>
                   <button
                     type="button"
                     className={styles.smallButton}
                     onClick={() => adjustDetailPaneWidth(PANEL_WIDTH_STEP)}
                     disabled={detailPaneWidth >= MAX_DETAIL_WIDTH}
+                    aria-label="Widen details panel"
+                    title="Widen details panel"
                   >
-                    Widen details
+                    <span aria-hidden="true">+</span><span className={styles.visuallyHidden}>Widen details</span>
                   </button>
                 </div>
                 <button type="button" className={styles.smallButton} onClick={() => setDetailPaneCollapsed(true)}>
-                  Hide details
+                  <span aria-hidden="true">&gt;&gt;</span><span className={styles.visuallyHidden}>Hide details</span>
                 </button>
               </div>
             </div>
@@ -1757,6 +1706,24 @@ export default function BuildDiagramWorkspace() {
                   </ul>
                 </>
               )}
+            </section>
+
+            <section className={styles.card}>
+              <div className={styles.rowBetween}>
+                <h3 className={styles.cardTitle}>Parts</h3>
+                <span className={styles.progressPill}>{partsSummary.length} lines</span>
+              </div>
+              <div className={styles.partsTable}>
+                {partsSummary.map((part) => (
+                  <div key={part.id} className={styles.partsRow}>
+                    <span className={styles.partsQuantity}>{part.quantity}</span>
+                    <span>{part.label}</span>
+                    <span className={part.pending ? styles.partPending : styles.partReady} title={part.pending ? 'Rating or exact part still pending' : 'Configured'}>
+                      {part.pending ? '?' : 'OK'}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </section>
 
             <section className={styles.card}>
