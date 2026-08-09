@@ -31,6 +31,7 @@ function reset(nodes: StudioNode[] = [], edges: StudioEdge[] = []) {
     activeGraphId: ROOT_GRAPH_ID,
     graphs: { [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' } },
     graphData: {},
+    buildProfile: undefined,
     trusted: true,
     performanceDeck: { pins: [], scenes: [], midiBindings: [], keyBindings: [] },
     panicActive: false,

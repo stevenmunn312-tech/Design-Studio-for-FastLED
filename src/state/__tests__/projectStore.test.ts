@@ -171,6 +171,25 @@ describe('projectStore', () => {
     })
   })
 
+  it('clears an incompatible exact-board selection when the upload target family changes', async () => {
+    const { useProjectStore } = await freshStore()
+    useProjectStore.getState().createProject('Main', {
+      ...workspace(['main']),
+      buildProfile: {
+        version: 1,
+        physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1',
+      },
+    })
+
+    useProjectStore.getState().setProjectUploadTarget({
+      selectedFqbn: 'rp2040:rp2040:rpipico',
+      selectedPort: 'COM9',
+    })
+
+    const current = useProjectStore.getState().projects.find((project) => project.id === useProjectStore.getState().currentProjectId)
+    expect(current?.workspace.buildProfile?.physicalBoardProfileId).toBeUndefined()
+  })
+
   it('restores the current project from the small hint key when the full project blob stops persisting', async () => {
     const first = await freshStore()
     const store = first.useProjectStore

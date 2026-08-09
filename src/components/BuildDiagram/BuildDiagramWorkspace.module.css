@@ -1,0 +1,340 @@
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) minmax(300px, 360px);
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.sidebar,
+.detailPane,
+.diagramPane {
+  min-height: 0;
+}
+
+.sidebar,
+.detailPane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+}
+
+.diagramPane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.panelHeader,
+.diagramHeader,
+.rowBetween {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.panelSubtitle,
+.copy,
+.copyMuted {
+  margin: 4px 0 0;
+  line-height: 1.45;
+}
+
+.panelSubtitle,
+.copyMuted {
+  color: var(--text-secondary);
+}
+
+.card {
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--border-glow) 82%, transparent);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 94%, rgba(255, 255, 255, 0.02)), var(--bg-panel));
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.16);
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.optionList,
+.hardwareList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.optionCard,
+.hardwareMain,
+.controllerCard,
+.diagramCard,
+.backButton,
+.resetButton,
+.smallButton {
+  border: 1px solid color-mix(in srgb, var(--border-glow) 78%, transparent);
+  background: color-mix(in srgb, var(--bg-panel) 82%, rgba(255, 255, 255, 0.03));
+  color: var(--text-primary);
+}
+
+.optionCard,
+.hardwareMain,
+.controllerCard,
+.diagramCard {
+  width: 100%;
+  text-align: left;
+}
+
+.optionCard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 14px;
+}
+
+.optionCardActive,
+.diagramCardActive,
+.hardwareRowActive .hardwareMain {
+  border-color: color-mix(in srgb, var(--accent-output) 68%, var(--border-glow));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-output) 28%, transparent);
+}
+
+.optionTitle,
+.hardwareTitle,
+.diagramCardTitle {
+  font-weight: 700;
+}
+
+.optionMeta,
+.hardwareSubtitle,
+.diagramCardMeta,
+.diagramCardPins {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.progressPill {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-output) 18%, transparent);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.hardwareRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.hardwareMain {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 14px;
+}
+
+.hardwareActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.smallButton,
+.backButton,
+.resetButton {
+  padding: 9px 12px;
+  border-radius: 12px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.smallButtonDone {
+  background: color-mix(in srgb, var(--accent-success) 24%, var(--bg-panel));
+}
+
+.staleNotice,
+.warningText {
+  margin-top: 6px;
+  color: #ffca7a;
+  font-size: 0.88rem;
+}
+
+.diagramCanvas {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  gap: 24px;
+  flex: 1;
+  min-height: 0;
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--border-glow) 74%, transparent);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 28% 14%, rgba(122, 162, 255, 0.18), transparent 24%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 86%, #071017), color-mix(in srgb, var(--bg-panel) 96%, black));
+  overflow: auto;
+}
+
+.diagramCanvas::before {
+  content: '';
+  position: absolute;
+  left: 320px;
+  top: 28px;
+  bottom: 28px;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--border-glow) 80%, transparent), transparent);
+}
+
+.controllerCard,
+.diagramCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 18px;
+}
+
+.diagramItems {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-left: 18px;
+}
+
+.diagramCard::before {
+  content: '';
+  position: absolute;
+  left: -18px;
+  top: 50%;
+  width: 18px;
+  height: 1px;
+  background: color-mix(in srgb, var(--border-glow) 86%, transparent);
+}
+
+.controllerCard::before {
+  display: none;
+}
+
+.boardPreview {
+  width: 100%;
+}
+
+.boardPreview :global(svg) {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.factList {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+.factRow {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(0, 1.4fr);
+  gap: 8px;
+}
+
+.factRow dt {
+  color: var(--text-secondary);
+}
+
+.factRow dd {
+  margin: 0;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.flatList {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.pinRow {
+  font-weight: 600;
+}
+
+.emptyState {
+  display: grid;
+  place-items: center;
+  min-height: 280px;
+  padding: 24px;
+  border: 1px dashed color-mix(in srgb, var(--border-glow) 74%, transparent);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--bg-panel) 92%, rgba(255, 255, 255, 0.01));
+}
+
+.emptyTitle {
+  margin: 0 0 8px;
+  color: var(--text-primary);
+}
+
+@media (max-width: 1280px) {
+  .workspace {
+    grid-template-columns: minmax(250px, 320px) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(220px, auto);
+  }
+
+  .detailPane {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+  }
+}
+
+@media (max-width: 900px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    overflow: auto;
+  }
+
+  .sidebar,
+  .detailPane,
+  .diagramPane {
+    overflow: visible;
+  }
+
+  .detailPane {
+    display: flex;
+  }
+
+  .diagramCanvas {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .diagramCanvas::before,
+  .diagramCard::before {
+    display: none;
+  }
+
+  .diagramItems {
+    padding-left: 0;
+  }
+}

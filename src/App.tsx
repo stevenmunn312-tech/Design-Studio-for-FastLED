@@ -43,6 +43,7 @@ const RecoverPopup = lazy(() => import('./components/Recover/RecoverPopup'))
 const TemplatesPopup = lazy(() => import('./components/Templates/TemplatesPopup'))
 const PatternRatingsPopup = lazy(() => import('./components/PatternRatings/PatternRatingsPopup'))
 const ProjectsPopup = lazy(() => import('./components/Projects/ProjectsPopup'))
+const BuildDiagramWorkspace = lazy(() => import('./components/BuildDiagram/BuildDiagramWorkspace'))
 const AUTOSAVE_INTERVAL = 10_000
 const AUTOSAVE_IDLE_TIMEOUT = 2_000
 const SNAPSHOT_INTERVAL = 120_000
@@ -51,6 +52,7 @@ const STAGE_CURSOR_IDLE_MS = 2_000
 export default function App() {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen)
   const previewPanelOpen = useUiStore((s) => s.previewPanelOpen)
+  const workspaceMode = useUiStore((s) => s.workspaceMode)
   const stageMode = useUiStore((s) => s.stageMode)
   const performanceMode = useUiStore((s) => s.performanceMode)
   const deckOpen = usePerformanceDeckSession((s) => s.deckOpen)
@@ -132,6 +134,7 @@ export default function App() {
           graphData: shared.graphData,
           graphs: shared.graphs,
           activeGraphId: shared.activeGraphId,
+          buildProfile: shared.buildProfile,
           trusted: false,
           performanceDeck: shared.performanceDeck,
         })
@@ -152,8 +155,8 @@ export default function App() {
           blankWorkspace(),
         )
       if (!current) return
-      const { nodes, edges, graphData, graphs, activeGraphId, trusted, performanceDeck } = current.workspace
-      useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, trusted, performanceDeck })
+      const { nodes, edges, graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck } = current.workspace
+      useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck })
       useGraphStore.temporal.getState().clear()
     }
     void init()
@@ -211,12 +214,12 @@ export default function App() {
   const lastSnapshotRef = useRef<string>('')
   useEffect(() => {
     const timer = setInterval(() => {
-      const { nodes, edges, graphData, graphs, activeGraphId } = useGraphStore.getState()
+      const { nodes, edges, graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck } = useGraphStore.getState()
       if (nodes.length === 0) return
-      const serialized = JSON.stringify({ nodes, edges, graphData, graphs, activeGraphId })
+      const serialized = JSON.stringify({ nodes, edges, graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck })
       if (serialized === lastSnapshotRef.current) return
       lastSnapshotRef.current = serialized
-      pushSnapshot({ nodes, edges, graphData, graphs, activeGraphId })
+      pushSnapshot({ nodes, edges, graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck })
     }, SNAPSHOT_INTERVAL)
     return () => clearInterval(timer)
   }, [])
@@ -387,6 +390,10 @@ export default function App() {
           void exitStagePresentation()
           return
         }
+        if (useUiStore.getState().workspaceMode === 'build') {
+          useUiStore.getState().closeBuildDiagram()
+          return
+        }
         if (useUiStore.getState().performanceMode) {
           useUiStore.getState().setPerformanceMode(false)
           return
@@ -504,83 +511,91 @@ export default function App() {
     <div className={`${styles.app} ${stageMode ? styles.appStage : ''} ${stageCursorHidden ? styles.appStageCursorHidden : ''} ${performanceMode ? styles.appPerformance : ''}`}>
       <div className={styles.menuShell}><MenuBar /></div>
       {!stageMode && <TrustBanner />}
-      <div className={`${styles.workspace} ${stageMode ? styles.workspaceStage : ''}`}>
-        <div className={styles.workspaceCanvas}>
-          <div className={styles.mainRegion}>
-            <div className={`${styles.sidebarDock} ${sidebarOpen ? '' : styles.sidebarDockClosed}`}>
-              <div
-                className={`${styles.sidebarPanel} ${sidebarOpen ? '' : styles.sidebarPanelClosed}`}
-                aria-hidden={!sidebarOpen}
-                inert={!sidebarOpen}
-              >
-                <Sidebar />
+      <div className={`${styles.workspace} ${stageMode ? styles.workspaceStage : ''} ${workspaceMode === 'build' ? styles.workspaceBuild : ''}`}>
+        {workspaceMode === 'build' && !stageMode ? (
+          <Suspense fallback={null}>
+            <BuildDiagramWorkspace />
+          </Suspense>
+        ) : (
+          <>
+            <div className={styles.workspaceCanvas}>
+              <div className={styles.mainRegion}>
+                <div className={`${styles.sidebarDock} ${sidebarOpen ? '' : styles.sidebarDockClosed}`}>
+                  <div
+                    className={`${styles.sidebarPanel} ${sidebarOpen ? '' : styles.sidebarPanelClosed}`}
+                    aria-hidden={!sidebarOpen}
+                    inert={!sidebarOpen}
+                  >
+                    <Sidebar />
+                  </div>
+                </div>
+                {sidebarOpen && (
+                  <PanelResizeHandle
+                    side="sidebar"
+                    width={sidebarWidth}
+                    min={MIN_SIDEBAR_WIDTH}
+                    max={MAX_SIDEBAR_WIDTH}
+                    defaultWidth={DEFAULT_SIDEBAR_WIDTH}
+                    otherPanelWidth={previewPanelOpen ? previewWidth : 0}
+                    label="Resize node library panel"
+                    onCommit={setSidebarWidth}
+                  />
+                )}
+                <button
+                  className={`${styles.sidebarHandle} ${sidebarOpen ? styles.sidebarHandleOpen : styles.sidebarHandleClosed}`}
+                  type="button"
+                  onClick={toggleSidebar}
+                  aria-label={sidebarOpen ? 'Hide node library' : 'Show node library'}
+                  aria-expanded={sidebarOpen}
+                  aria-controls="node-library"
+                  title={sidebarOpen ? 'Hide node library' : 'Show node library'}
+                >
+                  <span className={styles.sidebarHandleArrow} aria-hidden="true">{sidebarOpen ? '‹' : '›'}</span>
+                </button>
+                <NodeGraphCanvas />
               </div>
+              <div className={`${styles.previewDock} ${previewPanelOpen ? '' : styles.previewDockClosed}`}>
+                <div
+                  className={`${styles.previewPanel} ${previewPanelOpen ? '' : styles.previewPanelClosed}`}
+                  aria-hidden={!previewPanelOpen && !stageMode}
+                  inert={!previewPanelOpen && !stageMode}
+                  id="preview-panel"
+                >
+                  <LEDPreview />
+                </div>
+              </div>
+              {previewPanelOpen && !stageMode && (
+                <PanelResizeHandle
+                  side="preview"
+                  width={previewWidth}
+                  min={MIN_PREVIEW_WIDTH}
+                  max={MAX_PREVIEW_WIDTH}
+                  defaultWidth={DEFAULT_PREVIEW_WIDTH}
+                  otherPanelWidth={sidebarOpen ? sidebarWidth : 0}
+                  label="Resize LED preview panel"
+                  onCommit={setPreviewWidth}
+                />
+              )}
+              <button
+                className={`${styles.previewHandle} ${previewPanelOpen ? styles.previewHandleOpen : styles.previewHandleClosed}`}
+                type="button"
+                onClick={togglePreviewPanel}
+                aria-label={previewPanelOpen ? 'Hide LED preview' : 'Show LED preview'}
+                aria-expanded={previewPanelOpen}
+                aria-controls="preview-panel"
+                title={previewPanelOpen ? 'Hide LED preview' : 'Show LED preview'}
+              >
+                <span className={styles.previewHandleArrow} aria-hidden="true">{previewPanelOpen ? '›' : '‹'}</span>
+              </button>
+              {deckOpen && (
+                <Suspense fallback={null}>
+                  <PerformanceDeck />
+                </Suspense>
+              )}
             </div>
-            {sidebarOpen && (
-              <PanelResizeHandle
-                side="sidebar"
-                width={sidebarWidth}
-                min={MIN_SIDEBAR_WIDTH}
-                max={MAX_SIDEBAR_WIDTH}
-                defaultWidth={DEFAULT_SIDEBAR_WIDTH}
-                otherPanelWidth={previewPanelOpen ? previewWidth : 0}
-                label="Resize node library panel"
-                onCommit={setSidebarWidth}
-              />
-            )}
-            <button
-              className={`${styles.sidebarHandle} ${sidebarOpen ? styles.sidebarHandleOpen : styles.sidebarHandleClosed}`}
-              type="button"
-              onClick={toggleSidebar}
-              aria-label={sidebarOpen ? 'Hide node library' : 'Show node library'}
-              aria-expanded={sidebarOpen}
-              aria-controls="node-library"
-              title={sidebarOpen ? 'Hide node library' : 'Show node library'}
-            >
-              <span className={styles.sidebarHandleArrow} aria-hidden="true">{sidebarOpen ? '‹' : '›'}</span>
-            </button>
-            <NodeGraphCanvas />
-          </div>
-          <div className={`${styles.previewDock} ${previewPanelOpen ? '' : styles.previewDockClosed}`}>
-            <div
-              className={`${styles.previewPanel} ${previewPanelOpen ? '' : styles.previewPanelClosed}`}
-              aria-hidden={!previewPanelOpen && !stageMode}
-              inert={!previewPanelOpen && !stageMode}
-              id="preview-panel"
-            >
-              <LEDPreview />
-            </div>
-          </div>
-          {previewPanelOpen && !stageMode && (
-            <PanelResizeHandle
-              side="preview"
-              width={previewWidth}
-              min={MIN_PREVIEW_WIDTH}
-              max={MAX_PREVIEW_WIDTH}
-              defaultWidth={DEFAULT_PREVIEW_WIDTH}
-              otherPanelWidth={sidebarOpen ? sidebarWidth : 0}
-              label="Resize LED preview panel"
-              onCommit={setPreviewWidth}
-            />
-          )}
-          <button
-            className={`${styles.previewHandle} ${previewPanelOpen ? styles.previewHandleOpen : styles.previewHandleClosed}`}
-            type="button"
-            onClick={togglePreviewPanel}
-            aria-label={previewPanelOpen ? 'Hide LED preview' : 'Show LED preview'}
-            aria-expanded={previewPanelOpen}
-            aria-controls="preview-panel"
-            title={previewPanelOpen ? 'Hide LED preview' : 'Show LED preview'}
-          >
-            <span className={styles.previewHandleArrow} aria-hidden="true">{previewPanelOpen ? '›' : '‹'}</span>
-          </button>
-          {deckOpen && (
-            <Suspense fallback={null}>
-              <PerformanceDeck />
-            </Suspense>
-          )}
-        </div>
-        {!stageMode && <GraphHealthDrawer />}
+            {!stageMode && <GraphHealthDrawer />}
+          </>
+        )}
       </div>
       <div className={styles.statusShell}><StatusBar /></div>
       <PerformanceDeckMidiBridge />

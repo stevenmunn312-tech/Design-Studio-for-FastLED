@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { listProjects, saveProjectToDisk, deleteProjectFromDisk } from '../utils/backendClient'
 import type { PersistedWorkspace } from './workspacePersistence'
 import { blankWorkspace, cloneWorkspace } from './workspacePersistence'
+import { isBoardProfileCompatibleWithFqbn } from '../build/boardProfiles'
 
 export interface ProjectUploadTarget {
   selectedFqbn: string
@@ -235,6 +236,22 @@ function persistCurrentWorkspaceSnapshot(project: SavedProject | undefined): voi
 function sameUploadTarget(a: ProjectUploadTarget | undefined, b: ProjectUploadTarget | undefined): boolean {
   return (a?.selectedFqbn ?? '') === (b?.selectedFqbn ?? '')
     && (a?.selectedPort ?? '') === (b?.selectedPort ?? '')
+}
+
+function normalizeWorkspaceForUploadTarget(
+  workspace: PersistedWorkspace,
+  uploadTarget: ProjectUploadTarget | undefined,
+): PersistedWorkspace {
+  const currentBuildProfile = workspace.buildProfile
+  const profileId = currentBuildProfile?.physicalBoardProfileId
+  if (!profileId) return workspace
+  if (uploadTarget?.selectedFqbn && isBoardProfileCompatibleWithFqbn(profileId, uploadTarget.selectedFqbn)) return workspace
+  const buildProfile = { ...currentBuildProfile }
+  delete buildProfile.physicalBoardProfileId
+  return {
+    ...workspace,
+    buildProfile,
+  }
 }
 
 function makeProject(
@@ -546,7 +563,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     if (!current || sameUploadTarget(current.uploadTarget, normalized)) return
     const now = Date.now()
     const projects = state.projects.map((project) =>
-      project.id === projectId ? { ...project, uploadTarget: normalized, updatedAt: now } : project)
+      project.id === projectId
+        ? {
+            ...project,
+            uploadTarget: normalized,
+            workspace: normalizeWorkspaceForUploadTarget(project.workspace, normalized),
+            updatedAt: now,
+          }
+        : project)
     const next = buildState(sortProjects(projects), state.currentProjectId, state.recentProjectIds)
     persist(next)
     set({ projects: next.projects })
