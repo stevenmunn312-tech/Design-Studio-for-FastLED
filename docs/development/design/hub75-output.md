@@ -14,12 +14,18 @@ with no conflict. Single-row panel chaining (`layout: 'panels'`,
 `tilesY === 1`, unrotated) is also now implemented — verified against the
 real library source that the base `MatrixPanel_I2S_DMA` class addresses a
 horizontal chain directly, no `VirtualMatrixPanel_T` wrapper needed — but not
-yet hardware-validated. Folded 2D panel grids, per-panel rotation within a
-chain, the show controller and music-sync player generators, and
-HUB75+**addressable-strip** peripheral contention (a different, still-untested
-question — see Open Questions below; audio input sharing the board is not the
-same as a second LED output route) remain unimplemented/unvalidated. ·
-Owner: app · Date: 2026-08-07
+yet hardware-validated. **All five sketch generators now support HUB75**
+(single panel and single-row chain): the generative Pattern Show controller
+(`showGenerator.ts`) and the music-sync SD player (`playerSketchGenerator.ts`)
+turned out to need the same mechanical swap as the other three — `leds[]`
+already held the final composited frame as chipset-agnostic CRGB math in both,
+so only the include/setup/output step changed (the player's live
+`SET_BRIGHTNESS` show event routes to `dma_display->setBrightness8()` for
+HUB75 too). Neither has a hardware pass yet. Folded 2D panel grids, per-panel
+rotation within a chain, and HUB75+**addressable-strip** peripheral contention
+(a different, still-untested question — see Open Questions below; audio input
+sharing the board is not the same as a second LED output route) remain
+unimplemented/unvalidated. · Owner: app · Date: 2026-08-07
 
 Scopes a second physical-output family for `MatrixOutput`: HUB75 scan-panel
 matrices (the common indoor P2–P10 modules), driven over their ribbon
@@ -124,33 +130,51 @@ branch (the audio-lib vendoring hit a real regression from doing that — see
 `todo.md`'s hardware-validation entry from 2026-07-28). `arduino-cli` should
 be able to pull it through its own library manager as a fallback engine.
 
-### Codegen (implemented, single panel only — `src/codegen/cppGenerator.ts`)
+### Codegen (implemented in all five sketch generators — `src/codegen/`)
 
-`hub75HardwareFromProps`/`hub75SetupCpp` swap `ledHardwareFromProps`/
-`FastLED.addLeds<>()` for `HUB75_I2S_CFG`/`MatrixPanel_I2S_DMA` — verified
-against the vendored library's real header and bundled example sketch at tag
-`3.0.14`, not guessed: the `i2s_pins` struct field order, the
-`HUB75_I2S_CFG(width, height, chain, pins)` constructor,
-`setPixelColorDepthBits()`, `begin()`, `setBrightness8()`, and
+`hub75HardwareFromProps`/`hub75SetupCpp` (`cppGenerator.ts`) swap
+`ledHardwareFromProps`/`FastLED.addLeds<>()` for `HUB75_I2S_CFG`/
+`MatrixPanel_I2S_DMA` — verified against the vendored library's real header
+and bundled example sketches at tag `3.0.14`, not guessed: the `i2s_pins`
+struct field order, the `HUB75_I2S_CFG(width, height, chain, pins)`
+constructor, `setPixelColorDepthBits()`, `begin()`, `setBrightness8()`, and
 `drawPixelRGB888(x, y, r, g, b)` are all real API surface. Per frame, the
 composited buffer is walked pixel-by-pixel into `drawPixelRGB888()` instead
 of a `leds[]` array + `FastLED.show()`; `FastLED.setMaxPowerInVoltsAndMilliamps`
 is skipped for HUB75 since no `CLEDController` is registered for it to
-throttle.
+throttle. `chain_length`/per-panel resolution come from `tilesX`/`layout`
+(single-row chains — see below).
 
-This is intentionally narrow: only a **single** `MatrixOutput` route, only
-`layout: 'matrix'` (one panel, no chaining/tiling), and no supersampling.
+Scoped to a **single** `MatrixOutput` route, `layout: 'matrix'` or a
+single-row `'panels'` chain, and no supersampling.
 `findHub75ConfigErrors`/`findHub75ConfigIssues` in `validateGraph.ts`
 (renamed from the earlier blanket `findUnimplementedChipsetErrors`) allow
-that supported shape and block every other HUB75 combination — multiple
-Matrix Output routes, a non-Matrix layout, or supersampling — each with its
-own message pointing at what to change. The other four sketch generators
-that share the same `ledHardwareFromProps`/`fastledSetupCpp` helpers (show
-controller, music-sync player, live-stream receiver, standalone wiring
-diagnostic) do **not** have HUB75 support yet; `validateGraph`'s single-route
-rule keeps a HUB75-plus-any-of-those combination from being reachable via the
-UI today, but those generators have no HUB75-aware codepath of their own if
-ever called directly. Not yet hardware-validated.
+that supported shape and block every other combination — multiple Matrix
+Output routes, an unsupported layout, or supersampling — each with its own
+message. All **five** sketch generators that share these hardware helpers now
+have real HUB75 support:
+
+- `generateCpp` (normal Upload/Export) — the original implementation.
+- `generateWiringDiagnosticSketch` (🧪 Flash Wiring Test) and
+  `generateStreamReceiverSketch` (⚡ Flash Stream Receiver / 📡 Live Stream) —
+  both already isolated their `CRGB leds[]`-based logic from the
+  FastLED-specific setup/output step, so the swap was small; these two had to
+  be *implemented* rather than blocked, since they're always reachable
+  (independent of graph shape) and share `blockingErrors` with plain Upload.
+- `generateShowSketch` (the Pattern Show controller) and
+  `generatePlayerSketch` (the music-sync SD player) — turned out to need the
+  same mechanical swap: `leds[]` already held the final composited/
+  transitioned frame as chipset-agnostic CRGB math in both (pattern
+  rendering, `compositeTransition`, beat flash, the particle overlay), so
+  only the include/setup/output step changed. The player's live
+  `CMD_SET_BRIGHTNESS` show event now routes to `dma_display->setBrightness8()`
+  instead of `FastLED.setBrightness()` for HUB75.
+
+Hardware-validated so far: only `generateCpp` and
+`generateWiringDiagnosticSketch` (see the status line above). The other
+three — `generateStreamReceiverSketch`, `generateShowSketch`,
+`generatePlayerSketch` — compile and pass their unit tests but have no real
+hardware pass yet.
 
 ## Open questions
 

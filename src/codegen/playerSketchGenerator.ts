@@ -11,9 +11,9 @@
 
 import type { PatternRenderers } from './showGenerator'
 import { STUDIO_PALETTES, customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCatalog'
-import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp } from './cppGenerator'
+import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
-import { SPI_CHIPSETS } from '../state/nodeLibrary'
+import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 
 export interface PlayerConfig {
   ledWidth:    number
@@ -31,6 +31,11 @@ export interface PlayerConfig {
   i2sLrc:      number   // I2S left/right clock, word select (audioOutput === 'i2s' only)
   i2sDout:     number   // I2S data out to DAC (audioOutput === 'i2s' only)
   maxVolume:   number   // 0-21 for MAX98357A
+  // Raw HUB75 properties from the MatrixOutput node (chipset === 'HUB75'
+  // only), passed straight to hub75HardwareFromProps rather than flattening
+  // ~14 pin fields into this interface — that function's own sanitizePin
+  // calls already apply the correct per-field defaults.
+  hub75Props:  Record<string, unknown>
 }
 
 const DEFAULTS: PlayerConfig = {
@@ -42,6 +47,7 @@ const DEFAULTS: PlayerConfig = {
   audioOutput: 'i2s',
   i2sBclk: 26, i2sLrc: 25, i2sDout: 22,
   maxVolume: 18,
+  hub75Props: {},
 }
 
 function sanitizeVolume(value: unknown, fallback = DEFAULTS.maxVolume): number {
@@ -83,6 +89,7 @@ export function playerConfigFromGraph(nodes: ConfigNode[]): Partial<PlayerConfig
     i2sLrc:     sanitizePin(sd.i2sLrc, DEFAULTS.i2sLrc),
     i2sDout:    sanitizePin(sd.i2sDout, DEFAULTS.i2sDout),
     maxVolume:  sanitizeVolume(sd.maxVolume),
+    hub75Props: mo,
   }
 }
 
@@ -114,11 +121,15 @@ export function generatePlayerSketch(
     chipset: c.chipset, colorOrder: c.colorOrder, correction: c.correction,
     dither: c.dither, overclock: c.overclock, clockPin: c.ledClockPin,
   })
+  const isHub75 = hw.chipset === HUB75_CHIPSET
+  // Brightness stays the player's own fixed 180 — the show's SET_BRIGHTNESS
+  // events drive it live — same override fastledSetupCpp gets below.
+  const hub75Hw = isHub75 ? { ...hub75HardwareFromProps(c.hub75Props, c.ledWidth, c.ledHeight), brightness: 180 } : null
   const overclockDefines = overclockDefineCpp(hw).map((l) => `${l}\n`).join('')
-  const clockPinDefine = SPI_CHIPSETS.has(hw.chipset) ? `#define LED_CLOCK_PIN ${hw.clockPin}\n` : ''
-  const ledSetupLines = fastledSetupCpp(hw, {
-    dataPinMacro: 'LED_DATA_PIN', clockPinMacro: 'LED_CLOCK_PIN', brightness: 180,
-  }).join('\n')
+  const clockPinDefine = !isHub75 && SPI_CHIPSETS.has(hw.chipset) ? `#define LED_CLOCK_PIN ${hw.clockPin}\n` : ''
+  const ledSetupLines = isHub75
+    ? hub75SetupCpp(hub75Hw!).join('\n')
+    : fastledSetupCpp(hw, { dataPinMacro: 'LED_DATA_PIN', clockPinMacro: 'LED_CLOCK_PIN', brightness: 180 }).join('\n')
 
   // Collection patterns: per-pattern frame buffers, deduped helpers, and the
   // render_pN() functions — emitted above renderPattern().
@@ -387,7 +398,7 @@ float prnd(float n) { float s = sinf(n * 12.9898f) * 43758.5453f; return s - flo
 // Hardware: SD card on SPI, audio out via ${internalDac ? "the ESP32's internal DAC (fixed GPIO25/26 — classic ESP32 only, no ESP32-S3/S2/C3 support)" : 'an I2S DAC (MAX98357A or PCM5102) on pins below'}.
 
 ${overclockDefines}#include <FastLED.h>
-#include <SD.h>
+${isHub75 ? '#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>\n' : ''}#include <SD.h>
 #include <SPI.h>
 #include <Audio.h>       // ESP32-audioI2S
 
@@ -396,8 +407,7 @@ ${overclockDefines}#include <FastLED.h>
 ${[...fastLedDecls].join('\n')}
 
 // ── Pin config ────────────────────────────────────────────────────────────────
-#define LED_DATA_PIN  ${c.ledDataPin}
-${clockPinDefine}#define WIDTH         ${c.ledWidth}
+${isHub75 ? '' : `#define LED_DATA_PIN  ${c.ledDataPin}\n`}${clockPinDefine}#define WIDTH         ${c.ledWidth}
 #define HEIGHT        ${c.ledHeight}
 #define NUM_LEDS      ${numLeds}
 #define SD_CS         ${c.sdCsPin}
@@ -429,7 +439,7 @@ struct ShowEvent {
 
 // ── Globals ───────────────────────────────────────────────────────────────────
 CRGB leds[NUM_LEDS];
-CRGB showA[NUM_LEDS];             // outgoing pattern during a transition
+${isHub75 ? 'MatrixPanel_I2S_DMA *dma_display = nullptr;\n' : ''}CRGB showA[NUM_LEDS];             // outgoing pattern during a transition
 CRGB showB[NUM_LEDS];            // incoming pattern during a transition
 Audio audio${internalDac ? '(true)' : ''};  // true = output via the internal DAC (GPIO25/26), else external I2S
 
@@ -551,7 +561,7 @@ void applyEvent(const ShowEvent& ev) {
     case CMD_SET_PATTERN:    patternId  = (uint8_t)ev.params[0]; break;
     case CMD_SET_PALETTE:    paletteId  = (uint8_t)ev.params[0];${hasPalette ? ' palette = paletteFromId(paletteId);' : ''} break;
     case CMD_SET_SPEED:      animSpeed  = ev.params[0];${hasSpeed ? ' speed = constrain(ev.params[0] * 0.5f, 0.0f, 1.0f);' : ''} break;
-    case CMD_SET_BRIGHTNESS: FastLED.setBrightness((uint8_t)ev.params[0]); break;
+    case CMD_SET_BRIGHTNESS: ${isHub75 ? 'dma_display->setBrightness8((uint8_t)ev.params[0]);' : 'FastLED.setBrightness((uint8_t)ev.params[0]);'} break;
     case CMD_BEAT_FLASH:
       flashLevel = ev.params[0] / 255.0f;
       flashDecay = expf(-16.0f / (60.0f + ((ev.paramCount > 1 ? ev.params[1] : 22.0f) / 255.0f) * 240.0f));
@@ -765,7 +775,12 @@ ${bakedAudio ? '  updateShowAudio(posMs);   // song-synced FFT → pattern audio
     }
   }
 
-  FastLED.show();
+  ${isHub75 ? [
+    'for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {',
+    '    CRGB _c = leds[_y * WIDTH + _x];',
+    '    dma_display->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);',
+    '  }',
+  ].join('\n  ') : 'FastLED.show();'}
   FastLED.delay(16);  // ~60 fps
 }
 `

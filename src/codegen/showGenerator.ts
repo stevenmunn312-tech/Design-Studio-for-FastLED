@@ -16,8 +16,8 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import { customPaletteDeclarationsCpp } from '../state/paletteCatalog'
-import { generateCpp, audioEngineForGraph, psramBufferDecl, PSRAM_ALLOC_CPP, ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp } from './cppGenerator'
-import { SPI_CHIPSETS } from '../state/nodeLibrary'
+import { generateCpp, audioEngineForGraph, psramBufferDecl, PSRAM_ALLOC_CPP, ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp } from './cppGenerator'
+import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { SHOW_TRANSITIONS } from './performanceGenerator'
 import { TRANSITION_HELPER_CPP, PARTICLE_OVERLAY_CPP } from './transitionHelperCpp'
 import { hexToRgb } from '../state/polinePalette'
@@ -302,6 +302,11 @@ export function generateShowSketch(
   const height = multiOutput ? dims.h : Number(op.height ?? 16)
   const dataPin = Number(op.dataPin ?? 5)
   const hw = ledHardwareFromProps(op)
+  // HUB75 is restricted to a single Matrix Output route (findHub75ConfigIssues
+  // in validateGraph.ts), so this only ever applies in the !multiOutput branch
+  // below — mirrors generateCpp's own isHub75 gate.
+  const isHub75 = !multiOutput && hw.chipset === HUB75_CHIPSET
+  const hub75Hw = isHub75 ? hub75HardwareFromProps(op, width, height) : null
   const routes = outputRoutes(routedOutputs).map((route) => ({
     ...route,
     safeId: safeId(route.id),
@@ -343,6 +348,7 @@ export function generateShowSketch(
     : hw
   for (const d of overclockDefineCpp(sharedHw)) L.push(d)
   L.push('#include <FastLED.h>')
+  if (isHub75) L.push('#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>')
   if (audio) L.push(audio.include)
   L.push('')
   L.push('// Explicit FastLED-typed declarations keep the Arduino preprocessor')
@@ -357,15 +363,19 @@ export function generateShowSketch(
       L.push(`#define DATA_PIN_${route.safeId} ${route.dataPin}`)
       if (SPI_CHIPSETS.has(route.hardware.chipset)) L.push(`#define CLOCK_PIN_${route.safeId} ${route.hardware.clockPin}`)
     }
-  } else {
+  } else if (!isHub75) {
     L.push(`#define DATA_PIN ${dataPin}`)
     if (SPI_CHIPSETS.has(hw.chipset)) L.push(`#define CLOCK_PIN ${hw.clockPin}`)
   }
   L.push(`#define PATTERN_COUNT ${renderers.count}`)
   L.push('')
   // `leds` stays a static internal-RAM array even with PSRAM on (FastLED's
-  // ESP32 drivers read it from ISR/DMA context); everything else moves.
+  // ESP32 drivers read it from ISR/DMA context); everything else moves. HUB75
+  // still renders every pattern/transition into `leds` too — it's the CPU-side
+  // composition buffer regardless of chipset — but the physical output is the
+  // DMA display object instead of a registered CLEDController.
   L.push('CRGB leds[NUM_LEDS];')
+  if (isHub75) L.push('MatrixPanel_I2S_DMA *dma_display = nullptr;')
   if (multiOutput) for (const route of routes) L.push(`CRGB leds_${route.safeId}[${route.width * route.height}];`)
   const showBufs = [
     'CRGB showA[NUM_LEDS];   // outgoing pattern during a transition',
@@ -430,6 +440,8 @@ export function generateShowSketch(
       })) L.push(s)
     }
     L.push('  FastLED.setBrightness(255);  // per-output brightness is applied while routing pixels')
+  } else if (isHub75) {
+    for (const s of hub75SetupCpp(hub75Hw!)) L.push(s)
   } else {
     for (const s of fastledSetupCpp(hw)) L.push(s)
   }
@@ -508,7 +520,14 @@ export function generateShowSketch(
       }
     }
   }
-  L.push('  FastLED.show();')
+  if (isHub75) {
+    L.push('  for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {')
+    L.push('    CRGB _c = leds[_y * WIDTH + _x];')
+    L.push('    dma_display->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);')
+    L.push('  }')
+  } else {
+    L.push('  FastLED.show();')
+  }
   L.push('  FastLED.delay(16);')
   L.push('}')
 
