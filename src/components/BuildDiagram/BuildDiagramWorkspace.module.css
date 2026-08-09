@@ -8,6 +8,18 @@
   overflow: hidden;
 }
 
+.workspaceSidebarCollapsed {
+  grid-template-columns: 68px minmax(0, 1fr) minmax(300px, 360px);
+}
+
+.workspaceDetailCollapsed {
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) 68px;
+}
+
+.workspaceSidebarCollapsed.workspaceDetailCollapsed {
+  grid-template-columns: 68px minmax(0, 1fr) 68px;
+}
+
 .sidebar,
 .detailPane,
 .diagramPane {
@@ -34,6 +46,19 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.headerActions,
+.detailHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.headerActions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .panelHeader,
@@ -222,6 +247,22 @@
 
 .smallButtonDone {
   background: color-mix(in srgb, var(--accent-success) 24%, var(--bg-panel));
+}
+
+.collapsedRail {
+  width: 100%;
+  height: 100%;
+  min-height: 220px;
+  padding: 14px 10px;
+  border: 1px solid color-mix(in srgb, var(--border-glow) 78%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-panel) 84%, rgba(255, 255, 255, 0.03));
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 700;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  cursor: pointer;
 }
 
 .staleNotice,
@@ -480,6 +521,12 @@
     grid-template-rows: minmax(0, 1fr) minmax(220px, auto);
   }
 
+  .workspaceSidebarCollapsed,
+  .workspaceDetailCollapsed,
+  .workspaceSidebarCollapsed.workspaceDetailCollapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .detailPane {
     grid-column: 1 / -1;
     display: grid;
@@ -507,5 +554,11 @@
 
   .diagramViewport {
     min-height: 560px;
+  }
+
+  .collapsedRail {
+    min-height: 56px;
+    writing-mode: horizontal-tb;
+    transform: none;
   }
 }

@@ -119,6 +119,8 @@ export default function BuildDiagramWorkspace() {
   const [selectedItemId, setSelectedItemId] = useState<string>('controller')
   const [isolatedItemId, setIsolatedItemId] = useState<string | null>(null)
   const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>('all')
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [detailPaneCollapsed, setDetailPaneCollapsed] = useState(false)
   const [diagramZoom, setDiagramZoom] = useState(1)
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const panStateRef = useRef<ViewportPanState | null>(null)
@@ -450,129 +452,149 @@ export default function BuildDiagramWorkspace() {
   }, [exactBoard?.id, canvasWidth, canvasHeight])
 
   return (
-    <section className={styles.workspace} aria-label="Build Diagram workspace">
+    <section
+      className={[
+        styles.workspace,
+        sidebarCollapsed ? styles.workspaceSidebarCollapsed : '',
+        detailPaneCollapsed ? styles.workspaceDetailCollapsed : '',
+      ].join(' ').trim()}
+      aria-label="Build Diagram workspace"
+    >
       <aside className={styles.sidebar}>
-        <div className={styles.panelHeader}>
-          <div>
-            <h2 className={styles.panelTitle}>Build Diagram</h2>
-            <p className={styles.panelSubtitle}>Physical hardware and installation facts for this project.</p>
-          </div>
-          <button type="button" className={styles.backButton} onClick={closeBuildDiagram}>
-            Back to Design
+        {sidebarCollapsed ? (
+          <button type="button" className={styles.collapsedRail} onClick={() => setSidebarCollapsed(false)}>
+            Show build panel
           </button>
-        </div>
-
-        <section className={styles.card}>
-          <h3 className={styles.cardTitle}>Controller target</h3>
-          <p className={styles.copy}>
-            {selectedTarget?.label ?? 'No board target selected'}{selectedFqbn ? ` · ${selectedFqbn}` : ''}
-          </p>
-          <p className={styles.copyMuted}>
-            Exact physical board profiles stay separate from the compile target. Build Diagram needs the exact board before it can trust physical wiring.
-          </p>
-        </section>
-
-        <section className={styles.card}>
-          <h3 className={styles.cardTitle}>Exact board</h3>
-          {boardOptions.length === 0 ? (
-            <p className={styles.warningText}>
-              Diagram profile unavailable for this target family. Build Diagram will stay in planning-only mode until a reviewed physical board profile exists.
-            </p>
-          ) : (
-            <div className={styles.optionList}>
-              {boardOptions.map((profile) => (
-                <button
-                  key={profile.id}
-                  type="button"
-                  className={`${styles.optionCard} ${buildProfile.physicalBoardProfileId === profile.id ? styles.optionCardActive : ''}`}
-                  onClick={() => selectExactBoard(profile.id)}
-                >
-                  <div className={styles.optionPreviewWrap}>
-                    <BoardPreview svg={profile.previewSvg} label={`${profile.label} preview`} />
-                  </div>
-                  <span className={styles.optionTitle}>{profile.label}</span>
-                  <span className={styles.optionMeta}>
-                    {profile.manufacturer} · {profile.dimensionsMm.width}×{profile.dimensionsMm.height} mm · {profile.confidence.replace(/-/g, ' ')}
-                  </span>
-                  {profile.confidence !== 'manufacturer-verified' && (
-                    <span className={`${styles.confidenceBadge} ${styles.confidenceBadgeCaution}`}>
-                      {confidenceSummary(profile)}
-                    </span>
-                  )}
-                  <span className={styles.optionHint}>{profile.sourceSummary}</span>
-                  {profile.caveats[0] && <span className={styles.optionHint}>{profile.caveats[0]}</span>}
+        ) : (
+          <>
+            <div className={styles.panelHeader}>
+              <div>
+                <h2 className={styles.panelTitle}>Build Diagram</h2>
+                <p className={styles.panelSubtitle}>Physical hardware and installation facts for this project.</p>
+              </div>
+              <div className={styles.headerActions}>
+                <button type="button" className={styles.smallButton} onClick={() => setSidebarCollapsed(true)}>
+                  Hide build panel
                 </button>
-              ))}
+                <button type="button" className={styles.backButton} onClick={closeBuildDiagram}>
+                  Back to Design
+                </button>
+              </div>
             </div>
-          )}
-        </section>
 
-        <section className={styles.card}>
-          <div className={styles.rowBetween}>
-            <h3 className={styles.cardTitle}>Hardware items</h3>
-            <span className={styles.progressPill}>{completedCount}/{primaryItems.length} done</span>
-          </div>
-          <div className={styles.filterRow}>
-            <button type="button" className={styles.smallButton} onClick={setAllVisible}>
-              Show all
-            </button>
-            <button type="button" className={styles.smallButton} onClick={hideCompletedItems}>
-              Hide completed
-            </button>
-            <button
-              type="button"
-              className={`${styles.smallButton} ${visibilityFilter === 'unfinished' ? styles.smallButtonDone : ''}`}
-              onClick={() => {
-                setIsolatedItemId(null)
-                setVisibilityFilter((current) => current === 'unfinished' ? 'all' : 'unfinished')
-              }}
-            >
-              {visibilityFilter === 'unfinished' ? 'Showing unfinished' : 'Show unfinished only'}
-            </button>
-          </div>
-          <div className={styles.hardwareList}>
-            {primaryItems.length === 0 ? (
-              <p className={styles.copyMuted}>Add Matrix Output routes or supported hardware-input nodes to populate the build list.</p>
-            ) : listedPrimaryItems.length === 0 ? (
-              <p className={styles.copyMuted}>All hardware items are complete under the current filter.</p>
-            ) : listedPrimaryItems.map((item) => {
-              const isVisible = buildProfile.visibility?.[item.id] !== false
-              const done = buildProfile.done?.[item.id]
-              const isDone = isItemDone(item.id)
-              const isStale = !!done && !isDone
-              return (
-                <div key={item.id} className={`${styles.hardwareRow} ${selectedItemId === item.id ? styles.hardwareRowActive : ''}`}>
-                  <button type="button" className={styles.hardwareMain} onClick={() => setSelectedItemId(item.id)}>
-                    <span className={styles.hardwareTitle}>{item.title}</span>
-                    <span className={styles.hardwareSubtitle}>{item.subtitle}</span>
-                    {isStale && <span className={styles.staleNotice}>Wiring changed—recheck this connection.</span>}
-                  </button>
-                  <div className={styles.hardwareActions}>
-                    <button type="button" className={styles.smallButton} onClick={() => toggleVisibility(item.id)}>
-                      {isVisible ? 'Hide' : 'Show'}
+            <section className={styles.card}>
+              <h3 className={styles.cardTitle}>Controller target</h3>
+              <p className={styles.copy}>
+                {selectedTarget?.label ?? 'No board target selected'}{selectedFqbn ? ` · ${selectedFqbn}` : ''}
+              </p>
+              <p className={styles.copyMuted}>
+                Exact physical board profiles stay separate from the compile target. Build Diagram needs the exact board before it can trust physical wiring.
+              </p>
+            </section>
+
+            <section className={styles.card}>
+              <h3 className={styles.cardTitle}>Exact board</h3>
+              {boardOptions.length === 0 ? (
+                <p className={styles.warningText}>
+                  Diagram profile unavailable for this target family. Build Diagram will stay in planning-only mode until a reviewed physical board profile exists.
+                </p>
+              ) : (
+                <div className={styles.optionList}>
+                  {boardOptions.map((profile) => (
+                    <button
+                      key={profile.id}
+                      type="button"
+                      className={`${styles.optionCard} ${buildProfile.physicalBoardProfileId === profile.id ? styles.optionCardActive : ''}`}
+                      onClick={() => selectExactBoard(profile.id)}
+                    >
+                      <div className={styles.optionPreviewWrap}>
+                        <BoardPreview svg={profile.previewSvg} label={`${profile.label} preview`} />
+                      </div>
+                      <span className={styles.optionTitle}>{profile.label}</span>
+                      <span className={styles.optionMeta}>
+                        {profile.manufacturer} · {profile.dimensionsMm.width}×{profile.dimensionsMm.height} mm · {profile.confidence.replace(/-/g, ' ')}
+                      </span>
+                      {profile.confidence !== 'manufacturer-verified' && (
+                        <span className={`${styles.confidenceBadge} ${styles.confidenceBadgeCaution}`}>
+                          {confidenceSummary(profile)}
+                        </span>
+                      )}
+                      <span className={styles.optionHint}>{profile.sourceSummary}</span>
+                      {profile.caveats[0] && <span className={styles.optionHint}>{profile.caveats[0]}</span>}
                     </button>
-                    <button type="button" className={styles.smallButton} onClick={() => setIsolatedItemId(isolatedItemId === item.id ? null : item.id)}>
-                      {isolatedItemId === item.id ? 'Unisolate' : 'Isolate'}
-                    </button>
-                    <button type="button" className={`${styles.smallButton} ${isDone ? styles.smallButtonDone : ''}`} onClick={() => toggleDone(item)}>
-                      {isDone ? 'Done' : 'Mark done'}
-                    </button>
-                  </div>
+                  ))}
                 </div>
-              )
-            })}
-          </div>
-        </section>
+              )}
+            </section>
 
-        {manifest.unsupportedItems.length > 0 && (
-          <section className={styles.card}>
-            <h3 className={styles.cardTitle}>Not yet supported</h3>
-            <ul className={styles.flatList}>
-              {manifest.unsupportedItems.map((item) => (
-                <li key={item.id}>{item.title}: {item.subtitle}</li>
-              ))}
-            </ul>
-          </section>
+            <section className={styles.card}>
+              <div className={styles.rowBetween}>
+                <h3 className={styles.cardTitle}>Hardware items</h3>
+                <span className={styles.progressPill}>{completedCount}/{primaryItems.length} done</span>
+              </div>
+              <div className={styles.filterRow}>
+                <button type="button" className={styles.smallButton} onClick={setAllVisible}>
+                  Show all
+                </button>
+                <button type="button" className={styles.smallButton} onClick={hideCompletedItems}>
+                  Hide completed
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.smallButton} ${visibilityFilter === 'unfinished' ? styles.smallButtonDone : ''}`}
+                  onClick={() => {
+                    setIsolatedItemId(null)
+                    setVisibilityFilter((current) => current === 'unfinished' ? 'all' : 'unfinished')
+                  }}
+                >
+                  {visibilityFilter === 'unfinished' ? 'Showing unfinished' : 'Show unfinished only'}
+                </button>
+              </div>
+              <div className={styles.hardwareList}>
+                {primaryItems.length === 0 ? (
+                  <p className={styles.copyMuted}>Add Matrix Output routes or supported hardware-input nodes to populate the build list.</p>
+                ) : listedPrimaryItems.length === 0 ? (
+                  <p className={styles.copyMuted}>All hardware items are complete under the current filter.</p>
+                ) : listedPrimaryItems.map((item) => {
+                  const isVisible = buildProfile.visibility?.[item.id] !== false
+                  const done = buildProfile.done?.[item.id]
+                  const isDone = isItemDone(item.id)
+                  const isStale = !!done && !isDone
+                  return (
+                    <div key={item.id} className={`${styles.hardwareRow} ${selectedItemId === item.id ? styles.hardwareRowActive : ''}`}>
+                      <button type="button" className={styles.hardwareMain} onClick={() => setSelectedItemId(item.id)}>
+                        <span className={styles.hardwareTitle}>{item.title}</span>
+                        <span className={styles.hardwareSubtitle}>{item.subtitle}</span>
+                        {isStale && <span className={styles.staleNotice}>Wiring changed—recheck this connection.</span>}
+                      </button>
+                      <div className={styles.hardwareActions}>
+                        <button type="button" className={styles.smallButton} onClick={() => toggleVisibility(item.id)}>
+                          {isVisible ? 'Hide' : 'Show'}
+                        </button>
+                        <button type="button" className={styles.smallButton} onClick={() => setIsolatedItemId(isolatedItemId === item.id ? null : item.id)}>
+                          {isolatedItemId === item.id ? 'Unisolate' : 'Isolate'}
+                        </button>
+                        <button type="button" className={`${styles.smallButton} ${isDone ? styles.smallButtonDone : ''}`} onClick={() => toggleDone(item)}>
+                          {isDone ? 'Done' : 'Mark done'}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+
+            {manifest.unsupportedItems.length > 0 && (
+              <section className={styles.card}>
+                <h3 className={styles.cardTitle}>Not yet supported</h3>
+                <ul className={styles.flatList}>
+                  {manifest.unsupportedItems.map((item) => (
+                    <li key={item.id}>{item.title}: {item.subtitle}</li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </>
         )}
       </aside>
 
@@ -747,122 +769,140 @@ export default function BuildDiagramWorkspace() {
       </main>
 
       <aside className={styles.detailPane}>
-        <section className={styles.card}>
-          <h3 className={styles.cardTitle}>Selected item</h3>
-          <p className={styles.copy}><strong>{selectedItem.title}</strong></p>
-          <p className={styles.copyMuted}>{selectedItem.subtitle}</p>
-          {selectedItemId === 'controller' && exactBoard && (
-            <>
-              <p className={styles.copyMuted}>{exactBoard.sourceSummary}</p>
-              {exactBoard.confidence !== 'manufacturer-verified' && (
-                <p className={`${styles.warningText} ${styles.confidenceCallout}`}>{confidenceSummary(exactBoard)}</p>
-              )}
-              {exactBoard.notes.length > 0 && (
-                <>
-                  <h4 className={styles.subTitle}>Board notes</h4>
-                  <ul className={styles.flatList}>
-                    {exactBoard.notes.map((note) => <li key={note}>{note}</li>)}
-                  </ul>
-                </>
-              )}
-              {exactBoard.caveats.length > 0 && (
-                <>
-                  <h4 className={styles.subTitle}>Caveats</h4>
-                  <ul className={styles.flatList}>
-                    {exactBoard.caveats.map((note) => <li key={note}>{note}</li>)}
-                  </ul>
-                </>
-              )}
-            </>
-          )}
-          {selectedItemId !== 'controller' && !exactBoard && (
-            <p className={styles.warningText}>Select an exact board profile before pin definitions or controller-side connections appear here.</p>
-          )}
-          {selectedConnections.length > 0 && canRenderControllerPins && (
-            <>
-              <h4 className={styles.subTitle}>Controller pins</h4>
-              <ul className={styles.flatList}>
-                {selectedConnections.map((connection) => (
-                  <li key={connection.id} className={styles.pinRow}>
-                    <strong>{connection.boardPin?.label ?? `GPIO ${connection.pinUse.pin}`}</strong> · {connection.pinUse.label}
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-          {selectedConnections.some((connection) => connection.unresolvedReason) && (
-            <>
-              <h4 className={styles.subTitle}>Needs review</h4>
-              <ul className={styles.flatList}>
-                {selectedConnections
-                  .filter((connection) => connection.unresolvedReason)
-                  .map((connection) => (
-                    <li key={connection.id}>{connection.unresolvedReason}</li>
-                  ))}
-              </ul>
-            </>
-          )}
-          {Object.keys(selectedItem.facts).length > 0 && (
-            <dl className={styles.factList}>
-              {Object.entries(selectedItem.facts).map(([key, value]) => (
-                <div key={key} className={styles.factRow}>
-                  <dt>{formatFactLabel(key)}</dt>
-                  <dd>{formatFactValue(value)}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
-        </section>
-
-        <section className={styles.card}>
-          <h3 className={styles.cardTitle}>Readiness</h3>
-          <ul className={styles.flatList}>
-            <li>Requirements calculated: pending the electrical rule engine</li>
-            <li>Signal ready: {readinessText}</li>
-            <li>Power ready: pending the calculated electrical plan and owned-parts validation</li>
-            <li>Build ready: {signalReady ? 'blocked until Power ready passes' : 'blocked by Signal ready'}</li>
-          </ul>
-        </section>
-
-        <section className={styles.card}>
-          <h3 className={styles.cardTitle}>Connections</h3>
-          {connectionRows.length === 0 ? (
-            <p className={styles.copyMuted}>Controller-side connections appear here after an exact board with a reviewed pin map is selected.</p>
-          ) : (
-            <div className={styles.connectionList}>
-              {connectionRows.map((row) => (
-                <button
-                  key={row.id}
-                  type="button"
-                  className={`${styles.connectionRow} ${selectedItemId === row.itemId ? styles.connectionRowActive : ''}`}
-                  onClick={() => setSelectedItemId(row.itemId)}
-                >
-                  <strong>{row.itemTitle}</strong>
-                  <span>{row.boardPin?.label ?? `GPIO ${row.pinUse.pin}`} → {row.pinUse.label}</span>
-                </button>
-              ))}
+        {detailPaneCollapsed ? (
+          <button type="button" className={styles.collapsedRail} onClick={() => setDetailPaneCollapsed(false)}>
+            Show details
+          </button>
+        ) : (
+          <>
+            <div className={styles.detailHeader}>
+              <div>
+                <h2 className={styles.panelTitle}>Details</h2>
+                <p className={styles.panelSubtitle}>Readiness, connections, board notes, and export state.</p>
+              </div>
+              <button type="button" className={styles.smallButton} onClick={() => setDetailPaneCollapsed(true)}>
+                Hide details
+              </button>
             </div>
-          )}
-          {unresolvedConnections.length > 0 && (
-            <>
-              <h4 className={styles.subTitle}>Unresolved</h4>
-              <ul className={styles.flatList}>
-                {unresolvedConnections.map((connection) => (
-                  <li key={connection.id}>
-                    <strong>{connection.itemTitle}</strong>: {connection.unresolvedReason}
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </section>
 
-        <section className={styles.card}>
-          <h3 className={styles.cardTitle}>Exports</h3>
-          <p className={styles.copyMuted}>
-            Current-view and complete-build exports will be enabled once the normalized assembly and BOM layers are in place.
-          </p>
-        </section>
+            <section className={styles.card}>
+              <h3 className={styles.cardTitle}>Selected item</h3>
+              <p className={styles.copy}><strong>{selectedItem.title}</strong></p>
+              <p className={styles.copyMuted}>{selectedItem.subtitle}</p>
+              {selectedItemId === 'controller' && exactBoard && (
+                <>
+                  <p className={styles.copyMuted}>{exactBoard.sourceSummary}</p>
+                  {exactBoard.confidence !== 'manufacturer-verified' && (
+                    <p className={`${styles.warningText} ${styles.confidenceCallout}`}>{confidenceSummary(exactBoard)}</p>
+                  )}
+                  {exactBoard.notes.length > 0 && (
+                    <>
+                      <h4 className={styles.subTitle}>Board notes</h4>
+                      <ul className={styles.flatList}>
+                        {exactBoard.notes.map((note) => <li key={note}>{note}</li>)}
+                      </ul>
+                    </>
+                  )}
+                  {exactBoard.caveats.length > 0 && (
+                    <>
+                      <h4 className={styles.subTitle}>Caveats</h4>
+                      <ul className={styles.flatList}>
+                        {exactBoard.caveats.map((note) => <li key={note}>{note}</li>)}
+                      </ul>
+                    </>
+                  )}
+                </>
+              )}
+              {selectedItemId !== 'controller' && !exactBoard && (
+                <p className={styles.warningText}>Select an exact board profile before pin definitions or controller-side connections appear here.</p>
+              )}
+              {selectedConnections.length > 0 && canRenderControllerPins && (
+                <>
+                  <h4 className={styles.subTitle}>Controller pins</h4>
+                  <ul className={styles.flatList}>
+                    {selectedConnections.map((connection) => (
+                      <li key={connection.id} className={styles.pinRow}>
+                        <strong>{connection.boardPin?.label ?? `GPIO ${connection.pinUse.pin}`}</strong> · {connection.pinUse.label}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {selectedConnections.some((connection) => connection.unresolvedReason) && (
+                <>
+                  <h4 className={styles.subTitle}>Needs review</h4>
+                  <ul className={styles.flatList}>
+                    {selectedConnections
+                      .filter((connection) => connection.unresolvedReason)
+                      .map((connection) => (
+                        <li key={connection.id}>{connection.unresolvedReason}</li>
+                      ))}
+                  </ul>
+                </>
+              )}
+              {Object.keys(selectedItem.facts).length > 0 && (
+                <dl className={styles.factList}>
+                  {Object.entries(selectedItem.facts).map(([key, value]) => (
+                    <div key={key} className={styles.factRow}>
+                      <dt>{formatFactLabel(key)}</dt>
+                      <dd>{formatFactValue(value)}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </section>
+
+            <section className={styles.card}>
+              <h3 className={styles.cardTitle}>Readiness</h3>
+              <ul className={styles.flatList}>
+                <li>Requirements calculated: pending the electrical rule engine</li>
+                <li>Signal ready: {readinessText}</li>
+                <li>Power ready: pending the calculated electrical plan and owned-parts validation</li>
+                <li>Build ready: {signalReady ? 'blocked until Power ready passes' : 'blocked by Signal ready'}</li>
+              </ul>
+            </section>
+
+            <section className={styles.card}>
+              <h3 className={styles.cardTitle}>Connections</h3>
+              {connectionRows.length === 0 ? (
+                <p className={styles.copyMuted}>Controller-side connections appear here after an exact board with a reviewed pin map is selected.</p>
+              ) : (
+                <div className={styles.connectionList}>
+                  {connectionRows.map((row) => (
+                    <button
+                      key={row.id}
+                      type="button"
+                      className={`${styles.connectionRow} ${selectedItemId === row.itemId ? styles.connectionRowActive : ''}`}
+                      onClick={() => setSelectedItemId(row.itemId)}
+                    >
+                      <strong>{row.itemTitle}</strong>
+                      <span>{row.boardPin?.label ?? `GPIO ${row.pinUse.pin}`} → {row.pinUse.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {unresolvedConnections.length > 0 && (
+                <>
+                  <h4 className={styles.subTitle}>Unresolved</h4>
+                  <ul className={styles.flatList}>
+                    {unresolvedConnections.map((connection) => (
+                      <li key={connection.id}>
+                        <strong>{connection.itemTitle}</strong>: {connection.unresolvedReason}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </section>
+
+            <section className={styles.card}>
+              <h3 className={styles.cardTitle}>Exports</h3>
+              <p className={styles.copyMuted}>
+                Current-view and complete-build exports will be enabled once the normalized assembly and BOM layers are in place.
+              </p>
+            </section>
+          </>
+        )}
       </aside>
     </section>
   )

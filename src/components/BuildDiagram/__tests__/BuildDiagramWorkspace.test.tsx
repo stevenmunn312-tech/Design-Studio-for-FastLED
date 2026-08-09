@@ -136,4 +136,18 @@ describe('BuildDiagramWorkspace', () => {
     fireEvent.click(getByText('Show unfinished only'))
     expect(queryByText('Hide')).toBeNull()
   })
+
+  it('can collapse and reopen both side panels', () => {
+    const { getByText, queryByText } = render(<BuildDiagramWorkspace />)
+
+    fireEvent.click(getByText('Hide build panel'))
+    expect(queryByText('Controller target')).toBeNull()
+    fireEvent.click(getByText('Show build panel'))
+    expect(getByText('Controller target')).toBeTruthy()
+
+    fireEvent.click(getByText('Hide details'))
+    expect(queryByText('Selected item')).toBeNull()
+    fireEvent.click(getByText('Show details'))
+    expect(getByText('Selected item')).toBeTruthy()
+  })
 })
