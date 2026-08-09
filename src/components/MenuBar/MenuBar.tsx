@@ -25,6 +25,7 @@ import { buildShareUrl } from '../../utils/shareGraph'
 import { openCommunityTab, postToCommunityTab, suggestPatternFileName } from '../../utils/communityUpload'
 import { captureSharePreview } from '../../utils/sharePreviewCapture'
 import { promptTrustIfNeeded } from '../../utils/trustPrompt'
+import { enterStagePresentation, exitStagePresentation } from '../../utils/stagePresentation'
 import { DevPerformanceHudToggle } from '../Preview/DevPerformanceHud'
 import { IconPause, IconPlay } from '../Preview/PlayerIcons'
 import { isDiffusedStyle, previewStyleLabel } from '../Preview/previewStyles'
@@ -70,7 +71,6 @@ export default function MenuBar() {
     signalPathDimEnabled,
     toggleSignalPathDim,
     stageMode,
-    setStageMode,
     preview3d,
     togglePreview3d,
     previewStyle,
@@ -104,7 +104,6 @@ export default function MenuBar() {
     signalPathDimEnabled: s.signalPathDimEnabled,
     toggleSignalPathDim: s.toggleSignalPathDim,
     stageMode: s.stageMode,
-    setStageMode: s.setStageMode,
     preview3d: s.preview3d,
     togglePreview3d: s.togglePreview3d,
     previewStyle: s.previewStyle,
@@ -897,10 +896,13 @@ export default function MenuBar() {
         {import.meta.env.DEV && <DevPerformanceHudToggle />}
         <button
           className={`${styles.btn} ${styles.stageBtn} ${stageMode ? styles.btnStageActive : ''}`}
-          onClick={() => setStageMode(!stageMode)}
+          onClick={() => {
+            if (stageMode) void exitStagePresentation()
+            else void enterStagePresentation()
+          }}
           aria-label="Toggle stage mode"
           aria-pressed={stageMode}
-          title={stageMode ? 'Exit Stage Mode (Esc or F10)' : 'Enter Stage Mode (F10)'}
+          title={stageMode ? 'Exit Stage (Esc or F10)' : 'Enter fullscreen Stage (F10)'}
         >
           Stage
         </button>

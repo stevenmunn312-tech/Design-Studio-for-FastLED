@@ -20,6 +20,7 @@ import {
 } from './layoutPresets'
 
 export type AppTheme = 'dark' | 'solarized' | 'light'
+export type StagePresentationStatus = 'idle' | 'requesting' | 'active' | 'unavailable'
 export type NewProjectDecision = 'yes' | 'no' | 'cancel'
 export type AppDialogTone = 'default' | 'danger'
 export type StartChoice = string | 'blank' | null
@@ -136,6 +137,10 @@ interface UiState {
   evaluationRunning: boolean
   /** Show-ready layout that gives the live matrix and transport the viewport. */
   stageMode: boolean
+  /** Browser Fullscreen API state for the current Stage session. */
+  stageFullscreenStatus: StagePresentationStatus
+  /** Screen Wake Lock API state for the current Stage session. */
+  stageWakeLockStatus: StagePresentationStatus
   /** Canvas-focused presentation mode that hushes chrome and emphasizes signal flow. */
   performanceMode: boolean
   uiEffectsEnabled: boolean
@@ -185,6 +190,8 @@ interface UiState {
   toggleEvaluation: () => void
   toggleStageMode: () => void
   setStageMode: (active: boolean) => void
+  setStageFullscreenStatus: (status: StagePresentationStatus) => void
+  setStageWakeLockStatus: (status: StagePresentationStatus) => void
   togglePerformanceMode: () => void
   setPerformanceMode: (active: boolean) => void
   toggleUiEffects: () => void
@@ -246,6 +253,8 @@ export const useUiStore = create<UiState>((set, get) => ({
   graphHealthOpen: load<boolean>(GRAPH_HEALTH_KEY, true),
   evaluationRunning: true,
   stageMode: false,
+  stageFullscreenStatus: 'idle',
+  stageWakeLockStatus: 'idle',
   // Perform is a presentation state for the current session, like Stage. A
   // previous session must not reopen with the editing chrome unexpectedly
   // hushed, so it always starts off and is intentionally not persisted.
@@ -329,6 +338,8 @@ export const useUiStore = create<UiState>((set, get) => ({
   toggleEvaluation: () => set((s) => ({ evaluationRunning: !s.evaluationRunning })),
   toggleStageMode: () => set((s) => ({ stageMode: !s.stageMode })),
   setStageMode: (stageMode) => set({ stageMode }),
+  setStageFullscreenStatus: (stageFullscreenStatus) => set({ stageFullscreenStatus }),
+  setStageWakeLockStatus: (stageWakeLockStatus) => set({ stageWakeLockStatus }),
   togglePerformanceMode: () => set((s) => ({ performanceMode: !s.performanceMode })),
   setPerformanceMode: (performanceMode) => set({ performanceMode }),
   toggleUiEffects: () => {

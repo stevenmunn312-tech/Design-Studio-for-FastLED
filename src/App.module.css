@@ -42,6 +42,15 @@
   display: none;
 }
 
+.appStage .menuShell {
+  display: none;
+}
+
+.appStageCursorHidden,
+.appStageCursorHidden * {
+  cursor: none !important;
+}
+
 .workspaceStage .mainRegion,
 .workspaceStage .previewHandle {
   display: none;

@@ -38,6 +38,7 @@ import { frameAmbient } from '../../utils/signalVisual'
 import { idleFrame } from './idleFrame'
 import { publishStreamFrame } from '../../state/streamStore'
 import { compositionDims, outputRoutes, routeFrame } from '../../state/outputRouting'
+import { exitStagePresentation } from '../../utils/stagePresentation'
 
 // Statically replaced at build time, so the telemetry branches (phase timers +
 // the per-frame context object for the dev HUD) are dead-code-stripped in prod.
@@ -286,6 +287,8 @@ export default function LEDPreview() {
     ? { tilesX: tileLayoutTilesX, tilesY: tileLayoutTilesY }
     : null
   const stageMode = useUiStore((s) => s.stageMode)
+  const stageFullscreenStatus = useUiStore((s) => s.stageFullscreenStatus)
+  const stageWakeLockStatus = useUiStore((s) => s.stageWakeLockStatus)
   const previewPanelOpen = useUiStore((s) => s.previewPanelOpen)
   const evaluationRunning = useUiStore((s) => s.evaluationRunning)
   // Stage-mode pattern name, derived inside a selector that returns a plain
@@ -887,7 +890,7 @@ export default function LEDPreview() {
             <span className={styles.previewMeta}>Output bay</span>
           </div>
         )}
-        <div className={styles.headerRight} aria-label="Preview telemetry">
+        <div className={styles.headerRight} aria-label={stageMode ? 'Stage controls and status' : 'Preview telemetry'}>
           {previewRoutes.length > 1 && (
             <label className={styles.outputRoutePicker}>
               <span>Route</span>
@@ -904,20 +907,53 @@ export default function LEDPreview() {
               </select>
             </label>
           )}
-          <button
-            type="button"
-            className={styles.recordBtn}
-            onClick={() => setRecordOpen(true)}
-            title="Record or export the preview as PNG, GIF, or WebM"
-          >
-            <i aria-hidden="true" /> Record
-          </button>
-          <span className={styles.canvasHudChip}>{previewStyleLabel(effectivePreviewStyle)}</span>
-          <span className={styles.canvasHudChip}>{hasFrameSignal ? 'Signal live' : 'Signal idle'}</span>
-          <span className={styles.canvasHudChip}>
-            {showMode ? 'Show sync' : audioVisualizerLive ? 'Audio reactive' : 'Workbench'}
-          </span>
-          {performanceMode && <span className={styles.canvasHudChip}>Performance</span>}
+          {stageMode ? (
+            <>
+              <span
+                className={`${styles.stageStatusChip} ${stageFullscreenStatus === 'active' ? styles.stageStatusActive : ''}`}
+                title={stageFullscreenStatus === 'unavailable' ? 'Fullscreen was unavailable; Stage is running in this browser window.' : undefined}
+              >
+                {stageFullscreenStatus === 'active' ? 'Fullscreen' : stageFullscreenStatus === 'requesting' ? 'Going fullscreen' : 'Windowed'}
+              </span>
+              <span
+                className={`${styles.stageStatusChip} ${stageWakeLockStatus === 'active' ? styles.stageStatusActive : ''}`}
+                title={stageWakeLockStatus === 'unavailable' ? 'This browser could not keep the display awake.' : undefined}
+              >
+                {stageWakeLockStatus === 'active'
+                  ? 'Screen awake'
+                  : stageWakeLockStatus === 'requesting'
+                    ? 'Keeping awake'
+                    : stageWakeLockStatus === 'unavailable'
+                      ? 'Wake lock unavailable'
+                      : 'Screen may sleep'}
+              </span>
+              <button
+                type="button"
+                className={styles.exitStageBtn}
+                onClick={() => void exitStagePresentation()}
+                title="Exit Stage (Esc or F10)"
+              >
+                Exit Stage <kbd>Esc</kbd>
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className={styles.recordBtn}
+                onClick={() => setRecordOpen(true)}
+                title="Record or export the preview as PNG, GIF, or WebM"
+              >
+                <i aria-hidden="true" /> Record
+              </button>
+              <span className={styles.canvasHudChip}>{previewStyleLabel(effectivePreviewStyle)}</span>
+              <span className={styles.canvasHudChip}>{hasFrameSignal ? 'Signal live' : 'Signal idle'}</span>
+              <span className={styles.canvasHudChip}>
+                {showMode ? 'Show sync' : audioVisualizerLive ? 'Audio reactive' : 'Workbench'}
+              </span>
+              {performanceMode && <span className={styles.canvasHudChip}>Performance</span>}
+            </>
+          )}
         </div>
       </div>
       <div
