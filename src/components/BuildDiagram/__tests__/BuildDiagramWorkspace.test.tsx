@@ -155,6 +155,7 @@ describe('BuildDiagramWorkspace', () => {
     const { getByText } = render(<BuildDiagramWorkspace />)
 
     expect(getByText('Complete build is selected. Exports will include every configured hardware item by default.')).toBeTruthy()
+    expect(getByText('Draft — unresolved build requirements')).toBeTruthy()
     fireEvent.click(getByText('Current view'))
     expect(getByText('Current view is selected. Exports will follow the hardware currently visible under the eye/filter/isolation state.')).toBeTruthy()
     expect(useGraphStore.getState().buildProfile?.exportMode).toBe('current-view')
@@ -181,6 +182,8 @@ describe('BuildDiagramWorkspace', () => {
     const { getByLabelText, getByText } = render(<BuildDiagramWorkspace />)
 
     expect(getByText('Requirements inputs: 3 input blockers still need review')).toBeTruthy()
+    expect(getByText('Requirements calculated: blocked by 3 missing planner inputs')).toBeTruthy()
+    expect(getByText('Draft — unresolved build requirements')).toBeTruthy()
     expect(getByText((_, node) => node?.textContent === 'Exact board profile: Controller-side wiring and reviewed controller power-path checks stay blocked until the exact physical board is selected.')).toBeTruthy()
     expect(getByText((_, node) => node?.textContent === 'Controller power path: Controller branch validation stays incomplete until Build Diagram knows whether the controller expects USB, VIN, 5VIN, or an external regulated rail.')).toBeTruthy()
     expect(getByText((_, node) => node?.textContent === 'Matrix Output: Physical length is still missing, so conductor sizing and injection spacing cannot be estimated yet. LED density or pitch is still missing, so current-per-length and injection planning cannot be estimated yet. Feed-cable length is still missing, so voltage-drop and cable-size checks cannot be estimated yet.')).toBeTruthy()
@@ -192,6 +195,8 @@ describe('BuildDiagramWorkspace', () => {
     fireEvent.change(getByLabelText('Feed cable length (mm)'), { target: { value: '500' } })
 
     expect(getByText('Requirements inputs: all currently expected install facts are captured for the future planner')).toBeTruthy()
+    expect(getByText('Requirements calculated: ready to calculate once the electrical rule engine lands')).toBeTruthy()
+    expect(getByText('Draft — electrical plan export pending assembly/BOM generation')).toBeTruthy()
     expect(getByText('All currently expected planner inputs are captured.')).toBeTruthy()
   })
 

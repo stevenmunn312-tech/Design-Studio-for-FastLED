@@ -581,6 +581,17 @@ export default function BuildDiagramWorkspace() {
       : unresolvedConnections.length > 0
         ? `needs review: ${unresolvedConnections.length} controller pin mapping${unresolvedConnections.length === 1 ? '' : 's'} unresolved`
         : 'all visible supported hardware maps cleanly onto the selected physical board'
+  const requirementsCalculatedText = planningBlockers.length > 0
+    ? `blocked by ${planningBlockers.length} missing planner input${planningBlockers.length === 1 ? '' : 's'}`
+    : 'ready to calculate once the electrical rule engine lands'
+  const exportDraftStatus = planningBlockers.length > 0 || !signalReady
+    ? 'Draft — unresolved build requirements'
+    : 'Draft — electrical plan export pending assembly/BOM generation'
+  const exportDraftReason = planningBlockers.length > 0
+    ? 'Exports stay draft because Build Diagram is still missing install facts the future electrical plan depends on.'
+    : !signalReady
+      ? 'Exports stay draft because controller-side signal mapping still needs review before the build reference is trustworthy.'
+      : 'Exports stay draft because the normalized electrical assembly, BOM, and file-export layers are not implemented yet.'
 
   const canvasWidth = deviceLayouts.length > 0
     ? Math.max(controllerBox.x + controllerBox.width + 420, ...deviceLayouts.map((layout) => layout.x + layout.width + 40))
@@ -1352,7 +1363,7 @@ export default function BuildDiagramWorkspace() {
               <h3 className={styles.cardTitle}>Readiness</h3>
               <ul className={styles.flatList}>
                 <li>Requirements inputs: {requirementsInputText}</li>
-                <li>Requirements calculated: pending the electrical rule engine</li>
+                <li>Requirements calculated: {requirementsCalculatedText}</li>
                 <li>Signal ready: {readinessText}</li>
                 <li>Power ready: pending the calculated electrical plan and owned-parts validation</li>
                 <li>Build ready: {signalReady ? 'blocked until Power ready passes' : 'blocked by Signal ready'}</li>
@@ -1418,6 +1429,10 @@ export default function BuildDiagramWorkspace() {
                     ? 'Complete build is selected. Hidden or isolated hardware will still be included once export generation lands.'
                     : 'Complete build is selected. Exports will include every configured hardware item by default.'
                   : 'Current view is selected. Exports will follow the hardware currently visible under the eye/filter/isolation state.'}
+              </p>
+              <p className={styles.warningText}>{exportDraftStatus}</p>
+              <p className={styles.copyMuted}>
+                {exportDraftReason}
               </p>
               <p className={styles.copyMuted}>
                 Current-view and complete-build exports will be enabled once the normalized assembly and BOM layers are in place.
