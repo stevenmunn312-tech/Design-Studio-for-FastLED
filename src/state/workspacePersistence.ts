@@ -1,5 +1,6 @@
 import type { StudioNode, StudioEdge, WorkspaceExtras } from './graphStore'
 import type { PerformanceDeckConfig } from './performanceDeck'
+import type { BuildProfile } from '../build/buildProfile'
 
 /** The full workspace shape that needs to persist across autosave, project
  *  switches, JSON export/import, and rolling recovery snapshots. */
@@ -9,6 +10,7 @@ export interface PersistedWorkspace {
   graphData?: WorkspaceExtras['graphData']
   graphs?: WorkspaceExtras['graphs']
   activeGraphId?: string
+  buildProfile?: BuildProfile
   /** Whether this workspace's CustomFormula/FieldFormula/Code nodes are
    *  allowed to evaluate their preview logic (see todo.md's P0 trust-boundary
    *  item). Missing/undefined is treated as trusted by `graphStore.loadGraph`
@@ -30,7 +32,7 @@ export function cloneWorkspace(workspace: PersistedWorkspace): PersistedWorkspac
 }
 
 export function captureWorkspace(
-  state: Pick<PersistedWorkspace, 'nodes' | 'edges' | 'graphData' | 'graphs' | 'activeGraphId' | 'trusted' | 'performanceDeck'>
+  state: Pick<PersistedWorkspace, 'nodes' | 'edges' | 'graphData' | 'graphs' | 'activeGraphId' | 'buildProfile' | 'trusted' | 'performanceDeck'>
 ): PersistedWorkspace {
   return cloneWorkspace({
     nodes: state.nodes,
@@ -38,6 +40,7 @@ export function captureWorkspace(
     graphData: state.graphData,
     graphs: state.graphs,
     activeGraphId: state.activeGraphId,
+    buildProfile: state.buildProfile,
     trusted: state.trusted,
     performanceDeck: state.performanceDeck,
   })

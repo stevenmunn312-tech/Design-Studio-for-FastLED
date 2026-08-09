@@ -71,12 +71,14 @@ export default function MenuBar() {
     signalPathDimEnabled,
     toggleSignalPathDim,
     stageMode,
+    workspaceMode,
     preview3d,
     togglePreview3d,
     previewStyle,
     cyclePreviewStyle,
     layoutPreset,
     applyLayoutPreset,
+    toggleBuildDiagram,
     openHelp,
     setHelpTab,
     openRecover,
@@ -104,12 +106,14 @@ export default function MenuBar() {
     signalPathDimEnabled: s.signalPathDimEnabled,
     toggleSignalPathDim: s.toggleSignalPathDim,
     stageMode: s.stageMode,
+    workspaceMode: s.workspaceMode,
     preview3d: s.preview3d,
     togglePreview3d: s.togglePreview3d,
     previewStyle: s.previewStyle,
     cyclePreviewStyle: s.cyclePreviewStyle,
     layoutPreset: s.layoutPreset,
     applyLayoutPreset: s.applyLayoutPreset,
+    toggleBuildDiagram: s.toggleBuildDiagram,
     openHelp: s.openHelp,
     setHelpTab: s.setHelpTab,
     openRecover: s.openRecover,
@@ -227,8 +231,8 @@ export default function MenuBar() {
 
   const handleSaveJSON = () => {
     // Export the whole workspace so pattern-group subgraphs travel with the file.
-    const { nodes, edges, graphData, graphs, activeGraphId } = useGraphStore.getState()
-    const json = JSON.stringify({ nodes, edges, graphData, graphs, activeGraphId }, null, 2)
+    const { nodes, edges, graphData, graphs, activeGraphId, buildProfile } = useGraphStore.getState()
+    const json = JSON.stringify({ nodes, edges, graphData, graphs, activeGraphId, buildProfile }, null, 2)
     const blob = new Blob([json], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -240,8 +244,8 @@ export default function MenuBar() {
   }
 
   const handleCopyShareLink = async () => {
-    const { nodes, edges, graphData, graphs, activeGraphId } = useGraphStore.getState()
-    const url = buildShareUrl({ nodes, edges, graphData, graphs, activeGraphId })
+    const { nodes, edges, graphData, graphs, activeGraphId, buildProfile } = useGraphStore.getState()
+    const url = buildShareUrl({ nodes, edges, graphData, graphs, activeGraphId, buildProfile })
     try {
       await navigator.clipboard.writeText(url)
       setStatus('Share link copied to clipboard', 'success')
@@ -381,8 +385,8 @@ export default function MenuBar() {
     }
     const next = useProjectStore.getState().switchProject(projectId)
     if (!next) return false
-    const { nodes, edges, graphData, graphs, activeGraphId, trusted, performanceDeck } = next.workspace
-    useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, trusted, performanceDeck })
+    const { nodes, edges, graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck } = next.workspace
+    useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck })
     useGraphStore.temporal.getState().clear()
     setStatus(`Opened project "${next.name}"`, 'success')
     return true
@@ -438,8 +442,8 @@ export default function MenuBar() {
       useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
     }
     const opened = useProjectStore.getState().upsertProject(project)
-    const { nodes, edges, graphData, graphs, activeGraphId, trusted, performanceDeck } = opened.workspace
-    useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, trusted, performanceDeck })
+    const { nodes, edges, graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck } = opened.workspace
+    useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, buildProfile, trusted, performanceDeck })
     useGraphStore.temporal.getState().clear()
     setStatus(`Opened project "${opened.name}"`, 'success')
     void promptTrustIfNeeded()
@@ -563,11 +567,11 @@ export default function MenuBar() {
       const reader = new FileReader()
       reader.onload = (ev) => {
         try {
-          const { nodes, edges, graphData, graphs, activeGraphId, performanceDeck } = JSON.parse(ev.target?.result as string) as
+          const { nodes, edges, graphData, graphs, activeGraphId, buildProfile, performanceDeck } = JSON.parse(ev.target?.result as string) as
             { nodes: StudioNode[]; edges: StudioEdge[] } & WorkspaceExtras
           // Never trust an imported file's own `trusted` claim — force it
           // false regardless of what the JSON says (todo.md's P0 trust item).
-          useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, trusted: false, performanceDeck })
+          useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, buildProfile, trusted: false, performanceDeck })
           useGraphStore.temporal.getState().clear()
           setStatus('Graph JSON imported', 'success')
           void promptTrustIfNeeded()
@@ -765,6 +769,17 @@ export default function MenuBar() {
                 title={signalPathDimEnabled ? 'Disable dimming unrelated nodes on selection' : 'Enable dimming unrelated nodes on selection'}
               >
                 {signalPathDimEnabled ? '✓' : '○'} Signal dimming: {signalPathDimEnabled ? 'On' : 'Off'}
+              </button>
+              <div className={styles.menuDivider} />
+              <div className={styles.menuLabel}>Workspace</div>
+              <button
+                className={styles.menuItem}
+                role="menuitemcheckbox"
+                aria-checked={workspaceMode === 'build'}
+                onClick={() => { closeMenus(); toggleBuildDiagram() }}
+                title="Switch between the logical design canvas and the physical build workspace"
+              >
+                {workspaceMode === 'build' ? '✓' : '○'} Build Diagram
               </button>
               <div className={styles.menuDivider} />
               <div className={styles.menuLabel}>Layout</div>

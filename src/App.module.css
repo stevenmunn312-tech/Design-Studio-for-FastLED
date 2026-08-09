@@ -21,6 +21,12 @@
   overflow: hidden;
 }
 
+.workspaceBuild {
+  background:
+    radial-gradient(circle at top, rgba(57, 96, 127, 0.18), transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-app) 92%, #09131b), var(--bg-app));
+}
+
 .workspaceCanvas {
   position: relative;
   display: flex;

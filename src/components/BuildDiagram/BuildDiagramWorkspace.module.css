@@ -1,0 +1,1153 @@
+.workspace {
+  display: grid;
+  grid-template-columns:
+    minmax(280px, var(--build-sidebar-width, 340px))
+    minmax(0, 1fr)
+    minmax(300px, var(--build-detail-width, 360px));
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.workspaceSidebarCollapsed {
+  grid-template-columns: 68px minmax(0, 1fr) minmax(300px, var(--build-detail-width, 360px));
+}
+
+.workspaceDetailCollapsed {
+  grid-template-columns: minmax(280px, var(--build-sidebar-width, 340px)) minmax(0, 1fr) 68px;
+}
+
+.workspaceSidebarCollapsed.workspaceDetailCollapsed {
+  grid-template-columns: 68px minmax(0, 1fr) 68px;
+}
+
+.sidebar,
+.detailPane,
+.diagramPane {
+  min-height: 0;
+}
+
+.sidebar,
+.detailPane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+}
+
+.diagramPane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.diagramToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.headerActions,
+.detailHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.headerActions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.panelSizeControls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.panelHeader,
+.diagramHeader,
+.rowBetween {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.panelSubtitle,
+.copy,
+.copyMuted {
+  margin: 4px 0 0;
+  line-height: 1.45;
+}
+
+.panelSubtitle,
+.copyMuted {
+  color: var(--text-secondary);
+}
+
+.card {
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--border-glow) 82%, transparent);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 94%, rgba(255, 255, 255, 0.02)), var(--bg-panel));
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.16);
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.optionList,
+.hardwareList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.optionCard,
+.hardwareMain,
+.controllerCard,
+.diagramCard,
+.backButton,
+.resetButton,
+.smallButton {
+  border: 1px solid color-mix(in srgb, var(--border-glow) 78%, transparent);
+  background: color-mix(in srgb, var(--bg-panel) 82%, rgba(255, 255, 255, 0.03));
+  color: var(--text-primary);
+}
+
+.optionCard,
+.hardwareMain,
+.controllerCard,
+.diagramCard {
+  width: 100%;
+  text-align: left;
+}
+
+.optionCard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 14px;
+}
+
+.optionPreviewWrap {
+  width: 100%;
+  min-height: 92px;
+  padding: 6px 8px 2px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-panel) 72%, rgba(255, 255, 255, 0.04));
+}
+
+.optionCardActive,
+.diagramCardActive,
+.hardwareRowActive .hardwareMain,
+.connectionRowActive {
+  border-color: color-mix(in srgb, var(--accent-output) 68%, var(--border-glow));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-output) 28%, transparent);
+}
+
+.optionTitle,
+.hardwareTitle,
+.diagramCardTitle {
+  font-weight: 700;
+}
+
+.optionMeta,
+.hardwareSubtitle,
+.diagramCardMeta,
+.diagramCardPins {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.optionHint {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.confidenceBadge {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.confidenceBadgeCaution {
+  background: rgba(255, 202, 122, 0.14);
+  color: #ffcf8f;
+}
+
+.progressPill {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-output) 18%, transparent);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.zoomPill {
+  align-self: center;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border-glow) 24%, transparent);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.hardwareRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.hardwareMain {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 14px;
+}
+
+.hardwareActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.outputFactList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.assumptionPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.outputFactCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--border-glow) 74%, transparent);
+  background: color-mix(in srgb, var(--bg-panel) 80%, rgba(255, 255, 255, 0.025));
+}
+
+.knownFactRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.knownFactChip {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border-glow) 20%, transparent);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.fieldBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.fieldInput,
+.noteInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border-glow) 78%, transparent);
+  background: color-mix(in srgb, var(--bg-panel) 86%, rgba(255, 255, 255, 0.03));
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.noteInput {
+  resize: vertical;
+}
+
+.filterRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.smallButton,
+.backButton,
+.resetButton {
+  padding: 9px 12px;
+  border-radius: 12px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.smallButtonDone {
+  background: color-mix(in srgb, var(--accent-success) 24%, var(--bg-panel));
+}
+
+.collapsedRail {
+  width: 100%;
+  height: 100%;
+  min-height: 220px;
+  padding: 14px 10px;
+  border: 1px solid color-mix(in srgb, var(--border-glow) 78%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-panel) 84%, rgba(255, 255, 255, 0.03));
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 700;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  cursor: pointer;
+}
+
+.staleNotice,
+.warningText {
+  margin-top: 6px;
+  color: #ffca7a;
+  font-size: 0.88rem;
+}
+
+.confidenceCallout {
+  margin-top: 10px;
+}
+
+.diagramViewport {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--border-glow) 74%, transparent);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 28% 14%, rgba(122, 162, 255, 0.18), transparent 24%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 86%, #071017), color-mix(in srgb, var(--bg-panel) 96%, black));
+  cursor: grab;
+}
+
+.diagramViewport:active {
+  cursor: grabbing;
+}
+
+.diagramSurface {
+  position: relative;
+  padding: 18px;
+  box-sizing: border-box;
+}
+
+.diagramCanvas {
+  position: relative;
+  transform-origin: top left;
+}
+
+.wireLayer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.wirePath {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.wirePathActive {
+  stroke: color-mix(in srgb, var(--accent-output) 78%, white 10%);
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent-output) 36%, transparent));
+}
+
+.wirePathDim {
+  stroke: color-mix(in srgb, var(--border-glow) 56%, transparent);
+  opacity: 0.52;
+}
+
+.controllerCard,
+.diagramCard {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 18px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.controllerHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.controllerBody {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.boardPreview {
+  width: min(70%, 220px);
+  margin: 26px auto 0;
+}
+
+.optionPreviewWrap .boardPreview {
+  width: 100%;
+  margin: 0;
+}
+
+.boardPreview :global(svg) {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.controllerPin {
+  position: absolute;
+  padding: 4px 7px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border-glow) 72%, transparent);
+  background: color-mix(in srgb, var(--bg-panel) 92%, rgba(255, 255, 255, 0.02));
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  line-height: 1;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+}
+
+.controllerPinLeft {
+  transform: translate(-100%, -50%);
+}
+
+.controllerPinRight {
+  transform: translate(0, -50%);
+}
+
+.controllerPinTop {
+  transform: translate(-50%, -100%);
+}
+
+.controllerPinBottom {
+  transform: translate(-50%, 0);
+}
+
+.controllerPinUsed {
+  color: var(--text-primary);
+}
+
+.controllerPinUnused {
+  opacity: 0.72;
+}
+
+.controllerPinSelected {
+  border-color: color-mix(in srgb, var(--accent-output) 70%, transparent);
+  color: var(--text-primary);
+  font-weight: 700;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-output) 24%, transparent);
+}
+
+.devicePinList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.devicePinRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+}
+
+.devicePinRow strong {
+  color: var(--text-primary);
+  font-size: 0.82rem;
+}
+
+.factList {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+.factRow {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(0, 1.4fr);
+  gap: 8px;
+}
+
+.factRow dt {
+  color: var(--text-secondary);
+}
+
+.factRow dd {
+  margin: 0;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.flatList {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.pinRow {
+  font-weight: 600;
+}
+
+.subTitle {
+  margin: 14px 0 0;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+}
+
+.connectionList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.exportModeRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.exportModeButton {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border-glow) 78%, transparent);
+  background: color-mix(in srgb, var(--bg-panel) 82%, rgba(255, 255, 255, 0.03));
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.exportModeButtonActive {
+  border-color: color-mix(in srgb, var(--accent-output) 68%, var(--border-glow));
+  color: var(--text-primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-output) 24%, transparent);
+}
+
+.exportActionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.connectionRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--border-glow) 78%, transparent);
+  background: color-mix(in srgb, var(--bg-panel) 82%, rgba(255, 255, 255, 0.03));
+  text-align: left;
+  font: inherit;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.connectionRow span {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.emptyState {
+  display: grid;
+  place-items: center;
+  min-height: 280px;
+  padding: 24px;
+  border: 1px dashed color-mix(in srgb, var(--border-glow) 74%, transparent);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--bg-panel) 92%, rgba(255, 255, 255, 0.01));
+}
+
+.emptyTitle {
+  margin: 0 0 8px;
+  color: var(--text-primary);
+}
+
+@media (max-width: 1280px) {
+  .workspace {
+    grid-template-columns: minmax(250px, 320px) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(220px, auto);
+  }
+
+  .workspaceSidebarCollapsed,
+  .workspaceDetailCollapsed,
+  .workspaceSidebarCollapsed.workspaceDetailCollapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .detailPane {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+  }
+}
+
+@media (max-width: 900px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    overflow: auto;
+  }
+
+  .sidebar,
+  .detailPane,
+  .diagramPane {
+    overflow: visible;
+  }
+
+  .detailPane {
+    display: flex;
+  }
+
+  .diagramViewport {
+    min-height: 560px;
+  }
+
+  .collapsedRail {
+    min-height: 56px;
+    writing-mode: horizontal-tb;
+    transform: none;
+  }
+
+  .formGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Physical assembly workspace */
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.workspace {
+  gap: 0;
+  padding: 0;
+  background: #1b2023;
+}
+
+.sidebar,
+.detailPane {
+  gap: 10px;
+  padding: 14px;
+  scrollbar-color: #51595d transparent;
+  scrollbar-width: thin;
+}
+
+.sidebar {
+  border-right: 1px solid #32383b;
+  background: linear-gradient(180deg, #202629, #171c1f);
+}
+
+.detailPane {
+  border-left: 1px solid #32383b;
+  background: linear-gradient(180deg, #202629, #171c1f);
+}
+
+.diagramPane {
+  gap: 0;
+  background: #e5e6e3;
+}
+
+.diagramHeader {
+  min-height: 68px;
+  padding: 11px 14px;
+  border-bottom: 1px solid #c7cac7;
+  background: #f4f5f2;
+}
+
+.diagramHeader .panelTitle {
+  color: #1f2629;
+}
+
+.diagramHeader .panelSubtitle {
+  color: #5d6669;
+}
+
+.diagramToolbar {
+  gap: 6px;
+}
+
+.card {
+  padding: 12px;
+  border: 1px solid #3b4347;
+  border-radius: 9px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(0, 0, 0, 0.05));
+  box-shadow: none;
+}
+
+.optionCard,
+.hardwareMain,
+.outputFactCard,
+.connectionRow,
+.exportModeButton {
+  border-radius: 7px;
+}
+
+.optionCard,
+.hardwareMain {
+  padding: 9px;
+}
+
+.optionPreviewWrap {
+  min-height: 68px;
+  border-radius: 6px;
+}
+
+.fieldInput,
+.noteInput {
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+
+.smallButton,
+.backButton,
+.resetButton {
+  min-height: 32px;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.smallButton:hover,
+.backButton:hover,
+.resetButton:hover,
+.exportModeButton:hover,
+.connectionRow:hover {
+  border-color: #5c696e;
+  background: #293136;
+}
+
+.diagramViewport {
+  margin: 12px;
+  border: 1px solid #c5c8c5;
+  border-radius: 9px;
+  background: #f4f4f1;
+  box-shadow: 0 12px 30px rgba(28, 34, 36, 0.15);
+}
+
+.diagramSurface {
+  padding: 0;
+}
+
+.zoomPill {
+  color: #586165;
+  background: #e2e4e1;
+}
+
+.diagramHeader .smallButton,
+.diagramHeader .resetButton {
+  border-color: #c1c6c4;
+  background: #fff;
+  color: #263034;
+}
+
+.diagramHeader .smallButton:hover,
+.diagramHeader .resetButton:hover {
+  border-color: #829195;
+  background: #e9eeee;
+}
+
+.physicalDiagram {
+  display: block;
+  width: 1120px;
+  height: 760px;
+  font-family: var(--font-body);
+  user-select: none;
+}
+
+.exportDiagramHidden {
+  position: fixed;
+  left: -20000px;
+  top: 0;
+  width: 1120px;
+  height: 760px;
+  pointer-events: none;
+}
+
+.physicalClickable {
+  cursor: pointer;
+}
+
+.physicalClickable:focus-visible {
+  outline: none;
+  filter: drop-shadow(0 0 6px rgba(31, 165, 173, 0.72));
+}
+
+.physicalSelected {
+  filter: url(#component-shadow) drop-shadow(0 0 8px rgba(31, 165, 173, 0.48));
+}
+
+.physicalWires path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.powerWire {
+  fill: none;
+  stroke: #d92828;
+  stroke-width: 5;
+}
+
+.groundWire {
+  fill: none;
+  stroke: #171b1d;
+  stroke-width: 5;
+}
+
+.signalWire {
+  fill: none;
+  stroke: #24963e;
+  stroke-width: 4;
+}
+
+.auxWire {
+  fill: none;
+  stroke: #4358dc;
+  stroke-width: 4;
+}
+
+.dimWire {
+  fill: none;
+  stroke: #aeb4b2;
+  stroke-width: 3;
+  opacity: 0.36;
+}
+
+.physicalBoardSilk,
+.physicalBoardSubSilk,
+.physicalPinLabel,
+.physicalChipLabel,
+.physicalFuseText,
+.physicalSupplyText,
+.physicalPolarity {
+  pointer-events: none;
+}
+
+.physicalBoardSilk {
+  fill: #50585a;
+  font-family: var(--font-code);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.physicalBoardSubSilk {
+  fill: #676f70;
+  font-family: var(--font-code);
+  font-size: 7px;
+  font-weight: 700;
+}
+
+.physicalPinLabel {
+  fill: #e8eae5;
+  font-family: var(--font-code);
+  font-size: 7px;
+  font-weight: 700;
+}
+
+.physicalComponentLabel {
+  fill: #202628;
+  font-size: 16px;
+  font-weight: 750;
+}
+
+.physicalMetaLabel,
+.physicalLegendMeta {
+  fill: #596164;
+  font-family: var(--font-code);
+  font-size: 11px;
+}
+
+.physicalLegendTitle {
+  fill: #202628;
+  font-family: var(--font-code);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.physicalChipLabel {
+  fill: #e5e7e2;
+  font-family: var(--font-code);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.physicalFuseText,
+.physicalSupplyText {
+  fill: #eef0eb;
+  font-family: var(--font-code);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.physicalPolarity {
+  fill: #202628;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.powerSummaryCard {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.powerSummaryValue {
+  margin-top: 8px;
+  color: #f3f5f1;
+  font-family: var(--font-code);
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.powerSummaryMeta {
+  color: #aeb7b9;
+  font-size: 12px;
+}
+
+.powerSummaryBudget {
+  margin-top: 9px;
+  padding-top: 9px;
+  border-top: 1px solid #394145;
+  color: #d7ddda;
+  font-family: var(--font-code);
+  font-size: 11px;
+}
+
+.readinessCardReady,
+.readinessCardPending {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.readinessCardReady {
+  border-color: #347544;
+  background: linear-gradient(135deg, rgba(28, 109, 50, 0.38), rgba(13, 56, 25, 0.42));
+}
+
+.readinessCardPending {
+  border-color: #88652b;
+  background: linear-gradient(135deg, rgba(117, 78, 18, 0.3), rgba(63, 42, 12, 0.36));
+}
+
+.readinessMark {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 50%;
+  background: #65c956;
+  color: #102316;
+  font-family: var(--font-code);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.readinessCardPending .readinessMark {
+  background: #e2aa43;
+  color: #33230c;
+}
+
+.partsTable {
+  margin-top: 10px;
+  overflow: hidden;
+  border: 1px solid #3c4448;
+  border-radius: 7px;
+}
+
+.branchKitCallout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #506067;
+  border-radius: 7px;
+  background: rgba(36, 51, 57, 0.62);
+}
+
+.branchKitCallout strong {
+  color: #eef2ef;
+  font-size: 12px;
+}
+
+.partsRow {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 28px;
+  gap: 8px;
+  align-items: center;
+  min-height: 35px;
+  padding: 5px 8px;
+  border-bottom: 1px solid #353d40;
+  color: #dfe4e1;
+  font-size: 12px;
+}
+
+.partsRow:last-child {
+  border-bottom: 0;
+}
+
+.partsQuantity {
+  color: #9da7aa;
+  font-family: var(--font-code);
+}
+
+.partReady,
+.partPending {
+  display: grid;
+  width: 23px;
+  height: 23px;
+  place-items: center;
+  border-radius: 50%;
+  font-family: var(--font-code);
+  font-size: 8px;
+  font-weight: 900;
+}
+
+.partReady {
+  background: #57bd4d;
+  color: #102314;
+}
+
+.partPending {
+  background: #d49a39;
+  color: #291c08;
+}
+
+@media (max-width: 1280px) {
+  .workspace {
+    grid-template-columns: minmax(250px, 300px) minmax(0, 1fr) minmax(280px, 310px);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .detailPane {
+    grid-column: auto;
+    display: flex;
+  }
+}
+
+@media (max-width: 1080px) {
+  .workspace {
+    grid-template-columns: minmax(250px, 300px) minmax(0, 1fr);
+  }
+
+  .detailPane {
+    display: none;
+  }
+}
+
+@media print {
+  .workspace {
+    display: block;
+    overflow: visible;
+    background: white;
+  }
+
+  .sidebar,
+  .detailPane,
+  .diagramHeader {
+    display: none;
+  }
+
+  .diagramPane,
+  .diagramViewport,
+  .diagramSurface {
+    display: block;
+    margin: 0;
+    overflow: visible;
+    border: 0;
+    box-shadow: none;
+    background: white;
+  }
+
+  .diagramCanvas {
+    transform: none !important;
+  }
+
+  .exportCompleteMode .diagramViewport {
+    display: none;
+  }
+
+  .exportCompleteMode .exportDiagramHidden {
+    position: static;
+    display: block;
+    width: 1120px;
+    height: 760px;
+  }
+}

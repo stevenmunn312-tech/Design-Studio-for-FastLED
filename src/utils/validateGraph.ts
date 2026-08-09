@@ -1,5 +1,5 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
-import { SPI_CHIPSETS, HUB75_CHIPSET, NODE_LIBRARY, supportsScalarExpression, gpioRequirementForProperty, libraryDefaults, type GpioPropertyRequirement } from '../state/nodeLibrary'
+import { HUB75_CHIPSET, NODE_LIBRARY, supportsScalarExpression } from '../state/nodeLibrary'
 import { evaluateScalarExpression } from '../state/scalarExpression'
 import { isValidRtcDateTime } from '../state/rtc'
 import { validateMatrixLayout, tileRotationAt } from '../state/xyLayout'
@@ -7,6 +7,7 @@ import { compositionDims } from '../state/outputRouting'
 import { boardGpioInfo } from '../state/uploadStore'
 import { MAX_PIN_NUMBER, pinSupports } from '../state/boardGpio'
 import { getNetworkCredentials } from '../state/networkCredentials'
+import { collectPinUses } from '../build/hardwareManifest'
 
 export interface ValidationResult {
   errors:   string[]
@@ -19,122 +20,6 @@ export interface ValidationResult {
 // upload UI passes `selectedFqbn` without a `:PSRAM=…` suffix here (that's
 // only appended at the actual build/compile call site).
 const HUB75_SUPPORTED_FQBNS = new Set(['esp32:esp32:esp32', 'esp32:esp32:esp32s2', 'esp32:esp32:esp32s3'])
-
-interface PinUse {
-  label: string
-  nodeId: string
-  nodeType: string
-  propertyKey: string
-  pin: number
-  requirement: GpioPropertyRequirement | null
-}
-
-// Every GPIO-typed property across the hardware-input/output nodes, tagged
-// with a human label for the error message. MatrixOutput's clockPin only
-// counts for SPI chipsets (it's unused, and its editor disabled, otherwise);
-// a HUB75 chipset swaps the single dataPin/clockPin pair for its own 13-14
-// pin ribbon (hub75EPin only when hub75WideScan is on — see
-// docs/development/design/hub75-output.md). There is no shared-bus concept
-// in the generated firmware today — each of these pins drives exactly one
-// peripheral — so any reuse of a GPIO number across two of these roles (even
-// on the same node) is a real conflict.
-function collectPinUses(nodes: StudioNode[]): PinUse[] {
-  const uses: PinUse[] = []
-  const matrixOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
-  const matrixOrdinal = new Map(matrixOutputs.map((node, index) => [node.id, index + 1]))
-  const push = (node: StudioNode, label: string, propertyKey: string, value: unknown) => {
-    if (typeof value !== 'number' || !Number.isFinite(value)) return
-    const nodeType = node.data.nodeType
-    const props = node.data.properties as Record<string, unknown>
-    uses.push({
-      label,
-      nodeId: node.id,
-      nodeType,
-      propertyKey,
-      pin: value,
-      requirement: gpioRequirementForProperty(nodeType, propertyKey, props),
-    })
-  }
-  for (const n of nodes) {
-    const props = n.data.properties as Record<string, unknown>
-    const baseLabel = String(n.data.label ?? n.data.nodeType)
-    const label = n.data.nodeType === 'MatrixOutput' && matrixOutputs.length > 1
-      ? `${baseLabel} ${matrixOrdinal.get(n.id)}`
-      : baseLabel
-    switch (n.data.nodeType) {
-      case 'MicInput':
-        push(n, `${label} I2S WS`, 'i2sWs', props.i2sWs)
-        push(n, `${label} I2S SCK`, 'i2sSck', props.i2sSck)
-        push(n, `${label} I2S SD`, 'i2sSd', props.i2sSd)
-        break
-      case 'DMXInput':
-        if (String(props.inputMode ?? 'Art-Net') !== 'DMX512') break
-        push(n, `${label} TX pin`, 'dmxTxPin', props.dmxTxPin)
-        push(n, `${label} RX pin`, 'dmxRxPin', props.dmxRxPin)
-        push(n, `${label} enable pin`, 'dmxEnablePin', props.dmxEnablePin)
-        break
-      case 'MatrixOutput':
-        if (String(props.chipset ?? 'WS2812B') === HUB75_CHIPSET) {
-          // Regression: a MatrixOutput created before HUB75 existed (or before
-          // the user ever opened "HUB75 Wiring") has none of these keys on its
-          // own saved properties — StudioNode.tsx's editor only *displays* the
-          // library default (merged in for the UI), it never writes it back
-          // onto the node. `push()` silently skips a non-number, so without
-          // this fallback these pins escaped every conflict/board-compat
-          // check entirely while codegen (hub75HardwareFromProps) baked in
-          // that same default regardless — confirmed on real hardware: the
-          // unchecked G1/B1 defaults (26/27) collide with the ESP32-S3's
-          // flash/PSRAM pins, and A (23) isn't present as GPIO on the S3 at
-          // all, producing an ESP-IDF "GPIO number error" boot failure that
-          // no validation had ever seen. Merge the library defaults first so
-          // validation always checks the pins that will actually be flashed.
-          const hub75Props = { ...libraryDefaults('MatrixOutput'), ...props }
-          push(n, `${label} R1 pin`, 'hub75R1Pin', hub75Props.hub75R1Pin)
-          push(n, `${label} G1 pin`, 'hub75G1Pin', hub75Props.hub75G1Pin)
-          push(n, `${label} B1 pin`, 'hub75B1Pin', hub75Props.hub75B1Pin)
-          push(n, `${label} R2 pin`, 'hub75R2Pin', hub75Props.hub75R2Pin)
-          push(n, `${label} G2 pin`, 'hub75G2Pin', hub75Props.hub75G2Pin)
-          push(n, `${label} B2 pin`, 'hub75B2Pin', hub75Props.hub75B2Pin)
-          push(n, `${label} row-select A`, 'hub75APin', hub75Props.hub75APin)
-          push(n, `${label} row-select B`, 'hub75BPin', hub75Props.hub75BPin)
-          push(n, `${label} row-select C`, 'hub75CPin', hub75Props.hub75CPin)
-          push(n, `${label} row-select D`, 'hub75DPin', hub75Props.hub75DPin)
-          if (hub75Props.hub75WideScan === true) push(n, `${label} row-select E`, 'hub75EPin', hub75Props.hub75EPin)
-          push(n, `${label} clock pin`, 'hub75ClkPin', hub75Props.hub75ClkPin)
-          push(n, `${label} latch pin`, 'hub75LatPin', hub75Props.hub75LatPin)
-          push(n, `${label} output-enable pin`, 'hub75OePin', hub75Props.hub75OePin)
-        } else {
-          push(n, `${label} data pin`, 'dataPin', props.dataPin)
-          if (SPI_CHIPSETS.has(String(props.chipset ?? 'WS2812B'))) push(n, `${label} clock pin`, 'clockPin', props.clockPin)
-        }
-        break
-      case 'ButtonInput':
-        push(n, `${label} pin`, 'pin', props.pin)
-        break
-      case 'PotInput':
-        push(n, `${label} pin`, 'pin', props.pin)
-        break
-      case 'EncoderInput':
-        push(n, `${label} pin A`, 'pinA', props.pinA)
-        push(n, `${label} pin B`, 'pinB', props.pinB)
-        push(n, `${label} switch pin`, 'pinSW', props.pinSW)
-        break
-      case 'SDCard':
-        push(n, `${label} CS pin`, 'sdCsPin', props.sdCsPin)
-        if (props.audioOutput === 'internalDac') {
-          // ESP32-audioI2S's internal-DAC mode is fixed to these two pins.
-          push(n, `${label} internal DAC (GPIO25)`, 'internalDac', 25)
-          push(n, `${label} internal DAC (GPIO26)`, 'internalDac', 26)
-        } else {
-          push(n, `${label} I2S BCLK`, 'i2sBclk', props.i2sBclk)
-          push(n, `${label} I2S LRC`, 'i2sLrc', props.i2sLrc)
-          push(n, `${label} I2S DOUT`, 'i2sDout', props.i2sDout)
-        }
-        break
-    }
-  }
-  return uses
-}
 
 // Nodes whose live preview reads a browser-only API with no embedded-hardware
 // equivalent (mirrors the PREVIEW_NOTES on-node caption in StudioNode.tsx).
@@ -864,7 +749,7 @@ export function buildGraphDiagnostics(
     }
   }
 
-  const usesByPin = new Map<number, PinUse[]>()
+  const usesByPin = new Map<number, ReturnType<typeof collectPinUses>[number][]>()
   for (const use of collectPinUses(nodes)) {
     const uses = usesByPin.get(use.pin) ?? []
     uses.push(use)

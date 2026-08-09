@@ -1,13 +1,18 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { buildShareUrl, readSharedWorkspace, clearShareHash } from '../shareGraph'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
+import type { PersistedWorkspace } from '../../state/workspacePersistence'
 
-const workspace = {
+const workspace: PersistedWorkspace = {
   nodes: [{ id: 'n1', type: 'studioNode', position: { x: 0, y: 0 }, data: { nodeType: 'SolidColor', category: 'pattern', label: 'Solid', properties: {} } }] as unknown as StudioNode[],
   edges: [] as StudioEdge[],
   graphData: {},
   graphs: {},
   activeGraphId: 'root',
+  buildProfile: {
+    version: 1,
+    physicalBoardProfileId: 'seeed-xiao-esp32s3',
+  },
 }
 
 afterEach(() => clearShareHash())

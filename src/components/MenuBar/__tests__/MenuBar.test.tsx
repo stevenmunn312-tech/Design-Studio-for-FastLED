@@ -68,6 +68,7 @@ describe('MenuBar file menu', () => {
       recoverOpen: false,
       templatesOpen: false,
       projectsOpen: false,
+      workspaceMode: 'design',
       performanceMode: false,
       evaluationRunning: true,
       stageMode: false,
@@ -180,6 +181,16 @@ describe('MenuBar file menu', () => {
     expect(getByText('○ Contrast: Standard')).toBeTruthy()
     expect(getByText('✓ UI FX: On')).toBeTruthy()
     expect(getByText('○ Signal dimming: Off')).toBeTruthy()
+    expect(getByText('○ Build Diagram')).toBeTruthy()
+  })
+
+  it('toggles Build Diagram from the View menu', () => {
+    const { getByRole } = render(<MenuBar />)
+
+    fireEvent.click(getByRole('button', { name: 'View menu' }))
+    fireEvent.click(getByRole('menuitemcheckbox', { name: '○ Build Diagram' }))
+
+    expect(useUiStore.getState().workspaceMode).toBe('build')
   })
 
   it('opens Help on the About tab from the View menu', () => {

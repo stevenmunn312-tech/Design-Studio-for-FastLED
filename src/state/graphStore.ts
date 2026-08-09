@@ -20,6 +20,7 @@ import { isPatternContentTrusted, trustPatternContent } from './patternTrust'
 import { useNetworkCredentialsStore } from './networkCredentials'
 import { useUiStore } from './uiStore'
 import { validateMatrixLayout } from './xyLayout'
+import { emptyBuildProfile, normalizeBuildProfile, type BuildProfile } from '../build/buildProfile'
 import {
   type PerformanceDeckConfig,
   type PinnedControl,
@@ -59,6 +60,7 @@ export interface WorkspaceExtras {
   graphData?: Record<string, GraphContent>
   graphs?: Record<string, GraphMeta>
   activeGraphId?: string
+  buildProfile?: BuildProfile
   /** See `PersistedWorkspace.trusted` (workspacePersistence.ts). */
   trusted?: boolean
   /** See `PersistedWorkspace.performanceDeck` (workspacePersistence.ts). */
@@ -94,6 +96,11 @@ interface GraphState {
   trusted: boolean
   /** Explicitly trust the active workspace (the "Trust and run" action). */
   setTrusted: (trusted: boolean) => void
+
+  /** Project-specific physical hardware/build facts for Build Diagram. */
+  buildProfile?: BuildProfile
+  setBuildProfile: (profile: BuildProfile | undefined) => void
+  updateBuildProfile: (updater: (profile: BuildProfile | undefined) => BuildProfile | undefined) => void
 
   // ── Performance Control Deck ─────────────────────────────────────────────
   /** Pinned controls, parameter scenes, and MIDI/keyboard bindings for the
@@ -616,6 +623,15 @@ export const useGraphStore = create<GraphState>()(
           }
           return { trusted }
         }),
+      buildProfile: undefined,
+      setBuildProfile: (buildProfile) => set({ buildProfile: buildProfile ? normalizeBuildProfile(buildProfile) : undefined }),
+      updateBuildProfile: (updater) =>
+        set((s) => ({
+          buildProfile: (() => {
+            const next = updater(s.buildProfile)
+            return next ? normalizeBuildProfile(next) ?? emptyBuildProfile() : undefined
+          })(),
+        })),
 
       performanceDeck: blankDeckConfig(),
       panicActive: false,
@@ -1056,6 +1072,7 @@ export const useGraphStore = create<GraphState>()(
             graphData: pruned?.graphData ?? graphData,
             graphs: pruned?.graphs ?? graphs,
             activeGraphId,
+            buildProfile: normalizeBuildProfile(workspace?.buildProfile),
             selectedNodeId: null,
             // Missing/undefined = trusted: this predates the trust field, so
             // it's the user's own prior local work, not imported content.

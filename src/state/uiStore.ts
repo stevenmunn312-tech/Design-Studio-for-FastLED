@@ -25,6 +25,7 @@ export type NewProjectDecision = 'yes' | 'no' | 'cancel'
 export type AppDialogTone = 'default' | 'danger'
 export type StartChoice = string | 'blank' | null
 export type HelpTab = 'quickstart' | 'shortcuts' | 'nodes' | 'upload' | 'about'
+export type WorkspaceMode = 'design' | 'build'
 
 export interface HelpNodeReferenceState {
   search: string
@@ -126,6 +127,7 @@ function loadSpectrumVisualizerMode(): SpectrumVisualizerMode {
 interface UiState {
   statusText: string
   statusLevel: StatusLevel
+  workspaceMode: WorkspaceMode
   sidebarOpen: boolean
   previewPanelOpen: boolean
   sidebarWidth: number
@@ -181,6 +183,9 @@ interface UiState {
   appDialog: AppDialogState | null
   setStatus: (text: string, level?: StatusLevel) => void
   clearStatus: () => void
+  toggleBuildDiagram: () => void
+  openBuildDiagram: () => void
+  closeBuildDiagram: () => void
   toggleSidebar: () => void
   togglePreviewPanel: () => void
   setSidebarWidth: (px: number) => void
@@ -245,6 +250,7 @@ let appDialogNonce = 0
 export const useUiStore = create<UiState>((set, get) => ({
   statusText: 'Ready',
   statusLevel: 'idle',
+  workspaceMode: 'design',
   sidebarOpen: true,
   previewPanelOpen: true,
   sidebarWidth: load<number>(SIDEBAR_WIDTH_KEY, DEFAULT_SIDEBAR_WIDTH),
@@ -303,6 +309,9 @@ export const useUiStore = create<UiState>((set, get) => ({
     if (statusTimer) clearTimeout(statusTimer)
     set({ statusText: 'Ready', statusLevel: 'idle' })
   },
+  toggleBuildDiagram: () => set((s) => ({ workspaceMode: s.workspaceMode === 'build' ? 'design' : 'build' })),
+  openBuildDiagram: () => set({ workspaceMode: 'build' }),
+  closeBuildDiagram: () => set({ workspaceMode: 'design' }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   togglePreviewPanel: () => set((s) => ({ previewPanelOpen: !s.previewPanelOpen })),
   setSidebarWidth: (px) => {

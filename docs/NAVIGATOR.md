@@ -9,6 +9,10 @@ build/architecture overview aimed at contributors.
   — the supported desktop minimum, the expected graceful-degradation behavior,
     and the “must stay reachable” checklist for chrome, panels, dialogs, and
     status information.
+- [Build Diagram architecture](architecture/build-diagram.md)
+  — the exact-board contract, Build Profile terminology, confidence model,
+    safety invariants, and current workspace foundations for physical/electrical
+    assembly guidance.
 - [Multi-output routing](architecture/multi-output-routing.md)
   — the composition-canvas contract, per-route fit/crop mapping, synchronized
     firmware output, and cross-route GPIO/power/RAM validation.

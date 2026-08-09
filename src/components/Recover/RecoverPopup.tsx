@@ -36,8 +36,8 @@ export default function RecoverPopup() {
       tone: 'danger',
     })
     if (!ok) return
-    const { nodes, edges, graphData, graphs, activeGraphId, performanceDeck } = snap.workspace
-    useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, performanceDeck })
+    const { nodes, edges, graphData, graphs, activeGraphId, buildProfile, performanceDeck } = snap.workspace
+    useGraphStore.getState().loadGraph(nodes, edges, { graphData, graphs, activeGraphId, buildProfile, performanceDeck })
     setStatus(`Restored recovery snapshot from ${relativeTime(snap.timestamp)}`, 'success')
     closeRecover()
   }

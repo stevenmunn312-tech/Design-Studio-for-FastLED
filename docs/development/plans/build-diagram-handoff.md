@@ -1,6 +1,6 @@
 # Plan — Generated Build Diagram
 
-Status: **approved for implementation** · Created 2026-08-10 · Planning only
+Status: **MVP implemented; independent electrical review pending** · Created 2026-08-10
 
 ## Purpose
 
@@ -18,29 +18,29 @@ data-model, electrical-rule, persistence, or validation gates.
 
 - [ ] Keep controller-family selection, pins, dimensions, chipset, setup, and
   upload in the existing Matrix Output workflow.
-- [ ] Do **not** add a Controller node to the normal graph.
-- [ ] Add **View → Build Diagram** as a full-workspace mode; do not consume more
+- [x] Do **not** add a Controller node to the normal graph.
+- [x] Add **View → Build Diagram** as a full-workspace mode; do not consume more
   permanent editor screen space.
-- [ ] Keep the normal graph as the logical/dataflow representation and Build
+- [x] Keep the normal graph as the logical/dataflow representation and Build
   Diagram as the electrical/physical representation.
-- [ ] Require an exact physical board profile inside Build Diagram before
+- [x] Require an exact physical board profile inside Build Diagram before
   rendering controller pins or wires.
-- [ ] Use one large pannable/zoomable diagram rather than automatic pages.
-- [ ] Put hardware/build information on the left, the diagram in the centre,
+- [x] Use one large pannable/zoomable diagram rather than automatic pages.
+- [x] Put hardware/build information on the left, the diagram in the centre,
   and connections/BOM/export on the right.
-- [ ] Give each primary hardware item an independent visibility control and a
+- [x] Give each primary hardware item an independent visibility control and a
   separate Wired/Done control.
-- [ ] Selecting an item must highlight its hardware and wires and bold its pin
+- [x] Selecting an item must highlight its hardware and wires and bold its pin
   definitions.
-- [ ] Isolating an item must show only that item, the controller, and required
+- [x] Isolating an item must show only that item, the controller, and required
   shared infrastructure; the Connections panel must filter to that item.
-- [ ] Offer **Current view** and **Complete build** exports, defaulting to
+- [x] Offer **Current view** and **Complete build** exports, defaulting to
   Complete build.
 - [ ] Generate automatic recommendations for signal conditioning, protection,
   power distribution, voltage conversion, and injection.
-- [ ] Report **Requirements calculated**, **Signal ready**, and **Power ready**
+- [x] Report **Requirements calculated**, **Signal ready**, and **Power ready**
   independently; report **Build ready** only when Signal and Power both pass.
-- [ ] Let a calculated requirements/BOM plan exist before parts are owned, but
+- [x] Let a calculated requirements/BOM plan exist before parts are owned, but
   reserve **Power ready** for an assembly whose actual or explicitly selected
   supply, conductor, connector, fuse, converter, and topology meet the plan.
 
@@ -49,14 +49,14 @@ data-model, electrical-rule, persistence, or validation gates.
 The Build Diagram is an electrical design assistant, not merely a drawing of a
 power system the user has already designed.
 
-- [ ] Ask the user to describe the hardware they are using and the physical
+- [x] Ask the user to describe the hardware they are using and the physical
   installation facts they can reasonably know.
-- [ ] Prefill everything already known from the graph, then ask the user to
+- [x] Prefill everything already known from the graph, then ask the user to
   identify the exact board/LED variants and fill only the missing physical facts.
-- [ ] Derive known electrical facts from reviewed hardware profiles instead of
+- [x] Derive known electrical facts from reviewed hardware profiles instead of
   asking the user to re-enter them. Examples include nominal LED voltage,
   conservative current per pixel, board logic voltage, and pin capabilities.
-- [ ] Ask only for installation facts that cannot be derived, including cable-run
+- [x] Ask only for installation facts that cannot be derived, including cable-run
   lengths, strip length or matrix dimensions, LED density/pitch, feed locations,
   and relevant installation conditions.
 - [ ] Calculate and present, per branch and for the complete build:
@@ -70,19 +70,19 @@ power system the user has already designed.
   - Branch and main fuse requirements.
   - Power-injection locations.
   - Required converters, signal conditioning, protection components, and BOM.
-- [ ] Present calculated requirements before asking the user to choose exact
+- [x] Present calculated requirements before asking the user to choose exact
   electrical parts.
-- [ ] Provide an optional **I already have these parts** workflow for entering an
+- [x] Provide an optional **I already have these parts** workflow for entering an
   actual power supply, wire, connector, fuse, or converter and validating it
   against the calculated minimums.
-- [ ] Treat an entered part that fails validation as an error; never silently
+- [x] Treat an entered part that fails validation as an error; never silently
   weaken the calculated requirement to make an owned part appear suitable.
-- [ ] Separate simple inputs from advanced assumptions. Show safe reviewed
+- [x] Separate simple inputs from advanced assumptions. Show safe reviewed
   defaults for conductor material, allowable voltage drop, ambient temperature,
   bundling, and supply headroom, and let advanced users inspect or change them.
-- [ ] Recalculate immediately when hardware, topology, physical dimensions,
+- [x] Recalculate immediately when hardware, topology, physical dimensions,
   operating current cap, or advanced assumptions change.
-- [ ] Default safety-critical conductor, connector, fuse, and supply checks to the
+- [x] Default safety-critical conductor, connector, fuse, and supply checks to the
   conservative hardware design load. Show a firmware current cap as a separate
   expected/capped operating case; do not let software configuration silently
   weaken physical protection requirements.
@@ -125,16 +125,16 @@ These are implementation invariants, not optional warnings.
 
 ### Exact ESP32-S3 board profiles
 
-- [ ] **Generic ESP32-S3 N16R8, 44-pin dual USB-C** — AliExpress item
+- [x] **Generic ESP32-S3 N16R8, 44-pin dual USB-C** — AliExpress item
   `1005008201847680`; use the user-supplied pinout and label the controller pin
   as `5VIN`; confidence is **Pinout verified / power circuitry unverified**.
-- [ ] Mark GPIO35–GPIO37 unavailable for this N16R8 profile because octal PSRAM
+- [x] Mark GPIO35–GPIO37 unavailable for this N16R8 profile because octal PSRAM
   consumes them, even if the physical headers expose them.
-- [ ] Do not claim verified USB power sharing, 5VIN backfeed protection,
+- [x] Do not claim verified USB power sharing, 5VIN backfeed protection,
   regulator current, or onboard jumper behaviour for the generic board.
-- [ ] **Espressif ESP32-S3-DevKitC-1** — manufacturer-verified profile, including
+- [x] **Espressif ESP32-S3-DevKitC-1** — manufacturer-verified profile, including
   the relevant board revision and memory-specific restrictions.
-- [ ] **Seeed Studio XIAO ESP32S3** — manufacturer-verified compact profile.
+- [x] **Seeed Studio XIAO ESP32S3** — manufacturer-verified compact profile.
 - [ ] Queue Adafruit ESP32-S3 Feather as the next board after the MVP rather than
   expanding the initial scope before the first vertical slice works.
 
@@ -151,12 +151,12 @@ These are implementation invariants, not optional warnings.
 - [ ] Rotary encoder.
 - [ ] Defer SD/audio, DMX, RTC, HUB75, clocked LED chipsets, and additional board
   families until the profile and rule systems are proven.
-- [ ] Show an explicit “diagram profile unavailable” message for unsupported
+- [x] Show an explicit “diagram profile unavailable” message for unsupported
   hardware; do not draw speculative wiring.
 
 ## Phase 1 — Architecture decision and terminology
 
-- [ ] Add an architecture/design document under `docs/` recording the product
+- [x] Add an architecture/design document under `docs/` recording the product
   contract and electrical invariants above.
 - [ ] Define these terms consistently in code and UI:
   - **Target family** — current compile/upload target such as ESP32-S3.
@@ -175,12 +175,12 @@ These are implementation invariants, not optional warnings.
   - **Power ready** — actual or explicitly selected power-path parts meet the
     calculated requirements.
   - **Build ready** — both Signal ready and Power ready pass.
-- [ ] Document that “GPIO valid” never means “electrically safe.”
-- [ ] Document confidence levels:
+- [x] Document that “GPIO valid” never means “electrically safe.”
+- [x] Document confidence levels:
   - **Manufacturer verified** — official pinout and schematic reviewed.
   - **Pinout verified** — reliable header map but incomplete power schematic.
   - **Visual match only** — no wiring generated.
-- [ ] Record Build Diagram as part of the desktop viewport contract, including
+- [x] Record Build Diagram as part of the desktop viewport contract, including
   behaviour at `1440×900` and the supported `1280×720` minimum.
 
 ### Phase 1 gate
@@ -323,7 +323,7 @@ These are implementation invariants, not optional warnings.
 
 ## Phase 5 — Electrical assembly and rule engine
 
-- [ ] Implement the assembly engine as pure, UI-independent functions.
+- [x] Implement the assembly engine as pure, UI-independent functions.
 - [ ] Produce normalized components, terminals, nets, ownership relationships,
   issues, assumptions, readiness, and BOM lines.
 - [ ] Use an explicit calculation pipeline so downstream choices cannot mask an
@@ -349,23 +349,23 @@ These are implementation invariants, not optional warnings.
 - [ ] Add common-ground validation for every non-isolated signal path.
 - [ ] Add per-supply main-protection recommendations.
 - [ ] Add mandatory per-output branch protection.
-- [ ] Maintain reviewed, versioned rule data for conductor ampacity, voltage-drop
+- [x] Maintain reviewed, versioned rule data for conductor ampacity, voltage-drop
   calculation, connector limits, fuse selection/derating, and supply headroom.
-- [ ] Support both AWG and metric conductor display without converting to a
+- [x] Support both AWG and metric conductor display without converting to a
   falsely exact nominal size.
-- [ ] Calculate minimum conductor size using load, one-way run length, circuit
+- [x] Calculate minimum conductor size using load, one-way run length, circuit
   voltage, conductor material, return path, allowed voltage drop, ambient
   temperature, bundling, and reviewed ampacity limits.
-- [ ] Size fuses against calculated load, recommended/selected wire ampacity, and
+- [x] Size fuses against calculated load, recommended/selected wire ampacity, and
   connector rating; clearly identify which value is limiting.
 - [ ] Insert voltage conversion when a supply cannot power the controller/logic
   directly.
 - [ ] Require converter output voltage and continuous-current confirmation.
-- [ ] Add compatible logic-level conditioning where required.
-- [ ] Add a data-line resistor per relevant LED signal.
-- [ ] Add a correctly polarized bulk capacitor at relevant LED supply inputs.
+- [x] Add compatible logic-level conditioning where required.
+- [x] Add a data-line resistor per relevant LED signal.
+- [x] Add a correctly polarized bulk capacitor at relevant LED supply inputs.
 - [ ] Keep the exact component/module choice selectable when pinout differs.
-- [ ] Calculate design current, estimated operating current, and current after any
+- [x] Calculate design current, estimated operating current, and current after any
   configured firmware cap for each output; label their different purposes.
 - [ ] Calculate per-branch, per-voltage-domain, per-supply, and whole-build current
   and wattage separately.
@@ -378,12 +378,12 @@ These are implementation invariants, not optional warnings.
   inputs and the engine's recommended conductor/connector limits.
 - [ ] Allow manual injection overrides but retain validation against conductor
   and connector limits.
-- [ ] Generate a recommended supply specification and BOM even when the user owns
+- [x] Generate a recommended supply specification and BOM even when the user owns
   no power-distribution parts yet.
 - [ ] Validate optional owned supplies, wire, connectors, fuses, and converters as
   suitable, marginal, or unsuitable, with the exact reason.
-- [ ] Produce unresolved requirements instead of speculative ratings.
-- [ ] Compute Requirements calculated, Signal ready, and Power ready
+- [x] Produce unresolved requirements instead of speculative ratings.
+- [x] Compute Requirements calculated, Signal ready, and Power ready
   independently; require actual or explicitly selected compliant power-path
   parts for Power ready, not merely a generated recommendation.
 
@@ -401,10 +401,10 @@ These are implementation invariants, not optional warnings.
 - [ ] Reject an owned supply below the calculated continuous-current or wattage
   requirement, including required headroom.
 - [ ] Accept a suitable owned-parts set without changing the calculated minimums.
-- [ ] Keep Signal ready possible while Power remains unresolved.
-- [ ] Keep Requirements calculated possible before the user owns or confirms any
+- [x] Keep Signal ready possible while Power remains unresolved.
+- [x] Keep Requirements calculated possible before the user owns or confirms any
   recommended power-distribution parts.
-- [ ] Require both states for Build ready.
+- [x] Require both states for Build ready.
 - [ ] Handle two LED outputs on one supply.
 - [ ] Handle two outputs on different supplies.
 - [ ] Handle a 12 V LED supply plus a buck-powered 5 V controller.
@@ -422,12 +422,12 @@ These are implementation invariants, not optional warnings.
 
 ## Phase 6 — Build Diagram workspace shell
 
-- [ ] Add a checkable **Build Diagram** item under View.
-- [ ] Add a session/UI mode that replaces the normal canvas workspace.
-- [ ] Preserve graph viewport, selection, and panel state while entering/leaving.
-- [ ] Support exit through the View item, a visible Back to Design action, and
+- [x] Add a checkable **Build Diagram** item under View.
+- [x] Add a session/UI mode that replaces the normal canvas workspace.
+- [x] Preserve graph viewport, selection, and panel state while entering/leaving.
+- [x] Support exit through the View item, a visible Back to Design action, and
   `Esc` without conflicting with existing Escape priorities.
-- [ ] Implement the three-column layout:
+- [x] Implement the three-column layout:
   - Left: board and hardware/install inputs, hardware list, visibility, Done,
     calculated power summary, readiness.
   - Centre: SVG diagram and viewport controls.
@@ -435,15 +435,15 @@ These are implementation invariants, not optional warnings.
     Connections, selected item, BOM, warnings, export.
 - [ ] Make side panels independently collapsible/resizable.
 - [ ] Define graceful behaviour at the supported minimum viewport.
-- [ ] Show hardware inventory before exact-board selection, but no controller
+- [x] Show hardware inventory before exact-board selection, but no controller
   pins or physical wires.
-- [ ] Provide a clear exact-board selection call to action.
-- [ ] Filter the board picker to profiles compatible with the current target
+- [x] Provide a clear exact-board selection call to action.
+- [x] Filter the board picker to profiles compatible with the current target
   family.
-- [ ] Provide comparison/identification information for each physical board.
-- [ ] Use a guided input sequence that starts with known hardware and asks for
+- [x] Provide comparison/identification information for each physical board.
+- [x] Use a guided input sequence that starts with known hardware and asks for
   only the missing physical facts needed to calculate the power plan.
-- [ ] Show why an input is required and which calculations it blocks when absent.
+- [x] Show why an input is required and which calculations it blocks when absent.
 - [ ] Keep advanced electrical assumptions collapsed by default but visible and
   included in exports.
 
@@ -459,13 +459,13 @@ These are implementation invariants, not optional warnings.
 ### Phase 6 gate
 
 - [ ] Entering/leaving Build Diagram loses no graph state.
-- [ ] No wire appears before an exact board is selected.
+- [x] No wire appears before an exact board is selected.
 - [ ] The shell remains operable at `1280×720`.
 
 ## Phase 7 — Deterministic SVG diagram and routing
 
-- [ ] Render components as SVG with accessible names and descriptions.
-- [ ] Use a deterministic layout so small property changes do not scramble the
+- [x] Render components as SVG with accessible names and descriptions.
+- [x] Use a deterministic layout so small property changes do not scramble the
   entire diagram.
 - [ ] Default placement:
   - Controller on the left/centre.
@@ -475,7 +475,7 @@ These are implementation invariants, not optional warnings.
 - [ ] Route wires orthogonally through reserved signal, ground, and power lanes.
 - [ ] Draw junction dots only for real electrical connections.
 - [ ] Avoid visual crossings where routing can reasonably separate them.
-- [ ] Add pan, zoom, Fit all, Fit visible, Focus selected, and Reset layout.
+- [x] Add pan, zoom, Fit all, Fit visible, Focus selected, and Reset layout.
 - [ ] Support a large diagram canvas without a hard hardware-count limit.
 - [ ] Render only the necessary detail at the current zoom level if performance
   requires progressive detail.
@@ -485,11 +485,11 @@ These are implementation invariants, not optional warnings.
     injection, and wires.
   - Shared infrastructure remains while another visible device uses it.
   - Required safety items cannot float without their parent.
-- [ ] Add Show all, Hide completed, Show unfinished only, and Isolate selected.
+- [x] Add Show all, Hide completed, Show unfinished only, and Isolate selected.
 - [ ] When only the microphone is shown, render only controller + microphone +
   required connections and filter Connections accordingly.
-- [ ] Bold selected-item pin definitions on the controller and in the right panel.
-- [ ] Highlight selected wires and dim unrelated visible wires.
+- [x] Bold selected-item pin definitions on the controller and in the right panel.
+- [x] Highlight selected wires and dim unrelated visible wires.
 
 ### Phase 7 gate
 
@@ -529,8 +529,8 @@ These are implementation invariants, not optional warnings.
 
 ## Phase 9 — Connections, BOM, and exports
 
-- [ ] Generate Connections from the same normalized nets used by SVG rendering.
-- [ ] Filter Connections to visible/selected hardware as agreed.
+- [x] Generate Connections from the same normalized nets used by SVG rendering.
+- [x] Filter Connections to visible/selected hardware as agreed.
 - [ ] Generate BOM categories:
   - Configured hardware.
   - Calculated supply requirements and design headroom.
@@ -542,14 +542,14 @@ These are implementation invariants, not optional warnings.
   - Unresolved selections.
 - [ ] Distinguish generic specifications from exact selected product/module
   profiles.
-- [ ] Add SVG export.
-- [ ] Add print styling for browser Save as PDF before adopting a PDF library.
-- [ ] Add BOM CSV and connection-table CSV export.
-- [ ] Add explicit export mode selection:
+- [x] Add SVG export.
+- [x] Add print styling for browser Save as PDF before adopting a PDF library.
+- [x] Add BOM CSV and connection-table CSV export.
+- [x] Add explicit export mode selection:
   - **Current view** respects eye/isolation state.
   - **Complete build** includes all configured hardware and is the default.
-- [ ] Ensure Complete build cannot silently omit currently hidden items.
-- [ ] Stamp unresolved exports as **Draft — unresolved build requirements**.
+- [x] Ensure Complete build cannot silently omit currently hidden items.
+- [x] Stamp unresolved exports as **Draft — unresolved build requirements**.
 - [ ] Include board confidence and material assumptions in exported reference
   documents.
 - [ ] Include the full calculation basis in exports: LED profile/version, load
@@ -563,13 +563,13 @@ These are implementation invariants, not optional warnings.
 
 ## Phase 10 — Verification and release
 
-- [ ] Run `npm run lint`.
-- [ ] Run `npm test`.
-- [ ] Run `npm run build`.
-- [ ] Add focused unit tests for profile validation, manifest derivation,
+- [x] Run `npm run lint`.
+- [x] Run `npm test`.
+- [x] Run `npm run build`.
+- [x] Add focused unit tests for profile validation, manifest derivation,
   electrical rules, calculated requirements, owned-part validation, readiness,
   fingerprint invalidation, and export filtering.
-- [ ] Add component tests for menu entry, board gating, visibility, Done,
+- [x] Add component tests for menu entry, board gating, visibility, Done,
   selection emphasis, and responsive panels.
 - [ ] Review each exact board against its source documentation and physical pin
   order before marking it supported.
