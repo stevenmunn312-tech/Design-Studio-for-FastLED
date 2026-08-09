@@ -16,7 +16,7 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import { customPaletteDeclarationsCpp } from '../state/paletteCatalog'
-import { generateCpp, audioEngineForGraph, psramBufferDecl, PSRAM_ALLOC_CPP, ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp } from './cppGenerator'
+import { generateCpp, audioEngineForGraph, psramBufferDecl, PSRAM_ALLOC_CPP, ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75DisplayVar } from './cppGenerator'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { SHOW_TRANSITIONS } from './performanceGenerator'
 import { TRANSITION_HELPER_CPP, PARTICLE_OVERLAY_CPP } from './transitionHelperCpp'
@@ -348,7 +348,7 @@ export function generateShowSketch(
     : hw
   for (const d of overclockDefineCpp(sharedHw)) L.push(d)
   L.push('#include <FastLED.h>')
-  if (isHub75) L.push('#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>')
+  if (isHub75) L.push(...hub75IncludesCpp(hub75Hw!))
   if (audio) L.push(audio.include)
   L.push('')
   L.push('// Explicit FastLED-typed declarations keep the Arduino preprocessor')
@@ -375,7 +375,7 @@ export function generateShowSketch(
   // composition buffer regardless of chipset — but the physical output is the
   // DMA display object instead of a registered CLEDController.
   L.push('CRGB leds[NUM_LEDS];')
-  if (isHub75) L.push('MatrixPanel_I2S_DMA *dma_display = nullptr;')
+  if (isHub75) L.push(...hub75GlobalsCpp(hub75Hw!))
   if (multiOutput) for (const route of routes) L.push(`CRGB leds_${route.safeId}[${route.width * route.height}];`)
   const showBufs = [
     'CRGB showA[NUM_LEDS];   // outgoing pattern during a transition',
@@ -521,9 +521,10 @@ export function generateShowSketch(
     }
   }
   if (isHub75) {
+    const hub75Disp = hub75DisplayVar(hub75Hw!)
     L.push('  for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {')
     L.push('    CRGB _c = leds[_y * WIDTH + _x];')
-    L.push('    dma_display->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);')
+    L.push(`    ${hub75Disp}->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);`)
     L.push('  }')
   } else {
     L.push('  FastLED.show();')

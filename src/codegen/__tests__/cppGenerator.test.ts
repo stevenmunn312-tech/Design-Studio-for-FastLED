@@ -2371,6 +2371,32 @@ describe('HUB75 codegen (docs/development/design/hub75-output.md)', () => {
     const cpp = generateCpp([sc, poweredOut], wiring)
     expect(cpp).not.toContain('setMaxPowerInVoltsAndMilliamps')
   })
+
+  it('drives a folded 2D panel grid via VirtualMatrixPanel_T', () => {
+    // 16x16 composed canvas, 2x2 grid of 8px panels folded into a virtual
+    // module — the base DMA class can only address one row's height
+    // directly, so a 2D grid needs the VirtualMatrixPanel_T wrapper.
+    const gridOut = node('out', 'MatrixOutput', 'output', {
+      width: 16, height: 16, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2,
+    })
+    const cpp = generateCpp([sc, gridOut], wiring)
+    expect(cpp).toContain('#include <ESP32-HUB75-VirtualMatrixPanel_T.hpp>')
+    expect(cpp).toContain('HUB75_I2S_CFG _hub75Cfg(8, 8, 4, _hub75Pins);')
+    expect(cpp).toContain('VirtualMatrixPanel_T<CHAIN_TOP_LEFT_DOWN> *hub75Virtual = nullptr;')
+    expect(cpp).toContain('hub75Virtual = new VirtualMatrixPanel_T<CHAIN_TOP_LEFT_DOWN>(2, 2, 8, 8);')
+    expect(cpp).toContain('hub75Virtual->setDisplay(*dma_display);')
+    expect(cpp).toContain('for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {')
+    expect(cpp).toContain('hub75Virtual->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);')
+  })
+
+  it('selects the zig-zag chain type when the panel chain is serpentine', () => {
+    const gridOut = node('out', 'MatrixOutput', 'output', {
+      width: 16, height: 16, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2, tileSerpentine: true,
+    })
+    const cpp = generateCpp([sc, gridOut], wiring)
+    expect(cpp).toContain('VirtualMatrixPanel_T<CHAIN_TOP_LEFT_DOWN_ZZ> *hub75Virtual = nullptr;')
+    expect(cpp).toContain('hub75Virtual = new VirtualMatrixPanel_T<CHAIN_TOP_LEFT_DOWN_ZZ>(2, 2, 8, 8);')
+  })
 })
 
 describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameSwitch)', () => {

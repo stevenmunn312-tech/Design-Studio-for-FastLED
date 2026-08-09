@@ -21,11 +21,17 @@ turned out to need the same mechanical swap as the other three — `leds[]`
 already held the final composited frame as chipset-agnostic CRGB math in both,
 so only the include/setup/output step changed (the player's live
 `SET_BRIGHTNESS` show event routes to `dma_display->setBrightness8()` for
-HUB75 too). Neither has a hardware pass yet. Folded 2D panel grids, per-panel
-rotation within a chain, and HUB75+**addressable-strip** peripheral contention
-(a different, still-untested question — see Open Questions below; audio input
-sharing the board is not the same as a second LED output route) remain
-unimplemented/unvalidated. · Owner: app · Date: 2026-08-07
+HUB75 too). Neither has a hardware pass yet. **Folded 2D panel grids
+(`layout: 'panels'`, `tilesY > 1`) are also now implemented** via the
+library's `VirtualMatrixPanel_T` wrapper — verified against the real vendored
+header/example at tag `3.0.14`. Per-panel rotation within a chain and
+HUB75+**addressable-strip** peripheral contention (a different, still-untested
+question — see Open Questions below; audio input sharing the board is not the
+same as a second LED output route) remain unimplemented/unvalidated; the 2D
+grid path itself is not yet hardware-validated (no real multi-panel HUB75
+chain has run it), and the specific `PANEL_CHAIN_TYPE` chosen is a best-effort
+source-reading match, not confirmed against real hardware or the library's own
+wiring-topology reference. · Owner: app · Date: 2026-08-07
 
 Scopes a second physical-output family for `MatrixOutput`: HUB75 scan-panel
 matrices (the common indoor P2–P10 modules), driven over their ribbon
@@ -142,17 +148,21 @@ constructor, `setPixelColorDepthBits()`, `begin()`, `setBrightness8()`, and
 composited buffer is walked pixel-by-pixel into `drawPixelRGB888()` instead
 of a `leds[]` array + `FastLED.show()`; `FastLED.setMaxPowerInVoltsAndMilliamps`
 is skipped for HUB75 since no `CLEDController` is registered for it to
-throttle. `chain_length`/per-panel resolution come from `tilesX`/`layout`
-(single-row chains — see below).
+throttle. `chain_length`/per-panel resolution come from `tilesX`/`tilesY`/
+`layout`. For a folded 2D grid (`tilesY > 1`), `hub75Hardware.virtualGrid` is
+set and every generator additionally constructs a `VirtualMatrixPanel_T`
+wrapper around `dma_display` and draws through it instead (see the resolved
+"Virtual-panel chaining model" open question below for the full picture).
 
 Scoped to a **single** `MatrixOutput` route, `layout: 'matrix'` or a
-single-row `'panels'` chain, and no supersampling.
-`findHub75ConfigErrors`/`findHub75ConfigIssues` in `validateGraph.ts`
-(renamed from the earlier blanket `findUnimplementedChipsetErrors`) allow
-that supported shape and block every other combination — multiple Matrix
-Output routes, an unsupported layout, or supersampling — each with its own
-message. All **five** sketch generators that share these hardware helpers now
-have real HUB75 support:
+`'panels'` chain (single-row or folded 2D grid, unrotated), and no
+supersampling. `findHub75ConfigErrors`/`findHub75ConfigIssues` in
+`validateGraph.ts` (renamed from the earlier blanket
+`findUnimplementedChipsetErrors`) allow that supported shape and block every
+other combination — multiple Matrix Output routes, an unsupported layout,
+per-panel rotation, or supersampling — each with its own message. All
+**five** sketch generators that share these hardware helpers now have real
+HUB75 support:
 
 - `generateCpp` (normal Upload/Export) — the original implementation.
 - `generateWiringDiagnosticSketch` (🧪 Flash Wiring Test) and
@@ -185,25 +195,48 @@ hardware pass yet.
   Currently moot in practice: codegen only supports a single Matrix Output
   route at all (see above), so a mixed HUB75 + addressable-strip rig is
   blocked regardless of this question's answer.
-- ~~**Virtual-panel chaining model.**~~ **Resolved, single row implemented:**
-  the property model reuses the existing `layout: 'panels'` tiling
-  (`tilesX`/`tilesY`/`tileRotations`/`tileSerpentine`, `src/state/xyLayout.ts`)
-  rather than inventing separate panel-resolution/chain-length properties — a
-  HUB75 chain's per-panel resolution falls out of `width`/`height` ÷
-  `tilesX`/`tilesY`, same as an addressable panel grid. Codegen now acts on
-  this for a single row (`tilesY === 1`, unrotated): verified against the
-  vendored library source at tag `3.0.14` that the base `MatrixPanel_I2S_DMA`
-  class already addresses a horizontal chain directly
+- ~~**Virtual-panel chaining model.**~~ **Resolved, single row and folded 2D
+  grid both implemented:** the property model reuses the existing
+  `layout: 'panels'` tiling (`tilesX`/`tilesY`/`tileRotations`/
+  `tileSerpentine`, `src/state/xyLayout.ts`) rather than inventing separate
+  panel-resolution/chain-length properties — a HUB75 chain's per-panel
+  resolution falls out of `width`/`height` ÷ `tilesX`/`tilesY`, same as an
+  addressable panel grid. Codegen handles a single row (`tilesY === 1`,
+  unrotated) with no wrapper at all: verified against the vendored library
+  source at tag `3.0.14` that the base `MatrixPanel_I2S_DMA` class already
+  addresses a horizontal chain directly
   (`PIXELS_PER_ROW = mx_width * chain_length`), so `chain_length = tilesX` in
-  `HUB75_I2S_CFG` is all that's needed — no `VirtualMatrixPanel_T` wrapper, no
-  per-pixel remap, since virtual (x, y) is physical (x, y) for this shape.
-  Folded 2D grids (`tilesY > 1`) still need that wrapper class — its
-  `PANEL_CHAIN_TYPE` is a fixed enum of whole-chain wiring topologies, which
-  doesn't map cleanly onto this app's independent per-panel `tileRotations`
-  model, so reconciling the two (or writing a custom remap that reuses
-  `xyLayout.ts`'s existing rotation math instead of the wrapper) is still
-  unresolved. `findHub75ConfigIssues` blocks `tilesY > 1` and any per-panel
-  rotation within a chain until that's done.
+  `HUB75_I2S_CFG` is all that's needed — virtual (x, y) is physical (x, y) for
+  this shape. **Folded 2D grids (`tilesY > 1`) now use `VirtualMatrixPanel_T`**
+  (2026-08-09): `Hub75Hardware.virtualGrid` is set whenever `tilesY > 1`
+  (`{ rows: tilesY, cols: tilesX, chainType }`), and every generator
+  constructs `new VirtualMatrixPanel_T<chainType>(rows, cols, panelResX,
+  panelResY)` + `setDisplay(*dma_display)` in setup, then draws through
+  `hub75Virtual->drawPixelRGB888(...)` instead of `dma_display` directly
+  (`hub75DisplayVar()` picks the right one). `chainType` is
+  `CHAIN_TOP_LEFT_DOWN` normally, or `CHAIN_TOP_LEFT_DOWN_ZZ` when
+  `tileSerpentine` is on — reusing the existing per-chain serpentine property
+  rather than adding a new one, on the theory that a folded panel grid's
+  physical ribbon-cable wiring snakes the same way an addressable panel grid's
+  pixel wiring would. Per-panel rotation (`tileRotations`) is still blocked
+  for any HUB75 chain, 1D or 2D — `VirtualMatrixPanel_T`'s `PANEL_CHAIN_TYPE`
+  is a fixed enum of whole-chain wiring topologies with no equivalent to this
+  app's independent per-panel rotation model, and reconciling the two (or
+  writing a custom remap reusing `xyLayout.ts`'s rotation math instead of the
+  wrapper) remains unresolved; `findHub75ConfigIssues` now correctly scans
+  every tile in the `tilesX * tilesY` grid for a nonzero rotation rather than
+  just the first row (a latent bug the single-row-only gate never exercised).
+  **Caveat carried forward, not yet resolved:** the `CHAIN_TOP_LEFT_DOWN`
+  default is a best-effort match from reading the library's source and
+  `VirtualMatrixPanel.ino` example — not verified against real 2+ panel
+  hardware or the library's own referenced wiring-topology PDF. Revisit once
+  real multi-panel hardware exists to confirm the chain type actually matches
+  a typical top-left-start, snake-down physical wiring convention. Also
+  confirmed while implementing this: `VirtualMatrixPanel_T` exposes no
+  `setBrightness8` of its own (it only wraps drawing methods), so brightness
+  control (the player's live `CMD_SET_BRIGHTNESS` event) correctly stays
+  hardcoded to `dma_display->setBrightness8()` regardless of whether a virtual
+  grid is in play.
 - **Preview fidelity.** The live preview already renders LEDs as discs with
   glow (`webglRenderer.ts`); a HUB75 panel's actual visual character (visible
   scan lines, lower effective bit depth at high refresh) is different enough

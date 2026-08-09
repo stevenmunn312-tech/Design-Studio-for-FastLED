@@ -408,14 +408,34 @@ export function fastledSetupCpp(
 // A HUB75 route (docs/development/design/hub75-output.md) has no FastLED
 // driver — it's driven over its own 13-14 signal ribbon via a separate DMA
 // library instead of FastLED's addLeds<>()/leds[]/show(). Scoped for now to a
-// single Matrix Output route, and layout 'matrix' or a single-row 'panels'
-// chain (no folded 2D grids, no per-panel rotation) — see findHub75ConfigIssues
+// single Matrix Output route and no supersampling — see findHub75ConfigIssues
 // in validateGraph.ts for the gate.
+
+/** A folded 2D grid of chained panels (`layout: 'panels'`, `tilesY > 1`)
+ *  needs the DMA library's `VirtualMatrixPanel_T` wrapper — the base
+ *  `MatrixPanel_I2S_DMA` class can only address one row's worth of height
+ *  (`mx_height`) directly, so a second row of panels has nowhere to go
+ *  without it. `chainType` is a compile-time template parameter (an enum
+ *  value baked into the generated source, not a runtime string) — one of
+ *  the 8 real `PANEL_CHAIN_TYPE` values, verified against the vendored
+ *  header (tag 3.0.14). Picked `CHAIN_TOP_LEFT_DOWN`/`_ZZ` as the best match
+ *  for this app's existing row-major-from-top-left model (`tileSerpentine`
+ *  → the `_ZZ` zigzag variant) — the class's own naming describes exactly
+ *  that topology, but the precise row-to-DMA-offset direction inside its
+ *  transform wasn't independently confirmed against real 2+ panel hardware
+ *  (only against the source, which was ambiguous on this one point). May
+ *  need revisiting once real multi-row hardware exists to test against. */
+export interface Hub75VirtualGrid {
+  rows: number
+  cols: number
+  chainType: string
+}
 
 export interface Hub75Hardware {
   panelResX: number
   panelResY: number
   chainLength: number
+  virtualGrid: Hub75VirtualGrid | null
   pins: {
     r1: number; g1: number; b1: number; r2: number; g2: number; b2: number
     a: number; b: number; c: number; d: number; e: number
@@ -426,39 +446,45 @@ export interface Hub75Hardware {
 }
 
 /** Resolve + sanitise a MatrixOutput node's HUB75 properties. `width`/`height`
- *  are the composed matrix's dimensions; for `layout: 'panels'` with a single
- *  row (`tilesY === 1` — the only chaining shape supported so far, enforced
- *  by validateGraph.ts's findHub75ConfigIssues), `width` splits evenly across
- *  `tilesX` chained panels — the DMA library's base class already addresses
- *  that whole chain directly (`PIXELS_PER_ROW = mx_width * chain_length`, no
- *  VirtualMatrixPanel_T wrapper needed for an unrotated single row), so the
- *  per-pixel draw loop in cppGenerator.ts/wiringDiagnosticGenerator.ts/
- *  streamReceiverGenerator.ts needs no change — virtual (x, y) IS physical
- *  (x, y) for this shape. `hub75EPin` is only meaningful when `hub75WideScan`
- *  is on — the DMA library's own convention for "unused" is -1, matching its
- *  documented default pinout. Fallback pin numbers MUST match nodeLibrary.ts's
- *  MatrixOutput defaultProperties exactly (kept in sync by hand) —
- *  validateGraph.ts's collectPinUses reads the same library defaults to check
- *  pins that were never explicitly saved on an older node, so a mismatch here
- *  would let a codegen-only default escape validation again. Chosen as the
- *  exact intersection of valid, output-capable GPIOs across every
- *  `HUB75_SUPPORTED_FQBNS` board (ESP32/S2/S3) — see the comment on these
- *  defaults in nodeLibrary.ts for the full derivation and the GPIO0/CLK
- *  caveat. */
+ *  are the composed matrix's dimensions; for `layout: 'panels'` (enforced by
+ *  validateGraph.ts's findHub75ConfigIssues to have no per-panel rotation —
+ *  `VirtualMatrixPanel_T` has no equivalent to that), `width`/`height` split
+ *  evenly across `tilesX`×`tilesY` chained panels. A single row
+ *  (`tilesY === 1`) needs no wrapper at all: the DMA library's base class
+ *  already addresses that whole chain directly
+ *  (`PIXELS_PER_ROW = mx_width * chain_length`), so virtual (x, y) IS
+ *  physical (x, y) and every per-pixel draw loop in cppGenerator.ts/
+ *  wiringDiagnosticGenerator.ts/streamReceiverGenerator.ts/showGenerator.ts/
+ *  playerSketchGenerator.ts stays unchanged, targeting whichever display
+ *  object `hub75DisplayVar` names. `hub75EPin` is only meaningful when
+ *  `hub75WideScan` is on — the DMA library's own convention for "unused" is
+ *  -1, matching its documented default pinout. Fallback pin numbers MUST
+ *  match nodeLibrary.ts's MatrixOutput defaultProperties exactly (kept in
+ *  sync by hand) — validateGraph.ts's collectPinUses reads the same library
+ *  defaults to check pins that were never explicitly saved on an older node,
+ *  so a mismatch here would let a codegen-only default escape validation
+ *  again. Chosen as the exact intersection of valid, output-capable GPIOs
+ *  across every `HUB75_SUPPORTED_FQBNS` board (ESP32/S2/S3) — see the
+ *  comment on these defaults in nodeLibrary.ts for the full derivation and
+ *  the GPIO0/CLK caveat. */
 export function hub75HardwareFromProps(p: Record<string, unknown>, width: number, height: number): Hub75Hardware {
   const num = (v: unknown, def: number, min: number, max: number) => {
     const n = Number(v)
     return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : def
   }
   const wideScan = p.hub75WideScan === true
-  const chainLength = String(p.layout ?? 'matrix') === 'panels'
-    ? Math.max(1, Math.round(Number(p.tilesX ?? 1)))
-    : 1
-  const panelResX = chainLength > 1 ? Math.round(width / chainLength) : width
+  const isPanels = String(p.layout ?? 'matrix') === 'panels'
+  const tilesX = isPanels ? Math.max(1, Math.round(Number(p.tilesX ?? 1))) : 1
+  const tilesY = isPanels ? Math.max(1, Math.round(Number(p.tilesY ?? 1))) : 1
+  const chainLength = tilesX * tilesY
+  const panelResX = tilesX > 1 ? Math.round(width / tilesX) : width
+  const panelResY = tilesY > 1 ? Math.round(height / tilesY) : height
+  const chainType = p.tileSerpentine === true ? 'CHAIN_TOP_LEFT_DOWN_ZZ' : 'CHAIN_TOP_LEFT_DOWN'
   return {
     panelResX,
-    panelResY: height,
+    panelResY,
     chainLength,
+    virtualGrid: tilesY > 1 ? { rows: tilesY, cols: tilesX, chainType } : null,
     pins: {
       r1: sanitizePin(p.hub75R1Pin, 1), g1: sanitizePin(p.hub75G1Pin, 2), b1: sanitizePin(p.hub75B1Pin, 3),
       r2: sanitizePin(p.hub75R2Pin, 4), g2: sanitizePin(p.hub75G2Pin, 5), b2: sanitizePin(p.hub75B2Pin, 12),
@@ -471,13 +497,40 @@ export function hub75HardwareFromProps(p: Record<string, unknown>, width: number
   }
 }
 
+/** `#include` lines a HUB75 sketch needs — the base header always, plus the
+ *  VirtualMatrixPanel_T header when a 2D panel grid needs it. */
+export function hub75IncludesCpp(hw: Hub75Hardware): string[] {
+  return [
+    '#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>',
+    ...(hw.virtualGrid ? ['#include <ESP32-HUB75-VirtualMatrixPanel_T.hpp>'] : []),
+  ]
+}
+
+/** Global-scope declarations for the display object(s) — the base DMA
+ *  display always, plus the virtual-grid wrapper (templated on its chain
+ *  type) when needed. */
+export function hub75GlobalsCpp(hw: Hub75Hardware): string[] {
+  return [
+    'MatrixPanel_I2S_DMA *dma_display = nullptr;',
+    ...(hw.virtualGrid ? [`VirtualMatrixPanel_T<${hw.virtualGrid.chainType}> *hub75Virtual = nullptr;`] : []),
+  ]
+}
+
+/** Which display object a per-pixel `drawPixelRGB888()` call should target —
+ *  the virtual-grid wrapper when one exists (it re-maps into the base
+ *  display internally), otherwise the base DMA display directly. */
+export function hub75DisplayVar(hw: Hub75Hardware): string {
+  return hw.virtualGrid ? 'hub75Virtual' : 'dma_display'
+}
+
 /** setup() lines initialising the DMA display: pin struct, HUB75_I2S_CFG,
- *  MatrixPanel_I2S_DMA, begin(), brightness, and an initial clear — mirrors
- *  the example sketch bundled with ESP32-HUB75-MatrixPanel-DMA (verified
- *  against the vendored tag, 3.0.14). */
+ *  MatrixPanel_I2S_DMA, begin(), brightness, an initial clear, and (for a 2D
+ *  panel grid) the VirtualMatrixPanel_T wrapper — mirrors the example
+ *  sketches bundled with ESP32-HUB75-MatrixPanel-DMA (verified against the
+ *  vendored tag, 3.0.14). */
 export function hub75SetupCpp(hw: Hub75Hardware): string[] {
   const p = hw.pins
-  return [
+  const lines = [
     `  HUB75_I2S_CFG::i2s_pins _hub75Pins = { ${p.r1}, ${p.g1}, ${p.b1}, ${p.r2}, ${p.g2}, ${p.b2}, ${p.a}, ${p.b}, ${p.c}, ${p.d}, ${p.e}, ${p.lat}, ${p.oe}, ${p.clk} };`,
     `  HUB75_I2S_CFG _hub75Cfg(${hw.panelResX}, ${hw.panelResY}, ${hw.chainLength}, _hub75Pins);`,
     `  _hub75Cfg.setPixelColorDepthBits(${hw.colorDepthBits});`,
@@ -486,6 +539,13 @@ export function hub75SetupCpp(hw: Hub75Hardware): string[] {
     `  dma_display->setBrightness8(${hw.brightness});`,
     `  dma_display->clearScreen();`,
   ]
+  if (hw.virtualGrid) {
+    lines.push(
+      `  hub75Virtual = new VirtualMatrixPanel_T<${hw.virtualGrid.chainType}>(${hw.virtualGrid.rows}, ${hw.virtualGrid.cols}, ${hw.panelResX}, ${hw.panelResY});`,
+      `  hub75Virtual->setDisplay(*dma_display);`,
+    )
+  }
+  return lines
 }
 
 /**
@@ -5003,9 +5063,10 @@ export function generateCpp(
           if (!src) {
             ln(`  dma_display->clearScreen();`)
           } else {
+            const hub75Disp = hub75DisplayVar(hub75Hw!)
             ln(`  for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
             ln(`    CRGB _c = ${src}[_y * WIDTH + _x];`)
-            ln(`    dma_display->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);`)
+            ln(`    ${hub75Disp}->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);`)
             ln(`  }`)
           }
           break
@@ -5078,7 +5139,7 @@ export function generateCpp(
     : hw
   lines.push(...overclockDefineCpp(overclockHw))
   lines.push(`#include <FastLED.h>`)
-  if (isHub75) lines.push(`#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>`)
+  if (isHub75) lines.push(...hub75IncludesCpp(hub75Hw!))
   if (needsDs3231) lines.push(`#include <Wire.h>`)
   if (needsWifi) {
     lines.push(`#if defined(ESP32)`)
@@ -5128,7 +5189,7 @@ export function generateCpp(
   if (multipleOutputs) {
     for (const route of outputConfigs) lines.push(`CRGB leds_${route.safeId}[${route.width * route.height}];`)
   } else if (isHub75) {
-    lines.push(`MatrixPanel_I2S_DMA *dma_display = nullptr;`)
+    lines.push(...hub75GlobalsCpp(hub75Hw!))
   } else {
     lines.push(`CRGB leds[${physLeds}];`)
   }

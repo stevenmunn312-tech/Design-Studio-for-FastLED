@@ -45,5 +45,20 @@ describe('playerSketchGenerator', () => {
       const sketch = generatePlayerSketch(chainedCfg)
       expect(sketch).toContain('HUB75_I2S_CFG _hub75Cfg(8, 8, 3, _hub75Pins);')
     })
+
+    it('drives a folded 2D HUB75 panel grid via VirtualMatrixPanel_T', () => {
+      const gridCfg = playerConfigFromGraph([
+        { data: { nodeType: 'MatrixOutput', properties: { width: 16, height: 16, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2 } } },
+      ])
+      const sketch = generatePlayerSketch(gridCfg)
+      expect(sketch).toContain('#include <ESP32-HUB75-VirtualMatrixPanel_T.hpp>')
+      expect(sketch).toContain('HUB75_I2S_CFG _hub75Cfg(8, 8, 4, _hub75Pins);')
+      expect(sketch).toContain('hub75Virtual = new VirtualMatrixPanel_T<CHAIN_TOP_LEFT_DOWN>(2, 2, 8, 8);')
+      // Brightness has no VirtualMatrixPanel_T passthrough (confirmed against
+      // the vendored header — it exposes no setBrightness8 of its own), so it
+      // always targets the underlying real display, virtual grid or not.
+      expect(sketch).toContain('case CMD_SET_BRIGHTNESS: dma_display->setBrightness8((uint8_t)ev.params[0]); break;')
+      expect(sketch).toContain('hub75Virtual->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);')
+    })
   })
 })

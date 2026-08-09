@@ -1,6 +1,6 @@
 import type { StudioNode } from '../state/graphStore'
 import { buildXYTable } from '../state/xyLayout'
-import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp, hub75HardwareFromProps, hub75SetupCpp } from './cppGenerator'
+import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75DisplayVar } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 
@@ -53,7 +53,7 @@ export function generateWiringDiagnosticSketch(nodes: StudioNode[], outputNodeId
   lines.push('// direct physical-index chase for dead-pixel / chain-order checks.')
   lines.push(...overclockDefineCpp(hw))
   lines.push('#include <FastLED.h>')
-  if (isHub75) lines.push('#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>')
+  if (isHub75) lines.push(...hub75IncludesCpp(hub75Hw!))
   lines.push('#include <stdio.h>')
   lines.push('')
   if (!isHub75) {
@@ -71,7 +71,7 @@ export function generateWiringDiagnosticSketch(nodes: StudioNode[], outputNodeId
   lines.push(`#define DIAG_CHASE_MS ${chaseMs}`)
   lines.push('')
   lines.push('CRGB leds[NUM_LEDS];')
-  if (isHub75) lines.push('MatrixPanel_I2S_DMA *dma_display = nullptr;')
+  if (isHub75) lines.push(...hub75GlobalsCpp(hub75Hw!))
   lines.push('')
   if (xyTable) {
     lines.push('// Physical wiring map (grid index -> physical LED index), baked from')
@@ -217,9 +217,10 @@ export function generateWiringDiagnosticSketch(nodes: StudioNode[], outputNodeId
   lines.push('    default: drawPhysicalChase(now); break;')
   lines.push('  }')
   if (isHub75) {
+    const hub75Disp = hub75DisplayVar(hub75Hw!)
     lines.push('  for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {')
     lines.push(`    CRGB c = leds[${xyTable ? 'XY((uint8_t)x, (uint8_t)y)' : '(uint16_t)y * WIDTH + x'}];`)
-    lines.push('    dma_display->drawPixelRGB888(x, y, c.r, c.g, c.b);')
+    lines.push(`    ${hub75Disp}->drawPixelRGB888(x, y, c.r, c.g, c.b);`)
     lines.push('  }')
   } else {
     lines.push('  FastLED.show();')
