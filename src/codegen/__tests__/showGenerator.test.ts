@@ -50,6 +50,33 @@ describe('showGenerator', () => {
     expect(cpp).toMatch(/render_p0[\s\S]*CRGB\(0, 0, 255\)[\s\S]*?\n\}/)
   })
 
+  describe('HUB75 (docs/development/design/hub75-output.md)', () => {
+    const hub75Out = node('out', 'MatrixOutput', { width: 8, height: 8, chipset: 'HUB75' })
+
+    it('drives the DMA library instead of FastLED addLeds/show, still rendering patterns into leds', () => {
+      const cpp = generateShowSketch([nodes[0], nodes[1], hub75Out], edges, groups)
+      expect(cpp).toContain('#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>')
+      expect(cpp).toContain('MatrixPanel_I2S_DMA *dma_display = nullptr;')
+      expect(cpp).toContain('HUB75_I2S_CFG _hub75Cfg(8, 8, 1, _hub75Pins);')
+      expect(cpp).toContain('dma_display = new MatrixPanel_I2S_DMA(_hub75Cfg);')
+      expect(cpp).not.toContain('#define DATA_PIN')
+      expect(cpp).not.toContain('FastLED.addLeds<')
+      expect(cpp).not.toContain('FastLED.show();')
+      // Pattern rendering, dispatch, and transition compositing are untouched —
+      // still CRGB math into the shared `leds` buffer regardless of chipset.
+      expect(cpp).toContain('void render_p0(uint32_t ms)')
+      expect(cpp).toContain('compositeTransition(transType, leds, showA, showB, p)')
+      expect(cpp).toContain('  for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {')
+      expect(cpp).toContain('dma_display->drawPixelRGB888(_x, _y, _c.r, _c.g, _c.b);')
+    })
+
+    it('drives a single-row HUB75 panel chain via chain_length', () => {
+      const chainedOut = node('out', 'MatrixOutput', { width: 24, height: 8, chipset: 'HUB75', layout: 'panels', tilesX: 3, tilesY: 1 })
+      const cpp = generateShowSketch([nodes[0], nodes[1], chainedOut], edges, groups)
+      expect(cpp).toContain('HUB75_I2S_CFG _hub75Cfg(8, 8, 3, _hub75Pins);')
+    })
+  })
+
   it('emits a fixed controller seed when the Show Engine seed is nonzero', () => {
     const seeded = [
       node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
