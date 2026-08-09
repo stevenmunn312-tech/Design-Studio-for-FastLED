@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   boardPinForGpio,
   boardProfileById,
   compatibleBoardProfilesForFqbn,
   type PhysicalBoardPinAnchor,
+  type PhysicalBoardProfile,
   type PhysicalBoardPinProfile,
 } from '../../build/boardProfiles'
 import { ensureBuildProfile, fingerprintValue } from '../../build/buildProfile'
@@ -29,6 +30,12 @@ interface DiagramConnection {
 }
 
 type VisibilityFilter = 'all' | 'unfinished'
+type ViewportPanState = { pointerId: number; startX: number; startY: number; startScrollLeft: number; startScrollTop: number }
+
+const MIN_ZOOM = 0.55
+const MAX_ZOOM = 1.8
+const ZOOM_STEP = 0.15
+const FIT_PADDING = 48
 
 function formatFactValue(value: unknown): string {
   if (value == null) return 'Unknown'
@@ -43,6 +50,12 @@ function formatFactLabel(key: string): string {
     .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
     .replace(/[-_]/g, ' ')
     .replace(/^./, (char) => char.toUpperCase())
+}
+
+function confidenceSummary(profile: PhysicalBoardProfile): string {
+  if (profile.confidence === 'manufacturer-verified') return 'Manufacturer verified'
+  if (profile.confidence === 'pinout-verified') return 'Pinout verified only - power-path review still pending.'
+  return 'Visual match only - wiring guidance stays disabled.'
 }
 
 function itemFingerprint(
@@ -87,6 +100,10 @@ function controllerBoxSize(anchors: PhysicalBoardPinAnchor[] | undefined) {
   }
 }
 
+function clampZoom(value: number) {
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number(value.toFixed(2))))
+}
+
 export default function BuildDiagramWorkspace() {
   const nodes = useGraphStore((state) => state.nodes)
   const edges = useGraphStore((state) => state.edges)
@@ -102,6 +119,9 @@ export default function BuildDiagramWorkspace() {
   const [selectedItemId, setSelectedItemId] = useState<string>('controller')
   const [isolatedItemId, setIsolatedItemId] = useState<string | null>(null)
   const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>('all')
+  const [diagramZoom, setDiagramZoom] = useState(1)
+  const viewportRef = useRef<HTMLDivElement | null>(null)
+  const panStateRef = useRef<ViewportPanState | null>(null)
 
   const primaryItems = manifest.primaryItems
   const currentFingerprints = useMemo(() => {
@@ -252,9 +272,12 @@ export default function BuildDiagramWorkspace() {
       return item.pins.map((pinUse, pinIndex) => {
         const boardPin = canRenderControllerPins ? boardPinForGpio(exactBoard, pinUse.pin) : undefined
         const boardAnchor = boardPin ? boardAnchorsById.get(boardPin.anchorId) : undefined
+        const unavailableReason = boardPin?.availability === 'unavailable'
+          ? `GPIO ${pinUse.pin} is exposed on the selected board header but unavailable on this module because octal PSRAM uses it.`
+          : undefined
         const deviceY = layout.y + 52 + (pinIndex * 24)
-        const controllerX = boardAnchor ? controllerBox.x + boardAnchor.x : undefined
-        const controllerY = boardAnchor ? controllerBox.y + boardAnchor.y : undefined
+        const controllerX = boardAnchor && !unavailableReason ? controllerBox.x + boardAnchor.x : undefined
+        const controllerY = boardAnchor && !unavailableReason ? controllerBox.y + boardAnchor.y : undefined
         return {
           id: `${item.id}:${pinUse.propertyKey}`,
           itemId: item.id,
@@ -269,6 +292,8 @@ export default function BuildDiagramWorkspace() {
           deviceY,
           unresolvedReason: !canRenderControllerPins
             ? 'This exact board profile does not yet have a reviewed physical pin map.'
+            : unavailableReason
+              ? unavailableReason
             : boardPin
               ? undefined
               : `GPIO ${pinUse.pin} is not mapped on the selected physical board profile.`,
@@ -324,6 +349,105 @@ export default function BuildDiagramWorkspace() {
   const canvasHeight = deviceLayouts.length > 0
     ? Math.max(controllerBox.y + controllerBox.height + 40, ...deviceLayouts.map((layout) => layout.y + layout.height + 40))
     : controllerBox.y + controllerBox.height + 40
+  const scaledCanvasWidth = canvasWidth * diagramZoom
+  const scaledCanvasHeight = canvasHeight * diagramZoom
+
+  const updateViewport = (nextZoom: number, focusRect?: { x: number; y: number; width: number; height: number }) => {
+    const viewport = viewportRef.current
+    const zoom = clampZoom(nextZoom)
+    setDiagramZoom(zoom)
+    if (!viewport) return
+    window.requestAnimationFrame(() => {
+      if (focusRect) {
+        const targetWidth = focusRect.width * zoom
+        const targetHeight = focusRect.height * zoom
+        const targetLeft = (focusRect.x * zoom) - ((viewport.clientWidth - targetWidth) / 2)
+        const targetTop = (focusRect.y * zoom) - ((viewport.clientHeight - targetHeight) / 2)
+        viewport.scrollLeft = Math.max(0, targetLeft)
+        viewport.scrollTop = Math.max(0, targetTop)
+        return
+      }
+      const centerX = ((viewport.scrollLeft + (viewport.clientWidth / 2)) / Math.max(diagramZoom, 0.001)) * zoom
+      const centerY = ((viewport.scrollTop + (viewport.clientHeight / 2)) / Math.max(diagramZoom, 0.001)) * zoom
+      viewport.scrollLeft = Math.max(0, centerX - (viewport.clientWidth / 2))
+      viewport.scrollTop = Math.max(0, centerY - (viewport.clientHeight / 2))
+    })
+  }
+
+  const fitAll = () => {
+    const viewport = viewportRef.current
+    if (!viewport) return
+    if (viewport.clientWidth < FIT_PADDING || viewport.clientHeight < FIT_PADDING) return
+    const widthZoom = (viewport.clientWidth - FIT_PADDING) / canvasWidth
+    const heightZoom = (viewport.clientHeight - FIT_PADDING) / canvasHeight
+    const fitZoom = clampZoom(Math.min(widthZoom, heightZoom, 1))
+    updateViewport(fitZoom, { x: 0, y: 0, width: canvasWidth, height: canvasHeight })
+  }
+
+  const focusSelected = () => {
+    const layout = deviceLayouts.find((entry) => entry.itemId === selectedItemId)
+    if (selectedItemId === 'controller' || !layout) {
+      updateViewport(diagramZoom, controllerBox)
+      return
+    }
+    const bounds = {
+      x: controllerBox.x,
+      y: Math.min(controllerBox.y, layout.y),
+      width: (layout.x + layout.width) - controllerBox.x,
+      height: Math.max(controllerBox.y + controllerBox.height, layout.y + layout.height) - Math.min(controllerBox.y, layout.y),
+    }
+    updateViewport(diagramZoom, bounds)
+  }
+
+  const resetView = () => {
+    const viewport = viewportRef.current
+    setDiagramZoom(1)
+    if (!viewport) return
+    window.requestAnimationFrame(() => {
+      viewport.scrollLeft = 0
+      viewport.scrollTop = 0
+    })
+  }
+
+  const startViewportPan = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement
+    if (target.closest('button')) return
+    const viewport = viewportRef.current
+    if (!viewport) return
+    panStateRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startScrollLeft: viewport.scrollLeft,
+      startScrollTop: viewport.scrollTop,
+    }
+    viewport.setPointerCapture(event.pointerId)
+  }
+
+  const handleViewportPan = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const viewport = viewportRef.current
+    const panState = panStateRef.current
+    if (!viewport || !panState || panState.pointerId !== event.pointerId) return
+    viewport.scrollLeft = panState.startScrollLeft - (event.clientX - panState.startX)
+    viewport.scrollTop = panState.startScrollTop - (event.clientY - panState.startY)
+  }
+
+  const stopViewportPan = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const viewport = viewportRef.current
+    const panState = panStateRef.current
+    if (!viewport || !panState || panState.pointerId !== event.pointerId) return
+    if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId)
+    panStateRef.current = null
+  }
+
+  useEffect(() => {
+    if (!exactBoard) {
+      setDiagramZoom(1)
+      return
+    }
+    fitAll()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exactBoard?.id, canvasWidth, canvasHeight])
 
   return (
     <section className={styles.workspace} aria-label="Build Diagram workspace">
@@ -370,6 +494,11 @@ export default function BuildDiagramWorkspace() {
                   <span className={styles.optionMeta}>
                     {profile.manufacturer} · {profile.dimensionsMm.width}×{profile.dimensionsMm.height} mm · {profile.confidence.replace(/-/g, ' ')}
                   </span>
+                  {profile.confidence !== 'manufacturer-verified' && (
+                    <span className={`${styles.confidenceBadge} ${styles.confidenceBadgeCaution}`}>
+                      {confidenceSummary(profile)}
+                    </span>
+                  )}
                   <span className={styles.optionHint}>{profile.sourceSummary}</span>
                   {profile.caveats[0] && <span className={styles.optionHint}>{profile.caveats[0]}</span>}
                 </button>
@@ -459,9 +588,27 @@ export default function BuildDiagramWorkspace() {
                   : `${exactBoard.label} selected. Connections now resolve against that exact board's pin map.`}
             </p>
           </div>
-          <button type="button" className={styles.resetButton} onClick={() => setIsolatedItemId(null)} disabled={!isolatedItemId}>
-            Show all
-          </button>
+          <div className={styles.diagramToolbar}>
+            <span className={styles.zoomPill}>Zoom {Math.round(diagramZoom * 100)}%</span>
+            <button type="button" className={styles.smallButton} onClick={() => updateViewport(diagramZoom - ZOOM_STEP)}>
+              Zoom out
+            </button>
+            <button type="button" className={styles.smallButton} onClick={() => updateViewport(diagramZoom + ZOOM_STEP)}>
+              Zoom in
+            </button>
+            <button type="button" className={styles.smallButton} onClick={fitAll} disabled={!exactBoard}>
+              Fit all
+            </button>
+            <button type="button" className={styles.smallButton} onClick={focusSelected} disabled={!exactBoard}>
+              Focus selected
+            </button>
+            <button type="button" className={styles.smallButton} onClick={resetView} disabled={!exactBoard}>
+              Reset view
+            </button>
+            <button type="button" className={styles.resetButton} onClick={() => setIsolatedItemId(null)} disabled={!isolatedItemId}>
+              Show all
+            </button>
+          </div>
         </div>
 
         {!exactBoard ? (
@@ -472,110 +619,129 @@ export default function BuildDiagramWorkspace() {
             </p>
           </div>
         ) : (
-          <div className={styles.diagramSurface} style={{ minWidth: `${canvasWidth}px`, minHeight: `${canvasHeight}px` }}>
-            <svg
-              className={styles.wireLayer}
-              viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
-              aria-hidden="true"
-            >
-              {allConnections.map((connection, index) => {
-                if (connection.controllerX == null || connection.controllerY == null) return null
-                const midX = connection.controllerX + 86 + ((index % 3) * 10)
-                const path = [
-                  `M ${connection.controllerX} ${connection.controllerY}`,
-                  `L ${midX} ${connection.controllerY}`,
-                  `L ${midX} ${connection.deviceY}`,
-                  `L ${connection.deviceX} ${connection.deviceY}`,
-                ].join(' ')
-                const active = selectedItemId === 'controller' || selectedItemId === connection.itemId
-                return (
-                  <path
-                    key={connection.id}
-                    d={path}
-                    className={`${styles.wirePath} ${active ? styles.wirePathActive : styles.wirePathDim}`}
-                  />
-                )
-              })}
-            </svg>
+          <div
+            ref={viewportRef}
+            className={styles.diagramViewport}
+            onPointerDown={startViewportPan}
+            onPointerMove={handleViewportPan}
+            onPointerUp={stopViewportPan}
+            onPointerCancel={stopViewportPan}
+          >
+            <div className={styles.diagramSurface} style={{ minWidth: `${scaledCanvasWidth}px`, minHeight: `${scaledCanvasHeight}px` }}>
+              <div
+                className={styles.diagramCanvas}
+                style={{
+                  width: `${canvasWidth}px`,
+                  height: `${canvasHeight}px`,
+                  transform: `scale(${diagramZoom})`,
+                }}
+                data-pan-surface="true"
+              >
+                <svg
+                  className={styles.wireLayer}
+                  viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
+                  aria-hidden="true"
+                >
+                  {allConnections.map((connection, index) => {
+                    if (connection.controllerX == null || connection.controllerY == null) return null
+                    const midX = connection.controllerX + 86 + ((index % 3) * 10)
+                    const path = [
+                      `M ${connection.controllerX} ${connection.controllerY}`,
+                      `L ${midX} ${connection.controllerY}`,
+                      `L ${midX} ${connection.deviceY}`,
+                      `L ${connection.deviceX} ${connection.deviceY}`,
+                    ].join(' ')
+                    const active = selectedItemId === 'controller' || selectedItemId === connection.itemId
+                    return (
+                      <path
+                        key={connection.id}
+                        d={path}
+                        className={`${styles.wirePath} ${active ? styles.wirePathActive : styles.wirePathDim}`}
+                      />
+                    )
+                  })}
+                </svg>
 
-            <button
-              type="button"
-              className={`${styles.controllerCard} ${selectedItemId === 'controller' ? styles.diagramCardActive : ''}`}
-              style={{
-                left: `${controllerBox.x}px`,
-                top: `${controllerBox.y}px`,
-                width: `${controllerBox.width}px`,
-                height: `${controllerBox.height}px`,
-              }}
-              onClick={() => setSelectedItemId('controller')}
-            >
-              <div className={styles.controllerHeader}>
-                <span className={styles.diagramCardTitle}>{exactBoard.label}</span>
-                <span className={styles.diagramCardMeta}>{exactBoard.confidence.replace(/-/g, ' ')}</span>
-              </div>
-              <div className={styles.controllerBody}>
-                <BoardPreview svg={exactBoard.previewSvg} label={exactBoard.label} />
-                {boardPinsToRender.map((pin) => {
-                  const anchor = boardAnchorsById.get(pin.anchorId)
-                  if (!anchor) return null
-                  const selected = highlightedBoardPinIds.has(pin.id)
-                  const used = usedBoardPinIds.has(pin.id)
+                <button
+                  type="button"
+                  className={`${styles.controllerCard} ${selectedItemId === 'controller' ? styles.diagramCardActive : ''}`}
+                  style={{
+                    left: `${controllerBox.x}px`,
+                    top: `${controllerBox.y}px`,
+                    width: `${controllerBox.width}px`,
+                    height: `${controllerBox.height}px`,
+                  }}
+                  onClick={() => setSelectedItemId('controller')}
+                >
+                  <div className={styles.controllerHeader}>
+                    <span className={styles.diagramCardTitle}>{exactBoard.label}</span>
+                    <span className={styles.diagramCardMeta}>{exactBoard.confidence.replace(/-/g, ' ')}</span>
+                  </div>
+                  <div className={styles.controllerBody}>
+                    <BoardPreview svg={exactBoard.previewSvg} label={exactBoard.label} />
+                    {boardPinsToRender.map((pin) => {
+                      const anchor = boardAnchorsById.get(pin.anchorId)
+                      if (!anchor) return null
+                      const selected = highlightedBoardPinIds.has(pin.id)
+                      const used = usedBoardPinIds.has(pin.id)
+                      return (
+                        <span
+                          key={pin.id}
+                          className={[
+                            styles.controllerPin,
+                            styles[`controllerPin${anchor.labelAlign[0].toUpperCase()}${anchor.labelAlign.slice(1)}`],
+                            selected ? styles.controllerPinSelected : '',
+                            used ? styles.controllerPinUsed : styles.controllerPinUnused,
+                          ].join(' ').trim()}
+                          style={{ left: `${anchor.x}px`, top: `${anchor.y}px` }}
+                          title={pin.note ?? pin.label}
+                        >
+                          {pin.label}
+                        </span>
+                      )
+                    })}
+                  </div>
+                </button>
+
+                {deviceLayouts.map((layout) => {
+                  const item = visiblePrimaryItems.find((entry) => entry.id === layout.itemId)
+                  if (!item) return null
+                  const itemConnections = allConnections.filter((connection) => connection.itemId === item.id)
                   return (
-                    <span
-                      key={pin.id}
-                      className={[
-                        styles.controllerPin,
-                        styles[`controllerPin${anchor.labelAlign[0].toUpperCase()}${anchor.labelAlign.slice(1)}`],
-                        selected ? styles.controllerPinSelected : '',
-                        used ? styles.controllerPinUsed : styles.controllerPinUnused,
-                      ].join(' ').trim()}
-                      style={{ left: `${anchor.x}px`, top: `${anchor.y}px` }}
-                      title={pin.note ?? pin.label}
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`${styles.diagramCard} ${selectedItemId === item.id ? styles.diagramCardActive : ''}`}
+                      style={{
+                        left: `${layout.x}px`,
+                        top: `${layout.y}px`,
+                        width: `${layout.width}px`,
+                        height: `${layout.height}px`,
+                      }}
+                      onClick={() => setSelectedItemId(item.id)}
                     >
-                      {pin.label}
-                    </span>
+                      <span className={styles.diagramCardTitle}>{item.title}</span>
+                      <span className={styles.diagramCardMeta}>{item.subtitle}</span>
+                      {itemConnections.length > 0 && (
+                        <span className={styles.diagramCardPins}>
+                          {itemConnections.map((connection) =>
+                            connection.boardPin ? connection.boardPin.label : `GPIO ${connection.pinUse.pin}`
+                          ).join(' · ')}
+                        </span>
+                      )}
+                      <div className={styles.devicePinList}>
+                        {itemConnections.map((connection) => (
+                          <span key={connection.id} className={styles.devicePinRow}>
+                            <strong>{connection.boardPin?.label ?? `GPIO ${connection.pinUse.pin}`}</strong>
+                            <span>{connection.pinUse.label}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </button>
                   )
                 })}
               </div>
-            </button>
-
-            {deviceLayouts.map((layout) => {
-              const item = visiblePrimaryItems.find((entry) => entry.id === layout.itemId)
-              if (!item) return null
-              const itemConnections = allConnections.filter((connection) => connection.itemId === item.id)
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={`${styles.diagramCard} ${selectedItemId === item.id ? styles.diagramCardActive : ''}`}
-                  style={{
-                    left: `${layout.x}px`,
-                    top: `${layout.y}px`,
-                    width: `${layout.width}px`,
-                    height: `${layout.height}px`,
-                  }}
-                  onClick={() => setSelectedItemId(item.id)}
-                >
-                  <span className={styles.diagramCardTitle}>{item.title}</span>
-                  <span className={styles.diagramCardMeta}>{item.subtitle}</span>
-                  {itemConnections.length > 0 && (
-                    <span className={styles.diagramCardPins}>
-                      {itemConnections.map((connection) =>
-                        connection.boardPin ? connection.boardPin.label : `GPIO ${connection.pinUse.pin}`
-                      ).join(' · ')}
-                    </span>
-                  )}
-                  <div className={styles.devicePinList}>
-                    {itemConnections.map((connection) => (
-                      <span key={connection.id} className={styles.devicePinRow}>
-                        <strong>{connection.boardPin?.label ?? `GPIO ${connection.pinUse.pin}`}</strong>
-                        <span>{connection.pinUse.label}</span>
-                      </span>
-                    ))}
-                  </div>
-                </button>
-              )
-            })}
+            </div>
           </div>
         )}
       </main>
@@ -588,6 +754,9 @@ export default function BuildDiagramWorkspace() {
           {selectedItemId === 'controller' && exactBoard && (
             <>
               <p className={styles.copyMuted}>{exactBoard.sourceSummary}</p>
+              {exactBoard.confidence !== 'manufacturer-verified' && (
+                <p className={`${styles.warningText} ${styles.confidenceCallout}`}>{confidenceSummary(exactBoard)}</p>
+              )}
               {exactBoard.notes.length > 0 && (
                 <>
                   <h4 className={styles.subTitle}>Board notes</h4>

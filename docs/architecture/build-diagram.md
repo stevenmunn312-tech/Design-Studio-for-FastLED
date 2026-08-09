@@ -7,6 +7,29 @@ into a physical hardware/build view. The graph remains the source of truth for
 effects and firmware behaviour. Build Diagram adds project-specific physical
 board identity, installation facts, calculated electrical requirements, and
 wiring progress without introducing a controller node into the graph itself.
+It is opened as a full-workspace mode from `View -> Build Diagram` rather than
+as another permanently visible editor panel.
+
+## Product contract
+
+- Build Diagram is a physical/electrical projection of the graph, not a
+  replacement for the graph.
+- An exact physical board profile is required before controller pins or
+  controller-side wires can be trusted.
+- The workspace uses one large diagram canvas with pan/zoom controls rather
+  than automatic pagination.
+- Layout is left for hardware/build facts, centre for the diagram, and right
+  for readiness, connections, BOM, and export state.
+- Visibility and wiring progress are separate controls for each primary
+  hardware item.
+- Selection highlights the relevant hardware and wires; isolation reduces the
+  diagram to the selected item, the controller, and required shared
+  infrastructure.
+- Requirements calculated, Signal ready, Power ready, and Build ready are
+  independent states; Build ready is valid only when Signal ready and Power
+  ready both pass.
+- Export modes must distinguish Current view from Complete build so hidden
+  items are never silently omitted from a complete reference.
 
 ## Terminology
 
@@ -58,6 +81,12 @@ wiring progress without introducing a controller node into the graph itself.
 - **Visual match only**: board appearance may help identification, but no
   wiring should be generated from it.
 
+The generic `ESP32-S3 N16R8, 44-pin dual USB-C` profile currently remains
+**Pinout verified** only. Its header map is usable, the controller power label
+should be treated as `5VIN`, and GPIO35-GPIO37 must be treated as unavailable
+on N16R8 modules because octal PSRAM consumes them. USB power sharing,
+backfeed protection, regulator current, and jumper behaviour remain unverified.
+
 ## Data ownership
 
 - Graph nodes remain the source of truth for controller family, pin
@@ -87,6 +116,30 @@ Build Diagram is part of the desktop viewport contract:
 - Project-specific Build Profile persistence
 - Build Diagram workspace shell with board gating, hardware inventory, and
   progress state
+
+## Initial reviewed board profiles
+
+- `generic-esp32-s3-n16r8-44pin-dual-usbc`
+  - Confidence: Pinout verified
+  - Notes: user-supplied pinout image reviewed; use `5VIN` naming; GPIO35-37
+    unavailable on N16R8 modules
+  - Caveat: board-level power-path behaviour is still unresolved
+- `espressif-esp32-s3-devkitc-1`
+  - Confidence: Manufacturer verified
+  - Notes: official DevKitC-1 documentation reviewed, including memory-variant
+    caveats
+- `seeed-xiao-esp32s3`
+  - Confidence: Manufacturer verified
+  - Notes: compact layout with reviewed expansion-pad GPIO exposure
+
+## Current foundation status
+
+- Build Diagram gating, board selection, visibility filters, isolation, and
+  wiring-progress fingerprinting are implemented as of August 9, 2026.
+- The centre workspace renders a deterministic SVG-backed layout with exact
+  board pin labels, connection highlighting, and viewport zoom/focus controls.
+- The electrical assembly/rule engine is still the next major layer and must
+  build on the same Build Profile, hardware manifest, and confidence model.
 
 The electrical assembly/rule engine remains a separate layer on top of these
 foundations and must reuse the same manifest and Build Profile terminology.

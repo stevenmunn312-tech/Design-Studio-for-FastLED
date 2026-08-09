@@ -31,6 +31,7 @@ describe('boardProfiles', () => {
 
     expect(boardPinForGpio(generic, 0)?.label).toBe('BOOT / GPIO0')
     expect(boardPinForGpio(generic, 14)?.label).toBe('GPIO14')
+    expect(boardPinForGpio(generic, 35)?.availability).toBe('unavailable')
     expect(boardPinForGpio(devkit, 14)?.label).toBe('GPIO14')
     expect(boardPinForGpio(xiao, 43)?.label).toBe('D6 / GPIO43')
   })

@@ -29,6 +29,13 @@
   min-width: 0;
 }
 
+.diagramToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .panelHeader,
 .diagramHeader,
 .rowBetween {
@@ -145,12 +152,35 @@
   line-height: 1.35;
 }
 
+.confidenceBadge {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.confidenceBadgeCaution {
+  background: rgba(255, 202, 122, 0.14);
+  color: #ffcf8f;
+}
+
 .progressPill {
   padding: 6px 10px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--accent-output) 18%, transparent);
   color: var(--text-primary);
   font-size: 0.85rem;
+}
+
+.zoomPill {
+  align-self: center;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border-glow) 24%, transparent);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
 }
 
 .hardwareRow {
@@ -201,17 +231,36 @@
   font-size: 0.88rem;
 }
 
-.diagramSurface {
+.confidenceCallout {
+  margin-top: 10px;
+}
+
+.diagramViewport {
   position: relative;
   flex: 1;
   min-height: 0;
-  padding: 18px;
+  overflow: auto;
   border: 1px solid color-mix(in srgb, var(--border-glow) 74%, transparent);
   border-radius: 22px;
   background:
     radial-gradient(circle at 28% 14%, rgba(122, 162, 255, 0.18), transparent 24%),
     linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 86%, #071017), color-mix(in srgb, var(--bg-panel) 96%, black));
-  overflow: auto;
+  cursor: grab;
+}
+
+.diagramViewport:active {
+  cursor: grabbing;
+}
+
+.diagramSurface {
+  position: relative;
+  padding: 18px;
+  box-sizing: border-box;
+}
+
+.diagramCanvas {
+  position: relative;
+  transform-origin: top left;
 }
 
 .wireLayer {
@@ -456,7 +505,7 @@
     display: flex;
   }
 
-  .diagramSurface {
+  .diagramViewport {
     min-height: 560px;
   }
 }

@@ -52,6 +52,26 @@ describe('BuildDiagramWorkspace', () => {
     expect(getAllByText((_, node) => node?.textContent?.includes('GPIO14 → Matrix Output data pin') ?? false).length).toBeGreaterThan(0)
   })
 
+  it('offers zoom controls for the diagram viewport', () => {
+    useGraphStore.setState({
+      buildProfile: {
+        version: 1,
+        physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1',
+      },
+    })
+
+    const { getByText } = render(<BuildDiagramWorkspace />)
+
+    expect(getByText('Zoom 100%')).toBeTruthy()
+    fireEvent.click(getByText('Zoom in'))
+    expect(getByText('Zoom 115%')).toBeTruthy()
+    fireEvent.click(getByText('Zoom out'))
+    expect(getByText('Zoom 100%')).toBeTruthy()
+    fireEvent.click(getByText('Zoom in'))
+    fireEvent.click(getByText('Reset view'))
+    expect(getByText('Zoom 100%')).toBeTruthy()
+  })
+
   it('uses the supplied generic N16R8 pin map for controller-side connections', () => {
     useGraphStore.setState({
       buildProfile: {
@@ -60,11 +80,43 @@ describe('BuildDiagramWorkspace', () => {
       },
     })
 
-    const { getByText, queryByText } = render(<BuildDiagramWorkspace />)
+    const { getAllByText, getByText, queryByText } = render(<BuildDiagramWorkspace />)
 
     expect(getByText('Generic ESP32-S3 N16R8, 44-pin dual USB-C selected. Connections now resolve against that exact board\'s pin map.')).toBeTruthy()
     expect(getByText('GPIO14 → Matrix Output data pin')).toBeTruthy()
+    expect(getAllByText('Pinout verified only - power-path review still pending.').length).toBeGreaterThan(0)
     expect(queryByText('This exact board profile does not yet have a reviewed physical pin map.')).toBeNull()
+  })
+
+  it('flags generic N16R8 PSRAM pins as unavailable even when the header exposes them', () => {
+    useGraphStore.setState({
+      nodes: [{
+        id: 'out',
+        type: 'studioNode',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Matrix Output',
+          nodeType: 'MatrixOutput',
+          category: 'output',
+          properties: { width: 16, height: 16, chipset: 'WS2812B', dataPin: 35 },
+          inputs: [],
+          outputs: [],
+        },
+      }] as never[],
+      buildProfile: {
+        version: 1,
+        physicalBoardProfileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc',
+      },
+    })
+
+    const { getAllByText, getByText } = render(<BuildDiagramWorkspace />)
+
+    expect(getAllByText('GPIO35').length).toBeGreaterThan(0)
+    expect(getByText('Signal ready: needs review: 1 controller pin mapping unresolved', { selector: 'li' })).toBeTruthy()
+    expect(
+      getByText((_, node) => node?.tagName === 'LI'
+        && node.textContent === 'Matrix Output: GPIO 35 is exposed on the selected board header but unavailable on this module because octal PSRAM uses it.')
+    ).toBeTruthy()
   })
 
   it('shows identifying details for each exact board option', () => {
