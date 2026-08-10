@@ -255,7 +255,7 @@ export const BOARD_PROFILES: PhysicalBoardProfile[] = [
     revision: 'seller variant 1005008201847680',
     targetFamilies: ['esp32-s3'],
     compatibleFqbns: ['esp32:esp32:esp32s3'],
-    dimensionsMm: { width: 53, height: 28 },
+    dimensionsMm: { width: 63.5, height: 28 },
     confidence: 'pinout-verified',
     previewSvg: boardSvg('Generic ESP32-S3 N16R8', '#ffd166', 'USB-C', 'Pinout verified'),
     notes: [

@@ -225,7 +225,7 @@ describe('BuildDiagramWorkspace', () => {
   it('shows identifying details for all supported exact boards', () => {
     const { getByText } = render(<BuildDiagramWorkspace />)
 
-    expect(getByText('Generic / AliExpress · 53×28 mm · pinout verified')).toBeTruthy()
+    expect(getByText('Generic / AliExpress · 63.5×28 mm · pinout verified')).toBeTruthy()
     expect(getByText('Espressif · 54×28 mm · manufacturer verified')).toBeTruthy()
     expect(getByText('Seeed Studio · 21×18 mm · manufacturer verified')).toBeTruthy()
   })
