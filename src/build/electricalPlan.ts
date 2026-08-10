@@ -2,7 +2,6 @@ import type { PhysicalBoardProfile } from './boardProfiles'
 import type { BuildProfile } from './buildProfile'
 import type { HardwareManifest } from './hardwareManifest'
 import {
-  DEFAULT_ALLOWED_VOLTAGE_DROP_PERCENT,
   ELECTRICAL_RULESET_VERSION,
   recommendConductor,
   recommendFuse,
@@ -10,11 +9,13 @@ import {
   type FuseRecommendation,
 } from './electricalRules'
 
-const DEFAULT_SUPPLY_HEADROOM_PERCENT = 25
+const DEFAULT_SUPPLY_HEADROOM_PERCENT = 20
 const WS2812_WORST_CASE_MA_PER_PIXEL = 60
 const DEFAULT_LED_DENSITY_PER_METER = 60
 const DEFAULT_FEED_CABLE_LENGTH_MM = 500
-const MAX_BRANCH_DESIGN_CURRENT_MA = 4000
+const MAX_END_FEED_CURRENT_MA = 5000
+const MAX_CENTER_FEED_CURRENT_MA = 10000
+const MAX_VOLTAGE_DROP_V = 0.4
 const MAX_RECOMMENDED_SUPPLY_CURRENT_MA = 60000
 const STANDARD_CONNECTOR_RATINGS_MA = [3000, 5000, 7500, 10000, 15000, 20000, 30000, 45000, 60000] as const
 
@@ -49,7 +50,35 @@ export interface OutputElectricalPlan {
   connectorMinimumMa?: number
   fuse: FuseRecommendation
   injectionPointsMm: number[]
+  injections: PowerInjectionPlan[]
   injectionUnresolvedReason?: string
+}
+
+export type PowerInjectionRole = 'start' | 'center' | 'end'
+
+export interface PowerInjectionPlan {
+  id: string
+  itemId: string
+  outputTitle: string
+  role: PowerInjectionRole
+  positionMm: number
+  pixelCount: number
+  designCurrentMa: number
+  maximumCurrentMa: number
+  conductor?: ConductorRecommendation
+  connectorMinimumMa?: number
+  fuse: FuseRecommendation
+  supplyId?: string
+}
+
+export interface SupplyRecommendation {
+  id: string
+  designCurrentMa: number
+  recommendedCurrentMa: number
+  recommendedWattage: number
+  outputIds: string[]
+  outputTitles: string[]
+  injectionIds: string[]
 }
 
 export interface ElectricalPlanTotals {
@@ -61,6 +90,7 @@ export interface ElectricalPlanTotals {
   perSupplyCurrentMa: number
   nominalVoltage: number
   headroomPercent: number
+  supplies: SupplyRecommendation[]
 }
 
 export interface ElectricalPlanSummary {
@@ -120,10 +150,102 @@ function connectorMinimumForLoad(designCurrentMa: number): number | undefined {
   return STANDARD_CONNECTOR_RATINGS_MA.find((rating) => rating >= required)
 }
 
-function evenlySpacedFeedPoints(physicalLengthMm: number, count: number): number[] {
-  if (count <= 1) return [0]
-  return Array.from({ length: count }, (_, index) =>
-    Math.round((physicalLengthMm * index) / (count - 1)))
+function injectionRoles(designCurrentMa: number): PowerInjectionRole[] {
+  if (designCurrentMa <= MAX_END_FEED_CURRENT_MA) return ['start']
+  if (designCurrentMa <= MAX_END_FEED_CURRENT_MA * 2) return ['start', 'end']
+  const centerCount = Math.ceil(
+    (designCurrentMa - (MAX_END_FEED_CURRENT_MA * 2)) / MAX_CENTER_FEED_CURRENT_MA,
+  )
+  return ['start', ...Array.from({ length: centerCount }, () => 'center' as const), 'end']
+}
+
+function allocatePixels(pixelCount: number, roles: PowerInjectionRole[]): number[] {
+  const capacities = roles.map((role) => role === 'center' ? MAX_CENTER_FEED_CURRENT_MA : MAX_END_FEED_CURRENT_MA)
+  const capacityPixels = capacities.map((capacity) => Math.floor(capacity / WS2812_WORST_CASE_MA_PER_PIXEL))
+  const totalCapacity = capacityPixels.reduce((sum, value) => sum + value, 0)
+  const allocations = capacityPixels.map((capacity) => Math.floor((pixelCount * capacity) / totalCapacity))
+  let remaining = pixelCount - allocations.reduce((sum, value) => sum + value, 0)
+  while (remaining > 0) {
+    const index = allocations.findIndex((value, candidate) => value < capacityPixels[candidate])
+    if (index < 0) break
+    allocations[index] += 1
+    remaining -= 1
+  }
+  return allocations
+}
+
+function calculateInjections(itemId: string, outputTitle: string, pixelCount: number, physicalLengthMm: number, nominalVoltage: number): PowerInjectionPlan[] {
+  const roles = injectionRoles(pixelCount * WS2812_WORST_CASE_MA_PER_PIXEL)
+  const pixels = allocatePixels(pixelCount, roles)
+  return roles.map((role, index) => {
+    const designCurrentMa = pixels[index] * WS2812_WORST_CASE_MA_PER_PIXEL
+    const connectorMinimumMa = connectorMinimumForLoad(designCurrentMa)
+    const conductor = recommendConductor({
+      // Size ampacity and voltage drop with the same continuous-load reserve used for fuse selection.
+      designCurrentMa: Math.ceil(designCurrentMa / 0.75),
+      oneWayLengthMm: DEFAULT_FEED_CABLE_LENGTH_MM,
+      circuitVoltage: nominalVoltage,
+      allowedVoltageDropPercent: (MAX_VOLTAGE_DROP_V / nominalVoltage) * 100,
+      material: 'copper',
+      ambientC: 30,
+      bundledCircuits: 1,
+    })
+    const fuse = conductor && connectorMinimumMa
+      ? recommendFuse(designCurrentMa, conductor.deratedAmpacityMa, connectorMinimumMa)
+      : {
+          minimumLoadRatingMa: Math.ceil(designCurrentMa / 0.75),
+          maximumProtectiveRatingMa: 0,
+          unresolvedReason: 'No reviewed branch conductor and connector combination meets this generated route.',
+        }
+    return {
+      id: `${itemId}:feed-${index + 1}`,
+      itemId,
+      outputTitle,
+      role,
+      positionMm: roles.length <= 1 ? 0 : Math.round((physicalLengthMm * index) / (roles.length - 1)),
+      pixelCount: pixels[index],
+      designCurrentMa,
+      maximumCurrentMa: role === 'center' ? MAX_CENTER_FEED_CURRENT_MA : MAX_END_FEED_CURRENT_MA,
+      conductor,
+      connectorMinimumMa,
+      fuse,
+    }
+  })
+}
+
+function groupSupplies(outputs: OutputElectricalPlan[]): SupplyRecommendation[] {
+  const supplies: SupplyRecommendation[] = []
+  for (const output of outputs) {
+    for (const injection of output.injections) {
+      const injectionWithHeadroom = injection.designCurrentMa * (1 + (DEFAULT_SUPPLY_HEADROOM_PERCENT / 100))
+      let supply = supplies.find((candidate) =>
+        (candidate.designCurrentMa * (1 + (DEFAULT_SUPPLY_HEADROOM_PERCENT / 100))) + injectionWithHeadroom
+          <= MAX_RECOMMENDED_SUPPLY_CURRENT_MA)
+      if (!supply) {
+        supply = {
+          id: `supply-${supplies.length + 1}`,
+          designCurrentMa: 0,
+          recommendedCurrentMa: 0,
+          recommendedWattage: 0,
+          outputIds: [],
+          outputTitles: [],
+          injectionIds: [],
+        }
+        supplies.push(supply)
+      }
+      supply.designCurrentMa += injection.designCurrentMa
+      supply.recommendedCurrentMa = roundToStep(
+        supply.designCurrentMa * (1 + (DEFAULT_SUPPLY_HEADROOM_PERCENT / 100)),
+        1000,
+      )
+      supply.recommendedWattage = Number(((supply.recommendedCurrentMa / 1000) * output.nominalVoltage).toFixed(1))
+      if (!supply.outputIds.includes(output.itemId)) supply.outputIds.push(output.itemId)
+      if (!supply.outputTitles.includes(output.title)) supply.outputTitles.push(output.title)
+      supply.injectionIds.push(injection.id)
+      injection.supplyId = supply.id
+    }
+  }
+  return supplies
 }
 
 export function calculateElectricalPlan(
@@ -144,11 +266,11 @@ export function calculateElectricalPlan(
   }
 
   for (const item of manifest.unsupportedItems) {
-    warnings.push({
+    blockers.push({
       id: `unsupported:${item.id}`,
-      severity: 'warning',
+      severity: 'blocking',
       title: item.title,
-      detail: `${item.sourceNodeType} is outside the current generated-wiring profile set and is omitted from the assembly drawing.`,
+      detail: `${item.subtitle}. Select a supported 5 V one-wire chipset or add a reviewed physical profile before exporting a build reference.`,
     })
   }
 
@@ -172,29 +294,17 @@ export function calculateElectricalPlan(
     const pitchMm = 1000 / densityPerMeter
     const physicalLengthMm = Math.round((pixelCount / densityPerMeter) * 1000)
     const designCurrentMa = pixelCount * WS2812_WORST_CASE_MA_PER_PIXEL
-    const recommendedFeedCount = Math.max(1, Math.ceil(designCurrentMa / MAX_BRANCH_DESIGN_CURRENT_MA))
-    const pixelsPerFeed = Math.ceil(pixelCount / recommendedFeedCount)
-    const branchDesignCurrentMa = Math.ceil(designCurrentMa / recommendedFeedCount)
+    const injections = calculateInjections(item.id, item.title, pixelCount, physicalLengthMm, nominalVoltage)
+    const recommendedFeedCount = injections.length
+    const pixelsPerFeed = Math.max(...injections.map((injection) => injection.pixelCount))
+    const branchDesignCurrentMa = Math.max(...injections.map((injection) => injection.designCurrentMa))
     const headroomPercent = DEFAULT_SUPPLY_HEADROOM_PERCENT
     const recommendedSupplyCurrentMa = roundToStep(designCurrentMa * (1 + (headroomPercent / 100)), 100)
     const recommendedSupplyWattage = Number(((recommendedSupplyCurrentMa / 1000) * nominalVoltage).toFixed(1))
-    const connectorMinimumMa = connectorMinimumForLoad(branchDesignCurrentMa)
-    const conductor = recommendConductor({
-      designCurrentMa: Math.ceil(branchDesignCurrentMa / 0.75),
-      oneWayLengthMm: DEFAULT_FEED_CABLE_LENGTH_MM,
-      circuitVoltage: nominalVoltage,
-      allowedVoltageDropPercent: DEFAULT_ALLOWED_VOLTAGE_DROP_PERCENT,
-      material: 'copper',
-      ambientC: 30,
-      bundledCircuits: 1,
-    })
-    const fuse = conductor && connectorMinimumMa
-      ? recommendFuse(branchDesignCurrentMa, conductor.deratedAmpacityMa, connectorMinimumMa)
-      : {
-          minimumLoadRatingMa: Math.ceil(branchDesignCurrentMa / 0.75),
-          maximumProtectiveRatingMa: 0,
-          unresolvedReason: 'No reviewed branch conductor and connector combination meets this generated route.',
-        }
+    const largestInjection = [...injections].sort((a, b) => b.designCurrentMa - a.designCurrentMa)[0]
+    const connectorMinimumMa = largestInjection.connectorMinimumMa
+    const conductor = largestInjection.conductor
+    const fuse = largestInjection.fuse
     const operatingCurrentCapSource = item.facts.desiredCurrentCapMa
     const operatingCurrentCapMa = typeof operatingCurrentCapSource === 'number' && Number.isFinite(operatingCurrentCapSource)
       ? Math.max(0, Math.round(operatingCurrentCapSource))
@@ -221,7 +331,8 @@ export function calculateElectricalPlan(
       conductor,
       connectorMinimumMa,
       fuse,
-      injectionPointsMm: evenlySpacedFeedPoints(physicalLengthMm, recommendedFeedCount),
+      injectionPointsMm: injections.map((injection) => injection.positionMm),
+      injections,
     })
   }
 
@@ -234,8 +345,9 @@ export function calculateElectricalPlan(
           * (1 + (DEFAULT_SUPPLY_HEADROOM_PERCENT / 100)),
         100,
       )
-      const recommendedSupplyCount = Math.max(1, Math.ceil(recommendedSupplyCurrentMa / MAX_RECOMMENDED_SUPPLY_CURRENT_MA))
-      const perSupplyCurrentMa = roundToStep(recommendedSupplyCurrentMa / recommendedSupplyCount, 1000)
+      const supplies = groupSupplies(outputPlans)
+      const recommendedSupplyCount = supplies.length
+      const perSupplyCurrentMa = Math.max(...supplies.map((supply) => supply.recommendedCurrentMa))
       const cappedCurrents = outputPlans
         .map((plan) => plan.operatingCurrentCapMa)
         .filter((entry): entry is number => typeof entry === 'number')
@@ -248,13 +360,16 @@ export function calculateElectricalPlan(
         perSupplyCurrentMa,
         nominalVoltage,
         headroomPercent: DEFAULT_SUPPLY_HEADROOM_PERCENT,
+        supplies,
       }
     })()
     : undefined
 
   const unresolved = outputPlans.flatMap((output) => [
-    output.conductor ? undefined : `${output.title}: no reviewed conductor size meets the generated branch load.`,
-    output.fuse.unresolvedReason ? `${output.title}: ${output.fuse.unresolvedReason}` : undefined,
+    ...output.injections.flatMap((injection) => [
+      injection.conductor ? undefined : `${output.title} ${injection.role} feed: no reviewed conductor size meets the generated branch load.`,
+      injection.fuse.unresolvedReason ? `${output.title} ${injection.role} feed: ${injection.fuse.unresolvedReason}` : undefined,
+    ]),
   ].filter((entry): entry is string => !!entry))
   const status: ElectricalPlanSummary['status'] = blockers.length > 0 ? 'blocked' : 'calculated'
   const powerReadyPasses = blockers.length === 0 && unresolved.length === 0
@@ -271,7 +386,10 @@ export function calculateElectricalPlan(
     'Power the controller through its USB-C connector; do not route LED load through the controller board.',
     'Join controller, microphone, level shifter, supply, and LED grounds at the common distribution ground.',
     'Use one 74AHCT125 channel and one 330 ohm series resistor for each WS2812B data route.',
-    'Install a correctly polarized 1000 uF capacitor across +5 V and GND at each LED power entry area.',
+    'Install a good-quality, correctly polarized bulk electrolytic capacitor across +5 V and GND at each PSU distribution output.',
+    'Install local ceramic decoupling across +5 V and GND near every LED power-injection site.',
+    'Reducing global brightness lowers operating power without changing the worst-case wiring recommendation.',
+    'Consider enabling FastLED current limiting; full-power LEDs are exceptionally bright and the cap protects the configured operating budget.',
   ]
   for (const output of outputPlans) {
     recommendations.push(
@@ -279,7 +397,7 @@ export function calculateElectricalPlan(
     )
     if (output.conductor && output.connectorMinimumMa && output.fuse.ratingMa) {
       recommendations.push(
-        `${output.title}: each feed uses at least AWG ${output.conductor.awg} / ${output.conductor.crossSectionMm2} mm2 ${output.conductor.material}, a ${formatRuleCurrent(output.connectorMinimumMa)} connector, and a ${formatRuleCurrent(output.fuse.ratingMa)} fuse.`,
+        `${output.title}: feed sizes vary by location; use the per-feed conductor, connector, and fuse ratings shown in the connection plan.`,
       )
     }
   }
@@ -287,8 +405,9 @@ export function calculateElectricalPlan(
   const assumptionsUsed = [
     'WS2812B outputs are sized at 60 mA per pixel full-white design load; a firmware current cap never reduces the physical recommendation.',
     `${DEFAULT_LED_DENSITY_PER_METER} LEDs/m and ${DEFAULT_FEED_CABLE_LENGTH_MM} mm one-way copper feeds are used when the graph has no physical product dimensions.`,
-    `Feed branches are limited to approximately ${formatRuleCurrent(MAX_BRANCH_DESIGN_CURRENT_MA)} design load and supplies to approximately ${formatRuleCurrent(MAX_RECOMMENDED_SUPPLY_CURRENT_MA)} continuous each.`,
-    `Supply capacity includes ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom; conductor voltage drop is limited to ${DEFAULT_ALLOWED_VOLTAGE_DROP_PERCENT}%.`,
+    `Start and end feeds are limited to ${formatRuleCurrent(MAX_END_FEED_CURRENT_MA)}; centre feeds may carry up to ${formatRuleCurrent(MAX_CENTER_FEED_CURRENT_MA)} before splitting in both directions.`,
+    `Supply groups are packed up to approximately ${formatRuleCurrent(MAX_RECOMMENDED_SUPPLY_CURRENT_MA)} continuous each; positive rails from separate PSU zones must not be paralleled.`,
+    `Supply capacity includes ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom; conductor voltage drop is limited to ${MAX_VOLTAGE_DROP_V} V over the complete 500 mm one-way feed circuit.`,
   ]
 
   if (exactBoard?.confidence === 'pinout-verified') {

@@ -34,16 +34,18 @@ the primary workflow.
 - [x] Require only an exact physical board profile before drawing controller
   pins and wires.
 - [x] Calculate conservative WS2812-class current from graph pixel count.
-- [x] Recommend power-supply count, continuous current, and wattage with stated
-  headroom.
-- [x] Split large LED loads into generated fused feeds.
+- [x] Pack injection branches and modest data routes into PSU groups with 20%
+  headroom, splitting only when the practical per-PSU ceiling is exceeded.
+- [x] Split large LED loads into generated fused start/end feeds capped at 5 A
+  and centre feeds capped at 10 A.
 - [x] Recommend conductor size, connector rating, fuse rating, and distributed
   feed locations for each output.
 - [x] Include fused distribution, main protection, and common ground.
 - [x] Include a separate low-current USB-C controller-power path.
 - [x] Include a 74AHCT125-class level shifter and 330 ohm series data resistor
   for ESP32-S3 to 5 V WS2812-class routes.
-- [x] Include a bulk capacitor across LED positive and ground.
+- [x] Include a bulk electrolytic across each PSU distribution output and local
+  ceramic decoupling at every LED injection site.
 - [x] Include complete INMP441 VDD, ground, BCLK/SCK, WS, and SD/DOUT wiring.
 - [x] Include complete graph-derived button, potentiometer, and rotary-encoder
   signal, 3.3 V where required, and ground wiring.
@@ -52,12 +54,12 @@ the primary workflow.
 
 ## Diagram Acceptance Criteria
 
-- [x] The main fuse is connected at both ends.
-- [x] Each external supply is connected to positive distribution and common
-  ground.
+- [x] Every branch fuse is connected at both ends.
+- [x] Each external supply is connected to its positive distribution zone and
+  the common signal-reference ground; separate PSU positive rails never join.
 - [x] Every matrix or strip has connected data, positive, and ground terminals.
 - [x] Every generated LED feed contains both positive and ground conductors.
-- [x] The bulk capacitor connects across positive and ground.
+- [x] Bulk and local ceramic capacitors connect across positive and ground.
 - [x] The level shifter has connected input, output, VCC, ground, and enable.
 - [x] The microphone has connected VDD, ground, and all three I2S signal routes.
 - [x] The controller has a visible, separate USB-C power recommendation.

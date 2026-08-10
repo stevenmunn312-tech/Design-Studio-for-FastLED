@@ -48,6 +48,13 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'EncoderInput',
 ])
 
+const BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS = new Set([
+  'WS2812B',
+  'SK6812',
+  'SK6812-RGBW',
+  'NEOPIXEL',
+])
+
 function nodeLabel(node: StudioNode): string {
   return String(node.data.label ?? node.data.nodeType)
 }
@@ -156,7 +163,7 @@ function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number,
     subtitle: `${width}×${height} ${chipset} route`,
     sourceNodeId: node.id,
     sourceNodeType: node.data.nodeType,
-    supported: chipset !== HUB75_CHIPSET,
+    supported: BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS.has(chipset),
     pins: pinUses,
     facts: {
       width,
@@ -168,7 +175,9 @@ function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number,
       nominalVoltage: nominalVoltageForChipset(chipset),
       desiredCurrentCapMa: powerCapMa,
     },
-    reasons: chipset === HUB75_CHIPSET ? ['HUB75 routing is intentionally deferred until the physical profile/rule system is proven.'] : undefined,
+    reasons: !BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS.has(chipset)
+      ? [`${chipset} needs a dedicated Build Diagram signal and power profile before physical wiring can be generated.`]
+      : undefined,
   }
 }
 
@@ -264,7 +273,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
     targetLabel: board?.label ?? (selectedFqbn || 'No board target selected'),
     controller,
     items,
-    primaryItems: items.filter((item) => item.kind !== 'unsupported'),
+    primaryItems: items.filter((item) => item.supported),
     unsupportedItems: items.filter((item) => !item.supported),
   }
 }

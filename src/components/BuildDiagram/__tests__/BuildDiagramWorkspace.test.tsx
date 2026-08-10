@@ -5,9 +5,9 @@ import { useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/uploadStore'
 
-function matrixNode(dataPin = 14, width = 16, height = 16) {
+function matrixNode(dataPin = 14, width = 16, height = 16, id = 'out') {
   return {
-    id: 'out',
+    id,
     type: 'studioNode',
     position: { x: 0, y: 0 },
     data: {
@@ -92,8 +92,8 @@ describe('BuildDiagramWorkspace', () => {
     expect(getByText('Build reference: ready', { selector: 'li' })).toBeTruthy()
     expect(getByText('Exact board: confirmed', { selector: 'li' })).toBeTruthy()
     expect(getByText((_, node) => node?.tagName === 'LI' && node.textContent?.startsWith('Wiring plan: generated from graph with build-rules-') === true)).toBeTruthy()
-    expect(getByText('Power feeds: 4 fused feeds, distributed evenly across the matrix')).toBeTruthy()
-    expect(getByText('Buy 1 × 5 V supply, at least 20 A continuous each (96 W total capacity with 25% headroom)')).toBeTruthy()
+    expect(getByText('Power feeds: 3 individually fused feeds from the assigned PSU distribution zone')).toBeTruthy()
+    expect(getByText((_, node) => node?.tagName === 'LI' && node.textContent === 'PSU 1: 5 V, at least 19 A / 95 W continuous for Matrix Output (20% headroom)')).toBeTruthy()
     expect(getByText('Build reference — Signal and Power ready')).toBeTruthy()
     expect(queryByText('Still unresolved')).toBeNull()
   })
@@ -115,22 +115,35 @@ describe('BuildDiagramWorkspace', () => {
       'mic-input:mic:i2sSd',
       'output:out-data-in',
       'output:out-conditioned-data',
-      'output:out-power',
-      'output:out-ground',
-      'level-shifter-vcc',
-      'level-shifter-ground-left',
-      'level-shifter-ground-right',
-      'level-shifter-oe',
-      'capacitor-positive',
-      'capacitor-negative',
-      'supply-positive',
-      'fuse-to-distribution',
-      'supply-ground',
+      'level-shifter-1-vcc',
+      'level-shifter-1-ground',
+      'level-shifter-1-oe-1',
+      'supply-1-positive-bus',
+      'supply-1-ground-bus',
+      'output:out:feed-1-positive',
+      'output:out:feed-1-fused-positive',
+      'output:out:feed-1-ground',
+      'output:out:feed-2-positive',
+      'output:out:feed-2-fused-positive',
+      'output:out:feed-2-ground',
+      'output:out:feed-3-positive',
+      'output:out:feed-3-fused-positive',
+      'output:out:feed-3-ground',
       'controller-usb-power',
     ]) {
       expect(diagram?.querySelector(`[data-wire="${wire}"]`), wire).toBeTruthy()
     }
-    expect(diagram?.querySelector('[data-wire="output:out-data-in"]')?.getAttribute('d')).toMatch(/H330V260H350$/)
+    expect(diagram?.querySelector('[data-wire="output:out-data-in"]')?.getAttribute('d')).toMatch(/H330V318H350$/)
+    for (const terminal of [
+      'supply-1-positive',
+      'supply-1-ground',
+      'output:out:feed-1-fuse',
+      'output:out:feed-1-ceramic',
+      'output:out:feed-1-led-positive',
+      'output:out:feed-1-led-ground',
+    ]) {
+      expect(diagram?.querySelector(`[data-terminal="${terminal}"]`), terminal).toBeTruthy()
+    }
   })
 
   it('generates complete recommended wiring for supported controls from the graph', () => {
@@ -189,9 +202,29 @@ describe('BuildDiagramWorkspace', () => {
     selectDevKit()
     const { getByText, getAllByText } = render(<BuildDiagramWorkspace />)
 
-    expect(getByText('Power feeds: 62 fused feeds, distributed evenly across the matrix')).toBeTruthy()
-    expect(getByText('Buy 6 × 5 V supply, at least 52 A continuous each (1536 W total capacity with 25% headroom)')).toBeTruthy()
-    expect(getAllByText((_, node) => node?.textContent?.includes('6 × 5V 52A supplies') ?? false).length).toBeGreaterThan(0)
+    expect(getByText('Power feeds: 26 individually fused feeds from the assigned PSU distribution zone')).toBeTruthy()
+    expect(getByText((_, node) => node?.tagName === 'LI' && (node.textContent?.startsWith('PSU 5: 5 V, at least') ?? false))).toBeTruthy()
+    expect(getAllByText((_, node) => node?.textContent?.includes('PSU ZONE 5') ?? false).length).toBeGreaterThan(0)
+    expect(getByText('Keep separate PSU +5 V zones isolated; join grounds for the shared controller data reference.')).toBeTruthy()
+  })
+
+  it('allocates four real level-shifter channels before adding a second chip', () => {
+    useGraphStore.setState({
+      nodes: [4, 5, 6, 7, 8].map((pin, index) => matrixNode(pin, 4, 4, `out-${index + 1}`)) as never[],
+    })
+    selectDevKit()
+    const { container } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
+
+    for (const terminal of [
+      'level-shifter-1-a1', 'level-shifter-1-y1', 'level-shifter-1-oe1',
+      'level-shifter-1-a4', 'level-shifter-1-y4', 'level-shifter-1-oe4',
+      'level-shifter-2-a1', 'level-shifter-2-y1', 'level-shifter-2-oe1',
+    ]) {
+      expect(diagram?.querySelector(`[data-terminal="${terminal}"]`), terminal).toBeTruthy()
+    }
+    expect(diagram?.querySelector('[data-wire="level-shifter-1-oe-4"]')).toBeTruthy()
+    expect(diagram?.querySelector('[data-wire="level-shifter-2-oe-1"]')).toBeTruthy()
   })
 
   it('supports zoom, isolation, and panel sizing without changing generated wiring data', () => {

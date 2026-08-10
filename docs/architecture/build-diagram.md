@@ -70,8 +70,9 @@ wait for the user to buy parts or confirm that a recommended component exists.
 - Every LED data route includes a 74AHCT125-class 3.3 V to 5 V conditioning
   stage and a 330 ohm series resistor for the current ESP32-S3/WS2812 scope.
 - The level shifter has connected VCC, ground, and active-low enable terminals.
-- Every LED power entry includes a bulk capacitor connected across positive and
-  ground, never to ground alone.
+- Every PSU distribution output includes a bulk electrolytic capacitor across
+  positive and ground, and every LED injection site includes local ceramic
+  decoupling across the same pair.
 - Every INMP441 route includes VDD, ground, BCLK/SCK, WS, and SD/DOUT.
 - No line may stop near a part: generated wires terminate on visible terminals.
 
@@ -81,12 +82,17 @@ The current bounded WS2812-class rules use:
 
 - 5 V nominal LED power.
 - 60 mA per pixel conservative full-white design load.
-- 25% supply-current headroom.
+- 20% supply-current/wattage headroom.
 - 60 pixels per metre when the graph has no physical density metadata.
 - 500 mm one-way feed cable when no reviewed physical route is available.
-- Approximately 4 A maximum design load per generated fused feed.
-- Approximately 60 A maximum per recommended power supply, with multiple
-  supplies generated for larger builds.
+- 5 A maximum design load for start/end feeds and 10 A maximum for centre
+  feeds that split into no more than 5 A in either direction.
+- 0.4 V maximum calculated feed drop over the complete 500 mm one-way copper
+  feed circuit, with the same continuous-load reserve used for fuse sizing.
+- Approximately 60 A maximum recommended capacity per PSU group. Injection
+  branches and modest data routes share one PSU while they fit; larger builds
+  are split into separately fused positive-power zones with common signal
+  ground and no paralleled PSU positive outputs.
 - Reviewed conductor, connector, voltage-drop, derating, and fuse tables for
   each feed.
 
@@ -123,6 +129,9 @@ shown as a note rather than turned into a beginner planning questionnaire.
   ESP32-S3-DevKitC-1, and Seeed Studio XIAO ESP32S3.
 - WS2812-class strips and matrices, INMP441 microphones, momentary buttons,
   analog potentiometers, and rotary encoders.
+- One independent conditioned data route per supported `MatrixOutput`; four
+  routes consume the four channels of one 74AHCT125 and later routes add chips
+  in groups of four.
 - Automatic supply count, feed count, conductor, connector, fuse, distribution,
   level-shifter, resistor, capacitor, and controller-power recommendations.
 - Unsupported graph hardware is reported and omitted rather than wired

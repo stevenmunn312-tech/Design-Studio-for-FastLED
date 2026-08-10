@@ -1,4 +1,4 @@
-import type { PhysicalBoardProfile } from './boardProfiles'
+import { boardPinForGpio, type PhysicalBoardProfile } from './boardProfiles'
 import type { BuildProfile } from './buildProfile'
 import type { ElectricalPlanSummary } from './electricalPlan'
 import type { HardwareManifest, HardwareManifestItem } from './hardwareManifest'
@@ -37,21 +37,80 @@ export function buildConnectionRows(
   exactBoard?: PhysicalBoardProfile,
 ): BuildConnectionRow[] {
   const rows: BuildConnectionRow[] = []
-  for (const item of items) {
+  const controller = exactBoard?.label ?? 'Controller'
+  const outputs = items.filter((item) => item.kind === 'matrix-output')
+  const nonOutputs = items.filter((item) => item.kind !== 'matrix-output')
+  const boardTerminal = (pin: number) => boardPinForGpio(exactBoard, pin)?.label ?? `GPIO ${pin}`
+  const includedOutputIds = new Set(outputs.map((output) => output.id))
+  const includedPlanOutputs = plan.outputs.filter((output) => includedOutputIds.has(output.itemId))
+  const logicSupplyId = includedPlanOutputs.flatMap((output) => output.injections)
+    .find((injection) => injection.supplyId)?.supplyId ?? 'supply-1'
+  const logicDistribution = `5 V PSU ${logicSupplyId.replace('supply-', '')} fused distribution`
+
+  rows.push({ from: 'USB-C power source', fromTerminal: 'USB-C', to: controller, toTerminal: 'USB-C power', purpose: 'Controller power only' })
+
+  for (const item of nonOutputs) {
     for (const pin of item.pins) {
       rows.push({
-        from: exactBoard?.label ?? 'Controller',
-        fromTerminal: `GPIO ${pin.pin}`,
+        from: controller,
+        fromTerminal: boardTerminal(pin.pin),
         to: item.title,
         toTerminal: pin.label,
-        purpose: item.kind === 'matrix-output' ? 'Conditioned LED data' : 'Signal',
+        purpose: 'Signal',
       })
     }
-    rows.push({ from: exactBoard?.label ?? 'Controller', fromTerminal: 'GND', to: item.title, toTerminal: 'GND', purpose: 'Common ground reference' })
+    if (item.kind === 'mic-input' || item.kind === 'pot-input') {
+      rows.push({ from: controller, fromTerminal: '3V3', to: item.title, toTerminal: item.kind === 'mic-input' ? 'VDD' : '3V3', purpose: 'Logic power' })
+    }
+    rows.push({ from: controller, fromTerminal: 'GND', to: item.title, toTerminal: 'GND', purpose: 'Common ground reference' })
   }
-  for (const output of plan.outputs.filter((entry) => items.some((item) => item.id === entry.itemId))) {
-    rows.push({ from: 'Fused LED power distribution', fromTerminal: `+${output.nominalVoltage} V`, to: output.title, toTerminal: `${output.recommendedFeedCount} fused +V feeds`, purpose: 'Direct distributed LED load power' })
-    rows.push({ from: 'LED supply / distribution', fromTerminal: 'GND', to: output.title, toTerminal: 'GND', purpose: 'LED load return' })
+
+  outputs.forEach((item, outputIndex) => {
+    const pin = item.pins[0]
+    if (!pin) return
+    const chip = Math.floor(outputIndex / 4) + 1
+    const channel = (outputIndex % 4) + 1
+    const shifter = `74AHCT125 level shifter ${chip}`
+    const resistor = `${item.title} 330 ohm data resistor`
+    rows.push({ from: controller, fromTerminal: boardTerminal(pin.pin), to: shifter, toTerminal: `A${channel}`, purpose: '3.3 V LED data' })
+    rows.push({ from: shifter, fromTerminal: `Y${channel}`, to: resistor, toTerminal: 'Input', purpose: '5 V conditioned LED data' })
+    rows.push({ from: resistor, fromTerminal: 'Output', to: item.title, toTerminal: 'DIN', purpose: 'Series-protected LED data' })
+    rows.push({ from: shifter, fromTerminal: `/OE${channel}`, to: 'Common ground bus', toTerminal: 'GND', purpose: 'Enable level-shifter channel' })
+  })
+  if (outputs.length > 0) {
+    rows.push({ from: controller, fromTerminal: 'GND', to: 'Common ground bus', toTerminal: 'GND', purpose: 'Common ground reference' })
+    for (let chip = 1; chip <= Math.ceil(outputs.length / 4); chip += 1) {
+      rows.push({ from: logicDistribution, fromTerminal: '+5V bus', to: `74AHCT125 level shifter ${chip}`, toTerminal: 'VCC', purpose: 'Level-shifter power' })
+      rows.push({ from: 'Common ground bus', fromTerminal: 'GND', to: `74AHCT125 level shifter ${chip}`, toTerminal: 'GND', purpose: 'Level-shifter ground' })
+    }
+  }
+
+  const includedInjections = includedPlanOutputs.flatMap((output) => output.injections)
+  const includedInjectionIds = new Set(includedInjections.map((injection) => injection.id))
+  for (const supply of plan.totals?.supplies ?? []) {
+    const supplyInjections = includedInjections.filter((injection) =>
+      injection.supplyId === supply.id && includedInjectionIds.has(injection.id))
+    if (supplyInjections.length === 0) continue
+    const supplyLabel = `5 V PSU ${supply.id.replace('supply-', '')}`
+    const distribution = `${supplyLabel} fused distribution`
+    rows.push({ from: supplyLabel, fromTerminal: '+5V', to: distribution, toTerminal: '+5V input', purpose: 'DC supply positive' })
+    rows.push({ from: supplyLabel, fromTerminal: 'GND', to: distribution, toTerminal: 'Ground bus', purpose: 'DC supply return' })
+    rows.push({ from: supplyLabel, fromTerminal: '+5V', to: `${supplyLabel} bulk electrolytic`, toTerminal: '+', purpose: 'Bulk transient suppression' })
+    rows.push({ from: supplyLabel, fromTerminal: 'GND', to: `${supplyLabel} bulk electrolytic`, toTerminal: '-', purpose: 'Bulk transient suppression' })
+    for (const injection of supplyInjections) {
+      const destination = `${injection.outputTitle} ${injection.role} injection @ ${injection.positionMm} mm`
+      const fuse = `${destination} ${injection.fuse.ratingMa ?? 'rated'} mA fuse`
+      const ceramic = `${destination} ceramic capacitor`
+      rows.push({ from: distribution, fromTerminal: '+5V fused output', to: fuse, toTerminal: 'Input', purpose: `${injection.designCurrentMa} mA protected branch` })
+      rows.push({ from: fuse, fromTerminal: 'Output', to: destination, toTerminal: '+5V', purpose: `Power injection via ${injection.conductor ? `AWG ${injection.conductor.awg}` : 'rated'} copper pair` })
+      rows.push({ from: distribution, fromTerminal: 'Ground bus', to: destination, toTerminal: 'GND', purpose: 'Power-injection return' })
+      rows.push({ from: destination, fromTerminal: '+5V', to: ceramic, toTerminal: '+', purpose: 'Local high-frequency decoupling' })
+      rows.push({ from: destination, fromTerminal: 'GND', to: ceramic, toTerminal: '-', purpose: 'Local high-frequency decoupling' })
+    }
+  }
+  const includedSupplyIds = [...new Set(includedInjections.map((injection) => injection.supplyId).filter(Boolean))]
+  for (const supplyId of includedSupplyIds.slice(1)) {
+    rows.push({ from: `5 V PSU ${String(supplyId).replace('supply-', '')}`, fromTerminal: 'GND', to: 'Common ground bus', toTerminal: 'GND', purpose: 'Shared data-reference ground; keep +5 V zones isolated' })
   }
   return rows
 }
@@ -72,23 +131,26 @@ export function buildBomRows(
   if (outputs.length > 0) {
     rows.push({ quantity: String(Math.ceil(outputs.length / 4)), item: '74AHCT125 level shifter', specification: '5 V supply, TTL-compatible input; one channel per LED data route', status: 'calculated' })
     rows.push({ quantity: String(outputs.length), item: 'Data-line resistor', specification: '330 ohm at each LED data entry', status: 'calculated' })
-    rows.push({ quantity: String(outputs.length), item: 'Bulk capacitor', specification: '1000 uF, voltage rating above branch voltage, correctly polarized', status: 'calculated' })
   }
   if (plan.totals && outputs.length > 0) {
-    rows.push({
-      quantity: String(plan.totals.recommendedSupplyCount),
-      item: '5 V DC power supply',
-      specification: `${plan.totals.perSupplyCurrentMa} mA continuous each; ${plan.totals.recommendedSupplyWattage} W total build capacity including ${plan.totals.headroomPercent}% headroom`,
-      status: 'calculated',
-    })
-    rows.push({ quantity: '1', item: 'Fused DC distribution block', specification: `At least ${outputs.reduce((sum, output) => sum + output.recommendedFeedCount, 0)} protected outputs plus common ground bus`, status: 'calculated' })
+    const outputIds = new Set(outputs.map((output) => output.itemId))
+    const includedInjectionIds = new Set(outputs.flatMap((output) => output.injections.map((injection) => injection.id)))
+    const supplies = plan.totals.supplies.filter((supply) => supply.outputIds.some((id) => outputIds.has(id))
+      && supply.injectionIds.some((id) => includedInjectionIds.has(id)))
+    for (const supply of supplies) {
+      rows.push({ quantity: '1', item: `5 V DC power supply ${supply.id.replace('supply-', '')}`, specification: `${supply.recommendedCurrentMa} mA / ${supply.recommendedWattage} W continuous including ${plan.totals.headroomPercent}% headroom`, status: 'calculated' })
+      rows.push({ quantity: '1', item: `${supply.id} fused DC distribution block`, specification: `${supply.injectionIds.filter((id) => includedInjectionIds.has(id)).length} protected positive outputs plus common ground bus`, status: 'calculated' })
+      rows.push({ quantity: '1', item: `${supply.id} bulk electrolytic capacitor`, specification: '1000 uF minimum, good-quality low-ESR part, correctly polarized, voltage rating above 5 V', status: 'calculated' })
+    }
+    rows.push({ quantity: String(includedInjectionIds.size), item: 'Local ceramic decoupling capacitor', specification: 'One correctly rated ceramic capacitor across +5 V and GND at each injection site', status: 'calculated' })
   }
   for (const output of outputs) {
-    rows.push({ quantity: String(output.recommendedFeedCount), item: `${output.title} power feed`, specification: `${output.nominalVoltage} V; about ${output.pixelsPerFeed} pixels and ${output.branchDesignCurrentMa} mA design load maximum per feed`, status: 'calculated' })
-    rows.push({ quantity: `${output.recommendedFeedCount} runs`, item: `${output.title} feed conductor`, specification: output.conductor ? `AWG ${output.conductor.awg} / ${output.conductor.crossSectionMm2} mm2 ${output.conductor.material} minimum, based on ${output.conductor.oneWayLengthMm} mm one-way lead assumption` : 'Unresolved conductor size', status: output.conductor ? 'calculated' : 'unresolved' })
-    rows.push({ quantity: String(output.recommendedFeedCount), item: `${output.title} connector`, specification: output.connectorMinimumMa ? `${output.connectorMinimumMa} mA minimum continuous rating each` : 'Unresolved connector rating', status: output.connectorMinimumMa ? 'calculated' : 'unresolved' })
-    rows.push({ quantity: String(output.recommendedFeedCount), item: `${output.title} branch fuse`, specification: output.fuse.ratingMa ? `${output.fuse.ratingMa} mA each` : output.fuse.unresolvedReason ?? 'Unresolved fuse rating', status: output.fuse.ratingMa ? 'calculated' : 'unresolved' })
-    rows.push({ quantity: String(output.recommendedFeedCount), item: `${output.title} distributed feed points`, specification: `Distribute evenly across the matrix; no more than approximately ${output.pixelsPerFeed} pixels per protected feed`, status: 'calculated' })
+    for (const injection of output.injections) {
+      const location = `${injection.role} @ ${injection.positionMm} mm`
+      rows.push({ quantity: '1 run', item: `${output.title} ${location} feed conductor`, specification: injection.conductor ? `AWG ${injection.conductor.awg} / ${injection.conductor.crossSectionMm2} mm2 ${injection.conductor.material} minimum, ${injection.conductor.oneWayLengthMm} mm one-way, ${injection.conductor.voltageDrop} V calculated drop` : 'Unresolved conductor size', status: injection.conductor ? 'calculated' : 'unresolved' })
+      rows.push({ quantity: '1', item: `${output.title} ${location} connector`, specification: injection.connectorMinimumMa ? `${injection.connectorMinimumMa} mA minimum continuous rating` : 'Unresolved connector rating', status: injection.connectorMinimumMa ? 'calculated' : 'unresolved' })
+      rows.push({ quantity: '1', item: `${output.title} ${location} branch fuse`, specification: injection.fuse.ratingMa ? `${injection.fuse.ratingMa} mA` : injection.fuse.unresolvedReason ?? 'Unresolved fuse rating', status: injection.fuse.ratingMa ? 'calculated' : 'unresolved' })
+    }
   }
   return rows
 }

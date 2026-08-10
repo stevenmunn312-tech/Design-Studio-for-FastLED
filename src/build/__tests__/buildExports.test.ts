@@ -49,16 +49,20 @@ describe('buildExports', () => {
     const bomRows = buildBomRows(manifest, plan, profile, board)
 
     expect(connectionRows).toEqual(expect.arrayContaining([
-      expect.objectContaining({ fromTerminal: 'GPIO 14', to: 'Matrix Output' }),
-      expect.objectContaining({ from: 'Fused LED power distribution', purpose: 'Direct distributed LED load power' }),
+      expect.objectContaining({ fromTerminal: 'GPIO14', to: '74AHCT125 level shifter 1', toTerminal: 'A1' }),
+      expect.objectContaining({ from: '74AHCT125 level shifter 1', fromTerminal: 'Y1', purpose: '5 V conditioned LED data' }),
+      expect.objectContaining({ from: '5 V PSU 1 fused distribution', purpose: '3840 mA protected branch' }),
+      expect.objectContaining({ to: 'Matrix Output center injection @ 2134 mm', toTerminal: '+5V' }),
+      expect.objectContaining({ purpose: 'Local high-frequency decoupling', toTerminal: '+' }),
     ]))
     expect(bomRows).toEqual(expect.arrayContaining([
-      expect.objectContaining({ quantity: '4', item: 'Matrix Output branch fuse', status: 'calculated' }),
-      expect.objectContaining({ quantity: '4', item: 'Matrix Output distributed feed points', status: 'calculated' }),
-      expect.objectContaining({ item: '5 V DC power supply', status: 'calculated' }),
+      expect.objectContaining({ item: 'Matrix Output start @ 0 mm branch fuse', status: 'calculated' }),
+      expect.objectContaining({ quantity: '3', item: 'Local ceramic decoupling capacitor' }),
+      expect.objectContaining({ item: '5 V DC power supply 1', specification: expect.stringContaining('20% headroom'), status: 'calculated' }),
+      expect.objectContaining({ item: 'supply-1 bulk electrolytic capacitor', status: 'calculated' }),
     ]))
     expect(connectionsCsv(connectionRows)).toContain('Common ground reference')
-    expect(bomCsv(bomRows)).toContain('Matrix Output branch fuse')
+    expect(bomCsv(bomRows)).toContain('Matrix Output center @ 2134 mm branch fuse')
     expect(connectionsCsv(connectionRows, { status: 'Draft - unresolved', ruleSetVersion: 'rules-v1' }))
       .toContain('Export status,Rule set')
     expect(bomCsv(bomRows, { status: 'Draft - unresolved', ruleSetVersion: 'rules-v1' }))

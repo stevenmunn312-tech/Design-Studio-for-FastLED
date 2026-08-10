@@ -870,7 +870,7 @@
 .physicalDiagram {
   display: block;
   width: 1120px;
-  height: 760px;
+  height: auto;
   font-family: var(--font-body);
   user-select: none;
 }
@@ -880,7 +880,7 @@
   left: -20000px;
   top: 0;
   width: 1120px;
-  height: 760px;
+  height: auto;
   pointer-events: none;
 }
 
@@ -1210,6 +1210,6 @@
     position: static;
     display: block;
     width: 1120px;
-    height: 760px;
+    height: auto;
   }
 }

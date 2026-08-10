@@ -19,6 +19,7 @@ import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import PhysicalAssemblyDiagram from './PhysicalAssemblyDiagram'
+import { physicalAssemblyDiagramHeight } from './physicalDiagramLayout'
 import styles from './BuildDiagramWorkspace.module.css'
 
 interface DiagramConnection {
@@ -273,6 +274,15 @@ export default function BuildDiagramWorkspace() {
     () => calculateElectricalPlan(manifest, buildProfile, exactBoard),
     [buildProfile, exactBoard, manifest],
   )
+  const visibleElectricalPlan = useMemo(() => {
+    const visibleIds = new Set(visiblePrimaryItems.map((item) => item.id))
+    return calculateElectricalPlan({
+      ...manifest,
+      items: manifest.items.filter((item) => visibleIds.has(item.id)),
+      primaryItems: visiblePrimaryItems,
+      unsupportedItems: [],
+    }, buildProfile, exactBoard)
+  }, [buildProfile, exactBoard, manifest, visiblePrimaryItems])
   const partsSummary = useMemo(() => {
     const lines: Array<{ id: string; quantity: string; label: string; pending?: boolean }> = []
     if (exactBoard) lines.push({ id: 'board', quantity: '1', label: exactBoard.label })
@@ -283,14 +293,13 @@ export default function BuildDiagramWorkspace() {
       const feedCount = electricalPlan.outputs.reduce((sum, output) => sum + output.recommendedFeedCount, 0)
       const fuseRatings = [...new Set(electricalPlan.outputs.map((output) => output.fuse.ratingMa).filter((value): value is number => !!value))]
       lines.push({ id: 'fuses', quantity: String(feedCount), label: `${fuseRatings.map(formatCurrentMa).join(' / ') || 'Rated'} branch fuse` })
-      lines.push({ id: 'capacitors', quantity: String(outputItems.length), label: '1000uF bulk capacitor' })
+      lines.push({ id: 'ceramic-capacitors', quantity: String(feedCount), label: 'Local ceramic injection capacitor' })
     }
     if (electricalPlan.totals) {
-      lines.push({
-        id: 'supply',
-        quantity: String(electricalPlan.totals.recommendedSupplyCount),
-        label: `5 V · ${formatCurrentMa(electricalPlan.totals.perSupplyCurrentMa)} continuous supply`,
-      })
+      for (const supply of electricalPlan.totals.supplies) {
+        lines.push({ id: supply.id, quantity: '1', label: `5 V · ${formatCurrentMa(supply.recommendedCurrentMa)} / ${formatWattage(supply.recommendedWattage)} PSU` })
+      }
+      lines.push({ id: 'bulk-capacitors', quantity: String(electricalPlan.totals.supplies.length), label: '1000uF minimum bulk electrolytic capacitor' })
     }
     const conductors = [...new Set(electricalPlan.outputs.map((output) => output.conductor ? `AWG ${output.conductor.awg} / ${output.conductor.crossSectionMm2} mm2 copper` : '').filter(Boolean))]
     if (conductors.length > 0) lines.push({ id: 'wire', quantity: 'As required', label: conductors.join(' / ') })
@@ -442,8 +451,15 @@ export default function BuildDiagramWorkspace() {
     () => allDeviceLayouts.filter((layout) => visibleItemIds.has(layout.itemId)),
     [allDeviceLayouts, visibleItemIds],
   )
-  const allBounds = useMemo(() => boundsForLayouts(controllerBox, allDeviceLayouts), [allDeviceLayouts, controllerBox])
-  const visibleBounds = useMemo(() => boundsForLayouts(controllerBox, visibleDeviceLayouts), [controllerBox, visibleDeviceLayouts])
+  const canvasHeight = physicalAssemblyDiagramHeight(visiblePrimaryItems, visibleElectricalPlan)
+  const allBounds = useMemo(() => {
+    const bounds = boundsForLayouts(controllerBox, allDeviceLayouts)
+    return { ...bounds, height: Math.max(bounds.height, canvasHeight - bounds.y) }
+  }, [allDeviceLayouts, canvasHeight, controllerBox])
+  const visibleBounds = useMemo(() => {
+    const bounds = boundsForLayouts(controllerBox, visibleDeviceLayouts)
+    return { ...bounds, height: Math.max(bounds.height, canvasHeight - bounds.y) }
+  }, [canvasHeight, controllerBox, visibleDeviceLayouts])
 
   const boardAnchorsById = useMemo(() => new Map((exactBoard?.pinAnchors ?? []).map((anchor) => [anchor.id, anchor])), [exactBoard])
   const canRenderControllerPins = !!exactBoard && boardAnchorsById.size > 0 && (exactBoard.pins?.length ?? 0) > 0
@@ -535,7 +551,6 @@ export default function BuildDiagramWorkspace() {
         : 'The exported reference includes the selected board confidence, calculation ruleset, connections, and parts plan.'
 
   const canvasWidth = 1120
-  const canvasHeight = 760
   const scaledCanvasWidth = canvasWidth * diagramZoom
   const scaledCanvasHeight = canvasHeight * diagramZoom
 
@@ -927,7 +942,7 @@ export default function BuildDiagramWorkspace() {
                 <PhysicalAssemblyDiagram
                   boardLabel={exactBoard.label}
                   items={visiblePrimaryItems}
-                  plan={electricalPlan}
+                  plan={visibleElectricalPlan}
                   exportScope="current-view"
                   selectedItemId={selectedItemId}
                   onSelectItem={setSelectedItemId}
@@ -1150,11 +1165,13 @@ export default function BuildDiagramWorkspace() {
                       {electricalPlan.totals.operatingCurrentCapMa != null && (
                         <li>Configured operating cap: {formatCurrentMa(electricalPlan.totals.operatingCurrentCapMa)}</li>
                       )}
-                      <li>
-                        Buy {electricalPlan.totals.recommendedSupplyCount} × {electricalPlan.totals.nominalVoltage} V supply,
-                        {' '}at least {formatCurrentMa(electricalPlan.totals.perSupplyCurrentMa)} continuous each
-                        {' '}({formatWattage(electricalPlan.totals.recommendedSupplyWattage)} total capacity with {electricalPlan.totals.headroomPercent}% headroom)
-                      </li>
+                      {electricalPlan.totals.supplies.map((supply, index) => (
+                        <li key={supply.id}>
+                          PSU {index + 1}: {electricalPlan.totals?.nominalVoltage} V, at least {formatCurrentMa(supply.recommendedCurrentMa)} / {formatWattage(supply.recommendedWattage)} continuous
+                          {' '}for {supply.outputTitles.join(', ')} ({electricalPlan.totals?.headroomPercent}% headroom)
+                        </li>
+                      ))}
+                      {electricalPlan.totals.supplies.length > 1 && <li>Keep separate PSU +5 V zones isolated; join grounds for the shared controller data reference.</li>}
                       {electricalPlan.controllerPowerPath && <li>Controller branch: {electricalPlan.controllerPowerPath}</li>}
                     </ul>
                   )}
@@ -1169,8 +1186,15 @@ export default function BuildDiagramWorkspace() {
                           <span className={styles.progressPill}>{formatCurrentMa(output.designCurrentMa)}</span>
                         </div>
                         <ul className={styles.flatList}>
-                          <li>Power feeds: {output.recommendedFeedCount} fused feeds, distributed evenly across the matrix</li>
-                          <li>Feed grouping: no more than approximately {output.pixelsPerFeed} pixels / {formatCurrentMa(output.branchDesignCurrentMa)} design load per feed</li>
+                          <li>Power feeds: {output.recommendedFeedCount} individually fused feeds from the assigned PSU distribution zone</li>
+                          {output.injections.map((injection) => (
+                            <li key={injection.id}>
+                              {injection.role} @ {injection.positionMm} mm: {formatCurrentMa(injection.designCurrentMa)} / {injection.pixelCount} px,
+                              {' '}{injection.conductor ? `AWG ${injection.conductor.awg}` : 'wire unresolved'},
+                              {' '}{injection.fuse.ratingMa ? `${formatCurrentMa(injection.fuse.ratingMa)} fuse` : 'fuse unresolved'},
+                              {' '}{injection.supplyId?.replace('supply-', 'PSU ') ?? 'PSU unresolved'}
+                            </li>
+                          ))}
                           <li>Output supply budget: {formatCurrentMa(output.recommendedSupplyCurrentMa)} @ {output.nominalVoltage} V ({formatWattage(output.recommendedSupplyWattage)})</li>
                           {output.conductor && (
                             <li>Each feed conductor: AWG {output.conductor.awg} / {output.conductor.crossSectionMm2} mm2 {output.conductor.material} minimum</li>

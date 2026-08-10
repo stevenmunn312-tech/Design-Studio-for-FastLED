@@ -1,6 +1,6 @@
 import type { BuildConductorMaterial } from './buildProfile'
 
-export const ELECTRICAL_RULESET_VERSION = 'build-rules-2026.08.10-v1'
+export const ELECTRICAL_RULESET_VERSION = 'build-rules-2026.08.10-v2'
 export const DEFAULT_ALLOWED_VOLTAGE_DROP_PERCENT = 5
 
 export interface WireRule {

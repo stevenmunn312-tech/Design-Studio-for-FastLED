@@ -1,6 +1,16 @@
 import type { ElectricalPlanSummary, OutputElectricalPlan } from '../../build/electricalPlan'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
 import styles from './BuildDiagramWorkspace.module.css'
+import {
+  itemLayouts,
+  LEVEL_SHIFTER_HEIGHT,
+  LEVEL_SHIFTER_WIDTH,
+  LEVEL_SHIFTER_X,
+  levelShifterChannelY,
+  levelShifterChipY,
+  physicalAssemblyDiagramHeight,
+  type ItemLayout,
+} from './physicalDiagramLayout'
 
 export interface PhysicalDiagramConnection {
   id: string
@@ -19,14 +29,6 @@ interface PhysicalAssemblyDiagramProps {
   exportScope?: 'current-view' | 'complete-build'
 }
 
-type ItemLayout = {
-  item: HardwareManifestItem
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
 const CANVAS_WIDTH = 1120
 
 function shortBoardLabel(label: string) {
@@ -37,24 +39,6 @@ function shortBoardLabel(label: string) {
 
 function formatAmps(valueMa: number) {
   return `${Number((valueMa / 1000).toFixed(valueMa % 1000 === 0 ? 0 : 1))}A`
-}
-
-function itemLayouts(items: HardwareManifestItem[]): ItemLayout[] {
-  const outputs = items.filter((item) => item.kind === 'matrix-output')
-  const peripherals = items.filter((item) => item.kind !== 'matrix-output' && item.kind !== 'mic-input')
-  const layouts: ItemLayout[] = outputs.map((item, index) => ({
-    item,
-    x: 820,
-    y: 92 + (index * 212),
-    width: 252,
-    height: 174,
-  }))
-  const microphone = items.find((item) => item.kind === 'mic-input')
-  if (microphone) layouts.push({ item: microphone, x: 350, y: 62, width: 205, height: 138 })
-  peripherals.forEach((item, index) => {
-    layouts.push({ item, x: 330 + (index * 190), y: 500, width: 160, height: 104 })
-  })
-  return layouts
 }
 
 function connectionPinLabel(connection: PhysicalDiagramConnection) {
@@ -190,15 +174,85 @@ function OutputGraphic({ layout, selected, plan }: { layout: ItemLayout; selecte
       <rect x={x} y={y} width={width} height="174" rx="8" fill="#202426" stroke={selected ? '#1fa5ad' : '#0f1213'} strokeWidth={selected ? 4 : 2} />
       <rect x={x + 18} y={y + 12} width={width - 30} height="140" fill="#15191a" stroke="#515759" />
       <LedPixels x={x + 23} y={y + 17} width={width - 40} height={130} />
-      {[['+5V', 34], ['DIN', 66], ['GND', 98]].map(([label, offset], index) => (
+      {[['DIN', 66]].map(([label, offset]) => (
         <g key={label} data-terminal={`${item.id}-${String(label).toLowerCase()}`}>
-          <circle cx={x} cy={y + Number(offset)} r="6" fill={index === 0 ? '#d84836' : index === 1 ? '#3dab5b' : '#202425'} stroke="#d9a14a" strokeWidth="2" />
+          <circle cx={x} cy={y + Number(offset)} r="6" fill="#3dab5b" stroke="#d9a14a" strokeWidth="2" />
           <text x={x + 14} y={y + Number(offset) + 4} className={styles.physicalPinLabel}>{label}</text>
         </g>
       ))}
-      {plan && <text x={x + 18} y={y + 167} className={styles.physicalBoardSubSilk}>{plan.recommendedFeedCount} FUSED FEEDS · ≤ {plan.pixelsPerFeed} PIXELS / FEED</text>}
+      {plan && <text x={x + 18} y={y + 167} className={styles.physicalBoardSubSilk}>{plan.recommendedFeedCount} FUSED POWER FEEDS · SEE PSU PLAN BELOW</text>}
     </g>
   )
+}
+
+function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSummary; startY: number }) {
+  const injections = plan.outputs.flatMap((output) => output.injections)
+  let y = startY
+  const sections = (plan.totals?.supplies ?? []).map((supply) => {
+    const assigned = injections.filter((injection) => injection.supplyId === supply.id)
+    const sectionY = y
+    const sectionHeight = 132 + (assigned.length * 54)
+    y += sectionHeight + 34
+    return { supply, assigned, sectionY, sectionHeight }
+  })
+  return <g>
+    {sections.map(({ supply, assigned, sectionY, sectionHeight }, supplyIndex) => <g key={supply.id} transform={`translate(0 ${sectionY})`}>
+      <rect x="24" y="0" width="1072" height={sectionHeight} rx="12" fill="none" stroke="#a9afac" strokeWidth="2" />
+      <text x="42" y="24" className={styles.physicalLegendTitle}>PSU ZONE {supplyIndex + 1} · 5V {formatAmps(supply.recommendedCurrentMa)} / {supply.recommendedWattage}W · 20% HEADROOM</text>
+
+      <g transform="translate(42 38)" filter="url(#component-shadow)">
+        <rect width="188" height="78" rx="8" fill="url(#supply-body)" stroke="#151917" strokeWidth="2" />
+        <circle cx="188" cy="24" r="7" fill="#d84938" stroke="#f0a093" data-terminal={`${supply.id}-positive`} />
+        <circle cx="188" cy="56" r="7" fill="#202425" stroke="#aeb6b7" data-terminal={`${supply.id}-ground`} />
+        <text x="86" y="32" textAnchor="middle" className={styles.physicalSupplyText}>5V CONSTANT-VOLTAGE PSU</text>
+        <text x="86" y="54" textAnchor="middle" className={styles.physicalBoardSubSilk}>{supply.outputTitles.join(' + ')}</text>
+      </g>
+
+      <path data-wire={`${supply.id}-positive-bus`} d="M230 62H500" className={styles.powerWire} />
+      <path data-wire={`${supply.id}-ground-bus`} d="M230 94H500" className={styles.groundWire} />
+      <g transform="translate(262 44)">
+        <rect width="92" height="68" rx="7" fill="#292e30" stroke="#111" />
+        <text x="46" y="20" textAnchor="middle" className={styles.physicalFuseText}>1000µF MIN</text>
+        <text x="46" y="38" textAnchor="middle" className={styles.physicalFuseText}>BULK ELECTROLYTIC</text>
+        <circle cx="0" cy="18" r="5" fill="#d84938" data-terminal={`${supply.id}-bulk-positive`} />
+        <circle cx="0" cy="50" r="5" fill="#202425" stroke="#aeb6b7" data-terminal={`${supply.id}-bulk-negative`} />
+      </g>
+      <rect x="390" y="46" width="110" height="66" rx="7" fill="#263035" stroke="#111" />
+      <text x="445" y="70" textAnchor="middle" className={styles.physicalFuseText}>FUSED +5V</text>
+      <text x="445" y="96" textAnchor="middle" className={styles.physicalFuseText}>GROUND BUS</text>
+
+      {assigned.map((injection, index) => {
+        const rowY = 132 + (index * 54)
+        const fuseText = injection.fuse.ratingMa ? formatAmps(injection.fuse.ratingMa) : 'RATED'
+        const wireText = injection.conductor ? `AWG ${injection.conductor.awg}` : 'WIRE TBD'
+        const destination = `${injection.outputTitle} · ${injection.role.toUpperCase()} @ ${injection.positionMm} mm`
+        return <g key={injection.id}>
+          <path data-wire={`${injection.id}-positive`} d={`M500 62H530V${rowY}H560`} className={styles.powerWire} />
+          <rect x="560" y={rowY - 15} width="70" height="30" rx="6" fill="#4b2423" stroke="#a7473f" data-terminal={`${injection.id}-fuse`} />
+          <text x="595" y={rowY + 4} textAnchor="middle" className={styles.physicalFuseText}>{fuseText} FUSE</text>
+          <path data-wire={`${injection.id}-fused-positive`} d={`M630 ${rowY}H1000`} className={styles.powerWire} />
+          <path data-wire={`${injection.id}-ground`} d={`M500 94H520V${rowY + 22}H1000`} className={styles.groundWire} />
+          <text x="650" y={rowY - 8} className={styles.physicalWireLabel}>{destination} · {formatAmps(injection.designCurrentMa)} · {wireText} · 500 mm</text>
+          <g transform={`translate(950 ${rowY})`} data-terminal={`${injection.id}-ceramic`}>
+            <line x1="0" y1="0" x2="0" y2="7" className={styles.powerWire} />
+            <line x1="-8" y1="7" x2="8" y2="7" stroke="#766f4a" strokeWidth="3" />
+            <line x1="-8" y1="15" x2="8" y2="15" stroke="#766f4a" strokeWidth="3" />
+            <line x1="0" y1="15" x2="0" y2="22" className={styles.groundWire} />
+            <text x="14" y="15" className={styles.physicalFuseText}>CER</text>
+          </g>
+          <circle cx="1000" cy={rowY} r="6" fill="#d84938" stroke="#f0a093" data-terminal={`${injection.id}-led-positive`} />
+          <circle cx="1000" cy={rowY + 22} r="6" fill="#202425" stroke="#aeb6b7" data-terminal={`${injection.id}-led-ground`} />
+          <text x="1012" y={rowY + 5} className={styles.physicalPinLabel}>+5V</text>
+          <text x="1012" y={rowY + 27} className={styles.physicalPinLabel}>GND</text>
+        </g>
+      })}
+    </g>)}
+    {sections.length > 1 && <path
+      data-wire="multi-psu-common-ground"
+      d={`M230 ${sections[0].sectionY + 94}V${sections[sections.length - 1].sectionY + 94}`}
+      className={styles.groundWire}
+    />}
+  </g>
 }
 
 function WireLabel({ x, y, children }: { x: number; y: number; children: string }) {
@@ -213,26 +267,16 @@ export default function PhysicalAssemblyDiagram({ boardLabel, items, connections
   const outputConnections = connections.filter((connection) => outputLayouts.some((layout) => layout.item.id === connection.itemId))
   const micConnections = microphoneLayout ? connections.filter((connection) => connection.itemId === microphoneLayout.item.id) : []
   const controllerConnections = [...outputConnections, ...micConnections, ...connections.filter((connection) => !outputConnections.includes(connection) && !micConnections.includes(connection))]
-  const totals = plan.totals
-  const totalFeedCount = plan.outputs.reduce((sum, output) => sum + output.recommendedFeedCount, 0)
-  const fuseRatings = [...new Set(plan.outputs.map((output) => output.fuse.ratingMa).filter((rating): rating is number => !!rating))]
-  const fuseLabel = fuseRatings.length === 1 ? formatAmps(fuseRatings[0]) : fuseRatings.length > 1 ? 'SIZED' : 'RATED'
   const hardwareBottom = Math.max(0, ...layouts.map((layout) => layout.y + layout.height))
-  const distributionY = Math.max(670, hardwareBottom + 54)
-  const positiveBusY = distributionY + 35
-  const groundBusY = distributionY + 81
-  const supplyY = positiveBusY - 18
-  const canvasHeight = outputLayouts.length > 0 ? supplyY + 112 : 760
-  const supplyLabel = totals
-    ? totals.recommendedSupplyCount > 1
-      ? `${totals.recommendedSupplyCount} × 5V ${formatAmps(totals.perSupplyCurrentMa)} supplies`
-      : `5V ${formatAmps(totals.perSupplyCurrentMa)} supply`
-    : '5V LED supply'
+  const powerSectionY = Math.max(670, hardwareBottom + 54)
+  const canvasHeight = physicalAssemblyDiagramHeight(items, plan)
 
   return (
     <svg
       className={styles.physicalDiagram}
       viewBox={`0 0 ${CANVAS_WIDTH} ${canvasHeight}`}
+      width={CANVAS_WIDTH}
+      height={canvasHeight}
       role="img"
       data-build-export={exportScope}
       aria-labelledby="physical-diagram-title physical-diagram-desc"
@@ -264,11 +308,10 @@ export default function PhysicalAssemblyDiagram({ boardLabel, items, connections
           const connection = outputConnections.find((entry) => entry.itemId === layout.item.id)
           if (!connection) return null
           const controllerIndex = controllerConnections.indexOf(connection)
+          const channelY = levelShifterChannelY(index)
           return <g key={layout.item.id}>
-            <path data-wire={`${layout.item.id}-data-in`} d={`M280 ${controllerConnectionY(controllerIndex, controllerConnections.length)}H330V${260 + (index * 28)}H350`} className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.signalWire : styles.dimWire} />
-            <path data-wire={`${layout.item.id}-conditioned-data`} d={`M390 ${260 + (index * 28)}H430V${324 + (index * 28)}H590V${layout.y + 66}H${layout.x}`} className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.signalWire : styles.dimWire} />
-            <path data-wire={`${layout.item.id}-power`} d={`M700 ${positiveBusY}H760V${layout.y + 34}H${layout.x}`} className={styles.powerWire} />
-            <path data-wire={`${layout.item.id}-ground`} d={`M700 ${groundBusY}H780V${layout.y + 98}H${layout.x}`} className={styles.groundWire} />
+            <path data-wire={`${layout.item.id}-data-in`} d={`M280 ${controllerConnectionY(controllerIndex, controllerConnections.length)}H330V${channelY}H350`} className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.signalWire : styles.dimWire} />
+            <path data-wire={`${layout.item.id}-conditioned-data`} d={`M390 ${channelY}H${LEVEL_SHIFTER_X}M${LEVEL_SHIFTER_X + LEVEL_SHIFTER_WIDTH} ${channelY}H650V${layout.y + 66}H${layout.x}`} className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.signalWire : styles.dimWire} />
           </g>
         })}
         {peripheralLayouts.map((layout, layoutIndex) => {
@@ -282,68 +325,49 @@ export default function PhysicalAssemblyDiagram({ boardLabel, items, connections
             <path data-wire={`${layout.item.id}-ground`} d={`M${layout.x} ${layout.y + peripheralGroundOffset(layout.item)}H${316 + (layoutIndex * 8)}V476H280`} className={styles.groundWire} />
           </g>
         })}
-        {outputLayouts.length > 0 && <>
-          <path data-wire="level-shifter-vcc" d={`M430 300H410V236H760V${positiveBusY}`} className={styles.powerWire} />
-          <path data-wire="level-shifter-ground-left" d={`M430 408H410V476H700V${groundBusY}`} className={styles.groundWire} />
-          <path data-wire="level-shifter-ground-right" d={`M590 408H610V476H700V${groundBusY}`} className={styles.groundWire} />
-          <path data-wire="level-shifter-oe" d={`M590 300H620V476H700V${groundBusY}`} className={styles.groundWire} />
-          <path data-wire="controller-common-ground" d={`M280 476H700V${groundBusY}`} className={styles.groundWire} />
-          <path data-wire="capacitor-positive" d={`M760 ${positiveBusY}V390H750`} className={styles.powerWire} />
-          <path data-wire="capacitor-negative" d={`M780 ${groundBusY}V390H774`} className={styles.groundWire} />
-          <path data-wire="supply-positive" d={`M860 ${positiveBusY}H824`} className={styles.powerWire} />
-          <path data-wire="fuse-to-distribution" d={`M754 ${positiveBusY}H700`} className={styles.powerWire} />
-          <path data-wire="supply-ground" d={`M860 ${positiveBusY + 50}H730V${groundBusY}H700`} className={styles.groundWire} />
-        </>}
+        {Array.from({ length: Math.ceil(outputLayouts.length / 4) }, (_, chipIndex) => {
+          const chipY = levelShifterChipY(chipIndex * 4)
+          const usedChannels = Math.min(4, outputLayouts.length - (chipIndex * 4))
+          return <g key={`level-shifter-wires-${chipIndex}`}>
+            <path data-wire={`level-shifter-${chipIndex + 1}-vcc`} d={`M${LEVEL_SHIFTER_X} ${chipY + 18}H410V236H370V${powerSectionY + 62}H390`} className={styles.powerWire} />
+            <path data-wire={`level-shifter-${chipIndex + 1}-ground`} d={`M${LEVEL_SHIFTER_X + LEVEL_SHIFTER_WIDTH} ${chipY + 140}H610V476H360V${powerSectionY + 94}H390`} className={styles.groundWire} />
+            {Array.from({ length: usedChannels }, (_, channelIndex) => (
+              <path key={channelIndex} data-wire={`level-shifter-${chipIndex + 1}-oe-${channelIndex + 1}`} d={`M${LEVEL_SHIFTER_X + 28 + (channelIndex * 34)} ${chipY + LEVEL_SHIFTER_HEIGHT}V${chipY + LEVEL_SHIFTER_HEIGHT + 10}H360V${powerSectionY + 94}H390`} className={styles.groundWire} />
+            ))}
+          </g>
+        })}
+        {outputLayouts.length > 0 && <path data-wire="controller-common-ground" d={`M280 476H360V${powerSectionY + 94}H390`} className={styles.groundWire} />}
       </g>
 
       {outputLayouts.length > 0 && <g filter="url(#component-shadow)">
         {outputLayouts.map((layout, index) => (
-          <g key={`${layout.item.id}-resistor`} transform={`translate(350 ${246 + (index * 28)})`}>
+          <g key={`${layout.item.id}-resistor`} transform={`translate(350 ${levelShifterChannelY(index) - 14})`}>
             <text x="20" y="-8" textAnchor="middle" className={styles.physicalComponentLabel}>330Ω</text>
             <line x1="0" y1="14" x2="7" y2="14" stroke="#269847" strokeWidth="4" />
             <rect x="7" y="4" width="26" height="20" rx="4" fill="#dfc39a" stroke="#795f38" />
             <line x1="33" y1="14" x2="40" y2="14" stroke="#269847" strokeWidth="4" />
           </g>
         ))}
-        <g transform="translate(430 276)">
-          <text x="80" y="-14" textAnchor="middle" className={styles.physicalComponentLabel}>74AHCT125 level shifter</text>
-          <rect width="160" height="154" rx="9" fill="#292d2f" stroke="#111" strokeWidth="2" />
-          <circle cx="80" cy="15" r="5" fill="#d8d9d4" />
-          {[['VCC', 24], ['A1', 48], ['A2', 76], ['A3', 104], ['GND', 132]].map(([label, y]) => <g key={label}><circle cx="0" cy={Number(y)} r="6" fill="#d2d5d1" stroke="#64696a" /><text x="14" y={Number(y) + 4} className={styles.physicalChipLabel}>{label}</text></g>)}
-          {[['OE', 24], ['Y1', 48], ['Y2', 76], ['Y3', 104], ['GND', 132]].map(([label, y]) => <g key={label}><circle cx="160" cy={Number(y)} r="6" fill="#d2d5d1" stroke="#64696a" /><text x="146" y={Number(y) + 4} textAnchor="end" className={styles.physicalChipLabel}>{label}</text></g>)}
-        </g>
-        <g transform="translate(736 350)">
-          <text x="24" y="-12" textAnchor="middle" className={styles.physicalComponentLabel}>1000µF / 16V</text>
-          <ellipse cx="24" cy="10" rx="20" ry="9" fill="#505659" stroke="#1b1e20" />
-          <path d="M4 10v54c0 13 40 13 40 0V10" fill="#292e30" stroke="#111" strokeWidth="2" />
-          <ellipse cx="24" cy="64" rx="20" ry="8" fill="#171a1b" />
-          <line x1="14" y1="72" x2="14" y2="40" stroke="#d92e2e" strokeWidth="3" />
-          <line x1="38" y1="72" x2="38" y2="40" stroke="#202425" strokeWidth="3" />
-          <text x="2" y="42" className={styles.physicalPolarity}>+</text>
-          <text x="42" y="42" className={styles.physicalPolarity}>−</text>
-        </g>
-        <g transform={`translate(520 ${distributionY})`}>
-          <text x="90" y="-14" textAnchor="middle" className={styles.physicalComponentLabel}>Fused power distribution</text>
-          <rect width="180" height="116" rx="10" fill="#263035" stroke="#111" strokeWidth="2" />
-          <rect x="14" y="18" width="152" height="34" rx="6" fill="#4b2423" stroke="#a7473f" />
-          <rect x="14" y="64" width="152" height="34" rx="6" fill="#1c2426" stroke="#667175" />
-          <text x="90" y="40" textAnchor="middle" className={styles.physicalFuseText}>{totalFeedCount || 1} × {fuseLabel} BRANCH FUSES</text>
-          <text x="90" y="86" textAnchor="middle" className={styles.physicalFuseText}>COMMON GROUND BUS</text>
-        </g>
-        <g transform={`translate(754 ${positiveBusY - 20})`}>
-          <rect width="70" height="40" rx="8" fill="#272c2e" stroke="#111" strokeWidth="2" />
-          <rect x="20" y="6" width="30" height="28" rx="5" fill="#484e50" />
-          <text x="35" y="26" textAnchor="middle" className={styles.physicalFuseText}>{totals?.recommendedSupplyCount ?? 1} × MAIN</text>
-        </g>
-        <g transform={`translate(860 ${supplyY})`}>
-          <rect width="190" height="88" rx="8" fill="url(#supply-body)" stroke="#151917" strokeWidth="2" />
-          <rect x="0" y="9" width="38" height="70" rx="5" fill="#2f6b49" stroke="#163822" />
-          <circle cx="0" cy="18" r="7" fill="#d84938" stroke="#f0a093" />
-          <circle cx="0" cy="68" r="7" fill="#202425" stroke="#aeb6b7" />
-          <text x="112" y="36" textAnchor="middle" className={styles.physicalSupplyText}>{supplyLabel}</text>
-          <text x="112" y="57" textAnchor="middle" className={styles.physicalBoardSubSilk}>{totals ? `${formatAmps(totals.recommendedSupplyCurrentMa)} TOTAL · ${totals.recommendedSupplyWattage}W` : 'LED POWER'}</text>
-        </g>
+        {Array.from({ length: Math.ceil(outputLayouts.length / 4) }, (_, chipIndex) => {
+          const chipY = levelShifterChipY(chipIndex * 4)
+          return <g key={`level-shifter-${chipIndex}`} transform={`translate(${LEVEL_SHIFTER_X} ${chipY})`}>
+            <text x="80" y="-14" textAnchor="middle" className={styles.physicalComponentLabel}>74AHCT125 level shifter {chipIndex + 1}</text>
+            <rect width={LEVEL_SHIFTER_WIDTH} height={LEVEL_SHIFTER_HEIGHT} rx="9" fill="#292d2f" stroke="#111" strokeWidth="2" />
+            <g data-terminal={`level-shifter-${chipIndex + 1}-vcc`}><circle cx="0" cy="18" r="6" fill="#d2d5d1" stroke="#64696a" /><text x="14" y="22" className={styles.physicalChipLabel}>VCC</text></g>
+            {Array.from({ length: 4 }, (_, channelIndex) => {
+              const channelY = 42 + (channelIndex * 25)
+              return <g key={channelIndex}>
+                <g data-terminal={`level-shifter-${chipIndex + 1}-a${channelIndex + 1}`}><circle cx="0" cy={channelY} r="6" fill="#d2d5d1" stroke="#64696a" /><text x="14" y={channelY + 4} className={styles.physicalChipLabel}>A{channelIndex + 1}</text></g>
+                <g data-terminal={`level-shifter-${chipIndex + 1}-y${channelIndex + 1}`}><circle cx="160" cy={channelY} r="6" fill="#d2d5d1" stroke="#64696a" /><text x="146" y={channelY + 4} textAnchor="end" className={styles.physicalChipLabel}>Y{channelIndex + 1}</text></g>
+                <g data-terminal={`level-shifter-${chipIndex + 1}-oe${channelIndex + 1}`}><circle cx={28 + (channelIndex * 34)} cy={LEVEL_SHIFTER_HEIGHT} r="5" fill="#d2d5d1" stroke="#64696a" /><text x={28 + (channelIndex * 34)} y={LEVEL_SHIFTER_HEIGHT - 9} textAnchor="middle" className={styles.physicalChipLabel}>/OE{channelIndex + 1}</text></g>
+              </g>
+            })}
+            <g data-terminal={`level-shifter-${chipIndex + 1}-gnd`}><circle cx="160" cy="140" r="6" fill="#202425" stroke="#64696a" /><text x="146" y="144" textAnchor="end" className={styles.physicalChipLabel}>GND</text></g>
+          </g>
+        })}
       </g>}
+
+      {outputLayouts.length > 0 && <PowerDistributionSections plan={plan} startY={powerSectionY} />}
 
       <g filter="url(#component-shadow)" transform="translate(74 576)">
         <rect width="184" height="62" rx="12" fill="#e9ecea" stroke="#879092" strokeWidth="2" />
