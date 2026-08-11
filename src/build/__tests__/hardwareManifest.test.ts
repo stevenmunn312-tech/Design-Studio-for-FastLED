@@ -59,4 +59,14 @@ describe('hardwareManifest', () => {
     expect(manifest.unsupportedItems[0].sourceNodeType).toBe('DMXInput')
     expect(manifest.unsupportedItems[0].supported).toBe(false)
   })
+
+  it('does not pass SPI or HUB75 outputs into the one-wire build planner', () => {
+    const manifest = buildHardwareManifest([
+      node('spi', 'MatrixOutput', { width: 8, height: 8, chipset: 'APA102', dataPin: 12, clockPin: 13 }),
+      node('hub', 'MatrixOutput', { width: 64, height: 32, chipset: 'HUB75' }),
+    ], [], 'esp32:esp32:esp32s3')
+
+    expect(manifest.primaryItems).toEqual([])
+    expect(manifest.unsupportedItems.map((item) => item.facts.chipset)).toEqual(['APA102', 'HUB75'])
+  })
 })

@@ -5,22 +5,64 @@ import { useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/uploadStore'
 
+function matrixNode(dataPin = 14, width = 16, height = 16, id = 'out', extra: Record<string, unknown> = {}) {
+  return {
+    id,
+    type: 'studioNode',
+    position: { x: 0, y: 0 },
+    data: {
+      label: 'Matrix Output',
+      nodeType: 'MatrixOutput',
+      category: 'output',
+      properties: { width, height, chipset: 'WS2812B', dataPin, ...extra },
+      inputs: [],
+      outputs: [],
+    },
+  }
+}
+
+function microphoneNode() {
+  return {
+    id: 'mic',
+    type: 'studioNode',
+    position: { x: 0, y: 0 },
+    data: {
+      label: 'Microphone',
+      nodeType: 'MicInput',
+      category: 'input',
+      properties: { i2sWs: 39, i2sSck: 40, i2sSd: 41 },
+      inputs: [],
+      outputs: [],
+    },
+  }
+}
+
+function inputNode(id: string, nodeType: 'ButtonInput' | 'PotInput' | 'EncoderInput', properties: Record<string, number>) {
+  return {
+    id,
+    type: 'studioNode',
+    position: { x: 0, y: 0 },
+    data: {
+      label: nodeType.replace('Input', ''),
+      nodeType,
+      category: 'input',
+      properties,
+      inputs: [],
+      outputs: [],
+    },
+  }
+}
+
+function selectDevKit() {
+  useGraphStore.setState({
+    buildProfile: { version: 1, physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1' },
+  })
+}
+
 describe('BuildDiagramWorkspace', () => {
   beforeEach(() => {
     useGraphStore.setState({
-      nodes: [{
-        id: 'out',
-        type: 'studioNode',
-        position: { x: 0, y: 0 },
-        data: {
-          label: 'Matrix Output',
-          nodeType: 'MatrixOutput',
-          category: 'output',
-          properties: { width: 16, height: 16, chipset: 'WS2812B', dataPin: 14 },
-          inputs: [],
-          outputs: [],
-        },
-      }] as never[],
+      nodes: [matrixNode()] as never[],
       edges: [],
       buildProfile: undefined,
       graphData: {},
@@ -31,356 +73,316 @@ describe('BuildDiagramWorkspace', () => {
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3', selectedPort: 'COM7' })
   })
 
-  it('requires an exact board before showing controller-side connections', () => {
-    const { getByText } = render(<BuildDiagramWorkspace />)
+  it('starts with a compact controller, graph hardware, power summary, and idle details panel', () => {
+    const { getByRole, getByText, queryByLabelText, queryByText } = render(<BuildDiagramWorkspace />)
 
     expect(getByText('Exact board required')).toBeTruthy()
-    expect(getByText('Controller-side connections appear here after an exact board with a reviewed pin map is selected.')).toBeTruthy()
+    expect(getByRole('img', { name: 'ESP32-S3 controller family' })).toBeTruthy()
+    expect(getByRole('button', { name: 'Choose your board' })).toBeTruthy()
+    expect(getByText('Graph hardware')).toBeTruthy()
+    expect(getByText('Power summary')).toBeTruthy()
+    expect(getByText('Choose a board or select graph hardware to see its build details.')).toBeTruthy()
+    expect(queryByText('Selected item')).toBeNull()
+    expect(queryByText('Readiness')).toBeNull()
+    expect(queryByLabelText('Preferred path')).toBeNull()
+    expect(queryByLabelText('Physical length (mm)')).toBeNull()
+    expect(queryByLabelText('Assigned owned supply')).toBeNull()
+    expect(queryByText('Owned supplies')).toBeNull()
+    expect(queryByText('Power-planning blockers')).toBeNull()
   })
 
-  it('shows GPIO connections once a reviewed exact board profile is selected', () => {
-    useGraphStore.setState({
-      buildProfile: {
-        version: 1,
-        physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1',
-      },
-    })
+  it('generates a complete build reference immediately after board selection', () => {
+    const { getByRole, getByText, queryByText } = render(<BuildDiagramWorkspace />)
+    fireEvent.click(getByRole('button', { name: 'Choose your board' }))
+    expect(getByRole('dialog', { name: 'Choose your board' })).toBeTruthy()
+    fireEvent.click(getByText('Espressif ESP32-S3-DevKitC-1'))
 
-    const { getAllByText, getByText } = render(<BuildDiagramWorkspace />)
-
-    expect(getByText('Espressif ESP32-S3-DevKitC-1 selected. Connections now resolve against that exact board\'s pin map.')).toBeTruthy()
-    expect(getAllByText((_, node) => node?.textContent?.includes('GPIO14 → Matrix Output data pin') ?? false).length).toBeGreaterThan(0)
+    expect(getByText('Build reference: ready', { selector: 'li' })).toBeTruthy()
+    expect(getByText('Exact board: confirmed', { selector: 'li' })).toBeTruthy()
+    expect(getByText((_, node) => node?.tagName === 'LI' && node.textContent?.startsWith('Wiring plan: generated from graph with build-rules-') === true)).toBeTruthy()
+    expect(getByText('Power feeds: 3 individually fused feeds from the assigned PSU distribution zone')).toBeTruthy()
+    expect(getByText((_, node) => node?.tagName === 'LI' && node.textContent === 'PSU 1: 5 V, at least 20 A / 100 W continuous for Matrix Output (20% headroom)')).toBeTruthy()
+    expect(getByText('Build reference — Signal and Power ready')).toBeTruthy()
+    expect(queryByText('Still unresolved')).toBeNull()
   })
 
-  it('offers zoom controls for the diagram viewport', () => {
-    useGraphStore.setState({
-      buildProfile: {
-        version: 1,
-        physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1',
-      },
+  it('renders controller, microphone, matrix, and every required connection from the graph', () => {
+    useGraphStore.setState({ nodes: [matrixNode(), microphoneNode()] as never[] })
+    selectDevKit()
+    const { container, getAllByText } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
+
+    expect(diagram).toBeTruthy()
+    expect(getAllByText('Microphone').length).toBeGreaterThan(0)
+    expect(getAllByText('Matrix Output').length).toBeGreaterThan(0)
+    expect(diagram?.querySelector('[data-controller-render="esp32-s3-devkitc-1"] image')).toBeTruthy()
+    for (const wire of [
+      'microphone-vdd',
+      'microphone-ground',
+      'mic-input:mic:i2sWs',
+      'mic-input:mic:i2sSck',
+      'mic-input:mic:i2sSd',
+      'output:out-data-in',
+      'output:out-level-shifter-input',
+      'output:out-conditioned-data',
+      'level-shifter-1-vcc',
+      'level-shifter-1-ground',
+      'level-shifter-1-oe-1',
+      'supply-1-positive-bus',
+      'supply-1-ground-bus',
+      'output:out:feed-1-positive',
+      'output:out:feed-1-fused-positive',
+      'output:out:feed-1-ground',
+      'output:out:feed-2-positive',
+      'output:out:feed-2-fused-positive',
+      'output:out:feed-2-ground',
+      'output:out:feed-3-positive',
+      'output:out:feed-3-fused-positive',
+      'output:out:feed-3-ground',
+      'controller-usb-power',
+    ]) {
+      expect(diagram?.querySelector(`[data-wire="${wire}"]`), wire).toBeTruthy()
+    }
+    expect(diagram?.querySelector('[data-wire="level-shifter-1-vcc"]')?.getAttribute('d')).toMatch(/V770H390$/)
+    for (const groundWire of ['level-shifter-1-ground', 'level-shifter-1-oe-1', 'controller-common-ground']) {
+      expect(diagram?.querySelector(`[data-wire="${groundWire}"]`)?.getAttribute('d'), groundWire).toMatch(/V802H390$/)
+    }
+    const outputTerminal = diagram?.querySelector('[data-terminal="controller-output:out:dataPin"]')
+    const outputTerminalCircle = outputTerminal?.querySelector('circle')
+    const outputWirePath = diagram?.querySelector('[data-wire="output:out-data-in"]')?.getAttribute('d')
+    expect(outputTerminal?.getAttribute('data-board-anchor')).toBe('j1-20')
+    expect(outputWirePath?.startsWith(`M${outputTerminalCircle?.getAttribute('cx')} ${outputTerminalCircle?.getAttribute('cy')}`)).toBe(true)
+    expect(outputWirePath).toMatch(/H58V542H304V342H350$/)
+    expect(diagram?.querySelector('[data-component-render="sn74ahct125n-dip14"]')).toBeTruthy()
+    expect(diagram?.querySelector('[data-terminal="level-shifter-1-vcc"] circle')?.getAttribute('cx')).toBe('147')
+    expect(diagram?.querySelector('[data-terminal="level-shifter-1-vcc"] circle')?.getAttribute('cy')).toBe('41')
+    expect(diagram?.querySelector('[data-terminal="level-shifter-1-gnd"] circle')?.getAttribute('cx')).toBe('35')
+    expect(diagram?.querySelector('[data-terminal="level-shifter-1-gnd"] circle')?.getAttribute('cy')).toBe('190')
+    expect(diagram?.querySelector('[data-terminal="level-shifter-1-a1"]')?.textContent).toContain('A1 · P2')
+    expect(diagram?.querySelector('[data-terminal="level-shifter-1-y1"]')?.textContent).toContain('Y1 · P3')
+    expect(diagram?.querySelector('[data-wire="output:out-level-shifter-input"]')?.getAttribute('d')).toMatch(/H465$/)
+    expect(diagram?.querySelector('[data-wire="output:out-conditioned-data"]')?.getAttribute('d')).toMatch(/^M465 367/)
+    expect(diagram?.querySelector('[data-terminal="controller-mic-input:mic:i2sSck"]')?.getAttribute('data-board-anchor')).toBe('j3-8')
+    expect(diagram?.querySelector('[data-terminal="controller-mic-input:mic:i2sWs"]')?.getAttribute('data-board-anchor')).toBe('j3-9')
+    expect(diagram?.querySelector('[data-terminal="controller-mic-input:mic:i2sSd"]')?.getAttribute('data-board-anchor')).toBe('j3-7')
+    const microphoneRoutes = [
+      ['microphone-vdd', 'vdd'],
+      ['mic-input:mic:i2sSck', 'bclk'],
+      ['mic-input:mic:i2sWs', 'ws'],
+      ['mic-input:mic:i2sSd', 'dout'],
+    ] as const
+    const microphoneWireClasses = microphoneRoutes.map(([wire, role]) => {
+      const route = diagram?.querySelector(`[data-wire="${wire}"]`)
+      expect(route?.getAttribute('data-wire-role')).toBe(role)
+      return route?.getAttribute('class')
     })
-
-    const { getByText } = render(<BuildDiagramWorkspace />)
-
-    expect(getByText('Zoom 100%')).toBeTruthy()
-    fireEvent.click(getByText('Zoom in'))
-    expect(getByText('Zoom 115%')).toBeTruthy()
-    fireEvent.click(getByText('Zoom out'))
-    expect(getByText('Zoom 100%')).toBeTruthy()
-    fireEvent.click(getByText('Zoom in'))
-    fireEvent.click(getByText('Reset view'))
-    expect(getByText('Zoom 100%')).toBeTruthy()
-  })
-
-  it('keeps layout positions stable and distinguishes fit visible from fit all', () => {
-    const clientWidthDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth')
-    const clientHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight')
-
-    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
-      configurable: true,
-      get: () => 1000,
-    })
-    Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
-      configurable: true,
-      get: () => 500,
-    })
-
-    try {
-      useGraphStore.setState({
-        nodes: Array.from({ length: 6 }, (_, index) => ({
-          id: `out-${index}`,
-          type: 'studioNode',
-          position: { x: 0, y: 0 },
-          data: {
-            label: `Matrix Output ${index + 1}`,
-            nodeType: 'MatrixOutput',
-            category: 'output',
-            properties: { width: 16, height: 16, chipset: 'WS2812B', dataPin: 10 + index },
-            inputs: [],
-            outputs: [],
-          },
-        })) as never[],
-        buildProfile: {
-          version: 1,
-          physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1',
-        },
-      })
-
-      const { getAllByText, getByText } = render(<BuildDiagramWorkspace />)
-
-      fireEvent.click(getAllByText('Isolate')[0])
-      expect(getByText('Unisolate')).toBeTruthy()
-      fireEvent.click(getByText('Fit visible'))
-      const fitVisibleZoom = Number(getByText((_, node) => node?.tagName === 'SPAN' && (node.textContent?.startsWith('Zoom ') ?? false)).textContent?.replace(/\D/g, ''))
-
-      fireEvent.click(getByText('Fit all'))
-      const fitAllZoom = Number(getByText((_, node) => node?.tagName === 'SPAN' && (node.textContent?.startsWith('Zoom ') ?? false)).textContent?.replace(/\D/g, ''))
-      expect(fitAllZoom).toBeLessThan(fitVisibleZoom)
-    } finally {
-      if (clientWidthDescriptor) Object.defineProperty(HTMLElement.prototype, 'clientWidth', clientWidthDescriptor)
-      else delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth
-      if (clientHeightDescriptor) Object.defineProperty(HTMLElement.prototype, 'clientHeight', clientHeightDescriptor)
-      else delete (HTMLElement.prototype as { clientHeight?: number }).clientHeight
+    expect(new Set(microphoneWireClasses).size).toBe(4)
+    expect(diagram?.querySelector('[data-microphone-role="bclk"]')?.textContent).toContain('BCLK')
+    expect(diagram?.querySelector('[data-microphone-role="ws"]')?.textContent).toContain('WS')
+    expect(diagram?.querySelector('[data-microphone-role="dout"]')?.textContent).toContain('DOUT')
+    for (const terminal of [
+      'supply-1-positive',
+      'supply-1-ground',
+      'output:out:feed-1-fuse',
+      'output:out:feed-1-ceramic',
+      'output:out:feed-1-led-positive',
+      'output:out:feed-1-led-ground',
+    ]) {
+      expect(diagram?.querySelector(`[data-terminal="${terminal}"]`), terminal).toBeTruthy()
     }
   })
 
-  it('uses the supplied generic N16R8 pin map for controller-side connections', () => {
+  it('shows two 5 A output limits while retaining the uncapped safety ceiling', () => {
     useGraphStore.setState({
-      buildProfile: {
-        version: 1,
-        physicalBoardProfileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc',
-      },
+      nodes: [
+        matrixNode(14, 16, 16, 'out-a', { powerLimit: true, milliamps: 5000 }),
+        matrixNode(27, 16, 16, 'out-b', { powerLimit: true, milliamps: 5000 }),
+      ] as never[],
     })
+    selectDevKit()
+    const { container, getByText } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
 
-    const { getAllByText, getByText, queryByText } = render(<BuildDiagramWorkspace />)
-
-    expect(getByText('Generic ESP32-S3 N16R8, 44-pin dual USB-C selected. Connections now resolve against that exact board\'s pin map.')).toBeTruthy()
-    expect(getByText('GPIO14 → Matrix Output data pin')).toBeTruthy()
-    expect(getAllByText('Pinout verified only - power-path review still pending.').length).toBeGreaterThan(0)
-    expect(queryByText('This exact board profile does not yet have a reviewed physical pin map.')).toBeNull()
+    expect(diagram?.querySelector('[data-output-card="output:out-a"] [data-operating-current-cap="5000"]')?.textContent).toBe('CURRENT LIMIT 5A')
+    expect(diagram?.querySelector('[data-output-card="output:out-b"] [data-operating-current-cap="5000"]')?.textContent).toBe('CURRENT LIMIT 5A')
+    expect(diagram?.querySelector('[data-psu-recommendation="20000"]')?.textContent).toBe('5 V · 20A · 100 W')
+    expect(diagram?.querySelector('[data-uncapped-current-ceiling="30720"]')?.textContent).toContain('30.7A')
+    expect(getByText('Matrix Output 1: 5 A limit · Matrix Output 2: 5 A limit')).toBeTruthy()
+    expect(getByText('Uncapped full-white ceiling 30.72 A')).toBeTruthy()
   })
 
-  it('flags generic N16R8 PSRAM pins as unavailable even when the header exposes them', () => {
+  it('generates complete recommended wiring for supported controls from the graph', () => {
     useGraphStore.setState({
-      nodes: [{
-        id: 'out',
-        type: 'studioNode',
-        position: { x: 0, y: 0 },
-        data: {
-          label: 'Matrix Output',
-          nodeType: 'MatrixOutput',
-          category: 'output',
-          properties: { width: 16, height: 16, chipset: 'WS2812B', dataPin: 35 },
-          inputs: [],
-          outputs: [],
-        },
-      }] as never[],
-      buildProfile: {
-        version: 1,
-        physicalBoardProfileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc',
-      },
+      nodes: [
+        matrixNode(),
+        inputNode('button', 'ButtonInput', { pin: 4 }),
+        inputNode('pot', 'PotInput', { pin: 5 }),
+        inputNode('encoder', 'EncoderInput', { pinA: 6, pinB: 7, pinSW: 8 }),
+      ] as never[],
     })
+    selectDevKit()
+    const { container } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
 
-    const { getAllByText, getByText } = render(<BuildDiagramWorkspace />)
-
-    expect(getAllByText('GPIO35').length).toBeGreaterThan(0)
-    expect(getByText('Signal ready: needs review: 1 controller pin mapping unresolved', { selector: 'li' })).toBeTruthy()
-    expect(
-      getByText((_, node) => node?.tagName === 'LI'
-        && node.textContent === 'Matrix Output: GPIO 35 is exposed on the selected board header but unavailable on this module because octal PSRAM uses it.')
-    ).toBeTruthy()
+    for (const wire of [
+      'button-input:button:pin',
+      'button-input:button-ground',
+      'pot-input:pot:pin',
+      'pot-input:pot-3v3',
+      'pot-input:pot-ground',
+      'encoder-input:encoder:pinA',
+      'encoder-input:encoder:pinB',
+      'encoder-input:encoder:pinSW',
+      'encoder-input:encoder-ground',
+    ]) {
+      expect(diagram?.querySelector(`[data-wire="${wire}"]`), wire).toBeTruthy()
+    }
   })
 
-  it('does not let hidden invalid routes make Signal ready pass', () => {
+  it('uses icon controls with accessible names for hardware visibility, isolation, and completion', () => {
+    const { getByRole } = render(<BuildDiagramWorkspace />)
+
+    expect(getByRole('button', { name: 'Hide Matrix Output' }).querySelector('svg')).toBeTruthy()
+    expect(getByRole('button', { name: 'Isolate Matrix Output' }).querySelector('svg')).toBeTruthy()
+    expect(getByRole('button', { name: 'Mark Matrix Output done' }).querySelector('svg')).toBeTruthy()
+
+    fireEvent.click(getByRole('button', { name: 'Mark Matrix Output done' }))
+    expect(getByRole('button', { name: 'Mark Matrix Output unfinished' })).toBeTruthy()
+  })
+
+  it('keeps invalid GPIO mappings blocking even when that hardware is hidden', () => {
     useGraphStore.setState({
-      nodes: [14, 35].map((dataPin, index) => ({
-        id: `out-${index}`,
-        type: 'studioNode',
-        position: { x: 0, y: 0 },
-        data: {
-          label: `Matrix Output ${index + 1}`,
-          nodeType: 'MatrixOutput',
-          category: 'output',
-          properties: { width: 16, height: 16, chipset: 'WS2812B', dataPin },
-          inputs: [],
-          outputs: [],
-        },
-      })) as never[],
-      buildProfile: {
-        version: 1,
-        physicalBoardProfileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc',
-      },
+      nodes: [matrixNode(35)] as never[],
+      buildProfile: { version: 1, physicalBoardProfileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc' },
     })
+    const { getByRole, getByText } = render(<BuildDiagramWorkspace />)
 
-    const { getAllByText, getByText } = render(<BuildDiagramWorkspace />)
-
-    expect(getByText('Signal ready: needs review: 1 controller pin mapping unresolved', { selector: 'li' })).toBeTruthy()
-    fireEvent.click(getAllByText('Hide')[1])
-    expect(getByText('Signal ready: needs review: 1 controller pin mapping unresolved', { selector: 'li' })).toBeTruthy()
+    expect(getByText('Signal plan: needs review: 1 controller pin mapping unresolved', { selector: 'li' })).toBeTruthy()
+    fireEvent.click(getByRole('button', { name: 'Hide Matrix Output' }))
+    expect(getByText('Signal plan: needs review: 1 controller pin mapping unresolved', { selector: 'li' })).toBeTruthy()
   })
 
-  it('shows identifying details for each exact board option', () => {
-    const { getByText } = render(<BuildDiagramWorkspace />)
+  it('sizes a 64x64 graph without pretending a small supply is enough', () => {
+    useGraphStore.setState({ nodes: [matrixNode(14, 64, 64)] as never[] })
+    selectDevKit()
+    const { getByText, getAllByText } = render(<BuildDiagramWorkspace />)
 
-    expect(getByText('Generic / AliExpress · 53×28 mm · pinout verified')).toBeTruthy()
-    expect(getByText('Espressif · 54×28 mm · manufacturer verified')).toBeTruthy()
-    expect(getByText('Seeed Studio · 21×18 mm · manufacturer verified')).toBeTruthy()
+    expect(getByText('Power feeds: 26 individually fused feeds from the assigned PSU distribution zone')).toBeTruthy()
+    expect(getByText((_, node) => node?.tagName === 'LI' && (node.textContent?.startsWith('PSU 5: 5 V, at least') ?? false))).toBeTruthy()
+    expect(getAllByText((_, node) => node?.textContent?.includes('PSU ZONE 5') ?? false).length).toBeGreaterThan(0)
+    expect(getByText('Keep separate PSU +5 V zones isolated; join grounds for the shared controller data reference.')).toBeTruthy()
   })
 
-  it('can filter the hardware list down to unfinished items', () => {
-    const { getByText, queryByText } = render(<BuildDiagramWorkspace />)
+  it('allocates four real level-shifter channels before adding a second chip', () => {
+    useGraphStore.setState({
+      nodes: [4, 5, 6, 7, 8].map((pin, index) => matrixNode(pin, 4, 4, `out-${index + 1}`)) as never[],
+    })
+    selectDevKit()
+    const { container } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
 
-    fireEvent.click(getByText('Mark done'))
-    expect(getByText('1/1 done')).toBeTruthy()
+    for (const terminal of [
+      'level-shifter-1-a1', 'level-shifter-1-y1', 'level-shifter-1-oe1',
+      'level-shifter-1-a4', 'level-shifter-1-y4', 'level-shifter-1-oe4',
+      'level-shifter-2-a1', 'level-shifter-2-y1', 'level-shifter-2-oe1',
+    ]) {
+      expect(diagram?.querySelector(`[data-terminal="${terminal}"]`), terminal).toBeTruthy()
+    }
+    expect(diagram?.querySelector('[data-wire="level-shifter-1-oe-4"]')).toBeTruthy()
+    expect(diagram?.querySelector('[data-wire="level-shifter-2-oe-1"]')).toBeTruthy()
+    expect(diagram?.querySelectorAll('[data-component-render="sn74ahct125n-dip14"]')).toHaveLength(2)
 
-    fireEvent.click(getByText('Show unfinished only'))
-    expect(queryByText('Hide')).toBeNull()
+    const expectedChannels = [
+      { a: [465, 342], y: [465, 367], oe: [465, 317] },
+      { a: [465, 416], y: [465, 441], oe: [465, 391] },
+      { a: [577, 441], y: [577, 466], oe: [577, 416] },
+      { a: [577, 367], y: [577, 391], oe: [577, 342] },
+    ] as const
+    expectedChannels.forEach((points, channelIndex) => {
+      const outputId = `output:out-${channelIndex + 1}`
+      expect(diagram?.querySelector(`[data-wire="${outputId}-level-shifter-input"]`)?.getAttribute('d')).toMatch(new RegExp(`H${points.a[0]}$`))
+      expect(diagram?.querySelector(`[data-wire="${outputId}-conditioned-data"]`)?.getAttribute('d')).toMatch(new RegExp(`^M${points.y[0]} ${points.y[1]}`))
+      expect(diagram?.querySelector(`[data-wire="level-shifter-1-oe-${channelIndex + 1}"]`)?.getAttribute('d')).toMatch(new RegExp(`^M${points.oe[0]} ${points.oe[1]}`))
+    })
   })
 
-  it('can collapse and reopen both side panels', () => {
-    const { getByText, queryByText } = render(<BuildDiagramWorkspace />)
+  it('supports zoom, isolation, and panel sizing without changing generated wiring data', () => {
+    selectDevKit()
+    const { container, getByLabelText, getByRole, getByText, queryByText } = render(<BuildDiagramWorkspace />)
+    const workspace = getByLabelText('Build Diagram workspace')
+    const viewport = container.querySelector('[data-pan-surface="true"]')?.parentElement?.parentElement
+    expect(viewport).toBeTruthy()
+    expect(getByRole('heading', { name: 'Wiring Diagram' })).toBeTruthy()
+    expect(getByRole('button', { name: 'Back to Design' })).toBeTruthy()
+    expect(queryByText('Visible')).toBeNull()
+    expect(queryByText('Graph hardware in, complete recommended wiring out.')).toBeNull()
 
-    fireEvent.click(getByText('Hide build panel'))
-    expect(queryByText('Controller target')).toBeNull()
-    fireEvent.click(getByText('Show build panel'))
-    expect(getByText('Controller target')).toBeTruthy()
+    fireEvent.wheel(viewport as Element, { deltaY: -100, clientX: 100, clientY: 100 })
+    expect(getByText('Zoom 115%')).toBeTruthy()
+    fireEvent.wheel(viewport as Element, { deltaY: 100, clientX: 100, clientY: 100 })
+    expect(getByText('Zoom 100%')).toBeTruthy()
 
-    fireEvent.click(getByText('Hide details'))
-    expect(queryByText('Selected item')).toBeNull()
-    fireEvent.click(getByText('Show details'))
-    expect(getByText('Selected item')).toBeTruthy()
-  })
+    fireEvent.click(getByText('Zoom in'))
+    expect(getByText('Zoom 115%')).toBeTruthy()
+    fireEvent.click(getByText('Reset view'))
+    expect(getByText('Zoom 100%')).toBeTruthy()
 
-  it('can resize both side panels independently', () => {
-    const { getByLabelText, getByText } = render(<BuildDiagramWorkspace />)
-    const workspace = getByLabelText('Build Diagram workspace') as HTMLElement
-
-    expect(workspace.getAttribute('style')).toContain('--build-sidebar-width: 340px')
-    expect(workspace.getAttribute('style')).toContain('--build-detail-width: 360px')
+    fireEvent.click(getByRole('button', { name: 'Isolate Matrix Output' }))
+    expect(getByRole('button', { name: 'Show all hardware around Matrix Output' })).toBeTruthy()
 
     fireEvent.click(getByText('Widen build panel'))
     expect(workspace.getAttribute('style')).toContain('--build-sidebar-width: 372px')
-    expect(workspace.getAttribute('style')).toContain('--build-detail-width: 360px')
-
     fireEvent.click(getByText('Narrow details'))
-    expect(workspace.getAttribute('style')).toContain('--build-sidebar-width: 372px')
     expect(workspace.getAttribute('style')).toContain('--build-detail-width: 328px')
   })
 
-  it('defaults exports to complete build and lets the user switch to current view', () => {
+  it('uses a four-by-four LED preview and labels the recommended PSU power', () => {
+    const second = matrixNode(12, 16, 16, 'out-2')
+    useGraphStore.setState({ nodes: [matrixNode(), second] as never[] })
+    selectDevKit()
+    const { container } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
+
+    const previews = diagram?.querySelectorAll('[data-led-preview="4x4"]') ?? []
+    expect(previews).toHaveLength(2)
+    expect(previews[0]?.querySelectorAll('rect')).toHaveLength(16)
+    expect(diagram?.querySelector('[data-output-card="output:out"] > rect')?.getAttribute('width')).toBe('184')
+    expect(diagram?.textContent).toContain('RECOMMENDED POWER SUPPLY5 V · 40A · 200 W')
+    expect(diagram?.querySelector('[data-uncapped-current-ceiling]')).toBeNull()
+  })
+
+  it('preserves explicit complete-build and current-view export scope', () => {
+    selectDevKit()
     const { getByText } = render(<BuildDiagramWorkspace />)
 
     expect(getByText('Complete build is selected. Exports will include every configured hardware item by default.')).toBeTruthy()
-    expect(getByText('Draft — unresolved build requirements')).toBeTruthy()
     fireEvent.click(getByText('Current view'))
-    expect(getByText('Current view is selected. Exports will follow the hardware currently visible under the eye/filter/isolation state.')).toBeTruthy()
     expect(useGraphStore.getState().buildProfile?.exportMode).toBe('current-view')
-
-    fireEvent.click(getByText('Complete build'))
-    expect(getByText('Complete build is selected. Exports will include every configured hardware item by default.')).toBeTruthy()
-    expect(useGraphStore.getState().buildProfile?.exportMode).toBeUndefined()
+    expect(getByText('Current view is selected. Exports will follow the hardware currently visible under the eye/filter/isolation state.')).toBeTruthy()
   })
 
-  it('stores output install facts and invalidates done state when they change', () => {
-    const { getByLabelText, getByText } = render(<BuildDiagramWorkspace />)
+  it('shows identifying details for all supported exact boards', () => {
+    const { container, getByRole, getByText } = render(<BuildDiagramWorkspace />)
+    fireEvent.click(getByRole('button', { name: 'Choose your board' }))
 
-    fireEvent.click(getByText('Mark done'))
-    expect(getByText('1/1 done')).toBeTruthy()
-
-    fireEvent.change(getByLabelText('Physical length (mm)'), { target: { value: '2500' } })
-
-    expect(useGraphStore.getState().buildProfile?.outputs?.['output:out']?.physicalLengthMm).toBe(2500)
-    expect(getByText('0/1 done')).toBeTruthy()
-    expect(getByText('Wiring changed—recheck this connection.')).toBeTruthy()
-  })
-
-  it('summarizes the missing facts that still block future power planning', () => {
-    const { getByLabelText, getByText } = render(<BuildDiagramWorkspace />)
-
-    expect(getByText('Requirements inputs: 3 input blockers still need review')).toBeTruthy()
-    expect(getByText('Requirements calculated: blocked by 5 missing planner inputs')).toBeTruthy()
-    expect(getByText('Draft — unresolved build requirements')).toBeTruthy()
-    expect(getByText((_, node) => node?.textContent === 'Exact board profile: Controller-side wiring and reviewed controller power-path checks stay blocked until the exact physical board is selected.')).toBeTruthy()
-    expect(getByText((_, node) => node?.textContent === 'Controller power path: Controller branch validation stays incomplete until Build Diagram knows whether the controller expects USB, VIN, 5VIN, or an external regulated rail.')).toBeTruthy()
-    expect(getByText((_, node) => node?.textContent === 'Matrix Output: Physical length is still missing, so conductor sizing and injection spacing cannot be estimated yet. LED density or pitch is still missing, so current-per-length and injection planning cannot be estimated yet. Feed-cable length is still missing, so voltage-drop and cable-size checks cannot be estimated yet.')).toBeTruthy()
-
-    fireEvent.click(getByText('Generic ESP32-S3 N16R8, 44-pin dual USB-C'))
-    fireEvent.change(getByLabelText('Preferred path'), { target: { value: 'usb' } })
-    fireEvent.change(getByLabelText('Physical length (mm)'), { target: { value: '2500' } })
-    fireEvent.change(getByLabelText('LED density (/m)'), { target: { value: '60' } })
-    fireEvent.change(getByLabelText('Feed cable length (mm)'), { target: { value: '500' } })
-
-    expect(getByText('Requirements inputs: all required installation facts are captured for the electrical planner')).toBeTruthy()
-    expect(getByText((_, node) => node?.tagName === 'LI' && node.textContent?.startsWith('Requirements calculated: calculated with build-rules-') === true)).toBeTruthy()
-    expect(getByText('Draft — unresolved build requirements')).toBeTruthy()
-    expect(getByText('All currently expected planner inputs are captured.')).toBeTruthy()
-    expect(getByText('Minimum supply budget: 19.2 A continuous @ 5 V (96 W) with 25% headroom')).toBeTruthy()
-    expect(getByText('Controller branch: USB power')).toBeTruthy()
-  })
-
-  it('stores controller power preferences and advanced assumptions, invalidating done state when they change', () => {
-    const { getByLabelText, getByText, queryByText } = render(<BuildDiagramWorkspace />)
-
-    expect(queryByText('Conductor material')).toBeNull()
-    fireEvent.click(getByText('Mark done'))
-    expect(getByText('1/1 done')).toBeTruthy()
-
-    fireEvent.change(getByLabelText('Preferred path'), { target: { value: 'usb' } })
-    expect(useGraphStore.getState().buildProfile?.controllerPower?.preferredPath).toBe('usb')
-    expect(getByText('0/1 done')).toBeTruthy()
-
-    fireEvent.click(getByText('Show assumptions'))
-    expect(getByText('Hide assumptions')).toBeTruthy()
-    fireEvent.change(getByLabelText('Allowed voltage drop (%)'), { target: { value: '7.5' } })
-
-    expect(useGraphStore.getState().buildProfile?.assumptions?.allowedVoltageDropPercent).toBe(7.5)
-    expect(getByText('Wiring changed—recheck this connection.')).toBeTruthy()
-  })
-
-  it('stores a Build Diagram operating-current cap and shows it in calculated requirements', () => {
-    const { getAllByText, getByLabelText, getByText } = render(<BuildDiagramWorkspace />)
-
-    fireEvent.click(getByText('Generic ESP32-S3 N16R8, 44-pin dual USB-C'))
-    fireEvent.change(getByLabelText('Preferred path'), { target: { value: 'usb' } })
-    fireEvent.change(getByLabelText('Physical length (mm)'), { target: { value: '2500' } })
-    fireEvent.change(getByLabelText('LED density (/m)'), { target: { value: '60' } })
-    fireEvent.change(getByLabelText('Feed cable length (mm)'), { target: { value: '500' } })
-    fireEvent.change(getByLabelText('Operating current cap (mA)'), { target: { value: '7500' } })
-
-    expect(useGraphStore.getState().buildProfile?.outputs?.['output:out']?.desiredCurrentCapMa).toBe(7500)
-    expect(getAllByText('Configured operating cap: 7.5 A').length).toBeGreaterThan(0)
-  })
-
-  it('records owned supplies and validates assigned output budgets', () => {
-    const { getAllByText, getByLabelText, getByText } = render(<BuildDiagramWorkspace />)
-
-    fireEvent.click(getByText('Generic ESP32-S3 N16R8, 44-pin dual USB-C'))
-    fireEvent.change(getByLabelText('Preferred path'), { target: { value: 'usb' } })
-    fireEvent.change(getByLabelText('Physical length (mm)'), { target: { value: '2500' } })
-    fireEvent.change(getByLabelText('LED density (/m)'), { target: { value: '60' } })
-    fireEvent.change(getByLabelText('Feed cable length (mm)'), { target: { value: '500' } })
-
-    expect(getByText('Power ready: needs review: 7 power-path issues', { selector: 'li' })).toBeTruthy()
-
-    fireEvent.click(getByText('Add supply'))
-    expect(getByText('Power ready: needs review: 6 power-path issues', { selector: 'li' })).toBeTruthy()
-
-    fireEvent.change(getByLabelText('Assigned owned supply'), { target: { value: 'supply-1' } })
-
-    expect(useGraphStore.getState().buildProfile?.ownedParts?.supplyAssignments?.['output:out']).toBe('supply-1')
-    expect(getByText('Power ready: needs review: 5 power-path issues', { selector: 'li' })).toBeTruthy()
-    expect(getAllByText('Supply 1').length).toBeGreaterThan(0)
-    expect(getByText('Matches budget')).toBeTruthy()
-  })
-
-  it('reaches Power and Build ready only after the complete branch is explicitly selected', () => {
-    const { getByLabelText, getByText } = render(<BuildDiagramWorkspace />)
-
-    fireEvent.click(getByText('Espressif ESP32-S3-DevKitC-1'))
-    fireEvent.change(getByLabelText('Preferred path'), { target: { value: 'usb' } })
-    fireEvent.change(getByLabelText('Physical length (mm)'), { target: { value: '2500' } })
-    fireEvent.change(getByLabelText('LED density (/m)'), { target: { value: '60' } })
-    fireEvent.change(getByLabelText('Feed cable length (mm)'), { target: { value: '500' } })
-    fireEvent.change(getByLabelText('Confirmed injection points (mm)'), { target: { value: '0, 2500' } })
-    fireEvent.click(getByText('Add supply'))
-    fireEvent.change(getByLabelText('Assigned owned supply'), { target: { value: 'supply-1' } })
-    fireEvent.click(getByText('Use this branch kit'))
-
-    expect(getByText((_, node) => node?.tagName === 'LI' && node.textContent?.startsWith('Power ready: ready:') === true)).toBeTruthy()
-    expect(getByText('Build ready: ready', { selector: 'li' })).toBeTruthy()
-    expect(getByText('Branch kit selected')).toBeTruthy()
-    expect(getByText('Build reference — Signal and Power ready')).toBeTruthy()
-  })
-
-  it('invalidates done state when owned supply data changes', () => {
-    const { getByText } = render(<BuildDiagramWorkspace />)
-
-    fireEvent.click(getByText('Mark done'))
-    expect(getByText('1/1 done')).toBeTruthy()
-
-    fireEvent.click(getByText('Add supply'))
-
-    expect(getByText('0/1 done')).toBeTruthy()
-    expect(getByText('Wiring changed—recheck this connection.')).toBeTruthy()
+    expect(getByRole('img', { name: 'Generic ESP32-S3 N16R8, 44-pin dual USB-C pinout' })).toBeTruthy()
+    expect(getByRole('img', { name: 'Espressif ESP32-S3-DevKitC-1 pinout' })).toBeTruthy()
+    expect(getByRole('img', { name: 'Seeed Studio XIAO ESP32S3 pinout' })).toBeTruthy()
+    expect(getByText('Generic ESP32-S3 N16R8, 44-pin dual USB-C')).toBeTruthy()
+    expect(getByText('Espressif ESP32-S3-DevKitC-1')).toBeTruthy()
+    expect(getByText('Seeed Studio XIAO ESP32S3')).toBeTruthy()
+    expect(getByText('D4 / GPIO5')).toBeTruthy()
+    const previews = container.querySelectorAll('svg[aria-label$=" pinout"]')
+    expect(previews).toHaveLength(3)
+    for (const preview of previews) {
+      expect(preview.querySelector('[data-board-usb="bottom"]')?.getAttribute('y')).toBe('370')
+    }
+    const devKitPreview = getByRole('img', { name: 'Espressif ESP32-S3-DevKitC-1 pinout' })
+    expect(devKitPreview.querySelector('[data-pin-id="j1-4"]')?.getAttribute('data-pin-side')).toBe('left')
+    expect(devKitPreview.querySelectorAll('[data-board-usb="bottom"]')).toHaveLength(2)
+    expect(devKitPreview.textContent).toContain('USB_D+ / GPIO20')
+    expect(devKitPreview.textContent).toContain('GPIO0 / BOOT')
+    const xiaoPreview = getByRole('img', { name: 'Seeed Studio XIAO ESP32S3 pinout' })
+    expect(xiaoPreview.querySelector('[data-pin-id="bottom-1"]')?.getAttribute('data-pin-side')).toBe('top')
   })
 })

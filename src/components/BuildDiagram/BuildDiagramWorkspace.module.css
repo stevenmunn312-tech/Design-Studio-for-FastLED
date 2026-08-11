@@ -239,6 +239,55 @@
   gap: 8px;
 }
 
+.iconButton {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  padding: 8px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--border-glow) 78%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg-panel) 82%, rgba(255, 255, 255, 0.03));
+  color: var(--text-secondary);
+}
+
+.iconButton svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.iconButton:hover,
+.iconButtonActive {
+  border-color: var(--accent-output);
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--accent-output) 16%, var(--bg-panel));
+}
+
+.iconButtonDone {
+  border-color: #65c956;
+  color: #bff5b7;
+  background: rgba(101, 201, 86, 0.14);
+}
+
+.iconFill {
+  fill: currentColor;
+  fill-opacity: 0.18;
+}
+
+.generatedSteps {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding-left: 22px;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
 .outputFactList {
   display: flex;
   flex-direction: column;
@@ -326,6 +375,318 @@
   cursor: pointer;
 }
 
+.sidebarBackButton {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 8px;
+  font-weight: 750;
+}
+
+.controllerChooserCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.genericController {
+  position: relative;
+  display: grid;
+  min-height: 142px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid #3d494e;
+  border-radius: 9px;
+  background:
+    radial-gradient(circle at 50% 34%, rgba(66, 190, 179, 0.13), transparent 42%),
+    #151b1e;
+}
+
+.genericController svg {
+  width: min(94%, 300px);
+  fill: none;
+  stroke: #67767b;
+  stroke-width: 2;
+}
+
+.genericController svg circle {
+  fill: #a8b6b8;
+  stroke: none;
+}
+
+.genericController strong {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #f2f5f1;
+  font-family: var(--font-display);
+  font-size: 24px;
+  letter-spacing: 0.02em;
+}
+
+.chooseBoardButton {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid #4daaa4;
+  border-radius: 7px;
+  background: rgba(44, 147, 140, 0.12);
+  color: #ecf7f4;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.chooseBoardButton:hover {
+  background: rgba(44, 147, 140, 0.22);
+}
+
+.selectedBoardVariant {
+  color: #aeb9bb;
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.compactHardwareCard .hardwareList {
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.compactHardwareCard .hardwareRow {
+  min-height: 38px;
+  align-items: center;
+  gap: 6px;
+}
+
+.compactHardwareCard .hardwareMain {
+  min-height: 34px;
+  justify-content: center;
+  padding: 6px 8px;
+  border-color: transparent;
+  background: transparent;
+}
+
+.compactHardwareCard .hardwareActions {
+  flex-direction: row;
+  gap: 4px;
+}
+
+.compactHardwareCard .iconButton {
+  width: 30px;
+  height: 30px;
+  padding: 6px;
+  border-radius: 6px;
+}
+
+.compactHardwareCard .iconButton svg {
+  width: 16px;
+  height: 16px;
+}
+
+.compactHardwareCard .staleNotice {
+  margin: 0;
+  font-size: 9px;
+}
+
+.detailIdle {
+  max-width: 250px;
+  margin: 8px 0 0;
+  color: #778287;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.boardPickerBackdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  padding: 44px;
+  place-items: center;
+  background: rgba(5, 8, 10, 0.78);
+  backdrop-filter: blur(8px);
+}
+
+.boardPickerDialog {
+  width: min(1180px, 100%);
+  max-height: min(820px, calc(100vh - 88px));
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid #46545a;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #20282c, #151a1d);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.5);
+}
+
+.boardPickerHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 14px;
+}
+
+.boardPickerTitle {
+  margin: 0;
+  color: #f3f6f2;
+  font-size: 20px;
+}
+
+.boardPickerHeader p {
+  margin: 4px 0 0;
+  color: #9eaaad;
+  font-size: 12px;
+}
+
+.boardPickerClose {
+  padding: 8px 12px;
+  border: 1px solid #526067;
+  border-radius: 7px;
+  background: #293237;
+  color: #eef2ef;
+  cursor: pointer;
+}
+
+.boardPickerScroller {
+  display: flex;
+  gap: 16px;
+  padding: 2px 2px 14px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-color: #59676c transparent;
+}
+
+.boardPickerCard {
+  display: flex;
+  flex: 0 0 min(520px, calc(100vw - 110px));
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  scroll-snap-align: start;
+  border: 1px solid #3f4a4f;
+  border-radius: 10px;
+  background: #111719;
+  color: #f2f5f1;
+  text-align: left;
+  cursor: pointer;
+}
+
+.boardPickerCard:hover,
+.boardPickerCardActive {
+  border-color: #55b8b0;
+  box-shadow: inset 0 0 0 1px rgba(85, 184, 176, 0.35);
+}
+
+.boardPickerCard strong {
+  font-size: 14px;
+}
+
+.boardPinout {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 7px;
+  background: #edf0ee;
+}
+
+.pinoutBoardBody {
+  fill: #293d3b;
+  stroke: #152321;
+  stroke-width: 3;
+}
+
+.pinoutUsb {
+  fill: #d9dcdd;
+  stroke: #6e787b;
+  stroke-width: 2;
+}
+
+.pinoutModule {
+  fill: #f3f2ea;
+  stroke: #8c9695;
+}
+
+.pinoutDevKitBody {
+  fill: #353535;
+  stroke: #171717;
+}
+
+.pinoutDevKitModule {
+  fill: #242424;
+  stroke: #111;
+  stroke-width: 2;
+}
+
+.pinoutDevKitAntenna {
+  fill: #171717;
+  stroke: #535353;
+  stroke-width: 3;
+}
+
+.pinoutDevKitShield {
+  fill: #b8b8b3;
+  stroke: #777;
+  stroke-width: 2;
+}
+
+.pinoutDevKitLed {
+  fill: #f0eee6;
+  stroke: #b9b6ad;
+  stroke-width: 3;
+}
+
+.pinoutDevKitChip {
+  fill: #181818;
+  stroke: #8b8b85;
+  stroke-width: 2;
+}
+
+.pinoutDevKitButton {
+  fill: #090909;
+  stroke: #b8b8b3;
+  stroke-width: 3;
+}
+
+.pinoutDeviceText {
+  fill: #d8d8d2;
+  font-family: var(--font-code);
+  font-size: 7px;
+  font-weight: 800;
+}
+
+.pinoutBoardName {
+  fill: #243033;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.pinoutPinText,
+.pinoutBottomText {
+  fill: #fff;
+  font-family: var(--font-code);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.pinoutBottomText {
+  fill: #243033;
+  font-size: 8px;
+}
+
+.pinoutLead {
+  stroke: #8f9b9e;
+  stroke-width: 2;
+}
+
+.pinoutPad {
+  fill: #f4c430;
+  stroke: #a87900;
+  stroke-width: 1.5;
+}
+
 .smallButtonDone {
   background: color-mix(in srgb, var(--accent-success) 24%, var(--bg-panel));
 }
@@ -362,12 +723,18 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   border: 1px solid color-mix(in srgb, var(--border-glow) 74%, transparent);
   border-radius: 22px;
   background:
     radial-gradient(circle at 28% 14%, rgba(122, 162, 255, 0.18), transparent 24%),
     linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 86%, #071017), color-mix(in srgb, var(--bg-panel) 96%, black));
   cursor: grab;
+}
+
+.diagramViewport::-webkit-scrollbar {
+  display: none;
 }
 
 .diagramViewport:active {
@@ -821,7 +1188,7 @@
 .physicalDiagram {
   display: block;
   width: 1120px;
-  height: 760px;
+  height: auto;
   font-family: var(--font-body);
   user-select: none;
 }
@@ -831,7 +1198,7 @@
   left: -20000px;
   top: 0;
   width: 1120px;
-  height: 760px;
+  height: auto;
   pointer-events: none;
 }
 
@@ -846,6 +1213,37 @@
 
 .physicalSelected {
   filter: url(#component-shadow) drop-shadow(0 0 8px rgba(31, 165, 173, 0.48));
+}
+
+.physicalBoardRender {
+  pointer-events: none;
+}
+
+.controllerSignalTerminal,
+.controllerPowerTerminal,
+.controllerGroundTerminal,
+.controllerUsbTerminal {
+  stroke-width: 2.5;
+}
+
+.controllerSignalTerminal {
+  fill: #24963e;
+  stroke: #d9f4dc;
+}
+
+.controllerPowerTerminal {
+  fill: #d62f42;
+  stroke: #ffd1d7;
+}
+
+.controllerGroundTerminal {
+  fill: #171b1d;
+  stroke: #f2c766;
+}
+
+.controllerUsbTerminal {
+  fill: #4a63df;
+  stroke: #d8deff;
 }
 
 .physicalWires path {
@@ -876,6 +1274,67 @@
   fill: none;
   stroke: #4358dc;
   stroke-width: 4;
+}
+
+.logicPowerWire {
+  fill: none;
+  stroke: #4a63df;
+  stroke-width: 4;
+}
+
+.microphoneVddWire {
+  fill: none;
+  stroke: #d62f42;
+  stroke-width: 4;
+}
+
+.microphoneBclkWire {
+  fill: none;
+  stroke: #176fd1;
+  stroke-width: 4;
+}
+
+.microphoneWsWire {
+  fill: none;
+  stroke: #df811c;
+  stroke-width: 4;
+}
+
+.microphoneDoutWire {
+  fill: none;
+  stroke: #a33db8;
+  stroke-width: 4;
+}
+
+.microphoneVddTerminal {
+  fill: #d62f42;
+  stroke: #ffd1d7;
+  stroke-width: 2;
+}
+
+.microphoneBclkTerminal {
+  fill: #176fd1;
+  stroke: #d4e9ff;
+  stroke-width: 2;
+}
+
+.microphoneWsTerminal {
+  fill: #df811c;
+  stroke: #ffe1b7;
+  stroke-width: 2;
+}
+
+.microphoneDoutTerminal {
+  fill: #a33db8;
+  stroke: #f4d7fa;
+  stroke-width: 2;
+}
+
+.physicalWireLabel {
+  fill: #596164;
+  font-family: var(--font-code);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .dimWire {
@@ -938,6 +1397,45 @@
   letter-spacing: 0.08em;
 }
 
+.physicalPowerLabel,
+.physicalPowerValue {
+  fill: #202628;
+  font-family: var(--font-code);
+  font-weight: 850;
+}
+
+.physicalPowerLabel {
+  font-size: 14px;
+  letter-spacing: 0.06em;
+}
+
+.physicalPowerValue {
+  font-size: 20px;
+}
+
+.physicalCurrentCapLabel {
+  fill: #72dfd0;
+  font-family: var(--font-code);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+}
+
+.physicalPowerBasisLabel,
+.physicalPowerCeilingLabel {
+  font-family: var(--font-code);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.physicalPowerBasisLabel {
+  fill: #167d72;
+}
+
+.physicalPowerCeilingLabel {
+  fill: #8a5a22;
+}
+
 .physicalChipLabel {
   fill: #e5e7e2;
   font-family: var(--font-code);
@@ -977,6 +1475,21 @@
 .powerSummaryMeta {
   color: #aeb7b9;
   font-size: 12px;
+}
+
+.powerSummaryLimit,
+.powerSummaryCeiling {
+  font-family: var(--font-code);
+  font-size: 11px;
+}
+
+.powerSummaryLimit {
+  margin-top: 8px;
+  color: #72dfd0;
+}
+
+.powerSummaryCeiling {
+  color: #c7a46e;
 }
 
 .powerSummaryBudget {
@@ -1148,6 +1661,6 @@
     position: static;
     display: block;
     width: 1120px;
-    height: 760px;
+    height: auto;
   }
 }
