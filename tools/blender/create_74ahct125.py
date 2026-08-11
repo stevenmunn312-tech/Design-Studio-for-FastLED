@@ -5,7 +5,7 @@ import bpy
 
 
 ROOT = Path(__file__).resolve().parents[2]
-MODEL_PATH = ROOT / "public" / "models" / "components" / "sn74ahct125n-dip14.blend"
+MODEL_PATH = ROOT / "artifacts" / "blender" / "sn74ahct125n-dip14.blend"
 RENDER_PATH = ROOT / "src" / "assets" / "components" / "sn74ahct125n-dip14.png"
 
 
