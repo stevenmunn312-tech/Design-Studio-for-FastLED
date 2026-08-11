@@ -608,6 +608,54 @@
   stroke: #8c9695;
 }
 
+.pinoutDevKitBody {
+  fill: #353535;
+  stroke: #171717;
+}
+
+.pinoutDevKitModule {
+  fill: #242424;
+  stroke: #111;
+  stroke-width: 2;
+}
+
+.pinoutDevKitAntenna {
+  fill: #171717;
+  stroke: #535353;
+  stroke-width: 3;
+}
+
+.pinoutDevKitShield {
+  fill: #b8b8b3;
+  stroke: #777;
+  stroke-width: 2;
+}
+
+.pinoutDevKitLed {
+  fill: #f0eee6;
+  stroke: #b9b6ad;
+  stroke-width: 3;
+}
+
+.pinoutDevKitChip {
+  fill: #181818;
+  stroke: #8b8b85;
+  stroke-width: 2;
+}
+
+.pinoutDevKitButton {
+  fill: #090909;
+  stroke: #b8b8b3;
+  stroke-width: 3;
+}
+
+.pinoutDeviceText {
+  fill: #d8d8d2;
+  font-family: var(--font-code);
+  font-size: 7px;
+  font-weight: 800;
+}
+
 .pinoutBoardName {
   fill: #243033;
   font-family: var(--font-body);

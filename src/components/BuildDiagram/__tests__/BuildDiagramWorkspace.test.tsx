@@ -341,7 +341,10 @@ describe('BuildDiagramWorkspace', () => {
       expect(preview.querySelector('[data-board-usb="bottom"]')?.getAttribute('y')).toBe('370')
     }
     const devKitPreview = getByRole('img', { name: 'Espressif ESP32-S3-DevKitC-1 pinout' })
-    expect(devKitPreview.querySelector('[data-pin-id="j1-4"]')?.getAttribute('data-pin-side')).toBe('right')
+    expect(devKitPreview.querySelector('[data-pin-id="j1-4"]')?.getAttribute('data-pin-side')).toBe('left')
+    expect(devKitPreview.querySelectorAll('[data-board-usb="bottom"]')).toHaveLength(2)
+    expect(devKitPreview.textContent).toContain('USB_D+ / GPIO20')
+    expect(devKitPreview.textContent).toContain('GPIO0 / BOOT')
     const xiaoPreview = getByRole('img', { name: 'Seeed Studio XIAO ESP32S3 pinout' })
     expect(xiaoPreview.querySelector('[data-pin-id="bottom-1"]')?.getAttribute('data-pin-side')).toBe('top')
   })
