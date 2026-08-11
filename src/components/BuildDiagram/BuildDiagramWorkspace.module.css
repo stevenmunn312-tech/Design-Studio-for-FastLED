@@ -375,6 +375,14 @@
   cursor: pointer;
 }
 
+.sidebarBackButton {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 8px;
+  font-weight: 750;
+}
+
 .smallButtonDone {
   background: color-mix(in srgb, var(--accent-success) 24%, var(--bg-panel));
 }
@@ -1004,6 +1012,22 @@
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.08em;
+}
+
+.physicalPowerLabel,
+.physicalPowerValue {
+  fill: #202628;
+  font-family: var(--font-code);
+  font-weight: 850;
+}
+
+.physicalPowerLabel {
+  font-size: 14px;
+  letter-spacing: 0.06em;
+}
+
+.physicalPowerValue {
+  font-size: 20px;
 }
 
 .physicalChipLabel {

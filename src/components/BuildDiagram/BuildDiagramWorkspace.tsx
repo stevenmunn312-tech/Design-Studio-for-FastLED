@@ -706,11 +706,12 @@ export default function BuildDiagramWorkspace() {
           </button>
         ) : (
           <>
+            <button type="button" className={`${styles.backButton} ${styles.sidebarBackButton}`} onClick={closeBuildDiagram}>
+              <span aria-hidden="true">&larr;</span>
+              <span>Back to Design</span>
+            </button>
             <div className={styles.panelHeader}>
-              <div>
-                <h2 className={styles.panelTitle}>Build Diagram</h2>
-                <p className={styles.panelSubtitle}>Graph hardware in, complete recommended wiring out.</p>
-              </div>
+              <h2 className={styles.panelTitle}>Build Diagram</h2>
               <div className={styles.headerActions}>
                 <div className={styles.panelSizeControls}>
                   <button
@@ -736,9 +737,6 @@ export default function BuildDiagramWorkspace() {
                 </div>
                 <button type="button" className={styles.smallButton} onClick={() => setSidebarCollapsed(true)}>
                   <span aria-hidden="true">&lt;&lt;</span><span className={styles.visuallyHidden}>Hide build panel</span>
-                </button>
-                <button type="button" className={styles.backButton} onClick={closeBuildDiagram}>
-                  <span aria-hidden="true">Design</span><span className={styles.visuallyHidden}>Back to Design</span>
                 </button>
               </div>
             </div>
@@ -900,7 +898,7 @@ export default function BuildDiagramWorkspace() {
       <main className={styles.diagramPane}>
         <div className={styles.diagramHeader}>
           <div>
-            <h2 className={styles.panelTitle}>Diagram</h2>
+            <h2 className={styles.panelTitle}>Wiring Diagram</h2>
             <p className={styles.panelSubtitle}>
               {!exactBoard
                 ? 'Select an exact board profile to unlock controller-aware wiring details.'
@@ -919,9 +917,6 @@ export default function BuildDiagramWorkspace() {
             </button>
             <button type="button" className={styles.smallButton} onClick={fitAll} disabled={!exactBoard}>
               <span aria-hidden="true">Fit</span><span className={styles.visuallyHidden}>Fit all</span>
-            </button>
-            <button type="button" className={styles.smallButton} onClick={fitVisible} disabled={!exactBoard}>
-              <span aria-hidden="true">Visible</span><span className={styles.visuallyHidden}>Fit visible</span>
             </button>
             <button type="button" className={styles.smallButton} onClick={focusSelected} disabled={!exactBoard}>
               <span aria-hidden="true">Focus</span><span className={styles.visuallyHidden}>Focus selected</span>

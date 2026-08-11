@@ -73,6 +73,9 @@ wait for the user to buy parts or confirm that a recommended component exists.
 - Every PSU distribution output includes a bulk electrolytic capacitor across
   positive and ground, and every LED injection site includes local ceramic
   decoupling across the same pair.
+- The wiring drawing labels each PSU zone with its worst-case voltage, current,
+  and wattage. The rounded recommended PSU nameplate is listed in the BOM rather
+  than repeated in the drawing.
 - Every INMP441 route includes VDD, ground, BCLK/SCK, WS, and SD/DOUT.
 - No line may stop near a part: generated wires terminate on visible terminals.
 

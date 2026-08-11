@@ -229,10 +229,14 @@ describe('BuildDiagramWorkspace', () => {
 
   it('supports zoom, isolation, and panel sizing without changing generated wiring data', () => {
     selectDevKit()
-    const { container, getByLabelText, getByRole, getByText } = render(<BuildDiagramWorkspace />)
+    const { container, getByLabelText, getByRole, getByText, queryByText } = render(<BuildDiagramWorkspace />)
     const workspace = getByLabelText('Build Diagram workspace')
     const viewport = container.querySelector('[data-pan-surface="true"]')?.parentElement?.parentElement
     expect(viewport).toBeTruthy()
+    expect(getByRole('heading', { name: 'Wiring Diagram' })).toBeTruthy()
+    expect(getByRole('button', { name: 'Back to Design' })).toBeTruthy()
+    expect(queryByText('Visible')).toBeNull()
+    expect(queryByText('Graph hardware in, complete recommended wiring out.')).toBeNull()
 
     fireEvent.wheel(viewport as Element, { deltaY: -100, clientX: 100, clientY: 100 })
     expect(getByText('Zoom 115%')).toBeTruthy()
@@ -263,8 +267,9 @@ describe('BuildDiagramWorkspace', () => {
     const previews = diagram?.querySelectorAll('[data-led-preview="4x4"]') ?? []
     expect(previews).toHaveLength(2)
     expect(previews[0]?.querySelectorAll('rect')).toHaveLength(16)
-    expect(diagram?.textContent).toContain('TOTAL POWER REQUIREMENTS · 5V 30.7A / 153.6W')
-    expect(diagram?.textContent).toContain('RECOMMENDED POWER SUPPLY · 5V 40A / 200W')
+    expect(diagram?.querySelector('[data-output-card="output:out"] > rect')?.getAttribute('width')).toBe('184')
+    expect(diagram?.textContent).toContain('TOTAL POWER REQUIREMENTS5 V · 30.7 A · 153.6 W')
+    expect(diagram?.textContent).not.toContain('RECOMMENDED POWER SUPPLY')
   })
 
   it('preserves explicit complete-build and current-view export scope', () => {

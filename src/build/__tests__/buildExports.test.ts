@@ -58,7 +58,7 @@ describe('buildExports', () => {
     expect(bomRows).toEqual(expect.arrayContaining([
       expect.objectContaining({ item: 'Matrix Output start @ 0 mm branch fuse', status: 'calculated' }),
       expect.objectContaining({ quantity: '3', item: 'Local ceramic decoupling capacitor' }),
-      expect.objectContaining({ item: '5 V DC power supply 1', specification: expect.stringContaining('20% headroom'), status: 'calculated' }),
+      expect.objectContaining({ item: 'Recommended 5 V DC power supply 1', specification: '5 V, 20 A, 100 W continuous; derived from worst-case load with 20% target headroom', status: 'calculated' }),
       expect.objectContaining({ item: 'supply-1 bulk electrolytic capacitor', status: 'calculated' }),
     ]))
     expect(connectionsCsv(connectionRows)).toContain('Common ground reference')

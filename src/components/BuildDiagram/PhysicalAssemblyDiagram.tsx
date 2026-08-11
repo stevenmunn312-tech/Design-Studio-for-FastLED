@@ -168,19 +168,19 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
 function OutputGraphic({ layout, selected, plan }: { layout: ItemLayout; selected: boolean; plan?: OutputElectricalPlan }) {
   const { x, y, width, item } = layout
   return (
-    <g className={selected ? styles.physicalSelected : undefined}>
+    <g data-output-card={item.id} className={selected ? styles.physicalSelected : undefined}>
       <text x={x + (width / 2)} y={y - 32} textAnchor="middle" className={styles.physicalComponentLabel}>{item.title}</text>
       <text x={x + (width / 2)} y={y - 14} textAnchor="middle" className={styles.physicalMetaLabel}>{item.subtitle}</text>
       <rect x={x} y={y} width={width} height="174" rx="8" fill="#202426" stroke={selected ? '#1fa5ad' : '#0f1213'} strokeWidth={selected ? 4 : 2} />
       <rect x={x + 18} y={y + 12} width={width - 30} height="140" fill="#15191a" stroke="#515759" />
-      <LedPixels x={x + 62} y={y + 18} width={128} height={128} />
+      <LedPixels x={x + ((width - 128) / 2)} y={y + 18} width={128} height={128} />
       {[['DIN', 66]].map(([label, offset]) => (
         <g key={label} data-terminal={`${item.id}-${String(label).toLowerCase()}`}>
           <circle cx={x} cy={y + Number(offset)} r="6" fill="#3dab5b" stroke="#d9a14a" strokeWidth="2" />
           <text x={x + 14} y={y + Number(offset) + 4} className={styles.physicalPinLabel}>{label}</text>
         </g>
       ))}
-      {plan && <text x={x + 18} y={y + 167} className={styles.physicalBoardSubSilk}>{plan.recommendedFeedCount} FUSED POWER FEEDS · SEE PSU PLAN BELOW</text>}
+      {plan && <text x={x + (width / 2)} y={y + 167} textAnchor="middle" className={styles.physicalBoardSubSilk}>{plan.recommendedFeedCount} FUSED FEEDS · PSU PLAN BELOW</text>}
     </g>
   )
 }
@@ -191,17 +191,17 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
   const sections = (plan.totals?.supplies ?? []).map((supply) => {
     const assigned = injections.filter((injection) => injection.supplyId === supply.id)
     const sectionY = y
-    const sectionHeight = 150 + (assigned.length * 54)
+    const sectionHeight = 170 + (assigned.length * 54)
     y += sectionHeight + 34
     return { supply, assigned, sectionY, sectionHeight }
   })
   return <g>
     {sections.map(({ supply, assigned, sectionY, sectionHeight }, supplyIndex) => <g key={supply.id} transform={`translate(0 ${sectionY})`}>
       <rect x="24" y="0" width="1072" height={sectionHeight} rx="12" fill="none" stroke="#a9afac" strokeWidth="2" />
-      <text x="42" y="22" className={styles.physicalLegendTitle}>PSU ZONE {supplyIndex + 1} · TOTAL POWER REQUIREMENTS · 5V {formatAmps(supply.designCurrentMa)} / {Number(((supply.designCurrentMa / 1000) * 5).toFixed(1))}W</text>
-      <text x="42" y="42" className={styles.physicalLegendTitle}>RECOMMENDED POWER SUPPLY · 5V {formatAmps(supply.recommendedCurrentMa)} / {supply.recommendedWattage}W</text>
+      <text x="42" y="32" className={styles.physicalPowerLabel}>PSU ZONE {supplyIndex + 1} · TOTAL POWER REQUIREMENTS</text>
+      <text x="42" y="58" className={styles.physicalPowerValue}>5 V · {Number((supply.designCurrentMa / 1000).toFixed(1))} A · {Number(((supply.designCurrentMa / 1000) * 5).toFixed(1))} W</text>
 
-      <g transform="translate(42 56)" filter="url(#component-shadow)">
+      <g transform="translate(42 76)" filter="url(#component-shadow)">
         <rect width="188" height="78" rx="8" fill="url(#supply-body)" stroke="#151917" strokeWidth="2" />
         <circle cx="188" cy="24" r="7" fill="#d84938" stroke="#f0a093" data-terminal={`${supply.id}-positive`} />
         <circle cx="188" cy="56" r="7" fill="#202425" stroke="#aeb6b7" data-terminal={`${supply.id}-ground`} />
@@ -209,30 +209,30 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
         <text x="86" y="54" textAnchor="middle" className={styles.physicalBoardSubSilk}>{supply.outputTitles.join(' + ')}</text>
       </g>
 
-      <path data-wire={`${supply.id}-positive-bus`} d="M230 80H500" className={styles.powerWire} />
-      <path data-wire={`${supply.id}-ground-bus`} d="M230 112H500" className={styles.groundWire} />
-      <g transform="translate(262 62)">
+      <path data-wire={`${supply.id}-positive-bus`} d="M230 100H500" className={styles.powerWire} />
+      <path data-wire={`${supply.id}-ground-bus`} d="M230 132H500" className={styles.groundWire} />
+      <g transform="translate(262 82)">
         <rect width="92" height="68" rx="7" fill="#292e30" stroke="#111" />
         <text x="46" y="20" textAnchor="middle" className={styles.physicalFuseText}>1000µF MIN</text>
         <text x="46" y="38" textAnchor="middle" className={styles.physicalFuseText}>BULK ELECTROLYTIC</text>
         <circle cx="0" cy="18" r="5" fill="#d84938" data-terminal={`${supply.id}-bulk-positive`} />
         <circle cx="0" cy="50" r="5" fill="#202425" stroke="#aeb6b7" data-terminal={`${supply.id}-bulk-negative`} />
       </g>
-      <rect x="390" y="64" width="110" height="66" rx="7" fill="#263035" stroke="#111" />
-      <text x="445" y="88" textAnchor="middle" className={styles.physicalFuseText}>FUSED +5V</text>
-      <text x="445" y="114" textAnchor="middle" className={styles.physicalFuseText}>GROUND BUS</text>
+      <rect x="390" y="84" width="110" height="66" rx="7" fill="#263035" stroke="#111" />
+      <text x="445" y="108" textAnchor="middle" className={styles.physicalFuseText}>FUSED +5V</text>
+      <text x="445" y="134" textAnchor="middle" className={styles.physicalFuseText}>GROUND BUS</text>
 
       {assigned.map((injection, index) => {
-        const rowY = 150 + (index * 54)
+        const rowY = 170 + (index * 54)
         const fuseText = injection.fuse.ratingMa ? formatAmps(injection.fuse.ratingMa) : 'RATED'
         const wireText = injection.conductor ? `AWG ${injection.conductor.awg}` : 'WIRE TBD'
         const destination = `${injection.outputTitle} · ${injection.role.toUpperCase()} @ ${injection.positionMm} mm`
         return <g key={injection.id}>
-          <path data-wire={`${injection.id}-positive`} d={`M500 80H530V${rowY}H560`} className={styles.powerWire} />
+          <path data-wire={`${injection.id}-positive`} d={`M500 100H530V${rowY}H560`} className={styles.powerWire} />
           <rect x="560" y={rowY - 15} width="70" height="30" rx="6" fill="#4b2423" stroke="#a7473f" data-terminal={`${injection.id}-fuse`} />
           <text x="595" y={rowY + 4} textAnchor="middle" className={styles.physicalFuseText}>{fuseText} FUSE</text>
           <path data-wire={`${injection.id}-fused-positive`} d={`M630 ${rowY}H1000`} className={styles.powerWire} />
-          <path data-wire={`${injection.id}-ground`} d={`M500 112H520V${rowY + 22}H1000`} className={styles.groundWire} />
+          <path data-wire={`${injection.id}-ground`} d={`M500 132H520V${rowY + 22}H1000`} className={styles.groundWire} />
           <text x="650" y={rowY - 8} className={styles.physicalWireLabel}>{destination} · {formatAmps(injection.designCurrentMa)} · {wireText} · 500 mm</text>
           <g transform={`translate(950 ${rowY})`} data-terminal={`${injection.id}-ceramic`}>
             <line x1="0" y1="0" x2="0" y2="7" className={styles.powerWire} />
@@ -250,7 +250,7 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
     </g>)}
     {sections.length > 1 && <path
       data-wire="multi-psu-common-ground"
-      d={`M230 ${sections[0].sectionY + 112}V${sections[sections.length - 1].sectionY + 112}`}
+      d={`M230 ${sections[0].sectionY + 132}V${sections[sections.length - 1].sectionY + 132}`}
       className={styles.groundWire}
     />}
   </g>

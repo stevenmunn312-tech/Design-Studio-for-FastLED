@@ -27,6 +27,10 @@ function csvCell(value: string): string {
   return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value
 }
 
+function formatAmps(valueMa: number): string {
+  return `${Number((valueMa / 1000).toFixed(valueMa % 1000 === 0 ? 0 : 1))} A`
+}
+
 export function rowsToCsv(headers: string[], rows: string[][]): string {
   return [headers, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n')
 }
@@ -138,7 +142,7 @@ export function buildBomRows(
     const supplies = plan.totals.supplies.filter((supply) => supply.outputIds.some((id) => outputIds.has(id))
       && supply.injectionIds.some((id) => includedInjectionIds.has(id)))
     for (const supply of supplies) {
-      rows.push({ quantity: '1', item: `5 V DC power supply ${supply.id.replace('supply-', '')}`, specification: `${supply.recommendedCurrentMa} mA / ${supply.recommendedWattage} W continuous including ${plan.totals.headroomPercent}% headroom`, status: 'calculated' })
+      rows.push({ quantity: '1', item: `Recommended 5 V DC power supply ${supply.id.replace('supply-', '')}`, specification: `5 V, ${formatAmps(supply.recommendedCurrentMa)}, ${supply.recommendedWattage} W continuous; derived from worst-case load with ${plan.totals.headroomPercent}% target headroom`, status: 'calculated' })
       rows.push({ quantity: '1', item: `${supply.id} fused DC distribution block`, specification: `${supply.injectionIds.filter((id) => includedInjectionIds.has(id)).length} protected positive outputs plus common ground bus`, status: 'calculated' })
       rows.push({ quantity: '1', item: `${supply.id} bulk electrolytic capacitor`, specification: '1000 uF minimum, good-quality low-ESR part, correctly polarized, voltage rating above 5 V', status: 'calculated' })
     }

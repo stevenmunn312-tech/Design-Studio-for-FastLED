@@ -36,9 +36,10 @@ the primary workflow.
 - [x] Calculate conservative WS2812-class current from graph pixel count.
 - [x] Pack injection branches and modest data routes into PSU groups with 20%
   headroom, splitting only when the practical per-PSU ceiling is exceeded.
-- [x] Display each PSU zone's worst-case load and recommended supply separately;
-  use whole-amp recommendations through 10 A and 10 A increments above it,
-  rounding down only within 2 A of the lower increment and never below load.
+- [x] Display each PSU zone's worst-case load prominently in the wiring drawing
+  and list its recommended supply in the BOM; use whole-amp recommendations
+  through 10 A and 10 A increments above it, rounding down only within 2 A of
+  the lower increment and never below load.
 - [x] Split large LED loads into generated fused start/end feeds capped at 5 A
   and centre feeds capped at 10 A.
 - [x] Recommend conductor size, connector rating, fuse rating, and distributed
