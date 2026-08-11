@@ -195,7 +195,7 @@ def _active_engine() -> str:
 # fbuild runs a persistent background daemon bound to whichever project
 # directory first started it, so (unlike arduino-cli) each compile can't use a
 # fresh temp directory — everything shares this one stable project. Only
-# `src/main.cpp` is rewritten per request; the `[env:*]` sections (one per
+# `src/main.ino` is rewritten per request; the `[env:*]` sections (one per
 # `BOARDS` entry, plus PSRAM variants) are static.
 _FBUILD_PROJECT_DIR = _DATA_DIR / ".fbuild-project"
 _FBUILD_SRC_DIR = _FBUILD_PROJECT_DIR / "src"
@@ -298,7 +298,7 @@ _FQBN_PSRAM_VALUES = {"opi": "opi", "enabled": "qspi"}
 _fbuild_project_ready = False
 
 # fbuild's project scaffold is a single shared directory (see above) — only one
-# `main.cpp` at a time, so two overlapping builds (e.g. a real Upload racing
+# `main.ino` at a time, so two overlapping builds (e.g. a real Upload racing
 # the live capacity meter's compile-only check, or two rapid-fire capacity
 # checks while a user is still editing) can interleave a write with a build
 # and corrupt each other's output. Observed in practice as a compile that
@@ -543,15 +543,18 @@ def _ensure_fbuild_hub75_lib():
 
 
 def _write_fbuild_main(ino: str) -> None:
-    # fbuild preprocesses `.ino` into `main.ino.cpp`, auto-inserting function
-    # prototypes before any user includes. That breaks FastLED-typed helpers
-    # such as `CRGB kelvinToRGB(...)` because `CRGB` is still unknown there.
-    # Writing a plain `.cpp` sidesteps Arduino sketch preprocessing entirely.
-    cpp = ino if "#include <Arduino.h>" in ino else f"#include <Arduino.h>\n{ino}"
-    (_FBUILD_SRC_DIR / "main.cpp").write_text(cpp, encoding="utf-8")
-    old_ino = _FBUILD_SRC_DIR / "main.ino"
-    if old_ino.exists():
-        old_ino.unlink()
+    # fbuild <= 2.5.15 preprocessed `.ino` into `main.ino.cpp`, auto-inserting
+    # function prototypes *before* any user #includes — that broke FastLED-typed
+    # helpers such as `CRGB kelvinToRGB(...)` because `CRGB` was still unknown at
+    # that point. We worked around it by writing a plain `.cpp` to sidestep
+    # Arduino sketch preprocessing entirely. fbuild 2.5.16 fixed the root cause
+    # (FastLED/fbuild#1275: sketch #includes are now hoisted into the prelude
+    # ahead of the generated prototypes), so plain `.ino` generation is restored
+    # here — requirements.txt/constraints.txt pin fbuild>=2.5.16.
+    (_FBUILD_SRC_DIR / "main.ino").write_text(ino, encoding="utf-8")
+    old_cpp = _FBUILD_SRC_DIR / "main.cpp"
+    if old_cpp.exists():
+        old_cpp.unlink()
 
 
 app = FastAPI(title="Design Studio for FastLED Upload Helper")
@@ -890,7 +893,7 @@ def _compile_upload_fbuild(label, ino, fqbn, port):
 
     Holds `_fbuild_build_lock` for the whole run: fbuild's project scaffold is
     one shared directory (see above), so a second build starting before this
-    one finishes would overwrite `main.cpp` and interleave `fbuild build`
+    one finishes would overwrite `main.ino` and interleave `fbuild build`
     output — serializing here is what makes that impossible rather than just
     unlikely. The acquire is timeout-bounded (see `_FBUILD_LOCK_TIMEOUT_S`)
     so a genuinely wedged build fails fast and visibly instead of silently

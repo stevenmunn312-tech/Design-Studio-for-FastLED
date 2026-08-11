@@ -25,7 +25,7 @@ an internal record.
 | # | Issue | Version confirmed | Our workaround | Still needed? |
 |---|-------|-------------------|----------------|---------------|
 | 1 | `lib_deps` registry resolution not implemented | 2.4.0 | Vendor libraries by `git clone` | Re-verify |
-| 2 | `.ino` prototype insertion breaks FastLED-typed helpers | 2.4.0 | Write `main.cpp` instead | Re-verify |
+| 2 | `.ino` prototype insertion breaks FastLED-typed helpers | 2.4.0 | Write `main.cpp` instead | **No — fixed upstream in 2.5.16, workaround removed 2026-08-10** |
 | 3 | Shared scaffold corrupts under concurrent builds | 2.4.0 | External process-wide lock | Likely (design-level) |
 | 4 | No size line on a no-op incremental build | 2.4.0 | Read fbuild's own size cache | Re-verify |
 | 5 | No size summary on hard linker overflow | 2.4.0 | Parse `ld` + `Memory:` lines | Likely (by design) |
@@ -81,6 +81,13 @@ sketch preprocessing entirely. It also unlinks any stale `main.ino`.
 **Note.** Arduino IDE and arduino-cli place inserted prototypes *after* the includes,
 so the same sketch compiles fine there. This looks like an ordering difference rather
 than a deliberate design choice.
+
+**Resolved 2026-08-10.** Reported upstream as FastLED/fbuild#1275; fixed in fbuild
+2.5.16 by hoisting sketch `#include` directives into the prelude ahead of the
+auto-generated prototypes. `backend/requirements.txt`/`backend/constraints.txt` now
+pin `fbuild==2.5.16`, and `_write_fbuild_main` writes plain `main.ino` again — the
+`.cpp` workaround is gone. Not yet re-validated on real hardware since the revert
+(tracked in `todo.md`'s "Build engine maintenance" section).
 
 ---
 
@@ -271,7 +278,7 @@ Reading the 2.5.5 → 2.5.14 release notes against the list above:
 
 | Our issue | Upstream change | Version | Confidence |
 |---|---|---|---|
-| §2 `.ino` prototypes | "Skipped auto-prototypes referencing sketch-defined types" | 2.5.5 | Partial — ours is a *library* type (`CRGB`), not sketch-defined |
+| §2 `.ino` prototypes | "Skipped auto-prototypes referencing sketch-defined types" (2.5.5); actually fixed by hoisting sketch `#include`s before the prototypes (FastLED/fbuild#1275) | 2.5.16 | **Confirmed fixed — workaround removed 2026-08-10** |
 | §1 `lib_deps` | "Honored `lib_deps` on Teensy/STM32; warned on inert `lib_ldf_mode`" | 2.5.6 | Partial — platform-scoped, not the general registry path |
 | §1 / §8 local libs | "Fixed resolution of named local dependencies" | 2.5.12 | Plausible — directly touches vendored-lib resolution |
 | §1 / §8 local libs | "Resolved relative local dependency roots" | 2.5.13 | Plausible — same area |
