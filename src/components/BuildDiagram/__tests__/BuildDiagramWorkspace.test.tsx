@@ -119,6 +119,7 @@ describe('BuildDiagramWorkspace', () => {
     for (const wire of [
       'microphone-vdd',
       'microphone-ground',
+      'microphone-channel-select',
       'mic-input:mic:i2sWs',
       'mic-input:mic:i2sSck',
       'mic-input:mic:i2sSd',
@@ -154,6 +155,7 @@ describe('BuildDiagramWorkspace', () => {
     expect(outputWirePath?.startsWith(`M${outputTerminalCircle?.getAttribute('cx')} ${outputTerminalCircle?.getAttribute('cy')}`)).toBe(true)
     expect(outputWirePath).toMatch(/H58V542H304V342H350$/)
     expect(diagram?.querySelector('[data-component-render="sn74ahct125n-dip14"]')).toBeTruthy()
+    expect(diagram?.querySelector('[data-component-render="inmp441-breakout"]')).toBeTruthy()
     expect(diagram?.querySelector('[data-terminal="level-shifter-1-vcc"] circle')?.getAttribute('cx')).toBe('147')
     expect(diagram?.querySelector('[data-terminal="level-shifter-1-vcc"] circle')?.getAttribute('cy')).toBe('41')
     expect(diagram?.querySelector('[data-terminal="level-shifter-1-gnd"] circle')?.getAttribute('cx')).toBe('35')
@@ -180,6 +182,8 @@ describe('BuildDiagramWorkspace', () => {
     expect(diagram?.querySelector('[data-microphone-role="bclk"]')?.textContent).toContain('BCLK')
     expect(diagram?.querySelector('[data-microphone-role="ws"]')?.textContent).toContain('WS')
     expect(diagram?.querySelector('[data-microphone-role="dout"]')?.textContent).toContain('DOUT')
+    expect(diagram?.querySelector('[data-microphone-role="channel"] title')?.textContent).toContain('L/R · GND')
+    expect(diagram?.querySelector('[data-wire="microphone-channel-select"]')?.getAttribute('data-wire-role')).toBe('channel-select')
     for (const terminal of [
       'supply-1-positive',
       'supply-1-ground',

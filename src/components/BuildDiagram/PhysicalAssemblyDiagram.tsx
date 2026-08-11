@@ -2,6 +2,7 @@ import type { ElectricalPlanSummary, OutputElectricalPlan } from '../../build/el
 import type { PhysicalBoardProfile } from '../../build/boardProfiles'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
 import devKitCBoardRender from '../../assets/boards/esp32-s3-devkitc-1.png'
+import microphoneRender from '../../assets/components/inmp441-breakout.png'
 import levelShifterRender from '../../assets/components/sn74ahct125n-dip14.png'
 import styles from './BuildDiagramWorkspace.module.css'
 import {
@@ -169,6 +170,22 @@ function peripheralGroundOffset(item: HardwareManifestItem) {
 
 type MicrophoneSignalRole = 'bclk' | 'ws' | 'dout'
 
+type MicrophoneTerminalRole = MicrophoneSignalRole | 'channel' | 'vdd' | 'gnd'
+
+const MICROPHONE_TERMINALS: Record<MicrophoneTerminalRole, { x: number; y: number }> = {
+  bclk: { x: 23, y: 22 },
+  ws: { x: 23, y: 45 },
+  channel: { x: 23, y: 68 },
+  dout: { x: 23, y: 90 },
+  vdd: { x: 23, y: 113 },
+  gnd: { x: 23, y: 136 },
+}
+
+function microphoneTerminalPoint(layout: ItemLayout, role: MicrophoneTerminalRole) {
+  const terminal = MICROPHONE_TERMINALS[role]
+  return { x: layout.x + terminal.x, y: layout.y + terminal.y }
+}
+
 function microphoneSignalPresentation(connection: PhysicalDiagramConnection): {
   label: string
   role: MicrophoneSignalRole
@@ -304,22 +321,38 @@ function ControllerGraphic({ boardProfile, connections, selected }: { boardProfi
 
 function MicrophoneGraphic({ layout, connections, selected }: { layout: ItemLayout; connections: PhysicalDiagramConnection[]; selected: boolean }) {
   const { x, y, item } = layout
+  const terminal = (role: MicrophoneTerminalRole, className: string, label: string) => {
+    const point = microphoneTerminalPoint(layout, role)
+    return <g data-terminal={`${item.id}-${role}`} data-microphone-role={role}>
+      <circle cx={point.x} cy={point.y} r="5" className={className} />
+      <title>{label}</title>
+    </g>
+  }
   return (
     <g className={selected ? styles.physicalSelected : undefined}>
       <text x={x + 102} y={y - 16} textAnchor="middle" className={styles.physicalComponentLabel}>{item.title}</text>
-      <rect x={x} y={y} width="205" height="138" rx="10" fill="#12659a" stroke={selected ? '#1fa5ad' : '#0b3f62'} strokeWidth={selected ? 4 : 2} />
-      <circle cx={x + 52} cy={y + 68} r="31" fill="#1b2022" stroke="#d9d9ce" strokeWidth="3" />
-      <circle cx={x + 52} cy={y + 68} r="18" fill="#282e30" />
-      <text x={x + 102} y={y + 28} className={styles.physicalBoardSilk}>INMP441</text>
-      <g data-terminal={`${item.id}-vdd`} data-microphone-role="vdd"><circle cx={x} cy={y + 30} r="5" className={styles.microphoneVddTerminal} /><text x={x + 12} y={y + 34} className={styles.physicalPinLabel}>VDD 3V3</text></g>
-      {connections.map((connection, index) => {
+      <image
+        data-component-render="inmp441-breakout"
+        href={microphoneRender}
+        x={x}
+        y={y}
+        width={layout.width}
+        height={layout.height}
+        preserveAspectRatio="xMidYMid meet"
+        className={styles.physicalBoardRender}
+      />
+      {terminal('vdd', styles.microphoneVddTerminal, 'VDD · 3V3')}
+      {connections.map((connection) => {
         const presentation = microphoneSignalPresentation(connection)
-        return <g key={connection.id} data-terminal={`${item.id}-${connection.id}`} data-microphone-role={presentation?.role ?? 'data'}>
-          <circle cx={x} cy={y + 56 + (index * 24)} r="5" className={presentation?.terminalClassName} />
-          <text x={x + 12} y={y + 60 + (index * 24)} className={styles.physicalPinLabel}>{presentation?.label ?? 'DATA'} · {connection.pinLabel}</text>
+        if (!presentation) return null
+        const point = microphoneTerminalPoint(layout, presentation.role)
+        return <g key={connection.id} data-terminal={`${item.id}-${connection.id}`} data-microphone-role={presentation.role}>
+          <circle cx={point.x} cy={point.y} r="5" className={presentation.terminalClassName} />
+          <title>{presentation.label} · {connection.pinLabel}</title>
         </g>
       })}
-      <g data-terminal={`${item.id}-gnd`}><circle cx={x} cy={y + 128} r="5" fill="#202425" stroke="#e8ad46" /><text x={x + 12} y={y + 132} className={styles.physicalPinLabel}>GND</text></g>
+      {terminal('channel', styles.microphoneGroundTerminal, 'L/R · GND for left channel')}
+      {terminal('gnd', styles.microphoneGroundTerminal, 'GND')}
     </g>
   )
 }
@@ -489,16 +522,24 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
       </g>
 
       <g className={styles.physicalWires}>
-        {microphoneLayout && <>
-          <path data-wire="microphone-vdd" data-wire-role="vdd" d={routeFromController(controller3v3, microphoneLayout.x, microphoneLayout.y + 30, 0, true)} className={styles.microphoneVddWire} />
-          {micConnections.map((connection, index) => {
+        {microphoneLayout && (() => {
+          const vddPoint = microphoneTerminalPoint(microphoneLayout, 'vdd')
+          const channelPoint = microphoneTerminalPoint(microphoneLayout, 'channel')
+          const groundPoint = microphoneTerminalPoint(microphoneLayout, 'gnd')
+          return <>
+          <path data-wire="microphone-vdd" data-wire-role="vdd" d={routeFromController(controller3v3, vddPoint.x, vddPoint.y, 0, true)} className={styles.microphoneVddWire} />
+          {micConnections.map((connection) => {
             const controllerIndex = controllerConnections.indexOf(connection)
             const controllerPoint = controllerConnectionPoint(connection, controllerIndex, controllerConnections.length, boardProfile)
             const presentation = microphoneSignalPresentation(connection)
-            return <path key={connection.id} data-wire={connection.id} data-wire-role={presentation?.role ?? 'data'} d={routeFromController(controllerPoint, microphoneLayout.x, microphoneLayout.y + 56 + (index * 24), controllerIndex)} className={presentation?.wireClassName ?? styles.auxWire} />
+            if (!presentation) return null
+            const target = microphoneTerminalPoint(microphoneLayout, presentation.role)
+            return <path key={connection.id} data-wire={connection.id} data-wire-role={presentation.role} d={routeFromController(controllerPoint, target.x, target.y, controllerIndex)} className={presentation.wireClassName} />
           })}
-          <path data-wire="microphone-ground" d={`M${microphoneLayout.x} ${microphoneLayout.y + 128}H316V${controllerGround.y}H${controllerGround.x}`} className={styles.groundWire} />
-        </>}
+          <path data-wire="microphone-channel-select" data-wire-role="channel-select" d={`M${channelPoint.x} ${channelPoint.y}H334V${groundPoint.y}H${groundPoint.x}`} className={styles.groundWire} />
+          <path data-wire="microphone-ground" d={`M${groundPoint.x} ${groundPoint.y}H316V${controllerGround.y}H${controllerGround.x}`} className={styles.groundWire} />
+        </>
+        })()}
 
         {outputLayouts.map((layout, index) => {
           const connection = outputConnections.find((entry) => entry.itemId === layout.item.id)
