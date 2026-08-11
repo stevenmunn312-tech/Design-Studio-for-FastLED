@@ -73,11 +73,17 @@ describe('BuildDiagramWorkspace', () => {
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3', selectedPort: 'COM7' })
   })
 
-  it('asks only for the exact board and never asks beginners to design the power system', () => {
-    const { getByText, queryByLabelText, queryByText } = render(<BuildDiagramWorkspace />)
+  it('starts with a compact controller, graph hardware, power summary, and idle details panel', () => {
+    const { getByRole, getByText, queryByLabelText, queryByText } = render(<BuildDiagramWorkspace />)
 
     expect(getByText('Exact board required')).toBeTruthy()
-    expect(getByText('Generated from the graph')).toBeTruthy()
+    expect(getByRole('img', { name: 'ESP32-S3 controller family' })).toBeTruthy()
+    expect(getByRole('button', { name: 'Choose your board' })).toBeTruthy()
+    expect(getByText('Graph hardware')).toBeTruthy()
+    expect(getByText('Power summary')).toBeTruthy()
+    expect(getByText('Choose a board or select graph hardware to see its build details.')).toBeTruthy()
+    expect(queryByText('Selected item')).toBeNull()
+    expect(queryByText('Readiness')).toBeNull()
     expect(queryByLabelText('Preferred path')).toBeNull()
     expect(queryByLabelText('Physical length (mm)')).toBeNull()
     expect(queryByLabelText('Assigned owned supply')).toBeNull()
@@ -86,7 +92,9 @@ describe('BuildDiagramWorkspace', () => {
   })
 
   it('generates a complete build reference immediately after board selection', () => {
-    const { getByText, queryByText } = render(<BuildDiagramWorkspace />)
+    const { getByRole, getByText, queryByText } = render(<BuildDiagramWorkspace />)
+    fireEvent.click(getByRole('button', { name: 'Choose your board' }))
+    expect(getByRole('dialog', { name: 'Choose your board' })).toBeTruthy()
     fireEvent.click(getByText('Espressif ESP32-S3-DevKitC-1'))
 
     expect(getByText('Build reference: ready', { selector: 'li' })).toBeTruthy()
@@ -273,6 +281,7 @@ describe('BuildDiagramWorkspace', () => {
   })
 
   it('preserves explicit complete-build and current-view export scope', () => {
+    selectDevKit()
     const { getByText } = render(<BuildDiagramWorkspace />)
 
     expect(getByText('Complete build is selected. Exports will include every configured hardware item by default.')).toBeTruthy()
@@ -282,10 +291,15 @@ describe('BuildDiagramWorkspace', () => {
   })
 
   it('shows identifying details for all supported exact boards', () => {
-    const { getByText } = render(<BuildDiagramWorkspace />)
+    const { getByRole, getByText } = render(<BuildDiagramWorkspace />)
+    fireEvent.click(getByRole('button', { name: 'Choose your board' }))
 
-    expect(getByText('Generic / AliExpress · 63.5×28 mm · pinout verified')).toBeTruthy()
-    expect(getByText('Espressif · 54×28 mm · manufacturer verified')).toBeTruthy()
-    expect(getByText('Seeed Studio · 21×18 mm · manufacturer verified')).toBeTruthy()
+    expect(getByRole('img', { name: 'Generic ESP32-S3 N16R8, 44-pin dual USB-C pinout' })).toBeTruthy()
+    expect(getByRole('img', { name: 'Espressif ESP32-S3-DevKitC-1 pinout' })).toBeTruthy()
+    expect(getByRole('img', { name: 'Seeed Studio XIAO ESP32S3 pinout' })).toBeTruthy()
+    expect(getByText('Generic ESP32-S3 N16R8, 44-pin dual USB-C')).toBeTruthy()
+    expect(getByText('Espressif ESP32-S3-DevKitC-1')).toBeTruthy()
+    expect(getByText('Seeed Studio XIAO ESP32S3')).toBeTruthy()
+    expect(getByText('D4 / GPIO5')).toBeTruthy()
   })
 })

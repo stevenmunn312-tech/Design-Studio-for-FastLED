@@ -120,11 +120,12 @@ shown as a note rather than turned into a beginner planning questionnaire.
 ## Viewport And Export Contract
 
 - Target authoring size: `1440x900`; supported minimum: `1280x720`.
-- Left panel: graph hardware and icon-based visibility/progress controls.
+- Left panel: generic controller-family outline, horizontal reviewed-pinout
+  picker, compact graph-hardware action rows, and power summary.
 - Centre: generated wiring diagram with hidden scrollbars, left-drag panning
   from empty canvas space, and cursor-centred mouse-wheel zoom.
-- Right panel: exact-board notes, generated readiness, connections, BOM, and
-  export controls.
+- Right panel: idle on first load, then exact-board notes, generated readiness,
+  connections, BOM, and export controls after a board or hardware selection.
 - Panels scroll independently and the diagram remains the priority below the
   target width.
 - SVG, print/PDF, Connections CSV, and BOM CSV outputs carry the ruleset version

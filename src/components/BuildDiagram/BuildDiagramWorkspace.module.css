@@ -383,6 +383,262 @@
   font-weight: 750;
 }
 
+.controllerChooserCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.genericController {
+  position: relative;
+  display: grid;
+  min-height: 142px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid #3d494e;
+  border-radius: 9px;
+  background:
+    radial-gradient(circle at 50% 34%, rgba(66, 190, 179, 0.13), transparent 42%),
+    #151b1e;
+}
+
+.genericController svg {
+  width: min(94%, 300px);
+  fill: none;
+  stroke: #67767b;
+  stroke-width: 2;
+}
+
+.genericController svg circle {
+  fill: #a8b6b8;
+  stroke: none;
+}
+
+.genericController strong {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #f2f5f1;
+  font-family: var(--font-display);
+  font-size: 24px;
+  letter-spacing: 0.02em;
+}
+
+.chooseBoardButton {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid #4daaa4;
+  border-radius: 7px;
+  background: rgba(44, 147, 140, 0.12);
+  color: #ecf7f4;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.chooseBoardButton:hover {
+  background: rgba(44, 147, 140, 0.22);
+}
+
+.selectedBoardVariant {
+  color: #aeb9bb;
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.compactHardwareCard .hardwareList {
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.compactHardwareCard .hardwareRow {
+  min-height: 38px;
+  align-items: center;
+  gap: 6px;
+}
+
+.compactHardwareCard .hardwareMain {
+  min-height: 34px;
+  justify-content: center;
+  padding: 6px 8px;
+  border-color: transparent;
+  background: transparent;
+}
+
+.compactHardwareCard .hardwareActions {
+  flex-direction: row;
+  gap: 4px;
+}
+
+.compactHardwareCard .iconButton {
+  width: 30px;
+  height: 30px;
+  padding: 6px;
+  border-radius: 6px;
+}
+
+.compactHardwareCard .iconButton svg {
+  width: 16px;
+  height: 16px;
+}
+
+.compactHardwareCard .staleNotice {
+  margin: 0;
+  font-size: 9px;
+}
+
+.detailIdle {
+  max-width: 250px;
+  margin: 8px 0 0;
+  color: #778287;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.boardPickerBackdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  padding: 44px;
+  place-items: center;
+  background: rgba(5, 8, 10, 0.78);
+  backdrop-filter: blur(8px);
+}
+
+.boardPickerDialog {
+  width: min(1180px, 100%);
+  max-height: min(820px, calc(100vh - 88px));
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid #46545a;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #20282c, #151a1d);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.5);
+}
+
+.boardPickerHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 14px;
+}
+
+.boardPickerTitle {
+  margin: 0;
+  color: #f3f6f2;
+  font-size: 20px;
+}
+
+.boardPickerHeader p {
+  margin: 4px 0 0;
+  color: #9eaaad;
+  font-size: 12px;
+}
+
+.boardPickerClose {
+  padding: 8px 12px;
+  border: 1px solid #526067;
+  border-radius: 7px;
+  background: #293237;
+  color: #eef2ef;
+  cursor: pointer;
+}
+
+.boardPickerScroller {
+  display: flex;
+  gap: 16px;
+  padding: 2px 2px 14px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-color: #59676c transparent;
+}
+
+.boardPickerCard {
+  display: flex;
+  flex: 0 0 min(520px, calc(100vw - 110px));
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  scroll-snap-align: start;
+  border: 1px solid #3f4a4f;
+  border-radius: 10px;
+  background: #111719;
+  color: #f2f5f1;
+  text-align: left;
+  cursor: pointer;
+}
+
+.boardPickerCard:hover,
+.boardPickerCardActive {
+  border-color: #55b8b0;
+  box-shadow: inset 0 0 0 1px rgba(85, 184, 176, 0.35);
+}
+
+.boardPickerCard strong {
+  font-size: 14px;
+}
+
+.boardPinout {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 7px;
+  background: #edf0ee;
+}
+
+.pinoutBoardBody {
+  fill: #293d3b;
+  stroke: #152321;
+  stroke-width: 3;
+}
+
+.pinoutUsb {
+  fill: #d9dcdd;
+  stroke: #6e787b;
+  stroke-width: 2;
+}
+
+.pinoutModule {
+  fill: #f3f2ea;
+  stroke: #8c9695;
+}
+
+.pinoutBoardName {
+  fill: #243033;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.pinoutPinText,
+.pinoutBottomText {
+  fill: #fff;
+  font-family: var(--font-code);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.pinoutBottomText {
+  fill: #243033;
+  font-size: 8px;
+}
+
+.pinoutLead {
+  stroke: #8f9b9e;
+  stroke-width: 2;
+}
+
+.pinoutPad {
+  fill: #f4c430;
+  stroke: #a87900;
+  stroke-width: 1.5;
+}
+
 .smallButtonDone {
   background: color-mix(in srgb, var(--accent-success) 24%, var(--bg-panel));
 }

@@ -37,7 +37,6 @@ interface DiagramConnection {
   unresolvedReason?: string
 }
 
-type VisibilityFilter = 'all' | 'unfinished'
 type ViewportPanState = { pointerId: number; startX: number; startY: number; startScrollLeft: number; startScrollTop: number }
 
 const MIN_ZOOM = 0.55
@@ -120,14 +119,78 @@ function itemFingerprint(
   })
 }
 
-function BoardPreview({ svg, label }: { svg: string; label: string }) {
+function GenericControllerOutline({ label }: { label: string }) {
   return (
-    <div
-      className={styles.boardPreview}
-      role="img"
-      aria-label={label}
-      dangerouslySetInnerHTML={{ __html: svg }}
-    />
+    <div className={styles.genericController} role="img" aria-label={`${label} controller family`}>
+      <svg viewBox="0 0 320 150" aria-hidden="true">
+        <rect x="52" y="18" width="216" height="114" rx="18" />
+        <rect x="130" y="5" width="60" height="30" rx="7" />
+        <rect x="88" y="48" width="144" height="58" rx="9" />
+        {Array.from({ length: 8 }, (_, index) => <circle key={`left-${index}`} cx="38" cy={28 + (index * 14)} r="4" />)}
+        {Array.from({ length: 8 }, (_, index) => <circle key={`right-${index}`} cx="282" cy={28 + (index * 14)} r="4" />)}
+      </svg>
+      <strong>{label}</strong>
+    </div>
+  )
+}
+
+function boardPinColor(role: PhysicalBoardPinProfile['role'], unavailable: boolean) {
+  if (unavailable) return '#9b4b4b'
+  if (role === 'power-in' || role === 'power-out') return '#d84c42'
+  if (role === 'ground') return '#26383b'
+  if (role === 'analog') return '#d77d32'
+  if (role === 'reserved') return '#6d7478'
+  return '#65a94f'
+}
+
+function BoardPinoutPreview({ profile }: { profile: PhysicalBoardProfile }) {
+  const anchorById = new Map((profile.pinAnchors ?? []).map((anchor) => [anchor.id, anchor]))
+  const pinsBySide = (side: PhysicalBoardPinAnchor['labelAlign']) => (profile.pins ?? [])
+    .filter((pin) => anchorById.get(pin.anchorId)?.labelAlign === side)
+  const leftPins = pinsBySide('left')
+  const rightPins = pinsBySide('right')
+  const bottomPins = pinsBySide('bottom')
+  const topPins = pinsBySide('top')
+  const verticalY = (index: number, count: number) => count <= 1 ? 214 : 42 + ((344 * index) / (count - 1))
+  const horizontalX = (index: number, count: number) => count <= 1 ? 280 : 210 + ((140 * index) / (count - 1))
+
+  return (
+    <svg className={styles.boardPinout} viewBox="0 0 560 430" role="img" aria-label={`${profile.label} pinout`}>
+      <rect x="198" y="28" width="164" height="366" rx="24" className={styles.pinoutBoardBody} />
+      <rect x="250" y="12" width="60" height="48" rx="8" className={styles.pinoutUsb} />
+      <rect x="220" y="92" width="120" height="174" rx="10" className={styles.pinoutModule} />
+      <text x="280" y="184" textAnchor="middle" className={styles.pinoutBoardName}>{profile.model}</text>
+      {leftPins.map((pin, index) => {
+        const y = verticalY(index, leftPins.length)
+        return <g key={pin.id} opacity={pin.availability === 'unavailable' ? 0.58 : 1}>
+          <rect x="12" y={y - 8} width="174" height="16" rx="4" fill={boardPinColor(pin.role, pin.availability === 'unavailable')} />
+          <text x="178" y={y + 3} textAnchor="end" className={styles.pinoutPinText}>{pin.label}</text>
+          <line x1="186" y1={y} x2="198" y2={y} className={styles.pinoutLead} />
+          <circle cx="198" cy={y} r="5" className={styles.pinoutPad} />
+        </g>
+      })}
+      {rightPins.map((pin, index) => {
+        const y = verticalY(index, rightPins.length)
+        return <g key={pin.id} opacity={pin.availability === 'unavailable' ? 0.58 : 1}>
+          <line x1="362" y1={y} x2="374" y2={y} className={styles.pinoutLead} />
+          <circle cx="362" cy={y} r="5" className={styles.pinoutPad} />
+          <rect x="374" y={y - 8} width="174" height="16" rx="4" fill={boardPinColor(pin.role, pin.availability === 'unavailable')} />
+          <text x="382" y={y + 3} className={styles.pinoutPinText}>{pin.label}</text>
+        </g>
+      })}
+      {bottomPins.map((pin, index) => {
+        const x = horizontalX(index, bottomPins.length)
+        return <g key={pin.id} opacity={pin.availability === 'unavailable' ? 0.58 : 1}>
+          <line x1={x} y1="394" x2={x} y2="406" className={styles.pinoutLead} />
+          <circle cx={x} cy="394" r="5" className={styles.pinoutPad} />
+          <text x={x} y="421" textAnchor="middle" className={styles.pinoutBottomText}>{pin.label}</text>
+        </g>
+      })}
+      {topPins.map((pin, index) => {
+        const x = horizontalX(index, topPins.length)
+        return <text key={pin.id} x={x} y="10" textAnchor="middle" className={styles.pinoutBottomText}>{pin.label}</text>
+      })}
+    </svg>
   )
 }
 
@@ -202,9 +265,9 @@ export default function BuildDiagramWorkspace() {
   const boardOptions = useMemo(() => compatibleBoardProfilesForFqbn(selectedFqbn), [selectedFqbn])
   const exactBoard = boardProfileById(buildProfile.physicalBoardProfileId ?? '')
   const selectedTarget = boardByFqbn(selectedFqbn)
-  const [selectedItemId, setSelectedItemId] = useState<string>('controller')
+  const [selectedItemId, setSelectedItemId] = useState<string>(() => exactBoard ? 'controller' : '')
   const [isolatedItemId, setIsolatedItemId] = useState<string | null>(null)
-  const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>('all')
+  const [boardPickerOpen, setBoardPickerOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [detailPaneCollapsed, setDetailPaneCollapsed] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH)
@@ -241,34 +304,33 @@ export default function BuildDiagramWorkspace() {
     return completedItemIds.has(itemId)
   }
 
-  const listedPrimaryItems = useMemo(() => {
-    if (visibilityFilter === 'all') return primaryItems
-    return primaryItems.filter((item) => !completedItemIds.has(item.id))
-  }, [completedItemIds, primaryItems, visibilityFilter])
-
   const visiblePrimaryItems = useMemo(() => {
-    const items = primaryItems.filter((item) =>
-      buildProfile.visibility?.[item.id] !== false
-      && (visibilityFilter === 'all' || !completedItemIds.has(item.id)))
+    const items = primaryItems.filter((item) => buildProfile.visibility?.[item.id] !== false)
     if (isolatedItemId) return items.filter((item) => item.id === isolatedItemId)
     return items
-  }, [buildProfile.visibility, completedItemIds, isolatedItemId, primaryItems, visibilityFilter])
+  }, [buildProfile.visibility, isolatedItemId, primaryItems])
 
   useEffect(() => {
     const availableIds = new Set(['controller', ...visiblePrimaryItems.map((item) => item.id)])
-    if (!availableIds.has(selectedItemId)) {
-      setSelectedItemId(visiblePrimaryItems[0]?.id ?? 'controller')
+    if (selectedItemId && !availableIds.has(selectedItemId)) {
+      setSelectedItemId('')
     }
   }, [selectedItemId, visiblePrimaryItems])
+
+  useEffect(() => {
+    if (!boardPickerOpen) return
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setBoardPickerOpen(false)
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [boardPickerOpen])
 
   const selectedItem = selectedItemId === 'controller'
     ? manifest.controller
     : manifest.items.find((item) => item.id === selectedItemId) ?? manifest.controller
   const exportMode: BuildExportMode = buildProfile.exportMode ?? 'complete-build'
 
-  const completedCount = primaryItems.filter((item) => {
-    return isItemDone(item.id)
-  }).length
   const hiddenPrimaryItemCount = primaryItems.filter((item) => buildProfile.visibility?.[item.id] === false).length
   const electricalPlan = useMemo(
     () => calculateElectricalPlan(manifest, buildProfile, exactBoard),
@@ -354,6 +416,8 @@ export default function BuildDiagramWorkspace() {
       ...current,
       physicalBoardProfileId: profileId,
     }))
+    setSelectedItemId('controller')
+    setBoardPickerOpen(false)
   }
 
   const setExportMode = (mode: BuildExportMode) => {
@@ -387,30 +451,6 @@ export default function BuildDiagramWorkspace() {
       status: exportDraftStatus,
       ruleSetVersion: electricalPlan.ruleSetVersion,
     }), 'fastled-build-bom.csv', 'text/csv;charset=utf-8')
-  }
-
-  const setAllVisible = () => {
-    setVisibilityFilter('all')
-    setIsolatedItemId(null)
-    patchBuildProfile((current) => ({
-      ...current,
-      visibility: undefined,
-    }))
-  }
-
-  const hideCompletedItems = () => {
-    setVisibilityFilter('all')
-    setIsolatedItemId(null)
-    patchBuildProfile((current) => {
-      const visibility = { ...(current.visibility ?? {}) }
-      for (const item of primaryItems) {
-        if (isItemDone(item.id)) visibility[item.id] = false
-      }
-      return {
-        ...current,
-        visibility: Object.keys(visibility).length > 0 ? visibility : undefined,
-      }
-    })
   }
 
   const adjustSidebarWidth = (delta: number) => {
@@ -741,80 +781,24 @@ export default function BuildDiagramWorkspace() {
               </div>
             </div>
 
-            <section className={styles.card}>
-              <h3 className={styles.cardTitle}>Controller target</h3>
-              <p className={styles.copy}>
-                {selectedTarget?.label ?? 'No board target selected'}{selectedFqbn ? ` · ${selectedFqbn}` : ''}
-              </p>
-              <p className={styles.copyMuted}>
-                Exact physical board profiles stay separate from the compile target. Build Diagram needs the exact board before it can trust physical wiring.
-              </p>
-            </section>
-
-            <section className={styles.card}>
-              <h3 className={styles.cardTitle}>Exact board</h3>
+            <section className={`${styles.card} ${styles.controllerChooserCard}`}>
+              <GenericControllerOutline label={selectedTarget?.label ?? 'Microcontroller'} />
               {boardOptions.length === 0 ? (
-                <p className={styles.warningText}>
-                  Diagram profile unavailable for this target family. Build Diagram will stay in planning-only mode until a reviewed physical board profile exists.
-                </p>
+                <p className={styles.warningText}>No reviewed board variants are available for this controller family yet.</p>
               ) : (
-                <div className={styles.optionList}>
-                  {boardOptions.map((profile) => (
-                    <button
-                      key={profile.id}
-                      type="button"
-                      className={`${styles.optionCard} ${buildProfile.physicalBoardProfileId === profile.id ? styles.optionCardActive : ''}`}
-                      onClick={() => selectExactBoard(profile.id)}
-                    >
-                      <div className={styles.optionPreviewWrap}>
-                        <BoardPreview svg={profile.previewSvg} label={`${profile.label} preview`} />
-                      </div>
-                      <span className={styles.optionTitle}>{profile.label}</span>
-                      <span className={styles.optionMeta}>
-                        {profile.manufacturer} · {profile.dimensionsMm.width}×{profile.dimensionsMm.height} mm · {profile.confidence.replace(/-/g, ' ')}
-                      </span>
-                      {profile.confidence !== 'manufacturer-verified' && (
-                        <span className={`${styles.confidenceBadge} ${styles.confidenceBadgeCaution}`}>
-                          {confidenceSummary(profile)}
-                        </span>
-                      )}
-                      <span className={styles.optionHint}>{profile.sourceSummary}</span>
-                      {profile.caveats[0] && <span className={styles.optionHint}>{profile.caveats[0]}</span>}
-                    </button>
-                  ))}
-                </div>
+                <button type="button" className={styles.chooseBoardButton} aria-haspopup="dialog" onClick={() => setBoardPickerOpen(true)}>
+                  Choose your board
+                </button>
               )}
+              {exactBoard && <span className={styles.selectedBoardVariant}>{exactBoard.label}</span>}
             </section>
 
-            <section className={styles.card}>
-              <div className={styles.rowBetween}>
-                <h3 className={styles.cardTitle}>Hardware items</h3>
-                <span className={styles.progressPill}>{completedCount}/{primaryItems.length} done</span>
-              </div>
-              <div className={styles.filterRow}>
-                <button type="button" className={styles.smallButton} onClick={setAllVisible}>
-                  Show all
-                </button>
-                <button type="button" className={styles.smallButton} onClick={hideCompletedItems}>
-                  Hide completed
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.smallButton} ${visibilityFilter === 'unfinished' ? styles.smallButtonDone : ''}`}
-                  onClick={() => {
-                    setIsolatedItemId(null)
-                    setVisibilityFilter((current) => current === 'unfinished' ? 'all' : 'unfinished')
-                  }}
-                >
-                  {visibilityFilter === 'unfinished' ? 'Showing unfinished' : 'Show unfinished only'}
-                </button>
-              </div>
+            <section className={`${styles.card} ${styles.compactHardwareCard}`}>
+              <h3 className={styles.cardTitle}>Graph hardware</h3>
               <div className={styles.hardwareList}>
                 {primaryItems.length === 0 ? (
-                  <p className={styles.copyMuted}>Add Matrix Output routes or supported hardware-input nodes to populate the build list.</p>
-                ) : listedPrimaryItems.length === 0 ? (
-                  <p className={styles.copyMuted}>All hardware items are complete under the current filter.</p>
-                ) : listedPrimaryItems.map((item) => {
+                  <p className={styles.copyMuted}>No additional hardware is present in the graph.</p>
+                ) : primaryItems.map((item) => {
                   const isVisible = buildProfile.visibility?.[item.id] !== false
                   const done = buildProfile.done?.[item.id]
                   const isDone = isItemDone(item.id)
@@ -823,8 +807,7 @@ export default function BuildDiagramWorkspace() {
                     <div key={item.id} className={`${styles.hardwareRow} ${selectedItemId === item.id ? styles.hardwareRowActive : ''}`}>
                       <button type="button" className={styles.hardwareMain} onClick={() => setSelectedItemId(item.id)}>
                         <span className={styles.hardwareTitle}>{item.title}</span>
-                        <span className={styles.hardwareSubtitle}>{item.subtitle}</span>
-                        {isStale && <span className={styles.staleNotice}>Wiring changed—recheck this connection.</span>}
+                        {isStale && <span className={styles.staleNotice}>Recheck</span>}
                       </button>
                       <div className={styles.hardwareActions}>
                         <button type="button" className={styles.iconButton} aria-label={isVisible ? `Hide ${item.title}` : `Show ${item.title}`} title={isVisible ? 'Hide' : 'Show'} onClick={() => toggleVisibility(item.id)}>
@@ -858,27 +841,6 @@ export default function BuildDiagramWorkspace() {
               ) : (
                 <p className={styles.copyMuted}>Add the missing installation facts to calculate the conservative supply budget.</p>
               )}
-            </section>
-
-            <section className={`${styles.card} ${signalReady ? styles.readinessCardReady : styles.readinessCardPending}`}>
-              <span className={styles.readinessMark}>{signalReady ? 'OK' : '!'}</span>
-              <div>
-                <h3 className={styles.cardTitle}>{signalReady ? 'No pin conflicts' : 'Signal review needed'}</h3>
-                <p className={styles.copyMuted}>{readinessText}</p>
-              </div>
-            </section>
-
-            <section className={styles.card}>
-              <h3 className={styles.cardTitle}>Generated from the graph</h3>
-              <p className={styles.copyMuted}>
-                Confirm the exact controller board once. Build Diagram then chooses the controller power method,
-                signal conditioning, supply capacity, fused distribution, conductor size, and LED feed count for you.
-              </p>
-              <ol className={styles.generatedSteps}>
-                <li>Buy the parts listed in the generated BOM.</li>
-                <li>Wire each labelled terminal exactly as shown in the centre diagram.</li>
-                <li>Use the calculated fused-feed count; never power the LED load through the controller.</li>
-              </ol>
             </section>
 
             {manifest.unsupportedItems.length > 0 && (
@@ -1003,10 +965,7 @@ export default function BuildDiagramWorkspace() {
         ) : (
           <>
             <div className={styles.detailHeader}>
-              <div>
-                <h2 className={styles.panelTitle}>Details</h2>
-                <p className={styles.panelSubtitle}>Readiness, connections, board notes, and export state.</p>
-              </div>
+              <h2 className={styles.panelTitle}>Details</h2>
               <div className={styles.headerActions}>
                 <div className={styles.panelSizeControls}>
                   <button
@@ -1036,6 +995,7 @@ export default function BuildDiagramWorkspace() {
               </div>
             </div>
 
+            {selectedItemId ? <>
             <section className={styles.card}>
               <h3 className={styles.cardTitle}>Selected item</h3>
               <p className={styles.copy}><strong>{selectedItem.title}</strong></p>
@@ -1302,9 +1262,40 @@ export default function BuildDiagramWorkspace() {
                 <button type="button" className={styles.exportModeButton} disabled={!exactBoard} onClick={exportBomCsv}>BOM CSV</button>
               </div>
             </section>
+            </> : (
+              <p className={styles.detailIdle}>Choose a board or select graph hardware to see its build details.</p>
+            )}
           </>
         )}
       </aside>
+      {boardPickerOpen && (
+        <div className={styles.boardPickerBackdrop} onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setBoardPickerOpen(false)
+        }}>
+          <section className={styles.boardPickerDialog} role="dialog" aria-modal="true" aria-labelledby="board-picker-title">
+            <div className={styles.boardPickerHeader}>
+              <div>
+                <h2 id="board-picker-title" className={styles.boardPickerTitle}>Choose your board</h2>
+                <p>Scroll sideways to compare reviewed pinouts.</p>
+              </div>
+              <button type="button" className={styles.boardPickerClose} aria-label="Close board picker" onClick={() => setBoardPickerOpen(false)}>Close</button>
+            </div>
+            <div className={styles.boardPickerScroller}>
+              {boardOptions.map((profile) => (
+                <button
+                  key={profile.id}
+                  type="button"
+                  className={`${styles.boardPickerCard} ${buildProfile.physicalBoardProfileId === profile.id ? styles.boardPickerCardActive : ''}`}
+                  onClick={() => selectExactBoard(profile.id)}
+                >
+                  <BoardPinoutPreview profile={profile} />
+                  <strong>{profile.label}</strong>
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>
+      )}
     </section>
   )
 }

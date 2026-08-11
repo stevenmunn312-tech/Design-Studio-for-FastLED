@@ -109,8 +109,10 @@ different firmware pin behind the user's back.
   planner questionnaires.
 - [x] Component tests verify icon controls, invalid-GPIO blocking, visibility,
   isolation, panel sizing, export scope, and board details.
-- [x] Component tests verify 4x4 LED previews, wheel zoom, and visible total-load
-  and recommended-PSU labels.
+- [x] Component tests verify 4x4 LED previews, wheel zoom, visible total-load
+  labels, and BOM PSU recommendations.
+- [x] Component tests verify the compact initial sidebars and horizontal
+  reviewed-pinout board picker.
 - [x] Full repository tests pass.
 - [x] Lint and production build pass.
 - [ ] Independent electrical review confirms formulas, source tables, and
