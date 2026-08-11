@@ -6,7 +6,7 @@ import { calculateElectricalPlan } from '../electricalPlan'
 import { buildHardwareManifest } from '../hardwareManifest'
 import type { StudioNode } from '../../state/graphStore'
 
-function outputNode(): StudioNode {
+function outputNode(extra: Record<string, unknown> = {}): StudioNode {
   return {
     id: 'out',
     type: 'studioNode',
@@ -15,7 +15,7 @@ function outputNode(): StudioNode {
       label: 'Matrix Output',
       nodeType: 'MatrixOutput',
       category: 'output',
-      properties: { width: 16, height: 16, chipset: 'WS2812B', dataPin: 14 },
+      properties: { width: 16, height: 16, chipset: 'WS2812B', dataPin: 14, ...extra },
       inputs: [],
       outputs: [],
     },
@@ -67,5 +67,23 @@ describe('buildExports', () => {
       .toContain('Export status,Rule set')
     expect(bomCsv(bomRows, { status: 'Draft - unresolved', ruleSetVersion: 'rules-v1' }))
       .toContain('Draft - unresolved,rules-v1')
+  })
+
+  it('exports configured operating limits beside the uncapped safety ceiling', () => {
+    const manifest = buildHardwareManifest([outputNode({ powerLimit: true, milliamps: 5000 })], [], 'esp32:esp32:esp32s3')
+    const profile = ensureBuildProfile({ version: 1, physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1' })
+    const board = boardProfileById(profile.physicalBoardProfileId ?? '')
+    const plan = calculateElectricalPlan(manifest, profile, board)
+    const connectionRows = buildConnectionRows(manifest.primaryItems, plan, board)
+    const bomRows = buildBomRows(manifest, plan, profile, board)
+
+    expect(bomRows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ item: 'Matrix Output', specification: expect.stringContaining('configured FastLED current limit 5 A') }),
+      expect.objectContaining({ item: 'Recommended 5 V DC power supply 1', specification: expect.stringContaining('derived from 5 A configured operating budget') }),
+      expect.objectContaining({ item: 'Recommended 5 V DC power supply 1', specification: expect.stringContaining('15.4 A uncapped full-white ceiling') }),
+    ]))
+    expect(connectionRows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ to: 'Matrix Output', purpose: expect.stringContaining('configured FastLED current limit 5000 mA') }),
+    ]))
   })
 })

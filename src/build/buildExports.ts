@@ -72,13 +72,22 @@ export function buildConnectionRows(
   outputs.forEach((item, outputIndex) => {
     const pin = item.pins[0]
     if (!pin) return
+    const outputPlan = includedPlanOutputs.find((output) => output.itemId === item.id)
     const chip = Math.floor(outputIndex / 4) + 1
     const channel = (outputIndex % 4) + 1
     const shifter = `74AHCT125 level shifter ${chip}`
     const resistor = `${item.title} 330 ohm data resistor`
     rows.push({ from: controller, fromTerminal: boardTerminal(pin.pin), to: shifter, toTerminal: `A${channel}`, purpose: '3.3 V LED data' })
     rows.push({ from: shifter, fromTerminal: `Y${channel}`, to: resistor, toTerminal: 'Input', purpose: '5 V conditioned LED data' })
-    rows.push({ from: resistor, fromTerminal: 'Output', to: item.title, toTerminal: 'DIN', purpose: 'Series-protected LED data' })
+    rows.push({
+      from: resistor,
+      fromTerminal: 'Output',
+      to: item.title,
+      toTerminal: 'DIN',
+      purpose: outputPlan?.operatingCurrentCapMa != null
+        ? `Series-protected LED data; configured FastLED current limit ${outputPlan.operatingCurrentCapMa} mA`
+        : 'Series-protected LED data',
+    })
     rows.push({ from: shifter, fromTerminal: `/OE${channel}`, to: 'Common ground bus', toTerminal: 'GND', purpose: 'Enable level-shifter channel' })
   })
   if (outputs.length > 0) {
@@ -129,8 +138,15 @@ export function buildBomRows(
   const include = (item: HardwareManifestItem) => !includedItemIds || includedItemIds.has(item.id)
   const items = manifest.primaryItems.filter(include)
   const rows: BuildBomRow[] = []
+  const outputPlanByItemId = new Map(plan.outputs.map((output) => [output.itemId, output]))
   if (exactBoard) rows.push({ quantity: '1', item: exactBoard.label, specification: exactBoard.confidence.replace(/-/g, ' '), status: 'configured' })
-  for (const item of items) rows.push({ quantity: '1', item: item.title, specification: item.subtitle, status: 'configured' })
+  for (const item of items) {
+    const outputPlan = outputPlanByItemId.get(item.id)
+    const limit = outputPlan?.operatingCurrentCapMa != null
+      ? `; configured FastLED current limit ${formatAmps(outputPlan.operatingCurrentCapMa)}; uncapped full-white ceiling ${formatAmps(outputPlan.designCurrentMa)}`
+      : ''
+    rows.push({ quantity: '1', item: item.title, specification: `${item.subtitle}${limit}`, status: 'configured' })
+  }
   const outputs = plan.outputs.filter((output) => items.some((item) => item.id === output.itemId))
   if (outputs.length > 0) {
     rows.push({ quantity: String(Math.ceil(outputs.length / 4)), item: '74AHCT125 level shifter', specification: '5 V supply, TTL-compatible input; one channel per LED data route', status: 'calculated' })
@@ -142,7 +158,10 @@ export function buildBomRows(
     const supplies = plan.totals.supplies.filter((supply) => supply.outputIds.some((id) => outputIds.has(id))
       && supply.injectionIds.some((id) => includedInjectionIds.has(id)))
     for (const supply of supplies) {
-      rows.push({ quantity: '1', item: `Recommended 5 V DC power supply ${supply.id.replace('supply-', '')}`, specification: `5 V, ${formatAmps(supply.recommendedCurrentMa)}, ${supply.recommendedWattage} W continuous; derived from worst-case load with ${plan.totals.headroomPercent}% target headroom`, status: 'calculated' })
+      const sizingBasis = supply.psuSizingCurrentMa < supply.designCurrentMa
+        ? `derived from ${formatAmps(supply.psuSizingCurrentMa)} configured operating budget with ${plan.totals.headroomPercent}% target headroom; ${formatAmps(supply.designCurrentMa)} uncapped full-white ceiling; use a quality supply with overload and short-circuit protection`
+        : `derived from worst-case load with ${plan.totals.headroomPercent}% target headroom`
+      rows.push({ quantity: '1', item: `Recommended 5 V DC power supply ${supply.id.replace('supply-', '')}`, specification: `5 V, ${formatAmps(supply.recommendedCurrentMa)}, ${supply.recommendedWattage} W continuous; ${sizingBasis}`, status: 'calculated' })
       rows.push({ quantity: '1', item: `${supply.id} fused DC distribution block`, specification: `${supply.injectionIds.filter((id) => includedInjectionIds.has(id)).length} protected positive outputs plus common ground bus`, status: 'calculated' })
       rows.push({ quantity: '1', item: `${supply.id} bulk electrolytic capacitor`, specification: '1000 uF minimum, good-quality low-ESR part, correctly polarized, voltage rating above 5 V', status: 'calculated' })
     }

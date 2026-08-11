@@ -207,7 +207,10 @@ function OutputGraphic({ layout, selected, plan }: { layout: ItemLayout; selecte
           <text x={x + 14} y={y + Number(offset) + 4} className={styles.physicalPinLabel}>{label}</text>
         </g>
       ))}
-      {plan && <text x={x + (width / 2)} y={y + 167} textAnchor="middle" className={styles.physicalBoardSubSilk}>{plan.recommendedFeedCount} FUSED FEEDS · PSU PLAN BELOW</text>}
+      {plan?.operatingCurrentCapMa != null && (
+        <text data-operating-current-cap={plan.operatingCurrentCapMa} x={x + (width / 2)} y={y + 158} textAnchor="middle" className={styles.physicalCurrentCapLabel}>CURRENT LIMIT {formatAmps(plan.operatingCurrentCapMa)}</text>
+      )}
+      {plan && <text x={x + (width / 2)} y={y + (plan.operatingCurrentCapMa != null ? 170 : 167)} textAnchor="middle" className={styles.physicalBoardSubSilk}>{plan.recommendedFeedCount} FUSED FEEDS · PSU PLAN BELOW</text>}
     </g>
   )
 }
@@ -225,8 +228,12 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
   return <g>
     {sections.map(({ supply, assigned, sectionY, sectionHeight }, supplyIndex) => <g key={supply.id} transform={`translate(0 ${sectionY})`}>
       <rect x="24" y="0" width="1072" height={sectionHeight} rx="12" fill="none" stroke="#a9afac" strokeWidth="2" />
-      <text x="42" y="32" className={styles.physicalPowerLabel}>PSU ZONE {supplyIndex + 1} · TOTAL POWER REQUIREMENTS</text>
-      <text x="42" y="58" className={styles.physicalPowerValue}>5 V · {Number((supply.designCurrentMa / 1000).toFixed(1))} A · {Number(((supply.designCurrentMa / 1000) * 5).toFixed(1))} W</text>
+      <text x="42" y="32" className={styles.physicalPowerLabel}>PSU ZONE {supplyIndex + 1} · RECOMMENDED POWER SUPPLY</text>
+      <text data-psu-recommendation={supply.recommendedCurrentMa} x="42" y="58" className={styles.physicalPowerValue}>5 V · {formatAmps(supply.recommendedCurrentMa)} · {supply.recommendedWattage} W</text>
+      {supply.psuSizingCurrentMa < supply.designCurrentMa && <>
+        <text x="610" y="32" className={styles.physicalPowerBasisLabel}>CONFIGURED OPERATING BUDGET · {formatAmps(supply.psuSizingCurrentMa)}</text>
+        <text data-uncapped-current-ceiling={supply.designCurrentMa} x="610" y="58" className={styles.physicalPowerCeilingLabel}>UNCAPPED FULL-WHITE CEILING · {formatAmps(supply.designCurrentMa)}</text>
+      </>}
 
       <g transform="translate(42 76)" filter="url(#component-shadow)">
         <rect width="188" height="78" rx="8" fill="url(#supply-body)" stroke="#151917" strokeWidth="2" />

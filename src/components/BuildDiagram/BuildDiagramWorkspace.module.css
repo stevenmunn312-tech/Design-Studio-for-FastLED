@@ -1326,6 +1326,29 @@
   font-size: 20px;
 }
 
+.physicalCurrentCapLabel {
+  fill: #72dfd0;
+  font-family: var(--font-code);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+}
+
+.physicalPowerBasisLabel,
+.physicalPowerCeilingLabel {
+  font-family: var(--font-code);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.physicalPowerBasisLabel {
+  fill: #167d72;
+}
+
+.physicalPowerCeilingLabel {
+  fill: #8a5a22;
+}
+
 .physicalChipLabel {
   fill: #e5e7e2;
   font-family: var(--font-code);
@@ -1365,6 +1388,21 @@
 .powerSummaryMeta {
   color: #aeb7b9;
   font-size: 12px;
+}
+
+.powerSummaryLimit,
+.powerSummaryCeiling {
+  font-family: var(--font-code);
+  font-size: 11px;
+}
+
+.powerSummaryLimit {
+  margin-top: 8px;
+  color: #72dfd0;
+}
+
+.powerSummaryCeiling {
+  color: #c7a46e;
 }
 
 .powerSummaryBudget {

@@ -830,10 +830,19 @@ export default function BuildDiagramWorkspace() {
               <h3 className={styles.cardTitle}>Power summary</h3>
               {electricalPlan.totals ? (
                 <>
-                  <span className={styles.powerSummaryValue}>{formatCurrentMa(electricalPlan.totals.designCurrentMa)}</span>
+                  <span className={styles.powerSummaryValue}>{formatCurrentMa(electricalPlan.totals.psuSizingCurrentMa)}</span>
                   <span className={styles.powerSummaryMeta}>
-                    design load @ {formatVoltage(electricalPlan.totals.nominalVoltage)}
+                    {electricalPlan.totals.operatingCurrentCapMa != null ? 'PSU sizing operating budget' : 'uncapped design load'} @ {formatVoltage(electricalPlan.totals.nominalVoltage)}
                   </span>
+                  {electricalPlan.totals.operatingCurrentCapMa != null && <>
+                    <span className={styles.powerSummaryLimit}>
+                      {electricalPlan.outputs
+                        .filter((output) => output.operatingCurrentCapMa != null)
+                        .map((output) => `${output.title}: ${formatCurrentMa(output.operatingCurrentCapMa ?? 0)} limit`)
+                        .join(' · ')}
+                    </span>
+                    <span className={styles.powerSummaryCeiling}>Uncapped full-white ceiling {formatCurrentMa(electricalPlan.totals.designCurrentMa)}</span>
+                  </>}
                   <span className={styles.powerSummaryBudget}>
                     Supply budget {formatCurrentMa(electricalPlan.totals.recommendedSupplyCurrentMa)} / {formatWattage(electricalPlan.totals.recommendedSupplyWattage)}
                   </span>
@@ -1139,10 +1148,10 @@ export default function BuildDiagramWorkspace() {
                   </p>
                   {electricalPlan.totals && (
                     <ul className={styles.flatList}>
-                      <li>Total design load: {formatCurrentMa(electricalPlan.totals.designCurrentMa)} @ {electricalPlan.totals.nominalVoltage} V</li>
                       {electricalPlan.totals.operatingCurrentCapMa != null && (
-                        <li>Configured operating cap: {formatCurrentMa(electricalPlan.totals.operatingCurrentCapMa)}</li>
+                        <li>PSU sizing operating budget: {formatCurrentMa(electricalPlan.totals.psuSizingCurrentMa)} @ {electricalPlan.totals.nominalVoltage} V</li>
                       )}
+                      <li>{electricalPlan.totals.operatingCurrentCapMa != null ? 'Uncapped full-white ceiling' : 'Total design load'}: {formatCurrentMa(electricalPlan.totals.designCurrentMa)} @ {electricalPlan.totals.nominalVoltage} V</li>
                       {electricalPlan.totals.supplies.map((supply, index) => (
                         <li key={supply.id}>
                           PSU {index + 1}: {electricalPlan.totals?.nominalVoltage} V, at least {formatCurrentMa(supply.recommendedCurrentMa)} / {formatWattage(supply.recommendedWattage)} continuous
@@ -1161,9 +1170,11 @@ export default function BuildDiagramWorkspace() {
                             <h4 className={styles.subTitle}>{output.title}</h4>
                             <p className={styles.copyMuted}>{output.pixelCount} px · {output.topology} · generated distributed power</p>
                           </div>
-                          <span className={styles.progressPill}>{formatCurrentMa(output.designCurrentMa)}</span>
+                          <span className={styles.progressPill}>{formatCurrentMa(output.operatingCurrentCapMa ?? output.designCurrentMa)}{output.operatingCurrentCapMa != null ? ' limit' : ''}</span>
                         </div>
                         <ul className={styles.flatList}>
+                          {output.operatingCurrentCapMa != null && <li>Configured FastLED operating limit: {formatCurrentMa(output.operatingCurrentCapMa)}</li>}
+                          {output.operatingCurrentCapMa != null && <li>Uncapped full-white ceiling: {formatCurrentMa(output.designCurrentMa)}</li>}
                           <li>Power feeds: {output.recommendedFeedCount} individually fused feeds from the assigned PSU distribution zone</li>
                           {output.injections.map((injection) => (
                             <li key={injection.id}>
@@ -1173,13 +1184,12 @@ export default function BuildDiagramWorkspace() {
                               {' '}{injection.supplyId?.replace('supply-', 'PSU ') ?? 'PSU unresolved'}
                             </li>
                           ))}
-                          <li>Output supply budget: {formatCurrentMa(output.recommendedSupplyCurrentMa)} @ {output.nominalVoltage} V ({formatWattage(output.recommendedSupplyWattage)})</li>
+                          <li>{output.operatingCurrentCapMa != null ? 'Cap-aware output supply budget' : 'Output supply budget'}: {formatCurrentMa(output.recommendedSupplyCurrentMa)} @ {output.nominalVoltage} V ({formatWattage(output.recommendedSupplyWattage)})</li>
                           {output.conductor && (
                             <li>Each feed conductor: AWG {output.conductor.awg} / {output.conductor.crossSectionMm2} mm2 {output.conductor.material} minimum</li>
                           )}
                           {output.connectorMinimumMa && <li>Connector minimum: {formatCurrentMa(output.connectorMinimumMa)} continuous</li>}
                           {output.fuse.ratingMa && <li>Each feed fuse: {formatCurrentMa(output.fuse.ratingMa)}</li>}
-                          {output.operatingCurrentCapMa != null && <li>Configured operating cap: {formatCurrentMa(output.operatingCurrentCapMa)}</li>}
                         </ul>
                       </section>
                     ))}

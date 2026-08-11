@@ -73,9 +73,9 @@ wait for the user to buy parts or confirm that a recommended component exists.
 - Every PSU distribution output includes a bulk electrolytic capacitor across
   positive and ground, and every LED injection site includes local ceramic
   decoupling across the same pair.
-- The wiring drawing labels each PSU zone with its worst-case voltage, current,
-  and wattage. The rounded recommended PSU nameplate is listed in the BOM rather
-  than repeated in the drawing.
+- The wiring drawing labels each PSU zone with its recommended voltage, current,
+  and wattage. When FastLED current limiting is configured, it also shows the
+  cap-aware operating budget and the uncapped full-white fault ceiling.
 - Every INMP441 route includes VDD, ground, BCLK/SCK, WS, and SD/DOUT.
 - No line may stop near a part: generated wires terminate on visible terminals.
 
@@ -84,27 +84,33 @@ wait for the user to buy parts or confirm that a recommended component exists.
 The current bounded WS2812-class rules use:
 
 - 5 V nominal LED power.
-- 60 mA per pixel conservative full-white design load.
+- 60 mA per pixel conservative uncapped full-white load for injection count,
+  conductor, connector, voltage-drop, and branch-fuse calculations.
 - 20% supply-current/wattage headroom.
+- A configured FastLED current limit becomes the PSU operating-capacity sizing
+  basis, while the uncapped load remains visible and continues to govern branch
+  wiring and protection. Without a configured limit, PSU sizing uses the
+  full-white load.
 - Recommended nameplate current rounds to whole amps through 10 A. Above 10 A,
   it uses 10 A increments, rounding down only when the headroom target is less
-  than 2 A above the lower increment and remains above the worst-case load.
+  than 2 A above the lower increment and remains above the applicable PSU
+  sizing basis.
 - 60 pixels per metre when the graph has no physical density metadata.
 - 500 mm one-way feed cable when no reviewed physical route is available.
 - 5 A maximum design load for start/end feeds and 10 A maximum for centre
   feeds that split into no more than 5 A in either direction.
 - 0.4 V maximum calculated feed drop over the complete 500 mm one-way copper
   feed circuit, with the same continuous-load reserve used for fuse sizing.
-- Approximately 60 A maximum recommended capacity per PSU group. Injection
-  branches and modest data routes share one PSU while they fit; larger builds
-  are split into separately fused positive-power zones with common signal
-  ground and no paralleled PSU positive outputs.
+- Approximately 60 A maximum recommended capacity per cap-aware PSU group.
+  Injection branches and modest data routes share one PSU while their operating
+  budgets fit; larger builds are split into separately fused positive-power
+  zones with common signal ground and no paralleled PSU positive outputs.
 - Reviewed conductor, connector, voltage-drop, derating, and fuse tables for
   each feed.
 
-These values produce a safe, conservative reference from the information the
-graph can know. They are stated in the UI and exports rather than presented as
-questions to a beginner.
+These values produce conservative branch protection and a cap-aware operating
+PSU recommendation from the information the graph can know. They are stated in
+the UI and exports rather than presented as questions to a beginner.
 
 ## Board Confidence
 

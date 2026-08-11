@@ -89,14 +89,42 @@ describe('electricalPlan', () => {
     expect(plan.totals?.supplies.every((supply) => supply.recommendedCurrentMa <= 60000)).toBe(true)
   })
 
-  it('shows a firmware cap separately without weakening physical recommendations', () => {
+  it('uses a firmware cap for PSU sizing without weakening branch protection', () => {
     const manifest = buildHardwareManifest([outputNode(16, 16, { powerLimit: true, milliamps: 9000 })], [], 'esp32:esp32:esp32s3')
     const board = boardProfileById('espressif-esp32-s3-devkitc-1')
     const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id }), board)
 
     expect(plan.outputs[0]?.operatingCurrentCapMa).toBe(9000)
+    expect(plan.outputs[0]?.psuSizingCurrentMa).toBe(9000)
     expect(plan.outputs[0]?.designCurrentMa).toBe(15360)
-    expect(plan.totals?.recommendedSupplyCurrentMa).toBe(20000)
+    expect(plan.outputs[0]?.recommendedSupplyCurrentMa).toBe(10000)
+    expect(plan.outputs[0]?.injections.map((injection) => injection.fuse.ratingMa)).toEqual([7500, 15000, 7500])
+    expect(plan.totals?.recommendedSupplyCurrentMa).toBe(10000)
+  })
+
+  it('recommends one 20 A supply for two outputs capped at 5 A each', () => {
+    const first = outputNode(16, 16, { powerLimit: true, milliamps: 5000 })
+    const second = outputNode(16, 16, { powerLimit: true, milliamps: 5000, dataPin: 27 })
+    second.id = 'out-2'
+    const manifest = buildHardwareManifest([first, second], [], 'esp32:esp32:esp32s3')
+    const board = boardProfileById('espressif-esp32-s3-devkitc-1')
+    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id }), board)
+
+    expect(plan.totals).toEqual(expect.objectContaining({
+      operatingCurrentCapMa: 10000,
+      psuSizingCurrentMa: 10000,
+      designCurrentMa: 30720,
+      recommendedSupplyCurrentMa: 20000,
+      recommendedSupplyWattage: 100,
+      recommendedSupplyCount: 1,
+    }))
+    expect(plan.totals?.supplies[0]).toEqual(expect.objectContaining({
+      psuSizingCurrentMa: 10000,
+      designCurrentMa: 30720,
+      recommendedCurrentMa: 20000,
+      recommendedWattage: 100,
+    }))
+    expect(plan.outputs.every((output) => output.recommendedFeedCount === 3)).toBe(true)
   })
 
   it('ignores obsolete planner answers and always regenerates from graph hardware', () => {

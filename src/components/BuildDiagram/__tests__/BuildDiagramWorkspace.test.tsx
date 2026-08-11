@@ -5,7 +5,7 @@ import { useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/uploadStore'
 
-function matrixNode(dataPin = 14, width = 16, height = 16, id = 'out') {
+function matrixNode(dataPin = 14, width = 16, height = 16, id = 'out', extra: Record<string, unknown> = {}) {
   return {
     id,
     type: 'studioNode',
@@ -14,7 +14,7 @@ function matrixNode(dataPin = 14, width = 16, height = 16, id = 'out') {
       label: 'Matrix Output',
       nodeType: 'MatrixOutput',
       category: 'output',
-      properties: { width, height, chipset: 'WS2812B', dataPin },
+      properties: { width, height, chipset: 'WS2812B', dataPin, ...extra },
       inputs: [],
       outputs: [],
     },
@@ -169,6 +169,25 @@ describe('BuildDiagramWorkspace', () => {
     }
   })
 
+  it('shows two 5 A output limits while retaining the uncapped safety ceiling', () => {
+    useGraphStore.setState({
+      nodes: [
+        matrixNode(14, 16, 16, 'out-a', { powerLimit: true, milliamps: 5000 }),
+        matrixNode(27, 16, 16, 'out-b', { powerLimit: true, milliamps: 5000 }),
+      ] as never[],
+    })
+    selectDevKit()
+    const { container, getByText } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
+
+    expect(diagram?.querySelector('[data-output-card="output:out-a"] [data-operating-current-cap="5000"]')?.textContent).toBe('CURRENT LIMIT 5A')
+    expect(diagram?.querySelector('[data-output-card="output:out-b"] [data-operating-current-cap="5000"]')?.textContent).toBe('CURRENT LIMIT 5A')
+    expect(diagram?.querySelector('[data-psu-recommendation="20000"]')?.textContent).toBe('5 V · 20A · 100 W')
+    expect(diagram?.querySelector('[data-uncapped-current-ceiling="30720"]')?.textContent).toContain('30.7A')
+    expect(getByText('Matrix Output 1: 5 A limit · Matrix Output 2: 5 A limit')).toBeTruthy()
+    expect(getByText('Uncapped full-white ceiling 30.72 A')).toBeTruthy()
+  })
+
   it('generates complete recommended wiring for supported controls from the graph', () => {
     useGraphStore.setState({
       nodes: [
@@ -280,7 +299,7 @@ describe('BuildDiagramWorkspace', () => {
     expect(workspace.getAttribute('style')).toContain('--build-detail-width: 328px')
   })
 
-  it('uses a four-by-four LED preview and labels total and recommended PSU power', () => {
+  it('uses a four-by-four LED preview and labels the recommended PSU power', () => {
     const second = matrixNode(12, 16, 16, 'out-2')
     useGraphStore.setState({ nodes: [matrixNode(), second] as never[] })
     selectDevKit()
@@ -291,8 +310,8 @@ describe('BuildDiagramWorkspace', () => {
     expect(previews).toHaveLength(2)
     expect(previews[0]?.querySelectorAll('rect')).toHaveLength(16)
     expect(diagram?.querySelector('[data-output-card="output:out"] > rect')?.getAttribute('width')).toBe('184')
-    expect(diagram?.textContent).toContain('TOTAL POWER REQUIREMENTS5 V · 30.7 A · 153.6 W')
-    expect(diagram?.textContent).not.toContain('RECOMMENDED POWER SUPPLY')
+    expect(diagram?.textContent).toContain('RECOMMENDED POWER SUPPLY5 V · 40A · 200 W')
+    expect(diagram?.querySelector('[data-uncapped-current-ceiling]')).toBeNull()
   })
 
   it('preserves explicit complete-build and current-view export scope', () => {
