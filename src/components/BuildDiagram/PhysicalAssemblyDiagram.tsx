@@ -2,16 +2,19 @@ import type { ElectricalPlanSummary, OutputElectricalPlan } from '../../build/el
 import type { PhysicalBoardProfile } from '../../build/boardProfiles'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
 import devKitCBoardRender from '../../assets/boards/esp32-s3-devkitc-1.png'
+import levelShifterRender from '../../assets/components/sn74ahct125n-dip14.png'
 import styles from './BuildDiagramWorkspace.module.css'
 import {
   itemLayouts,
   LEVEL_SHIFTER_HEIGHT,
   LEVEL_SHIFTER_WIDTH,
   LEVEL_SHIFTER_X,
-  levelShifterChannelY,
   levelShifterChipY,
+  levelShifterSupplyPoint,
+  levelShifterTerminalPoint,
   physicalAssemblyDiagramHeight,
   type ItemLayout,
+  type LevelShifterTerminalPoint,
 } from './physicalDiagramLayout'
 
 export interface PhysicalDiagramConnection {
@@ -134,6 +137,25 @@ function routeFromController(
   const leftLane = 58 - (laneSlot * 6)
   const detourY = preferTop ? 102 : 542 + (laneSlot * 7)
   return `M${point.x} ${point.y}H${leftLane}V${detourY}H${rightLane}V${targetY}H${targetX}`
+}
+
+function routeToLevelShifterInput(outputIndex: number, point: LevelShifterTerminalPoint) {
+  if (point.side === 'left') return `M390 ${point.y}H${point.x}`
+  const chipY = levelShifterChipY(outputIndex)
+  const detourY = chipY + LEVEL_SHIFTER_HEIGHT + 16 + ((outputIndex % 4) * 7)
+  return `M390 ${point.y}H410V${detourY}H${point.x + 18}V${point.y}H${point.x}`
+}
+
+function routeFromLevelShifterOutput(
+  outputIndex: number,
+  point: LevelShifterTerminalPoint,
+  targetX: number,
+  targetY: number,
+) {
+  if (point.side === 'right') return `M${point.x} ${point.y}H650V${targetY}H${targetX}`
+  const chipY = levelShifterChipY(outputIndex)
+  const detourY = chipY + LEVEL_SHIFTER_HEIGHT + 16 + ((outputIndex % 4) * 7)
+  return `M${point.x} ${point.y}H410V${detourY}H650V${targetY}H${targetX}`
 }
 
 function peripheralSignalOffset(item: HardwareManifestItem, index: number) {
@@ -483,10 +505,12 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
           if (!connection) return null
           const controllerIndex = controllerConnections.indexOf(connection)
           const controllerPoint = controllerConnectionPoint(connection, controllerIndex, controllerConnections.length, boardProfile)
-          const channelY = levelShifterChannelY(index)
+          const inputPoint = levelShifterTerminalPoint(index, 'a')
+          const outputPoint = levelShifterTerminalPoint(index, 'y')
           return <g key={layout.item.id}>
-            <path data-wire={`${layout.item.id}-data-in`} d={routeFromController(controllerPoint, 350, channelY, controllerIndex)} className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.signalWire : styles.dimWire} />
-            <path data-wire={`${layout.item.id}-conditioned-data`} d={`M390 ${channelY}H${LEVEL_SHIFTER_X}M${LEVEL_SHIFTER_X + LEVEL_SHIFTER_WIDTH} ${channelY}H650V${layout.y + 66}H${layout.x}`} className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.signalWire : styles.dimWire} />
+            <path data-wire={`${layout.item.id}-data-in`} d={routeFromController(controllerPoint, 350, inputPoint.y, controllerIndex)} className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.signalWire : styles.dimWire} />
+            <path data-wire={`${layout.item.id}-level-shifter-input`} d={routeToLevelShifterInput(index, inputPoint)} className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.signalWire : styles.dimWire} />
+            <path data-wire={`${layout.item.id}-conditioned-data`} d={routeFromLevelShifterOutput(index, outputPoint, layout.x, layout.y + 66)} className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.signalWire : styles.dimWire} />
           </g>
         })}
         {peripheralLayouts.map((layout, layoutIndex) => {
@@ -504,12 +528,20 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
         {Array.from({ length: Math.ceil(outputLayouts.length / 4) }, (_, chipIndex) => {
           const chipY = levelShifterChipY(chipIndex * 4)
           const usedChannels = Math.min(4, outputLayouts.length - (chipIndex * 4))
+          const vccPoint = levelShifterSupplyPoint(chipIndex, 'vcc')
+          const groundPoint = levelShifterSupplyPoint(chipIndex, 'gnd')
           return <g key={`level-shifter-wires-${chipIndex}`}>
-            <path data-wire={`level-shifter-${chipIndex + 1}-vcc`} d={`M${LEVEL_SHIFTER_X} ${chipY + 18}H410V236H370V${powerSectionY + DISTRIBUTION_POSITIVE_BUS_Y}H390`} className={styles.powerWire} />
-            <path data-wire={`level-shifter-${chipIndex + 1}-ground`} d={`M${LEVEL_SHIFTER_X + LEVEL_SHIFTER_WIDTH} ${chipY + 140}H610V476H360V${powerSectionY + DISTRIBUTION_GROUND_BUS_Y}H390`} className={styles.groundWire} />
-            {Array.from({ length: usedChannels }, (_, channelIndex) => (
-              <path key={channelIndex} data-wire={`level-shifter-${chipIndex + 1}-oe-${channelIndex + 1}`} d={`M${LEVEL_SHIFTER_X + 28 + (channelIndex * 34)} ${chipY + LEVEL_SHIFTER_HEIGHT}V${chipY + LEVEL_SHIFTER_HEIGHT + 10}H360V${powerSectionY + DISTRIBUTION_GROUND_BUS_Y}H390`} className={styles.groundWire} />
-            ))}
+            <path data-wire={`level-shifter-${chipIndex + 1}-vcc`} d={`M${vccPoint.x} ${vccPoint.y}H610V236H370V${powerSectionY + DISTRIBUTION_POSITIVE_BUS_Y}H390`} className={styles.powerWire} />
+            <path data-wire={`level-shifter-${chipIndex + 1}-ground`} d={`M${groundPoint.x} ${groundPoint.y}H360V${powerSectionY + DISTRIBUTION_GROUND_BUS_Y}H390`} className={styles.groundWire} />
+            {Array.from({ length: usedChannels }, (_, channelIndex) => {
+              const outputIndex = (chipIndex * 4) + channelIndex
+              const oePoint = levelShifterTerminalPoint(outputIndex, 'oe')
+              const detourY = chipY + LEVEL_SHIFTER_HEIGHT + 10 + (channelIndex * 6)
+              const path = oePoint.side === 'left'
+                ? `M${oePoint.x} ${oePoint.y}H360V${powerSectionY + DISTRIBUTION_GROUND_BUS_Y}H390`
+                : `M${oePoint.x} ${oePoint.y}H610V${detourY}H360V${powerSectionY + DISTRIBUTION_GROUND_BUS_Y}H390`
+              return <path key={channelIndex} data-wire={`level-shifter-${chipIndex + 1}-oe-${channelIndex + 1}`} d={path} className={styles.groundWire} />
+            })}
           </g>
         })}
         {outputLayouts.length > 0 && <path data-wire="controller-common-ground" d={`M${controllerGround.x} ${controllerGround.y}H360V${powerSectionY + DISTRIBUTION_GROUND_BUS_Y}H390`} className={styles.groundWire} />}
@@ -517,7 +549,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
 
       {outputLayouts.length > 0 && <g filter="url(#component-shadow)">
         {outputLayouts.map((layout, index) => (
-          <g key={`${layout.item.id}-resistor`} transform={`translate(350 ${levelShifterChannelY(index) - 14})`}>
+          <g key={`${layout.item.id}-resistor`} transform={`translate(350 ${levelShifterTerminalPoint(index, 'a').y - 14})`}>
             <text x="20" y="-8" textAnchor="middle" className={styles.physicalComponentLabel}>330Ω</text>
             <line x1="0" y1="14" x2="7" y2="14" stroke="#269847" strokeWidth="4" />
             <rect x="7" y="4" width="26" height="20" rx="4" fill="#dfc39a" stroke="#795f38" />
@@ -526,19 +558,38 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
         ))}
         {Array.from({ length: Math.ceil(outputLayouts.length / 4) }, (_, chipIndex) => {
           const chipY = levelShifterChipY(chipIndex * 4)
+          const vccPoint = levelShifterSupplyPoint(chipIndex, 'vcc')
+          const groundPoint = levelShifterSupplyPoint(chipIndex, 'gnd')
           return <g key={`level-shifter-${chipIndex}`} transform={`translate(${LEVEL_SHIFTER_X} ${chipY})`}>
-            <text x="80" y="-14" textAnchor="middle" className={styles.physicalComponentLabel}>74AHCT125 level shifter {chipIndex + 1}</text>
-            <rect width={LEVEL_SHIFTER_WIDTH} height={LEVEL_SHIFTER_HEIGHT} rx="9" fill="#292d2f" stroke="#111" strokeWidth="2" />
-            <g data-terminal={`level-shifter-${chipIndex + 1}-vcc`}><circle cx="0" cy="18" r="6" fill="#d2d5d1" stroke="#64696a" /><text x="14" y="22" className={styles.physicalChipLabel}>VCC</text></g>
+            <text x={LEVEL_SHIFTER_WIDTH / 2} y="-14" textAnchor="middle" className={styles.physicalComponentLabel}>74AHCT125 DIP-14 level shifter {chipIndex + 1}</text>
+            <image data-component-render="sn74ahct125n-dip14" href={levelShifterRender} x="23" y="0" width="134" height={LEVEL_SHIFTER_HEIGHT} preserveAspectRatio="xMidYMid meet" className={styles.physicalBoardRender} />
+            <g data-terminal={`level-shifter-${chipIndex + 1}-vcc`}>
+              <circle cx={vccPoint.x - LEVEL_SHIFTER_X} cy={vccPoint.y - chipY} r="6" fill="#d84938" stroke="#ffd1d7" strokeWidth="2" />
+              <text x={vccPoint.x - LEVEL_SHIFTER_X - 12} y={vccPoint.y - chipY + 4} textAnchor="end" className={styles.physicalChipLabel}>VCC · P14</text>
+            </g>
             {Array.from({ length: 4 }, (_, channelIndex) => {
-              const channelY = 42 + (channelIndex * 25)
+              const outputIndex = (chipIndex * 4) + channelIndex
+              const inputPoint = levelShifterTerminalPoint(outputIndex, 'a')
+              const outputPoint = levelShifterTerminalPoint(outputIndex, 'y')
+              const oePoint = levelShifterTerminalPoint(outputIndex, 'oe')
+              const inputPin = [2, 5, 9, 12][channelIndex]
+              const outputPin = [3, 6, 8, 11][channelIndex]
+              const oePin = [1, 4, 10, 13][channelIndex]
+              const terminal = (point: LevelShifterTerminalPoint, label: string) => {
+                const x = point.x - LEVEL_SHIFTER_X
+                const y = point.y - chipY
+                return <><circle cx={x} cy={y} r="5" fill="#d2d5d1" stroke="#465054" strokeWidth="2" /><text x={x + (point.side === 'left' ? 12 : -12)} y={y + 4} textAnchor={point.side === 'left' ? 'start' : 'end'} className={styles.physicalChipLabel}>{label}</text></>
+              }
               return <g key={channelIndex}>
-                <g data-terminal={`level-shifter-${chipIndex + 1}-a${channelIndex + 1}`}><circle cx="0" cy={channelY} r="6" fill="#d2d5d1" stroke="#64696a" /><text x="14" y={channelY + 4} className={styles.physicalChipLabel}>A{channelIndex + 1}</text></g>
-                <g data-terminal={`level-shifter-${chipIndex + 1}-y${channelIndex + 1}`}><circle cx="160" cy={channelY} r="6" fill="#d2d5d1" stroke="#64696a" /><text x="146" y={channelY + 4} textAnchor="end" className={styles.physicalChipLabel}>Y{channelIndex + 1}</text></g>
-                <g data-terminal={`level-shifter-${chipIndex + 1}-oe${channelIndex + 1}`}><circle cx={28 + (channelIndex * 34)} cy={LEVEL_SHIFTER_HEIGHT} r="5" fill="#d2d5d1" stroke="#64696a" /><text x={28 + (channelIndex * 34)} y={LEVEL_SHIFTER_HEIGHT - 9} textAnchor="middle" className={styles.physicalChipLabel}>/OE{channelIndex + 1}</text></g>
+                <g data-terminal={`level-shifter-${chipIndex + 1}-a${channelIndex + 1}`}>{terminal(inputPoint, `A${channelIndex + 1} · P${inputPin}`)}</g>
+                <g data-terminal={`level-shifter-${chipIndex + 1}-y${channelIndex + 1}`}>{terminal(outputPoint, `Y${channelIndex + 1} · P${outputPin}`)}</g>
+                <g data-terminal={`level-shifter-${chipIndex + 1}-oe${channelIndex + 1}`}>{terminal(oePoint, `/OE${channelIndex + 1} · P${oePin}`)}</g>
               </g>
             })}
-            <g data-terminal={`level-shifter-${chipIndex + 1}-gnd`}><circle cx="160" cy="140" r="6" fill="#202425" stroke="#64696a" /><text x="146" y="144" textAnchor="end" className={styles.physicalChipLabel}>GND</text></g>
+            <g data-terminal={`level-shifter-${chipIndex + 1}-gnd`}>
+              <circle cx={groundPoint.x - LEVEL_SHIFTER_X} cy={groundPoint.y - chipY} r="6" fill="#202425" stroke="#f2c766" strokeWidth="2" />
+              <text x={groundPoint.x - LEVEL_SHIFTER_X + 12} y={groundPoint.y - chipY + 4} className={styles.physicalChipLabel}>GND · P7</text>
+            </g>
           </g>
         })}
       </g>}

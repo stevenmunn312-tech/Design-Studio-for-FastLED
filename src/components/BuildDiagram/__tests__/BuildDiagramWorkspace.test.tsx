@@ -123,6 +123,7 @@ describe('BuildDiagramWorkspace', () => {
       'mic-input:mic:i2sSck',
       'mic-input:mic:i2sSd',
       'output:out-data-in',
+      'output:out-level-shifter-input',
       'output:out-conditioned-data',
       'level-shifter-1-vcc',
       'level-shifter-1-ground',
@@ -151,7 +152,16 @@ describe('BuildDiagramWorkspace', () => {
     const outputWirePath = diagram?.querySelector('[data-wire="output:out-data-in"]')?.getAttribute('d')
     expect(outputTerminal?.getAttribute('data-board-anchor')).toBe('j1-20')
     expect(outputWirePath?.startsWith(`M${outputTerminalCircle?.getAttribute('cx')} ${outputTerminalCircle?.getAttribute('cy')}`)).toBe(true)
-    expect(outputWirePath).toMatch(/H58V542H304V318H350$/)
+    expect(outputWirePath).toMatch(/H58V542H304V342H350$/)
+    expect(diagram?.querySelector('[data-component-render="sn74ahct125n-dip14"]')).toBeTruthy()
+    expect(diagram?.querySelector('[data-terminal="level-shifter-1-vcc"] circle')?.getAttribute('cx')).toBe('147')
+    expect(diagram?.querySelector('[data-terminal="level-shifter-1-vcc"] circle')?.getAttribute('cy')).toBe('41')
+    expect(diagram?.querySelector('[data-terminal="level-shifter-1-gnd"] circle')?.getAttribute('cx')).toBe('35')
+    expect(diagram?.querySelector('[data-terminal="level-shifter-1-gnd"] circle')?.getAttribute('cy')).toBe('190')
+    expect(diagram?.querySelector('[data-terminal="level-shifter-1-a1"]')?.textContent).toContain('A1 · P2')
+    expect(diagram?.querySelector('[data-terminal="level-shifter-1-y1"]')?.textContent).toContain('Y1 · P3')
+    expect(diagram?.querySelector('[data-wire="output:out-level-shifter-input"]')?.getAttribute('d')).toMatch(/H465$/)
+    expect(diagram?.querySelector('[data-wire="output:out-conditioned-data"]')?.getAttribute('d')).toMatch(/^M465 367/)
     expect(diagram?.querySelector('[data-terminal="controller-mic-input:mic:i2sSck"]')?.getAttribute('data-board-anchor')).toBe('j3-8')
     expect(diagram?.querySelector('[data-terminal="controller-mic-input:mic:i2sWs"]')?.getAttribute('data-board-anchor')).toBe('j3-9')
     expect(diagram?.querySelector('[data-terminal="controller-mic-input:mic:i2sSd"]')?.getAttribute('data-board-anchor')).toBe('j3-7')
@@ -280,6 +290,20 @@ describe('BuildDiagramWorkspace', () => {
     }
     expect(diagram?.querySelector('[data-wire="level-shifter-1-oe-4"]')).toBeTruthy()
     expect(diagram?.querySelector('[data-wire="level-shifter-2-oe-1"]')).toBeTruthy()
+    expect(diagram?.querySelectorAll('[data-component-render="sn74ahct125n-dip14"]')).toHaveLength(2)
+
+    const expectedChannels = [
+      { a: [465, 342], y: [465, 367], oe: [465, 317] },
+      { a: [465, 416], y: [465, 441], oe: [465, 391] },
+      { a: [577, 441], y: [577, 466], oe: [577, 416] },
+      { a: [577, 367], y: [577, 391], oe: [577, 342] },
+    ] as const
+    expectedChannels.forEach((points, channelIndex) => {
+      const outputId = `output:out-${channelIndex + 1}`
+      expect(diagram?.querySelector(`[data-wire="${outputId}-level-shifter-input"]`)?.getAttribute('d')).toMatch(new RegExp(`H${points.a[0]}$`))
+      expect(diagram?.querySelector(`[data-wire="${outputId}-conditioned-data"]`)?.getAttribute('d')).toMatch(new RegExp(`^M${points.y[0]} ${points.y[1]}`))
+      expect(diagram?.querySelector(`[data-wire="level-shifter-1-oe-${channelIndex + 1}"]`)?.getAttribute('d')).toMatch(new RegExp(`^M${points.oe[0]} ${points.oe[1]}`))
+    })
   })
 
   it('supports zoom, isolation, and panel sizing without changing generated wiring data', () => {

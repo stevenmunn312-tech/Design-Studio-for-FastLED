@@ -11,16 +11,50 @@ export type ItemLayout = {
 
 export const LEVEL_SHIFTER_X = 430
 export const LEVEL_SHIFTER_Y = 276
-export const LEVEL_SHIFTER_WIDTH = 160
-export const LEVEL_SHIFTER_HEIGHT = 154
-export const LEVEL_SHIFTER_GAP = 34
+export const LEVEL_SHIFTER_WIDTH = 180
+export const LEVEL_SHIFTER_HEIGHT = 230
+export const LEVEL_SHIFTER_GAP = 42
+
+export type LevelShifterTerminalPoint = {
+  x: number
+  y: number
+  side: 'left' | 'right'
+}
+
+const LEVEL_SHIFTER_LEFT_PIN_X = 35
+const LEVEL_SHIFTER_RIGHT_PIN_X = 147
+const LEVEL_SHIFTER_PIN_ROWS = [41, 66, 91, 115, 140, 165, 190] as const
+const LEVEL_SHIFTER_CHANNEL_PINS = [
+  { a: ['left', 1], y: ['left', 2], oe: ['left', 0] },
+  { a: ['left', 4], y: ['left', 5], oe: ['left', 3] },
+  { a: ['right', 5], y: ['right', 6], oe: ['right', 4] },
+  { a: ['right', 2], y: ['right', 3], oe: ['right', 1] },
+] as const
 
 export function levelShifterChipY(outputIndex: number) {
   return LEVEL_SHIFTER_Y + (Math.floor(outputIndex / 4) * (LEVEL_SHIFTER_HEIGHT + LEVEL_SHIFTER_GAP))
 }
 
-export function levelShifterChannelY(outputIndex: number) {
-  return levelShifterChipY(outputIndex) + 42 + ((outputIndex % 4) * 25)
+export function levelShifterTerminalPoint(
+  outputIndex: number,
+  terminal: 'a' | 'y' | 'oe',
+): LevelShifterTerminalPoint {
+  const pin = LEVEL_SHIFTER_CHANNEL_PINS[outputIndex % 4][terminal]
+  const side = pin[0]
+  return {
+    x: LEVEL_SHIFTER_X + (side === 'left' ? LEVEL_SHIFTER_LEFT_PIN_X : LEVEL_SHIFTER_RIGHT_PIN_X),
+    y: levelShifterChipY(outputIndex) + LEVEL_SHIFTER_PIN_ROWS[pin[1]],
+    side,
+  }
+}
+
+export function levelShifterSupplyPoint(
+  chipIndex: number,
+  terminal: 'vcc' | 'gnd',
+): LevelShifterTerminalPoint {
+  return terminal === 'vcc'
+    ? { x: LEVEL_SHIFTER_X + LEVEL_SHIFTER_RIGHT_PIN_X, y: levelShifterChipY(chipIndex * 4) + LEVEL_SHIFTER_PIN_ROWS[0], side: 'right' }
+    : { x: LEVEL_SHIFTER_X + LEVEL_SHIFTER_LEFT_PIN_X, y: levelShifterChipY(chipIndex * 4) + LEVEL_SHIFTER_PIN_ROWS[6], side: 'left' }
 }
 
 export function itemLayouts(items: HardwareManifestItem[]): ItemLayout[] {
