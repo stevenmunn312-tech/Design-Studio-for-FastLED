@@ -142,6 +142,21 @@ describe('BuildDiagramWorkspace', () => {
       expect(diagram?.querySelector(`[data-wire="${wire}"]`), wire).toBeTruthy()
     }
     expect(diagram?.querySelector('[data-wire="output:out-data-in"]')?.getAttribute('d')).toMatch(/H330V318H350$/)
+    const microphoneRoutes = [
+      ['microphone-vdd', 'vdd'],
+      ['mic-input:mic:i2sSck', 'bclk'],
+      ['mic-input:mic:i2sWs', 'ws'],
+      ['mic-input:mic:i2sSd', 'dout'],
+    ] as const
+    const microphoneWireClasses = microphoneRoutes.map(([wire, role]) => {
+      const route = diagram?.querySelector(`[data-wire="${wire}"]`)
+      expect(route?.getAttribute('data-wire-role')).toBe(role)
+      return route?.getAttribute('class')
+    })
+    expect(new Set(microphoneWireClasses).size).toBe(4)
+    expect(diagram?.querySelector('[data-microphone-role="bclk"]')?.textContent).toContain('BCLK')
+    expect(diagram?.querySelector('[data-microphone-role="ws"]')?.textContent).toContain('WS')
+    expect(diagram?.querySelector('[data-microphone-role="dout"]')?.textContent).toContain('DOUT')
     for (const terminal of [
       'supply-1-positive',
       'supply-1-ground',

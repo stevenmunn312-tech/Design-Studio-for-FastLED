@@ -1203,6 +1203,46 @@
   stroke-width: 4;
 }
 
+.microphoneVddWire {
+  fill: none;
+  stroke: #d62f42;
+  stroke-width: 4;
+}
+
+.microphoneBclkWire {
+  fill: none;
+  stroke: #176fd1;
+  stroke-width: 4;
+}
+
+.microphoneWsWire {
+  fill: none;
+  stroke: #df811c;
+  stroke-width: 4;
+}
+
+.microphoneDoutWire {
+  fill: none;
+  stroke: #a33db8;
+  stroke-width: 4;
+}
+
+.microphoneVddTerminal {
+  fill: #d62f42;
+}
+
+.microphoneBclkTerminal {
+  fill: #176fd1;
+}
+
+.microphoneWsTerminal {
+  fill: #df811c;
+}
+
+.microphoneDoutTerminal {
+  fill: #a33db8;
+}
+
 .physicalWireLabel {
   fill: #596164;
   font-family: var(--font-code);
