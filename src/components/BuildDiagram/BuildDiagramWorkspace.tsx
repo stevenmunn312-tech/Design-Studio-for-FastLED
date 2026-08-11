@@ -20,6 +20,7 @@ import { useUiStore } from '../../state/uiStore'
 import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import PhysicalAssemblyDiagram from './PhysicalAssemblyDiagram'
 import { physicalAssemblyDiagramHeight } from './physicalDiagramLayout'
+import { inlineSvgImages } from './svgExport'
 import styles from './BuildDiagramWorkspace.module.css'
 
 interface DiagramConnection {
@@ -452,7 +453,7 @@ export default function BuildDiagramWorkspace() {
     }))
   }
 
-  const exportDiagramSvg = () => {
+  const exportDiagramSvg = async () => {
     const source = document.querySelector<SVGSVGElement>(`svg[data-build-export="${exportMode}"]`)
     if (!source) return
     const clone = source.cloneNode(true) as SVGSVGElement
@@ -461,6 +462,7 @@ export default function BuildDiagramWorkspace() {
     const metadata = document.createElementNS('http://www.w3.org/2000/svg', 'metadata')
     metadata.textContent = JSON.stringify({ exportMode, status: exportDraftStatus, boardConfidence: exactBoard?.confidence ?? 'unresolved', ruleSetVersion: electricalPlan.ruleSetVersion })
     clone.prepend(metadata)
+    await inlineSvgImages(clone)
     downloadBuildFile(new XMLSerializer().serializeToString(clone), 'fastled-build-diagram.svg', 'image/svg+xml;charset=utf-8')
   }
 
@@ -954,7 +956,7 @@ export default function BuildDiagramWorkspace() {
                 data-pan-surface="true"
               >
                 <PhysicalAssemblyDiagram
-                  boardLabel={exactBoard.label}
+                  boardProfile={exactBoard}
                   items={visiblePrimaryItems}
                   plan={visibleElectricalPlan}
                   exportScope="current-view"
@@ -965,6 +967,7 @@ export default function BuildDiagramWorkspace() {
                     itemId: connection.itemId,
                     pinLabel: connection.boardPin?.label ?? `GPIO ${connection.pinUse.pin}`,
                     useLabel: connection.pinUse.label,
+                    boardAnchorId: connection.boardPin?.anchorId,
                   }))}
                 />
               </div>
@@ -974,18 +977,22 @@ export default function BuildDiagramWorkspace() {
         {exactBoard && (
           <div className={styles.exportDiagramHidden} aria-hidden="true">
             <PhysicalAssemblyDiagram
-              boardLabel={exactBoard.label}
+              boardProfile={exactBoard}
               items={primaryItems}
               plan={electricalPlan}
               exportScope="complete-build"
               selectedItemId="controller"
               onSelectItem={() => undefined}
-              connections={primaryItems.flatMap((item) => item.pins.map((pin) => ({
-                id: `${item.id}:${pin.propertyKey}`,
-                itemId: item.id,
-                pinLabel: `GPIO ${pin.pin}`,
-                useLabel: pin.label,
-              })))}
+              connections={primaryItems.flatMap((item) => item.pins.map((pin) => {
+                const boardPin = boardPinForGpio(exactBoard, pin.pin)
+                return {
+                  id: `${item.id}:${pin.propertyKey}`,
+                  itemId: item.id,
+                  pinLabel: boardPin?.label ?? `GPIO ${pin.pin}`,
+                  useLabel: pin.label,
+                  boardAnchorId: boardPin?.anchorId,
+                }
+              }))}
             />
           </div>
         )}

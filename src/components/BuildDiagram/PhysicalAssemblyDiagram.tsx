@@ -1,5 +1,7 @@
 import type { ElectricalPlanSummary, OutputElectricalPlan } from '../../build/electricalPlan'
+import type { PhysicalBoardProfile } from '../../build/boardProfiles'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
+import devKitCBoardRender from '../../assets/boards/esp32-s3-devkitc-1.png'
 import styles from './BuildDiagramWorkspace.module.css'
 import {
   itemLayouts,
@@ -17,10 +19,11 @@ export interface PhysicalDiagramConnection {
   itemId: string
   pinLabel: string
   useLabel: string
+  boardAnchorId?: string
 }
 
 interface PhysicalAssemblyDiagramProps {
-  boardLabel: string
+  boardProfile: PhysicalBoardProfile
   items: HardwareManifestItem[]
   connections: PhysicalDiagramConnection[]
   plan: ElectricalPlanSummary
@@ -30,6 +33,25 @@ interface PhysicalAssemblyDiagramProps {
 }
 
 const CANVAS_WIDTH = 1120
+
+const DEVKITC_RENDER = {
+  x: 74,
+  y: 104,
+  width: 184,
+  height: 426,
+  sourceWidth: 398,
+  sourceHeight: 922,
+  leftPinX: 48,
+  rightPinX: 351,
+  firstPinY: 76.5,
+  lastPinY: 795.5,
+} as const
+
+type ControllerTerminalPoint = {
+  x: number
+  y: number
+  side: 'left' | 'right'
+}
 
 function shortBoardLabel(label: string) {
   if (label.includes('XIAO')) return 'XIAO ESP32S3'
@@ -48,6 +70,68 @@ function connectionPinLabel(connection: PhysicalDiagramConnection) {
 function controllerConnectionY(index: number, count: number) {
   if (count <= 1) return 350
   return 252 + ((194 * index) / (count - 1))
+}
+
+function devKitTerminalPoint(anchorId: string | undefined): ControllerTerminalPoint | undefined {
+  const match = /^(j1|j3)-(\d+)$/.exec(anchorId ?? '')
+  if (!match) return undefined
+  const pinIndex = Number(match[2]) - 1
+  if (pinIndex < 0 || pinIndex >= 22) return undefined
+  const side = match[1] === 'j1' ? 'left' : 'right'
+  const sourceX = side === 'left' ? DEVKITC_RENDER.leftPinX : DEVKITC_RENDER.rightPinX
+  const sourceY = DEVKITC_RENDER.firstPinY
+    + (pinIndex * ((DEVKITC_RENDER.lastPinY - DEVKITC_RENDER.firstPinY) / 21))
+  return {
+    x: DEVKITC_RENDER.x + ((sourceX / DEVKITC_RENDER.sourceWidth) * DEVKITC_RENDER.width),
+    y: DEVKITC_RENDER.y + ((sourceY / DEVKITC_RENDER.sourceHeight) * DEVKITC_RENDER.height),
+    side,
+  }
+}
+
+function controllerConnectionPoint(
+  connection: PhysicalDiagramConnection,
+  index: number,
+  count: number,
+  boardProfile: PhysicalBoardProfile,
+): ControllerTerminalPoint {
+  if (boardProfile.id === 'espressif-esp32-s3-devkitc-1') {
+    const point = devKitTerminalPoint(connection.boardAnchorId)
+    if (point) return point
+  }
+  return { x: 280, y: controllerConnectionY(index, count), side: 'right' }
+}
+
+function controllerPowerPoint(
+  kind: '3v3' | 'ground' | 'usb',
+  boardProfile: PhysicalBoardProfile,
+): ControllerTerminalPoint {
+  if (boardProfile.id === 'espressif-esp32-s3-devkitc-1') {
+    if (kind === '3v3') return devKitTerminalPoint('j1-1')!
+    if (kind === 'ground') return devKitTerminalPoint('j3-22')!
+    return {
+      x: DEVKITC_RENDER.x + ((270 / DEVKITC_RENDER.sourceWidth) * DEVKITC_RENDER.width),
+      y: DEVKITC_RENDER.y + ((875 / DEVKITC_RENDER.sourceHeight) * DEVKITC_RENDER.height),
+      side: 'right',
+    }
+  }
+  if (kind === '3v3') return { x: 280, y: 220, side: 'right' }
+  if (kind === 'ground') return { x: 280, y: 476, side: 'right' }
+  return { x: 166, y: 512, side: 'right' }
+}
+
+function routeFromController(
+  point: ControllerTerminalPoint,
+  targetX: number,
+  targetY: number,
+  laneIndex: number,
+  preferTop = false,
+) {
+  const rightLane = 304 + (laneIndex * 8)
+  if (point.side === 'right') return `M${point.x} ${point.y}H${rightLane}V${targetY}H${targetX}`
+  const laneSlot = laneIndex % 6
+  const leftLane = 58 - (laneSlot * 6)
+  const detourY = preferTop ? 102 : 542 + (laneSlot * 7)
+  return `M${point.x} ${point.y}H${leftLane}V${detourY}H${rightLane}V${targetY}H${targetX}`
 }
 
 function peripheralSignalOffset(item: HardwareManifestItem, index: number) {
@@ -100,7 +184,54 @@ function LedPixels({ x, y, width, height }: { x: number; y: number; width: numbe
   )
 }
 
-function ControllerGraphic({ boardLabel, connections, selected }: { boardLabel: string; connections: PhysicalDiagramConnection[]; selected: boolean }) {
+function ControllerGraphic({ boardProfile, connections, selected }: { boardProfile: PhysicalBoardProfile; connections: PhysicalDiagramConnection[]; selected: boolean }) {
+  if (boardProfile.id === 'espressif-esp32-s3-devkitc-1') {
+    const power3v3 = controllerPowerPoint('3v3', boardProfile)
+    const ground = controllerPowerPoint('ground', boardProfile)
+    const usb = controllerPowerPoint('usb', boardProfile)
+    return (
+      <g className={selected ? styles.physicalSelected : undefined} data-controller-render="esp32-s3-devkitc-1">
+        <image
+          href={devKitCBoardRender}
+          x={DEVKITC_RENDER.x}
+          y={DEVKITC_RENDER.y}
+          width={DEVKITC_RENDER.width}
+          height={DEVKITC_RENDER.height}
+          preserveAspectRatio="xMidYMid meet"
+          className={styles.physicalBoardRender}
+        />
+        <text x={DEVKITC_RENDER.x + (DEVKITC_RENDER.width / 2)} y="554" textAnchor="middle" className={styles.physicalComponentLabel}>{shortBoardLabel(boardProfile.label)}</text>
+        <g data-terminal="controller-3v3">
+          <circle cx={power3v3.x} cy={power3v3.y} r="6" className={styles.controllerPowerTerminal} />
+          <title>3V3</title>
+        </g>
+        {connections.map((connection, index) => {
+          const point = controllerConnectionPoint(connection, index, connections.length, boardProfile)
+          return (
+            <g key={connection.id} data-terminal={`controller-${connection.id}`} data-board-anchor={connection.boardAnchorId}>
+              <circle
+                cx={point.x}
+                cy={point.y}
+                r="6"
+                className={microphoneSignalPresentation(connection)?.terminalClassName ?? styles.controllerSignalTerminal}
+              />
+              <title>{connection.pinLabel} · {connection.useLabel}</title>
+            </g>
+          )
+        })}
+        <g data-terminal="controller-gnd">
+          <circle cx={ground.x} cy={ground.y} r="6" className={styles.controllerGroundTerminal} />
+          <title>GND</title>
+        </g>
+        <g data-terminal="controller-usb">
+          <circle cx={usb.x} cy={usb.y} r="6" className={styles.controllerUsbTerminal} />
+          <title>USB-C power</title>
+        </g>
+      </g>
+    )
+  }
+
+  const boardLabel = boardProfile.label
   return (
     <g className={selected ? styles.physicalSelected : undefined}>
       <rect x="54" y="188" width="226" height="324" rx="16" fill="#202528" stroke={selected ? '#1fa5ad' : '#121517'} strokeWidth={selected ? 4 : 2} />
@@ -294,7 +425,8 @@ function WireLabel({ x, y, children }: { x: number; y: number; children: string 
   return <text x={x} y={y} className={styles.physicalWireLabel}>{children}</text>
 }
 
-export default function PhysicalAssemblyDiagram({ boardLabel, items, connections, plan, selectedItemId, onSelectItem, exportScope = 'current-view' }: PhysicalAssemblyDiagramProps) {
+export default function PhysicalAssemblyDiagram({ boardProfile, items, connections, plan, selectedItemId, onSelectItem, exportScope = 'current-view' }: PhysicalAssemblyDiagramProps) {
+  const boardLabel = boardProfile.label
   const layouts = itemLayouts(items)
   const outputLayouts = layouts.filter((layout) => layout.item.kind === 'matrix-output')
   const microphoneLayout = layouts.find((layout) => layout.item.kind === 'mic-input')
@@ -302,6 +434,9 @@ export default function PhysicalAssemblyDiagram({ boardLabel, items, connections
   const outputConnections = connections.filter((connection) => outputLayouts.some((layout) => layout.item.id === connection.itemId))
   const micConnections = microphoneLayout ? connections.filter((connection) => connection.itemId === microphoneLayout.item.id) : []
   const controllerConnections = [...outputConnections, ...micConnections, ...connections.filter((connection) => !outputConnections.includes(connection) && !micConnections.includes(connection))]
+  const controller3v3 = controllerPowerPoint('3v3', boardProfile)
+  const controllerGround = controllerPowerPoint('ground', boardProfile)
+  const controllerUsb = controllerPowerPoint('usb', boardProfile)
   const hardwareBottom = Math.max(0, ...layouts.map((layout) => layout.y + layout.height))
   const powerSectionY = Math.max(670, hardwareBottom + 54)
   const canvasHeight = physicalAssemblyDiagramHeight(items, plan)
@@ -331,34 +466,37 @@ export default function PhysicalAssemblyDiagram({ boardLabel, items, connections
 
       <g className={styles.physicalWires}>
         {microphoneLayout && <>
-          <path data-wire="microphone-vdd" data-wire-role="vdd" d={`M280 220H320V${microphoneLayout.y + 30}H${microphoneLayout.x}`} className={styles.microphoneVddWire} />
+          <path data-wire="microphone-vdd" data-wire-role="vdd" d={routeFromController(controller3v3, microphoneLayout.x, microphoneLayout.y + 30, 0, true)} className={styles.microphoneVddWire} />
           {micConnections.map((connection, index) => {
             const controllerIndex = controllerConnections.indexOf(connection)
+            const controllerPoint = controllerConnectionPoint(connection, controllerIndex, controllerConnections.length, boardProfile)
             const presentation = microphoneSignalPresentation(connection)
-            return <path key={connection.id} data-wire={connection.id} data-wire-role={presentation?.role ?? 'data'} d={`M280 ${controllerConnectionY(controllerIndex, controllerConnections.length)}H${310 + (index * 12)}V${microphoneLayout.y + 56 + (index * 24)}H${microphoneLayout.x}`} className={presentation?.wireClassName ?? styles.auxWire} />
+            return <path key={connection.id} data-wire={connection.id} data-wire-role={presentation?.role ?? 'data'} d={routeFromController(controllerPoint, microphoneLayout.x, microphoneLayout.y + 56 + (index * 24), controllerIndex)} className={presentation?.wireClassName ?? styles.auxWire} />
           })}
-          <path data-wire="microphone-ground" d={`M${microphoneLayout.x} ${microphoneLayout.y + 128}H316V476H280`} className={styles.groundWire} />
+          <path data-wire="microphone-ground" d={`M${microphoneLayout.x} ${microphoneLayout.y + 128}H316V${controllerGround.y}H${controllerGround.x}`} className={styles.groundWire} />
         </>}
 
         {outputLayouts.map((layout, index) => {
           const connection = outputConnections.find((entry) => entry.itemId === layout.item.id)
           if (!connection) return null
           const controllerIndex = controllerConnections.indexOf(connection)
+          const controllerPoint = controllerConnectionPoint(connection, controllerIndex, controllerConnections.length, boardProfile)
           const channelY = levelShifterChannelY(index)
           return <g key={layout.item.id}>
-            <path data-wire={`${layout.item.id}-data-in`} d={`M280 ${controllerConnectionY(controllerIndex, controllerConnections.length)}H330V${channelY}H350`} className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.signalWire : styles.dimWire} />
+            <path data-wire={`${layout.item.id}-data-in`} d={routeFromController(controllerPoint, 350, channelY, controllerIndex)} className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.signalWire : styles.dimWire} />
             <path data-wire={`${layout.item.id}-conditioned-data`} d={`M390 ${channelY}H${LEVEL_SHIFTER_X}M${LEVEL_SHIFTER_X + LEVEL_SHIFTER_WIDTH} ${channelY}H650V${layout.y + 66}H${layout.x}`} className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.signalWire : styles.dimWire} />
           </g>
         })}
         {peripheralLayouts.map((layout, layoutIndex) => {
           const peripheralConnections = connections.filter((connection) => connection.itemId === layout.item.id)
           return <g key={layout.item.id}>
-            {layout.item.kind === 'pot-input' && <path data-wire={`${layout.item.id}-3v3`} d={`M280 220H${300 + (layoutIndex * 8)}V${layout.y + 18}H${layout.x}`} className={styles.logicPowerWire} />}
+            {layout.item.kind === 'pot-input' && <path data-wire={`${layout.item.id}-3v3`} d={routeFromController(controller3v3, layout.x, layout.y + 18, layoutIndex)} className={styles.logicPowerWire} />}
             {peripheralConnections.map((connection, index) => {
               const controllerIndex = controllerConnections.indexOf(connection)
-              return <path key={connection.id} data-wire={connection.id} d={`M280 ${controllerConnectionY(controllerIndex, controllerConnections.length)}H${304 + (layoutIndex * 8) + (index * 4)}V${layout.y + peripheralSignalOffset(layout.item, index)}H${layout.x}`} className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.auxWire : styles.dimWire} />
+              const controllerPoint = controllerConnectionPoint(connection, controllerIndex, controllerConnections.length, boardProfile)
+              return <path key={connection.id} data-wire={connection.id} d={routeFromController(controllerPoint, layout.x, layout.y + peripheralSignalOffset(layout.item, index), controllerIndex)} className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.auxWire : styles.dimWire} />
             })}
-            <path data-wire={`${layout.item.id}-ground`} d={`M${layout.x} ${layout.y + peripheralGroundOffset(layout.item)}H${316 + (layoutIndex * 8)}V476H280`} className={styles.groundWire} />
+            <path data-wire={`${layout.item.id}-ground`} d={`M${layout.x} ${layout.y + peripheralGroundOffset(layout.item)}H${316 + (layoutIndex * 8)}V${controllerGround.y}H${controllerGround.x}`} className={styles.groundWire} />
           </g>
         })}
         {Array.from({ length: Math.ceil(outputLayouts.length / 4) }, (_, chipIndex) => {
@@ -372,7 +510,7 @@ export default function PhysicalAssemblyDiagram({ boardLabel, items, connections
             ))}
           </g>
         })}
-        {outputLayouts.length > 0 && <path data-wire="controller-common-ground" d={`M280 476H360V${powerSectionY + 94}H390`} className={styles.groundWire} />}
+        {outputLayouts.length > 0 && <path data-wire="controller-common-ground" d={`M${controllerGround.x} ${controllerGround.y}H360V${powerSectionY + 94}H390`} className={styles.groundWire} />}
       </g>
 
       {outputLayouts.length > 0 && <g filter="url(#component-shadow)">
@@ -405,16 +543,16 @@ export default function PhysicalAssemblyDiagram({ boardLabel, items, connections
 
       {outputLayouts.length > 0 && <PowerDistributionSections plan={plan} startY={powerSectionY} />}
 
-      <g filter="url(#component-shadow)" transform="translate(74 576)">
+      <g filter="url(#component-shadow)" transform={`translate(${controllerUsb.x - 92} 592)`}>
         <rect width="184" height="62" rx="12" fill="#e9ecea" stroke="#879092" strokeWidth="2" />
         <path d="M138 19h30v24h-30l-12-12z" fill="#aeb7ba" stroke="#5f696c" />
         <text x="18" y="27" className={styles.physicalComponentLabel}>USB-C power</text>
         <text x="18" y="46" className={styles.physicalMetaLabel}>controller only</text>
-        <path data-wire="controller-usb-power" d="M92 0V-64" className={styles.logicPowerWire} />
+        <path data-wire="controller-usb-power" d={`M92 0V${controllerUsb.y - 592}`} className={styles.logicPowerWire} />
       </g>
 
       <g role="button" tabIndex={0} aria-label={`Select ${boardLabel}`} onClick={() => onSelectItem('controller')} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onSelectItem('controller') }} className={styles.physicalClickable}>
-        <ControllerGraphic boardLabel={boardLabel} connections={controllerConnections} selected={selectedItemId === 'controller'} />
+        <ControllerGraphic boardProfile={boardProfile} connections={controllerConnections} selected={selectedItemId === 'controller'} />
       </g>
       {outputLayouts.map((layout) => <g key={layout.item.id} role="button" tabIndex={0} aria-label={`Select ${layout.item.title}`} onClick={() => onSelectItem(layout.item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onSelectItem(layout.item.id) }} className={styles.physicalClickable}><OutputGraphic layout={layout} selected={selectedItemId === layout.item.id} plan={plan.outputs.find((entry) => entry.itemId === layout.item.id)} /></g>)}
       {microphoneLayout && <g role="button" tabIndex={0} aria-label={`Select ${microphoneLayout.item.title}`} onClick={() => onSelectItem(microphoneLayout.item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onSelectItem(microphoneLayout.item.id) }} className={styles.physicalClickable}><MicrophoneGraphic layout={microphoneLayout} connections={micConnections} selected={selectedItemId === microphoneLayout.item.id} /></g>}

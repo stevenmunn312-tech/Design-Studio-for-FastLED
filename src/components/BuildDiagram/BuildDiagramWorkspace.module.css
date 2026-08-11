@@ -1215,6 +1215,37 @@
   filter: url(#component-shadow) drop-shadow(0 0 8px rgba(31, 165, 173, 0.48));
 }
 
+.physicalBoardRender {
+  pointer-events: none;
+}
+
+.controllerSignalTerminal,
+.controllerPowerTerminal,
+.controllerGroundTerminal,
+.controllerUsbTerminal {
+  stroke-width: 2.5;
+}
+
+.controllerSignalTerminal {
+  fill: #24963e;
+  stroke: #d9f4dc;
+}
+
+.controllerPowerTerminal {
+  fill: #d62f42;
+  stroke: #ffd1d7;
+}
+
+.controllerGroundTerminal {
+  fill: #171b1d;
+  stroke: #f2c766;
+}
+
+.controllerUsbTerminal {
+  fill: #4a63df;
+  stroke: #d8deff;
+}
+
 .physicalWires path {
   fill: none;
   stroke-linecap: round;
@@ -1277,18 +1308,26 @@
 
 .microphoneVddTerminal {
   fill: #d62f42;
+  stroke: #ffd1d7;
+  stroke-width: 2;
 }
 
 .microphoneBclkTerminal {
   fill: #176fd1;
+  stroke: #d4e9ff;
+  stroke-width: 2;
 }
 
 .microphoneWsTerminal {
   fill: #df811c;
+  stroke: #ffe1b7;
+  stroke-width: 2;
 }
 
 .microphoneDoutTerminal {
   fill: #a33db8;
+  stroke: #f4d7fa;
+  stroke-width: 2;
 }
 
 .physicalWireLabel {

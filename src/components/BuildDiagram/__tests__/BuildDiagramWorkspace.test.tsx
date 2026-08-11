@@ -115,6 +115,7 @@ describe('BuildDiagramWorkspace', () => {
     expect(diagram).toBeTruthy()
     expect(getAllByText('Microphone').length).toBeGreaterThan(0)
     expect(getAllByText('Matrix Output').length).toBeGreaterThan(0)
+    expect(diagram?.querySelector('[data-controller-render="esp32-s3-devkitc-1"] image')).toBeTruthy()
     for (const wire of [
       'microphone-vdd',
       'microphone-ground',
@@ -141,7 +142,15 @@ describe('BuildDiagramWorkspace', () => {
     ]) {
       expect(diagram?.querySelector(`[data-wire="${wire}"]`), wire).toBeTruthy()
     }
-    expect(diagram?.querySelector('[data-wire="output:out-data-in"]')?.getAttribute('d')).toMatch(/H330V318H350$/)
+    const outputTerminal = diagram?.querySelector('[data-terminal="controller-output:out:dataPin"]')
+    const outputTerminalCircle = outputTerminal?.querySelector('circle')
+    const outputWirePath = diagram?.querySelector('[data-wire="output:out-data-in"]')?.getAttribute('d')
+    expect(outputTerminal?.getAttribute('data-board-anchor')).toBe('j1-20')
+    expect(outputWirePath?.startsWith(`M${outputTerminalCircle?.getAttribute('cx')} ${outputTerminalCircle?.getAttribute('cy')}`)).toBe(true)
+    expect(outputWirePath).toMatch(/H58V542H304V318H350$/)
+    expect(diagram?.querySelector('[data-terminal="controller-mic-input:mic:i2sSck"]')?.getAttribute('data-board-anchor')).toBe('j3-8')
+    expect(diagram?.querySelector('[data-terminal="controller-mic-input:mic:i2sWs"]')?.getAttribute('data-board-anchor')).toBe('j3-9')
+    expect(diagram?.querySelector('[data-terminal="controller-mic-input:mic:i2sSd"]')?.getAttribute('data-board-anchor')).toBe('j3-7')
     const microphoneRoutes = [
       ['microphone-vdd', 'vdd'],
       ['mic-input:mic:i2sSck', 'bclk'],
