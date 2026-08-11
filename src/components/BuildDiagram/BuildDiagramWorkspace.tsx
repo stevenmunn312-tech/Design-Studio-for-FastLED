@@ -124,7 +124,7 @@ function GenericControllerOutline({ label }: { label: string }) {
     <div className={styles.genericController} role="img" aria-label={`${label} controller family`}>
       <svg viewBox="0 0 320 150" aria-hidden="true">
         <rect x="52" y="18" width="216" height="114" rx="18" />
-        <rect x="130" y="5" width="60" height="30" rx="7" />
+        <rect x="130" y="115" width="60" height="30" rx="7" />
         <rect x="88" y="48" width="144" height="58" rx="9" />
         {Array.from({ length: 8 }, (_, index) => <circle key={`left-${index}`} cx="38" cy={28 + (index * 14)} r="4" />)}
         {Array.from({ length: 8 }, (_, index) => <circle key={`right-${index}`} cx="282" cy={28 + (index * 14)} r="4" />)}
@@ -147,22 +147,23 @@ function BoardPinoutPreview({ profile }: { profile: PhysicalBoardProfile }) {
   const anchorById = new Map((profile.pinAnchors ?? []).map((anchor) => [anchor.id, anchor]))
   const pinsBySide = (side: PhysicalBoardPinAnchor['labelAlign']) => (profile.pins ?? [])
     .filter((pin) => anchorById.get(pin.anchorId)?.labelAlign === side)
-  const leftPins = pinsBySide('left')
-  const rightPins = pinsBySide('right')
-  const bottomPins = pinsBySide('bottom')
-  const topPins = pinsBySide('top')
+  // Profiles are authored USB-up; rotate their physical pin order for the normalized USB-down picker view.
+  const leftPins = pinsBySide('right').reverse()
+  const rightPins = pinsBySide('left').reverse()
+  const bottomPins = pinsBySide('top').reverse()
+  const topPins = pinsBySide('bottom').reverse()
   const verticalY = (index: number, count: number) => count <= 1 ? 214 : 42 + ((344 * index) / (count - 1))
   const horizontalX = (index: number, count: number) => count <= 1 ? 280 : 210 + ((140 * index) / (count - 1))
 
   return (
     <svg className={styles.boardPinout} viewBox="0 0 560 430" role="img" aria-label={`${profile.label} pinout`}>
       <rect x="198" y="28" width="164" height="366" rx="24" className={styles.pinoutBoardBody} />
-      <rect x="250" y="12" width="60" height="48" rx="8" className={styles.pinoutUsb} />
-      <rect x="220" y="92" width="120" height="174" rx="10" className={styles.pinoutModule} />
-      <text x="280" y="184" textAnchor="middle" className={styles.pinoutBoardName}>{profile.model}</text>
+      <rect data-board-usb="bottom" x="250" y="370" width="60" height="48" rx="8" className={styles.pinoutUsb} />
+      <rect x="220" y="164" width="120" height="174" rx="10" className={styles.pinoutModule} />
+      <text x="280" y="256" textAnchor="middle" className={styles.pinoutBoardName}>{profile.model}</text>
       {leftPins.map((pin, index) => {
         const y = verticalY(index, leftPins.length)
-        return <g key={pin.id} opacity={pin.availability === 'unavailable' ? 0.58 : 1}>
+        return <g key={pin.id} data-pin-id={pin.id} data-pin-side="left" opacity={pin.availability === 'unavailable' ? 0.58 : 1}>
           <rect x="12" y={y - 8} width="174" height="16" rx="4" fill={boardPinColor(pin.role, pin.availability === 'unavailable')} />
           <text x="178" y={y + 3} textAnchor="end" className={styles.pinoutPinText}>{pin.label}</text>
           <line x1="186" y1={y} x2="198" y2={y} className={styles.pinoutLead} />
@@ -171,7 +172,7 @@ function BoardPinoutPreview({ profile }: { profile: PhysicalBoardProfile }) {
       })}
       {rightPins.map((pin, index) => {
         const y = verticalY(index, rightPins.length)
-        return <g key={pin.id} opacity={pin.availability === 'unavailable' ? 0.58 : 1}>
+        return <g key={pin.id} data-pin-id={pin.id} data-pin-side="right" opacity={pin.availability === 'unavailable' ? 0.58 : 1}>
           <line x1="362" y1={y} x2="374" y2={y} className={styles.pinoutLead} />
           <circle cx="362" cy={y} r="5" className={styles.pinoutPad} />
           <rect x="374" y={y - 8} width="174" height="16" rx="4" fill={boardPinColor(pin.role, pin.availability === 'unavailable')} />
@@ -180,7 +181,7 @@ function BoardPinoutPreview({ profile }: { profile: PhysicalBoardProfile }) {
       })}
       {bottomPins.map((pin, index) => {
         const x = horizontalX(index, bottomPins.length)
-        return <g key={pin.id} opacity={pin.availability === 'unavailable' ? 0.58 : 1}>
+        return <g key={pin.id} data-pin-id={pin.id} data-pin-side="bottom" opacity={pin.availability === 'unavailable' ? 0.58 : 1}>
           <line x1={x} y1="394" x2={x} y2="406" className={styles.pinoutLead} />
           <circle cx={x} cy="394" r="5" className={styles.pinoutPad} />
           <text x={x} y="421" textAnchor="middle" className={styles.pinoutBottomText}>{pin.label}</text>
@@ -188,7 +189,11 @@ function BoardPinoutPreview({ profile }: { profile: PhysicalBoardProfile }) {
       })}
       {topPins.map((pin, index) => {
         const x = horizontalX(index, topPins.length)
-        return <text key={pin.id} x={x} y="10" textAnchor="middle" className={styles.pinoutBottomText}>{pin.label}</text>
+        return <g key={pin.id} data-pin-id={pin.id} data-pin-side="top" opacity={pin.availability === 'unavailable' ? 0.58 : 1}>
+          <text x={x} y="10" textAnchor="middle" className={styles.pinoutBottomText}>{pin.label}</text>
+          <line x1={x} y1="16" x2={x} y2="28" className={styles.pinoutLead} />
+          <circle cx={x} cy="28" r="5" className={styles.pinoutPad} />
+        </g>
       })}
     </svg>
   )

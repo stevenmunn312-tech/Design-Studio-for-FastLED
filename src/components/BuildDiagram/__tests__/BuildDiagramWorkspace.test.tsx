@@ -325,7 +325,7 @@ describe('BuildDiagramWorkspace', () => {
   })
 
   it('shows identifying details for all supported exact boards', () => {
-    const { getByRole, getByText } = render(<BuildDiagramWorkspace />)
+    const { container, getByRole, getByText } = render(<BuildDiagramWorkspace />)
     fireEvent.click(getByRole('button', { name: 'Choose your board' }))
 
     expect(getByRole('img', { name: 'Generic ESP32-S3 N16R8, 44-pin dual USB-C pinout' })).toBeTruthy()
@@ -335,5 +335,14 @@ describe('BuildDiagramWorkspace', () => {
     expect(getByText('Espressif ESP32-S3-DevKitC-1')).toBeTruthy()
     expect(getByText('Seeed Studio XIAO ESP32S3')).toBeTruthy()
     expect(getByText('D4 / GPIO5')).toBeTruthy()
+    const previews = container.querySelectorAll('svg[aria-label$=" pinout"]')
+    expect(previews).toHaveLength(3)
+    for (const preview of previews) {
+      expect(preview.querySelector('[data-board-usb="bottom"]')?.getAttribute('y')).toBe('370')
+    }
+    const devKitPreview = getByRole('img', { name: 'Espressif ESP32-S3-DevKitC-1 pinout' })
+    expect(devKitPreview.querySelector('[data-pin-id="j1-4"]')?.getAttribute('data-pin-side')).toBe('right')
+    const xiaoPreview = getByRole('img', { name: 'Seeed Studio XIAO ESP32S3 pinout' })
+    expect(xiaoPreview.querySelector('[data-pin-id="bottom-1"]')?.getAttribute('data-pin-side')).toBe('top')
   })
 })
