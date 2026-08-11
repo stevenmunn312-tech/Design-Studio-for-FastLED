@@ -6,8 +6,9 @@ dist/
 .DS_Store
 *.local
 
-# Blender automatically keeps previous saves beside the source model.
-*.blend1
+# Blender source files and automatic backups stay local.
+*.blend
+*.blend[0-9]*
 
 # Scratch screenshots and session captures — never commit these
 /artifacts/
