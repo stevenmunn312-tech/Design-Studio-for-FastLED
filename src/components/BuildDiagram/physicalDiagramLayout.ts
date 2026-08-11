@@ -68,7 +68,7 @@ export function itemLayouts(items: HardwareManifestItem[]): ItemLayout[] {
     height: 174,
   }))
   const microphone = items.find((item) => item.kind === 'mic-input')
-  if (microphone) layouts.push({ item: microphone, x: 350, y: 62, width: 205, height: 138 })
+  if (microphone) layouts.push({ item: microphone, x: 350, y: 62, width: 205, height: 160 })
   const peripheralY = Math.max(500, LEVEL_SHIFTER_Y + (Math.ceil(outputs.length / 4) * (LEVEL_SHIFTER_HEIGHT + LEVEL_SHIFTER_GAP)) + 24)
   peripherals.forEach((item, index) => {
     layouts.push({ item, x: 330 + (index * 190), y: peripheralY, width: 160, height: 104 })
