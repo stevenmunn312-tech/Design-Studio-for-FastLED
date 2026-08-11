@@ -33,6 +33,8 @@ interface PhysicalAssemblyDiagramProps {
 }
 
 const CANVAS_WIDTH = 1120
+const DISTRIBUTION_POSITIVE_BUS_Y = 100
+const DISTRIBUTION_GROUND_BUS_Y = 132
 
 const DEVKITC_RENDER = {
   x: 74,
@@ -374,8 +376,8 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
         <text x="86" y="54" textAnchor="middle" className={styles.physicalBoardSubSilk}>{supply.outputTitles.join(' + ')}</text>
       </g>
 
-      <path data-wire={`${supply.id}-positive-bus`} d="M230 100H500" className={styles.powerWire} />
-      <path data-wire={`${supply.id}-ground-bus`} d="M230 132H500" className={styles.groundWire} />
+      <path data-wire={`${supply.id}-positive-bus`} d={`M230 ${DISTRIBUTION_POSITIVE_BUS_Y}H500`} className={styles.powerWire} />
+      <path data-wire={`${supply.id}-ground-bus`} d={`M230 ${DISTRIBUTION_GROUND_BUS_Y}H500`} className={styles.groundWire} />
       <g transform="translate(262 82)">
         <rect width="92" height="68" rx="7" fill="#292e30" stroke="#111" />
         <text x="46" y="20" textAnchor="middle" className={styles.physicalFuseText}>1000µF MIN</text>
@@ -393,11 +395,11 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
         const wireText = injection.conductor ? `AWG ${injection.conductor.awg}` : 'WIRE TBD'
         const destination = `${injection.outputTitle} · ${injection.role.toUpperCase()} @ ${injection.positionMm} mm`
         return <g key={injection.id}>
-          <path data-wire={`${injection.id}-positive`} d={`M500 100H530V${rowY}H560`} className={styles.powerWire} />
+          <path data-wire={`${injection.id}-positive`} d={`M500 ${DISTRIBUTION_POSITIVE_BUS_Y}H530V${rowY}H560`} className={styles.powerWire} />
           <rect x="560" y={rowY - 15} width="70" height="30" rx="6" fill="#4b2423" stroke="#a7473f" data-terminal={`${injection.id}-fuse`} />
           <text x="595" y={rowY + 4} textAnchor="middle" className={styles.physicalFuseText}>{fuseText} FUSE</text>
           <path data-wire={`${injection.id}-fused-positive`} d={`M630 ${rowY}H1000`} className={styles.powerWire} />
-          <path data-wire={`${injection.id}-ground`} d={`M500 132H520V${rowY + 22}H1000`} className={styles.groundWire} />
+          <path data-wire={`${injection.id}-ground`} d={`M500 ${DISTRIBUTION_GROUND_BUS_Y}H520V${rowY + 22}H1000`} className={styles.groundWire} />
           <text x="650" y={rowY - 8} className={styles.physicalWireLabel}>{destination} · {formatAmps(injection.designCurrentMa)} · {wireText} · 500 mm</text>
           <g transform={`translate(950 ${rowY})`} data-terminal={`${injection.id}-ceramic`}>
             <line x1="0" y1="0" x2="0" y2="7" className={styles.powerWire} />
@@ -503,14 +505,14 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
           const chipY = levelShifterChipY(chipIndex * 4)
           const usedChannels = Math.min(4, outputLayouts.length - (chipIndex * 4))
           return <g key={`level-shifter-wires-${chipIndex}`}>
-            <path data-wire={`level-shifter-${chipIndex + 1}-vcc`} d={`M${LEVEL_SHIFTER_X} ${chipY + 18}H410V236H370V${powerSectionY + 62}H390`} className={styles.powerWire} />
-            <path data-wire={`level-shifter-${chipIndex + 1}-ground`} d={`M${LEVEL_SHIFTER_X + LEVEL_SHIFTER_WIDTH} ${chipY + 140}H610V476H360V${powerSectionY + 94}H390`} className={styles.groundWire} />
+            <path data-wire={`level-shifter-${chipIndex + 1}-vcc`} d={`M${LEVEL_SHIFTER_X} ${chipY + 18}H410V236H370V${powerSectionY + DISTRIBUTION_POSITIVE_BUS_Y}H390`} className={styles.powerWire} />
+            <path data-wire={`level-shifter-${chipIndex + 1}-ground`} d={`M${LEVEL_SHIFTER_X + LEVEL_SHIFTER_WIDTH} ${chipY + 140}H610V476H360V${powerSectionY + DISTRIBUTION_GROUND_BUS_Y}H390`} className={styles.groundWire} />
             {Array.from({ length: usedChannels }, (_, channelIndex) => (
-              <path key={channelIndex} data-wire={`level-shifter-${chipIndex + 1}-oe-${channelIndex + 1}`} d={`M${LEVEL_SHIFTER_X + 28 + (channelIndex * 34)} ${chipY + LEVEL_SHIFTER_HEIGHT}V${chipY + LEVEL_SHIFTER_HEIGHT + 10}H360V${powerSectionY + 94}H390`} className={styles.groundWire} />
+              <path key={channelIndex} data-wire={`level-shifter-${chipIndex + 1}-oe-${channelIndex + 1}`} d={`M${LEVEL_SHIFTER_X + 28 + (channelIndex * 34)} ${chipY + LEVEL_SHIFTER_HEIGHT}V${chipY + LEVEL_SHIFTER_HEIGHT + 10}H360V${powerSectionY + DISTRIBUTION_GROUND_BUS_Y}H390`} className={styles.groundWire} />
             ))}
           </g>
         })}
-        {outputLayouts.length > 0 && <path data-wire="controller-common-ground" d={`M${controllerGround.x} ${controllerGround.y}H360V${powerSectionY + 94}H390`} className={styles.groundWire} />}
+        {outputLayouts.length > 0 && <path data-wire="controller-common-ground" d={`M${controllerGround.x} ${controllerGround.y}H360V${powerSectionY + DISTRIBUTION_GROUND_BUS_Y}H390`} className={styles.groundWire} />}
       </g>
 
       {outputLayouts.length > 0 && <g filter="url(#component-shadow)">

@@ -142,6 +142,10 @@ describe('BuildDiagramWorkspace', () => {
     ]) {
       expect(diagram?.querySelector(`[data-wire="${wire}"]`), wire).toBeTruthy()
     }
+    expect(diagram?.querySelector('[data-wire="level-shifter-1-vcc"]')?.getAttribute('d')).toMatch(/V770H390$/)
+    for (const groundWire of ['level-shifter-1-ground', 'level-shifter-1-oe-1', 'controller-common-ground']) {
+      expect(diagram?.querySelector(`[data-wire="${groundWire}"]`)?.getAttribute('d'), groundWire).toMatch(/V802H390$/)
+    }
     const outputTerminal = diagram?.querySelector('[data-terminal="controller-output:out:dataPin"]')
     const outputTerminalCircle = outputTerminal?.querySelector('circle')
     const outputWirePath = diagram?.querySelector('[data-wire="output:out-data-in"]')?.getAttribute('d')
