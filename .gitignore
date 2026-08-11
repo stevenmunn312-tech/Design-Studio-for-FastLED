@@ -6,6 +6,9 @@ dist/
 .DS_Store
 *.local
 
+# Blender automatically keeps previous saves beside the source model.
+*.blend1
+
 # Scratch screenshots and session captures — never commit these
 /artifacts/
 /.tmp-live-*
