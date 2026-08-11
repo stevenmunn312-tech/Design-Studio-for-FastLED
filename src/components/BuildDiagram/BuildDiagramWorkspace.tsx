@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from 'react'
 import {
   boardPinForGpio,
   boardProfileById,
@@ -622,10 +622,13 @@ export default function BuildDiagramWorkspace() {
   }
 
   const startViewportPan = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const target = event.target as HTMLElement
-    if (target.closest('button')) return
     const viewport = viewportRef.current
     if (!viewport) return
+    const target = event.target as Element
+    const isEmptyDiagramArea = target === viewport
+      || target.getAttribute('data-pan-background') === 'true'
+      || target.getAttribute('data-pan-surface') === 'true'
+    if (!isEmptyDiagramArea) return
     panStateRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -650,6 +653,25 @@ export default function BuildDiagramWorkspace() {
     if (!viewport || !panState || panState.pointerId !== event.pointerId) return
     if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId)
     panStateRef.current = null
+  }
+
+  const handleViewportWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
+    if (event.deltaY === 0) return
+    event.preventDefault()
+    const viewport = viewportRef.current
+    if (!viewport) return
+
+    const viewportRect = viewport.getBoundingClientRect()
+    const pointerX = event.clientX - viewportRect.left
+    const pointerY = event.clientY - viewportRect.top
+    const contentX = (viewport.scrollLeft + pointerX) / Math.max(diagramZoom, 0.001)
+    const contentY = (viewport.scrollTop + pointerY) / Math.max(diagramZoom, 0.001)
+    const nextZoom = clampZoom(diagramZoom + (event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP))
+    setDiagramZoom(nextZoom)
+    window.requestAnimationFrame(() => {
+      viewport.scrollLeft = Math.max(0, (contentX * nextZoom) - pointerX)
+      viewport.scrollTop = Math.max(0, (contentY * nextZoom) - pointerY)
+    })
   }
 
   useEffect(() => {
@@ -928,6 +950,7 @@ export default function BuildDiagramWorkspace() {
             onPointerMove={handleViewportPan}
             onPointerUp={stopViewportPan}
             onPointerCancel={stopViewportPan}
+            onWheel={handleViewportWheel}
           >
             <div className={styles.diagramSurface} style={{ minWidth: `${scaledCanvasWidth}px`, minHeight: `${scaledCanvasHeight}px` }}>
               <div

@@ -93,7 +93,7 @@ describe('BuildDiagramWorkspace', () => {
     expect(getByText('Exact board: confirmed', { selector: 'li' })).toBeTruthy()
     expect(getByText((_, node) => node?.tagName === 'LI' && node.textContent?.startsWith('Wiring plan: generated from graph with build-rules-') === true)).toBeTruthy()
     expect(getByText('Power feeds: 3 individually fused feeds from the assigned PSU distribution zone')).toBeTruthy()
-    expect(getByText((_, node) => node?.tagName === 'LI' && node.textContent === 'PSU 1: 5 V, at least 19 A / 95 W continuous for Matrix Output (20% headroom)')).toBeTruthy()
+    expect(getByText((_, node) => node?.tagName === 'LI' && node.textContent === 'PSU 1: 5 V, at least 20 A / 100 W continuous for Matrix Output (20% headroom)')).toBeTruthy()
     expect(getByText('Build reference — Signal and Power ready')).toBeTruthy()
     expect(queryByText('Still unresolved')).toBeNull()
   })
@@ -229,8 +229,15 @@ describe('BuildDiagramWorkspace', () => {
 
   it('supports zoom, isolation, and panel sizing without changing generated wiring data', () => {
     selectDevKit()
-    const { getByLabelText, getByRole, getByText } = render(<BuildDiagramWorkspace />)
+    const { container, getByLabelText, getByRole, getByText } = render(<BuildDiagramWorkspace />)
     const workspace = getByLabelText('Build Diagram workspace')
+    const viewport = container.querySelector('[data-pan-surface="true"]')?.parentElement?.parentElement
+    expect(viewport).toBeTruthy()
+
+    fireEvent.wheel(viewport as Element, { deltaY: -100, clientX: 100, clientY: 100 })
+    expect(getByText('Zoom 115%')).toBeTruthy()
+    fireEvent.wheel(viewport as Element, { deltaY: 100, clientX: 100, clientY: 100 })
+    expect(getByText('Zoom 100%')).toBeTruthy()
 
     fireEvent.click(getByText('Zoom in'))
     expect(getByText('Zoom 115%')).toBeTruthy()
@@ -244,6 +251,20 @@ describe('BuildDiagramWorkspace', () => {
     expect(workspace.getAttribute('style')).toContain('--build-sidebar-width: 372px')
     fireEvent.click(getByText('Narrow details'))
     expect(workspace.getAttribute('style')).toContain('--build-detail-width: 328px')
+  })
+
+  it('uses a four-by-four LED preview and labels total and recommended PSU power', () => {
+    const second = matrixNode(12, 16, 16, 'out-2')
+    useGraphStore.setState({ nodes: [matrixNode(), second] as never[] })
+    selectDevKit()
+    const { container } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
+
+    const previews = diagram?.querySelectorAll('[data-led-preview="4x4"]') ?? []
+    expect(previews).toHaveLength(2)
+    expect(previews[0]?.querySelectorAll('rect')).toHaveLength(16)
+    expect(diagram?.textContent).toContain('TOTAL POWER REQUIREMENTS · 5V 30.7A / 153.6W')
+    expect(diagram?.textContent).toContain('RECOMMENDED POWER SUPPLY · 5V 40A / 200W')
   })
 
   it('preserves explicit complete-build and current-view export scope', () => {

@@ -49,6 +49,6 @@ export function physicalAssemblyDiagramHeight(items: HardwareManifestItem[], pla
   const hardwareBottom = Math.max(0, ...layouts.map((layout) => layout.y + layout.height))
   const powerSectionY = Math.max(670, hardwareBottom + 54)
   const powerSectionHeight = (plan.totals?.supplies ?? []).reduce((height, supply) =>
-    height + 166 + (supply.injectionIds.length * 54), 0)
+    height + 184 + (supply.injectionIds.length * 54), 0)
   return powerSectionY + powerSectionHeight + 34
 }

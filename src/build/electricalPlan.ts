@@ -139,6 +139,19 @@ function roundToStep(value: number, step: number): number {
   return Math.ceil(value / step) * step
 }
 
+function recommendSupplyCurrent(designCurrentMa: number): number {
+  const targetCurrentMa = designCurrentMa * (1 + (DEFAULT_SUPPLY_HEADROOM_PERCENT / 100))
+  if (targetCurrentMa <= 10000) return roundToStep(targetCurrentMa, 1000)
+
+  const lowerTenAmps = Math.floor(targetCurrentMa / 10000) * 10000
+  const roundedCurrentMa = targetCurrentMa - lowerTenAmps < 2000
+    ? lowerTenAmps
+    : lowerTenAmps + 10000
+
+  // Never recommend a nameplate current below the actual worst-case LED load.
+  return Math.max(roundToStep(designCurrentMa, 1000), roundedCurrentMa)
+}
+
 function formatRuleCurrent(valueMa: number): string {
   return valueMa >= 1000
     ? `${Number((valueMa / 1000).toFixed(2))} A`
@@ -234,10 +247,7 @@ function groupSupplies(outputs: OutputElectricalPlan[]): SupplyRecommendation[] 
         supplies.push(supply)
       }
       supply.designCurrentMa += injection.designCurrentMa
-      supply.recommendedCurrentMa = roundToStep(
-        supply.designCurrentMa * (1 + (DEFAULT_SUPPLY_HEADROOM_PERCENT / 100)),
-        1000,
-      )
+      supply.recommendedCurrentMa = recommendSupplyCurrent(supply.designCurrentMa)
       supply.recommendedWattage = Number(((supply.recommendedCurrentMa / 1000) * output.nominalVoltage).toFixed(1))
       if (!supply.outputIds.includes(output.itemId)) supply.outputIds.push(output.itemId)
       if (!supply.outputTitles.includes(output.title)) supply.outputTitles.push(output.title)
@@ -298,8 +308,7 @@ export function calculateElectricalPlan(
     const recommendedFeedCount = injections.length
     const pixelsPerFeed = Math.max(...injections.map((injection) => injection.pixelCount))
     const branchDesignCurrentMa = Math.max(...injections.map((injection) => injection.designCurrentMa))
-    const headroomPercent = DEFAULT_SUPPLY_HEADROOM_PERCENT
-    const recommendedSupplyCurrentMa = roundToStep(designCurrentMa * (1 + (headroomPercent / 100)), 100)
+    const recommendedSupplyCurrentMa = recommendSupplyCurrent(designCurrentMa)
     const recommendedSupplyWattage = Number(((recommendedSupplyCurrentMa / 1000) * nominalVoltage).toFixed(1))
     const largestInjection = [...injections].sort((a, b) => b.designCurrentMa - a.designCurrentMa)[0]
     const connectorMinimumMa = largestInjection.connectorMinimumMa
@@ -340,11 +349,7 @@ export function calculateElectricalPlan(
     ? (() => {
       const nominalVoltage = outputPlans[0].nominalVoltage
       const designCurrentMa = outputPlans.reduce((sum, plan) => sum + plan.designCurrentMa, 0)
-      const recommendedSupplyCurrentMa = roundToStep(
-        outputPlans.reduce((sum, plan) => sum + plan.designCurrentMa, 0)
-          * (1 + (DEFAULT_SUPPLY_HEADROOM_PERCENT / 100)),
-        100,
-      )
+      const recommendedSupplyCurrentMa = recommendSupplyCurrent(designCurrentMa)
       const supplies = groupSupplies(outputPlans)
       const recommendedSupplyCount = supplies.length
       const perSupplyCurrentMa = Math.max(...supplies.map((supply) => supply.recommendedCurrentMa))
@@ -407,7 +412,8 @@ export function calculateElectricalPlan(
     `${DEFAULT_LED_DENSITY_PER_METER} LEDs/m and ${DEFAULT_FEED_CABLE_LENGTH_MM} mm one-way copper feeds are used when the graph has no physical product dimensions.`,
     `Start and end feeds are limited to ${formatRuleCurrent(MAX_END_FEED_CURRENT_MA)}; centre feeds may carry up to ${formatRuleCurrent(MAX_CENTER_FEED_CURRENT_MA)} before splitting in both directions.`,
     `Supply groups are packed up to approximately ${formatRuleCurrent(MAX_RECOMMENDED_SUPPLY_CURRENT_MA)} continuous each; positive rails from separate PSU zones must not be paralleled.`,
-    `Supply capacity includes ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom; conductor voltage drop is limited to ${MAX_VOLTAGE_DROP_V} V over the complete 500 mm one-way feed circuit.`,
+    `Supply sizing targets ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom, then uses whole-amp sizes up to 10 A and 10 A sizes above that; a target less than 2 A above a 10 A boundary rounds down without going below the worst-case load.`,
+    `Conductor voltage drop is limited to ${MAX_VOLTAGE_DROP_V} V over the complete 500 mm one-way feed circuit.`,
   ]
 
   if (exactBoard?.confidence === 'pinout-verified') {

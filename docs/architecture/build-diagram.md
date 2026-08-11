@@ -83,6 +83,9 @@ The current bounded WS2812-class rules use:
 - 5 V nominal LED power.
 - 60 mA per pixel conservative full-white design load.
 - 20% supply-current/wattage headroom.
+- Recommended nameplate current rounds to whole amps through 10 A. Above 10 A,
+  it uses 10 A increments, rounding down only when the headroom target is less
+  than 2 A above the lower increment and remains above the worst-case load.
 - 60 pixels per metre when the graph has no physical density metadata.
 - 500 mm one-way feed cable when no reviewed physical route is available.
 - 5 A maximum design load for start/end feeds and 10 A maximum for centre
@@ -115,7 +118,8 @@ shown as a note rather than turned into a beginner planning questionnaire.
 
 - Target authoring size: `1440x900`; supported minimum: `1280x720`.
 - Left panel: graph hardware and icon-based visibility/progress controls.
-- Centre: pannable, zoomable generated wiring diagram.
+- Centre: generated wiring diagram with hidden scrollbars, left-drag panning
+  from empty canvas space, and cursor-centred mouse-wheel zoom.
 - Right panel: exact-board notes, generated readiness, connections, BOM, and
   export controls.
 - Panels scroll independently and the diagram remains the priority below the

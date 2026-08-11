@@ -36,7 +36,7 @@ describe('electricalPlan', () => {
         recommendedFeedCount: 3,
         pixelsPerFeed: 128,
         branchDesignCurrentMa: 7680,
-        recommendedSupplyCurrentMa: 18500,
+        recommendedSupplyCurrentMa: 20000,
         conductor: expect.objectContaining({ awg: 20, crossSectionMm2: 0.5 }),
         connectorMinimumMa: 15000,
         fuse: expect.objectContaining({ ratingMa: 15000 }),
@@ -77,8 +77,8 @@ describe('electricalPlan', () => {
       pixelsPerFeed: 166,
     }))
     expect(plan.totals).toEqual(expect.objectContaining({
-      recommendedSupplyCurrentMa: 295000,
-      recommendedSupplyWattage: 1475,
+      recommendedSupplyCurrentMa: 300000,
+      recommendedSupplyWattage: 1500,
       recommendedSupplyCount: 5,
       headroomPercent: 20,
     }))
@@ -96,7 +96,7 @@ describe('electricalPlan', () => {
 
     expect(plan.outputs[0]?.operatingCurrentCapMa).toBe(9000)
     expect(plan.outputs[0]?.designCurrentMa).toBe(15360)
-    expect(plan.totals?.recommendedSupplyCurrentMa).toBe(18500)
+    expect(plan.totals?.recommendedSupplyCurrentMa).toBe(20000)
   })
 
   it('ignores obsolete planner answers and always regenerates from graph hardware', () => {
@@ -123,7 +123,7 @@ describe('electricalPlan', () => {
       physicalLengthMm: 4267,
       estimatedDensityPerMeter: 60,
       operatingCurrentCapMa: undefined,
-      recommendedSupplyCurrentMa: 18500,
+      recommendedSupplyCurrentMa: 20000,
       recommendedFeedCount: 3,
     }))
     expect(plan.totals?.headroomPercent).toBe(20)
@@ -139,6 +139,16 @@ describe('electricalPlan', () => {
     expect(plan.outputs).toHaveLength(2)
     expect(plan.totals?.supplies).toHaveLength(1)
     expect(plan.totals?.supplies[0].outputIds).toEqual(['output:out', 'output:out-2'])
+  })
+
+  it('rounds a headroom target down when it is less than 2 A above a 10 A boundary', () => {
+    const manifest = buildHardwareManifest([outputNode(19, 23)], [], 'esp32:esp32:esp32s3')
+    const board = boardProfileById('espressif-esp32-s3-devkitc-1')
+    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id }), board)
+
+    expect(plan.totals?.designCurrentMa).toBe(26220)
+    expect(plan.totals?.recommendedSupplyCurrentMa).toBe(30000)
+    expect(plan.totals?.recommendedSupplyWattage).toBe(150)
   })
 
   it('keeps reduced-confidence boards usable while warning against board-powered LED loads', () => {

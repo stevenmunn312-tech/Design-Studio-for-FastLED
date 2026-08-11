@@ -36,6 +36,9 @@ the primary workflow.
 - [x] Calculate conservative WS2812-class current from graph pixel count.
 - [x] Pack injection branches and modest data routes into PSU groups with 20%
   headroom, splitting only when the practical per-PSU ceiling is exceeded.
+- [x] Display each PSU zone's worst-case load and recommended supply separately;
+  use whole-amp recommendations through 10 A and 10 A increments above it,
+  rounding down only within 2 A of the lower increment and never below load.
 - [x] Split large LED loads into generated fused start/end feeds capped at 5 A
   and centre feeds capped at 10 A.
 - [x] Recommend conductor size, connector rating, fuse rating, and distributed
@@ -105,6 +108,8 @@ different firmware pin behind the user's back.
   planner questionnaires.
 - [x] Component tests verify icon controls, invalid-GPIO blocking, visibility,
   isolation, panel sizing, export scope, and board details.
+- [x] Component tests verify 4x4 LED previews, wheel zoom, and visible total-load
+  and recommended-PSU labels.
 - [x] Full repository tests pass.
 - [x] Lint and production build pass.
 - [ ] Independent electrical review confirms formulas, source tables, and

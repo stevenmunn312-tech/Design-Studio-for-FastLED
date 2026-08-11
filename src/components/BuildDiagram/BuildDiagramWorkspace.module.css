@@ -411,12 +411,18 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   border: 1px solid color-mix(in srgb, var(--border-glow) 74%, transparent);
   border-radius: 22px;
   background:
     radial-gradient(circle at 28% 14%, rgba(122, 162, 255, 0.18), transparent 24%),
     linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 86%, #071017), color-mix(in srgb, var(--bg-panel) 96%, black));
   cursor: grab;
+}
+
+.diagramViewport::-webkit-scrollbar {
+  display: none;
 }
 
 .diagramViewport:active {
