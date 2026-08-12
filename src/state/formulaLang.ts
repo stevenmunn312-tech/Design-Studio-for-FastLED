@@ -33,7 +33,7 @@ const MAX_DEPTH = 64
 class FormulaParseError extends Error {}
 
 // ── Math subset — bare-identifier constants and fixed-arity call targets ────
-const MATH_CONSTANTS: Readonly<Record<string, number>> = { PI: Math.PI }
+const MATH_CONSTANTS: Readonly<Record<string, number>> = { PI: Math.PI, PHI: 1.618033988749895 }
 
 interface MathFn { fn: (...args: number[]) => number; minArgs: number; maxArgs: number }
 const MATH_FUNCTIONS: Readonly<Record<string, MathFn>> = {
