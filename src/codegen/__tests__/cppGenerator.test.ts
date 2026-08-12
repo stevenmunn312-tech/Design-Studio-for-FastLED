@@ -1971,6 +1971,85 @@ describe('generateCpp — Particles modes', () => {
   })
 })
 
+describe('Formula Points codegen', () => {
+  const out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8 })
+  const gen = (formulaType: string, props: Record<string, unknown> = {}) => {
+    const fp = node('fp', 'FormulaPoints', 'pattern', { formulaType, ...props })
+    return generateCpp([fp, out], [edge('e', 'fp', 'out', 'frame', 'frame')])
+  }
+
+  for (const v of ['phyllotaxis', 'lissajousPath', 'rosePath', 'logisticMap', 'attractor']) {
+    it(`emits a dedicated block for "${v}", baked at generation time`, () => {
+      const cpp = gen(v)
+      expect(cpp).toContain(`// Formula Points: ${v}`)
+      expect(cpp).toContain('float _dx=(_px+0.5f)-_sx,_dy=(_py+0.5f)-_sy;')
+      expect(cpp).toContain('buf_fp[_py*WIDTH+_px]+=_add;')
+    })
+  }
+
+  it('phyllotaxis is time-driven and bakes the golden angle', () => {
+    const cpp = gen('phyllotaxis')
+    expect(cpp).toContain('float t = millis()')
+    expect(cpp).toContain('_i*2.39996323f') // golden angle, 8-digit precision (see codegen comment)
+  })
+
+  it('logisticMap is not time-driven (no needsT) and bakes chaos', () => {
+    const cpp = gen('logisticMap', { chaos: 3.9 })
+    expect(cpp).not.toContain('float t = millis()')
+    expect(cpp).toContain('float _r=3.9f;')
+    expect(cpp).toContain('static float _fp_fpx=0.5f;')
+  })
+
+  it('logisticMap persists its running x as a static local', () => {
+    const cpp = gen('logisticMap')
+    expect(cpp).toContain('_fp_fpx=_r*_fp_fpx*(1.0f-_fp_fpx);')
+  })
+
+  it('attractor bakes the selected preset coefficients', () => {
+    const classic = gen('attractor', { preset: 'classic' })
+    expect(classic).toContain('// Formula Points: attractor (de Jong, classic)')
+    expect(classic).toContain('sinf(1.4f*_fp_fpay)-cosf(-2.3f*_fp_fpax)')
+    const web = gen('attractor', { preset: 'web' })
+    expect(web).toContain('sinf(-0.827f*_fp_fpay)-cosf(-1.637f*_fp_fpax)')
+  })
+
+  it('attractor and the trail variants fade the persistent buffer by (1 - persistence)', () => {
+    const cpp = gen('attractor', { persistence: 0.9 })
+    expect(cpp).toContain('fadeToBlackBy(buf_fp, NUM_LEDS, (uint8_t)(0.1f*255.0f));')
+  })
+
+  it('lissajousPath bakes frequency ratios and cycles hue with phase', () => {
+    const cpp = gen('lissajousPath', { freqA: 5, freqB: 4 })
+    expect(cpp).toContain('// Formula Points: lissajousPath')
+    expect(cpp).toContain('sinf(5.0f*_phase), _cy=sinf(4.0f*_phase)')
+    expect(cpp).toContain('_hue=fmodf(_phase/6.2831853f,1.0f)')
+  })
+
+  it('rosePath bakes the petal count', () => {
+    const cpp = gen('rosePath', { petals: 7 })
+    expect(cpp).toContain('float _rr=cosf(7.0f*_phase);')
+  })
+
+  it('unknown formulaType falls back to the phyllotaxis block', () => {
+    const cpp = gen('bogus')
+    expect(cpp).toContain('// Formula Points: phyllotaxis')
+  })
+
+  it('dotSize scales the rendered point radius (visible on a larger matrix)', () => {
+    const out32 = node('out', 'MatrixOutput', 'output', { width: 32, height: 32 })
+    const small = generateCpp(
+      [node('fp', 'FormulaPoints', 'pattern', { formulaType: 'phyllotaxis', dotSize: 1 }), out32],
+      [edge('e', 'fp', 'out', 'frame', 'frame')],
+    )
+    const big = generateCpp(
+      [node('fp', 'FormulaPoints', 'pattern', { formulaType: 'phyllotaxis', dotSize: 2 }), out32],
+      [edge('e', 'fp', 'out', 'frame', 'frame')],
+    )
+    expect(small).toContain('_sx-1.0f-1.0f')
+    expect(big).toContain('_sx-2.0f-1.0f')
+  })
+})
+
 describe('generateCpp — INMP441 audio engine', () => {
   const out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8 })
   const micGraph = (channel = 'Left') => {

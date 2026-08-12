@@ -1481,6 +1481,83 @@ describe('evaluateGraph', () => {
     expect(frame.flat().some((px) => px.r + px.g + px.b > 0)).toBe(true)  // stars visible
   })
 
+  describe('Formula Points (curated stateful point/trajectory generators)', () => {
+    const variants = ['phyllotaxis', 'lissajousPath', 'rosePath', 'logisticMap', 'attractor']
+
+    it.each(variants)('%s lights at least one pixel', (formulaType) => {
+      const { nodes, edges } = withOutput(node('fp', 'FormulaPoints', 'pattern', { formulaType, speed: 0.5 }))
+      let lit = 0
+      for (let f = 0; f < 8 && lit === 0; f++) {
+        lit = litPixels(evaluateGraph(nodes, edges, f, W, H))
+      }
+      expect(lit).toBeGreaterThan(0)
+    })
+
+    it.each(variants)('%s stays within valid RGB bounds', (formulaType) => {
+      const { nodes, edges } = withOutput(node('fp', 'FormulaPoints', 'pattern', { formulaType, speed: 0.5 }))
+      const frame = evaluateGraph(nodes, edges, 30, W, H)!
+      expect(frame.flat().every((px) =>
+        px.r >= 0 && px.r <= 255 && px.g >= 0 && px.g <= 255 && px.b >= 0 && px.b <= 255,
+      )).toBe(true)
+    })
+
+    it.each(['phyllotaxis', 'lissajousPath', 'rosePath'])('%s animates over time when speed > 0', (formulaType) => {
+      const { nodes, edges } = withOutput(node('fp', 'FormulaPoints', 'pattern', { formulaType, speed: 1 }))
+      // The trail variants (lissajousPath/rosePath) return a persistent buffer
+      // by reference and mutate it in place on the next call (same as Trails),
+      // so each snapshot must be serialized immediately — comparing two live
+      // references after both calls would just compare the final mutated
+      // buffer to itself.
+      const at0 = JSON.stringify(evaluateGraph(nodes, edges, 0, W, H))
+      const at2s = JSON.stringify(evaluateGraph(nodes, edges, 120, W, H))
+      expect(at2s).not.toEqual(at0)
+    })
+
+    it('lissajousPath/rosePath/attractor accumulate a persistent trail (more lit pixels after many frames than after one)', () => {
+      for (const formulaType of ['lissajousPath', 'rosePath', 'attractor']) {
+        const props = { formulaType, speed: 1, persistence: 0.9, count: 40 }
+        // Independent node ids (independent stateKey/persistent buffers) so
+        // the "after one frame" and "after many frames" measurements don't
+        // contaminate each other.
+        const short = withOutput(node(`fpShort_${formulaType}`, 'FormulaPoints', 'pattern', props))
+        const litAfterOne = litPixels(evaluateGraph(short.nodes, short.edges, 0, W, H))
+
+        const long = withOutput(node(`fpLong_${formulaType}`, 'FormulaPoints', 'pattern', props))
+        let litAfterMany = 0
+        for (let f = 0; f <= 20; f++) litAfterMany = litPixels(evaluateGraph(long.nodes, long.edges, f, W, H))
+
+        expect(litAfterMany).toBeGreaterThanOrEqual(litAfterOne)
+      }
+    })
+
+    it('logisticMap continues its chaotic sequence across frames rather than resetting', () => {
+      const { nodes, edges } = withOutput(node('fp', 'FormulaPoints', 'pattern', { formulaType: 'logisticMap', chaos: 3.9, count: 20 }))
+      // Serialize each frame immediately — evaluator frames are pooled, so
+      // holding several live references and stringifying only at the end
+      // risks comparing a later call's recycled buffer against itself.
+      const serialized = [0, 1, 2, 3].map((f) => JSON.stringify(evaluateGraph(nodes, edges, f, W, H)))
+      // Every frame should differ (a reset-each-frame implementation would
+      // instead repeat the same starting sequence every tick).
+      expect(new Set(serialized).size).toBe(serialized.length)
+    })
+
+    it('attractor preset changes the resulting point cloud', () => {
+      const mk = (preset: string) => {
+        // Unique node id per preset so the two runs don't share persistent state.
+        const { nodes, edges } = withOutput(node(`fp_${preset}`, 'FormulaPoints', 'pattern', { formulaType: 'attractor', preset, count: 100, persistence: 0.8 }))
+        let frame = null
+        for (let f = 0; f <= 10; f++) frame = evaluateGraph(nodes, edges, f, W, H)
+        return JSON.stringify(frame)
+      }
+      expect(mk('classic')).not.toEqual(mk('web'))
+    })
+
+    it('unknown formulaType falls back to phyllotaxis', () => {
+      const { nodes, edges } = withOutput(node('fp', 'FormulaPoints', 'pattern', { formulaType: 'bogus' }))
+      expect(litPixels(evaluateGraph(nodes, edges, 0, W, H))).toBeGreaterThan(0)
+    })
+  })
+
   describe('Boids', () => {
     // Deterministic LCG so the whole flocking sim is reproducible run-to-run
     // (evalBoids only draws random numbers when seeding at tick 0).

@@ -1030,6 +1030,39 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
   {
+    // Curated stateful point/trajectory generators, selected by a dropdown —
+    // the pattern-category, self-contained-frame-generator sibling of
+    // FormulaField (field category). See
+    // docs/development/design/formula-pattern-nodes.md.
+    type: 'FormulaPoints',
+    label: 'Formula Points',
+    category: 'pattern',
+    subcategory: 'Simulations',
+    inputs: [
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: {
+      formulaType: 'phyllotaxis',
+      speed: 0.3,
+      dotSize: 1,
+      palette: 'rainbow',
+      // phyllotaxis / logisticMap / attractor
+      count: 60,
+      // lissajousPath / rosePath / attractor
+      persistence: 0.85,
+      // lissajousPath
+      freqA: 3,
+      freqB: 2,
+      // rosePath
+      petals: 5,
+      // logisticMap
+      chaos: 3.8,
+      // attractor
+      preset: 'classic',
+    },
+  },
+  {
     type: 'Invert',
     label: 'Invert',
     category: 'composite',
@@ -2687,6 +2720,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Spiral: 'Rotating spiral arms.',
   Kaleidoscope: 'Mirrors a frame into kaleidoscope symmetry.',
   Particles: 'Twenty particle displays: weather, trails, flocking, orbits, and more.',
+  FormulaPoints: 'Curated point generator: phyllotaxis, Lissajous/rose, logistic map, attractor.',
   GradientFrame: 'Two-color linear gradient fill.',
   FractalNoise: 'Fractal (fBm) noise — summed octaves, cloud-like.',
   Blobs: 'Metaballs — merging lava-lamp blobs.',
@@ -3320,6 +3354,29 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     spread:  { control: 'slider', min: 0, max: 2, step: 0.05 },
     gravity: { control: 'slider', min: 0, max: 3, step: 0.05 },
     bounce:  { control: 'slider', min: 0, max: 1.5, step: 0.05 },
+  },
+  FormulaPoints: {
+    // `formulaType` is scoped here rather than the generic PROPERTY_META map
+    // because FormulaField (field category) uses the same property name for
+    // its own, different variant list — an override always wins over the
+    // generic map, so this stays correct regardless of what FormulaField's
+    // entry ends up looking like.
+    formulaType: { control: 'select', options: ['phyllotaxis', 'lissajousPath', 'rosePath', 'logisticMap', 'attractor'] },
+    speed: N01,
+    dotSize: { control: 'slider', min: 0.25, max: 3, step: 0.05 },
+    // phyllotaxis / logisticMap / attractor
+    count: { control: 'slider', min: 8, max: 300, step: 1 },
+    // lissajousPath / rosePath / attractor
+    persistence: N01,
+    // lissajousPath
+    freqA: { control: 'slider', min: 1, max: 8, step: 1 },
+    freqB: { control: 'slider', min: 1, max: 8, step: 1 },
+    // rosePath
+    petals: { control: 'slider', min: 1, max: 12, step: 1 },
+    // logisticMap
+    chaos: { control: 'slider', min: 3, max: 4, step: 0.01 },
+    // attractor
+    preset: { control: 'select', options: ['classic', 'swirl', 'web'] },
   },
   Transform:         { rate:  { control: 'slider', min: 0, max: 360, step: 1 } },
   Array: {
@@ -3974,6 +4031,16 @@ const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, stri
       bounce: 'Bounce', attractor: 'Attractor', waterfall: 'Waterfall',
     },
   },
+  FormulaPoints: {
+    prop: 'formulaType',
+    labels: {
+      phyllotaxis: 'Formula · Phyllotaxis',
+      lissajousPath: 'Formula · Lissajous Path',
+      rosePath: 'Formula · Rose Path',
+      logisticMap: 'Formula · Logistic Map',
+      attractor: 'Formula · Attractor',
+    },
+  },
   Ease: {
     prop: 'easeType',
     labels: {
@@ -4158,6 +4225,30 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
       case 'gravity': return PARTICLE_GRAVITY_MODES.has(pt)
       // Modes with a floor-bounce restitution constant.
       case 'bounce':  return PARTICLE_BOUNCE_MODES.has(pt)
+    }
+  }
+  if (nodeType === 'FormulaPoints') {
+    const ft = String(properties.formulaType ?? 'phyllotaxis')
+    switch (key) {
+      // Time-driven variants — the others churn from `count` iterations/frame
+      // instead, so `speed` doesn't apply.
+      case 'speed':
+        return ft === 'phyllotaxis' || ft === 'lissajousPath' || ft === 'rosePath'
+      // Points-per-frame variants.
+      case 'count':
+        return ft === 'phyllotaxis' || ft === 'logisticMap' || ft === 'attractor'
+      // Trail/accumulate variants (own a persistent, fading render buffer).
+      case 'persistence':
+        return ft === 'lissajousPath' || ft === 'rosePath' || ft === 'attractor'
+      case 'freqA':
+      case 'freqB':
+        return ft === 'lissajousPath'
+      case 'petals':
+        return ft === 'rosePath'
+      case 'chaos':
+        return ft === 'logisticMap'
+      case 'preset':
+        return ft === 'attractor'
     }
   }
   if (nodeType === 'PatternMaster') {
