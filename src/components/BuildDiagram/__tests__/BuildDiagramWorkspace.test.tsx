@@ -144,10 +144,20 @@ describe('BuildDiagramWorkspace', () => {
     ]) {
       expect(diagram?.querySelector(`[data-wire="${wire}"]`), wire).toBeTruthy()
     }
-    expect(diagram?.querySelector('[data-wire="level-shifter-1-vcc"]')?.getAttribute('d')).toMatch(/V770H390$/)
-    for (const groundWire of ['level-shifter-1-ground', 'level-shifter-1-oe-1', 'controller-common-ground']) {
-      expect(diagram?.querySelector(`[data-wire="${groundWire}"]`)?.getAttribute('d'), groundWire).toMatch(/V802H390$/)
+    // Shared rails resolve to a net symbol at their own terminal rather than a
+    // drawn run back to the bus. The bonding rule they rely on is stated by the
+    // common-net callout, which must therefore render alongside them.
+    const netStub = (wire: string) => diagram?.querySelector(`[data-net-stub-for="${wire}"]`)
+    expect(netStub('level-shifter-1-vcc')?.getAttribute('data-net-stub')).toBe('v5')
+    expect(netStub('level-shifter-1-vcc')?.getAttribute('data-net-stub-x')).toBe('577')
+    expect(netStub('level-shifter-1-vcc')?.getAttribute('data-net-stub-y')).toBe('317')
+    expect(netStub('level-shifter-1-ground')?.getAttribute('data-net-stub-x')).toBe('465')
+    expect(netStub('level-shifter-1-ground')?.getAttribute('data-net-stub-y')).toBe('466')
+    for (const groundWire of ['level-shifter-1-ground', 'level-shifter-1-oe-1', 'controller-common-ground', 'microphone-ground']) {
+      expect(netStub(groundWire)?.getAttribute('data-net-stub'), groundWire).toBe('gnd')
     }
+    expect(netStub('microphone-vdd')?.getAttribute('data-net-stub')).toBe('v3v3')
+    expect(diagram?.querySelector('[data-common-net-callout]')).toBeTruthy()
     const outputTerminal = diagram?.querySelector('[data-terminal="controller-output:out:dataPin"]')
     const outputTerminalCircle = outputTerminal?.querySelector('circle')
     const outputWirePath = diagram?.querySelector('[data-wire="output:out-data-in"]')?.getAttribute('d')
@@ -306,7 +316,11 @@ describe('BuildDiagramWorkspace', () => {
       const outputId = `output:out-${channelIndex + 1}`
       expect(diagram?.querySelector(`[data-wire="${outputId}-level-shifter-input"]`)?.getAttribute('d')).toMatch(new RegExp(`H${points.a[0]}$`))
       expect(diagram?.querySelector(`[data-wire="${outputId}-conditioned-data"]`)?.getAttribute('d')).toMatch(new RegExp(`^M${points.y[0]} ${points.y[1]}`))
-      expect(diagram?.querySelector(`[data-wire="level-shifter-1-oe-${channelIndex + 1}"]`)?.getAttribute('d')).toMatch(new RegExp(`^M${points.oe[0]} ${points.oe[1]}`))
+      // Each /OE tie is a stub on its own pin's side, not a run to the ground bus.
+      const oeStub = diagram?.querySelector(`[data-net-stub-for="level-shifter-1-oe-${channelIndex + 1}"]`)
+      expect(oeStub?.getAttribute('data-net-stub-x')).toBe(String(points.oe[0]))
+      expect(oeStub?.getAttribute('data-net-stub-y')).toBe(String(points.oe[1]))
+      expect(oeStub?.getAttribute('data-net-stub-direction')).toBe(points.oe[0] === 465 ? 'left' : 'right')
     })
   })
 

@@ -1350,6 +1350,54 @@
   opacity: 0.36;
 }
 
+/* Shared-rail net stubs: short lead + net symbol in place of a drawn run. */
+.groundStubLead {
+  fill: none;
+  stroke: #171b1d;
+  stroke-width: 5;
+}
+
+.groundStubSymbol {
+  fill: none;
+  stroke: #171b1d;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+}
+
+.railStubLead5v {
+  fill: none;
+  stroke: #d92828;
+  stroke-width: 5;
+}
+
+.railStubSymbol5v {
+  fill: none;
+  stroke: #d92828;
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.railStubLead3v3 {
+  fill: none;
+  stroke: #d9631f;
+  stroke-width: 4;
+}
+
+.railStubSymbol3v3 {
+  fill: none;
+  stroke: #d9631f;
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.netStubLabel {
+  fill: #2a2f31;
+  font-family: var(--font-code);
+  font-size: 8px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
 .physicalBoardSilk,
 .physicalBoardSubSilk,
 .physicalPinLabel,

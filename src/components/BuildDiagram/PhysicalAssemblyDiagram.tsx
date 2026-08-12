@@ -5,6 +5,7 @@ import devKitCBoardRender from '../../assets/boards/esp32-s3-devkitc-1.png'
 import microphoneRender from '../../assets/components/inmp441-breakout.png'
 import levelShifterRender from '../../assets/components/sn74ahct125n-dip14.png'
 import styles from './BuildDiagramWorkspace.module.css'
+import { CommonNetCallout, NetStub } from './netStubs'
 import {
   itemLayouts,
   LEVEL_SHIFTER_HEIGHT,
@@ -14,6 +15,7 @@ import {
   levelShifterSupplyPoint,
   levelShifterTerminalPoint,
   physicalAssemblyDiagramHeight,
+  POWER_SECTION_GAP,
   type ItemLayout,
   type LevelShifterTerminalPoint,
 } from './physicalDiagramLayout'
@@ -130,13 +132,12 @@ function routeFromController(
   targetX: number,
   targetY: number,
   laneIndex: number,
-  preferTop = false,
 ) {
   const rightLane = 304 + (laneIndex * 8)
   if (point.side === 'right') return `M${point.x} ${point.y}H${rightLane}V${targetY}H${targetX}`
   const laneSlot = laneIndex % 6
   const leftLane = 58 - (laneSlot * 6)
-  const detourY = preferTop ? 102 : 542 + (laneSlot * 7)
+  const detourY = 542 + (laneSlot * 7)
   return `M${point.x} ${point.y}H${leftLane}V${detourY}H${rightLane}V${targetY}H${targetX}`
 }
 
@@ -443,6 +444,9 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
       <rect x="390" y="84" width="110" height="66" rx="7" fill="#263035" stroke="#111" />
       <text x="445" y="108" textAnchor="middle" className={styles.physicalFuseText}>FUSED +5V</text>
       <text x="445" y="134" textAnchor="middle" className={styles.physicalFuseText}>GROUND BUS</text>
+      {/* Origin of the rails the level shifter and controller now reach by symbol. */}
+      <NetStub x={420} y={84} kind="v5" direction="up" wireId={`${supply.id}-rail-positive`} />
+      <NetStub x={470} y={84} kind="gnd" direction="up" wireId={`${supply.id}-rail-ground`} />
 
       {assigned.map((injection, index) => {
         const rowY = 170 + (index * 54)
@@ -495,7 +499,8 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
   const controllerGround = controllerPowerPoint('ground', boardProfile)
   const controllerUsb = controllerPowerPoint('usb', boardProfile)
   const hardwareBottom = Math.max(0, ...layouts.map((layout) => layout.y + layout.height))
-  const powerSectionY = Math.max(670, hardwareBottom + 54)
+  const powerSectionY = Math.max(670, hardwareBottom + POWER_SECTION_GAP)
+  const usesThreeVolt = !!microphoneLayout || peripheralLayouts.some((layout) => layout.item.kind === 'pot-input')
   const canvasHeight = physicalAssemblyDiagramHeight(items, plan)
 
   return (
@@ -527,7 +532,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
           const channelPoint = microphoneTerminalPoint(microphoneLayout, 'channel')
           const groundPoint = microphoneTerminalPoint(microphoneLayout, 'gnd')
           return <>
-          <path data-wire="microphone-vdd" data-wire-role="vdd" d={routeFromController(controller3v3, vddPoint.x, vddPoint.y, 0, true)} className={styles.microphoneVddWire} />
+          <NetStub x={vddPoint.x} y={vddPoint.y} kind="v3v3" direction="left" lead={26} wireId="microphone-vdd" wireRole="vdd" />
           {micConnections.map((connection) => {
             const controllerIndex = controllerConnections.indexOf(connection)
             const controllerPoint = controllerConnectionPoint(connection, controllerIndex, controllerConnections.length, boardProfile)
@@ -536,8 +541,9 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
             const target = microphoneTerminalPoint(microphoneLayout, presentation.role)
             return <path key={connection.id} data-wire={connection.id} data-wire-role={presentation.role} d={routeFromController(controllerPoint, target.x, target.y, controllerIndex)} className={presentation.wireClassName} />
           })}
-          <path data-wire="microphone-channel-select" data-wire-role="channel-select" d={`M${channelPoint.x} ${channelPoint.y}H334V${groundPoint.y}H${groundPoint.x}`} className={styles.groundWire} />
-          <path data-wire="microphone-ground" d={`M${groundPoint.x} ${groundPoint.y}H316V${controllerGround.y}H${controllerGround.x}`} className={styles.groundWire} />
+          {/* Hooks right, over the breakout, so the left edge stays clear for the rail stubs. */}
+          <path data-wire="microphone-channel-select" data-wire-role="channel-select" d={`M${channelPoint.x} ${channelPoint.y}H${channelPoint.x + 12}V${groundPoint.y}H${groundPoint.x}`} className={styles.groundWire} />
+          <NetStub x={groundPoint.x} y={groundPoint.y} kind="gnd" direction="left" lead={26} wireId="microphone-ground" />
         </>
         })()}
 
@@ -554,38 +560,44 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
             <path data-wire={`${layout.item.id}-conditioned-data`} d={routeFromLevelShifterOutput(index, outputPoint, layout.x, layout.y + 66)} className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.signalWire : styles.dimWire} />
           </g>
         })}
-        {peripheralLayouts.map((layout, layoutIndex) => {
+        {peripheralLayouts.map((layout) => {
           const peripheralConnections = connections.filter((connection) => connection.itemId === layout.item.id)
           return <g key={layout.item.id}>
-            {layout.item.kind === 'pot-input' && <path data-wire={`${layout.item.id}-3v3`} d={routeFromController(controller3v3, layout.x, layout.y + 18, layoutIndex)} className={styles.logicPowerWire} />}
+            {layout.item.kind === 'pot-input' && <NetStub x={layout.x} y={layout.y + 18} kind="v3v3" direction="left" wireId={`${layout.item.id}-3v3`} />}
             {peripheralConnections.map((connection, index) => {
               const controllerIndex = controllerConnections.indexOf(connection)
               const controllerPoint = controllerConnectionPoint(connection, controllerIndex, controllerConnections.length, boardProfile)
               return <path key={connection.id} data-wire={connection.id} d={routeFromController(controllerPoint, layout.x, layout.y + peripheralSignalOffset(layout.item, index), controllerIndex)} className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.auxWire : styles.dimWire} />
             })}
-            <path data-wire={`${layout.item.id}-ground`} d={`M${layout.x} ${layout.y + peripheralGroundOffset(layout.item)}H${316 + (layoutIndex * 8)}V${controllerGround.y}H${controllerGround.x}`} className={styles.groundWire} />
+            <NetStub x={layout.x} y={layout.y + peripheralGroundOffset(layout.item)} kind="gnd" direction="left" wireId={`${layout.item.id}-ground`} />
           </g>
         })}
         {Array.from({ length: Math.ceil(outputLayouts.length / 4) }, (_, chipIndex) => {
-          const chipY = levelShifterChipY(chipIndex * 4)
           const usedChannels = Math.min(4, outputLayouts.length - (chipIndex * 4))
           const vccPoint = levelShifterSupplyPoint(chipIndex, 'vcc')
           const groundPoint = levelShifterSupplyPoint(chipIndex, 'gnd')
           return <g key={`level-shifter-wires-${chipIndex}`}>
-            <path data-wire={`level-shifter-${chipIndex + 1}-vcc`} d={`M${vccPoint.x} ${vccPoint.y}H610V236H370V${powerSectionY + DISTRIBUTION_POSITIVE_BUS_Y}H390`} className={styles.powerWire} />
-            <path data-wire={`level-shifter-${chipIndex + 1}-ground`} d={`M${groundPoint.x} ${groundPoint.y}H360V${powerSectionY + DISTRIBUTION_GROUND_BUS_Y}H390`} className={styles.groundWire} />
+            <NetStub x={vccPoint.x} y={vccPoint.y} kind="v5" direction="right" wireId={`level-shifter-${chipIndex + 1}-vcc`} />
+            <NetStub x={groundPoint.x} y={groundPoint.y} kind="gnd" direction="left" lead={26} wireId={`level-shifter-${chipIndex + 1}-ground`} />
             {Array.from({ length: usedChannels }, (_, channelIndex) => {
-              const outputIndex = (chipIndex * 4) + channelIndex
-              const oePoint = levelShifterTerminalPoint(outputIndex, 'oe')
-              const detourY = chipY + LEVEL_SHIFTER_HEIGHT + 10 + (channelIndex * 6)
-              const path = oePoint.side === 'left'
-                ? `M${oePoint.x} ${oePoint.y}H360V${powerSectionY + DISTRIBUTION_GROUND_BUS_Y}H390`
-                : `M${oePoint.x} ${oePoint.y}H610V${detourY}H360V${powerSectionY + DISTRIBUTION_GROUND_BUS_Y}H390`
-              return <path key={channelIndex} data-wire={`level-shifter-${chipIndex + 1}-oe-${channelIndex + 1}`} d={path} className={styles.groundWire} />
+              const oePoint = levelShifterTerminalPoint((chipIndex * 4) + channelIndex, 'oe')
+              // /OE ties low. Four identical cross-canvas runs per chip carried no
+              // information beyond that, so each becomes a stub on its own pin side.
+              return <NetStub
+                key={channelIndex}
+                x={oePoint.x}
+                y={oePoint.y}
+                kind="gnd"
+                direction={oePoint.side === 'left' ? 'left' : 'right'}
+                lead={oePoint.side === 'left' ? 26 : undefined}
+                wireId={`level-shifter-${chipIndex + 1}-oe-${channelIndex + 1}`}
+              />
             })}
           </g>
         })}
-        {outputLayouts.length > 0 && <path data-wire="controller-common-ground" d={`M${controllerGround.x} ${controllerGround.y}H360V${powerSectionY + DISTRIBUTION_GROUND_BUS_Y}H390`} className={styles.groundWire} />}
+        {/* Source ends of the two rails the controller supplies, so each net still shows both ends. */}
+        <NetStub x={controllerGround.x} y={controllerGround.y} kind="gnd" direction="right" lead={26} wireId="controller-common-ground" />
+        {usesThreeVolt && <NetStub x={controller3v3.x} y={controller3v3.y} kind="v3v3" direction="left" lead={26} wireId="controller-3v3-rail" />}
       </g>
 
       {outputLayouts.length > 0 && <g filter="url(#component-shadow)">
@@ -635,7 +647,10 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
         })}
       </g>}
 
-      {outputLayouts.length > 0 && <PowerDistributionSections plan={plan} startY={powerSectionY} />}
+      {outputLayouts.length > 0 && <>
+        <CommonNetCallout x={320} y={powerSectionY - 78} width={776} />
+        <PowerDistributionSections plan={plan} startY={powerSectionY} />
+      </>}
 
       <g filter="url(#component-shadow)" transform={`translate(${controllerUsb.x - 92} 592)`}>
         <rect width="184" height="62" rx="12" fill="#e9ecea" stroke="#879092" strokeWidth="2" />
@@ -658,10 +673,16 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
         <text x="16" y="45" className={styles.physicalLegendMeta}>{items.length + 1} graph devices · {connections.length} GPIO routes</text>
         <text x="16" y="60" className={styles.physicalLegendMeta}>{plan.ruleSetVersion}</text>
       </g>
-      <g transform={`translate(804 ${canvasHeight - 22})`}>
+      <g transform={`translate(674 ${canvasHeight - 22})`}>
         <line x1="0" y1="0" x2="28" y2="0" className={styles.powerWire} /><WireLabel x={36} y={4}>+5V</WireLabel>
         <line x1="80" y1="0" x2="108" y2="0" className={styles.groundWire} /><WireLabel x={116} y={4}>GND</WireLabel>
         <line x1="166" y1="0" x2="194" y2="0" className={styles.signalWire} /><WireLabel x={202} y={4}>SIGNAL</WireLabel>
+        <g transform="translate(292 -8)">
+          <g className={styles.groundStubSymbol}>
+            <line x1={-6} y1={4} x2={6} y2={4} /><line x1={-4} y1={8} x2={4} y2={8} /><line x1={-1.5} y1={12} x2={1.5} y2={12} />
+          </g>
+        </g>
+        <WireLabel x={306} y={4}>SHARED NET — SEE CALLOUT</WireLabel>
       </g>
     </svg>
   )

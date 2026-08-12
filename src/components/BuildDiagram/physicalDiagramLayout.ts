@@ -9,6 +9,9 @@ export type ItemLayout = {
   height: number
 }
 
+/** Clearance between the last hardware row and the PSU zones, sized for the shared-net callout. */
+export const POWER_SECTION_GAP = 120
+
 export const LEVEL_SHIFTER_X = 430
 export const LEVEL_SHIFTER_Y = 276
 export const LEVEL_SHIFTER_WIDTH = 180
@@ -81,7 +84,7 @@ export function physicalAssemblyDiagramHeight(items: HardwareManifestItem[], pla
   const outputCount = layouts.filter((layout) => layout.item.kind === 'matrix-output').length
   if (outputCount === 0) return 760
   const hardwareBottom = Math.max(0, ...layouts.map((layout) => layout.y + layout.height))
-  const powerSectionY = Math.max(670, hardwareBottom + 54)
+  const powerSectionY = Math.max(670, hardwareBottom + POWER_SECTION_GAP)
   const powerSectionHeight = (plan.totals?.supplies ?? []).reduce((height, supply) =>
     height + 204 + (supply.injectionIds.length * 54), 0)
   return powerSectionY + powerSectionHeight + 34
