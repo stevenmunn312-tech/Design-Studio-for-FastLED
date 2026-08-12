@@ -55,10 +55,12 @@ build/architecture overview aimed at contributors.
     `ESP32-HUB75-MatrixPanel-DMA` as a single-output `MatrixOutput` route
     family alongside the existing clockless/SPI addressable chipsets.
   - [Formula-driven pattern nodes](development/design/formula-pattern-nodes.md)
-    — proposed `FormulaField` (stateless, curated closed-form fields like
-    rose curves/superformula) and `FormulaPoints` (stateful parametric point
-    generators like phyllotaxis/Lissajous/attractors) nodes, plus a `PHI`
-    formula-language constant. Not yet implemented.
+    — `FormulaField` (stateless, curated closed-form fields like rose
+    curves/superformula; field category) and `FormulaPoints` (stateful
+    curated point/trajectory generators like phyllotaxis/Lissajous
+    paths/attractors; pattern category), plus a `PHI` formula-language
+    constant. `FormulaPoints` is implemented; `FormulaField`/`PHI` are
+    implemented in a separate, parallel branch/PR.
 - [Plans](development/plans/)
   - [Node review findings](development/plans/node-todo.md)
     — the category-by-category control, validation, evaluator, and codegen

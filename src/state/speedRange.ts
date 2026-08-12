@@ -45,6 +45,13 @@ export const NOISE_SCALE_MAX: Record<string, number> = {
   field: 2, simplex: 0.5, noise3d: 0.5, noise4d: 0.5, worley: 0.3, plasma: 0.2, sine: 1,
 }
 
+/** Bundled FormulaPoints node — speed `1.0` (radians/sec) per `formulaType`
+ *  variant. `logisticMap`/`attractor` aren't time-driven (their churn comes
+ *  from `count` iterations/frame instead), so they have no entry here. */
+export const FORMULA_POINTS_SPEED_MAX: Record<string, number> = {
+  phyllotaxis: 1, lissajousPath: 2, rosePath: 2,
+}
+
 /** Bundled FormulaField node — speed `1.0` per `formulaType` variant. Units are
  *  radians/sec of rotation for the angle-driven variants, and index-units/sec
  *  of ring drift for `goldenTiling`. */

@@ -17,7 +17,7 @@ import { makeShims, SHIM_NAMES } from './fastledShims'
 import { compileFormulaSource, type FormulaFn } from './formulaLang'
 import { createBeatDetectorState, denormalizeBeatParam, updateBeatDetectorFromSpectrum } from '../audio/beatDetection'
 import { denormalizeAudioFlowParam } from './audioFlowRange'
-import { SPEED_MAX, SCALE_MAX, NOISE_SPEED_MAX, NOISE_SCALE_MAX, FORMULA_FIELD_SPEED_MAX, denormRate } from './speedRange'
+import { SPEED_MAX, SCALE_MAX, NOISE_SPEED_MAX, NOISE_SCALE_MAX, FORMULA_POINTS_SPEED_MAX, FORMULA_FIELD_SPEED_MAX, denormRate } from './speedRange'
 import { particleRadius } from './particleScale'
 import { hsv, samplePalette } from './ledColor'
 import type { RGB, Palette, Frame } from './ledColor'
@@ -412,7 +412,7 @@ function stateMaps(): StateMap[] {
     percussionLevels, audioFeatureLevels,
     rdState, golState, waveSimState, flowState, colorTrailsState, spectrumVisualizerState, starState, boidState, sparkState, fire2012Heat,
     kickShockState, kaleidoPunch, percussionBlobsState, emberBurst,
-    rainRipplesState, prismOrientation, driftPhase,
+    rainRipplesState, prismOrientation, driftPhase, formulaPointsState,
   ]
 }
 
@@ -493,6 +493,7 @@ export function getEvaluatorMemoryStats(): {
     emberBurst: emberBurst.size, rainRipplesState: rainRipplesState.size,
     prismOrientation: prismOrientation.size, driftPhase: driftPhase.size,
     formulaCache: formulaCache.size, fieldFormulaCache: fieldFormulaCache.size,
+    formulaPointsState: formulaPointsState.size,
   }
   let framePixels = 0, frameLists = 0
   for (const [key, list] of framePoolFree) {
@@ -2687,6 +2688,159 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
     splatDisc(frame, p.x, p.y, radius, scaleRgb(samplePalette(palette, k), k))
   }
   return frame
+}
+
+// ── Formula Points (curated stateful point/trajectory generators — see
+// docs/development/design/formula-pattern-nodes.md) ────────────────────────
+// The pattern-category, self-contained-frame-generator sibling of
+// FormulaField: unlike Particles' procedural spawn/decay pools, each variant
+// is exact closed-form/iterated math shared identically by evaluator and
+// codegen (same "no algorithm drift" property FormulaField's rose/
+// superformula/etc. already rely on).
+const GOLDEN_ANGLE = 2 * Math.PI * (1 - 1 / 1.618033988749895)
+
+// de Jong attractor coefficients (x' = sin(a·y) − cos(b·x), y' = sin(c·x) −
+// cos(d·y)) — unconditionally bounded to [-2,2] regardless of (a,b,c,d) since
+// sin/cos never exceed 1, so every preset is stable with no escape/clamp
+// logic needed. Named presets instead of exposing raw coefficients, the same
+// convention Fire/Fire2012 use for their `seed` LCG rather than raw params.
+const DE_JONG_PRESETS: Readonly<Record<string, readonly [number, number, number, number]>> = {
+  classic: [1.4, -2.3, 2.4, -2.1],
+  swirl: [-2.7, -0.09, -0.86, -2.2],
+  web: [-0.827, -1.637, 1.659, -0.943],
+}
+
+export interface FormulaPointsParams {
+  formulaType: string
+  speed: number
+  dotSize: number
+  palette: Palette
+  count: number
+  persistence: number
+  freqA: number
+  freqB: number
+  petals: number
+  chaos: number
+  preset: string
+}
+
+interface FormulaPointsState {
+  /** Persistent render buffer for the trail/accumulate variants
+   *  (lissajousPath/rosePath/attractor) — unpooled, like trailState. */
+  frame?: Frame
+  logisticX?: number
+  attractorX?: number
+  attractorY?: number
+}
+const formulaPointsState = new Map<string, FormulaPointsState>()
+
+function fadeFrameInPlace(frame: Frame, retain: number): void {
+  const r = clamp01(retain)
+  for (let y = 0; y < frame.length; y++) {
+    const row = frame[y]
+    for (let x = 0; x < row.length; x++) {
+      const px = row[x]
+      px.r = Math.round(px.r * r)
+      px.g = Math.round(px.g * r)
+      px.b = Math.round(px.b * r)
+    }
+  }
+}
+
+function formulaPointsTrailBuf(st: FormulaPointsState, W: number, H: number): Frame {
+  return st.frame && st.frame.length === H && st.frame[0]?.length === W ? st.frame : rawBlankFrame(W, H)
+}
+
+function hueWrap01(v: number): number {
+  const w = v % 1
+  return w < 0 ? w + 1 : w
+}
+
+function evalFormulaPoints(key: string, p: FormulaPointsParams, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const radius = Math.max(0.5, particleRadius(W, H) * Math.max(0.1, p.dotSize))
+  const st = formulaPointsState.get(key) ?? {}
+  const count = Math.max(1, Math.min(300, Math.round(p.count)))
+
+  switch (p.formulaType) {
+    case 'logisticMap': {
+      let x = st.logisticX ?? 0.5
+      const r = Math.max(0, Math.min(4, p.chaos))
+      const frame = blankFrame(W, H)
+      for (let i = 0; i < count; i++) {
+        x = r * x * (1 - x)
+        const ang = (i / count) * Math.PI * 2
+        const rad = 0.5 * x
+        const px = (0.5 + rad * Math.cos(ang)) * (W - 1)
+        const py = (0.5 + rad * Math.sin(ang)) * (H - 1)
+        splatDisc(frame, px, py, radius, samplePalette(p.palette, x))
+      }
+      st.logisticX = x
+      formulaPointsState.set(key, st)
+      return frame
+    }
+
+    case 'attractor': {
+      const [a, b, c, d] = DE_JONG_PRESETS[p.preset] ?? DE_JONG_PRESETS.classic
+      let ax = st.attractorX ?? 0.1, ay = st.attractorY ?? 0.1
+      const buf = formulaPointsTrailBuf(st, W, H)
+      fadeFrameInPlace(buf, p.persistence)
+      for (let i = 0; i < count; i++) {
+        const nx = Math.sin(a * ay) - Math.cos(b * ax)
+        const ny = Math.sin(c * ax) - Math.cos(d * ay)
+        ax = nx; ay = ny
+        const px = ((ax + 2) / 4) * (W - 1)
+        const py = ((ay + 2) / 4) * (H - 1)
+        splatDisc(buf, px, py, radius, samplePalette(p.palette, i / count))
+      }
+      st.attractorX = ax; st.attractorY = ay; st.frame = buf
+      formulaPointsState.set(key, st)
+      return buf
+    }
+
+    case 'lissajousPath': {
+      const buf = formulaPointsTrailBuf(st, W, H)
+      fadeFrameInPlace(buf, p.persistence)
+      const phase = t * p.speed * (FORMULA_POINTS_SPEED_MAX.lissajousPath ?? 1)
+      const cx = Math.sin(Math.max(1, p.freqA) * phase)
+      const cy = Math.sin(Math.max(1, p.freqB) * phase)
+      const px = ((cx + 1) / 2) * (W - 1)
+      const py = ((cy + 1) / 2) * (H - 1)
+      splatDisc(buf, px, py, radius, samplePalette(p.palette, hueWrap01(phase / (2 * Math.PI))))
+      st.frame = buf
+      formulaPointsState.set(key, st)
+      return buf
+    }
+
+    case 'rosePath': {
+      const buf = formulaPointsTrailBuf(st, W, H)
+      fadeFrameInPlace(buf, p.persistence)
+      const phase = t * p.speed * (FORMULA_POINTS_SPEED_MAX.rosePath ?? 1)
+      const k = Math.max(1, p.petals)
+      const rr = Math.cos(k * phase)
+      const cx = rr * Math.cos(phase)
+      const cy = rr * Math.sin(phase)
+      const px = ((cx + 1) / 2) * (W - 1)
+      const py = ((cy + 1) / 2) * (H - 1)
+      splatDisc(buf, px, py, radius, samplePalette(p.palette, hueWrap01(phase / (2 * Math.PI))))
+      st.frame = buf
+      formulaPointsState.set(key, st)
+      return buf
+    }
+
+    case 'phyllotaxis':
+    default: {
+      const spin = t * p.speed * (FORMULA_POINTS_SPEED_MAX.phyllotaxis ?? 1)
+      const frame = blankFrame(W, H)
+      for (let i = 0; i < count; i++) {
+        const ang = i * GOLDEN_ANGLE + spin
+        const rr = Math.sqrt(i / count)
+        const px = (0.5 + 0.5 * rr * Math.cos(ang)) * (W - 1)
+        const py = (0.5 + 0.5 * rr * Math.sin(ang)) * (H - 1)
+        splatDisc(frame, px, py, radius, samplePalette(p.palette, i / count))
+      }
+      return frame
+    }
+  }
 }
 
 function evalGradientFrame(cA: RGB, cB: RGB, vertical: boolean, W = DEFAULT_W, H = DEFAULT_H): Frame {
@@ -5859,6 +6013,28 @@ function createEvalNode(
           bounce: Math.max(0, Number(props.bounce ?? 1)),
         }
         out = { frame: evalParticles(stateKey(id), mode, rate, palette, decay, t, W, H, opts, normalizedSeed(props.seed)) }
+        break
+      }
+
+      // Curated stateful point/trajectory generators (phyllotaxis/Lissajous/
+      // rose paths/logistic map/de Jong attractor) — see
+      // docs/development/design/formula-pattern-nodes.md. No wired inputs
+      // besides the optional palette; every control is a property.
+      case 'FormulaPoints': {
+        const fp: FormulaPointsParams = {
+          formulaType: String(props.formulaType ?? 'phyllotaxis'),
+          speed: Number(props.speed ?? 0.3),
+          dotSize: Number(props.dotSize ?? 1),
+          palette: pal(id, 'paletteIn', props, 'palette', 'rainbow'),
+          count: Number(props.count ?? 60),
+          persistence: Number(props.persistence ?? 0.85),
+          freqA: Number(props.freqA ?? 3),
+          freqB: Number(props.freqB ?? 2),
+          petals: Number(props.petals ?? 5),
+          chaos: Number(props.chaos ?? 3.8),
+          preset: String(props.preset ?? 'classic'),
+        }
+        out = { frame: evalFormulaPoints(stateKey(id), fp, t, W, H) }
         break
       }
 
