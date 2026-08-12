@@ -30,7 +30,8 @@ export const PERIPHERAL_GAP = 30
  * Sharing one lane per module drew an encoder's A/B/SW on top of each other,
  * and packing modules 6px apart made neighbouring runs impossible to trace.
  */
-export const PERIPHERAL_LANE_BASE = 22
+/** Deep enough that the first lane clears the downward VCC/GND stub labels. */
+export const PERIPHERAL_LANE_BASE = 42
 export const PERIPHERAL_LANE_SPACING = 13
 /** Clear of the deepest lane, with room for the downward GND/VCC stub labels. */
 export function peripheralClearance(rowSignalCount: number) {
@@ -44,9 +45,20 @@ export const PERIPHERAL_ROW_GAP = 34
  */
 export const PERIPHERALS_PER_ROW = 3
 
-const PAD_Y_RATIO = 0.8595
-const PAD_X_RATIOS_3 = [0.4215, 0.5, 0.5797]
-const PAD_X_RATIOS_5 = [0.3406, 0.4203, 0.5, 0.5785, 0.6582]
+/**
+ * Measured from the gold pad rings themselves (centroid per hole), not from the
+ * densest gold scanline — the corner mounting holes share that band and pulled
+ * an earlier estimate ~4px high.
+ */
+const PAD_Y_RATIO = 0.884
+const PAD_X_RATIOS_3 = [0.4196, 0.4995, 0.579]
+const PAD_X_RATIOS_5 = [0.34, 0.4194, 0.4992, 0.5787, 0.658]
+
+/**
+ * Pads sit ~18px above the board edge at render scale, so a stub needs a lead
+ * long enough to put its symbol clear of the artwork rather than on top of it.
+ */
+export const PERIPHERAL_STUB_LEAD = 26
 
 /** Pads run VCC, [signals...], GND left to right on every module. */
 export function peripheralPadCount(kind: HardwareManifestItem['kind']) {

@@ -26,6 +26,7 @@ import {
   PERIPHERAL_LANE_SPACING,
   PERIPHERAL_RENDER_H,
   PERIPHERAL_RENDER_W,
+  PERIPHERAL_STUB_LEAD,
   physicalAssemblyDiagramHeight,
   powerSectionStartY,
   type ItemLayout,
@@ -669,7 +670,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
           const vccPad = peripheralPadPoint(layout, 0)
           const groundPad = peripheralPadPoint(layout, peripheralPadCount(layout.item.kind) - 1)
           return <g key={layout.item.id}>
-            <NetStub x={vccPad.x} y={vccPad.y} kind="v3v3" direction="down" wireId={`${layout.item.id}-3v3`} />
+            <NetStub x={vccPad.x} y={vccPad.y} kind="v3v3" direction="down" lead={PERIPHERAL_STUB_LEAD} wireId={`${layout.item.id}-3v3`} />
             {layers.signalWires && peripheralConnections.map((connection, index) => {
               const controllerIndex = controllerConnections.indexOf(connection)
               const controllerPoint = controllerConnectionPoint(connection, controllerIndex, controllerConnections.length, boardProfile)
@@ -684,7 +685,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
                 className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? controlWireClass(layoutIndex) : styles.dimWire}
               />
             })}
-            <NetStub x={groundPad.x} y={groundPad.y} kind="gnd" direction="down" wireId={`${layout.item.id}-ground`} />
+            <NetStub x={groundPad.x} y={groundPad.y} kind="gnd" direction="down" lead={PERIPHERAL_STUB_LEAD} wireId={`${layout.item.id}-ground`} />
           </g>
         })}
         {layers.levelShifter && Array.from({ length: Math.ceil(outputLayouts.length / 4) }, (_, chipIndex) => {
