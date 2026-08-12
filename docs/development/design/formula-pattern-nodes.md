@@ -1,6 +1,7 @@
 # Formula-driven pattern nodes — design note
 
-Status: proposed (not yet implemented) · Owner: app · Date: 2026-08-10
+Status: `FormulaField` implemented (2026-08-12); `FormulaPoints` not yet
+implemented · Owner: app · Date: 2026-08-10
 
 ## Problem
 
@@ -60,41 +61,63 @@ other's rendering model.
 
 ---
 
-## `FormulaField` (category: `field`)
+## `FormulaField` (category: `field`) — implemented
 
 Per-pixel closed-form expression selected by a curated dropdown instead of
 free text, output as a `field` (0–1) so it composes with the rest of the
 float-field pipeline — chain a `FieldToFrame` for palette mapping, or feed
 it into `FieldWarp`/`FieldMath`/`FieldRotate` first.
 
-**Ports:** none required; optional `phase` (float) input to drive animation
-externally instead of the built-in `speed` property, matching `FieldRotate`'s
-`angle` input + `spin` property pattern.
+**Ports:** none — as built, there is no `phase` input. The externally-driven
+`phase` port originally sketched here was cut for the smallest-first
+implementation (nothing wires it, and `speed` already reaches the same
+result); revisit only if a concrete use case for external phase control
+shows up.
 
 **Property:** `formulaType` (select).
 
 | `formulaType` | Formula | Per-variant properties |
 |---|---|---|
-| `rose` | `v = cos(k·angle)` | `petals` (k), `phase` |
-| `superformula` | Gielis superformula radius test | `symmetry` (m), `n1`, `n2`, `n3`, `a`, `b` |
-| `fibonacciSpiral` | distance-to-nearest golden-pitch spiral arm | `turns`, `tightness`, `bandWidth` |
-| `goldenTiling` | `frac(n·0.618…)` low-discrepancy banding | `density`, `phase` |
-| `lissajousField` | distance-to-static-Lissajous-curve | `freqA`, `freqB`, `phaseOffset` |
+| `rose` | filled `v = (cos(k·angle)+1)/2`, radius-faded | `petals` (k), `offset` (deg) |
+| `superformula` | Gielis superformula, filled silhouette + soft edge | `symmetry` (m), `n1`, `n2`, `n3`, `a`, `b` |
+| `fibonacciSpiral` | distance-to-nearest golden-pitch log-spiral arm | `turns`, `tightness`, `bandWidth` |
+| `goldenTiling` | `frac(n/φ)` low-discrepancy concentric rings | `density`, `phase` |
+| `lissajousField` | nearest-sample distance to a Lissajous curve | `freqA`, `freqB`, `thickness` |
+
+(`offset`/`phase` replaced the originally-sketched shared "phase" property
+name to avoid ambiguity with the cut phase *port* above — `offset` is a
+static rotation for `rose`, `phase` is a static ring-index offset for
+`goldenTiling`.)
 
 Each variant's params are gated via `isPropertyEnabled` (the `Transition`
 convention — shown-but-disabled outside the relevant variant). `speed`
-advances a shared phase term the same way `Rainbow`'s `speed` does.
+(0–1, denormalized per-variant via `FORMULA_FIELD_SPEED_MAX` in
+`speedRange.ts`, the same convention as `Noise`'s `NOISE_SPEED_MAX`)
+advances a shared rotation/drift term for every variant.
 
-**Evaluator:** one shared pure function per variant (same shape as
-`FieldNoise`'s `_snoise2` helper), dispatched by `formulaType` in a single
-`case` in `evalNode()`, writing into a `Float32Array` like `FieldFormula`.
-No approximation gap to document — unlike `inoise8`-backed nodes, these are
-exact closed-form math, so JS and C++ can share the identical formula (the
-same "no algorithm drift" property `Pride2015`/`Pacifica`/`TwinkleFox`
-already lean on).
+**Evaluator:** `evalFormulaField()` in `graphEvaluator.ts`, one `switch`
+branch per variant, dispatched by the `case 'FormulaField':` in `evalNode()`,
+writing into a `Float32Array` like `FieldFormula`. No approximation gap to
+document — unlike `inoise8`-backed nodes, these are exact closed-form math,
+so JS and C++ share the identical formula (the same "no algorithm drift"
+property `Pride2015`/`Pacifica`/`TwinkleFox` already lean on). The one
+exception is `lissajousField`, which has no closed-form point-to-curve
+distance — it samples the curve at `LISSAJOUS_FIELD_SAMPLES = 48` points per
+pixel (exported from `graphEvaluator.ts` so codegen uses the identical
+count), a per-frame cost comparable to `WaveSim`'s up-to-12 full-grid
+convolution passes rather than a new order of magnitude for this codebase.
 
-**Codegen:** the same per-variant formula emitted into the existing
-`float field_<id>[NUM_LEDS]` double-`for` loop pattern `FieldFormula` uses.
+**Codegen:** the `case 'FormulaField':` in `cppGenerator.ts`'s `emit()`
+bakes one dedicated C++ block for the *selected* variant only (the variant
+is a property, never wired, so there's nothing to branch on at runtime) —
+same `field_<id>[NUM_LEDS]` buffer convention `FieldFormula` uses. `GOLDEN_RATIO`
+is exported from `graphEvaluator.ts` so both sides reference the identical
+literal.
+
+**Tests:** `graphEvaluator.test.ts` ("Formula Field") covers range bounds,
+determinism, per-parameter variation, and time-driven animation for all five
+variants; `cppGenerator.test.ts` ("Formula Field codegen") asserts the exact
+baked C++ per variant.
 
 ---
 
@@ -133,14 +156,15 @@ by `estimateFirmwareRam()`'s existing per-node accounting.
 
 ---
 
-## A `PHI` constant
+## A `PHI` constant — implemented
 
-Independent of either node, `src/state/formulaLang.ts`'s `MATH_CONSTANTS`
-currently only defines `PI` (`Math.PI`). Adding `PHI: 1.618033988749895`
-there is a one-line, low-risk addition so any *free-text* `CustomFormula`/
-`FieldFormula` expression can write `PHI` instead of the literal — useful
-independent of whether `FormulaField`/`FormulaPoints` ship, and worth doing
-first since it's a trivial, isolated change.
+`src/state/formulaLang.ts`'s `MATH_CONSTANTS` now defines `PHI:
+1.618033988749895` alongside `PI`, so any *free-text* `CustomFormula`/
+`FieldFormula` expression can write `PHI` instead of the literal. Since
+preview and firmware must agree, `cppGenerator.ts` also gained a `needsPhi`
+flag (mirroring the existing `needsShims` gating): a formula referencing
+`PHI` triggers a conditionally-emitted `#define PHI 1.618033988749895f` in
+the generated sketch, so the same expression compiles unchanged on-device.
 
 ## Relationship to existing nodes
 
@@ -175,11 +199,11 @@ first since it's a trivial, isolated change.
 
 ## Suggested build order
 
-1. Add `PHI` to `formulaLang.ts` (trivial, independent, immediately useful).
-2. `FormulaField` — stateless, smallest new surface, slots in next to
-   `FieldFormula`/`FieldNoise` with the least new machinery.
-3. `FormulaPoints` — stateful, follow-up once the field half is validated
-   and the naming/subcategory questions above are settled.
-
-Nothing here is implemented yet; this note exists to capture the shape
-the conversation converged on before writing any node code.
+1. ~~Add `PHI` to `formulaLang.ts`~~ — done.
+2. ~~`FormulaField`~~ — done (2026-08-12): all five variants, evaluator,
+   codegen, `isPropertyEnabled` gating, `PROPERTY_META_OVERRIDES`,
+   `BUNDLED_TITLES` header text, and tests. Not yet hardware-validated —
+   like every new node, needs a real compile/flash pass confirming firmware
+   output matches preview before it can be marked validated.
+3. `FormulaPoints` — stateful, still unimplemented; the naming/subcategory
+   and attractor-coefficient-preset open questions above still apply.

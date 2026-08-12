@@ -17,7 +17,7 @@ import { makeShims, SHIM_NAMES } from './fastledShims'
 import { compileFormulaSource, type FormulaFn } from './formulaLang'
 import { createBeatDetectorState, denormalizeBeatParam, updateBeatDetectorFromSpectrum } from '../audio/beatDetection'
 import { denormalizeAudioFlowParam } from './audioFlowRange'
-import { SPEED_MAX, SCALE_MAX, NOISE_SPEED_MAX, NOISE_SCALE_MAX, denormRate } from './speedRange'
+import { SPEED_MAX, SCALE_MAX, NOISE_SPEED_MAX, NOISE_SCALE_MAX, FORMULA_FIELD_SPEED_MAX, denormRate } from './speedRange'
 import { particleRadius } from './particleScale'
 import { hsv, samplePalette } from './ledColor'
 import type { RGB, Palette, Frame } from './ledColor'
@@ -3967,6 +3967,142 @@ function evalFieldFormula(formula: string, a: number, b: number, fieldIn: Field 
   return out
 }
 
+// ── Formula Field (curated closed-form fields — see
+// docs/development/design/formula-pattern-nodes.md) ────────────────────────
+// Each `formulaType` is exact closed-form math, so the evaluator and codegen
+// share the identical formula with no approximation gap (unlike inoise8-backed
+// fields) — the same property FieldFormula's shim table and Pride2015/Pacifica/
+// TwinkleFox already rely on.
+export const GOLDEN_RATIO = 1.618033988749895
+// FormulaField's lissajousField variant samples the curve at this many points
+// per pixel to approximate distance-to-curve (no closed form exists for an
+// arbitrary Lissajous curve) — comparable per-frame cost to WaveSim's
+// up-to-12 full-grid convolution passes, not a new order of magnitude for
+// this codebase. Exported so cppGenerator.ts's codegen case uses the exact
+// same sample count (no evaluator/firmware divergence).
+export const LISSAJOUS_FIELD_SAMPLES = 48
+
+export interface FormulaFieldParams {
+  formulaType: string
+  speed: number
+  petals: number
+  offset: number
+  symmetry: number
+  n1: number
+  n2: number
+  n3: number
+  a: number
+  b: number
+  turns: number
+  tightness: number
+  bandWidth: number
+  density: number
+  phase: number
+  freqA: number
+  freqB: number
+  thickness: number
+}
+
+function evalFormulaField(p: FormulaFieldParams, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+  const out = allocField(W * H)
+  const rot = t * p.speed * (FORMULA_FIELD_SPEED_MAX[p.formulaType] ?? 1)
+
+  switch (p.formulaType) {
+    case 'superformula': {
+      const theta0 = rot
+      const m = Math.max(1, p.symmetry)
+      const invN1 = 1 / Math.max(0.05, p.n1)
+      const n2 = Math.max(0.05, p.n2), n3 = Math.max(0.05, p.n3)
+      const sfA = Math.max(0.05, p.a), sfB = Math.max(0.05, p.b)
+      const edge = 0.06
+      for (let yi = 0; yi < H; yi++) {
+        for (let xi = 0; xi < W; xi++) {
+          const cx = centeredX(xi, W), cy = centeredY(yi, H)
+          const r = Math.sqrt(cx * cx + cy * cy)
+          const theta = Math.atan2(cy, cx) + theta0
+          const t1 = Math.abs(Math.cos(m * theta / 4) / sfA)
+          const t2 = Math.abs(Math.sin(m * theta / 4) / sfB)
+          const raux = Math.pow(Math.pow(t1, n2) + Math.pow(t2, n3), -invN1)
+          out[yi * W + xi] = clamp01(1 - (r - raux) / edge)
+        }
+      }
+      break
+    }
+
+    case 'fibonacciSpiral': {
+      const nTurns = Math.max(1, p.turns)
+      const aSp = Math.max(0.02, p.tightness)
+      const bw = Math.max(0.02, p.bandWidth)
+      const period = (2 * Math.PI) / nTurns
+      const lnPhi = Math.log(GOLDEN_RATIO)
+      for (let yi = 0; yi < H; yi++) {
+        for (let xi = 0; xi < W; xi++) {
+          const cx = centeredX(xi, W), cy = centeredY(yi, H)
+          const r = Math.max(Math.sqrt(cx * cx + cy * cy), 1e-4)
+          const angle = Math.atan2(cy, cx)
+          const phaseAtR = (Math.PI / 2) * Math.log(r / aSp) / lnPhi
+          let delta = (angle + rot - phaseAtR) % period
+          if (delta < 0) delta += period
+          if (delta > period / 2) delta = period - delta
+          out[yi * W + xi] = clamp01(1 - delta / bw)
+        }
+      }
+      break
+    }
+
+    case 'goldenTiling': {
+      const dens = Math.max(1, p.density)
+      for (let yi = 0; yi < H; yi++) {
+        for (let xi = 0; xi < W; xi++) {
+          const cx = centeredX(xi, W), cy = centeredY(yi, H)
+          const r = Math.sqrt(cx * cx + cy * cy)
+          const nIdx = Math.floor(r * dens + rot + p.phase)
+          const golden = nIdx / GOLDEN_RATIO
+          out[yi * W + xi] = golden - Math.floor(golden)
+        }
+      }
+      break
+    }
+
+    case 'lissajousField': {
+      const freqA = Math.max(1, p.freqA), freqB = Math.max(1, p.freqB)
+      const thickness = Math.max(0.02, p.thickness)
+      for (let yi = 0; yi < H; yi++) {
+        for (let xi = 0; xi < W; xi++) {
+          const cx = centeredX(xi, W), cy = centeredY(yi, H)
+          let minDistSq = Infinity
+          for (let s = 0; s < LISSAJOUS_FIELD_SAMPLES; s++) {
+            const sp = (s / LISSAJOUS_FIELD_SAMPLES) * Math.PI * 2
+            const lx = Math.sin(freqA * sp + rot), ly = Math.sin(freqB * sp)
+            const dx = cx - lx, dy = cy - ly
+            const dSq = dx * dx + dy * dy
+            if (dSq < minDistSq) minDistSq = dSq
+          }
+          out[yi * W + xi] = clamp01(1 - Math.sqrt(minDistSq) / thickness)
+        }
+      }
+      break
+    }
+
+    case 'rose':
+    default: {
+      const k = Math.max(1, p.petals)
+      const offsetRad = (p.offset * Math.PI) / 180
+      for (let yi = 0; yi < H; yi++) {
+        for (let xi = 0; xi < W; xi++) {
+          const cx = centeredX(xi, W), cy = centeredY(yi, H)
+          const r = Math.sqrt(cx * cx + cy * cy)
+          const angle = Math.atan2(cy, cx)
+          const rr = Math.cos(k * (angle + offsetRad + rot))
+          out[yi * W + xi] = clamp01((rr + 1) / 2 * (1 - r * 0.15))
+        }
+      }
+      break
+    }
+  }
+  return out
+}
+
 const WAVE_SIM_POINTS: ReadonlyArray<readonly [number, number]> = [
   [0.5, 0.5],
   [0.26, 0.34],
@@ -6336,6 +6472,35 @@ function createEvalNode(
         const scale   = denormRate(num(id, 'scale', props, 'scale', 0.3), SCALE_MAX.FieldNoise)
         const octaves = Number(props.octaves ?? 4)
         out = { field: evalFieldNoise(speed, scale, octaves, t, W, H, normalizedSeed(props.seed)) }
+        break
+      }
+
+      // Curated closed-form fields (rose/superformula/spiral/tiling/lissajous)
+      // selected by a dropdown instead of free text — see
+      // docs/development/design/formula-pattern-nodes.md. No wired inputs;
+      // every control is a property.
+      case 'FormulaField': {
+        const fp: FormulaFieldParams = {
+          formulaType: String(props.formulaType ?? 'rose'),
+          speed: Number(props.speed ?? 0.3),
+          petals: Number(props.petals ?? 5),
+          offset: Number(props.offset ?? 0),
+          symmetry: Number(props.symmetry ?? 6),
+          n1: Number(props.n1 ?? 0.3),
+          n2: Number(props.n2 ?? 0.3),
+          n3: Number(props.n3 ?? 0.3),
+          a: Number(props.a ?? 1),
+          b: Number(props.b ?? 1),
+          turns: Number(props.turns ?? 3),
+          tightness: Number(props.tightness ?? 0.15),
+          bandWidth: Number(props.bandWidth ?? 0.25),
+          density: Number(props.density ?? 12),
+          phase: Number(props.phase ?? 0),
+          freqA: Number(props.freqA ?? 3),
+          freqB: Number(props.freqB ?? 2),
+          thickness: Number(props.thickness ?? 0.1),
+        }
+        out = { field: evalFormulaField(fp, t, W, H) }
         break
       }
 

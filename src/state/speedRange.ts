@@ -45,6 +45,13 @@ export const NOISE_SCALE_MAX: Record<string, number> = {
   field: 2, simplex: 0.5, noise3d: 0.5, noise4d: 0.5, worley: 0.3, plasma: 0.2, sine: 1,
 }
 
+/** Bundled FormulaField node — speed `1.0` per `formulaType` variant. Units are
+ *  radians/sec of rotation for the angle-driven variants, and index-units/sec
+ *  of ring drift for `goldenTiling`. */
+export const FORMULA_FIELD_SPEED_MAX: Record<string, number> = {
+  rose: 2, superformula: 1.5, fibonacciSpiral: 1, goldenTiling: 6, lissajousField: 1.5,
+}
+
 /** Map a 0–1 UI value onto the internal `[0, max]` rate (evaluator side). */
 export function denormRate(value: number, max: number): number {
   return clamp01(value) * max

@@ -2148,6 +2148,42 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { speed: 0.25, scale: 0.3, octaves: 4, seed: 0 },
   },
   {
+    // Curated closed-form fields, selected by a dropdown instead of typing a
+    // FieldFormula expression — a third raw-field generator beside
+    // FieldFormula (free-text) and FieldNoise (fBm). See
+    // docs/development/design/formula-pattern-nodes.md.
+    type: 'FormulaField',
+    label: 'Formula Field',
+    category: 'field',
+    inputs: [],
+    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    defaultProperties: {
+      formulaType: 'rose',
+      speed: 0.3,
+      // rose
+      petals: 5,
+      offset: 0,
+      // superformula
+      symmetry: 6,
+      n1: 0.3,
+      n2: 0.3,
+      n3: 0.3,
+      a: 1,
+      b: 1,
+      // fibonacciSpiral
+      turns: 3,
+      tightness: 0.15,
+      bandWidth: 0.25,
+      // goldenTiling
+      density: 12,
+      phase: 0,
+      // lissajousField
+      freqA: 3,
+      freqB: 2,
+      thickness: 0.1,
+    },
+  },
+  {
     // Damped ripple simulation on a scalar field. A rising-edge trigger injects
     // a new splash, so BeatDetect or a button can kick the water.
     type: 'WaveSim',
@@ -2706,6 +2742,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Code: 'Paste raw FastLED C++ that writes into leds[].',
   FieldFormula: 'Per-pixel scalar field from an expression (cx/cy/r/angle, sin8/beatsin8…).',
   FieldNoise: 'Organic fBm noise as a scalar field (same construction as Fractal Noise).',
+  FormulaField: 'Curated closed-form field: rose, superformula, spiral, tiling, Lissajous.',
   WaveSim: 'Damped 2D ripple simulation as a scalar field, with triggerable splashes.',
   FieldToFrame: 'Maps a scalar field through a palette to a frame.',
   DistanceField: 'Scalar field of distance from each pixel to a movable point.',
@@ -2781,7 +2818,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
   signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
-  field:  ['FieldFormula', 'FieldNoise', 'WaveSim', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldToFrame'],
+  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'WaveSim', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'PatternMaster', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
@@ -2928,6 +2965,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   divideBy:       { control: 'slider', min: 2, max: 16, step: 1 },
   delayTime:      { control: 'slider', min: 0.05, max: 5, step: 0.05 },
   fieldOp:        { control: 'select', options: ['add', 'subtract', 'multiply', 'mix', 'min', 'max', 'difference'] },
+  formulaType:    { control: 'select', options: ['rose', 'superformula', 'fibonacciSpiral', 'goldenTiling', 'lissajousField'] },
   particleType:   { control: 'select', options: [
     'fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow', 'swarm',
     'rain', 'embers', 'bubbles', 'vortex', 'orbit', 'confetti', 'fireflies',
@@ -3404,6 +3442,29 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     speed: N01,
     scale: N01,
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
+  },
+  FormulaField: {
+    speed: N01,
+    // rose
+    petals: { control: 'slider', min: 1, max: 12, step: 1 },
+    offset: { control: 'slider', min: 0, max: 360, step: 1 },
+    // superformula (Gielis)
+    symmetry: { control: 'slider', min: 1, max: 20, step: 1 },
+    n1: { control: 'slider', min: 0.05, max: 5, step: 0.05 },
+    n2: { control: 'slider', min: 0.05, max: 5, step: 0.05 },
+    n3: { control: 'slider', min: 0.05, max: 5, step: 0.05 },
+    a:  { control: 'slider', min: 0.2, max: 3, step: 0.05 },
+    b:  { control: 'slider', min: 0.2, max: 3, step: 0.05 },
+    // fibonacciSpiral (turns reuses the shared 1–6 `turns` slider below)
+    tightness: { control: 'slider', min: 0.02, max: 0.5, step: 0.01 },
+    bandWidth: { control: 'slider', min: 0.02, max: 0.6, step: 0.01 },
+    // goldenTiling
+    density: { control: 'slider', min: 2, max: 40, step: 1 },
+    phase:   { control: 'slider', min: 0, max: 1, step: 0.01 },
+    // lissajousField
+    freqA: { control: 'slider', min: 1, max: 8, step: 1 },
+    freqB: { control: 'slider', min: 1, max: 8, step: 1 },
+    thickness: { control: 'slider', min: 0.02, max: 0.3, step: 0.01 },
   },
   Image: {
     fit:       { control: 'select', options: ['stretch', 'contain', 'cover', 'original'] },
@@ -3964,6 +4025,16 @@ const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, stri
     prop: 'fieldOp',
     labels: { add: 'Field Add', subtract: 'Field Subtract', multiply: 'Field Multiply', mix: 'Field Mix', min: 'Field Min', max: 'Field Max', difference: 'Field Difference' },
   },
+  FormulaField: {
+    prop: 'formulaType',
+    labels: {
+      rose: 'Formula · Rose',
+      superformula: 'Formula · Superformula',
+      fibonacciSpiral: 'Formula · Fibonacci Spiral',
+      goldenTiling: 'Formula · Golden Tiling',
+      lissajousField: 'Formula · Lissajous',
+    },
+  },
   Particles: {
     prop: 'particleType',
     labels: {
@@ -4117,6 +4188,32 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
       case 'holdTime':   return op === 'oneShot'
       case 'divideBy':   return op === 'pulseDivider'
       case 'delayTime':  return op === 'delay'
+    }
+  }
+  if (nodeType === 'FormulaField') {
+    const ft = String(properties.formulaType ?? 'rose')
+    switch (key) {
+      case 'petals':
+      case 'offset':
+        return ft === 'rose'
+      case 'symmetry':
+      case 'n1':
+      case 'n2':
+      case 'n3':
+      case 'a':
+      case 'b':
+        return ft === 'superformula'
+      case 'turns':
+      case 'tightness':
+      case 'bandWidth':
+        return ft === 'fibonacciSpiral'
+      case 'density':
+      case 'phase':
+        return ft === 'goldenTiling'
+      case 'freqA':
+      case 'freqB':
+      case 'thickness':
+        return ft === 'lissajousField'
     }
   }
   if (nodeType === 'Transition') {
