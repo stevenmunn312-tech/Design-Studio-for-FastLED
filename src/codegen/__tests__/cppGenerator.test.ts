@@ -1823,6 +1823,77 @@ describe('Float Field — Phase 3 codegen', () => {
   })
 })
 
+describe('Formula Field codegen', () => {
+  const tail = (srcId: string) => {
+    const f2f = node('f2f', 'FieldToFrame', 'pattern', {})
+    return {
+      nodes: [f2f, outputNode],
+      edges: [edge('zf', srcId, 'f2f', 'field', 'field'), edge('zo', 'f2f', 'out', 'frame', 'frame')],
+    }
+  }
+
+  it('emits a dedicated block per formulaType, baked at generation time', () => {
+    const ff = node('ff', 'FormulaField', 'field', { formulaType: 'rose', petals: 4, speed: 0.5 })
+    const t = tail('ff')
+    const cpp = generateCpp([ff, ...t.nodes], t.edges)
+    expect(cpp).toContain('float field_ff[NUM_LEDS];')
+    expect(cpp).toContain('/* Formula Field: rose */')
+    expect(cpp).toContain('cosf(4.0f*(_ang+0.0f+_rot))')
+    expect(cpp).toContain('field_ff[_y*WIDTH+_x]=constrain((_rr+1.0f)/2.0f*(1.0f-_r*0.15f),0.0f,1.0f);')
+    expect(cpp).toContain('float t = millis()')   // needsT triggered
+  })
+
+  it('superformula bakes its Gielis parameters', () => {
+    const ff = node('ff', 'FormulaField', 'field', {
+      formulaType: 'superformula', symmetry: 8, n1: 1, n2: 1, n3: 1, a: 1, b: 1, speed: 0,
+    })
+    const t = tail('ff')
+    const cpp = generateCpp([ff, ...t.nodes], t.edges)
+    expect(cpp).toContain('/* Formula Field: superformula */')
+    expect(cpp).toContain('powf(powf(_t1,1.0f)+powf(_t2,1.0f),-1.0f)')
+  })
+
+  it('fibonacciSpiral bakes turns into the angular period', () => {
+    const ff = node('ff', 'FormulaField', 'field', {
+      formulaType: 'fibonacciSpiral', turns: 4, tightness: 0.15, bandWidth: 0.25, speed: 0,
+    })
+    const t = tail('ff')
+    const cpp = generateCpp([ff, ...t.nodes], t.edges)
+    expect(cpp).toContain('/* Formula Field: fibonacciSpiral */')
+    // period = 2π/4 ≈ 1.5708
+    expect(cpp).toContain('fmodf(_ang+_rot-_phaseAtR,1.5708f)')
+  })
+
+  it('goldenTiling bakes density and phase', () => {
+    const ff = node('ff', 'FormulaField', 'field', { formulaType: 'goldenTiling', density: 20, phase: 0.25, speed: 0 })
+    const t = tail('ff')
+    const cpp = generateCpp([ff, ...t.nodes], t.edges)
+    expect(cpp).toContain('/* Formula Field: goldenTiling */')
+    expect(cpp).toContain('_r*20.0f+_rot+0.25f')
+  })
+
+  it('lissajousField bakes the sample count and frequencies', () => {
+    const ff = node('ff', 'FormulaField', 'field', { formulaType: 'lissajousField', freqA: 5, freqB: 4, thickness: 0.1, speed: 0 })
+    const t = tail('ff')
+    const cpp = generateCpp([ff, ...t.nodes], t.edges)
+    expect(cpp).toContain('/* Formula Field: lissajousField */')
+    expect(cpp).toContain('for(int _s=0;_s<48;_s++)')
+    expect(cpp).toContain('sinf(5.0f*_sp+_rot),_ly=sinf(4.0f*_sp)')
+  })
+
+  it('CustomFormula referencing PHI emits the golden-ratio #define', () => {
+    const cf = node('cf', 'CustomFormula', 'pattern', { formula: 'sin(x*PHI)' })
+    const cpp = generateCpp([cf, outputNode], [edge('e1', 'cf', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('#define PHI 1.618033988749895f')
+  })
+
+  it('a formula without PHI does not emit the define', () => {
+    const cf = node('cf', 'CustomFormula', 'pattern', { formula: 'sin(x)' })
+    const cpp = generateCpp([cf, outputNode], [edge('e1', 'cf', 'out', 'frame', 'frame')])
+    expect(cpp).not.toContain('#define PHI')
+  })
+})
+
 describe('generateCpp — RadialBurst', () => {
   it('uses the compatible arms port as live ring density', () => {
     const density = node('density', 'Random', 'signal', { min: 2, max: 12 })

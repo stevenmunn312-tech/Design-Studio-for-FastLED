@@ -4,6 +4,8 @@ import {
   BEAT_FLASH_ATTACK_MAX_SEC,
   VOCAL_AURORA_MAX_INPUT_GAIN,
   VOCAL_AURORA_MIN_INPUT_GAIN,
+  GOLDEN_RATIO,
+  LISSAJOUS_FIELD_SAMPLES,
   audioHueWeight,
   scheduleTimeOfDay,
 } from '../state/graphEvaluator'
@@ -15,7 +17,7 @@ import { imagePaletteStops16 } from '../state/imagePalette'
 import { polineStops16, hexToRgb } from '../state/polinePalette'
 import { customPaletteDeclarationsCpp, paletteCppRef, resolvePaletteId } from '../state/paletteCatalog'
 import { audioFlowExpr } from '../state/audioFlowRange'
-import { SPEED_MAX, SCALE_MAX, NOISE_SPEED_MAX, NOISE_SCALE_MAX, rateCpp } from '../state/speedRange'
+import { SPEED_MAX, SCALE_MAX, NOISE_SPEED_MAX, NOISE_SCALE_MAX, FORMULA_FIELD_SPEED_MAX, rateCpp } from '../state/speedRange'
 import { denormalizeBeatParam, FLUX_GAIN } from '../audio/beatDetection'
 import {
   MIC_DEFAULTS,
@@ -1077,6 +1079,7 @@ export function generateCpp(
   const needsKelvin = { v: false }
   const needsT = { v: false }
   const needsShims = { v: false }
+  const needsPhi = { v: false }
   const needsXyMap = { v: false }
   // Frame-producing nodes each render into their own CRGB buffer, so multiple
   // layers can coexist and be composited. Collected here, declared as globals.
@@ -4807,6 +4810,7 @@ export function generateCpp(
         needsT.v = true
         const raw = String(p.formula ?? 'sin(x*6+t)*0.5+0.5')
         if (usesShims(raw)) needsShims.v = true
+        if (/\bPHI\b/.test(raw)) needsPhi.v = true
         const formula = cppRewriteShims(raw).replace(/\*\//g, '* /')
         const ob = ownBuf()
         const pal = paletteExpr(node.id, 'paletteIn', p)
@@ -4826,6 +4830,7 @@ export function generateCpp(
         needsT.v = true
         const raw = String(p.formula ?? 'sin8(r*200 + t*60)/255')
         if (usesShims(raw)) needsShims.v = true
+        if (/\bPHI\b/.test(raw)) needsPhi.v = true
         const formula = cppRewriteShims(raw).replace(/\*\//g, '* /')
         const of = ownField()
         const a = f('a', 'a', 0), b = f('b', 'b', 0)
@@ -4860,6 +4865,98 @@ export function generateCpp(
         ln(`        _v+=_amp*(inoise8((uint16_t)(_x*_freq),(uint16_t)(_y*_freq),_z)/255.0f);`)
         ln(`        _norm+=_amp; _amp*=0.5f; _freq*=2; }`)
         ln(`      ${of}[_y*WIDTH+_x]=constrain(_v/_norm,0.0f,1.0f);}}`)
+        break
+      }
+
+      // Curated closed-form fields — exact same math as evalFormulaField in
+      // graphEvaluator.ts (no approximation gap, unlike inoise8-backed fields),
+      // one dedicated block per formulaType baked at generation time (the
+      // variant isn't wired, so there's nothing to branch on at runtime). See
+      // docs/development/design/formula-pattern-nodes.md.
+      case 'FormulaField': {
+        needsT.v = true
+        const of = ownField()
+        const formulaType = String(p.formulaType ?? 'rose')
+        const speed01 = Math.max(0, Math.min(1, Number(p.speed ?? 0.3)))
+        const rotRate = speed01 * (FORMULA_FIELD_SPEED_MAX[formulaType] ?? 1)
+        const rotLit = floatLit(rotRate)
+        switch (formulaType) {
+          case 'superformula': {
+            const m = floatLit(Math.max(1, Number(p.symmetry ?? 6)))
+            const invN1 = floatLit(1 / Math.max(0.05, Number(p.n1 ?? 0.3)))
+            const n2 = floatLit(Math.max(0.05, Number(p.n2 ?? 0.3)))
+            const n3 = floatLit(Math.max(0.05, Number(p.n3 ?? 0.3)))
+            const sfA = floatLit(Math.max(0.05, Number(p.a ?? 1)))
+            const sfB = floatLit(Math.max(0.05, Number(p.b ?? 1)))
+            ln(`  { /* Formula Field: superformula */ float _rot=t*${rotLit};`)
+            ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+            ln(`      float _cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),_cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
+            ln(`      float _r=sqrtf(_cx*_cx+_cy*_cy),_theta=atan2f(_cy,_cx)+_rot;`)
+            ln(`      float _t1=fabsf(cosf(${m}*_theta/4.0f)/${sfA}),_t2=fabsf(sinf(${m}*_theta/4.0f)/${sfB});`)
+            ln(`      float _raux=powf(powf(_t1,${n2})+powf(_t2,${n3}),-${invN1});`)
+            ln(`      ${of}[_y*WIDTH+_x]=constrain(1.0f-(_r-_raux)/0.06f,0.0f,1.0f);}}`)
+            break
+          }
+          case 'fibonacciSpiral': {
+            const nTurns = Math.max(1, Number(p.turns ?? 3))
+            const aSp = floatLit(Math.max(0.02, Number(p.tightness ?? 0.15)))
+            const bw = floatLit(Math.max(0.02, Number(p.bandWidth ?? 0.25)))
+            const period = (2 * Math.PI) / nTurns
+            const periodLit = floatLit(period)
+            const lnPhiLit = floatLit(Math.log(GOLDEN_RATIO))
+            ln(`  { /* Formula Field: fibonacciSpiral */ float _rot=t*${rotLit};`)
+            ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+            ln(`      float _cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),_cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
+            ln(`      float _r=sqrtf(_cx*_cx+_cy*_cy); if(_r<1e-4f)_r=1e-4f;`)
+            ln(`      float _ang=atan2f(_cy,_cx);`)
+            ln(`      float _phaseAtR=(3.14159265f/2.0f)*logf(_r/${aSp})/${lnPhiLit};`)
+            ln(`      float _delta=fmodf(_ang+_rot-_phaseAtR,${periodLit}); if(_delta<0.0f)_delta+=${periodLit};`)
+            ln(`      if(_delta>${periodLit}/2.0f)_delta=${periodLit}-_delta;`)
+            ln(`      ${of}[_y*WIDTH+_x]=constrain(1.0f-_delta/${bw},0.0f,1.0f);}}`)
+            break
+          }
+          case 'goldenTiling': {
+            const dens = floatLit(Math.max(1, Number(p.density ?? 12)))
+            const phase = floatLit(Number(p.phase ?? 0))
+            const invPhi = floatLit(1 / GOLDEN_RATIO)
+            ln(`  { /* Formula Field: goldenTiling */ float _rot=t*${rotLit};`)
+            ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+            ln(`      float _cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),_cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
+            ln(`      float _r=sqrtf(_cx*_cx+_cy*_cy);`)
+            ln(`      float _n=floorf(_r*${dens}+_rot+${phase});`)
+            ln(`      float _g=_n*${invPhi};`)
+            ln(`      ${of}[_y*WIDTH+_x]=_g-floorf(_g);}}`)
+            break
+          }
+          case 'lissajousField': {
+            const freqA = floatLit(Math.max(1, Number(p.freqA ?? 3)))
+            const freqB = floatLit(Math.max(1, Number(p.freqB ?? 2)))
+            const thickness = floatLit(Math.max(0.02, Number(p.thickness ?? 0.1)))
+            ln(`  { /* Formula Field: lissajousField */ float _rot=t*${rotLit};`)
+            ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+            ln(`      float _cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),_cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
+            ln(`      float _minDSq=1e9f;`)
+            ln(`      for(int _s=0;_s<${LISSAJOUS_FIELD_SAMPLES};_s++){`)
+            ln(`        float _sp=((float)_s/${LISSAJOUS_FIELD_SAMPLES}.0f)*6.2831853f;`)
+            ln(`        float _lx=sinf(${freqA}*_sp+_rot),_ly=sinf(${freqB}*_sp);`)
+            ln(`        float _dx=_cx-_lx,_dy=_cy-_ly,_dSq=_dx*_dx+_dy*_dy;`)
+            ln(`        if(_dSq<_minDSq)_minDSq=_dSq; }`)
+            ln(`      ${of}[_y*WIDTH+_x]=constrain(1.0f-sqrtf(_minDSq)/${thickness},0.0f,1.0f);}}`)
+            break
+          }
+          case 'rose':
+          default: {
+            const k = floatLit(Math.max(1, Number(p.petals ?? 5)))
+            const offsetRad = floatLit((Number(p.offset ?? 0) * Math.PI) / 180)
+            ln(`  { /* Formula Field: rose */ float _rot=t*${rotLit};`)
+            ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+            ln(`      float _cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),_cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
+            ln(`      float _r=sqrtf(_cx*_cx+_cy*_cy),_ang=atan2f(_cy,_cx);`)
+            ln(`      float _rr=cosf(${k}*(_ang+${offsetRad}+_rot));`)
+            ln(`      ${of}[_y*WIDTH+_x]=constrain((_rr+1.0f)/2.0f*(1.0f-_r*0.15f),0.0f,1.0f);}}`)
+            break
+          }
+        }
         break
       }
 
@@ -5386,6 +5483,13 @@ export function generateCpp(
 
   if (needsShims.v) {
     lines.push(CPP_SHIM_HELPERS)
+    lines.push(``)
+  }
+
+  if (needsPhi.v) {
+    // Golden ratio — matches formulaLang.ts's MATH_CONSTANTS.PHI so a
+    // CustomFormula/FieldFormula expression using PHI compiles unchanged.
+    lines.push(`#define PHI 1.618033988749895f`)
     lines.push(``)
   }
 

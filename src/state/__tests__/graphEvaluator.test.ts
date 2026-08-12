@@ -3083,6 +3083,90 @@ describe('Float Field — Phase 3 (FieldRotate / FieldTile)', () => {
   })
 })
 
+describe('Formula Field (curated closed-form fields)', () => {
+  function fieldOut(nodeId: string, nodes: StudioNode[], edges: StudioEdge[], tick = 0): Float32Array {
+    const { outputs } = evaluateGraphFull(nodes, edges, tick, W, H)
+    return outputs.get(nodeId)!.field as Float32Array
+  }
+  function withFieldTail(srcId: string, nodes: StudioNode[], edges: StudioEdge[]) {
+    const f2f = node('f2f', 'FieldToFrame', 'pattern', {})
+    const out = node('zzout', 'MatrixOutput', 'output', {})
+    return {
+      nodes: [...nodes, f2f, out],
+      edges: [...edges, edge('zf', srcId, 'field', 'f2f', 'field'), edge('zo', 'f2f', 'frame', 'zzout', 'frame')],
+    }
+  }
+  const variants = ['rose', 'superformula', 'fibonacciSpiral', 'goldenTiling', 'lissajousField']
+
+  it.each(variants)('%s stays in [0,1] and needs no wired input', (formulaType) => {
+    const ff = node('ff', 'FormulaField', 'field', { formulaType, speed: 0.3 })
+    const g = withFieldTail('ff', [ff], [])
+    const fld = fieldOut('ff', g.nodes, g.edges)
+    expect(fld.every((v) => v >= 0 && v <= 1)).toBe(true)
+    expect(fld.some((v) => v > 0)).toBe(true) // not degenerately all-zero
+  })
+
+  it.each(variants)('%s is deterministic for the same tick', (formulaType) => {
+    const ff = node('ff', 'FormulaField', 'field', { formulaType, speed: 0.3 })
+    const g = withFieldTail('ff', [ff], [])
+    expect([...fieldOut('ff', g.nodes, g.edges, 30)]).toEqual([...fieldOut('ff', g.nodes, g.edges, 30)])
+  })
+
+  it.each(variants)('%s animates over time when speed > 0', (formulaType) => {
+    const ff = node('ff', 'FormulaField', 'field', { formulaType, speed: 1 })
+    const g = withFieldTail('ff', [ff], [])
+    const at0 = fieldOut('ff', g.nodes, g.edges, 0)
+    const at2s = fieldOut('ff', g.nodes, g.edges, 120)
+    expect([...at2s]).not.toEqual([...at0])
+  })
+
+  it('rose petal count changes the field (more petals = more angular variation)', () => {
+    const mk = (petals: number) => {
+      const ff = node('ff', 'FormulaField', 'field', { formulaType: 'rose', speed: 0, petals })
+      const g = withFieldTail('ff', [ff], [])
+      return fieldOut('ff', g.nodes, g.edges)
+    }
+    expect([...mk(2)]).not.toEqual([...mk(8)])
+  })
+
+  it('superformula is filled near the centre (inside the shape)', () => {
+    const ff = node('ff', 'FormulaField', 'field', {
+      formulaType: 'superformula', speed: 0, symmetry: 6, n1: 0.3, n2: 0.3, n3: 0.3, a: 1, b: 1,
+    })
+    const g = withFieldTail('ff', [ff], [])
+    const fld = fieldOut('ff', g.nodes, g.edges)
+    const cx = Math.floor(W / 2), cy = Math.floor(H / 2)
+    expect(fld[cy * W + cx]).toBeGreaterThan(0.5)
+  })
+
+  it('goldenTiling density changes the ring count (distinct field)', () => {
+    const mk = (density: number) => {
+      const ff = node('ff', 'FormulaField', 'field', { formulaType: 'goldenTiling', speed: 0, density, phase: 0 })
+      const g = withFieldTail('ff', [ff], [])
+      return fieldOut('ff', g.nodes, g.edges)
+    }
+    expect([...mk(4)]).not.toEqual([...mk(30)])
+  })
+
+  it('fibonacciSpiral turns changes the arm count (distinct field)', () => {
+    const mk = (turns: number) => {
+      const ff = node('ff', 'FormulaField', 'field', { formulaType: 'fibonacciSpiral', speed: 0, turns, tightness: 0.15, bandWidth: 0.25 })
+      const g = withFieldTail('ff', [ff], [])
+      return fieldOut('ff', g.nodes, g.edges)
+    }
+    expect([...mk(1)]).not.toEqual([...mk(5)])
+  })
+
+  it('lissajousField frequency ratio changes the curve (distinct field)', () => {
+    const mk = (freqA: number, freqB: number) => {
+      const ff = node('ff', 'FormulaField', 'field', { formulaType: 'lissajousField', speed: 0, freqA, freqB, thickness: 0.1 })
+      const g = withFieldTail('ff', [ff], [])
+      return fieldOut('ff', g.nodes, g.edges)
+    }
+    expect([...mk(3, 2)]).not.toEqual([...mk(5, 4)])
+  })
+})
+
 // ── Signal utilities (Smooth / SampleHold / Switch / Envelope / FrameSwitch) ──
 
 describe('signal utility nodes', () => {
