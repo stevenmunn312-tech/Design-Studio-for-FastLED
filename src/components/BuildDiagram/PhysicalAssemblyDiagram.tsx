@@ -627,14 +627,18 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
       // use the second +V screw and the adjacent first -V screw.
       const psuPositive = { x: 153, y: sectionLayout.psuY + 64 }
       const psuGround = { x: 153, y: sectionLayout.psuY + 87 }
-      const positiveBus = `M${psuPositive.x} ${psuPositive.y}H274${blocks.map((block) => {
+      const positiveBus = blocks.map((block) => {
         const point = fuseBlockPoints(block.circuitCount, block.x, block.y).positive
-        return `M274 ${psuPositive.y}V${point.y}H${point.x}`
-      }).join('')}`
-      const groundBus = `M${psuGround.x} ${psuGround.y}H264${blocks.map((block) => {
+        const trunkX = block.x - 46 - (block.blockIndex * 10)
+        const approachY = block.y + FUSE_BLOCK_CELL_HEIGHT + 18 + (block.blockIndex * 10)
+        return `M${psuPositive.x} ${psuPositive.y}H${trunkX}V${approachY}H${point.x}V${point.y}`
+      }).join('')
+      const groundBus = blocks.map((block) => {
         const point = fuseBlockPoints(block.circuitCount, block.x, block.y).ground
-        return `M264 ${psuGround.y}V${point.y}H${point.x}`
-      }).join('')}`
+        const trunkX = block.x - 34 - (block.blockIndex * 10)
+        const approachY = block.y - 18 - (block.blockIndex * 10)
+        return `M${psuGround.x} ${psuGround.y}H${trunkX}V${approachY}H${point.x}V${point.y}`
+      }).join('')
 
       return <g key={supply.id} transform={`translate(0 ${sectionY})`}>
         <rect x="24" y="0" width="1072" height={sectionHeight} rx="12" fill="none" stroke="#a9afac" strokeWidth="2" />
@@ -663,8 +667,8 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
           <title>PSU negative output terminal / common ground</title>
         </circle>
 
-        <path data-wire={`${supply.id}-positive-bus`} d={positiveBus} className={styles.powerWire} />
-        <path data-wire={`${supply.id}-ground-bus`} d={groundBus} className={styles.groundWire} />
+        <path data-wire={`${supply.id}-positive-bus`} data-wire-role="main-psu-positive" d={positiveBus} className={styles.mainPowerWire} />
+        <path data-wire={`${supply.id}-ground-bus`} data-wire-role="main-psu-ground" d={groundBus} className={styles.mainGroundWire} />
         {/* Origin of the rails the level shifter and controller reach by shared-net symbol. */}
         <NetStub x={244} y={82} kind="v5" direction="up" wireId={`${supply.id}-rail-positive`} />
         <NetStub x={264} y={82} kind="gnd" direction="up" wireId={`${supply.id}-rail-ground`} />
@@ -721,17 +725,23 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
           const block = blocks.find((candidate) => index >= candidate.firstFeedIndex && index < candidate.firstFeedIndex + candidate.assignedFeedCount)!
           const slot = index - block.firstFeedIndex
           const slotColumn = slot % 2
+          const slotRow = Math.floor(slot / 2)
+          const circuitRows = block.circuitCount / 2
           const points = fuseBlockPoints(block.circuitCount, block.x, block.y)
           const { x: fuseX, y: fuseY } = points.circuit(slot)
           const { x: groundX, y: groundY } = points.groundCircuit(slot)
           const { x: positiveX, y: positiveY } = points.positive
           // Keep every red/black pair visibly separate, with another clear
           // interval before the next feed pair. No two polarities share a lane.
-          const groundLaneX = 470 + (index * 10)
-          const positiveLaneX = groundLaneX + 5
+          const groundLaneX = 450 + (index * 12)
+          const positiveLaneX = groundLaneX + 6
           const positiveExitX = slotColumn === 0 ? block.x - 8 : block.x + FUSE_BLOCK_CELL_WIDTH + 8
-          const branchExitY = sectionLayout.branchStartY - 30 + (slot * 2)
-          const groundExitX = block.x - 20
+          const upperFan = slot < (block.circuitCount / 2)
+          const positiveFanIndex = upperFan ? slot : slot - (block.circuitCount / 2)
+          const positiveDetourY = upperFan
+            ? block.y - 16 - (positiveFanIndex * 10)
+            : block.y + FUSE_BLOCK_CELL_HEIGHT + 16 + (positiveFanIndex * 10)
+          const groundDetourY = block.y - 14 - (slot * 7)
           const groundRowY = rowY + 32
           const capacitorX = 780
           const capacitorY = rowY - 64
@@ -757,8 +767,19 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
             >
               <title>Ground return · negative bus screw {slot + 1}</title>
             </circle>
-            <path data-wire={`${injection.id}-fused-positive`} d={`M${fuseX} ${fuseY}H${positiveExitX}V${branchExitY}H${positiveLaneX}V${rowY}H1020`} className={styles.powerWire} />
-            <path data-wire={`${injection.id}-ground`} d={`M${groundX} ${groundY}H${groundExitX}V${branchExitY + 10}H${groundLaneX}V${groundRowY}H1020`} className={styles.groundWire} />
+            <path
+              data-wire={`${injection.id}-fused-positive`}
+              data-fanout={upperFan ? 'upper' : 'lower'}
+              d={`M${fuseX} ${fuseY}H${positiveExitX}V${positiveDetourY}H${positiveLaneX}V${rowY}H1020`}
+              className={styles.powerWire}
+            />
+            <path
+              data-wire={`${injection.id}-ground`}
+              data-ground-screw-row={slotRow + 1}
+              data-ground-screw-count={circuitRows}
+              d={`M${groundX} ${groundY}V${groundDetourY}H${groundLaneX}V${groundRowY}H1020`}
+              className={styles.groundWire}
+            />
             <text x="854" y={rowY - 11} className={styles.physicalWireLabel}>{destination} · {formatAmps(injection.designCurrentMa)} · {wireText} · 500 mm</text>
             <g data-terminal={`${injection.id}-capacitor`}>
               <image
