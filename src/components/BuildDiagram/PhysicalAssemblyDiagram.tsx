@@ -4,6 +4,9 @@ import type { HardwareManifestItem } from '../../build/hardwareManifest'
 import devKitCBoardRender from '../../assets/boards/esp32-s3-devkitc-1.png'
 import microphoneRender from '../../assets/components/inmp441-breakout.png'
 import levelShifterRender from '../../assets/components/sn74ahct125n-dip14.png'
+import buttonModuleRender from '../../assets/components/button-module.png'
+import potentiometerModuleRender from '../../assets/components/potentiometer-module.png'
+import encoderModuleRender from '../../assets/components/encoder-module.png'
 import styles from './BuildDiagramWorkspace.module.css'
 import { CommonNetCallout, NetStub } from './netStubs'
 import type { BuildSectionLayers } from './diagramSections'
@@ -16,6 +19,11 @@ import {
   levelShifterSupplyPoint,
   levelShifterTerminalPoint,
   diagramContentBottom,
+  peripheralPadCount,
+  peripheralPadLabel,
+  peripheralPadPoint,
+  PERIPHERAL_RENDER_H,
+  PERIPHERAL_RENDER_W,
   physicalAssemblyDiagramHeight,
   powerSectionStartY,
   type ItemLayout,
@@ -164,15 +172,6 @@ function routeFromLevelShifterOutput(
   const chipY = levelShifterChipY(outputIndex)
   const detourY = chipY + LEVEL_SHIFTER_HEIGHT + 16 + ((outputIndex % 4) * 7)
   return `M${point.x} ${point.y}H410V${detourY}H650V${targetY}H${targetX}`
-}
-
-function peripheralSignalOffset(item: HardwareManifestItem, index: number) {
-  if (item.kind === 'pot-input') return 48
-  return 24 + (index * 24)
-}
-
-function peripheralGroundOffset(item: HardwareManifestItem) {
-  return item.kind === 'encoder-input' ? 94 : 82
 }
 
 type MicrophoneSignalRole = 'bclk' | 'ws' | 'dout'
@@ -364,25 +363,55 @@ function MicrophoneGraphic({ layout, connections, selected }: { layout: ItemLayo
   )
 }
 
+const PERIPHERAL_RENDERS: Partial<Record<HardwareManifestItem['kind'], { href: string; id: string }>> = {
+  'button-input': { href: buttonModuleRender, id: 'button-module' },
+  'pot-input': { href: potentiometerModuleRender, id: 'potentiometer-module' },
+  'encoder-input': { href: encoderModuleRender, id: 'encoder-module' },
+}
+
 function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; connections: PhysicalDiagramConnection[]; selected: boolean }) {
   const { x, y, item } = layout
-  const needsPower = item.kind === 'pot-input'
+  const render = PERIPHERAL_RENDERS[item.kind]
+  const padLabel = (index: number) => peripheralPadLabel(item.kind, index)
   return (
     <g className={selected ? styles.physicalSelected : undefined}>
-      <rect x={x} y={y} width={layout.width} height={layout.height} rx="12" fill="#245f68" stroke={selected ? '#1fa5ad' : '#123b42'} strokeWidth={selected ? 4 : 2} />
-      <circle cx={x + 118} cy={y + 52} r="25" fill="#171b1d" stroke="#d8ab4f" strokeWidth="4" />
-      <circle cx={x + 118} cy={y + 52} r="8" fill="#5b6265" />
-      <path d={`M${x + 118} ${y + 52}l12 -16`} stroke="#d7dad5" strokeWidth="3" strokeLinecap="round" />
-      {needsPower && <g data-terminal={`${item.id}-3v3`}><circle cx={x} cy={y + 18} r="5" fill="#d84836" /><text x={x + 10} y={y + 22} className={styles.physicalPinLabel}>3V3</text></g>}
-      {connections.map((connection, index) => (
-        <g key={connection.id} data-terminal={`${item.id}-${connection.id}`}>
-          <circle cx={x} cy={y + peripheralSignalOffset(item, index)} r="5" fill="#3dab5b" stroke="#d9a14a" />
-          <text x={x + 10} y={y + peripheralSignalOffset(item, index) + 4} className={styles.physicalPinLabel}>{connectionPinLabel(connection)}</text>
-        </g>
-      ))}
-      <g data-terminal={`${item.id}-gnd`}><circle cx={x} cy={y + peripheralGroundOffset(item)} r="5" fill="#202425" stroke="#d9a14a" /><text x={x + 10} y={y + peripheralGroundOffset(item) + 4} className={styles.physicalPinLabel}>GND</text></g>
-      <text x={x + 118} y={y + 20} textAnchor="middle" className={styles.physicalBoardSilk}>{item.kind === 'button-input' ? 'BUTTON' : item.kind === 'pot-input' ? 'POT' : 'ENCODER'}</text>
-      <text x={x + 80} y={y + 126} textAnchor="middle" className={styles.physicalComponentLabel}>{item.title}</text>
+      <text x={x + (PERIPHERAL_RENDER_W / 2)} y={y - 12} textAnchor="middle" className={styles.physicalComponentLabel}>{item.title}</text>
+      {render && (
+        <image
+          data-component-render={render.id}
+          href={render.href}
+          x={x}
+          y={y}
+          width={PERIPHERAL_RENDER_W}
+          height={PERIPHERAL_RENDER_H}
+          preserveAspectRatio="xMidYMid meet"
+          className={styles.physicalBoardRender}
+        />
+      )}
+      {/* Pad 0 is VCC and the last pad is GND on every module; the signals sit
+          between them in the order the connection list already uses. */}
+      <g data-terminal={`${item.id}-3v3`}>
+        <circle cx={peripheralPadPoint(layout, 0).x} cy={peripheralPadPoint(layout, 0).y} r="5" className={styles.peripheralPowerTerminal} />
+        <title>VCC · 3V3</title>
+      </g>
+      {connections.map((connection, index) => {
+        const point = peripheralPadPoint(layout, index + 1)
+        return (
+          <g key={connection.id} data-terminal={`${item.id}-${connection.id}`}>
+            <circle cx={point.x} cy={point.y} r="5" className={styles.peripheralSignalTerminal} />
+            <title>{padLabel(index + 1)} · {connectionPinLabel(connection)}</title>
+          </g>
+        )
+      })}
+      <g data-terminal={`${item.id}-gnd`}>
+        <circle
+          cx={peripheralPadPoint(layout, peripheralPadCount(item.kind) - 1).x}
+          cy={peripheralPadPoint(layout, peripheralPadCount(item.kind) - 1).y}
+          r="5"
+          className={styles.peripheralGroundTerminal}
+        />
+        <title>GND</title>
+      </g>
     </g>
   )
 }
@@ -507,7 +536,8 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
   const controllerUsb = controllerPowerPoint('usb', boardProfile)
   const powerSectionY = powerSectionStartY(items, layers)
   const showPowerDistribution = layers.powerDistribution && outputLayouts.length > 0
-  const usesThreeVolt = !!microphoneLayout || peripheralLayouts.some((layout) => layout.item.kind === 'pot-input')
+  // Every control module render carries a VCC pad, not just the pot.
+  const usesThreeVolt = !!microphoneLayout || peripheralLayouts.length > 0
   const canvasHeight = physicalAssemblyDiagramHeight(items, plan, layers)
 
   return (
@@ -573,16 +603,23 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
             <path data-wire={`${layout.item.id}-conditioned-data`} d={routeFromLevelShifterOutput(index, outputPoint, layout.x, layout.y + 66)} className={wireClass} />
           </g>
         })}
-        {peripheralLayouts.map((layout) => {
+        {peripheralLayouts.map((layout, layoutIndex) => {
           const peripheralConnections = connections.filter((connection) => connection.itemId === layout.item.id)
+          const vccPad = peripheralPadPoint(layout, 0)
+          const groundPad = peripheralPadPoint(layout, peripheralPadCount(layout.item.kind) - 1)
+          // The pads sit on the module's bottom edge, so signals drop past the
+          // board and climb into their pad from below on a per-module lane.
+          const busY = layout.y + PERIPHERAL_RENDER_H + 16 + (layoutIndex % 3) * 6
           return <g key={layout.item.id}>
-            {layout.item.kind === 'pot-input' && <NetStub x={layout.x} y={layout.y + 18} kind="v3v3" direction="left" wireId={`${layout.item.id}-3v3`} />}
+            <NetStub x={vccPad.x} y={vccPad.y} kind="v3v3" direction="down" wireId={`${layout.item.id}-3v3`} />
             {layers.signalWires && peripheralConnections.map((connection, index) => {
               const controllerIndex = controllerConnections.indexOf(connection)
               const controllerPoint = controllerConnectionPoint(connection, controllerIndex, controllerConnections.length, boardProfile)
-              return <path key={connection.id} data-wire={connection.id} d={routeFromController(controllerPoint, layout.x, layout.y + peripheralSignalOffset(layout.item, index), controllerIndex)} className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.auxWire : styles.dimWire} />
+              const pad = peripheralPadPoint(layout, index + 1)
+              const approach = `${routeFromController(controllerPoint, pad.x, busY, controllerIndex)}V${pad.y}`
+              return <path key={connection.id} data-wire={connection.id} d={approach} className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.auxWire : styles.dimWire} />
             })}
-            <NetStub x={layout.x} y={layout.y + peripheralGroundOffset(layout.item)} kind="gnd" direction="left" wireId={`${layout.item.id}-ground`} />
+            <NetStub x={groundPad.x} y={groundPad.y} kind="gnd" direction="down" wireId={`${layout.item.id}-ground`} />
           </g>
         })}
         {layers.levelShifter && Array.from({ length: Math.ceil(outputLayouts.length / 4) }, (_, chipIndex) => {

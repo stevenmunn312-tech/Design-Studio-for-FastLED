@@ -264,6 +264,71 @@ describe('BuildDiagramWorkspace', () => {
     expect(getByRole('button', { name: 'Mark Matrix Output unfinished' })).toBeTruthy()
   })
 
+  it('draws each control module from its own render with pads on the board edge', () => {
+    useGraphStore.setState({
+      nodes: [
+        matrixNode(),
+        inputNode('button', 'ButtonInput', { pin: 4 }),
+        inputNode('pot', 'PotInput', { pin: 5 }),
+        inputNode('encoder', 'EncoderInput', { pinA: 6, pinB: 7, pinSW: 8 }),
+      ] as never[],
+    })
+    selectDevKit()
+    const { container } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
+
+    for (const render of ['button-module', 'potentiometer-module', 'encoder-module']) {
+      expect(diagram?.querySelector(`[data-component-render="${render}"]`), render).toBeTruthy()
+    }
+
+    // Every module render carries a VCC pad, so all three take a 3V3 stub -
+    // not just the potentiometer as the old drawn-box graphic assumed.
+    for (const item of ['button-input:button', 'pot-input:pot', 'encoder-input:encoder']) {
+      expect(diagram?.querySelector(`[data-net-stub-for="${item}-3v3"]`), item).toBeTruthy()
+      expect(diagram?.querySelector(`[data-net-stub-for="${item}-ground"]`), item).toBeTruthy()
+    }
+
+    // Pads sit on the bottom edge of the artwork, so their stubs point down.
+    expect(diagram?.querySelector('[data-net-stub-for="button-input:button-ground"]')?.getAttribute('data-net-stub-direction')).toBe('down')
+
+    // Encoder exposes VCC + A/B/SW + GND; its three signals land on pads 1..3,
+    // strictly between the VCC pad and the GND pad.
+    const padX = (terminal: string) => Number(diagram?.querySelector(`[data-terminal="${terminal}"] circle`)?.getAttribute('cx'))
+    const vccX = Number(diagram?.querySelector('[data-net-stub-for="encoder-input:encoder-3v3"]')?.getAttribute('data-net-stub-x'))
+    const gndX = Number(diagram?.querySelector('[data-net-stub-for="encoder-input:encoder-ground"]')?.getAttribute('data-net-stub-x'))
+    const signalXs = ['pinA', 'pinB', 'pinSW'].map((key) => padX(`encoder-input:encoder-encoder-input:encoder:${key}`))
+    expect(signalXs.every((value) => Number.isFinite(value))).toBe(true)
+    expect(signalXs).toEqual([...signalXs].sort((a, b) => a - b))
+    expect(Math.min(...signalXs)).toBeGreaterThan(vccX)
+    expect(Math.max(...signalXs)).toBeLessThan(gndX)
+  })
+
+  it('wraps control modules to a second row instead of running off the sheet', () => {
+    useGraphStore.setState({
+      nodes: [
+        matrixNode(),
+        inputNode('b1', 'ButtonInput', { pin: 4 }),
+        inputNode('b2', 'ButtonInput', { pin: 9 }),
+        inputNode('pot', 'PotInput', { pin: 5 }),
+        inputNode('encoder', 'EncoderInput', { pinA: 6, pinB: 7, pinSW: 8 }),
+      ] as never[],
+    })
+    selectDevKit()
+    const { container } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
+    const canvasWidth = Number(diagram?.getAttribute('viewBox')?.split(' ')[2])
+
+    const renders = Array.from(diagram?.querySelectorAll('[data-component-render$="-module"]') ?? [])
+    expect(renders).toHaveLength(4)
+    for (const node of renders) {
+      const right = Number(node.getAttribute('x')) + Number(node.getAttribute('width'))
+      expect(right, node.getAttribute('data-component-render') ?? '').toBeLessThanOrEqual(canvasWidth)
+    }
+    // The fourth module starts a new row rather than extending the first.
+    const rows = new Set(renders.map((node) => node.getAttribute('y')))
+    expect(rows.size).toBe(2)
+  })
+
   it('offers only the section sheets the build actually has hardware for', () => {
     useGraphStore.setState({ nodes: [matrixNode(), microphoneNode()] as never[] })
     selectDevKit()

@@ -1422,6 +1422,25 @@
   stroke-linecap: round;
 }
 
+/* Control-module pads: matched to the gold pad rings in the renders. */
+.peripheralPowerTerminal {
+  fill: #d84938;
+  stroke: #ffd1d7;
+  stroke-width: 2;
+}
+
+.peripheralSignalTerminal {
+  fill: #3dab5b;
+  stroke: #d9f0dc;
+  stroke-width: 2;
+}
+
+.peripheralGroundTerminal {
+  fill: #202425;
+  stroke: #f2c766;
+  stroke-width: 2;
+}
+
 .netStubLabel {
   fill: #2a2f31;
   font-family: var(--font-code);

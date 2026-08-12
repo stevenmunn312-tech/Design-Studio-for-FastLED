@@ -12,6 +12,54 @@ export type ItemLayout = {
 /** Clearance between the last hardware row and the PSU zones, sized for the shared-net callout. */
 export const POWER_SECTION_GAP = 120
 
+/**
+ * Control-module renders (button / potentiometer / encoder).
+ *
+ * All three share one board artwork, cropped to the PCB edge, so a single set
+ * of ratios locates every pad. Ratios were measured off the source renders:
+ * the pad row sits at 86% of board height, and the pads are evenly spaced
+ * about the centreline.
+ */
+export const PERIPHERAL_RENDER_W = 220
+/** 220 x (598/828), the cropped render's own aspect. */
+export const PERIPHERAL_RENDER_H = 159
+/** Room under the pad row for the approach bus and the downward net stubs. */
+export const PERIPHERAL_TERMINAL_CLEARANCE = 58
+export const PERIPHERAL_GAP = 30
+export const PERIPHERAL_ROW_X = 330
+export const PERIPHERAL_ROW_GAP = 34
+/**
+ * Modules wrap instead of running off the sheet. Three fit between the row's
+ * left edge and the 1120-wide canvas; a fourth starts a second row.
+ */
+export const PERIPHERALS_PER_ROW = 3
+
+const PAD_Y_RATIO = 0.8595
+const PAD_X_RATIOS_3 = [0.4215, 0.5, 0.5797]
+const PAD_X_RATIOS_5 = [0.3406, 0.4203, 0.5, 0.5785, 0.6582]
+
+/** Pads run VCC, [signals...], GND left to right on every module. */
+export function peripheralPadCount(kind: HardwareManifestItem['kind']) {
+  return kind === 'encoder-input' ? 5 : 3
+}
+
+/** Silkscreen names on the module renders, indexed the same as the pads. */
+export function peripheralPadLabel(kind: HardwareManifestItem['kind'], padIndex: number) {
+  const labels = kind === 'encoder-input'
+    ? ['VCC', 'A', 'B', 'SW', 'GND']
+    : ['VCC', 'SIG', 'GND']
+  return labels[Math.min(Math.max(padIndex, 0), labels.length - 1)]
+}
+
+export function peripheralPadPoint(layout: ItemLayout, padIndex: number) {
+  const ratios = peripheralPadCount(layout.item.kind) === 5 ? PAD_X_RATIOS_5 : PAD_X_RATIOS_3
+  const ratio = ratios[Math.min(Math.max(padIndex, 0), ratios.length - 1)]
+  return {
+    x: layout.x + (ratio * PERIPHERAL_RENDER_W),
+    y: layout.y + (PAD_Y_RATIO * PERIPHERAL_RENDER_H),
+  }
+}
+
 export const LEVEL_SHIFTER_X = 430
 export const LEVEL_SHIFTER_Y = 276
 export const LEVEL_SHIFTER_WIDTH = 180
@@ -73,8 +121,19 @@ export function itemLayouts(items: HardwareManifestItem[]): ItemLayout[] {
   const microphone = items.find((item) => item.kind === 'mic-input')
   if (microphone) layouts.push({ item: microphone, x: 350, y: 62, width: 205, height: 160 })
   const peripheralY = Math.max(500, LEVEL_SHIFTER_Y + (Math.ceil(outputs.length / 4) * (LEVEL_SHIFTER_HEIGHT + LEVEL_SHIFTER_GAP)) + 24)
+  // Footprint, not just artwork: the pads are on the bottom edge, so the bus
+  // and net stubs below them are part of what each module occupies.
+  const peripheralHeight = PERIPHERAL_RENDER_H + PERIPHERAL_TERMINAL_CLEARANCE
   peripherals.forEach((item, index) => {
-    layouts.push({ item, x: 330 + (index * 190), y: peripheralY, width: 160, height: 104 })
+    const column = index % PERIPHERALS_PER_ROW
+    const row = Math.floor(index / PERIPHERALS_PER_ROW)
+    layouts.push({
+      item,
+      x: PERIPHERAL_ROW_X + (column * (PERIPHERAL_RENDER_W + PERIPHERAL_GAP)),
+      y: peripheralY + (row * (peripheralHeight + PERIPHERAL_ROW_GAP)),
+      width: PERIPHERAL_RENDER_W,
+      height: peripheralHeight,
+    })
   })
   return layouts
 }
