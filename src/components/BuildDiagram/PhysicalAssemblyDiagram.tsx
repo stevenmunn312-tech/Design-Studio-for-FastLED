@@ -144,13 +144,29 @@ function controllerPowerPoint(
   return { x: 166, y: 512, side: 'right' }
 }
 
+/**
+ * Two descent bands share the gap between the controller and the resistors, and
+ * they must not overlap.
+ *
+ * Bus wires (mic, output data) all terminate above y~520, so they can hug the
+ * board in 266..290 where the USB-C block is no obstacle. Control wires run all
+ * the way down to the module lanes, so they need 296..328 — clear of that block
+ * (ends x=291) and of the series resistors (start x=350).
+ */
+const BUS_LANE_X = 266
+const BUS_LANE_SPACING = 6
+const BUS_LANE_COUNT = 5
+const CONTROL_CORRIDOR_X = 296
+const CONTROL_CORRIDOR_SPACING = 8
+const CONTROL_CORRIDOR_COUNT = 5
+
 function routeFromController(
   point: ControllerTerminalPoint,
   targetX: number,
   targetY: number,
   laneIndex: number,
 ) {
-  const rightLane = 304 + (laneIndex * 8)
+  const rightLane = BUS_LANE_X + ((laneIndex % BUS_LANE_COUNT) * BUS_LANE_SPACING)
   if (point.side === 'right') return `M${point.x} ${point.y}H${rightLane}V${targetY}H${targetX}`
   const laneSlot = laneIndex % 6
   const leftLane = 58 - (laneSlot * 6)
@@ -158,11 +174,39 @@ function routeFromController(
   return `M${point.x} ${point.y}H${leftLane}V${detourY}H${rightLane}V${targetY}H${targetX}`
 }
 
+/**
+ * Level-shifter corridors, one per output.
+ *
+ * These used to be shared constants — every right-side Y pin dropped down the
+ * same x=650 vertical and every right-side A pin came in via x=410 — so wires
+ * for different outputs were drawn on top of each other rather than merely
+ * close. Each output now owns its own corridor and detour lane.
+ */
+const LS_CORRIDOR_SPACING = 12
+
+/** Between the series resistors (end x=390) and the chip body (starts x=453). */
+function levelShifterEntryX(outputIndex: number) {
+  return 402 + ((outputIndex % 4) * LS_CORRIDOR_SPACING)
+}
+
+/** Between the chip body (ends x=587) and the output corridors. */
+function levelShifterWrapX(outputIndex: number) {
+  return 591 + ((outputIndex % 4) * 9)
+}
+
+/** Between the chip and the LED panels (start x=820). */
+function levelShifterOutputX(outputIndex: number) {
+  return 626 + (outputIndex * 13)
+}
+
+/** Lane below each chip, used by whichever side has to wrap around it. */
+function levelShifterDetourY(outputIndex: number) {
+  return levelShifterChipY(outputIndex) + LEVEL_SHIFTER_HEIGHT + 18 + ((outputIndex % 4) * 13)
+}
+
 function routeToLevelShifterInput(outputIndex: number, point: LevelShifterTerminalPoint) {
   if (point.side === 'left') return `M390 ${point.y}H${point.x}`
-  const chipY = levelShifterChipY(outputIndex)
-  const detourY = chipY + LEVEL_SHIFTER_HEIGHT + 16 + ((outputIndex % 4) * 7)
-  return `M390 ${point.y}H410V${detourY}H${point.x + 18}V${point.y}H${point.x}`
+  return `M390 ${point.y}H${levelShifterEntryX(outputIndex)}V${levelShifterDetourY(outputIndex)}H${levelShifterWrapX(outputIndex)}V${point.y}H${point.x}`
 }
 
 function routeFromLevelShifterOutput(
@@ -171,10 +215,9 @@ function routeFromLevelShifterOutput(
   targetX: number,
   targetY: number,
 ) {
-  if (point.side === 'right') return `M${point.x} ${point.y}H650V${targetY}H${targetX}`
-  const chipY = levelShifterChipY(outputIndex)
-  const detourY = chipY + LEVEL_SHIFTER_HEIGHT + 16 + ((outputIndex % 4) * 7)
-  return `M${point.x} ${point.y}H410V${detourY}H650V${targetY}H${targetX}`
+  const corridorX = levelShifterOutputX(outputIndex)
+  if (point.side === 'right') return `M${point.x} ${point.y}H${corridorX}V${targetY}H${targetX}`
+  return `M${point.x} ${point.y}H${levelShifterEntryX(outputIndex)}V${levelShifterDetourY(outputIndex)}H${corridorX}V${targetY}H${targetX}`
 }
 
 const CONTROL_WIRE_CLASSES = [styles.controlWireA, styles.controlWireB, styles.controlWireC]
@@ -226,11 +269,9 @@ function routeToControlPad(
   laneIndex: number,
 ) {
   // Left-side pins exit past the board edge before dropping; the USB-C block
-  // and the board render both sit between the header and the lanes. The right
-  // corridor threads the gap between that block (ends x=291) and the first
-  // module column (starts x=330).
+  // and the board render both sit between the header and the lanes.
   const corridorX = point.side === 'right'
-    ? 296 + ((laneIndex % 6) * 6)
+    ? CONTROL_CORRIDOR_X + ((laneIndex % CONTROL_CORRIDOR_COUNT) * CONTROL_CORRIDOR_SPACING)
     : 56 - ((laneIndex % 5) * 7)
   return `M${point.x} ${point.y}H${corridorX}V${laneY}H${pad.x}V${pad.y}`
 }
@@ -600,6 +641,12 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
   // Every control module render carries a VCC pad, not just the pot.
   const usesThreeVolt = !!microphoneLayout || peripheralLayouts.length > 0
   const controlLanes = assignControlLanes(peripheralLayouts, connections)
+  // Dense lane index over just the wires that use the bus band, so the five
+  // lanes are spent on real users rather than on gaps left by control wires
+  // that route through their own corridor.
+  const busLanes = new Map([...outputConnections, ...micConnections].map((connection, index) => [connection.id, index]))
+  const busLane = (connection: PhysicalDiagramConnection, fallback: number) =>
+    busLanes.get(connection.id) ?? fallback
   const canvasHeight = physicalAssemblyDiagramHeight(items, plan, layers)
 
   return (
@@ -638,7 +685,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
             const presentation = microphoneSignalPresentation(connection)
             if (!presentation) return null
             const target = microphoneTerminalPoint(microphoneLayout, presentation.role)
-            return <path key={connection.id} data-wire={connection.id} data-wire-role={presentation.role} d={routeFromController(controllerPoint, target.x, target.y, controllerIndex)} className={presentation.wireClassName} />
+            return <path key={connection.id} data-wire={connection.id} data-wire-role={presentation.role} d={routeFromController(controllerPoint, target.x, target.y, busLane(connection, controllerIndex))} className={presentation.wireClassName} />
           })}
           {/* Hooks right, over the breakout, so the left edge stays clear for the rail stubs. */}
           <path data-wire="microphone-channel-select" data-wire-role="channel-select" d={`M${channelPoint.x} ${channelPoint.y}H${channelPoint.x + 12}V${groundPoint.y}H${groundPoint.x}`} className={styles.groundWire} />
@@ -655,12 +702,12 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
           // Without the shifter layer there is nothing to route through, so the
           // data run goes straight from the controller pin to the panel.
           if (!layers.levelShifter) {
-            return <path key={layout.item.id} data-wire={`${layout.item.id}-data-in`} d={routeFromController(controllerPoint, layout.x, layout.y + 66, controllerIndex)} className={wireClass} />
+            return <path key={layout.item.id} data-wire={`${layout.item.id}-data-in`} d={routeFromController(controllerPoint, layout.x, layout.y + 66, busLane(connection, controllerIndex))} className={wireClass} />
           }
           const inputPoint = levelShifterTerminalPoint(index, 'a')
           const outputPoint = levelShifterTerminalPoint(index, 'y')
           return <g key={layout.item.id}>
-            <path data-wire={`${layout.item.id}-data-in`} d={routeFromController(controllerPoint, 350, inputPoint.y, controllerIndex)} className={wireClass} />
+            <path data-wire={`${layout.item.id}-data-in`} d={routeFromController(controllerPoint, 350, inputPoint.y, busLane(connection, controllerIndex))} className={wireClass} />
             <path data-wire={`${layout.item.id}-level-shifter-input`} d={routeToLevelShifterInput(index, inputPoint)} className={wireClass} />
             <path data-wire={`${layout.item.id}-conditioned-data`} d={routeFromLevelShifterOutput(index, outputPoint, layout.x, layout.y + 66)} className={wireClass} />
           </g>
@@ -734,7 +781,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
             <image data-component-render="sn74ahct125n-dip14" href={levelShifterRender} x="23" y="0" width="134" height={LEVEL_SHIFTER_HEIGHT} preserveAspectRatio="xMidYMid meet" className={styles.physicalBoardRender} />
             <g data-terminal={`level-shifter-${chipIndex + 1}-vcc`}>
               <circle cx={vccPoint.x - LEVEL_SHIFTER_X} cy={vccPoint.y - chipY} r="6" fill="#d84938" stroke="#ffd1d7" strokeWidth="2" />
-              <text x={vccPoint.x - LEVEL_SHIFTER_X - 12} y={vccPoint.y - chipY + 4} textAnchor="end" className={styles.physicalChipLabel}>VCC · P14</text>
+              <text x={vccPoint.x - LEVEL_SHIFTER_X - 12} y={vccPoint.y - chipY + 4} textAnchor="end" className={styles.physicalChipLabel}>P14 VCC</text>
             </g>
             {Array.from({ length: 4 }, (_, channelIndex) => {
               const outputIndex = (chipIndex * 4) + channelIndex
@@ -750,14 +797,14 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
                 return <><circle cx={x} cy={y} r="5" fill="#d2d5d1" stroke="#465054" strokeWidth="2" /><text x={x + (point.side === 'left' ? 12 : -12)} y={y + 4} textAnchor={point.side === 'left' ? 'start' : 'end'} className={styles.physicalChipLabel}>{label}</text></>
               }
               return <g key={channelIndex}>
-                <g data-terminal={`level-shifter-${chipIndex + 1}-a${channelIndex + 1}`}>{terminal(inputPoint, `A${channelIndex + 1} · P${inputPin}`)}</g>
-                <g data-terminal={`level-shifter-${chipIndex + 1}-y${channelIndex + 1}`}>{terminal(outputPoint, `Y${channelIndex + 1} · P${outputPin}`)}</g>
-                <g data-terminal={`level-shifter-${chipIndex + 1}-oe${channelIndex + 1}`}>{terminal(oePoint, `/OE${channelIndex + 1} · P${oePin}`)}</g>
+                <g data-terminal={`level-shifter-${chipIndex + 1}-a${channelIndex + 1}`}>{terminal(inputPoint, `P${inputPin} A${channelIndex + 1}`)}</g>
+                <g data-terminal={`level-shifter-${chipIndex + 1}-y${channelIndex + 1}`}>{terminal(outputPoint, `P${outputPin} Y${channelIndex + 1}`)}</g>
+                <g data-terminal={`level-shifter-${chipIndex + 1}-oe${channelIndex + 1}`}>{terminal(oePoint, `P${oePin} /OE${channelIndex + 1}`)}</g>
               </g>
             })}
             <g data-terminal={`level-shifter-${chipIndex + 1}-gnd`}>
               <circle cx={groundPoint.x - LEVEL_SHIFTER_X} cy={groundPoint.y - chipY} r="6" fill="#202425" stroke="#f2c766" strokeWidth="2" />
-              <text x={groundPoint.x - LEVEL_SHIFTER_X + 12} y={groundPoint.y - chipY + 4} className={styles.physicalChipLabel}>GND · P7</text>
+              <text x={groundPoint.x - LEVEL_SHIFTER_X + 12} y={groundPoint.y - chipY + 4} className={styles.physicalChipLabel}>P7 GND</text>
             </g>
           </g>
         })}

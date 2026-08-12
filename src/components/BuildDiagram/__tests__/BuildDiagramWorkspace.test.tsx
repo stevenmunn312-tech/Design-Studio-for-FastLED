@@ -163,15 +163,17 @@ describe('BuildDiagramWorkspace', () => {
     const outputWirePath = diagram?.querySelector('[data-wire="output:out-data-in"]')?.getAttribute('d')
     expect(outputTerminal?.getAttribute('data-board-anchor')).toBe('j1-20')
     expect(outputWirePath?.startsWith(`M${outputTerminalCircle?.getAttribute('cx')} ${outputTerminalCircle?.getAttribute('cy')}`)).toBe(true)
-    expect(outputWirePath).toMatch(/H58V542H304V342H350$/)
+    // Exits left of the board, drops, then rejoins the bus band (266..290) and
+    // runs in to the series resistor at x=350.
+    expect(outputWirePath).toMatch(/H58V542H266V342H350$/)
     expect(diagram?.querySelector('[data-component-render="sn74ahct125n-dip14"]')).toBeTruthy()
     expect(diagram?.querySelector('[data-component-render="inmp441-breakout"]')).toBeTruthy()
     expect(diagram?.querySelector('[data-terminal="level-shifter-1-vcc"] circle')?.getAttribute('cx')).toBe('147')
     expect(diagram?.querySelector('[data-terminal="level-shifter-1-vcc"] circle')?.getAttribute('cy')).toBe('41')
     expect(diagram?.querySelector('[data-terminal="level-shifter-1-gnd"] circle')?.getAttribute('cx')).toBe('35')
     expect(diagram?.querySelector('[data-terminal="level-shifter-1-gnd"] circle')?.getAttribute('cy')).toBe('190')
-    expect(diagram?.querySelector('[data-terminal="level-shifter-1-a1"]')?.textContent).toContain('A1 · P2')
-    expect(diagram?.querySelector('[data-terminal="level-shifter-1-y1"]')?.textContent).toContain('Y1 · P3')
+    expect(diagram?.querySelector('[data-terminal="level-shifter-1-a1"]')?.textContent).toContain('P2 A1')
+    expect(diagram?.querySelector('[data-terminal="level-shifter-1-y1"]')?.textContent).toContain('P3 Y1')
     expect(diagram?.querySelector('[data-wire="output:out-level-shifter-input"]')?.getAttribute('d')).toMatch(/H465$/)
     expect(diagram?.querySelector('[data-wire="output:out-conditioned-data"]')?.getAttribute('d')).toMatch(/^M465 367/)
     expect(diagram?.querySelector('[data-terminal="controller-mic-input:mic:i2sSck"]')?.getAttribute('data-board-anchor')).toBe('j3-8')
@@ -323,6 +325,7 @@ describe('BuildDiagramWorkspace', () => {
     useGraphStore.setState({
       nodes: [
         matrixNode(),
+        microphoneNode(),
         inputNode('pot', 'PotInput', { pin: 5 }),
         inputNode('button', 'ButtonInput', { pin: 4 }),
         inputNode('encoder', 'EncoderInput', { pinA: 6, pinB: 7, pinSW: 8 }),
@@ -331,6 +334,20 @@ describe('BuildDiagramWorkspace', () => {
     selectDevKit()
     const { container } = render(<BuildDiagramWorkspace />)
     const diagram = container.querySelector('svg[data-build-export="current-view"]')
+
+    // The two descent bands between the controller and the resistors must stay
+    // disjoint. Control corridors (296..328) once sat on top of the bus lanes
+    // (266..290), which put unrelated wires on the same vertical.
+    const horizontals = (node: Element) =>
+      [...(node.getAttribute('d') ?? '').matchAll(/H(-?[\d.]+)/g)].map((m) => Number(m[1]))
+    const inBand = (v: number, lo: number, hi: number) => v >= lo && v <= hi
+    const controlPaths = Array.from(diagram?.querySelectorAll('path[data-control-lane]') ?? [])
+    const busPaths = ['mic-input:mic:i2sSck', 'mic-input:mic:i2sWs', 'mic-input:mic:i2sSd', 'output:out-data-in']
+      .map((wire) => diagram?.querySelector(`path[data-wire="${wire}"]`))
+      .filter((node): node is Element => !!node)
+    expect(busPaths.length).toBeGreaterThan(0)
+    expect(controlPaths.some((node) => horizontals(node).some((v) => inBand(v, 266, 290)))).toBe(false)
+    expect(busPaths.some((node) => horizontals(node).some((v) => inBand(v, 296, 328)))).toBe(false)
 
     // Route shape is M px py H corridor V laneY H padX V padY.
     const routes = Array.from(diagram?.querySelectorAll('path[data-control-lane]') ?? []).map((node) => {
