@@ -264,6 +264,88 @@ describe('BuildDiagramWorkspace', () => {
     expect(getByRole('button', { name: 'Mark Matrix Output unfinished' })).toBeTruthy()
   })
 
+  it('offers only the section sheets the build actually has hardware for', () => {
+    useGraphStore.setState({ nodes: [matrixNode(), microphoneNode()] as never[] })
+    selectDevKit()
+    const { getAllByRole } = render(<BuildDiagramWorkspace />)
+
+    const tabs = getAllByRole('tab').map((tab) => tab.textContent)
+    expect(tabs).toEqual(['All', 'Data', 'Audio', 'Power'])
+    // No button/pot/encoder in the graph, so Controls has nothing to draw.
+    expect(tabs).not.toContain('Controls')
+  })
+
+  it('drops the layers and hardware a section does not cover', () => {
+    useGraphStore.setState({
+      nodes: [matrixNode(), microphoneNode(), inputNode('pot', 'PotInput', { pin: 5 })] as never[],
+    })
+    selectDevKit()
+    const { container, getByRole } = render(<BuildDiagramWorkspace />)
+    const diagram = () => container.querySelector('svg[data-build-export="current-view"]')
+
+    // All: every layer present.
+    expect(diagram()?.querySelector('[data-component-render="sn74ahct125n-dip14"]')).toBeTruthy()
+    expect(diagram()?.querySelector('[data-common-net-callout]')).toBeTruthy()
+    expect(diagram()?.querySelector('[data-component-render="inmp441-breakout"]')).toBeTruthy()
+
+    fireEvent.click(getByRole('tab', { name: 'Audio' }))
+    // The mic sheet keeps its own device and I2S runs but sheds the LED chain,
+    // the level shifter, and the whole PSU plan.
+    expect(diagram()?.querySelector('[data-component-render="inmp441-breakout"]')).toBeTruthy()
+    expect(diagram()?.querySelector('[data-wire="mic-input:mic:i2sSck"]')).toBeTruthy()
+    expect(diagram()?.querySelector('[data-component-render="sn74ahct125n-dip14"]')).toBeNull()
+    expect(diagram()?.querySelector('[data-output-card="output:out"]')).toBeNull()
+    expect(diagram()?.querySelector('[data-wire="pot-input:pot:pin"]')).toBeNull()
+    // The sheet still draws net stubs, so it must still carry their legend.
+    expect(diagram()?.querySelector('[data-net-stub-for="microphone-ground"]')).toBeTruthy()
+    expect(diagram()?.querySelector('[data-common-net-callout]')).toBeTruthy()
+
+    fireEvent.click(getByRole('tab', { name: 'Power' }))
+    // The power sheet keeps the outputs as loads and the PSU plan, but carries
+    // no signal runs at all.
+    expect(diagram()?.querySelector('[data-common-net-callout]')).toBeTruthy()
+    expect(diagram()?.querySelector('[data-output-card="output:out"]')).toBeTruthy()
+    expect(diagram()?.querySelector('[data-wire="output:out-data-in"]')).toBeNull()
+    expect(diagram()?.querySelector('[data-component-render="sn74ahct125n-dip14"]')).toBeNull()
+    expect(diagram()?.querySelector('[data-component-render="inmp441-breakout"]')).toBeNull()
+    // No signal runs means no signal pins on the controller either, but its
+    // ground stub stays because the common net spans every sheet.
+    expect(diagram()?.querySelector('[data-terminal="controller-output:out:dataPin"]')).toBeNull()
+    expect(diagram()?.querySelector('[data-net-stub-for="controller-common-ground"]')).toBeTruthy()
+
+    // The output card must not point down the sheet for a PSU plan that the
+    // Data section does not draw.
+    fireEvent.click(getByRole('tab', { name: 'Data' }))
+    expect(diagram()?.querySelector('[data-output-card="output:out"]')?.textContent).toContain('SEE POWER SECTION')
+
+    fireEvent.click(getByRole('tab', { name: 'All' }))
+    expect(diagram()?.querySelector('[data-component-render="sn74ahct125n-dip14"]')).toBeTruthy()
+    expect(diagram()?.querySelector('[data-output-card="output:out"]')?.textContent).toContain('PSU PLAN BELOW')
+  })
+
+  it('shrinks the sheet when a section drops the PSU zones', () => {
+    useGraphStore.setState({ nodes: [matrixNode(), microphoneNode()] as never[] })
+    selectDevKit()
+    const { container, getByRole } = render(<BuildDiagramWorkspace />)
+    const height = () => Number(container.querySelector('svg[data-build-export="current-view"]')?.getAttribute('height'))
+
+    const fullHeight = height()
+    fireEvent.click(getByRole('tab', { name: 'Audio' }))
+    expect(height()).toBeLessThan(fullHeight)
+  })
+
+  it('keeps the complete-build export whole regardless of the active section', () => {
+    useGraphStore.setState({ nodes: [matrixNode(), microphoneNode()] as never[] })
+    selectDevKit()
+    const { container, getByRole } = render(<BuildDiagramWorkspace />)
+
+    fireEvent.click(getByRole('tab', { name: 'Audio' }))
+    const exportDiagram = container.querySelector('svg[data-build-export="complete-build"]')
+    expect(exportDiagram?.querySelector('[data-component-render="sn74ahct125n-dip14"]')).toBeTruthy()
+    expect(exportDiagram?.querySelector('[data-output-card="output:out"]')).toBeTruthy()
+    expect(exportDiagram?.querySelector('[data-common-net-callout]')).toBeTruthy()
+  })
+
   it('keeps invalid GPIO mappings blocking even when that hardware is hidden', () => {
     useGraphStore.setState({
       nodes: [matrixNode(35)] as never[],
@@ -376,7 +458,7 @@ describe('BuildDiagramWorkspace', () => {
     expect(getByText('Complete build is selected. Exports will include every configured hardware item by default.')).toBeTruthy()
     fireEvent.click(getByText('Current view'))
     expect(useGraphStore.getState().buildProfile?.exportMode).toBe('current-view')
-    expect(getByText('Current view is selected. Exports will follow the hardware currently visible under the eye/filter/isolation state.')).toBeTruthy()
+    expect(getByText('Current view is selected. Exports will follow the hardware currently visible under the eye/filter/isolation state and the All section.')).toBeTruthy()
   })
 
   it('shows identifying details for all supported exact boards', () => {

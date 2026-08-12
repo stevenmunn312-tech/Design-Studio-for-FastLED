@@ -51,6 +51,38 @@
   gap: 8px;
 }
 
+.sectionTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid color-mix(in srgb, var(--border-glow) 70%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-panel) 72%, rgba(255, 255, 255, 0.03));
+}
+
+.sectionTab {
+  padding: 7px 14px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.sectionTab:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--accent-output) 12%, transparent);
+}
+
+.sectionTabActive {
+  border-color: color-mix(in srgb, var(--accent-output) 62%, var(--border-glow));
+  background: color-mix(in srgb, var(--accent-output) 18%, var(--bg-panel));
+  color: var(--text-primary);
+}
+
 .headerActions,
 .detailHeader {
   display: flex;

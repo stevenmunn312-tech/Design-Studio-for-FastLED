@@ -79,13 +79,47 @@ export function itemLayouts(items: HardwareManifestItem[]): ItemLayout[] {
   return layouts
 }
 
-export function physicalAssemblyDiagramHeight(items: HardwareManifestItem[], plan: ElectricalPlanSummary) {
+/** Layer flags that change how tall the sheet has to be. */
+export interface DiagramHeightLayers {
+  levelShifter: boolean
+  powerDistribution: boolean
+}
+
+const ALL_HEIGHT_LAYERS: DiagramHeightLayers = { levelShifter: true, powerDistribution: true }
+
+/**
+ * Bottom of everything above the PSU zones. The level shifter is included
+ * explicitly because it is taller than the output cards on small builds and it
+ * is not part of `itemLayouts`.
+ */
+export function diagramContentBottom(items: HardwareManifestItem[], layers: DiagramHeightLayers = ALL_HEIGHT_LAYERS) {
   const layouts = itemLayouts(items)
   const outputCount = layouts.filter((layout) => layout.item.kind === 'matrix-output').length
-  if (outputCount === 0) return 760
-  const hardwareBottom = Math.max(0, ...layouts.map((layout) => layout.y + layout.height))
-  const powerSectionY = Math.max(670, hardwareBottom + POWER_SECTION_GAP)
+  const shifterBottom = layers.levelShifter && outputCount > 0
+    ? LEVEL_SHIFTER_Y + (Math.ceil(outputCount / 4) * (LEVEL_SHIFTER_HEIGHT + LEVEL_SHIFTER_GAP))
+    : 0
+  return Math.max(0, shifterBottom, ...layouts.map((layout) => layout.y + layout.height))
+}
+
+/** Single owner of where the PSU zones start, shared by the renderer and the height. */
+export function powerSectionStartY(items: HardwareManifestItem[], layers: DiagramHeightLayers = ALL_HEIGHT_LAYERS) {
+  return Math.max(670, diagramContentBottom(items, layers) + POWER_SECTION_GAP)
+}
+
+export function physicalAssemblyDiagramHeight(
+  items: HardwareManifestItem[],
+  plan: ElectricalPlanSummary,
+  layers: DiagramHeightLayers = ALL_HEIGHT_LAYERS,
+) {
+  const layouts = itemLayouts(items)
+  const outputCount = layouts.filter((layout) => layout.item.kind === 'matrix-output').length
+  // A sheet with no PSU zones ends just past its own hardware instead of
+  // reserving the full-build height, so section views fit tighter. The trailing
+  // room holds the shared-net callout, which renders on every sheet.
+  if (outputCount === 0 || !layers.powerDistribution) {
+    return Math.max(400, diagramContentBottom(items, layers) + 80)
+  }
   const powerSectionHeight = (plan.totals?.supplies ?? []).reduce((height, supply) =>
     height + 204 + (supply.injectionIds.length * 54), 0)
-  return powerSectionY + powerSectionHeight + 34
+  return powerSectionStartY(items, layers) + powerSectionHeight + 34
 }

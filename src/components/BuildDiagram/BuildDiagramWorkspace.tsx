@@ -19,6 +19,13 @@ import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import PhysicalAssemblyDiagram from './PhysicalAssemblyDiagram'
+import {
+  availableSections,
+  buildSectionById,
+  DEFAULT_SECTION_ID,
+  sectionIncludesItem,
+  type BuildSectionId,
+} from './diagramSections'
 import { physicalAssemblyDiagramHeight } from './physicalDiagramLayout'
 import { inlineSvgImages } from './svgExport'
 import styles from './BuildDiagramWorkspace.module.css'
@@ -299,11 +306,16 @@ export default function BuildDiagramWorkspace() {
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH)
   const [detailPaneWidth, setDetailPaneWidth] = useState(DEFAULT_DETAIL_WIDTH)
   const [diagramZoom, setDiagramZoom] = useState(1)
+  const [sectionId, setSectionId] = useState<BuildSectionId>(DEFAULT_SECTION_ID)
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const panStateRef = useRef<ViewportPanState | null>(null)
 
   const primaryItems = manifest.primaryItems
   const outputItems = useMemo(() => primaryItems.filter((item) => item.kind === 'matrix-output'), [primaryItems])
+  const sections = useMemo(() => availableSections(primaryItems), [primaryItems])
+  const activeSection = buildSectionById(
+    sections.some((section) => section.id === sectionId) ? sectionId : DEFAULT_SECTION_ID,
+  )
   const currentFingerprints = useMemo(() => {
     const map = new Map<string, string>()
     for (const item of primaryItems) {
@@ -331,10 +343,11 @@ export default function BuildDiagramWorkspace() {
   }
 
   const visiblePrimaryItems = useMemo(() => {
-    const items = primaryItems.filter((item) => buildProfile.visibility?.[item.id] !== false)
+    const items = primaryItems.filter((item) =>
+      buildProfile.visibility?.[item.id] !== false && sectionIncludesItem(activeSection, item))
     if (isolatedItemId) return items.filter((item) => item.id === isolatedItemId)
     return items
-  }, [buildProfile.visibility, isolatedItemId, primaryItems])
+  }, [activeSection, buildProfile.visibility, isolatedItemId, primaryItems])
 
   useEffect(() => {
     const availableIds = new Set(['controller', ...visiblePrimaryItems.map((item) => item.id)])
@@ -518,7 +531,7 @@ export default function BuildDiagramWorkspace() {
     () => allDeviceLayouts.filter((layout) => visibleItemIds.has(layout.itemId)),
     [allDeviceLayouts, visibleItemIds],
   )
-  const canvasHeight = physicalAssemblyDiagramHeight(visiblePrimaryItems, visibleElectricalPlan)
+  const canvasHeight = physicalAssemblyDiagramHeight(visiblePrimaryItems, visibleElectricalPlan, activeSection.layers)
   const allBounds = useMemo(() => {
     const bounds = boundsForLayouts(controllerBox, allDeviceLayouts)
     return { ...bounds, height: Math.max(bounds.height, canvasHeight - bounds.y) }
@@ -747,8 +760,9 @@ export default function BuildDiagramWorkspace() {
       return
     }
     fitVisible()
+  // Section changes swap which hardware is on the sheet, so the view refits.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exactBoard?.id, canvasWidth, canvasHeight])
+  }, [exactBoard?.id, canvasWidth, canvasHeight, activeSection.id])
 
   const workspaceStyle = {
     '--build-sidebar-width': `${sidebarWidth}px`,
@@ -902,7 +916,9 @@ export default function BuildDiagramWorkspace() {
                 ? 'Select an exact board profile to unlock controller-aware wiring details.'
                 : !canRenderControllerPins
                   ? `${exactBoard.label} selected. This profile still needs a reviewed physical pin map before controller-side wiring can be drawn.`
-                  : `${exactBoard.label} selected. Connections now resolve against that exact board's pin map.`}
+                  : activeSection.id === 'all'
+                    ? `${exactBoard.label} selected. Connections now resolve against that exact board's pin map.`
+                    : activeSection.summary}
             </p>
           </div>
           <div className={styles.diagramToolbar}>
@@ -927,6 +943,24 @@ export default function BuildDiagramWorkspace() {
             </button>
           </div>
         </div>
+
+        {exactBoard && sections.length > 1 && (
+          <div className={styles.sectionTabs} role="tablist" aria-label="Wiring diagram sections">
+            {sections.map((section) => (
+              <button
+                key={section.id}
+                type="button"
+                role="tab"
+                aria-selected={section.id === activeSection.id}
+                title={section.summary}
+                className={`${styles.sectionTab} ${section.id === activeSection.id ? styles.sectionTabActive : ''}`}
+                onClick={() => setSectionId(section.id)}
+              >
+                {section.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {!exactBoard ? (
           <div className={styles.emptyState}>
@@ -959,6 +993,7 @@ export default function BuildDiagramWorkspace() {
                   boardProfile={exactBoard}
                   items={visiblePrimaryItems}
                   plan={visibleElectricalPlan}
+                  layers={activeSection.layers}
                   exportScope="current-view"
                   selectedItemId={selectedItemId}
                   onSelectItem={setSelectedItemId}
@@ -1288,10 +1323,10 @@ export default function BuildDiagramWorkspace() {
               </div>
               <p className={styles.copyMuted}>
                 {exportMode === 'complete-build'
-                  ? hiddenPrimaryItemCount > 0 || !!isolatedItemId
-                    ? 'Complete build is selected. Hidden or isolated hardware will still be included.'
+                  ? hiddenPrimaryItemCount > 0 || !!isolatedItemId || activeSection.id !== 'all'
+                    ? 'Complete build is selected. Hardware hidden by the eye, isolation, or the current section will still be included.'
                     : 'Complete build is selected. Exports will include every configured hardware item by default.'
-                  : 'Current view is selected. Exports will follow the hardware currently visible under the eye/filter/isolation state.'}
+                  : `Current view is selected. Exports will follow the hardware currently visible under the eye/filter/isolation state and the ${activeSection.label} section.`}
               </p>
               <p className={styles.warningText}>{exportDraftStatus}</p>
               <p className={styles.copyMuted}>

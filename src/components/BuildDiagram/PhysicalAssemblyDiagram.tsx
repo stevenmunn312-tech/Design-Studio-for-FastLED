@@ -6,6 +6,7 @@ import microphoneRender from '../../assets/components/inmp441-breakout.png'
 import levelShifterRender from '../../assets/components/sn74ahct125n-dip14.png'
 import styles from './BuildDiagramWorkspace.module.css'
 import { CommonNetCallout, NetStub } from './netStubs'
+import type { BuildSectionLayers } from './diagramSections'
 import {
   itemLayouts,
   LEVEL_SHIFTER_HEIGHT,
@@ -14,8 +15,9 @@ import {
   levelShifterChipY,
   levelShifterSupplyPoint,
   levelShifterTerminalPoint,
+  diagramContentBottom,
   physicalAssemblyDiagramHeight,
-  POWER_SECTION_GAP,
+  powerSectionStartY,
   type ItemLayout,
   type LevelShifterTerminalPoint,
 } from './physicalDiagramLayout'
@@ -36,7 +38,11 @@ interface PhysicalAssemblyDiagramProps {
   selectedItemId: string
   onSelectItem: (itemId: string) => void
   exportScope?: 'current-view' | 'complete-build'
+  /** Which subsystem layers this sheet draws. Defaults to the complete build. */
+  layers?: BuildSectionLayers
 }
+
+const ALL_LAYERS: BuildSectionLayers = { signalWires: true, levelShifter: true, powerDistribution: true }
 
 const CANVAS_WIDTH = 1120
 const DISTRIBUTION_POSITIVE_BUS_Y = 100
@@ -381,7 +387,7 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
   )
 }
 
-function OutputGraphic({ layout, selected, plan }: { layout: ItemLayout; selected: boolean; plan?: OutputElectricalPlan }) {
+function OutputGraphic({ layout, selected, plan, powerPlanBelow }: { layout: ItemLayout; selected: boolean; plan?: OutputElectricalPlan; powerPlanBelow: boolean }) {
   const { x, y, width, item } = layout
   return (
     <g data-output-card={item.id} className={selected ? styles.physicalSelected : undefined}>
@@ -399,7 +405,8 @@ function OutputGraphic({ layout, selected, plan }: { layout: ItemLayout; selecte
       {plan?.operatingCurrentCapMa != null && (
         <text data-operating-current-cap={plan.operatingCurrentCapMa} x={x + (width / 2)} y={y + 158} textAnchor="middle" className={styles.physicalCurrentCapLabel}>CURRENT LIMIT {formatAmps(plan.operatingCurrentCapMa)}</text>
       )}
-      {plan && <text x={x + (width / 2)} y={y + (plan.operatingCurrentCapMa != null ? 170 : 167)} textAnchor="middle" className={styles.physicalBoardSubSilk}>{plan.recommendedFeedCount} FUSED FEEDS · PSU PLAN BELOW</text>}
+      {/* Only points down the sheet when the PSU zones are actually on it. */}
+      {plan && <text x={x + (width / 2)} y={y + (plan.operatingCurrentCapMa != null ? 170 : 167)} textAnchor="middle" className={styles.physicalBoardSubSilk}>{plan.recommendedFeedCount} FUSED FEEDS · {powerPlanBelow ? 'PSU PLAN BELOW' : 'SEE POWER SECTION'}</text>}
     </g>
   )
 }
@@ -486,7 +493,7 @@ function WireLabel({ x, y, children }: { x: number; y: number; children: string 
   return <text x={x} y={y} className={styles.physicalWireLabel}>{children}</text>
 }
 
-export default function PhysicalAssemblyDiagram({ boardProfile, items, connections, plan, selectedItemId, onSelectItem, exportScope = 'current-view' }: PhysicalAssemblyDiagramProps) {
+export default function PhysicalAssemblyDiagram({ boardProfile, items, connections, plan, selectedItemId, onSelectItem, exportScope = 'current-view', layers = ALL_LAYERS }: PhysicalAssemblyDiagramProps) {
   const boardLabel = boardProfile.label
   const layouts = itemLayouts(items)
   const outputLayouts = layouts.filter((layout) => layout.item.kind === 'matrix-output')
@@ -498,10 +505,10 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
   const controller3v3 = controllerPowerPoint('3v3', boardProfile)
   const controllerGround = controllerPowerPoint('ground', boardProfile)
   const controllerUsb = controllerPowerPoint('usb', boardProfile)
-  const hardwareBottom = Math.max(0, ...layouts.map((layout) => layout.y + layout.height))
-  const powerSectionY = Math.max(670, hardwareBottom + POWER_SECTION_GAP)
+  const powerSectionY = powerSectionStartY(items, layers)
+  const showPowerDistribution = layers.powerDistribution && outputLayouts.length > 0
   const usesThreeVolt = !!microphoneLayout || peripheralLayouts.some((layout) => layout.item.kind === 'pot-input')
-  const canvasHeight = physicalAssemblyDiagramHeight(items, plan)
+  const canvasHeight = physicalAssemblyDiagramHeight(items, plan, layers)
 
   return (
     <svg
@@ -533,7 +540,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
           const groundPoint = microphoneTerminalPoint(microphoneLayout, 'gnd')
           return <>
           <NetStub x={vddPoint.x} y={vddPoint.y} kind="v3v3" direction="left" lead={26} wireId="microphone-vdd" wireRole="vdd" />
-          {micConnections.map((connection) => {
+          {layers.signalWires && micConnections.map((connection) => {
             const controllerIndex = controllerConnections.indexOf(connection)
             const controllerPoint = controllerConnectionPoint(connection, controllerIndex, controllerConnections.length, boardProfile)
             const presentation = microphoneSignalPresentation(connection)
@@ -547,24 +554,30 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
         </>
         })()}
 
-        {outputLayouts.map((layout, index) => {
+        {layers.signalWires && outputLayouts.map((layout, index) => {
           const connection = outputConnections.find((entry) => entry.itemId === layout.item.id)
           if (!connection) return null
           const controllerIndex = controllerConnections.indexOf(connection)
           const controllerPoint = controllerConnectionPoint(connection, controllerIndex, controllerConnections.length, boardProfile)
+          const wireClass = selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.signalWire : styles.dimWire
+          // Without the shifter layer there is nothing to route through, so the
+          // data run goes straight from the controller pin to the panel.
+          if (!layers.levelShifter) {
+            return <path key={layout.item.id} data-wire={`${layout.item.id}-data-in`} d={routeFromController(controllerPoint, layout.x, layout.y + 66, controllerIndex)} className={wireClass} />
+          }
           const inputPoint = levelShifterTerminalPoint(index, 'a')
           const outputPoint = levelShifterTerminalPoint(index, 'y')
           return <g key={layout.item.id}>
-            <path data-wire={`${layout.item.id}-data-in`} d={routeFromController(controllerPoint, 350, inputPoint.y, controllerIndex)} className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.signalWire : styles.dimWire} />
-            <path data-wire={`${layout.item.id}-level-shifter-input`} d={routeToLevelShifterInput(index, inputPoint)} className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.signalWire : styles.dimWire} />
-            <path data-wire={`${layout.item.id}-conditioned-data`} d={routeFromLevelShifterOutput(index, outputPoint, layout.x, layout.y + 66)} className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.signalWire : styles.dimWire} />
+            <path data-wire={`${layout.item.id}-data-in`} d={routeFromController(controllerPoint, 350, inputPoint.y, controllerIndex)} className={wireClass} />
+            <path data-wire={`${layout.item.id}-level-shifter-input`} d={routeToLevelShifterInput(index, inputPoint)} className={wireClass} />
+            <path data-wire={`${layout.item.id}-conditioned-data`} d={routeFromLevelShifterOutput(index, outputPoint, layout.x, layout.y + 66)} className={wireClass} />
           </g>
         })}
         {peripheralLayouts.map((layout) => {
           const peripheralConnections = connections.filter((connection) => connection.itemId === layout.item.id)
           return <g key={layout.item.id}>
             {layout.item.kind === 'pot-input' && <NetStub x={layout.x} y={layout.y + 18} kind="v3v3" direction="left" wireId={`${layout.item.id}-3v3`} />}
-            {peripheralConnections.map((connection, index) => {
+            {layers.signalWires && peripheralConnections.map((connection, index) => {
               const controllerIndex = controllerConnections.indexOf(connection)
               const controllerPoint = controllerConnectionPoint(connection, controllerIndex, controllerConnections.length, boardProfile)
               return <path key={connection.id} data-wire={connection.id} d={routeFromController(controllerPoint, layout.x, layout.y + peripheralSignalOffset(layout.item, index), controllerIndex)} className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.auxWire : styles.dimWire} />
@@ -572,7 +585,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
             <NetStub x={layout.x} y={layout.y + peripheralGroundOffset(layout.item)} kind="gnd" direction="left" wireId={`${layout.item.id}-ground`} />
           </g>
         })}
-        {Array.from({ length: Math.ceil(outputLayouts.length / 4) }, (_, chipIndex) => {
+        {layers.levelShifter && Array.from({ length: Math.ceil(outputLayouts.length / 4) }, (_, chipIndex) => {
           const usedChannels = Math.min(4, outputLayouts.length - (chipIndex * 4))
           const vccPoint = levelShifterSupplyPoint(chipIndex, 'vcc')
           const groundPoint = levelShifterSupplyPoint(chipIndex, 'gnd')
@@ -600,7 +613,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
         {usesThreeVolt && <NetStub x={controller3v3.x} y={controller3v3.y} kind="v3v3" direction="left" lead={26} wireId="controller-3v3-rail" />}
       </g>
 
-      {outputLayouts.length > 0 && <g filter="url(#component-shadow)">
+      {layers.levelShifter && outputLayouts.length > 0 && <g filter="url(#component-shadow)">
         {outputLayouts.map((layout, index) => (
           <g key={`${layout.item.id}-resistor`} transform={`translate(350 ${levelShifterTerminalPoint(index, 'a').y - 14})`}>
             <text x="20" y="-8" textAnchor="middle" className={styles.physicalComponentLabel}>330Ω</text>
@@ -647,10 +660,16 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
         })}
       </g>}
 
-      {outputLayouts.length > 0 && <>
-        <CommonNetCallout x={320} y={powerSectionY - 78} width={776} />
-        <PowerDistributionSections plan={plan} startY={powerSectionY} />
-      </>}
+      {/* The callout follows the stubs, not the PSU zones — a section sheet that
+          drops power still draws net symbols and must still explain them. */}
+      {layouts.length > 0 && (
+        <CommonNetCallout
+          x={320}
+          y={showPowerDistribution ? powerSectionY - 78 : diagramContentBottom(items, layers) + 12}
+          width={776}
+        />
+      )}
+      {showPowerDistribution && <PowerDistributionSections plan={plan} startY={powerSectionY} />}
 
       <g filter="url(#component-shadow)" transform={`translate(${controllerUsb.x - 92} 592)`}>
         <rect width="184" height="62" rx="12" fill="#e9ecea" stroke="#879092" strokeWidth="2" />
@@ -661,9 +680,11 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
       </g>
 
       <g role="button" tabIndex={0} aria-label={`Select ${boardLabel}`} onClick={() => onSelectItem('controller')} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onSelectItem('controller') }} className={styles.physicalClickable}>
-        <ControllerGraphic boardProfile={boardProfile} connections={controllerConnections} selected={selectedItemId === 'controller'} />
+        {/* A sheet without signal runs shows no signal pins either, so the
+            header strip carries only the terminals that sheet actually uses. */}
+        <ControllerGraphic boardProfile={boardProfile} connections={layers.signalWires ? controllerConnections : []} selected={selectedItemId === 'controller'} />
       </g>
-      {outputLayouts.map((layout) => <g key={layout.item.id} role="button" tabIndex={0} aria-label={`Select ${layout.item.title}`} onClick={() => onSelectItem(layout.item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onSelectItem(layout.item.id) }} className={styles.physicalClickable}><OutputGraphic layout={layout} selected={selectedItemId === layout.item.id} plan={plan.outputs.find((entry) => entry.itemId === layout.item.id)} /></g>)}
+      {outputLayouts.map((layout) => <g key={layout.item.id} role="button" tabIndex={0} aria-label={`Select ${layout.item.title}`} onClick={() => onSelectItem(layout.item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onSelectItem(layout.item.id) }} className={styles.physicalClickable}><OutputGraphic layout={layout} selected={selectedItemId === layout.item.id} plan={plan.outputs.find((entry) => entry.itemId === layout.item.id)} powerPlanBelow={showPowerDistribution} /></g>)}
       {microphoneLayout && <g role="button" tabIndex={0} aria-label={`Select ${microphoneLayout.item.title}`} onClick={() => onSelectItem(microphoneLayout.item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onSelectItem(microphoneLayout.item.id) }} className={styles.physicalClickable}><MicrophoneGraphic layout={microphoneLayout} connections={micConnections} selected={selectedItemId === microphoneLayout.item.id} /></g>}
       {peripheralLayouts.map((layout) => <g key={layout.item.id} role="button" tabIndex={0} aria-label={`Select ${layout.item.title}`} onClick={() => onSelectItem(layout.item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onSelectItem(layout.item.id) }} className={styles.physicalClickable}><InputGraphic layout={layout} connections={connections.filter((connection) => connection.itemId === layout.item.id)} selected={selectedItemId === layout.item.id} /></g>)}
 
