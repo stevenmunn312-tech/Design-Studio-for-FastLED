@@ -1422,6 +1422,25 @@
   stroke-linecap: round;
 }
 
+/* One hue per control module so neighbouring lanes stay traceable. */
+.controlWireA {
+  fill: none;
+  stroke: #0f8b8d;
+  stroke-width: 4;
+}
+
+.controlWireB {
+  fill: none;
+  stroke: #4358dc;
+  stroke-width: 4;
+}
+
+.controlWireC {
+  fill: none;
+  stroke: #7a3fb5;
+  stroke-width: 4;
+}
+
 /* Control-module pads: matched to the gold pad rings in the renders. */
 .peripheralPowerTerminal {
   fill: #d84938;

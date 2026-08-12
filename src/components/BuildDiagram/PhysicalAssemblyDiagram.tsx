@@ -22,6 +22,8 @@ import {
   peripheralPadCount,
   peripheralPadLabel,
   peripheralPadPoint,
+  PERIPHERAL_LANE_BASE,
+  PERIPHERAL_LANE_SPACING,
   PERIPHERAL_RENDER_H,
   PERIPHERAL_RENDER_W,
   physicalAssemblyDiagramHeight,
@@ -172,6 +174,64 @@ function routeFromLevelShifterOutput(
   const chipY = levelShifterChipY(outputIndex)
   const detourY = chipY + LEVEL_SHIFTER_HEIGHT + 16 + ((outputIndex % 4) * 7)
   return `M${point.x} ${point.y}H410V${detourY}H650V${targetY}H${targetX}`
+}
+
+const CONTROL_WIRE_CLASSES = [styles.controlWireA, styles.controlWireB, styles.controlWireC]
+
+function controlWireClass(moduleIndex: number) {
+  return CONTROL_WIRE_CLASSES[moduleIndex % CONTROL_WIRE_CLASSES.length]
+}
+
+/**
+ * Control signals leave the controller, drop to their own lane below the module
+ * row, run across, and climb into their pad.
+ *
+ * Lanes are ordered by pad x, which makes the routing planar: a wire only ever
+ * climbs at a point that deeper lanes have not yet reached, so no climb crosses
+ * another lane's horizontal run.
+ */
+function assignControlLanes(
+  peripheralLayouts: ItemLayout[],
+  connections: PhysicalDiagramConnection[],
+) {
+  const lanes = new Map<string, { index: number; y: number }>()
+  const rows = new Map<number, Array<{ id: string; padX: number; rowTop: number }>>()
+  peripheralLayouts.forEach((layout) => {
+    const own = connections.filter((connection) => connection.itemId === layout.item.id)
+    own.forEach((connection, index) => {
+      const entry = rows.get(layout.y) ?? []
+      entry.push({ id: connection.id, padX: peripheralPadPoint(layout, index + 1).x, rowTop: layout.y })
+      rows.set(layout.y, entry)
+    })
+  })
+  rows.forEach((entries) => {
+    entries
+      .slice()
+      .sort((a, b) => a.padX - b.padX)
+      .forEach((entry, index) => {
+        lanes.set(entry.id, {
+          index,
+          y: entry.rowTop + PERIPHERAL_RENDER_H + PERIPHERAL_LANE_BASE + (index * PERIPHERAL_LANE_SPACING),
+        })
+      })
+  })
+  return lanes
+}
+
+function routeToControlPad(
+  point: ControllerTerminalPoint,
+  pad: { x: number; y: number },
+  laneY: number,
+  laneIndex: number,
+) {
+  // Left-side pins exit past the board edge before dropping; the USB-C block
+  // and the board render both sit between the header and the lanes. The right
+  // corridor threads the gap between that block (ends x=291) and the first
+  // module column (starts x=330).
+  const corridorX = point.side === 'right'
+    ? 296 + ((laneIndex % 6) * 6)
+    : 56 - ((laneIndex % 5) * 7)
+  return `M${point.x} ${point.y}H${corridorX}V${laneY}H${pad.x}V${pad.y}`
 }
 
 type MicrophoneSignalRole = 'bclk' | 'ws' | 'dout'
@@ -538,6 +598,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
   const showPowerDistribution = layers.powerDistribution && outputLayouts.length > 0
   // Every control module render carries a VCC pad, not just the pot.
   const usesThreeVolt = !!microphoneLayout || peripheralLayouts.length > 0
+  const controlLanes = assignControlLanes(peripheralLayouts, connections)
   const canvasHeight = physicalAssemblyDiagramHeight(items, plan, layers)
 
   return (
@@ -607,17 +668,21 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
           const peripheralConnections = connections.filter((connection) => connection.itemId === layout.item.id)
           const vccPad = peripheralPadPoint(layout, 0)
           const groundPad = peripheralPadPoint(layout, peripheralPadCount(layout.item.kind) - 1)
-          // The pads sit on the module's bottom edge, so signals drop past the
-          // board and climb into their pad from below on a per-module lane.
-          const busY = layout.y + PERIPHERAL_RENDER_H + 16 + (layoutIndex % 3) * 6
           return <g key={layout.item.id}>
             <NetStub x={vccPad.x} y={vccPad.y} kind="v3v3" direction="down" wireId={`${layout.item.id}-3v3`} />
             {layers.signalWires && peripheralConnections.map((connection, index) => {
               const controllerIndex = controllerConnections.indexOf(connection)
               const controllerPoint = controllerConnectionPoint(connection, controllerIndex, controllerConnections.length, boardProfile)
               const pad = peripheralPadPoint(layout, index + 1)
-              const approach = `${routeFromController(controllerPoint, pad.x, busY, controllerIndex)}V${pad.y}`
-              return <path key={connection.id} data-wire={connection.id} d={approach} className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? styles.auxWire : styles.dimWire} />
+              const lane = controlLanes.get(connection.id)
+              if (!lane) return null
+              return <path
+                key={connection.id}
+                data-wire={connection.id}
+                data-control-lane={lane.index}
+                d={routeToControlPad(controllerPoint, pad, lane.y, lane.index)}
+                className={selectedItemId === 'controller' || selectedItemId === layout.item.id ? controlWireClass(layoutIndex) : styles.dimWire}
+              />
             })}
             <NetStub x={groundPad.x} y={groundPad.y} kind="gnd" direction="down" wireId={`${layout.item.id}-ground`} />
           </g>

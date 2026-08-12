@@ -303,6 +303,40 @@ describe('BuildDiagramWorkspace', () => {
     expect(Math.max(...signalXs)).toBeLessThan(gndX)
   })
 
+  it('gives every control signal its own lane, ordered so no climb crosses another run', () => {
+    useGraphStore.setState({
+      nodes: [
+        matrixNode(),
+        inputNode('pot', 'PotInput', { pin: 5 }),
+        inputNode('button', 'ButtonInput', { pin: 4 }),
+        inputNode('encoder', 'EncoderInput', { pinA: 6, pinB: 7, pinSW: 8 }),
+      ] as never[],
+    })
+    selectDevKit()
+    const { container } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
+
+    // Route shape is M px py H corridor V laneY H padX V padY.
+    const routes = Array.from(diagram?.querySelectorAll('path[data-control-lane]') ?? []).map((node) => {
+      const d = node.getAttribute('d') ?? ''
+      const m = /V(-?[\d.]+)H(-?[\d.]+)V(-?[\d.]+)$/.exec(d)
+      return { laneY: Number(m?.[1]), padX: Number(m?.[2]), padY: Number(m?.[3]) }
+    })
+    expect(routes).toHaveLength(5)
+    expect(routes.every((r) => Number.isFinite(r.laneY) && Number.isFinite(r.padX))).toBe(true)
+
+    // No two signals share a lane - an encoder's A/B/SW previously overlapped.
+    expect(new Set(routes.map((r) => r.laneY)).size).toBe(5)
+
+    // Lanes deepen left to right, so each wire climbs to its pad without
+    // crossing a shallower lane that continues further right.
+    const byPad = [...routes].sort((a, b) => a.padX - b.padX)
+    expect(byPad.map((r) => r.laneY)).toEqual([...byPad.map((r) => r.laneY)].sort((a, b) => a - b))
+
+    // Every lane sits below its pad, so the final segment climbs.
+    expect(routes.every((r) => r.laneY > r.padY)).toBe(true)
+  })
+
   it('wraps control modules to a second row instead of running off the sheet', () => {
     useGraphStore.setState({
       nodes: [

@@ -23,9 +23,19 @@ export const POWER_SECTION_GAP = 120
 export const PERIPHERAL_RENDER_W = 220
 /** 220 x (598/828), the cropped render's own aspect. */
 export const PERIPHERAL_RENDER_H = 159
-/** Room under the pad row for the approach bus and the downward net stubs. */
-export const PERIPHERAL_TERMINAL_CLEARANCE = 58
 export const PERIPHERAL_GAP = 30
+
+/**
+ * Every control signal gets its own horizontal lane beneath the module row.
+ * Sharing one lane per module drew an encoder's A/B/SW on top of each other,
+ * and packing modules 6px apart made neighbouring runs impossible to trace.
+ */
+export const PERIPHERAL_LANE_BASE = 22
+export const PERIPHERAL_LANE_SPACING = 13
+/** Clear of the deepest lane, with room for the downward GND/VCC stub labels. */
+export function peripheralClearance(rowSignalCount: number) {
+  return PERIPHERAL_LANE_BASE + (Math.max(rowSignalCount, 1) * PERIPHERAL_LANE_SPACING) + 16
+}
 export const PERIPHERAL_ROW_X = 330
 export const PERIPHERAL_ROW_GAP = 34
 /**
@@ -121,18 +131,27 @@ export function itemLayouts(items: HardwareManifestItem[]): ItemLayout[] {
   const microphone = items.find((item) => item.kind === 'mic-input')
   if (microphone) layouts.push({ item: microphone, x: 350, y: 62, width: 205, height: 160 })
   const peripheralY = Math.max(500, LEVEL_SHIFTER_Y + (Math.ceil(outputs.length / 4) * (LEVEL_SHIFTER_HEIGHT + LEVEL_SHIFTER_GAP)) + 24)
-  // Footprint, not just artwork: the pads are on the bottom edge, so the bus
-  // and net stubs below them are part of what each module occupies.
-  const peripheralHeight = PERIPHERAL_RENDER_H + PERIPHERAL_TERMINAL_CLEARANCE
+  // Each row is only as deep as its own lane stack needs, so a lone button
+  // does not reserve the space an encoder-heavy row would.
+  const rowSignalCounts: number[] = []
+  peripherals.forEach((item, index) => {
+    const row = Math.floor(index / PERIPHERALS_PER_ROW)
+    rowSignalCounts[row] = (rowSignalCounts[row] ?? 0) + item.pins.length
+  })
+  const rowHeights = rowSignalCounts.map((count) => PERIPHERAL_RENDER_H + peripheralClearance(count))
+  const rowTops = rowHeights.map((_, row) =>
+    peripheralY + rowHeights.slice(0, row).reduce((sum, height) => sum + height + PERIPHERAL_ROW_GAP, 0))
   peripherals.forEach((item, index) => {
     const column = index % PERIPHERALS_PER_ROW
     const row = Math.floor(index / PERIPHERALS_PER_ROW)
     layouts.push({
       item,
       x: PERIPHERAL_ROW_X + (column * (PERIPHERAL_RENDER_W + PERIPHERAL_GAP)),
-      y: peripheralY + (row * (peripheralHeight + PERIPHERAL_ROW_GAP)),
+      y: rowTops[row],
       width: PERIPHERAL_RENDER_W,
-      height: peripheralHeight,
+      // Footprint, not just artwork: the pads are on the bottom edge, so the
+      // lanes and net stubs below them are part of what each module occupies.
+      height: rowHeights[row],
     })
   })
   return layouts
