@@ -1296,6 +1296,22 @@
   stroke-width: 5;
 }
 
+.mainPowerWire,
+.mainGroundWire {
+  fill: none;
+  stroke-width: 10;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mainPowerWire {
+  stroke: #d92828;
+}
+
+.mainGroundWire {
+  stroke: #171b1d;
+}
+
 .signalWire {
   fill: none;
   stroke: #24963e;

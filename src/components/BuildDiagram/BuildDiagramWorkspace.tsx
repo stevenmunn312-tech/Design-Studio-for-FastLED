@@ -15,6 +15,7 @@ import {
 import { calculateElectricalPlan } from '../../build/electricalPlan'
 import { bomCsv, buildBomRows, buildConnectionRows, connectionsCsv } from '../../build/buildExports'
 import { buildHardwareManifest, type HardwareManifestItem, type HardwarePinUse } from '../../build/hardwareManifest'
+import { fuseBlockAllocations } from '../../build/powerDistribution'
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
@@ -392,15 +393,21 @@ export default function BuildDiagramWorkspace() {
       lines.push({ id: 'level-shifter', quantity: String(Math.max(1, Math.ceil(outputItems.length / 4))), label: '74AHCT125 level shifter' })
       lines.push({ id: 'resistors', quantity: String(outputItems.length), label: '330 ohm data resistor' })
       const feedCount = electricalPlan.outputs.reduce((sum, output) => sum + output.recommendedFeedCount, 0)
-      const fuseRatings = [...new Set(electricalPlan.outputs.map((output) => output.fuse.ratingMa).filter((value): value is number => !!value))]
+      const fuseRatings = [...new Set(electricalPlan.outputs.flatMap((output) => output.injections.map((injection) => injection.fuse.ratingMa)).filter((value): value is number => !!value))]
       lines.push({ id: 'fuses', quantity: String(feedCount), label: `${fuseRatings.map(formatCurrentMa).join(' / ') || 'Rated'} branch fuse` })
-      lines.push({ id: 'ceramic-capacitors', quantity: String(feedCount), label: 'Local ceramic injection capacitor' })
+      lines.push({ id: 'power-output-capacitors', quantity: String(feedCount), label: '1000uF 6.3 V low-ESR electrolytic capacitor' })
     }
     if (electricalPlan.totals) {
       for (const supply of electricalPlan.totals.supplies) {
         lines.push({ id: supply.id, quantity: '1', label: `5 V · ${formatCurrentMa(supply.recommendedCurrentMa)} / ${formatWattage(supply.recommendedWattage)} PSU` })
+        fuseBlockAllocations(supply.injectionIds.length).forEach((block, index) => {
+          lines.push({
+            id: `${supply.id}-fuse-block-${index + 1}`,
+            quantity: '1',
+            label: `${block.circuitCount}-circuit fixed fuse block (${block.assignedFeedCount} used)`,
+          })
+        })
       }
-      lines.push({ id: 'bulk-capacitors', quantity: String(electricalPlan.totals.supplies.length), label: '1000uF minimum bulk electrolytic capacitor' })
     }
     const conductors = [...new Set(electricalPlan.outputs.map((output) => output.conductor ? `AWG ${output.conductor.awg} / ${output.conductor.crossSectionMm2} mm2 copper` : '').filter(Boolean))]
     if (conductors.length > 0) lines.push({ id: 'wire', quantity: 'As required', label: conductors.join(' / ') })

@@ -405,8 +405,7 @@ export function calculateElectricalPlan(
     'Power the controller through its USB-C connector; do not route LED load through the controller board.',
     'Join controller, microphone, level shifter, supply, and LED grounds at the common distribution ground.',
     'Use one 74AHCT125 channel and one 330 ohm series resistor for each WS2812B data route.',
-    'Install a good-quality, correctly polarized bulk electrolytic capacitor across +5 V and GND at each PSU distribution output.',
-    'Install local ceramic decoupling across +5 V and GND near every LED power-injection site.',
+    'Install one good-quality, correctly polarized 1000 uF, 6.3 V low-ESR electrolytic capacitor across +5 V and GND after every branch fuse, before the matrix feed or power-injection connection.',
     'Reducing global brightness lowers operating power without changing the worst-case wiring recommendation.',
     'FastLED current limiting reduces the recommended PSU operating capacity, but branch wiring and fuses remain sized for the uncapped physical load.',
   ]
