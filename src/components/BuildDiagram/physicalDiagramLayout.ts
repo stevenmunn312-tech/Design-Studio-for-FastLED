@@ -86,7 +86,8 @@ export const LEVEL_SHIFTER_X = 430
 export const LEVEL_SHIFTER_Y = 276
 export const LEVEL_SHIFTER_WIDTH = 180
 export const LEVEL_SHIFTER_HEIGHT = 230
-export const LEVEL_SHIFTER_GAP = 42
+/** Clears the four detour lanes that wrap under each chip (deepest is +57). */
+export const LEVEL_SHIFTER_GAP = 76
 
 export type LevelShifterTerminalPoint = {
   x: number
