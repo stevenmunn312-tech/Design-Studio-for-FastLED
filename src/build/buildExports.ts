@@ -2,6 +2,7 @@ import { boardPinForGpio, type PhysicalBoardProfile } from './boardProfiles'
 import type { BuildProfile } from './buildProfile'
 import type { ElectricalPlanSummary } from './electricalPlan'
 import type { HardwareManifest, HardwareManifestItem } from './hardwareManifest'
+import { fuseBlockAllocations } from './powerDistribution'
 
 export interface BuildConnectionRow {
   from: string
@@ -49,7 +50,7 @@ export function buildConnectionRows(
   const includedPlanOutputs = plan.outputs.filter((output) => includedOutputIds.has(output.itemId))
   const logicSupplyId = includedPlanOutputs.flatMap((output) => output.injections)
     .find((injection) => injection.supplyId)?.supplyId ?? 'supply-1'
-  const logicDistribution = `5 V PSU ${logicSupplyId.replace('supply-', '')} fused distribution`
+  const logicDistribution = `5 V PSU ${logicSupplyId.replace('supply-', '')} fuse-block distribution`
 
   rows.push({ from: 'USB-C power source', fromTerminal: 'USB-C', to: controller, toTerminal: 'USB-C power', purpose: 'Controller power only' })
 
@@ -105,20 +106,18 @@ export function buildConnectionRows(
       injection.supplyId === supply.id && includedInjectionIds.has(injection.id))
     if (supplyInjections.length === 0) continue
     const supplyLabel = `5 V PSU ${supply.id.replace('supply-', '')}`
-    const distribution = `${supplyLabel} fused distribution`
-    rows.push({ from: supplyLabel, fromTerminal: '+5V', to: distribution, toTerminal: '+5V input', purpose: 'DC supply positive' })
-    rows.push({ from: supplyLabel, fromTerminal: 'GND', to: distribution, toTerminal: 'Ground bus', purpose: 'DC supply return' })
-    rows.push({ from: supplyLabel, fromTerminal: '+5V', to: `${supplyLabel} bulk electrolytic`, toTerminal: '+', purpose: 'Bulk transient suppression' })
-    rows.push({ from: supplyLabel, fromTerminal: 'GND', to: `${supplyLabel} bulk electrolytic`, toTerminal: '-', purpose: 'Bulk transient suppression' })
+    const distribution = `${supplyLabel} fuse-block distribution`
+    rows.push({ from: supplyLabel, fromTerminal: '+5V', to: distribution, toTerminal: 'Positive input stud', purpose: 'DC supply positive' })
+    rows.push({ from: supplyLabel, fromTerminal: 'GND', to: distribution, toTerminal: 'Common negative bus', purpose: 'DC supply return' })
     for (const injection of supplyInjections) {
       const destination = `${injection.outputTitle} ${injection.role} injection @ ${injection.positionMm} mm`
-      const fuse = `${destination} ${injection.fuse.ratingMa ?? 'rated'} mA fuse`
-      const ceramic = `${destination} ceramic capacitor`
-      rows.push({ from: distribution, fromTerminal: '+5V fused output', to: fuse, toTerminal: 'Input', purpose: `${injection.designCurrentMa} mA protected branch` })
-      rows.push({ from: fuse, fromTerminal: 'Output', to: destination, toTerminal: '+5V', purpose: `Power injection via ${injection.conductor ? `AWG ${injection.conductor.awg}` : 'rated'} copper pair` })
-      rows.push({ from: distribution, fromTerminal: 'Ground bus', to: destination, toTerminal: 'GND', purpose: 'Power-injection return' })
-      rows.push({ from: destination, fromTerminal: '+5V', to: ceramic, toTerminal: '+', purpose: 'Local high-frequency decoupling' })
-      rows.push({ from: destination, fromTerminal: 'GND', to: ceramic, toTerminal: '-', purpose: 'Local high-frequency decoupling' })
+      const fuse = `${destination} ${injection.fuse.ratingMa ?? 'rated'} mA branch fuse`
+      const capacitor = `${destination} 1000 uF 6.3 V electrolytic capacitor`
+      rows.push({ from: distribution, fromTerminal: '+5V bus', to: fuse, toTerminal: 'Input', purpose: `${injection.designCurrentMa} mA protected branch` })
+      rows.push({ from: fuse, fromTerminal: 'Output', to: capacitor, toTerminal: '+', purpose: 'Fused capacitor positive' })
+      rows.push({ from: distribution, fromTerminal: 'Common negative bus', to: capacitor, toTerminal: '-', purpose: 'Capacitor negative and branch return' })
+      rows.push({ from: capacitor, fromTerminal: '+', to: destination, toTerminal: '+5V', purpose: `Power injection via ${injection.conductor ? `AWG ${injection.conductor.awg}` : 'rated'} copper pair` })
+      rows.push({ from: capacitor, fromTerminal: '-', to: destination, toTerminal: 'GND', purpose: 'Power-injection return' })
     }
   }
   const includedSupplyIds = [...new Set(includedInjections.map((injection) => injection.supplyId).filter(Boolean))]
@@ -162,10 +161,17 @@ export function buildBomRows(
         ? `derived from ${formatAmps(supply.psuSizingCurrentMa)} configured operating budget with ${plan.totals.headroomPercent}% target headroom; ${formatAmps(supply.designCurrentMa)} uncapped full-white ceiling; use a quality supply with overload and short-circuit protection`
         : `derived from worst-case load with ${plan.totals.headroomPercent}% target headroom`
       rows.push({ quantity: '1', item: `Recommended 5 V DC power supply ${supply.id.replace('supply-', '')}`, specification: `5 V, ${formatAmps(supply.recommendedCurrentMa)}, ${supply.recommendedWattage} W continuous; ${sizingBasis}`, status: 'calculated' })
-      rows.push({ quantity: '1', item: `${supply.id} fused DC distribution block`, specification: `${supply.injectionIds.filter((id) => includedInjectionIds.has(id)).length} protected positive outputs plus common ground bus`, status: 'calculated' })
-      rows.push({ quantity: '1', item: `${supply.id} bulk electrolytic capacitor`, specification: '1000 uF minimum, good-quality low-ESR part, correctly polarized, voltage rating above 5 V', status: 'calculated' })
+      const feedCount = supply.injectionIds.filter((id) => includedInjectionIds.has(id)).length
+      for (const [blockIndex, block] of fuseBlockAllocations(feedCount).entries()) {
+        rows.push({
+          quantity: '1',
+          item: `${supply.id} fuse block ${blockIndex + 1}`,
+          specification: `${block.circuitCount}-circuit fixed fuse block with common negative bus; ${block.assignedFeedCount} circuit${block.assignedFeedCount === 1 ? '' : 's'} used`,
+          status: 'calculated',
+        })
+      }
     }
-    rows.push({ quantity: String(includedInjectionIds.size), item: 'Local ceramic decoupling capacitor', specification: 'One correctly rated ceramic capacitor across +5 V and GND at each injection site', status: 'calculated' })
+    rows.push({ quantity: String(includedInjectionIds.size), item: 'Power-output electrolytic capacitor', specification: '1000 uF, 6.3 V, good-quality low-ESR radial electrolytic; one correctly polarized across +5 V and GND after every branch fuse', status: 'calculated' })
   }
   for (const output of outputs) {
     for (const injection of output.injections) {

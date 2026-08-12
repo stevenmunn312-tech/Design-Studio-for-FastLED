@@ -200,12 +200,14 @@ describe('BuildDiagramWorkspace', () => {
       'supply-1-positive',
       'supply-1-ground',
       'output:out:feed-1-fuse',
-      'output:out:feed-1-ceramic',
+      'output:out:feed-1-capacitor',
       'output:out:feed-1-led-positive',
       'output:out:feed-1-led-ground',
     ]) {
       expect(diagram?.querySelector(`[data-terminal="${terminal}"]`), terminal).toBeTruthy()
     }
+    expect(diagram?.querySelector('[data-component-render="fuse-block-4-circuit"]')).toBeTruthy()
+    expect(diagram?.querySelectorAll('[data-component-render="electrolytic-capacitor-1000uf-6v3"]')).toHaveLength(3)
   })
 
   it('shows two 5 A output limits while retaining the uncapped safety ceiling', () => {
@@ -499,6 +501,22 @@ describe('BuildDiagramWorkspace', () => {
     expect(getByText((_, node) => node?.tagName === 'LI' && (node.textContent?.startsWith('PSU 5: 5 V, at least') ?? false))).toBeTruthy()
     expect(getAllByText((_, node) => node?.textContent?.includes('PSU ZONE 5') ?? false).length).toBeGreaterThan(0)
     expect(getByText('Keep separate PSU +5 V zones isolated; join grounds for the shared controller data reference.')).toBeTruthy()
+  })
+
+  it('uses additional fixed fuse blocks and one electrolytic per feed when a PSU zone exceeds twelve circuits', () => {
+    useGraphStore.setState({
+      nodes: [matrixNode(14, 64, 64, 'out', { powerLimit: true, milliamps: 5000 })] as never[],
+    })
+    selectDevKit()
+    const { container } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
+
+    expect(Array.from(diagram?.querySelectorAll('[data-fuse-block-circuits]') ?? [])
+      .map((node) => Number(node.getAttribute('data-fuse-block-circuits'))))
+      .toEqual([12, 12, 2])
+    expect(diagram?.querySelectorAll('[data-component-render="electrolytic-capacitor-1000uf-6v3"]')).toHaveLength(26)
+    const finalGround = Number(diagram?.querySelector('[data-terminal="output:out:feed-26-led-ground"]')?.getAttribute('cy'))
+    expect(finalGround).toBeLessThan(Number(diagram?.getAttribute('height')))
   })
 
   it('allocates four real level-shifter channels before adding a second chip', () => {

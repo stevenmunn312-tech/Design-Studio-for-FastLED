@@ -17,7 +17,7 @@ export interface BuildSectionLayers {
   signalWires: boolean
   /** 74AHCT125 chips and their series resistors. */
   levelShifter: boolean
-  /** PSU zones, fuses, injection feeds, and the shared-net callout. */
+  /** PSU zones, fixed fuse blocks, per-feed capacitors, injection feeds, and the shared-net callout. */
   powerDistribution: boolean
 }
 
@@ -64,7 +64,7 @@ export const BUILD_SECTIONS: BuildSection[] = [
   {
     id: 'power',
     label: 'Power',
-    summary: 'PSU zones, fused feeds, and injection points for every LED output.',
+    summary: 'PSU zones, fixed fuse blocks, and a fused capacitor stage for every LED power feed.',
     kinds: ['matrix-output'],
     layers: { signalWires: false, levelShifter: false, powerDistribution: true },
   },

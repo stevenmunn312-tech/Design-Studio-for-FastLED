@@ -1,5 +1,6 @@
 import type { ElectricalPlanSummary } from '../../build/electricalPlan'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
+import { fuseBlockAllocations } from '../../build/powerDistribution'
 
 export type ItemLayout = {
   item: HardwareManifestItem
@@ -11,6 +12,27 @@ export type ItemLayout = {
 
 /** Clearance between the last hardware row and the PSU zones, sized for the shared-net callout. */
 export const POWER_SECTION_GAP = 120
+
+export const FUSE_BLOCKS_PER_ROW = 4
+export const FUSE_BLOCK_CELL_WIDTH = 160
+export const FUSE_BLOCK_CELL_HEIGHT = 182
+export const FUSE_BLOCK_CELL_GAP = 12
+export const FUSE_BLOCK_START_X = 282
+export const FUSE_BLOCK_START_Y = 76
+export const POWER_BRANCH_ROW_SPACING = 86
+
+export function powerDistributionSectionLayout(feedCount: number) {
+  const blockCount = fuseBlockAllocations(feedCount).length
+  const blockRowCount = Math.max(1, Math.ceil(blockCount / FUSE_BLOCKS_PER_ROW))
+  const branchStartY = FUSE_BLOCK_START_Y
+    + (blockRowCount * (FUSE_BLOCK_CELL_HEIGHT + FUSE_BLOCK_CELL_GAP))
+    + 34
+  return {
+    blockRowCount,
+    branchStartY,
+    sectionHeight: branchStartY + (feedCount * POWER_BRANCH_ROW_SPACING) + 30,
+  }
+}
 
 /**
  * Control-module renders (button / potentiometer / encoder).
@@ -211,6 +233,6 @@ export function physicalAssemblyDiagramHeight(
     return Math.max(400, diagramContentBottom(items, layers) + 80)
   }
   const powerSectionHeight = (plan.totals?.supplies ?? []).reduce((height, supply) =>
-    height + 204 + (supply.injectionIds.length * 54), 0)
+    height + powerDistributionSectionLayout(supply.injectionIds.length).sectionHeight + 34, 0)
   return powerSectionStartY(items, layers) + powerSectionHeight + 34
 }
