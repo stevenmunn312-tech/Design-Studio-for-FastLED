@@ -208,7 +208,11 @@ describe('BuildDiagramWorkspace', () => {
     ]) {
       expect(diagram?.querySelector(`[data-terminal="${terminal}"]`), terminal).toBeTruthy()
     }
-    expect(diagram?.querySelector('[data-component-render="5v-psu"]')).toBeTruthy()
+    const psuRender = diagram?.querySelector('[data-component-render="5v-psu"]')
+    expect(psuRender?.getAttribute('width')).toBe('123')
+    expect(psuRender?.getAttribute('height')).toBe('220')
+    expect(diagram?.querySelector('[data-terminal="supply-1-positive"]')?.getAttribute('cy')).toBe('140')
+    expect(diagram?.querySelector('[data-terminal="supply-1-ground"]')?.getAttribute('cy')).toBe('163')
     expect(diagram?.querySelector('[data-component-render="fuse-block-4-circuit"]')).toBeTruthy()
     expect(diagram?.querySelectorAll('[data-component-render="electrolytic-capacitor-1000uf-6v3"]')).toHaveLength(3)
     const capacitorPositive = diagram?.querySelector('[data-terminal="output:out:feed-1-capacitor-positive"]')

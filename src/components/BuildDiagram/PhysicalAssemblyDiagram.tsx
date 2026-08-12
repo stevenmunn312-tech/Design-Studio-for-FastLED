@@ -616,8 +616,10 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
         x: FUSE_BLOCK_START_X + ((blockIndex % FUSE_BLOCKS_PER_ROW) * (FUSE_BLOCK_CELL_WIDTH + FUSE_BLOCK_CELL_GAP)),
         y: FUSE_BLOCK_START_Y + (Math.floor(blockIndex / FUSE_BLOCKS_PER_ROW) * (FUSE_BLOCK_CELL_HEIGHT + FUSE_BLOCK_CELL_GAP)),
       }))
-      const psuPositive = { x: 255, y: 170 }
-      const psuGround = { x: 255, y: 148 }
+      // Terminal coordinates measured from the labelled PSU Cycles render:
+      // use the second +V screw and the adjacent first -V screw.
+      const psuPositive = { x: 153, y: 140 }
+      const psuGround = { x: 153, y: 163 }
       const positiveBus = `M${psuPositive.x} ${psuPositive.y}H274${blocks.map((block) => {
         const point = fuseBlockPoints(block.circuitCount, block.x, block.y).positive
         return `M274 ${psuPositive.y}V${point.y}H${point.x}`
@@ -641,8 +643,8 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
           href={psuRender}
           x="42"
           y="76"
-          width="220"
-          height="116"
+          width="123"
+          height="220"
           preserveAspectRatio="xMidYMid meet"
           className={styles.physicalBoardRender}
           filter="url(#component-shadow)"
