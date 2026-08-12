@@ -520,6 +520,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Particles example graph](../../public/node-cards/graphs/particles.svg)
 
+### Formula Points
+
+![Formula Points node](../../public/node-cards/formula-points.svg)
+
+![Formula Points example graph](../../public/node-cards/graphs/formula-points.svg)
+
 ### Flow Field
 
 ![Flow Field node](../../public/node-cards/flow-field.svg)
@@ -707,6 +713,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Field Formula node](../../public/node-cards/field-formula.svg)
 
 ![Field Formula example graph](../../public/node-cards/graphs/field-formula.svg)
+
+### Formula Field
+
+![Formula Field node](../../public/node-cards/formula-field.svg)
+
+![Formula Field example graph](../../public/node-cards/graphs/formula-field.svg)
 
 ### Field Noise
 

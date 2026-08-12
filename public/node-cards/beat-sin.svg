@@ -17,8 +17,8 @@
 <text x="8" y="92" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">bpm</text>
 <g>
 <rect x="120" y="86" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="120" y="86" width="8.0" height="4" rx="2" fill="#d633ff"/>
-<circle cx="128.0" cy="88" r="5" fill="#d633ff"/>
+<rect x="120" y="86" width="19.4" height="4" rx="2" fill="#d633ff"/>
+<circle cx="139.4" cy="88" r="5" fill="#d633ff"/>
 <text x="232" y="92" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">60</text>
 </g>
 <text x="8" y="113" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">low</text>

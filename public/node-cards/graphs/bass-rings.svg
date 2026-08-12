@@ -2634,10 +2634,10 @@
 <path d="M626,680 C669.2,680 678.8,548 722,548" fill="none" stroke="#33ffd6" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
 <path d="M626,680 C669.2,680 678.8,548 722,548" fill="none" stroke="#33ffd6" stroke-width="1.2" stroke-linecap="round"/>
 <circle cx="722" cy="548" r="3" fill="#33ffd6"/>
-<path d="M966,464 C1009.2,464 1018.8,336 1062,336" fill="none" stroke="#33d6ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M966,464 C1009.2,464 1018.8,336 1062,336" fill="none" stroke="#33d6ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M966,464 C1009.2,464 1018.8,336 1062,336" fill="none" stroke="#33d6ff" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="1062" cy="336" r="3" fill="#33d6ff"/>
+<path d="M966,464 C1009.2,464 1018.8,316 1062,316" fill="none" stroke="#33d6ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M966,464 C1009.2,464 1018.8,316 1062,316" fill="none" stroke="#33d6ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M966,464 C1009.2,464 1018.8,316 1062,316" fill="none" stroke="#33d6ff" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="1062" cy="316" r="3" fill="#33d6ff"/>
 <g transform="translate(44,204)">
 <rect x="0" y="0" width="240" height="168" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
 <rect x="0" y="0" width="240" height="168" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
@@ -3273,9 +3273,9 @@
 <text x="228" y="136" text-anchor="end" font-size="8" fill="#a0a0a0">▾</text>
 </g>
 </g>
-<g transform="translate(1064,284)">
-<rect x="0" y="0" width="240" height="266" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
-<rect x="0" y="0" width="240" height="266" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
+<g transform="translate(1064,264)">
+<rect x="0" y="0" width="240" height="287" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
+<rect x="0" y="0" width="240" height="287" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#d633ff"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Matrix Output</text>
 <rect x="154" y="10" width="25" height="12" rx="6" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
@@ -3293,12 +3293,13 @@
 <line x1="8" y1="128" x2="232" y2="128" stroke="rgba(255,255,255,0.08)"/>
 <text x="8" y="148" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ FRAME ROUTE</text>
 <text x="8" y="169" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ WIRING</text>
-<text x="8" y="190" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ LAYOUT</text>
-<text x="8" y="211" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ RENDERING</text>
-<text x="8" y="232" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ POWER</text>
-<text x="8" y="253" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">set default</text>
+<text x="8" y="190" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ HUB75 WIRING</text>
+<text x="8" y="211" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ LAYOUT</text>
+<text x="8" y="232" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ RENDERING</text>
+<text x="8" y="253" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" letter-spacing="0.03em" fill="#a0a0a0">▸ POWER</text>
+<text x="8" y="274" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">set default</text>
 <g>
-<rect x="220" y="243" width="12" height="12" rx="3" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
+<rect x="220" y="264" width="12" height="12" rx="3" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
 </g>
 </g>
 </svg>
