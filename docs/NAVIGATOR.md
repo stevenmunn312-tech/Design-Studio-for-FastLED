@@ -54,6 +54,11 @@ build/architecture overview aimed at contributors.
     — current design/status note for driving HUB75 scan-panel matrices via
     `ESP32-HUB75-MatrixPanel-DMA` as a single-output `MatrixOutput` route
     family alongside the existing clockless/SPI addressable chipsets.
+  - [Formula-driven pattern nodes](development/design/formula-pattern-nodes.md)
+    — proposed `FormulaField` (stateless, curated closed-form fields like
+    rose curves/superformula) and `FormulaPoints` (stateful parametric point
+    generators like phyllotaxis/Lissajous/attractors) nodes, plus a `PHI`
+    formula-language constant. Not yet implemented.
 - [Plans](development/plans/)
   - [Node review findings](development/plans/node-todo.md)
     — the category-by-category control, validation, evaluator, and codegen
