@@ -203,6 +203,7 @@ describe('BuildDiagramWorkspace', () => {
       'output:out:feed-1-capacitor',
       'output:out:feed-1-capacitor-positive',
       'output:out:feed-1-capacitor-negative',
+      'output:out:feed-1-ground-screw',
       'output:out:feed-1-led-positive',
       'output:out:feed-1-led-ground',
     ]) {
@@ -211,17 +212,28 @@ describe('BuildDiagramWorkspace', () => {
     const psuRender = diagram?.querySelector('[data-component-render="5v-psu"]')
     expect(psuRender?.getAttribute('width')).toBe('123')
     expect(psuRender?.getAttribute('height')).toBe('220')
-    expect(diagram?.querySelector('[data-terminal="supply-1-positive"]')?.getAttribute('cy')).toBe('140')
-    expect(diagram?.querySelector('[data-terminal="supply-1-ground"]')?.getAttribute('cy')).toBe('163')
-    expect(diagram?.querySelector('[data-component-render="fuse-block-4-circuit"]')).toBeTruthy()
+    expect(psuRender?.getAttribute('y')).toBe('176')
+    expect(diagram?.querySelector('[data-terminal="supply-1-positive"]')?.getAttribute('cy')).toBe('240')
+    expect(diagram?.querySelector('[data-terminal="supply-1-ground"]')?.getAttribute('cy')).toBe('263')
+    const fuseBlockRender = diagram?.querySelector('[data-component-render="fuse-block-4-circuit"]')
+    expect(fuseBlockRender?.getAttribute('y')).toBe('195')
+    expect(Number(psuRender?.getAttribute('y')) + (Number(psuRender?.getAttribute('height')) / 2))
+      .toBe(Number(fuseBlockRender?.getAttribute('y')) + (Number(fuseBlockRender?.getAttribute('height')) / 2))
+    expect(diagram?.querySelector('[data-wire="supply-1-positive-bus"]')?.getAttribute('d')).toMatch(/H362(?:\.\d+)?$/)
     expect(diagram?.querySelectorAll('[data-component-render="electrolytic-capacitor-1000uf-6v3"]')).toHaveLength(3)
     const capacitorPositive = diagram?.querySelector('[data-terminal="output:out:feed-1-capacitor-positive"]')
     const capacitorNegative = diagram?.querySelector('[data-terminal="output:out:feed-1-capacitor-negative"]')
     expect(Number(capacitorPositive?.getAttribute('cy'))).toBeLessThan(Number(capacitorNegative?.getAttribute('cy')))
     const positiveRoute = diagram?.querySelector('[data-wire="output:out:feed-1-fused-positive"]')?.getAttribute('d')
     const groundRoute = diagram?.querySelector('[data-wire="output:out:feed-1-ground"]')?.getAttribute('d')
-    expect(positiveRoute).toContain('H307V')
-    expect(groundRoute).toContain('H300V')
+    expect(positiveRoute).toContain('H475V')
+    expect(groundRoute).toContain('H470V')
+    expect(diagram?.querySelector('[data-fuse-value-schedule="supply-1"]')?.textContent)
+      .toContain('BLOCK 1 · 1: 7.5A')
+    expect(diagram?.querySelector('[data-terminal="output:out:feed-1-led-positive"]')?.getAttribute('cy')).toBe('200')
+    const groundScrews = Array.from(diagram?.querySelectorAll('[data-terminal$="-ground-screw"]') ?? [])
+    expect(new Set(groundScrews.map((terminal) => terminal.getAttribute('cx'))).size).toBe(3)
+    expect(Array.from(diagram?.querySelectorAll('text') ?? []).some((text) => text.textContent === '7.5A FUSE')).toBe(false)
   })
 
   it('shows two 5 A output limits while retaining the uncapped safety ceiling', () => {

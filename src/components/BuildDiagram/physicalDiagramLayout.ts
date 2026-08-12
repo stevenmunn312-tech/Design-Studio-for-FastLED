@@ -18,19 +18,32 @@ export const FUSE_BLOCK_CELL_WIDTH = 160
 export const FUSE_BLOCK_CELL_HEIGHT = 182
 export const FUSE_BLOCK_CELL_GAP = 12
 export const FUSE_BLOCK_START_X = 282
-export const FUSE_BLOCK_START_Y = 76
 export const POWER_BRANCH_ROW_SPACING = 86
 
 export function powerDistributionSectionLayout(feedCount: number) {
   const blockCount = fuseBlockAllocations(feedCount).length
   const blockRowCount = Math.max(1, Math.ceil(blockCount / FUSE_BLOCKS_PER_ROW))
-  const branchStartY = FUSE_BLOCK_START_Y
-    + (blockRowCount * (FUSE_BLOCK_CELL_HEIGHT + FUSE_BLOCK_CELL_GAP))
-    + 34
+  // Start the feed bank much closer to the section heading. The PSU and fuse
+  // blocks are then centred against the first six feed pairs, which keeps the
+  // source hardware visually associated with the wires it supplies without
+  // making large builds reserve an enormous blank header.
+  const branchStartY = 162
+  const firstBranchY = branchStartY + 38
+  const centredFeedCount = Math.max(1, Math.min(feedCount, 6))
+  const componentCenterY = firstBranchY + (((centredFeedCount - 1) * POWER_BRANCH_ROW_SPACING) / 2)
+  const psuY = Math.max(76, componentCenterY - 110)
+  const fuseBlockY = Math.max(76, componentCenterY - (FUSE_BLOCK_CELL_HEIGHT / 2))
+  const componentBottom = Math.max(
+    psuY + 220,
+    fuseBlockY + (blockRowCount * (FUSE_BLOCK_CELL_HEIGHT + FUSE_BLOCK_CELL_GAP)) - FUSE_BLOCK_CELL_GAP,
+  )
+  const branchBottom = firstBranchY + (Math.max(0, feedCount - 1) * POWER_BRANCH_ROW_SPACING) + 64
   return {
     blockRowCount,
     branchStartY,
-    sectionHeight: branchStartY + (feedCount * POWER_BRANCH_ROW_SPACING) + 30,
+    psuY,
+    fuseBlockY,
+    sectionHeight: Math.max(componentBottom, branchBottom) + 30,
   }
 }
 
