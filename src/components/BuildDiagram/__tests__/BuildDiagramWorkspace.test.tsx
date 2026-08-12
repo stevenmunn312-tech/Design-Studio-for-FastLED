@@ -201,13 +201,23 @@ describe('BuildDiagramWorkspace', () => {
       'supply-1-ground',
       'output:out:feed-1-fuse',
       'output:out:feed-1-capacitor',
+      'output:out:feed-1-capacitor-positive',
+      'output:out:feed-1-capacitor-negative',
       'output:out:feed-1-led-positive',
       'output:out:feed-1-led-ground',
     ]) {
       expect(diagram?.querySelector(`[data-terminal="${terminal}"]`), terminal).toBeTruthy()
     }
+    expect(diagram?.querySelector('[data-component-render="5v-psu"]')).toBeTruthy()
     expect(diagram?.querySelector('[data-component-render="fuse-block-4-circuit"]')).toBeTruthy()
     expect(diagram?.querySelectorAll('[data-component-render="electrolytic-capacitor-1000uf-6v3"]')).toHaveLength(3)
+    const capacitorPositive = diagram?.querySelector('[data-terminal="output:out:feed-1-capacitor-positive"]')
+    const capacitorNegative = diagram?.querySelector('[data-terminal="output:out:feed-1-capacitor-negative"]')
+    expect(Number(capacitorPositive?.getAttribute('cy'))).toBeLessThan(Number(capacitorNegative?.getAttribute('cy')))
+    const positiveRoute = diagram?.querySelector('[data-wire="output:out:feed-1-fused-positive"]')?.getAttribute('d')
+    const groundRoute = diagram?.querySelector('[data-wire="output:out:feed-1-ground"]')?.getAttribute('d')
+    expect(positiveRoute).toContain('H307V')
+    expect(groundRoute).toContain('H300V')
   })
 
   it('shows two 5 A output limits while retaining the uncapped safety ceiling', () => {
@@ -515,6 +525,15 @@ describe('BuildDiagramWorkspace', () => {
       .map((node) => Number(node.getAttribute('data-fuse-block-circuits'))))
       .toEqual([12, 12, 2])
     expect(diagram?.querySelectorAll('[data-component-render="electrolytic-capacitor-1000uf-6v3"]')).toHaveLength(26)
+    const laneCoordinates = (polarity: 'fused-positive' | 'ground') => Array.from(
+      diagram?.querySelectorAll(`[data-wire$="-${polarity}"]`) ?? [],
+      (wire) => wire.getAttribute('d')?.match(/H(\d+)V\d+(?:\.\d+)?H1020$/)?.[1],
+    ).filter((coordinate): coordinate is string => coordinate != null)
+    const positiveLanes = laneCoordinates('fused-positive')
+    const groundLanes = laneCoordinates('ground')
+    expect(new Set(positiveLanes).size).toBe(26)
+    expect(new Set(groundLanes).size).toBe(26)
+    expect(positiveLanes.some((lane) => groundLanes.includes(lane))).toBe(false)
     const finalGround = Number(diagram?.querySelector('[data-terminal="output:out:feed-26-led-ground"]')?.getAttribute('cy'))
     expect(finalGround).toBeLessThan(Number(diagram?.getAttribute('height')))
   })

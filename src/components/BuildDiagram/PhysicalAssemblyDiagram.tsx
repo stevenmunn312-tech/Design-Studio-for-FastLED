@@ -8,6 +8,7 @@ import levelShifterRender from '../../assets/components/sn74ahct125n-dip14.png'
 import buttonModuleRender from '../../assets/components/button-module.png'
 import potentiometerModuleRender from '../../assets/components/potentiometer-module.png'
 import encoderModuleRender from '../../assets/components/encoder-module.png'
+import psuRender from '../../assets/components/5v-psu.png'
 import capacitorRender from '../../assets/components/electrolytic-capacitor-1000uf-6v3.png'
 import fuseBlock2Render from '../../assets/components/fuse-block-2-circuit.png'
 import fuseBlock4Render from '../../assets/components/fuse-block-4-circuit.png'
@@ -80,6 +81,37 @@ const FUSE_BLOCK_RENDERS: Record<FuseBlockCircuitCount, string> = {
   8: fuseBlock8Render,
   10: fuseBlock10Render,
   12: fuseBlock12Render,
+}
+
+const FUSE_BLOCK_MODEL_WIDTH = 5.8
+
+/**
+ * Map the plan-view Blender model coordinates into the fixed SVG image cell.
+ * The Cycles renders use a 15% orthographic perimeter, so these points land on
+ * the visible screw heads for every supported fixed block size.
+ */
+function fuseBlockPoints(circuitCount: FuseBlockCircuitCount, x: number, y: number) {
+  const rows = circuitCount / 2
+  const modelHeight = 3.45 + (rows * 1.72)
+  const scale = Math.min(
+    FUSE_BLOCK_CELL_WIDTH / (FUSE_BLOCK_MODEL_WIDTH * 1.15),
+    FUSE_BLOCK_CELL_HEIGHT / (modelHeight * 1.15),
+  )
+  const centreX = x + (FUSE_BLOCK_CELL_WIDTH / 2)
+  const centreY = y + (FUSE_BLOCK_CELL_HEIGHT / 2)
+  return {
+    positive: { x: centreX, y: centreY + ((modelHeight / 2 - 0.47) * scale) },
+    ground: { x: centreX, y: centreY - ((modelHeight / 2 - 0.38) * scale) },
+    circuit(slot: number) {
+      const rowFromTop = Math.floor(slot / 2)
+      const column = slot % 2
+      const modelY = (-modelHeight / 2) + 1.62 + ((rows - rowFromTop - 1) * 1.72)
+      return {
+        x: centreX + ((column === 0 ? -2.22 : 2.22) * scale),
+        y: centreY - (modelY * scale),
+      }
+    },
+  }
 }
 
 const DEVKITC_RENDER = {
@@ -584,8 +616,16 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
         x: FUSE_BLOCK_START_X + ((blockIndex % FUSE_BLOCKS_PER_ROW) * (FUSE_BLOCK_CELL_WIDTH + FUSE_BLOCK_CELL_GAP)),
         y: FUSE_BLOCK_START_Y + (Math.floor(blockIndex / FUSE_BLOCKS_PER_ROW) * (FUSE_BLOCK_CELL_HEIGHT + FUSE_BLOCK_CELL_GAP)),
       }))
-      const positiveBus = `M230 100H252${blocks.map((block) => `M252 100V${block.y + (FUSE_BLOCK_CELL_HEIGHT * 0.84)}H${block.x + (FUSE_BLOCK_CELL_WIDTH * 0.5)}`).join('')}`
-      const groundBus = `M230 132H262${blocks.map((block) => `M262 132V${block.y + (FUSE_BLOCK_CELL_HEIGHT * 0.16)}H${block.x + (FUSE_BLOCK_CELL_WIDTH * 0.5)}`).join('')}`
+      const psuPositive = { x: 255, y: 170 }
+      const psuGround = { x: 255, y: 148 }
+      const positiveBus = `M${psuPositive.x} ${psuPositive.y}H274${blocks.map((block) => {
+        const point = fuseBlockPoints(block.circuitCount, block.x, block.y).positive
+        return `M274 ${psuPositive.y}V${point.y}H${point.x}`
+      }).join('')}`
+      const groundBus = `M${psuGround.x} ${psuGround.y}H264${blocks.map((block) => {
+        const point = fuseBlockPoints(block.circuitCount, block.x, block.y).ground
+        return `M264 ${psuGround.y}V${point.y}H${point.x}`
+      }).join('')}`
 
       return <g key={supply.id} transform={`translate(0 ${sectionY})`}>
         <rect x="24" y="0" width="1072" height={sectionHeight} rx="12" fill="none" stroke="#a9afac" strokeWidth="2" />
@@ -596,13 +636,23 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
           <text data-uncapped-current-ceiling={supply.designCurrentMa} x="610" y="58" className={styles.physicalPowerCeilingLabel}>UNCAPPED FULL-WHITE CEILING · {formatAmps(supply.designCurrentMa)}</text>
         </>}
 
-        <g transform="translate(42 76)" filter="url(#component-shadow)">
-          <rect width="188" height="78" rx="8" fill="url(#supply-body)" stroke="#151917" strokeWidth="2" />
-          <circle cx="188" cy="24" r="7" fill="#d84938" stroke="#f0a093" data-terminal={`${supply.id}-positive`} />
-          <circle cx="188" cy="56" r="7" fill="#202425" stroke="#aeb6b7" data-terminal={`${supply.id}-ground`} />
-          <text x="86" y="32" textAnchor="middle" className={styles.physicalSupplyText}>5V CONSTANT-VOLTAGE PSU</text>
-          <text x="86" y="54" textAnchor="middle" className={styles.physicalBoardSubSilk}>{supply.outputTitles.join(' + ')}</text>
-        </g>
+        <image
+          data-component-render="5v-psu"
+          href={psuRender}
+          x="42"
+          y="76"
+          width="220"
+          height="116"
+          preserveAspectRatio="xMidYMid meet"
+          className={styles.physicalBoardRender}
+          filter="url(#component-shadow)"
+        />
+        <circle cx={psuPositive.x} cy={psuPositive.y} r="6" fill="#d84938" stroke="#f0a093" strokeWidth="2" data-terminal={`${supply.id}-positive`}>
+          <title>PSU +5 V output terminal</title>
+        </circle>
+        <circle cx={psuGround.x} cy={psuGround.y} r="6" fill="#202425" stroke="#f2c766" strokeWidth="2" data-terminal={`${supply.id}-ground`}>
+          <title>PSU negative output terminal / common ground</title>
+        </circle>
 
         <path data-wire={`${supply.id}-positive-bus`} d={positiveBus} className={styles.powerWire} />
         <path data-wire={`${supply.id}-ground-bus`} d={groundBus} className={styles.groundWire} />
@@ -611,10 +661,9 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
         <NetStub x={264} y={82} kind="gnd" direction="up" wireId={`${supply.id}-rail-ground`} />
 
         {blocks.map((block) => {
-          const positiveX = block.x + (FUSE_BLOCK_CELL_WIDTH * 0.5)
-          const positiveY = block.y + (FUSE_BLOCK_CELL_HEIGHT * 0.84)
-          const groundX = block.x + (FUSE_BLOCK_CELL_WIDTH * 0.5)
-          const groundY = block.y + (FUSE_BLOCK_CELL_HEIGHT * 0.16)
+          const points = fuseBlockPoints(block.circuitCount, block.x, block.y)
+          const { x: positiveX, y: positiveY } = points.positive
+          const { x: groundX, y: groundY } = points.ground
           const spareCount = block.circuitCount - block.assignedFeedCount
           return <g key={`${supply.id}-block-${block.blockIndex + 1}`} data-fuse-block-circuits={block.circuitCount}>
             <text x={block.x + (FUSE_BLOCK_CELL_WIDTH / 2)} y={block.y - 7} textAnchor="middle" className={styles.physicalMetaLabel}>
@@ -642,24 +691,24 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
           const destination = `${injection.outputTitle} · ${injection.role.toUpperCase()} @ ${injection.positionMm} mm`
           const block = blocks.find((candidate) => index >= candidate.firstFeedIndex && index < candidate.firstFeedIndex + candidate.assignedFeedCount)!
           const slot = index - block.firstFeedIndex
-          const slotRow = Math.floor(slot / 2)
           const slotColumn = slot % 2
-          const slotRows = block.circuitCount / 2
-          const fuseX = block.x + (FUSE_BLOCK_CELL_WIDTH * (slotColumn === 0 ? 0.17 : 0.83))
-          const fuseY = block.y + (FUSE_BLOCK_CELL_HEIGHT * (slotRows === 1 ? 0.5 : 0.27 + ((slotRow * 0.48) / (slotRows - 1))))
-          const groundX = block.x + (FUSE_BLOCK_CELL_WIDTH * 0.5)
-          const groundY = block.y + (FUSE_BLOCK_CELL_HEIGHT * 0.16)
-          const positiveX = block.x + (FUSE_BLOCK_CELL_WIDTH * 0.5)
-          const positiveY = block.y + (FUSE_BLOCK_CELL_HEIGHT * 0.84)
-          const positiveLaneX = 548 + ((index % 12) * 6)
-          const groundLaneX = 536 + ((index % 12) * 6)
+          const points = fuseBlockPoints(block.circuitCount, block.x, block.y)
+          const { x: fuseX, y: fuseY } = points.circuit(slot)
+          const { x: groundX, y: groundY } = points.ground
+          const { x: positiveX, y: positiveY } = points.positive
+          // Keep every red/black pair visibly separate, with another clear
+          // interval before the next feed pair. No two polarities share a lane.
+          const groundLaneX = 300 + (index * 14)
+          const positiveLaneX = groundLaneX + 7
           const positiveExitX = slotColumn === 0 ? block.x - 8 : block.x + FUSE_BLOCK_CELL_WIDTH + 8
           const branchExitY = sectionLayout.branchStartY - 30 + (slot * 2)
-          const groundExitX = block.x - 8
-          const capacitorX = 728
-          const capacitorY = rowY - 54
-          const capacitorPositiveX = capacitorX + 29
-          const capacitorNegativeX = capacitorX + 44
+          const groundExitX = block.x - 20
+          const groundRowY = rowY + 32
+          const capacitorX = 780
+          const capacitorY = rowY - 64
+          const capacitorLeadY = rowY + 16
+          const capacitorPositiveX = capacitorX + 30
+          const capacitorNegativeX = capacitorX + 42
 
           return <g key={injection.id}>
             {/* The unfused positive path is physically internal to the rendered block. */}
@@ -668,11 +717,11 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
               <circle cx={fuseX} cy={fuseY} r="6" fill="#d84938" stroke="#ffd1d7" strokeWidth="2" />
               <title>{fuseText} branch fuse · circuit {slot + 1}</title>
             </g>
-            <path data-wire={`${injection.id}-fused-positive`} d={`M${fuseX} ${fuseY}H${positiveExitX}V${branchExitY}H${positiveLaneX}V${rowY}H1000`} className={styles.powerWire} />
-            <path data-wire={`${injection.id}-ground`} d={`M${groundX} ${groundY}H${groundExitX}V${branchExitY + 10}H${groundLaneX}V${rowY + 22}H1000`} className={styles.groundWire} />
-            <rect x="622" y={rowY - 16} width="78" height="30" rx="6" fill="#4b2423" stroke="#a7473f" />
-            <text x="661" y={rowY + 4} textAnchor="middle" className={styles.physicalFuseText}>{fuseText} FUSE</text>
-            <text x="808" y={rowY - 11} className={styles.physicalWireLabel}>{destination} · {formatAmps(injection.designCurrentMa)} · {wireText} · 500 mm</text>
+            <path data-wire={`${injection.id}-fused-positive`} d={`M${fuseX} ${fuseY}H${positiveExitX}V${branchExitY}H${positiveLaneX}V${rowY}H1020`} className={styles.powerWire} />
+            <path data-wire={`${injection.id}-ground`} d={`M${groundX} ${groundY}H${groundExitX}V${branchExitY + 10}H${groundLaneX}V${groundRowY}H1020`} className={styles.groundWire} />
+            <rect x="682" y={rowY - 16} width="78" height="30" rx="6" fill="#4b2423" stroke="#a7473f" />
+            <text x="721" y={rowY + 4} textAnchor="middle" className={styles.physicalFuseText}>{fuseText} FUSE</text>
+            <text x="854" y={rowY - 11} className={styles.physicalWireLabel}>{destination} · {formatAmps(injection.designCurrentMa)} · {wireText} · 500 mm</text>
             <g data-terminal={`${injection.id}-capacitor`}>
               <image
                 data-component-render="electrolytic-capacitor-1000uf-6v3"
@@ -684,17 +733,17 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
                 preserveAspectRatio="xMidYMid meet"
                 className={styles.physicalBoardRender}
               />
-              <line x1={capacitorPositiveX} y1={rowY} x2={capacitorPositiveX} y2={rowY + 11} className={styles.powerWire} />
-              <line x1={capacitorNegativeX} y1={rowY + 11} x2={capacitorNegativeX} y2={rowY + 22} className={styles.groundWire} />
-              <circle cx={capacitorPositiveX} cy={rowY + 11} r="4" fill="#d84938" stroke="#ffd1d7" />
-              <circle cx={capacitorNegativeX} cy={rowY + 11} r="4" fill="#202425" stroke="#f2c766" />
+              <line x1={capacitorPositiveX} y1={rowY} x2={capacitorPositiveX} y2={capacitorLeadY} className={styles.powerWire} />
+              <line x1={capacitorNegativeX} y1={capacitorLeadY} x2={capacitorNegativeX} y2={groundRowY} className={styles.groundWire} />
+              <circle data-terminal={`${injection.id}-capacitor-positive`} cx={capacitorPositiveX} cy={rowY} r="4" fill="#d84938" stroke="#ffd1d7" />
+              <circle data-terminal={`${injection.id}-capacitor-negative`} cx={capacitorNegativeX} cy={groundRowY} r="4" fill="#202425" stroke="#f2c766" />
               <title>1000 µF, 6.3 V electrolytic · positive to fused +5 V, negative to common ground</title>
             </g>
-            <text x="710" y={rowY + 39} className={styles.physicalWireLabel}>1000µF · 6.3 V · OBSERVE POLARITY</text>
-            <circle cx="1000" cy={rowY} r="6" fill="#d84938" stroke="#f0a093" data-terminal={`${injection.id}-led-positive`} />
-            <circle cx="1000" cy={rowY + 22} r="6" fill="#202425" stroke="#aeb6b7" data-terminal={`${injection.id}-led-ground`} />
-            <text x="1012" y={rowY + 5} className={styles.physicalPinLabel}>+5V</text>
-            <text x="1012" y={rowY + 27} className={styles.physicalPinLabel}>GND</text>
+            <text x="765" y={rowY + 51} className={styles.physicalWireLabel}>1000µF · 6.3 V · OBSERVE POLARITY</text>
+            <circle cx="1020" cy={rowY} r="6" fill="#d84938" stroke="#f0a093" data-terminal={`${injection.id}-led-positive`} />
+            <circle cx="1020" cy={groundRowY} r="6" fill="#202425" stroke="#aeb6b7" data-terminal={`${injection.id}-led-ground`} />
+            <text x="1032" y={rowY + 5} className={styles.physicalPinLabel}>+5V</text>
+            <text x="1032" y={groundRowY + 5} className={styles.physicalPinLabel}>GND</text>
           </g>
         })}
       </g>
