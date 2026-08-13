@@ -933,6 +933,13 @@ describe('BuildDiagramWorkspace', () => {
     expect(devKitPreview.textContent).toContain('USB_D+ / GPIO20')
     expect(devKitPreview.textContent).toContain('GPIO0 / BOOT')
     const xiaoPreview = getByRole('img', { name: 'Seeed Studio XIAO ESP32S3 pinout' })
-    expect(xiaoPreview.querySelector('[data-pin-id="bottom-1"]')?.getAttribute('data-pin-side')).toBe('top')
+    // Stored USB-down like every other board now, so the underside expansion
+    // pads sit at the USB end instead of being flipped to the top by the
+    // per-board rotation this profile used to need.
+    expect(xiaoPreview.querySelector('[data-pin-id="bottom-1"]')?.getAttribute('data-pin-side')).toBe('bottom')
+    const xiaoLeft = [...xiaoPreview.querySelectorAll('[data-pin-side="left"]')]
+      .map((node) => node.textContent)
+    expect(xiaoLeft[0]).toContain('D7 / GPIO44')
+    expect(xiaoLeft[6]).toContain('5V')
   })
 })

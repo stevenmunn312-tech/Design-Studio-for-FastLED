@@ -276,9 +276,13 @@ const ESP32D_PINS: PhysicalBoardPinProfile[] = [
   pin('right-15', '3V3', 'power-out', 'right-15', undefined, undefined, 'Regulated 3.3 V output — not enough for an LED strip'),
 ]
 
+// Silkscreen order with USB at the bottom, matching every other board here.
+// The map used to be stored in a different orientation, which the pinout
+// preview compensated for with a per-board rotate special case; it was also
+// scrambled — no rotation of the real board produces it.
 const XIAO_PIN_ANCHORS: PhysicalBoardPinAnchor[] = [
-  ...verticalAnchors('left', 'left', ['5V', 'GND', '3V3', 'D0', 'D1', 'D2', 'D3'], 24, 92, 30),
-  ...verticalAnchors('right', 'right', ['D10', 'D9', 'D8', 'D7', 'D6', 'D5', 'D4'], 276, 92, 30),
+  ...verticalAnchors('left', 'left', ['D7', 'D8', 'D9', 'D10', '3V3', 'GND', '5V'], 24, 92, 30),
+  ...verticalAnchors('right', 'right', ['D6', 'D5', 'D4', 'D3', 'D2', 'D1', 'D0'], 276, 92, 30),
   { id: 'bottom-1', x: 92, y: 344, labelAlign: 'bottom' },
   { id: 'bottom-2', x: 140, y: 344, labelAlign: 'bottom' },
   { id: 'bottom-3', x: 188, y: 344, labelAlign: 'bottom' },
@@ -286,24 +290,24 @@ const XIAO_PIN_ANCHORS: PhysicalBoardPinAnchor[] = [
 ]
 
 const XIAO_PINS: PhysicalBoardPinProfile[] = [
-  pin('left-1', '5V', 'power-in', 'left-1', undefined, undefined, 'USB VBUS'),
-  pin('left-2', 'GND', 'ground', 'left-2'),
-  pin('left-3', '3V3', 'power-out', 'left-3', undefined, undefined, 'Regulated 3.3 V output'),
-  pin('left-4', 'D0 / GPIO1', 'gpio', 'left-4', undefined, 1),
-  pin('left-5', 'D1 / GPIO2', 'gpio', 'left-5', undefined, 2),
-  pin('left-6', 'D2 / GPIO3', 'gpio', 'left-6', undefined, 3),
-  pin('left-7', 'D3 / GPIO4', 'gpio', 'left-7', undefined, 4),
-  pin('right-1', 'D10 / GPIO9', 'gpio', 'right-1', undefined, 9),
-  pin('right-2', 'D9 / GPIO8', 'gpio', 'right-2', undefined, 8),
-  pin('right-3', 'D8 / GPIO7', 'gpio', 'right-3', undefined, 7),
-  pin('right-4', 'D7 / GPIO44', 'gpio', 'right-4', undefined, 44, 'UART RX'),
-  pin('right-5', 'D6 / GPIO43', 'gpio', 'right-5', undefined, 43, 'UART TX'),
-  pin('right-6', 'D5 / GPIO6', 'gpio', 'right-6', undefined, 6, 'I2C SCL'),
-  pin('right-7', 'D4 / GPIO5', 'gpio', 'right-7', undefined, 5, 'I2C SDA'),
-  pin('bottom-1', 'GPIO42 / D11', 'gpio', 'bottom-1', undefined, 42, 'Sense expansion / mic CLK'),
-  pin('bottom-2', 'GPIO41 / D12', 'gpio', 'bottom-2', undefined, 41, 'Sense expansion / mic DATA'),
-  pin('bottom-3', 'GPIO40 / MTDO', 'gpio', 'bottom-3', undefined, 40),
-  pin('bottom-4', 'GPIO39 / MTCK', 'gpio', 'bottom-4', undefined, 39),
+  pin('left-1', 'D7 / GPIO44', 'gpio', 'left-1', undefined, 44, 'UART RX'),
+  pin('left-2', 'D8 / GPIO7', 'gpio', 'left-2', undefined, 7, 'SPI SCK'),
+  pin('left-3', 'D9 / GPIO8', 'gpio', 'left-3', undefined, 8, 'SPI MISO'),
+  pin('left-4', 'D10 / GPIO9', 'gpio', 'left-4', undefined, 9, 'SPI MOSI'),
+  pin('left-5', '3V3', 'power-out', 'left-5', undefined, undefined, 'Regulated 3.3 V output'),
+  pin('left-6', 'GND', 'ground', 'left-6'),
+  pin('left-7', '5V', 'power-in', 'left-7', undefined, undefined, 'USB VBUS'),
+  pin('right-1', 'D6 / GPIO43', 'gpio', 'right-1', undefined, 43, 'UART TX'),
+  pin('right-2', 'D5 / GPIO6', 'gpio', 'right-2', undefined, 6, 'I2C SCL'),
+  pin('right-3', 'D4 / GPIO5', 'gpio', 'right-3', undefined, 5, 'I2C SDA'),
+  pin('right-4', 'D3 / GPIO4', 'gpio', 'right-4', undefined, 4),
+  pin('right-5', 'D2 / GPIO3', 'gpio', 'right-5', undefined, 3),
+  pin('right-6', 'D1 / GPIO2', 'gpio', 'right-6', undefined, 2),
+  pin('right-7', 'D0 / GPIO1', 'gpio', 'right-7', undefined, 1),
+  pin('bottom-1', 'GPIO42 / D11', 'gpio', 'bottom-1', undefined, 42, 'Underside pad; Sense expansion / mic CLK'),
+  pin('bottom-2', 'GPIO41 / D12', 'gpio', 'bottom-2', undefined, 41, 'Underside pad; Sense expansion / mic DATA'),
+  pin('bottom-3', 'GPIO40 / MTDO', 'gpio', 'bottom-3', undefined, 40, 'Underside pad'),
+  pin('bottom-4', 'GPIO39 / MTCK', 'gpio', 'bottom-4', undefined, 39, 'Underside pad'),
 ]
 
 export const BOARD_PROFILES: PhysicalBoardProfile[] = [

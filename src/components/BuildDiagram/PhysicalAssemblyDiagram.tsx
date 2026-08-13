@@ -5,6 +5,7 @@ import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/po
 import devKitCBoardRender from '../../assets/boards/esp32-s3-devkitc-1.webp'
 import esp32DevKitV1BoardRender from '../../assets/boards/esp32-devkit-v1-30pin.webp'
 import genericN16R8BoardRender from '../../assets/boards/generic-esp32-s3-n16r8-44pin.webp'
+import xiaoBoardRender from '../../assets/boards/seeed-xiao-esp32s3.webp'
 import microphoneRender from '../../assets/components/inmp441-breakout.png'
 import levelShifterRender from '../../assets/components/sn74ahct125n-dip14.png'
 import buttonModuleRender from '../../assets/components/button-module.png'
@@ -161,6 +162,22 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     // path drives, so it's the one a builder will have a cable in.
     usbPoint: { x: 224.717, y: 2183.621 },
     shortLabel: 'ESP32-S3 DevKitC-1',
+  },
+  // 7 + 7 rails on a 111.817px pitch, supplied with the render and checked
+  // here: pad rows land on real rings and the rail centres sum to exactly
+  // 800.0. 18.1725 mm comes from the 2.54 mm header pitch (800 / 44.0223
+  // px/mm), which also reproduces the stated 15.24 mm rail separation exactly.
+  // The four expansion pads are on the underside and so have no top-down
+  // position; they fall back to the generic terminal column.
+  'seeed-xiao-esp32s3': {
+    href: xiaoBoardRender,
+    sourceWidth: 800, sourceHeight: 1046, imageWidthMm: 18.1725,
+    leftPinX: 64.5497, rightPinX: 735.4503, firstPinY: 134.943, lastPinY: 805.8435,
+    pinsPerRail: 7, leftPrefix: 'left', rightPrefix: 'right',
+    // This board has exactly one 3V3 and one GND, adjacent on the left rail.
+    powerAnchors: { v3v3: 'left-5', ground: 'left-6' },
+    usbPoint: { x: 394, y: 1020 },
+    shortLabel: 'XIAO ESP32S3',
   },
   // 22 + 22 rails on a 71.457px pitch sharing rows, measured here (the package
   // carried no pixel geometry): first pad centre y=147.47, last y=1648.07, rail

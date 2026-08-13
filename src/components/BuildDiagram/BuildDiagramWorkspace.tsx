@@ -160,11 +160,12 @@ function BoardPinoutPreview({ profile }: { profile: PhysicalBoardProfile }) {
   const anchorById = new Map((profile.pinAnchors ?? []).map((anchor) => [anchor.id, anchor]))
   const pinsBySide = (side: PhysicalBoardPinAnchor['labelAlign']) => (profile.pins ?? [])
     .filter((pin) => anchorById.get(pin.anchorId)?.labelAlign === side)
-  const rotatePins = profile.id === 'seeed-xiao-esp32s3'
-  const leftPins = rotatePins ? pinsBySide('right').reverse() : pinsBySide('left')
-  const rightPins = rotatePins ? pinsBySide('left').reverse() : pinsBySide('right')
-  const bottomPins = rotatePins ? pinsBySide('top').reverse() : pinsBySide('bottom')
-  const topPins = rotatePins ? pinsBySide('bottom').reverse() : pinsBySide('top')
+  // Every profile stores its rails USB-down, so no per-board rotation here.
+  // The XIAO used to need one because its map was held in another orientation.
+  const leftPins = pinsBySide('left')
+  const rightPins = pinsBySide('right')
+  const bottomPins = pinsBySide('bottom')
+  const topPins = pinsBySide('top')
   const isDevKitC = profile.id === 'espressif-esp32-s3-devkitc-1'
   const verticalY = (index: number, count: number) => count <= 1 ? 214 : 42 + ((344 * index) / (count - 1))
   const horizontalX = (index: number, count: number) => count <= 1 ? 280 : 210 + ((140 * index) / (count - 1))
