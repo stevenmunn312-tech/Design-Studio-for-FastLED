@@ -70,7 +70,7 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+          globPatterns: ['**/*.{js,css,html,svg,png,webp,woff2}'],
           // The Essentia.js WASM chunk (~2.5 MB) is loaded on demand only when the
           // user analyses a song with that engine, and the generated node-card
           // images (~140 SVGs) only when a Help node-reference page is opened —

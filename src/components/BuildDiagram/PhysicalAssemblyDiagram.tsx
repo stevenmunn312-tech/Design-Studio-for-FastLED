@@ -3,7 +3,7 @@ import type { PhysicalBoardProfile } from '../../build/boardProfiles'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
 import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/powerDistribution'
 import devKitCBoardRender from '../../assets/boards/esp32-s3-devkitc-1.png'
-import esp32DevKitV1BoardRender from '../../assets/boards/esp32-devkit-v1-30pin.png'
+import esp32DevKitV1BoardRender from '../../assets/boards/esp32-devkit-v1-30pin.webp'
 import microphoneRender from '../../assets/components/inmp441-breakout.png'
 import levelShifterRender from '../../assets/components/sn74ahct125n-dip14.png'
 import buttonModuleRender from '../../assets/components/button-module.png'
@@ -108,18 +108,22 @@ const FUSE_BLOCK_RENDERS: Record<FuseBlockCircuitCount, string> = {
  * a mismatch letterboxes the render inside the box and shifts every pad off
  * its dot (the bug the microphone module had).
  */
-interface ControllerRender {
+interface ControllerRenderSpec {
   href: string
-  /** Where the artwork sits on the diagram canvas. */
-  x: number
-  y: number
-  width: number
-  height: number
   /** The coordinate space the pad measurements below were taken in. Only its
    *  aspect ratio matters — every mapping is a ratio — so resizing the asset
    *  doesn't invalidate the measurements as long as the aspect is preserved. */
   sourceWidth: number
   sourceHeight: number
+  /**
+   * Real-world width the *whole image* spans, transparent margin included.
+   *
+   * This is what sizes the board on the sheet, so a XIAO and a Mega no longer
+   * draw the same width on a diagram whose whole job is physical assembly.
+   * Derive it from the board's PCB width and the render's alpha bounds:
+   * `pcbWidthMm * imageWidthPx / alphaContentWidthPx`.
+   */
+  imageWidthMm: number
   /** Header geometry in source pixels: rail x, and first/last pad centre y. */
   leftPinX: number
   rightPinX: number
@@ -132,46 +136,77 @@ interface ControllerRender {
   /** Anchor ids carrying the shared rails, plus the USB inlet in source pixels. */
   powerAnchors: { v3v3: string; ground: string }
   usbPoint: { x: number; y: number }
-  /** Caption drawn under the render. */
+  /** Caption drawn under the render, and the connector it actually carries. */
   shortLabel: string
+  usbLabel: string
 }
 
-const CONTROLLER_RENDERS: Record<string, ControllerRender> = {
+/** A spec plus the sheet geometry derived from it. */
+type ControllerRender = ControllerRenderSpec & { x: number; y: number; width: number; height: number }
+
+const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
+  // 29.481 mm = 28 mm PCB over alpha bounds 10..387 of a 398px-wide render.
   'espressif-esp32-s3-devkitc-1': {
     href: devKitCBoardRender,
-    x: 74, y: 104, width: 184, height: 426,
-    sourceWidth: 398, sourceHeight: 922,
+    sourceWidth: 398, sourceHeight: 922, imageWidthMm: 29.481,
     leftPinX: 48, rightPinX: 351, firstPinY: 76.5, lastPinY: 795.5,
     pinsPerRail: 22, leftPrefix: 'j1', rightPrefix: 'j3',
     powerAnchors: { v3v3: 'j1-1', ground: 'j3-22' },
     usbPoint: { x: 270, y: 875 },
     shortLabel: 'ESP32-S3 DevKitC-1',
+    usbLabel: 'USB-C',
   },
-  // 15 + 15 header on a 72.29px pitch, measured off the render: both rails
-  // share the same pad rows, first at y=393.5 and last at y=1405.5. Measured
-  // against the 1200x1800 original; the shipped asset is the same image at
-  // 800x1200, which is the same 2:3 aspect and so the same ratios.
-  //
-  // Bottom-aligned with the DevKitC (both end at y=530) rather than top-aligned:
-  // this board is 150 units shorter, and hanging that slack above it opens a
-  // clear band between the wiring-plan callout and the board — which is what
-  // lets a left-rail wire cross the top instead of looping under the whole
-  // board. It also puts both boards' USB ends at the same height.
+  // Header geometry supplied with the render package and independently checked:
+  // 15 + 15 rails on a 72.367px pitch sharing the same rows, first pad centre
+  // y=231.57 and last y=1244.71. The rail centres are symmetric about the
+  // image (60.879 + 739.121 = 800 exactly).
+  // 28.354 mm = 28 mm PCB over alpha bounds 5..794 of an 800px-wide render.
   'esp32-devkit-v1-30pin-esp32d': {
     href: esp32DevKitV1BoardRender,
-    x: 74, y: 254, width: 184, height: 276,
-    sourceWidth: 1200, sourceHeight: 1800,
-    leftPinX: 274, rightPinX: 925.5, firstPinY: 393.5, lastPinY: 1405.5,
+    sourceWidth: 800, sourceHeight: 1570, imageWidthMm: 28.354,
+    leftPinX: 60.879, rightPinX: 739.121, firstPinY: 231.571, lastPinY: 1244.714,
     pinsPerRail: 15, leftPrefix: 'left', rightPrefix: 'right',
     // Both rails carry a GND pad (left-14 and right-14) on the same net; the
     // left one is used so the ground and 3V3 stubs leave opposite edges. On
-    // the right rail they would be adjacent pads 11 units apart, close enough
-    // for the ground symbol's bars to run into the 3V3 stub.
+    // the right rail they would be adjacent pads, close enough for the ground
+    // symbol's bars to run into the 3V3 stub.
     powerAnchors: { v3v3: 'right-15', ground: 'left-14' },
-    usbPoint: { x: 600, y: 1600 },
+    usbPoint: { x: 400, y: 1552 },
     shortLabel: 'ESP32 DevKit v1',
+    usbLabel: 'Micro-USB',
   },
 }
+
+/**
+ * Boards are drawn at true relative scale: the widest one fills the controller
+ * slot and every other is sized from its own real width, so the sheet doesn't
+ * imply a 21 mm XIAO and a 101 mm Mega are the same size.
+ *
+ * Each board is centred in the slot and bottom-aligned to a shared baseline, so
+ * every render's USB end sits at the same height. Bottom-aligning is also what
+ * banks a shorter board's slack *above* it, opening the band between the
+ * wiring-plan callout and the board that lets a left-rail wire cross the top
+ * instead of looping under the whole board.
+ */
+const CONTROLLER_SLOT_X = 74
+const CONTROLLER_SLOT_WIDTH = 184
+const CONTROLLER_BASELINE_Y = 530
+const CONTROLLER_UNITS_PER_MM = CONTROLLER_SLOT_WIDTH
+  / Math.max(...Object.values(CONTROLLER_SPECS).map((spec) => spec.imageWidthMm))
+
+const CONTROLLER_RENDERS: Record<string, ControllerRender> = Object.fromEntries(
+  Object.entries(CONTROLLER_SPECS).map(([id, spec]) => {
+    const width = spec.imageWidthMm * CONTROLLER_UNITS_PER_MM
+    const height = width * (spec.sourceHeight / spec.sourceWidth)
+    return [id, {
+      ...spec,
+      width,
+      height,
+      x: CONTROLLER_SLOT_X + ((CONTROLLER_SLOT_WIDTH - width) / 2),
+      y: CONTROLLER_BASELINE_Y - height,
+    }]
+  })
+)
 
 function controllerRender(boardProfile: PhysicalBoardProfile): ControllerRender | undefined {
   return CONTROLLER_RENDERS[boardProfile.id]
@@ -579,7 +614,7 @@ function ControllerGraphic({ boardProfile, connections, selected }: { boardProfi
         </g>
         <g data-terminal="controller-usb">
           <circle cx={usb.x} cy={usb.y} r={padRadius} className={styles.controllerUsbTerminal} />
-          <title>USB-C power</title>
+          <title>{render.usbLabel} power</title>
         </g>
       </g>
     )
@@ -1071,6 +1106,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
   const controller3v3 = controllerPowerPoint('3v3', boardProfile)
   const controllerGround = controllerPowerPoint('ground', boardProfile)
   const controllerUsb = controllerPowerPoint('usb', boardProfile)
+  const controllerUsbLabel = controllerRender(boardProfile)?.usbLabel ?? 'USB-C'
   const powerSectionY = powerSectionStartY(items, layers)
   const showPowerDistribution = layers.powerDistribution && outputLayouts.length > 0
   // Every control module render carries a VCC pad, not just the pot.
@@ -1304,7 +1340,9 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
       <g filter="url(#component-shadow)" transform={`translate(${controllerUsb.x - 92} 592)`}>
         <rect width="184" height="62" rx="12" fill="#e9ecea" stroke="#879092" strokeWidth="2" />
         <path d="M138 19h30v24h-30l-12-12z" fill="#aeb7ba" stroke="#5f696c" />
-        <text x="18" y="27" className={styles.physicalComponentLabel}>USB-C power</text>
+        {/* Names the connector the selected board actually carries — this said
+            USB-C for every board, which is wrong for a Micro-USB DevKit. */}
+        <text x="18" y="27" className={styles.physicalComponentLabel}>{controllerUsbLabel} power</text>
         <text x="18" y="46" className={styles.physicalMetaLabel}>controller only</text>
         <path data-wire="controller-usb-power" d={`M92 0V${controllerUsb.y - 592}`} className={styles.logicPowerWire} />
       </g>

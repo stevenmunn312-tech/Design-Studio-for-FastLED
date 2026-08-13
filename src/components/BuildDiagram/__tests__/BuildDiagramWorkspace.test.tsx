@@ -162,6 +162,18 @@ describe('BuildDiagramWorkspace', () => {
     const rails = new Set(terminals.map((terminal) => terminal.getAttribute('cx')))
     expect(rails.size).toBeLessThanOrEqual(3) // two rails plus the USB inlet
 
+    // Boards are drawn at true relative scale, so this one is narrower than the
+    // 28 mm-wide-but-more-generously-cropped DevKitC rather than both being
+    // stretched to a fixed slot width. Bottom edges share a baseline so every
+    // render's USB end sits at the same height.
+    const width = Number(image.getAttribute('width'))
+    expect(width).toBeLessThan(184)
+    expect(width).toBeGreaterThan(150)
+    // The box keeps the artwork's exact aspect: any mismatch letterboxes the
+    // render inside it and walks every pad off its dot.
+    expect(height).toBeCloseTo(width * (1570 / 800), 4)
+    expect(top + height).toBeCloseTo(530, 4)
+
     // Both supplied rails need a visible stub, and each has to point away from
     // the rail its pad is on. A stub aimed at the board is drawn under the
     // render and vanishes — which is what a hardcoded direction did to 3V3 on
@@ -175,9 +187,11 @@ describe('BuildDiagramWorkspace', () => {
     }
 
     // Stronger than "somewhere on the board": every header terminal has to land
-    // on one of the 15 pad rows. The rows run 393.5..1405.5 in the artwork's own
-    // 1800-tall space, so a dot that drifts off the grid fails here.
-    const rowAt = (index: number) => top + (((393.5 + (index * (1405.5 - 393.5) / 14)) / 1800) * height)
+    // on one of the 15 pad rows. Restated here from the render package's own
+    // measured geometry rather than read back from the spec, so an accidental
+    // edit to those numbers fails instead of quietly moving every dot: the
+    // rows run 231.571..1244.714 in the artwork's 1570-tall space.
+    const rowAt = (index: number) => top + (((231.571 + (index * (1244.714 - 231.571) / 14)) / 1570) * height)
     const rows = Array.from({ length: 15 }, (_, index) => rowAt(index))
     for (const terminal of terminals) {
       const cy = Number(terminal.getAttribute('cy'))
