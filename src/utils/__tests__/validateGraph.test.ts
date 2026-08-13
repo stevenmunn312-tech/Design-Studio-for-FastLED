@@ -81,14 +81,21 @@ describe('validateGraph', () => {
       expect.stringMatching(/internal-DAC audio output requires the classic ESP32/),
     ])
     expect(findBoardCompatibilityErrors(nodes, 'esp32:esp32:esp32')).toEqual([])
+    // The 30-pin DevKit v1 is the same classic ESP32 silicon, so it keeps the DAC.
+    expect(findBoardCompatibilityErrors(nodes, 'esp32:esp32:esp32doit-devkit-v1')).toEqual([])
     // Default (I2S) output is unaffected by board choice.
     expect(findBoardCompatibilityErrors([node('sd', 'SDCard')], 'esp32:esp32:esp32s3')).toEqual([])
   })
 
   it('blocks HUB75 on boards without the LCD-mode DMA peripheral', () => {
     const nodes = [node('out', 'MatrixOutput', { chipset: 'HUB75' })]
-    for (const fqbn of ['esp32:esp32:esp32', 'esp32:esp32:esp32s2', 'esp32:esp32:esp32s3']) {
-      expect(findBoardCompatibilityErrors(nodes, fqbn)).toEqual([])
+    for (const fqbn of ['esp32:esp32:esp32', 'esp32:esp32:esp32doit-devkit-v1', 'esp32:esp32:esp32s2', 'esp32:esp32:esp32s3']) {
+      // The 30-pin DevKit v1 still reports a separate pin error — HUB75's
+      // default clock pin is GPIO0, which that board doesn't bring to a header
+      // pad — so assert on the support message rather than an empty list.
+      expect(findBoardCompatibilityErrors(nodes, fqbn)).not.toEqual(expect.arrayContaining([
+        expect.stringMatching(/HUB75 output requires/),
+      ]))
     }
     for (const fqbn of ['esp32:esp32:esp32c3', 'esp32:esp32:esp32c6', 'esp32:esp32:esp32h2', 'esp8266:esp8266:nodemcuv2', 'arduino:avr:uno']) {
       // The default HUB75 pins may also collide with that specific

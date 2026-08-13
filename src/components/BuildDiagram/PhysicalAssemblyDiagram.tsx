@@ -119,6 +119,7 @@ type ControllerTerminalPoint = {
 function shortBoardLabel(label: string) {
   if (label.includes('XIAO')) return 'XIAO ESP32S3'
   if (label.includes('DevKitC')) return 'ESP32-S3 DevKitC-1'
+  if (label.includes('ESP-32D')) return 'ESP32 DevKit v1'
   return 'ESP32-S3 N16R8'
 }
 
@@ -426,7 +427,7 @@ function ControllerGraphic({ boardProfile, connections, selected }: { boardProfi
       <path d="M99 228h134v67H99z" fill="#ecece7" stroke="#adb0aa" />
       <path d="M104 235h124v11H104zm0 18h124v8H104zm0 15h124v8H104z" fill="#c7cac4" opacity=".8" />
       <text x="166" y="281" textAnchor="middle" className={styles.physicalBoardSilk}>ESPRESSIF</text>
-      <text x="166" y="296" textAnchor="middle" className={styles.physicalBoardSubSilk}>ESP32-S3-WROOM</text>
+      <text x="166" y="296" textAnchor="middle" className={styles.physicalBoardSubSilk}>{boardProfile.moduleSilk ?? boardProfile.model}</text>
       <rect x="88" y="337" width="156" height="104" rx="6" fill="#171b1d" stroke="#484e51" />
       <rect x="105" y="352" width="48" height="45" rx="3" fill="#2f3437" />
       <rect x="164" y="352" width="52" height="22" rx="3" fill="#34393c" />

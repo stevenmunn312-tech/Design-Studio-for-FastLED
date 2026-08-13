@@ -124,7 +124,7 @@ const ESP32_S3_GPIO = boardPins({
   },
 })
 
-const ESP32_GPIO = boardPins({
+const ESP32_PINS: BoardPinsOptions = {
   digital: [0, 1, 2, 3, 4, 5, ...range(12, 19), 21, 22, 23, 25, 26, 27, 32, 33, 34, 35, 36, 39],
   analog: [0, 2, 4, ...range(12, 15), 25, 26, 27, ...range(32, 39)],
   inputOnly: [34, 35, 36, 39],
@@ -147,6 +147,32 @@ const ESP32_GPIO = boardPins({
   unavailable: Object.fromEntries([
     ...range(6, 11).map((pin) => [pin, 'Connected to integrated SPI flash — not usable']),
     ...[20, 24, 28, 29, 30, 31, 37, 38].map((pin) => [pin, 'Not broken out on most ESP32 modules']),
+  ]),
+}
+
+const ESP32_GPIO = boardPins(ESP32_PINS)
+
+// 30-pin DOIT-style DevKit v1 around an ESP32-WROOM-32D module (silk "ESP-32D").
+// Its two 15-pin rails carry the classic ESP32's usable pads with one exception:
+// GPIO0 has no header pad — the BOOT button is its only connection — so it is
+// listed as caution here even though the silicon itself supports it.
+const ESP32_DEVKIT_V1_GPIO = boardPins({
+  ...ESP32_PINS,
+  digital: (ESP32_PINS.digital).filter((pin) => pin !== 0),
+  analog: (ESP32_PINS.analog ?? []).filter((pin) => pin !== 0),
+  notes: {
+    ...ESP32_PINS.notes,
+    16: 'UART2 RX on this header',
+    17: 'UART2 TX on this header',
+  },
+  warnings: {
+    ...ESP32_PINS.warnings,
+    2: `Strapping pin; drives the on-board blue LED. ${ADC2_WIFI}`,
+  },
+  unavailable: Object.fromEntries([
+    [0, 'Wired to the BOOT button only — no header pad on the 30-pin DevKit v1'],
+    ...range(6, 11).map((pin) => [pin, 'Connected to the module\'s integrated SPI flash — not on the header']),
+    ...[20, 24, 28, 29, 30, 31, 37, 38].map((pin) => [pin, 'Not bonded out on the WROOM-32D module']),
   ]),
 })
 
@@ -430,6 +456,7 @@ const NRF52840_GPIO = boardPins({
 export const BOARD_GPIO_BY_FQBN: Readonly<Record<string, BoardGpio>> = {
   'esp32:esp32:esp32s3': ESP32_S3_GPIO,
   'esp32:esp32:esp32': ESP32_GPIO,
+  'esp32:esp32:esp32doit-devkit-v1': ESP32_DEVKIT_V1_GPIO,
   'esp32:esp32:esp32s2': ESP32_S2_GPIO,
   'esp32:esp32:esp32c3': ESP32_C3_GPIO,
   'esp32:esp32:esp32c6': ESP32_C6_GPIO,

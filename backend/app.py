@@ -254,6 +254,11 @@ _PIO_BOARDS: dict[str, dict] = {
             "qspi": {"memory_type": "qio_qspi", "flash_size": "4MB", "partitions": "default.csv"},
         },
     },
+    # 30-pin DOIT DevKit v1 (ESP32-WROOM-32D, silk "ESP-32D"). Same classic
+    # ESP32 silicon as `esp32dev` above, but PlatformIO ships a dedicated board
+    # definition for it, so use that rather than aliasing to the generic one.
+    # No PSRAM: WROOM-32D modules carry none.
+    "esp32:esp32:esp32doit-devkit-v1": {"platform": "espressif32", "board": "esp32doit-devkit-v1"},
     "arduino:avr:uno": {"platform": "atmelavr", "board": "uno"},
     "arduino:avr:nano": {"platform": "atmelavr", "board": "nanoatmega328new"},
     "arduino:avr:leonardo": {"platform": "atmelavr", "board": "leonardo"},

@@ -33,6 +33,9 @@ export interface PhysicalBoardProfile {
   compatibleFqbns: string[]
   dimensionsMm: { width: number; height: number }
   confidence: BoardProfileConfidence
+  /** Module silkscreen drawn on the schematic board graphic. Defaults to
+   *  `model`, which is only right when the model name *is* the module name. */
+  moduleSilk?: string
   previewSvg: string
   notes: string[]
   caveats: string[]
@@ -216,6 +219,57 @@ const GENERIC_N16R8_PINS: PhysicalBoardPinProfile[] = [
   pin('right-21', 'GPIO47', 'gpio', 'right-21', undefined, 47),
 ]
 
+// 30-pin DOIT-style DevKit v1 (ESP32-WROOM-32D, silk "ESP-32D"), USB at the
+// bottom. Two 15-pin rails; GPIO0 is deliberately absent — the BOOT button is
+// its only connection on this board, so there is nothing to wire to.
+const ESP32D_LEFT_LABELS = [
+  'EN', '36', '39', '34', '35', '32', '33', '25', '26', '27', '14', '12', '13', 'GND', 'VIN',
+] as const
+
+const ESP32D_RIGHT_LABELS = [
+  '23', '22', 'TX0', 'RX0', '21', '19', '18', '5', 'TX2', 'RX2', '4', '2', '15', 'GND', '3V3',
+] as const
+
+const ESP32D_PIN_ANCHORS = [
+  ...verticalAnchors('left', 'left', ESP32D_LEFT_LABELS, 30, 90, 22),
+  ...verticalAnchors('right', 'right', ESP32D_RIGHT_LABELS, 330, 90, 22),
+]
+
+const INPUT_ONLY_NOTE = 'Input-only; no internal pull resistor'
+
+const ESP32D_PINS: PhysicalBoardPinProfile[] = [
+  pin('left-1', 'EN', 'reserved', 'left-1', undefined, undefined, 'Board reset — pull low to reset'),
+  pin('left-2', 'GPIO36 / VP', 'gpio', 'left-2', undefined, 36, INPUT_ONLY_NOTE),
+  pin('left-3', 'GPIO39 / VN', 'gpio', 'left-3', undefined, 39, INPUT_ONLY_NOTE),
+  pin('left-4', 'GPIO34', 'gpio', 'left-4', undefined, 34, INPUT_ONLY_NOTE),
+  pin('left-5', 'GPIO35', 'gpio', 'left-5', undefined, 35, INPUT_ONLY_NOTE),
+  pin('left-6', 'GPIO32', 'gpio', 'left-6', undefined, 32),
+  pin('left-7', 'GPIO33', 'gpio', 'left-7', undefined, 33),
+  pin('left-8', 'GPIO25', 'gpio', 'left-8', undefined, 25, 'DAC1'),
+  pin('left-9', 'GPIO26', 'gpio', 'left-9', undefined, 26, 'DAC2'),
+  pin('left-10', 'GPIO27', 'gpio', 'left-10', undefined, 27),
+  pin('left-11', 'GPIO14', 'gpio', 'left-11', undefined, 14),
+  pin('left-12', 'GPIO12', 'gpio', 'left-12', undefined, 12, 'Strapping pin — must be low at boot'),
+  pin('left-13', 'GPIO13', 'gpio', 'left-13', undefined, 13),
+  pin('left-14', 'GND', 'ground', 'left-14'),
+  pin('left-15', 'VIN', 'power-in', 'left-15', undefined, undefined, '5 V input — bypasses the USB regulator'),
+  pin('right-1', 'GPIO23', 'gpio', 'right-1', undefined, 23, 'VSPI MOSI'),
+  pin('right-2', 'GPIO22', 'gpio', 'right-2', undefined, 22, 'I2C SCL'),
+  pin('right-3', 'TX0 / GPIO1', 'gpio', 'right-3', undefined, 1, 'UART0 TX — used by the USB serial bridge'),
+  pin('right-4', 'RX0 / GPIO3', 'gpio', 'right-4', undefined, 3, 'UART0 RX — used by the USB serial bridge'),
+  pin('right-5', 'GPIO21', 'gpio', 'right-5', undefined, 21, 'I2C SDA'),
+  pin('right-6', 'GPIO19', 'gpio', 'right-6', undefined, 19, 'VSPI MISO'),
+  pin('right-7', 'GPIO18', 'gpio', 'right-7', undefined, 18, 'VSPI SCK'),
+  pin('right-8', 'GPIO5', 'gpio', 'right-8', undefined, 5, 'VSPI SS / strapping pin'),
+  pin('right-9', 'TX2 / GPIO17', 'gpio', 'right-9', undefined, 17, 'UART2 TX'),
+  pin('right-10', 'RX2 / GPIO16', 'gpio', 'right-10', undefined, 16, 'UART2 RX'),
+  pin('right-11', 'GPIO4', 'gpio', 'right-11', undefined, 4),
+  pin('right-12', 'GPIO2', 'gpio', 'right-12', undefined, 2, 'Strapping pin; drives the on-board blue LED'),
+  pin('right-13', 'GPIO15', 'gpio', 'right-13', undefined, 15, 'Strapping pin'),
+  pin('right-14', 'GND', 'ground', 'right-14'),
+  pin('right-15', '3V3', 'power-out', 'right-15', undefined, undefined, 'Regulated 3.3 V output — not enough for an LED strip'),
+]
+
 const XIAO_PIN_ANCHORS: PhysicalBoardPinAnchor[] = [
   ...verticalAnchors('left', 'left', ['5V', 'GND', '3V3', 'D0', 'D1', 'D2', 'D3'], 24, 92, 30),
   ...verticalAnchors('right', 'right', ['D10', 'D9', 'D8', 'D7', 'D6', 'D5', 'D4'], 276, 92, 30),
@@ -257,6 +311,7 @@ export const BOARD_PROFILES: PhysicalBoardProfile[] = [
     compatibleFqbns: ['esp32:esp32:esp32s3'],
     dimensionsMm: { width: 63.5, height: 28 },
     confidence: 'pinout-verified',
+    moduleSilk: 'ESP32-S3-WROOM',
     previewSvg: boardSvg('Generic ESP32-S3 N16R8', '#ffd166', 'USB-C', 'Pinout verified'),
     notes: [
       'Use the physical board\'s 5VIN label for controller power discussions in Build Diagram.',
@@ -280,6 +335,7 @@ export const BOARD_PROFILES: PhysicalBoardProfile[] = [
     compatibleFqbns: ['esp32:esp32:esp32s3'],
     dimensionsMm: { width: 54, height: 28 },
     confidence: 'manufacturer-verified',
+    moduleSilk: 'ESP32-S3-WROOM-1',
     previewSvg: boardSvg('Espressif DevKitC-1', '#58d68d', 'USB', 'Manufacturer verified'),
     notes: [
       'Use the exact DevKitC-1 revision and memory variant when reviewing available pins.',
@@ -292,6 +348,30 @@ export const BOARD_PROFILES: PhysicalBoardProfile[] = [
     pins: DEVKITC_PINS,
   },
   {
+    id: 'esp32-devkit-v1-30pin-esp32d',
+    label: 'ESP32 DevKit v1, 30-pin (ESP-32D)',
+    manufacturer: 'DOIT / generic',
+    model: 'ESP32-WROOM-32D',
+    revision: '30-pin DevKit v1',
+    targetFamilies: ['esp32'],
+    compatibleFqbns: ['esp32:esp32:esp32doit-devkit-v1', 'esp32:esp32:esp32'],
+    dimensionsMm: { width: 51.5, height: 28.5 },
+    confidence: 'pinout-verified',
+    previewSvg: boardSvg('ESP32 DevKit v1 (ESP-32D)', '#7ee2cf', 'USB', 'Pinout verified'),
+    notes: [
+      'Two 15-pin rails; GPIO0 has no header pad, so the BOOT button is its only connection.',
+      'GPIO34-36 and GPIO39 are input-only with no internal pull resistor — they cannot drive LED data.',
+      'The 3V3 rail comes off the on-board regulator and is not a supply for LED strips; feed strips from your own 5 V supply and share ground.',
+    ],
+    caveats: [
+      'Regulator headroom, VIN backfeed protection, and USB power sharing are unverified on generic clones of this board.',
+      'Header map read from the user-supplied ESP-32D pinout image and confirmed against the physical board\'s 15 + 15 rails.',
+    ],
+    sourceSummary: 'Header order taken from the user-supplied ESP-32D pinout image; pin count confirmed against the physical board.',
+    pinAnchors: ESP32D_PIN_ANCHORS,
+    pins: ESP32D_PINS,
+  },
+  {
     id: 'seeed-xiao-esp32s3',
     label: 'Seeed Studio XIAO ESP32S3',
     manufacturer: 'Seeed Studio',
@@ -301,6 +381,7 @@ export const BOARD_PROFILES: PhysicalBoardProfile[] = [
     compatibleFqbns: ['esp32:esp32:esp32s3'],
     dimensionsMm: { width: 21, height: 18 },
     confidence: 'manufacturer-verified',
+    moduleSilk: 'ESP32-S3',
     previewSvg: boardSvg('Seeed XIAO ESP32S3', '#7aa2ff', 'USB-C', 'Compact layout'),
     notes: [
       'Compact board geometry changes cable clearances and connector access in tight installations.',

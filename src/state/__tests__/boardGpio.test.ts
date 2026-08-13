@@ -36,6 +36,18 @@ describe('board GPIO capability catalogue', () => {
     expect(adc2.warning).toMatch(/ADC2 shares hardware with Wi-Fi/)
   })
 
+  it('models the 30-pin ESP-32D DevKit header, which omits GPIO0', () => {
+    const classic = boardGpioInfo('esp32:esp32:esp32')!
+    const devkit = boardGpioInfo('esp32:esp32:esp32doit-devkit-v1')!
+    // Same classic ESP32 silicon minus the one pad the 30-pin header doesn't carry.
+    expect(devkit.recommended.map((pin) => pin.pin))
+      .toEqual(classic.recommended.map((pin) => pin.pin).filter((pin) => pin !== 0))
+    expect(devkit.caution.find((pin) => pin.pin === 0)?.note).toMatch(/BOOT button only/)
+    // Header-specific wording: the on-board LED and UART2 are known on this board.
+    expect(devkit.recommended.find((pin) => pin.pin === 2)?.warning).toMatch(/on-board blue LED/)
+    expect(devkit.recommended.find((pin) => pin.pin === 16)?.note).toMatch(/UART2 RX/)
+  })
+
   it('uses each core variant’s declared analog pin aliases', () => {
     const featherM4 = boardGpioInfo('adafruit:samd:adafruit_feather_m4')!
     expect(featherM4.recommended.filter((pin) => pinSupports(pin, 'analogInput')).map((pin) => pin.pin))

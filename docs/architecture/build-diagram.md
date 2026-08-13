@@ -123,6 +123,14 @@ Its power-entry label is `5VIN`, GPIO35-GPIO37 are unavailable on N16R8 modules
 because octal PSRAM consumes them, and its unverified USB/backfeed behaviour is
 shown as a note rather than turned into a beginner planning questionnaire.
 
+The `ESP32 DevKit v1, 30-pin (ESP-32D)` profile is pinout verified from a
+user-supplied pinout image with the 15 + 15 rail count confirmed against the
+physical board. It is the only classic-ESP32 profile, so it is offered for both
+catalogue entries that map to that silicon (`esp32:esp32:esp32doit-devkit-v1`
+and `esp32:esp32:esp32`) and never for an ESP32-S3 project. GPIO0 is absent
+from its pin list on purpose — the BOOT button is that pad's only connection,
+so there is nothing to wire to.
+
 ## Viewport And Export Contract
 
 - Target authoring size: `1440x900`; supported minimum: `1280x720`.
@@ -140,7 +148,8 @@ shown as a note rather than turned into a beginner planning questionnaire.
 ## Current Scope
 
 - Exact profiles for the generic ESP32-S3 N16R8 dual-USB-C board, Espressif
-  ESP32-S3-DevKitC-1, and Seeed Studio XIAO ESP32S3.
+  ESP32-S3-DevKitC-1, Seeed Studio XIAO ESP32S3, and the 30-pin ESP32 DevKit v1
+  (ESP-32D).
 - WS2812-class strips and matrices, INMP441 microphones, momentary buttons,
   analog potentiometers, and rotary encoders.
 - One independent conditioned data route per supported `MatrixOutput`; four

@@ -57,6 +57,12 @@ export const BOARDS: Board[] = [
       { id: 'qspi', label: 'QSPI (WROVER modules)', opt: 'PSRAM=enabled' },
     ],
   },
+  // The 30-pin DOIT-style DevKit built around an ESP32-WROOM-32D module (silk
+  // "ESP-32D"). Same classic ESP32 silicon as the entry above — it gets its own
+  // catalogue entry because its header only breaks out a subset of the pads, so
+  // the pin picker and the Build Diagram board profile can be header-accurate.
+  // WROOM-32D carries no external PSRAM, hence no `psram` options.
+  { label: 'ESP32 DevKit v1 (ESP-32D, 30-pin)', fqbn: 'esp32:esp32:esp32doit-devkit-v1', core: 'esp32:esp32', thirdParty: true },
   { label: 'ESP32-S2',      fqbn: 'esp32:esp32:esp32s2',   core: 'esp32:esp32',   thirdParty: true },
   { label: 'ESP32-C3',      fqbn: 'esp32:esp32:esp32c3',   core: 'esp32:esp32',   thirdParty: true },
   { label: 'ESP32-C6',      fqbn: 'esp32:esp32:esp32c6',   core: 'esp32:esp32',   thirdParty: true },

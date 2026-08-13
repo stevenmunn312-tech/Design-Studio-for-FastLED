@@ -19,7 +19,21 @@ export interface ValidationResult {
 // C3/C6/H2 variants (or any other board family). Plain base FQBNs: the
 // upload UI passes `selectedFqbn` without a `:PSRAM=…` suffix here (that's
 // only appended at the actual build/compile call site).
-const HUB75_SUPPORTED_FQBNS = new Set(['esp32:esp32:esp32', 'esp32:esp32:esp32s2', 'esp32:esp32:esp32s3'])
+// More than one catalogue entry maps to the classic ESP32 (the original Xtensa
+// dual-core part): the generic `esp32` board and the 30-pin DOIT DevKit v1
+// (ESP-32D / WROOM-32D). Capabilities that exist only on that silicon — the
+// built-in DAC, HUB75's LCD-mode DMA — must accept every one of them, so gate
+// on this set rather than comparing against a single FQBN string.
+const CLASSIC_ESP32_FQBNS: ReadonlySet<string> = new Set([
+  'esp32:esp32:esp32',
+  'esp32:esp32:esp32doit-devkit-v1',
+])
+
+export function isClassicEsp32(fqbn: string): boolean {
+  return CLASSIC_ESP32_FQBNS.has(fqbn)
+}
+
+const HUB75_SUPPORTED_FQBNS = new Set([...CLASSIC_ESP32_FQBNS, 'esp32:esp32:esp32s2', 'esp32:esp32:esp32s3'])
 
 // Nodes whose live preview reads a browser-only API with no embedded-hardware
 // equivalent (mirrors the PREVIEW_NOTES on-node caption in StudioNode.tsx).
@@ -601,7 +615,7 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
   )
   // Only the classic ESP32 has the DAC peripheral ESP32-audioI2S's internal-DAC
   // mode drives; S3/S2/C3 have no DAC hardware at all.
-  if (selectedFqbn && internalDacSd && selectedFqbn !== 'esp32:esp32:esp32') {
+  if (selectedFqbn && internalDacSd && !isClassicEsp32(selectedFqbn)) {
     errors.push('SD Card internal-DAC audio output requires the classic ESP32 board — ESP32-S3/S2/C3 have no built-in DAC')
   }
   // ESP32-HUB75-MatrixPanel-DMA needs the ESP32/S2/S3 'LCD mode' DMA
@@ -1003,7 +1017,7 @@ export function buildGraphDiagnostics(
     }
   }
 
-  if (options.selectedFqbn && options.selectedFqbn !== 'esp32:esp32:esp32') {
+  if (options.selectedFqbn && !isClassicEsp32(options.selectedFqbn)) {
     for (const node of nodes.filter((entry) =>
       entry.data.nodeType === 'SDCard' && (entry.data.properties as Record<string, unknown>).audioOutput === 'internalDac'
     )) {
