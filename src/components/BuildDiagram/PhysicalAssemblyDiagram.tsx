@@ -28,6 +28,7 @@ import {
   levelShifterChipY,
   levelShifterSupplyPoint,
   levelShifterTerminalPoint,
+  COMMON_NET_CALLOUT_GAP,
   diagramContentBottom,
   feedCombLaneY,
   feedIndexForFuseSlot,
@@ -51,7 +52,9 @@ import {
   POWER_BRANCH_ROW_SPACING,
   POWER_FEED_PAIR_GAP,
   powerSectionStartY,
+  powerZoneBands,
   type ItemLayout,
+  type PowerZoneBand,
   type LevelShifterTerminalPoint,
 } from './physicalDiagramLayout'
 
@@ -73,6 +76,12 @@ interface PhysicalAssemblyDiagramProps {
   exportScope?: 'current-view' | 'complete-build'
   /** Which subsystem layers this sheet draws. Defaults to the complete build. */
   layers?: BuildSectionLayers
+  /**
+   * Window onto the full sheet, in diagram units. Printing puts one PSU zone on
+   * a page by cropping to that zone's band rather than by re-laying the sheet
+   * out, so a printed zone keeps the coordinates the on-screen sheet gave it.
+   */
+  crop?: { y: number; height: number }
 }
 
 const ALL_LAYERS: BuildSectionLayers = { signalWires: true, levelShifter: true, powerDistribution: true }
@@ -635,16 +644,18 @@ function leftRailGeometry(leftColumnFeedCount: number) {
   return (rank: number) => Math.round(LEFT_RAIL_X - (rank * step))
 }
 
-function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSummary; startY: number }) {
+function PowerDistributionSections({ plan, bands }: { plan: ElectricalPlanSummary; bands: PowerZoneBand[] }) {
   const injections = plan.outputs.flatMap((output) => output.injections)
-  let y = startY
-  const sections = (plan.totals?.supplies ?? []).map((supply) => {
+  const sections = (plan.totals?.supplies ?? []).map((supply, index) => {
     const assigned = injections.filter((injection) => injection.supplyId === supply.id)
-    const sectionY = y
     const sectionLayout = powerDistributionSectionLayout(assigned.length)
-    const sectionHeight = sectionLayout.sectionHeight
-    y += sectionHeight + 34
-    return { supply, assigned, sectionY, sectionHeight, sectionLayout }
+    return {
+      supply,
+      assigned,
+      sectionY: bands[index]?.y ?? 0,
+      sectionHeight: sectionLayout.sectionHeight,
+      sectionLayout,
+    }
   })
   return <g>
     {sections.map(({ supply, assigned, sectionY, sectionHeight, sectionLayout }, supplyIndex) => {
@@ -689,7 +700,7 @@ function PowerDistributionSections({ plan, startY }: { plan: ElectricalPlanSumma
         return `M${psuGround.x} ${psuGround.y}H${PSU_GROUND_TRUNK_X}V${point.y}H${point.x}`
       }).join('')
 
-      return <g key={supply.id} transform={`translate(0 ${sectionY})`}>
+      return <g key={supply.id} data-power-zone={supply.id} data-power-zone-y={sectionY} transform={`translate(0 ${sectionY})`}>
         <rect x="24" y="0" width="1072" height={sectionHeight} rx="12" fill="none" stroke="#a9afac" strokeWidth="2" />
         <text x="42" y="32" className={styles.physicalPowerLabel}>PSU ZONE {supplyIndex + 1} · RECOMMENDED POWER SUPPLY</text>
         <text data-psu-recommendation={supply.recommendedCurrentMa} x="42" y="58" className={styles.physicalPowerValue}>5 V · {formatAmps(supply.recommendedCurrentMa)} · {supply.recommendedWattage} W</text>
@@ -880,7 +891,7 @@ function WireLabel({ x, y, children }: { x: number; y: number; children: string 
   return <text x={x} y={y} className={styles.physicalWireLabel}>{children}</text>
 }
 
-export default function PhysicalAssemblyDiagram({ boardProfile, items, connections, plan, selectedItemId, onSelectItem, exportScope = 'current-view', layers = ALL_LAYERS }: PhysicalAssemblyDiagramProps) {
+export default function PhysicalAssemblyDiagram({ boardProfile, items, connections, plan, selectedItemId, onSelectItem, exportScope = 'current-view', layers = ALL_LAYERS, crop }: PhysicalAssemblyDiagramProps) {
   const boardLabel = boardProfile.label
   const layouts = itemLayouts(items)
   const outputLayouts = layouts.filter((layout) => layout.item.kind === 'matrix-output')
@@ -904,13 +915,15 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
   const busLane = (connection: PhysicalDiagramConnection, fallback: number) =>
     busLanes.get(connection.id) ?? fallback
   const canvasHeight = physicalAssemblyDiagramHeight(items, plan, layers)
+  const viewTop = crop?.y ?? 0
+  const viewHeight = crop?.height ?? canvasHeight
 
   return (
     <svg
       className={styles.physicalDiagram}
-      viewBox={`0 0 ${CANVAS_WIDTH} ${canvasHeight}`}
+      viewBox={`0 ${viewTop} ${CANVAS_WIDTH} ${viewHeight}`}
       width={CANVAS_WIDTH}
-      height={canvasHeight}
+      height={viewHeight}
       role="img"
       data-build-export={exportScope}
       aria-labelledby="physical-diagram-title physical-diagram-desc"
@@ -1078,11 +1091,12 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
       {layouts.length > 0 && (
         <CommonNetCallout
           x={320}
-          y={showPowerDistribution ? powerSectionY - 78 : diagramContentBottom(items, layers) + 12}
+          y={showPowerDistribution ? powerSectionY - 78 : diagramContentBottom(items, layers) + COMMON_NET_CALLOUT_GAP}
           width={776}
+          powerBelow={showPowerDistribution}
         />
       )}
-      {showPowerDistribution && <PowerDistributionSections plan={plan} startY={powerSectionY} />}
+      {showPowerDistribution && <PowerDistributionSections plan={plan} bands={powerZoneBands(items, plan, layers)} />}
 
       <g filter="url(#component-shadow)" transform={`translate(${controllerUsb.x - 92} 592)`}>
         <rect width="184" height="62" rx="12" fill="#e9ecea" stroke="#879092" strokeWidth="2" />

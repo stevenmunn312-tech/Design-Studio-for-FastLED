@@ -1765,42 +1765,209 @@
   }
 }
 
+/* Print document. Off-screen while the app is on screen; the only thing that
+   survives @media print. See BuildPrintSheets.tsx for the page composition. */
+.printDocument {
+  position: fixed;
+  left: -20000px;
+  top: 0;
+  width: 1120px;
+  pointer-events: none;
+}
+
+.printPage {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #16191a;
+  background: white;
+  font-family: var(--font-ui, system-ui, sans-serif);
+}
+
+.printPageHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #b9bebd;
+  font-size: 11pt;
+}
+
+.printPageHeader span {
+  font-size: 8.5pt;
+  color: #4a5051;
+}
+
+.printPageBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.printPageFooter {
+  padding-top: 3px;
+  border-top: 1px solid #d5d9d8;
+  font-size: 7.5pt;
+  color: #4a5051;
+}
+
+/* Letterboxes the sheet inside whatever the page leaves, so a drawing is never
+   cropped or split across a page break. */
+.printDiagram {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Absolute rather than in-flow: the sheet's own width/height attributes would
+   otherwise win and push the drawing off the page. With the viewBox intact,
+   preserveAspectRatio letterboxes it inside whatever the page leaves. */
+.printDiagram svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.printSummary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  font-size: 9pt;
+}
+
+.printTitle {
+  margin: 0 0 8px;
+  font-size: 17pt;
+}
+
+.printHeading {
+  margin: 14px 0 4px;
+  font-size: 10.5pt;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.printFacts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(90px, auto) 1fr;
+  gap: 2px 12px;
+}
+
+.printFacts > div {
+  display: contents;
+}
+
+.printFacts dt {
+  color: #4a5051;
+}
+
+.printFacts dd {
+  margin: 0;
+}
+
+.printContents {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.printNote {
+  margin: 10px 0 0;
+  color: #4a5051;
+}
+
+.printLegend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  font-size: 8pt;
+  color: #2b3031;
+}
+
+.printLegend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.printLegendNote {
+  color: #4a5051;
+}
+
+.printSwatch {
+  width: 22px;
+  height: 7px;
+  overflow: visible;
+}
+
+.printTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8pt;
+}
+
+.printTable th,
+.printTable td {
+  padding: 2px 5px;
+  border-bottom: 1px solid #d5d9d8;
+  text-align: left;
+  vertical-align: top;
+}
+
+.printTable th {
+  border-bottom: 1.5px solid #8d9493;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 7.5pt;
+}
+
+.printTick {
+  width: 16px;
+  border-left: 1px solid #d5d9d8;
+}
+
 @media print {
-  .workspace {
-    display: block;
-    overflow: visible;
-    background: white;
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
   }
 
-  .sidebar,
-  .detailPane,
-  .diagramHeader {
-    display: none;
-  }
-
-  .diagramPane,
-  .diagramViewport,
-  .diagramSurface {
-    display: block;
-    margin: 0;
-    overflow: visible;
-    border: 0;
-    box-shadow: none;
-    background: white;
-  }
-
-  .diagramCanvas {
-    transform: none !important;
-  }
-
-  .exportCompleteMode .diagramViewport {
-    display: none;
-  }
-
-  .exportCompleteMode .exportDiagramHidden {
+  .printDocument {
     position: static;
-    display: block;
-    width: 1120px;
+    width: auto;
+  }
+
+  .printPage {
+    /* A4 landscape less the page margins, with a hair of slack so a rounded
+       page box never spills into a second, blank page. */
+    height: 192mm;
+    page-break-after: always;
+    break-after: page;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .printPageFlow {
     height: auto;
+    page-break-inside: auto;
+    break-inside: auto;
+  }
+
+  .printPage:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  .printTable thead {
+    display: table-header-group;
+  }
+
+  .printTable tr {
+    break-inside: avoid;
   }
 }

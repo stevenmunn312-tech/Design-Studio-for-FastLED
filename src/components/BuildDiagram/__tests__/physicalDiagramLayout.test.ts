@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import type { ElectricalPlanSummary } from '../../../build/electricalPlan'
+import type { HardwareManifestItem } from '../../../build/hardwareManifest'
 import { fuseBlockAllocations } from '../../../build/powerDistribution'
 import {
+  COMMON_NET_CALLOUT_GAP,
+  COMMON_NET_CALLOUT_HEIGHT,
+  diagramContentBottom,
   feedCombLaneY,
   feedIndexForFuseSlot,
   FUSE_BLOCK_CELL_HEIGHT,
@@ -9,8 +14,13 @@ import {
   fuseColumnSplit,
   fuseSlotForFeed,
   groundCombLaneY,
+  itemLayouts,
+  physicalAssemblyDiagramHeight,
   POWER_BRANCH_ROW_SPACING,
+  POWER_SECTION_SPACING,
   powerDistributionSectionLayout,
+  powerSectionStartY,
+  powerZoneBands,
   PSU_POSITIVE_TERMINAL_OFFSET,
 } from '../physicalDiagramLayout'
 
@@ -111,5 +121,63 @@ describe('fuse slot assignment', () => {
     expect(fuseColumnSplit(6)).toEqual({ rightCount: 3, leftCount: 3 })
     expect(fuseColumnSplit(3)).toEqual({ rightCount: 2, leftCount: 1 })
     expect(fuseColumnSplit(1)).toEqual({ rightCount: 1, leftCount: 0 })
+  })
+})
+
+function planWithSupplies(feedCounts: number[]): ElectricalPlanSummary {
+  const injections = feedCounts.flatMap((count, supplyIndex) =>
+    Array.from({ length: count }, (_, feedIndex) => ({
+      id: `supply-${supplyIndex + 1}-feed-${feedIndex + 1}`,
+      supplyId: `supply-${supplyIndex + 1}`,
+    })))
+  return {
+    outputs: [{ injections }],
+    totals: {
+      supplies: feedCounts.map((count, index) => ({
+        id: `supply-${index + 1}`,
+        injectionIds: Array.from({ length: count }, (_, feed) => `supply-${index + 1}-feed-${feed + 1}`),
+      })),
+    },
+  } as unknown as ElectricalPlanSummary
+}
+
+const OUTPUT_ITEM = { id: 'output:out', kind: 'matrix-output', pins: [] } as unknown as HardwareManifestItem
+
+describe('powerZoneBands', () => {
+  it('tiles the power section with no gap or overlap between zones', () => {
+    for (const feedCounts of [[3], [6, 2], [12, 6, 1], [24, 3]]) {
+      const plan = planWithSupplies(feedCounts)
+      const bands = powerZoneBands([OUTPUT_ITEM], plan)
+      expect(bands.map((band) => band.feedCount)).toEqual(feedCounts)
+      expect(bands[0].y).toBe(powerSectionStartY([OUTPUT_ITEM]))
+      for (const [index, band] of bands.entries()) {
+        expect(band.height).toBeGreaterThan(0)
+        if (index === 0) continue
+        expect(band.y).toBe(bands[index - 1].y + bands[index - 1].height)
+      }
+      // Printing crops one band per page, so the bands must account for the
+      // whole sheet below the hardware: anything they miss is a zone nobody prints.
+      const last = bands[bands.length - 1]
+      expect(physicalAssemblyDiagramHeight([OUTPUT_ITEM], plan))
+        .toBe(last.y + last.height + POWER_SECTION_SPACING)
+    }
+  })
+})
+
+describe('sheet spacing', () => {
+  it('keeps each output card clear of the title and subtitle of the one below', () => {
+    const items = [OUTPUT_ITEM, { ...OUTPUT_ITEM, id: 'output:second' }]
+    const [first, second] = itemLayouts(items)
+    // Titles sit 32px above their card, so the gap has to carry both label rows.
+    expect(second.y - 32).toBeGreaterThan(first.y + first.height + 10)
+  })
+
+  it('leaves the legend strip clear of the shared-net callout on a sheet with no PSU zones', () => {
+    const layers = { levelShifter: true, powerDistribution: false }
+    const height = physicalAssemblyDiagramHeight([OUTPUT_ITEM], planWithSupplies([3]), layers)
+    const calloutBottom = diagramContentBottom([OUTPUT_ITEM], layers)
+      + COMMON_NET_CALLOUT_GAP + COMMON_NET_CALLOUT_HEIGHT
+    // The legend renders at `height - 22`.
+    expect(height - 22).toBeGreaterThan(calloutBottom)
   })
 })

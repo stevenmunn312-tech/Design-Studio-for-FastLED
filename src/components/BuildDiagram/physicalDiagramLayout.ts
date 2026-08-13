@@ -13,6 +13,12 @@ export type ItemLayout = {
 /** Clearance between the last hardware row and the PSU zones, sized for the shared-net callout. */
 export const POWER_SECTION_GAP = 120
 
+/** Shared-net callout box, and the gap it keeps below the last hardware row. */
+export const COMMON_NET_CALLOUT_HEIGHT = 52
+export const COMMON_NET_CALLOUT_GAP = 12
+/** Strip along the bottom edge that the wire-colour legend owns. */
+export const DIAGRAM_LEGEND_BAND = 46
+
 export const FUSE_BLOCK_CELL_WIDTH = 160
 export const FUSE_BLOCK_CELL_HEIGHT = 182
 export const FUSE_BLOCK_START_X = 282
@@ -244,6 +250,15 @@ export function peripheralPadPoint(layout: ItemLayout, padIndex: number) {
   }
 }
 
+export const OUTPUT_CARD_HEIGHT = 174
+/**
+ * Each card carries a title and a subtitle above it, so the pitch has to clear
+ * the card body *and* those two lines. At the old 212 the second output's title
+ * was drawn on the first card's bottom edge.
+ */
+export const OUTPUT_CARD_LABEL_HEIGHT = 44
+export const OUTPUT_CARD_PITCH = OUTPUT_CARD_HEIGHT + OUTPUT_CARD_LABEL_HEIGHT + 14
+
 export const LEVEL_SHIFTER_X = 430
 export const LEVEL_SHIFTER_Y = 276
 export const LEVEL_SHIFTER_WIDTH = 180
@@ -299,9 +314,9 @@ export function itemLayouts(items: HardwareManifestItem[]): ItemLayout[] {
   const layouts: ItemLayout[] = outputs.map((item, index) => ({
     item,
     x: 820,
-    y: 92 + (index * 212),
+    y: 92 + (index * OUTPUT_CARD_PITCH),
     width: 184,
-    height: 174,
+    height: OUTPUT_CARD_HEIGHT,
   }))
   const microphone = items.find((item) => item.kind === 'mic-input')
   if (microphone) layouts.push({ item: microphone, x: 350, y: 62, width: 205, height: 160 })
@@ -359,6 +374,42 @@ export function powerSectionStartY(items: HardwareManifestItem[], layers: Diagra
   return Math.max(670, diagramContentBottom(items, layers) + POWER_SECTION_GAP)
 }
 
+/** Gap below each PSU zone box, and the strip below the last one. */
+export const POWER_SECTION_SPACING = 34
+
+export interface PowerZoneBand {
+  supplyId: string
+  feedCount: number
+  /** Top of the zone's band in diagram units. */
+  y: number
+  /** Band height, including the gap below the zone box. */
+  height: number
+}
+
+/**
+ * Where each PSU zone sits on the full sheet.
+ *
+ * Printing crops the sheet to one of these bands per page, so this has to stay
+ * the single owner of the offsets the renderer walks and the height the sheet
+ * reserves — three independent accumulations of the same `+ spacing` would
+ * drift the moment one of them changed.
+ */
+export function powerZoneBands(
+  items: HardwareManifestItem[],
+  plan: ElectricalPlanSummary,
+  layers: DiagramHeightLayers = ALL_HEIGHT_LAYERS,
+): PowerZoneBand[] {
+  const injections = plan.outputs.flatMap((output) => output.injections)
+  let y = powerSectionStartY(items, layers)
+  return (plan.totals?.supplies ?? []).map((supply) => {
+    const feedCount = injections.filter((injection) => injection.supplyId === supply.id).length
+    const height = powerDistributionSectionLayout(feedCount).sectionHeight + POWER_SECTION_SPACING
+    const band = { supplyId: supply.id, feedCount, y, height }
+    y += height
+    return band
+  })
+}
+
 export function physicalAssemblyDiagramHeight(
   items: HardwareManifestItem[],
   plan: ElectricalPlanSummary,
@@ -368,11 +419,16 @@ export function physicalAssemblyDiagramHeight(
   const outputCount = layouts.filter((layout) => layout.item.kind === 'matrix-output').length
   // A sheet with no PSU zones ends just past its own hardware instead of
   // reserving the full-build height, so section views fit tighter. The trailing
-  // room holds the shared-net callout, which renders on every sheet.
+  // room holds the shared-net callout, which renders on every sheet, plus the
+  // legend strip below it — at the old +80 the legend was drawn on top of the
+  // callout's own text.
   if (outputCount === 0 || !layers.powerDistribution) {
-    return Math.max(400, diagramContentBottom(items, layers) + 80)
+    return Math.max(400, diagramContentBottom(items, layers)
+      + COMMON_NET_CALLOUT_GAP + COMMON_NET_CALLOUT_HEIGHT + DIAGRAM_LEGEND_BAND)
   }
-  const powerSectionHeight = (plan.totals?.supplies ?? []).reduce((height, supply) =>
-    height + powerDistributionSectionLayout(supply.injectionIds.length).sectionHeight + 34, 0)
-  return powerSectionStartY(items, layers) + powerSectionHeight + 34
+  const bands = powerZoneBands(items, plan, layers)
+  const bottom = bands.length > 0
+    ? bands[bands.length - 1].y + bands[bands.length - 1].height
+    : powerSectionStartY(items, layers)
+  return bottom + POWER_SECTION_SPACING
 }

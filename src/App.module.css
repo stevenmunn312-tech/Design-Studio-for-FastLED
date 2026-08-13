@@ -275,3 +275,11 @@
   line-height: 1;
   transform: translateX(1px);
 }
+
+/* Printing is a Build Diagram feature, and the sheets it prints are portalled
+   onto the body. Nothing in the app itself is meant for paper. */
+@media print {
+  .app {
+    display: none;
+  }
+}
