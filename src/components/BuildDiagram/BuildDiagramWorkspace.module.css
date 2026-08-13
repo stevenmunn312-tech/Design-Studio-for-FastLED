@@ -1576,11 +1576,21 @@
   fill: #8a5a22;
 }
 
+/*
+ * Pin callouts sit directly on the DIP render, which is dark body in some
+ * places and bright metal legs in others — a single flat fill washes out on
+ * one or the other. The dark halo (stroke painted behind the glyphs) keeps
+ * them readable over both.
+ */
 .physicalChipLabel {
-  fill: #e5e7e2;
+  fill: #f4f6f2;
   font-family: var(--font-code);
   font-size: 10px;
   font-weight: 700;
+  paint-order: stroke fill;
+  stroke: #10161a;
+  stroke-width: 3px;
+  stroke-linejoin: round;
 }
 
 .physicalFuseText,

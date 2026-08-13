@@ -4,6 +4,7 @@ import BuildDiagramWorkspace from '../BuildDiagramWorkspace'
 import { useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/uploadStore'
+import { micPinDefaultsForBoard } from '../../../state/micPinDefaults'
 import { POWER_FEED_PAIR_GAP } from '../physicalDiagramLayout'
 
 function matrixNode(dataPin = 14, width = 16, height = 16, id = 'out', extra: Record<string, unknown> = {}) {
@@ -60,6 +61,13 @@ function selectDevKit() {
   })
 }
 
+function selectEsp32DevKitV1() {
+  useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32doit-devkit-v1' })
+  useGraphStore.setState({
+    buildProfile: { version: 1, physicalBoardProfileId: 'esp32-devkit-v1-30pin-esp32d' },
+  })
+}
+
 describe('BuildDiagramWorkspace', () => {
   beforeEach(() => {
     useGraphStore.setState({
@@ -107,6 +115,67 @@ describe('BuildDiagramWorkspace', () => {
     expect(queryByText('Still unresolved')).toBeNull()
   })
 
+  it('stops using a saved exact board once the upload target no longer matches', () => {
+    selectDevKit()
+    const { getByText, queryByText, rerender } = render(<BuildDiagramWorkspace />)
+    expect(getByText('Exact board: confirmed', { selector: 'li' })).toBeTruthy()
+
+    // Switching to a target the saved profile isn't for must not keep showing
+    // that board's render and pin map as if it were the selected hardware.
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32doit-devkit-v1' })
+    rerender(<BuildDiagramWorkspace />)
+    expect(queryByText('Exact board: confirmed', { selector: 'li' })).toBeNull()
+    expect(getByText('Exact board required')).toBeTruthy()
+
+    // The id is kept, so switching the target back restores the board.
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
+    rerender(<BuildDiagramWorkspace />)
+    expect(getByText('Exact board: confirmed', { selector: 'li' })).toBeTruthy()
+  })
+
+  it('lands ESP-32D connections on that board render’s own header pads', () => {
+    const mic = microphoneNode()
+    // The pins a Microphone dropped on this board actually gets — the S3
+    // defaults the shared helper carries don't exist on the classic ESP32.
+    mic.data.properties = micPinDefaultsForBoard('esp32:esp32:esp32doit-devkit-v1')!
+    useGraphStore.setState({ nodes: [matrixNode(), mic] as never[] })
+    selectEsp32DevKitV1()
+    const { container } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
+
+    const board = diagram?.querySelector('[data-controller-render="esp32-devkit-v1-30pin-esp32d"]')
+    expect(board?.querySelector('image')).toBeTruthy()
+
+    // Each terminal has to sit on the pad its anchor names, not on the generic
+    // fallback column — which is what an unmapped board silently falls back to.
+    const image = board!.querySelector('image')!
+    const top = Number(image.getAttribute('y'))
+    const height = Number(image.getAttribute('height'))
+    const terminals = [...board!.querySelectorAll('[data-terminal] circle')]
+    expect(terminals.length).toBeGreaterThan(3)
+    for (const terminal of terminals) {
+      const cy = Number(terminal.getAttribute('cy'))
+      expect(cy).toBeGreaterThanOrEqual(top)
+      expect(cy).toBeLessThanOrEqual(top + height)
+    }
+    // The board's two 15-pin rails, so every pad dot is on one of two columns.
+    const rails = new Set(terminals.map((terminal) => terminal.getAttribute('cx')))
+    expect(rails.size).toBeLessThanOrEqual(3) // two rails plus the USB inlet
+
+    // Stronger than "somewhere on the board": every header terminal has to land
+    // on one of the 15 pad rows. The rows run 393.5..1405.5 in the artwork's own
+    // 1800-tall space, so a dot that drifts off the grid fails here.
+    const rowAt = (index: number) => top + (((393.5 + (index * (1405.5 - 393.5) / 14)) / 1800) * height)
+    const rows = Array.from({ length: 15 }, (_, index) => rowAt(index))
+    for (const terminal of terminals) {
+      const cy = Number(terminal.getAttribute('cy'))
+      const nearest = rows.reduce((best, row) => Math.abs(row - cy) < Math.abs(best - cy) ? row : best, rows[0])
+      // The USB inlet is deliberately off-grid; every header pad must be on it.
+      if (terminal.closest('[data-terminal]')?.getAttribute('data-terminal') === 'controller-usb') continue
+      expect(Math.abs(nearest - cy)).toBeLessThan(0.01)
+    }
+  })
+
   it('renders controller, microphone, matrix, and every required connection from the graph', () => {
     useGraphStore.setState({ nodes: [matrixNode(), microphoneNode()] as never[] })
     selectDevKit()
@@ -116,7 +185,7 @@ describe('BuildDiagramWorkspace', () => {
     expect(diagram).toBeTruthy()
     expect(getAllByText('Microphone').length).toBeGreaterThan(0)
     expect(getAllByText('Matrix Output').length).toBeGreaterThan(0)
-    expect(diagram?.querySelector('[data-controller-render="esp32-s3-devkitc-1"] image')).toBeTruthy()
+    expect(diagram?.querySelector('[data-controller-render="espressif-esp32-s3-devkitc-1"] image')).toBeTruthy()
     for (const wire of [
       'microphone-vdd',
       'microphone-ground',
@@ -165,8 +234,10 @@ describe('BuildDiagramWorkspace', () => {
     expect(outputTerminal?.getAttribute('data-board-anchor')).toBe('j1-20')
     expect(outputWirePath?.startsWith(`M${outputTerminalCircle?.getAttribute('cx')} ${outputTerminalCircle?.getAttribute('cy')}`)).toBe(true)
     // Exits left of the board, drops, then rejoins the bus band (266..290) and
-    // runs in to the series resistor at x=350.
-    expect(outputWirePath).toMatch(/H58V542H266V342H350$/)
+    // runs in to the series resistor at x=350. The drop clears the board's own
+    // bottom edge (104 + 426) plus its caption — it used to be a fixed 542,
+    // which is mid-caption on this board and far too deep for a shorter one.
+    expect(outputWirePath).toMatch(/H58V570H266V342H350$/)
     expect(diagram?.querySelector('[data-component-render="330ohm-blue-axial-resistor"]')).toBeTruthy()
     expect(diagram?.querySelector('[data-component-render="sn74ahct125n-dip14"]')).toBeTruthy()
     expect(diagram?.querySelector('[data-component-render="inmp441-breakout"]')).toBeTruthy()

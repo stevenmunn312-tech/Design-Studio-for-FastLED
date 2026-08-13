@@ -4,6 +4,7 @@ import {
   boardPinForGpio,
   boardProfileById,
   compatibleBoardProfilesForFqbn,
+  isBoardProfileCompatibleWithFqbn,
   type PhysicalBoardPinAnchor,
   type PhysicalBoardProfile,
   type PhysicalBoardPinProfile,
@@ -300,7 +301,15 @@ export default function BuildDiagramWorkspace() {
   const manifest = useMemo(() => buildHardwareManifest(nodes, edges, selectedFqbn), [nodes, edges, selectedFqbn])
   const buildProfile = ensureBuildProfile(storedBuildProfile)
   const boardOptions = useMemo(() => compatibleBoardProfilesForFqbn(selectedFqbn), [selectedFqbn])
-  const exactBoard = boardProfileById(buildProfile.physicalBoardProfileId ?? '')
+  // A saved exact board only applies while it still matches the upload target.
+  // Switching FQBN used to leave the old board's render and pin map in place —
+  // an ESP32 wiring diagram presented as if it were for the newly selected S3.
+  // Dropping back to "choose your board" makes the diagram ask again rather
+  // than quietly show wiring for hardware that is no longer selected. The id
+  // stays on the profile, so switching the target back restores it.
+  const exactBoard = isBoardProfileCompatibleWithFqbn(buildProfile.physicalBoardProfileId, selectedFqbn)
+    ? boardProfileById(buildProfile.physicalBoardProfileId ?? '')
+    : undefined
   const selectedTarget = boardByFqbn(selectedFqbn)
   const [selectedItemId, setSelectedItemId] = useState<string>(() => exactBoard ? 'controller' : '')
   const [isolatedItemId, setIsolatedItemId] = useState<string | null>(null)

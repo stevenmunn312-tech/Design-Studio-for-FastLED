@@ -3,6 +3,7 @@ import type { PhysicalBoardProfile } from '../../build/boardProfiles'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
 import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/powerDistribution'
 import devKitCBoardRender from '../../assets/boards/esp32-s3-devkitc-1.png'
+import esp32DevKitV1BoardRender from '../../assets/boards/esp32-devkit-v1-30pin.png'
 import microphoneRender from '../../assets/components/inmp441-breakout.png'
 import levelShifterRender from '../../assets/components/sn74ahct125n-dip14.png'
 import buttonModuleRender from '../../assets/components/button-module.png'
@@ -97,18 +98,100 @@ const FUSE_BLOCK_RENDERS: Record<FuseBlockCircuitCount, string> = {
   12: fuseBlock12Render,
 }
 
-const DEVKITC_RENDER = {
-  x: 74,
-  y: 104,
-  width: 184,
-  height: 426,
-  sourceWidth: 398,
-  sourceHeight: 922,
-  leftPinX: 48,
-  rightPinX: 351,
-  firstPinY: 76.5,
-  lastPinY: 795.5,
-} as const
+/**
+ * A photoreal board render plus the header geometry needed to land a terminal
+ * on the right pad.
+ *
+ * Pad positions are measured in the artwork's own pixel space and mapped onto
+ * the diagram box, so the two can't drift apart. Keep the box's aspect ratio
+ * close to `sourceWidth / sourceHeight` — the <image> uses `xMidYMid meet`, so
+ * a mismatch letterboxes the render inside the box and shifts every pad off
+ * its dot (the bug the microphone module had).
+ */
+interface ControllerRender {
+  href: string
+  /** Where the artwork sits on the diagram canvas. */
+  x: number
+  y: number
+  width: number
+  height: number
+  /** The coordinate space the pad measurements below were taken in. Only its
+   *  aspect ratio matters — every mapping is a ratio — so resizing the asset
+   *  doesn't invalidate the measurements as long as the aspect is preserved. */
+  sourceWidth: number
+  sourceHeight: number
+  /** Header geometry in source pixels: rail x, and first/last pad centre y. */
+  leftPinX: number
+  rightPinX: number
+  firstPinY: number
+  lastPinY: number
+  /** Pads per rail, and the anchor id prefixes the board profile uses. */
+  pinsPerRail: number
+  leftPrefix: string
+  rightPrefix: string
+  /** Anchor ids carrying the shared rails, plus the USB inlet in source pixels. */
+  powerAnchors: { v3v3: string; ground: string }
+  usbPoint: { x: number; y: number }
+  /** Caption drawn under the render. */
+  shortLabel: string
+}
+
+const CONTROLLER_RENDERS: Record<string, ControllerRender> = {
+  'espressif-esp32-s3-devkitc-1': {
+    href: devKitCBoardRender,
+    x: 74, y: 104, width: 184, height: 426,
+    sourceWidth: 398, sourceHeight: 922,
+    leftPinX: 48, rightPinX: 351, firstPinY: 76.5, lastPinY: 795.5,
+    pinsPerRail: 22, leftPrefix: 'j1', rightPrefix: 'j3',
+    powerAnchors: { v3v3: 'j1-1', ground: 'j3-22' },
+    usbPoint: { x: 270, y: 875 },
+    shortLabel: 'ESP32-S3 DevKitC-1',
+  },
+  // 15 + 15 header on a 72.29px pitch, measured off the render: both rails
+  // share the same pad rows, first at y=393.5 and last at y=1405.5. Measured
+  // against the 1200x1800 original; the shipped asset is the same image at
+  // 800x1200, which is the same 2:3 aspect and so the same ratios.
+  //
+  // Bottom-aligned with the DevKitC (both end at y=530) rather than top-aligned:
+  // this board is 150 units shorter, and hanging that slack above it opens a
+  // clear band between the wiring-plan callout and the board — which is what
+  // lets a left-rail wire cross the top instead of looping under the whole
+  // board. It also puts both boards' USB ends at the same height.
+  'esp32-devkit-v1-30pin-esp32d': {
+    href: esp32DevKitV1BoardRender,
+    x: 74, y: 254, width: 184, height: 276,
+    sourceWidth: 1200, sourceHeight: 1800,
+    leftPinX: 274, rightPinX: 925.5, firstPinY: 393.5, lastPinY: 1405.5,
+    pinsPerRail: 15, leftPrefix: 'left', rightPrefix: 'right',
+    powerAnchors: { v3v3: 'right-15', ground: 'right-14' },
+    usbPoint: { x: 600, y: 1600 },
+    shortLabel: 'ESP32 DevKit v1',
+  },
+}
+
+function controllerRender(boardProfile: PhysicalBoardProfile): ControllerRender | undefined {
+  return CONTROLLER_RENDERS[boardProfile.id]
+}
+
+/** Diagram units between adjacent pads on a render's header. */
+function controllerPadPitch(render: ControllerRender) {
+  const sourcePitch = (render.lastPinY - render.firstPinY) / (render.pinsPerRail - 1)
+  return (sourcePitch / render.sourceHeight) * render.height
+}
+
+/**
+ * Terminal dot radius, capped so a dot never spills onto its neighbours.
+ *
+ * This was a flat 6, sized against the DevKitC's roomy 15.8-unit pitch. The
+ * ESP-32D packs 15 pads into a shorter board — an 11-unit pitch — where a
+ * 12-across dot swallows the pads either side of it and stops reading as
+ * "this pin".
+ */
+const CONTROLLER_TERMINAL_RADIUS = 6
+
+function controllerTerminalRadius(render: ControllerRender) {
+  return Math.min(CONTROLLER_TERMINAL_RADIUS, controllerPadPitch(render) * 0.42)
+}
 
 type ControllerTerminalPoint = {
   x: number
@@ -116,10 +199,10 @@ type ControllerTerminalPoint = {
   side: 'left' | 'right'
 }
 
+/** Caption for a profile drawn from primitives. A profile with a photoreal
+ *  render carries its own `shortLabel` in CONTROLLER_RENDERS instead. */
 function shortBoardLabel(label: string) {
   if (label.includes('XIAO')) return 'XIAO ESP32S3'
-  if (label.includes('DevKitC')) return 'ESP32-S3 DevKitC-1'
-  if (label.includes('ESP-32D')) return 'ESP32 DevKit v1'
   return 'ESP32-S3 N16R8'
 }
 
@@ -136,20 +219,27 @@ function controllerConnectionY(index: number, count: number) {
   return 252 + ((194 * index) / (count - 1))
 }
 
-function devKitTerminalPoint(anchorId: string | undefined): ControllerTerminalPoint | undefined {
-  const match = /^(j1|j3)-(\d+)$/.exec(anchorId ?? '')
+/** Map a point in the artwork's pixel space onto the diagram canvas. */
+function renderSourcePoint(render: ControllerRender, sourceX: number, sourceY: number) {
+  return {
+    x: render.x + ((sourceX / render.sourceWidth) * render.width),
+    y: render.y + ((sourceY / render.sourceHeight) * render.height),
+  }
+}
+
+/** The pad a board profile's anchor id names, or undefined if it isn't a header pad. */
+function renderTerminalPoint(
+  render: ControllerRender,
+  anchorId: string | undefined,
+): ControllerTerminalPoint | undefined {
+  const match = new RegExp(`^(${render.leftPrefix}|${render.rightPrefix})-(\\d+)$`).exec(anchorId ?? '')
   if (!match) return undefined
   const pinIndex = Number(match[2]) - 1
-  if (pinIndex < 0 || pinIndex >= 22) return undefined
-  const side = match[1] === 'j1' ? 'left' : 'right'
-  const sourceX = side === 'left' ? DEVKITC_RENDER.leftPinX : DEVKITC_RENDER.rightPinX
-  const sourceY = DEVKITC_RENDER.firstPinY
-    + (pinIndex * ((DEVKITC_RENDER.lastPinY - DEVKITC_RENDER.firstPinY) / 21))
-  return {
-    x: DEVKITC_RENDER.x + ((sourceX / DEVKITC_RENDER.sourceWidth) * DEVKITC_RENDER.width),
-    y: DEVKITC_RENDER.y + ((sourceY / DEVKITC_RENDER.sourceHeight) * DEVKITC_RENDER.height),
-    side,
-  }
+  if (pinIndex < 0 || pinIndex >= render.pinsPerRail) return undefined
+  const side = match[1] === render.leftPrefix ? 'left' : 'right'
+  const sourceX = side === 'left' ? render.leftPinX : render.rightPinX
+  const pitch = (render.lastPinY - render.firstPinY) / (render.pinsPerRail - 1)
+  return { ...renderSourcePoint(render, sourceX, render.firstPinY + (pinIndex * pitch)), side }
 }
 
 function controllerConnectionPoint(
@@ -158,8 +248,9 @@ function controllerConnectionPoint(
   count: number,
   boardProfile: PhysicalBoardProfile,
 ): ControllerTerminalPoint {
-  if (boardProfile.id === 'espressif-esp32-s3-devkitc-1') {
-    const point = devKitTerminalPoint(connection.boardAnchorId)
+  const render = controllerRender(boardProfile)
+  if (render) {
+    const point = renderTerminalPoint(render, connection.boardAnchorId)
     if (point) return point
   }
   return { x: 280, y: controllerConnectionY(index, count), side: 'right' }
@@ -169,14 +260,11 @@ function controllerPowerPoint(
   kind: '3v3' | 'ground' | 'usb',
   boardProfile: PhysicalBoardProfile,
 ): ControllerTerminalPoint {
-  if (boardProfile.id === 'espressif-esp32-s3-devkitc-1') {
-    if (kind === '3v3') return devKitTerminalPoint('j1-1')!
-    if (kind === 'ground') return devKitTerminalPoint('j3-22')!
-    return {
-      x: DEVKITC_RENDER.x + ((270 / DEVKITC_RENDER.sourceWidth) * DEVKITC_RENDER.width),
-      y: DEVKITC_RENDER.y + ((875 / DEVKITC_RENDER.sourceHeight) * DEVKITC_RENDER.height),
-      side: 'right',
-    }
+  const render = controllerRender(boardProfile)
+  if (render) {
+    if (kind === '3v3') return renderTerminalPoint(render, render.powerAnchors.v3v3)!
+    if (kind === 'ground') return renderTerminalPoint(render, render.powerAnchors.ground)!
+    return { ...renderSourcePoint(render, render.usbPoint.x, render.usbPoint.y), side: 'right' }
   }
   if (kind === '3v3') return { x: 280, y: 220, side: 'right' }
   if (kind === 'ground') return { x: 280, y: 476, side: 'right' }
@@ -199,18 +287,68 @@ const CONTROL_CORRIDOR_X = 296
 const CONTROL_CORRIDOR_SPACING = 8
 const CONTROL_CORRIDOR_COUNT = 5
 
+/**
+ * A left-rail pin has to get around the board to reach anything on the right,
+ * and below is the only clear band — the wiring-plan callout fills the top-left
+ * corner (x 30..302, y 28..96), leaving no room to cross above.
+ *
+ * How far below has to follow the board: this was a fixed 542, which is just
+ * under the 426-tall DevKitC the diagram was built around. A shorter board left
+ * every left-rail wire diving hundreds of units past its own bottom edge and
+ * climbing back up — most visible on the 276-tall ESP-32D, where the mic sits
+ * *above* the descent. Deriving the band from the render's own bottom keeps the
+ * loop tight whatever board is selected, and clears the caption underneath it,
+ * which the old fixed depth actually crossed on the DevKitC.
+ */
+const CONTROLLER_CAPTION_CLEARANCE = 40
+const CONTROLLER_DETOUR_FALLBACK_Y = 542
+
+function controllerDetourBaseY(render: ControllerRender | undefined) {
+  return render ? render.y + render.height + CONTROLLER_CAPTION_CLEARANCE : CONTROLLER_DETOUR_FALLBACK_Y
+}
+
+/** Bottom edge of the wiring-plan callout, which owns the top-left corner. */
+const WIRING_PLAN_CALLOUT_BOTTOM = 96
+/** Room the lane fan needs before crossing above the board is worth doing. */
+const CONTROLLER_TOP_BAND_MIN = 56
+const CONTROLLER_TOP_BAND_INSET = 14
+
+/**
+ * Band above the board for left-rail wires whose target is also up there, or
+ * `undefined` when the board reaches too close to the callout to fit one.
+ *
+ * A board that fills the column top to bottom (the DevKitC) leaves no gap, so
+ * those wires still take the long way under it. A shorter board bottom-aligned
+ * in the same column does leave a gap, and crossing it turns a loop around the
+ * entire board into a short hop.
+ */
+function controllerTopBandY(render: ControllerRender | undefined) {
+  if (!render) return undefined
+  if (render.y - WIRING_PLAN_CALLOUT_BOTTOM < CONTROLLER_TOP_BAND_MIN) return undefined
+  return WIRING_PLAN_CALLOUT_BOTTOM + CONTROLLER_TOP_BAND_INSET
+}
+
 function routeFromController(
   point: ControllerTerminalPoint,
   targetX: number,
   targetY: number,
   laneIndex: number,
+  leftSlot: number,
+  detourBaseY: number,
+  topBandY: number | undefined,
 ) {
   const rightLane = BUS_LANE_X + ((laneIndex % BUS_LANE_COUNT) * BUS_LANE_SPACING)
   if (point.side === 'right') return `M${point.x} ${point.y}H${rightLane}V${targetY}H${targetX}`
-  const laneSlot = laneIndex % 6
+  const laneSlot = leftSlot % 6
   const leftLane = 58 - (laneSlot * 6)
-  const detourY = 542 + (laneSlot * 7)
-  return `M${point.x} ${point.y}H${leftLane}V${detourY}H${rightLane}V${targetY}H${targetX}`
+  // Cross above the board when there's a band for it and the target is up
+  // there too; otherwise drop under the board as before. Deeper lanes sit
+  // nearer the board on top so the fan stays nested either way.
+  const overTheTop = topBandY !== undefined && targetY < topBandY + 40
+  const bandY = overTheTop
+    ? topBandY + ((5 - laneSlot) * 7)
+    : detourBaseY + (laneSlot * 7)
+  return `M${point.x} ${point.y}H${leftLane}V${bandY}H${rightLane}V${targetY}H${targetX}`
 }
 
 /**
@@ -395,24 +533,26 @@ function LedPixels({ x, y, width, height }: { x: number; y: number; width: numbe
 }
 
 function ControllerGraphic({ boardProfile, connections, selected }: { boardProfile: PhysicalBoardProfile; connections: PhysicalDiagramConnection[]; selected: boolean }) {
-  if (boardProfile.id === 'espressif-esp32-s3-devkitc-1') {
+  const render = controllerRender(boardProfile)
+  if (render) {
     const power3v3 = controllerPowerPoint('3v3', boardProfile)
     const ground = controllerPowerPoint('ground', boardProfile)
     const usb = controllerPowerPoint('usb', boardProfile)
+    const padRadius = controllerTerminalRadius(render)
     return (
-      <g className={selected ? styles.physicalSelected : undefined} data-controller-render="esp32-s3-devkitc-1">
+      <g className={selected ? styles.physicalSelected : undefined} data-controller-render={boardProfile.id}>
         <image
-          href={devKitCBoardRender}
-          x={DEVKITC_RENDER.x}
-          y={DEVKITC_RENDER.y}
-          width={DEVKITC_RENDER.width}
-          height={DEVKITC_RENDER.height}
+          href={render.href}
+          x={render.x}
+          y={render.y}
+          width={render.width}
+          height={render.height}
           preserveAspectRatio="xMidYMid meet"
           className={styles.physicalBoardRender}
         />
-        <text x={DEVKITC_RENDER.x + (DEVKITC_RENDER.width / 2)} y="554" textAnchor="middle" className={styles.physicalComponentLabel}>{shortBoardLabel(boardProfile.label)}</text>
+        <text x={render.x + (render.width / 2)} y={render.y + render.height + 24} textAnchor="middle" className={styles.physicalComponentLabel}>{render.shortLabel}</text>
         <g data-terminal="controller-3v3">
-          <circle cx={power3v3.x} cy={power3v3.y} r="6" className={styles.controllerPowerTerminal} />
+          <circle cx={power3v3.x} cy={power3v3.y} r={padRadius} className={styles.controllerPowerTerminal} />
           <title>3V3</title>
         </g>
         {connections.map((connection, index) => {
@@ -422,7 +562,7 @@ function ControllerGraphic({ boardProfile, connections, selected }: { boardProfi
               <circle
                 cx={point.x}
                 cy={point.y}
-                r="6"
+                r={padRadius}
                 className={microphoneSignalPresentation(connection)?.terminalClassName ?? styles.controllerSignalTerminal}
               />
               <title>{connection.pinLabel} · {connection.useLabel}</title>
@@ -430,11 +570,11 @@ function ControllerGraphic({ boardProfile, connections, selected }: { boardProfi
           )
         })}
         <g data-terminal="controller-gnd">
-          <circle cx={ground.x} cy={ground.y} r="6" className={styles.controllerGroundTerminal} />
+          <circle cx={ground.x} cy={ground.y} r={padRadius} className={styles.controllerGroundTerminal} />
           <title>GND</title>
         </g>
         <g data-terminal="controller-usb">
-          <circle cx={usb.x} cy={usb.y} r="6" className={styles.controllerUsbTerminal} />
+          <circle cx={usb.x} cy={usb.y} r={padRadius} className={styles.controllerUsbTerminal} />
           <title>USB-C power</title>
         </g>
       </g>
@@ -938,6 +1078,29 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
   const busLanes = new Map([...outputConnections, ...micConnections].map((connection, index) => [connection.id, index]))
   const busLane = (connection: PhysicalDiagramConnection, fallback: number) =>
     busLanes.get(connection.id) ?? fallback
+  const detourBaseY = controllerDetourBaseY(controllerRender(boardProfile))
+  const topBandY = controllerTopBandY(controllerRender(boardProfile))
+  /**
+   * Left-rail lanes ordered by how far each wire has to travel, not by the
+   * order its connection happens to appear in.
+   *
+   * Every left-rail wire leaves its pad horizontally, so a lane belonging to a
+   * pad further along the rail crosses the horizontal exit of every pad before
+   * it. Ranking by distance from the band the wires are heading for puts the
+   * longest run in the outermost lane, and the fan nests instead of crossing.
+   */
+  const leftLaneSlots = new Map(
+    controllerConnections
+      .map((connection, index) => ({
+        connection,
+        point: controllerConnectionPoint(connection, index, controllerConnections.length, boardProfile),
+      }))
+      .filter(({ point }) => point.side === 'left')
+      .sort((a, b) => (topBandY === undefined ? b.point.y - a.point.y : a.point.y - b.point.y))
+      .map(({ connection }, rank) => [connection.id, rank] as const)
+  )
+  const leftLaneSlot = (connection: PhysicalDiagramConnection, fallback: number) =>
+    leftLaneSlots.get(connection.id) ?? fallback
   const canvasHeight = physicalAssemblyDiagramHeight(items, plan, layers)
   const viewTop = crop?.y ?? 0
   const viewHeight = crop?.height ?? canvasHeight
@@ -978,7 +1141,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
             const presentation = microphoneSignalPresentation(connection)
             if (!presentation) return null
             const target = microphoneTerminalPoint(microphoneLayout, presentation.role)
-            return <path key={connection.id} data-wire={connection.id} data-wire-role={presentation.role} d={routeFromController(controllerPoint, target.x, target.y, busLane(connection, controllerIndex))} className={presentation.wireClassName} />
+            return <path key={connection.id} data-wire={connection.id} data-wire-role={presentation.role} d={routeFromController(controllerPoint, target.x, target.y, busLane(connection, controllerIndex), leftLaneSlot(connection, controllerIndex), detourBaseY, topBandY)} className={presentation.wireClassName} />
           })}
           {/*
             L/R selects the channel by being tied to ground, so it carries the
@@ -1001,12 +1164,12 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
           // Without the shifter layer there is nothing to route through, so the
           // data run goes straight from the controller pin to the panel.
           if (!layers.levelShifter) {
-            return <path key={layout.item.id} data-wire={`${layout.item.id}-data-in`} d={routeFromController(controllerPoint, layout.x, layout.y + 66, busLane(connection, controllerIndex))} className={wireClass} />
+            return <path key={layout.item.id} data-wire={`${layout.item.id}-data-in`} d={routeFromController(controllerPoint, layout.x, layout.y + 66, busLane(connection, controllerIndex), leftLaneSlot(connection, controllerIndex), detourBaseY, topBandY)} className={wireClass} />
           }
           const inputPoint = levelShifterTerminalPoint(index, 'a')
           const outputPoint = levelShifterTerminalPoint(index, 'y')
           return <g key={layout.item.id}>
-            <path data-wire={`${layout.item.id}-data-in`} d={routeFromController(controllerPoint, 350, inputPoint.y, busLane(connection, controllerIndex))} className={wireClass} />
+            <path data-wire={`${layout.item.id}-data-in`} d={routeFromController(controllerPoint, 350, inputPoint.y, busLane(connection, controllerIndex), leftLaneSlot(connection, controllerIndex), detourBaseY, topBandY)} className={wireClass} />
             <path data-wire={`${layout.item.id}-level-shifter-input`} d={routeToLevelShifterInput(index, inputPoint)} className={wireClass} />
             <path data-wire={`${layout.item.id}-conditioned-data`} d={routeFromLevelShifterOutput(index, outputPoint, layout.x, layout.y + 66)} className={wireClass} />
           </g>
