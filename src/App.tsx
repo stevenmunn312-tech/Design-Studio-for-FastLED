@@ -86,6 +86,7 @@ export default function App() {
   const cliPopupOpen = useUploadStore((s) => s.cliPopupOpen)
   const consoleOpen = useUploadStore((s) => s.consoleOpen)
   const refreshHelper = useUploadStore((s) => s.refreshHelper)
+  const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
   const hadMicNode = useRef(false)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
   const [stageCursorHidden, setStageCursorHidden] = useState(false)
@@ -236,6 +237,23 @@ export default function App() {
       document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [])
+
+  // Follow the upload target with any Microphone still on stock I2S pins. The
+  // library default is ESP32-S3 wiring and GPIO40/41 don't exist on half the
+  // family, so a board switch otherwise left the node holding pins that board
+  // has no pads for. Skipped on the first run: loading a project must not
+  // rewrite it, only an actual change of target.
+  const retargetMicPins = useGraphStore((s) => s.retargetMicPins)
+  const lastMicFqbn = useRef<string | null>(null)
+  useEffect(() => {
+    const previous = lastMicFqbn.current
+    lastMicFqbn.current = selectedFqbn
+    if (previous === null || previous === selectedFqbn) return
+    const moved = retargetMicPins(selectedFqbn)
+    if (moved > 0) {
+      setStatus(`Microphone I2S pins moved to this board's defaults on ${moved} node${moved > 1 ? 's' : ''}`, 'info')
+    }
+  }, [selectedFqbn, retargetMicPins, setStatus])
 
   // Keep FastLED's processor gain in sync with the MicInput node.
   useEffect(() => {

@@ -16,8 +16,11 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     inputs: [],
     outputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
     // Gain maps to FastLED Processor::setGain in preview and firmware; i2s*
-    // pins + channel configure FastLED's INMP441 input (ESP32). Defaults match
-    // common ESP32-S3 wiring.
+    // pins + channel configure FastLED's INMP441 input (ESP32). The pins below
+    // are common ESP32-S3 wiring and are the fallback only — a node created
+    // while another ESP32 variant is selected takes that board's pins from
+    // `micPinDefaults.ts`, since GPIO40/41 don't exist on the classic ESP32,
+    // C3, C6 or H2 at all.
     defaultProperties: {
       ...MIC_DEFAULTS,
       i2sWs: 39,

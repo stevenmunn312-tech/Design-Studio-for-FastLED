@@ -18,6 +18,7 @@ import type { GroupRegistry } from './graphEvaluator'
 import type { SavedPattern } from './patternLibrary'
 import { isPatternContentTrusted, trustPatternContent } from './patternTrust'
 import { useNetworkCredentialsStore } from './networkCredentials'
+import { retargetedMicPins } from './micPinDefaults'
 import { useUiStore } from './uiStore'
 import { validateMatrixLayout } from './xyLayout'
 import { emptyBuildProfile, normalizeBuildProfile, type BuildProfile } from '../build/buildProfile'
@@ -164,6 +165,10 @@ interface GraphState {
   clearSelection: () => void
   updateNodeProperty: (id: string, key: string, value: unknown) => void
   updateNodeProperties: (id: string, updates: Record<string, unknown>) => void
+  /** Move every MicInput still on a stock default onto `fqbn`'s I2S pins, as
+   *  one undoable step. Nodes with user-chosen pins are left alone. Returns
+   *  how many nodes moved. */
+  retargetMicPins: (fqbn: string) => number
   loadGraph: (nodes: StudioNode[], edges: StudioEdge[], workspace?: WorkspaceExtras) => void
   duplicateNode: (id: string) => void
   /** Duplicate every currently multi-selected node plus the edges wiring them
@@ -1041,6 +1046,23 @@ export const useGraphStore = create<GraphState>()(
             return { ...n, data: { ...n.data, properties } }
           }),
         })),
+
+      retargetMicPins: (fqbn) => {
+        let moved = 0
+        set((s) => {
+          const nodes = s.nodes.map((n) => {
+            if (n.data.nodeType !== 'MicInput') return n
+            const pins = retargetedMicPins(n.data.properties as Record<string, unknown>, fqbn)
+            if (!pins) return n
+            moved += 1
+            return { ...n, data: { ...n.data, properties: { ...n.data.properties, ...pins } } }
+          })
+          // No-op when nothing moved, so a board switch with a hand-wired
+          // Microphone doesn't push an empty step onto the undo stack.
+          return moved > 0 ? { nodes } : {}
+        })
+        return moved
+      },
 
       loadGraph: (nodes, edges, workspace) => {
         // Replacing the workspace invalidates every graph's history, stashed

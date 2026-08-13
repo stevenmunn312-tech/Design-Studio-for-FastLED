@@ -6,6 +6,7 @@
 // once dialled in for a given rig.
 
 import { create } from 'zustand'
+import { micPinDefaultsForSelectedBoard } from './micPinDefaults'
 
 const KEY = 'design-studio-for-fastled.node-defaults.v1'
 
@@ -71,14 +72,25 @@ export const useNodeDefaults = create<NodeDefaultsState>((set) => ({
 }))
 
 /** Resolve the properties a newly created node of `nodeType` should start
- *  with: the saved custom default if one was pinned via "Set Default", else
- *  the library's hardcoded default. A pinned override is layered *over* the
- *  library default so properties added to the library after the pin was saved
- *  still exist on new nodes. */
+ *  with, layered lowest to highest:
+ *
+ *  1. the library's hardcoded default;
+ *  2. defaults that depend on the selected board (MicInput's I2S pins — the
+ *     library's are ESP32-S3 pads that don't exist on half the ESP32 family);
+ *  3. the custom default pinned via "Set Default", which always wins because
+ *     the user chose it for their own rig.
+ *
+ *  Layering rather than replacing means properties added to the library after
+ *  a pin was saved still reach new nodes. */
 export function resolveDefaultProperties(
   nodeType: string,
   libraryDefault: Record<string, unknown> | undefined
 ): Record<string, unknown> {
   const override = useNodeDefaults.getState().overrides[nodeType]
-  return sanitizeProperties(nodeType, { ...(libraryDefault ?? {}), ...(override ?? {}) })
+  const boardDefault = nodeType === 'MicInput' ? micPinDefaultsForSelectedBoard() : undefined
+  return sanitizeProperties(nodeType, {
+    ...(libraryDefault ?? {}),
+    ...(boardDefault ?? {}),
+    ...(override ?? {}),
+  })
 }
