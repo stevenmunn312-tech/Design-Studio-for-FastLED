@@ -212,36 +212,77 @@ describe('BuildDiagramWorkspace', () => {
     const psuRender = diagram?.querySelector('[data-component-render="5v-psu"]')
     expect(psuRender?.getAttribute('width')).toBe('123')
     expect(psuRender?.getAttribute('height')).toBe('220')
-    expect(psuRender?.getAttribute('y')).toBe('176')
-    expect(diagram?.querySelector('[data-terminal="supply-1-positive"]')?.getAttribute('cy')).toBe('240')
-    expect(diagram?.querySelector('[data-terminal="supply-1-ground"]')?.getAttribute('cy')).toBe('263')
+    expect(psuRender?.getAttribute('y')).toBe('136')
+    expect(diagram?.querySelector('[data-terminal="supply-1-positive"]')?.getAttribute('cy')).toBe('200')
+    expect(diagram?.querySelector('[data-terminal="supply-1-ground"]')?.getAttribute('cy')).toBe('223')
     const fuseBlockRender = diagram?.querySelector('[data-component-render="fuse-block-4-circuit"]')
-    expect(fuseBlockRender?.getAttribute('y')).toBe('195')
-    expect(Number(psuRender?.getAttribute('y')) + (Number(psuRender?.getAttribute('height')) / 2))
-      .toBe(Number(fuseBlockRender?.getAttribute('y')) + (Number(fuseBlockRender?.getAttribute('height')) / 2))
+    // Supply and distribution sit in one header band above every feed row, so
+    // each branch is a single downward run instead of a wrap around the block.
+    expect(fuseBlockRender?.getAttribute('y')).toBe(psuRender?.getAttribute('y'))
+    const blockBottom = Number(fuseBlockRender?.getAttribute('y')) + Number(fuseBlockRender?.getAttribute('height'))
     const mainPositive = diagram?.querySelector('[data-wire="supply-1-positive-bus"]')
     const mainGround = diagram?.querySelector('[data-wire="supply-1-ground-bus"]')
     expect(mainPositive?.getAttribute('data-wire-role')).toBe('main-psu-positive')
     expect(mainGround?.getAttribute('data-wire-role')).toBe('main-psu-ground')
-    expect(mainPositive?.getAttribute('d')).toMatch(/^M153 240H236V395H362V/)
-    expect(mainGround?.getAttribute('d')).toMatch(/^M153 263H248V177H362V/)
+    // Both trunks leave the PSU on their own riser and land inside the block.
+    expect(mainPositive?.getAttribute('d')).toMatch(/^M153 200H212V201H362V/)
+    expect(mainGround?.getAttribute('d')).toMatch(/^M153 223H196V/)
     expect(mainPositive?.getAttribute('class')).not.toBe(diagram?.querySelector('[data-wire="output:out:feed-1-fused-positive"]')?.getAttribute('class'))
     expect(diagram?.querySelectorAll('[data-component-render="electrolytic-capacitor-1000uf-6v3"]')).toHaveLength(3)
     const capacitorPositive = diagram?.querySelector('[data-terminal="output:out:feed-1-capacitor-positive"]')
     const capacitorNegative = diagram?.querySelector('[data-terminal="output:out:feed-1-capacitor-negative"]')
     expect(Number(capacitorPositive?.getAttribute('cy'))).toBeLessThan(Number(capacitorNegative?.getAttribute('cy')))
-    const positiveRoute = diagram?.querySelector('[data-wire="output:out:feed-1-fused-positive"]')?.getAttribute('d')
-    const groundRoute = diagram?.querySelector('[data-wire="output:out:feed-1-ground"]')?.getAttribute('d')
-    expect(positiveRoute).toContain('H456V')
-    expect(groundRoute).toContain('H450V')
-    expect(diagram?.querySelectorAll('[data-fanout="upper"]')).toHaveLength(2)
-    expect(diagram?.querySelectorAll('[data-fanout="lower"]')).toHaveLength(1)
+    // Feed 1 is the shallowest row, so it owns the outermost lane pair, and its
+    // ground runs immediately inside its positive.
+    expect(diagram?.querySelector('[data-wire="output:out:feed-1-fused-positive"]')?.getAttribute('d')).toContain('H742V')
+    expect(diagram?.querySelector('[data-wire="output:out:feed-1-ground"]')?.getAttribute('d')).toContain('H735V')
+    expect(diagram?.querySelector('[data-wire="output:out:feed-3-fused-positive"]')?.getAttribute('d')).toContain('H694V')
+    // Half the feeds leave the right screw column straight out to their lane;
+    // the deeper half wraps the left of the block into the comb below it.
+    expect(diagram?.querySelectorAll('[data-feed-column="right"]')).toHaveLength(2)
+    expect(diagram?.querySelectorAll('[data-feed-column="left"]')).toHaveLength(1)
     expect(diagram?.querySelector('[data-fuse-value-schedule="supply-1"]')?.textContent)
-      .toContain('BLOCK 1 · 1: 7.5A')
-    expect(diagram?.querySelector('[data-terminal="output:out:feed-1-led-positive"]')?.getAttribute('cy')).toBe('200')
+      .toContain('BLOCK 1 · 1: 7.5A  ·  2: 7.5A  ·  3: SPARE  ·  4: 15A')
+    const ledPositives = Array.from(diagram?.querySelectorAll('[data-terminal$="-led-positive"]') ?? [])
+      .map((terminal) => Number(terminal.getAttribute('cy')))
+    expect(ledPositives).toEqual([420, 506, 592])
+    expect(Math.min(...ledPositives)).toBeGreaterThan(blockBottom)
     const groundScrews = Array.from(diagram?.querySelectorAll('[data-terminal$="-ground-screw"]') ?? [])
     expect(new Set(groundScrews.map((terminal) => terminal.getAttribute('cx'))).size).toBe(3)
     expect(Array.from(diagram?.querySelectorAll('text') ?? []).some((text) => text.textContent === '7.5A FUSE')).toBe(false)
+  })
+
+  it('fans the power feeds out into ordered lanes that never cross a shallower run', () => {
+    useGraphStore.setState({ nodes: [matrixNode(14, 16, 16, 'out-a'), matrixNode(27, 16, 16, 'out-b')] as never[] })
+    selectDevKit()
+    const { container } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
+
+    // Each branch ends `...H<lane>V<row>H1020`: the lane it drops down, then the
+    // row it runs out on.
+    const drop = (wire: string) => {
+      const d = diagram?.querySelector(`[data-wire="${wire}"]`)?.getAttribute('d') ?? ''
+      const match = /H(-?[\d.]+)V(-?[\d.]+)H1020$/.exec(d)
+      expect(match, `${wire}: ${d}`).toBeTruthy()
+      return { lane: Number(match![1]), row: Number(match![2]) }
+    }
+    const feeds = ['out-a', 'out-b'].flatMap((output) => [1, 2, 3].map((feed) => ({
+      positive: drop(`output:${output}:feed-${feed}-fused-positive`),
+      ground: drop(`output:${output}:feed-${feed}-ground`),
+    })))
+    expect(feeds).toHaveLength(6)
+
+    for (const [index, feed] of feeds.entries()) {
+      // A pair's ground lands 32px lower, so it has to drop outside the positive.
+      expect(feed.ground.row - feed.positive.row).toBe(32)
+      expect(feed.ground.lane).toBeLessThan(feed.positive.lane)
+      if (index === 0) continue
+      const previous = feeds[index - 1]
+      // Deeper rows drop further left, which is what keeps the fan planar: a
+      // lane drop always happens left of every shallower row's run.
+      expect(feed.positive.row).toBeGreaterThan(previous.positive.row)
+      expect(feed.positive.lane).toBeLessThan(previous.ground.lane)
+    }
   })
 
   it('shows two 5 A output limits while retaining the uncapped safety ceiling', () => {

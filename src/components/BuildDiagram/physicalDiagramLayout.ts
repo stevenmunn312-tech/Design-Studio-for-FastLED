@@ -13,33 +13,92 @@ export type ItemLayout = {
 /** Clearance between the last hardware row and the PSU zones, sized for the shared-net callout. */
 export const POWER_SECTION_GAP = 120
 
-export const FUSE_BLOCKS_PER_ROW = 4
 export const FUSE_BLOCK_CELL_WIDTH = 160
 export const FUSE_BLOCK_CELL_HEIGHT = 182
-export const FUSE_BLOCK_CELL_GAP = 12
 export const FUSE_BLOCK_START_X = 282
 export const POWER_BRANCH_ROW_SPACING = 86
 
+/** Vertical pitch of the ground comb that fans out above each fuse block. */
+export const GROUND_COMB_STEP = 8
+/** Vertical pitch of the feed comb that fans out below the fuse block stack. */
+export const FEED_COMB_STEP = 9
+/** Clearance kept between a fuse block and the comb lanes stacked above it. */
+const GROUND_COMB_CLEARANCE = 16
+/** Clearance between the bottom of the block stack and the first feed comb lane. */
+const FEED_COMB_CLEARANCE = 22
+const PSU_RENDER_HEIGHT = 220
+
+/**
+ * Feeds are split across the two screw columns of their block so the harness
+ * only ever flows down and to the right: the shallowest feeds take the right
+ * column and leave straight out towards their lane, the deepest take the left
+ * column and drop around the block into the comb below it.
+ */
+export function fuseColumnSplit(assignedFeedCount: number) {
+  const rightCount = Math.ceil(assignedFeedCount / 2)
+  return { rightCount, leftCount: assignedFeedCount - rightCount }
+}
+
+/**
+ * Which screw a feed lands on, given its index within its own block. Right
+ * column screws are the odd slots, left column the even ones, and both run
+ * top to bottom in feed order so no two runs out of a column cross.
+ */
+export function fuseSlotForFeed(localIndex: number, assignedFeedCount: number) {
+  const { rightCount } = fuseColumnSplit(assignedFeedCount)
+  const isRightColumn = localIndex < rightCount
+  const columnRank = isRightColumn ? localIndex : localIndex - rightCount
+  return { slot: (columnRank * 2) + (isRightColumn ? 1 : 0), isRightColumn, columnRank }
+}
+
+/** Comb lane a feed's ground return takes above its own block. */
+export function groundCombLaneY(blockTop: number, localIndex: number, assignedFeedCount: number) {
+  return blockTop - GROUND_COMB_CLEARANCE - ((assignedFeedCount - 1 - localIndex) * GROUND_COMB_STEP)
+}
+
+/** Comb lane a left-column feed takes below the block stack. */
+export function feedCombLaneY(feedCombY: number, leftColumnRank: number) {
+  return feedCombY + (leftColumnRank * FEED_COMB_STEP)
+}
+
+/** Inverse of {@link fuseSlotForFeed}: which feed sits on a circuit, if any. */
+export function feedIndexForFuseSlot(slot: number, assignedFeedCount: number) {
+  const { rightCount, leftCount } = fuseColumnSplit(assignedFeedCount)
+  const columnRank = Math.floor(slot / 2)
+  const localIndex = slot % 2 === 1 ? columnRank : rightCount + columnRank
+  const withinColumn = slot % 2 === 1 ? columnRank < rightCount : columnRank < leftCount
+  return withinColumn ? localIndex : -1
+}
+
 export function powerDistributionSectionLayout(feedCount: number) {
-  const blockCount = fuseBlockAllocations(feedCount).length
-  const blockRowCount = Math.max(1, Math.ceil(blockCount / FUSE_BLOCKS_PER_ROW))
-  // Start the feed bank much closer to the section heading. The PSU and fuse
-  // blocks are then centred against the first six feed pairs, which keeps the
-  // source hardware visually associated with the wires it supplies without
-  // making large builds reserve an enormous blank header.
-  const branchStartY = 162
+  const blocks = fuseBlockAllocations(feedCount)
+  // Blocks stack vertically at one x, which keeps the whole width right of the
+  // block clear for the feed lanes no matter how many blocks a zone needs.
+  const blockTops: number[] = []
+  let cursor = 96
+  let leftColumnFeeds = 0
+  for (const block of blocks) {
+    cursor += (block.assignedFeedCount * GROUND_COMB_STEP) + GROUND_COMB_CLEARANCE
+    blockTops.push(cursor)
+    cursor += FUSE_BLOCK_CELL_HEIGHT
+    leftColumnFeeds += fuseColumnSplit(block.assignedFeedCount).leftCount
+  }
+  const fuseBlockY = blockTops[0] ?? 96
+  const psuY = fuseBlockY
+  const blocksBottom = cursor
+  const feedCombY = blocksBottom + FEED_COMB_CLEARANCE
+  const feedCombBottom = feedCombY + (Math.max(0, leftColumnFeeds - 1) * FEED_COMB_STEP)
+  const componentBottom = Math.max(psuY + PSU_RENDER_HEIGHT, blocksBottom)
+  // The feed rows start below every source component, so each branch is a
+  // single downward-and-right run instead of wrapping back around the block.
+  const branchStartY = Math.max(componentBottom, feedCombBottom) + 26
   const firstBranchY = branchStartY + 38
-  const centredFeedCount = Math.max(1, Math.min(feedCount, 6))
-  const componentCenterY = firstBranchY + (((centredFeedCount - 1) * POWER_BRANCH_ROW_SPACING) / 2)
-  const psuY = Math.max(76, componentCenterY - 110)
-  const fuseBlockY = Math.max(76, componentCenterY - (FUSE_BLOCK_CELL_HEIGHT / 2))
-  const componentBottom = Math.max(
-    psuY + 220,
-    fuseBlockY + (blockRowCount * (FUSE_BLOCK_CELL_HEIGHT + FUSE_BLOCK_CELL_GAP)) - FUSE_BLOCK_CELL_GAP,
-  )
   const branchBottom = firstBranchY + (Math.max(0, feedCount - 1) * POWER_BRANCH_ROW_SPACING) + 64
   return {
-    blockRowCount,
+    blockCount: blocks.length,
+    blockTops,
+    blocksBottom,
+    feedCombY,
     branchStartY,
     psuY,
     fuseBlockY,
